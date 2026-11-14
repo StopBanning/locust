@@ -94,3 +94,16 @@ Four ledger assertions now account for the new trace footer while retaining thei
 and secret-scrubbing assertions. A new headless test checks the ledger-to-trace path and disclosure;
 its run is deferred to the required final workspace suite. The redundant activity-only release
 check was canceled while waiting for the shared lock. No does-not-apply cases.
+
+
+`a conversation across turns`: 8 ports in `conversation_turns_tests.rs`, plus a synthetic
+Session integration test in `ledger.rs`. The pure walk follows replies oldest first, stops on
+missing/cyclic links, distinguishes a reply switch by the host's anchored instruction section,
+and steps across a mid-run handoff without dropping the turns before it. Session assembly
+uses that projection: a mid-run handoff keeps the original ask and both runs' work in one turn,
+with a divider at the seam; a reply switch keeps a separate person message containing only the
+new ask. The existing handoff divider draws both seams. Whole core: **1,608 passed, 20 ignored**,
+no warnings. Four whole-core controls (`conversation-walk`, `conversation-reply`,
+`conversation-midrun`, `conversation-draw`) failed their named assertions and restored.
+No does-not-apply cases. Checkpoint counts beyond these fixtures remain the native divider's
+existing behavior; this small pure switch projection does not add checkpoint recovery.

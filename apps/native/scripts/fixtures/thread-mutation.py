@@ -24,6 +24,12 @@ controls = {
     'command-kinds': ('core/src/command_outcomes.rs', '!heads.contains(&head)', 'head.len() > 0', 'names_each_kind_once_so_twelve_commands_of_two_kinds_read_as_twelve'),
 }
 controls.update({
+    'conversation-draw': ('core/src/ledger.rs', '(!stitched || !matches!(item, Item::User(_)))', '(true || !matches!(item, Item::User(_)))', 'the_session_stitches_a_midrun_handoff_but_preserves_a_reply_switch'),
+
+    'conversation-walk': ('core/src/conversation_turns.rs', 'turns.reverse();turns', 'turns', 'walks_a_reply_back_to_every_earlier_turn_oldest_first'),
+    'conversation-reply': ('core/src/conversation_turns.rs', '&& handoff_instruction(&m.prompt).is_some()', '&& false', 'walks_a_reply_sent_to_another_runtime_back_to_the_turns_before_it_and_marks_the_seam'),
+    'conversation-midrun': ('core/src/conversation_turns.rs', 'let mut head=latest;while', 'let mut head=latest;if false {} while false &&', 'keeps_the_turns_before_a_running_mission_that_was_handed_over'),
+
     'trace-duration': ('core/src/activity_trace.rs', 'crate::ledger::duration_text(ms)', 'crate::ledger::duration_text(0)', 'leads_with_the_duration_and_ends_with_the_exceptions_a_zero_segment_is_absent'),
     'trace-thought': ('core/src/activity_trace.rs', 'if thought>=1000', 'if thought>7000', 'does_not_count_thinking_as_a_tool_call_on_the_line_a_person_reads'),
     'trace-running': ('core/src/activity_trace.rs', 'if outcome=="running" && *shells[0].1==Status::Running', 'if false && *shells[0].1==Status::Running', 'says_the_one_command_is_running_while_it_has_no_result_not_that_it_ran_0_378'),

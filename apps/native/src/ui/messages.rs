@@ -58,6 +58,7 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
             continue;
         }
         let content = match item {
+            ledger::Item::Handoff { from, to } => handoff_divider::view(Some(from), to, p).unwrap_or_else(col),
             ledger::Item::Trace(trace) => {
                 let mut line = row().w_full().gap(5.0);
                 for (i, segment) in trace.segments.iter().enumerate() {

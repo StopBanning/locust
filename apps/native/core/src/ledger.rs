@@ -85,6 +85,7 @@ pub enum Status {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Item {
     Trace(crate::activity_trace::Trace),
+    Handoff { from: Box<Metadata>, to: Box<Metadata> },
     User(String),
     CarryOn {
         conversation_id: String,
@@ -747,7 +748,7 @@ impl Transcript {
                     prompt: scrub(&m.prompt),
                 });
             } else {
-                items.push(Item::User(scrub(&m.prompt)));
+                items.push(Item::User(scrub(if crate::conversation_turns::is_reply_switch(m) { crate::conversation_turns::handoff_instruction(&m.prompt).unwrap_or(&m.prompt) } else { &m.prompt })));
             }
         }
         // Fix 8: store (item_index, utf16_units) so streaming deltas count UTF-16 units incrementally.
@@ -1602,6 +1603,7 @@ impl Session {
 
         let mut snapshot = Snapshot::default();
         let count = self.readers.len();
+        let mut by_id = HashMap::new();
         for (index, reader) in self.readers.iter_mut().enumerate() {
             let is_tip = index + 1 == count;
             if is_tip {
@@ -1631,6 +1633,16 @@ impl Session {
                     reader.drained = true;
                 }
             }
+            let mut stitched = false;
+            if let Some(m) = &reader.transcript.metadata {
+                by_id.insert(m.mission_id.clone(), m.clone());
+                let turns = crate::conversation_turns::conversation_turns(m, &by_id);
+                stitched = crate::conversation_turns::stitched_handoff(m, &by_id).is_some()
+                    && turns.last().is_some_and(|t| t.mission_id == m.mission_id);
+                if stitched && let Some(from) = snapshot.turn_metas.last() {
+                    snapshot.items.push(Item::Handoff { from: Box::new(from.clone()), to: Box::new(m.clone()) });
+                }
+            }
             let before_item = snapshot.items.len();
             let first_at = reader
                 .transcript
@@ -1658,7 +1670,7 @@ impl Session {
                     .transcript
                     .items
                     .iter()
-                    .filter(|item| is_tip || !matches!(item, Item::CarryOn { .. }))
+                    .filter(|item| (is_tip || !matches!(item, Item::CarryOn { .. })) && (!stitched || !matches!(item, Item::User(_))))
                     .cloned(),
             );
             if reader
@@ -1671,7 +1683,12 @@ impl Session {
             }
             snapshot.context = reader.transcript.context.clone().or(snapshot.context);
             if let Some(m) = &reader.transcript.metadata {
-                snapshot.turn_metas.push(m.clone());
+                if stitched && !snapshot.turn_metas.is_empty() {
+                    let mut shown = m.clone();
+                    // The seam is at the handoff inside this turn, not above its original ask.
+                    shown.continues_reason = None;
+                    *snapshot.turn_metas.last_mut().unwrap() = shown;
+                } else { snapshot.turn_metas.push(m.clone()); }
             }
             for link in &reader.transcript.peer_links {
                 snapshot
@@ -2501,6 +2518,29 @@ mod tests {
     }
 
     #[test]
+    fn the_session_stitches_a_midrun_handoff_but_preserves_a_reply_switch() {
+        let temp = Temp::new();
+        write(&temp.path("m1"), &[created("m1", "first ask"), delta(1, "first answer", "replace", true), event(2, "run.completed", json!({}))]);
+        let mut second = created("m2", "second ask");
+        second["metadata"]["continuesFrom"] = json!({"missionId":"m1","reason":"follow-up"});
+        write(&temp.path("m2"), &[second, delta(1, "before handoff", "replace", true)]);
+        let mut handed = created("m5", "briefing text");
+        handed["metadata"]["continuesFrom"] = json!({"missionId":"m2","reason":"route-switch"});
+        write(&temp.path("m5"), &[handed, delta(1, "after handoff", "replace", true)]);
+        let snapshot = Session::new(temp.0.clone(), "m5".into()).poll().unwrap();
+        let prompts = snapshot.items.iter().filter_map(|i| if let Item::User(s)=i {Some(s.as_str())}else{None}).collect::<Vec<_>>();
+        assert_eq!(prompts, ["first ask", "second ask"]);
+        assert_eq!(snapshot.turn_metas.iter().map(|m|m.mission_id.as_str()).collect::<Vec<_>>(), ["m1", "m5"]);
+        assert_eq!(snapshot.items.iter().filter(|i|matches!(i,Item::Handoff{..})).count(),1);
+        let mut reply = created("s2", "You are continuing a conversation another agent (Codex) started.\n\nThe person now asks:\n\nWhat was the word?");
+        reply["metadata"]["continuesFrom"] = json!({"missionId":"m5","reason":"route-switch"});
+        write(&temp.path("s2"), &[reply]);
+        let snapshot = Session::new(temp.0.clone(), "s2".into()).poll().unwrap();
+        let prompts = snapshot.items.iter().filter_map(|i| if let Item::User(s)=i {Some(s.as_str())}else{None}).collect::<Vec<_>>();
+        assert_eq!(prompts, ["first ask", "second ask", "What was the word?"]);
+    }
+
+    #[test]
     fn continuation_sessions_include_all_prompts_and_newest_answers() {
         let temp = Temp::new();
         write(
@@ -2797,7 +2837,7 @@ mod tests {
                     Item::Plan { .. } => plans += 1,
                     Item::Thought { .. } => notes += 1,
                     Item::Note { .. } | Item::Limit { .. } => notes += 1,
-                    Item::Trace(_) | Item::CarryOn { .. } | Item::CheckFix { .. } | Item::EditCheck { .. } => {}
+                    Item::Handoff { .. } | Item::Trace(_) | Item::CarryOn { .. } | Item::CheckFix { .. } | Item::EditCheck { .. } => {}
                 }
             }
         }
