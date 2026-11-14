@@ -84,6 +84,8 @@ pub enum Status {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Item {
+    Trace(crate::activity_trace::Trace),
+    Handoff { from: Box<Metadata>, to: Box<Metadata> },
     User(String),
     CarryOn {
         conversation_id: String,
@@ -112,6 +114,7 @@ pub enum Item {
         text: String,
         duration_ms: Option<u64>,
     },
+    Limit { kind: String, text: String },
     Note {
         level: String,
         text: String,
@@ -135,6 +138,8 @@ pub enum Item {
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ToolDetail {
+    pub patch: Option<crate::activity_entries::Patch>,
+    pub reported_by: String,
     pub id: String,
     pub parent: String,
     pub arguments: String,
@@ -165,7 +170,7 @@ fn scrub_secrets(text: &str) -> String {
     crate::secrets::redact_secrets(text)
 }
 
-fn scrub(text: &str) -> String {
+pub(crate) fn scrub(text: &str) -> String {
     let safe = scrub_secrets(text);
     let (bounded, _) = capped(&safe, MAX_ASSISTANT);
     if bounded.len() < safe.len() {
@@ -663,6 +668,8 @@ fn run_trouble(code: &str) -> bool {
 
 #[derive(Clone, Debug, Default)]
 pub struct Transcript {
+    pub signal_rail: Vec<crate::inspector::SignalRow>,
+    pub live: Option<crate::thread_view::LiveLine>,
     pub metadata: Option<Metadata>,
     pub items: Vec<Item>,
     pub running: bool,
@@ -742,7 +749,7 @@ impl Transcript {
                     prompt: scrub(&m.prompt),
                 });
             } else {
-                items.push(Item::User(scrub(&m.prompt)));
+                items.push(Item::User(scrub(if crate::conversation_turns::is_reply_switch(m) { crate::conversation_turns::handoff_instruction(&m.prompt).unwrap_or(&m.prompt) } else { &m.prompt })));
             }
         }
         // Fix 8: store (item_index, utf16_units) so streaming deltas count UTF-16 units incrementally.
@@ -873,6 +880,15 @@ impl Transcript {
                         detail,
                     }) = items.get_mut(at)
                     {
+                        if let Some(patch) = p.get("patch") {
+                            detail.patch = Some(crate::activity_entries::Patch {
+                                text: scrub(patch["text"].as_str().unwrap_or("")),
+                                added: patch["added"].as_u64().unwrap_or(0) as usize,
+                                removed: patch["removed"].as_u64().unwrap_or(0) as usize,
+                                truncated: patch["truncated"].as_bool().unwrap_or(false),
+                            });
+                        }
+                        if let Some(runtime) = event["sourceAdapter"].as_str() { detail.reported_by = runtime.into(); }
                         let candidate = string(p, "name");
                         if !candidate.is_empty() {
                             *name = scrub(&candidate);
@@ -905,6 +921,7 @@ impl Transcript {
                         }
                         if let Some(code) = p.get("exitCode").and_then(Value::as_i64) {
                             detail.exit_code = Some(code);
+                            if code != 0 { *status = Status::Failed; }
                         }
                         if let Some(v) = p.get("background").and_then(Value::as_bool) {
                             detail.background = v;
@@ -961,6 +978,9 @@ impl Transcript {
                 "adapter.diagnostic" => {
                     let level = string(p, "level");
                     let code = string(p, "code");
+                    if self.events.values().any(|e| e["type"] == "route.limit_detected"
+                        && e["payload"]["kind"] == "quota-exhausted"
+                        && crate::failure_words::same_sentence(&string(p, "message"), &string(&e["payload"], "message"))) { continue; }
                     if code.ends_with(".context_compacted") {
                         self.context = None;
                         items.push(Item::Note {
@@ -985,16 +1005,13 @@ impl Transcript {
                     }
                 }
                 "route.limit_detected" => {
-                    if !finished {
+                    if !finished && p["kind"] != "temporary-rate-limit" {
                         carry = true;
                         self.running = false;
                     }
                     let text = scrub(&string(p, "message"));
                     if !text.is_empty() {
-                        items.push(Item::Note {
-                            level: "warning".into(),
-                            text,
-                        });
+                        items.push(Item::Limit { kind: string(p, "kind"), text });
                     }
                 }
                 "run.failed" => {
@@ -1007,10 +1024,9 @@ impl Transcript {
                         // The failure card: the host's sentence and the runtime's own last word (failureMessage).
                         let runtime = self.metadata.as_ref().map(|m| m.runtime.as_str()).filter(|r| !r.is_empty());
                         let said = crate::failure_words::failure_message(&message, p["process"]["stderr"].as_str(), runtime);
-                        items.push(Item::Note {
-                            level: "error".into(),
-                            text: scrub(&said),
-                        });
+                        if !crate::thread_view::error_already_shown(&items, &said) {
+                            items.push(Item::Note { level: "error".into(), text: scrub(&said) });
+                        }
                     }
                 }
                 // Fix 4: a later completion or restart clears an earlier completed/failed flag.
@@ -1134,6 +1150,13 @@ impl Transcript {
         } else {
             "completed"
         };
+        if !self.running && self.events.values().any(|e| e["type"] == "run.completed")
+            && !items.iter().any(|i| matches!(i, Item::Assistant { text, .. } if !text.trim().is_empty()) || matches!(i, Item::Tool { .. } | Item::Plan { .. } | Item::Thought { .. }))
+            && !self.peer_links.iter().any(|p| p.direction == "posted")
+            && !self.events.values().any(|e| string(&e["payload"], "code").ends_with(".context_compacted"))
+        {
+            items.push(Item::Note { level: "warning".into(), text: "This turn ended without a reply: the runtime finished and wrote nothing back. Nothing was changed. Sending it again usually works.".into() });
+        }
         if let Some(ec) = &self.edit_check
             && let Some(outcome) = ec
                 .get("outcome")
@@ -1166,7 +1189,15 @@ impl Transcript {
         self.recovery =
             crate::recovery::offer(phase, &self.checkpoints, usize::from(self.error.is_some()));
         let event_vec: Vec<Value> = self.events.values().cloned().collect();
+        self.signal_rail = crate::signal_rail::build(&event_vec, self.running);
         self.cost = crate::relay::mission_cost_from_events(&event_vec);
+        self.live = crate::thread_view::live_line(&event_vec, self.running,
+            self.metadata.as_ref().map(|m| m.created_at.as_str()).unwrap_or(""), false);
+        if items.iter().any(|i| matches!(i, Item::Tool { .. } | Item::Thought { .. })) {
+            let mut trace = crate::activity_trace::activity_trace_in(&items, &event_vec, crate::activity_trace::outcome(&event_vec, self.running), self.metadata.as_ref().and_then(|m| match m.sandbox.as_str() { "read-only" => Some(false), "workspace-write" | "full-access" => Some(true), _ => None }), None);
+            trace.notices.retain(|n| !items.iter().any(|i| matches!(i, Item::Note { text, .. } if crate::failure_words::same_sentence(text, &n.message))));
+            items.push(Item::Trace(trace));
+        }
         self.items = items;
     }
 }
@@ -1393,6 +1424,7 @@ struct Reader {
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Snapshot {
+    pub live: Option<crate::thread_view::LiveLine>,
     pub recovery: Option<crate::recovery::Offer>,
     pub context: Option<crate::context_usage::Reading>,
     pub items: Vec<Item>,
@@ -1547,6 +1579,7 @@ impl Session {
                     phase: phase.to_owned(),
                     running: t.running,
                     events: t.events.values().cloned().collect(),
+                    signal_rail: t.signal_rail.clone(),
                     checkpoints_count: t.checkpoints.len(),
                     last_checkpoint_epoch,
                     integrity_issue_count: usize::from(t.error.is_some()),
@@ -1592,6 +1625,7 @@ impl Session {
 
         let mut snapshot = Snapshot::default();
         let count = self.readers.len();
+        let mut by_id = HashMap::new();
         for (index, reader) in self.readers.iter_mut().enumerate() {
             let is_tip = index + 1 == count;
             if is_tip {
@@ -1624,6 +1658,16 @@ impl Session {
                     reader.drained = true;
                 }
             }
+            let mut stitched = false;
+            if let Some(m) = &reader.transcript.metadata {
+                by_id.insert(m.mission_id.clone(), m.clone());
+                let turns = crate::conversation_turns::conversation_turns(m, &by_id);
+                stitched = crate::conversation_turns::stitched_handoff(m, &by_id).is_some()
+                    && turns.last().is_some_and(|t| t.mission_id == m.mission_id);
+                if stitched && let Some(from) = snapshot.turn_metas.last() {
+                    snapshot.items.push(Item::Handoff { from: Box::new(from.clone()), to: Box::new(m.clone()) });
+                }
+            }
             let before_item = snapshot.items.len();
             let first_at = reader
                 .transcript
@@ -1651,7 +1695,7 @@ impl Session {
                     .transcript
                     .items
                     .iter()
-                    .filter(|item| is_tip || !matches!(item, Item::CarryOn { .. }))
+                    .filter(|item| (is_tip || !matches!(item, Item::CarryOn { .. })) && (!stitched || !matches!(item, Item::User(_))))
                     .cloned(),
             );
             if reader
@@ -1664,7 +1708,12 @@ impl Session {
             }
             snapshot.context = reader.transcript.context.clone().or(snapshot.context);
             if let Some(m) = &reader.transcript.metadata {
-                snapshot.turn_metas.push(m.clone());
+                if stitched && !snapshot.turn_metas.is_empty() {
+                    let mut shown = m.clone();
+                    // The seam is at the handoff inside this turn, not above its original ask.
+                    shown.continues_reason = None;
+                    *snapshot.turn_metas.last_mut().unwrap() = shown;
+                } else { snapshot.turn_metas.push(m.clone()); }
             }
             for link in &reader.transcript.peer_links {
                 snapshot
@@ -1716,6 +1765,7 @@ impl Session {
                 reader.edits.clone()
             };
             snapshot.turn_edits.insert(reader.id.clone(), turn_edits);
+            snapshot.live = if snapshot.running { reader.transcript.live.clone() } else { None };
             snapshot.failed = reader.transcript.failed;
             snapshot.recovery = if snapshot.running {
                 None
@@ -1985,7 +2035,8 @@ mod tests {
                 json!({"itemId":"h","name":"Agent","output":"Synthetic report"}),
             ),
         ]);
-        assert_eq!(t.items.len(), 2);
+        assert_eq!(t.items.iter().filter(|i| !matches!(i, Item::Trace(_))).count(), 2);
+        assert!(matches!(t.items.last(), Some(Item::Trace(_))));
         let Item::Tool { detail: h, .. } = &t.items[0] else {
             panic!("helper");
         };
@@ -2048,7 +2099,8 @@ mod tests {
                 json!({"itemId":"h","stepKind":"item","itemType":"background","status":"completed","message":"Synthetic final report"}),
             ),
         ]);
-        assert_eq!(t.items.len(), 1);
+        assert_eq!(t.items.iter().filter(|i| !matches!(i, Item::Trace(_))).count(), 1);
+        assert!(matches!(t.items.last(), Some(Item::Trace(_))));
         let Item::Tool { detail, .. } = &t.items[0] else {
             panic!("helper");
         };
@@ -2152,7 +2204,7 @@ mod tests {
             matches!(&t.items[3], Item::Assistant { text, .. } if text.contains("[redacted]") && !text.contains("AIzaSyAabcdefghijklmnopqrstuvwxyz012345"))
         );
         assert!(
-            matches!(t.items.last(), Some(Item::Note { text, .. }) if text.contains("password=[redacted]"))
+            matches!(t.items.iter().rev().find(|i| !matches!(i, Item::Trace(_))), Some(Item::Note { text, .. }) if text.contains("password=[redacted]"))
         );
     }
 
@@ -2199,7 +2251,8 @@ mod tests {
                 json!({"itemId":"orphan","parentItemId":"missing-helper","name":"Read","output":"should not show"}),
             ),
         ]);
-        assert_eq!(t.items.len(), 1);
+        assert_eq!(t.items.iter().filter(|i| !matches!(i, Item::Trace(_))).count(), 1);
+        assert!(matches!(t.items.last(), Some(Item::Trace(_))));
         assert!(
             matches!(&t.items[0], Item::Tool { detail, .. } if detail.id == "own" && detail.children.is_empty())
         );
@@ -2513,6 +2566,29 @@ mod tests {
     }
 
     #[test]
+    fn the_session_stitches_a_midrun_handoff_but_preserves_a_reply_switch() {
+        let temp = Temp::new();
+        write(&temp.path("m1"), &[created("m1", "first ask"), delta(1, "first answer", "replace", true), event(2, "run.completed", json!({}))]);
+        let mut second = created("m2", "second ask");
+        second["metadata"]["continuesFrom"] = json!({"missionId":"m1","reason":"follow-up"});
+        write(&temp.path("m2"), &[second, delta(1, "before handoff", "replace", true)]);
+        let mut handed = created("m5", "briefing text");
+        handed["metadata"]["continuesFrom"] = json!({"missionId":"m2","reason":"route-switch"});
+        write(&temp.path("m5"), &[handed, delta(1, "after handoff", "replace", true)]);
+        let snapshot = Session::new(temp.0.clone(), "m5".into()).poll().unwrap();
+        let prompts = snapshot.items.iter().filter_map(|i| if let Item::User(s)=i {Some(s.as_str())}else{None}).collect::<Vec<_>>();
+        assert_eq!(prompts, ["first ask", "second ask"]);
+        assert_eq!(snapshot.turn_metas.iter().map(|m|m.mission_id.as_str()).collect::<Vec<_>>(), ["m1", "m5"]);
+        assert_eq!(snapshot.items.iter().filter(|i|matches!(i,Item::Handoff{..})).count(),1);
+        let mut reply = created("s2", "You are continuing a conversation another agent (Codex) started.\n\nThe person now asks:\n\nWhat was the word?");
+        reply["metadata"]["continuesFrom"] = json!({"missionId":"m5","reason":"route-switch"});
+        write(&temp.path("s2"), &[reply]);
+        let snapshot = Session::new(temp.0.clone(), "s2".into()).poll().unwrap();
+        let prompts = snapshot.items.iter().filter_map(|i| if let Item::User(s)=i {Some(s.as_str())}else{None}).collect::<Vec<_>>();
+        assert_eq!(prompts, ["first ask", "second ask", "What was the word?"]);
+    }
+
+    #[test]
     fn continuation_sessions_include_all_prompts_and_newest_answers() {
         let temp = Temp::new();
         write(
@@ -2808,8 +2884,8 @@ mod tests {
                     Item::Tool { .. } => tools += 1,
                     Item::Plan { .. } => plans += 1,
                     Item::Thought { .. } => notes += 1,
-                    Item::Note { .. } => notes += 1,
-                    Item::CarryOn { .. } | Item::CheckFix { .. } | Item::EditCheck { .. } => {}
+                    Item::Note { .. } | Item::Limit { .. } => notes += 1,
+                    Item::Handoff { .. } | Item::Trace(_) | Item::CarryOn { .. } | Item::CheckFix { .. } | Item::EditCheck { .. } => {}
                 }
             }
         }

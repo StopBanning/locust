@@ -45,13 +45,7 @@ pub(super) fn active_decision(
         .map(|i| i + 1)
         .unwrap_or(0);
     let latest_items = &items[turn_start..];
-    let last_final = latest_items.iter().rev().find_map(|item| match item {
-        ledger::Item::Assistant {
-            text, r#final: true, ..
-        } => Some(text.as_str()),
-        _ => None,
-    })?;
-    let request = protocol_tags::parse_decision(last_final)?;
+    let request = locust_core::thread_view::ended_question(latest_items, false, true)?;
     let teammate_name = if teammate.id == LEDGER_TARGET || teammate.name.trim().is_empty() {
         None
     } else {

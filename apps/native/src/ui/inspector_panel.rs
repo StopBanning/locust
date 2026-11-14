@@ -81,6 +81,8 @@ fn tone_color(tone: SignalTone, p: &Palette) -> Color {
     match tone {
         SignalTone::Muted => p.muted,
         SignalTone::Green => p.green,
+        SignalTone::Blue => crate::look::controls::Look::new(p.dark).c("blue"),
+        SignalTone::Violet => color(if p.dark {"#bb9af7"} else {"#7550a5"}),
         SignalTone::Amber => p.amber,
         SignalTone::Red => p.red,
         SignalTone::Live => p.text,

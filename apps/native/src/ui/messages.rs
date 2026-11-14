@@ -10,28 +10,19 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
     let (group_joins, group_leavings, active_group_id) = thread_group_lines(s);
     let mut user_index = 0usize;
     let self_teammate_id = selected_conversation(s).map(|(t, _)| t.id.as_str()).unwrap_or("");
-    let emit_turn_peers = |messages: El, turn_idx: usize| -> El {
-        let Some(mission_id) = s
-            .ledger
-            .as_ref()
-            .and_then(|pane| pane.snapshot.turn_metas.get(turn_idx))
-            .map(|m| m.mission_id.as_str())
-        else {
-            return messages;
-        };
-        let peer_msgs = peer_thread::messages_for_mission(s, mission_id);
-        let mut out = messages;
-        if let Some(handed) = peer_thread::handed_out(s, &peer_msgs, p) {
-            out = out.child(handed.key(format!("{mission_id}-handed-out")));
+    let peer_turns = s.ledger.as_ref().map(|pane| pane.snapshot.turn_metas.iter()
+        .map(|meta| peer_thread::messages_for_mission(s, &meta.mission_id)).collect::<Vec<_>>()).unwrap_or_default();
+    let peer_cards = locust_core::peer_thread::thread_peer_cards(&peer_turns);
+    let emit_turn_peers = |mut messages: El, turn_idx: usize, before_work: bool| -> El {
+        let Some(mission_id) = s.ledger.as_ref().and_then(|pane| pane.snapshot.turn_metas.get(turn_idx)).map(|m| m.mission_id.as_str()) else { return messages; };
+        for card in peer_cards.iter().filter(|c| c.turn_index == turn_idx && c.before_work == before_work) {
+            for view in peer_thread::cards_for_mission(s, self_teammate_id, mission_id, &card.messages, p) {
+                messages = messages.child(view.key(card.key.clone()));
+            }
         }
-        for (pi, card) in peer_thread::cards_for_mission(s, self_teammate_id, mission_id, &peer_msgs, p)
-            .into_iter()
-            .enumerate()
-        {
-            out = out.child(card.key(format!("{mission_id}-peer-{pi}")));
-        }
-        out
+        messages
     };
+    messages = emit_turn_peers(messages, 0, true);
     for (index, item) in items.iter().enumerate() {
         for marker in markers.iter().filter(|m| m.before_item == index) {
             messages = messages.child(time_marker::view(marker, p));
@@ -58,6 +49,24 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
             continue;
         }
         let content = match item {
+            ledger::Item::Handoff { from, to } => handoff_divider::view(Some(from), to, p).unwrap_or_else(col),
+            ledger::Item::Trace(trace) => {
+                let mut line = row().w_full().gap(5.0);
+                let file_count = locust_core::activity_entries::file_count(&trace.changed_paths, selected_conversation(s).and_then(|(t,_)|t.folder.as_deref()));
+                for (i, segment) in trace.segments.iter().enumerate() {
+                    let shown = if segment.key == "files" && file_count > 0 { format!("{file_count} file{}", if file_count==1 {""} else {"s"}) } else {segment.text.clone()};
+                    if i > 0 { line = line.child(text("·").font(type_::LABEL).color(p.muted)); }
+                    line = line.child(text(shown).font(type_::LABEL).color(if segment.tone.as_deref() == Some("amber") {p.amber} else {p.muted}));
+                }
+                let mut body = col().w_full().gap(4.0).child(line);
+                if !trace.notices.is_empty() {
+                    let key = format!("{conversation}/trace/{index}/notices");
+                    let open = s.activity_open.get(&key).copied().unwrap_or(false);
+                    body = body.child(disclosure(key, "Runtime notices".into(), open, p));
+                    if open { for n in &trace.notices { body = body.child(text(format!("{} · {}", n.source, n.message)).font(type_::LABEL).color(p.muted).w_full().wrap()); } }
+                }
+                body
+            }
             ledger::Item::CarryOn { conversation_id, from, why } => {
                 if s.flight.is_some()
                     || s.sending.is_pending()
@@ -150,7 +159,8 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                 let ui = user_index;
                 user_index += 1;
                 if ui > 0 {
-                    messages = emit_turn_peers(messages, ui - 1);
+                    messages = emit_turn_peers(messages, ui - 1, false);
+                    messages = emit_turn_peers(messages, ui, true);
                 }
                 if let Some(pane) = s.ledger.as_ref()
                     && let Some(to_meta) = pane.snapshot.turn_metas.get(ui)
@@ -176,6 +186,8 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                     p,
                     s,
                 );
+                if s.ledger.as_ref().and_then(|p| p.snapshot.turn_metas.get(ui))
+                    .is_some_and(|m| !locust_core::thread_view::person_prompt(m.started_by_kind.as_deref())) { continue; }
                 let hit = s.prompt_rail.hit_key.as_deref() == Some(key.as_str());
                 // Notes on a diff came as one block after the person's words: the bubble shows the words, the notes go under it.
                 let (own_words, sent_notes) = locust_core::diff_notes::split_diff_notes(body);
@@ -304,7 +316,7 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                                 }
                             }
                         })
-                        .child(reply_actions::reply(s, &shown, !*r#final, p));
+                        .child(reply_actions::reply(s, &shown, locust_core::thread_view::streaming(*r#final, running), p));
                     msg = msg.child(reply_box);
                     if let Some(chips) = pull_request_chip::link_chips_for_text(s, &shown, p) {
                         msg = msg.child(chips);
@@ -336,6 +348,7 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                 let by_person = last_stop && s.stopped_by_you.as_deref().is_some_and(|c| Some(c) == s.ledger.as_ref().and_then(|p| p.conversation.conversation_id.as_deref()));
                 crate::cancellation_card::card(&summary, by_person, p)
             }
+            ledger::Item::Limit { text: body, .. } => text(body).font(type_::LABEL).color(p.muted).w_full().wrap_anywhere(),
             ledger::Item::Note { level, text: body } => text(if level.is_empty() {
                 body.clone()
             } else {
@@ -395,9 +408,7 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
         };
         messages = messages.child(content.key(key));
     }
-    if user_index > 0 {
-        messages = emit_turn_peers(messages, user_index - 1);
-    }
+    messages = emit_turn_peers(messages, user_index.saturating_sub(1), false);
     messages = emit_group_lines_at(
         messages,
         &group_joins,
@@ -425,6 +436,20 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
     }
     if let Some(card) = crate::key_card::card(s, p) {
         messages = messages.child(card);
+    }
+    if locust_core::thread_view::live_visible(turn_running(s), s.pending_approval.is_some())
+        && let Some(live) = s.ledger.as_ref().and_then(|pane| pane.snapshot.live.as_ref())
+    {
+        let elapsed = chrono::DateTime::parse_from_rfc3339(&live.started_at).ok()
+            .map(|at| (chrono::Utc::now().timestamp_millis() - at.timestamp_millis()).max(0) as u64);
+        let words = match live.register.as_str() {
+            "connector" => format!("Using a connector · {}", live.label),
+            "tool" => format!("Using a tool · {}", live.label),
+            _ => live.label.clone(),
+        };
+        let words = live.detail.as_ref().map_or_else(|| words.clone(), |d| format!("{words} · {d}"));
+        let label = elapsed.map_or_else(|| words.clone(), |ms| format!("{words} · {}", ledger::duration_text(ms)));
+        messages = messages.child(text(label).font(type_::LABEL).color(p.muted).w_full());
     }
     messages
         .child(approval_card(s, p))
@@ -642,6 +667,57 @@ mod tests {
             .join("\n");
         *s = rt.state.0;
         out
+    }
+
+    #[test]
+    fn the_trace_and_its_folded_notices_reach_the_headless_thread() {
+        let events = vec![serde_json::json!({"sequence":1,"type":"run.started","occurredAt":"2026-11-01T00:00:00Z","payload":{}}),
+            serde_json::json!({"sequence":2,"sourceAdapter":"claude","type":"adapter.diagnostic","occurredAt":"2026-11-01T00:00:01Z","payload":{"code":"codex.setup","level":"info","message":"Skill descriptions were shortened."}}),
+            serde_json::json!({"sequence":3,"type":"tool.completed","occurredAt":"2026-11-01T00:00:02Z","payload":{"itemId":"a","name":"shell","command":"ls","exitCode":0}}),
+            serde_json::json!({"sequence":4,"type":"run.completed","occurredAt":"2026-11-01T00:00:04Z","payload":{}})];
+        let mut t = ledger::Transcript::default();
+        t.apply(events.into_iter().map(|event| serde_json::json!({"recordType":"mission.event","event":event})).collect());
+        let index = t.items.iter().position(|i| matches!(i, ledger::Item::Trace(_))).expect("ledger trace");
+        let mut s = State::default();
+        let folded = thread_text(&t.items, &mut s);
+        assert!(folded.contains("4s") && folded.contains("ran ls"), "{folded}");
+        assert!(!folded.contains("Skill descriptions were shortened."), "{folded}");
+        s.activity_open.insert(format!("preview/trace/{index}/notices"), true);
+        let opened = thread_text(&t.items, &mut s);
+        assert!(opened.contains("claude · Skill descriptions were shortened."), "{opened}");
+    }
+
+    fn composition_state(kind: Option<&str>, running: bool) -> State {
+        let mut s = State::default();
+        s.ledger = Some(LedgerPane {
+            header: Teammate { id: "tm_codec".into(), name: "Codec".into(), role: "Engineer".into(), runtime: None, model: None, account: None, busy: false, runs_in: "local".into(), folder: None },
+            conversation: Conversation { conversation_id: Some("m_1".into()), turns: Vec::new() },
+            items: Vec::new(), dir: std::path::PathBuf::new(), worker: None,
+            snapshot: ledger::Snapshot {
+                running,
+                live: locust_core::thread_view::live_line(&[], running, "2026-09-04T21:47:00.000Z", false),
+                turn_metas: vec![ledger::Metadata { mission_id: "m_1".into(), started_by_kind: kind.map(str::to_owned), ..Default::default() }],
+                ..Default::default()
+            },
+            due: 0.0, loading: false, after_tip: None, after_tip_deadline: None, backoff: 0.0,
+        });
+        s
+    }
+    #[test]
+    fn the_cached_live_line_reaches_the_headless_thread() {
+        let items = [ledger::Item::User("read status.ts".into())];
+        let mut s = composition_state(None, true);
+        assert!(thread_text(&items, &mut s).contains("Starting"));
+        s.ledger.as_mut().unwrap().snapshot.running = false;
+        assert!(!thread_text(&items, &mut s).contains("Starting"));
+    }
+    #[test]
+    fn the_headless_thread_never_draws_the_hosts_relay_briefing_as_a_user_bubble() {
+        let items = [ledger::Item::User("end with one <locust-share to=\"Wren\"> block holding your reply.".into())];
+        let mut s = composition_state(Some("relay"), false);
+        assert!(!thread_text(&items, &mut s).contains("locust-share"));
+        s.ledger.as_mut().unwrap().snapshot.turn_metas[0].started_by_kind = None;
+        assert!(thread_text(&items, &mut s).contains("locust-share"));
     }
 
     #[test]

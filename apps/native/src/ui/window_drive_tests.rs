@@ -4770,6 +4770,9 @@ fn sending_an_edit_starts_again_from_the_turn_before_says_so_above_it_and_both_v
     // The earlier version stays reachable, from the recent list.
     pump(&mut rt, "the versions found", |s| s.edit.versions.get(&new).is_some_and(|v| v.before.as_deref() == Some(second.as_str())));
     settle(&mut rt);
+    let version_key = format!("version-before-{new}");
+    rt.update(move |_, tx| tx.scroll_key_to(&version_key, 0.5));
+    settle(&mut rt);
     click(&mut rt, &format!("version-before-{new}"));
     let want = second.clone();
     pump(&mut rt, "the version before open", move |s| s.ledger.as_ref().is_some_and(|p| !p.loading && p.snapshot.tip == want && p.snapshot.turn_metas.len() == 2));
@@ -5073,6 +5076,8 @@ fn group_standing_instructions_brief_turns_after_folder_and_render_join_note_in_
     );
     assert!(!join_line.contains("Check risk limits before placing an order."), "join note starts collapsed");
 
+    rt.update(|_, tx| tx.scroll_key_to("group-join-toggle-0", 0.5));
+    settle(&mut rt);
     click(&mut rt, "group-join-toggle-0");
     let expanded = rt
         .elements()

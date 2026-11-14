@@ -1,17 +1,6 @@
 use super::*;
 
-#[derive(Clone)]
-pub(super) struct PeerMsgView {
-    pub message_id: String,
-    pub direction: String,
-    pub from_id: String,
-    pub from_name: String,
-    pub from_mission: Option<String>,
-    pub to_id: String,
-    pub to_name: String,
-    pub text: Option<String>,
-    pub posted_at: String,
-}
+use locust_core::peer_thread::Message as PeerMsgView;
 
 pub(super) fn open_mission_by_id(s: &mut State, mission_id: String, tx: &mut Tx) {
     if let Some(item) = s.recent.iter().find(|r| r.id == mission_id).cloned() {
@@ -56,7 +45,7 @@ fn received_in_map(s: &State) -> HashMap<String, String> {
     let mut map = HashMap::new();
     for sum in s.ledger_summaries.values() {
         for link in &sum.peer_links {
-            if link.direction == "received" {
+            if locust_core::thread_view::received_message(&link.message_id, std::slice::from_ref(link)).is_some() {
                 map.entry(link.message_id.clone())
                     .or_insert_with(|| sum.mission_id.clone());
             }
@@ -136,57 +125,6 @@ pub(super) fn messages_for_mission(s: &State, mission_id: &str) -> Vec<PeerMsgVi
     out
 }
 
-pub(super) fn handed_out(s: &State, msgs: &[PeerMsgView], p: &Palette) -> Option<El> {
-    let posted: Vec<&PeerMsgView> = msgs.iter().filter(|m| m.direction == "posted").collect();
-    if posted.is_empty() {
-        return None;
-    }
-    let l = crate::look::controls::Look::new(p.dark);
-    let received_in = received_in_map(s);
-    let mut card = col()
-        .w_full()
-        .gap(6.0)
-        .padding(10.0)
-        .radius(8.0)
-        .border(1.0, p.hairline)
-        .fill(l.c("bg-raised"))
-        .child(
-            text(format!("Handed out · {}", posted.len()))
-                .font(l.ty.label)
-                .color(l.c("text-muted")),
-        );
-    for msg in posted {
-        let body = msg
-            .text
-            .clone()
-            .unwrap_or_else(|| "This message is no longer in the workroom.".to_owned());
-        let line_text = format!("To {}: {body}", msg.to_name);
-        if let Some(target_mission) = received_in.get(&msg.message_id).cloned() {
-            card = card.child(
-                text(line_text)
-                    .font(l.ty.body)
-                    .color(l.c("text-primary"))
-                    .w_full()
-                    .wrap()
-                    .role("button")
-                    .hover(l.c("hover-surface"))
-                    .on_press_tx(move |s: &mut State, tx| {
-                        open_mission_by_id(s, target_mission.clone(), tx);
-                    }),
-            );
-        } else {
-            card = card.child(
-                text(line_text)
-                    .font(l.ty.body)
-                    .color(l.c("text-primary"))
-                    .w_full()
-                    .wrap(),
-            );
-        }
-    }
-    Some(card)
-}
-
 pub(super) fn cards_for_mission(
     s: &State,
     self_teammate_id: &str,
@@ -220,7 +158,7 @@ pub(super) fn cards_for_mission(
             .peer_thread_open
             .get(&toggle_key)
             .copied()
-            .unwrap_or_else(|| group.len() <= 4);
+            .unwrap_or_else(|| locust_core::peer_thread::exchange_starts_open(group.len()));
         let first_from = group.first().map(|m| m.from_id.as_str()).unwrap_or("");
         let same_sender = group.iter().all(|m| m.from_id == first_from);
         let count = group.len();
@@ -232,14 +170,7 @@ pub(super) fn cards_for_mission(
         } else {
             format!("{count} {noun} from {peer_name}")
         };
-        let snippet = (!open).then(|| {
-            let raw = group
-                .first()
-                .and_then(|m| m.text.as_deref())
-                .unwrap_or("");
-            let trimmed: String = raw.split_whitespace().collect::<Vec<_>>().join(" ");
-            trimmed.chars().take(72).collect::<String>()
-        });
+        let snippet = if open { None } else {locust_core::peer_thread::snippet(group.first().and_then(|m| m.text.as_deref()), 72)};
 
         let tk = toggle_key.clone();
         let mut toggle_row = row()
@@ -254,7 +185,7 @@ pub(super) fn cards_for_mission(
                     .peer_thread_open
                     .get(&tk)
                     .copied()
-                    .unwrap_or_else(|| count <= 4);
+                    .unwrap_or_else(|| locust_core::peer_thread::exchange_starts_open(count));
                 s.peer_thread_open.insert(tk.clone(), !current);
             })
             .child(

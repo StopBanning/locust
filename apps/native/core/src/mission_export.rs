@@ -52,7 +52,7 @@ pub fn is_shell_tool(name: &str, tool_kind: Option<&str>) -> bool {
         )
 }
 
-fn is_edit_command(command: &str) -> bool {
+pub(crate) fn is_edit_command(command: &str) -> bool {
     static EDIT_VERBS: OnceLock<Regex> = OnceLock::new();
     static SED_HEAD: OnceLock<Regex> = OnceLock::new();
     static SED_IN_PLACE: OnceLock<Regex> = OnceLock::new();

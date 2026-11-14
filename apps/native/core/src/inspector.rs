@@ -3,7 +3,7 @@
 //! `renderer/src/cost.ts`, `renderer/src/missionView.ts`; PARITY row 26).
 
 use serde_json::Value;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MayDoRow {
@@ -297,6 +297,8 @@ pub fn what_it_may_do(runtime: &str, sandbox: &str, mode: Option<&str>) -> MayDo
 pub enum SignalTone {
     Muted,
     Green,
+    Blue,
+    Violet,
     Amber,
     Red,
     Live,
@@ -310,211 +312,8 @@ pub struct SignalRow {
     pub tone: SignalTone,
 }
 
-fn clock_of(iso: &str) -> String {
-    if let Some(t) = iso.find('T')
-        && iso.len() >= t + 9
-    {
-        return iso[t + 1..t + 9].to_owned();
-    }
-    iso.to_owned()
-}
-
-fn tool_name(payload: &Value) -> String {
-    let kind = payload["toolKind"].as_str().unwrap_or("tool");
-    let raw = payload["title"]
-        .as_str()
-        .or_else(|| payload["command"].as_str())
-        .or_else(|| payload["toolName"].as_str())
-        .unwrap_or(kind);
-    let first = raw.lines().next().unwrap_or(raw).trim();
-    if first.chars().count() > 64 {
-        format!("{}…", first.chars().take(63).collect::<String>())
-    } else if first.is_empty() {
-        kind.to_owned()
-    } else {
-        first.to_owned()
-    }
-}
-
 pub fn build_signal_rail(events: &[Value], running: bool) -> Vec<SignalRow> {
-    let mut settled_by: HashMap<String, &Value> = HashMap::new();
-    let mut started: HashSet<String> = HashSet::new();
-    for event in events {
-        let ty = event["type"].as_str().unwrap_or("");
-        if ty == "tool.completed" || ty == "tool.failed" {
-            if let Some(id) = event["payload"]["itemId"].as_str() {
-                settled_by.insert(id.to_owned(), event);
-            }
-        } else if ty == "tool.started"
-            && let Some(id) = event["payload"]["itemId"].as_str()
-        {
-            started.insert(id.to_owned());
-        }
-    }
-
-    let mut rows = Vec::new();
-    for (idx, event) in events.iter().enumerate() {
-        let ty = event["type"].as_str().unwrap_or("");
-        let key = event["id"]
-            .as_str()
-            .map(str::to_owned)
-            .unwrap_or_else(|| format!("ev-{idx}"));
-        let clock = clock_of(event["occurredAt"].as_str().unwrap_or(""));
-        let payload = &event["payload"];
-
-        match ty {
-            "run.started" => rows.push(SignalRow {
-                key,
-                name: format!(
-                    "Started on {}",
-                    runtime_display_name(event["sourceAdapter"].as_str().unwrap_or("runtime"))
-                ),
-                meta: clock,
-                tone: SignalTone::Muted,
-            }),
-            "tool.started" => {
-                if payload["helper"].is_object() || payload["helperId"].is_string() {
-                    continue;
-                }
-                let item_id = payload["itemId"].as_str().unwrap_or("");
-                let name = tool_name(payload);
-                if let Some(settled) = settled_by.get(item_id) {
-                    let st = settled["type"].as_str().unwrap_or("");
-                    if st == "tool.failed" {
-                        let status = settled["payload"]["status"].as_str();
-                        let label = if status == Some("refused") {
-                            "refused"
-                        } else {
-                            "failed"
-                        };
-                        rows.push(SignalRow {
-                            key,
-                            name,
-                            meta: format!("{clock} · {label}"),
-                            tone: SignalTone::Red,
-                        });
-                    } else {
-                        let code = settled["payload"]["exitCode"].as_i64();
-                        let meta = match code {
-                            None | Some(0) => format!("{clock} · done"),
-                            Some(c) => format!("{clock} · exit code {c}"),
-                        };
-                        rows.push(SignalRow {
-                            key,
-                            name,
-                            meta,
-                            tone: SignalTone::Muted,
-                        });
-                    }
-                } else {
-                    rows.push(SignalRow {
-                        key,
-                        name,
-                        meta: format!(
-                            "{clock} · {}",
-                            if running { "running" } else { "did not finish" }
-                        ),
-                        tone: if running {
-                            SignalTone::Live
-                        } else {
-                            SignalTone::Muted
-                        },
-                    });
-                }
-            }
-            "tool.completed" | "tool.failed" => {
-                if payload["helper"].is_object() || payload["helperId"].is_string() {
-                    continue;
-                }
-                let item_id = payload["itemId"].as_str().unwrap_or("");
-                if started.contains(item_id) {
-                    continue;
-                }
-                let name = tool_name(payload);
-                if ty == "tool.failed" {
-                    let label = if payload["status"].as_str() == Some("refused") {
-                        "refused"
-                    } else {
-                        "failed"
-                    };
-                    rows.push(SignalRow {
-                        key,
-                        name,
-                        meta: format!("{clock} · {label}"),
-                        tone: SignalTone::Red,
-                    });
-                } else {
-                    let code = payload["exitCode"].as_i64();
-                    let meta = match code {
-                        None | Some(0) => format!("{clock} · done"),
-                        Some(c) => format!("{clock} · exit code {c}"),
-                    };
-                    rows.push(SignalRow {
-                        key,
-                        name,
-                        meta,
-                        tone: SignalTone::Muted,
-                    });
-                }
-            }
-            "step.failed" => {
-                let kind = payload["stepKind"].as_str().unwrap_or("step");
-                rows.push(SignalRow {
-                    key,
-                    name: "A step failed".into(),
-                    meta: format!("{clock} · {kind}"),
-                    tone: SignalTone::Red,
-                });
-            }
-            "approval.requested" => rows.push(SignalRow {
-                key,
-                name: "Asked for approval".into(),
-                meta: clock,
-                tone: SignalTone::Amber,
-            }),
-            "approval.resolved" => rows.push(SignalRow {
-                key,
-                name: "Approval answered".into(),
-                meta: clock,
-                tone: SignalTone::Muted,
-            }),
-            "runtime.error" => {
-                let msg = payload["message"].as_str().unwrap_or("Runtime error");
-                rows.push(SignalRow {
-                    key,
-                    name: msg.to_owned(),
-                    meta: clock,
-                    tone: SignalTone::Red,
-                });
-            }
-            "run.completed" => rows.push(SignalRow {
-                key,
-                name: "Reply finished".into(),
-                meta: clock,
-                tone: SignalTone::Green,
-            }),
-            "run.failed" => {
-                let msg = payload["message"]
-                    .as_str()
-                    .or_else(|| payload["reason"].as_str())
-                    .unwrap_or("Run failed");
-                rows.push(SignalRow {
-                    key,
-                    name: msg.to_owned(),
-                    meta: clock,
-                    tone: SignalTone::Red,
-                });
-            }
-            "run.cancelled" => rows.push(SignalRow {
-                key,
-                name: "Run stopped".into(),
-                meta: clock,
-                tone: SignalTone::Amber,
-            }),
-            _ => {}
-        }
-    }
-    rows
+    crate::signal_rail::build(events, running)
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -619,6 +418,8 @@ pub struct TurnInput {
     pub phase: String,
     pub running: bool,
     pub events: Vec<Value>,
+    /// Projected on ledger ingestion, so drawing never consults the timezone database.
+    pub signal_rail: Vec<SignalRow>,
     pub checkpoints_count: usize,
     pub last_checkpoint_epoch: Option<u64>,
     pub integrity_issue_count: usize,
@@ -709,7 +510,7 @@ pub fn build_run_report(
         cost_label,
         cost_line,
         may_do,
-        signal_rail: build_signal_rail(&input.events, input.running),
+        signal_rail: input.signal_rail.clone(),
         artifacts: produced_files(&input.events, workspace_path),
         recovery_note,
     }
@@ -884,6 +685,7 @@ mod tests {
                 json!({"id":"e1","type":"run.started","sourceAdapter":"codex","occurredAt":"2026-11-12T10:00:00.000Z","payload":{}}),
                 json!({"id":"e2","type":"run.failed","sourceAdapter":"codex","occurredAt":"2026-11-12T10:00:05.000Z","payload":{"message":"Quota reached"}}),
             ],
+            signal_rail: Vec::new(),
             checkpoints_count: 1,
             last_checkpoint_epoch: Some(1),
             integrity_issue_count: 0,
@@ -906,6 +708,7 @@ mod tests {
                 json!({"id":"e3","type":"run.started","sourceAdapter":"claude","occurredAt":"2026-11-12T10:01:00.000Z","payload":{}}),
                 json!({"id":"e4","type":"run.completed","sourceAdapter":"claude","occurredAt":"2026-11-12T10:01:10.000Z","payload":{"usage":{"costUsd":0.0125}}}),
             ],
+            signal_rail: Vec::new(),
             checkpoints_count: 1,
             last_checkpoint_epoch: Some(1),
             integrity_issue_count: 0,

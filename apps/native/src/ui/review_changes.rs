@@ -404,7 +404,7 @@ fn land_card(s: &State, r: &Review, p: &Palette) -> Option<El> {
 
 /// The diff of one file, as the Changes panel draws its rows (every hunk, every line: a review reads it all),
 /// carrying review-note controls when `may_note` holds for the teammate on screen.
-fn file_diff(
+pub(super) fn file_diff(
     s: &State,
     folder: Option<&str>,
     may_note: bool,
