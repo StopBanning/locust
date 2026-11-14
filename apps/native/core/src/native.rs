@@ -625,6 +625,17 @@ pub fn session(dir: PathBuf, id: String) -> ledger::Session {
     }
 }
 
+/// Like `session`, also attaching the conversation's folder and checkpoint store so finished turns carry per-turn diffs.
+pub fn session_for(dir: PathBuf, id: String, folder: Option<&str>) -> ledger::Session {
+    let mut s = session(dir, id).with_folder(folder);
+    if let Some(ws) = folder.filter(|f| !f.is_empty()).map(PathBuf::from)
+        && let Some(st) = store()
+    {
+        s = s.with_checkpoints(st, ws);
+    }
+    s
+}
+
 // ---- resume point: which Codex thread a follow-up reopens ---------------------------------------------------------
 pub fn find_ledger(id: &str) -> Option<PathBuf> {
     if !ledger::safe_id(id) {

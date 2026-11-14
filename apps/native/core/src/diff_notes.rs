@@ -241,6 +241,113 @@ pub fn shown_path(path: &str, folder: Option<&str>) -> String {
     crate::path_words::display_path(path, folder)
 }
 
+fn edit_key(path: &str, workspace: Option<&str>) -> String {
+    let rel = crate::path_words::relative_path(path, workspace);
+    let p = rel.replace('\\', "/");
+    let p = p.trim_start_matches("./").to_lowercase();
+    let mut out = String::with_capacity(p.len());
+    for c in p.chars() {
+        if !(c == '/' && out.ends_with('/')) {
+            out.push(c);
+        }
+    }
+    out
+}
+
+/// Files a finished turn changed (`missionView.ts`'s `editedFiles` + net preference), combining event patches
+/// (preferring `observed_edit` over step diffs) with optional host checkpoint diffs.
+pub fn edited_files<'a, I>(events: I, workspace: Option<&str>, checkpoint_files: &[File]) -> Vec<File>
+where
+    I: IntoIterator<Item = &'a serde_json::Value>,
+{
+    use serde_json::Value;
+    use std::collections::{HashMap, HashSet};
+
+    struct CallPatch {
+        net: bool,
+        patch_text: Option<String>,
+    }
+
+    let mut order: Vec<String> = Vec::new();
+    let mut calls: HashMap<String, CallPatch> = HashMap::new();
+
+    for (idx, event) in events.into_iter().enumerate() {
+        let Some(kind) = event.get("type").and_then(Value::as_str) else {
+            continue;
+        };
+        if !matches!(kind, "tool.started" | "tool.completed" | "tool.failed") {
+            continue;
+        }
+        let Some(p) = event.get("payload") else {
+            continue;
+        };
+        let item_id = p
+            .get("itemId")
+            .and_then(Value::as_str)
+            .filter(|s| !s.is_empty())
+            .map(str::to_owned)
+            .unwrap_or_else(|| format!("seq:{idx}"));
+        let net = p.get("toolKind").and_then(Value::as_str) == Some("observed_edit");
+        let patch_text = p
+            .get("patch")
+            .and_then(|patch| patch.get("text"))
+            .and_then(Value::as_str)
+            .filter(|t| !t.trim().is_empty())
+            .map(str::to_owned);
+        if let Some(prev) = calls.get_mut(&item_id) {
+            prev.net |= net;
+            if let Some(t) = patch_text {
+                prev.patch_text = Some(t);
+            }
+        } else {
+            order.push(item_id.clone());
+            calls.insert(item_id, CallPatch { net, patch_text });
+        }
+    }
+
+    let mut parsed: Vec<(bool, File)> = Vec::new();
+    let mut observed_paths: HashSet<String> = HashSet::new();
+    for id in order {
+        let Some(call) = calls.remove(&id) else {
+            continue;
+        };
+        let Some(text) = call.patch_text else {
+            continue;
+        };
+        for file in crate::changes::parse(&text) {
+            let k = edit_key(&file.path, workspace);
+            if call.net {
+                observed_paths.insert(k);
+            }
+            parsed.push((call.net, file));
+        }
+    }
+
+    let mut checkpoint_paths: HashSet<String> = HashSet::new();
+    for file in checkpoint_files {
+        checkpoint_paths.insert(edit_key(&file.path, workspace));
+    }
+
+    let mut seen: HashSet<String> = HashSet::new();
+    let mut out: Vec<File> = Vec::new();
+    for (net, file) in parsed {
+        let k = edit_key(&file.path, workspace);
+        if !net && (observed_paths.contains(&k) || checkpoint_paths.contains(&k)) {
+            continue;
+        }
+        if seen.insert(k) {
+            out.push(file);
+        }
+    }
+    for file in checkpoint_files {
+        let k = edit_key(&file.path, workspace);
+        if seen.insert(k) {
+            out.push(file.clone());
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 #[path = "diff_notes_tests.rs"]
 mod tests;

@@ -138,13 +138,148 @@ fn finds_the_file_however_the_runtime_wrote_its_path() {
 }
 
 #[test]
-fn a_notes_place_is_shown_relative_to_its_folder_and_keeps_its_own_path() {
+fn caps_note_text_at_max_diff_note_and_quoted_code_at_quoted_code() {
+    let long_code = "x".repeat(QUOTED_CODE + 25);
+    let long_text = "a".repeat(MAX_DIFF_NOTE + 50);
+    let n = diff_note_for("src/app.ts", &Row { kind: '+', old: None, new: Some(1), text: long_code }, &long_text);
+    assert_eq!(n.text.chars().count(), MAX_DIFF_NOTE);
+    let block = diff_notes_block(&[n]);
+    let expected_quote = format!("`{}…`", "x".repeat(QUOTED_CODE - 1));
+    assert!(block.contains(&expected_quote));
+}
+
+#[test]
+fn edited_files_prefers_observed_edit_over_step_patches_and_uses_checkpoint_fallback() {
+    use serde_json::json;
+    let events = vec![
+        json!({
+            "type": "tool.completed",
+            "payload": {
+                "itemId": "step1",
+                "toolKind": "edit",
+                "patch": { "text": "--- a/src/app.ts\n+++ b/src/app.ts\n@@ -1 +1 @@\n-old1\n+new1\n" }
+            }
+        }),
+        json!({
+            "type": "tool.completed",
+            "payload": {
+                "itemId": "obs1",
+                "toolKind": "observed_edit",
+                "patch": { "text": "--- a/src/app.ts\n+++ b/src/app.ts\n@@ -12 +12 @@\n-const port = 3000\n+const port = 3001\n" }
+            }
+        }),
+    ];
+    let refs: Vec<&serde_json::Value> = events.iter().collect();
+    let files = edited_files(refs, Some("/tmp/proj"), &[]);
+    assert_eq!(files.len(), 1);
+    assert_eq!(files[0].hunks[0].rows[0].old, Some(12));
+
+    let cp_files = changes::parse("--- a/src/other.ts\n+++ b/src/other.ts\n@@ -2 +2 @@\n-a\n+b\n");
+    let combined = edited_files(events.iter().collect::<Vec<_>>(), Some("/tmp/proj"), &cp_files);
+    assert_eq!(combined.len(), 2);
+}
+
+#[test]
+fn checkpoints_turn_diffs_and_ledger_session_track_per_turn_edits() {
+    use serde_json::json;
+    let unique = format!(
+        "diff-notes-test-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    );
+    let root = std::env::temp_dir().join(unique);
+    let ws = root.join("ws");
+    let ledger_dir = root.join("ledger");
+    std::fs::create_dir_all(ws.join("src")).unwrap();
+    std::fs::create_dir_all(&ledger_dir).unwrap();
+    std::fs::write(ws.join("src/app.ts"), "line1\nconst port = 3000\nline3\n").unwrap();
+
+    let store = crate::store::Store::new(root.join("store"), root.join("electron")).unwrap();
+    let turn = crate::checkpoints::Turn::begin(&store, &ws);
+    std::fs::write(ws.join("src/app.ts"), "line1\nconst port = 3001\nline3\n").unwrap();
+    turn.finish(&store, "m_turn1").unwrap();
+
+    let cp_diffs = crate::checkpoints::turn_diffs(&store, &ws, "m_turn1").unwrap();
+    assert_eq!(cp_diffs.len(), 1);
+    assert_eq!(cp_diffs[0].status, "MODIFIED");
+
+    // While running: Snapshot.turn_edits has None.
+    let ledger_path = ledger_dir.join("m_turn1.jsonl");
+    let created_record = json!({
+        "schemaVersion": 27,
+        "recordType": "mission.created",
+        "metadata": {
+            "missionId": "m_turn1",
+            "prompt": "Fix port",
+            "runtime": "codex",
+            "model": "gpt-5",
+            "createdAt": "2026-09-01T00:00:00Z"
+        }
+    });
+    let start_record = json!({
+        "schemaVersion": 27,
+        "recordType": "mission.event",
+        "event": {
+            "sequence": 1,
+            "occurredAt": "2026-09-01T00:00:01Z",
+            "type": "run.started",
+            "payload": {}
+        }
+    });
+    std::fs::write(&ledger_path, format!("{created_record}\n{start_record}\n")).unwrap();
+
+    let mut session = crate::ledger::Session::new(ledger_dir, "m_turn1".into())
+        .with_folder(ws.to_str())
+        .with_checkpoints(store, ws.clone());
+    let snap_running = session.poll().unwrap();
+    assert!(snap_running.running);
+    assert_eq!(snap_running.turn_edits.get("m_turn1"), Some(&None));
+
+    // After completion: Snapshot.turn_edits has Some(files) and line 2 is marked Line changed.
+    let end_record = json!({
+        "schemaVersion": 27,
+        "recordType": "mission.event",
+        "event": {
+            "sequence": 2,
+            "occurredAt": "2026-09-01T00:00:05Z",
+            "type": "run.completed",
+            "payload": {}
+        }
+    });
+    std::fs::write(&ledger_path, format!("{created_record}\n{start_record}\n{end_record}\n")).unwrap();
+    let snap_done = session.poll().unwrap();
+    assert!(!snap_done.running);
+    let edited = snap_done
+        .turn_edits
+        .get("m_turn1")
+        .and_then(|o| o.as_ref())
+        .expect("finished turn should expose edits");
+    let n = SentDiffNote {
+        path: ws.join("src/app.ts").to_string_lossy().into_owned(),
+        line: Some(2),
+        removed: false,
+        code: Some("const port = 3000".into()),
+        text: "change port".into(),
+    };
+    assert_eq!(note_outcome(&n, edited), NoteOutcome::Line);
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn a_notes_place_is_shown_relative_to_its_folder_with_the_full_path_kept_in_the_message() {
     let folder = "C:\\work\\project";
     let path = format!("{folder}\\src\\app.js");
     assert_eq!(shown_path(&path, Some(folder)), "src/app.js");
+    let n = diff_note_for(&path, &Row { kind: '+', old: None, new: Some(1), text: "x".into() }, "Use PORT.");
+    assert_eq!(n.path, path);
+    assert!(with_diff_notes("Please revise.", &[n]).contains(&path));
+}
+
+#[test]
+fn a_notes_place_keeps_a_relative_name_unchanged_and_does_not_treat_another_folder_as_this_one() {
+    let folder = "C:\\work\\project";
     assert_eq!(shown_path("src/app.js", Some(folder)), "src/app.js");
     assert_eq!(shown_path("C:\\work\\other\\src\\app.js", Some(folder)), "…/src/app.js");
-    // The message carries the path the note was made with.
-    let n = diff_note_for(&path, &Row { kind: '+', old: None, new: Some(1), text: "x".into() }, "y");
-    assert!(with_diff_notes("", &[n]).contains(&path));
 }
