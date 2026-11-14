@@ -722,3 +722,29 @@ fn with_new_cards_caps_at_max_scout_cards_keeping_newest_first_and_filters_bad_i
     assert_eq!(kept[0].card_id, "new_1");
     assert_eq!(kept[MAX_SCOUT_CARDS - 1].card_id, format!("old_{}", MAX_SCOUT_CARDS - 2));
 }
+
+// Review (13 Nov): the two breaks no test caught.
+
+#[test]
+fn quiet_hours_from_and_to_the_same_hour_are_never_quiet() {
+    let same = ScoutQuietHours { from: 9, to: 9 };
+    for hour in [0, 8, 9, 10, 23] {
+        assert!(!in_quiet_hours(Some(same), local_dt_for_review(hour)), "{hour}");
+    }
+}
+
+#[test]
+fn an_interval_settings_does_not_offer_is_never_kept() {
+    let base = ScoutSettings::default();
+    for refused in [5, 15, 120, 0] {
+        assert_eq!(scout_settings_from(&json!({ "everyMinutes": refused }), &base).every_minutes, base.every_minutes, "{refused}");
+    }
+    for offered in SCOUT_EVERY_MINUTES {
+        assert_eq!(scout_settings_from(&json!({ "everyMinutes": offered }), &base).every_minutes, offered);
+    }
+}
+
+fn local_dt_for_review(hour: u32) -> chrono::DateTime<chrono::FixedOffset> {
+    use chrono::TimeZone;
+    chrono::FixedOffset::east_opt(0).unwrap().with_ymd_and_hms(2026, 10, 22, hour, 30, 0).unwrap()
+}

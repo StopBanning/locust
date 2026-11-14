@@ -5,7 +5,7 @@ Ported the engine half of Scout (area 6, row 84) on `exec/native-scout` without 
 ## What was built
 
 1. **Shared types, prompts, parser, and watch rules** (`core/src/scout/types.rs`, from `shared/scout.ts` and `shared/scout-log.ts`):
-   - `ScoutState`, `ScoutSettings`, `ScoutCard`, `ScoutFact`, `ScoutWeek`, `ScoutBrief`, `ScoutTune`, `ScoutNote`, `ScoutChange`, and `apply_settings_change` (clamping `every_minutes` between `5` and `120`, trimming and capping `goal` at 600 chars, validating `quiet` hours and `brief_at`).
+   - `ScoutState`, `ScoutSettings`, `ScoutCard`, `ScoutFact`, `ScoutWeek`, `ScoutBrief`, `ScoutTune`, `ScoutNote`, `ScoutChange`, and `apply_settings_change` (`every_minutes` only one of Electron's choices, 10, 30 or 60; `goal` trimmed and capped at 600 chars; `quiet` hours and `brief_at` only from their choices).
    - Watch rule evaluators: `pull_request_facts` (`READY_WAITING_DAYS = 3`, state-keyed PR transitions), `review_facts`, `branch_facts`, `new_issues` (`NEW_ISSUE_DAYS = 7`, `ISSUES_A_LOOK = 3`, overflow notice), `waiting_facts` (`WAIT_NOTIFY_MS`), `failed_facts`, `check_facts` (transitions only, clipped tail).
    - Brief and weekly tune-up renderers: `brief_fact`, `brief_span`, `week_fact`, `days_between`, `in_quiet_hours` (daytime and midnight-crossing windows).
    - Sealed prompt composer and loose answer/note parsers: `scout_prompt`, `scout_answers`, `scout_note_of`, `notes_from` (`MAX_SCOUT_NOTES = 40`), `with_new_cards` (`MAX_SCOUT_CARDS = 30`), strict team-member matching (`HAND TO` / `DRAFT` dropped unless matching a real teammate).

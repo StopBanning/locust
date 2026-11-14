@@ -338,7 +338,7 @@ fn host_end_to_end_turn_on_runs_sealed_look_and_populates_cards_and_notes() {
             "-c",
             "user.name=Test",
             "-c",
-            "user.email=test@example.com",
+            "user.email=scout-test",
             "commit",
             "-q",
             "-m",
@@ -433,7 +433,8 @@ for line in sys.stdin:
     let deadline = Instant::now() + Duration::from_secs(5);
     loop {
         let st = host.scout.state();
-        if st.cards.iter().any(|c| c.take.is_some()) {
+        // The take and the note land in two writes, as in Electron (settle, then the note): wait for both.
+        if st.cards.iter().any(|c| c.take.is_some()) && !st.notes.is_empty() {
             break;
         }
         assert!(
