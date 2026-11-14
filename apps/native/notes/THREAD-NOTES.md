@@ -297,3 +297,76 @@ both headless checks and their controls before committing that section. The
 inherited twelve pending exchange/rail controls and a final release workspace
 suite/build still need completion. Do not treat the initial 396/397 native result
 as validation of the later edits.
+
+## Thread-8 continuation — 14 Nov 2026 (core verification blocked)
+
+The inherited assistant-text and start-label drafts remain uncommitted pending
+verification. The start-label today's-time assertion now excludes any four-digit
+year, matching Electron's assertion rather than excluding just 2026. Prepared
+three whole-core start-label controls (day, year, original-turn cache) and two
+headless window controls (display and ended-thread clock refresh). The fixture
+runners use a 590-second outer Cargo bound, with restoration outside that bound.
+
+Continued in file order past already-carried path/tool-name sections with five
+changed-file-count cases (`changed_file_tests.rs`) and four route-switch typed
+prompt cases (`typed_prompt_tests.rs`). Each uses Electron's exact values through
+the existing native projection; no behavior change was needed. Three file-count
+and two typed-prompt controls are prepared. These nine cases are drafts, not
+verified ports. No additional does-not-apply exemptions or Scout edits.
+
+The assistant-text, mission-start, headless-message, changed-file and typed-prompt
+filtered attempts each exited 124 waiting for the shared lock, before Cargo
+started. A combined core retry also exited 124 before compilation. None supplies
+Rust test evidence. `git diff --check`, fixture Python syntax and checks that all
+77 whole-core mutation original expressions are present passed. Recount completed
+without table changes. The parity row stays partial at 149/264, 115 remaining;
+the sixteen prepared Electron cases are not included. The inherited exchange/rail
+control backlog remains incomplete. No source section has been committed yet.
+
+Exactly one background release native suite was started; its final result and the
+remaining verification results are recorded below after completion.
+
+The background release run acquired the shared lock after 1,509 seconds and
+compiled without reported warnings in 8m 38s. Its final summary (exit 101) is:
+
+`test result: FAILED. 397 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 190.43s`
+
+The sole failure is the handoff's owner-managed landing timeout:
+`review_changes_shows_a_teammates_branch_turn_by_turn_and_lands_it_as_one_commit`,
+`timed out waiting for the landing, read again: status "Ready"`. It was left
+untouched and is not attributed to this work. Both final-form headless start-label
+checks passed: cached label display and clock refresh without reopening an ended
+ledger. This run does not execute the core crate's own tests, so it does not verify
+the sixteen core case drafts. The separate core retry timed out as recorded below.
+
+Final verification outcome: the post-release combined core retry also exited 124
+waiting for the shared lock. The `assistant-append` whole-core control's inner
+Cargo attempt exited 124 before compilation; the fixture correctly rejected that
+as evidence (exit 1) and its `finally` restored the ledger and checked the diff.
+No new mutation control completed. The other prepared controls, including the
+two headless controls, were not run; the inherited exchange/rail backlog remains.
+
+After restoration, one final combined core filter, `build --release --offline`,
+and `test --release --offline --workspace` were each attempted under the required
+590-second outer bound. **All three exited 124 before Cargo started**, with only
+the shared-lock wait in their logs (`thread-8-core-final.log`, `thread-8-build.log`,
+`thread-8-workspace.log`). No final full-core/workspace or application release-build
+pass is claimed. The completed native release result above remains the last full
+native suite result; it is not a full workspace result.
+
+Reviewed the source diff and the added fixture/test files. Final checks confirm all
+77 core and both window control originals are present, with no break left applied;
+Python fixture syntax, recount and whitespace checks pass. The notes and parity
+record are committed separately. All sixteen core case drafts and their supporting
+source remain uncommitted and uncounted: **149/264 carried, 115 remaining**. No
+handoff file is committed. Work stayed on `exec/native-thread`, based on `d099883b`,
+under `apps/native/`; no Scout source, version, changelog, push, visible window or
+real-agent run was touched.
+
+Next: obtain a usable build slot, run the seventeen filtered core checks (sixteen
+Electron cases plus original-turn cache), run the restored break controls, and
+commit assistant text, start labels, changed-file counts and typed prompts one
+section at a time. The start-label projection keeps native's existing English
+short-date/24-hour convention and computes clocks outside drawing; the next nine
+cases use existing folds rather than adding parallel implementations. No new
+Electron-only exemption or durable architecture decision was introduced.
