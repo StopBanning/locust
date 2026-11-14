@@ -827,18 +827,30 @@ fn set_status(s: &mut State, id: &str, message: &str, ink: StatusTone) {
 
 fn send(s: &mut State, _: &mut Tx) {
     if !can_send(s) {
+        s.scout.pending_send_card_id = None;
         return;
     }
     if s.compare.composer_mode != compare_view::CompareComposerMode::Direct {
+        s.scout.pending_send_card_id = None;
         compare_view::start_comparison(s);
         return;
     }
     let Some((teammate, conversation)) = selected_conversation(s) else {
+        s.scout.pending_send_card_id = None;
         return;
     };
     let teammate_id = teammate.id.clone();
     let conversation_id = conversation.conversation_id.clone();
     let header = teammate.clone();
+    let comment_card = s.scout.pending_send_card_id.take().or_else(|| {
+        s.scout
+            .composer_card
+            .as_ref()
+            .filter(|(_, tid, folder)| tid == &teammate_id && *folder == s.home.folder_path)
+            .map(|(cid, _, _)| cid.clone())
+    });
+    s.scout.in_flight_comment_card =
+        comment_card.map(|cid| (cid, teammate_id.clone(), conversation_id.clone()));
     let after_tip = s
         .ledger
         .as_ref()
@@ -2078,6 +2090,25 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
             let after = s.flight.as_ref().and_then(|f| f.after_tip.clone());
             match result {
                 Ok(started) => {
+                    if let Some((cid, expected_tid, expected_conv)) =
+                        s.scout.in_flight_comment_card.take()
+                        && expected_tid == id
+                        && expected_conv == flight_conv
+                    {
+                        scout_cards::sent_comment(
+                            s,
+                            cid.clone(),
+                            started.conversation_id.clone(),
+                            id.clone(),
+                        );
+                        if s.scout
+                            .composer_card
+                            .as_ref()
+                            .is_some_and(|(comp_cid, _, _)| comp_cid == &cid)
+                        {
+                            s.scout.composer_card = None;
+                        }
+                    }
                     edit_message::sent(s, &started.conversation_id);
                     if let Some(from) = queue_key_now(s) {
                         s.queue_rows = composer::queue::requeued_rows(
@@ -2160,6 +2191,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
                     }
                 }
                 Err(error) => {
+                    s.scout.in_flight_comment_card = None;
                     if let Some(message) = message {
                         restore_failed_draft(s, message);
                     }
@@ -2176,6 +2208,8 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
                     }
                 }
             }
+        } else {
+            s.scout.in_flight_comment_card = None;
         }
     }
 

@@ -2228,7 +2228,7 @@ impl Scout {
             .find(|m| m.teammate_id == teammate_id)
             .map(|m| m.name)
             .unwrap_or_else(|| "Your teammate".to_owned());
-        self.mutate(|latest| {
+        let state = self.mutate(|latest| {
             let Some(card) = latest.cards.iter().find(|c| c.card_id == card_id) else {
                 return latest.clone();
             };
@@ -2257,7 +2257,8 @@ impl Scout {
                 }
             }
             next
-        })
+        });
+        self.answer_comment(mission_id).unwrap_or(state)
     }
 
     pub fn answer_comment(&self, mission_id: &str) -> Option<ScoutState> {

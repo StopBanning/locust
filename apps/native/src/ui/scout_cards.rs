@@ -21,6 +21,7 @@ use locust_core::scout::view::{
     SCOUT_INVITE_TITLE, SCOUT_NOT_NOW_LABEL, SCOUT_SAW_PAGE, SCOUT_SHOWN_CARDS,
 };
 use locust_core::scout::{ScoutLogSnapshot, ScoutRoute, TurnOnOutcome};
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -31,6 +32,14 @@ pub(super) enum ActionOutcome {
     TurnedOn {
         outcome: TurnOnOutcome,
         roster: Option<Vec<Teammate>>,
+    },
+    PostEdited {
+        card_id: String,
+        result: Result<ScoutState, String>,
+    },
+    Posted {
+        card_id: String,
+        result: Result<ScoutState, String>,
     },
 }
 
@@ -60,6 +69,12 @@ pub(super) struct Panel {
     pub goal_pending: Option<String>,
     pub notes_draft: Option<TextEdit>,
     pub notes_pending: Option<String>,
+    pub post_edits: HashMap<String, TextEdit>,
+    pub post_busy: HashSet<String>,
+    pub post_errors: HashMap<String, String>,
+    pub pending_send_card_id: Option<String>,
+    pub composer_card: Option<(String, String, Option<String>)>,
+    pub in_flight_comment_card: Option<(String, String, Option<String>)>,
     pub setting_busy: bool,
     pub setting_message: Option<String>,
     pub state_job: Latest<ScoutState>,
@@ -94,6 +109,12 @@ impl Default for Panel {
             goal_pending: None,
             notes_draft: None,
             notes_pending: None,
+            post_edits: HashMap::new(),
+            post_busy: HashSet::new(),
+            post_errors: HashMap::new(),
+            pending_send_card_id: None,
+            composer_card: None,
+            in_flight_comment_card: None,
             setting_busy: false,
             setting_message: None,
             state_job: Latest::default(),
@@ -248,6 +269,31 @@ pub(super) fn poll(s: &mut State) -> bool {
                     TurnOnOutcome::Refused(why) => {
                         s.scout.invite_message = Some(why.clone());
                         s.scout.setting_message = Some(why);
+                    }
+                }
+            }
+            ActionOutcome::PostEdited { card_id, result } => {
+                match result {
+                    Ok(st) => {
+                        s.scout.post_edits.remove(&card_id);
+                        s.scout.post_errors.remove(&card_id);
+                        s.scout.state = Some(st);
+                    }
+                    Err(why) => {
+                        s.scout.post_errors.insert(card_id, why);
+                    }
+                }
+            }
+            ActionOutcome::Posted { card_id, result } => {
+                s.scout.post_busy.remove(&card_id);
+                match result {
+                    Ok(st) => {
+                        s.scout.post_edits.remove(&card_id);
+                        s.scout.post_errors.remove(&card_id);
+                        s.scout.state = Some(st);
+                    }
+                    Err(why) => {
+                        s.scout.post_errors.insert(card_id, why);
                     }
                 }
             }
@@ -417,6 +463,16 @@ pub(super) fn load_log(s: &mut State) {
 }
 
 pub(super) fn dismiss_card(s: &mut State, card_id: String, how: Option<ScoutOutcome>) {
+    s.scout.post_edits.remove(&card_id);
+    s.scout.post_busy.remove(&card_id);
+    s.scout.post_errors.remove(&card_id);
+    if s.scout
+        .composer_card
+        .as_ref()
+        .is_some_and(|(cid, _, _)| cid == &card_id)
+    {
+        s.scout.composer_card = None;
+    }
     if let Some(host) = ensure_host(s) {
         s.scout.action_job.request((), move |()| {
             ActionOutcome::State(host.scout.dismiss(&card_id, how))
@@ -424,6 +480,83 @@ pub(super) fn dismiss_card(s: &mut State, card_id: String, how: Option<ScoutOutc
     } else if let Some(st) = &mut s.scout.state {
         st.cards.retain(|c| c.card_id != card_id);
     }
+}
+
+pub(super) fn sent_comment(
+    s: &mut State,
+    card_id: String,
+    mission_id: String,
+    teammate_id: String,
+) {
+    if let Some(host) = ensure_host(s) {
+        let st = host.scout.sent_comment(&card_id, &mission_id, &teammate_id);
+        s.scout.state = Some(st);
+    } else if let Some(st) = &mut s.scout.state {
+        st.cards.retain(|c| c.card_id != card_id);
+    }
+}
+
+pub(super) fn edit_post(s: &mut State, card_id: String, message: String) {
+    if let Some(host) = ensure_host(s) {
+        let id = card_id.clone();
+        s.scout.action_job.request((), move |()| ActionOutcome::PostEdited {
+            card_id: id.clone(),
+            result: host.scout.edit_post(&id, &message),
+        });
+    } else if let Some(st) = &mut s.scout.state {
+        if message.trim().is_empty() {
+            s.scout
+                .post_errors
+                .insert(card_id, "Write a reply before keeping it.".to_owned());
+            return;
+        }
+        if let Some(card) = st.cards.iter_mut().find(|c| c.card_id == card_id)
+            && let Some(post) = card.fact.post.as_mut()
+            && post.attempted != Some(true)
+            && post.posted_url.is_none()
+        {
+            post.message = message;
+            s.scout.post_edits.remove(&card_id);
+            s.scout.post_errors.remove(&card_id);
+        }
+    }
+}
+
+pub(super) fn post_comment(s: &mut State, card_id: String) {
+    if s.scout.post_busy.contains(&card_id) {
+        return;
+    }
+    let Some(host) = ensure_host(s) else {
+        s.scout.post_errors.insert(
+            card_id,
+            "Posting could not be confirmed. Check GitHub before posting again.".to_owned(),
+        );
+        return;
+    };
+    s.scout.post_busy.insert(card_id.clone());
+    s.scout.post_errors.remove(&card_id);
+    s.scout.action_job.request((), move |()| {
+        let result = host.scout.post(&card_id);
+        let result = match result {
+            Ok(st) => Ok(st),
+            Err(why) => {
+                let latest = host.scout.state();
+                let recorded = latest
+                    .cards
+                    .iter()
+                    .find(|c| c.card_id == card_id)
+                    .and_then(|c| c.fact.post.as_ref())
+                    .and_then(|p| p.failed.as_deref())
+                    .is_some();
+                if recorded {
+                    Ok(latest)
+                } else {
+                    Err(why)
+                }
+            }
+        };
+        ActionOutcome::Posted { card_id, result }
+    });
 }
 
 pub(super) fn tune_card(s: &mut State, card_id: String) {
@@ -468,23 +601,42 @@ pub(super) fn open_target(s: &mut State, open: ScoutOpen, tx: &mut Tx) {
     }
 }
 
+fn is_comment_ask_card(s: &State, card_id: &str) -> bool {
+    s.scout
+        .state
+        .as_ref()
+        .and_then(|st| st.cards.iter().find(|c| c.card_id == card_id))
+        .is_some_and(|c| c.fact.comment_ask.is_some())
+}
+
 pub(super) fn send_draft(s: &mut State, card_id: String, draft: ScoutDraft, tx: &mut Tx) {
+    let is_comment = is_comment_ask_card(s, &card_id);
     super::select_teammate(s, &draft.teammate_id, tx);
     super::fresh_conversation(s);
     s.draft.replace_text(&draft.message);
+    if is_comment {
+        s.scout.pending_send_card_id = Some(card_id.clone());
+    }
     super::send(s, tx);
     s.home.home_open = false;
     s.home.board_open = false;
-    dismiss_card(s, card_id, Some(ScoutOutcome::Sent));
+    if !is_comment {
+        dismiss_card(s, card_id, Some(ScoutOutcome::Sent));
+    }
 }
 
 pub(super) fn draft_into_box(s: &mut State, card_id: String, draft: ScoutDraft, tx: &mut Tx) {
+    let is_comment = is_comment_ask_card(s, &card_id);
     super::select_teammate(s, &draft.teammate_id, tx);
     s.draft.replace_text(&draft.message);
     s.draft.focused = true;
     s.home.home_open = false;
     s.home.board_open = false;
-    dismiss_card(s, card_id, Some(ScoutOutcome::Changed));
+    if is_comment {
+        s.scout.composer_card = Some((card_id, draft.teammate_id, s.home.folder_path.clone()));
+    } else {
+        dismiss_card(s, card_id, Some(ScoutOutcome::Changed));
+    }
 }
 
 pub(super) fn on_team(s: &State, st: &ScoutState) -> bool {
@@ -636,7 +788,13 @@ fn render_fix_line(card_id: &str, fix: &ScoutFix, l: &Look) -> El {
     box_el
 }
 
-fn render_card(card: &ScoutCard, focused: bool, now_ms: i64, l: &Look) -> El {
+fn render_card(
+    card: &ScoutCard,
+    focused: bool,
+    now_ms: i64,
+    panel: &Panel,
+    l: &Look,
+) -> El {
     let urgent = card.fact.urgency == ScoutUrgency::Now;
     let border = if focused || urgent {
         l.c("amber-border")
@@ -816,8 +974,140 @@ fn render_card(card: &ScoutCard, focused: bool, now_ms: i64, l: &Look) -> El {
         );
     }
 
-    // 2a card actions only (2b `/locust` comment posting and `FixLine` belong to Part 2b).
+    let editing_post = panel.post_edits.get(&card.card_id);
+    if let Some(post) = &card.fact.post {
+        let mut post_box = col()
+            .w_full()
+            .gap(6.0)
+            .padding(10.0)
+            .radius(8.0)
+            .fill(l.c("bg-window"))
+            .border(1.0, l.c("border-hairline"));
+        if let Some(edit) = editing_post {
+            let id_edit = card.card_id.clone();
+            let id_keep = card.card_id.clone();
+            let initial_msg = post.message.clone();
+            let keep_msg = edit.text.clone();
+            post_box = post_box
+                .child(
+                    text_input(edit, rune::TextStyle::new(12.5, 400.0))
+                        .key(format!("scout-post-input-{}", card.card_id))
+                        .w_full()
+                        .padding(8.0)
+                        .radius(6.0)
+                        .fill(l.c("bg-raised"))
+                        .color(l.c("text-primary"))
+                        .placeholder("Comment to post", l.c("text-muted"))
+                        .role("textbox")
+                        .label("Comment to post")
+                        .on_edit(move |s: &mut State| {
+                            let fallback = initial_msg.clone();
+                            s.scout
+                                .post_edits
+                                .entry(id_edit.clone())
+                                .or_insert_with(|| TextEdit::new(&fallback))
+                        }),
+                )
+                .child(
+                    row().child(
+                        controls::button(l, "Keep this text", Tone::Neutral, false)
+                            .role("button")
+                            .label("Keep this text")
+                            .key(format!("scout-post-keep-{}", card.card_id))
+                            .on_press(move |s: &mut State| {
+                                let text_now = s
+                                    .scout
+                                    .post_edits
+                                    .get(&id_keep)
+                                    .map(|e| e.text.clone())
+                                    .unwrap_or_else(|| keep_msg.clone());
+                                edit_post(s, id_keep.clone(), text_now);
+                            }),
+                    ),
+                );
+        } else {
+            post_box = post_box.child(
+                text(post.message.clone())
+                    .font(rune::TextStyle::new(12.5, 400.0))
+                    .color(l.c("text-primary"))
+                    .wrap(),
+            );
+        }
+        if let Some(url) = &post.posted_url {
+            let open_comment = ScoutOpen::Url {
+                url: url.clone(),
+                label: "Open the comment".to_owned(),
+            };
+            post_box = post_box
+                .child(
+                    text("Posted on GitHub.".to_owned())
+                        .font(rune::TextStyle::new(12.0, 500.0))
+                        .color(l.c("text-secondary")),
+                )
+                .child(
+                    controls::button(l, "Open the comment", Tone::Neutral, false)
+                        .role("button")
+                        .label("Open the comment")
+                        .key(format!("scout-post-open-{}", card.card_id))
+                        .on_press_tx(move |s: &mut State, tx| {
+                            open_target(s, open_comment.clone(), tx);
+                        }),
+                );
+        }
+        if let Some(failed) = &post.failed {
+            post_box = post_box.child(
+                text(failed.clone())
+                    .font(rune::TextStyle::new(12.0, 400.0))
+                    .color(l.c("amber-text"))
+                    .wrap(),
+            );
+        }
+        if let Some(err) = panel.post_errors.get(&card.card_id) {
+            post_box = post_box.child(
+                text(err.clone())
+                    .font(rune::TextStyle::new(12.0, 400.0))
+                    .color(l.c("amber-text"))
+                    .wrap(),
+            );
+        }
+        box_el = box_el.child(post_box);
+    }
+
     let mut actions = row().w_full().gap(8.0).center_y();
+    if let Some(post) = &card.fact.post
+        && post.attempted != Some(true)
+        && editing_post.is_none()
+    {
+        let busy = panel.post_busy.contains(&card.card_id);
+        let post_label = if busy {
+            "Posting...".to_owned()
+        } else {
+            format!("Post it on #{}", post.number)
+        };
+        let id_post = card.card_id.clone();
+        let mut post_btn = controls::primary_button(l, &post_label, busy)
+            .role("button")
+            .label(post_label)
+            .key(format!("scout-post-send-{}", card.card_id));
+        if !busy {
+            post_btn = post_btn.on_press(move |s: &mut State| {
+                post_comment(s, id_post.clone());
+            });
+        }
+        let id_edit_btn = card.card_id.clone();
+        let msg_for_edit = post.message.clone();
+        let edit_btn = controls::button(l, "Change it first", Tone::Neutral, false)
+            .role("button")
+            .label("Change it first")
+            .key(format!("scout-post-edit-{}", card.card_id))
+            .on_press(move |s: &mut State| {
+                s.scout.post_errors.remove(&id_edit_btn);
+                s.scout
+                    .post_edits
+                    .insert(id_edit_btn.clone(), TextEdit::new(&msg_for_edit));
+            });
+        actions = actions.child(post_btn).child(edit_btn);
+    }
     if view::card_shows_draft(card)
         && let Some(draft) = card.fact.draft.clone()
     {
@@ -990,7 +1280,7 @@ pub(super) fn home_section(s: &State, l: &Look) -> Option<El> {
     let mut list = col().w_full().gap(10.0);
     for card in shown {
         let focused = s.scout.focus_card_id.as_deref() == Some(card.card_id.as_str());
-        list = list.child(render_card(card, focused, now_ms, l));
+        list = list.child(render_card(card, focused, now_ms, &s.scout, l));
     }
     Some(sec.child(list))
 }
@@ -2058,5 +2348,96 @@ pub(super) mod tests {
             assert!(rt.find("scout-send-c_draft_fix").is_some());
             assert!(rt.find("scout-draft-c_draft_fix").is_some());
         }
+    }
+
+    // --- 1:1 ports of `scout-says-what-needs-you.test.tsx` (2 Part-2b Post card cases) ---
+
+    #[test]
+    fn comment_answer_post_card_shows_full_reply_editable_attribution_post_and_dismiss() {
+        let mut card = make_card("c_post_1", ScoutUrgency::Now, "Ada answered your ask on #212");
+        card.fact.post = Some(locust_core::scout::types::ScoutPost {
+            repository: "acme/app".into(),
+            number: 212,
+            message: "Found the race in session reload.\n\nWritten by Ada, a Locust teammate.".into(),
+            attempted: None,
+            posted_url: None,
+            failed: None,
+        });
+        card.fact.open = Some(ScoutOpen::Conversation {
+            mission_id: "m-212".into(),
+            label: "Open it".into(),
+        });
+
+        let mut s = base_state(true);
+        s.scout.state.as_mut().unwrap().cards = vec![card];
+        let mut rt = render_state(s, home_sec_el);
+        let words = collect_rt_text(&rt);
+        assert!(words.contains("Ada answered your ask on #212"));
+        assert!(words.contains("Found the race in session reload.\n\nWritten by Ada, a Locust teammate."));
+        assert!(words.contains("Post it on #212"));
+        assert!(words.contains("Change it first"));
+        assert!(words.contains("Dismiss"));
+        assert!(!words.contains("Send to "));
+
+        click_key(&mut rt, "scout-post-edit-c_post_1");
+        assert!(rt.find("scout-post-input-c_post_1").is_some());
+        assert!(rt.find("scout-post-keep-c_post_1").is_some());
+        assert!(rt.find("scout-post-send-c_post_1").is_none());
+
+        rt.update(|s, _| {
+            s.scout
+                .post_edits
+                .get_mut("c_post_1")
+                .unwrap()
+                .replace_text("Updated reply text.");
+        });
+        rt.frame(0.25);
+        click_key(&mut rt, "scout-post-keep-c_post_1");
+        rt.frame(0.25);
+        assert!(rt.find("scout-post-input-c_post_1").is_none());
+        let updated_words = collect_rt_text(&rt);
+        assert!(updated_words.contains("Updated reply text."));
+        assert!(updated_words.contains("Post it on #212"));
+    }
+
+    #[test]
+    fn comment_answer_post_card_says_when_posted_or_failed_and_never_offers_post_again() {
+        let mut posted = make_card("c_posted", ScoutUrgency::Now, "Ada answered your ask on #212");
+        posted.fact.post = Some(locust_core::scout::types::ScoutPost {
+            repository: "acme/app".into(),
+            number: 212,
+            message: "Reply body".into(),
+            attempted: Some(true),
+            posted_url: Some("https://github.com/acme/app/issues/212#issuecomment-55".into()),
+            failed: None,
+        });
+        let mut s1 = base_state(true);
+        s1.scout.state.as_mut().unwrap().cards = vec![posted];
+        let rt1 = render_state(s1, home_sec_el);
+        let w1 = collect_rt_text(&rt1);
+        assert!(w1.contains("Posted on GitHub."));
+        assert!(w1.contains("Open the comment"));
+        assert!(!w1.contains("Post it on #212"));
+        assert!(!w1.contains("Change it first"));
+        assert!(rt1.find("scout-post-open-c_posted").is_some());
+        assert!(rt1.find("scout-post-send-c_posted").is_none());
+
+        let mut failed = make_card("c_failed", ScoutUrgency::Now, "Ada answered your ask on #212");
+        failed.fact.post = Some(locust_core::scout::types::ScoutPost {
+            repository: "acme/app".into(),
+            number: 212,
+            message: "Reply body".into(),
+            attempted: Some(true),
+            posted_url: None,
+            failed: Some("GitHub returned 500".into()),
+        });
+        let mut s2 = base_state(true);
+        s2.scout.state.as_mut().unwrap().cards = vec![failed];
+        let rt2 = render_state(s2, home_sec_el);
+        let w2 = collect_rt_text(&rt2);
+        assert!(w2.contains("GitHub returned 500"));
+        assert!(!w2.contains("Post it on #212"));
+        assert!(!w2.contains("Change it first"));
+        assert!(rt2.find("scout-post-send-c_failed").is_none());
     }
 }

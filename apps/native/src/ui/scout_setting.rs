@@ -601,7 +601,7 @@ pub(super) fn section_at(
     // 3. What Scout saw (read lazily on press)
     root = root.child(scout_saw_section(s, p, &l, *now.offset()));
 
-    // 4. Part 2a watches (GitHub, Teammates, Folder check; omit 2b comments)
+    // 4. Watches (GitHub, Your /locust comments, Teammates, Folder check)
     let watches = st.settings.watches;
     root = root.child(toggle_line(
         "Pull requests and their checks",
@@ -621,6 +621,32 @@ pub(super) fn section_at(
                 ScoutChange {
                     watches: Some(ScoutWatchesPatch {
                         github: Some(next),
+                        ..ScoutWatchesPatch::default()
+                    }),
+                    ..ScoutChange::default()
+                },
+            );
+        },
+    ));
+
+    root = root.child(toggle_line(
+        "Your /locust comments",
+        "A comment of yours on this folder's GitHub with a line starting /locust is an ask. Scout brings it to Home with the step drafted; /locust ada names the teammate.",
+        watches.comments,
+        busy,
+        "scout-watch-comments",
+        &l,
+        |s| {
+            let next = !s
+                .scout
+                .state
+                .as_ref()
+                .map_or(true, |st| st.settings.watches.comments);
+            scout_cards::apply_change(
+                s,
+                ScoutChange {
+                    watches: Some(ScoutWatchesPatch {
+                        comments: Some(next),
                         ..ScoutWatchesPatch::default()
                     }),
                     ..ScoutChange::default()
@@ -1422,5 +1448,28 @@ mod tests {
         ));
         let solo_rt = render_state(solo, draw_npm_cmd);
         assert!(collect_rt_text(&solo_rt).contains("Add a teammate first"));
+    }
+
+    // --- 1:1 port of `scout-settings-say-its-goal-hours-and-day.test.tsx` (1 Part-2b comment watch case) ---
+
+    #[test]
+    fn offers_your_own_comment_watch_on_by_default_and_says_how_named_ask_works() {
+        let mut s = State::default();
+        s.scout.state = Some(on_state(|_| {}, |_| {}));
+        let rt = render_state(s, draw_no_cmd);
+        let words = collect_rt_text(&rt);
+        assert!(words.contains("Your /locust comments"));
+        assert!(words.contains("/locust ada names the teammate."));
+        assert!(rt.find("scout-watch-comments").is_some());
+
+        let mut off = State::default();
+        off.scout.state = Some(on_state(
+            |cfg| cfg.watches.comments = false,
+            |_| {},
+        ));
+        let off_rt = render_state(off, draw_no_cmd);
+        let off_words = collect_rt_text(&off_rt);
+        assert!(off_words.contains("Your /locust comments"));
+        assert!(off_rt.find("scout-watch-comments").is_some());
     }
 }

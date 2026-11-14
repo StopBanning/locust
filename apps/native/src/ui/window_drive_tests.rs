@@ -5787,3 +5787,263 @@ fn scout_fixes_settings_apply_and_skip_work_from_window_in_isolated_fix_root() {
     assert!(rt.find("scout-send-c_skip").is_some());
     assert!(!copy_skip.exists());
 }
+
+#[test]
+fn scout_comment_ask_sends_and_posts_reviewed_reply_from_window() {
+    let (dirs, store, mut rt) = window();
+    let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "success"));
+    let folder = dirs.0.join("work");
+    std::fs::create_dir_all(&folder).unwrap();
+
+    // Seed Scout + Codec in teammates.json and enable comments watch in scout.json.
+    store
+        .save_json(
+            "teammates.json",
+            &json!({
+                "schemaVersion": 1,
+                "teammates": [
+                    { "teammateId": "tm_scout", "name": "Scout", "role": "Custom", "roleTitle": "Keeps watch" },
+                    { "teammateId": "tm_codec", "name": "Codec" }
+                ],
+                "missionOwners": {},
+                "settings": {}
+            }),
+        )
+        .unwrap();
+    std::fs::write(
+        store.root().join("scout.json"),
+        serde_json::to_string_pretty(&json!({
+            "settings": {
+                "on": true,
+                "teammateId": "tm_scout",
+                "watches": { "comments": true, "github": false, "teammates": false, "check": false }
+            },
+            "cards": []
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+
+    rt.update(|s, _| {
+        let codec = s.teammates[0].clone();
+        let mut scout = codec.clone();
+        scout.id = "tm_scout".into();
+        scout.name = "Scout".into();
+        apply_team(s, vec![codec, scout]);
+        s.home.folder_path = Some(folder.to_string_lossy().into());
+        crate::settings_panel::open(s);
+        s.settings_panel.page = Some(crate::settings_pages::SettingsPageId::App);
+    });
+    pump(&mut rt, "scout host initialized for comment ask test", |s| {
+        s.scout.host.is_some()
+            && s.scout
+                .state
+                .as_ref()
+                .is_some_and(|st| st.settings.on && st.settings.watches.comments)
+    });
+
+    // 1. In Settings: toggle "Your /locust comments" off then back on.
+    rt.update(|_, tx| tx.scroll_key_to("scout-watch-comments", 0.5));
+    settle(&mut rt);
+    click(&mut rt, "scout-watch-comments");
+    pump(&mut rt, "comment watch toggled off", |s| {
+        !s.scout.setting_busy
+            && s.scout
+                .state
+                .as_ref()
+                .is_some_and(|st| !st.settings.watches.comments)
+    });
+    click(&mut rt, "scout-watch-comments");
+    pump(&mut rt, "comment watch toggled back on", |s| {
+        !s.scout.setting_busy
+            && s.scout
+                .state
+                .as_ref()
+                .is_some_and(|st| st.settings.watches.comments)
+    });
+
+    // 2. Install gh hooks and read a /locust codec comment.
+    let gh_hook: locust_core::scout::host::GhHook = std::sync::Arc::new(|args, _cwd| {
+        if args.len() >= 2 && args[0] == "api" && args[1] == "user" {
+            return Ok("alice\n".into());
+        }
+        if args.len() >= 2 && args[0] == "repo" && args[1] == "view" {
+            return Ok("acme/app\n".into());
+        }
+        if args.len() >= 2
+            && args[0] == "api"
+            && args[1].starts_with("repos/acme/app/issues/comments")
+        {
+            return Ok(json!([
+                {
+                    "id": 77,
+                    "user": { "login": "alice" },
+                    "body": "/locust codec Check the login failure",
+                    "created_at": "2099-01-01T00:00:00Z",
+                    "issue_url": "https://api.github.com/repos/acme/app/issues/42",
+                    "html_url": "https://github.com/acme/app/issues/42#issuecomment-77"
+                }
+            ])
+            .to_string());
+        }
+        if args.len() >= 2 && args[0] == "api" && args[1] == "repos/acme/app/issues/42" {
+            return Ok(json!({
+                "title": "Login fails on retry",
+                "body": "Steps to reproduce\n\nSynthetic prompt",
+                "comments": 1
+            })
+            .to_string());
+        }
+        if args.len() >= 2
+            && args[0] == "api"
+            && args[1].starts_with("repos/acme/app/issues/42/comments")
+        {
+            return Ok(json!([]).to_string());
+        }
+        Err(locust_core::scout::github::GhError::Failed(
+            "unexpected gh command in test".into(),
+        ))
+    });
+    let posted = std::sync::Arc::new(std::sync::Mutex::new(Vec::<(Vec<String>, String)>::new()));
+    let posted_ref = posted.clone();
+    let gh_input_hook: locust_core::scout::host::GhInputHook =
+        std::sync::Arc::new(move |args, _cwd, input| {
+            posted_ref.lock().unwrap().push((
+                args.iter().map(|s| (*s).to_owned()).collect(),
+                input.to_owned(),
+            ));
+            Ok(
+                json!({ "html_url": "https://github.com/acme/app/issues/42#issuecomment-88" })
+                    .to_string(),
+            )
+        });
+
+    let host = rt.state.scout.host.as_ref().unwrap().clone();
+    host.deps.set_folder(Some(folder));
+    host.deps.set_gh_hook(Some(gh_hook));
+    host.deps.set_gh_input_hook(Some(gh_input_hook));
+
+    rt.update(|s, _| {
+        s.settings_panel.open = false;
+        home_panel::open_home(s);
+    });
+    host.scout.comments_now();
+    pump(&mut rt, "comment ask card appeared", |s| {
+        s.scout
+            .state
+            .as_ref()
+            .is_some_and(|st| st.cards.iter().any(|c| c.fact.comment_ask.is_some()))
+    });
+    let card_id = rt
+        .state
+        .scout
+        .state
+        .as_ref()
+        .unwrap()
+        .cards
+        .iter()
+        .find(|c| c.fact.comment_ask.is_some())
+        .unwrap()
+        .card_id
+        .clone();
+    settle(&mut rt);
+
+    // 3. Send draft to Codec from the Home card -> engine runs fake codex -> on_run_ended moves card to Post.
+    let send_key = format!("scout-send-{card_id}");
+    rt.update(|_, tx| tx.scroll_key_to(&send_key, 0.5));
+    settle(&mut rt);
+    assert!(rt.find(&format!("scout-draft-{card_id}")).is_some());
+    click(&mut rt, &send_key);
+
+    pump(&mut rt, "comment reply ready to post", |s| {
+        s.scout
+            .state
+            .as_ref()
+            .is_some_and(|st| st.cards.iter().any(|c| c.fact.post.is_some()))
+    });
+    let post_card_id = rt
+        .state
+        .scout
+        .state
+        .as_ref()
+        .unwrap()
+        .cards
+        .iter()
+        .find(|c| c.fact.post.is_some())
+        .unwrap()
+        .card_id
+        .clone();
+    rt.update(|s, _| home_panel::open_home(s));
+    settle(&mut rt);
+
+    // 4. Edit the reply on the Post card and keep the edited text.
+    let post_edit_key = format!("scout-post-edit-{post_card_id}");
+    let post_send_key = format!("scout-post-send-{post_card_id}");
+    rt.update(|_, tx| tx.scroll_key_to(&post_send_key, 0.5));
+    settle(&mut rt);
+    assert!(rt.find(&post_send_key).is_some());
+    click(&mut rt, &post_edit_key);
+    settle(&mut rt);
+
+    let post_input_key = format!("scout-post-input-{post_card_id}");
+    let post_keep_key = format!("scout-post-keep-{post_card_id}");
+    click(&mut rt, &post_input_key);
+    rt.key(Key::End.into());
+    rt.paste(" (reviewed)");
+    rt.frame(0.016);
+    click(&mut rt, &post_keep_key);
+
+    pump(&mut rt, "edited reply kept on post card", |s| {
+        !s.scout.post_edits.contains_key(&post_card_id)
+            && s.scout.state.as_ref().is_some_and(|st| {
+                st.cards.iter().any(|c| {
+                    c.card_id == post_card_id
+                        && c.fact
+                            .post
+                            .as_ref()
+                            .is_some_and(|p| p.message.contains("reviewed"))
+                })
+            })
+    });
+    settle(&mut rt);
+    let kept_message = rt
+        .state
+        .scout
+        .state
+        .as_ref()
+        .unwrap()
+        .cards
+        .iter()
+        .find(|c| c.card_id == post_card_id)
+        .unwrap()
+        .fact
+        .post
+        .as_ref()
+        .unwrap()
+        .message
+        .clone();
+
+    // 5. Post the reviewed reply to GitHub and verify UI + gh_input_hook payload.
+    click(&mut rt, &post_send_key);
+    pump(&mut rt, "reply posted to GitHub", |s| {
+        !s.scout.post_busy.contains(&post_card_id)
+            && s.scout.state.as_ref().is_some_and(|st| {
+                st.cards.iter().any(|c| {
+                    c.card_id == post_card_id
+                        && c.fact
+                            .post
+                            .as_ref()
+                            .is_some_and(|p| p.posted_url.is_some())
+                })
+            })
+    });
+    settle(&mut rt);
+
+    let captured = posted.lock().unwrap();
+    assert_eq!(captured.len(), 1);
+    let body_json: Value = serde_json::from_str(&captured[0].1).unwrap();
+    assert_eq!(body_json["body"], json!(kept_message));
+    assert!(rt.find(&post_send_key).is_none());
+    assert!(rt.find(&post_edit_key).is_none());
+    assert!(rt.find(&format!("scout-post-open-{post_card_id}")).is_some());
+}
