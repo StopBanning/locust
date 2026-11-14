@@ -3,6 +3,7 @@
 //!
 //! Port of the storage layer in Electron's `main/scout.ts`.
 
+use std::collections::HashMap;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -13,6 +14,7 @@ use serde_json::{Value, json};
 use crate::pull_requests::{FolderPullRequest, PullRequestChecks, PullRequestReview, PullRequestState};
 use crate::store::Store;
 
+use super::comments::{CommentTurn, CommentWatch};
 use super::log::{ScoutLogEntry, scout_log_from};
 use super::types::{
     LastCheck, MAX_SCOUT_SEEN, ScoutCard, ScoutSettings, ScoutState, ScoutToday, ScoutWeek,
@@ -97,8 +99,8 @@ impl SinceBrief {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Kept {
-    pub comments: Option<Value>,
-    pub comment_turns: Option<Value>,
+    pub comments: Option<CommentWatch>,
+    pub comment_turns: HashMap<String, CommentTurn>,
     pub settings: ScoutSettings,
     pub cards: Vec<ScoutCard>,
     pub seen: Vec<String>,
@@ -200,10 +202,14 @@ impl Kept {
     pub fn to_json(&self) -> Value {
         let mut obj = serde_json::Map::new();
         if let Some(comments) = &self.comments {
-            obj.insert("comments".into(), comments.clone());
+            obj.insert("comments".into(), comments.to_json());
         }
-        if let Some(turns) = &self.comment_turns {
-            obj.insert("commentTurns".into(), turns.clone());
+        if !self.comment_turns.is_empty() {
+            let mut turns = serde_json::Map::new();
+            for (k, v) in &self.comment_turns {
+                turns.insert(k.clone(), v.to_json());
+            }
+            obj.insert("commentTurns".into(), Value::Object(turns));
         }
         obj.insert("settings".into(), self.settings.to_json());
         obj.insert(
@@ -254,8 +260,16 @@ impl Kept {
             .get("settings")
             .map(|s| scout_settings_from(s, &ScoutSettings::default()))
             .unwrap_or_default();
-        let comments = parsed.get("comments").filter(|c| c.is_object()).cloned();
-        let comment_turns = parsed.get("commentTurns").filter(|c| c.is_object()).cloned();
+        let comments = parsed.get("comments").and_then(CommentWatch::from_json);
+        let comment_turns = parsed
+            .get("commentTurns")
+            .and_then(Value::as_object)
+            .map(|obj| {
+                obj.iter()
+                    .filter_map(|(k, v)| CommentTurn::from_json(v).map(|t| (k.clone(), t)))
+                    .collect()
+            })
+            .unwrap_or_default();
         let cards = parsed
             .get("cards")
             .and_then(Value::as_array)

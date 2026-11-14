@@ -234,25 +234,22 @@ fn run_git_text(args: &[&str], cwd: &Path) -> Result<String, String> {
     Ok(String::from_utf8_lossy(&stdout).into_owned())
 }
 
-pub fn copy_line_changes(
+pub fn count_copy_line_changes_with(
     folder: &Path,
-    compare_id: &str,
-    slot: CompareSlotId,
+    target: &Path,
     root: &Path,
+    changes: &CopyChanges,
+    mut run_git: impl FnMut(&[&str], &Path) -> Result<String, String>,
 ) -> Result<(usize, Option<usize>, Option<usize>), String> {
-    let name = safe_name(compare_id, slot)?;
-    let target = root.join(name);
-    let CopyChanges { changed, deleted } = copy_changes(compare_id, slot, root)?;
     let mut added = 0usize;
     let mut removed = 0usize;
     let mut counted = false;
 
     let mut count = |from: &str, to: &str| {
-        if let Ok((_, stdout, _)) = run_git_output(
+        if let Ok(printed) = run_git(
             &["diff", "--no-index", "--numstat", "--no-color", "--no-ext-diff", "--", from, to],
             root,
         ) {
-            let printed = String::from_utf8_lossy(&stdout);
             for line in printed.split('\n') {
                 let mut parts = line.split('\t');
                 let (Some(plus), Some(minus)) = (parts.next(), parts.next()) else {
@@ -269,27 +266,42 @@ pub fn copy_line_changes(
         }
     };
 
-    for path in &changed {
+    for path in &changes.changed {
         let mine = in_folder(folder, path)?;
         let from_str = if mine.exists() {
             mine.to_string_lossy().into_owned()
         } else {
             EMPTY_FILE.to_owned()
         };
-        let to = in_folder(&target, path)?;
+        let to = in_folder(target, path)?;
         count(&from_str, &to.to_string_lossy());
     }
-    for path in &deleted {
+    for path in &changes.deleted {
         let mine = in_folder(folder, path)?;
         count(&mine.to_string_lossy(), EMPTY_FILE);
     }
 
-    let files = changed.len() + deleted.len();
+    let files = changes.changed.len() + changes.deleted.len();
     if counted {
         Ok((files, Some(added), Some(removed)))
     } else {
         Ok((files, None, None))
     }
+}
+
+pub fn copy_line_changes(
+    folder: &Path,
+    compare_id: &str,
+    slot: CompareSlotId,
+    root: &Path,
+) -> Result<(usize, Option<usize>, Option<usize>), String> {
+    let name = safe_name(compare_id, slot)?;
+    let target = root.join(name);
+    let changes = copy_changes(compare_id, slot, root)?;
+    count_copy_line_changes_with(folder, &target, root, &changes, |args, cwd| {
+        let (_, stdout, _) = run_git_output(args, cwd)?;
+        Ok(String::from_utf8_lossy(&stdout).into_owned())
+    })
 }
 
 fn local_file(root: &Path, rel_path: &str) -> Result<PathBuf, String> {

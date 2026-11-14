@@ -12,7 +12,8 @@ use chrono::FixedOffset;
 use locust_core::scout::log::{look_lines, look_name};
 use locust_core::scout::types::{
     MAX_SCOUT_GOAL, MAX_SCOUT_NOTE, MAX_SCOUT_NOTES, SCOUT_BRIEF_HOURS, SCOUT_EVERY_MINUTES,
-    ScoutChange, ScoutState, ScoutWatchesPatch, hour_words,
+    SCOUT_FIXES_PER_DAY, ScoutChange, ScoutFixSettingsPatch, ScoutState, ScoutWatchesPatch,
+    hour_words,
 };
 use locust_core::scout::view::{
     self, SCOUT_GOAL_HEADING, SCOUT_GOAL_LEDE, SCOUT_GOAL_PLACEHOLDER, SCOUT_NO_MODEL_MESSAGE,
@@ -600,7 +601,7 @@ pub(super) fn section_at(
     // 3. What Scout saw (read lazily on press)
     root = root.child(scout_saw_section(s, p, &l, *now.offset()));
 
-    // 4. Part 2a watches (GitHub, Teammates, Folder check; omit 2b comments)
+    // 4. Watches (GitHub, Your /locust comments, Teammates, Folder check)
     let watches = st.settings.watches;
     root = root.child(toggle_line(
         "Pull requests and their checks",
@@ -620,6 +621,32 @@ pub(super) fn section_at(
                 ScoutChange {
                     watches: Some(ScoutWatchesPatch {
                         github: Some(next),
+                        ..ScoutWatchesPatch::default()
+                    }),
+                    ..ScoutChange::default()
+                },
+            );
+        },
+    ));
+
+    root = root.child(toggle_line(
+        "Your /locust comments",
+        "A comment of yours on this folder's GitHub with a line starting /locust is an ask. Scout brings it to Home with the step drafted; /locust ada names the teammate.",
+        watches.comments,
+        busy,
+        "scout-watch-comments",
+        &l,
+        |s| {
+            let next = !s
+                .scout
+                .state
+                .as_ref()
+                .map_or(true, |st| st.settings.watches.comments);
+            scout_cards::apply_change(
+                s,
+                ScoutChange {
+                    watches: Some(ScoutWatchesPatch {
+                        comments: Some(next),
                         ..ScoutWatchesPatch::default()
                     }),
                     ..ScoutChange::default()
@@ -686,6 +713,120 @@ pub(super) fn section_at(
             );
         },
     ));
+
+    // 4b. Prepare fixes before I look
+    let fixes = st.settings.fixes.clone().unwrap_or_default();
+    let check_on = watches.check && check_command.is_some();
+    let fixes_disabled = busy || (!check_on && !fixes.on);
+    let fixes_lede = if check_on {
+        view::SCOUT_FIXES_LEDE.to_owned()
+    } else {
+        format!("{} {}", view::SCOUT_FIXES_LEDE, view::SCOUT_FIXES_NEED_CHECK)
+    };
+    root = root.child(toggle_line(
+        view::SCOUT_FIXES_HEADING,
+        fixes_lede,
+        fixes.on,
+        fixes_disabled,
+        "scout-fixes-toggle",
+        &l,
+        |s| {
+            let change = toggle_fixes_change(s);
+            scout_cards::apply_change(s, change);
+        },
+    ));
+    if fixes.on {
+        let scout_id = st.settings.teammate_id.as_deref();
+        let candidates: Vec<&Teammate> = s
+            .teammates
+            .iter()
+            .filter(|t| Some(t.id.as_str()) != scout_id)
+            .collect();
+        let mut who_row = row().gap(6.0).flex_wrap().center_y();
+        if candidates.is_empty() {
+            who_row = who_row.child(
+                text(view::SCOUT_FIXES_ADD_TEAMMATE)
+                    .font(rune::TextStyle::new(12.0, 400.0))
+                    .color(l.c("text-muted")),
+            );
+        } else {
+            if fixes.teammate_id.is_none() {
+                who_row = who_row.child(
+                    text(view::SCOUT_FIXES_PICK_TEAMMATE)
+                        .font(rune::TextStyle::new(12.0, 400.0))
+                        .color(l.c("text-muted")),
+                );
+            }
+            for tm in candidates {
+                let selected = fixes.teammate_id.as_deref() == Some(tm.id.as_str());
+                let tm_id = tm.id.clone();
+                let mut btn = option_chip(
+                    &tm.name,
+                    format!("scout-fixes-mate-{}", tm.id),
+                    selected,
+                    busy,
+                    &l,
+                );
+                if !busy {
+                    btn = btn.on_press(move |s: &mut State| {
+                        scout_cards::apply_change(
+                            s,
+                            ScoutChange {
+                                fixes: Some(ScoutFixSettingsPatch {
+                                    teammate_id: Some(Some(tm_id.clone())),
+                                    ..Default::default()
+                                }),
+                                ..ScoutChange::default()
+                            },
+                        );
+                    });
+                }
+                who_row = who_row.child(btn);
+            }
+        }
+        let mut days_row = row().gap(6.0).flex_wrap();
+        for per_day in SCOUT_FIXES_PER_DAY {
+            let selected = fixes.per_day == per_day;
+            let mut btn = option_chip(
+                view::fix_per_day_label(per_day),
+                format!("scout-fixes-day-{per_day}"),
+                selected,
+                busy,
+                &l,
+            );
+            if !busy {
+                btn = btn.on_press(move |s: &mut State| {
+                    scout_cards::apply_change(
+                        s,
+                        ScoutChange {
+                            fixes: Some(ScoutFixSettingsPatch {
+                                per_day: Some(per_day),
+                                ..Default::default()
+                            }),
+                            ..ScoutChange::default()
+                        },
+                    );
+                });
+            }
+            days_row = days_row.child(btn);
+        }
+        root = root.child(
+            col()
+                .w_full()
+                .gap(8.0)
+                .padding(8.0)
+                .radius(6.0)
+                .fill(l.c("bg-window"))
+                .border(1.0, l.c("border-hairline"))
+                .child(setting_line(
+                    view::SCOUT_FIXES_WHO_HEADING,
+                    "Only teammates other than Scout can edit your folder’s files.",
+                    who_row,
+                    &l,
+                ))
+                .child(days_row),
+        );
+    }
 
     // 5. How often it looks
     let mut every_row = row().gap(6.0).flex_wrap();
@@ -858,6 +999,45 @@ pub(super) fn section_at(
 
 fn l_ref(l: &Look) -> &Look {
     l
+}
+
+/// Build the `ScoutChange` when the user toggles "Prepare fixes before I look":
+/// turning it on without a valid non-Scout teammate picks the first candidate (`ScoutSetting.tsx:49`).
+fn toggle_fixes_change(s: &State) -> ScoutChange {
+    let fixes_cfg = s
+        .scout
+        .state
+        .as_ref()
+        .and_then(|st| st.settings.fixes.as_ref());
+    let next = !fixes_cfg.is_some_and(|f| f.on);
+    let mut teammate_patch = None;
+    if next {
+        let scout_id = s
+            .scout
+            .state
+            .as_ref()
+            .and_then(|st| st.settings.teammate_id.as_deref());
+        let candidates: Vec<&str> = s
+            .teammates
+            .iter()
+            .filter(|t| Some(t.id.as_str()) != scout_id)
+            .map(|t| t.id.as_str())
+            .collect();
+        let picked_valid = fixes_cfg
+            .and_then(|f| f.teammate_id.as_deref())
+            .is_some_and(|id| candidates.contains(&id));
+        if !picked_valid && let Some(&first) = candidates.first() {
+            teammate_patch = Some(Some(first.to_owned()));
+        }
+    }
+    ScoutChange {
+        fixes: Some(ScoutFixSettingsPatch {
+            on: Some(next),
+            teammate_id: teammate_patch,
+            ..Default::default()
+        }),
+        ..ScoutChange::default()
+    }
 }
 
 #[cfg(test)]
@@ -1051,7 +1231,7 @@ mod tests {
                     at: "2026-10-22T12:00:00.000Z".into(),
                     reading: false,
                     take: None,
-                    raw_fix: None,
+                    fix: None,
                     fact,
                 }];
             },
@@ -1207,5 +1387,123 @@ mod tests {
         assert!(rt.state.scout.log_aside_only);
         assert!(rt.find("scout-saw-entry-17").is_some());
         assert!(rt.find("scout-saw-entry-18").is_none());
+    }
+
+    // --- 1:1 port of `a-scout-fix-says-where-it-stands.test.tsx` (1 settings case) ---
+
+    #[test]
+    fn fixes_setting_requires_check_first_offers_non_scout_teammates_and_adds_today_fixes() {
+        let mut no_check = State::default();
+        no_check.scout.state = Some(on_state(|_| {}, |_| {}));
+        let mut no_check_rt = render_state(no_check, draw_npm_cmd);
+        let words = collect_rt_text(&no_check_rt);
+        assert!(words.contains("Prepare fixes before I look"));
+        assert!(words.contains("Turn on This folder’s check first."));
+        click_key(&mut no_check_rt, "scout-fixes-toggle");
+        assert!(!no_check_rt.state.scout.setting_busy);
+
+        let mut on_fixes = State::default();
+        on_fixes.teammates = vec![
+            Teammate {
+                id: "tm_scout".into(),
+                name: "Scout".into(),
+                role: "Watch".into(),
+                runtime: None,
+                model: None,
+                account: None,
+                busy: false,
+                runs_in: "ask".into(),
+                folder: None,
+            },
+            Teammate {
+                id: "tm_wren".into(),
+                name: "Wren".into(),
+                role: "Builder".into(),
+                runtime: None,
+                model: None,
+                account: None,
+                busy: false,
+                runs_in: "edit".into(),
+                folder: None,
+            },
+        ];
+        on_fixes.scout.state = Some(on_state(
+            |cfg| {
+                cfg.watches.check = true;
+                cfg.fixes = Some(locust_core::scout::types::ScoutFixSettings {
+                    on: true,
+                    teammate_id: Some("tm_wren".into()),
+                    per_day: 3,
+                });
+            },
+            |st| {
+                st.today = Some(ScoutToday {
+                    day: "2026-10-22".into(),
+                    looks: 4,
+                    asked: 1,
+                    fixes: Some(2),
+                });
+            },
+        ));
+        let rt = render_state(on_fixes, draw_npm_cmd);
+        let words = collect_rt_text(&rt);
+        assert!(!words.contains("Turn on This folder’s check first."));
+        assert!(words.contains("Who prepares Scout’s fixes"));
+        assert!(words.contains("At most 1 a day"));
+        assert!(words.contains("At most 2 a day"));
+        assert!(words.contains("At most 3 a day"));
+        assert!(words.contains("At most 5 a day"));
+        assert!(words.contains("2 of 3 fixes prepared."));
+        assert!(rt.find("scout-fixes-mate-tm_wren").is_some());
+        assert!(rt.find("scout-fixes-mate-tm_scout").is_none());
+        assert!(rt.find("scout-fixes-day-3").is_some());
+
+        // Without any non-Scout teammate, says to add a teammate first.
+        let mut solo = State::default();
+        solo.scout.state = Some(on_state(
+            |cfg| {
+                cfg.watches.check = true;
+                cfg.fixes = Some(locust_core::scout::types::ScoutFixSettings {
+                    on: true,
+                    teammate_id: None,
+                    per_day: 2,
+                });
+            },
+            |_| {},
+        ));
+        let solo_rt = render_state(solo, draw_npm_cmd);
+        assert!(collect_rt_text(&solo_rt).contains("Add a teammate first"));
+
+        // Toggling Prepare fixes on without a teammate picks the first non-Scout teammate.
+        let mut toggle_on = State::default();
+        toggle_on.teammates = rt.state.teammates.clone();
+        toggle_on.scout.state = Some(on_state(|cfg| cfg.watches.check = true, |_| {}));
+        let patch = toggle_fixes_change(&toggle_on).fixes.unwrap();
+        assert_eq!(patch.on, Some(true));
+        assert_eq!(patch.teammate_id, Some(Some("tm_wren".to_owned())));
+        assert!(toggle_fixes_change(&rt.state).fixes.unwrap().on == Some(false));
+    }
+
+    // --- 1:1 port of `scout-settings-say-its-goal-hours-and-day.test.tsx` (1 Part-2b comment watch case) ---
+
+    #[test]
+    fn offers_your_own_comment_watch_on_by_default_and_says_how_named_ask_works() {
+        let mut s = State::default();
+        s.scout.state = Some(on_state(|_| {}, |_| {}));
+        let rt = render_state(s, draw_no_cmd);
+        let words = collect_rt_text(&rt);
+        assert!(words.contains("Your /locust comments"));
+        assert!(words.contains("/locust ada names the teammate."));
+        assert!(rt.find("scout-watch-comments").is_some());
+
+        let mut off = State::default();
+        off.scout.state = Some(on_state(
+            |cfg| cfg.watches.comments = false,
+            |_| {},
+        ));
+        let off_rt = render_state(off, draw_no_cmd);
+        let off_words = collect_rt_text(&off_rt);
+        assert!(off_words.contains("Your /locust comments"));
+        assert!(off_rt.find("scout-watch-comments").is_some());
     }
 }

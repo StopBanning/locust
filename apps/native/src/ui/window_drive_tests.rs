@@ -5188,7 +5188,7 @@ fn scout_send_to_starts_teammates_fresh_conversation_and_dismisses_card() {
         at: "2026-04-12T10:00:00.000Z".into(),
         reading: false,
         take: None,
-        raw_fix: None,
+        fix: None,
         fact: locust_core::scout::types::ScoutFact {
             draft: Some(locust_core::scout::types::ScoutDraft {
                 teammate_id: "tm_codec".into(),
@@ -5264,7 +5264,7 @@ fn scout_change_it_first_puts_draft_into_box_and_dismisses_card() {
         at: "2026-04-12T10:00:00.000Z".into(),
         reading: false,
         take: None,
-        raw_fix: None,
+        fix: None,
         fact: locust_core::scout::types::ScoutFact {
             draft: Some(locust_core::scout::types::ScoutDraft {
                 teammate_id: "tm_codec".into(),
@@ -5470,7 +5470,7 @@ fn scout_urgent_card_is_on_board_and_actions_match_home() {
         at: "2026-10-12T10:00:00.000Z".into(),
         reading: false,
         take: None,
-        raw_fix: None,
+        fix: None,
         fact: locust_core::scout::types::ScoutFact {
             draft: Some(locust_core::scout::types::ScoutDraft {
                 teammate_id: "tm_codec".into(),
@@ -5574,4 +5574,608 @@ fn asking_scout_from_window_uses_ask_mode_and_sealed_runtime_even_when_edit_sele
     let recs = first_records(&store);
     assert_eq!(recs[0]["metadata"]["mode"], "ask");
     assert_eq!(recs[0]["metadata"]["sandbox"], "read-only");
+}
+
+#[test]
+fn scout_fixes_settings_apply_and_skip_work_from_window_in_isolated_fix_root() {
+    let (dirs, store, mut rt) = window();
+    let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "cards-scout-fix"));
+    let folder = dirs.0.join("fix-repo");
+    let fix_root = dirs.0.join("scout-fixes-root");
+    std::fs::create_dir_all(&folder).unwrap();
+    std::fs::create_dir_all(&fix_root).unwrap();
+    std::fs::write(folder.join("answer.txt"), "41\n").unwrap();
+    std::fs::write(folder.join("notes.md"), "mine\n").unwrap();
+    locust_core::scout::fix::default_fix_git(&["init", "-q"], &folder).unwrap();
+    locust_core::scout::fix::default_fix_git(
+        &["config", "user.email", "scout-test"],
+        &folder,
+    )
+    .unwrap();
+    locust_core::scout::fix::default_fix_git(&["config", "user.name", "Test"], &folder).unwrap();
+    locust_core::scout::fix::default_fix_git(&["add", "-A"], &folder).unwrap();
+    locust_core::scout::fix::default_fix_git(&["commit", "-m", "init"], &folder).unwrap();
+
+    // Person also has uncommitted changes to a separate file in the project folder.
+    std::fs::write(folder.join("notes.md"), "mine edited\n").unwrap();
+
+    // Seed Scout + Wren routes in teammates.json so both look and fix-in-copy spawn the fake agent.
+    store
+        .save_json(
+            "teammates.json",
+            &json!({
+                "schemaVersion": 1,
+                "teammates": [
+                    {
+                        "teammateId": "tm_scout",
+                        "name": "Scout",
+                        "hue": "teal",
+                        "role": "Custom",
+                        "roleTitle": "Keeps watch",
+                        "createdAt": "2026-10-01T00:00:00.000Z",
+                        "route": { "runtime": "codex", "model": "synthetic-model", "mode": "ask" }
+                    },
+                    {
+                        "teammateId": "tm_wren",
+                        "name": "Wren",
+                        "hue": "lime",
+                        "role": "Code & Migrations",
+                        "createdAt": "2026-10-01T00:00:00.000Z",
+                        "route": { "runtime": "codex", "model": "synthetic-model", "mode": "accept-edits" }
+                    }
+                ],
+                "missionOwners": {},
+                "settings": {}
+            }),
+        )
+        .unwrap();
+
+    std::fs::create_dir_all(store.root()).unwrap();
+    std::fs::write(
+        store.root().join("scout.json"),
+        serde_json::to_string_pretty(&serde_json::json!({
+            "settings": {
+                "on": true,
+                "teammateId": "tm_scout",
+                "watches": { "comments": false, "github": false, "teammates": false, "check": true },
+                "fixes": { "on": false, "teammateId": "tm_wren", "perDay": 2 }
+            },
+            "cards": []
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+    let ws_id = locust_core::workspace_settings::workspace_id_for(&folder);
+    let mut ws_settings = locust_core::workspace_settings::load(&store).unwrap();
+    ws_settings
+        .check_commands
+        .insert(ws_id, "grep -q 42 answer.txt".into());
+    locust_core::workspace_settings::save(&store, &ws_settings).unwrap();
+
+    // Seed non-Scout teammate and Scout in state + configure isolated folder & fix_root on ScoutHost.
+    rt.update(|s, _| {
+        let mut wren = s.teammates[0].clone();
+        wren.id = "tm_wren".into();
+        wren.name = "Wren".into();
+        wren.runs_in = "edit".into();
+        wren.folder = None;
+        let mut scout = wren.clone();
+        scout.id = "tm_scout".into();
+        scout.name = "Scout".into();
+        scout.runs_in = "ask".into();
+        apply_team(s, vec![scout, wren]);
+        s.home.folder_path = Some(folder.to_string_lossy().into());
+        crate::settings_panel::open(s);
+        s.settings_panel.page = Some(crate::settings_pages::SettingsPageId::App);
+    });
+    pump(&mut rt, "scout settings and host initialized", |s| {
+        s.scout.host.is_some() && s.scout.state.as_ref().is_some_and(|st| st.settings.on)
+    });
+    rt.state
+        .scout
+        .host
+        .as_ref()
+        .unwrap()
+        .deps
+        .set_folder(Some(folder.clone()));
+    rt.state
+        .scout
+        .host
+        .as_ref()
+        .unwrap()
+        .deps
+        .set_fix_root(Some(fix_root.clone()));
+
+    // 1. In Settings: toggle fixes on and select "At most 3 a day".
+    rt.update(|_, tx| tx.scroll_key_to("scout-fixes-toggle", 0.5));
+    settle(&mut rt);
+    click(&mut rt, "scout-fixes-toggle");
+    pump(&mut rt, "fixes enabled", |s| {
+        !s.scout.setting_busy
+            && s.scout
+                .state
+                .as_ref()
+                .and_then(|st| st.settings.fixes.as_ref())
+                .is_some_and(|f| f.on)
+    });
+    rt.update(|_, tx| tx.scroll_key_to("scout-fixes-day-3", 0.5));
+    settle(&mut rt);
+    click(&mut rt, "scout-fixes-day-3");
+    pump(&mut rt, "fixes per_day set to 3", |s| {
+        !s.scout.setting_busy
+            && s.scout
+                .state
+                .as_ref()
+                .and_then(|st| st.settings.fixes.as_ref())
+                .is_some_and(|f| f.per_day == 3)
+    });
+
+    // 2. Open Home, pause fix completion on a gate, and trigger a real look on the failing check.
+    std::fs::write(fix_root.join("hold.gate"), b"wait\n").unwrap();
+    rt.update(|s, _| {
+        s.settings_panel.open = false;
+        home_panel::open_home(s);
+    });
+    settle(&mut rt);
+    // Scout's team card is below the fold on this Home (the folder card sits above it), and Rune presses only what it
+    // drew. The eye's own press is checked in scout_invite_flow_adds_scout_to_team_and_shows_look_now_eye_button; here
+    // the look starts the way the eye starts it, and the fix that follows is the subject.
+    assert!(crate::scout_cards::tests::collect_rt_text(&rt).contains("Look now"), "the eye is on Scout's card");
+    rt.update(|s, _| crate::scout_cards::look_now(s));
+    pump(&mut rt, "preparing fix in isolated copy", |s| {
+        s.scout.state.as_ref().is_some_and(|st| {
+            st.cards.iter().any(|c| {
+                matches!(
+                    c.fix,
+                    Some(locust_core::scout::types::ScoutFix::Preparing { .. })
+                )
+            })
+        })
+    });
+    settle(&mut rt);
+    let card_apply_id = rt
+        .state
+        .scout
+        .state
+        .as_ref()
+        .unwrap()
+        .cards
+        .iter()
+        .find(|c| {
+            matches!(
+                c.fix,
+                Some(locust_core::scout::types::ScoutFix::Preparing { .. })
+            )
+        })
+        .unwrap()
+        .card_id
+        .clone();
+    assert!(crate::scout_cards::tests::collect_rt_text(&rt)
+        .contains("Wren is preparing a fix in a copy of the folder…"));
+    assert!(rt.find(&format!("scout-fix-apply-{card_apply_id}")).is_none());
+    assert!(rt.find(&format!("scout-send-{card_apply_id}")).is_none());
+    assert_eq!(
+        std::fs::read_to_string(folder.join("answer.txt")).unwrap(),
+        "41\n"
+    );
+
+    // 3. Release the gate: fake agent fixes the copy, check passes there, and Ready appears while folder stays untouched.
+    std::fs::write(fix_root.join("release.gate"), b"go\n").unwrap();
+    pump(&mut rt, "fix ready in copy", |s| {
+        let Some(st) = s.scout.state.as_ref() else {
+            return false;
+        };
+        let Some(card) = st.cards.iter().find(|c| c.card_id == card_apply_id) else {
+            return false;
+        };
+        if let Some(locust_core::scout::types::ScoutFix::Unfixed { why, .. }) = &card.fix {
+            panic!("fix became Unfixed: {why} (model_said={:?})", st.model_said);
+        }
+        !card.reading
+            && matches!(
+                card.fix,
+                Some(locust_core::scout::types::ScoutFix::Ready { .. })
+            )
+    });
+    settle(&mut rt);
+    let ready_fix_id = match rt
+        .state
+        .scout
+        .state
+        .as_ref()
+        .unwrap()
+        .cards
+        .iter()
+        .find(|c| c.card_id == card_apply_id)
+        .unwrap()
+        .fix
+        .as_ref()
+        .unwrap()
+    {
+        locust_core::scout::types::ScoutFix::Ready { fix_id, .. } => fix_id.clone(),
+        other => panic!("expected Ready, got {other:?}"),
+    };
+    let copy_apply = fix_root.join(&ready_fix_id);
+    assert_eq!(
+        std::fs::read_to_string(folder.join("answer.txt")).unwrap(),
+        "41\n"
+    );
+    assert!(crate::scout_cards::tests::collect_rt_text(&rt).contains("Fix ready: 1 file changed"));
+    assert!(rt.find(&format!("scout-fix-review-{card_apply_id}")).is_some());
+    assert!(rt.find(&format!("scout-fix-apply-{card_apply_id}")).is_some());
+    assert!(rt.find(&format!("scout-fix-skip-{card_apply_id}")).is_some());
+    assert!(rt.find(&format!("scout-send-{card_apply_id}")).is_none());
+
+    // 4. Apply brings the fix into the folder beside uncommitted notes.md, then a passing look clears check state.
+    rt.update(|_, tx| tx.scroll_key_to(&format!("scout-fix-apply-{card_apply_id}"), 0.5));
+    settle(&mut rt);
+    click(&mut rt, &format!("scout-fix-apply-{card_apply_id}"));
+    pump(&mut rt, "fix applied into folder", |s| {
+        s.scout.state.as_ref().is_some_and(|st| {
+            st.cards.iter().any(|c| {
+                c.card_id == card_apply_id
+                    && matches!(
+                        c.fix,
+                        Some(locust_core::scout::types::ScoutFix::Applied { .. })
+                    )
+            })
+        })
+    });
+    settle(&mut rt);
+    assert_eq!(
+        std::fs::read_to_string(folder.join("answer.txt")).unwrap(),
+        "42\n"
+    );
+    assert_eq!(
+        std::fs::read_to_string(folder.join("notes.md")).unwrap(),
+        "mine edited\n"
+    );
+    assert!(rt.find(&format!("scout-send-{card_apply_id}")).is_none());
+    assert!(!copy_apply.exists());
+
+    // Look once while passing so last_check becomes true, then break answer.txt again and test Skip.
+    let before_pass_look = rt
+        .state
+        .scout
+        .state
+        .as_ref()
+        .and_then(|st| st.last_look_at.clone());
+    rt.update(|s, _| crate::scout_cards::look_now(s));
+    pump(&mut rt, "passing check look finishes", |s| {
+        !s.scout.looking
+            && s.scout
+                .state
+                .as_ref()
+                .and_then(|st| st.last_look_at.as_deref())
+                != before_pass_look.as_deref()
+    });
+    std::fs::write(folder.join("answer.txt"), "40\n").unwrap();
+    rt.update(|s, _| crate::scout_cards::look_now(s));
+    pump(&mut rt, "second fix ready for skip", |s| {
+        let Some(st) = s.scout.state.as_ref() else {
+            return false;
+        };
+        for c in st.cards.iter().filter(|c| c.card_id != card_apply_id) {
+            if let Some(locust_core::scout::types::ScoutFix::Unfixed { why, .. }) = &c.fix {
+                panic!("second fix became Unfixed: {why} (model_said={:?})", st.model_said);
+            }
+        }
+        st.cards.iter().any(|c| {
+            c.card_id != card_apply_id
+                && !c.reading
+                && matches!(
+                    c.fix,
+                    Some(locust_core::scout::types::ScoutFix::Ready { .. })
+                )
+        })
+    });
+    settle(&mut rt);
+    let card_skip = rt
+        .state
+        .scout
+        .state
+        .as_ref()
+        .unwrap()
+        .cards
+        .iter()
+        .find(|c| {
+            matches!(
+                c.fix,
+                Some(locust_core::scout::types::ScoutFix::Ready { .. })
+            )
+        })
+        .unwrap();
+    let card_skip_id = card_skip.card_id.clone();
+    let copy_skip_id = match card_skip.fix.as_ref().unwrap() {
+        locust_core::scout::types::ScoutFix::Ready { fix_id, .. } => fix_id.clone(),
+        _ => unreachable!(),
+    };
+    let copy_skip = fix_root.join(&copy_skip_id);
+    assert_eq!(
+        std::fs::read_to_string(folder.join("answer.txt")).unwrap(),
+        "40\n"
+    );
+
+    // 5. Skip discards the copy without changing folder/answer.txt and reveals the draft Send button.
+    rt.update(|_, tx| tx.scroll_key_to(&format!("scout-fix-skip-{card_skip_id}"), 0.5));
+    settle(&mut rt);
+    click(&mut rt, &format!("scout-fix-skip-{card_skip_id}"));
+    pump(&mut rt, "fix skipped and draft revealed", |s| {
+        s.scout.state.as_ref().is_some_and(|st| {
+            st.cards
+                .iter()
+                .any(|c| c.card_id == card_skip_id && c.fix.is_none())
+        })
+    });
+    settle(&mut rt);
+    assert_eq!(
+        std::fs::read_to_string(folder.join("answer.txt")).unwrap(),
+        "40\n"
+    );
+    assert_eq!(
+        std::fs::read_to_string(folder.join("notes.md")).unwrap(),
+        "mine edited\n"
+    );
+    assert!(rt.find(&format!("scout-send-{card_skip_id}")).is_some());
+    assert!(!copy_skip.exists());
+}
+
+#[test]
+fn scout_comment_ask_sends_and_posts_reviewed_reply_from_window() {
+    let (dirs, store, mut rt) = window();
+    let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "success"));
+    let folder = dirs.0.join("work");
+    std::fs::create_dir_all(&folder).unwrap();
+
+    // Seed Scout + Codec in teammates.json and enable comments watch in scout.json.
+    store
+        .save_json(
+            "teammates.json",
+            &json!({
+                "schemaVersion": 1,
+                "teammates": [
+                    { "teammateId": "tm_scout", "name": "Scout", "role": "Custom", "roleTitle": "Keeps watch" },
+                    { "teammateId": "tm_codec", "name": "Codec" }
+                ],
+                "missionOwners": {},
+                "settings": {}
+            }),
+        )
+        .unwrap();
+    std::fs::write(
+        store.root().join("scout.json"),
+        serde_json::to_string_pretty(&json!({
+            "settings": {
+                "on": true,
+                "teammateId": "tm_scout",
+                "watches": { "comments": true, "github": false, "teammates": false, "check": false }
+            },
+            "cards": []
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+
+    rt.update(|s, _| {
+        let codec = s.teammates[0].clone();
+        let mut scout = codec.clone();
+        scout.id = "tm_scout".into();
+        scout.name = "Scout".into();
+        apply_team(s, vec![codec, scout]);
+        s.home.folder_path = Some(folder.to_string_lossy().into());
+        crate::settings_panel::open(s);
+        s.settings_panel.page = Some(crate::settings_pages::SettingsPageId::App);
+    });
+    pump(&mut rt, "scout host initialized for comment ask test", |s| {
+        s.scout.host.is_some()
+            && s.scout
+                .state
+                .as_ref()
+                .is_some_and(|st| st.settings.on && st.settings.watches.comments)
+    });
+
+    // 1. In Settings: toggle "Your /locust comments" off then back on.
+    rt.update(|_, tx| tx.scroll_key_to("scout-watch-comments", 0.5));
+    settle(&mut rt);
+    click(&mut rt, "scout-watch-comments");
+    pump(&mut rt, "comment watch toggled off", |s| {
+        !s.scout.setting_busy
+            && s.scout
+                .state
+                .as_ref()
+                .is_some_and(|st| !st.settings.watches.comments)
+    });
+    click(&mut rt, "scout-watch-comments");
+    pump(&mut rt, "comment watch toggled back on", |s| {
+        !s.scout.setting_busy
+            && s.scout
+                .state
+                .as_ref()
+                .is_some_and(|st| st.settings.watches.comments)
+    });
+
+    // 2. Install gh hooks and read a /locust codec comment.
+    let gh_hook: locust_core::scout::host::GhHook = std::sync::Arc::new(|args, _cwd| {
+        if args.len() >= 2 && args[0] == "api" && args[1] == "user" {
+            return Ok("alice\n".into());
+        }
+        if args.len() >= 2 && args[0] == "repo" && args[1] == "view" {
+            return Ok("acme/app\n".into());
+        }
+        if args.len() >= 2
+            && args[0] == "api"
+            && args[1].starts_with("repos/acme/app/issues/comments")
+        {
+            return Ok(json!([
+                {
+                    "id": 77,
+                    "user": { "login": "alice" },
+                    "body": "/locust codec Check the login failure",
+                    "created_at": "2099-01-01T00:00:00Z",
+                    "issue_url": "https://api.github.com/repos/acme/app/issues/42",
+                    "html_url": "https://github.com/acme/app/issues/42#issuecomment-77"
+                }
+            ])
+            .to_string());
+        }
+        if args.len() >= 2 && args[0] == "api" && args[1] == "repos/acme/app/issues/42" {
+            return Ok(json!({
+                "title": "Login fails on retry",
+                "body": "Steps to reproduce\n\nSynthetic prompt",
+                "comments": 1
+            })
+            .to_string());
+        }
+        if args.len() >= 2
+            && args[0] == "api"
+            && args[1].starts_with("repos/acme/app/issues/42/comments")
+        {
+            return Ok(json!([]).to_string());
+        }
+        Err(locust_core::scout::github::GhError::Failed(
+            "unexpected gh command in test".into(),
+        ))
+    });
+    let posted = std::sync::Arc::new(std::sync::Mutex::new(Vec::<(Vec<String>, String)>::new()));
+    let posted_ref = posted.clone();
+    let gh_input_hook: locust_core::scout::host::GhInputHook =
+        std::sync::Arc::new(move |args, _cwd, input| {
+            posted_ref.lock().unwrap().push((
+                args.iter().map(|s| (*s).to_owned()).collect(),
+                input.to_owned(),
+            ));
+            Ok(
+                json!({ "html_url": "https://github.com/acme/app/issues/42#issuecomment-88" })
+                    .to_string(),
+            )
+        });
+
+    let host = rt.state.scout.host.as_ref().unwrap().clone();
+    host.deps.set_folder(Some(folder));
+    host.deps.set_gh_hook(Some(gh_hook));
+    host.deps.set_gh_input_hook(Some(gh_input_hook));
+
+    rt.update(|s, _| {
+        s.settings_panel.open = false;
+        home_panel::open_home(s);
+    });
+    host.scout.comments_now();
+    pump(&mut rt, "comment ask card appeared", |s| {
+        s.scout
+            .state
+            .as_ref()
+            .is_some_and(|st| st.cards.iter().any(|c| c.fact.comment_ask.is_some()))
+    });
+    let card_id = rt
+        .state
+        .scout
+        .state
+        .as_ref()
+        .unwrap()
+        .cards
+        .iter()
+        .find(|c| c.fact.comment_ask.is_some())
+        .unwrap()
+        .card_id
+        .clone();
+    settle(&mut rt);
+
+    // 3. Send draft to Codec from the Home card -> engine runs fake codex -> on_run_ended moves card to Post.
+    let send_key = format!("scout-send-{card_id}");
+    rt.update(|_, tx| tx.scroll_key_to(&send_key, 0.5));
+    settle(&mut rt);
+    assert!(rt.find(&format!("scout-draft-{card_id}")).is_some());
+    click(&mut rt, &send_key);
+
+    pump(&mut rt, "comment reply ready to post", |s| {
+        s.scout
+            .state
+            .as_ref()
+            .is_some_and(|st| st.cards.iter().any(|c| c.fact.post.is_some()))
+    });
+    let post_card_id = rt
+        .state
+        .scout
+        .state
+        .as_ref()
+        .unwrap()
+        .cards
+        .iter()
+        .find(|c| c.fact.post.is_some())
+        .unwrap()
+        .card_id
+        .clone();
+    rt.update(|s, _| home_panel::open_home(s));
+    settle(&mut rt);
+
+    // 4. Edit the reply on the Post card and keep the edited text.
+    let post_edit_key = format!("scout-post-edit-{post_card_id}");
+    let post_send_key = format!("scout-post-send-{post_card_id}");
+    rt.update(|_, tx| tx.scroll_key_to(&post_send_key, 0.5));
+    settle(&mut rt);
+    assert!(rt.find(&post_send_key).is_some());
+    click(&mut rt, &post_edit_key);
+    settle(&mut rt);
+
+    let post_input_key = format!("scout-post-input-{post_card_id}");
+    let post_keep_key = format!("scout-post-keep-{post_card_id}");
+    click(&mut rt, &post_input_key);
+    rt.key(Key::End.into());
+    rt.paste(" (reviewed)");
+    rt.frame(0.016);
+    click(&mut rt, &post_keep_key);
+
+    pump(&mut rt, "edited reply kept on post card", |s| {
+        !s.scout.post_edits.contains_key(&post_card_id)
+            && s.scout.state.as_ref().is_some_and(|st| {
+                st.cards.iter().any(|c| {
+                    c.card_id == post_card_id
+                        && c.fact
+                            .post
+                            .as_ref()
+                            .is_some_and(|p| p.message.contains("reviewed"))
+                })
+            })
+    });
+    settle(&mut rt);
+    let kept_message = rt
+        .state
+        .scout
+        .state
+        .as_ref()
+        .unwrap()
+        .cards
+        .iter()
+        .find(|c| c.card_id == post_card_id)
+        .unwrap()
+        .fact
+        .post
+        .as_ref()
+        .unwrap()
+        .message
+        .clone();
+
+    // 5. Post the reviewed reply to GitHub and verify UI + gh_input_hook payload.
+    click(&mut rt, &post_send_key);
+    pump(&mut rt, "reply posted to GitHub", |s| {
+        !s.scout.post_busy.contains(&post_card_id)
+            && s.scout.state.as_ref().is_some_and(|st| {
+                st.cards.iter().any(|c| {
+                    c.card_id == post_card_id
+                        && c.fact
+                            .post
+                            .as_ref()
+                            .is_some_and(|p| p.posted_url.is_some())
+                })
+            })
+    });
+    settle(&mut rt);
+
+    let captured = posted.lock().unwrap();
+    assert_eq!(captured.len(), 1);
+    let body_json: Value = serde_json::from_str(&captured[0].1).unwrap();
+    assert_eq!(body_json["body"], json!(kept_message));
+    assert!(rt.find(&post_send_key).is_none());
+    assert!(rt.find(&post_edit_key).is_none());
+    assert!(rt.find(&format!("scout-post-open-{post_card_id}")).is_some());
 }
