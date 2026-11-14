@@ -768,7 +768,7 @@ fn render_fix_line(card_id: &str, fix: &ScoutFix, l: &Look) -> El {
                         .on_press(move |s: &mut State| skip_fix(s, id_skip.clone())),
                 );
         }
-        ScoutFix::Unfixed { .. } | ScoutFix::Stale { .. } => {
+        ScoutFix::Unfixed { .. } | ScoutFix::Stale { .. } | ScoutFix::Held { .. } => {
             has_btns = true;
             let id_again = card_id.to_owned();
             btns = btns.child(
@@ -779,7 +779,7 @@ fn render_fix_line(card_id: &str, fix: &ScoutFix, l: &Look) -> El {
                     .on_press(move |s: &mut State| fix_again(s, id_again.clone())),
             );
         }
-        ScoutFix::Preparing { .. } | ScoutFix::Held { .. } | ScoutFix::Applied { .. } => {}
+        ScoutFix::Preparing { .. } | ScoutFix::Applied { .. } => {}
     }
 
     if has_btns {
@@ -2276,6 +2276,7 @@ pub(super) mod tests {
                     assert!(words.contains(
                         "Prepared 2 fixes today; raise the limit in Settings or send a teammate."
                     ));
+                    assert!(rt.find("scout-fix-again-c-held").is_some());
                 }
                 _ => unreachable!(),
             }

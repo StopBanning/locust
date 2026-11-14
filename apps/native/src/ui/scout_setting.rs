@@ -731,22 +731,8 @@ pub(super) fn section_at(
         "scout-fixes-toggle",
         &l,
         |s| {
-            let next = !s
-                .scout
-                .state
-                .as_ref()
-                .and_then(|st| st.settings.fixes.as_ref())
-                .is_some_and(|f| f.on);
-            scout_cards::apply_change(
-                s,
-                ScoutChange {
-                    fixes: Some(ScoutFixSettingsPatch {
-                        on: Some(next),
-                        ..Default::default()
-                    }),
-                    ..ScoutChange::default()
-                },
-            );
+            let change = toggle_fixes_change(s);
+            scout_cards::apply_change(s, change);
         },
     ));
     if fixes.on {
@@ -1013,6 +999,45 @@ pub(super) fn section_at(
 
 fn l_ref(l: &Look) -> &Look {
     l
+}
+
+/// Build the `ScoutChange` when the user toggles "Prepare fixes before I look":
+/// turning it on without a valid non-Scout teammate picks the first candidate (`ScoutSetting.tsx:49`).
+fn toggle_fixes_change(s: &State) -> ScoutChange {
+    let fixes_cfg = s
+        .scout
+        .state
+        .as_ref()
+        .and_then(|st| st.settings.fixes.as_ref());
+    let next = !fixes_cfg.is_some_and(|f| f.on);
+    let mut teammate_patch = None;
+    if next {
+        let scout_id = s
+            .scout
+            .state
+            .as_ref()
+            .and_then(|st| st.settings.teammate_id.as_deref());
+        let candidates: Vec<&str> = s
+            .teammates
+            .iter()
+            .filter(|t| Some(t.id.as_str()) != scout_id)
+            .map(|t| t.id.as_str())
+            .collect();
+        let picked_valid = fixes_cfg
+            .and_then(|f| f.teammate_id.as_deref())
+            .is_some_and(|id| candidates.contains(&id));
+        if !picked_valid && let Some(&first) = candidates.first() {
+            teammate_patch = Some(Some(first.to_owned()));
+        }
+    }
+    ScoutChange {
+        fixes: Some(ScoutFixSettingsPatch {
+            on: Some(next),
+            teammate_id: teammate_patch,
+            ..Default::default()
+        }),
+        ..ScoutChange::default()
+    }
 }
 
 #[cfg(test)]
@@ -1448,6 +1473,15 @@ mod tests {
         ));
         let solo_rt = render_state(solo, draw_npm_cmd);
         assert!(collect_rt_text(&solo_rt).contains("Add a teammate first"));
+
+        // Toggling Prepare fixes on without a teammate picks the first non-Scout teammate.
+        let mut toggle_on = State::default();
+        toggle_on.teammates = rt.state.teammates.clone();
+        toggle_on.scout.state = Some(on_state(|cfg| cfg.watches.check = true, |_| {}));
+        let patch = toggle_fixes_change(&toggle_on).fixes.unwrap();
+        assert_eq!(patch.on, Some(true));
+        assert_eq!(patch.teammate_id, Some(Some("tm_wren".to_owned())));
+        assert!(toggle_fixes_change(&rt.state).fixes.unwrap().on == Some(false));
     }
 
     // --- 1:1 port of `scout-settings-say-its-goal-hours-and-day.test.tsx` (1 Part-2b comment watch case) ---

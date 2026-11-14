@@ -21,8 +21,8 @@ use super::host::{GhInputHook, ScoutHostDeps};
 use super::scheduler::FakeScheduler;
 use super::store::ScoutFiles;
 use super::types::{
-    FailedTurn, FolderCheckResult, ScoutCard, ScoutChange, ScoutSettings, ScoutState,
-    ScoutWatchesPatch, WaitingCard,
+    FailedTurn, FolderCheckResult, ScoutCard, ScoutChange, ScoutOpen, ScoutSettings, ScoutState,
+    ScoutUrgency, ScoutWatchesPatch, WaitingCard,
 };
 use super::{
     AnswerResult, AskResult, COMMENT_EVERY_MS, Scout, ScoutDeps, ScoutRoute, ScoutTeammate,
@@ -384,6 +384,7 @@ fn reader_turns_own_locust_comments_into_urgent_asks_with_thread_context() {
     let rows = json!([
         ok_gh_comment(11, "Colin", "Intro\n/locust ADA reproduce the failure", 212, "2026-09-16T10:01:00Z"),
         ok_gh_comment(12, "colin", "/locust summarize this thread", 212, "2026-09-16T10:02:00Z"),
+        ok_gh_comment(13, "colin", "/locust bob check why\nKeep the test.", 212, "2026-09-16T10:02:30Z"),
     ]);
 
     let res = reader.read(
@@ -420,7 +421,7 @@ fn reader_turns_own_locust_comments_into_urgent_asks_with_thread_context() {
         "2026-09-16T10:03:00Z",
     );
 
-    assert_eq!(res.facts.len(), 2);
+    assert_eq!(res.facts.len(), 3);
     let f1 = &res.facts[0];
     assert_eq!(f1.key, "comment:acme/app:11");
     assert_eq!(
@@ -437,6 +438,11 @@ fn reader_turns_own_locust_comments_into_urgent_asks_with_thread_context() {
     let f2 = &res.facts[1];
     assert_eq!(f2.comment_ask.as_ref().unwrap().named_teammate_id, None);
     assert!(f2.said.contains("summarize this thread"));
+
+    let f3 = &res.facts[2];
+    let ask3 = f3.comment_ask.as_ref().unwrap();
+    assert_eq!(ask3.named_teammate_id, None);
+    assert!(ask3.message.starts_with("bob check why\nKeep the test.\n"));
 }
 
 #[test]
@@ -483,6 +489,14 @@ fn reader_skips_bad_repository_issue_number_or_comment_url() {
             "created_at": "2026-09-16T10:01:00Z",
             "issue_url": "https://api.github.com/repos/acme/app/issues/5",
             "html_url": "https://evil.example/issues/5#issuecomment-23"
+        },
+        {
+            "id": 24,
+            "user": { "login": "colin" },
+            "body": "/locust do thing",
+            "created_at": "2026-09-16T10:01:00Z",
+            "issue_url": "https://api.github.com/repos/acme/app/issues/5",
+            "html_url": "https://github.com/acme/app/issues/other/5#issuecomment-24"
         }
     ]);
     let bad_urls = reader.read(
@@ -517,9 +531,13 @@ fn reader_bounds_seen_ids_and_tracks_since_and_page_cursors() {
         },
     );
     let rows: Vec<Value> = (501..=600)
-        .map(|i| ok_gh_comment(i as i64, "colin", "plain", 1, "2026-09-16T10:01:00Z"))
+        .map(|i| {
+            let body = if i == 550 { "plain" } else { "ordinary" };
+            ok_gh_comment(i as i64, "colin", body, 1, "2026-09-16T10:01:00Z")
+        })
         .collect();
     let team = team_sample();
+    let mut list_urls: Vec<String> = Vec::new();
     let res = reader.read(
         |args, _| {
             if args == ["api", "user", "--jq", ".login"] {
@@ -528,6 +546,7 @@ fn reader_bounds_seen_ids_and_tracks_since_and_page_cursors() {
             if args == ["repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"] {
                 return Ok("acme/app".to_owned());
             }
+            list_urls.push(args[1].to_string());
             Ok(Value::Array(rows.clone()).to_string())
         },
         Path::new("/tmp/repo"),
@@ -535,12 +554,43 @@ fn reader_bounds_seen_ids_and_tracks_since_and_page_cursors() {
         &team,
         "2026-09-16T10:02:00Z",
     );
+    assert!(list_urls[0].contains("since=2026-09-16T10%3A00%3A00Z&per_page=100"));
+    assert!(list_urls[0].contains("&page=1"));
     let cur = &res.watch.repositories["acme/app"];
     assert_eq!(cur.since, "2026-09-16T10:00:00Z");
     assert_eq!(cur.page, 2);
     assert_eq!(cur.seen.len(), MAX_SEEN_COMMENTS);
     assert_eq!(cur.seen.first().unwrap(), "101");
     assert_eq!(cur.seen.last().unwrap(), "600");
+
+    // Round-tripped watch uses page=2 and ignores previously seen ordinary comments edited to /locust.
+    let saved_watch = CommentWatch::from_json(&res.watch.to_json()).unwrap();
+    let mut page2_urls: Vec<String> = Vec::new();
+    let res2 = reader.read(
+        |args, _| {
+            if args == ["api", "user", "--jq", ".login"] {
+                return Ok("colin".to_owned());
+            }
+            if args == ["repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"] {
+                return Ok("acme/app".to_owned());
+            }
+            page2_urls.push(args[1].to_string());
+            Ok(json!([ok_gh_comment(
+                550,
+                "colin",
+                "/locust edited to become an ask",
+                1,
+                "2026-09-16T10:01:00Z"
+            )])
+            .to_string())
+        },
+        Path::new("/tmp/repo"),
+        &saved_watch,
+        &team,
+        "2026-09-16T10:03:00Z",
+    );
+    assert!(page2_urls[0].contains("&page=2"));
+    assert!(res2.facts.is_empty());
 }
 
 #[test]
@@ -590,6 +640,33 @@ fn reader_caches_login_and_stops_cleanly_on_gh_error() {
     assert_eq!(user_calls, 1);
     assert!(r2.facts.is_empty());
     assert!(r2.watch.repositories["acme/app"].seen.is_empty());
+
+    // Errors on `api user` or `repo view` also leave facts empty and watch unchanged.
+    let fresh_reader = CommentReader::new();
+    let r_user_err = fresh_reader.read(
+        |_, _| Err(GhError::Failed("auth required".into())),
+        Path::new("/tmp/repo"),
+        &watch,
+        &team,
+        "2026-09-16T10:03:00Z",
+    );
+    assert!(r_user_err.facts.is_empty());
+    assert_eq!(r_user_err.watch, watch);
+
+    let r_repo_err = fresh_reader.read(
+        |args, _| {
+            if args == ["api", "user", "--jq", ".login"] {
+                return Ok("colin".to_owned());
+            }
+            Err(GhError::Failed("no origin".into()))
+        },
+        Path::new("/tmp/repo"),
+        &watch,
+        &team,
+        "2026-09-16T10:03:00Z",
+    );
+    assert!(r_repo_err.facts.is_empty());
+    assert_eq!(r_repo_err.watch, watch);
 }
 
 #[test]
@@ -817,6 +894,49 @@ fn scout_sent_comment_and_answer_comment_create_post_card_or_failure_card() {
         .unwrap();
     assert_eq!(ans_b.fact.said, "Lin's turn on #212 failed: rate limit");
     assert!(ans_b.fact.post.is_none());
+    assert_eq!(
+        ans_b.fact.open,
+        Some(ScoutOpen::Conversation {
+            mission_id: "m-b".to_owned(),
+            label: "Open it".to_owned(),
+        })
+    );
+
+    // Pre-ended comment turns answer during sent_comment and subsequent on_run_ended must not fall through to failed:.
+    deps.comment_queue.lock().unwrap().push(vec![ok_gh_comment(
+        12,
+        "colin",
+        "/locust lin quick fail",
+        212,
+        "2026-09-16T10:00:30Z",
+    )]);
+    let st3 = scout.look();
+    let card_c = st3
+        .cards
+        .iter()
+        .find(|c| c.fact.key == "comment:acme/app:12")
+        .unwrap()
+        .card_id
+        .clone();
+    deps.comment_answers
+        .lock()
+        .unwrap()
+        .insert("m-c".to_owned(), CommentAnswer::Failed("already failed".to_owned()));
+    let after_sent_c = scout.sent_comment(&card_c, "m-c", "lin");
+    assert!(after_sent_c
+        .cards
+        .iter()
+        .any(|c| c.fact.key == "comment-answer:acme/app:12"));
+    scout.on_run_ended("m-c");
+
+    // Posting lowers card urgency to Later.
+    let after_post = scout.post(&ans_a.card_id).unwrap();
+    let posted_card = after_post
+        .cards
+        .iter()
+        .find(|c| c.card_id == ans_a.card_id)
+        .unwrap();
+    assert_eq!(posted_card.fact.urgency, ScoutUrgency::Later);
 
     // A comment turn ending with failure must not also emit a generic failed: card on the next look.
     scout.look();
@@ -1334,6 +1454,7 @@ fn minute_timer_does_not_read_with_scout_off_or_comments_watch_off() {
 
     deps.advance_ms(COMMENT_EVERY_MS as i64);
     sched.advance_ms(COMMENT_EVERY_MS);
+    let _ = scout.look();
     assert_eq!(deps.comment_reads.lock().unwrap().len(), 0);
 
     scout.turn_on(None);

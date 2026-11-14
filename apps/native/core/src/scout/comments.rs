@@ -345,10 +345,11 @@ impl CommentReader {
                 continue;
             };
             let url = row.get("html_url").and_then(Value::as_str).unwrap_or("");
-            if !html_prefix_re.is_match(url) {
+            let Some(prefix_match) = html_prefix_re.find(url) else {
                 continue;
-            }
-            let Some(after_prefix) = url.split(&format!("/{number_text}#issuecomment-")).nth(1)
+            };
+            let rest = &url[prefix_match.end()..];
+            let Some(after_prefix) = rest.strip_prefix(&format!("{number_text}#issuecomment-"))
             else {
                 continue;
             };

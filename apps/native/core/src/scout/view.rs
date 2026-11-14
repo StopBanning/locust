@@ -89,7 +89,7 @@ pub fn visible_cards<'a>(
 
 pub const SCOUT_FIXES_HEADING: &str = "Prepare fixes before I look";
 pub const SCOUT_FIXES_LEDE: &str =
-    "When a check fails, a teammate works on the fix in an isolated copy of the folder so it is ready for your review.";
+    "When the folder’s check starts failing, a teammate fixes it in a copy of the folder and Locust runs the check there again. Nothing reaches your folder until you press Apply, and it never pushes or opens a pull request. It runs on that teammate’s plan.";
 pub const SCOUT_FIXES_NEED_CHECK: &str = "Turn on This folder’s check first.";
 pub const SCOUT_FIXES_WHO_HEADING: &str = "Who prepares Scout’s fixes";
 pub const SCOUT_FIXES_ADD_TEAMMATE: &str = "Add a teammate first";
@@ -150,9 +150,13 @@ pub fn fix_said(fix: &ScoutFix) -> String {
                 "Applied: {n} {file_word} in your folder, beside your own changes. Opening a pull request is yours."
             )
         }
-        ScoutFix::Stale { .. } => {
-            "Not applied: the fix was made on an older copy, and you changed that file since."
-                .to_owned()
+        ScoutFix::Stale { files, .. } => {
+            let those = if files.len() == 1 {
+                "that file"
+            } else {
+                "those files"
+            };
+            format!("Not applied: the fix was made on an older copy, and you changed {those} since.")
         }
         ScoutFix::Unfixed { name, why, .. } => {
             format!("{name} could not prepare a fix: {why}")
@@ -536,6 +540,16 @@ mod tests {
         assert_eq!(
             fix_said(&stale),
             "Not applied: the fix was made on an older copy, and you changed that file since."
+        );
+        let stale_many = ScoutFix::Stale {
+            fix_id: "fix_2".into(),
+            name: "Wren".into(),
+            files: vec!["src/auth.ts".into(), "src/db.ts".into()],
+            mission_id: "ms_fix2".into(),
+        };
+        assert_eq!(
+            fix_said(&stale_many),
+            "Not applied: the fix was made on an older copy, and you changed those files since."
         );
 
         let unfixed = ScoutFix::Unfixed {

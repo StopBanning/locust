@@ -53,8 +53,8 @@ use self::types::{
     AnswerTeammate, BriefCards, BriefCheck, BriefGithubMissed, BriefHeld, BriefPrs, BriefWaiting,
     FailedTurn, FolderCheckResult, LastCheck, MAX_SCOUT_NOTES, MAX_SCOUT_SEEN, PromptTeammate,
     SCOUT_WAIT_MOST_MS, ScoutAnswer, ScoutCard, ScoutChange, ScoutDraft, ScoutFact, ScoutFix,
-    ScoutOutcome, ScoutSettings, ScoutState, ScoutToday, ScoutUrgency, ScoutWatchKey, ScoutWeek,
-    WaitingCard, apply_settings_change, brief_fact, brief_span, card_of, check_facts,
+    ScoutOpen, ScoutOutcome, ScoutSettings, ScoutState, ScoutToday, ScoutUrgency, ScoutWatchKey,
+    ScoutWeek, WaitingCard, apply_settings_change, brief_fact, brief_span, card_of, check_facts,
     comment_answer_fact, days_between, empty_week, failed_facts, in_quiet_hours, iso_string,
     notes_from, pull_request_facts, review_facts, scout_answers, scout_day, scout_note_of,
     scout_prompt, waiting_facts, watch_of_key, week_fact, with_new_cards, new_issues, branch_facts,
@@ -2371,6 +2371,7 @@ impl Scout {
                         post.failed = Some(why.clone());
                     }
                 }
+                card.fact.urgency = ScoutUrgency::Later;
             }
             next
         });
@@ -2392,6 +2393,15 @@ impl Scout {
         let from = self.load();
         if from.comment_turns.contains_key(mission_id) {
             self.answer_comment(mission_id);
+            return;
+        }
+        if from.cards.iter().any(|c| {
+            c.fact.key.starts_with("comment-answer:")
+                && matches!(
+                    &c.fact.open,
+                    Some(ScoutOpen::Conversation { mission_id: m, .. }) if m == mission_id
+                )
+        }) {
             return;
         }
         if from.look_ids.iter().any(|id| id == mission_id) {
