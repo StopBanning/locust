@@ -206,3 +206,16 @@ That incomplete attempt is **not** counted as control evidence. The retry waited
 twelve controls are pending. The next control, `peer-empty`, is queued behind
 another checkout's full native release suite. The assistant-text section has a
 prepared, unregistered test file; it is not counted as carried or compiled.
+
+The second control (`peer-empty`) timed out at 1,800 seconds after waiting 1,469
+seconds and compiling for the remainder, without running tests. Its `finally`
+restored the file. The control loop stopped on that timeout: **1/13 completed**,
+not a claim of a completed mutation pass. Commit `f0407404` records the inherited
+core-verified batch; its staged source was checked to contain all 66 original
+control expressions, leaving the active mutation only in the working tree.
+
+The parity row now includes the previously committed cancellation (5), path
+identity/no-change claims (11), ended questions (6), both exchange halves (5),
+exchange reading (7), and signal rail (8). Total: **149 of 264 case ports**,
+**115 remaining**, with exchange/rail controls explicitly incomplete. No new
+Electron-only exemptions. Required release verification follows.
