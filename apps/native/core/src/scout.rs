@@ -3,6 +3,7 @@
 //! Port of Electron's `main/scout.ts`, `main/scout-folder.ts`, `main/scout-github.ts`,
 //! `shared/scout.ts`, and `shared/scout-log.ts`.
 
+pub mod comments;
 pub mod fix;
 pub mod folder;
 pub mod github;
@@ -23,6 +24,8 @@ mod brief_tests;
 mod host_tests;
 #[cfg(test)]
 mod fix_tests;
+#[cfg(test)]
+mod comment_tests;
 
 use std::collections::{HashMap, HashSet};
 use std::fs;
@@ -34,6 +37,7 @@ use serde_json::Value;
 
 use crate::pull_requests::{FolderPullRequest, PullRequestChecks, PullRequestReview, PullRequestState};
 
+use self::comments::{CommentAnswer, CommentReadResult, CommentTurn, CommentWatch};
 use self::fix::{FixApplyResult, ScoutFixOutcome, new_fix_id};
 use self::github::{ScoutGithub, ScoutGithubUnread};
 use self::log::{
@@ -48,14 +52,16 @@ use self::store::{
 use self::types::{
     AnswerTeammate, BriefCards, BriefCheck, BriefGithubMissed, BriefHeld, BriefPrs, BriefWaiting,
     FailedTurn, FolderCheckResult, LastCheck, MAX_SCOUT_NOTES, MAX_SCOUT_SEEN, PromptTeammate,
-    SCOUT_WAIT_MOST_MS, ScoutAnswer, ScoutCard, ScoutChange, ScoutFact, ScoutFix, ScoutOutcome,
-    ScoutSettings, ScoutState, ScoutToday, ScoutUrgency, ScoutWatchKey, ScoutWeek, WaitingCard,
-    apply_settings_change, brief_fact, brief_span, card_of, check_facts, days_between, empty_week,
-    failed_facts, in_quiet_hours, iso_string, notes_from, pull_request_facts, review_facts,
-    scout_answers, scout_day, scout_note_of, scout_prompt, waiting_facts, watch_of_key, week_fact,
-    with_new_cards, new_issues, branch_facts,
+    SCOUT_WAIT_MOST_MS, ScoutAnswer, ScoutCard, ScoutChange, ScoutDraft, ScoutFact, ScoutFix,
+    ScoutOutcome, ScoutSettings, ScoutState, ScoutToday, ScoutUrgency, ScoutWatchKey, ScoutWeek,
+    WaitingCard, apply_settings_change, brief_fact, brief_span, card_of, check_facts,
+    comment_answer_fact, days_between, empty_week, failed_facts, in_quiet_hours, iso_string,
+    notes_from, pull_request_facts, review_facts, scout_answers, scout_day, scout_note_of,
+    scout_prompt, waiting_facts, watch_of_key, week_fact, with_new_cards, new_issues, branch_facts,
 };
 
+/// How often Scout reads the person's own `/locust` comments on GitHub (`scout.ts` `COMMENT_EVERY_MS`).
+pub const COMMENT_EVERY_MS: u64 = 60_000;
 /// How often a look waiting for the person's own turn asks again whether it has ended.
 pub const WAIT_STEP_MS: u64 = 60_000;
 /// A look's turn, past this, no longer keeps its cards waiting.
@@ -184,6 +190,29 @@ pub trait ScoutDeps: Send + Sync {
     fn fix_discard(&self, _fix_id: &str) {}
     fn fix_stop(&self, _why: &str) {}
     fn on_fix_run_ended(&self, _mission_id: &str) {}
+    fn has_comments(&self) -> bool {
+        false
+    }
+    fn read_comments(
+        &self,
+        watch: &CommentWatch,
+        _team: &[ScoutTeammate],
+        _at: &str,
+    ) -> CommentReadResult {
+        CommentReadResult {
+            watch: watch.clone(),
+            facts: Vec::new(),
+        }
+    }
+    fn last_teammate(&self) -> Option<String> {
+        None
+    }
+    fn post_comment(&self, _repository: &str, _number: u64, _message: &str) -> Result<String, String> {
+        Err("Posting comments is not wired.".to_owned())
+    }
+    fn comment_answer(&self, _mission_id: &str) -> Option<CommentAnswer> {
+        None
+    }
 }
 
 struct PendingLook {
@@ -210,8 +239,11 @@ struct EngineState {
     failed_since: Vec<FailedTurn>,
     pending: HashMap<String, PendingLook>,
     timer_handle: Option<u64>,
+    comment_timer_handle: Option<u64>,
     first_look_handle: Option<u64>,
     deferred_handle: Option<u64>,
+    held_comments: Vec<ScoutFact>,
+    held_comment_watch: Option<CommentWatch>,
     fixing_fix_id: Option<String>,
 }
 
@@ -230,8 +262,11 @@ impl EngineState {
             failed_since: Vec::new(),
             pending: HashMap::new(),
             timer_handle: None,
+            comment_timer_handle: None,
             first_look_handle: None,
             deferred_handle: None,
+            held_comments: Vec::new(),
+            held_comment_watch: None,
             fixing_fix_id: None,
         }
     }
@@ -245,6 +280,7 @@ struct GatherResult {
     github_read: bool,
     github_why: Option<ScoutGithubUnread>,
     check_stale: bool,
+    next_comments: Option<CommentWatch>,
     repeated: Vec<String>,
     aside: Vec<ScoutLogAside>,
 }
@@ -255,6 +291,7 @@ pub struct Scout {
     state: Mutex<EngineState>,
     write_lock: Mutex<()>,
     log_write_lock: Mutex<()>,
+    comment_read_lock: Mutex<()>,
     disposed: AtomicBool,
 }
 
@@ -375,6 +412,7 @@ impl Scout {
             state: Mutex::new(EngineState::new()),
             write_lock: Mutex::new(()),
             log_write_lock: Mutex::new(()),
+            comment_read_lock: Mutex::new(()),
             disposed: AtomicBool::new(false),
         })
     }
@@ -441,6 +479,53 @@ impl Scout {
         state
     }
 
+    fn try_mutate<F>(&self, change: F, must_write: bool) -> Result<ScoutState, String>
+    where
+        F: FnOnce(&Kept) -> Result<Kept, String>,
+    {
+        let _ = self.load();
+        let _guard = self.write_lock.lock().unwrap_or_else(|e| e.into_inner());
+        let (next, save_to_disk) = {
+            let st = self.state.lock().unwrap_or_else(|e| e.into_inner());
+            let current = st.kept.as_ref().ok_or_else(|| {
+                "Scout could not save to its own file, so nothing was posted.".to_owned()
+            })?;
+            let next = change(current)?;
+            if must_write && !st.save_to_disk {
+                return Err(
+                    "Scout could not save to its own file, so nothing was posted.".to_owned(),
+                );
+            }
+            (next, st.save_to_disk)
+        };
+        if save_to_disk {
+            let files = self.deps.files();
+            let write_res = files
+                .scout_path()
+                .map_err(|e| e.to_string())
+                .and_then(|path| files.save_json_atomic(&path, SCOUT_FILE, &next.to_json()));
+            if must_write && write_res.is_err() {
+                return Err(
+                    "Scout could not save to its own file, so nothing was posted.".to_owned(),
+                );
+            }
+        } else if must_write {
+            return Err("Scout could not save to its own file, so nothing was posted.".to_owned());
+        }
+        let state = {
+            let mut st = self.state.lock().unwrap_or_else(|e| e.into_inner());
+            st.save_gen += 1;
+            let target_gen = st.save_gen;
+            let state = next.state(self.deps.now());
+            st.kept = Some(next);
+            st.last_written_gen = st.last_written_gen.max(target_gen);
+            state
+        };
+        drop(_guard);
+        self.deps.changed(&state);
+        Ok(state)
+    }
+
     fn load_log(&self) -> Vec<ScoutLogEntry> {
         if let Some(log) = self
             .state
@@ -491,11 +576,14 @@ impl Scout {
     }
 
     fn restart(self: &Arc<Self>, settings: &ScoutSettings) {
-        let prev_timer = {
+        let (prev_timer, prev_comment_timer) = {
             let mut st = self.state.lock().unwrap_or_else(|e| e.into_inner());
-            st.timer_handle.take()
+            (st.timer_handle.take(), st.comment_timer_handle.take())
         };
         if let Some(h) = prev_timer {
+            self.scheduler.clear(h);
+        }
+        if let Some(h) = prev_comment_timer {
             self.scheduler.clear(h);
         }
         if !self.disposed.load(Ordering::SeqCst)
@@ -517,6 +605,121 @@ impl Scout {
             } else {
                 st.timer_handle = Some(h);
             }
+        }
+        if !self.disposed.load(Ordering::SeqCst)
+            && settings.on
+            && settings.teammate_id.is_some()
+            && settings.watches.comments
+            && self.deps.has_comments()
+        {
+            let weak: Weak<Self> = Arc::downgrade(self);
+            let ch = self.scheduler.schedule(
+                COMMENT_EVERY_MS,
+                Box::new(move || {
+                    if let Some(me) = weak.upgrade() {
+                        me.comments_now();
+                    }
+                }),
+            );
+            let mut st = self.state.lock().unwrap_or_else(|e| e.into_inner());
+            if self.disposed.load(Ordering::SeqCst) {
+                self.scheduler.clear(ch);
+            } else {
+                st.comment_timer_handle = Some(ch);
+            }
+        }
+    }
+
+    pub fn comments_now(self: &Arc<Self>) {
+        if self.disposed.load(Ordering::SeqCst) || !self.deps.has_comments() {
+            return;
+        }
+        let from = self.load();
+        if !from.settings.on
+            || !from.settings.watches.comments
+            || from.settings.teammate_id.is_none()
+        {
+            return;
+        }
+        let has_new = {
+            let _guard = self
+                .comment_read_lock
+                .lock()
+                .unwrap_or_else(|e| e.into_inner());
+            if self.disposed.load(Ordering::SeqCst) {
+                return;
+            }
+            let latest = self.load();
+            if !latest.settings.on
+                || !latest.settings.watches.comments
+                || latest.settings.teammate_id.is_none()
+            {
+                return;
+            }
+            let at = iso_string(self.deps.now());
+            let scout_id = latest.settings.teammate_id.as_deref();
+            let team: Vec<ScoutTeammate> = self
+                .deps
+                .team()
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|m| Some(m.teammate_id.as_str()) != scout_id)
+                .collect();
+            let held_watch = self
+                .state
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .held_comment_watch
+                .clone();
+            let base = held_watch
+                .clone()
+                .or_else(|| latest.comments.clone())
+                .unwrap_or_else(|| CommentWatch::at(&at));
+            let res = self.deps.read_comments(&base, &team, &at);
+            if self.disposed.load(Ordering::SeqCst) {
+                return;
+            }
+            if res.facts.is_empty() {
+                let held_empty = self
+                    .state
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .held_comments
+                    .is_empty();
+                if held_empty {
+                    if latest.comments.as_ref() != Some(&res.watch) {
+                        let watch = res.watch;
+                        self.mutate(|cur| {
+                            let mut next = cur.clone();
+                            next.comments = Some(watch.clone());
+                            next
+                        });
+                    }
+                } else {
+                    self.state
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner())
+                        .held_comment_watch = Some(res.watch);
+                }
+                false
+            } else {
+                let mut st = self.state.lock().unwrap_or_else(|e| e.into_inner());
+                let seen: HashSet<&str> = latest.seen.iter().map(String::as_str).collect();
+                let mut held_keys: HashSet<String> =
+                    st.held_comments.iter().map(|f| f.key.clone()).collect();
+                let mut added = false;
+                for fact in res.facts {
+                    if !seen.contains(fact.key.as_str()) && held_keys.insert(fact.key.clone()) {
+                        st.held_comments.push(fact);
+                        added = true;
+                    }
+                }
+                st.held_comment_watch = Some(res.watch);
+                added
+            }
+        };
+        if has_new {
+            self.due(None);
         }
     }
 
@@ -586,6 +789,7 @@ impl Scout {
         let mut check_stale = false;
         let mut folder_mark = from.folder_mark.clone();
         let mut last_check = from.last_check.clone();
+        let mut next_comments: Option<CommentWatch> = None;
 
         if from.settings.watches.check && self.deps.has_check_support() && !self.deps.folder_busy()
         {
@@ -651,6 +855,40 @@ impl Scout {
             facts.extend(failed_facts(&recent_failed));
         }
 
+        if from.settings.watches.comments && self.deps.has_comments() {
+            let _guard = self
+                .comment_read_lock
+                .lock()
+                .unwrap_or_else(|e| e.into_inner());
+            let (held, held_watch) = {
+                let mut st = self.state.lock().unwrap_or_else(|e| e.into_inner());
+                (
+                    std::mem::take(&mut st.held_comments),
+                    st.held_comment_watch.take(),
+                )
+            };
+            facts.extend(held);
+            let latest_comments = self.load().comments;
+            let base = held_watch
+                .or(latest_comments)
+                .unwrap_or_else(|| CommentWatch::at(look_stamp));
+            let scout_id = from.settings.teammate_id.as_deref();
+            let team: Vec<ScoutTeammate> = self
+                .deps
+                .team()
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|m| Some(m.teammate_id.as_str()) != scout_id)
+                .collect();
+            let res = self.deps.read_comments(&base, &team, look_stamp);
+            facts.extend(res.facts);
+            next_comments = Some(res.watch);
+        } else {
+            let mut st = self.state.lock().unwrap_or_else(|e| e.into_inner());
+            st.held_comments.clear();
+            st.held_comment_watch = None;
+        }
+
         let mut repeated = Vec::new();
         for fact in &facts {
             if seen.contains(fact.key.as_str()) && !repeated.contains(&fact.key) {
@@ -676,6 +914,7 @@ impl Scout {
             github_read,
             github_why,
             check_stale,
+            next_comments,
             repeated,
             aside,
         }
@@ -727,6 +966,12 @@ impl Scout {
             && !open.iter().any(|pr| needs_work(pr))
         {
             quiet.push("GitHub".to_owned());
+        }
+        if from.settings.watches.comments
+            && self.deps.has_comments()
+            && looks.raised.comments == 0
+        {
+            quiet.push("comments asking Locust".to_owned());
         }
         if from.settings.watches.teammates
             && looks.raised.teammates == 0
@@ -966,11 +1211,15 @@ impl Scout {
             let next_prs = gathered.prs;
             let next_mark = gathered.folder_mark;
             let next_check = gathered.last_check;
+            let next_comments = gathered.next_comments;
             let quiet = self.mutate(|latest| {
                 let mut next = latest.clone();
                 next.folder_mark = next_mark;
                 next.last_check = next_check;
                 next.prs = next_prs;
+                if let Some(comments) = next_comments {
+                    next.comments = Some(comments);
+                }
                 next.last_look_at = Some(stamp.clone());
                 next.today = Some(counted(latest.today.as_ref(), at, TodayCount::Looks));
                 let base_week = if week_due {
@@ -1002,9 +1251,37 @@ impl Scout {
             .into_iter()
             .filter(|mate| mate.teammate_id != teammate_id)
             .collect();
+        let fallback_teammate = if facts.iter().any(|f| f.comment_ask.is_some()) {
+            self.deps
+                .last_teammate()
+                .and_then(|id| team.iter().find(|m| m.teammate_id == id))
+                .or_else(|| team.first())
+        } else {
+            None
+        };
+        for fact in &mut facts {
+            if let Some(ask) = &fact.comment_ask {
+                let chosen = ask
+                    .named_teammate_id
+                    .as_deref()
+                    .and_then(|id| team.iter().find(|m| m.teammate_id == id))
+                    .or(fallback_teammate);
+                if let Some(mate) = chosen {
+                    fact.draft = Some(ScoutDraft {
+                        teammate_id: mate.teammate_id.clone(),
+                        name: mate.name.clone(),
+                        message: ask.message.clone(),
+                    });
+                }
+            }
+        }
         let check_passes_re = crate::invariants::regex(r"^check:.*:passes$");
         let for_model = |fact: &ScoutFact| -> bool {
             !fact.key.starts_with("comment-answer:")
+                && !fact
+                    .comment_ask
+                    .as_ref()
+                    .is_some_and(|a| a.named_teammate_id.is_some())
                 && !fact.key.starts_with("week:")
                 && !fact.key.starts_with("brief:")
                 && !check_passes_re.is_match(&fact.key)
@@ -1025,11 +1302,15 @@ impl Scout {
         let next_prs = gathered.prs;
         let next_mark = gathered.folder_mark;
         let next_check = gathered.last_check;
+        let next_comments = gathered.next_comments;
         let facts_for_log = facts.clone();
         let state = self.mutate(|latest| {
             let mut next = latest.clone();
             next.folder_mark = next_mark;
             next.last_check = next_check;
+            if let Some(comments) = next_comments {
+                next.comments = Some(comments);
+            }
             if brief_due {
                 next.last_brief_day = Some(day.clone());
                 next.last_brief_at = Some(stamp.clone());
@@ -1203,6 +1484,8 @@ impl Scout {
     fn stop_looks(&self, why: &str) {
         let (handles, runs, card_ids, has_fixing) = {
             let mut st = self.state.lock().unwrap_or_else(|e| e.into_inner());
+            st.held_comments.clear();
+            st.held_comment_watch = None;
             let mut handles = Vec::new();
             if let Some(h) = st.first_look_handle.take() {
                 handles.push(h);
@@ -1303,7 +1586,15 @@ impl Scout {
                             updated.fact.take_set(take.clone(), &mut updated.take);
                         }
                         if let Some(draft) = &ans.draft {
-                            updated.fact.draft = Some(draft.clone());
+                            updated.fact.draft = if let Some(ask) = &updated.fact.comment_ask {
+                                Some(ScoutDraft {
+                                    teammate_id: draft.teammate_id.clone(),
+                                    name: draft.name.clone(),
+                                    message: ask.message.clone(),
+                                })
+                            } else {
+                                Some(draft.clone())
+                            };
                         }
                     }
                     updated
@@ -1388,7 +1679,18 @@ impl Scout {
     }
 
     pub fn start(self: &Arc<Self>, first_look_ms: u64) {
-        let from = self.load();
+        let mut from = self.load();
+        if from.settings.on && from.settings.watches.comments && from.comments.is_none() {
+            let at = iso_string(self.deps.now());
+            self.mutate(|latest| {
+                let mut next = latest.clone();
+                if next.settings.watches.comments && next.comments.is_none() {
+                    next.comments = Some(CommentWatch::at(&at));
+                }
+                next
+            });
+            from = self.load();
+        }
         if from.cards.iter().any(|c| c.reading) {
             self.mutate(|latest| {
                 let mut next = latest.clone();
@@ -1420,6 +1722,10 @@ impl Scout {
                 }
                 next
             });
+        }
+        let pending_comment_turns: Vec<String> = from.comment_turns.keys().cloned().collect();
+        for mission_id in pending_comment_turns {
+            self.answer_comment(&mission_id);
         }
         self.restart(&from.settings);
         if from.settings.on && !self.disposed.load(Ordering::SeqCst) {
@@ -1459,10 +1765,14 @@ impl Scout {
                 Err(err) => return TurnOnOutcome::Refused(err),
             }
         }
+        let at = iso_string(self.deps.now());
         let state = self.mutate(|latest| {
             let mut next = latest.clone();
             next.settings.on = true;
             next.settings.teammate_id = teammate_id.clone();
+            if next.settings.watches.comments && next.comments.is_none() {
+                next.comments = Some(CommentWatch::at(&at));
+            }
             next
         });
         self.restart(&state.settings);
@@ -1471,13 +1781,25 @@ impl Scout {
 
     pub fn set(self: &Arc<Self>, change: &ScoutChange) -> ScoutState {
         let before = self.load().settings;
+        let at = iso_string(self.deps.now());
         let state = self.mutate(|latest| {
             let mut next = latest.clone();
             let preserved_id = latest.settings.teammate_id.clone();
             next.settings = apply_settings_change(&latest.settings, change);
             next.settings.teammate_id = preserved_id;
+            if next.settings.on
+                && next.settings.watches.comments
+                && (!latest.settings.watches.comments || next.comments.is_none())
+            {
+                next.comments = Some(CommentWatch::at(&at));
+            }
             next
         });
+        if before.watches.comments && !state.settings.watches.comments {
+            let mut st = self.state.lock().unwrap_or_else(|e| e.into_inner());
+            st.held_comments.clear();
+            st.held_comment_watch = None;
+        }
         if state.settings.every_minutes != before.every_minutes
             || state.settings.on != before.on
             || state.settings.watches.comments != before.watches.comments
@@ -1894,6 +2216,166 @@ impl Scout {
         }
     }
 
+    pub fn sent_comment(
+        &self,
+        card_id: &str,
+        mission_id: &str,
+        teammate_id: &str,
+    ) -> ScoutState {
+        let team = self.deps.team().unwrap_or_default();
+        let name = team
+            .into_iter()
+            .find(|m| m.teammate_id == teammate_id)
+            .map(|m| m.name)
+            .unwrap_or_else(|| "Your teammate".to_owned());
+        self.mutate(|latest| {
+            let Some(card) = latest.cards.iter().find(|c| c.card_id == card_id) else {
+                return latest.clone();
+            };
+            let Some(ask) = card.fact.comment_ask.clone() else {
+                return latest.clone();
+            };
+            let mut next = latest.clone();
+            next.cards.retain(|c| c.card_id != card_id);
+            next.comment_turns.insert(
+                mission_id.to_owned(),
+                CommentTurn {
+                    ask,
+                    name: name.clone(),
+                },
+            );
+            if let Some(week) = next.week.as_mut() {
+                let tz = *self.deps.now().offset();
+                let card_day = DateTime::parse_from_rfc3339(&card.at)
+                    .map(|d| scout_day(d.with_timezone(&tz)))
+                    .unwrap_or_default();
+                if card_day >= week.from {
+                    if let Some(watch) = watch_of_key(&card.fact.key) {
+                        week.watch_mut(watch).used += 1;
+                    }
+                    week.sent += 1;
+                }
+            }
+            next
+        })
+    }
+
+    pub fn answer_comment(&self, mission_id: &str) -> Option<ScoutState> {
+        let turn = self.load().comment_turns.get(mission_id)?.clone();
+        let answer = self.deps.comment_answer(mission_id)?;
+        let fact = match &answer {
+            CommentAnswer::Text(text) => {
+                comment_answer_fact(&turn.ask, mission_id, &turn.name, Ok(text))
+            }
+            CommentAnswer::Failed(why) => {
+                comment_answer_fact(&turn.ask, mission_id, &turn.name, Err(why))
+            }
+        };
+        let at = self.deps.now();
+        let card = card_of(fact.clone(), new_card_id(), at, false);
+        let state = self.mutate(|latest| {
+            let mut next = latest.clone();
+            next.comment_turns.remove(mission_id);
+            if !next.seen.contains(&fact.key) {
+                next.cards = with_new_cards(&next.cards, std::slice::from_ref(&card));
+                next.seen.push(fact.key.clone());
+                if next.seen.len() > MAX_SCOUT_SEEN {
+                    let start = next.seen.len() - MAX_SCOUT_SEEN;
+                    next.seen.drain(..start);
+                }
+            }
+            next
+        });
+        let was_raised = state.cards.iter().any(|c| c.card_id == card.card_id);
+        if was_raised {
+            if state.settings.notify
+                && state.settings.on
+                && !in_quiet_hours(state.settings.quiet, at)
+            {
+                self.deps.notify(&card);
+            }
+            if state.settings.on {
+                self.deps.raised(std::slice::from_ref(&card));
+            }
+        }
+        Some(state)
+    }
+
+    pub fn edit_post(&self, card_id: &str, message: &str) -> Result<ScoutState, String> {
+        if message.trim().is_empty() {
+            return Err("Write a reply before keeping it.".to_owned());
+        }
+        let body = message.to_owned();
+        self.try_mutate(
+            |latest| {
+                let mut next = latest.clone();
+                let Some(card) = next.cards.iter_mut().find(|c| c.card_id == card_id) else {
+                    return Err("That card is gone.".to_owned());
+                };
+                let Some(post) = card.fact.post.as_mut() else {
+                    return Err("That card has nothing to post.".to_owned());
+                };
+                if post.attempted == Some(true) || post.posted_url.is_some() {
+                    return Err(
+                        "A comment was already posted or tried for this card, so its text cannot be changed."
+                            .to_owned(),
+                    );
+                }
+                post.message = body.clone();
+                Ok(next)
+            },
+            false,
+        )
+    }
+
+    pub fn post(&self, card_id: &str) -> Result<ScoutState, String> {
+        let mut target: Option<(String, u64, String)> = None;
+        self.try_mutate(
+            |latest| {
+                let mut next = latest.clone();
+                let Some(card) = next.cards.iter_mut().find(|c| c.card_id == card_id) else {
+                    return Err("That card is gone.".to_owned());
+                };
+                let Some(post) = card.fact.post.as_mut() else {
+                    return Err("That card has nothing to post.".to_owned());
+                };
+                if post.attempted == Some(true) || post.posted_url.is_some() {
+                    return Err("A comment was already posted or tried for this card.".to_owned());
+                }
+                if post.message.trim().is_empty() {
+                    return Err("The comment is empty. Nothing was posted.".to_owned());
+                }
+                target = Some((post.repository.clone(), post.number, post.message.clone()));
+                post.attempted = Some(true);
+                post.failed = None;
+                Ok(next)
+            },
+            true,
+        )?;
+        let (repository, number, message) = target.ok_or_else(|| {
+            "That card has nothing to post.".to_owned()
+        })?;
+        let posted = self.deps.post_comment(&repository, number, &message);
+        let state = self.mutate(|latest| {
+            let mut next = latest.clone();
+            if let Some(card) = next.cards.iter_mut().find(|c| c.card_id == card_id)
+                && let Some(post) = card.fact.post.as_mut()
+            {
+                match &posted {
+                    Ok(url) => {
+                        post.posted_url = Some(url.clone());
+                        post.failed = None;
+                    }
+                    Err(why) => {
+                        post.failed = Some(why.clone());
+                    }
+                }
+            }
+            next
+        });
+        posted.map(|_| state)
+    }
+
     pub fn on_run_ended(self: &Arc<Self>, mission_id: &str) {
         self.deps.on_fix_run_ended(mission_id);
         let is_pending = self
@@ -1907,6 +2389,10 @@ impl Scout {
             return;
         }
         let from = self.load();
+        if from.comment_turns.contains_key(mission_id) {
+            self.answer_comment(mission_id);
+            return;
+        }
         if from.look_ids.iter().any(|id| id == mission_id) {
             return;
         }
@@ -1940,10 +2426,11 @@ impl Scout {
 
     pub fn dispose(&self) {
         self.disposed.store(true, Ordering::SeqCst);
-        let (timer, first, deferred, pending_items, has_fixing) = {
+        let (timer, comment_timer, first, deferred, pending_items, has_fixing) = {
             let mut st = self.state.lock().unwrap_or_else(|e| e.into_inner());
             (
                 st.timer_handle.take(),
+                st.comment_timer_handle.take(),
                 st.first_look_handle.take(),
                 st.deferred_handle.take(),
                 st.pending.drain().collect::<Vec<_>>(),
@@ -1951,6 +2438,9 @@ impl Scout {
             )
         };
         if let Some(h) = timer {
+            self.scheduler.clear(h);
+        }
+        if let Some(h) = comment_timer {
             self.scheduler.clear(h);
         }
         if let Some(h) = first {
