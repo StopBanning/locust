@@ -8,8 +8,8 @@ use chrono::{DateTime, FixedOffset};
 
 use super::log::{ScoutLogEntry, set_something_aside};
 use super::types::{
-    SCOUT_QUIET_CHOICES, ScoutCard, ScoutQuietHours, ScoutSettings, ScoutState, ScoutUrgency,
-    hour_words, in_quiet_hours,
+    SCOUT_FIXES_PER_DAY, SCOUT_QUIET_CHOICES, ScoutCard, ScoutFix, ScoutQuietHours,
+    ScoutSettings, ScoutState, ScoutUrgency, hour_words, in_quiet_hours,
 };
 
 /// Cards shown on Home before asking for all (`ScoutCards.tsx` `SHOWN`).
@@ -85,6 +85,94 @@ pub fn visible_cards<'a>(
         shown.insert(0, focused);
     }
     (shown, total)
+}
+
+pub const SCOUT_FIXES_HEADING: &str = "Prepare fixes before I look";
+pub const SCOUT_FIXES_LEDE: &str =
+    "When a check fails, a teammate works on the fix in an isolated copy of the folder so it is ready for your review.";
+pub const SCOUT_FIXES_NEED_CHECK: &str = "Turn on This folder’s check first.";
+pub const SCOUT_FIXES_WHO_HEADING: &str = "Who prepares Scout’s fixes";
+pub const SCOUT_FIXES_ADD_TEAMMATE: &str = "Add a teammate first";
+pub const SCOUT_FIXES_PICK_TEAMMATE: &str = "Pick a teammate";
+
+const FIX_SHOWN_FILES: usize = 4;
+
+/// Whether a card shows its draft box and `Send to` / `Change it first` actions (`ScoutCards.tsx`).
+/// Suppressed while a fix is `preparing`, `ready`, or `applied`.
+pub fn card_shows_draft(card: &ScoutCard) -> bool {
+    card.fact.draft.is_some()
+        && !matches!(
+            card.fix,
+            Some(ScoutFix::Preparing { .. } | ScoutFix::Ready { .. } | ScoutFix::Applied { .. })
+        )
+}
+
+/// Up to 4 changed paths joined by ` · `, with ` · and N more` when truncated.
+pub fn fix_files_line(files: &[String]) -> Option<String> {
+    if files.is_empty() {
+        return None;
+    }
+    if files.len() <= FIX_SHOWN_FILES {
+        return Some(files.join(" · "));
+    }
+    Some(format!(
+        "{} · and {} more",
+        files[..FIX_SHOWN_FILES].join(" · "),
+        files.len() - FIX_SHOWN_FILES
+    ))
+}
+
+/// Main status line inside `FixLine` matching `ScoutCards.tsx`.
+pub fn fix_said(fix: &ScoutFix) -> String {
+    match fix {
+        ScoutFix::Preparing { name, .. } => {
+            format!("{name} is preparing a fix in a copy of the folder…")
+        }
+        ScoutFix::Ready {
+            files,
+            added,
+            removed,
+            ..
+        } => {
+            let n = files.len();
+            let file_word = if n == 1 { "file" } else { "files" };
+            let counts = if added.is_some() || removed.is_some() {
+                format!(" (+{} \u{2212}{})", added.unwrap_or(0), removed.unwrap_or(0))
+            } else {
+                String::new()
+            };
+            format!("Fix ready: {n} {file_word} changed{counts}, the check passes.")
+        }
+        ScoutFix::Applied { files } => {
+            let n = files.len();
+            let file_word = if n == 1 { "file" } else { "files" };
+            format!(
+                "Applied: {n} {file_word} in your folder, beside your own changes. Opening a pull request is yours."
+            )
+        }
+        ScoutFix::Stale { .. } => {
+            "Not applied: the fix was made on an older copy, and you changed that file since."
+                .to_owned()
+        }
+        ScoutFix::Unfixed { name, why, .. } => {
+            format!("{name} could not prepare a fix: {why}")
+        }
+        ScoutFix::Held { why } => why.clone(),
+    }
+}
+
+/// Review button label for a fix that has a conversation (`ScoutCards.tsx`).
+pub fn fix_review_label(fix: &ScoutFix) -> &'static str {
+    match fix {
+        ScoutFix::Unfixed { .. } => "Open it",
+        _ => "Review",
+    }
+}
+
+/// Daily fix limit label (`At most N a day`).
+pub fn fix_per_day_label(per_day: u32) -> String {
+    debug_assert!(SCOUT_FIXES_PER_DAY.contains(&per_day));
+    format!("At most {per_day} a day")
 }
 
 /// Card kind label matching `ScoutCards.tsx` `Card`.
@@ -196,7 +284,18 @@ pub fn setting_status_line(
         } else {
             format!("{} of them read by {}", today.asked, model.unwrap_or("its model"))
         };
-        parts.push(format!("Today: {} {look_word}, {read_part}.", today.looks));
+        let fixes_part = match &state.settings.fixes {
+            Some(fixes) if fixes.on => {
+                let word = if fixes.per_day == 1 { "fix" } else { "fixes" };
+                format!(
+                    ", {} of {} {word} prepared",
+                    today.fixes.unwrap_or(0),
+                    fixes.per_day
+                )
+            }
+            _ => String::new(),
+        };
+        parts.push(format!("Today: {} {look_word}, {read_part}{fixes_part}.", today.looks));
     }
     if let Some(quiet) = state.settings.quiet
         && in_quiet_hours(Some(quiet), now)
@@ -372,6 +471,172 @@ mod tests {
             Some(
                 "Last looked 3 min ago, and nothing needed you. Today: 14 looks, 2 of them read by Deepseek V4.1 Flash Free. Quiet until 7 AM."
             )
+        );
+    }
+
+    // --- 1:1 ports of `a-scout-fix-says-where-it-stands.test.tsx` (fix view helpers) ---
+
+    #[test]
+    fn fix_line_reports_preparing_ready_applied_stale_unfixed_and_held() {
+        let preparing = ScoutFix::Preparing {
+            fix_id: "fix_1".into(),
+            name: "Wren".into(),
+            since: "2026-10-22T12:00:00.000Z".into(),
+        };
+        assert_eq!(
+            fix_said(&preparing),
+            "Wren is preparing a fix in a copy of the folder…"
+        );
+
+        let ready = ScoutFix::Ready {
+            fix_id: "fix_1".into(),
+            name: "Wren".into(),
+            files: vec![
+                "a.ts".into(),
+                "b.ts".into(),
+                "c.ts".into(),
+                "d.ts".into(),
+                "e.ts".into(),
+            ],
+            added: Some(3),
+            removed: Some(1),
+            mission_id: "ms_fix".into(),
+        };
+        assert_eq!(
+            fix_said(&ready),
+            "Fix ready: 5 files changed (+3 \u{2212}1), the check passes."
+        );
+        assert_eq!(
+            fix_files_line(&[
+                "a.ts".into(),
+                "b.ts".into(),
+                "c.ts".into(),
+                "d.ts".into(),
+                "e.ts".into(),
+            ])
+            .as_deref(),
+            Some("a.ts · b.ts · c.ts · d.ts · and 1 more")
+        );
+        assert_eq!(fix_review_label(&ready), "Review");
+
+        let applied = ScoutFix::Applied {
+            files: vec!["src/auth.ts".into()],
+        };
+        assert_eq!(
+            fix_said(&applied),
+            "Applied: 1 file in your folder, beside your own changes. Opening a pull request is yours."
+        );
+
+        let stale = ScoutFix::Stale {
+            fix_id: "fix_1".into(),
+            name: "Wren".into(),
+            files: vec!["src/auth.ts".into()],
+            mission_id: "ms_fix".into(),
+        };
+        assert_eq!(
+            fix_said(&stale),
+            "Not applied: the fix was made on an older copy, and you changed that file since."
+        );
+
+        let unfixed = ScoutFix::Unfixed {
+            name: "Wren".into(),
+            why: "tests need network".into(),
+            mission_id: Some("ms_fix".into()),
+        };
+        assert_eq!(
+            fix_said(&unfixed),
+            "Wren could not prepare a fix: tests need network"
+        );
+        assert_eq!(fix_review_label(&unfixed), "Open it");
+
+        let held = ScoutFix::Held {
+            why: "Prepared 2 fixes today; raise the limit in Settings or send a teammate.".into(),
+        };
+        assert_eq!(
+            fix_said(&held),
+            "Prepared 2 fixes today; raise the limit in Settings or send a teammate."
+        );
+    }
+
+    #[test]
+    fn hides_draft_while_fix_is_preparing_ready_or_applied_and_reveals_otherwise() {
+        let mut card = make_card("c1", ScoutUrgency::Soon, "check:main", true);
+        assert!(card_shows_draft(&card));
+
+        for hidden in [
+            ScoutFix::Preparing {
+                fix_id: "f1".into(),
+                name: "Wren".into(),
+                since: "2026-10-22T12:00:00.000Z".into(),
+            },
+            ScoutFix::Ready {
+                fix_id: "f1".into(),
+                name: "Wren".into(),
+                files: vec!["a.ts".into()],
+                added: Some(1),
+                removed: Some(0),
+                mission_id: "ms_1".into(),
+            },
+            ScoutFix::Applied {
+                files: vec!["a.ts".into()],
+            },
+        ] {
+            card.fix = Some(hidden);
+            assert!(!card_shows_draft(&card));
+        }
+
+        for visible in [
+            ScoutFix::Stale {
+                fix_id: "f1".into(),
+                name: "Wren".into(),
+                files: vec!["a.ts".into()],
+                mission_id: "ms_1".into(),
+            },
+            ScoutFix::Unfixed {
+                name: "Wren".into(),
+                why: "stopped".into(),
+                mission_id: None,
+            },
+            ScoutFix::Held {
+                why: "At limit".into(),
+            },
+        ] {
+            card.fix = Some(visible);
+            assert!(card_shows_draft(&card));
+        }
+
+        card.fix = None;
+        assert!(card_shows_draft(&card));
+    }
+
+    #[test]
+    fn setting_status_line_includes_fixes_prepared_when_fixes_on() {
+        let now = DateTime::parse_from_rfc3339("2026-10-22T12:05:00+00:00").unwrap();
+        let st = ScoutState {
+            settings: ScoutSettings {
+                on: true,
+                fixes: Some(super::super::types::ScoutFixSettings {
+                    on: true,
+                    teammate_id: Some("tm_wren".into()),
+                    per_day: 3,
+                }),
+                ..Default::default()
+            },
+            cards: vec![],
+            look_ids: vec![],
+            last_look_at: Some("2026-10-22T12:02:00.000Z".into()),
+            model_said: None,
+            today: Some(ScoutToday {
+                day: "2026-10-22".into(),
+                looks: 4,
+                asked: 1,
+                fixes: Some(2),
+            }),
+            notes: vec![],
+        };
+        assert_eq!(
+            setting_status_line(&st, Some("Fast"), now).as_deref(),
+            Some("Last looked 3 min ago, and nothing needed you. Today: 4 looks, 1 of them read by Fast, 2 of 3 fixes prepared.")
         );
     }
 }

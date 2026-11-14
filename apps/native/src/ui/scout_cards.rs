@@ -11,7 +11,7 @@ use locust_core::attention;
 use locust_core::connectors_off::free_models_best_first;
 use locust_core::scout::host::ScoutHost;
 use locust_core::scout::types::{
-    ScoutCard, ScoutChange, ScoutDraft, ScoutOpen, ScoutOutcome, ScoutState, ScoutTone,
+    ScoutCard, ScoutChange, ScoutDraft, ScoutFix, ScoutOpen, ScoutOutcome, ScoutState, ScoutTone,
     ScoutUrgency,
 };
 #[cfg(test)]
@@ -434,6 +434,27 @@ pub(super) fn tune_card(s: &mut State, card_id: String) {
     }
 }
 
+pub(super) fn apply_fix(s: &mut State, card_id: String) {
+    let Some(host) = ensure_host(s) else { return };
+    s.scout.action_job.request((), move |()| {
+        ActionOutcome::State(host.scout.apply_fix(&card_id))
+    });
+}
+
+pub(super) fn skip_fix(s: &mut State, card_id: String) {
+    let Some(host) = ensure_host(s) else { return };
+    s.scout.action_job.request((), move |()| {
+        ActionOutcome::State(host.scout.skip_fix(&card_id))
+    });
+}
+
+pub(super) fn fix_again(s: &mut State, card_id: String) {
+    let Some(host) = ensure_host(s) else { return };
+    s.scout.action_job.request((), move |()| {
+        ActionOutcome::State(host.scout.fix_again(&card_id))
+    });
+}
+
 pub(super) fn open_target(s: &mut State, open: ScoutOpen, tx: &mut Tx) {
     match open {
         ScoutOpen::Url { url, .. } => {
@@ -515,6 +536,104 @@ fn chip_colors(tone: ScoutTone, l: &Look) -> (Color, Color, Color) {
         ScoutTone::Blue => (l.c("blue-text"), l.c("blue-tint"), l.c("blue-border")),
         ScoutTone::Quiet => (l.c("chip-text"), l.c("chip-bg"), l.c("border-card")),
     }
+}
+
+fn render_fix_line(card_id: &str, fix: &ScoutFix, l: &Look) -> El {
+    let mut box_el = col()
+        .w_full()
+        .gap(6.0)
+        .padding(8.0)
+        .radius(6.0)
+        .fill(l.c("bg-window"))
+        .border(1.0, l.c("border-hairline"))
+        .key(format!("scout-fix-{card_id}"))
+        .child(
+            text(view::fix_said(fix))
+                .font(rune::TextStyle::new(12.5, 500.0))
+                .color(l.c("text-primary"))
+                .wrap(),
+        );
+
+    let files = match fix {
+        ScoutFix::Ready { files, .. }
+        | ScoutFix::Applied { files }
+        | ScoutFix::Stale { files, .. } => Some(files.as_slice()),
+        ScoutFix::Preparing { .. } | ScoutFix::Unfixed { .. } | ScoutFix::Held { .. } => None,
+    };
+    if let Some(files_line) = files.and_then(view::fix_files_line) {
+        box_el = box_el.child(
+            text(files_line)
+                .font(rune::TextStyle::new(11.5, 400.0))
+                .color(l.c("text-muted"))
+                .wrap(),
+        );
+    }
+
+    let mut btns = row().w_full().gap(8.0).flex_wrap().center_y();
+    let mut has_btns = false;
+
+    let review_mission = match fix {
+        ScoutFix::Ready { mission_id, .. } | ScoutFix::Stale { mission_id, .. } => {
+            Some(mission_id.as_str())
+        }
+        ScoutFix::Unfixed { mission_id, .. } => mission_id.as_deref(),
+        ScoutFix::Preparing { .. } | ScoutFix::Held { .. } | ScoutFix::Applied { .. } => None,
+    };
+    if let Some(mid) = review_mission {
+        has_btns = true;
+        let label = view::fix_review_label(fix);
+        let open = ScoutOpen::Conversation {
+            mission_id: mid.to_owned(),
+            label: label.to_owned(),
+        };
+        btns = btns.child(
+            controls::button(l, label, Tone::Neutral, false)
+                .role("button")
+                .label(label)
+                .key(format!("scout-fix-review-{card_id}"))
+                .on_press_tx(move |s: &mut State, tx| open_target(s, open.clone(), tx)),
+        );
+    }
+
+    match fix {
+        ScoutFix::Ready { .. } => {
+            has_btns = true;
+            let id_apply = card_id.to_owned();
+            let id_skip = card_id.to_owned();
+            btns = btns
+                .child(
+                    controls::button(l, "Apply", Tone::Active, false)
+                        .role("button")
+                        .label("Apply")
+                        .key(format!("scout-fix-apply-{card_id}"))
+                        .on_press(move |s: &mut State| apply_fix(s, id_apply.clone())),
+                )
+                .child(
+                    controls::ghost_button(l, "Skip")
+                        .role("button")
+                        .label("Skip")
+                        .key(format!("scout-fix-skip-{card_id}"))
+                        .on_press(move |s: &mut State| skip_fix(s, id_skip.clone())),
+                );
+        }
+        ScoutFix::Unfixed { .. } | ScoutFix::Stale { .. } => {
+            has_btns = true;
+            let id_again = card_id.to_owned();
+            btns = btns.child(
+                controls::button(l, "Prepare again", Tone::Neutral, false)
+                    .role("button")
+                    .label("Prepare again")
+                    .key(format!("scout-fix-again-{card_id}"))
+                    .on_press(move |s: &mut State| fix_again(s, id_again.clone())),
+            );
+        }
+        ScoutFix::Preparing { .. } | ScoutFix::Held { .. } | ScoutFix::Applied { .. } => {}
+    }
+
+    if has_btns {
+        box_el = box_el.child(btns);
+    }
+    box_el
 }
 
 fn render_card(card: &ScoutCard, focused: bool, now_ms: i64, l: &Look) -> El {
@@ -668,7 +787,13 @@ fn render_card(card: &ScoutCard, focused: bool, now_ms: i64, l: &Look) -> El {
         );
     }
 
-    if let Some(draft) = &card.fact.draft {
+    if let Some(fix) = &card.fix {
+        box_el = box_el.child(render_fix_line(&card.card_id, fix, l));
+    }
+
+    if view::card_shows_draft(card)
+        && let Some(draft) = &card.fact.draft
+    {
         box_el = box_el.child(
             col()
                 .w_full()
@@ -693,7 +818,9 @@ fn render_card(card: &ScoutCard, focused: bool, now_ms: i64, l: &Look) -> El {
 
     // 2a card actions only (2b `/locust` comment posting and `FixLine` belong to Part 2b).
     let mut actions = row().w_full().gap(8.0).center_y();
-    if let Some(draft) = card.fact.draft.clone() {
+    if view::card_shows_draft(card)
+        && let Some(draft) = card.fact.draft.clone()
+    {
         let send_label = format!("Send to {}", draft.name);
         let id_send = card.card_id.clone();
         let d_send = draft.clone();
@@ -926,7 +1053,9 @@ pub(super) fn board_wait_card(s: &State, card: &ScoutCard, l: &Look) -> El {
         );
 
     let mut actions = row().w_full().gap(8.0).flex_wrap();
-    if let Some(draft) = &card.fact.draft {
+    if view::card_shows_draft(card)
+        && let Some(draft) = &card.fact.draft
+    {
         let send_label = format!("Send to {}", draft.name);
         let d_send = draft.clone();
         let id_send = card.card_id.clone();
@@ -1750,5 +1879,184 @@ pub(super) mod tests {
         assert!(!rt.state.home.board_open);
         assert!(rt.state.home.home_open);
         assert_eq!(rt.state.scout.focus_card_id.as_deref(), Some("card_now"));
+    }
+
+    // --- 1:1 ports of `a-scout-fix-says-where-it-stands.test.tsx` (2 Fix card cases) ---
+
+    #[test]
+    fn fix_line_shows_preparing_ready_applied_stale_unfixed_and_held_on_cards() {
+        let mut s = base_state(true);
+        let variants = [
+            (
+                "c-prep",
+                ScoutFix::Preparing {
+                    fix_id: "rt_scoutfix_1".into(),
+                    name: "Wren".into(),
+                    since: "2026-10-22T12:00:00.000Z".into(),
+                },
+            ),
+            (
+                "c-ready",
+                ScoutFix::Ready {
+                    fix_id: "rt_scoutfix_2".into(),
+                    name: "Wren".into(),
+                    files: vec![
+                        "src/a.rs".into(),
+                        "src/b.rs".into(),
+                        "src/c.rs".into(),
+                        "src/d.rs".into(),
+                        "src/e.rs".into(),
+                    ],
+                    added: Some(3),
+                    removed: Some(1),
+                    mission_id: "ms_ready".into(),
+                },
+            ),
+            (
+                "c-applied",
+                ScoutFix::Applied {
+                    files: vec!["src/a.rs".into()],
+                },
+            ),
+            (
+                "c-stale",
+                ScoutFix::Stale {
+                    fix_id: "rt_scoutfix_3".into(),
+                    name: "Wren".into(),
+                    files: vec!["src/a.rs".into()],
+                    mission_id: "ms_stale".into(),
+                },
+            ),
+            (
+                "c-unfixed",
+                ScoutFix::Unfixed {
+                    name: "Wren".into(),
+                    why: "tests need network".into(),
+                    mission_id: Some("ms_unfixed".into()),
+                },
+            ),
+            (
+                "c-held",
+                ScoutFix::Held {
+                    why: "Prepared 2 fixes today; raise the limit in Settings or send a teammate."
+                        .into(),
+                },
+            ),
+        ];
+
+        for (cid, fix) in variants {
+            let mut card = make_card(cid, ScoutUrgency::Soon, "Check npm test started failing");
+            card.fix = Some(fix);
+            s.scout.state.as_mut().unwrap().cards = vec![card];
+            let rt = render_state(base_clone_with(&s), home_sec_el);
+            let words = collect_rt_text(&rt);
+            assert!(rt.find(&format!("scout-fix-{cid}")).is_some());
+            match cid {
+                "c-prep" => {
+                    assert!(words.contains("Wren is preparing a fix in a copy of the folder…"));
+                    assert!(rt.find("scout-fix-apply-c-prep").is_none());
+                }
+                "c-ready" => {
+                    assert!(words.contains("Fix ready: 5 files changed (+3 \u{2212}1), the check passes."));
+                    assert!(words.contains("src/a.rs · src/b.rs · src/c.rs · src/d.rs · and 1 more"));
+                    assert!(rt.find("scout-fix-review-c-ready").is_some());
+                    assert!(rt.find("scout-fix-apply-c-ready").is_some());
+                    assert!(rt.find("scout-fix-skip-c-ready").is_some());
+                }
+                "c-applied" => {
+                    assert!(words.contains(
+                        "Applied: 1 file in your folder, beside your own changes. Opening a pull request is yours."
+                    ));
+                    assert!(rt.find("scout-fix-apply-c-applied").is_none());
+                }
+                "c-stale" => {
+                    assert!(words.contains(
+                        "Not applied: the fix was made on an older copy, and you changed that file since."
+                    ));
+                    assert!(rt.find("scout-fix-review-c-stale").is_some());
+                    assert!(rt.find("scout-fix-again-c-stale").is_some());
+                }
+                "c-unfixed" => {
+                    assert!(words.contains("Wren could not prepare a fix: tests need network"));
+                    assert!(words.contains("Open it"));
+                    assert!(rt.find("scout-fix-review-c-unfixed").is_some());
+                    assert!(rt.find("scout-fix-again-c-unfixed").is_some());
+                }
+                "c-held" => {
+                    assert!(words.contains(
+                        "Prepared 2 fixes today; raise the limit in Settings or send a teammate."
+                    ));
+                }
+                _ => unreachable!(),
+            }
+        }
+    }
+
+    fn base_clone_with(src: &State) -> State {
+        let mut s = base_state(true);
+        s.scout.state = src.scout.state.clone();
+        s
+    }
+
+    #[test]
+    fn hides_draft_while_fix_is_preparing_ready_or_applied_and_reveals_on_stale_or_unfixed() {
+        let make_fix_card = |fix: Option<ScoutFix>| {
+            let mut card = make_card("c_draft_fix", ScoutUrgency::Now, "Check failed");
+            card.fact.draft = Some(ScoutDraft {
+                teammate_id: "tm_wren".into(),
+                name: "Wren".into(),
+                message: "Fix failing test".into(),
+            });
+            card.fix = fix;
+            let mut s = base_state(true);
+            s.scout.state.as_mut().unwrap().cards = vec![card];
+            s
+        };
+
+        for hidden in [
+            ScoutFix::Preparing {
+                fix_id: "f1".into(),
+                name: "Wren".into(),
+                since: "2026-10-22T12:00:00.000Z".into(),
+            },
+            ScoutFix::Ready {
+                fix_id: "f1".into(),
+                name: "Wren".into(),
+                files: vec!["src/a.rs".into()],
+                added: Some(1),
+                removed: Some(0),
+                mission_id: "ms_1".into(),
+            },
+            ScoutFix::Applied {
+                files: vec!["src/a.rs".into()],
+            },
+        ] {
+            let rt = render_state(make_fix_card(Some(hidden)), home_sec_el);
+            let words = collect_rt_text(&rt);
+            assert!(!words.contains("Drafted for Wren"));
+            assert!(rt.find("scout-send-c_draft_fix").is_none());
+            assert!(rt.find("scout-draft-c_draft_fix").is_none());
+        }
+
+        for visible in [
+            None,
+            Some(ScoutFix::Unfixed {
+                name: "Wren".into(),
+                why: "stopped".into(),
+                mission_id: None,
+            }),
+            Some(ScoutFix::Stale {
+                fix_id: "f1".into(),
+                name: "Wren".into(),
+                files: vec!["src/a.rs".into()],
+                mission_id: "ms_1".into(),
+            }),
+        ] {
+            let rt = render_state(make_fix_card(visible), home_sec_el);
+            let words = collect_rt_text(&rt);
+            assert!(words.contains("Drafted for Wren"));
+            assert!(rt.find("scout-send-c_draft_fix").is_some());
+            assert!(rt.find("scout-draft-c_draft_fix").is_some());
+        }
     }
 }
