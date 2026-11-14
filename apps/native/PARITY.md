@@ -68,7 +68,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 | Up-arrow sent-message history | `renderer/src/components/Composer.tsx` | **done** | yes | no | no |
 | Reference folders retained with conversation | `renderer/src/components/ReferenceChips.tsx`, `main/conversation-references.ts` | **partial** — folders on this computer; no GitHub repositories yet | yes | no | yes |
 | Permission mode, folder/own branch, Direct/Compare/Blind controls | `renderer/src/components/Composer.tsx`, `renderer/src/components/RoutePicker.tsx`, `shared/may-do.ts` | **partial** — the mode menu on the message box (`mode_facts`, Electron's words; agents' modes match all 385 grid cases; choosing Auto turns Auto on); folder chip shows where the turn runs; Direct/Compare/Blind mode chip & picks row added; own branch remains | yes | no | yes |
-| Review notes and browser page points attached to next message | `renderer/src/components/SentNotes.tsx`, `renderer/src/components/PagePointChips.tsx` | **missing** | - | no | yes |
+| Review notes and browser page points attached to next message | `renderer/src/components/SentNotes.tsx`, `renderer/src/components/PagePointChips.tsx` | **partial** — Review notes on a diff built and merged 14 Nov (57e2d964, notes/REVIEW-NOTES.md); browser page points wait for row "Point at page/browser element" | yes | no | yes |
 | Connector-off and unavailable-route pre-send warnings | `renderer/src/components/Composer.tsx`, `renderer/src/connectorsOff.ts` | **done** — Hydrogen: `core/src/connectors_off.rs`, `src/ui/thread_view.rs`, `src/ui/home_panel.rs`, `src/ui/people_panel.rs` (connector-off pre-send hint for Claude Code teammates, dropped OpenCode free model notice + one-click switch on composer and amber route on Home/Team cards, unavailable-route send refusal; notes/SETUP-NOTES.md) | yes | no | yes |
 
 ### Area 3: Teammates, Rooms, Memory & Skills
@@ -134,8 +134,8 @@ Native status evidence: each cell names its module or round notes; the engine is
 | Browse GitHub issues and start conversation/branch | `renderer/src/components/IssueList.tsx`, `main/github-issues.ts` | **partial** — `core/src/github_issues.rs` (Electron's github-issue.ts and github-issues.ts: gh only in a folder it can read, the open issues newest first, the brief that says the issue is other people's words, the fix/<n>-<title> branch in a teammate's copy, Fixes #n once, the picture addresses GitHub's hosts allow) and `src/ui/issue_list.rs` (/issue lists them, searchable, Enter fills the box, nothing sent); Electron's issue tests carried, a headless window test. Fetching the issue's pictures (needs an HTTP client), Start from an issue on Home, and remembering the issue on the sent conversation remain | yes | no | yes |
 | Post-edit check and fix-until-check-passes | `renderer/src/components/EditCheckCard.tsx`, `renderer/src/components/CheckFixLine.tsx`, `main/edit-check.ts`, `main/check-fix.ts` | **done** — `core/src/edit_check.rs` (the check after a turn that changed files, 180 s cap, 256 KiB of output; fix turns through engine_api, 2 by default and 5 at most, stopping on a repeated failure; mission.edit_check records read by Electron's reader), `src/ui/edit_check_card.rs` and the folder's check settings; Electron's 4 edit-check test files carried over, a headless window test (notes/EDIT-CHECK-NOTES.md) | yes | no | yes |
 | Scout watch/checks, findings, notes, morning brief and weekly tune-up | `renderer/src/components/ScoutCards.tsx`, `renderer/src/components/ScoutSetting.tsx`, `main/scout.ts`, `main/scout-folder.ts` | **partial** — Part 1 core (`core/src/scout/`) + Part 2a window UI (`core/src/scout/view.rs`, `src/ui/scout_cards.rs`, `src/ui/scout_setting.rs`, `src/conversation_board.rs`, `src/ui/home_panel.rs`): Home Scout cards, Now-first cap & focus, watching bar, team card Looked + Look now eye, Meet Scout invite, morning brief, weekly tune-up, Settings > App Scout keeps watch & lazy What Scout saw, Board Needs-you Scout wait cards, and Asking Scout forced Ask + sealed look-log brief (`core/src/native.rs`); 6 headless window tests; Part 2b (`FixLine`, `/locust` comment setting, `AwayLine`) remains (`notes/SCOUT-NOTES.md`) | yes | no | yes |
-| Scout /locust comments, away GitHub workflow and phone cards | `main/scout-comments.ts`, `main/scout-away.ts`, `main/phone-scout-cards.ts` | **missing** | - | no | yes |
-| Scout prepares fixes in copies for review | `main/scout-fix.ts`, `renderer/src/components/ScoutCards.tsx` | **missing** | - | no | yes |
+| Scout /locust comments, away GitHub workflow and phone cards | `main/scout-comments.ts`, `main/scout-away.ts`, `main/phone-scout-cards.ts` | **partial** — /locust comments read and posted (01b0ea67, merged 21a945c8); the away workflow and phone cards wait for the phone (area 12) | yes | no | yes |
+| Scout prepares fixes in copies for review | `main/scout-fix.ts`, `renderer/src/components/ScoutCards.tsx` | **done** — Fixes prepared in isolated routine copies with the fix line (aee346c3, ff3a0be0; merged 21a945c8), window test on the fake agent | yes | no | yes |
 | Diff annotations and walk me through changes | `renderer/src/components/DiffNotes.tsx`, `renderer/src/components/SentNotes.tsx`, `renderer/src/components/ChangesPanel.tsx`, `shared/walkthrough.ts` | **partial** — `core/src/diff_notes.rs` (Electron's diffNotes.ts: a note per line, one block in file then line order, read back out of a sent message, each held against the next turn's changes) and `src/ui/diff_notes_ui.rs` (a + on every Changes line, the note under its line, one tile above the message box, the next message carries them, the bubble shows the person's words with each note under it, relative to the folder); a headless window test. The outcome chips under sent notes (they need each turn's diff), notes in Review changes, and Walk me through remain | yes | no | yes |
 
 ### Area 7: Terminal & Own Commands
@@ -279,11 +279,11 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | # | Area | Done | Partial | Missing | Total | Alone | Live |
 | :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: |
 | 1 | Conversations & Thread Rendering | 15 | 10 | 0 | 25 | 25 | 3 |
-| 2 | Composer & Input | 11 | 2 | 1 | 14 | 13 | 2 |
+| 2 | Composer & Input | 11 | 3 | 0 | 14 | 14 | 2 |
 | 3 | Teammates, Rooms, Memory & Skills | 9 | 4 | 1 | 14 | 13 | 0 |
 | 4 | Runtimes, Routing & Fallback | 5 | 6 | 0 | 11 | 11 | 5 |
 | 5 | Approvals & Permissions | 1 | 8 | 0 | 9 | 9 | 2 |
-| 6 | Changes, Git, Worktrees, Issues & Scout | 3 | 8 | 2 | 13 | 11 | 0 |
+| 6 | Changes, Git, Worktrees, Issues & Scout | 4 | 9 | 0 | 13 | 13 | 0 |
 | 7 | Terminal & Own Commands | 0 | 3 | 0 | 3 | 3 | 0 |
 | 8 | Built-in Browser & Page Previews | 4 | 1 | 1 | 6 | 5 | 0 |
 | 9 | Routines, Compare & Benchmarks | 7 | 2 | 1 | 10 | 9 | 0 |
@@ -293,7 +293,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 13 | Onboarding, Home, Updates & CLI | 7 | 6 | 0 | 13 | 13 | 2 |
 | 14 | Pets, Bots & Look / Window Chrome | 2 | 1 | 3 | 6 | 3 | 1 |
 | 15 | Documents, Diagrams & File Viewer | 1 | 6 | 0 | 7 | 7 | 0 |
-| | **TOTAL** | **70** | **61** | **22** | **153** | **131** | **15** |
+| | **TOTAL** | **71** | **63** | **19** | **153** | **134** | **15** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 
