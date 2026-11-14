@@ -2183,6 +2183,16 @@ mod tests {
         );
     }
 
+    // Review (14 Nov): the line limit without a file is 24 (Electron `MEMORY_BRIEF_LINES`); nothing else pinned it.
+    #[test]
+    fn a_brief_without_a_file_carries_at_most_twenty_four_memories_and_with_one_at_most_eight() {
+        let many: Vec<Value> = (0..30)
+            .map(|i| memory_line(&format!("Note {i}."), &format!("2026-09-{:02}T05:00:00.000Z", i + 1), "workspace"))
+            .collect();
+        assert_eq!(briefed_memories(&many, None, None).len(), 24);
+        assert_eq!(briefed_memories(&many, None, Some(".locust/memory.md")).len(), 8);
+    }
+
     #[test]
     fn the_brief_pastes_the_answer_when_asked_and_says_the_rest_are_in_the_file() {
         let twelve = twelve_memories();
