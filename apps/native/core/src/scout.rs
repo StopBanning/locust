@@ -10,6 +10,7 @@ pub mod log;
 pub mod scheduler;
 pub mod store;
 pub mod types;
+pub mod view;
 
 #[cfg(test)]
 mod unit_tests;

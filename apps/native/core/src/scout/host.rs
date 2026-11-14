@@ -7,7 +7,7 @@ use std::collections::{HashMap, HashSet};
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use std::sync::atomic::{AtomicI64, Ordering};
+use std::sync::atomic::{AtomicI64, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock, Weak};
 use std::time::{Duration, Instant, SystemTime};
 
@@ -23,9 +23,10 @@ use crate::store::Store;
 
 use super::folder::folder_mark_of;
 use super::github::{GhError, ScoutGithub, ScoutGithubUnread, read_scout_github};
+use super::log::scout_log_brief;
 use super::scheduler::ScoutScheduler;
-use super::store::ScoutFiles;
-use super::types::{FailedTurn, FolderCheckResult, WaitingCard};
+use super::store::{ScoutFiles, load_kept_with, load_log_with};
+use super::types::{FailedTurn, FolderCheckResult, ScoutCard, ScoutState, WaitingCard};
 use super::{AnswerResult, AskResult, BriefRuns, Scout, ScoutDeps, ScoutRoute, ScoutTeammate};
 
 pub const NO_WORKSPACE_MESSAGE: &str = "Choose the folder your teammates work in first. Locust was opened from its own install folder, and no teammate should work in there.";
@@ -267,6 +268,9 @@ pub struct ScoutHostDeps {
     skew_ms: AtomicI64,
     gh_hook: Mutex<Option<GhHook>>,
     git_hook: Mutex<Option<GitHook>>,
+    state_seq: AtomicU64,
+    latest_state: Mutex<Option<ScoutState>>,
+    pending_notifications: Mutex<Vec<ScoutCard>>,
 }
 
 impl ScoutHostDeps {
@@ -277,7 +281,33 @@ impl ScoutHostDeps {
             skew_ms: AtomicI64::new(0),
             gh_hook: Mutex::new(None),
             git_hook: Mutex::new(None),
+            state_seq: AtomicU64::new(0),
+            latest_state: Mutex::new(None),
+            pending_notifications: Mutex::new(Vec::new()),
         })
+    }
+
+    pub fn state_seq(&self) -> u64 {
+        self.state_seq.load(Ordering::Acquire)
+    }
+
+    pub fn latest_state(&self) -> Option<ScoutState> {
+        self.latest_state
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
+    }
+
+    pub fn drain_notifications(&self) -> Vec<ScoutCard> {
+        let mut queue = self
+            .pending_notifications
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        std::mem::take(&mut *queue)
+    }
+
+    pub fn has_workspace_folder(&self) -> bool {
+        self.workspace_folder().is_some()
     }
 
     pub fn set_folder(&self, folder: Option<PathBuf>) {
@@ -801,6 +831,56 @@ impl ScoutDeps for ScoutHostDeps {
             more,
         })
     }
+
+    fn changed(&self, state: &ScoutState) {
+        *self
+            .latest_state
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = Some(state.clone());
+        self.state_seq.fetch_add(1, Ordering::Release);
+    }
+
+    fn notify(&self, card: &ScoutCard) {
+        self.pending_notifications
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push(card.clone());
+    }
+}
+
+/// When a person sends a turn to Scout's teammate (`askingScout` in `main/index.ts`), it runs
+/// sealed in Ask on its own `scout-chat:<teammateId>` slot with `why_brief()` instructions.
+pub fn asking_scout_slot(store: &Store, teammate_id: &str) -> Option<SlotOrigin> {
+    if let Some(scout) = active_hosts(store)
+        .into_iter()
+        .find(|s| s.teammate_id().as_deref() == Some(teammate_id))
+    {
+        return Some(SlotOrigin {
+            key: format!("scout-chat:{teammate_id}"),
+            instructions: Some(scout.why_brief()),
+            sealed: true,
+            ..Default::default()
+        });
+    }
+    let files = ScoutFiles::Store(store.clone());
+    let now = Local::now().fixed_offset();
+    let loaded = load_kept_with(
+        &files,
+        now,
+        |p| std::fs::read_to_string(p),
+        |d| std::thread::sleep(d),
+    );
+    if loaded.kept.settings.teammate_id.as_deref() != Some(teammate_id) {
+        return None;
+    }
+    let (entries, _) = load_log_with(&files, |p| std::fs::read_to_string(p));
+    let brief = scout_log_brief(&entries, &[], now);
+    Some(SlotOrigin {
+        key: format!("scout-chat:{teammate_id}"),
+        instructions: Some(brief),
+        sealed: true,
+        ..Default::default()
+    })
 }
 
 /// Live native Scout host owning a `Scout` engine + `ScoutHostDeps` registration.

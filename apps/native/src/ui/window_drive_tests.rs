@@ -5179,3 +5179,178 @@ fn leaving_a_group_keeps_join_note_shows_leaving_note_and_stops_briefing_future_
         .unwrap();
     assert!(first_at < join_at && join_at < second_at && second_at < leave_at);
 }
+
+#[test]
+fn scout_send_to_starts_teammates_fresh_conversation_and_dismisses_card() {
+    let (_dirs, store, mut rt) = window();
+    let card = locust_core::scout::types::ScoutCard {
+        card_id: "c_send".into(),
+        at: "2026-04-12T10:00:00.000Z".into(),
+        reading: false,
+        take: None,
+        raw_fix: None,
+        fact: locust_core::scout::types::ScoutFact {
+            draft: Some(locust_core::scout::types::ScoutDraft {
+                teammate_id: "tm_codec".into(),
+                name: "Codec".into(),
+                message: "Check why the auth test flaked.\n\nSynthetic prompt".into(),
+            }),
+            ..locust_core::scout::types::ScoutFact::simple(
+                "c_send",
+                locust_core::scout::types::ScoutUrgency::Now,
+                "Codec finished with a question",
+            )
+        },
+    };
+    std::fs::create_dir_all(store.root()).unwrap();
+    std::fs::write(
+        store.root().join("scout.json"),
+        serde_json::to_string_pretty(&serde_json::json!({
+            "settings": { "on": true },
+            "cards": [card.to_json(true)],
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+
+    let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "success"));
+
+    type_and_send(&mut rt, "Synthetic prompt");
+    pump(&mut rt, "first answer", answered);
+    let first_convo = rt.state.teammates[0].id.clone();
+    assert_eq!(first_convo, "tm_codec");
+
+    rt.update(|s, _| home_panel::open_home(s));
+    pump(&mut rt, "scout card loaded on Home", |s| {
+        s.scout
+            .state
+            .as_ref()
+            .is_some_and(|st| st.cards.iter().any(|c| c.card_id == "c_send"))
+    });
+    settle(&mut rt);
+    assert!(rt.find("scout-send-c_send").is_some());
+
+    click(&mut rt, "scout-send-c_send");
+    pump(&mut rt, "drafted turn answered and card dismissed", |s| {
+        !s.home.home_open
+            && answered(s)
+            && s.scout
+                .state
+                .as_ref()
+                .is_some_and(|st| st.cards.is_empty())
+    });
+
+    let records = first_records(&store);
+    assert_eq!(
+        records.len(),
+        2,
+        "Send to starts a fresh second conversation: {records:?}"
+    );
+    assert!(
+        records.iter().any(|r| {
+            r["metadata"]["prompt"]
+                .as_str()
+                .is_some_and(|p| p.contains("Check why the auth test flaked."))
+        }),
+        "fresh turn must carry drafted words: {records:?}"
+    );
+}
+
+#[test]
+fn scout_change_it_first_puts_draft_into_box_and_dismisses_card() {
+    let (_dirs, store, mut rt) = window();
+    let card = locust_core::scout::types::ScoutCard {
+        card_id: "c_edit".into(),
+        at: "2026-04-12T10:00:00.000Z".into(),
+        reading: false,
+        take: None,
+        raw_fix: None,
+        fact: locust_core::scout::types::ScoutFact {
+            draft: Some(locust_core::scout::types::ScoutDraft {
+                teammate_id: "tm_codec".into(),
+                name: "Codec".into(),
+                message: "Editable scout draft".into(),
+            }),
+            ..locust_core::scout::types::ScoutFact::simple(
+                "c_edit",
+                locust_core::scout::types::ScoutUrgency::Soon,
+                "PR #9 failed lint",
+            )
+        },
+    };
+    std::fs::create_dir_all(store.root()).unwrap();
+    std::fs::write(
+        store.root().join("scout.json"),
+        serde_json::to_string_pretty(&serde_json::json!({
+            "settings": { "on": true },
+            "cards": [card.to_json(true)],
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+
+    rt.update(|s, _| home_panel::open_home(s));
+    pump(&mut rt, "scout card loaded on Home", |s| {
+        s.scout
+            .state
+            .as_ref()
+            .is_some_and(|st| st.cards.iter().any(|c| c.card_id == "c_edit"))
+    });
+    assert!(rt.find("scout-draft-c_edit").is_some());
+
+    click(&mut rt, "scout-draft-c_edit");
+    pump(&mut rt, "card dismissed into composer", |s| {
+        !s.home.home_open
+            && s.scout
+                .state
+                .as_ref()
+                .is_some_and(|st| st.cards.is_empty())
+    });
+    assert_eq!(rt.state.draft.text, "Editable scout draft");
+    assert!(rt.state.flight.is_none());
+}
+
+#[test]
+fn scout_invite_flow_adds_scout_to_team_and_shows_look_now_eye_button() {
+    let (dirs, _store, mut rt) = window();
+    let folder = dirs.0.join("work").display().to_string();
+    rt.update(|s, _| {
+        s.home.folder_path = Some(folder.clone());
+        s.models.insert(
+            "opencode".into(),
+            vec![engine::Models {
+                teammate: None,
+                runtime: "opencode".into(),
+                model: None,
+                effort: None,
+                models: vec![engine::Model {
+                    id: "opencode/qwen3-coder-free".into(),
+                    name: "Qwen 3 Coder Free".into(),
+                    efforts: vec![],
+                }],
+            }],
+        );
+        home_panel::open_home(s);
+    });
+    pump(&mut rt, "initial scout state loaded", |s| {
+        s.scout.state.is_some()
+    });
+    assert!(rt.find("scout-invite-card").is_some());
+    click(&mut rt, "scout-invite-card");
+    assert!(rt.find("scout-invite-dialog").is_some());
+
+    click(&mut rt, "scout-invite-turn-on");
+    pump(&mut rt, "scout turned on and added to team", |s| {
+        !s.scout.invite_busy
+            && !s.scout.invite_open
+            && s.scout.state.as_ref().is_some_and(|st| st.settings.on)
+            && s.scout
+                .state
+                .as_ref()
+                .and_then(|st| st.settings.teammate_id.as_deref())
+                .is_some_and(|id| s.teammates.iter().any(|t| t.id == id))
+    });
+    settle(&mut rt);
+    assert!(rt.find("scout-invite-card").is_none());
+    assert!(rt.find("scout-look-now").is_some());
+}

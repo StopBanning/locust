@@ -124,6 +124,7 @@ pub(super) struct OwnTurn {
 }
 
 pub(super) struct State {
+    pub(super) scout: crate::scout_cards::Panel,
     pub(super) routines: crate::routines_panel::Panel,
     pub(super) browser: crate::browser_panel::Panel,
     pub(super) terminal: crate::terminal_panel::Panel,
@@ -598,6 +599,7 @@ impl Default for State {
             exchange_open: None,
             exchange_stopping: false,
             peer_thread_open: HashMap::new(),
+            scout: crate::scout_cards::Panel::default(),
         }
     }
 }

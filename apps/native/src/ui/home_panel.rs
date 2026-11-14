@@ -75,6 +75,7 @@ pub(super) fn open_home(s: &mut State) {
     refresh_away(s);
     refresh_changelog(s);
     crate::usage_line::request(s);
+    crate::scout_cards::request_refresh_state(s);
 }
 
 pub(super) fn open_board(s: &mut State) {
@@ -656,6 +657,9 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
         if let Some(usage) = crate::usage_line::line(s, &l) {
             body = body.child(usage);
         }
+        if let Some(scout) = crate::scout_cards::home_section(s, &l) {
+            body = body.child(scout);
+        }
         body = body.child(section_head(&l, YOUR_TEAM, Some(s.teammates.len()), Some(add)));
         // HomeTeam.tsx's cards: a square for the face (faces come in C4), the name, the role, the agent and model.
         let mut grid = row().w_full().gap(10.0).flex_wrap();
@@ -684,26 +688,59 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
                     .truncate()
                     .shrink(),
             );
-            grid = grid.child(
-                row()
-                    .w(246.0)
-                    .gap(12.0)
-                    .padding(12.0)
-                    .center_y()
-                    .radius(10.0)
-                    .fill(l.c("bg-raised"))
-                    .border(1.0, l.c("border-card"))
-                    .child(crate::look::faces::tile(s.image_cache.as_deref(), &mate.id, &mate.name, s.looks.get(&mate.id), &l))
-                    .child(
-                        col()
-                            .gap(2.0)
-                            .grow(1.0)
-                            .shrink()
-                            .child(text(mate.name.clone()).font(rune::TextStyle::new(14.0, 500.0)).color(l.c("text-name")).truncate())
-                            .child(text(mate.role.clone()).font(rune::TextStyle::new(12.5, 400.0)).color(l.c("text-secondary")).truncate())
-                            .child(agent),
-                    ),
-            );
+            let looked = crate::scout_cards::looked_line_for_teammate(s, &mate.id);
+            let sub_text = looked
+                .as_ref()
+                .map(|(line, _)| line.clone())
+                .unwrap_or_else(|| mate.role.clone());
+            let card = row()
+                .gap(12.0)
+                .padding(12.0)
+                .center_y()
+                .radius(10.0)
+                .fill(l.c("bg-raised"))
+                .border(1.0, l.c("border-card"))
+                .child(crate::look::faces::tile(s.image_cache.as_deref(), &mate.id, &mate.name, s.looks.get(&mate.id), &l))
+                .child(
+                    col()
+                        .gap(2.0)
+                        .grow(1.0)
+                        .shrink()
+                        .child(text(mate.name.clone()).font(rune::TextStyle::new(14.0, 500.0)).color(l.c("text-name")).truncate())
+                        .child(text(sub_text).font(rune::TextStyle::new(12.5, 400.0)).color(l.c("text-secondary")).truncate())
+                        .child(agent),
+                );
+            if let Some((_, looking)) = looked {
+                let mut eye = row()
+                    .padding(6.0)
+                    .radius(6.0)
+                    .hover(l.c("hover-surface"))
+                    .role("button")
+                    .label("Look now")
+                    .key("scout-look-now")
+                    .child(crate::look::controls::glyph(
+                        &l,
+                        &crate::look::icons::EYE,
+                        14.0,
+                        Some(if looking { l.c("text-muted") } else { l.c("text-secondary") }),
+                    ));
+                if !looking {
+                    eye = eye.on_press(|s: &mut State| crate::scout_cards::look_now(s));
+                }
+                grid = grid.child(
+                    row()
+                        .w(246.0)
+                        .gap(4.0)
+                        .center_y()
+                        .child(card.grow(1.0).shrink())
+                        .child(eye),
+                );
+            } else {
+                grid = grid.child(card.w(246.0));
+            }
+        }
+        if crate::scout_cards::invite_offer_active(s) {
+            grid = grid.child(crate::scout_cards::invite_team_tile(&l));
         }
         body = body.child(grid);
     }

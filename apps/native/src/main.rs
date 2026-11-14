@@ -82,6 +82,8 @@ mod reply_actions;
 mod routines_panel;
 #[path = "ui/scenes.rs"]
 mod scenes;
+#[path = "ui/scout_cards.rs"]
+mod scout_cards;
 mod settings_pages;
 #[path = "ui/settings_panel.rs"]
 mod settings_panel;
@@ -724,6 +726,7 @@ fn setup(s: &mut State, waker: Waker) {
     s.image_cache = Some(Arc::new(ImageCache::new(waker.clone())));
     s.ledger_job.set_waker(waker.clone());
     s.rooms.load_job.set_waker(waker.clone());
+    scout_cards::setup_wakers(s, &waker);
     s.rooms.action_job.set_waker(waker);
     if !HEADLESS.load(std::sync::atomic::Ordering::Relaxed) && !s.demo && s.session_places.is_none() {
         s.session_places = locust_core::session_import::SessionPlaces::from_env();
@@ -1893,6 +1896,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     changed |= connectors_section::poll(s);
     changed |= issue_list::poll(s);
     changed |= attention_watch::poll(s);
+    changed |= scout_cards::poll(s);
     changed |= rail::poll(s);
     changed |= open_pressed_notification(s, tx);
     bench_opened(s);
@@ -2545,6 +2549,21 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
                 .child(
                     import_dialog::view(s, &p)
                         .modal(true, crate::import_dialog::close),
+                ),
+        );
+    }
+    if s.scout.invite_open {
+        app = app.child(
+            el().absolute(0.0, 0.0)
+                .w_full()
+                .h_full()
+                .fill(Color::BLACK.alpha(0.55))
+                .center()
+                .child(
+                    scout_cards::invite_dialog(s, &p).modal(true, |s: &mut State| {
+                        s.scout.invite_open = false;
+                        s.scout.invite_message = None;
+                    }),
                 ),
         );
     }
