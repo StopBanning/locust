@@ -668,6 +668,7 @@ fn run_trouble(code: &str) -> bool {
 
 #[derive(Clone, Debug, Default)]
 pub struct Transcript {
+    pub signal_rail: Vec<crate::inspector::SignalRow>,
     pub live: Option<crate::thread_view::LiveLine>,
     pub metadata: Option<Metadata>,
     pub items: Vec<Item>,
@@ -1188,6 +1189,7 @@ impl Transcript {
         self.recovery =
             crate::recovery::offer(phase, &self.checkpoints, usize::from(self.error.is_some()));
         let event_vec: Vec<Value> = self.events.values().cloned().collect();
+        self.signal_rail = crate::signal_rail::build(&event_vec, self.running);
         self.cost = crate::relay::mission_cost_from_events(&event_vec);
         self.live = crate::thread_view::live_line(&event_vec, self.running,
             self.metadata.as_ref().map(|m| m.created_at.as_str()).unwrap_or(""), false);
@@ -1559,6 +1561,7 @@ impl Session {
                     phase: phase.to_owned(),
                     running: t.running,
                     events: t.events.values().cloned().collect(),
+                    signal_rail: t.signal_rail.clone(),
                     checkpoints_count: t.checkpoints.len(),
                     last_checkpoint_epoch,
                     integrity_issue_count: usize::from(t.error.is_some()),

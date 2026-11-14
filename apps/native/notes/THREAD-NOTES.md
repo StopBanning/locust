@@ -157,3 +157,52 @@ The release workspace build completed with no warnings during the second release
 its headless desktop tests were interrupted by the outer timeout. A full restored
 workspace pass is still pending. Prior attempts spent 590 seconds waiting for the
 shared lock, or exhausted the remaining time compiling after a long lock wait.
+
+
+## Thread-5 continuation — 14 Nov 2026 (verification pending)
+
+Read the original brief, thread-5 handoff, Electron cases and complete peer/rail functions.
+The inherited peer source still contained the `peer-empty` mutation (`true &&`), despite
+its handoff saying all controls were restored. Restored `message_count > 0 &&` and added
+`peer-flat`, a whole-core control for multiline preview flattening. The seven case ports
+and window wiring are prepared; **this continuation has not verified or committed them**.
+
+The inherited signal-rail draft has eight one-to-one Electron cases. Corrected its helper
+filter to use `parentItemId`, reused the shared shell-tool predicate, and replaced its UTC
+clock slicing with native local-time formatting. Rail rows are projected on transcript
+application and copied into inspector inputs: unlike Electron's render-time projection,
+the native window need not consult the timezone database while drawing. Two supplemental
+cases cover that cache and helper/refused-command behavior. These edits are **uncompiled
+and unverified**, and no new signal-rail mutation is claimed. No does-not-apply decision.
+
+Verification is blocked by the shared gentle-cargo lock. The focused peer attempt and the
+first whole-core baseline each exited **124** after 590 seconds waiting for the lock;
+neither reached compilation or ran a test. The third baseline also exited **124** after 590 seconds waiting for the lock, without
+compiling or running tests (`notes/thread-reading-baseline-retry.log`). In total, all three
+bounded attempts timed out before Cargo started. Whitespace checks passed. No real-agent run,
+network call, visible window, push or branch switch was performed. No Scout source changed.
+The first required commit, remaining sections, parity recount, full release workspace suite
+and release build are still pending; no last-full-run counts are claimed for this continuation.
+
+## Thread-6 continuation — 14 Nov 2026
+
+The inherited exchange-reading and signal-rail source passed the full core baseline:
+**1,652 passed, 20 ignored**, no compiler warnings (`thread-6-core.log`). The run
+waited 673 seconds for the shared lock before compiling. The rail lives in
+`signal_rail.rs`; its local clock strings are cached by the ledger and copied into
+inspector inputs, avoiding render-time timezone lookups. This preserves the visible
+sentences while doing the projection outside drawing. Seven exchange-reading cases
+and eight rail cases remain one-to-one ports; two supplemental rail cases pin the
+cache, helper-call filtering and refused-command sentence. No does-not-apply cases.
+
+The fixture runner now uses the handoff's 1,800-second outer timeout and
+1,780-second Cargo timeout. Thirteen exchange/rail controls are scheduled. The first
+`peer-open` attempt waited 1,122 seconds, compiled and failed its named assertion,
+but hit outer timeout 124 before the entire core suite finished. It restored the
+source; all 66 registered original expressions were checked present afterwards.
+That incomplete attempt is **not** counted as control evidence. The retry waited
+1,164 seconds, then completed: **1,651 passed, one intended failure, 20 ignored**.
+`peer-open` failed `leaves_a_long_back_and_forth_collapsed` and restored; the other
+twelve controls are pending. The next control, `peer-empty`, is queued behind
+another checkout's full native release suite. The assistant-text section has a
+prepared, unregistered test file; it is not counted as carried or compiled.

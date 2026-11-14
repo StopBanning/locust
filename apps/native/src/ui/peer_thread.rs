@@ -158,7 +158,7 @@ pub(super) fn cards_for_mission(
             .peer_thread_open
             .get(&toggle_key)
             .copied()
-            .unwrap_or_else(|| group.len() <= 4);
+            .unwrap_or_else(|| locust_core::peer_thread::exchange_starts_open(group.len()));
         let first_from = group.first().map(|m| m.from_id.as_str()).unwrap_or("");
         let same_sender = group.iter().all(|m| m.from_id == first_from);
         let count = group.len();
@@ -170,14 +170,7 @@ pub(super) fn cards_for_mission(
         } else {
             format!("{count} {noun} from {peer_name}")
         };
-        let snippet = (!open).then(|| {
-            let raw = group
-                .first()
-                .and_then(|m| m.text.as_deref())
-                .unwrap_or("");
-            let trimmed: String = raw.split_whitespace().collect::<Vec<_>>().join(" ");
-            trimmed.chars().take(72).collect::<String>()
-        });
+        let snippet = if open { None } else {locust_core::peer_thread::snippet(group.first().and_then(|m| m.text.as_deref()), 72)};
 
         let tk = toggle_key.clone();
         let mut toggle_row = row()
@@ -192,7 +185,7 @@ pub(super) fn cards_for_mission(
                     .peer_thread_open
                     .get(&tk)
                     .copied()
-                    .unwrap_or_else(|| count <= 4);
+                    .unwrap_or_else(|| locust_core::peer_thread::exchange_starts_open(count));
                 s.peer_thread_open.insert(tk.clone(), !current);
             })
             .child(

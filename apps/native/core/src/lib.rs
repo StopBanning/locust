@@ -152,3 +152,5 @@ pub mod activity_trace;
 pub mod conversation_turns;
 
 pub mod peer_thread;
+
+pub mod signal_rail;

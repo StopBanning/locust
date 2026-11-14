@@ -24,6 +24,21 @@ controls = {
     'command-kinds': ('core/src/command_outcomes.rs', '!heads.contains(&head)', 'head.len() > 0', 'names_each_kind_once_so_twelve_commands_of_two_kinds_read_as_twelve'),
 }
 controls.update({
+
+    'rail-tool': ('core/src/signal_rail.rs', 'format!("{name} · {target}")', 'name.to_owned()', 'names_a_call_it_does_not_recognise_by_its_own_name_never_a_guess'),
+    'rail-words': ('core/src/signal_rail.rs', 's.replace([\'-\', \'_\'], " ").trim().into()', 's.to_owned()', 'says_what_happened_in_words_not_the_ledgers_event_names'),
+    'rail-order': ('core/src/signal_rail.rs', 'rows.reverse();', '/* oldest first */', 'shows_newest_first'),
+    'rail-live': ('core/src/signal_rail.rs', 'tone = SignalTone::Live;', 'tone = SignalTone::Muted;', 'marks_a_tool_live_only_while_it_is_open_and_the_run_is_going'),
+    'rail-tone': ('core/src/signal_rail.rs', 'tone = SignalTone::Blue;', 'tone = SignalTone::Muted;', 'colours_by_meaning_not_decoration'),
+    'rail-plan': ('core/src/signal_rail.rs', 's.state == "done"', 's.state == "pending"', 'says_how_far_the_plan_had_got_not_only_that_it_moved_0_360'),
+    'rail-once': ('core/src/signal_rail.rs', 'ty != "tool.started" && started.contains(id)', 'false && started.contains(id)', 'says_each_call_as_a_sentence_one_row_a_call_with_how_it_ended'),
+    'rail-helper': ('core/src/signal_rail.rs', 'if p["parentItemId"].as_str()', 'if p["missingParent"].as_str()', 'helper_calls_belong_to_their_activity_row_and_refused_commands_never_ran'),
+    'rail-cache': ('core/src/ledger.rs', 'self.signal_rail = crate::signal_rail::build(&event_vec, self.running);', 'self.signal_rail.clear();', 'the_ledger_caches_local_rail_clocks_before_the_window_draws'),
+    'peer-flat': ('core/src/peer_thread.rs', 'text?.split_whitespace().collect::<Vec<_>>().join(" ")', 'text?.trim().to_owned()', 'flattens_a_multi_line_message_to_one_line'),
+    'peer-open': ('core/src/peer_thread.rs', 'message_count <= 2', 'message_count <= 4', 'leaves_a_long_back_and_forth_collapsed'),
+    'peer-empty': ('core/src/peer_thread.rs', 'message_count > 0 &&', 'true &&', 'has_nothing_to_open_when_there_are_no_messages'),
+    'peer-snippet': ('core/src/peer_thread.rs', 'format!("{}…", flat.chars()', 'format!("{}", flat.chars()', 'cuts_a_long_message_rather_than_letting_the_card_wrap'),
+
     'peer-turns': ('core/src/peer_thread.rs', 'turns.iter().enumerate()', 'turns.iter().enumerate().skip(1)', 'draws_the_message_an_earlier_turn_sent_not_only_the_reply'),
     'peer-placement': ('core/src/peer_thread.rs', 'messages.iter().any(|m| m.direction == "received")', 'false', 'puts_what_a_turn_sent_after_its_work_and_what_it_was_handed_before_it'),
     'peer-key': ('core/src/peer_thread.rs', 'format!("peer_{turn_index}_{name}")', 'format!("peer_{name}")', 'gives_the_same_peer_a_distinct_key_on_each_turn'),
@@ -75,7 +90,7 @@ log = pathlib.Path('notes/thread-mutation-' + name + '.log')
 try:
     p.write_text(original.replace(old, new, 1))
     with log.open('w') as out:
-        result = subprocess.run(['timeout', '590', 'python3', 'scripts/gentle-cargo.py', '--timeout', '580', 'test', '--offline', '-p', 'locust-core'], stdout=out, stderr=subprocess.STDOUT, env=dict(os.environ, CARGO_PROFILE_DEV_OPT_LEVEL='1', CARGO_PROFILE_DEV_DEBUG='0', RUST_TEST_THREADS='4'))
+        result = subprocess.run(['timeout', '1800', 'python3', 'scripts/gentle-cargo.py', '--timeout', '1780', 'test', '--offline', '-p', 'locust-core'], stdout=out, stderr=subprocess.STDOUT, env=dict(os.environ, CARGO_PROFILE_DEV_OPT_LEVEL='1', CARGO_PROFILE_DEV_DEBUG='0', RUST_TEST_THREADS='4'))
     output = log.read_text()
     assert result.returncode == 101 and ('::' + test + ' ... FAILED') in output and 'test result: FAILED.' in output, (name, result.returncode, output[-3000:])
     print(name + ': named assertion failed across whole core suite')

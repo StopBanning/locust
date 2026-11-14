@@ -37,3 +37,13 @@ pub fn thread_peer_cards(turns: &[Vec<Message>]) -> Vec<Card> {
     cards
 }
 #[cfg(test)] #[path="peer_thread_tests.rs"] mod tests;
+
+/// An ask and answer read in place; a longer aside opens on request.
+pub fn exchange_starts_open(message_count: usize) -> bool { message_count > 0 && message_count <= 2 }
+pub fn snippet(text: Option<&str>, limit: usize) -> Option<String> {
+    let flat = text?.split_whitespace().collect::<Vec<_>>().join(" ");
+    if flat.is_empty() { return None; }
+    Some(if flat.chars().count() <= limit { flat } else {
+        format!("{}…", flat.chars().take(limit.saturating_sub(1)).collect::<String>().trim_end())
+    })
+}
