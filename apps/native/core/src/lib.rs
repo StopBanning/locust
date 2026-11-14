@@ -119,6 +119,7 @@ pub mod shell_words;
 pub mod provider_error;
 pub mod failure_words;
 pub mod memory_tidy;
+pub mod codex_failure;
 pub mod side_question;
 pub mod skill_runtimes;
 pub mod skills;

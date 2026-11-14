@@ -486,21 +486,8 @@ impl Normalizer {
                             .and_then(|v| v.keys().next().map(String::as_str))
                     })
                     .unwrap_or("");
-                let lower = message.to_lowercase();
-                let kind = if info == "usageLimitExceeded"
-                    || lower.contains("quota")
-                    || lower.contains("usage limit")
-                {
-                    "quota-exhausted"
-                } else if info == "rateLimitExceeded" || lower.contains("rate limit") {
-                    "temporary-rate-limit"
-                } else if info == "unauthorized" {
-                    "authentication-failed"
-                } else if ["cyberPolicy", "misalignmentPolicyViolation"].contains(&info) {
-                    "safety-blocked"
-                } else {
-                    "unknown"
-                };
+                // codexErrorInfo by its v2 names, else the message's own words (app-server-events.ts, failureKind).
+                let kind = crate::codex_failure::app_server_failure_kind(info, message);
                 let mut out = vec![];
                 if ["quota-exhausted", "temporary-rate-limit"].contains(&kind)
                     && self.limits.insert(kind.into())
