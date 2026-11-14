@@ -166,3 +166,6 @@ mod typed_prompt_tests;
 
 #[cfg(test)]
 mod plan_payload_tests;
+
+#[cfg(test)]
+mod plan_presentation_tests;
