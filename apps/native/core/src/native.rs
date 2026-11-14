@@ -2990,8 +2990,11 @@ fn run_turn(
             record_failure(&mut writer, cancelled, &e);
             return finish(&mut writer, &mut registered, &channel, &mission_id);
         }
+        // A read Cursor is refused is explained where it happens (`explainADeniedRead`): its tools say only
+        // "permission denied", and the rule in `.cursorignore` that hides the folder is named beside the failure.
+        let mut explained = crate::cursor_ignore::ExplainsDeniedReads::new(&mut runtime, &turn.folder, std::env::var_os("HOME").map(PathBuf::from));
         drive_runtime(
-            &mut runtime,
+            &mut explained,
             &mut writer,
             &flag,
             &mut registered,
