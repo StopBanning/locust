@@ -84,6 +84,8 @@ mod routines_panel;
 mod scenes;
 #[path = "ui/scout_cards.rs"]
 mod scout_cards;
+#[path = "ui/scout_setting.rs"]
+mod scout_setting;
 mod settings_pages;
 #[path = "ui/settings_panel.rs"]
 mod settings_panel;

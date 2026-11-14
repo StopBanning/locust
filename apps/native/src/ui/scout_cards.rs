@@ -51,21 +51,17 @@ pub(super) struct Panel {
     /// Settings > "What Scout saw": stays `None` until the person presses Show.
     pub log: Option<Result<ScoutLogSnapshot, String>>,
     pub log_loading: bool,
-    #[allow(dead_code)]
     pub log_open: bool,
-    #[allow(dead_code)]
     pub log_aside_only: bool,
-    #[allow(dead_code)]
     pub log_shown: usize,
-    #[allow(dead_code)]
     pub goal_draft: Option<TextEdit>,
-    #[allow(dead_code)]
+    pub goal_pending: Option<String>,
     pub notes_draft: Option<TextEdit>,
+    pub notes_pending: Option<String>,
     pub setting_busy: bool,
     pub setting_message: Option<String>,
     pub state_job: Latest<ScoutState>,
     pub action_job: Latest<ActionOutcome>,
-    #[allow(dead_code)]
     pub log_job: Latest<Result<ScoutLogSnapshot, String>>,
     pub opencode_job: Latest<Vec<engine::Models>>,
     pub opencode_requested: bool,
@@ -93,7 +89,9 @@ impl Default for Panel {
             log_aside_only: false,
             log_shown: SCOUT_SAW_PAGE,
             goal_draft: None,
+            goal_pending: None,
             notes_draft: None,
+            notes_pending: None,
             setting_busy: false,
             setting_message: None,
             state_job: Latest::default(),
@@ -207,6 +205,24 @@ pub(super) fn poll(s: &mut State) -> bool {
         match outcome {
             ActionOutcome::State(st) => {
                 s.scout.setting_busy = false;
+                if let Some(pending) = s.scout.goal_pending.take() {
+                    if s.scout
+                        .goal_draft
+                        .as_ref()
+                        .is_some_and(|e| e.text == pending)
+                    {
+                        s.scout.goal_draft = None;
+                    }
+                }
+                if let Some(pending) = s.scout.notes_pending.take() {
+                    if s.scout
+                        .notes_draft
+                        .as_ref()
+                        .is_some_and(|e| e.text == pending)
+                    {
+                        s.scout.notes_draft = None;
+                    }
+                }
                 s.scout.state = Some(st);
             }
             ActionOutcome::Looked(st) => {
@@ -369,13 +385,33 @@ pub(super) fn turn_on_scout(s: &mut State, from_invite: bool) {
     });
 }
 
-#[allow(dead_code)]
 pub(super) fn apply_change(s: &mut State, change: ScoutChange) {
     let Some(host) = ensure_host(s) else { return };
     s.scout.setting_busy = true;
+    s.scout.setting_message = None;
     s.scout
         .action_job
         .request((), move |()| ActionOutcome::State(host.scout.set(&change)));
+}
+
+pub(super) fn save_notes(s: &mut State, text: String) {
+    let Some(host) = ensure_host(s) else { return };
+    s.scout.setting_busy = true;
+    s.scout.setting_message = None;
+    s.scout.action_job.request((), move |()| {
+        ActionOutcome::State(host.scout.save_notes(&text))
+    });
+}
+
+pub(super) fn load_log(s: &mut State) {
+    let Some(host) = ensure_host(s) else {
+        s.scout.log = Some(Err("Native data folder could not be read.".into()));
+        return;
+    };
+    s.scout.log_loading = true;
+    s.scout
+        .log_job
+        .request((), move |()| Ok(host.scout.log()));
 }
 
 pub(super) fn dismiss_card(s: &mut State, card_id: String, how: Option<ScoutOutcome>) {
@@ -1001,13 +1037,16 @@ pub(super) mod tests {
             .child(invite_dialog(s, &Palette::new(true)))
     }
 
-    fn render_state(state: State, build: fn(&State, &mut Cx<State>) -> El) -> Runtime<State> {
+    pub(crate) fn render_state(
+        state: State,
+        build: fn(&State, &mut Cx<State>) -> El,
+    ) -> Runtime<State> {
         let mut rt = Runtime::new(state, build, (960.0, 900.0), Env::new(true, 1.0));
         rt.frame(0.0);
         rt
     }
 
-    pub(super) fn click_key(rt: &mut Runtime<State>, key: &str) {
+    pub(crate) fn click_key(rt: &mut Runtime<State>, key: &str) {
         let (x, y) = rt
             .find(key)
             .unwrap_or_else(|| panic!("no element {key} on screen"));
@@ -1016,7 +1055,7 @@ pub(super) mod tests {
         rt.frame(0.0);
     }
 
-    pub(super) fn collect_rt_text(rt: &Runtime<State>) -> String {
+    pub(crate) fn collect_rt_text(rt: &Runtime<State>) -> String {
         let mut out = Vec::new();
         for node in rt.elements() {
             if let Some(t) = node.text {

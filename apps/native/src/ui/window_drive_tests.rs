@@ -5354,3 +5354,110 @@ fn scout_invite_flow_adds_scout_to_team_and_shows_look_now_eye_button() {
     assert!(rt.find("scout-invite-card").is_none());
     assert!(rt.find("scout-look-now").is_some());
 }
+
+#[test]
+fn scout_settings_saves_goal_hours_and_loads_log_only_on_press() {
+    let (_dirs, store, mut rt) = window();
+    std::fs::create_dir_all(store.root()).unwrap();
+    std::fs::write(
+        store.root().join("scout.json"),
+        serde_json::to_string_pretty(&serde_json::json!({
+            "settings": { "on": true }
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+    std::fs::write(
+        store.root().join(locust_core::scout::store::SCOUT_LOG_FILE),
+        serde_json::to_string_pretty(&serde_json::json!([
+            {
+                "at": "2026-10-22T12:00:00.000Z",
+                "looks": 1,
+                "raised": [{ "key": "pr:1", "said": "PR #1 failed CI" }],
+                "aside": [],
+                "off": []
+            }
+        ]))
+        .unwrap(),
+    )
+    .unwrap();
+
+    rt.update(|s, _| {
+        crate::settings_panel::open(s);
+        s.settings_panel.page = Some(crate::settings_pages::SettingsPageId::App);
+    });
+    pump(&mut rt, "scout settings loaded", |s| {
+        s.scout.state.as_ref().is_some_and(|st| st.settings.on)
+    });
+    // Look log stays unread until "Show what Scout saw" is pressed.
+    assert!(rt.state.scout.log.is_none());
+    assert!(rt.find("scout-saw-open").is_some());
+
+    // Edit and save Scout's goal; verify persistence in scout.json.
+    rt.update(|s, _| {
+        s.scout.goal_draft = Some(rune::TextEdit::new("Keep main's tests passing."));
+    });
+    settle(&mut rt);
+    rt.update(|_, tx| tx.scroll_key_to("scout-goal-save", 0.5));
+    settle(&mut rt);
+    click(&mut rt, "scout-goal-save");
+    assert!(
+        rt.find("scout-goal-save").is_none(),
+        "Save button should hide once Save is pressed"
+    );
+    pump(&mut rt, "scout goal saved", |s| {
+        !s.scout.setting_busy
+            && s.scout
+                .state
+                .as_ref()
+                .and_then(|st| st.settings.goal.as_deref())
+                == Some("Keep main's tests passing.")
+    });
+
+    // Pick Quiet hours (index 1 -> first choice in SCOUT_QUIET_CHOICES) & Morning brief (7 AM).
+    rt.update(|_, tx| tx.scroll_key_to("scout-quiet-1", 0.5));
+    settle(&mut rt);
+    click(&mut rt, "scout-quiet-1");
+    pump(&mut rt, "quiet hours saved", |s| {
+        !s.scout.setting_busy
+            && s.scout
+                .state
+                .as_ref()
+                .and_then(|st| st.settings.quiet)
+                == Some(locust_core::scout::types::SCOUT_QUIET_CHOICES[0])
+    });
+    rt.update(|_, tx| tx.scroll_key_to("scout-brief-7", 0.5));
+    settle(&mut rt);
+    click(&mut rt, "scout-brief-7");
+    pump(&mut rt, "morning brief hour saved", |s| {
+        !s.scout.setting_busy
+            && s.scout
+                .state
+                .as_ref()
+                .and_then(|st| st.settings.brief_at)
+                == Some(7)
+    });
+
+    // Now press "Show what Scout saw" to load the look log.
+    rt.update(|_, tx| tx.scroll_key_to("scout-saw-open", 0.5));
+    settle(&mut rt);
+    click(&mut rt, "scout-saw-open");
+    pump(&mut rt, "look log loaded after press", |s| {
+        !s.scout.log_loading
+            && matches!(
+                s.scout.log,
+                Some(Ok(ref snap)) if snap.entries.len() == 1
+            )
+    });
+    assert!(rt.find("scout-saw-entry-0").is_some());
+
+    let raw = std::fs::read_to_string(store.root().join(locust_core::scout::store::SCOUT_FILE)).unwrap();
+    let val: serde_json::Value = serde_json::from_str(&raw).unwrap();
+    let disk = locust_core::scout::store::Kept::from_json(&val);
+    assert_eq!(disk.settings.goal.as_deref(), Some("Keep main's tests passing."));
+    assert_eq!(
+        disk.settings.quiet,
+        Some(locust_core::scout::types::SCOUT_QUIET_CHOICES[0])
+    );
+    assert_eq!(disk.settings.brief_at, Some(7));
+}
