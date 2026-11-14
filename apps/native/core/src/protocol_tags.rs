@@ -582,7 +582,9 @@ pub fn strip_file_blocks(text: &str) -> String {
 
 /// The reply text as shown to the person in the thread (`missionView.ts` `shownText`).
 pub fn shown_text(text: &str) -> String {
-    let s = strip_decision_blocks(text);
+    // Memory and tidy blocks were acted on (or proposed) by the host: their words are not the reply (stripMemoryBlocks).
+    let s = crate::memory_tidy::strip_memory_blocks(text);
+    let s = strip_decision_blocks(&s);
     let s = strip_file_blocks(&s);
     let s = strip_next_blocks(&s);
     unwrap_protocol_tags(&s)

@@ -1149,37 +1149,21 @@ pub fn record_reply(store: &Store, who: &str, folder: &Path, reply: &str) -> Res
         }
     }
     if mode != "off" {
-        let blocks = crate::invariants::regex(r"(?s)<locust-tidy\s*>(.*?)</locust-tidy>");
-        let line = crate::invariants::regex(
-            r"(?i)^\s*(?:[-*•]\s*|\d{1,2}[.)]\s*)?(merge|retire|rewrite)\s+([^:]*?)\s*::\s*(.+?)\s*$",
-        );
-        let mut count = 0;
-        for block in blocks.captures_iter(reply) {
-            for raw in block[1].lines() {
-                if count >= 12 {
-                    break;
-                }
-                let Some(c) = line.captures(raw) else {
-                    continue;
-                };
-                let ids: Vec<_> = crate::invariants::regex(r"mem_[A-Za-z0-9_-]{1,60}")
-                    .find_iter(&c[2])
-                    .map(|m| m.as_str().to_owned())
-                    .collect();
-                if (c[1].eq_ignore_ascii_case("merge") && ids.len() < 2)
-                    || (!c[1].eq_ignore_ascii_case("merge") && ids.len() != 1)
-                {
-                    continue;
-                }
-                propose_tidy(
-                    store,
-                    &workspace_id(folder),
-                    &ids,
-                    &c[3],
-                    c[1].eq_ignore_ascii_case("retire"),
-                )?;
-                count += 1;
+        // One reader for the block (memory_tidy.rs, memory-tidy.ts), and every suggestion proposed: one the store
+        // refuses (a memory changed or gone) never drops the ones after it (memory-reader.ts proposeTidy).
+        let mut refused = None;
+        for suggestion in crate::memory_tidy::parse_tidy_blocks(reply) {
+            let (ids, text, retire) = match suggestion {
+                crate::memory_tidy::TidySuggestion::Merge { ids, text } => (ids, text, false),
+                crate::memory_tidy::TidySuggestion::Retire { id, reason } => (vec![id], reason, true),
+                crate::memory_tidy::TidySuggestion::Rewrite { id, text } => (vec![id], text, false),
+            };
+            if let Err(why) = propose_tidy(store, &workspace_id(folder), &ids, &text, retire) {
+                refused.get_or_insert(why);
             }
+        }
+        if let Some(why) = refused {
+            return Err(why);
         }
     }
     Ok(())
@@ -1527,6 +1511,19 @@ mod tests {
         assert!(prompt.contains("Read first."));
         assert!(prompt.contains("applies"));
         assert!(!prompt.contains("other folder"));
+    }
+    #[test]
+    fn a_tidy_suggestion_the_store_refuses_never_drops_the_ones_after_it() {
+        // memory-reader.ts proposes them together and lists the refusals: one stale id stops nothing else.
+        let (_dir, store) = fixture();
+        let ws = workspace_id(Path::new("/tmp"));
+        add_memory(&store, "kept one", None, "workspace", &ws, json!({"name":"Codec"}), "kept").unwrap();
+        let kept = memories(&store).unwrap()["memories"][0]["memoryId"].as_str().unwrap().to_owned();
+        let reply = format!("Done.\n<locust-tidy>\nretire mem_gone :: stale\nretire {kept} :: superseded\n</locust-tidy>");
+        assert!(record_reply(&store, "unknown", Path::new("/tmp"), &reply).is_err(), "the refusal is still said");
+        let file = memories(&store).unwrap();
+        let proposed: Vec<_> = file["memories"].as_array().unwrap().iter().filter(|m| m["status"] == "proposed" && m["forgets"] == kept.as_str()).collect();
+        assert_eq!(proposed.len(), 1, "the second suggestion was proposed: {file}");
     }
     #[test]
     fn suggestions_never_change_the_persons_note() {

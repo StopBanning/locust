@@ -1127,7 +1127,7 @@ apps/desktop/src/shared/a-command-output-keeps-its-tail.test.ts	P9	partial	outpu
 apps/desktop/src/shared/a-command-reaches-the-next-message-once.test.ts	P9	partial	own_command_carries_once_and_stays_in_its_conversation	shared/a-command-reaches-the-next-message-once.test.ts | Partial: own_command_carries_once_and_stays_in_its_conversation covers carry once, no pending carry, wrong conversation; stopped/running formatting matrix remains.
 apps/desktop/src/shared/a-command-says-what-it-does-in-plain-words.test.ts	P8	partial		`shared/a-command-says-what-it-does-in-plain-words.test.ts` | Push/force/delete/download/looking/silence cases
 apps/desktop/src/shared/a-command-that-reaches-other-programs-is-named.test.ts	P8	partial		`shared/a-command-that-reaches-other-programs-is-named.test.ts` | REACHES / DOES_NOT tables + said sentences
-apps/desktop/src/shared/a-fenced-tidy-block-still-counts.test.ts		waiting		
+apps/desktop/src/shared/a-fenced-tidy-block-still-counts.test.ts		carried	core/src/memory_tidy.rs	all 6 cases, one test each (memory_tidy_tests.rs); shown_text strips memory and tidy blocks
 apps/desktop/src/shared/a-first-run-names-no-terminal.test.ts		waiting		
 apps/desktop/src/shared/a-half-written-tag-is-never-shown-to-a-person.test.ts		carried	core/src/protocol_tags.rs	all 11 cases, one test each (protocol_tags.rs tests)
 apps/desktop/src/shared/a-judge-scores-each-answer.test.ts	compare	carried		`compare_score::tests::a_judge_scores_each_answer`
@@ -1141,7 +1141,7 @@ apps/desktop/src/shared/a-room-remembers-what-was-said.test.ts	ROOMS	partial	cor
 apps/desktop/src/shared/a-run-started-for-a-teammate-is-theirs.test.ts		waiting		
 apps/desktop/src/shared/a-tag-quoted-in-code-swallows-nothing.test.ts		carried	core/src/protocol_tags.rs	all 5 cases, one test each (protocol_tags.rs tests)
 apps/desktop/src/shared/a-teammate-is-named-the-way-a-person-writes.test.ts		waiting		
-apps/desktop/src/shared/a-tidy-block-is-read-exactly.test.ts		waiting		
+apps/desktop/src/shared/a-tidy-block-is-read-exactly.test.ts		carried	core/src/memory_tidy.rs	all 8 cases, one test each (memory_tidy_tests.rs); people.rs reads replies with it
 apps/desktop/src/shared/a-torn-tag-keeps-the-letters-before-it.test.ts		waiting		
 apps/desktop/src/shared/a-voice-call-switches-every-add-on-off.test.ts		waiting		
 apps/desktop/src/shared/an-answer-reads-right-in-discord.test.ts		waiting		
