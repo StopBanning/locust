@@ -866,6 +866,124 @@ pub(super) fn home_section(s: &State, l: &Look) -> Option<El> {
     Some(sec.child(list))
 }
 
+/// Urgent (`Urgency::Now`) Scout cards shown at the top of Board > "Needs you" (`BoardScreen.tsx`).
+pub(super) fn board_waiting_cards(s: &State) -> Vec<&ScoutCard> {
+    let Some(st) = s.scout.state.as_ref() else {
+        return Vec::new();
+    };
+    if !st.settings.on {
+        return Vec::new();
+    }
+    let filter_name = s.home.board_teammate.as_deref();
+    st.cards
+        .iter()
+        .filter(|c| c.fact.urgency == ScoutUrgency::Now)
+        .filter(|c| match filter_name {
+            None => true,
+            Some("Scout") => true,
+            Some(name) => c.fact.draft.as_ref().is_some_and(|d| d.name == name),
+        })
+        .collect()
+}
+
+/// Render a Scout urgent card on the Board ("Needs you" column above conversations).
+pub(super) fn board_wait_card(s: &State, card: &ScoutCard, l: &Look) -> El {
+    let tid = s
+        .scout
+        .state
+        .as_ref()
+        .and_then(|st| st.settings.teammate_id.as_deref());
+    let mate = tid.and_then(|id| s.teammates.iter().find(|t| t.id == id));
+    let (face_id, face_name, face_look) = match mate {
+        Some(m) => (m.id.as_str(), m.name.as_str(), s.looks.get(&m.id)),
+        None => ("scout", "Scout", None),
+    };
+    let face = crate::look::faces::face(
+        s.image_cache.as_deref(),
+        face_id,
+        face_name,
+        face_look,
+        26.0,
+        l,
+    );
+
+    let mut content = col()
+        .grow(1.0)
+        .shrink()
+        .gap(6.0)
+        .child(
+            text(card.fact.said.clone())
+                .font(type_::BODY)
+                .color(l.c("text-primary"))
+                .wrap(),
+        )
+        .child(
+            text(face_name.to_owned())
+                .font(type_::LABEL)
+                .color(l.c("amber-text")),
+        );
+
+    let mut actions = row().w_full().gap(8.0).flex_wrap();
+    if let Some(draft) = &card.fact.draft {
+        let send_label = format!("Send to {}", draft.name);
+        let d_send = draft.clone();
+        let id_send = card.card_id.clone();
+        actions = actions.child(
+            controls::button(l, &send_label, Tone::Active, false)
+                .role("button")
+                .label(send_label)
+                .key(format!("board-scout-send-{}", card.card_id))
+                .on_press_tx(move |s: &mut State, tx| {
+                    s.home.board_open = false;
+                    send_draft(s, id_send.clone(), d_send.clone(), tx);
+                }),
+        );
+
+        let d_edit = draft.clone();
+        let id_edit = card.card_id.clone();
+        actions = actions.child(
+            controls::button(l, "Change it first", Tone::Neutral, false)
+                .role("button")
+                .label("Change it first")
+                .key(format!("board-scout-change-{}", card.card_id))
+                .on_press_tx(move |s: &mut State, tx| {
+                    s.home.board_open = false;
+                    draft_into_box(s, id_edit.clone(), d_edit.clone(), tx);
+                }),
+        );
+    }
+
+    let id_dismiss = card.card_id.clone();
+    actions = actions.child(
+        controls::ghost_button(l, "Dismiss")
+            .role("button")
+            .label("Dismiss")
+            .key(format!("board-scout-dismiss-{}", card.card_id))
+            .on_press(move |s: &mut State| {
+                dismiss_card(s, id_dismiss.clone(), None);
+            }),
+    );
+
+    content = content.child(actions);
+
+    let focus_id = card.card_id.clone();
+    row()
+        .w_full()
+        .gap(12.0)
+        .padding(10.0)
+        .radius(8.0)
+        .fill(l.c("amber-tint"))
+        .border(1.0, l.c("amber-border"))
+        .key(format!("board-scout-{}", card.card_id))
+        .child(face)
+        .child(content)
+        .on_press(move |s: &mut State| {
+            s.home.board_open = false;
+            s.scout.focus_card_id = Some(focus_id.clone());
+            crate::home_panel::open_home(s);
+        })
+}
+
 /// Home team grid invite tile ("Meet Scout") with separate Not now button (`HomeTeam.tsx`).
 pub(super) fn invite_team_tile(l: &Look) -> El {
     let card_btn = row()
@@ -1451,5 +1569,174 @@ pub(super) mod tests {
         assert_eq!(route.runtime, "opencode");
         assert!(route.model.ends_with("-free"));
         assert!(!name.is_empty());
+    }
+
+    // --- 1:1 ports of `a-scout-card-that-needs-you-is-on-the-board.test.tsx` (6 cases) ---
+
+    fn board_test_state(cards: Vec<ScoutCard>, with_asking_mission: bool) -> State {
+        let mut s = base_state(true);
+        s.scout.state.as_mut().unwrap().settings.teammate_id = Some("tm_scout".into());
+        s.scout.state.as_mut().unwrap().cards = cards;
+        s.teammates.push(Teammate {
+            id: "tm_scout".into(),
+            name: "Scout".into(),
+            role: "Custom".into(),
+            runtime: Some("opencode".into()),
+            model: Some("opencode/qwen3-coder-free".into()),
+            account: None,
+            busy: false,
+            runs_in: "ask".into(),
+            folder: None,
+        });
+        s.teammates.push(Teammate {
+            id: "tm_wren".into(),
+            name: "Wren".into(),
+            role: "Code & Migrations".into(),
+            runtime: Some("codex".into()),
+            model: None,
+            account: None,
+            busy: false,
+            runs_in: "edit".into(),
+            folder: None,
+        });
+        if with_asking_mission {
+            s.recent.push(engine::ConversationRow {
+                id: "asks".into(),
+                teammate: "Wren".into(),
+                title: "Rename the invoices".into(),
+                started_by: "the person".into(),
+                state: "running".into(),
+                updated: "2026-10-04T05:58:00.000Z".into(),
+            });
+            s.home.asks.insert(
+                "asks".into(),
+                crate::home_panel::BoardAsk {
+                    approval_id: "ap_asks".into(),
+                    kind: "command".into(),
+                    command: Some("git mv invoices old-invoices".into()),
+                    where_: None,
+                    shown: std::time::Instant::now(),
+                },
+            );
+        }
+        s.recent.push(engine::ConversationRow {
+            id: "old".into(),
+            teammate: "Wren".into(),
+            title: "Yesterday".into(),
+            started_by: "the person".into(),
+            state: "completed".into(),
+            updated: "2026-10-03T05:00:00.000Z".into(),
+        });
+        s
+    }
+
+    fn draw_board_dark(s: &State, _cx: &mut Cx<State>) -> El {
+        crate::home_panel::board_view(s, &Palette::new(true))
+    }
+
+    fn draw_board_light(s: &State, _cx: &mut Cx<State>) -> El {
+        crate::home_panel::board_view(s, &Palette::new(false))
+    }
+
+    fn board_wait_card_now(with_draft: bool) -> ScoutCard {
+        let mut card = make_card(
+            "card_now",
+            ScoutUrgency::Now,
+            "Atlas has waited 25 minutes for your OK.",
+        );
+        if with_draft {
+            card.fact.draft = Some(ScoutDraft {
+                teammate_id: "tm_atlas".into(),
+                name: "Atlas".into(),
+                message: "Go ahead with the migration.".into(),
+            });
+        }
+        card
+    }
+
+    #[test]
+    fn board_scout_card_sits_above_waiting_conversation_with_actions_and_count() {
+        let s = board_test_state(vec![board_wait_card_now(true)], true);
+        let rt = render_state(s, draw_board_dark);
+        let all = collect_rt_text(&rt);
+        let scout_pos = all
+            .find("Atlas has waited 25 minutes for your OK.")
+            .expect("Scout wait card");
+        let conv_pos = all
+            .find("Rename the invoices")
+            .expect("Waiting conversation card");
+        assert!(scout_pos < conv_pos, "Scout wait card must render above waiting conversation");
+        assert!(all.contains("Scout"));
+        assert!(all.contains("Send to Atlas"));
+        assert!(all.contains("Change it first"));
+        assert!(all.contains("Dismiss"));
+        assert!(all.contains("2 waiting on you"));
+        assert!(rt.find("board-needs-you-count").is_some());
+    }
+
+    #[test]
+    fn board_scout_card_offers_dismiss_alone_without_draft() {
+        let s = board_test_state(vec![board_wait_card_now(false)], true);
+        let rt = render_state(s, draw_board_dark);
+        let all = collect_rt_text(&rt);
+        assert!(all.contains("Dismiss"));
+        assert!(!all.contains("Send to "));
+        assert!(!all.contains("Change it first"));
+        assert!(rt.find("board-scout-dismiss-card_now").is_some());
+        assert!(rt.find("board-scout-send-card_now").is_none());
+        assert!(rt.find("board-scout-change-card_now").is_none());
+    }
+
+    #[test]
+    fn board_scout_card_forms_needs_you_column_when_no_conversation_waits() {
+        let s = board_test_state(vec![board_wait_card_now(false)], false);
+        let rt = render_state(s, draw_board_dark);
+        let all = collect_rt_text(&rt);
+        assert!(all.contains("Needs you"));
+        assert!(all.contains("Atlas has waited 25 minutes for your OK."));
+        assert!(all.contains("1 waiting on you"));
+        assert!(!all.contains("all quiet"));
+        assert!(all.contains("Yesterday"));
+    }
+
+    #[test]
+    fn board_leaves_column_as_before_when_no_urgent_scout_card_waits() {
+        let soon = make_card("card_soon", ScoutUrgency::Soon, "FYI notice");
+        let s = board_test_state(vec![soon], true);
+        let rt = render_state(s, draw_board_dark);
+        let all = collect_rt_text(&rt);
+        assert!(rt.find("board-scout-card_soon").is_none());
+        assert!(all.contains("1 waiting on you"));
+        assert!(all.find("Needs you").unwrap() < all.find("Rename the invoices").unwrap());
+    }
+
+    #[test]
+    fn board_scout_card_uses_theme_tokens_in_both_dark_and_light_modes() {
+        let dark_rt = render_state(
+            board_test_state(vec![board_wait_card_now(true)], true),
+            draw_board_dark,
+        );
+        let light_rt = render_state(
+            board_test_state(vec![board_wait_card_now(true)], true),
+            draw_board_light,
+        );
+        assert_ne!(
+            Look::new(true).c("amber-tint"),
+            Look::new(false).c("amber-tint")
+        );
+        assert!(dark_rt.find("board-scout-card_now").is_some());
+        assert!(light_rt.find("board-scout-card_now").is_some());
+    }
+
+    #[test]
+    fn clicking_board_scout_card_opens_home_with_card_focused() {
+        let s = board_test_state(vec![board_wait_card_now(false)], true);
+        let mut s = s;
+        s.home.board_open = true;
+        let mut rt = render_state(s, draw_board_dark);
+        click_key(&mut rt, "board-scout-card_now");
+        assert!(!rt.state.home.board_open);
+        assert!(rt.state.home.home_open);
+        assert_eq!(rt.state.scout.focus_card_id.as_deref(), Some("card_now"));
     }
 }

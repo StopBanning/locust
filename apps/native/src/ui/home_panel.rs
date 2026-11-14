@@ -829,8 +829,15 @@ pub(super) fn board_view(s: &State, p: &Palette) -> El {
         needs_you: s.home.asks.keys().cloned().collect(),
         to_look_at: s.home.to_look_at.clone(),
     };
-    let board = conversation_board::conversation_board(&missions, &[], &HashSet::new(), &facts);
-    let meta = conversation_board::board_meta(board.as_deref());
+    let scout_waits = crate::scout_cards::board_waiting_cards(s);
+    let board = conversation_board::conversation_board_with_extra(
+        &missions,
+        &[],
+        &HashSet::new(),
+        &facts,
+        scout_waits.len(),
+    );
+    let meta = conversation_board::board_meta_with_extra(board.as_deref(), scout_waits.len());
     let mut body = col().w_full().gap(10.0).padding(16.0);
     body = body.child(
         row()
@@ -873,13 +880,33 @@ pub(super) fn board_view(s: &State, p: &Palette) -> El {
                 );
         }
         Some(sections) => {
+            let l = crate::look::controls::Look::new(p.dark);
             for section in sections {
-                body = body.child(
-                    text(section.title.to_owned())
-                        .font(type_::TITLE)
-                        .color(p.text)
-                        .padding(4.0),
-                );
+                let section_count = if section.key == ConversationBoardKey::NeedsYou {
+                    section.members.len() + scout_waits.len()
+                } else {
+                    section.members.len()
+                };
+                let mut sec_header = row()
+                    .w_full()
+                    .gap(8.0)
+                    .center_y()
+                    .padding(4.0)
+                    .child(text(section.title.to_owned()).font(type_::TITLE).color(p.text));
+                if section.key == ConversationBoardKey::NeedsYou && section_count > 0 {
+                    sec_header = sec_header.child(
+                        text(section_count.to_string())
+                            .font(type_::LABEL)
+                            .color(l.c("amber-text"))
+                            .key("board-needs-you-count"),
+                    );
+                }
+                body = body.child(sec_header);
+                if section.key == ConversationBoardKey::NeedsYou {
+                    for card in &scout_waits {
+                        body = body.child(crate::scout_cards::board_wait_card(s, card, &l));
+                    }
+                }
                 for card in section.members {
                     let mission_id = card.row.mission_id.clone();
                     let title = card.row.title.clone();

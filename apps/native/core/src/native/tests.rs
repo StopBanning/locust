@@ -3055,3 +3055,57 @@ fn sealed_slot_sends_plain_prompt_without_tools_or_briefs_and_roundtrips_origin(
     let decoded = crate::engine_process::origin_from(&json_val).unwrap();
     assert!(decoded.slot.as_ref().is_some_and(|s| s.sealed && s.key == "scout:tm_1:m"));
 }
+
+#[test]
+fn asking_scout_forces_ask_mode_sealed_and_injects_why_brief_even_when_teammate_edits() {
+    let t = Temp::new();
+    let _g = hooks::install(t.store(), fake("sealed"));
+    std::fs::create_dir_all(t.0.join("native")).unwrap();
+    std::fs::write(
+        t.0.join("native/scout.json"),
+        serde_json::to_string_pretty(&serde_json::json!({
+            "settings": { "on": true, "teammateId": "tm_scout" }
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+    std::fs::write(
+        t.0.join("native").join(crate::scout::store::SCOUT_LOG_FILE),
+        serde_json::to_string_pretty(&serde_json::json!([
+            {
+                "at": "2026-10-22T12:00:00.000Z",
+                "looks": 1,
+                "raised": [],
+                "aside": [{ "key": "pr:9", "said": "PR #9 minor lint", "why": "told" }],
+                "off": []
+            }
+        ]))
+        .unwrap(),
+    )
+    .unwrap();
+
+    let mut req = job(&t, None, "Synthetic prompt");
+    req.teammate.id = "tm_scout".into();
+    req.teammate.name = "Scout".into();
+    req.teammate.runs_in = "accept_edits".into();
+    let origin = Origin {
+        mode: Some(Mode::AcceptEdits),
+        folder: Some(t.0.join("work")),
+        ..Origin::default()
+    };
+    let started = send_from(req, origin).unwrap();
+    finished(&started.conversation_id);
+    let transcript = crate::ledger::read_transcript(path_of(&t, &started.conversation_id));
+    assert!(
+        !transcript.running && !transcript.failed,
+        "asking Scout must force Ask + sealed even when teammate/origin requested Edit: {transcript:?}"
+    );
+    let slot = crate::scout::host::asking_scout_slot(&t.store(), "tm_scout")
+        .expect("asking scout slot");
+    assert_eq!(slot.key, "scout-chat:tm_scout");
+    assert!(slot.sealed);
+
+    let recs = records(&path_of(&t, &started.conversation_id));
+    assert_eq!(recs[0]["metadata"]["mode"], "ask");
+    assert_eq!(recs[0]["metadata"]["sandbox"], "read-only");
+}

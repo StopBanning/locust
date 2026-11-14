@@ -5461,3 +5461,117 @@ fn scout_settings_saves_goal_hours_and_loads_log_only_on_press() {
     );
     assert_eq!(disk.settings.brief_at, Some(7));
 }
+
+#[test]
+fn scout_urgent_card_is_on_board_and_actions_match_home() {
+    let (_dirs, store, mut rt) = window();
+    let now_card = locust_core::scout::types::ScoutCard {
+        card_id: "c_board".into(),
+        at: "2026-10-12T10:00:00.000Z".into(),
+        reading: false,
+        take: None,
+        raw_fix: None,
+        fact: locust_core::scout::types::ScoutFact {
+            draft: Some(locust_core::scout::types::ScoutDraft {
+                teammate_id: "tm_codec".into(),
+                name: "Codec".into(),
+                message: "Urgent draft from board".into(),
+            }),
+            ..locust_core::scout::types::ScoutFact::simple(
+                "c_board",
+                locust_core::scout::types::ScoutUrgency::Now,
+                "Codec has waited 20 min",
+            )
+        },
+    };
+    std::fs::create_dir_all(store.root()).unwrap();
+    std::fs::write(
+        store.root().join("scout.json"),
+        serde_json::to_string_pretty(&serde_json::json!({
+            "settings": { "on": true },
+            "cards": [now_card.to_json(true)],
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+
+    rt.update(|s, _| {
+        crate::home_panel::open_board(s);
+        crate::scout_cards::request_refresh_state(s);
+    });
+    pump(&mut rt, "urgent scout card loaded on Board", |s| {
+        s.scout
+            .state
+            .as_ref()
+            .is_some_and(|st| st.cards.iter().any(|c| c.card_id == "c_board"))
+    });
+    settle(&mut rt);
+    assert!(rt.find("board-scout-c_board").is_some());
+    assert!(rt.find("board-scout-send-c_board").is_some());
+    assert!(rt.find("board-scout-change-c_board").is_some());
+    assert!(rt.find("board-scout-dismiss-c_board").is_some());
+
+    // Clicking "Change it first" closes Board, fills composer draft, and dismisses the card.
+    click(&mut rt, "board-scout-change-c_board");
+    pump(&mut rt, "board card drafted into composer and dismissed", |s| {
+        !s.home.board_open
+            && s.scout
+                .state
+                .as_ref()
+                .is_some_and(|st| st.cards.is_empty())
+    });
+    assert_eq!(rt.state.draft.text, "Urgent draft from board");
+    assert!(rt.state.flight.is_none());
+}
+
+#[test]
+fn asking_scout_from_window_uses_ask_mode_and_sealed_runtime_even_when_edit_selected() {
+    let (_dirs, store, mut rt) = window();
+    let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "sealed"));
+    std::fs::create_dir_all(store.root()).unwrap();
+    std::fs::write(
+        store.root().join("scout.json"),
+        serde_json::to_string_pretty(&serde_json::json!({
+            "settings": { "on": true, "teammateId": "tm_scout" }
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+    std::fs::write(
+        store.root().join(locust_core::scout::store::SCOUT_LOG_FILE),
+        serde_json::to_string_pretty(&serde_json::json!([
+            {
+                "at": "2026-10-22T12:00:00.000Z",
+                "looks": 1,
+                "raised": [],
+                "aside": [{ "key": "pr:4", "said": "PR #4 minor", "why": "told" }],
+                "off": []
+            }
+        ]))
+        .unwrap(),
+    )
+    .unwrap();
+
+    store
+        .save_json(
+            "teammates.json",
+            &json!({"schemaVersion": 1, "teammates": [{"teammateId": "tm_scout", "name": "Scout"}], "missionOwners": {}, "settings": {}}),
+        )
+        .unwrap();
+    rt.update(|s, _| {
+        let mut scout = s.teammates[0].clone();
+        scout.id = "tm_scout".into();
+        scout.name = "Scout".into();
+        scout.runs_in = "accept_edits".into();
+        apply_team(s, vec![scout]);
+        s.composer_mode = Some("accept_edits".into());
+        s.mode = "accept_edits".into();
+    });
+    settle(&mut rt);
+    type_and_send(&mut rt, "Synthetic prompt");
+    pump(&mut rt, "asking scout answered under sealed ask mode", answered);
+
+    let recs = first_records(&store);
+    assert_eq!(recs[0]["metadata"]["mode"], "ask");
+    assert_eq!(recs[0]["metadata"]["sandbox"], "read-only");
+}
