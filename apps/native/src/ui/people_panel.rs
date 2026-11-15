@@ -764,7 +764,7 @@ fn team_grid(s: &State, p: &Palette) -> El {
         let mut head = row()
             .w_full()
             .gap(12.0)
-            .child(crate::look::faces::face(s.image_cache.as_deref(), &id, &name, s.looks.get(&id), 40.0, &l))
+            .child(crate::look::faces::face(s.image_cache.as_deref(), &id, &name, s.looks.get(&id), 40.0, s.settings_panel.settings.terminal_faces, &l))
             .child(
                 col()
                     .grow(1.0)

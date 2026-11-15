@@ -234,7 +234,7 @@ pub(super) fn rail(s: &State, p: &Palette) -> El {
                     .radius(9.0)
                     .fill(if open { l.c("bg-selected") } else { p.sidebar })
                     .hover(l.c("hover-surface"))
-                    .child(crate::look::faces::face(s.image_cache.as_deref(), &teammate.id, &teammate.name, s.looks.get(&teammate.id), 32.0, &l)),
+                    .child(crate::look::faces::face(s.image_cache.as_deref(), &teammate.id, &teammate.name, s.looks.get(&teammate.id), 32.0, s.settings_panel.settings.terminal_faces, &l)),
             );
         // The selected teammate: a 2-point lime bar on the rail's left edge.
         if selected {
@@ -258,6 +258,7 @@ pub(super) fn rail(s: &State, p: &Palette) -> El {
         let state_words = if teammate.busy { "working" } else { "idle" };
         faces = faces.child(
             slot.role("button")
+                .help(locust_core::teammate_tooltip::teammate_tooltip(teammate))
                 .label(format!("{}, {} · {}", teammate.name, teammate.role, state_words))
                 .on_hover_change(move |s: &mut State, over, _| {
                     // Which face the pointer is on: leaving one after entering the next, in either order, keeps a card.
@@ -330,7 +331,7 @@ pub(super) fn flyout(s: &State, p: &Palette, top: f32) -> Option<El> {
         .pt(12.0)
         .px(12.0)
         .pb(10.0)
-        .child(crate::look::faces::face(s.image_cache.as_deref(), &teammate.id, &teammate.name, s.looks.get(&teammate.id), 30.0, &l))
+        .child(crate::look::faces::face(s.image_cache.as_deref(), &teammate.id, &teammate.name, s.looks.get(&teammate.id), 30.0, s.settings_panel.settings.terminal_faces, &l))
         .child(
             col()
                 .grow(1.0)

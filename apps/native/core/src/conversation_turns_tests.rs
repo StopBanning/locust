@@ -19,3 +19,23 @@ fn a_tagged_conversation_is_titled_by_the_message() {
     assert_eq!(typed_prompt(&m, &HashMap::new()), "Can you double-check the tax rate?");
     assert_eq!(crate::relay_title::typed_prompt(&m, &HashMap::new(), &HashMap::new()), "Can you double-check the tax rate?");
 }
+
+#[test]
+fn is_shown_as_the_steps_own_words_not_the_answer_and_rule_it_was_given() {
+    let prompt = crate::hand_off::hand_off_prompt("Check the plan.", Some(crate::hand_off::From {name:"Atlas", answer:Some("Plan: remove the second sum.")}), true, None);
+    let m=Metadata {mission_id:"mission_3".into(),prompt,started_by_kind:Some("routine".into()),..Default::default()};
+    assert_eq!(typed_prompt(&m,&HashMap::new()),"Check the plan.");
+}
+#[test]
+fn are_the_step_not_the_answer_quoted_above_it() {
+    let prompt=crate::hand_off::hand_off_prompt("Write a plan to fix it.",Some(crate::hand_off::From{name:"Wren",answer:Some("The total is summed twice.")}),false,None);
+    let mut m=Metadata{prompt:prompt.clone(),started_by_kind:Some("routine".into()),..Default::default()};
+    assert_eq!(shown_prompt(&m),"Write a plan to fix it.");
+    assert_eq!(crate::relay_title::typed_prompt(&m,&HashMap::new(),&HashMap::new()),"Write a plan to fix it.");
+    let mut transcript=crate::ledger::Transcript::default();
+    transcript.apply(vec![serde_json::json!({"schemaVersion":27,"recordType":"mission.created","metadata":{
+        "missionId":"mission_2","prompt":prompt,"startedBy":{"kind":"routine","routineId":"rt_1","step":2}
+    }})]);
+    assert!(matches!(&transcript.items[0],crate::ledger::Item::User(words) if words == "Write a plan to fix it."));
+    m.started_by_kind=None; assert_eq!(shown_prompt(&m),prompt);
+}

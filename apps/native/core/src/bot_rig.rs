@@ -2639,3 +2639,85 @@ mod tests {
         assert!(!f1.blink); // screen swaps its own lids
     }
 }
+
+#[cfg(test)]
+mod renderer_mood_tests {
+    use super::*;
+    fn rest() -> BotAvatarPose {
+        BotAvatarPose { yaw: 0.2, pitch: -0.05, roll: 0.03, ..rest_pose(BotAvatarState::Default) }
+    }
+    fn close(a: f64, b: f64) { assert!((a-b).abs() < 0.005, "{a} != {b}"); }
+
+    // a-teammate-wears-how-it-feels.test.ts: one test per Electron case, exact inputs.
+    #[test]
+    fn is_worn_for_what_a_teammate_is_doing_curious_waiting_perked_receiving_glad_done() {
+        use FaceActivity::*;
+        let all = [Thinking, Working, Delegating, Responding, Waiting, Receiving, Blocked, Done, Idle];
+        let found: Vec<_> = all.into_iter().map(mood_for).collect();
+        assert_eq!(found, [None, None, None, None, Some(BotMood::Curious), Some(BotMood::Perked), None, Some(BotMood::Glad), None]);
+    }
+    #[test]
+    fn tips_a_curious_head_to_its_own_side_by_the_tilt_in_proportion_to_the_mood() {
+        for side in [1.0, -1.0] {
+            close(mood_pose(rest(), MoodWeights { curious: 1.0, ..Default::default() }, side, false).roll, 0.03+side*CURIOUS_TILT);
+            close(mood_pose(rest(), MoodWeights { curious: 0.5, ..Default::default() }, side, true).roll, 0.03+side*CURIOUS_TILT*0.5);
+        }
+        assert!(CURIOUS_TILT.to_degrees() > 10.0 && CURIOUS_TILT.to_degrees() < 15.0);
+    }
+    #[test]
+    fn tips_each_teammate_the_same_way_every_time_and_not_every_teammate_the_same_way() {
+        let sides: Vec<_> = (0..40).map(|i| tilt_side(i as f64/40.0+0.0123)).collect();
+        assert!(sides.contains(&1.0) && sides.contains(&-1.0));
+        assert!(sides.iter().all(|s| *s == 1.0 || *s == -1.0));
+        for seed in [0.15, 0.37, 0.81] { assert_eq!(tilt_side(seed), tilt_side(seed)); }
+    }
+    #[test]
+    fn lifts_a_perked_head_up_a_little() {
+        close(mood_pose(rest(), MoodWeights { perked: 1.0, ..Default::default() }, 1.0, false).pitch, -0.05+PERK_LIFT);
+        assert!(PERK_LIFT > 0.0);
+    }
+    #[test]
+    fn smiles_with_the_rigs_own_laugh_on_a_face_of_plastic_lending_working_weight_for_eyes_alone() {
+        let glad = mood_pose(rest(), MoodWeights { glad: 1.0, ..Default::default() }, 1.0, false);
+        assert_eq!(glad.laugh, 1.0);
+        close(glad.w[1], 1.0);
+        close(glad.w.iter().sum(), 1.0);
+        close(mood_pose(rest(), MoodWeights { glad: 0.5, ..Default::default() }, 1.0, false).w[1], 0.5);
+    }
+    #[test]
+    fn leaves_a_screens_eyes_to_its_glyphs_carets_say_glad_there() {
+        let glad = mood_pose(rest(), MoodWeights { glad: 1.0, ..Default::default() }, 1.0, true);
+        assert_eq!(glad.laugh, 0.0);
+        assert_eq!(glad.w, [1.0, 0.0, 0.0]);
+    }
+    #[test]
+    fn wears_nothing_when_it_feels_nothing_and_never_changes_the_rigs_own_pose() {
+        let pose = rest();
+        assert_eq!(mood_pose(pose, MoodWeights::default(), 1.0, false), pose);
+        mood_pose(pose, MoodWeights { curious: 1.0, perked: 1.0, glad: 1.0 }, -1.0, false);
+        assert_eq!(pose, rest());
+    }
+    #[test]
+    fn blinks_the_real_rigs_eyes_at_once() {
+        let mut sim = BotAvatarSim::new(0.4, BotAvatarState::Default);
+        for _ in 0..4 { sim.update(1.0/30.0); }
+        let before = sim.pose.blink_l.max(sim.pose.blink_r);
+        sim.blink_now(true);
+        let mut deepest: f64 = 0.0;
+        for _ in 0..6 { sim.update(1.0/30.0); deepest = deepest.max(sim.pose.blink_l); }
+        assert!(deepest > before.max(0.5), "{deepest} <= {before}");
+        // Null rig is JS plumbing: Rust calls the method only on an owned rig.
+    }
+    #[test]
+    fn lands_with_the_librarys_own_bounce_and_no_turn_and_can_put_every_part_back() {
+        assert_eq!(GLAD_HOP.spin, 0);
+        assert_eq!(GLAD_HOP.squash_ease, EaseKind::Bouncy);
+        assert_eq!(GLAD_HOP.rise_ease, EaseKind::Bouncy);
+        assert_ne!(JumpSpec::default().squash_ease, EaseKind::Bouncy);
+        let mut sim = BotAvatarSim::new(0.4, BotAvatarState::Default);
+        sim.set_jump(GLAD_HOP);
+        assert_eq!(sim.jump, GLAD_HOP);
+        sim.set_jump(JumpSpec::default());
+        assert_eq!(sim.jump, JumpSpec::default());
+    }
+}

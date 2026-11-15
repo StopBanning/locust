@@ -257,6 +257,9 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                     .color(p.text)
                     .on_edit(|s: &mut State| &mut s.routines.fields[0]),
             );
+        if s.teammates.len() > 1 {
+            body = body.child(text("Each step can go to another teammate; a checker must approve for the run to count as done.").font(type_::LABEL).color(p.secondary).wrap());
+        }
         for (i, step) in panel.steps.iter().enumerate() {
             body = body
                 .child(
@@ -455,6 +458,9 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                     .color(p.secondary)
                     .wrap(),
                 );
+            if let Some(chain) = crate::routines::routine_chain(r, &s.teammates) {
+                card = card.child(text(chain).font(type_::LABEL).color(p.secondary).wrap());
+            }
             if r["paused"] == true {
                 card = card.child(text("Paused").font(type_::LABEL).color(p.amber));
             }
@@ -556,7 +562,7 @@ fn step_choices(s: &State, i: usize, p: &Palette) -> El {
         };
         let ids: Vec<String> = s.teammates.iter().map(|t| t.id.clone()).filter(|id| *id != owner).collect();
         choices = choices
-            .child(button(&format!("Takes step {}: {who}", i + 1), p).key(format!("routine-step-who-{i}")).on_press(move |s: &mut State| {
+            .child(button(&format!("Takes step {}: {who}", i + 1), p).key(format!("routine-step-who-{i}")).label(format!("Who takes step {}", i + 1)).on_press(move |s: &mut State| {
                 let at = hand_off(s, i);
                 let now = at["teammateId"].as_str().map(str::to_owned);
                 let next = match now.and_then(|n| ids.iter().position(|id| *id == n)) {
@@ -1584,4 +1590,58 @@ fn save_routine_file_dialog(content: String, suggested: String, tx: &mut Tx) {
             Err(e) => s.routines.error = e.to_string(),
         }
     });
+}
+
+#[cfg(test)]
+mod renderer_handoff_tests {
+    use super::*;
+    fn team() -> Vec<Teammate> {
+        [("tm_wren", "Wren"), ("tm_atlas", "Atlas"), ("tm_sable", "Sable")].into_iter().map(|(id,name)| Teammate {
+            id:id.into(), name:name.into(), role:"Code & Migrations".into(), runtime:Some("opencode".into()),
+            model:Some("opencode/nemotron-3-ultra-free".into()), account:None, busy:false, runs_in:"ask".into(), folder:None
+        }).collect()
+    }
+    fn draw(count: usize) -> rune::Runtime<State> {
+        let mut s = State::default(); s.teammates = team().into_iter().take(count).collect();
+        s.routines.open = true;
+        s.routines.entry = json!({"name":"Intake to review", "teammateId":"tm_wren", "steps":["Find the bug.","Plan the fix.","Check the plan."], "handOffs":[{},{"teammateId":"tm_atlas"},{"teammateId":"tm_sable","check":true}]});
+        s.routines.fields = vec![field("Intake to review"), field("")];
+        s.routines.steps = ["Find the bug.", "Plan the fix.", "Check the plan."].into_iter().map(field).collect();
+        let mut rt = rune::Runtime::new(s, |s,_| view(s, &Palette::new(true)), (1100.0,1800.0), rune::Env::new(true,1.0)); rt.frame(0.0); rt
+    }
+    fn card_text(r: Value, count: usize) -> String {
+        let mut s=State::default(); s.teammates=team().into_iter().take(count).collect();
+        s.routines.file=json!({"routines":[r]});
+        let mut rt=rune::Runtime::new(s, |s,_| view(s,&Palette::new(true)),(1100.0,1800.0),rune::Env::new(true,1.0)); rt.frame(0.0);
+        rt.elements().into_iter().filter_map(|e|e.text).collect::<Vec<_>>().join("\n")
+    }
+    #[test]
+    fn asks_who_takes_each_step_and_whether_it_checks_when_there_is_a_team() {
+        let rt = draw(3); let els = rt.elements();
+        assert_eq!(els.iter().filter(|e| e.label.as_deref().is_some_and(|l| l.starts_with("Who takes step "))).count(),3);
+        let text = els.into_iter().filter_map(|e|e.text).collect::<Vec<_>>().join("\n");
+        assert!(text.contains("Wren (runs it)")); assert_eq!(text.matches("Checker: must approve").count(),3);
+        assert!(text.contains("a checker must approve for the run to count as done"));
+    }
+    #[test]
+    fn draws_no_choice_for_a_teammate_on_their_own() {
+        let rt=draw(1); let els=rt.elements();
+        assert!(!els.iter().any(|e|e.label.as_deref().is_some_and(|l|l.starts_with("Who takes step "))));
+        assert!(!els.iter().filter_map(|e|e.text.as_deref()).any(|t|t.contains("Checker")));
+    }
+    #[test]
+    fn names_the_chain_in_step_order_each_teammate_once_in_a_row_the_checker_marked() {
+        let mut r=json!({"teammateId":"tm_wren","steps":["a","b","c","d"],"handOffs":[{},{},{"teammateId":"tm_atlas"},{"teammateId":"tm_sable","check":true}]});
+        assert_eq!(crate::routines::routine_chain(&r,&team()).as_deref(),Some("Wren → Atlas → Sable (checks)"));
+        assert!(card_text(r.clone(),3).contains("Wren → Atlas → Sable (checks)"));
+        r["handOffs"]=json!([{},{"teammateId":"tm_atlas"},{},{"check":true}]);
+        assert_eq!(crate::routines::routine_chain(&r,&team()[..2]).as_deref(),Some("Wren → Atlas → Wren → Wren (checks)"));
+        assert!(card_text(r,2).contains("Wren → Atlas → Wren → Wren (checks)"));
+    }
+    #[test]
+    fn says_nothing_new_for_a_routine_one_teammate_runs_throughout() {
+        let mut r=json!({"teammateId":"tm_wren","steps":["a","b","c","d"]});
+        assert_eq!(crate::routines::routine_chain(&r,&team()[..1]),None);
+        r["handOffs"]=json!([{},{},{},{}]); assert_eq!(crate::routines::routine_chain(&r,&team()[..1]),None);
+    }
 }

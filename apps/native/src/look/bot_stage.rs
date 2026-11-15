@@ -789,3 +789,25 @@ impl BotStage {
         inner.bots.len() + inner.buddies.len()
     }
 }
+
+#[cfg(test)]
+mod renderer_eye_tests {
+    use super::*;
+
+    // a-teammates-eyes-say-what-it-is-doing.test.ts, through the actual stage face projection.
+    #[test]
+    fn is_a_prompt_and_a_block_cursor_at_work_round_eyes_in_thought_carets_when_done_and_eyes_on_you() {
+        use FaceActivity::*;
+        let all = [Thinking, Working, Delegating, Responding, Waiting, Receiving, Blocked, Done, Idle];
+        let shown: Vec<_> = all.into_iter().map(|activity| {
+            shown_face_for(activity, true).pair.map(|p| p.concat()).unwrap_or("own".into())
+        }).collect();
+        assert_eq!(shown, ["••", ">▮", ">▮", "oo", "oo", "oo", "><", "^^", "own"]);
+    }
+
+    #[test]
+    fn is_drawn_on_a_screen_only_a_face_with_no_screen_keeps_its_own_eyes() {
+        assert_eq!(shown_face_for(FaceActivity::Working, true).pair, Some([">".into(), "▮".into()]));
+        assert_eq!(shown_face_for(FaceActivity::Working, false).pair, None);
+    }
+}

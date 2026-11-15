@@ -794,13 +794,13 @@ apps/desktop/src/renderer/src/a-routine-previews-its-inputs-and-file.test.tsx	p1
 apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	P4	partial		`a-routine-run-is-marked.test.tsx` | Routine attribution/badges are not wired in this round.
 apps/desktop/src/renderer/src/a-routine-says-what-it-may-do.test.tsx	p11	waiting		`renderer/src/a-routine-says-what-it-may-do.test.tsx` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.
 apps/desktop/src/renderer/src/a-routine-says-what-it-runs-on.test.tsx	p11	waiting		`renderer/src/a-routine-says-what-it-runs-on.test.tsx` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.
-apps/desktop/src/renderer/src/a-routine-step-can-go-to-another-teammate.test.tsx	p11	waiting		`renderer/src/a-routine-step-can-go-to-another-teammate.test.tsx` | Unported and applicable: check retries, handoff and wait-for-OK execution/UI remains unavailable.
+apps/desktop/src/renderer/src/a-routine-step-can-go-to-another-teammate.test.tsx	renderer-4	carried	src/ui/routines_panel.rs::renderer_handoff_tests; core/src/conversation_turns_tests.rs; core/src/routines.rs; core/src/ledger.rs	Six separate cases: editor, real chain cards, routine step title and ledger bubble projection. Named passes in renderer-4-restored-workspace.log; notes/RENDERER-NOTES.md.
 apps/desktop/src/renderer/src/a-routine-waiting-for-keep-is-on-the-board.test.tsx	p12	partial		`a-scout-card-that-needs-you-is-on-the-board.test.tsx` and `a-routine-waiting-for-keep-is-on-the-board.test.tsx` remain outside the native feature set. Routine history is accepted by the pure away reducer but is not loaded into the Home rec
 apps/desktop/src/renderer/src/a-routine-waiting-for-your-ok-asks-plainly.test.tsx	p11	waiting		`renderer/src/a-routine-waiting-for-your-ok-asks-plainly.test.tsx` | Unported and applicable: check retries, handoff and wait-for-OK execution/UI remains unavailable.
 apps/desktop/src/renderer/src/a-row-repeats-nothing-its-heading-says.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-run-a-teammate-stopped-does-not-say-you.test.tsx	STOPPED	partial	src/ui/cancellation_card.rs	the press seen in this window says You (window test a_stopped_run_leaves_a_receipt_that_says_who_stopped_it_and_what_is_unknown); a run stopped by anything else is not pinned
 apps/desktop/src/renderer/src/a-runtime-declares-what-it-can-do.test.ts		waiting		
-apps/desktop/src/renderer/src/a-runtime-gap-is-not-the-teammate.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-runtime-gap-is-not-the-teammate.test.tsx	renderer-3	carried	src/ui/messages.rs; src/ui/reply_actions.rs	Three exact cases and fenced/single-newline regression; named passes in renderer-3-gap-workspace.log.
 apps/desktop/src/renderer/src/a-runtime-switch-shows-where-it-happened.test.tsx	RELAY	partial	src/ui/handoff_divider.rs	divider runtime names in handoff_divider.rs; routineDraft extraction omitted
 apps/desktop/src/renderer/src/a-saved-turn-is-said-after-its-work.test.ts		waiting		
 apps/desktop/src/renderer/src/a-scout-card-that-needs-you-is-on-the-board.test.tsx	scout-2a	carried	src/ui/scout_cards.rs, src/ui/window_drive_tests.rs	all 6 tests carried (urgent card above waiting conversation, sole card forms Needs you, Send/Change/Dismiss, no-draft Dismiss, dark/light tokens, click opens Home focused) + headless window test
@@ -831,13 +831,13 @@ apps/desktop/src/renderer/src/a-team-without-a-coder-gets-its-own-starters.test.
 apps/desktop/src/renderer/src/a-teammate-at-work-goes-round-its-faces.test.ts		waiting		
 apps/desktop/src/renderer/src/a-teammate-can-be-a-pet.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-teammate-can-hand-you-a-file.test.ts	renderer-2	carried	src/ui/messages.rs	Five separate headless ledger-to-thread cases; exact Electron replies; renderer-2-files-workspace.log.
-apps/desktop/src/renderer/src/a-teammate-chooses-its-screen.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-teammate-chooses-its-screen.test.tsx	renderer-4	carried	src/look/faces.rs::renderer_screen_tests; core/src/native.rs	Six exact cases; intrinsic screens, boolean disk boundary, and Terminal faces wired through static UI. Named passes and caught prompt-screen control; notes/RENDERER-NOTES.md.
 apps/desktop/src/renderer/src/a-teammate-has-a-model-of-its-own.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-teammate-is-not-stuck-while-agents-are-still-being-found.test.ts		waiting		
-apps/desktop/src/renderer/src/a-teammate-wears-how-it-feels.test.ts		waiting		
+apps/desktop/src/renderer/src/a-teammate-wears-how-it-feels.test.ts	renderer-3	carried	core/src/bot_rig.rs::renderer_mood_tests	Nine separate Electron mood/pose/rig/hop cases; named passes in renderer-3-restored-workspace.log. notes/RENDERER-NOTES.md.
 apps/desktop/src/renderer/src/a-teammate-who-just-finished-last-worked-just-now.test.ts	P4	partial		`a-teammate-who-just-finished-last-worked-just-now.test.ts` | `liveRunLastAt` is not separately ported; native local summaries use ledger event times. Live teammate-card age presentation is outside this implementation.
 apps/desktop/src/renderer/src/a-teammates-eyes-are-drawn-not-typed.test.ts		waiting		
-apps/desktop/src/renderer/src/a-teammates-eyes-say-what-it-is-doing.test.ts		waiting		
+apps/desktop/src/renderer/src/a-teammates-eyes-say-what-it-is-doing.test.ts	renderer-3	carried	src/look/bot_stage.rs::renderer_eye_tests	Two exact cases through real stage face projection; restored named passes and caught screen-only mutation. notes/RENDERER-NOTES.md.
 apps/desktop/src/renderer/src/a-teammates-month-and-limit.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-teammates-setup-is-one-command-away.test.tsx	SETUP	carried	teammate_setup::tests::card_words_match_electron_in_order;window_drive_tests::a_teammates_setup_opens_from_its_card	`renderer/src/a-teammates-setup-is-one-command-away.test.tsx` | Ported `setup_sections`, `/setup` command, teammate card Setup button, and headless window test
 apps/desktop/src/renderer/src/a-thinking-face-looks-with-its-head.test.ts		waiting		
@@ -1038,7 +1038,7 @@ apps/desktop/src/renderer/src/swarm.test.ts		waiting
 apps/desktop/src/renderer/src/talk-is-pressed-by-its-keys.test.tsx		waiting		
 apps/desktop/src/renderer/src/teamBoard.test.ts		waiting		
 apps/desktop/src/renderer/src/teammate-folder-row.test.tsx		waiting		
-apps/desktop/src/renderer/src/teammateTooltip.test.ts		waiting		
+apps/desktop/src/renderer/src/teammateTooltip.test.ts	renderer-4	carried	core/src/teammate_tooltip.rs; src/ui/sidebar.rs; src/ui/rail.rs	Five exact named tooltip cases; action, role, human model name, and account-default wording on both sidebar layouts. notes/RENDERER-NOTES.md.
 apps/desktop/src/renderer/src/teammateWork.test.ts		waiting		
 apps/desktop/src/renderer/src/the-bare-machine.test.ts		waiting		
 apps/desktop/src/renderer/src/the-beams-are-mono-and-quiet.test.tsx		waiting		

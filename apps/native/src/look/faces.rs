@@ -62,6 +62,10 @@ pub fn bot_of(id: &str, look: Option<&FaceLook>) -> (String, &'static str, Strin
 
 /// Whether a teammate's face wears a CRT terminal screen given their look and `terminal_faces`.
 pub fn wears_screen(look: Option<&FaceLook>, shape: &str, terminal_faces: bool) -> bool {
+    // A built-in screen is the shape itself, even with terminal faces off.
+    if locust_core::bot_spec::outline_of(shape).screen {
+        return true;
+    }
     if !terminal_faces {
         return false;
     }
@@ -89,6 +93,7 @@ pub fn tile(
     id: &str,
     name: &str,
     look: Option<&FaceLook>,
+    terminal_faces: bool,
     l: &super::controls::Look,
 ) -> El {
     let _ = cache;
@@ -101,7 +106,7 @@ pub fn tile(
         .radius(10.0)
         .fill(l.c("bg-raised").mix(tint, 0.11))
         .border(1.0, tint.alpha(0.2))
-        .child(face(None, id, name, look, 34.0, l))
+        .child(face(None, id, name, look, 34.0, terminal_faces, l))
 }
 
 /// Animated teammate tile for Home (`46` square, `34` inner rig-drawn bot).
@@ -133,11 +138,12 @@ pub fn face(
     _name: &str,
     look: Option<&FaceLook>,
     size: f32,
+    terminal_faces: bool,
     l: &super::controls::Look,
 ) -> El {
     let _ = cache;
     let (shape, face_str, hue) = bot_of(id, look);
-    let screen = wears_screen(look, &shape, true);
+    let screen = wears_screen(look, &shape, terminal_faces);
     let rendered = if is_codex_buddy(look) {
         static_buddy_shape(&hue, size, screen, false, !l.k.dark)
     } else {
@@ -384,5 +390,63 @@ mod tests {
             }),
         };
         assert!(!wears_screen(Some(&buddy), "circle", false));
+    }
+}
+
+#[cfg(test)]
+mod renderer_screen_tests {
+    use super::*;
+    use locust_core::bot_spec::{AvatarSpec, BotSpec, SCREEN_SHAPES, clean_avatar};
+    fn look(shape: &str, screen: Option<bool>) -> FaceLook {
+        FaceLook { hue: "blue".into(), parts: Some([0, 0, 0]),
+            bot: Some((shape.into(), "eyes".into())), bot_screen: screen, pet: None }
+    }
+    #[test]
+    fn suits_the_made_boxy_shapes_and_not_the_grown_bumpy_ones() {
+        for shape in ["droid", "mech", "prompt", "critter", "square", "pill", "hexagon", "pebble", "circle", "ghost", "cat"] { assert!(screen_suits(shape), "{shape}"); }
+        for shape in ["star", "flower", "clover", "cloud", "drop", "blob", "puddle", "triangle", "alien", "hopper", "swarm"] { assert!(!screen_suits(shape), "{shape}"); }
+    }
+    #[test]
+    fn names_only_shapes_that_exist() {
+        for shape in SCREEN_SHAPES { assert!(BOT_SHAPES.contains(&shape), "{shape}"); }
+    }
+    #[test]
+    fn keeps_the_choice_and_refuses_anything_but_true_or_false() {
+        // Option<bool> enforces the type internally; also test the untyped disk boundary.
+        for screen in [Some(false), None] {
+            let bot = BotSpec { shape: "droid".into(), face: BotFace::Eyes, screen };
+            let avatar = AvatarSpec { headwear: 0, accessory: 0, mouth: 0, bot: Some(bot.clone()), pet: None };
+            assert_eq!(clean_avatar(&avatar).bot, Some(bot));
+        }
+        for (screen, valid) in [(Some(serde_json::json!(true)), true), (None, true), (Some(serde_json::json!("yes")), false)] {
+            let mut raw = serde_json::json!({"schemaVersion":1,"teammates":[{
+                "teammateId":"tm_wren","name":"Wren","role":"Custom","hue":"blue",
+                "createdAt":"2026-11-01T00:00:00Z",
+                "avatar":{"headwear":0,"accessory":0,"mouth":0,
+                    "bot":{"shape":"star","face":"eyes","screen":screen}}
+            }]});
+            if screen.is_none() { raw["teammates"][0]["avatar"]["bot"].as_object_mut().unwrap().remove("screen"); }
+            let parsed = locust_core::native::parse_looks(&raw.to_string());
+            assert_eq!(parsed["tm_wren"].bot.is_some(), valid);
+        }
+    }
+    #[test]
+    fn is_a_screen_where_the_shape_suits_one_and_its_own_eyes_where_it_does_not_until_chosen() {
+        assert!(wears_screen(None, "droid", true));
+        assert!(!wears_screen(None, "star", true));
+    }
+    #[test]
+    fn follows_the_teammates_choice_either_way() {
+        for (shape, screen) in [("star", true), ("droid", false), ("flower", true)] {
+            let picked = look(shape, Some(screen));
+            let (actual_shape, _, _) = bot_of("tm_wren", Some(&picked));
+            assert_eq!(wears_screen(Some(&picked), &actual_shape, true), screen, "{shape}");
+            assert!(!static_bot_shape(&actual_shape, BotFace::Eyes, "blue", 40.0, screen, false, false).is_empty());
+        }
+    }
+    #[test]
+    fn is_never_a_screen_with_terminal_faces_off_but_prompts_whose_face_it_is() {
+        assert!(!wears_screen(Some(&look("droid", Some(true))), "droid", false));
+        assert!(wears_screen(Some(&look("prompt", Some(false))), "prompt", false));
     }
 }
