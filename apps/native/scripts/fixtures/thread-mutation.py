@@ -3,6 +3,12 @@
 import os, pathlib, subprocess, sys
 os.environ["LOCUST_TEST_TS_READER"] = str(pathlib.Path("dist/thread-7-ts-reader/index.js").resolve())
 controls = {
+    'alias-result': ('core/src/model_alias.rs', 'completed.and_then(|e| e["payload"]["resolvedModel"].as_str())', 'completed.and_then(|_| None)', 'recent_history_learns_the_runtime_model_from_the_ledger'),
+    'recent-latest': ('core/src/recent_routes.rs', 'held.1.max(at)', 'held.1.min(at)', 'lists_each_route_once_newest_first'),
+    'recent-once': ('core/src/recent_routes.rs', 'positions.get(&key)', 'positions.get(&key).filter(|_|false)', 'lists_each_route_once_newest_first'),
+    'recent-order': ('core/src/recent_routes.rs', 'right.1.cmp(&left.1)', 'left.1.cmp(&right.1)', 'lists_each_route_once_newest_first'),
+    'marker-gap': ('core/src/time_marker.rs', 'if gap < QUIET_GAP_MINUTES', 'if gap < 0 * QUIET_GAP_MINUTES', 'says_nothing_when_turns_follow_each_other_closely'),
+    'marker-origin': ('core/src/time_marker.rs', 'let minutes_in = minutes_between(origin, next);', 'let minutes_in = minutes_between(previous, next);', 'measures_elapsed_time_from_the_mission_first_event_not_the_previous_turn'),
     'session-empty': ('core/src/runtime_terminal.rs', '.filter(|id| !id.is_empty())', '.filter(|_| true)', 'ignores_an_empty_session_id_rather_than_treating_it_as_one'),
     'turn-followup': ('core/src/conversation_turns.rs', 'if current.continues_reason.as_deref()!=Some("route-switch")', 'if current.parent.is_none()', 'shows_a_reply_the_words_that_were_typed_for_it_not_the_opening_line'),
     'turn-orphan': ('core/src/conversation_turns.rs', 'else{return &current.prompt};if !seen.insert', 'else{return ""};if !seen.insert', 'keeps_the_mission_own_words_when_the_one_it_continues_is_gone'),

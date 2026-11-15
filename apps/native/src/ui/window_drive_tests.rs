@@ -5605,3 +5605,31 @@ fn the_picker_and_model_chip_show_the_name_earned_from_local_history() {
     click(&mut rt,"model-claude-fable");
     assert!(text_in(&rt,"model-chip").iter().any(|text| text.contains("claude-fable-5-1")));
 }
+
+#[test]
+fn recent_routes_reach_the_picker_in_history_order_and_choose_their_runtime() {
+    let (_dirs, store, mut rt) = window();
+    let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "success"));
+    type_and_send(&mut rt,"Synthetic prompt");
+    pump(&mut rt,"the first answer",answered);
+    let meta=json!({"schemaVersion":27,"recordType":"mission.created","metadata":{"missionId":"mission_recent","prompt":"x","runtime":"claude","model":"fable","createdAt":"2026-09-01T10:00:00.000Z"}});
+    std::fs::write(store.write_path("mission_recent").unwrap(),format!("{meta}\n")).unwrap();
+    rt.update(|s,_|refresh_recent(s));
+    pump(&mut rt,"the recent routes",|s|s.recent_route_keys.len()>=2);
+    click(&mut rt,"model-chip");
+    rt.update(|s,_|{
+        let model=|id:&str|engine::Model{id:id.into(),name:id.into(),efforts:vec![]};
+        s.models.insert("tm_codec".into(),vec![
+            engine::Models{teammate:None,runtime:"codex".into(),model:None,effort:None,models:std::iter::once(model("synthetic-model")).chain((0..8).map(|i|model(&format!("other-{i}")))).collect()},
+            engine::Models{teammate:None,runtime:"claude".into(),model:None,effort:None,models:vec![model("fable")]}
+        ]);
+    });
+    rt.frame(0.016);
+    let codex=rt.presented("recent-model-codex-synthetic-model").unwrap().0;
+    let claude=rt.presented("recent-model-claude-fable").unwrap().0;
+    assert!(codex[1]<claude[1],"the newest route is first");
+    assert!(text_in(&rt,"model-menu").iter().any(|t|t=="Recent"));
+    click(&mut rt,"recent-model-claude-fable");
+    assert_eq!(rt.state.picks["tm_codec"].runtime.as_deref(),Some("claude"));
+    assert_eq!(rt.state.picks["tm_codec"].model,"fable");
+}

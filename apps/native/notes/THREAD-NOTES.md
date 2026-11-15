@@ -748,3 +748,30 @@ already implements the rule. Whole-core `turn-followup`, `turn-orphan`, and the
 existing `typed-prior` control each failed its named assertion and restored; all
 Rust hashes matched. These controls also exercise the new cases without making
 a second prompt walker. Coverage: **196/264**, 68 remain; no exemptions.
+
+### Recent routes and time markers — five more case ports
+
+`recent_routes.rs` and `recent_routes_tests.rs` carry both route-history cases
+with the exact `codex:gpt-5` / `cursor:composer-2.5` order. The cached history keys
+feed the real picker: recent models sort first within their runtime, and a
+mixed-runtime Recent shortcut group reuses the existing turn-pick path. A
+shortcut never creates a missing catalog model. Following the existing picker
+specification, it is withheld for fewer than two available recents, lists of
+8 or fewer models, or when it would duplicate half the list; at most four are
+shown. Existing permission-policy filtering and per-turn account selection hold.
+A native-only boundary test pins those limits. The headless test follows a
+history refresh into the picker, checks newest-first placement, and presses a
+Claude shortcut from a Codex conversation, checking the chosen runtime/model.
+
+`thread_marker_case_tests.rs` carries all three time-marker cases using the
+original 2026-08-31 UTC instants and `waited 40 min`. No product change was
+needed: native already measures from the mission's first event and suppresses
+gaps shorter than two minutes. Its before-item index is the native counterpart
+of Electron's before-turn index; the fixture has one item per turn.
+
+The release baseline `thread-11-routes-markers.log` passed **1,707 core,
+20 ignored; 402 headless window; zero failures/doc tests**, without warnings.
+All five ports and the new headless picker check passed by name. The extra
+shortcut-boundary test was written after compilation began, so it is not
+claimed present in that baseline; it passed by name in the subsequent whole-core
+control run. Final positive-run evidence follows below.

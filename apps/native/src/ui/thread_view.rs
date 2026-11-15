@@ -1041,6 +1041,31 @@ fn model_picker(
             }
         }
     }
+    let offered: Vec<String> = agents.iter()
+        .filter(|a| id != LEDGER_TARGET || teammate.runtime.as_deref() == Some(a.runtime.as_str()))
+        .flat_map(|a| a.models.iter().filter(|m| locust_core::org_policy::model_allowed(Some(&policy), &a.runtime, Some(&m.id))).map(|m| format!("{}:{}", a.runtime, m.id)))
+        .collect();
+    let shortcuts = locust_core::recent_routes::shortcut_keys(&offered, &s.recent_route_keys);
+    let mut recent_header = false;
+    for key in shortcuts {
+        let Some((agent, m)) = agents.iter().find_map(|a| a.models.iter().find(|m| format!("{}:{}",a.runtime,m.id)==key).map(|m|(a,m))) else { continue };
+        let label = format!("{} · {}", m.name, locust_core::carry_on::display_name(&agent.runtime));
+        if searching && !route_search_text(&label).contains(&needle) { continue; }
+        if !recent_header {
+            list = list.child(text("Recent").font(l.ty.body).color(l.c("text-muted")).px(9.0).pt(12.0).pb(4.0));
+            recent_header = true;
+        }
+        let detail = if s.limited_runtimes.contains_key(&agent.runtime) { "AT LIMIT".to_owned() } else { s.resolved_model_names.get(&key).cloned().unwrap_or_default() };
+        let active = active_runtime == agent.runtime && active_account.is_none() && picked.is_some() && model == m.id;
+        let (target, choice, levels) = (id.to_owned(),m.id.clone(),m.efforts.clone());
+        let runtime = (teammate.runtime.as_deref()!=Some(agent.runtime.as_str())).then(||agent.runtime.clone());
+        let keep = effort.map(str::to_owned);
+        list = list.child(row_of(label,detail,active).key(format!("recent-model-{}-{}",agent.runtime,m.id)).on_press(move |s:&mut State| {
+            let effort = keep.clone().filter(|e|levels.contains(e));
+            s.picks.insert(target.clone(),TurnPick {model:choice.clone(),effort,runtime:runtime.clone(),account:Some(None)});
+            s.model_menu=None;
+        }));
+    }
     let mut any = false;
     for (agent, acc) in groups {
         let base_name = locust_core::carry_on::display_name(&agent.runtime);
@@ -1048,12 +1073,13 @@ fn model_picker(
             Some(a) => format!("{base_name} · {}", a.name),
             None => base_name.to_owned(),
         };
-        let matched: Vec<&engine::Model> = agent
+        let mut matched: Vec<&engine::Model> = agent
             .models
             .iter()
             .filter(|m| locust_core::org_policy::model_allowed(Some(&policy), &agent.runtime, Some(&m.id)))
             .filter(|m| !searching || route_search_text(&format!("{group_name} {}", m.name)).contains(&needle))
             .collect();
+        matched.sort_by_key(|m| s.recent_route_keys.iter().position(|key| *key == format!("{}:{}",agent.runtime,m.id)).unwrap_or(usize::MAX));
         if matched.is_empty() {
             continue;
         }

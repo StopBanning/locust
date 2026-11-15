@@ -6,6 +6,9 @@ import subprocess
 import sys
 os.environ["LOCUST_TEST_TS_READER"] = str(pathlib.Path("dist/thread-7-ts-reader/index.js").resolve())
 controls = {
+    'recent-cache': ('src/main.rs', 's.recent_route_keys = locust_core::recent_routes::recently_used_routes(&batch.summaries.values().cloned().collect::<Vec<_>>());', 's.recent_route_keys.clear();', 'recent_routes_reach_the_picker_in_history_order_and_choose_their_runtime'),
+    'recent-rows': ('src/ui/thread_view.rs', 'locust_core::recent_routes::shortcut_keys(&offered, &s.recent_route_keys)', 'locust_core::recent_routes::shortcut_keys(&offered, &[])', 'recent_routes_reach_the_picker_in_history_order_and_choose_their_runtime'),
+    'recent-choice': ('src/ui/thread_view.rs', 'runtime:runtime.clone(),account:Some(None)', 'runtime:None,account:Some(None)', 'recent_routes_reach_the_picker_in_history_order_and_choose_their_runtime'),
     'alias-cache': ('src/main.rs', 's.resolved_model_names = locust_core::model_alias::resolved_model_names(batch.summaries.values());', 's.resolved_model_names.clear();', 'the_picker_and_model_chip_show_the_name_earned_from_local_history'),
     'alias-row': ('src/ui/thread_view.rs', 's.resolved_model_names.get(&format!("{}:{}", agent.runtime, m.id))', 's.resolved_model_names.get("never")', 'the_picker_and_model_chip_show_the_name_earned_from_local_history'),
     'alias-chip': ('src/ui/thread_view.rs', 'let model_name = s.resolved_model_names.get(&format!("{rt}:{model}")).map(String::as_str).unwrap_or(model_name);', 'let model_name = s.resolved_model_names.get(&format!("missing:{rt}:{model}")).map(String::as_str).unwrap_or(model_name);', 'the_picker_and_model_chip_show_the_name_earned_from_local_history'),

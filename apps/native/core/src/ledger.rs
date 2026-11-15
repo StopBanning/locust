@@ -1901,11 +1901,13 @@ mod tests {
         let mut meta = created("alias", "x");
         meta["metadata"]["runtime"] = json!("claude");
         meta["metadata"]["model"] = json!("fable");
-        let start = json!({"schemaVersion":27,"recordType":"mission.event","event":{"sequence":1,"type":"run.started","payload":{"evidence":{"raw":{"model":"claude-fable-5-1"}}}}});
+        let start = json!({"schemaVersion":27,"recordType":"mission.event","event":{"sequence":1,"type":"run.started","payload":{"evidence":{"raw":{"model":"fable"}}}}});
         let end = json!({"schemaVersion":27,"recordType":"mission.event","event":{"sequence":2,"type":"run.completed","payload":{"resolvedModel":"claude-fable-5-1"}}});
         fs::write(temp.path("alias"), format!("{meta}\n{start}\n{end}\n")).unwrap();
         let recent = list_recent(&temp.0, 10);
         assert_eq!(crate::model_alias::resolved_model_names(&recent).get("claude:fable").map(String::as_str), Some("claude-fable-5-1"));
+        let mut start = start;
+        start["event"]["payload"]["evidence"]["raw"]["model"] = json!("claude-fable-5-1");
         fs::write(temp.path("alias"), format!("{meta}\n{start}\n")).unwrap();
         let recent = list_recent(&temp.0, 10);
         assert_eq!(crate::model_alias::resolved_model_names(&recent).get("claude:fable").map(String::as_str), Some("claude-fable-5-1"));
