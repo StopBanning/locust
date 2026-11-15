@@ -6,6 +6,7 @@ import subprocess
 import sys
 os.environ["LOCUST_TEST_TS_READER"] = str(pathlib.Path("dist/thread-7-ts-reader/index.js").resolve())
 controls = {
+    'relay-history': ('src/main.rs', 'row.title = title.clone();', 'row.title = "Host briefing".into();', 'a_relay_history_refresh_names_the_received_message_in_the_sidebar'),
     'recent-cache': ('src/main.rs', 's.recent_route_keys = locust_core::recent_routes::recently_used_routes(&batch.summaries.values().cloned().collect::<Vec<_>>());', 's.recent_route_keys.clear();', 'recent_routes_reach_the_picker_in_history_order_and_choose_their_runtime'),
     'recent-rows': ('src/ui/thread_view.rs', 'locust_core::recent_routes::shortcut_keys(&offered, &s.recent_route_keys)', 'locust_core::recent_routes::shortcut_keys(&offered, &[])', 'recent_routes_reach_the_picker_in_history_order_and_choose_their_runtime'),
     'recent-choice': ('src/ui/thread_view.rs', 'runtime:runtime.clone(),account:Some(None)', 'runtime:None,account:Some(None)', 'recent_routes_reach_the_picker_in_history_order_and_choose_their_runtime'),

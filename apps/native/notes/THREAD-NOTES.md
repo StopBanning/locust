@@ -775,3 +775,27 @@ All five ports and the new headless picker check passed by name. The extra
 shortcut-boundary test was written after compilation began, so it is not
 claimed present in that baseline; it passed by name in the subsequent whole-core
 control run. Final positive-run evidence follows below.
+
+
+## Thread-12 — 14 Nov 2026
+
+Inherited baseline: commit `2794a17e` carries **201/264** cases (the row's old
+196 count omitted the recent-route and marker ports). The initial inherited
+`recent-latest` development control aborted in an unrelated relay fixture's
+cleanup, exit 250; it restored its source and is not counted as evidence. Core
+controls now use release, matching the required baseline. A release attempt
+spent 298 seconds waiting for the shared lock and reached outer timeout 590
+while compiling; no pass is claimed. Its completed retry,
+`thread-12-baseline-retry.log`, passed **1,721 core, 20 ignored; 404 headless
+window; zero failures/doc tests and no warnings**.
+
+### A run the host started for a teammate — six cases
+
+`relay_title_tests.rs` carries all six exact message/title cases. History refresh
+uses the first received workroom message, flattened onto one line, and updates
+both recent rows and cached summaries. Missing, empty and posted-only messages
+never invent a title. The sidebar keeps its existing explicit rename precedence.
+The headless history-refresh test passed by name, as did every new core case in
+the baseline above. Native uses cached titles rather than reconstructing React
+thread objects; the shared guarded prompt walk also exposes the relay title.
+Mutation verification is pending below. No drawing performs file access.

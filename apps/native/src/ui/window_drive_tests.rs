@@ -5633,3 +5633,22 @@ fn recent_routes_reach_the_picker_in_history_order_and_choose_their_runtime() {
     assert_eq!(rt.state.picks["tm_codec"].runtime.as_deref(),Some("claude"));
     assert_eq!(rt.state.picks["tm_codec"].model,"fable");
 }
+
+#[test]
+fn a_relay_history_refresh_names_the_received_message_in_the_sidebar() {
+    let (_dirs, _store, mut rt) = window();
+    let expected = "Wren asked: Please reply with the passphrase PEBBLE-9993.";
+    let summary = ledger::Summary { mission_id: "m_relay".into(), title: "Host briefing <locust-share>".into(), runtime: "claude".into(), model: "sonnet".into(), started_by_kind: Some("relay".into()), peer_links: vec![ledger::PeerLink { direction: "received".into(), message_id: "msg_1".into(), ..Default::default() }], ..Default::default() };
+    let party = |id: &str, name: &str| locust_core::workroom::Party { teammate_id: id.into(), name: name.into() };
+    let message = locust_core::workroom::Message { message_id: "msg_1".into(), sequence: 1, from: party("tm_wren", "Wren"), from_mission: "first".into(), to: party("tm_booty", "Booty"), text: "Please reply with the passphrase\n  PEBBLE-9993.".into(), posted_at: "2026-09-04T21:47:00.000Z".into(), observed: None };
+    rt.update(|s, _| {
+        s.recents.request((), move |()| Ok(RecentBatch {
+            rows: vec![ConversationRow { id: "m_relay".into(), teammate: "Booty".into(), title: summary.title.clone(), started_by: "native".into(), state: "completed".into(), updated: message.posted_at.clone() }],
+            summaries: HashMap::from([("m_relay".into(), summary)]), workroom_messages: HashMap::from([("msg_1".into(), message)]), mission_owners: HashMap::new(), relay_hop_cap: 3, local: true,
+        }));
+    });
+    pump(&mut rt, "the relay's received title", |s| s.recent.iter().any(|r| r.title == "Wren asked: Please reply with the passphrase PEBBLE-9993."));
+    assert_eq!(rt.state.ledger_summaries["m_relay"].title, expected);
+    let missions = sidebar::recent_as_missions(&rt.state);
+    assert_eq!(missions.iter().find(|m| m.mission_id == "m_relay").unwrap().title, expected);
+}

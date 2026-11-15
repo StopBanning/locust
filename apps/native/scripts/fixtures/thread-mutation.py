@@ -3,6 +3,10 @@
 import os, pathlib, subprocess, sys
 os.environ["LOCUST_TEST_TS_READER"] = str(pathlib.Path("dist/thread-7-ts-reader/index.js").resolve())
 controls = {
+    'relay-kind': ('core/src/relay_title.rs', 'kind != Some("relay")', 'false', 'leaves_a_mission_a_person_started_alone'),
+    'relay-received': ('core/src/relay_title.rs', 'm.direction == "received"', 'm.direction == "posted"', 'is_named_by_the_message_that_caused_it_never_by_the_host_briefing'),
+    'relay-flat': ('core/src/relay_title.rs', '.split_whitespace().collect::<Vec<_>>().join(" ")', '.to_owned()', 'keeps_the_title_to_one_line'),
+    'relay-typed': ('core/src/relay_title.rs', 'title(source).unwrap_or_else(|| words.to_owned())', 'words.to_owned()', 'does_not_let_typed_prompt_hand_back_the_briefing_either'),
     'alias-result': ('core/src/model_alias.rs', 'completed.and_then(|e| e["payload"]["resolvedModel"].as_str())', 'completed.and_then(|_| None)', 'recent_history_learns_the_runtime_model_from_the_ledger'),
     'recent-latest': ('core/src/recent_routes.rs', 'held.1.max(at)', 'held.1.min(at)', 'lists_each_route_once_newest_first'),
     'recent-once': ('core/src/recent_routes.rs', 'positions.get(&key)', 'positions.get(&key).filter(|_|false)', 'lists_each_route_once_newest_first'),
@@ -10,8 +14,8 @@ controls = {
     'marker-gap': ('core/src/time_marker.rs', 'if gap < QUIET_GAP_MINUTES', 'if gap < 0 * QUIET_GAP_MINUTES', 'says_nothing_when_turns_follow_each_other_closely'),
     'marker-origin': ('core/src/time_marker.rs', 'let minutes_in = minutes_between(origin, next);', 'let minutes_in = minutes_between(previous, next);', 'measures_elapsed_time_from_the_mission_first_event_not_the_previous_turn'),
     'session-empty': ('core/src/runtime_terminal.rs', '.filter(|id| !id.is_empty())', '.filter(|_| true)', 'ignores_an_empty_session_id_rather_than_treating_it_as_one'),
-    'turn-followup': ('core/src/conversation_turns.rs', 'if current.continues_reason.as_deref()!=Some("route-switch")', 'if current.parent.is_none()', 'shows_a_reply_the_words_that_were_typed_for_it_not_the_opening_line'),
-    'turn-orphan': ('core/src/conversation_turns.rs', 'else{return &current.prompt};if !seen.insert', 'else{return ""};if !seen.insert', 'keeps_the_mission_own_words_when_the_one_it_continues_is_gone'),
+    'turn-followup': ('core/src/conversation_turns.rs', 'current.continues_reason.as_deref() != Some("route-switch")', 'current.parent.is_none()', 'shows_a_reply_the_words_that_were_typed_for_it_not_the_opening_line'),
+    'turn-orphan': ('core/src/conversation_turns.rs', 'else { return (current, &current.prompt); };\n        if !seen.insert', 'else { return (current, ""); };\n        if !seen.insert', 'keeps_the_mission_own_words_when_the_one_it_continues_is_gone'),
     'alias-decode': ('core/src/ledger.rs', 'if is_start && let Some(model)', 'if !is_start && let Some(model)', 'recent_history_learns_the_runtime_model_from_the_ledger'),
     'alias-start': ('core/src/model_alias.rs', 'e["payload"]["evidence"]["raw"]["model"]', 'e["payload"]["evidence"]["raw"]["missing-model"]', 'learns_the_real_name_the_runtime_reported_for_an_alias'),
     'alias-newest': ('core/src/model_alias.rs', 'at > *old', 'true', 'prefers_the_newest_mission_so_a_new_release_replaces_an_old_name'),
@@ -39,7 +43,7 @@ controls = {
     'changed-refused': ('core/src/activity_entries.rs', 'crate::activity_summary::is_edit(item) && *status != Status::Failed', 'crate::activity_summary::is_edit(item)', 'does_not_count_a_refused_write_as_a_changed_file'),
     'changed-patch': ('core/src/activity_entries.rs', 'if !files.is_empty() { return files.into_iter()', 'if false { return files.into_iter()', 'counts_one_copilot_multiline_patch_as_one_changed_file'),
     'typed-marker': ('core/src/conversation_turns.rs', 'prompt.rsplit_once(INSTRUCTION_SECTION)', 'prompt.rsplit_once("The person now asks:")', 'does_not_read_the_marker_out_of_a_briefing_that_quotes_the_original_task'),
-    'typed-prior': ('core/src/conversation_turns.rs', 'current=prior;', 'return &current.prompt;', 'still_shows_the_original_words_when_the_switch_carried_no_new_instruction'),
+    'typed-prior': ('core/src/conversation_turns.rs', 'current = prior;', 'return (current, &current.prompt);', 'still_shows_the_original_words_when_the_switch_carried_no_new_instruction'),
     'start-day': ('core/src/time_marker.rs', 'if at.date() == now.date() {', 'if true {', 'carries_the_date_once_the_mission_is_not_from_today'),
     'start-year': ('core/src/time_marker.rs', 'at.year() == now.year()', 'true', 'adds_the_year_only_when_the_mission_is_from_another_one'),
     'start-cache': ('core/src/ledger.rs', 'if index == 0 {\n                snapshot.started_at', 'if index == usize::MAX {\n                snapshot.started_at', 'mission_start_label_is_cached_from_the_original_turn_even_after_a_handoff'),
@@ -134,7 +138,7 @@ log = pathlib.Path('notes/thread-mutation-' + name + '.log')
 try:
     p.write_text(original.replace(old, new, 1))
     with log.open('w') as out:
-        result = subprocess.run(['timeout', '590', 'python3', 'scripts/gentle-cargo.py', '--timeout', '570', 'test', '--offline', '-p', 'locust-core'], stdout=out, stderr=subprocess.STDOUT, env=dict(os.environ, CARGO_PROFILE_DEV_OPT_LEVEL='1', CARGO_PROFILE_DEV_DEBUG='0', RUST_TEST_THREADS='4'))
+        result = subprocess.run(['timeout', '590', 'python3', 'scripts/gentle-cargo.py', '--timeout', '570', 'test', '--release', '--offline', '-p', 'locust-core'], stdout=out, stderr=subprocess.STDOUT, env=dict(os.environ, CARGO_PROFILE_DEV_OPT_LEVEL='1', CARGO_PROFILE_DEV_DEBUG='0', RUST_TEST_THREADS='4'))
     output = log.read_text()
     assert result.returncode == 101 and ('::' + test + ' ... FAILED') in output and 'test result: FAILED.' in output, (name, result.returncode, output[-3000:])
     print(name + ': named assertion failed across whole core suite')
