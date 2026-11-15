@@ -2164,26 +2164,25 @@ mod tests {
         (step, change)
     }
 
+    // The cases of codex-buddy-moves-on-his-own-rig.test.ts, one test each, named after the case.
+
     #[test]
-    fn weights_stay_inside_window_and_lateral_raise_caught_leaving() {
+    fn stay_inside_his_window_wherever_they_are_in_view_through_every_move_and_every_change_between_them() {
         let changes = every_change_moves();
         for fps in [30.0, 60.0] {
-            let frames = run_sim(fps, true, &changes);
-            let worst = frames
+            let worst = run_sim(fps, true, &changes)
                 .iter()
                 .flat_map(|f| f.iter())
                 .fold(0.0f64, |m, h| m.max(h.out));
             assert_eq!(worst, 0.0, "{fps} fps");
         }
+    }
+
+    #[test]
+    fn would_be_caught_leaving_it_a_lateral_raise_arms_straight_out_does() {
         let raise = RigTarget::new(
             crate::buddy_rig::BuddyPose {
-                left: ArmPose {
-                    abduct: 1.45,
-                    flex: 0.05,
-                    bend: 0.2,
-                    bend_up: 0.0,
-                    grip: 0.0,
-                },
+                left: ArmPose { abduct: 1.45, flex: 0.05, bend: 0.2, bend_up: 0.0, grip: 0.0 },
                 right: REST_TARGET.pose.right,
                 dip: 0.0,
             },
@@ -2192,29 +2191,31 @@ mod tests {
         assert!(hands_of(raise)[0].out > 10.0);
     }
 
-    #[test]
-    fn face_stays_in_window_through_every_move_and_dip_caught_leaving() {
+    /// How far his screen's corners, tilted and dropped with his head, go past his window; 0 inside.
+    fn face_out(target: RigTarget) -> f64 {
         let window = pet_window(CODEX_BUDDY.frame_height as f64, BUDDY_RIG_MIDDLE);
         let cell = CODEX_BUDDY.cells[BUDDY_RIG_PLATE_ROW][BUDDY_RIG_PLATE_COL];
         let [x, y, w, h] = [cell[0] as f64, cell[1] as f64, cell[2] as f64, cell[3] as f64];
-        let face_out = |target: RigTarget| -> f64 {
-            let neck = neck_of(target.pose.dip);
-            let tilt = target.tilt.unwrap_or(0.0);
-            let drop = head_drop(target.pose.dip);
-            let mut out = 0.0f64;
-            for [cx, cy] in [[x, y], [x + w, y], [x, y + h], [x + w, y + h]] {
-                let dx = cx - neck[0];
-                let dy = cy + drop - neck[1];
-                let px = neck[0] + dx * tilt.cos() - dy * tilt.sin();
-                let py = neck[1] + dx * tilt.sin() + dy * tilt.cos();
-                out = out
-                    .max(window.left - px)
-                    .max(px - (window.left + window.side))
-                    .max(window.top - py)
-                    .max(py - (window.top + window.side));
-            }
-            out
-        };
+        let neck = neck_of(target.pose.dip);
+        let tilt = target.tilt.unwrap_or(0.0);
+        let drop = head_drop(target.pose.dip);
+        let mut out = 0.0f64;
+        for [cx, cy] in [[x, y], [x + w, y], [x, y + h], [x + w, y + h]] {
+            let dx = cx - neck[0];
+            let dy = cy + drop - neck[1];
+            let px = neck[0] + dx * tilt.cos() - dy * tilt.sin();
+            let py = neck[1] + dx * tilt.sin() + dy * tilt.cos();
+            out = out
+                .max(window.left - px)
+                .max(px - (window.left + window.side))
+                .max(window.top - py)
+                .max(py - (window.top + window.side));
+        }
+        out
+    }
+
+    #[test]
+    fn stays_in_his_window_whole_however_his_head_tilts_and_his_body_dips_through_every_move_and_every_change_between_them() {
         let mut sim = BuddyRigSim::default();
         let mut worst = 0.0f64;
         for m in every_change_moves() {
@@ -2225,33 +2226,34 @@ mod tests {
             }
         }
         assert_eq!(worst, 0.0);
+    }
 
-        let dropped = RigTarget::new(
-            crate::buddy_rig::BuddyPose {
-                dip: 60.0,
-                ..REST_TARGET.pose
-            },
-            0.0,
-        );
+    #[test]
+    fn would_be_caught_leaving_it_his_body_dropped_far_down_takes_it_out() {
+        let dropped = RigTarget::new(crate::buddy_rig::BuddyPose { dip: 60.0, ..REST_TARGET.pose }, 0.0);
         assert!(face_out(dropped) > 5.0);
     }
 
     #[test]
-    fn rig_motion_never_jumps_matches_across_fps_clamps_long_frames_and_rests() {
+    fn never_jumps_a_hand_moves_at_most_11_px_of_his_drawing_a_frame_and_its_movement_changes_by_at_most_5() {
         let changes = every_change_moves();
         for fps in [30.0, 60.0] {
             let (step, change) = motion_of(&run_sim(fps, true, &changes));
-            assert!(step < (11.0 * 30.0) / fps, "{fps} step={step}");
-            assert!(
-                change < (5.0 * 30.0 * 30.0) / (fps * fps),
-                "{fps} change={change}"
-            );
+            assert!(step < (11.0 * 30.0) / fps, "{fps} fps step={step}");
+            assert!(change < (5.0 * 30.0 * 30.0) / (fps * fps), "{fps} fps change={change}");
         }
-        let (_, raw_change) = motion_of(&run_sim(30.0, false, &base_moves()));
-        assert!(raw_change > 20.0);
+    }
 
+    #[test]
+    fn would_be_caught_jumping_the_same_moves_drawn_as_asked_with_no_springs_snap_where_one_cuts_into_the_next() {
+        let (_, change) = motion_of(&run_sim(30.0, false, &base_moves()));
+        assert!(change > 20.0, "change={change}");
+    }
+
+    #[test]
+    fn is_the_same_at_30_frames_a_second_as_at_60_and_as_at_144() {
         let w = workout_move();
-        let at_fps = |fps: f64| -> RigTarget {
+        let at = |fps: f64| -> RigTarget {
             let mut sim = BuddyRigSim::default();
             let mut now = sim.now();
             let mut t = 0.0;
@@ -2261,26 +2263,26 @@ mod tests {
             }
             now
         };
-        let a = hands_of(at_fps(30.0));
+        let a = hands_of(at(30.0));
         for fps in [60.0, 144.0] {
-            let b = hands_of(at_fps(fps));
+            let b = hands_of(at(fps));
             for h in [0, 1] {
-                assert!((a[h].x - b[h].x).hypot(a[h].y - b[h].y) < 1.5, "{fps}");
+                assert!((a[h].x - b[h].x).hypot(a[h].y - b[h].y) < 1.5, "{fps} fps");
             }
         }
+    }
 
+    #[test]
+    fn picks_up_after_his_clock_stopped_from_where_he_was_no_further_than_one_long_frame_would_take_him() {
         let mut sim = BuddyRigSim::default();
         let before = hands_of(sim.now());
         let after = hands_of(sim.step(move_pose_at(&flex_move(), 800.0, 0.0, false).target, 30.0));
         assert!((after[0].x - before[0].x).hypot(after[0].y - before[0].y) < 25.0);
+    }
 
-        // Rest within 1.5s
-        for mv in [
-            flex_move(),
-            wave_move(),
-            stuck_move(),
-            moment_move("press").unwrap(),
-        ] {
+    #[test]
+    fn comes_to_rest_within_a_second_and_a_half_of_a_move_ending_so_his_clock_can_stop() {
+        for mv in [flex_move(), wave_move(), stuck_move(), moment_move("press").unwrap()] {
             let mut sim = BuddyRigSim::default();
             let mut t = 0.0;
             while t < mv.ms {
@@ -2298,9 +2300,13 @@ mod tests {
                 }
                 s += 1.0 / 30.0;
             }
-            assert!(rested >= 0.0 && rested < 1.5, "{} rested={rested}", mv.name);
+            assert!(rested >= 0.0, "{} never rested", mv.name);
+            assert!(rested < 1.5, "{} rested={rested}", mv.name);
         }
+    }
 
+    #[test]
+    fn is_placed_where_he_is_asked_at_once_on_a_still_face_and_is_at_rest_there() {
         let mut sim = BuddyRigSim::default();
         let st = stuck_move();
         let placed = sim.place(st.still);
@@ -2312,7 +2318,8 @@ mod tests {
     }
 
     // -------------------------------------------------------------------------
-    // codex-buddys-face-changes-as-a-screen-does.test.ts (screen conductor cases)
+    // codex-buddys-face-changes-as-a-screen-does.test.ts, one test each (the three drawn-screen cases are in
+    // `src/look/bots.rs`, where the screen is drawn)
     // -------------------------------------------------------------------------
 
     fn ask_for(key: &str) -> PetScreenAsk {
@@ -2331,232 +2338,219 @@ mod tests {
     fn off_by(a: RigTarget, b: RigTarget) -> f64 {
         let vals = |t: RigTarget| {
             [
-                t.pose.left.abduct,
-                t.pose.left.flex,
-                t.pose.left.bend,
-                t.pose.left.bend_up,
-                t.pose.left.grip,
-                t.pose.right.abduct,
-                t.pose.right.flex,
-                t.pose.right.bend,
-                t.pose.right.bend_up,
-                t.pose.right.grip,
-                t.pose.dip / 10.0,
-                t.look,
+                t.pose.left.abduct, t.pose.left.flex, t.pose.left.bend, t.pose.left.bend_up, t.pose.left.grip,
+                t.pose.right.abduct, t.pose.right.flex, t.pose.right.bend, t.pose.right.bend_up, t.pose.right.grip,
+                t.pose.dip / 10.0, t.look,
             ]
         };
-        vals(a)
-            .iter()
-            .zip(vals(b).iter())
-            .map(|(x, y)| (x - y).abs())
-            .fold(0.0f64, f64::max)
+        vals(a).iter().zip(vals(b).iter()).map(|(x, y)| (x - y).abs()).fold(0.0f64, f64::max)
     }
 
+    /// Two of a glyph's moments, the same to within rounding.
+    fn same_motion(a: GlyphMotion, b: GlyphMotion) {
+        for (x, y) in [(a.dx, b.dx), (a.dy, b.dy), (a.sx, b.sx), (a.sy, b.sy)] {
+            assert!((x - y).abs() < 1e-9, "{a:?} vs {b:?}");
+        }
+        assert_eq!(a.shown, b.shown);
+    }
+
+    const FRAME: f64 = 1.0 / 30.0;
+
     #[test]
-    fn screen_conductor_shuts_eyes_swaps_then_moves_body_and_flashes_green() {
-        let frame = 1.0 / 30.0;
+    fn shuts_his_eyes_brings_the_new_ones_in_under_the_lids_opens_them_and_only_then_moves_his_body() {
         let idle = ask_for("idle");
         let mut cond = PetScreenConductor::new(&CODEX_BUDDY, 0.3, &idle);
-        let mut s = 100.0;
+        let s = 100.0;
         assert_eq!(off_by(cond.frame(s, &idle, None, None).rig, REST_TARGET), 0.0);
 
         let working = ask_for("working");
-        let began = s + frame;
-        let mut opened = None;
-        s = began;
+        let began = s + FRAME;
+        let mut opened: Option<f64> = None;
+        let mut s = began;
         while s < began + 1.0 {
             let now = cond.frame(s, &working, None, None);
             let p = (s - began) / SWAP_S;
             if p < 0.5 {
-                assert_eq!(now.pair.join(""), "||");
+                // Shutting on the old eyes.
+                assert_eq!(now.pair.join(""), "||", "p {p:.2}");
                 if p > 0.0 {
                     assert!(now.squash < 1.0);
                 }
             } else if p < 1.0 {
+                // The new eyes, under lids that open.
                 assert_eq!(now.pair.join(""), ">▮");
             }
             if p < 1.0 {
-                assert_eq!(off_by(now.rig, REST_TARGET), 0.0);
+                // His body holds where it was until his eyes are open.
+                assert_eq!(off_by(now.rig, REST_TARGET), 0.0, "p {p:.2}");
             } else if off_by(now.rig, REST_TARGET) > 0.0 && opened.is_none() {
                 opened = Some(s);
             }
-            s += frame;
+            s += FRAME;
         }
-        let op = opened.expect("opened");
-        assert!(op - began >= SWAP_S - 1e-9);
-        assert!(op - began < SWAP_S + 2.0 * frame);
+        // Then his workout, from the lift his seed picks.
+        let opened = opened.expect("his body moved once his eyes were open");
+        assert!(opened - began >= SWAP_S - 1e-9);
+        assert!(opened - began < SWAP_S + 2.0 * FRAME);
         assert_eq!(cond.frame(began + 1.0, &working, None, None).move_name, "workout");
-
-        // Green flash on done
-        let mut cond2 = PetScreenConductor::new(&CODEX_BUDDY, 0.3, &working);
-        cond2.frame(100.0, &working, None, None);
-        let done = ask_for("done");
-        let began2 = 100.0 + frame;
-        let mut t = began2;
-        while t < began2 + SWAP_S / 2.0 - 1e-6 {
-            let now = cond2.frame(t, &done, None, None);
-            assert_eq!(now.pair.join(""), ">▮");
-            assert_eq!(now.light.0, Phosphor::Cyan.lit_css());
-            t += frame / 4.0;
-        }
-        let arriving = cond2.frame(began2 + SWAP_S / 2.0 + 0.01, &done, None, None);
-        assert_eq!(arriving.pair.join(""), "^^");
-        assert_eq!(
-            arriving.light.0,
-            mix_phosphor_css(Phosphor::Green.lit_css(), Phosphor::Cyan.lit_css(), 0.0)
-        );
-        assert_eq!(
-            cond2
-                .frame(began2 + SWAP_S / 2.0 + FLASH_S + 0.05, &done, None, None)
-                .light
-                .0,
-            Phosphor::Cyan.lit_css()
-        );
-        assert_eq!(
-            cond2
-                .frame(began2 + SWAP_S + 0.05, &done, None, None)
-                .move_name,
-            "flex"
-        );
     }
 
     #[test]
-    fn screen_conductor_still_pose_settles_stuck_workout_turns_glances_and_blinks() {
-        let frame = 1.0 / 30.0;
-        for key in ["idle", "thinking", "working", "waiting", "done", "blocked", "receiving"] {
-            let a0 = ask_for("idle");
-            let mut cond = PetScreenConductor::new(&CODEX_BUDDY, 0.3, &a0);
-            cond.frame(0.0, &a0, None, None);
-            let ak = ask_for(key);
-            let now = cond.frame(0.0, &ak, None, None);
-            assert_eq!(now.rig.pose, buddy_move_for(key, None, BotMotionLevel::Full).still.pose);
-            assert_eq!(now.rig.look, buddy_move_for(key, None, BotMotionLevel::Full).still.look);
-            assert_eq!(now.squash, 1.0);
-            assert!(now.settled);
-            let gm = glyph_motion(&now.pair.join(""), 0, 0.0);
-            assert!((now.motions[0].dx - gm.dx).abs() < 1e-9);
+    fn flashes_a_finish_green_as_his_new_eyes_come_in_never_on_the_old_ones_and_fades_back() {
+        let working = ask_for("working");
+        let mut cond = PetScreenConductor::new(&CODEX_BUDDY, 0.3, &working);
+        cond.frame(100.0, &working, None, None);
+        let done = ask_for("done");
+        let began = 100.0 + FRAME;
+        let mut t = began;
+        while t < began + SWAP_S / 2.0 - 1e-6 {
+            let now = cond.frame(t, &done, None, None);
+            assert_eq!(now.pair.join(""), ">▮");
+            assert_eq!(now.light.0, Phosphor::Cyan.lit_css());
+            t += FRAME / 4.0;
         }
+        let arriving = cond.frame(began + SWAP_S / 2.0 + 0.01, &done, None, None);
+        assert_eq!(arriving.pair.join(""), "^^");
+        assert_eq!(arriving.light.0, mix_phosphor_css(Phosphor::Green.lit_css(), Phosphor::Cyan.lit_css(), 0.0));
+        assert_eq!(cond.frame(began + SWAP_S / 2.0 + FLASH_S + 0.05, &done, None, None).light.0, Phosphor::Cyan.lit_css());
+        // And he flexes once his eyes are open.
+        assert_eq!(cond.frame(began + SWAP_S + 0.05, &done, None, None).move_name, flex_move().name);
+    }
 
-        // Settle when stuck
+    #[test]
+    fn is_his_at_once_on_a_still_face_the_moves_still_pose_its_eyes_at_rest_settled() {
+        for key in ["idle", "thinking", "working", "waiting", "done", "blocked", "receiving"] {
+            let idle = ask_for("idle");
+            let mut cond = PetScreenConductor::new(&CODEX_BUDDY, 0.3, &idle);
+            cond.frame(0.0, &idle, None, None);
+            let asked = ask_for(key);
+            let now = cond.frame(0.0, &asked, None, None);
+            let still = buddy_move_for(key, None, BotMotionLevel::Full).still;
+            assert_eq!(now.rig.pose, still.pose, "{key}");
+            assert_eq!(now.rig.look, still.look, "{key}");
+            assert_eq!(now.squash, 1.0, "{key}");
+            assert!(now.settled, "{key}");
+            same_motion(now.motions[0], glyph_motion(&now.pair.join(""), 0, 0.0));
+        }
+    }
+
+    #[test]
+    fn he_finishes_his_move_his_springs_and_his_eyes_come_to_rest_and_he_is_settled_stuck_under_the_weights() {
         let working = ask_for("working");
         let blocked = ask_for("blocked");
         let mut cond = PetScreenConductor::new(&CODEX_BUDDY, 0.3, &working);
         cond.frame(100.0, &working, None, None);
-        let mut settled_at = None;
-        let mut s = 100.0 + frame;
+        let mut settled_at: Option<f64> = None;
+        let mut s = 100.0 + FRAME;
         while s < 106.0 {
             let now = cond.frame(s, &blocked, None, None);
             if now.settled {
-                if settled_at.is_none() {
-                    settled_at = Some(s);
-                }
+                settled_at.get_or_insert(s);
                 assert!(off_by(now.rig, stuck_move().still) < 0.01);
             } else {
                 settled_at = None;
             }
-            s += frame;
+            s += FRAME;
         }
         let playing = SWAP_S + stuck_move().ms / 1000.0;
-        assert!(settled_at.unwrap() - 100.0 >= playing + EYES_REST_S - 2.0 * frame);
+        let settled_at = settled_at.expect("he settled");
+        assert!(settled_at - 100.0 >= playing + EYES_REST_S - 2.0 * FRAME);
+        // Settled, nothing on him changes: his eyes at their loop's rest.
+        let last = cond.frame(106.0, &blocked, None, None);
+        same_motion(last.motions[0], glyph_motion("><", 0, 0.0));
+        assert_eq!(last.squash, 1.0);
+    }
 
-        // Resting doesn't blink on its own; moving does
+    #[test]
+    fn at_rest_he_does_not_blink_on_his_own_moving_he_does() {
         let idle = ask_for("idle");
-        let mut c_rest = PetScreenConductor::new(&CODEX_BUDDY, 0.3, &idle);
-        let mut c_work = PetScreenConductor::new(&CODEX_BUDDY, 0.3, &working);
-        let mut rest_blinks = 0;
-        let mut work_blinks = 0;
+        let working = ask_for("working");
+        let mut resting = PetScreenConductor::new(&CODEX_BUDDY, 0.3, &idle);
+        let mut moving = PetScreenConductor::new(&CODEX_BUDDY, 0.3, &working);
+        let (mut resting_blinks, mut moving_blinks) = (0, 0);
         let mut s = 100.0;
         while s < 130.0 {
-            if c_rest.frame(s, &idle, None, None).squash < 1.0 {
-                rest_blinks += 1;
+            if resting.frame(s, &idle, None, None).squash < 1.0 {
+                resting_blinks += 1;
             }
-            if c_work.frame(s, &working, None, None).squash < 1.0 {
-                work_blinks += 1;
+            if moving.frame(s, &working, None, None).squash < 1.0 {
+                moving_blinks += 1;
             }
-            s += frame;
+            s += FRAME;
         }
-        assert_eq!(rest_blinks, 0);
-        assert!(work_blinks > 0);
+        assert_eq!(resting_blinks, 0);
+        assert!(moving_blinks > 0);
+    }
 
-        // Workout starts each time from the next lift
-        let mut cond_w = PetScreenConductor::new(&CODEX_BUDDY, 0.62, &idle);
-        let mut s = 100.0;
-        cond_w.frame(s, &idle, None, None);
+    #[test]
+    fn starts_each_time_from_the_next_lift() {
+        let idle = ask_for("idle");
+        let working = ask_for("working");
+        let mut face = PetScreenConductor::new(&CODEX_BUDDY, 0.62, &idle);
         let lifts = workout_move().lifts;
         let mut begun = Vec::new();
+        let mut s = 100.0;
+        face.frame(s, &idle, None, None);
         for _ in 0..3 {
-            let mut first = None;
+            // The set his work begins from, once his eyes are open.
+            let mut first: Option<&str> = None;
             let until = s + 1.0;
             while s < until {
-                let now = cond_w.frame(s, &working, None, None);
+                let now = face.frame(s, &working, None, None);
                 if now.move_name == "workout" && first.is_none() {
                     first = now.lift;
                 }
-                s += frame;
+                s += FRAME;
             }
-            begun.push(lifts.iter().position(|l| Some(*l) == first).unwrap());
-            let until2 = s + 2.0;
-            while s < until2 {
-                cond_w.frame(s, &idle, None, None);
-                s += frame;
+            begun.push(lifts.iter().position(|l| Some(*l) == first));
+            let until = s + 2.0;
+            while s < until {
+                face.frame(s, &idle, None, None);
+                s += FRAME;
             }
         }
+        // Three sets in turn, each the one after the last.
+        assert!(begun.iter().all(|set| set.is_some()));
+        let begun: Vec<usize> = begun.into_iter().flatten().collect();
         assert_eq!(begun[1], (begun[0] + 1) % lifts.len());
         assert_eq!(begun[2], (begun[0] + 2) % lifts.len());
+    }
 
-        // Glance turns smoothly and prevents settling
-        let mut cond_g = PetScreenConductor::new(&CODEX_BUDDY, 0.3, &idle);
-        let mut gs = 100.0;
-        fn step_glance(
-            cond: &mut PetScreenConductor,
-            gs: &mut f64,
-            secs: f64,
-            frame: f64,
-            idle: &PetScreenAsk,
-            side: Option<GlanceSide>,
-        ) -> PetScreenFrame {
-            let until = *gs + secs;
-            let mut last = cond.frame(*gs, idle, side, None);
-            while *gs < until {
-                last = cond.frame(*gs, idle, side, None);
-                *gs += frame;
+    #[test]
+    fn turns_his_eyes_that_way_while_it_lasts_easing_there_and_back_and_he_is_not_settled_while_it_does() {
+        let idle = ask_for("idle");
+        let mut face = PetScreenConductor::new(&CODEX_BUDDY, 0.3, &idle);
+        let mut s = 100.0;
+        let mut run = |face: &mut PetScreenConductor, turned: Option<GlanceSide>, seconds: f64, s: &mut f64| {
+            let mut now = face.frame(*s, &idle, turned, None);
+            let until = *s + seconds;
+            while *s < until {
+                now = face.frame(*s, &idle, turned, None);
+                *s += FRAME;
             }
-            last
-        }
-        step_glance(&mut cond_g, &mut gs, 1.0, frame, &idle, None);
-        let turning = cond_g.frame(gs, &idle, Some(GlanceSide::Left), None);
-        gs += frame;
+            now
+        };
+        run(&mut face, None, 1.0, &mut s);
+        let turning = face.frame(s, &idle, Some(GlanceSide::Left), None);
+        s += FRAME;
+        // Eased, not snapped.
         assert!(turning.rig.look > -0.5);
         assert!(!turning.settled);
-        assert!(
-            step_glance(&mut cond_g, &mut gs, 0.6, frame, &idle, Some(GlanceSide::Left))
-                .rig
-                .look
-                < -0.9
-        );
-        assert!(
-            step_glance(&mut cond_g, &mut gs, 0.6, frame, &idle, Some(GlanceSide::Right))
-                .rig
-                .look
-                > 0.9
-        );
-        assert!(
-            step_glance(&mut cond_g, &mut gs, 1.0, frame, &idle, None)
-                .rig
-                .look
-                .abs()
-                < 0.02
-        );
+        assert!(run(&mut face, Some(GlanceSide::Left), 0.6, &mut s).rig.look < -0.9);
+        assert!(run(&mut face, Some(GlanceSide::Right), 0.6, &mut s).rig.look > 0.9);
+        assert!(run(&mut face, None, 1.0, &mut s).rig.look.abs() < 0.02);
+    }
 
-        // Pet blinks gap
+    #[test]
+    fn come_no_sooner_after_a_change_than_a_bots_and_no_more_than_5_s_apart() {
         for seed in [0.0, 0.4, 0.93] {
             let mut shut = Vec::new();
-            let mut ts = 50.0;
-            while ts < 120.0 {
-                if pet_blink_shut(ts, 50.0, seed) > 0.5 {
-                    shut.push(ts);
+            let mut s = 50.0;
+            while s < 120.0 {
+                if pet_blink_shut(s, 50.0, seed) > 0.5 {
+                    shut.push(s);
                 }
-                ts += 0.01;
+                s += 0.01;
             }
             let blinks: Vec<f64> = shut
                 .iter()
@@ -2565,22 +2559,58 @@ mod tests {
                 .filter(|&(i, s)| i == 0 || s - shut[i - 1] > PET_BLINK_S)
                 .map(|(_, s)| s)
                 .collect();
-            assert!(blinks.len() > 10);
-            assert!(blinks[0] - 50.0 >= BLINK_GAP_S);
+            assert!(blinks.len() > 10, "seed {seed}");
+            assert!(blinks[0] - 50.0 >= BLINK_GAP_S, "seed {seed}");
             for w in blinks.windows(2) {
                 let gap = w[1] - w[0];
-                assert!(gap >= BLINK_GAP_S - 0.02 && gap <= 5.02, "gap={gap}");
+                assert!(gap >= BLINK_GAP_S - 0.02, "seed {seed} gap={gap}");
+                assert!(gap <= 5.02, "seed {seed} gap={gap}");
             }
         }
+    }
+
+    #[test]
+    fn are_none_on_a_still_face_and_the_same_every_time() {
         assert_eq!(pet_blink_shut(0.0, 0.0, 0.5), 0.0);
-        assert_eq!(
-            pet_blink_shut(4321.234, 12.0, 0.5),
-            pet_blink_shut(4321.234, 12.0, 0.5)
-        );
+        assert_eq!(pet_blink_shut(4321.234, 12.0, 0.5), pet_blink_shut(4321.234, 12.0, 0.5));
+    }
+
+    fn shown(pair: Option<[&str; 2]>, key: &str) -> ShownFace {
+        ShownFace { pair: pair.map(|[a, b]| [a.to_string(), b.to_string()]), tone: Phosphor::Cyan, key: Some(key.to_string()) }
+    }
+
+    #[test]
+    fn is_the_bots_and_his_face_changes_read_frame_by_frame() {
+        let mut changes = FaceChanges::new(shown(Some(["|", "|"]), "idle"));
+        assert!(changes.at(10.0, shown(Some(["|", "|"]), "idle"), None, None, POWER_ON_S).open);
+        let wanted = shown(Some([">", "▮"]), "working");
+        let shutting = changes.at(10.0 + FRAME, wanted.clone(), None, None, POWER_ON_S);
+        assert!(!shutting.open);
+        assert_eq!(changes.coming().unwrap().key.as_deref(), Some("working"));
+        assert_eq!(changes.shown().key.as_deref(), Some("idle"));
+        let open = changes.at(10.0 + FRAME + SWAP_S + 0.001, wanted, None, None, POWER_ON_S);
+        assert!(open.open);
+        assert!((open.since - (10.0 + FRAME + SWAP_S)).abs() < 1e-9);
+        assert_eq!(changes.shown().key.as_deref(), Some("working"));
+        assert_eq!(open.count, 1);
+    }
+
+    #[test]
+    fn rests_his_eyes_as_it_rests_a_still_bots_a_still_face_changes_at_once() {
+        let mut changes = FaceChanges::new(shown(None, "idle"));
+        let still = changes.at(0.0, shown(Some(["^", "^"]), "done"), Some(Phosphor::Green), None, POWER_ON_S);
+        assert!(still.open);
+        assert_eq!(still.shut, 0.0);
+        assert!(still.quiet);
+        assert_eq!(still.since, 0.0);
+        assert_eq!(still.eyes, Some(["^".to_string(), "^".to_string()]));
+        assert!(changes.flash().is_none());
+        assert_eq!(resting_move().ms, 0.0);
     }
 
     // -------------------------------------------------------------------------
-    // codex-buddy-wears-a-screen.test.tsx (pure table, framing, & sheet fit cases)
+    // codex-buddy-wears-a-screen.test.tsx: his table, framing, sheet checks, and the choice kept (the cases that
+    // draw him are in `src/look/faces.rs`)
     // -------------------------------------------------------------------------
 
     fn sheet_like(
@@ -2609,61 +2639,72 @@ mod tests {
     }
 
     #[test]
-    fn screen_table_only_codex_buddy_and_every_cell_inside_painted_edges() {
-        assert!(screen_face_for("codex-buddy").is_some());
+    fn is_his_alone_no_other_pet_has_a_screen_measured_for_it_or_moves_of_its_own() {
+        assert!(std::ptr::eq(screen_face_for("codex-buddy").unwrap(), &CODEX_BUDDY));
         assert!(screen_face_for("hoodie-cat").is_none());
         assert!(screen_face_for("astro-bot").is_none());
         assert!(has_routine("codex-buddy"));
         assert!(!has_routine("hoodie-cat"));
+    }
 
+    #[test]
+    fn has_a_screen_on_every_one_of_his_drawings_inside_the_drawing_he_is_painted_in() {
         for (row, &count) in CODEX_BUDDY.counts.iter().enumerate() {
             assert_eq!(CODEX_BUDDY.cells[row].len(), count);
             assert_eq!(CODEX_BUDDY.edges[row].len(), count);
-            for col in 0..count {
-                let rect = screen_at(&CODEX_BUDDY, row, col).unwrap();
-                let [left, right] = CODEX_BUDDY.edges[row][col];
+            for column in 0..count {
+                let rect = screen_at(&CODEX_BUDDY, row, column).unwrap_or_else(|| panic!("{row},{column}"));
+                let [left, right] = CODEX_BUDDY.edges[row][column];
                 assert!(rect.x >= left);
                 assert!(rect.x + rect.w <= right);
                 assert!(rect.y >= 5);
                 assert!(rect.y + rect.h <= 203);
+                // A face's screen, not a speck: big enough for a bot's two eyes.
                 assert!(rect.w >= 30);
                 assert!(rect.h >= 22);
             }
             assert!(screen_at(&CODEX_BUDDY, row, count).is_none());
         }
-
-        // Holds size per way he faces
-        let size_str = |r: usize, c: usize| -> String {
-            let cell = CODEX_BUDDY.cells[r][c];
-            format!("{}x{}", cell[2], cell[3])
-        };
-        for c in 0..6 {
-            assert_eq!(size_str(0, c), "37x27");
-            assert_eq!(size_str(8, c), "37x27");
-        }
-        for c in 0..8 {
-            assert_eq!(size_str(1, c), "37x30");
-            assert_eq!(size_str(2, c), "37x30");
-            assert_eq!(size_str(5, c), "39x31");
-        }
-        assert_eq!(size_str(6, 2), "44x32");
-        assert!(CODEX_BUDDY.cells[4][0][2] < 37);
-        assert!(CODEX_BUDDY.cells[4][4][2] < 37);
-        assert!(CODEX_BUDDY.cells[7][3][2] < 37);
     }
 
     #[test]
-    fn framed_head_and_shoulders_at_every_size_and_never_cuts_his_face() {
+    fn holds_its_size_as_he_moves_one_size_for_each_way_he_faces() {
+        use std::collections::BTreeSet;
+        let size = |row: usize, column: usize| {
+            let cell = CODEX_BUDDY.cells[row][column];
+            format!("{}x{}", cell[2], cell[3])
+        };
+        let sizes = |cells: &[(usize, usize)]| -> BTreeSet<String> { cells.iter().map(|&(r, c)| size(r, c)).collect() };
+        let row = |r: usize, columns: &[usize]| -> Vec<(usize, usize)> { columns.iter().map(|&c| (r, c)).collect() };
+        let one = |s: &str| -> BTreeSet<String> { BTreeSet::from([s.to_string()]) };
+        // Facing you: standing, waving, at the bar, curling, pressing.
+        let facing = [
+            row(0, &[0, 1, 2, 3, 4, 5]),
+            row(3, &[0, 1, 2, 3]),
+            row(4, &[1, 2, 3]),
+            row(6, &[0, 1, 3, 4, 5]),
+            row(7, &[0, 1, 2, 4, 5]),
+            row(8, &[0, 1, 2, 3, 4, 5]),
+        ]
+        .concat();
+        assert_eq!(sizes(&facing), one("37x27"));
+        // Turned, walking right or left: one size for both.
+        let turned = [row(1, &[0, 1, 2, 3, 4, 5, 6, 7]), row(2, &[0, 1, 2, 3, 4, 5, 6, 7])].concat();
+        assert_eq!(sizes(&turned), one("37x30"));
+        // On the bench, his head nearer and over his brows.
+        assert_eq!(sizes(&row(5, &[0, 1, 2, 3, 4, 5, 6, 7])), one("39x31"));
+        // Squatting, drawn larger, and his head tucked between his arms, hanging and locked out: smaller, as measured.
+        assert_eq!(size(6, 2), "44x32");
+        for (r, c) in [(4, 0), (4, 4), (7, 3)] {
+            assert!(CODEX_BUDDY.cells[r][c][2] < 37, "{r},{c}");
+        }
+    }
+
+    #[test]
+    fn at_every_size_so_his_face_is_half_as_big_again_as_fitted_whole_where_he_is_usually_seen_and_larger() {
         let win = pet_window(208.0, BUDDY_RIG_MIDDLE);
-        assert_eq!(
-            win,
-            PetWindow {
-                left: BUDDY_RIG_MIDDLE - 208.0 * CLOSEST_FRAMING / 2.0,
-                top: FRAMING_TOP,
-                side: 208.0 * CLOSEST_FRAMING
-            }
-        );
-        let screen_w = |size: f64| (37.0 * size) / win.side;
+        // His screen's width in a box `size` across, as the box frames him.
+        let screen_width = |size: f64| (37.0 * size) / win.side;
         for size in [
             bot_size::THREAD_LIVE as f64,
             bot_size::SIDEBAR_FACES as f64,
@@ -2672,62 +2713,75 @@ mod tests {
             64.0,
             120.0,
         ] {
-            assert!(screen_w(size) / ((37.0 * size) / 208.0) > 1.6);
+            assert!(screen_width(size) / ((37.0 * size) / 208.0) > 1.6, "{size}");
         }
-        assert!(screen_w(bot_size::SIDEBAR_FACES as f64) > 9.0);
+        assert!(screen_width(bot_size::SIDEBAR_FACES as f64) > 9.0);
+        assert_eq!(
+            win,
+            PetWindow {
+                left: BUDDY_RIG_MIDDLE - 208.0 * CLOSEST_FRAMING / 2.0,
+                top: FRAMING_TOP,
+                side: 208.0 * CLOSEST_FRAMING
+            }
+        );
+    }
 
-        for row in CODEX_BUDDY.cells {
-            for &[x, y, w, h] in *row {
-                assert!((x as f64) - 2.0 >= win.left);
-                assert!((x + w) as f64 + 2.0 <= win.left + win.side);
-                assert!((y as f64) - 2.0 >= win.top);
-                assert!((y + h) as f64 + 2.0 <= win.top + win.side);
+    #[test]
+    fn never_cuts_his_face_on_every_drawing_his_screen_is_inside_his_window() {
+        let shown = pet_window(208.0, BUDDY_RIG_MIDDLE);
+        for (r, row) in CODEX_BUDDY.cells.iter().enumerate() {
+            for (c, &[x, y, w, h]) in row.iter().enumerate() {
+                assert!((x as f64) - 2.0 >= shown.left, "{r},{c}");
+                assert!((x + w) as f64 + 2.0 <= shown.left + shown.side, "{r},{c}");
+                assert!((y as f64) - 2.0 >= shown.top, "{r},{c}");
+                assert!((y + h) as f64 + 2.0 <= shown.top + shown.side, "{r},{c}");
             }
         }
     }
 
     #[test]
-    fn screen_fits_accepts_measured_and_recompressed_refuses_redrawn_or_resized() {
+    fn takes_the_sheet_that_was_measured() {
         let (data, width, height) = sheet_like(&CODEX_BUDDY, None);
         assert!(screen_fits(&CODEX_BUDDY, &data, width, height));
+    }
 
-        let (recomp, rw, rh) = sheet_like(&CODEX_BUDDY, Some((5, 2, 2)));
-        assert!(screen_fits(&CODEX_BUDDY, &recomp, rw, rh));
+    #[test]
+    fn takes_it_re_compressed_an_edge_a_pixel_or_two_off_is_the_same_drawing() {
+        let (data, width, height) = sheet_like(&CODEX_BUDDY, Some((5, 2, 2)));
+        assert!(screen_fits(&CODEX_BUDDY, &data, width, height));
+    }
 
+    #[test]
+    fn refuses_one_redrawn_resized_or_with_a_drawing_where_his_has_none() {
         let (moved, mw, mh) = sheet_like(&CODEX_BUDDY, Some((7, 3, (EDGE_SLACK + 2) as isize)));
         assert!(!screen_fits(&CODEX_BUDDY, &moved, mw, mh));
-
+        let (mut data, width, height) = sheet_like(&CODEX_BUDDY, None);
         assert!(!screen_fits(&CODEX_BUDDY, &data, width, height - 208));
-
-        let mut bad_cell = data.clone();
+        // A drawing in row 0's empty seventh cell.
         for y in 5..203 {
-            bad_cell[(y * width + 6 * 192 + 90) * 4 + 3] = 255;
+            data[(y * width + 6 * 192 + 90) * 4 + 3] = 255;
         }
-        assert!(!screen_fits(&CODEX_BUDDY, &bad_cell, width, height));
+        assert!(!screen_fits(&CODEX_BUDDY, &data, width, height));
+    }
 
+    #[test]
+    fn reads_a_drawings_painted_sides() {
+        let (data, width, _) = sheet_like(&CODEX_BUDDY, None);
         assert_eq!(painted_edges(&data, width, 0, 0, 192, 208), Some([33, 158]));
         assert_eq!(painted_edges(&data, width, 7 * 192, 0, 192, 208), None);
     }
 
     #[test]
-    fn glass_units_matches_eyes_visor_width_and_layout_fits_inside_glass() {
-        let rect = screen_at(&CODEX_BUDDY, BUDDY_RIG_PLATE_ROW, BUDDY_RIG_PLATE_COL).unwrap();
-        let k = 96.0 / 208.0;
-        let glass_w = (rect.w as f64) * k;
-        let u = glass_units(glass_w);
-        assert!((u * glass_w - 54.0).abs() < 1e-6);
-
-        let glass_h = (rect.h as f64) * k;
-        let vbox = VisorBox {
-            half_width: EYES_VISOR.half_width,
-            half_height: (glass_h / 2.0) * u,
-            corner: glass_w.min(glass_h) * GLASS_CORNER * u,
-            y: 0.0,
+    fn gives_him_his_screen_when_it_is_the_sheet_measured_and_not_when_it_is_another() {
+        // The window's decision (pets.ts `ensurePet`): the table for the pet's id, kept only if the sheet fits it.
+        let read = |id: &str, sheet: &(Vec<u8>, usize, usize)| {
+            screen_face_for(id).filter(|face| screen_fits(face, &sheet.0, sheet.1, sheet.2))
         };
-        let layout = screen_eye_layout(vbox, ["|", "|"], [0.0, 0.0], 0.0);
-        assert!(layout.centres[0][0] < 0.0);
-        assert!(layout.centres[1][0] > 0.0);
-        assert!((layout.centres[0][1] - layout.centres[1][1]).abs() < 1e-6);
-        let _ = flash_fade(0.5);
+        let measured = sheet_like(&CODEX_BUDDY, None);
+        assert!(std::ptr::eq(read("codex-buddy", &measured).unwrap(), &CODEX_BUDDY));
+        let another = sheet_like(&CODEX_BUDDY, Some((2, 4, (EDGE_SLACK + 3) as isize)));
+        assert!(read("codex-buddy", &another).is_none());
+        // Another pet drawn the same is still not him.
+        assert!(read("hoodie-cat", &measured).is_none());
     }
 }
