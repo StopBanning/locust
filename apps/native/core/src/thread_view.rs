@@ -127,7 +127,9 @@ pub fn live_line(
             )
         });
         (
-            if spoken { "Working" } else { "Starting" }.into(),
+            if spoken { "Working" } else if events.iter().any(|e| {
+                e["type"] == "adapter.diagnostic" && e["payload"]["code"].as_str().is_some_and(|c| c == "opencode.runtime_error" || c.ends_with(".provider_busy.runtime_error"))
+            }) { "Trying the model again" } else { "Starting" }.into(),
             if spoken { "working" } else { "starting" }.into(),
             true,
         )

@@ -1148,6 +1148,19 @@ impl Transcript {
                 _ => {}
             }
         }
+        // Without any work there is no fold to hold the runtime's remarks.
+        // Promote them only once the turn ends; while it runs the live line stands for it.
+        if !self.running && !items.iter().any(|i| matches!(i, Item::Tool { .. } | Item::Thought { .. })) {
+            for e in self.events.values().filter(|e| e["type"] == "adapter.diagnostic") {
+                let code = string(&e["payload"], "code");
+                let text = scrub(&string(&e["payload"], "message"));
+                if code.starts_with("host.") || code.ends_with(".usage_window") || text.is_empty()
+                    || crate::invariants::regex(r"(?i)^(Codex is ignoring \d+ unrecognized configuration settings?\b|Skill descriptions were shortened to fit\b)").is_match(text.trim()) { continue; }
+                if !items.iter().any(|i| matches!(i, Item::Note { text: held, .. } | Item::Limit { text: held, .. } if crate::failure_words::same_sentence(held, &text))) {
+                    items.push(Item::Note { level: string(&e["payload"], "level"), text });
+                }
+            }
+        }
         let mission = self
             .metadata
             .as_ref()

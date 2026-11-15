@@ -181,3 +181,6 @@ mod runtime_helper_tests;
 
 #[cfg(test)]
 mod peer_message_tests;
+
+#[cfg(test)]
+mod runtime_notice_tests;

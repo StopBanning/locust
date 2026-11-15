@@ -3,6 +3,8 @@
 import os, pathlib, subprocess, sys
 controls = {
     'handoff-decode': ('core/src/ledger.rs', '"mission.checkpoint" => {', '"discarded.checkpoint" => {', 'rebuilds_the_divider_from_the_route_switch_checkpoint_it_resumed_from'),
+    'notice-ended': ('core/src/ledger.rs', 'if !self.running && !items.iter().any(|i| matches!(i, Item::Tool { .. } | Item::Thought { .. })) {', 'if false {', 'says_a_notice_raised_before_any_work_once_the_turn_ends_with_no_fold_to_put_it_under'),
+    'notice-retry': ('core/src/thread_view.rs', '"Trying the model again"', '"Starting"', 'shows_a_rate_limited_opencode_run_retrying_before_anything_has_run'),
     'step-kind': ('core/src/thread_view.rs', 'kind == "reasoning" || item.contains("reasoning")', 'false || item.contains("reasoning")', 'carries_the_step_kind_so_thought_and_action_draw_differently'),
     'handoff-checkpoint': ('core/src/conversation_turns.rs', 'unsettled_count:m.checkpoint_epoch.and_then(|epoch|prior.checkpoint_unsettled.get(&epoch).copied()).unwrap_or(0)', 'unsettled_count:0', 'rebuilds_the_divider_from_the_route_switch_checkpoint_it_resumed_from'),
     'handoff-fold': ('core/src/ledger.rs', 'p["unsettledActions"].as_array().map_or(0, Vec::len)', '0', 'rebuilds_the_divider_from_the_route_switch_checkpoint_it_resumed_from'),
