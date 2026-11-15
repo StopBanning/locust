@@ -58,6 +58,7 @@ pub struct Metadata {
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Summary {
+    pub reported_model: Option<String>,
     pub parent: Option<String>,
     pub words: String,
     pub mission_id: String,
@@ -479,8 +480,13 @@ fn decode(line: &[u8]) -> Option<Record> {
             let event = value.get_mut("event")?;
             event.get("sequence")?.as_u64()?;
             event.get("type")?.as_str()?;
+            let is_start = event["type"] == "run.started";
             // Provenance is unnecessary for drawing; do not retain raw evidence.
             if let Some(payload) = event.get_mut("payload").and_then(Value::as_object_mut) {
+                // Retain only the runtime's scrubbed model name before discarding evidence.
+                if is_start && let Some(model) = payload.get("evidence").and_then(|e| e.get("raw")).and_then(|r| r.get("model")).and_then(Value::as_str) {
+                    payload.insert("reportedModel".into(), Value::String(scrub(model)));
+                }
                 payload.remove("evidence");
                 // Never interpret raw Codex reasoning or legacy exec reasoning items.
                 payload.remove("content");
@@ -1427,6 +1433,7 @@ pub fn try_list_recent(dir: &Path, limit: usize) -> io::Result<Vec<Summary>> {
             .take(60)
             .collect();
         summaries.push(Summary {
+            reported_model: crate::model_alias::reported_model(&events.values().copied().cloned().collect::<Vec<_>>(), &m.model),
             parent: m.parent,
             words: m.prompt,
             mission_id: m.mission_id,
@@ -1932,6 +1939,24 @@ mod tests {
     use serde_json::json;
     use std::io::Write;
     use std::sync::atomic::{AtomicU64, Ordering};
+
+    #[test]
+    fn recent_history_learns_the_runtime_model_from_the_ledger() {
+        let temp = Temp::new();
+        let mut meta = created("alias", "x");
+        meta["metadata"]["runtime"] = json!("claude");
+        meta["metadata"]["model"] = json!("fable");
+        let start = json!({"schemaVersion":27,"recordType":"mission.event","event":{"sequence":1,"type":"run.started","payload":{"evidence":{"raw":{"model":"fable"}}}}});
+        let end = json!({"schemaVersion":27,"recordType":"mission.event","event":{"sequence":2,"type":"run.completed","payload":{"resolvedModel":"claude-fable-5-1"}}});
+        fs::write(temp.path("alias"), format!("{meta}\n{start}\n{end}\n")).unwrap();
+        let recent = list_recent(&temp.0, 10);
+        assert_eq!(crate::model_alias::resolved_model_names(&recent).get("claude:fable").map(String::as_str), Some("claude-fable-5-1"));
+        let mut start = start;
+        start["event"]["payload"]["evidence"]["raw"]["model"] = json!("claude-fable-5-1");
+        fs::write(temp.path("alias"), format!("{meta}\n{start}\n")).unwrap();
+        let recent = list_recent(&temp.0, 10);
+        assert_eq!(crate::model_alias::resolved_model_names(&recent).get("claude:fable").map(String::as_str), Some("claude-fable-5-1"));
+    }
 
     static NEXT: AtomicU64 = AtomicU64::new(0);
 

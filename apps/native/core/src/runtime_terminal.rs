@@ -393,6 +393,7 @@ pub fn session(rows: &[Value]) -> Option<String> {
         r["event"]["runtimeThreadId"]
             .as_str()
             .or_else(|| r["event"]["payload"]["runtimeThreadId"].as_str())
+            .filter(|id| !id.is_empty())
             .map(str::to_owned)
     })
 }

@@ -669,3 +669,109 @@ Final scope: 13 more Electron cases, 186/264 total, no does-not-apply additions.
 control verifications listed above also remain. The root TypeScript gate,
 real agents, a visible window, packaging and other platforms were not run.
 This is verified incremental parity, not completion of all missionView cases.
+
+## Thread-11 continuation — 14 Nov 2026
+
+Scope: `exec/native-thread`, starting at `1d24fee4`. All changes stay under
+`apps/native/`; the owner's untracked handoff files remain excluded.
+
+All 15 inherited controls are now verified individually and restored. Whole-core
+controls: `assistant-append`, `peer-empty`, `peer-flat`, `peer-snippet`, `rail-tool`,
+`rail-words`, `rail-order`, `rail-live`, `rail-tone`, `rail-plan`, `rail-once`,
+`rail-helper`, `rail-cache`. Each finished with exit 101 and its named assertion
+failure. Most had 1,690 passes / one failure / 20 ignores; append had 1,689 / two,
+order 1,687 / four, once 1,688 / three. Headless `draw` and `refresh` each failed
+its named assertion (one failed, 399 filtered). No surviving break needed a new
+test. Every control restored and was followed by `git diff`; the inherited
+product-source diff was checked empty after every run.
+
+Two attempts were rejected: peer-empty aborted in the relay-roundtrip fixture,
+and rail-cache aborted in the relay-prose fixture (cleanup poisoned a mutex).
+Their complete retries are the accepted evidence. The first append attempt
+used gentle-cargo's external default TypeScript reader before this was noticed;
+its repeat used the existing workspace-local ignored reader at
+`dist/thread-7-ts-reader/index.js`, as did all accepted subsequent runs. Fixtures
+now explicitly select that reader and bound Cargo with outer `timeout 590` and
+inner 570 seconds instead of the inherited 5,400/5,380 bounds. No script outside
+`scripts/fixtures/` was changed.
+
+### What a model alias resolved to — three case ports
+
+`core/src/model_alias.rs` carries all three cases with the original model ids,
+dates and map values. A pure projection learns only a different, nonempty runtime
+model name; the newest mission wins independently of history iteration order.
+History reading projects the name while polling, and the window caches the map
+when its history job lands. The picker details and selected model chip use it;
+drawing does not read the disk or start a process.
+
+The native decoder previously discarded raw evidence before history could learn
+anything from a start record. It now retains only the scrubbed `raw.model` as a
+local display projection, then discards evidence and raw reasoning as before.
+The completion's resolvedModel still takes precedence. This avoids keeping raw
+evidence to support one display field. The new ledger integration check exercises
+both completed and start-only JSONL histories. Its initial failure exposed missing
+schemaVersion fields in the fixture and the decoder boundary; both were corrected.
+An earlier build caught a wrong scrubber symbol; no failed compile is counted.
+
+The full release workspace run `thread-11-alias-window.log` passed **1,695 core,
+20 ignored; 401 headless window; zero failures, zero doc tests**, without warnings.
+All three case ports, the ledger integration check and the headless picker/chip
+check passed by name. The earlier baseline without that window check passed
+1,695 core / 400 window. Five whole-core controls (`alias-start`, `alias-newest`,
+`alias-same`, `alias-ledger`, `alias-decode`) each failed its named assertion and
+restored; SHA-256 comparisons of every baseline Rust file matched after each.
+Window-control results and section commit follow below.
+
+The three window controls (`alias-cache`, `alias-row`, `alias-chip`) each completed
+with its named headless assertion failed, exit 101 and one failed test. The cache
+control failed the test's bounded wait assertion; none hit the Cargo timeout.
+All baseline Rust hashes matched after each restoration. Coverage is **189/264**,
+75 remaining, still partial; no does-not-apply exemptions. Next: reply sessions.
+
+### Reply sessions — three case ports
+
+The three named cases in `reply_session_tests.rs` use the original `thread-7`
+and failure sentence. Native's existing session reader returned an empty string
+as a session; it now rejects it. Terminal resume remains guarded by its existing
+argument validation; no process starts during drawing. The shared release run
+`thread-11-session-words.log` passed 1,702 core (20 ignored), 401 window, zero
+failures/doc tests and no warnings. All seven new session/prompt cases passed
+by name. The whole-core `session-empty` control failed its named assertion and
+restored exactly. Coverage after this section: **192/264**, 72 remain.
+
+### Which words a turn shows — four case ports
+
+`turn_words_tests.rs` pins the exact prompts for a reply, a handoff, a reply
+after a handoff, and a missing parent. All passed by name in the same complete
+release run above. No product change was needed: the existing typed_prompt walk
+already implements the rule. Whole-core `turn-followup`, `turn-orphan`, and the
+existing `typed-prior` control each failed its named assertion and restored; all
+Rust hashes matched. These controls also exercise the new cases without making
+a second prompt walker. Coverage: **196/264**, 68 remain; no exemptions.
+
+### Recent routes and time markers — five more case ports
+
+`recent_routes.rs` and `recent_routes_tests.rs` carry both route-history cases
+with the exact `codex:gpt-5` / `cursor:composer-2.5` order. The cached history keys
+feed the real picker: recent models sort first within their runtime, and a
+mixed-runtime Recent shortcut group reuses the existing turn-pick path. A
+shortcut never creates a missing catalog model. Following the existing picker
+specification, it is withheld for fewer than two available recents, lists of
+8 or fewer models, or when it would duplicate half the list; at most four are
+shown. Existing permission-policy filtering and per-turn account selection hold.
+A native-only boundary test pins those limits. The headless test follows a
+history refresh into the picker, checks newest-first placement, and presses a
+Claude shortcut from a Codex conversation, checking the chosen runtime/model.
+
+`thread_marker_case_tests.rs` carries all three time-marker cases using the
+original 2026-08-31 UTC instants and `waited 40 min`. No product change was
+needed: native already measures from the mission's first event and suppresses
+gaps shorter than two minutes. Its before-item index is the native counterpart
+of Electron's before-turn index; the fixture has one item per turn.
+
+The release baseline `thread-11-routes-markers.log` passed **1,707 core,
+20 ignored; 402 headless window; zero failures/doc tests**, without warnings.
+All five ports and the new headless picker check passed by name. The extra
+shortcut-boundary test was written after compilation began, so it is not
+claimed present in that baseline; it passed by name in the subsequent whole-core
+control run. Final positive-run evidence follows below.
