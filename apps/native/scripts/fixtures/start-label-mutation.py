@@ -6,6 +6,7 @@ import subprocess
 import sys
 os.environ["LOCUST_TEST_TS_READER"] = str(pathlib.Path("dist/thread-7-ts-reader/index.js").resolve())
 controls = {
+    'disk-card': ('src/ui/activity_drawers.rs', 'locust_core::activity_entries::net_entries(items, workspace)', 'locust_core::activity_entries::entries(items, workspace)', 'the_files_card_uses_the_net_patch_and_keeps_step_evidence_behind_disclosure'),
     'decision-evidence': ('src/ui/decision_card.rs', 'inputs.last().map(|input| input.events.as_slice()).unwrap_or(&[])', 'inputs.last().map(|_| &[][..]).unwrap_or(&[])', 'the_decision_card_keeps_the_finished_turns_patch_evidence'),
     'decision-sandbox': ('src/ui/decision_card.rs', 'pane.snapshot.turn_metas.last().map(|m| m.sandbox.as_str())', 'Some("read-only")', 'the_decision_card_uses_the_finished_runs_sandbox_instead_of_the_composer'),
     'relay-history': ('src/main.rs', 'row.title = title.clone();', 'row.title = "Host briefing".into();', 'a_relay_history_refresh_names_the_received_message_in_the_sidebar'),

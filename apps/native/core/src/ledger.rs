@@ -142,6 +142,8 @@ pub enum Item {
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ToolDetail {
+    /// The host read the file after the run: this patch is its net change.
+    pub observed_edit: bool,
     pub patch: Option<crate::activity_entries::Patch>,
     pub reported_by: String,
     pub id: String,
@@ -885,6 +887,18 @@ impl Transcript {
                     {
                         starts.entry(key.clone()).or_insert(t);
                     }
+                    // A runtime row without a diff borrows the host's later observation.
+                    // A row with its own diff stays intact as evidence of that step.
+                    if kind == "tool.started" && p["toolKind"] == "observed_edit"
+                        && string(p, "status").contains("reported by the runtime")
+                    {
+                        let path = crate::activity_entries::path_key(&string(p, "command"), None);
+                        if let Some(at) = items.iter().position(|item| matches!(item,
+                            Item::Tool { summary, detail, .. } if detail.patch.is_none()
+                                && crate::activity_summary::is_edit(item)
+                                && crate::activity_entries::path_key(summary, None) == path))
+                        { tools.insert(key.clone(), at); }
+                    }
                     let at = *tools.entry(key.clone()).or_insert_with(|| {
                         items.push(Item::Tool {
                             name: String::new(),
@@ -904,6 +918,7 @@ impl Transcript {
                         detail,
                     }) = items.get_mut(at)
                     {
+                        if p["toolKind"] == "observed_edit" { detail.observed_edit = true; }
                         if let Some(patch) = p.get("patch") {
                             detail.patch = Some(crate::activity_entries::Patch {
                                 text: scrub(patch["text"].as_str().unwrap_or("")),
@@ -914,7 +929,7 @@ impl Transcript {
                         }
                         if let Some(runtime) = event["sourceAdapter"].as_str() { detail.reported_by = runtime.into(); }
                         let candidate = string(p, "name");
-                        if !candidate.is_empty() {
+                        if !candidate.is_empty() && (name.is_empty() || !detail.observed_edit) {
                             *name = scrub(&candidate);
                         }
                         detail.helper = matches!(
