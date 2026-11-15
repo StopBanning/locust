@@ -104,3 +104,24 @@ remaining **25 teammate files and 17 additional conversation files** are still
 waiting; next is `a-page-a-teammate-made-runs-in-its-turn.test.tsx`. Its inline
 new-page preview behaviour is applicable and is not marked does-not-apply.
 No work on those remaining files is claimed complete.
+
+## Round 2 — handed files (section 1)
+
+- `a-teammate-can-hand-you-a-file.test.ts`: all five cases carried separately
+  in `messages::tests`, using Electron's reply, date, item and path values.
+  The native tests apply a message event to the ledger and draw the real headless
+  thread, including streaming and block-only replies. Existing native behavior
+  sufficed; no production change in this section.
+- Named mapping: `draws_the_file_as_its_own_item_with_the_path_and_the_note`,
+  `shows_the_person_the_answer_and_not_the_protocol`,
+  `still_draws_the_file_when_the_block_was_the_whole_reply`,
+  `waits_for_the_message_to_finish_before_drawing_a_button`,
+  `leaves_an_ordinary_reply_with_no_file_item`.
+- `renderer-2-files-workspace.log`: full release workspace passed; all five
+  observed passing by name. Uses the same serial, optional-lock and in-workspace
+  TypeScript-reader configuration as round 1. Mutation verification follows.
+- Deferred, still waiting: new-page-in-turn needs inline new-file preview wiring
+  (native currently offers a separate comparison preview); pet sheet animation
+  needs reconciling with native's buddy rig. These are applicable product behavior,
+  not Electron-only exclusions. Other unported files remain waiting. Per the
+  round-2 instruction to prefer small files, continue with smaller applicable cases.

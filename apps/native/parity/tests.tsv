@@ -830,7 +830,7 @@ apps/desktop/src/renderer/src/a-team-card-says-what-it-waits-on.test.tsx	TEAM-FI
 apps/desktop/src/renderer/src/a-team-without-a-coder-gets-its-own-starters.test.tsx	TEAM-FILES	carried	src/starters.rs	starters_for_roles and teammate_for_starter role matching carried
 apps/desktop/src/renderer/src/a-teammate-at-work-goes-round-its-faces.test.ts		waiting		
 apps/desktop/src/renderer/src/a-teammate-can-be-a-pet.test.tsx		waiting		
-apps/desktop/src/renderer/src/a-teammate-can-hand-you-a-file.test.ts		waiting		
+apps/desktop/src/renderer/src/a-teammate-can-hand-you-a-file.test.ts	renderer-2	carried	src/ui/messages.rs	Five separate headless ledger-to-thread cases; exact Electron replies; renderer-2-files-workspace.log.
 apps/desktop/src/renderer/src/a-teammate-chooses-its-screen.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-teammate-has-a-model-of-its-own.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-teammate-is-not-stuck-while-agents-are-still-being-found.test.ts		waiting		

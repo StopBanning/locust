@@ -672,6 +672,48 @@ mod tests {
         out
     }
 
+    // a-teammate-can-hand-you-a-file.test.ts: one native test per Electron case.
+    const HANDED_REPLY: &str = "Here is the rollup.\n\n<locust-file>\ndocs/report.md :: the rollup you asked for\n</locust-file>";
+    fn handed_reply(text: &str, final_: bool, running: bool) -> String {
+        let event = serde_json::json!({"id":"e-msg1", "runId":"r", "missionId":"m", "sequence":1,
+            "occurredAt":"2026-09-19T10:00:00.000Z", "sourceAdapter":"opencode", "type":"message.delta",
+            "payload":{"itemId":"msg1", "operation":"replace", "text":text, "final":final_}});
+        let mut transcript = ledger::Transcript::default();
+        transcript.apply(vec![serde_json::json!({"recordType":"mission.event", "event":event})]);
+        thread_text(&transcript.items, &mut composition_state(None, running))
+    }
+    #[test]
+    fn draws_the_file_as_its_own_item_with_the_path_and_the_note() {
+        let shown = handed_reply(HANDED_REPLY, true, false);
+        assert!(shown.contains("docs/report.md"), "{shown}");
+        assert!(shown.contains("the rollup you asked for"), "{shown}");
+    }
+    #[test]
+    fn shows_the_person_the_answer_and_not_the_protocol() {
+        let shown = handed_reply(HANDED_REPLY, true, false);
+        assert!(shown.contains("Here is the rollup."), "{shown}");
+        assert!(!shown.contains("locust-file"), "{shown}");
+    }
+    #[test]
+    fn still_draws_the_file_when_the_block_was_the_whole_reply() {
+        let shown = handed_reply("<locust-file>\ndocs/report.md\n</locust-file>", true, false);
+        assert!(shown.contains("docs/report.md"), "{shown}");
+        assert!(!shown.contains("locust-file"), "{shown}");
+        assert!(!shown.contains("Here is the rollup."));
+    }
+    #[test]
+    fn waits_for_the_message_to_finish_before_drawing_a_button() {
+        let shown = handed_reply(HANDED_REPLY, false, true);
+        assert!(!shown.contains("docs/report.md"), "{shown}");
+        assert!(!shown.contains("the rollup you asked for"), "{shown}");
+    }
+    #[test]
+    fn leaves_an_ordinary_reply_with_no_file_item() {
+        let shown = handed_reply("I wrote docs/report.md for you.", true, false);
+        assert!(shown.contains("I wrote docs/report.md for you."), "{shown}");
+        assert!(!shown.contains("Save a copy"), "{shown}");
+    }
+
     #[test]
     fn the_trace_and_its_folded_notices_reach_the_headless_thread() {
         let events = vec![serde_json::json!({"sequence":1,"type":"run.started","occurredAt":"2026-11-01T00:00:00Z","payload":{}}),
