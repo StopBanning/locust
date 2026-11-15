@@ -163,3 +163,7 @@ pub mod signal_rail;
 pub mod bot_spec;
 
 pub mod bot_rig;
+
+pub mod buddy_rig;
+
+pub mod buddy_moves;
