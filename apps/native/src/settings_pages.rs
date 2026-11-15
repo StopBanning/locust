@@ -229,6 +229,7 @@ pub const SETTINGS_PAGES: &[SettingsPage] = &[
         group: SettingsGroup::Locust,
         headings: &[
             "Reply text size",
+            "Code font",
             "Terminal faces",
             "What a face says",
             "Plush",

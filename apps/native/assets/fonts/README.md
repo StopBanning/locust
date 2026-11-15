@@ -9,8 +9,9 @@ run time.
 | `Figtree-Variable.ttf` | The app's own voice: chrome, labels, controls | github.com/erikdkennedy/figtree at `032dfa7` (the commit Electron's woff2 came from), `fonts/variable/Figtree[wght].ttf` | `c8d9e77bb970c18f7b55fd2d8c91f86c9e9cc42696da9c3e7bc4fffba1d3ef5a` |
 | `Figtree-Italic-Variable.ttf` | Its italic (two chrome states are set in italic) | the same commit, `fonts/variable/Figtree-Italic[wght].ttf` | `e9b7ab9c7c7eaed0ef891d163a7b4a055813cd2e8507fa727f2989f93acdca53` |
 | `GeistMono-Variable.ttf` | The machine: paths, ids, commands | github.com/vercel/geist-font at `ef2597c`, `fonts/GeistMono/variable/GeistMono[wght].ttf` | `87c2aff9723544a9adaea19d92e42a33705c9723624801b6e0224c2206a6af0d` |
+| `PaperMono-Variable.ttf` | The optional code font (Settings, Appearance, Code font; read at start) | github.com/paper-design/paper-mono at `74fc5537`, the variable font | `43369c40e211aab9dda29464b0d715c9f20d90118626a56659607108c9c03dfe` |
 
-Both are under the SIL Open Font License 1.1; the licences sit beside the files. Fetched 11 Nov 2026.
+All three are under the SIL Open Font License 1.1; the licences sit beside the files (`PAPER-MONO-OFL.txt` for Paper Mono). Figtree and Geist Mono fetched 11 Nov 2026, Paper Mono 14 Nov 2026.
 
 Not here yet: Anthropic Sans, which Electron uses for a teammate's reply. Electron vendors it from a third party's MIT
 repackage, so its licence is checked before it goes into a binary that ships. Replies use Figtree until then.

@@ -28,10 +28,17 @@ pub const FONTS: &[&[u8]] = &[
     include_bytes!("../../assets/fonts/Figtree-Variable.ttf"),
     include_bytes!("../../assets/fonts/Figtree-Italic-Variable.ttf"),
     include_bytes!("../../assets/fonts/GeistMono-Variable.ttf"),
+    include_bytes!("../../assets/fonts/PaperMono-Variable.ttf"),
 ];
 
 /// `AppSpec::families`: (sans, mono), as `--lc-font-ui` and `--lc-font-mono` name them.
 pub const FAMILIES: (&str, &str) = ("Figtree", "Geist Mono");
+
+/// The families for the person's chosen code font (`codeFont` in the workspace settings): Geist Mono by default,
+/// Paper Mono when picked. `AppSpec::families` is fixed at launch, so a change applies the next time Locust starts.
+pub fn families_for(code_font: &str) -> (&'static str, &'static str) {
+    if code_font == "paper" { (FAMILIES.0, "Paper Mono") } else { FAMILIES }
+}
 
 /// Every `--lc-*` token for one appearance, as the CSS writes it (without `--lc-`).
 pub struct Tokens {
@@ -364,7 +371,7 @@ mod tests {
     /// wrong or renamed file fails here instead of falling back to Inter unseen.
     #[test]
     fn the_fonts_are_the_faces_the_app_names() {
-        assert_eq!(FONTS.len(), 3);
+        assert_eq!(FONTS.len(), 4);
         let utf16 = |s: &str| s.encode_utf16().flat_map(|u| u.to_be_bytes()).collect::<Vec<u8>>();
         let names = |face: &[u8], family: &str| face.windows(utf16(family).len()).any(|w| w == utf16(family).as_slice());
         for face in FONTS {
@@ -372,6 +379,16 @@ mod tests {
         }
         assert!(names(FONTS[0], FAMILIES.0) && names(FONTS[1], FAMILIES.0));
         assert!(names(FONTS[2], FAMILIES.1));
+        assert!(names(FONTS[3], families_for("paper").1));
+    }
+
+    /// The code font is Geist Mono unless the person picked Paper Mono; anything else is Geist Mono.
+    #[test]
+    fn the_code_font_is_geist_unless_paper_was_picked() {
+        assert_eq!(families_for("geist"), ("Figtree", "Geist Mono"));
+        assert_eq!(families_for("paper"), ("Figtree", "Paper Mono"));
+        assert_eq!(families_for(""), FAMILIES);
+        assert_eq!(families_for("comic"), FAMILIES);
     }
 
     /// Every icon, agent mark and Locust drawing covers some pixels at 16 points, so an SVG feature Rune's icon drawer

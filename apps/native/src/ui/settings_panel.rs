@@ -616,6 +616,33 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
             for heading in headings {
                 if heading == "Sidebar" {
                     body = body.child(sidebar_line(s, p));
+                } else if heading == "Code font" {
+                    let paper = s.settings_panel.settings.code_font == "paper";
+                    body = body.child(
+                        col()
+                            .w_full()
+                            .gap(6.0)
+                            .padding(10.0)
+                            .child(text("Code font".to_owned()).font(type_::TITLE).color(p.text))
+                            .child(
+                                text("The face for code, paths and commands. Takes effect the next time Locust starts.".to_owned())
+                                    .font(type_::LABEL)
+                                    .color(p.secondary)
+                                    .wrap(),
+                            )
+                            .child(
+                                row()
+                                    .gap(6.0)
+                                    .child(active_button("Geist Mono", p, !paper).key("settings-code-font-geist").on_press(|s: &mut State| {
+                                        s.settings_panel.settings.code_font = "geist".into();
+                                        persist(s);
+                                    }))
+                                    .child(active_button("Paper Mono", p, paper).key("settings-code-font-paper").on_press(|s: &mut State| {
+                                        s.settings_panel.settings.code_font = "paper".into();
+                                        persist(s);
+                                    })),
+                            ),
+                    );
                 } else if heading == "Terminal faces" {
                     body = body.child(
                         col()

@@ -2959,6 +2959,23 @@ fn choosing_a_theme_is_kept_after_restart() {
 }
 
 #[test]
+fn choosing_paper_mono_is_kept_for_the_next_start_and_geist_comes_back() {
+    let (_dirs, store, mut rt) = window();
+    rt.update(|s, _| crate::settings_panel::open(s));
+    settle(&mut rt);
+    assert_eq!(crate::workspace_settings::load(&store).unwrap().code_font, "geist");
+
+    click(&mut rt, "settings-code-font-paper");
+    let kept = crate::workspace_settings::load(&store).unwrap().code_font;
+    assert_eq!(kept, "paper");
+    assert_eq!(crate::look::families_for(&kept).1, "Paper Mono");
+
+    click(&mut rt, "settings-code-font-geist");
+    let back = crate::workspace_settings::load(&store).unwrap().code_font;
+    assert_eq!(crate::look::families_for(&back).1, "Geist Mono");
+}
+
+#[test]
 fn quitting_with_a_turn_running_says_so_first() {
     let (_dirs, store, mut rt) = window();
     // A real turn, running in the engine: the guard asks the engine, not a teammate's busy mark.

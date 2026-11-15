@@ -43,6 +43,8 @@ pub struct WorkspaceSettings {
     pub metal_bend: bool,
     pub terminal_faces: bool,
     pub plush: bool,
+    /// `geist` (default) or `paper`: the face for code and the machine's words; read at start.
+    pub code_font: String,
     pub claude_own_skills: bool,
     pub check_commands: BTreeMap<String, String>,
     pub check_fixes: BTreeMap<String, u32>,
@@ -69,6 +71,7 @@ impl Default for WorkspaceSettings {
             metal_bend: false,
             terminal_faces: true,
             plush: false,
+            code_font: "geist".into(),
             claude_own_skills: false,
             check_commands: BTreeMap::new(),
             check_fixes: BTreeMap::new(),
@@ -191,6 +194,7 @@ pub fn parse_settings(raw: &Value) -> WorkspaceSettings {
         },
         terminal_faces: raw.get("terminalFaces") != Some(&Value::Bool(false)),
         plush: raw.get("plush") == Some(&Value::Bool(true)),
+        code_font: one_of(raw.get("codeFont").unwrap_or(&Value::Null), &["geist", "paper"], "geist"),
         claude_own_skills: raw.get("claudeOwnSkills") == Some(&Value::Bool(true)),
         check_commands: parse_check_commands(raw.get("checkCommands").unwrap_or(&Value::Null)),
         check_fixes: parse_check_fixes(raw.get("checkFixes").unwrap_or(&Value::Null)),
@@ -220,6 +224,7 @@ pub fn settings_to_json(settings: &WorkspaceSettings) -> Value {
         "metalBend": settings.metal_bend,
         "terminalFaces": settings.terminal_faces,
         "plush": settings.plush,
+        "codeFont": settings.code_font,
         "claudeOwnSkills": settings.claude_own_skills,
     });
     if !settings.check_commands.is_empty() {
@@ -580,6 +585,16 @@ mod tests {
         assert!(!s.terminal_faces);
         let s = parse_settings(&json!({"relayHopCap": 4}));
         assert_eq!(s.relay_hop_cap, 4);
+    }
+
+    #[test]
+    fn the_code_font_is_geist_unless_paper_is_written_and_is_kept_when_saved() {
+        assert_eq!(parse_settings(&json!({})).code_font, "geist");
+        assert_eq!(parse_settings(&json!({"codeFont": "paper"})).code_font, "paper");
+        assert_eq!(parse_settings(&json!({"codeFont": "comic"})).code_font, "geist");
+        let mut s = WorkspaceSettings::default();
+        s.code_font = "paper".into();
+        assert_eq!(settings_to_json(&s)["codeFont"], "paper");
     }
 
     #[test]
