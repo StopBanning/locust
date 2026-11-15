@@ -12,7 +12,7 @@ use locust_core::bot_rig::{
     GlanceSide, Lag, PowerOnLight, ShownFace, BOT_FRAMES_PER_SECOND, CRT_FLICK_S, LAG_REST,
     NOTICE_DWELL_MS, POWER_ON_S, RECEIVED_GLANCE_MS,
 };
-use locust_core::bot_spec::{seed_of, Phosphor};
+use locust_core::bot_spec::{outline_of, seed_of, Phosphor};
 use locust_core::buddy_moves::{
     glance_look, screen_face_for, PetScreenAsk, PetScreenConductor, ScreenRectF, CODEX_BUDDY,
 };
@@ -199,21 +199,21 @@ fn build_bot_snapshot(
     slot.sim.set_state(target_state);
     if !still || hover_notice {
         if let Some(side) = desired.glance {
-            match side {
-                GlanceSide::Left => slot.sim.set_turn(-0.65),
-                GlanceSide::Right => slot.sim.set_turn(0.65),
-                GlanceSide::Up => slot.sim.set_pointer(0.0, -0.25, 0.75),
-                GlanceSide::Down => slot.sim.set_pointer(0.0, 0.25, 0.75),
-            }
+            // TeammateBot.tsx: a glance is a pointer at the side, full strength.
+            let (x, y) = match side {
+                GlanceSide::Left => (-1.0, 0.0),
+                GlanceSide::Right => (1.0, 0.0),
+                GlanceSide::Up => (0.0, -1.0),
+                GlanceSide::Down => (0.0, 1.0),
+            };
+            slot.sim.set_pointer(x, y, 1.0);
         } else if hover_notice {
             slot.sim.set_pointer(0.25, -0.15, 0.75);
         } else {
-            slot.sim.set_turn(0.0);
             slot.sim.set_pointer(0.0, 0.0, 0.0);
         }
         slot.sim.update(dt_s.min(0.1));
     } else {
-        slot.sim.set_turn(0.0);
         slot.sim.set_pointer(0.0, 0.0, 0.0);
         if reduced_motion {
             slot.sim.pose = rest_pose(target_state);
@@ -484,7 +484,9 @@ impl BotStage {
             let seed = seed_of(id);
             let shown = shown_face_for(activity, screen);
             let resting_at_start = is_motionless(activity) || reduced_motion;
-            let sim = BotAvatarSim::new(seed, avatar_state_for(activity, resting_at_start));
+            let mut sim = BotAvatarSim::new(seed, avatar_state_for(activity, resting_at_start));
+            // Bot.tsx: `sim.setTurn(outline.turn)` once, when the rig is made.
+            sim.set_turn(outline_of(id).turn);
             let changes = FaceChanges::new(shown);
             let conductor = BodyConductor::new(seed, screen, reduced_motion, resting_at_start);
             let prev_pose = sim.pose;
@@ -809,5 +811,47 @@ mod renderer_eye_tests {
     fn is_drawn_on_a_screen_only_a_face_with_no_screen_keeps_its_own_eyes() {
         assert_eq!(shown_face_for(FaceActivity::Working, true).pair, Some([">".into(), "▮".into()]));
         assert_eq!(shown_face_for(FaceActivity::Working, false).pair, None);
+    }
+}
+
+#[cfg(test)]
+mod head_turn_tests {
+    use super::*;
+
+    fn stage_after(id: &str, glance: Option<GlanceSide>, frames: usize) -> BotStage {
+        let stage = BotStage::default();
+        for _ in 0..frames {
+            stage.snapshot_bot("k", id, FaceActivity::Working, glance, BotMotionLevel::Full, false, false, false);
+        }
+        stage
+    }
+
+    // Bot.tsx:2262 sets the turn once from the shape; every library shape has 1 (every-bot-is-drawn-by-the-rig.test.ts:29).
+    #[test]
+    fn a_bot_keeps_its_shapes_head_turn_through_every_frame() {
+        for id in ["clover", "droid", "hopper", "swarm"] {
+            let stage = stage_after(id, None, 10);
+            let inner = stage.inner.borrow();
+            assert_eq!(inner.bots["k"].sim.turn(), outline_of(id).turn, "{id}");
+        }
+        let stage = stage_after("clover", None, 10);
+        assert_eq!(stage.inner.borrow().bots["k"].sim.turn(), 1.0);
+    }
+
+    // TeammateBot.tsx:128-133 with Bot.tsx:2393-2395: a side is a pointer at full strength, and it never touches the turn.
+    #[test]
+    fn a_glance_points_the_gaze_at_its_side_and_leaves_the_turn_alone() {
+        for (side, x, y) in [
+            (GlanceSide::Left, -1.0, 0.0),
+            (GlanceSide::Right, 1.0, 0.0),
+            (GlanceSide::Up, 0.0, -1.0),
+            (GlanceSide::Down, 0.0, 1.0),
+        ] {
+            let stage = stage_after("clover", Some(side), 3);
+            let inner = stage.inner.borrow();
+            let sim = &inner.bots["k"].sim;
+            assert_eq!(sim.pointer_target(), (x, y, 1.0));
+            assert_eq!(sim.turn(), 1.0);
+        }
     }
 }

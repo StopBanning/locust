@@ -628,6 +628,16 @@ impl BotAvatarSim {
         self.flip_at = next_flip_at(&self.jump, self.t, 1.1, &mut self.rng);
     }
 
+    /// How much the head swings when it looks about (`setTurn`'s value).
+    pub fn turn(&self) -> f64 {
+        self.turn_k
+    }
+
+    /// Where the gaze is being pulled: (x, y, strength).
+    pub fn pointer_target(&self) -> (f64, f64, f64) {
+        (self.ptr_target_x, self.ptr_target_y, self.ptr_target_s)
+    }
+
     pub fn set_turn(&mut self, turn: f64) {
         let k = turn.max(0.0);
         if (k - self.turn_k).abs() > f64::EPSILON {
