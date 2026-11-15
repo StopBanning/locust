@@ -946,3 +946,20 @@ it changed nothing too` (2); the immediately preceding four-case no-change
 section was carried earlier. Subsequent uncarried sections still include step
 placement, attached-file prompts, command output, whole-turn reply text, plan
 no-change claims, growing/superseded groups and late tool/live-line words.
+
+
+Final restored checks after the last source edit:
+- `thread-14-final-workspace.log`: release/offline workspace, four test threads,
+  exit 0; **1,731 core passed, 20 ignored; 406 headless window passed; 0 doc
+  tests; no failures**. All six new case ports were observed passing by name.
+  No compiler warnings. The earlier branch-review timeout did not recur.
+- `thread-14-final-build.log`: `build --release --offline`, exit 0, no warnings.
+- Recount and `recount.py --check` passed; `git diff --check` passed. All 119
+  core-control original source anchors occur exactly once after restoration;
+  this is a restoration audit, not a claim that all 119 controls were rerun.
+- Section commits: `931d995b` (two alias-result cases), `2dca2bcc` (four Cursor
+  mirror cases). No production behavior changed, no cases were exempted, and
+  the parity row remains partial at **223/264**, with **41 remaining**.
+- Not run: Electron's repository-wide gate, live agents, visible windows,
+  packaged UI or installers. No network, credential, Scout, version, changelog,
+  push or release changes. Inherited untracked handoff files remain untouched.
