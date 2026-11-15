@@ -46,4 +46,24 @@ mod tests {
         assert!(resolved_model_names([&ran_on("m1", "fable", None, "2026-09-01T10:00:00.000Z")]).is_empty());
         assert!(resolved_model_names([&ran_on("m2", "fable", Some("fable"), "2026-09-01T10:00:00.000Z")]).is_empty());
     }
+    // missionView.test.ts: "the model an alias turned out to mean (0.35.2)".
+    fn completed_mission(resolved: Option<&str>) -> Summary {
+        let mut payload = json!({});
+        if let Some(model) = resolved { payload["resolvedModel"] = json!(model); }
+        let events = vec![json!({"type":"run.completed", "occurredAt":"2026-09-06T05:00:09.000Z", "payload":payload})];
+        Summary { mission_id:"m1".into(), runtime:"claude".into(), model:"sonnet".into(),
+            created_at:"2026-09-06T05:00:00.000Z".into(),
+            reported_model:reported_model(&events, "sonnet"), ..Default::default() }
+    }
+    #[test]
+    fn learns_it_from_the_result_which_is_the_only_record_that_states_it() {
+        let m = completed_mission(Some("claude-sonnet-5"));
+        assert_eq!(resolved_model_names([&m]).get("claude:sonnet").map(String::as_str), Some("claude-sonnet-5"));
+    }
+    #[test]
+    fn learns_nothing_from_a_run_that_never_named_one() {
+        let m = completed_mission(None);
+        assert_eq!(resolved_model_names([&m]).get("claude:sonnet"), None);
+    }
+
 }

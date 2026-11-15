@@ -890,3 +890,27 @@ without warnings, after a 62-second shared-lock wait. All changes are under
 apps/native; inherited handoff files remain untracked and uncommitted. No
 control is left applied. The section is committed separately from the initial
 decision-evidence coverage repair.
+
+
+## Thread-14 — 15 Nov 2026
+
+Arrival on `exec/native-thread` at `b0a66a86`: tracked diff empty. The inherited
+untracked handoff files are excluded from all commits.
+
+### The model an alias turned out to mean (0.35.2) — two cases
+
+Both cases now have individual Rust tests in `core/src/model_alias.rs`, with
+Electron's m1, sonnet, claude-sonnet-5 and both September 6 timestamps. Native
+already learns from the completion result and preserves an unknown result as
+unknown; no production change was needed. The window already reads the same
+cached names for its route and picker. The existing `alias-result` control now
+requires the new case `learns_it_from_the_result_which_is_the_only_record_that_states_it`
+to fail. It did, across the entire core suite (1,725 passed, 2 failed,
+20 ignored), along with the existing ledger integration test. `git diff` after
+the runner confirmed the production expression restored.
+
+Both new tests passed by name in `thread-14-alias-workspace.log`: **1,727 core
+passed, 20 ignored; 406 headless window passed; 0 doc tests**, exit 0, no compiler
+warnings. Coverage is **219/264**, 45 remain; no exemptions. Next: Cursor mirror
+paths, then the earlier-turn no-change section (the preceding four-case
+no-change section is already carried).
