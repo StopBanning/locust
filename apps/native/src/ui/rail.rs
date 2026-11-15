@@ -215,8 +215,11 @@ pub(super) fn rail(s: &State, p: &Palette) -> El {
         .map(|pane| pane.header.id.clone())
         .or_else(|| s.teammates.get(s.selected).map(|t| t.id.clone()));
     let mut faces = col().w_full().pt(6.0);
+    // The rail is the roster made compact (Sidebar.tsx 1511-1519): a column, with the roster's glances.
+    let glances = crate::handoff_glances::roster_glances(s);
     for teammate in &s.teammates {
         let owned = owned_by(s, teammate).len();
+        let busy = teammate.busy || s.flight.as_ref().is_some_and(|f| f.teammate_id == teammate.id);
         let selected = selected_id.as_deref() == Some(teammate.id.as_str());
         let open = s.rail_open.as_deref() == Some(teammate.id.as_str());
         let id = teammate.id.clone();
@@ -234,7 +237,7 @@ pub(super) fn rail(s: &State, p: &Palette) -> El {
                     .radius(9.0)
                     .fill(if open { l.c("bg-selected") } else { p.sidebar })
                     .hover(l.c("hover-surface"))
-                    .child(crate::look::faces::face(s.image_cache.as_deref(), &teammate.id, &teammate.name, s.looks.get(&teammate.id), 32.0, s.settings_panel.settings.terminal_faces, &l)),
+                    .child(crate::sidebar::roster_face(s, "rail", teammate, busy, glances.get(&teammate.id).copied(), 32.0, &l)),
             );
         // The selected teammate: a 2-point lime bar on the rail's left edge.
         if selected {

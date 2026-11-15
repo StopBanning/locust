@@ -479,6 +479,35 @@ pub(super) fn apply_org_action(s: &mut State, mission_id: &str, action: &str) {
     s.org_menu_id = None;
 }
 
+/// A roster face (Sidebar.tsx 1511-1519, TeammateBot): the live rig, at work while its teammate is, turned toward a
+/// teammate it is handing a message to or getting one from. Only working and resting are known here; Electron's
+/// roster also shows thinking, waiting and the rest from the teammate's status.
+pub(super) fn roster_face(
+    s: &State,
+    surface: &str,
+    teammate: &Teammate,
+    busy: bool,
+    glance: Option<locust_core::bot_rig::GlanceSide>,
+    size: f32,
+    l: &crate::look::controls::Look,
+) -> El {
+    use locust_core::bot_rig::FaceActivity;
+    crate::look::faces::bot_face(
+        s,
+        &format!("{surface}-{}", teammate.id),
+        &teammate.id,
+        &teammate.name,
+        size,
+        crate::look::faces::BotFaceOpts {
+            activity: if busy { FaceActivity::Working } else { FaceActivity::Idle },
+            glance,
+            motion: locust_core::bot_rig::BotMotionLevel::Subtle,
+            ..Default::default()
+        },
+        l,
+    )
+}
+
 /// `.lc-sectionlabel`: mono capitals, tracked wide, muted.
 fn section_label(p: &Palette, words: &str) -> El {
     let l = crate::look::controls::Look::new(p.dark);
@@ -489,6 +518,8 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
     let l = crate::look::controls::Look::new(p.dark);
     let meta = rune::TextStyle::new(11.5, 400.0).lh(15.0);
     let mut rows = col().w_full().gap(2.0).padding(10.0);
+    // Sidebar.tsx 621 `rosterGlances`: the roster is a column of faces.
+    let glances = crate::handoff_glances::roster_glances(s);
 
     for (index, teammate) in s.teammates.iter().enumerate() {
         let selected = s
@@ -508,7 +539,7 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
             .w_full()
             .center_y()
             .gap(8.0)
-            .child(crate::look::faces::face(s.image_cache.as_deref(), &teammate.id, &teammate.name, s.looks.get(&teammate.id), 22.0, s.settings_panel.settings.terminal_faces, &l))
+            .child(roster_face(s, "roster", teammate, busy, glances.get(&teammate.id).copied(), 22.0, &l))
             .child(
                 text(teammate.name.clone())
                     .font(rune::TextStyle::new(13.5, 500.0))

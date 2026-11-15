@@ -331,7 +331,8 @@ fn muse_fake_process_writes_ledger() {
     )
     .unwrap();
     rt.start(&turn).unwrap();
-    let deadline = Instant::now() + Duration::from_secs(15);
+    let started_at = Instant::now();
+    let deadline = started_at + crate::load_waits::UNDER_LOAD;
     let mut events = vec![];
     loop {
         assert!(Instant::now() < deadline, "muse fake timed out");
@@ -350,6 +351,7 @@ fn muse_fake_process_writes_ledger() {
         }
     }
     assert_eq!(events.last().unwrap().kind, "run.completed");
+    crate::load_waits::note_time("muse_fake_process_writes_ledger", started_at.elapsed());
     reader_check(&store, "muse_echo", "completed");
 }
 
@@ -381,11 +383,8 @@ fn muse_teammate_uses_native_driver() {
         effort: None,
     })
     .unwrap();
-    let deadline = Instant::now() + Duration::from_secs(8);
-    while crate::native::owns(&started.conversation_id) {
-        assert!(Instant::now() < deadline);
-        std::thread::sleep(Duration::from_millis(10));
-    }
+    let took = crate::load_waits::wait_for("the Muse turn to finish", || !crate::native::owns(&started.conversation_id));
+    crate::load_waits::note_time("muse_teammate_uses_native_driver", took);
     let ledger = std::fs::read_to_string(
         store
             .ledger_dir()

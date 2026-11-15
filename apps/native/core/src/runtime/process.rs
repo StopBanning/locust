@@ -332,20 +332,22 @@ mod tests {
 
     #[test]
     fn end_terminal_tree_kills_descendants_and_reaps_root() {
+        use crate::load_waits::{note_time, wait_for};
+        let start = Instant::now();
         let mut command = Command::new("/bin/sh");
-        command.args(["-c", "sleep 120 & sleep 120"]);
+        // `set -m`: each sleep in a process group of its own, as a terminal's jobs are, so killing the shell's group
+        // cannot end them and only the walk down its descendants can. Without it, the group kill hid a broken walk.
+        command.args(["-c", "set -m; sleep 120 & sleep 120"]);
         let mut child = spawn(&mut command, Stdio::null(), Stdio::null()).unwrap();
         let pid = child.id();
-        std::thread::sleep(Duration::from_millis(80));
-        let snapshot = Command::new("/bin/ps")
-            .args(["-axo", "pid=,ppid="])
-            .output()
-            .unwrap();
-        let kids = descendants_of(&String::from_utf8_lossy(&snapshot.stdout), pid);
-        assert!(
-            !kids.is_empty(),
-            "expected sleep descendants under shell {pid}"
-        );
+        // Both sleeps started: the shell forks them when it is scheduled, which a busy machine can put off well past
+        // the 80 ms this once slept for.
+        let mut kids = Vec::new();
+        wait_for("both sleeps under the shell", || {
+            let snapshot = Command::new("/bin/ps").args(["-axo", "pid=,ppid="]).output();
+            kids = snapshot.map(|s| descendants_of(&String::from_utf8_lossy(&s.stdout), pid)).unwrap_or_default();
+            kids.len() >= 2
+        });
         end_terminal_tree(pid);
         kill_reap(&mut child);
         let listed = |id: u32| {
@@ -353,12 +355,16 @@ mod tests {
                 .args(["-p", &id.to_string(), "-o", "pid="])
                 .output()
                 .map(|o| !String::from_utf8_lossy(&o.stdout).trim().is_empty())
-                .unwrap_or(false)
+                .unwrap_or(true)
         };
+        // The shell is our child and is reaped above, so it is gone now.
         assert!(!listed(pid), "shell {pid} still alive");
+        // A killed sleep is an orphan once its shell is gone, and launchd reaps it in its own time: until then `ps`
+        // still lists it. So wait for each to go, rather than checking the instant after the kill.
         for kid in kids {
-            assert!(!listed(kid), "descendant {kid} still alive");
+            wait_for(&format!("descendant {kid} to be gone"), || !listed(kid));
         }
+        note_time("end_terminal_tree_kills_descendants_and_reaps_root", start.elapsed());
     }
 }
 

@@ -1233,6 +1233,41 @@ pub fn glance_toward(side: GlanceSide) -> Glance {
     }
 }
 
+/// A glance as Bot.tsx holds it (2476-2481 and 2393-2395): it starts its hold when it is given, and again when a
+/// different one is given; for `GLANCE_HOLD_MS` it is the pointer the gaze follows, then the eyes come back. The same
+/// glance given again (React's `[glance?.x, glance?.y]` unchanged) does not start the hold again.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct GlanceHold {
+    side: Option<GlanceSide>,
+    given_at_s: f64,
+}
+
+impl GlanceHold {
+    /// What the face is asked to glance at now, on the stage's clock; true when that started a new hold.
+    pub fn give(&mut self, side: Option<GlanceSide>, now_s: f64) -> bool {
+        if side == self.side {
+            return false;
+        }
+        self.side = side;
+        self.given_at_s = now_s;
+        side.is_some()
+    }
+
+    /// The pointer the gaze follows now, while the hold lasts.
+    pub fn aim(&self, now_s: f64) -> Option<Glance> {
+        let side = self.side?;
+        ((now_s - self.given_at_s) * 1000.0 < GLANCE_HOLD_MS as f64).then(|| glance_toward(side))
+    }
+}
+
+/// The box `pointer_pull` measures from for a face drawn `size` points square: Electron's canvas, `BOT_AVATAR_OVERSCAN`
+/// times the face and centred on it, in the face's own points (`BotAvatar`'s overscan; `Bot.tsx` `pointerPull`).
+pub fn face_box(size: f64) -> PixelRect {
+    let width = size * BOT_AVATAR_OVERSCAN;
+    let inset = (width - size) / 2.0;
+    PixelRect { left: -inset, top: -inset, width, height: width }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GlanceAxis {
     Row,
@@ -2729,5 +2764,84 @@ mod renderer_mood_tests {
         assert_eq!(sim.jump, GLAD_HOP);
         sim.set_jump(JumpSpec::default());
         assert_eq!(sim.jump, JumpSpec::default());
+    }
+}
+
+// --- two-teammates-look-at-each-other.test.ts (7 cases) and the glance hold (Bot.tsx 2393-2395, 2476-2481) ---
+#[cfg(test)]
+mod glance_tests {
+    use super::*;
+
+    fn handoff<'a>(key: &'a str, from: &'a str, to: &'a str) -> Handoff<'a> {
+        Handoff { key, from, to }
+    }
+
+    fn line(ids: &[&str]) -> Vec<String> {
+        ids.iter().map(|id| (*id).to_owned()).collect()
+    }
+
+    fn sides(found: HashMap<String, GlanceSide>) -> Vec<(String, GlanceSide)> {
+        let mut all: Vec<_> = found.into_iter().collect();
+        all.sort_by(|a, b| a.0.cmp(&b.0));
+        all
+    }
+
+    #[test]
+    fn turns_them_toward_each_other_along_a_row() {
+        let found = glances_among(&line(&["wren", "atlas", "sable"]), &[handoff("a", "wren", "sable")], GlanceAxis::Row);
+        assert_eq!(sides(found), vec![("sable".into(), GlanceSide::Left), ("wren".into(), GlanceSide::Right)]);
+    }
+
+    #[test]
+    fn and_along_a_column() {
+        let found = glances_among(&line(&["wren", "atlas", "sable"]), &[handoff("a", "sable", "atlas")], GlanceAxis::Column);
+        assert_eq!(sides(found), vec![("atlas".into(), GlanceSide::Down), ("sable".into(), GlanceSide::Up)]);
+    }
+
+    #[test]
+    fn leaves_everyone_else_as_they_were() {
+        let found = glances_among(&line(&["wren", "atlas", "sable"]), &[handoff("a", "wren", "atlas")], GlanceAxis::Row);
+        assert!(!found.contains_key("sable"));
+    }
+
+    #[test]
+    fn when_the_other_face_is_not_in_the_line_nobody_to_look_at() {
+        assert!(glances_among(&line(&["wren", "atlas"]), &[handoff("a", "wren", "pip")], GlanceAxis::Row).is_empty());
+    }
+
+    #[test]
+    fn for_a_message_to_oneself() {
+        assert!(glances_among(&line(&["wren"]), &[handoff("a", "wren", "wren")], GlanceAxis::Row).is_empty());
+    }
+
+    #[test]
+    fn with_nothing_handed_over() {
+        assert!(glances_among(&line(&["wren", "atlas"]), &[], GlanceAxis::Row).is_empty());
+    }
+
+    #[test]
+    fn a_face_in_two_handoffs_at_once_looks_toward_the_latest() {
+        let found = glances_among(
+            &line(&["wren", "atlas", "sable"]),
+            &[handoff("a", "wren", "atlas"), handoff("b", "sable", "atlas")],
+            GlanceAxis::Row,
+        );
+        assert_eq!(found.get("atlas"), Some(&GlanceSide::Right));
+        assert_eq!(found.get("wren"), Some(&GlanceSide::Right));
+        assert_eq!(found.get("sable"), Some(&GlanceSide::Left));
+    }
+
+    #[test]
+    fn a_glance_holds_from_when_it_is_given_and_again_only_for_a_different_one() {
+        let mut hold = GlanceHold::default();
+        assert!(hold.give(Some(GlanceSide::Right), 10.0));
+        assert_eq!(hold.aim(11.49), Some(Glance { x: 1.0, y: 0.0 }));
+        assert_eq!(hold.aim(11.5), None);
+        assert!(!hold.give(Some(GlanceSide::Right), 12.0), "the same glance again does not start it again");
+        assert_eq!(hold.aim(12.0), None);
+        assert!(hold.give(Some(GlanceSide::Left), 12.0));
+        assert_eq!(hold.aim(12.1), Some(Glance { x: -1.0, y: 0.0 }));
+        assert!(!hold.give(None, 12.2));
+        assert_eq!(hold.aim(12.2), None);
     }
 }
