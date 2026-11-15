@@ -3,6 +3,8 @@
 import os, pathlib, subprocess, sys
 os.environ["LOCUST_TEST_TS_READER"] = str(pathlib.Path("dist/thread-7-ts-reader/index.js").resolve())
 controls = {
+    'cursor-mirror': ('core/src/path_words.rs', 'return mirrored;', 'return path.to_owned();', 'reads_the_mirrored_path_as_the_file_you_would_open_yourself'),
+    'cursor-project': ('core/src/path_words.rs', '(c[2].to_lowercase() == flattened.to_lowercase())', '(c[2].to_lowercase() != flattened.to_lowercase())', 'leaves_another_projects_mirror_whole_because_there_the_location_is_the_point'),
     'disk-merge': ('core/src/ledger.rs', 'if kind == "tool.started" && p["toolKind"] == "observed_edit"', 'if false && p["toolKind"] == "observed_edit"', 'attaches_the_patch_to_the_row_the_runtime_drew_and_draws_a_row_only_for_a_path_it_never_named'),
     'disk-net': ('core/src/activity_entries.rs', '!observed.contains(&path_key(&f.file.path, workspace))', 'true', 'supersedes_every_other_edit_row_for_that_file_so_the_card_counts_the_file_once'),
 

@@ -914,3 +914,35 @@ passed, 20 ignored; 406 headless window passed; 0 doc tests**, exit 0, no compil
 warnings. Coverage is **219/264**, 45 remain; no exemptions. Next: Cursor mirror
 paths, then the earlier-turn no-change section (the preceding four-case
 no-change section is already carried).
+
+
+### Cursor reports files from inside its own copy of the project — four cases
+
+`path_words::cursor_mirror_tests` ports each case separately with Electron's
+exact `C:\Users\<home>\code\streaks` folder and file values. Both current-project
+spellings read src/streak.js or src/cli.js; another project's mirror and the
+notes-folder decoy retain their original complete paths. No product change was
+needed: the existing pure formatter already matches the full flattened project
+identity case-insensitively and the window uses it for its file rows. Native
+keeps one formatter rather than adding another conversion while drawing.
+
+All four passed by name in `thread-14-cursor-workspace.log`: **1,731 core
+passed, 20 ignored**. That run's window result was **405 passed, 1 failed**:
+`review_changes_shows_a_teammates_branch_turn_by_turn_and_lands_it_as_one_commit`
+timed out waiting for the landing. Its single targeted retry passed (1/1) in
+`thread-14-cursor-timeout-retry.log`; no unrelated source was changed. The run
+had no compiler warnings. A final complete restored run remains below.
+
+The whole-core `cursor-mirror` control failed both new positive path cases
+(and the existing combined formatter check): **1,728 passed, 3 failed,
+20 ignored**. The `cursor-project` control failed the named other-project case
+and the decoy as well as the positive cases. Each runner restored the source;
+`git diff` was inspected after each and showed only the added tests. The
+`cursor-mirror` break alone emits an unused-variable warning; positive-run
+warnings are checked separately. No does-not-apply cases were added.
+
+Coverage is **223/264**, 41 remain. Next in file order is `an earlier turn says
+it changed nothing too` (2); the immediately preceding four-case no-change
+section was carried earlier. Subsequent uncarried sections still include step
+placement, attached-file prompts, command output, whole-turn reply text, plan
+no-change claims, growing/superseded groups and late tool/live-line words.
