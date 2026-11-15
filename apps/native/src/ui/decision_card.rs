@@ -127,10 +127,7 @@ pub(super) fn handle_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
 pub(super) fn card(s: &State, p: &Palette) -> Option<El> {
     let (teammate_name, standing, request) = active_decision(s)?;
     let l = crate::look::controls::Look::new(p.dark);
-    let title = match teammate_name {
-        Some(name) => format!("{name} needs a decision to continue"),
-        None => "A decision is needed to continue".into(),
-    };
+    let title = decision_title(teammate_name.as_deref());
 
     let head = row()
         .w_full()
@@ -218,4 +215,26 @@ pub(super) fn card(s: &State, p: &Palette) -> Option<El> {
                     .color(l.c("text-muted")),
             ),
     )
+}
+
+fn decision_title(teammate_name: Option<&str>) -> String {
+    match teammate_name {
+        Some(name) => format!("{name} needs a decision to continue"),
+        None => "A decision is needed to continue".into(),
+    }
+}
+
+#[cfg(test)]
+mod renderer_tests {
+    use super::*;
+    #[test]
+    fn says_a_decision_is_needed_and_no_word_for_the_machinery_when_nobody_asked_by_name() {
+        let title = decision_title(None);
+        assert_eq!(title, "A decision is needed to continue");
+        assert!(!title.contains("runtime"));
+    }
+    #[test]
+    fn names_the_teammate_who_asked() {
+        assert_eq!(decision_title(Some("Wren")), "Wren needs a decision to continue");
+    }
 }

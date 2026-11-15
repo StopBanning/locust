@@ -668,7 +668,7 @@ apps/desktop/src/renderer/src/a-copy-says-the-installed-locust-updates.test.ts		
 apps/desktop/src/renderer/src/a-count-says-only-what-changed.test.tsx	P7	does-not-apply	counts_only_say_what_changed	`renderer/src/a-count-says-only-what-changed.test.tsx` | `counts_only_say_what_changed` ports all four outputs: addition, deletion, mixed edit, neither; CSS class assertions do not apply.
 apps/desktop/src/renderer/src/a-damaged-record-says-so-in-the-thread.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-decision-is-answered-by-number.test.tsx		waiting		
-apps/desktop/src/renderer/src/a-decision-without-a-teammate-names-nobody.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-decision-without-a-teammate-names-nobody.test.tsx	renderer-1	carried	decision_card::renderer_tests	2 cases; exact anonymous title and Wren title. notes/RENDERER-NOTES.md.
 apps/desktop/src/renderer/src/a-default-route-names-its-model.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-design-pass-holds.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-diagram-in-a-reply-shows-as-one.test.tsx	p14	partial		`shared/diagram.ts` behavior (via `main/a-diagram-in-a-reply-is-drawn.test.ts`, `renderer/.../a-diagram-in-a-reply-shows-as-one.test.tsx`) | Partial: `is_diagram`, kind words, undrawn reason/caption, mmd→mermaid, flowchart `can_draw`, kanba
@@ -738,8 +738,8 @@ apps/desktop/src/renderer/src/a-new-person-is-met-where-they-are.test.tsx		waiti
 apps/desktop/src/renderer/src/a-new-person-starts-on-the-steadiest-free-model.test.ts		waiting		
 apps/desktop/src/renderer/src/a-new-shelf-offers-starter-routines.test.tsx	TEAM-FILES	carried	core/src/routine_templates.rs, src/ui/routines_panel.rs	templates_line, template_meta, and empty shelf starter template list in Automations
 apps/desktop/src/renderer/src/a-new-teammate-interviews-you.test.tsx	SETUP	carried	interview::tests;window_drive_tests::creating_a_teammate_runs_the_interview	`renderer/src/a-new-teammate-interviews-you.test.tsx` | Ported `interview_prompt`, `is_interview`, `instructions_block`, `instructions_refusal`, `defang_protocol_blocks`, and headless window test
-apps/desktop/src/renderer/src/a-new-teammate-suggests-a-free-name.test.ts		waiting		
-apps/desktop/src/renderer/src/a-new-teammate-wears-a-new-colour.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-new-teammate-suggests-a-free-name.test.ts	renderer-1	carried	people::renderer_defaults_tests; people_panel::renderer_defaults_tests	5 cases; unused example names, absent route wording, share-image entry words. notes/RENDERER-NOTES.md.
+apps/desktop/src/renderer/src/a-new-teammate-wears-a-new-colour.test.tsx	renderer-1	carried	people::renderer_defaults_tests; people_panel::renderer_defaults_tests	4 cases; hue order/cycle, fresh/edit selection, duplicate-name refusal and free name. notes/RENDERER-NOTES.md.
 apps/desktop/src/renderer/src/a-newer-away-look-is-offered-in-settings.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-note-between-steps-renders-its-code.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-note-can-be-left-in-the-changes-panel.test.ts		carried	src/ui/diff_notes_ui.rs	both cases, one test each (diff_notes_ui.rs)

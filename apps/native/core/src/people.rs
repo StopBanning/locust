@@ -74,6 +74,19 @@ fn memory_secret_refusal(kind: &str) -> String {
 fn instructions_secret_refusal(name: &str, kind: &str) -> String {
     crate::secrets::instructions_secret_refusal(name, kind)
 }
+/// Defaults from NewTeammateDialog.tsx. Kept pure so the editor and tests share the rule.
+pub const EXAMPLE_NAMES: [&str; 12] = ["Wren", "Robin", "Sable", "Juno", "Atlas", "Pip", "Quill", "Iris", "Moss", "Rook", "Penny", "Fern"];
+pub fn suggested_name(taken: &[&str]) -> &'static str {
+    EXAMPLE_NAMES.into_iter().find(|name| !taken.iter().any(|t| t.trim().to_lowercase() == name.to_lowercase())).unwrap_or("Wren")
+}
+pub fn fresh_hue(taken: &[&str]) -> &'static str {
+    let hues = crate::bot_spec::HUES;
+    hues.into_iter().find(|h| !taken.contains(h)).unwrap_or(hues[taken.len() % hues.len()])
+}
+pub fn taken_name<'a>(name: &str, taken: &'a [&str]) -> Option<&'a str> {
+    taken.iter().copied().find(|t| t.trim().to_lowercase() == name.trim().to_lowercase())
+}
+
 pub fn save_teammate(store: &Store, entry: Value) -> Result<(), String> {
     save_teammate_id(store, entry).map(|_| ())
 }
@@ -2241,5 +2254,30 @@ mod tests {
             .to_owned();
         let prompted = brief(&store, &id, &dir.0, "What is the secret word for this project?").unwrap();
         assert!(prompted.contains("PELICAN"), "{prompted}");
+    }
+}
+
+#[cfg(test)]
+mod renderer_defaults_tests {
+    use super::*;
+    #[test]
+    fn is_wren_on_an_empty_team() { assert_eq!(suggested_name(&[]), "Wren"); }
+    #[test]
+    fn skips_every_name_already_on_the_team_whatever_its_case() {
+        assert_eq!(suggested_name(&["Wren", "Juno", "Atlas"]), "Robin");
+        assert_eq!(suggested_name(&["wren", "ROBIN"]), "Sable");
+    }
+    #[test]
+    fn falls_back_to_wren_once_every_example_is_taken() { assert_eq!(suggested_name(&EXAMPLE_NAMES), "Wren"); }
+    #[test]
+    fn is_the_first_one_nobody_wears_then_round_again() {
+        assert_eq!(fresh_hue(&[]), "lime");
+        assert_eq!(fresh_hue(&["lime"]), "blue");
+        assert_eq!(fresh_hue(&["lime", "blue", "violet"]), "clay");
+        assert_eq!(fresh_hue(&["blue"]), "lime");
+        let every_one = ["lime", "blue", "violet", "clay", "teal", "butter", "rose", "slate", "pearl", "indigo", "coral"];
+        assert_eq!(fresh_hue(&every_one), "lime");
+        let mut again = every_one.to_vec(); again.push("lime");
+        assert_eq!(fresh_hue(&again), "blue");
     }
 }

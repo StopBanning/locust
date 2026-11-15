@@ -78,7 +78,11 @@ fn reload(s: &mut State) {
     }
 }
 fn edit(s: &mut State, id: Option<&str>) {
-    let entry = id.and_then(|id|s.people_panel.team["teammates"].as_array()?.iter().find(|t|t["teammateId"] == id)).cloned().unwrap_or_else(||json!({"teammateId":"","role":"Custom","route":{"runtime":"codex","model":"account-default","mode":"ask"}}));
+    let mut entry = id.and_then(|id|s.people_panel.team["teammates"].as_array()?.iter().find(|t|t["teammateId"] == id)).cloned().unwrap_or_else(||json!({"teammateId":"","role":"Custom","route":{"runtime":"codex","model":"account-default","mode":"ask"}}));
+    if id.is_none() {
+        let taken: Vec<&str> = s.people_panel.team["teammates"].as_array().into_iter().flatten().filter_map(|t| t["hue"].as_str()).collect();
+        entry["hue"] = json!(people::fresh_hue(&taken));
+    }
     s.people_panel.fields = [
         entry["name"].as_str().unwrap_or(""),
         entry["role"].as_str().unwrap_or("Custom"),
@@ -164,7 +168,16 @@ fn build_entry_from_form(s: &State) -> Option<Value> {
     Some(entry)
 }
 
+fn form_name_clash(s: &State) -> Option<String> {
+    let panel = &s.people_panel;
+    let taken: Vec<&str> = panel.team["teammates"].as_array().into_iter().flatten()
+        .filter(|t| t["teammateId"] != panel.entry["teammateId"])
+        .filter_map(|t| t["name"].as_str()).collect();
+    people::taken_name(panel.fields.first()?.text.as_str(), &taken).map(str::to_owned)
+}
+
 fn save(s: &mut State) {
+    if form_name_clash(s).is_some() { return; }
     let Some(entry) = build_entry_from_form(s) else {
         return;
     };
@@ -180,6 +193,7 @@ fn save(s: &mut State) {
 }
 
 fn save_and_interview(s: &mut State, tx: &mut Tx) {
+    if form_name_clash(s).is_some() { return; }
     let Some(entry) = build_entry_from_form(s) else {
         return;
     };
@@ -503,10 +517,15 @@ fn edit_form(s: &State, p: &Palette) -> El {
         .border(1.0, l.c("border-hairline"))
         .fill(l.c("bg-raised"))
         .child(text(heading).font(rune::TextStyle::new(14.5, 500.0)).color(l.c("text-name")));
+    let taken_names: Vec<&str> = panel.team["teammates"].as_array().into_iter().flatten()
+        .filter(|t| t["teammateId"] != panel.entry["teammateId"])
+        .filter_map(|t| t["name"].as_str()).collect();
+    let clash = people::taken_name(panel.fields.first().map(|f| f.text.as_str()).unwrap_or(""), &taken_names);
     for (i, label) in ["Name", "Role", "Instructions", "Runtime", "Model", "Effort", "Mode", "Folder"].iter().enumerate() {
         if let Some(edit) = panel.fields.get(i) {
             form = form.child(text(*label).font(type_::LABEL).color(p.secondary)).child(
                 text_input(edit, type_::BODY)
+                    .placeholder(if i == 0 { people::suggested_name(&taken_names) } else { "" }, p.muted)
                     .key(format!("person-field-{i}"))
                     .label(*label)
                     .w_full()
@@ -516,6 +535,9 @@ fn edit_form(s: &State, p: &Palette) -> El {
                     .on_edit(move |s: &mut State| &mut s.people_panel.fields[i]),
             );
         }
+    }
+    if let Some(taken) = clash {
+        form = form.child(text(format!("Another teammate is already called {taken}.")).key("team-name-clash").color(p.secondary));
     }
     let runtime_now = panel.fields.get(3).map(|f| f.text.trim()).unwrap_or("");
     if let Some(agent) = locust_core::agent_accounts::Agent::parse(runtime_now) {
@@ -611,7 +633,7 @@ fn edit_form(s: &State, p: &Palette) -> El {
         col()
             .gap(4.0)
             .pt(4.0)
-            .child(button(&interview_label, p).key("team-interview").on_press_tx(save_and_interview))
+            .child(button(&interview_label, p).key("team-interview").disabled(clash.is_some()).on_press_tx(save_and_interview))
             .child(text(interview_note).font(type_::LABEL).color(p.secondary).wrap()),
     );
     if !creating
@@ -703,11 +725,19 @@ fn edit_form(s: &State, p: &Palette) -> El {
             form = form.child(scol);
         }
     }
+    let mut colours = row().gap(4.0);
+    for hue in locust_core::bot_spec::HUES {
+        let selected = panel.entry["hue"] == hue;
+        colours = colours.child(button(hue, p).key(format!("team-hue-{hue}"))
+            .label(format!("{hue}{}", if selected { " selected" } else { "" }))
+            .on_press(move |s: &mut State| s.people_panel.entry["hue"] = json!(hue)));
+    }
+    form = form.child(colours);
     form.child(
         row()
             .gap(8.0)
             .pt(4.0)
-            .child(button(if creating { "Create teammate" } else { "Save changes" }, p).key("team-save").on_press(save))
+            .child(button(if creating { "Create teammate" } else { "Save changes" }, p).key("team-save").disabled(clash.is_some()).on_press(save))
             .child(button("Cancel", p).on_press(|s: &mut State| s.people_panel.form_open = false)),
     )
 }
@@ -1157,7 +1187,7 @@ fn share_card_view(s: &State, p: &Palette) -> El {
             .color(p.secondary),
         );
     }
-    box_el.child(
+    box_el.child(text("You can add the team from it with Add team from image").font(type_::LABEL).color(p.secondary).wrap()).child(
         row()
             .gap(8.0)
             .child(button("Save image", p).key("team-card-save").on_press_tx(|_s: &mut State, tx: &mut Tx| {
@@ -1314,5 +1344,73 @@ mod saved_rules_tests {
 
         let one = draw(true, 1).join("\n");
         assert!(one.contains("Remove the 1 saved rule?"), "{one}");
+    }
+}
+
+#[cfg(test)]
+mod renderer_defaults_tests {
+    use super::*;
+    fn form(team: Value, initial: Option<&str>) -> State {
+        let mut s = State::default();
+        s.people_panel.team = json!({"teammates": team});
+        edit(&mut s, initial);
+        s
+    }
+    fn wren() -> Value {
+        json!({"teammateId":"tm_wren", "name":"Wren", "hue":"lime", "role":"Code & Migrations", "createdAt":"2026-09-23T05:00:00.000Z", "avatar":{"headwear":0,"accessory":0,"mouth":0}})
+    }
+    fn render(s: State) -> rune::Runtime<State> {
+        let mut rt = rune::Runtime::new(s, |s, _| edit_form(s, &Palette::new(true)), (1100.0, 1800.0), rune::Env::new(true, 1.0));
+        rt.frame(0.0); rt
+    }
+    fn texts(rt: &rune::Runtime<State>) -> String {
+        rt.elements().into_iter().filter_map(|e| e.text).collect::<Vec<_>>().join("\n")
+    }
+    #[test]
+    fn is_where_the_dialog_opens_and_an_edit_keeps_the_colour_it_has() {
+        let fresh = form(json!([{"hue":"lime"}]), None);
+        assert_eq!(fresh.people_panel.entry["hue"], "blue");
+        let fresh = render(fresh);
+        assert!(fresh.elements().iter().any(|e| e.key.as_deref() == Some("team-hue-blue") && e.label.as_deref() == Some("blue selected")));
+        let rose = json!({"teammateId":"tm_rose", "name":"Rosa", "hue":"rose", "role":"Custom", "createdAt":"2026-09-23T05:00:00.000Z", "avatar":{"headwear":0,"accessory":0,"mouth":0}});
+        let edit = render(form(json!([{"hue":"lime"}, rose]), Some("tm_rose")));
+        assert!(edit.elements().iter().any(|e| e.key.as_deref() == Some("team-hue-rose") && e.label.as_deref() == Some("rose selected")));
+    }
+    #[test]
+    fn says_when_it_is_taken_and_will_not_save_it() {
+        let mut s = form(json!([wren(), {"teammateId":"other", "name":"wren"}]), Some("tm_wren"));
+        assert_eq!(form_name_clash(&s).as_deref(), Some("wren"));
+        // Guard the action as well as disabling the rendered button.
+        save(&mut s);
+        assert!(s.people_panel.error.is_empty());
+        let rt = render(s);
+        assert!(texts(&rt).contains("Another teammate is already called wren."));
+        assert!(rt.elements().iter().any(|e| e.key.as_deref() == Some("team-save")));
+    }
+    #[test]
+    fn says_nothing_about_a_name_nobody_else_has() {
+        let s = form(json!([wren(), {"teammateId":"other", "name":"Booty"}]), Some("tm_wren"));
+        assert!(form_name_clash(&s).is_none());
+        assert!(!texts(&render(s)).contains("already called"));
+    }
+    #[test]
+    fn is_said_the_same_way_on_home_and_the_team_screen() {
+        // These Electron source assertions pin absent user-facing words, rather than React structure.
+        for source in [include_str!("people_panel.rs"), include_str!("home_panel.rs")] {
+            let production = source.split("#[cfg(test)]").next().unwrap();
+            for forbidden in ["runs on the model you pick", "not run yet · runs on", "route set by their first mission"] {
+                assert!(!production.contains(forbidden));
+            }
+        }
+    }
+    #[test]
+    fn names_the_way_in_not_a_drop_that_does_not_exist() {
+        let mut s = State::default();
+        s.people_panel.team = json!({"teammates":[]});
+        let mut rt = rune::Runtime::new(s, |s, _| share_card_view(s, &Palette::new(true)), (1100.0, 780.0), rune::Env::new(true, 1.0));
+        rt.frame(0.0);
+        let words = texts(&rt);
+        assert!(!words.contains("dropped into Locust"));
+        assert!(words.contains("can add the team from it with Add team from image"), "{words}");
     }
 }
