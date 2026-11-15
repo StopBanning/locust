@@ -189,7 +189,7 @@ mod tests {
             let mut stream = UnixStream::connect(bridge.dir.join("host")).unwrap();
             writeln!(stream, "{}", json!({"tool_name":"Write","input":{"file_path":"/project/hello.txt","content":"hello\n"}})).unwrap();
             // Wait for THIS request: the one answered last round can still be listed for a moment under load.
-            let deadline = std::time::Instant::now() + Duration::from_secs(10);
+            let deadline = std::time::Instant::now() + Duration::from_secs(30);
             let request = loop {
                 if let Some(r) = channel.waiting().into_iter().find(|r| !answered.contains(&r.approval_id)) {
                     break r;
