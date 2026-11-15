@@ -811,3 +811,13 @@ not a mutable composer mode or an edit-like tool name. Only read-only guarantees
 All five core tests and the new headless check passed by name in the release
 baseline above; the headless check changes the composer in both directions and
 holds the decision sentence to the recorded sandbox. Controls are pending below.
+
+
+### The waiting line's clock — two cases
+
+`waiting_clock_tests.rs` pins both original timestamps: the explicit turn start
+wins over later diagnostics, and a restored turn without one uses the first
+event. Both passed by name in the release baseline. No product change was
+needed: the existing live projection already uses this clock throughout.
+Controls are pending below. Coverage is **213/264**, 51 remain, no exemptions.
+Next in file order: the host's disk observation of a path the runtime named.

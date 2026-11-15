@@ -3,6 +3,8 @@
 import os, pathlib, subprocess, sys
 os.environ["LOCUST_TEST_TS_READER"] = str(pathlib.Path("dist/thread-7-ts-reader/index.js").resolve())
 controls = {
+    'waiting-origin': ('core/src/thread_view.rs', 'if started_at.is_empty() {', 'if true {', 'counts_from_the_start_of_the_turn_so_it_climbs_instead_of_looping'),
+    'waiting-first': ('core/src/thread_view.rs', 'events.first()?.get("occurredAt")?.as_str()?', '""', 'falls_back_to_the_first_event_when_the_turn_start_is_unknown'),
     'decision-readonly': ('core/src/decision_standing.rs', 'sandbox == Some("read-only")', 'sandbox == Some("workspace-write")', 'claims_nothing_changed_only_when_the_run_could_not_write'),
     'decision-patch': ('core/src/decision_standing.rs', 'e["payload"].get("patch").is_some()', 'false', 'says_work_is_kept_when_a_patch_actually_came_back'),
     'relay-kind': ('core/src/relay_title.rs', 'kind != Some("relay")', 'false', 'leaves_a_mission_a_person_started_alone'),
