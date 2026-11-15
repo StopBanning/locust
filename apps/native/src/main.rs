@@ -120,6 +120,8 @@ mod messages;
 use messages::*;
 #[path = "ui/handoff_divider.rs"]
 mod handoff_divider;
+#[path = "ui/handoff_glances.rs"]
+mod handoff_glances;
 #[path = "ui/edit_message.rs"]
 mod edit_message;
 #[path = "ui/peer_thread.rs"]
@@ -2259,6 +2261,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
                 s.recent_route_keys = locust_core::recent_routes::recently_used_routes(&batch.summaries.values().cloned().collect::<Vec<_>>());
                 s.ledger_summaries = batch.summaries;
                 s.workroom_messages = batch.workroom_messages;
+                s.handoff_glances.read(&s.workroom_messages, now);
                 for row in &mut s.recent {
                     if let Some(title) = s.ledger_summaries.get(&row.id).and_then(|summary| locust_core::relay_title::history_title(summary, &s.workroom_messages)) {
                         row.title = title.clone();
@@ -2322,6 +2325,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     }
 
     changed |= ledger_tick(s, now, tx);
+    changed |= s.handoff_glances.expire(now);
     drain_queue_after_turn(s, tx);
     changed |= s
         .bot_stage

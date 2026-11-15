@@ -1105,7 +1105,7 @@ apps/desktop/src/renderer/src/tool-vocabulary.test.ts		waiting
 apps/desktop/src/renderer/src/transcriptView.test.ts		waiting		
 apps/desktop/src/renderer/src/tuning-never-applies-instructions-by-itself.test.tsx	tune	carried	tuning_never_applies_instructions_by_itself,slash_tune_opens_drafts_two_setups_and_saves_nothing,drafts_parser_handles_plain_and_skill_variants_and_repeats	`tune_teammate::tests::tuning_never_applies_instructions_by_itself` + `window_drive_tests::slash_tune_opens_drafts_two_setups_and_saves_nothing` + `tune::tests::drafts_parser_handles_plain_and_skill_variants_and_repeats`
 apps/desktop/src/renderer/src/two-files-with-one-name-stay-two.test.ts		waiting		
-apps/desktop/src/renderer/src/two-teammates-look-at-each-other.test.ts		waiting		
+apps/desktop/src/renderer/src/two-teammates-look-at-each-other.test.ts	BOTS	carried	core/src/bot_rig.rs::glance_tests; src/ui/handoff_glances.rs	all seven cases, one test each (glances_among); the roster drawn by the real sidebar turns two faces toward each other (notes/BOTS-NOTES.md)
 apps/desktop/src/renderer/src/unreadable-ledger-is-said.test.tsx		waiting		
 apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	USAGE	partial		TypeScript test accounting: `main/usage-is-counted.test.ts`, `shared/spend.test.ts`, `renderer/src/usage-is-drawn.test.tsx`, `settings-search-knows-the-words.test.ts`, `every-limit-says-what-is-left.test.tsx`, `keyboardShortcuts.test.ts`, `; the bars (usage::tests::a_bar_a_day_the_busiest_full_height_a_quiet_day_flat_today_marked) and Home's line (window test home_shows_the_months_usage_once_there_is_something_to_count)
 apps/desktop/src/renderer/src/voice-capture-closes-every-track.test.ts		waiting		

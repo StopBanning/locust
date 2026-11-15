@@ -6,12 +6,13 @@
 //! Resting bots stay settled with zero wakeups.
 
 use locust_core::bot_rig::{
-    crt_rule, eye_glyphs_for, flash_fade, flash_for, is_motionless, mood_for, phosphor_for,
+    crt_rule, eye_glyphs_for, face_box, flash_fade, flash_for, is_motionless, mood_for, phosphor_for,
     power_on_light, rest_pose, step_lag, BodyConductor, BodyWants, BotAvatarPose, BotAvatarSim,
     BotAvatarState, BotMood, BotMotionLevel, CrtKind, FaceActivity, FaceChanges, FrameBeat,
-    GlanceSide, Lag, PowerOnLight, ShownFace, BOT_FRAMES_PER_SECOND, CRT_FLICK_S, LAG_REST,
+    GlanceHold, GlanceSide, Lag, PowerOnLight, Pull, ShownFace, BOT_FRAMES_PER_SECOND, CRT_FLICK_S, LAG_REST,
     NOTICE_DWELL_MS, POWER_ON_S, RECEIVED_GLANCE_MS,
 };
+use locust_core::bot_rig::pointer_pull;
 use locust_core::bot_spec::{outline_of, seed_of, Phosphor};
 use locust_core::buddy_moves::{
     glance_look, screen_face_for, PetScreenAsk, PetScreenConductor, ScreenRectF, CODEX_BUDDY,
@@ -95,6 +96,10 @@ struct BotSlot {
     hover_started_s: Option<f64>,
     hover_noticed_s: Option<f64>,
     hover_until_s: Option<f64>,
+    /// The handoff glance and when it was given (Bot.tsx `aim.glance`, `glancedAt`).
+    glance: GlanceHold,
+    /// Where the pointer pulls the gaze while it is over the face (Bot.tsx `pointerPull`), once it has moved there.
+    pull: Option<Pull>,
     seen_this_frame: bool,
     settled: bool,
     cached: BotSnapshot,
@@ -186,6 +191,11 @@ fn shown_face_for(activity: FaceActivity, screen: bool) -> ShownFace {
     }
 }
 
+/// TeammateBot's `follows`: the pointer rested on the face long enough to be noticed, and is still on it.
+fn follows(slot: &BotSlot) -> bool {
+    slot.hovered && slot.hover_noticed_s.is_some()
+}
+
 fn build_bot_snapshot(
     slot: &mut BotSlot,
     now_s: f64,
@@ -197,18 +207,15 @@ fn build_bot_snapshot(
     let still = reduced_motion || is_motionless(desired.activity);
     let target_state = avatar_state_for(desired.activity, still && !hover_notice);
     slot.sim.set_state(target_state);
-    if !still || hover_notice {
-        if let Some(side) = desired.glance {
-            // TeammateBot.tsx: a glance is a pointer at the side, full strength.
-            let (x, y) = match side {
-                GlanceSide::Left => (-1.0, 0.0),
-                GlanceSide::Right => (1.0, 0.0),
-                GlanceSide::Up => (0.0, -1.0),
-                GlanceSide::Down => (0.0, 1.0),
-            };
-            slot.sim.set_pointer(x, y, 1.0);
-        } else if hover_notice {
-            slot.sim.set_pointer(0.25, -0.15, 0.75);
+    // Bot.tsx 2393-2400, in its order: a glance while it holds, then the pointer for a face that has noticed it
+    // (TeammateBot `follows`: the pointer rested NOTICE_DWELL_MS on it and has not left), then nothing.
+    let held = slot.glance.aim(now_s);
+    let follows = follows(slot);
+    if !still || hover_notice || held.is_some() || follows {
+        if let Some(glance) = held {
+            slot.sim.set_pointer(glance.x, glance.y, 1.0);
+        } else if follows && let Some(pull) = slot.pull {
+            slot.sim.set_pointer(pull.x, pull.y, pull.strength);
         } else {
             slot.sim.set_pointer(0.0, 0.0, 0.0);
         }
@@ -262,7 +269,7 @@ fn build_bot_snapshot(
         mood,
         hop: !still && desired.motion == BotMotionLevel::Full,
         resting: still && !hover_notice,
-        glancing: desired.glance.is_some() || hover_notice,
+        glancing: held.is_some() || hover_notice,
     };
     let rig_pose = if reduced_motion {
         rest_pose(BotAvatarState::Default)
@@ -316,7 +323,8 @@ fn build_bot_snapshot(
             }
         });
 
-    slot.settled = reduced_motion || (still && !hover_notice && frame.settled && power_on.is_none());
+    slot.settled =
+        reduced_motion || (still && !hover_notice && held.is_none() && !follows && frame.settled && power_on.is_none());
 
     BotSnapshot {
         pose: frame.pose,
@@ -441,6 +449,7 @@ impl BotStage {
                 slot.hover_started_s = None;
                 slot.hover_noticed_s = None;
                 slot.hover_until_s = None;
+                slot.pull = None;
                 slot.settled = false;
             }
         }
@@ -454,6 +463,18 @@ impl BotStage {
                 slot.hover_started_s = None;
                 slot.hover_noticed_s = None;
                 slot.hover_until_s = None;
+                slot.settled = false;
+            }
+        }
+    }
+
+    /// The pointer moved to (`x`, `y`) in the face's own points, on a face drawn `size` square (Bot.tsx's
+    /// `pointermove` and `pointerPull`, measured from the face's overscanned box).
+    pub fn point_at(&self, key: &str, x: f64, y: f64, size: f64) {
+        let mut inner = self.inner.borrow_mut();
+        if let Some(slot) = inner.bots.get_mut(key) {
+            slot.pull = Some(pointer_pull(face_box(size), x, y));
+            if follows(slot) {
                 slot.settled = false;
             }
         }
@@ -524,18 +545,28 @@ impl BotStage {
                 hover_started_s: None,
                 hover_noticed_s: None,
                 hover_until_s: None,
+                glance: GlanceHold::default(),
+                pull: None,
                 seen_this_frame: true,
                 settled: resting_at_start,
                 cached,
             };
+            if slot.glance.give(glance, now_s) {
+                slot.settled = false;
+            }
             slot.cached = build_bot_snapshot(&mut slot, now_s, 0.0, reduced_motion, false);
             slot
         });
         entry.seen_this_frame = true;
+        // A new glance wakes a face at rest (Bot.tsx 2476-2481: `wake.current?.()`).
+        let glanced = entry.glance.give(glance, now_s);
+        if glanced {
+            entry.settled = false;
+        }
         if entry.desired != desired {
             let changed_activity = entry.desired.activity != desired.activity;
             entry.desired = desired;
-            if changed_activity || !is_motionless(desired.activity) {
+            if changed_activity || glanced || !is_motionless(desired.activity) {
                 entry.settled = false;
             }
             let hover_notice = entry
@@ -786,6 +817,12 @@ impl BotStage {
         bots + buddies
     }
 
+    /// Where a bot's gaze is pulled now, (x, y, strength), for the window's own tests.
+    #[cfg(test)]
+    pub fn pointer_target(&self, key: &str) -> Option<(f64, f64, f64)> {
+        self.inner.borrow().bots.get(key).map(|slot| slot.sim.pointer_target())
+    }
+
     pub fn slot_count(&self) -> usize {
         let inner = self.inner.borrow();
         inner.bots.len() + inner.buddies.len()
@@ -839,19 +876,106 @@ mod head_turn_tests {
     }
 
     // TeammateBot.tsx:128-133 with Bot.tsx:2393-2395: a side is a pointer at full strength, and it never touches the turn.
+    fn glanced(side: GlanceSide) -> (f64, f64, f64, f64) {
+        let stage = stage_after("clover", Some(side), 3);
+        let inner = stage.inner.borrow();
+        let sim = &inner.bots["k"].sim;
+        let (x, y, strength) = sim.pointer_target();
+        (x, y, strength, sim.turn())
+    }
+
     #[test]
-    fn a_glance_points_the_gaze_at_its_side_and_leaves_the_turn_alone() {
-        for (side, x, y) in [
-            (GlanceSide::Left, -1.0, 0.0),
-            (GlanceSide::Right, 1.0, 0.0),
-            (GlanceSide::Up, 0.0, -1.0),
-            (GlanceSide::Down, 0.0, 1.0),
-        ] {
-            let stage = stage_after("clover", Some(side), 3);
-            let inner = stage.inner.borrow();
-            let sim = &inner.bots["k"].sim;
-            assert_eq!(sim.pointer_target(), (x, y, 1.0));
-            assert_eq!(sim.turn(), 1.0);
+    fn a_glance_to_the_left_points_the_gaze_left_and_leaves_the_turn_alone() {
+        assert_eq!(glanced(GlanceSide::Left), (-1.0, 0.0, 1.0, 1.0));
+    }
+
+    #[test]
+    fn a_glance_to_the_right_points_the_gaze_right_and_leaves_the_turn_alone() {
+        assert_eq!(glanced(GlanceSide::Right), (1.0, 0.0, 1.0, 1.0));
+    }
+
+    #[test]
+    fn a_glance_up_points_the_gaze_up_and_leaves_the_turn_alone() {
+        assert_eq!(glanced(GlanceSide::Up), (0.0, -1.0, 1.0, 1.0));
+    }
+
+    #[test]
+    fn a_glance_down_points_the_gaze_down_and_leaves_the_turn_alone() {
+        assert_eq!(glanced(GlanceSide::Down), (0.0, 1.0, 1.0, 1.0));
+    }
+
+    /// The stage's own clock, driven as the window drives it: a snapshot each frame, then `poll` at `now_s`.
+    fn frame(stage: &BotStage, activity: FaceActivity, glance: Option<GlanceSide>, now_s: f64) {
+        let mut tx = rune::Tx::default();
+        stage.begin_frame();
+        stage.snapshot_bot("k", "clover", activity, glance, BotMotionLevel::Full, false, false, false);
+        stage.poll(now_s, false, true, &mut tx);
+    }
+
+    fn target(stage: &BotStage) -> (f64, f64, f64) {
+        stage.inner.borrow().bots["k"].sim.pointer_target()
+    }
+
+    // Bot.tsx:2394 and GLANCE_HOLD_MS (1.5 s): the glance holds from when it is given, then the eyes come back,
+    // though the handoff that asked for it is still there.
+    #[test]
+    fn a_glance_lets_go_one_and_a_half_seconds_after_it_was_given() {
+        let stage = BotStage::default();
+        frame(&stage, FaceActivity::Working, None, 0.0);
+        let mut t = 0.0;
+        while t < 2.0 {
+            t += 0.05;
+            frame(&stage, FaceActivity::Working, Some(GlanceSide::Right), t);
+            if t < 0.05 + 1.45 {
+                assert_eq!(target(&stage), (1.0, 0.0, 1.0), "still held at {t:.2} s");
+            }
         }
+        assert_eq!(target(&stage), (0.0, 0.0, 0.0), "let go by 2 s, 1.95 s after it was given");
+        // A different glance starts the hold again.
+        frame(&stage, FaceActivity::Working, Some(GlanceSide::Left), t + 0.05);
+        assert_eq!(target(&stage), (-1.0, 0.0, 1.0));
+    }
+
+    // Bot.tsx 2476-2481 wakes the face for a glance: a teammate at rest turns too, and comes to rest again.
+    #[test]
+    fn a_face_at_rest_wakes_for_a_glance_and_rests_again_once_it_lets_go() {
+        let stage = BotStage::default();
+        frame(&stage, FaceActivity::Idle, None, 0.0);
+        frame(&stage, FaceActivity::Idle, Some(GlanceSide::Up), 0.05);
+        frame(&stage, FaceActivity::Idle, Some(GlanceSide::Up), 0.1);
+        assert_eq!(target(&stage), (0.0, -1.0, 1.0));
+        assert!(!stage.inner.borrow().bots["k"].settled);
+        let mut t = 0.1;
+        while t < 6.0 {
+            t += 0.05;
+            frame(&stage, FaceActivity::Idle, Some(GlanceSide::Up), t);
+        }
+        assert_eq!(target(&stage), (0.0, 0.0, 0.0));
+        assert!(stage.inner.borrow().bots["k"].settled, "at rest again");
+    }
+
+    // TeammateBot `follows` (NOTICE_DWELL_MS, then until the pointer leaves) and Bot.tsx:2396-2398 `pointerPull`
+    // over the face's overscanned box: at 96 points, a pointer 48 points right of the head is looked at straight on,
+    // full strength (every-bot-is-drawn-by-the-rig.test.ts:59-64).
+    #[test]
+    fn a_face_that_has_noticed_the_pointer_looks_toward_it_and_lets_go_when_it_leaves() {
+        let stage = BotStage::default();
+        frame(&stage, FaceActivity::Working, None, 0.0);
+        stage.set_hover("k", true);
+        // The head of a 96-point face sits 9.6 points below its middle.
+        stage.point_at("k", 48.0 + 48.0, 48.0 + 9.6, 96.0);
+        frame(&stage, FaceActivity::Working, None, 0.1);
+        assert_eq!(target(&stage), (0.0, 0.0, 0.0), "not noticed before NOTICE_DWELL_MS");
+        frame(&stage, FaceActivity::Working, None, 0.4);
+        frame(&stage, FaceActivity::Working, None, 0.45);
+        let (x, y, strength) = target(&stage);
+        assert!((x - 0.5).abs() < 1e-9 && y.abs() < 1e-9 && strength == 1.0, "{x} {y} {strength}");
+        stage.point_at("k", 48.0 - 96.0, 48.0 + 9.6, 96.0);
+        frame(&stage, FaceActivity::Working, None, 0.5);
+        let (x, _, strength) = target(&stage);
+        assert!((x + 1.0).abs() < 1e-9 && strength == 1.0, "it follows the pointer to the left: {x} {strength}");
+        stage.set_hover("k", false);
+        frame(&stage, FaceActivity::Working, None, 0.55);
+        assert_eq!(target(&stage), (0.0, 0.0, 0.0));
     }
 }

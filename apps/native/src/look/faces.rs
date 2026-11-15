@@ -236,11 +236,19 @@ pub fn bot_face_with_look(
     };
 
     let hover_slot = slot_key.to_owned();
+    let pointer_slot = slot_key.to_owned();
     let mut el = canvas(shape)
         .key(format!("bot-{slot_key}"))
         .size(size, size)
         .on_hover_change(move |st: &mut crate::State, over: bool, tx: &mut Tx| {
             st.bot_stage.set_hover(&hover_slot, over);
+            if !st.reduced_motion.get() {
+                tx.wake_after(Duration::from_millis(33));
+            }
+        })
+        // Bot.tsx `watchPointer`: where the pointer is, so a face that has noticed it looks toward it (`pointerPull`).
+        .on_pointer_move_local(move |st: &mut crate::State, at: rune::PointerEvent, tx: &mut Tx| {
+            st.bot_stage.point_at(&pointer_slot, f64::from(at.x), f64::from(at.y), f64::from(size));
             if !st.reduced_motion.get() {
                 tx.wake_after(Duration::from_millis(33));
             }
