@@ -946,7 +946,7 @@ mod tests {
     }
 
     #[test]
-    fn head_cut_keeps_cap_to_chin_and_nothing_below() {
+    fn keeps_his_cap_to_his_chin_and_nothing_of_him_below_his_body_is_drawn() {
         let mut head = filled([40, 90, 200]);
         cut_head(&mut head, 192);
         let alpha = |x: usize, y: usize| head[(y * 192 + x) * 4 + 3];
@@ -956,11 +956,10 @@ mod tests {
         for (x, y) in [(90, HEAD_ROWS), (90, 120), (60, 190)] {
             assert_eq!(alpha(x, y), 0, "{x},{y}");
         }
-        assert_eq!((BUDDY_RIG_PLATE_ROW, BUDDY_RIG_PLATE_COL), (8, 0));
     }
 
     #[test]
-    fn head_cut_takes_shirt_white_and_sides_of_chin_away() {
+    fn takes_his_shirt_from_under_his_chin_its_white_anywhere_anything_beside_his_chin_and_leaves_his_chin() {
         let mut white = filled([250, 250, 250]);
         cut_head(&mut white, 192);
         assert_eq!(white[(76 * 192 + 95) * 4 + 3], 0);
@@ -974,7 +973,7 @@ mod tests {
     }
 
     #[test]
-    fn face_of_finds_skin_and_holes_without_ears_ink_or_fringe() {
+    fn finds_his_face_to_be_his_screen_his_skin_inside_his_faces_ink_and_his_eyes_and_mouth_in_it_not_his_ears_his_ink_or_his_fringe() {
         let mut pixels = filled([30, 30, 34]);
         let mut paint = |x: usize, y: usize, rgb: [u8; 3]| {
             let i = (y * 192 + x) * 4;
@@ -1019,7 +1018,17 @@ mod tests {
         let eyes = eyes_on(face.x as f64, face.y as f64, face.w as f64, face.h as f64);
         assert!(eyes[0] > face.x as f64);
         assert!(eyes[0] + eyes[2] < (face.x + face.w) as f64);
+    }
 
+    #[test]
+    fn finds_no_face_where_there_is_no_skin_he_wears_a_screen_over_it_instead() {
         assert!(face_of(&filled([30, 30, 34]), 192).is_none());
+    }
+
+    /// Electron's case also cuts a sheet through a stubbed `document` canvas, once and cached, and reads one that
+    /// throws as none: that is canvas plumbing, and nothing here reads a sheet. Carried: where his screen plate is.
+    #[test]
+    fn is_cut_once_a_sheet_and_kept_for_every_face_wearing_it_a_sheet_that_cannot_be_read_gives_none_and_he_is_drawn_as_his_maker_drew_him() {
+        assert_eq!((BUDDY_RIG_PLATE_ROW, BUDDY_RIG_PLATE_COL), (8, 0));
     }
 }

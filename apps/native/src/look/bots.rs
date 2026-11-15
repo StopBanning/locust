@@ -302,47 +302,116 @@ fn draw_plastic_sheen(mut s: Shape, bounds: BodyBox, vt: &ViewTransform) -> Shap
     s
 }
 
+/// The colours of a mascot's chest mark (Bot.tsx `chest`): a shade of the body's own colour, deeper, under it; then
+/// the mark, pale where the body's light falls (top left) and toned toward the body's colour where it does not.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct ChestInk {
+    pub shade: [u8; 4],
+    pub pale: [u8; 4],
+    pub dark: [u8; 4],
+}
+
+pub(crate) fn chest_ink(mark: ChestMarkKind, body_css: &str) -> ChestInk {
+    let shade = same_hue_rgba(body_css, 0.6, 0.26, 0.6);
+    match mark {
+        ChestMarkKind::Prompt => ChestInk {
+            shade,
+            pale: same_hue_rgba(body_css, 0.9, 0.92, 1.0),
+            dark: same_hue_rgba(body_css, 0.75, 0.78, 1.0),
+        },
+        ChestMarkKind::Spark => ChestInk {
+            shade,
+            pale: [255, 243, 230, 255],
+            dark: same_hue_rgba(body_css, 0.6, 0.83, 1.0),
+        },
+    }
+}
+
+/// The lit mark's gradient (pale from 0 to 0.45 of the way from top left to bottom right, then toward dark), as the
+/// canvas blends it: per channel, in sRGB.
+pub(crate) fn chest_gradient(ink: ChestInk, t: f64) -> [u8; 4] {
+    let k = ((t.clamp(0.0, 1.0) - 0.45) / 0.55).clamp(0.0, 1.0);
+    let mix = |a: u8, b: u8| (f64::from(a) + (f64::from(b) - f64::from(a)) * k).round() as u8;
+    [mix(ink.pale[0], ink.dark[0]), mix(ink.pale[1], ink.dark[1]), mix(ink.pale[2], ink.dark[2]), 255]
+}
+
+/// Alpha the lit mark is painted at (Bot.tsx `globalAlpha = 0.94`).
+const CHEST_LIT_ALPHA: f64 = 0.94;
+
 fn draw_chest_mark(
     mut s: Shape,
     outline: &locust_core::bot_spec::Outline,
     vt: &ViewTransform,
-    ink_col: Color,
+    body_css: &str,
 ) -> Shape {
     let Some(chest) = outline.chest else {
         return s;
     };
-    let cx = chest.x;
-    let cy = chest.y;
-    let r = chest.size;
+    let (cx, cy, h) = (chest.x, chest.y, chest.size);
+    let ink = chest_ink(chest.mark, body_css);
+    // The shade is the mark again, a touch down and right of it (h * 0.04, h * 0.06).
+    let (shade_dx, shade_dy) = (h * 0.04, h * 0.06);
+    let rgba = |c: [u8; 4], alpha: f64| rgba8(c[0], c[1], c[2], (alpha.clamp(0.0, 1.0) * 255.0).round() as u8);
+    // Where along the light's way (from (x - h/2, y - h/2) to (x + h/2, y + h/2)) a point lies, 0 to 1.
+    let light_at = |px: f64, py: f64| ((px - (cx - h * 0.5)) + (py - (cy - h * 0.5))) / (2.0 * h);
     match chest.mark {
         ChestMarkKind::Prompt => {
-            let w = ((r * 0.18) as f32 * vt.scale).max(0.75);
-            let a = vt.map([cx - r * 0.45, cy - r * 0.32], 0.0);
-            let m = vt.map([cx - r * 0.05, cy], 0.0);
-            let b = vt.map([cx - r * 0.45, cy + r * 0.32], 0.0);
-            let u0 = vt.map([cx + r * 0.05, cy + r * 0.32], 0.0);
-            let u1 = vt.map([cx + r * 0.48, cy + r * 0.32], 0.0);
-            s = s.stroke_with(vec![a, m, b], false, w, LineCap::Round, ink_col);
-            s = s.line(u0, u1, w, LineCap::Round, ink_col);
+            // The Codex mascot's `>_`: h * 0.6 / 0.4 / 0.2 / 0.1 / 0.62, drawn h * 0.27 thick.
+            let w = ((h * 0.27) as f32 * vt.scale).max(0.75);
+            let chevron = [[cx - h * 0.6, cy - h * 0.4], [cx - h * 0.2, cy], [cx - h * 0.6, cy + h * 0.4]];
+            let underscore = [[cx + h * 0.1, cy + h * 0.4], [cx + h * 0.62, cy + h * 0.4]];
+            let shade = rgba(ink.shade, f64::from(ink.shade[3]) / 255.0);
+            let map_by = |p: [f64; 2], dx: f64, dy: f64| vt.map([p[0] + dx, p[1] + dy], 0.0);
+            s = s.stroke_with(chevron.map(|p| map_by(p, shade_dx, shade_dy)).to_vec(), false, w, LineCap::Round, shade);
+            s = s.line(map_by(underscore[0], shade_dx, shade_dy), map_by(underscore[1], shade_dx, shade_dy), w, LineCap::Round, shade);
+            // The mark, lit as the body is: each stretch takes the light where it lies.
+            let stretch = |s: Shape, a: [f64; 2], b: [f64; 2]| -> Shape {
+                const PIECES: usize = 6;
+                let mut s = s;
+                for i in 0..PIECES {
+                    let (k0, k1) = (i as f64 / PIECES as f64, (i + 1) as f64 / PIECES as f64);
+                    let at = |k: f64| [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k];
+                    let mid = at((k0 + k1) * 0.5);
+                    let colour = rgba(chest_gradient(ink, light_at(mid[0], mid[1])), CHEST_LIT_ALPHA);
+                    s = s.line(map_by(at(k0), 0.0, 0.0), map_by(at(k1), 0.0, 0.0), w, LineCap::Round, colour);
+                }
+                s
+            };
+            s = stretch(s, chevron[0], chevron[1]);
+            s = stretch(s, chevron[1], chevron[2]);
+            s = stretch(s, underscore[0], underscore[1]);
         }
         ChestMarkKind::Spark => {
             // Bot.tsx chest(): a ray per entry, narrow at its root, its tip cut square with the corners off, round a solid middle.
-            let radius = r / 2.0;
+            let radius = h / 2.0;
+            let shade = rgba(ink.shade, f64::from(ink.shade[3]) / 255.0);
+            let mut painted: Vec<(Vec<[f64; 2]>, f64)> = Vec::new();
             for [degrees, reach, width] in CLAUDE_MARK_RAYS {
                 let angle = (degrees - 90.0).to_radians();
                 let (uy, ux) = angle.sin_cos();
-                let point = |along: f64, across: f64| vt.map([cx + ux * along - uy * across, cy + uy * along + ux * across], 0.0);
+                let point = |along: f64, across: f64| [cx + ux * along - uy * across, cy + uy * along + ux * across];
                 let tip = radius * reach;
                 let wide = radius * 0.11 * width;
                 let root = radius * 0.085 * width;
                 let corner = wide * 0.5;
-                s = s.fill(
-                    vec![point(0.0, -root), point(tip - corner, -wide), point(tip, -wide + corner), point(tip, wide - corner), point(tip - corner, wide), point(0.0, root)],
-                    ink_col,
-                );
+                let points = vec![point(0.0, -root), point(tip - corner, -wide), point(tip, -wide + corner), point(tip, wide - corner), point(tip - corner, wide), point(0.0, root)];
+                let centre = points.iter().fold([0.0, 0.0], |c, p| [c[0] + p[0] / 6.0, c[1] + p[1] / 6.0]);
+                painted.push((points, light_at(centre[0], centre[1])));
             }
-            let middle: Vec<[f32; 2]> = (0..16).map(|i| { let a = i as f64 / 16.0 * std::f64::consts::TAU; vt.map([cx + a.cos() * radius * 0.25, cy + a.sin() * radius * 0.25], 0.0) }).collect();
-            s = s.fill(middle, ink_col);
+            let middle: Vec<[f64; 2]> = (0..16)
+                .map(|i| {
+                    let a = i as f64 / 16.0 * std::f64::consts::TAU;
+                    [cx + a.cos() * radius * 0.25, cy + a.sin() * radius * 0.25]
+                })
+                .collect();
+            painted.push((middle, light_at(cx, cy)));
+            for (points, _) in &painted {
+                s = s.fill(points.iter().map(|p| vt.map([p[0] + shade_dx, p[1] + shade_dy], 0.0)).collect::<Vec<_>>(), shade);
+            }
+            for (points, t) in &painted {
+                let colour = rgba(chest_gradient(ink, *t), CHEST_LIT_ALPHA);
+                s = s.fill(points.iter().map(|p| vt.map(*p, 0.0)).collect::<Vec<_>>(), colour);
+            }
         }
     }
     s
@@ -601,7 +670,7 @@ pub fn draw_bot_shape(spec: &BotDrawSpec<'_>) -> Shape {
     if !spec.snap.plush {
         s = draw_plastic_sheen(s, bounds, &vt);
     }
-    s = draw_chest_mark(s, &outline, &vt, eye_col);
+    s = draw_chest_mark(s, &outline, &vt, &body_css);
 
     // Visor & Face expressions in 0..100 face space.
     let gaze_x = (pose.look_x + spec.snap.lag_x * 0.25).clamp(-1.3, 1.3) * 3.2;
