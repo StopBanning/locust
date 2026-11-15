@@ -799,3 +799,15 @@ The headless history-refresh test passed by name, as did every new core case in
 the baseline above. Native uses cached titles rather than reconstructing React
 thread objects; the shared guarded prompt walk also exposes the relay title.
 Mutation verification is pending below. No drawing performs file access.
+
+
+### What the decision card may say about the workspace — four cases
+
+`decision_standing.rs` carries all four cases, plus a boundary test distinguishing
+failed-tool patch evidence from a started or merely named edit. The window now
+uses the finished turn's recorded sandbox and completed/failed patch evidence,
+not a mutable composer mode or an edit-like tool name. Only read-only guarantees
+`nothing was changed`; missing evidence never establishes absence of writes.
+All five core tests and the new headless check passed by name in the release
+baseline above; the headless check changes the composer in both directions and
+holds the decision sentence to the recorded sandbox. Controls are pending below.

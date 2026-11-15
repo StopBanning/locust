@@ -51,39 +51,19 @@ pub(super) fn active_decision(
     } else {
         Some(teammate.name.clone())
     };
-    let standing = decision_standing(s, teammate, latest_items);
+    let standing = decision_standing(s);
     Some((teammate_name, standing, request))
 }
 
 /// What may honestly be said about the workspace (`missionView.ts` `decisionStanding`).
-pub(super) fn decision_standing(
-    s: &State,
-    teammate: &Teammate,
-    latest_items: &[ledger::Item],
-) -> &'static str {
-    let mode = s
-        .composer_mode
-        .as_deref()
-        .filter(|m| !m.is_empty())
-        .or_else(|| (!teammate.runs_in.is_empty()).then_some(teammate.runs_in.as_str()));
-    if matches!(mode, Some("ask") | Some("plan")) {
-        return "stopped here · nothing was changed";
-    }
-    let wrote = latest_items.iter().any(|item| match item {
-        ledger::Item::Tool { name, .. } => {
-            let lower = name.to_lowercase();
-            lower.contains("edit")
-                || lower.contains("write")
-                || lower.contains("patch")
-                || lower.contains("filechange")
-        }
-        _ => false,
-    });
-    if wrote {
-        "stopped here · work already done is kept"
-    } else {
-        "stopped here · this run could edit files"
-    }
+pub(super) fn decision_standing(s: &State) -> &'static str {
+    let Some(pane) = &s.ledger else {
+        return locust_core::decision_standing::decision_standing(None, &[]);
+    };
+    let sandbox = pane.snapshot.turn_metas.last().map(|m| m.sandbox.as_str());
+    let inputs = pane.worker.as_ref().map(|w| w.inspector_inputs()).unwrap_or_default();
+    let events = inputs.last().map(|input| input.events.as_slice()).unwrap_or(&[]);
+    locust_core::decision_standing::decision_standing(sandbox, events)
 }
 
 pub(super) fn answer_decision(s: &mut State, option: &DecisionOption, tx: &mut Tx) {

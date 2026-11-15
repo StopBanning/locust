@@ -5652,3 +5652,22 @@ fn a_relay_history_refresh_names_the_received_message_in_the_sidebar() {
     let missions = sidebar::recent_as_missions(&rt.state);
     assert_eq!(missions.iter().find(|m| m.mission_id == "m_relay").unwrap().title, expected);
 }
+
+#[test]
+fn the_decision_card_uses_the_finished_runs_sandbox_instead_of_the_composer() {
+    let (_dirs, store, mut rt) = window();
+    let _g = native::hooks::install(store, fake("m1-app-server.py", "cards-decision"));
+    type_and_send(&mut rt, "Which file?");
+    pump(&mut rt, "decision card", |s| s.flight.is_none() && s.ledger.as_ref().is_some_and(|p| !p.loading && !p.snapshot.running));
+    rt.update(|s, _| s.composer_mode = Some("auto".into()));
+    settle(&mut rt);
+    assert!(text_in(&rt, "decision-card").join("\n").contains("stopped here · nothing was changed"));
+    rt.update(|s, _| {
+        s.composer_mode = Some("ask".into());
+        s.ledger.as_mut().unwrap().snapshot.turn_metas.last_mut().unwrap().sandbox = "workspace-write".into();
+    });
+    settle(&mut rt);
+    let said = text_in(&rt, "decision-card").join("\n");
+    assert!(said.contains("stopped here · this run could edit files"), "{said}");
+    assert!(!said.contains("nothing was changed"));
+}

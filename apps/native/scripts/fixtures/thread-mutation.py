@@ -3,6 +3,8 @@
 import os, pathlib, subprocess, sys
 os.environ["LOCUST_TEST_TS_READER"] = str(pathlib.Path("dist/thread-7-ts-reader/index.js").resolve())
 controls = {
+    'decision-readonly': ('core/src/decision_standing.rs', 'sandbox == Some("read-only")', 'sandbox == Some("workspace-write")', 'claims_nothing_changed_only_when_the_run_could_not_write'),
+    'decision-patch': ('core/src/decision_standing.rs', 'e["payload"].get("patch").is_some()', 'false', 'says_work_is_kept_when_a_patch_actually_came_back'),
     'relay-kind': ('core/src/relay_title.rs', 'kind != Some("relay")', 'false', 'leaves_a_mission_a_person_started_alone'),
     'relay-received': ('core/src/relay_title.rs', 'm.direction == "received"', 'm.direction == "posted"', 'is_named_by_the_message_that_caused_it_never_by_the_host_briefing'),
     'relay-flat': ('core/src/relay_title.rs', '.split_whitespace().collect::<Vec<_>>().join(" ")', '.to_owned()', 'keeps_the_title_to_one_line'),
