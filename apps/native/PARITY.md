@@ -235,7 +235,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 | Saved appearance choice and window look settings | `renderer/src/components/ThemeSetting.tsx`, `renderer/src/components/LookSetting.tsx`, `main/appearance.ts` | **done** — `core/src/workspace_settings.rs` + `src/ui/settings_panel.rs`: Theme (Dark/Light/Match computer), Linux new-profile `system` default, `Look` and `Behind the glass` gated on `liquid_offered`, persisted across restarts in `appearance.json`, and window test (SETTINGS-NOTES.md) | yes | no | no |
 | macOS/Windows liquid glass and rainbow backdrop | `main/mac-glass.ts`, `main/windows-glass.ts`, `renderer/src/components/LookSetting.tsx` | **missing** | - | no | yes |
 | Pet gallery, kept pets, sprites/puppets and bulk removal | `renderer/src/components/PetPicks.tsx`, `renderer/src/components/PetSprite.tsx`, `renderer/src/components/PetPuppet.tsx`, `main/pet-library.ts` | **missing** | - | no | yes |
-| Animated bots, plush/terminal eyes and agent mascots | `renderer/src/components/Bot.tsx`, `renderer/src/components/TeammateBot.tsx`, `renderer/src/buddyRig.ts`, `renderer/src/botLook.ts` | **missing** | - | no | no |
+| Animated bots, plush/terminal eyes and agent mascots | `renderer/src/components/Bot.tsx`, `renderer/src/components/TeammateBot.tsx`, `renderer/src/buddyRig.ts`, `renderer/src/botLook.ts` | **partial** — Built: the rig stage, faces, pets on the buddy rig, Terminal faces and Plush settings, shaded chest marks, head turn from the shape, glances as pointers. Not yet: the 1.5 s glance hold and its trigger from handoffs, following the real pointer (Opus review 2026-11-15, findings 2-3), the pet gallery. | yes | no | no |
 | Native titlebar/dragging and collapsible compact sidebar | `renderer/src/components/TitleBar.tsx`, `renderer/src/components/Sidebar.tsx`, `main/window-chrome.ts` | **partial** — `ui/rail.rs`: the 38-point title bar (folder name centred, `Locust` and the build with none; browser and terminal toggles while no conversation is open; N running) with the lights at Electron's 14,13; the 64-point rail at 1199 points or less, or as chosen in Settings › Appearance › Sidebar (Auto, Full, Rail; Electron's `layout` setting, in the Rust app's own copy), with count badges, the lime bar and the hover/pin conversation card; no Mac glass behind the sidebar and title bar yet | yes | 2026-11-12 — live hour 12 Nov: title bar with the folder's name, the rail at 1040 wide, count badges and the face card | no |
 
 ### Area 15: Documents, Diagrams & File Viewer
@@ -291,9 +291,9 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 11 | Settings, Usage, Privacy & Backup | 5 | 3 | 0 | 8 | 8 | 0 |
 | 12 | Cloud, Remote, Phone & Chat Apps | 0 | 2 | 7 | 9 | 2 | 0 |
 | 13 | Onboarding, Home, Updates & CLI | 7 | 6 | 0 | 13 | 13 | 2 |
-| 14 | Pets, Bots & Look / Window Chrome | 2 | 1 | 3 | 6 | 3 | 1 |
+| 14 | Pets, Bots & Look / Window Chrome | 2 | 2 | 2 | 6 | 4 | 1 |
 | 15 | Documents, Diagrams & File Viewer | 1 | 6 | 0 | 7 | 7 | 0 |
-| | **TOTAL** | **71** | **64** | **18** | **153** | **135** | **15** |
+| | **TOTAL** | **71** | **65** | **17** | **153** | **136** | **15** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 
