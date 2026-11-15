@@ -727,3 +727,14 @@ with its named headless assertion failed, exit 101 and one failed test. The cach
 control failed the test's bounded wait assertion; none hit the Cargo timeout.
 All baseline Rust hashes matched after each restoration. Coverage is **189/264**,
 75 remaining, still partial; no does-not-apply exemptions. Next: reply sessions.
+
+### Reply sessions — three case ports
+
+The three named cases in `reply_session_tests.rs` use the original `thread-7`
+and failure sentence. Native's existing session reader returned an empty string
+as a session; it now rejects it. Terminal resume remains guarded by its existing
+argument validation; no process starts during drawing. The shared release run
+`thread-11-session-words.log` passed 1,702 core (20 ignored), 401 window, zero
+failures/doc tests and no warnings. All seven new session/prompt cases passed
+by name. The whole-core `session-empty` control failed its named assertion and
+restored exactly. Coverage after this section: **192/264**, 72 remain.

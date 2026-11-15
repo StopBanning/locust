@@ -3,6 +3,7 @@
 import os, pathlib, subprocess, sys
 os.environ["LOCUST_TEST_TS_READER"] = str(pathlib.Path("dist/thread-7-ts-reader/index.js").resolve())
 controls = {
+    'session-empty': ('core/src/runtime_terminal.rs', '.filter(|id| !id.is_empty())', '.filter(|_| true)', 'ignores_an_empty_session_id_rather_than_treating_it_as_one'),
     'alias-decode': ('core/src/ledger.rs', 'if is_start && let Some(model)', 'if !is_start && let Some(model)', 'recent_history_learns_the_runtime_model_from_the_ledger'),
     'alias-start': ('core/src/model_alias.rs', 'e["payload"]["evidence"]["raw"]["model"]', 'e["payload"]["evidence"]["raw"]["missing-model"]', 'learns_the_real_name_the_runtime_reported_for_an_alias'),
     'alias-newest': ('core/src/model_alias.rs', 'at > *old', 'true', 'prefers_the_newest_mission_so_a_new_release_replaces_an_old_name'),
