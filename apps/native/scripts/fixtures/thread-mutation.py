@@ -2,6 +2,8 @@
 """One restored source mutation against the entire core suite. Run from apps/native."""
 import os, pathlib, subprocess, sys
 controls = {
+    'peer-hide': ('core/src/protocol_tags.rs', 'let s = crate::peer_share::strip_share_blocks(text);', 'let s = text.to_owned();', 'hides_a_share_block_from_the_agent_bubble_keeping_the_prose'),
+    'peer-sort': ('core/src/peer_thread.rs', 'messages.sort_by(|a,b| a.posted_at.cmp(&b.posted_at));', 'messages.sort_by(|a,b| b.posted_at.cmp(&a.posted_at));', 'groups_an_exchange_by_the_other_party_and_marks_whether_anything_was_received'),
     'helper-unnamed': ('core/src/activity_entries.rs', '_ => "a subagent, unnamed",', '_ => "Task",', 'a_helper_the_runtime_never_named_is_said_to_be_unnamed_not_drawn_as_a_path'),
     'helper-kind': ('core/src/ledger.rs', '"task" | "agent" | "subagent" | "spawn_agent"', '"agent" | "subagent" | "spawn_agent"', 'is_its_own_row_what_it_was_asked_and_whether_it_reported_back'),
     'plan-content': ('core/src/ledger.rs', '["step", "text", "title", "name", "content"]', '["step", "text", "title", "name", "missing-content"]', 'reads_the_steps_their_words_and_their_states'),

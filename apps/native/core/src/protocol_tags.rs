@@ -579,7 +579,8 @@ pub fn strip_file_blocks(text: &str) -> String {
 
 /// The reply text as shown to the person in the thread (`missionView.ts` `shownText`).
 pub fn shown_text(text: &str) -> String {
-    let s = strip_decision_blocks(text);
+    let s = crate::peer_share::strip_share_blocks(text);
+    let s = strip_decision_blocks(&s);
     let s = strip_file_blocks(&s);
     let s = strip_next_blocks(&s);
     unwrap_protocol_tags(&s)

@@ -178,3 +178,6 @@ mod late_tool_target_tests;
 
 #[cfg(test)]
 mod runtime_helper_tests;
+
+#[cfg(test)]
+mod peer_message_tests;
