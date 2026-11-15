@@ -438,6 +438,19 @@ fn select_teammate(s: &mut State, id: &str, tx: &mut Tx) {
 
 fn ledger_tick(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     let mut changed = false;
+    // Ended ledgers stop reading disk. Refresh their date label on the clock alone.
+    if let Some(pane) = s.ledger.as_mut() {
+        let minute = clock_seconds().div_euclid(60);
+        if pane.snapshot.started_label.is_some() {
+            if pane.snapshot.started_label_minute != minute {
+                let label = locust_core::time_marker::started_label(&pane.snapshot.started_at, chrono::Local::now().naive_local());
+                changed |= pane.snapshot.started_label != label;
+                pane.snapshot.started_label = label;
+                pane.snapshot.started_label_minute = minute;
+            }
+            tx.wake_after(Duration::from_secs(60));
+        }
+    }
     if let Some(result) = s.ledger_job.take() {
         match result {
             Ok((worker, mut snapshot)) => {
@@ -453,7 +466,7 @@ fn ledger_tick(s: &mut State, now: f64, tx: &mut Tx) -> bool {
                 if let Some(pane) = s.ledger.as_mut()
                     && pane.conversation.conversation_id.as_deref() == Some(worker.anchor())
                 {
-                    changed = pane.loading || pane.snapshot != snapshot;
+                    changed |= pane.loading || pane.snapshot != snapshot;
                     let finished = pane.snapshot.running && !snapshot.running;
                     let new_tip = pane.snapshot.tip != snapshot.tip;
                     let waiting_for_child = pane.after_tip.is_some();
@@ -526,6 +539,9 @@ fn ledger_tick(s: &mut State, now: f64, tx: &mut Tx) -> bool {
                     };
                     pane.worker = Some(worker);
                     pane.snapshot = snapshot;
+                    if pane.snapshot.started_label.is_some() {
+                        tx.wake_after(Duration::from_secs(60));
+                    }
 
                     if timed_out {
                         s.status = "No new reply yet".into();

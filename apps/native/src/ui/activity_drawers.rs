@@ -145,6 +145,7 @@ pub(super) fn tool_row_label(
     } else {
         title
     };
+    let title = if d.helper { locust_core::activity_entries::helper_description(name, title) } else { title };
     let mut label = if d.helper {
         let mut row = format!(
             "{title} · {}subagent",
@@ -770,6 +771,16 @@ mod tests {
         let open = group_text(&items, &mut s);
         assert!(open.contains("What the helper did") && open.contains("**/*") && open.contains("done"), "{open}");
     }
+    #[test]
+    fn an_unnamed_helper_reaches_the_window_as_unnamed() {
+        let mut item=sample_tool("h", "Task", "", false);
+        if let ledger::Item::Tool { detail, .. }=&mut item { detail.helper=true; }
+        // Assert the actual row builder, used by both the open group and helper drawers.
+        if let ledger::Item::Tool {name,summary,status,detail}=&item {
+            assert_eq!(tool_row_label(name,*status,summary,detail,true), "a subagent, unnamed · subagent · reported back");
+        }
+    }
+
     #[test]
     fn completion_patches_reach_the_headless_change_rows() {
         let mut item = sample_tool("t1", "apply_patch", "apply_patch", false);

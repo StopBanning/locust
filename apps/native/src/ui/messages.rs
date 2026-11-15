@@ -2,6 +2,9 @@ use super::*;
 
 pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s: &State) -> El {
     let mut messages = col().w_full().max_w(super::thread_view::THREAD_MAX).gap(24.0).padding(24.0);
+    if let Some(label) = s.ledger.as_ref().and_then(|pane| pane.snapshot.started_label.as_ref()) {
+        messages = messages.child(text(format!("Started {label}")).key("mission-started").font(type_::LABEL).color(p.muted));
+    }
     let markers = s
         .ledger
         .as_ref()
@@ -703,6 +706,32 @@ mod tests {
         });
         s
     }
+    #[test]
+    fn an_ended_threads_start_date_refreshes_without_reopening_its_ledger() {
+        let mut s = composition_state(None, false);
+        let pane = s.ledger.as_mut().unwrap();
+        pane.snapshot.started_at = "2000-01-01T09:15:00Z".into();
+        pane.snapshot.started_label = Some("09:15".into());
+        pane.snapshot.started_label_minute = 0;
+        pane.due = f64::INFINITY;
+        let mut tx = Tx::default();
+        assert!(ledger_tick(&mut s, 0.0, &mut tx));
+        let pane = s.ledger.as_ref().unwrap();
+        assert!(pane.snapshot.started_label.as_ref().unwrap().contains("2000"));
+        assert!(pane.due.is_infinite());
+        assert!(!s.ledger_job.is_pending(), "refreshing the date never rereads the ledger");
+    }
+
+    #[test]
+    fn the_cached_mission_start_label_reaches_the_headless_thread() {
+        let items = [ledger::Item::User("read status.ts".into())];
+        let mut s = composition_state(None, false);
+        s.ledger.as_mut().unwrap().snapshot.started_label = Some("Sep 2, 23:25".into());
+        assert!(thread_text(&items, &mut s).contains("Started Sep 2, 23:25"));
+        s.ledger.as_mut().unwrap().snapshot.started_label = None;
+        assert!(!thread_text(&items, &mut s).contains("Started "));
+    }
+
     #[test]
     fn the_cached_live_line_reaches_the_headless_thread() {
         let items = [ledger::Item::User("read status.ts".into())];

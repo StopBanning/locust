@@ -584,6 +584,7 @@ pub fn strip_file_blocks(text: &str) -> String {
 pub fn shown_text(text: &str) -> String {
     // Memory and tidy blocks were acted on (or proposed) by the host: their words are not the reply (stripMemoryBlocks).
     let s = crate::memory_tidy::strip_memory_blocks(text);
+    let s = crate::peer_share::strip_share_blocks(&s);
     let s = strip_decision_blocks(&s);
     let s = strip_file_blocks(&s);
     let s = strip_next_blocks(&s);

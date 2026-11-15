@@ -82,8 +82,15 @@ pub(super) fn view(
         );
     }
 
+    let unsettled = to_meta.checkpoint_epoch.and_then(|epoch| from_meta?.checkpoint_unsettled.get(&epoch).copied()).unwrap_or(0);
+    let note = if unsettled == 0 {
+        format!("Nothing was in flight, so {to_label} picked up from a clean stop.")
+    } else {
+        format!("{unsettled} action{} had started and never reported back. {to_label} was told to check {} before building on {}.",
+            if unsettled == 1 { "" } else { "s" }, if unsettled == 1 { "it" } else { "them" }, if unsettled == 1 { "it" } else { "them" })
+    };
     body = body.child(
-        text(format!("Nothing was in flight, so {to_label} picked up from a clean stop."))
+        text(note)
             .font(l.ty.body)
             .color(l.c("text-muted"))
             .w_full()
@@ -228,6 +235,8 @@ mod tests {
             model: model.into(),
             created_at: "2026-10-16T14:05:00.000Z".into(),
             parent: None,
+            checkpoint_epoch: None,
+            checkpoint_unsettled: Default::default(),
             check_fix: None,
             side: false,
             cli_version: None,
@@ -242,6 +251,24 @@ mod tests {
             omitted_briefing: vec![],
             left_out_by_you: vec![],
             carried_on_for: None,
+        }
+    }
+
+    #[test]
+    fn a_reopened_handoff_names_the_recorded_uncertain_actions() {
+        for count in [1,2] {
+            let mut from=meta("m1","codex","account-default");
+            from.checkpoint_unsettled.insert(1,count);
+            // A different checkpoint must never replace the selected receipt.
+            from.checkpoint_unsettled.insert(2,9);
+            let mut to=meta("m2","claude","account-default");
+            to.continues_reason=Some("route-switch".into());to.checkpoint_epoch=Some(1);
+            let mut rt=rune::Runtime::new((from,to), |(from,to),_| view(Some(from),to,&Palette::new(true)).unwrap(), (600.0,400.0), rune::Env::new(true,1.0));
+            rt.frame(0.0);
+            let text=rt.elements().into_iter().filter_map(|e|e.text).collect::<Vec<_>>().join("\n");
+            let expected=if count==1 {"1 action had started and never reported back. Claude Code was told to check it before building on it."}else{"2 actions had started and never reported back. Claude Code was told to check them before building on them."};
+            assert!(text.contains(expected),"{text}");
+            assert!(!text.contains("Nothing was in flight"),"{text}");
         }
     }
 

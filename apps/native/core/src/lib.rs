@@ -163,3 +163,33 @@ pub mod conversation_turns;
 pub mod peer_thread;
 
 pub mod signal_rail;
+
+#[cfg(test)]
+mod assistant_text_tests;
+
+#[cfg(test)]
+mod changed_file_tests;
+
+#[cfg(test)]
+mod typed_prompt_tests;
+
+#[cfg(test)]
+mod plan_payload_tests;
+
+#[cfg(test)]
+mod plan_presentation_tests;
+
+#[cfg(test)]
+mod peer_only_reply_tests;
+
+#[cfg(test)]
+mod late_tool_target_tests;
+
+#[cfg(test)]
+mod runtime_helper_tests;
+
+#[cfg(test)]
+mod peer_message_tests;
+
+#[cfg(test)]
+mod runtime_notice_tests;

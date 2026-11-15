@@ -60,3 +60,14 @@ pub fn unreported(item: &Item) -> Option<(&str, bool, bool)> {
 pub fn tool_name<'a>(name: &'a str, target: &str) -> Option<&'a str> { (name != target).then_some(name) }
 #[cfg(test)]
 #[path = "activity_entries_tests.rs"] mod tests;
+
+/// A helper's target is its assignment; a bare launcher is never a file path.
+pub fn helper_description<'a>(tool: &str, target: &'a str) -> &'a str {
+    if !target.is_empty() && target != tool { return target; }
+    match tool.to_lowercase().as_str() {
+        "subagent:wait" | "subagent:wait_agent" => "waiting for a subagent to report",
+        "subagent:send_input" => "a message to a subagent",
+        "subagent:close_agent" | "subagent:close" => "closing a subagent",
+        _ => "a subagent, unnamed",
+    }
+}

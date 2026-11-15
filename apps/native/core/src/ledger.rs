@@ -36,6 +36,9 @@ pub struct Metadata {
     pub model: String,
     pub created_at: String,
     pub parent: Option<String>,
+    /// Display-only projection of checkpoint receipts, populated while folding the ledger.
+    pub checkpoint_epoch: Option<u64>,
+    pub checkpoint_unsettled: BTreeMap<u64, usize>,
     pub check_fix: Option<crate::edit_check::CheckFixStarter>,
     pub side: bool,
     pub cli_version: Option<String>,
@@ -366,6 +369,8 @@ pub fn metadata(record: &Record) -> Option<Metadata> {
             .get("continuesFrom")
             .map(|v| string(v, "missionId"))
             .filter(|id| safe_id(id)),
+        checkpoint_epoch: m["continuesFrom"]["checkpointEpoch"].as_u64(),
+        checkpoint_unsettled: BTreeMap::new(),
         check_fix: m
             .get("startedBy")
             .and_then(crate::edit_check::CheckFixStarter::from_json),
@@ -483,6 +488,14 @@ fn decode(line: &[u8]) -> Option<Record> {
                 payload.remove("reasoning_content");
                 payload.remove("item");
             }
+        }
+        "mission.checkpoint" => {
+            let checkpoint = value.get("checkpoint")?;
+            checkpoint.get("epoch")?.as_u64()?;
+            checkpoint.get("reason")?.as_str()?;
+            checkpoint.get("resumeSafety")?.as_str()?;
+            checkpoint.get("safetyReason")?.as_str()?;
+            checkpoint.get("unsettledActions")?.as_array()?;
         }
         "mission.edit_check" => {
             if version < 17 {
@@ -739,6 +752,11 @@ impl Transcript {
             }
         }
 
+        if let Some(m) = &mut self.metadata {
+            m.checkpoint_unsettled = self.checkpoints.iter().filter_map(|p| {
+                Some((p["epoch"].as_u64()?, p["unsettledActions"].as_array().map_or(0, Vec::len)))
+            }).collect();
+        }
         let mut items = Vec::new();
         if let Some(m) = &self.metadata {
             if let Some(cf) = &m.check_fix {
@@ -1095,6 +1113,14 @@ impl Transcript {
         // Orphaned parentItemId calls stay nowhere (missionView.ts:3281-3282).
         items
             .retain(|item| !matches!(item, Item::Tool { detail, .. } if !detail.parent.is_empty()));
+        // buildThread puts WHAT before HOW, even when the plan arrived after a tool or reply.
+        // Reorder only the projection; keep the person's prompt first and the ledger untouched.
+        if let Some(at) = items.iter().position(|item| matches!(item, Item::Plan { .. })) {
+            let plan = items.remove(at);
+            let before_work = items.iter().position(|item| !matches!(item, Item::User(_)))
+                .unwrap_or(items.len());
+            items.insert(before_work, plan);
+        }
         fn qualify(item: &mut Item, mission: &str, finished: bool) {
             match item {
                 Item::Tool { detail, .. } => {
@@ -1120,6 +1146,19 @@ impl Transcript {
                     *id = format!("{mission}:{id}");
                 }
                 _ => {}
+            }
+        }
+        // Without any work there is no fold to hold the runtime's remarks.
+        // Promote them only once the turn ends; while it runs the live line stands for it.
+        if !self.running && !items.iter().any(|i| matches!(i, Item::Tool { .. } | Item::Thought { .. })) {
+            for e in self.events.values().filter(|e| e["type"] == "adapter.diagnostic") {
+                let code = string(&e["payload"], "code");
+                let text = scrub(&string(&e["payload"], "message"));
+                if code.starts_with("host.") || code.ends_with(".usage_window") || text.is_empty()
+                    || crate::invariants::regex(r"(?i)^(Codex is ignoring \d+ unrecognized configuration settings?\b|Skill descriptions were shortened to fit\b)").is_match(text.trim()) { continue; }
+                if !items.iter().any(|i| matches!(i, Item::Note { text: held, .. } | Item::Limit { text: held, .. } if crate::failure_words::same_sentence(held, &text))) {
+                    items.push(Item::Note { level: string(&e["payload"], "level"), text });
+                }
             }
         }
         let mission = self
@@ -1424,6 +1463,9 @@ struct Reader {
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Snapshot {
+    pub started_label: Option<String>,
+    pub started_at: String,
+    pub started_label_minute: i64,
     pub live: Option<crate::thread_view::LiveLine>,
     pub recovery: Option<crate::recovery::Offer>,
     pub context: Option<crate::context_usage::Reading>,
@@ -1657,6 +1699,12 @@ impl Session {
                 {
                     reader.drained = true;
                 }
+            }
+            if index == 0 {
+                snapshot.started_at = reader.transcript.metadata.as_ref().map(|m| m.created_at.clone()).unwrap_or_default();
+                snapshot.started_label_minute = chrono::Utc::now().timestamp().div_euclid(60);
+                snapshot.started_label = reader.transcript.metadata.as_ref().and_then(|m|
+                    crate::time_marker::started_label(&m.created_at, chrono::Local::now().naive_local()));
             }
             let mut stitched = false;
             if let Some(m) = &reader.transcript.metadata {
@@ -1925,6 +1973,8 @@ mod tests {
             }
         })
     }
+
+    mod reopened_handoff_tests { include!("reopened_handoff_tests.rs"); }
 
     fn synthetic_transcript(rows: Vec<Value>) -> Transcript {
         // Exercise the JSONL boundary, including raw-evidence removal.
@@ -2563,6 +2613,22 @@ mod tests {
             transcript.items.last(),
             Some(Item::Assistant { text, .. }) if text.len() == MAX_ASSISTANT
         ));
+    }
+
+    #[test]
+    fn mission_start_label_is_cached_from_the_original_turn_even_after_a_handoff() {
+        let temp = Temp::new();
+        let mut first = created("m1", "first ask");
+        first["metadata"]["createdAt"] = json!("2025-01-01T09:15:00Z");
+        write(&temp.path("m1"), &[first]);
+        let mut handed = created("m2", "briefing text");
+        handed["metadata"]["createdAt"] = json!("2026-09-02T23:25:00Z");
+        handed["metadata"]["continuesFrom"] = json!({"missionId":"m1","reason":"route-switch"});
+        write(&temp.path("m2"), &[handed]);
+        let snapshot = Session::new(temp.0.clone(), "m2".into()).poll().unwrap();
+        assert_eq!(snapshot.started_label, crate::time_marker::started_label(
+            "2025-01-01T09:15:00Z", chrono::Local::now().naive_local()));
+        assert!(snapshot.started_label.unwrap().contains("2025"));
     }
 
     #[test]

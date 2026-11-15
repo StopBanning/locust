@@ -204,8 +204,9 @@ That incomplete attempt is **not** counted as control evidence. The retry waited
 1,164 seconds, then completed: **1,651 passed, one intended failure, 20 ignored**.
 `peer-open` failed `leaves_a_long_back_and_forth_collapsed` and restored; the other
 twelve controls are pending. The next control, `peer-empty`, is queued behind
-another checkout's full native release suite. The assistant-text section has a
-prepared, unregistered test file; it is not counted as carried or compiled.
+another checkout's full native release suite. No later section is claimed carried.
+The prepared assistant-text file was removed without registering it; the next
+section remains `assistant text` (three cases), then the other sections in file order.
 
 The second control (`peer-empty`) timed out at 1,800 seconds after waiting 1,469
 seconds and compiling for the remainder, without running tests. Its `finally`
@@ -219,3 +220,452 @@ identity/no-change claims (11), ended questions (6), both exchange halves (5),
 exchange reading (7), and signal rail (8). Total: **149 of 264 case ports**,
 **115 remaining**, with exchange/rail controls explicitly incomplete. No new
 Electron-only exemptions. Required release verification follows.
+
+
+## Thread-7 continuation — 14 Nov 2026 (section verification pending)
+
+Committed the inherited notes correction as `8633f4c9`; no handoff file is staged.
+Started exactly one background native release suite as requested, with the
+3,600-second outer timeout and 3,580-second Cargo timeout. `thread-7-native.log`
+records a 701-second shared-lock wait, a warning-free release compilation in
+7m 45s, and this final result:
+
+`test result: FAILED. 396 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 175.95s`
+
+The failure is
+`window_drive_tests::review_changes_shows_a_teammates_branch_turn_by_turn_and_lands_it_as_one_commit`:
+`timed out waiting for the landing, read again: status "Ready"`.
+The test never reached its landing-result assertion. Its cause is not established;
+no review/landing source or test was changed. The new cached start-label renderer
+check passed in that run, but this does not verify the later clock-refresh edit.
+
+Prepared, **uncommitted and not counted as carried**:
+
+- Three individual `assistant text` cases in `core/src/assistant_text_tests.rs`,
+  registered in `lib.rs`, exercising the real ledger's existing append, replace,
+  final flag and per-item ordering with Electron's literals. No assistant fold
+  behavior change is needed. Three whole-core mutation controls are prepared,
+  not executed.
+- Four individual `when a mission says it began` cases in `time_marker.rs`, plus
+  a Session integration check and two headless window checks. A pure local start
+  label preserves today's bare time, older days' date and older years' year.
+  Session polling caches the original mission's timestamp and label even across
+  a handoff; drawing uses the cached string. A minute-clock refresh updates an
+  ended thread's date without reopening its ledger. This follows native's existing
+  24-hour clock and English short-date convention; it does not add locale selection.
+  The date section and later refresh are unverified; no mutation pass is claimed.
+
+The initial assistant-text filtered run, its two retries, and the start-label
+filtered run each exited **124** under `timeout 590` after waiting for the shared
+lock. All four logs contain only the wait message: no compilation or tests ran.
+The later assistant retries use the established opt-level-1/debug-symbols-off
+profile and four test threads, matching the control runner's existing profile.
+They did not get far enough to exercise it.
+
+The parity row remains **partial: 149/264, 115 remaining**. No new exemption.
+Exchange/rail controls remain incomplete at 1/13. Static whitespace and mutation
+original-expression checks pass; these are not Rust compilation evidence.
+Required final release build/workspace results are recorded below when complete.
+No real agent, network request, visible window, Scout edit, branch switch or push.
+
+`python3 scripts/recount.py` completed without changing the tables. The wrapper's
+optional TypeScript reader defaults to another checkout; future checks in this run
+explicitly use this workspace's `apps/native/dist/thread-7-ts-reader/index.js`.
+That ignored local reader was generated from this checkout's `index.ts`,
+`checkpoint.ts`, `fit.ts` and `workroom.ts` using Node 26's `stripTypeScriptTypes`,
+then successfully imported. Node reported its experimental type-stripper warning;
+no dependency install or source outside `apps/native/` was changed.
+
+The required final `build --release` attempt exited **124** after 590 seconds
+waiting for the shared lock (`thread-7-build.log`); it never compiled. No final-form
+release-build pass is claimed. The final static check found all **69** registered
+mutation originals present and no applied mutation; no new control was executed.
+
+The final `test --release --workspace` attempt also exited **124** after 590
+seconds waiting for the shared lock (`thread-7-workspace.log`), without compiling
+or running a test. It used the workspace-local TypeScript reader above, but never
+reached a reader check. There is **no final-form full-core or full-workspace pass**.
+All six bounded filtered/build/workspace attempts ended before Cargo started.
+
+No new section commit or coverage increase is claimed. The seven case ports and
+their supporting source remain uncommitted drafts in this worktree, including the
+clock refresh added after the completed native release run. The evidence notes
+are committed separately. Next: acquire a usable build slot, run the three
+assistant-text cases, check their three whole-core controls, and commit that
+section first; then verify the four start-label cases, the original-turn cache,
+both headless checks and their controls before committing that section. The
+inherited twelve pending exchange/rail controls and a final release workspace
+suite/build still need completion. Do not treat the initial 396/397 native result
+as validation of the later edits.
+
+## Thread-8 continuation — 14 Nov 2026 (core verification blocked)
+
+The inherited assistant-text and start-label drafts remain uncommitted pending
+verification. The start-label today's-time assertion now excludes any four-digit
+year, matching Electron's assertion rather than excluding just 2026. Prepared
+three whole-core start-label controls (day, year, original-turn cache) and two
+headless window controls (display and ended-thread clock refresh). The fixture
+runners use a 590-second outer Cargo bound, with restoration outside that bound.
+
+Continued in file order past already-carried path/tool-name sections with five
+changed-file-count cases (`changed_file_tests.rs`) and four route-switch typed
+prompt cases (`typed_prompt_tests.rs`). Each uses Electron's exact values through
+the existing native projection; no behavior change was needed. Three file-count
+and two typed-prompt controls are prepared. These nine cases are drafts, not
+verified ports. No additional does-not-apply exemptions or Scout edits.
+
+The assistant-text, mission-start, headless-message, changed-file and typed-prompt
+filtered attempts each exited 124 waiting for the shared lock, before Cargo
+started. A combined core retry also exited 124 before compilation. None supplies
+Rust test evidence. `git diff --check`, fixture Python syntax and checks that all
+77 whole-core mutation original expressions are present passed. Recount completed
+without table changes. The parity row stays partial at 149/264, 115 remaining;
+the sixteen prepared Electron cases are not included. The inherited exchange/rail
+control backlog remains incomplete. No source section has been committed yet.
+
+Exactly one background release native suite was started; its final result and the
+remaining verification results are recorded below after completion.
+
+The background release run acquired the shared lock after 1,509 seconds and
+compiled without reported warnings in 8m 38s. Its final summary (exit 101) is:
+
+`test result: FAILED. 397 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 190.43s`
+
+The sole failure is the handoff's owner-managed landing timeout:
+`review_changes_shows_a_teammates_branch_turn_by_turn_and_lands_it_as_one_commit`,
+`timed out waiting for the landing, read again: status "Ready"`. It was left
+untouched and is not attributed to this work. Both final-form headless start-label
+checks passed: cached label display and clock refresh without reopening an ended
+ledger. This run does not execute the core crate's own tests, so it does not verify
+the sixteen core case drafts. The separate core retry timed out as recorded below.
+
+Final verification outcome: the post-release combined core retry also exited 124
+waiting for the shared lock. The `assistant-append` whole-core control's inner
+Cargo attempt exited 124 before compilation; the fixture correctly rejected that
+as evidence (exit 1) and its `finally` restored the ledger and checked the diff.
+No new mutation control completed. The other prepared controls, including the
+two headless controls, were not run; the inherited exchange/rail backlog remains.
+
+After restoration, one final combined core filter, `build --release --offline`,
+and `test --release --offline --workspace` were each attempted under the required
+590-second outer bound. **All three exited 124 before Cargo started**, with only
+the shared-lock wait in their logs (`thread-8-core-final.log`, `thread-8-build.log`,
+`thread-8-workspace.log`). No final full-core/workspace or application release-build
+pass is claimed. The completed native release result above remains the last full
+native suite result; it is not a full workspace result.
+
+Reviewed the source diff and the added fixture/test files. Final checks confirm all
+77 core and both window control originals are present, with no break left applied;
+Python fixture syntax, recount and whitespace checks pass. The notes and parity
+record are committed separately. All sixteen core case drafts and their supporting
+source remain uncommitted and uncounted: **149/264 carried, 115 remaining**. No
+handoff file is committed. Work stayed on `exec/native-thread`, based on `d099883b`,
+under `apps/native/`; no Scout source, version, changelog, push, visible window or
+real-agent run was touched.
+
+Next: obtain a usable build slot, run the seventeen filtered core checks (sixteen
+Electron cases plus original-turn cache), run the restored break controls, and
+commit assistant text, start labels, changed-file counts and typed prompts one
+section at a time. The start-label projection keeps native's existing English
+short-date/24-hour convention and computes clocks outside drawing; the next nine
+cases use existing folds rather than adding parallel implementations. No new
+Electron-only exemption or durable architecture decision was introduced.
+
+
+## Thread-9 continuation — 14 Nov 2026
+
+One long release workspace run (`thread-9.log`, exit 0) acquired the shared lock
+after 762 seconds and compiled in 6m 24s, with no reported warnings. Final results:
+**1,669 core passed, 20 ignored; 398 headless window passed; zero failures; zero doc tests**.
+The owner-managed landing test passed too. All sixteen inherited case drafts, the
+original-turn cache test and both start-label headless checks passed by name.
+
+Committed separately: assistant text (3), mission start labels (4), changed-file
+counts (5), and typed prompts across route switches (4). Coverage is now 165/264,
+99 remaining, still partial. No does-not-apply exemptions. Assistant/file-count/
+prompt cases pin existing native behavior rather than adding another fold.
+Start labels use the existing English short-date and 24-hour convention; the
+original turn's date is cached while polling, and ended threads refresh on the
+minute clock without disk reads while drawing. That is native's implementation
+of Electron's date rule, rather than copying renderer-time parsing.
+
+Prepared and registered eight next-section cases in file order: OpenCode's real
+plan (2), a standalone plan (2), a peer-only answer (2), and completion-time tool
+targets (2). Their existing native paths were inspected against Electron; no
+production behavior change was needed. They are not counted until the second
+combined release run finishes. Six corresponding break controls are prepared.
+The core/window control fixtures now allow the same long shared-lock wait as the
+handoff's workspace run instead of expiring in the queue after 590 seconds.
+Controls are still individual, restore before exit, and reject a timeout or build
+failure as evidence. All earlier control originals were checked before work.
+
+The first run used the requested command verbatim (the wrapper's default external
+TypeScript reader); the second explicitly selects this workspace's existing
+`dist/thread-7-ts-reader/index.js`. No dependency install or reference-folder edit.
+Final second-run, mutation and application-build results follow below.
+
+The second combined release workspace run (`thread-9-next.log`, exit 0) waited
+240 seconds, compiled in 3m 10s without reported warnings, and passed:
+**1,677 core, 20 ignored; 398 headless window; zero failures; zero doc tests**.
+All eight new cases passed by name in their final form. Each of their four
+sections is now committed separately. Coverage is **173/264**, 91 remaining.
+The next section in file order that is not already carried is **a runtime's
+own helper** (2); later peer messages/reopening handoffs and the rest remain.
+No additional does-not-apply exemption and no production change for these eight.
+
+A sequential, individually restored control batch is now running, with a
+one-hour budget checked only BETWEEN controls; it never interrupts a mutation.
+It covers new section controls first, then the inherited exchange-reading/rail
+backlog and the two headless start-label controls if the budget allows.
+
+The `assistant-append` control was attempted first. Its named test and the
+existing delta-semantics test failed, but a later relay test
+(`relay_prose_return_posts_unanswered_prose_back_to_asker`) panicked while the
+mutation was present; cleanup then hit a poisoned relay lock and aborted the
+process (exit 250), so no full-suite result was produced. The fixture rejected
+this incomplete run: **not counted as a completed control**. It restored the
+source, confirmed byte-for-byte by `git diff --exit-code -- core/src src`.
+The relay implementation and tests are outside this change and were left alone.
+The remaining independent controls continue with restoration checked after each.
+
+### Remaining case mapping after thread-9
+
+These 91 cases are not counted as carried. Some share rules with existing native
+tests, but that mapping has not been reviewed and no additional case is claimed.
+No new Electron-only exemption was made. File order is preserved below.
+
+| Remaining section | Cases |
+| --- | ---: |
+| a runtime's own helper | 2 |
+| peer messages in the thread | 2 |
+| reopening a handed-off mission | 4 |
+| the running step | 1 |
+| runtime notices in the thread | 4 |
+| what a model alias resolved to | 3 |
+| whether a finished run can be replied to | 3 |
+| which words a turn shows | 4 |
+| the routes this person has actually run | 2 |
+| marking time in a long conversation | 3 |
+| a run the host started for a teammate | 6 |
+| what the decision card may say about the workspace | 4 |
+| the waiting line’s clock | 2 |
+| the host's disk observation of a path the runtime named | 4 |
+| the model an alias turned out to mean (0.35.2) | 2 |
+| Cursor reports files from inside its own copy of the project | 4 |
+| an earlier turn says it changed nothing too | 2 |
+| where a turn’s steps are drawn (0.491) | 1 |
+| a turn sent with files attached | 4 |
+| what a command printed | 5 |
+| a shell row and its output | 3 |
+| everything a teammate said in one turn | 4 |
+| a plan does not claim nothing changed when something did | 2 |
+| the group still growing at the end of a running turn (0.584) | 2 |
+| a group the run has moved past (0.594) | 2 |
+| a lone thought on its step line (0.594) | 1 |
+| Cursor's scratch files (0.594) | 1 |
+| a turn with no work still says what the runtime said (0.586) | 4 |
+| the text a file row shows for a path (0.596) | 3 |
+| a named file the host saw change but could not read (0.597) | 1 |
+| the live line while nothing has arrived (0.602) | 2 |
+| a Codex run, said as words | 1 |
+| a tool the app has words for, as a row (0.610) | 1 |
+| Locust’s git tool and OpenCode’s failed tool call, in words (0.818) | 2 |
+
+### Completed control batch
+
+Ten controls completed against the WHOLE core suite, each with its named assertion
+failing, exit 101 and a final suite summary, followed by exact source restoration:
+`assistant-replace`, `assistant-order`, `start-day`, `start-year`, `start-cache`,
+`changed-count`, `changed-refused`, `changed-patch`, `typed-marker`, `typed-prior`.
+Every restoration passed `git diff --exit-code -- core/src src` against the
+committed positive baseline. `assistant-append` remains rejected as described above.
+
+The budget expired between controls. Twenty were NOT run: `plan-content`,
+`plan-state`, `plan-own`, `peer-only-reply`, `late-target`, `late-keep`, `peer-empty`,
+`peer-flat`, `peer-snippet`, `rail-tool`, `rail-words`, `rail-order`, `rail-live`,
+`rail-tone`, `rail-plan`, `rail-once`, `rail-helper`, `rail-cache`, and window
+`draw`/`refresh`. The inherited exchange/rail backlog therefore stays 1/13.
+Together with the rejected append run, 21 requested control verifications remain.
+No incomplete run is counted as a successful control.
+
+### Late-arriving plan ordering
+
+Further review found an ordering gap not covered by the carried literals: native
+kept a plan at its first arrival, while Electron's `buildThread` projects the plan
+before the work and replies even if it arrived later. The earlier "no behavior
+change needed" statement describes the eight exact case inputs only; it does not
+hold for the function's full ordering rule. Added a separate native regression
+check, `a_late_arriving_plan_precedes_the_turns_work_and_reply`, not an additional
+Electron case and not added to the 173 count. Its pre-fix whole-core result and
+the corrected projection's final release verification are recorded below.
+
+The pre-fix whole-core ordering run (`thread-9-plan-order-red.log`) waited 256
+seconds, compiled in 38.45s, then finished with exit 101: **1,677 passed, one
+failed, 20 ignored**. The ONLY failure was the new named ordering check. This
+establishes the missing behavior without accepting a launcher error or abort.
+
+The fix moves the folded plan before the turn's other content, after any leading
+person prompt, before qualification and drawing. It does not reorder or rewrite
+events, timestamps or tool receipts, and performs no disk access. The rest of
+the items keep their relative order. This deliberately follows the full
+`buildThread` rule instead of reproducing native's arrival-order accident.
+Final release suite/build results follow.
+
+The final-form release workspace run (`thread-9-final-workspace.log`, exit 0)
+waited 152 seconds, compiled in 1m 46s without reported warnings, and passed:
+**1,678 core, 20 ignored; 398 headless window; zero failures; zero doc tests**.
+The new ordering check passed by name; the prior whole-core run failed ONLY
+that check before the fix. All carried case ports remained green. The extra
+regression check is native integration coverage, not a 265th Electron case.
+The projection fix and its check are committed as `135c9da6`.
+
+### Source commits in this run
+
+- `deccc368`: Carry the assistant text stream cases into native
+- `d6bff282`: Show a cached mission start date in the native thread
+- `34e41680`: Carry the changed file count cases into native
+- `239e7d70`: Carry typed prompt cases across native route switches
+- `8357e475`: Carry OpenCode plan payload cases into native
+- `17462569`: Carry standalone plan cases into native
+- `d14aa3cc`: Carry peer-only reply cases into native
+- `70dfd755`: Carry completion-time tool target cases into native
+- `135c9da6`: Put late-arriving plans before the native turns work
+
+### Final release build and scope
+
+The separate production `build --release --offline` (`thread-9-final-build.log`,
+exit 0) waited 102 seconds and compiled in 1m 11s under the original 590-second
+outer bound. **No warnings.** It ran after the final-form workspace suite, not
+as a substitute for it. The final driver (`thread-9-final.log`) reports both
+workspace and build exit 0.
+
+`python3 scripts/recount.py` and `--check` passed; generated tables are unchanged
+because missionView remains partial. `git diff --check` passed. Both fixture
+scripts parse; all 83 core and both window control originals are present. After
+the intentional ordering fix was committed, `git diff --exit-code -- core/src src`
+confirmed no uncommitted runtime change or mutation remained.
+
+Final scope: `exec/native-thread`, based on `e8a66f2a`; 24 additional Electron
+case ports (173/264 total), plus original-turn cache, two headless start-label
+checks and the late-plan ordering check. All source sections committed separately.
+No new does-not-apply exemption. Native choices: use the existing ledger folds
+instead of duplicating renderer plumbing, cache local clock words outside drawing,
+and project the plan ahead of the work without rewriting evidence.
+
+Still incomplete: the rejected append control and twenty unrun controls listed
+above (including the inherited 12 exchange/rail controls); 91 Electron cases
+listed in file order above. No real agent or paid turn, visible window, packaged
+UI, other-platform run, push, version/changelog edit, Scout source edit, handoff
+file commit, or reference-folder change. The only TypeScript-reader exception
+was the handoff's verbatim first command; both subsequent full release runs used
+this workspace's existing ignored reader, and no external source was edited.
+
+## Thread-10 continuation — 14 Nov 2026
+
+Scope: `exec/native-thread`, starting at `51da3024`. The starting tracked diff
+was empty; the owner's untracked handoff files are excluded from every commit.
+Only `apps/native/` changes; no Scout, release, dependency or credential work.
+
+All six prepared controls completed, one at a time against the whole core
+suite, each requiring its named assertion failure, exit 101 and a final suite
+summary: `plan-content` (1,674 passed / 4 failed), `plan-state` (1,673 / 5),
+`plan-own` (1,675 / 3), `peer-only-reply` (1,677 / 1), `late-target` (1,671 / 7),
+`late-keep` (1,676 / 2). Each had 20 ignored. Each restored its source and was
+followed by `git diff --exit-code -- core/src src`; the final diff was empty.
+No timeout, compiler failure or aborted suite was accepted as evidence.
+
+The first release workspace run (`thread-10-helpers.log`, exit 0) passed
+1,680 core (20 ignored), 398 window, zero doc tests, without warnings. Both
+helper case ports passed by name. The second (`thread-10-next.log`, exit 101)
+finished the core suite: 1,686 passed, one failed, 20 ignored. The new reopened
+handoff count test alone failed (expected 1, got 0); no window suite ran.
+The JSONL decoder had no checkpoint-record branch, so real reopened receipts
+never reached the existing checkpoint fold. The test's checkpoint fixture also
+needed the ledger's schemaVersion. Both boundaries are corrected for the next
+run. No pass is claimed for that test on the second run.
+
+Prepared in file order: a runtime's own helper (2), peer messages in the thread
+(2), reopening a handed-off mission (4), the running step (1), runtime notices
+in the thread (4). Final baseline, controls, commits and counts follow below;
+these drafts are not counted until their final-form named results are observed.
+
+Implementation choices: reuse the native ledger fold and existing peer-card
+projection, not Electron's renderer containers. Helper assignment words come
+from one core function used by the actual row builder. Reply display uses the
+existing share parser so a share is not repeated as unlabelled prose. Checkpoint
+counts are projected while polling and carried on metadata; neither the seam
+builder nor drawing accesses the disk. The running-step register already carries
+thought versus action, so no redundant step enum was added. A finished turn with
+no work promotes its runtime notices to readable rows; a provider retry says
+"Trying the model again" rather than pretending the run is still starting.
+
+The corrected release workspace run (`thread-10-all.log`, exit 0) passed
+**1,691 core, 20 ignored; 400 headless window; zero failures; zero doc tests**,
+with no warnings. All 13 new case ports passed by name, as did the extra helper
+row-label and uncertain-handoff headless checks. Coverage is now **186/264**,
+78 remaining, still partial. No does-not-apply exemptions. The five sections
+above are carried; the remaining-case table from thread-9 still applies after
+removing its first five rows. Next in file order: **what a model alias resolved
+to** (3).
+
+Specific behavior checks: `a_helper_the_runtime_never_named_is_said_to_be_unnamed_not_drawn_as_a_path`
+pins the helper fallback used by the row; `hides_a_share_block_from_the_agent_bubble_keeping_the_prose`
+pins the window's reply display function; `rebuilds_the_divider_from_the_route_switch_checkpoint_it_resumed_from`
+reads real JSONL through Session, pinning decoding, receipt projection and seam
+lookup together; `a_reopened_handoff_names_the_recorded_uncertain_actions`
+checks the actual headless divider and a second, unselected checkpoint;
+`says_a_notice_raised_before_any_work_once_the_turn_ends_with_no_fold_to_put_it_under`
+pins ended-versus-running notice visibility; `shows_a_rate_limited_opencode_run_retrying_before_anything_has_run`
+pins the runtime's retry message and live-line label/register. The running-step
+case pins the already-existing label/register mapping, not new plumbing.
+
+### New controls completed
+
+All ten new core controls completed against the WHOLE core suite, each with the
+named assertion failed, exit 101 and a final summary: `helper-unnamed`,
+`helper-kind`, `peer-hide`, `peer-sort`, `handoff-checkpoint`, `handoff-fold`,
+`handoff-decode`, `step-kind`, `notice-ended`, `notice-retry`. Nine finished with
+1,690 passed / one failed / 20 ignored; `step-kind` also broke an existing
+register check (1,689 passed / two failed / 20 ignored). Both window controls,
+`helper-row` and `handoff-row`, completed with their named headless assertion
+failing (one failed, 399 filtered). No timeout or build failure was accepted.
+After each control the fixture wrote `git diff`; the batch compared SHA-256
+hashes of EVERY Rust source file against the positive baseline. All matched.
+No mutation remains. There were no surviving breaks needing an extra test.
+
+### Section commits
+
+- `dbcd37db`: runtime helper rows (2 case ports, extra row check, core and window controls).
+- `59288ebf`: peer messages (2 case ports and controls).
+- `ccca3ffd`: reopened handoffs (4 case ports, extra headless divider check and controls).
+- `03d8ef4b`: running step (1 case port and control).
+- `76c4ab07`: runtime notices (4 case ports and controls).
+
+The parity row remains partial at 186/264. `recount.py` and `--check` passed;
+the generated tables do not change for this partial row. Final restored release
+suite/build results follow. The inherited backlog is still 15 verifications:
+the rejected `assistant-append`, 12 exchange-reading/rail controls, and the two
+older start-label controls (`draw`, `refresh`). The six prepared controls have
+been cleared, not silently dropped. No real agent, visible window, packaged UI,
+other-platform run, root TypeScript gate, network, release or push was performed.
+
+### Final restored release verification
+
+`thread-10-final-workspace.log` completed with exit 0 after all controls were
+restored and all five source sections were committed: **1,691 core passed,
+20 ignored; 400 headless window passed; zero failures; zero doc tests**.
+All 13 final-form case ports and the two additional row checks were found by
+name with `... ok` in this final log. No warnings or compiler errors.
+
+The separate production `build --release --offline`, under the 590-second
+outer bound through gentle-cargo (`thread-10-final-build.log`), completed with
+exit 0 in 1m 05s, without warnings. No source changed between these runs or
+after them. Final `recount.py --check`, fixture syntax/original checks, and
+`git diff --check` passed. The tracked tree is clean after this notes commit;
+the existing untracked handoff files remain untouched and uncommitted.
+
+Final scope: 13 more Electron cases, 186/264 total, no does-not-apply additions.
+**78 cases remain**, starting with the three model-alias cases. The 15 inherited
+control verifications listed above also remain. The root TypeScript gate,
+real agents, a visible window, packaging and other platforms were not run.
+This is verified incremental parity, not completion of all missionView cases.

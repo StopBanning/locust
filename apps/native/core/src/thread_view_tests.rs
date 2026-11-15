@@ -376,3 +376,12 @@ fn a_note_that_is_not_an_error_does_not_count_as_the_failure_already_shown() {
     let error = vec![Item::Note { level: "error".into(), text: said.into() }];
     assert!(error_already_shown(&error, said));
 }
+
+#[test]
+fn carries_the_step_kind_so_thought_and_action_draw_differently() {
+    // Native draws the meaning directly from the register rather than carrying a second enum.
+    let thinking=live(&[event("step.started",json!({"stepKind":"reasoning"}))],true,false).unwrap();
+    let acting=live(&[event("step.started",json!({"stepKind":"turn"}))],true,false).unwrap();
+    assert_eq!((thinking.label.as_str(),thinking.register.as_str()),("Thinking","thinking"));
+    assert_eq!((acting.label.as_str(),acting.register.as_str()),("Working","working"));
+}
