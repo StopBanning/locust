@@ -175,3 +175,6 @@ mod peer_only_reply_tests;
 
 #[cfg(test)]
 mod late_tool_target_tests;
+
+#[cfg(test)]
+mod runtime_helper_tests;

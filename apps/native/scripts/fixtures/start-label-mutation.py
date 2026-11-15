@@ -5,6 +5,7 @@ import pathlib
 import subprocess
 import sys
 controls = {
+    'helper-row': ('src/ui/activity_drawers.rs', 'locust_core::activity_entries::helper_description(name, title)', 'title', 'an_unnamed_helper_reaches_the_window_as_unnamed'),
     'draw': ('src/ui/messages.rs', 'text(format!("Started {label}"))', 'text(format!("Began {label}"))', 'the_cached_mission_start_label_reaches_the_headless_thread'),
     'refresh': ('src/main.rs', 'pane.snapshot.started_label_minute != minute', 'pane.snapshot.started_label_minute == minute', 'an_ended_threads_start_date_refreshes_without_reopening_its_ledger'),
 }

@@ -2,6 +2,8 @@
 """One restored source mutation against the entire core suite. Run from apps/native."""
 import os, pathlib, subprocess, sys
 controls = {
+    'helper-unnamed': ('core/src/activity_entries.rs', '_ => "a subagent, unnamed",', '_ => "Task",', 'a_helper_the_runtime_never_named_is_said_to_be_unnamed_not_drawn_as_a_path'),
+    'helper-kind': ('core/src/ledger.rs', '"task" | "agent" | "subagent" | "spawn_agent"', '"agent" | "subagent" | "spawn_agent"', 'is_its_own_row_what_it_was_asked_and_whether_it_reported_back'),
     'plan-content': ('core/src/ledger.rs', '["step", "text", "title", "name", "content"]', '["step", "text", "title", "name", "missing-content"]', 'reads_the_steps_their_words_and_their_states'),
     'plan-state': ('core/src/ledger.rs', 'status.contains("complete") || status == "done"', 'false', 'reads_the_steps_their_words_and_their_states'),
     'plan-own': ('core/src/ledger.rs', 'steps: read_plan(&p["plan"]),', 'steps: Vec::new(),', 'stands_on_its_own_even_when_the_run_also_did_something'),
