@@ -10,6 +10,24 @@ import subprocess
 import sys
 
 CONTROLS = {
+    "long-root": (
+        "src/ui/sidebar.rs",
+        "if !by_id.contains_key(parent) || !seen.insert(parent) {",
+        "if seen.len() > 32 || !by_id.contains_key(parent) || !seen.insert(parent) {",
+        "finds_the_real_root_36_turns_back",
+    ),
+    "streaming-file": (
+        "src/ui/messages.rs",
+        "let files = if finished {",
+        "let files = if true {",
+        "waits_for_the_message_to_finish_before_drawing_a_button",
+    ),
+    "tag-context": (
+        "core/src/conversation_turns.rs",
+        'prompt.split_once("\\n\\n(You were tagged in ").map_or(prompt, |(words, _)| words)',
+        'prompt',
+        "a_tagged_conversation_is_titled_by_the_message",
+    ),
     "anonymous-title": (
         "src/ui/decision_card.rs",
         'None => "A decision is needed to continue".into(),',

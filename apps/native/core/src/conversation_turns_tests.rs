@@ -11,3 +11,11 @@ fn switched()->HashMap<String,Metadata>{let mut a=turn("s1","Remember the word m
 #[test]fn walks_a_reply_sent_to_another_runtime_back_to_the_turns_before_it_and_marks_the_seam(){let by=switched();let turns=conversation_turns(&by["s2"],&by);assert_eq!(ids(&by["s2"],&by),["s1","s2"]);assert_eq!(turns[0].switched_from,None);let seam=Switch{from:"codex".into(),to:"opencode".into(),unsettled_count:0,omitted_briefing:vec![]};assert_eq!(turns[1].switched_from,Some(seam.clone()));assert_eq!(switch_of(&by["s2"],&by),Some(seam));assert_eq!(typed_prompt(&by["s2"],&by),"What was the word?");assert_eq!(stitched_handoff(&by["s2"],&by),None);}
 #[test]fn keeps_the_seam_on_the_switched_turn_once_the_conversation_moves_on(){let by=switched();let turns=conversation_turns(&by["s3"],&by);assert_eq!(ids(&by["s3"],&by),["s1","s2","s3"]);assert_eq!(turns.iter().map(|t|t.switched_from.as_ref().map(|s|s.to.as_str())).collect::<Vec<_>>(),[None,Some("opencode"),None]);}
 #[test]fn keeps_the_turns_before_a_running_mission_that_was_handed_over(){let mut by=ordinary();let handed=turn("m5","briefing text",Some(("m2","route-switch")));by.insert("m5".into(),handed.clone());assert_eq!(ids(&handed,&by),["m1","m5"]);assert!(stitched_handoff(&handed,&by).is_some());assert_eq!(switch_of(&handed,&by),None);}
+
+// a-tagged-conversation-shows-the-message.test.ts
+#[test]
+fn a_tagged_conversation_is_titled_by_the_message() {
+    let m = Metadata { prompt: "Can you double-check the tax rate?\n\n(You were tagged in Wren's conversation. Wren's latest answer there, for context:)\n\nI changed TAX_RATE.".into(), ..Default::default() };
+    assert_eq!(typed_prompt(&m, &HashMap::new()), "Can you double-check the tax rate?");
+    assert_eq!(crate::relay_title::typed_prompt(&m, &HashMap::new(), &HashMap::new()), "Can you double-check the tax rate?");
+}

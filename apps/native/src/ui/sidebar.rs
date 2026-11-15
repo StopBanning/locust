@@ -1297,6 +1297,66 @@ fn footer(l: &crate::look::controls::Look) -> El {
 #[cfg(test)]
 mod review_tests {
     use super::*;
+    // a-long-conversation-is-still-one-conversation.test.ts, exact chain values.
+    fn long_chain(length: usize) -> State {
+        let mut s = State::default();
+        for index in 0..length {
+            let id = format!("mission_{index:03}");
+            let prompt = if index == 0 { "look into locust for me".into() } else { format!("turn {index}") };
+            let at = format!("2026-09-21T00:{index:02}:00.000Z");
+            s.recent.push(ConversationRow { id: id.clone(), title: prompt.clone(), teammate: String::new(), started_by: "native".into(), state: "completed".into(), updated: at.clone() });
+            s.ledger_summaries.insert(id.clone(), ledger::Summary {
+                mission_id: id, title: prompt.clone(), words: prompt, runtime: "antigravity".into(),
+                parent: (index > 0).then(|| format!("mission_{:03}", index - 1)),
+                created_at: at.clone(), updated: at, ..Default::default()
+            });
+        }
+        s
+    }
+    #[test]
+    fn finds_the_real_root_36_turns_back() {
+        // Each prefix puts that turn at the tip, just as rootMission does for every turn.
+        for length in 1..=36 {
+            let rows = recent_as_missions(&long_chain(length));
+            assert!(!rows.is_empty(), "length {length}");
+            assert!(rows.iter().all(|r| r.root_id.as_deref() == Some("mission_000")), "length {length}: {rows:?}");
+        }
+    }
+    #[test]
+    fn collapses_every_turn_of_it_into_one_sidebar_row() {
+        let rows = recent_as_missions(&long_chain(36));
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].member_ids.len(), 36);
+        assert_eq!(rows[0].title, "look into locust for me");
+    }
+    #[test]
+    fn does_not_care_how_long_the_conversation_gets() {
+        for length in [33, 65, 200] {
+            let rows = recent_as_missions(&long_chain(length));
+            assert_eq!(rows.len(), 1, "length {length}");
+            assert_eq!(rows[0].root_id.as_deref(), Some("mission_000"));
+        }
+    }
+    #[test]
+    fn still_stops_on_a_cycle_rather_than_spinning() {
+        let mut s = long_chain(2);
+        s.ledger_summaries.get_mut("mission_000").unwrap().parent = Some("mission_001".into());
+        let rows = recent_as_missions(&s);
+        assert!(!rows.is_empty());
+        assert!(rows.iter().all(|r| matches!(r.root_id.as_deref(), Some("mission_000" | "mission_001"))));
+        let by = s.ledger_summaries.iter().map(|(id, m)| (id.clone(), ledger::Metadata { mission_id: id.clone(), prompt: m.words.clone(), parent: m.parent.clone(), continues_reason: Some("follow-up".into()), ..Default::default() })).collect::<HashMap<_,_>>();
+        assert_eq!(locust_core::conversation_turns::typed_prompt(&by["mission_001"], &by), "turn 1");
+    }
+    #[test]
+    fn stops_at_a_turn_that_is_missing_rather_than_guessing_past_it() {
+        let mut s = long_chain(10);
+        s.recent.drain(..4);
+        s.ledger_summaries.retain(|id, _| id.as_str() >= "mission_004");
+        let rows = recent_as_missions(&s);
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].root_id.as_deref(), Some("mission_004"));
+    }
+
     fn chain() -> State {
         let mut s = State::default();
         s.demo = true;

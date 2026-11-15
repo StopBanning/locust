@@ -11,16 +11,25 @@ pub fn stitched_handoff(m:&Metadata,by_id:&HashMap<String,Metadata>)->Option<Swi
 pub fn typed_prompt<'a>(m: &'a Metadata, by_id: &'a HashMap<String, Metadata>) -> &'a str {
     prompt_source(m, by_id, |_| false).1
 }
+/// The tag context is host briefing, never words the person typed.
+pub fn tagged_words(prompt: &str) -> &str {
+    prompt.split_once("\n\n(You were tagged in ").map_or(prompt, |(words, _)| words)
+}
+pub fn shown_prompt(m: &Metadata) -> &str {
+    if m.started_by_kind.is_none() || m.started_by_kind.as_deref() == Some("tag") {
+        tagged_words(&m.prompt)
+    } else { &m.prompt }
+}
 /// The title projection can stop on a relay with a retained received message.
 /// Keep ancestry, cycle protection and handoff parsing in one walk.
 pub(crate) fn prompt_source<'a>(m: &'a Metadata, by_id: &'a HashMap<String, Metadata>, stop: impl Fn(&Metadata) -> bool) -> (&'a Metadata, &'a str) {
     let mut current = m;
     let mut seen = HashSet::from([m.mission_id.as_str()]);
     loop {
-        if stop(current) || current.continues_reason.as_deref() != Some("route-switch") { return (current, &current.prompt); }
+        if stop(current) || current.continues_reason.as_deref() != Some("route-switch") { return (current, shown_prompt(current)); }
         if let Some(asked) = handoff_instruction(&current.prompt) { return (current, asked); }
-        let Some(prior) = current.parent.as_ref().and_then(|id| by_id.get(id)) else { return (current, &current.prompt); };
-        if !seen.insert(prior.mission_id.as_str()) { return (current, &current.prompt); }
+        let Some(prior) = current.parent.as_ref().and_then(|id| by_id.get(id)) else { return (current, shown_prompt(current)); };
+        if !seen.insert(prior.mission_id.as_str()) { return (current, shown_prompt(current)); }
         current = prior;
     }
 }

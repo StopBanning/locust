@@ -193,6 +193,8 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                     .is_some_and(|m| !locust_core::thread_view::person_prompt(m.started_by_kind.as_deref())) { continue; }
                 let hit = s.prompt_rail.hit_key.as_deref() == Some(key.as_str());
                 // Notes on a diff came as one block after the person's words: the bubble shows the words, the notes go under it.
+                let kind = s.ledger.as_ref().and_then(|p| p.snapshot.turn_metas.get(ui)).and_then(|m| m.started_by_kind.as_deref());
+                let body = if kind.is_none() { locust_core::conversation_turns::tagged_words(body) } else { body };
                 let (own_words, sent_notes) = locust_core::diff_notes::split_diff_notes(body);
                 let edit = crate::edit_message::edit_control(s, ui, &own_words, !sent_notes.is_empty(), p);
                 let turn_edited: Option<&[locust_core::changes::File]> = s.ledger.as_ref().and_then(|pane| {
@@ -670,6 +672,72 @@ mod tests {
             .join("\n");
         *s = rt.state.0;
         out
+    }
+
+    #[test]
+    fn draws_the_tagged_message_as_the_bubble_without_the_context_after_it() {
+        let prompt = "Can you double-check the tax rate?\n\n(You were tagged in Wren's conversation. Wren's latest answer there, for context:)\n\nI changed TAX_RATE.";
+        let shown = thread_text(&[ledger::Item::User(prompt.into())], &mut composition_state(None, false));
+        assert!(shown.contains("Can you double-check the tax rate?"), "{shown}");
+        assert!(!shown.contains("You were tagged") && !shown.contains("TAX_RATE"), "{shown}");
+        let shown = thread_text(&[ledger::Item::User("Can you double-check the tax rate?".into())], &mut composition_state(Some("tag"), false));
+        assert!(shown.contains("Can you double-check the tax rate?"), "{shown}");
+    }
+
+    // a-teammate-can-hand-you-a-file.test.ts: one native test per Electron case.
+    const HANDED_REPLY: &str = "Here is the rollup.\n\n<locust-file>\ndocs/report.md :: the rollup you asked for\n</locust-file>";
+    fn handed_reply(text: &str, final_: bool, running: bool) -> (String, usize) {
+        let event = serde_json::json!({"id":"e-msg1", "runId":"r", "missionId":"m", "sequence":1,
+            "occurredAt":"2026-09-19T10:00:00.000Z", "sourceAdapter":"opencode", "type":"message.delta",
+            "payload":{"itemId":"msg1", "operation":"replace", "text":text, "final":final_}});
+        let mut transcript = ledger::Transcript::default();
+        transcript.apply(vec![serde_json::json!({"recordType":"mission.event", "event":event})]);
+        let mut rt = rune::Runtime::new(
+            (composition_state(None, running), transcript.items),
+            |(s, items), _| message_column(items, "Codec", &Palette::new(true), s),
+            (800.0, 800.0), rune::Env::new(true, 1.0),
+        );
+        rt.frame(0.0);
+        let elements = rt.elements();
+        let files = elements.iter().filter(|e| e.key.as_deref().is_some_and(|k| k.starts_with("handed-file-") && !k.starts_with("handed-file-copy-") && !k.starts_with("handed-file-save-"))).count();
+        let text = elements.into_iter().filter_map(|e| e.text).collect::<Vec<_>>().join("\n");
+        (text, files)
+    }
+    #[test]
+    fn draws_the_file_as_its_own_item_with_the_path_and_the_note() {
+        let (shown, files) = handed_reply(HANDED_REPLY, true, false);
+        assert_eq!(files, 1);
+        assert!(shown.contains("docs/report.md"), "{shown}");
+        assert!(shown.contains("the rollup you asked for"), "{shown}");
+    }
+    #[test]
+    fn shows_the_person_the_answer_and_not_the_protocol() {
+        let (shown, files) = handed_reply(HANDED_REPLY, true, false);
+        assert_eq!(files, 1);
+        assert!(shown.contains("Here is the rollup."), "{shown}");
+        assert!(!shown.contains("locust-file"), "{shown}");
+    }
+    #[test]
+    fn still_draws_the_file_when_the_block_was_the_whole_reply() {
+        let (shown, files) = handed_reply("<locust-file>\ndocs/report.md\n</locust-file>", true, false);
+        assert_eq!(files, 1);
+        assert!(shown.contains("docs/report.md"), "{shown}");
+        assert!(!shown.contains("locust-file"), "{shown}");
+        assert!(!shown.contains("Here is the rollup."));
+    }
+    #[test]
+    fn waits_for_the_message_to_finish_before_drawing_a_button() {
+        let (shown, files) = handed_reply(HANDED_REPLY, false, true);
+        assert_eq!(files, 0);
+        assert!(!shown.contains("docs/report.md"), "{shown}");
+        assert!(!shown.contains("the rollup you asked for"), "{shown}");
+    }
+    #[test]
+    fn leaves_an_ordinary_reply_with_no_file_item() {
+        let (shown, files) = handed_reply("I wrote docs/report.md for you.", true, false);
+        assert_eq!(files, 0);
+        assert!(shown.contains("I wrote docs/report.md for you."), "{shown}");
+        assert!(!shown.contains("Save a copy"), "{shown}");
     }
 
     #[test]

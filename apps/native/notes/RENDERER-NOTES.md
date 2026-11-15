@@ -1,4 +1,4 @@
-# Renderer test port — round 1
+# Renderer test port — rounds 1 and 2
 
 Branch: `exec/native-thread`. Started 2026-11-15 from a clean tracked tree.
 The requested scope is the waiting renderer files containing `team` (first), then
@@ -104,3 +104,96 @@ remaining **25 teammate files and 17 additional conversation files** are still
 waiting; next is `a-page-a-teammate-made-runs-in-its-turn.test.tsx`. Its inline
 new-page preview behaviour is applicable and is not marked does-not-apply.
 No work on those remaining files is claimed complete.
+
+## Round 2 — handed files (section 1)
+
+- `a-teammate-can-hand-you-a-file.test.ts`: all five cases carried separately
+  in `messages::tests`, using Electron's reply, date, item and path values.
+  The native tests apply a message event to the ledger and draw the real headless
+  thread, including streaming and block-only replies. Existing native behavior
+  sufficed; no production change in this section.
+- Named mapping: `draws_the_file_as_its_own_item_with_the_path_and_the_note`,
+  `shows_the_person_the_answer_and_not_the_protocol`,
+  `still_draws_the_file_when_the_block_was_the_whole_reply`,
+  `waits_for_the_message_to_finish_before_drawing_a_button`,
+  `leaves_an_ordinary_reply_with_no_file_item`.
+- `renderer-2-files-workspace.log`: full release workspace passed; all five
+  observed passing by name. Uses the same serial, optional-lock and in-workspace
+  TypeScript-reader configuration as round 1. Mutation verification follows.
+- Deferred, still waiting: new-page-in-turn needs inline new-file preview wiring
+  (native currently offers a separate comparison preview); pet sheet animation
+  needs reconciling with native's buddy rig. These are applicable product behavior,
+  not Electron-only exclusions. Other unported files remain waiting. Per the
+  round-2 instruction to prefer small files, continue with smaller applicable cases.
+
+## Round 2 — tagged message and long conversation (section 2, carried)
+
+- `a-tagged-conversation-shows-the-message.test.ts`: title case in
+  `conversation_turns::tests::a_tagged_conversation_is_titled_by_the_message`;
+  bubble case in `messages::tests::draws_the_tagged_message_as_the_bubble_without_the_context_after_it`.
+  Both use `Can you double-check the tax rate?`, Wren and `I changed TAX_RATE.`.
+  Native now cuts the tag context for ordinary prompt bubbles and ordinary/tag
+  prompt title projection. Other starter kinds retain their own briefing rules.
+- `a-long-conversation-is-still-one-conversation.test.ts`: five separate cases
+  in `sidebar::review_tests`: `finds_the_real_root_36_turns_back`,
+  `collapses_every_turn_of_it_into_one_sidebar_row`,
+  `does_not_care_how_long_the_conversation_gets`,
+  `still_stops_on_a_cycle_rather_than_spinning`, and
+  `stops_at_a_turn_that_is_missing_rather_than_guessing_past_it`.
+  Uses mission_000 ids, Antigravity, Electron's dates and prompts, 36/33/65/200
+  lengths and the missing mission_004 ancestor. Tests native's real sidebar
+  grouping rather than reconstructing Electron's intermediate row map.
+- All seven tests observed passing by name in `renderer-control-streaming-file.log`.
+  That full run passed 2063 core tests (20 ignored) and failed only the deliberately
+  broken streaming-file case in the window suite. The control caught that named
+  assertion and restored messages.rs byte for byte. Restored verification follows.
+- No exclusions. Both rows are carried after these named passes.
+
+### Round 2 controls and continuation
+
+- Streaming-file control: caught exactly
+  `messages::tests::waits_for_the_message_to_finish_before_drawing_a_button`;
+  2063 core passed, 458 window passed, one intentional window failure, 20 ignored.
+  Source restored. Log: `renderer-control-streaming-file.log`.
+- Tag-context control: caught the named title regression and its bubble regression;
+  source restored. Log: `renderer-control-tag-context.log`. Final counts below.
+- Strengthened the handed-file tests to count the actual keyed file controls,
+  independently of prose mentioning the path. This closes a weak negative assertion
+  for an ordinary reply; final verification below applies to these assertions too.
+- `two-teammates-look-at-each-other.test.ts` remains waiting: core has
+  `glances_among`, but the real screen does not call it. Testing the unused helper
+  alone would not establish the product behavior. No does-not-apply classification.
+- This round carries 3 additional files (12 cases); combined with round 1,
+  **6 of 45** requested files are carried and **39 remain waiting**.
+  The continuation is still the waiting teammate list before conversation-only
+  files, starting with the applicable new-page preview. No other file is claimed
+  carried. No handoff file was changed or committed.
+- Tag control totals: 2062 core passed + one intentional title failure,
+  458 window passed + one intentional bubble failure, 20 ignored. No other failure.
+- First long-root control attempt was rejected by the control runner: a compile
+  error in the strengthened test helper (capturing closure where Rune requires a
+  function pointer), not a caught mutation. Fixed by carrying transcript items
+  in the runtime's tuple state, as the existing headless helper does; rerun below.
+- Long-root control: adding the old 32-hop cap failed the named
+  `finds_the_real_root_36_turns_back` assertion and two other chain cases;
+  sidebar.rs restored byte for byte. The run also exposed three helper-count
+  failures: the `handed-file-` prefix included its Copy and Save controls too.
+  The helper now excludes those auxiliary controls. This mixed run is not a
+  green baseline; the subsequent restored run verifies the correction.
+
+
+## Round 2 final restored verification
+
+- `notes/renderer-2-restored-workspace.log`: exit 0; **2063 core + 459 window =
+  2522 passed**, **20 ignored** real-agent cases; doc tests 0. All twelve new
+  cases observed by name, with the final file-control counts. No mutation remains.
+- `scripts/recount.py` and `scripts/recount.py --check` passed: **183 carried,
+  62 does-not-apply, 185 partial, 879 waiting**, 1309 total. Three newly carried
+  files this round, no exclusions.
+- `git diff --check` passed. The native-only handoff workflow was used; no
+  Electron/JavaScript gate, real agent, live window or packaged app was run.
+- Commits so far: `df8bbccd` handed files; `6cb4e847` tagged and long conversations.
+  Final verification/stronger assertions are committed separately.
+- Release binary build: exit 0, `notes/renderer-2-release-build.log`, completed
+  in 59.87s. Twelve existing warnings in drawing/conductor code; none in changed
+  production files. All mutations restored; final tracked tree committed clean.
