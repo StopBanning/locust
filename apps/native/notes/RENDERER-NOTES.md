@@ -1,4 +1,4 @@
-# Renderer test port — round 1
+# Renderer test port — rounds 1 and 2
 
 Branch: `exec/native-thread`. Started 2026-11-15 from a clean tracked tree.
 The requested scope is the waiting renderer files containing `team` (first), then
@@ -148,3 +148,52 @@ No work on those remaining files is claimed complete.
   broken streaming-file case in the window suite. The control caught that named
   assertion and restored messages.rs byte for byte. Restored verification follows.
 - No exclusions. Both rows are carried after these named passes.
+
+### Round 2 controls and continuation
+
+- Streaming-file control: caught exactly
+  `messages::tests::waits_for_the_message_to_finish_before_drawing_a_button`;
+  2063 core passed, 458 window passed, one intentional window failure, 20 ignored.
+  Source restored. Log: `renderer-control-streaming-file.log`.
+- Tag-context control: caught the named title regression and its bubble regression;
+  source restored. Log: `renderer-control-tag-context.log`. Final counts below.
+- Strengthened the handed-file tests to count the actual keyed file controls,
+  independently of prose mentioning the path. This closes a weak negative assertion
+  for an ordinary reply; final verification below applies to these assertions too.
+- `two-teammates-look-at-each-other.test.ts` remains waiting: core has
+  `glances_among`, but the real screen does not call it. Testing the unused helper
+  alone would not establish the product behavior. No does-not-apply classification.
+- This round carries 3 additional files (12 cases); combined with round 1,
+  **6 of 45** requested files are carried and **39 remain waiting**.
+  The continuation is still the waiting teammate list before conversation-only
+  files, starting with the applicable new-page preview. No other file is claimed
+  carried. No handoff file was changed or committed.
+- Tag control totals: 2062 core passed + one intentional title failure,
+  458 window passed + one intentional bubble failure, 20 ignored. No other failure.
+- First long-root control attempt was rejected by the control runner: a compile
+  error in the strengthened test helper (capturing closure where Rune requires a
+  function pointer), not a caught mutation. Fixed by carrying transcript items
+  in the runtime's tuple state, as the existing headless helper does; rerun below.
+- Long-root control: adding the old 32-hop cap failed the named
+  `finds_the_real_root_36_turns_back` assertion and two other chain cases;
+  sidebar.rs restored byte for byte. The run also exposed three helper-count
+  failures: the `handed-file-` prefix included its Copy and Save controls too.
+  The helper now excludes those auxiliary controls. This mixed run is not a
+  green baseline; the subsequent restored run verifies the correction.
+
+
+## Round 2 final restored verification
+
+- `notes/renderer-2-restored-workspace.log`: exit 0; **2063 core + 459 window =
+  2522 passed**, **20 ignored** real-agent cases; doc tests 0. All twelve new
+  cases observed by name, with the final file-control counts. No mutation remains.
+- `scripts/recount.py` and `scripts/recount.py --check` passed: **183 carried,
+  62 does-not-apply, 185 partial, 879 waiting**, 1309 total. Three newly carried
+  files this round, no exclusions.
+- `git diff --check` passed. The native-only handoff workflow was used; no
+  Electron/JavaScript gate, real agent, live window or packaged app was run.
+- Commits so far: `df8bbccd` handed files; `6cb4e847` tagged and long conversations.
+  Final verification/stronger assertions are committed separately.
+- Release binary build: exit 0, `notes/renderer-2-release-build.log`, completed
+  in 59.87s. Twelve existing warnings in drawing/conductor code; none in changed
+  production files. All mutations restored; final tracked tree committed clean.

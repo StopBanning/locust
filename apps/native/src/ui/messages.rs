@@ -686,42 +686,56 @@ mod tests {
 
     // a-teammate-can-hand-you-a-file.test.ts: one native test per Electron case.
     const HANDED_REPLY: &str = "Here is the rollup.\n\n<locust-file>\ndocs/report.md :: the rollup you asked for\n</locust-file>";
-    fn handed_reply(text: &str, final_: bool, running: bool) -> String {
+    fn handed_reply(text: &str, final_: bool, running: bool) -> (String, usize) {
         let event = serde_json::json!({"id":"e-msg1", "runId":"r", "missionId":"m", "sequence":1,
             "occurredAt":"2026-09-19T10:00:00.000Z", "sourceAdapter":"opencode", "type":"message.delta",
             "payload":{"itemId":"msg1", "operation":"replace", "text":text, "final":final_}});
         let mut transcript = ledger::Transcript::default();
         transcript.apply(vec![serde_json::json!({"recordType":"mission.event", "event":event})]);
-        thread_text(&transcript.items, &mut composition_state(None, running))
+        let mut rt = rune::Runtime::new(
+            (composition_state(None, running), transcript.items),
+            |(s, items), _| message_column(items, "Codec", &Palette::new(true), s),
+            (800.0, 800.0), rune::Env::new(true, 1.0),
+        );
+        rt.frame(0.0);
+        let elements = rt.elements();
+        let files = elements.iter().filter(|e| e.key.as_deref().is_some_and(|k| k.starts_with("handed-file-") && !k.starts_with("handed-file-copy-") && !k.starts_with("handed-file-save-"))).count();
+        let text = elements.into_iter().filter_map(|e| e.text).collect::<Vec<_>>().join("\n");
+        (text, files)
     }
     #[test]
     fn draws_the_file_as_its_own_item_with_the_path_and_the_note() {
-        let shown = handed_reply(HANDED_REPLY, true, false);
+        let (shown, files) = handed_reply(HANDED_REPLY, true, false);
+        assert_eq!(files, 1);
         assert!(shown.contains("docs/report.md"), "{shown}");
         assert!(shown.contains("the rollup you asked for"), "{shown}");
     }
     #[test]
     fn shows_the_person_the_answer_and_not_the_protocol() {
-        let shown = handed_reply(HANDED_REPLY, true, false);
+        let (shown, files) = handed_reply(HANDED_REPLY, true, false);
+        assert_eq!(files, 1);
         assert!(shown.contains("Here is the rollup."), "{shown}");
         assert!(!shown.contains("locust-file"), "{shown}");
     }
     #[test]
     fn still_draws_the_file_when_the_block_was_the_whole_reply() {
-        let shown = handed_reply("<locust-file>\ndocs/report.md\n</locust-file>", true, false);
+        let (shown, files) = handed_reply("<locust-file>\ndocs/report.md\n</locust-file>", true, false);
+        assert_eq!(files, 1);
         assert!(shown.contains("docs/report.md"), "{shown}");
         assert!(!shown.contains("locust-file"), "{shown}");
         assert!(!shown.contains("Here is the rollup."));
     }
     #[test]
     fn waits_for_the_message_to_finish_before_drawing_a_button() {
-        let shown = handed_reply(HANDED_REPLY, false, true);
+        let (shown, files) = handed_reply(HANDED_REPLY, false, true);
+        assert_eq!(files, 0);
         assert!(!shown.contains("docs/report.md"), "{shown}");
         assert!(!shown.contains("the rollup you asked for"), "{shown}");
     }
     #[test]
     fn leaves_an_ordinary_reply_with_no_file_item() {
-        let shown = handed_reply("I wrote docs/report.md for you.", true, false);
+        let (shown, files) = handed_reply("I wrote docs/report.md for you.", true, false);
+        assert_eq!(files, 0);
         assert!(shown.contains("I wrote docs/report.md for you."), "{shown}");
         assert!(!shown.contains("Save a copy"), "{shown}");
     }
