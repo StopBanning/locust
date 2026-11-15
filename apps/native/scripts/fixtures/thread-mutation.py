@@ -3,6 +3,7 @@
 import os, pathlib, subprocess, sys
 controls = {
     'handoff-decode': ('core/src/ledger.rs', '"mission.checkpoint" => {', '"discarded.checkpoint" => {', 'rebuilds_the_divider_from_the_route_switch_checkpoint_it_resumed_from'),
+    'step-kind': ('core/src/thread_view.rs', 'kind == "reasoning" || item.contains("reasoning")', 'false || item.contains("reasoning")', 'carries_the_step_kind_so_thought_and_action_draw_differently'),
     'handoff-checkpoint': ('core/src/conversation_turns.rs', 'unsettled_count:m.checkpoint_epoch.and_then(|epoch|prior.checkpoint_unsettled.get(&epoch).copied()).unwrap_or(0)', 'unsettled_count:0', 'rebuilds_the_divider_from_the_route_switch_checkpoint_it_resumed_from'),
     'handoff-fold': ('core/src/ledger.rs', 'p["unsettledActions"].as_array().map_or(0, Vec::len)', '0', 'rebuilds_the_divider_from_the_route_switch_checkpoint_it_resumed_from'),
     'peer-hide': ('core/src/protocol_tags.rs', 'let s = crate::peer_share::strip_share_blocks(text);', 'let s = text.to_owned();', 'hides_a_share_block_from_the_agent_bubble_keeping_the_prose'),

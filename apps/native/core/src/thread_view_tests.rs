@@ -366,3 +366,12 @@ fn opened(name:&str) -> Value {event("tool.started",json!({"itemId":"t1","toolKi
     assert_eq!(live(&[],true,false).unwrap().register,"starting");
     assert_eq!(live(&[event("step.started",json!({"stepKind":"turn"})),event("step.completed",json!({}))],true,false).unwrap().register,"working");
 }
+
+#[test]
+fn carries_the_step_kind_so_thought_and_action_draw_differently() {
+    // Native draws the meaning directly from the register rather than carrying a second enum.
+    let thinking=live(&[event("step.started",json!({"stepKind":"reasoning"}))],true,false).unwrap();
+    let acting=live(&[event("step.started",json!({"stepKind":"turn"}))],true,false).unwrap();
+    assert_eq!((thinking.label.as_str(),thinking.register.as_str()),("Thinking","thinking"));
+    assert_eq!((acting.label.as_str(),acting.register.as_str()),("Working","working"));
+}
