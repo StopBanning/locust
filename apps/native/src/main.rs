@@ -3161,7 +3161,7 @@ fn main() {
         ],
         fonts: look::FONTS,
         families: look::families_for(
-            &locust_core::native::store().and_then(|store| locust_core::workspace_settings::load(&store).ok()).map(|settings| settings.code_font).unwrap_or_default(),
+            &locust_core::workspace_settings::startup_code_font(locust_core::native::store().as_ref()),
         ),
         ..AppSpec::new("Locust", (1040.0, 720.0), State::default, view)
     })

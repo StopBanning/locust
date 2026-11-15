@@ -244,6 +244,14 @@ pub fn load(store: &Store) -> Result<WorkspaceSettings, String> {
     Ok(parse_settings(&file["settings"]))
 }
 
+/// The code font to start with: the saved one, or Geist Mono when there is no store or the file does not read.
+pub fn startup_code_font(store: Option<&Store>) -> String {
+    store
+        .and_then(|store| load(store).ok())
+        .map(|settings| settings.code_font)
+        .unwrap_or_else(|| "geist".into())
+}
+
 pub fn save(store: &Store, settings: &WorkspaceSettings) -> Result<(), String> {
     let mut file = crate::people::team(store)?;
     let mut merged = settings_to_json(settings);
@@ -564,6 +572,19 @@ mod tests {
         fs::create_dir_all(&native).unwrap();
         let store = Store::new(native, electron).unwrap();
         (DropDir(root), store)
+    }
+
+    #[test]
+    fn the_app_starts_with_the_saved_code_font_and_falls_back_to_geist_when_nothing_reads() {
+        let (_dir, store) = temp_store();
+        assert_eq!(startup_code_font(None), "geist");
+        assert_eq!(startup_code_font(Some(&store)), "geist");
+        let paper = WorkspaceSettings { code_font: "paper".into(), ..WorkspaceSettings::default() };
+        save(&store, &paper).unwrap();
+        assert_eq!(startup_code_font(Some(&store)), "paper");
+        let file = _dir.0.join("native").join("teammates.json");
+        fs::write(&file, "{ not json").unwrap();
+        assert_eq!(startup_code_font(Some(&store)), "geist");
     }
 
     #[test]
