@@ -821,3 +821,72 @@ event. Both passed by name in the release baseline. No product change was
 needed: the existing live projection already uses this clock throughout.
 Controls are pending below. Coverage is **213/264**, 51 remain, no exemptions.
 Next in file order: the host's disk observation of a path the runtime named.
+
+## Thread-13 — 15 Nov 2026
+
+Arrival on `exec/native-thread` at `24495465`: tracked diff empty; inherited untracked
+handoff files left untouched. The inherited `decision-evidence` control survived:
+its sandbox-only window test passed with the recorded events removed. That is a
+coverage gap, not mutation evidence. A new headless test,
+`the_decision_card_keeps_the_finished_turns_patch_evidence`, reopens a synthetic
+ledger with a completed patch and a decision, switches the composer to Ask, and
+requires `stopped here · work already done is kept`. Its first fake-runtime
+fixture failed because a file write alone did not produce a patch receipt;
+that attempted workspace run passed 1,721 core (20 ignored) and 404 window,
+with the one new test failing. The corrected fixture uses explicit ledger
+receipts rather than claiming a disk observer or changing runtime behavior.
+Final evidence is recorded below.
+
+### The host's disk observation of a path the runtime named — four case ports
+
+`core/src/disk_observation_tests.rs` carries all four cases with NOTES.md,
+report.md, the two README colour/status edits and the `C:\work` workspace.
+The ledger merges an observation into an already named edit only when that
+step had no patch. A step with a patch keeps its own evidence; the files card
+uses the host's net patch instead of adding the steps to it. With no host
+observation, two genuine step edits retain both counts. Native performs this
+with pure ledger projections, without Electron's mutable activity-detail map.
+Drawing does no filesystem work. A headless check opens the files card, pins
+its net total, and opens the separate Step change disclosure to recover the
+original step's patch. No case is exempted as does-not-apply.
+
+The second workspace attempt (`thread-13-disk.log`) passed **1,725 core,
+20 ignored; 405 window**, with only the new decision test failing. Its manually
+written patch receipt lacked schemaVersion and the real reader correctly
+ignored it. Adding schemaVersion 27 and reopening the ledger fixed the fixture;
+`thread-13-decision-focused.log` then passed the named test. Its pump now waits
+only for loading, so the mutation fails the sentence assertion, not a timeout.
+The completed `decision-evidence` control failed that exact rendered-sentence
+assertion; source diff was checked restored. Commit `e70ca6eb` preserves this
+coverage repair. No production decision behavior was changed in this run.
+
+Both whole-core controls (`disk-merge`, `disk-net`) failed their intended named
+assertions, each with **1,724 core passing, 1 failing, 20 ignored**. The window
+`disk-card` control failed its named assertion when the renderer used the step
+entries rather than the net projection. The diff after each control showed the
+source restored; no mutation remains. The first disk-control invocation refused
+to run because the new net-identity format accidentally matched an inherited
+control's source anchor twice; its anchor was made distinct before any mutation.
+That refusal is not counted as control evidence. The net-filter mutation alone
+produced unused-variable warnings; positive-run warnings are checked separately.
+
+The parity row remains partial: **217/264 carried, 47 remaining**, no new
+exemptions. `python3 scripts/recount.py` completed. Next in file order after
+already carried usage/trace/utilisation: `the model an alias turned out to mean
+(0.35.2)`, then Cursor's mirrored-project path cases. No other section is claimed
+ported in this batch. The native-only release checks are this task's gate;
+the repository-wide Electron gate, live agent runs, visible window checks and
+packaging were not run. No network, credential, Scout, version or changelog
+change, push or release was performed.
+
+Final restored release workspace run (`thread-13-final-workspace.log`), after the
+last source edit: **1,725 core passed, 20 ignored; 406 headless window passed;
+0 doc tests; 0 failures**, exit 0, no compiler warnings. All four case ports,
+the new files-card disclosure check and the corrected decision-evidence check
+passed by name. `git diff --check` and the parity recount/drift check passed.
+
+Final `build --release --offline` (`thread-13-final-build.log`) passed, exit 0,
+without warnings, after a 62-second shared-lock wait. All changes are under
+apps/native; inherited handoff files remain untracked and uncommitted. No
+control is left applied. The section is committed separately from the initial
+decision-evidence coverage repair.

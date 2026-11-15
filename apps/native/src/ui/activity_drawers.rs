@@ -315,7 +315,13 @@ fn activity_item_with_files(item: &ledger::Item, p: &Palette, s: &State, scope: 
     {
         return plan_card(steps, finished || *ended, p);
     }
-    if files.is_empty() && !locust_core::activity_entries::files(item).is_empty() { return col(); }
+    if files.is_empty() && !locust_core::activity_entries::files(item).is_empty() {
+        let key = format!("{scope}/step/{}", activity_id(item));
+        let open = s.activity_open.get(&key).copied().unwrap_or(false);
+        let mut step = col().w_full().child(disclosure(key, "Step change".into(), open, p));
+        if open { step = step.child(activity_item_with_files(item, p, s, scope, locust_core::activity_entries::files(item))); }
+        return step;
+    }
     if !files.is_empty() {
         let default = locust_core::activity_entries::default_open(&files);
         let mut rows = col().w_full().gap(4.0);
@@ -488,7 +494,7 @@ pub(super) fn activity_group(items: &[ledger::Item], p: &Palette, s: &State, sco
     let mut words = Vec::new();
     let summary = locust_core::activity_summary::activity_summary(items);
     let workspace = selected_conversation(s).and_then(|(t,_)| t.folder.as_deref());
-    let entries = locust_core::activity_entries::entries(items, workspace);
+    let entries = locust_core::activity_entries::net_entries(items, workspace);
     let (added, removed) = locust_core::activity_entries::counts_in(items, workspace);
     if added + removed > 0 { words.push(format!("+{added} -{removed}")); }
     if summary != "No tool activity" { words.push(summary); }
@@ -572,6 +578,7 @@ mod tests {
             summary: summary.into(),
             detail: Box::new(ledger::ToolDetail {
                 id: id.into(),
+                observed_edit: false,
                 patch: None,
                 reported_by: String::new(),
                 parent: String::new(),
@@ -595,6 +602,31 @@ mod tests {
                 ledger::Status::Done
             },
         }
+    }
+
+    #[test]
+    fn the_files_card_uses_the_net_patch_and_keeps_step_evidence_behind_disclosure() {
+        let mut items = vec![];
+        for (id, observed, added) in [("step", false, 1), ("host", true, 2)] {
+            let mut item = sample_tool(id, "edit", "README.md", false);
+            if let ledger::Item::Tool {detail,..} = &mut item {
+                detail.observed_edit = observed;
+                detail.patch = Some(locust_core::activity_entries::Patch {
+                    text: if added == 1 { "--- a/README.md\n+++ b/README.md\n@@ -1 +1 @@\n-old\n+new\n" } else { "--- a/README.md\n+++ b/README.md\n@@ -1,2 +1,2 @@\n-old\n-draft\n+new\n+ready\n" }.into(),
+                    added, removed: added, truncated: false,
+                });
+            }
+            items.push(item);
+        }
+        let mut s = State::default();
+        s.activity_open.insert("conv/group/step".into(), true);
+        let said = group_text(&items, &mut s);
+        assert!(said.contains("+2 -2"), "{said}");
+        assert!(!said.contains("+3 -3"), "{said}");
+        assert!(said.contains("Step change"), "{said}");
+        assert!(!said.contains("+1 -1"), "{said}");
+        s.activity_open.insert("conv/step/step".into(), true);
+        assert!(group_text(&items, &mut s).contains("+1 -1"));
     }
 
     fn group_text(items: &[ledger::Item], s: &mut State) -> String {

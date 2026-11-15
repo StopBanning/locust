@@ -30,7 +30,7 @@ pub fn entries(items: &[Item], workspace: Option<&str>) -> Vec<(usize, FileEntry
 }
 pub fn counts(items: &[Item]) -> (usize, usize) { counts_in(items, None) }
 pub fn counts_in(items: &[Item], workspace: Option<&str>) -> (usize, usize) {
-    entries(items, workspace).iter().fold((0,0), |(a,d), (_,f)| (a+f.counts.0,d+f.counts.1))
+    net_entries(items, workspace).iter().fold((0,0), |(a,d), (_,f)| (a+f.counts.0,d+f.counts.1))
 }
 pub fn changed_paths(items: &[Item]) -> Vec<String> {
     items.iter().flat_map(|item| {
@@ -71,3 +71,19 @@ pub fn helper_description<'a>(tool: &str, target: &'a str) -> &'a str {
         _ => "a subagent, unnamed",
     }
 }
+
+/// The host's net patch replaces step patches on the files card, while the
+/// steps keep their own evidence. Without an observation, every real edit stays.
+pub fn net_entries(items: &[Item], workspace: Option<&str>) -> Vec<(usize, FileEntry)> {
+    let rows: Vec<_> = items.iter().enumerate().flat_map(|(i,item)| files(item).into_iter().map(move |f|(i,f))).collect();
+    let observed = rows.iter().filter(|(i,_)| matches!(&items[*i], Item::Tool {detail,..} if detail.observed_edit))
+        .map(|(_,f)| path_key(&f.file.path, workspace)).collect::<std::collections::HashSet<_>>();
+    let mut seen = std::collections::HashSet::new();
+    rows.into_iter().filter(|(i,f)| !observed.contains(&path_key(&f.file.path, workspace))
+        || matches!(&items[*i], Item::Tool {detail,..} if detail.observed_edit)).filter(|(_,f)| {
+            let identity = format!("{:?}", (path_key(&f.file.path, workspace), &f.file.status, &f.file.hunks));
+            seen.insert(identity)
+        }).collect()
+}
+#[cfg(test)]
+#[path = "disk_observation_tests.rs"] mod disk_observation_tests;
