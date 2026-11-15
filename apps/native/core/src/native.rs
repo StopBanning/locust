@@ -434,8 +434,8 @@ pub fn roster(electron: &Path) -> Result<Vec<Teammate>, String> {
 }
 
 /// What a teammate's face is drawn from (teammate-store.ts: `hue` and `avatar`): the hue the person chose, the three
-/// seeded parts when the record keeps them, and the bot they picked, if any. Pets are not drawn here yet; a teammate
-/// wearing one shows its bot.
+/// seeded parts when the record keeps them, the bot they picked (including optional screen flag), and any pet rig
+/// (`codex-buddy`) they picked.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct FaceLook {
     pub hue: String,
@@ -443,6 +443,10 @@ pub struct FaceLook {
     pub parts: Option<[u8; 3]>,
     /// The picked bot's shape and face (`eyes` or `mouth`).
     pub bot: Option<(String, String)>,
+    /// Explicit screen preference (`true` / `false`) stored on `avatar.bot.screen`.
+    pub bot_screen: Option<bool>,
+    /// Picked pet rig (`avatar.pet`), e.g. Codex Buddy (`codex-buddy`).
+    pub pet: Option<crate::bot_spec::PetRef>,
 }
 
 /// Each valid teammate's look, by id, from the same file `parse_roster` reads. Records it drops are left out.
@@ -470,7 +474,34 @@ pub fn parse_looks(text: &str) -> std::collections::HashMap<String, FaceLook> {
             let ok = !shape.is_empty() && shape.len() <= 24 && shape.bytes().all(|b| b.is_ascii_lowercase());
             ok.then(|| (shape.to_owned(), face.to_owned()))
         })();
-        out.insert(id.to_owned(), FaceLook { hue: hue.to_owned(), parts, bot });
+        let bot_screen = bot.as_ref().and_then(|_| avatar["bot"]["screen"].as_bool());
+        let pet = (|| {
+            let source = match avatar["pet"]["source"].as_str()? {
+                "gallery" => crate::bot_spec::PetSource::Gallery,
+                "codex" => crate::bot_spec::PetSource::Codex,
+                "bundled" => crate::bot_spec::PetSource::Bundled,
+                _ => return None,
+            };
+            let pet_id = avatar["pet"]["id"].as_str()?;
+            if !crate::bot_spec::is_pet_id(pet_id) {
+                return None;
+            }
+            Some(crate::bot_spec::PetRef {
+                source,
+                id: pet_id.to_owned(),
+                screen: avatar["pet"]["screen"].as_bool(),
+            })
+        })();
+        out.insert(
+            id.to_owned(),
+            FaceLook {
+                hue: hue.to_owned(),
+                parts,
+                bot,
+                bot_screen,
+                pet,
+            },
+        );
     }
     out
 }

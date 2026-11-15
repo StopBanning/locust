@@ -1,55 +1,97 @@
-//! A teammate's face: the bot its look comes to (shared/avatar.ts), drawn as the still Electron's TeammateBot made of
-//! it (`scripts/bot-stills.mjs`, `look::bots`). The seed is the id, never the name, as in Electron: a rename never
-//! changes a face, and two teammates who share a name never share one.
+//! A teammate's face: the bot or pet its look comes to (`shared/avatar.ts`), drawn live
+//! on Rune's vector `canvas(Shape)` using the geometry and motion rigs in `locust_core`.
+//!
+//! The seed is the id, never the name, as in Electron: a rename never changes a face, and
+//! two teammates who share a name never share one.
 
-use super::bots;
+use super::{
+    bot_stage::PresenceDot,
+    bots::{draw_bot_shape, draw_buddy_shape, static_bot_shape, static_buddy_shape, BotDrawSpec, BuddyDrawSpec},
+};
+use locust_core::bot_rig::{BotMotionLevel, FaceActivity, GlanceSide};
+use locust_core::bot_spec::{fallback_hue_for, screen_suits, BotFace, PetSource, BOT_SHAPES, HUES};
+use locust_core::buddy_moves::CODEX_BUDDY;
 use locust_core::native::FaceLook;
-use rune::{El, ImageCache, row, text};
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex, OnceLock};
+use rune::{El, ImageCache, Tx, canvas, row};
+use std::time::Duration;
 
-/// avatar.ts seedAvatar: FNV-1a over the id (the first UTF-16 unit of each code point, as JavaScript's
-/// `for (const character of id) character.charCodeAt(0)` reads it), an avalanche, then a byte window per part.
+#[derive(Debug, Clone, Copy)]
+pub struct BotFaceOpts<'a> {
+    pub activity: FaceActivity,
+    pub glance: Option<GlanceSide>,
+    pub presence: Option<PresenceDot>,
+    pub runtime: Option<&'a str>,
+    pub motion: BotMotionLevel,
+    pub a11y_label: Option<&'a str>,
+}
+
+impl Default for BotFaceOpts<'_> {
+    fn default() -> Self {
+        Self {
+            activity: FaceActivity::Idle,
+            glance: None,
+            presence: None,
+            runtime: None,
+            motion: BotMotionLevel::Full,
+            a11y_label: None,
+        }
+    }
+}
+
+/// avatar.ts `seedAvatar`: FNV-1a over the id (the first UTF-16 unit of each code point).
 pub fn seed_parts(id: &str) -> [u8; 3] {
-    let mut hash: u32 = 2_166_136_261;
-    for ch in id.chars() {
-        let mut units = [0u16; 2];
-        hash ^= u32::from(ch.encode_utf16(&mut units)[0]);
-        hash = hash.wrapping_mul(16_777_619);
-    }
-    hash ^= hash >> 16;
-    hash = hash.wrapping_mul(0x85eb_ca6b);
-    hash ^= hash >> 13;
-    let part = |shift: u32, modulus: u32| (((hash >> shift) & 0xff) % modulus) as u8;
-    [part(4, 6), part(12, 3), part(20, 4)]
+    locust_core::bot_spec::seed_parts(id)
 }
 
-/// avatar.ts botFor: the picked bot, or the one the three parts come to among the twenty derived shapes; the open mouth
-/// (mouth 2) is the one that becomes a mouth.
+/// avatar.ts `botFor`: the picked bot, or the one the three parts come to among the twenty derived shapes.
 pub fn bot_for(parts: [u8; 3], picked: Option<&(String, String)>) -> (String, &'static str) {
-    if let Some((shape, face)) = picked {
-        return (shape.clone(), if face == "mouth" { "mouth" } else { "eyes" });
-    }
-    let [headwear, accessory, mouth] = parts.map(usize::from);
-    let index = (headwear * 3 * 4 + accessory * 4 + mouth) % bots::SHAPES.len();
-    (bots::SHAPES[index].to_owned(), if mouth == 2 { "mouth" } else { "eyes" })
+    let (shape, face) = locust_core::bot_spec::bot_for_parts(parts, picked);
+    (shape, face.as_str())
 }
 
-/// The bot (shape, face, hue) a teammate shows. Without a recorded look (a scene's made-up teammate), the parts are
-/// seeded from the id and the hue picked from it too, so each still differs.
+/// The bot (shape, face, hue) a teammate shows.
 pub fn bot_of(id: &str, look: Option<&FaceLook>) -> (String, &'static str, String) {
     let parts = look.and_then(|l| l.parts).unwrap_or_else(|| seed_parts(id));
     let (shape, face) = bot_for(parts, look.and_then(|l| l.bot.as_ref()));
-    let hue = look.map(|l| l.hue.clone()).unwrap_or_else(|| {
-        let [h, a, m] = seed_parts(&format!("{id}#hue"));
-        bots::HUES[(usize::from(h) * 12 + usize::from(a) * 4 + usize::from(m)) % bots::HUES.len()].to_owned()
-    });
+    let hue = look
+        .map(|l| l.hue.clone())
+        .filter(|h| HUES.contains(&h.as_str()))
+        .unwrap_or_else(|| fallback_hue_for(id).to_owned());
     (shape, face, hue)
+}
+
+/// Whether a teammate's face wears a CRT terminal screen given their look and `terminal_faces`.
+pub fn wears_screen(look: Option<&FaceLook>, shape: &str, terminal_faces: bool) -> bool {
+    if !terminal_faces {
+        return false;
+    }
+    if let Some(pet) = look.and_then(|l| l.pet.as_ref())
+        && pet.id == CODEX_BUDDY.id
+        && matches!(pet.source, PetSource::Codex | PetSource::Bundled)
+    {
+        return pet.screen.unwrap_or(true);
+    }
+    if let Some(explicit) = look.and_then(|l| l.bot_screen) {
+        return explicit;
+    }
+    screen_suits(shape)
+}
+
+pub fn is_codex_buddy(look: Option<&FaceLook>) -> bool {
+    look.and_then(|l| l.pet.as_ref())
+        .is_some_and(|p| p.id == CODEX_BUDDY.id)
 }
 
 /// `.lc-hometeam__tile`: 46 square, radius 10, the teammate's hue at 11% over the raised fill, edged at 20%, its bot
 /// 34 high inside.
-pub fn tile(cache: Option<&ImageCache>, id: &str, name: &str, look: Option<&FaceLook>, l: &super::controls::Look) -> El {
+pub fn tile(
+    cache: Option<&ImageCache>,
+    id: &str,
+    name: &str,
+    look: Option<&FaceLook>,
+    l: &super::controls::Look,
+) -> El {
+    let _ = cache;
     let (_, _, hue) = bot_of(id, look);
     let tint = l.t.color(&format!("hue-{hue}"));
     row()
@@ -59,73 +101,155 @@ pub fn tile(cache: Option<&ImageCache>, id: &str, name: &str, look: Option<&Face
         .radius(10.0)
         .fill(l.c("bg-raised").mix(tint, 0.11))
         .border(1.0, tint.alpha(0.2))
-        .child(face(cache, id, name, look, 34.0, l))
+        .child(face(None, id, name, look, 34.0, l))
 }
 
-/// A shape picked from outside the twenty derived ones (critter, prompt, spark) has no still yet: it shows the derived
-/// bot instead, the one its parts come to.
-fn drawable(id: &str, look: Option<&FaceLook>) -> (String, &'static str, String) {
-    let (shape, face, hue) = bot_of(id, look);
-    if bots::still(&shape, face, &hue).is_some() {
-        return (shape, face, hue);
-    }
-    let parts = look.and_then(|l| l.parts).unwrap_or_else(|| seed_parts(id));
-    let (shape, face) = bot_for(parts, None);
-    (shape, face, hue)
-}
-
-/// Decoded stills, one per bot, so a face is decoded once however often it is drawn.
-fn decoded(cache: &ImageCache, key: &(String, &'static str, String)) -> Option<rune::Image> {
-    static MEMO: OnceLock<Mutex<HashMap<(String, &'static str, String), rune::Image>>> = OnceLock::new();
-    let memo = MEMO.get_or_init(Default::default);
-    if let Some(image) = memo.lock().ok()?.get(key) {
-        return Some(image.clone());
-    }
-    let bytes = bots::still(&key.0, key.1, &key.2)?;
-    let image = cache.load(Arc::<[u8]>::from(bytes));
-    // Headless snapshots and the first live frame need the decode done before paint.
-    let _ = image.wait();
-    memo.lock().ok()?.insert(key.clone(), image.clone());
-    Some(image)
-}
-
-/// A teammate's face at `size` points: its bot's still, or its initial on a square when no image cache is set up yet.
-pub fn face(cache: Option<&ImageCache>, id: &str, name: &str, look: Option<&FaceLook>, size: f32, l: &super::controls::Look) -> El {
-    let key = drawable(id, look);
-    if let Some(image) = cache.and_then(|c| decoded(c, &key)) {
-        // The still's bot fills 96 of its 104 pixels; scale the cell so the bot itself is `size`.
-        let cell = size * bots::CELL as f32 / 96.0;
-        let inset = (cell - size) / 2.0;
-        return row()
-            .w(size)
-            .h(size)
-            .center()
-            .child(row().w(cell).h(cell).m_all(-inset).pixels(image.pixels()))
-            .a11y_hidden();
-    }
-    let initial = name.trim_start().chars().next().map(|c| c.to_uppercase().collect::<String>()).unwrap_or_default();
+/// Animated teammate tile for Home (`46` square, `34` inner rig-drawn bot).
+pub fn bot_tile(
+    s: &crate::State,
+    slot_key: &str,
+    id: &str,
+    name: &str,
+    opts: BotFaceOpts<'_>,
+    l: &super::controls::Look,
+) -> El {
+    let look = s.looks.get(id);
+    let (_, _, hue) = bot_of(id, look);
+    let tint = l.t.color(&format!("hue-{hue}"));
     row()
-        .w(size)
-        .h(size)
+        .w(46.0)
+        .h(46.0)
         .center()
-        .radius((size / 4.0).round())
-        .fill(l.c("bg-control"))
-        .child(text(initial).font(rune::TextStyle::new((size * 0.42).round(), 600.0)).color(l.c("text-secondary")))
+        .radius(10.0)
+        .fill(l.c("bg-raised").mix(tint, 0.11))
+        .border(1.0, tint.alpha(0.2))
+        .child(bot_face(s, slot_key, id, name, 34.0, opts, l))
+}
+
+/// Static vector rig face at `size` points (draws all 23 shapes and Codex Buddy).
+pub fn face(
+    cache: Option<&ImageCache>,
+    id: &str,
+    _name: &str,
+    look: Option<&FaceLook>,
+    size: f32,
+    l: &super::controls::Look,
+) -> El {
+    let _ = cache;
+    let (shape, face_str, hue) = bot_of(id, look);
+    let screen = wears_screen(look, &shape, true);
+    let rendered = if is_codex_buddy(look) {
+        static_buddy_shape(&hue, size, screen, false, !l.k.dark)
+    } else {
+        let face_kind = BotFace::from_str(face_str).unwrap_or(BotFace::Eyes);
+        let draw_shape = if BOT_SHAPES.contains(&shape.as_str()) {
+            shape.as_str()
+        } else {
+            "circle"
+        };
+        static_bot_shape(draw_shape, face_kind, &hue, size, screen, false, !l.k.dark)
+    };
+    canvas(rendered)
+        .key(format!("bot-static-{id}-{}", size.round() as i32))
+        .size(size, size)
         .a11y_hidden()
 }
 
-trait MarginAll {
-    fn m_all(self, m: f32) -> Self;
+/// Live animated vector rig face wired to `State.bot_stage`, workspace settings, and reduced motion.
+pub fn bot_face(
+    s: &crate::State,
+    slot_key: &str,
+    id: &str,
+    name: &str,
+    size: f32,
+    opts: BotFaceOpts<'_>,
+    l: &super::controls::Look,
+) -> El {
+    let look = s.looks.get(id);
+    bot_face_with_look(s, slot_key, id, name, look, size, opts, l)
 }
-impl MarginAll for El {
-    fn m_all(self, m: f32) -> Self {
-        self.mx(m).my(m)
-    }
+
+/// Live animated vector rig face using an explicit `FaceLook` (used by the Teammate look picker preview).
+#[allow(clippy::too_many_arguments)]
+pub fn bot_face_with_look(
+    s: &crate::State,
+    slot_key: &str,
+    id: &str,
+    name: &str,
+    look: Option<&FaceLook>,
+    size: f32,
+    opts: BotFaceOpts<'_>,
+    l: &super::controls::Look,
+) -> El {
+    let (shape_name, face_str, hue) = bot_of(id, look);
+    let terminal_faces = s.settings_panel.settings.terminal_faces;
+    let plush = s.settings_panel.settings.plush;
+    let reduced = s.reduced_motion.get();
+    let screen = wears_screen(look, &shape_name, terminal_faces);
+    let shape = if is_codex_buddy(look) {
+        let snap = s.bot_stage.snapshot_buddy(
+            slot_key,
+            id,
+            opts.activity,
+            opts.glance,
+            opts.motion,
+            screen,
+            plush,
+            reduced,
+        );
+        draw_buddy_shape(&BuddyDrawSpec {
+            hue: &hue,
+            size,
+            light_theme: !l.k.dark,
+            presence: opts.presence,
+            runtime: opts.runtime,
+            snap: &snap,
+        })
+    } else {
+        let face_kind = BotFace::from_str(face_str).unwrap_or(BotFace::Eyes);
+        let snap = s.bot_stage.snapshot_bot(
+            slot_key,
+            id,
+            opts.activity,
+            opts.glance,
+            opts.motion,
+            screen,
+            plush,
+            reduced,
+        );
+        draw_bot_shape(&BotDrawSpec {
+            shape: &shape_name,
+            face: face_kind,
+            hue: &hue,
+            size,
+            light_theme: !l.k.dark,
+            presence: opts.presence,
+            runtime: opts.runtime,
+            snap: &snap,
+        })
+    };
+
+    let hover_slot = slot_key.to_owned();
+    let mut el = canvas(shape)
+        .key(format!("bot-{slot_key}"))
+        .size(size, size)
+        .on_hover_change(move |st: &mut crate::State, over: bool, tx: &mut Tx| {
+            st.bot_stage.set_hover(&hover_slot, over);
+            if !st.reduced_motion.get() {
+                tx.wake_after(Duration::from_millis(33));
+            }
+        });
+    el = match opts.a11y_label {
+        Some(lbl) => el.label(lbl.to_owned()),
+        None => el.a11y_hidden(),
+    };
+    el
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use locust_core::bot_spec::draw_size_for;
     use serde_json::Value;
 
     /// Electron's avatar.ts, run over 100 ids by scripts/face-goldens.mjs: the same parts, shape and face for each.
@@ -138,33 +262,127 @@ mod tests {
         for f in faces {
             let id = f["id"].as_str().unwrap();
             let parts = seed_parts(id);
-            let want = [f["headwear"].as_u64().unwrap() as u8, f["accessory"].as_u64().unwrap() as u8, f["mouth"].as_u64().unwrap() as u8];
+            let want = [
+                f["headwear"].as_u64().unwrap() as u8,
+                f["accessory"].as_u64().unwrap() as u8,
+                f["mouth"].as_u64().unwrap() as u8,
+            ];
             assert_eq!(parts, want, "parts for {id:?}");
             let (shape, face) = bot_for(parts, None);
-            assert_eq!((shape.as_str(), face), (f["shape"].as_str().unwrap(), f["face"].as_str().unwrap()), "bot for {id:?}");
+            assert_eq!(
+                (shape.as_str(), face),
+                (f["shape"].as_str().unwrap(), f["face"].as_str().unwrap()),
+                "bot for {id:?}"
+            );
         }
     }
 
     #[test]
     fn a_picked_bot_and_a_recorded_look_win_over_the_seed() {
-        let look = FaceLook { hue: "teal".into(), parts: Some([0, 0, 0]), bot: Some(("ghost".into(), "mouth".into())) };
-        assert_eq!(bot_of("anyone", Some(&look)), ("ghost".into(), "mouth", "teal".into()));
-        let unpicked = FaceLook { hue: "rose".into(), parts: Some([0, 0, 2]), bot: None };
-        assert_eq!(bot_of("anyone", Some(&unpicked)), (bots::SHAPES[2].to_owned(), "mouth", "rose".into()));
+        let look = FaceLook {
+            hue: "teal".into(),
+            parts: Some([0, 0, 0]),
+            bot: Some(("ghost".into(), "mouth".into())),
+            bot_screen: None,
+            pet: None,
+        };
+        assert_eq!(
+            bot_of("anyone", Some(&look)),
+            ("ghost".into(), "mouth", "teal".into())
+        );
+        let unpicked = FaceLook {
+            hue: "rose".into(),
+            parts: Some([0, 0, 2]),
+            bot: None,
+            bot_screen: None,
+            pet: None,
+        };
+        assert_eq!(
+            bot_of("anyone", Some(&unpicked)),
+            (super::super::bots::SHAPES[2].to_owned(), "mouth", "rose".into())
+        );
     }
 
     #[test]
-    fn every_derived_bot_has_a_still_in_every_hue() {
-        for shape in bots::SHAPES {
-            for face in ["eyes", "mouth"] {
-                for hue in bots::HUES {
-                    let png = bots::still(shape, face, hue).unwrap_or_else(|| panic!("{shape} {face} {hue}"));
-                    assert_eq!(&png[1..4], b"PNG");
+    fn every_bot_is_drawn_as_vector_shape_in_every_hue() {
+        for shape in BOT_SHAPES {
+            for face_kind in [BotFace::Eyes, BotFace::Mouth] {
+                for hue in HUES {
+                    let s = static_bot_shape(shape, face_kind, hue, 32.0, true, false, false);
+                    assert!(!s.is_empty(), "{shape} {face_kind:?} {hue}");
                 }
             }
         }
-        // A picked shape with no still falls back to its derived bot rather than drawing nothing.
-        let look = FaceLook { hue: "lime".into(), parts: Some([0, 0, 0]), bot: Some(("spark".into(), "eyes".into())) };
-        assert!(bots::still(&drawable("x", Some(&look)).0, "eyes", "lime").is_some());
+        for hue in HUES {
+            let buddy_drawn = static_buddy_shape(hue, 34.0, false, false, false);
+            assert!(!buddy_drawn.is_empty(), "buddy drawn {hue}");
+            let buddy_screen = static_buddy_shape(hue, 34.0, true, true, true);
+            assert!(!buddy_screen.is_empty(), "buddy screen {hue}");
+        }
+    }
+
+    #[test]
+    fn draws_at_twice_the_box_size_up_to_32_so_small_faces_stay_crisp() {
+        assert_eq!(draw_size_for(18.0), 36.0);
+        assert_eq!(draw_size_for(32.0), 64.0);
+        let small = format!("{:?}", static_bot_shape("spark", BotFace::Eyes, "lime", 18.0, false, false, false));
+        assert!(small.contains("view_box: Some([36.0, 36.0])"), "{small}");
+        let thirty_two = format!("{:?}", static_bot_shape("spark", BotFace::Eyes, "lime", 32.0, false, false, false));
+        assert!(thirty_two.contains("view_box: Some([64.0, 64.0])"), "{thirty_two}");
+    }
+
+    #[test]
+    fn draws_at_box_size_above_32() {
+        assert_eq!(draw_size_for(33.0), 33.0);
+        assert_eq!(draw_size_for(40.0), 40.0);
+        assert_eq!(draw_size_for(84.0), 84.0);
+        let big = format!("{:?}", static_bot_shape("circle", BotFace::Mouth, "blue", 40.0, true, false, false));
+        assert!(big.contains("view_box: Some([40.0, 40.0])"), "{big}");
+    }
+
+    #[test]
+    fn codex_buddy_screen_respects_terminal_faces_and_as_drawn_override() {
+        let mut look = FaceLook {
+            hue: "blue".into(),
+            parts: Some([0, 0, 0]),
+            bot: None,
+            bot_screen: None,
+            pet: Some(locust_core::bot_spec::PetRef {
+                source: PetSource::Codex,
+                id: CODEX_BUDDY.id.into(),
+                screen: None,
+            }),
+        };
+        assert!(wears_screen(Some(&look), "circle", true));
+        assert!(!wears_screen(Some(&look), "circle", false));
+        look.pet.as_mut().unwrap().screen = Some(false);
+        assert!(!wears_screen(Some(&look), "circle", true));
+        look.pet.as_mut().unwrap().screen = Some(true);
+        assert!(wears_screen(Some(&look), "circle", true));
+    }
+
+    #[test]
+    fn turning_terminal_faces_off_draws_classic_eyes_and_leaves_codex_buddy_as_drawn() {
+        let classic = FaceLook {
+            hue: "lime".into(),
+            parts: Some([0, 0, 0]),
+            bot: Some(("circle".into(), "eyes".into())),
+            bot_screen: Some(true),
+            pet: None,
+        };
+        assert!(!wears_screen(Some(&classic), "circle", false));
+        assert!(wears_screen(Some(&classic), "circle", true));
+        let buddy = FaceLook {
+            hue: "blue".into(),
+            parts: Some([0, 0, 0]),
+            bot: None,
+            bot_screen: None,
+            pet: Some(locust_core::bot_spec::PetRef {
+                source: PetSource::Bundled,
+                id: CODEX_BUDDY.id.into(),
+                screen: Some(true),
+            }),
+        };
+        assert!(!wears_screen(Some(&buddy), "circle", false));
     }
 }

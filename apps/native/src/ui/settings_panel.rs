@@ -610,9 +610,109 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                 }
                 body = body.child(look_col);
             }
+            let terminal_faces = s.settings_panel.settings.terminal_faces;
+            let plush = s.settings_panel.settings.plush;
+            let l = crate::look::controls::Look::new(p.bg == Palette::new(true).bg);
             for heading in headings {
                 if heading == "Sidebar" {
                     body = body.child(sidebar_line(s, p));
+                } else if heading == "Terminal faces" {
+                    body = body.child(
+                        col()
+                            .w_full()
+                            .gap(6.0)
+                            .padding(10.0)
+                            .child(text("Terminal faces".to_owned()).font(type_::TITLE).color(p.text))
+                            .child(
+                                text("Draw CRT screen expressions on screen-ready bots and Codex Buddy. Turn off for classic eyes everywhere.".to_owned())
+                                    .font(type_::LABEL)
+                                    .color(p.secondary)
+                                    .wrap(),
+                            )
+                            .child(
+                                row().w_full().center_y().gap(10.0).child(
+                                    crate::look::controls::switch(&l, terminal_faces, "Terminal faces", false)
+                                        .key("settings-terminal-faces")
+                                        .on_press(|s: &mut State| {
+                                            s.settings_panel.settings.terminal_faces =
+                                                !s.settings_panel.settings.terminal_faces;
+                                            persist(s);
+                                        }),
+                                ),
+                            ),
+                    );
+                } else if heading == "What a face says" {
+                    let states = [
+                        ("Resting", locust_core::bot_rig::FaceActivity::Idle),
+                        ("Thinking", locust_core::bot_rig::FaceActivity::Thinking),
+                        ("Working", locust_core::bot_rig::FaceActivity::Working),
+                        ("Waiting", locust_core::bot_rig::FaceActivity::Waiting),
+                        ("Done", locust_core::bot_rig::FaceActivity::Done),
+                        ("Blocked", locust_core::bot_rig::FaceActivity::Blocked),
+                    ];
+                    let mut strip = row().w_full().gap(10.0).wrap();
+                    for (label, act) in states {
+                        let slot = format!("settings-legend-{label}");
+                        strip = strip.child(
+                            row()
+                                .center_y()
+                                .gap(6.0)
+                                .child(crate::look::faces::bot_face_with_look(
+                                    s,
+                                    &slot,
+                                    &slot,
+                                    label,
+                                    Some(&locust_core::native::FaceLook {
+                                        hue: "blue".into(),
+                                        parts: Some([0, 0, 0]),
+                                        bot: Some(("circle".into(), "eyes".into())),
+                                        bot_screen: Some(terminal_faces),
+                                        pet: None,
+                                    }),
+                                    26.0,
+                                    crate::look::faces::BotFaceOpts {
+                                        activity: act,
+                                        motion: locust_core::bot_rig::BotMotionLevel::Subtle,
+                                        ..Default::default()
+                                    },
+                                    &l,
+                                ))
+                                .child(text(label.to_owned()).font(type_::LABEL).color(p.secondary)),
+                        );
+                    }
+                    body = body.child(
+                        col()
+                            .w_full()
+                            .gap(6.0)
+                            .padding(10.0)
+                            .child(text("What a face says".to_owned()).font(type_::TITLE).color(p.text))
+                            .child(strip),
+                    );
+                } else if heading == "Plush" {
+                    body = body.child(
+                        col()
+                            .w_full()
+                            .gap(6.0)
+                            .padding(10.0)
+                            .child(text("Plush".to_owned()).font(type_::TITLE).color(p.text))
+                            .child(
+                                text("Soft felt and brushed-fur contours instead of glossy plastic.".to_owned())
+                                    .font(type_::LABEL)
+                                    .color(p.secondary)
+                                    .wrap(),
+                            )
+                            .child(
+                                row().w_full().center_y().gap(10.0).child(
+                                    crate::look::controls::switch(&l, plush, "Plush", false)
+                                        .key("settings-plush")
+                                        .on_press(|s: &mut State| {
+                                            s.settings_panel.settings.plush =
+                                                !s.settings_panel.settings.plush;
+                                            persist(s);
+                                        }),
+                                ),
+                            ),
+                    );
                 } else {
                     body = body.child(deferred(heading, p));
                 }
