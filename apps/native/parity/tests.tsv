@@ -717,7 +717,7 @@ apps/desktop/src/renderer/src/a-limit-note-leaves-when-it-stops-being-true.test.
 apps/desktop/src/renderer/src/a-locust-bot-draws-before-its-first-frame.test.ts		waiting		
 apps/desktop/src/renderer/src/a-long-call-is-named-while-it-runs.test.ts		waiting		
 apps/desktop/src/renderer/src/a-long-conversation-has-a-rail-of-your-messages.test.tsx		waiting		
-apps/desktop/src/renderer/src/a-long-conversation-is-still-one-conversation.test.ts		waiting		
+apps/desktop/src/renderer/src/a-long-conversation-is-still-one-conversation.test.ts	renderer-2	carried	src/ui/sidebar.rs	Five exact chain cases in real sidebar grouping; named passes in renderer-control-streaming-file.log.
 apps/desktop/src/renderer/src/a-long-conversation-opens-on-its-newest-turns.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-long-fold-keeps-the-answer-near.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-long-list-is-drawn-as-far-as-it-is-read.test.tsx	P4	waiting		`a-long-list-is-drawn-as-far-as-it-is-read.test.tsx` | The twelve-turn request cap was removed, but TS incremental list-window drawing is not implemented. Large histories have not been performance-tested.
@@ -825,7 +825,7 @@ apps/desktop/src/renderer/src/a-stop-on-a-finished-run-changes-nothing.test.ts		
 apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx	STOPPED	partial	core/src/cancellation.rs	6 of 9: plan counts beside unrelated tools, the latest plan, a finished plan, no invented plan, the workspace root and its spellings, OpenCode's unreported command; the two OpenCode card variants with reported interrupted commands, and the ordinary runtime warning, are not pinned
 apps/desktop/src/renderer/src/a-streamed-batch-keeps-the-whole-answer.test.ts		waiting		
 apps/desktop/src/renderer/src/a-tables-status-is-a-chip.test.tsx		waiting		
-apps/desktop/src/renderer/src/a-tagged-conversation-shows-the-message.test.ts		waiting		
+apps/desktop/src/renderer/src/a-tagged-conversation-shows-the-message.test.ts	renderer-2	carried	core/src/conversation_turns_tests.rs; src/ui/messages.rs	Two exact cases: title and headless bubble; named passes in renderer-control-streaming-file.log.
 apps/desktop/src/renderer/src/a-team-card-says-what-it-waits-on.test.tsx	TEAM-FILES	carried	core/src/team_card.rs, src/ui/people_panel.rs	Share your team card summary, carried routines count, and Save image / Add team from image UI
 apps/desktop/src/renderer/src/a-team-without-a-coder-gets-its-own-starters.test.tsx	TEAM-FILES	carried	src/starters.rs	starters_for_roles and teammate_for_starter role matching carried
 apps/desktop/src/renderer/src/a-teammate-at-work-goes-round-its-faces.test.ts		waiting		

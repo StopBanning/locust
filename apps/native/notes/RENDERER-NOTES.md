@@ -125,3 +125,26 @@ No work on those remaining files is claimed complete.
   needs reconciling with native's buddy rig. These are applicable product behavior,
   not Electron-only exclusions. Other unported files remain waiting. Per the
   round-2 instruction to prefer small files, continue with smaller applicable cases.
+
+## Round 2 — tagged message and long conversation (section 2, carried)
+
+- `a-tagged-conversation-shows-the-message.test.ts`: title case in
+  `conversation_turns::tests::a_tagged_conversation_is_titled_by_the_message`;
+  bubble case in `messages::tests::draws_the_tagged_message_as_the_bubble_without_the_context_after_it`.
+  Both use `Can you double-check the tax rate?`, Wren and `I changed TAX_RATE.`.
+  Native now cuts the tag context for ordinary prompt bubbles and ordinary/tag
+  prompt title projection. Other starter kinds retain their own briefing rules.
+- `a-long-conversation-is-still-one-conversation.test.ts`: five separate cases
+  in `sidebar::review_tests`: `finds_the_real_root_36_turns_back`,
+  `collapses_every_turn_of_it_into_one_sidebar_row`,
+  `does_not_care_how_long_the_conversation_gets`,
+  `still_stops_on_a_cycle_rather_than_spinning`, and
+  `stops_at_a_turn_that_is_missing_rather_than_guessing_past_it`.
+  Uses mission_000 ids, Antigravity, Electron's dates and prompts, 36/33/65/200
+  lengths and the missing mission_004 ancestor. Tests native's real sidebar
+  grouping rather than reconstructing Electron's intermediate row map.
+- All seven tests observed passing by name in `renderer-control-streaming-file.log`.
+  That full run passed 2063 core tests (20 ignored) and failed only the deliberately
+  broken streaming-file case in the window suite. The control caught that named
+  assertion and restored messages.rs byte for byte. Restored verification follows.
+- No exclusions. Both rows are carried after these named passes.

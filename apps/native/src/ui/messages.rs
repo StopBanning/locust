@@ -193,6 +193,8 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                     .is_some_and(|m| !locust_core::thread_view::person_prompt(m.started_by_kind.as_deref())) { continue; }
                 let hit = s.prompt_rail.hit_key.as_deref() == Some(key.as_str());
                 // Notes on a diff came as one block after the person's words: the bubble shows the words, the notes go under it.
+                let kind = s.ledger.as_ref().and_then(|p| p.snapshot.turn_metas.get(ui)).and_then(|m| m.started_by_kind.as_deref());
+                let body = if kind.is_none() { locust_core::conversation_turns::tagged_words(body) } else { body };
                 let (own_words, sent_notes) = locust_core::diff_notes::split_diff_notes(body);
                 let edit = crate::edit_message::edit_control(s, ui, &own_words, !sent_notes.is_empty(), p);
                 let turn_edited: Option<&[locust_core::changes::File]> = s.ledger.as_ref().and_then(|pane| {
@@ -670,6 +672,16 @@ mod tests {
             .join("\n");
         *s = rt.state.0;
         out
+    }
+
+    #[test]
+    fn draws_the_tagged_message_as_the_bubble_without_the_context_after_it() {
+        let prompt = "Can you double-check the tax rate?\n\n(You were tagged in Wren's conversation. Wren's latest answer there, for context:)\n\nI changed TAX_RATE.";
+        let shown = thread_text(&[ledger::Item::User(prompt.into())], &mut composition_state(None, false));
+        assert!(shown.contains("Can you double-check the tax rate?"), "{shown}");
+        assert!(!shown.contains("You were tagged") && !shown.contains("TAX_RATE"), "{shown}");
+        let shown = thread_text(&[ledger::Item::User("Can you double-check the tax rate?".into())], &mut composition_state(Some("tag"), false));
+        assert!(shown.contains("Can you double-check the tax rate?"), "{shown}");
     }
 
     // a-teammate-can-hand-you-a-file.test.ts: one native test per Electron case.
