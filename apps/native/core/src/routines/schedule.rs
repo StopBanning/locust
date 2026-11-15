@@ -1,5 +1,5 @@
 //! Port of shared/routine-schedule.ts: wall-clock days, not 24-hour arithmetic.
-use chrono::{DateTime, Datelike, Duration, Local, NaiveDateTime, NaiveTime, TimeZone};
+use chrono::{DateTime, Datelike, Duration, Local, NaiveDateTime, NaiveTime, TimeZone, Timelike};
 use serde_json::Value;
 fn moment(s: &str) -> Option<DateTime<Local>> {
     if s.len() != 16 {
@@ -73,6 +73,30 @@ pub fn base(r: &Value) -> Option<DateTime<Local>> {
     };
     let ran = parse("lastRunAt").or_else(|| parse("createdAt"))?;
     Some(parse("resumedAt").map_or(ran, |at| at.max(ran)))
+}
+/// The tray's "next routine" line (`nextRoutineDueLine` in `shared/routine-schedule.ts`):
+/// the soonest run still ahead, or `"No routine due"`. A paused routine has none (0.705).
+pub fn next_routine_due_line(routines: &[Value], now: DateTime<Local>) -> String {
+    let mut best: Option<(&str, DateTime<Local>)> = None;
+    for r in routines {
+        let Some(sched) = r.get("schedule").filter(|s| !s.is_null()) else {
+            continue;
+        };
+        if sched["kind"] == "files" || r["paused"] == true {
+            continue;
+        }
+        let Some(last) = base(r) else { continue };
+        let Some(due) = next(sched, last, now).filter(|d| *d > now) else {
+            continue;
+        };
+        if best.is_none_or(|(_, at)| due < at) {
+            best = Some((r["name"].as_str().unwrap_or(""), due));
+        }
+    }
+    match best {
+        Some((name, at)) => format!("Next: {name} at {:02}:{:02}", at.hour(), at.minute()),
+        None => "No routine due".into(),
+    }
 }
 pub fn next(v: &Value, last: DateTime<Local>, now: DateTime<Local>) -> Option<DateTime<Local>> {
     if !valid(v) {
