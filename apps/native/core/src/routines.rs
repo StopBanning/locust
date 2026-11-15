@@ -334,3 +334,22 @@ pub fn record_misses(
     }
     Ok(changed)
 }
+
+/// A hand-off chain in step order; adjacent repeated runners collapse unless checking.
+pub fn routine_chain(routine: &Value, team: &[crate::engine::Teammate]) -> Option<String> {
+    let handoffs = routine["handOffs"].as_array()?;
+    if !handoffs.iter().any(|h| h["teammateId"].is_string() || h["check"] == true) { return None; }
+    let owner = routine["teammateId"].as_str().unwrap_or("");
+    let mut last = None;
+    let mut links = Vec::new();
+    for (i, _) in routine["steps"].as_array()?.iter().enumerate() {
+        let entry = handoffs.get(i).unwrap_or(&Value::Null);
+        let runner = entry["teammateId"].as_str().unwrap_or(owner);
+        let check = entry["check"] == true;
+        if last == Some(runner) && !check { continue; }
+        let name = team.iter().find(|m| m.id == runner).map(|m| m.name.as_str()).unwrap_or("someone removed");
+        links.push(if check { format!("{name} (checks)") } else { name.to_owned() });
+        last = Some(runner);
+    }
+    Some(links.join(" → "))
+}

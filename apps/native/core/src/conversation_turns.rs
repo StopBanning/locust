@@ -16,6 +16,9 @@ pub fn tagged_words(prompt: &str) -> &str {
     prompt.split_once("\n\n(You were tagged in ").map_or(prompt, |(words, _)| words)
 }
 pub fn shown_prompt(m: &Metadata) -> &str {
+    if m.started_by_kind.as_deref() == Some("routine") {
+        return crate::hand_off::step_words_of(&m.prompt);
+    }
     if m.started_by_kind.is_none() || m.started_by_kind.as_deref() == Some("tag") {
         tagged_words(&m.prompt)
     } else { &m.prompt }

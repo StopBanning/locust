@@ -404,3 +404,17 @@ called by that stage. No product behavior changed in these two files.
 - No mutation remains. All runs used the whole release workspace, serial tests,
   GIT_OPTIONAL_LOCKS=0 and the existing in-workspace TypeScript reader. No
   filtered Cargo test run. Mutation script syntax and git diff --check passed.
+- Screen/tooltip section committed as `8bce5aa5`. Routine section is carried
+  after all six named cases passed in the final restored workspace run.
+- This continuation adds **3 files / 17 Electron cases**. Across the recorded
+  rounds, **12 of 45 requested files** are carried; **33 remain waiting**.
+  The list is not finished. No other file is claimed carried or excluded.
+- Global inventory after recount: **189 carried, 62 does-not-apply,
+  185 partial, 873 waiting**, 1309 total; recount and --check both exit 0.
+- Continuation point remains the teammate list, starting with applicable inline
+  new-page preview and pets. The prior notes record further roster-selection,
+  signed-out/discovery state, model editor, Home layout/board and work-ownership
+  gaps. The glyph-eye file also includes animated geometry/visors and recorder
+  assertions; existing pure geometry alone does not carry the entire file.
+- No Electron/JavaScript gate, live window, real agent or packaged app was run.
+  Release binary build follows. Original HANDOFF files stay untracked and intact.

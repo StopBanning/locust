@@ -775,7 +775,7 @@ impl Transcript {
                     prompt: scrub(&m.prompt),
                 });
             } else {
-                items.push(Item::User(scrub(if crate::conversation_turns::is_reply_switch(m) { crate::conversation_turns::handoff_instruction(&m.prompt).unwrap_or(&m.prompt) } else { &m.prompt })));
+                items.push(Item::User(scrub(if crate::conversation_turns::is_reply_switch(m) { crate::conversation_turns::handoff_instruction(&m.prompt).unwrap_or(&m.prompt) } else { crate::conversation_turns::shown_prompt(m) })));
             }
         }
         // Fix 8: store (item_index, utf16_units) so streaming deltas count UTF-16 units incrementally.

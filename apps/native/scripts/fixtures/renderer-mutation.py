@@ -10,6 +10,24 @@ import subprocess
 import sys
 
 CONTROLS = {
+    "tooltip-default": (
+        "core/src/teammate_tooltip.rs",
+        'if model == "account-default" {',
+        'if false {',
+        "names_the_model_as_the_chip_does_never_by_its_id",
+    ),
+    "routine-step-words": (
+        "core/src/conversation_turns.rs",
+        'return crate::hand_off::step_words_of(&m.prompt);',
+        'return &m.prompt;',
+        "are_the_step_not_the_answer_quoted_above_it",
+    ),
+    "prompt-screen": (
+        "src/look/faces.rs",
+        'if locust_core::bot_spec::outline_of(shape).screen {',
+        'if false {',
+        "is_never_a_screen_with_terminal_faces_off_but_prompts_whose_face_it_is",
+    ),
     "glad-screen": (
         "core/src/bot_rig.rs",
         'let glad = if screen {',
