@@ -76,7 +76,7 @@ fn job(t: &Temp, conversation: Option<&str>, prompt: &str) -> Send {
 }
 
 fn wait(what: &str, mut done: impl FnMut() -> bool) {
-    let deadline = Instant::now() + Duration::from_secs(20);
+    let deadline = Instant::now() + crate::load_waits::UNDER_LOAD;
     while !done() {
         assert!(Instant::now() < deadline, "timed out waiting for {what}");
         std::thread::sleep(Duration::from_millis(10));
@@ -2268,9 +2268,10 @@ fn relay_prose_return_posts_unanswered_prose_back_to_asker() {
         .unwrap();
     let _g = hooks::install(store.clone(), fake("relay-prose-return"));
 
+    let started_at = Instant::now();
     let first = send(job(&t, None, "Ask Pip about docs port")).unwrap();
-    // 1.6 s alone; under four agents' builds it ran past 6 s (14 Nov).
-    let deadline = Instant::now() + Duration::from_secs(30);
+    // 1.6 s alone; under four agents' builds it ran past 6 s (14 Nov). The wait is on the relay's own state.
+    let deadline = Instant::now() + crate::load_waits::UNDER_LOAD;
     while Instant::now() < deadline {
         if crate::invariants::lock(&ACTIVE_TEAMMATES).is_empty()
             && crate::people::hub_of(&store, "tm_pip").is_some()
@@ -2304,6 +2305,7 @@ fn relay_prose_return_posts_unanswered_prose_back_to_asker() {
     wait("Codec follow-up finished", || !owns(&codec_tip));
     let codec_tip_snap = crate::ledger::read_transcript(store.write_path(&codec_tip).unwrap());
     assert!(codec_tip_snap.items.iter().any(|item| matches!(item, Item::Assistant { text, .. } if text == "Recorded 5173.")));
+    crate::load_waits::note_time("relay_prose_return_posts_unanswered_prose_back_to_asker", started_at.elapsed());
 }
 
 #[test]

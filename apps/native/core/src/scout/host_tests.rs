@@ -697,18 +697,10 @@ httpd.serve_forever()
         panic!("expected TurnOnOutcome::Ok, got {outcome:?}");
     };
 
-    let deadline = Instant::now() + Duration::from_secs(6);
-    loop {
-        let st = host.scout.state();
-        if st.cards.iter().any(|c| c.take.is_some()) {
-            break;
-        }
-        assert!(
-            Instant::now() < deadline,
-            "timed out waiting for provider_busy fallback; state={st:?}"
-        );
-        std::thread::sleep(Duration::from_millis(25));
-    }
+    // Two runs of a Python server, each started when the machine gets round to it: six seconds was not enough
+    // under load. The state is printed if the wait gives up.
+    let took = crate::load_waits::wait_for("the provider_busy fallback's card", || host.scout.state().cards.iter().any(|c| c.take.is_some()));
+    crate::load_waits::note_time("on_diagnostic_from_opencode_provider_busy_asks_next_free_model", took);
 
     let st = host.scout.state();
     assert_eq!(st.cards.len(), 1);

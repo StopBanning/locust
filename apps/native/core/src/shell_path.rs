@@ -66,8 +66,13 @@ pub fn between_markers(said: &str) -> Option<String> {
     (!value.is_empty()).then(|| value.to_owned())
 }
 
-/// Ask the login shell for its PATH, within three seconds, or none (loginShellPath).
+/// Ask the login shell for its PATH, within three seconds, or none (loginShellPath: `execFileSync`'s 3 s timeout).
 pub fn login_shell_path(shell: Option<&str>, fallback: &str) -> Option<String> {
+    login_shell_path_within(shell, fallback, Duration::from_secs(3))
+}
+
+/// `login_shell_path` with its time to answer given: the app's is three seconds.
+fn login_shell_path_within(shell: Option<&str>, fallback: &str, budget: Duration) -> Option<String> {
     let chosen = shell.filter(|s| s.starts_with('/')).unwrap_or(fallback);
     let mut child = Command::new(chosen)
         .args(["-ilc", "printf \"__LOCUST_PATH__%s__LOCUST_PATH__\" \"$PATH\""])
@@ -86,7 +91,7 @@ pub fn login_shell_path(shell: Option<&str>, fallback: &str) -> Option<String> {
     loop {
         match child.try_wait() {
             Ok(Some(_)) => break,
-            Ok(None) if start.elapsed() < Duration::from_secs(3) => std::thread::sleep(Duration::from_millis(10)),
+            Ok(None) if start.elapsed() < budget => std::thread::sleep(Duration::from_millis(10)),
             _ => {
                 let _ = child.kill();
                 let _ = child.wait();
@@ -203,8 +208,13 @@ mod tests {
     #[test]
     fn a_real_login_shell_answers_with_a_path() {
         // The Mac's own zsh, asked the way the app asks it: a real answer, not a guess.
+        // What this checks is that a real login shell answers with its PATH, read between the markers. How long the
+        // app gives it (3 s, as Electron) is the app's to choose; a zsh starting on a machine running four builds can
+        // take longer, so the test gives it the load limit.
         if std::path::Path::new("/bin/zsh").exists() {
-            let said = login_shell_path(Some("/bin/zsh"), "/bin/zsh").expect("zsh answers");
+            let start = std::time::Instant::now();
+            let said = login_shell_path_within(Some("/bin/zsh"), "/bin/zsh", crate::load_waits::UNDER_LOAD).expect("zsh answers");
+            crate::load_waits::note_time("a_real_login_shell_answers_with_a_path", start.elapsed());
             assert!(said.contains("/usr/bin"), "{said}");
         }
     }

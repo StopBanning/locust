@@ -188,18 +188,17 @@ mod tests {
         let marker = dir.join(format!("pty-drop-{}", std::process::id()));
         let _ = std::fs::remove_file(&marker);
         let script = format!("echo $$ > {}; exec sleep 120", marker.display());
+        let start = std::time::Instant::now();
         let terminal = Terminal::open(&dir, Path::new("/bin/sh"), &["-c", &script]).unwrap();
-        let until = std::time::Instant::now() + std::time::Duration::from_secs(2);
-        let pid = loop {
-            if let Ok(body) = std::fs::read_to_string(&marker)
-                && let Ok(pid) = body.trim().parse::<u32>()
-            {
-                break pid;
-            }
-            assert!(std::time::Instant::now() < until, "pty did not publish pid");
-            std::thread::sleep(std::time::Duration::from_millis(10));
-        };
+        // The shell writes its pid once it is scheduled: two seconds was not always enough on a loaded machine.
+        let mut pid = 0;
+        crate::load_waits::wait_for("the pty shell to publish its pid", || {
+            pid = std::fs::read_to_string(&marker).ok().and_then(|body| body.trim().parse().ok()).unwrap_or(0);
+            pid != 0
+        });
+        // Drop kills the shell and waits for it, so it is gone the moment drop returns: no wait here.
         drop(terminal);
+        crate::load_waits::note_time("drop_kills_and_reaps_pty_shell", start.elapsed());
         let listed = std::process::Command::new("/bin/ps")
             .args(["-p", &pid.to_string(), "-o", "pid="])
             .output()
