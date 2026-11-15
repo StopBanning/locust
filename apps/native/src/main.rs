@@ -761,10 +761,15 @@ fn setup(s: &mut State, waker: Waker) {
     if !s.demo {
         s.connector_names = read_claude_connector_names();
     }
-    if !s.demo && s.last_restore.is_none()
+    if !s.demo
         && let Some(store) = &s.data
     {
-        s.last_restore = locust_core::profile_backup::take_last_restore(store.root());
+        if let Ok(settings) = locust_core::workspace_settings::load(store) {
+            s.settings_panel.settings = settings;
+        }
+        if s.last_restore.is_none() {
+            s.last_restore = locust_core::profile_backup::take_last_restore(store.root());
+        }
     }
     load_team(s);
     sync_draft_key(s);
@@ -2318,6 +2323,17 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
 
     changed |= ledger_tick(s, now, tx);
     drain_queue_after_turn(s, tx);
+    changed |= s
+        .bot_stage
+        .poll(now, s.reduced_motion.get(), s.window_focused, tx);
+    if changed
+        && !s.reduced_motion.get()
+        && s.window_focused
+        && s.bot_stage.active_count() == 0
+        && (!s.seen_live.is_empty() || s.flight.is_some())
+    {
+        tx.wake_after(Duration::from_millis(33));
+    }
     changed
 }
 
@@ -2424,6 +2440,8 @@ fn markdown_style(p: &Palette) -> MarkdownStyle {
 }
 
 fn view(s: &State, cx: &mut Cx<State>) -> El {
+    s.reduced_motion.set(cx.is_reduced_motion());
+    s.bot_stage.begin_frame();
     if s.icon_gallery {
         return look::gallery::icons_view(s.appearance.unwrap_or_else(|| cx.system_dark()));
     }

@@ -261,8 +261,12 @@ pub(super) struct State {
     pub(super) appearance: Option<bool>,
     /// The kit gallery scene (look::gallery) instead of the app.
     pub(super) gallery: bool,
-    /// Each teammate's look (hue, seeded parts, picked bot), read beside the roster (native::load_looks).
+    /// Each teammate's look (hue, seeded parts, picked bot, pet), read beside the roster (native::load_looks).
     pub(super) looks: std::collections::HashMap<String, locust_core::native::FaceLook>,
+    /// Rig animation scheduler for visible bots (steps only when active/transitioning; 0 wakes at rest).
+    pub(super) bot_stage: crate::look::bot_stage::BotStage,
+    /// Last observed system reduced-motion setting from `Cx::is_reduced_motion()`.
+    pub(super) reduced_motion: std::cell::Cell<bool>,
     /// The icon gallery scene (look::gallery::icons_view).
     pub(super) icon_gallery: bool,
     pub(super) activity_open: HashMap<String, bool>,
@@ -502,6 +506,8 @@ impl Default for State {
             appearance: None,
             gallery: false,
             looks: std::collections::HashMap::new(),
+            bot_stage: crate::look::bot_stage::BotStage::default(),
+            reduced_motion: std::cell::Cell::new(false),
             icon_gallery: false,
             activity_open: HashMap::new(),
             recent: Vec::new(),

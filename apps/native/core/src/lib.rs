@@ -212,3 +212,11 @@ pub mod decision_standing;
 
 #[cfg(test)]
 mod waiting_clock_tests;
+
+pub mod bot_spec;
+
+pub mod bot_rig;
+
+pub mod buddy_rig;
+
+pub mod buddy_moves;

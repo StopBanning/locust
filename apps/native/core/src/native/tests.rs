@@ -3113,3 +3113,50 @@ fn asking_scout_forces_ask_mode_sealed_and_injects_why_brief_even_when_teammate_
     assert_eq!(recs[0]["metadata"]["mode"], "ask");
     assert_eq!(recs[0]["metadata"]["sandbox"], "read-only");
 }
+
+#[test]
+fn parse_looks_reads_bot_screen_and_pet_and_rejects_bad_pet() {
+    let raw = serde_json::json!({
+        "schemaVersion": 1,
+        "teammates": [
+            {
+                "teammateId": "tm_buddy",
+                "name": "Buddy",
+                "role": "Code & Migrations", "createdAt": "2026-11-01T00:00:00Z",
+                "hue": "blue",
+                "avatar": {
+                    "headwear": 1,
+                    "accessory": 2,
+                    "mouth": 0,
+                    "bot": { "shape": "hopper", "face": "eyes", "screen": true },
+                    "pet": { "source": "codex", "id": "codex-buddy", "screen": false }
+                }
+            },
+            {
+                "teammateId": "tm_badpet",
+                "name": "BadPet",
+                "role": "Code & Migrations", "createdAt": "2026-11-01T00:00:00Z",
+                "hue": "teal",
+                "avatar": {
+                    "headwear": 0,
+                    "accessory": 0,
+                    "mouth": 0,
+                    "pet": { "source": "codex", "id": "builtin", "screen": true }
+                }
+            }
+        ]
+    });
+    let looks = parse_looks(&raw.to_string());
+    let buddy = &looks["tm_buddy"];
+    assert_eq!(buddy.bot, Some(("hopper".into(), "eyes".into())));
+    assert_eq!(buddy.bot_screen, Some(true));
+    assert_eq!(
+        buddy.pet,
+        Some(crate::bot_spec::PetRef {
+            source: crate::bot_spec::PetSource::Codex,
+            id: "codex-buddy".into(),
+            screen: Some(false),
+        })
+    );
+    assert_eq!(looks["tm_badpet"].pet, None);
+}

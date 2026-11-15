@@ -1,0 +1,791 @@
+//! Frame scheduler and animation state for rig-drawn bots and Codex Buddy.
+//!
+//! Zero UI toolkit rendering logic here: this module advances pure `locust_core::bot_rig`
+//! and `locust_core::buddy_moves` rigs for visible bot slots and asks `rune::Tx` for the
+//! next frame **only** when a visible bot is actively working or finishing a transition.
+//! Resting bots stay settled with zero wakeups.
+
+use locust_core::bot_rig::{
+    crt_rule, eye_glyphs_for, flash_fade, flash_for, is_motionless, mood_for, phosphor_for,
+    power_on_light, rest_pose, step_lag, BodyConductor, BodyWants, BotAvatarPose, BotAvatarSim,
+    BotAvatarState, BotMood, BotMotionLevel, CrtKind, FaceActivity, FaceChanges, FrameBeat,
+    GlanceSide, Lag, PowerOnLight, ShownFace, BOT_FRAMES_PER_SECOND, CRT_FLICK_S, LAG_REST,
+    NOTICE_DWELL_MS, POWER_ON_S, RECEIVED_GLANCE_MS,
+};
+use locust_core::bot_spec::{seed_of, Phosphor};
+use locust_core::buddy_moves::{
+    glance_look, screen_face_for, PetScreenAsk, PetScreenConductor, ScreenRectF, CODEX_BUDDY,
+};
+use locust_core::buddy_rig::{BuddyPose, REST_POSE};
+use rune::Tx;
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::time::Duration;
+
+const FULL_STEP_MS: u64 = 33;
+const SUBTLE_STEP_MS: u64 = 66;
+const HOVER_PEEK_S: f64 = 2.6;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PresenceDot {
+    Working,
+    Waiting,
+    Blocked,
+}
+
+#[derive(Debug, Clone)]
+pub struct BotSnapshot {
+    pub pose: BotAvatarPose,
+    pub eyes: Option<[String; 2]>,
+    pub tone: Phosphor,
+    pub flash: Option<(Phosphor, f64)>,
+    pub flash_progress: f64,
+    pub power_on: Option<PowerOnLight>,
+    pub shut: f64,
+    pub lag_x: f64,
+    pub lag_y: f64,
+    pub hop: bool,
+    pub blinking: bool,
+    pub screen: bool,
+    pub plush: bool,
+    pub s_seconds: f64,
+    pub hovered: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct BuddySnapshot {
+    pub pose: BuddyPose,
+    pub look: f64,
+    pub eyes: [String; 2],
+    pub tone: Phosphor,
+    pub flash: Option<(Phosphor, f64)>,
+    pub flash_progress: f64,
+    pub power_on: Option<PowerOnLight>,
+    pub shut: f64,
+    pub glass: Option<ScreenRectF>,
+    pub screen: bool,
+    pub plush: bool,
+    pub s_seconds: f64,
+    pub hovered: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct DesiredState {
+    activity: FaceActivity,
+    glance: Option<GlanceSide>,
+    motion: BotMotionLevel,
+    screen: bool,
+    plush: bool,
+}
+
+struct BotSlot {
+    seed: f64,
+    desired: DesiredState,
+    sim: BotAvatarSim,
+    changes: FaceChanges,
+    conductor: BodyConductor,
+    lag: Lag,
+    prev_pose: BotAvatarPose,
+    start_s: f64,
+    last_step_s: f64,
+    last_change_count: u32,
+    boot_at: Option<f64>,
+    boot_span: f64,
+    hovered: bool,
+    hover_started_s: Option<f64>,
+    hover_noticed_s: Option<f64>,
+    hover_until_s: Option<f64>,
+    seen_this_frame: bool,
+    settled: bool,
+    cached: BotSnapshot,
+}
+
+struct BuddySlot {
+    seed: f64,
+    desired: DesiredState,
+    conductor: PetScreenConductor,
+    start_s: f64,
+    last_step_s: f64,
+    hovered: bool,
+    hover_started_s: Option<f64>,
+    hover_noticed_s: Option<f64>,
+    hover_until_s: Option<f64>,
+    seen_this_frame: bool,
+    settled: bool,
+    cached: BuddySnapshot,
+}
+
+struct StageInner {
+    now_s: f64,
+    beat_full: FrameBeat,
+    beat_subtle: FrameBeat,
+    bots: HashMap<String, BotSlot>,
+    buddies: HashMap<String, BuddySlot>,
+    reduced_snap_pending: bool,
+    wake_count: u64,
+}
+
+impl Default for StageInner {
+    fn default() -> Self {
+        Self {
+            now_s: 0.0,
+            beat_full: FrameBeat::new(BOT_FRAMES_PER_SECOND),
+            beat_subtle: FrameBeat::new(BOT_FRAMES_PER_SECOND / 2.0),
+            bots: HashMap::new(),
+            buddies: HashMap::new(),
+            reduced_snap_pending: false,
+            wake_count: 0,
+        }
+    }
+}
+
+pub struct BotStage {
+    inner: RefCell<StageInner>,
+}
+
+impl Default for BotStage {
+    fn default() -> Self {
+        Self {
+            inner: RefCell::new(StageInner::default()),
+        }
+    }
+}
+
+fn avatar_state_for(activity: FaceActivity, still: bool) -> BotAvatarState {
+    if still {
+        return BotAvatarState::Default;
+    }
+    match activity {
+        FaceActivity::Thinking
+        | FaceActivity::Working
+        | FaceActivity::Delegating
+        | FaceActivity::Responding
+        | FaceActivity::Done => BotAvatarState::Working,
+        FaceActivity::Blocked => BotAvatarState::Sleeping,
+        FaceActivity::Waiting | FaceActivity::Receiving | FaceActivity::Idle => {
+            BotAvatarState::Default
+        }
+    }
+}
+
+fn shown_face_for(activity: FaceActivity, screen: bool) -> ShownFace {
+    let pair = if screen && !matches!(activity, FaceActivity::Idle) {
+        eye_glyphs_for(activity).map(|[a, b]| [a.to_owned(), b.to_owned()])
+    } else {
+        None
+    };
+    let tone = if screen {
+        phosphor_for(activity)
+    } else {
+        Phosphor::Cyan
+    };
+    ShownFace {
+        pair,
+        tone,
+        key: Some(activity.as_str().to_owned()),
+    }
+}
+
+fn build_bot_snapshot(
+    slot: &mut BotSlot,
+    now_s: f64,
+    dt_s: f64,
+    reduced_motion: bool,
+    hover_notice: bool,
+) -> BotSnapshot {
+    let desired = slot.desired;
+    let still = reduced_motion || is_motionless(desired.activity);
+    let target_state = avatar_state_for(desired.activity, still && !hover_notice);
+    slot.sim.set_state(target_state);
+    if !still || hover_notice {
+        if let Some(side) = desired.glance {
+            match side {
+                GlanceSide::Left => slot.sim.set_turn(-0.65),
+                GlanceSide::Right => slot.sim.set_turn(0.65),
+                GlanceSide::Up => slot.sim.set_pointer(0.0, -0.25, 0.75),
+                GlanceSide::Down => slot.sim.set_pointer(0.0, 0.25, 0.75),
+            }
+        } else if hover_notice {
+            slot.sim.set_pointer(0.25, -0.15, 0.75);
+        } else {
+            slot.sim.set_turn(0.0);
+            slot.sim.set_pointer(0.0, 0.0, 0.0);
+        }
+        slot.sim.update(dt_s.min(0.1));
+    } else {
+        slot.sim.set_turn(0.0);
+        slot.sim.set_pointer(0.0, 0.0, 0.0);
+        if reduced_motion {
+            slot.sim.pose = rest_pose(target_state);
+        } else {
+            slot.sim.update(dt_s.min(0.1));
+        }
+    }
+
+    let rel_s = (now_s - slot.start_s).max(0.0);
+    let sample_s = if reduced_motion { 0.0 } else { rel_s };
+    let wanted = shown_face_for(desired.activity, desired.screen);
+    let flash = if desired.screen {
+        flash_for(desired.activity)
+    } else {
+        None
+    };
+    let prev_key = slot.changes.shown().key.clone();
+    let change = slot
+        .changes
+        .at(sample_s, wanted, flash, slot.boot_at, slot.boot_span);
+    if change.count != slot.last_change_count {
+        slot.last_change_count = change.count;
+        if sample_s > 0.0
+            && desired.screen
+            && let Some(kind) = crt_rule(
+                slot.seed,
+                prev_key.as_deref(),
+                Some(desired.activity.as_str()),
+                change.count,
+            )
+        {
+            slot.boot_at = Some(sample_s);
+            slot.boot_span = match kind {
+                CrtKind::On => POWER_ON_S,
+                CrtKind::Flick => CRT_FLICK_S,
+            };
+        }
+    }
+
+    let mood = mood_for(desired.activity).or(if hover_notice {
+        Some(BotMood::Curious)
+    } else {
+        None
+    });
+    let body_wants = BodyWants {
+        mood,
+        hop: !still && desired.motion == BotMotionLevel::Full,
+        resting: still && !hover_notice,
+        glancing: desired.glance.is_some() || hover_notice,
+    };
+    let rig_pose = if reduced_motion {
+        rest_pose(BotAvatarState::Default)
+    } else {
+        slot.sim.pose
+    };
+    let frame = slot.conductor.frame(
+        sample_s,
+        &change,
+        rig_pose,
+        Some(slot.sim.heading()),
+        body_wants,
+    );
+
+    if dt_s > 0.0 && !reduced_motion {
+        let step_s = dt_s.max(1e-3);
+        let kick_x = (frame.pose.x - slot.prev_pose.x + (frame.pose.yaw - slot.prev_pose.yaw) * 4.0) / step_s;
+        let kick_y = (frame.pose.y - slot.prev_pose.y + (frame.pose.pitch - slot.prev_pose.pitch) * 4.0) / step_s;
+        slot.lag = step_lag(slot.lag, dt_s.min(0.1), kick_x, kick_y);
+    } else if reduced_motion {
+        slot.lag = LAG_REST;
+    }
+    slot.prev_pose = frame.pose;
+
+    let active_flash = slot.changes.flash();
+    let flash_progress = active_flash
+        .map(|(_, at)| flash_fade((sample_s - at).max(0.0)))
+        .unwrap_or(1.0);
+    let power_on = slot.boot_at.and_then(|start| {
+        if sample_s >= start && sample_s < start + slot.boot_span {
+            let phase = (sample_s - start) / slot.boot_span;
+            Some(power_on_light(phase))
+        } else {
+            None
+        }
+    });
+
+    let active_eyes = change
+        .eyes
+        .or_else(|| slot.changes.shown().pair.clone())
+        .map(|[a, b]| {
+            if desired.screen && a == "•" && b == "•" {
+                let shut = (sample_s * 1.4).sin() > 0.94;
+                if shut {
+                    ["─".to_owned(), "─".to_owned()]
+                } else {
+                    [a, b]
+                }
+            } else {
+                [a, b]
+            }
+        });
+
+    slot.settled = reduced_motion || (still && !hover_notice && frame.settled && power_on.is_none());
+
+    BotSnapshot {
+        pose: frame.pose,
+        eyes: active_eyes,
+        tone: slot.changes.shown().tone,
+        flash: active_flash,
+        flash_progress,
+        power_on,
+        shut: change.shut,
+        lag_x: slot.lag.x,
+        lag_y: slot.lag.y,
+        hop: frame.hop,
+        blinking: frame.blink,
+        screen: desired.screen,
+        plush: desired.plush,
+        s_seconds: sample_s,
+        hovered: slot.hovered,
+    }
+}
+
+fn build_buddy_snapshot(
+    slot: &mut BuddySlot,
+    now_s: f64,
+    reduced_motion: bool,
+    hover_notice: bool,
+) -> BuddySnapshot {
+    let desired = slot.desired;
+    let rel_s = if reduced_motion {
+        0.0
+    } else {
+        (now_s - slot.start_s).max(0.0)
+    };
+    let still = reduced_motion || (is_motionless(desired.activity) && !hover_notice);
+    let mut ask = PetScreenAsk::from_activity(
+        if hover_notice {
+            "receiving"
+        } else {
+            desired.activity.as_str()
+        },
+        if hover_notice {
+            FaceActivity::Receiving
+        } else {
+            desired.activity
+        },
+        desired.glance.and_then(glance_look),
+        desired.motion,
+    );
+    if !desired.screen {
+        ask.eyes = None;
+        ask.flash = None;
+    }
+    let turned = if hover_notice && desired.glance.is_none() {
+        Some(GlanceSide::Right)
+    } else {
+        desired.glance
+    };
+    let seed = slot.seed;
+    let crt_cb = move |from: Option<&str>, to: &str, count: u32| crt_rule(seed, from, Some(to), count);
+    let frame = slot.conductor.frame(
+        rel_s,
+        &ask,
+        turned,
+        if desired.screen { Some(&crt_cb) } else { None },
+    );
+    let (pose, look) = if reduced_motion {
+        (REST_POSE, 0.0)
+    } else {
+        (frame.rig.pose, frame.rig.look)
+    };
+    slot.settled = reduced_motion || (still && frame.settled && frame.booting.is_none());
+
+    BuddySnapshot {
+        pose,
+        look,
+        eyes: frame.pair,
+        tone: if desired.screen {
+            phosphor_for(desired.activity)
+        } else {
+            Phosphor::Cyan
+        },
+        flash: desired
+            .screen
+            .then(|| flash_for(desired.activity))
+            .flatten()
+            .map(|c| (c, rel_s)),
+        flash_progress: if desired.activity == FaceActivity::Done {
+            0.5
+        } else {
+            1.0
+        },
+        power_on: frame.booting.map(power_on_light),
+        shut: frame.squash,
+        glass: frame.glass,
+        screen: desired.screen,
+        plush: desired.plush,
+        s_seconds: rel_s,
+        hovered: slot.hovered,
+    }
+}
+
+impl BotStage {
+    pub fn begin_frame(&self) {
+        let mut inner = self.inner.borrow_mut();
+        for slot in inner.bots.values_mut() {
+            slot.seen_this_frame = false;
+        }
+        for slot in inner.buddies.values_mut() {
+            slot.seen_this_frame = false;
+        }
+    }
+
+    pub fn set_hover(&self, key: &str, hovered: bool) {
+        let mut inner = self.inner.borrow_mut();
+        let now_s = inner.now_s;
+        if let Some(slot) = inner.bots.get_mut(key) {
+            slot.hovered = hovered;
+            if hovered {
+                slot.hover_started_s = Some(now_s);
+                slot.hover_until_s = Some(now_s + HOVER_PEEK_S);
+                slot.settled = false;
+            } else {
+                slot.hover_started_s = None;
+                slot.hover_noticed_s = None;
+                slot.hover_until_s = None;
+                slot.settled = false;
+            }
+        }
+        if let Some(slot) = inner.buddies.get_mut(key) {
+            slot.hovered = hovered;
+            if hovered {
+                slot.hover_started_s = Some(now_s);
+                slot.hover_until_s = Some(now_s + HOVER_PEEK_S);
+                slot.settled = false;
+            } else {
+                slot.hover_started_s = None;
+                slot.hover_noticed_s = None;
+                slot.hover_until_s = None;
+                slot.settled = false;
+            }
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn snapshot_bot(
+        &self,
+        slot_key: &str,
+        id: &str,
+        activity: FaceActivity,
+        glance: Option<GlanceSide>,
+        motion: BotMotionLevel,
+        screen: bool,
+        plush: bool,
+        reduced_motion: bool,
+    ) -> BotSnapshot {
+        let mut inner = self.inner.borrow_mut();
+        let now_s = inner.now_s;
+        let desired = DesiredState {
+            activity,
+            glance,
+            motion,
+            screen,
+            plush,
+        };
+        let entry = inner.bots.entry(slot_key.to_owned()).or_insert_with(|| {
+            let seed = seed_of(id);
+            let shown = shown_face_for(activity, screen);
+            let resting_at_start = is_motionless(activity) || reduced_motion;
+            let sim = BotAvatarSim::new(seed, avatar_state_for(activity, resting_at_start));
+            let changes = FaceChanges::new(shown);
+            let conductor = BodyConductor::new(seed, screen, reduced_motion, resting_at_start);
+            let prev_pose = sim.pose;
+            let cached = BotSnapshot {
+                pose: prev_pose,
+                eyes: changes.shown().pair.clone(),
+                tone: changes.shown().tone,
+                flash: None,
+                flash_progress: 1.0,
+                power_on: None,
+                shut: 0.0,
+                lag_x: 0.0,
+                lag_y: 0.0,
+                hop: false,
+                blinking: false,
+                screen,
+                plush,
+                s_seconds: 0.0,
+                hovered: false,
+            };
+            let mut slot = BotSlot {
+                seed,
+                desired,
+                sim,
+                changes,
+                conductor,
+                lag: LAG_REST,
+                prev_pose,
+                start_s: now_s,
+                last_step_s: now_s,
+                last_change_count: 0,
+                boot_at: None,
+                boot_span: POWER_ON_S,
+                hovered: false,
+                hover_started_s: None,
+                hover_noticed_s: None,
+                hover_until_s: None,
+                seen_this_frame: true,
+                settled: resting_at_start,
+                cached,
+            };
+            slot.cached = build_bot_snapshot(&mut slot, now_s, 0.0, reduced_motion, false);
+            slot
+        });
+        entry.seen_this_frame = true;
+        if entry.desired != desired {
+            let changed_activity = entry.desired.activity != desired.activity;
+            entry.desired = desired;
+            if changed_activity || !is_motionless(desired.activity) {
+                entry.settled = false;
+            }
+            let hover_notice = entry
+                .hover_noticed_s
+                .zip(entry.hover_until_s)
+                .is_some_and(|(_, u)| now_s < u);
+            entry.cached = build_bot_snapshot(entry, now_s, 0.0, reduced_motion, hover_notice);
+        }
+        if reduced_motion && !entry.settled {
+            entry.cached = build_bot_snapshot(entry, now_s, 0.0, true, false);
+        }
+        entry.cached.clone()
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn snapshot_buddy(
+        &self,
+        slot_key: &str,
+        id: &str,
+        activity: FaceActivity,
+        glance: Option<GlanceSide>,
+        motion: BotMotionLevel,
+        screen: bool,
+        plush: bool,
+        reduced_motion: bool,
+    ) -> BuddySnapshot {
+        let mut inner = self.inner.borrow_mut();
+        let now_s = inner.now_s;
+        let desired = DesiredState {
+            activity,
+            glance,
+            motion,
+            screen,
+            plush,
+        };
+        let entry = inner.buddies.entry(slot_key.to_owned()).or_insert_with(|| {
+            let seed = seed_of(id);
+            let ask = PetScreenAsk::from_activity(
+                activity.as_str(),
+                activity,
+                glance.and_then(glance_look),
+                motion,
+            );
+            let face = screen_face_for(CODEX_BUDDY.id).expect("codex-buddy screen table");
+            let conductor = PetScreenConductor::new(face, seed, &ask);
+            let resting_at_start = is_motionless(activity) || reduced_motion;
+            let cached = BuddySnapshot {
+                pose: REST_POSE,
+                look: 0.0,
+                eyes: ["|".to_owned(), "|".to_owned()],
+                tone: Phosphor::Cyan,
+                flash: None,
+                flash_progress: 1.0,
+                power_on: None,
+                shut: 0.0,
+                glass: None,
+                screen,
+                plush,
+                s_seconds: 0.0,
+                hovered: false,
+            };
+            let mut slot = BuddySlot {
+                seed,
+                desired,
+                conductor,
+                start_s: now_s,
+                last_step_s: now_s,
+                hovered: false,
+                hover_started_s: None,
+                hover_noticed_s: None,
+                hover_until_s: None,
+                seen_this_frame: true,
+                settled: resting_at_start,
+                cached,
+            };
+            slot.cached = build_buddy_snapshot(&mut slot, now_s, reduced_motion, false);
+            slot
+        });
+        entry.seen_this_frame = true;
+        if entry.desired != desired {
+            let changed_activity = entry.desired.activity != desired.activity;
+            entry.desired = desired;
+            if changed_activity || !is_motionless(desired.activity) {
+                entry.settled = false;
+            }
+            let hover_notice = entry
+                .hover_noticed_s
+                .zip(entry.hover_until_s)
+                .is_some_and(|(_, u)| now_s < u);
+            entry.cached = build_buddy_snapshot(entry, now_s, reduced_motion, hover_notice);
+        }
+        if reduced_motion && !entry.settled {
+            entry.cached = build_buddy_snapshot(entry, now_s, true, false);
+        }
+        entry.cached.clone()
+    }
+
+    pub fn poll(&self, now_s: f64, reduced_motion: bool, focused: bool, tx: &mut Tx) -> bool {
+        let mut inner = self.inner.borrow_mut();
+        inner.now_s = now_s;
+        inner.bots.retain(|_, slot| slot.seen_this_frame);
+        inner.buddies.retain(|_, slot| slot.seen_this_frame);
+
+        if reduced_motion {
+            if inner.reduced_snap_pending {
+                inner.reduced_snap_pending = false;
+                for slot in inner.bots.values_mut() {
+                    slot.cached = build_bot_snapshot(slot, now_s, 0.0, true, false);
+                }
+                for slot in inner.buddies.values_mut() {
+                    slot.cached = build_buddy_snapshot(slot, now_s, true, false);
+                }
+                return true;
+            }
+            return false;
+        }
+        inner.reduced_snap_pending = true;
+
+        if !focused {
+            return false;
+        }
+
+        let dwell_s = (NOTICE_DWELL_MS as f64) / 1000.0;
+        let received_s = (RECEIVED_GLANCE_MS as f64) / 1000.0;
+        let mut any_full = false;
+        let mut any_subtle = false;
+
+        for slot in inner.bots.values_mut() {
+            if slot.hovered
+                && slot.hover_noticed_s.is_none()
+                && slot
+                    .hover_started_s
+                    .is_some_and(|start| now_s - start >= dwell_s)
+            {
+                slot.hover_noticed_s = Some(now_s);
+                slot.hover_until_s = Some(now_s + received_s);
+                slot.settled = false;
+            }
+            let hover_active = slot
+                .hover_until_s
+                .is_some_and(|until| now_s < until)
+                || slot.hovered;
+            let active = !is_motionless(slot.desired.activity) || !slot.settled || hover_active;
+            if active {
+                if slot.desired.motion == BotMotionLevel::Full {
+                    any_full = true;
+                } else {
+                    any_subtle = true;
+                }
+            }
+        }
+        for slot in inner.buddies.values_mut() {
+            if slot.hovered
+                && slot.hover_noticed_s.is_none()
+                && slot
+                    .hover_started_s
+                    .is_some_and(|start| now_s - start >= dwell_s)
+            {
+                slot.hover_noticed_s = Some(now_s);
+                slot.hover_until_s = Some(now_s + received_s);
+                slot.settled = false;
+            }
+            let hover_active = slot
+                .hover_until_s
+                .is_some_and(|until| now_s < until)
+                || slot.hovered;
+            let active = !is_motionless(slot.desired.activity) || !slot.settled || hover_active;
+            if active {
+                if slot.desired.motion == BotMotionLevel::Full {
+                    any_full = true;
+                } else {
+                    any_subtle = true;
+                }
+            }
+        }
+
+        if !any_full && !any_subtle {
+            return false;
+        }
+
+        let now_ms = now_s * 1000.0;
+        let step_due = if any_full {
+            inner.beat_full.due(now_ms)
+        } else {
+            inner.beat_subtle.due(now_ms)
+        };
+        let step_ms = if any_full {
+            FULL_STEP_MS
+        } else {
+            SUBTLE_STEP_MS
+        };
+        tx.wake_after(Duration::from_millis(step_ms));
+        inner.wake_count += 1;
+
+        if !step_due {
+            return false;
+        }
+
+        let mut redrawn = false;
+        for slot in inner.bots.values_mut() {
+            let hover_notice = slot
+                .hover_noticed_s
+                .zip(slot.hover_until_s)
+                .is_some_and(|(_, u)| now_s < u);
+            let hover_active = hover_notice || slot.hovered;
+            if is_motionless(slot.desired.activity) && slot.settled && !hover_active {
+                slot.last_step_s = now_s;
+                continue;
+            }
+            let dt = (now_s - slot.last_step_s).clamp(0.0, 0.1);
+            slot.last_step_s = now_s;
+            slot.cached = build_bot_snapshot(slot, now_s, dt, false, hover_notice);
+            redrawn = true;
+        }
+        for slot in inner.buddies.values_mut() {
+            let hover_notice = slot
+                .hover_noticed_s
+                .zip(slot.hover_until_s)
+                .is_some_and(|(_, u)| now_s < u);
+            let hover_active = hover_notice || slot.hovered;
+            if is_motionless(slot.desired.activity) && slot.settled && !hover_active {
+                slot.last_step_s = now_s;
+                continue;
+            }
+            slot.last_step_s = now_s;
+            slot.cached = build_buddy_snapshot(slot, now_s, false, hover_notice);
+            redrawn = true;
+        }
+        redrawn
+    }
+
+    pub fn wake_count(&self) -> u64 {
+        self.inner.borrow().wake_count
+    }
+
+    pub fn active_count(&self) -> usize {
+        let inner = self.inner.borrow();
+        let bots = inner
+            .bots
+            .values()
+            .filter(|s| s.seen_this_frame && (!is_motionless(s.desired.activity) || !s.settled))
+            .count();
+        let buddies = inner
+            .buddies
+            .values()
+            .filter(|s| s.seen_this_frame && (!is_motionless(s.desired.activity) || !s.settled))
+            .count();
+        bots + buddies
+    }
+
+    pub fn slot_count(&self) -> usize {
+        let inner = self.inner.borrow();
+        inner.bots.len() + inner.buddies.len()
+    }
+}
