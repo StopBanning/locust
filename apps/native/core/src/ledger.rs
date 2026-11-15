@@ -36,6 +36,9 @@ pub struct Metadata {
     pub model: String,
     pub created_at: String,
     pub parent: Option<String>,
+    /// Display-only projection of checkpoint receipts, populated while folding the ledger.
+    pub checkpoint_epoch: Option<u64>,
+    pub checkpoint_unsettled: BTreeMap<u64, usize>,
     pub check_fix: Option<crate::edit_check::CheckFixStarter>,
     pub side: bool,
     pub cli_version: Option<String>,
@@ -366,6 +369,8 @@ pub fn metadata(record: &Record) -> Option<Metadata> {
             .get("continuesFrom")
             .map(|v| string(v, "missionId"))
             .filter(|id| safe_id(id)),
+        checkpoint_epoch: m["continuesFrom"]["checkpointEpoch"].as_u64(),
+        checkpoint_unsettled: BTreeMap::new(),
         check_fix: m
             .get("startedBy")
             .and_then(crate::edit_check::CheckFixStarter::from_json),
@@ -483,6 +488,14 @@ fn decode(line: &[u8]) -> Option<Record> {
                 payload.remove("reasoning_content");
                 payload.remove("item");
             }
+        }
+        "mission.checkpoint" => {
+            let checkpoint = value.get("checkpoint")?;
+            checkpoint.get("epoch")?.as_u64()?;
+            checkpoint.get("reason")?.as_str()?;
+            checkpoint.get("resumeSafety")?.as_str()?;
+            checkpoint.get("safetyReason")?.as_str()?;
+            checkpoint.get("unsettledActions")?.as_array()?;
         }
         "mission.edit_check" => {
             if version < 17 {
@@ -739,6 +752,11 @@ impl Transcript {
             }
         }
 
+        if let Some(m) = &mut self.metadata {
+            m.checkpoint_unsettled = self.checkpoints.iter().filter_map(|p| {
+                Some((p["epoch"].as_u64()?, p["unsettledActions"].as_array().map_or(0, Vec::len)))
+            }).collect();
+        }
         let mut items = Vec::new();
         if let Some(m) = &self.metadata {
             if let Some(cf) = &m.check_fix {
@@ -1897,6 +1915,8 @@ mod tests {
             }
         })
     }
+
+    mod reopened_handoff_tests { include!("reopened_handoff_tests.rs"); }
 
     fn synthetic_transcript(rows: Vec<Value>) -> Transcript {
         // Exercise the JSONL boundary, including raw-evidence removal.

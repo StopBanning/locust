@@ -6,6 +6,7 @@ import subprocess
 import sys
 controls = {
     'helper-row': ('src/ui/activity_drawers.rs', 'locust_core::activity_entries::helper_description(name, title)', 'title', 'an_unnamed_helper_reaches_the_window_as_unnamed'),
+    'handoff-row': ('src/ui/handoff_divider.rs', 'let unsettled = to_meta.checkpoint_epoch.and_then(|epoch| from_meta?.checkpoint_unsettled.get(&epoch).copied()).unwrap_or(0);', 'let unsettled = 0;', 'a_reopened_handoff_names_the_recorded_uncertain_actions'),
     'draw': ('src/ui/messages.rs', 'text(format!("Started {label}"))', 'text(format!("Began {label}"))', 'the_cached_mission_start_label_reaches_the_headless_thread'),
     'refresh': ('src/main.rs', 'pane.snapshot.started_label_minute != minute', 'pane.snapshot.started_label_minute == minute', 'an_ended_threads_start_date_refreshes_without_reopening_its_ledger'),
 }

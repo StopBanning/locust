@@ -2,6 +2,9 @@
 """One restored source mutation against the entire core suite. Run from apps/native."""
 import os, pathlib, subprocess, sys
 controls = {
+    'handoff-decode': ('core/src/ledger.rs', '"mission.checkpoint" => {', '"discarded.checkpoint" => {', 'rebuilds_the_divider_from_the_route_switch_checkpoint_it_resumed_from'),
+    'handoff-checkpoint': ('core/src/conversation_turns.rs', 'unsettled_count:m.checkpoint_epoch.and_then(|epoch|prior.checkpoint_unsettled.get(&epoch).copied()).unwrap_or(0)', 'unsettled_count:0', 'rebuilds_the_divider_from_the_route_switch_checkpoint_it_resumed_from'),
+    'handoff-fold': ('core/src/ledger.rs', 'p["unsettledActions"].as_array().map_or(0, Vec::len)', '0', 'rebuilds_the_divider_from_the_route_switch_checkpoint_it_resumed_from'),
     'peer-hide': ('core/src/protocol_tags.rs', 'let s = crate::peer_share::strip_share_blocks(text);', 'let s = text.to_owned();', 'hides_a_share_block_from_the_agent_bubble_keeping_the_prose'),
     'peer-sort': ('core/src/peer_thread.rs', 'messages.sort_by(|a,b| a.posted_at.cmp(&b.posted_at));', 'messages.sort_by(|a,b| b.posted_at.cmp(&a.posted_at));', 'groups_an_exchange_by_the_other_party_and_marks_whether_anything_was_received'),
     'helper-unnamed': ('core/src/activity_entries.rs', '_ => "a subagent, unnamed",', '_ => "Task",', 'a_helper_the_runtime_never_named_is_said_to_be_unnamed_not_drawn_as_a_path'),
