@@ -738,3 +738,13 @@ argument validation; no process starts during drawing. The shared release run
 failures/doc tests and no warnings. All seven new session/prompt cases passed
 by name. The whole-core `session-empty` control failed its named assertion and
 restored exactly. Coverage after this section: **192/264**, 72 remain.
+
+### Which words a turn shows — four case ports
+
+`turn_words_tests.rs` pins the exact prompts for a reply, a handoff, a reply
+after a handoff, and a missing parent. All passed by name in the same complete
+release run above. No product change was needed: the existing typed_prompt walk
+already implements the rule. Whole-core `turn-followup`, `turn-orphan`, and the
+existing `typed-prior` control each failed its named assertion and restored; all
+Rust hashes matched. These controls also exercise the new cases without making
+a second prompt walker. Coverage: **196/264**, 68 remain; no exemptions.
