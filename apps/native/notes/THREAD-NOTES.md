@@ -559,3 +559,92 @@ UI, other-platform run, push, version/changelog edit, Scout source edit, handoff
 file commit, or reference-folder change. The only TypeScript-reader exception
 was the handoff's verbatim first command; both subsequent full release runs used
 this workspace's existing ignored reader, and no external source was edited.
+
+## Thread-10 continuation — 14 Nov 2026
+
+Scope: `exec/native-thread`, starting at `51da3024`. The starting tracked diff
+was empty; the owner's untracked handoff files are excluded from every commit.
+Only `apps/native/` changes; no Scout, release, dependency or credential work.
+
+All six prepared controls completed, one at a time against the whole core
+suite, each requiring its named assertion failure, exit 101 and a final suite
+summary: `plan-content` (1,674 passed / 4 failed), `plan-state` (1,673 / 5),
+`plan-own` (1,675 / 3), `peer-only-reply` (1,677 / 1), `late-target` (1,671 / 7),
+`late-keep` (1,676 / 2). Each had 20 ignored. Each restored its source and was
+followed by `git diff --exit-code -- core/src src`; the final diff was empty.
+No timeout, compiler failure or aborted suite was accepted as evidence.
+
+The first release workspace run (`thread-10-helpers.log`, exit 0) passed
+1,680 core (20 ignored), 398 window, zero doc tests, without warnings. Both
+helper case ports passed by name. The second (`thread-10-next.log`, exit 101)
+finished the core suite: 1,686 passed, one failed, 20 ignored. The new reopened
+handoff count test alone failed (expected 1, got 0); no window suite ran.
+The JSONL decoder had no checkpoint-record branch, so real reopened receipts
+never reached the existing checkpoint fold. The test's checkpoint fixture also
+needed the ledger's schemaVersion. Both boundaries are corrected for the next
+run. No pass is claimed for that test on the second run.
+
+Prepared in file order: a runtime's own helper (2), peer messages in the thread
+(2), reopening a handed-off mission (4), the running step (1), runtime notices
+in the thread (4). Final baseline, controls, commits and counts follow below;
+these drafts are not counted until their final-form named results are observed.
+
+Implementation choices: reuse the native ledger fold and existing peer-card
+projection, not Electron's renderer containers. Helper assignment words come
+from one core function used by the actual row builder. Reply display uses the
+existing share parser so a share is not repeated as unlabelled prose. Checkpoint
+counts are projected while polling and carried on metadata; neither the seam
+builder nor drawing accesses the disk. The running-step register already carries
+thought versus action, so no redundant step enum was added. A finished turn with
+no work promotes its runtime notices to readable rows; a provider retry says
+"Trying the model again" rather than pretending the run is still starting.
+
+The corrected release workspace run (`thread-10-all.log`, exit 0) passed
+**1,691 core, 20 ignored; 400 headless window; zero failures; zero doc tests**,
+with no warnings. All 13 new case ports passed by name, as did the extra helper
+row-label and uncertain-handoff headless checks. Coverage is now **186/264**,
+78 remaining, still partial. No does-not-apply exemptions. The five sections
+above are carried; the remaining-case table from thread-9 still applies after
+removing its first five rows. Next in file order: **what a model alias resolved
+to** (3).
+
+Specific behavior checks: `a_helper_the_runtime_never_named_is_said_to_be_unnamed_not_drawn_as_a_path`
+pins the helper fallback used by the row; `hides_a_share_block_from_the_agent_bubble_keeping_the_prose`
+pins the window's reply display function; `rebuilds_the_divider_from_the_route_switch_checkpoint_it_resumed_from`
+reads real JSONL through Session, pinning decoding, receipt projection and seam
+lookup together; `a_reopened_handoff_names_the_recorded_uncertain_actions`
+checks the actual headless divider and a second, unselected checkpoint;
+`says_a_notice_raised_before_any_work_once_the_turn_ends_with_no_fold_to_put_it_under`
+pins ended-versus-running notice visibility; `shows_a_rate_limited_opencode_run_retrying_before_anything_has_run`
+pins the runtime's retry message and live-line label/register. The running-step
+case pins the already-existing label/register mapping, not new plumbing.
+
+### New controls completed
+
+All ten new core controls completed against the WHOLE core suite, each with the
+named assertion failed, exit 101 and a final summary: `helper-unnamed`,
+`helper-kind`, `peer-hide`, `peer-sort`, `handoff-checkpoint`, `handoff-fold`,
+`handoff-decode`, `step-kind`, `notice-ended`, `notice-retry`. Nine finished with
+1,690 passed / one failed / 20 ignored; `step-kind` also broke an existing
+register check (1,689 passed / two failed / 20 ignored). Both window controls,
+`helper-row` and `handoff-row`, completed with their named headless assertion
+failing (one failed, 399 filtered). No timeout or build failure was accepted.
+After each control the fixture wrote `git diff`; the batch compared SHA-256
+hashes of EVERY Rust source file against the positive baseline. All matched.
+No mutation remains. There were no surviving breaks needing an extra test.
+
+### Section commits
+
+- `dbcd37db`: runtime helper rows (2 case ports, extra row check, core and window controls).
+- `59288ebf`: peer messages (2 case ports and controls).
+- `ccca3ffd`: reopened handoffs (4 case ports, extra headless divider check and controls).
+- `03d8ef4b`: running step (1 case port and control).
+- `76c4ab07`: runtime notices (4 case ports and controls).
+
+The parity row remains partial at 186/264. `recount.py` and `--check` passed;
+the generated tables do not change for this partial row. Final restored release
+suite/build results follow. The inherited backlog is still 15 verifications:
+the rejected `assistant-append`, 12 exchange-reading/rail controls, and the two
+older start-label controls (`draw`, `refresh`). The six prepared controls have
+been cleared, not silently dropped. No real agent, visible window, packaged UI,
+other-platform run, root TypeScript gate, network, release or push was performed.
