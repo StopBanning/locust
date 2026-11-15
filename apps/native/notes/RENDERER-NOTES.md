@@ -298,3 +298,14 @@ called by that stage. No product behavior changed in these two files.
   sections document the specific gaps discovered while preferring small files.
 - No Electron/JavaScript gate, real-agent test, live window, packaged app or
   release was run. Release binary build and final recount follow below.
+
+- Release binary build: exit 0, finished in 1m 07s with 12 existing warnings;
+  `notes/renderer-3-release-build.log`. No warnings in this continuation's
+  changed production code. The build excludes test-only features.
+- `scripts/recount.py` and `scripts/recount.py --check`: exit 0; **186 carried,
+  62 does-not-apply, 185 partial, 876 waiting**, 1309 total. These are global
+  inventory counts; the requested subset still has 36 waiting files.
+- Final `git diff --check` passed. Tracked tree clean before this final notes
+  update; original untracked HANDOFF files preserved and never committed.
+- Verified sections committed as `7226958a` (runtime gaps) and `4fc525fe`
+  (eyes and moods). The verification record is committed separately.
