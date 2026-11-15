@@ -3,6 +3,8 @@
 import os, pathlib, subprocess, sys
 os.environ["LOCUST_TEST_TS_READER"] = str(pathlib.Path("dist/thread-7-ts-reader/index.js").resolve())
 controls = {
+    'cursor-mirror': ('core/src/path_words.rs', 'return mirrored;', 'return path.to_owned();', 'reads_the_mirrored_path_as_the_file_you_would_open_yourself'),
+    'cursor-project': ('core/src/path_words.rs', '(c[2].to_lowercase() == flattened.to_lowercase())', '(c[2].to_lowercase() != flattened.to_lowercase())', 'leaves_another_projects_mirror_whole_because_there_the_location_is_the_point'),
     'disk-merge': ('core/src/ledger.rs', 'if kind == "tool.started" && p["toolKind"] == "observed_edit"', 'if false && p["toolKind"] == "observed_edit"', 'attaches_the_patch_to_the_row_the_runtime_drew_and_draws_a_row_only_for_a_path_it_never_named'),
     'disk-net': ('core/src/activity_entries.rs', '!observed.contains(&path_key(&f.file.path, workspace))', 'true', 'supersedes_every_other_edit_row_for_that_file_so_the_card_counts_the_file_once'),
 
@@ -14,7 +16,7 @@ controls = {
     'relay-received': ('core/src/relay_title.rs', 'm.direction == "received"', 'm.direction == "posted"', 'is_named_by_the_message_that_caused_it_never_by_the_host_briefing'),
     'relay-flat': ('core/src/relay_title.rs', '.split_whitespace().collect::<Vec<_>>().join(" ")', '.to_owned()', 'keeps_the_title_to_one_line'),
     'relay-typed': ('core/src/relay_title.rs', 'title(source).unwrap_or_else(|| words.to_owned())', 'words.to_owned()', 'does_not_let_typed_prompt_hand_back_the_briefing_either'),
-    'alias-result': ('core/src/model_alias.rs', 'completed.and_then(|e| e["payload"]["resolvedModel"].as_str())', 'completed.and_then(|_| None)', 'recent_history_learns_the_runtime_model_from_the_ledger'),
+    'alias-result': ('core/src/model_alias.rs', 'completed.and_then(|e| e["payload"]["resolvedModel"].as_str())', 'completed.and_then(|_| None)', 'learns_it_from_the_result_which_is_the_only_record_that_states_it'),
     'recent-latest': ('core/src/recent_routes.rs', 'held.1.max(at)', 'held.1.min(at)', 'lists_each_route_once_newest_first'),
     'recent-once': ('core/src/recent_routes.rs', 'positions.get(&key)', 'positions.get(&key).filter(|_|false)', 'lists_each_route_once_newest_first'),
     'recent-order': ('core/src/recent_routes.rs', 'right.1.cmp(&left.1)', 'left.1.cmp(&right.1)', 'lists_each_route_once_newest_first'),

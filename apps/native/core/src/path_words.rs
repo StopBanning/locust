@@ -169,3 +169,33 @@ mod tests {
         assert_eq!(relative_path("/Users/x/.cursor/projects/Users-x-projects-streaks/src/a.js", Some("/Users/x/projects/streaks")), "src/a.js");
     }
 }
+
+
+#[cfg(test)]
+mod cursor_mirror_tests {
+    use super::relative_path;
+    // missionView.test.ts: "Cursor reports files from inside its own copy of the project".
+    const WS: &str = r"C:\Users\<home>\code\streaks";
+
+    #[test]
+    fn reads_the_mirrored_path_as_the_file_you_would_open_yourself() {
+        assert_eq!(relative_path(r"C:\Users\<home>\.cursor\projects\C-Users-<home>-code-streaks\src\streak.js", Some(WS)), "src/streak.js");
+    }
+
+    #[test]
+    fn matches_case_insensitively_as_windows_paths_do() {
+        assert_eq!(relative_path(r"c:\users\<home>\.cursor\projects\c-users-<home>-code-streaks\src\cli.js", Some(WS)), "src/cli.js");
+    }
+
+    #[test]
+    fn leaves_another_projects_mirror_whole_because_there_the_location_is_the_point() {
+        let other = r"C:\Users\<home>\.cursor\projects\C-Users-<home>-code-other\src\streak.js";
+        assert_eq!(relative_path(other, Some(WS)), other);
+    }
+
+    #[test]
+    fn is_not_fooled_by_a_folder_that_merely_looks_like_the_mirror() {
+        let decoy = r"C:\Users\<home>\notes\.cursor\projects\unrelated\a.js";
+        assert_eq!(relative_path(decoy, Some(WS)), decoy);
+    }
+}
