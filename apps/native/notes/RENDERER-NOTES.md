@@ -418,3 +418,19 @@ called by that stage. No product behavior changed in these two files.
   assertions; existing pure geometry alone does not carry the entire file.
 - No Electron/JavaScript gate, live window, real agent or packaged app was run.
   Release binary build follows. Original HANDOFF files stay untracked and intact.
+
+### Final build and handoff
+
+- Routine section committed as `43650097` after screen/tooltips `8bce5aa5`.
+- `renderer-4-release-build.log`: release binary build exit 0, finished in
+  1m 01s, 12 existing warnings in drawing/conductor code. No new warning in
+  changed production logic. This build excludes test-only features.
+- Final requested-subset count checked directly from tests.tsv: **33 waiting**.
+  Continue teammate files before conversation-only files as the brief directs;
+  the first waiting teammate file remains the inline new-page preview.
+- Final `git diff --check` and recount --check pass. Both implementation
+  sections are committed; tracked tree clean before this verification note.
+  No mutation is applied. No HANDOFF file was changed or committed.
+- The requested list remains unfinished. The final verification above covers
+  these 17 cases only; no claim is made for the 33 waiting files, real agents,
+  a live window, a packaged build or the Electron/JavaScript gate.
