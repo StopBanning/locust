@@ -5671,3 +5671,24 @@ fn the_decision_card_uses_the_finished_runs_sandbox_instead_of_the_composer() {
     assert!(said.contains("stopped here · this run could edit files"), "{said}");
     assert!(!said.contains("nothing was changed"));
 }
+
+#[test]
+fn the_decision_card_keeps_the_finished_turns_patch_evidence() {
+    let (dirs, store, mut rt) = window();
+    let _g = native::hooks::install(store.clone(), None);
+    seed_two_turn_ledger_conversation(&dirs, &store, &mut rt);
+    // Reopened patch evidence is independent of today's composer mode.
+    let path = store.ledger_dir().unwrap().join("m_save_2.jsonl");
+    let mut records: Vec<Value> = std::fs::read_to_string(&path).unwrap().lines().map(|l| serde_json::from_str(l).unwrap()).collect();
+    let message = records.iter_mut().find(|r| r["event"]["type"] == "message.delta").unwrap();
+    message["event"]["payload"]["text"] = json!("<locust-ask>\nWhich file?\n- Keep notes.md\n- Keep NOTES.txt\n</locust-ask>");
+    records.push(json!({"schemaVersion":27,"recordType":"mission.event","event":{"sequence":100,"type":"tool.completed","payload":{"itemId":"edit","name":"edit","command":"notes.md","patch":{"text":"--- /dev/null\n+++ b/notes.md\n@@ -0,0 +1 @@\n+Work already done.\n","added":1,"removed":0,"truncated":false}}}}));
+    std::fs::write(&path, records.iter().map(Value::to_string).collect::<Vec<_>>().join("\n") + "\n").unwrap();
+    rt.update(|s, _| { leave_ledger(s); s.composer_mode = Some("ask".into()); });
+    click(&mut rt, "recent-m_save_2");
+    pump(&mut rt, "reopened decision ledger", |s| s.ledger.as_ref().is_some_and(|p| !p.loading && p.snapshot.tip == "m_save_2"));
+    settle(&mut rt);
+    let said = text_in(&rt, "decision-card").join("\n");
+    assert!(said.contains("stopped here · work already done is kept"), "{said}");
+    assert!(!said.contains("nothing was changed"), "{said}");
+}
