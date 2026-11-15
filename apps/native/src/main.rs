@@ -2254,6 +2254,12 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
                 s.recent_route_keys = locust_core::recent_routes::recently_used_routes(&batch.summaries.values().cloned().collect::<Vec<_>>());
                 s.ledger_summaries = batch.summaries;
                 s.workroom_messages = batch.workroom_messages;
+                for row in &mut s.recent {
+                    if let Some(title) = s.ledger_summaries.get(&row.id).and_then(|summary| locust_core::relay_title::history_title(summary, &s.workroom_messages)) {
+                        row.title = title.clone();
+                        if let Some(summary) = s.ledger_summaries.get_mut(&row.id) { summary.title = title; }
+                    }
+                }
                 s.mission_owners = batch.mission_owners;
                 s.relay_hop_cap = batch.relay_hop_cap;
                 s.ledger_available = batch.local;
