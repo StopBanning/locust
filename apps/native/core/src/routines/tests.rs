@@ -431,3 +431,41 @@ fn a_copy_and_a_goal_are_kept_and_a_goal_that_does_not_read_is_refused() {
     assert!(after.get("inCopy").is_none() && after.get("untilCheck").is_none());
     std::fs::remove_dir_all(root).unwrap();
 }
+#[test]
+fn keeps_pause_and_resume_in_the_routine_file_and_ignores_what_is_not_a_yes_or_no() {
+    let (root, store) = fixture();
+    save(
+        &store,
+        json!({
+            "name": "Morning digest",
+            "teammateId": "codec",
+            "steps": ["Say good morning."],
+            "schedule": {"kind": "daily", "at": "08:00"}
+        }),
+    )
+    .unwrap();
+    let id = list(&store).unwrap()["routines"][0]["routineId"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let at = "2026-10-08T06:00:00.000Z";
+    pause(&store, &id, true, at).unwrap();
+    let reopened = || Store::new(root.join("native"), root.join("electron")).unwrap();
+    assert_eq!(progress::get(&store, &id).unwrap().unwrap()["paused"], true);
+    assert_eq!(progress::get(&reopened(), &id).unwrap().unwrap()["paused"], true);
+    for odd in [json!("true"), json!(1), Value::Null] {
+        let mut r = progress::get(&store, &id).unwrap().unwrap();
+        r["paused"] = odd;
+        assert!(progress::parsed(&r).unwrap().get("paused").is_none());
+    }
+    assert!(pause(&store, "rt_nobody", false, at).is_err());
+    pause(&store, &id, false, at).unwrap();
+    let resumed = progress::get(&store, &id).unwrap().unwrap();
+    assert!(resumed.get("paused").is_none());
+    assert_eq!(resumed["resumedAt"], at);
+    let again = progress::get(&reopened(), &id).unwrap().unwrap();
+    assert!(again.get("paused").is_none());
+    assert_eq!(again["resumedAt"], at);
+    assert_eq!(again["schedule"], json!({"kind": "daily", "at": "08:00"}));
+    std::fs::remove_dir_all(root).unwrap();
+}

@@ -1286,6 +1286,14 @@ mod paused {
     }
 
     #[test]
+    fn is_counted_out_of_the_trays_next_routine_line() {
+        use chrono::TimeZone;
+        let now = chrono::Local.with_ymd_and_hms(2026, 10, 3, 9, 0, 0).earliest().unwrap();
+        let r = saved(json!({"paused": true, "lastRunAt": iso(now.with_timezone(&Utc))}));
+        assert_eq!(crate::routines::schedule::next_routine_due_line(&[r], now), "No routine due");
+    }
+
+    #[test]
     fn a_missed_slot_while_closed_is_recorded_not_started() {
         // The other half of the clock: open after the slot, and it is missed.
         let (mem, host) = harness(saved(json!({})), local(2026, 10, 2, 12, 0, 0));
