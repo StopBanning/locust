@@ -232,3 +232,69 @@ No work on those remaining files is claimed complete.
   the extra fenced/single-newline regression, and the two prepared eye cases
   were observed passing by name. This binary predates the nine mood tests.
   Runtime-gap row now carried. Eye/mood rows stay waiting until their section.
+
+### Continuation controls
+
+- Runtime-gap control caught `messages::tests::draws_the_marker_as_a_note` and
+  the extra fenced/single-newline regression, then restored reply_actions.rs
+  byte for byte. Full mutant run: 2072 core passed, 20 ignored; 463 window
+  passed, two intentional failures only. All nine mood cases passed by name;
+  both eye cases passed too. Logs: `renderer-control-runtime-gap.log` and
+  `renderer-3-gap-control-result.log`. This is not a restored green run.
+- Further inspected, still waiting: teammate work uses names on native's
+  cards, while Electron pins host-recorded id ownership and reports aggregate
+  usage. Routine handoff requires chain words and prompt projection in addition
+  to the existing native controls. Screen choice has a known parity gap:
+  Electron keeps Prompt's screen with Terminal faces off; native's wears_screen
+  currently returns false for every shape when that switch is off. No row is
+  excluded as Electron plumbing for any of these applicable product behaviors.
+
+### Exact mood case mapping
+
+The nine Electron cases map, in file order, to these tests under
+`bot_rig::renderer_mood_tests`:
+
+1. `is_worn_for_what_a_teammate_is_doing_curious_waiting_perked_receiving_glad_done`
+2. `tips_a_curious_head_to_its_own_side_by_the_tilt_in_proportion_to_the_mood`
+3. `tips_each_teammate_the_same_way_every_time_and_not_every_teammate_the_same_way`
+4. `lifts_a_perked_head_up_a_little`
+5. `smiles_with_the_rigs_own_laugh_on_a_face_of_plastic_lending_working_weight_for_eyes_alone`
+6. `leaves_a_screens_eyes_to_its_glyphs_carets_say_glad_there`
+7. `wears_nothing_when_it_feels_nothing_and_never_changes_the_rigs_own_pose`
+8. `blinks_the_real_rigs_eyes_at_once`
+9. `lands_with_the_librarys_own_bounce_and_no_turn_and_can_put_every_part_back`
+
+The eye file maps to `look::bot_stage::renderer_eye_tests`:
+`is_a_prompt_and_a_block_cursor_at_work_round_eyes_in_thought_carets_when_done_and_eyes_on_you`
+and `is_drawn_on_a_screen_only_a_face_with_no_screen_keeps_its_own_eyes`.
+Both exercise `shown_face_for`, which the real stage calls, rather than a
+new unused compatibility helper. Mood cases exercise the existing core rig
+called by that stage. No product behavior changed in these two files.
+- Screen-eyes control caught exactly
+  `look::bot_stage::renderer_eye_tests::is_drawn_on_a_screen_only_a_face_with_no_screen_keeps_its_own_eyes`,
+  then restored bot_stage.rs byte for byte. Full mutant run: 2072 core passed,
+  20 ignored; 464 window passed, one intentional failure. Logs:
+  `renderer-control-screen-eyes.log`, `renderer-3-eyes-control-result.log`.
+  The optional `glad-screen` control is provided but has not been run.
+  No mutation is left applied. Final restored full run follows.
+
+
+## Continuation final restored verification
+
+- `notes/renderer-3-restored-workspace.log`: exit 0; **2072 core + 465 window =
+  2537 passed**, **20 ignored** real-agent tests; doc tests 0. All fourteen
+  Electron cases plus the extra fenced/single-newline gap regression passed
+  by name in this final restored run. Eye and mood rows are now carried.
+- Two deliberate regressions caught their intended named assertions, and both
+  files were restored byte for byte. No break remains. All runs were whole
+  release workspace runs, serial, with optional Git read locks disabled and
+  the existing in-workspace TypeScript ledger reader. No filtered runs.
+- This continuation carries three more files (14 Electron cases, one additional
+  regression). Together with the prior sections **9 of 45** requested files
+  are carried; **36 remain waiting**. No does-not-apply classifications added.
+- The requested list is **not complete**. The next waiting teammate file is
+  still `a-page-a-teammate-made-runs-in-its-turn.test.tsx`; applicable inline
+  preview and pet work remain, along with the other waiting rows. The earlier
+  sections document the specific gaps discovered while preferring small files.
+- No Electron/JavaScript gate, real-agent test, live window, packaged app or
+  release was run. Release binary build and final recount follow below.

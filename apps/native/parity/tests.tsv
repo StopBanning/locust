@@ -834,10 +834,10 @@ apps/desktop/src/renderer/src/a-teammate-can-hand-you-a-file.test.ts	renderer-2	
 apps/desktop/src/renderer/src/a-teammate-chooses-its-screen.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-teammate-has-a-model-of-its-own.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-teammate-is-not-stuck-while-agents-are-still-being-found.test.ts		waiting		
-apps/desktop/src/renderer/src/a-teammate-wears-how-it-feels.test.ts		waiting		
+apps/desktop/src/renderer/src/a-teammate-wears-how-it-feels.test.ts	renderer-3	carried	core/src/bot_rig.rs::renderer_mood_tests	Nine separate Electron mood/pose/rig/hop cases; named passes in renderer-3-restored-workspace.log. notes/RENDERER-NOTES.md.
 apps/desktop/src/renderer/src/a-teammate-who-just-finished-last-worked-just-now.test.ts	P4	partial		`a-teammate-who-just-finished-last-worked-just-now.test.ts` | `liveRunLastAt` is not separately ported; native local summaries use ledger event times. Live teammate-card age presentation is outside this implementation.
 apps/desktop/src/renderer/src/a-teammates-eyes-are-drawn-not-typed.test.ts		waiting		
-apps/desktop/src/renderer/src/a-teammates-eyes-say-what-it-is-doing.test.ts		waiting		
+apps/desktop/src/renderer/src/a-teammates-eyes-say-what-it-is-doing.test.ts	renderer-3	carried	src/look/bot_stage.rs::renderer_eye_tests	Two exact cases through real stage face projection; restored named passes and caught screen-only mutation. notes/RENDERER-NOTES.md.
 apps/desktop/src/renderer/src/a-teammates-month-and-limit.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-teammates-setup-is-one-command-away.test.tsx	SETUP	carried	teammate_setup::tests::card_words_match_electron_in_order;window_drive_tests::a_teammates_setup_opens_from_its_card	`renderer/src/a-teammates-setup-is-one-command-away.test.tsx` | Ported `setup_sections`, `/setup` command, teammate card Setup button, and headless window test
 apps/desktop/src/renderer/src/a-thinking-face-looks-with-its-head.test.ts		waiting		
