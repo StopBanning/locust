@@ -5580,3 +5580,28 @@ fn asking_scout_from_window_uses_ask_mode_and_sealed_runtime_even_when_edit_sele
     assert_eq!(recs[0]["metadata"]["mode"], "ask");
     assert_eq!(recs[0]["metadata"]["sandbox"], "read-only");
 }
+
+#[test]
+fn the_picker_and_model_chip_show_the_name_earned_from_local_history() {
+    let (_dirs, store, mut rt) = window();
+    let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "success"));
+    type_and_send(&mut rt, "Synthetic prompt");
+    pump(&mut rt, "the first answer", answered);
+    let meta = json!({"schemaVersion":27,"recordType":"mission.created","metadata":{"missionId":"mission_alias","prompt":"x","runtime":"claude","model":"fable","createdAt":"2026-09-01T10:00:00.000Z"}});
+    let start = json!({"schemaVersion":27,"recordType":"mission.event","event":{"sequence":1,"type":"run.started","payload":{"evidence":{"raw":{"model":"claude-fable-5-1"}}}}});
+    let end = json!({"schemaVersion":27,"recordType":"mission.event","event":{"sequence":2,"type":"run.completed","payload":{}}});
+    std::fs::write(store.write_path("mission_alias").unwrap(), format!("{meta}\n{start}\n{end}\n")).unwrap();
+    rt.update(|s, _| refresh_recent(s));
+    pump(&mut rt, "the learned model name", |s| s.resolved_model_names.get("claude:fable").is_some_and(|name| name == "claude-fable-5-1"));
+    click(&mut rt, "model-chip");
+    rt.update(|s, _| {
+        s.models.insert("tm_codec".into(), vec![engine::Models { teammate:None, runtime:"claude".into(), model:None, effort:None, models:vec![engine::Model {id:"fable".into(),name:"Fable".into(),efforts:vec![]}] }]);
+    });
+    rt.frame(0.016);
+    click(&mut rt, "model-search");
+    rt.paste("fable");
+    rt.frame(0.016);
+    assert!(text_in(&rt,"model-claude-fable").iter().any(|text| text == "claude-fable-5-1"));
+    click(&mut rt,"model-claude-fable");
+    assert!(text_in(&rt,"model-chip").iter().any(|text| text.contains("claude-fable-5-1")));
+}

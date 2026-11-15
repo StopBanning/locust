@@ -184,3 +184,5 @@ mod peer_message_tests;
 
 #[cfg(test)]
 mod runtime_notice_tests;
+
+pub mod model_alias;

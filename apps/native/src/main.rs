@@ -2205,6 +2205,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
             Ok(batch) => {
                 home_panel::record_finishes(s, &batch.rows);
                 s.recent = batch.rows;
+                s.resolved_model_names = locust_core::model_alias::resolved_model_names(batch.summaries.values());
                 s.ledger_summaries = batch.summaries;
                 s.workroom_messages = batch.workroom_messages;
                 s.mission_owners = batch.mission_owners;
@@ -2220,6 +2221,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
             Err(words) => {
                 s.ledger_available = false;
                 s.ledger_summaries.clear();
+                s.resolved_model_names.clear();
                 s.recent_error = Some(words);
             }
         }

@@ -1,7 +1,14 @@
 #!/usr/bin/env python3
 """One restored source mutation against the entire core suite. Run from apps/native."""
 import os, pathlib, subprocess, sys
+os.environ["LOCUST_TEST_TS_READER"] = str(pathlib.Path("dist/thread-7-ts-reader/index.js").resolve())
 controls = {
+    'alias-decode': ('core/src/ledger.rs', 'if is_start && let Some(model)', 'if !is_start && let Some(model)', 'recent_history_learns_the_runtime_model_from_the_ledger'),
+    'alias-start': ('core/src/model_alias.rs', 'e["payload"]["evidence"]["raw"]["model"]', 'e["payload"]["evidence"]["raw"]["missing-model"]', 'learns_the_real_name_the_runtime_reported_for_an_alias'),
+    'alias-newest': ('core/src/model_alias.rs', 'at > *old', 'true', 'prefers_the_newest_mission_so_a_new_release_replaces_an_old_name'),
+    'alias-same': ('core/src/model_alias.rs', '*name != requested', 'requested.is_empty() || true', 'says_nothing_about_an_alias_nobody_has_run_or_one_that_taught_it_nothing'),
+    'alias-ledger': ('core/src/ledger.rs', 'reported_model: crate::model_alias::reported_model(&events.values().copied().cloned().collect::<Vec<_>>(), &m.model)', 'reported_model: None', 'recent_history_learns_the_runtime_model_from_the_ledger'),
+
     'handoff-decode': ('core/src/ledger.rs', '"mission.checkpoint" => {', '"discarded.checkpoint" => {', 'rebuilds_the_divider_from_the_route_switch_checkpoint_it_resumed_from'),
     'notice-ended': ('core/src/ledger.rs', 'if !self.running && !items.iter().any(|i| matches!(i, Item::Tool { .. } | Item::Thought { .. })) {', 'if false {', 'says_a_notice_raised_before_any_work_once_the_turn_ends_with_no_fold_to_put_it_under'),
     'notice-retry': ('core/src/thread_view.rs', '"Trying the model again"', '"Starting"', 'shows_a_rate_limited_opencode_run_retrying_before_anything_has_run'),
@@ -118,7 +125,7 @@ log = pathlib.Path('notes/thread-mutation-' + name + '.log')
 try:
     p.write_text(original.replace(old, new, 1))
     with log.open('w') as out:
-        result = subprocess.run(['timeout', '5400', 'python3', 'scripts/gentle-cargo.py', '--timeout', '5380', 'test', '--offline', '-p', 'locust-core'], stdout=out, stderr=subprocess.STDOUT, env=dict(os.environ, CARGO_PROFILE_DEV_OPT_LEVEL='1', CARGO_PROFILE_DEV_DEBUG='0', RUST_TEST_THREADS='4'))
+        result = subprocess.run(['timeout', '590', 'python3', 'scripts/gentle-cargo.py', '--timeout', '570', 'test', '--offline', '-p', 'locust-core'], stdout=out, stderr=subprocess.STDOUT, env=dict(os.environ, CARGO_PROFILE_DEV_OPT_LEVEL='1', CARGO_PROFILE_DEV_DEBUG='0', RUST_TEST_THREADS='4'))
     output = log.read_text()
     assert result.returncode == 101 and ('::' + test + ' ... FAILED') in output and 'test result: FAILED.' in output, (name, result.returncode, output[-3000:])
     print(name + ': named assertion failed across whole core suite')

@@ -304,6 +304,8 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
             }
         });
         let model_name = model_chip_name(model, current);
+        let rt = picked.and_then(|p| p.runtime.as_deref()).or(teammate.runtime.as_deref()).or(current.map(|a| a.runtime.as_str())).unwrap_or("codex");
+        let model_name = s.resolved_model_names.get(&format!("{rt}:{model}")).map(String::as_str).unwrap_or(model_name);
         let active_account = match picked.and_then(|p| p.account.as_ref()) {
             Some(explicit) => explicit.as_deref(),
             None => teammate.account.as_deref(),
@@ -1078,6 +1080,11 @@ fn model_picker(
                 String::new()
             } else {
                 m.efforts.join(" · ")
+            };
+            let detail = match s.resolved_model_names.get(&format!("{}:{}", agent.runtime, m.id)) {
+                Some(name) if detail.is_empty() => name.clone(),
+                Some(name) => format!("{name} · {detail}"),
+                None => detail,
             };
             let (key, choice, levels) = (id.to_owned(), m.id.clone(), m.efforts.clone());
             let keep = effort.map(str::to_owned);
