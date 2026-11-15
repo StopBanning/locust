@@ -292,7 +292,7 @@ fn default_gh_input(args: &[&str], cwd: &Path, input: &str) -> Result<String, Gh
 }
 
 fn default_git(args: &[&str], cwd: &Path) -> Result<String, String> {
-    match run_cli_with_timeout("git", args, cwd, GIT_TIMEOUT, &[], None) {
+    match run_cli_with_timeout("git", args, cwd, GIT_TIMEOUT, &[crate::git_quiet::NO_OPTIONAL_LOCKS], None) {
         Ok((Some(0), stdout, _)) => Ok(stdout),
         Ok((_, _, stderr)) => Err(stderr),
         Err(e) => Err(e.to_string()),

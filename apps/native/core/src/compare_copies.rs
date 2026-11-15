@@ -211,9 +211,11 @@ pub fn bounded_copy_diff(text: &str) -> String {
 }
 
 fn run_git_output(args: &[&str], cwd: &Path) -> Result<(i32, Vec<u8>, String), String> {
+    let (lock_key, lock_value) = crate::git_quiet::NO_OPTIONAL_LOCKS;
     let out = Command::new("git")
         .args(["-c", "core.fsmonitor=false"])
         .args(args)
+        .env(lock_key, lock_value)
         .current_dir(cwd)
         .output()
         .map_err(|e| format!("git could not run: {e}"))?;

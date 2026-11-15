@@ -197,9 +197,11 @@ pub fn git(folder: &Path, args: &[&str]) -> Result<String, String> {
         process::Stdio,
         time::{Duration, Instant},
     };
+    let (lock_key, lock_value) = crate::git_quiet::NO_OPTIONAL_LOCKS;
     let mut child = Command::new("git")
         .args(["-c", "core.fsmonitor=false"])
         .args(args)
+        .env(lock_key, lock_value)
         .current_dir(folder)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
