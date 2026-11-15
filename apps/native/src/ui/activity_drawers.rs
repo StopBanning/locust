@@ -722,6 +722,7 @@ mod tests {
         let said = group_text(&items, &mut s);
         assert!(said.contains("cargo build"), "{said}");
         assert!(!said.contains("Thought for"), "no row for the headline-only thought: {said}");
+        assert_eq!(said.matches("Checking the build").count(), 1, "the headline is said once, on the step line, not again as a row: {said}");
     }
 
     /// A thought row elsewhere (a helper's calls) whose text is only its headline is not a button either.
