@@ -379,6 +379,8 @@ pub(super) struct State {
     pub(super) workroom_messages: HashMap<String, locust_core::workroom::Message>,
     /// Handoffs heard from the workroom, held for their moment (`handoff_glances.rs`).
     pub(super) handoff_glances: crate::handoff_glances::HandoffGlances,
+    /// Live runs the list was read too early to know, read again for (`live_list.rs`).
+    pub(super) unlisted_runs: crate::live_list::UnlistedRuns,
     pub(super) mission_owners: HashMap<String, String>,
     pub(super) relay_live: native::RelayLiveState,
     pub(super) relay_hop_cap: u32,
@@ -604,6 +606,7 @@ impl Default for State {
             rooms: crate::room_screen::RoomsState::new(),
             workroom_messages: HashMap::new(),
             handoff_glances: Default::default(),
+            unlisted_runs: Default::default(),
             mission_owners: HashMap::new(),
             relay_live: native::RelayLiveState::default(),
             relay_hop_cap: locust_core::workspace_settings::DEFAULT_RELAY_HOP_CAP,

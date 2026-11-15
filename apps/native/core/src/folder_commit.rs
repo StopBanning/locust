@@ -286,6 +286,10 @@ pub fn status_entries(porcelain_z: &str) -> Vec<(String, String)> {
 fn run(program: &str, args: &[String], cwd: &Path, timeout: Duration, quiet_network: bool) -> Result<String, String> {
     let mut command = Command::new(program);
     command.args(args).current_dir(cwd).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
+    if program == "git" {
+        let (lock_key, lock_value) = crate::git_quiet::NO_OPTIONAL_LOCKS;
+        command.env(lock_key, lock_value);
+    }
     if quiet_network {
         // Nothing may stop to ask in a terminal nobody can see: a missing credential is an error, not a hang.
         command.env("GIT_TERMINAL_PROMPT", "0").env("GH_PROMPT_DISABLED", "1").env("GH_NO_UPDATE_NOTIFIER", "1");

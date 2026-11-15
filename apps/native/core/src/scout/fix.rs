@@ -156,10 +156,12 @@ pub enum FixApplyResult {
 }
 
 pub fn default_fix_git(args: &[&str], cwd: &Path) -> Result<String, String> {
+    let (lock_key, lock_value) = crate::git_quiet::NO_OPTIONAL_LOCKS;
     let out = Command::new("git")
         .args(args)
         .current_dir(cwd)
         .env("GIT_TERMINAL_PROMPT", "0")
+        .env(lock_key, lock_value)
         .output()
         .map_err(|e| format!("git could not run: {e}"))?;
     if out.status.success() {

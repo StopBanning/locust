@@ -122,6 +122,8 @@ use messages::*;
 mod handoff_divider;
 #[path = "ui/handoff_glances.rs"]
 mod handoff_glances;
+#[path = "ui/live_list.rs"]
+mod live_list;
 #[path = "ui/edit_message.rs"]
 mod edit_message;
 #[path = "ui/peer_thread.rs"]
@@ -1978,6 +1980,10 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
         refresh_recent(s);
         wake_ledger_pane(s, now, tx);
         room_screen::refresh(s);
+        changed = true;
+    } else if s.unlisted_runs.read_again(&s.seen_live, &s.mission_owners, s.recents.is_pending(), now) {
+        // A live run the last read was too early to know (live_list.rs): read the list again.
+        refresh_recent(s);
         changed = true;
     }
     let mut watched_ids: Vec<String> = s.seen_live.clone();

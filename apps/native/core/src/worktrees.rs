@@ -229,9 +229,11 @@ pub fn run_git(args: &[&str], cwd: &Path, limit: Duration) -> Result<String, Git
     use std::process::{Command, Stdio};
     let first = args.first().copied().unwrap_or("");
     let fail = |message: String| GitError { message, stdout: String::new(), exit: None };
+    let (lock_key, lock_value) = crate::git_quiet::NO_OPTIONAL_LOCKS;
     let mut child = Command::new("git")
         .args(OWN_GIT_CONFIG)
         .args(args)
+        .env(lock_key, lock_value)
         .current_dir(cwd)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())

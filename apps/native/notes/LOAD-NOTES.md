@@ -57,19 +57,88 @@ Worst time seen over the ten runs, in milliseconds (serial / default):
 machine's. What the change gives under heavy load is room: 60 s against worst quiet times under half a second.
 That was not measured under heavy load this round.
 
-## Not made reliable: `relay_stops_at_hop_cap_and_exchange_strip_stop_ends_live_run`
+## Round 2: why the window tests failed only in parallel, and the fixes
 
-- **Seen:** it failed in 1 of 5 default-thread runs here, and once during a break run of mine (also at the default
-  thread count). It passed all 5 serial runs. Sol's `notes/renderer-control-long-root.log` (09:17 today, before any
-  of this round's changes) has **the same failure with the same message**, so it is older than this round.
-- **What fails:** the second half's wait, "Pip's relayed run is live and ExchangeStrip sees live run", ran out its
-  full **60 s** with the window at "Ready". In the fixture (`m1-app-server.py`, `relay-stop`), Pip's run, once
-  started, stays live until it is stopped. So this is not slowness: either the relay to Pip never started, or the
-  window never saw it live. More time would not help, so no number was raised.
-- **Likely cause (not proven):** it fails only with other tests running at once. The engine keeps process-wide
-  state that window tests share (`engine_api().running()`, the relay's live state, the hook guard). The first half
-  of this same test also leaves a relay behind before the second half starts. Finding which takes a run with that
-  state printed when the wait gives up. That is the next step for this test.
+Three window tests failed only when tests ran at once (the default thread count), never one at a time. Each had a
+real cause. None was fixed by raising a number.
+
+### 1. `relay_stops_at_hop_cap_and_exchange_strip_stop_ends_live_run`: the list was read too early
+
+- **How it was found.** Its 60 s wait now says what it found when it gives up (`pump_saying`, and
+  `native::relay_debug()` in the engine, test builds only). The next failure (`notes/relay-before-fix/relay-fix-default-1.log`)
+  showed the engine side complete: Pip's relayed run was running, active, and in the window's `seen_live`; Pip's hub
+  existed; the team file was right. What was missing was the window's Exchange view: the exchange was found but had
+  **no live run** (`exchange=Some([])`).
+- **Cause.** The engine counts a run as running (`core/src/native.rs`, the slot is claimed in `send`) a moment before
+  it writes the run's owner and the "received" link to the message it answers (about 150 lines later in `send`). The
+  window reads its conversation list once, when the running turns change. Under load that read landed in the gap:
+  Pip's run had no owner and no link, so it was in no exchange, and nothing read the list again while it ran. **A
+  person could meet this too**: the Exchange strip would show no Stop for a live relayed run.
+- **Fix** (`src/ui/live_list.rs`, called from `poll`). While a live run has no owner in the list, the window reads the
+  list again: once a second, and for at most ten seconds a run. The engine's order is left alone, since claiming the slot
+  first is what stops two turns starting on one conversation.
+- **Tests.** Five cases for the rule in `live_list::tests`, and
+  `window_drive_tests::a_live_run_the_list_was_read_too_early_to_know_is_read_again_until_it_is_there`. That test
+  lands a list read made in the gap, then waits for the owner to come back. **Break check:** with the re-read turned
+  off, that named test failed (`mut6.py`). The first version of the test did not catch the break (the read it
+  waited out was finished but not yet applied); it was rewritten to land an early read itself.
+
+### 2. `a_relay_history_refresh_names_the_received_message_in_the_sidebar`: another test's turn replaced its list
+
+- **Cause.** The test hands the window a list read of its own and waits for it to land. The window reads its list
+  again whenever the engine's running turns change, and the engine is the whole test process's. So another test's
+  turn starting beside this one made the window ask again, and the newer read replaced this one before it landed
+  (failed 5 times in about 39 window-suite runs while hunting).
+- **Fix.** The test holds the engine guard (`native::hooks::install`) while it waits. Every test that runs a turn
+  holds that guard, so no turn can start or end beside it. This race cannot be forced, so there is no break check.
+  The ten runs below are the evidence.
+
+### 3. `review_changes_shows_a_teammates_branch_turn_by_turn_and_lands_it_as_one_commit`: git's optional lock
+
+- **Cause.** The window reads the folder with `git status` while the landing commits. `git status` takes
+  `.git/index.lock` for a moment to refresh its cached file times, and the commit found the lock taken ("Unable to
+  create index.lock: File exists"). **A person could meet this too**: Locust's own reads could refuse their landing,
+  or their own `git commit` in a terminal.
+- **Fix** (`core/src/git_quiet.rs`). Every git Locust starts to read or write a folder (`changes::git`,
+  `worktrees::run_git`, `folder_commit`, `compare_copies`, Scout's two) is given `GIT_OPTIONAL_LOCKS=0`, as editors
+  that watch a repository are. Locks a write needs are not optional and are still taken. Electron does not set it;
+  nothing a person sees changes. The test no longer needs the variable in its environment (Sol's runs set it).
+- **Tests.** `git_quiet::tests::a_plain_git_status_rewrites_a_stale_index` is the control: plain git does rewrite the
+  index. `the_changes_panels_git_leaves_the_index_alone` and `a_teammates_branch_read_leaves_the_index_alone` check
+  the app's two main readers. **Break check:** with the variable taken out of `changes::git`, the named test failed.
+
+### Also fixed: a turn's ending ran on into the next test
+
+A turn leaves the engine's running list before its thread has done its ending: the relay's hand-off, rooms, Scout,
+carry-on. The engine guard waited only for the running list. So a turn's ending could act on the next test's store
+and make a relay in the next test's state. In test builds, the engine now counts turn threads, from before the spawn
+until the thread ends (`TURN_THREADS`, `TurnThread`). The guard waits for none, both when a test lets go and when the
+next one takes it, stopping any turn an ending starts. Test:
+`native::tests::a_test_lets_go_of_the_engine_only_after_every_turn_thread_has_ended`. **Break check:** with the wait
+removed, the named test failed. This was not the cause of finding 1: that test failed again after this fix, before
+the list fix (`notes/relay-before-fix/`, runs 1 and 5).
+
+### Ten full runs on the final source, default thread count
+
+`notes/relay-final-default-1..10.log` (git ignores logs; they stay on this machine): **all ten passed, none failed**:
+2,093 engine + 493 window each, 20 real-agent cases ignored. Every test named above passed by name in all ten.
+The release build passed.
+
+On the way there, a batch on a nearly final source (`notes/relay-fixed-round-a/`) passed the window suite ten times
+out of ten, but failed one engine test once:
+`native::tests::relay_roundtrip_starts_recipient_records_peer_links_remembers_hub_and_returns_to_origin_thread`. It
+had a fixed 6 s limit, and its message showed the round trip still going (Pip's hub made, Codec's follow-up running).
+It now waits up to the load limit, as round 1's tests do, and reads its locks into values before panicking. Its old
+message held an engine lock while panicking, which poisoned it, and a turn thread then panicked on it.
+
+### Short fixed limits still in the tests (not changed this round)
+
+They are not known to fail, and each needs reading before it is changed:
+`src/ui/daily_controls_tests.rs:213`, `:240` and `src/ui/tests.rs:365`, `:505`, `:557` (2 s);
+`core/src/browser_tests.rs:448` (3 s); `core/src/acp_agent_tests.rs:142`, `:158`,
+`core/src/github_account_tests.rs:170` and `core/src/remote_control_tests.rs:83` (5 s);
+`core/src/native/tests.rs:1298` (8 s); `core/src/engine_process_tests.rs:146` (2 s).
+
 
 ## Break check
 

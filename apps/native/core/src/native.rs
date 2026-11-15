@@ -114,6 +114,8 @@ pub mod hooks {
         let guard = Guard {
             _lock: LOCK.lock().unwrap_or_else(|e| e.into_inner()),
         };
+        // Whatever the last holder left still ending is done before this test's state is set.
+        settle_turn_threads();
         clear_poison();
         super::reset_relay_state();
         *crate::invariants::lock(&STATE) = (Some(store), command);
@@ -128,11 +130,33 @@ pub mod hooks {
             while super::with_running(|m| !m.is_empty()) && std::time::Instant::now() < deadline {
                 std::thread::sleep(std::time::Duration::from_millis(20));
             }
+            // A turn leaves the running list before its thread has done its ending: the relay's hand-off and its
+            // cap, the rooms, Scout, carry-on. Wait for that too, stopping any turn the ending starts, or it acts on
+            // the next test's store and makes a relay in the next test's state.
+            settle_turn_threads();
             clear_poison();
             super::reset_relay_state();
             *crate::invariants::lock(&STATE) = (None, None);
         }
     }
+    /// Every turn thread, its ending included, is gone: turns still running are told to stop, again each time, since an
+    /// ending can start another (a relay's next hop). Bounded, as the load limit bounds a test's waits; past it the
+    /// count is said rather than hidden, and the guard goes on.
+    fn settle_turn_threads() {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
+        while super::TURN_THREADS.load(std::sync::atomic::Ordering::SeqCst) > 0 {
+            super::with_running(|m| m.values().for_each(|f| f.store(true, std::sync::atomic::Ordering::Relaxed)));
+            if std::time::Instant::now() >= deadline {
+                eprintln!(
+                    "{} turn thread(s) still ending after 60 s; the next test may see them",
+                    super::TURN_THREADS.load(std::sync::atomic::Ordering::SeqCst)
+                );
+                return;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+    }
+
     /// A test that failed while holding one of the engine's locks leaves it poisoned. Outside tests that is a bug and
     /// stops the program (`invariants::lock`); between tests it must not turn one failure into a second panic during
     /// cleanup, which aborts the whole test binary and hides every other result (found 14 Nov: one stuck relay test
@@ -781,6 +805,28 @@ pub fn prior_of(tip: &str) -> Result<Prior, String> {
 
 // ---- running turns, stop ------------------------------------------------------------------------------------------
 static RUNNING: Mutex<Option<HashMap<String, Arc<AtomicBool>>>> = Mutex::new(None);
+
+/// Turn threads alive, their ending included (test builds): the hook guard waits for none (`hooks::settle_turn_threads`).
+/// `RUNNING` cannot say this: a turn leaves it before its ending runs.
+#[cfg(any(test, feature = "test-hooks"))]
+static TURN_THREADS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+/// One turn thread counted in `TURN_THREADS`, from before it is spawned until the thread is done (or never started).
+#[cfg(any(test, feature = "test-hooks"))]
+struct TurnThread;
+#[cfg(any(test, feature = "test-hooks"))]
+impl TurnThread {
+    fn begin() -> Self {
+        TURN_THREADS.fetch_add(1, Ordering::SeqCst);
+        TurnThread
+    }
+}
+#[cfg(any(test, feature = "test-hooks"))]
+impl Drop for TurnThread {
+    fn drop(&mut self) {
+        TURN_THREADS.fetch_sub(1, Ordering::SeqCst);
+    }
+}
 static RUNNING_ACCOUNTS: Mutex<Option<HashMap<String, (crate::agent_accounts::Agent, String)>>> =
     Mutex::new(None);
 
@@ -1464,6 +1510,22 @@ fn push_relay_notice(mission_id: &str, message: &str, level: &str) {
         let extra = notices.len() - 200;
         notices.drain(..extra);
     }
+}
+
+/// What the engine holds for a relay, said in one line, for a test whose wait on a relay gave up: the turns running,
+/// the teammates active in a relayed run, the relay's notices and the runs it is starting, and the hooked store's team.
+#[cfg(any(test, feature = "test-hooks"))]
+pub fn relay_debug() -> String {
+    let running = crate::engine_api::api().running();
+    let active = crate::invariants::lock(&ACTIVE_TEAMMATES).clone();
+    let notices = crate::invariants::lock(&RELAY_NOTICES).clone();
+    let starting = crate::invariants::lock(&RELAY_STARTING).clone();
+    let relay_made = crate::invariants::lock(&RELAY).is_some();
+    let team = store().and_then(|s| std::fs::read_to_string(s.root().join("teammates.json")).ok());
+    format!(
+        "running={running:?} active={active:?} notices={notices:?} starting={starting:?} relay_made={relay_made} store={:?} team={team:?}",
+        store().map(|s| s.root().to_path_buf())
+    )
 }
 
 pub fn relay_live_state(mission_ids: &[String]) -> RelayLiveState {
@@ -2482,9 +2544,15 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
         .as_ref()
         .and_then(crate::relay::MissionStarter::from_json);
     let relay_teammate = crate::people::peer_roster_entry(&store, &job.teammate.id);
+    // Counted before the spawn, so a test's guard can never look between the spawn and the count.
+    #[cfg(any(test, feature = "test-hooks"))]
+    let counted = TurnThread::begin();
     std::thread::Builder::new()
         .name("native-turn".into())
         .spawn(move || {
+            // Dropped last of all, when the closure's whole ending is done.
+            #[cfg(any(test, feature = "test-hooks"))]
+            let _counted = counted;
             // Keep ownership through the final memory write so shutdown/continuation cannot race it.
             let memory_completion = registered;
             let _browser_registration = browser_registration;

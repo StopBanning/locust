@@ -87,6 +87,21 @@ fn type_and_send(rt: &mut Runtime<State>, text: &str) {
     rt.frame(0.016);
 }
 
+/// `pump`, saying what `say` finds if the wait gives up: for a wait whose failure needs the engine's side of it.
+fn pump_saying(rt: &mut Runtime<State>, what: &str, mut done: impl FnMut(&State) -> bool, say: impl Fn(&State) -> String) {
+    let deadline = std::time::Instant::now() + Duration::from_secs(60);
+    let mut now = 0.0;
+    while !done(&rt.state) {
+        assert!(std::time::Instant::now() < deadline, "timed out waiting for {what}: status {:?}; {}", rt.state.status, say(&rt.state));
+        rt.update(move |s, tx| {
+            poll(s, now, tx);
+        });
+        rt.frame(0.3);
+        now += 0.3;
+        std::thread::sleep(Duration::from_millis(15));
+    }
+}
+
 /// The window's own poll and a frame, until `done`, or fail.
 fn pump(rt: &mut Runtime<State>, what: &str, mut done: impl FnMut(&State) -> bool) {
     // Generous: on a loaded machine (two other agents building) a window test waited past 20 s.
@@ -4198,11 +4213,26 @@ fn relay_stops_at_hop_cap_and_exchange_strip_stop_ends_live_run() {
     let (_dirs2, store2, mut rt2) = two_teammate_window(6);
     let _g2 = native::hooks::install(store2.clone(), fake("m1-app-server.py", "relay-stop"));
     type_and_send(&mut rt2, "Audit workspace");
-    pump(&mut rt2, "Pip's relayed run is live and ExchangeStrip sees live run", |s| {
-        !locust_core::engine_api::api().running().is_empty()
-            && !s.seen_live.is_empty()
-            && crate::exchange_strip::compute(s).is_some_and(|(ex, _)| !ex.live_run_ids.is_empty())
-    });
+    let store2_said = store2.clone();
+    pump_saying(
+        &mut rt2,
+        "Pip's relayed run is live and ExchangeStrip sees live run",
+        |s| {
+            !locust_core::engine_api::api().running().is_empty()
+                && !s.seen_live.is_empty()
+                && crate::exchange_strip::compute(s).is_some_and(|(ex, _)| !ex.live_run_ids.is_empty())
+        },
+        move |s| {
+            format!(
+                "seen_live={:?} exchange={:?} pip_hub={:?} {} files={:?}",
+                s.seen_live,
+                crate::exchange_strip::compute(s).map(|(ex, _)| ex.live_run_ids),
+                locust_core::people::hub_of(&store2_said, "tm_pip"),
+                locust_core::native::relay_debug(),
+                std::fs::read_dir(store2_said.root()).map(|d| d.filter_map(|e| e.ok()).map(|e| e.file_name()).collect::<Vec<_>>()),
+            )
+        },
+    );
     settle(&mut rt2);
     assert!(rt2.presented("exchange-stop").is_some(), "Stop button shows on ExchangeStrip");
     click(&mut rt2, "exchange-stop");
@@ -6276,7 +6306,12 @@ fn recent_routes_reach_the_picker_in_history_order_and_choose_their_runtime() {
 
 #[test]
 fn a_relay_history_refresh_names_the_received_message_in_the_sidebar() {
-    let (_dirs, _store, mut rt) = window();
+    let (_dirs, store, mut rt) = window();
+    // Hold the engine while the injected list is waited for. The window reads its list again whenever the engine's
+    // running turns change (poll's `seen_live`), and the engine is the whole process's: another test's turn starting
+    // beside this one made the window ask again, and the newer read replaced this one before it landed (it failed
+    // 2 runs in 15 at the default thread count, 15 Nov). Every test that runs a turn holds this guard, so none can.
+    let _engine = native::hooks::install(store, None);
     let expected = "Wren asked: Please reply with the passphrase PEBBLE-9993.";
     let summary = ledger::Summary { mission_id: "m_relay".into(), title: "Host briefing <locust-share>".into(), runtime: "claude".into(), model: "sonnet".into(), started_by_kind: Some("relay".into()), peer_links: vec![ledger::PeerLink { direction: "received".into(), message_id: "msg_1".into(), ..Default::default() }], ..Default::default() };
     let party = |id: &str, name: &str| locust_core::workroom::Party { teammate_id: id.into(), name: name.into() };
@@ -6331,4 +6366,35 @@ fn the_decision_card_keeps_the_finished_turns_patch_evidence() {
     let said = text_in(&rt, "decision-card").join("\n");
     assert!(said.contains("stopped here · work already done is kept"), "{said}");
     assert!(!said.contains("nothing was changed"), "{said}");
+}
+
+/// live_list.rs, in the window: a run counted as running before its owner was written, and so missing from a list
+/// read in that gap, is read again until it is there. Before, nothing read the list again while the run went on, and a
+/// relayed run never joined its exchange (relay_stops_at_hop_cap_and_exchange_strip_stop_ends_live_run, 15 Nov).
+#[test]
+fn a_live_run_the_list_was_read_too_early_to_know_is_read_again_until_it_is_there() {
+    let (_dirs, store, mut rt) = window();
+    let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "interrupt"));
+    type_and_send(&mut rt, "Synthetic prompt");
+    pump(&mut rt, "the turn running with its owner listed", |s| {
+        can_stop(s) && !s.seen_live.is_empty() && s.seen_live.iter().all(|id| s.mission_owners.contains_key(id))
+    });
+    // A read that ran in the gap, before the engine wrote the owner, lands: the run is live and the list has no owner.
+    rt.update(|s, _| {
+        s.recents.request((), move |()| {
+            Ok(RecentBatch {
+                rows: Vec::new(),
+                summaries: HashMap::new(),
+                workroom_messages: HashMap::new(),
+                mission_owners: HashMap::new(),
+                relay_hop_cap: 3,
+                local: true,
+            })
+        });
+    });
+    pump(&mut rt, "the early read landed", |s| !s.recents.is_pending() && s.seen_live.iter().any(|id| !s.mission_owners.contains_key(id)));
+    pump(&mut rt, "the list read again, the run's owner back", |s| {
+        !s.seen_live.is_empty() && s.seen_live.iter().all(|id| s.mission_owners.contains_key(id))
+    });
+    on_quit(&mut rt.state, &mut Tx::default());
 }

@@ -223,5 +223,7 @@ pub mod buddy_moves;
 
 pub mod teammate_tooltip;
 
+pub mod git_quiet;
+
 #[cfg(test)]
 pub(crate) mod load_waits;

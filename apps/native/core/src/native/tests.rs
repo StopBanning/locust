@@ -2165,7 +2165,9 @@ fn relay_roundtrip_starts_recipient_records_peer_links_remembers_hub_and_returns
     let _g = hooks::install(store.clone(), fake("relay-roundtrip"));
 
     let first = send(job(&t, None, "Check Vite config")).unwrap();
-    let deadline = Instant::now() + Duration::from_secs(6);
+    // Waits on the relay's own state, up to the load limit: 6 s ran out mid-round-trip under load (15 Nov), with
+    // Pip's hub made and Codec's follow-up running.
+    let deadline = Instant::now() + crate::load_waits::UNDER_LOAD;
     while Instant::now() < deadline {
         if !owns(&first.conversation_id)
             && crate::invariants::lock(&ACTIVE_TEAMMATES).is_empty()
@@ -2181,13 +2183,17 @@ fn relay_roundtrip_starts_recipient_records_peer_links_remembers_hub_and_returns
         && crate::people::hub_of(&store, "tm_pip").is_some()
         && real_tip(&first.conversation_id).ok().as_deref() != Some(first.conversation_id.as_str()) )
     {
+        // Read under each lock into a value first: a panic while a lock guard is alive poisons it for the engine
+        // (a turn thread then panicked on it, 15 Nov).
+        let active = crate::invariants::lock(&ACTIVE_TEAMMATES).clone();
+        let notices = crate::invariants::lock(&RELAY_NOTICES).clone();
         panic!(
             "roundtrip stuck: owns={} active={:?} hub={:?} tip={:?} notices={:?} prompts={:?}",
             owns(&first.conversation_id),
-            *crate::invariants::lock(&ACTIVE_TEAMMATES),
+            active,
             crate::people::hub_of(&store, "tm_pip"),
             real_tip(&first.conversation_id),
-            *crate::invariants::lock(&RELAY_NOTICES),
+            notices,
             fs::read_to_string(t.0.join("work/relay-prompts.jsonl")),
         );
     }
@@ -3161,4 +3167,26 @@ fn parse_looks_reads_bot_screen_and_pet_and_rejects_bad_pet() {
         })
     );
     assert_eq!(looks["tm_badpet"].pet, None);
+}
+
+/// A turn leaves the running list before its thread has done its ending (the relay's hand-off, rooms, Scout,
+/// carry-on). The engine guard a test holds waits for that ending too, so it never acts on the next test's store or
+/// relay: `relay_stops_at_hop_cap_and_exchange_strip_stop_ends_live_run` hung when its first half's ending ran on
+/// into its second (notes/LOAD-NOTES.md).
+#[test]
+fn a_test_lets_go_of_the_engine_only_after_every_turn_thread_has_ended() {
+    let t = Temp::new();
+    let ended = Arc::new(AtomicBool::new(false));
+    let guard = hooks::install(t.store(), None);
+    // A turn thread whose ending is still running after it left the running list: counted, as a real one is.
+    let counted = TurnThread::begin();
+    let ending = ended.clone();
+    std::thread::spawn(move || {
+        let _counted = counted;
+        std::thread::sleep(Duration::from_millis(300));
+        ending.store(true, Ordering::SeqCst);
+    });
+    drop(guard);
+    assert!(ended.load(Ordering::SeqCst), "the guard let go while a turn's ending was still running");
+    assert_eq!(TURN_THREADS.load(Ordering::SeqCst), 0);
 }
