@@ -648,3 +648,24 @@ the rejected `assistant-append`, 12 exchange-reading/rail controls, and the two
 older start-label controls (`draw`, `refresh`). The six prepared controls have
 been cleared, not silently dropped. No real agent, visible window, packaged UI,
 other-platform run, root TypeScript gate, network, release or push was performed.
+
+### Final restored release verification
+
+`thread-10-final-workspace.log` completed with exit 0 after all controls were
+restored and all five source sections were committed: **1,691 core passed,
+20 ignored; 400 headless window passed; zero failures; zero doc tests**.
+All 13 final-form case ports and the two additional row checks were found by
+name with `... ok` in this final log. No warnings or compiler errors.
+
+The separate production `build --release --offline`, under the 590-second
+outer bound through gentle-cargo (`thread-10-final-build.log`), completed with
+exit 0 in 1m 05s, without warnings. No source changed between these runs or
+after them. Final `recount.py --check`, fixture syntax/original checks, and
+`git diff --check` passed. The tracked tree is clean after this notes commit;
+the existing untracked handoff files remain untouched and uncommitted.
+
+Final scope: 13 more Electron cases, 186/264 total, no does-not-apply additions.
+**78 cases remain**, starting with the three model-alias cases. The 15 inherited
+control verifications listed above also remain. The root TypeScript gate,
+real agents, a visible window, packaging and other platforms were not run.
+This is verified incremental parity, not completion of all missionView cases.
