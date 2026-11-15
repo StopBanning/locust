@@ -1252,6 +1252,19 @@ mod paused {
         (Mem::with(vec![routine]), Arc::new(Fake { opened_at: Some(opened), asked: Mutex::new(None), ..Fake::default() }))
     }
 
+    // nextRoutineDueLine (shared/routine-schedule.ts:212): the soonest run still ahead wins, a files routine and a
+    // paused one have none, and the line says the name and the local clock time.
+    #[test]
+    fn the_trays_next_routine_line_names_the_soonest_run_still_ahead() {
+        let now = local(2026, 10, 3, 7, 0, 0).with_timezone(&chrono::Local);
+        let daily = |name: &str, at: &str| saved(json!({"name": name, "schedule": {"kind": "daily", "at": at}}));
+        let files = saved(json!({"name": "Watcher", "schedule": {"kind": "files", "folder": "inbox"}}));
+        let paused = saved(json!({"name": "Asleep", "paused": true, "schedule": {"kind": "daily", "at": "07:30"}}));
+        let routines = [daily("Later", "09:30"), files, paused, daily("Soonest", "08:00")];
+        assert_eq!(crate::routines::schedule::next_routine_due_line(&routines, now), "Next: Soonest at 08:00");
+        assert_eq!(crate::routines::schedule::next_routine_due_line(&[], now), "No routine due");
+    }
+
     #[test]
     fn is_not_started_by_its_schedule_and_records_no_miss_however_overdue() {
         let (mem, host) = harness(saved(json!({"paused": true})), local(2026, 10, 2, 7, 0, 0));
