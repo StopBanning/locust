@@ -1323,6 +1323,7 @@ pub(super) fn board_wait_card(s: &State, card: &ScoutCard, l: &Look) -> El {
         face_name,
         face_look,
         26.0,
+        s.settings_panel.settings.terminal_faces,
         l,
     );
 

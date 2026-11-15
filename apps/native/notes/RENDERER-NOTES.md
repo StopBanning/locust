@@ -309,3 +309,98 @@ called by that stage. No product behavior changed in these two files.
   update; original untracked HANDOFF files preserved and never committed.
 - Verified sections committed as `7226958a` (runtime gaps) and `4fc525fe`
   (eyes and moods). The verification record is committed separately.
+
+## Renderer round 2 continuation — screen choice (in progress)
+
+- Starting tracked tree was clean; only the original HANDOFF files were untracked.
+- Read Electron's six screen-choice cases, Bot/TeammateBot and avatar validation.
+  Native now preserves a shape's intrinsic screen before applying the Terminal
+  faces preference (Prompt's screen remains even with an explicit false choice).
+  The disk look parser rejects a non-boolean screen field instead of silently
+  treating it as an absent choice. Internally the owned spec uses Option<bool>.
+- Six separate cases are in `look::faces::renderer_screen_tests`, preserving
+  Electron's shape lists, droid/star/flower/Prompt choices and 40-point drawing.
+  Verification pending; inventory row remains waiting. A prompt-screen control
+  is prepared in the in-workspace renderer-mutation.py.
+- The first edit command used a root-relative path from apps/native and failed
+  before changing anything. Its unchanged baseline run was stopped (exit 130).
+  The actual screen workspace run is `renderer-4-screen-workspace.log`.
+- Next section prepared while that run compiles: five exact tooltip cases in
+  core's `teammate_tooltip`, used as help on both full sidebar and compact rail
+  teammate controls. This section has not yet been compiled or carried.
+- More files read, still waiting: the model editor needs parity for model-specific
+  effort stops and absent-picker handling; folder-row includes connector-choice
+  rendering; teamBoard needs urgency sections (Home currently draws a plain grid);
+  idle teammate needs role/template-specific prompts in the conversation itself.
+  Every-teammate includes editor controls and display semantics beyond the pure
+  bot spec tests. Home-fit needs actual layout work rather than porting Electron's
+  measurement helper unused. These are applicable behavior, not exclusions.
+- Follow-through: static face callers previously passed Terminal faces=true
+  unconditionally. The preference now reaches static faces in Home, sidebar,
+  compact rail/flyout, thread header, teammate cards, rooms and Scout cards.
+  The animated renderer already read the setting. The first run predates this
+  propagation; the second full workspace run includes it and the tooltip section.
+- First screen run: exit 0, 2072 core + 471 window passed, 20 ignored, docs 0.
+  All six screen tests passed by name, but the row remains waiting for verification
+  of the final screen call sites.
+- Routine handoff section prepared during the second run: chain label projection
+  in core and on actual routine cards; step-choice accessibility labels and checker
+  explanation in the real editor; routine-only step-word projection shared by
+  titles and ledger user items. Six Electron cases are separate tests (four under
+  routines_panel::renderer_handoff_tests, two under conversation_turns::tests).
+  No carried claim before a run containing them.
+- `renderer-4-tooltip-workspace.log`: exit 0; 2077 core + 471 window passed,
+  20 ignored real-agent tests, doc tests 0. The five tooltip cases and six
+  screen cases all passed by name. Later test strengthening adds the absent
+  star screen at the disk boundary; the next run must verify that version.
+
+### New case mapping
+
+- Screen file, in Electron order, under `look::faces::renderer_screen_tests`:
+  `suits_the_made_boxy_shapes_and_not_the_grown_bumpy_ones`,
+  `names_only_shapes_that_exist`,
+  `keeps_the_choice_and_refuses_anything_but_true_or_false`,
+  `is_a_screen_where_the_shape_suits_one_and_its_own_eyes_where_it_does_not_until_chosen`,
+  `follows_the_teammates_choice_either_way`,
+  `is_never_a_screen_with_terminal_faces_off_but_prompts_whose_face_it_is`.
+- Tooltip file, in order, under `teammate_tooltip::tests`:
+  `gives_the_name_the_role_and_the_model`,
+  `names_the_model_as_the_chip_does_never_by_its_id`,
+  `stops_after_the_role_when_the_teammate_has_never_run`,
+  `still_leads_with_the_action_so_a_click_is_predictable`,
+  `names_the_runtime_the_way_the_rest_of_the_app_does`.
+- Routine file, in order: `routines_panel::renderer_handoff_tests::`
+  `asks_who_takes_each_step_and_whether_it_checks_when_there_is_a_team`,
+  `draws_no_choice_for_a_teammate_on_their_own`,
+  `names_the_chain_in_step_order_each_teammate_once_in_a_row_the_checker_marked`,
+  `says_nothing_new_for_a_routine_one_teammate_runs_throughout`;
+  `conversation_turns::tests::`
+  `is_shown_as_the_steps_own_words_not_the_answer_and_rule_it_was_given`,
+  `are_the_step_not_the_answer_quoted_above_it`.
+  The chain case also draws the real routine card, and the latter prompt case
+  applies a mission-created record and checks the actual ledger user item.
+
+### Screen negative control
+
+- `renderer-4-screen-control-result.log`: prompt-screen control exited 0,
+  caught exactly
+  `look::faces::renderer_screen_tests::is_never_a_screen_with_terminal_faces_off_but_prompts_whose_face_it_is`,
+  and restored faces.rs byte for byte. Underlying full workspace totals:
+  **2079 core passed**, 20 ignored; **474 window passed, one intentional failure**;
+  doc tests 0. No unrelated failure. All five tooltip cases, all six routine
+  cases, and the five unbroken screen cases passed by name in that run.
+- Final restored run is `renderer-4-restored-workspace.log`; its result is
+  pending. The tooltip-default and routine-step-words controls are provided but
+  have not been run. No mutation remains applied.
+
+### Final restored verification (renderer-4)
+
+- `renderer-4-restored-workspace.log`: exit 0, **2079 core + 475 window =
+  2554 passed**, **20 ignored** real-agent tests, doc tests 0. All seventeen
+  cases listed above observed passing by name, including the final absent-screen
+  boundary assertion, real routine cards and ledger user item.
+- Screen choice and tooltip rows now carried. No Electron plumbing exclusion.
+  Routine row is updated with the next verified section commit.
+- No mutation remains. All runs used the whole release workspace, serial tests,
+  GIT_OPTIONAL_LOCKS=0 and the existing in-workspace TypeScript reader. No
+  filtered Cargo test run. Mutation script syntax and git diff --check passed.

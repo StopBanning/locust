@@ -220,3 +220,5 @@ pub mod bot_rig;
 pub mod buddy_rig;
 
 pub mod buddy_moves;
+
+pub mod teammate_tooltip;

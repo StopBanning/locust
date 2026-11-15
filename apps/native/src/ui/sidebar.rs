@@ -508,7 +508,7 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
             .w_full()
             .center_y()
             .gap(8.0)
-            .child(crate::look::faces::face(s.image_cache.as_deref(), &teammate.id, &teammate.name, s.looks.get(&teammate.id), 22.0, &l))
+            .child(crate::look::faces::face(s.image_cache.as_deref(), &teammate.id, &teammate.name, s.looks.get(&teammate.id), 22.0, s.settings_panel.settings.terminal_faces, &l))
             .child(
                 text(teammate.name.clone())
                     .font(rune::TextStyle::new(13.5, 500.0))
@@ -531,6 +531,7 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
         rows = rows.child(
             col()
                 .key(format!("teammate-{id}"))
+                .help(locust_core::teammate_tooltip::teammate_tooltip(teammate))
                 .w_full()
                 .py(9.0)
                 .px(10.0)

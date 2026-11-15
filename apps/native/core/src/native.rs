@@ -469,6 +469,9 @@ pub fn parse_looks(text: &str) -> std::collections::HashMap<String, FaceLook> {
             _ => None,
         };
         let bot = (|| {
+            if avatar["bot"].get("screen").is_some_and(|v| !v.is_boolean()) {
+                return None;
+            }
             let shape = avatar["bot"]["shape"].as_str()?;
             let face = avatar["bot"]["face"].as_str().filter(|f| matches!(*f, "eyes" | "mouth"))?;
             let ok = !shape.is_empty() && shape.len() <= 24 && shape.bytes().all(|b| b.is_ascii_lowercase());

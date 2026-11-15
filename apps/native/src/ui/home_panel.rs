@@ -700,7 +700,7 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
                 .radius(10.0)
                 .fill(l.c("bg-raised"))
                 .border(1.0, l.c("border-card"))
-                .child(crate::look::faces::tile(s.image_cache.as_deref(), &mate.id, &mate.name, s.looks.get(&mate.id), &l))
+                .child(crate::look::faces::tile(s.image_cache.as_deref(), &mate.id, &mate.name, s.looks.get(&mate.id), s.settings_panel.settings.terminal_faces, &l))
                 .child(
                     col()
                         .gap(2.0)
@@ -947,7 +947,7 @@ pub(super) fn board_view(s: &State, p: &Palette) -> El {
                     let who = s.recent.iter().find(|r| r.id == mission_id).map(|r| r.teammate.clone());
                     let mate = who.as_ref().and_then(|name| s.teammates.iter().find(|t| &t.name == name));
                     let l = crate::look::controls::Look::new(p.dark);
-                    let face = mate.map(|mate| crate::look::faces::face(s.image_cache.as_deref(), &mate.id, &mate.name, s.looks.get(&mate.id), 26.0, &l));
+                    let face = mate.map(|mate| crate::look::faces::face(s.image_cache.as_deref(), &mate.id, &mate.name, s.looks.get(&mate.id), 26.0, s.settings_panel.settings.terminal_faces, &l));
                     card_el = card_el.child(text(title).font(type_::BODY).color(p.text).truncate());
                     if let Some(who) = who {
                         card_el = card_el.child(text(who).font(type_::LABEL).color(p.secondary));

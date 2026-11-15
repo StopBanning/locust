@@ -1073,6 +1073,7 @@ fn view_create(s: &State, p: &Palette, l: &Look) -> El {
                     &tm.name,
                     s.looks.get(&tm.id),
                     24.0,
+                    s.settings_panel.settings.terminal_faces,
                     l,
                 ))
                 .child(
@@ -1719,6 +1720,7 @@ fn view_post(
                 &st.name,
                 s.looks.get(&st.teammate_id),
                 20.0,
+                s.settings_panel.settings.terminal_faces,
                 l,
             ));
         if matches!(st.state, MemberPostState::NotAsked | MemberPostState::Absent) {
@@ -1927,6 +1929,7 @@ fn view_answer_card(
                     &ans.name,
                     s.looks.get(ans.teammate_id),
                     24.0,
+                    s.settings_panel.settings.terminal_faces,
                     l,
                 ))
                 .child(
@@ -2033,6 +2036,7 @@ fn view_composer(s: &State, room: &PublicRoom, p: &Palette, l: &Look) -> El {
                         &cname,
                         s.looks.get(&cid),
                         20.0,
+                        s.settings_panel.settings.terminal_faces,
                         l,
                     ))
                     .child(text(cname).font(l.ty.body).color(p.text))

@@ -922,7 +922,7 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
                     .center_y()
                     .window_drag()
                     .border_sides([0.0, 0.0, 1.0, 0.0], p.hairline)
-                    .child(crate::look::faces::face(s.image_cache.as_deref(), &teammate.id, &teammate.name, s.looks.get(&teammate.id), 36.0, &l))
+                    .child(crate::look::faces::face(s.image_cache.as_deref(), &teammate.id, &teammate.name, s.looks.get(&teammate.id), 36.0, s.settings_panel.settings.terminal_faces, &l))
                     .child(
                         col()
                             .gap(3.0)
