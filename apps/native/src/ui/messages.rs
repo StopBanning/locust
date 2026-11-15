@@ -684,6 +684,49 @@ mod tests {
         assert!(shown.contains("Can you double-check the tax rate?"), "{shown}");
     }
 
+    fn runtime_reply(body: &str) -> (String, usize) {
+        let mut rt = rune::Runtime::new(
+            body.to_owned(),
+            |body, _| reply_actions::reply(&State::default(), body, false, &Palette::new(true)),
+            (800.0, 800.0), rune::Env::new(true, 1.0),
+        );
+        rt.frame(0.0);
+        let elements = rt.elements();
+        let notes = elements.iter().filter(|e| e.key.as_deref().is_some_and(|k| k.starts_with("runtime-gap-"))).count();
+        (elements.into_iter().filter_map(|e| e.text).collect::<Vec<_>>().join("\n"), notes)
+    }
+
+    // a-runtime-gap-is-not-the-teammate.test.tsx: exact Electron inputs.
+    #[test]
+    fn draws_the_marker_as_a_note() {
+        let (shown, notes) = runtime_reply("before the gap\n\n<truncated 259 bytes>\n\nafter the gap");
+        assert_eq!(notes, 1);
+        assert!(shown.contains("259 bytes the runtime did not keep"), "{shown}");
+        assert!(!shown.contains("<truncated 259 bytes>"), "{shown}");
+    }
+
+    #[test]
+    fn keeps_every_other_word_of_the_reply() {
+        let (shown, _) = runtime_reply("before the gap\n\n<truncated 259 bytes>\n\nafter the gap");
+        assert!(shown.contains("before the gap") && shown.contains("after the gap"), "{shown}");
+    }
+
+    #[test]
+    fn leaves_a_sentence_that_merely_mentions_truncation_alone() {
+        let (shown, notes) = runtime_reply("The log said <truncated 259 bytes> which is why the tail is missing.");
+        assert_eq!(notes, 0);
+        assert!(shown.contains("which is why the tail is missing"), "{shown}");
+    }
+
+    #[test]
+    fn runtime_gaps_preserve_fenced_code_and_split_single_newline_prose() {
+        let (shown, notes) = runtime_reply("```text\n<truncated 259 bytes>\n```\nbefore\n<truncated 12 bytes>\nafter");
+        assert_eq!(notes, 1);
+        assert!(shown.contains("<truncated 259 bytes>"), "{shown}");
+        assert!(shown.contains("12 bytes the runtime did not keep"), "{shown}");
+        assert!(shown.contains("before") && shown.contains("after"), "{shown}");
+    }
+
     // a-teammate-can-hand-you-a-file.test.ts: one native test per Electron case.
     const HANDED_REPLY: &str = "Here is the rollup.\n\n<locust-file>\ndocs/report.md :: the rollup you asked for\n</locust-file>";
     fn handed_reply(text: &str, final_: bool, running: bool) -> (String, usize) {

@@ -254,7 +254,48 @@ fn format_workbook(book: &crate::office::Workbook) -> String {
     )
 }
 
+/// Lost bytes belong to the runtime's voice. Code samples and inline mentions stay prose/code.
 pub(super) fn reply(s: &State, body: &str, live: bool, p: &Palette) -> El {
+    let mut out = col().w_full().gap(8.0);
+    let mut start = 0;
+    let mut offset = 0;
+    let mut fence: Option<(char, usize)> = None;
+    for line in body.split_inclusive('\n') {
+        let bare = line.trim_end_matches(['\r', '\n']);
+        let trimmed = bare.trim_start_matches(' ');
+        let indent = bare.len() - trimmed.len();
+        let marker = trimmed.chars().next().unwrap_or(' ');
+        let count = trimmed.chars().take_while(|c| *c == marker).count();
+        if indent <= 3 && (marker == '`' || marker == '~') && count >= 3 {
+            match fence {
+                Some((kind, size)) if kind == marker && count >= size
+                    && trimmed[count..].trim().is_empty() => fence = None,
+                None => fence = Some((marker, count)),
+                _ => {}
+            }
+        } else if fence.is_none() && let Some(bytes) = bare
+            .strip_prefix("<truncated ").and_then(|t| t.strip_suffix(" bytes>"))
+            .filter(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit())) {
+            if start < offset {
+                out = out.child(reply_markdown(s, &body[start..offset], live, p));
+            }
+            out = out.child(text(format!("{bytes} bytes the runtime did not keep"))
+                .key(format!("runtime-gap-{offset}"))
+                .role("note").font(type_::LABEL).color(p.muted).w_full().wrap());
+            start = offset + line.len();
+        }
+        offset += line.len();
+    }
+    if start == 0 {
+        return reply_markdown(s, body, live, p);
+    }
+    if start < body.len() {
+        out = out.child(reply_markdown(s, &body[start..], live, p));
+    }
+    out
+}
+
+fn reply_markdown(s: &State, body: &str, live: bool, p: &Palette) -> El {
     let frame_palette = Palette::new(p.dark);
     let feedback = s.copy_feedback.clone();
     let prepared = crate::diagram::prepare_reply_markdown(body);

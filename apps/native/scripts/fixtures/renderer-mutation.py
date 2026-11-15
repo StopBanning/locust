@@ -10,6 +10,24 @@ import subprocess
 import sys
 
 CONTROLS = {
+    "glad-screen": (
+        "core/src/bot_rig.rs",
+        'let glad = if screen {',
+        'let glad = if false {',
+        "leaves_a_screens_eyes_to_its_glyphs_carets_say_glad_there",
+    ),
+    "runtime-gap": (
+        "src/ui/reply_actions.rs",
+        '.strip_prefix("<truncated ").and_then(|t| t.strip_suffix(" bytes>"))',
+        '.strip_prefix("<never-truncated ").and_then(|t| t.strip_suffix(" bytes>"))',
+        "draws_the_marker_as_a_note",
+    ),
+    "screen-eyes": (
+        "src/look/bot_stage.rs",
+        'if screen && !matches!(activity, FaceActivity::Idle) {',
+        'if !matches!(activity, FaceActivity::Idle) {',
+        "is_drawn_on_a_screen_only_a_face_with_no_screen_keeps_its_own_eyes",
+    ),
     "long-root": (
         "src/ui/sidebar.rs",
         "if !by_id.contains_key(parent) || !seen.insert(parent) {",

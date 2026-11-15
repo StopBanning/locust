@@ -800,7 +800,7 @@ apps/desktop/src/renderer/src/a-routine-waiting-for-your-ok-asks-plainly.test.ts
 apps/desktop/src/renderer/src/a-row-repeats-nothing-its-heading-says.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-run-a-teammate-stopped-does-not-say-you.test.tsx	STOPPED	partial	src/ui/cancellation_card.rs	the press seen in this window says You (window test a_stopped_run_leaves_a_receipt_that_says_who_stopped_it_and_what_is_unknown); a run stopped by anything else is not pinned
 apps/desktop/src/renderer/src/a-runtime-declares-what-it-can-do.test.ts		waiting		
-apps/desktop/src/renderer/src/a-runtime-gap-is-not-the-teammate.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-runtime-gap-is-not-the-teammate.test.tsx	renderer-3	carried	src/ui/messages.rs; src/ui/reply_actions.rs	Three exact cases and fenced/single-newline regression; named passes in renderer-3-gap-workspace.log.
 apps/desktop/src/renderer/src/a-runtime-switch-shows-where-it-happened.test.tsx	RELAY	partial	src/ui/handoff_divider.rs	divider runtime names in handoff_divider.rs; routineDraft extraction omitted
 apps/desktop/src/renderer/src/a-saved-turn-is-said-after-its-work.test.ts		waiting		
 apps/desktop/src/renderer/src/a-scout-card-that-needs-you-is-on-the-board.test.tsx	scout-2a	carried	src/ui/scout_cards.rs, src/ui/window_drive_tests.rs	all 6 tests carried (urgent card above waiting conversation, sole card forms Needs you, Send/Change/Dismiss, no-draft Dismiss, dark/light tokens, click opens Home focused) + headless window test

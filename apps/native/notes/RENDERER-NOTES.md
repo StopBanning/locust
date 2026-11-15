@@ -197,3 +197,38 @@ No work on those remaining files is claimed complete.
 - Release binary build: exit 0, `notes/renderer-2-release-build.log`, completed
   in 59.87s. Twelve existing warnings in drawing/conductor code; none in changed
   production files. All mutations restored; final tracked tree committed clean.
+
+## Round 2 continuation — runtime gap (carried)
+
+- Read the waiting runtime-gap test and Electron's AgentText paragraph renderer.
+  Native lacked the note. Standalone `<truncated N bytes>` lines now draw a
+  muted `note` saying `N bytes the runtime did not keep`; reply words on either
+  side remain selectable Markdown. Inline mentions and fenced samples stay intact.
+- Three separate Electron cases with exact text in `messages::tests`:
+  `draws_the_marker_as_a_note`, `keeps_every_other_word_of_the_reply`,
+  `leaves_a_sentence_that_merely_mentions_truncation_alone`. An extra regression
+  covers fenced code and a marker between single newlines, matching Electron's
+  actual line-splitting behavior. No row marked carried before named results.
+- Next small section prepared: two eye-state cases through bot stage's real
+  `shown_face_for`, including screen-only gating. No production eye changes.
+- Additional files inspected but not carried: removed teammate uses index-based
+  native selection and apply_team falls back to index zero; a correct port must
+  reconcile selection across roster refresh and the plain-conversation path.
+  Queued-message file includes the missing busy-other-conversation waitFor rule;
+  existing native queue isolation alone does not carry that file.
+- All commands and new control sources stay within this workspace. Cargo uses
+  `apps/native/target` and the existing in-workspace TypeScript reader. The first
+  command used a wrong edit path and started an unchanged baseline; it was stopped,
+  no result claimed. The current full run includes the actual gap changes.
+- Further small section prepared: all nine mood cases from
+  `a-teammate-wears-how-it-feels.test.ts` in `bot_rig::renderer_mood_tests`,
+  preserving Electron's pose, seed, side, weight and tick inputs. Native already
+  has the applicable rig behavior. JS null-rig handling and library property-key
+  reflection are replaced by typed owned-rig and JumpSpec assertions, not rebuilt.
+  Verification pending; row still waiting.
+
+- `notes/renderer-3-gap-workspace.log`: exit 0, 2063 core and 465 window
+  tests passed, 20 real-agent tests ignored, doc tests 0. All three gap cases,
+  the extra fenced/single-newline regression, and the two prepared eye cases
+  were observed passing by name. This binary predates the nine mood tests.
+  Runtime-gap row now carried. Eye/mood rows stay waiting until their section.
