@@ -387,6 +387,9 @@ pub struct Briefing {
     pub prompt: String,
     /// Sections left out to fit the bound, in the order they were dropped.
     pub omitted: Vec<String>,
+    /// The sections carried, in reading order, the person's next words left out (`kept`): the preview under the box
+    /// reads these, so they are the sections actually in the prompt.
+    pub kept: Vec<String>,
     pub task_clipped: bool,
 }
 
@@ -615,6 +618,8 @@ pub fn compose_handoff_prompt_with(
         used += cost;
     }
     let texts: Vec<&str> = sections.iter().filter(|s| kept.contains(&s.name)).map(|s| s.text.as_str()).collect();
+    let kept_names: Vec<String> =
+        sections.iter().filter(|s| kept.contains(&s.name) && s.name != "next").map(|s| s.name.to_owned()).collect();
     if texts.is_empty() {
         return None;
     }
@@ -622,7 +627,7 @@ pub fn compose_handoff_prompt_with(
     if !omitted.is_empty() {
         prompt.push_str(&format!("\n\n(Some handoff detail did not fit and was left out: {}.)", omitted.join(", ")));
     }
-    Some(Briefing { prompt, omitted, task_clipped })
+    Some(Briefing { prompt, omitted, kept: kept_names, task_clipped })
 }
 
 #[cfg(test)]

@@ -175,6 +175,28 @@ mod changed_file_tests;
 mod typed_prompt_tests;
 
 #[cfg(test)]
+mod handoff_brief_tests;
+
+#[cfg(test)]
+mod mission_mode_tests;
+
+#[cfg(test)]
+mod handover_note_tests;
+
+#[cfg(test)]
+mod route_at_start_tests;
+
+#[cfg(test)]
+mod model_lists_tests;
+
+// Real post-checkout hooks are made executable the Unix way.
+#[cfg(all(test, unix))]
+mod worktree_checkout_tests;
+
+#[cfg(test)]
+mod install_lock_tests;
+
+#[cfg(test)]
 mod plan_payload_tests;
 
 #[cfg(test)]
