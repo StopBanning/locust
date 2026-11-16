@@ -413,3 +413,8 @@ mod tests {
         assert_eq!(kit(false).c.text_base, tokens(false).color("text-primary"));
     }
 }
+
+#[cfg(test)]
+#[path = "runtime_marks_tests.rs"]
+mod runtime_marks_tests;
+
