@@ -10,6 +10,12 @@ import subprocess
 import sys
 
 CONTROLS = {
+    "plain-ghost": (
+        "src/ui/messages.rs",
+        'hue: "pearl".into(), parts: None, bot: Some(("ghost".into(), "eyes".into())),',
+        'hue: "lime".into(), parts: None, bot: Some(("swarm".into(), "eyes".into())),',
+        "beside_a_reply_the_ghost_when_the_conversation_is_nobodys_the_teammates_own_bot_when_it_has_one",
+    ),
     "idle-roster-cache": (
         "src/main.rs",
         "s.people_panel.team = team;",

@@ -6,6 +6,21 @@ pub(super) fn conversation_history_key(s: &State) -> String {
         .unwrap_or_else(|| "preview".into())
 }
 
+/// A transcript's still owner face; nobody's conversation wears the pearl ghost.
+fn thread_face(s: &State, key: &str, size: f32, p: &Palette) -> El {
+    let owner = selected_conversation(s).map(|(t, _)| t).filter(|t| t.id != LEDGER_TARGET);
+    let plain = locust_core::native::FaceLook {
+        hue: "pearl".into(), parts: None, bot: Some(("ghost".into(), "eyes".into())),
+        bot_screen: None, pet: None,
+    };
+    let id = owner.map_or(LEDGER_TARGET, |t| t.id.as_str());
+    let look = owner.and_then(|t| s.looks.get(&t.id)).or_else(|| owner.is_none().then_some(&plain));
+    let (shape, _, hue) = crate::look::faces::bot_of(id, look);
+    crate::look::faces::face(s.image_cache.as_deref(), id, "", look, size,
+        s.settings_panel.settings.terminal_faces, &crate::look::controls::Look::new(p.dark))
+        .key(format!("thread-face-{key}-{shape}-{hue}"))
+}
+
 pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s: &State) -> El {
     let mut messages = col().w_full().max_w(super::thread_view::THREAD_MAX).gap(24.0).padding(24.0);
     if let Some(label) = s.ledger.as_ref().and_then(|pane| pane.snapshot.started_label.as_ref()) {
@@ -330,7 +345,9 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                 let mut msg = col()
                     .w_full()
                     .gap(8.0)
-                    .child(text(name).font(type_::LABEL).color(p.muted));
+                    .child(row().gap(8.0).center_y()
+                        .child(thread_face(s, &key, 24.0, p))
+                        .child(text(name).font(type_::LABEL).color(p.muted)));
                 if !shown.is_empty() {
                     let ask_scope = scope.clone();
                     let reply_box = col()
@@ -483,7 +500,9 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
         };
         let words = live.detail.as_ref().map_or_else(|| words.clone(), |d| format!("{words} · {d}"));
         let label = elapsed.map_or_else(|| words.clone(), |ms| format!("{words} · {}", ledger::duration_text(ms)));
-        messages = messages.child(text(label).font(type_::LABEL).color(p.muted).w_full());
+        messages = messages.child(row().w_full().gap(8.0).center_y()
+            .child(thread_face(s, "live", 34.0, p))
+            .child(text(label).font(type_::LABEL).color(p.muted).grow(1.0).shrink()));
     }
     messages
         .child(approval_card(s, p))
@@ -846,6 +865,46 @@ mod tests {
         });
         s
     }
+    fn face_keys(owned: bool, running: bool) -> Vec<String> {
+        let mut s = composition_state(None, running);
+        if let Some(live) = s.ledger.as_mut().unwrap().snapshot.live.as_mut() {
+            live.label = "Thinking".into();
+            live.register = "thinking".into();
+            live.started_at = "1970-01-01T00:00:00.000Z".into();
+        }
+        s.ledger.as_mut().unwrap().header.id = if owned { "tm_atlas" } else { LEDGER_TARGET }.into();
+        s.looks.insert("tm_atlas".into(), locust_core::native::FaceLook {
+            hue: "blue".into(), parts: Some(crate::look::faces::seed_parts("tm_atlas")),
+            bot: Some(("droid".into(), "eyes".into())), bot_screen: None, pet: None,
+        });
+        let items = vec![ledger::Item::Assistant { item_id: "reply".into(), text: "Hello.".into(), r#final: true }];
+        let mut rt = rune::Runtime::new((s, items), |(s, items), _| message_column(items, "Atlas", &Palette::new(true), s),
+            (800.0, 800.0), rune::Env::new(true, 1.0));
+        rt.frame(0.0);
+        rt.elements().into_iter().filter_map(|e| e.key).filter(|k| k.contains("thread-face-")).collect()
+    }
+    #[test]
+    fn beside_a_reply_the_ghost_when_the_conversation_is_nobodys_the_teammates_own_bot_when_it_has_one() {
+        let nobody = face_keys(false, false);
+        assert!(nobody.iter().any(|k| k.ends_with("ghost-pearl")), "{nobody:?}");
+        assert!(!nobody.iter().any(|k| k.contains("swarm")));
+        let owned = face_keys(true, false);
+        assert!(owned.iter().any(|k| k.ends_with("droid-blue")), "{owned:?}");
+        assert!(!owned.iter().any(|k| k.contains("ghost")));
+    }
+    #[test]
+    fn wears_the_ghosts_own_white_as_the_covers_ghost_does_on_the_reply_and_the_live_row_alike() {
+        let keys = face_keys(false, true);
+        assert_eq!(keys.len(), 2, "{keys:?}");
+        assert!(keys.iter().all(|k| k.ends_with("ghost-pearl")), "{keys:?}");
+    }
+    #[test]
+    fn on_the_live_row_the_same_ghost_while_nobodys_conversation_thinks() {
+        let keys = face_keys(false, true);
+        assert!(keys.iter().any(|k| k.ends_with("live-ghost-pearl")), "{keys:?}");
+        assert!(!keys.iter().any(|k| k.contains("swarm")));
+    }
+
     #[test]
     fn an_ended_threads_start_date_refreshes_without_reopening_its_ledger() {
         let mut s = composition_state(None, false);
