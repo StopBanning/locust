@@ -37,6 +37,7 @@ pub(super) struct Panel {
     pub reviewed: Option<String>,
     pub file: Value,
     pub entry: Value,
+    pub choose_runner: bool,
     pub fields: Vec<TextEdit>,
     pub steps: Vec<TextEdit>,
     pub schedule: Value,
@@ -95,6 +96,7 @@ impl Default for Panel {
             reviewed: None,
             file: Value::Null,
             entry: Value::Null,
+            choose_runner: false,
             fields: Vec::new(),
             steps: Vec::new(),
             schedule: Value::Null,
@@ -137,6 +139,7 @@ pub(super) fn open(s: &mut State) {
     reload(s);
 }
 fn edit(s: &mut State, r: Value) {
+    s.routines.choose_runner = r["teammateId"].as_str().is_none_or(str::is_empty);
     s.routines.steps = r["steps"]
         .as_array()
         .map(|ss| ss.iter().map(|s| field(s.as_str().unwrap_or(""))).collect())
@@ -178,6 +181,40 @@ fn button(label: &str, p: &Palette) -> El {
         .color(p.secondary)
         .padding(6.0)
 }
+/// This is also checked at the press boundary; host validation remains the
+/// persistence guard if a teammate disappears while the editor is open.
+fn save_refusal(s: &State) -> Option<String> {
+    let panel = &s.routines;
+    let owner = panel.entry["teammateId"].as_str().unwrap_or("");
+    if !s.teammates.iter().any(|t| t.id == owner) {
+        return Some(if s.teammates.is_empty() {
+            "A routine runs on a teammate's route, and there are no teammates yet. Add one, then save this again."
+        } else { "Choose which teammate runs this routine." }.into());
+    }
+    if let Some(at) = panel.steps.iter().position(|step| step.text.trim().encode_utf16().count() > 8000) {
+        return Some(format!("Shorten step {} to save this routine.", at + 1));
+    }
+    None
+}
+
+fn runner_choice(s: &State, p: &Palette) -> El {
+    let owner = s.routines.entry["teammateId"].as_str().unwrap_or("");
+    let named = s.teammates.iter().find(|t| t.id == owner);
+    if !s.routines.choose_runner {
+        return text(named.map_or_else(|| "The teammate who runs it".into(), |t| format!("{} runs it", t.name))).font(type_::LABEL).color(p.secondary);
+    }
+    let mut choice = col().gap(6.0)
+        .child(text("Who runs it").font(type_::LABEL).color(p.secondary))
+        .child(text("This conversation was not assigned to anyone. It replays on the teammate you pick, on their route.").font(type_::LABEL).color(p.muted).wrap())
+        .child(text(named.map_or("Pick a teammate", |t| t.name.as_str())).key("routine-runner").font(type_::LABEL).color(p.text));
+    for teammate in &s.teammates {
+        let id = teammate.id.clone();
+        choice = choice.child(button(&teammate.name, p).key(format!("routine-runner-{id}"))
+            .role("button").on_press(move |s: &mut State| s.routines.entry["teammateId"] = json!(id)));
+    }
+    choice
+}
+
 pub(super) fn view(s: &State, p: &Palette) -> El {
     let panel = &s.routines;
     let mut body = col()
@@ -246,6 +283,11 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
         );
     }
     if !panel.fields.is_empty() {
+        let refusal = save_refusal(s);
+        body = body.child(runner_choice(s, p));
+        if let Some(reason) = &refusal {
+            body = body.child(text(reason.clone()).key("routine-save-refusal").font(type_::LABEL).color(p.secondary).wrap());
+        }
         body = body
             .child(text("Name").font(type_::LABEL).color(p.secondary))
             .child(
@@ -374,10 +416,10 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
             }
             body = body.child(days);
         }
-        body = body.child(
-            row()
-                .gap(12.0)
-                .child(button("Save changes", p).on_press(|s: &mut State| {
+        let mut save_button = button("Save changes", p).key("routine-save").role("button");
+        if refusal.is_none() {
+            save_button = save_button.on_press(|s: &mut State| {
+                    if let Some(reason) = save_refusal(s) { s.routines.error = reason; return; }
                     let mut entry = s.routines.entry.clone();
                     entry["name"] = json!(s.routines.fields[0].text);
                     entry["steps"] = json!(
@@ -424,7 +466,11 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                     if ok {
                         s.routines.fields.clear();
                     }
-                }))
+                });
+        }
+        body = body.child(
+            row().gap(12.0)
+                .child(save_button.disabled(refusal.is_some()))
                 .child(button("Cancel", p).on_press(|s: &mut State| s.routines.fields.clear())),
         );
     }
@@ -1643,5 +1689,91 @@ mod renderer_handoff_tests {
         let mut r=json!({"teammateId":"tm_wren","steps":["a","b","c","d"]});
         assert_eq!(crate::routines::routine_chain(&r,&team()[..1]),None);
         r["handOffs"]=json!([{},{},{},{}]); assert_eq!(crate::routines::routine_chain(&r,&team()[..1]),None);
+    }
+}
+
+
+#[cfg(test)]
+mod renderer_unowned_tests {
+    use super::*;
+    fn editor(owner: bool, team: bool, steps: &[&str]) -> State {
+        let mut s = State::default();
+        if team {
+            s.teammates = native::parse_roster(&json!({"schemaVersion":1,"teammates":[{"teammateId":"tm_wren","name":"Wren","role":"Code & Migrations","hue":"lime","createdAt":"2026-09-05T05:00:00.000Z"}]}).to_string()).unwrap();
+        }
+        edit(&mut s, json!({"name":"Nightly tidy","steps":steps,"teammateId":if owner { Some("tm_wren") } else { None }}));
+        s
+    }
+    fn runtime(s: State) -> rune::Runtime<State> {
+        let mut rt = rune::Runtime::new(s, |s, _| view(s, &Palette::new(true)), (1200.0, 1800.0), rune::Env::new(true, 1.0));
+        rt.frame(0.0);
+        rt
+    }
+    fn words(rt: &rune::Runtime<State>) -> String {
+        rt.elements().into_iter().filter_map(|e| e.text).collect::<Vec<_>>().join("\n")
+    }
+    fn press_save(rt: &mut rune::Runtime<State>) {
+        let (x, y) = rt.find("routine-save").expect("save button");
+        rt.pointer_down(x, y); rt.pointer_up(x, y); rt.frame(0.05);
+    }
+    #[test]
+    fn asks_who_will_run_it() {
+        let shown = words(&runtime(editor(false, true, &["Tidy the notes folder."])));
+        assert!(shown.contains("Who runs it") && shown.contains("Wren") && shown.contains("This conversation was not assigned to anyone"));
+    }
+    #[test]
+    fn will_not_save_until_that_is_answered() {
+        let mut rt = runtime(editor(false, true, &["Tidy the notes folder."]));
+        assert_eq!(save_refusal(&rt.state).as_deref(), Some("Choose which teammate runs this routine."));
+        press_save(&mut rt);
+        assert!(rt.state.routines.error.is_empty(), "disabled Save must not dispatch");
+        assert!(rt.state.routines.entry["teammateId"].is_null());
+    }
+    #[test]
+    fn picks_nobody_by_default() {
+        let rt = runtime(editor(false, true, &["Tidy the notes folder."]));
+        let control = rt.elements().into_iter().find(|e| e.key.as_deref() == Some("routine-runner")).unwrap();
+        assert_eq!(control.text.as_deref(), Some("Pick a teammate"));
+        assert!(rt.state.routines.entry["teammateId"].is_null());
+    }
+    #[test]
+    fn says_so_plainly_when_there_is_nobody_to_pick() {
+        let mut rt = runtime(editor(false, false, &["Tidy the notes folder."]));
+        assert!(words(&rt).contains("there are no teammates yet"));
+        press_save(&mut rt);
+        assert!(rt.state.routines.error.is_empty());
+    }
+    #[test]
+    fn asks_nothing_when_the_conversation_already_has_an_owner() {
+        let rt = runtime(editor(true, true, &["Tidy the notes folder."]));
+        assert!(!words(&rt).contains("Who runs it"));
+        assert!(words(&rt).contains("runs it"));
+        assert_eq!(save_refusal(&rt.state), None);
+    }
+    #[test]
+    fn will_not_save_and_says_which_step_to_shorten() {
+        let mut rt = runtime(editor(true, true, &["Fine.", &"x".repeat(8_001)]));
+        assert!(words(&rt).contains("Shorten step 2 to save this routine."));
+        press_save(&mut rt);
+        assert!(rt.state.routines.error.is_empty());
+    }
+}
+
+#[cfg(test)]
+mod renderer_runner_interaction_tests {
+    use super::*;
+    #[test]
+    fn choosing_a_runner_enables_save_and_retains_the_conversations_steps() {
+        let mut s = State::default();
+        s.teammates = native::parse_roster(&json!({"schemaVersion":1,"teammates":[{"teammateId":"tm_wren","name":"Wren","role":"Code & Migrations","hue":"lime","createdAt":"2026-09-05T05:00:00.000Z"}]}).to_string()).unwrap();
+        edit(&mut s, json!({"name":"Nightly tidy","steps":["Tidy the notes folder."]}));
+        let mut rt = rune::Runtime::new(s, |s, _| view(s, &Palette::new(true)), (1200.0, 1800.0), rune::Env::new(true, 1.0));
+        rt.frame(0.0);
+        assert!(save_refusal(&rt.state).is_some());
+        let (x, y) = rt.find("routine-runner-tm_wren").unwrap();
+        rt.pointer_down(x, y); rt.pointer_up(x, y); rt.frame(0.05);
+        assert_eq!(rt.state.routines.entry["teammateId"], "tm_wren");
+        assert_eq!(save_refusal(&rt.state), None);
+        assert_eq!(rt.state.routines.steps[0].text, "Tidy the notes folder.");
     }
 }

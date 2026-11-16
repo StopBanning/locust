@@ -1089,3 +1089,30 @@ No live window, real agent, packaged app or Electron/JavaScript gate is run.
   run; no scroll performance benchmark or live window is claimed.
 - Final green restored workspace verification of both sections follows. The
   routine row remains waiting until all six cases pass after restoration.
+
+
+## Renderer-11 final restored verification
+
+- renderer-11-final-workspace.log: exit 0, **2119 core + 516 window = 2635
+  passed**, **20 ignored** real-agent cases, doc tests 0. All 26 added tests
+  were checked by name: 12 work-face rules, 5 exact newest-turn cases plus
+  pointer and scroll regressions, and 6 exact unowned-routine cases plus the
+  real-pointer runner-choice regression. The disabled-Save failures are fixed.
+- Both newest-budget and routine-owner negative controls failed their intended
+  named assertions and restored their source byte for byte. working-cycle is
+  supplied but was not run. No break remains applied.
+- Routine row is now carried; work-face row retains waiting with its exact
+  missing integration called out in the manifest. No Electron-plumbing
+  exclusions added. This continuation carries **two more full files**, plus
+  twelve rule cases in a still-waiting file. Cumulatively **20 of the original
+  45 requested files are carried, 25 remain waiting**. The brief is unfinished.
+- Recount and --check passed: 197 carried, 62 does-not-apply, 185 partial,
+  865 waiting (1309 total). git diff --check passed. All cargo runs were whole
+  release workspace runs via gentle-cargo, one at a time, with the in-workspace
+  target/TypeScript reader and serial optional-lock configuration stated above.
+- Source commits: 224fb389 work-face rule cases; 4f0b45a9 newest-turn paging;
+  routine section committed separately after this final green run. Release
+  binary build follows; no build pass is claimed before its result.
+- Not run: live/packaged window, real agent, Electron/JavaScript gate, other
+  platform builds, or a performance benchmark. No handoff file was edited,
+  committed or stashed. No unrelated change was discarded.
