@@ -418,3 +418,7 @@ mod tests {
 #[path = "runtime_marks_tests.rs"]
 mod runtime_marks_tests;
 
+#[cfg(test)]
+#[path = "face_motion_sites_tests.rs"]
+mod face_motion_sites_tests;
+
