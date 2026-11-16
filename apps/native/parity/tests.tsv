@@ -812,7 +812,7 @@ apps/desktop/src/renderer/src/a-screens-eyes-have-weight.test.ts		waiting
 apps/desktop/src/renderer/src/a-select-moves-and-chooses-by-the-keyboard.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-shorter-window-keeps-the-newest-reply.test.ts		waiting		
 apps/desktop/src/renderer/src/a-side-question-can-be-approved-and-stopped.test.tsx	SIDE-CHAT	carried	src/ui/side_chat.rs tests	both tests carried (Hydrogen)
-apps/desktop/src/renderer/src/a-signed-out-teammate-is-not-idle.test.ts		waiting		
+apps/desktop/src/renderer/src/a-signed-out-teammate-is-not-idle.test.ts		waiting	home_panel::renderer_runtime_tests	First three exact runtime-selection cases passed by name, plus owner separation and real Home/Team regressions. Recorded-runtime control caught rule and surface. Six status/tone/presence cases remain; not carried. See notes/RENDERER-NOTES.md renderer-13.
 apps/desktop/src/renderer/src/a-skill-row-names-its-skill.test.ts		waiting		
 apps/desktop/src/renderer/src/a-slow-agent-row-says-it-is-being-checked.test.ts		waiting		
 apps/desktop/src/renderer/src/a-small-bot-is-drawn-at-twice-its-size.test.tsx		waiting		
@@ -1039,7 +1039,7 @@ apps/desktop/src/renderer/src/talk-is-pressed-by-its-keys.test.tsx		waiting
 apps/desktop/src/renderer/src/teamBoard.test.ts	R2	carried	src/team_board.rs tests and surface_tests; src/ui/home_panel.rs; src/ui/people_panel.rs	4 exact cases plus actual Home/Team drawing; named passes in renderer-6-restored-workspace.log; no exclusions
 apps/desktop/src/renderer/src/teammate-folder-row.test.tsx		waiting		
 apps/desktop/src/renderer/src/teammateTooltip.test.ts	renderer-4	carried	core/src/teammate_tooltip.rs; src/ui/sidebar.rs; src/ui/rail.rs	Five exact named tooltip cases; action, role, human model name, and account-default wording on both sidebar layouts. notes/RENDERER-NOTES.md.
-apps/desktop/src/renderer/src/teammateWork.test.ts		waiting		
+apps/desktop/src/renderer/src/teammateWork.test.ts		carried	teammate_work::tests; people_panel::renderer_work_age_tests	Ten exact cases plus grouping/cycle and real Team-card owner/usage regressions passed by name. Work-owner control caught counts, totals, recent work and card assertions; source restored. See notes/RENDERER-NOTES.md renderer-13.
 apps/desktop/src/renderer/src/the-bare-machine.test.ts		waiting		
 apps/desktop/src/renderer/src/the-beams-are-mono-and-quiet.test.tsx		waiting		
 apps/desktop/src/renderer/src/the-boot-screen.test.ts	p12	partial		`the-boot-screen.test.ts` (progress/summary/words) | boot_view progress/summary/result/phase_at/homeRelative
