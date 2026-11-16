@@ -609,7 +609,7 @@ apps/desktop/src/renderer/src/a-benchmark-reads-every-run.test.tsx	compare-more	
 apps/desktop/src/renderer/src/a-blank-line-does-not-end-a-list.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-blind-comparison-hides-the-names.test.tsx	compare	carried		`compare_window_tests::blind_comparison_hides_names_until_a_pick_then_shows_them`
 apps/desktop/src/renderer/src/a-board-of-conversations.test.tsx	p12	partial	board_and_away_match_electron_on_the_same_synthetic_rows	`renderer/src/conversations-as-a-board.test.ts`, `renderer/src/a-board-of-conversations.test.tsx`, `shared/since-you-were-away.test.ts`: existing pure reducer tests plus `board_and_away_match_electron_on_the_same_synthetic_rows`. `scripts/p
-apps/desktop/src/renderer/src/a-bots-dot-and-ring-sit-on-the-bot.test.ts		waiting		
+apps/desktop/src/renderer/src/a-bots-dot-and-ring-sit-on-the-bot.test.ts	BOTS	carried	core/src/bot_spec.rs	all 5 cases carried, one Rust test each, named after it: finds_the_painted_pixels_right_and_bottom_exclusive, ignores_an_antialiased_fringe_and_says_nothing_for_an_empty_canvas, centres_the_ring_on_the_body_clear_of_it_by_ring_margin_on_its_longer_side, puts_the_dot_on_the_lower_right_edge_not_off_the_corner_and_not_at_mid_height, hands_them_to_the_css_as_percentages_of_the_box_the_dot_by_its_centre
 apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx	RELAY	partial	src/ui/handoff_divider.rs, core/src/native/tests.rs	omission checkboxes + relay_route_switch_records_left_out_by_you_and_decodes_in_snapshot carried; JSX source assertions N/A
 apps/desktop/src/renderer/src/a-browser-opens-on-what-it-last-saw.test.ts		waiting		
 apps/desktop/src/renderer/src/a-build-starter-makes-one-page.test.ts	p12	partial		`a-home-starter-starts-with-a-teammate-or-compares.test.ts`, `a-team-without-a-coder-gets-its-own-starters.test.tsx`, `a-build-starter-makes-one-page.test.ts` | STARTERS / role starters / page prompt
@@ -714,7 +714,7 @@ apps/desktop/src/renderer/src/a-large-diff-says-the-right-counts.test.tsx		waiti
 apps/desktop/src/renderer/src/a-late-check-is-never-lost.test.ts		waiting		
 apps/desktop/src/renderer/src/a-lead-shows-what-it-handed-out.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-limit-note-leaves-when-it-stops-being-true.test.ts		waiting		
-apps/desktop/src/renderer/src/a-locust-bot-draws-before-its-first-frame.test.ts		waiting		
+apps/desktop/src/renderer/src/a-locust-bot-draws-before-its-first-frame.test.ts	BOTS	carried	core/src/bot_rig.rs	all 5 cases carried, named after them (is_drawn_once_before_any_animation_frame..., then_moves_and_draws_while_it_is_showing_and_only_then, draws_at_most_30_frames_a_second..., draws_at_most_15_frames_a_second_at_the_side..., stops_when_asked_cancelling_the_frame_it_was_waiting_on), with Electron's values (Hydrogen's edits)
 apps/desktop/src/renderer/src/a-long-call-is-named-while-it-runs.test.ts		waiting		
 apps/desktop/src/renderer/src/a-long-conversation-has-a-rail-of-your-messages.test.tsx		carried	prompt_rail::tests	Four Electron cases passed by name, including exact five-prompt headless rail labels; whole-thread drawing/jump fixture also passed. See RENDERER-NOTES.md for controls and final restored verification.
 apps/desktop/src/renderer/src/a-long-conversation-is-still-one-conversation.test.ts	renderer-2	carried	src/ui/sidebar.rs	Five exact chain cases in real sidebar grouping; named passes in renderer-control-streaming-file.log.
@@ -912,7 +912,7 @@ apps/desktop/src/renderer/src/code-in-a-reply-is-coloured.test.tsx	P5	waiting	co
 apps/desktop/src/renderer/src/codex-buddy-lifts-in-sets.test.ts		waiting		
 apps/desktop/src/renderer/src/codex-buddy-moves-on-his-own-rig.test.ts		waiting		
 apps/desktop/src/renderer/src/codex-buddy-wears-a-screen.test.tsx		waiting		
-apps/desktop/src/renderer/src/codex-buddys-face-changes-as-a-screen-does.test.ts		waiting		
+apps/desktop/src/renderer/src/codex-buddys-face-changes-as-a-screen-does.test.ts	BOTS	partial	core/src/buddy_moves.rs	11 of 14 carried, named after them (shuts_his_eyes_brings_the_new_ones_in..., is_the_bots_and_his_face_changes_read_frame_by_frame, turns_his_eyes_that_way_while_it_lasts..., and the rest under that file's heading in buddy_moves.rs). Not carried: the three drawn-screen cases (keeps every eye inside its glass; draws his eyes as a bot screen's; puts his ink round the glass first). buddy_moves.rs said they were in src/look/bots.rs; bots.rs has no tests
 apps/desktop/src/renderer/src/combine-queued.test.ts		waiting		
 apps/desktop/src/renderer/src/combining-a-tunes-two-edits.test.tsx	tune	carried	noting_what_a_tune_showed_is_explicit_and_combines_edits_only_when_offered,tune_combine_edits_shows_combined_instructions_and_saves_only_when_pressed	`compare_view::tests::noting_what_a_tune_showed_is_explicit_and_combines_edits_only_when_offered` + `window_drive_tests::tune_combine_edits_shows_combined_instructions_and_saves_only_when_pressed`
 apps/desktop/src/renderer/src/command-output.test.tsx		waiting		
@@ -927,7 +927,7 @@ apps/desktop/src/renderer/src/each-thin-part-is-its-own-solid.test.ts		waiting
 apps/desktop/src/renderer/src/effortLevels.test.ts		waiting		
 apps/desktop/src/renderer/src/effortScale.test.ts		waiting		
 apps/desktop/src/renderer/src/every-benchmark-is-listed-in-one-place.test.tsx	compare-more	carried		`benchmark::tests::every_benchmark_is_listed_in_one_place` + `compare_window_tests::a_benchmark_of_two_runs_reads_as_one_table`
-apps/desktop/src/renderer/src/every-bot-is-drawn-by-the-rig.test.ts		waiting		
+apps/desktop/src/renderer/src/every-bot-is-drawn-by-the-rig.test.ts	BOTS	carried	core/src/bot_rig.rs	all 6 cases carried, named after them: is_the_librarys_own_for_its_eighteen..., is_locusts_own_for_its_two_as_it_always_was, is_botavatars_treatment_for_a_library_shape... (the library's own hsl values, from bot-avatars 0.2.2's shade), is_flat_for_locusts_own_which_never_took_the_treatment, looks_straight_at_a_pointer_within_a_head_width, lets_go_by_three_head_widths...
 apps/desktop/src/renderer/src/every-call-a-browser-is-refused-is-decided.test.ts		waiting		
 apps/desktop/src/renderer/src/every-colour-has-a-light-one.test.ts		waiting		
 apps/desktop/src/renderer/src/every-face-draws-on-one-beat.test.ts		waiting		
@@ -936,7 +936,7 @@ apps/desktop/src/renderer/src/every-limit-says-what-is-left.test.tsx	P10	partial
 apps/desktop/src/renderer/src/every-modal-dialog-holds-the-keyboard.test.tsx		waiting		
 apps/desktop/src/renderer/src/every-runtime-keeps-its-output.test.tsx		waiting		
 apps/desktop/src/renderer/src/every-saved-rule-can-go-at-once.test.tsx	approvals	carried	src/ui/people_panel.rs	all 2 Rune tests; confirming_remove_all flow in Saved approvals tab (Remove all rules, singular/plural confirmation copy, Remove all, Keep them)
-apps/desktop/src/renderer/src/every-teammate-is-a-bot.test.tsx		waiting		
+apps/desktop/src/renderer/src/every-teammate-is-a-bot.test.tsx	BOTS	partial	core/src/every_teammate_is_a_bot_tests.rs	9 of 14 carried, named after them (Hydrogen's file): the shapes (1), a teammate's bot (6), how a bot moves (1), has_eleven_colours_indigo_and_coral. Not carried: the three 'what a teammate bot draws' markup cases, and the dialog's 'offers every shape' and 'keeps Shuffle' (the native team editor has no look picker)
 apps/desktop/src/renderer/src/exchange.test.ts	RELAY	partial	src/ui/exchange_strip.rs	exchange_of_and_exchange_across_walk_component_and_sum_cost_and_hops; empty-roots/Nobody edge cases omitted
 apps/desktop/src/renderer/src/faceState.test.ts	BOTS	partial	core/src/face_status_tests.rs	18 of 20 cases carried, one Rust test each (idle_and_blocked_are_the_only_motionless_states..., thinks_during_an_open_reasoning_step, is_closed_by_its_one_completion, and the rest under faceState in that file). Not carried: "names every animation for the state it means" and "done hops once; it is not a loop" check CSS animation names in FACE_MOTION, which the Rust stage does not have
 apps/desktop/src/renderer/src/feedback-says-what-it-sends.test.tsx	settings	carried	src/ui/window_drive_tests.rs	report_shows_what_it_sends_and_sends_nothing_until_pressed + core/src/report_problem.rs
@@ -965,7 +965,7 @@ apps/desktop/src/renderer/src/last-activity.test.ts		waiting
 apps/desktop/src/renderer/src/layout.test.ts		waiting		
 apps/desktop/src/renderer/src/ledgerFailure.test.ts		waiting		
 apps/desktop/src/renderer/src/links-go-somewhere.test.ts		waiting		
-apps/desktop/src/renderer/src/locust-bots-keep-their-eyes-on-their-heads.test.ts		waiting		
+apps/desktop/src/renderer/src/locust-bots-keep-their-eyes-on-their-heads.test.ts	BOTS	carried	core/src/bot_spec.rs	all 6 cases carried: swarm_draws_its_wings_behind_the_body..., swarm_keeps_the_leading_eye_on_its_head..., critter_and_prompt_draw_legs_and_title_bar_dots_behind_the_body..., critter_and_prompt_keep_the_leading_eye_inside_the_main_block..., hopper_draws_its_legs_and_antennae_behind_the_body, hopper_keeps_the_leading_eye_on_its_body...
 apps/desktop/src/renderer/src/managed-controls-say-who-set-them.test.tsx		waiting		
 apps/desktop/src/renderer/src/math-in-a-reply-is-drawn.test.tsx	p14	partial		`renderer/src/math-in-a-reply-is-drawn.test.tsx` (+ agentText dollar rules) | Covered for delimiters, fence skip, money-as-prose, display/inline PNG path; KaTeX DOM/CSS and every agentText edge not claimed
 apps/desktop/src/renderer/src/mcp-tool-rows.test.ts	P10	carried	core/src/mcp_names.rs tests; src/ui/activity_drawers.rs a_connector_call_reads_as_its_tool_and_its_server	all 5 cases, plus a connector tool with no prefix and a bare connector tool

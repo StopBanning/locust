@@ -53,8 +53,7 @@ Break checks: see "Verification" below.
 - **The hover notice.** It still lasts `RECEIVED_GLANCE_MS` after it begins (the Rust stage's own rule). Electron's
   `noticed` lasts until the pointer leaves. Only the gaze was changed this round, to follow as long as the pointer
   stays. The rest of the notice (the curious mood) was left as it was.
-- **Pets (Codex Buddy).** Their glance still goes through `buddy_moves::glance_look` with no 1.5 s hold. Electron's
-  PetSprite has its own glance timing (`PetSprite.tsx` 117), which was not compared in this round.
+- **Pets (Codex Buddy).** Done in round 2: see "Round 2: pets hold a glance 1.5 s" below.
 - **The sidebar strip.** Electron's wide sidebar also has a row of faces (the "strip", `glancesAmong(..., 'row')`).
   The Rust sidebar has no strip, so only the column glances are wired.
 
@@ -157,4 +156,59 @@ both the sidebar's roster and the rail show it.
     test `when_no_agent_on_the_machine_can_run_…` was added, and catches it.
 - **Full release workspace run** (`notes/faces-suite.log`): exit 0, **2,143 engine + 499 window passed**, 0 failed,
   20 ignored. Every test named above passed by name. **Release build:** passed.
+
+## Round 2: pets hold a glance 1.5 s (fixes-2, job 3)
+
+- **Electron.** A pet keeps the glance and when it was given (`PetSprite.tsx` 117-120; `ScreenPet` 738-742), and looks
+  that way only while less than `GLANCE_HOLD_MS` (1.5 s) has passed (`PetSprite.tsx` 183-187; `ScreenPet` 779-784).
+  This is the same rule as a bot's.
+- **Rust.** The pet's slot in `src/look/bot_stage.rs` keeps the same `GlanceHold` a bot's does. Its eyes and its turn
+  read the held side (`GlanceHold::side_now`, `core/src/bot_rig.rs`), not the glance asked for. Before, a pet looked
+  for as long as the handoff lasted (2.8 s).
+- **Waking.** No extra code is needed. A new glance is part of what the pet is asked to show, so the pet is drawn again
+  and wakes. Its conductor is not settled while it is turned, as in Electron's
+  `codex-buddys-face-changes-as-a-screen-does` test. Two guards first written for this did nothing, and both
+  break checks on them **survived**. So they were taken out rather than kept as dead code.
+- **Tests** (`bot_stage::pet_glance_tests`; Electron has no test of its own for the hold):
+  - `a_pets_glance_holds_one_and_a_half_seconds_then_his_eyes_come_back`
+  - `a_different_glance_starts_a_pets_hold_again`
+  - `a_pet_at_rest_wakes_for_a_glance_and_rests_again_once_it_lets_go`
+- **Break checks** (`notes/pets-breaks.log`), all **caught by name**:
+  - the pet reading the asked glance instead of the held one (all three tests);
+  - the hold never started (all three);
+  - `side_now` ignoring the time (`glance_tests::a_glance_holds_from_when_it_is_given_…`).
+- **Full release workspace run** (`notes/pets-suite.log`): exit 0, **2,143 engine + 502 window passed**, 0 failed;
+  the three pet tests passed by name. **Release build:** passed.
+
+## Round 2: the bot, face and pet test ledger (fixes-2, job 4)
+
+Each Electron file on `grep -nE "bot|face|pet" parity/tests.tsv | grep waiting` was read case by case against the
+Rust tests (by name, and by the file's name in a Rust comment). A row is `carried` only where every case has a Rust
+test of its own, and `partial` names what is missing.
+- **Carried:** `a-bots-dot-and-ring-sit-on-the-bot`, `a-locust-bot-draws-before-its-first-frame`,
+  `every-bot-is-drawn-by-the-rig`, `locust-bots-keep-their-eyes-on-their-heads`, and
+  `a-teammate-is-not-stuck-while-agents-are-still-being-found` (job 2).
+- **Partial:**
+  - `codex-buddys-face-changes-as-a-screen-does`: 11 of 14. Its three drawn-screen cases have no test. A comment in
+    `buddy_moves.rs` said they were in `src/look/bots.rs`; they are not, and the comment now says so.
+  - `every-teammate-is-a-bot`: 9 of 14.
+  - The status files from job 2.
+- **Left waiting:** the other 21 files. No Rust test carries any of their cases. One name match
+  (`takes_it_re_compressed…`) was checked and belongs to `codex-buddy-wears-a-screen`, not to
+  `the-kept-pets-are-puppets`.
+- **Hydrogen's uncommitted test work, copied:**
+  - its tighter `bot_rig.rs` tests (Electron's values for the frame clock, the pointer box and the library's
+    outlines);
+  - `core/src/every_teammate_is_a_bot_tests.rs`. Its header said three markup cases were tested in `faces.rs`; they
+    are not, and it now says so.
+- **The colour test is now pinned to literals.** It compared our `shade_css` with itself. It now compares with
+  literals the library gives: bot-avatars 0.2.2's `shade`, run in node: `hsl(219.7 89.7% 64.7%)` and
+  `hsl(255.0 69.4% 96.5%)`.
+- **Totals.** `recount.py --check` passes: 196 carried, 62 does not apply, 192 partial, 859 waiting.
+- **Release build:** passed, but only after a forced rebuild. The first `build --release` after the ledger commit
+  failed with `no method named side_now found for GlanceHold`, though the source and the job 3 commit both have it. The
+  shared target folder (`~/work/scratch/native-target`, used by every worktree) served a stale `locust-core` to the
+  window crate. Touching `core/src/lib.rs` made cargo rebuild core, and the build then passed. The same thing happened
+  once in job 2. **If a build says a core item is missing that the source has, touch `core/src/lib.rs` and build
+  again before believing it.** The test builds were not affected: the new tests that use `side_now` ran and passed.
 

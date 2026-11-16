@@ -108,6 +108,8 @@ struct BotSlot {
 struct BuddySlot {
     seed: f64,
     desired: DesiredState,
+    /// The handoff glance and when it was given (PetSprite.tsx `glanced`).
+    glance: GlanceHold,
     conductor: PetScreenConductor,
     start_s: f64,
     last_step_s: f64,
@@ -358,6 +360,8 @@ fn build_buddy_snapshot(
         (now_s - slot.start_s).max(0.0)
     };
     let still = reduced_motion || (is_motionless(desired.activity) && !hover_notice);
+    // A glance holds GLANCE_HOLD_MS from when it was given, then his eyes come back (ScreenPet 779-784).
+    let held = slot.glance.side_now(now_s);
     let mut ask = PetScreenAsk::from_activity(
         if hover_notice {
             "receiving"
@@ -369,18 +373,14 @@ fn build_buddy_snapshot(
         } else {
             desired.activity
         },
-        desired.glance.and_then(glance_look),
+        held.and_then(glance_look),
         desired.motion,
     );
     if !desired.screen {
         ask.eyes = None;
         ask.flash = None;
     }
-    let turned = if hover_notice && desired.glance.is_none() {
-        Some(GlanceSide::Right)
-    } else {
-        desired.glance
-    };
+    let turned = if hover_notice && held.is_none() { Some(GlanceSide::Right) } else { held };
     let seed = slot.seed;
     let crt_cb = move |from: Option<&str>, to: &str, count: u32| crt_rule(seed, from, Some(to), count);
     let frame = slot.conductor.frame(
@@ -631,6 +631,7 @@ impl BotStage {
             let mut slot = BuddySlot {
                 seed,
                 desired,
+                glance: GlanceHold::default(),
                 conductor,
                 start_s: now_s,
                 last_step_s: now_s,
@@ -642,10 +643,14 @@ impl BotStage {
                 settled: resting_at_start,
                 cached,
             };
+            slot.glance.give(glance, now_s);
             slot.cached = build_buddy_snapshot(&mut slot, now_s, reduced_motion, false);
             slot
         });
         entry.seen_this_frame = true;
+        // The hold starts when a glance is given (ScreenPet 738-742). A new glance is also a new `desired`, so the
+        // pet is rebuilt and woken below, and its conductor is not settled while he is turned.
+        entry.glance.give(glance, now_s);
         if entry.desired != desired {
             let changed_activity = entry.desired.activity != desired.activity;
             entry.desired = desired;
@@ -985,3 +990,73 @@ mod head_turn_tests {
         assert_eq!(target(&stage), (0.0, 0.0, 0.0));
     }
 }
+
+/// A pet's glance (PetSprite.tsx 117-120 and 183-187; ScreenPet 738-742 and 779-784): it holds `GLANCE_HOLD_MS` from
+/// when it is given, then his eyes come back, though the handoff that asked for it is still there.
+#[cfg(test)]
+mod pet_glance_tests {
+    use super::*;
+
+    /// The stage's own clock, driven as the window drives it: a snapshot each frame, then `poll` at `now_s`.
+    fn frame(stage: &BotStage, activity: FaceActivity, glance: Option<GlanceSide>, now_s: f64) {
+        let mut tx = rune::Tx::default();
+        stage.begin_frame();
+        stage.snapshot_buddy("p", "pip", activity, glance, BotMotionLevel::Full, true, false, false);
+        stage.poll(now_s, false, true, &mut tx);
+    }
+
+    /// Frames every 50 ms from `from` until `until`, asking for `glance` each time; the time reached.
+    fn run(stage: &BotStage, activity: FaceActivity, glance: Option<GlanceSide>, from: f64, until: f64) -> f64 {
+        let mut t = from;
+        while t < until {
+            t += 0.05;
+            frame(stage, activity, glance, t);
+        }
+        t
+    }
+
+    fn look(stage: &BotStage) -> f64 {
+        stage.inner.borrow().buddies["p"].cached.look
+    }
+
+    fn settled(stage: &BotStage) -> bool {
+        stage.inner.borrow().buddies["p"].settled
+    }
+
+    #[test]
+    fn a_pets_glance_holds_one_and_a_half_seconds_then_his_eyes_come_back() {
+        let stage = BotStage::default();
+        frame(&stage, FaceActivity::Working, None, 0.0);
+        let t = run(&stage, FaceActivity::Working, Some(GlanceSide::Left), 0.0, 1.0);
+        assert!(look(&stage) < -0.9, "looking left at {t:.2} s: {}", look(&stage));
+        let t = run(&stage, FaceActivity::Working, Some(GlanceSide::Left), t, 1.5);
+        assert!(look(&stage) < -0.9, "still held at {t:.2} s: {}", look(&stage));
+        let t = run(&stage, FaceActivity::Working, Some(GlanceSide::Left), t, 3.0);
+        assert!(look(&stage).abs() < 0.02, "back by {t:.2} s though still asked: {}", look(&stage));
+    }
+
+    #[test]
+    fn a_different_glance_starts_a_pets_hold_again() {
+        let stage = BotStage::default();
+        frame(&stage, FaceActivity::Working, None, 0.0);
+        let t = run(&stage, FaceActivity::Working, Some(GlanceSide::Left), 0.0, 3.0);
+        assert!(look(&stage).abs() < 0.02, "let go: {}", look(&stage));
+        let t = run(&stage, FaceActivity::Working, Some(GlanceSide::Right), t, t + 0.7);
+        assert!(look(&stage) > 0.9, "looking right at {t:.2} s: {}", look(&stage));
+    }
+
+    #[test]
+    fn a_pet_at_rest_wakes_for_a_glance_and_rests_again_once_it_lets_go() {
+        let stage = BotStage::default();
+        let t = run(&stage, FaceActivity::Idle, None, -0.05, 8.0);
+        assert!(settled(&stage), "at rest before the glance");
+        let t = run(&stage, FaceActivity::Idle, Some(GlanceSide::Right), t, t + 0.05);
+        assert!(!settled(&stage), "woken by the glance");
+        let t = run(&stage, FaceActivity::Idle, Some(GlanceSide::Right), t, t + 0.65);
+        assert!(look(&stage) > 0.9, "turned at {t:.2} s: {}", look(&stage));
+        let t = run(&stage, FaceActivity::Idle, Some(GlanceSide::Right), t, t + 8.0);
+        assert!(look(&stage).abs() < 0.02, "back at {t:.2} s: {}", look(&stage));
+        assert!(settled(&stage), "at rest again");
+    }
+}
+
