@@ -10,6 +10,12 @@ import subprocess
 import sys
 
 CONTROLS = {
+    "routine-owner": (
+        "src/ui/routines_panel.rs",
+        'if !s.teammates.iter().any(|t| t.id == owner) {',
+        'if false {',
+        "will_not_save_until_that_is_answered",
+    ),
     "newest-budget": (
         "core/src/thread_view.rs",
         'used.saturating_add(sizes[first - 1]) <= budget',

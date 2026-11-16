@@ -718,7 +718,7 @@ apps/desktop/src/renderer/src/a-locust-bot-draws-before-its-first-frame.test.ts	
 apps/desktop/src/renderer/src/a-long-call-is-named-while-it-runs.test.ts		waiting		
 apps/desktop/src/renderer/src/a-long-conversation-has-a-rail-of-your-messages.test.tsx		carried	prompt_rail::tests	Four Electron cases passed by name, including exact five-prompt headless rail labels; whole-thread drawing/jump fixture also passed. See RENDERER-NOTES.md for controls and final restored verification.
 apps/desktop/src/renderer/src/a-long-conversation-is-still-one-conversation.test.ts	renderer-2	carried	src/ui/sidebar.rs	Five exact chain cases in real sidebar grouping; named passes in renderer-control-streaming-file.log.
-apps/desktop/src/renderer/src/a-long-conversation-opens-on-its-newest-turns.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-long-conversation-opens-on-its-newest-turns.test.tsx		carried	thread_view::renderer_newest_tests; messages::renderer_newest_tests; messages::renderer_newest_interaction_tests; messages::renderer_newest_scroll_tests	Five exact Electron cases passed by name, with pointer and scroll expansion regressions. Whole-turn 400-row budget, current/newest earlier turn retained, prompt-rail reveal and identity reset. notes/RENDERER-NOTES.md renderer-11.
 apps/desktop/src/renderer/src/a-long-fold-keeps-the-answer-near.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-long-list-is-drawn-as-far-as-it-is-read.test.tsx	P4	waiting		`a-long-list-is-drawn-as-far-as-it-is-read.test.tsx` | The twelve-turn request cap was removed, but TS incremental list-window drawing is not implemented. Large histories have not been performance-tested.
 apps/desktop/src/renderer/src/a-long-silent-stretch-reads-as-its-moves.test.ts		waiting		

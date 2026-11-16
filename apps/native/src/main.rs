@@ -317,6 +317,9 @@ fn begin_ledger(
         return;
     };
     s.ledger_job.cancel();
+    if s.ledger.as_ref().and_then(|pane| pane.conversation.conversation_id.as_deref()) != Some(id.as_str()) {
+        s.earlier_turn_budgets.clear();
+    }
     let folder = header.folder.clone();
     // Preserve existing Session and transcript items when continuing the same ledger conversation.
     let (mut items, worker, snapshot) = match s.ledger.take() {

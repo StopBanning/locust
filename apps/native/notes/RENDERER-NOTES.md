@@ -1025,3 +1025,67 @@ No live window, real agent, packaged app or Electron/JavaScript gate is run.
   passed, 20 real-agent cases ignored, doc tests 0. All twelve work-face cases
   observed passing by name. This run predates the newest-turn changes; those
   are not claimed verified. Commit the rule tests as a bounded partial section.
+
+
+### Renderer-11 next section — routine runner (prepared)
+
+- Read nobodys-conversation-can-be-a-routine.test.tsx and RoutineDialog.tsx.
+  Native routine editing now asks Who runs it when the entry has no owner,
+  starts on Pick a teammate, and never defaults to the first roster member.
+  Existing owned entries state who runs them without asking. An empty roster
+  explains that there are no teammates yet. Save is disabled and guarded at
+  the press boundary until there is an existing teammate to run it.
+- An overlong step says Shorten step 2 to save this routine for Electron's
+  exact Fine./8001-x fixture and disables Save. Counts UTF-16 units as JS does;
+  host validation remains in routines.rs. No route is invented or changed.
+- Six separate actual headless editor cases in
+  routines_panel::renderer_unowned_tests; pending verification. Manifest row
+  remains waiting. A routine-owner negative control is prepared, not yet run.
+
+
+### Newest-turn negative control
+
+- newest-budget exited 0 after observing the intended named assertion fail;
+  the runner restored thread_view.rs byte for byte. Core 2116 passed and
+  three intended budget assertions failed, 20 ignored. Window 506 passed
+  and the long-window and missing-button interaction cases failed. Short
+  conversations and the twelve work-face cases passed by name. No unrelated
+  failures. Logs: renderer-control-newest-budget.log and
+  renderer-11-control-result.log. No mutation remains applied.
+- Final restored full workspace run started in renderer-11-restored-workspace.log,
+  also including the newly prepared routine editor cases and pointer choice.
+
+- Follow-up to the prepared pagination section: the older-edge layout hook
+  requests another budget within 600 points after scrolling up, retaining the
+  previous first item as the scroll anchor. A headless scroll test is prepared.
+  Opening a different ledger clears expansion state, matching Thread's identity
+  reset. Rail jumps still reveal their target before resolving its key.
+  These edits postdate the first restored compilation and require the next run.
+
+
+### First restored run — pagination passes, routine dispatch correction
+
+- renderer-11-restored-workspace.log: core 2119 passed, 20 ignored; window
+  512 passed, three failed. The five Electron newest-turn cases and the
+  pointer expansion case all passed by name. This binary predates the scroll
+  hook/test and identity reset. No final green claim is made for that source.
+- All three failures were disabled routine Save pointer cases. Rune still
+  dispatched the attached handler after disabled(true), and the guard displayed
+  a refusal. The screen now attaches no press handler while saving is refused,
+  in addition to styling it disabled and revalidating an enabled press.
+  Runner-choice, default-nobody, inherited-owner and selection-pointer cases
+  passed by name. The correction must be verified by the next full run.
+
+
+### Pagination section — verified and carried
+
+- renderer-control-routine-owner.log: 2119 core passed, 20 ignored; 513 window
+  passed and only three deliberately broken runner assertions failed. All five
+  exact pagination cases, pointer expansion, and the new older-edge scroll
+  case passed by name. The runner caught its named owner assertion and restored
+  routines_panel.rs byte for byte (renderer-11-owner-control-result.log).
+- Pagination is now carried. Its own newest-budget control was caught and
+  restored earlier. The scroll hook and identity reset are included in this
+  run; no scroll performance benchmark or live window is claimed.
+- Final green restored workspace verification of both sections follows. The
+  routine row remains waiting until all six cases pass after restoration.

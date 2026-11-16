@@ -384,6 +384,7 @@ pub(super) struct State {
     pub(super) edit: crate::edit_message::Panel,
     pub(super) exchange_open: Option<String>,
     pub(super) exchange_stopping: bool,
+    pub(super) earlier_turn_budgets: HashMap<String, usize>,
     pub(super) peer_thread_open: HashMap<String, bool>,
 }
 
@@ -608,6 +609,7 @@ impl Default for State {
             edit: crate::edit_message::Panel::default(),
             exchange_open: None,
             exchange_stopping: false,
+            earlier_turn_budgets: HashMap::new(),
             peer_thread_open: HashMap::new(),
             scout: crate::scout_cards::Panel::default(),
         }

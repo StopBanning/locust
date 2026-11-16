@@ -229,6 +229,10 @@ pub(super) fn shown_now(s: &State, user_count: usize) -> bool {
 }
 
 pub(super) fn jump(s: &mut State, index: usize, bubble_key: &str, tx: &mut Tx) {
+    // A rail jump may target a turn outside the initial drawing budget.
+    // Reveal it before Rune resolves the key against the next layout.
+    let conversation = crate::messages::conversation_history_key(s);
+    s.earlier_turn_budgets.insert(conversation, usize::MAX);
     s.prompt_rail.hovered = None;
     s.prompt_rail.current = index;
     s.thread_away = false;
