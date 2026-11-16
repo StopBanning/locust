@@ -957,3 +957,22 @@ No live window, real agent, packaged app or Electron/JavaScript gate is run.
   factored; production time labels retain the same behavior.
 - teammateWork.test.ts stays waiting for its six ownership/usage cases.
   No full-file parity claim is made for those four verified age cases.
+
+### Renderer-10 final handoff
+
+- Release binary build: exit 0, `renderer-10-release-build.log`, 1m 32s.
+  Twelve existing native warnings in drawing/conductor code; none added in
+  this section's changed code. No live window, packaged app, real agent,
+  Electron/JavaScript gate, or platform build beyond this Mac was run.
+- Source commits: `03fb3ffb` context-ring parity; `1232b8ae` work-age cases.
+  `f27b9c4f` preserves and verifies the prior billing-control notes. No handoff
+  file changed or committed. No mutation, stash or discarded work remains.
+- Tracked tree is committed clean after this note. The only untracked files
+  are the original HANDOFF files; the Python syntax check's bytecode cache
+  was removed. Recount, --check and diff whitespace checks passed.
+- Unfinished: 27 of the 45 requested files remain waiting. Continue the
+  teammate list before conversation-only files, retaining the gap notes.
+  First applicable gap is still inline new-page preview. The queue needs
+  persisted waitFor wiring; teammateWork needs six ownership/usage cases.
+  Two missing Electron source paths are recorded above. No further file is
+  claimed carried, and no full-task completion is claimed.
