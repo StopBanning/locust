@@ -158,6 +158,11 @@ pub(super) struct State {
     /// Home's usage line: the last 30 days, read when Home opens.
     pub(super) usage_line: Option<locust_core::usage::UsageSummary>,
     pub(super) usage_line_job: Latest<Option<locust_core::usage::UsageSummary>>,
+    /// Every account's latest usage reading (`usage_ledger::usage_windows`), for the model chip's card.
+    pub(super) usage_readings: HashMap<String, String>,
+    pub(super) usage_readings_job: Latest<HashMap<String, String>>,
+    /// The pointer is on the model chip.
+    pub(super) chip_hover: bool,
     /// The conversation whose run the person stopped from this window.
     pub(super) stopped_by_you: Option<String>,
     pub(super) own_models: crate::own_models_card::Card,
@@ -451,6 +456,9 @@ impl Default for State {
             question_answers: Default::default(),
             usage_line: None,
             usage_line_job: Latest::default(),
+            usage_readings: HashMap::new(),
+            usage_readings_job: Latest::default(),
+            chip_hover: false,
             stopped_by_you: None,
             own_models: Default::default(),
             own_models_job: Latest::default(),

@@ -327,9 +327,33 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
             .or(current.map(|a| a.runtime.as_str()))
             .unwrap_or("codex");
         let mark = crate::look::controls::agent_mark(&l, runtime, 13.0, l.c("text-secondary"));
-        let chip = crate::look::controls::composer_chip(&l, mark, &label, true)
+        let mut chip = crate::look::controls::composer_chip(&l, mark, &label, true)
             .key("model-chip")
+            .on_hover_change(|s: &mut State, over, _| {
+                s.chip_hover = over;
+                if over {
+                    crate::agent_card_ui::request(s);
+                }
+            })
             .on_press(move |s: &mut State| open_models(s, chip_id.clone()));
+        // Its usage on hover (Composer.tsx, 2026-10-30): the agent's card above the chip, aligned to its right.
+        let chip_account = match picked.and_then(|p| p.account.as_ref()) {
+            Some(explicit) => explicit.as_deref(),
+            None => teammate.account.as_deref(),
+        };
+        // From 80% the chip wears an amber dot after its chevron, and its usage is read aloud as its description
+        // (`.lc-control.is-pressing::after`, `aria-description`).
+        let chip_reading = s.usage_readings.get(&locust_core::agent_accounts::usage_key(runtime, chip_account)).map(String::as_str);
+        let now = chrono::Utc::now();
+        if locust_core::agent_card::chip_is_pressing(chip_reading, now) {
+            chip = chip.child(el().key("model-chip-dot").size(5.0, 5.0).radius(2.5).fill(l.c("amber")).a11y_hidden());
+        }
+        if let Some(said) = locust_core::agent_card::chip_usage_sentence(chip_reading, now) {
+            chip = chip.description(said);
+        }
+        if let Some(card) = crate::agent_card_ui::chip_card(s, &l, runtime, chip_account) {
+            chip = chip.child(card);
+        }
         let mut picker = col().w_full().px(24.0);
         if s.model_menu.as_ref() == Some(&id) {
             picker = picker.child(row().w_full().justify_end().child(model_picker(s, &l, &id, teammate, current, model, effort)));
@@ -1189,7 +1213,7 @@ fn model_picker(
 }
 
 /// status.ts ROUTE_GROUP_LIMIT: rows a group shows until the person searches (twice that while searching).
-const ROUTE_GROUP_LIMIT: usize = 6;
+const ROUTE_GROUP_LIMIT: usize = locust_core::recent_routes::ROUTE_GROUP_LIMIT;
 
 /// status.ts routeSearchText: lower case, separators as spaces.
 fn route_search_text(text: &str) -> String {

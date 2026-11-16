@@ -225,12 +225,17 @@ pub struct GitError {
 
 /// git with Locust's own config first, bounded by `limit`.
 pub fn run_git(args: &[&str], cwd: &Path, limit: Duration) -> Result<String, GitError> {
+    run_git_with("git", args, cwd, limit)
+}
+
+/// `run_git` with the git program named: `git` on the path, or a stand-in a test supplies (see `Manager::with_git_program`).
+pub fn run_git_with(program: &str, args: &[&str], cwd: &Path, limit: Duration) -> Result<String, GitError> {
     use std::io::Read;
     use std::process::{Command, Stdio};
     let first = args.first().copied().unwrap_or("");
     let fail = |message: String| GitError { message, stdout: String::new(), exit: None };
     let (lock_key, lock_value) = crate::git_quiet::NO_OPTIONAL_LOCKS;
-    let mut child = Command::new("git")
+    let mut child = Command::new(program)
         .args(OWN_GIT_CONFIG)
         .args(args)
         .env(lock_key, lock_value)
@@ -407,16 +412,25 @@ fn admin_directory_of(git_file: &Path, root: &Path) -> Option<PathBuf> {
 pub struct Manager {
     root: PathBuf,
     trees: String,
+    /// The program run for `git`: `git` itself, unless a test hands in a stand-in.
+    git_program: String,
 }
 
 impl Manager {
     /// A manager for the project at `workspace` (its real spelling, as git prints it).
     pub fn new(workspace: &Path) -> Self {
-        Manager { root: std::fs::canonicalize(workspace).unwrap_or_else(|_| workspace.to_path_buf()), trees: WORKTREE_DIR.into() }
+        Manager { root: std::fs::canonicalize(workspace).unwrap_or_else(|_| workspace.to_path_buf()), trees: WORKTREE_DIR.into(), git_program: "git".into() }
+    }
+
+    /// The same manager running `program` where it would run `git`: a seam for tests, which cannot change the process's
+    /// `PATH` without changing it under every test running beside them.
+    pub fn with_git_program(mut self, program: impl Into<String>) -> Self {
+        self.git_program = program.into();
+        self
     }
 
     fn git(&self, args: &[&str], cwd: &Path) -> Result<String, String> {
-        run_git(args, cwd, GIT_TIMEOUT).map_err(|e| e.message)
+        run_git_with(&self.git_program, args, cwd, GIT_TIMEOUT).map_err(|e| e.message)
     }
 
     fn tree_path(&self, teammate_id: &str) -> Result<PathBuf, String> {

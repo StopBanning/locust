@@ -26,6 +26,7 @@ pub mod undone_note;
 pub mod tool_fold;
 pub mod mcp_names;
 pub mod usage_words;
+pub mod agent_card;
 pub mod path_words;
 pub mod edit_earlier;
 pub mod agent_updates;
@@ -233,12 +234,17 @@ pub mod pet_gallery;
 #[cfg(test)]
 mod pet_gallery_tests;
 pub mod pets;
+pub mod pet_motion;
 #[cfg(test)]
 mod pet_library_tests;
 pub mod cover_activity;
 
 #[cfg(test)]
 mod every_teammate_is_a_bot_tests;
+#[cfg(test)]
+mod face_ledger_tests;
+#[cfg(test)]
+mod cost_sentences_tests;
 
 #[cfg(test)]
 pub(crate) mod load_waits;

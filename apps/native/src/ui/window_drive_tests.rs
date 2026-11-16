@@ -6408,3 +6408,85 @@ fn a_live_run_the_list_was_read_too_early_to_know_is_read_again_until_it_is_ther
     });
     on_quit(&mut rt.state, &mut Tx::default());
 }
+
+// The agent's card over the model chip (Composer.tsx, 2026-10-30; AgentMark.tsx's AgentCard): the pointer rests on the
+// chip and a card opens above it with the agent's name, a bar for each window, and where the reading came from.
+const CHIP_READING: &str = "weekly window 64% used · resets 2099-11-04T06:36:18.000Z · 5-hour window 85% used · resets 2099-10-31T05:51:36.000Z · as of 2026-10-31T02:22:14.418Z";
+
+fn hover_chip(rt: &mut Runtime<State>) {
+    let (x, y) = rt.find("model-chip").expect("the model chip");
+    rt.pointer_move(x, y);
+    rt.frame(0.016);
+}
+
+#[test]
+fn resting_on_the_model_chip_opens_the_agents_card_above_it() {
+    let (_dirs, store, mut rt) = window();
+    store.save_json("usage-readings.json", &json!({ "codex": CHIP_READING })).unwrap();
+    assert!(rt.find("model-chip-card").is_none(), "no card before the pointer rests on the chip");
+    hover_chip(&mut rt);
+    pump(&mut rt, "the readings", |s| s.usage_readings.contains_key("codex"));
+    rt.frame(0.016);
+    let words = text_in(&rt, "model-chip-card").join(" | ");
+    for want in ["Codex", "Weekly window", "64%", "5-hour window", "85%", "Read from your account at"] {
+        assert!(words.contains(want), "{want} in {words}");
+    }
+    let card = rt.presented("model-chip-card").unwrap().0;
+    let chip = rt.presented("model-chip").unwrap().0;
+    assert!(card[1] + card[3] <= chip[1], "the card is above the chip: {card:?} over {chip:?}");
+    assert!(((card[0] + card[2]) - (chip[0] + chip[2])).abs() <= 1.0, "aligned to the chip's right edge: {card:?} {chip:?}");
+}
+
+#[test]
+fn the_models_card_closes_when_the_pointer_leaves_the_chip() {
+    let (_dirs, store, mut rt) = window();
+    store.save_json("usage-readings.json", &json!({ "codex": CHIP_READING })).unwrap();
+    hover_chip(&mut rt);
+    pump(&mut rt, "the card", |s| s.usage_readings.contains_key("codex"));
+    rt.frame(0.016);
+    assert!(rt.find("model-chip-card").is_some());
+    rt.pointer_move(5.0, 5.0);
+    rt.frame(0.016);
+    assert!(rt.find("model-chip-card").is_none(), "the card goes when the pointer does");
+}
+
+#[test]
+fn an_agent_with_no_reading_opens_no_card_over_its_chip() {
+    let (_dirs, store, mut rt) = window();
+    store.save_json("usage-readings.json", &json!({ "claude": CHIP_READING })).unwrap();
+    hover_chip(&mut rt);
+    pump(&mut rt, "the readings", |s| s.usage_readings.contains_key("claude"));
+    rt.frame(0.016);
+    assert!(rt.find("model-chip-card").is_none(), "the teammate runs on Codex, and only Claude has a reading");
+}
+
+#[test]
+fn no_card_opens_over_the_chip_while_the_picker_is_open() {
+    let (_dirs, store, mut rt) = window();
+    store.save_json("usage-readings.json", &json!({ "codex": CHIP_READING })).unwrap();
+    hover_chip(&mut rt);
+    pump(&mut rt, "the card", |s| s.usage_readings.contains_key("codex"));
+    rt.frame(0.016);
+    assert!(rt.find("model-chip-card").is_some());
+    click(&mut rt, "model-chip");
+    rt.frame(0.016);
+    assert!(rt.state.model_menu.is_some());
+    assert!(rt.find("model-chip-card").is_none(), "the picker opens in the same place");
+}
+
+// "The model button is quiet with room left, and wears its amber dot from 80%": the dot is the chip's last child, and the
+// chip says its usage aloud as its description.
+#[test]
+fn the_model_chip_wears_an_amber_dot_from_80_percent_and_is_quiet_below() {
+    let (_dirs, store, mut rt) = window();
+    store.save_json("usage-readings.json", &json!({ "codex": "5-hour window 79% used · resets 2099-10-31T05:51:36.000Z" })).unwrap();
+    rt.update(|s, _| crate::agent_card_ui::request(s));
+    pump(&mut rt, "the 79% reading", |s| s.usage_readings.get("codex").is_some_and(|r| r.contains("79%")));
+    rt.frame(0.016);
+    assert!(rt.find("model-chip-dot").is_none(), "quiet with room left");
+    store.save_json("usage-readings.json", &json!({ "codex": "5-hour window 80% used · resets 2099-10-31T05:51:36.000Z" })).unwrap();
+    rt.update(|s, _| crate::agent_card_ui::request(s));
+    pump(&mut rt, "the 80% reading", |s| s.usage_readings.get("codex").is_some_and(|r| r.contains("80%")));
+    rt.frame(0.016);
+    assert!(rt.find("model-chip-dot").is_some(), "amber from 80%");
+}

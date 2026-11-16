@@ -201,6 +201,8 @@ mod published_cards;
 mod question_card;
 #[path = "ui/usage_line.rs"]
 mod usage_line;
+#[path = "ui/agent_card_ui.rs"]
+mod agent_card_ui;
 #[path = "ui/cancellation_card.rs"]
 mod cancellation_card;
 #[path = "ui/own_models_card.rs"]
@@ -1171,6 +1173,8 @@ fn refresh_recent(s: &mut State) {
         return;
     }
     room_screen::refresh(s);
+    // The model chip's usage (its amber dot and its spoken description) reads the same ledger the list does.
+    agent_card_ui::request(s);
     let on_native = s.engine == Some(Kind::Native);
     s.recents.request((), move |()| {
         // Electron's folder (read-only) and native's own, merged newest first; native rows are marked.
@@ -1946,6 +1950,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     changed |= remote_control_card::poll(s);
     changed |= agent_accounts_card::poll(s);
     changed |= usage_line::poll(s);
+    changed |= agent_card_ui::poll(s);
     changed |= own_models_card::poll(s);
     changed |= key_card::poll(s);
     changed |= runtime_commands_ui::poll(s);
