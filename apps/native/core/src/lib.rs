@@ -186,6 +186,9 @@ mod handover_note_tests;
 mod route_at_start_tests;
 
 #[cfg(test)]
+mod model_lists_tests;
+
+#[cfg(test)]
 mod plan_payload_tests;
 
 #[cfg(test)]

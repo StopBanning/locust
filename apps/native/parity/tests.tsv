@@ -147,9 +147,9 @@ apps/desktop/src/main/a-message-is-delivered-once.test.ts		waiting
 apps/desktop/src/main/a-message-stopped-while-starting-is-not-queued.test.ts		waiting		
 apps/desktop/src/main/a-message-that-names-its-project-starts-there.test.ts	p12	does-not-apply		`main/a-message-that-names-its-project-starts-there.test.ts` (logic) | pathsNamedIn, checkoutOf, repositoryOf, projectNamedIn
 apps/desktop/src/main/a-message-waits-until-its-runtime-starts.test.ts		waiting		
-apps/desktop/src/main/a-model-list-missing-one-is-asked-again.test.ts		waiting		
-apps/desktop/src/main/a-model-of-your-own-is-priced-as-listed.test.ts		waiting		
-apps/desktop/src/main/a-model-of-your-own-is-unpriced-not-free.test.ts		waiting		
+apps/desktop/src/main/a-model-list-missing-one-is-asked-again.test.ts	MAIN2	carried	core/src/model_lists_tests.rs	both cases: a_ready_runtime_that_lists_its_models_and_listed_none_is_named_as_the_case, a_model_list_missing_a_ready_runtime_is_read_again_instead_of_kept. Fixed: models::local kept an incomplete list ten minutes
+apps/desktop/src/main/a-model-of-your-own-is-priced-as-listed.test.ts		waiting		not built: no listed-prices (OpenCode models.json price list); own models carry no price into the OpenCode config
+apps/desktop/src/main/a-model-of-your-own-is-unpriced-not-free.test.ts	MAIN2	partial	core/src/model_lists_tests.rs	2 of 3: a_model_of_your_own_is_one_the_person_added_which_opencode_runs_and_an_old_record_without_a_model_is_not, unpriced_runs_never_move_the_limit. Not built: spendByTeammate counting unpricedRuns (spend::spent_by sums dollars only)
 apps/desktop/src/main/a-named-memory-replaces-the-one-before-it.test.ts	P6	partial		3. **Memory store/parser**: parsed-memory field validation/deduplication, complete Unicode normalization and significant-word containment forget matching, complete ask-mode proposal deduplication/settling, expiry boundary/cap/duplicate rest
 apps/desktop/src/main/a-narrow-home-keeps-its-pieces-whole.test.ts		waiting		
 apps/desktop/src/main/a-new-project-is-told-how-to-write-its-first-memory.test.ts		waiting		
@@ -383,7 +383,7 @@ apps/desktop/src/main/every-small-capital-label-is-the-machine-label.test.ts		wa
 apps/desktop/src/main/every-style-token-is-defined.test.ts		waiting		
 apps/desktop/src/main/every-turn-start-crosses-the-organization-policy.test.ts		waiting		
 apps/desktop/src/main/forget-hits-one-memory.test.ts	P6	partial		3. **Memory store/parser**: parsed-memory field validation/deduplication, complete Unicode normalization and significant-word containment forget matching, complete ask-mode proposal deduplication/settling, expiry boundary/cap/duplicate rest
-apps/desktop/src/main/free-routes.test.ts		waiting		
+apps/desktop/src/main/free-routes.test.ts	MAIN2	partial	core/src/model_lists_tests.rs	isFreeRoute, 3 of 6: the_free_routes_the_drives_use_are_known_as_free, a_route_is_not_free_because_of_its_runtime_or_a_word_in_its_name, every_free_model_opencode_1_18_27_lists_is_known_as_free. freeRoutesOnly (debugging-port launch, LOCUST_SPEND, LOCUST_FREE_ONLY) is not built
 apps/desktop/src/main/git-reaches-a-run-with-no-shell.test.ts		waiting		
 apps/desktop/src/main/grid-columns-match-children.test.ts		waiting		
 apps/desktop/src/main/groups-hold-conversations.test.ts	GROUPS	partial	groups::tests::* + sidebar::review_tests::sidebar_folds_project_groups_and_seeds_composer_route_on_assign + notes/GROUPS-NOTES.md	28/35 carried; remove_group returns Err on missing id vs TS no-op, move test does not assert at change, and 6 App.tsx wiring checks have no Rust UI test

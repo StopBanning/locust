@@ -45,3 +45,33 @@ with work in flight; the clean-finish wording; the request's account; the overri
 effort; `modelChoice` ignored; the conversation's own route; the pick key; Kilo's Auto Free; an explicit pick
 ignored; a share to anyone counted as a note; any share counted as a note to the owner; the no-note row's words; the
 board brief's words; `plan` read as Ask.
+
+## Batch 2: model lists, free routes, models of your own
+
+| File | Row | Rust tests |
+| --- | --- | --- |
+| `a-model-list-missing-one-is-asked-again.test.ts` | carried (2/2) | `core/src/model_lists_tests.rs` |
+| `free-routes.test.ts` | partial (3/6) | `core/src/model_lists_tests.rs` |
+| `a-model-of-your-own-is-unpriced-not-free.test.ts` | partial (2/3) | `core/src/model_lists_tests.rs` |
+| `a-model-of-your-own-is-priced-as-listed.test.ts` | waiting | none |
+
+Bug found and fixed:
+- **An incomplete model list was kept for ten minutes.** This is Colin's 2026-10-02 report: "only account default is
+  popping up for opencode". `models::local` kept whatever the sweep returned. Now `models::kept_catalog` keeps a
+  catalog only when `lists_its_models_but_listed_none` is false. That function is Electron's rule: an OpenCode,
+  Cursor or Claude Code that is ready and listed no models (for Claude Code, no aliases either). `read_listed_checked`
+  counts an agent as ready when it is installed. An OpenCode 2 is not counted, because its list comes from an ACP
+  session this sweep does not read. Electron's other branch (Antigravity readiness `unknown`, a `check-pending`
+  diagnostic) is not carried, because Rust's sweep has no such states.
+
+Not built, so not carried:
+- `freeRoutesOnly`: holding a launch with `--remote-debugging-port`, `LOCUST_SPEND` or `LOCUST_FREE_ONLY` to free routes.
+- `spendByTeammate` counting `unpricedRuns`: `spend::spent_by` adds up dollars only.
+- Listed prices (`listed-prices.ts`): the OpenCode `models.json` price list, and own models told their price.
+
+`model-catalog.test.ts` (33 cases) was left for a batch of its own.
+
+Break checks (all caught by the named test): an incomplete catalog kept; Copilot counted as listing models; OpenCode's
+free rule loosened to any "free"; Kilo's `:free` suffix dropped; an own model on any runtime; unpriced runs counted
+toward the limit. No break was made for the OpenCode 1.18.27 list on its own. Its six ids go through the same rule
+as the first free-route case.

@@ -610,43 +610,80 @@ fn codex_model_list(limit: Duration) -> Option<Value> {
 
 /// Every agent's list, read in parallel from this computer, each within 20 seconds.
 pub fn read_listed() -> Listed {
+    read_listed_checked().0
+}
+
+/// model-catalog.ts `listsItsModelsButListedNone`, over the runtimes that are ready and what each listed: an OpenCode,
+/// Cursor or Claude Code that is ready and listed no models (Claude Code: no aliases either) means the list is not the
+/// list. Its probe can fail on a busy machine while the runtime itself is fine (0.552).
+pub fn lists_its_models_but_listed_none(ready: &[(&str, Option<&Value>)]) -> bool {
+    ready.iter().any(|(id, hints)| {
+        let none = |key: &str| hints.and_then(|h| h[key].as_array()).is_none_or(Vec::is_empty);
+        matches!(*id, "opencode" | "cursor" | "claude") && none("models") && !(*id == "claude" && !none("aliases"))
+    })
+}
+
+/// `read_listed`, and whether a ready runtime listed nothing, so the answer is not kept. OpenCode 2 lists its models in
+/// an ACP session this does not read, so it is not counted as having listed none.
+pub fn read_listed_checked() -> (Listed, bool) {
     let limit = Duration::from_secs(20);
     let codex = std::thread::spawn(move || codex_model_list(limit));
     let claude = std::thread::spawn(move || output_of("claude", &["--help"], limit).as_deref().and_then(parse_claude_model_hints));
     let cursor = std::thread::spawn(move || output_of("cursor-agent", &["--list-models"], limit).as_deref().and_then(parse_cursor_model_list));
     // OpenCode 2 lists its models in an ACP session, which is not read here.
+    // (whether OpenCode answered as a 1.x, and what it listed)
     let opencode = std::thread::spawn(move || {
-        let version = output_of("opencode", &["--version"], limit)?;
+        let Some(version) = output_of("opencode", &["--version"], limit) else { return (false, None) };
         if crate::runtime::version::parse(&version).is_some_and(|v| v.major >= 2) {
-            return None;
+            return (false, None);
         }
-        output_of("opencode", &["models", "--verbose"], limit).as_deref().and_then(parse_opencode_model_list)
+        (true, output_of("opencode", &["models", "--verbose"], limit).as_deref().and_then(parse_opencode_model_list))
     });
     let agy = std::thread::spawn(move || output_of("agy", &["models"], limit).as_deref().and_then(parse_agy_model_list));
-    Listed {
+    let (opencode_one, opencode) = opencode.join().unwrap_or((false, None));
+    let listed = Listed {
         codex: codex.join().ok().flatten(),
         claude: claude.join().ok().flatten(),
         cursor: cursor.join().ok().flatten(),
-        opencode: opencode.join().ok().flatten(),
+        opencode,
         antigravity: agy.join().ok().flatten(),
         copilot: crate::runtime::discovery::find_named("copilot").is_ok(),
         muse: crate::runtime::discovery::find_named("muse").is_ok(),
+    };
+    let installed = |name: &str| crate::runtime::discovery::find_named(name).is_ok();
+    let mut ready: Vec<(&str, Option<&Value>)> = Vec::new();
+    if opencode_one {
+        ready.push(("opencode", listed.opencode.as_ref()));
     }
+    if installed("cursor-agent") {
+        ready.push(("cursor", listed.cursor.as_ref()));
+    }
+    if installed("claude") {
+        ready.push(("claude", listed.claude.as_ref()));
+    }
+    let incomplete = lists_its_models_but_listed_none(&ready);
+    (listed, incomplete)
+}
+
+/// A catalog kept for CACHE_MS (ten minutes) once it is whole; one missing a ready runtime's models is read again on
+/// the next call instead of being kept (0.552).
+pub fn kept_catalog(cache: &std::sync::Mutex<Option<(Instant, Vec<Value>)>>, read: impl FnOnce() -> (Listed, bool)) -> Vec<Value> {
+    if let Some((_, models)) = crate::invariants::lock(cache).as_ref().filter(|(at, _)| at.elapsed() < Duration::from_secs(600)) {
+        return models.clone();
+    }
+    let (listed, incomplete) = read();
+    let models = catalog(&listed);
+    if !incomplete {
+        *crate::invariants::lock(cache) = Some((Instant::now(), models.clone()));
+    }
+    models
 }
 
 /// The catalog for this computer, read once and kept ten minutes (CACHE_MS): models change on release, not hourly.
 pub fn local() -> Vec<Value> {
     use std::sync::Mutex;
     static CACHE: Mutex<Option<(Instant, Vec<Value>)>> = Mutex::new(None);
-    let cached = crate::invariants::lock(&CACHE).as_ref().filter(|(at, _)| at.elapsed() < Duration::from_secs(600)).map(|(_, m)| m.clone());
-    let mut models = match cached {
-        Some(models) => models,
-        None => {
-            let models = catalog(&read_listed());
-            *crate::invariants::lock(&CACHE) = Some((Instant::now(), models.clone()));
-            models
-        }
-    };
+    let mut models = kept_catalog(&CACHE, read_listed_checked);
     // Your own models under OpenCode, by their own names, read fresh: one added a moment ago is offered at once.
     if let Ok(store) = crate::store::Store::local() {
         models.extend(crate::own_models::for_store(&store).catalog().unwrap_or_default());
