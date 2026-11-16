@@ -1844,7 +1844,7 @@ pub fn mission_cost_from_events(events: &[Value]) -> Option<RunCost> {
     cost
 }
 
-fn sum_exchange_costs(costs: impl Iterator<Item = Option<RunCost>>) -> Option<RunCost> {
+pub(crate) fn sum_exchange_costs(costs: impl Iterator<Item = Option<RunCost>>) -> Option<RunCost> {
     let mut out = RunCost::default();
     let mut any = false;
     for c in costs.flatten() {

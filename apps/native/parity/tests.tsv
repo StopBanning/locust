@@ -1083,7 +1083,7 @@ apps/desktop/src/renderer/src/the-picker-reads-as-names.test.tsx		waiting
 apps/desktop/src/renderer/src/the-plan-marks-the-step-underway.test.tsx		waiting		
 apps/desktop/src/renderer/src/the-plus-menu-says-what-each-droplet-does.test.tsx		waiting		
 apps/desktop/src/renderer/src/the-rail-clock-is-made-once.test.ts		waiting		
-apps/desktop/src/renderer/src/the-ring-reads-what-the-conversation-holds.test.ts	P5	waiting	context_usage::renderer_ring_tests	5 exact cases: last-call context, missing reading, subscription dollars omitted, plan receipt wording (inspector and formatter), ordinary dollars. Five cases remain: ring cost exclusion, mixed cost, totals (2), pie geometry. See notes/RENDERER-NOTES.md renderer-9. Status stays waiting.
+apps/desktop/src/renderer/src/the-ring-reads-what-the-conversation-holds.test.ts	renderer-10	carried	core/src/context_usage.rs; core/src/benchmark.rs; src/ui/context_ring.rs	All ten exact Electron cases passed by name in renderer-10-restored-workspace.log; additional headless ring wiring regression. Subscription suppression mutation caught and restored. See notes/RENDERER-NOTES.md.
 apps/desktop/src/renderer/src/the-runtimes-wear-their-marks.test.tsx		waiting		
 apps/desktop/src/renderer/src/the-screens-say-less.test.ts		waiting		
 apps/desktop/src/renderer/src/the-talk-button-sits-beside-the-microphone.test.tsx		waiting		

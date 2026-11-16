@@ -10,6 +10,12 @@ import subprocess
 import sys
 
 CONTROLS = {
+    "ring-plan": (
+        "core/src/benchmark.rs",
+        'if shown == "plan" || shown.is_empty() { return None; }',
+        'if shown.is_empty() { return None; }',
+        "gives_the_ring_nothing_to_say_about_cost_only_the_context",
+    ),
     "plan-format": (
         "core/src/benchmark.rs",
         'if c.plan {',

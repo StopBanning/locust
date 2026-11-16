@@ -877,3 +877,74 @@ No live window, real agent, packaged app or Electron/JavaScript gate is run.
   passed, 20 real-agent tests ignored, doc tests 0. This is the restored
   verification for 934e7106 and the inherited billing control notes, not
   evidence for renderer-10 source. No prior source changes needed stashing.
+
+- Reviewed the next queue cases while the ring control compiles: enqueue uses
+  only the current queue key and drain judges only the current screen's run.
+  Carrying the remaining five M32 cases needs waitFor persisted and used in
+  enqueue/display/drain; adding queueHome alone would be insufficient. Queue
+  row remains waiting. Idle-world and teammate-work also retain applicable
+  screen/ownership gaps described in earlier notes; not excluded as plumbing.
+- Ring control is currently running as one whole release workspace suite;
+  benchmark.rs is temporarily mutated only under the runner's restore guard.
+
+### Renderer-10 negative control
+
+- `ring-plan` runner exit 0: caught the intended
+  `gives_the_ring_nothing_to_say_about_cost_only_the_context` assertion,
+  `states_no_total_for_runs_a_subscription_covered`, and the additional actual
+  drawn-ring test. Exactly those three failures: 2102 core passed / 2 failed,
+  500 window passed / 1 failed, 20 ignored, doc tests 0. The actual failure
+  adds `This conversation: in your plan`, which the person should not see.
+- Runner restored benchmark.rs byte for byte, retaining the intended changes.
+  Logs: `renderer-control-ring-plan.log`, `renderer-10-ring-plan-result.log`.
+  Restored whole release workspace run is in progress; no mutation remains.
+- Manifest audit also found two waiting paths absent from this checkout (and
+  no path history in the current branch):
+  `a-waiting-conversation-is-first-in-the-sidebar.test.tsx` and
+  `an-app-started-conversation-says-so-in-the-sidebar.test.tsx`. Neither can
+  be carried with exact cases from the supplied workspace yet. Rows unchanged.
+
+
+## Renderer-10 next section — teammate work age (prepared)
+
+- Read teammateWork.test.ts and the native people screen's actual ago_label
+  callers. The existing behavior matches its four age cases. Factored only
+  the clock argument so those exact Electron timestamps can be tested.
+- Four separate cases in `people_panel::renderer_work_age_tests`:
+  `reads_in_the_largest_unit_that_fits`, `singularises_honestly`,
+  `calls_anything_under_a_minute_just_now_including_a_clock_that_ran_ahead`,
+  `says_nothing_for_a_timestamp_it_cannot_read`. Verification pending in the
+  ongoing restored run (if its window compilation includes this edit).
+- The six teammateWork ownership/usage/recent-list cases still need the proper
+  id-based ownership projection on the actual screen. Row remains waiting.
+
+- All ten ring cases observed passing by name in
+  `renderer-10-restored-workspace.log`; ring row now carried. Whole run still
+  finishing. Recount and --check pass: 195 carried, 62 does-not-apply,
+  185 partial, 867 waiting, 1309 total. Requested subset: 27 waiting.
+
+### First restored run (not green)
+
+- `renderer-10-restored-workspace.log`: exit 101. All ten ring cases, the
+  drawn-ring regression, and all four work-age cases observed passing by name.
+  Core: 2103 passed, one failed, 20 ignored. Window: 505 passed, none failed.
+- The failure is `native::tests::native_claude_denies_then_allows_one_file_write`:
+  its fake Claude process closed stdout before requesting approval (zero
+  records). It passed in both this turn's baseline and mutant suite. No
+  unrelated approval or runtime source is changed. One unchanged-source full
+  confirmation follows in `renderer-10-confirm-workspace.log`.
+
+### Final restored confirmation — verified
+
+- `renderer-10-confirm-workspace.log`: exit 0, **2104 core + 505 window =
+  2609 passed**, **20 ignored** real-agent cases, doc tests 0. All ten ring
+  cases, the added drawn-ring check and four work-age cases observed passing
+  by name. The fake Claude approval case passed; the earlier failure is
+  retained above and is not counted as a pass.
+- One whole workspace run at a time via gentle-cargo, release, serial tests,
+  optional Git read locks disabled, target and TypeScript reader inside this
+  workspace. No filtered runs. Ring-plan control caught and fully restored.
+- Ring file is carried (18 of 45 requested files now carried cumulatively,
+  27 still waiting). No exclusions added. The requested list is unfinished.
+- Recount and --check passed; `git diff --check` and mutation-runner Python
+  syntax check passed. Release binary build is running separately.

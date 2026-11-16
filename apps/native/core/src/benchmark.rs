@@ -57,13 +57,33 @@ pub fn cost_line(cost: Option<&RunCost>) -> Option<String> {
 }
 
 fn compact_tok(n: u64) -> String {
-    if n >= 1_000_000 {
-        format!("{:.1}M", n as f64 / 1_000_000.0)
-    } else if n >= 1_000 {
-        format!("{}k", (n as f64 / 1_000.0).round() as u64)
-    } else {
-        n.to_string()
-    }
+    crate::context_usage::compact_count(n)
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CostTotal {
+    pub line: String,
+    pub runs: usize,
+    pub word: &'static str,
+}
+
+/// Sum reported units, counting only runs reporting the unit that is displayed.
+/// A subscription alone has no per-run total to state.
+pub fn cost_total(costs: &[Option<RunCost>]) -> Option<CostTotal> {
+    let total = crate::relay::sum_exchange_costs(costs.iter().cloned())?;
+    let unit = |c: &RunCost| {
+        if c.usd.is_some() || c.premium_requests.is_some() { "money" }
+        else if c.plan { "plan" }
+        else if c.input_tokens.is_some() || c.output_tokens.is_some() { "tokens" }
+        else { "" }
+    };
+    let shown = unit(&total);
+    if shown == "plan" || shown.is_empty() { return None; }
+    Some(CostTotal {
+        line: cost_line(Some(&total))?,
+        runs: costs.iter().flatten().filter(|c| unit(c) == shown).count(),
+        word: if shown == "money" { "priced" } else { "measured" },
+    })
 }
 
 pub fn cost_cell(cost: Option<&RunCost>, model: &str) -> String {
