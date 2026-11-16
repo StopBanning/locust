@@ -10,6 +10,18 @@ import subprocess
 import sys
 
 CONTROLS = {
+    "team-folder-reset": (
+        "src/ui/people_panel.rs",
+        '.on_press(|s: &mut State| set_form_folder(s, None))',
+        '.on_press(|_s: &mut State| {})',
+        "resetting_the_folder_changes_only_the_form_until_saved",
+    ),
+    "team-folder-mode": (
+        "src/ui/people_panel.rs",
+        '"auto" => "may edit anything on this machine",',
+        '"auto" => "reads and explains, every write refused",',
+        "does_not_promise_a_permission_the_next_mission_will_not_have",
+    ),
     "team-first-model": (
         "src/ui/people_panel.rs",
         'if route.is_some() || s.people_panel.model_open {',

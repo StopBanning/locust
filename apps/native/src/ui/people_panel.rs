@@ -264,6 +264,56 @@ fn model_fallback_name(id: &str) -> String {
     }
     name
 }
+/// This choice belongs to the form until Save, never to the open workspace.
+fn set_form_folder(s: &mut State, folder: Option<&std::path::Path>) {
+    if let Some(edit) = s.people_panel.fields.get_mut(7) {
+        *edit = field(&folder.map(|p| p.to_string_lossy().into_owned()).unwrap_or_default());
+    }
+}
+
+fn form_mode_summary(mode: &str) -> String {
+    let short = match mode {
+        "auto" => "may edit anything on this machine",
+        "accept-edits" => "may change files in this workspace",
+        "approve-each" => "asks before every command or change",
+        "plan" => "answers with the steps it would take, changes nothing",
+        _ => "reads and explains, every write refused",
+    };
+    format!("{} · {short}", locust_core::mode_facts::fact(mode).name)
+}
+
+fn teammate_folder_row(s: &State, p: &Palette) -> Option<El> {
+    let panel = &s.people_panel;
+    let id = panel.entry["teammateId"].as_str().filter(|id| !id.is_empty())?;
+    s.engine.as_ref()?;
+    let folder = panel.fields.get(7)?.text.trim();
+    let mut choices = row().w_full().gap(8.0).center_y()
+        .child(text(if folder.is_empty() { "The project folder" } else { folder }.to_owned()).grow(1.0).shrink().wrap().color(p.text))
+        .child(button(if folder.is_empty() { "Choose folder" } else { "Change" }, p)
+            .key("team-folder-choose").on_press_tx({
+                let id = id.to_owned();
+                move |s: &mut State, tx: &mut Tx| {
+                    let id = id.clone();
+                    let options = rune::FileDialogOptions { title: "Choose this teammate's folder".into(),
+                        directory: s.people_panel.fields.get(7).map(|f| f.text.trim()).filter(|f| !f.is_empty()).map(std::path::PathBuf::from),
+                        ..Default::default() };
+                    tx.open_folder(options, move |s: &mut State, answer, _tx| {
+                        if !s.people_panel.form_open || s.people_panel.entry["teammateId"].as_str() != Some(&id) { return; }
+                        if let Ok(Some(path)) = answer { set_form_folder(s, Some(&path)); }
+                    });
+                }
+            }));
+    if !folder.is_empty() {
+        choices = choices.child(button("Use the project folder", p).key("team-folder-reset")
+            .on_press(|s: &mut State| set_form_folder(s, None)));
+    }
+    Some(col().key("team-folder-row").w_full().gap(6.0)
+        .child(text("Works in").font(type_::LABEL).color(p.secondary))
+        .child(choices)
+        .child(text("Its conversations run here instead of the project folder, which is also how it reaches a connector (an MCP server) set up for that folder. History and memory stay with the project either way.")
+            .font(type_::LABEL).color(p.secondary).wrap()))
+}
+
 fn model_row(s: &State, p: &Palette) -> El {
     let l = crate::look::controls::Look::new(p.dark);
     let route = shown_route(s);
@@ -713,11 +763,13 @@ pub(super) fn edit_form(s: &State, p: &Palette) -> El {
     // The look comes before the role, as in Electron's dialog.
     form = form.child(crate::look_picker::section(s, &l));
     for (i, label) in ["Name", "Role", "Instructions", "Runtime", "Model", "Effort", "Mode", "Folder"].into_iter().enumerate().skip(1) {
-        if !matches!(i, 3..=5) && panel.fields.get(i).is_some() {
+        if !matches!(i, 3..=5 | 7) && panel.fields.get(i).is_some() {
             form = form.child(text(label).font(type_::LABEL).color(p.secondary)).child(field(i, label));
         }
     }
     form = form.child(model_row(s, p));
+    if let Some(folder) = teammate_folder_row(s, p) { form = form.child(folder); }
+    form = form.child(text(form_mode_summary(shown_route(s).as_ref().map(|r| r.mode.as_str()).unwrap_or("ask"))).key("team-permissions").font(type_::LABEL).color(p.secondary).wrap());
     let limit_error = locust_core::teammate_month::parsed_limit(&panel.limit.text).err();
     let effective_route = shown_route(s);
     let runtime_now = effective_route.as_ref().map(|r|r.runtime.as_str()).unwrap_or("");
@@ -1886,4 +1938,88 @@ mod renderer_model_tests {
         assert!(s.teammates[0].account.is_none());
     }
 
+}
+
+#[cfg(test)]
+mod renderer_folder_tests {
+    use super::*;
+    fn form(folder: Option<&str>, host: bool, mode: &str) -> State {
+        let mut s = State::default();
+        crate::team_scene(&mut s);
+        s.engine = None;
+        s.composer_mode = Some(mode.into());
+        let mut wren = json!({"teammateId":"tm_wren", "name":"Wren", "hue":"lime", "role":"Code & Migrations", "createdAt":"2026-09-05T05:00:00.000Z"});
+        if let Some(folder) = folder { wren["folder"] = json!(folder); }
+        s.people_panel.team = json!({"teammates":[wren]});
+        edit(&mut s, Some("tm_wren"));
+        s.engine = host.then_some(Kind::Native);
+        s.home.folder_path = Some("/home/dev/project".into());
+        s
+    }
+    fn render(s: State) -> rune::Runtime<State> {
+        let mut rt = rune::Runtime::new(s, |s,_| edit_form(s,&Palette::new(true)), (1100.,2400.),rune::Env::new(true,1.));
+        rt.frame(0.); rt
+    }
+    fn texts(rt: &rune::Runtime<State>) -> String { rt.elements().into_iter().filter_map(|e|e.text).collect::<Vec<_>>().join("\n") }
+    #[test]
+    fn is_named_in_the_dialog_and_reads_as_the_project_folder_when_it_has_none() {
+        let rt = render(form(None,true,"auto"));
+        assert!(rt.find("team-folder-row").is_some());
+        assert!(texts(&rt).lines().any(|l|l == "Works in"));
+        assert!(texts(&rt).contains("The project folder"));
+        assert!(texts(&rt).contains("Choose folder"));
+        assert!(rt.find("team-folder-reset").is_none());
+    }
+    #[test]
+    fn shows_the_folder_it_was_pointed_at_and_the_way_back() {
+        let rt = render(form(Some("/home/dev/claude"),true,"auto"));
+        assert!(texts(&rt).contains("/home/dev/claude"));
+        assert!(texts(&rt).contains("Use the project folder"));
+        assert!(texts(&rt).contains("Change"));
+        assert!(!texts(&rt).lines().any(|l|l == "The project folder"));
+    }
+    #[test]
+    fn says_why_the_folder_is_worth_setting_in_the_persons_terms() {
+        let rt = render(form(None,true,"auto"));
+        assert!(texts(&rt).contains("MCP server"));
+        assert!(texts(&rt).contains("History and memory stay with the project"));
+    }
+    #[test]
+    fn does_not_promise_a_permission_the_next_mission_will_not_have() {
+        for (mode, words) in [("auto","may edit anything on this machine"),("ask","every write refused"),("accept-edits","may change files in this workspace"),("approve-each","asks before every command"),("plan","changes nothing")] {
+            let rt = render(form(None,true,mode));
+            assert!(texts(&rt).contains(words),"{mode}");
+            if mode == "auto" { assert!(!texts(&rt).contains("every write refused")); }
+        }
+    }
+    #[test]
+    fn is_absent_while_a_teammate_is_being_created_or_without_a_host_chooser() {
+        let mut s = form(None,true,"auto"); edit(&mut s,None);
+        assert!(render(s).find("team-folder-row").is_none());
+        assert!(render(form(None,false,"auto")).find("team-folder-row").is_none());
+    }
+    #[test]
+    fn permissions_use_the_inherited_composer_mode_then_the_teammates_own_mode() {
+        let mut s = form(None,true,"auto");
+        assert_eq!(s.people_panel.fields[6].text,"ask");
+        assert!(texts(&render(s)).contains("may edit anything on this machine"));
+        s = form(None,true,"auto");
+        s.people_panel.entry["route"] = json!({"runtime":"codex","model":"account-default","mode":"ask"});
+        let rt = render(s);
+        assert!(texts(&rt).contains("every write refused"));
+        assert!(!texts(&rt).contains("may edit anything on this machine"));
+    }
+    #[test]
+    fn resetting_the_folder_changes_only_the_form_until_saved() {
+        let mut rt = render(form(Some("/home/dev/claude"),true,"auto"));
+        let (x,y) = rt.find("team-folder-reset").unwrap();
+        rt.pointer_down(x,y); rt.pointer_up(x,y); rt.frame(0.1);
+        assert!(build_entry_from_form(&rt.state).unwrap().get("folder").is_none());
+        assert_eq!(rt.state.people_panel.team["teammates"][0]["folder"],"/home/dev/claude");
+        assert_eq!(rt.state.home.folder_path.as_deref(),Some("/home/dev/project"));
+        assert!(rt.find("team-folder-reset").is_none());
+        set_form_folder(&mut rt.state,Some(std::path::Path::new("/home/dev/new")));
+        assert_eq!(build_entry_from_form(&rt.state).unwrap()["folder"],"/home/dev/new");
+        assert_eq!(rt.state.home.folder_path.as_deref(),Some("/home/dev/project"));
+    }
 }
