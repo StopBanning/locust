@@ -2691,8 +2691,10 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
                 None
             };
             // A turn in the teammate's own copy is committed to its branch, however it ended, with a receipt.
-            // A side question never commits to a teammate's branch.
-            if !is_side && let Some(root) = &checkpoint_root {
+            // A side question, and any turn with a slot of its own (a comparison's column, a judge, a scout chat), never
+            // commits to a teammate's branch, with a folder of its own or without (Electron codex-mission.ts
+            // `mission.slot === undefined`).
+            if !is_side && !is_slot && let Some(root) = &checkpoint_root {
                 checkpoint_turn(&memory_store, &memory_id, root, &check_teammate, &checkpoint_prompt, &check_runtime, check_model.as_deref());
             }
             // The turn is no longer this window's: a carry-on or check-fix may now continue its conversation,
