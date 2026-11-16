@@ -1364,3 +1364,92 @@ No live window, real agent, packaged app or Electron/JavaScript gate is run.
 - This continuation carries two files (ghost, work); **24 of the original 45
   carried, 21 still waiting**. Signed-out stays waiting despite its first three
   exact cases being carried. No new does-not-apply or partial classification.
+
+### Renderer-13 named checks
+
+The final restored log will be checked against these 20 full test names:
+
+- `messages::tests::beside_a_reply_the_ghost_when_the_conversation_is_nobodys_the_teammates_own_bot_when_it_has_one`
+- `messages::tests::wears_the_ghosts_own_white_as_the_covers_ghost_does_on_the_reply_and_the_live_row_alike`
+- `messages::tests::on_the_live_row_the_same_ghost_while_nobodys_conversation_thinks`
+- `home_panel::renderer_runtime_tests::is_judged_by_the_route_it_is_set_to_use`
+- `home_panel::renderer_runtime_tests::still_prefers_a_running_mission_then_a_past_one_over_the_route`
+- `home_panel::renderer_runtime_tests::is_judged_by_nothing_when_it_has_neither_missions_nor_a_route`
+- `home_panel::renderer_runtime_tests::home_and_team_judge_the_recorded_runtime_before_the_saved_route`
+- `home_panel::renderer_runtime_tests::runtime_ownership_uses_ids_even_when_another_teammate_has_the_same_name`
+- `teammate_work::tests::counts_only_the_missions_the_host_recorded_as_theirs`
+- `teammate_work::tests::takes_the_last_run_from_the_newest_mission_not_the_first_in_the_list`
+- `teammate_work::tests::lists_the_newest_few_newest_first`
+- `teammate_work::tests::says_nothing_about_a_teammate_who_has_never_run_rather_than_zeroes`
+- `teammate_work::tests::adds_up_what_their_missions_reported_and_only_theirs`
+- `teammate_work::tests::uses_the_callers_idea_of_a_title_so_a_briefing_is_not_shown_as_the_words_a_person_typed`
+- `teammate_work::tests::recent_work_groups_follow_ups_and_never_spins_on_a_cycle`
+- `people_panel::renderer_work_age_tests::reads_in_the_largest_unit_that_fits`
+- `people_panel::renderer_work_age_tests::singularises_honestly`
+- `people_panel::renderer_work_age_tests::calls_anything_under_a_minute_just_now_including_a_clock_that_ran_ahead`
+- `people_panel::renderer_work_age_tests::says_nothing_for_a_timestamp_it_cannot_read`
+- `people_panel::renderer_work_surface_tests::team_cards_use_recorded_ids_and_report_only_their_own_usage`
+
+### Renderer-13 continuation inventory
+
+The requested list is unfinished. Waiting teammate files have priority over
+conversation-only files; inline new-page preview is still the first applicable gap.
+The following 21 rows remain waiting (no exclusions added):
+
+- `a-page-a-teammate-made-runs-in-its-turn.test.tsx`
+- `a-pet-plays-what-its-teammate-is-doing.test.ts`
+- `a-signed-out-teammate-is-not-idle.test.ts`
+- `a-teammate-at-work-goes-round-its-faces.test.ts`
+- `a-teammate-can-be-a-pet.test.tsx`
+- `a-teammate-has-a-model-of-its-own.test.tsx`
+- `a-teammates-eyes-are-drawn-not-typed.test.ts`
+- `a-teammates-month-and-limit.test.tsx`
+- `every-teammate-is-a-bot.test.tsx`
+- `home-fits-two-rows-of-teammates.test.ts`
+- `teammate-folder-row.test.tsx`
+- `the-folder-chip-says-a-folder-is-no-place-for-teammates.test.tsx`
+- `two-teammates-look-at-each-other.test.ts`
+- `a-call-shows-on-its-conversation-row.test.tsx`
+- `a-phone-lists-conversations.test.ts`
+- `a-queued-message-stays-in-its-conversation.test.ts`
+- `a-waiting-conversation-is-first-in-the-sidebar.test.tsx`
+- `an-app-started-conversation-says-so-in-the-sidebar.test.tsx`
+- `an-older-conversation-stays-read.test.ts`
+- `review-sees-the-conversation.test.ts`
+- `savable-conversations.test.ts`
+
+
+### Renderer-13 final restored verification
+
+- renderer-13-restored-workspace.log exited 0: **2133 core + 533 window =
+  2666 passed**, **20 ignored** real-agent cases, doc tests 0, no filtered tests.
+  All 20 full names listed above were mechanically matched to `... ok` in
+  this final log, with no FAILED lines. This is the restored green baseline.
+- All three controls are restored: plain-ghost, recorded-runtime, work-owner.
+  A source audit found each original anchor exactly once and no mutant anchor.
+  Source changed only in this workspace's allowed files. The shared target/lock
+  is used through gentle-cargo; no filtered run or parallel workspace run.
+- Warnings remain the baseline's 3 core-test and 11 window-test warnings.
+  No new warning in the added modules. No Electron/JavaScript gate, live or
+  packaged window, real agent/model call, another OS, or benchmark was run.
+  The new cost tests consume the existing ledger-summary projection; they
+  do not claim a new live runtime-usage ingestion check.
+- Recount and --check: **201 carried, 62 does-not-apply, 185 partial,
+  861 waiting**, 1309 total. Requested subset: **24 carried, 21 waiting**.
+  git diff --check and renderer-control Python syntax passed.
+- Release binary build exited 0: renderer-13-release-build.log, optimized release finished in 1m 21s, with the same 12 existing native binary warnings. No packaged app or live window was launched.
+
+
+### Renderer-13 final handoff
+
+- Source commits: **82008602** ghost; **602a5143** runtime selection;
+  **c3fc1654** work projection; **886332c4** Team cards.
+  Supporting records: **0d92a429**, **624c3314**, **79077d16**; this final
+  verification note is a separate commit. No push, merge, version, changelog,
+  protected-lane source, handoff-file, or external-reference change.
+- No break left applied. All final validation commands have finished.
+  Tracked source is committed; the original untracked HANDOFF files remain.
+- The full requested port remains unfinished: **21 waiting rows** above,
+  with inline new-page preview first. Continue teammate files before the
+  conversation-only files. The signed-out file's remaining six status/tone/
+  presence cases are not established by the three carried selection cases.
