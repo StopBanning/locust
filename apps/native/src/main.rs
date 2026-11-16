@@ -78,6 +78,8 @@ mod home_panel;
 mod people_panel;
 #[path = "ui/look_picker.rs"]
 mod look_picker;
+#[path = "ui/pet_picks.rs"]
+mod pet_picks;
 #[path = "ui/cover_watch.rs"]
 mod cover_watch;
 #[path = "ui/reply_actions.rs"]
@@ -769,6 +771,9 @@ fn setup(s: &mut State, waker: Waker) {
     s.import_dialog.import_job.set_waker(waker.clone());
     s.image_cache = Some(Arc::new(ImageCache::new(waker.clone())));
     s.ledger_job.set_waker(waker.clone());
+    s.pet_picks.thumbs_job.set_waker(waker.clone());
+    s.pet_picks.list_job.set_waker(waker.clone());
+    s.pet_picks.add_job.set_waker(waker.clone());
     s.rooms.load_job.set_waker(waker.clone());
     scout_cards::setup_wakers(s, &waker);
     s.rooms.action_job.set_waker(waker);
@@ -1975,6 +1980,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     changed |= edit_message::poll(s);
     changed |= commit_panel::poll(s);
     changed |= pull_request_chip::poll(s, tx);
+    changed |= pet_picks::poll(s);
     changed |= terminal_panel::poll(s);
     changed |= side_chat::poll(s);
     changed |= review_changes::poll(s, tx);

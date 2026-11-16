@@ -188,7 +188,14 @@ pub(super) fn section(s: &State, l: &crate::look::controls::Look) -> El {
             }),
         );
     }
-    col().key("team-look").w_full().gap(8.0).pt(4.0).child(head).child(grid)
+    col()
+        .key("team-look")
+        .w_full()
+        .gap(8.0)
+        .pt(4.0)
+        .child(head)
+        .child(grid)
+        .child(crate::pet_picks::row_of_pets(s, &avatar, l))
 }
 
 /// One choice of a segmented Face group (`.lc-lookface button`): 24 high, the chosen one raised, an unusable one dimmed

@@ -48,9 +48,10 @@ writes `rows`, which its own reader ignores, so a reloaded index said 9 rows for
 de-duplicated per id across threads (an add holds one lock; a thumbnail read twice at once downloads twice).
 
 ## Not built yet (in order)
-1. The window side of `PetGallery` (a worker thread; the window calls none of it yet).
-2. The picker row beside Bot in the new-teammate dialog and the editor (PetPicks.tsx): tiles with thumbnails, search, the
-   "As drawn / Screen" choice (already in `look_picker.rs`), Remove N.
+1. ~~The window side of `PetGallery`~~ and 2. ~~the picker row~~: built 16 Nov in `src/ui/pet_picks.rs` (three
+   `rune::Latest` jobs: the list, the 21 thumbnails decoded from WebP by the `image` crate, an add; pets added go to
+   `<native>/pets`, never Electron's folder; Codex's read where they are). Still to do from PetPicks.tsx: Remove some... /
+   Remove N and Show removed (`usePetRemoval`), and reading Electron's own added pets.
 3. A pet playing its teammate's activity (`petMotion.ts`: activity -> state map, frame at time, fade, glance cell) and drawing a
    sheet frame (WebP decode needs an image decoder in the window crate; Codex Buddy is the only pet drawn today, as a screen).
 4. Puppets (`petPuppets.ts`, `petScreens.ts`): the kept pets drawn as rigs; large.

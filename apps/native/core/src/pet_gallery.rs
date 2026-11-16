@@ -256,6 +256,11 @@ impl PetGallery {
 
     /// A pick's small picture as a data URL, kept so the next ask is not a download. Only the pets Locust offers.
     pub fn thumbnail(&self, id: &str) -> Result<String, String> {
+        self.thumbnail_bytes(id).map(|bytes| data_url(&bytes))
+    }
+
+    /// The same small picture as its WebP bytes, for the window to decode (it draws pixels, not data URLs).
+    pub fn thumbnail_bytes(&self, id: &str) -> Result<Vec<u8>, String> {
         if !is_pet_id(id) || !is_pet_pick(id) {
             return Err(NOT_OFFERED.into());
         }
@@ -265,7 +270,7 @@ impl PetGallery {
             if let Ok(file) = fs::File::options().write(true).open(&kept) {
                 let _ = file.set_modified(std::time::SystemTime::now());
             }
-            return Ok(data_url(&bytes));
+            return Ok(bytes);
         }
         let entry = self.catalog_entry(id)?;
         let bytes = self.download(&entry.thumbnail, PET_THUMBNAIL_MAX)?;
@@ -275,7 +280,7 @@ impl PetGallery {
         if fs::create_dir_all(&root).is_ok() && fs::write(&kept, &bytes).is_ok() {
             self.prune_thumbnails(&root);
         }
-        Ok(data_url(&bytes))
+        Ok(bytes)
     }
 
     /// Adds one of the picks to this computer: downloaded, checked, written beside and moved into place. A pet added
