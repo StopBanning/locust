@@ -1266,3 +1266,21 @@ pub fn static_buddy_shape(
         snap: &snap,
     })
 }
+
+#[cfg(test)]
+mod presence_tests {
+    use super::*;
+
+    // PixelFace.tsx `PRESENCE_TONE`: working 'live' (monochrome since 0.430), approval 'amber', blocked 'red', idle none. The only
+    // part of PixelFace.tsx Electron still uses: TeammateBot imports it and nothing draws the PixelFace chip itself.
+    #[test]
+    fn the_presence_dot_is_amber_for_approval_red_for_blocked_and_the_text_colour_for_work_in_both_themes() {
+        for dark in [true, false] {
+            let look = crate::look::controls::Look::new(dark);
+            assert_eq!(presence_color(PresenceDot::Waiting, !dark), look.c("amber"), "dark {dark}");
+            assert_eq!(presence_color(PresenceDot::Blocked, !dark), look.c("red"), "dark {dark}");
+            assert_eq!(presence_color(PresenceDot::Working, !dark), look.c("text-primary"), "dark {dark}");
+        }
+        assert_ne!(presence_color(PresenceDot::Waiting, false), presence_color(PresenceDot::Blocked, false));
+    }
+}
