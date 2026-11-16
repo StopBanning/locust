@@ -498,6 +498,15 @@ fn draw_screen_panel(
     s_seconds: f64,
     shut: f64,
 ) -> Shape {
+    s = draw_screen_ground(s, poly, tone);
+    draw_screen_light(
+        s, poly, tone, flash, flash_progress, power_on, pair, left_eye, right_eye, eye_scale, open_l, open_r, map_pt,
+        stroke_scale, s_seconds, shut,
+    )
+}
+
+/// A screen's glass: dark, a hint of its phosphor, and its sheen.
+fn draw_screen_ground(mut s: Shape, poly: &[[f32; 2]], tone: Phosphor) -> Shape {
     s = s.fill(poly.to_vec(), rgb8(12, 16, 22));
     let [r, g, b] = phosphor_rgb(tone);
     s = s.fill(poly.to_vec(), color_from_rgb_f64([r as f64, g as f64, b as f64], 0.14));
@@ -530,6 +539,30 @@ fn draw_screen_panel(
         }
     }
 
+    s
+}
+
+/// What a screen shows on its glass: a finish's flash, the eyes in their light, or its switching on.
+#[allow(clippy::too_many_arguments)]
+fn draw_screen_light(
+    mut s: Shape,
+    poly: &[[f32; 2]],
+    tone: Phosphor,
+    flash: Option<(Phosphor, f64)>,
+    flash_progress: f64,
+    power_on: Option<PowerOnLight>,
+    pair: &[String; 2],
+    left_eye: [f64; 2],
+    right_eye: [f64; 2],
+    eye_scale: f64,
+    open_l: f64,
+    open_r: f64,
+    map_pt: &dyn Fn([f64; 2]) -> [f32; 2],
+    stroke_scale: f32,
+    s_seconds: f64,
+    shut: f64,
+) -> Shape {
+    let [r, g, b] = phosphor_rgb(tone);
     if let Some((flash_tone, _)) = flash {
         let fade = (1.0 - flash_progress).clamp(0.0, 1.0) as f32;
         if fade > 0.01 {
@@ -1168,6 +1201,111 @@ pub fn draw_buddy_shape(spec: &BuddyDrawSpec<'_>) -> Shape {
         s = s.fill(disc_points(cx, cy, dot_r, dot_r, 14), presence_color(presence, spec.light_theme));
     }
 
+    s
+}
+
+/// A worn puppet's screen (`PetPuppet.tsx` paint, `PetSprite.tsx` paintGlass and paintScreenEyes): its glass laid on
+/// its face where the drawing's own was, and a bot screen's eyes on it, moved with the drawing by the rig's pose.
+pub struct PuppetDrawSpec<'a> {
+    pub puppet: &'static locust_core::pet_puppets::PetPuppet,
+    /// The rig's pose as the puppet wears it (`puppet_pose`).
+    pub pose: BotAvatarPose,
+    /// Box units to the face's points (`crate::look::puppets::face_matrix`).
+    pub matrix: [f64; 6],
+    pub size: f32,
+    pub snap: &'a BotSnapshot,
+}
+
+/// Its glass and its eyes. Electron's glass is a gradient from `sameHue(tint, 0.42, 0.17 dark)` at its top to
+/// `sameHue(tint, 0.5, 0.08 dark)` at its foot; a `Shape` fills one colour, so it is filled with the colour halfway.
+pub fn draw_puppet_shape(spec: &PuppetDrawSpec<'_>) -> Shape {
+    use locust_core::bot_spec::{screen_eye_layout, VisorBox, EYES_VISOR, SCREEN_PAD};
+    use locust_core::pet_puppets::puppet_glass;
+    let p = spec.puppet;
+    let m = spec.matrix;
+    let map = move |q: [f64; 2]| -> [f32; 2] {
+        [(m[0] * q[0] + m[2] * q[1] + m[4]) as f32, (m[1] * q[0] + m[3] * q[1] + m[5]) as f32]
+    };
+    let px_per_unit = (m[0].hypot(m[1]) * m[2].hypot(m[3])).sqrt();
+    let glass = puppet_glass(p);
+    let corner = glass.w.min(glass.h) * p.corner;
+    let outline = |x: f64, y: f64, w: f64, h: f64, r: f64| -> Vec<[f32; 2]> {
+        rounded_rect_points(x as f32, y as f32, w as f32, h as f32, r as f32, 5)
+            .into_iter()
+            .map(|[a, b]| map([f64::from(a), f64::from(b)]))
+            .collect()
+    };
+    let mut s = Shape::new().view_box(spec.size, spec.size);
+    if let Some(ink) = p.ink {
+        // Its ink round the glass, as wide as a pet's own lines (GLASS_INK, 2 of the drawing's pixels).
+        let w = 2.0 * 100.0 / p.window[2];
+        s = s.fill(outline(glass.x - w, glass.y - w, glass.w + 2.0 * w, glass.h + 2.0 * w, corner + w), color_from_css(ink, 1.0));
+    }
+    let dark = p.dark.unwrap_or(1.0);
+    let [r, g, b, _] = same_hue_rgba(p.tint, 0.46, 0.125 * dark, 1.0);
+    let poly = outline(glass.x, glass.y, glass.w, glass.h, corner);
+    s = s.fill(poly.clone(), rgb8(r, g, b));
+    // The sheen over its top half, and its rim of light.
+    s = s.fill(outline(glass.x, glass.y, glass.w, glass.h / 2.0, corner.min(glass.h / 4.0)), rgba8(255, 255, 255, 17));
+    let unit = 1.0 / glass_units(glass.w);
+    s = s.stroke_with(poly.clone(), true, (1.6 * unit * px_per_unit) as f32, LineCap::Round, rgba8(255, 255, 255, 41));
+
+    // The eyes: placed and sized as a bot screen's are, with the glass as its visor (paintScreenEyes).
+    let snap = spec.snap;
+    let pair: [String; 2] = snap.eyes.clone().unwrap_or_else(|| SCREEN_RESTING_EYES.map(str::to_owned));
+    let u = glass_units(glass.w);
+    let box_ = VisorBox { half_width: EYES_VISOR.half_width, half_height: (glass.h / 2.0) * u, corner: corner * u, y: 0.0 };
+    let laid = screen_eye_layout(box_, [&pair[0], &pair[1]], [0.0, snap.lag_y / 0.5], p.eye_y.unwrap_or(0.0) * box_.half_height);
+    let larger = p.eye_scale.unwrap_or(1.0).max(1.0);
+    let reach = |g: &str| glyph_shape(g).or_else(|| glyph_shape("\u{2022}")).map(|sh| locust_core::bot_spec::glyph_reach(&sh));
+    let (reach_x, reach_y) = [&pair[0], &pair[1]]
+        .iter()
+        .filter_map(|g| reach(g))
+        .fold((0.0f64, 0.0f64), |(x, y), r| (x.max(r[0]), y.max(r[1])));
+    let room_x = box_.half_width - SCREEN_PAD;
+    let room_y = box_.half_height - SCREEN_PAD;
+    let scale = (laid.scale * larger).min(room_y / reach_y).min((room_x - 0.5) / (2.0 * reach_x));
+    let centre = |[x, y]: [f64; 2]| -> [f64; 2] {
+        let x = x.signum() * (x.abs() * larger).min(room_x - reach_x * scale);
+        [glass.x + glass.w / 2.0 + x / u, glass.y + glass.h / 2.0 + y / u]
+    };
+    let open = 1.0 - 0.92 * spec.pose.blink_l.max(spec.pose.blink_r);
+    draw_screen_light(
+        s,
+        &poly,
+        snap.tone,
+        snap.flash,
+        snap.flash_progress,
+        snap.power_on,
+        &pair,
+        centre(laid.centres[0]),
+        centre(laid.centres[1]),
+        scale / u,
+        open,
+        open,
+        &map,
+        px_per_unit as f32,
+        snap.s_seconds,
+        snap.shut,
+    )
+}
+
+/// A puppet's marks, on what is drawn of it (`puppetBody` through `anchorsOf`, as its host's CSS variables): the amber
+/// waiting ring round its paint and the presence dot at its foot. They stay in the face's box as the drawing moves.
+pub fn puppet_marks_shape(size: f32, body: BodyBox, ring: bool, presence: Option<PresenceDot>, light_theme: bool) -> Shape {
+    let anchors = anchors_of(body);
+    let mut s = Shape::new().view_box(size, size);
+    if ring {
+        let r = (anchors.ring.side as f32) * size * 0.5;
+        let c = [((anchors.ring.left as f32) * size) + r, ((anchors.ring.top as f32) * size) + r];
+        s = s.stroke_with(disc_points(c[0], c[1], r, r, 32), true, (size * 0.045).max(0.9), LineCap::Round, rgba8(245, 166, 35, 220));
+    }
+    if let Some(presence) = presence {
+        let dot_r = (size * 0.1).max(2.2);
+        let (cx, cy) = ((anchors.dot.x as f32) * size, (anchors.dot.y as f32) * size);
+        s = s.fill(disc_points(cx, cy, dot_r * 1.32, dot_r * 1.32, 14), rgba8(14, 18, 26, 230));
+        s = s.fill(disc_points(cx, cy, dot_r, dot_r, 14), presence_color(presence, light_theme));
+    }
     s
 }
 

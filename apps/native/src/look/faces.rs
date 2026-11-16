@@ -54,6 +54,18 @@ thread_local! {
     static DRAWN_PET: std::cell::RefCell<std::collections::HashMap<String, String>> = Default::default();
 }
 
+#[cfg(test)]
+thread_local! {
+    /// The puppet each live face last drew on a bot's rig, by its slot, for the window's own tests (`data-puppet`).
+    static DRAWN_PUPPET: std::cell::RefCell<std::collections::HashMap<String, String>> = Default::default();
+}
+
+/// The puppet the live face in `slot_key` last drew on a bot's rig, if it drew one, on this thread.
+#[cfg(test)]
+pub fn drawn_puppet(slot_key: &str) -> Option<String> {
+    DRAWN_PUPPET.with(|drawn| drawn.borrow().get(slot_key).cloned())
+}
+
 /// The pet the live face in `slot_key` last drew, if it drew one, on this thread.
 #[cfg(test)]
 pub fn drawn_pet(slot_key: &str) -> Option<String> {
@@ -259,6 +271,23 @@ pub fn bot_face_with_look(
     let plush = s.settings_panel.settings.plush;
     let reduced = s.reduced_motion.get();
     let screen = wears_screen(look, &shape_name, terminal_faces);
+    #[cfg(test)]
+    DRAWN_PUPPET.with(|d| {
+        d.borrow_mut().remove(slot_key);
+    });
+    // One of the pets Colin kept, its sheet the one measured, with Terminal faces on and not asked to be as drawn: a
+    // puppet on a bot's rig with a screen on its face (the-kept-pets-are-puppets.test.tsx, TeammateBot.tsx 413-415).
+    if !is_codex_buddy(look)
+        && let Some(pet) = look.and_then(|l| l.pet.as_ref())
+        && let Some((puppet, image)) = crate::pet_faces::worn_puppet(s, pet, terminal_faces)
+    {
+        #[cfg(test)]
+        {
+            DRAWN_PET.with(|d| d.borrow_mut().insert(slot_key.to_owned(), pet.id.clone()));
+            DRAWN_PUPPET.with(|d| d.borrow_mut().insert(slot_key.to_owned(), puppet.id.to_owned()));
+        }
+        return super::puppets::puppet_face(s, slot_key, id, puppet, &image, size, &opts, !l.k.dark);
+    }
     // A worn pet is drawn where the bot was, with a bot's marks; until its sheet is ready, or when it cannot be drawn,
     // the bot stands in (a-teammate-can-be-a-pet.test.tsx).
     if !is_codex_buddy(look)

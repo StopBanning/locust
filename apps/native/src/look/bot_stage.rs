@@ -512,6 +512,38 @@ impl BotStage {
         plush: bool,
         reduced_motion: bool,
     ) -> BotSnapshot {
+        self.snapshot_rig(slot_key, id, activity, glance, motion, screen, plush, reduced_motion, true)
+    }
+
+    /// A worn puppet's rig (`PetPuppet.tsx`): a bot's, with a screen (its conductor answers as a screen's), and no
+    /// shape's turn, since a drawing has none (PetPuppet makes its `BotAvatarSim` without `setTurn`).
+    #[allow(clippy::too_many_arguments)]
+    pub fn snapshot_puppet(
+        &self,
+        slot_key: &str,
+        id: &str,
+        activity: FaceActivity,
+        glance: Option<GlanceSide>,
+        motion: BotMotionLevel,
+        plush: bool,
+        reduced_motion: bool,
+    ) -> BotSnapshot {
+        self.snapshot_rig(slot_key, id, activity, glance, motion, true, plush, reduced_motion, false)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn snapshot_rig(
+        &self,
+        slot_key: &str,
+        id: &str,
+        activity: FaceActivity,
+        glance: Option<GlanceSide>,
+        motion: BotMotionLevel,
+        screen: bool,
+        plush: bool,
+        reduced_motion: bool,
+        turned: bool,
+    ) -> BotSnapshot {
         let mut inner = self.inner.borrow_mut();
         let now_s = inner.now_s;
         let desired = DesiredState {
@@ -527,7 +559,9 @@ impl BotStage {
             let resting_at_start = is_motionless(activity) || reduced_motion;
             let mut sim = BotAvatarSim::new(seed, avatar_state_for(activity, resting_at_start));
             // Bot.tsx: `sim.setTurn(outline.turn)` once, when the rig is made.
-            sim.set_turn(outline_of(id).turn);
+            if turned {
+                sim.set_turn(outline_of(id).turn);
+            }
             let changes = FaceChanges::new(shown);
             let conductor = BodyConductor::new(seed, screen, reduced_motion, resting_at_start);
             let prev_pose = sim.pose;

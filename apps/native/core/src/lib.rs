@@ -260,6 +260,7 @@ pub mod pet_gallery;
 mod pet_gallery_tests;
 pub mod pets;
 pub mod pet_motion;
+pub mod pet_puppets;
 #[cfg(test)]
 mod pet_library_tests;
 #[cfg(test)]

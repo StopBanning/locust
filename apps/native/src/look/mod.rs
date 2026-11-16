@@ -14,6 +14,7 @@ pub mod controls;
 pub mod faces;
 pub mod gallery;
 pub mod icons;
+pub mod puppets;
 
 use rune::{Color, Shadow, TextStyle};
 use rune_kit::{Kit, PaletteSeed, StateColors, Type, css};
