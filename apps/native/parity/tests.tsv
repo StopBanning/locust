@@ -162,7 +162,7 @@ apps/desktop/src/main/a-pdf-arrives-readable.test.ts	p14	partial		`main/a-pdf-ar
 apps/desktop/src/main/a-pdf-shows-its-pages.test.ts	p14	partial		`main/a-pdf-arrives-readable.test.ts`, `main/a-pdf-shows-its-pages.test.ts`, `renderer/.../a-pdf-is-a-card.test.tsx`, `a-pdf-page-reads-in-order.test.ts` | Partial: reading text/BOM, picture names, note wording, path refusal, macOS PDFKit t
 apps/desktop/src/main/a-person-can-leave-out-part-of-a-brief.test.ts		waiting		
 apps/desktop/src/main/a-person-cannot-lift-the-organizations-spend-limit.test.ts	ORG-POLICY	partial	core/src/org_policy_tests.rs, native::tests::a_managed_turn_is_refused_before_an_agent_starts	Partial: reading, validating, the turn gate and the effective limit carried; the store overlays, Windows known folder and voice and door gates wait
-apps/desktop/src/main/a-pet-sheet-is-checked-before-it-is-kept.test.ts		waiting		
+apps/desktop/src/main/a-pet-sheet-is-checked-before-it-is-kept.test.ts	pets-7	carried	core/src/pet_library_tests.rs; core/src/pet_gallery_tests.rs; core/src/pet_record_tests.rs	All 19 cases: 13 in pet_library_tests (WebP header, sheet shapes v1/v2, the 21 picks, the pets on this computer, links, removal and the removed list), 6 download cases in pet_gallery_tests (Opus round 5), and the two teammate-record cases in pet_record_tests (16 Nov; 3 breaks caught by name).
 apps/desktop/src/main/a-phone-is-paired-by-its-code.test.ts		waiting		
 apps/desktop/src/main/a-phone-pairs-and-asks-through-the-relay.test.ts		waiting		
 apps/desktop/src/main/a-phone-shows-an-answer-as-the-window-does.test.ts		waiting		

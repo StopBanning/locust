@@ -259,6 +259,8 @@ pub mod pets;
 pub mod pet_motion;
 #[cfg(test)]
 mod pet_library_tests;
+#[cfg(test)]
+mod pet_record_tests;
 pub mod cover_activity;
 
 #[cfg(test)]
