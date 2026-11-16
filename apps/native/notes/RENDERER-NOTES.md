@@ -434,3 +434,95 @@ called by that stage. No product behavior changed in these two files.
 - The requested list remains unfinished. The final verification above covers
   these 17 cases only; no claim is made for the 33 waiting files, real agents,
   a live window, a packaged build or the Electron/JavaScript gate.
+
+## Renderer round 2 — removed selection continuation
+
+Starting tracked tree clean at a9f5fc14. Of 45 files, 33 remained waiting.
+Inline preview, pet integration, runtime discovery/status, model editor,
+folder question, Home urgency sections and handoff glances need actual
+surface integration; unused core helpers alone do not carry these files.
+The removed-teammate file now has three separate `renderer_address_tests`
+with Electron's exact Ash/Wren ids. They exercise roster refresh and the
+actual send target resolver. Refresh no longer falls back to index zero
+after removal. Existing initial default selection is preserved. Verification
+pending; row waiting. An edit attempted from the wrong working directory
+failed without changing files; its baseline run was interrupted before the
+actual changes. All edits and test artifacts stay inside the workspace.
+
+Next section prepared while the first run executes: teamBoard's four exact
+cases in `team_board::tests`. Home and Team now use the urgency grouping,
+with record-based owner ids for pending approvals and unseen finishes.
+Checked missing/sign-in outcomes block, unknown discovery stays quiet.
+This section is not yet verified and its row remains waiting.
+
+## Renderer continuation — verification audit
+
+- Retained the inherited selection and team-board sections as verifiable work;
+  no stash or discard. The handoff's extra untracked `src/team_board.rs` belongs
+  to that section too. No external scratch file is read or changed.
+- `renderer-6-workspace.log`: 2079 core passed, 20 ignored; window 477 passed,
+  5 failed. All three removed-selection and four board cases passed by name.
+  Four window fixtures replaced the selected roster with a different identity
+  and implicitly relied on the unsafe fallback. Their setups now explicitly
+  pick the new fixture teammate; product fallback is not restored. The fifth
+  failure was the relay hop-cap test's 60-second live-run deadline.
+- Corrected quiet-board fixture to supply only Wren's idle status, exactly as
+  Electron does, and added a headless Home/Team surface regression. Pending
+  verification of those additions; no rows marked carried on this failed run.
+- Further teammate files read, still waiting: working-face rotation has pure
+  rig helpers but the native stage does not use its working beats; idle world
+  needs the per-teammate empty-state surface (Home role starters alone do not
+  suffice); month/limit needs real editor and card rows; plain ghost needs
+  reply/live-row faces; every-bot includes editor shuffle and rendering hooks.
+  These are applicable feature gaps, not React-only exclusions.
+- Conversation files inspected, still waiting: Alt-arrow needs actual window
+  navigation in drawn sidebar order, including folded groups; long-thread newest
+  turns needs bounded drawing plus Show earlier; phone list needs the phone
+  projection, not merely existing sidebar grouping. No unused-helper tests or
+  does-not-apply rows were substituted for these missing features.
+
+### Case mapping for these inherited sections
+
+- `a-removed-teammate-is-not-replaced.test.ts` → `renderer_address_tests`:
+  `is_the_teammate_picked`,
+  `is_nobody_once_that_teammate_is_removed_never_whoever_is_first`,
+  `is_nobody_when_nobody_was_picked`. Inputs retain `tm_ash`/Ash and
+  `tm_wren`/Wren; the first additionally exercises roster reordering, and
+  the second checks another refresh cannot silently reselect a teammate.
+- `teamBoard.test.ts` → `team_board::tests`:
+  `puts_each_teammate_where_what_they_need_from_you_says_most_urgent_first`,
+  `draws_a_quiet_team_as_the_plain_grid_no_board_of_empty_columns`,
+  `leaves_out_a_section_with_nobody_in_it`,
+  `an_unseen_finish_outranks_idle_never_a_live_run_or_a_wait`.
+  Electron's Wren/Juno/Sable/Quill/Pip ids, exact section titles and member
+  order are preserved. An additional native surface test checks both actual
+  Home and Team views, rather than only an uncalled pure helper.
+- Board classification uses host-recorded owner ids for approval/unseen sets,
+  not display-name matching. Initial selection behavior is retained; a removed
+  selection remains empty until an explicit pick. No Electron plumbing exclusion
+  is needed for either section.
+
+### Selection negative control
+
+- `renderer-6-selection-control.log` / `renderer-control-removed-selection.log`:
+  control runner exit 0. Reintroducing the index-zero fallback failed exactly
+  `renderer_address_tests::is_nobody_once_that_teammate_is_removed_never_whoever_is_first`.
+  Core 2079 passed (20 ignored); window 482 passed, one intentional failure.
+  Source restored byte for byte. The added Home/Team headless test passed by
+  name in this run, and the earlier relay deadline did not recur.
+- A restored full workspace run is in `renderer-6-restored-workspace.log`.
+  The board-working control is provided but not yet run.
+- Two requested inventory paths are absent from this checkout:
+  `a-waiting-conversation-is-first-in-the-sidebar.test.tsx` and
+  `an-app-started-conversation-says-so-in-the-sidebar.test.tsx`. Their rows
+  remain waiting; no invented Electron fixtures or exclusion is claimed.
+
+### Restored verification (renderer-6)
+
+- Whole release workspace exit 0: 2079 core + 483 window = 2562 passed,
+  20 ignored real-agent tests, doc tests 0. All seven Electron cases and the
+  extra Home/Team surface test observed passing by name in
+  `renderer-6-restored-workspace.log`. No mutation remains.
+- Selection row now carried; board row will be carried with its separate
+  section commit. Four explicitly selected window fixtures all passed, as
+  did the previously timed-out relay test. No unrelated product fix.

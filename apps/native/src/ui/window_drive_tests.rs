@@ -2500,6 +2500,8 @@ fn a_teammates_setup_opens_from_its_card() {
         s.home.folder_path = Some(work.to_string_lossy().into_owned());
         let team = native::parse_roster(&people::team(&store).unwrap().to_string()).unwrap();
         apply_team(s, team);
+        // This fixture replaces the roster; explicitly pick its new teammate.
+        s.selected = 0;
         crate::people_panel::open(s);
     });
     settle(&mut rt);
@@ -2554,6 +2556,8 @@ fn a_send_with_the_connectors_off_says_so_first() {
         s.home.home_open = false;
         let team = native::parse_roster(&people::team(&store).unwrap().to_string()).unwrap();
         apply_team(s, team);
+        // This fixture replaces the roster; explicitly pick its new teammate.
+        s.selected = 0;
         s.connector_names = vec!["claude.ai Gmail".into()];
     });
     settle(&mut rt);
@@ -2596,6 +2600,8 @@ fn a_dropped_free_model_is_said_before_the_send() {
         s.home.home_open = false;
         let team = native::parse_roster(&people::team(&store).unwrap().to_string()).unwrap();
         apply_team(s, team);
+        // This fixture replaces the roster; explicitly pick its new teammate.
+        s.selected = 0;
         s.models.insert(
             "tm_pip".into(),
             vec![engine::Models {
@@ -5605,6 +5611,8 @@ fn asking_scout_from_window_uses_ask_mode_and_sealed_runtime_even_when_edit_sele
         scout.name = "Scout".into();
         scout.runs_in = "accept_edits".into();
         apply_team(s, vec![scout]);
+        // This fixture replaces the roster; explicitly pick its new teammate.
+        s.selected = 0;
         s.composer_mode = Some("accept_edits".into());
         s.mode = "accept_edits".into();
     });

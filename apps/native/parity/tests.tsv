@@ -775,7 +775,7 @@ apps/desktop/src/renderer/src/a-refusal-offers-the-mode-that-works.test.ts		wait
 apps/desktop/src/renderer/src/a-refused-command-never-ran.test.ts		waiting		
 apps/desktop/src/renderer/src/a-reload-keeps-every-comparison-column-live.test.ts	P5	waiting		`a-reload-keeps-every-comparison-column-live.test.ts` | All six tests deferred. Native does not have Electron's renderer reload, host-owned comparison columns, or pending React IPC update map. Native retains process handles and tails ledger
 apps/desktop/src/renderer/src/a-remote-control-switch-shows-claudes-own-words.test.tsx	REMOTE-CONTROL	partial	core/src/remote_control_tests.rs	the line for each phase (the_switch_says_where_it_stands_first) and the window test the_remote_control_switch_runs_the_server_and_shows_claudes_own_words; the disabled switch while ending is not pinned
-apps/desktop/src/renderer/src/a-removed-teammate-is-not-replaced.test.ts		waiting		
+apps/desktop/src/renderer/src/a-removed-teammate-is-not-replaced.test.ts	R2	carried	src/main.rs renderer_address_tests	3 exact cases; roster refresh keeps removed/no selection empty; named passes in renderer-6-restored-workspace.log; removed-selection control caught and restored
 apps/desktop/src/renderer/src/a-replaced-select-still-shows-its-value.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-reply-suggests-tasks-as-cards.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-request-is-answered-on-the-board.test.tsx	p12	partial		`renderer/src/a-request-is-answered-on-the-board.test.tsx`: native channel integration test above; real DOM bubbling, file-change/question navigation and live presses are not exercised.

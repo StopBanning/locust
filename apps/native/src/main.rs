@@ -1380,10 +1380,13 @@ fn apply_team(s: &mut State, team: Vec<Teammate>) {
     s.teammates = team;
     sync_teammate_connectors(s);
     s.looks = native::load_looks();
-    s.selected = selected
-        .as_deref()
-        .and_then(|id| s.teammates.iter().position(|t| t.id == id))
-        .unwrap_or(0);
+    // Roster refresh must never redirect a removed person's conversation.
+    // MAX is the no-selection sentinel; retain the existing initial default.
+    s.selected = match selected.as_deref() {
+        Some(id) => s.teammates.iter().position(|t| t.id == id).unwrap_or(usize::MAX),
+        None if s.selected == usize::MAX => usize::MAX,
+        None => 0,
+    };
     s.load_error = None;
 
     let active = s
@@ -3204,3 +3207,42 @@ mod compare_window_tests;
 #[cfg(test)]
 #[path = "ui/approval_review_tests.rs"]
 mod approval_review_tests;
+
+#[cfg(test)]
+mod renderer_address_tests {
+    use super::*;
+    fn mate(id: &str, name: &str) -> Teammate {
+        Teammate { id: id.into(), name: name.into(), role: "Custom".into(),
+            runtime: None, model: None, account: None, busy: false,
+            runs_in: String::new(), folder: None }
+    }
+    fn state() -> State {
+        let mut s = State::default();
+        apply_team(&mut s, vec![mate("tm_ash", "Ash"), mate("tm_wren", "Wren")]);
+        s
+    }
+    #[test]
+    fn is_the_teammate_picked() {
+        let mut s = state();
+        s.selected = 1;
+        apply_team(&mut s, vec![mate("tm_wren", "Wren"), mate("tm_ash", "Ash")]);
+        assert_eq!(selected_conversation(&s).unwrap().0, &mate("tm_wren", "Wren"));
+    }
+    #[test]
+    fn is_nobody_once_that_teammate_is_removed_never_whoever_is_first() {
+        let mut s = state();
+        s.selected = 1;
+        apply_team(&mut s, vec![mate("tm_ash", "Ash")]);
+        assert!(selected_conversation(&s).is_none());
+        assert!(!can_send(&s));
+        apply_team(&mut s, vec![mate("tm_ash", "Ash"), mate("tm_wren", "Wren")]);
+        assert!(selected_conversation(&s).is_none());
+    }
+    #[test]
+    fn is_nobody_when_nobody_was_picked() {
+        let mut s = state();
+        s.selected = usize::MAX;
+        apply_team(&mut s, vec![mate("tm_ash", "Ash"), mate("tm_wren", "Wren")]);
+        assert!(selected_conversation(&s).is_none());
+    }
+}
