@@ -1876,3 +1876,91 @@ Additional regressions:
   four native save/account/first-model regressions). Control/lock-workaround
   commit: `fe1b65a8`. Parity and the complete verification receipt are committed
   separately. Final tracked tree is clean; original untracked HANDOFF files stay.
+
+
+### Renderer-17 — teammate folder row (in progress)
+
+- Arrival was clean at b32d4ee5; renderer-16 recovery was already committed,
+  including named picker checks, controls and release suite/build receipts.
+  Left its stash and all HANDOFF files alone.
+- Read all thirteen remaining sources available in this checkout; two sidebar
+  sources are still absent. Teammate-first inspection confirms protected-lane
+  pet/glyph rendering, per-turn page embedding and fitted Home remain gaps.
+- The folder dialog had a generic Folder text input. Replaced it with Works in,
+  a path/default sentence, native Choose folder/Change and Use the project
+  folder. Choices belong to the form until Save; the open workspace is untouched.
+  Added Electron's mode summary words, including Auto's whole-machine scope.
+- Five separate exact-value folder cases plus a native reset/save isolation
+  regression are in people_panel::renderer_folder_tests. The four connector
+  cases in the same Electron file are not implemented: this requires native
+  runtime enforcement in native.rs, outside the round's owned core files.
+  The row cannot be called carried. Verification and controls follow.
+
+
+Renderer-17 named folder mapping (people_panel::renderer_folder_tests):
+- is named in the dialog / project folder -> is_named_in_the_dialog_and_reads_as_the_project_folder_when_it_has_none
+- pointed-at folder / way back -> shows_the_folder_it_was_pointed_at_and_the_way_back
+- reason in the person's terms -> says_why_the_folder_is_worth_setting_in_the_persons_terms
+- permission matches next mission -> does_not_promise_a_permission_the_next_mission_will_not_have
+- absent on creation / no chooser -> is_absent_while_a_teammate_is_being_created_or_without_a_host_chooser
+- native regression -> resetting_the_folder_changes_only_the_form_until_saved
+
+- Full debug nextest, renderer-17-folder-debug.log: exit 0, 3038 passed,
+  20 skipped. All six full folder names observed on PASS lines.
+- Conversation sources inspected after teammates: live-call sidebar state and
+  phone projection remain absent; review brief has no native author/reviewer
+  projection; Routines lacks finished-conversation offers/header action.
+  Queue's ten exact isolation cases already exist in src/composer/queue.rs,
+  but four busy-elsewhere cases still need waitFor persistence and end-run
+  routing. The final Electron source check is window wiring only. No code
+  or carried claim was fabricated for these missing product behaviors.
+
+
+- team-folder-reset control: exit 0, caught exactly
+  people_panel::renderer_folder_tests::resetting_the_folder_changes_only_the_form_until_saved;
+  2415 core passed, 20 ignored; 622 window passed and one deliberate failure.
+  people_panel.rs restored byte for byte. Receipt renderer-17-reset-receipt.log.
+- Final permission audit found a route-less form must describe its inherited
+  composer mode, not its unused default field. Summary now uses shown_route;
+  five mode cases set the composer's mode, with a seventh regression proving
+  the inherited mode wins until the teammate has its own saved route:
+  permissions_use_the_inherited_composer_mode_then_the_teammates_own_mode.
+  The earlier debug baseline predates this correction. Restored release must
+  verify the final seven names; the following control is against final code.
+
+- team-folder-mode control: exit 0, caught the five-mode case and the new
+  inherited-route regression; no unrelated assertion failed. Source restored
+  byte for byte. Receipt renderer-17-mode-receipt.log. Final restored release
+  suite is now running. Both original mutation anchors audited present once.
+
+- During the release run an unrelated edit appeared in scripts/gentle-cargo.py
+  (shared-target rebuild bookkeeping). This turn did not make that edit;
+  preserve it and exclude it from this section's commits. The release run had
+  already loaded the prior wrapper, waited 80 seconds, and is compiling this
+  worktree. Final stopping status must name the preserved unrelated change.
+
+
+### Renderer-17 restored release verification
+
+- renderer-17-folder-release.log: exit 0, 2415 core + 624 window = 3039
+  passed, 20 real-agent tests ignored, doc tests 0. Mechanically matched all
+  seven full folder names and all ten existing picker names to `... ok`.
+  This is the final inherited-mode code; no named FAILED line.
+- team-folder-mode: 2415 core passed, 20 ignored; window 622 passed and
+  exactly two intentional failures (five-mode case and inherited-route
+  regression). Both controls exited 0 and restored the source byte for byte.
+- Folder row is partial, not carried: five Electron folder cases are covered,
+  four connector cases remain. No exclusion claimed. Release build pending.
+- Native-only workflow: no Electron/JavaScript gate, real native folder-dialog
+  interaction, live or packaged window, real agent/model, other OS or benchmark
+  was run. Headless UI verifies row contents, reset interaction and entry
+  construction, not the operating system's chooser itself.
+
+- Release binary build: exit 0, renderer-17-folder-build.log; optimized build
+  finished in 1m 28s after a 288-second shared-lock wait. Eleven pre-existing
+  binary warnings remain. The unrelated wrapper edit was used by this build;
+  it is preserved separately and is not part of this section's patch.
+- Recount and --check passed: 221 carried, 64 does-not-apply, 206 partial,
+  818 waiting (1309 total). Twelve requested rows wait; folder row is partial.
+- Both fixture scripts parse; git diff --check passed; both original mutation
+  anchors present exactly once. No break remains. All commands completed.
