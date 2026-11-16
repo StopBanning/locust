@@ -53,8 +53,7 @@ Break checks: see "Verification" below.
 - **The hover notice.** It still lasts `RECEIVED_GLANCE_MS` after it begins (the Rust stage's own rule). Electron's
   `noticed` lasts until the pointer leaves. Only the gaze was changed this round, to follow as long as the pointer
   stays. The rest of the notice (the curious mood) was left as it was.
-- **Pets (Codex Buddy).** Their glance still goes through `buddy_moves::glance_look` with no 1.5 s hold. Electron's
-  PetSprite has its own glance timing (`PetSprite.tsx` 117), which was not compared in this round.
+- **Pets (Codex Buddy).** Done in round 2: see "Round 2: pets hold a glance 1.5 s" below.
 - **The sidebar strip.** Electron's wide sidebar also has a row of faces (the "strip", `glancesAmong(..., 'row')`).
   The Rust sidebar has no strip, so only the column glances are wired.
 
@@ -158,3 +157,25 @@ both the sidebar's roster and the rail show it.
 - **Full release workspace run** (`notes/faces-suite.log`): exit 0, **2,143 engine + 499 window passed**, 0 failed,
   20 ignored. Every test named above passed by name. **Release build:** passed.
 
+## Round 2: pets hold a glance 1.5 s (fixes-2, job 3)
+
+- **Electron.** A pet keeps the glance and when it was given (`PetSprite.tsx` 117-120; `ScreenPet` 738-742), and looks
+  that way only while less than `GLANCE_HOLD_MS` (1.5 s) has passed (`PetSprite.tsx` 183-187; `ScreenPet` 779-784).
+  This is the same rule as a bot's.
+- **Rust.** The pet's slot in `src/look/bot_stage.rs` keeps the same `GlanceHold` a bot's does. Its eyes and its turn
+  read the held side (`GlanceHold::side_now`, `core/src/bot_rig.rs`), not the glance asked for. Before, a pet looked
+  for as long as the handoff lasted (2.8 s).
+- **Waking.** No extra code is needed. A new glance is part of what the pet is asked to show, so the pet is drawn again
+  and wakes. Its conductor is not settled while it is turned, as in Electron's
+  `codex-buddys-face-changes-as-a-screen-does` test. Two guards first written for this did nothing, and both
+  break checks on them **survived**. So they were taken out rather than kept as dead code.
+- **Tests** (`bot_stage::pet_glance_tests`; Electron has no test of its own for the hold):
+  - `a_pets_glance_holds_one_and_a_half_seconds_then_his_eyes_come_back`
+  - `a_different_glance_starts_a_pets_hold_again`
+  - `a_pet_at_rest_wakes_for_a_glance_and_rests_again_once_it_lets_go`
+- **Break checks** (`notes/pets-breaks.log`), all **caught by name**:
+  - the pet reading the asked glance instead of the held one (all three tests);
+  - the hold never started (all three);
+  - `side_now` ignoring the time (`glance_tests::a_glance_holds_from_when_it_is_given_…`).
+- **Full release workspace run** (`notes/pets-suite.log`): exit 0, **2,143 engine + 502 window passed**, 0 failed;
+  the three pet tests passed by name. **Release build:** passed.

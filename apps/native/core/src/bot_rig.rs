@@ -1255,8 +1255,13 @@ impl GlanceHold {
 
     /// The pointer the gaze follows now, while the hold lasts.
     pub fn aim(&self, now_s: f64) -> Option<Glance> {
+        self.side_now(now_s).map(glance_toward)
+    }
+
+    /// The side it looks to now, while the hold lasts (a pet's `glancing`, PetSprite.tsx 183-187).
+    pub fn side_now(&self, now_s: f64) -> Option<GlanceSide> {
         let side = self.side?;
-        ((now_s - self.given_at_s) * 1000.0 < GLANCE_HOLD_MS as f64).then(|| glance_toward(side))
+        ((now_s - self.given_at_s) * 1000.0 < GLANCE_HOLD_MS as f64).then_some(side)
     }
 }
 
