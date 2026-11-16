@@ -716,7 +716,7 @@ apps/desktop/src/renderer/src/a-lead-shows-what-it-handed-out.test.tsx		waiting
 apps/desktop/src/renderer/src/a-limit-note-leaves-when-it-stops-being-true.test.ts		waiting		
 apps/desktop/src/renderer/src/a-locust-bot-draws-before-its-first-frame.test.ts		waiting		
 apps/desktop/src/renderer/src/a-long-call-is-named-while-it-runs.test.ts		waiting		
-apps/desktop/src/renderer/src/a-long-conversation-has-a-rail-of-your-messages.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-long-conversation-has-a-rail-of-your-messages.test.tsx		carried	prompt_rail::tests	Four Electron cases passed by name, including exact five-prompt headless rail labels; whole-thread drawing/jump fixture also passed. See RENDERER-NOTES.md for controls and final restored verification.
 apps/desktop/src/renderer/src/a-long-conversation-is-still-one-conversation.test.ts	renderer-2	carried	src/ui/sidebar.rs	Five exact chain cases in real sidebar grouping; named passes in renderer-control-streaming-file.log.
 apps/desktop/src/renderer/src/a-long-conversation-opens-on-its-newest-turns.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-long-fold-keeps-the-answer-near.test.tsx		waiting		

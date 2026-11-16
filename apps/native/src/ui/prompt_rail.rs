@@ -496,5 +496,31 @@ mod tests {
         let shortened = prompt_rail_line(long);
         assert!(shortened.ends_with('…'));
         assert!(shortened.chars().count() <= 72);
+
+        // Electron's Thread fixture: five actual native rail marks, labelled by the person's words.
+        let mut state = State::default();
+        state.prompt_rail.viewport_rect = [0.0, 0.0, 1000.0, 400.0];
+        state.prompt_rail.column_rect = [0.0, 0.0, 900.0, 800.0];
+        let mut rt = rune::Runtime::new(state, |s, _| {
+            let items = [
+                "Where does the prompt rail sit?", "How far apart are the marks?",
+                "Which mark is the current one?", "What does a hover say?",
+                "Does the rail stay off the words?",
+            ].map(|words| ledger::Item::User(words.into()));
+            view(s, &items, &Palette::new(true)).unwrap()
+        }, (1100.0, 600.0), rune::Env::new(true, 1.0));
+        rt.frame(0.0);
+        for (i, words) in [
+            "Where does the prompt rail sit?", "How far apart are the marks?",
+            "Which mark is the current one?", "What does a hover say?",
+            "Does the rail stay off the words?",
+        ].iter().enumerate() {
+            let key = format!("prompt-rail-mark-{i}");
+            assert!(rt.find(&key).is_some());
+            let elements = rt.elements();
+            let mark = elements.iter().find(|e| e.key.as_deref() == Some(key.as_str())).unwrap();
+            assert_eq!(mark.label.as_deref(), Some(*words));
+        }
+        assert!(rt.find("prompt-rail-mark-5").is_none());
     }
 }

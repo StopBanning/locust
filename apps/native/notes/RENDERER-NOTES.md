@@ -607,7 +607,7 @@ This section is not yet verified and its row remains waiting.
   separate exact-value cases from `a-teammates-eyes-are-drawn-not-typed.test.ts`
   in `core/src/renderer_eye_tests.rs`. Geometry, glyph weights, blinking, hue,
   front-plane projection, all motion loops and visor fitting use the same values
-  as Electron. Native already provides these pure functions to its painter.
+  as Electron. Most are already used by the native painter/rig; front_plane and the CSS-string same_hue function are pure compatibility contracts only. Native draws through its own vector transform and uses same_hue_rgba, so these two tests alone do not verify the actual screen projection or color path.
 - The inventory row stays waiting: the four drawing cases (round strokes,
   screen fill/glow ordering, rig front-transform interception, mouth suppression)
   still need native painter assertions. Canvas interception itself is Electron
@@ -651,7 +651,7 @@ This section is not yet verified and its row remains waiting.
   selection in demo mode. It now uses the same conversation selection as the
   sidebar itself. This correction and folded-group assertions await the next run.
   The eye-only test section is verified independently of that window failure;
-  its file remains waiting for the four missing drawing cases.
+  its file remains waiting for the four missing drawing cases and for painter-level projection/color verification.
 
 ## Renderer-8 — prompt rail (prepared)
 
@@ -684,3 +684,19 @@ This section is not yet verified and its row remains waiting.
   has not loaded yet. Final restored verification and its own control follow.
 - Eye test section committed as `1c64d157`. Its row remains waiting for drawing
   coverage; no false full-file claim. Navigation is the next verified section.
+
+### Verified prompt-rail section and step control
+
+- `renderer-control-conversation-step.log`: core 2094 passed, 20 ignored;
+  window 487 passed and exactly three intentional navigation failures
+  (`move_nowhere_when_there_is_nowhere_to_go`,
+  `with_shift_pass_over_every_conversation_that_is_not_waiting_for_you`,
+  and the actual key-handler test). The runner caught the named Shift-filter
+  assertion, exited 0, and restored conversation_list.rs byte for byte.
+- All four prompt-rail cases passed by name in that run, including the newly
+  strengthened exact five-prompt drawing case. The existing whole-thread
+  scrolling/jumping and folded-group regressions passed too. Rail row now
+  carried; its threshold control and final restored suite follow.
+- Navigation committed as `6a54f3e0`. This continuation carries two full files
+  (nine Electron cases), plus fifteen pure eye cases in an incomplete file.
+  **17 of 45 requested files carried; 28 waiting.** No does-not-apply additions.
