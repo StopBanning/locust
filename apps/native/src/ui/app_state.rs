@@ -381,6 +381,8 @@ pub(super) struct State {
     pub(super) handoff_glances: crate::handoff_glances::HandoffGlances,
     /// Live runs the list was read too early to know, read again for (`live_list.rs`).
     pub(super) unlisted_runs: crate::live_list::UnlistedRuns,
+    /// What each live run is doing and who just finished, for the faces (`teammate_faces.rs`).
+    pub(super) live_faces: crate::teammate_faces::LiveFaces,
     pub(super) mission_owners: HashMap<String, String>,
     pub(super) relay_live: native::RelayLiveState,
     pub(super) relay_hop_cap: u32,
@@ -607,6 +609,7 @@ impl Default for State {
             workroom_messages: HashMap::new(),
             handoff_glances: Default::default(),
             unlisted_runs: Default::default(),
+            live_faces: Default::default(),
             mission_owners: HashMap::new(),
             relay_live: native::RelayLiveState::default(),
             relay_hop_cap: locust_core::workspace_settings::DEFAULT_RELAY_HOP_CAP,

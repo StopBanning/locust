@@ -445,14 +445,14 @@ fn refresh_groups(store: &Store, state: &mut OrgState) -> Result<(), String> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicU64, Ordering};
 
     static TICK: AtomicU64 = AtomicU64::new(0);
 
-    pub(super) struct Temp(PathBuf);
+    pub(crate) struct Temp(PathBuf);
     impl Temp {
         fn new() -> Self {
             let n = TICK.fetch_add(1, Ordering::Relaxed);
@@ -476,7 +476,7 @@ mod tests {
         }
     }
 
-    pub(super) fn temp_store() -> (Temp, Store) {
+    pub(crate) fn temp_store() -> (Temp, Store) {
         let dir = Temp::new();
         let electron = dir.path().join("electron");
         let native = dir.path().join("native");

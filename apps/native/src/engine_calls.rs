@@ -20,6 +20,8 @@ fn direct_uses_of_the_engines_turn_state_only_shrink() {
     let allowed: &[(&str, usize)] = &[
         // A test that answers two cards on the shared channel at once (the Board's review test).
         ("src/ui/home_panel.rs", 1),
+        // A test that raises a real card on the shared channel, to see a face wait on the person (teammate_faces.rs).
+        ("src/ui/teammate_faces.rs", 1),
     ];
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
     let mut found = std::collections::BTreeMap::new();

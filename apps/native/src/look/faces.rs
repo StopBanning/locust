@@ -15,6 +15,18 @@ use locust_core::native::FaceLook;
 use rune::{El, ImageCache, Tx, canvas, row};
 use std::time::Duration;
 
+#[cfg(test)]
+thread_local! {
+    /// The presence dot each face was last drawn with, by its slot, for the window's own tests.
+    static DRAWN_PRESENCE: std::cell::RefCell<std::collections::HashMap<String, Option<PresenceDot>>> = Default::default();
+}
+
+/// The presence dot the face in `slot_key` was last drawn with on this thread; None when it was not drawn.
+#[cfg(test)]
+pub fn drawn_presence(slot_key: &str) -> Option<Option<PresenceDot>> {
+    DRAWN_PRESENCE.with(|drawn| drawn.borrow().get(slot_key).copied())
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct BotFaceOpts<'a> {
     pub activity: FaceActivity,
@@ -188,6 +200,8 @@ pub fn bot_face_with_look(
     l: &super::controls::Look,
 ) -> El {
     let (shape_name, face_str, hue) = bot_of(id, look);
+    #[cfg(test)]
+    DRAWN_PRESENCE.with(|drawn| drawn.borrow_mut().insert(slot_key.to_owned(), opts.presence));
     let terminal_faces = s.settings_panel.settings.terminal_faces;
     let plush = s.settings_panel.settings.plush;
     let reduced = s.reduced_motion.get();

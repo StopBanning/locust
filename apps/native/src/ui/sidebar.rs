@@ -479,14 +479,13 @@ pub(super) fn apply_org_action(s: &mut State, mission_id: &str, action: &str) {
     s.org_menu_id = None;
 }
 
-/// A roster face (Sidebar.tsx 1511-1519, TeammateBot): the live rig, at work while its teammate is, turned toward a
-/// teammate it is handing a message to or getting one from. Only working and resting are known here; Electron's
-/// roster also shows thinking, waiting and the rest from the teammate's status.
+/// A roster face (Sidebar.tsx 1511-1519, TeammateBot): the live rig showing the teammate's one state
+/// (`teammate_faces`), turned toward a teammate it is handing a message to or getting one from.
 pub(super) fn roster_face(
     s: &State,
     surface: &str,
     teammate: &Teammate,
-    busy: bool,
+    view: Option<&locust_core::face_status::StatusView>,
     glance: Option<locust_core::bot_rig::GlanceSide>,
     size: f32,
     l: &crate::look::controls::Look,
@@ -499,7 +498,8 @@ pub(super) fn roster_face(
         &teammate.name,
         size,
         crate::look::faces::BotFaceOpts {
-            activity: if busy { FaceActivity::Working } else { FaceActivity::Idle },
+            activity: view.map_or(FaceActivity::Idle, |v| v.activity),
+            presence: view.and_then(crate::teammate_faces::presence_dot),
             glance,
             motion: locust_core::bot_rig::BotMotionLevel::Subtle,
             ..Default::default()
@@ -520,6 +520,8 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
     let mut rows = col().w_full().gap(2.0).padding(10.0);
     // Sidebar.tsx 621 `rosterGlances`: the roster is a column of faces.
     let glances = crate::handoff_glances::roster_glances(s);
+    // Each teammate's one status (teammate_faces.rs), as Electron's roster reads `viewByTeammate`.
+    let views = crate::teammate_faces::views(s);
 
     for (index, teammate) in s.teammates.iter().enumerate() {
         let selected = s
@@ -527,19 +529,13 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
             .as_ref()
             .map(|pane| pane.header.id == teammate.id)
             .unwrap_or(s.selected == index);
-        let busy = teammate.busy
-            || s.flight
-                .as_ref()
-                .is_some_and(|f| f.teammate_id == teammate.id)
-            || s.ledger
-                .as_ref()
-                .is_some_and(|pane| pane.header.id == teammate.id && pane.snapshot.running);
+        let view = views.get(&teammate.id);
 
         let mut title = row()
             .w_full()
             .center_y()
             .gap(8.0)
-            .child(roster_face(s, "roster", teammate, busy, glances.get(&teammate.id).copied(), 22.0, &l))
+            .child(roster_face(s, "roster", teammate, view, glances.get(&teammate.id).copied(), 22.0, &l))
             .child(
                 text(teammate.name.clone())
                     .font(rune::TextStyle::new(13.5, 500.0))
@@ -548,8 +544,9 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
                     .shrink()
                     .truncate(),
             );
-        if busy {
-            title = title.child(el().size(6.0, 6.0).radius(3.0).fill(p.green));
+        // The name's dot, only while working (Sidebar.tsx 1491 `status.pulse`), in the status's tone.
+        if let Some(view) = view.filter(|v| v.pulse) {
+            title = title.child(el().size(6.0, 6.0).radius(3.0).fill(crate::teammate_faces::tone_color(&l, view.tone)));
         }
         let id = teammate.id.clone();
         let runtime = teammate.runtime.as_deref().unwrap_or("codex");

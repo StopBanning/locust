@@ -42,10 +42,7 @@ Break checks: see "Verification" below.
 
 ## Still guessed or left (and why)
 
-- **What a roster face is doing.** The Rust roster knows only busy or not, so a face is Working or Idle. Electron's
-  roster shows the teammate's full status: thinking, waiting on you, blocked, done (`status.activity`, and the
-  presence dot). That needs the per-teammate status Electron's `teammateStatus` computes, which is not ported to
-  the window yet.
+- **What a roster face is doing.** Done in round 2: see "Round 2: each face's full status" below.
 - **Motion level.** Roster faces use `Subtle`, TeammateBot's default (`motion = 'subtle'`, TeammateBot.tsx:361).
 - **The delay before a handoff is seen.** Electron hears each posted message live. This window sees it on its next
   read of the recent list, so a glance can start later than in Electron. The 2.8 s moment counts from when the
@@ -80,3 +77,84 @@ Break checks: see "Verification" below.
 - **Snapshots** (`--snap`, scenes `rail-flyout` and `team`): the rail's faces draw as the live rig.
 - `recount.py --check` passes: 191 carried, 62 does not apply, 184 partial, 872 waiting; rows 71 done, 65 partial,
   17 missing.
+
+## Round 2: each face's full status (fixes-2, job 2)
+
+Before this, a sidebar or rail face was only Working or Idle. Now each teammate gets Electron's one status, and
+both the sidebar's roster and the rail show it.
+
+### What was ported, and where
+
+- **`core/src/face_status.rs`**: Electron's rules, line for line.
+  - `teammate_status_view` is `status.ts` `teammateStatusView`. It gives the status (blocked, waiting on you,
+    working, idle), what the face does, the words, the colour (`Tone`) and whether the name's dot pulses.
+  - It includes the blocked reasons: "No AI agent installed", "Sign-in needed", "AI agent not installed",
+    "This AI agent version is not supported yet", and "AI agent not answering — checking again" (amber).
+  - `runtime_reach` (`runtimeReach`), `runtime_is_usable`, `state_in_words` (`stateInWords`), `face_presence_for`
+    (`facePresenceFor`).
+  - `live_event_of` turns a ledger event into what `live_activity_of` (faceState.ts) reads. A helper's own tool
+    call (`parentItemId`) is the helper's, not the teammate's.
+- **`src/ui/teammate_faces.rs`**: where the window gets each input.
+  - **Agents**: what Settings › AI agents found (`settings_panel.agents`). Until that has answered, nothing is said,
+    as Electron does: not known is not blocked.
+  - **Running**: a live run the teammate owns, their `busy` flag, this window's own send, or the open conversation's
+    running turn.
+  - **Waiting on you**: the engine's cards for the teammate's runs.
+  - **What a live run is doing**: read off its ledger file (`live_activity_in_ledger`).
+  - **Just finished**: a run the list last saw running and now sees completed hops the face for `DONE_HOP_MS` (1.8 s).
+  - **Just received**: the handoff glances from round 1.
+- **On screen** (`sidebar.rs`, `rail.rs`):
+  - The face shows the activity, and wears the presence dot: working white (monochrome since Electron 0.430), waiting
+    amber, blocked red. The dot's colours were guessed before (a green working dot); they are now the theme's
+    `text-primary`, `amber` and `red`, as `.lc-presence--*` uses.
+  - The roster's name dot shows only while working (`status.pulse`), in the status's tone (white), not green.
+  - The rail face tells a screen reader the hover's words as its name and the state in words as its description
+    (`a-face-says-its-state-in-words`). A blocked face says why.
+
+### Still different from Electron (and why)
+
+- **Agents are known only once Settings has asked.** Electron asks at launch. This window asks when Settings › AI
+  agents opens, so until then no face is ever blocked. That is the same as Electron in its first seconds, before
+  discovery answers.
+- **What a run is doing shows up to half a second late.** Electron hears each event as it streams. This window reads
+  each live run's ledger file at most twice a second while anything runs.
+- **"Just finished" comes from the list.** Electron hops on the `run.completed` event. Here a run hops when the
+  conversation list, read again when the running turns change, shows it went from running to completed. A run that
+  starts and ends between two reads does not hop.
+- **Which runtime a teammate is judged by.** Electron's `runtimeOfTeammate` takes the running mission's runtime, then
+  a past mission's, then the one they are set to. This window uses only the one they are set to. Those three
+  Electron cases are not carried (tests.tsv).
+- **The faces strip.** Electron's wide sidebar has a strip of faces. The Rust sidebar has none, so that case of
+  `a-face-says-its-state-in-words` is not carried.
+
+### Tests
+
+- `core/src/face_status_tests.rs`: one test per Electron case, with Electron's values. Each group is headed by the
+  file it comes from: `faceState.test.ts` (18 cases; its two CSS-animation cases do not apply), the teammate-status
+  cases of `status.test.ts` (9), `the-bare-machine` (5), `a-teammate-is-not-stuck-…` (7), `a-signed-out-…` (6),
+  `a-question-makes-the-face-wait-on-you` (2), and `stateInWords` (1).
+- `src/ui/teammate_faces.rs` `tests` draw the real sidebar or rail:
+  - `a_running_teammate_shows_what_its_ledger_says_on_the_roster_face_thinking_then_working`: writes a ledger, then
+    a tool start.
+  - `a_card_waiting_on_the_person_shows_waiting_on_the_rail_face_and_in_its_words`: a real engine card. It holds the
+    engine guard, because the window counts a card's conversation as live.
+  - `a_teammate_whose_own_agent_is_signed_out_shows_blocked_and_says_why_in_the_rail`.
+  - `when_no_agent_on_the_machine_can_run_every_face_is_blocked_and_says_none_is_installed`.
+  - `a_finished_run_hops_its_teammates_face_for_its_moment_then_rests`.
+  - `a_run_already_finished_when_first_listed_does_not_hop`.
+
+### Verification (round 2, job 2)
+
+- **Break checks** (`~/work/scratch/mut6.py`, whole package each), 20 breaks, **all 20 caught by a named face test**:
+  - 11 in `face_status.rs`, each caught by a named `face_status::tests` case (Sonnet's run,
+    `~/work/scratch/opus/faces-breaks-sonnet.log`).
+  - 9 in the window (`notes/faces-window-breaks.log`), each caught by a named `teammate_faces::tests` case.
+- **Two things the first window break run hid:**
+  - Every window break also failed `engine_calls::direct_uses_of_the_engines_turn_state_only_shrink`. That test failed
+    on the unbroken tree too: the waiting-card test raises a real card on the shared approvals channel, which that
+    ratchet counts. It now has a named allowance for that one test, as the Board's review test has.
+  - With that noise gone, the break that drops the machine-wide answer (`runtime_reach`) was caught by nothing. The
+    test `when_no_agent_on_the_machine_can_run_…` was added, and catches it.
+- **Full release workspace run** (`notes/faces-suite.log`): exit 0, **2,143 engine + 499 window passed**, 0 failed,
+  20 ignored. Every test named above passed by name. **Release build:** passed.
+
