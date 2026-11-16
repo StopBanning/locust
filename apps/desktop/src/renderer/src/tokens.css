@@ -186,6 +186,20 @@
   font-display: fallback;
 }
 
+/*
+ * Paper Mono (0.877), the code face a person may pick instead of Geist Mono
+ * (Settings, Appearance, Code font). SIL Open Font License, in
+ * assets/fonts/PAPER-MONO-OFL.txt; the same file the Rust app carries. One
+ * variable file covers every weight from 100 to 800.
+ */
+@font-face {
+  font-family: 'Paper Mono';
+  src: url('./assets/fonts/PaperMono-Variable.ttf') format('truetype');
+  font-weight: 100 800;
+  font-style: normal;
+  font-display: fallback;
+}
+
 :root {
   /* --- Surfaces ------------------------------------------------------- */
   --lc-bg-app: #0b0d0e;
@@ -963,6 +977,15 @@
  * at 15px and 72 at 18px. That is the whole reason the cap is in `ch` rather
  * than pixels, and it is the first time it has actually been true.
  */
+/*
+ * THE CODE FACE IS ONE TOKEN WIDE TOO (0.877). `App.tsx` writes
+ * `data-codefont` on the root from the stored setting; only `paper` changes
+ * anything, and Geist Mono stays behind it for anything Paper Mono does not draw.
+ */
+:root[data-codefont='paper'] {
+  --lc-font-mono: 'Paper Mono', 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
 :root[data-replysize='large'] {
   --lc-text-prose: 17px;
   --lc-text-said: 15px;

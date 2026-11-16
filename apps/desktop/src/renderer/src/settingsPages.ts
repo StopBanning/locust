@@ -125,15 +125,16 @@ export const SETTINGS_PAGES: readonly SettingsPage[] = [
     label: 'Appearance',
     group: 'Locust',
     icon: 'palette',
-    headings: ['Reply text size', 'Terminal faces', 'What a face says', 'Plush', 'Sidebar', 'Send button', 'Boot screen'],
+    headings: ['Reply text size', 'Code font', 'Terminal faces', 'What a face says', 'Plush', 'Sidebar', 'Send button', 'Boot screen'],
     alsoKnownAs: {
-      // 'font' moved to Reply text size, which is the only setting in this
-      // app that changes one. The sidebar has never had a font control.
+      // 'font' moved to Reply text size, and a word sits on one setting only, so
+      // Code font (0.877) answers 'mono' and 'code font'. The sidebar has never had a font control.
       Sidebar: ['theme', 'dark', 'light', 'colour', 'color', 'width'],
       // The words a person reaches for when a reply is too big or too small:
       // Colin's own were 'text size', and nobody searches for 'prose'.
       'Send button': ['metal', 'chromatic', 'silver', 'gold', 'shine', 'shimmer', 'hover', 'send', 'button', 'effect', 'bend', 'gooey', 'animation', 'motion'],
       'Reply text size': ['text', 'text size', 'font', 'font size', 'bigger', 'smaller', 'type', 'reading'],
+      'Code font': ['code font', 'mono', 'monospace', 'paper mono', 'geist mono', 'code', 'terminal font'],
       'Terminal faces': ['face', 'faces', 'screen', 'eyes', 'bot', 'bots', 'avatar', 'terminal', 'mascot', 'look'],
       // The legend (FaceLegend.tsx): what each face means.
       'What a face says': ['legend', 'expression', 'expressions', 'mood', 'moods', 'meaning', 'status', 'state', 'states'],

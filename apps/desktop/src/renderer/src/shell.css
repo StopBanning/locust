@@ -26388,3 +26388,7 @@ textarea.lc-tune__skillwhen { height: auto; min-height: 34px; max-height: calc(4
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
+
+/* Each Code font choice is set in its own face (0.877), so the choice shows what it picks. */
+.lc-codefont-option--geist { font-family: 'Geist Mono', ui-monospace, monospace; }
+.lc-codefont-option--paper { font-family: 'Paper Mono', 'Geist Mono', ui-monospace, monospace; }

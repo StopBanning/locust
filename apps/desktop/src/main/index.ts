@@ -5032,12 +5032,12 @@ if (!ownsSingleInstanceLock) {
       return { ...rest, checkCommands: commands, checkFixes: fixes }
     }
     ipcMain.handle(WORKSPACE_SETTINGS_READ_CHANNEL, async (event) => {
-      if (!fromOwnWindow(event)) return { swarm: false, relay: true, relayHopCap: DEFAULT_RELAY_HOP_CAP, memoryMode: DEFAULT_MEMORY_MODE, autoMode: false, askConnectors: false, keepATodoList: false, layout: 'auto', tube: 'full', replySize: 'standard' } as const
+      if (!fromOwnWindow(event)) return { swarm: false, relay: true, relayHopCap: DEFAULT_RELAY_HOP_CAP, memoryMode: DEFAULT_MEMORY_MODE, autoMode: false, askConnectors: false, keepATodoList: false, layout: 'auto', tube: 'full', replySize: 'standard', codeFont: 'geist' } as const
       try {
         return forThisFolder(await teammates.readSettings())
       } catch {
         // An unreadable switch reads as its default: swarm off, replies on.
-        return { swarm: false, relay: true, relayHopCap: DEFAULT_RELAY_HOP_CAP, memoryMode: DEFAULT_MEMORY_MODE, autoMode: false, askConnectors: false, keepATodoList: false, layout: 'auto', tube: 'full', replySize: 'standard' } as const
+        return { swarm: false, relay: true, relayHopCap: DEFAULT_RELAY_HOP_CAP, memoryMode: DEFAULT_MEMORY_MODE, autoMode: false, askConnectors: false, keepATodoList: false, layout: 'auto', tube: 'full', replySize: 'standard', codeFont: 'geist' } as const
       }
     })
 
@@ -7272,7 +7272,7 @@ if (!ownsSingleInstanceLock) {
     })
 
     ipcMain.handle(WORKSPACE_SETTINGS_WRITE_CHANNEL, async (event, settings: unknown) => {
-      if (!fromOwnWindow(event)) return { swarm: false, relay: true, relayHopCap: DEFAULT_RELAY_HOP_CAP, memoryMode: DEFAULT_MEMORY_MODE, autoMode: false, askConnectors: false, keepATodoList: false, layout: 'auto', tube: 'full', replySize: 'standard' } as const
+      if (!fromOwnWindow(event)) return { swarm: false, relay: true, relayHopCap: DEFAULT_RELAY_HOP_CAP, memoryMode: DEFAULT_MEMORY_MODE, autoMode: false, askConnectors: false, keepATodoList: false, layout: 'auto', tube: 'full', replySize: 'standard', codeFont: 'geist' } as const
       try {
         return forThisFolder(await teammates.writeSettings(await withThisFolder(settings)))
       } catch {

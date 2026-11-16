@@ -27,6 +27,7 @@ import type {
   LayoutPreference,
   TubePreference,
   ReplyTextSize,
+  CodeFont,
   MetalPreset,
   MetalStrength,
   MetalMotion,
@@ -867,6 +868,8 @@ export default function App(): ReactElement {
    * had and the choice is on the screen.
    */
   const [replySize, setReplySize] = useState<ReplyTextSize>('standard')
+  /* The face for code, paths and commands (0.877): see CodeFont. */
+  const [codeFont, setCodeFont] = useState<CodeFont>('geist')
   /*
    * The send button's metal, and how it behaves. Every option the design
    * agent offered is a setting rather than a constant, because Colin asked to
@@ -1831,6 +1834,7 @@ export default function App(): ReactElement {
       void window.desktop?.readWorkspaceSettings().then((settings) => {
         setKeepATodoList(settings.keepATodoList === true)
         setReplySize(settings.replySize)
+        setCodeFont(settings.codeFont === 'paper' ? 'paper' : 'geist')
         setLayout(isLayoutPreference(settings.layout) ? settings.layout : 'auto')
         setTube(settings.tube)
         setMemoryMode(settings.memoryMode)
@@ -1864,6 +1868,18 @@ export default function App(): ReactElement {
   useEffect(() => {
     document.documentElement.dataset.replysize = replySize
   }, [replySize])
+  const chooseCodeFont = (next: CodeFont): void => {
+    const before = codeFont
+    setCodeFont(next)
+    void window.desktop
+      ?.changeWorkspaceSettings({ codeFont: next })
+      .then((settings) => setCodeFont(settings.codeFont === 'paper' ? 'paper' : 'geist'))
+      .catch(() => setCodeFont(before))
+  }
+  /* The same shape as the reply's size: one attribute on the root, and tokens.css says what it means. */
+  useEffect(() => {
+    document.documentElement.dataset.codefont = codeFont
+  }, [codeFont])
   const chooseLayout = (next: LayoutPreference): void => {
     const before = layout
     setLayout(next)
@@ -3853,6 +3869,7 @@ export default function App(): ReactElement {
           setLayout(isLayoutPreference(settings.layout) ? settings.layout : 'auto')
           setTube(settings.tube)
           setReplySize(settings.replySize)
+          setCodeFont(settings.codeFont === 'paper' ? 'paper' : 'geist')
           // The model a new chat with nobody starts on (0.552).
           const newChat = settings.newChatRoute
           if (newChat !== undefined) {
@@ -9745,6 +9762,8 @@ export default function App(): ReactElement {
             onTubeChange={chooseTube}
               replySize={replySize}
               onReplySizeChange={chooseReplySize}
+              codeFont={codeFont}
+              onCodeFontChange={chooseCodeFont}
               checkCommand={checkCommand}
               onCheckCommandSave={saveCheckCommand}
               checkFixTries={checkFixTries}
