@@ -2,7 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { ExecutableLaunch, RuntimeCommandSpec, RuntimeDiscovery, RuntimeProcessRun } from '@teammate/runtime-adapters'
-import type { MissionLedger } from '@teammate/mission-store'
+import { createFileMissionLedger, type MissionLedger } from '@teammate/mission-store'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createAgentAccounts } from './agent-accounts.js'
 import { createCodexMissionService } from './codex-mission.js'
@@ -157,5 +157,25 @@ describe('new conversations use the account you signed in', () => {
     expect(await ranOutOn(`claude-account:${max}`).carry('mission_1', { runtime: 'claude', account: max })).toEqual({ ok: false, message: 'Claude Code is the agent whose plan ran out.' })
     expect(await ranOutOn(`claude-account:${pro}`).carry('mission_1', { runtime: 'claude' })).toEqual({ ok: false, message: 'Claude Code is the agent whose plan ran out.' })
     expect(started).toHaveLength(1)
+  })
+
+  it('leaves a reply in a conversation that ran on This Mac’s sign-in on it, rather than moving it to the new account', async () => {
+    const { store, signIn, directory } = await fixture()
+    const commands: RuntimeCommandSpec[] = []
+    const ledger = createFileMissionLedger({ rootDirectory: join(directory, 'ledger') })
+    const service = createCodexMissionService({ workspacePath: directory, ledger,
+      accountForNew: runtime => store.forNew(runtime),
+      discover: async (runtime, account) => [{ id: 'claude', kind: 'agent-runtime', displayName: 'Claude Code', optional: false, availability: 'available', readiness: 'ready', executable: await store.launch(runtime!, account, launch), supportedFeatures: [], requiredFeatures: [], diagnostics: [] } as RuntimeDiscovery],
+      runner: { start: command => { commands.push(command); return { records: { async *[Symbol.asyncIterator]() {}, drainAvailable: () => [] }, completion: Promise.resolve({ exitCode: 0, signal: null, stderr: '', stderrTruncated: false, recordCount: 0, cancelled: false, forcedTerminationAttempted: false, terminationUnconfirmed: false, inputDeliveryFailed: false, outputLimitExceeded: false, oversizedRecordsDropped: 0, startedAt: '', finishedAt: '' }) } satisfies RuntimeProcessRun } }
+    })
+    const first = await service.start('Read this folder', 'claude', 'ask', {}, () => undefined)
+    expect(first.ok && first.data.resolvedRouteId.endsWith('-account:default')).toBe(true)
+    await vi.waitFor(async () => expect((await ledger.getMission(first.ok ? first.data.missionId : ''))?.phase).not.toBe('running'))
+    const max = await store.add('claude', 'max')
+    await signIn(max.id)
+    const reply = await service.start('And the next file', 'claude', 'ask', {}, () => undefined, undefined, undefined, first.ok ? first.data.missionId : undefined)
+    expect(reply.ok && reply.data.resolvedRouteId.endsWith('-account:default')).toBe(true)
+    expect(commands.at(-1)?.env?.CLAUDE_CONFIG_DIR).toBeUndefined()
+    await service.dispose()
   })
 })

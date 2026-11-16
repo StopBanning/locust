@@ -1656,8 +1656,11 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
       cloud?: { readonly setUp?: boolean },
       referenceIds?: readonly string[]
     ): Promise<CodexMissionStartResponse> {
-      // No account named: the one new conversations use (0.876), before the policy gate so it judges the real account.
-      if (route.account === undefined && cloud === undefined && supportsAccounts(runtime)) {
+      // A NEW conversation that names no account: the one new conversations use (0.876), before the policy gate so it
+      // judges the real account. Never a reply, a continuation, a side question or a rewind: a conversation stays on the
+      // account it ran on, or its session would be left behind and the reply carried over cold (0.876.1).
+      const isNew = followUpOf === undefined && continuation === undefined && side === undefined && rewind !== true
+      if (isNew && route.account === undefined && cloud === undefined && supportsAccounts(runtime)) {
         const forNew = await options.accountForNew?.(runtime).catch(() => undefined)
         if (forNew !== undefined) route = { ...route, account: forNew }
       }

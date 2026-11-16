@@ -11,6 +11,14 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.876.1 - 2026-11-16
+
+### Fixed
+
+- **A conversation stays on the account it started on.** With an added account set for new conversations, 0.876.0 also
+  moved a reply in an older conversation onto it, which carried the conversation over with a summary instead of
+  continuing it. Only a new conversation uses that account now.
+
 ## 0.876.0 - 2026-11-16
 
 ### Fixed
