@@ -11,6 +11,14 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.876.2 - 2026-11-16
+
+### Improved
+
+- **The model chip always says which account.** Once you have added a second account for an agent, the chip under the
+  message box names the account a conversation will use: the added account's name, or "This Mac" for the computer's
+  own sign-in. Before, it named nothing on the computer's own sign-in, so you could not tell which one you were on.
+
 ## 0.876.1 - 2026-11-16
 
 ### Fixed

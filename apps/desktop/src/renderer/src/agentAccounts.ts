@@ -27,3 +27,15 @@ export function useAgentAccounts() {
 }
 export const accountName = (id: string | undefined) => id === undefined ? `This ${windowWords().computer}'s sign-in` : accounts.find(a => a.id === id)?.name ?? 'Removed account'
 export const routeAccount = (route: { readonly account?: string; readonly resolvedRouteId?: string }) => route.account ?? accountFromRoute(route.resolvedRouteId ?? '')
+/**
+ * The account the model chip names (0.876.2). Colin, 16 Nov: "How do we see what account is logged into Locust? It's
+ * really hard to swap accounts." The chip named an account only when one was picked; on the computer's own sign-in it
+ * named none, so a person with a second account could not tell which one a conversation would use. Once a runtime has an
+ * account added, the chip always says which: the added one's name, or "This Mac" for the computer's own sign-in. With no
+ * account added there is only one, and the chip stays as it was.
+ */
+export function chipAccountName(runtime: string, account: string | undefined, list: readonly AgentAccount[]): string | undefined {
+  if (account !== undefined) return list.find(a => a.id === account)?.name ?? 'Removed account'
+  if (!list.some(a => a.runtime === runtime)) return undefined
+  return `This ${windowWords().computer}`
+}

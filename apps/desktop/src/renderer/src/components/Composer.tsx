@@ -1,5 +1,5 @@
 import { accountUsageKey } from '../../../shared/agent-accounts.js'
-import { accountName, routeAccount, useAgentAccounts } from '../agentAccounts.js'
+import { chipAccountName, routeAccount, useAgentAccounts } from '../agentAccounts.js'
 import mark from '../assets/locust-mark.svg'
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { usagePercent, usageWindowSentence } from '../missionView.js'
@@ -3027,18 +3027,19 @@ export function Composer({
                     // has said (0.797, above). That reading is the machine's own sign-in's, so never beside another account.
                     (() => {
                       const account = running ? routeAccount(activeRoute ?? {}) : routeAccountNow
-                      if (account !== undefined) return <>{runtimeLabel}{` · ${accountName(account)}`}</>
-                      return defaultModelName === undefined ? runtimeLabel : (
+                      if (account !== undefined) return <>{runtimeLabel}{` · ${chipAccountName(shownRuntime, account, accounts)}`}</>
+                      const mine = chipAccountName(shownRuntime, undefined, accounts)
+                      return defaultModelName === undefined ? <>{runtimeLabel}{mine === undefined ? '' : ` · ${mine}`}</> : (
                         <>
                           <span className="lc-control__runtime">{runtimeLabel}</span>
                           <span className="lc-separator">/</span>
-                          <span className="lc-control__mono lc-control__model">{defaultModelName}</span>
+                          <span className="lc-control__mono lc-control__model">{defaultModelName}{mine === undefined ? '' : ` \u00b7 ${mine}`}</span>
                         </>
                       )
                     })()
                   ) : (
                     <>
-                      <span className="lc-control__mono lc-control__model">{modelName}{(running ? routeAccount(activeRoute ?? {}) : routeAccountNow) !== undefined ? ` \u00b7 ${accountName(running ? routeAccount(activeRoute ?? {}) : routeAccountNow)}` : ''}</span>
+                      <span className="lc-control__mono lc-control__model">{modelName}{(() => { const named = chipAccountName(shownRuntime, running ? routeAccount(activeRoute ?? {}) : routeAccountNow, accounts); return named === undefined ? '' : ` \u00b7 ${named}` })()}</span>
                       {freeModel && <span className="lc-control__free">Free</span>}
                     </>
                   )}
