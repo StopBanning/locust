@@ -10,6 +10,18 @@ import subprocess
 import sys
 
 CONTROLS = {
+    "work-owner": (
+        "core/src/teammate_work.rs",
+        'owners.get(&m.mission_id).is_some_and(|owner| owner == id)',
+        'owners.get(&m.mission_id).is_some()',
+        "counts_only_the_missions_the_host_recorded_as_theirs",
+    ),
+    "recorded-runtime": (
+        "src/ui/home_panel.rs",
+        '.or(route)\n}',
+        '; route\n}',
+        "still_prefers_a_running_mission_then_a_past_one_over_the_route",
+    ),
     "plain-ghost": (
         "src/ui/messages.rs",
         'hue: "pearl".into(), parts: None, bot: Some(("ghost".into(), "eyes".into())),',

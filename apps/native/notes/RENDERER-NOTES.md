@@ -1318,3 +1318,49 @@ No live window, real agent, packaged app or Electron/JavaScript gate is run.
 - The five runtime-selection tests all passed by name in that same run (the
   three Electron cases and two extra regressions). Recorded-runtime control is
   now running. Ghost inventory row is carried; runtime row remains waiting.
+
+### Renderer-13 next section — work accounting (prepared, not yet carried)
+
+- Re-read teammateWork.test.ts and teammateWork.ts. The four exact age cases
+  were already present in people_panel::renderer_work_age_tests. Added six
+  separate exact work cases in core teammate_work::tests, plus a cycle/group
+  regression. Values remain m1/m2/m3/m4, tm_atlas/tm_bramble/tm_nobody,
+  the September 2026 timestamps, and 100/10 + 200/20 excluding 999/99.
+- The Team card now calls this projection, counts by cached host owner ids,
+  sums only reported usage (absence stays absent), and lists three newest
+  conversations, named from the root's displayed title. No new disk read in
+  drawing. The extra headless Team-card test gives unrelated work the same
+  teammate display name and requires that its title and usage stay absent.
+- Work-owner control prepared. Inventory row stays waiting until all ten
+  exact cases and real card regression have passed by name. The summary's
+  existing ledger cost projection is used rather than reparsing events in UI.
+
+
+### Runtime section verified
+
+- **602a5143** commits the runtime selection and its Home/Team integration.
+  Five tests passed by name in renderer-control-plain-ghost.log. Recorded-runtime
+  control then caught exactly the selection case and its real-surface test,
+  restored home_panel.rs byte for byte, and exited 0. Totals: 2133 core passed
+  (20 ignored); 531 window passed, two intentional failures. No unrelated failure.
+- All ten exact teammateWork cases (six core work tests and four existing age
+  tests), its extra grouping/cycle regression, and the new Team-card regression
+  passed by name in renderer-control-recorded-runtime.log. Work-owner control
+  follows. Neither mutant run is a restored green baseline.
+
+
+### Work section verified and committed
+
+- **c3fc1654** core projection and exact work tests; **886332c4** real Team-card
+  integration and its surface regression. All twelve work/age/group/surface
+  checks were mechanically verified by full name in the recorded-runtime log.
+- Work-owner control exited 0 and restored teammate_work.rs byte for byte.
+  Six intended core assertions failed (2127 other core passed, 20 ignored),
+  plus the intended real Team-card assertion (532 other window passed).
+  No unrelated failure or compile failure counted as a catch. Log:
+  renderer-control-work-owner.log; receipt: renderer-13-work-control-result.log.
+- teammateWork row now carried. The restored whole release workspace run is
+  renderer-13-restored-workspace.log, running. Release build follows it, serially.
+- This continuation carries two files (ghost, work); **24 of the original 45
+  carried, 21 still waiting**. Signed-out stays waiting despite its first three
+  exact cases being carried. No new does-not-apply or partial classification.
