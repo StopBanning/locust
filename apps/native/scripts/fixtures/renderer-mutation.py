@@ -10,6 +10,24 @@ import subprocess
 import sys
 
 CONTROLS = {
+    "prompt-rail-threshold": (
+        "src/ui/prompt_rail.rs",
+        'messages >= PROMPT_RAIL_MIN && scrollable && !compare && room >= PROMPT_RAIL_ROOM',
+        'messages > PROMPT_RAIL_MIN && scrollable && !compare && room >= PROMPT_RAIL_ROOM',
+        "gives_rail_to_four_messages_when_scrollable_and_room_suffices",
+    ),
+    "glyph-weight": (
+        "core/src/bot_spec.rs",
+        '"o" => GlyphShape { lines: LINES_O, ring: Some(3.9), weight: 3.8, closed: false },',
+        '"o" => GlyphShape { lines: LINES_O, ring: Some(3.9), weight: 3.7, closed: false },',
+        "is_as_heavy_as_the_eye_it_stands_for",
+    ),
+    "conversation-step": (
+        "src/ui/conversation_list.rs",
+        'if Some(index) != at && eligible(&drawn[index])',
+        'if Some(index) != at',
+        "with_shift_pass_over_every_conversation_that_is_not_waiting_for_you",
+    ),
     "conversation-model-mark": (
         "src/ui/sidebar.rs",
         '!is_own_mark_model(&m.model)',

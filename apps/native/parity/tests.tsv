@@ -868,7 +868,7 @@ apps/desktop/src/renderer/src/a-wrapped-bullet-stays-one-bullet.test.ts		waiting
 apps/desktop/src/renderer/src/across-your-benchmarks.test.tsx	compare-more	carried		`benchmark::tests::across_your_benchmarks_averages_and_excludes_setups` + `benchmark::tests::keeps_each_runtime_in_its_own_unit`
 apps/desktop/src/renderer/src/agent-updates-say-what-happened.test.ts	UPDATES	carried	core/src/agent_updates_tests.rs (the row words); src/ui/window_drive_tests.rs update_installs_the_newer_version_and_the_row_says_updated	every it() ported (6): nothing when current, what a newer one waits for, who is offered Update, under way / landed / failed with the time, the switch sentences, a held version. The time is en-US style (11:05 AM, Sep 22), not the computer's locale
 apps/desktop/src/renderer/src/agentText.test.ts		waiting		
-apps/desktop/src/renderer/src/alt-and-an-arrow-moves-between-conversations.test.ts		waiting		
+apps/desktop/src/renderer/src/alt-and-an-arrow-moves-between-conversations.test.ts		carried	conversation_list::renderer_step_tests; sidebar::renderer_step_wiring_tests	All five Electron cases passed by name in renderer-control-glyph-weight.log; native key handler and keyed sidebar drawing, including folded-group regression. Final restored verification in RENDERER-NOTES.md.
 apps/desktop/src/renderer/src/an-account-shows-how-full-it-is.test.tsx		waiting		
 apps/desktop/src/renderer/src/an-acp-agent-says-what-it-can-do.test.ts		waiting		
 apps/desktop/src/renderer/src/an-added-account-is-named-in-the-picker.test.tsx	ACCOUNTS	carried	src/ui/tests.rs (an_added_account_is_named_in_the_picker_and_respects_policy_and_limits)	both picker account naming/SIGN IN/AT LIMIT/override cases, org-policy picker/settings hiding, and no auto-login under policy

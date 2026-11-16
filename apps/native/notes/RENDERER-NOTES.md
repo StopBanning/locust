@@ -652,3 +652,35 @@ This section is not yet verified and its row remains waiting.
   sidebar itself. This correction and folded-group assertions await the next run.
   The eye-only test section is verified independently of that window failure;
   its file remains waiting for the four missing drawing cases.
+
+## Renderer-8 — prompt rail (prepared)
+
+- The four cases from `a-long-conversation-has-a-rail-of-your-messages.test.tsx`
+  already have one native test each in `prompt_rail::tests`, with Electron's
+  exact thresholds, geometry, keys and hover strings. Strengthened
+  `takes_hover_line_from_message` to draw five real native marks from Electron's
+  five prompts and check each keyed control's accessible label, not only the
+  pure string helper. Existing whole-thread headless test also loads and draws
+  five linked turns and checks scrolling/jumping and room gating.
+- Mapping in source order: `gives_rail_to_four_messages_when_scrollable_and_room_suffices`,
+  `keeps_marks_in_order_and_current_is_nearest_top`,
+  `jumps_with_ctrl_alt_up_and_down_only`, `takes_hover_line_from_message`.
+  The DOM data-attribute and React source-regex checks become native drawing
+  and handler checks; no product behavior is excluded. Still waiting until the
+  strengthened case passes by name. The newest-turn rendering file remains
+  waiting: it needs its actual 400-row budget and expansion behavior verified.
+
+### Verified controls and navigation section
+
+- `renderer-control-glyph-weight.log`: all fifteen eye cases except the
+  deliberately weakened weight rule passed; `is_as_heavy_as_the_eye_it_stands_for`
+  failed as intended. Core 2093 passed + one intentional failure, 20 ignored;
+  window 490 passed. The control runner exited 0 and restored bot_spec.rs byte
+  for byte (`renderer-8-glyph-control-result.log`).
+- All five navigation cases passed by name in that run, including the corrected
+  actual key-handler case and the strengthened folded-group test. Navigation row
+  now carried. No React-only exclusion. Native selection is read from the same
+  conversation the sidebar highlights, including a just-opened ledger whose tip
+  has not loaded yet. Final restored verification and its own control follow.
+- Eye test section committed as `1c64d157`. Its row remains waiting for drawing
+  coverage; no false full-file claim. Navigation is the next verified section.

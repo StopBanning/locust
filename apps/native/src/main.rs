@@ -1681,6 +1681,7 @@ fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
         quit_guard_dialog::request_close(s, tx);
         return true;
     }
+    if sidebar::step_from_key(s, event, tx) { return true; }
     if event.mods.shift || event.mods.alt {
         return false;
     }
