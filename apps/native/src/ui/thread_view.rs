@@ -56,7 +56,9 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
             &fallback
         };
 
-        let transcript = if items.is_empty() {
+        let transcript = if items.is_empty() && s.ledger.is_none() {
+            crate::idle_teammate::view(s, teammate, p).child(approval_card(s, p))
+        } else if items.is_empty() {
             let title = if let Some(pane) = &s.ledger {
                 if pane.loading {
                     "Loading conversation…".into()

@@ -1231,3 +1231,39 @@ No live window, real agent, packaged app or Electron/JavaScript gate is run.
   absence of a proven blocked label, not a second parallel status machine.
   No cases were excluded as Electron plumbing. Signed-out/runtime-choice and
   presence cases in the other file remain waiting.
+- Corrected startup-cache control rerun exited 0 and is a VALID catch:
+  the named test failed at idle_teammate.rs's prompt assertion. The captured
+  headless thread showed Quill with Custom's default prompts instead of her
+  three writer prompts. No isolation error. Main.rs restored byte for byte.
+  Totals: 2126 core passed (20 ignored), 523 window passed, one intentional
+  window failure only. Result: renderer-12-cache-control-rerun-result.log;
+  control detail: renderer-control-idle-roster-cache.log.
+- Final source verification is now renderer-12-verified-workspace.log. The
+  prior renderer-12-final-workspace.log retains the rejected fixture failure.
+
+## Renderer-12 final restored verification
+
+- renderer-12-verified-workspace.log exited 0: **2126 core + 524 window =
+  2650 passed**, **20 ignored** real-agent tests, doc tests 0. All twelve
+  Electron cases and three additional regressions observed passing by name,
+  also checked mechanically against the fifteen new test declarations.
+- Idle's five exact case suffixes, in Electron order: offers_a_template_teammates_own_first_messages;
+  never_offers_code_to_the_money_or_the_writing_team;
+  never_asks_a_non_coder_for_a_page_the_app_would_only_show_as_code;
+  says_what_the_role_is_for_not_that_every_role_reads_the_workspace;
+  offers_a_hand_made_teammate_its_roles_and_speaks_of_code_only_for_the_roles_that_are_code.
+  All live under idle_teammate::tests. Two additional cases cover effective mode
+  and startup's actual roster refresh; team_board::surface_tests covers both
+  Home and Team with pending and checked missing agents.
+- Both rows now carried. No exclusions. **22 of the original 45 requested
+  files carried, 23 still waiting. The full brief remains unfinished.**
+- All runs use gentle-cargo, one whole release workspace at a time, serial tests,
+  optional Git read locks disabled, the in-workspace Cargo target and TS reader.
+  No mutation remains. Three valid controls caught their intended regressions;
+  the invalid isolation attempt is explicitly rejected above.
+- The final suite has the same existing warnings as the baseline: 3 core-test
+  warnings and 11 window-test warnings, none in the new modules. Python control
+  syntax and git diff --check pass. Release binary build follows.
+- Not run: Electron/JavaScript gate, live or packaged window, real agent,
+  another OS build, or a performance benchmark. Starter dispatch uses the
+  existing send gate; a live starter-button/model turn was not attempted.

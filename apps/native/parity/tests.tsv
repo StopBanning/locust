@@ -884,7 +884,7 @@ apps/desktop/src/renderer/src/an-earlier-turn-that-only-messaged-is-not-silent.t
 apps/desktop/src/renderer/src/an-earlier-version-reads-as-it-was.test.ts		waiting		
 apps/desktop/src/renderer/src/an-empty-home-offers-a-team.test.tsx	p12	partial		Existing starter tests map to the Rust tests listed earlier. `renderer/src/an-empty-home-offers-a-team.test.tsx`, `home-leads-with-the-team.test.tsx`, `home-names-the-model-it-runs.test.tsx` and `home-free-model-keeps-its-tag.test.tsx` are 
 apps/desktop/src/renderer/src/an-ended-run-offers-the-way-on.test.tsx		waiting		
-apps/desktop/src/renderer/src/an-idle-teammate-offers-its-own-world.test.tsx		waiting		
+apps/desktop/src/renderer/src/an-idle-teammate-offers-its-own-world.test.tsx	renderer-12	carried	src/ui/idle_teammate.rs	5 exact Electron cases through real headless thread; cached template starters/custom titles at roster refresh; mode and startup regressions; 2 controls caught/restored. notes/RENDERER-NOTES.md.
 apps/desktop/src/renderer/src/an-image-can-be-zoomed-and-panned.test.ts		waiting		
 apps/desktop/src/renderer/src/an-image-request-lives-only-with-its-row.test.ts		waiting		
 apps/desktop/src/renderer/src/an-issue-link-wears-its-state.test.tsx		waiting		

@@ -156,6 +156,8 @@ mod sidebar;
 use sidebar::*;
 #[path = "ui/thread_view.rs"]
 mod thread_view;
+#[path = "ui/idle_teammate.rs"]
+mod idle_teammate;
 use thread_view::*;
 #[path = "ui/app_state.rs"]
 mod app_state;
@@ -1364,6 +1366,8 @@ fn sync_teammate_connectors(s: &mut State) {
         }
     }
     s.teammate_connectors = map;
+    // Keep template starters and custom role titles ready before the Team screen opens.
+    s.people_panel.team = team;
 }
 
 fn apply_team(s: &mut State, team: Vec<Teammate>) {

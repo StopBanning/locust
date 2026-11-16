@@ -10,6 +10,24 @@ import subprocess
 import sys
 
 CONTROLS = {
+    "idle-roster-cache": (
+        "src/main.rs",
+        "s.people_panel.team = team;",
+        "let _ = team;",
+        "roster_refresh_keeps_the_template_starters_before_the_team_screen_is_opened",
+    ),
+    "pending-reach": (
+        "core/src/teammate_reach.rs",
+        "(usable || !runtimes.iter().any(|r| r.checking)).then_some(usable)",
+        "Some(usable)",
+        "has_no_global_blocked_verdict_while_the_only_possible_agent_is_still_checking",
+    ),
+    "idle-own-starters": (
+        "src/ui/idle_teammate.rs",
+        "own.unwrap_or_else(|| role_starters(role))",
+        "role_starters(role)",
+        "offers_a_template_teammates_own_first_messages",
+    ),
     "routine-owner": (
         "src/ui/routines_panel.rs",
         'if !s.teammates.iter().any(|t| t.id == owner) {',
@@ -174,6 +192,7 @@ try:
         result = subprocess.run(["timeout", "5400", "python3", "scripts/gentle-cargo.py", "--timeout", "5380", "test", "--release", "--workspace", "--no-fail-fast"], stdout=out, stderr=subprocess.STDOUT, env=env)
     output = log.read_text()
     assert result.returncode != 0, "mutation survived"
+    assert "Test isolation guard refused" not in output, "test isolation failure is not a caught mutation"
     assert any(line.startswith("test ") and named in line and line.endswith(" ... FAILED") for line in output.splitlines()), f"named assertion failure absent: {log}"
     print(f"CAUGHT {sys.argv[1]}: {named}", flush=True)
 finally:
