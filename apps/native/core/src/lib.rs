@@ -192,6 +192,9 @@ mod model_lists_tests;
 #[cfg(test)]
 mod mission_history_tests;
 
+#[cfg(all(test, unix))]
+mod permission_host_tests;
+
 // Real post-checkout hooks are made executable the Unix way.
 #[cfg(all(test, unix))]
 mod worktree_checkout_tests;

@@ -286,6 +286,14 @@ pub struct Recorded {
     pub occurred_at: String,
 }
 
+/// approval-detail.ts `wholeInput`: the input as `JSON.stringify(input, null, 2)` writes it, nothing for none.
+fn whole_input(input: &Value) -> String {
+    if input.is_null() {
+        return String::new();
+    }
+    serde_json::to_string_pretty(input).map(|text| whole_detail(&text)).unwrap_or_default()
+}
+
 fn whole_detail(value: &str) -> String {
     let normalized = value.replace("\r\n", "\n").replace('\r', "\n");
     let text = normalized.trim();
@@ -460,7 +468,7 @@ pub fn describe_claude_tool(
         return (
             Kind::Connector,
             connector_name(tool_name),
-            whole_detail(&input.to_string()),
+            whole_input(input),
             None,
             None,
         );
@@ -468,7 +476,7 @@ pub fn describe_claude_tool(
     (
         Kind::Command,
         format!("Use {tool_name}"),
-        whole_detail(&input.to_string()),
+        whole_input(input),
         None,
         None,
     )
@@ -563,17 +571,19 @@ pub fn claude_behavior_for(answer: &Answer, input: Option<&Value>) -> Value {
             reason,
             ..
         } => {
-            let message = reason
-                .as_deref()
-                .filter(|s| !s.is_empty())
-                .unwrap_or("The person declined this in Locust.");
+            // permission-host.ts decide: Claude reads the denial's message as the tool's result, so a reason the
+            // person gave rides it (0.374), in approval-channel.ts `deniedSaying`'s words.
+            let message = match reason.as_deref().filter(|s| !s.is_empty()) {
+                Some(why) => format!("Denied in Locust. The person declined this, and said: {why}"),
+                None => "Denied in Locust.".to_owned(),
+            };
             json!({"behavior":"deny","message": message})
         }
         Answer::Decision { .. } => {
             json!({"behavior":"allow","updatedInput": input.cloned().unwrap_or(json!({}))})
         }
         // A Claude card is an authorization: answers never reach one (the channel checks the pairing first).
-        Answer::Answers { .. } => json!({"behavior":"deny","message":"The person declined this in Locust."}),
+        Answer::Answers { .. } => json!({"behavior":"deny","message":"Locust did not send that answer: it belongs to a question, and the runtime was waiting on a permission."}),
     }
 }
 
@@ -836,7 +846,8 @@ impl Channel {
             questions: Vec::new(),
         };
         // The tool call this card is about, so the window can say when a helper raised it (helperAskedBy).
-        if !_request_id.is_empty() && _request_id != "permission" {
+        // Only what looks like an id is carried (permission-host.ts: /^[A-Za-z0-9_-]{1,128}$/).
+        if _request_id != "permission" && crate::trash::is_safe_id(_request_id) {
             remember_tool_use(&request.approval_id, _request_id);
         }
         let input_kept = request.claude_input.clone();
@@ -1053,7 +1064,14 @@ impl Channel {
         // would read the wrong shape as an empty answer. Refused, and the runtime told no.
         let answering = matches!(answer, Answer::Answers { .. });
         if answering != (pending.request.kind == Kind::Question) {
-            let _ = pending.tx.try_send(Answer::Decision { approval_id: pending.request.approval_id.clone(), decision: Decision::Deny, reason: None });
+            // Claude's bridge turns the answer itself into permission-host.ts's refusal, which says it belonged to a
+            // question; every other runtime is told no.
+            let refusal = if answering && pending.request.runtime == "claude" {
+                answer.clone()
+            } else {
+                Answer::Decision { approval_id: pending.request.approval_id.clone(), decision: Decision::Deny, reason: None }
+            };
+            let _ = pending.tx.try_send(refusal);
             return Err(if answering {
                 "Locust did not send that answer: it belongs to a question, and the runtime was waiting on an authorization."
             } else {

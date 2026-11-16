@@ -431,7 +431,7 @@ apps/desktop/src/main/palette-has-no-inner-ring.test.ts	P4	partial		`main/palett
 apps/desktop/src/main/past-opencode-and-cursor-chats-can-be-imported.test.ts	P9	does-not-apply		main/past-opencode-and-cursor-chats-can-be-imported.test.ts, main/a-conversation-can-be-imported.test.ts | Standalone import workflows outside Area 7 catch-up.
 apps/desktop/src/main/pasted-attachment.test.ts		waiting		
 apps/desktop/src/main/peer-exchange-conversation.test.ts		waiting		
-apps/desktop/src/main/permission-host.test.ts		waiting		
+apps/desktop/src/main/permission-host.test.ts	MAIN4	partial	core/src/permission_host_tests.rs	13 of 16, over the run's real socket: a card taken down when the bridge lets go, an answered card left alone, only this run reaches its bridge (0700 socket folder for Electron's token) and a non-call raises no card, the card and the allow, toolUseId only when an id (fixed), Denied in Locust. / with the person's reason (fixed), Always keyed by the tool (the same tool again is answered by the one channel as earlier-always), one run never answers for another, run end refuses and removes the config, a question's answer refused saying so (fixed), the server named locust, connector summaries; connector detail is JSON.stringify(input, null, 2) (fixed). Not built: beforeApproval (pending text, 2 cases), serverPrefixOf; Electron's one shared listener is a socket per run here
 apps/desktop/src/main/picker-rows-stay-one-line.test.ts		waiting		
 apps/desktop/src/main/plan-is-not-a-card.test.ts		waiting		
 apps/desktop/src/main/popular-skill-packs-fit-and-agent-copies-are-chosen.test.ts		waiting		
