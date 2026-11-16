@@ -1660,3 +1660,62 @@ Further waiting-file inspection (no additional carried claim):
   and worker integration, then two mutation controls. The stash is retained.
 - Recount and --check passed: 220 carried, 63 does-not-apply, 205 partial,
   821 waiting (1309 total), before the separate history-IPC classification.
+
+
+### Renderer-15 older-history IPC classification
+
+- `an-older-conversation-stays-read.test.ts`: does-not-apply, with a reason in
+  parity/tests.tsv. Read both tests, historyMerge.ts and native's begin_ledger,
+  LedgerPane, ledger_tick and recents-result path. The first case selects m1
+  from IPC rows missing events; the second preserves a JS object while its
+  eventCount is unchanged, replacing it when it grows. Both are the window's
+  compensation for Electron's partial-history IPC, which native does not use.
+- Native opens a local ledger Session that drains its conversation chain and
+  keeps its snapshot independently of the recents summary map. No feature was
+  removed and no synthetic Rust version of the IPC cache was built. Existing
+  Session behavior was read as architecture evidence, not claimed as two new
+  exact-value case passes. No additional carried row or new test claimed.
+- Source remains exactly the source checked by the restored release suite and
+  release build. This metadata-only section needs recount/whitespace validation.
+
+### Renderer-15 remaining work
+
+The full requested renderer port remains incomplete. The current inventory has
+14 waiting renderer rows whose filenames contain team or conversation. Applicable
+teammate behavior remains first; page isolation, pet selection/painting, model and
+folder pickers and short-Home layout still need work. Two sidebar test sources
+are missing from this checkout, as recorded above. No unsupported carried claim.
+
+- `a-page-a-teammate-made-runs-in-its-turn.test.tsx`
+- `a-teammate-can-be-a-pet.test.tsx`
+- `a-teammate-has-a-model-of-its-own.test.tsx`
+- `a-teammates-eyes-are-drawn-not-typed.test.ts`
+- `home-fits-two-rows-of-teammates.test.ts`
+- `teammate-folder-row.test.tsx`
+- `the-folder-chip-says-a-folder-is-no-place-for-teammates.test.tsx`
+- `a-call-shows-on-its-conversation-row.test.tsx`
+- `a-phone-lists-conversations.test.ts`
+- `a-queued-message-stays-in-its-conversation.test.ts`
+- `a-waiting-conversation-is-first-in-the-sidebar.test.tsx`
+- `an-app-started-conversation-says-so-in-the-sidebar.test.tsx`
+- `review-sees-the-conversation.test.ts`
+- `savable-conversations.test.ts`
+
+
+### Renderer-15 stopping receipt
+
+- Commits: `2f5ed7db` core month projection and exact cases; `8e072b73`
+  Team cards/editor and worker wiring; `5d4b7769` mutation controls;
+  `828bb9be` verified monthly inventory/evidence. History-IPC classification
+  and this final receipt are committed separately.
+- Final recount and --check passed: 220 carried, 64 does-not-apply,
+  205 partial, 820 waiting (1309 total). One new carried row, one IPC-only
+  exclusion; 14 matching renderer rows still waiting, listed above.
+- Final mutation-script AST syntax and git diff --check passed. Both month
+  anchors audited present once and mutant text absent. No break remains.
+  Original stash retained, no push/merge/version/changelog, protected-lane,
+  HANDOFF-file or external-reference changes. All required commands finished.
+- Stopping state: tracked changes committed; only the original untracked
+  HANDOFF files remain. No live agent, Electron gate, live/packaged window,
+  cross-platform or performance verification claimed. Continue the 14 waiting
+  rows; do not treat this receipt as completion of the full port.

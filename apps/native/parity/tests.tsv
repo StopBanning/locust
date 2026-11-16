@@ -888,7 +888,7 @@ apps/desktop/src/renderer/src/an-idle-teammate-offers-its-own-world.test.tsx	ren
 apps/desktop/src/renderer/src/an-image-can-be-zoomed-and-panned.test.ts		waiting		
 apps/desktop/src/renderer/src/an-image-request-lives-only-with-its-row.test.ts		waiting		
 apps/desktop/src/renderer/src/an-issue-link-wears-its-state.test.tsx		waiting		
-apps/desktop/src/renderer/src/an-older-conversation-stays-read.test.ts		waiting		
+apps/desktop/src/renderer/src/an-older-conversation-stays-read.test.ts	renderer-15	does-not-apply		Both cases test Electron skinny-history IPC merging (missingTranscripts, eventCount/digest and JavaScript object identity). Native keeps its full LedgerPane/Session independently of recents; main.rs begin_ledger and recents-result path never replace it with a summary. No native IPC cache protocol to recreate. See notes/RENDERER-NOTES.md.
 apps/desktop/src/renderer/src/an-opencode-run-that-edited-is-not-run-again.test.ts		waiting		
 apps/desktop/src/renderer/src/an-orb-is-shrunk-in-software.test.ts		waiting		
 apps/desktop/src/renderer/src/an-orb-needs-a-runtime-that-streams.test.ts		waiting		
