@@ -36,10 +36,54 @@ pub(crate) struct PetPicks {
     pub(crate) adding: Option<String>,
     /// What went wrong, in words.
     pub(crate) notice: Option<String>,
+    /// The picks taken out of the picker (0.569, `pets-removed.json`).
+    pub(crate) removed: Vec<String>,
+    /// The ticked picks while choosing which to remove; None when not choosing (`usePetRemoval`).
+    pub(crate) ticked: Option<Vec<String>>,
+    pub(crate) removing: bool,
+    pub(crate) show_removed: bool,
+    /// What the last removal did: the words, and whether some could not be removed (amber).
+    pub(crate) report: Option<(String, bool)>,
     gallery: Option<Arc<PetGallery>>,
     pub(crate) thumbs_job: rune::Latest<Thumbs>,
-    pub(crate) list_job: rune::Latest<Vec<PublicPet>>,
+    pub(crate) list_job: rune::Latest<(Vec<PublicPet>, Vec<String>)>,
     pub(crate) add_job: rune::Latest<(String, Result<PublicPet, String>)>,
+    pub(crate) remove_job: rune::Latest<Removal>,
+}
+
+/// What a removal did, pick by pick: removed, removed with its files kept for its wearers, or not removed.
+#[derive(Default)]
+pub(crate) struct Removal {
+    pub(crate) removed: Vec<String>,
+    pub(crate) kept: Vec<(String, Vec<String>)>,
+    pub(crate) failed: Vec<String>,
+}
+
+/// `listed`: "a", "a and b", "a, b and c".
+pub(crate) fn listed(names: &[String]) -> String {
+    match names {
+        [] => String::new(),
+        [one] => one.clone(),
+        [rest @ .., last] => format!("{} and {last}", rest.join(", ")),
+    }
+}
+
+/// The words a removal leaves (`confirm` in usePetRemoval), and whether they are amber: some could not be removed.
+pub(crate) fn removal_report(done: &Removal) -> (String, bool) {
+    let name = |id: &String| pick_name(id).to_owned();
+    let mut said: Vec<String> = Vec::new();
+    let removed = done.removed.len();
+    if removed > 0 {
+        said.push(format!("Removed {removed} {} from the picker; Show removed brings any back.", if removed == 1 { "pet" } else { "pets" }));
+    }
+    for (id, wearers) in &done.kept {
+        said.push(format!("{} stays on {} until {} another look.", name(id), listed(wearers), if wearers.len() == 1 { "they get" } else { "each gets" }));
+    }
+    if !done.failed.is_empty() {
+        let failed: Vec<String> = done.failed.iter().map(name).collect();
+        said.push(format!("{} could not be removed and {} still in the picker.", listed(&failed), if failed.len() == 1 { "is" } else { "are" }));
+    }
+    (said.join(" "), !done.failed.is_empty())
 }
 
 /// The library and gallery for this data folder: added pets and the gallery cache in the Rust app's own folder, Codex's
@@ -72,7 +116,7 @@ pub(crate) fn wake(s: &mut State) {
         s.pet_picks.pictures.insert(id.to_owned(), Picture::Asked);
     }
     let list = gallery.clone();
-    s.pet_picks.list_job.request((), move |()| list.library.list());
+    s.pet_picks.list_job.request((), move |()| (list.library.list(), list.library.removed_picks()));
     s.pet_picks.thumbs_job.request((), move |()| {
         PET_PICKS
             .iter()
@@ -87,8 +131,18 @@ pub(crate) fn poll(s: &mut State) -> bool {
         wake(s);
     }
     let mut changed = false;
-    if let Some(list) = s.pet_picks.list_job.take() {
+    if let Some((list, removed)) = s.pet_picks.list_job.take() {
         s.pet_picks.installed = Some(list);
+        s.pet_picks.removed = removed;
+        changed = true;
+    }
+    if let Some(done) = s.pet_picks.remove_job.take() {
+        s.pet_picks.removing = false;
+        s.pet_picks.ticked = None;
+        s.pet_picks.report = Some(removal_report(&done));
+        if let Some(gallery) = s.pet_picks.gallery.clone() {
+            s.pet_picks.list_job.request((), move |()| (gallery.library.list(), gallery.library.removed_picks()));
+        }
         changed = true;
     }
     if let Some(thumbs) = s.pet_picks.thumbs_job.take() {
@@ -107,7 +161,7 @@ pub(crate) fn poll(s: &mut State) -> bool {
             Ok(pet) => {
                 wear(s, &pet.id, pet.source);
                 if let Some(gallery) = s.pet_picks.gallery.clone() {
-                    s.pet_picks.list_job.request((), move |()| gallery.library.list());
+                    s.pet_picks.list_job.request((), move |()| (gallery.library.list(), gallery.library.removed_picks()));
                 }
             }
             Err(message) => {
@@ -152,7 +206,9 @@ fn wear(s: &mut State, id: &str, source: PetSource) {
 
 /// A pick, picked: worn at once when it is on this computer, else added first (`wear` in PetPickTiles).
 fn pick(s: &mut State, id: &'static str) {
-    let here = s
+    s.pet_picks.report = None;
+    let gone = s.pet_picks.removed.iter().any(|r| r == id);
+    let here = !gone && s
         .pet_picks
         .installed
         .as_ref()
@@ -169,6 +225,60 @@ fn pick(s: &mut State, id: &'static str) {
     s.pet_picks.adding = Some(id.to_owned());
     s.pet_picks.notice = None;
     s.pet_picks.add_job.request((), move |()| (id.to_owned(), gallery.add(id)));
+}
+
+/// Remove some...: the tiles turn into ticks.
+pub(crate) fn start_removing(s: &mut State) {
+    s.pet_picks.notice = None;
+    s.pet_picks.report = None;
+    s.pet_picks.show_removed = false;
+    s.pet_picks.ticked = Some(Vec::new());
+}
+
+pub(crate) fn toggle_tick(s: &mut State, id: &str) {
+    if let Some(ticked) = s.pet_picks.ticked.as_mut() {
+        if let Some(at) = ticked.iter().position(|t| t == id) {
+            ticked.remove(at);
+        } else {
+            ticked.push(id.to_owned());
+        }
+    }
+}
+
+/// The teammates wearing this pick, by name: its files stay so their face does.
+pub(crate) fn wearers(s: &State, id: &str) -> Vec<String> {
+    s.people_panel.team["teammates"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|t| t["avatar"]["pet"]["source"] == "gallery" && t["avatar"]["pet"]["id"] == id)
+        .filter_map(|t| t["name"].as_str().map(str::to_owned))
+        .collect()
+}
+
+/// Remove N: each ticked pick out of the picker, one at a time, and off this computer unless a teammate wears it.
+pub(crate) fn confirm_removing(s: &mut State) {
+    let Some(ticked) = s.pet_picks.ticked.clone() else { return };
+    if ticked.is_empty() || s.pet_picks.removing {
+        return;
+    }
+    let Some(gallery) = s.pet_picks.gallery.clone() else { return };
+    let plan: Vec<(String, Vec<String>)> = ticked.iter().map(|id| (id.clone(), wearers(s, id))).collect();
+    s.pet_picks.removing = true;
+    s.pet_picks.remove_job.request((), move |()| {
+        let mut done = Removal::default();
+        for (id, wearing) in plan {
+            match gallery.library.remove(&id, !wearing.is_empty()) {
+                Ok(()) if wearing.is_empty() => done.removed.push(id),
+                Ok(()) => {
+                    done.removed.push(id.clone());
+                    done.kept.push((id, wearing));
+                }
+                Err(_) => done.failed.push(id),
+            }
+        }
+        done
+    });
 }
 
 /// The words a tile says when hovered (`title` in PetPickTiles).
@@ -201,65 +311,122 @@ fn tile(l: &crate::look::controls::Look, inner: El, key: String, label: &str, ch
     if busy { tile.opacity(0.6) } else { tile }
 }
 
+/// "Remove some..." or, while choosing, "Cancel" and "Remove N" (`PetRemovalControls`), beside the Pets heading.
+fn removal_controls(s: &State, l: &crate::look::controls::Look) -> El {
+    let ghost = crate::look::controls::ghost_button;
+    let Some(ticked) = &s.pet_picks.ticked else {
+        return ghost(l, "Remove some\u{2026}").key("team-pets-remove-some").on_press(start_removing);
+    };
+    let count = ticked.len();
+    let label = if s.pet_picks.removing {
+        "Removing\u{2026}".to_owned()
+    } else if count == 0 {
+        "Tick the pets to remove".to_owned()
+    } else {
+        format!("Remove {count}")
+    };
+    let mut cancel = ghost(l, "Cancel").key("team-pets-remove-cancel");
+    if !s.pet_picks.removing {
+        cancel = cancel.on_press(|s: &mut State| s.pet_picks.ticked = None);
+    }
+    let mut remove = ghost(l, &label).key("team-pets-remove-confirm");
+    remove = if count == 0 || s.pet_picks.removing { remove.opacity(0.45).disabled(true) } else { remove.on_press(confirm_removing) };
+    row().gap(4.0).child(cancel).child(remove)
+}
+
 /// The Pets heading, the tiles and the credit line, under the bots.
 pub(crate) fn row_of_pets(s: &State, avatar: &AvatarSpec, l: &crate::look::controls::Look) -> El {
     let worn = avatar.pet.as_ref();
+    let picks = &s.pet_picks;
     let mut grid = row().key("team-pets").role("radiogroup").label("Pets").w_full().gap(6.0).flex_wrap();
     // A pet the teammate wears that is not offered keeps its tile, shown as chosen.
-    if let Some(pet) = worn.filter(|p| !(p.source == PetSource::Gallery && PET_PICKS.iter().any(|(id, _, _)| *id == p.id))) {
+    if picks.ticked.is_none()
+        && let Some(pet) = worn.filter(|p| !(p.source == PetSource::Gallery && PET_PICKS.iter().any(|(id, _, _)| *id == p.id)))
+    {
         grid = grid.child(tile(l, picture(s, &pet.id, l), format!("team-pet-{}", pet.id), &pet.id, true, false));
     }
     for (id, name, _) in PET_PICKS {
+        let gone = picks.removed.iter().any(|r| r == id);
+        // Removed picks are left out, unless the person asked to see them (and is not choosing more to remove).
+        if gone && !(picks.show_removed && picks.ticked.is_none()) {
+            continue;
+        }
+        if let Some(ticked) = &picks.ticked {
+            let on = ticked.iter().any(|t| t == id);
+            let mut t = row()
+                .w(44.0)
+                .h(44.0)
+                .center()
+                .radius(l.t.px("radius-control"))
+                .border(1.0, if on { l.c("amber") } else { l.c("border-card") })
+                .child(picture(s, id, l))
+                .key(format!("team-pet-{id}"))
+                .role("checkbox")
+                .label(format!("Remove {name}"))
+                .checked(on)
+                .focusable(true)
+                .focus_ring(2.0, 0.0, l.c("focus-ring"))
+                .help(if on { format!("{name} will be removed") } else { format!("Tick {name} to remove it") });
+            if !picks.removing {
+                t = t.on_press(move |s: &mut State| toggle_tick(s, id));
+            }
+            grid = grid.child(t);
+            continue;
+        }
         let chosen = worn.is_some_and(|p| p.source == PetSource::Gallery && p.id == id);
-        let here = s
-            .pet_picks
-            .installed
-            .as_ref()
-            .is_some_and(|pets| pets.iter().any(|p| p.source == PetSource::Gallery && p.id == id));
-        let busy = s.pet_picks.adding.as_deref() == Some(id);
-        let said = tile_help(name, here);
+        let here = picks.installed.as_ref().is_some_and(|pets| pets.iter().any(|p| p.source == PetSource::Gallery && p.id == id));
+        let busy = picks.adding.as_deref() == Some(id);
+        let said = if gone { format!("{name}: removed; pick it to bring it back") } else { tile_help(name, here) };
         let mut t = tile(l, picture(s, id, l), format!("team-pet-{id}"), name, chosen, busy).help(said.clone());
         if said != name {
             t = t.description(said);
         }
-        if s.pet_picks.adding.is_none() {
+        if gone {
+            t = t.opacity(0.55);
+        }
+        if picks.adding.is_none() {
             t = t.on_press(move |s: &mut State| pick(s, id));
         }
         grid = grid.child(t);
     }
+    let muted = |words: String| text(words).font(type_::LABEL).color(l.c("text-muted")).wrap();
     let credit = row()
         .key("team-pets-credit")
         .gap(4.0)
         .flex_wrap()
-        .child(text("Pets from".to_owned()).font(type_::LABEL).color(l.c("text-muted")))
-        .child(
-            crate::look::controls::ghost_button(l, "openpets.dev")
-                .key("team-pets-openpets")
-                .on_press(|_: &mut State| open_link(OPENPETS_LINK)),
-        )
-        .child(
-            text(", made by its community; each downloads the first time it is picked. Rights stay with each pet\u{2019}s maker.".to_owned())
-                .font(type_::LABEL)
-                .color(l.c("text-muted"))
-                .wrap(),
-        )
-        .child(
-            crate::look::controls::ghost_button(l, "Report a pet")
-                .key("team-pets-report")
-                .on_press(|_: &mut State| open_link(OPENPETS_REPORT_LINK)),
-        );
-    let mut out = col()
-        .key("team-pets-section")
+        .child(muted("Pets from".to_owned()))
+        .child(crate::look::controls::ghost_button(l, "openpets.dev").key("team-pets-openpets").on_press(|_: &mut State| open_link(OPENPETS_LINK)))
+        .child(muted(", made by its community; each downloads the first time it is picked. Rights stay with each pet\u{2019}s maker.".to_owned()))
+        .child(crate::look::controls::ghost_button(l, "Report a pet").key("team-pets-report").on_press(|_: &mut State| open_link(OPENPETS_REPORT_LINK)));
+    let head = row()
+        .key("team-pets-head")
         .w_full()
         .gap(8.0)
-        .pt(4.0)
-        .child(text("Pets".to_owned()).font(type_::LABEL).color(l.c("text-secondary")))
-        .child(grid)
-        .child(credit);
-    if let Some(notice) = &s.pet_picks.notice {
+        .center_y()
+        .child(text("Pets".to_owned()).font(type_::LABEL).color(l.c("text-secondary")).grow(1.0))
+        .child(removal_controls(s, l));
+    let mut out = col().key("team-pets-section").w_full().gap(8.0).pt(4.0).child(head).child(grid);
+    if let Some(notice) = &picks.notice {
         out = out.child(text(notice.clone()).key("team-pets-notice").font(type_::LABEL).color(l.c("amber")).wrap());
     }
-    out
+    if let Some((words, warn)) = &picks.report {
+        out = out.child(text(words.clone()).key("team-pets-report-line").font(type_::LABEL).color(if *warn { l.c("amber") } else { l.c("text-muted") }).wrap());
+    }
+    if picks.ticked.is_none() && !picks.removed.is_empty() {
+        out = out.child(
+            row()
+                .key("team-pets-removed")
+                .gap(4.0)
+                .center_y()
+                .child(muted(format!("{} removed. ", picks.removed.len())))
+                .child(
+                    crate::look::controls::ghost_button(l, if picks.show_removed { "Hide removed" } else { "Show removed" })
+                        .key("team-pets-show-removed")
+                        .on_press(|s: &mut State| s.pet_picks.show_removed = !s.pet_picks.show_removed),
+                ),
+        );
+    }
+    out.child(credit)
 }
 
 #[cfg(test)]

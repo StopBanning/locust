@@ -106,3 +106,76 @@ fn a_pick_already_on_this_computer_goes_on_the_teammate_at_once_beside_its_bot()
     let rt = render(s);
     assert_eq!(checked_in(&rt, "team-pets"), vec!["Reaper".to_owned()]);
 }
+
+// Taking pets out of the picker, several at once (0.569, usePetRemoval and PetRemovalControls).
+
+fn names_of(rt: &rune::Runtime<State>) -> String {
+    rt.accessibility_json().to_string()
+}
+
+#[test]
+fn a_removal_reports_what_went_what_stays_on_whom_and_what_could_not_be_removed() {
+    let done = Removal { removed: vec!["reaper".into()], ..Default::default() };
+    assert_eq!(removal_report(&done), ("Removed 1 pet from the picker; Show removed brings any back.".into(), false));
+    let done = Removal {
+        removed: vec!["reaper".into(), "luna-techbot".into()],
+        kept: vec![("luna-techbot".into(), vec!["Wren".into()])],
+        failed: vec![],
+    };
+    assert_eq!(
+        removal_report(&done).0,
+        "Removed 2 pets from the picker; Show removed brings any back. Luna TechBot stays on Wren until they get another look."
+    );
+    let done = Removal { kept: vec![("reaper".into(), vec!["Wren".into(), "Sable".into(), "Juno".into()])], removed: vec!["reaper".into()], failed: vec![] };
+    assert!(removal_report(&done).0.ends_with("Reaper stays on Wren, Sable and Juno until each gets another look."));
+    let done = Removal { failed: vec!["reaper".into()], ..Default::default() };
+    assert_eq!(removal_report(&done), ("Reaper could not be removed and is still in the picker.".into(), true));
+    let done = Removal { failed: vec!["reaper".into(), "pixel-terminal".into()], ..Default::default() };
+    assert_eq!(removal_report(&done).0, "Reaper and Pixel Terminal could not be removed and are still in the picker.");
+}
+
+#[test]
+fn remove_some_turns_the_tiles_into_ticks_and_cancel_turns_them_back() {
+    let mut s = form(None);
+    s.pet_picks.report = Some(("old".into(), false));
+    start_removing(&mut s);
+    assert_eq!(s.pet_picks.report, None);
+    let all = names_of(&render(std::mem::take(&mut s)));
+    assert!(all.contains("Remove Reaper") && all.contains("Tick the pets to remove"), "{all}");
+    let mut s = form(None);
+    start_removing(&mut s);
+    toggle_tick(&mut s, "reaper");
+    toggle_tick(&mut s, "pixel-terminal");
+    toggle_tick(&mut s, "pixel-terminal");
+    assert_eq!(s.pet_picks.ticked, Some(vec!["reaper".to_owned()]));
+    assert!(names_of(&render(std::mem::take(&mut s))).contains("\"Remove 1\""));
+}
+
+#[test]
+fn removed_picks_are_left_out_until_show_removed_and_one_picked_again_comes_back() {
+    let mut s = form(None);
+    s.pet_picks.removed = vec!["reaper".into()];
+    let rt = render(s);
+    assert!(!radios_in(&rt, "team-pets").iter().any(|t| t["name"] == "Reaper"));
+    let all = names_of(&rt);
+    assert!(all.contains("1 removed.") && all.contains("Show removed"), "{all}");
+    let mut s = form(None);
+    s.pet_picks.removed = vec!["reaper".into()];
+    s.pet_picks.show_removed = true;
+    let rt = render(s);
+    let reaper = radios_in(&rt, "team-pets").into_iter().find(|t| t["name"] == "Reaper").expect("shown");
+    assert_eq!(reaper["description"], "Reaper: removed; pick it to bring it back");
+    assert!(names_of(&rt).contains("Hide removed"));
+}
+
+#[test]
+fn a_pick_a_teammate_wears_keeps_its_files_for_them() {
+    let mut s = form(None);
+    s.people_panel.team = json!({"teammates": [
+        {"teammateId": "tm_a", "name": "Wren", "avatar": {"pet": {"source": "gallery", "id": "reaper"}}},
+        {"teammateId": "tm_b", "name": "Sable", "avatar": {"pet": {"source": "codex", "id": "reaper"}}},
+        {"teammateId": "tm_c", "name": "Juno", "avatar": {"bot": {"shape": "droid", "face": "eyes"}}}
+    ]});
+    assert_eq!(wearers(&s, "reaper"), vec!["Wren".to_owned()]);
+    assert!(wearers(&s, "pixel-terminal").is_empty());
+}

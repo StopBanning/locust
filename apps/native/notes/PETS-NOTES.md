@@ -50,8 +50,10 @@ de-duplicated per id across threads (an add holds one lock; a thumbnail read twi
 ## Not built yet (in order)
 1. ~~The window side of `PetGallery`~~ and 2. ~~the picker row~~: built 16 Nov in `src/ui/pet_picks.rs` (three
    `rune::Latest` jobs: the list, the 21 thumbnails decoded from WebP by the `image` crate, an add; pets added go to
-   `<native>/pets`, never Electron's folder; Codex's read where they are). Still to do from PetPicks.tsx: Remove some... /
-   Remove N and Show removed (`usePetRemoval`), and reading Electron's own added pets.
+   `<native>/pets`, never Electron's folder; Codex's read where they are). Remove some... / Remove N / Show removed
+   (`usePetRemoval`) built the same day: tick mode, the report in Electron's words, a worn pick's files kept for its
+   wearers, removed picks hidden until shown and added again when picked; 7 breaks caught. Still to do: reading
+   Electron's own added pets, and showing the installed non-pick pets (Codex's) as tiles (`otherPets`).
 3. A pet playing its teammate's activity (`petMotion.ts`: activity -> state map, frame at time, fade, glance cell) and drawing a
    sheet frame (WebP decode needs an image decoder in the window crate; Codex Buddy is the only pet drawn today, as a screen).
 4. Puppets (`petPuppets.ts`, `petScreens.ts`): the kept pets drawn as rigs; large.
