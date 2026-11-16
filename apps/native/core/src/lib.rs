@@ -229,6 +229,9 @@ pub mod face_status;
 pub mod face_legend;
 pub mod look_picker;
 pub mod pet_library;
+pub mod pet_gallery;
+#[cfg(test)]
+mod pet_gallery_tests;
 pub mod pets;
 #[cfg(test)]
 mod pet_library_tests;

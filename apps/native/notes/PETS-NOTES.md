@@ -37,10 +37,18 @@ Pure core: `core/src/pets.rs` (WebP header reader, sheet rows, state rows and ti
 (picks, meta, addresses, gallery/catalog parsing, the on-disk library: list, sheet, removed picks, remove, bring back),
 `core/src/pet_library_tests.rs` (one case each, Electron's values).
 
+## Built second: the download half (core/src/pet_gallery.rs, pet_gallery_tests.rs)
+`PetGallery`: `add`, `thumbnail`, `gallery_index`, behind a `PetFetch` trait (`UreqFetch`: no redirects, 30 s; a 3xx is
+"sent somewhere else"). Size counted as it arrives (reads at most max+1), declared length refused first, final-URL check,
+catalog kept 6 h in memory and in `pets-cache/gallery.json` and the last read used (stale) when the gallery is gone, catalog
+pages cached 6 h, thumbnails kept and touched, at most 400 (oldest by mtime go), a pet written beside then renamed, one added
+meanwhile by another window stands, picking a removed pick brings it back. Every refusal in Electron's words. 15 tests, 11
+break checks all caught. Differences from Electron, on purpose: the kept catalog writes `spriteVersionNumber` (Electron
+writes `rows`, which its own reader ignores, so a reloaded index said 9 rows for every pet); adds and thumbnails are not
+de-duplicated per id across threads (an add holds one lock; a thumbnail read twice at once downloads twice).
+
 ## Not built yet (in order)
-1. The download half of the library: `add`, `thumbnail`, the catalog index (the six refusals in Electron's words: unreachable,
-   sent somewhere else, answered N, larger than a pet, unreadable catalog, not listed). `ureq` is already a core dependency;
-   a fetch trait keeps it testable with a served gallery as Electron's test does. Final-URL check, size counted as it arrives.
+1. The window side of `PetGallery` (a worker thread; the window calls none of it yet).
 2. The picker row beside Bot in the new-teammate dialog and the editor (PetPicks.tsx): tiles with thumbnails, search, the
    "As drawn / Screen" choice (already in `look_picker.rs`), Remove N.
 3. A pet playing its teammate's activity (`petMotion.ts`: activity -> state map, frame at time, fade, glance cell) and drawing a

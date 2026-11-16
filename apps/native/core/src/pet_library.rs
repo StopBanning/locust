@@ -362,6 +362,11 @@ impl PetLibrary {
         })
     }
 
+    /// A pet already added from the gallery, read as it is on disk; None when it is not there or does not read.
+    pub fn added(&self, id: &str) -> Option<PublicPet> {
+        self.read_pet(PetSource::Gallery, id).ok().map(|read| read.pet)
+    }
+
     fn read_pets(&self, source: PetSource, cap: usize) -> Vec<PublicPet> {
         let Some(root) = self.root_of(source) else { return Vec::new() };
         if !Self::usable_root(root) {
