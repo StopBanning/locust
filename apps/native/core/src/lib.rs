@@ -189,6 +189,9 @@ mod route_at_start_tests;
 #[cfg(test)]
 mod model_lists_tests;
 
+#[cfg(test)]
+mod mission_history_tests;
+
 // Real post-checkout hooks are made executable the Unix way.
 #[cfg(all(test, unix))]
 mod worktree_checkout_tests;

@@ -269,7 +269,7 @@ apps/desktop/src/main/a-tune-is-measured-before-one-is-kept.test.ts	tune	partial
 apps/desktop/src/main/a-turn-can-be-undone-without-git.test.ts	P7	does-not-apply	without_git_walk_skips_dot_folders_and_dependencies	`main/a-turn-can-be-undone-without-git.test.ts` | `without_git_walk_skips_dot_folders_and_dependencies` forces the no-git path; other byte/later-edit/oversize/record tests share its restore path. `fileAt`, stable plain state IDs, hold and g
 apps/desktop/src/main/a-turn-can-be-undone.test.ts	P7	does-not-apply	git_ignore_and_raw_bytes_never_run_filters_or_fsmonitor,later_edits_and_removals_are_left_alone,overlapping_turns_are_never_offered_or_undone,restores_bytes_edits_additions_and_deletions_once,too_large_files_named_never_deleted_by_undo	`main/a-turn-can-be-undone.test.ts` | `checkpoints::tests::{restores_bytes_edits_additions_and_deletions_once, later_edits_and_removals_are_left_alone, overlapping_turns_are_never_offered_or_undone, git_ignore_and_raw_bytes_never_run_filter
 apps/desktop/src/main/a-turn-is-committed-on-its-own-branch.test.ts		waiting		
-apps/desktop/src/main/a-turn-on-its-own-branch-leaves-a-receipt.test.ts		waiting		
+apps/desktop/src/main/a-turn-on-its-own-branch-leaves-a-receipt.test.ts	MAIN4	carried	core/src/native/tests.rs; core/src/worktrees_tests.rs	all 8: committed with receipt (a_teammate_on_its_own_branch_works_in_its_copy..., a_finished_turn_is_committed_with_its_ask...), shared folder never committed, a slot of its own never committed (fixed: a slot without a cwd committed), changed nothing says nothing, a failed commit is a warning and the files stay; message and sentence cases in worktrees_tests
 apps/desktop/src/main/a-usage-reading-outlives-the-newest-twenty.test.ts		waiting		
 apps/desktop/src/main/a-voice-call-is-placed-by-codex.test.ts		waiting		
 apps/desktop/src/main/a-voice-call-reads-the-folder-itself.test.ts		waiting		
@@ -407,7 +407,7 @@ apps/desktop/src/main/memory-recall.test.ts		waiting
 apps/desktop/src/main/memory-says-how-old.test.ts	P6	partial		3. **Memory store/parser**: parsed-memory field validation/deduplication, complete Unicode normalization and significant-word containment forget matching, complete ask-mode proposal deduplication/settling, expiry boundary/cap/duplicate rest
 apps/desktop/src/main/memory-store.test.ts	P6	partial		`main/memory-file.test.ts`, `main/memory-store.test.ts` | Torn native memory refuses mutation; native seeding occurs once; Electron bytes remain unchanged.
 apps/desktop/src/main/menus-dismiss.test.ts		waiting		
-apps/desktop/src/main/mission-history.test.ts		waiting		
+apps/desktop/src/main/mission-history.test.ts	MAIN4	partial	core/src/mission_history_tests.rs	17 of 30: folder id (2), a streamed reply read back whole, final from the last fragment, a replace, two messages apart; deleting (running refused untouched, finished/missing, an unsafe id before the store); limited runtimes (6, incl. read from the store); usage windows (2). Not built: the publicRecoveredMission projection (eventCount, eventsTruncated, first-and-latest window, host failure, issue count), withinByteBudget, HISTORY_UNAVAILABLE, the workroom join. Rust's thread keeps the newest 2000 events and joins after, so past 2000 fragments a reply loses its front (notes, batch 4)
 apps/desktop/src/main/missions-can-be-deleted-together.test.ts		waiting		
 apps/desktop/src/main/model-catalog.test.ts		waiting		
 apps/desktop/src/main/muse-wonder-is-offered.test.ts		waiting		
