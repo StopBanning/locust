@@ -493,12 +493,24 @@ pub(super) fn runtime_blocked_label(s: &State, runtime: Option<&str>) -> Option<
         .and_then(|p| match p.outcome { Some("missing") => Some("AI agent not installed"), Some("needs-signin") => Some("Sign-in needed"), _ => None })
 }
 
+/// The live mission's runtime, then the newest recorded runtime, then the saved route.
+/// Owners come from the cached roster record, so drawing never reads the store.
+pub(super) fn runtime_of_teammate<'a>(s: &'a State, id: &str, route: Option<&'a str>) -> Option<&'a str> {
+    let mut owned: Vec<_> = s.ledger_summaries.values().filter(|m|
+        s.people_panel.team["missionOwners"][&m.mission_id].as_str() == Some(id)
+    ).collect();
+    owned.sort_by(|a, b| b.updated.cmp(&a.updated).then_with(|| a.mission_id.cmp(&b.mission_id)));
+    owned.iter().find(|m| m.running).map(|m| m.runtime.as_str()).filter(|r| !r.is_empty())
+        .or_else(|| owned.iter().find(|m| !m.runtime.is_empty()).map(|m| m.runtime.as_str()))
+        .or(route)
+}
+
 /// Use recorded owner ids, never matching a person's display name.
 pub(super) fn teammate_section(s: &State, id: &str, busy: bool, runtime: Option<&str>) -> crate::team_board::Section {
     use crate::team_board::{Status, board_section_of};
     let owns = |mission: &str| s.data.as_ref().and_then(|store| people::owner_of(store, mission)).as_deref() == Some(id);
     let waiting = s.home.waiting_for.keys().any(|key| owns(key));
-    let blocked = runtime_blocked_label(s, runtime).is_some();
+    let blocked = runtime_blocked_label(s, runtime_of_teammate(s, id, runtime)).is_some();
     let running = busy || s.flight.as_ref().is_some_and(|f| f.teammate_id == id)
         || s.ledger.as_ref().is_some_and(|p| p.header.id == id && p.snapshot.running);
     board_section_of(Some(if waiting { Status::ApprovalNeeded } else if blocked { Status::Blocked }
@@ -722,7 +734,7 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
             let sub_text = looked
                 .as_ref()
                 .map(|(line, _)| line.clone())
-                .unwrap_or_else(|| runtime_blocked_label(s, mate.runtime.as_deref()).unwrap_or(&mate.role).to_owned());
+                .unwrap_or_else(|| runtime_blocked_label(s, runtime_of_teammate(s, &mate.id, mate.runtime.as_deref())).unwrap_or(&mate.role).to_owned());
             let card = row()
                 .gap(12.0)
                 .padding(12.0)
@@ -1669,4 +1681,71 @@ pub(super) fn choose_folder(tx: &mut Tx) {
             }
         }
     });
+}
+
+#[cfg(test)]
+mod renderer_runtime_tests {
+    use super::*;
+    #[test]
+    fn is_judged_by_the_route_it_is_set_to_use() {
+        assert_eq!(runtime_of_teammate(&State::default(), "tm_wisp", Some("claude")), Some("claude"));
+    }
+    fn with_missions(missions: &[(&str, &str)]) -> State {
+        let mut s = State::default();
+        for (i, (phase, runtime)) in missions.iter().enumerate() {
+            let id = format!("mission_{i}");
+            s.people_panel.team["missionOwners"][&id] = serde_json::json!("tm_wisp");
+            s.ledger_summaries.insert(id.clone(), ledger::Summary { mission_id:id,
+                runtime:(*runtime).into(), running:*phase == "running", updated:format!("2026-09-14T00:00:0{}Z", 9-i), ..Default::default() });
+        }
+        s
+    }
+    #[test]
+    fn still_prefers_a_running_mission_then_a_past_one_over_the_route() {
+        for (missions, expected) in [
+            (vec![("running", "codex")], "codex"),
+            (vec![("completed", "cursor")], "cursor"),
+            (vec![("completed", "cursor"), ("running", "opencode")], "opencode"),
+        ] {
+            assert_eq!(runtime_of_teammate(&with_missions(&missions), "tm_wisp", Some("claude")), Some(expected));
+        }
+    }
+    #[test]
+    fn is_judged_by_nothing_when_it_has_neither_missions_nor_a_route() {
+        assert_eq!(runtime_of_teammate(&State::default(), "tm_wisp", None), None);
+    }
+    #[test]
+    fn home_and_team_judge_the_recorded_runtime_before_the_saved_route() {
+        use locust_core::agents::{Found, Auth, Probe};
+        for home in [true, false] {
+            let mut s = with_missions(&[("completed", "codex")]);
+            crate::team_scene(&mut s);
+            s.teammates.truncate(1);
+            s.teammates[0].id = "tm_wisp".into();
+            s.teammates[0].name = "Wisp".into();
+            s.teammates[0].runtime = Some("claude".into());
+            s.teammates[0].busy = false;
+            s.people_panel.team["teammates"] = serde_json::json!([{
+                "teammateId":"tm_wisp", "name":"Wisp", "role":"Docs & QA", "route":{"runtime":"claude"}
+            }]);
+            s.settings_panel.agents = Some([("claude", false), ("codex", true)].into_iter().map(|(id, ready)| Found {
+                id:id.into(), display_name:id.into(), installed:true, version:Some("1.0.0".into()),
+                auth:if ready {Auth::Authenticated} else {Auth::Unauthenticated}, ready,
+                status:if ready {Probe::Ready} else {Probe::AuthRequired}, unsupported_note:None,
+                through_cli:false, checking:false,
+            }).collect());
+            let mut rt = rune::Runtime::new((s,home), |(s,home),_| if *home { home_view(s,&Palette::new(true)) }
+                else { crate::people_panel::view(s,&Palette::new(true)) }, (1200.0,1800.0),rune::Env::new(true,1.0));
+            rt.frame(0.0);
+            let shown = rt.elements().into_iter().filter_map(|e|e.text).collect::<Vec<_>>().join("\n");
+            assert!(shown.contains("Wisp"), "home={home}: {shown}");
+            assert!(!shown.contains("Sign-in needed"), "home={home}: {shown}");
+            assert!(!shown.contains("Needs you"), "home={home}: {shown}");
+        }
+    }
+    #[test]
+    fn runtime_ownership_uses_ids_even_when_another_teammate_has_the_same_name() {
+        let s = with_missions(&[("running", "codex")]);
+        assert_eq!(runtime_of_teammate(&s, "tm_other", Some("claude")), Some("claude"));
+    }
 }
