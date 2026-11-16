@@ -118,7 +118,8 @@ pub fn route_at_start(input: &StartRouteInput, teammate: Option<(&str, Option<&T
             runtime: requested.runtime,
             model: requested.model.or(Some(saved_model)),
             effort: requested.effort,
-            account: saved_route.account.clone(),
+            // Electron spreads the saved account over the request only when there is one: the request's own stays.
+            account: saved_route.account.clone().or(requested.account),
         };
     }
     StartRoute {
