@@ -1453,3 +1453,97 @@ The following 21 rows remain waiting (no exclusions added):
   with inline new-page preview first. Continue teammate files before the
   conversation-only files. The signed-out file's remaining six status/tone/
   presence cases are not established by the three carried selection cases.
+
+### Renderer-14 continuation — signed-out status (verification pending)
+
+- Initial tracked diff empty: round-3 leftovers already finished in renderer-13,
+  including ghost commit 82008602 and the restored named verification above.
+  No stash necessary. No break was applied on arrival.
+- Revisited inline new-page preview: still lacks a per-file isolated embedded
+  frame, so all four cases remain waiting. A separate browser-panel button is
+  insufficient. No does-not-apply classification.
+- Added the six remaining signed-out status cases in core teammate_reach,
+  retaining claude/codex, Docs & QA, Builder, Code & Migrations, pending
+  approvals 1, probe-failed/offline and auth-required inputs. The three runtime
+  selection cases already exist in home_panel::renderer_runtime_tests.
+- Shared status projection now supplies Home/Team labels, tone and presence,
+  including distinct amber not-answering and red sign-in states. Board grouping
+  consumes the same projection. Cached missionOwners ids replace roster drawing's
+  owner disk lookups. Protected look/rig/pet files untouched.
+- Extra headless surface regression and signed-out-status control prepared.
+  Row stays waiting until every case passes by name.
+
+
+### Renderer-14 signed-out section verified
+
+- **2e8cb70a** core status projection, six exact cases and break check;
+  **31eac1df** real Home/Team integration and surface regressions.
+- renderer-14-workspace.log exited 0: 2139 core + 534 window passed,
+  20 real-agent cases ignored, doc tests 0. All nine Electron cases and
+  home_and_team_draw_the_signed_out_warning_and_presence_from_the_same_status
+  were matched to their full named passing lines.
+- signed-out-status control exited 0, restored teammate_reach.rs byte for byte.
+  Exactly four expected core assertions failed: reads_as_blocked_not_idle_when_its_runtime_is_signed_out,
+  is_blocked_when_nothing_at_all_is_signed_in_whatever_it_is_set_to,
+  is_not_told_to_sign_in, still_is_when_the_runtime_says_it_is_signed_out.
+  Two surface assertions failed: home_and_team_draw_the_signed_out_warning_and_presence_from_the_same_status
+  and home_and_team_keep_pending_agents_quiet_and_name_a_checked_missing_agent.
+  2135 other core + 533 other window passed; no compiler failure.
+- Row now carried: requested subset 25 carried, 20 waiting. No exclusion added.
+- The extra cached-owner approval regression and hiding the presence dot for
+  idle teammates are included in the final restored run, pending below.
+- Remaining teammate gaps examined: the model dialog uses raw Runtime/Model/
+  Effort fields instead of the shared picker and reported effort stops;
+  the folder row lacks the picker, explanatory text and connector cases;
+  folder caution has no native composer question yet; month/limit presentation
+  remains absent. These are behavior gaps, not Electron-plumbing exclusions.
+  Existing eye/work-face pure tests do not establish all painting/pet cases.
+  Respect the protected look, rig and pet files. Conversation rows remain
+  waiting behind the teammate files. Inline isolated page preview is still
+  the first applicable gap. No unsupported carried claim for these files.
+- No push, merge, version, changelog, handoff-file or protected-lane change.
+  No Electron/JavaScript gate, live window, packaged app, real-agent/model call
+  or other operating system was run.
+
+### Renderer-14 final restored verification
+
+- renderer-14-restored-workspace.log exited **101**, not green: 2139 core
+  passed, 20 ignored; 534 window passed, one failed; doc tests 0.
+- The nine exact Electron cases and both added surface/owner regressions all
+  matched their full named `... ok` lines in this final restored run.
+- The failing existing test was
+  `window_drive_tests::review_changes_shows_a_teammates_branch_turn_by_turn_and_lands_it_as_one_commit`.
+  Its landing commit was refused because its isolated temporary repository
+  already held `.git/index.lock` (window_drive_tests.rs:1603). No review-landing
+  code was changed. The first baseline passed it; the final failure is kept
+  as evidence, not hidden by a filtered retry. No restored whole-suite green
+  result is claimed.
+- All 32 original renderer-control anchors are present. The signed-out mutant
+  is absent; only parity and notes differ after the source commits.
+- Recount and --check passed: 202 carried, 62 does-not-apply, 185 partial,
+  860 waiting, 1309 total. Requested subset: 25 carried, 20 waiting.
+- Python mutation script syntax and git diff --check passed. Release build
+  is running; its result follows.
+
+Named checks in the final restored run:
+- `teammate_reach::tests::reads_as_blocked_not_idle_when_its_runtime_is_signed_out`
+- `teammate_reach::tests::still_reads_as_idle_when_its_own_runtime_is_fine`
+- `teammate_reach::tests::keeps_a_mission_waiting_on_an_approval_as_its_own_state_not_blocked`
+- `teammate_reach::tests::is_blocked_when_nothing_at_all_is_signed_in_whatever_it_is_set_to`
+- `teammate_reach::tests::is_not_told_to_sign_in`
+- `teammate_reach::tests::still_is_when_the_runtime_says_it_is_signed_out`
+- `home_panel::renderer_runtime_tests::is_judged_by_the_route_it_is_set_to_use`
+- `home_panel::renderer_runtime_tests::still_prefers_a_running_mission_then_a_past_one_over_the_route`
+- `home_panel::renderer_runtime_tests::is_judged_by_nothing_when_it_has_neither_missions_nor_a_route`
+- `home_panel::renderer_runtime_tests::home_and_team_draw_the_signed_out_warning_and_presence_from_the_same_status`
+- `home_panel::renderer_runtime_tests::approval_presence_uses_cached_owner_ids_and_stays_distinct_from_a_sign_in_wall`
+
+- Final release binary build exited 0: renderer-14-release-build.log,
+  optimized release finished in 2m 09s, with the same 12 native binary warnings.
+  No live or packaged window launched.
+- Stopping state: no break applied; source, inventory and notes committed;
+  only original untracked HANDOFF files remain. The full requested port is
+  unfinished: 20 waiting rows in the renderer-13 inventory above, excluding
+  the now-carried signed-out row. Continue inline page preview and remaining
+  teammate files before conversation-only files. The final full workspace
+  suite's review-landing Git-lock failure remains unresolved.

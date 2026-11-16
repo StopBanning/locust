@@ -812,7 +812,7 @@ apps/desktop/src/renderer/src/a-screens-eyes-have-weight.test.ts		waiting
 apps/desktop/src/renderer/src/a-select-moves-and-chooses-by-the-keyboard.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-shorter-window-keeps-the-newest-reply.test.ts		waiting		
 apps/desktop/src/renderer/src/a-side-question-can-be-approved-and-stopped.test.tsx	SIDE-CHAT	carried	src/ui/side_chat.rs tests	both tests carried (Hydrogen)
-apps/desktop/src/renderer/src/a-signed-out-teammate-is-not-idle.test.ts		waiting	home_panel::renderer_runtime_tests	First three exact runtime-selection cases passed by name, plus owner separation and real Home/Team regressions. Recorded-runtime control caught rule and surface. Six status/tone/presence cases remain; not carried. See notes/RENDERER-NOTES.md renderer-13.
+apps/desktop/src/renderer/src/a-signed-out-teammate-is-not-idle.test.ts		carried	teammate_reach::tests; home_panel::renderer_runtime_tests	All nine exact Electron cases passed by name in renderer-14-workspace.log. Home/Team share labels, tone and presence. signed-out-status control caught four core and two surface assertions and restored source. See notes/RENDERER-NOTES.md renderer-14.
 apps/desktop/src/renderer/src/a-skill-row-names-its-skill.test.ts		waiting		
 apps/desktop/src/renderer/src/a-slow-agent-row-says-it-is-being-checked.test.ts		waiting		
 apps/desktop/src/renderer/src/a-small-bot-is-drawn-at-twice-its-size.test.tsx		waiting		
