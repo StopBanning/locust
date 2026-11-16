@@ -220,3 +220,17 @@ fn a_worn_pet_keeps_its_own_face_the_colours_become_chips_and_a_shape_takes_it_o
     assert_eq!(checked_in(&rt, "team-look-grid"), ["Star"]);
     assert_eq!(names(&radios_in(&rt, "team-look-face")), ["Eyes", "Mouth", "Screen"]);
 }
+
+// NewTeammateDialog.tsx 511-559 (`.lc-dialog__identity`): the preview on the left; beside it, one column of Name, its box
+// and the colour swatches under them. The swatches were on a row of their own above Name.
+#[test]
+fn puts_the_swatches_beside_the_preview_under_the_name_box() {
+    let rt = render(form(json!([wren(json!(null))]), Some("tm_wren"), false));
+    let rect = |key: &str| rt.presented(key).unwrap_or_else(|| panic!("{key} is not drawn")).0;
+    let (preview, name, hues) = (rect("bot-team-look-preview"), rect("person-field-0"), rect("team-hues"));
+    assert!(hues[0] >= preview[0] + preview[2] && name[0] >= preview[0] + preview[2], "beside the preview: {preview:?} {name:?} {hues:?}");
+    assert_eq!(hues[0], name[0], "one column");
+    assert!(hues[1] >= name[1] + name[3], "under the name box: {name:?} {hues:?}");
+    let identity = rect("team-identity");
+    assert!(preview[1] > identity[1] && preview[1] + preview[3] < identity[1] + identity[3], "the preview is centred on the column: {identity:?} {preview:?}");
+}

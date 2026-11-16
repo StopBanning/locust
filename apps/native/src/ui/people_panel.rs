@@ -523,36 +523,43 @@ pub(super) fn edit_form(s: &State, p: &Palette) -> El {
         .filter(|t| t["teammateId"] != panel.entry["teammateId"])
         .filter_map(|t| t["name"].as_str()).collect();
     let clash = people::taken_name(panel.fields.first().map(|f| f.text.as_str()).unwrap_or(""), &taken_names);
-    // The preview that moves, and the colour (NewTeammateDialog.tsx `.lc-dialog__identity`).
+    let field = |i: usize, label: &'static str| {
+        let edit = &panel.fields[i];
+        text_input(edit, type_::BODY)
+            .placeholder(if i == 0 { people::suggested_name(&taken_names) } else { "" }, p.muted)
+            .key(format!("person-field-{i}"))
+            .label(label)
+            .w_full()
+            .padding(8.0)
+            .fill(p.field)
+            .color(p.text)
+            .on_edit(move |s: &mut State| &mut s.people_panel.fields[i])
+    };
+    // NewTeammateDialog.tsx `.lc-dialog__identity` (511-559): the preview that moves on the left, and beside it a column
+    // of Name, its box, the name-taken line and the colour swatches under them (`.lc-dialog__fields`, gap space-4).
+    let mut identity_fields = col().key("team-identity-fields").grow(1.0).shrink().gap(l.t.px("space-4"));
+    if !panel.fields.is_empty() {
+        identity_fields = identity_fields.child(text("Name").font(type_::LABEL).color(p.secondary)).child(field(0, "Name"));
+        if let Some(taken) = clash {
+            identity_fields = identity_fields
+                .child(text(format!("Another teammate is already called {taken}.")).key("team-name-clash").color(p.secondary));
+        }
+    }
+    identity_fields = identity_fields.child(crate::look_picker::swatches(s, &l));
     form = form.child(
         row()
             .key("team-identity")
             .w_full()
-            .gap(14.0)
+            .gap(l.t.px("space-6"))
             .center_y()
             .child(crate::look_picker::preview(s, &l))
-            .child(crate::look_picker::swatches(s, &l).grow(1.0).shrink()),
+            .child(identity_fields),
     );
-    for (i, label) in ["Name", "Role", "Instructions", "Runtime", "Model", "Effort", "Mode", "Folder"].iter().enumerate() {
-        if let Some(edit) = panel.fields.get(i) {
-            form = form.child(text(*label).font(type_::LABEL).color(p.secondary)).child(
-                text_input(edit, type_::BODY)
-                    .placeholder(if i == 0 { people::suggested_name(&taken_names) } else { "" }, p.muted)
-                    .key(format!("person-field-{i}"))
-                    .label(*label)
-                    .w_full()
-                    .padding(8.0)
-                    .fill(p.field)
-                    .color(p.text)
-                    .on_edit(move |s: &mut State| &mut s.people_panel.fields[i]),
-            );
-        }
-        if i == 0 {
-            if let Some(taken) = clash {
-                form = form.child(text(format!("Another teammate is already called {taken}.")).key("team-name-clash").color(p.secondary));
-            }
-            // The look comes before the role, as in Electron's dialog.
-            form = form.child(crate::look_picker::section(s, &l));
+    // The look comes before the role, as in Electron's dialog.
+    form = form.child(crate::look_picker::section(s, &l));
+    for (i, label) in ["Name", "Role", "Instructions", "Runtime", "Model", "Effort", "Mode", "Folder"].into_iter().enumerate().skip(1) {
+        if panel.fields.get(i).is_some() {
+            form = form.child(text(label).font(type_::LABEL).color(p.secondary)).child(field(i, label));
         }
     }
     let runtime_now = panel.fields.get(3).map(|f| f.text.trim()).unwrap_or("");

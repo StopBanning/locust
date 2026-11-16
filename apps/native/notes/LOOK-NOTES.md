@@ -242,3 +242,33 @@ All **16 were caught by a named test** (`~/work/scratch/mut6.py`, whole package,
    setting line does the same, but at Electron's narrower width it sits closer to them.
 - **Verified after the reorder.** Full release workspace run (`notes/snap-suite.log`): **2,191 engine + 532 window
   passed**, 0 failed. All 22 `look_picker` tests and the Own copy drive passed by name. Release build: passed.
+
+## Round 5, job 1: the picker's rough edges (16 Nov 2026)
+
+1. **The ghost's hem at 64.**
+   - **The cause** was the pose, not clipping or the size. Electron's `Bot.tsx` draws a new bot once before its clock's
+     first step (`draw()`, line 2007), so the first frame is the rig as `BotAvatarSim` made it, upright.
+   - Rust stepped the rig with `update(0)` while making the first snapshot. A working bot starts its hop at phase 0
+     (both libraries set `hopPhase = 0` on entering working), and phase 0 is the landing squash: 1.16 wide and 0.82
+     high. A still picture is that one frame, so the ghost looked flattened and its hem nearly vanished.
+   - **The fix.** `first_bot_snapshot` (`src/look/bot_stage.rs`) draws the first frame without the step, and the clock
+     steps it from the next frame on.
+   - **Tests:** `first_frame_tests::a_new_working_bot_is_first_drawn_upright_as_its_rig_was_made` and
+     `its_clock_then_steps_it_into_the_hop`.
+   - **Break check:** stepping the first frame again was caught by the first test, by name.
+   - `team-look.png` now shows the ghost upright with its hem.
+2. **"Grey, not lime" is Electron's look, not a bug.**
+   - In Electron's current theme the `--lc-lime-*` tokens are ivory: `--lc-lime-tint: rgba(242, 239, 233, 0.07)` and
+     `--lc-lime-border-strong: rgba(242, 239, 233, 0.38)` on dark. Locust went monochrome in 0.430.
+   - Rust reads that same `tokens.css` at build time, and uses the same tokens for a chosen tile:
+     - the swatch: `lime-border-strong` and `lime-tint`;
+     - the shape: `lime-border` and `lime-tint`.
+   - Nothing changed here. No test was added, because `tokens_match_the_css` already holds the values.
+3. **The swatches sit beside the preview, under Name**, as in `.lc-dialog__identity` (`NewTeammateDialog.tsx` 511-559).
+   - The preview is on the left. Beside it is one column (gap `space-4`) of Name, its box, the name-taken line and the
+     eleven swatches.
+   - The Look section follows, then Role and the rest.
+   - **Test:** `look_picker::tests::puts_the_swatches_beside_the_preview_under_the_name_box`.
+   - **Break check:** putting the swatches back above Name was caught by that test.
+- **Full release workspace run** (`~/work/scratch/opus/r5-j1-suite.log`): **2,196 engine + 545 window passed**, 0 failed.
+  All three tests passed by name. **Release build:** passed.

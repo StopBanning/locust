@@ -205,6 +205,24 @@ fn build_bot_snapshot(
     reduced_motion: bool,
     hover_notice: bool,
 ) -> BotSnapshot {
+    build_bot_frame(slot, now_s, dt_s, reduced_motion, hover_notice, false)
+}
+
+/// A new bot's first picture: Bot.tsx draws once before its clock's first step (`draw()`, 2007), so the face shows the
+/// rig as it was made, upright, not a step taken at no time. That step would show a working bot's hop at phase 0, its
+/// landing squash (1.16 wide, 0.82 high), which flattened the ghost's hem in the picker's preview.
+fn first_bot_snapshot(slot: &mut BotSlot, now_s: f64, reduced_motion: bool) -> BotSnapshot {
+    build_bot_frame(slot, now_s, 0.0, reduced_motion, false, true)
+}
+
+fn build_bot_frame(
+    slot: &mut BotSlot,
+    now_s: f64,
+    dt_s: f64,
+    reduced_motion: bool,
+    hover_notice: bool,
+    first: bool,
+) -> BotSnapshot {
     let desired = slot.desired;
     let still = reduced_motion || is_motionless(desired.activity);
     let target_state = avatar_state_for(desired.activity, still && !hover_notice);
@@ -221,12 +239,14 @@ fn build_bot_snapshot(
         } else {
             slot.sim.set_pointer(0.0, 0.0, 0.0);
         }
-        slot.sim.update(dt_s.min(0.1));
+        if !first {
+            slot.sim.update(dt_s.min(0.1));
+        }
     } else {
         slot.sim.set_pointer(0.0, 0.0, 0.0);
         if reduced_motion {
             slot.sim.pose = rest_pose(target_state);
-        } else {
+        } else if !first {
             slot.sim.update(dt_s.min(0.1));
         }
     }
@@ -554,7 +574,7 @@ impl BotStage {
             if slot.glance.give(glance, now_s) {
                 slot.settled = false;
             }
-            slot.cached = build_bot_snapshot(&mut slot, now_s, 0.0, reduced_motion, false);
+            slot.cached = first_bot_snapshot(&mut slot, now_s, reduced_motion);
             slot
         });
         entry.seen_this_frame = true;
@@ -859,6 +879,30 @@ mod renderer_eye_tests {
     fn is_drawn_on_a_screen_only_a_face_with_no_screen_keeps_its_own_eyes() {
         assert_eq!(shown_face_for(FaceActivity::Working, true).pair, Some([">".into(), "▮".into()]));
         assert_eq!(shown_face_for(FaceActivity::Working, false).pair, None);
+    }
+}
+
+#[cfg(test)]
+mod first_frame_tests {
+    use super::*;
+
+    // Bot.tsx 2007: `draw()` before the clock's first step, so a new bot shows the rig as BotAvatarSim made it (sx = sy =
+    // 1). Stepping it at no time gave a working bot its hop's landing squash, and the picker's 64-point ghost lost its hem.
+    #[test]
+    fn a_new_working_bot_is_first_drawn_upright_as_its_rig_was_made() {
+        let stage = BotStage::default();
+        let snap = stage.snapshot_bot("k", "ghost", FaceActivity::Working, None, BotMotionLevel::Full, false, false, false);
+        assert_eq!((snap.pose.sx, snap.pose.sy), (1.0, 1.0));
+    }
+
+    #[test]
+    fn its_clock_then_steps_it_into_the_hop() {
+        let stage = BotStage::default();
+        stage.snapshot_bot("k", "ghost", FaceActivity::Working, None, BotMotionLevel::Full, false, false, false);
+        let mut inner = stage.inner.borrow_mut();
+        let slot = inner.bots.get_mut("k").unwrap();
+        let next = build_bot_snapshot(slot, 0.016, 0.016, false, false);
+        assert!(next.pose.sx > 1.1 && next.pose.sy < 0.9, "landing squash on the first step: {:?}", (next.pose.sx, next.pose.sy));
     }
 }
 
