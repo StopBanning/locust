@@ -39,12 +39,24 @@ Why some rows are not carried:
   changes only through the people panel. The teammate-store reader (`native::route_of`) also leaves effort out of the
   `Route` it builds. The window reads effort straight from the JSON instead (`native.rs` job.effort).
 
+Found and not fixed (M26):
+- A carried-on turn (`native::carry`) reads the stopped turn's recorded mode with `Mode::parse`. When that mode is
+  malformed, the result is None, and the turn then falls back to the teammate's saved mode (`runs_in`) instead of
+  Ask. A relay request (`native.rs` `Mode::parse(&req.mode)`) falls back the same way. Electron reads a malformed
+  mode as Ask. Fixing this needs a test through the carry path. The only carry harness today runs a real OpenCode
+  (`real_carry_on_from_a_plan_that_ran_out`, ignored), so the row stays partial. The engine wire
+  (`engine_process::origin_from`) and the door refuse an unknown mode, which is safe.
+
 Break checks (all caught by the named test): `kept` including next; a blank next counted as an instruction; next
 not charged against the budget (refuses); newest-that-fit taking the oldest; the clip notice's words; stopped partway
 with work in flight; the clean-finish wording; the request's account; the override for another teammate; the saved
 effort; `modelChoice` ignored; the conversation's own route; the pick key; Kilo's Auto Free; an explicit pick
 ignored; a share to anyone counted as a note; any share counted as a note to the owner; the no-note row's words; the
 board brief's words; `plan` read as Ask.
+A follow-up made one break for each of the 9 tests the first round never saw fail. All 9 were caught: next words
+moved up front; the picker override ignored (both override tests); for nobody, the request's effort dropped; a
+seeded account default promoted to a pick; the default runtime; the saved identity's effort change; a new chat not
+on the saved model; home's pick key.
 
 ## Batch 2: model lists, free routes, models of your own
 
@@ -68,6 +80,13 @@ Not built, so not carried:
 - `freeRoutesOnly`: holding a launch with `--remote-debugging-port`, `LOCUST_SPEND` or `LOCUST_FREE_ONLY` to free routes.
 - `spendByTeammate` counting `unpricedRuns`: `spend::spent_by` adds up dollars only.
 - Listed prices (`listed-prices.ts`): the OpenCode `models.json` price list, and own models told their price.
+
+How "ready" is decided: Rust has no discovery readiness here, so `read_listed_checked` counts an agent as ready when
+it is installed (`find_named`). Two edges differ from Electron's `readiness === 'ready'`:
+- An installed but signed-out Cursor or Claude Code that lists nothing keeps the catalog from being kept. Every
+  `models::local()` then reads again. That costs one sweep per call, but `local()` runs only for a Cursor start
+  (`native.rs`) and the door's model list. It does not run on a poll.
+- An `opencode --version` that times out counts as "not a 1.x". Its empty list is then kept.
 
 `model-catalog.test.ts` (33 cases) was left for a batch of its own.
 
