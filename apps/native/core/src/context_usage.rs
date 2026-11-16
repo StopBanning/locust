@@ -28,6 +28,32 @@ impl Reading {
     }
 }
 
+/// Conversation-scoped ring wording. Subscription receipts carry no per-turn charge.
+pub fn ring_sentence(reading: &Reading, cost: Option<&crate::benchmark::RunCost>) -> String {
+    let line = crate::benchmark::cost_total(&[cost.cloned()]).map(|total| total.line);
+    match line {
+        Some(line) => format!("{} — This conversation: {line}", reading.sentence()),
+        None => reading.sentence(),
+    }
+}
+
+/// Clockwise used share, starting at twelve o'clock; a full window is a disc.
+/// The native renderer tessellates this with the same SVG parser as bot outlines.
+pub fn pie_slice_path(percent: f64, centre: f64, radius: f64) -> Option<String> {
+    let share = percent.clamp(0.0, 100.0) / 100.0;
+    if share <= 0.0 { return None; }
+    if share >= 0.999 {
+        return Some(format!("M {} {} a {radius} {radius} 0 1 0 {} 0 a {radius} {radius} 0 1 0 {} 0 Z",
+            centre - radius, centre, radius * 2.0, -radius * 2.0));
+    }
+    let angle = share * std::f64::consts::TAU;
+    let round = |v: f64| (v * 100.0).round() / 100.0;
+    Some(format!("M {} {} L {} {} A {} {} 0 {} 1 {} {} Z",
+        round(centre), round(centre), round(centre), round(centre - radius),
+        round(radius), round(radius), u8::from(angle > std::f64::consts::PI),
+        round(centre + radius * angle.sin()), round(centre - radius * angle.cos())))
+}
+
 /// Electron `usageView.compactCount`: 1.1B, 3.1M, 410k, 920.
 pub fn compact_count(value: u64) -> String {
     const UNITS: [(u64, &str); 3] = [(1_000_000_000, "B"), (1_000_000, "M"), (1_000, "k")];
@@ -171,4 +197,63 @@ mod renderer_ring_tests {
         let cost = mission_cost_from_events(&[receipt(long_run())]).unwrap();
         assert_eq!(crate::benchmark::cost_line(Some(&cost)).as_deref(), Some("$3.06"));
     }
+    #[test]
+    fn gives_the_ring_nothing_to_say_about_cost_only_the_context() {
+        let mut usage = long_run();
+        usage["contextTokens"] = json!(236757);
+        usage["billing"] = json!("subscription");
+        let cost = mission_cost_from_events(&[receipt(usage.clone())]).unwrap();
+        let t = transcript(usage);
+        let hover = super::ring_sentence(t.context.as_ref().unwrap(), Some(&cost));
+        assert_eq!(hover, "Context: 237k of 1.0M used, 24%");
+        assert!(!hover.contains('$'));
+    }
+    #[test]
+    fn still_prices_what_was_priced_beside_it() {
+        let mut usage = long_run();
+        usage["contextTokens"] = json!(236757);
+        usage["billing"] = json!("subscription");
+        let plan = mission_cost_from_events(&[receipt(usage.clone())]).unwrap();
+        let priced = mission_cost_from_events(&[receipt(json!({"usd":0.4,"inputTokens":10,"outputTokens":5}))]).unwrap();
+        let cost = crate::relay::sum_exchange_costs([Some(plan), Some(priced)].into_iter()).unwrap();
+        let t = transcript(usage);
+        assert_eq!(super::ring_sentence(t.context.as_ref().unwrap(), Some(&cost)),
+            "Context: 237k of 1.0M used, 24% — This conversation: $0.40");
+    }
+
+    #[test]
+    fn fills_a_slice_from_twelve_oclock_the_size_of_the_share_used() {
+        assert_eq!(super::pie_slice_path(0.0, 7.0, 4.5), None);
+        assert_eq!(super::pie_slice_path(25.0, 7.0, 4.5).as_deref(), Some("M 7 7 L 7 2.5 A 4.5 4.5 0 0 1 11.5 7 Z"));
+        assert!(super::pie_slice_path(75.0, 7.0, 4.5).unwrap().contains(" 0 1 1 "));
+        let full = super::pie_slice_path(100.0, 7.0, 4.5).unwrap();
+        assert!(full.starts_with("M 2.5 7 a 4.5 4.5 0 1 0 9 0"));
+        let paths = crate::bot_spec::parse_svg_subpaths(&full);
+        assert_eq!(paths.len(), 1);
+        assert!(paths[0].iter().any(|p| p[0] > 11.4), "the full disc reaches its right edge");
+    }
+
+    #[test]
+    fn states_no_total_for_runs_a_subscription_covered() {
+        let mut usage = long_run();
+        usage["billing"] = json!("subscription");
+        let plan = mission_cost_from_events(&[receipt(usage)]);
+        assert_eq!(crate::benchmark::cost_total(&[plan.clone(), plan]), None);
+    }
+    #[test]
+    fn counts_as_priced_only_the_runs_that_were() {
+        use crate::benchmark::{cost_total, CostTotal};
+        let mut usage = long_run();
+        usage["billing"] = json!("subscription");
+        let plan = mission_cost_from_events(&[receipt(usage)]);
+        let priced = mission_cost_from_events(&[receipt(json!({"usd":0.05,"inputTokens":1,"outputTokens":1}))]);
+        let free = mission_cost_from_events(&[receipt(json!({"inputTokens":1200,"outputTokens":300}))]);
+        assert_eq!(cost_total(&[priced, free.clone(), plan]), Some(CostTotal {
+            line: "$0.05".into(), runs: 1, word: "priced",
+        }));
+        assert_eq!(cost_total(&[free.clone(), free]), Some(CostTotal {
+            line: "2.4k in · 600 out".into(), runs: 2, word: "measured",
+        }));
+    }
+
 }

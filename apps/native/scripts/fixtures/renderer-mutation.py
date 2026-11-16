@@ -10,6 +10,72 @@ import subprocess
 import sys
 
 CONTROLS = {
+    "signed-out-status": (
+        "core/src/teammate_reach.rs",
+        'if let Some(label) = blocked_label(own, reach) {',
+        'if let Some(label) = None::<&str> {',
+        "reads_as_blocked_not_idle_when_its_runtime_is_signed_out",
+    ),
+    "work-owner": (
+        "core/src/teammate_work.rs",
+        'owners.get(&m.mission_id).is_some_and(|owner| owner == id)',
+        'owners.get(&m.mission_id).is_some()',
+        "counts_only_the_missions_the_host_recorded_as_theirs",
+    ),
+    "recorded-runtime": (
+        "src/ui/home_panel.rs",
+        '.or(route)\n}',
+        '; route\n}',
+        "still_prefers_a_running_mission_then_a_past_one_over_the_route",
+    ),
+    "plain-ghost": (
+        "src/ui/messages.rs",
+        'hue: "pearl".into(), parts: None, bot: Some(("ghost".into(), "eyes".into())),',
+        'hue: "lime".into(), parts: None, bot: Some(("swarm".into(), "eyes".into())),',
+        "beside_a_reply_the_ghost_when_the_conversation_is_nobodys_the_teammates_own_bot_when_it_has_one",
+    ),
+    "idle-roster-cache": (
+        "src/main.rs",
+        "s.people_panel.team = team;",
+        "let _ = team;",
+        "roster_refresh_keeps_the_template_starters_before_the_team_screen_is_opened",
+    ),
+    "pending-reach": (
+        "core/src/teammate_reach.rs",
+        "(usable || !runtimes.iter().any(|r| r.checking)).then_some(usable)",
+        "Some(usable)",
+        "has_no_global_blocked_verdict_while_the_only_possible_agent_is_still_checking",
+    ),
+    "idle-own-starters": (
+        "src/ui/idle_teammate.rs",
+        "own.unwrap_or_else(|| role_starters(role))",
+        "role_starters(role)",
+        "offers_a_template_teammates_own_first_messages",
+    ),
+    "routine-owner": (
+        "src/ui/routines_panel.rs",
+        'if !s.teammates.iter().any(|t| t.id == owner) {',
+        'if false {',
+        "will_not_save_until_that_is_answered",
+    ),
+    "newest-budget": (
+        "core/src/thread_view.rs",
+        'used.saturating_add(sizes[first - 1]) <= budget',
+        'used.saturating_add(sizes[first - 1]) <= usize::MAX',
+        "the_newest_turns_whose_rows_fit_oldest_first_index",
+    ),
+    "working-cycle": (
+        "core/src/bot_rig.rs",
+        'WORKING_BEATS[(start + count as usize) % WORKING_BEATS.len()]',
+        'WORKING_BEATS[start % WORKING_BEATS.len()]',
+        "goes_round_all_of_them_in_turn_each_face_from_a_place_of_its_own",
+    ),
+    "ring-plan": (
+        "core/src/benchmark.rs",
+        'if shown == "plan" || shown.is_empty() { return None; }',
+        'if shown.is_empty() { return None; }',
+        "gives_the_ring_nothing_to_say_about_cost_only_the_context",
+    ),
     "plan-format": (
         "core/src/benchmark.rs",
         'if c.plan {',
@@ -150,6 +216,7 @@ try:
         result = subprocess.run(["timeout", "5400", "python3", "scripts/gentle-cargo.py", "--timeout", "5380", "test", "--release", "--workspace", "--no-fail-fast"], stdout=out, stderr=subprocess.STDOUT, env=env)
     output = log.read_text()
     assert result.returncode != 0, "mutation survived"
+    assert "Test isolation guard refused" not in output, "test isolation failure is not a caught mutation"
     assert any(line.startswith("test ") and named in line and line.endswith(" ... FAILED") for line in output.splitlines()), f"named assertion failure absent: {log}"
     print(f"CAUGHT {sys.argv[1]}: {named}", flush=True)
 finally:

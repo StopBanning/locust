@@ -823,3 +823,727 @@ No live window, real agent, packaged app or Electron/JavaScript gate is run.
   controls and final restored run follow. No aggregate-cost or pie claim.
 - Warnings match the unchanged baseline: 3 core-test and 11 window-test
   warnings in existing buddy/drawing/conductor code. None in changed files.
+
+### Renderer-9 billing negative controls
+
+- `plan-receipt`: exactly the named plan-coverage case failed when inspector's
+  subscription branch was disabled. 2098 core passed + one intentional failure,
+  500 window passed, 20 ignored, doc tests 0. Runner exit 0, inspector.rs
+  restored byte for byte. Logs: `renderer-control-plan-receipt.log` and
+  `renderer-9-plan-receipt-result.log`.
+- `plan-format`: disabling the shared plan formatter failed the named case
+  and existing `benchmark::tests::compare_record_rows_calculates_middle_time_and_cost`;
+  both expected `in your plan`. 2097 core passed + two intentional failures,
+  500 window passed, 20 ignored, doc tests 0. Runner exit 0, benchmark.rs
+  restored byte for byte. Logs: `renderer-control-plan-format.log` and
+  `renderer-9-plan-format-result.log`.
+- All three controls caught; tracked source diff is empty after restoration.
+  Final restored whole-workspace release suite and binary build follow.
+
+
+## Renderer-10 — continuation and context ring (prepared)
+
+- Started from 934e7106. The round-3 code leftovers listed in the handoff are
+  already committed. Preserved the existing uncommitted renderer-9 billing
+  control notes; no stash or source cleanup was needed.
+- Running a restored whole release workspace suite before committing those
+  verification notes (`renderer-10-baseline-workspace.log`). This compilation
+  predates this section's new ring tests and changes.
+- Read ContextRing.tsx, cost.ts, the remaining ring cases, native ledger's
+  conversation cost accumulation and native drawing. The ring now uses the
+  actual snapshot's conversation cost: subscription-only totals say only the
+  context; paid usage beside a plan remains priced. Added separate exact-value
+  cases `gives_the_ring_nothing_to_say_about_cost_only_the_context` and
+  `still_prices_what_was_priced_beside_it` in `context_usage::renderer_ring_tests`.
+- Added `fills_a_slice_from_twelve_oclock_the_size_of_the_share_used`, preserving
+  Electron's exact SVG path values for 0/25/75/100 percent, centre 7, radius 4.5.
+  Native uses its existing SVG outline tessellator to draw that path, including
+  a full disc. This replaces the ring's private one-percent polygon loop.
+- Added both list-of-runs cases: `states_no_total_for_runs_a_subscription_covered`
+  and `counts_as_priced_only_the_runs_that_were`. The shared cost-total formatter
+  is also used by the actual ring; it suppresses plan-only totals and counts
+  only the displayed unit. Token formatting now uses the existing precise
+  compact count (2.4k, not 2k), matching Electron's exact aggregate values.
+- Added a headless drawn-ring regression for the snapshot-to-control wiring,
+  testing the exact subscription and mixed paid sentences.
+- All ten Electron cases are now implemented (five pre-existing, five new),
+  plus the additional headless regression. Row stays waiting until verified
+  by name. No Electron-plumbing exclusions. Ring-plan control prepared;
+  all new-source verification is pending. No mutation applied.
+
+### Restored renderer-9 verification
+
+- `renderer-10-baseline-workspace.log`: exit 0, 2099 core + 500 window
+  passed, 20 real-agent tests ignored, doc tests 0. This is the restored
+  verification for 934e7106 and the inherited billing control notes, not
+  evidence for renderer-10 source. No prior source changes needed stashing.
+
+- Reviewed the next queue cases while the ring control compiles: enqueue uses
+  only the current queue key and drain judges only the current screen's run.
+  Carrying the remaining five M32 cases needs waitFor persisted and used in
+  enqueue/display/drain; adding queueHome alone would be insufficient. Queue
+  row remains waiting. Idle-world and teammate-work also retain applicable
+  screen/ownership gaps described in earlier notes; not excluded as plumbing.
+- Ring control is currently running as one whole release workspace suite;
+  benchmark.rs is temporarily mutated only under the runner's restore guard.
+
+### Renderer-10 negative control
+
+- `ring-plan` runner exit 0: caught the intended
+  `gives_the_ring_nothing_to_say_about_cost_only_the_context` assertion,
+  `states_no_total_for_runs_a_subscription_covered`, and the additional actual
+  drawn-ring test. Exactly those three failures: 2102 core passed / 2 failed,
+  500 window passed / 1 failed, 20 ignored, doc tests 0. The actual failure
+  adds `This conversation: in your plan`, which the person should not see.
+- Runner restored benchmark.rs byte for byte, retaining the intended changes.
+  Logs: `renderer-control-ring-plan.log`, `renderer-10-ring-plan-result.log`.
+  Restored whole release workspace run is in progress; no mutation remains.
+- Manifest audit also found two waiting paths absent from this checkout (and
+  no path history in the current branch):
+  `a-waiting-conversation-is-first-in-the-sidebar.test.tsx` and
+  `an-app-started-conversation-says-so-in-the-sidebar.test.tsx`. Neither can
+  be carried with exact cases from the supplied workspace yet. Rows unchanged.
+
+
+## Renderer-10 next section — teammate work age (prepared)
+
+- Read teammateWork.test.ts and the native people screen's actual ago_label
+  callers. The existing behavior matches its four age cases. Factored only
+  the clock argument so those exact Electron timestamps can be tested.
+- Four separate cases in `people_panel::renderer_work_age_tests`:
+  `reads_in_the_largest_unit_that_fits`, `singularises_honestly`,
+  `calls_anything_under_a_minute_just_now_including_a_clock_that_ran_ahead`,
+  `says_nothing_for_a_timestamp_it_cannot_read`. Verification pending in the
+  ongoing restored run (if its window compilation includes this edit).
+- The six teammateWork ownership/usage/recent-list cases still need the proper
+  id-based ownership projection on the actual screen. Row remains waiting.
+
+- All ten ring cases observed passing by name in
+  `renderer-10-restored-workspace.log`; ring row now carried. Whole run still
+  finishing. Recount and --check pass: 195 carried, 62 does-not-apply,
+  185 partial, 867 waiting, 1309 total. Requested subset: 27 waiting.
+
+### First restored run (not green)
+
+- `renderer-10-restored-workspace.log`: exit 101. All ten ring cases, the
+  drawn-ring regression, and all four work-age cases observed passing by name.
+  Core: 2103 passed, one failed, 20 ignored. Window: 505 passed, none failed.
+- The failure is `native::tests::native_claude_denies_then_allows_one_file_write`:
+  its fake Claude process closed stdout before requesting approval (zero
+  records). It passed in both this turn's baseline and mutant suite. No
+  unrelated approval or runtime source is changed. One unchanged-source full
+  confirmation follows in `renderer-10-confirm-workspace.log`.
+
+### Final restored confirmation — verified
+
+- `renderer-10-confirm-workspace.log`: exit 0, **2104 core + 505 window =
+  2609 passed**, **20 ignored** real-agent cases, doc tests 0. All ten ring
+  cases, the added drawn-ring check and four work-age cases observed passing
+  by name. The fake Claude approval case passed; the earlier failure is
+  retained above and is not counted as a pass.
+- One whole workspace run at a time via gentle-cargo, release, serial tests,
+  optional Git read locks disabled, target and TypeScript reader inside this
+  workspace. No filtered runs. Ring-plan control caught and fully restored.
+- Ring file is carried (18 of 45 requested files now carried cumulatively,
+  27 still waiting). No exclusions added. The requested list is unfinished.
+- Recount and --check passed; `git diff --check` and mutation-runner Python
+  syntax check passed. Release binary build is running separately.
+
+### Teammate work age section — verified
+
+- All four `people_panel::renderer_work_age_tests` passed by name in both
+  restored runs, including the final green 2609-test confirmation. Committed
+  separately after the completed ring section. Only the clock injection was
+  factored; production time labels retain the same behavior.
+- teammateWork.test.ts stays waiting for its six ownership/usage cases.
+  No full-file parity claim is made for those four verified age cases.
+
+### Renderer-10 final handoff
+
+- Release binary build: exit 0, `renderer-10-release-build.log`, 1m 32s.
+  Twelve existing native warnings in drawing/conductor code; none added in
+  this section's changed code. No live window, packaged app, real agent,
+  Electron/JavaScript gate, or platform build beyond this Mac was run.
+- Source commits: `03fb3ffb` context-ring parity; `1232b8ae` work-age cases.
+  `f27b9c4f` preserves and verifies the prior billing-control notes. No handoff
+  file changed or committed. No mutation, stash or discarded work remains.
+- Tracked tree is committed clean after this note. The only untracked files
+  are the original HANDOFF files; the Python syntax check's bytecode cache
+  was removed. Recount, --check and diff whitespace checks passed.
+- Unfinished: 27 of the 45 requested files remain waiting. Continue the
+  teammate list before conversation-only files, retaining the gap notes.
+  First applicable gap is still inline new-page preview. The queue needs
+  persisted waitFor wiring; teammateWork needs six ownership/usage cases.
+  Two missing Electron source paths are recorded above. No further file is
+  claimed carried, and no full-task completion is claimed.
+
+
+## Renderer-11 — working-face rule cases (prepared)
+
+- Started from f7ff9ceb with a clean tracked tree. The round-3 leftovers in
+  the handoff are already committed; nothing needed stashing or discarding.
+- Read a-teammate-at-work-goes-round-its-faces.test.ts, faceLife.ts,
+  faceState.ts, TeammateBot.tsx's rules and native bot_rig/buddy_moves/bot_stage.
+  Twelve separate Rust cases in renderer_work_faces_tests preserve Electron's
+  activities, seeds, counts, timings and twelve-step Antigravity tool sequence.
+  The typed LiveRuntimeEvent inputs retain exactly the fields these rules read;
+  transport ids, timestamps and text are not inputs to this function.
+- Verification pending in renderer-11-workspace.log. First invocation was made
+  from the repository root and exited 101 before finding Cargo.toml; corrected
+  by running from apps/native. No test pass is claimed for that invocation.
+- Important integration gap: bot_stage does not call worn_activity,
+  everyday_face or working_beat_for. Home, roster and sidebar mostly draw
+  static faces. Passing the pure rule tests therefore cannot carry this file.
+  Its manifest row stays waiting, with this limitation recorded explicitly.
+- Other inspected gaps remain applicable: plain conversations lack reply/live
+  avatars; phone listing has no native phone module; the teammate folder row
+  needs connector/permission behavior; new-page preview and queued waitFor
+  remain as described above. None is excluded as Electron plumbing.
+- A working-cycle negative control has been added; not yet run. All runs use
+  gentle-cargo, one whole release workspace at a time, with target and the
+  existing TypeScript reader inside this workspace, serial test execution,
+  and GIT_OPTIONAL_LOCKS=0. No outside-workspace mutation script is accessed.
+
+
+### Renderer-11 next section — newest turns (prepared)
+
+- Read a-long-conversation-opens-on-its-newest-turns.test.tsx and Thread.tsx's
+  budget policy. Native previously constructed every item. Added a whole-turn
+  budget underneath message_column, with per-conversation expansion state and
+  a real Show earlier turns button. The current turn is outside the budget;
+  the newest earlier turn always stays. Prompt-rail jumps reveal all turns
+  before resolving their target, retaining access to old messages.
+- Three exact index/budget cases in thread_view::renderer_newest_tests and
+  two actual headless message-column cases in messages::renderer_newest_tests.
+  Added a real-pointer interaction check for expansion and conversation isolation.
+  All pending verification; manifest row stays waiting until named passes.
+- Native budgets its own ledger items, including prompt rows, instead of
+  constructing Electron's intermediate React row tree. Exact 20-by-60 and
+  3-by-5 fixtures preserve the pinned visible range and words.
+
+- renderer-11-workspace.log completed exit 0: 2116 core + 505 window tests
+  passed, 20 real-agent cases ignored, doc tests 0. All twelve work-face cases
+  observed passing by name. This run predates the newest-turn changes; those
+  are not claimed verified. Commit the rule tests as a bounded partial section.
+
+
+### Renderer-11 next section — routine runner (prepared)
+
+- Read nobodys-conversation-can-be-a-routine.test.tsx and RoutineDialog.tsx.
+  Native routine editing now asks Who runs it when the entry has no owner,
+  starts on Pick a teammate, and never defaults to the first roster member.
+  Existing owned entries state who runs them without asking. An empty roster
+  explains that there are no teammates yet. Save is disabled and guarded at
+  the press boundary until there is an existing teammate to run it.
+- An overlong step says Shorten step 2 to save this routine for Electron's
+  exact Fine./8001-x fixture and disables Save. Counts UTF-16 units as JS does;
+  host validation remains in routines.rs. No route is invented or changed.
+- Six separate actual headless editor cases in
+  routines_panel::renderer_unowned_tests; pending verification. Manifest row
+  remains waiting. A routine-owner negative control is prepared, not yet run.
+
+
+### Newest-turn negative control
+
+- newest-budget exited 0 after observing the intended named assertion fail;
+  the runner restored thread_view.rs byte for byte. Core 2116 passed and
+  three intended budget assertions failed, 20 ignored. Window 506 passed
+  and the long-window and missing-button interaction cases failed. Short
+  conversations and the twelve work-face cases passed by name. No unrelated
+  failures. Logs: renderer-control-newest-budget.log and
+  renderer-11-control-result.log. No mutation remains applied.
+- Final restored full workspace run started in renderer-11-restored-workspace.log,
+  also including the newly prepared routine editor cases and pointer choice.
+
+- Follow-up to the prepared pagination section: the older-edge layout hook
+  requests another budget within 600 points after scrolling up, retaining the
+  previous first item as the scroll anchor. A headless scroll test is prepared.
+  Opening a different ledger clears expansion state, matching Thread's identity
+  reset. Rail jumps still reveal their target before resolving its key.
+  These edits postdate the first restored compilation and require the next run.
+
+
+### First restored run — pagination passes, routine dispatch correction
+
+- renderer-11-restored-workspace.log: core 2119 passed, 20 ignored; window
+  512 passed, three failed. The five Electron newest-turn cases and the
+  pointer expansion case all passed by name. This binary predates the scroll
+  hook/test and identity reset. No final green claim is made for that source.
+- All three failures were disabled routine Save pointer cases. Rune still
+  dispatched the attached handler after disabled(true), and the guard displayed
+  a refusal. The screen now attaches no press handler while saving is refused,
+  in addition to styling it disabled and revalidating an enabled press.
+  Runner-choice, default-nobody, inherited-owner and selection-pointer cases
+  passed by name. The correction must be verified by the next full run.
+
+
+### Pagination section — verified and carried
+
+- renderer-control-routine-owner.log: 2119 core passed, 20 ignored; 513 window
+  passed and only three deliberately broken runner assertions failed. All five
+  exact pagination cases, pointer expansion, and the new older-edge scroll
+  case passed by name. The runner caught its named owner assertion and restored
+  routines_panel.rs byte for byte (renderer-11-owner-control-result.log).
+- Pagination is now carried. Its own newest-budget control was caught and
+  restored earlier. The scroll hook and identity reset are included in this
+  run; no scroll performance benchmark or live window is claimed.
+- Final green restored workspace verification of both sections follows. The
+  routine row remains waiting until all six cases pass after restoration.
+
+
+## Renderer-11 final restored verification
+
+- renderer-11-final-workspace.log: exit 0, **2119 core + 516 window = 2635
+  passed**, **20 ignored** real-agent cases, doc tests 0. All 26 added tests
+  were checked by name: 12 work-face rules, 5 exact newest-turn cases plus
+  pointer and scroll regressions, and 6 exact unowned-routine cases plus the
+  real-pointer runner-choice regression. The disabled-Save failures are fixed.
+- Both newest-budget and routine-owner negative controls failed their intended
+  named assertions and restored their source byte for byte. working-cycle is
+  supplied but was not run. No break remains applied.
+- Routine row is now carried; work-face row retains waiting with its exact
+  missing integration called out in the manifest. No Electron-plumbing
+  exclusions added. This continuation carries **two more full files**, plus
+  twelve rule cases in a still-waiting file. Cumulatively **20 of the original
+  45 requested files are carried, 25 remain waiting**. The brief is unfinished.
+- Recount and --check passed: 197 carried, 62 does-not-apply, 185 partial,
+  865 waiting (1309 total). git diff --check passed. All cargo runs were whole
+  release workspace runs via gentle-cargo, one at a time, with the in-workspace
+  target/TypeScript reader and serial optional-lock configuration stated above.
+- Source commits: 224fb389 work-face rule cases; 4f0b45a9 newest-turn paging;
+  routine section committed separately after this final green run. Release
+  binary build follows; no build pass is claimed before its result.
+- Not run: live/packaged window, real agent, Electron/JavaScript gate, other
+  platform builds, or a performance benchmark. No handoff file was edited,
+  committed or stashed. No unrelated change was discarded.
+
+
+### Renderer-11 release build and handoff
+
+- Release binary build exited 0 in 1m 32s (renderer-11-release-build.log).
+  Twelve existing native warnings, matching the previous section's build.
+- Source commits: 224fb389 rule tests, 4f0b45a9 pagination, 636b66a1 routine
+  runner/step guard. The final full release suite is green, both mutation
+  targets have their production expressions, and no mutation is left applied.
+- Final recount/--check, Python control syntax, and diff whitespace checks pass.
+  Tracked tree committed clean; only the original untracked HANDOFF files remain.
+- **Unfinished:** 25 requested files remain waiting. Continue the teammate
+  list before conversation-only files. New-page preview remains the first
+  applicable gap. Working-face rules now have twelve verified exact cases;
+  carrying that file still requires actual animated stage/screen integration.
+  Queued waitFor, id-based teammate work, pets and the other previously recorded
+  gaps remain. No additional file is claimed carried or excluded. No live or
+  packaged app, real agent, Electron gate, other OS build or benchmark was run.
+
+## Renderer-12 — idle teammate section (in progress)
+
+- Started at b239b517 with a clean tracked tree; the round-3 leftovers in the
+  brief were already committed. No stash or discard needed.
+- Read the idle-teammate file and IdleTeammate.tsx, its role descriptions,
+  mode sentences and App caller. Native's fresh thread now shows its teammate's
+  own template starters or role defaults and role description; a Custom role
+  uses its saved title. Starter presses dispatch through the existing send gate.
+  Existing transcript loading/empty-ledger states remain separate.
+- Five exact Electron cases live separately under idle_teammate::tests, drawing
+  the actual thread headlessly. The first full run observed all five passing by
+  name (2119 core passed, 20 ignored; window still running). That binary predates
+  correcting the mode sentence to the composer's effective mode and wiring the
+  press to send, as Electron's App does. Final verification remains pending.
+- Empty-folder starters use the existing native invented-folder signal and
+  template fresh-starter mapping; no filesystem access during drawing.
+- Still waiting: inline new-page preview, pet animations, model/effort editor,
+  signed-out/pending discovery labels, queued busy-elsewhere dispatch, month/limit
+  rows and handoff glances need the surface/host work noted in prior sections.
+  Further reads this turn confirmed those applicable gaps, not exclusions.
+- One initial compile failed on a String/&str mismatch and ghost_button's &str
+  argument; fixed. A path typo in a test-helper edit did not change files. No
+  compiler error is counted as a passed test or mutation.
+- Idle-own-starters control exited 0 and restored idle_teammate.rs byte for
+  byte. The full mutant run passed 2119 core tests (20 ignored) and 520 window
+  tests, failing only offers_a_template_teammates_own_first_messages. Log:
+  renderer-control-idle-own-starters.log. No break remains applied.
+
+### Next small section — discovery reach (prepared)
+
+- Seven separate cases from a-teammate-is-not-stuck-while-agents-are-still-being-found
+  live under teammate_reach::tests, with Electron's ids, version and exact labels.
+  Native uses absence of a blocked label to preserve its existing activity,
+  instead of introducing another parallel activity/status state machine.
+- Shared core reach rules now feed Home/Team urgency and labels, reading only
+  already-loaded discovery. The boot sweep remains the fallback before the richer
+  answer arrives. No disk reads, probes or process launches were added to drawing.
+- The complete restored run includes both sections; neither row is marked carried
+  until named results. The 9-case signed-out file remains waiting (runtime choice
+  and presence projection are additional cases, not covered by this section).
+- Inventory audit found two waiting paths absent from this checkout:
+  a-waiting-conversation-is-first-in-the-sidebar.test.tsx and
+  an-app-started-conversation-says-so-in-the-sidebar.test.tsx. They remain waiting;
+  absence is not an Electron-plumbing exclusion. No external reference was read.
+- renderer-12-restored-workspace.log exited 0: 2126 core + 521 window passed,
+  20 ignored real-agent tests, doc tests 0. All twelve Electron cases passed by
+  name on restored source. The added Home/Team surface regression and effective
+  composer-mode regression were written after those test binaries compiled;
+  their first verification is the following control run, not this baseline.
+- Both new modules are rustfmt-formatted. The pending-reach control temporarily
+  treats a partial unusable sweep as a final negative verdict. Final results and
+  restored verification follow below; no compile failure counts as a catch.
+- Integration review found the full teammate JSON was loaded only when opening
+  Team: startup's roster projection omitted template starters/custom titles.
+  The existing roster-refresh team read now also caches that JSON (no extra I/O).
+  A regression creates a native roster under this workspace's target directory,
+  refreshes it without opening Team, and draws Quill's actual idle thread.
+  This correction and its regression require the final restored run below.
+- Pending-reach control exited 0, restored teammate_reach.rs byte for byte.
+  Intentional failures: three core reach cases (2123 core passed, 3 failed,
+  20 ignored) and the new Home/Team regression (522 window passed, 1 failed).
+  No unrelated assertion failed. The six idle cases then compiled, including
+  effective composer mode, all passed. Startup-cache regression was added after
+  that compilation and is first exercised by idle-roster-cache below.
+- Startup-cache control exited 0, restored main.rs byte for byte. Whole mutant
+  workspace: 2126 core passed, 20 ignored; 523 window passed and only the named
+  startup-cache regression failed. All seven discovery cases and its Home/Team
+  surface regression passed on restored discovery logic. Log:
+  renderer-control-idle-roster-cache.log. No mutation remains applied.
+- The final idle buttons wrap long starter text within the thread's width,
+  retain native focus rings and omit press handlers while blocked/busy. Final
+  verification is renderer-12-final-workspace.log, followed by the release build.
+
+### Startup-control correction
+
+- The initial idle-roster-cache run above is REJECTED as mutation evidence:
+  its named test failed at the test isolation guard before exercising the cache.
+  The following restored run exposed the same fixture-path failure. Neither is
+  a green baseline or a valid catch, despite the old control runner's exit 0.
+- Corrected the fixture to use the configured runner's disposable TMPDIR,
+  as the other native store tests do. No isolation bypass or runner change.
+  The renderer control runner now rejects isolation-guard failures explicitly.
+  The startup-cache control must be rerun, then source restored and verified.
+
+### Discovery section verified for commit
+
+- All seven exact cases passed by name in the green restored workspace run
+  (2126 core, 521 window, 20 ignored). The additional Home/Team regression
+  passed on restored reach logic in the subsequent startup-control run. Its
+  failure under pending-reach was the intended surface assertion, not isolation.
+- The discovery row is carried. Its production code has not changed since that
+  green run. Startup-fixture validation is separate, still pending for idle.
+- Native keeps activity in its existing state machinery: unknown discovery is
+  absence of a proven blocked label, not a second parallel status machine.
+  No cases were excluded as Electron plumbing. Signed-out/runtime-choice and
+  presence cases in the other file remain waiting.
+- Corrected startup-cache control rerun exited 0 and is a VALID catch:
+  the named test failed at idle_teammate.rs's prompt assertion. The captured
+  headless thread showed Quill with Custom's default prompts instead of her
+  three writer prompts. No isolation error. Main.rs restored byte for byte.
+  Totals: 2126 core passed (20 ignored), 523 window passed, one intentional
+  window failure only. Result: renderer-12-cache-control-rerun-result.log;
+  control detail: renderer-control-idle-roster-cache.log.
+- Final source verification is now renderer-12-verified-workspace.log. The
+  prior renderer-12-final-workspace.log retains the rejected fixture failure.
+
+## Renderer-12 final restored verification
+
+- renderer-12-verified-workspace.log exited 0: **2126 core + 524 window =
+  2650 passed**, **20 ignored** real-agent tests, doc tests 0. All twelve
+  Electron cases and three additional regressions observed passing by name,
+  also checked mechanically against the fifteen new test declarations.
+- Idle's five exact case suffixes, in Electron order: offers_a_template_teammates_own_first_messages;
+  never_offers_code_to_the_money_or_the_writing_team;
+  never_asks_a_non_coder_for_a_page_the_app_would_only_show_as_code;
+  says_what_the_role_is_for_not_that_every_role_reads_the_workspace;
+  offers_a_hand_made_teammate_its_roles_and_speaks_of_code_only_for_the_roles_that_are_code.
+  All live under idle_teammate::tests. Two additional cases cover effective mode
+  and startup's actual roster refresh; team_board::surface_tests covers both
+  Home and Team with pending and checked missing agents.
+- Both rows now carried. No exclusions. **22 of the original 45 requested
+  files carried, 23 still waiting. The full brief remains unfinished.**
+- All runs use gentle-cargo, one whole release workspace at a time, serial tests,
+  optional Git read locks disabled, the in-workspace Cargo target and TS reader.
+  No mutation remains. Three valid controls caught their intended regressions;
+  the invalid isolation attempt is explicitly rejected above.
+- The final suite has the same existing warnings as the baseline: 3 core-test
+  warnings and 11 window-test warnings, none in the new modules. Python control
+  syntax and git diff --check pass. Release binary build follows.
+- Not run: Electron/JavaScript gate, live or packaged window, real agent,
+  another OS build, or a performance benchmark. Starter dispatch uses the
+  existing send gate; a live starter-button/model turn was not attempted.
+
+### Renderer-12 release build and continuation
+
+- Release binary build exited 0 in 1m 09s (renderer-12-release-build.log),
+  with the same 12 existing native warnings and none in this section's files.
+- Source commits: **949813d4** pending discovery; **d5994318** idle starters
+  and mutation controls. Final verification is committed separately. No push,
+  version, changelog, handoff-file or external-reference change.
+- Final recount/--check: **199 carried, 62 does-not-apply, 185 partial,
+  863 waiting** (1309 total). The requested subset has **23 waiting**;
+  22 of its original 45 are carried. No new exclusion or partial classification.
+- The task remains incomplete. Continue the waiting teammate list before the
+  conversation-only list. Inline new-page preview is still the first applicable
+  gap; pets, real face rotation, queued busy-elsewhere dispatch, route/effort
+  editor, monthly spending, id-based work accounting and the other prior gaps
+  remain. Two inventory paths are absent, as listed above; they were not excluded.
+- The three valid mutations are restored. Tracked tree clean after commits;
+  only the original untracked HANDOFF files remain. Native-only validation:
+  no Electron gate, live/packaged window, real agent, other OS, or benchmark.
+
+
+## Renderer-13 — inherited ghost section and runtime selection (in progress)
+
+- Read both inherited diffs. They implement all three cases of
+  `a-plain-conversation-wears-the-ghost.test.tsx`: tm_atlas/droid/blue at 24,
+  anonymous pearl ghost, and the Thinking live row at the epoch. Native's
+  actual transcript draws the owner face beside replies and the live row.
+  No break was left applied; the plain-ghost control is prepared, not yet run.
+- Baseline full release workspace: renderer-13-ghost-workspace.log exited 0: 2126 core + 527 window passed, 20 real-agent cases ignored, doc tests 0. All three ghost tests observed passing by name. This binary predates the runtime-selection changes.
+- Revisited inline new-page preview first. It still needs a per-file embedded
+  isolated browser frame: activity_drawers renders diffs, while reply_page_ui
+  and compare_view only navigate the separate browser panel. A button opening
+  that panel would not carry the four Electron inline-preview cases. Row stays
+  waiting; no exclusion. Following the brief's small-section preference.
+- Next section: first three exact runtime-selection cases from
+  `a-signed-out-teammate-is-not-idle.test.ts` in
+  home_panel::renderer_runtime_tests. Home and Team now select a recorded
+  running runtime, then the newest recorded runtime, then the saved route.
+  Ownership uses the cached missionOwners ids, never a display name, and no
+  new disk access during drawing. Two extra tests check owner separation and
+  the actual Home/Team labels with a ready past Codex mission and signed-out
+  Claude saved route. Verification pending; the row stays waiting: six status,
+  tone and presence cases are not claimed carried by these selection tests.
+
+- Ghost section committed as **82008602** after the three named baseline passes
+  and the valid plain-ghost control. Control exited 0, caught all three intended
+  assertions, restored messages.rs byte for byte: 2126 core passed, 529 window
+  passed and exactly three intentional failures, 20 ignored. No unrelated failure.
+- The five runtime-selection tests all passed by name in that same run (the
+  three Electron cases and two extra regressions). Recorded-runtime control is
+  now running. Ghost inventory row is carried; runtime row remains waiting.
+
+### Renderer-13 next section — work accounting (prepared, not yet carried)
+
+- Re-read teammateWork.test.ts and teammateWork.ts. The four exact age cases
+  were already present in people_panel::renderer_work_age_tests. Added six
+  separate exact work cases in core teammate_work::tests, plus a cycle/group
+  regression. Values remain m1/m2/m3/m4, tm_atlas/tm_bramble/tm_nobody,
+  the September 2026 timestamps, and 100/10 + 200/20 excluding 999/99.
+- The Team card now calls this projection, counts by cached host owner ids,
+  sums only reported usage (absence stays absent), and lists three newest
+  conversations, named from the root's displayed title. No new disk read in
+  drawing. The extra headless Team-card test gives unrelated work the same
+  teammate display name and requires that its title and usage stay absent.
+- Work-owner control prepared. Inventory row stays waiting until all ten
+  exact cases and real card regression have passed by name. The summary's
+  existing ledger cost projection is used rather than reparsing events in UI.
+
+
+### Runtime section verified
+
+- **602a5143** commits the runtime selection and its Home/Team integration.
+  Five tests passed by name in renderer-control-plain-ghost.log. Recorded-runtime
+  control then caught exactly the selection case and its real-surface test,
+  restored home_panel.rs byte for byte, and exited 0. Totals: 2133 core passed
+  (20 ignored); 531 window passed, two intentional failures. No unrelated failure.
+- All ten exact teammateWork cases (six core work tests and four existing age
+  tests), its extra grouping/cycle regression, and the new Team-card regression
+  passed by name in renderer-control-recorded-runtime.log. Work-owner control
+  follows. Neither mutant run is a restored green baseline.
+
+
+### Work section verified and committed
+
+- **c3fc1654** core projection and exact work tests; **886332c4** real Team-card
+  integration and its surface regression. All twelve work/age/group/surface
+  checks were mechanically verified by full name in the recorded-runtime log.
+- Work-owner control exited 0 and restored teammate_work.rs byte for byte.
+  Six intended core assertions failed (2127 other core passed, 20 ignored),
+  plus the intended real Team-card assertion (532 other window passed).
+  No unrelated failure or compile failure counted as a catch. Log:
+  renderer-control-work-owner.log; receipt: renderer-13-work-control-result.log.
+- teammateWork row now carried. The restored whole release workspace run is
+  renderer-13-restored-workspace.log, running. Release build follows it, serially.
+- This continuation carries two files (ghost, work); **24 of the original 45
+  carried, 21 still waiting**. Signed-out stays waiting despite its first three
+  exact cases being carried. No new does-not-apply or partial classification.
+
+### Renderer-13 named checks
+
+The final restored log will be checked against these 20 full test names:
+
+- `messages::tests::beside_a_reply_the_ghost_when_the_conversation_is_nobodys_the_teammates_own_bot_when_it_has_one`
+- `messages::tests::wears_the_ghosts_own_white_as_the_covers_ghost_does_on_the_reply_and_the_live_row_alike`
+- `messages::tests::on_the_live_row_the_same_ghost_while_nobodys_conversation_thinks`
+- `home_panel::renderer_runtime_tests::is_judged_by_the_route_it_is_set_to_use`
+- `home_panel::renderer_runtime_tests::still_prefers_a_running_mission_then_a_past_one_over_the_route`
+- `home_panel::renderer_runtime_tests::is_judged_by_nothing_when_it_has_neither_missions_nor_a_route`
+- `home_panel::renderer_runtime_tests::home_and_team_judge_the_recorded_runtime_before_the_saved_route`
+- `home_panel::renderer_runtime_tests::runtime_ownership_uses_ids_even_when_another_teammate_has_the_same_name`
+- `teammate_work::tests::counts_only_the_missions_the_host_recorded_as_theirs`
+- `teammate_work::tests::takes_the_last_run_from_the_newest_mission_not_the_first_in_the_list`
+- `teammate_work::tests::lists_the_newest_few_newest_first`
+- `teammate_work::tests::says_nothing_about_a_teammate_who_has_never_run_rather_than_zeroes`
+- `teammate_work::tests::adds_up_what_their_missions_reported_and_only_theirs`
+- `teammate_work::tests::uses_the_callers_idea_of_a_title_so_a_briefing_is_not_shown_as_the_words_a_person_typed`
+- `teammate_work::tests::recent_work_groups_follow_ups_and_never_spins_on_a_cycle`
+- `people_panel::renderer_work_age_tests::reads_in_the_largest_unit_that_fits`
+- `people_panel::renderer_work_age_tests::singularises_honestly`
+- `people_panel::renderer_work_age_tests::calls_anything_under_a_minute_just_now_including_a_clock_that_ran_ahead`
+- `people_panel::renderer_work_age_tests::says_nothing_for_a_timestamp_it_cannot_read`
+- `people_panel::renderer_work_surface_tests::team_cards_use_recorded_ids_and_report_only_their_own_usage`
+
+### Renderer-13 continuation inventory
+
+The requested list is unfinished. Waiting teammate files have priority over
+conversation-only files; inline new-page preview is still the first applicable gap.
+The following 21 rows remain waiting (no exclusions added):
+
+- `a-page-a-teammate-made-runs-in-its-turn.test.tsx`
+- `a-pet-plays-what-its-teammate-is-doing.test.ts`
+- `a-signed-out-teammate-is-not-idle.test.ts`
+- `a-teammate-at-work-goes-round-its-faces.test.ts`
+- `a-teammate-can-be-a-pet.test.tsx`
+- `a-teammate-has-a-model-of-its-own.test.tsx`
+- `a-teammates-eyes-are-drawn-not-typed.test.ts`
+- `a-teammates-month-and-limit.test.tsx`
+- `every-teammate-is-a-bot.test.tsx`
+- `home-fits-two-rows-of-teammates.test.ts`
+- `teammate-folder-row.test.tsx`
+- `the-folder-chip-says-a-folder-is-no-place-for-teammates.test.tsx`
+- `two-teammates-look-at-each-other.test.ts`
+- `a-call-shows-on-its-conversation-row.test.tsx`
+- `a-phone-lists-conversations.test.ts`
+- `a-queued-message-stays-in-its-conversation.test.ts`
+- `a-waiting-conversation-is-first-in-the-sidebar.test.tsx`
+- `an-app-started-conversation-says-so-in-the-sidebar.test.tsx`
+- `an-older-conversation-stays-read.test.ts`
+- `review-sees-the-conversation.test.ts`
+- `savable-conversations.test.ts`
+
+
+### Renderer-13 final restored verification
+
+- renderer-13-restored-workspace.log exited 0: **2133 core + 533 window =
+  2666 passed**, **20 ignored** real-agent cases, doc tests 0, no filtered tests.
+  All 20 full names listed above were mechanically matched to `... ok` in
+  this final log, with no FAILED lines. This is the restored green baseline.
+- All three controls are restored: plain-ghost, recorded-runtime, work-owner.
+  A source audit found each original anchor exactly once and no mutant anchor.
+  Source changed only in this workspace's allowed files. The shared target/lock
+  is used through gentle-cargo; no filtered run or parallel workspace run.
+- Warnings remain the baseline's 3 core-test and 11 window-test warnings.
+  No new warning in the added modules. No Electron/JavaScript gate, live or
+  packaged window, real agent/model call, another OS, or benchmark was run.
+  The new cost tests consume the existing ledger-summary projection; they
+  do not claim a new live runtime-usage ingestion check.
+- Recount and --check: **201 carried, 62 does-not-apply, 185 partial,
+  861 waiting**, 1309 total. Requested subset: **24 carried, 21 waiting**.
+  git diff --check and renderer-control Python syntax passed.
+- Release binary build exited 0: renderer-13-release-build.log, optimized release finished in 1m 21s, with the same 12 existing native binary warnings. No packaged app or live window was launched.
+
+
+### Renderer-13 final handoff
+
+- Source commits: **82008602** ghost; **602a5143** runtime selection;
+  **c3fc1654** work projection; **886332c4** Team cards.
+  Supporting records: **0d92a429**, **624c3314**, **79077d16**; this final
+  verification note is a separate commit. No push, merge, version, changelog,
+  protected-lane source, handoff-file, or external-reference change.
+- No break left applied. All final validation commands have finished.
+  Tracked source is committed; the original untracked HANDOFF files remain.
+- The full requested port remains unfinished: **21 waiting rows** above,
+  with inline new-page preview first. Continue teammate files before the
+  conversation-only files. The signed-out file's remaining six status/tone/
+  presence cases are not established by the three carried selection cases.
+
+### Renderer-14 continuation — signed-out status (verification pending)
+
+- Initial tracked diff empty: round-3 leftovers already finished in renderer-13,
+  including ghost commit 82008602 and the restored named verification above.
+  No stash necessary. No break was applied on arrival.
+- Revisited inline new-page preview: still lacks a per-file isolated embedded
+  frame, so all four cases remain waiting. A separate browser-panel button is
+  insufficient. No does-not-apply classification.
+- Added the six remaining signed-out status cases in core teammate_reach,
+  retaining claude/codex, Docs & QA, Builder, Code & Migrations, pending
+  approvals 1, probe-failed/offline and auth-required inputs. The three runtime
+  selection cases already exist in home_panel::renderer_runtime_tests.
+- Shared status projection now supplies Home/Team labels, tone and presence,
+  including distinct amber not-answering and red sign-in states. Board grouping
+  consumes the same projection. Cached missionOwners ids replace roster drawing's
+  owner disk lookups. Protected look/rig/pet files untouched.
+- Extra headless surface regression and signed-out-status control prepared.
+  Row stays waiting until every case passes by name.
+
+
+### Renderer-14 signed-out section verified
+
+- **2e8cb70a** core status projection, six exact cases and break check;
+  **31eac1df** real Home/Team integration and surface regressions.
+- renderer-14-workspace.log exited 0: 2139 core + 534 window passed,
+  20 real-agent cases ignored, doc tests 0. All nine Electron cases and
+  home_and_team_draw_the_signed_out_warning_and_presence_from_the_same_status
+  were matched to their full named passing lines.
+- signed-out-status control exited 0, restored teammate_reach.rs byte for byte.
+  Exactly four expected core assertions failed: reads_as_blocked_not_idle_when_its_runtime_is_signed_out,
+  is_blocked_when_nothing_at_all_is_signed_in_whatever_it_is_set_to,
+  is_not_told_to_sign_in, still_is_when_the_runtime_says_it_is_signed_out.
+  Two surface assertions failed: home_and_team_draw_the_signed_out_warning_and_presence_from_the_same_status
+  and home_and_team_keep_pending_agents_quiet_and_name_a_checked_missing_agent.
+  2135 other core + 533 other window passed; no compiler failure.
+- Row now carried: requested subset 25 carried, 20 waiting. No exclusion added.
+- The extra cached-owner approval regression and hiding the presence dot for
+  idle teammates are included in the final restored run, pending below.
+- Remaining teammate gaps examined: the model dialog uses raw Runtime/Model/
+  Effort fields instead of the shared picker and reported effort stops;
+  the folder row lacks the picker, explanatory text and connector cases;
+  folder caution has no native composer question yet; month/limit presentation
+  remains absent. These are behavior gaps, not Electron-plumbing exclusions.
+  Existing eye/work-face pure tests do not establish all painting/pet cases.
+  Respect the protected look, rig and pet files. Conversation rows remain
+  waiting behind the teammate files. Inline isolated page preview is still
+  the first applicable gap. No unsupported carried claim for these files.
+- No push, merge, version, changelog, handoff-file or protected-lane change.
+  No Electron/JavaScript gate, live window, packaged app, real-agent/model call
+  or other operating system was run.
+
+### Renderer-14 final restored verification
+
+- renderer-14-restored-workspace.log exited **101**, not green: 2139 core
+  passed, 20 ignored; 534 window passed, one failed; doc tests 0.
+- The nine exact Electron cases and both added surface/owner regressions all
+  matched their full named `... ok` lines in this final restored run.
+- The failing existing test was
+  `window_drive_tests::review_changes_shows_a_teammates_branch_turn_by_turn_and_lands_it_as_one_commit`.
+  Its landing commit was refused because its isolated temporary repository
+  already held `.git/index.lock` (window_drive_tests.rs:1603). No review-landing
+  code was changed. The first baseline passed it; the final failure is kept
+  as evidence, not hidden by a filtered retry. No restored whole-suite green
+  result is claimed.
+- All 32 original renderer-control anchors are present. The signed-out mutant
+  is absent; only parity and notes differ after the source commits.
+- Recount and --check passed: 202 carried, 62 does-not-apply, 185 partial,
+  860 waiting, 1309 total. Requested subset: 25 carried, 20 waiting.
+- Python mutation script syntax and git diff --check passed. Release build
+  is running; its result follows.
+
+Named checks in the final restored run:
+- `teammate_reach::tests::reads_as_blocked_not_idle_when_its_runtime_is_signed_out`
+- `teammate_reach::tests::still_reads_as_idle_when_its_own_runtime_is_fine`
+- `teammate_reach::tests::keeps_a_mission_waiting_on_an_approval_as_its_own_state_not_blocked`
+- `teammate_reach::tests::is_blocked_when_nothing_at_all_is_signed_in_whatever_it_is_set_to`
+- `teammate_reach::tests::is_not_told_to_sign_in`
+- `teammate_reach::tests::still_is_when_the_runtime_says_it_is_signed_out`
+- `home_panel::renderer_runtime_tests::is_judged_by_the_route_it_is_set_to_use`
+- `home_panel::renderer_runtime_tests::still_prefers_a_running_mission_then_a_past_one_over_the_route`
+- `home_panel::renderer_runtime_tests::is_judged_by_nothing_when_it_has_neither_missions_nor_a_route`
+- `home_panel::renderer_runtime_tests::home_and_team_draw_the_signed_out_warning_and_presence_from_the_same_status`
+- `home_panel::renderer_runtime_tests::approval_presence_uses_cached_owner_ids_and_stays_distinct_from_a_sign_in_wall`
+
+- Final release binary build exited 0: renderer-14-release-build.log,
+  optimized release finished in 2m 09s, with the same 12 native binary warnings.
+  No live or packaged window launched.
+- Stopping state: no break applied; source, inventory and notes committed;
+  only original untracked HANDOFF files remain. The full requested port is
+  unfinished: 20 waiting rows in the renderer-13 inventory above, excluding
+  the now-carried signed-out row. Continue inline page preview and remaining
+  teammate files before conversation-only files. The final full workspace
+  suite's review-landing Git-lock failure remains unresolved.

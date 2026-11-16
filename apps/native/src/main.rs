@@ -166,6 +166,8 @@ mod sidebar;
 use sidebar::*;
 #[path = "ui/thread_view.rs"]
 mod thread_view;
+#[path = "ui/idle_teammate.rs"]
+mod idle_teammate;
 use thread_view::*;
 #[path = "ui/app_state.rs"]
 mod app_state;
@@ -329,6 +331,9 @@ fn begin_ledger(
         return;
     };
     s.ledger_job.cancel();
+    if s.ledger.as_ref().and_then(|pane| pane.conversation.conversation_id.as_deref()) != Some(id.as_str()) {
+        s.earlier_turn_budgets.clear();
+    }
     let folder = header.folder.clone();
     // Preserve existing Session and transcript items when continuing the same ledger conversation.
     let (mut items, worker, snapshot) = match s.ledger.take() {
@@ -1376,6 +1381,8 @@ fn sync_teammate_connectors(s: &mut State) {
         }
     }
     s.teammate_connectors = map;
+    // Keep template starters and custom role titles ready before the Team screen opens.
+    s.people_panel.team = team;
 }
 
 fn apply_team(s: &mut State, team: Vec<Teammate>) {

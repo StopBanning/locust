@@ -188,3 +188,54 @@ pub fn ended_question(items: &[Item], running: bool, latest_turn: bool) -> Optio
     crate::protocol_tags::parse_decision(last_final)
 }
 #[cfg(test)] #[path="ended_question_tests.rs"] mod ended_question_tests;
+
+
+/// Earlier turns are drawn whole; always retain the newest earlier turn,
+/// even if it alone exceeds the budget. The current turn is never budgeted.
+pub const EARLIER_ROWS_SHOWN: usize = 400;
+pub fn first_earlier_turn_shown(sizes: &[usize], budget: usize) -> usize {
+    if sizes.is_empty() { return 0; }
+    let mut first = sizes.len() - 1;
+    let mut used = sizes[first];
+    while first > 0 && used.saturating_add(sizes[first - 1]) <= budget {
+        first -= 1;
+        used = used.saturating_add(sizes[first]);
+    }
+    first
+}
+
+/// Item boundary and count of earlier turns held back. A turn starts at its
+/// prompt; retain any preamble with the first turn instead of losing evidence.
+pub fn newest_turn_window(items: &[Item], budget: usize) -> (usize, usize) {
+    let mut starts: Vec<usize> = items.iter().enumerate()
+        .filter_map(|(i, item)| matches!(item, Item::User(_)).then_some(i)).collect();
+    if starts.len() < 2 { return (0, 0); }
+    starts[0] = 0;
+    let sizes: Vec<_> = starts.windows(2).map(|w| w[1] - w[0]).collect();
+    let first = first_earlier_turn_shown(&sizes, budget);
+    (starts[first], first)
+}
+
+#[cfg(test)]
+mod renderer_newest_tests {
+    use super::*;
+    #[test]
+    fn the_newest_turns_whose_rows_fit_oldest_first_index() {
+        assert_eq!(first_earlier_turn_shown(&[], EARLIER_ROWS_SHOWN), 0);
+        assert_eq!(first_earlier_turn_shown(&[10, 10, 10], EARLIER_ROWS_SHOWN), 0);
+        assert_eq!(first_earlier_turn_shown(&[100, 100, 100, 100, 100], 400), 1);
+        assert_eq!(first_earlier_turn_shown(&[300, 300], 400), 1);
+    }
+    #[test]
+    fn the_newest_earlier_turn_always_however_long() {
+        assert_eq!(first_earlier_turn_shown(&[5, 900], 400), 1);
+        assert_eq!(first_earlier_turn_shown(&[900], 400), 0);
+    }
+    #[test]
+    fn each_show_earlier_adds_a_budget() {
+        let sizes = vec![60; 20];
+        assert_eq!(first_earlier_turn_shown(&sizes, EARLIER_ROWS_SHOWN), 14);
+        assert_eq!(first_earlier_turn_shown(&sizes, EARLIER_ROWS_SHOWN * 2), 7);
+        assert_eq!(first_earlier_turn_shown(&sizes, EARLIER_ROWS_SHOWN * 4), 0);
+    }
+}

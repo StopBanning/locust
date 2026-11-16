@@ -490,8 +490,12 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
 
 /// Electron's agoLabel: "just now", "5 minutes ago", "1 week ago".
 pub(super) fn ago_label(iso: &str) -> Option<String> {
+    ago_label_at(iso, chrono::Utc::now())
+}
+
+fn ago_label_at(iso: &str, now: chrono::DateTime<chrono::Utc>) -> Option<String> {
     let at = chrono::DateTime::parse_from_rfc3339(iso).ok()?;
-    let seconds = (chrono::Utc::now() - at.with_timezone(&chrono::Utc)).num_seconds();
+    let seconds = (now - at.with_timezone(&chrono::Utc)).num_seconds();
     if seconds < 60 {
         return Some("just now".into());
     }
@@ -758,13 +762,16 @@ pub(super) fn edit_form(s: &State, p: &Palette) -> El {
 }
 
 /// Screens.tsx's roster (`.lc-rostergrid`, `.lc-rostercard`): a card per teammate with its face, name and role, the
-/// message, edit and remove buttons, its route and mode, how many conversations and when it last ran, and its two most
+/// message, edit and remove buttons, its route and mode, how many conversations and when it last ran, and its three most
 /// recent conversations; then the New teammate card.
 fn team_grid(s: &State, p: &Palette) -> El {
     let panel = &s.people_panel;
     let l = crate::look::controls::Look::new(p.dark);
     let mono = |size: f32| rune::TextStyle::new(size, 400.0).mono();
     let team = panel.team["teammates"].as_array().map(Vec::as_slice).unwrap_or(&[]);
+    let missions: Vec<_> = s.ledger_summaries.values().cloned().collect();
+    let owners = panel.team["missionOwners"].as_object().into_iter().flatten()
+        .filter_map(|(mission,owner)| Some((mission.clone(),owner.as_str()?.to_owned()))).collect();
     let groups = crate::team_board::team_board(team, |t| {
         let id = t["teammateId"].as_str().unwrap_or("");
         crate::home_panel::teammate_section(s, id, s.teammates.iter().any(|m| m.id == id && m.busy), t["route"]["runtime"].as_str())
@@ -781,9 +788,9 @@ fn team_grid(s: &State, p: &Palette) -> El {
         let runtime = t["route"]["runtime"].as_str().unwrap_or("").to_owned();
         let model = t["route"]["model"].as_str().unwrap_or("").to_owned();
         let mode = t["route"]["mode"].as_str().unwrap_or("ask").to_owned();
-        let mut owned: Vec<&ConversationRow> = s.recent.iter().filter(|r| r.teammate == name).collect();
-        owned.sort_by(|a, b| b.updated.cmp(&a.updated));
-        let last = owned.first().and_then(|r| ago_label(&r.updated));
+        let work = locust_core::teammate_work::teammate_work(&id, &missions, &owners, |m| m.title.clone());
+        let last = work.last_run_at.and_then(ago_label);
+        let status = crate::home_panel::teammate_status(s, &id, s.teammates.iter().any(|m| m.id == id && m.busy), t["route"]["runtime"].as_str(), &role);
 
         let mut head = row()
             .w_full()
@@ -795,7 +802,7 @@ fn team_grid(s: &State, p: &Palette) -> El {
                     .shrink()
                     .gap(2.0)
                     .child(text(name.clone()).font(rune::TextStyle::new(14.5, 500.0)).color(l.c("text-name")).w_full().truncate())
-                    .child(text(role).font(rune::TextStyle::new(13.0, 400.0)).color(l.c("text-muted")).w_full().truncate()),
+                    .child(row().gap(5.0).center_y().child(crate::home_panel::teammate_presence(&status, p)).child(text(status.label.clone()).font(rune::TextStyle::new(13.0, 400.0)).color(crate::home_panel::teammate_status_color(&status, p)).w_full().truncate())),
             );
         if panel.removing.as_deref() == Some(id.as_str()) {
             let yes = id.clone();
@@ -865,7 +872,7 @@ fn team_grid(s: &State, p: &Palette) -> El {
         let stats = row()
             .w_full()
             .gap(24.0)
-            .child(stat("Runs", owned.len().to_string(), owned.is_empty()))
+            .child(stat("Runs", work.mission_count.to_string(), work.mission_count == 0))
             .child(stat("Last run", last.clone().unwrap_or_else(|| "never".into()), last.is_none()));
 
         let mut card = col()
@@ -881,21 +888,24 @@ fn team_grid(s: &State, p: &Palette) -> El {
             .child(head)
             .child(col().w_full().gap(6.0).child(route).child(mode_chip))
             .child(stats);
-        if !owned.is_empty() {
+        if let Some(cost) = locust_core::benchmark::cost_line(work.cost.as_ref()) {
+            card = card.child(stat("Usage", cost, false));
+        }
+        if !work.recent.is_empty() {
             let mut recent = col()
                 .w_full()
                 .gap(4.0)
                 .pt(10.0)
                 .border_sides([1.0, 0.0, 0.0, 0.0], l.c("border-hairline"))
                 .child(text("RECENT").font(rune::TextStyle::new(10.5, 400.0).mono().tracking(1.0)).color(l.c("text-muted")));
-            for r in owned.iter().take(2) {
+            for r in &work.recent {
                 let mut line = row()
                     .w_full()
                     .gap(8.0)
                     .center_y()
                     .child(el().size(5.0, 5.0).radius(2.5).fill(l.c("text-faint")))
                     .child(text(r.title.clone()).font(rune::TextStyle::new(13.0, 400.0)).color(l.c("text-secondary")).grow(1.0).shrink().truncate());
-                if let Some(age) = ago_label(&r.updated) {
+                if let Some(age) = ago_label(&r.mission.updated) {
                     line = line.child(text(age).font(mono(11.0)).color(l.c("text-muted")));
                 }
                 recent = recent.child(line);
@@ -1438,5 +1448,60 @@ mod renderer_defaults_tests {
         let words = texts(&rt);
         assert!(!words.contains("dropped into Locust"));
         assert!(words.contains("can add the team from it with Add team from image"), "{words}");
+    }
+}
+
+
+#[cfg(test)]
+mod renderer_work_age_tests {
+    use super::ago_label_at;
+
+    fn age(iso: &str) -> Option<String> {
+        ago_label_at(iso, chrono::DateTime::parse_from_rfc3339("2026-09-03T12:00:00.000Z").unwrap().with_timezone(&chrono::Utc))
+    }
+
+    #[test]
+    fn reads_in_the_largest_unit_that_fits() {
+        assert_eq!(age("2026-09-03T11:58:00.000Z").as_deref(), Some("2 minutes ago"));
+        assert_eq!(age("2026-09-03T09:00:00.000Z").as_deref(), Some("3 hours ago"));
+        assert_eq!(age("2026-09-01T12:00:00.000Z").as_deref(), Some("2 days ago"));
+        assert_eq!(age("2026-08-20T12:00:00.000Z").as_deref(), Some("2 weeks ago"));
+    }
+    #[test]
+    fn singularises_honestly() {
+        assert_eq!(age("2026-09-03T11:00:00.000Z").as_deref(), Some("1 hour ago"));
+        assert_eq!(age("2026-09-02T12:00:00.000Z").as_deref(), Some("1 day ago"));
+    }
+    #[test]
+    fn calls_anything_under_a_minute_just_now_including_a_clock_that_ran_ahead() {
+        assert_eq!(age("2026-09-03T11:59:30.000Z").as_deref(), Some("just now"));
+        assert_eq!(age("2026-09-03T12:00:30.000Z").as_deref(), Some("just now"));
+    }
+    #[test]
+    fn says_nothing_for_a_timestamp_it_cannot_read() {
+        assert_eq!(age("not a date"), None);
+    }
+}
+
+#[cfg(test)]
+mod renderer_work_surface_tests {
+    use super::*;
+    #[test]
+    fn team_cards_use_recorded_ids_and_report_only_their_own_usage() {
+        let mut s=State::default();
+        s.people_panel.team=serde_json::json!({"teammates":[{"teammateId":"tm_atlas","name":"Atlas","role":"Code & Migrations"}],
+            "missionOwners":{"m1":"tm_atlas","m2":"tm_other"}});
+        for (id,title,input,output) in [("m1","OWN-WORK",100,10),("m2","OTHER-PRIVATE",999,99)] {
+            s.recent.push(ConversationRow {id:id.into(),title:title.into(),teammate:"Atlas".into(),started_by:"native".into(),state:"completed".into(),updated:"2026-09-03T10:00:00.000Z".into()});
+            s.ledger_summaries.insert(id.into(),ledger::Summary {mission_id:id.into(),title:title.into(),updated:"2026-09-03T10:00:00.000Z".into(),
+                cost:Some(locust_core::benchmark::RunCost {input_tokens:Some(input),output_tokens:Some(output),..Default::default()}),..Default::default()});
+        }
+        let mut rt=rune::Runtime::new(s,|s,_| view(s,&Palette::new(true)),(1200.0,1800.0),rune::Env::new(true,1.0));
+        rt.frame(0.0);
+        let shown=rt.elements().into_iter().filter_map(|e|e.text).collect::<Vec<_>>().join("\n");
+        assert!(shown.contains("OWN-WORK"),"{shown}");
+        assert!(!shown.contains("OTHER-PRIVATE"),"{shown}");
+        assert!(shown.contains("100 in · 10 out"),"{shown}");
+        assert!(!shown.contains("999"),"{shown}");
     }
 }

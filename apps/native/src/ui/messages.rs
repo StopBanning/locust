@@ -1,5 +1,26 @@
 use super::*;
 
+pub(super) fn conversation_history_key(s: &State) -> String {
+    s.ledger.as_ref().and_then(|pane| pane.conversation.conversation_id.clone())
+        .or_else(|| selected_conversation(s).map(|(teammate, conversation)| conversation.conversation_id.clone().unwrap_or_else(|| format!("teammate:{}", teammate.id))))
+        .unwrap_or_else(|| "preview".into())
+}
+
+/// A transcript's still owner face; nobody's conversation wears the pearl ghost.
+fn thread_face(s: &State, key: &str, size: f32, p: &Palette) -> El {
+    let owner = selected_conversation(s).map(|(t, _)| t).filter(|t| t.id != LEDGER_TARGET);
+    let plain = locust_core::native::FaceLook {
+        hue: "pearl".into(), parts: None, bot: Some(("ghost".into(), "eyes".into())),
+        bot_screen: None, pet: None,
+    };
+    let id = owner.map_or(LEDGER_TARGET, |t| t.id.as_str());
+    let look = owner.and_then(|t| s.looks.get(&t.id)).or_else(|| owner.is_none().then_some(&plain));
+    let (shape, _, hue) = crate::look::faces::bot_of(id, look);
+    crate::look::faces::face(s.image_cache.as_deref(), id, "", look, size,
+        s.settings_panel.settings.terminal_faces, &crate::look::controls::Look::new(p.dark))
+        .key(format!("thread-face-{key}-{shape}-{hue}"))
+}
+
 pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s: &State) -> El {
     let mut messages = col().w_full().max_w(super::thread_view::THREAD_MAX).gap(24.0).padding(24.0);
     if let Some(label) = s.ledger.as_ref().and_then(|pane| pane.snapshot.started_label.as_ref()) {
@@ -11,7 +32,30 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
         .map(|pane| locust_core::time_marker::thread_markers(&pane.snapshot.timings))
         .unwrap_or_default();
     let (group_joins, group_leavings, active_group_id) = thread_group_lines(s);
-    let mut user_index = 0usize;
+    let conversation_key = conversation_history_key(s);
+    let budget = s.earlier_turn_budgets.get(&conversation_key).copied().unwrap_or(locust_core::thread_view::EARLIER_ROWS_SHOWN);
+    let (first_item, hidden_turns) = locust_core::thread_view::newest_turn_window(items, budget);
+    if hidden_turns > 0 {
+        let press_key = conversation_key.clone();
+        let anchor = format!("{}/ledger-item-{first_item}", s.ledger.as_ref().and_then(|pane| pane.conversation.conversation_id.as_deref()).unwrap_or("preview"));
+        messages = messages.child(text(format!("Show {hidden_turns} earlier turn{}", if hidden_turns == 1 { "" } else { "s" }))
+            .key("show-earlier-turns").font(type_::LABEL).color(p.secondary)
+            .role("button").on_press(move |s: &mut State| {
+                s.earlier_turn_budgets.insert(press_key.clone(), budget.saturating_add(locust_core::thread_view::EARLIER_ROWS_SHOWN));
+            }).on_layout_tx(move |s: &mut State, r, tx| {
+                let viewport = s.prompt_rail.viewport_rect;
+                // As in Thread's observer, grow the window when its older edge
+                // comes within 600 points of the viewport after scrolling up.
+                if s.thread_away && viewport[3] > 0.0
+                    && r[1] >= viewport[1] - 600.0 && r[1] <= viewport[1] + 600.0
+                    && s.earlier_turn_budgets.get(&conversation_key).copied().unwrap_or(locust_core::thread_view::EARLIER_ROWS_SHOWN) == budget
+                {
+                    s.earlier_turn_budgets.insert(conversation_key.clone(), budget.saturating_add(locust_core::thread_view::EARLIER_ROWS_SHOWN));
+                    tx.scroll_key_to(anchor.clone(), 0.0);
+                }
+            }));
+    }
+    let mut user_index = hidden_turns;
     let self_teammate_id = selected_conversation(s).map(|(t, _)| t.id.as_str()).unwrap_or("");
     let peer_turns = s.ledger.as_ref().map(|pane| pane.snapshot.turn_metas.iter()
         .map(|meta| peer_thread::messages_for_mission(s, &meta.mission_id)).collect::<Vec<_>>()).unwrap_or_default();
@@ -25,8 +69,8 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
         }
         messages
     };
-    messages = emit_turn_peers(messages, 0, true);
-    for (index, item) in items.iter().enumerate() {
+    messages = emit_turn_peers(messages, hidden_turns, true);
+    for (index, item) in items.iter().enumerate().skip(first_item) {
         for marker in markers.iter().filter(|m| m.before_item == index) {
             messages = messages.child(time_marker::view(marker, p));
         }
@@ -301,7 +345,9 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                 let mut msg = col()
                     .w_full()
                     .gap(8.0)
-                    .child(text(name).font(type_::LABEL).color(p.muted));
+                    .child(row().gap(8.0).center_y()
+                        .child(thread_face(s, &key, 24.0, p))
+                        .child(text(name).font(type_::LABEL).color(p.muted)));
                 if !shown.is_empty() {
                     let ask_scope = scope.clone();
                     let reply_box = col()
@@ -454,7 +500,9 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
         };
         let words = live.detail.as_ref().map_or_else(|| words.clone(), |d| format!("{words} · {d}"));
         let label = elapsed.map_or_else(|| words.clone(), |ms| format!("{words} · {}", ledger::duration_text(ms)));
-        messages = messages.child(text(label).font(type_::LABEL).color(p.muted).w_full());
+        messages = messages.child(row().w_full().gap(8.0).center_y()
+            .child(thread_face(s, "live", 34.0, p))
+            .child(text(label).font(type_::LABEL).color(p.muted).grow(1.0).shrink()));
     }
     messages
         .child(approval_card(s, p))
@@ -817,6 +865,46 @@ mod tests {
         });
         s
     }
+    fn face_keys(owned: bool, running: bool) -> Vec<String> {
+        let mut s = composition_state(None, running);
+        if let Some(live) = s.ledger.as_mut().unwrap().snapshot.live.as_mut() {
+            live.label = "Thinking".into();
+            live.register = "thinking".into();
+            live.started_at = "1970-01-01T00:00:00.000Z".into();
+        }
+        s.ledger.as_mut().unwrap().header.id = if owned { "tm_atlas" } else { LEDGER_TARGET }.into();
+        s.looks.insert("tm_atlas".into(), locust_core::native::FaceLook {
+            hue: "blue".into(), parts: Some(crate::look::faces::seed_parts("tm_atlas")),
+            bot: Some(("droid".into(), "eyes".into())), bot_screen: None, pet: None,
+        });
+        let items = vec![ledger::Item::Assistant { item_id: "reply".into(), text: "Hello.".into(), r#final: true }];
+        let mut rt = rune::Runtime::new((s, items), |(s, items), _| message_column(items, "Atlas", &Palette::new(true), s),
+            (800.0, 800.0), rune::Env::new(true, 1.0));
+        rt.frame(0.0);
+        rt.elements().into_iter().filter_map(|e| e.key).filter(|k| k.contains("thread-face-")).collect()
+    }
+    #[test]
+    fn beside_a_reply_the_ghost_when_the_conversation_is_nobodys_the_teammates_own_bot_when_it_has_one() {
+        let nobody = face_keys(false, false);
+        assert!(nobody.iter().any(|k| k.ends_with("ghost-pearl")), "{nobody:?}");
+        assert!(!nobody.iter().any(|k| k.contains("swarm")));
+        let owned = face_keys(true, false);
+        assert!(owned.iter().any(|k| k.ends_with("droid-blue")), "{owned:?}");
+        assert!(!owned.iter().any(|k| k.contains("ghost")));
+    }
+    #[test]
+    fn wears_the_ghosts_own_white_as_the_covers_ghost_does_on_the_reply_and_the_live_row_alike() {
+        let keys = face_keys(false, true);
+        assert_eq!(keys.len(), 2, "{keys:?}");
+        assert!(keys.iter().all(|k| k.ends_with("ghost-pearl")), "{keys:?}");
+    }
+    #[test]
+    fn on_the_live_row_the_same_ghost_while_nobodys_conversation_thinks() {
+        let keys = face_keys(false, true);
+        assert!(keys.iter().any(|k| k.ends_with("live-ghost-pearl")), "{keys:?}");
+        assert!(!keys.iter().any(|k| k.contains("swarm")));
+    }
+
     #[test]
     fn an_ended_threads_start_date_refreshes_without_reopening_its_ledger() {
         let mut s = composition_state(None, false);
@@ -977,5 +1065,88 @@ mod tests {
             .insert("group-join:1:Trading".into(), true);
         let active = thread_text(&items, &mut s);
         assert!(active.contains("edit in Project settings"));
+    }
+}
+
+
+#[cfg(test)]
+mod renderer_newest_tests {
+    use super::*;
+    fn items(turns: usize, rows: usize) -> Vec<ledger::Item> {
+        let mut items = Vec::new();
+        for n in 0..turns {
+            items.push(ledger::Item::User(format!("Question number {n}.")));
+            for at in 0..rows {
+                items.push(ledger::Item::Assistant { item_id: format!("m_{n}_{at}"), text: format!("Answer {n}.{at}"), r#final: true });
+            }
+        }
+        items.push(ledger::Item::User("The question now.".into()));
+        items.push(ledger::Item::Assistant { item_id: "now".into(), text: "The answer now.".into(), r#final: true });
+        items
+    }
+    fn draw(items: Vec<ledger::Item>) -> String {
+        let mut rt = rune::Runtime::new((State::default(), items), |(s, items), _| message_column(items, "", &Palette::new(true), s), (1200.0, 1800.0), rune::Env::new(true, 1.0));
+        rt.frame(0.0);
+        rt.elements().into_iter().filter_map(|e| e.text).collect::<Vec<_>>().join("\n")
+    }
+    #[test]
+    fn a_long_one_opens_on_its_newest_turns_with_the_older_ones_a_press_or_a_scroll_away() {
+        let shown = draw(items(20, 60));
+        assert!(shown.contains("Show 14 earlier turns"));
+        assert!(!shown.contains("Question number 13."));
+        assert!(!shown.contains("Answer 0.0"));
+        assert!(shown.contains("Question number 14."));
+        assert!(shown.contains("Question number 19."));
+        assert!(shown.contains("The answer now."));
+    }
+    #[test]
+    fn a_short_one_is_whole_with_nothing_to_press() {
+        let shown = draw(items(3, 5));
+        assert!(!shown.contains("earlier turn"));
+        assert!(shown.contains("Question number 0."));
+    }
+}
+
+#[cfg(test)]
+mod renderer_newest_interaction_tests {
+    use super::*;
+    #[test]
+    fn show_earlier_reveals_another_budget_without_switching_conversations() {
+        let mut rt = rune::Runtime::new(State::default(), |s, _| {
+            let items = (0..21).flat_map(|n| std::iter::once(ledger::Item::User(format!("Question number {n}.")))
+                .chain((0..60).map(move |at| ledger::Item::Assistant { item_id: format!("m_{n}_{at}"), text: format!("Answer {n}.{at}"), r#final: true }))).collect::<Vec<_>>();
+            message_column(&items, "", &Palette::new(true), s)
+        }, (1200.0, 1800.0), rune::Env::new(true, 1.0));
+        rt.frame(0.0);
+        let (x, y) = rt.find("show-earlier-turns").expect("earlier turns button");
+        rt.pointer_down(x, y);
+        rt.pointer_up(x, y);
+        rt.frame(0.05);
+        assert_eq!(rt.state.earlier_turn_budgets.get("preview"), Some(&800));
+        let shown = rt.elements().into_iter().filter_map(|e| e.text).collect::<Vec<_>>().join("\n");
+        assert!(shown.contains("Show 7 earlier turns"));
+        assert!(shown.contains("Question number 7."));
+        assert!(!shown.contains("Question number 6."));
+        assert!(!rt.state.earlier_turn_budgets.contains_key("another-conversation"));
+    }
+}
+
+#[cfg(test)]
+mod renderer_newest_scroll_tests {
+    use super::*;
+    #[test]
+    fn scrolling_to_the_older_edge_reveals_the_next_budget() {
+        let mut rt = rune::Runtime::new(State::default(), |s, _| {
+            let items = (0..21).flat_map(|n| std::iter::once(ledger::Item::User(format!("Question number {n}.")))
+                .chain((0..60).map(move |at| ledger::Item::Assistant { item_id: format!("m_{n}_{at}"), text: format!("Answer {n}.{at}"), r#final: true }))).collect::<Vec<_>>();
+            col().key("messages").w_full().h_full().scroll(ScrollSpec { stick_bottom: true })
+                .on_layout_tx(|s: &mut State, r, _| s.prompt_rail.viewport_rect = r)
+                .child(message_column(&items, "", &Palette::new(true), s))
+        }, (1200.0, 800.0), rune::Env::new(true, 1.0));
+        rt.frame(0.0);
+        assert!(!rt.state.earlier_turn_budgets.contains_key("preview"));
+        rt.update(|s, tx| { s.thread_away = true; tx.scroll_key_to("show-earlier-turns", 0.0); });
+        for _ in 0..4 { rt.frame(0.05); }
+        assert_eq!(rt.state.earlier_turn_budgets.get("preview"), Some(&800));
     }
 }
