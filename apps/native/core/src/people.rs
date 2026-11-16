@@ -178,6 +178,22 @@ pub fn save_teammate_id(store: &Store, mut entry: Value) -> Result<String, Strin
                 .unwrap_or_else(|| json!(now()));
         }
     }
+    // The look (teammate-store.ts 740-805): refused when it is not one, cleaned to its known fields when it is, and a
+    // new teammate without one seeded from its id. An edit without one keeps the record's (see notes/LOOK-NOTES.md).
+    // A look the record already held that is not valid is carried as Electron reads it, `seedAvatar(teammateId)`.
+    let held_avatar = rows.iter().find(|r| r["teammateId"] == entry["teammateId"]).and_then(|r| r.get("avatar")).cloned();
+    let seeded = || crate::look_picker::avatar_json(&crate::bot_spec::seed_avatar(entry["teammateId"].as_str().unwrap_or("")));
+    entry["avatar"] = match entry.get("avatar") {
+        Some(given) => match crate::look_picker::avatar_from_json(given) {
+            Some(spec) => crate::look_picker::avatar_json(&spec),
+            None if !creating && held_avatar.as_ref() == Some(given) => seeded(),
+            None => return Err(crate::look_picker::AVATAR_INVALID.into()),
+        },
+        None => match held_avatar.as_ref().and_then(crate::look_picker::avatar_from_json) {
+            Some(spec) if !creating => crate::look_picker::avatar_json(&spec),
+            _ => seeded(),
+        },
+    };
     let parsed = crate::native::parse_roster(
         &json!({"schemaVersion":1,"teammates":[entry.clone()]}).to_string(),
     )?;
@@ -1449,6 +1465,61 @@ mod tests {
             std::fs::read_to_string(dir.0.join("native/memories.json")).unwrap(),
             "{broken"
         );
+    }
+    // The look a teammate is saved with (teammate-store.ts 740-805; notes/LOOK-NOTES.md).
+    fn saved_avatar(store: &Store, name: &str) -> Value {
+        team(store).unwrap()["teammates"].as_array().unwrap().iter().find(|t| t["name"] == name).unwrap()["avatar"].clone()
+    }
+    #[test]
+    fn a_new_teammate_without_a_look_is_seeded_from_its_own_id() {
+        let (_dir, store) = fixture();
+        let id = save_teammate_id(&store, person("Iris")).unwrap();
+        let seeded = crate::bot_spec::seed_avatar(&id);
+        assert_eq!(saved_avatar(&store, "Iris"), json!({"headwear": seeded.headwear, "accessory": seeded.accessory, "mouth": seeded.mouth}));
+    }
+    #[test]
+    fn the_look_picked_is_saved_cleaned_to_its_known_fields() {
+        let (_dir, store) = fixture();
+        let mut entry = person("Moss");
+        entry["avatar"] = json!({"headwear":1,"accessory":0,"mouth":0,"bot":{"shape":"ghost","face":"eyes","size":900},"script":"x"});
+        save_teammate(&store, entry).unwrap();
+        assert_eq!(saved_avatar(&store, "Moss"), json!({"headwear":1,"accessory":0,"mouth":0,"bot":{"shape":"ghost","face":"eyes"}}));
+    }
+    #[test]
+    fn a_look_that_is_not_one_is_refused_in_electrons_words() {
+        let (_dir, store) = fixture();
+        let mut entry = person("Rook");
+        entry["avatar"] = json!({"headwear":1,"accessory":0,"mouth":0,"bot":{"shape":"robot","face":"eyes"}});
+        assert_eq!(save_teammate(&store, entry).unwrap_err(), "Teammate avatar is invalid");
+        assert!(team(&store).unwrap()["teammates"].as_array().unwrap().is_empty());
+    }
+    #[test]
+    fn an_edit_saves_the_new_look_and_one_without_a_look_keeps_the_records() {
+        let (_dir, store) = fixture();
+        let mut entry = person("Fern");
+        entry["avatar"] = json!({"headwear":2,"accessory":1,"mouth":3,"bot":{"shape":"cat","face":"mouth","screen":true}});
+        let id = save_teammate_id(&store, entry).unwrap();
+        let mut edit = person("Fern");
+        edit["teammateId"] = json!(id);
+        save_teammate(&store, edit.clone()).unwrap();
+        assert_eq!(saved_avatar(&store, "Fern")["bot"]["shape"], "cat", "kept");
+        edit["avatar"] = json!({"headwear":0,"accessory":0,"mouth":0,"bot":{"shape":"spark","face":"eyes"}});
+        save_teammate(&store, edit).unwrap();
+        assert_eq!(saved_avatar(&store, "Fern"), json!({"headwear":0,"accessory":0,"mouth":0,"bot":{"shape":"spark","face":"eyes"}}));
+    }
+    #[test]
+    fn a_bad_look_already_on_the_record_is_carried_as_electron_reads_it() {
+        let (_dir, store) = fixture();
+        let id = save_teammate_id(&store, person("Penny")).unwrap();
+        let mut file = team(&store).unwrap();
+        file["teammates"][0]["avatar"] = json!({"headwear":9});
+        store.save_json("teammates.json", &file).unwrap();
+        // Another part of the window saves the record as it read it (the instructions card does).
+        let mut held = team(&store).unwrap()["teammates"][0].clone();
+        held["instructions"] = json!("New.");
+        save_teammate(&store, held).unwrap();
+        let seeded = crate::bot_spec::seed_avatar(&id);
+        assert_eq!(saved_avatar(&store, "Penny"), json!({"headwear": seeded.headwear, "accessory": seeded.accessory, "mouth": seeded.mouth}));
     }
     #[test]
     fn names_are_unique_trimmed_and_utf16_bounded() {

@@ -77,12 +77,14 @@ fn reload(s: &mut State) {
         Err(e) => s.people_panel.error = e,
     }
 }
-fn edit(s: &mut State, id: Option<&str>) {
+pub(super) fn edit(s: &mut State, id: Option<&str>) {
     let mut entry = id.and_then(|id|s.people_panel.team["teammates"].as_array()?.iter().find(|t|t["teammateId"] == id)).cloned().unwrap_or_else(||json!({"teammateId":"","role":"Custom","route":{"runtime":"codex","model":"account-default","mode":"ask"}}));
     if id.is_none() {
         let taken: Vec<&str> = s.people_panel.team["teammates"].as_array().into_iter().flatten().filter_map(|t| t["hue"].as_str()).collect();
         entry["hue"] = json!(people::fresh_hue(&taken));
     }
+    // The look is generated, then owned: whatever the preview shows at Create or Save is what is saved.
+    entry["avatar"] = crate::look_picker::opening_avatar(&entry, id.is_none());
     s.people_panel.fields = [
         entry["name"].as_str().unwrap_or(""),
         entry["role"].as_str().unwrap_or("Custom"),
@@ -503,7 +505,7 @@ pub(super) fn ago_label(iso: &str) -> Option<String> {
 }
 
 /// The teammate's edit form (create or change), as a card above the grid while it is open.
-fn edit_form(s: &State, p: &Palette) -> El {
+pub(super) fn edit_form(s: &State, p: &Palette) -> El {
     let panel = &s.people_panel;
     let l = crate::look::controls::Look::new(p.dark);
     let creating = panel.entry["teammateId"].as_str().unwrap_or("").is_empty();
@@ -521,6 +523,16 @@ fn edit_form(s: &State, p: &Palette) -> El {
         .filter(|t| t["teammateId"] != panel.entry["teammateId"])
         .filter_map(|t| t["name"].as_str()).collect();
     let clash = people::taken_name(panel.fields.first().map(|f| f.text.as_str()).unwrap_or(""), &taken_names);
+    // The preview that moves, and the colour (NewTeammateDialog.tsx `.lc-dialog__identity`).
+    form = form.child(
+        row()
+            .key("team-identity")
+            .w_full()
+            .gap(14.0)
+            .center_y()
+            .child(crate::look_picker::preview(s, &l))
+            .child(crate::look_picker::swatches(s, &l).grow(1.0).shrink()),
+    );
     for (i, label) in ["Name", "Role", "Instructions", "Runtime", "Model", "Effort", "Mode", "Folder"].iter().enumerate() {
         if let Some(edit) = panel.fields.get(i) {
             form = form.child(text(*label).font(type_::LABEL).color(p.secondary)).child(
@@ -539,6 +551,7 @@ fn edit_form(s: &State, p: &Palette) -> El {
     if let Some(taken) = clash {
         form = form.child(text(format!("Another teammate is already called {taken}.")).key("team-name-clash").color(p.secondary));
     }
+    form = form.child(crate::look_picker::section(s, &l));
     let runtime_now = panel.fields.get(3).map(|f| f.text.trim()).unwrap_or("");
     if let Some(agent) = locust_core::agent_accounts::Agent::parse(runtime_now) {
         let policy = locust_core::org_policy::current();
@@ -725,14 +738,6 @@ fn edit_form(s: &State, p: &Palette) -> El {
             form = form.child(scol);
         }
     }
-    let mut colours = row().gap(4.0);
-    for hue in locust_core::bot_spec::HUES {
-        let selected = panel.entry["hue"] == hue;
-        colours = colours.child(button(hue, p).key(format!("team-hue-{hue}"))
-            .label(format!("{hue}{}", if selected { " selected" } else { "" }))
-            .on_press(move |s: &mut State| s.people_panel.entry["hue"] = json!(hue)));
-    }
-    form = form.child(colours);
     form.child(
         row()
             .gap(8.0)
@@ -1382,10 +1387,10 @@ mod renderer_defaults_tests {
         let fresh = form(json!([{"hue":"lime"}]), None);
         assert_eq!(fresh.people_panel.entry["hue"], "blue");
         let fresh = render(fresh);
-        assert!(fresh.elements().iter().any(|e| e.key.as_deref() == Some("team-hue-blue") && e.label.as_deref() == Some("blue selected")));
+        assert_eq!(crate::look_picker::tests::checked_in(&fresh, "team-hues"), vec!["Blue".to_owned()]);
         let rose = json!({"teammateId":"tm_rose", "name":"Rosa", "hue":"rose", "role":"Custom", "createdAt":"2026-09-23T05:00:00.000Z", "avatar":{"headwear":0,"accessory":0,"mouth":0}});
         let edit = render(form(json!([{"hue":"lime"}, rose]), Some("tm_rose")));
-        assert!(edit.elements().iter().any(|e| e.key.as_deref() == Some("team-hue-rose") && e.label.as_deref() == Some("rose selected")));
+        assert_eq!(crate::look_picker::tests::checked_in(&edit, "team-hues"), vec!["Rose".to_owned()]);
     }
     #[test]
     fn says_when_it_is_taken_and_will_not_save_it() {

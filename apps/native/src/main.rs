@@ -76,6 +76,8 @@ mod keychain_note;
 mod home_panel;
 #[path = "ui/people_panel.rs"]
 mod people_panel;
+#[path = "ui/look_picker.rs"]
+mod look_picker;
 #[path = "ui/reply_actions.rs"]
 mod reply_actions;
 #[path = "ui/routines_panel.rs"]

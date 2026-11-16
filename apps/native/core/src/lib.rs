@@ -226,6 +226,7 @@ pub mod teammate_tooltip;
 pub mod git_quiet;
 
 pub mod face_status;
+pub mod look_picker;
 
 #[cfg(test)]
 mod every_teammate_is_a_bot_tests;

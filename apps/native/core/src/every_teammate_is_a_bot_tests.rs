@@ -1,8 +1,9 @@
 //! `every-teammate-is-a-bot.test.tsx`, carried: one Electron case, one test, named after it, with Electron's values.
 //!
 //! The pure half of the file lives here (the shapes, how a bot is derived, picked, shuffled and validated, and how a
-//! bot moves), and the dialog's colour list. Not carried yet: the three cases that read a teammate bot's React markup
-//! (no Rust test checks them), and the dialog's shape picker and Shuffle (the native team editor has no look picker).
+//! bot moves), and the dialog's colour list. The dialog's two cases (every shape and the face; Shuffle once, with the
+//! look) draw the window's look picker: `look_picker::tests` in the window crate. Not carried yet: the three cases that
+//! read a teammate bot's React markup (no Rust test checks them).
 //! Copied from Hydrogen's uncommitted work.
 
 use crate::bot_rig::{bot_motion, BotMotionLevel, FaceActivity};
@@ -160,7 +161,7 @@ fn only_work_moves_and_a_finish_hops_once_idle_and_blocked_keep_still_at_full_mo
 
 #[test]
 fn has_eleven_colours_indigo_and_coral() {
-    // The dialog's radio count: the picker is not built natively, so this holds the list it will offer.
+    // The list the dialog offers; the drawn radios are `look_picker::tests::has_eleven_colours_indigo_and_coral_…`.
     assert_eq!(HUES.len(), 11);
     assert_eq!(&HUES[9..], &["indigo", "coral"]);
 }
