@@ -52,8 +52,8 @@ de-duplicated per id across threads (an add holds one lock; a thumbnail read twi
    `rune::Latest` jobs: the list, the 21 thumbnails decoded from WebP by the `image` crate, an add; pets added go to
    `<native>/pets`, never Electron's folder; Codex's read where they are). Remove some... / Remove N / Show removed
    (`usePetRemoval`) built the same day: tick mode, the report in Electron's words, a worn pick's files kept for its
-   wearers, removed picks hidden until shown and added again when picked; 7 breaks caught. Still to do: reading
-   Electron's own added pets. (`otherPets` built 16 Nov: Codex's pets and a worn pet not offered, after the picks, each
+   wearers, removed picks hidden until shown and added again when picked; 7 breaks caught. Electron's own added pets
+   are copied in from its folder (only read) the first time the picker opens (`PetLibrary::import_from`, 16 Nov). (`otherPets` built 16 Nov: Codex's pets and a worn pet not offered, after the picks, each
    drawn as itself and named with where it comes from; 4 breaks caught.)
 3. ~~A pet playing its teammate's activity~~ built 16 Nov (`src/ui/pet_faces.rs`: each worn pet's sheet cut into cells off the
    window thread, the row for its activity from `pet_motion`, the window woken at its next cell, a bot's ring and dot

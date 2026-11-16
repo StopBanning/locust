@@ -443,6 +443,37 @@ impl PetLibrary {
 
     /// Takes a pick out of the picker, and its download with it unless `keep_files` (a pet a teammate wears keeps its
     /// files, so their face stays).
+    /// Copies the pets another library added (Electron's `<userData>/pets`) into this one, so a pet added in the other
+    /// app is here too. The other folder is only read. Each pet is held to the same rules as one read here (its pet.json,
+    /// its sheet's shape, no links), written beside and moved into place; one already here, or one that does not read,
+    /// is left alone. Returns how many were copied.
+    pub fn import_from(&self, other_root: &Path) -> usize {
+        let other = PetLibrary::new(other_root.to_path_buf(), self.bundled_root.clone(), None, Some(self.removed_file.clone()));
+        let mut copied = 0;
+        for pet in other.read_pets(PetSource::Gallery, 1000) {
+            if self.read_pet(PetSource::Gallery, &pet.id).is_ok() {
+                continue;
+            }
+            let folder = other_root.join(&pet.id);
+            let Ok(Some(meta)) = Self::read_inside(other_root, &folder.join("pet.json"), PET_JSON_MAX) else { continue };
+            let Ok((sheet, _)) = other.sheet(PetSource::Gallery, &pet.id) else { continue };
+            if fs::create_dir_all(&self.installed_root).is_err() {
+                return copied;
+            }
+            let incoming = self.installed_root.join(format!(".incoming-{}-{:08x}", pet.id, std::process::id()));
+            let written = fs::create_dir(&incoming)
+                .and_then(|()| fs::write(incoming.join("spritesheet.webp"), &sheet))
+                .and_then(|()| fs::write(incoming.join("pet.json"), &meta))
+                .and_then(|()| fs::rename(&incoming, self.installed_root.join(&pet.id)));
+            if written.is_ok() {
+                copied += 1;
+            } else {
+                let _ = fs::remove_dir_all(&incoming);
+            }
+        }
+        copied
+    }
+
     pub fn remove(&self, id: &str, keep_files: bool) -> Result<(), String> {
         if !is_pet_id(id) {
             return Err(NOT_ON_THIS_COMPUTER.into());

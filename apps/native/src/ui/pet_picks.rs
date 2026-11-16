@@ -121,7 +121,12 @@ pub(crate) fn wake(s: &mut State) {
         s.pet_picks.pictures.insert(id.to_owned(), Picture::Asked);
     }
     let list = gallery.clone();
-    s.pet_picks.list_job.request((), move |()| (list.library.list(), list.library.removed_picks()));
+    // The pets added in Electron come too: copied in from its folder, which is only read.
+    let electron_pets = store.electron().join("pets");
+    s.pet_picks.list_job.request((), move |()| {
+        list.library.import_from(&electron_pets);
+        (list.library.list(), list.library.removed_picks())
+    });
     s.pet_picks.thumbs_job.request((), move |()| {
         PET_PICKS
             .iter()

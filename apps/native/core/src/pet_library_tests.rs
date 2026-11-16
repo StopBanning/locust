@@ -379,3 +379,24 @@ fn a_file_one_byte_longer_than_its_riff_length_is_the_padding_byte_and_two_is_no
     assert!(webp_size(&sheet, Some(65)).is_some());
     assert!(webp_size(&sheet, Some(66)).is_none());
 }
+
+/// Beyond Electron: the Rust app keeps its own pets folder until the switch, and copies in the pets added in Electron's.
+#[test]
+fn the_pets_added_in_the_other_app_are_copied_in_checked_and_the_other_folder_is_only_read() {
+    let root = scratch();
+    let electron = root.join("electron-pets");
+    pet_folder(&electron, "nori", json!({"displayName": "Nori"}), &lossless(1536, 2288));
+    pet_folder(&electron, "squashed", json!({}), &lossless(1536, 2000));
+    pet_folder(&electron, "yuyu-chibi", json!({"displayName": "Electron's Yuyu"}), &lossless(1536, 2288));
+    pet_folder(&root.join("pets"), "yuyu-chibi", json!({"displayName": "Yuyu"}), &lossless(1536, 2288));
+    let before: Vec<_> = fs::read_dir(&electron).unwrap().flatten().map(|e| e.file_name()).collect();
+    let lib = library(&root);
+    assert_eq!(lib.import_from(&electron), 1, "nori only: squashed is not the shape of a pet, yuyu is here already");
+    assert_eq!(names(&lib.list()).iter().filter(|n| n.starts_with("Gallery")).cloned().collect::<Vec<_>>(), ["Gallery/nori/11", "Gallery/yuyu-chibi/11"]);
+    assert_eq!(lib.list().iter().find(|p| p.id == "yuyu-chibi").unwrap().display_name, "Yuyu", "the one here stands");
+    assert!(lib.sheet(PetSource::Gallery, "nori").is_ok());
+    let after: Vec<_> = fs::read_dir(&electron).unwrap().flatten().map(|e| e.file_name()).collect();
+    assert_eq!(before, after, "nothing in the other folder changed");
+    assert_eq!(lib.import_from(&electron), 0, "a second time copies nothing");
+    assert_eq!(lib.import_from(&root.join("not-there")), 0);
+}
