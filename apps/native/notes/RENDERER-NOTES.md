@@ -823,3 +823,57 @@ No live window, real agent, packaged app or Electron/JavaScript gate is run.
   controls and final restored run follow. No aggregate-cost or pie claim.
 - Warnings match the unchanged baseline: 3 core-test and 11 window-test
   warnings in existing buddy/drawing/conductor code. None in changed files.
+
+### Renderer-9 billing negative controls
+
+- `plan-receipt`: exactly the named plan-coverage case failed when inspector's
+  subscription branch was disabled. 2098 core passed + one intentional failure,
+  500 window passed, 20 ignored, doc tests 0. Runner exit 0, inspector.rs
+  restored byte for byte. Logs: `renderer-control-plan-receipt.log` and
+  `renderer-9-plan-receipt-result.log`.
+- `plan-format`: disabling the shared plan formatter failed the named case
+  and existing `benchmark::tests::compare_record_rows_calculates_middle_time_and_cost`;
+  both expected `in your plan`. 2097 core passed + two intentional failures,
+  500 window passed, 20 ignored, doc tests 0. Runner exit 0, benchmark.rs
+  restored byte for byte. Logs: `renderer-control-plan-format.log` and
+  `renderer-9-plan-format-result.log`.
+- All three controls caught; tracked source diff is empty after restoration.
+  Final restored whole-workspace release suite and binary build follow.
+
+
+## Renderer-10 — continuation and context ring (prepared)
+
+- Started from 934e7106. The round-3 code leftovers listed in the handoff are
+  already committed. Preserved the existing uncommitted renderer-9 billing
+  control notes; no stash or source cleanup was needed.
+- Running a restored whole release workspace suite before committing those
+  verification notes (`renderer-10-baseline-workspace.log`). This compilation
+  predates this section's new ring tests and changes.
+- Read ContextRing.tsx, cost.ts, the remaining ring cases, native ledger's
+  conversation cost accumulation and native drawing. The ring now uses the
+  actual snapshot's conversation cost: subscription-only totals say only the
+  context; paid usage beside a plan remains priced. Added separate exact-value
+  cases `gives_the_ring_nothing_to_say_about_cost_only_the_context` and
+  `still_prices_what_was_priced_beside_it` in `context_usage::renderer_ring_tests`.
+- Added `fills_a_slice_from_twelve_oclock_the_size_of_the_share_used`, preserving
+  Electron's exact SVG path values for 0/25/75/100 percent, centre 7, radius 4.5.
+  Native uses its existing SVG outline tessellator to draw that path, including
+  a full disc. This replaces the ring's private one-percent polygon loop.
+- Added both list-of-runs cases: `states_no_total_for_runs_a_subscription_covered`
+  and `counts_as_priced_only_the_runs_that_were`. The shared cost-total formatter
+  is also used by the actual ring; it suppresses plan-only totals and counts
+  only the displayed unit. Token formatting now uses the existing precise
+  compact count (2.4k, not 2k), matching Electron's exact aggregate values.
+- Added a headless drawn-ring regression for the snapshot-to-control wiring,
+  testing the exact subscription and mixed paid sentences.
+- All ten Electron cases are now implemented (five pre-existing, five new),
+  plus the additional headless regression. Row stays waiting until verified
+  by name. No Electron-plumbing exclusions. Ring-plan control prepared;
+  all new-source verification is pending. No mutation applied.
+
+### Restored renderer-9 verification
+
+- `renderer-10-baseline-workspace.log`: exit 0, 2099 core + 500 window
+  passed, 20 real-agent tests ignored, doc tests 0. This is the restored
+  verification for 934e7106 and the inherited billing control notes, not
+  evidence for renderer-10 source. No prior source changes needed stashing.
