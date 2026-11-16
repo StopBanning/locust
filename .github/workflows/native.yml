@@ -40,10 +40,8 @@ jobs:
 
   # On Colin's Mac mini (runner `mac-mini`, label locust-mac) since 11 Nov 2026: GitHub's macos-15 runners gave this
   # job none three times in a row. The runner's guard (_tools/mac-runner-guard.sh) admits this workflow only on
-  # exec/native, pushed or started by the owner. The build cache lives in the runner's own folder, not GitHub's cache.
+  # exec/native or exec/native-engine, pushed or started by the owner. The build cache lives in the runner's own folder, not GitHub's cache.
   mac:
-    # The runner's guard admits exec/native only, so on exec/native-engine just the GitHub-hosted jobs run.
-    if: github.ref == 'refs/heads/exec/native'
     runs-on: [self-hosted, macOS, ARM64, locust-mac]
     timeout-minutes: 60
     env:

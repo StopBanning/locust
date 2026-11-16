@@ -32,6 +32,5 @@ Debug also checks integer overflow, which release does not. That is a second rea
   copied from another worktree failed 51 ledger tests with "TypeScript reader rejected", which looked like a real
   failure. Leave it unset: the default is the reader built in `~/work/locust`.
 - `.github/workflows/native.yml` runs on `exec/native-engine` too. Before, it ran only on `exec/native`, so no
-  engine push since 12 Nov had been checked on a clean checkout. The Mac job stays on `exec/native`, because the
-  runner's guard admits only that branch. On the engine branch, the scoreboard and the Linux and Windows compile
-  checks run.
+  engine push since 12 Nov had been checked on a clean checkout. The runner's guard admits `exec/native-engine` too
+  (Colin's yes, 16 Nov), so the Mac test job runs there as well.
