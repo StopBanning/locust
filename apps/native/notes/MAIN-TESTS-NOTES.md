@@ -39,13 +39,13 @@ Why some rows are not carried:
   changes only through the people panel. The teammate-store reader (`native::route_of`) also leaves effort out of the
   `Route` it builds. The window reads effort straight from the JSON instead (`native.rs` job.effort).
 
-Found and not fixed (M26):
-- A carried-on turn (`native::carry`) reads the stopped turn's recorded mode with `Mode::parse`. When that mode is
-  malformed, the result is None, and the turn then falls back to the teammate's saved mode (`runs_in`) instead of
-  Ask. A relay request (`native.rs` `Mode::parse(&req.mode)`) falls back the same way. Electron reads a malformed
-  mode as Ask. Fixing this needs a test through the carry path. The only carry harness today runs a real OpenCode
-  (`real_carry_on_from_a_plan_that_ran_out`, ignored), so the row stays partial. The engine wire
-  (`engine_process::origin_from`) and the door refuse an unknown mode, which is safe.
+Checked for M26 and found to match:
+- A carried-on turn reads the stopped turn's recorded mode as it is. Electron does this (`carry-on.ts` `modeOf`, sent
+  straight to `codexMissions.start`, without `parsedMissionMode`), and so does Rust (`native::carry`). An earlier
+  version of this note said they differed. That came from reading only the IPC payload path, and it was wrong.
+- In Rust, a mode `Mode::parse` does not know becomes None, and the turn falls back to the teammate's saved mode.
+  This applies to a carried turn and to a relay request (`native.rs`). Whether Electron's relay start does the same
+  was not checked. The engine wire (`engine_process::origin_from`) and the door refuse an unknown mode.
 
 Break checks (all caught by the named test): `kept` including next; a blank next counted as an instruction; next
 not charged against the budget (refuses); newest-that-fit taking the oldest; the clip notice's words; stopped partway
@@ -127,5 +127,10 @@ That killed the Python but not its cargo child, and the break was left applied i
 once, stopped my own orphaned run (the `sol` lane's suite was left alone) and checked the file out clean.
 `mutsafe.py` restores the file on SIGTERM and SIGINT, and runs cargo in its own process group. It kills that group
 at its own limit, so it needs no outer `timeout`.
-`door::tests::the_door_is_off_until_turned_on_and_answers_only_its_current_token` also failed once, with the
-longpaths break applied. It has nothing to do with worktree arguments, and it passed in the full runs.
+`worktree_checkout_tests` is registered only for Unix (`cfg(all(test, unix))`), because it makes hooks executable
+with `PermissionsExt`. `worktrees_tests.rs` does the same without the guard, so CI's Windows `cargo check
+--all-targets` already stops there.
+Two tests outside these files failed once while a break was applied, and passed in every full run:
+`native::tests::relay_roundtrip_starts_recipient_records_peer_links_remembers_hub_and_returns_to_origin_thread` (batch
+1, with the room_store note break) and
+`door::tests::the_door_is_off_until_turned_on_and_answers_only_its_current_token`, with the longpaths break applied.
