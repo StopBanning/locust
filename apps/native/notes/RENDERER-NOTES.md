@@ -700,3 +700,40 @@ This section is not yet verified and its row remains waiting.
 - Navigation committed as `6a54f3e0`. This continuation carries two full files
   (nine Electron cases), plus fifteen pure eye cases in an incomplete file.
   **17 of 45 requested files carried; 28 waiting.** No does-not-apply additions.
+- Prompt-rail threshold control caught exactly
+  `gives_rail_to_four_messages_when_scrollable_and_room_suffices` and restored
+  prompt_rail.rs byte for byte. Core 2094 passed, 20 ignored; window 489 passed
+  plus one intentional failure. Runner exited 0 (`renderer-8-rail-control-result.log`).
+  All three new controls are caught and restored; no break remains applied.
+- Prompt-rail section committed as `8fe5d864`. Final restored full release
+  workspace and release binary build now follow; no filtered runs were queued.
+
+## Renderer-8 final restored verification
+
+- `renderer-8-restored-workspace.log`: exit 0; **2094 core + 490 window =
+  2584 passed**, **20 ignored** real-agent cases, doc tests 0. All 24 relevant
+  Electron cases observed passing by name (15 pure eye cases, 5 conversation
+  key cases, 4 prompt-rail cases). The existing full-thread rail/jump and
+  folded-group drawing regressions also passed. This verifies the final
+  committed source with every mutation restored.
+- All three new controls caught their named assertion; each restored its source
+  byte for byte. No break remains applied. All Cargo tests were whole release
+  workspace runs through gentle-cargo, one at a time, without filtered runs.
+- The requested handoff remains **unfinished**: **17 of 45 files carried,
+  28 waiting**. The eye file is still waiting: four drawing cases plus actual
+  painter projection/color behavior remain unverified, despite the 15 pure
+  cases passing. Earlier notes list the applicable teammate integration gaps;
+  continue the waiting teammate list before remaining conversation work,
+  starting with the inline new-page preview. No does-not-apply rows added.
+- No Electron/JavaScript gate, live window, real-agent turn, packaged app,
+  signing or release was run. Initial failed runs are recorded above; only
+  this restored run is the final green suite. Release build follows below.
+- Release binary build: exit 0, 1m 19s (`renderer-8-release-build.log`),
+  twelve existing drawing/conductor warnings. No live/packaged verification.
+- `scripts/recount.py` and `--check` passed: 194 carried, 62 does-not-apply,
+  185 partial, 868 waiting, 1309 total; requested subset has 28 waiting.
+  Mutation-script Python syntax and `git diff --check` passed.
+- Commits: `1c64d157` pure eye cases; `6a54f3e0` conversation keys;
+  `8fe5d864` exact prompt-rail labels. Final validation notes committed separately.
+  No source mutation, stash or discarded work remains; original untracked
+  HANDOFF files are unchanged and are not committed.
