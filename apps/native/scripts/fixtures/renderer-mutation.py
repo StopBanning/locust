@@ -10,6 +10,12 @@ import subprocess
 import sys
 
 CONTROLS = {
+    "conversation-model-mark": (
+        "src/ui/sidebar.rs",
+        '!is_own_mark_model(&m.model)',
+        'true',
+        "keeps_the_empty_place_for_a_model_of_your_own_or_a_runtime_not_yet_known",
+    ),
     "board-working": (
         "src/team_board.rs",
         "Some(Status::Working) => Section::Working,",

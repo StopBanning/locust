@@ -149,10 +149,30 @@ pub(super) fn sidebar_missions_now(s: &State) -> Vec<SidebarMission> {
     matched
 }
 
+// routeName.ts's own-model identity, rather than any model beginning with "own-".
+fn is_own_mark_model(model: &str) -> bool {
+    model.strip_prefix("own-").and_then(|rest| rest.split_once('/'))
+        .is_some_and(|(id, name)| id.len() == 8 && !name.is_empty()
+            && id.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)))
+}
+
 fn mission_row(s: &State, p: &Palette, item: &SidebarMission, picked: bool) -> El {
     let recent = s.recent.iter().find(|r| r.id == item.mission_id);
     let l = crate::look::controls::Look::new(p.dark);
-    let mut title = row().w_full().center_y().gap(6.0).child(
+    let mut title = row().w_full().center_y().gap(6.0);
+    let owner = item.owner_id.clone().or_else(|| s.data.as_ref().and_then(|store| people::owner_of(store, &item.mission_id)));
+    if !owner.as_deref().is_some_and(|id| s.teammates.iter().any(|mate| mate.id == id)) {
+        let summary = s.ledger_summaries.get(&item.mission_id);
+        let mark = summary.filter(|m| !m.runtime.is_empty() && !m.model.is_empty() && !is_own_mark_model(&m.model))
+            .and_then(|m| crate::look::controls::agent_mark(&l, &m.runtime, 13.0, l.c("text-muted"))
+                .map(|mark| row().size(18.0, 18.0).center().child(mark)
+                    .key(format!("conversation-runtime-{}", item.mission_id))
+                    .role("img").label(locust_core::inspector::runtime_display_name(&m.runtime))));
+        title = title.child(mark.unwrap_or_else(|| el().size(18.0, 18.0).radius(4.0)
+            .border(1.0, l.c("border-hairline")).a11y_hidden()
+            .key(format!("conversation-nobody-{}", item.mission_id))));
+    }
+    title = title.child(
         text(item.title.clone())
             .font(rune::TextStyle::new(13.5, 500.0))
             .color(l.c("text-name"))
@@ -1676,5 +1696,44 @@ mod review_tests {
         let folded_text = sidebar_text(&mut s);
         assert!(!folded_text.contains("Build groups"));
         let _ = std::fs::remove_dir_all(&temp);
+    }
+}
+
+
+#[cfg(test)]
+mod renderer_model_mark_tests {
+    use super::*;
+
+    fn draw(id: &str, route: Option<(&str, &str)>) -> rune::Runtime<State> {
+        let mut s = State::default();
+        let at = "2026-10-02T05:00:00.000Z";
+        s.recent.push(ConversationRow { id: id.into(), title: "yo".into(),
+            teammate: String::new(), started_by: String::new(), state: "completed".into(), updated: at.into() });
+        if let Some((runtime, model)) = route {
+            s.ledger_summaries.insert(id.into(), ledger::Summary { mission_id: id.into(), title: "yo".into(),
+                runtime: runtime.into(), model: model.into(), updated: at.into(), created_at: at.into(), ..Default::default() });
+        }
+        let mut rt = rune::Runtime::new(s, |s, _| sidebar(s, &Palette::new(true)),
+            (280.0, 800.0), rune::Env::new(true, 1.0));
+        rt.frame(0.0);
+        rt
+    }
+
+    #[test]
+    fn wears_its_models_mark_where_the_face_goes_named() {
+        let rt = draw("mission_claude", Some(("claude", "claude-opus-5-5")));
+        assert!(rt.find("conversation-runtime-mission_claude").is_some());
+        assert!(rt.elements().iter().any(|e| e.label.as_deref() == Some("Claude Code")));
+        assert!(rt.find("conversation-nobody-mission_claude").is_none());
+    }
+
+    #[test]
+    fn keeps_the_empty_place_for_a_model_of_your_own_or_a_runtime_not_yet_known() {
+        let rt = draw("mission_own", Some(("opencode", "own-0a1b2c3d/llama-local")));
+        assert!(rt.find("conversation-nobody-mission_own").is_some());
+        assert!(rt.find("conversation-runtime-mission_own").is_none());
+        let rt = draw("mission_starting", None);
+        assert!(rt.find("conversation-nobody-mission_starting").is_some());
+        assert!(rt.find("conversation-runtime-mission_starting").is_none());
     }
 }

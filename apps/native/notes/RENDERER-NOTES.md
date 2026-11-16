@@ -530,3 +530,54 @@ This section is not yet verified and its row remains waiting.
 - Selection committed as `000c5cb8`. Board row now carried after the same
   restored green run; four Electron cases plus one native drawing regression.
   This continuation carries two more files, leaving 31 of 45 waiting.
+
+## Ownerless model mark — next section
+
+- Read both cases and Sidebar.tsx's actual runtime/own-model branch. Native's
+  conversation rows had no mark. They now draw the named runtime mark for a
+  known route with no recorded owner, or the empty place for an own model or
+  unknown route. Uses the existing native vector marks, no DOM recreation.
+- Two separate tests in `sidebar::renderer_model_mark_tests`, with Electron's
+  mission ids, `yo`, date, `claude-opus-5-5`, and
+  `own-0a1b2c3d/llama-local`. The tests draw the real sidebar and check the
+  actual keyed mark/place plus the accessible Claude Code name.
+- Row still waiting pending named results. The own-model control is prepared.
+
+- `renderer-7-workspace.log`: exit 0, 2079 core + 485 window passed,
+  20 ignored real-agent cases, doc tests 0. Both new model-mark cases observed
+  passing by name. While this binary compiled, tightened the own-model identity
+  to Electron's eight-lowercase-hex id and nonempty model rule, and resolve a
+  recorded owner against today's roster before withholding the fallback mark.
+  Those refinements are included in the control and final restored run below.
+- Exact mapping to `sidebar::renderer_model_mark_tests`:
+  `wears_its_models_mark_where_the_face_goes_named` and
+  `keeps_the_empty_place_for_a_model_of_your_own_or_a_runtime_not_yet_known`.
+  Neither case is excluded as React plumbing.
+
+- Model-mark control caught exactly the own-model placeholder test; core 2079
+  passed, window 484 passed plus one intentional failure, 20 ignored. The
+  runner restored sidebar.rs byte for byte (`renderer-7-model-control.log`).
+- Final review found an incidental grouping regression: Home's Scout invitation
+  disappeared when no teammate was Ready. Keep that action after the urgent
+  sections in that case; the existing Scout invitation test now draws actual
+  Home with its sole teammate busy and requires the invitation to remain.
+  This correction is included in the final restored workspace run.
+
+### Final restored model-mark verification
+
+- `renderer-7-restored-workspace.log`: exit 0, **2079 core + 485 window =
+  2564 passed**, **20 ignored** real-agent tests, doc tests 0. All nine
+  Electron cases across the three carried files, the Home/Team surface
+  regression, and the strengthened Scout invitation test passed by name.
+- The final source includes the strict own-model id check, current-roster
+  ownership check and Scout invitation correction. Both intentional mutations
+  were caught at their named assertion and restored byte for byte. No break
+  remains. The optional board-working control was not run.
+- Three files carried in this continuation, none excluded. Together with the
+  earlier recorded rounds, **15 of 45** requested files are carried and
+  **30 remain waiting**. The requested list is **unfinished**. Applicable
+  gaps and the two absent inventory paths remain documented above.
+- No Electron/JavaScript gate, real agent, live window or packaged app was
+  run. Whole release workspace runs used gentle-cargo only, one at a time,
+  serial tests, optional Git read locks disabled, and the existing in-workspace
+  TypeScript reader. Release binary build follows.
