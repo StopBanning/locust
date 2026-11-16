@@ -33,6 +33,21 @@ thread_local! {
     static DRAWN_SHAPE: std::cell::RefCell<std::collections::HashMap<String, rune::Shape>> = Default::default();
 }
 
+/// TeammateBot.tsx `MARKED_FACE_MIN`: below this a runtime's mark is too small to be a mark, so a face wears none.
+pub const MARKED_FACE_MIN: f32 = 24.0;
+
+#[cfg(test)]
+thread_local! {
+    /// The runtime whose mark each live face last wore on its badge, by its slot, for the window's own tests.
+    static DRAWN_MARK: std::cell::RefCell<std::collections::HashMap<String, Option<String>>> = Default::default();
+}
+
+/// The runtime mark the live face in `slot_key` last wore, if any, on this thread.
+#[cfg(test)]
+pub fn drawn_mark(slot_key: &str) -> Option<Option<String>> {
+    DRAWN_MARK.with(|drawn| drawn.borrow().get(slot_key).cloned())
+}
+
 #[cfg(test)]
 thread_local! {
     /// The pet each live face last drew in its bot's place, by its slot, for the window's own tests.
@@ -275,7 +290,6 @@ pub fn bot_face_with_look(
             light_theme: !l.k.dark,
             presence: opts.presence,
             ring: opts.activity == FaceActivity::Waiting,
-            runtime: opts.runtime,
             snap: &snap,
         })
     } else {
@@ -298,7 +312,6 @@ pub fn bot_face_with_look(
             light_theme: !l.k.dark,
             presence: opts.presence,
             ring: opts.activity == FaceActivity::Waiting,
-            runtime: opts.runtime,
             snap: &snap,
         })
     };
@@ -327,8 +340,42 @@ pub fn bot_face_with_look(
         Some(lbl) => el.label(lbl.to_owned()),
         None => el.a11y_hidden(),
     };
-    el
+    // The runtime's own mark on a badge at the body's lower left, opposite the presence dot (`.lc-bot__mark`, 24% of
+    // the face), once the face is big enough for a mark to read as one.
+    let badge = opts
+        .runtime
+        .filter(|_| size >= MARKED_FACE_MIN)
+        .and_then(|runtime| {
+            let mark = (size * 0.24).round();
+            super::controls::agent_mark(l, runtime, mark, l.c("text-primary")).map(|icon| (runtime, mark, icon))
+        });
+    #[cfg(test)]
+    DRAWN_MARK.with(|d| {
+        d.borrow_mut().insert(slot_key.to_owned(), badge.as_ref().map(|(runtime, _, _)| (*runtime).to_owned()));
+    });
+    match badge {
+        Some((runtime, mark, icon)) => {
+            let disc = mark + 4.0;
+            rune::el().size(size, size).child(el).child(
+                row()
+                    .key(format!("bot-mark-{slot_key}-{runtime}"))
+                    .w(disc)
+                    .h(disc)
+                    .center()
+                    .radius(disc / 2.0)
+                    .fill(l.c("bg-raised"))
+                    .border(1.0, l.c("border-hairline"))
+                    .child(icon)
+                    .absolute(size * 0.04, size - disc - size * 0.04),
+            )
+        }
+        None => el,
+    }
 }
+
+#[cfg(test)]
+#[path = "face_marks_tests.rs"]
+mod marks_tests;
 
 #[cfg(test)]
 mod tests {

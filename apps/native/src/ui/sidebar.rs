@@ -499,6 +499,14 @@ pub(super) fn apply_org_action(s: &mut State, mission_id: &str, action: &str) {
     s.org_menu_id = None;
 }
 
+/// The runtime a roster face wears the mark of: its teammate's, unless the teammate runs on a model of the person's own
+/// (an OpenCode route through their own key, which no maker's mark is true of) or has no route.
+pub(crate) fn roster_runtime(teammate: &Teammate) -> Option<&str> {
+    let runtime = teammate.runtime.as_deref()?;
+    let own = teammate.model.as_deref().is_some_and(|model| locust_core::spend::is_own_model(runtime, model));
+    (!own).then_some(runtime)
+}
+
 /// A roster face (Sidebar.tsx 1511-1519, TeammateBot): the live rig showing the teammate's one state
 /// (`teammate_faces`), turned toward a teammate it is handing a message to or getting one from.
 pub(super) fn roster_face(
@@ -522,6 +530,8 @@ pub(super) fn roster_face(
             presence: view.and_then(crate::teammate_faces::presence_dot),
             glance,
             motion: locust_core::bot_rig::BotMotionLevel::Subtle,
+            // Which model is who: the runtime's mark, and none on a model of the person's own (Sidebar.tsx).
+            runtime: roster_runtime(teammate),
             ..Default::default()
         },
         l,

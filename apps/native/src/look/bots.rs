@@ -48,7 +48,6 @@ pub struct BotDrawSpec<'a> {
     pub presence: Option<PresenceDot>,
     /// TeammateBot.tsx 445: the amber ring is a waiting teammate's (`activity === 'waiting'`), not its dot's.
     pub ring: bool,
-    pub runtime: Option<&'a str>,
     pub snap: &'a BotSnapshot,
 }
 
@@ -60,7 +59,6 @@ pub struct BuddyDrawSpec<'a> {
     pub presence: Option<PresenceDot>,
     /// As `BotDrawSpec::ring`: TeammateBot draws the ring over a worn pet too.
     pub ring: bool,
-    pub runtime: Option<&'a str>,
     pub snap: &'a BuddySnapshot,
 }
 
@@ -790,23 +788,6 @@ pub fn draw_bot_shape(spec: &BotDrawSpec<'_>) -> Shape {
         }
     }
 
-    // Runtime corner mark using anchored `mark_left`.
-    if let Some(rt) = spec.runtime {
-        let pill_col = if rt == "codex" {
-            rgb8(0x4b, 0x9c, 0xf5)
-        } else {
-            rgb8(0xd9, 0x77, 0x57)
-        };
-        let cx = (anchor.mark_left as f32) * draw_size;
-        let cy = (anchor.dot.y as f32) * draw_size;
-        let r = (draw_size * 0.11).max(2.0);
-        s = s.fill(
-            disc_points(cx, cy, r * 1.25, r * 1.25, 12),
-            rgba8(14, 18, 26, 220),
-        );
-        s = s.fill(disc_points(cx, cy, r, r, 12), pill_col);
-    }
-
     // Presence dot using anchored `(dot.x, dot.y)`.
     if let Some(presence) = spec.presence {
         let dot_r = (draw_size * 0.135).max(2.2);
@@ -1176,22 +1157,6 @@ pub fn draw_buddy_shape(spec: &BuddyDrawSpec<'_>) -> Shape {
         s = s.stroke_with(smile, false, ink_w * 0.85, LineCap::Round, ink);
     }
 
-    if let Some(rt) = spec.runtime {
-        let pill_col = if rt == "codex" {
-            rgb8(0x4b, 0x9c, 0xf5)
-        } else {
-            rgb8(0xd9, 0x77, 0x57)
-        };
-        let cx = draw_size * 0.22;
-        let cy = draw_size * 0.80;
-        let r = (draw_size * 0.11).max(2.0);
-        s = s.fill(
-            disc_points(cx, cy, r * 1.25, r * 1.25, 12),
-            rgba8(14, 18, 26, 220),
-        );
-        s = s.fill(disc_points(cx, cy, r, r, 12), pill_col);
-    }
-
     if let Some(presence) = spec.presence {
         let dot_r = (draw_size * 0.135).max(2.2);
         let cx = draw_size - dot_r * 1.25;
@@ -1245,7 +1210,6 @@ pub fn static_bot_shape(
         light_theme,
         presence: None,
         ring: false,
-        runtime: None,
         snap: &snap,
     })
 }
@@ -1279,7 +1243,6 @@ pub fn static_buddy_shape(
         light_theme,
         presence: None,
         ring: false,
-        runtime: None,
         snap: &snap,
     })
 }
