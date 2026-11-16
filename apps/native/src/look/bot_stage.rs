@@ -817,6 +817,12 @@ impl BotStage {
         bots + buddies
     }
 
+    /// What a bot was last asked to show, for the window's own tests.
+    #[cfg(test)]
+    pub fn desired_activity(&self, key: &str) -> Option<FaceActivity> {
+        self.inner.borrow().bots.get(key).map(|slot| slot.desired.activity)
+    }
+
     /// Where a bot's gaze is pulled now, (x, y, strength), for the window's own tests.
     #[cfg(test)]
     pub fn pointer_target(&self, key: &str) -> Option<(f64, f64, f64)> {

@@ -681,7 +681,7 @@ apps/desktop/src/renderer/src/a-draft-naming-an-off-connector-says-so.test.ts	SE
 apps/desktop/src/renderer/src/a-dropped-free-model-is-said-before-the-send.test.tsx	SETUP	carried	connectors_off::tests::dropped_free_model_matches_electron_rules;window_drive_tests::a_dropped_free_model_is_said_before_the_send	`renderer/src/a-dropped-free-model-is-said-before-the-send.test.tsx` | Ported `dropped_free_model`, `free_start_model`, `opencode_model_display_name`, amber Home/Team card routes, and headless window test
 apps/desktop/src/renderer/src/a-face-at-rest-answers-you.test.ts		waiting		
 apps/desktop/src/renderer/src/a-face-rests-behind-other-windows.test.ts		waiting		
-apps/desktop/src/renderer/src/a-face-says-its-state-in-words.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-face-says-its-state-in-words.test.tsx	BOTS	partial	core/src/face_status_tests.rs; src/ui/teammate_faces.rs	2 of 3 carried: a_state_in_words_is_what_the_teammate_is_doing_or_why_they_are_blocked; the compact rail by teammate_faces::tests::a_card_waiting_on_the_person_shows_waiting_on_the_rail_face_and_in_its_words (hover words as the name, state as the description). Not carried: the faces strip (the Rust sidebar has no strip)
 apps/desktop/src/renderer/src/a-failed-column-cannot-be-kept.test.tsx	compare-more	carried		`compare_window_tests::a_column_run_again_answers_again` (failed column shows Try again and Keep is disabled)
 apps/desktop/src/renderer/src/a-file-git-shows-without-lines-is-listed.test.ts	P7	partial	binary_empty_rename_mode_and_unicode_paths_stay_listed	`renderer/src/a-file-git-shows-without-lines-is-listed.test.ts` | `binary_empty_rename_mode_and_unicode_paths_stay_listed` covers binary/empty/rename/mode-only header records; mixed text files exercised by folder tests. Exact original fixtu
 apps/desktop/src/renderer/src/a-file-opens-on-itself.test.ts	P5	does-not-apply		`a-file-opens-on-itself.test.ts` | The native reader replaces its entire target/result when opening a file and has no selected historical version. Version/diff fold reset assertions do not apply until history is implemented; no equivalent s
@@ -766,7 +766,7 @@ apps/desktop/src/renderer/src/a-pull-link-is-read-once.test.ts		waiting
 apps/desktop/src/renderer/src/a-pull-request-chip-says-its-state.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-pull-request-link-wears-its-state.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-question-is-answered-by-number.test.ts		waiting		
-apps/desktop/src/renderer/src/a-question-makes-the-face-wait-on-you.test.ts		waiting		
+apps/desktop/src/renderer/src/a-question-makes-the-face-wait-on-you.test.ts	BOTS	partial	core/src/face_status_tests.rs	2 of 4 carried: a_question_alone_makes_the_face_wait_in_amber_with_nothing_running, a_teammate_with_no_question_and_no_paused_run_stays_idle. Not carried: the two waitingByTeammate counting cases (questions, memory suggestions, Scout cards, routines)
 apps/desktop/src/renderer/src/a-queued-message-refused-as-busy-waits.test.ts		waiting		
 apps/desktop/src/renderer/src/a-queued-message-stays-in-its-conversation.test.ts		waiting		
 apps/desktop/src/renderer/src/a-quoted-equation-is-drawn.test.tsx		waiting		
@@ -812,7 +812,7 @@ apps/desktop/src/renderer/src/a-screens-eyes-have-weight.test.ts		waiting
 apps/desktop/src/renderer/src/a-select-moves-and-chooses-by-the-keyboard.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-shorter-window-keeps-the-newest-reply.test.ts		waiting		
 apps/desktop/src/renderer/src/a-side-question-can-be-approved-and-stopped.test.tsx	SIDE-CHAT	carried	src/ui/side_chat.rs tests	both tests carried (Hydrogen)
-apps/desktop/src/renderer/src/a-signed-out-teammate-is-not-idle.test.ts		waiting		
+apps/desktop/src/renderer/src/a-signed-out-teammate-is-not-idle.test.ts	BOTS	partial	core/src/face_status_tests.rs	6 of 9 carried: reads_as_blocked_not_idle_when_its_runtime_is_signed_out, still_reads_as_idle_when_its_own_runtime_is_fine, keeps_a_mission_waiting_on_an_approval_as_its_own_state_not_blocked, is_blocked_when_nothing_at_all_is_signed_in_whatever_it_is_set_to, a_runtime_that_has_not_answered_yet_is_not_told_to_sign_in, a_runtime_that_says_it_is_signed_out_still_is. Not carried: the three runtimeOfTeammate cases (the window judges a teammate by its set runtime only; no running-mission or past-mission step)
 apps/desktop/src/renderer/src/a-skill-row-names-its-skill.test.ts		waiting		
 apps/desktop/src/renderer/src/a-slow-agent-row-says-it-is-being-checked.test.ts		waiting		
 apps/desktop/src/renderer/src/a-small-bot-is-drawn-at-twice-its-size.test.tsx		waiting		
@@ -833,7 +833,7 @@ apps/desktop/src/renderer/src/a-teammate-can-be-a-pet.test.tsx		waiting
 apps/desktop/src/renderer/src/a-teammate-can-hand-you-a-file.test.ts	renderer-2	carried	src/ui/messages.rs	Five separate headless ledger-to-thread cases; exact Electron replies; renderer-2-files-workspace.log.
 apps/desktop/src/renderer/src/a-teammate-chooses-its-screen.test.tsx	renderer-4	carried	src/look/faces.rs::renderer_screen_tests; core/src/native.rs	Six exact cases; intrinsic screens, boolean disk boundary, and Terminal faces wired through static UI. Named passes and caught prompt-screen control; notes/RENDERER-NOTES.md.
 apps/desktop/src/renderer/src/a-teammate-has-a-model-of-its-own.test.tsx		waiting		
-apps/desktop/src/renderer/src/a-teammate-is-not-stuck-while-agents-are-still-being-found.test.ts		waiting		
+apps/desktop/src/renderer/src/a-teammate-is-not-stuck-while-agents-are-still-being-found.test.ts	BOTS	carried	core/src/face_status_tests.rs	all 7 cases carried: has_no_global_blocked_verdict_while_the_only_possible_agent_is_still_checking, keeps_its_pending_own_agent_idle_even_when_another_agent_is_ready, keeps_a_checked_unusable_own_agent_blocked_while_another_check_is_pending, returns_to_idle_when_a_late_ready_answer_replaces_a_checked_failure, is_idle_not_blocked_while_discovery_has_not_answered, is_blocked_once_discovery_says_nothing_can_run_and_says_why, is_idle_once_one_agent_can_run
 apps/desktop/src/renderer/src/a-teammate-wears-how-it-feels.test.ts	renderer-3	carried	core/src/bot_rig.rs::renderer_mood_tests	Nine separate Electron mood/pose/rig/hop cases; named passes in renderer-3-restored-workspace.log. notes/RENDERER-NOTES.md.
 apps/desktop/src/renderer/src/a-teammate-who-just-finished-last-worked-just-now.test.ts	P4	partial		`a-teammate-who-just-finished-last-worked-just-now.test.ts` | `liveRunLastAt` is not separately ported; native local summaries use ledger event times. Live teammate-card age presentation is outside this implementation.
 apps/desktop/src/renderer/src/a-teammates-eyes-are-drawn-not-typed.test.ts		waiting		
@@ -938,7 +938,7 @@ apps/desktop/src/renderer/src/every-runtime-keeps-its-output.test.tsx		waiting
 apps/desktop/src/renderer/src/every-saved-rule-can-go-at-once.test.tsx	approvals	carried	src/ui/people_panel.rs	all 2 Rune tests; confirming_remove_all flow in Saved approvals tab (Remove all rules, singular/plural confirmation copy, Remove all, Keep them)
 apps/desktop/src/renderer/src/every-teammate-is-a-bot.test.tsx		waiting		
 apps/desktop/src/renderer/src/exchange.test.ts	RELAY	partial	src/ui/exchange_strip.rs	exchange_of_and_exchange_across_walk_component_and_sum_cost_and_hops; empty-roots/Nobody edge cases omitted
-apps/desktop/src/renderer/src/faceState.test.ts		waiting		
+apps/desktop/src/renderer/src/faceState.test.ts	BOTS	partial	core/src/face_status_tests.rs	18 of 20 cases carried, one Rust test each (idle_and_blocked_are_the_only_motionless_states..., thinks_during_an_open_reasoning_step, is_closed_by_its_one_completion, and the rest under faceState in that file). Not carried: "names every animation for the state it means" and "done hops once; it is not a loop" check CSS animation names in FACE_MOTION, which the Rust stage does not have
 apps/desktop/src/renderer/src/feedback-says-what-it-sends.test.tsx	settings	carried	src/ui/window_drive_tests.rs	report_shows_what_it_sends_and_sends_nothing_until_pressed + core/src/report_problem.rs
 apps/desktop/src/renderer/src/finishedToast.test.ts		waiting		
 apps/desktop/src/renderer/src/fold-tool-runs.test.ts	P10	carried	core/src/tool_fold_tests.rs; src/ui/activity_drawers.rs an_opened_group_folds_a_run_of_reads_into_one_row_and_keeps_the_command	all 9 cases, plus helpers, images and Codex's command never folded, and the three names pinned
@@ -1028,7 +1028,7 @@ apps/desktop/src/renderer/src/since-you-were-away-on-home.test.tsx	p12	partial		
 apps/desktop/src/renderer/src/slashCommands.test.ts		waiting		
 apps/desktop/src/renderer/src/spawning-is-not-working.test.ts		waiting		
 apps/desktop/src/renderer/src/startPhase.test.ts		waiting		
-apps/desktop/src/renderer/src/status.test.ts		waiting		
+apps/desktop/src/renderer/src/status.test.ts	BOTS	partial	core/src/face_status_tests.rs	the teammate-status cases only (9): reports_a_blocked_runtime_even_while_a_mission_looks_like_it_is_running, puts_a_pending_approval_ahead_of_working, pulses_only_while_working, treats_usability_as_needing_both_the_flag_and_the_probe, decides_the_face_from_the_same_inputs_as_the_label_so_the_two_agree, carries_every_state_on_the_presence_dot_so_a_still_face_still_reads, and the three a_teammate_with_no_work / judged_against_the_runtime cases. The file's other cases (routes, modes, efforts, phases, pruning, search, ...) were not checked this round
 apps/desktop/src/renderer/src/steering.test.ts		waiting		
 apps/desktop/src/renderer/src/stickToBottom.test.ts		waiting		
 apps/desktop/src/renderer/src/stop-card-says-tools-not-work.test.tsx		waiting		
@@ -1040,7 +1040,7 @@ apps/desktop/src/renderer/src/teamBoard.test.ts		waiting
 apps/desktop/src/renderer/src/teammate-folder-row.test.tsx		waiting		
 apps/desktop/src/renderer/src/teammateTooltip.test.ts	renderer-4	carried	core/src/teammate_tooltip.rs; src/ui/sidebar.rs; src/ui/rail.rs	Five exact named tooltip cases; action, role, human model name, and account-default wording on both sidebar layouts. notes/RENDERER-NOTES.md.
 apps/desktop/src/renderer/src/teammateWork.test.ts		waiting		
-apps/desktop/src/renderer/src/the-bare-machine.test.ts		waiting		
+apps/desktop/src/renderer/src/the-bare-machine.test.ts	BOTS	partial	core/src/face_status_tests.rs	5 of 7 carried: says_nothing_is_installed_when_nothing_is, still_says_sign_in_when_something_is_installed_and_merely_unsigned, makes_the_same_distinction_for_the_teammates_own_runtime, is_still_blocked_and_still_red_either_way_because_neither_can_run, does_not_reach_for_either_sentence_when_a_runtime_is_fine. Not carried: the two bootView loading-screen cases
 apps/desktop/src/renderer/src/the-beams-are-mono-and-quiet.test.tsx		waiting		
 apps/desktop/src/renderer/src/the-boot-screen.test.ts	p12	partial		`the-boot-screen.test.ts` (progress/summary/words) | boot_view progress/summary/result/phase_at/homeRelative
 apps/desktop/src/renderer/src/the-changes-panel-lists-every-file.test.tsx	P7	partial		`renderer/src/the-changes-panel-lists-every-file.test.tsx` | Row-derived counts covered by parser tests. `treeOf` grouping assertion remains unported because the UI list is flat.

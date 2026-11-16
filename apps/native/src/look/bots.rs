@@ -109,12 +109,15 @@ fn phosphor_rgb(tone: Phosphor) -> [u8; 3] {
     }
 }
 
-fn presence_color(kind: PresenceDot) -> Color {
-    match kind {
-        PresenceDot::Working => rgb8(0x4a, 0xc9, 0x7b),
-        PresenceDot::Waiting => rgb8(0xf5, 0xa6, 0x23),
-        PresenceDot::Blocked => rgb8(0xe8, 0x5d, 0x5d),
-    }
+/// The presence dot's fill (PixelFace.tsx `PRESENCE_TONE`, shell.css `.lc-presence--*`): working is monochrome
+/// since 0.430 (`--lc-text-primary`), waiting amber, blocked red.
+fn presence_color(kind: PresenceDot, light_theme: bool) -> Color {
+    let look = crate::look::controls::Look::new(!light_theme);
+    look.c(match kind {
+        PresenceDot::Working => "text-primary",
+        PresenceDot::Waiting => "amber",
+        PresenceDot::Blocked => "red",
+    })
 }
 
 fn disc_points(cx: f32, cy: f32, rx: f32, ry: f32, steps: usize) -> Vec<[f32; 2]> {
@@ -792,7 +795,7 @@ pub fn draw_bot_shape(spec: &BotDrawSpec<'_>) -> Shape {
             disc_points(cx, cy, dot_r * 1.32, dot_r * 1.32, 14),
             rgba8(14, 18, 26, 230),
         );
-        s = s.fill(disc_points(cx, cy, dot_r, dot_r, 14), presence_color(presence));
+        s = s.fill(disc_points(cx, cy, dot_r, dot_r, 14), presence_color(presence, spec.light_theme));
     }
 
     let _ = (SUPERSAMPLE_AT_OR_BELOW, same_hue_rgba, mix_phosphor_rgba);
@@ -1176,7 +1179,7 @@ pub fn draw_buddy_shape(spec: &BuddyDrawSpec<'_>) -> Shape {
             disc_points(cx, cy, dot_r * 1.32, dot_r * 1.32, 14),
             rgba8(14, 18, 26, 230),
         );
-        s = s.fill(disc_points(cx, cy, dot_r, dot_r, 14), presence_color(presence));
+        s = s.fill(disc_points(cx, cy, dot_r, dot_r, 14), presence_color(presence, spec.light_theme));
     }
 
     s

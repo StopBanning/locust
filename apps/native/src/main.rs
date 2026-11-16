@@ -124,6 +124,8 @@ mod handoff_divider;
 mod handoff_glances;
 #[path = "ui/live_list.rs"]
 mod live_list;
+#[path = "ui/teammate_faces.rs"]
+mod teammate_faces;
 #[path = "ui/edit_message.rs"]
 mod edit_message;
 #[path = "ui/peer_thread.rs"]
@@ -742,6 +744,7 @@ fn setup(s: &mut State, waker: Waker) {
     s.commit_draft_job.set_waker(waker.clone());
     s.changes_repo_job.set_waker(waker.clone());
     s.team.set_waker(waker.clone());
+    s.live_faces.job.set_waker(waker.clone());
     s.sending.set_waker(waker.clone());
     s.waiting.set_waker(waker.clone());
     s.recents.set_waker(waker.clone());
@@ -2262,6 +2265,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
         match result {
             Ok(batch) => {
                 home_panel::record_finishes(s, &batch.rows);
+                teammate_faces::note_finished(s, &batch.rows, &batch.mission_owners, now);
                 s.recent = batch.rows;
                 s.resolved_model_names = locust_core::model_alias::resolved_model_names(batch.summaries.values());
                 s.recent_route_keys = locust_core::recent_routes::recently_used_routes(&batch.summaries.values().cloned().collect::<Vec<_>>());
@@ -2332,6 +2336,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
 
     changed |= ledger_tick(s, now, tx);
     changed |= s.handoff_glances.expire(now);
+    changed |= teammate_faces::tick(s, now);
     drain_queue_after_turn(s, tx);
     changed |= s
         .bot_stage

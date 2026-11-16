@@ -225,5 +225,7 @@ pub mod teammate_tooltip;
 
 pub mod git_quiet;
 
+pub mod face_status;
+
 #[cfg(test)]
 pub(crate) mod load_waits;

@@ -217,9 +217,9 @@ pub(super) fn rail(s: &State, p: &Palette) -> El {
     let mut faces = col().w_full().pt(6.0);
     // The rail is the roster made compact (Sidebar.tsx 1511-1519): a column, with the roster's glances.
     let glances = crate::handoff_glances::roster_glances(s);
+    let views = crate::teammate_faces::views(s);
     for teammate in &s.teammates {
         let owned = owned_by(s, teammate).len();
-        let busy = teammate.busy || s.flight.as_ref().is_some_and(|f| f.teammate_id == teammate.id);
         let selected = selected_id.as_deref() == Some(teammate.id.as_str());
         let open = s.rail_open.as_deref() == Some(teammate.id.as_str());
         let id = teammate.id.clone();
@@ -237,7 +237,7 @@ pub(super) fn rail(s: &State, p: &Palette) -> El {
                     .radius(9.0)
                     .fill(if open { l.c("bg-selected") } else { p.sidebar })
                     .hover(l.c("hover-surface"))
-                    .child(crate::sidebar::roster_face(s, "rail", teammate, busy, glances.get(&teammate.id).copied(), 32.0, &l)),
+                    .child(crate::sidebar::roster_face(s, "rail", teammate, views.get(&teammate.id), glances.get(&teammate.id).copied(), 32.0, &l)),
             );
         // The selected teammate: a 2-point lime bar on the rail's left edge.
         if selected {
@@ -258,11 +258,14 @@ pub(super) fn rail(s: &State, p: &Palette) -> El {
                     .a11y_hidden(),
             );
         }
-        let state_words = if teammate.busy { "working" } else { "idle" };
+        // The rail hides the row's words, the state among them, so it is said here (Sidebar.tsx 1466-1468): the label
+        // is the hover's, the description the state in words.
+        let state_words = views.get(&teammate.id).map(locust_core::face_status::state_in_words).unwrap_or_else(|| "idle".into());
         faces = faces.child(
             slot.role("button")
                 .help(locust_core::teammate_tooltip::teammate_tooltip(teammate))
-                .label(format!("{}, {} · {}", teammate.name, teammate.role, state_words))
+                .label(locust_core::teammate_tooltip::teammate_tooltip(teammate))
+                .description(state_words)
                 .on_hover_change(move |s: &mut State, over, _| {
                     // Which face the pointer is on: leaving one after entering the next, in either order, keeps a card.
                     if over {
