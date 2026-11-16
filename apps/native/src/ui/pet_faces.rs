@@ -9,17 +9,20 @@ use super::*;
 use locust_core::bot_rig::FaceActivity;
 use locust_core::bot_spec::{PetRef, PetSource};
 use locust_core::pet_motion::{pet_cell_at, pet_next_change_in, pet_state_for};
+use locust_core::pet_puppets::{measured_puppet, wears_puppet, PetPuppet};
 use locust_core::pets::PetState;
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::sync::mpsc::{channel, Receiver, Sender};
 
-/// A sheet cut into cells: (row, column) to its pixels, and how many rows it has.
-type Cells = (Vec<((u32, u32), u32, u32, Vec<u8>)>, u8);
+/// A sheet cut into cells: (row, column) to its pixels, how many rows it has, and, for one of the pets Colin kept on
+/// the sheet measured, its puppet and its resting drawing's pixels (`locust_core::pet_puppets::measured_puppet`).
+type Cells = (Vec<((u32, u32), u32, u32, Vec<u8>)>, u8, Option<PuppetCut>);
+type PuppetCut = (&'static PetPuppet, u32, u32, Vec<u8>);
 
 pub(crate) enum Sheet {
     Asked,
-    Ready { cells: HashMap<(u32, u32), rune::Image>, rows: u8 },
+    Ready { cells: HashMap<(u32, u32), rune::Image>, rows: u8, puppet: Option<(&'static PetPuppet, rune::Image)> },
     Missing,
 }
 
@@ -104,7 +107,7 @@ pub(crate) fn pet_face(
         }
         return None;
     };
-    let Sheet::Ready { cells, rows } = sheet else { return None };
+    let Sheet::Ready { cells, rows, .. } = sheet else { return None };
     let state = pet_state_for(activity);
     let still = s.reduced_motion.get();
     let at = now();
@@ -134,6 +137,20 @@ pub(crate) fn pet_face(
     )
 }
 
+/// The puppet a teammate wearing `pet` is drawn as, and its resting drawing: its sheet read and the one measured,
+/// Terminal faces on, and its look not "as drawn" (`wears_puppet`). None while the sheet is not read, or for any
+/// other pet: it is drawn as its maker drew it (`pet_face`), which also asks for the sheet.
+pub(crate) fn worn_puppet(s: &State, pet: &PetRef, terminal_faces: bool) -> Option<(&'static PetPuppet, rune::Image)> {
+    let sheets = s.pet_faces.sheets.borrow();
+    let Some(Sheet::Ready { puppet: Some((puppet, image)), .. }) = sheets.get(&key_of(pet)) else { return None };
+    wears_puppet(pet, true, terminal_faces).then(|| (*puppet, image.clone()))
+}
+
+/// Whether `pet`'s sheet has been read and is the one measured for a puppet: its look offers As drawn / Screen.
+pub(crate) fn is_measured_puppet(s: &State, pet: &PetRef) -> bool {
+    matches!(s.pet_faces.sheets.borrow().get(&key_of(pet)), Some(Sheet::Ready { puppet: Some(_), .. }))
+}
+
 /// Reads the sheets faces asked for, takes the cut ones in, and wakes the window when a drawn pet changes cell.
 pub(crate) fn poll(s: &mut State, tx: &mut Tx) -> bool {
     let mut changed = false;
@@ -150,7 +167,11 @@ pub(crate) fn poll(s: &mut State, tx: &mut Tx) -> bool {
             std::thread::spawn(move || {
                 let cut = library.sheet(pet.source, &pet.id).ok().and_then(|(bytes, rows)| {
                     let (w, h, rgba) = crate::pet_picks::decode_webp(&bytes)?;
-                    Some((cut_sheet(w, h, &rgba, rows), rows))
+                    let puppet = measured_puppet(&pet.id, &rgba, w as usize, h as usize).map(|p| {
+                        let (cw, ch, px) = crate::look::puppets::cut_rest(p, w, &rgba);
+                        (p, cw, ch, px)
+                    });
+                    Some((cut_sheet(w, h, &rgba, rows), rows, puppet))
                 });
                 let _ = send.send((key, cut));
                 if let Some(wake) = waker {
@@ -161,9 +182,10 @@ pub(crate) fn poll(s: &mut State, tx: &mut Tx) -> bool {
     }
     while let Ok((key, cut)) = s.pet_faces.rx.try_recv() {
         let sheet = match (cut, s.image_cache.as_ref()) {
-            (Some((cells, rows)), Some(cache)) => Sheet::Ready {
+            (Some((cells, rows, puppet)), Some(cache)) => Sheet::Ready {
                 cells: cells.into_iter().map(|(at, w, h, rgba)| (at, cache.rgba(w, h, rgba))).collect(),
                 rows,
+                puppet: puppet.map(|(p, w, h, rgba)| (p, cache.rgba(w, h, rgba))),
             },
             _ => Sheet::Missing,
         };

@@ -135,8 +135,11 @@ pub(super) fn section(s: &State, l: &crate::look::controls::Look) -> El {
             }
             head = head.child(faces_group);
         }
-        // A worn pet keeps its own face. Codex Buddy, the pet this app draws, has a screen of its own to choose.
-        Some(pet) if faces::is_codex_buddy(Some(&face_look(&hue, &avatar))) => {
+        // A worn pet keeps its own face. Codex Buddy, the pet this app draws, has a screen of its own to choose, and so
+        // has a kept pet whose sheet is the one measured, a puppet with one (NewTeammateDialog.tsx 669).
+        Some(pet)
+            if faces::is_codex_buddy(Some(&face_look(&hue, &avatar))) || crate::pet_faces::is_measured_puppet(s, pet) =>
+        {
             let mut faces_group = row()
                 .key("team-look-face")
                 .role("radiogroup")

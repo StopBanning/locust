@@ -60,5 +60,32 @@ de-duplicated per id across threads (an add holds one lock; a thumbnail read twi
    kept; the bot stands in until the sheet is ready or when it cannot be read). Not yet seen with a real sheet on screen.
    Was: A pet playing its teammate's activity (`petMotion.ts`: activity -> state map, frame at time, fade, glance cell) and drawing a
    sheet frame (WebP decode needs an image decoder in the window crate; Codex Buddy is the only pet drawn today, as a screen).
-4. Puppets (`petPuppets.ts`, `petScreens.ts`): the kept pets drawn as rigs; large.
+4. ~~Puppets~~ built 16 Nov (`petPuppets.ts`, `PetPuppet.tsx`; see "Puppets" below).
 5. Bulk removal UI.
+
+## Puppets (16 Nov; `the-kept-pets-are-puppets.test.tsx`, 32 cases)
+The eight pets Colin kept (Cabin, Astro Bot, Meowbot, Macintosh, Bitty, TmuxAI, Rainbow Terminal Cat, Nori) are drawn
+from one drawing, their resting pose, moved by a bot's rig, with a screen and a bot's eyes on their face.
+- **Pure half, `core/src/pet_puppets.rs`** (tests `pet_puppets_tests.rs`): the eight measured prints copied from
+  `petPuppets.ts` by a script (`~/work/scratch/opus/gen_puppets.py`, so no number was typed by hand); `print_fits`, the
+  four-edge sheet check (uses `buddy_moves::painted_box` and `EDGE_SLACK`); `measured_puppet` (`pets.ts` measuredOf);
+  `wears_puppet` (TeammateBot 413-415: measured, Terminal faces on, not `screen: false`); `PUPPET_MOTION`, `motion_of`,
+  `puppet_pose`, `puppet_transform`, `puppet_rect`, `puppet_drawing`, `puppet_body`, `puppet_feet`.
+- **Window, `src/look/puppets.rs`** (tests `puppets_tests.rs`): `pet_faces` checks a worn pet's sheet off the window
+  thread and cuts its resting drawing (whole pixels, never below the neck); `faces::bot_face_with_look` asks
+  `pet_faces::worn_puppet` first and draws `puppet_face`: the rig is `bot_stage::snapshot_puppet` (a bot's, with a
+  screen, and no shape's turn, as PetPuppet makes its sim without `setTurn`), worn through `puppet_pose`.
+- **How it is drawn, and how that differs from Electron**: Electron draws the drawing, glass and eyes into one canvas
+  under one transform. A Rune `Shape` draws no image, so the drawing is its own element: sized by the squash, placed
+  by the pose, turned by the lean about the matrix's origin (`drawing_place`; a test checks its four corners land where
+  the transform puts them, for every puppet at three poses), with `instant_changes` so nothing springs between frames.
+  The glass and eyes are points through the same matrix (`bots::draw_puppet_shape`). Electron's glass is a gradient
+  (`sameHue(tint, 0.42, 0.17 dark)` to `sameHue(tint, 0.5, 0.08 dark)`); here it is one fill, the colour halfway, with
+  a sheen on its top half and a rim of light. Eyes are placed as `paintScreenEyes` places them (the glass as visor,
+  `eyeScale`, `eyeY`), but not clipped to the glass. The ring and dot are `anchorsOf(puppetBody)`, still in the box.
+- **Look picker**: a measured kept pet offers As drawn / Screen beside Codex Buddy's (`look_picker::section`).
+- **Tests and breaks**: 32 cases, one test each (25 + 3 in `pet_puppets_tests.rs`, 5 in `puppets_tests.rs`), plus
+  three of our own (the rule under "as drawn", the crop, the element's corners and the box's centre). Breaks: 28 core and 9
+  window, each caught by its named test. Not driven: the decode thread's call to `measured_puppet` on a real WebP.
+- **Not seen on screen yet**: no real sheet has been drawn as a puppet in a window or a snap; the numbers are tested,
+  the picture is not.

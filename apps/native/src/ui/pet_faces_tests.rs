@@ -25,7 +25,7 @@ fn with_sheet(sheet: Option<()>) -> State {
             let cache = rune::ImageCache::new(Arc::new(|| {}));
             let rgba = vec![200u8; 16 * 22 * 4];
             let cells = cut_sheet(16, 22, &rgba, 11).into_iter().map(|(at, w, h, px)| (at, cache.rgba(w, h, px))).collect();
-            Sheet::Ready { cells, rows: 11 }
+            Sheet::Ready { cells, rows: 11, puppet: None }
         }
         None => Sheet::Missing,
     };
