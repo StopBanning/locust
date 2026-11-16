@@ -883,7 +883,7 @@ export const WORKSPACE_SETTINGS_WRITE_CHANNEL = 'workspace-settings:write'
  * a browser already starts a run on any model.
  */
 export const WORKSPACE_SETTINGS_CHANGE_CHANNEL = 'workspace-settings:change'
-export const SETTINGS_A_BROWSER_MAY_CHANGE = ['keepATodoList', 'replySize', 'layout', 'tube', 'terminalFaces', 'plush', 'metal', 'metalStrength', 'metalMotion', 'metalBend', 'aboutYou', 'aboutYouSuggestions', 'memoryMode', 'newChatRoute'] as const
+export const SETTINGS_A_BROWSER_MAY_CHANGE = ['keepATodoList', 'replySize', 'codeFont', 'layout', 'tube', 'terminalFaces', 'plush', 'metal', 'metalStrength', 'metalMotion', 'metalBend', 'aboutYou', 'aboutYouSuggestions', 'memoryMode', 'newChatRoute'] as const
 export const WORKSPACE_CHOOSE_CHANNEL = 'workspace:choose'
 /** Start here, on the window's question about a folder like home or `.claude` (0.790): the current folder is kept. */
 export const WORKSPACE_CONFIRM_CHANNEL = 'workspace:confirm'
@@ -2724,6 +2724,17 @@ export type TubePreference = 'full' | 'subtle' | 'off'
 export type ReplyTextSize = 'standard' | 'large' | 'largest'
 
 /**
+ * The face for code, paths and commands (0.877): Geist Mono, or Paper Mono.
+ *
+ * Colin, 2026-11-14, with the two set side by side: "we can have it as a font
+ * option, I love that idea". An option beside Geist Mono, never a replacement,
+ * and only `--lc-font-mono` changes: the reply, the chrome and the titles keep
+ * their faces. The Rust app reads the same `codeFont` key. Absent or malformed
+ * reads as `geist`.
+ */
+export type CodeFont = 'geist' | 'paper'
+
+/**
  * The metal on the send button.
  *
  * Every option the design agent put forward, on screen rather than in a
@@ -2864,6 +2875,8 @@ export interface WorkspaceSettings {
    * setting at all.
    */
   readonly replySize: ReplyTextSize
+  /** The face for code, paths and commands. Absent or malformed reads as `geist`; see `CodeFont`. */
+  readonly codeFont?: CodeFont
   /**
    * A3.3: the command Locust runs in a teammate's folder after a turn that
    * changed files -- THIS folder's, as the window sees it. The person's

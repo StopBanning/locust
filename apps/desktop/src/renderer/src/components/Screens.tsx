@@ -70,7 +70,7 @@ import type {
   LayoutPreference,
   PublicRuntimeSetup,
   PublicWorkspaceBrief,
-  PublicWorktree, TubePreference, ReplyTextSize } from '../../../shared/ipc.js'
+  PublicWorktree, TubePreference, ReplyTextSize, CodeFont } from '../../../shared/ipc.js'
 import { roleLabelOf } from '../../../shared/ipc.js'
 import type { TeammateStatusView } from '../status.js'
 import {
@@ -1741,6 +1741,8 @@ export function SettingsScreen({
   swarm,
   tube,
   replySize,
+  codeFont = 'geist',
+  onCodeFontChange,
   checkCommand,
   onCheckCommandSave,
   checkFixTries,
@@ -1867,6 +1869,9 @@ export function SettingsScreen({
   readonly onTubeChange: (tube: TubePreference) => void
   /** How big a reply is set. The person's, not the app's -- see ReplyTextSize. */
   readonly replySize: ReplyTextSize
+  /** The face for code, paths and commands (0.877); Geist Mono when absent. */
+  readonly codeFont?: CodeFont
+  readonly onCodeFontChange?: (font: CodeFont) => void
   /** A3.3: this folder's check after edits; empty for none. */
   readonly checkCommand?: string
   readonly onCheckCommandSave?: (command: string) => void
@@ -3166,6 +3171,37 @@ export function SettingsScreen({
               characters at Standard and 72 at Large.
             </p>
           </More>
+        </section>
+        )}
+        {shownPage === 'appearance' && onCodeFontChange !== undefined && (
+        <section className="lc-settings__section lc-settings__section--line" data-setting="code-font">
+          <div className="lc-settingline">
+            <div className="lc-settingline__text">
+              <h2 className="lc-settings__heading">Code font</h2>
+              <p className="lc-settings__lede">
+                The face for code, paths and commands. Replies and the rest of the app keep theirs.
+              </p>
+            </div>
+            <div className="lc-segmented" role="radiogroup" aria-label="The face for code, paths and commands">
+              {(
+                [
+                  ['geist', 'Geist Mono'],
+                  ['paper', 'Paper Mono']
+                ] as const
+              ).map(([option, label]) => (
+                <button
+                  key={option}
+                  type="button"
+                  role="radio"
+                  aria-checked={codeFont === option}
+                  className={`lc-button lc-codefont-option--${option}${codeFont === option ? ' is-active' : ''}`}
+                  onClick={() => onCodeFontChange(option)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
         </section>
         )}
         {shownPage === 'appearance' && (

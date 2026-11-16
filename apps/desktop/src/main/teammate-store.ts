@@ -8,7 +8,7 @@ import { isAbsolute, join, win32, posix } from 'node:path'
 import { cleanAvatar, isAvatarSpec, seedAvatar } from '../shared/avatar.js'
 import { MAX_TEAMMATE_INSTRUCTIONS } from '../shared/ipc.js'
 import { instructionsText } from '../shared/teammate-instructions.js'
-import type { PublicTeammate, TeammateHue, TeammateRole, TeammateRoute, WorkspaceSettings, MemoryMode, LayoutPreference, TubePreference, ReplyTextSize } from '../shared/ipc.js'
+import type { PublicTeammate, TeammateHue, TeammateRole, TeammateRoute, WorkspaceSettings, MemoryMode, LayoutPreference, TubePreference, ReplyTextSize, CodeFont } from '../shared/ipc.js'
 import { DEFAULT_RELAY_HOP_CAP, MAX_RELAY_HOP_CAP, MIN_RELAY_HOP_CAP, DEFAULT_MEMORY_MODE } from '../shared/ipc.js'
 import { isMissionRuntime } from '../shared/runtimes.js'
 import { isMonthlyLimit } from '../shared/spend.js'
@@ -173,7 +173,7 @@ interface StoredFile {
 
 // Relay is ON unless switched off: teammates talking to each other is the
 // point of having more than one, and the hop cap is what bounds the spend.
-const DEFAULT_SETTINGS: WorkspaceSettings = { swarm: false, relay: true, relayHopCap: DEFAULT_RELAY_HOP_CAP, interrupt: false, memoryMode: DEFAULT_MEMORY_MODE, autoMode: false, askConnectors: false, keepATodoList: true, layout: 'auto', tube: 'full', replySize: 'standard', metal: 'silver', metalStrength: 'standard', metalMotion: 'hover', metalBend: false, terminalFaces: true, plush: false, claudeOwnSkills: false }
+const DEFAULT_SETTINGS: WorkspaceSettings = { swarm: false, relay: true, relayHopCap: DEFAULT_RELAY_HOP_CAP, interrupt: false, memoryMode: DEFAULT_MEMORY_MODE, autoMode: false, askConnectors: false, keepATodoList: true, layout: 'auto', tube: 'full', replySize: 'standard', codeFont: 'geist', metal: 'silver', metalStrength: 'standard', metalMotion: 'hover', metalBend: false, terminalFaces: true, plush: false, claudeOwnSkills: false }
 
 /** A layout this build can draw, or the default. Never trusts the file. */
 function parsedLayout(value: unknown): LayoutPreference {
@@ -255,6 +255,10 @@ function parsedCheckCommands(value: unknown): Readonly<Record<string, string>> |
 
 function parsedReplySize(value: unknown): ReplyTextSize {
   return value === 'standard' || value === 'large' || value === 'largest' ? value : 'standard'
+}
+
+function parsedCodeFont(value: unknown): CodeFont {
+  return value === 'paper' ? 'paper' : 'geist'
 }
 
 function parsedTube(value: unknown): TubePreference {
@@ -598,6 +602,9 @@ function parsedFile(text: string): StoredFile {
     replySize: typeof rawSettings === 'object' && rawSettings !== null
       ? parsedReplySize((rawSettings as Record<string, unknown>).replySize)
       : 'standard',
+    codeFont: typeof rawSettings === 'object' && rawSettings !== null
+      ? parsedCodeFont((rawSettings as Record<string, unknown>).codeFont)
+      : 'geist',
     ...(() => {
       const checkCommands = typeof rawSettings === 'object' && rawSettings !== null
         ? parsedCheckCommands((rawSettings as Record<string, unknown>).checkCommands)
@@ -1136,6 +1143,9 @@ export function createTeammateStore(options: { readonly rootDirectory: string; r
           replySize: typeof settings === 'object' && settings !== null
             ? parsedReplySize((settings as Record<string, unknown>).replySize)
             : 'standard',
+          codeFont: typeof settings === 'object' && settings !== null
+            ? parsedCodeFont((settings as Record<string, unknown>).codeFont)
+            : 'geist',
           ...(() => {
             const checkCommands = parsedCheckCommands((settings as Record<string, unknown>).checkCommands)
             return checkCommands === undefined ? {} : { checkCommands }

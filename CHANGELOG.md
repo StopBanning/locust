@@ -11,6 +11,14 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.877.0 - 2026-11-16
+
+### New
+
+- **Paper Mono, as a code font.** Settings, Appearance, Code font: pick Paper Mono instead of Geist Mono for code,
+  file paths and commands. Replies and the rest of the app keep their faces, Geist Mono stays the default, and the
+  change shows at once. Paper Mono ships with Locust under its open font licence.
+
 ## 0.876.2 - 2026-11-16
 
 ### Improved
