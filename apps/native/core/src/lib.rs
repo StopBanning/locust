@@ -230,3 +230,5 @@ mod renderer_eye_tests;
 mod renderer_work_faces_tests;
 
 pub mod teammate_reach;
+
+pub mod teammate_work;
