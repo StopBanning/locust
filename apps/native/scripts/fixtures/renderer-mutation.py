@@ -10,6 +10,12 @@ import subprocess
 import sys
 
 CONTROLS = {
+    "signed-out-status": (
+        "core/src/teammate_reach.rs",
+        'if let Some(label) = blocked_label(own, reach) {',
+        'if let Some(label) = None::<&str> {',
+        "reads_as_blocked_not_idle_when_its_runtime_is_signed_out",
+    ),
     "work-owner": (
         "core/src/teammate_work.rs",
         'owners.get(&m.mission_id).is_some_and(|owner| owner == id)',
