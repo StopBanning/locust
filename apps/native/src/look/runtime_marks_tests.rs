@@ -86,3 +86,37 @@ fn a_mark_is_drawn_for_every_runtime_that_has_one_and_nothing_for_one_that_does_
     assert!(crate::look::controls::agent_mark(&l, "omniroute", 12.0, l.c("text-muted")).is_none());
 }
 
+
+// "are decorative beside a name, and named where they stand in for one" and "grey Gemini with its words".
+
+thread_local! {
+    static VIEW: std::cell::Cell<Option<fn(&crate::State) -> rune::El>> = const { std::cell::Cell::new(None) };
+}
+
+fn a11y_of(el_fn: fn(&crate::State) -> rune::El) -> serde_json::Value {
+    VIEW.with(|v| v.set(Some(el_fn)));
+    let mut rt = rune::Runtime::new(crate::State::default(), |s, _| VIEW.with(|v| v.get()).unwrap()(s), (60.0, 60.0), rune::Env::new(true, 1.0));
+    rt.frame(0.0);
+    rt.accessibility_json()
+}
+
+#[test]
+fn a_mark_is_decorative_beside_a_name_and_named_where_it_stands_in_for_one() {
+    let plain = a11y_of(|_| rune::el().child(crate::look::controls::runtime_mark(&crate::look::controls::Look::new(true), "claude", 14.0, rune::Color::WHITE, None, false).unwrap()));
+    assert!(!plain.to_string().contains("\"image\""), "{plain}");
+    let named = a11y_of(|_| {
+        rune::el().child(crate::look::controls::runtime_mark(&crate::look::controls::Look::new(true), "copilot", 14.0, rune::Color::WHITE, Some("Copilot CLI"), false).unwrap())
+    });
+    let text = named.to_string();
+    assert!(text.contains("\"role\":\"image\",\"name\":\"Copilot CLI\""), "{text}");
+}
+
+#[test]
+fn gemini_greys_with_its_words_no_gradient_when_muted() {
+    let muted = crate::look::controls::mark_drawn("gemini", true).unwrap();
+    assert!(!muted.body.contains("radialGradient"));
+    assert!(muted.body.contains("fill=\"currentColor\""));
+    assert!(crate::look::controls::mark_drawn("gemini", false).unwrap().body.contains("radialGradient"), "not muted: the gradient");
+    assert_eq!(crate::look::controls::mark_drawn("codex", true).map(|i| i.name), Some("mark-codex"), "the others keep their drawing");
+    assert!(crate::look::controls::mark_drawn("omniroute", true).is_none());
+}

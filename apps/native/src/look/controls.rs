@@ -208,9 +208,29 @@ pub fn glyph(l: &Look, i: &'static Icon, size: f32, colour: Option<Color>) -> El
 /// An agent's mark (`RuntimeMark.tsx`): Claude's in its own orange (`--lc-mark-claude`), Gemini's in its gradient,
 /// the rest in the colour of the words beside it. Nothing for a runtime with no mark.
 pub fn agent_mark(l: &Look, runtime: &str, size: f32, words: Color) -> Option<El> {
-    let mark = super::icons::mark(runtime)?;
-    let colour = if runtime == "claude" { l.c("mark-claude") } else { words };
-    Some(rune::icon(mark, size).color(colour).a11y_hidden())
+    runtime_mark(l, runtime, size, words, None, false)
+}
+
+/// Gemini greyed with its words (`RuntimeMark muted`): its star in the words' colour, no gradient.
+static MARK_GEMINI_PLAIN: rune::Icon = Icon { name: "mark-gemini-plain", view: 28.0, body: r##"<path d="M14 28C14 26.0633 13.6267 24.2433 12.88 22.54C12.1567 20.8367 11.165 19.355 9.905 18.095C8.645 16.835 7.16333 15.8433 5.46 15.12C3.75667 14.3733 1.93667 14 0 14C1.93667 14 3.75667 13.6383 5.46 12.915C7.16333 12.1683 8.645 11.165 9.905 9.905C11.165 8.645 12.1567 7.16333 12.88 5.46C13.6267 3.75667 14 1.93667 14 0C14 1.93667 14.3617 3.75667 15.085 5.46C15.8317 7.16333 16.835 8.645 18.095 9.905C19.355 11.165 20.8367 12.1683 22.54 12.915C24.2433 13.6383 26.0633 14 28 14C26.0633 14 24.2433 14.3733 22.54 15.12C20.8367 15.8433 19.355 16.835 18.095 18.095C16.835 19.355 15.8317 20.8367 15.085 22.54C14.3617 24.2433 14 26.0633 14 28Z" fill="currentColor"/>"## };
+
+/// The mark to draw: `icons::mark`, but Gemini's plain star when muted, as Electron greys it with its words. Kept here,
+/// not in icons.rs, which `scripts/marks.py` writes from Electron's drawings.
+pub fn mark_drawn(runtime: &str, muted: bool) -> Option<&'static rune::Icon> {
+    if muted && runtime == "gemini" { Some(&MARK_GEMINI_PLAIN) } else { super::icons::mark(runtime) }
+}
+
+/// `RuntimeMark`: decorative beside a name (hidden from a screen reader), or, given a label, named where it stands in
+/// for one (an image with that name). Muted, it greys with its words: Claude's orange and Gemini's gradient give way to
+/// the words' colour. Nothing for a runtime with no mark.
+pub fn runtime_mark(l: &Look, runtime: &str, size: f32, words: Color, label: Option<&str>, muted: bool) -> Option<El> {
+    let mark = mark_drawn(runtime, muted)?;
+    let colour = if runtime == "claude" && !muted { l.c("mark-claude") } else { words };
+    let icon = rune::icon(mark, size).color(colour);
+    Some(match label {
+        Some(name) => icon.role("img").label(name.to_owned()),
+        None => icon.a11y_hidden(),
+    })
 }
 
 /// The Locust mark above the wordmark, as the boot screen and About draw them, in the primary text colour.
