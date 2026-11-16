@@ -587,6 +587,74 @@ pub fn claude_behavior_for(answer: &Answer, input: Option<&Value>) -> Value {
     }
 }
 
+/// approval-channel.ts `acpPermissionRequest` over acp-run.ts `acpPermissionRequestOf`: what an ACP agent asked, as
+/// the Codex app server's method and params, with what an Always on it would remember.
+pub fn acp_permission_request(params: &Value, cwd: &str) -> (String, Value) {
+    let text = |v: &Value| v.as_str().filter(|s| !s.is_empty()).map(str::to_owned);
+    let call = &params["toolCall"];
+    let input = &call["rawInput"];
+    let (title, kind, command) = (text(&call["title"]), text(&call["kind"]), text(&input["command"]));
+    let diffs: Vec<&Value> = call["content"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|d| d["type"] == "diff" && d["path"].is_string() && d["newText"].is_string())
+        .collect();
+    let diff: String = diffs
+        .iter()
+        .filter_map(|d| crate::runtime::acp_events::unified_diff_text(d["path"].as_str()?, d["oldText"].as_str(), d["newText"].as_str()?))
+        .collect();
+    let mut paths: Vec<String> = call["locations"].as_array().into_iter().flatten().filter_map(|l| text(&l["path"])).collect();
+    paths.extend(diffs.iter().filter_map(|d| text(&d["path"])));
+    paths.extend(["path", "file_path", "filePath"].iter().filter_map(|field| text(&input[*field])));
+    let mut seen = std::collections::HashSet::new();
+    paths.retain(|p| seen.insert(p.clone()));
+    let (call_kind, call_title) = (kind.as_deref().unwrap_or(""), title.as_deref().unwrap_or(""));
+    // A shell's locations path is the folder, not the command an Always would remember.
+    let shell = call_kind == "execute"
+        || ((call_kind.is_empty() || call_kind == "other")
+            && matches!(call_title.trim().to_lowercase().as_str(), "bash" | "shell" | "powershell" | "pwsh" | "cmd" | "execute"));
+    let mut base = json!({"cwd": cwd});
+    if let Some(id) = text(&call["toolCallId"]) {
+        base["itemId"] = json!(id);
+    }
+    let files = paths.iter().map(|p| crate::approval_patch::relative_to_folder(p, Some(cwd))).collect::<Vec<_>>().join(", ");
+    let (method, mut request) = if shell {
+        base["command"] = json!(command.clone().unwrap_or_default());
+        ("item/commandExecution/requestApproval", base)
+    } else if matches!(call_kind, "edit" | "delete" | "move") {
+        base["summary"] = json!(if files.is_empty() { call_title.to_owned() } else { files.clone() });
+        if !diff.is_empty() {
+            base["unifiedDiff"] = json!(diff);
+        }
+        ("item/fileChange/requestApproval", base)
+    } else {
+        let what = title.clone().unwrap_or_else(|| format!("Use {}", kind.as_deref().unwrap_or("a tool")));
+        let named = command.clone().or_else(|| (!files.is_empty()).then(|| files.clone()));
+        base["command"] = json!(match named {
+            Some(target) => format!("{what}: {target}"),
+            None => what,
+        });
+        ("item/commandExecution/requestApproval", base)
+    };
+    let target = command.clone().or_else(|| (!shell && !paths.is_empty()).then(|| paths.join("\n")));
+    if let Some(target) = target {
+        request["locustAlwaysKey"] = json!(format!("acp:{call_kind}:{target}"));
+        request["locustCard"] = json!({"alwaysCovers": if command.is_some() { "this same command again" } else { "the same change to these files again" }});
+    }
+    (method.to_owned(), request)
+}
+
+/// approval-channel.ts `acpAnswerFor`: the channel's answer as the kind of ACP option to choose; anything unclear is a
+/// refusal.
+pub fn acp_answer_for(result: &Value) -> &'static str {
+    match result["decision"].as_str() {
+        Some("accept") => "allow_once",
+        Some("acceptForSession") => "allow_always",
+        _ => "reject_once",
+    }
+}
+
 fn new_id() -> String {
     format!(
         "ap_{}_{}",
@@ -711,8 +779,10 @@ impl Channel {
         >,
         cancel: &dyn Fn() -> bool,
     ) -> Result<Value, String> {
+        // Refused, and said out loud by the caller: an unattributed denial must not be quiet in a mode whose whole point
+        // is that a person decides (approval-channel.ts).
         let Some((kind, summary, detail, cwd)) = describe_codex(method, params) else {
-            return Ok(json!({"decision":"reject"}));
+            return Err(format!("Locust denied a request it does not recognise ({method}) because it could not say what would happen. This build is older than the runtime's protocol."));
         };
         let questions = if kind == Kind::Question {
             questions_of(params)
@@ -865,98 +935,11 @@ impl Channel {
         cwd: &str,
         cancel: &dyn Fn() -> bool,
     ) -> Result<bool, String> {
-        let call = &params["toolCall"];
-        let call_kind = call["kind"].as_str().unwrap_or("");
-        let title = call["title"].as_str().unwrap_or("Use a tool");
-        let shell = call_kind == "execute"
-            || ((call_kind.is_empty() || call_kind == "other")
-                && matches!(
-                    title.trim().to_lowercase().as_str(),
-                    "bash" | "shell" | "powershell" | "pwsh" | "cmd" | "execute"
-                ));
-        let command = call["rawInput"]["command"].as_str();
-        let mut paths: Vec<&str> = call["locations"]
-            .as_array()
-            .into_iter()
-            .flatten()
-            .filter_map(|l| l["path"].as_str())
-            .collect();
-        paths.extend(
-            call["content"]
-                .as_array()
-                .into_iter()
-                .flatten()
-                .filter(|d| d["type"] == "diff")
-                .filter_map(|d| d["path"].as_str()),
-        );
-        for field in ["path", "file_path", "filePath"] {
-            if let Some(path) = call["rawInput"][field].as_str() {
-                paths.push(path);
-            }
-        }
-        let mut seen = std::collections::HashSet::new();
-        paths.retain(|p| seen.insert(*p));
-        let target = command
-            .map(str::to_owned)
-            .or_else(|| (!shell && !paths.is_empty()).then(|| paths.join("\n")));
-        let file = matches!(call_kind, "edit" | "delete" | "move");
-        let kind = if file {
-            Kind::FileChange
-        } else {
-            Kind::Command
-        };
-        let summary = if file {
-            "Change files"
-        } else {
-            "Run a command"
-        };
-        let patch = crate::runtime::acp_events::patch_of(&call["content"]);
-        let fallback = if shell {
-            command.unwrap_or("").to_owned()
-        } else if let Some(target) = &target {
-            format!("{title}: {target}")
-        } else {
-            title.to_owned()
-        };
-        let detail = patch
-            .as_ref()
-            .and_then(|p| p["text"].as_str())
-            .unwrap_or(&fallback);
-        let request = Request {
-            approval_id: new_id(),
-
-            mission_id: mission_id.into(),
-            runtime: runtime.into(),
-            kind,
-            summary: whole_detail(summary),
-            detail: whole_detail(detail),
-            cwd: Some(cwd.into()),
-            requested_at: now_iso(),
-            always_covers: target.as_ref().map(|_| {
-                if command.is_some() {
-                    "this same command again".into()
-                } else {
-                    "the same change to these files again".into()
-                }
-            }),
-            always_key: target.map(|target| format!("acp:{call_kind}:{target}")),
-            data_sent_says: None,
-            reversible_says: None,
-            patch: None,
-
-            claude_input: None,
-
-            questions: Vec::new(),
-        };
-        self.ask(request, cancel).map(|a| {
-            matches!(
-                a,
-                Answer::Decision {
-                    decision: Decision::ApproveOnce | Decision::ApproveAlways,
-                    ..
-                }
-            )
-        })
+        // approval-channel.ts: an ACP request becomes the Codex-shaped request every other card is made from
+        // (acpPermissionRequest), and the answer goes back as the kind of option to choose (acpAnswerFor).
+        let (method, request) = acp_permission_request(params, cwd);
+        self.ask_codex_with_changes(_run_id, mission_id, runtime, &method, &request, json!(0), None, cancel)
+            .map(|result| acp_answer_for(&result) != "reject_once")
     }
 
     /// Browser actions never inherit a command allow rule or Auto-mode bypass.
@@ -1026,7 +1009,7 @@ impl Channel {
                 return Ok(answer);
             }
             if guard.pending.len() >= MAX_PENDING {
-                return Err("Too many approvals waiting.".into());
+                return Err(format!("Locust denied an action because {MAX_PENDING} approvals are already waiting on you. Answer some of them and ask again."));
             }
             guard.pending.insert(id.clone(), Pending { request, tx });
         }

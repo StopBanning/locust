@@ -195,6 +195,15 @@ mod mission_history_tests;
 #[cfg(all(test, unix))]
 mod permission_host_tests;
 
+#[cfg(test)]
+mod approval_channel_tests;
+
+#[cfg(test)]
+mod copilot_permission_tests;
+
+#[cfg(test)]
+mod approvals_from_the_window_tests;
+
 // Real post-checkout hooks are made executable the Unix way.
 #[cfg(all(test, unix))]
 mod worktree_checkout_tests;
