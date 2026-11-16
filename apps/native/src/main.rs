@@ -769,6 +769,7 @@ fn setup(s: &mut State, waker: Waker) {
     s.import_dialog.import_job.set_waker(waker.clone());
     s.image_cache = Some(Arc::new(ImageCache::new(waker.clone())));
     s.ledger_job.set_waker(waker.clone());
+    s.people_panel.month_job.set_waker(waker.clone());
     s.rooms.load_job.set_waker(waker.clone());
     scout_cards::setup_wakers(s, &waker);
     s.rooms.action_job.set_waker(waker);
@@ -1958,6 +1959,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     changed |= agent_accounts_card::poll(s);
     changed |= usage_line::poll(s);
     changed |= agent_card_ui::poll(s);
+    changed |= people_panel::poll(s);
     changed |= own_models_card::poll(s);
     changed |= key_card::poll(s);
     changed |= runtime_commands_ui::poll(s);

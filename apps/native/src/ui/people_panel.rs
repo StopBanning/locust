@@ -3,6 +3,11 @@ use serde_json::{Value, json};
 #[derive(Default)]
 pub(super) struct Panel {
     pub open: bool,
+    pub month_job: Latest<Result<Vec<locust_core::usage::UsageTurn>, String>>,
+    pub month_turns: Vec<locust_core::usage::UsageTurn>,
+    pub month_error: Option<String>,
+    pub month_read: Option<std::time::Instant>,
+    pub limit: TextEdit,
     pub memory_tab: bool,
     /// 0 teammates, 1 memory, 2 saved approvals
     pub tab: u8,
@@ -53,7 +58,34 @@ pub(super) fn open_edit(s: &mut State, id: &str) {
     edit(s, Some(id));
     s.people_panel.removing = None;
 }
+pub(super) fn poll(s: &mut State) -> bool {
+    let mut changed = false;
+    if let Some(result) = s.people_panel.month_job.take() {
+        match result {
+            Ok(turns) => { s.people_panel.month_turns = turns; s.people_panel.month_error = None; }
+            Err(e) => { s.people_panel.month_turns.clear(); s.people_panel.month_error = Some(e); }
+        }
+        changed = true;
+    }
+    if s.people_panel.open && s.people_panel.month_read.is_none_or(|at| at.elapsed() >= Duration::from_secs(30)) {
+        request_month(s);
+    }
+    changed
+}
+fn request_month(s: &mut State) {
+    if s.people_panel.month_job.is_pending() { return; }
+    if let Some(store) = s.data.clone() {
+        s.people_panel.month_job.request(store, |store| locust_core::usage_ledger::usage_turns(&store));
+        s.people_panel.month_read = Some(std::time::Instant::now());
+    }
+}
+fn month_spend(s: &State, id: &str) -> Option<locust_core::spend::Spend> {
+    if s.people_panel.month_error.is_some() { return None; }
+    let month = locust_core::spend::month_of(&chrono::Local::now().to_rfc3339())?;
+    locust_core::teammate_month::spend_for_month(&s.people_panel.month_turns, &month, |conversation| s.people_panel.team["missionOwners"][conversation] == id)
+}
 fn reload(s: &mut State) {
+    request_month(s);
     let result = s
         .data
         .as_ref()
@@ -104,6 +136,7 @@ pub(super) fn edit(s: &mut State, id: Option<&str>) {
         .as_str()
         .filter(|s| !s.is_empty())
         .map(str::to_owned);
+    s.people_panel.limit = field(&entry["monthlyLimitUsd"].as_f64().map(|n| format!("{n:.2}")).unwrap_or_default());
     s.people_panel.entry = entry;
     s.people_panel.form_open = true;
 }
@@ -166,6 +199,13 @@ fn build_entry_from_form(s: &State) -> Option<Value> {
         };
     } else {
         entry["route"]["account"] = Value::Null;
+    }
+    let limit = locust_core::teammate_month::parsed_limit(&s.people_panel.limit.text).ok()?;
+    let editing = !entry["teammateId"].as_str().unwrap_or("").is_empty();
+    let said = locust_core::teammate_month::limit_said(limit, editing, entry["monthlyLimitUsd"].as_f64());
+    if let Some(value) = said.get("monthlyLimitUsd") {
+        if value.is_null() { entry.as_object_mut()?.remove("monthlyLimitUsd"); }
+        else { entry["monthlyLimitUsd"] = value.clone(); }
     }
     Some(entry)
 }
@@ -566,6 +606,7 @@ pub(super) fn edit_form(s: &State, p: &Palette) -> El {
             form = form.child(text(label).font(type_::LABEL).color(p.secondary)).child(field(i, label));
         }
     }
+    let limit_error = locust_core::teammate_month::parsed_limit(&panel.limit.text).err();
     let runtime_now = panel.fields.get(3).map(|f| f.text.trim()).unwrap_or("");
     if let Some(agent) = locust_core::agent_accounts::Agent::parse(runtime_now) {
         let policy = locust_core::org_policy::current();
@@ -641,6 +682,13 @@ pub(super) fn edit_form(s: &State, p: &Palette) -> El {
                     ),
             ),
     );
+    let spent = month_spend(s, panel.entry["teammateId"].as_str().unwrap_or(""));
+    form = form.child(text("Monthly limit").font(type_::LABEL).color(p.secondary))
+        .child(text_input(&panel.limit, type_::BODY).key("team-monthly-limit").label("Monthly limit").w_full().padding(8.0).fill(p.field).color(p.text)
+            .on_edit(|s: &mut State| &mut s.people_panel.limit))
+        .child(text(locust_core::teammate_month::limit_hint(panel.fields.first().map(|f|f.text.as_str()).unwrap_or("Teammate"), spent.as_ref(), !creating)).font(type_::LABEL).color(p.muted).w_full().wrap());
+    if let Some(error) = limit_error { form = form.child(text(error).color(p.red)); }
+    if let Some(error) = &panel.month_error { form = form.child(text(format!("This month's spending could not be read: {error}")).color(p.red).w_full().wrap()); }
     // Its keys (KeyCard.tsx TeammateKeysField), for a teammate that exists: a new one has no id to keep them under yet.
     if let Some(id) = panel.editing.as_deref().filter(|_| !creating) {
         form = form.child(crate::key_card::field(s, p, id, if name_now.is_empty() { "this teammate" } else { &name_now }));
@@ -660,7 +708,7 @@ pub(super) fn edit_form(s: &State, p: &Palette) -> El {
         col()
             .gap(4.0)
             .pt(4.0)
-            .child(button(&interview_label, p).key("team-interview").disabled(clash.is_some()).on_press_tx(save_and_interview))
+            .child(button(&interview_label, p).key("team-interview").disabled(clash.is_some() || limit_error.is_some()).on_press_tx(save_and_interview))
             .child(text(interview_note).font(type_::LABEL).color(p.secondary).wrap()),
     );
     if !creating
@@ -756,7 +804,7 @@ pub(super) fn edit_form(s: &State, p: &Palette) -> El {
         row()
             .gap(8.0)
             .pt(4.0)
-            .child(button(if creating { "Create teammate" } else { "Save changes" }, p).key("team-save").disabled(clash.is_some()).on_press(save))
+            .child(button(if creating { "Create teammate" } else { "Save changes" }, p).key("team-save").disabled(clash.is_some() || limit_error.is_some()).on_press(save))
             .child(button("Cancel", p).on_press(|s: &mut State| s.people_panel.form_open = false)),
     )
 }
@@ -890,6 +938,20 @@ fn team_grid(s: &State, p: &Palette) -> El {
             .child(stats);
         if let Some(cost) = locust_core::benchmark::cost_line(work.cost.as_ref()) {
             card = card.child(stat("Usage", cost, false));
+        }
+        let spent = month_spend(s, &id);
+        if let Some(error) = &panel.month_error {
+            card = card.child(text(format!("This month's spending could not be read: {error}")).font(type_::LABEL).color(p.red).w_full().wrap());
+        } else if panel.month_job.is_pending() && panel.month_turns.is_empty() {
+            card = card.child(text("Reading this month's spending…").font(type_::LABEL).color(p.muted));
+        } else if let Some(line) = locust_core::teammate_month::month_spend_line(spent.as_ref(), t["monthlyLimitUsd"].as_f64()) {
+            card = card.child(col().key(format!("team-month-{id}")).gap(2.0)
+                .child(text(if line.reached { "Limit reached" } else { "This month" }).font(type_::LABEL).color(if line.reached { p.amber } else { p.muted }))
+                .child(text(line.text).font(mono(11.5)).color(p.text)));
+            if let Some(unpriced) = line.unpriced {
+                card = card.child(col().gap(2.0).child(text(unpriced).font(type_::LABEL).color(p.muted))
+                    .child(text(line.note.unwrap_or("")).font(type_::LABEL).color(p.muted).w_full().wrap()));
+            }
         }
         if !work.recent.is_empty() {
             let mut recent = col()
@@ -1503,5 +1565,77 @@ mod renderer_work_surface_tests {
         assert!(!shown.contains("OTHER-PRIVATE"),"{shown}");
         assert!(shown.contains("100 in · 10 out"),"{shown}");
         assert!(!shown.contains("999"),"{shown}");
+    }
+}
+
+#[cfg(test)]
+mod renderer_month_tests {
+    use super::*;
+    fn state(limit: Option<f64>) -> State {
+        let mut s = State::default();
+        s.people_panel.open = true;
+        s.people_panel.team = json!({"teammates":[{"teammateId":"tm_wren","name":"Wren","hue":"lime","role":"Code & Migrations","createdAt":"2026-09-01T00:00:00.000Z","monthlyLimitUsd":limit}],"missionOwners":{}});
+        s
+    }
+    fn shown(s: State) -> String {
+        let mut rt = rune::Runtime::new(s, |s,_| view(s,&Palette::new(true)), (1200.,1800.), rune::Env::new(true,1.));
+        rt.frame(0.);
+        rt.elements().into_iter().filter_map(|e|e.text).collect::<Vec<_>>().join("\n")
+    }
+    #[test]
+    fn is_in_the_dialog_filled_with_the_limit_already_set() {
+        let mut s=state(Some(5.));
+        edit(&mut s,Some("tm_wren"));
+        assert_eq!(s.people_panel.limit.text,"5.00");
+        let at=chrono::Local::now().to_rfc3339();
+        s.people_panel.team["missionOwners"]["m"]=json!("tm_wren");
+        s.people_panel.month_turns.push(turn(&at,"m",Some(3.2)));
+        let text=shown(s);
+        assert!(text.contains("Monthly limit"),"{text}");
+        assert!(text.contains("$3.20 spent this month so far."),"{text}");
+    }
+    fn turn(at: &str, conversation: &str, usd: Option<f64>) -> locust_core::usage::UsageTurn {
+        locust_core::usage::UsageTurn {at:at.into(),conversation:conversation.into(),runtime:"opencode".into(),model:"own-test/model".into(),usd,premium_requests:None,plan:false,input_tokens:Some(1),output_tokens:None,cache_read_tokens:None,cache_write_tokens:None}
+    }
+    #[test]
+    fn month_cards_use_the_calendar_month_and_recorded_owner_and_show_unpriced_separately() {
+        let mut s=state(Some(5.));
+        let at=chrono::Local::now().to_rfc3339();
+        s.people_panel.team["missionOwners"]=json!({"m":"tm_wren","other":"tm_atlas"});
+        s.people_panel.month_turns=vec![turn(&at,"m",Some(5.02)),turn(&at,"m",None),turn(&at,"other",Some(999.)),turn("2000-01-01T00:00:00Z","m",Some(999.))];
+        let text=shown(s);
+        assert!(text.contains("Limit reached"),"{text}"); assert!(text.contains("$5.02 of $5.00"),"{text}");
+        assert!(text.contains("1 run with no price"),"{text}"); assert!(!text.contains("999"),"{text}");
+        assert!(shown(state(Some(5.))).contains("$0.00 of $5.00"));
+        assert!(!shown(state(None)).contains("This month"));
+    }
+    #[test]
+    fn month_card_names_this_month_when_it_has_money_and_omits_an_empty_month() {
+        let mut s=state(None);
+        s.people_panel.team["missionOwners"]["m"]=json!("tm_wren");
+        s.people_panel.month_turns.push(turn(&chrono::Local::now().to_rfc3339(),"m",Some(3.2)));
+        let text=shown(s); assert!(text.contains("This month")); assert!(text.contains("$3.20"));
+        assert!(!shown(state(None)).contains("This month"));
+    }
+    #[test]
+    fn invalid_limits_cannot_save_and_clearing_removes_only_the_limit() {
+        let mut s=state(Some(5.)); edit(&mut s,Some("tm_wren"));
+        s.people_panel.limit=field("five"); assert!(build_entry_from_form(&s).is_none());
+        s.people_panel.limit=field(""); let entry=build_entry_from_form(&s).unwrap();
+        assert!(entry.get("monthlyLimitUsd").is_none()); assert_eq!(entry["name"],"Wren");
+        s.people_panel.limit=field("8"); assert_eq!(build_entry_from_form(&s).unwrap()["monthlyLimitUsd"],8.);
+    }
+    #[test]
+    fn still_says_what_it_cost_from_the_money_the_host_read_without_events() {
+        let missions=[ledger::Summary {mission_id:"m".into(),cost:Some(locust_core::benchmark::RunCost{usd:Some(0.75),..Default::default()}),..Default::default()}];
+        let owners=std::collections::HashMap::from([("m".into(),"tm_wren".into())]);
+        let work=locust_core::teammate_work::teammate_work("tm_wren",&missions,&owners,|m|m.title.clone());
+        assert_eq!(work.cost.unwrap().usd,Some(0.75));
+        assert!(locust_core::teammate_work::teammate_work("tm_wren",&[],&owners,|m|m.title.clone()).cost.is_none());
+    }
+    #[test]
+    fn unreadable_months_are_reported_instead_of_claiming_zero_spent() {
+        let mut s=state(Some(5.)); s.people_panel.month_error=Some("ledger unavailable".into());
+        let text=shown(s); assert!(text.contains("This month's spending could not be read: ledger unavailable")); assert!(!text.contains("$0.00 of $5.00"));
     }
 }
