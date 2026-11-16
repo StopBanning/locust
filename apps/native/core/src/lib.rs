@@ -240,6 +240,8 @@ pub mod cover_activity;
 mod every_teammate_is_a_bot_tests;
 #[cfg(test)]
 mod face_ledger_tests;
+#[cfg(test)]
+mod cost_sentences_tests;
 
 #[cfg(test)]
 pub(crate) mod load_waits;

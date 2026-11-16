@@ -22,8 +22,15 @@ pub fn recently_used_routes(missions: &[Summary]) -> Vec<String> {
 #[path="recent_routes_tests.rs"]
 mod tests;
 
-/// A shortcut must shorten the offered list; never resurrect an unavailable route.
+/// Rows an agent's group shows before "show more" (`ROUTE_GROUP_LIMIT` in `status.ts`).
+pub const ROUTE_GROUP_LIMIT: usize = 6;
+/// Recent routes the picker offers as shortcuts (`RECENT_ROUTE_LIMIT` in `status.ts`).
+pub const RECENT_ROUTE_LIMIT: usize = 4;
+
+/// A shortcut must shorten the offered list; never resurrect an unavailable route (`recentRouteRows`). Nothing for fewer
+/// than two recents, for a list short enough to take in at once (`ROUTE_GROUP_LIMIT + 2` rows or fewer), or for recents
+/// that are half the list or more.
 pub fn shortcut_keys(offered: &[String], recent: &[String]) -> Vec<String> {
-    let picked: Vec<_> = recent.iter().filter(|key| offered.contains(key)).take(4).cloned().collect();
-    if picked.len() < 2 || offered.len() <= 8 || picked.len() * 2 >= offered.len() { Vec::new() } else { picked }
+    let picked: Vec<_> = recent.iter().filter(|key| offered.contains(key)).take(RECENT_ROUTE_LIMIT).cloned().collect();
+    if picked.len() < 2 || offered.len() <= ROUTE_GROUP_LIMIT + 2 || picked.len() * 2 >= offered.len() { Vec::new() } else { picked }
 }

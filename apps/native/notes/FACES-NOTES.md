@@ -96,6 +96,28 @@ Things found while doing this (not fixed, outside the job):
 - The `on_presence` stopped-guard and `schedule`'s `!self.stopped` are two defences of one rule: removing either alone is
   not caught; removing both is (`a_face_that_has_stopped_asks_for_nothing_after_whatever_its_window_does`).
 
-## Job 5
+## Job 5: four leftovers from the review
 
-See the end of this file (written when it was done, or marked as not reached).
+1. **The "an older one" git message.** The wording was already tested (`review_changes.rs`, both `OldGit` cases). What had
+   no test is `gather_landing` returning `OldGit` when git cannot say its version. A test cannot change the process's `PATH`
+   (every test running beside it spawns real git), so `worktrees::Manager` has a seam: `with_git_program(path)` and
+   `run_git_with(program, ..)`. The tests give it a script that is the real git except for `--version`:
+   `landing_is_blocked_with_no_version_when_git_cannot_say_its_version` (the script exits 1, so the version is None and the
+   message says "an older one") and `landing_is_blocked_with_the_version_when_git_is_older_than_2_38` ("2.30.1"). Both
+   broken and caught. `land` is checked too (blocked, nothing touched).
+2. **Recent routes, equal times.** The premise did not hold: `recently_used_routes` keeps routes in a `Vec` in first-seen
+   order and uses its `HashMap` only to find a route's place; `sort_by` is stable. That is what Electron's `Map` plus `sort`
+   does. `routes_last_used_at_the_same_moment_keep_the_order_they_were_first_seen` pins it (an alphabetical tie-break is
+   caught). No code change.
+3. **`shortcut_keys`' 8.** It is `ROUTE_GROUP_LIMIT + 2` (`status.ts` `recentRouteRows`: "a list short enough to see at once"),
+   and the `take(4)` is `RECENT_ROUTE_LIMIT`. Both constants now live in `core/src/recent_routes.rs` and the picker's own
+   `ROUTE_GROUP_LIMIT` (`thread_view.rs`) takes its value from there, so there is one 6. Test:
+   `a_list_of_eight_is_short_enough_to_take_in_at_once_and_nine_is_not` (broken: `+ 3` is caught).
+4. **Paper Mono's width.** Measured from the font file: every glyph in Paper Mono advances 0.606 em (606/1000; checked the
+   first 300 glyphs and the usual punctuation); Geist Mono 0.600 (a few glyphs 0.500). The only fixed cell width in the
+   Rust window is the terminal's `7.2` (12 pt x 0.6, `terminal_panel.rs` lines 321, 432, 458, 460), which is Geist Mono's
+   exactly. But the terminal draws in `Family::SystemMono`, which Rune resolves to the installed system monospace first
+   (`rune/src/text.rs` ~379) and to the app's code font only as a fallback, and each cell is its own fixed-width box, so
+   Paper Mono's width never reaches it and there is no drift. Nothing to fix. If the terminal is ever set in the picked
+   code font, a Paper Mono cell at 12 pt is 7.27, not 7.2. (Not checked: whether Paper Mono's weight axis moves its advance;
+   the default master is what was read.)

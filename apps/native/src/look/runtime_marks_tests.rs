@@ -74,3 +74,15 @@ fn nothing_is_drawn_for_what_no_teammate_runs_on() {
     assert!(icons::mark("omniroute").is_none());
     assert!(icons::mark("").is_none());
 }
+
+// "the picker's runtime groups carry their marks" (and the rows that name a runtime): each is drawn by `controls::agent_mark`,
+// which gives a mark for every runtime that has one and nothing for one that does not.
+#[test]
+fn a_mark_is_drawn_for_every_runtime_that_has_one_and_nothing_for_one_that_does_not() {
+    let l = crate::look::controls::Look::new(true);
+    for runtime in EVERY_RUNTIME {
+        assert!(crate::look::controls::agent_mark(&l, runtime, 12.0, l.c("text-muted")).is_some(), "{runtime}");
+    }
+    assert!(crate::look::controls::agent_mark(&l, "omniroute", 12.0, l.c("text-muted")).is_none());
+}
+

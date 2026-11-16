@@ -518,3 +518,36 @@ fn drafts_one_ask_plainly_and_several_as_a_list() {
     assert_eq!(landing_draft("Wren", &["Fix it".to_string()], &routes), "Fix it\n\nLocust-Teammate: Wren\nLocust-Route: codex / luna");
     assert_eq!(landing_draft("Wren", &[], &[]), "Wren's work\n\nLocust-Teammate: Wren");
 }
+
+/// A `git` stand-in: the real git for everything, except that asked its `--version` it runs `on_version`.
+#[cfg(unix)]
+fn git_that(on_version: &str) -> (Temp, String) {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = temp("locust-fake-git");
+    let script = dir.0.join("fake-git");
+    std::fs::write(&script, format!("#!/bin/sh\nfor a in \"$@\"; do\n  if [ \"$a\" = \"--version\" ]; then {on_version}; fi\ndone\nexec git \"$@\"\n")).unwrap();
+    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let path = script.to_string_lossy().into_owned();
+    (dir, path)
+}
+
+// ReviewChanges.tsx: "this machine has an older one" -- said when git cannot even say what version it is.
+#[cfg(unix)]
+#[test]
+fn landing_is_blocked_with_no_version_when_git_cannot_say_its_version() {
+    let (_root, _tree, manager) = two_turns();
+    let (_dir, fake) = git_that("exit 1");
+    let manager = manager.with_git_program(fake);
+    assert_eq!(manager.land_preview("tm_wren", "Wren").unwrap().block, Some(LandBlock::OldGit(None)));
+    assert!(matches!(manager.land("tm_wren", "Wren", "").unwrap(), LandResult::Blocked(LandBlock::OldGit(None))));
+}
+
+#[cfg(unix)]
+#[test]
+fn landing_is_blocked_with_the_version_when_git_is_older_than_2_38() {
+    let (_root, _tree, manager) = two_turns();
+    let (_dir, fake) = git_that("echo 'git version 2.30.1'; exit 0");
+    let manager = manager.with_git_program(fake);
+    assert_eq!(manager.land_preview("tm_wren", "Wren").unwrap().block, Some(LandBlock::OldGit(Some("2.30.1".into()))));
+}
+

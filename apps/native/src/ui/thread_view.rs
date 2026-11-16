@@ -1213,7 +1213,7 @@ fn model_picker(
 }
 
 /// status.ts ROUTE_GROUP_LIMIT: rows a group shows until the person searches (twice that while searching).
-const ROUTE_GROUP_LIMIT: usize = 6;
+const ROUTE_GROUP_LIMIT: usize = locust_core::recent_routes::ROUTE_GROUP_LIMIT;
 
 /// status.ts routeSearchText: lower case, separators as spaces.
 fn route_search_text(text: &str) -> String {
