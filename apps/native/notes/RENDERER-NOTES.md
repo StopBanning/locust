@@ -598,3 +598,57 @@ This section is not yet verified and its row remains waiting.
 - Continue the waiting teammate list before remaining conversations, with the
   applicable inline page preview first. Prior notes explain which surface
   integrations are still missing. The full requested list is not complete.
+
+## Renderer-8 continuation — eye geometry and motion (verification pending)
+
+- Initial tracked tree was clean at `5133db08`; the round-3 leftovers described
+  in the handoff were already committed by earlier continuations. Nothing to stash.
+- Read the remaining small teammate tests and their native surfaces. Added fifteen
+  separate exact-value cases from `a-teammates-eyes-are-drawn-not-typed.test.ts`
+  in `core/src/renderer_eye_tests.rs`. Geometry, glyph weights, blinking, hue,
+  front-plane projection, all motion loops and visor fitting use the same values
+  as Electron. Native already provides these pure functions to its painter.
+- The inventory row stays waiting: the four drawing cases (round strokes,
+  screen fill/glow ordering, rig front-transform interception, mouth suppression)
+  still need native painter assertions. Canvas interception itself is Electron
+  plumbing; the resulting drawing behavior is applicable. Native currently draws
+  ordinary eyes on plastic rather than the glyph pair, so this is a real gap.
+- Other inspected teammate files remain waiting: model/effort editor is native
+  text fields rather than the shared route picker; folder editor lacks the full
+  folder/connector presentation; signed-out and pending-discovery files need one
+  status projection shared by all surfaces (Home currently classifies only
+  missing/sign-in probes); work-face cycle needs real stage/conductor coverage;
+  idle teammate starters need conversation-screen integration. None excluded.
+- Whole release workspace run: `renderer-8-eyes-workspace.log`, gentle-cargo only,
+  in-workspace target/TypeScript reader, serial tests and optional Git read locks
+  disabled. Named results and controls will be recorded after completion.
+- Initial command from the repository root bypassed `.cargo/config.toml`'s
+  isolation runner: all fifteen new tests passed by name, but existing guarded
+  tests failed and core aborted during cleanup. This is not a suite pass.
+  Restarted from `apps/native` using its configured isolated runner; no guard
+  was weakened or product code changed to bypass isolation.
+
+## Renderer-8 — conversation keys (prepared, not yet carried)
+
+- After recording the inspected teammate gaps above, prepared the five cases
+  from `alt-and-an-arrow-moves-between-conversations.test.ts` as the next small
+  conversation section. Four exact-value pure cases in
+  `conversation_list::renderer_step_tests`; the fifth in
+  `sidebar::renderer_step_wiring_tests` draws the actual keyed rows and calls
+  the window key handler to open the selected conversation.
+- Native lacked this keyboard path. Alt+Up/Down now traverses the visible
+  sidebar rows; Shift restricts the search to rows with a waiting card.
+  Pins, groups, folded groups, search, settled filtering and one-level relay
+  nesting determine the order. Drawing and navigation share `nested_order`;
+  the existing folded-group drawing test also checks navigation's row list.
+- No React source-regex assertion is rebuilt: the wiring case exercises the
+  native handler and actual sidebar instead. No case excluded. Row stays
+  waiting until all five named cases pass.
+- Isolated `renderer-8-workspace.log`: core **2094 passed, 20 ignored**;
+  window **489 passed, 1 failed**. All fifteen new eye cases passed by name;
+  the four pure navigation cases passed. The new wiring case caught a real
+  defect in the prepared code: using `active_record_mission_id` loses the
+  selection in demo mode. It now uses the same conversation selection as the
+  sidebar itself. This correction and folded-group assertions await the next run.
+  The eye-only test section is verified independently of that window failure;
+  its file remains waiting for the four missing drawing cases.
