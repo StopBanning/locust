@@ -1719,3 +1719,160 @@ are missing from this checkout, as recorded above. No unsupported carried claim.
   HANDOFF files remain. No live agent, Electron gate, live/packaged window,
   cross-platform or performance verification claimed. Continue the 14 waiting
   rows; do not treat this receipt as completion of the full port.
+
+### Renderer-16 — teammate model dialog (verification pending)
+
+- Arrival tracked tree clean at 25243882. The monthly recovery requested by
+  round 4 is already committed and documented above; its stash remains retained.
+- Read the six Electron model/effort cases and NewTeammateDialog's route, pick
+  and default-effort rules. Reused the real composer picker, including catalog,
+  account groups, policy filtering, search, recent routes and limit labels.
+  Dialog picks now update the form only. A different model clears the old effort;
+  saving an unchanged route-less teammate retains its inherited composer route.
+- Native offers the reported effort stops as selectable native chips, with the
+  current stop labelled for accessibility; it does not reconstruct an HTML
+  range input. Medium is the default when offered, otherwise the middle stop.
+- Six separate exact-input cases and one real picker/save isolation regression
+  added in people_panel::renderer_model_tests. Inventory stays waiting until
+  observed passing by name. Two negative controls prepared.
+- First compile attempts hit the shared target's stale core artifact (existing
+  teammate_month reported missing), not assertion failures. Applied the brief's
+  touch-all-Rust workaround, then restarted the complete debug nextest suite.
+- First completed debug run: 3028 passed, one new assertion failed because
+  the dialog used the long runtime label `Codex CLI` rather than Electron's
+  `Codex`. Corrected the model row to use native's existing short runtime
+  labels and catalog model name. Six other new tests passed by name. This
+  run is not a green baseline; subsequent controls and restored runs follow.
+- Opening the dialog picker clears the composer's popup state immediately;
+  cancelling an edit cannot leave that popup open on the conversation.
+- `team-model-target` control caught exactly the picker/save isolation
+  assertion: 2415 core passed (20 ignored), 614 window passed, one deliberate
+  failure. Source restored byte for byte. All six Electron cases passed by
+  name in this run; the extra model-switch effort reset case also passed.
+  The initial control attempt's stale-core compile error is not a catch.
+- First effort-control run was rejected: the shared target ran a different
+  worktree's 601-test window binary; none of this section's named tests were
+  present. No catch claimed. Added renderer-cargo.py, a thin entry to the
+  unchanged gentle-cargo wrapper that performs the brief's source-touch fix
+  after its shared lock is acquired, before Cargo starts. Touching before a
+  lock wait is insufficient when another tree builds during that wait.
+- `team-effort-default` control caught exactly the default-effort assertion:
+  2415 core passed (20 ignored), 614 window passed, one deliberate failure.
+  Source restored byte for byte. The in-lock touch workaround compiled this
+  worktree's 615-test window binary and observed the required named failure.
+- Added an inherited-route account regression: choosing an account adopts the
+  displayed composer route in the form and leaves the active chat unchanged.
+  Account choices use the displayed runtime, rather than stale hidden fields.
+
+Electron case -> Rust suffix in people_panel::renderer_model_tests:
+- names the model / own picker -> names_the_model_the_teammate_runs_on_and_offers_the_chats_own_picker
+- none of its own / chat box -> says_a_teammate_with_none_of_its_own_takes_the_chat_boxs_until_one_is_picked
+- no picker / nothing to press -> offers_nothing_to_press_when_there_is_no_picker_to_open
+- own effort / this model's four stops / selected High at index 2 -> states_the_teammates_own_level_with_this_models_stops
+- default Medium -> says_the_models_default_when_the_teammate_has_no_level_of_its_own
+- no reported levels -> is_not_offered_for_a_model_that_reports_no_levels
+
+Additional regressions:
+- picking_a_model_and_effort_updates_only_the_form_and_saves_the_exact_route
+- a_different_model_clears_the_previous_level_and_the_same_model_keeps_it
+- choosing_an_account_on_an_inherited_route_saves_that_route_without_changing_the_chat
+
+### Renderer-16 restored verification
+
+- Restored debug nextest: renderer-16-model-restored-debug.log exited 0;
+  3031 tests passed, 20 real-agent tests skipped. All nine names above were
+  observed passing. No filtered suite. Both controls are restored.
+- Model row carried after the six exact Electron cases passed by name.
+  Recount and --check passed: 221 carried, 64 does-not-apply, 205 partial,
+  819 waiting (1309 total). Thirteen matching requested rows remain waiting.
+- Release workspace suite and release binary build still pending below.
+- Final exact-input audit: the model-name case now uses Electron's empty
+  picker catalog, and the inherited-route case creates a new teammate with
+  no initial record. Added a readable GPT-ID fallback before discovery lands;
+  the model's reported catalog name takes precedence. The earlier release
+  run predates this audit; final verification is rerun below.
+
+
+### Renderer-16 round-4 verification recovery (in progress)
+
+- Read the round-4 restart, round-2 workflow, thread-5 case rules, current
+  inventory and all existing picker changes. Left the monthly stash alone.
+- Fresh full debug nextest, renderer-16-recovery-debug.log: exit 0,
+  3031 passed, 20 skipped. Observed all nine renderer_model_tests by name.
+- team-model-target rerun caught its named picker/save isolation assertion
+  and restored thread_view.rs byte for byte. Full workspace control, debug;
+  receipt renderer-16-recovery-target-receipt.log. Release checks pending.
+- Found and fixed an additional applicable picker gap: a new team with no
+  composer route could press Change but saw no picker. The catalog now opens
+  using Electron's claude/account-default display fallback, without saving
+  a route until a real selection. Added the surface regression
+  a_new_team_without_a_composer_route_can_still_pick_its_first_model and
+  team-first-model negative control. Fresh full validation follows.
+- Revisited waiting teammate files first. Inline page needs per-turn isolated
+  embedding (the existing singleton preview is not equivalent); pet and glyph
+  paint behavior lives in this round's protected look/rig/pet lane; Home needs
+  an actual fitted layout rather than an unused copy of homeIsShort.
+- Folder-row connector cases cannot be satisfied by UI alone: native.rs
+  claude_args explicitly keeps account connectors off because none can be
+  ticked yet. A checkbox without runtime enforcement would falsely promise
+  access. This main-process implementation is outside this round's owned
+  core files. Folder caution also lacks its once-per-folder send gate.
+- Conversation inspection: native has no live-call state in the sidebar or
+  phone conversation projection; queue.rs carries ten exact isolation cases
+  but explicitly lacks busy-elsewhere waitFor wiring. Review brief and savable
+  offers remain missing as recorded above. The two missing sidebar sources
+  remain waiting. No additional carried/excluded row is claimed.
+
+
+### Renderer-16 recovery controls and restored debug
+
+- renderer-16-recovery-fallback-debug.log: exit 0, 3032 passed, 20 skipped;
+  all ten renderer_model_tests mechanically matched to full named PASS lines.
+  This includes pressing Change with no composer route before selecting.
+- team-model-target: 2415 core passed, 20 ignored; window 615 passed and
+  exactly the intended picker/save isolation assertion failed (before the
+  additional route-less case). Receipt: renderer-16-recovery-target-receipt.log.
+- team-effort-default and team-first-model: each 2415 core passed, 20 ignored;
+  window 616 passed and exactly its intended assertion failed. Both restored
+  people_panel.rs byte for byte. Receipts: renderer-16-recovery-effort.log and
+  renderer-16-recovery-first-model.log. No unrelated failure counted as a catch.
+- Recount and --check passed: 221 carried, 64 does-not-apply, 205 partial,
+  819 waiting (1309 total). Thirteen requested renderer rows still waiting.
+- Python AST syntax for both fixture scripts and git diff --check passed.
+  Final restored release suite and build results follow before any commit.
+
+
+### Renderer-16 recovery restored release verification
+
+- renderer-16-recovery-release.log: exit 0; 2415 core + 617 window =
+  3032 passed, 20 real-agent tests ignored; doc tests 0. All ten full picker
+  names mechanically matched to `test people_panel::renderer_model_tests::...
+  ... ok`; no named FAILED line. This verifies the final fallback and its
+  real Change-button regression as well as the six Electron cases.
+- Release build is pending. The shared lock and default TypeScript reader
+  were used throughout; no filtered run or reader override.
+
+
+### Renderer-16 recovery final build and stopping receipt
+
+- Release build exited 0: renderer-16-recovery-build.log, optimized build
+  finished in 1m 39s after a 72-second shared-lock wait. Eleven native binary
+  warnings remain. No live or packaged window was launched.
+- Audited all three new original mutation anchors present exactly once and
+  the mutated team-target branch absent. No break remains. A first audit
+  incorrectly rejected the normal chat branch's identical assignment; checking
+  the team branch and original anchors verifies restoration without that false
+  positive. Both fixture scripts parse; diff whitespace and recount passed.
+- The full requested port is unfinished: thirteen renderer rows still wait,
+  as the renderer-15 list above minus the now-carried model-dialog row. The
+  concrete next gaps and protected-lane boundaries are recorded in this recovery.
+- No Electron/JavaScript gate, live window, packaged app, real agent/model,
+  other OS or performance benchmark was run. The 20 ignored tests are not
+  claimed as passes. The monthly stash and HANDOFF files were left alone.
+- All required verification commands completed before committing. No push,
+  merge, version or changelog change; only this section's owned files changed.
+
+- Recovery source commit: `907540b4` (shared picker, six exact Electron cases,
+  four native save/account/first-model regressions). Control/lock-workaround
+  commit: `fe1b65a8`. Parity and the complete verification receipt are committed
+  separately. Final tracked tree is clean; original untracked HANDOFF files stay.
