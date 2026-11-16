@@ -213,7 +213,7 @@ env = dict(os.environ, LOCUST_TEST_TS_READER=str(Path("dist/thread-7-ts-reader/i
 try:
     path.write_text(source.replace(before, after, 1))
     with log.open("w") as out:
-        result = subprocess.run(["timeout", "5400", "python3", "scripts/gentle-cargo.py", "--timeout", "5380", "test", "--release", "--workspace", "--no-fail-fast"], stdout=out, stderr=subprocess.STDOUT, env=env)
+        result = subprocess.run(["timeout", "5400", "python3", "scripts/gentle-cargo.py", "--timeout", "5380", "test", "--workspace", "--no-fail-fast"], stdout=out, stderr=subprocess.STDOUT, env=env)
     output = log.read_text()
     assert result.returncode != 0, "mutation survived"
     assert "Test isolation guard refused" not in output, "test isolation failure is not a caught mutation"

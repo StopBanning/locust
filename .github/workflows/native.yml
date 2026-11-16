@@ -1,13 +1,14 @@
 # The Rust port (apps/native) on exec/native: its tests on macOS, the scoreboard checks, and a compile check on Linux
 # and Windows that is allowed to fail while the port is Mac-only, so each push shows what stops it building there.
-# Runs only on pushes to exec/native that touch the port, never on pull requests, one run at a time. The macOS job
+# Runs only on pushes to exec/native or exec/native-engine (where the port is built until it merges into exec/native)
+# that touch the port, never on pull requests, one run at a time. The macOS job
 # runs on Colin's Mac mini; the rest on GitHub's runners. No secrets.
 
 name: native
 
 on:
   push:
-    branches: [exec/native]
+    branches: [exec/native, exec/native-engine]
     paths:
       - apps/native/**
       - .github/workflows/native.yml
@@ -41,6 +42,8 @@ jobs:
   # job none three times in a row. The runner's guard (_tools/mac-runner-guard.sh) admits this workflow only on
   # exec/native, pushed or started by the owner. The build cache lives in the runner's own folder, not GitHub's cache.
   mac:
+    # The runner's guard admits exec/native only, so on exec/native-engine just the GitHub-hosted jobs run.
+    if: github.ref == 'refs/heads/exec/native'
     runs-on: [self-hosted, macOS, ARM64, locust-mac]
     timeout-minutes: 60
     env:

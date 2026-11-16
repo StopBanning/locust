@@ -50,3 +50,8 @@ objc2-web-kit = { version = "0.3", features = ["WKWebView", "WKWebViewConfigurat
 block2 = "0.6"
 # System notifications for the app bundle (attention: a card waiting, a limit hit, a long turn ended).
 objc2-user-notifications = { version = "0.3", features = ["UNUserNotificationCenter", "UNNotificationRequest", "UNNotificationContent", "UNNotificationTrigger", "UNNotification", "UNNotificationResponse", "block2"] }
+
+# Tests and day-to-day builds: the libraries (Rune, regex, zip...) built optimized once, our own two crates in debug so an
+# edit rebuilds in seconds. Measured 16 Nov: see notes/BUILD-SPEED-NOTES.md.
+[profile.dev.package."*"]
+opt-level = 2

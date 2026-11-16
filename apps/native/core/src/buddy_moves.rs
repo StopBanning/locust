@@ -196,7 +196,9 @@ static CODEX_EDGES: [&[[u32; 2]]; 9] = [
     &ROW8_EDGES,
 ];
 
-pub const CODEX_BUDDY: PetScreenFace = PetScreenFace {
+/// A `static`, not a `const`: callers and tests hold `&CODEX_BUDDY` and compare it by address, and only a static has
+/// one address (a const is copied at each use; release builds happened to merge the copies, debug builds do not).
+pub static CODEX_BUDDY: PetScreenFace = PetScreenFace {
     id: "codex-buddy",
     frame_width: 192,
     frame_height: 208,

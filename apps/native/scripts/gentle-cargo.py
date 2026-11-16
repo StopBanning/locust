@@ -6,7 +6,8 @@ compiling there, but not running the tests: a second agent's test binaries ran w
 reached 8-10 (Colin's own Locust froze once). This wrapper holds one lock for the whole cargo run, compile and tests,
 so only one runs at a time; the others wait and say so.
 
-    python3 scripts/gentle-cargo.py test --release --workspace
+    python3 scripts/gentle-cargo.py test --workspace            # every day and every break check (fast rebuilds)
+    python3 scripts/gentle-cargo.py test --release --workspace  # once before a merge is pushed
     python3 scripts/gentle-cargo.py build --release
 
 It sets what every run here needs unless already set: the shared target folder, four jobs, the TypeScript reader the
@@ -23,6 +24,11 @@ TARGET = os.environ.setdefault("CARGO_TARGET_DIR", f"{HOME}/work/scratch/native-
 os.environ.setdefault("CARGO_BUILD_JOBS", "4")
 os.environ.setdefault("LOCUST_TEST_TS_READER", f"{HOME}/work/locust/packages/mission-store/dist/index.js")
 os.environ["PATH"] = f"{HOME}/.cargo/bin:" + os.environ.get("PATH", "")
+# A reader path that is not there fails ~50 ledger tests with "TypeScript reader rejected" (16 Nov: a path copied from
+# another worktree). Say so before building instead.
+if not os.path.isfile(os.environ["LOCUST_TEST_TS_READER"]):
+    sys.exit(f"gentle-cargo: LOCUST_TEST_TS_READER is {os.environ['LOCUST_TEST_TS_READER']}, which is not a file. "
+             "Leave it unset to use the one built from ~/work/locust, or build packages/mission-store there.")
 
 args = sys.argv[1:]
 timeout = None
