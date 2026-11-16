@@ -737,3 +737,48 @@ This section is not yet verified and its row remains waiting.
   `8fe5d864` exact prompt-rail labels. Final validation notes committed separately.
   No source mutation, stash or discarded work remains; original untracked
   HANDOFF files are unchanged and are not committed.
+
+## Renderer-9 — queue isolation (prepared)
+
+- Initial tracked tree was clean; round-3 leftovers are already committed by
+  intervening sessions. No stash needed. Original HANDOFF files untouched.
+- Read steering.ts and the actual enqueue, drain, Edit/Discard and persistence
+  callers. Added ten separate exact-value cases from
+  `a-queued-message-stays-in-its-conversation.test.ts` in
+  `composer::queue::renderer_conversation_tests` (source order, first ten cases).
+  Native's existing keyed queue suffices for these pure isolation rules.
+- The five remaining cases require busy-other-conversation routing (`waitFor`)
+  and its actual enqueue/display/drain wiring. The row stays waiting. No
+  does-not-apply claim: the React source check pins applicable product behavior.
+- First attempted append used a repository-relative path from apps/native and
+  failed before writing; the concurrent full run is an unchanged baseline,
+  not evidence for the new cases. The next run must include the actual tests.
+
+## Renderer-9 — context receipt (prepared)
+
+- Read cost.ts, ContextRing's native drawing, normalized receipt folding and
+  subscription money classification. Prepared four exact cases from
+  `the-ring-reads-what-the-conversation-holds.test.ts`, each a separate test in
+  `context_usage::renderer_ring_tests`: last-call reading, missing reading,
+  subscription dollars omitted, and ordinary dollars retained. The two
+  reading cases go through the real transcript fold used by the window.
+- Remaining six cases are not claimed: subscription receipt wording (native
+  benchmark::cost_line currently puts token counts before `plan`), ring cost
+  exclusion/mixed costs, aggregate totals, and exact pie geometry. The native
+  ring currently uses a polygon approximation rather than Electron's arc.
+  Row remains waiting; none of those product behaviors is Electron plumbing.
+- Added a fifth ring-file case, `says_on_its_receipt_that_the_plan_covered_it`.
+  It tests both the shared cost formatter and the actual inspector receipt
+  projection. Native now says `Cost` / `in your plan` for subscription-only
+  receipts, before token usage; benchmark cells use the same priority.
+  This supersedes the prepared note's subscription-wording gap. Five other
+  ring-file cases remain unported; the row is still waiting.
+- Added queue-isolation and plan-receipt controls to the existing in-workspace
+  runner. Verification is pending; no mutation is currently applied.
+- `renderer-9-cases-workspace.log`: all ten queue cases observed passing by
+  name; four prepared context cases also passed by name. This compilation
+  predates the fifth case and subscription-wording changes. Core: 2098 passed,
+  20 ignored. Window result follows; no green final-source claim yet.
+- First cases run completed exit 0: **2098 core + 500 window = 2598 passed**,
+  20 real-agent cases ignored, doc tests 0. All ten queue cases passed by name.
+  Committing this verified queue section before running its negative control.

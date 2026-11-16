@@ -768,7 +768,7 @@ apps/desktop/src/renderer/src/a-pull-request-link-wears-its-state.test.tsx		wait
 apps/desktop/src/renderer/src/a-question-is-answered-by-number.test.ts		waiting		
 apps/desktop/src/renderer/src/a-question-makes-the-face-wait-on-you.test.ts		waiting		
 apps/desktop/src/renderer/src/a-queued-message-refused-as-busy-waits.test.ts		waiting		
-apps/desktop/src/renderer/src/a-queued-message-stays-in-its-conversation.test.ts		waiting		
+apps/desktop/src/renderer/src/a-queued-message-stays-in-its-conversation.test.ts		waiting	composer::queue::renderer_conversation_tests	10 exact queue-isolation cases carried; 5 busy-other-conversation waitFor and window wiring cases remain. See notes/RENDERER-NOTES.md (renderer-9). Status stays waiting until the full file is carried.
 apps/desktop/src/renderer/src/a-quoted-equation-is-drawn.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-read-row-names-the-file.test.ts		waiting		
 apps/desktop/src/renderer/src/a-refusal-offers-the-mode-that-works.test.ts		waiting		

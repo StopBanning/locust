@@ -256,3 +256,95 @@ mod tests {
         assert_eq!(next[0].key, "real");
     }
 }
+
+/// Electron's exact queue-isolation cases. Busy-elsewhere wiring remains unported.
+#[cfg(test)]
+mod renderer_conversation_tests {
+    use super::*;
+    fn row(id: &str, key: &str) -> QueuedRow {
+        QueuedRow { id: id.into(), key: key.into(), text: format!("{key}: {id}"), origin: Origin::Person,
+            attachments: vec![], issue: None, restored: false, held: None }
+    }
+    fn said(id: &str, key: &str, text: &str) -> QueuedRow { QueuedRow { text: text.into(), ..row(id, key) } }
+    fn ids(rows: &[QueuedRow]) -> Vec<&str> { rows.iter().map(|r| r.id.as_str()).collect() }
+    #[test]
+    fn is_its_own_rows_in_the_order_they_were_typed() {
+        let rows = [row("a", "pip"), row("b", "gem"), row("c", "pip")];
+        assert_eq!(queued_in(&rows, Some("pip")).iter().map(|r| r.id.as_str()).collect::<Vec<_>>(), ["a", "c"]);
+        assert_eq!(queued_in(&rows, Some("gem")).iter().map(|r| r.id.as_str()).collect::<Vec<_>>(), ["b"]);
+        assert!(queued_in(&rows, Some("nobody")).is_empty());
+        assert!(queued_in(&rows, None).is_empty());
+    }
+    #[test]
+    fn never_folds_into_another_conversations_message() {
+        let folded = combine_queued(&[row("a", "pip"), row("b", "gem"), row("c", "pip")]);
+        assert_eq!(folded.iter().map(|r| r.text.as_str()).collect::<Vec<_>>(), ["pip: a", "gem: b", "pip: c"]);
+    }
+    #[test]
+    fn still_folds_lines_typed_during_one_run_into_one_message() {
+        let folded = combine_queued(&[row("a", "pip"), row("b", "pip")]);
+        assert_eq!(folded.len(), 1);
+        assert_eq!(folded[0].text, ["pip: a", "pip: b"].join(QUEUE_SEPARATOR));
+    }
+    #[test]
+    fn takes_that_conversations_rows_folded_and_leaves_every_other_row_where_it_was() {
+        let (going, rest) = take_next(&[row("a", "pip"), row("b", "gem"), row("c", "pip"), row("d", "gem")], "gem");
+        let going = going.unwrap();
+        assert_eq!(going.text, ["gem: b", "gem: d"].join(QUEUE_SEPARATOR));
+        assert_eq!(going.key, "gem");
+        assert_eq!(ids(&rest), ["a", "c"]);
+    }
+    #[test]
+    fn takes_nothing_from_a_conversation_with_nothing_queued() {
+        let rows = vec![row("a", "pip")];
+        assert_eq!(take_next(&rows, "gem"), (None, rows.clone()));
+    }
+    #[test]
+    fn goes_by_the_row_itself_two_rows_can_be_given_the_same_id() {
+        let first = row("q_1_pip", "pip");
+        let other = said("q_1_pip", "gem", "gem: same id");
+        let (going, rest) = take_next(&[first, other.clone()], "pip");
+        assert_eq!(going.unwrap().text, "pip: q_1_pip");
+        assert_eq!(rest, [other]);
+    }
+    #[test]
+    fn empty_that_conversations_queue_and_nobody_elses() {
+        let rows = vec![row("a", "pip"), row("b", "gem"), row("c", "pip")];
+        assert_eq!(ids(&without_queue_of(&rows, Some("gem"))), ["a", "c"]);
+        assert_eq!(without_queue_of(&rows, None), rows);
+    }
+    #[test]
+    fn the_reviewers_case_gems_line_edited_pips_untouched_each_sent_to_its_own() {
+        let rows = [said("p", "pip", "PIP_QUEUED"), said("g", "gem", "GEM_QUEUED")];
+        let mut rows = without_queue_of(&rows, Some("gem"));
+        rows.push(said("g2", "gem", "GEM_EDITED"));
+        assert_eq!(queued_in(&rows, Some("pip"))[0].text, "PIP_QUEUED");
+        let (pip, rest) = take_next(&rows, "pip");
+        assert_eq!(pip.unwrap().text, "PIP_QUEUED");
+        let (gem, rest) = take_next(&rest, "gem");
+        assert_eq!(gem.unwrap().text, "GEM_EDITED");
+        assert!(rest.is_empty());
+    }
+    #[test]
+    fn sends_each_its_own_as_each_run_ends_in_either_order_the_others_staying_pending() {
+        let rows = [said("p1", "pip", "PIP_1"), said("g1", "gem", "GEM_1"), said("p2", "pip", "PIP_2")];
+        let (gem, rest) = take_next(&rows, "gem");
+        assert_eq!(gem.unwrap().text, "GEM_1");
+        assert_eq!(queued_in(&rest, Some("pip")).iter().map(|r| r.text.as_str()).collect::<Vec<_>>(), ["PIP_1", "PIP_2"]);
+        let (pip, rest) = take_next(&rest, "pip");
+        assert_eq!(pip.unwrap().text, ["PIP_1", "PIP_2"].join(QUEUE_SEPARATOR));
+        assert!(rest.is_empty());
+        let (pip, rest) = take_next(&rows, "pip");
+        assert_eq!(pip.unwrap().text, ["PIP_1", "PIP_2"].join(QUEUE_SEPARATOR));
+        assert_eq!(queued_in(&rest, Some("gem"))[0].text, "GEM_1");
+    }
+    #[test]
+    fn sends_nothing_the_words_are_back_in_the_box_not_the_queue_and_leaves_the_other_conversation_queued() {
+        let rows = [said("g", "gem", "GEM_QUEUED"), said("p", "pip", "PIP_QUEUED")];
+        let editing = without_queue_of(&rows, Some("gem"));
+        let (going, rest) = take_next(&editing, "gem");
+        assert!(going.is_none());
+        assert_eq!(rest, editing);
+        assert_eq!(queued_in(&rest, Some("pip"))[0].text, "PIP_QUEUED");
+    }
+}
