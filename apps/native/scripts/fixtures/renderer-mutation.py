@@ -10,6 +10,18 @@ import subprocess
 import sys
 
 CONTROLS = {
+    "month-limit": (
+        "core/src/teammate_month.rs",
+        'limit.is_some_and(|l| limit_reached(Some(spend), l))',
+        'false',
+        "says_it_against_the_limit_whenever_there_is_one_even_at_nothing_spent",
+    ),
+    "month-owner": (
+        "core/src/teammate_month.rs",
+        '&& owns(&t.conversation)',
+        '&& { let _ = &owns; true }',
+        "month_cards_use_the_calendar_month_and_recorded_owner_and_show_unpriced_separately",
+    ),
     "signed-out-status": (
         "core/src/teammate_reach.rs",
         'if let Some(label) = blocked_label(own, reach) {',
@@ -209,7 +221,7 @@ original = path.read_bytes()
 source = original.decode()
 assert source.count(before) == 1, "mutation must match exactly once"
 log = Path("notes") / f"renderer-control-{sys.argv[1]}.log"
-env = dict(os.environ, LOCUST_TEST_TS_READER=str(Path("dist/thread-7-ts-reader/index.js").resolve()))
+env = dict(os.environ)
 try:
     path.write_text(source.replace(before, after, 1))
     with log.open("w") as out:

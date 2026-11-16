@@ -1547,3 +1547,175 @@ Named checks in the final restored run:
   the now-carried signed-out row. Continue inline page preview and remaining
   teammate files before conversation-only files. The final full workspace
   suite's review-landing Git-lock failure remains unresolved.
+
+
+### Renderer-15 continuation — monthly card and limit (verification pending)
+
+- Arrival: tracked diff empty. The round-3 leftovers had already been committed
+  by renderer-13; no stash needed and no break applied.
+- Inline preview still requires isolated frames embedded in each turn. The
+  existing singleton browser panel is insufficient. All four cases stay waiting.
+- Continuing the next feasible teammate section: calendar-month receipts and
+  monthly limit form. Protected pet/look/rig files untouched. The host usage
+  ledger is read through a latest-result worker, on Team open and every 30s
+  while open, independently of the window's recent mission rows. Owner ids and
+  local calendar months filter receipts. Missing prices on own-model runs stay
+  separate from dollars. A failed read reports an error instead of zero.
+- Eight pure Electron cases, the filled-dialog case and the summary-only cost
+  case have separate Rust tests, plus owner/month, invalid save and read-failure
+  surface regressions. Row remains waiting until observed by name.
+- The first workspace run overlapped writing the next section; window compilation
+  saw the core module before spend_for_month was added and reported E0425. This
+  is not a test pass or a mutation catch. A completed-source run follows.
+- The shared spend.ts receipt rule additionally requires used tokens and no
+  premium-request receipt before counting an unpriced own-model run. The host
+  usage projection exposes tokens only from run.completed. Carry that condition
+  too; a pending own-model turn is not an unpriced receipt.
+
+
+### Renderer-15 round-4 recovery
+
+- Applied stash `sol run3 14:04 monthly card + limit (unverified, suite interrupted)`
+  with `git stash apply`; retained it. Resolved the main poll and identity-layout
+  conflicts by keeping both the upstream behavior and monthly integration. The
+  untracked teammate_month.rs on arrival is the stash's accompanying module.
+- Debug nextest baseline: renderer-15-month-debug.log, exit 0, 3022 passed,
+  20 skipped. All 15 monthly tests below passed by their full names. This
+  baseline precedes the added worker wakeup hook and pending-read guard; final
+  restored validation must cover those additions.
+- Removed the mutation runner's stale TypeScript-reader override, per round 4;
+  gentle-cargo supplies its normal default. No protected lane source changed.
+
+Monthly named checks (the first eight pure cases, filled dialog and summary-only
+receipt carry the ten Electron cases; the other five are native regressions):
+- `teammate_month::tests::is_money_or_no_row_and_this_month_not_a_total_of_whatever_the_window_held`
+- `teammate_month::tests::says_it_against_the_limit_whenever_there_is_one_even_at_nothing_spent`
+- `teammate_month::tests::says_runs_on_a_model_of_your_own_beside_the_dollars_with_why_unpriced_not_zero`
+- `teammate_month::tests::says_premium_requests_beside_the_dollars_never_toward_them`
+- `teammate_month::tests::reads_amounts_as_a_person_types_them_and_nothing_as_no_limit`
+- `teammate_month::tests::says_a_limit_on_an_edit_only_when_it_changed`
+- `teammate_month::tests::refuses_what_is_not_an_amount_rather_than_saving_a_limit_nobody_meant`
+- `teammate_month::tests::says_how_the_limit_works_and_what_has_been_spent_when_editing`
+- `teammate_month::ledger_tests::counts_only_the_calendar_month_and_owner_without_pricing_a_plan_or_free_model`
+- `people_panel::renderer_month_tests::is_in_the_dialog_filled_with_the_limit_already_set`
+- `people_panel::renderer_month_tests::month_cards_use_the_calendar_month_and_recorded_owner_and_show_unpriced_separately`
+- `people_panel::renderer_month_tests::month_card_names_this_month_when_it_has_money_and_omits_an_empty_month`
+- `people_panel::renderer_month_tests::invalid_limits_cannot_save_and_clearing_removes_only_the_limit`
+- `people_panel::renderer_month_tests::still_says_what_it_cost_from_the_money_the_host_read_without_events`
+- `people_panel::renderer_month_tests::unreadable_months_are_reported_instead_of_claiming_zero_spent`
+
+- Month-limit control exited 0, caught the exact core reached-state and real
+  Team-card assertions, and restored teammate_month.rs byte for byte. Core:
+  2414 passed, one intentional failure, 20 ignored; window: 606 passed, one
+  intentional failure. No unrelated assertion or compilation failure counted.
+  Logs: renderer-control-month-limit.log, renderer-15-month-limit-receipt.log.
+
+
+Further waiting-file inspection (no additional carried claim):
+- `an-older-conversation-stays-read.test.ts` is specifically the Electron
+  skinny-history IPC merge (`eventsKept`, digest, eventCount and JavaScript
+  object identity). Native's `LedgerPane` owns a `ledger::Session` and full
+  snapshot independently of the recent-summary map. `begin_ledger` preserves
+  that Session for the same conversation; the recents result updates rows and
+  summaries, never the open pane. The two IPC merge cases need no native
+  implementation. Classification is recorded separately after this section.
+- `an-app-started-conversation-says-so-in-the-sidebar.test.tsx` and
+  `a-waiting-conversation-is-first-in-the-sidebar.test.tsx` are named by the
+  inventory but absent from this checkout (also no local git path history).
+  Leave them waiting; exact cases cannot be inferred from file titles.
+- `review-sees-the-conversation.test.ts` needs a review-brief projection which
+  labels this turn separately from earlier changed paths. No matching native
+  brief or those headings found. `savable-conversations.test.ts` similarly
+  needs finished-conversation offers and the header's Save as routine gate;
+  neither has a native savable projection. Both remain applicable and waiting.
+
+- Month-owner control exited 0 and restored teammate_month.rs byte for byte.
+  Exactly the owner/month core regression and real Team-card regression failed;
+  all other core and window assertions passed. Log: renderer-control-month-owner.log;
+  receipt: renderer-15-month-owner-receipt.log. Both deliberate breaks are gone.
+- Monthly inventory row carried only after all ten Electron cases passed by
+  full name and both controls were caught. Final release verification follows.
+
+
+### Renderer-15 final restored monthly verification
+
+- Full release workspace, renderer-15-month-release.log: exit 0, 2415 core
+  and 607 window tests passed (3022 total), 20 real-agent cases ignored,
+  doc tests 0. Every one of the 15 full monthly names above mechanically
+  matched to `... ok`; no FAILED lines. This covers the worker wakeup and
+  pending-read guard added after the first debug baseline.
+- The shared lock wait was 114 seconds. Release compile took 2m 57s.
+  No filtered run, reader override, parallel workspace suite or break remains.
+- Both controls failed only their two intended assertions (one core, one
+  surface), restored byte for byte, and exited 0. All other tests passed in
+  each control run. Release build result follows before committing.
+- Native-only brief checks used; no Electron/JavaScript gate, live or packaged
+  window, real agent/model call, other OS or benchmark was run. These tests
+  use existing host usage projections; they do not claim live usage ingestion.
+
+- Release binary build exited 0, renderer-15-month-build.log: optimized build
+  finished in 2m 34s after a 92-second shared-lock wait. Existing warnings in
+  drawing/conductor code remain; no new warning in the monthly module or UI.
+- Monthly source committed in small groups: core projection/module, Team UI
+  and worker integration, then two mutation controls. The stash is retained.
+- Recount and --check passed: 220 carried, 63 does-not-apply, 205 partial,
+  821 waiting (1309 total), before the separate history-IPC classification.
+
+
+### Renderer-15 older-history IPC classification
+
+- `an-older-conversation-stays-read.test.ts`: does-not-apply, with a reason in
+  parity/tests.tsv. Read both tests, historyMerge.ts and native's begin_ledger,
+  LedgerPane, ledger_tick and recents-result path. The first case selects m1
+  from IPC rows missing events; the second preserves a JS object while its
+  eventCount is unchanged, replacing it when it grows. Both are the window's
+  compensation for Electron's partial-history IPC, which native does not use.
+- Native opens a local ledger Session that drains its conversation chain and
+  keeps its snapshot independently of the recents summary map. No feature was
+  removed and no synthetic Rust version of the IPC cache was built. Existing
+  Session behavior was read as architecture evidence, not claimed as two new
+  exact-value case passes. No additional carried row or new test claimed.
+- Source remains exactly the source checked by the restored release suite and
+  release build. This metadata-only section needs recount/whitespace validation.
+
+### Renderer-15 remaining work
+
+The full requested renderer port remains incomplete. The current inventory has
+14 waiting renderer rows whose filenames contain team or conversation. Applicable
+teammate behavior remains first; page isolation, pet selection/painting, model and
+folder pickers and short-Home layout still need work. Two sidebar test sources
+are missing from this checkout, as recorded above. No unsupported carried claim.
+
+- `a-page-a-teammate-made-runs-in-its-turn.test.tsx`
+- `a-teammate-can-be-a-pet.test.tsx`
+- `a-teammate-has-a-model-of-its-own.test.tsx`
+- `a-teammates-eyes-are-drawn-not-typed.test.ts`
+- `home-fits-two-rows-of-teammates.test.ts`
+- `teammate-folder-row.test.tsx`
+- `the-folder-chip-says-a-folder-is-no-place-for-teammates.test.tsx`
+- `a-call-shows-on-its-conversation-row.test.tsx`
+- `a-phone-lists-conversations.test.ts`
+- `a-queued-message-stays-in-its-conversation.test.ts`
+- `a-waiting-conversation-is-first-in-the-sidebar.test.tsx`
+- `an-app-started-conversation-says-so-in-the-sidebar.test.tsx`
+- `review-sees-the-conversation.test.ts`
+- `savable-conversations.test.ts`
+
+
+### Renderer-15 stopping receipt
+
+- Commits: `2f5ed7db` core month projection and exact cases; `8e072b73`
+  Team cards/editor and worker wiring; `5d4b7769` mutation controls;
+  `828bb9be` verified monthly inventory/evidence. History-IPC classification
+  and this final receipt are committed separately.
+- Final recount and --check passed: 220 carried, 64 does-not-apply,
+  205 partial, 820 waiting (1309 total). One new carried row, one IPC-only
+  exclusion; 14 matching renderer rows still waiting, listed above.
+- Final mutation-script AST syntax and git diff --check passed. Both month
+  anchors audited present once and mutant text absent. No break remains.
+  Original stash retained, no push/merge/version/changelog, protected-lane,
+  HANDOFF-file or external-reference changes. All required commands finished.
+- Stopping state: tracked changes committed; only the original untracked
+  HANDOFF files remain. No live agent, Electron gate, live/packaged window,
+  cross-platform or performance verification claimed. Continue the 14 waiting
+  rows; do not treat this receipt as completion of the full port.
