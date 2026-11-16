@@ -76,6 +76,8 @@ mod keychain_note;
 mod home_panel;
 #[path = "ui/people_panel.rs"]
 mod people_panel;
+#[path = "ui/look_picker.rs"]
+mod look_picker;
 #[path = "ui/reply_actions.rs"]
 mod reply_actions;
 #[path = "ui/routines_panel.rs"]
@@ -2342,6 +2344,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     changed |= ledger_tick(s, now, tx);
     changed |= s.handoff_glances.expire(now);
     changed |= teammate_faces::tick(s, now);
+    changed |= settings_panel::tick_face_legend(s, now, tx);
     drain_queue_after_turn(s, tx);
     changed |= s
         .bot_stage
@@ -3087,6 +3090,8 @@ fn main() {
             ("thread-rich-light", thread_rich_light_scene),
             ("people", people_scene),
             ("people-light", people_light_scene),
+            ("team-look", team_look_scene),
+            ("team-look-light", team_look_light_scene),
             ("memory", memory_scene),
             ("memory-light", memory_light_scene),
             ("team", team_scene),

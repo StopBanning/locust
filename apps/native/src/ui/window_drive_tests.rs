@@ -1434,6 +1434,8 @@ fn own_copy_is_turned_on_in_the_card_and_a_copy_is_removed_only_after_its_change
     click(&mut rt, "team-edit-tm_codec");
     let form = text_in(&rt, "team-form").join(" ");
     assert!(form.contains("Works in its own copy of the folder, on branch locust/codec."), "{form}");
+    // The look picker sits above it: scroll to the switch, as a person would.
+    rt.update(|_, tx| tx.scroll_key_to("team-own-copy", 0.0));
     click(&mut rt, "team-own-copy");
     // The form runs past the window's height: scroll to Save, as a person would.
     rt.update(|_, tx| tx.scroll_key_to("team-save", 0.0));

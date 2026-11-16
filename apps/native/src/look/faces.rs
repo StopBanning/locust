@@ -21,6 +21,18 @@ thread_local! {
     static DRAWN_PRESENCE: std::cell::RefCell<std::collections::HashMap<String, Option<PresenceDot>>> = Default::default();
 }
 
+#[cfg(test)]
+thread_local! {
+    /// The shape and hue each live face was last drawn as, by its slot, for the window's own tests.
+    static DRAWN_LOOK: std::cell::RefCell<std::collections::HashMap<String, (String, String)>> = Default::default();
+}
+
+/// The shape and hue the live face in `slot_key` was last drawn as on this thread.
+#[cfg(test)]
+pub fn drawn_look(slot_key: &str) -> Option<(String, String)> {
+    DRAWN_LOOK.with(|drawn| drawn.borrow().get(slot_key).cloned())
+}
+
 /// The presence dot the face in `slot_key` was last drawn with on this thread; None when it was not drawn.
 #[cfg(test)]
 pub fn drawn_presence(slot_key: &str) -> Option<Option<PresenceDot>> {
@@ -202,6 +214,8 @@ pub fn bot_face_with_look(
     let (shape_name, face_str, hue) = bot_of(id, look);
     #[cfg(test)]
     DRAWN_PRESENCE.with(|drawn| drawn.borrow_mut().insert(slot_key.to_owned(), opts.presence));
+    #[cfg(test)]
+    DRAWN_LOOK.with(|drawn| drawn.borrow_mut().insert(slot_key.to_owned(), (shape_name.clone(), hue.clone())));
     let terminal_faces = s.settings_panel.settings.terminal_faces;
     let plush = s.settings_panel.settings.plush;
     let reduced = s.reduced_motion.get();
