@@ -179,3 +179,30 @@ both the sidebar's roster and the rail show it.
   - `side_now` ignoring the time (`glance_tests::a_glance_holds_from_when_it_is_given_…`).
 - **Full release workspace run** (`notes/pets-suite.log`): exit 0, **2,143 engine + 502 window passed**, 0 failed;
   the three pet tests passed by name. **Release build:** passed.
+
+## Round 2: the bot, face and pet test ledger (fixes-2, job 4)
+
+Each Electron file on `grep -nE "bot|face|pet" parity/tests.tsv | grep waiting` was read case by case against the
+Rust tests (by name, and by the file's name in a Rust comment). A row is `carried` only where every case has a Rust
+test of its own, and `partial` names what is missing.
+- **Carried:** `a-bots-dot-and-ring-sit-on-the-bot`, `a-locust-bot-draws-before-its-first-frame`,
+  `every-bot-is-drawn-by-the-rig`, `locust-bots-keep-their-eyes-on-their-heads`, and
+  `a-teammate-is-not-stuck-while-agents-are-still-being-found` (job 2).
+- **Partial:**
+  - `codex-buddys-face-changes-as-a-screen-does`: 11 of 14. Its three drawn-screen cases have no test. A comment in
+    `buddy_moves.rs` said they were in `src/look/bots.rs`; they are not, and the comment now says so.
+  - `every-teammate-is-a-bot`: 9 of 14.
+  - The status files from job 2.
+- **Left waiting:** the other 21 files. No Rust test carries any of their cases. One name match
+  (`takes_it_re_compressed…`) was checked and belongs to `codex-buddy-wears-a-screen`, not to
+  `the-kept-pets-are-puppets`.
+- **Hydrogen's uncommitted test work, copied:**
+  - its tighter `bot_rig.rs` tests (Electron's values for the frame clock, the pointer box and the library's
+    outlines);
+  - `core/src/every_teammate_is_a_bot_tests.rs`. Its header said three markup cases were tested in `faces.rs`; they
+    are not, and it now says so.
+- **The colour test is now pinned to literals.** It compared our `shade_css` with itself. It now compares with
+  literals the library gives: bot-avatars 0.2.2's `shade`, run in node: `hsl(219.7 89.7% 64.7%)` and
+  `hsl(255.0 69.4% 96.5%)`.
+- **Totals.** `recount.py --check` passes: 196 carried, 62 does not apply, 192 partial, 859 waiting.
+

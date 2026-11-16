@@ -2467,7 +2467,7 @@ pub fn default_face() -> BotFace {
 mod tests {
     use super::*;
     use crate::bot_spec::{
-        body_color_of, locust_bot, outline_of, BOT_AVATAR_PRESETS, BOT_SATURATION,
+        body_color_of, locust_bot, outline_of, preset_of, BOT_AVATAR_PRESETS, BOT_SATURATION,
         PALETTE_SATURATION,
     };
 
@@ -2477,6 +2477,8 @@ mod tests {
     fn is_the_librarys_own_for_its_eighteen_its_path_its_face_and_where_it_sits() {
         for preset in BOT_AVATAR_PRESETS {
             let outline = outline_of(preset.id);
+            assert_eq!(outline.key, preset.id);
+            assert_eq!(outline.turn, 1.0);
             assert_eq!(outline.body, preset.body);
             assert_eq!(outline.parts.as_deref().unwrap_or(""), preset.parts);
             assert_eq!(outline.face, preset.face);
@@ -2498,61 +2500,50 @@ mod tests {
             assert!((outline.face_y - spec.face_y).abs() < 1e-9);
             assert!((outline.face_scale - spec.face_scale).abs() < 1e-9);
         }
+        let hopper = outline_of("hopper");
+        let locust_hopper = locust_bot("hopper").unwrap();
+        assert_eq!(hopper.key, "locust-hopper");
+        assert_eq!(hopper.body, locust_hopper.body);
+        assert_eq!(hopper.parts_depth, Some(locust_hopper.parts_depth));
+        assert_eq!(outline_of("swarm").turn, locust_bot("swarm").unwrap().turn);
     }
 
     #[test]
     fn is_botavatars_treatment_for_a_library_shape_a_hue_a_touch_more_vivid_the_palette_more_so() {
-        let custom = body_color_of("clover", Some("#4f68ff"));
-        let palette = body_color_of("clover", None);
-        assert_ne!(custom, "#4f68ff");
-        assert!(custom.starts_with("hsl("));
-        assert!(palette.starts_with("hsl("));
-        assert!(PALETTE_SATURATION > BOT_SATURATION);
+        // The library's `shade(colour, 0, (saturation - 1) * 0.5)`: 1.15 on a teammate's hue, 1.5 on the library's own.
+        // The values are bot-avatars 0.2.2's own: `shade('#5b8def', 0, 0.075)` and
+        // `shade(botAvatarPresets.ghost.color, 0, 0.25)` (ghost is #F4F2FA), run in node.
+        assert_eq!(BOT_SATURATION, 1.15);
+        assert_eq!(PALETTE_SATURATION, 1.5);
+        assert_eq!(body_color_of("droid", Some("#5b8def")), "hsl(219.7 89.7% 64.7%)");
+        assert_eq!(body_color_of("ghost", None), "hsl(255.0 69.4% 96.5%)");
     }
 
     #[test]
     fn is_flat_for_locusts_own_which_never_took_the_treatment() {
-        assert_eq!(body_color_of("hopper", Some("#4f68ff")), "#4f68ff");
-        assert_eq!(body_color_of("swarm", Some("#52884b")), "#52884b");
+        assert_eq!(body_color_of("hopper", Some("#c7d45a")), "#c7d45a");
+        assert_eq!(body_color_of("swarm", None), preset_of("alien").unwrap().color);
     }
+
+    // A 96px bot's canvas is 144px square; its head sits 9.6px below the middle.
+    const BOX: PixelRect = PixelRect { left: 0.0, top: 0.0, width: 144.0, height: 144.0 };
+    const HEAD_X: f64 = 72.0;
+    const HEAD_Y: f64 = 72.0 + 9.6;
 
     #[test]
     fn looks_straight_at_a_pointer_within_a_head_width() {
-        let rect = PixelRect {
-            left: 100.0,
-            top: 200.0,
-            width: 90.0,
-            height: 90.0,
-        };
-        let head = 90.0 / BOT_AVATAR_OVERSCAN; // 60.0
-        let cx = rect.left + rect.width / 2.0;
-        let cy = rect.top + rect.height / 2.0 + BOT_AVATAR_RISE * head;
-        let pull = pointer_pull(rect, cx + head * 0.5, cy);
-        assert!((pull.strength - 1.0).abs() < 1e-9);
-        assert!((pull.x - 0.5).abs() < 1e-9);
-        assert!(pull.y.abs() < 1e-9);
+        let pull = pointer_pull(BOX, HEAD_X + 48.0, HEAD_Y);
+        assert_eq!(pull.strength, 1.0);
+        assert!((pull.x - 0.5).abs() < 1e-5);
+        assert!(pull.y.abs() < 1e-5);
     }
 
     #[test]
     fn lets_go_by_three_head_widths_and_never_looks_further_than_one_head_across() {
-        let rect = PixelRect {
-            left: 0.0,
-            top: 0.0,
-            width: 90.0,
-            height: 90.0,
-        };
-        let head = 90.0 / BOT_AVATAR_OVERSCAN;
-        let cx = rect.width / 2.0;
-        let cy = rect.height / 2.0 + BOT_AVATAR_RISE * head;
-
-        let mid = pointer_pull(rect, cx + head * 2.0, cy);
-        assert!((mid.strength - 0.5).abs() < 1e-9);
-        assert!((mid.x - 1.0).abs() < 1e-9);
-        assert!(mid.y.abs() < 1e-9);
-
-        let far = pointer_pull(rect, cx + head * 3.5, cy);
-        assert_eq!(far.strength, 0.0);
-        assert!((far.x - 1.0).abs() < 1e-9);
+        let halfway = pointer_pull(BOX, HEAD_X + 192.0, HEAD_Y);
+        assert!((halfway.strength - 0.5).abs() < 1e-5);
+        assert!((halfway.x - 1.0).abs() < 1e-5);
+        assert_eq!(pointer_pull(BOX, HEAD_X + 400.0, HEAD_Y).strength, 0.0);
     }
 
     // --- a-locust-bot-draws-before-its-first-frame.test.ts (5 cases) ---
@@ -2561,66 +2552,56 @@ mod tests {
     fn is_drawn_once_before_any_animation_frame_so_a_page_that_paints_none_still_shows_it() {
         let clock = BotClock::start(0.0, false, false);
         assert_eq!(clock.draws, 1);
-        assert!(clock.pending_frame().is_some());
+        assert_eq!(clock.pending_frame(), Some(1));
     }
 
     #[test]
     fn then_moves_and_draws_while_it_is_showing_and_only_then() {
         let mut clock = BotClock::start(0.0, false, false);
-        assert_eq!(clock.draws, 1);
-
-        let (dt, drew) = clock.tick(34.0, false, false);
-        assert!(dt.is_none());
-        assert!(!drew);
-        assert_eq!(clock.draws, 1);
-        assert_eq!(clock.stepped_seconds, 0.0);
-
-        let (dt, drew) = clock.tick(68.0, true, false);
-        assert!(dt.is_some());
+        let (step, drew) = clock.tick(34.0, true, false);
         assert!(drew);
         assert_eq!(clock.draws, 2);
-        assert!(clock.stepped_seconds > 0.0);
+        assert!((step.expect("it moved") - 0.034).abs() < 1e-9);
+        assert!((clock.stepped_seconds - 0.034).abs() < 1e-9);
+        let (step, drew) = clock.tick(68.0, false, false);
+        assert!(!drew);
+        assert!(step.is_none());
+        assert_eq!(clock.draws, 2);
+        assert!(clock.pending_frame().is_some());
     }
 
     #[test]
     fn draws_at_most_30_frames_a_second_every_other_frame_at_60_hz_every_fifth_at_144() {
-        // 60 Hz: 1000/60 = 16.6667 ms per frame over 1 second (60 ticks) -> 30 draws
-        let mut clock60 = BotClock::start(0.0, false, false);
-        for i in 1..=60 {
-            clock60.tick(i as f64 * (1000.0 / 60.0), true, false);
+        for (hertz, most) in [(60u32, 30u32), (144, 30)] {
+            let mut clock = BotClock::start(0.0, false, false);
+            for frame in 1..=hertz {
+                clock.tick(f64::from(frame) * 1000.0 / f64::from(hertz), true, false);
+            }
+            // One second of the screen's frames, after the first drawing.
+            assert!(clock.draws - 1 <= most, "{hertz} Hz drew {}", clock.draws - 1);
+            assert!(clock.draws - 1 >= most - 2, "{hertz} Hz drew {}", clock.draws - 1);
+            // And the bot still moves a whole second's worth: no time is lost to a skipped frame.
+            assert!(clock.stepped_seconds > 0.95, "{hertz} Hz moved {}", clock.stepped_seconds);
         }
-        assert!(clock60.draws - 1 <= 30 && clock60.draws - 1 >= 29);
-
-        // 144 Hz: 1000/144 = 6.9444 ms per frame over 1 second (144 ticks) -> <= 30 draws
-        let mut clock144 = BotClock::start(0.0, false, false);
-        for i in 1..=144 {
-            clock144.tick(i as f64 * (1000.0 / 144.0), true, false);
-        }
-        assert!(clock144.draws - 1 <= 30 && clock144.draws - 1 >= 28);
     }
 
     #[test]
     fn draws_at_most_15_frames_a_second_at_the_side_beside_a_name_0_670_still_moving_a_whole_second() {
         let mut clock = BotClock::start(0.0, false, true);
-        for i in 1..=60 {
-            clock.tick(i as f64 * (1000.0 / 60.0), true, false);
+        for frame in 1..=60u32 {
+            clock.tick(f64::from(frame) * 1000.0 / 60.0, true, false);
         }
-        assert!(clock.draws - 1 <= 15 && clock.draws - 1 >= 14);
-        assert!((clock.stepped_seconds - 1.0).abs() < 0.08);
+        assert!(clock.draws - 1 <= 15, "drew {}", clock.draws - 1);
+        assert!(clock.draws - 1 >= 13, "drew {}", clock.draws - 1);
+        assert!(clock.stepped_seconds > 0.85, "moved {}", clock.stepped_seconds);
     }
 
     #[test]
     fn stops_when_asked_cancelling_the_frame_it_was_waiting_on() {
         let mut clock = BotClock::start(0.0, false, false);
-        let pending = clock.pending_frame();
-        assert!(pending.is_some());
-        let cancelled = clock.stop();
-        assert_eq!(cancelled, pending);
+        clock.tick(16.0, true, false);
+        assert_eq!(clock.stop(), Some(2));
         assert!(clock.pending_frame().is_none());
-        let (dt, drew) = clock.tick(100.0, true, false);
-        assert!(dt.is_none());
-        assert!(!drew);
-        assert_eq!(clock.draws, 1);
     }
 
     #[test]

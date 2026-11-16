@@ -228,4 +228,7 @@ pub mod git_quiet;
 pub mod face_status;
 
 #[cfg(test)]
+mod every_teammate_is_a_bot_tests;
+
+#[cfg(test)]
 pub(crate) mod load_waits;

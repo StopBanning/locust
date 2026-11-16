@@ -2318,8 +2318,8 @@ mod tests {
     }
 
     // -------------------------------------------------------------------------
-    // codex-buddys-face-changes-as-a-screen-does.test.ts, one test each (the three drawn-screen cases are in
-    // `src/look/bots.rs`, where the screen is drawn)
+    // codex-buddys-face-changes-as-a-screen-does.test.ts, one test each. Its three drawn-screen cases (every eye
+    // inside the glass, eyes in a bot screen's units, the ink round the glass) have no Rust test yet.
     // -------------------------------------------------------------------------
 
     fn ask_for(key: &str) -> PetScreenAsk {
