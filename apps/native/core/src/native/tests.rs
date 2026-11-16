@@ -3190,3 +3190,117 @@ fn a_test_lets_go_of_the_engine_only_after_every_turn_thread_has_ended() {
     assert!(ended.load(Ordering::SeqCst), "the guard let go while a turn's ending was still running");
     assert_eq!(TURN_THREADS.load(Ordering::SeqCst), 0);
 }
+
+// ---- Electron a-turn-on-its-own-branch-leaves-a-receipt.test.ts: when a turn is not committed ----
+
+/// A repository at `work` with one commit on main, and Codec saved with `worktree` as given.
+fn branch_project(t: &Temp, worktree: bool) -> (Store, impl Fn(&[&str]) -> String) {
+    let store = t.store();
+    let work = t.0.join("work");
+    let git = move |args: &[&str]| {
+        let out = Command::new("git").args(args).current_dir(&work).output().unwrap();
+        assert!(out.status.success(), "git {args:?}: {}", String::from_utf8_lossy(&out.stderr));
+        String::from_utf8_lossy(&out.stdout).into_owned()
+    };
+    git(&["init", "-q", "-b", "main"]);
+    git(&["config", "user.email", "person@locust.test"]); // made-up person; public-guard: allow
+    git(&["config", "user.name", "The person"]);
+    fs::write(t.0.join("work/README.md"), "the project\n").unwrap();
+    git(&["add", "."]);
+    git(&["commit", "-q", "-m", "first"]);
+    store
+        .save_json("teammates.json", &json!({"schemaVersion": 1, "teammates": [{"teammateId": "tm_codec", "name": "Codec", "worktree": worktree}], "missionOwners": {}, "settings": {}}))
+        .unwrap();
+    (store, git)
+}
+
+fn receipts(path: &Path) -> Vec<Value> {
+    records(path).iter().filter(|r| r["event"]["payload"]["code"] == crate::worktrees::CHECKPOINT_CODE).map(|r| r["event"]["payload"].clone()).collect()
+}
+
+#[test]
+fn a_turn_that_ran_in_the_shared_folder_the_persons_own_checkout_is_never_committed() {
+    let t = Temp::new();
+    let (store, git) = branch_project(&t, false);
+    let _hook = hooks::install(store.clone(), fake("cards-edit-check"));
+    let mate = Teammate { runs_in: "accept-edits".into(), ..codex(&t) };
+    let started = send(Send { teammate: mate, conversation: None, prompt: "Fix it".into(), model: None, effort: None }).unwrap();
+    finished(&started.conversation_id);
+    assert_eq!(fs::read_to_string(t.0.join("work/notes.txt")).unwrap(), "BROKEN\n", "the turn ran in the person's checkout");
+    assert!(receipts(&path_of(&t, &started.conversation_id)).is_empty());
+    assert_eq!(git(&["rev-list", "--count", "--all"]).trim(), "1", "nothing was committed anywhere");
+    assert!(git(&["status", "--porcelain"]).contains("notes.txt"), "the edit is left as it was made");
+}
+
+#[test]
+fn a_turn_with_a_slot_of_its_own_is_never_committed_with_a_folder_of_its_own_or_without() {
+    // 0.532: a column for a teammate with Own branch carried its context, and its end committed the teammate's branch
+    // with the comparison's ask, sweeping in a direct run's half-done edits there.
+    let t = Temp::new();
+    let (store, git) = branch_project(&t, true);
+    let _hook = hooks::install(store.clone(), fake("cards-edit-check"));
+    let mate = Teammate { runs_in: "accept-edits".into(), ..codex(&t) };
+    let slot = |key: &str, cwd: Option<PathBuf>| Origin {
+        slot: Some(SlotOrigin { key: key.into(), cwd, instructions: None, skill: None, sealed: false }),
+        ..Default::default()
+    };
+    let ask = |prompt: &str| Send { teammate: mate.clone(), conversation: None, prompt: prompt.into(), model: None, effort: None };
+    // Electron's case: the column's own folder is the project itself.
+    let column = send_from(ask("Which CRM?"), slot("compare:tm_codec:cmp_1:a", Some(t.0.join("work")))).unwrap();
+    finished(&column.conversation_id);
+    assert!(receipts(&path_of(&t, &column.conversation_id)).is_empty());
+    // A slot with no folder of its own runs where the teammate runs, its copy, and still commits nothing.
+    let chat = send_from(ask("Which CRM?"), slot("scout-chat:tm_codec", None)).unwrap();
+    finished(&chat.conversation_id);
+    assert!(receipts(&path_of(&t, &chat.conversation_id)).is_empty());
+    assert_eq!(git(&["rev-list", "--count", "--all"]).trim(), "1", "nothing was committed on any branch");
+}
+
+#[test]
+fn a_turn_on_its_own_branch_that_changed_nothing_says_nothing() {
+    let t = Temp::new();
+    let (store, git) = branch_project(&t, true);
+    let _hook = hooks::install(store.clone(), fake("success"));
+    let started = send(job(&t, None, "Just look")).unwrap();
+    finished(&started.conversation_id);
+    assert!(t.0.join("work/.locust/worktrees/tm_codec").is_dir(), "the turn ran in the teammate's copy");
+    assert!(receipts(&path_of(&t, &started.conversation_id)).is_empty());
+    assert_eq!(git(&["rev-list", "--count", "--all"]).trim(), "1");
+}
+
+#[test]
+fn a_turn_whose_commit_could_not_be_made_says_so_as_a_warning_and_its_files_stay() {
+    let t = Temp::new();
+    let (store, git) = branch_project(&t, true);
+    let tree = crate::worktrees::Manager::new(&t.0.join("work")).ensure("tm_codec", "Codec", None).unwrap();
+    let admin = git(&["rev-parse", "--path-format=absolute", "--git-dir"]).trim().to_owned() + "/worktrees/tm_codec";
+    let _hook = hooks::install(store.clone(), fake("cards-edit-check"));
+    let mate = Teammate { runs_in: "accept-edits".into(), ..codex(&t) };
+    // Held as the turn ends: git refuses to commit in a tree whose index is locked.
+    let held = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true));
+    let lock = PathBuf::from(&admin).join("index.lock");
+    let watcher = {
+        let (held, lock, notes) = (held.clone(), lock.clone(), tree.join("notes.txt"));
+        std::thread::spawn(move || {
+            while held.load(std::sync::atomic::Ordering::Relaxed) {
+                if notes.exists() && !lock.exists() {
+                    let _ = fs::write(&lock, "");
+                }
+                std::thread::sleep(Duration::from_millis(2));
+            }
+        })
+    };
+    let started = send(Send { teammate: mate, conversation: None, prompt: "Fix it".into(), model: None, effort: None }).unwrap();
+    let path = path_of(&t, &started.conversation_id);
+    wait("the receipt", || !receipts(&path).is_empty());
+    held.store(false, std::sync::atomic::Ordering::Relaxed);
+    watcher.join().unwrap();
+    let _ = fs::remove_file(&lock);
+    let said = receipts(&path);
+    assert_eq!(said.len(), 1, "{said:?}");
+    assert_eq!(said[0]["level"], "warning");
+    let message = said[0]["message"].as_str().unwrap();
+    assert!(message.starts_with("This turn's changes could not be saved on the teammate's branch: ") && message.ends_with(" They are still in its folder."), "{message}");
+    assert_eq!(fs::read_to_string(tree.join("notes.txt")).unwrap(), "BROKEN\n", "the files stay in its folder");
+    assert_eq!(git(&["rev-list", "--count", "--all"]).trim(), "1");
+}

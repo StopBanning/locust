@@ -321,6 +321,25 @@ fn makes_a_subject_of_the_first_sentence_or_cuts_at_a_word_never_mid_word() {
 }
 
 #[test]
+fn a_finished_turn_is_committed_with_its_ask_its_answers_first_line_and_its_teammate_as_author() {
+    // Electron a-turn-on-its-own-branch-leaves-a-receipt.test.ts, the committed case's message and receipt.
+    let m = checkpoint_message("Fix the cart total\nit doubles", Some("Fixed the total.\nIt summed twice."), "tm_wren", "Wren", "m_1", "codex", None, TurnOutcome::Completed);
+    assert_eq!(m.subject, "Fix the cart total");
+    assert_eq!(m.body.as_deref(), Some("Fixed the total."));
+    assert!(m.trailers.contains(&("Locust-Turn".into(), "completed".into())), "{:?}", m.trailers);
+    assert_eq!((m.author_name.as_str(), m.author_email.as_str()), ("Wren", "tm_wren@teammates.locust")); // made-up teammate author; public-guard: allow
+    let saved = Checkpoint::Committed {
+        sha: "0123456789abcdef0123456789abcdef01234567".into(),
+        branch: "locust/wren".into(),
+        files: vec!["cart.py".into(), "cart_test.py".into()],
+        skipped: vec![],
+        merge_finished: false,
+        still_marked: Some(vec![]),
+    };
+    assert_eq!(checkpoint_sentence(&Ok(saved)).as_deref(), Some("Saved this turn on locust/wren as 0123456789ab: 2 files (cart.py, cart_test.py)."));
+}
+
+#[test]
 fn names_what_was_left_out_for_being_too_big_and_says_nothing_for_a_clean_turn() {
     assert_eq!(
         checkpoint_sentence(&Ok(Checkpoint::Skipped { skipped: vec![("data.bin".into(), 80 * 1024 * 1024)] })).as_deref(),
