@@ -332,6 +332,21 @@ interface SpecTransport {
   readonly oversizedStandIns?: boolean;
 }
 
+/**
+ * NO BACKGROUND TASKS IN A LOCUST RUN (15 Nov 2026).
+ *
+ * A Claude Code run ends with its turn, and so does anything it started in the background: MEASURED 2026-09-22
+ * (`background-work-ends-with-the-run.test.ts`), the job is killed after the `result`. So a background job never
+ * finishes inside a run, and an agent that "waits for it" has lost it. Worse, when the same session is resumed the
+ * CLI hands the dead job's `task_notification` to the new run, and two Opus runs on 15 Nov were cut off about a
+ * minute in with `aborted_tools` while waiting in the foreground. The CLI's own switch is
+ * `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS`: with it, a helper or a command runs in the foreground, where the run
+ * can see it finish. (Claude Code's own `--bg` sessions, W10, are a separate path and are not touched.)
+ */
+export const CLAUDE_RUN_ENV: Readonly<Record<string, string>> = Object.freeze({
+  CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: "1",
+});
+
 function baseSpec(
   runtime: MissionRuntimeId,
   executable: ExecutableLaunch,
@@ -1120,6 +1135,7 @@ export function createClaudePrintCommand(
     stdin: "stream-json",
     sandbox: sandboxArgument(options.sandbox),
     oversizedStandIns: true,
+    env: CLAUDE_RUN_ENV,
   });
 }
 
