@@ -547,11 +547,14 @@ pub(super) fn edit_form(s: &State, p: &Palette) -> El {
                     .on_edit(move |s: &mut State| &mut s.people_panel.fields[i]),
             );
         }
+        if i == 0 {
+            if let Some(taken) = clash {
+                form = form.child(text(format!("Another teammate is already called {taken}.")).key("team-name-clash").color(p.secondary));
+            }
+            // The look comes before the role, as in Electron's dialog.
+            form = form.child(crate::look_picker::section(s, &l));
+        }
     }
-    if let Some(taken) = clash {
-        form = form.child(text(format!("Another teammate is already called {taken}.")).key("team-name-clash").color(p.secondary));
-    }
-    form = form.child(crate::look_picker::section(s, &l));
     let runtime_now = panel.fields.get(3).map(|f| f.text.trim()).unwrap_or("");
     if let Some(agent) = locust_core::agent_accounts::Agent::parse(runtime_now) {
         let policy = locust_core::org_policy::current();

@@ -959,6 +959,23 @@ pub(super) fn people_scene(s: &mut State) {
     })
     .collect();
 }
+/// The teammate editor open on Codec, with the look picker: a violet ghost with a mouth, its screen turned off,
+/// Terminal faces on (notes/LOOK-NOTES.md).
+pub(super) fn team_look_scene(s: &mut State) {
+    people_scene(s);
+    s.settings_panel.settings.terminal_faces = true;
+    s.people_panel.team = serde_json::json!({"schemaVersion":1,"teammates":[
+        {"teammateId":"codec","name":"Codec","hue":"violet","role":"Code & Migrations","route":{"runtime":"codex","model":"gpt-6.1-sol","mode":"accept-edits","effort":"high"},
+         "avatar":{"headwear":1,"accessory":2,"mouth":0,"bot":{"shape":"ghost","face":"mouth","screen":false}}},
+        {"teammateId":"argon","name":"Argon","hue":"teal","role":"Code & Migrations","route":{"runtime":"antigravity","model":"gemini-3.8-flash","mode":"auto"}}
+    ],"settings":{}});
+    crate::people_panel::edit(s, Some("codec"));
+    s.people_panel.editing = Some("codec".into());
+}
+pub(super) fn team_look_light_scene(s: &mut State) {
+    team_look_scene(s);
+    s.appearance = Some(false);
+}
 pub(super) fn people_light_scene(s: &mut State) {
     people_scene(s);
     s.appearance = Some(false);

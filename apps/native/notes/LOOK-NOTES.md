@@ -191,3 +191,54 @@ All **16 were caught by a named test** (`~/work/scratch/mut6.py`, whole package,
   - Row 3 moves from `missing` to `partial`. Rows are now 71 done, 66 partial, 16 missing.
   - Test files: 202 carried, 192 partial, 853 waiting.
   - `every-teammate-is-a-bot` is 11 of 14 (step 2).
+
+## The pictures (step 4)
+
+### How they were made
+
+- **Scenes.** `team-look` and `team-look-light` are new (`src/ui/scenes.rs`). They show the editor open on Codec, a
+  violet ghost with a mouth and its screen turned off, with Terminal faces on.
+- **Settings.** `settings` was already a scene, and it shows Appearance.
+- **Command.** `locust-native --snap ~/work/scratch/opus/<scene>.png --scene <scene>`, headless, with no window.
+- **The form's order changed.** In the first picture, the Look section was below the fold, under Folder. Electron puts
+  Look before Role. So it now comes straight after Name (and the name-taken line) and before Role. That is closer to
+  Electron, and it is on screen.
+
+### What I see in `team-look.png` (dark)
+
+- **The top row.** On the left is the preview: the violet ghost at 64 with its mouth and the white working dot at its
+  lower right. To its right are the eleven swatches. Each is the same ghost at 24, in Lime, Blue, Violet, Clay, Teal,
+  Butter, Rose, Slate, Pearl, Indigo and Coral. Violet has a box around it.
+- **Then** come Name with "Codec" in it, and the Look head: "Look" on the left, and on the right the Eyes / Mouth /
+  Screen segment (Mouth raised), then a Shuffle look button.
+- **The grid.** The 23 shapes are drawn in violet with the chosen mouth. There are 18 in the first row and 5 in the
+  second (Hopper, Swarm, Critter, Prompt, Spark).
+  - The Ghost tile is the chosen one.
+  - Critter shows its mouth, because the screen is turned off.
+  - Prompt and Spark show their screens, as they always do.
+- **Then** Role, Instructions and Runtime, as before.
+
+### What I see in `settings.png`
+
+- On the right of "What a face says" is the teal droid with its screen eyes (Terminal faces is on), and "Idle" under
+  it.
+- On the left is Electron's sentence for Terminal faces on.
+- Only one face is in a still picture. The stepping is held by the tests, not by the picture.
+
+### What looks off, said plainly
+
+1. **The preview's ghost has no hem.** At 64 it looks cut flat along the bottom, and the dot sits over that corner.
+   The ghosts at 24 and 30 show their wavy hem.
+   - It may be the working pose (the live rig bobs and squashes), or the canvas clipping the overscan.
+   - I did not find out which.
+2. **The chosen tiles are grey, not lime.** The chosen swatch and the chosen shape are marked with a grey box and fill,
+   not a lime one, although the code asks for `lime-border` and `lime-tint`.
+   - Those tokens may be grey in the current theme (Locust went monochrome in 0.430).
+   - I did not check Electron's picture against it.
+3. **The layout is not Electron's.** Electron puts the swatches under the Name field, beside the preview. Here they are
+   on a row of their own above Name. The fields stay a plain column, and Role and Runtime are text fields, as they
+   were before this round.
+4. **The legend sits far to the right.** It is at the right end of a wide row, away from its words. Electron's
+   setting line does the same, but at Electron's narrower width it sits closer to them.
+- **Verified after the reorder.** Full release workspace run (`notes/snap-suite.log`): **2,191 engine + 532 window
+  passed**, 0 failed. All 22 `look_picker` tests and the Own copy drive passed by name. Release build: passed.

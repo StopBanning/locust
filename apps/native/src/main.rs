@@ -3090,6 +3090,8 @@ fn main() {
             ("thread-rich-light", thread_rich_light_scene),
             ("people", people_scene),
             ("people-light", people_light_scene),
+            ("team-look", team_look_scene),
+            ("team-look-light", team_look_light_scene),
             ("memory", memory_scene),
             ("memory-light", memory_light_scene),
             ("team", team_scene),
