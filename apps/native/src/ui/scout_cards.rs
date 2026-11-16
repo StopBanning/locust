@@ -1778,6 +1778,11 @@ pub(super) mod tests {
         );
 
         assert!(invite_offer_active(&s));
+        // Urgency grouping must not remove the invitation when nobody is Ready.
+        s.teammates[0].busy = true;
+        let home = render_state(s, |s, _| crate::home_panel::home_view(s, &Palette::new(true)));
+        assert!(home.find("scout-invite-card").is_some());
+        let s = home.state;
         let mut tile = render_state(State::default(), invite_tile_el);
         assert!(tile.find("scout-invite-card").is_some());
         assert!(tile.find("scout-not-now").is_some());

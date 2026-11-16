@@ -677,6 +677,7 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
         // HomeTeam.tsx's cards: a square for the face (faces come in C4), the name, the role, the agent and model.
         let groups = crate::team_board::team_board(&s.teammates, |mate| teammate_section(s, &mate.id, mate.busy, mate.runtime.as_deref()));
         let grouped = groups.is_some();
+        let has_ready = groups.as_ref().is_none_or(|groups| groups.iter().any(|(section, _)| *section == crate::team_board::Section::Ready));
         for (section, members) in groups.unwrap_or_else(|| vec![(crate::team_board::Section::Ready, s.teammates.iter().collect())]) {
         if grouped { body = body.child(section_head(&l, section.title(), Some(members.len()), None)); }
         let mut grid = row().w_full().gap(10.0).flex_wrap();
@@ -760,6 +761,11 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
             grid = grid.child(crate::scout_cards::invite_team_tile(&l));
         }
         body = body.child(grid);
+        }
+        // The invitation is an action, not a Ready teammate: keep it reachable
+        // even when every teammate belongs to an urgent section.
+        if !has_ready && crate::scout_cards::invite_offer_active(s) {
+            body = body.child(row().w_full().gap(10.0).child(crate::scout_cards::invite_team_tile(&l)));
         }
     }
 
