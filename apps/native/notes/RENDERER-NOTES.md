@@ -581,3 +581,20 @@ This section is not yet verified and its row remains waiting.
   run. Whole release workspace runs used gentle-cargo only, one at a time,
   serial tests, optional Git read locks disabled, and the existing in-workspace
   TypeScript reader. Release binary build follows.
+
+### Final build and continuation receipt
+
+- Release binary build exit 0 in 29.87s (`renderer-7-release-build.log`),
+  twelve existing drawing/conductor warnings. No new warning in the changed
+  production logic. No package, signing or live-window verification.
+- `scripts/recount.py` and `--check` exit 0: 192 carried, 62 does-not-apply,
+  185 partial, 870 waiting, 1309 total. Direct requested-subset check: 30 waiting.
+  `git diff --check` and mutation-script Python syntax passed.
+- Commits: `000c5cb8` removed selection; `ff9d1ff5` urgency board;
+  `77051685` ownerless model mark; `f42ff722` preserve Scout invitation.
+  Final validation notes committed separately. All source changes are committed;
+  no mutation remains applied. The original untracked HANDOFF files are intact
+  and not committed. Nothing was stashed or discarded.
+- Continue the waiting teammate list before remaining conversations, with the
+  applicable inline page preview first. Prior notes explain which surface
+  integrations are still missing. The full requested list is not complete.
