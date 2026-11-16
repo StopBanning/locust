@@ -11,6 +11,19 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.875.0 - 2026-11-15
+
+### Fixed
+
+- **A Claude run no longer starts background jobs.** Anything a run started in the background was ended with the
+  run anyway, so a teammate that waited for one waited for nothing. Commands and helpers now run where the run can
+  see them finish. Two resumed runs were also seen ending about a minute in with "aborted tools" after an earlier run
+  had left a background job behind; this removes that leftover, and we will watch whether it stops.
+- **A step with nothing inside it is just a line.** A step whose thought was only its own headline used to open onto
+  an empty quote bar and wear a chevron. It is now a plain line with nothing to open.
+- **A button you clicked no longer wears the keyboard's focus ring.** The ring comes back when you use the keyboard
+  (Tab, the arrow keys, Enter, Escape and so on); text fields keep theirs.
+
 ## 0.874.0 - 2026-11-13
 
 ### New
