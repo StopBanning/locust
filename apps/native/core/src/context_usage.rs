@@ -113,3 +113,62 @@ mod ledger_tests {
         assert_eq!(t.context.as_ref().unwrap().percent, 10);
     }
 }
+
+#[cfg(test)]
+mod renderer_ring_tests {
+    use crate::{ledger::Transcript, relay::mission_cost_from_events};
+    use serde_json::{Value, json};
+
+    fn long_run() -> Value {
+        json!({"usd":3.06,"inputTokens":46,"outputTokens":31000,
+            "cacheReadTokens":4796000,"cacheWriteTokens":182697,"contextWindow":1000000})
+    }
+    fn receipt(usage: Value) -> Value {
+        json!({"id":"e","runId":"r","missionId":"m","sequence":1,
+            "occurredAt":"2026-09-23T04:22:00.000Z","sourceAdapter":"claude",
+            "type":"run.completed","payload":{"usage":usage,"process":{}}})
+    }
+    fn transcript(usage: Value) -> Transcript {
+        let mut t = Transcript::default();
+        t.apply(vec![json!({"recordType":"mission.event","event":receipt(usage)})]);
+        t
+    }
+    #[test]
+    fn reads_what_the_conversation_held_after_the_last_call_not_the_run_added_up() {
+        let mut usage = long_run();
+        usage["contextTokens"] = json!(236757);
+        let t = transcript(usage);
+        let reading = t.context.unwrap();
+        assert_eq!((reading.used, reading.window, reading.percent), (236757, 1000000, 24));
+        assert_eq!(reading.sentence(), "Context: 237k of 1.0M used, 24%");
+    }
+    #[test]
+    fn draws_nothing_for_a_receipt_that_cannot_say_what_the_conversation_held() {
+        assert!(super::Reading::from_usage(&long_run()).is_none());
+        assert!(transcript(long_run()).context.is_none());
+    }
+    #[test]
+    fn carries_no_dollar_figure_nobody_paid_it() {
+        let mut usage = long_run();
+        usage["contextTokens"] = json!(236757);
+        usage["billing"] = json!("subscription");
+        let cost = mission_cost_from_events(&[receipt(usage)]).unwrap();
+        assert_eq!(cost.usd, None);
+        assert!(cost.plan);
+    }
+    #[test]
+    fn says_on_its_receipt_that_the_plan_covered_it() {
+        let mut usage = long_run();
+        usage["contextTokens"] = json!(236757);
+        usage["billing"] = json!("subscription");
+        let event = receipt(usage);
+        let cost = mission_cost_from_events(&[event.clone()]).unwrap();
+        assert_eq!(crate::benchmark::cost_line(Some(&cost)).as_deref(), Some("in your plan"));
+        assert_eq!(crate::inspector::cost_label_and_line(&[event], false), ("Cost", "in your plan".into()));
+    }
+    #[test]
+    fn keeps_the_dollars_on_a_run_with_no_subscription_behind_it() {
+        let cost = mission_cost_from_events(&[receipt(long_run())]).unwrap();
+        assert_eq!(crate::benchmark::cost_line(Some(&cost)).as_deref(), Some("$3.06"));
+    }
+}

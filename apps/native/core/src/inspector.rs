@@ -367,6 +367,13 @@ pub fn produced_files(events: &[Value], workspace_path: Option<&str>) -> Vec<Art
 }
 
 pub fn cost_label_and_line(events: &[Value], running: bool) -> (&'static str, String) {
+    // Subscription receipts report API-equivalent dollars and token totals too.
+    // State the actual billing before falling back to measured usage.
+    if let Some(cost) = crate::relay::mission_cost_from_events(events)
+        && cost.plan && cost.usd.is_none() && cost.premium_requests.is_none()
+    {
+        return ("Cost", "in your plan".into());
+    }
     let mut usd: Option<f64> = None;
     let mut input_tokens: u64 = 0;
     let mut output_tokens: u64 = 0;

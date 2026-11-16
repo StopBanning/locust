@@ -1083,7 +1083,7 @@ apps/desktop/src/renderer/src/the-picker-reads-as-names.test.tsx		waiting
 apps/desktop/src/renderer/src/the-plan-marks-the-step-underway.test.tsx		waiting		
 apps/desktop/src/renderer/src/the-plus-menu-says-what-each-droplet-does.test.tsx		waiting		
 apps/desktop/src/renderer/src/the-rail-clock-is-made-once.test.ts		waiting		
-apps/desktop/src/renderer/src/the-ring-reads-what-the-conversation-holds.test.ts	P5	waiting	only_runtime_measured_context_is_shown	`the-ring-reads-what-the-conversation-holds.test.ts` | `only_runtime_measured_context_is_shown` checks the runtime denominator, absent/zero usage, percentage cap and exact 164k/200k sentence. Cost/subscription totals and exact SVG path asse
+apps/desktop/src/renderer/src/the-ring-reads-what-the-conversation-holds.test.ts	P5	waiting	context_usage::renderer_ring_tests	5 exact cases: last-call context, missing reading, subscription dollars omitted, plan receipt wording (inspector and formatter), ordinary dollars. Five cases remain: ring cost exclusion, mixed cost, totals (2), pie geometry. See notes/RENDERER-NOTES.md renderer-9. Status stays waiting.
 apps/desktop/src/renderer/src/the-runtimes-wear-their-marks.test.tsx		waiting		
 apps/desktop/src/renderer/src/the-screens-say-less.test.ts		waiting		
 apps/desktop/src/renderer/src/the-talk-button-sits-beside-the-microphone.test.tsx		waiting		
