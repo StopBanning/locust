@@ -179,3 +179,31 @@ fn a_pick_a_teammate_wears_keeps_its_files_for_them() {
     assert_eq!(wearers(&s, "reaper"), vec!["Wren".to_owned()]);
     assert!(wearers(&s, "pixel-terminal").is_empty());
 }
+
+fn pet(source: PetSource, id: &str, name: &str) -> PublicPet {
+    PublicPet { source, id: id.into(), display_name: name.into(), description: String::new(), rows: 11 }
+}
+
+#[test]
+fn codexs_pets_and_a_worn_pet_not_offered_follow_the_picks_and_say_where_they_come_from() {
+    let mochi = pet(PetSource::Codex, "mochi", "Mochi");
+    let cat = pet(PetSource::Bundled, "hoodie-cat", "Hoodie Cat");
+    let reaper = pet(PetSource::Gallery, "reaper", "Reaper");
+    let installed = vec![mochi.clone(), cat.clone(), reaper];
+    // Codex's always; the bundled cat only while worn; a gallery pick never (it has its own tile).
+    assert_eq!(other_pets(Some(&installed), None), vec![mochi.clone()]);
+    let worn_cat = PetRef { source: PetSource::Bundled, id: "hoodie-cat".into(), screen: None };
+    assert_eq!(other_pets(Some(&installed), Some(&worn_cat)), vec![mochi.clone(), cat]);
+    // Worn, not offered, the list not read yet: its tile now, named by its id.
+    assert_eq!(other_pets(None, Some(&worn_cat)).iter().map(|p| p.display_name.clone()).collect::<Vec<_>>(), vec!["hoodie-cat".to_owned()]);
+    assert_eq!(pet_origin(PetSource::Codex), "from Codex");
+    assert_eq!(pet_origin(PetSource::Bundled), "comes with Locust");
+    assert_eq!(pet_origin(PetSource::Gallery), "from openpets.dev");
+    let mut s = form(None);
+    s.pet_picks.installed = Some(installed);
+    let rt = render(s);
+    let tiles = radios_in(&rt, "team-pets");
+    assert_eq!(tiles.len(), PET_PICKS.len() + 1);
+    let last = tiles.last().unwrap();
+    assert_eq!((last["name"].as_str(), last["description"].as_str()), (Some("Mochi"), Some("Mochi, from Codex")));
+}

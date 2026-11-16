@@ -53,7 +53,8 @@ de-duplicated per id across threads (an add holds one lock; a thumbnail read twi
    `<native>/pets`, never Electron's folder; Codex's read where they are). Remove some... / Remove N / Show removed
    (`usePetRemoval`) built the same day: tick mode, the report in Electron's words, a worn pick's files kept for its
    wearers, removed picks hidden until shown and added again when picked; 7 breaks caught. Still to do: reading
-   Electron's own added pets, and showing the installed non-pick pets (Codex's) as tiles (`otherPets`).
+   Electron's own added pets. (`otherPets` built 16 Nov: Codex's pets and a worn pet not offered, after the picks, each
+   drawn as itself and named with where it comes from; 4 breaks caught.)
 3. ~~A pet playing its teammate's activity~~ built 16 Nov (`src/ui/pet_faces.rs`: each worn pet's sheet cut into cells off the
    window thread, the row for its activity from `pet_motion`, the window woken at its next cell, a bot's ring and dot
    kept; the bot stands in until the sheet is ready or when it cannot be read). Not yet seen with a real sheet on screen.

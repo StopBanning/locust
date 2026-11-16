@@ -286,6 +286,36 @@ pub(crate) fn confirm_removing(s: &mut State) {
     });
 }
 
+/// Where a pet comes from (`petOrigin`).
+pub(crate) fn pet_origin(source: PetSource) -> &'static str {
+    match source {
+        PetSource::Bundled => "comes with Locust",
+        PetSource::Gallery => "from openpets.dev",
+        PetSource::Codex => "from Codex",
+    }
+}
+
+/// The pets shown after the picks (`otherPets`): Codex's, the worn one when it is on the list and not offered, and a worn
+/// one not offered whose list is not read yet, by its id until it is.
+pub(crate) fn other_pets(installed: Option<&[PublicPet]>, worn: Option<&PetRef>) -> Vec<PublicPet> {
+    let offered = |source: PetSource, id: &str| source == PetSource::Gallery && PET_PICKS.iter().any(|(pick, _, _)| *pick == id);
+    let same = |pet: &PublicPet| worn.is_some_and(|w| w.source == pet.source && w.id == pet.id);
+    let mut out: Vec<PublicPet> = installed
+        .unwrap_or_default()
+        .iter()
+        .filter(|pet| pet.source == PetSource::Codex || (same(pet) && !offered(pet.source, &pet.id)))
+        .cloned()
+        .collect();
+    if let Some(w) = worn
+        && !offered(w.source, &w.id)
+        && w.source != PetSource::Codex
+        && !installed.unwrap_or_default().iter().any(|pet| same(pet))
+    {
+        out.push(PublicPet { source: w.source, id: w.id.clone(), display_name: w.id.clone(), description: String::new(), rows: 9 });
+    }
+    out
+}
+
 /// The words a tile says when hovered (`title` in PetPickTiles).
 pub(crate) fn tile_help(name: &str, here: bool) -> String {
     if here { name.to_owned() } else { format!("{name}: downloads from openpets.dev when picked") }
@@ -344,12 +374,6 @@ pub(crate) fn row_of_pets(s: &State, avatar: &AvatarSpec, l: &crate::look::contr
     let worn = avatar.pet.as_ref();
     let picks = &s.pet_picks;
     let mut grid = row().key("team-pets").role("radiogroup").label("Pets").w_full().gap(6.0).flex_wrap();
-    // A pet the teammate wears that is not offered keeps its tile, shown as chosen.
-    if picks.ticked.is_none()
-        && let Some(pet) = worn.filter(|p| !(p.source == PetSource::Gallery && PET_PICKS.iter().any(|(id, _, _)| *id == p.id)))
-    {
-        grid = grid.child(tile(l, picture(s, &pet.id, l), format!("team-pet-{}", pet.id), &pet.id, true, false));
-    }
     for (id, name, _) in PET_PICKS {
         let gone = picks.removed.iter().any(|r| r == id);
         // Removed picks are left out, unless the person asked to see them (and is not choosing more to remove).
@@ -393,6 +417,27 @@ pub(crate) fn row_of_pets(s: &State, avatar: &AvatarSpec, l: &crate::look::contr
             t = t.on_press(move |s: &mut State| pick(s, id));
         }
         grid = grid.child(t);
+    }
+    // Codex's pets, and a worn pet that is not offered, after the picks (`otherPets`); none while choosing to remove.
+    if picks.ticked.is_none() {
+        for pet in other_pets(picks.installed.as_deref(), worn) {
+            let chosen = worn.is_some_and(|w| w.source == pet.source && w.id == pet.id);
+            let worn_ref = PetRef { source: pet.source, id: pet.id.clone(), screen: None };
+            let slot = format!("look-pet-{}", pet.id);
+            let inner = crate::pet_faces::pet_face(s, &slot, &worn_ref, locust_core::bot_rig::FaceActivity::Idle, 34.0, None, !l.k.dark)
+                .unwrap_or_else(|| row().w(34.0).h(34.0).radius(8.0).fill(l.c("bg-raised")));
+            let said = format!("{}, {}", pet.display_name, pet_origin(pet.source));
+            let (source, id) = (pet.source, pet.id.clone());
+            grid = grid.child(
+                tile(l, inner, format!("team-pet-{}", pet.id), &pet.display_name, chosen, false)
+                    .help(said.clone())
+                    .description(said)
+                    .on_press(move |s: &mut State| {
+                        s.pet_picks.notice = None;
+                        wear(s, &id, source);
+                    }),
+            );
+        }
     }
     let muted = |words: String| text(words).font(type_::LABEL).color(l.c("text-muted")).wrap();
     let credit = row()
