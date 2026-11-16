@@ -1,0 +1,49 @@
+# Pets (parity row 14, "Pet gallery, kept pets, sprites/puppets and bulk removal")
+
+Electron sources: `main/pet-library.ts` (668), `shared/pet-picks.ts`, `shared/pets.ts`, `main/webp-size.ts`,
+`shared/avatar.ts` (`PetRef`, `isPetId`), `renderer/src/pets.ts`, `petMotion.ts`, `petPuppets.ts`, `petScreens.ts`,
+`components/PetPicks.tsx`, `PetSprite.tsx`, `PetPuppet.tsx`. Tests: `main/a-pet-sheet-is-checked-before-it-is-kept.test.ts`,
+`renderer/src/a-pet-plays-what-its-teammate-is-doing.test.ts`, `a-teammate-can-be-a-pet.test.tsx`, `the-kept-pets-are-puppets.test.tsx`.
+
+## What a pet is
+`pet.json` beside `spritesheet.webp`: an atlas of 8 columns of 192 x 208 frames, 9 rows (version 1) or 11 (version 2; the last
+two rows are a head turned toward each of 16 directions, and column 6 of row 0 is the resting pose). A pet on a teammate is a
+`PetRef` (source `bundled` | `gallery` | `codex`, an id, an optional `screen`). The window never names a path or an address.
+
+## Three sources
+1. **Bundled**: Hoodie Cat (`resources/pets/hoodie-cat`, MIT, OpenPets' own), the only pet in the installer.
+2. **Gallery** (openpets.dev): never shipped (community art, rights stay with makers). Downloaded on the person's click, one
+   file (`spritesheet.webp`; Locust writes its own `pet.json`). Only the 21 PET_PICKS (Colin's kept list, 2026-10-03) are offered;
+   any other id is refused before anything is fetched (`That pet is not one Locust offers.`).
+3. **Codex**: `~/.codex/pets`, read where it is, never written, at most 100.
+
+## Rules ported exactly (core/src/pet_library.rs, pets.rs)
+- Limits: pet.json 128 KB, sheet 24 MB, thumbnail 1 MB, catalog JSON 4 MB, catalog fresh 6 h, 400 thumbnails kept, 30 s timeout.
+- `parsedPetMeta`: id = folder, name 1-120, description <= 500 (may be absent/empty), `spritesheetPath` exactly `spritesheet.webp`,
+  version absent = 1, exactly the number 2 = 2; each refusal worded as Electron words it. Lengths are counted in UTF-16 units.
+- `catalogAddress`: https, host `openpets.dev`, path under `/pets/` (`/pets/catalog.v3/` for catalog pages), no port, no
+  credentials, no `..`, 2048 chars at most.
+- Gallery search index and catalog page: an entry that does not read is left out, never the whole page.
+- Disk: no link is followed (a linked root, a linked pet folder, a linked file are all refused), a file's size is checked before
+  and after reading, its resolved path must stay inside the root, the sheet's first 30 bytes are read for size and alpha.
+- `petRowsFor`: version 2 exact (1536 x 2288, transparent); version 1 eight across, nine down, frames within 2% of 192:208
+  and between half and twice the usual size; an animated or opaque sheet is refused.
+- Removal: a pick taken out of the picker is remembered in `pets-removed.json` (`{schemaVersion:1, ids}`, one write at a time,
+  temp file then rename); a pet a teammate wears keeps its files (`keepFiles`); adding a pick again brings it back; a list that
+  does not read is "nothing removed".
+
+## Built here (this file's commit)
+Pure core: `core/src/pets.rs` (WebP header reader, sheet rows, state rows and timings, gaze cells), `core/src/pet_library.rs`
+(picks, meta, addresses, gallery/catalog parsing, the on-disk library: list, sheet, removed picks, remove, bring back),
+`core/src/pet_library_tests.rs` (one case each, Electron's values).
+
+## Not built yet (in order)
+1. The download half of the library: `add`, `thumbnail`, the catalog index (the six refusals in Electron's words: unreachable,
+   sent somewhere else, answered N, larger than a pet, unreadable catalog, not listed). `ureq` is already a core dependency;
+   a fetch trait keeps it testable with a served gallery as Electron's test does. Final-URL check, size counted as it arrives.
+2. The picker row beside Bot in the new-teammate dialog and the editor (PetPicks.tsx): tiles with thumbnails, search, the
+   "As drawn / Screen" choice (already in `look_picker.rs`), Remove N.
+3. A pet playing its teammate's activity (`petMotion.ts`: activity -> state map, frame at time, fade, glance cell) and drawing a
+   sheet frame (WebP decode needs an image decoder in the window crate; Codex Buddy is the only pet drawn today, as a screen).
+4. Puppets (`petPuppets.ts`, `petScreens.ts`): the kept pets drawn as rigs; large.
+5. Bulk removal UI.

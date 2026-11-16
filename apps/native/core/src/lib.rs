@@ -228,6 +228,10 @@ pub mod git_quiet;
 pub mod face_status;
 pub mod face_legend;
 pub mod look_picker;
+pub mod pet_library;
+pub mod pets;
+#[cfg(test)]
+mod pet_library_tests;
 pub mod cover_activity;
 
 #[cfg(test)]
