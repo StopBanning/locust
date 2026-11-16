@@ -1054,7 +1054,7 @@ apps/desktop/src/renderer/src/the-cover-grows-into-spare-height.test.tsx		waitin
 apps/desktop/src/renderer/src/the-cover-notices-you.test.ts		waiting		
 apps/desktop/src/renderer/src/the-effort-control-is-claude-codes.test.tsx		waiting		
 apps/desktop/src/renderer/src/the-effort-thumb-follows-the-pointer.test.ts		waiting		
-apps/desktop/src/renderer/src/the-face-legend-shows-every-face.test.tsx		waiting		
+apps/desktop/src/renderer/src/the-face-legend-shows-every-face.test.tsx	LOOK	carried	core/src/face_legend_tests.rs; settings_panel::tests::face_legend_tests	5 of 5 carried, named after them: four in core (every face once, names, dots, times), the button and its real face in the window. notes/LOOK-NOTES.md
 apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	p14	partial		`shared/file-menu.test.ts`, `main/reveal-file.test.ts`, `renderer/.../the-file-viewer-renders-and-never-runs.test.tsx` | Partial: menu labels, containment, decide_reveal, relative/system paths; live Finder open, editor launch, “never runs” 
 apps/desktop/src/renderer/src/the-first-send-cannot-spend.test.ts		waiting		
 apps/desktop/src/renderer/src/the-flat-sidebar.test.ts	RELAY	partial	src/ui/sidebar.rs	Native ordering helpers, chain rows, and 1-level relayed origin nesting (sidebar::review_tests::relayed_conversations_nest_one_level_deep_under_their_origin) covered; face filter, compact flyout and TS presentation assertions remain unported.

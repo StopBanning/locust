@@ -154,3 +154,40 @@ All **16 were caught by a named test** (`~/work/scratch/mut6.py`, whole package,
 - **Full release workspace run** (`notes/look-suite.log`): **2,190 engine + 528 window passed**, 0 failed, 20 ignored.
   Every test named above passed by name.
 - **Release build:** passed.
+
+## Verification: the legend (step 3)
+
+### What was different, and is now Electron's
+
+- **Faces.** Rust showed six faces side by side. Now one droid goes through Electron's eight in turn.
+- **Words.** "Resting" is now "Idle", and "Waiting" is now "Waiting on you". "Replying" and "Listening" were missing
+  and are now there.
+- **Look.**
+  - A blue circle at 26 is now a teal droid at 40, with eyes. Like Electron's, its screen is left unset, so it wears a
+    screen while Terminal faces is on.
+  - It moves at Subtle (TeammateBot's default), as before.
+- **Dots.** There were none. Now each face wears its dot: white while working, amber while waiting, red when
+  blocked.
+- **The row.** It now has Electron's words beside it (`legend_lede`), which change with Terminal faces.
+- **Pressing.** A press shows the next face.
+- **Resting.**
+  - It rests while the window is not focused or motion is reduced.
+  - It starts again from Idle when Appearance is shown again, because Electron's component mounts afresh.
+
+### Tests and checks
+
+- **`the-face-legend-shows-every-face.test.tsx` is carried, 5 of 5.**
+  - Four cases are in core, `face_legend::tests`: every face once, the names, the dots, and the times.
+  - The fifth is in the window: `settings_panel::tests::face_legend_tests::is_a_button_that_says_which_face_it_shows_the_face_under_it_a_real_teammate_face`.
+- **Behaviour tests for the timer**, each one a behaviour of FaceLegend.tsx:
+  - core, 4 tests: the timer, resting, going round again, and the lede;
+  - window, 3 tests: a press, each face's time with the amber dot, and resting then starting from Idle.
+- **Break checks:** all 6 legend breaks were caught by a named test (`notes/look-breaks.log`). The core breaks `c09`
+  and `c10` above also apply to the legend.
+- **Full release workspace run** (`notes/legend-suite.log`): **2,191 engine + 532 window passed**, 0 failed, 20
+  ignored. All 12 legend tests passed by name.
+- **Release build:** passed.
+- **Ledger** (`recount.py --check` passes):
+  - Row 3 moves from `missing` to `partial`. Rows are now 71 done, 66 partial, 16 missing.
+  - Test files: 202 carried, 192 partial, 853 waiting.
+  - `every-teammate-is-a-bot` is 11 of 14 (step 2).

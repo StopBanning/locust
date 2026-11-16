@@ -2344,6 +2344,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     changed |= ledger_tick(s, now, tx);
     changed |= s.handoff_glances.expire(now);
     changed |= teammate_faces::tick(s, now);
+    changed |= settings_panel::tick_face_legend(s, now, tx);
     drain_queue_after_turn(s, tx);
     changed |= s
         .bot_stage

@@ -13,6 +13,8 @@ use crate::workspace_settings::{
 #[derive(Default)]
 pub(super) struct Panel {
     pub open: bool,
+    /// "What a face says": which face the legend shows, and since when.
+    pub face_legend: locust_core::face_legend::LegendClock,
     pub page: Option<SettingsPageId>,
     pub search: TextEdit,
     pub settings: workspace_settings::WorkspaceSettings,
@@ -450,6 +452,103 @@ fn deferred(heading: &str, p: &Palette) -> El {
         )
 }
 
+/// The page Settings shows: the one picked, while the search still finds it, else the first the search finds.
+fn shown_page(s: &State) -> Option<SettingsPageId> {
+    let query = s.settings_panel.search.text.trim().to_owned();
+    s.settings_panel
+        .page
+        .filter(|id| query.is_empty() || settings_pages::page_matches(settings_pages::page_by_id(*id), &query))
+        .or_else(|| {
+            SETTINGS_PAGES
+                .iter()
+                .find(|page| query.is_empty() || settings_pages::page_matches(page, &query))
+                .map(|p| p.id)
+        })
+}
+
+/// In `poll`: the face legend's clock, while Appearance is on screen (FaceLegend.tsx 71-76). It rests while the window
+/// is not focused or motion is reduced; off screen it starts again from Idle, as the component does when it mounts.
+pub(super) fn tick_face_legend(s: &mut State, now: f64, tx: &mut Tx) -> bool {
+    use locust_core::face_legend::LegendClock;
+    if !(s.settings_panel.open && shown_page(s) == Some(SettingsPageId::Appearance)) {
+        s.settings_panel.face_legend = LegendClock::default();
+        return false;
+    }
+    let paused = !s.window_focused || s.reduced_motion.get();
+    let changed = s.settings_panel.face_legend.tick(now, paused);
+    if let Some(due) = s.settings_panel.face_legend.due_in(now) {
+        tx.wake_after(Duration::from_secs_f64(due.max(0.016)));
+    }
+    changed
+}
+
+/// "What a face says" (FaceLegend.tsx): one teammate, a teal droid with eyes at 40, going through every face in turn,
+/// each with its dot and its name under it. A press shows the next.
+fn face_legend(s: &State, p: &Palette, l: &crate::look::controls::Look) -> El {
+    use crate::look::bot_stage::PresenceDot;
+    use locust_core::face_legend::{legend_lede, legend_label, legend_name, legend_presence, LEGEND_HUE, LEGEND_SHAPE, LEGEND_SIZE};
+    use locust_core::face_status::Presence;
+    let step = s.settings_panel.face_legend.shown();
+    let name = legend_name(step.activity);
+    let presence = match legend_presence(step.activity) {
+        Presence::Working => Some(PresenceDot::Working),
+        Presence::Approval => Some(PresenceDot::Waiting),
+        Presence::Blocked => Some(PresenceDot::Blocked),
+        Presence::None => None,
+    };
+    let look = locust_core::native::FaceLook {
+        hue: LEGEND_HUE.into(),
+        parts: Some([0, 0, 0]),
+        bot: Some((LEGEND_SHAPE.into(), "eyes".into())),
+        bot_screen: None,
+        pet: None,
+    };
+    let face = crate::look::faces::bot_face_with_look(
+        s,
+        "settings-face-legend",
+        "settings-face-legend",
+        &name,
+        Some(&look),
+        LEGEND_SIZE,
+        crate::look::faces::BotFaceOpts {
+            activity: step.activity,
+            presence,
+            motion: locust_core::bot_rig::BotMotionLevel::Subtle,
+            ..Default::default()
+        },
+        l,
+    );
+    let legend = col()
+        .key("settings-face-legend")
+        .role("button")
+        .label(legend_label(step.activity))
+        .focusable(true)
+        .focus_ring(2.0, 2.0, l.c("focus-ring"))
+        .center()
+        .gap(4.0)
+        .padding(6.0)
+        .radius(8.0)
+        .hover(l.c("hover-surface"))
+        .on_press(|s: &mut State| s.settings_panel.face_legend.press())
+        .child(face)
+        .child(text(name).key("settings-face-legend-name").font(type_::LABEL).color(p.secondary).a11y_hidden());
+    row()
+        .key("settings-face-legend-row")
+        .w_full()
+        .gap(12.0)
+        .padding(10.0)
+        .center_y()
+        .child(
+            col()
+                .grow(1.0)
+                .shrink()
+                .gap(6.0)
+                .child(text("What a face says".to_owned()).font(type_::TITLE).color(p.text))
+                .child(text(legend_lede(s.settings_panel.settings.terminal_faces).to_owned()).font(type_::LABEL).color(p.secondary).wrap()),
+        )
+        .child(legend)
+}
+
 fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
     let query = s.settings_panel.search.text.trim().to_owned();
     let meta = settings_pages::page_by_id(page);
@@ -669,52 +768,7 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                             ),
                     );
                 } else if heading == "What a face says" {
-                    let states = [
-                        ("Resting", locust_core::bot_rig::FaceActivity::Idle),
-                        ("Thinking", locust_core::bot_rig::FaceActivity::Thinking),
-                        ("Working", locust_core::bot_rig::FaceActivity::Working),
-                        ("Waiting", locust_core::bot_rig::FaceActivity::Waiting),
-                        ("Done", locust_core::bot_rig::FaceActivity::Done),
-                        ("Blocked", locust_core::bot_rig::FaceActivity::Blocked),
-                    ];
-                    let mut strip = row().w_full().gap(10.0).wrap();
-                    for (label, act) in states {
-                        let slot = format!("settings-legend-{label}");
-                        strip = strip.child(
-                            row()
-                                .center_y()
-                                .gap(6.0)
-                                .child(crate::look::faces::bot_face_with_look(
-                                    s,
-                                    &slot,
-                                    &slot,
-                                    label,
-                                    Some(&locust_core::native::FaceLook {
-                                        hue: "blue".into(),
-                                        parts: Some([0, 0, 0]),
-                                        bot: Some(("circle".into(), "eyes".into())),
-                                        bot_screen: Some(terminal_faces),
-                                        pet: None,
-                                    }),
-                                    26.0,
-                                    crate::look::faces::BotFaceOpts {
-                                        activity: act,
-                                        motion: locust_core::bot_rig::BotMotionLevel::Subtle,
-                                        ..Default::default()
-                                    },
-                                    &l,
-                                ))
-                                .child(text(label.to_owned()).font(type_::LABEL).color(p.secondary)),
-                        );
-                    }
-                    body = body.child(
-                        col()
-                            .w_full()
-                            .gap(6.0)
-                            .padding(10.0)
-                            .child(text("What a face says".to_owned()).font(type_::TITLE).color(p.text))
-                            .child(strip),
-                    );
+                    body = body.child(face_legend(s, p, &l));
                 } else if heading == "Plush" {
                     body = body.child(
                         col()
@@ -1230,19 +1284,7 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
         );
     }
 
-    let page = s
-        .settings_panel
-        .page
-        .filter(|id| {
-            query.is_empty()
-                || settings_pages::page_matches(settings_pages::page_by_id(*id), &query)
-        })
-        .or_else(|| {
-            SETTINGS_PAGES
-                .iter()
-                .find(|page| query.is_empty() || settings_pages::page_matches(page, &query))
-                .map(|p| p.id)
-        });
+    let page = shown_page(s);
 
     let mut content = col().grow(1.0).min_h(0.0).min_w(0.0).scroll(ScrollSpec {
         stick_bottom: false,
@@ -1443,6 +1485,102 @@ mod tests {
         assert!(s.settings_panel.error.is_empty());
         assert_eq!(fingerprint(&electron), before);
         fs::remove_dir_all(root).unwrap();
+    }
+
+    // the-face-legend-shows-every-face.test.tsx, its fifth case; the other four are core's `face_legend::tests`.
+    mod face_legend_tests {
+        use super::*;
+        use crate::look::bot_stage::PresenceDot;
+        use locust_core::bot_rig::FaceActivity;
+
+        fn legend_window() -> rune::Runtime<State> {
+            let mut s = State::default();
+            scene(&mut s);
+            s.window_focused = true;
+            let mut rt = rune::Runtime::new(s, |s, _| view(s, &Palette::new(true)), (1100.0, 2400.0), rune::Env::new(true, 1.0));
+            rt.frame(0.0);
+            rt
+        }
+
+        fn legend_node(rt: &rune::Runtime<State>) -> serde_json::Value {
+            fn find(node: &serde_json::Value) -> Option<serde_json::Value> {
+                if node["key"] == "settings-face-legend" {
+                    return Some(node.clone());
+                }
+                node["children"].as_array()?.iter().find_map(find)
+            }
+            find(&rt.accessibility_json()).expect("the face legend in the accessibility tree")
+        }
+
+        fn shown_name(rt: &rune::Runtime<State>) -> Option<String> {
+            rt.elements().into_iter().find(|e| e.key.as_deref() == Some("settings-face-legend-name")).and_then(|e| e.text)
+        }
+
+        fn tick(rt: &mut rune::Runtime<State>, now: f64) {
+            rt.update(move |s, tx| {
+                tick_face_legend(s, now, tx);
+            });
+            rt.frame(0.016);
+        }
+
+        #[test]
+        fn is_a_button_that_says_which_face_it_shows_the_face_under_it_a_real_teammate_face() {
+            let rt = legend_window();
+            let legend = legend_node(&rt);
+            assert_eq!(legend["role"], "button");
+            assert_eq!(legend["name"], "A teammate's face: Idle. Show the next one.");
+            assert_eq!(rt.state.bot_stage.desired_activity("settings-face-legend"), Some(FaceActivity::Idle));
+            assert_eq!(crate::look::faces::drawn_look("settings-face-legend"), Some(("droid".into(), "teal".into())));
+            assert_eq!(shown_name(&rt).as_deref(), Some("Idle"));
+            let face = rt.elements().into_iter().find(|e| e.key.as_deref() == Some("bot-settings-face-legend")).expect("the live face");
+            assert_eq!((face.rect[2], face.rect[3]), (40.0, 40.0));
+        }
+
+        #[test]
+        fn a_press_shows_the_next_face_with_its_dot_and_its_name() {
+            let mut rt = legend_window();
+            let (x, y) = rt.find("settings-face-legend").unwrap();
+            rt.pointer_down(x, y);
+            rt.pointer_up(x, y);
+            rt.frame(0.016);
+            assert_eq!(rt.state.bot_stage.desired_activity("settings-face-legend"), Some(FaceActivity::Thinking));
+            assert_eq!(crate::look::faces::drawn_presence("settings-face-legend"), Some(Some(PresenceDot::Working)));
+            assert_eq!(shown_name(&rt).as_deref(), Some("Thinking"));
+            assert_eq!(legend_node(&rt)["name"], "A teammate's face: Thinking. Show the next one.");
+        }
+
+        #[test]
+        fn each_face_has_its_time_then_the_next_comes_and_waiting_wears_the_amber_dot() {
+            let mut rt = legend_window();
+            let mut now = 100.0;
+            tick(&mut rt, now);
+            for (seconds, next) in [(2.6, "Thinking"), (3.4, "Working"), (3.0, "Replying"), (2.8, "Done"), (2.4, "Waiting on you")] {
+                tick(&mut rt, now + seconds - 0.1);
+                assert_ne!(shown_name(&rt).as_deref(), Some(next), "too soon for {next}");
+                now += seconds;
+                tick(&mut rt, now);
+                assert_eq!(shown_name(&rt).as_deref(), Some(next));
+            }
+            assert_eq!(crate::look::faces::drawn_presence("settings-face-legend"), Some(Some(PresenceDot::Waiting)));
+        }
+
+        #[test]
+        fn it_rests_behind_other_windows_and_starts_from_idle_when_appearance_is_shown_again() {
+            let mut rt = legend_window();
+            rt.update(|s, _| s.window_focused = false);
+            tick(&mut rt, 0.0);
+            tick(&mut rt, 60.0);
+            assert_eq!(shown_name(&rt).as_deref(), Some("Idle"), "behind other windows it stops where it is");
+            rt.update(|s, _| s.window_focused = true);
+            tick(&mut rt, 61.0);
+            tick(&mut rt, 63.6);
+            assert_eq!(shown_name(&rt).as_deref(), Some("Thinking"));
+            rt.update(|s, _| s.settings_panel.page = Some(SettingsPageId::App));
+            tick(&mut rt, 64.0);
+            rt.update(|s, _| s.settings_panel.page = Some(SettingsPageId::Appearance));
+            rt.frame(0.016);
+            assert_eq!(shown_name(&rt).as_deref(), Some("Idle"));
+        }
     }
 
     #[test]
