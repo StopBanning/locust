@@ -948,3 +948,12 @@ No live window, real agent, packaged app or Electron/JavaScript gate is run.
   27 still waiting). No exclusions added. The requested list is unfinished.
 - Recount and --check passed; `git diff --check` and mutation-runner Python
   syntax check passed. Release binary build is running separately.
+
+### Teammate work age section — verified
+
+- All four `people_panel::renderer_work_age_tests` passed by name in both
+  restored runs, including the final green 2609-test confirmation. Committed
+  separately after the completed ring section. Only the clock injection was
+  factored; production time labels retain the same behavior.
+- teammateWork.test.ts stays waiting for its six ownership/usage cases.
+  No full-file parity claim is made for those four verified age cases.

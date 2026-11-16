@@ -488,8 +488,12 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
 
 /// Electron's agoLabel: "just now", "5 minutes ago", "1 week ago".
 pub(super) fn ago_label(iso: &str) -> Option<String> {
+    ago_label_at(iso, chrono::Utc::now())
+}
+
+fn ago_label_at(iso: &str, now: chrono::DateTime<chrono::Utc>) -> Option<String> {
     let at = chrono::DateTime::parse_from_rfc3339(iso).ok()?;
-    let seconds = (chrono::Utc::now() - at.with_timezone(&chrono::Utc)).num_seconds();
+    let seconds = (now - at.with_timezone(&chrono::Utc)).num_seconds();
     if seconds < 60 {
         return Some("just now".into());
     }
@@ -1423,5 +1427,37 @@ mod renderer_defaults_tests {
         let words = texts(&rt);
         assert!(!words.contains("dropped into Locust"));
         assert!(words.contains("can add the team from it with Add team from image"), "{words}");
+    }
+}
+
+
+#[cfg(test)]
+mod renderer_work_age_tests {
+    use super::ago_label_at;
+
+    fn age(iso: &str) -> Option<String> {
+        ago_label_at(iso, chrono::DateTime::parse_from_rfc3339("2026-09-03T12:00:00.000Z").unwrap().with_timezone(&chrono::Utc))
+    }
+
+    #[test]
+    fn reads_in_the_largest_unit_that_fits() {
+        assert_eq!(age("2026-09-03T11:58:00.000Z").as_deref(), Some("2 minutes ago"));
+        assert_eq!(age("2026-09-03T09:00:00.000Z").as_deref(), Some("3 hours ago"));
+        assert_eq!(age("2026-09-01T12:00:00.000Z").as_deref(), Some("2 days ago"));
+        assert_eq!(age("2026-08-20T12:00:00.000Z").as_deref(), Some("2 weeks ago"));
+    }
+    #[test]
+    fn singularises_honestly() {
+        assert_eq!(age("2026-09-03T11:00:00.000Z").as_deref(), Some("1 hour ago"));
+        assert_eq!(age("2026-09-02T12:00:00.000Z").as_deref(), Some("1 day ago"));
+    }
+    #[test]
+    fn calls_anything_under_a_minute_just_now_including_a_clock_that_ran_ahead() {
+        assert_eq!(age("2026-09-03T11:59:30.000Z").as_deref(), Some("just now"));
+        assert_eq!(age("2026-09-03T12:00:30.000Z").as_deref(), Some("just now"));
+    }
+    #[test]
+    fn says_nothing_for_a_timestamp_it_cannot_read() {
+        assert_eq!(age("not a date"), None);
     }
 }
