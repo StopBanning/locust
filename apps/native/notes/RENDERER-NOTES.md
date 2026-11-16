@@ -976,3 +976,52 @@ No live window, real agent, packaged app or Electron/JavaScript gate is run.
   persisted waitFor wiring; teammateWork needs six ownership/usage cases.
   Two missing Electron source paths are recorded above. No further file is
   claimed carried, and no full-task completion is claimed.
+
+
+## Renderer-11 — working-face rule cases (prepared)
+
+- Started from f7ff9ceb with a clean tracked tree. The round-3 leftovers in
+  the handoff are already committed; nothing needed stashing or discarding.
+- Read a-teammate-at-work-goes-round-its-faces.test.ts, faceLife.ts,
+  faceState.ts, TeammateBot.tsx's rules and native bot_rig/buddy_moves/bot_stage.
+  Twelve separate Rust cases in renderer_work_faces_tests preserve Electron's
+  activities, seeds, counts, timings and twelve-step Antigravity tool sequence.
+  The typed LiveRuntimeEvent inputs retain exactly the fields these rules read;
+  transport ids, timestamps and text are not inputs to this function.
+- Verification pending in renderer-11-workspace.log. First invocation was made
+  from the repository root and exited 101 before finding Cargo.toml; corrected
+  by running from apps/native. No test pass is claimed for that invocation.
+- Important integration gap: bot_stage does not call worn_activity,
+  everyday_face or working_beat_for. Home, roster and sidebar mostly draw
+  static faces. Passing the pure rule tests therefore cannot carry this file.
+  Its manifest row stays waiting, with this limitation recorded explicitly.
+- Other inspected gaps remain applicable: plain conversations lack reply/live
+  avatars; phone listing has no native phone module; the teammate folder row
+  needs connector/permission behavior; new-page preview and queued waitFor
+  remain as described above. None is excluded as Electron plumbing.
+- A working-cycle negative control has been added; not yet run. All runs use
+  gentle-cargo, one whole release workspace at a time, with target and the
+  existing TypeScript reader inside this workspace, serial test execution,
+  and GIT_OPTIONAL_LOCKS=0. No outside-workspace mutation script is accessed.
+
+
+### Renderer-11 next section — newest turns (prepared)
+
+- Read a-long-conversation-opens-on-its-newest-turns.test.tsx and Thread.tsx's
+  budget policy. Native previously constructed every item. Added a whole-turn
+  budget underneath message_column, with per-conversation expansion state and
+  a real Show earlier turns button. The current turn is outside the budget;
+  the newest earlier turn always stays. Prompt-rail jumps reveal all turns
+  before resolving their target, retaining access to old messages.
+- Three exact index/budget cases in thread_view::renderer_newest_tests and
+  two actual headless message-column cases in messages::renderer_newest_tests.
+  Added a real-pointer interaction check for expansion and conversation isolation.
+  All pending verification; manifest row stays waiting until named passes.
+- Native budgets its own ledger items, including prompt rows, instead of
+  constructing Electron's intermediate React row tree. Exact 20-by-60 and
+  3-by-5 fixtures preserve the pinned visible range and words.
+
+- renderer-11-workspace.log completed exit 0: 2116 core + 505 window tests
+  passed, 20 real-agent cases ignored, doc tests 0. All twelve work-face cases
+  observed passing by name. This run predates the newest-turn changes; those
+  are not claimed verified. Commit the rule tests as a bounded partial section.

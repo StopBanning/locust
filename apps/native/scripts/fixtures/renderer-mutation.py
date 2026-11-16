@@ -10,6 +10,18 @@ import subprocess
 import sys
 
 CONTROLS = {
+    "newest-budget": (
+        "core/src/thread_view.rs",
+        'used.saturating_add(sizes[first - 1]) <= budget',
+        'used.saturating_add(sizes[first - 1]) <= usize::MAX',
+        "the_newest_turns_whose_rows_fit_oldest_first_index",
+    ),
+    "working-cycle": (
+        "core/src/bot_rig.rs",
+        'WORKING_BEATS[(start + count as usize) % WORKING_BEATS.len()]',
+        'WORKING_BEATS[start % WORKING_BEATS.len()]',
+        "goes_round_all_of_them_in_turn_each_face_from_a_place_of_its_own",
+    ),
     "ring-plan": (
         "core/src/benchmark.rs",
         'if shown == "plan" || shown.is_empty() { return None; }',

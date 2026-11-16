@@ -225,3 +225,6 @@ pub mod teammate_tooltip;
 
 #[cfg(test)]
 mod renderer_eye_tests;
+
+#[cfg(test)]
+mod renderer_work_faces_tests;
