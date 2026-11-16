@@ -3,6 +3,8 @@ use serde_json::{Value, json};
 #[derive(Default)]
 pub(super) struct Panel {
     pub open: bool,
+    pub model_open: bool,
+    pub route_changed: bool,
     pub month_job: Latest<Result<Vec<locust_core::usage::UsageTurn>, String>>,
     pub month_turns: Vec<locust_core::usage::UsageTurn>,
     pub month_error: Option<String>,
@@ -110,7 +112,7 @@ fn reload(s: &mut State) {
     }
 }
 pub(super) fn edit(s: &mut State, id: Option<&str>) {
-    let mut entry = id.and_then(|id|s.people_panel.team["teammates"].as_array()?.iter().find(|t|t["teammateId"] == id)).cloned().unwrap_or_else(||json!({"teammateId":"","role":"Custom","route":{"runtime":"codex","model":"account-default","mode":"ask"}}));
+    let mut entry = id.and_then(|id|s.people_panel.team["teammates"].as_array()?.iter().find(|t|t["teammateId"] == id)).cloned().unwrap_or_else(||json!({"teammateId":"","role":"Custom"}));
     if id.is_none() {
         let taken: Vec<&str> = s.people_panel.team["teammates"].as_array().into_iter().flatten().filter_map(|t| t["hue"].as_str()).collect();
         entry["hue"] = json!(people::fresh_hue(&taken));
@@ -137,8 +139,14 @@ pub(super) fn edit(s: &mut State, id: Option<&str>) {
         .filter(|s| !s.is_empty())
         .map(str::to_owned);
     s.people_panel.limit = field(&entry["monthlyLimitUsd"].as_f64().map(|n| format!("{n:.2}")).unwrap_or_default());
+    s.people_panel.model_open = false;
+    s.people_panel.route_changed = false;
     s.people_panel.entry = entry;
     s.people_panel.form_open = true;
+    if s.engine.is_some() && !s.models.contains_key(LEDGER_TARGET) {
+        crate::open_models(s, LEDGER_TARGET.into());
+        s.model_menu = None;
+    }
 }
 fn done(s: &mut State, result: Result<(), String>) {
     match result {
@@ -189,6 +197,7 @@ fn build_entry_from_form(s: &State) -> Option<Value> {
     for (i, key) in [(3, "runtime"), (4, "model"), (6, "mode")] {
         entry["route"][key] = json!(fields[i].text.trim());
     }
+    entry["route"].as_object_mut()?.remove("effort");
     if !fields[5].text.trim().is_empty() {
         entry["route"]["effort"] = json!(fields[5].text.trim());
     }
@@ -200,6 +209,9 @@ fn build_entry_from_form(s: &State) -> Option<Value> {
     } else {
         entry["route"]["account"] = Value::Null;
     }
+    if !s.people_panel.route_changed && s.people_panel.entry.get("route").is_none() {
+        entry.as_object_mut()?.remove("route");
+    }
     let limit = locust_core::teammate_month::parsed_limit(&s.people_panel.limit.text).ok()?;
     let editing = !entry["teammateId"].as_str().unwrap_or("").is_empty();
     let said = locust_core::teammate_month::limit_said(limit, editing, entry["monthlyLimitUsd"].as_f64());
@@ -208,6 +220,105 @@ fn build_entry_from_form(s: &State) -> Option<Value> {
         else { entry["monthlyLimitUsd"] = value.clone(); }
     }
     Some(entry)
+}
+
+/// The dialog shares the composer's catalog and picker; a pick edits only this form.
+fn shown_route(s: &State) -> Option<locust_core::groups::GroupRoute> {
+    let f = &s.people_panel.fields;
+    if s.people_panel.route_changed || s.people_panel.entry["route"].is_object() {
+        Some(locust_core::groups::GroupRoute {
+            runtime: f.get(3)?.text.clone(), model: f.get(4)?.text.clone(),
+            effort: f.get(5).map(|f| f.text.clone()).filter(|v| !v.is_empty()),
+            mode: f.get(6)?.text.clone(), account: s.people_panel.account.clone(),
+        })
+    } else { crate::group_settings_dialog::current_composer_route(s) }
+}
+pub(super) fn pick_model(s: &mut State, pick: TurnPick) {
+    let was = shown_route(s).unwrap_or(locust_core::groups::GroupRoute {
+        runtime: "codex".into(), model: "account-default".into(), mode: "ask".into(), effort: None, account: None,
+    });
+    let runtime = pick.runtime.unwrap_or_else(|| was.runtime.clone());
+    let same = runtime == was.runtime && pick.model == was.model;
+    s.people_panel.fields[3] = field(&runtime);
+    s.people_panel.fields[4] = field(&pick.model);
+    s.people_panel.fields[5] = field(if same { was.effort.as_deref().unwrap_or("") } else { "" });
+    s.people_panel.fields[6] = field(if locust_core::mode_facts::runs_on(&was.mode, &runtime) { &was.mode } else { "ask" });
+    s.people_panel.account = pick.account.unwrap_or(was.account);
+    s.people_panel.route_changed = true;
+    s.people_panel.model_open = false;
+}
+fn set_form_account(s: &mut State, account: Option<String>) {
+    let Some(route) = shown_route(s) else { return };
+    pick_model(s, TurnPick { model: route.model, runtime: Some(route.runtime), effort: route.effort, account: Some(account) });
+}
+/// GPT IDs remain readable before discovery has supplied the model's own name.
+fn model_fallback_name(id: &str) -> String {
+    let Some(rest) = id.strip_prefix("gpt-") else { return id.to_owned() };
+    let mut parts = rest.split('-');
+    let mut name = format!("GPT-{}", parts.next().unwrap_or_default());
+    for part in parts {
+        name.push(' ');
+        let mut chars = part.chars();
+        if let Some(c) = chars.next() { name.extend(c.to_uppercase()); }
+        name.extend(chars);
+    }
+    name
+}
+fn model_row(s: &State, p: &Palette) -> El {
+    let l = crate::look::controls::Look::new(p.dark);
+    let route = shown_route(s);
+    let catalog = s.models.get(LEDGER_TARGET);
+    let mut row_ = col().w_full().gap(6.0).child(text("Model").font(type_::LABEL).color(p.secondary));
+    let label = route.as_ref().map(|r| {
+        let name = catalog.into_iter().flatten().filter(|a| a.runtime == r.runtime)
+            .flat_map(|a| &a.models).find(|m| m.id == r.model).map(|m|m.name.clone())
+            .unwrap_or_else(|| model_fallback_name(&r.model));
+        format!("{} / {}", engine::runtime_name(&r.runtime), name)
+    }).unwrap_or_else(|| "The chat box’s, when they start".into());
+    row_ = row_.child(text(label).key("team-model-name").color(p.text));
+    if !s.people_panel.route_changed && !s.people_panel.entry["route"].is_object() && route.is_some() {
+        row_ = row_.child(text("the chat box's, until you pick one").color(p.muted));
+    }
+    // Native always has a model provider when its engine is connected.
+    if s.engine.is_some() {
+        row_ = row_.child(button("Change", p).key("team-model-change").on_press(|s: &mut State| {
+            crate::open_models(s, LEDGER_TARGET.into());
+            s.model_menu = None;
+            s.people_panel.model_open = !s.people_panel.model_open;
+        }));
+    }
+    if route.is_some() || s.people_panel.model_open {
+        // A new team can have no composer route yet. The picker still offers every
+        // discovered model; this display fallback is never saved unless picked.
+        let route = route.unwrap_or(locust_core::groups::GroupRoute {
+            runtime: "claude".into(), model: "account-default".into(), mode: "ask".into(), effort: None, account: None,
+        });
+        let model = catalog.into_iter().flatten().filter(|a| a.runtime == route.runtime)
+            .flat_map(|a| &a.models).find(|m| m.id == route.model);
+        if s.people_panel.model_open {
+            let mate = Teammate { id: LEDGER_TARGET.into(), name: "".into(), role: "".into(), runtime: Some(route.runtime.clone()),
+                model: Some(route.model.clone()), account: route.account.clone(), busy: false, runs_in: route.mode.clone(), folder: None };
+            row_ = row_.child(crate::thread_view::model_picker(s, &l, LEDGER_TARGET, &mate, None, &route.model, route.effort.as_deref(), true));
+        } else if let Some(model) = model.filter(|m| !m.efforts.is_empty()) {
+            let levels = &model.efforts;
+            let shown = route.effort.as_deref().unwrap_or_else(|| if levels.iter().any(|e| e == "medium") { "medium" } else { &levels[levels.len()/2] });
+            let mut stops = row().key("team-effort").gap(6.0).child(text("Effort").color(p.secondary));
+            for (i, level) in levels.iter().enumerate() {
+                let mut title = level.clone();
+                if let Some(first) = title.get_mut(0..1) { first.make_ascii_uppercase(); }
+                let choice = level.clone();
+                stops = stops.child(crate::look::controls::chip(&l, &title, level == shown).key(format!("team-effort-{i}"))
+                    .role("radio").label(format!("{title}: {}", if level == shown { "selected" } else { "not selected" }))
+                    .on_press(move |s: &mut State| {
+                        let Some(r) = shown_route(s) else { return };
+                        pick_model(s, TurnPick { model: r.model, runtime: Some(r.runtime), effort: None, account: Some(r.account) });
+                        s.people_panel.fields[5] = field(&choice);
+                    }));
+            }
+            row_ = row_.child(stops);
+        }
+    }
+    row_
 }
 
 fn form_name_clash(s: &State) -> Option<String> {
@@ -602,12 +713,14 @@ pub(super) fn edit_form(s: &State, p: &Palette) -> El {
     // The look comes before the role, as in Electron's dialog.
     form = form.child(crate::look_picker::section(s, &l));
     for (i, label) in ["Name", "Role", "Instructions", "Runtime", "Model", "Effort", "Mode", "Folder"].into_iter().enumerate().skip(1) {
-        if panel.fields.get(i).is_some() {
+        if !matches!(i, 3..=5) && panel.fields.get(i).is_some() {
             form = form.child(text(label).font(type_::LABEL).color(p.secondary)).child(field(i, label));
         }
     }
+    form = form.child(model_row(s, p));
     let limit_error = locust_core::teammate_month::parsed_limit(&panel.limit.text).err();
-    let runtime_now = panel.fields.get(3).map(|f| f.text.trim()).unwrap_or("");
+    let effective_route = shown_route(s);
+    let runtime_now = effective_route.as_ref().map(|r|r.runtime.as_str()).unwrap_or("");
     if let Some(agent) = locust_core::agent_accounts::Agent::parse(runtime_now) {
         let policy = locust_core::org_policy::current();
         let allowed = locust_core::org_policy::feature_refusal(Some(&policy), "accounts").is_none();
@@ -637,7 +750,7 @@ pub(super) fn edit_form(s: &State, p: &Palette) -> El {
                     panel.account.is_none(),
                     p,
                 )
-                .on_press(|s: &mut State| s.people_panel.account = None),
+                .on_press(|s: &mut State| set_form_account(s, None)),
             );
             for acc in matches {
                 let acc_id = acc.id.clone();
@@ -649,7 +762,7 @@ pub(super) fn edit_form(s: &State, p: &Palette) -> El {
                 };
                 choices = choices.child(
                     pick_btn(label, format!("team-account-{}", acc.id), selected, p)
-                        .on_press(move |s: &mut State| s.people_panel.account = Some(acc_id.clone())),
+                        .on_press(move |s: &mut State| set_form_account(s, Some(acc_id.clone()))),
                 );
             }
             form = form
@@ -1638,4 +1751,139 @@ mod renderer_month_tests {
         let mut s=state(Some(5.)); s.people_panel.month_error=Some("ledger unavailable".into());
         let text=shown(s); assert!(text.contains("This month's spending could not be read: ledger unavailable")); assert!(!text.contains("$0.00 of $5.00"));
     }
+}
+
+#[cfg(test)]
+mod renderer_model_tests {
+    use super::*;
+    fn form(own: Option<Value>, picker: bool, levels: &[&str]) -> State {
+        let mut s = State::default();
+        crate::team_scene(&mut s);
+        s.engine = None; // Seed the reported catalog; no CLI discovery in a unit test.
+        s.teammates[0].runtime = Some("claude".into());
+        s.teammates[0].model = Some("sonnet".into());
+        s.teammates[0].runs_in = "accept-edits".into();
+        let mut wren = json!({"teammateId":"tm_wren","name":"Wren","hue":"lime","role":"Code & Migrations","createdAt":"2026-09-05T05:00:00.000Z","avatar":{"shape":"classic","eyes":"dots","antenna":"single","mouth":"smile"}});
+        if let Some(own) = own { wren["route"] = own; }
+        s.people_panel.team = json!({"teammates":[wren]});
+        edit(&mut s, Some("tm_wren"));
+        if picker { s.engine = Some(Kind::Native); }
+        s.models.insert(LEDGER_TARGET.into(), vec![engine::Models { teammate:None,runtime:"codex".into(),model:None,effort:None,
+            models:vec![engine::Model {id:"gpt-6-luna".into(),name:"GPT-6 Luna".into(),efforts:levels.iter().map(|s|s.to_string()).collect()}] }]);
+        s
+    }
+    const LEVELS: &[&str] = &["low","medium","high","xhigh"];
+    fn own(effort: Option<&str>) -> Value {
+        let mut r = json!({"runtime":"codex","model":"gpt-6-luna","mode":"ask"});
+        if let Some(e) = effort { r["effort"] = json!(e); } r
+    }
+    fn render(s: State) -> rune::Runtime<State> {
+        let mut rt = rune::Runtime::new(s, |s,_| edit_form(s,&Palette::new(true)), (1100.,2200.),rune::Env::new(true,1.));
+        rt.frame(0.); rt
+    }
+    fn texts(rt: &rune::Runtime<State>) -> String { rt.elements().into_iter().filter_map(|e|e.text).collect::<Vec<_>>().join("\n") }
+    #[test]
+    fn names_the_model_the_teammate_runs_on_and_offers_the_chats_own_picker() {
+        let mut s = form(Some(own(Some("low"))),true,LEVELS);
+        s.models.insert(LEDGER_TARGET.into(), vec![]); // Electron's empty picker catalog.
+        let rt = render(s);
+        assert!(texts(&rt).contains("Codex / GPT-6 Luna"));
+        assert!(rt.find("team-model-change").is_some());
+        assert!(!texts(&rt).contains("Whichever route is active when a mission starts"));
+    }
+    #[test]
+    fn says_a_teammate_with_none_of_its_own_takes_the_chat_boxs_until_one_is_picked() {
+        let mut s = form(None,true,LEVELS);
+        edit(&mut s, None); // No initial teammate, as in the Electron creation case.
+        s.models.insert(LEDGER_TARGET.into(), vec![]);
+        let rt = render(s);
+        assert!(texts(&rt).contains("the chat box's, until you pick one"));
+        assert!(texts(&rt).contains("Claude Code / sonnet"));
+        assert!(build_entry_from_form(&rt.state).unwrap().get("route").is_none());
+    }
+    #[test]
+    fn offers_nothing_to_press_when_there_is_no_picker_to_open() {
+        let rt = render(form(None,false,LEVELS));
+        assert!(rt.find("team-model-change").is_none());
+    }
+    #[test]
+    fn states_the_teammates_own_level_with_this_models_stops() {
+        let rt = render(form(Some(own(Some("high"))),true,LEVELS));
+        for i in 0..4 { assert!(rt.find(&format!("team-effort-{i}")).is_some()); }
+        assert!(rt.find("team-effort-4").is_none());
+        assert!(rt.elements().iter().any(|e|e.label.as_deref()==Some("High: selected")));
+    }
+    #[test]
+    fn says_the_models_default_when_the_teammate_has_no_level_of_its_own() {
+        let rt = render(form(Some(own(None)),true,LEVELS));
+        assert!(rt.elements().iter().any(|e|e.label.as_deref()==Some("Medium: selected")));
+    }
+    #[test]
+    fn is_not_offered_for_a_model_that_reports_no_levels() {
+        let rt = render(form(Some(own(None)),true,&[]));
+        assert!(rt.find("team-effort").is_none());
+    }
+    fn click(rt: &mut rune::Runtime<State>, key: &str) {
+        let (x,y)=rt.find(key).unwrap_or_else(||panic!("missing {key}"));
+        rt.pointer_down(x,y); rt.pointer_up(x,y); rt.frame(0.1);
+    }
+    #[test]
+    fn picking_a_model_and_effort_updates_only_the_form_and_saves_the_exact_route() {
+        let mut s = form(None,true,LEVELS);
+        s.people_panel.model_open = true;
+        let before = s.picks.clone();
+        let mut rt = render(s);
+        click(&mut rt,"model-codex-gpt-6-luna");
+        assert_eq!(rt.state.picks,before);
+        assert_eq!(rt.state.teammates[0].runtime.as_deref(),Some("claude"));
+        assert!(!rt.state.people_panel.model_open);
+        click(&mut rt,"team-effort-2");
+        let saved = build_entry_from_form(&rt.state).unwrap();
+        assert_eq!(saved["route"]["runtime"],"codex");
+        assert_eq!(saved["route"]["model"],"gpt-6-luna");
+        assert_eq!(saved["route"]["effort"],"high");
+        assert_eq!(saved["route"]["mode"],"accept-edits");
+    }
+    #[test]
+    fn a_different_model_clears_the_previous_level_and_the_same_model_keeps_it() {
+        let mut s = form(Some(own(Some("high"))),true,LEVELS);
+        pick_model(&mut s, TurnPick {model:"gpt-6-luna".into(), runtime:Some("codex".into()), effort:None, account:Some(None)});
+        assert_eq!(build_entry_from_form(&s).unwrap()["route"]["effort"],"high");
+        pick_model(&mut s, TurnPick {model:"sonnet".into(), runtime:Some("claude".into()), effort:Some("high".into()), account:Some(None)});
+        let saved = build_entry_from_form(&s).unwrap();
+        assert!(saved["route"].get("effort").is_none());
+        assert_eq!(saved["route"]["runtime"],"claude");
+        assert_eq!(saved["route"]["mode"],"ask");
+    }
+
+    #[test]
+    fn a_new_team_without_a_composer_route_can_still_pick_its_first_model() {
+        let mut s = form(None,true,LEVELS);
+        s.teammates.clear();
+        s.demo = true; // Change uses the seeded catalog without launching discovery.
+        edit(&mut s, None);
+        let mut rt = render(s);
+        assert!(texts(&rt).contains("The chat box’s, when they start"));
+        assert!(build_entry_from_form(&rt.state).unwrap().get("route").is_none());
+        click(&mut rt,"team-model-change");
+        assert!(rt.state.people_panel.model_open);
+        click(&mut rt,"model-codex-gpt-6-luna");
+        let saved = build_entry_from_form(&rt.state).unwrap();
+        assert_eq!(saved["route"]["runtime"],"codex");
+        assert_eq!(saved["route"]["model"],"gpt-6-luna");
+        assert!(rt.state.picks.is_empty());
+    }
+
+    #[test]
+    fn choosing_an_account_on_an_inherited_route_saves_that_route_without_changing_the_chat() {
+        let mut s = form(None,true,LEVELS);
+        set_form_account(&mut s, Some("account_work".into()));
+        let saved = build_entry_from_form(&s).unwrap();
+        assert_eq!(saved["route"]["runtime"],"claude");
+        assert_eq!(saved["route"]["model"],"sonnet");
+        assert_eq!(saved["route"]["account"],"account_work");
+        assert!(s.picks.is_empty());
+        assert!(s.teammates[0].account.is_none());
+    }
+
 }
