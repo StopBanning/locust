@@ -9,7 +9,10 @@ import subprocess
 import sys
 import tempfile
 
-with tempfile.TemporaryDirectory(prefix='locust-native-', dir='/tmp') as directory:
+# ignore_cleanup_errors: under cargo-nextest each test gets its own folder, removed as soon as it ends, and a test whose
+# child process is still writing (window_drive_tests::install_runs_the_rows_line_and_says_how_it_ended, 16 Nov) made the
+# removal fail after the test had passed.
+with tempfile.TemporaryDirectory(prefix='locust-native-', dir='/tmp', ignore_cleanup_errors=True) as directory:
     root = pathlib.Path(directory).resolve()
     env = dict(os.environ)
     # A real-agent test (LOCUST_REAL_*, run only when asked with --ignored) needs the agents' own logins, which

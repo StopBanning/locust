@@ -6,7 +6,8 @@ compiling there, but not running the tests: a second agent's test binaries ran w
 reached 8-10 (Colin's own Locust froze once). This wrapper holds one lock for the whole cargo run, compile and tests,
 so only one runs at a time; the others wait and say so.
 
-    python3 scripts/gentle-cargo.py test --workspace            # every day and every break check (fast rebuilds)
+    python3 scripts/gentle-cargo.py nextest run --workspace     # every day (cargo-nextest: both test binaries at once)
+    python3 scripts/gentle-cargo.py test -p locust-core         # every break check (debug: fast rebuilds)
     python3 scripts/gentle-cargo.py test --release --workspace  # once before a merge is pushed
     python3 scripts/gentle-cargo.py build --release
 
