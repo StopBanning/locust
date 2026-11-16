@@ -755,7 +755,7 @@ apps/desktop/src/renderer/src/a-pet-canvas-drawn-shrunk-is-in-software.test.ts		
 apps/desktop/src/renderer/src/a-pet-plays-what-its-teammate-is-doing.test.ts		waiting		
 apps/desktop/src/renderer/src/a-phone-lists-conversations.test.ts		waiting		
 apps/desktop/src/renderer/src/a-picker-row-is-named-not-an-id.test.tsx		waiting		
-apps/desktop/src/renderer/src/a-plain-conversation-wears-the-ghost.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-plain-conversation-wears-the-ghost.test.tsx		carried	messages::tests	Three exact cases passed by name in renderer-13-ghost-workspace.log; plain-ghost control caught all three assertions and restored source. See notes/RENDERER-NOTES.md (renderer-13).
 apps/desktop/src/renderer/src/a-plan-card-is-its-own-turns.test.ts		waiting		
 apps/desktop/src/renderer/src/a-plan-shows-what-happened-to-it.test.ts		waiting		
 apps/desktop/src/renderer/src/a-plugged-in-computer-stays-awake-in-settings.test.ts		waiting		

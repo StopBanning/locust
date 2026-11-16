@@ -1286,3 +1286,35 @@ No live window, real agent, packaged app or Electron/JavaScript gate is run.
 - The three valid mutations are restored. Tracked tree clean after commits;
   only the original untracked HANDOFF files remain. Native-only validation:
   no Electron gate, live/packaged window, real agent, other OS, or benchmark.
+
+
+## Renderer-13 — inherited ghost section and runtime selection (in progress)
+
+- Read both inherited diffs. They implement all three cases of
+  `a-plain-conversation-wears-the-ghost.test.tsx`: tm_atlas/droid/blue at 24,
+  anonymous pearl ghost, and the Thinking live row at the epoch. Native's
+  actual transcript draws the owner face beside replies and the live row.
+  No break was left applied; the plain-ghost control is prepared, not yet run.
+- Baseline full release workspace: renderer-13-ghost-workspace.log exited 0: 2126 core + 527 window passed, 20 real-agent cases ignored, doc tests 0. All three ghost tests observed passing by name. This binary predates the runtime-selection changes.
+- Revisited inline new-page preview first. It still needs a per-file embedded
+  isolated browser frame: activity_drawers renders diffs, while reply_page_ui
+  and compare_view only navigate the separate browser panel. A button opening
+  that panel would not carry the four Electron inline-preview cases. Row stays
+  waiting; no exclusion. Following the brief's small-section preference.
+- Next section: first three exact runtime-selection cases from
+  `a-signed-out-teammate-is-not-idle.test.ts` in
+  home_panel::renderer_runtime_tests. Home and Team now select a recorded
+  running runtime, then the newest recorded runtime, then the saved route.
+  Ownership uses the cached missionOwners ids, never a display name, and no
+  new disk access during drawing. Two extra tests check owner separation and
+  the actual Home/Team labels with a ready past Codex mission and signed-out
+  Claude saved route. Verification pending; the row stays waiting: six status,
+  tone and presence cases are not claimed carried by these selection tests.
+
+- Ghost section committed as **82008602** after the three named baseline passes
+  and the valid plain-ghost control. Control exited 0, caught all three intended
+  assertions, restored messages.rs byte for byte: 2126 core passed, 529 window
+  passed and exactly three intentional failures, 20 ignored. No unrelated failure.
+- The five runtime-selection tests all passed by name in that same run (the
+  three Electron cases and two extra regressions). Recorded-runtime control is
+  now running. Ghost inventory row is carried; runtime row remains waiting.
