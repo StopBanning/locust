@@ -72,7 +72,7 @@ pub struct PetGallery {
     adding: Mutex<()>,
 }
 
-fn data_url(bytes: &[u8]) -> String {
+pub(crate) fn data_url(bytes: &[u8]) -> String {
     const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut out = String::from("data:image/webp;base64,");
     for chunk in bytes.chunks(3) {

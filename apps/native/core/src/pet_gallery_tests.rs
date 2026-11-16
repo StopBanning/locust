@@ -373,3 +373,14 @@ fn a_pet_added_meanwhile_by_another_window_stands_and_the_add_says_so_rather_tha
     assert_eq!(added.description, "Theirs.");
     assert_eq!(installed(&root), ["robot"]);
 }
+
+#[test]
+fn a_thumbnail_is_handed_over_as_standard_base64_with_its_padding() {
+    use crate::pet_gallery::data_url;
+    let body = |bytes: &[u8]| data_url(bytes).trim_start_matches("data:image/webp;base64,").to_owned();
+    assert_eq!(body(b"Man"), "TWFu");
+    assert_eq!(body(b"Ma"), "TWE=");
+    assert_eq!(body(b"M"), "TQ==");
+    assert_eq!(body(b""), "");
+    assert_eq!(body(&[0xfb, 0xff, 0xfe]), "+//+");
+}
