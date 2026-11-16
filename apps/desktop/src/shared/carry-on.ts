@@ -2,6 +2,7 @@ import type { MissionRuntimeId } from '@teammate/runtime-adapters'
 
 import type { MissionMode } from './ipc.js'
 import { isMissionRuntime, runtimeDisplayName } from './runtimes.js'
+import { isAccountId } from './agent-accounts.js'
 
 /**
  * WHEN A PLAN RUNS OUT (0.774).
@@ -31,6 +32,8 @@ export interface PlanRunsOut {
 export interface CarryOnRoute {
   readonly runtime: MissionRuntimeId
   readonly model?: string
+  /** Another signed-in account of the SAME agent (0.876): the plan that ran out was one account's, not the agent's. */
+  readonly account?: string
 }
 
 export type CarryOnResponse =
@@ -126,11 +129,12 @@ export function parsedPlanRunsOut(value: unknown): PlanRunsOut | undefined {
 
 export function parsedCarryOnRoute(value: unknown): CarryOnRoute | undefined {
   if (typeof value !== 'object' || value === null) return undefined
-  const { runtime, model } = value as Record<string, unknown>
+  const { runtime, model, account } = value as Record<string, unknown>
   // Gemini is planned: no turn can run on it.
   if (!isMissionRuntime(runtime) || runtime === 'gemini') return undefined
+  if (account !== undefined && !isAccountId(account)) return undefined
   const named = typeof model === 'string' && model.length > 0 && model.length <= 200 && model !== 'account-default' ? model : undefined
-  return { runtime, ...(named === undefined ? {} : { model: named }) }
+  return { runtime, ...(named === undefined ? {} : { model: named }), ...(account === undefined ? {} : { account }) }
 }
 
 /**
@@ -139,15 +143,21 @@ export function parsedCarryOnRoute(value: unknown): CarryOnRoute | undefined {
  */
 export const CARRY_ON_ORDER: readonly MissionRuntimeId[] = ['claude', 'codex', 'cursor', 'copilot', 'antigravity', 'muse', 'opencode']
 
-/** The agent the stopped run's card offers: the person's pick when it can run, else the first in `CARRY_ON_ORDER` that can. */
+/**
+ * The agent the stopped run's card offers: the person's pick when it can run; else another signed-in account of the same
+ * agent whose plan has not run out (0.876: Colin's Max account sat signed in while the card offered Codex CLI); else the
+ * first in `CARRY_ON_ORDER` that can.
+ */
 export function carryOnOffer(
   from: MissionRuntimeId,
   chosen: PlanRunsOut | undefined,
-  ready: ReadonlySet<MissionRuntimeId>
+  ready: ReadonlySet<MissionRuntimeId>,
+  otherAccount?: string
 ): CarryOnRoute | undefined {
   if (chosen !== undefined && chosen.runtime !== from && ready.has(chosen.runtime)) {
     return { runtime: chosen.runtime, ...(chosen.model === undefined ? {} : { model: chosen.model }) }
   }
+  if (otherAccount !== undefined) return { runtime: from, account: otherAccount }
   const runtime = CARRY_ON_ORDER.find((candidate) => candidate !== from && ready.has(candidate))
   return runtime === undefined ? undefined : { runtime }
 }

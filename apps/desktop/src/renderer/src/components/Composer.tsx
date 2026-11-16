@@ -1043,7 +1043,10 @@ export function Composer({
   // The account's window, from the latest reading (SURFACES-0.22 §3): a
   // sentence in the tooltip always; a dot on the chip only from 80%, when a
   // long run might not finish.
-  const usageReading = usageWindows?.get(accountUsageKey(route.runtime, route.account))
+  // A route that names no account runs on the one new conversations use (0.876, Settings > AI agents): said on the chip and
+  // read for its usage, so the box never shows one account while the message goes to another.
+  const routeAccountNow = route.account ?? accounts.find(a => a.runtime === route.runtime && a.forNew === true && a.state === 'ready')?.id
+  const usageReading = usageWindows?.get(accountUsageKey(route.runtime, routeAccountNow))
   const usagePercentNow = usageReading === undefined ? undefined : usagePercent(usageReading)
   const usageSentence = usageReading === undefined
     ? undefined
@@ -3023,7 +3026,7 @@ export function Composer({
                     // the account when one was picked (0.797), and otherwise with the model it turned out to be once a run
                     // has said (0.797, above). That reading is the machine's own sign-in's, so never beside another account.
                     (() => {
-                      const account = running ? routeAccount(activeRoute ?? {}) : route.account
+                      const account = running ? routeAccount(activeRoute ?? {}) : routeAccountNow
                       if (account !== undefined) return <>{runtimeLabel}{` · ${accountName(account)}`}</>
                       return defaultModelName === undefined ? runtimeLabel : (
                         <>
@@ -3035,7 +3038,7 @@ export function Composer({
                     })()
                   ) : (
                     <>
-                      <span className="lc-control__mono lc-control__model">{modelName}{(running ? routeAccount(activeRoute ?? {}) : route.account) !== undefined ? ` \u00b7 ${accountName(running ? routeAccount(activeRoute ?? {}) : route.account)}` : ''}</span>
+                      <span className="lc-control__mono lc-control__model">{modelName}{(running ? routeAccount(activeRoute ?? {}) : routeAccountNow) !== undefined ? ` \u00b7 ${accountName(running ? routeAccount(activeRoute ?? {}) : routeAccountNow)}` : ''}</span>
                       {freeModel && <span className="lc-control__free">Free</span>}
                     </>
                   )}

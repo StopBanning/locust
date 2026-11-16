@@ -25,7 +25,7 @@ export function createAgentAccounts(options: {
   const load = async (): Promise<AgentAccount[]> => {
     try {
       const value: unknown = JSON.parse(await readFile(file, 'utf8'))
-      if (!Array.isArray(value) || !value.every(a => a && isAccountId(a.id) && supportsAccounts(a.runtime) && typeof a.name === 'string' && ['new', 'waiting', 'ready', 'failed'].includes(a.state))) throw new Error('Invalid account list.')
+      if (!Array.isArray(value) || !value.every(a => a && isAccountId(a.id) && supportsAccounts(a.runtime) && typeof a.name === 'string' && ['new', 'waiting', 'ready', 'failed'].includes(a.state) && (a.forNew === undefined || a.forNew === true))) throw new Error('Invalid account list.')
       return value.map(a => a.state === 'waiting' && !pending.has(a.id) ? { ...a, state: 'failed' as const } : a)
     } catch (cause) { if ((cause as NodeJS.ErrnoException).code === 'ENOENT') return []; throw new Error('The saved account list could not be read. No account was changed.') }
   }
@@ -36,6 +36,9 @@ export function createAgentAccounts(options: {
     options.changed?.()
   }
   const homeFor = (a: AgentAccount) => join(root, a.id)
+  /** The list with new conversations of `runtime` on `id` alone, or on none (This Mac's sign-in). */
+  const withForNew = (accounts: readonly AgentAccount[], runtime: AccountAgent, id: string | undefined): AgentAccount[] =>
+    accounts.map(({ forNew: _was, ...x }) => (x.runtime === runtime && x.id === id ? { ...x, forNew: true as const } : x.runtime === runtime ? x : _was === true ? { ...x, forNew: true as const } : x))
   // Fail closed on junctions and symlinks, including the containing directory.
   const ownedHome = async (a: AgentAccount) => {
     const home = homeFor(a)
@@ -98,7 +101,10 @@ export function createAgentAccounts(options: {
           void serial(async () => {
             if (pending.get(a.id) !== job) return
             pending.delete(a.id)
-            await save((await load()).map(x => x.id === a.id ? { ...x, state: ok ? 'ready' : 'failed' } : x))
+            const signed = (await load()).map(x => x.id === a.id ? { ...x, state: ok ? 'ready' as const : 'failed' as const } : x)
+            // Just signed in, and no other account has new conversations: they move to it (0.876).
+            const taken = signed.some(x => x.runtime === a.runtime && x.forNew === true)
+            await save(ok && !taken ? withForNew(signed, a.runtime, a.id) : signed)
           }).catch(() => undefined)
         })
         job.cancel = cancel
@@ -112,6 +118,18 @@ export function createAgentAccounts(options: {
       const a = await get(id); await pending.get(a.id)?.cancel(); pending.delete(a.id)
       await save((await load()).map(x => x.id === a.id && x.state === 'waiting' ? { ...x, state: 'failed' } : x))
     }),
+    /** Puts new conversations of `runtime` on an added, signed-in account, or back on This Mac's sign-in. */
+    useForNew: (runtime: unknown, id: unknown) => serial(async () => {
+      allowed()
+      if (typeof runtime !== 'string' || !supportsAccounts(runtime)) throw new Error('This agent does not support another account.')
+      if (id === undefined) { await save(withForNew(await load(), runtime, undefined)); return }
+      const a = await get(id)
+      if (a.runtime !== runtime) throw new Error('That account belongs to another agent. New conversations are unchanged.')
+      if (a.state !== 'ready') throw new Error(`Sign in to ${a.name} first. New conversations are unchanged.`)
+      await save(withForNew(await load(), runtime, a.id))
+    }),
+    /** The account new conversations of `runtime` run on: an added one that is signed in, else none (This Mac's sign-in). */
+    forNew: (runtime: string): Promise<string | undefined> => serial(async () => (await load()).find(a => a.runtime === runtime && a.forNew === true && a.state === 'ready')?.id),
     async launch(runtime: string, account: string | undefined, launch: ExecutableLaunch): Promise<ExecutableLaunch> {
       if (account === undefined) return launch
       allowed(); const a = await get(account)

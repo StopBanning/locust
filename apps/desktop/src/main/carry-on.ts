@@ -6,6 +6,7 @@ import type { MissionMode } from '../shared/ipc.js'
 import type { CarryOnReason, CarryOnResponse, CarryOnRoute, PlanRunsOut } from '../shared/carry-on.js'
 import { runtimeDisplayName } from '../shared/runtimes.js'
 import { conversationFolder } from './conversation-folder.js'
+import { accountFromRoute } from '../shared/agent-accounts.js'
 
 /**
  * CARRYING THE WORK ON WHEN A PLAN RUNS OUT (0.774, shared/carry-on.ts).
@@ -35,6 +36,8 @@ export interface CarryOnStart {
   readonly from: MissionRuntimeId
   /** The folder an app named for this conversation (0.872, conversation-folder.ts): the carried turn stands there. */
   readonly folder?: string
+  /** Another account of the same agent (0.876). Absent: the agent's own default account. */
+  readonly account?: string
 }
 
 export interface CarryOnOptions {
@@ -101,7 +104,9 @@ export function createCarryOn(options: CarryOnOptions): CarryOn {
     const reason = stoppedFor(recovered)
     if (reason === undefined) return { ok: false, message: 'This turn did not stop on its plan running out or its provider or process failing, so there is nothing to carry on.' }
     const from = recovered.metadata.runtime
-    if (route.runtime === from) return { ok: false, message: reason === 'plan' ? `${runtimeDisplayName(from)} is the agent whose plan ran out.` : `${runtimeDisplayName(from)} is the agent that just failed.` }
+    // The same agent only on another account than the one whose plan ran out (0.876).
+    const sameAccount = route.account === undefined || route.account === accountFromRoute(recovered.metadata.resolvedRouteId)
+    if (route.runtime === from && sameAccount) return { ok: false, message: reason === 'plan' ? `${runtimeDisplayName(from)} is the agent whose plan ran out.` : `${runtimeDisplayName(from)} is the agent that just failed.` }
     const mode = modeOf(recovered)
     const refusal = carryOnRefusal(mode, route.runtime)
     if (refusal !== undefined) return { ok: false, message: refusal }
@@ -110,7 +115,7 @@ export function createCarryOn(options: CarryOnOptions): CarryOn {
     let response: CarryOnResponse
     try {
       const folder = conversationFolder(recovered.metadata.startedBy)
-      response = await options.start({ prompt: carryOnPrompt(from, reason), runtime: route.runtime, model: route.model, mode, followUpOf: missionId, from, ...(folder === undefined ? {} : { folder }) })
+      response = await options.start({ prompt: carryOnPrompt(from, reason), runtime: route.runtime, model: route.model, mode, followUpOf: missionId, from, ...(folder === undefined ? {} : { folder }), ...(route.account === undefined ? {} : { account: route.account }) })
     } catch {
       response = { ok: false, message: 'The turn could not be started. The work stays where it stopped.' }
     }

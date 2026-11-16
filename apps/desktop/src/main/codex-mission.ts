@@ -1,5 +1,5 @@
 import { KEYS_REACH, scrubKeyValues, type RunKey } from '../shared/teammate-keys.js'
-import { accountFromRoute } from '../shared/agent-accounts.js'
+import { accountFromRoute, supportsAccounts } from '../shared/agent-accounts.js'
 import { policyFeatureRefusal, policyTurnRefusal } from '../shared/organization-policy.js'
 import { supportsPerRunBrowserMcp } from '../shared/browser.js'
 import type { BrowserMcpRegistration, BrowserRunContext } from './browser-host.js'
@@ -451,6 +451,12 @@ interface CodexMissionServiceOptions {
    * `discoverForStart`. Passing nothing is the old full sweep.
    */
   readonly discover: (runtimeId?: string, account?: string) => Promise<readonly RuntimeDiscovery[]>
+  /**
+   * The added account new conversations of this agent run on (0.876, Settings > AI agents, Use for new conversations).
+   * A start that names no account runs there, and its route says so, so the ledger, a resume and the usage meter all
+   * read the account it really ran on. Undefined: This Mac's sign-in.
+   */
+  readonly accountForNew?: (runtime: MissionRuntimeId) => Promise<string | undefined>
   /**
    * Bring what the person did in the runtime's own terminal on a conversation
    * into its record, and say its newest turn (0.391; terminal-catch-up.ts).
@@ -1650,6 +1656,11 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
       cloud?: { readonly setUp?: boolean },
       referenceIds?: readonly string[]
     ): Promise<CodexMissionStartResponse> {
+      // No account named: the one new conversations use (0.876), before the policy gate so it judges the real account.
+      if (route.account === undefined && cloud === undefined && supportsAccounts(runtime)) {
+        const forNew = await options.accountForNew?.(runtime).catch(() => undefined)
+        if (forNew !== undefined) route = { ...route, account: forNew }
+      }
       // All callers, including routines, relays, compares, resume and handoffs, cross this gate before I/O.
       const managed = policyTurnRefusal(options.organizationPolicy, { runtime, mode, model: route.model, account: route.account, cloud: cloud !== undefined })
       if (managed !== undefined) return error('POLICY_REFUSED', managed) as CodexMissionStartResponse

@@ -37,6 +37,8 @@ export function AgentAccountsSettings({ runtime, usage }: { readonly runtime: st
   const [message, setMessage] = useState<string>()
   const [busy, setBusy] = useState(false)
   const own = accounts.filter(a => a.runtime === runtime)
+  // New conversations run on the added account that has them, signed in; else on this machine's own sign-in (0.876).
+  const onMac = !own.some(a => a.forNew === true && a.state === 'ready')
   const waiting = own.some(a => a.state === 'waiting')
   useEffect(() => {
     if (!waiting) return
@@ -54,8 +56,11 @@ export function AgentAccountsSettings({ runtime, usage }: { readonly runtime: st
     <div className="lc-agentaccounts__account">
       <span className="lc-agentaccounts__who">
         <span className="lc-agentaccounts__name">{`This ${windowWords().computer}'s sign-in`}</span>
-        <span className="lc-agentaccounts__state">Used when a teammate has no account picked.</span>
+        <span className="lc-agentaccounts__state">{onMac ? 'New conversations use this, and a teammate with no account picked.' : 'Used when a conversation picks it.'}</span>
       </span>
+      {!onMac && <span className="lc-agentaccounts__actions">
+        <button type="button" className="lc-button" disabled={busy || blocked} onClick={() => void act({ kind: 'for-new', runtime })}>Use for new conversations</button>
+      </span>}
     </div>
     {own.map(a => <div className="lc-agentaccounts__account" key={a.id}>
       {editing === a.id ? <form className="lc-agentaccounts__form" onSubmit={event => { event.preventDefault(); void act({ kind: 'rename', id: a.id, name }).then(ok => { if (ok) setEditing(undefined) }) }}>
@@ -65,12 +70,13 @@ export function AgentAccountsSettings({ runtime, usage }: { readonly runtime: st
       </form> : <>
         <span className="lc-agentaccounts__who">
           <span className="lc-agentaccounts__name">{a.name}</span>
-          <span className="lc-agentaccounts__state" role="status">{stateSentence(a.state)}</span>
+          <span className="lc-agentaccounts__state" role="status">{a.forNew === true && a.state === 'ready' ? 'Signed in. New conversations use this account.' : stateSentence(a.state)}</span>
         </span>
         <span className="lc-agentaccounts__actions">
           {a.state === 'waiting'
             ? <button type="button" className="lc-button" disabled={busy || stays !== undefined} onClick={() => void act({ kind: 'cancel', id: a.id })}>Cancel sign-in</button>
             : <button type="button" className="lc-button" disabled={busy || blocked} onClick={() => void act({ kind: 'login', id: a.id })}>{a.state === 'ready' ? 'Sign in again' : 'Sign in'}</button>}
+          {a.state === 'ready' && a.forNew !== true && <button type="button" className="lc-button" disabled={busy || blocked} onClick={() => void act({ kind: 'for-new', runtime, id: a.id })}>Use for new conversations</button>}
           <button type="button" className="lc-button" disabled={busy || blocked} onClick={() => { setEditing(a.id); setName(a.name) }}>Rename</button>
           <button type="button" className="lc-button" disabled={busy || a.state === 'waiting' || stays !== undefined} onClick={() => setRemoving(a)}>Remove</button>
         </span>
