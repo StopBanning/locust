@@ -10,11 +10,11 @@ import { machineWords } from '../../shared/machine-words.js'
 import { routeModelName } from './routeName.js'
 
 /**
- * THE CHIP ALWAYS SAYS WHICH ACCOUNT, ONCE THERE IS MORE THAN ONE (0.876.2).
+ * THE CHIP NAMES AN ADDED ACCOUNT, AND ONLY THAT (0.877.1).
  *
- * Colin, 16 Nov: "How do we see what account is logged into Locust? It's really hard to swap accounts even though we
- * claim to have the ability." On the computer's own sign-in the chip named no account, so beside an added one there was
- * no telling which a conversation would use.
+ * Colin, 16 Nov: "How do we see what account is logged into Locust?" 0.876.2 then named both accounts on the chip, the
+ * added one or "This Mac". Colin, the same day: "I don't know why this Mac has to be here. Kinda ugly." The added
+ * account's name says you are on it; no name is the computer's own sign-in.
  */
 
 const claude = {
@@ -42,38 +42,34 @@ it("names nothing extra while the computer's own sign-in is the only account", (
   adoptAccounts([])
   const html = renderToStaticMarkup(<Composer {...props} />)
   expect(html).not.toContain(here)
-  expect(chipAccountName('claude', undefined, [])).toBeUndefined()
+  expect(chipAccountName(undefined, [])).toBeUndefined()
 })
 
-it("says This Mac on the computer's own sign-in once another account is added", () => {
+it("names nothing for the computer's own sign-in, even beside an added account", () => {
   adoptAccounts([max])
   const html = renderToStaticMarkup(<Composer {...props} />)
-  expect(html).toContain(` · ${here}`)
+  expect(html).not.toContain(here)
   expect(html).not.toContain(' · max')
-})
-
-it('says it beside a named model too, and a default whose model is known', () => {
-  adoptAccounts([max])
   const opus = renderToStaticMarkup(<Composer {...props} route={{ runtime: 'claude', model: 'claude-opus-5-5' }} />)
-  expect(opus).toContain(`${routeModelName('claude', 'claude-opus-5-5')} \u00b7 ${here}`)
+  expect(opus).toContain(routeModelName('claude', 'claude-opus-5-5'))
+  expect(opus).not.toContain(here)
   const known = renderToStaticMarkup(<Composer {...props} resolvedModels={new Map([['claude:account-default', 'claude-opus-5-5']])} />)
-  expect(known).toContain(`${routeModelName('claude', 'claude-opus-5-5')} \u00b7 ${here}`)
+  expect(known).not.toContain(here)
+  expect(chipAccountName(undefined, [max])).toBeUndefined()
 })
 
 it('names the added account when the conversation is on it, or when it is set for new conversations', () => {
   adoptAccounts([max])
   const picked = renderToStaticMarkup(<Composer {...props} route={{ runtime: 'claude', model: 'account-default', account: max.id }} />)
   expect(picked).toContain(' · max')
-  expect(picked).not.toContain(here)
+  const opus = renderToStaticMarkup(<Composer {...props} route={{ runtime: 'claude', model: 'claude-opus-5-5', account: max.id }} />)
+  expect(opus).toContain(`${routeModelName('claude', 'claude-opus-5-5')} · max`)
   adoptAccounts([{ ...max, forNew: true }])
   const forNew = renderToStaticMarkup(<Composer {...props} />)
   expect(forNew).toContain(' · max')
   expect(forNew).not.toContain(here)
 })
 
-it('leaves an agent without accounts alone, and an account of another agent does not count', () => {
-  expect(chipAccountName('opencode', undefined, [max])).toBeUndefined()
-  expect(chipAccountName('codex', undefined, [max])).toBeUndefined()
-  expect(chipAccountName('claude', undefined, [{ ...max, state: 'new' }])).toBe(here)
-  expect(chipAccountName('claude', `account_${'f'.repeat(32)}`, [max])).toBe('Removed account')
+it('says Removed account for an id that is no longer on the list', () => {
+  expect(chipAccountName(`account_${'f'.repeat(32)}`, [max])).toBe('Removed account')
 })
