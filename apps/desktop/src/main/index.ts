@@ -2856,6 +2856,7 @@ if (!ownsSingleInstanceLock) {
         else if (action?.kind === 'remove') await agentAccounts.remove(action.id)
         else if (action?.kind === 'login') await agentAccounts.login(action.id)
         else if (action?.kind === 'cancel') await agentAccounts.cancel(action.id)
+        else if (action?.kind === 'for-new') await agentAccounts.useForNew(action.runtime, action.id)
         else if (action?.kind !== 'list') throw new Error('Choose an account action in Settings.')
         return await agentAccounts.state()
       } catch (cause) {
@@ -2904,6 +2905,7 @@ if (!ownsSingleInstanceLock) {
     const codexMissions = createCodexMissionService({
       references,
       organizationPolicy,
+      accountForNew: (runtime) => agentAccounts.forNew(runtime),
       workspacePath,
       kiloHome: async (conversation) => {
         const folder = join(app.getPath('userData'), KILO_CONVERSATIONS_FOLDER, conversation)
@@ -4336,7 +4338,7 @@ if (!ownsSingleInstanceLock) {
           input.prompt,
           input.runtime,
           input.mode,
-          input.model === undefined ? {} : { model: input.model },
+          { ...(input.model === undefined ? {} : { model: input.model }), ...(input.account === undefined ? {} : { account: input.account }) },
           sendToWindow,
           undefined,
           peer,

@@ -6540,7 +6540,10 @@ export default function App(): ReactElement {
     const reason = carryOnReason(shown.events)
     if (reason === undefined) return undefined
     const from = shown.data.runtime
-    const route = carryOnOffer(from, planRunsOut, carryOnReady)
+    // Another of this agent's signed-in accounts whose plan has not run out (0.876).
+    const ranOutOn = routeAccount(shown.data)
+    const otherAccount = addedAccounts.find((a) => a.runtime === from && a.state === 'ready' && a.id !== ranOutOn && !limitedRuntimes.has(accountUsageKey(from, a.id)))?.id
+    const route = carryOnOffer(from, planRunsOut, carryOnReady, otherAccount)
     if (route === undefined) return undefined
     const missionId = shown.data.missionId
     const pressed = carryingOn?.missionId === missionId ? carryingOn : undefined
@@ -6548,7 +6551,7 @@ export default function App(): ReactElement {
     return {
       from,
       why: reason,
-      label: `Carry on with ${route.model === undefined ? runtimeDisplayName(route.runtime) : modelDisplayName(route.runtime, route.model)}`,
+      label: `Carry on with ${route.model === undefined ? runtimeDisplayName(route.runtime) : modelDisplayName(route.runtime, route.model)}${route.account === undefined ? '' : ` · ${accountName(route.account)}`}`,
       busy,
       ...(pressed?.refused === undefined ? {} : { refused: pressed.refused }),
       onPress: () => {
