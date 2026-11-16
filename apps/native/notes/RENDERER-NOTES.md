@@ -1267,3 +1267,22 @@ No live window, real agent, packaged app or Electron/JavaScript gate is run.
 - Not run: Electron/JavaScript gate, live or packaged window, real agent,
   another OS build, or a performance benchmark. Starter dispatch uses the
   existing send gate; a live starter-button/model turn was not attempted.
+
+### Renderer-12 release build and continuation
+
+- Release binary build exited 0 in 1m 09s (renderer-12-release-build.log),
+  with the same 12 existing native warnings and none in this section's files.
+- Source commits: **949813d4** pending discovery; **d5994318** idle starters
+  and mutation controls. Final verification is committed separately. No push,
+  version, changelog, handoff-file or external-reference change.
+- Final recount/--check: **199 carried, 62 does-not-apply, 185 partial,
+  863 waiting** (1309 total). The requested subset has **23 waiting**;
+  22 of its original 45 are carried. No new exclusion or partial classification.
+- The task remains incomplete. Continue the waiting teammate list before the
+  conversation-only list. Inline new-page preview is still the first applicable
+  gap; pets, real face rotation, queued busy-elsewhere dispatch, route/effort
+  editor, monthly spending, id-based work accounting and the other prior gaps
+  remain. Two inventory paths are absent, as listed above; they were not excluded.
+- The three valid mutations are restored. Tracked tree clean after commits;
+  only the original untracked HANDOFF files remain. Native-only validation:
+  no Electron gate, live/packaged window, real agent, other OS, or benchmark.
