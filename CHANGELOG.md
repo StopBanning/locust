@@ -11,6 +11,19 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.876.0 - 2026-11-16
+
+### Fixed
+
+- **A new conversation uses the account you signed in.** An account added in Settings > AI agents was used only when
+  a conversation picked it in the model menu, so after signing in a second Claude account every new conversation
+  still ran on the older one, and stopped when that account's limit was used up. Now signing in an added account puts
+  new conversations on it, Settings says which account they use, and "Use for new conversations" moves them to
+  another account or back to this computer's own sign-in. The chat box names the account before you send.
+- **A used-up plan offers your other account first.** When a run stops on its account's usage limit and you have
+  another signed-in account of the same agent, the card now offers "Carry on with Claude Code · (that account)"
+  before suggesting a different agent.
+
 ## 0.875.0 - 2026-11-15
 
 ### Fixed
