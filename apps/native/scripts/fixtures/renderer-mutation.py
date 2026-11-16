@@ -10,6 +10,24 @@ import subprocess
 import sys
 
 CONTROLS = {
+    "plan-format": (
+        "core/src/benchmark.rs",
+        'if c.plan {',
+        'if false {',
+        "says_on_its_receipt_that_the_plan_covered_it",
+    ),
+    "queue-isolation": (
+        "src/composer/queue.rs",
+        'if next.key != front.key',
+        'if false',
+        "never_folds_into_another_conversations_message",
+    ),
+    "plan-receipt": (
+        "core/src/inspector.rs",
+        '&& cost.plan && cost.usd.is_none() && cost.premium_requests.is_none()',
+        '&& false && cost.usd.is_none() && cost.premium_requests.is_none()',
+        "says_on_its_receipt_that_the_plan_covered_it",
+    ),
     "prompt-rail-threshold": (
         "src/ui/prompt_rail.rs",
         'messages >= PROMPT_RAIL_MIN && scrollable && !compare && room >= PROMPT_RAIL_ROOM',

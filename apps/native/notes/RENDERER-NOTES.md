@@ -700,3 +700,126 @@ This section is not yet verified and its row remains waiting.
 - Navigation committed as `6a54f3e0`. This continuation carries two full files
   (nine Electron cases), plus fifteen pure eye cases in an incomplete file.
   **17 of 45 requested files carried; 28 waiting.** No does-not-apply additions.
+- Prompt-rail threshold control caught exactly
+  `gives_rail_to_four_messages_when_scrollable_and_room_suffices` and restored
+  prompt_rail.rs byte for byte. Core 2094 passed, 20 ignored; window 489 passed
+  plus one intentional failure. Runner exited 0 (`renderer-8-rail-control-result.log`).
+  All three new controls are caught and restored; no break remains applied.
+- Prompt-rail section committed as `8fe5d864`. Final restored full release
+  workspace and release binary build now follow; no filtered runs were queued.
+
+## Renderer-8 final restored verification
+
+- `renderer-8-restored-workspace.log`: exit 0; **2094 core + 490 window =
+  2584 passed**, **20 ignored** real-agent cases, doc tests 0. All 24 relevant
+  Electron cases observed passing by name (15 pure eye cases, 5 conversation
+  key cases, 4 prompt-rail cases). The existing full-thread rail/jump and
+  folded-group drawing regressions also passed. This verifies the final
+  committed source with every mutation restored.
+- All three new controls caught their named assertion; each restored its source
+  byte for byte. No break remains applied. All Cargo tests were whole release
+  workspace runs through gentle-cargo, one at a time, without filtered runs.
+- The requested handoff remains **unfinished**: **17 of 45 files carried,
+  28 waiting**. The eye file is still waiting: four drawing cases plus actual
+  painter projection/color behavior remain unverified, despite the 15 pure
+  cases passing. Earlier notes list the applicable teammate integration gaps;
+  continue the waiting teammate list before remaining conversation work,
+  starting with the inline new-page preview. No does-not-apply rows added.
+- No Electron/JavaScript gate, live window, real-agent turn, packaged app,
+  signing or release was run. Initial failed runs are recorded above; only
+  this restored run is the final green suite. Release build follows below.
+- Release binary build: exit 0, 1m 19s (`renderer-8-release-build.log`),
+  twelve existing drawing/conductor warnings. No live/packaged verification.
+- `scripts/recount.py` and `--check` passed: 194 carried, 62 does-not-apply,
+  185 partial, 868 waiting, 1309 total; requested subset has 28 waiting.
+  Mutation-script Python syntax and `git diff --check` passed.
+- Commits: `1c64d157` pure eye cases; `6a54f3e0` conversation keys;
+  `8fe5d864` exact prompt-rail labels. Final validation notes committed separately.
+  No source mutation, stash or discarded work remains; original untracked
+  HANDOFF files are unchanged and are not committed.
+
+## Renderer-9 — queue isolation (prepared)
+
+- Initial tracked tree was clean; round-3 leftovers are already committed by
+  intervening sessions. No stash needed. Original HANDOFF files untouched.
+- Read steering.ts and the actual enqueue, drain, Edit/Discard and persistence
+  callers. Added ten separate exact-value cases from
+  `a-queued-message-stays-in-its-conversation.test.ts` in
+  `composer::queue::renderer_conversation_tests` (source order, first ten cases).
+  Native's existing keyed queue suffices for these pure isolation rules.
+- The five remaining cases require busy-other-conversation routing (`waitFor`)
+  and its actual enqueue/display/drain wiring. The row stays waiting. No
+  does-not-apply claim: the React source check pins applicable product behavior.
+- First attempted append used a repository-relative path from apps/native and
+  failed before writing; the concurrent full run is an unchanged baseline,
+  not evidence for the new cases. The next run must include the actual tests.
+
+## Renderer-9 — context receipt (prepared)
+
+- Read cost.ts, ContextRing's native drawing, normalized receipt folding and
+  subscription money classification. Prepared four exact cases from
+  `the-ring-reads-what-the-conversation-holds.test.ts`, each a separate test in
+  `context_usage::renderer_ring_tests`: last-call reading, missing reading,
+  subscription dollars omitted, and ordinary dollars retained. The two
+  reading cases go through the real transcript fold used by the window.
+- Remaining six cases are not claimed: subscription receipt wording (native
+  benchmark::cost_line currently puts token counts before `plan`), ring cost
+  exclusion/mixed costs, aggregate totals, and exact pie geometry. The native
+  ring currently uses a polygon approximation rather than Electron's arc.
+  Row remains waiting; none of those product behaviors is Electron plumbing.
+- Added a fifth ring-file case, `says_on_its_receipt_that_the_plan_covered_it`.
+  It tests both the shared cost formatter and the actual inspector receipt
+  projection. Native now says `Cost` / `in your plan` for subscription-only
+  receipts, before token usage; benchmark cells use the same priority.
+  This supersedes the prepared note's subscription-wording gap. Five other
+  ring-file cases remain unported; the row is still waiting.
+- Added queue-isolation and plan-receipt controls to the existing in-workspace
+  runner. Verification is pending; no mutation is currently applied.
+- `renderer-9-cases-workspace.log`: all ten queue cases observed passing by
+  name; four prepared context cases also passed by name. This compilation
+  predates the fifth case and subscription-wording changes. Core: 2098 passed,
+  20 ignored. Window result follows; no green final-source claim yet.
+- First cases run completed exit 0: **2098 core + 500 window = 2598 passed**,
+  20 real-agent cases ignored, doc tests 0. All ten queue cases passed by name.
+  Committing this verified queue section before running its negative control.
+
+### Renderer-9 case mapping and limits
+
+Queue module: `composer::queue::renderer_conversation_tests`.
+In Electron source order, its first ten cases map to:
+1. `is_its_own_rows_in_the_order_they_were_typed`
+2. `never_folds_into_another_conversations_message`
+3. `still_folds_lines_typed_during_one_run_into_one_message`
+4. `takes_that_conversations_rows_folded_and_leaves_every_other_row_where_it_was`
+5. `takes_nothing_from_a_conversation_with_nothing_queued`
+6. `goes_by_the_row_itself_two_rows_can_be_given_the_same_id`
+7. `empty_that_conversations_queue_and_nobody_elses`
+8. `the_reviewers_case_gems_line_edited_pips_untouched_each_sent_to_its_own`
+9. `sends_each_its_own_as_each_run_ends_in_either_order_the_others_staying_pending`
+10. `sends_nothing_the_words_are_back_in_the_box_not_the_queue_and_leaves_the_other_conversation_queued`
+
+Context module: `context_usage::renderer_ring_tests`.
+Electron cases 1, 2, 3, 4 and 7 map respectively to:
+- `reads_what_the_conversation_held_after_the_last_call_not_the_run_added_up`
+- `draws_nothing_for_a_receipt_that_cannot_say_what_the_conversation_held`
+- `carries_no_dollar_figure_nobody_paid_it`
+- `says_on_its_receipt_that_the_plan_covered_it`
+- `keeps_the_dollars_on_a_run_with_no_subscription_behind_it`
+
+No full-file status advances this section: queue has five remaining cases;
+ring has five remaining cases. Other waiting files remain as recorded above.
+No live window, real agent, packaged app or Electron/JavaScript gate is run.
+
+### Renderer-9 queue control and billing section verification
+
+- Queue control caught exactly
+  `never_folds_into_another_conversations_message` and restored queue.rs byte
+  for byte; `git diff -- src/composer/queue.rs` is empty. Runner exit 0,
+  `renderer-9-queue-control-result.log`. Whole mutant suite: 2099 core passed,
+  20 ignored; 499 window passed, one intentional failure; doc tests 0.
+- All five final context/billing cases observed passing by name in that run.
+  The fifth proves both shared formatter and actual inspector receipt words.
+  Billing section committed on these named passes; its independent negative
+  controls and final restored run follow. No aggregate-cost or pie claim.
+- Warnings match the unchanged baseline: 3 core-test and 11 window-test
+  warnings in existing buddy/drawing/conductor code. None in changed files.

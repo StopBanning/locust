@@ -45,13 +45,13 @@ pub fn cost_line(cost: Option<&RunCost>) -> Option<String> {
             }
         ));
     }
+    if c.plan {
+        return Some("in your plan".into());
+    }
     if c.input_tokens.is_some() || c.output_tokens.is_some() {
         let inp = c.input_tokens.unwrap_or(0);
         let out = c.output_tokens.unwrap_or(0);
         return Some(format!("{} in · {} out", compact_tok(inp), compact_tok(out)));
-    }
-    if c.plan {
-        return Some("in your plan".into());
     }
     None
 }
