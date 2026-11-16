@@ -149,10 +149,30 @@ pub(super) fn sidebar_missions_now(s: &State) -> Vec<SidebarMission> {
     matched
 }
 
+// routeName.ts's own-model identity, rather than any model beginning with "own-".
+fn is_own_mark_model(model: &str) -> bool {
+    model.strip_prefix("own-").and_then(|rest| rest.split_once('/'))
+        .is_some_and(|(id, name)| id.len() == 8 && !name.is_empty()
+            && id.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)))
+}
+
 fn mission_row(s: &State, p: &Palette, item: &SidebarMission, picked: bool) -> El {
     let recent = s.recent.iter().find(|r| r.id == item.mission_id);
     let l = crate::look::controls::Look::new(p.dark);
-    let mut title = row().w_full().center_y().gap(6.0).child(
+    let mut title = row().w_full().center_y().gap(6.0);
+    let owner = item.owner_id.clone().or_else(|| s.data.as_ref().and_then(|store| people::owner_of(store, &item.mission_id)));
+    if !owner.as_deref().is_some_and(|id| s.teammates.iter().any(|mate| mate.id == id)) {
+        let summary = s.ledger_summaries.get(&item.mission_id);
+        let mark = summary.filter(|m| !m.runtime.is_empty() && !m.model.is_empty() && !is_own_mark_model(&m.model))
+            .and_then(|m| crate::look::controls::agent_mark(&l, &m.runtime, 13.0, l.c("text-muted"))
+                .map(|mark| row().size(18.0, 18.0).center().child(mark)
+                    .key(format!("conversation-runtime-{}", item.mission_id))
+                    .role("img").label(locust_core::inspector::runtime_display_name(&m.runtime))));
+        title = title.child(mark.unwrap_or_else(|| el().size(18.0, 18.0).radius(4.0)
+            .border(1.0, l.c("border-hairline")).a11y_hidden()
+            .key(format!("conversation-nobody-{}", item.mission_id))));
+    }
+    title = title.child(
         text(item.title.clone())
             .font(rune::TextStyle::new(13.5, 500.0))
             .color(l.c("text-name"))
@@ -514,6 +534,52 @@ fn section_label(p: &Palette, words: &str) -> El {
     crate::look::controls::label(&l, words).w_full().px(10.0).pt(16.0).pb(6.0)
 }
 
+/// Same nesting order for drawing and keyboard navigation; folded groups never enter it.
+fn nested_order(list: &[SidebarMission]) -> Vec<&SidebarMission> {
+    let shown: std::collections::HashSet<_> = list.iter().map(|m| m.mission_id.as_str()).collect();
+    let mut out = Vec::new();
+    for item in list {
+        if item.nested_under.as_deref().is_some_and(|p| shown.contains(p)) { continue; }
+        out.push(item);
+        out.extend(list.iter().filter(|m| m.nested_under.as_deref() == Some(item.mission_id.as_str())));
+    }
+    out
+}
+
+fn drawn_missions(s: &State) -> Vec<SidebarMission> {
+    // An error replaces the rows on screen too.
+    if s.recent_error.is_some() { return Vec::new(); }
+    let missions = sidebar_missions_now(s);
+    let (pinned, recent) = pinned_and_recent(&missions, &s.org.pins);
+    let mut out: Vec<_> = nested_order(&pinned).into_iter().cloned().collect();
+    let groups_shown = !s.org.groups.is_empty() && !s.org.groups_unreadable;
+    if groups_shown {
+        for group in &s.org.groups {
+            if s.folded_groups.contains(&group.group_id) { continue; }
+            let members: Vec<_> = recent.iter().filter(|m| held_for(m, &s.org.members).is_some_and(|mem| mem.group_id == group.group_id)).cloned().collect();
+            out.extend(nested_order(&members).into_iter().cloned());
+        }
+    }
+    let rest: Vec<_> = recent.into_iter().filter(|m| !groups_shown || held_for(m, &s.org.members).is_none()).collect();
+    out.extend(nested_order(&rest).into_iter().cloned());
+    out
+}
+
+pub(super) fn step_from_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
+    let accel = if cfg!(target_os = "macos") { event.mods.cmd } else { event.mods.ctrl };
+    if !event.mods.alt || accel || !matches!(event.key, Key::Up | Key::Down) { return false; }
+    let rows = drawn_missions(s);
+    let shown = selected_conversation(s).and_then(|(_, c)| c.conversation_id.clone())
+        .or_else(|| s.ledger.as_ref().map(|p| p.snapshot.tip.clone()));
+    let shown = rows.iter().find(|r| shown.as_deref().is_some_and(|id| conversation_keys(r).iter().any(|key| key == id))).map(|r|r.mission_id.as_str());
+    let ids: Vec<_> = rows.iter().map(|r|r.mission_id.clone()).collect();
+    let next = crate::conversation_list::step_conversation(&ids, shown, event.key == Key::Down, |id| {
+        !event.mods.shift || rows.iter().find(|r| r.mission_id == id).is_some_and(|r| conversation_keys(r).iter().any(|key| s.home.waiting_for.contains_key(key)))
+    });
+    if let Some(row) = next.and_then(|id| s.recent.iter().find(|r|r.id == id)).cloned() { open_recent(s, row, tx); }
+    true
+}
+
 pub(super) fn sidebar(s: &State, p: &Palette) -> El {
     let l = crate::look::controls::Look::new(p.dark);
     let meta = rune::TextStyle::new(11.5, 400.0).lh(15.0);
@@ -867,37 +933,13 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
                 })
         };
         let append_rows = |mut container: El, list: &[SidebarMission]| -> El {
-            let shown_ids: std::collections::HashSet<&str> =
-                list.iter().map(|m| m.mission_id.as_str()).collect();
-            let mut children_of: std::collections::HashMap<&str, Vec<&SidebarMission>> =
-                std::collections::HashMap::new();
-            for m in list {
-                if let Some(parent) = m.nested_under.as_deref()
-                    && shown_ids.contains(parent)
-                {
-                    children_of.entry(parent).or_default().push(m);
-                }
-            }
-            for item in list {
-                if item
-                    .nested_under
-                    .as_deref()
-                    .is_some_and(|p| shown_ids.contains(p))
-                {
+            let shown_ids: std::collections::HashSet<&str> = list.iter().map(|m| m.mission_id.as_str()).collect();
+            for item in nested_order(list) {
+                if item.nested_under.as_deref().is_some_and(|p| shown_ids.contains(p)) {
+                    container = container.child(col().key(format!("nested-{}", item.mission_id)).w_full().pl(16.0).child(mission_row(s, p, item, is_picked(item))));
                     continue;
                 }
                 container = container.child(mission_row(s, p, item, is_picked(item)));
-                if let Some(children) = children_of.get(item.mission_id.as_str()) {
-                    for child in children {
-                        container = container.child(
-                            col()
-                                .key(format!("nested-{}", child.mission_id))
-                                .w_full()
-                                .pl(16.0)
-                                .child(mission_row(s, p, child, is_picked(child))),
-                        );
-                    }
-                }
             }
             container
         };
@@ -1699,10 +1741,79 @@ mod review_tests {
 
         let open_text = sidebar_text(&mut s);
         assert!(open_text.contains("Build groups"));
+        assert_eq!(drawn_missions(&s).iter().map(|m| m.mission_id.as_str()).collect::<Vec<_>>(), ["m_active"]);
 
         s.folded_groups.insert(gid.clone());
         let folded_text = sidebar_text(&mut s);
         assert!(!folded_text.contains("Build groups"));
+        assert!(drawn_missions(&s).is_empty(), "keyboard navigation skips folded rows too");
         let _ = std::fs::remove_dir_all(&temp);
+    }
+}
+
+
+#[cfg(test)]
+mod renderer_model_mark_tests {
+    use super::*;
+
+    fn draw(id: &str, route: Option<(&str, &str)>) -> rune::Runtime<State> {
+        let mut s = State::default();
+        let at = "2026-10-02T05:00:00.000Z";
+        s.recent.push(ConversationRow { id: id.into(), title: "yo".into(),
+            teammate: String::new(), started_by: String::new(), state: "completed".into(), updated: at.into() });
+        if let Some((runtime, model)) = route {
+            s.ledger_summaries.insert(id.into(), ledger::Summary { mission_id: id.into(), title: "yo".into(),
+                runtime: runtime.into(), model: model.into(), updated: at.into(), created_at: at.into(), ..Default::default() });
+        }
+        let mut rt = rune::Runtime::new(s, |s, _| sidebar(s, &Palette::new(true)),
+            (280.0, 800.0), rune::Env::new(true, 1.0));
+        rt.frame(0.0);
+        rt
+    }
+
+    #[test]
+    fn wears_its_models_mark_where_the_face_goes_named() {
+        let rt = draw("mission_claude", Some(("claude", "claude-opus-5-5")));
+        assert!(rt.find("conversation-runtime-mission_claude").is_some());
+        assert!(rt.elements().iter().any(|e| e.label.as_deref() == Some("Claude Code")));
+        assert!(rt.find("conversation-nobody-mission_claude").is_none());
+    }
+
+    #[test]
+    fn keeps_the_empty_place_for_a_model_of_your_own_or_a_runtime_not_yet_known() {
+        let rt = draw("mission_own", Some(("opencode", "own-0a1b2c3d/llama-local")));
+        assert!(rt.find("conversation-nobody-mission_own").is_some());
+        assert!(rt.find("conversation-runtime-mission_own").is_none());
+        let rt = draw("mission_starting", None);
+        assert!(rt.find("conversation-nobody-mission_starting").is_some());
+        assert!(rt.find("conversation-runtime-mission_starting").is_none());
+    }
+}
+
+#[cfg(test)]
+mod renderer_step_wiring_tests {
+    use super::*;
+    #[test]
+    fn are_wired_each_sidebar_row_carries_its_id_and_the_window_opens_the_step_it_finds() {
+        let mut s = State::default();
+        s.demo = true;
+        s.teammates.push(Teammate { id:"tm_wren".into(),name:"Wren".into(),role:"Custom".into(),runtime:None,model:None,account:None,busy:false,runs_in:"ask".into(),folder:None });
+        for (id, second) in [("a",4),("b",3),("c",2),("d",1)] {
+            s.recent.push(ConversationRow { id:id.into(),title:id.into(),teammate:"Wren".into(),started_by:"native".into(),state:"completed".into(),updated:format!("2026-10-19T10:00:0{second}Z") });
+        }
+        let mut rt = rune::Runtime::new(s, |s,_| sidebar(s,&Palette::new(true)), (280.0,800.0),rune::Env::new(true,1.0));
+        rt.frame(0.0);
+        for id in ["a","b","c","d"] { assert!(rt.find(&format!("recent-{id}")).is_some(), "{id}"); }
+        let s = &mut rt.state;
+        let mut tx = Tx::default();
+        let key = |shift| KeyEvent { key:Key::Down,mods:rune::Mods {alt:true,shift,..Default::default()} };
+        assert!(on_key(s,&key(false),&mut tx));
+        assert_eq!(s.conversations["tm_wren"].conversation_id.as_deref(),Some("a"));
+        assert!(on_key(s,&key(false),&mut tx));
+        assert_eq!(s.conversations["tm_wren"].conversation_id.as_deref(),Some("b"));
+        s.home.waiting_for.insert("d".into(),"A decision".into());
+        assert!(on_key(s,&key(true),&mut tx));
+        assert_eq!(s.conversations["tm_wren"].conversation_id.as_deref(),Some("d"));
+        assert!(!on_key(s,&KeyEvent { key:Key::Down,mods:rune::Mods {alt:true,cmd:cfg!(target_os="macos"),ctrl:!cfg!(target_os="macos"),..Default::default()} },&mut tx));
     }
 }

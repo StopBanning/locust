@@ -10,6 +10,42 @@ import subprocess
 import sys
 
 CONTROLS = {
+    "prompt-rail-threshold": (
+        "src/ui/prompt_rail.rs",
+        'messages >= PROMPT_RAIL_MIN && scrollable && !compare && room >= PROMPT_RAIL_ROOM',
+        'messages > PROMPT_RAIL_MIN && scrollable && !compare && room >= PROMPT_RAIL_ROOM',
+        "gives_rail_to_four_messages_when_scrollable_and_room_suffices",
+    ),
+    "glyph-weight": (
+        "core/src/bot_spec.rs",
+        '"o" => GlyphShape { lines: LINES_O, ring: Some(3.9), weight: 3.8, closed: false },',
+        '"o" => GlyphShape { lines: LINES_O, ring: Some(3.9), weight: 3.7, closed: false },',
+        "is_as_heavy_as_the_eye_it_stands_for",
+    ),
+    "conversation-step": (
+        "src/ui/conversation_list.rs",
+        'if Some(index) != at && eligible(&drawn[index])',
+        'if Some(index) != at',
+        "with_shift_pass_over_every_conversation_that_is_not_waiting_for_you",
+    ),
+    "conversation-model-mark": (
+        "src/ui/sidebar.rs",
+        '!is_own_mark_model(&m.model)',
+        'true',
+        "keeps_the_empty_place_for_a_model_of_your_own_or_a_runtime_not_yet_known",
+    ),
+    "board-working": (
+        "src/team_board.rs",
+        "Some(Status::Working) => Section::Working,",
+        "Some(Status::Working) => Section::Ready,",
+        "an_unseen_finish_outranks_idle_never_a_live_run_or_a_wait",
+    ),
+    "removed-selection": (
+        "src/main.rs",
+        'Some(id) => s.teammates.iter().position(|t| t.id == id).unwrap_or(usize::MAX),',
+        'Some(id) => s.teammates.iter().position(|t| t.id == id).unwrap_or(0),',
+        "is_nobody_once_that_teammate_is_removed_never_whoever_is_first",
+    ),
     "tooltip-default": (
         "core/src/teammate_tooltip.rs",
         'if model == "account-default" {',

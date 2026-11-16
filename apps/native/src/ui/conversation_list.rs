@@ -330,3 +330,83 @@ mod tests {
         assert_eq!(safe, "Nothing is saved over the file until it reads again.");
     }
 }
+
+/// Walk the sidebar's drawn ids, wrapping and skipping the currently shown row.
+pub fn step_conversation<'a>(
+    drawn: &'a [String],
+    shown: Option<&str>,
+    forward: bool,
+    eligible: impl Fn(&str) -> bool,
+) -> Option<&'a str> {
+    let count = drawn.len();
+    if count == 0 {
+        return None;
+    }
+    let at = shown.and_then(|id| drawn.iter().position(|v| v == id));
+    let from = at
+        .map(|i| i as isize)
+        .unwrap_or(if forward { -1 } else { count as isize });
+    for moved in 1..=count {
+        let index = (from
+            + if forward {
+                moved as isize
+            } else {
+                -(moved as isize)
+            })
+        .rem_euclid(count as isize) as usize;
+        if Some(index) != at && eligible(&drawn[index]) {
+            return Some(&drawn[index]);
+        }
+    }
+    None
+}
+
+#[cfg(test)]
+mod renderer_step_tests {
+    use super::*;
+    fn drawn() -> Vec<String> {
+        ["a", "b", "c", "d"].map(str::to_owned).into()
+    }
+    #[test]
+    fn open_the_next_and_previous_conversation_as_the_sidebar_draws_them_round_from_the_end() {
+        let d = drawn();
+        assert_eq!(step_conversation(&d, Some("b"), true, |_| true), Some("c"));
+        assert_eq!(step_conversation(&d, Some("b"), false, |_| true), Some("a"));
+        assert_eq!(step_conversation(&d, Some("d"), true, |_| true), Some("a"));
+        assert_eq!(step_conversation(&d, Some("a"), false, |_| true), Some("d"));
+    }
+    #[test]
+    fn start_at_the_top_or_bottom_when_none_of_them_is_on_screen() {
+        let d = drawn();
+        assert_eq!(step_conversation(&d, None, true, |_| true), Some("a"));
+        assert_eq!(step_conversation(&d, None, false, |_| true), Some("d"));
+        assert_eq!(
+            step_conversation(&d, Some("not-drawn"), true, |_| true),
+            Some("a")
+        );
+    }
+    #[test]
+    fn with_shift_pass_over_every_conversation_that_is_not_waiting_for_you() {
+        let d = drawn();
+        let waiting = |id: &str| ["a", "d"].contains(&id);
+        assert_eq!(step_conversation(&d, Some("b"), true, waiting), Some("d"));
+        assert_eq!(step_conversation(&d, Some("d"), true, waiting), Some("a"));
+        assert_eq!(step_conversation(&d, Some("b"), false, waiting), Some("a"));
+    }
+    #[test]
+    fn move_nowhere_when_there_is_nowhere_to_go() {
+        assert_eq!(step_conversation(&[], None, true, |_| true), None);
+        assert_eq!(
+            step_conversation(&["a".into()], Some("a"), true, |_| true),
+            None
+        );
+        assert_eq!(
+            step_conversation(&drawn(), Some("b"), true, |_| false),
+            None
+        );
+        assert_eq!(
+            step_conversation(&drawn(), Some("b"), true, |id| id == "b"),
+            None
+        );
+    }
+}

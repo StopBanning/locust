@@ -434,3 +434,269 @@ called by that stage. No product behavior changed in these two files.
 - The requested list remains unfinished. The final verification above covers
   these 17 cases only; no claim is made for the 33 waiting files, real agents,
   a live window, a packaged build or the Electron/JavaScript gate.
+
+## Renderer round 2 — removed selection continuation
+
+Starting tracked tree clean at a9f5fc14. Of 45 files, 33 remained waiting.
+Inline preview, pet integration, runtime discovery/status, model editor,
+folder question, Home urgency sections and handoff glances need actual
+surface integration; unused core helpers alone do not carry these files.
+The removed-teammate file now has three separate `renderer_address_tests`
+with Electron's exact Ash/Wren ids. They exercise roster refresh and the
+actual send target resolver. Refresh no longer falls back to index zero
+after removal. Existing initial default selection is preserved. Verification
+pending; row waiting. An edit attempted from the wrong working directory
+failed without changing files; its baseline run was interrupted before the
+actual changes. All edits and test artifacts stay inside the workspace.
+
+Next section prepared while the first run executes: teamBoard's four exact
+cases in `team_board::tests`. Home and Team now use the urgency grouping,
+with record-based owner ids for pending approvals and unseen finishes.
+Checked missing/sign-in outcomes block, unknown discovery stays quiet.
+This section is not yet verified and its row remains waiting.
+
+## Renderer continuation — verification audit
+
+- Retained the inherited selection and team-board sections as verifiable work;
+  no stash or discard. The handoff's extra untracked `src/team_board.rs` belongs
+  to that section too. No external scratch file is read or changed.
+- `renderer-6-workspace.log`: 2079 core passed, 20 ignored; window 477 passed,
+  5 failed. All three removed-selection and four board cases passed by name.
+  Four window fixtures replaced the selected roster with a different identity
+  and implicitly relied on the unsafe fallback. Their setups now explicitly
+  pick the new fixture teammate; product fallback is not restored. The fifth
+  failure was the relay hop-cap test's 60-second live-run deadline.
+- Corrected quiet-board fixture to supply only Wren's idle status, exactly as
+  Electron does, and added a headless Home/Team surface regression. Pending
+  verification of those additions; no rows marked carried on this failed run.
+- Further teammate files read, still waiting: working-face rotation has pure
+  rig helpers but the native stage does not use its working beats; idle world
+  needs the per-teammate empty-state surface (Home role starters alone do not
+  suffice); month/limit needs real editor and card rows; plain ghost needs
+  reply/live-row faces; every-bot includes editor shuffle and rendering hooks.
+  These are applicable feature gaps, not React-only exclusions.
+- Conversation files inspected, still waiting: Alt-arrow needs actual window
+  navigation in drawn sidebar order, including folded groups; long-thread newest
+  turns needs bounded drawing plus Show earlier; phone list needs the phone
+  projection, not merely existing sidebar grouping. No unused-helper tests or
+  does-not-apply rows were substituted for these missing features.
+
+### Case mapping for these inherited sections
+
+- `a-removed-teammate-is-not-replaced.test.ts` → `renderer_address_tests`:
+  `is_the_teammate_picked`,
+  `is_nobody_once_that_teammate_is_removed_never_whoever_is_first`,
+  `is_nobody_when_nobody_was_picked`. Inputs retain `tm_ash`/Ash and
+  `tm_wren`/Wren; the first additionally exercises roster reordering, and
+  the second checks another refresh cannot silently reselect a teammate.
+- `teamBoard.test.ts` → `team_board::tests`:
+  `puts_each_teammate_where_what_they_need_from_you_says_most_urgent_first`,
+  `draws_a_quiet_team_as_the_plain_grid_no_board_of_empty_columns`,
+  `leaves_out_a_section_with_nobody_in_it`,
+  `an_unseen_finish_outranks_idle_never_a_live_run_or_a_wait`.
+  Electron's Wren/Juno/Sable/Quill/Pip ids, exact section titles and member
+  order are preserved. An additional native surface test checks both actual
+  Home and Team views, rather than only an uncalled pure helper.
+- Board classification uses host-recorded owner ids for approval/unseen sets,
+  not display-name matching. Initial selection behavior is retained; a removed
+  selection remains empty until an explicit pick. No Electron plumbing exclusion
+  is needed for either section.
+
+### Selection negative control
+
+- `renderer-6-selection-control.log` / `renderer-control-removed-selection.log`:
+  control runner exit 0. Reintroducing the index-zero fallback failed exactly
+  `renderer_address_tests::is_nobody_once_that_teammate_is_removed_never_whoever_is_first`.
+  Core 2079 passed (20 ignored); window 482 passed, one intentional failure.
+  Source restored byte for byte. The added Home/Team headless test passed by
+  name in this run, and the earlier relay deadline did not recur.
+- A restored full workspace run is in `renderer-6-restored-workspace.log`.
+  The board-working control is provided but not yet run.
+- Two requested inventory paths are absent from this checkout:
+  `a-waiting-conversation-is-first-in-the-sidebar.test.tsx` and
+  `an-app-started-conversation-says-so-in-the-sidebar.test.tsx`. Their rows
+  remain waiting; no invented Electron fixtures or exclusion is claimed.
+
+### Restored verification (renderer-6)
+
+- Whole release workspace exit 0: 2079 core + 483 window = 2562 passed,
+  20 ignored real-agent tests, doc tests 0. All seven Electron cases and the
+  extra Home/Team surface test observed passing by name in
+  `renderer-6-restored-workspace.log`. No mutation remains.
+- Selection row now carried; board row will be carried with its separate
+  section commit. Four explicitly selected window fixtures all passed, as
+  did the previously timed-out relay test. No unrelated product fix.
+
+- Selection committed as `000c5cb8`. Board row now carried after the same
+  restored green run; four Electron cases plus one native drawing regression.
+  This continuation carries two more files, leaving 31 of 45 waiting.
+
+## Ownerless model mark — next section
+
+- Read both cases and Sidebar.tsx's actual runtime/own-model branch. Native's
+  conversation rows had no mark. They now draw the named runtime mark for a
+  known route with no recorded owner, or the empty place for an own model or
+  unknown route. Uses the existing native vector marks, no DOM recreation.
+- Two separate tests in `sidebar::renderer_model_mark_tests`, with Electron's
+  mission ids, `yo`, date, `claude-opus-5-5`, and
+  `own-0a1b2c3d/llama-local`. The tests draw the real sidebar and check the
+  actual keyed mark/place plus the accessible Claude Code name.
+- Row still waiting pending named results. The own-model control is prepared.
+
+- `renderer-7-workspace.log`: exit 0, 2079 core + 485 window passed,
+  20 ignored real-agent cases, doc tests 0. Both new model-mark cases observed
+  passing by name. While this binary compiled, tightened the own-model identity
+  to Electron's eight-lowercase-hex id and nonempty model rule, and resolve a
+  recorded owner against today's roster before withholding the fallback mark.
+  Those refinements are included in the control and final restored run below.
+- Exact mapping to `sidebar::renderer_model_mark_tests`:
+  `wears_its_models_mark_where_the_face_goes_named` and
+  `keeps_the_empty_place_for_a_model_of_your_own_or_a_runtime_not_yet_known`.
+  Neither case is excluded as React plumbing.
+
+- Model-mark control caught exactly the own-model placeholder test; core 2079
+  passed, window 484 passed plus one intentional failure, 20 ignored. The
+  runner restored sidebar.rs byte for byte (`renderer-7-model-control.log`).
+- Final review found an incidental grouping regression: Home's Scout invitation
+  disappeared when no teammate was Ready. Keep that action after the urgent
+  sections in that case; the existing Scout invitation test now draws actual
+  Home with its sole teammate busy and requires the invitation to remain.
+  This correction is included in the final restored workspace run.
+
+### Final restored model-mark verification
+
+- `renderer-7-restored-workspace.log`: exit 0, **2079 core + 485 window =
+  2564 passed**, **20 ignored** real-agent tests, doc tests 0. All nine
+  Electron cases across the three carried files, the Home/Team surface
+  regression, and the strengthened Scout invitation test passed by name.
+- The final source includes the strict own-model id check, current-roster
+  ownership check and Scout invitation correction. Both intentional mutations
+  were caught at their named assertion and restored byte for byte. No break
+  remains. The optional board-working control was not run.
+- Three files carried in this continuation, none excluded. Together with the
+  earlier recorded rounds, **15 of 45** requested files are carried and
+  **30 remain waiting**. The requested list is **unfinished**. Applicable
+  gaps and the two absent inventory paths remain documented above.
+- No Electron/JavaScript gate, real agent, live window or packaged app was
+  run. Whole release workspace runs used gentle-cargo only, one at a time,
+  serial tests, optional Git read locks disabled, and the existing in-workspace
+  TypeScript reader. Release binary build follows.
+
+### Final build and continuation receipt
+
+- Release binary build exit 0 in 29.87s (`renderer-7-release-build.log`),
+  twelve existing drawing/conductor warnings. No new warning in the changed
+  production logic. No package, signing or live-window verification.
+- `scripts/recount.py` and `--check` exit 0: 192 carried, 62 does-not-apply,
+  185 partial, 870 waiting, 1309 total. Direct requested-subset check: 30 waiting.
+  `git diff --check` and mutation-script Python syntax passed.
+- Commits: `000c5cb8` removed selection; `ff9d1ff5` urgency board;
+  `77051685` ownerless model mark; `f42ff722` preserve Scout invitation.
+  Final validation notes committed separately. All source changes are committed;
+  no mutation remains applied. The original untracked HANDOFF files are intact
+  and not committed. Nothing was stashed or discarded.
+- Continue the waiting teammate list before remaining conversations, with the
+  applicable inline page preview first. Prior notes explain which surface
+  integrations are still missing. The full requested list is not complete.
+
+## Renderer-8 continuation — eye geometry and motion (verification pending)
+
+- Initial tracked tree was clean at `5133db08`; the round-3 leftovers described
+  in the handoff were already committed by earlier continuations. Nothing to stash.
+- Read the remaining small teammate tests and their native surfaces. Added fifteen
+  separate exact-value cases from `a-teammates-eyes-are-drawn-not-typed.test.ts`
+  in `core/src/renderer_eye_tests.rs`. Geometry, glyph weights, blinking, hue,
+  front-plane projection, all motion loops and visor fitting use the same values
+  as Electron. Most are already used by the native painter/rig; front_plane and the CSS-string same_hue function are pure compatibility contracts only. Native draws through its own vector transform and uses same_hue_rgba, so these two tests alone do not verify the actual screen projection or color path.
+- The inventory row stays waiting: the four drawing cases (round strokes,
+  screen fill/glow ordering, rig front-transform interception, mouth suppression)
+  still need native painter assertions. Canvas interception itself is Electron
+  plumbing; the resulting drawing behavior is applicable. Native currently draws
+  ordinary eyes on plastic rather than the glyph pair, so this is a real gap.
+- Other inspected teammate files remain waiting: model/effort editor is native
+  text fields rather than the shared route picker; folder editor lacks the full
+  folder/connector presentation; signed-out and pending-discovery files need one
+  status projection shared by all surfaces (Home currently classifies only
+  missing/sign-in probes); work-face cycle needs real stage/conductor coverage;
+  idle teammate starters need conversation-screen integration. None excluded.
+- Whole release workspace run: `renderer-8-eyes-workspace.log`, gentle-cargo only,
+  in-workspace target/TypeScript reader, serial tests and optional Git read locks
+  disabled. Named results and controls will be recorded after completion.
+- Initial command from the repository root bypassed `.cargo/config.toml`'s
+  isolation runner: all fifteen new tests passed by name, but existing guarded
+  tests failed and core aborted during cleanup. This is not a suite pass.
+  Restarted from `apps/native` using its configured isolated runner; no guard
+  was weakened or product code changed to bypass isolation.
+
+## Renderer-8 — conversation keys (prepared, not yet carried)
+
+- After recording the inspected teammate gaps above, prepared the five cases
+  from `alt-and-an-arrow-moves-between-conversations.test.ts` as the next small
+  conversation section. Four exact-value pure cases in
+  `conversation_list::renderer_step_tests`; the fifth in
+  `sidebar::renderer_step_wiring_tests` draws the actual keyed rows and calls
+  the window key handler to open the selected conversation.
+- Native lacked this keyboard path. Alt+Up/Down now traverses the visible
+  sidebar rows; Shift restricts the search to rows with a waiting card.
+  Pins, groups, folded groups, search, settled filtering and one-level relay
+  nesting determine the order. Drawing and navigation share `nested_order`;
+  the existing folded-group drawing test also checks navigation's row list.
+- No React source-regex assertion is rebuilt: the wiring case exercises the
+  native handler and actual sidebar instead. No case excluded. Row stays
+  waiting until all five named cases pass.
+- Isolated `renderer-8-workspace.log`: core **2094 passed, 20 ignored**;
+  window **489 passed, 1 failed**. All fifteen new eye cases passed by name;
+  the four pure navigation cases passed. The new wiring case caught a real
+  defect in the prepared code: using `active_record_mission_id` loses the
+  selection in demo mode. It now uses the same conversation selection as the
+  sidebar itself. This correction and folded-group assertions await the next run.
+  The eye-only test section is verified independently of that window failure;
+  its file remains waiting for the four missing drawing cases and for painter-level projection/color verification.
+
+## Renderer-8 — prompt rail (prepared)
+
+- The four cases from `a-long-conversation-has-a-rail-of-your-messages.test.tsx`
+  already have one native test each in `prompt_rail::tests`, with Electron's
+  exact thresholds, geometry, keys and hover strings. Strengthened
+  `takes_hover_line_from_message` to draw five real native marks from Electron's
+  five prompts and check each keyed control's accessible label, not only the
+  pure string helper. Existing whole-thread headless test also loads and draws
+  five linked turns and checks scrolling/jumping and room gating.
+- Mapping in source order: `gives_rail_to_four_messages_when_scrollable_and_room_suffices`,
+  `keeps_marks_in_order_and_current_is_nearest_top`,
+  `jumps_with_ctrl_alt_up_and_down_only`, `takes_hover_line_from_message`.
+  The DOM data-attribute and React source-regex checks become native drawing
+  and handler checks; no product behavior is excluded. Still waiting until the
+  strengthened case passes by name. The newest-turn rendering file remains
+  waiting: it needs its actual 400-row budget and expansion behavior verified.
+
+### Verified controls and navigation section
+
+- `renderer-control-glyph-weight.log`: all fifteen eye cases except the
+  deliberately weakened weight rule passed; `is_as_heavy_as_the_eye_it_stands_for`
+  failed as intended. Core 2093 passed + one intentional failure, 20 ignored;
+  window 490 passed. The control runner exited 0 and restored bot_spec.rs byte
+  for byte (`renderer-8-glyph-control-result.log`).
+- All five navigation cases passed by name in that run, including the corrected
+  actual key-handler case and the strengthened folded-group test. Navigation row
+  now carried. No React-only exclusion. Native selection is read from the same
+  conversation the sidebar highlights, including a just-opened ledger whose tip
+  has not loaded yet. Final restored verification and its own control follow.
+- Eye test section committed as `1c64d157`. Its row remains waiting for drawing
+  coverage; no false full-file claim. Navigation is the next verified section.
+
+### Verified prompt-rail section and step control
+
+- `renderer-control-conversation-step.log`: core 2094 passed, 20 ignored;
+  window 487 passed and exactly three intentional navigation failures
+  (`move_nowhere_when_there_is_nowhere_to_go`,
+  `with_shift_pass_over_every_conversation_that_is_not_waiting_for_you`,
+  and the actual key-handler test). The runner caught the named Shift-filter
+  assertion, exited 0, and restored conversation_list.rs byte for byte.
+- All four prompt-rail cases passed by name in that run, including the newly
+  strengthened exact five-prompt drawing case. The existing whole-thread
+  scrolling/jumping and folded-group regressions passed too. Rail row now
+  carried; its threshold control and final restored suite follow.
+- Navigation committed as `6a54f3e0`. This continuation carries two full files
+  (nine Electron cases), plus fifteen pure eye cases in an incomplete file.
+  **17 of 45 requested files carried; 28 waiting.** No does-not-apply additions.

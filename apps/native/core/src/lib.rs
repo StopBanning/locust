@@ -229,3 +229,6 @@ pub mod face_status;
 
 #[cfg(test)]
 pub(crate) mod load_waits;
+
+#[cfg(test)]
+mod renderer_eye_tests;

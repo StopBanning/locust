@@ -663,7 +663,7 @@ apps/desktop/src/renderer/src/a-conversation-can-be-searched.test.ts	P4	partial	
 apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	GROUPS	partial	conversation_list::tests::a_conversation_keeps_its_name_and_group + sidebar::review_tests::real_sidebar_rows_collapse_turns_keep_names_groups_and_search_every_prompt + org::identity_review_tests::clearing_names_groups_pins_and_settled_marks_clears_old_turn_keys	10/11 carried via chain lookup, sidebar rows, and identity key cleanup; raw App.tsx header title wiring check remains absent
 apps/desktop/src/renderer/src/a-conversation-offers-its-terminal.test.tsx	P9	partial		renderer/src/a-conversation-offers-its-terminal.test.tsx | Offer/menu/accessibility/per-runtime words not fully ported; partial row retained.
 apps/desktop/src/renderer/src/a-conversation-opens-beside-another.test.tsx	P4	partial		`a-conversation-opens-beside-another.test.tsx` | Chrome words and middle-ID guard are ported; live stream adoption, rich ledger rendering, and priority against review/file/inspector panels remain absent. Static scenes do not prove live besi
-apps/desktop/src/renderer/src/a-conversation-with-nobody-wears-its-model.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-conversation-with-nobody-wears-its-model.test.tsx	R2	carried	src/ui/sidebar.rs renderer_model_mark_tests	2 exact cases drawn through actual sidebar; named passes in renderer-7-restored-workspace.log; own-model control caught and restored
 apps/desktop/src/renderer/src/a-copy-says-the-installed-locust-updates.test.ts		waiting		
 apps/desktop/src/renderer/src/a-count-says-only-what-changed.test.tsx	P7	does-not-apply	counts_only_say_what_changed	`renderer/src/a-count-says-only-what-changed.test.tsx` | `counts_only_say_what_changed` ports all four outputs: addition, deletion, mixed edit, neither; CSS class assertions do not apply.
 apps/desktop/src/renderer/src/a-damaged-record-says-so-in-the-thread.test.tsx		waiting		
@@ -716,7 +716,7 @@ apps/desktop/src/renderer/src/a-lead-shows-what-it-handed-out.test.tsx		waiting
 apps/desktop/src/renderer/src/a-limit-note-leaves-when-it-stops-being-true.test.ts		waiting		
 apps/desktop/src/renderer/src/a-locust-bot-draws-before-its-first-frame.test.ts		waiting		
 apps/desktop/src/renderer/src/a-long-call-is-named-while-it-runs.test.ts		waiting		
-apps/desktop/src/renderer/src/a-long-conversation-has-a-rail-of-your-messages.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-long-conversation-has-a-rail-of-your-messages.test.tsx		carried	prompt_rail::tests	Four Electron cases passed by name, including exact five-prompt headless rail labels; whole-thread drawing/jump fixture also passed. See RENDERER-NOTES.md for controls and final restored verification.
 apps/desktop/src/renderer/src/a-long-conversation-is-still-one-conversation.test.ts	renderer-2	carried	src/ui/sidebar.rs	Five exact chain cases in real sidebar grouping; named passes in renderer-control-streaming-file.log.
 apps/desktop/src/renderer/src/a-long-conversation-opens-on-its-newest-turns.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-long-fold-keeps-the-answer-near.test.tsx		waiting		
@@ -775,7 +775,7 @@ apps/desktop/src/renderer/src/a-refusal-offers-the-mode-that-works.test.ts		wait
 apps/desktop/src/renderer/src/a-refused-command-never-ran.test.ts		waiting		
 apps/desktop/src/renderer/src/a-reload-keeps-every-comparison-column-live.test.ts	P5	waiting		`a-reload-keeps-every-comparison-column-live.test.ts` | All six tests deferred. Native does not have Electron's renderer reload, host-owned comparison columns, or pending React IPC update map. Native retains process handles and tails ledger
 apps/desktop/src/renderer/src/a-remote-control-switch-shows-claudes-own-words.test.tsx	REMOTE-CONTROL	partial	core/src/remote_control_tests.rs	the line for each phase (the_switch_says_where_it_stands_first) and the window test the_remote_control_switch_runs_the_server_and_shows_claudes_own_words; the disabled switch while ending is not pinned
-apps/desktop/src/renderer/src/a-removed-teammate-is-not-replaced.test.ts		waiting		
+apps/desktop/src/renderer/src/a-removed-teammate-is-not-replaced.test.ts	R2	carried	src/main.rs renderer_address_tests	3 exact cases; roster refresh keeps removed/no selection empty; named passes in renderer-6-restored-workspace.log; removed-selection control caught and restored
 apps/desktop/src/renderer/src/a-replaced-select-still-shows-its-value.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-reply-suggests-tasks-as-cards.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-request-is-answered-on-the-board.test.tsx	p12	partial		`renderer/src/a-request-is-answered-on-the-board.test.tsx`: native channel integration test above; real DOM bubbling, file-change/question navigation and live presses are not exercised.
@@ -868,7 +868,7 @@ apps/desktop/src/renderer/src/a-wrapped-bullet-stays-one-bullet.test.ts		waiting
 apps/desktop/src/renderer/src/across-your-benchmarks.test.tsx	compare-more	carried		`benchmark::tests::across_your_benchmarks_averages_and_excludes_setups` + `benchmark::tests::keeps_each_runtime_in_its_own_unit`
 apps/desktop/src/renderer/src/agent-updates-say-what-happened.test.ts	UPDATES	carried	core/src/agent_updates_tests.rs (the row words); src/ui/window_drive_tests.rs update_installs_the_newer_version_and_the_row_says_updated	every it() ported (6): nothing when current, what a newer one waits for, who is offered Update, under way / landed / failed with the time, the switch sentences, a held version. The time is en-US style (11:05 AM, Sep 22), not the computer's locale
 apps/desktop/src/renderer/src/agentText.test.ts		waiting		
-apps/desktop/src/renderer/src/alt-and-an-arrow-moves-between-conversations.test.ts		waiting		
+apps/desktop/src/renderer/src/alt-and-an-arrow-moves-between-conversations.test.ts		carried	conversation_list::renderer_step_tests; sidebar::renderer_step_wiring_tests	All five Electron cases passed by name in renderer-control-glyph-weight.log; native key handler and keyed sidebar drawing, including folded-group regression. Final restored verification in RENDERER-NOTES.md.
 apps/desktop/src/renderer/src/an-account-shows-how-full-it-is.test.tsx		waiting		
 apps/desktop/src/renderer/src/an-acp-agent-says-what-it-can-do.test.ts		waiting		
 apps/desktop/src/renderer/src/an-added-account-is-named-in-the-picker.test.tsx	ACCOUNTS	carried	src/ui/tests.rs (an_added_account_is_named_in_the_picker_and_respects_policy_and_limits)	both picker account naming/SIGN IN/AT LIMIT/override cases, org-policy picker/settings hiding, and no auto-login under policy
@@ -1036,7 +1036,7 @@ apps/desktop/src/renderer/src/stop-press.test.ts		waiting
 apps/desktop/src/renderer/src/stream-frames.test.ts		waiting		
 apps/desktop/src/renderer/src/swarm.test.ts		waiting		
 apps/desktop/src/renderer/src/talk-is-pressed-by-its-keys.test.tsx		waiting		
-apps/desktop/src/renderer/src/teamBoard.test.ts		waiting		
+apps/desktop/src/renderer/src/teamBoard.test.ts	R2	carried	src/team_board.rs tests and surface_tests; src/ui/home_panel.rs; src/ui/people_panel.rs	4 exact cases plus actual Home/Team drawing; named passes in renderer-6-restored-workspace.log; no exclusions
 apps/desktop/src/renderer/src/teammate-folder-row.test.tsx		waiting		
 apps/desktop/src/renderer/src/teammateTooltip.test.ts	renderer-4	carried	core/src/teammate_tooltip.rs; src/ui/sidebar.rs; src/ui/rail.rs	Five exact named tooltip cases; action, role, human model name, and account-default wording on both sidebar layouts. notes/RENDERER-NOTES.md.
 apps/desktop/src/renderer/src/teammateWork.test.ts		waiting		

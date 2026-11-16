@@ -749,8 +749,17 @@ fn team_grid(s: &State, p: &Palette) -> El {
     let panel = &s.people_panel;
     let l = crate::look::controls::Look::new(p.dark);
     let mono = |size: f32| rune::TextStyle::new(size, 400.0).mono();
-    let mut grid = row().key("team-grid").w_full().gap(12.0).flex_wrap();
-    for t in panel.team["teammates"].as_array().into_iter().flatten() {
+    let team = panel.team["teammates"].as_array().map(Vec::as_slice).unwrap_or(&[]);
+    let groups = crate::team_board::team_board(team, |t| {
+        let id = t["teammateId"].as_str().unwrap_or("");
+        crate::home_panel::teammate_section(s, id, s.teammates.iter().any(|m| m.id == id && m.busy), t["route"]["runtime"].as_str())
+    });
+    let grouped = groups.is_some();
+    let mut body = col().key("team-grid").w_full().gap(12.0);
+    for (section, members) in groups.unwrap_or_else(|| vec![(crate::team_board::Section::Ready, team.iter().collect())]) {
+    if grouped { body = body.child(text(section.title()).font(type_::LABEL).color(p.text)); }
+    let mut grid = row().w_full().gap(12.0).flex_wrap();
+    for t in members {
         let id = t["teammateId"].as_str().unwrap_or("").to_owned();
         let name = t["name"].as_str().unwrap_or("").to_owned();
         let role = t["role"].as_str().unwrap_or("").to_owned();
@@ -880,7 +889,9 @@ fn team_grid(s: &State, p: &Palette) -> El {
         }
         grid = grid.child(card);
     }
-    grid.child(
+    body = body.child(grid);
+    }
+    body.child(
         col()
             .key("team-new")
             .w(300.0)
