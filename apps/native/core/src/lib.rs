@@ -189,6 +189,12 @@ mod route_at_start_tests;
 mod model_lists_tests;
 
 #[cfg(test)]
+mod worktree_checkout_tests;
+
+#[cfg(test)]
+mod install_lock_tests;
+
+#[cfg(test)]
 mod plan_payload_tests;
 
 #[cfg(test)]

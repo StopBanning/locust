@@ -94,3 +94,38 @@ Break checks (all caught by the named test): an incomplete catalog kept; Copilot
 free rule loosened to any "free"; Kilo's `:free` suffix dropped; an own model on any runtime; unpriced runs counted
 toward the limit. No break was made for the OpenCode 1.18.27 list on its own. Its six ids go through the same rule
 as the first free-route case.
+
+## Batch 3: worktrees, an npm lock, git without a shell
+
+| File | Row | Rust tests |
+| --- | --- | --- |
+| `a-half-made-worktree-is-finished-not-trusted.test.ts` | partial (2/3) | `core/src/worktree_checkout_tests.rs` |
+| `a-worktree-survives-only-a-finished-checkout.test.ts` | partial (6 tests) | `core/src/worktree_checkout_tests.rs` |
+| `a-locked-file-is-not-a-permission-problem.test.ts` | carried (3/3) | `core/src/install_lock_tests.rs` |
+| `a-planted-git-is-never-run.test.ts` | waiting | none |
+| `git-reaches-a-run-with-no-shell.test.ts` | waiting | none |
+
+No bugs were found. The worktree tests use real git and real `post-checkout` hooks with Electron's hook scripts, and
+Rust behaved as Electron does in every case written.
+
+Not carried, and why:
+- Electron's worktree manager takes an injected `runGit` and a diagnostic `note` callback. Rust's `Manager` has
+  neither. So these four cases have no Rust test: "no git at all for a finished tree", "an unreadable HEAD after a
+  nonzero add", "a timeout is not a finished hook failure", and "a failing note callback". Neither does the note
+  assertion in the first hook case. Rust drops the hook's stderr when it accepts the tree.
+- `NoDefaultCurrentDirectoryInExePath` is Windows-only, and Rust does not set it.
+- The `locust-git-reads` server (git for Ask and Plan runs with no shell) is not built.
+
+Break checks, run through `~/work/scratch/maxlane/mutsafe.py` (all caught by the named test): `index.lock` left;
+`reset --hard` instead of `reset`; an admin folder outside the repository accepted; the recorded branch not checked;
+an `initializing` lock not checked; a usable tree refused; any failed hook accepted; the add writing
+`core.longpaths`; the longpaths flag off Windows; a lock read off Windows; EPERM-on-rename not a lock; EACCES not a
+folder problem.
+
+**Why `mutsafe.py`.** One mut6 run was cut off by its outer `timeout 590` while another lane held the build lock.
+That killed the Python but not its cargo child, and the break was left applied in `worktrees.rs`. I found it at
+once, stopped my own orphaned run (the `sol` lane's suite was left alone) and checked the file out clean.
+`mutsafe.py` restores the file on SIGTERM and SIGINT, and runs cargo in its own process group. It kills that group
+at its own limit, so it needs no outer `timeout`.
+`door::tests::the_door_is_off_until_turned_on_and_answers_only_its_current_token` also failed once, with the
+longpaths break applied. It has nothing to do with worktree arguments, and it passed in the full runs.
