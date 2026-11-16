@@ -480,6 +480,19 @@ fn section_head(l: &crate::look::controls::Look, title: &str, count: Option<usiz
     head
 }
 
+/// Use recorded owner ids, never matching a person's display name.
+pub(super) fn teammate_section(s: &State, id: &str, busy: bool, runtime: Option<&str>) -> crate::team_board::Section {
+    use crate::team_board::{Status, board_section_of};
+    let owns = |mission: &str| s.data.as_ref().and_then(|store| people::owner_of(store, mission)).as_deref() == Some(id);
+    let waiting = s.home.waiting_for.keys().any(|key| owns(key));
+    let blocked = runtime.is_some_and(|runtime| s.home.boot.probes.iter()
+        .any(|p| p.id == runtime && matches!(p.outcome, Some("missing" | "needs-signin"))));
+    let running = busy || s.flight.as_ref().is_some_and(|f| f.teammate_id == id)
+        || s.ledger.as_ref().is_some_and(|p| p.header.id == id && p.snapshot.running);
+    board_section_of(Some(if waiting { Status::ApprovalNeeded } else if blocked { Status::Blocked }
+        else if running { Status::Working } else { Status::Idle }), s.home.to_look_at.iter().any(|key| owns(key)))
+}
+
 pub(super) fn home_view(s: &State, p: &Palette) -> El {
     let l = crate::look::controls::Look::new(p.dark);
     let mut body = col().w_full().max_w(760.0).gap(12.0).pt(18.0).pb(28.0);
@@ -662,8 +675,12 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
         }
         body = body.child(section_head(&l, YOUR_TEAM, Some(s.teammates.len()), Some(add)));
         // HomeTeam.tsx's cards: a square for the face (faces come in C4), the name, the role, the agent and model.
+        let groups = crate::team_board::team_board(&s.teammates, |mate| teammate_section(s, &mate.id, mate.busy, mate.runtime.as_deref()));
+        let grouped = groups.is_some();
+        for (section, members) in groups.unwrap_or_else(|| vec![(crate::team_board::Section::Ready, s.teammates.iter().collect())]) {
+        if grouped { body = body.child(section_head(&l, section.title(), Some(members.len()), None)); }
         let mut grid = row().w_full().gap(10.0).flex_wrap();
-        for mate in &s.teammates {
+        for mate in members {
             let runtime = mate.runtime.as_deref().unwrap_or("codex");
             let oc_models = s
                 .models
@@ -739,10 +756,11 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
                 grid = grid.child(card.w(246.0));
             }
         }
-        if crate::scout_cards::invite_offer_active(s) {
+        if section == crate::team_board::Section::Ready && crate::scout_cards::invite_offer_active(s) {
             grid = grid.child(crate::scout_cards::invite_team_tile(&l));
         }
         body = body.child(grid);
+        }
     }
 
     // Starters

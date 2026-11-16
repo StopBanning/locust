@@ -526,3 +526,7 @@ This section is not yet verified and its row remains waiting.
 - Selection row now carried; board row will be carried with its separate
   section commit. Four explicitly selected window fixtures all passed, as
   did the previously timed-out relay test. No unrelated product fix.
+
+- Selection committed as `000c5cb8`. Board row now carried after the same
+  restored green run; four Electron cases plus one native drawing regression.
+  This continuation carries two more files, leaving 31 of 45 waiting.

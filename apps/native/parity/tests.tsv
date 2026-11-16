@@ -1036,7 +1036,7 @@ apps/desktop/src/renderer/src/stop-press.test.ts		waiting
 apps/desktop/src/renderer/src/stream-frames.test.ts		waiting		
 apps/desktop/src/renderer/src/swarm.test.ts		waiting		
 apps/desktop/src/renderer/src/talk-is-pressed-by-its-keys.test.tsx		waiting		
-apps/desktop/src/renderer/src/teamBoard.test.ts		waiting		
+apps/desktop/src/renderer/src/teamBoard.test.ts	R2	carried	src/team_board.rs tests and surface_tests; src/ui/home_panel.rs; src/ui/people_panel.rs	4 exact cases plus actual Home/Team drawing; named passes in renderer-6-restored-workspace.log; no exclusions
 apps/desktop/src/renderer/src/teammate-folder-row.test.tsx		waiting		
 apps/desktop/src/renderer/src/teammateTooltip.test.ts	renderer-4	carried	core/src/teammate_tooltip.rs; src/ui/sidebar.rs; src/ui/rail.rs	Five exact named tooltip cases; action, role, human model name, and account-default wording on both sidebar layouts. notes/RENDERER-NOTES.md.
 apps/desktop/src/renderer/src/teammateWork.test.ts		waiting		

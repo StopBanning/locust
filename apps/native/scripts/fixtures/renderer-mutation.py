@@ -10,6 +10,18 @@ import subprocess
 import sys
 
 CONTROLS = {
+    "board-working": (
+        "src/team_board.rs",
+        "Some(Status::Working) => Section::Working,",
+        "Some(Status::Working) => Section::Ready,",
+        "an_unseen_finish_outranks_idle_never_a_live_run_or_a_wait",
+    ),
+    "removed-selection": (
+        "src/main.rs",
+        'Some(id) => s.teammates.iter().position(|t| t.id == id).unwrap_or(usize::MAX),',
+        'Some(id) => s.teammates.iter().position(|t| t.id == id).unwrap_or(0),',
+        "is_nobody_once_that_teammate_is_removed_never_whoever_is_first",
+    ),
     "tooltip-default": (
         "core/src/teammate_tooltip.rs",
         'if model == "account-default" {',

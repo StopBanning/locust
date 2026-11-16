@@ -225,6 +225,7 @@ mod math_tex;
 mod file_menu;
 mod composer;
 mod conversation_board;
+mod team_board;
 mod quick;
 mod starters;
 
