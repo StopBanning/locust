@@ -33,6 +33,18 @@ thread_local! {
     static DRAWN_SHAPE: std::cell::RefCell<std::collections::HashMap<String, rune::Shape>> = Default::default();
 }
 
+#[cfg(test)]
+thread_local! {
+    /// The pet each live face last drew in its bot's place, by its slot, for the window's own tests.
+    static DRAWN_PET: std::cell::RefCell<std::collections::HashMap<String, String>> = Default::default();
+}
+
+/// The pet the live face in `slot_key` last drew, if it drew one, on this thread.
+#[cfg(test)]
+pub fn drawn_pet(slot_key: &str) -> Option<String> {
+    DRAWN_PET.with(|drawn| drawn.borrow().get(slot_key).cloned())
+}
+
 /// What the live face in `slot_key` last drew on this thread.
 #[cfg(test)]
 pub fn drawn_shape(slot_key: &str) -> Option<rune::Shape> {
@@ -232,6 +244,20 @@ pub fn bot_face_with_look(
     let plush = s.settings_panel.settings.plush;
     let reduced = s.reduced_motion.get();
     let screen = wears_screen(look, &shape_name, terminal_faces);
+    // A worn pet is drawn where the bot was, with a bot's marks; until its sheet is ready, or when it cannot be drawn,
+    // the bot stands in (a-teammate-can-be-a-pet.test.tsx).
+    if !is_codex_buddy(look)
+        && let Some(pet) = look.and_then(|l| l.pet.as_ref())
+        && let Some(drawn) = crate::pet_faces::pet_face(s, slot_key, pet, opts.activity, size, opts.presence, !l.k.dark)
+    {
+        #[cfg(test)]
+        DRAWN_PET.with(|d| d.borrow_mut().insert(slot_key.to_owned(), pet.id.clone()));
+        return drawn;
+    }
+    #[cfg(test)]
+    DRAWN_PET.with(|d| {
+        d.borrow_mut().remove(slot_key);
+    });
     let shape = if is_codex_buddy(look) {
         let snap = s.bot_stage.snapshot_buddy(
             slot_key,

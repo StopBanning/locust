@@ -196,6 +196,8 @@ pub(super) struct State {
     pub(super) people_panel: crate::people_panel::Panel,
     /// The Pets row of the look picker (PetPicks.tsx).
     pub(super) pet_picks: crate::pet_picks::PetPicks,
+    /// Worn pets drawn as faces: their sheets, cut into cells (PetSprite.tsx).
+    pub(super) pet_faces: crate::pet_faces::PetFaces,
     pub(super) settings_panel: crate::settings_panel::Panel,
     /// The agent (and model) a stopped turn's card offers to carry on with: the person's pick, else the first ready.
     pub(super) carry_offer: Option<(String, Option<String>)>,
@@ -423,6 +425,7 @@ impl Default for State {
             routines: crate::routines_panel::Panel::default(),
             people_panel: crate::people_panel::Panel::default(),
             pet_picks: crate::pet_picks::PetPicks::default(),
+            pet_faces: crate::pet_faces::PetFaces::default(),
             browser: crate::browser_panel::Panel::default(),
             terminal: crate::terminal_panel::Panel::default(),
             settings_panel: crate::settings_panel::Panel::default(),

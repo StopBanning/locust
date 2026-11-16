@@ -54,7 +54,10 @@ de-duplicated per id across threads (an add holds one lock; a thumbnail read twi
    (`usePetRemoval`) built the same day: tick mode, the report in Electron's words, a worn pick's files kept for its
    wearers, removed picks hidden until shown and added again when picked; 7 breaks caught. Still to do: reading
    Electron's own added pets, and showing the installed non-pick pets (Codex's) as tiles (`otherPets`).
-3. A pet playing its teammate's activity (`petMotion.ts`: activity -> state map, frame at time, fade, glance cell) and drawing a
+3. ~~A pet playing its teammate's activity~~ built 16 Nov (`src/ui/pet_faces.rs`: each worn pet's sheet cut into cells off the
+   window thread, the row for its activity from `pet_motion`, the window woken at its next cell, a bot's ring and dot
+   kept; the bot stands in until the sheet is ready or when it cannot be read). Not yet seen with a real sheet on screen.
+   Was: A pet playing its teammate's activity (`petMotion.ts`: activity -> state map, frame at time, fade, glance cell) and drawing a
    sheet frame (WebP decode needs an image decoder in the window crate; Codex Buddy is the only pet drawn today, as a screen).
 4. Puppets (`petPuppets.ts`, `petScreens.ts`): the kept pets drawn as rigs; large.
 5. Bulk removal UI.

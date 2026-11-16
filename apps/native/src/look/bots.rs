@@ -115,6 +115,23 @@ fn phosphor_rgb(tone: Phosphor) -> [u8; 3] {
 
 /// The presence dot's fill (PixelFace.tsx `PRESENCE_TONE`, shell.css `.lc-presence--*`): working is monochrome
 /// since 0.430 (`--lc-text-primary`), waiting amber, blocked red.
+/// A pet's marks, as a bot wears them: the amber waiting ring round the whole face and the presence dot at its foot
+/// (`.lc-bot__ring`, `.lc-presence` around a pet in TeammateBot.tsx).
+pub fn pet_marks_shape(size: f32, ring: bool, presence: Option<PresenceDot>, light_theme: bool) -> Shape {
+    let mut s = Shape::new().view_box(size, size);
+    if ring {
+        let r = size * 0.47;
+        s = s.stroke_with(disc_points(size * 0.5, size * 0.5, r, r, 32), true, (size * 0.045).max(0.9), LineCap::Round, rgba8(245, 166, 35, 220));
+    }
+    if let Some(presence) = presence {
+        let dot_r = (size * 0.1).max(2.2);
+        let (cx, cy) = (size * 0.84, size * 0.84);
+        s = s.fill(disc_points(cx, cy, dot_r * 1.32, dot_r * 1.32, 14), rgba8(14, 18, 26, 230));
+        s = s.fill(disc_points(cx, cy, dot_r, dot_r, 14), presence_color(presence, light_theme));
+    }
+    s
+}
+
 fn presence_color(kind: PresenceDot, light_theme: bool) -> Color {
     let look = crate::look::controls::Look::new(!light_theme);
     look.c(match kind {

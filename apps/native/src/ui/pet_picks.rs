@@ -88,10 +88,15 @@ pub(crate) fn removal_report(done: &Removal) -> (String, bool) {
 
 /// The library and gallery for this data folder: added pets and the gallery cache in the Rust app's own folder, Codex's
 /// pets read where they are.
-fn gallery_for(store: &locust_core::store::Store) -> PetGallery {
+pub(crate) fn library_for(store: &locust_core::store::Store) -> PetLibrary {
     let root = store.root();
     let codex = std::env::var_os("HOME").map(|home| std::path::PathBuf::from(home).join(".codex").join("pets"));
-    let library = PetLibrary::new(root.join("pets"), root.join("pets-bundled"), codex, None);
+    PetLibrary::new(root.join("pets"), root.join("pets-bundled"), codex, None)
+}
+
+fn gallery_for(store: &locust_core::store::Store) -> PetGallery {
+    let root = store.root();
+    let library = library_for(store);
     let now = || std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0);
     PetGallery::new(library, root.join("pets-cache"), Box::new(UreqFetch), Box::new(now))
 }
