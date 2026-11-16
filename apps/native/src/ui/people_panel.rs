@@ -775,6 +775,7 @@ fn team_grid(s: &State, p: &Palette) -> El {
         let mode = t["route"]["mode"].as_str().unwrap_or("ask").to_owned();
         let work = locust_core::teammate_work::teammate_work(&id, &missions, &owners, |m| m.title.clone());
         let last = work.last_run_at.and_then(ago_label);
+        let status = crate::home_panel::teammate_status(s, &id, s.teammates.iter().any(|m| m.id == id && m.busy), t["route"]["runtime"].as_str(), &role);
 
         let mut head = row()
             .w_full()
@@ -786,7 +787,7 @@ fn team_grid(s: &State, p: &Palette) -> El {
                     .shrink()
                     .gap(2.0)
                     .child(text(name.clone()).font(rune::TextStyle::new(14.5, 500.0)).color(l.c("text-name")).w_full().truncate())
-                    .child(text(crate::home_panel::runtime_blocked_label(s, crate::home_panel::runtime_of_teammate(s, &id, t["route"]["runtime"].as_str())).unwrap_or(&role).to_owned()).font(rune::TextStyle::new(13.0, 400.0)).color(l.c("text-muted")).w_full().truncate()),
+                    .child(row().gap(5.0).center_y().child(crate::home_panel::teammate_presence(&status, p)).child(text(status.label.clone()).font(rune::TextStyle::new(13.0, 400.0)).color(crate::home_panel::teammate_status_color(&status, p)).w_full().truncate())),
             );
         if panel.removing.as_deref() == Some(id.as_str()) {
             let yes = id.clone();

@@ -505,16 +505,36 @@ pub(super) fn runtime_of_teammate<'a>(s: &'a State, id: &str, route: Option<&'a 
         .or(route)
 }
 
+/// The same projected state supplies both roster surfaces and the board group.
+pub(super) fn teammate_status(s: &State, id: &str, busy: bool, runtime: Option<&str>, role: &str) -> locust_core::teammate_reach::StatusView {
+    use locust_core::teammate_reach::{Reach, runtime_reach, status_view};
+    let owns = |mission: &str| s.people_panel.team["missionOwners"][mission].as_str() == Some(id);
+    let approvals = s.home.waiting_for.keys().filter(|key| owns(key)).count();
+    let running = busy || s.flight.as_ref().is_some_and(|f| f.teammate_id == id)
+        || s.ledger.as_ref().is_some_and(|p| p.header.id == id && p.snapshot.running);
+    let runtime = runtime_of_teammate(s, id, runtime);
+    if let Some(agents) = &s.settings_panel.agents {
+        return status_view(runtime.and_then(|id| agents.iter().find(|a| a.id == id)), runtime_reach(agents, true), running, approvals, role);
+    }
+    let mut view = status_view(None, Reach::default(), running, approvals, role);
+    if let Some(label) = runtime_blocked_label(s, runtime) {
+        view = locust_core::teammate_reach::StatusView { status: "blocked", label: label.into(), tone: "red", presence: "blocked" };
+    }
+    view
+}
+pub(super) fn teammate_status_color(view: &locust_core::teammate_reach::StatusView, p: &Palette) -> Color {
+    match view.tone { "red" => p.red, "amber" => p.amber, "live" => p.green, _ => p.muted }
+}
+pub(super) fn teammate_presence(view: &locust_core::teammate_reach::StatusView, p: &Palette) -> El {
+    if view.presence == "none" { return el().w(6.0).h(6.0); }
+    el().w(6.0).h(6.0).radius(3.0).fill(teammate_status_color(view, p)).role("status").label(view.presence)
+}
 /// Use recorded owner ids, never matching a person's display name.
 pub(super) fn teammate_section(s: &State, id: &str, busy: bool, runtime: Option<&str>) -> crate::team_board::Section {
     use crate::team_board::{Status, board_section_of};
-    let owns = |mission: &str| s.data.as_ref().and_then(|store| people::owner_of(store, mission)).as_deref() == Some(id);
-    let waiting = s.home.waiting_for.keys().any(|key| owns(key));
-    let blocked = runtime_blocked_label(s, runtime_of_teammate(s, id, runtime)).is_some();
-    let running = busy || s.flight.as_ref().is_some_and(|f| f.teammate_id == id)
-        || s.ledger.as_ref().is_some_and(|p| p.header.id == id && p.snapshot.running);
-    board_section_of(Some(if waiting { Status::ApprovalNeeded } else if blocked { Status::Blocked }
-        else if running { Status::Working } else { Status::Idle }), s.home.to_look_at.iter().any(|key| owns(key)))
+    let view = teammate_status(s, id, busy, runtime, "");
+    board_section_of(Some(match view.status { "approval-needed" => Status::ApprovalNeeded, "blocked" => Status::Blocked,
+        "working" => Status::Working, _ => Status::Idle }), s.home.to_look_at.iter().any(|key| s.people_panel.team["missionOwners"][key].as_str() == Some(id)))
 }
 
 pub(super) fn home_view(s: &State, p: &Palette) -> El {
@@ -731,10 +751,11 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
                     .shrink(),
             );
             let looked = crate::scout_cards::looked_line_for_teammate(s, &mate.id);
+            let status = teammate_status(s, &mate.id, mate.busy, mate.runtime.as_deref(), &mate.role);
             let sub_text = looked
                 .as_ref()
                 .map(|(line, _)| line.clone())
-                .unwrap_or_else(|| runtime_blocked_label(s, runtime_of_teammate(s, &mate.id, mate.runtime.as_deref())).unwrap_or(&mate.role).to_owned());
+                .unwrap_or_else(|| status.label.clone());
             let card = row()
                 .gap(12.0)
                 .padding(12.0)
@@ -749,7 +770,7 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
                         .grow(1.0)
                         .shrink()
                         .child(text(mate.name.clone()).font(rune::TextStyle::new(14.0, 500.0)).color(l.c("text-name")).truncate())
-                        .child(text(sub_text).font(rune::TextStyle::new(12.5, 400.0)).color(l.c("text-secondary")).truncate())
+                        .child(row().gap(5.0).center_y().child(teammate_presence(&status, p)).child(text(sub_text).font(rune::TextStyle::new(12.5, 400.0)).color(teammate_status_color(&status, p)).truncate()))
                         .child(agent),
                 );
             if let Some((_, looking)) = looked {
@@ -1748,4 +1769,50 @@ mod renderer_runtime_tests {
         let s = with_missions(&[("running", "codex")]);
         assert_eq!(runtime_of_teammate(&s, "tm_other", Some("claude")), Some("claude"));
     }
+    #[test]
+    fn home_and_team_draw_the_signed_out_warning_and_presence_from_the_same_status() {
+        use locust_core::agents::{Found, Auth, Probe};
+        for home in [true, false] {
+            let mut s = State::default();
+            crate::team_scene(&mut s);
+            s.teammates.truncate(1);
+            let mate = &mut s.teammates[0];
+            mate.id = "tm_wisp".into(); mate.name = "Wisp".into(); mate.role = "Docs & QA".into();
+            mate.runtime = Some("claude".into()); mate.busy = false;
+            s.people_panel.team = serde_json::json!({"teammates":[{"teammateId":"tm_wisp","name":"Wisp","role":"Docs & QA","route":{"runtime":"claude"}}]});
+            s.settings_panel.agents = Some([("claude", false), ("codex", true)].into_iter().map(|(id, ready)| Found {
+                id:id.into(), display_name:id.into(), installed:true, version:None,
+                auth:if ready {Auth::Authenticated} else {Auth::Unauthenticated}, ready,
+                status:if ready {Probe::Ready} else {Probe::AuthRequired}, unsupported_note:None, through_cli:false, checking:false,
+            }).collect());
+            let v = teammate_status(&s, "tm_wisp", false, Some("claude"), "Docs & QA");
+            assert_eq!(v.status, "blocked");
+            assert_eq!(teammate_status_color(&v, &Palette::new(true)), Palette::new(true).red);
+            let mut rt = rune::Runtime::new((s,home), |(s,home),_| if *home { home_view(s,&Palette::new(true)) }
+                else { crate::people_panel::view(s,&Palette::new(true)) }, (1200.0,1800.0),rune::Env::new(true,1.0));
+            rt.frame(0.0);
+            let elements = rt.elements();
+            assert!(elements.iter().any(|e| e.text.as_deref() == Some("Sign-in needed")), "home={home}");
+            assert!(elements.iter().any(|e| e.label.as_deref() == Some("blocked")), "home={home}");
+            assert!(!elements.iter().any(|e| e.text.as_ref().is_some_and(|t| t.contains("Docs & QA · idle"))), "home={home}");
+        }
+    }
+
+    #[test]
+    fn approval_presence_uses_cached_owner_ids_and_stays_distinct_from_a_sign_in_wall() {
+        let mut s = State::default();
+        s.people_panel.team = serde_json::json!({"missionOwners":{"m1":"tm_wisp","m2":"tm_other"}});
+        s.home.waiting_for.insert("m1".into(), "A decision".into());
+        let v = teammate_status(&s, "tm_wisp", true, Some("codex"), "Builder");
+        assert_eq!(v.status, "approval-needed");
+        assert_eq!(v.label, "Builder · waiting on you");
+        assert_eq!(v.presence, "approval");
+        assert_eq!(teammate_status_color(&v, &Palette::new(true)), Palette::new(true).amber);
+        assert_eq!(teammate_section(&s, "tm_wisp", true, Some("codex")), crate::team_board::Section::NeedsYou);
+        let other = teammate_status(&s, "tm_other", false, Some("codex"), "Docs & QA");
+        assert_eq!(other.status, "idle");
+        assert_eq!(other.presence, "none");
+        assert_eq!(teammate_section(&s, "tm_other", false, Some("codex")), crate::team_board::Section::Ready);
+    }
+
 }
