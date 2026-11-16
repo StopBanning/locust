@@ -205,4 +205,10 @@ test of its own, and `partial` names what is missing.
   literals the library gives: bot-avatars 0.2.2's `shade`, run in node: `hsl(219.7 89.7% 64.7%)` and
   `hsl(255.0 69.4% 96.5%)`.
 - **Totals.** `recount.py --check` passes: 196 carried, 62 does not apply, 192 partial, 859 waiting.
+- **Release build:** passed, but only after a forced rebuild. The first `build --release` after the ledger commit
+  failed with `no method named side_now found for GlanceHold`, though the source and the job 3 commit both have it. The
+  shared target folder (`~/work/scratch/native-target`, used by every worktree) served a stale `locust-core` to the
+  window crate. Touching `core/src/lib.rs` made cargo rebuild core, and the build then passed. The same thing happened
+  once in job 2. **If a build says a core item is missing that the source has, touch `core/src/lib.rs` and build
+  again before believing it.** The test builds were not affected: the new tests that use `side_now` ran and passed.
 
