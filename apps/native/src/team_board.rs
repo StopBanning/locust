@@ -196,4 +196,31 @@ mod surface_tests {
             assert!(!shown.contains("Needs you"), "home={home}: {shown}");
         }
     }
+    #[test]
+    fn home_and_team_keep_pending_agents_quiet_and_name_a_checked_missing_agent() {
+        use locust_core::agents::{Found, Auth, Probe};
+        for home in [true, false] {
+            let mut s = State::default();
+            crate::team_scene(&mut s);
+            for mate in &mut s.teammates { mate.busy = false; mate.runtime = Some("opencode".into()); }
+            let pending = Found { id:"opencode".into(), display_name:"opencode".into(), installed:true,
+                version:Some("1.0.0".into()), auth:Auth::Unknown, ready:false, status:Probe::ProbeFailed,
+                unsupported_note:None, through_cli:false, checking:true };
+            s.settings_panel.agents = Some(vec![pending.clone()]);
+            s.people_panel.team = serde_json::json!({"teammates": s.teammates.iter().map(|m| serde_json::json!({"teammateId":m.id,"name":m.name,"role":m.role,"route":{"runtime":m.runtime}})).collect::<Vec<_>>()});
+            let shown = draw(s, home);
+            assert!(!shown.contains("Needs you") && !shown.contains("Sign-in needed"), "home={home}: {shown}");
+
+            let mut s = State::default();
+            crate::team_scene(&mut s);
+            for mate in &mut s.teammates { mate.busy = false; mate.runtime = Some("claude".into()); }
+            s.settings_panel.agents = Some(vec![pending, Found { id:"claude".into(), display_name:"claude".into(),
+                installed:false, version:None, auth:Auth::Unknown, ready:false, status:Probe::Missing,
+                unsupported_note:None, through_cli:false, checking:false }]);
+            s.people_panel.team = serde_json::json!({"teammates": s.teammates.iter().map(|m| serde_json::json!({"teammateId":m.id,"name":m.name,"role":m.role,"route":{"runtime":m.runtime}})).collect::<Vec<_>>()});
+            let shown = draw(s, home);
+            assert!(shown.contains("Needs you") && shown.contains("AI agent not installed"), "home={home}: {shown}");
+        }
+    }
+
 }

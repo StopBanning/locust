@@ -833,7 +833,7 @@ apps/desktop/src/renderer/src/a-teammate-can-be-a-pet.test.tsx		waiting
 apps/desktop/src/renderer/src/a-teammate-can-hand-you-a-file.test.ts	renderer-2	carried	src/ui/messages.rs	Five separate headless ledger-to-thread cases; exact Electron replies; renderer-2-files-workspace.log.
 apps/desktop/src/renderer/src/a-teammate-chooses-its-screen.test.tsx	renderer-4	carried	src/look/faces.rs::renderer_screen_tests; core/src/native.rs	Six exact cases; intrinsic screens, boolean disk boundary, and Terminal faces wired through static UI. Named passes and caught prompt-screen control; notes/RENDERER-NOTES.md.
 apps/desktop/src/renderer/src/a-teammate-has-a-model-of-its-own.test.tsx		waiting		
-apps/desktop/src/renderer/src/a-teammate-is-not-stuck-while-agents-are-still-being-found.test.ts		waiting		
+apps/desktop/src/renderer/src/a-teammate-is-not-stuck-while-agents-are-still-being-found.test.ts	renderer-12	carried	core/src/teammate_reach.rs;src/team_board.rs	7 exact discovery cases; shared reach feeds Home/Team labels and urgency. Pending-reach mutation caught; notes/RENDERER-NOTES.md.
 apps/desktop/src/renderer/src/a-teammate-wears-how-it-feels.test.ts	renderer-3	carried	core/src/bot_rig.rs::renderer_mood_tests	Nine separate Electron mood/pose/rig/hop cases; named passes in renderer-3-restored-workspace.log. notes/RENDERER-NOTES.md.
 apps/desktop/src/renderer/src/a-teammate-who-just-finished-last-worked-just-now.test.ts	P4	partial		`a-teammate-who-just-finished-last-worked-just-now.test.ts` | `liveRunLastAt` is not separately ported; native local summaries use ledger event times. Live teammate-card age presentation is outside this implementation.
 apps/desktop/src/renderer/src/a-teammates-eyes-are-drawn-not-typed.test.ts		waiting		

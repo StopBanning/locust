@@ -1134,3 +1134,100 @@ No live window, real agent, packaged app or Electron/JavaScript gate is run.
   Queued waitFor, id-based teammate work, pets and the other previously recorded
   gaps remain. No additional file is claimed carried or excluded. No live or
   packaged app, real agent, Electron gate, other OS build or benchmark was run.
+
+## Renderer-12 — idle teammate section (in progress)
+
+- Started at b239b517 with a clean tracked tree; the round-3 leftovers in the
+  brief were already committed. No stash or discard needed.
+- Read the idle-teammate file and IdleTeammate.tsx, its role descriptions,
+  mode sentences and App caller. Native's fresh thread now shows its teammate's
+  own template starters or role defaults and role description; a Custom role
+  uses its saved title. Starter presses dispatch through the existing send gate.
+  Existing transcript loading/empty-ledger states remain separate.
+- Five exact Electron cases live separately under idle_teammate::tests, drawing
+  the actual thread headlessly. The first full run observed all five passing by
+  name (2119 core passed, 20 ignored; window still running). That binary predates
+  correcting the mode sentence to the composer's effective mode and wiring the
+  press to send, as Electron's App does. Final verification remains pending.
+- Empty-folder starters use the existing native invented-folder signal and
+  template fresh-starter mapping; no filesystem access during drawing.
+- Still waiting: inline new-page preview, pet animations, model/effort editor,
+  signed-out/pending discovery labels, queued busy-elsewhere dispatch, month/limit
+  rows and handoff glances need the surface/host work noted in prior sections.
+  Further reads this turn confirmed those applicable gaps, not exclusions.
+- One initial compile failed on a String/&str mismatch and ghost_button's &str
+  argument; fixed. A path typo in a test-helper edit did not change files. No
+  compiler error is counted as a passed test or mutation.
+- Idle-own-starters control exited 0 and restored idle_teammate.rs byte for
+  byte. The full mutant run passed 2119 core tests (20 ignored) and 520 window
+  tests, failing only offers_a_template_teammates_own_first_messages. Log:
+  renderer-control-idle-own-starters.log. No break remains applied.
+
+### Next small section — discovery reach (prepared)
+
+- Seven separate cases from a-teammate-is-not-stuck-while-agents-are-still-being-found
+  live under teammate_reach::tests, with Electron's ids, version and exact labels.
+  Native uses absence of a blocked label to preserve its existing activity,
+  instead of introducing another parallel activity/status state machine.
+- Shared core reach rules now feed Home/Team urgency and labels, reading only
+  already-loaded discovery. The boot sweep remains the fallback before the richer
+  answer arrives. No disk reads, probes or process launches were added to drawing.
+- The complete restored run includes both sections; neither row is marked carried
+  until named results. The 9-case signed-out file remains waiting (runtime choice
+  and presence projection are additional cases, not covered by this section).
+- Inventory audit found two waiting paths absent from this checkout:
+  a-waiting-conversation-is-first-in-the-sidebar.test.tsx and
+  an-app-started-conversation-says-so-in-the-sidebar.test.tsx. They remain waiting;
+  absence is not an Electron-plumbing exclusion. No external reference was read.
+- renderer-12-restored-workspace.log exited 0: 2126 core + 521 window passed,
+  20 ignored real-agent tests, doc tests 0. All twelve Electron cases passed by
+  name on restored source. The added Home/Team surface regression and effective
+  composer-mode regression were written after those test binaries compiled;
+  their first verification is the following control run, not this baseline.
+- Both new modules are rustfmt-formatted. The pending-reach control temporarily
+  treats a partial unusable sweep as a final negative verdict. Final results and
+  restored verification follow below; no compile failure counts as a catch.
+- Integration review found the full teammate JSON was loaded only when opening
+  Team: startup's roster projection omitted template starters/custom titles.
+  The existing roster-refresh team read now also caches that JSON (no extra I/O).
+  A regression creates a native roster under this workspace's target directory,
+  refreshes it without opening Team, and draws Quill's actual idle thread.
+  This correction and its regression require the final restored run below.
+- Pending-reach control exited 0, restored teammate_reach.rs byte for byte.
+  Intentional failures: three core reach cases (2123 core passed, 3 failed,
+  20 ignored) and the new Home/Team regression (522 window passed, 1 failed).
+  No unrelated assertion failed. The six idle cases then compiled, including
+  effective composer mode, all passed. Startup-cache regression was added after
+  that compilation and is first exercised by idle-roster-cache below.
+- Startup-cache control exited 0, restored main.rs byte for byte. Whole mutant
+  workspace: 2126 core passed, 20 ignored; 523 window passed and only the named
+  startup-cache regression failed. All seven discovery cases and its Home/Team
+  surface regression passed on restored discovery logic. Log:
+  renderer-control-idle-roster-cache.log. No mutation remains applied.
+- The final idle buttons wrap long starter text within the thread's width,
+  retain native focus rings and omit press handlers while blocked/busy. Final
+  verification is renderer-12-final-workspace.log, followed by the release build.
+
+### Startup-control correction
+
+- The initial idle-roster-cache run above is REJECTED as mutation evidence:
+  its named test failed at the test isolation guard before exercising the cache.
+  The following restored run exposed the same fixture-path failure. Neither is
+  a green baseline or a valid catch, despite the old control runner's exit 0.
+- Corrected the fixture to use the configured runner's disposable TMPDIR,
+  as the other native store tests do. No isolation bypass or runner change.
+  The renderer control runner now rejects isolation-guard failures explicitly.
+  The startup-cache control must be rerun, then source restored and verified.
+
+### Discovery section verified for commit
+
+- All seven exact cases passed by name in the green restored workspace run
+  (2126 core, 521 window, 20 ignored). The additional Home/Team regression
+  passed on restored reach logic in the subsequent startup-control run. Its
+  failure under pending-reach was the intended surface assertion, not isolation.
+- The discovery row is carried. Its production code has not changed since that
+  green run. Startup-fixture validation is separate, still pending for idle.
+- Native keeps activity in its existing state machinery: unknown discovery is
+  absence of a proven blocked label, not a second parallel status machine.
+  No cases were excluded as Electron plumbing. Signed-out/runtime-choice and
+  presence cases in the other file remain waiting.

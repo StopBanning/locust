@@ -784,7 +784,7 @@ fn team_grid(s: &State, p: &Palette) -> El {
                     .shrink()
                     .gap(2.0)
                     .child(text(name.clone()).font(rune::TextStyle::new(14.5, 500.0)).color(l.c("text-name")).w_full().truncate())
-                    .child(text(role).font(rune::TextStyle::new(13.0, 400.0)).color(l.c("text-muted")).w_full().truncate()),
+                    .child(text(crate::home_panel::runtime_blocked_label(s, Some(&runtime)).unwrap_or(&role).to_owned()).font(rune::TextStyle::new(13.0, 400.0)).color(l.c("text-muted")).w_full().truncate()),
             );
         if panel.removing.as_deref() == Some(id.as_str()) {
             let yes = id.clone();

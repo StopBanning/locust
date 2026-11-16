@@ -480,13 +480,25 @@ fn section_head(l: &crate::look::controls::Look, title: &str, count: Option<usiz
     head
 }
 
+/// Use the latest discovery answer without turning a pending probe into a sign-in wall.
+pub(super) fn runtime_blocked_label(s: &State, runtime: Option<&str>) -> Option<&'static str> {
+    if let Some(agents) = &s.settings_panel.agents {
+        return locust_core::teammate_reach::blocked_label(
+            runtime.and_then(|id| agents.iter().find(|a| a.id == id)),
+            locust_core::teammate_reach::runtime_reach(agents, true),
+        );
+    }
+    // Before richer discovery answers, keep the boot sweep's proven outcomes only.
+    s.home.boot.probes.iter().find(|p| Some(p.id.as_str()) == runtime)
+        .and_then(|p| match p.outcome { Some("missing") => Some("AI agent not installed"), Some("needs-signin") => Some("Sign-in needed"), _ => None })
+}
+
 /// Use recorded owner ids, never matching a person's display name.
 pub(super) fn teammate_section(s: &State, id: &str, busy: bool, runtime: Option<&str>) -> crate::team_board::Section {
     use crate::team_board::{Status, board_section_of};
     let owns = |mission: &str| s.data.as_ref().and_then(|store| people::owner_of(store, mission)).as_deref() == Some(id);
     let waiting = s.home.waiting_for.keys().any(|key| owns(key));
-    let blocked = runtime.is_some_and(|runtime| s.home.boot.probes.iter()
-        .any(|p| p.id == runtime && matches!(p.outcome, Some("missing" | "needs-signin"))));
+    let blocked = runtime_blocked_label(s, runtime).is_some();
     let running = busy || s.flight.as_ref().is_some_and(|f| f.teammate_id == id)
         || s.ledger.as_ref().is_some_and(|p| p.header.id == id && p.snapshot.running);
     board_section_of(Some(if waiting { Status::ApprovalNeeded } else if blocked { Status::Blocked }
@@ -710,7 +722,7 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
             let sub_text = looked
                 .as_ref()
                 .map(|(line, _)| line.clone())
-                .unwrap_or_else(|| mate.role.clone());
+                .unwrap_or_else(|| runtime_blocked_label(s, mate.runtime.as_deref()).unwrap_or(&mate.role).to_owned());
             let card = row()
                 .gap(12.0)
                 .padding(12.0)
