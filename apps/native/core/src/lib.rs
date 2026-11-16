@@ -231,6 +231,7 @@ pub mod face_legend;
 pub mod look_picker;
 pub mod pet_library;
 pub mod pets;
+pub mod pet_motion;
 #[cfg(test)]
 mod pet_library_tests;
 pub mod cover_activity;
