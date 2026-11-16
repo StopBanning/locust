@@ -316,6 +316,23 @@ pub fn deferred_others_sentence(n: usize, install_here: bool, vendor: bool) -> S
 mod tests {
     use super::*;
 
+    /// the-bare-machine.test.ts: "says what it is doing when there is nothing to count".
+    #[test]
+    fn says_what_it_is_doing_when_there_is_nothing_to_count() {
+        let said = boot_view(&BootState::default(), BootPhase::Probing, 0).progress;
+        assert!(!said.contains("0 of 0"), "{said}");
+        assert!(said.contains("looking for"), "{said}");
+    }
+
+    /// the-bare-machine.test.ts: "still counts once there is something to count".
+    #[test]
+    fn still_counts_once_there_is_something_to_count() {
+        let mut probing = BootState { phase: BootPhase::Probing, ..BootState::default() };
+        probing.probes.push(BootProbe { id: "codex".into(), bin: "codex".into(), product: "Codex CLI".into(), at: 0, outcome: None, version: None });
+        let said = boot_view(&probing, BootPhase::Probing, 0).progress;
+        assert!(said.contains("of 1"), "{said}");
+    }
+
     #[test]
     fn progress_and_summary_words() {
         let mut state = BootState::default();
