@@ -1964,3 +1964,68 @@ Renderer-17 named folder mapping (people_panel::renderer_folder_tests):
   818 waiting (1309 total). Twelve requested rows wait; folder row is partial.
 - Both fixture scripts parse; git diff --check passed; both original mutation
   anchors present exactly once. No break remains. All commands completed.
+
+
+### Renderer-17 — existing conversation queue coverage classification
+
+- Re-read steering.ts and all fifteen cases in the requested Electron queue
+  file, plus src/composer/queue.rs and the window's queue send/drain path.
+  Ten exact Rust isolation cases already existed. All ten were mechanically
+  matched by full name to `... ok` in the final green release workspace run.
+  Marked the row partial to reflect those verified cases, not carried.
+- No queue source or new behavior changed in this metadata-only section.
+  Missing: three queueHome cases and one waitFor verdict case, with persistence
+  and real end-run routing. The fifteenth case is Electron App source wiring;
+  it is not a substitute for native integration. Existing tests prove only
+  the ten isolation rules below, not the missing busy-elsewhere behavior.
+
+Named passes in composer::queue::renderer_conversation_tests:
+- is_its_own_rows_in_the_order_they_were_typed
+- never_folds_into_another_conversations_message
+- still_folds_lines_typed_during_one_run_into_one_message
+- takes_that_conversations_rows_folded_and_leaves_every_other_row_where_it_was
+- takes_nothing_from_a_conversation_with_nothing_queued
+- goes_by_the_row_itself_two_rows_can_be_given_the_same_id
+- empty_that_conversations_queue_and_nobody_elses
+- the_reviewers_case_gems_line_edited_pips_untouched_each_sent_to_its_own
+- sends_each_its_own_as_each_run_ends_in_either_order_the_others_staying_pending
+- sends_nothing_the_words_are_back_in_the_box_not_the_queue_and_leaves_the_other_conversation_queued
+
+
+### Renderer-17 stopping receipt and remaining boundary
+
+- Code/control commit: 283ba1b8. Folder inventory/evidence: 449c4106.
+  This metadata-only queue classification is committed separately.
+- Final recount and --check: 221 carried, 64 does-not-apply, 207 partial,
+  817 waiting (1309 total). Of the requested matching files, eleven wait and
+  two are partial (folder and queue); no new carried/excluded row this run.
+- All seven folder cases passed by full name in the final release suite;
+  all ten picker and ten existing queue names also mechanically matched.
+  Both deliberate controls caught and restored; release suite and binary
+  build exited 0. Whitespace and fixture-script AST checks passed.
+- No source change after the green release suite/build. All this turn's work
+  is committed. Preserve the unrelated scripts/gentle-cargo.py edit and all
+  original untracked HANDOFF files. No stash operation, push, merge, version,
+  changelog, protected-lane or outside-workspace file changes by this turn.
+- The handoff remains unfinished. Completing connector enforcement requires
+  runtime code the brief reserves for the max lane; pet/glyph cases require
+  its explicitly protected pet/face/look files. Do not quietly cross those
+  ownership boundaries. Two sidebar test sources are still missing. Other
+  owned gaps (per-turn page embedding, fitted Home and folder caution) remain
+  applicable work, not exclusions. Conversation live-call/phone, reviewer
+  brief, savable offers and busy-elsewhere queue integration are still absent.
+- No Electron gate, actual OS folder dialog, live/packaged window, real agent,
+  other OS or benchmark was verified. The 20 ignored tests are not passes.
+
+Requested rows still waiting:
+- a-call-shows-on-its-conversation-row.test.tsx
+- a-page-a-teammate-made-runs-in-its-turn.test.tsx
+- a-phone-lists-conversations.test.ts
+- a-teammate-can-be-a-pet.test.tsx
+- a-teammates-eyes-are-drawn-not-typed.test.ts
+- a-waiting-conversation-is-first-in-the-sidebar.test.tsx
+- an-app-started-conversation-says-so-in-the-sidebar.test.tsx
+- home-fits-two-rows-of-teammates.test.ts
+- review-sees-the-conversation.test.ts
+- savable-conversations.test.ts
+- the-folder-chip-says-a-folder-is-no-place-for-teammates.test.tsx
