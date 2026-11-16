@@ -166,7 +166,8 @@ Found and not fixed:
   events by sequence and joins a message's fragments afterwards. A reply streamed in more than 2000 fragments
   therefore loses its opening, which is the bug Electron fixed by joining before the window (mission 645f02a4).
   Electron also keeps the opening quarter of a 3000-event window, not only the newest.
-  - This comes from reading the code. No test was run past 2000.
+  - Confirmed by a throwaway test, which was then removed: a reply streamed in 2,500 fragments reopens starting
+    "w500 w501 …", so its first 500 fragments are gone.
   - The fix touches the reader's replay rule ("sequence keys make duplicate records replay correctly") and the
     door's `latest_final`, which reads the same events. It needs a batch of its own.
 - Deleting: the window says ELECTRON_ONLY for a missing record, not Electron's `NOT_FOUND` "That mission does not
@@ -190,7 +191,7 @@ shared folder; silence on a clean turn; the warning level; the answer's first li
 
 ## Batch 5: permissions (and the start files)
 
-Commits 0e6a6e45 and the batch-5 commit.
+Commits 0e6a6e45, e0128771, and the follow-up that tells Claude Locust's own refusals bare.
 
 | File | Row | Rust tests |
 | --- | --- | --- |
@@ -203,19 +204,29 @@ Commits 0e6a6e45 and the batch-5 commit.
 | `the-start-says-its-phase-on-every-route.test.ts` | waiting | none: no starting-runtime phase in native |
 | `antigravity-mission.test.ts` | waiting | none: native has only the agy CLI route |
 | `codex-mission.test.ts` | waiting | 137 cases, left for a batch of its own |
+| `a-carried-conversation-keeps-its-route-and-reports-its-status.test.ts` | waiting | the file is not in this tree's `apps/desktop/src/main`, though `tests.tsv` has a row for it; nothing to carry |
 
 Bugs found and fixed:
 - **Claude was told a denial in other words.** Rust sent the person's bare reason, or "The person declined this in
   Locust.". Electron's host sends "Denied in Locust.", or "Denied in Locust. The person declined this, and said:
   <reason>". A saved rule's denial reads the same way (see the Electron export golden in `mission_export.rs`).
+  - A follow-up fixes what 0e6a6e45 got wrong: it wrapped every reason as the person's, so the command guard's sentence
+    (and a turn's end) reached Claude as "the person said". `ask_by` now says whose an answer is. Only a card or a
+    saved rule is wrapped; Locust's own reason goes as it is
+    (`locusts_own_refusal_is_not_told_to_claude_as_the_persons_words`).
 - **A question's answer aimed at a Claude permission** told Claude only "no". Claude is now told Electron's "Locust
   did not send that answer: it belongs to a question, and the runtime was waiting on a permission.".
 - **A connector's card showed its input as compact JSON.** Electron's `wholeInput` is `JSON.stringify(input, null,
   2)`, and nothing when there is no input.
 - **Any `tool_use_id` was kept for a card.** Electron keeps only `/^[A-Za-z0-9_-]{1,128}$/`.
-- **An unknown Codex request was refused silently.** It now returns Electron's words, which the Codex session puts in
-  the thread: "Locust denied a request it does not recognise (<method>) because it could not say what would happen.
-  This build is older than the runtime's protocol."
+- **The channel refused an unknown request silently.** It now returns Electron's words to its caller: "Locust denied
+  a request it does not recognise (<method>) because it could not say what would happen. This build is older than the
+  runtime's protocol."
+  - Correction to e0128771's message: Codex's own session never hands the channel an unknown method. Its dispatcher
+    (`runtime/codex.rs` `notification`) answers it with JSON-RPC -32601 and its own notice, "Codex requested an
+    unsupported interaction; native declined it.". Electron gives it to the channel and says the sentence above.
+  - OpenCode's caller still turns the channel's refusal into a plain reject without saying it. Neither difference
+    was changed.
 - **Sixteen waiting cards** now refuse with Electron's "Locust denied an action because 16 approvals are already
   waiting on you. Answer some of them and ask again.", not "Too many approvals waiting.".
 - **Copilot's (ACP) cards were Rust's own.** `ask_acp_runtime` now builds Electron's `acpPermissionRequest` and goes

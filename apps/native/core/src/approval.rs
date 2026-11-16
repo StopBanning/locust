@@ -17,6 +17,8 @@ use std::{
 
 const MAX_PENDING: usize = 16;
 const MAX_DETAIL: usize = 20_000;
+/// Locust's own reason when a run ends before a card is answered: never told to a runtime as the person's words.
+const TURN_ENDED: &str = "The turn ended before this was answered.";
 
 /// Product modes Locust names on a teammate.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -564,7 +566,8 @@ pub fn protocol_answer_for(answer: &Answer) -> Value {
 }
 
 /// Claude control_response body for one answer.
-pub fn claude_behavior_for(answer: &Answer, input: Option<&Value>) -> Value {
+/// `persons` is whether the answer is the person's (a card, or a rule they saved): only then is a reason their words.
+pub fn claude_behavior_for(answer: &Answer, input: Option<&Value>, persons: bool) -> Value {
     match answer {
         Answer::Decision {
             decision: Decision::Deny,
@@ -574,7 +577,9 @@ pub fn claude_behavior_for(answer: &Answer, input: Option<&Value>) -> Value {
             // permission-host.ts decide: Claude reads the denial's message as the tool's result, so a reason the
             // person gave rides it (0.374), in approval-channel.ts `deniedSaying`'s words.
             let message = match reason.as_deref().filter(|s| !s.is_empty()) {
-                Some(why) => format!("Denied in Locust. The person declined this, and said: {why}"),
+                Some(why) if persons => format!("Denied in Locust. The person declined this, and said: {why}"),
+                // Locust's own reason (the command guard's, a turn that ended first) goes as it is.
+                Some(why) => why.to_owned(),
                 None => "Denied in Locust.".to_owned(),
             };
             json!({"behavior":"deny","message": message})
@@ -921,8 +926,8 @@ impl Channel {
             remember_tool_use(&request.approval_id, _request_id);
         }
         let input_kept = request.claude_input.clone();
-        self.ask(request, cancel)
-            .map(|answer| claude_behavior_for(&answer, input_kept.as_ref()))
+        self.ask_by(request, cancel)
+            .map(|(answer, whose)| claude_behavior_for(&answer, input_kept.as_ref(), whose == "person"))
     }
 
     /// ACP options are selected by kind; Always stays in this run, never in the agent.
@@ -949,6 +954,12 @@ impl Channel {
     }
 
     fn ask(&self, request: Request, cancel: &dyn Fn() -> bool) -> Result<Answer, String> {
+        self.ask_by(request, cancel).map(|(answer, _)| answer)
+    }
+
+    /// The answer, and whose it is: the person's own (`person`, a card or a rule they saved) or Locust's (`locust`: the
+    /// command guard, an earlier Always, a turn that ended first).
+    fn ask_by(&self, request: Request, cancel: &dyn Fn() -> bool) -> Result<(Answer, &'static str), String> {
         let (tx, rx) = mpsc::sync_channel(1);
         let id = request.approval_id.clone();
         {
@@ -977,7 +988,7 @@ impl Channel {
                 let mut record = record_of(&request, &answer);
                 record.by = "command-guard".into();
                 guard.recorded.push(record);
-                return Ok(answer);
+                return Ok((answer, "locust"));
             }
             // Saved rules answer before a card (Electron decideByRules). Unreadable → every card asks.
             let saved =
@@ -987,7 +998,7 @@ impl Channel {
                 let mut record = record_of(&request, &auto);
                 record.by = "saved-rule".into();
                 guard.recorded.push(record);
-                return Ok(auto);
+                return Ok((auto, "person"));
             }
             if readable
                 && request.kind != Kind::Question
@@ -1006,7 +1017,7 @@ impl Channel {
                 let mut record = record_of(&request, &answer);
                 record.by = "earlier-always".into();
                 guard.recorded.push(record);
-                return Ok(answer);
+                return Ok((answer, "locust"));
             }
             if guard.pending.len() >= MAX_PENDING {
                 return Err(format!("Locust denied an action because {MAX_PENDING} approvals are already waiting on you. Answer some of them and ask again."));
@@ -1019,7 +1030,11 @@ impl Channel {
             let mut guard = crate::invariants::lock(&self.inner);
             guard.pending.remove(&id);
         }
-        answer
+        // A turn that ended first is Locust's word, not the person's.
+        answer.map(|answer| {
+            let ended = matches!(&answer, Answer::Decision { reason: Some(why), .. } if why == TURN_ENDED);
+            (answer, if ended { "locust" } else { "person" })
+        })
     }
 
     /// The person's answer. False when nothing was waiting, or the turn already ended.
@@ -1036,7 +1051,7 @@ impl Channel {
             let _ = pending.tx.try_send(Answer::Decision {
                 approval_id: pending.request.approval_id.clone(),
                 decision: Decision::Deny,
-                reason: Some("The turn ended before this was answered.".into()),
+                reason: Some(TURN_ENDED.into()),
             });
             return Err(
                 "That approval is no longer waiting. An answer after the turn ended is refused."
@@ -1146,7 +1161,7 @@ impl Channel {
                 let _ = pending.tx.try_send(Answer::Decision {
                     approval_id: id,
                     decision: Decision::Deny,
-                    reason: Some("The turn ended before this was answered.".into()),
+                    reason: Some(TURN_ENDED.into()),
                 });
             }
         }

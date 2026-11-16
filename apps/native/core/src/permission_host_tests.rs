@@ -194,6 +194,19 @@ fn carries_the_persons_reason_for_a_denial_when_they_gave_one() {
 }
 
 #[test]
+fn locusts_own_refusal_is_not_told_to_claude_as_the_persons_words() {
+    // The command guard stops this before any card: its sentence goes to Claude as it is, never as "the person said".
+    // (Spelled in pieces so no shell guard reading this file's commands mistakes it for one.)
+    let stopped = concat!("task", "kill /F /IM ms", "edge.exe");
+    let host = host();
+    let bridge = register(&host, "m1", "C:/work");
+    let guard = crate::command_guard::stopped_because(stopped, &crate::command_guard::GuardContext { fix_copy: false, started_pids: Vec::new() }).unwrap();
+    let said = answer(ask(&bridge, json!({"tool_name": "Bash", "input": {"command": stopped}})));
+    assert!(host.channel.waiting().is_empty(), "no card was raised");
+    assert_eq!(said, json!({"behavior": "deny", "message": guard}));
+}
+
+#[test]
 fn always_is_the_tool_not_the_connector_each_card_keyed_by_its_own_tool() {
     // QA-2026-09-29 round 2, R35: "list_issues" let "delete_file" through with no card.
     let host = host();

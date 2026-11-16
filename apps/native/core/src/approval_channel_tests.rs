@@ -164,7 +164,8 @@ fn ignores_a_decision_for_an_unknown_or_already_answered_approval() {
 #[test]
 fn refuses_a_request_it_does_not_understand_rather_than_guessing_and_says_so() {
     let host = channel();
-    // The Codex session turns the refusal into a reject and puts its words in the thread (runtime/codex.rs).
+    // The channel's refusal, for any caller that hands it a method it does not know. Codex's own session never does:
+    // it answers an unknown request with JSON-RPC -32601 and its own notice before the channel (runtime/codex.rs).
     let said = ask(&host, "mission_1", "item/futureThing/requestApproval", json!({}), None).join().unwrap().unwrap_err();
     assert!(said.contains("does not recognise"), "{said}");
     assert_eq!(said, "Locust denied a request it does not recognise (item/futureThing/requestApproval) because it could not say what would happen. This build is older than the runtime's protocol.");
