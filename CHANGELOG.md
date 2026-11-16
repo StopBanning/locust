@@ -11,6 +11,13 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.877.1 - 2026-11-16
+
+### Improved
+
+- **The model chip names an added account only.** On the computer's own sign-in the chip shows just the model again,
+  with no "This Mac". On an added account it still names it ("Opus 5.5 · max"), so you can tell which one you are on.
+
 ## 0.877.0 - 2026-11-16
 
 ### New
