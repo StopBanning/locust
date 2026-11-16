@@ -224,6 +224,10 @@ pub(super) struct State {
     pub(super) reference_note: Option<String>,
     /// Whether Locust's window is the one in front; the turns and cards already told; finishes gathering.
     pub(super) window_focused: bool,
+    /// When motion rests (useCoverActivity's rule): made at the first poll, fed by `cover_watch::observe`.
+    pub(super) cover: Option<locust_core::cover_activity::CoverActivity>,
+    /// The platform's last input (`rune::last_input`) the cover has been told of.
+    pub(super) cover_input_seen: Option<rune::time::Instant>,
     pub(super) told_cards: std::collections::HashSet<String>,
     pub(super) live_turns: std::collections::HashSet<String>,
     pub(super) finishes: Vec<(String, String)>,
@@ -484,6 +488,8 @@ impl Default for State {
             reference_picker: false,
             reference_note: None,
             window_focused: true,
+            cover: None,
+            cover_input_seen: None,
             told_cards: std::collections::HashSet::new(),
             live_turns: std::collections::HashSet::new(),
             finishes: Vec::new(),

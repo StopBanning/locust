@@ -849,6 +849,12 @@ impl BotStage {
     }
 
     /// Where a bot's gaze is pulled now, (x, y, strength), for the window's own tests.
+    /// The seed the face in `key` was made with (`seedOf` of the teammate it was drawn for).
+    #[cfg(test)]
+    pub fn seed(&self, key: &str) -> Option<f64> {
+        self.inner.borrow().bots.get(key).map(|slot| slot.seed)
+    }
+
     #[cfg(test)]
     pub fn pointer_target(&self, key: &str) -> Option<(f64, f64, f64)> {
         self.inner.borrow().bots.get(key).map(|slot| slot.sim.pointer_target())

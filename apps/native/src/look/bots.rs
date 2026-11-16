@@ -46,6 +46,8 @@ pub struct BotDrawSpec<'a> {
     pub size: f32,
     pub light_theme: bool,
     pub presence: Option<PresenceDot>,
+    /// TeammateBot.tsx 445: the amber ring is a waiting teammate's (`activity === 'waiting'`), not its dot's.
+    pub ring: bool,
     pub runtime: Option<&'a str>,
     pub snap: &'a BotSnapshot,
 }
@@ -56,6 +58,8 @@ pub struct BuddyDrawSpec<'a> {
     pub size: f32,
     pub light_theme: bool,
     pub presence: Option<PresenceDot>,
+    /// As `BotDrawSpec::ring`: TeammateBot draws the ring over a worn pet too.
+    pub ring: bool,
     pub runtime: Option<&'a str>,
     pub snap: &'a BuddySnapshot,
 }
@@ -625,7 +629,7 @@ pub fn draw_bot_shape(spec: &BotDrawSpec<'_>) -> Shape {
     let mut s = Shape::new().view_box(draw_size, draw_size);
 
     // Amber approval/waiting ring around body anchor.
-    if matches!(spec.presence, Some(PresenceDot::Waiting)) {
+    if spec.ring {
         let rc = [
             ((anchor.ring.left + anchor.ring.side * 0.5) as f32) * draw_size,
             ((anchor.ring.top + anchor.ring.side * 0.5) as f32) * draw_size,
@@ -921,7 +925,7 @@ pub fn draw_buddy_shape(spec: &BuddyDrawSpec<'_>) -> Shape {
     let right_joints = arm_joints(&spec.snap.pose.right, 1, dip);
     let mut s = Shape::new().view_box(draw_size, draw_size);
 
-    if matches!(spec.presence, Some(PresenceDot::Waiting)) {
+    if spec.ring {
         let r = draw_size * 0.47;
         s = s.stroke_with(
             disc_points(draw_size * 0.5, draw_size * 0.5, r, r, 32),
@@ -1223,6 +1227,7 @@ pub fn static_bot_shape(
         size,
         light_theme,
         presence: None,
+        ring: false,
         runtime: None,
         snap: &snap,
     })
@@ -1256,6 +1261,7 @@ pub fn static_buddy_shape(
         size,
         light_theme,
         presence: None,
+        ring: false,
         runtime: None,
         snap: &snap,
     })

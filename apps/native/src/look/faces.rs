@@ -27,6 +27,18 @@ thread_local! {
     static DRAWN_LOOK: std::cell::RefCell<std::collections::HashMap<String, (String, String)>> = Default::default();
 }
 
+#[cfg(test)]
+thread_local! {
+    /// What each live face last drew, by its slot, for the window's own tests.
+    static DRAWN_SHAPE: std::cell::RefCell<std::collections::HashMap<String, rune::Shape>> = Default::default();
+}
+
+/// What the live face in `slot_key` last drew on this thread.
+#[cfg(test)]
+pub fn drawn_shape(slot_key: &str) -> Option<rune::Shape> {
+    DRAWN_SHAPE.with(|drawn| drawn.borrow().get(slot_key).cloned())
+}
+
 /// The shape and hue the live face in `slot_key` was last drawn as on this thread.
 #[cfg(test)]
 pub fn drawn_look(slot_key: &str) -> Option<(String, String)> {
@@ -236,6 +248,7 @@ pub fn bot_face_with_look(
             size,
             light_theme: !l.k.dark,
             presence: opts.presence,
+            ring: opts.activity == FaceActivity::Waiting,
             runtime: opts.runtime,
             snap: &snap,
         })
@@ -258,11 +271,14 @@ pub fn bot_face_with_look(
             size,
             light_theme: !l.k.dark,
             presence: opts.presence,
+            ring: opts.activity == FaceActivity::Waiting,
             runtime: opts.runtime,
             snap: &snap,
         })
     };
 
+    #[cfg(test)]
+    DRAWN_SHAPE.with(|drawn| drawn.borrow_mut().insert(slot_key.to_owned(), shape.clone()));
     let hover_slot = slot_key.to_owned();
     let pointer_slot = slot_key.to_owned();
     let mut el = canvas(shape)
@@ -486,3 +502,7 @@ mod renderer_screen_tests {
         assert!(wears_screen(Some(&look("prompt", Some(false))), "prompt", false));
     }
 }
+
+#[cfg(test)]
+#[path = "teammate_bot_markup_tests.rs"]
+mod teammate_bot_markup_tests;

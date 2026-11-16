@@ -228,6 +228,7 @@ pub mod git_quiet;
 pub mod face_status;
 pub mod face_legend;
 pub mod look_picker;
+pub mod cover_activity;
 
 #[cfg(test)]
 mod every_teammate_is_a_bot_tests;

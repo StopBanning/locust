@@ -78,6 +78,8 @@ mod home_panel;
 mod people_panel;
 #[path = "ui/look_picker.rs"]
 mod look_picker;
+#[path = "ui/cover_watch.rs"]
+mod cover_watch;
 #[path = "ui/reply_actions.rs"]
 mod reply_actions;
 #[path = "ui/routines_panel.rs"]
@@ -2344,6 +2346,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     changed |= ledger_tick(s, now, tx);
     changed |= s.handoff_glances.expire(now);
     changed |= teammate_faces::tick(s, now);
+    cover_watch::observe(s, now, rune::last_input());
     changed |= settings_panel::tick_face_legend(s, now, tx);
     drain_queue_after_turn(s, tx);
     changed |= s

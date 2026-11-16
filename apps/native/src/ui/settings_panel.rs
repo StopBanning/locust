@@ -466,15 +466,16 @@ fn shown_page(s: &State) -> Option<SettingsPageId> {
         })
 }
 
-/// In `poll`: the face legend's clock, while Appearance is on screen (FaceLegend.tsx 71-76). It rests while the window
-/// is not focused or motion is reduced; off screen it starts again from Idle, as the component does when it mounts.
+/// In `poll`: the face legend's clock, while Appearance is on screen (FaceLegend.tsx 71-76). It rests as Home's cover
+/// does (`useCoverActivity`): while the window is not focused, with reduced motion, or after 45 s untouched
+/// (`cover_watch`). Off screen it starts again from Idle, as the component does when it mounts.
 pub(super) fn tick_face_legend(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     use locust_core::face_legend::LegendClock;
     if !(s.settings_panel.open && shown_page(s) == Some(SettingsPageId::Appearance)) {
         s.settings_panel.face_legend = LegendClock::default();
         return false;
     }
-    let paused = !s.window_focused || s.reduced_motion.get();
+    let paused = crate::cover_watch::away(s, now);
     let changed = s.settings_panel.face_legend.tick(now, paused);
     if let Some(due) = s.settings_panel.face_legend.due_in(now) {
         tx.wake_after(Duration::from_secs_f64(due.max(0.016)));
@@ -1562,6 +1563,46 @@ mod tests {
                 assert_eq!(shown_name(&rt).as_deref(), Some(next));
             }
             assert_eq!(crate::look::faces::drawn_presence("settings-face-legend"), Some(Some(PresenceDot::Waiting)));
+        }
+
+        /// A poll as main.rs does it: the cover told what the window did, then the legend's clock.
+        fn poll_at(rt: &mut rune::Runtime<State>, now: f64, input: Option<rune::time::Instant>) {
+            rt.update(move |s, tx| {
+                crate::cover_watch::observe(s, now, input);
+                tick_face_legend(s, now, tx);
+            });
+            rt.frame(0.016);
+        }
+
+        // FaceLegend.tsx 66-74 with useCoverActivity: untouched for 45 s it stops where it is; input starts it again,
+        // giving the face it stopped on its full time.
+        #[test]
+        fn it_rests_after_45_seconds_untouched_and_input_starts_it_again() {
+            let mut rt = legend_window();
+            let mut now = 0.0;
+            poll_at(&mut rt, now, None);
+            let mut changes = 0;
+            loop {
+                let due = rt.state.settings_panel.face_legend.due_in(now).expect("running");
+                if now + due >= 45.0 {
+                    break;
+                }
+                now += due;
+                poll_at(&mut rt, now, None);
+                changes += 1;
+            }
+            assert!(changes >= 8, "it went through every face first: {changes}");
+            let rested = shown_name(&rt);
+            poll_at(&mut rt, 45.0, None);
+            assert!(rt.state.settings_panel.face_legend.due_in(45.0).is_none(), "no clock left while it rests");
+            poll_at(&mut rt, 90.0, None);
+            assert_eq!(shown_name(&rt), rested, "it stops where it is");
+            poll_at(&mut rt, 91.0, Some(rune::time::Instant::now()));
+            let seconds = rt.state.settings_panel.face_legend.shown().seconds;
+            poll_at(&mut rt, 91.0 + seconds - 0.1, None);
+            assert_eq!(shown_name(&rt), rested, "its full time again");
+            poll_at(&mut rt, 91.0 + seconds, None);
+            assert_ne!(shown_name(&rt), rested, "then on");
         }
 
         #[test]
