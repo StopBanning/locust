@@ -9,14 +9,14 @@ fn tiny_png() -> Vec<u8> {
     TINY_PNG.to_vec()
 }
 
-struct Folder(std::path::PathBuf);
+pub(super) struct Folder(pub(super) std::path::PathBuf);
 impl Drop for Folder {
     fn drop(&mut self) {
         let _ = std::fs::remove_dir_all(&self.0);
     }
 }
 
-fn state_in_folder() -> (State, Folder) {
+pub(super) fn state_in_folder() -> (State, Folder) {
     let dir = std::env::temp_dir().join(format!("locust-pictures-{}", crate::composer::new_queue_id()));
     std::fs::create_dir_all(&dir).unwrap();
     let dir = dir.canonicalize().unwrap();
@@ -41,7 +41,7 @@ fn state_in_folder() -> (State, Folder) {
     (s, Folder(dir))
 }
 
-fn tool(id: &str, name: &str, summary: &str) -> ledger::Item {
+pub(super) fn tool(id: &str, name: &str, summary: &str) -> ledger::Item {
     ledger::Item::Tool {
         name: name.into(),
         status: ledger::Status::Done,
@@ -141,4 +141,12 @@ fn a_reply_draws_no_outside_network_svg_or_missing_picture() {
         let (pictures, _) = reply_drawn(&format!("Before\n\n![chart]({src})\n\nafter."), s);
         assert!(pictures.is_empty(), "{src}: {pictures:?}");
     }
+}
+
+#[test]
+fn a_picture_written_as_code_stays_its_words() {
+    let (s, _dir) = state_in_folder();
+    let (pictures, words) = reply_drawn("`![literal](chart.png)`", s);
+    assert!(pictures.is_empty(), "{pictures:?}");
+    assert!(words.contains("![literal](chart.png)"), "{words}");
 }

@@ -181,7 +181,8 @@ pub(super) fn open_file(s: &mut State, target: FileTarget) {
         .map(PathBuf::from);
     let body = root
         .ok_or_else(|| "This conversation has no folder.".into())
-        .and_then(|root| read_document(&root, &target));
+        // A picture is drawn by the viewer itself (step_pictures::thread_picture), never read as text.
+        .and_then(|root| if locust_core::image_files::is_image_path(&target.path) { Ok(String::new()) } else { read_document(&root, &target) });
     s.file_view = Some((target, body));
 }
 
@@ -578,6 +579,7 @@ pub(super) fn viewer(s: &State, p: &Palette) -> Option<El> {
                 }),
         );
     }
+    let picture = locust_core::image_files::is_image_path(&target.path);
     let mut pane = col()
         .key("file-reader")
         .w(340.0)
@@ -586,7 +588,7 @@ pub(super) fn viewer(s: &State, p: &Palette) -> Option<El> {
         .gap(12.0)
         .fill(p.sidebar)
         .child(
-            text(format!("{}:{}-{}", target.path, target.start, target.end))
+            text(if picture { target.path.clone() } else { format!("{}:{}-{}", target.path, target.start, target.end) })
                 .color(p.text)
                 .wrap_anywhere(),
         )
@@ -596,6 +598,13 @@ pub(super) fn viewer(s: &State, p: &Palette) -> Option<El> {
                 .on_press(|s: &mut State| s.file_view = None),
         );
     match body {
+        Ok(_) if picture => {
+            // ThreadImage's press: the picture at the pane's width, its own shape, never enlarged.
+            pane = match crate::step_pictures::thread_picture(s, &target.path).and_then(|image| crate::step_pictures::viewer_picture(&image, &target.path, p)) {
+                Some(shown) => pane.child(shown),
+                None => pane.child(text("This picture cannot be shown here.").color(p.muted).wrap_anywhere()),
+            };
+        }
         Ok(body) => {
             let mut lines = col().w_full().gap(2.0);
             for (i, line) in body

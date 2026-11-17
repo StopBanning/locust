@@ -13,6 +13,8 @@ pub(super) const PAIR_MAX_HEIGHT: f32 = 220.0;
 pub(super) const PICTURE_MAX_WIDTH: f32 = 560.0;
 /// The widest each of a pair draws.
 pub(super) const PAIR_MAX_WIDTH: f32 = 300.0;
+/// The picture viewer's width inside its 340-point pane.
+pub(super) const VIEWER_WIDTH: f32 = 308.0;
 /// How many pictures a step shows; the rest stay as their rows.
 pub(super) const STEP_PICTURES_SHOWN: usize = 6;
 /// Pictures remembered across frames before the oldest are let go.
@@ -50,6 +52,7 @@ pub(super) fn thread_picture(s: &State, path: &str) -> Option<rune::Image> {
 
 fn card(image: &rune::Image, path: &str, max_w: f32, max_h: f32, p: &Palette) -> Option<El> {
     let (w, h) = fitted(image.size()?, max_w, max_h);
+    let target = crate::reply_actions::FileTarget { path: path.to_owned(), start: 0, end: 0 };
     Some(
         el().key(format!("picture:{path}"))
             .size(w, h)
@@ -58,8 +61,16 @@ fn card(image: &rune::Image, path: &str, max_w: f32, max_h: f32, p: &Palette) ->
             .border(1.0, p.hairline)
             .role("image")
             .label(format!("Picture {path}"))
-            .help(path.to_owned()),
+            .help(path.to_owned())
+            // ThreadImage's button: press for the larger view beside the conversation.
+            .on_press(move |s: &mut State| crate::reply_actions::open_file(s, target.clone())),
     )
+}
+
+/// The picture in the file viewer, at the pane's width.
+pub(super) fn viewer_picture(image: &rune::Image, path: &str, p: &Palette) -> Option<El> {
+    let (w, h) = fitted(image.size()?, VIEWER_WIDTH, 2000.0);
+    Some(el().key(format!("viewer-picture:{path}")).size(w, h).pixels(image.pixels()).radius(6.0).border(1.0, p.hairline).role("image").label(format!("Picture {path}")))
 }
 
 /// The strip under a step's line: its pictures in pairs, each a rounded card, or nothing when it has none to draw.
@@ -114,6 +125,10 @@ pub(super) fn reply_picture_card(image: &rune::Image, src: &str, alt: &str, p: &
     }
     Some(out)
 }
+
+#[cfg(test)]
+#[path = "picture_viewer_tests.rs"]
+mod viewer_tests;
 
 #[cfg(test)]
 #[path = "step_pictures_tests.rs"]
