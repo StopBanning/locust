@@ -61,7 +61,7 @@ apps/desktop/src/main/a-conversation-does-not-fall-off-the-list.test.ts		waiting
 apps/desktop/src/main/a-conversation-in-a-settings-folder-is-asked-about-once.test.ts		waiting		
 apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	P9	partial		main/a-conversation-opens-in-its-own-terminal.test.ts | Partial: resume token rules and flags; newest-session lookup and busy/own-model refusals implemented. Windows Terminal/cmd cases not applicable on macOS. Remaining host facts/launch ma
 apps/desktop/src/main/a-conversation-runs-in-its-own-folder.test.ts		waiting		
-apps/desktop/src/main/a-copilot-permission-is-a-card.test.ts		waiting		
+apps/desktop/src/main/a-copilot-permission-is-a-card.test.ts	MAIN5	partial	core/src/copilot_permission_tests.rs	6 of 7: Copilot 1.0.88's measured request as a command card, a folder-only shell, a shell that did not say its command (fixed), an edit's change relative to the folder (fixed), anything else in the agent's words with what it names (fixed: Use fetch), acpAnswerFor. ask_acp_runtime now builds Electron's acpPermissionRequest. Not built: a denial's reason as the run's next input (onDeniedSaying, declined)
 apps/desktop/src/main/a-copilot-teammate-is-guarded-too.test.ts		waiting		
 apps/desktop/src/main/a-copy-column-brings-its-changes-in.test.ts	tune	carried	refuses_bring_in_copy_over_own_edits_or_same_name_file_and_checks_lines_and_upfront_limit	`compare_copies::tests::*` + `compare_window_tests::keep_this_one_brings_column_change_into_folder_and_other_copies_go` (all cases carried)
 apps/desktop/src/main/a-credential-file-is-never-shown.test.ts		waiting		
@@ -328,16 +328,16 @@ apps/desktop/src/main/an-other-app-origin-survives-a-restart.test.ts		waiting
 apps/desktop/src/main/an-unsupported-opencode-version-reaches-the-window.test.ts		waiting		
 apps/desktop/src/main/an-unwritten-card-answer-is-said-in-the-record.test.ts		waiting		
 apps/desktop/src/main/antigravity-is-found-on-a-mac.test.ts		waiting		
-apps/desktop/src/main/antigravity-mission.test.ts		waiting		
+apps/desktop/src/main/antigravity-mission.test.ts	MAIN5	waiting		Electron drives the open Antigravity app over its language-server RPC (antigravity-host); native has only the agy CLI route (runtime/antigravity.rs)
 apps/desktop/src/main/antigravity-ports-from-netstat.test.ts		waiting		
 apps/desktop/src/main/antigravity-runs-through-its-cli.test.ts		waiting		
 apps/desktop/src/main/antigravity-tiers-are-named-once.test.ts		waiting		
 apps/desktop/src/main/antigravity-usage-does-not-hold-the-models.test.ts		waiting		
 apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts		waiting		
 apps/desktop/src/main/app-server-output-keeps-its-characters.test.ts		waiting		
-apps/desktop/src/main/approval-channel.test.ts		waiting		
+apps/desktop/src/main/approval-channel.test.ts	MAIN5	partial	core/src/approval_channel_tests.rs	16 of 19: descriptions (6), decisions, the round trip (9: surfaced and answered, double click/unknown, an unknown method refused and said (fixed: was silent), 16 waiting refused saying so (fixed words), question/decision kept apart, answers' shape, release, release only that run, the item's diff). Not built: withFileChanges (3 cases). On release Rust also sends Codex a reason Electron does not (notes, batch 5)
 apps/desktop/src/main/approval-patch.test.ts	approvals	carried	core/src/approval_patch.rs	all 5 tests; item_of, file_changes_of, unified_patch_text, relative_to_folder, tool_patch_from, approval_patch_from
-apps/desktop/src/main/approvals-come-only-from-the-window.test.ts		waiting		
+apps/desktop/src/main/approvals-come-only-from-the-window.test.ts	MAIN5	partial	core/src/approvals_from_the_window_tests.rs	1 of 2, as native's rule: outside tests only approval.rs, native.rs's decide_approval/answer_approval, the engine wire and the window's presses call Channel::decide. Electron's phone/chat-app callers are networked; App.tsx's approvalsOfLiveRuns is the renderer's
 apps/desktop/src/main/approve-each-reaches-every-start.test.ts		waiting		
 apps/desktop/src/main/ask-asks-before-a-connector.test.ts		waiting		
 apps/desktop/src/main/ask-me-first-covers-changes.test.ts		waiting		
@@ -408,7 +408,7 @@ apps/desktop/src/main/memory-says-how-old.test.ts	P6	partial		3. **Memory store/
 apps/desktop/src/main/memory-store.test.ts	P6	partial		`main/memory-file.test.ts`, `main/memory-store.test.ts` | Torn native memory refuses mutation; native seeding occurs once; Electron bytes remain unchanged.
 apps/desktop/src/main/menus-dismiss.test.ts		waiting		
 apps/desktop/src/main/mission-history.test.ts	MAIN4	partial	core/src/mission_history_tests.rs	17 of 30: folder id (2), a streamed reply read back whole, final from the last fragment, a replace, two messages apart; deleting (running refused untouched, finished/missing, an unsafe id before the store); limited runtimes (6, incl. read from the store); usage windows (2). Not built: the publicRecoveredMission projection (eventCount, eventsTruncated, first-and-latest window, host failure, issue count), withinByteBudget, HISTORY_UNAVAILABLE, the workroom join. Rust's thread keeps the newest 2000 events and joins after, so past 2000 fragments a reply loses its front (notes, batch 4)
-apps/desktop/src/main/missions-can-be-deleted-together.test.ts		waiting		
+apps/desktop/src/main/missions-can-be-deleted-together.test.ts	MAIN4	waiting		renderer source checks (Screens.tsx); the native Missions list has no multi-select delete yet
 apps/desktop/src/main/model-catalog.test.ts		waiting		
 apps/desktop/src/main/muse-wonder-is-offered.test.ts		waiting		
 apps/desktop/src/main/new-teammate-is-the-chat-bars-chip.test.ts		waiting		
@@ -431,7 +431,7 @@ apps/desktop/src/main/palette-has-no-inner-ring.test.ts	P4	partial		`main/palett
 apps/desktop/src/main/past-opencode-and-cursor-chats-can-be-imported.test.ts	P9	does-not-apply		main/past-opencode-and-cursor-chats-can-be-imported.test.ts, main/a-conversation-can-be-imported.test.ts | Standalone import workflows outside Area 7 catch-up.
 apps/desktop/src/main/pasted-attachment.test.ts		waiting		
 apps/desktop/src/main/peer-exchange-conversation.test.ts		waiting		
-apps/desktop/src/main/permission-host.test.ts		waiting		
+apps/desktop/src/main/permission-host.test.ts	MAIN4	partial	core/src/permission_host_tests.rs	13 of 16, over the run's real socket: a card taken down when the bridge lets go, an answered card left alone, only this run reaches its bridge (0700 socket folder for Electron's token) and a non-call raises no card, the card and the allow, toolUseId only when an id (fixed), Denied in Locust. / with the person's reason (fixed), Always keyed by the tool (the same tool again is answered by the one channel as earlier-always), one run never answers for another, run end refuses and removes the config, a question's answer refused saying so (fixed), the server named locust, connector summaries; connector detail is JSON.stringify(input, null, 2) (fixed). Not built: beforeApproval (pending text, 2 cases), serverPrefixOf; Electron's one shared listener is a socket per run here
 apps/desktop/src/main/picker-rows-stay-one-line.test.ts		waiting		
 apps/desktop/src/main/plan-is-not-a-card.test.ts		waiting		
 apps/desktop/src/main/popular-skill-packs-fit-and-agent-copies-are-chosen.test.ts		waiting		
@@ -494,7 +494,7 @@ apps/desktop/src/main/sols-review-is-answered.test.ts		waiting
 apps/desktop/src/main/sources-are-lf.test.ts		waiting		
 apps/desktop/src/main/stale-shortcut.test.ts		waiting		
 apps/desktop/src/main/start-timing.test.ts		waiting		
-apps/desktop/src/main/starting-one-mission-probes-one-runtime.test.ts		waiting		
+apps/desktop/src/main/starting-one-mission-probes-one-runtime.test.ts	MAIN5	does-not-apply		Electron's discoverForStart cache: a native start sweeps nothing, it builds the chosen runtime's command (native.rs command_for_turn)
 apps/desktop/src/main/stopping-app-server-holds-nothing.test.ts		waiting		
 apps/desktop/src/main/stores-fail-closed.test.ts		waiting		
 apps/desktop/src/main/talk-runs-on-a-mac.test.ts		waiting		
@@ -517,7 +517,7 @@ apps/desktop/src/main/the-chat-box-row-stays-one-line.test.ts		waiting
 apps/desktop/src/main/the-compare-view-keeps-its-text-whole.test.ts		waiting		
 apps/desktop/src/main/the-context-menu-reads-claudes-own-estimate.test.ts		waiting		
 apps/desktop/src/main/the-cover-glass-reads-in-both-themes.test.ts		waiting		
-apps/desktop/src/main/the-current-turn-is-keyed-by-its-mission.test.ts		waiting		
+apps/desktop/src/main/the-current-turn-is-keyed-by-its-mission.test.ts	MAIN4	waiting		a Thread.tsx React-key source check; the native thread view is src/ui (renderer lane)
 apps/desktop/src/main/the-effort-thumb-is-claude-codes-shape.test.ts		waiting		
 apps/desktop/src/main/the-effort-track-takes-the-pointer.test.ts		waiting		
 apps/desktop/src/main/the-first-screen-line-is-centred.test.ts		waiting		
@@ -541,14 +541,14 @@ apps/desktop/src/main/the-network-is-written-down.test.ts		waiting
 apps/desktop/src/main/the-next-turn-is-not-refused-while-the-last-winds-down.test.ts		waiting		
 apps/desktop/src/main/the-orb-uses-the-asset-that-reads.test.ts		waiting		
 apps/desktop/src/main/the-pages-a-browser-runs-are-whole.test.ts		waiting		
-apps/desktop/src/main/the-permission-bridge-keeps-its-characters.test.ts		waiting		
+apps/desktop/src/main/the-permission-bridge-keeps-its-characters.test.ts	MAIN5	carried	core/src/runtime/permission_bridge.rs	keeps_a_character_split_across_two_reads_whole: serve_from fed one tools/call line split inside é
 apps/desktop/src/main/the-phone-reads-history-once-per-change.test.ts		waiting		
 apps/desktop/src/main/the-plan-is-drawn-as-what-it-is.test.ts		waiting		
 apps/desktop/src/main/the-rail-can-be-used.test.ts		waiting		
 apps/desktop/src/main/the-readme-names-this-weeks-packs.test.ts		waiting		
 apps/desktop/src/main/the-renderer-draws-its-own-selects.test.ts		waiting		
 apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	RELAY	partial	core/src/relay_tests.rs	reserve/release, concurrent branches, room post keys, closings, held replies carried; room-store integration omitted
-apps/desktop/src/main/the-start-says-its-phase-on-every-route.test.ts		waiting		
+apps/desktop/src/main/the-start-says-its-phase-on-every-route.test.ts	MAIN5	waiting		codex-mission.ts source check; native says no starting-runtime phase on any route
 apps/desktop/src/main/the-starter-routines-are-routines.test.ts	TEAM-FILES	carried	core/src/routine_templates.rs, core/src/routine_io.rs	shipped starter templates list/read/validate, workspace-required import in Ask mode, and one-use preview tokens carried
 apps/desktop/src/main/the-stop-button-is-round-and-centred.test.ts		waiting		
 apps/desktop/src/main/the-team-is-a-board.test.ts		waiting		
@@ -563,7 +563,7 @@ apps/desktop/src/main/three-placements.test.ts		waiting
 apps/desktop/src/main/todo-list-is-opt-in.test.ts		waiting		
 apps/desktop/src/main/tone-classes-win.test.ts		waiting		
 apps/desktop/src/main/tool-rows-say-what-they-did.test.ts		waiting		
-apps/desktop/src/main/torn-ledger.test.ts		waiting		
+apps/desktop/src/main/torn-ledger.test.ts	MAIN4	waiting		the Rust ledger reader has no issue codes (truncated-tail, invalid-record, file-too-large), no strict ledgerSequence check and no unreadable count to carry
 apps/desktop/src/main/two-teammates-hear-about-each-others-edits.test.ts		waiting		
 apps/desktop/src/main/two-teammates-may-not-share-a-name.test.ts	P6	partial		`main/teammate-store.test.ts`, `main/two-teammates-may-not-share-a-name.test.ts` | Trimmed, UTF-16-bounded names; duplicate refusal; persisted creation/edit; identity/route/folder preservation; removed ownership.
 apps/desktop/src/main/ui-face-is-bundled.test.ts		waiting		

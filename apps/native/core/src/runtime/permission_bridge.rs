@@ -133,7 +133,13 @@ fn peer_closed(stream: &UnixStream) -> bool {
 }
 
 pub fn serve(socket: &str) -> io::Result<()> {
-    for line in io::stdin().lock().lines() {
+    serve_from(io::stdin().lock(), &mut io::stdout(), socket)
+}
+
+/// The bridge's MCP side over any reader and writer: each request is one whole line, decoded only once it is all
+/// there, so a character split across two reads arrives whole (Electron's L11).
+pub fn serve_from(input: impl BufRead, out: &mut impl Write, socket: &str) -> io::Result<()> {
+    for line in input.lines() {
         let v: Value = serde_json::from_str(&line?)?;
         if v.get("id").is_none() {
             continue;
@@ -158,8 +164,8 @@ pub fn serve(socket: &str) -> io::Result<()> {
             }
             _ => json!({}),
         };
-        println!("{}", json!({"jsonrpc":"2.0","id":v["id"],"result":result}));
-        io::stdout().flush()?;
+        writeln!(out, "{}", json!({"jsonrpc":"2.0","id":v["id"],"result":result}))?;
+        out.flush()?;
     }
     Ok(())
 }
@@ -168,6 +174,49 @@ pub fn serve(socket: &str) -> io::Result<()> {
 mod tests {
     use super::*;
     use crate::approval::{Answer, Decision};
+
+    /// Electron the-permission-bridge-keeps-its-characters.test.ts: one tools/call line fed in two reads, split inside
+    /// "é", reaches the window as the input it was given.
+    #[test]
+    fn keeps_a_character_split_across_two_reads_whole() {
+        struct Pieces(Vec<Vec<u8>>);
+        impl Read for Pieces {
+            fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+                if self.0.is_empty() {
+                    return Ok(0);
+                }
+                // At most one piece a read: a character split between pieces is never in one read.
+                let piece = &mut self.0[0];
+                let n = piece.len().min(buf.len());
+                buf[..n].copy_from_slice(&piece[..n]);
+                piece.drain(..n);
+                if piece.is_empty() {
+                    self.0.remove(0);
+                }
+                Ok(n)
+            }
+        }
+        let dir = crate::invariants::socket_dir("lct").unwrap();
+        let socket = dir.join("host");
+        let listener = UnixListener::bind(&socket).unwrap();
+        let window = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut line = String::new();
+            BufReader::new(&stream).read_line(&mut line).unwrap();
+            writeln!(stream, "{}", json!({"behavior": "allow", "updatedInput": {}})).unwrap();
+            line
+        });
+        let line = format!("{}\n", json!({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "approve", "arguments": {"tool_name": "mcp__notes__save", "input": {"title": "café 🦗"}}}}));
+        let bytes = line.into_bytes();
+        let cut = bytes.iter().position(|b| *b == 0xc3).unwrap() + 1;
+        let mut out = Vec::new();
+        serve_from(BufReader::with_capacity(8, Pieces(vec![bytes[..cut].to_vec(), bytes[cut..].to_vec()])), &mut out, socket.to_str().unwrap()).unwrap();
+        let received: Value = serde_json::from_str(&window.join().unwrap()).unwrap();
+        let _ = fs::remove_dir_all(&dir);
+        assert_eq!(received["input"], json!({"title": "café 🦗"}));
+        let answered: Value = serde_json::from_slice(&out).unwrap();
+        assert_eq!(answered["id"], 1);
+    }
     #[test]
     fn permission_tool_routes_decisions_and_refuses_after_end() {
         let channel = Channel::new();

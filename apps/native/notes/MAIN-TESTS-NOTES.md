@@ -134,3 +134,135 @@ Two tests outside these files failed once while a break was applied, and passed 
 `native::tests::relay_roundtrip_starts_recipient_records_peer_links_remembers_hub_and_returns_to_origin_thread` (batch
 1, with the room_store note break) and
 `door::tests::the_door_is_off_until_turned_on_and_answers_only_its_current_token`, with the longpaths break applied.
+
+## Round 2 (16 Nov 2026, afternoon)
+
+Branch moved up to 9b886986. Break checks ran through `~/work/scratch/maxlane/mutfilter.py`, a copy of `mutsafe.py`
+that runs only a nextest filter (the batch's tests) instead of all of `locust-core`. A full-package run took 5 minutes
+a break; a filtered one takes the build and a few seconds. It restores the file on SIGTERM/SIGINT and kills its own
+cargo group, as `mutsafe.py` does. A `TIMEOUT` or `(build error)` was never counted as caught: each was run again,
+or the break was rewritten, until the named test failed.
+
+## Batch 4: mission history, a turn's receipt on its own branch
+
+Commits be71cd42, a75d9d2e.
+
+| File | Row | Rust tests |
+| --- | --- | --- |
+| `mission-history.test.ts` | partial (17/30) | `core/src/mission_history_tests.rs` |
+| `a-turn-on-its-own-branch-leaves-a-receipt.test.ts` | carried (8/8) | `core/src/native/tests.rs`, `core/src/worktrees_tests.rs` |
+| `missions-can-be-deleted-together.test.ts` | waiting | none |
+| `the-current-turn-is-keyed-by-its-mission.test.ts` | waiting | none |
+| `torn-ledger.test.ts` | waiting | none |
+
+Bug found and fixed:
+- **A turn with a slot of its own could commit to a teammate's branch.** Rust skipped the turn-end commit only for a
+  side question, or a slot with a `cwd` of its own. A compare column with no copy, or the scout chat (its slot never
+  has a `cwd`), ran in the teammate's copy and was committed there, with that ask as the subject. Electron commits
+  only when `mission.slot === undefined`. `native.rs` now checks `!is_slot` too.
+
+Found and not fixed:
+- **A very long reply reopens without its front.** `ledger::Transcript::apply` keeps the newest `MAX_EVENTS` (2000)
+  events by sequence and joins a message's fragments afterwards. A reply streamed in more than 2000 fragments
+  therefore loses its opening, which is the bug Electron fixed by joining before the window (mission 645f02a4).
+  Electron also keeps the opening quarter of a 3000-event window, not only the newest.
+  - Confirmed by a throwaway test, which was then removed: a reply streamed in 2,500 fragments reopens starting
+    "w500 w501 …", so its first 500 fragments are gone.
+  - The fix touches the reader's replay rule ("sequence keys make duplicate records replay correctly") and the
+    door's `latest_final`, which reads the same events. It needs a batch of its own.
+- Deleting: the window says ELECTRON_ONLY for a missing record, not Electron's `NOT_FOUND` "That mission does not
+  exist.". An unsafe id is refused with "missionId is invalid". The behaviour (refused, nothing touched) matches.
+
+Why some are not carried:
+- Mission history: `publicRecoveredMission` (eventCount, eventsTruncated, the first-and-latest window, host failure,
+  issue count), `withinByteBudget`, `HISTORY_UNAVAILABLE` and the workroom join are the IPC payload. The native window
+  reads the ledger in process and has none of them.
+- The other three batch-4 files check renderer source text (`Screens.tsx`, `Thread.tsx`), or the mission-store
+  reader's issue codes, which the Rust reader does not have.
+
+Break checks (all caught by the named test): the folder id's length and its hash; a reply keeping only its last
+fragment; final from the first fragment; a replace ignored; two messages keyed as one; a running mission deleted; a
+missing one counted as deleted; an unsafe id let through. Then the limit word; a temporary limit counted; a completion
+not clearing; the newest by time; the source adapter ignored; the store not read; the window's "from a run at"; the
+warning's reset; the temporary-limit reading; the newest window by time. For the receipt: the `!is_slot` fix; the
+shared folder; silence on a clean turn; the warning level; the answer's first line as the body.
+- One survivor came first. "Last read wins", in place of newest by time, passed Electron's own case. The test now
+  lists the two missions both ways round, and the break is caught.
+
+## Batch 5: permissions (and the start files)
+
+Commits 0e6a6e45, e0128771, and the follow-up that tells Claude Locust's own refusals bare.
+
+| File | Row | Rust tests |
+| --- | --- | --- |
+| `permission-host.test.ts` | partial (13/16) | `core/src/permission_host_tests.rs` |
+| `approval-channel.test.ts` | partial (16/19) | `core/src/approval_channel_tests.rs` |
+| `a-copilot-permission-is-a-card.test.ts` | partial (6/7) | `core/src/copilot_permission_tests.rs` |
+| `the-permission-bridge-keeps-its-characters.test.ts` | carried (1/1) | `core/src/runtime/permission_bridge.rs` |
+| `approvals-come-only-from-the-window.test.ts` | partial (1/2) | `core/src/approvals_from_the_window_tests.rs` |
+| `starting-one-mission-probes-one-runtime.test.ts` | does-not-apply | none: a native start sweeps nothing |
+| `the-start-says-its-phase-on-every-route.test.ts` | waiting | none: no starting-runtime phase in native |
+| `antigravity-mission.test.ts` | waiting | none: native has only the agy CLI route |
+| `codex-mission.test.ts` | waiting | 137 cases, left for a batch of its own |
+| `a-carried-conversation-keeps-its-route-and-reports-its-status.test.ts` | waiting | the file is not in this tree's `apps/desktop/src/main`, though `tests.tsv` has a row for it; nothing to carry |
+
+Bugs found and fixed:
+- **Claude was told a denial in other words.** Rust sent the person's bare reason, or "The person declined this in
+  Locust.". Electron's host sends "Denied in Locust.", or "Denied in Locust. The person declined this, and said:
+  <reason>". A saved rule's denial reads the same way (see the Electron export golden in `mission_export.rs`).
+  - A follow-up fixes what 0e6a6e45 got wrong: it wrapped every reason as the person's, so the command guard's sentence
+    (and a turn's end) reached Claude as "the person said". `ask_by` now says whose an answer is. Only a card or a
+    saved rule is wrapped; Locust's own reason goes as it is
+    (`locusts_own_refusal_is_not_told_to_claude_as_the_persons_words`).
+- **A question's answer aimed at a Claude permission** told Claude only "no". Claude is now told Electron's "Locust
+  did not send that answer: it belongs to a question, and the runtime was waiting on a permission.".
+- **A connector's card showed its input as compact JSON.** Electron's `wholeInput` is `JSON.stringify(input, null,
+  2)`, and nothing when there is no input.
+- **Any `tool_use_id` was kept for a card.** Electron keeps only `/^[A-Za-z0-9_-]{1,128}$/`.
+- **The channel refused an unknown request silently.** It now returns Electron's words to its caller: "Locust denied
+  a request it does not recognise (<method>) because it could not say what would happen. This build is older than the
+  runtime's protocol."
+  - Correction to e0128771's message: Codex's own session never hands the channel an unknown method. Its dispatcher
+    (`runtime/codex.rs` `notification`) answers it with JSON-RPC -32601 and its own notice, "Codex requested an
+    unsupported interaction; native declined it.". Electron gives it to the channel and says the sentence above.
+  - OpenCode's caller still turns the channel's refusal into a plain reject without saying it. Neither difference
+    was changed.
+- **Sixteen waiting cards** now refuse with Electron's "Locust denied an action because 16 approvals are already
+  waiting on you. Answer some of them and ask again.", not "Too many approvals waiting.".
+- **Copilot's (ACP) cards were Rust's own.** `ask_acp_runtime` now builds Electron's `acpPermissionRequest` and goes
+  the Codex-shaped way every other card goes. Three cases changed:
+  - a shell that did not say its command reads "Run a command it did not describe";
+  - an edit is "Change 1 file", named relative to the folder, with its patch on the card;
+  - an untitled call reads "Use <kind>".
+- `permission_bridge::serve` now takes its reader and writer (`serve_from`), so the split-character case is tested
+  against the real decoder.
+
+Found and not fixed:
+- **Codex is sent a reason Electron never sends.** On a run's end, and on a person's denial, Rust's
+  `protocol_answer_for` puts a `reason` on Codex's answer. Electron sends Codex `{decision}` only, and gives a denial's
+  reason to the run as its next input (`onDeniedSaying`). That path is not built in Rust.
+  - Stripping the field now would lose the person's reason, so it was left.
+  - `approval_channel_tests` reads only the decision on release.
+- `beforeApproval` (a Claude card waits for the run's pending text to be written) is not built. Neither is
+  `serverPrefixOf`, nor `withFileChanges` (a fileChange activity row rewritten from the item's changes).
+- The token, the one shared listener and Electron's `bridgeConfig` env belong to Electron's loopback HTTP host. The
+  native bridge is one Unix socket per run, in a 0700 folder.
+- "Always" for the same tool again is answered by the one channel (earlier-always). Electron's host raises it and its
+  main process answers it.
+
+Test safety: the permission tests install a temporary store through `native::hooks`. Without one,
+`native::store()` falls back to the person's own store, and the saved-rule lookup reads it, or writes `used` on a
+match. The existing `permission_bridge` test still runs without one.
+
+Break checks (all caught by the named test, 44 in all): the deny sentence with and without a reason; pretty JSON; the
+id shape; the question refusal; the Always key by tool; the connector summary; Always per run; the peer-closed
+withdraw; the config dir on drop; a non-call raising a card; the recorded answer; the server name; the method kinds;
+the command detail and cwd; "did not describe"; file counts; the detail cap; a nameless question; the protocol
+decisions; the unknown-method words; the pending limit; question against decision; the answers' shape; release by
+mission; the item's changes; split-character decoding; eight ACP breaks; two new `decide` callers.
+
+Two breaks hung rather than failed (a request left unanswered), so the tests were given limits:
+- `permission_host_tests::answer` reads with `UNDER_LOAD`;
+- the 17th request in `approval_channel_tests` waits 5 s.
+
+macOS returns EINVAL for `set_read_timeout` on a socket its peer already closed, so that error is ignored.
