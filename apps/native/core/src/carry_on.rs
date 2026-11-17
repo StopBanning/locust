@@ -127,6 +127,30 @@ pub fn carry_on_reason(events: &[Value]) -> Option<Reason> {
         .then_some(Reason::Process)
 }
 
+/// The phase a turn's ledger ended in, read from its last terminal event: `completed`, `cancelled` or `failed`, or None
+/// while it has none.
+pub fn phase_of(events: &[Value]) -> Option<&'static str> {
+    events.iter().rev().find_map(|e| match e["type"].as_str() {
+        Some("run.completed") => Some("completed"),
+        Some("run.cancelled") => Some("cancelled"),
+        Some("run.failed") => Some("failed"),
+        _ => None,
+    })
+}
+
+/// stoppedFor: why a turn that ended in `phase` can be carried on. A finished or stopped turn never is.
+pub fn stopped_for(phase: Option<&str>, events: &[Value]) -> Option<Reason> {
+    if matches!(phase, Some("completed" | "cancelled")) {
+        return None;
+    }
+    carry_on_reason(events)
+}
+
+/// endedOnPlanLimit: stopped, not finished, and its events say the plan ran out.
+pub fn ended_on_plan_limit(phase: Option<&str>, events: &[Value]) -> bool {
+    stopped_for(phase, events) == Some(Reason::Plan)
+}
+
 /// carryOnRefusal: Approve each needs an agent that stops and asks; one that cannot is not carried to at all.
 pub fn carry_on_refusal(mode: &str, to: &str) -> Option<String> {
     if mode != "approve-each" || matches!(to, "codex" | "opencode" | "copilot") {
@@ -342,11 +366,11 @@ pub fn reconcile(metadata: &Value, events: &[Value], incomplete: bool, reason: &
 
 /// MAX_HANDOFF_PROMPT_LENGTH: the composer's bound.
 pub const MAX_HANDOFF_PROMPT_LENGTH: usize = 8000;
-const NOTICE_BUDGET: usize = 120;
+pub(crate) const NOTICE_BUDGET: usize = 120;
 const ASKED_CHARS: usize = 240;
 const ANSWERED_CHARS: usize = 360;
-/// The optional sections in the order they are kept: the first given up is the last here.
-const KEEP_ORDER: [&str; 4] = ["unsettled", "settled", "summary", "earlier"];
+/// The optional sections in the order they are kept: the first given up is the last here (OPTIONAL_SECTION_NAMES).
+pub(crate) const KEEP_ORDER: [&str; 4] = ["unsettled", "settled", "summary", "earlier"];
 /// Sections the person can opt to leave out of a manual runtime-switch briefing.
 pub const DROPPABLE_SECTION_NAMES: [&str; 3] = ["earlier", "settled", "summary"];
 
@@ -391,6 +415,26 @@ pub struct Briefing {
     /// reads these, so they are the sections actually in the prompt.
     pub kept: Vec<String>,
     pub task_clipped: bool,
+    /// The sections the person chose to leave out (`leftOutByYou`), in reading order: only those that were there to
+    /// leave out and may be left out.
+    pub left_out_by_you: Vec<String>,
+}
+
+/// What the window sent as the person's choice, kept to the sections that may be left out, in their order
+/// (`chosenLeaveOut`).
+pub fn chosen_leave_out(value: &serde_json::Value) -> Vec<String> {
+    let Some(sent) = value.as_array() else { return Vec::new() };
+    DROPPABLE_SECTION_NAMES.iter().filter(|name| sent.iter().any(|s| s.as_str() == Some(**name))).map(|name| (*name).to_owned()).collect()
+}
+
+/// omissionNotice: the sections given up for room, named.
+pub(crate) fn omission_notice<S: AsRef<str>>(omitted: &[S]) -> String {
+    format!("(Some handoff detail did not fit and was left out: {}.)", omitted.iter().map(AsRef::as_ref).collect::<Vec<_>>().join(", "))
+}
+
+/// The person's own choice, named as such so it is never read as a gap in the record (`choiceNotice`).
+pub fn choice_notice(left_out: &[String]) -> String {
+    format!("(The person chose to leave out {}.)", left_out_in_words(left_out))
 }
 
 fn len(s: &str) -> usize {
@@ -564,8 +608,15 @@ pub fn compose_handoff_prompt_with(
     left_out_by_you: &[String],
 ) -> Option<Briefing> {
     let mut sections = sections_for(original, checkpoint, from, next, earlier, ended);
-    sections.retain(|s| !DROPPABLE_SECTION_NAMES.contains(&s.name) || !left_out_by_you.iter().any(|l| l == s.name));
-    let budget = MAX_HANDOFF_PROMPT_LENGTH - if sections.len() > 1 { NOTICE_BUDGET } else { 0 };
+    let chosen: Vec<String> = sections
+        .iter()
+        .filter(|s| DROPPABLE_SECTION_NAMES.contains(&s.name) && left_out_by_you.iter().any(|l| l == s.name))
+        .map(|s| s.name.to_owned())
+        .collect();
+    sections.retain(|s| !chosen.iter().any(|c| c == s.name));
+    // Said in the brief, as a gap that did not fit is: the new runtime is told it has less than the whole story.
+    let chosen_notice = if chosen.is_empty() { String::new() } else { format!("\n\n{}", choice_notice(&chosen)) };
+    let budget = MAX_HANDOFF_PROMPT_LENGTH - if sections.len() > 1 { NOTICE_BUDGET } else { 0 } - len(&chosen_notice);
     let mandatory_cost = |sections: &[Section]| -> usize {
         sections
             .iter()
@@ -625,9 +676,10 @@ pub fn compose_handoff_prompt_with(
     }
     let mut prompt = texts.join("\n\n");
     if !omitted.is_empty() {
-        prompt.push_str(&format!("\n\n(Some handoff detail did not fit and was left out: {}.)", omitted.join(", ")));
+        prompt.push_str(&format!("\n\n{}", omission_notice(&omitted)));
     }
-    Some(Briefing { prompt, omitted, kept: kept_names, task_clipped })
+    prompt.push_str(&chosen_notice);
+    Some(Briefing { prompt, omitted, kept: kept_names, task_clipped, left_out_by_you: chosen })
 }
 
 #[cfg(test)]

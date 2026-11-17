@@ -119,6 +119,9 @@ class Handler(BaseHTTPRequestHandler):
             threading.Thread(target=work, daemon=True).start()
             return self._json(200, None)
         if '/permission/' in self.path and self.path.endswith('/reply'):
+            # The answer it was given, for a test to read (a refusal's words).
+            with open('opencode-requests.jsonl', 'a') as log:
+                log.write(json.dumps({'path': 'reply', 'body': body}) + '\n')
             sid = 'sess1'
             allowed = (body or {}).get('reply') == 'once'
             def after():

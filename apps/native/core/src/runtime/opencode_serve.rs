@@ -588,7 +588,7 @@ impl Serve {
         }
         let body = if let Some(word) = reply.as_str() {
             if word == "reject" {
-                json!({"reply":"reject","message":if t.mode==Mode::ApproveEach&&t.approvals.is_some(){"The person declined this in Locust."}else{"Locust refused this without asking anyone: this teammate's mode does not allow it, so nothing was run."}})
+                json!({"reply":"reject","message":rejection_message(t.mode, t.mode==Mode::ApproveEach&&t.approvals.is_some())})
             } else {
                 json!({"reply": word})
             }
@@ -971,3 +971,30 @@ impl Drop for Serve {
         }
     }
 }
+
+/// A refusal nobody was asked about: the mode's, not the person's (`OPENCODE_REFUSED_UNASKED`, 0.822).
+pub const OPENCODE_REFUSED_UNASKED: &str =
+    "Locust refused this without asking anyone: this teammate's mode does not allow it, so nothing was run.";
+
+/// What OpenCode is told when Ask or Plan refuses (`openCodeReadOnlyRefusal`, 0.822): the mode by name, and that
+/// nobody was asked, so the model never tells a person who saw no card that they declined.
+pub fn open_code_read_only_refusal(mode: Mode) -> String {
+    let named = if mode == Mode::Plan { "Plan mode, which reads and plans" } else { "Ask mode, which reads" };
+    format!("Locust refused this without asking anyone: this teammate is in {named} and changes nothing, so nothing was run.")
+}
+
+/// The message a rejected permission carries. "Declined" only when a person was asked; a read-only run (Ask, Plan)
+/// names its mode; any other refusal nobody answered says so.
+pub fn rejection_message(mode: Mode, a_person_was_asked: bool) -> String {
+    if a_person_was_asked {
+        "The person declined this in Locust.".to_owned()
+    } else if matches!(mode, Mode::Ask | Mode::Plan) {
+        open_code_read_only_refusal(mode)
+    } else {
+        OPENCODE_REFUSED_UNASKED.to_owned()
+    }
+}
+
+#[cfg(test)]
+#[path = "opencode_refusal_tests.rs"]
+mod refusal_tests;

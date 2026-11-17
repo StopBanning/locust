@@ -124,6 +124,26 @@ pub fn narrate_section() -> String {
     "As you work, say in one short sentence what you are doing whenever you start on something new, so the person watching can follow. There is no need to announce every step.".to_owned()
 }
 
+/// workroom-briefing.ts `openCodeReadOnlySection` (A2.20): in Ask or Plan, OpenCode refuses every shell call and the run
+/// ends there, so a read-only OpenCode run is told so. Electron says it in OpenCode's own instructions instead when the
+/// run has Locust's git tool (0.818); native has no git tool, so it is always said here.
+pub fn opencode_read_only_section() -> String {
+    "You have no shell in this mode -- not git, not cat, not ls: every shell command is refused. Use your read, grep, glob and list tools, and answer from what the files show.".to_owned()
+}
+
+/// workroom-briefing.ts `planSection`: what a Plan run is told, last of everything, so it is the instruction closest
+/// to the model's answer.
+pub fn plan_section() -> String {
+    [
+        "PLAN FIRST. Do not change anything in this workspace on this turn, and do not run commands that change state.",
+        "Read what you need, then answer with the plan itself: numbered steps, in the order you would do them, each one concrete enough to check off.",
+        "Name anything you had to assume, and anything you found that changes what was asked.",
+        "If the work is small enough that a plan would be longer than doing it, say so in one line and give the steps anyway -- brevity is a fine plan.",
+        "The person reads this and decides whether to have you carry it out; you are not being asked to start.",
+    ]
+    .join("\n")
+}
+
 pub fn todo_section() -> String {
     [
         "KEEP A TODO LIST for this work, using your own todo tool, and keep it current.",

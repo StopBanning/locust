@@ -191,6 +191,24 @@ mod typed_prompt_tests;
 mod handoff_brief_tests;
 
 #[cfg(test)]
+mod leave_out_brief_tests;
+
+#[cfg(test)]
+mod file_name_brief_tests;
+
+#[cfg(test)]
+mod switch_brief_tests;
+
+#[cfg(test)]
+mod provider_carry_on_tests;
+
+#[cfg(test)]
+mod plan_carry_on_tests;
+
+#[cfg(test)]
+mod workspace_brief_tests;
+
+#[cfg(test)]
 mod mission_mode_tests;
 
 #[cfg(test)]

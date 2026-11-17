@@ -408,6 +408,49 @@ fn opencode_serve_permission_asked_raises_card_with_always_key_and_reply() {
     }));
 }
 
+/// a-refusal-in-ask-says-the-mode (0.822): an Ask or Plan run nobody answers for refuses OpenCode's question with the
+/// mode's own words, over the server's real reply, and never says the person declined.
+#[test]
+fn an_ask_or_plan_run_refuses_opencodes_question_naming_its_mode() {
+    for (mode, words) in [
+        (Mode::Ask, "Locust refused this without asking anyone: this teammate is in Ask mode, which reads and changes nothing, so nothing was run."),
+        (Mode::Plan, "Locust refused this without asking anyone: this teammate is in Plan mode, which reads and plans and changes nothing, so nothing was run."),
+    ] {
+        let temp = Temp::new();
+        let store = Store::new(temp.0.join("native"), temp.0.join("electron")).unwrap();
+        std::fs::create_dir_all(store.electron()).unwrap();
+        let mut command = Command::new("python3");
+        command
+            .arg(fixture("m4-opencode-serve.py"))
+            .arg("serve")
+            .arg("approve")
+            .current_dir(&temp.0)
+            .env("LOCUST_NATIVE_OPENCODE_PROTOCOL", "serve");
+        let mut rt = OpenCode::spawn(&mut command).unwrap();
+        let turn = Turn {
+            prompt: "Approve me".into(),
+            folder: temp.0.clone(),
+            model: Some("opencode/beam-free".into()),
+            effort: None,
+            resume: None,
+            mode,
+            approvals: None,
+            mission_id: "opencode_serve_ask".into(),
+            run_id: "run_opencode_serve_ask".into(),
+        };
+        let mut writer =
+            LedgerWriter::create_runtime(&store, "opencode_serve_ask", &turn.prompt, "opencode/beam-free", "fake-opencode", "opencode", &[], None)
+                .unwrap();
+        rt.start(&turn).unwrap();
+        let events = drive(&mut rt, &mut writer, &Channel::new(), "opencode_serve_ask");
+        assert_eq!(events.last().unwrap().kind, "run.completed");
+        let sent = std::fs::read_to_string(temp.0.join("opencode-requests.jsonl")).unwrap();
+        let reply: Vec<serde_json::Value> =
+            sent.lines().filter_map(|l| serde_json::from_str::<serde_json::Value>(l).ok()).filter(|r| r["path"] == "reply").collect();
+        assert_eq!(reply, [json!({"path": "reply", "body": {"reply": "reject", "message": words}})], "{mode:?}");
+    }
+}
+
 #[test]
 fn opencode_serve_busy_restarts_then_runs() {
     let temp = Temp::new();

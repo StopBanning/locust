@@ -171,10 +171,7 @@ pub(crate) fn origin_from(v: &Value) -> Result<Origin, String> {
         .as_array()
         .map(|arr| arr.iter().filter_map(|i| i.as_str().map(str::to_owned)).collect())
         .unwrap_or_default();
-    let left_out_by_you = v["leftOutByYou"]
-        .as_array()
-        .map(|arr| arr.iter().filter_map(|i| i.as_str().map(str::to_owned)).collect())
-        .unwrap_or_default();
+    let left_out_by_you = crate::carry_on::chosen_leave_out(&v["leftOutByYou"]);
     let rewind = v.get("rewind").filter(|r| r.is_object()).map(|r| crate::native::Rewind {
         tip: r["tip"].as_str().unwrap_or_default().to_owned(),
         before: r["before"].as_str().map(str::to_owned),

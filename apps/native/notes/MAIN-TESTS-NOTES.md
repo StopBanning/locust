@@ -370,3 +370,277 @@ recorded as ask; a plan given workspace-write; Auto always allowed; Auto given w
   and the `native-engine` lane's tests ran. Each break hit its 240-300 s limit and counted as TIMEOUT, never as
   caught. The run was stopped (`mutfilter.py` puts the file back on SIGTERM) and the four breaks it had not reached
   were run again once the lock was free. All four were caught.
+
+## Batch 9: `a-person-can-leave-out-part-of-a-brief.test.ts`
+
+Begun before the 22:47 stop, finished on 17 Nov.
+
+| File | Row | Rust tests |
+| --- | --- | --- |
+| `a-person-can-leave-out-part-of-a-brief.test.ts` | carried (6/6) | `core/src/leave_out_brief_tests.rs`, `native::tests::a_route_switch_records_what_its_brief_left_out_not_what_was_sent` |
+
+Bugs found and fixed. Native already took the left-out sections out of the brief, but:
+- **The brief never said the person chose it.** Electron ends the brief with "(The person chose to leave out its last
+  reply.)", after any "did not fit" notice, so the new runtime knows it has less than the whole story. Native said
+  nothing. `carry_on::choice_notice` is new, and `compose_handoff_prompt_with` adds the notice.
+- **The notice was not charged against the bound.** Electron holds its length back from the budget first, so a long
+  task gives way for it. Pinned at Electron's own answers: a 3,900-character task beside a 3,773-character reply fits
+  whole at 7,880; a 3,800-character reply clips the task to 7,879. Both sides were run through Electron's
+  `composeHandoffPrompt` (`~/work/scratch/maxlane/b9/leaveout*.mjs`).
+- **The switch's link recorded the list as it was sent.** `route_switch` wrote the window's `leftOutByYou` whole,
+  including sections that may not go and ones that were not there. It now records `Briefing::left_out_by_you`,
+  the sections actually left out, in reading order.
+- **The engine wire took any strings.** `engine_process::origin_from` now keeps the list to the sections that may
+  go (`carry_on::chosen_leave_out`, Electron's `chosenLeaveOut`).
+
+Two tests beyond Electron's six pin Electron's values: the notice's charge against the bound (above), and the order of
+the two notices (a 6,000-character reply: "did not fit ... summary", then the person's choice, 6,357 characters).
+
+Break checks (all 11 caught by the named test): the window's list not kept to what may go; kept in the order sent;
+a section that may not go let go; a section that was not there named; the section not taken out; the notice not
+added; the notice not charged; the notice's words; the two notices swapped; the engine wire unfiltered; the link
+recording what was sent.
+
+## Batch 10: what a switch brief says, an attached name, a dead session, a refusal in Ask
+
+| File | Row | Rust tests |
+| --- | --- | --- |
+| `a-switch-brief-says-what-was-done.test.ts` | carried (10/10) | `core/src/switch_brief_tests.rs` |
+| `a-file-name-cannot-write-into-the-brief.test.ts` | carried (2/2) | `core/src/file_name_brief_tests.rs` |
+| `a-session-that-ended-is-not-resumed.test.ts` | carried (2/2) | `core/src/native/session_ended_tests.rs` |
+| `a-refusal-in-ask-says-the-mode.test.ts` | carried (2/2) | `core/src/runtime/opencode_refusal_tests.rs`, `runtime::opencode::tests::an_ask_or_plan_run_refuses_opencodes_question_naming_its_mode` |
+
+Bug found and fixed:
+- **An Ask or Plan run refused OpenCode without naming its mode.** Native answered every unasked refusal with
+  "this teammate's mode does not allow it". Electron's `openCodeReadOnlyRefusal` (0.822) says "this teammate is in
+  Ask mode, which reads and changes nothing" (Plan: "which reads and plans") for a read-only run nobody answers for.
+  `opencode_serve::rejection_message` now picks between the person's decline, the read-only refusal and the
+  plain unasked one, as Electron does.
+  - Electron's second case is a source check (`codex-mission.ts` passes the refusal only when nobody answers and
+    the sandbox is read-only). It is carried as behaviour: `rejection_message` for every mode, and a run in Ask and
+    in Plan over the fake OpenCode server, whose reply body is read back. The fixture
+    (`scripts/fixtures/m4-opencode-serve.py`) now logs each permission reply to `opencode-requests.jsonl`.
+
+`carry_on` changes, no behaviour change: `omission_notice` is a function of its own (Electron's `omissionNotice`),
+and `NOTICE_BUDGET` and `KEEP_ORDER` (Electron's `OPTIONAL_SECTION_NAMES`) are visible to the tests, so "the notice
+fits its reserve with every optional section named" has a test.
+
+Break checks (20 of 21 caught by the named test): the Plan words; the Ask words; Plan not read-only; the call
+site's message; the person's decline; a name's quoting; the list's `- ` kept; `sessionEnded` ignored; every failure
+ending the session; the tool named twice; the command not used; the forty cap; "other" swapped; "and N earlier"; the
+asked clip; the brief's no-reply words; the usage-limit words; a completed turn said to fail; the notice's reserve;
+the keep order.
+- The one survivor is not this batch's: the first copy of "no reply was recorded" is `compose_cold_follow_up`'s,
+  which these files never reach. The brief's own copy was broken next and caught.
+
+## Batch 11: `a-provider-that-fails-first-is-carried-on.test.ts`
+
+| File | Row | Rust tests |
+| --- | --- | --- |
+| `a-provider-that-fails-first-is-carried-on.test.ts` | partial (5 of 6, and half the 6th) | `core/src/provider_carry_on_tests.rs`, `core/src/native/provider_carry_on_tests.rs` |
+
+No bug: native already classified and carried a provider failure as Electron does. `carry_on::stopped_for` and
+`ended_on_plan_limit` (Electron's `stoppedFor` and `endedOnPlanLimit`) and `phase_of` are new. `native::carry`
+and `carry_on_without_asking` each had their own copy of that rule, and now use the new functions.
+- Electron passes a mission's phase. Native reads it from the turn's last terminal event (`phase_of`), so "a
+  cancelled phase over a failed event" is tested through `stopped_for` only.
+- The carry tests run against the fake app-server (`fake("success")`) for both Codex and Claude: only the new
+  turn's header is read (its runtime, mode, `startedBy`, and the carry-on words in its prompt), not its run.
+- `native::CARRIED` is shared by the whole process, so each stopped turn has an id of its own
+  (`mission_provider_*`).
+- Not carried: the last case's divider sentence (`src/ui/handoff_divider.rs`) and Settings' heading and
+  "provider error" (`src/settings_pages.rs`). Those are the renderer lane's.
+
+Break checks (all 17 caught by the named test): a tool run not counted; a completion not clearing the failure; the
+sign-in kind; stderr's first line in place of its last; the "overloaded" pattern; any message read as trouble; the
+plan's reason skipped; a cancelled phase carried; any reason read as the plan; the provider words; the same agent
+let through; the reason forced in `carry`; `startedBy` without `from`; the plan's words in a provider carry; the
+note's words; Without asking inverted; no reason in `carry_on_without_asking`.
+
+Noise: `window_drive_tests::relay_stops_at_hop_cap_and_exchange_strip_stop_ends_live_run` failed once in the first
+full run ("Stop button disappears once no run is live"). It then passed three times alone, and the second full
+run (3,253 tests) passed whole.
+
+## Batch 12: `a-plan-that-runs-out-is-carried-on.test.ts`
+
+| File | Row | Rust tests |
+| --- | --- | --- |
+| `a-plan-that-runs-out-is-carried-on.test.ts` | partial (8 of 11, two halves) | `core/src/plan_carry_on_tests.rs`, `core/src/native/plan_carry_on_tests.rs` |
+
+No bug found. The carry tests share batch 11's harness (`stopped`, `stopped_in` for a mode, `team`,
+`carried_from`). "A start that fails" is a roster whose teammate names no model: native refuses it with
+"Carry runs in Locust for now.", and the turn can be pressed again once the roster is put right.
+- `team` rewrites `teammates.json`, which also holds the turns' owners. A test that calls it again records the
+  owner again.
+- The harness's teammate is on `haiku`, so a pick's model (`sonnet`) is told apart from the teammate's own.
+
+Halves and gaps:
+- "Only for a turn the person sent": native decides it at the run's end (`person_sent`, a turn with no
+  `startedBy`) before it calls `carry_on_without_asking`. No fake runtime here ends a turn on a used-up plan, so
+  that gate has no test.
+- The record: native writes schema 27 with `startedBy {kind: carry-on, from}`, and that is tested. Electron's
+  reader refusing a v23 file that says carry-on, and its writer refusing a starter that names no agent, are
+  mission-store rules that native's ledger reader and writer do not have.
+- Not carried: `index.ts` runs the carry before the limit toast, and the toast says nothing for a carried turn.
+  That is a source-order check, and native's toast is `src/notify.rs`.
+
+`a-carried-conversation-keeps-its-route-and-reports-its-status.test.ts` (a round-2 file) is not in this branch's
+`apps/desktop/src/main`. It was added after the branch was cut and is in `~/work/locust`. Its row says so.
+
+Break checks (20 of 22 caught by the named test): `route.limit_detected` not read; a completion not clearing the
+limit; any kind read as the plan; the plan words; a second press let through; a failed start not let go; the
+plan's same-agent words; OpenCode refused under approve-each; Claude let through under approve-each; the mode not
+handed down; the refused note's reason; the plan note's words; `automatic` read loosely; any runtime accepted;
+`account-default` kept as a model; the pick being the agent that stopped; a pick that is not ready; the order's
+first two; the pick's model dropped (both lines at once).
+- Two survivors, each equivalent alone: `carry` sets the pick's model on the teammate and on the job, and either
+  one carries it into the turn. Broken together, they were caught.
+
+## Batch 13: `workspace-brief.test.ts`
+
+| File | Row | Rust tests |
+| --- | --- | --- |
+| `workspace-brief.test.ts` | partial (2 of 6, four halves) | `core/src/workspace_brief_tests.rs` |
+
+**A gap, not fixed here: native gives a folder's `LOCUST.md` to no run.** Electron puts it in every run's brief
+(`briefSection`: 'Instructions for the folder "shop", from its LOCUST.md. Every teammate on every runtime is given
+these...', and "(LOCUST.md is longer than 200 lines; the rest was not loaded.)" when it was cut). Native reads the
+file only for the Setup card's count (`teammate_setup::read_workspace_brief`, which gives lines and whether it was
+cut, and no text). Building it means adding a section to native's run brief, and that is a feature of its own,
+beyond a test batch. The two cases about the section's words wait for it.
+
+Carried whole: `brief_for_runtime`, each runtime its own section, and tags left alone (no runtime, fenced,
+unclosed). Carried as lines and `truncated`: read from the root with one line ending; none or empty is no brief;
+bounded by lines (200) and by bytes (24 lines of 1,000 bytes fit in 24 KiB, 25 do not); bounded after the other
+runtimes' sections are gone. Electron's no-folder and empty-folder reads have no counterpart, because
+`read_workspace_brief` takes a `&Path`.
+
+Break checks (all 10 caught by the named test): the trailing empty line kept; whitespace read as a brief; the line
+cap; the byte check; the byte cut; another runtime's section given; a fenced tag read; an unclosed tag's line
+dropped; `details` read as a runtime; the runtime filter skipped.
+
+
+## Batch 14: `codex-mission.test.ts`, continuing a conversation
+
+13 of the group's 16 cases (6 of them half): 31 of 137 so far. Tests in `core/src/native/codex_mission_tests.rs`. They
+run against `scripts/fixtures/commands-app-server.py`, which logs every request it gets, so a test reads whether the
+thread was started or resumed, by which id, in which sandbox, and what the turn was told. The earlier turns are written
+by hand with Electron's `finished()` values (`mission_prior`, "check the google stock price", `thread-prior`), and aged
+an hour so a turn with no terminal record reads as finished.
+
+Bugs found and fixed. Native's same-agent follow-up is now Electron's one rule (`codex-mission.ts` 2100-2125) for
+every runtime, not a branch per runtime:
+- **A reply in another mode resumed the old session.** A resumed session keeps the tools it was built with. A
+  conversation begun in Ask and continued in Accept edits ran with no write tools while the chip said Accept edits
+  (Electron's outside tester, 0.38.7). Now a changed mode starts cold. A header with no mode is not a change. `Prior`
+  carries the header's `mode`.
+- **A conversation with no session was refused.** Native said "This conversation has no Codex session to continue."
+  (and the same for OpenCode, Kilo, Cursor, Copilot, Antigravity, Muse and ACP). Electron continues it cold, recorded
+  as a follow-up with no `runtimeThreadId` (Colin, 2026-09-03: a reply after a failure opened a second row).
+- **A cold reply was told nothing.** Native's Claude started a new session silently, and the others refused. Now a
+  cold start is told the conversation so far through `compose_cold_follow_up` ("This conversation has earlier turns,
+  but not in your session..."), and the record keeps the person's words.
+- **Send again** (`cold_earlier`): the newest turn's words are not quoted back when it went unanswered and this reply
+  is the same words.
+- The old test `a_conversation_with_nothing_to_resume_or_still_running...` asserted the refusal. It now keeps only its
+  "still running" half (`a_conversation_still_running_is_refused_without_starting_anything`).
+
+Halves and gaps:
+- Native's `Started` has no `followsUp` or `switchedFrom`, so the receipt halves of three cases are read from the
+  new turn's header instead.
+- Electron's edit case also checks the terminal is not caught up (`catchUpTerminal`). Native has no counterpart.
+- Electron's A2.11 case switches over a turn that continues itself. Native's start refuses that history before any
+  brief, with "This conversation has an invalid history. Its references were not changed." That is the same check
+  as Electron's own `conversation-references.ts` `rootOf`; Electron's test service wires no references. So the
+  case is two tests: the switch brief over a sound chain, and `earlier_turns` stopping at the loop.
+- The route switch's link says checkpoint epoch 1: native's first checkpoint of a turn. Electron's 2 is its fake's.
+- The "unsafe" refusal is reached through a torn last line, and says native's reason.
+- H6, resuming an interrupted mission (`service.resume`), is not built. That is 3 cases.
+
+One test beyond Electron's: `the_same_words_after_an_answered_turn_are_told_that_turn` (the answered half of Send
+again survived its break without it).
+
+Break checks (all 14 caught by the named test): no mode read as a change; a changed mode still resuming; no session
+refused; the cold start not told; Send again off; Send again ignoring the reply; the cold link carrying a thread; an
+edit told as a plain reply; the walk's loop guard; the header's mode not read; the newest turn not quoted; the unsafe
+refusal; the switch brief without earlier turns; the checkpoint not written back.
+- One break was a build error at first (the loop guard). It was rewritten (`&& false`) and then caught.
+
+## Batch 15: `codex-mission.test.ts`, the workroom around a mission
+
+8 of the group's 12 cases (4 of them half): 39 of 137 so far. (Commit 3be39b9e's subject says 9; the 9th test it
+counted pins Electron's words and is not one of Electron's cases. The row was put right in the next commit.) The tests are in `core/src/native/codex_mission_tests.rs`,
+with Wren and Atlas on the roster and the relay off, so a share waits in the workroom instead of starting Atlas. The
+recording fake app-server (`scripts/fixtures/commands-app-server.py`) now reads an optional `commands-reply.json` from
+its folder, the turn's text and status, so a test can make a turn share or fail.
+
+Bugs found and fixed:
+- **A Plan turn was never told to plan.** Native ran Plan read-only but sent no plan instruction. Electron appends
+  `planSection` ("PLAN FIRST. ... numbered steps ...") after everything else, the references line included, so it is
+  the instruction closest to the answer. It checks the sandbox as well as the mode. `briefing::plan_section` is
+  new, and `send_from` appends it.
+- **A read-only OpenCode run was not told it has no shell.** In Ask or Plan, OpenCode refuses every shell call and
+  the run ends there. Electron tells it so (`openCodeReadOnlySection`, A2.20), before the plan instruction. Electron
+  leaves the line out when the run has Locust's git tool (0.818). Native has no git tool, so it always says it.
+- Neither section follows a command the person typed, which still goes to the runtime alone.
+
+Halves and gaps:
+- Native's `Started` carries no `peerMessages`, `peerDeliveryFailed` or peer-message updates, so the workroom and
+  the ledger's `mission.peer` links are read instead. The roster refusal is a relay notice, not a
+  `peer-share-failed` update.
+- **Found, not fixed:** a received link the ledger cannot write. Electron refuses the run ("The messages this mission
+  was shown could not be recorded in the durable local ledger."), starts nothing and consumes nothing. Native ignores
+  the failure (`let _ = writer.write_peer_link(...)`). The link is written after the turn has registered its slot,
+  so refusing there needs the slot let go too. That is left for a change of its own.
+- Not built: Locust's git tool for a read-only OpenCode run (round 1 found the `locust-git-reads` server is not
+  built), and a run that belongs to nobody (a native turn always has a teammate). The sealed look's OpenCode
+  permissions were not carried here.
+- `peer_exchange.rs` has the roster refusal twice: `share_reply` and `share_reply_for_relay`. A native turn uses the
+  second, and the first break, made in the first, survived for that reason. The break in the second was caught.
+
+Break checks (13 behaviours, 11 caught by the named test at first, all 13 in the end): the no-shell line for
+every OpenCode run; for every read-only run; the plan section for every read-only run; the plan section first; a typed
+command briefed; the plan words; the received link's teammate; a posted link recorded as received; a share from a run
+that did not complete; the plan section's last line; an unreadable workroom refusing the run.
+- Survivors, then caught: the no-shell words, whose test compared against the function, so a test now pins Electron's
+  words for both sections; and the roster refusal, whose break was in the copy native does not use (above).
+
+## Batch 16: `codex-mission.test.ts`, Codex over app-server
+
+All 7 of the group's cases (2 of them half): 46 of 137 so far. No bug: native's Codex path already did what
+Electron's does. The recording fake app-server's `commands-reply.json` can now also hold `deltas` (pieces streamed
+before the whole text) and `config` (what `config/read` answers).
+
+Halves:
+- The plan tool (0.153) is tested on `runtime::codex::app_server_args`. Under test the hook replaces the command, so
+  the record holds the fake's argv. That argv is still what ran, which is Electron's claim.
+- The command guard is tested on `command_guard::codex_config_for_home` with a temporary Codex home, with no hook
+  beside it and with a `hooks.json` that declares one. A run reads `CODEX_HOME` or `~/.codex`, which is the
+  machine's own, so the guard on a run's `thread/start` is not asserted.
+
+Break checks (all 12 caught by the named test): the plan tool's first release; its setting; the settings read for
+every mode but Edit; for Edit too; an address server switched off when unsealed; the sealed shell; the sealed web
+search; the sealed config not used; a program left on; the guard beside another hook; the guard's bypass; Edit's
+sandbox widened.
+
+## After batch 16: what else was checked, and why it was left
+
+- Batch 14's rule is proven on Codex and, since this follow-up, on Claude Code
+  (`a_claude_reply_with_no_session_to_resume_is_told_what_was_said_before`, its break caught). OpenCode, Kilo,
+  Cursor, Copilot, Antigravity, Muse and ACP share the same branch now; a reply with no session on them starts cold
+  instead of being refused, and no test runs that path on them yet.
+- `the_earlier_turns_walk_stops_at_a_turn_that_continues_itself` now runs under the recording fake and asserts that
+  nothing was started, so a regression there cannot reach a real Codex.
+- `codex-mission.test.ts` groups scouted and not carried:
+  - **Mid-mission handoff** (9 cases): native has no live handoff. A route switch is made only from a finished turn,
+    and nothing stops a running turn to restart it on another runtime.
+  - **Steering a Codex run** (1 case): Codex's runtime has no steer. Only ACP's does (`runtime/acp.rs`).
+  - **Missions side by side** (4 cases): the cap's words and count are already tested
+    (`native::tests::a_ninth_turn_at_once_is_refused_in_electrons_words`), and so is a stop
+    (`stop_interrupts_the_runtime_records_cancelled_and_only_stops_what_this_window_started`). They are not
+    credited to this file. A reply to a turn still running is refused in native's words, "A turn is already running
+    in this conversation.". Electron says "<Name> is still answering in this conversation. Your message goes when
+    that turn finishes.". It was not changed, because `rooms.rs` `classify_send_error` keys on native's string, and
+    the window queues a reply itself before it gets there. The handoff of one run while another runs is not built.
+  - **Stopping a Codex run over app-server** (1 case): covered in spirit by the stop test above; not credited.
+- Next groups with native code: "runtime selection" (17 cases) and "Approve-each is a mode of this service" (5).
