@@ -548,3 +548,203 @@ fn the_same_words_after_an_answered_turn_are_told_that_turn() {
     assert!(sent.contains("This conversation has earlier turns, but not in your session"), "{sent}");
     assert!(sent.contains("answered: \"The price was 181.\""), "{sent}");
 }
+
+// ---- the workroom around a mission ----
+
+/// Wren and Atlas on the roster, the relay off (a share waits in the workroom rather than starting Atlas).
+fn wren_and_atlas(t: &Temp) {
+    let mate = |id: &str, name: &str, role: &str| json!({"teammateId": id, "name": name, "role": role, "route": {"runtime": "codex", "model": "synthetic-model", "mode": "ask"}});
+    t.store()
+        .save_json(
+            "teammates.json",
+            &json!({"schemaVersion": 1, "teammates": [mate("tm_wren", "Wren", "Code & Migrations"), mate("tm_atlas", "Atlas", "Research & Briefs")],
+                "missionOwners": {}, "settings": {"relay": false}}),
+        )
+        .unwrap();
+}
+
+fn wren(t: &Temp, mode: &str, prompt: &str) -> Send {
+    let mut mine = job(t, None, prompt);
+    mine.teammate.id = "tm_wren".into();
+    mine.teammate.name = "Wren".into();
+    mine.teammate.runs_in = mode.into();
+    mine
+}
+
+/// Runs Wren's turn to its end and gives the turn's own mission id.
+fn wren_ran(t: &Temp, mode: &str, prompt: &str) -> String {
+    let started = send(wren(t, mode, prompt)).unwrap();
+    finished(&started.conversation_id);
+    started.conversation_id
+}
+
+/// Everything the runtime was told on its turn, the reference-folders line and what follows it included.
+fn told_whole(t: &Temp) -> String {
+    let asked = codex_requests(t);
+    let turn = asked.iter().rev().find(|r| r["method"] == "turn/start").expect("a turn was sent");
+    turn["params"]["input"][0]["text"].as_str().unwrap().to_owned()
+}
+
+fn the_turn_says(t: &Temp, text: &str, status: &str) {
+    fs::write(t.0.join("work/commands-reply.json"), json!({"text": text, "status": status}).to_string()).unwrap();
+}
+
+fn atlas() -> crate::workroom::Party {
+    crate::workroom::Party { teammate_id: "tm_atlas".into(), name: "Atlas".into() }
+}
+
+fn peer_links(path: &Path) -> Vec<Value> {
+    records(path).into_iter().filter(|r| r["recordType"] == "mission.peer").map(|r| r["link"].clone()).collect()
+}
+
+#[test]
+fn a_waiting_message_is_quoted_as_a_claim_recorded_and_delivered_once_the_run_starts() {
+    let t = Temp::new();
+    wren_and_atlas(&t);
+    let workroom = crate::workroom::Workroom::for_store(&t.store());
+    let wren_party = crate::workroom::Party { teammate_id: "tm_wren".into(), name: "Wren".into() };
+    let waiting = workroom.post(&atlas(), "mission_a", &wren_party, "pnpm check runs everything.", None).unwrap();
+    let _hook = hooks::install(t.store(), codex_commands_hook(&t));
+    let id = wren_ran(&t, "ask", "Which command runs the checks?");
+    let sent = told(&t);
+    assert!(sent.ends_with("Which command runs the checks?"), "{sent}");
+    assert!(sent.contains("CLAIMS from other agents"), "{sent}");
+    assert!(sent.contains("pnpm check runs everything."), "{sent}");
+    assert!(sent.contains("<locust-share to=\"Atlas\">"), "{sent}");
+    assert_eq!(
+        peer_links(&path_of(&t, &id)),
+        vec![json!({"direction": "received", "messageId": waiting.message_id, "peerTeammateId": "tm_atlas", "occurredAt": waiting.posted_at})]
+    );
+    let deliveries = workroom.read().deliveries;
+    assert_eq!(deliveries.len(), 1);
+    assert_eq!((deliveries[0].message_id.as_str(), deliveries[0].mission_id.as_str()), (waiting.message_id.as_str(), id.as_str()));
+}
+
+#[test]
+fn a_plan_run_is_told_to_plan_last_and_only_where_the_sandbox_refuses_writes() {
+    let t = Temp::new();
+    wren_and_atlas(&t);
+    let _hook = hooks::install(t.store(), codex_commands_hook(&t));
+    let planned = wren_ran(&t, "plan", "Add retries to the fetch helper.");
+    assert_eq!(header(&path_of(&t, &planned))["sandbox"], "read-only");
+    assert_eq!(thread_request(&t)["params"]["sandbox"], "read-only");
+    let with_plan = told_whole(&t);
+    assert!(with_plan.contains("Add retries to the fetch helper."));
+    assert!(with_plan.ends_with(&crate::briefing::plan_section()), "{with_plan}");
+    assert!(with_plan.find("Add retries to the fetch helper.").unwrap() > with_plan.find("<locust-ask>").unwrap());
+    assert!(with_plan.contains("PLAN FIRST") && with_plan.contains("numbered steps"));
+    // A run that may edit, and an ordinary read-only one, are not told to plan.
+    wren_ran(&t, "accept-edits", "Add retries to the fetch helper.");
+    assert!(!told_whole(&t).contains("PLAN FIRST"));
+    wren_ran(&t, "ask", "Add retries to the fetch helper.");
+    assert!(!told_whole(&t).contains("PLAN FIRST"));
+}
+
+#[test]
+fn a_read_only_opencode_run_is_told_it_has_no_shell_and_no_other_run_is() {
+    let t = Temp::new();
+    let opencode_sent = |mode: &str| -> String {
+        *crate::invariants::lock(&hooks::STATE) = (Some(t.store()), opencode_hook("success"));
+        let mut mine = opencode_job(&t, "What does LOCUST.md say?");
+        mine.teammate.runs_in = mode.into();
+        mine.model = Some("opencode/muse-spark-1.3-contributor-free".into());
+        let started = send(mine).unwrap();
+        finished(&started.conversation_id);
+        let asked = sent_log(&t, "opencode-requests.jsonl");
+        asked.iter().rev().find(|r| r["path"] == "prompt_async").unwrap()["body"]["parts"][0]["text"].as_str().unwrap().to_owned()
+    };
+    let _hook = hooks::install(t.store(), opencode_hook("success"));
+    let no_shell = crate::briefing::opencode_read_only_section();
+    assert!(opencode_sent("ask").contains(&no_shell));
+    // Plan too, and the plan instruction still comes last.
+    let planned = opencode_sent("plan");
+    assert!(planned.contains(&no_shell), "{planned}");
+    assert!(planned.ends_with(&crate::briefing::plan_section()), "{planned}");
+    // A run that may edit has its shell, and a read-only Codex run runs read-only commands in its sandbox.
+    assert!(!opencode_sent("accept-edits").contains(&no_shell));
+    *crate::invariants::lock(&hooks::STATE) = (Some(t.store()), codex_commands_hook(&t));
+    let started = send(job(&t, None, "What does LOCUST.md say?")).unwrap();
+    finished(&started.conversation_id);
+    assert!(!told_whole(&t).contains(&no_shell));
+}
+
+#[test]
+fn the_persons_own_words_are_the_recorded_prompt_not_the_briefing() {
+    let t = Temp::new();
+    wren_and_atlas(&t);
+    let _hook = hooks::install(t.store(), codex_commands_hook(&t));
+    let id = wren_ran(&t, "ask", "Look around.");
+    assert_eq!(header(&path_of(&t, &id))["prompt"], "Look around.");
+    assert_ne!(told(&t), "Look around.", "the runtime was briefed");
+}
+
+#[test]
+fn a_run_goes_on_without_the_workroom_when_it_cannot_be_read_and_can_still_share() {
+    let t = Temp::new();
+    wren_and_atlas(&t);
+    let room = t.store().root().join(crate::workroom::FOLDER);
+    fs::create_dir_all(&room).unwrap();
+    fs::write(room.join(crate::workroom::FILE_NAME), "channel damaged\n").unwrap();
+    assert!(crate::workroom::Workroom::for_store(&t.store()).unread("tm_wren", 5, &[]).is_err(), "the workroom cannot be read");
+    let _hook = hooks::install(t.store(), codex_commands_hook(&t));
+    let id = wren_ran(&t, "ask", "Task.");
+    assert_eq!(kinds(&path_of(&t, &id)).last().map(String::as_str), Some("run.completed"));
+    assert!(told(&t).contains("<locust-share to=\"Atlas\">"), "the share form still goes");
+}
+
+#[test]
+fn a_share_block_is_posted_to_the_named_teammate_attributed_to_this_mission_and_linked() {
+    let t = Temp::new();
+    wren_and_atlas(&t);
+    let _hook = hooks::install(t.store(), codex_commands_hook(&t));
+    the_turn_says(&t, "The gate is pnpm check.\n\n<locust-share to=\"Atlas\">\npnpm check runs build, typecheck and tests.\n</locust-share>", "completed");
+    let id = wren_ran(&t, "ask", "Find the check command.");
+    let workroom = crate::workroom::Workroom::for_store(&t.store());
+    let posted = workroom.unread("tm_atlas", 5, &[]).unwrap().messages;
+    assert_eq!(posted.len(), 1);
+    let one = &posted[0];
+    assert_eq!(
+        (one.from.teammate_id.as_str(), one.from.name.as_str(), one.from_mission.as_str(), one.to.teammate_id.as_str(), one.to.name.as_str(), one.text.as_str()),
+        ("tm_wren", "Wren", id.as_str(), "tm_atlas", "Atlas", "pnpm check runs build, typecheck and tests.")
+    );
+    assert_eq!(
+        peer_links(&path_of(&t, &id)),
+        vec![json!({"direction": "posted", "messageId": one.message_id, "peerTeammateId": "tm_atlas", "occurredAt": one.posted_at})]
+    );
+}
+
+#[test]
+fn a_share_to_someone_not_on_the_roster_is_refused_out_loud() {
+    let t = Temp::new();
+    wren_and_atlas(&t);
+    let _hook = hooks::install(t.store(), codex_commands_hook(&t));
+    the_turn_says(&t, "<locust-share to=\"Mallory\">\nsecret\n</locust-share>", "completed");
+    let id = wren_ran(&t, "ask", "Task.");
+    assert!(crate::workroom::Workroom::for_store(&t.store()).read().messages.is_empty(), "nothing was sent");
+    let said: Vec<String> = relay_live_state(std::slice::from_ref(&id)).notices.into_iter().map(|n| n.message).collect();
+    assert_eq!(said, ["Wren addressed a message to \"Mallory\", who is not on the roster. Nothing was sent."]);
+}
+
+#[test]
+fn a_run_that_did_not_complete_shares_nothing() {
+    let t = Temp::new();
+    wren_and_atlas(&t);
+    let _hook = hooks::install(t.store(), codex_commands_hook(&t));
+    the_turn_says(&t, "<locust-share to=\"Atlas\">\nhalf a claim\n</locust-share>", "failed");
+    let id = wren_ran(&t, "ask", "Task.");
+    assert!(kinds(&path_of(&t, &id)).contains(&"run.failed".to_owned()), "{:?}", kinds(&path_of(&t, &id)));
+    assert!(crate::workroom::Workroom::for_store(&t.store()).read().messages.is_empty());
+}
+
+/// Electron's `openCodeReadOnlySection` and `planSection`, word for word (workroom-briefing.ts).
+#[test]
+fn the_no_shell_and_plan_sections_are_electrons_words() {
+    assert_eq!(
+        crate::briefing::opencode_read_only_section(),
+        "You have no shell in this mode -- not git, not cat, not ls: every shell command is refused. Use your read, grep, glob and list tools, and answer from what the files show."
+    );
+    assert_eq!(
+        crate::briefing::plan_section(),
+        "PLAN FIRST. Do not change anything in this workspace on this turn, and do not run commands that change state.\nRead what you need, then answer with the plan itself: numbered steps, in the order you would do them, each one concrete enough to check off.\nName anything you had to assume, and anything you found that changes what was asked.\nIf the work is small enough that a plan would be longer than doing it, say so in one line and give the steps anyway -- brevity is a fine plan.\nThe person reads this and decides whether to have you carry it out; you are not being asked to start."
+    );
+}

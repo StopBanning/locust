@@ -1,7 +1,16 @@
 #!/usr/bin/env python3
 """Synthetic Codex app-server for the slash-command tests: it answers every request and writes each one it was sent to
 `commands-requests.jsonl` in its working folder, for a test to read. No Codex, credentials or network."""
-import json, sys
+import json, os, sys
+
+# A test may choose what the turn says and how it ends: `commands-reply.json` in the working folder, {"text": ...,
+# "status": "completed" or "failed"}. Without it the turn answers "Done." and completes.
+def chosen_reply():
+    if os.path.exists('commands-reply.json'):
+        with open('commands-reply.json') as f:
+            chosen = json.load(f)
+        return chosen.get('text', 'Done.'), chosen.get('status', 'completed')
+    return 'Done.', 'completed'
 
 def send(v):
     print(json.dumps(dict(jsonrpc='2.0', **v)), flush=True)
@@ -12,10 +21,13 @@ def notify(method, **params):
 def done(msg):
     send(dict(id=msg['id'], result={'turn': {'id': 'turn_fake'}}))
     notify('turn/started', turn={'id': 'turn_fake'})
-    reply = 'Done.'
+    reply, status = chosen_reply()
     notify('item/agentMessage/delta', itemId='answer', operation='replace', delta=reply)
     notify('item/completed', item=dict(id='answer', type='agentMessage', text=reply))
-    notify('turn/completed', turn={'id': 'turn_fake', 'status': 'completed'})
+    turn = {'id': 'turn_fake', 'status': status}
+    if status == 'failed':
+        turn['error'] = {'message': 'Synthetic failure.'}
+    notify('turn/completed', turn=turn)
 
 for line in sys.stdin:
     msg = json.loads(line)

@@ -2229,6 +2229,21 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
         Some(told) => format!("{told}\n\n{runtime_prompt}"),
         None => runtime_prompt,
     };
+    // codex-mission.ts: a read-only OpenCode run is told it has no shell (A2.20), and a Plan run is told to plan, last,
+    // so it is the instruction closest to the answer; the sandbox is checked as well as the mode. Never after a
+    // command the person typed, which goes to the runtime alone.
+    let runtime_prompt = if typed_command {
+        runtime_prompt
+    } else {
+        let mut told = runtime_prompt;
+        if runtime_name == "opencode" && mode.sandbox() == "read-only" {
+            told = format!("{told}\n\n{}", crate::briefing::opencode_read_only_section());
+        }
+        if mode == Mode::Plan && mode.sandbox() == "read-only" {
+            told = format!("{told}\n\n{}", crate::briefing::plan_section());
+        }
+        told
+    };
     let id = new_id();
     // Copilot needs a host session id on first turn so a failure before `result` can still resume.
     let session_id = if runtime_name == "copilot" && resume.is_none() {

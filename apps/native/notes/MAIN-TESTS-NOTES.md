@@ -565,3 +565,41 @@ refused; the cold start not told; Send again off; Send again ignoring the reply;
 edit told as a plain reply; the walk's loop guard; the header's mode not read; the newest turn not quoted; the unsafe
 refusal; the switch brief without earlier turns; the checkpoint not written back.
 - One break was a build error at first (the loop guard). It was rewritten (`&& false`) and then caught.
+
+## Batch 15: `codex-mission.test.ts`, the workroom around a mission
+
+9 of the group's 12 cases (4 of them half): 40 of 137 so far. The tests are in `core/src/native/codex_mission_tests.rs`,
+with Wren and Atlas on the roster and the relay off, so a share waits in the workroom instead of starting Atlas. The
+recording fake app-server (`scripts/fixtures/commands-app-server.py`) now reads an optional `commands-reply.json` from
+its folder, the turn's text and status, so a test can make a turn share or fail.
+
+Bugs found and fixed:
+- **A Plan turn was never told to plan.** Native ran Plan read-only but sent no plan instruction. Electron appends
+  `planSection` ("PLAN FIRST. ... numbered steps ...") after everything else, the references line included, so it is
+  the instruction closest to the answer. It checks the sandbox as well as the mode. `briefing::plan_section` is
+  new, and `send_from` appends it.
+- **A read-only OpenCode run was not told it has no shell.** In Ask or Plan, OpenCode refuses every shell call and
+  the run ends there. Electron tells it so (`openCodeReadOnlySection`, A2.20), before the plan instruction. Electron
+  leaves the line out when the run has Locust's git tool (0.818). Native has no git tool, so it always says it.
+- Neither section follows a command the person typed, which still goes to the runtime alone.
+
+Halves and gaps:
+- Native's `Started` carries no `peerMessages`, `peerDeliveryFailed` or peer-message updates, so the workroom and
+  the ledger's `mission.peer` links are read instead. The roster refusal is a relay notice, not a
+  `peer-share-failed` update.
+- **Found, not fixed:** a received link the ledger cannot write. Electron refuses the run ("The messages this mission
+  was shown could not be recorded in the durable local ledger."), starts nothing and consumes nothing. Native ignores
+  the failure (`let _ = writer.write_peer_link(...)`). The link is written after the turn has registered its slot,
+  so refusing there needs the slot let go too. That is left for a change of its own.
+- Not built: Locust's git tool for a read-only OpenCode run (round 1 found the `locust-git-reads` server is not
+  built), and a run that belongs to nobody (a native turn always has a teammate). The sealed look's OpenCode
+  permissions were not carried here.
+- `peer_exchange.rs` has the roster refusal twice: `share_reply` and `share_reply_for_relay`. A native turn uses the
+  second, and the first break, made in the first, survived for that reason. The break in the second was caught.
+
+Break checks (16 of 18 caught by the named test at first; the 2 survivors were then caught): the no-shell line for
+every OpenCode run; for every read-only run; the plan section for every read-only run; the plan section first; a typed
+command briefed; the plan words; the received link's teammate; a posted link recorded as received; a share from a run
+that did not complete; an unreadable workroom refusing the run.
+- Survivors, then caught: the no-shell words, whose test compared against the function, so a test now pins Electron's
+  words for both sections; and the roster refusal, whose break was in the copy native does not use (above).
