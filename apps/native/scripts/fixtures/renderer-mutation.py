@@ -10,6 +10,12 @@ import subprocess
 import sys
 
 CONTROLS = {
+    "folder-chip-help": (
+        "src/ui/thread_view.rs",
+        '.help(locust_core::thread_view::folder_help(\n        folder, home, windows, system,\n    ))',
+        '.help("Folder")',
+        "says_why_in_its_hover_for_a_folder_like_claude_in_the_chips_own_colour",
+    ),
     "team-folder-reset": (
         "src/ui/people_panel.rs",
         '.on_press(|s: &mut State| set_form_folder(s, None))',
