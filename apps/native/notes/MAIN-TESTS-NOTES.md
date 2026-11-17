@@ -568,7 +568,8 @@ refusal; the switch brief without earlier turns; the checkpoint not written back
 
 ## Batch 15: `codex-mission.test.ts`, the workroom around a mission
 
-9 of the group's 12 cases (4 of them half): 40 of 137 so far. The tests are in `core/src/native/codex_mission_tests.rs`,
+8 of the group's 12 cases (4 of them half): 39 of 137 so far. (Commit 3be39b9e's subject says 9; the 9th test it
+counted pins Electron's words and is not one of Electron's cases. The row was put right in the next commit.) The tests are in `core/src/native/codex_mission_tests.rs`,
 with Wren and Atlas on the roster and the relay off, so a share waits in the workroom instead of starting Atlas. The
 recording fake app-server (`scripts/fixtures/commands-app-server.py`) now reads an optional `commands-reply.json` from
 its folder, the turn's text and status, so a test can make a turn share or fail.
@@ -597,16 +598,16 @@ Halves and gaps:
 - `peer_exchange.rs` has the roster refusal twice: `share_reply` and `share_reply_for_relay`. A native turn uses the
   second, and the first break, made in the first, survived for that reason. The break in the second was caught.
 
-Break checks (16 of 18 caught by the named test at first; the 2 survivors were then caught): the no-shell line for
+Break checks (13 behaviours, 11 caught by the named test at first, all 13 in the end): the no-shell line for
 every OpenCode run; for every read-only run; the plan section for every read-only run; the plan section first; a typed
 command briefed; the plan words; the received link's teammate; a posted link recorded as received; a share from a run
-that did not complete; an unreadable workroom refusing the run.
+that did not complete; the plan section's last line; an unreadable workroom refusing the run.
 - Survivors, then caught: the no-shell words, whose test compared against the function, so a test now pins Electron's
   words for both sections; and the roster refusal, whose break was in the copy native does not use (above).
 
 ## Batch 16: `codex-mission.test.ts`, Codex over app-server
 
-All 7 of the group's cases (2 of them half): 47 of 137 so far. No bug: native's Codex path already did what
+All 7 of the group's cases (2 of them half): 46 of 137 so far. No bug: native's Codex path already did what
 Electron's does. The recording fake app-server's `commands-reply.json` can now also hold `deltas` (pieces streamed
 before the whole text) and `config` (what `config/read` answers).
 
@@ -621,3 +622,25 @@ Break checks (all 12 caught by the named test): the plan tool's first release; i
 every mode but Edit; for Edit too; an address server switched off when unsealed; the sealed shell; the sealed web
 search; the sealed config not used; a program left on; the guard beside another hook; the guard's bypass; Edit's
 sandbox widened.
+
+## After batch 16: what else was checked, and why it was left
+
+- Batch 14's rule is proven on Codex and, since this follow-up, on Claude Code
+  (`a_claude_reply_with_no_session_to_resume_is_told_what_was_said_before`, its break caught). OpenCode, Kilo,
+  Cursor, Copilot, Antigravity, Muse and ACP share the same branch now; a reply with no session on them starts cold
+  instead of being refused, and no test runs that path on them yet.
+- `the_earlier_turns_walk_stops_at_a_turn_that_continues_itself` now runs under the recording fake and asserts that
+  nothing was started, so a regression there cannot reach a real Codex.
+- `codex-mission.test.ts` groups scouted and not carried:
+  - **Mid-mission handoff** (9 cases): native has no live handoff. A route switch is made only from a finished turn,
+    and nothing stops a running turn to restart it on another runtime.
+  - **Steering a Codex run** (1 case): Codex's runtime has no steer. Only ACP's does (`runtime/acp.rs`).
+  - **Missions side by side** (4 cases): the cap's words and count are already tested
+    (`native::tests::a_ninth_turn_at_once_is_refused_in_electrons_words`), and so is a stop
+    (`stop_interrupts_the_runtime_records_cancelled_and_only_stops_what_this_window_started`). They are not
+    credited to this file. A reply to a turn still running is refused in native's words, "A turn is already running
+    in this conversation.". Electron says "<Name> is still answering in this conversation. Your message goes when
+    that turn finishes.". It was not changed, because `rooms.rs` `classify_send_error` keys on native's string, and
+    the window queues a reply itself before it gets there. The handoff of one run while another runs is not built.
+  - **Stopping a Codex run over app-server** (1 case): covered in spirit by the stop test above; not credited.
+- Next groups with native code: "runtime selection" (17 cases) and "Approve-each is a mode of this service" (5).

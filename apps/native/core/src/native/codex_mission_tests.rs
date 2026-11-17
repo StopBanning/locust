@@ -379,6 +379,25 @@ fn a_conversation_whose_earlier_turn_recorded_no_session_is_continued_cold_rathe
     assert!(methods.contains(&"thread/start".to_owned()) && !methods.iter().any(|m| m.contains("resume")), "{methods:?}");
 }
 
+/// The same rule on Claude Code: a reply to a Claude turn that recorded no session used to start a new one told
+/// nothing. It starts cold and is told what was said.
+#[test]
+fn a_claude_reply_with_no_session_to_resume_is_told_what_was_said_before() {
+    let t = Temp::new();
+    let prior = earlier(&t, json!({"runtime": "claude", "resolvedRouteId": "claude-account:default"}), &[]);
+    let fake = commands_claude(&t);
+    let _hook = hooks::install(t.store(), Some((PathBuf::from("python3"), vec![fake.to_string_lossy().into_owned()])));
+    let started = send(claude_job(&t, Some("mission_prior"), "go on")).unwrap();
+    finished(&started.conversation_id);
+    let sent = sent_log(&t, "claude-sent.jsonl");
+    let told = sent[0].as_str().unwrap();
+    assert!(told.contains("This conversation has earlier turns, but not in your session"), "{told}");
+    assert!(told.contains("Asked: \"check the google stock price\" -- no reply was recorded."), "{told}");
+    let head = new_turn(&t, &[&prior]);
+    assert_eq!(head["continuesFrom"], json!({"missionId": "mission_prior", "checkpointEpoch": 1, "reason": "follow-up"}));
+    assert_eq!(head["prompt"], "go on");
+}
+
 #[test]
 fn a_reply_picks_up_the_session_a_turn_stopped_before_naming_its_own_was_resuming() {
     let t = Temp::new();
@@ -469,11 +488,12 @@ fn a_switch_carries_the_conversations_earlier_turns_oldest_first() {
 fn the_earlier_turns_walk_stops_at_a_turn_that_continues_itself() {
     let t = Temp::new();
     three_turns_on_claude(&t, json!({"missionId": "mission_first", "checkpointEpoch": 1, "reason": "follow-up"}));
-    let _hook = hooks::install(t.store(), None);
+    let _hook = hooks::install(t.store(), codex_commands_hook(&t));
     let prior = turn_records("mission_prior").unwrap();
     let asked: Vec<String> = earlier_turns(&prior.metadata).into_iter().map(|turn| turn.asked).collect();
     assert_eq!(asked, ["build a price report", "then make it weekly"]);
     assert_eq!(send(job(&t, Some("mission_prior"), "now in euros")).unwrap_err(), "This conversation has an invalid history. Its references were not changed.");
+    assert!(codex_requests(&t).is_empty(), "nothing was started");
 }
 
 #[test]
