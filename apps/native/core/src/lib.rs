@@ -297,6 +297,10 @@ mod room_task_claims_tests;
 mod step_budget_tests;
 #[cfg(test)]
 mod torn_tag_tests;
+#[cfg(test)]
+mod effort_choices_tests;
+#[cfg(test)]
+mod every_runtime_ledger_tests;
 pub mod cover_activity;
 
 #[cfg(test)]

@@ -93,3 +93,25 @@ sent row, and "Nothing is changed by answering."). Both are `approval::data_sent
 Breaks: 35 (`~/work/scratch/opus2/b3-breaks.log`). 33 caught by name at first; the two that survived (a post naming
 two rows; the whole post read when the row's sentence names nobody) are reached by no Electron case, and each has a
 Rust test of its own now that catches it.
+
+## Batch 4: six runtime-adapters files and one mission-store file (17 Nov)
+Carried whole:
+- `effort-choices` (5, plus 1 of Rust's own): `effort_choices_tests.rs`.
+- `connector-allow-rules` (6, plus 1) and `the-browser-shares-one-flag-with-the-bridge` (4):
+  `runtime/claude_command_connectors_tests.rs`. Rust runs Codex through its app server, so "ignored by every runtime
+  that has no such flag" is checked on `codex::app_server_args`.
+- `every-runtime-can-be-written-down` (1, plus 1): `every_runtime_ledger_tests.rs`, for the nine runtimes Rust offers.
+  Electron's list also has Gemini; Rust has no Gemini runtime and its ledger refuses one.
+
+Partial:
+- `a-run-without-connectors-leaves-them-out`: its "where nothing was said" half has no Rust form
+  (`PrintOptions.account_connectors` is a yes or no, and no is the default).
+- `a-side-question-forks-the-session`: Claude Code's cases only. Rust has no `opencode run` command line; it forks an
+  OpenCode session through the served session's `/session/{id}/fork`.
+- `a-sealed-run-uses-no-tool`: the config and environment `configure_with_seal` writes are checked; the served run's
+  whole command needs the `opencode` binary (its version is probed first), and Rust gives OpenCode no `locust_git`.
+
+No Rust code changed; no bug found. Breaks: 22, then 3 reruns (`b4-breaks.log`). Three survived at first: the
+dot-all flag in the effort pattern (caught by batch 1's `copilots_effort_levels_are_read_from_its_1_0_88_help` once
+it was in the run), an empty level, and the run-collapsing of a `claude.ai` connector name; the last two have Rust
+tests of their own now.
