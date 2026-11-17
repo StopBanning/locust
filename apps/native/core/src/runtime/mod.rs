@@ -91,6 +91,14 @@ mod copilot_quiet_records_tests;
 mod denied_read_and_file_row_tests;
 #[cfg(test)]
 mod message_tail_tests;
+#[cfg(test)]
+mod claude_background_calls_tests;
+#[cfg(test)]
+mod claude_helper_children_tests;
+#[cfg(test)]
+mod codex_config_warning_tests;
+#[cfg(test)]
+mod large_cursor_result_tests;
 
 pub mod permission_bridge;
 

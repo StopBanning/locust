@@ -235,7 +235,7 @@ struct OpenTool {
 }
 
 /// claude-events.ts claudeToolBackgrounded.
-fn claude_tool_backgrounded(name: &str, input: &Value) -> bool {
+pub fn claude_tool_backgrounded(name: &str, input: &Value) -> bool {
     name == "Bash" && input["run_in_background"] == true
 }
 

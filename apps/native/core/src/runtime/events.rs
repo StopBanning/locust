@@ -591,16 +591,21 @@ impl Normalizer {
                 self.event("adapter.diagnostic",json!({"level":"info","code":"codex.context_compacted","terminal":false,"message":"The conversation outgrew the model's context, so Codex summarized it and carried on from the summary.","evidence":evidence}))
             }
             "warning" | "guardianWarning" | "configWarning" => {
-                let message = p["summary"]
-                    .as_str()
-                    .or(p["message"].as_str())
-                    .unwrap_or("");
-                if message.is_empty()
-                    || message.starts_with("`--dangerously-bypass-hook-trust` is enabled.")
-                {
+                // app-server-events.ts: a configWarning says its `summary` (or a legacy `message`) and then its
+                // `details` on the next line; a warning or a guardianWarning says its `message`.
+                let said = |key: &str| p[key].as_str().filter(|v| !v.is_empty());
+                let config = method == "configWarning";
+                let Some(raw) = (if config { said("summary").or(said("message")) } else { said("message") }) else {
+                    return vec![];
+                };
+                if raw.starts_with("`--dangerously-bypass-hook-trust` is enabled.") {
                     return vec![];
                 }
-                self.diagnostic(method, message)
+                let message = match said("details").filter(|_| config) {
+                    Some(details) => format!("{raw}\n{details}"),
+                    None => raw.to_owned(),
+                };
+                self.diagnostic(method, &message)
             }
             _ => return vec![],
         };
