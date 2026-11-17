@@ -895,3 +895,281 @@ fn every_other_runtime_keeps_the_transport_it_had() {
     assert_eq!(sent_log(&t, "claude-sent.jsonl").len(), 1, "Claude Code was sent the turn");
     assert!(codex_requests(&t).is_empty(), "no app-server was started");
 }
+
+// ---- runtime selection ----
+//
+// Under the test hook the runtime's own command is the fake's, so a Cursor or Copilot argv is read from its builder
+// (`cursor::print_args`, `copilot::prompt_args`). What a turn adds to the command after that (Claude Code's whole
+// argv, Copilot's guard plugin) reaches the fake, which writes its argv down.
+
+/// A runtime that writes down the argv it was started with (`<name>-argv.jsonl` in the work folder), reads what it is
+/// given, and prints `records`.
+fn argv_fake(t: &Temp, name: &str, records: &[Value], read_line: bool) -> Option<(PathBuf, Vec<String>)> {
+    let fake = t.0.join(format!("{name}_writes_its_argv.py"));
+    let lines: Vec<String> = records.iter().map(|r| r.to_string()).collect();
+    fs::write(
+        &fake,
+        format!(
+            r#"import json, sys
+with open("{name}-argv.jsonl", "a") as log:
+    log.write(json.dumps(sys.argv[1:]) + "\n")
+if {read}:
+    sys.stdin.readline()
+else:
+    try:
+        sys.stdin.read()
+    except Exception:
+        pass
+for line in {lines:?}:
+    print(line, flush=True)
+if {read}:
+    try:
+        sys.stdin.read()
+    except Exception:
+        pass
+"#,
+            read = if read_line { "True" } else { "False" },
+        ),
+    )
+    .unwrap();
+    Some((PathBuf::from("python3"), vec![fake.to_string_lossy().into_owned()]))
+}
+
+fn argv_of(t: &Temp, name: &str) -> Vec<String> {
+    let logged = sent_log(t, &format!("{name}-argv.jsonl"));
+    serde_json::from_value(logged.last().expect("the runtime was started").clone()).unwrap()
+}
+
+/// Claude Code's three records for a turn that answers "OK".
+fn claude_answers() -> Vec<Value> {
+    vec![
+        json!({"type": "system", "subtype": "init", "session_id": "33b21513-a4fb-478d-ad84-21cb7ef30571", "cwd": "/tmp", "tools": ["Read"], "mcp_servers": [], "model": "synthetic-model", "permissionMode": "default", "slash_commands": [], "claude_code_version": "2.1.252", "agents": [], "skills": []}),
+        json!({"type": "assistant", "message": {"id": "msg_c", "content": [{"type": "text", "text": "OK"}]}}),
+        json!({"type": "result", "subtype": "success", "is_error": false, "result": "OK"}),
+    ]
+}
+
+fn claude_in(t: &Temp, mode: &str, prompt: &str) -> (Started, Vec<String>, Value) {
+    let _hook = hooks::install(t.store(), argv_fake(t, "claude", &claude_answers(), true));
+    let mut mine = claude_job(t, None, prompt);
+    mine.teammate.runs_in = mode.into();
+    let started = send(mine).unwrap();
+    finished(&started.conversation_id);
+    let head = header(&path_of(t, &started.conversation_id));
+    (started, argv_of(t, "claude"), head)
+}
+
+#[test]
+fn claude_is_launched_with_its_own_restricted_argv_when_claude_is_chosen() {
+    let t = Temp::new();
+    let (_, args, head) = claude_in(&t, "ask", "Summarize this repo.");
+    assert_eq!(head["runtime"], "claude");
+    for flag in ["--print", "--output-format", "stream-json"] {
+        assert!(args.iter().any(|a| a == flag), "{flag}: {args:?}");
+    }
+    assert!(args.windows(2).any(|w| w == ["--output-format", "stream-json"]), "{args:?}");
+    // Claude's command takes no sandbox flag; the Codex one must not leak in.
+    assert!(!args.iter().any(|a| a == "--sandbox"), "{args:?}");
+}
+
+#[test]
+fn a_claude_run_that_may_edit_is_recorded_as_one_that_may_edit() {
+    let t = Temp::new();
+    let (started, _, head) = claude_in(&t, "accept-edits", "Edit something.");
+    assert_eq!(started.mode, "accept-edits");
+    assert_eq!((&head["runtime"], &head["sandbox"]), (&json!("claude"), &json!("workspace-write")));
+}
+
+#[test]
+fn claude_is_sent_the_mode_it_was_started_in_not_a_default() {
+    let t = Temp::new();
+    let (_, args, _) = claude_in(&t, "accept-edits", "Edit something.");
+    let line = args.join(" ");
+    assert!(line.contains("--permission-mode acceptEdits"), "{line}");
+    assert!(line.contains("Edit,Write,NotebookEdit,Bash"), "{line}");
+}
+
+#[test]
+fn a_claude_run_asked_to_read_is_still_recorded_read_only() {
+    let t = Temp::new();
+    let (_, _, head) = claude_in(&t, "ask", "Read something.");
+    assert_eq!(head["sandbox"], "read-only");
+}
+
+#[test]
+fn a_runtime_whose_event_stream_native_cannot_read_is_refused_before_anything_is_started_or_recorded() {
+    let t = Temp::new();
+    let _hook = hooks::install(t.store(), argv_fake(&t, "gemini", &[], false));
+    let mut mine = job(&t, None, "Do work.");
+    mine.teammate.runtime = Some("gemini".into());
+    // Native names the teammate, not Electron's "Gemini CLI is installed and signed in, but Locust cannot read its
+    // event stream yet.": the window says the same words of a teammate it cannot run.
+    assert_eq!(send(mine).unwrap_err(), "Codec runs in Locust for now.");
+    assert!(sent_log(&t, "gemini-argv.jsonl").is_empty(), "nothing was started");
+    assert!(ledgers(&t).is_empty(), "nothing was recorded");
+}
+
+fn on(t: &Temp, runtime: &str, mode: &str, prompt: &str) -> Send {
+    let mut mine = job(t, None, prompt);
+    mine.teammate.runtime = Some(runtime.into());
+    mine.teammate.model = None;
+    mine.model = None;
+    mine.teammate.runs_in = mode.into();
+    mine
+}
+
+#[test]
+fn a_read_only_cursor_mission_runs_under_its_own_command_where_the_sandbox_is_real() {
+    let args = crate::runtime::cursor::print_args(Path::new("/workspace"), Mode::Ask, None, None, None).unwrap();
+    for (i, flag) in ["--print", "--trust", "--mode", "ask", "--sandbox", "enabled"].iter().enumerate() {
+        assert!(args.iter().any(|a| a == flag), "{i} {flag}: {args:?}");
+    }
+    assert!(args.windows(2).any(|w| w == ["--mode", "ask"]) && args.windows(2).any(|w| w == ["--sandbox", "enabled"]), "{args:?}");
+    assert!(!args.iter().any(|a| a == "--force"), "{args:?}");
+}
+
+#[test]
+fn a_cursor_mission_is_read_by_cursors_own_normalizer_and_recorded_read_only() {
+    let t = Temp::new();
+    // Two records as Cursor prints them, so the normalizer's signature on the events is the fact under test.
+    let printed = [
+        json!({"type": "system", "subtype": "init", "session_id": "cursor-session-1", "model": "Composer 2.5", "permissionMode": "default"}),
+        json!({"type": "assistant", "message": {"role": "assistant", "content": [{"type": "text", "text": "pebble"}]}}),
+        json!({"type": "result", "subtype": "success", "is_error": false, "result": "pebble"}),
+    ];
+    let _hook = hooks::install(t.store(), argv_fake(&t, "cursor", &printed, false));
+    let started = send(on(&t, "cursor", "ask", "Do work.")).unwrap();
+    finished(&started.conversation_id);
+    let path = path_of(&t, &started.conversation_id);
+    let head = header(&path);
+    assert_eq!((&head["runtime"], &head["sandbox"]), (&json!("cursor"), &json!("read-only")));
+    let events: Vec<Value> = records(&path).into_iter().filter(|r| r["recordType"] == "mission.event").map(|r| r["event"].clone()).collect();
+    let kinds: Vec<&str> = events.iter().map(|e| e["type"].as_str().unwrap()).collect();
+    assert_eq!(kinds, ["run.started", "message.delta", "run.completed"], "{events:?}");
+    assert!(events.iter().all(|e| e["sourceAdapter"] == "cursor"), "{events:?}");
+    assert_eq!(events[0]["runtimeThreadId"], "cursor-session-1");
+}
+
+#[test]
+fn a_copilot_teammate_is_sent_the_effort_it_was_given() {
+    let args = crate::runtime::copilot::prompt_args("Say hi.", Mode::Ask, None, Some("high"), None, None, &[], None);
+    let at = args.iter().position(|a| a == "--effort").expect("--effort is sent");
+    assert_eq!(args[at..at + 2], ["--effort", "high"]);
+}
+
+#[test]
+fn every_copilot_run_gets_locusts_command_guard_as_a_plugin_and_no_other_runtime_that_plugin() {
+    let t = Temp::new();
+    let plugin = t.0.join("native/guard/copilot-command-guard").to_string_lossy().into_owned();
+    {
+        let _hook = hooks::install(t.store(), argv_fake(&t, "copilot", &[], false));
+        let started = send(on(&t, "copilot", "ask", "Say hi.")).unwrap();
+        finished(&started.conversation_id);
+        let args = argv_of(&t, "copilot");
+        let at = args.iter().position(|a| a == "--plugin-dir").expect("the guard's plugin folder is given");
+        assert_eq!(args[at..at + 2], ["--plugin-dir".to_owned(), plugin.clone()]);
+    }
+    let _hook = hooks::install(t.store(), argv_fake(&t, "cursor", &[], false));
+    let started = send(on(&t, "cursor", "ask", "Say hi.")).unwrap();
+    finished(&started.conversation_id);
+    assert!(!argv_of(&t, "cursor").contains(&plugin), "{:?}", argv_of(&t, "cursor"));
+}
+
+#[test]
+fn a_cursor_mission_may_edit_when_asked_and_its_commands_are_never_forced() {
+    let args = crate::runtime::cursor::print_args(Path::new("/workspace"), Mode::AcceptEdits, None, None, None).unwrap();
+    assert!(!args.iter().any(|a| a == "--mode"), "{args:?}");
+    assert!(!args.iter().any(|a| a == "--force"), "{args:?}");
+}
+
+#[test]
+fn nothing_is_recorded_when_the_chosen_options_cannot_be_turned_into_a_command() {
+    let t = Temp::new();
+    let _hook = hooks::install(t.store(), argv_fake(&t, "cursor", &[], false));
+    // Cursor takes no effort level.
+    let mut mine = on(&t, "cursor", "ask", "Do work.");
+    mine.effort = Some("high".into());
+    assert_eq!(send(mine).unwrap_err(), "Cursor Agent takes no effort level");
+    assert!(sent_log(&t, "cursor-argv.jsonl").is_empty(), "nothing was started");
+    assert!(ledgers(&t).is_empty(), "nothing was recorded");
+}
+
+// ---- Approve-each is a mode of this service ----
+//
+// The recording fake app-server asks what `commands-reply.json`'s `ask` names, as `srv-1`, and writes the answer it
+// gets to `commands-replies.jsonl`.
+
+fn asks(t: &Temp, method: &str, params: Value) {
+    fs::write(t.0.join("work/commands-reply.json"), json!({"ask": {"method": method, "params": params}}).to_string()).unwrap();
+}
+
+fn approve_each(t: &Temp, prompt: &str) -> Started {
+    let mut mine = job(t, None, prompt);
+    mine.teammate.runs_in = "approve-each".into();
+    send(mine).unwrap()
+}
+
+fn card_for(mission: &str) -> ApprovalRequest {
+    let mut card = None;
+    wait("a card is raised", || {
+        card = waiting_approvals_for(mission).into_iter().next();
+        card.is_some()
+    });
+    card.unwrap()
+}
+
+#[test]
+fn approve_each_runs_write_capable_and_stops_to_ask_rather_than_falling_through_to_read_only() {
+    let t = Temp::new();
+    let _hook = hooks::install(t.store(), codex_commands_hook(&t));
+    let started = approve_each(&t, "Do something consequential.");
+    assert_eq!(started.mode, "approve-each");
+    finished(&started.conversation_id);
+    // The record says what it was allowed, and approvals only mean something when the run could otherwise act.
+    let head = header(&path_of(&t, &started.conversation_id));
+    assert_eq!((&head["sandbox"], &head["mode"]), (&json!("workspace-write"), &json!("approve-each")));
+    // The policy that makes the server ask at all.
+    let requests = codex_requests(&t);
+    assert!(requests.iter().any(|r| r["method"] == "turn/start"));
+    let thread = thread_request(&t);
+    assert_eq!((&thread["params"]["sandbox"], &thread["params"]["approvalPolicy"]), (&json!("workspace-write"), &json!("untrusted")));
+}
+
+#[test]
+fn a_card_is_raised_mid_run_and_the_persons_answer_goes_back_to_the_runtime() {
+    let t = Temp::new();
+    asks(&t, "item/commandExecution/requestApproval", json!({"command": "pnpm build", "cwd": "C:\\work"}));
+    let _hook = hooks::install(t.store(), codex_commands_hook(&t));
+    let started = approve_each(&t, "Build it.");
+    let card = card_for(&started.conversation_id);
+    assert_eq!((card.kind.as_str(), card.detail.as_str(), card.runtime.as_str()), ("command", "pnpm build", "codex"));
+    // The run it belongs to, so the card can be filed under the conversation.
+    assert_eq!(card.mission_id, started.conversation_id);
+    decide_approval(&card.approval_id, Decision::ApproveOnce, None).unwrap();
+    finished(&started.conversation_id);
+    let replies = sent_log(&t, "commands-replies.jsonl");
+    assert_eq!(replies.len(), 1, "{replies:?}");
+    assert_eq!(replies[0]["result"]["decision"], "accept", "{replies:?}");
+}
+
+#[test]
+fn a_stopped_run_leaves_no_card_waiting_on_it() {
+    let t = Temp::new();
+    asks(&t, "item/fileChange/requestApproval", json!({"changes": [1]}));
+    let _hook = hooks::install(t.store(), codex_commands_hook(&t));
+    let started = approve_each(&t, "Build it.");
+    let card = card_for(&started.conversation_id);
+    assert_eq!(waiting_approvals_for(&started.conversation_id).len(), 1);
+    stop(&started.conversation_id).unwrap();
+    finished(&started.conversation_id);
+    // What is asserted is that nothing is left waiting, not that a refusal reached the wire: stopping ends the server.
+    assert!(waiting_approvals_for(&started.conversation_id).is_empty());
+    assert!(decide_approval(&card.approval_id, Decision::ApproveOnce, None).is_err());
+}
+
+#[test]
+fn an_answer_to_a_card_nobody_raised_is_not_taken() {
+    let t = Temp::new();
+    let _hook = hooks::install(t.store(), codex_commands_hook(&t));
+    assert!(decide_approval("ap_1", Decision::ApproveOnce, None).is_err());
+}

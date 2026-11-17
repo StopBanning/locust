@@ -643,4 +643,56 @@ sandbox widened.
     that turn finishes.". It was not changed, because `rooms.rs` `classify_send_error` keys on native's string, and
     the window queues a reply itself before it gets there. The handoff of one run while another runs is not built.
   - **Stopping a Codex run over app-server** (1 case): covered in spirit by the stop test above; not credited.
-- Next groups with native code: "runtime selection" (17 cases) and "Approve-each is a mode of this service" (5).
+- Next groups with native code: "runtime selection" (16 cases) and "Approve-each is a mode of this service" (5): batch 17.
+
+## Batch 17: `codex-mission.test.ts`, runtime selection and Approve-each
+
+Begun before the 04:22 stop on 17 Nov, finished after it. 15 more of the file's cases (1 half): 61 of 137 so far. The
+branch was fast-forwarded to native-engine's head (6242dde6, which holds eb7284a7 and this lane's 31e878ed) before
+committing, with no change to these files.
+
+| Group | Carried | Rust tests |
+| --- | --- | --- |
+| runtime selection | 11 of 16, 1 half | `codex_mission_tests` |
+| Approve-each is a mode of this service | 4 of 5 | `codex_mission_tests` |
+
+Bug found and fixed:
+- **A Cursor turn given an effort left a record of a run that never existed.** `send_from` wrote the turn's ledger,
+  and only then did the Cursor driver refuse the effort ("Cursor Agent takes no effort level"). Electron refuses
+  options that cannot become a command before the mission is written. `send_from` now asks `cursor::refusal` first,
+  so nothing is started or recorded. A Cursor effort with no model no longer reads the model catalog either: with no
+  model there is no family to look in.
+
+How they are run:
+- Runtime selection: a fake that writes down its argv (`argv_fake`) stands in for Claude Code, Cursor and Copilot. Under
+  the test hook the runtime's own command is the fake's, so the Cursor and Copilot argv Electron checks is read from
+  their builders (`cursor::print_args`, `copilot::prompt_args`); what a turn adds after that (Claude Code's argv,
+  Copilot's `--plugin-dir`) reaches the fake.
+- Approve-each: the recording fake app-server (`scripts/fixtures/commands-app-server.py`) can now ask: `ask` in
+  `commands-reply.json` is sent as `srv-1`, the turn waits on it, and the answer is written to
+  `commands-replies.jsonl`. It also answers `turn/interrupt`.
+
+Halves and gaps:
+- A runtime native cannot read (Gemini) is refused before anything starts, in native's words for a teammate it cannot
+  run ("Codec runs in Locust for now."), not Electron's "Gemini CLI is installed and signed in, ..." line.
+- Not built: a message handed to a running Claude turn (A2.10; only ACP's runtime steers), Copilot's own MCP servers
+  switched off in Ask (0.824, no `--disable-mcp-server` in core), a Cursor Ask held back beside an Edit run that holds
+  connector rules (0.825), Windows' Cursor ask without `--sandbox`, and the unavailable runtime named (discovery is
+  not injectable under the hook).
+- Approve-each's first case (the pending text is on disk before the card) has no counterpart: native's ledger writer
+  has no text deadline to race.
+
+Break checks (all 25 behaviours caught by the named test):
+- Runtime selection (15): stream-json changed; `--sandbox` added to Claude; acceptEdits sent as default; the header's
+  sandbox forced read-only and forced workspace-write for Claude; Gemini let through; Cursor's ask sent as plan; the
+  session id dropped; `sourceAdapter` always codex; Copilot's `--effort` renamed; the guard plugin for every runtime
+  but Kilo; `--plugin-dir` renamed; `--mode` always sent; `--force` for every writing run; the new refusal skipped.
+  Their first run's logs were lost in the 04:22 stop; all 15 were run again here and each was caught.
+- Approve-each (10): the policy `never`; the thread's sandbox read-only; the header's sandbox read-only; every
+  approval declined; the card's runtime; the card filed under the run, not the conversation; approve-once sent as
+  decline; any answer taken; a stop's cancel not seen by the waiting card (the test fails after 128 s: the run hangs
+  until the test's waits give up).
+  - Three survivors, each redundant alone: a card is let go when its wait is cancelled, when the native loop sees the
+    terminal event, and when Codex's reader sees it. Broken together, they were caught.
+- Several breaks first hit their 130 s limit while other lanes held the build lock; each was run again alone and
+  caught. Logs: `~/work/scratch/maxlane/b17`, `~/work/scratch/maxlane/b18`.

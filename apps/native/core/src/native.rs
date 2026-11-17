@@ -2112,14 +2112,22 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
         model
     };
     // Cursor takes its effort inside the model id (model-catalog.ts cursorChoiceFor): a level the family lists becomes
-    // that variant's id; one it does not list stays, and the driver refuses it in words.
-    let model = if runtime_name == "cursor" && job.effort.is_some() {
+    // that variant's id; one it does not list stays, and is refused in words below.
+    // With no model there is no family to look in, so the catalog is not read.
+    let model = if runtime_name == "cursor" && job.effort.is_some() && model.is_some() {
         let (chosen, effort) = crate::models::cursor_choice_for(&crate::models::local(), model.as_deref(), job.effort.as_deref());
         job.effort = effort;
         chosen
     } else {
         model
     };
+    // codex-mission.ts: options that cannot be turned into a command are refused before the mission is written, so no
+    // record is left of a run that never existed. Cursor takes no effort level beyond its model's variants.
+    if runtime_name == "cursor"
+        && let Some(why) = crate::runtime::cursor::refusal(mode, job.effort.as_deref())
+    {
+        return Err(why.into());
+    }
     // A switch starts the new agent with the brief, not the bare reply, and records the brief as the turn's words.
     if let Some(switch) = &switched {
         job.prompt = switch.prompt.clone();
