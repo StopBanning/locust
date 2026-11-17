@@ -2136,3 +2136,150 @@ Renderer-18 named mapping (`thread_view::renderer_folder_chip_tests`):
   an expanded assignment. Preserve the unrelated scripts/gentle-cargo.py edit
   and the original untracked HANDOFF files. No other turn-owned change is left
   uncommitted. This is not a claim that the whole tracked tree is clean.
+
+### Renderer-19 — durable first-send confirmation (in progress)
+
+- Arrival clean at a68f9337, with only untracked HANDOFF files. Prior picker,
+  folder-row and hover sections are already committed; no stash operation.
+- Round-4 explicitly extends ownership to main.rs and composer_wiring.rs.
+  Added a common send guard plus a pre-consumption composer guard; the latter
+  preserves attachments, tags and history while the question waits. The card
+  binds to the selected teammate and exact open workspace folder. Answers use the
+  native store's atomic JSON save before re-entering submission. Descendants
+  require separate answers; existing conversations do not ask again.
+- The lexical caution is shared with the hover; no credential contents read.
+  The native state field and new folder_confirmation module are necessary
+  integration for the authorized send-boundary change.
+- Initial command used an incorrect relative write path, so the first debug
+  attempt failed compilation for the absent module. Second run passed the
+  pre-test baseline (3279 tests); it does not verify the six newly added tests.
+  Final changed-test run: renderer-19-final-debug.log, pending.
+- Changed-test debug attempt ran all 3285 cases but the six new cases were
+  refused by the test-isolation guard: fixtures must use LOCUST_TEST_ROOT,
+  not notes/. Corrected the fixture to the standard runner-owned disposable
+  root; this is a test-harness error, not a product assertion failure.
+- Added headless button checks for Start here saving before readiness is
+  rechecked, and Choose another folder granting nothing while preserving
+  the draft. No actual native chooser or successful agent turn is claimed.
+
+- Electron main's a-conversation-in-a-settings-folder-is-asked-about-once.test.ts
+  pins the guard to workspacePath. Native uses the open workspace too; choosing
+  another folder therefore uses the existing workspace chooser without silently
+  changing a teammate's saved Works in setting. The selected teammate is also
+  bound so an old card cannot grant a new selection's pending send.
+- renderer-19-eight-debug.log: exit 0, 3287 passed, 20 skipped. All eight
+  folder_confirmation::tests names observed on PASS lines. This predates only
+  the final workspace-only target adjustment; restored release verifies it.
+
+Named mapping for the third Electron case:
+- names the folder and why, with Choose another folder first and Start here ->
+  folder_confirmation::tests::names_the_folder_and_why_with_choose_another_folder_first_and_start_here
+
+Additional native cases (folder_confirmation::tests):
+- the_first_submit_keeps_the_entire_draft_and_direct_dispatch_also_waits
+- an_answer_is_durable_for_exactly_that_folder_and_not_its_children
+- changing_folder_or_teammate_invalidates_the_question_without_saving
+- a_failed_save_keeps_the_question_and_sends_nothing
+- an_existing_conversation_does_not_ask_again
+- the_start_button_saves_the_answer_before_submission_rechecks_readiness
+- choosing_another_folder_keeps_the_draft_and_does_not_confirm_the_old_one
+
+- The two sidebar sources are recoverable from this repository's history:
+  `git show 9718f2fb:apps/desktop/src/renderer/src/a-waiting-conversation-is-first-in-the-sidebar.test.tsx`
+  has both nested Needs you cases; `git show 5e108a31:apps/desktop/src/renderer/src/an-app-started-conversation-says-so-in-the-sidebar.test.tsx`
+  has four app-origin/filter cases, including the newer accessible plug mark.
+  Read both during this run. They are no longer blocked by missing evidence;
+  their behavior still needs native integration and named tests. No desktop
+  file was restored or changed, and neither row is claimed carried.
+
+- folder-answer-target control: exit 0, caught the named stale-folder/teammate
+  assertion and restored folder_confirmation.rs byte for byte. Full log:
+  renderer-control-folder-answer-target.log; receipt renderer-19-target-receipt.log.
+- The first folder-answer-save attempt did not compile (ambiguous Ok error
+  type); runner rejected it and restored source. This is not a caught control.
+  Corrected only the mutation's Ok::<(), String> type; rerun pending.
+- Re-read the remaining pet and drawn-eye sources. Their production rendering
+  paths are src/look/faces.rs, pet_faces.rs and the face/pet core modules,
+  which the handoff explicitly reserves. This run has not edited them.
+  No row is carried on the strength of helper names or an inspection alone.
+
+- Current-inventory correction: the pets-7 lane has already carried all eight
+  a-teammate-can-be-a-pet cases in pet_picks_tests.rs/pet_faces_tests.rs. The
+  earlier notes' pet waiting claim is stale. Leave that fuller row intact.
+  The drawn-glyph-eye row still waits and targets protected rendering code.
+- Corrected folder-answer-save control: exit 0, caught exactly the durable
+  reopening and Start-button persistence assertions; 2613 core passed,
+  672 window passed with two deliberate failures, 20 ignored. Source restored
+  byte for byte. Target control: 2613 core passed, 673 window passed and one
+  deliberate stale-answer failure, 20 ignored. No unrelated failure in either.
+- Restored release suite in renderer-19-release.log is running against the
+  final workspace-only boundary and all eight new tests. No break remains.
+
+### Renderer-19 restored release verification
+
+- renderer-19-release.log: exit 0, 2613 core + 674 window = 3287 passed;
+  20 real-agent tests ignored, doc tests 0. Mechanically matched all eight
+  folder_confirmation::tests full names above, the three existing
+  thread_view::renderer_folder_chip_tests names, and core's
+  thread_view::folder_help_tests::cautions_are_lexical_bounded_and_follow_the_paths_platform
+  to exact `test ... ok` lines. No named failure. This is the final code.
+- Both controls caught named assertions and restored byte for byte; a final
+  audit found each original anchor exactly once and neither break present.
+  Fixture AST parsing, git diff --check, recount and recount --check passed.
+- The folder-caution renderer row is now carried, with all three Electron
+  cases observed passing by name. Native uses the shared lexical classifier,
+  a typed in-app question and Store::save_json's atomic persistence; it does
+  not recreate React/IPC plumbing. No hidden reasoning or credentials kept.
+- Release binary build: renderer-19-build.log, pending. No source changed
+  after the restored release suite. Commit only once the build finishes.
+- Not verified: actual native folder picker result/cancellation, live tooltip
+  or visual/pixel colour comparison, successful real agent dispatch, live or
+  packaged window, Electron/JavaScript gate, other OS, performance benchmark.
+  Headless Choose another folder verifies the request and no permission grant;
+  headless Start here verifies persistence and readiness recheck with sending
+  disabled. This is not a real model turn or a real operating-system dialog.
+
+### Renderer-19 continuation boundary
+
+- Full handoff remains unfinished. Nine of the original waiting sources
+  remain: call row, inline new page, phone conversations, drawn glyph eyes,
+  waiting-conversation sidebar, app-origin sidebar, two-row Home sizing,
+  review conversation brief, and savable conversations. The teammate folder
+  row (connectors) and queued-message row (busy-elsewhere integration) remain
+  partial. Other lanes' fuller existing rows are preserved.
+- Source absence is resolved for the two sidebar files using the historical
+  commits above. No behavior or named pass is inferred from their recovery.
+- The remaining drawn-eye cases need the face rendering helpers under
+  core/src/face_* and src/look/*, which round 4 expressly forbids this lane
+  from editing. Two-row Home is still a real layout gap, and inline pages
+  still need per-turn web-view embedding. None is classified as plumbing.
+- Ownership decision for the person: keep protected rendering work with its
+  current lane and continue only owned gaps, or transfer that work here.
+  This turn leaves protected files untouched while that boundary is decided.
+
+### Renderer-19 final build and stopping receipt
+
+- Release binary build: exit 0, renderer-19-build.log; optimized profile
+  finished in 1m 01s with 11 existing binary warnings. All required commands
+  finished before committing. No source changed after the green release run.
+- Source commits, applied together for this section: eb41063b (classifier and
+  durable question model), 1bb7fbf0 (state/common send boundary), 7ce3e8e7
+  (composer pre-consumption boundary and question surface). Controls: d5ef0f67.
+  Inventory and this final evidence receipt are committed separately.
+- Final recount/--check: 242 carried, 65 does-not-apply, 213 partial,
+  789 waiting (1309 total); one newly carried row this turn, no exclusions.
+- Remaining original waiting files:
+  a-call-shows-on-its-conversation-row.test.tsx;
+  a-page-a-teammate-made-runs-in-its-turn.test.tsx;
+  a-phone-lists-conversations.test.ts;
+  a-teammates-eyes-are-drawn-not-typed.test.ts;
+  a-waiting-conversation-is-first-in-the-sidebar.test.tsx;
+  an-app-started-conversation-says-so-in-the-sidebar.test.tsx;
+  home-fits-two-rows-of-teammates.test.ts;
+  review-sees-the-conversation.test.ts; savable-conversations.test.ts.
+  Partial: teammate-folder-row.test.tsx and
+  a-queued-message-stays-in-its-conversation.test.ts.
+- No break remains, no background command is pending. No stash, push, merge,
+  version, changelog, protected renderer/runtime file or HANDOFF change.
+  Final tracked tree is committed; the original untracked HANDOFF files stay.
+  This is a completed confirmation section, not a completed renderer handoff.

@@ -10,6 +10,18 @@ import subprocess
 import sys
 
 CONTROLS = {
+    "folder-answer-target": (
+        "src/ui/folder_confirmation.rs",
+        '(question.teammate == mate && question.folder == folder).then_some(question)',
+        '{ let _ = (mate, folder); Some(question) }',
+        "changing_folder_or_teammate_invalidates_the_question_without_saving",
+    ),
+    "folder-answer-save": (
+        "src/ui/folder_confirmation.rs",
+        'store.save_json(\n            FILE,\n            &serde_json::json!({"schemaVersion":1,"confirmed":kept}),\n        )',
+        '{ let _ = kept; Ok::<(), String>(()) }',
+        "an_answer_is_durable_for_exactly_that_folder_and_not_its_children",
+    ),
     "folder-chip-help": (
         "src/ui/thread_view.rs",
         '.help(locust_core::thread_view::folder_help(\n        folder, home, windows, system,\n    ))',

@@ -368,6 +368,10 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
 
         let mut composer_stack = col().w_full().gap(8.0).px(24.0).pb(24.0);
 
+        if let Some(question) = crate::folder_confirmation::view(s, p) {
+            composer_stack = composer_stack.child(question);
+        }
+
         // Slash / @ popups
         let slash = slash_choices_now(s);
         let at = at_choices_now(s);
