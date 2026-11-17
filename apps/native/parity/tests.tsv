@@ -587,7 +587,7 @@ apps/desktop/src/main/window-bounds.test.ts		waiting
 apps/desktop/src/main/window-size.test.ts		waiting		
 apps/desktop/src/main/windows-can-start-it.test.ts		waiting		
 apps/desktop/src/main/workroom-briefing.test.ts	WORKROOM	carried	core/src/briefing_tests.rs	all 9 cases, plus the inbound section (claims, age, what the host saw, defanged blocks), shedding from the newest end, todo and narrate by runtime, and a teammate named like an agent
-apps/desktop/src/main/workspace-brief.test.ts		waiting		
+apps/desktop/src/main/workspace-brief.test.ts	MAIN6	partial	core/src/workspace_brief_tests.rs	2 of 6, and four halves, through teammate_setup (the Setup card's count): each runtime its own section, tags left alone (no runtime, fenced, unclosed) carried whole; read from the root with one line ending, none or empty is no brief, bounded by lines and by bytes, bounded after other runtimes' sections, as lines and truncated only. Not built: briefSection and the brief's text. Native gives LOCUST.md to no run (it counts it for Setup only), and a read with no folder is not an Option
 apps/desktop/src/main/workspace-files.test.ts		waiting		
 apps/desktop/src/main/workspace.test.ts		waiting		
 apps/desktop/src/main/worktrees.test.ts		waiting		

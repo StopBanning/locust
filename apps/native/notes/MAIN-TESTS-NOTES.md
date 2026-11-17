@@ -496,3 +496,26 @@ first two; the pick's model dropped (both lines at once).
 - Two survivors, each equivalent alone: `carry` sets the pick's model on the teammate and on the job, and either
   one carries it into the turn. Broken together, they were caught.
 
+## Batch 13: `workspace-brief.test.ts`
+
+| File | Row | Rust tests |
+| --- | --- | --- |
+| `workspace-brief.test.ts` | partial (2 of 6, four halves) | `core/src/workspace_brief_tests.rs` |
+
+**A gap, not fixed here: native gives a folder's `LOCUST.md` to no run.** Electron puts it in every run's brief
+(`briefSection`: 'Instructions for the folder "shop", from its LOCUST.md. Every teammate on every runtime is given
+these...', and "(LOCUST.md is longer than 200 lines; the rest was not loaded.)" when it was cut). Native reads the
+file only for the Setup card's count (`teammate_setup::read_workspace_brief`, which gives lines and whether it was
+cut, and no text). Building it means adding a section to native's run brief, and that is a feature of its own,
+beyond a test batch. The two cases about the section's words wait for it.
+
+Carried whole: `brief_for_runtime`, each runtime its own section, and tags left alone (no runtime, fenced,
+unclosed). Carried as lines and `truncated`: read from the root with one line ending; none or empty is no brief;
+bounded by lines (200) and by bytes (24 lines of 1,000 bytes fit in 24 KiB, 25 do not); bounded after the other
+runtimes' sections are gone. Electron's no-folder and empty-folder reads have no counterpart, because
+`read_workspace_brief` takes a `&Path`.
+
+Break checks (all 10 caught by the named test): the trailing empty line kept; whitespace read as a brief; the line
+cap; the byte check; the byte cut; another runtime's section given; a fenced tag read; an unclosed tag's line
+dropped; `details` read as a runtime; the runtime filter skipped.
+
