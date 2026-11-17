@@ -169,7 +169,14 @@ for line in sys.stdin:
                 reply = 'Here is the rollup.\n\n<locust-file>\ndocs/report.md :: the rollup you asked for\n\\\\server\\share\\bad.md\n</locust-file>'
             elif scenario == 'cards-streaming':
                 notify('item/agentMessage/delta', itemId='answer', delta='Thinking...\n<locust-ask>\nWhich?\n- A :: one\n<locu')
-                time.sleep(0.35)
+                # Held mid-reply until the test has looked (a 0.35 s pause was missed under load, 16 Nov), 30 s at most.
+                if os.path.exists('stream-hold.gate'):
+                    waited = 0.0
+                    while not os.path.exists('stream-release.gate') and waited < 30:
+                        time.sleep(0.02)
+                        waited += 0.02
+                else:
+                    time.sleep(0.35)
                 reply = 'Thinking...\n<locust-ask>\nWhich?\n- A :: one\n- B :: two\n</locust-ask>'
             elif scenario == 'cards-edit-check':
                 if is_resumed_turn:

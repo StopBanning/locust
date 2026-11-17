@@ -1078,8 +1078,10 @@ fn a_reply_hands_over_files_and_half_written_tags_never_show_while_streaming() {
     drop(_g);
 
     // Streaming: a half-written tag never flashes on screen and the decision card waits until finished.
-    let (_dirs2, store2, mut rt2) = window();
+    let (dirs2, store2, mut rt2) = window();
     let _g2 = native::hooks::install(store2, fake("m1-app-server.py", "cards-streaming"));
+    // The fake holds mid-reply until this test has seen it, so a loaded machine cannot finish the stream unseen.
+    std::fs::write(dirs2.0.join("work").join("stream-hold.gate"), "hold").unwrap();
     type_and_send(&mut rt2, "Stream ask");
     pump(&mut rt2, "streaming delta", |s| {
         s.ledger.as_ref().is_some_and(|p| {
@@ -1092,6 +1094,7 @@ fn a_reply_hands_over_files_and_half_written_tags_never_show_while_streaming() {
     assert!(!mid_texts.contains("<locust"), "half-written tag flashed: {mid_texts}");
     assert!(!mid_texts.contains("<locu"), "torn tag flashed: {mid_texts}");
     assert!(rt2.find("decision-card").is_none(), "decision card must wait until run finishes");
+    std::fs::write(dirs2.0.join("work").join("stream-release.gate"), "go").unwrap();
 
     pump(&mut rt2, "streaming finished", |s| {
         s.flight.is_none()
