@@ -523,6 +523,11 @@ pub(super) fn activity_group(items: &[ledger::Item], p: &Palette, s: &State, sco
     if let Some(outcome) = &outcome {
         group = group.child(text(&outcome.text).font(type_::LABEL).color(if outcome.amber { p.amber } else { p.muted }).w_full());
     }
+    // The pictures the step read or made, under its line whether or not it is open (ThreadImage, laid out as Claude's
+    // app shows a turn's screenshots).
+    if let Some(strip) = crate::step_pictures::step_picture_strip(s, items, scope, p) {
+        group = group.child(strip);
+    }
     if listed.is_empty() {
         return group;
     }

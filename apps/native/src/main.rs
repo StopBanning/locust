@@ -126,6 +126,8 @@ mod handed_files;
 mod next_steps;
 #[path = "ui/activity_drawers.rs"]
 mod activity_drawers;
+#[path = "ui/step_pictures.rs"]
+mod step_pictures;
 use activity_drawers::*;
 #[path = "ui/messages.rs"]
 mod messages;
@@ -245,6 +247,7 @@ mod room_screen;
 mod diagram;
 mod math_tex;
 mod file_menu;
+mod workspace_image;
 mod composer;
 mod conversation_board;
 mod team_board;
@@ -3120,6 +3123,7 @@ fn main() {
             ("changes", changes_panel::scene),
             ("changes-light", changes_panel::light_scene),
             ("thread-rich", thread_rich_scene),
+            ("thread-pictures", thread_pictures_scene),
             ("thread-rich-open", thread_rich_open_scene),
             ("thread-rich-open-light", thread_rich_open_light_scene),
             ("thread-rich-light", thread_rich_light_scene),

@@ -652,6 +652,38 @@ pub(super) fn thread_rich_scene(s: &mut State) {
         pane.snapshot.items = pane.items.clone();
     }
 }
+/// A turn shaped like Claude's own app: words, a step that took two screenshots, words, a step with a failed command
+/// and one more screenshot, words. Its pictures are whatever PNGs sit in `<temp>/locust-scene-pictures` as `a.png`,
+/// `b.png` and `c.png`; without them the steps draw as they always did.
+pub(super) fn thread_pictures_scene(s: &mut State) {
+    ledger_scene(s, false, false);
+    let folder = std::env::temp_dir().join("locust-scene-pictures");
+    let tool = |id: &str, name: &str, summary: &str, failed: bool| ledger::Item::Tool {
+        name: name.into(),
+        status: if failed { ledger::Status::Failed } else { ledger::Status::Done },
+        summary: summary.into(),
+        detail: Box::new(ledger::ToolDetail { id: id.into(), finished: true, exit_code: Some(if failed { 1 } else { 0 }), arguments: if name == "Bash" { summary.into() } else { String::new() }, ..Default::default() }),
+    };
+    let say = |id: &str, words: &str| ledger::Item::Assistant { item_id: id.into(), text: words.into(), r#final: true };
+    let items = vec![
+        ledger::Item::User("Set the cover to the colour photo frame.".into()),
+        say("a1", "Both the label and the trial are off. Setting the cover to the colour photo frame."),
+        tool("t1", "Bash", "open -a Preview cover.png", false),
+        tool("t2", "Read", "a.png", false),
+        tool("t3", "Read", "b.png", false),
+        tool("t4", "Grep", "frame", false),
+        say("a2", "That's the colour photo frame. Confirming the cover."),
+        tool("t5", "Bash", "osascript confirm-cover.scpt", true),
+        tool("t6", "Read", "c.png", false),
+        tool("t7", "Bash", "osascript confirm-cover.scpt --retry", false),
+        say("a3", "The cover is set and the caption is in. It is ready to share."),
+    ];
+    if let Some(pane) = s.ledger.as_mut() {
+        pane.header.folder = Some(folder.to_string_lossy().into_owned());
+        pane.items = items.clone();
+        pane.snapshot.items = items;
+    }
+}
 pub(super) fn thread_rich_open_scene(s: &mut State) {
     thread_rich_scene(s);
     for key in [

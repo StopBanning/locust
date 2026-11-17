@@ -295,6 +295,11 @@ pub(super) fn reply(s: &State, body: &str, live: bool, p: &Palette) -> El {
     out
 }
 
+#[cfg(test)]
+pub(super) fn reply_markdown_for_tests(s: &State, body: &str, p: &Palette) -> El {
+    reply_markdown(s, body, false, p)
+}
+
 fn reply_markdown(s: &State, body: &str, live: bool, p: &Palette) -> El {
     let frame_palette = Palette::new(p.dark);
     let feedback = s.copy_feedback.clone();
@@ -303,6 +308,9 @@ fn reply_markdown(s: &State, body: &str, live: bool, p: &Palette) -> El {
     let (prepared, math_pngs) = crate::math_tex::prepare_math_markdown(&prepared, p.dark);
     let diagram_tabs = s.diagram_code_tab.clone();
     let image_cache = s.image_cache.clone();
+    let pictures = crate::step_pictures::reply_pictures(s, &prepared);
+    let picture_palette = Palette::new(p.dark);
+    let framed: std::collections::HashSet<String> = pictures.keys().cloned().collect();
     let mut out = col().w_full().gap(8.0).child(
         Markdown::new(prepared)
             .streaming(live)
@@ -315,7 +323,17 @@ fn reply_markdown(s: &State, body: &str, live: bool, p: &Palette) -> El {
                     crate::published_cards::open_web_link(s, url);
                 }
             })
+            .image_frame(move |shown, frame| {
+                // A picture from the conversation's folder is a rounded card with its caption; math stays inline.
+                if !framed.contains(frame.src) {
+                    return shown;
+                }
+                crate::step_pictures::reply_picture_card(frame.image, frame.src, frame.alt, &picture_palette).unwrap_or(shown)
+            })
             .images(move |src| {
+                if let Some(picture) = pictures.get(src) {
+                    return Some(picture.clone());
+                }
                 let bytes = math_pngs.get(src)?;
                 let cache = image_cache.as_ref()?;
                 let image = cache.load(bytes.clone());

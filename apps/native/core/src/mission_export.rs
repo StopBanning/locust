@@ -85,7 +85,7 @@ pub(crate) fn is_edit_command(command: &str) -> bool {
     false
 }
 
-pub(crate) fn edit_tool_name(name: &str) -> bool {
+pub fn edit_tool_name(name: &str) -> bool {
     static NOT_EDIT: OnceLock<Regex> = OnceLock::new();
     static CAMEL_SPLIT: OnceLock<Regex> = OnceLock::new();
     static NON_ALPHA: OnceLock<Regex> = OnceLock::new();

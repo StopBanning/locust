@@ -367,6 +367,9 @@ pub(super) struct State {
     pub(super) diagram_code_tab: HashMap<u64, bool>,
     /// Decodes math/PDF/attachment PNGs for Markdown images (set in setup).
     pub(super) image_cache: Option<std::sync::Arc<rune::ImageCache>>,
+    /// Pictures a step or reply draws, by (conversation folder, path as written): the handle keeps the decode alive
+    /// between frames, and None remembers a refusal so the disk is asked once (`step_pictures.rs`).
+    pub(super) thread_pictures: std::cell::RefCell<HashMap<(std::path::PathBuf, String), Option<rune::Image>>>,
     /// Suggested tasks the person put away (`NextSteps.tsx` `gone`).
     pub(super) next_steps_gone: std::collections::HashSet<String>,
     /// Last handed-file reveal refusal, keyed by message scope.
@@ -609,6 +612,7 @@ impl Default for State {
             copy_feedback: None,
             diagram_code_tab: HashMap::new(),
             image_cache: None,
+            thread_pictures: std::cell::RefCell::new(HashMap::new()),
             next_steps_gone: std::collections::HashSet::new(),
             handed_file_refusal: None,
             running_checks: HashMap::new(),

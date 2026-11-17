@@ -24,6 +24,7 @@ pub mod teammate_keys;
 pub mod text_files;
 pub mod undone_note;
 pub mod tool_fold;
+pub mod step_pictures;
 pub mod mcp_names;
 pub mod usage_words;
 pub mod agent_card;
