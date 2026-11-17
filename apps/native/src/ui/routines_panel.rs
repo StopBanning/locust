@@ -137,6 +137,26 @@ pub(super) fn open(s: &mut State) {
     s.routines.open = true;
     let _ = engine(s);
     reload(s);
+    // The note under the list says whether Locust starts at login, so read it as Settings does.
+    #[cfg(not(test))]
+    crate::settings_panel::read_login_item(s);
+}
+
+/// "Routines run while Locust is open. Start Locust when you log in: On/Off" (AutomationsScreen.tsx), the word a
+/// button to the Startup switch in Settings, General.
+pub(super) fn login_note(s: &State, p: &Palette) -> El {
+    let log_in = if cfg!(target_os = "macos") { "log in" } else { "sign in" };
+    let on = s.settings_panel.login_item.open_at_login;
+    row()
+        .key("routines-login-note")
+        .gap(4.0)
+        .center_y()
+        .flex_wrap()
+        .child(text(format!("Routines run while Locust is open. Start Locust when you {log_in}:")).font(type_::LABEL).color(p.muted))
+        .child(button(if on { "On" } else { "Off" }, p).key("routines-login-switch").on_press(|s: &mut State| {
+            crate::settings_panel::open(s);
+            s.settings_panel.page = Some(crate::settings_pages::SettingsPageId::App);
+        }))
 }
 fn edit(s: &mut State, r: Value) {
     s.routines.choose_runner = r["teammateId"].as_str().is_none_or(str::is_empty);
@@ -516,6 +536,7 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
             let pause = id.clone();
             let run = id.clone();
             let paused = r["paused"] == true;
+            let missed_now = r["missedAt"].is_string() && r.get("execution").filter(|e| !e.is_null()).is_none_or(|e| e["status"] == "abandoned");
             card = card.child(
                 row()
                     .gap(10.0)
@@ -545,7 +566,8 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                             .and_then(|store| crate::routines::remove(store, &remove));
                         result(s, r);
                     }))
-                    .child(button("Run", p).key(format!("routine-run-{id}")).on_press(move |s: &mut State| start_run(s, &run))),
+                    // A missed routine offers "Run now" (AutomationsScreen.tsx), unless a run of it is still under way.
+                    .child(button(if missed_now { "Run now" } else { "Run" }, p).key(format!("routine-run-{id}")).on_press(move |s: &mut State| start_run(s, &run))),
             );
             if let Some((said, warn)) = panel.notices.get(&id) {
                 card = card.child(text(said.clone()).font(type_::LABEL).color(if *warn { p.amber } else { p.secondary }).wrap());
@@ -557,6 +579,7 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
             card = changes_card(s, r, card, p);
             body = body.child(card.key(format!("routine-{id}")));
         }
+        body = body.child(login_note(s, p));
     }
     body.scroll(ScrollSpec { stick_bottom: false }).h_full()
 }
@@ -1789,5 +1812,29 @@ mod routine_row_lines_tests {
         let text_of = |key: &str| rt.elements().into_iter().find(|e| e.key.as_deref() == Some(key)).and_then(|e| e.text);
         assert_eq!(text_of("routine-chain-rt_1").as_deref(), Some("Wren (Grok 4.7 High)"));
         assert_eq!(text_of("routine-when-rt_1").as_deref(), Some("every hour · paused · 1 run"));
+    }
+
+    /// a-missed-routine-says-missed-and-run-now.test.tsx: the row says Missed, 08:00 today, offers Run now, and the
+    /// screen says routines run while Locust is open, with the login switch (Off here).
+    #[test]
+    fn a_missed_routine_says_missed_and_the_row_offers_run_now() {
+        let now = chrono::Local::now();
+        let missed = (now - chrono::Duration::minutes(1)).to_rfc3339();
+        let clock = (now - chrono::Duration::minutes(1)).format("%H:%M").to_string();
+        let mut s = State::default();
+        s.routines.file = json!({"routines":[{"routineId":"rt_1","name":"Morning digest","teammateId":"tm_wren","steps":["Say good morning."],"runs":0,
+            "createdAt":"2026-10-02T08:00:00.000Z","lastRunAt":missed,"missedAt":missed,"schedule":{"kind":"daily","at":"08:00"}}]});
+        let mut rt = rune::Runtime::new(s, |s, _| view(s, &Palette::new(true)), (1200.0, 1800.0), rune::Env::new(true, 1.0));
+        rt.frame(0.0);
+        let els = rt.elements();
+        let text_of = |key: &str| els.iter().find(|e| e.key.as_deref() == Some(key)).and_then(|e| e.text.clone());
+        let words: Vec<String> = els.iter().filter_map(|e| e.text.clone()).collect();
+        if (now - chrono::Duration::minutes(1)).date_naive() == now.date_naive() {
+            assert_eq!(text_of("routine-when-rt_1"), Some(format!("Missed, {clock} today · 0 runs")));
+        }
+        assert!(words.iter().any(|w| w == "Run now"), "{words:?}");
+        let log_in = if cfg!(target_os = "macos") { "log in" } else { "sign in" };
+        assert!(words.iter().any(|w| w == &format!("Routines run while Locust is open. Start Locust when you {log_in}:")), "{words:?}");
+        assert!(words.iter().any(|w| w == "Off"), "{words:?}");
     }
 }

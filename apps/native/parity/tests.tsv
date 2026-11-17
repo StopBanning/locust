@@ -728,7 +728,7 @@ apps/desktop/src/renderer/src/a-mac-says-menu-bar-and-log-in.test.tsx		waiting
 apps/desktop/src/renderer/src/a-memory-nobody-is-given-says-so-on-screen.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-memory-says-when-it-may-be-out-of-date.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-memory-shows-what-it-said-before.test.tsx		waiting		
-apps/desktop/src/renderer/src/a-missed-routine-says-missed-and-run-now.test.tsx	routines-1	partial	core/src/routine_lines_tests.rs	The line: a_missed_routine_says_missed_0800_today (missed_line and summary, ported 16 Nov; breaks caught). Not carried: the screen's "Routines run while Locust is open. Start Locust when you sign in:" with its Off switch, which the routines screen does not show yet.
+apps/desktop/src/renderer/src/a-missed-routine-says-missed-and-run-now.test.tsx	routines-1	carried	core/src/routine_lines_tests.rs; routines_panel::routine_row_lines_tests	Whole: the line (a_missed_routine_says_missed_0800_today) and the screen (a_missed_routine_says_missed_and_the_row_offers_run_now: the row says Missed, offers Run now, and the note under the list says routines run while Locust is open with the login switch, Off). 16 Nov; breaks caught.
 apps/desktop/src/renderer/src/a-model-has-one-name.test.ts		waiting		
 apps/desktop/src/renderer/src/a-model-is-one-line.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-model-opencode-cannot-find-is-retired.test.tsx		waiting		

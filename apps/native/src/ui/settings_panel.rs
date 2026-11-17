@@ -58,6 +58,22 @@ fn active_button(label: impl Into<String>, p: &Palette, on: bool) -> El {
         .radius(6.0)
 }
 
+/// Reads whether Locust starts when the person logs in (the Startup switch), for Settings and the routines screen.
+pub(super) fn read_login_item(s: &mut State) {
+    let platform = match std::env::consts::OS {
+        "macos" => "darwin",
+        "windows" => "win32",
+        other => other,
+    };
+    let item = locust_core::login_item::LoginItem::new(
+        crate::os_hosts::login_item(),
+        crate::os_hosts::packaged(),
+        std::env::current_exe().map(|p| p.display().to_string()).unwrap_or_default(),
+        platform,
+    );
+    s.settings_panel.login_item = item.read();
+}
+
 pub(super) fn open(s: &mut State) {
     crate::room_screen::close(s);
     s.settings_panel.open = true;
@@ -118,20 +134,7 @@ fn reload(s: &mut State) {
             s.settings_panel.stay_awake = locust_core::keep_awake::read_stay_awake(
                 &store.root().join(locust_core::keep_awake::AWAKE_FILE),
             );
-            let platform = match std::env::consts::OS {
-                "macos" => "darwin",
-                "windows" => "win32",
-                other => other,
-            };
-            let item = locust_core::login_item::LoginItem::new(
-                crate::os_hosts::login_item(),
-                crate::os_hosts::packaged(),
-                std::env::current_exe()
-                    .map(|p| p.display().to_string())
-                    .unwrap_or_default(),
-                platform,
-            );
-            s.settings_panel.login_item = item.read();
+            read_login_item(s);
         }
     }
     crate::agents_section::request(s);
