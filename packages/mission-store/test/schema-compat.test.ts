@@ -131,10 +131,10 @@ describe('ledger schema versions', () => {
     // earlier card of the run (0.616); v22 a tool call made by a helper the
     // teammate sent out (parentItemId, helper visibility); v23 a turn another
     // app asked for (mcp); v24 a turn carried on after a plan ran out (0.774); v25 an agent the person added (0.777);
-    // v26 a failing check sent back to fix (0.812).
-    expect(MISSION_LEDGER_SCHEMA_VERSION).toBe(27)
-    expect(header.schemaVersion).toBe(27)
-    expect(SUPPORTED_MISSION_LEDGER_SCHEMA_VERSIONS).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27])
+    // v26 a failing check sent back to fix (0.812); v27 a mission on Kilo; v28 one on Apple Intelligence (0.878).
+    expect(MISSION_LEDGER_SCHEMA_VERSION).toBe(28)
+    expect(header.schemaVersion).toBe(28)
+    expect(SUPPORTED_MISSION_LEDGER_SCHEMA_VERSIONS).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28])
     /*
      * THE PAIR THAT DRIFTED, checked as a pair.
      *
@@ -666,6 +666,26 @@ describe('ledger schema versions', () => {
     expect(await createFileMissionLedger({ rootDirectory: older }).getMission('mission_1')).toBeUndefined()
   })
 
+  it('keeps a mission on Apple Intelligence, and refuses one in a file written before version 28', async () => {
+    const root = await temporaryRoot()
+    await createFileMissionLedger({ rootDirectory: root }).createMission(
+      v1Metadata({ runtime: 'apple', model: 'apple-on-device', sandbox: 'read-only', mode: 'ask' }) as unknown as MissionLedgerMetadata
+    )
+    const kept = await createFileMissionLedger({ rootDirectory: root }).getMission('mission_1')
+    expect(kept?.metadata.runtime).toBe('apple')
+    expect(kept?.schemaVersion).toBe(28)
+
+    const older = await temporaryRoot()
+    const metadata = v1Metadata({ runtime: 'apple', model: 'apple-on-device', sandbox: 'read-only', mode: 'ask' })
+    await writeFile(
+      join(older, 'mission_1.jsonl'),
+      `${JSON.stringify({ schemaVersion: 27, recordType: 'mission.created', ledgerSequence: 1, occurredAt: metadata.createdAt, metadata })}
+`,
+      'utf8'
+    )
+    expect(await createFileMissionLedger({ rootDirectory: older }).getMission('mission_1')).toBeUndefined()
+  })
+
   it('keeps a turn Locust sent back to fix a failing check, and refuses one in a file written before version 26', async () => {
     // 0.812: nobody typed it -- the person's check failed after the turn before, and the folder said to send it back.
     const starter = { kind: 'check-fix', fix: 1, of: 2, command: 'npm test' }
@@ -675,7 +695,7 @@ describe('ledger schema versions', () => {
     )
     const kept = await createFileMissionLedger({ rootDirectory: root }).getMission('mission_1')
     expect(kept?.metadata.startedBy).toEqual(starter)
-    expect(kept?.schemaVersion).toBe(27)
+    expect(kept?.schemaVersion).toBe(MISSION_LEDGER_SCHEMA_VERSION)
 
     const older = await temporaryRoot()
     const metadata = v1Metadata({ sandbox: 'workspace-write', startedBy: starter })
@@ -901,8 +921,8 @@ describe('ledger schema versions', () => {
     await writeFile(
       join(root, 'mission_1.jsonl'),
       `${JSON.stringify({
-        // One past the newest this reader knows. Bump when the schema does.
-        schemaVersion: 28,
+        // One past the newest this reader knows; it follows the schema on its own.
+        schemaVersion: MISSION_LEDGER_SCHEMA_VERSION + 1,
         recordType: 'mission.created',
         ledgerSequence: 1,
         occurredAt: metadata.createdAt,

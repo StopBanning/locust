@@ -27,7 +27,7 @@ import type { CheckpointReason, ReconciledCheckpoint } from './checkpoint.js'
  */
 export type MissionRecordedMode = "ask" | "plan" | "accept-edits" | "approve-each" | "auto";
 
-export const MISSION_LEDGER_SCHEMA_VERSION = 27 as const
+export const MISSION_LEDGER_SCHEMA_VERSION = 28 as const
 
 /**
  * Versions this reader accepts, each a strict subset of the next, so all are
@@ -171,7 +171,8 @@ export const MISSION_LEDGER_SCHEMA_VERSION = 27 as const
 // v26 records a turn Locust started because the person's check failed after the turn before it and the person had
 // said to send such a failure back (0.812, `check-fix`): nobody typed it either, so the number moves the same way.
 // v27 records a mission on Kilo. A v26 reader has no such runtime.
-export const SUPPORTED_MISSION_LEDGER_SCHEMA_VERSIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27] as const
+// v28 records a mission on Apple Intelligence, the Mac's own model (0.878). A v27 reader has no such runtime.
+export const SUPPORTED_MISSION_LEDGER_SCHEMA_VERSIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28] as const
 
 export type MissionLedgerSchemaVersion =
   (typeof SUPPORTED_MISSION_LEDGER_SCHEMA_VERSIONS)[number]
@@ -843,7 +844,9 @@ const MISSION_RUNTIMES = {
   // Kilo Code's CLI (LEDGER v27).
   kilo: true,
   // An agent the person added, by its command line (0.777, LEDGER v25).
-  acp: true
+  acp: true,
+  // Apple Intelligence, the Mac's own model (0.878, LEDGER v28).
+  apple: true
 } as const satisfies Record<MissionRuntimeId, true>
 
 function isMissionRuntime(value: unknown): value is MissionRuntimeId {
@@ -1205,6 +1208,10 @@ function parsedMetadata(
   }
   // And no writer before v27 knew Kilo.
   if (schemaVersion < 27 && candidate.runtime === 'kilo') {
+    return undefined
+  }
+  // And no writer before v28 knew Apple Intelligence.
+  if (schemaVersion < 28 && candidate.runtime === 'apple') {
     return undefined
   }
   if (

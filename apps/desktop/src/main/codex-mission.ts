@@ -24,6 +24,10 @@ import {
   createAgyPrintCommand,
   createMuseEventNormalizer,
   createMuseExecCommand,
+  appleBrief,
+  appleRefusesSandbox,
+  createAppleEventNormalizer,
+  createAppleModelCommand,
   createOpenCodeEventNormalizer,
   createOpenCodeRunCommand,
   createOpenCodeServeCommand,
@@ -557,6 +561,12 @@ interface CodexMissionServiceOptions {
    * is briefed in full, as before.
    */
   readonly briefSessions?: BriefSessions
+  /**
+   * A teammate's own standing instructions, by id (0.878). Only Apple Intelligence asks: its brief is its own, short
+   * one (apple-model.ts appleBrief), so the teammate's instructions are handed to it here rather than through the
+   * workspace brief. Absent, it is briefed without them.
+   */
+  readonly teammateInstructions?: (teammateId: string) => Promise<string | undefined>
   /**
    * Opens an attached PDF for the agent: its text and page pictures beside it
    * in the run folder's `.locust/attachments` (0.713, pdf-reading.ts).
@@ -1596,6 +1606,8 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
     if (mode === 'auto' && !(await (options.autoModeAllowed ?? (async () => false))())) return AUTO_OFF_REFUSAL
     const readOnly = mode !== 'auto' && mode !== 'accept-edits' && mode !== 'approve-each'
     if (runtime === 'cursor' && readOnly && !cursorCanEnforceReadOnly(hostPlatform)) return CURSOR_READ_ONLY_REFUSAL
+    // Apple's on-device model only talks (0.878): Ask and Plan, refused before anything is written.
+    if (runtime === 'apple' && !readOnly) return appleRefusesSandbox('workspace-write')
     if (runtime === 'acp') {
       const found = await acpAgentFor(mode, chosenModel)
       return 'refusal' in found ? found.refusal : undefined
@@ -2238,6 +2250,8 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
                 ? 'copilot'
                 : runtime === 'muse'
                   ? 'muse'
+                  : runtime === 'apple'
+                    ? 'apple'
                   : runtime === 'kilo'
                     ? 'kilo'
                   : runtime === 'antigravity'
@@ -2378,6 +2392,9 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
                 ? createCopilotEventNormalizer({ ...normalizerContext, sessionId: copilotSessionId! })
                 : runtime === 'muse'
                   ? createMuseEventNormalizer(normalizerContext)
+                  : runtime === 'apple'
+                    // No session: every turn is a fresh one, so it names no thread and a follow-up starts cold.
+                    ? createAppleEventNormalizer(normalizerContext)
                   : runtime === 'antigravity'
                     ? createAgyEventNormalizer(normalizerContext)
                     : createCodexEventNormalizer(normalizerContext)
@@ -2654,6 +2671,11 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
               ...choice
             })
           }
+          if (runtime === 'apple') {
+            // Apple Intelligence (0.878): the helper reads one request on stdin, the composed prompt. It refuses any
+            // sandbox but read-only, before anything durable is written.
+            return createAppleModelCommand(executable, { workspacePath: runCwd, sandbox: effectiveSandbox })
+          }
           if (runtime === 'acp' && acpAgentRun !== undefined) {
             // The person's own command line (0.777); the prompt, the session and the model travel over the protocol.
             return createAcpAgentCommand(executable, acpAgentRun.found.args, runCwd)
@@ -2864,7 +2886,17 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
         // A command is sent bare, and records no brief: the session it acts
         // on may be cleared or compacted by it, so the next turn is briefed
         // whole (briefSessions.after finds nothing for this one).
-        if (side !== undefined) {
+        if (runtime === 'apple' && !bare) {
+          /*
+           * APPLE INTELLIGENCE'S OWN BRIEF (0.878), as the Rust app gives it (runtime::apple::brief). Locust's usual
+           * brief teaches the tags an agent writes, and this model, measured, answered a question and then copied a
+           * <locust-ask> template into its answer; it reads 8,192 tokens in all. So it is told who it is, that it only
+           * talks, the teammate's own instructions, and what was said -- a follow-up is always cold (it has no session),
+           * so `sentPrompt` already carries the conversation so far.
+           */
+          const own = slot?.instructions ?? (peer === undefined ? undefined : await options.teammateInstructions?.(peer.self.teammateId).catch(() => undefined))
+          runtimePrompt = appleBrief(peer?.self.name ?? 'Locust', peer?.self.role ?? '', own, sentPrompt)
+        } else if (side !== undefined) {
           // The forked session already holds the brief and the whole
           // conversation; it is told only what this is -- and, when the
           // copy predates it, what the turn still running was asked (0.515).
@@ -2926,9 +2958,11 @@ ${sentPrompt.trim()}`
           briefGiven = solo.given
         }
         // Repeated even on a resumed session. Omitted references are never named in a brief that would imply access.
-        if (!bare && options.references !== undefined) runtimePrompt = [runtimePrompt, referencesSection(referenceFolders)].join('\n\n')
+        // Apple's on-device model reads no folders, has no Undo to hear of, and its brief stays as Rust gives it.
+        const ownBrief = runtime === 'apple'
+        if (!bare && !ownBrief && options.references !== undefined) runtimePrompt = [runtimePrompt, referencesSection(referenceFolders)].join('\n\n')
         // A follow-up to a turn the person undid starts with what Undo put back (0.784, undone-note.ts).
-        if (!bare && side === undefined && resumedRunId !== undefined) {
+        if (!bare && !ownBrief && side === undefined && resumedRunId !== undefined) {
           const undone = (await options.turnRecords?.get(resumedRunId).catch(() => undefined))?.undone
           const told = undone === undefined ? undefined : undoneNote(undone)
           if (told !== undefined) runtimePrompt = `${told}\n\n${runtimePrompt}`
@@ -2948,7 +2982,7 @@ ${sentPrompt.trim()}`
         if (!bare && runtime === 'opencode' && sandbox === 'read-only' && openCodeGitReads === undefined) {
           runtimePrompt = [runtimePrompt, openCodeReadOnlySection()].join('\n\n')
         }
-        if (!bare && mode === 'plan' && sandbox === 'read-only') {
+        if (!bare && !ownBrief && mode === 'plan' && sandbox === 'read-only') {
           runtimePrompt = [runtimePrompt, planSection()].join('\n\n')
         }
 

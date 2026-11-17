@@ -17,7 +17,9 @@ const DISPLAY_NAMES: Readonly<Record<MissionRuntimeId, string>> = {
   muse: 'Muse Code',
   kilo: 'Kilo',
   // An agent the person added (0.777): its own name, from Settings, wherever one is known (shared/acp-agents.ts).
-  acp: 'Your own agent'
+  acp: 'Your own agent',
+  // Apple's on-device model, through the Mac app's own helper (0.878).
+  apple: 'Apple Intelligence'
 }
 
 export function isMissionRuntime(value: unknown): value is MissionRuntimeId {
@@ -87,8 +89,10 @@ export function agentNamed(name: string | undefined): string | undefined {
  * the note at the top of `muse-events.ts` for what that does and does not
  * establish.
  */
-export function hostReadsEventsOf(runtime: MissionRuntimeId): runtime is 'codex' | 'claude' | 'cursor' | 'opencode' | 'copilot' | 'muse' | 'antigravity' | 'acp' | 'kilo' {
+export function hostReadsEventsOf(runtime: MissionRuntimeId): runtime is 'codex' | 'claude' | 'cursor' | 'opencode' | 'copilot' | 'muse' | 'antigravity' | 'acp' | 'kilo' | 'apple' {
   return (
+    // Apple Intelligence's helper writes JSON lines the host reads (0.878, apple-model.ts).
+    runtime === 'apple' ||
     // Kilo's ACP stream is the same records OpenCode's ACP runner writes.
     runtime === 'kilo'
     // An agent the person added, over the Agent Client Protocol, read as Copilot's is (0.777).

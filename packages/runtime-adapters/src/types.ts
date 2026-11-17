@@ -60,6 +60,12 @@ export type RuntimeIntegrationId =
    * every action the agent asks to take is a card.
    */
   | "acp"
+  /**
+   * APPLE INTELLIGENCE, ON THIS MAC (0.878): the model behind Apple Intelligence, asked through Apple's Foundation
+   * Models framework by a small Swift helper the Mac app carries (`locust-apple-model`). Free, no account, nothing
+   * leaves the Mac. It reads about 8,000 tokens at a time and has no tools, so it only talks: Ask and Plan.
+   */
+  | "apple"
   | "omniroute";
 
 /**
@@ -287,8 +293,11 @@ export interface RuntimeCommandSpec {
    * `agy-json` is Antigravity CLI's `--input-format stream-json` (0.540): one
    * `{"event":"user",...}` line with the prompt as a text block, then stdin
    * closes -- MEASURED 2026-10-02, agy 1.2.14: a closed stdin ends the turn.
+   *
+   * `apple-json` is the Apple Intelligence helper's request (0.878, apple-model.ts): one `{"prompt":...}` line, then
+   * stdin closes; the helper reads to the end before it asks the model.
    */
-  readonly stdin: "prompt" | "none" | "protocol" | "prompt-file" | "stream-json" | "agy-json";
+  readonly stdin: "prompt" | "none" | "protocol" | "prompt-file" | "stream-json" | "agy-json" | "apple-json";
   readonly stdout: "jsonl";
   /**
    * What this mission was allowed. Absent reads as `read-only` everywhere it

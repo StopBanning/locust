@@ -121,6 +121,18 @@ jobs:
           done
           [ "$found" -ge 2 ] || { echo "a glass addon in $found Mac build(s), not both"; exit 1; }
           node -e "const glass = require(process.argv[1]); for (const call of ['supported', 'attach', 'panel', 'detach']) if (typeof glass[call] !== 'function') throw new Error('no ' + call); console.log('glass addon loads; offered on this Mac:', glass.supported())" "$PWD/apps/desktop/release/mac-arm64/Locust.app/Contents/Resources/app.asar.unpacked/out/native/mac-glass.node"
+      # Apple Intelligence (0.878): its helper is in the Apple-silicon app, outside the archive, and answers its probe. A
+      # Mac that could not build it ships without the runtime (scripts/build-mac-apple-model.cjs), which is said here,
+      # never a failed build; a helper that is there and cannot answer is a broken one, and fails.
+      - name: The Apple Intelligence helper (Mac)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          helper=apps/desktop/release/mac-arm64/Locust.app/Contents/Resources/app.asar.unpacked/out/native/locust-apple-model
+          if [ ! -f "$helper" ]; then echo "::warning::no Apple Intelligence helper in this build, so it does not offer Apple Intelligence"; exit 0; fi
+          said="$("$helper" --probe)"
+          echo "$helper --probe: $said"
+          case "$said" in *'"available"'*) ;; *) echo "the helper did not answer its probe"; exit 1 ;; esac
       - uses: actions/upload-artifact@v4
         with:
           name: locust-${{ matrix.os }}

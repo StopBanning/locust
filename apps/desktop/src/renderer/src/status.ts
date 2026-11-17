@@ -859,6 +859,13 @@ export const RUNTIME_CAPABILITIES: Readonly<Record<MissionRuntimeId, RuntimeCapa
    */
   kilo: { modes: [...EVERY_ORDINARY_MODE], evidence: 'unproven' },
   /*
+   * APPLE INTELLIGENCE (0.878): Ask, and so Plan, and nothing else. Apple's on-device model has no tools here -- it
+   * cannot read or change a file, run a command, or open a page -- so Ask's containment is real by construction, and
+   * Edit or Auto would promise what it cannot do. Measured on this Mac (macOS 27.2.1) by the Rust app's real-model
+   * tests and this app's (LOCUST_REAL_APPLE=1).
+   */
+  apple: { modes: ['ask'], evidence: 'measured' },
+  /*
    * AN AGENT THE PERSON ADDED (0.777): Approve each and nothing else. It is the one mode the Agent Client Protocol
    * itself makes true -- every action the agent asks to take arrives as session/request_permission, answered on a card
    * -- whatever the agent is. Its own modes (OpenCode's build and plan, Goose's auto) are its own ids with its own

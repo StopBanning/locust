@@ -11,6 +11,17 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.878.0 - 2026-11-17
+
+### New
+
+- **Apple Intelligence as a teammate's model, on a Mac.** Since macOS 26 the model behind Apple Intelligence answers
+  other apps, so a teammate can now run on it: on this Mac, free, with no account, and nothing sent anywhere. It is
+  listed as "On-device model" under Apple Intelligence in the model picker, only where Apple Intelligence is turned on
+  and ready; where it is not, AI agents says why (turned off, still downloading, or a Mac that cannot run it). It only
+  talks: it cannot read or change files, run commands or open pages, so it runs in Ask and Plan. It reads about 8,000
+  tokens at once, so a long conversation may need a new one or another teammate, and it says so.
+
 ## 0.877.2 - 2026-11-16
 
 ### Fixed

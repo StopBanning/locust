@@ -327,6 +327,7 @@ import { createRaisedApprovals } from './raised-approvals.js'
 import { createOutstandingChecks } from './outstanding-checks.js'
 import { FIRST_SCREEN_DEADLINE_MS, keepWhatWasAnswered, settleWithin, type SweepCheck } from './sweep-settle.js'
 import { createAntigravityHostProbe } from './antigravity-host.js'
+import { appleHelperPath, createAppleModelHost } from './apple-model.js'
 import { AntigravityStartError, antigravityStartRefusal, createAntigravityMissionService } from './antigravity-mission.js'
 import type { Relay, TurnRoute } from './relay.js'
 import { createKeychain } from './keychain.js'
@@ -834,6 +835,8 @@ const answeredLate = (id: string, record: RuntimeDiscovery | undefined): void =>
  * above it, while Gemini was in the log and not the table (Colin, 2026-09-14).
  * One list, or the two disagree in front of somebody.
  */
+/** Apple Intelligence's helper (main/apple-model.ts), found beside the main bundle and asked once a launch. */
+const appleModel = createAppleModelHost({ helperPath: appleHelperPath(process.platform, __dirname) })
 const antigravityCheck = (): SweepCheck => {
   const result = (async () => {
     discoveryLog.emit({
@@ -878,7 +881,7 @@ const askRuntimes = async (only?: ReadonlySet<string>): Promise<readonly Runtime
   const goingIds = new Set(going.map((check) => check.id))
   const asking: SweepCheck[] = [...going]
   const mine = new Set<string>()
-  const cliOnly = only === undefined ? undefined : new Set([...only].filter((id) => id !== 'antigravity'))
+  const cliOnly = only === undefined ? undefined : new Set([...only].filter((id) => id !== 'antigravity' && id !== 'apple'))
   const cliChecks = cliOnly !== undefined && cliOnly.size === 0
     ? []
     : discoverInstalledRuntimesEach({
@@ -958,6 +961,11 @@ const askRuntimes = async (only?: ReadonlySet<string>): Promise<readonly Runtime
   if ((only === undefined || only.has('antigravity')) && !goingIds.has('antigravity')) {
     asking.push(antigravityCheck())
     mine.add('antigravity')
+  }
+  // Apple Intelligence (0.878): its helper's probe, beside the agents found on PATH; a Mac without it has no row.
+  if ((only === undefined || only.has('apple')) && !goingIds.has('apple')) {
+    asking.push(appleModel.check())
+    mine.add('apple')
   }
   const order: readonly string[] = discoveryCache?.value.map((entry) => entry.id) ?? []
   const settled = await settleWithin(asking, {
@@ -3060,6 +3068,8 @@ if (!ownsSingleInstanceLock) {
       memory: memoryBriefing,
       // A2.5: a resumed session is told only what changed in its brief.
       briefSessions: createBriefSessions({ rootDirectory: app.getPath('userData') }),
+      // Apple Intelligence's own brief carries the teammate's instructions itself (0.878, codex-mission.ts).
+      teammateInstructions: async (teammateId) => (await teammates.list().catch(() => [])).find((entry) => entry.teammateId === teammateId)?.instructions,
       readablePdf: pdfReadings.prepare,
       onShared: (mission, posted) => runEnd.onShared(mission, posted),
       onRunEnded: (mission) => runEnd.onRunEnded(mission)

@@ -1,4 +1,4 @@
-import { createAppServerClient, MUSE_EFFORTS, openCodeUsesAcp, usageWindowFromSnapshot } from '@teammate/runtime-adapters'
+import { APPLE_MODEL, APPLE_MODEL_NAME, APPLE_RUNTIME, createAppServerClient, MUSE_EFFORTS, openCodeUsesAcp, usageWindowFromSnapshot } from '@teammate/runtime-adapters'
 import type { ClaudeListedModel, MissionRuntimeId, RuntimeDiscovery } from '@teammate/runtime-adapters'
 
 import type { PublicModel, ModelCatalogResponse } from '../shared/ipc.js'
@@ -164,7 +164,8 @@ export function withAccountDefaults(models: readonly PublicModel[]): readonly Pu
   )
   const defaults = [...new Set(models.map((model) => model.runtime))]
     // Kilo has no account default. That row would be the session's paid image model.
-    .filter((runtime) => runtime !== 'kilo' && !already.has(runtime))
+    // Apple Intelligence (0.878) has no account at all: its one model is the whole list.
+    .filter((runtime) => runtime !== 'kilo' && runtime !== APPLE_RUNTIME && !already.has(runtime))
     .map((runtime) => accountDefaultModel(models, runtime))
     .filter((row): row is PublicModel => row !== undefined)
   return [...defaults, ...models]
@@ -526,6 +527,26 @@ export function museModelsFrom(runtimes: readonly RuntimeDiscovery[]): readonly 
 }
 
 /**
+ * APPLE INTELLIGENCE'S ONE MODEL (0.878), as the Rust app lists it (models.rs apple_models): Apple's on-device model,
+ * offered only where discovery found the helper AND its probe said the model answers (readiness ready). Not where
+ * Apple Intelligence is off, still downloading, or the Mac cannot run it: that row says why among the agents instead.
+ * No efforts: Foundation Models takes none.
+ */
+export function appleModelsFrom(runtimes: readonly RuntimeDiscovery[]): readonly PublicModel[] {
+  const apple = runtimes.find((entry) => entry.id === APPLE_RUNTIME)
+  if (apple?.readiness !== 'ready') return []
+  return [
+    {
+      id: APPLE_MODEL,
+      runtime: APPLE_RUNTIME,
+      displayName: APPLE_MODEL_NAME,
+      description: 'Apple Intelligence, on this Mac · free · nothing leaves it · talks only',
+      supportedEfforts: []
+    }
+  ]
+}
+
+/**
  * Antigravity's three model tiers, exactly as its agent API names them. The
  * names are the host's, from the measured `--model=<flash_lite|flash|pro>`.
  */
@@ -607,7 +628,8 @@ export function createModelCatalog(options: ModelCatalogOptions): ModelCatalog {
       ...opencodeModelsFrom(runtimes),
       ...copilotModelsFrom(runtimes),
       ...antigravityModelsFrom(runtimes),
-      ...museModelsFrom(runtimes)
+      ...museModelsFrom(runtimes),
+      ...appleModelsFrom(runtimes)
     ]
     const antigravity = runtimes.find((entry) => entry.id === 'antigravity')
     const readAntigravity = options.readAntigravity ?? (async (runtime: RuntimeDiscovery) =>

@@ -218,6 +218,23 @@ export type {
   MuseInvocationContext,
 } from "./muse-events.js";
 export {
+  APPLE_DISPLAY_NAME,
+  APPLE_HELPER_NAME,
+  APPLE_MODEL,
+  APPLE_MODEL_NAME,
+  APPLE_RUNTIME,
+  appleBrief,
+  appleDiscoveryRecord,
+  appleFailureWords,
+  appleRefusesSandbox,
+  appleRequestLine,
+  appleUnavailableWords,
+  createAppleEventNormalizer,
+  createAppleModelCommand,
+  readAppleProbe,
+} from "./apple-model.js";
+export type { AppleEventNormalizer, AppleInvocationContext, AppleProbe } from "./apple-model.js";
+export {
   copilotFailureFrom,
   copilotToolCommand,
   copilotUsage,
