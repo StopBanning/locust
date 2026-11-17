@@ -741,6 +741,8 @@ pub struct Prior {
     pub running: bool,
     /// The stored `runtimeThreadId`, when the session is still resumable.
     pub thread: Option<String>,
+    /// The mode its header recorded; None for a header that names none (never read as a change of mode).
+    pub mode: Option<String>,
 }
 /// Ports codex-mission.ts `runtimeThreadIdOf` and `resumableThreadOf`: the last runtimeThreadId in the mission's events;
 /// nothing after a failure that ended the session or a moved folder; else the one its own `continuesFrom` carried.
@@ -800,6 +802,7 @@ pub fn prior_of(tip: &str) -> Result<Prior, String> {
         account,
         running: transcript.running && fresh,
         thread,
+        mode: meta["mode"].as_str().map(str::to_owned),
     })
 }
 
@@ -1181,6 +1184,20 @@ pub fn turns_through(mission: &str) -> Vec<crate::carry_on::EarlierTurn> {
         asked: turn.metadata["prompt"].as_str().unwrap_or_default().to_owned(),
         answered: crate::carry_on::latest_final(&turn.events),
     });
+    turns
+}
+
+/// What a reply that cannot resume is told (codex-mission.ts `coldEarlier`): the conversation through its newest turn,
+/// except that newest turn when it went unanswered and this reply is the same words again (Send again, 0.496).
+fn cold_earlier(tip: &str, prompt: &str) -> Vec<crate::carry_on::EarlierTurn> {
+    let Some(turn) = turn_records(tip) else { return Vec::new() };
+    let mut turns = earlier_turns(&turn.metadata);
+    let asked = turn.metadata["prompt"].as_str().unwrap_or_default();
+    let answered = crate::carry_on::latest_final(&turn.events);
+    let again = answered.as_deref().unwrap_or_default().trim().is_empty() && asked.trim() == prompt.trim();
+    if !again {
+        turns.push(crate::carry_on::EarlierTurn { asked: asked.to_owned(), answered });
+    }
     turns
 }
 
@@ -2009,8 +2026,9 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
     // brief of what was done starts the new agent/account cold, with the reply as the latest word.
     let mut switched: Option<RouteSwitch> = None;
     let mut side_prompt: Option<String> = None;
-    // An edit started again from the turn before it: what was said up to there (told to a cold start), and the link.
-    let mut rewound: Option<Vec<crate::carry_on::EarlierTurn>> = None;
+    // A cold start (an edit started again from the turn before it, or a reply that cannot resume): what was said up to
+    // there, and whether it is an edit.
+    let mut cold: Option<(Vec<crate::carry_on::EarlierTurn>, bool)> = None;
     let mut rewind_link: Option<Value> = None;
     let (continues, resume) = if let Some(side) = &side_req {
         let prepared = crate::side_question::prepare(&side.of, runtime_name, mode, &job.prompt)?;
@@ -2023,7 +2041,7 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
             if owns(before) || turn_records(before).is_none() {
                 return Err("That conversation cannot be continued: its earlier mission is not in the ledger.".into());
             }
-            rewound = Some(turns_through(before));
+            cold = Some((turns_through(before), true));
             rewind_link = Some(json!({"missionId": before, "checkpointEpoch": 1, "reason": "follow-up", "edited": true}));
         }
         (None, None)
@@ -2049,53 +2067,22 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
             if prior.runtime != runtime_name || prior.account != effective_account {
                 switched = Some(route_switch(&store, tip, &job.prompt, &origin.left_out_by_you)?);
                 (None, None)
-            } else if runtime_name == "claude" {
-                // A Claude conversation resumes its session when one was recorded; one that never reached Claude
-                // Code's init (or ended it) starts a new one, as it always has here.
-                let thread = prior.thread;
+            } else {
+                // codex-mission.ts: a reply on the same agent resumes its session, unless the mode changed since (a
+                // resumed session keeps the tools it was built with, so the mode on screen would not be the one that
+                // runs) or there is no session to resume (a turn that failed before its runtime started). Then it
+                // starts cold, still in this conversation, told what was said so far.
+                let mode_changed = prior.mode.as_deref().is_some_and(|m| m != mode.as_str());
+                let thread = if mode_changed { None } else { prior.thread };
+                if thread.is_none() {
+                    cold = Some((cold_earlier(tip, &job.prompt), false));
+                }
                 (
                     Some(Continuation {
                         mission_id: tip.to_owned(),
                         thread: thread.clone(),
                     }),
                     thread,
-                )
-            } else if matches!(
-                runtime_name,
-                "codex"
-                    | "acp"
-                    | "opencode"
-                    | "kilo"
-                    | "cursor"
-                    | "copilot"
-                    | "antigravity"
-                    | "muse"
-            ) {
-                let thread = prior.thread.ok_or(match runtime_name {
-                    "codex" => "This conversation has no Codex session to continue.",
-                    "opencode" => "This conversation has no OpenCode session to continue.",
-                    "kilo" => "This conversation has no Kilo session to continue.",
-                    "cursor" => "This conversation has no Cursor session to continue.",
-                    "copilot" => "This conversation has no Copilot session to continue.",
-                    "antigravity" => "This conversation has no Antigravity session to continue.",
-                    "muse" => "This conversation has no Muse session to continue.",
-                    _ => "This conversation has no ACP session to continue.",
-                })?;
-                (
-                    Some(Continuation {
-                        mission_id: tip.to_owned(),
-                        thread: Some(thread.clone()),
-                    }),
-                    Some(thread),
-                )
-            } else {
-                // Claude print path has no thread resume in M3b.
-                (
-                    Some(Continuation {
-                        mission_id: tip.to_owned(),
-                        thread: None,
-                    }),
-                    None,
                 )
             }
         }
@@ -2212,9 +2199,9 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
             .unread(&job.teammate.id, crate::briefing::MAX_INBOUND_MESSAGES, &origin.include_messages)
             .map(|u| (u.messages, u.remaining))
             .unwrap_or_default();
-        // An edit tells the cold start what was said before the point it went back to.
-        let words = match &rewound {
-            Some(earlier) => crate::carry_on::compose_cold_follow_up(earlier, &job.prompt, true),
+        // A cold start is told what was said before (an edit: before the point it went back to).
+        let words = match &cold {
+            Some((earlier, edited)) => crate::carry_on::compose_cold_follow_up(earlier, &job.prompt, *edited),
             None => job.prompt.clone(),
         };
         // A conversation's group briefs every turn after the folder's own and before the teammate's.

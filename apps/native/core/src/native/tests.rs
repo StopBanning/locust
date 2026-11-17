@@ -642,18 +642,11 @@ fn resume_point_ports_runtimethreadidof_and_resumablethreadof() {
 }
 
 #[test]
-fn a_conversation_with_nothing_to_resume_or_still_running_is_refused_without_starting_anything() {
+fn a_conversation_still_running_is_refused_without_starting_anything() {
+    // A conversation with no session to resume is continued cold (`codex_mission_tests`), not refused.
     let t = Temp::new();
     let _g = hooks::install(t.store(), fake("resume"));
-    let mut w =
-        LedgerWriter::create_continuing(&t.store(), "nothread", "p", "m", "x", None).unwrap();
-    w.append("run.completed", json!({}), None).unwrap();
     let before = ledgers(&t).len();
-    assert!(
-        send(job(&t, Some("nothread"), "Synthetic follow-up"))
-            .unwrap_err()
-            .contains("no Codex session")
-    );
     // A turn still running in the conversation (fresh file, no terminal record).
     let _running =
         LedgerWriter::create_continuing(&t.store(), "busy", "p", "m", "x", None).unwrap();

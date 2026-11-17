@@ -519,3 +519,49 @@ Break checks (all 10 caught by the named test): the trailing empty line kept; wh
 cap; the byte check; the byte cut; another runtime's section given; a fenced tag read; an unclosed tag's line
 dropped; `details` read as a runtime; the runtime filter skipped.
 
+
+## Batch 14: `codex-mission.test.ts`, continuing a conversation
+
+13 of the group's 16 cases (6 of them half): 31 of 137 so far. Tests in `core/src/native/codex_mission_tests.rs`. They
+run against `scripts/fixtures/commands-app-server.py`, which logs every request it gets, so a test reads whether the
+thread was started or resumed, by which id, in which sandbox, and what the turn was told. The earlier turns are written
+by hand with Electron's `finished()` values (`mission_prior`, "check the google stock price", `thread-prior`), and aged
+an hour so a turn with no terminal record reads as finished.
+
+Bugs found and fixed. Native's same-agent follow-up is now Electron's one rule (`codex-mission.ts` 2100-2125) for
+every runtime, not a branch per runtime:
+- **A reply in another mode resumed the old session.** A resumed session keeps the tools it was built with. A
+  conversation begun in Ask and continued in Accept edits ran with no write tools while the chip said Accept edits
+  (Electron's outside tester, 0.38.7). Now a changed mode starts cold. A header with no mode is not a change. `Prior`
+  carries the header's `mode`.
+- **A conversation with no session was refused.** Native said "This conversation has no Codex session to continue."
+  (and the same for OpenCode, Kilo, Cursor, Copilot, Antigravity, Muse and ACP). Electron continues it cold, recorded
+  as a follow-up with no `runtimeThreadId` (Colin, 2026-09-03: a reply after a failure opened a second row).
+- **A cold reply was told nothing.** Native's Claude started a new session silently, and the others refused. Now a
+  cold start is told the conversation so far through `compose_cold_follow_up` ("This conversation has earlier turns,
+  but not in your session..."), and the record keeps the person's words.
+- **Send again** (`cold_earlier`): the newest turn's words are not quoted back when it went unanswered and this reply
+  is the same words.
+- The old test `a_conversation_with_nothing_to_resume_or_still_running...` asserted the refusal. It now keeps only its
+  "still running" half (`a_conversation_still_running_is_refused_without_starting_anything`).
+
+Halves and gaps:
+- Native's `Started` has no `followsUp` or `switchedFrom`, so the receipt halves of three cases are read from the
+  new turn's header instead.
+- Electron's edit case also checks the terminal is not caught up (`catchUpTerminal`). Native has no counterpart.
+- Electron's A2.11 case switches over a turn that continues itself. Native's start refuses that history before any
+  brief, with "This conversation has an invalid history. Its references were not changed." That is the same check
+  as Electron's own `conversation-references.ts` `rootOf`; Electron's test service wires no references. So the
+  case is two tests: the switch brief over a sound chain, and `earlier_turns` stopping at the loop.
+- The route switch's link says checkpoint epoch 1: native's first checkpoint of a turn. Electron's 2 is its fake's.
+- The "unsafe" refusal is reached through a torn last line, and says native's reason.
+- H6, resuming an interrupted mission (`service.resume`), is not built. That is 3 cases.
+
+One test beyond Electron's: `the_same_words_after_an_answered_turn_are_told_that_turn` (the answered half of Send
+again survived its break without it).
+
+Break checks (all 14 caught by the named test): no mode read as a change; a changed mode still resuming; no session
+refused; the cold start not told; Send again off; Send again ignoring the reply; the cold link carrying a thread; an
+edit told as a plain reply; the walk's loop guard; the header's mode not read; the newest turn not quoted; the unsafe
+refusal; the switch brief without earlier turns; the checkpoint not written back.
+- One break was a build error at first (the loop guard). It was rewritten (`&& false`) and then caught.
