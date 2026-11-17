@@ -688,7 +688,7 @@ apps/desktop/src/renderer/src/a-file-opens-on-itself.test.ts	P5	does-not-apply		
 apps/desktop/src/renderer/src/a-file-row-says-a-word.test.ts		carried	core/src/tool_words_tests.rs: says_codexs_change_as_a_word, says_a_read_a_search_a_listing_and_a_fetch_in_claude_codes_words_whoever_ran_it, says_antigravitys_write_and_edit_in_claude_codes_words, keeps_a_word_with_no_claude_code_counterpart_as_it_is	activity_entries::file_tool_word ported exactly; the drawer table was short (no file_change, Antigravity names) and capitalised edit
 apps/desktop/src/renderer/src/a-finished-message-stops-typing.test.ts		waiting		
 apps/desktop/src/renderer/src/a-finished-run-has-nothing-still-running.test.tsx		waiting		
-apps/desktop/src/renderer/src/a-first-hour-starts-plainly.test.ts		waiting		
+apps/desktop/src/renderer/src/a-first-hour-starts-plainly.test.ts		partial	core/src/first_hour_tests.rs	2 of 5: a_connector_is_named_for_a_person, a_review_reads_ask_for_that_run_only. The other three read Electron's own source (Home's Use a free model button, the new-teammate dialog's model before its look, a copy's words about the machine's agents) and wait on those screens' Rust checks
 apps/desktop/src/renderer/src/a-folded-row-says-it-in-words.test.ts		carried	core/src/tool_words_tests.rs: a_folded_group_reads_as_activitys_rows_do_for_each_runtimes_read_tool, a_folded_groups_searches_are_counted_as_searches, a_folded_tool_with_no_word_of_its_own_is_counted_never_named_in_code	native folds by tool_kind then folded_tools_lead
 apps/desktop/src/renderer/src/a-forgotten-memory-shows-with-restore.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-free-model-that-answered-comes-first.test.ts		waiting		
@@ -872,7 +872,7 @@ apps/desktop/src/renderer/src/alt-and-an-arrow-moves-between-conversations.test.
 apps/desktop/src/renderer/src/an-account-shows-how-full-it-is.test.tsx	faces-6	partial	core/src/agent_card.rs, src/ui/window_drive_tests.rs	7 of 8: a_usage_reading_reads_as_windows_each_with_its_reset, a_mark_is_named_with_everything_its_card_says, the_card_has_its_name_its_state_and_a_bar_for_each_window, a_bar_is_amber_from_80_and_red_when_spent, an_agent_whose_runs_reported_none_has_its_name_and_state_alone, a_window_reset_since_the_reading_is_drawn_as_reset_and_says_when_it_was_taken, the_model_button_wears_its_amber_dot_from_80 and window test the_model_chip_wears_an_amber_dot_from_80_percent_and_is_quiet_below. Not built: Home's line of agent marks, each carrying its card (the mark's spoken name exists as core mark_said, with no mark to hang it on)
 apps/desktop/src/renderer/src/an-acp-agent-says-what-it-can-do.test.ts		waiting		
 apps/desktop/src/renderer/src/an-added-account-is-named-in-the-picker.test.tsx	ACCOUNTS	carried	src/ui/tests.rs (an_added_account_is_named_in_the_picker_and_respects_policy_and_limits)	both picker account naming/SIGN IN/AT LIMIT/override cases, org-policy picker/settings hiding, and no auto-login under policy
-apps/desktop/src/renderer/src/an-antigravity-model-limit-is-its-own-bar.test.ts		waiting		
+apps/desktop/src/renderer/src/an-antigravity-model-limit-is-its-own-bar.test.ts		carried	core/src/model_limit_bar_tests.rs	reads_each_groups_windows_from_the_reading_the_models_own_limit_last
 apps/desktop/src/renderer/src/an-antigravity-question-is-answered-here.test.tsx		waiting		
 apps/desktop/src/renderer/src/an-app-from-anywhere-asks-on-a-card.test.tsx		waiting		
 apps/desktop/src/renderer/src/an-app-from-anywhere-finds-locust-running.test.tsx		waiting		
@@ -923,7 +923,7 @@ apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	p12	partial		`ren
 apps/desktop/src/renderer/src/cost.test.ts		waiting		
 apps/desktop/src/renderer/src/diff.test.ts	P7	waiting	added_cursor_file_counts_numbers_ranges_and_copy,context_folds_exactly_and_never_hides_changes,header_like_rows_and_next_file,ranges_derive_from_rows_and_completeness_never_silent	`renderer/src/diff.test.ts` | `changes::tests::{added_cursor_file_counts_numbers_ranges_and_copy, header_like_rows_and_next_file, ranges_derive_from_rows_and_completeness_never_silent, context_folds_exactly_and_never_hides_changes}` cover a
 apps/desktop/src/renderer/src/each-compared-model-has-its-own-effort.test.tsx		waiting		
-apps/desktop/src/renderer/src/each-thin-part-is-its-own-solid.test.ts		waiting		
+apps/desktop/src/renderer/src/each-thin-part-is-its-own-solid.test.ts		carried	core/src/thin_parts_tests.rs	all 3: are_split_into_one_piece_per_antenna_leg_or_wing, lose_nothing_in_the_split, every_piece_starts_with_a_move
 apps/desktop/src/renderer/src/effortLevels.test.ts		waiting		
 apps/desktop/src/renderer/src/effortScale.test.ts		waiting		
 apps/desktop/src/renderer/src/every-benchmark-is-listed-in-one-place.test.tsx	compare-more	carried	benchmark::tests::every_benchmark_is_listed_in_one_place; compare_window_tests::a_benchmark_of_two_runs_reads_as_one_table	`benchmark::tests::every_benchmark_is_listed_in_one_place` + `compare_window_tests::a_benchmark_of_two_runs_reads_as_one_table`
@@ -1090,7 +1090,7 @@ apps/desktop/src/renderer/src/the-talk-button-sits-beside-the-microphone.test.ts
 apps/desktop/src/renderer/src/the-terminal-opens-before-the-first-message.test.tsx	P9	partial		renderer/src/the-terminal-opens-before-the-first-message.test.tsx | Partial: toggle before ledger exists; shortcut, accessibility and IPC chunk-boundary tests remain (native bytes stream directly to parser).
 apps/desktop/src/renderer/src/the-terminal-turns-are-drawn-as-yours.test.tsx	P9	waiting		renderer/src/the-terminal-turns-are-drawn-as-yours.test.tsx | TerminalDivider/ownership rendering unported.
 apps/desktop/src/renderer/src/the-theme-control-says-what-it-chose.test.tsx	settings	carried	src/ui/window_drive_tests.rs	choosing_a_theme_is_kept_after_restart + core/src/workspace_settings.rs ledes
-apps/desktop/src/renderer/src/the-thinking-dots-never-jump.test.ts		waiting		
+apps/desktop/src/renderer/src/the-thinking-dots-never-jump.test.ts		carried	core/src/thinking_dots_tests.rs	all 3: end_each_loop_where_the_next_begins_with_no_wrap_to_jump_across, never_move_farther_in_one_frame_than_the_bounce_does, hold_still_while_the_face_looks_about_then_bounce_in_turn
 apps/desktop/src/renderer/src/the-title-bar-is-a-macs-on-a-mac.test.tsx		waiting		
 apps/desktop/src/renderer/src/the-title-bar-says-what-needs-you.test.tsx		waiting		
 apps/desktop/src/renderer/src/the-way-down-says-a-run-is-still-working.test.tsx		waiting		

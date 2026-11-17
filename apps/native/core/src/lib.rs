@@ -26,6 +26,14 @@ pub mod undone_note;
 pub mod tool_fold;
 pub mod step_pictures;
 pub mod speech_runs;
+#[cfg(test)]
+mod thinking_dots_tests;
+#[cfg(test)]
+mod model_limit_bar_tests;
+#[cfg(test)]
+mod thin_parts_tests;
+#[cfg(test)]
+mod first_hour_tests;
 pub mod mcp_names;
 pub mod usage_words;
 pub mod agent_card;
