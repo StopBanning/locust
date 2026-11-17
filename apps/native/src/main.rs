@@ -35,6 +35,8 @@ use locust_core::{
 #[cfg(test)]
 use locust_core::ledger_write;
 mod look;
+#[path = "ui/folder_confirmation.rs"]
+mod folder_confirmation;
 #[cfg(target_os = "macos")]
 mod browser_mac;
 #[path = "ui/browser_panel.rs"]
@@ -887,6 +889,9 @@ fn set_status(s: &mut State, id: &str, message: &str, ink: StatusTone) {
 fn send(s: &mut State, _: &mut Tx) {
     if !can_send(s) {
         s.scout.pending_send_card_id = None;
+        return;
+    }
+    if folder_confirmation::hold_send(s) {
         return;
     }
     if s.compare.composer_mode != compare_view::CompareComposerMode::Direct {

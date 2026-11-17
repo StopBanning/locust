@@ -218,6 +218,7 @@ pub(super) struct State {
     pub(super) selected: usize,
     // Fix: histories and conversation IDs survive team reordering and reloads.
     pub(super) conversations: HashMap<String, Conversation>,
+    pub(super) folder_question: Option<crate::folder_confirmation::Question>,
     pub(super) draft: TextEdit,
     pub(super) picks: HashMap<String, TurnPick>,
     pub(super) models: HashMap<String, Vec<engine::Models>>,
@@ -491,6 +492,7 @@ impl Default for State {
             teammates: Vec::new(),
             selected: 0,
             conversations: HashMap::new(),
+            folder_question: None,
             draft: TextEdit::new(""),
             picks: HashMap::new(),
             models: HashMap::new(),
