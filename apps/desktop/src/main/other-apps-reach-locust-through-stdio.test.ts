@@ -55,7 +55,7 @@ describe('other apps reach Locust through stdio', () => {
   it('advertises exactly the twelve tools, with Ask mode and spend made explicit', async () => {
     const f = await fixture()
     const answer = await f.rpc('tools/list')
-    expect(answer.result.tools.map((tool: { name: string }) => tool.name)).toEqual(['list_teammates', 'start_conversation', 'send_message', 'read_reply', 'stop_turn', 'list_conversations', 'carry_on', 'list_models', 'list_background_runs', 'list_routines', 'run_routine', 'routine_status'])
+    expect(answer.result.tools.map((tool: { name: string }) => tool.name)).toEqual(['list_teammates', 'start_conversation', 'send_message', 'read_reply', 'answer_question', 'stop_turn', 'list_conversations', 'carry_on', 'list_models', 'list_background_runs', 'list_routines', 'run_routine', 'routine_status'])
     const described = (name: string): string => answer.result.tools.find((tool: { name: string }) => tool.name === name).description
     expect(described('start_conversation')).toContain('Ask mode (read only), unless the person has turned on')
     expect(described('start_conversation')).toContain("answered by the person in Locust's window, never from here")

@@ -5,6 +5,7 @@ import type { MissionRuntimeId } from '@teammate/runtime-adapters'
 import { carryOnReason, type CarryOnReason, type CarryOnResponse, type CarryOnRoute } from '../shared/carry-on.js'
 import { joinMessageFragments } from '../shared/messageFragments.js'
 import { unwrapProtocolTags } from '../shared/protocolTags.js'
+import { decisionReply, parseDecision, type DecisionRequest } from '../shared/decision.js'
 import { mcpText, type McpToolResult } from './locust-mcp-host.js'
 import { conversationFolder } from './conversation-folder.js'
 
@@ -31,7 +32,13 @@ const stoppedReason = (turn: PublicRecoveredMission): CarryOnReason | undefined 
 export const MCP_WAIT_LIMIT_S = 20
 
 /** Why an app cannot continue a conversation with no teammate: started without one, or its teammate removed. */
-export const NO_TEAMMATE = "That conversation has no teammate in Locust: it was started without one, or its teammate was removed. An app continues a teammate's conversation only, so continue this one in Locust's window. Nothing was sent."
+/*
+ * A CONVERSATION WITH NO TEAMMATE (0.878; Colin, 17 Nov: "Can we make it so you can interact with conversations?").
+ * One the person started without a teammate, or whose teammate was removed, used to be refused here (NO_TEAMMATE,
+ * 0.877.2). It is continued now as the person's own window continues it: on the conversation's own agent and model,
+ * belonging to nobody, by the same rules as a teammate's -- Ask, or the conversation's own mode when the person has
+ * turned on "Use each teammate's own mode" -- and only where the app may see it at all.
+ */
 
 export function createLocustMcpTools(options: {
   readonly teammates: () => Promise<TeammateListResponse>
@@ -95,7 +102,7 @@ export function createLocustMcpTools(options: {
    * THE PERSON'S CONVERSATIONS (0.842, Colin: "can duet start or look at active chats as well? like if a chat hits
    * limit can she start it up with a new model?"). The person's switch, read on every call and off until turned on:
    * on, an app lists, reads, continues, stops and carries on any conversation in the open folder, by the same rules
-   * as its own -- Ask unless each teammate's own mode is on, never higher, and cards answered only in Locust.
+   * as its own -- Ask unless each teammate's own mode is on, never higher, and approvals answered only in Locust (a question card, since 0.878, by answer_question too).
    */
   readonly seeAll?: () => boolean
   /** The newest turn of each recent conversation in the open folder, newest first. */
@@ -124,11 +131,12 @@ export function createLocustMcpTools(options: {
    * Auto is still refused on the host's one path unless Settings allows it,
    * and approval cards still go only to Locust's window.
    */
-  const modeOf = async (teammateId: string, previous?: PublicRecoveredMission): Promise<MissionMode> => {
+  const modeOf = async (teammateId: string | undefined, previous?: PublicRecoveredMission): Promise<MissionMode> => {
     if (options.ownMode?.() !== true) return 'ask'
     // A follow-up keeps the CONVERSATION's mode (0.869): Colin set two app-started conversations to Auto in Locust,
     // and the app's next turns ran in the teammate's saved Edit, "Operation not permitted".
     if (previous?.mode !== undefined) return previous.mode
+    if (teammateId === undefined) return 'ask'
     const list = await options.teammates()
     return (list.ok ? list.data.teammates.find(t => t.teammateId === teammateId)?.route?.mode : undefined) ?? 'ask'
   }
@@ -148,11 +156,11 @@ export function createLocustMcpTools(options: {
    * Only on the teammate's own AI agent and account, only a model and effort that agent offers here, and never the
    * mode: that stays Ask, or the teammate's own when the person said so. The saved route is not changed.
    */
-  const choiceOf = async (teammateId: string, args: Record<string, unknown>, previous?: PublicRecoveredMission): Promise<Partial<CodexMissionStartRequest> | string | undefined> => {
+  const choiceOf = async (teammateId: string | undefined, args: Record<string, unknown>, previous?: PublicRecoveredMission): Promise<Partial<CodexMissionStartRequest> | string | undefined> => {
     if (args.model === undefined && args.effort === undefined) return undefined
     if (options.models === undefined) return 'This server does not take a model or effort. Leave them out to use the teammate’s own.'
     if ((args.model !== undefined && !text(args.model)) || (args.effort !== undefined && !text(args.effort, 40))) return 'model and effort are short text: use the ids list_models gives.'
-    const route: TeammateRoute | undefined = previous?.runtime === undefined ? await routeOf(teammateId) : { runtime: previous.runtime, model: previous.model, mode: previous.mode ?? 'ask' }
+    const route: TeammateRoute | undefined = previous?.runtime !== undefined ? { runtime: previous.runtime, model: previous.model, mode: previous.mode ?? 'ask' } : teammateId === undefined ? undefined : await routeOf(teammateId)
     if (route === undefined) return 'That teammate has no AI agent set up yet. Choose one for it in Locust first.'
     const offered = await modelsFor(route)
     const asked = typeof args.model === 'string' ? args.model.trim().toLowerCase() : route.model.toLowerCase()
@@ -167,11 +175,11 @@ export function createLocustMcpTools(options: {
     }
     // The saved effort goes with a model asked for alone, when that model takes it.
     const kept = effort ?? (route.effort !== undefined && efforts(model).includes(route.effort) ? route.effort : undefined)
-    return { runtime: route.runtime, model: model.id, ...(kept === undefined ? {} : { effort: kept }), ...(route.account === undefined ? {} : { account: route.account }), routeOverrideFor: teammateId }
+    return { runtime: route.runtime, model: model.id, ...(kept === undefined ? {} : { effort: kept }), ...(route.account === undefined ? {} : { account: route.account }), ...(teammateId === undefined ? {} : { routeOverrideFor: teammateId }) }
   }
   const started = async (request: Pick<CodexMissionStartRequest, 'prompt' | 'teammateId' | 'followUpOf'>, conversation?: string, args: Record<string, unknown> = {}, previous?: PublicRecoveredMission): Promise<McpToolResult> => {
     // This is the only request shape that can reach the start path. A saved route is never changed from here.
-    const choice = await choiceOf(request.teammateId!, args, previous)
+    const choice = await choiceOf(request.teammateId, args, previous)
     if (typeof choice === 'string') return mcpText(`${choice} Nothing was started.`, true)
     /*
      * THE APP CHOOSES, HONESTLY (0.869; Colin: "mcp should allow main agent to choose perms honestly"). With the
@@ -205,10 +213,10 @@ export function createLocustMcpTools(options: {
       folder = checked.path
     }
     // READ ONLY, ASKED FOR (0.842): an app may always step a turn DOWN to Ask.
-    const mode: MissionMode = args.read_only === true ? 'ask' : typeof args.mode === 'string' ? args.mode as MissionMode : await modeOf(request.teammateId!, previous)
+    const mode: MissionMode = args.read_only === true ? 'ask' : typeof args.mode === 'string' ? args.mode as MissionMode : await modeOf(request.teammateId, previous)
     const origin: MissionStarter = { ...(options.origin ?? { kind: 'mcp' }), ...(folder === undefined ? {} : { folder }) } as MissionStarter
     const kept = previous?.runtime === undefined ? undefined : (await options.followUpRoute?.(previous.missionId)) ?? { runtime: previous.runtime, model: previous.model }
-    const result = await options.start({ ...request, ...kept, ...(kept === undefined ? {} : { routeOverrideFor: request.teammateId }), ...choice, mode, keepSavedRoute: true } as CodexMissionStartRequest, origin)
+    const result = await options.start({ ...request, ...kept, ...(kept === undefined || request.teammateId === undefined ? {} : { routeOverrideFor: request.teammateId }), ...choice, mode, keepSavedRoute: true } as CodexMissionStartRequest, origin)
     const shown = result.ok ? await options.turnFolder?.(result.data.missionId) ?? folder ?? options.folder?.() : undefined
     if (!result.ok) return mcpText(result.error.message, true)
     /*
@@ -219,6 +227,17 @@ export function createLocustMcpTools(options: {
     const ran: MissionMode = result.data.mode ?? mode
     return mcpText(JSON.stringify({ conversation_id: conversation ?? result.data.missionId, ...(result.data.runtime === undefined ? {} : { runtime: result.data.runtime }), mode: ran, ...(ran === mode ? {} : { mode_asked: mode }), ...((result.data.model ?? choice?.model) === undefined ? {} : { model: result.data.model ?? choice?.model }), ...(choice?.effort === undefined ? {} : { effort: choice.effort }), ...(shown === undefined ? {} : { folder: shown }) }))
   }
+  /*
+   * A QUESTION CARD, FOR AN APP TOO (0.878). A finished turn that ends asking the person to choose (`<locust-ask>`, the
+   * card under the answer in Locust) says so here: the question and its numbered options, which answer_question takes.
+   * Its words were already in the answer as prose; an app can now answer it as the card's press does.
+   */
+  const questionOf = (mission: PublicRecoveredMission): DecisionRequest | undefined => {
+    if (mission.phase !== 'completed') return undefined
+    const joined = joinMessageFragments(mission.events)
+    const final = joined.findLast(e => e.type === 'message.delta' && e.payload.final)
+    return final?.type === 'message.delta' ? parseDecision(final.payload.text) : undefined
+  }
   const withStatus = async (result: McpToolResult, mission: PublicRecoveredMission): Promise<McpToolResult> => ({
     ...result,
     structuredContent: {
@@ -226,7 +245,11 @@ export function createLocustMcpTools(options: {
         : mission.phase === 'completed' ? 'done' : mission.phase === 'failed' ? 'failed' : 'stopped',
       runtime: mission.runtime ?? null, model: mission.model ?? null,
       folder: await options.turnFolder?.(mission.missionId) ?? conversationFolder(mission.startedBy) ?? null,
-      can_carry_on: !options.live(mission.missionId) && stoppedReason(mission) !== undefined
+      can_carry_on: !options.live(mission.missionId) && stoppedReason(mission) !== undefined,
+      ...(() => {
+        const asked = options.live(mission.missionId) ? undefined : questionOf(mission)
+        return asked === undefined ? {} : { question: { text: asked.question, options: asked.options.map((option, index) => ({ number: index + 1, label: option.label, ...(option.note === undefined ? {} : { note: option.note }) })) } }
+      })()
     }
   })
   /** A finished turn's answer, or Locust's own words for why there is none. */
@@ -430,6 +453,27 @@ export function createLocustMcpTools(options: {
         ? mcpText('Stopping it. What it already changed stays; the person can undo that turn in Locust.')
         : mcpText('Locust could not stop it from here. The person can stop it in Locust.', true)
     }
+    if (name === 'answer_question') {
+      if (!text(args.conversation_id)) return mcpText('Give a conversation id from start_conversation or list_conversations.', true)
+      const id = args.conversation_id
+      if (starting.has(id)) return mcpText('Still working: starting the next turn. Nothing was sent.', true)
+      starting.add(id)
+      try {
+        const mission = await lookup(id)
+        if (mission === undefined) return mcpText('That conversation could not be read from the local ledger. Use an id returned by this server.', true)
+        if (options.live(mission.missionId)) return mcpText('It is still working, so there is no question to answer yet. read_reply first. Nothing was sent.', true)
+        const asked = questionOf(mission)
+        if (asked === undefined) return mcpText('Its newest answer asks no question with choices. Use send_message to reply in words. Nothing was sent.', true)
+        const given = args.choice
+        const option = typeof given === 'number' && Number.isInteger(given)
+          ? asked.options[given - 1]
+          : typeof given === 'string' ? asked.options.find(one => one.label.toLowerCase() === given.trim().toLowerCase()) : undefined
+        if (option === undefined) return mcpText(`Choose one of: ${asked.options.map((one, index) => `${index + 1} ${one.label}`).join('; ')}. Nothing was sent.`, true)
+        const owner = await options.owner(mission.missionId)
+        // The words a press on the card sends (decisionReply), as the next turn: the thread shows it as the answer given.
+        return await started({ prompt: decisionReply(option), ...(owner === undefined ? {} : { teammateId: owner }), followUpOf: mission.missionId }, id, {}, mission)
+      } finally { starting.delete(id) }
+    }
     if (name === 'send_message' || name === 'read_reply') {
       if (!text(args.conversation_id)) return mcpText('Give a conversation id returned by start_conversation.', true)
       const id = args.conversation_id
@@ -459,11 +503,8 @@ export function createLocustMcpTools(options: {
         if (name === 'send_message') {
           if (!text(args.message, 8_000)) return mcpText('Give a message of up to 8,000 characters. Nothing was sent.', true)
           const owner = await options.owner(mission.missionId)
-          // A conversation started without a teammate never had one (16 Nov: "no longer" sent Colin looking for one
-          // that had gone). An app works as a teammate, in the mode the person set for it, so it stops here either way.
-          if (owner === undefined) return mcpText(NO_TEAMMATE, true)
-          // Keep the claim until startup settles, including the saved-mode lookup.
-          return await started({ prompt: args.message, teammateId: owner, followUpOf: mission.missionId }, id, args, mission)
+          // Keep the claim until startup settles, including the saved-mode lookup. No teammate: the conversation's own.
+          return await started({ prompt: args.message, ...(owner === undefined ? {} : { teammateId: owner }), followUpOf: mission.missionId }, id, args, mission)
         }
         return withStatus(answerOf(mission), mission)
       } finally { if (name === 'send_message') starting.delete(id) }

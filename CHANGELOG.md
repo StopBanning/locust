@@ -11,14 +11,18 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
-## 0.877.2 - 2026-11-16
+## 0.878.0 - 2026-11-17
 
-### Fixed
+### New
 
-- **An app that cannot continue a conversation says why.** A conversation started without a teammate, or whose
-  teammate was removed, cannot be continued by an app (an app works as a teammate). It said the conversation "no longer
-  has a teammate", which sent you looking for one that had gone; it now says the conversation was started without one
-  or lost it, and to continue it in Locust's window. The phone's Send says the same.
+- **Apps can carry on any of your conversations, and answer its questions.** While "Let apps see your conversations"
+  is on, an app connected to Locust (the Claude app, Codex, your phone's chat apps) can now continue a conversation you
+  started without a teammate, on that conversation's own AI agent and model. It used to be told to leave it to you. When
+  a turn ends on a question with choices, the app is given the question and its options and can pick one; the turn
+  after it reads exactly as if you had pressed that option. It still runs in Ask unless you turned on "Use each
+  teammate's own mode", and an approval to run a command or change a file is still answered only by you, in Locust.
+- **Your phone continues those conversations too.** Send on the phone carries on a conversation with no teammate as the
+  window would, instead of asking you to go to the computer.
 
 ## 0.877.1 - 2026-11-16
 

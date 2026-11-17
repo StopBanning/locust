@@ -87,7 +87,7 @@ export function LocustMcpSettings({ heading, api = typeof window === 'undefined'
       <div className="lc-settingline__text">
         <h3 className="lc-settings__heading">Let apps see your conversations</h3>
         <p className="lc-settings__lede">{state.conversations === true
-          ? 'On. An app can list, read, continue and stop your conversations in this folder, and carry one whose plan ran out on to another AI agent, by the same rules as its own: no higher mode, and cards answered only here.'
+          ? 'On. An app can list, read, continue and stop your conversations in this folder, with a teammate or without one, answer a question one asks you with choices, and carry one whose plan ran out on to another AI agent, by the same rules as its own: no higher mode, and approvals answered only here.'
           : 'Off. An app sees only the conversations it started. A turn it started that runs out can still be carried on to another AI agent.'}</p>
       </div>
       <button type="button" className={`lc-switch${state.conversations === true ? ' is-on' : ''}`} role="switch" aria-label="Let apps see your conversations" aria-checked={state.conversations === true} disabled={busy || api?.setConversations === undefined} onClick={() => { void toggleConversations() }}><span /></button>
