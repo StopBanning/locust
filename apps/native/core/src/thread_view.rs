@@ -239,3 +239,98 @@ mod renderer_newest_tests {
         assert_eq!(first_earlier_turn_shown(&sizes, EARLIER_ROWS_SHOWN * 4), 0);
     }
 }
+
+/// Folder hover copy. Lexical paths only: no directory or credential reads.
+pub fn folder_help(
+    folder: Option<&str>,
+    home: Option<&str>,
+    windows: bool,
+    system: Option<&str>,
+) -> String {
+    let Some(folder) = folder else {
+        return "No folder chosen. Every teammate works inside one project folder.".into();
+    };
+    let normalize = |path: &str| -> Option<String> {
+        let path = if windows {
+            path.replace('\\', "/").to_lowercase()
+        } else {
+            path.to_owned()
+        };
+        if !path.starts_with('/')
+            && !(windows
+                && path.as_bytes().get(1) == Some(&b':')
+                && path.as_bytes().get(2) == Some(&b'/'))
+        {
+            return None;
+        }
+        let mut parts = Vec::new();
+        for part in path.split('/') {
+            match part {
+                "" | "." => {}
+                ".." => {
+                    if parts.last().is_some_and(|p: &&str| !p.ends_with(':')) {
+                        parts.pop();
+                    }
+                }
+                _ => parts.push(part),
+            }
+        }
+        Some(parts.join("/"))
+    };
+    let inside = |candidate: &str, directory: &str| {
+        candidate == directory
+            || candidate.starts_with(&format!("{directory}/"))
+            || directory.is_empty()
+    };
+    let caution = normalize(folder).and_then(|path| {
+        if windows
+            && system
+                .and_then(normalize)
+                .is_some_and(|sys| inside(&path, &sys))
+        {
+            return Some("Windows' own folder".to_owned());
+        }
+        let home = normalize(home?)?;
+        if inside(&home, &path) {
+            return Some("your home folder".to_owned());
+        }
+        [
+            ".claude", ".codex", ".cursor", ".gemini", ".copilot", ".config",
+        ]
+        .into_iter()
+        .find(|name| inside(&path, &format!("{home}/{name}")))
+        .map(|name| format!("{name}, where the agents keep their own settings"))
+    });
+    let mut help = format!("New conversations work in {folder}");
+    if let Some(why) = caution {
+        help.push_str(&format!(". This is {why}: a teammate here reads it as its project, sign-in files included. A project folder of its own is the safer place."));
+    }
+    help
+}
+
+#[cfg(test)]
+mod folder_help_tests {
+    use super::*;
+    #[test]
+    fn cautions_are_lexical_bounded_and_follow_the_paths_platform() {
+        let why = |path: &str, windows| {
+            folder_help(
+                Some(path),
+                Some("/home/person"),
+                windows,
+                Some("C:/Windows"),
+            )
+            .contains("sign-in files")
+        };
+        assert!(why("/home/person/.claude/skills", false));
+        assert!(!why("/home/person/.claude-other", false));
+        assert!(!why("/home/person/.Claude", false));
+        assert!(why("/HOME/PERSON/.Claude", true));
+        assert!(!why("/home/person/.claude/../shop", false));
+        assert!(why("/home", false));
+        assert!(why("/", false));
+        assert!(why("C:/Windows/System32", true));
+        assert!(!why("C:/Windows-old", true));
+        assert!(!why("relative/.claude", false));
+    }
+}

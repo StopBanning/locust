@@ -860,13 +860,9 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
         let mode_now = s.composer_mode.clone().unwrap_or_else(|| teammate.runs_in.clone());
         let mode_word = locust_core::mode_facts::fact(&mode_now).chip;
         // Where the turn will run, as native::folder_for chooses: the teammate's own folder, else the one Locust has open.
-        let folder_word = teammate
-            .folder
-            .as_deref()
-            .or(s.home.folder_path.as_deref())
-            .and_then(|f| f.trim_end_matches('/').rsplit('/').next())
-            .filter(|f| !f.is_empty())
-            .unwrap_or("No folder");
+        let folder = teammate.folder.as_deref().or(s.home.folder_path.as_deref());
+        let home = std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE")).ok();
+        let system = std::env::var("SystemRoot").ok();
         let footer = row()
             .w_full()
             .center_y()
@@ -883,16 +879,8 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
                     }),
             )
             .child(
-                crate::look::controls::composer_chip(
-                    &l,
-                    Some(crate::look::controls::glyph(&l, &crate::look::icons::FOLDER, 13.0, Some(l.c("text-muted")))),
-                    folder_word,
-                    false,
-                )
-                .key("folder-chip")
-                .max_w(260.0)
-                .role("button")
-                .on_press(|s: &mut State| s.reference_menu = !s.reference_menu),
+                folder_chip(&l, folder, home.as_deref(), cfg!(windows), system.as_deref())
+                    .on_press(|s: &mut State| s.reference_menu = !s.reference_menu),
             )
             .child(crate::compare_view::composer_mode_chip(s, &l))
             .child(rune::spacer())
@@ -1423,4 +1411,117 @@ fn plus_menu(s: &State, l: &crate::look::controls::Look, teammate: &Teammate) ->
             s.plus_menu = false;
             crate::home_panel::choose_folder(tx);
         }))
+}
+
+/// Settings folders retain the ordinary chip treatment; the hover explains why.
+fn folder_chip(
+    l: &crate::look::controls::Look,
+    folder: Option<&str>,
+    home: Option<&str>,
+    windows: bool,
+    system: Option<&str>,
+) -> El {
+    let word = folder
+        .map(locust_core::folders::folder_name)
+        .unwrap_or_else(|| "No folder".into());
+    crate::look::controls::composer_chip(
+        l,
+        Some(crate::look::controls::glyph(
+            l,
+            &crate::look::icons::FOLDER,
+            13.0,
+            Some(l.c("text-muted")),
+        )),
+        &word,
+        false,
+    )
+    .key("folder-chip")
+    .max_w(260.0)
+    .role("button")
+    .help(locust_core::thread_view::folder_help(
+        folder, home, windows, system,
+    ))
+}
+
+#[cfg(test)]
+mod renderer_folder_chip_tests {
+    use super::*;
+    fn hover(path: &str) -> rune::Runtime<String> {
+        let path = path.to_owned();
+        let mut rt = rune::Runtime::new(
+            path,
+            |path, _| {
+                col().padding(24.0).child(folder_chip(
+                    &crate::look::controls::Look::new(true),
+                    Some(path),
+                    Some(r"C:\Users\person"),
+                    true,
+                    None,
+                ))
+            },
+            (1000., 500.),
+            rune::Env::new(true, 1.),
+        );
+        rt.frame(0.);
+        let (x, y) = rt.find("folder-chip").unwrap();
+        rt.pointer_move(x, y);
+        for _ in 0..100 {
+            rt.frame(0.016);
+        }
+        rt
+    }
+    fn help_words(tree: &serde_json::Value) -> String {
+        match tree {
+            serde_json::Value::String(word) => word.clone(),
+            serde_json::Value::Array(items) => items.iter().map(help_words).collect::<Vec<_>>().join("\n"),
+            serde_json::Value::Object(items) => items.values().map(help_words).collect::<Vec<_>>().join("\n"),
+            _ => String::new(),
+        }
+    }
+    fn words(rt: &rune::Runtime<String>) -> String {
+        help_words(&rt.accessibility_json())
+    }
+    #[test]
+    fn says_why_in_its_hover_for_a_folder_like_claude_in_the_chips_own_colour() {
+        let rt = hover(r"C:\Users\person\.claude");
+        assert!(words(&rt).contains("This is .claude, where the agents keep their own settings: a teammate here reads it as its project, sign-in files included."), "{}", words(&rt));
+        assert!(!words(&rt).contains("Start this conversation"));
+    }
+    #[test]
+    fn the_thread_attaches_the_warning_to_its_effective_folder_chip() {
+        let home = std::env::var("HOME")
+            .or_else(|_| std::env::var("USERPROFILE"))
+            .unwrap();
+        let path = format!("{home}/.claude");
+        let mut s = State::default();
+        crate::team_scene(&mut s);
+        for mate in &mut s.teammates {
+            mate.folder = None;
+        }
+        s.home.folder_path = Some(path.clone());
+        let mut rt = rune::Runtime::new(
+            s,
+            |s, _| thread_view(s, &Palette::new(true)),
+            (1200., 900.),
+            rune::Env::new(true, 1.),
+        );
+        rt.frame(0.);
+        let (x, y) = rt.find("folder-chip").unwrap();
+        rt.pointer_move(x, y);
+        for _ in 0..100 {
+            rt.frame(0.016);
+        }
+        let words = help_words(&rt.accessibility_json());
+        assert!(words.contains(&format!("New conversations work in {path}. This is .claude,")), "{words}");
+    }
+    #[test]
+    fn stays_as_it_was_for_a_project_folder_control() {
+        let rt = hover(r"C:\Users\person\Documents\shop");
+        assert!(
+            words(&rt).contains(r"New conversations work in C:\Users\person\Documents\shop"),
+            "{}",
+            words(&rt)
+        );
+        assert!(!words(&rt).contains("sign-in files"));
+    }
 }
