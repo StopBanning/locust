@@ -30,6 +30,9 @@ const stoppedReason = (turn: PublicRecoveredMission): CarryOnReason | undefined 
 /** The longest read_reply waits for an answer when asked to. */
 export const MCP_WAIT_LIMIT_S = 20
 
+/** Why an app cannot continue a conversation with no teammate: started without one, or its teammate removed. */
+export const NO_TEAMMATE = "That conversation has no teammate in Locust: it was started without one, or its teammate was removed. An app continues a teammate's conversation only, so continue this one in Locust's window. Nothing was sent."
+
 export function createLocustMcpTools(options: {
   readonly teammates: () => Promise<TeammateListResponse>
   readonly busy: (teammateId: string) => boolean
@@ -456,7 +459,9 @@ export function createLocustMcpTools(options: {
         if (name === 'send_message') {
           if (!text(args.message, 8_000)) return mcpText('Give a message of up to 8,000 characters. Nothing was sent.', true)
           const owner = await options.owner(mission.missionId)
-          if (owner === undefined) return mcpText('That conversation no longer has a teammate. Nothing was sent.', true)
+          // A conversation started without a teammate never had one (16 Nov: "no longer" sent Colin looking for one
+          // that had gone). An app works as a teammate, in the mode the person set for it, so it stops here either way.
+          if (owner === undefined) return mcpText(NO_TEAMMATE, true)
           // Keep the claim until startup settles, including the saved-mode lookup.
           return await started({ prompt: args.message, teammateId: owner, followUpOf: mission.missionId }, id, args, mission)
         }
