@@ -73,9 +73,86 @@ pub fn append_note_with_level(path: &std::path::Path, level: &str, code: &str, m
     file.sync_all()
 }
 
+/// mission-store's `requireText`: nonblank, at most `maximum` UTF-16 units, no NUL.
+fn require_text(value: &Value, label: &str, maximum: usize) -> io::Result<()> {
+    match value.as_str() {
+        Some(s) if !s.trim().is_empty() && s.encode_utf16().count() <= maximum && !s.contains('\0') => Ok(()),
+        _ => Err(io::Error::other(format!("{label} is invalid"))),
+    }
+}
+/// mission-store's `requireTimestamp`: text of at most 128 that reads as a time.
+fn require_timestamp(value: &Value, label: &str) -> io::Result<()> {
+    require_text(value, label, 128)?;
+    match chrono::DateTime::parse_from_rfc3339(value.as_str().unwrap_or_default()) {
+        Ok(_) => Ok(()),
+        Err(_) => Err(io::Error::other(format!("{label} is invalid"))),
+    }
+}
+/// The most lines, and the longest line, a check result's record holds (mission-store's `MAX_EDIT_CHECK_LINES`,
+/// `MAX_EDIT_CHECK_LINE_LENGTH`). The checker's own bound (`edit_check::MAX_NEW_LINES`, 30 by 300) is tighter.
+pub const EDIT_CHECK_LINES: usize = 60;
+pub const EDIT_CHECK_LINE: usize = 500;
+fn utf16_cut(text: &str, limit: usize) -> String {
+    let mut units = 0;
+    text.chars().take_while(|c| { units += c.len_utf16(); units <= limit }).collect()
+}
+/// mission-store's `validateEditCheck`: the writer refuses what the reader would.
+pub fn validate_edit_check(check: &Value) -> io::Result<()> {
+    if !matches!(check["outcome"].as_str(), Some("passed" | "failed" | "timed-out" | "could-not-run")) {
+        return Err(io::Error::other("Edit check outcome is invalid"));
+    }
+    require_text(&check["command"], "Edit check command", 500)?;
+    let Some(lines) = check["newLines"].as_array().filter(|l| l.len() <= EDIT_CHECK_LINES) else {
+        return Err(io::Error::other("Edit check lines are invalid"));
+    };
+    if !lines.iter().all(|l| l.as_str().is_some_and(|l| l.encode_utf16().count() <= EDIT_CHECK_LINE)) {
+        return Err(io::Error::other("Edit check line is invalid"));
+    }
+    if !check["unchanged"].is_boolean() || !check["first"].is_boolean() {
+        return Err(io::Error::other("Edit check flags are invalid"));
+    }
+    require_timestamp(&check["occurredAt"], "Edit check timestamp")
+}
+/// mission-store's `boundedEditCheck`: a check result cut to what the record holds, the first lines each at most a
+/// line's worth, so the host never writes one the reader would refuse.
+pub fn bounded_edit_check(check: &Value) -> Value {
+    let lines: Vec<String> = check["newLines"].as_array().into_iter().flatten().take(EDIT_CHECK_LINES)
+        .map(|l| utf16_cut(l.as_str().unwrap_or_default(), EDIT_CHECK_LINE)).collect();
+    json!({
+        "command": utf16_cut(check["command"].as_str().unwrap_or_default(), 500),
+        "outcome": check["outcome"],
+        "newLines": lines,
+        "unchanged": check["unchanged"],
+        "first": check["first"],
+        "occurredAt": check["occurredAt"],
+    })
+}
+/// mission-store's `validateApproval`: a card's answer the reader would refuse is never written.
+pub fn validate_approval(approval: &Value) -> io::Result<()> {
+    require_text(&approval["approvalId"], "Approval id", 200)?;
+    if !matches!(approval["kind"].as_str(), Some("command" | "file-change" | "question" | "connector")) {
+        return Err(io::Error::other("Approval kind is invalid"));
+    }
+    require_text(&approval["asked"], "Approval question", 2_000)?;
+    if !matches!(approval["answer"].as_str(), Some("allowed" | "allowed-always" | "denied" | "answered")) {
+        return Err(io::Error::other("Approval answer is invalid"));
+    }
+    if !matches!(approval["by"].as_str(), Some("card" | "card-saving-a-rule" | "saved-rule" | "earlier-always")) {
+        return Err(io::Error::other("Approval answerer is invalid"));
+    }
+    if let Some(words) = approval.get("words")
+        && !words.as_str().is_some_and(|w| w.encode_utf16().count() <= 1_000)
+    {
+        return Err(io::Error::other("Approval words are invalid"));
+    }
+    require_timestamp(&approval["askedAt"], "Approval asked timestamp")?;
+    require_timestamp(&approval["occurredAt"], "Approval timestamp")
+}
+
 /// A post-edit check result, appended to its turn's native ledger as `mission-store`'s `appendEditCheck` appends it.
 pub fn append_edit_check(path: &std::path::Path, check: &Value) -> io::Result<()> {
     use std::io::Write;
+    validate_edit_check(check)?;
     let text = std::fs::read_to_string(path)?;
     if !text.is_empty() && !text.ends_with('\n') {
         return Err(io::Error::other("Ledger does not end on a whole record"));
@@ -336,6 +413,7 @@ impl LedgerWriter {
     }
     /// `mission-store` appendApproval: a card the person answered (schema ≥ 20).
     pub fn append_approval(&mut self, approval: &Value) -> io::Result<()> {
+        validate_approval(approval)?;
         let ledger = self.ledger_seq;
         let at = approval["occurredAt"]
             .as_str()

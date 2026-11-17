@@ -168,3 +168,36 @@ and its restore failed (`killpg` refused): break 6 was left applied and put back
 background. Four survived at first (a title equal to the name, the earlier title's shell word, `execute` as a shell
 word, the shell-name check; the last had timed out on the lock): each has a test now that catches it by name. One left:
 `Some(t) != open.title` in the retitle rule, which only stops a title being replaced by itself (no row can differ).
+
+## Batch 7: mission-store's record files and the checkpoint (commit below)
+Rust's counterpart of Electron's `getMission` is `mission_export::recover_mission_from_path` (it says it matches
+`readLedgerFile`'s shape); the writers are `ledger_write`'s; Electron's `reconcileMission` is `carry_on::reconcile`.
+
+Partial (each row names what is not built):
+- `a-check-result-is-kept-with-its-turn` (5 of 6), `a-card-answered-is-kept-with-its-turn` (4 of 9),
+  `a-helpers-calls-are-kept-as-its-own` (2 of 3): `mission_store_records_tests.rs`, plus 3 of Rust's own.
+- `checkpoint` (7 of 12, one in half): `checkpoint_reconcile_tests.rs`.
+Does not apply: `the-home-list-bounds-its-reads` (Node promise pools; Rust lists one file at a time).
+Left waiting, with a note: `a-long-field-is-kept-shortened` (no ledger-side fit), `a-busy-file-does-not-end-a-run`
+(no retry of a busy open), `unreadable-count` (the list has no such count), `the-storage-report-reads-only-what-changed`
+(no per-file cache).
+
+Bugs fixed in `ledger_write.rs`: the writers wrote what the reader refuses. `append_edit_check` wrote an outcome
+nobody defined and any number of lines (`ledger::decode` then dropped the record); `append_approval` wrote any answer
+and any answerer. They now run mission-store's `validateEditCheck` and `validateApproval` first
+(`ledger_write::validate_edit_check`, `validate_approval`, with `requireText` and `requireTimestamp`), and
+`bounded_edit_check` is `boundedEditCheck` (60 lines of 500, the command 500: the record's bound, wider than the
+checker's own 30 by 300). A timestamp is read as RFC 3339, narrower than JavaScript's `Date.parse`.
+
+Found, not fixed (the readers are in `ledger.rs` and `mission_export.rs`, which the maxlane lane is changing; they
+belong with `schema-compat`): `recover_mission_from_path` reads every record leniently, so a check result in a v16 file,
+a card in a v19 file and an earlier Always in a v20 file come back as kept, where Electron reads each as damage
+(`invalid-record`). `ledger::decode` checks a checkpoint's field types only: it keeps one for another mission or run,
+one that says `safe` while listing an open action, a malformed digest, epoch 0, an unknown reason or safety, and an epoch
+out of order, each of which Electron's `parsedCheckpoint` refuses.
+
+Breaks: 19 on the writers, then 9 on `reconcile` and 1 rerun (`~/work/scratch/opus2/b7-breaks.log`, `b7b-breaks.log`).
+All caught by name but the command's cut in `bounded_edit_check`, which no Electron case reaches; Rust's
+`a_check_results_long_command_is_cut_to_what_the_reader_accepts` catches it now. The on-disk checkpoint tests read the
+file the way `native::turn_records` does, copied into the test (it finds its file through the app's store), so a break in
+`turn_records` itself would not be caught by them.

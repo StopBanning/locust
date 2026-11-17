@@ -347,6 +347,10 @@ mod torn_tag_tests;
 mod effort_choices_tests;
 #[cfg(test)]
 mod every_runtime_ledger_tests;
+#[cfg(test)]
+mod mission_store_records_tests;
+#[cfg(test)]
+mod checkpoint_reconcile_tests;
 pub mod cover_activity;
 
 #[cfg(test)]
