@@ -153,19 +153,20 @@ fn turns_a_question_into_the_card_the_app_already_has_and_answers_with_the_decis
 fn names_the_call_that_asks_so_a_helpers_card_can_name_the_helper() {
     let host = host();
     let bridge = register(&host, "m1", "C:/work");
+    // One call at a time: two asks sent together could wait on each other under load (16 Nov, a 60 s timeout in a
+    // full nextest run), and the rule is about each call's id, not about two at once.
     let asked = ask(&bridge, json!({"tool_name": "Bash", "input": {"command": "ls"}, "tool_use_id": "toolu_0134dcHNk1GH8kL57hFJ7THL"}));
-    let first = card(&host.channel, &[]);
-    let odd = ask(&bridge, json!({"tool_name": "Bash", "input": {"command": "pwd"}, "tool_use_id": "not an id; rm -rf"}));
-    let second = card(&host.channel, std::slice::from_ref(&first.approval_id));
-    let (ls, pwd) = if first.detail.contains("ls") { (first, second) } else { (second, first) };
+    let ls = card(&host.channel, &[]);
+    assert_eq!(ls.detail, "ls");
     assert_eq!(tool_use_of(&ls.approval_id).as_deref(), Some("toolu_0134dcHNk1GH8kL57hFJ7THL"));
+    decide(&host.channel, &ls, Decision::Deny, None).unwrap();
+    answer(asked);
+    let odd = ask(&bridge, json!({"tool_name": "Bash", "input": {"command": "pwd"}, "tool_use_id": "not an id; rm -rf"}));
+    let pwd = card(&host.channel, std::slice::from_ref(&ls.approval_id));
     // Anything that is not an id is not carried.
     assert_eq!(pwd.detail, "pwd");
     assert_eq!(tool_use_of(&pwd.approval_id), None);
-    for c in [&ls, &pwd] {
-        decide(&host.channel, c, Decision::Deny, None).unwrap();
-    }
-    answer(asked);
+    decide(&host.channel, &pwd, Decision::Deny, None).unwrap();
     answer(odd);
 }
 
