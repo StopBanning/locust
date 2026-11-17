@@ -70,6 +70,9 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
         messages
     };
     messages = emit_turn_peers(messages, hidden_turns, true);
+    // One face per run of speech, Copy once under the turn's last reply (Thread.tsx continuesSpeech, lastSpeech).
+    let said = |i: usize| matches!(&items[i], ledger::Item::Assistant { text, .. } if !locust_core::protocol_tags::shown_text(text).is_empty());
+    let last_speech = locust_core::speech_runs::last_speech(items, turn_running(s), said);
     for (index, item) in items.iter().enumerate().skip(first_item) {
         for marker in markers.iter().filter(|m| m.before_item == index) {
             messages = messages.child(time_marker::view(marker, p));
@@ -342,12 +345,12 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                     continue;
                 }
                 let scope = format!("{conversation}-{index}-{item_id}");
-                let mut msg = col()
-                    .w_full()
-                    .gap(8.0)
-                    .child(row().gap(8.0).center_y()
+                let mut msg = col().w_full().gap(8.0);
+                if !locust_core::speech_runs::continues_speech(items, index, said) {
+                    msg = msg.child(row().gap(8.0).center_y()
                         .child(thread_face(s, &key, 24.0, p))
                         .child(text(name).font(type_::LABEL).color(p.muted)));
+                }
                 if !shown.is_empty() {
                     let ask_scope = scope.clone();
                     let reply_box = col()
@@ -367,7 +370,7 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                                 }
                             }
                         })
-                        .child(reply_actions::reply(s, &shown, locust_core::thread_view::streaming(*r#final, running), p));
+                        .child(reply_actions::reply_with_copy(s, &shown, locust_core::thread_view::streaming(*r#final, running), last_speech == Some(index), p));
                     msg = msg.child(reply_box);
                     if let Some(chips) = pull_request_chip::link_chips_for_text(s, &shown, p) {
                         msg = msg.child(chips);
@@ -698,6 +701,10 @@ fn emit_group_lines_at(
     }
     messages
 }
+
+#[cfg(test)]
+#[path = "speech_run_tests.rs"]
+mod speech_run_tests;
 
 #[cfg(test)]
 mod tests {

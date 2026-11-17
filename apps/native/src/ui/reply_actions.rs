@@ -256,6 +256,11 @@ fn format_workbook(book: &crate::office::Workbook) -> String {
 
 /// Lost bytes belong to the runtime's voice. Code samples and inline mentions stay prose/code.
 pub(super) fn reply(s: &State, body: &str, live: bool, p: &Palette) -> El {
+    reply_with_copy(s, body, live, true, p)
+}
+
+/// A reply, with Copy under it only when `copy` (the turn's last reply, `speech_runs::last_speech`).
+pub(super) fn reply_with_copy(s: &State, body: &str, live: bool, copy: bool, p: &Palette) -> El {
     let mut out = col().w_full().gap(8.0);
     let mut start = 0;
     let mut offset = 0;
@@ -277,7 +282,7 @@ pub(super) fn reply(s: &State, body: &str, live: bool, p: &Palette) -> El {
             .strip_prefix("<truncated ").and_then(|t| t.strip_suffix(" bytes>"))
             .filter(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit())) {
             if start < offset {
-                out = out.child(reply_markdown(s, &body[start..offset], live, p));
+                out = out.child(reply_markdown(s, &body[start..offset], live, false, p));
             }
             out = out.child(text(format!("{bytes} bytes the runtime did not keep"))
                 .key(format!("runtime-gap-{offset}"))
@@ -287,20 +292,24 @@ pub(super) fn reply(s: &State, body: &str, live: bool, p: &Palette) -> El {
         offset += line.len();
     }
     if start == 0 {
-        return reply_markdown(s, body, live, p);
+        return reply_markdown(s, body, live, copy, p);
     }
     if start < body.len() {
-        out = out.child(reply_markdown(s, &body[start..], live, p));
+        out = out.child(reply_markdown(s, &body[start..], live, false, p));
+    }
+    // A reply with a gap in it still copies whole, once.
+    if copy {
+        out = out.child(row().justify_end().child(copy_button(s.copy_feedback.as_ref(), body.into(), p)));
     }
     out
 }
 
 #[cfg(test)]
 pub(super) fn reply_markdown_for_tests(s: &State, body: &str, p: &Palette) -> El {
-    reply_markdown(s, body, false, p)
+    reply_markdown(s, body, false, true, p)
 }
 
-fn reply_markdown(s: &State, body: &str, live: bool, p: &Palette) -> El {
+fn reply_markdown(s: &State, body: &str, live: bool, copy: bool, p: &Palette) -> El {
     let frame_palette = Palette::new(p.dark);
     let feedback = s.copy_feedback.clone();
     let prepared = crate::diagram::prepare_reply_markdown(body);
@@ -492,6 +501,9 @@ fn reply_markdown(s: &State, body: &str, live: bool, p: &Palette) -> El {
                 .on_press(move |s: &mut State| open_file(s, target.clone())),
             );
         }
+    }
+    if !copy {
+        return out;
     }
     out.child(
         row()
