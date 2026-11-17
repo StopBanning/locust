@@ -10,6 +10,18 @@ import subprocess
 import sys
 
 CONTROLS = {
+    "glyph-stretch": (
+        "src/look/bots.rs",
+        '                gpos[0] + (pt[0] - gpos[0]) * gm.sx,\n                gpos[1] + (pt[1] - gpos[1]) * gm.sy,',
+        '                pt[0],\n                pt[1],',
+        "the_painter_stretches_the_glyph_as_well_as_moving_it",
+    ),
+    "glyph-cursor": (
+        "src/look/bots.rs",
+        '        let gm = glyph_motion(&pair_str, idx, s_seconds);\n        if !gm.shown {\n            continue;\n        }\n        let gpos',
+        '        let gm = glyph_motion(&pair_str, idx, s_seconds);\n        let gpos',
+        "at_work_the_cursor_blinks_and_the_prompt_stays_lit",
+    ),
     "folder-answer-target": (
         "src/ui/folder_confirmation.rs",
         '(question.teammate == mate && question.folder == folder).then_some(question)',

@@ -2283,3 +2283,48 @@ Additional native cases (folder_confirmation::tests):
   version, changelog, protected renderer/runtime file or HANDOFF change.
   Final tracked tree is committed; the original untracked HANDOFF files stay.
   This is a completed confirmation section, not a completed renderer handoff.
+
+### Renderer-20 — drawn glyph eyes (in progress)
+
+- Arrival tracked tree clean; picker and first-send confirmation sections already
+  committed. Round 4 now grants core/src/face_* and src/look/*, except puppets.
+- Read the Electron test and Bot.tsx plus native bot_rig/bot_spec/painter.
+  Added one Rust test per each of the 19 Electron cases in glyph_eyes_tests.rs.
+  Tests use the native vector output in place of Canvas interception.
+- First write used a root-relative path while the command ran in apps/native;
+  it changed no files, but launched an old 3287-case baseline. A second run
+  queued before that was noticed and shared its log; this log is not accepted
+  as evidence. Subsequent runs must use distinct logs and wait sequentially.
+- Native draw_screen_light currently ignores GlyphMotion.shown, sx and sy.
+  The new cursor test exercises the painter as well as the motion helper;
+  wait for a named assertion before fixing it. No carried row yet.
+- Initial new-case run observed 18 named PASS lines and the intended
+  at_work_the_cursor_blinks_and_the_prompt_stays_lit assertion failure.
+  No other new case failed. Source now honors visibility and per-eye stretch
+  in both normal and power-on drawing; an additional geometric stretch test
+  checks that the painter consumes the motion, beyond testing the formula.
+- Fixed debug run is waiting on native-engine's release suite. Final source
+  formatting and the extra stretch assertion postdate that run's start; the
+  controls and restored release suite must verify the final source.
+- Next ownership boundary: the waiting call/waiting/app-origin sidebar rows
+  need src/ui/sidebar.rs (and likely shared conversation-list/state support).
+  Round 4 lists neither sidebar.rs nor conversation_list.rs as owned files.
+  No edits made there. Ask for that scope after committing the glyph section.
+- renderer-20-fixed-debug.log: exit 0, 3307 passed, 20 real-agent tests
+  skipped. All 19 carried-case candidates plus the painter stretch test
+  observed on exact PASS lines. The final transform test was then strengthened
+  to inspect actual draw_bot_shape output at yaw 0.3 and pitch 0.2; release
+  must verify this final test. No production change after that green debug run.
+- Both controls exited 0 and restored bots.rs byte for byte. Cursor control:
+  2613 core passed, 693 window passed, exactly the cursor assertion failed.
+  Stretch control: 2613 core passed, 693 window passed, exactly the additional
+  stretch assertion failed. Logs: renderer-control-glyph-{cursor,stretch}.log;
+  receipts: renderer-20-{cursor,stretch}-receipt.log. No unrelated failure.
+- Post-control AST parsing and anchor audit passed: each original anchor once,
+  neither break present. Restored release: renderer-20-release.log, running.
+- Native rendering uses a single typed body-space mapper for the front body,
+  visor and glyphs, not Electron's intercepted Canvas clip state. The original
+  front_plane numeric contract is also tested with Electron's exact values.
+- Limits: headless vector output/logic only. No live or packaged window,
+  visual/pixel comparison, real agent call, phone session, Electron/JS gate,
+  other OS, performance claim, or puppet change. Release suite/build pending.
