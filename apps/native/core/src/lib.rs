@@ -141,6 +141,8 @@ pub mod teammate_setup;
 pub mod teammate_skills;
 pub mod terminal;
 pub mod time_marker;
+#[cfg(test)]
+mod rail_clock_tests;
 pub mod trash;
 pub mod tune;
 pub mod tune_lesson_store;
