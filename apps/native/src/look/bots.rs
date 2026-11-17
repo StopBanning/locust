@@ -600,6 +600,9 @@ fn draw_screen_light(
                     .enumerate()
             {
                 let gm = glyph_motion(&pair_str, idx, s_seconds);
+                if !gm.shown {
+                    continue;
+                }
                 let gpos = [pos[0] + gm.dx * eye_scale, pos[1] + gm.dy * eye_scale];
                 s = paint_glyph_at(
                     s,
@@ -608,7 +611,10 @@ fn draw_screen_light(
                     gpos[1],
                     eye_scale,
                     (open * (1.0 - shut) * phase_eyes).max(0.08),
-                    map_pt,
+                    &|pt| map_pt([
+                        gpos[0] + (pt[0] - gpos[0]) * gm.sx,
+                        gpos[1] + (pt[1] - gpos[1]) * gm.sy,
+                    ]),
                     stroke_scale,
                     lit_col,
                     glow_col,
@@ -625,6 +631,9 @@ fn draw_screen_light(
             .enumerate()
     {
         let gm = glyph_motion(&pair_str, idx, s_seconds);
+        if !gm.shown {
+            continue;
+        }
         let gpos = [pos[0] + gm.dx * eye_scale, pos[1] + gm.dy * eye_scale];
         let eff_open = (open * (1.0 - shut * 0.9)).max(0.08);
         s = paint_glyph_at(
@@ -634,7 +643,10 @@ fn draw_screen_light(
             gpos[1],
             eye_scale,
             eff_open,
-            map_pt,
+            &|pt| map_pt([
+                gpos[0] + (pt[0] - gpos[0]) * gm.sx,
+                gpos[1] + (pt[1] - gpos[1]) * gm.sy,
+            ]),
             stroke_scale,
             lit_col,
             glow_col,
@@ -1402,3 +1414,7 @@ mod presence_tests {
         assert_ne!(presence_color(PresenceDot::Waiting, false), presence_color(PresenceDot::Blocked, false));
     }
 }
+
+#[cfg(test)]
+#[path = "glyph_eyes_tests.rs"]
+mod glyph_eyes_tests;
