@@ -17,7 +17,7 @@ apps/desktop/src/main/a-called-link-is-closed-when-its-record-cannot-be-used.tes
 apps/desktop/src/main/a-called-link-review.test.ts		waiting		
 apps/desktop/src/main/a-called-link-starts-its-routine.test.ts	p11	does-not-apply		`main/a-called-link-starts-its-routine.test.ts` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.
 apps/desktop/src/main/a-card-answer-is-recorded-past-64-open-cards.test.ts		waiting		
-apps/desktop/src/main/a-carried-conversation-keeps-its-route-and-reports-its-status.test.ts		waiting		
+apps/desktop/src/main/a-carried-conversation-keeps-its-route-and-reports-its-status.test.ts		waiting		not in this branch's Electron tree: the file was added to apps/desktop/src/main after the branch was cut (it is in ~/work/locust)
 apps/desktop/src/main/a-change-is-walked-through.test.ts		waiting		
 apps/desktop/src/main/a-changed-memory-list-replaces-the-old-one.test.ts		waiting		
 apps/desktop/src/main/a-check-command-is-one-line.test.ts		waiting		
@@ -167,7 +167,7 @@ apps/desktop/src/main/a-phone-is-paired-by-its-code.test.ts		waiting
 apps/desktop/src/main/a-phone-pairs-and-asks-through-the-relay.test.ts		waiting		
 apps/desktop/src/main/a-phone-shows-an-answer-as-the-window-does.test.ts		waiting		
 apps/desktop/src/main/a-plain-folder-is-watched-too.test.ts		waiting		
-apps/desktop/src/main/a-plan-that-runs-out-is-carried-on.test.ts		waiting		
+apps/desktop/src/main/a-plan-that-runs-out-is-carried-on.test.ts	MAIN6	partial	core/src/plan_carry_on_tests.rs, core/src/native/plan_carry_on_tests.rs	8 of 11, and two halves: a plan ran out from what the agent said (not a warning, not a run that went on; interrupted still ran out, Stop did not), one press on the agent offered as a reply in its mode, never twice / never the agent that ran out / never a finished turn, approve-each never to an agent that cannot ask, a failed start pressed again, Without asking only with a pick and the switch on (the pick's model carried), the notes when it could not, the card's offer, the setting's agents. Halves: "only for a turn the person sent" is native's person_sent gate at the run's end, untested here; the record is v24 or later with its startedBy, but native's reader does not refuse a v23 carry-on nor its writer a starter naming no agent. Not carried: the order beside the limit toast (index.ts source check; native's toast is src/notify.rs)
 apps/desktop/src/main/a-planted-git-is-never-run.test.ts		waiting		not built: Rust sets no NoDefaultCurrentDirectoryInExePath for itself or its runs (Windows-only); the index.ts import-order case is Electron source text
 apps/desktop/src/main/a-plugged-in-computer-stays-awake-for-what-is-scheduled.test.ts	settings	carried	core/src/keep_awake.rs	standing AC-power hold + awake.json persistence
 apps/desktop/src/main/a-profile-backs-up-and-restores.test.ts	BACKUP	carried	core/src/profile_backup.rs, core/src/retention.rs tests	carried (Hydrogen; reviewed 12 Nov, see notes/BACKUP-NOTES.md)

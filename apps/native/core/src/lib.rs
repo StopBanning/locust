@@ -190,6 +190,9 @@ mod switch_brief_tests;
 mod provider_carry_on_tests;
 
 #[cfg(test)]
+mod plan_carry_on_tests;
+
+#[cfg(test)]
 mod mission_mode_tests;
 
 #[cfg(test)]

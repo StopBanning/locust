@@ -4,9 +4,14 @@
 use super::*;
 use crate::provider_carry_on_tests::{busy, offline, signed_out, tool};
 
-fn stopped(t: &Temp, id: &str, runtime: &str, events: &[Value]) {
+pub(super) fn stopped(t: &Temp, id: &str, runtime: &str, events: &[Value]) {
+    stopped_in(t, id, runtime, "accept-edits", events);
+}
+
+/// A stopped turn of `runtime` in `mode`, owned by the one teammate `team` writes.
+pub(super) fn stopped_in(t: &Temp, id: &str, runtime: &str, mode: &str, events: &[Value]) {
     let store = t.store();
-    let mut w = LedgerWriter::create_runtime_with(&store, id, "Fix it", "m", runtime, runtime, &[], None, &json!({"mode": "accept-edits", "sandbox": "workspace-write"})).unwrap();
+    let mut w = LedgerWriter::create_runtime_with(&store, id, "Fix it", "m", runtime, runtime, &[], None, &json!({"mode": mode, "sandbox": "workspace-write"})).unwrap();
     for e in events {
         let mut payload = e["payload"].clone();
         if e["type"] == "run.failed" {
@@ -22,21 +27,21 @@ fn stopped(t: &Temp, id: &str, runtime: &str, events: &[Value]) {
     crate::people::record_owner(&store, id, "tm_carry").unwrap();
 }
 
-fn team(t: &Temp, plan: Value) {
+pub(super) fn team(t: &Temp, plan: Value) {
     let work = t.0.join("work");
     fs::create_dir_all(&work).unwrap();
     t.store()
         .save_json(
             "teammates.json",
             &json!({"schemaVersion": 1, "teammates": [{"teammateId": "tm_carry", "name": "Carry", "role": "Custom", "hue": "lime",
-                "createdAt": "2026-11-12T00:00:00.000Z", "folder": work.to_string_lossy(), "route": {"runtime": "claude", "model": "sonnet", "mode": "accept-edits"}}],
+                "createdAt": "2026-11-12T00:00:00.000Z", "folder": work.to_string_lossy(), "route": {"runtime": "claude", "model": "haiku", "mode": "accept-edits"}}],
                 "missionOwners": {"m": "tm_carry"}, "settings": {"planRunsOut": plan}}),
         )
         .unwrap();
 }
 
 /// The turns that continue `id`.
-fn carried_from(t: &Temp, id: &str) -> Vec<Value> {
+pub(super) fn carried_from(t: &Temp, id: &str) -> Vec<Value> {
     ledgers(t)
         .into_iter()
         .map(|p| records(&p))

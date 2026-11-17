@@ -461,3 +461,38 @@ Noise: `window_drive_tests::relay_stops_at_hop_cap_and_exchange_strip_stop_ends_
 full run ("Stop button disappears once no run is live"). It then passed three times alone, and the second full
 run (3,253 tests) passed whole.
 
+## Batch 12: `a-plan-that-runs-out-is-carried-on.test.ts`
+
+| File | Row | Rust tests |
+| --- | --- | --- |
+| `a-plan-that-runs-out-is-carried-on.test.ts` | partial (8 of 11, two halves) | `core/src/plan_carry_on_tests.rs`, `core/src/native/plan_carry_on_tests.rs` |
+
+No bug found. The carry tests share batch 11's harness (`stopped`, `stopped_in` for a mode, `team`,
+`carried_from`). "A start that fails" is a roster whose teammate names no model: native refuses it with
+"Carry runs in Locust for now.", and the turn can be pressed again once the roster is put right.
+- `team` rewrites `teammates.json`, which also holds the turns' owners. A test that calls it again records the
+  owner again.
+- The harness's teammate is on `haiku`, so a pick's model (`sonnet`) is told apart from the teammate's own.
+
+Halves and gaps:
+- "Only for a turn the person sent": native decides it at the run's end (`person_sent`, a turn with no
+  `startedBy`) before it calls `carry_on_without_asking`. No fake runtime here ends a turn on a used-up plan, so
+  that gate has no test.
+- The record: native writes schema 27 with `startedBy {kind: carry-on, from}`, and that is tested. Electron's
+  reader refusing a v23 file that says carry-on, and its writer refusing a starter that names no agent, are
+  mission-store rules that native's ledger reader and writer do not have.
+- Not carried: `index.ts` runs the carry before the limit toast, and the toast says nothing for a carried turn.
+  That is a source-order check, and native's toast is `src/notify.rs`.
+
+`a-carried-conversation-keeps-its-route-and-reports-its-status.test.ts` (a round-2 file) is not in this branch's
+`apps/desktop/src/main`. It was added after the branch was cut and is in `~/work/locust`. Its row says so.
+
+Break checks (20 of 22 caught by the named test): `route.limit_detected` not read; a completion not clearing the
+limit; any kind read as the plan; the plan words; a second press let through; a failed start not let go; the
+plan's same-agent words; OpenCode refused under approve-each; Claude let through under approve-each; the mode not
+handed down; the refused note's reason; the plan note's words; `automatic` read loosely; any runtime accepted;
+`account-default` kept as a model; the pick being the agent that stopped; a pick that is not ready; the order's
+first two; the pick's model dropped (both lines at once).
+- Two survivors, each equivalent alone: `carry` sets the pick's model on the teammate and on the job, and either
+  one carries it into the turn. Broken together, they were caught.
+
