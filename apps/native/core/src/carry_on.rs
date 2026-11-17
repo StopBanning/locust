@@ -391,6 +391,21 @@ pub struct Briefing {
     /// reads these, so they are the sections actually in the prompt.
     pub kept: Vec<String>,
     pub task_clipped: bool,
+    /// The sections the person chose to leave out (`leftOutByYou`), in reading order: only those that were there to
+    /// leave out and may be left out.
+    pub left_out_by_you: Vec<String>,
+}
+
+/// What the window sent as the person's choice, kept to the sections that may be left out, in their order
+/// (`chosenLeaveOut`).
+pub fn chosen_leave_out(value: &serde_json::Value) -> Vec<String> {
+    let Some(sent) = value.as_array() else { return Vec::new() };
+    DROPPABLE_SECTION_NAMES.iter().filter(|name| sent.iter().any(|s| s.as_str() == Some(**name))).map(|name| (*name).to_owned()).collect()
+}
+
+/// The person's own choice, named as such so it is never read as a gap in the record (`choiceNotice`).
+pub fn choice_notice(left_out: &[String]) -> String {
+    format!("(The person chose to leave out {}.)", left_out_in_words(left_out))
 }
 
 fn len(s: &str) -> usize {
@@ -564,8 +579,15 @@ pub fn compose_handoff_prompt_with(
     left_out_by_you: &[String],
 ) -> Option<Briefing> {
     let mut sections = sections_for(original, checkpoint, from, next, earlier, ended);
-    sections.retain(|s| !DROPPABLE_SECTION_NAMES.contains(&s.name) || !left_out_by_you.iter().any(|l| l == s.name));
-    let budget = MAX_HANDOFF_PROMPT_LENGTH - if sections.len() > 1 { NOTICE_BUDGET } else { 0 };
+    let chosen: Vec<String> = sections
+        .iter()
+        .filter(|s| DROPPABLE_SECTION_NAMES.contains(&s.name) && left_out_by_you.iter().any(|l| l == s.name))
+        .map(|s| s.name.to_owned())
+        .collect();
+    sections.retain(|s| !chosen.iter().any(|c| c == s.name));
+    // Said in the brief, as a gap that did not fit is: the new runtime is told it has less than the whole story.
+    let chosen_notice = if chosen.is_empty() { String::new() } else { format!("\n\n{}", choice_notice(&chosen)) };
+    let budget = MAX_HANDOFF_PROMPT_LENGTH - if sections.len() > 1 { NOTICE_BUDGET } else { 0 } - len(&chosen_notice);
     let mandatory_cost = |sections: &[Section]| -> usize {
         sections
             .iter()
@@ -627,7 +649,8 @@ pub fn compose_handoff_prompt_with(
     if !omitted.is_empty() {
         prompt.push_str(&format!("\n\n(Some handoff detail did not fit and was left out: {}.)", omitted.join(", ")));
     }
-    Some(Briefing { prompt, omitted, kept: kept_names, task_clipped })
+    prompt.push_str(&chosen_notice);
+    Some(Briefing { prompt, omitted, kept: kept_names, task_clipped, left_out_by_you: chosen })
 }
 
 #[cfg(test)]

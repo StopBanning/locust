@@ -2480,6 +2480,23 @@ fn relay_route_switch_records_left_out_by_you_and_decodes_in_snapshot() {
     assert_eq!(crate::carry_on::left_out_in_words(&[String::from("summary")]), "its last reply");
 }
 
+/// a-person-can-leave-out-part-of-a-brief: the switch's link records what the brief actually left out
+/// (`briefing.leftOutByYou`), never a section that may not go, nor one that was not there.
+#[test]
+fn a_route_switch_records_what_its_brief_left_out_not_what_was_sent() {
+    let t = Temp::new();
+    let _g = hooks::install(t.store(), fake("cards-next"));
+    let first = send(job(&t, None, "Clean the Linux cache too: Do the same for the AppImage cache.")).unwrap();
+    finished(&first.conversation_id);
+    let sent = [String::from("task"), String::from("summary"), String::from("unsettled")];
+    let sw = route_switch(&t.store(), &first.conversation_id, "Continue", &sent).unwrap();
+    assert_eq!(sw.link["leftOutByYou"], json!(["summary"]));
+    assert!(sw.prompt.ends_with("(The person chose to leave out its last reply.)"), "{}", sw.prompt);
+    // Nothing there to leave out: no list on the link at all.
+    let none = route_switch(&t.store(), &first.conversation_id, "Continue", &[String::from("earlier")]).unwrap();
+    assert!(none.link.get("leftOutByYou").is_none(), "{}", none.link);
+}
+
 /// teammate-keys.ts in a run: a teammate's key reaches its Claude Code run as an environment variable, and what the run
 /// says with it is recorded with the value taken out. A Codex run, which drops key-named variables, gets none.
 #[test]

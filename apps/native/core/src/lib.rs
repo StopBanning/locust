@@ -178,6 +178,9 @@ mod typed_prompt_tests;
 mod handoff_brief_tests;
 
 #[cfg(test)]
+mod leave_out_brief_tests;
+
+#[cfg(test)]
 mod mission_mode_tests;
 
 #[cfg(test)]

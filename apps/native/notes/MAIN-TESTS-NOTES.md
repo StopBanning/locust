@@ -370,3 +370,34 @@ recorded as ask; a plan given workspace-write; Auto always allowed; Auto given w
   and the `native-engine` lane's tests ran. Each break hit its 240-300 s limit and counted as TIMEOUT, never as
   caught. The run was stopped (`mutfilter.py` puts the file back on SIGTERM) and the four breaks it had not reached
   were run again once the lock was free. All four were caught.
+
+## Batch 9: `a-person-can-leave-out-part-of-a-brief.test.ts`
+
+Begun before the 22:47 stop, finished on 17 Nov.
+
+| File | Row | Rust tests |
+| --- | --- | --- |
+| `a-person-can-leave-out-part-of-a-brief.test.ts` | carried (6/6) | `core/src/leave_out_brief_tests.rs`, `native::tests::a_route_switch_records_what_its_brief_left_out_not_what_was_sent` |
+
+Bugs found and fixed. Native already took the left-out sections out of the brief, but:
+- **The brief never said the person chose it.** Electron ends the brief with "(The person chose to leave out its last
+  reply.)", after any "did not fit" notice, so the new runtime knows it has less than the whole story. Native said
+  nothing. `carry_on::choice_notice` is new, and `compose_handoff_prompt_with` adds the notice.
+- **The notice was not charged against the bound.** Electron holds its length back from the budget first, so a long
+  task gives way for it. Pinned at Electron's own answers: a 3,900-character task beside a 3,773-character reply fits
+  whole at 7,880; a 3,800-character reply clips the task to 7,879. Both sides were run through Electron's
+  `composeHandoffPrompt` (`~/work/scratch/maxlane/b9/leaveout*.mjs`).
+- **The switch's link recorded the list as it was sent.** `route_switch` wrote the window's `leftOutByYou` whole,
+  including sections that may not go and ones that were not there. It now records `Briefing::left_out_by_you`,
+  the sections actually left out, in reading order.
+- **The engine wire took any strings.** `engine_process::origin_from` now keeps the list to the sections that may
+  go (`carry_on::chosen_leave_out`, Electron's `chosenLeaveOut`).
+
+Two tests beyond Electron's six pin Electron's values: the notice's charge against the bound (above), and the order of
+the two notices (a 6,000-character reply: "did not fit ... summary", then the person's choice, 6,357 characters).
+
+Break checks (all 11 caught by the named test): the window's list not kept to what may go; kept in the order sent;
+a section that may not go let go; a section that was not there named; the section not taken out; the notice not
+added; the notice not charged; the notice's words; the two notices swapped; the engine wire unfiltered; the link
+recording what was sent.
+

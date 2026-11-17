@@ -1230,8 +1230,8 @@ fn route_switch(store: &Store, tip: &str, reply: &str, left_out_by_you: &[String
     if !briefing.omitted.is_empty() {
         link["leftOut"] = json!(briefing.omitted);
     }
-    if !left_out_by_you.is_empty() {
-        link["leftOutByYou"] = json!(left_out_by_you);
+    if !briefing.left_out_by_you.is_empty() {
+        link["leftOutByYou"] = json!(briefing.left_out_by_you);
     }
     let native_prior = store.ledger_dir().ok().filter(|dir| prior.path.starts_with(dir)).map(|_| prior.path.clone());
     Ok(RouteSwitch { prompt: briefing.prompt, link, checkpoint, native_prior })
