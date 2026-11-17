@@ -433,3 +433,31 @@ the keep order.
 - The one survivor is not this batch's: the first copy of "no reply was recorded" is `compose_cold_follow_up`'s,
   which these files never reach. The brief's own copy was broken next and caught.
 
+## Batch 11: `a-provider-that-fails-first-is-carried-on.test.ts`
+
+| File | Row | Rust tests |
+| --- | --- | --- |
+| `a-provider-that-fails-first-is-carried-on.test.ts` | partial (5 of 6, and half the 6th) | `core/src/provider_carry_on_tests.rs`, `core/src/native/provider_carry_on_tests.rs` |
+
+No bug: native already classified and carried a provider failure as Electron does. `carry_on::stopped_for` and
+`ended_on_plan_limit` (Electron's `stoppedFor` and `endedOnPlanLimit`) and `phase_of` are new. `native::carry`
+and `carry_on_without_asking` each had their own copy of that rule, and now use the new functions.
+- Electron passes a mission's phase. Native reads it from the turn's last terminal event (`phase_of`), so "a
+  cancelled phase over a failed event" is tested through `stopped_for` only.
+- The carry tests run against the fake app-server (`fake("success")`) for both Codex and Claude: only the new
+  turn's header is read (its runtime, mode, `startedBy`, and the carry-on words in its prompt), not its run.
+- `native::CARRIED` is shared by the whole process, so each stopped turn has an id of its own
+  (`mission_provider_*`).
+- Not carried: the last case's divider sentence (`src/ui/handoff_divider.rs`) and Settings' heading and
+  "provider error" (`src/settings_pages.rs`). Those are the renderer lane's.
+
+Break checks (all 17 caught by the named test): a tool run not counted; a completion not clearing the failure; the
+sign-in kind; stderr's first line in place of its last; the "overloaded" pattern; any message read as trouble; the
+plan's reason skipped; a cancelled phase carried; any reason read as the plan; the provider words; the same agent
+let through; the reason forced in `carry`; `startedBy` without `from`; the plan's words in a provider carry; the
+note's words; Without asking inverted; no reason in `carry_on_without_asking`.
+
+Noise: `window_drive_tests::relay_stops_at_hop_cap_and_exchange_strip_stop_ends_live_run` failed once in the first
+full run ("Stop button disappears once no run is live"). It then passed three times alone, and the second full
+run (3,253 tests) passed whole.
+

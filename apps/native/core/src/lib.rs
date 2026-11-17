@@ -187,6 +187,9 @@ mod file_name_brief_tests;
 mod switch_brief_tests;
 
 #[cfg(test)]
+mod provider_carry_on_tests;
+
+#[cfg(test)]
 mod mission_mode_tests;
 
 #[cfg(test)]

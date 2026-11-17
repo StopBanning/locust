@@ -3332,3 +3332,6 @@ mod codex_mission;
 
 #[path = "session_ended_tests.rs"]
 mod session_ended;
+
+#[path = "provider_carry_on_tests.rs"]
+mod provider_carry_on;

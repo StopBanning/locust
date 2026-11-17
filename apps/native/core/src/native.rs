@@ -1249,12 +1249,8 @@ pub fn carry(mission: &str, runtime: &str, model: Option<&str>) -> Result<(Strin
     }
     let store = store().ok_or("Native data folder could not be determined.")?;
     let prior = turn_records(mission).ok_or("This conversation is not in the record any more, so it cannot be carried on.")?;
-    let phase_done = prior.events.iter().rev().find_map(|e| e["type"].as_str().filter(|t| matches!(*t, "run.completed" | "run.cancelled" | "run.failed")));
-    let reason = match phase_done {
-        Some("run.completed" | "run.cancelled") => None,
-        _ => crate::carry_on::carry_on_reason(&prior.events),
-    }
-    .ok_or("This turn did not stop on its plan running out or its provider or process failing, so there is nothing to carry on.")?;
+    let reason = crate::carry_on::stopped_for(crate::carry_on::phase_of(&prior.events), &prior.events)
+        .ok_or("This turn did not stop on its plan running out or its provider or process failing, so there is nothing to carry on.")?;
     let from = prior.metadata["runtime"].as_str().unwrap_or_default().to_owned();
     if runtime == from {
         let name = crate::carry_on::display_name(&from);
@@ -1325,11 +1321,7 @@ pub fn carry_on_without_asking(store: &Store, mission: &str) {
         return;
     };
     let Some(prior) = turn_records(mission) else { return };
-    let ended = prior.events.iter().rev().find_map(|e| e["type"].as_str().filter(|t| matches!(*t, "run.completed" | "run.cancelled" | "run.failed")));
-    let reason = match ended {
-        Some("run.completed" | "run.cancelled") => None,
-        _ => crate::carry_on::carry_on_reason(&prior.events),
-    };
+    let reason = crate::carry_on::stopped_for(crate::carry_on::phase_of(&prior.events), &prior.events);
     let Some(reason) = reason else { return };
     let name = crate::carry_on::display_name(&chosen.runtime).to_owned();
     let native_ledger = store.ledger_dir().ok().is_some_and(|dir| prior.path.starts_with(dir));

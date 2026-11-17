@@ -127,6 +127,30 @@ pub fn carry_on_reason(events: &[Value]) -> Option<Reason> {
         .then_some(Reason::Process)
 }
 
+/// The phase a turn's ledger ended in, read from its last terminal event: `completed`, `cancelled` or `failed`, or None
+/// while it has none.
+pub fn phase_of(events: &[Value]) -> Option<&'static str> {
+    events.iter().rev().find_map(|e| match e["type"].as_str() {
+        Some("run.completed") => Some("completed"),
+        Some("run.cancelled") => Some("cancelled"),
+        Some("run.failed") => Some("failed"),
+        _ => None,
+    })
+}
+
+/// stoppedFor: why a turn that ended in `phase` can be carried on. A finished or stopped turn never is.
+pub fn stopped_for(phase: Option<&str>, events: &[Value]) -> Option<Reason> {
+    if matches!(phase, Some("completed" | "cancelled")) {
+        return None;
+    }
+    carry_on_reason(events)
+}
+
+/// endedOnPlanLimit: stopped, not finished, and its events say the plan ran out.
+pub fn ended_on_plan_limit(phase: Option<&str>, events: &[Value]) -> bool {
+    stopped_for(phase, events) == Some(Reason::Plan)
+}
+
 /// carryOnRefusal: Approve each needs an agent that stops and asks; one that cannot is not carried to at all.
 pub fn carry_on_refusal(mode: &str, to: &str) -> Option<String> {
     if mode != "approve-each" || matches!(to, "codex" | "opencode" | "copilot") {
