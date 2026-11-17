@@ -353,6 +353,10 @@ mod mission_store_records_tests;
 mod checkpoint_reconcile_tests;
 #[cfg(test)]
 mod mission_store_ledger_tests;
+#[cfg(test)]
+mod schema_compat_tests;
+#[cfg(test)]
+mod shared_rules_tests;
 pub mod cover_activity;
 
 #[cfg(test)]

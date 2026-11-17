@@ -461,6 +461,19 @@ pub fn append_peer_links(path: &std::path::Path, links: &[(&str, &str, &str, &st
     if links.is_empty() {
         return Ok(());
     }
+    // mission-store's validatePeerLink, before the file is read.
+    for (direction, message_id, peer_teammate_id, occurred_at) in links {
+        if *direction != "received" && *direction != "posted" {
+            return Err(io::Error::other("Peer link direction is invalid"));
+        }
+        if !crate::trash::is_safe_id(message_id) {
+            return Err(io::Error::other("messageId is invalid"));
+        }
+        if !crate::trash::is_safe_id(peer_teammate_id) {
+            return Err(io::Error::other("peerTeammateId is invalid"));
+        }
+        require_timestamp(&json!(occurred_at), "Peer link timestamp")?;
+    }
     use std::io::Write;
     let text = std::fs::read_to_string(path)?;
     if !text.is_empty() && !text.ends_with('\n') {
@@ -469,6 +482,10 @@ pub fn append_peer_links(path: &std::path::Path, links: &[(&str, &str, &str, &st
     let records: Vec<Value> = text.lines().filter_map(|l| serde_json::from_str(l).ok()).collect();
     let first = records.first().ok_or_else(|| io::Error::other("Ledger has no first record"))?;
     let schema = first["schemaVersion"].as_u64().unwrap_or(27);
+    if schema < 5 {
+        // The file's version is fixed by its header: a pre-v5 mission cannot take a record its own readers stop at.
+        return Err(io::Error::other("Mission ledger version cannot hold peer links"));
+    }
     let mut ledger_seq = records.iter().filter_map(|r| r["ledgerSequence"].as_u64()).max().unwrap_or(0);
     let mut file = std::fs::OpenOptions::new().append(true).open(path)?;
     for (direction, message_id, peer_teammate_id, occurred_at) in links {

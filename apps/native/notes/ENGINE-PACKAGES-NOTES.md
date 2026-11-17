@@ -216,3 +216,38 @@ Electron case writes createdAt 10:00, 12:00, 11:00 in that order).
 
 Breaks: 11 (`~/work/scratch/opus2/b8-breaks.log`), on the writer's refusals and words, `trash::delete_mission`, the
 reader's version range, the list's order and `recover_mission_from_path`'s tail, phase and damage: all caught by name.
+
+## Batch 9: schema-compat, and the shared files whose note was empty (commit below)
+Partial: `schema-compat` (13 of 52, one in half): `schema_compat_tests.rs`. Rust's readers check types, not versions,
+so the 30-odd cases that refuse a hand-edited older file, or a field `createMission` would not write, are not built
+(the row lists them).
+
+Bug fixed in `ledger_write.rs`: `append_peer_links` wrote a peer link into a file of any version, and any link. It is
+mission-store's `appendPeerLinks` now: each link checked first (`validatePeerLink`: the direction, a safe message and
+teammate id, a timestamp), then "Mission ledger version cannot hold peer links" before version 5.
+
+Shared files:
+- carried: `the-about-you-line-is-taught-once` (2, on `people::brief`; `shared_rules_tests.rs`) and
+  `a-run-started-for-a-teammate-is-theirs` (5; `route_at_start_tests.rs`, written in batch 2, its row never set until
+  now, break checked here);
+- partial: `a-first-run-names-no-terminal` and `kilo-installs-in-one-click` (1 of 2 each; the other case reads
+  Electron's renderer source);
+- waiting, with a note: `messageFragments` (Rust does not repair a recorded restatement), `a-teammate-is-named...`
+  (no chat-app bridge), `a-lesson-reads-as-one-sentence` (a Rust lesson is one line, no when/do pair),
+  `a-voice-call-switches-every-add-on-off` (no voice call), the three `an-answer-reads-right-in-*` (no chat-app
+  formatter), `commit-and-land-from-a-browser` and `settings-from-a-browser` (the phone desk, networked).
+
+Round 1's deferred runtime rows, re-read: `a-busy-model-served-says-so` and `a-message-taken-and-never-begun-ends-the-run`
+are built in Rust (`opencode_serve.rs` turns `session.status` retry into `locust.retry`, which `opencode_events.rs` says
+once; `recover` asks the server about a silent session), but carrying them needs new scenarios in the fake server
+`scripts/fixtures/m4-opencode-serve.py`, and that file, `opencode_serve.rs` and `opencode_tests.rs` are the maxlane
+lane's (9 of its commits this week). Left for when that lane is done. `a-rate-limited-opencode-run-says-it-is-retrying`
+reads `opencode run`'s stderr, which Rust does not run (it serves OpenCode). The other deferred rows (the binary consent cache, the
+probe scheduler and its progress, a Windows cmd shim, context inspection, user-provider pricing, per-run skills, Cursor
+connectors, OpenCode's question card, Node's process runner, reference folders on a turn) were not re-checked in this
+round; their notes stand as round 1 wrote them.
+
+Breaks: 18, then 2 reruns (`~/work/scratch/opus2/b9-breaks.log`, `b9b-`, `b9c-`): on `append_peer_links`, `append_note`'s
+version, `ledger::metadata` and `decode`, `route_at_start::start_as`, `people`'s memory block and `agents`' install
+facts. All caught by name but two at first, the teammate id and the timestamp of a peer link, which no Electron case
+reaches; `a_peer_link_with_an_unsafe_teammate_id_or_a_time_that_is_not_one_is_refused` catches both now.
