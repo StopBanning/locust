@@ -73,3 +73,23 @@ Breaks: 18 on the runtime readers (16 Nov, `~/work/scratch/opus2/b2-breaks.log`)
 One break was left as it is: the `parentItemId` on a restated `tool.started`. A helper's whole record opens its calls
 and returns before the restating loop, so it is reached only by a helper's call that streamed its start and whose whole
 record then came without the helper's id, which no recording shows (Electron is built the same way).
+
+## Batch 3: six shared files (17 Nov)
+The first chat's five drafts, finished. Carried whole (39 tests):
+- `approval-data` (8, plus 2 of the card's rows): `approval_data_tests.rs`.
+- `a-question-that-is-not-a-card-stays-in-the-reply` (4, the it.each's shapes a test each: 7): `question_not_a_card_tests.rs`.
+- `claim-what-you-start` (4) and `the-named-teammate-claims` (8, plus 2 of Rust's own): `room_task_claims_tests.rs`.
+- `step-budget` (5): `step_budget_tests.rs`. The budget's bound is a compile-time assertion, so its break cannot be
+  run (a break that does not build proves nothing).
+- `a-torn-tag-keeps-the-letters-before-it` (1): `torn_tag_tests.rs`.
+
+Bug fixed in `approval.rs` (the approval card's Effects rows): Electron's `dataSentLine` and `commandReachesNetwork`
+were inline in `effect_lines`, and two cases came out differently. A command that names no network tool, on a card
+whose route gave its own undo words, said "This command can reach the network" (Electron: "Unknown. Locust cannot
+tell what a command sends…"). A question card was given a connector's Data sent and Reversible rows (Electron: no Data
+sent row, and "Nothing is changed by answering."). Both are `approval::data_sent_line` and
+`approval::command_reaches_network` now, as Electron has them, and the card reads its rows through them.
+
+Breaks: 35 (`~/work/scratch/opus2/b3-breaks.log`). 33 caught by name at first; the two that survived (a post naming
+two rows; the whole post read when the row's sentence names nobody) are reached by no Electron case, and each has a
+Rust test of its own now that catches it.

@@ -287,6 +287,16 @@ mod compare_points_tests;
 mod example_file_tests;
 #[cfg(test)]
 mod notes_for_a_question_tests;
+#[cfg(test)]
+mod approval_data_tests;
+#[cfg(test)]
+mod question_not_a_card_tests;
+#[cfg(test)]
+mod room_task_claims_tests;
+#[cfg(test)]
+mod step_budget_tests;
+#[cfg(test)]
+mod torn_tag_tests;
 pub mod cover_activity;
 
 #[cfg(test)]

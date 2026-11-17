@@ -1612,18 +1612,53 @@ pub fn card_note(card: &Request) -> String {
     }
     note
 }
+/// approval-data.ts commandReachesNetwork: the command names a program that reaches the network as its ordinary
+/// purpose (a whole word, so `curling` and `wget-notes.md` do not count), or holds a bare URL.
+pub fn command_reaches_network(command: &str) -> bool {
+    crate::invariants::regex(r"(?i)(^|[\s|&;(<>])(curl|wget|ssh|scp|sftp|rsync|nc|netcat|telnet|ftp|npm|pnpm|yarn|pip|pip3|cargo|gem|go|brew|apt|docker|kubectl|aws|gcloud|az|gh|git)(\s|$)")
+        .is_match(command)
+        || crate::invariants::regex(r"(?i)\bhttps?://").is_match(command)
+}
+
+/// approval-data.ts dataSentLine: the card's Data sent row, or none for a question. "Nothing" is said only for a file
+/// change, where it is a fact; a command is said to be able to reach the network, or Unknown, never to send nothing.
+pub fn data_sent_line(kind: &Kind, command: &str) -> Option<String> {
+    Some(match kind {
+        Kind::FileChange => "Nothing. The change is written to this machine and sent nowhere.",
+        Kind::Connector => "The input above, to the service the connector reaches. It acts there, not on this machine.",
+        Kind::Question => return None,
+        Kind::Command if command_reaches_network(command) => {
+            "This command can reach the network. Locust cannot see what it would send — read it above."
+        }
+        Kind::Command => "Unknown. Locust cannot tell what a command sends; a script can do anything the sandbox allows.",
+    }
+    .to_owned())
+}
+
 pub fn effect_lines(card: &Request) -> Vec<(&'static str, String)> {
-    let network = crate::invariants::regex(r"(?i)(^|[\s|&;(<>])(curl|wget|ssh|scp|sftp|rsync|nc|netcat|telnet|ftp|npm|pnpm|yarn|pip|pip3|cargo|gem|go|brew|apt|docker|kubectl|aws|gcloud|az|gh|git)(\s|$)|https?://").is_match(&card.detail);
     if card.kind == Kind::Command
-        && !network
+        && !command_reaches_network(&card.detail)
         && card.data_sent_says.is_none()
         && card.reversible_says.is_none()
     {
         return vec![("Effects", "Unknown. Locust cannot tell what a command sends or undo what it does; it can do anything the sandbox allows.".into())];
     }
-    let data = card.data_sent_says.clone().unwrap_or_else(|| if card.kind == Kind::FileChange { "Nothing. The change is written to this machine and sent nowhere.".into() } else if card.kind == Kind::Command { "This command can reach the network. Locust cannot see what it would send — read it above.".into() } else { "The input above, to the service the connector reaches. It acts there, not on this machine.".into() });
-    let undo = card.reversible_says.clone().unwrap_or_else(|| if card.kind == Kind::FileChange { "Yes for tracked files, if the workspace is under version control.".into() } else if card.kind == Kind::Command { "Unknown — a command can do anything the workspace sandbox allows.".into() } else { "Unknown — a connector acts on the service it reaches, and Locust cannot undo what happens there.".into() });
-    vec![("Data sent", data), ("Reversible", undo)]
+    let mut lines = Vec::new();
+    // The asking route's own words first (ApprovalCard.tsx); a question draws no Data sent row.
+    if let Some(data) = card.data_sent_says.clone().or_else(|| data_sent_line(&card.kind, &card.detail)) {
+        lines.push(("Data sent", data));
+    }
+    let undo = card.reversible_says.clone().unwrap_or_else(|| {
+        match card.kind {
+            Kind::Command => "Unknown — a command can do anything the workspace sandbox allows.",
+            Kind::FileChange => "Yes for tracked files, if the workspace is under version control.",
+            Kind::Connector => "Unknown — a connector acts on the service it reaches, and Locust cannot undo what happens there.",
+            Kind::Question => "Nothing is changed by answering.",
+        }
+        .into()
+    });
+    lines.push(("Reversible", undo));
+    lines
 }
 
 /// Status line words while a card waits (Electron: "needs you" / "waiting on you").
