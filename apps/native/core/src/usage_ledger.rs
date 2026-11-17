@@ -3,7 +3,7 @@
 use crate::spend::money_of_usage;
 use crate::store::Store;
 use crate::usage::{USAGE_READ_FAIL, UsageTurn};
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::fs;
 use std::io::Read;
@@ -370,39 +370,40 @@ fn reading_at(said: &str) -> &str {
         .unwrap_or("")
 }
 
-/// Remembered plan meter readings merged with mission ledgers (Electron `rememberedUsageWindows`).
+/// A kept readings file as a map: Electron's flat `{runtime: reading}`, or an older `{windows: {...}}`.
+fn kept_readings(path: &Path) -> Option<HashMap<String, String>> {
+    let value = serde_json::from_str::<Value>(&fs::read_to_string(path).ok()?).ok()?;
+    let map = value.get("windows").and_then(Value::as_object).or(value.as_object())?;
+    Some(map.iter().filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_owned()))).collect())
+}
+
+/// Each agent's newest usage reading (Electron `rememberedUsageWindows`, 0.571): the readings kept in
+/// `usage-readings.json` (this app's, and Electron's beside it), with a newer one from the mission ledgers taking each
+/// agent's place. What comes out is kept in this app's file, so a reading outlives the conversation that said it.
+/// Every ledger is read, so the first fill needs no backfill past the newest twenty.
 pub fn usage_windows(store: &Store) -> HashMap<String, String> {
-    let mut out = HashMap::new();
-    if let Ok(missions) = collect_missions(store) {
-        let records: Vec<Vec<Value>> = missions.into_iter().map(|(_, r)| r).collect();
-        out.extend(usage_windows_from(&records));
-    }
-    for root in [store.root(), store.electron()] {
-        let path = root.join("usage-readings.json");
-        let Ok(text) = fs::read_to_string(&path) else {
-            continue;
-        };
-        let Ok(value) = serde_json::from_str::<Value>(&text) else {
-            continue;
-        };
-        let Some(map) = value
-            .get("windows")
-            .and_then(Value::as_object)
-            .or(value.as_object())
-        else {
-            continue;
-        };
-        for (key, reading) in map {
-            if let Some(text) = reading.as_str()
-                && out
-                    .get(key)
-                    .is_none_or(|before| reading_at(text) >= reading_at(before))
-            {
-                out.insert(key.clone(), text.to_owned());
+    let own = kept_readings(&store.root().join("usage-readings.json"));
+    let mut merged: HashMap<String, String> = HashMap::new();
+    for kept in [own.clone(), kept_readings(&store.electron().join("usage-readings.json"))].into_iter().flatten() {
+        for (key, text) in kept {
+            if merged.get(&key).is_none_or(|before| reading_at(&text) >= reading_at(before)) {
+                merged.insert(key, text);
             }
         }
     }
-    out
+    if let Ok(missions) = collect_missions(store) {
+        let records: Vec<Vec<Value>> = missions.into_iter().map(|(_, r)| r).collect();
+        for (key, said) in usage_windows_from(&records) {
+            if merged.get(&key).is_none_or(|before| reading_at(&said) >= reading_at(before)) {
+                merged.insert(key, said);
+            }
+        }
+    }
+    if own.as_ref() != Some(&merged) && !(own.is_none() && merged.is_empty()) {
+        // Not kept this time: the reading shown is still right, and the next read tries again.
+        let _ = store.save_json("usage-readings.json", &json!(merged));
+    }
+    merged
 }
 
 #[cfg(test)]

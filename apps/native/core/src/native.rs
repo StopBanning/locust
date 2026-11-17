@@ -1351,12 +1351,23 @@ pub fn carry_on_without_asking(store: &Store, mission: &str) {
     }
 }
 
-/// createSpendRefusal for a teammate's own limit (the port has no organization policy yet). Reads both ledgers, so it
-/// runs only for a teammate that has a limit.
+/// createSpendRefusal for a teammate's own limit, with no organization cap. Reads both ledgers, so it runs only for a
+/// teammate that has a limit. A limit that cannot be checked lets the turn start and says so in the log, as Electron's
+/// `spendRefusalFor` does: only an organization's cap closes the gate on an unreadable record (`org_spend_gate`).
 fn spend_gate(store: &Store, owners: &Value, teammate: &Teammate, limit: f64) -> Result<(), String> {
     let now = chrono::Local::now();
-    let month = crate::spend::month_of(&now.to_rfc3339()).ok_or("The current month could not be read.")?;
-    let turns = crate::usage_ledger::usage_turns(store).map_err(|_| "The spending record could not be read.".to_owned())?;
+    let unchecked = |why: &str| eprintln!("spend-limit: could not check {}'s monthly limit: {why}", teammate.id);
+    let Some(month) = crate::spend::month_of(&now.to_rfc3339()) else {
+        unchecked("The current month could not be read.");
+        return Ok(());
+    };
+    let turns = match crate::usage_ledger::usage_turns(store) {
+        Ok(turns) => turns,
+        Err(_) => {
+            unchecked("The spending record could not be read.");
+            return Ok(());
+        }
+    };
     let spent = crate::spend::spent_by(&turns, &month, |conversation| owners[conversation] == teammate.id.as_str());
     if crate::spend::limit_reached(Some(&spent), limit) {
         return Err(crate::spend::limit_refusal(&teammate.name, Some(&spent), limit, now));

@@ -466,7 +466,7 @@ pub fn antigravity_models_from(hints: Option<&Value>) -> Vec<Value> {
 }
 
 /// accountDefaultModel: the row for sending no model, with the levels every current model of the runtime shares.
-fn account_default_model(models: &[Value], runtime: &str) -> Option<Value> {
+pub(crate) fn account_default_model(models: &[Value], runtime: &str) -> Option<Value> {
     let listed: Vec<&Value> = models.iter().filter(|m| m["runtime"] == runtime && m["id"] != ACCOUNT_DEFAULT && m["older"] != true).collect();
     let first = listed.first()?;
     let shared: Vec<String> = strings(&first["supportedEfforts"])
@@ -666,15 +666,18 @@ pub fn read_listed_checked() -> (Listed, bool) {
 }
 
 /// A catalog kept for CACHE_MS (ten minutes) once it is whole; one missing a ready runtime's models is read again on
-/// the next call instead of being kept (0.552).
+/// the next call instead of being kept (0.552), and so is one that listed nothing at all (Electron's
+/// `MODELS_UNAVAILABLE`, never cached). One read at a time: the cache stays locked while it reads, so a second caller
+/// waits for the first read and is answered from it rather than starting a second sweep.
 pub fn kept_catalog(cache: &std::sync::Mutex<Option<(Instant, Vec<Value>)>>, read: impl FnOnce() -> (Listed, bool)) -> Vec<Value> {
-    if let Some((_, models)) = crate::invariants::lock(cache).as_ref().filter(|(at, _)| at.elapsed() < Duration::from_secs(600)) {
+    let mut held = crate::invariants::lock(cache);
+    if let Some((_, models)) = held.as_ref().filter(|(at, _)| at.elapsed() < Duration::from_secs(600)) {
         return models.clone();
     }
     let (listed, incomplete) = read();
     let models = catalog(&listed);
-    if !incomplete {
-        *crate::invariants::lock(cache) = Some((Instant::now(), models.clone()));
+    if !incomplete && !models.is_empty() {
+        *held = Some((Instant::now(), models.clone()));
     }
     models
 }
