@@ -24,9 +24,12 @@ rewinding = scenario == 'rewind'
 sealed_mode = scenario in ('sealed', 'sealed-asking')
 # `no-model`: the account default, so no model is named on the turn.
 no_model = scenario == 'no-model'
-if approving or scenario == 'resume-undone' or rewinding or sealed_mode or no_model:
+if approving or scenario == 'resume-undone' or rewinding or sealed_mode or no_model or scenario == 'auto':
     base = 'success'
 SANDBOX = 'workspace-write' if (approving or scenario in ('cards-edit-check', 'cards-review-notes')) else 'read-only'
+# `auto`: Auto mode, once the workspace allows it, runs on the widest sandbox.
+if scenario == 'auto':
+    SANDBOX = 'danger-full-access'
 thread_sandbox = SANDBOX
 POLICY = 'untrusted' if approving else 'never'
 APPROVE_DECISION = 'accept' if scenario == 'approve-allow' else ('reject' if scenario == 'approve-deny' else 'decline')

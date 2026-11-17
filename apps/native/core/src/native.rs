@@ -1888,6 +1888,17 @@ pub fn running_checks() -> Vec<(String, String)> {
     edit_check().running_checks()
 }
 
+/// codex-mission.ts MAX_PROMPT_LENGTH, counted as Electron counts a string's length (UTF-16 units).
+pub const MAX_PROMPT_LENGTH: usize = 8_000;
+
+/// codex-mission.ts INVALID_PROMPT's words.
+pub const INVALID_PROMPT: &str = "Enter a mission between 1 and 8,000 characters.";
+
+/// codex-mission.ts validPrompt: some words, at most MAX_PROMPT_LENGTH, and no NUL.
+fn valid_prompt(prompt: &str) -> bool {
+    !prompt.trim().is_empty() && prompt.encode_utf16().count() <= MAX_PROMPT_LENGTH && !prompt.contains('\0')
+}
+
 /// Start (or continue) a turn the person asked for in the window.
 pub fn send(job: Send) -> Result<Started, String> {
     send_from(job, Origin::default())
@@ -1897,6 +1908,10 @@ pub fn send(job: Send) -> Result<Started, String> {
 /// the window follows the ledger file. Approvals raise cards answered through `decide_approval`.
 /// Never retried: a failure after the ledger exists is recorded in it, not tried again.
 pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
+    // codex-mission.ts validPrompt: refused before anything is read, started or recorded.
+    if !valid_prompt(&job.prompt) {
+        return Err(INVALID_PROMPT.into());
+    }
     let own_agent = origin.runtime.is_none() || origin.runtime == job.teammate.runtime;
     if let Some(runtime) = &origin.runtime {
         job.teammate.runtime = Some(runtime.clone());

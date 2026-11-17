@@ -182,3 +182,74 @@ fn a_model_of_your_own_that_was_removed_is_refused_in_words_before_anything_is_w
     assert!(refused.contains("no longer in Your own models"), "{refused}");
     assert!(ledgers(&t).is_empty(), "nothing was written");
 }
+
+// ---- Codex mission service: what a start refuses, and the mode it records ----
+
+fn auto_allowed(t: &Temp, allowed: bool) {
+    let settings = crate::workspace_settings::WorkspaceSettings { auto_mode: allowed, ..Default::default() };
+    crate::workspace_settings::save(&t.store(), &settings).unwrap();
+}
+
+fn in_mode(t: &Temp, mode: &str, prompt: &str) -> Send {
+    let mut mine = job(t, None, prompt);
+    mine.teammate.runs_in = mode.into();
+    mine
+}
+
+#[test]
+fn an_invalid_prompt_is_refused_before_anything_is_started() {
+    let t = Temp::new();
+    let _hook = hooks::install(t.store(), fake("success"));
+    for prompt in ["   ".to_owned(), "x".repeat(8_001), "a\0b".to_owned()] {
+        assert_eq!(send(job(&t, None, &prompt)).unwrap_err(), "Enter a mission between 1 and 8,000 characters.");
+    }
+    assert!(ledgers(&t).is_empty(), "nothing was started");
+    // At the limit is a prompt.
+    assert!(valid_prompt(&"x".repeat(8_000)));
+}
+
+#[test]
+fn a_plan_is_recorded_as_a_plan_and_held_read_only() {
+    let t = Temp::new();
+    let _hook = hooks::install(t.store(), fake("success"));
+    let started = send(in_mode(&t, "plan", "Synthetic prompt")).unwrap();
+    assert_eq!(started.mode, "plan");
+    let head = header(&path_of(&t, &started.conversation_id));
+    assert_eq!((&head["mode"], &head["sandbox"]), (&json!("plan"), &json!("read-only")));
+    finished(&started.conversation_id);
+}
+
+#[test]
+fn an_auto_run_is_refused_when_the_workspace_has_auto_switched_off_and_nothing_is_recorded() {
+    let t = Temp::new();
+    auto_allowed(&t, false);
+    let _hook = hooks::install(t.store(), fake("auto"));
+    assert_eq!(
+        send(in_mode(&t, "auto", "Tidy my whole machine.")).unwrap_err(),
+        "Auto mode is switched off for this workspace. Turn it on in Settings to let a run work outside the workspace folder. Nothing was recorded."
+    );
+    assert!(ledgers(&t).is_empty());
+}
+
+#[test]
+fn an_auto_run_is_refused_when_the_switch_was_never_set() {
+    let t = Temp::new();
+    let _hook = hooks::install(t.store(), fake("auto"));
+    assert_eq!(send(in_mode(&t, "auto", "Tidy my whole machine.")).unwrap_err(), AUTO_OFF_REFUSAL);
+    assert!(ledgers(&t).is_empty());
+}
+
+#[test]
+fn an_auto_run_has_the_widest_sandbox_once_allowed_and_the_next_is_refused_once_the_switch_is_taken_back() {
+    let t = Temp::new();
+    auto_allowed(&t, true);
+    let _hook = hooks::install(t.store(), fake("auto"));
+    // The fake answers only its own prompt, so the first run says that rather than Electron's words.
+    let first = send(in_mode(&t, "auto", "Synthetic prompt")).unwrap();
+    let path = path_of(&t, &first.conversation_id);
+    assert!(ended(&t, &first.conversation_id).contains(&"run.completed".to_owned()), "the fake accepted only danger-full-access: {:?}", records(&path));
+    assert_eq!(header(&path_of(&t, &first.conversation_id))["sandbox"], "full-access");
+    auto_allowed(&t, false);
+    assert_eq!(send(in_mode(&t, "auto", "Second, after taking it back.")).unwrap_err(), AUTO_OFF_REFUSAL);
+    assert_eq!(ledgers(&t).len(), 1, "nothing more was launched");
+}

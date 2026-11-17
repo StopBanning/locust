@@ -347,3 +347,26 @@ Break checks (all caught by the named test, 12 in all): own branch skipped for a
 skipped for another app's start; the limit's comparison; the fail-open put back; the header's sandbox; an unknown
 mode read as accept-edits; `startedBy` not recorded; account-default sent as a model; account-default not recorded;
 the turn's model not sent; a removed model of your own let through; a model invented when none was chosen.
+
+## Batch 8: `codex-mission.test.ts`, what a start refuses and the mode it records
+
+Six more of the "Codex mission service" group: 18 of 137 so far.
+
+Bug found and fixed:
+- **A blank prompt started a turn.** Native's `send_from` had no prompt check. Electron's `validPrompt` refuses a
+  prompt that is blank, longer than 8,000 characters (counted in UTF-16 units, as JavaScript counts) or holds a NUL,
+  saying "Enter a mission between 1 and 8,000 characters.". It does so before anything is read or recorded. The
+  window's composer never sent a blank one, but the door and the relay reach `send_from` too.
+
+Carried: an invalid prompt refused; a plan recorded as `plan` and held read-only; Auto refused with the workspace's
+switch off and with no switch ever set, nothing recorded; Auto on the widest sandbox (`danger-full-access` on the
+thread, `full-access` in the header) once allowed, and the next Auto refused once the switch is taken back.
+- The fake app-server gains an `auto` scenario that expects `danger-full-access`. It answers only its own prompt
+  ("Synthetic prompt"), so the Auto run sends that instead of Electron's "First, while it is on.".
+
+Break checks (all caught by the named test): the check skipped; the length doubled; NUL let through; a plan
+recorded as ask; a plan given workspace-write; Auto always allowed; Auto given workspace-write.
+- One run was cut short, then run again. Its breaks waited on the build lock while the `opus2` lane's release suite
+  and the `native-engine` lane's tests ran. Each break hit its 240-300 s limit and counted as TIMEOUT, never as
+  caught. The run was stopped (`mutfilter.py` puts the file back on SIGTERM) and the four breaks it had not reached
+  were run again once the lock was free. All four were caught.
