@@ -805,10 +805,10 @@ apps/desktop/src/renderer/src/a-runtime-switch-shows-where-it-happened.test.tsx	
 apps/desktop/src/renderer/src/a-saved-turn-is-said-after-its-work.test.ts		waiting		
 apps/desktop/src/renderer/src/a-scout-card-that-needs-you-is-on-the-board.test.tsx	scout-2a	carried	src/ui/scout_cards.rs, src/ui/window_drive_tests.rs	all 6 tests carried (urgent card above waiting conversation, sole card forms Needs you, Send/Change/Dismiss, no-draft Dismiss, dark/light tokens, click opens Home focused) + headless window test
 apps/desktop/src/renderer/src/a-scout-fix-says-where-it-stands.test.tsx		waiting		
-apps/desktop/src/renderer/src/a-screen-holds-its-eyes.test.ts		waiting		
+apps/desktop/src/renderer/src/a-screen-holds-its-eyes.test.ts		carried	core/src/screen_holds_eyes_tests.rs	all 5 cases; the 12.5 spread is never the binding limit on the screens Electron checks (a break there survives in both apps)
 apps/desktop/src/renderer/src/a-screen-keeps-its-face-to-you.test.ts	faces-6	carried	core/src/face_ledger_tests.rs	all 5: a_screen_faced_pose_keeps_the_heading_the_rig_would_have_without_its_spin, a_screen_pose_without_a_heading_turns_no_further_than_its_screen_can_show, a_screen_pose_never_laughs_or_whirls_and_keeps_a_little_under_half_of_the_squash, a_screen_pose_copies_the_rigs_pose_and_never_changes_it (screen_pose takes the pose by value, so no break is possible), through_ten_seconds_of_work_a_screen_never_faces_away
 apps/desktop/src/renderer/src/a-screen-switches-on-and-its-dots-blink.test.ts		waiting		
-apps/desktop/src/renderer/src/a-screens-eyes-have-weight.test.ts		waiting		
+apps/desktop/src/renderer/src/a-screens-eyes-have-weight.test.ts		carried	core/src/screen_eye_weight_tests.rs	all 7 cases; bot_rig::step_lag
 apps/desktop/src/renderer/src/a-select-moves-and-chooses-by-the-keyboard.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-shorter-window-keeps-the-newest-reply.test.ts		waiting		
 apps/desktop/src/renderer/src/a-side-question-can-be-approved-and-stopped.test.tsx	SIDE-CHAT	carried	src/ui/side_chat.rs tests	both tests carried (Hydrogen)
@@ -909,7 +909,7 @@ apps/desktop/src/renderer/src/choosing-an-issue-sends-nothing.test.tsx	ISSUES	pa
 apps/desktop/src/renderer/src/claude-thinking-appears-in-the-thinking-row.test.tsx		waiting		
 apps/desktop/src/renderer/src/claudes-cloud-says-what-it-works-on.test.tsx		waiting		
 apps/desktop/src/renderer/src/code-in-a-reply-is-coloured.test.tsx	P5	waiting	code_preserves_unicode_and_has_bounded_colouring	`code-in-a-reply-is-coloured.test.tsx` | `reply_actions::tests::code_preserves_unicode_and_has_bounded_colouring` checks real Rune highlighting, valid UTF-8 boundaries and unknown-language fallback. The streaming/60k guards are implemented.
-apps/desktop/src/renderer/src/codex-buddy-lifts-in-sets.test.ts		waiting		
+apps/desktop/src/renderer/src/codex-buddy-lifts-in-sets.test.ts		carried	core/src/buddy_moves.rs tests	all 16 cases in buddy_moves::tests (his moves, a move at a moment, moments at rest)
 apps/desktop/src/renderer/src/codex-buddy-moves-on-his-own-rig.test.ts		waiting		
 apps/desktop/src/renderer/src/codex-buddy-wears-a-screen.test.tsx		waiting		
 apps/desktop/src/renderer/src/codex-buddys-face-changes-as-a-screen-does.test.ts	BOTS	partial	core/src/buddy_moves.rs	11 of 14 carried, named after them (shuts_his_eyes_brings_the_new_ones_in..., is_the_bots_and_his_face_changes_read_frame_by_frame, turns_his_eyes_that_way_while_it_lasts..., and the rest under that file's heading in buddy_moves.rs). Not carried: the three drawn-screen cases (keeps every eye inside its glass; draws his eyes as a bot screen's; puts his ink round the glass first). buddy_moves.rs said they were in src/look/bots.rs; bots.rs has no tests
@@ -988,7 +988,7 @@ apps/desktop/src/renderer/src/picker-empty-states.test.tsx		waiting
 apps/desktop/src/renderer/src/plan-answer.test.tsx		waiting		
 apps/desktop/src/renderer/src/popular-skills-wait-for-keep.test.tsx		waiting		
 apps/desktop/src/renderer/src/post-headline.test.ts		carried	src/ui/post_headline_tests.rs (10 cases)	BUG: native counted a queued or absent teammate as asked (8 asked for 6; never all answered beside an absent one)
-apps/desktop/src/renderer/src/prompt-is-the-codex-mascot.test.ts		waiting		
+apps/desktop/src/renderer/src/prompt-is-the-codex-mascot.test.ts		carried	core/src/bot_spec.rs tests	all 8 cases, prompt_* and spark_* in bot_spec::tests
 apps/desktop/src/renderer/src/pull-request-news-is-said.test.tsx		waiting		
 apps/desktop/src/renderer/src/putting-a-file-back.test.ts		waiting		
 apps/desktop/src/renderer/src/qa-0365-composer.test.tsx		waiting		

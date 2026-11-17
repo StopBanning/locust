@@ -364,6 +364,10 @@ mod renderer_eye_tests;
 
 #[cfg(test)]
 mod renderer_work_faces_tests;
+#[cfg(test)]
+mod screen_eye_weight_tests;
+#[cfg(test)]
+mod screen_holds_eyes_tests;
 
 pub mod teammate_reach;
 
