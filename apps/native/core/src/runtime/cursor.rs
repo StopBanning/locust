@@ -136,22 +136,14 @@ pub fn command(
 }
 
 /// Stand-in for an oversized tool_call line (process-runner.ts standInFor).
-fn oversized_stand_in(head: &str, bytes: usize) -> Option<Value> {
-    let start = &head[..head.len().min(4096)];
+pub(super) fn oversized_stand_in(head: &str, bytes: usize) -> Option<Value> {
+    let start = head_of(head, 4096);
     let record_re = crate::invariants::regex(r#"^\s*\{\s*"type"\s*:\s*"([a-z_]{1,40})""#);
     let record_type = record_re
         .captures(start)
         .and_then(|c| c.get(1).map(|m| m.as_str().to_owned()));
-    let call_ids: Vec<String> = {
-        let re = crate::invariants::regex(r#""(?:call_id|toolCallId)"\s*:\s*"([^"\\]{1,512})""#);
-        re.captures_iter(start)
-            .filter_map(|c| {
-                c.get(1)
-                    .map(|m| m.as_str().replace(['\n', '\r', '\t'], "|"))
-            })
-            .collect()
-    };
-    let edit = edit_report_in(&head[..head.len().min(65_536)]);
+    let call_ids = call_ids_in(start);
+    let edit = edit_report_in(head_of(head, 65_536));
     let mut v = json_map();
     v.insert(
         "type".into(),
@@ -176,45 +168,83 @@ fn oversized_stand_in(head: &str, bytes: usize) -> Option<Value> {
     Some(serde_json::Value::Object(v))
 }
 
+/// The first `bytes` of a line, cut back to a whole character: a cut inside one would panic the reader.
+fn head_of(line: &str, bytes: usize) -> &str {
+    let mut end = bytes.min(line.len());
+    while !line.is_char_boundary(end) {
+        end -= 1;
+    }
+    &line[..end]
+}
+
 fn json_map() -> serde_json::Map<String, serde_json::Value> {
     serde_json::Map::new()
 }
 
-fn edit_report_in(head: &str) -> Option<serde_json::Value> {
-    // Prefer editToolCall success counts/diff when present in the head.
-    let added = regex::Regex::new(r#""(?:linesAdded|added)"\s*:\s*(\d+)"#)
-        .ok()
-        .and_then(|re| re.captures(head))
-        .and_then(|c| c.get(1)?.as_str().parse::<i64>().ok());
-    let removed = regex::Regex::new(r#""(?:linesRemoved|removed)"\s*:\s*(\d+)"#)
-        .ok()
-        .and_then(|re| re.captures(head))
-        .and_then(|c| c.get(1)?.as_str().parse::<i64>().ok());
-    let diff = regex::Regex::new(r#""diffString"\s*:\s*"((?:\\.|[^"\\])*)""#)
-        .ok()
-        .and_then(|re| re.captures(head))
-        .and_then(|c| {
-            c.get(1).map(|m| {
-                m.as_str()
-                    .replace("\\n", "\n")
-                    .replace("\\\"", "\"")
-                    .replace("\\\\", "\\")
-            })
-        });
-    if added.is_none() && removed.is_none() && diff.is_none() {
+pub(super) fn edit_report_in(head: &str) -> Option<serde_json::Value> {
+    // process-runner.ts editReportIn: only an edit's record, and only with both counts.
+    if !head.contains(r#""editToolCall""#) {
         return None;
     }
+    let count = |pattern: &'static str| {
+        crate::invariants::regex(pattern)
+            .captures(head)
+            .and_then(|c| c.get(1)?.as_str().parse::<i64>().ok())
+    };
+    let added = count(r#""linesAdded"\s*:\s*(\d{1,9})"#)?;
+    let removed = count(r#""linesRemoved"\s*:\s*(\d{1,9})"#)?;
+    // The diff read as the JSON string it is; one that does not read is left out, and the counts stand.
+    // Electron's pattern bounds the quoted diff at 16,384 pieces (a character or an escape); past that it does not
+    // match, and the diff is left out. Rust's regex cannot hold that bound, so it is counted here.
+    let diff = crate::invariants::regex(r#""diffString"\s*:\s*"((?:[^"\\]|\\.)*)""#)
+        .captures(head)
+        .and_then(|c| c.get(1))
+        .map(|m| m.as_str())
+        .filter(|quoted| quoted_pieces(quoted) <= 16_384)
+        .and_then(|quoted| serde_json::from_str::<String>(&format!("\"{quoted}\"")).ok())
+        .filter(|d| !d.is_empty());
     let mut edit = json_map();
-    if let Some(a) = added {
-        edit.insert("added".into(), serde_json::json!(a));
-    }
-    if let Some(r) = removed {
-        edit.insert("removed".into(), serde_json::json!(r));
-    }
+    edit.insert("added".into(), serde_json::json!(added));
+    edit.insert("removed".into(), serde_json::json!(removed));
     if let Some(d) = diff {
         edit.insert("diff".into(), serde_json::Value::String(d));
     }
     Some(serde_json::Value::Object(edit))
+}
+
+/// How many pieces `(?:[^"\\]|\\.)` takes to cover a quoted JSON string in JavaScript: one per UTF-16 unit, an
+/// escape (a backslash and what follows it) as one.
+fn quoted_pieces(quoted: &str) -> usize {
+    let mut chars = quoted.chars();
+    let mut pieces = 0;
+    while let Some(c) = chars.next() {
+        if c == '\\' {
+            // `\\.` in JavaScript takes one UTF-16 unit after the backslash; an astral character leaves its second
+            // unit as a piece of its own.
+            pieces += chars.next().map_or(0, char::len_utf16);
+        } else {
+            pieces += c.len_utf16();
+        }
+    }
+    pieces
+}
+
+/// process-runner.ts callIdsIn: the calls a record's first bytes name, each once, an escaped line break kept as one
+/// and any run of white space as `|`, the way the reader writes an item id.
+pub(super) fn call_ids_in(head: &str) -> Vec<String> {
+    let re = crate::invariants::regex(
+        r#""(?:tool_use_id|call_id|callId|toolCallId)"\s*:\s*"((?:\\[nrt]|[A-Za-z0-9_.:-]){1,240})""#,
+    );
+    let space = crate::invariants::regex(r"\s+");
+    let mut ids: Vec<String> = Vec::new();
+    for c in re.captures_iter(head) {
+        let unescaped = c[1].replace("\\n", "\n").replace("\\r", "\r").replace("\\t", "\t");
+        let id = space.replace_all(&unescaped, "|").into_owned();
+        if !ids.contains(&id) {
+            ids.push(id);
+        }
+    }
+    ids
 }
 
 impl Cursor {

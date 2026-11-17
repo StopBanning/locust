@@ -83,6 +83,14 @@ mod tests;
 mod command_grid_tests;
 #[cfg(test)]
 mod event_goldens_tests;
+#[cfg(test)]
+mod oversized_cursor_edit_tests;
+#[cfg(test)]
+mod copilot_quiet_records_tests;
+#[cfg(test)]
+mod denied_read_and_file_row_tests;
+#[cfg(test)]
+mod message_tail_tests;
 
 pub mod permission_bridge;
 
