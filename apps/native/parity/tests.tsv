@@ -1121,7 +1121,7 @@ apps/desktop/src/renderer/src/your-github-shows-on-connectors.test.tsx	GITHUB	ca
 apps/desktop/src/renderer/src/your-own-model-is-named-as-yours.test.tsx		waiting		
 apps/desktop/src/renderer/src/your-own-models-can-judge.test.ts		waiting		
 apps/desktop/src/renderer/src/your-phone-reaches-locust-from-anywhere.test.tsx		waiting		
-apps/desktop/src/shared/a-block-in-code-is-an-example.test.ts		waiting		
+apps/desktop/src/shared/a-block-in-code-is-an-example.test.ts	engine-2	carried	core/src/block_in_code_tests.rs	Every case has its own test (written by the max-account lane, batch 2; it stopped when the session went down). Verified by the Mac chat: the tests pass by name and in the full and release suites. Break checks not yet run.
 apps/desktop/src/shared/a-command-file-becomes-a-prompt.test.ts	P9	does-not-apply		shared/a-command-file-becomes-a-prompt.test.ts | Leading bang/escape covered; Markdown templates/frontmatter/positional arguments and slash choice are outside typed-command scope; one-shot Windows/WSL variants do not apply to this macOS pas
 apps/desktop/src/shared/a-command-output-keeps-its-tail.test.ts	approvals	carried	core/src/own_command.rs	all 3 cases carried: keeps_the_last_200_lines_and_says_how_many_were_left_out, keeps_the_last_32_kb_when_one_line_is_longer_than_that, leaves_a_short_command_untouched
 apps/desktop/src/shared/a-command-reaches-the-next-message-once.test.ts	P9	partial	own_command_carries_once_and_stays_in_its_conversation	shared/a-command-reaches-the-next-message-once.test.ts | Partial: own_command_carries_once_and_stays_in_its_conversation covers carry once, no pending carry, wrong conversation; stopped/running formatting matrix remains.
@@ -1133,7 +1133,7 @@ apps/desktop/src/shared/a-half-written-tag-is-never-shown-to-a-person.test.ts		c
 apps/desktop/src/shared/a-judge-scores-each-answer.test.ts	compare	carried	compare_score::tests::a_judge_scores_each_answer	`compare_score::tests::a_judge_scores_each_answer`
 apps/desktop/src/shared/a-lesson-reads-as-one-sentence.test.ts		waiting		
 apps/desktop/src/shared/a-long-room-post-still-starts.test.ts	ROOMS	partial	core/src/room_task.rs	fitted_task_section_sheds_done_then_trailing_rows_to_fit_budget carried; tiny-budget fallback strings left without dedicated unit assertions
-apps/desktop/src/shared/a-point-can-count-twice.test.ts		waiting		
+apps/desktop/src/shared/a-point-can-count-twice.test.ts	engine-2	carried	core/src/compare_points_tests.rs	Every case has its own test (written by the max-account lane, batch 2; it stopped when the session went down). Verified by the Mac chat: the tests pass by name and in the full and release suites. Break checks not yet run.
 apps/desktop/src/shared/a-question-that-is-not-a-card-stays-in-the-reply.test.ts		waiting		
 apps/desktop/src/shared/a-reply-page-is-a-whole-page.test.ts	REPLY-PAGE	carried	core/src/reply_page.rs	all 4 cases; and the window test a_whole_page_in_a_reply_opens_in_the_browser_panel_and_a_fragment_stays_code
 apps/desktop/src/shared/a-rewritten-memory-is-new.test.ts	P6	partial		3. **Memory store/parser**: parsed-memory field validation/deduplication, complete Unicode normalization and significant-word containment forget matching, complete ask-mode proposal deduplication/settling, expiry boundary/cap/duplicate rest
@@ -1178,11 +1178,11 @@ apps/desktop/src/shared/step-budget.test.ts		waiting
 apps/desktop/src/shared/text-files.test.ts	FILES	carried	core/src/text_files_tests.rs	all 8 cases, one Rust test each, plus 7 beyond_electron_ tests; the viewer and a handed file's Copy read through core/src/text_files.rs as Electron's text channel does
 apps/desktop/src/shared/the-about-you-line-is-taught-once.test.ts		waiting		
 apps/desktop/src/shared/the-browser-asks-only-what-it-may.test.ts	approvals	carried	core/src/desk.rs	5 of 7 cases carried (desk::tests: cases 2-5 and 7); cases 1 (desktop-api.ts ipcRenderer static coverage) and 6 (structured-clone Uint8Array/undefined IPC serialization) marked does-not-apply as Electron-only IPC plumbing
-apps/desktop/src/shared/the-example-file-is-never-a-file.test.ts		waiting		
+apps/desktop/src/shared/the-example-file-is-never-a-file.test.ts	engine-2	carried	core/src/example_file_tests.rs	Every case has its own test (written by the max-account lane, batch 2; it stopped when the session went down). Verified by the Mac chat: the tests pass by name and in the full and release suites. Break checks not yet run.
 apps/desktop/src/shared/the-judges-pick-is-marked.test.ts	compare	carried	compare::tests::the_judges_pick_is_marked	`compare::tests::the_judges_pick_is_marked`
 apps/desktop/src/shared/the-memories-that-bear-on-the-ask-come-first.test.ts	approvals	carried	core/src/people.rs	all 7 tests + brief() prompt recall wiring; briefed_memories/memories_for_brief/MEMORY_BRIEF_LINES_WITH_FILE/MEMORY_BRIEF_BUDGET_WITH_FILE
 apps/desktop/src/shared/the-named-teammate-claims.test.ts		waiting		
-apps/desktop/src/shared/which-notes-bear-on-a-question.test.ts		waiting		
+apps/desktop/src/shared/which-notes-bear-on-a-question.test.ts	engine-2	carried	core/src/notes_for_a_question_tests.rs	Every case has its own test (written by the max-account lane, batch 2; it stopped when the session went down). Verified by the Mac chat: the tests pass by name and in the full and release suites. Break checks not yet run.
 apps/desktop/test/a-teammate-named-like-an-agent-is-said-as-a-teammate.test.ts		waiting		
 apps/desktop/test/avatar.test.ts		waiting		
 apps/desktop/test/decision.test.ts		waiting		

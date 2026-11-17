@@ -247,6 +247,145 @@ pub(super) fn call_ids_in(head: &str) -> Vec<String> {
     ids
 }
 
+/// cursor-result-stream.ts cursorResultStream: Cursor repeats its streamed answer in its `result` record, so every
+/// string in that record is cut to its first 64 Ki characters as it arrives, escapes kept whole across reads. An answer
+/// of any length then cannot push the record past the line limit and take its terminal status with it. Every other
+/// record passes through as it is. Works on bytes: JSON's quotes, backslashes and line ends are ASCII, and a character
+/// is kept or dropped whole (its lead byte settles its continuation bytes).
+#[derive(Default)]
+pub(super) struct ResultProjector {
+    head: Vec<u8>,
+    result: Option<bool>,
+    quoted: bool,
+    escape: Vec<u8>,
+    unicode_left: u8,
+    kept: usize,
+    keeping: bool,
+}
+
+const RESULT_STRING_CAP: usize = 64 * 1024;
+
+impl ResultProjector {
+    pub(super) fn project(&mut self, chunk: &[u8], out: &mut Vec<u8>) {
+        for &byte in chunk {
+            if self.result.is_none() {
+                self.head.push(byte);
+                if self.head.len() < 64 && byte != b'\n' {
+                    continue;
+                }
+                self.keep_or_drop(out);
+            } else {
+                self.accept(byte, out);
+            }
+            if byte == b'\n' {
+                self.result = None;
+                self.quoted = false;
+                self.escape.clear();
+                self.unicode_left = 0;
+            }
+        }
+    }
+
+    /// What is held when the stream ends. Electron's projector keeps a last line shorter than 64 bytes with no line
+    /// end to itself; Rust passes it on.
+    pub(super) fn finish(&mut self, out: &mut Vec<u8>) {
+        if self.result.is_none() && !self.head.is_empty() {
+            self.keep_or_drop(out);
+        }
+    }
+
+    fn keep_or_drop(&mut self, out: &mut Vec<u8>) {
+        let head = std::mem::take(&mut self.head);
+        self.result = Some(
+            crate::invariants::regex(r#"^\s*\{\s*"type"\s*:\s*"result"\s*[,}]"#).is_match(&String::from_utf8_lossy(&head)),
+        );
+        for byte in head {
+            self.accept(byte, out);
+        }
+    }
+
+    fn accept(&mut self, byte: u8, out: &mut Vec<u8>) {
+        if self.result != Some(true) {
+            out.push(byte);
+        } else if !self.quoted {
+            out.push(byte);
+            if byte == b'"' {
+                self.quoted = true;
+                self.kept = 0;
+            }
+        } else if !self.escape.is_empty() {
+            self.escape.push(byte);
+            if self.escape.len() == 2 && byte == b'u' {
+                self.unicode_left = 4;
+            } else if self.unicode_left > 0 {
+                self.unicode_left -= 1;
+            }
+            if self.unicode_left == 0 {
+                if self.kept + self.escape.len() <= RESULT_STRING_CAP {
+                    out.extend_from_slice(&self.escape);
+                }
+                self.kept += self.escape.len();
+                self.escape.clear();
+            }
+        } else if byte == b'"' {
+            out.push(byte);
+            self.quoted = false;
+        } else if byte == b'\\' {
+            self.escape.push(byte);
+        } else if byte & 0xC0 == 0x80 {
+            // A continuation byte goes with its character.
+            if self.keeping {
+                out.push(byte);
+            }
+        } else {
+            self.keeping = self.kept < RESULT_STRING_CAP;
+            if self.keeping {
+                out.push(byte);
+            }
+            self.kept += 1;
+        }
+    }
+}
+
+/// Cursor's output, read through the result projector.
+pub(super) struct ProjectedOutput<R> {
+    inner: R,
+    projector: ResultProjector,
+    pending: Vec<u8>,
+    at: usize,
+    ended: bool,
+}
+
+impl<R: std::io::Read> ProjectedOutput<R> {
+    pub(super) fn new(inner: R) -> Self {
+        Self { inner, projector: ResultProjector::default(), pending: Vec::new(), at: 0, ended: false }
+    }
+}
+
+impl<R: std::io::Read> std::io::Read for ProjectedOutput<R> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        while self.at == self.pending.len() {
+            if self.ended {
+                return Ok(0);
+            }
+            self.pending.clear();
+            self.at = 0;
+            let mut chunk = [0u8; 8192];
+            let n = self.inner.read(&mut chunk)?;
+            if n == 0 {
+                self.ended = true;
+                self.projector.finish(&mut self.pending);
+            } else {
+                self.projector.project(&chunk[..n], &mut self.pending);
+            }
+        }
+        let n = buf.len().min(self.pending.len() - self.at);
+        buf[..n].copy_from_slice(&self.pending[self.at..self.at + n]);
+        self.at += n;
+        Ok(n)
+    }
+}
+
 impl Cursor {
     pub fn spawn(command: &mut Command) -> io::Result<Self> {
         let mut child = super::process::spawn(command, Stdio::piped(), Stdio::null())?;
@@ -283,7 +422,7 @@ impl Cursor {
         let (tx, lines) = mpsc::sync_channel(256);
         let reader_control = control.clone();
         std::thread::spawn(move || {
-            let mut reader = BufReader::new(output);
+            let mut reader = BufReader::new(ProjectedOutput::new(output));
             loop {
                 let mut line = Vec::new();
                 let result = super::process::read_line(&mut reader, &mut line);

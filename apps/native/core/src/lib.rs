@@ -279,6 +279,14 @@ pub mod pet_puppets;
 mod pet_library_tests;
 #[cfg(test)]
 mod pet_record_tests;
+#[cfg(test)]
+mod block_in_code_tests;
+#[cfg(test)]
+mod compare_points_tests;
+#[cfg(test)]
+mod example_file_tests;
+#[cfg(test)]
+mod notes_for_a_question_tests;
 pub mod cover_activity;
 
 #[cfg(test)]
