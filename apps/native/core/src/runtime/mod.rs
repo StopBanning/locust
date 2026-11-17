@@ -105,6 +105,8 @@ mod claude_command_connectors_tests;
 mod opencode_sealed_run_tests;
 #[cfg(test)]
 mod side_question_fork_tests;
+#[cfg(test)]
+mod opencode_2_step_tests;
 
 pub mod permission_bridge;
 

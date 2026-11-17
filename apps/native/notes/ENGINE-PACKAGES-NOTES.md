@@ -115,3 +115,26 @@ No Rust code changed; no bug found. Breaks: 22, then 3 reruns (`b4-breaks.log`).
 dot-all flag in the effort pattern (caught by batch 1's `copilots_effort_levels_are_read_from_its_1_0_88_help` once
 it was in the run), an empty level, and the run-collapsing of a `claude.ai` connector name; the last two have Rust
 tests of their own now.
+
+## Batch 5: an OpenCode 2 step, and notes on six files Rust has not built (17 Nov)
+Carried whole: `an-opencode-2-step-says-what-it-did` (6, plus 1 of Rust's own): `runtime/opencode_2_step_tests.rs`.
+Copilot's first `tool_call` from `fixtures/acp/copilot-1.0.88-bash-rejected.jsonl` is written into the test, as the
+fixture is not in `parity/events.json`.
+
+Breaks: 8, then 7 reruns (the first run's 60 s limit timed out waiting for the lock; a timeout is not a catch), then
+1 (`b5-breaks.log`, `b5b-breaks.log`). Caught by name but one:
+- dropping `title != command` (a title that only repeats the command is not kept) survived. No Electron case reaches it.
+
+Found, not fixed (the session stopped near its usage limit): Rust's ACP reader renames an open call more widely than
+Electron's (`acp-events.ts` ~line 403). Electron renames a call still named `other`/`tool` only when the update's own
+kind is absent or `other`, reads the earlier title when the update has none, and never renames to `other` or `tool`.
+Rust (`acp_events.rs`, "if matches!(open["name"] ... Some("other" | "tool"))") renames on any update, to whatever
+`naming` gives: an update with no title renames such a call to `tool`, and an update of kind `read` renames it even
+though Electron would not. Electron's later-title rule differs too: it replaces a title only while the title is still a
+bare tool word (`plainAcpToolWord`). Each wants a Rust test with Electron's values, then the fix.
+
+Left waiting, with a note in each row of what is missing: `qa-0365-opencode-worktree` and `a-refusal-is-not-a-crash`
+(both read an `opencode run` process's stderr; Rust serves OpenCode 1), `the-parent-git-is-reachable-on-every-platform`
+(no OpenCode worktree config), `a-self-updated-cli-is-asked-again` (no CLI facts cache),
+`a-result-too-large-to-keep-still-answered` (Rust's oversized stand-in is Cursor's only),
+`claude-thinking-is-kept-for-its-thinking-row` (Rust's Claude reader drops thinking text).
