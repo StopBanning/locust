@@ -266,3 +266,53 @@ Two breaks hung rather than failed (a request left unanswered), so the tests wer
 - the 17th request in `approval_channel_tests` waits 5 s.
 
 macOS returns EINVAL for `set_read_timeout` on a socket its peer already closed, so that error is ignored.
+
+## Round 3 (16 Nov 2026, evening)
+
+Branch at eb7284a7. Break checks ran through `~/work/scratch/maxlane/mutfilter.py`, as in round 2.
+
+## Batch 6: the model catalog, a usage reading kept
+
+| File | Row | Rust tests |
+| --- | --- | --- |
+| `model-catalog.test.ts` | partial (27/32) | `core/src/model_catalog_tests.rs` |
+| `a-usage-reading-outlives-the-newest-twenty.test.ts` | carried (2/2) | `core/src/usage_readings_kept_tests.rs` |
+| `codex-usage-is-read-with-the-models.test.ts` | waiting | none: no `account/rateLimits/read` |
+| `antigravity-usage-is-read-without-a-turn.test.ts` | waiting | none: no agy usage read |
+
+Bugs found and fixed:
+- **A catalog that listed nothing was kept for ten minutes.** `models::kept_catalog` kept any catalog not missing a
+  ready runtime's list, including an empty one. Electron answers an empty list with `MODELS_UNAVAILABLE` and never
+  caches a failure. Now an empty catalog is read again on the next call.
+- **Two callers at once swept twice.** `kept_catalog` let go of its cache while it read, so a second caller started
+  its own 20-second sweep of every agent. Electron answers the second caller from the first probe. The cache now
+  stays locked while it reads: the second caller waits and is answered from the first read.
+  - The callers are a Cursor start (`native.rs`), the door's model list and `--models`. None runs on the window's
+    thread, so the wait blocks no frame.
+  - One difference is left. When the first read lists nothing, the waiting caller reads again. Electron's would
+    get the first read's failure.
+- **A usage reading went with its conversation.** `usage_ledger::usage_windows` read `usage-readings.json` (this
+  app's and Electron's), but nothing in Rust wrote it. Deleting the conversation that last said an agent's window
+  lost the reading. It now keeps the merge in this app's file, but only when the merge changed. A newer reading from
+  the ledgers takes an agent's place, and wins a tie, as in Electron.
+  - Rust reads every ledger, not the newest twenty, so Electron's backfill (conversations 21 to 80) is not needed.
+
+Why some cases are not carried:
+- Rust's lists carry no readiness. `cursor_models_from` and `claude_models_from` take what was listed, and a runtime
+  that is not installed lists nothing. So the "signed out" and "not ready" halves of two cases have no Rust test,
+  and neither does the "not ready Codex fails soft without spawning" case.
+- The probe's spawn is not injectable: `codex_model_list` starts the real `codex app-server`. The "reads the list and
+  shuts the server down" case is tested for the three rows only.
+- `claudeModelsFrom`'s second argument, the models Claude Code's handshake listed (0.697), is not built:
+  `claude_models_from` reads only `--help`.
+- Codex's usage beside its models (0.390) and Antigravity's usage without a turn (0.709) are not built.
+
+Break checks (all caught by the named test, 33 in all): the hidden flag; the effort's field; the missing id; the data
+key; the account default's place; kept no time; kept too long; an empty catalog kept; the lock let go during the
+read; the default effort; extra-high's level; the shared name's tail; nothing shared; Haiku measured; Haiku only
+beside advertised aliases; the version name; the alias's description; the older versions' own levels; current
+models only; the shared levels; an earlier default row; the row's name; the second default; each runtime's own
+levels; a default for every runtime; Claude without Codex; a Cursor and a Claude that listed nothing. For the usage
+reading: not written; not read back; a newer reading not taking the place.
+- One break survived, and it is equivalent. With `thinking` after a level not taken off (`split_cursor_model_id`),
+  the word stays among the family's words, and the family comes out the same. No input tells the two apart.

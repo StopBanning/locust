@@ -190,6 +190,12 @@ mod route_at_start_tests;
 mod model_lists_tests;
 
 #[cfg(test)]
+mod model_catalog_tests;
+
+#[cfg(test)]
+mod usage_readings_kept_tests;
+
+#[cfg(test)]
 mod mission_history_tests;
 
 #[cfg(all(test, unix))]

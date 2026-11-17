@@ -270,7 +270,7 @@ apps/desktop/src/main/a-turn-can-be-undone-without-git.test.ts	P7	does-not-apply
 apps/desktop/src/main/a-turn-can-be-undone.test.ts	P7	does-not-apply	git_ignore_and_raw_bytes_never_run_filters_or_fsmonitor,later_edits_and_removals_are_left_alone,overlapping_turns_are_never_offered_or_undone,restores_bytes_edits_additions_and_deletions_once,too_large_files_named_never_deleted_by_undo	`main/a-turn-can-be-undone.test.ts` | `checkpoints::tests::{restores_bytes_edits_additions_and_deletions_once, later_edits_and_removals_are_left_alone, overlapping_turns_are_never_offered_or_undone, git_ignore_and_raw_bytes_never_run_filter
 apps/desktop/src/main/a-turn-is-committed-on-its-own-branch.test.ts		waiting		
 apps/desktop/src/main/a-turn-on-its-own-branch-leaves-a-receipt.test.ts	MAIN4	carried	core/src/native/tests.rs; core/src/worktrees_tests.rs	all 8: committed with receipt (a_teammate_on_its_own_branch_works_in_its_copy..., a_finished_turn_is_committed_with_its_ask...), shared folder never committed, a slot of its own never committed (fixed: a slot without a cwd committed), changed nothing says nothing, a failed commit is a warning and the files stay; message and sentence cases in worktrees_tests
-apps/desktop/src/main/a-usage-reading-outlives-the-newest-twenty.test.ts		waiting		
+apps/desktop/src/main/a-usage-reading-outlives-the-newest-twenty.test.ts	MAIN6	carried	core/src/usage_readings_kept_tests.rs	both cases: a_reading_past_the_newest_twenty_conversations_is_shown_and_kept, a_kept_reading_gives_way_to_a_newer_one. Fixed: usage_ledger::usage_windows read usage-readings.json but never wrote it, so a reading went with its conversation
 apps/desktop/src/main/a-voice-call-is-placed-by-codex.test.ts		waiting		
 apps/desktop/src/main/a-voice-call-reads-the-folder-itself.test.ts		waiting		
 apps/desktop/src/main/a-voice-call-talks-as-the-teammate.test.ts		waiting		
@@ -333,7 +333,7 @@ apps/desktop/src/main/antigravity-ports-from-netstat.test.ts		waiting
 apps/desktop/src/main/antigravity-runs-through-its-cli.test.ts		waiting		
 apps/desktop/src/main/antigravity-tiers-are-named-once.test.ts		waiting		
 apps/desktop/src/main/antigravity-usage-does-not-hold-the-models.test.ts		waiting		
-apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts		waiting		
+apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts		waiting		not built: no agy usage read (antigravity-usage.ts, agy -p /usage) and no reading beside the catalog
 apps/desktop/src/main/app-server-output-keeps-its-characters.test.ts		waiting		
 apps/desktop/src/main/approval-channel.test.ts	MAIN5	partial	core/src/approval_channel_tests.rs	16 of 19: descriptions (6), decisions, the round trip (9: surfaced and answered, double click/unknown, an unknown method refused and said (fixed: was silent), 16 waiting refused saying so (fixed words), question/decision kept apart, answers' shape, release, release only that run, the item's diff). Not built: withFileChanges (3 cases). On release Rust also sends Codex a reason Electron does not (notes, batch 5)
 apps/desktop/src/main/approval-patch.test.ts	approvals	carried	core/src/approval_patch.rs	all 5 tests; item_of, file_changes_of, unified_patch_text, relative_to_folder, tool_patch_from, approval_patch_from
@@ -358,7 +358,7 @@ apps/desktop/src/main/cloud-tasks.test.ts		waiting
 apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	tune	partial	tune_skills_validate_name_description_and_body,tune_candidate_skill_is_handed_to_run_and_claude_and_wins_name_collision,saves_replaces_same_name_caps_at_20_and_removes	`skill_runtimes`, `tune::tests::tune_skills_validate_name_description_and_body`, `skills::tests::tune_candidate_skill_is_handed_to_run_and_claude_and_wins_name_collision`, `teammate_skills::tests::saves_replaces_same_name_caps_at_20_and_removes`; cloud-computer exclusion, symlink/case-disk copies, and OpenCode/Copilot/Antigravity config/CLI flag delivery wait on their adapters
 apps/desktop/src/main/codex-cloud-leaves-no-log.test.ts		waiting		
 apps/desktop/src/main/codex-mission.test.ts		waiting		
-apps/desktop/src/main/codex-usage-is-read-with-the-models.test.ts		waiting		
+apps/desktop/src/main/codex-usage-is-read-with-the-models.test.ts		waiting		not built: models::codex_model_list asks model/list only, never account/rateLimits/read, and the catalog carries no usage readings
 apps/desktop/src/main/cold-start-is-not-an-alert.test.ts		waiting		
 apps/desktop/src/main/combining-a-tunes-two-edits.test.ts	tune	carried	combine_setups_and_parser_reject_duplicates_or_baseline,tune_combine_edits_shows_combined_instructions_and_saves_only_when_pressed	`tune::tests::combine_setups_and_parser_reject_duplicates_or_baseline` + `window_drive_tests::tune_combine_edits_shows_combined_instructions_and_saves_only_when_pressed`
 apps/desktop/src/main/command-length.test.ts		waiting		
@@ -409,7 +409,7 @@ apps/desktop/src/main/memory-store.test.ts	P6	partial		`main/memory-file.test.ts
 apps/desktop/src/main/menus-dismiss.test.ts		waiting		
 apps/desktop/src/main/mission-history.test.ts	MAIN4	partial	core/src/mission_history_tests.rs	17 of 30: folder id (2), a streamed reply read back whole, final from the last fragment, a replace, two messages apart; deleting (running refused untouched, finished/missing, an unsafe id before the store); limited runtimes (6, incl. read from the store); usage windows (2). Not built: the publicRecoveredMission projection (eventCount, eventsTruncated, first-and-latest window, host failure, issue count), withinByteBudget, HISTORY_UNAVAILABLE, the workroom join. Rust's thread keeps the newest 2000 events and joins after, so past 2000 fragments a reply loses its front (notes, batch 4)
 apps/desktop/src/main/missions-can-be-deleted-together.test.ts	MAIN4	waiting		renderer source checks (Screens.tsx); the native Missions list has no multi-select delete yet
-apps/desktop/src/main/model-catalog.test.ts		waiting		
+apps/desktop/src/main/model-catalog.test.ts	MAIN6	partial	core/src/model_catalog_tests.rs	27 of 32: parseModels (4), a whole catalog kept, an empty one not kept (fixed: kept_catalog kept a catalog that listed nothing ten minutes), a second caller answered from the first read (fixed: two callers at once both swept), read again after ten minutes, Cursor's variants, splits, names and shared names, Claude's aliases, Haiku, version names, older versions, the account default's current levels, Claude listed without Codex, every account-default case. Half carried (no readiness in Rust's list): the probe's server shut down, signed-out Cursor and not-ready Claude offer nothing. Not built: the not-ready Codex soft failure (MODELS_UNAVAILABLE), claudeModelsFrom's handshake-listed models (0.697)
 apps/desktop/src/main/muse-wonder-is-offered.test.ts		waiting		
 apps/desktop/src/main/new-teammate-is-the-chat-bars-chip.test.ts		waiting		
 apps/desktop/src/main/no-dead-links.test.ts		waiting		
