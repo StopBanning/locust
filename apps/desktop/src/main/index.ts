@@ -10559,13 +10559,25 @@ if (!ownsSingleInstanceLock) {
       phoneSending.add(newest)
       try {
         const owner = (await teammates.missionOwners().catch(() => ({} as Readonly<Record<string, string>>)))[newest]
-        if (owner === undefined) return { ok: false, message: 'This conversation has no teammate in Locust: it was started without one, or its teammate was removed. Continue it in Locust on the computer. Nothing was sent.', why: 'gone' }
-        const list = await listTeammates()
-        const mode = (list.ok ? list.data.teammates.find((mate) => mate.teammateId === owner)?.route?.mode : undefined) ?? 'ask'
-        const response = await startMission({ prompt: text, teammateId: owner, followUpOf: newest, mode, keepSavedRoute: true } as CodexMissionStartRequest, sendToWindow)
+        /*
+         * NO TEAMMATE, STILL YOURS (0.878). A conversation started without a teammate, or whose teammate was removed,
+         * was refused here; the phone is the person, so it goes on as the window would go on with it: the turn's own
+         * agent, model and mode.
+         */
+        let request: CodexMissionStartRequest
+        if (owner === undefined) {
+          const route = await routeOfTurnOrRecord(newest, 'ask')
+          if (route === undefined) return { ok: false, message: 'This conversation could not be read in Locust. Continue it on the computer. Nothing was sent.', why: 'gone' }
+          request = { prompt: text, followUpOf: newest, ...route, keepSavedRoute: true } as CodexMissionStartRequest
+        } else {
+          const list = await listTeammates()
+          const mode = (list.ok ? list.data.teammates.find((mate) => mate.teammateId === owner)?.route?.mode : undefined) ?? 'ask'
+          request = { prompt: text, teammateId: owner, followUpOf: newest, mode, keepSavedRoute: true } as CodexMissionStartRequest
+        }
+        const response = await startMission(request, sendToWindow)
         if (!response.ok) return { ok: false, message: response.error.message, why: 'failed' }
         rememberSentByPerson(response.data.missionId)
-        sendToWindow({ kind: 'mission-started', runId: response.data.runId, missionId: response.data.missionId, teammateId: owner, prompt: text, data: response.data })
+        sendToWindow({ kind: 'mission-started', runId: response.data.runId, missionId: response.data.missionId, ...(owner === undefined ? {} : { teammateId: owner }), prompt: text, data: response.data })
         return { ok: true }
       } finally {
         phoneSending.delete(newest)
