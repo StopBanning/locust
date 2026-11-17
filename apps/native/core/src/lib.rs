@@ -170,6 +170,8 @@ mod assistant_text_tests;
 
 #[cfg(test)]
 mod changed_file_tests;
+#[cfg(test)]
+mod copilot_effort_levels_tests;
 
 #[cfg(test)]
 mod typed_prompt_tests;
