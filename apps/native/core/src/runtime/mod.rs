@@ -99,6 +99,14 @@ mod claude_helper_children_tests;
 mod codex_config_warning_tests;
 #[cfg(test)]
 mod large_cursor_result_tests;
+#[cfg(test)]
+mod claude_command_connectors_tests;
+#[cfg(test)]
+mod opencode_sealed_run_tests;
+#[cfg(test)]
+mod side_question_fork_tests;
+#[cfg(test)]
+mod opencode_2_step_tests;
 
 pub mod permission_bridge;
 

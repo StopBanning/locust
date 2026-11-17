@@ -67,3 +67,14 @@ fn a_stream_where_no_helper_ran_has_no_helper_children() {
     assert!(!events.is_empty());
     assert!(events.iter().all(|e| parent_of(e).is_none()));
 }
+
+// Rust's own, for the path Electron calls "measured not to happen": a helper's call that did stream its start is
+// still the helper's.
+#[test]
+fn a_helpers_call_that_streams_its_start_is_still_the_helpers() {
+    let mut claude = ClaudeNormalizer::default();
+    let events = claude.accept(&json!({ "type": "stream_event", "parent_tool_use_id": AGENT, "event": { "type": "content_block_start",
+        "index": 0, "content_block": { "type": "tool_use", "id": GLOB, "name": "Glob" } } }));
+    assert_eq!(events.len(), 1);
+    assert_eq!((events[0].kind.as_str(), parent_of(&events[0])), ("tool.started", Some(AGENT)));
+}
