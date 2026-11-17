@@ -177,7 +177,7 @@ Partial (each row names what is not built):
 - `a-check-result-is-kept-with-its-turn` (5 of 6), `a-card-answered-is-kept-with-its-turn` (4 of 9),
   `a-helpers-calls-are-kept-as-its-own` (2 of 3): `mission_store_records_tests.rs`, plus 3 of Rust's own.
 - `checkpoint` (7 of 12, one in half): `checkpoint_reconcile_tests.rs`.
-Does not apply: `the-home-list-bounds-its-reads` (Node promise pools; Rust lists one file at a time).
+Left waiting: `the-home-list-bounds-its-reads` (its pool half is Node's; its order half applies and is not carried).
 Left waiting, with a note: `a-long-field-is-kept-shortened` (no ledger-side fit), `a-busy-file-does-not-end-a-run`
 (no retry of a busy open), `unreadable-count` (the list has no such count), `the-storage-report-reads-only-what-changed`
 (no per-file cache).
@@ -187,7 +187,9 @@ nobody defined and any number of lines (`ledger::decode` then dropped the record
 and any answerer. They now run mission-store's `validateEditCheck` and `validateApproval` first
 (`ledger_write::validate_edit_check`, `validate_approval`, with `requireText` and `requireTimestamp`), and
 `bounded_edit_check` is `boundedEditCheck` (60 lines of 500, the command 500: the record's bound, wider than the
-checker's own 30 by 300). A timestamp is read as RFC 3339, narrower than JavaScript's `Date.parse`.
+checker's own 30 by 300). Not wired: Electron's host bounds before it appends (`codex-mission.ts:1454`), Rust's
+(`native.rs:2711`) passes the record straight in, so a command over 500 is now refused there rather than cut. `native.rs`
+is the maxlane lane's; it wants `bounded_edit_check(&rec)` at that call. A timestamp is read as RFC 3339, narrower than JavaScript's `Date.parse`.
 
 Found, not fixed (the readers are in `ledger.rs` and `mission_export.rs`, which the maxlane lane is changing; they
 belong with `schema-compat`): `recover_mission_from_path` reads every record leniently, so a check result in a v16 file,
@@ -251,3 +253,18 @@ Breaks: 18, then 2 reruns (`~/work/scratch/opus2/b9-breaks.log`, `b9b-`, `b9c-`)
 version, `ledger::metadata` and `decode`, `route_at_start::start_as`, `people`'s memory block and `agents`' install
 facts. All caught by name but two at first, the teammate id and the timestamp of a peer link, which no Electron case
 reaches; `a_peer_link_with_an_unsafe_teammate_id_or_a_time_that_is_not_one_is_refused` catches both now.
+
+## After round 2: a change the batch 7 validators made, for Colin to decide
+`approval.rs:989` records a command the hard command guard refused before any card as an approval with
+`by: "command-guard"`. Electron's mission-store knows no such answerer (`card`, `card-saving-a-rule`, `saved-rule`,
+`earlier-always`), and Electron records no approval for its guard (the guard is a hook, not a card). Since batch 7,
+`validate_approval` refuses that record, and `native.rs:2983` drops the error (`let _ =`), so a guard refusal is no longer
+written to the ledger (the refusal itself still happens; `approval.rs`'s own test reads the channel, not the ledger, and
+passes). Before batch 7 Rust wrote it, and Electron's reader would have stopped reading that file at it. Either keep it
+as Electron (no record of a guard refusal) or allow `command-guard` as Rust's own answerer (kept in Rust's saved record,
+a file Electron's reader stops at). Not changed until decided.
+
+Checked at the end: the peer-link callers (`native.rs:1656`, `:2666`) pass workroom message ids and `posted_at` times
+the checks accept; every approval's `askedAt` is `now_iso()` (RFC 3339) except `engine_process.rs:264`, which takes the
+card's own `requestedAt` and defaults to empty, which `validate_approval` refuses. The old writer messages appear nowhere
+else in `src`, `scripts` or `core`.
