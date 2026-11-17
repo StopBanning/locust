@@ -60,6 +60,16 @@ fn a_backgrounded_call_carries_it_onto_the_finished_tool_event() {
     assert!(done["command"].as_str().unwrap_or("").contains("pnpm test"), "{done}");
 }
 
+// Rust's own (Electron's case checks only the finished event): the call says so as soon as its input names it.
+#[test]
+fn a_backgrounded_call_says_so_when_its_input_is_filled_in() {
+    let events = bash_call(json!({ "command": "pnpm test", "run_in_background": true }));
+    let started = steps(&events, "tool.started");
+    assert_eq!(started.len(), 2, "{started:?}");
+    assert_eq!(started[1]["background"], true);
+    assert!(started[0].get("background").is_none(), "{}", started[0]);
+}
+
 #[test]
 fn an_ordinary_bash_call_says_nothing_about_the_background() {
     let done = finished(&bash_call(json!({ "command": "pnpm test" })));

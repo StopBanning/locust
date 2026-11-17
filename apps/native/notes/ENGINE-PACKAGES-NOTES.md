@@ -46,3 +46,30 @@ rerun with batch 2. Two survived:
 - dropping the dedup of call ids: no Electron case checks it (the normalizer closes the call on the first id). Rust's
   own test `an_oversized_edits_stand_in_names_its_call_once` now does.
 - making `choices:` required in the effort pattern: both Electron cases happen to write `choices:`. Left as it is.
+
+## Batch 2: five runtime-adapters files and five shared files (67514082, cb6c8fcf, then the break checks' commit)
+Written by the first chat on this brief, which stopped at 22:47 on 16 Nov; the Mac chat committed it. The break checks
+were finished on 17 Nov by the next chat.
+
+Carried whole:
+- `a-backgrounded-call-says-so` (4) and `background-work-ends-with-the-run` (7): `runtime/claude_background_calls_tests.rs`.
+- `a-config-warning-says-its-summary` (6): `runtime/codex_config_warning_tests.rs`.
+- `a-helpers-calls-are-its-rows-children` (3): `runtime/claude_helper_children_tests.rs`.
+- `a-large-cursor-result-keeps-its-terminal-status` (1): `runtime/large_cursor_result_tests.rs`.
+- `a-block-in-code-is-an-example`: `block_in_code_tests.rs`. `a-point-can-count-twice` (4) and `points-are-drafted` (3):
+  `compare_points_tests.rs`. `the-example-file-is-never-a-file` (1): `example_file_tests.rs`.
+  `which-notes-bear-on-a-question` (4): `notes_for_a_question_tests.rs`.
+
+Breaks: 18 on the runtime readers (16 Nov, `~/work/scratch/opus2/b2-breaks.log`), then 19 and one more on 17 Nov
+(`b2b-breaks.log`). Five survived at first; each now has a Rust test of its own that catches it by name:
+- the background flag on the restated `tool.started` (Electron checks it only on the finished event):
+  `a_backgrounded_call_says_so_when_its_input_is_filled_in`;
+- a helper's call that streams its own start (Electron: "measured not to happen"):
+  `a_helpers_call_that_streams_its_start_is_still_the_helpers`;
+- a `\u` escape across the 64 Ki cut in Cursor's result: `a_unicode_escape_at_the_cut_is_dropped_whole`;
+- the driver's reader passing on a short last line with no line end:
+  `a_short_last_cursor_line_without_a_line_end_still_reaches_the_reader`;
+- the newer-first tie-break among notes a question lifts alike: `notes_the_question_lifts_alike_come_newest_first`.
+One break was left as it is: the `parentItemId` on a restated `tool.started`. A helper's whole record opens its calls
+and returns before the restating loop, so it is reached only by a helper's call that streamed its start and whose whole
+record then came without the helper's id, which no recording shows (Electron is built the same way).

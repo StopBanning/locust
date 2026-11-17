@@ -67,6 +67,23 @@ fn a_cursor_result_keeps_an_escape_whole_and_a_short_last_line() {
     assert_eq!(String::from_utf8(out).unwrap(), line);
 }
 
+// Rust's own: a last line shorter than the projector's 64-byte look, with no line end, still reaches the reader.
+#[test]
+fn a_short_last_cursor_line_without_a_line_end_still_reaches_the_reader() {
+    let line = r#"{"type":"result","is_error":false}"#;
+    assert_eq!(received(line), line);
+}
+
+// Rust's own: a \u escape that would cross the 64 Ki cut is dropped whole, so the record still reads as JSON.
+#[test]
+fn a_unicode_escape_at_the_cut_is_dropped_whole() {
+    let head = "x".repeat(64 * 1024 - 3);
+    let line = format!(r#"{{"type":"result","result":"{head}\u00e9y","is_error":false}}"#);
+    let parsed: Value = serde_json::from_str(&received(&line)).unwrap();
+    assert_eq!(parsed["result"].as_str(), Some(head.as_str()));
+    assert_eq!(parsed["is_error"], false);
+}
+
 // The same, through the driver's own reader: a Cursor process that sends a 9 MiB answer in its result, no line end.
 #[test]
 fn a_cursor_run_with_a_result_past_the_line_limit_still_completes() {

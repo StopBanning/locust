@@ -48,3 +48,12 @@ fn the_brief_keeps_the_newest_notes_when_the_allowance_runs_out() {
     assert!(briefed[0].contains("day 8"));
     assert!(!briefed.iter().any(|t| t.contains("day 1:")));
 }
+
+// Rust's own (memory.ts sorts by score, then the newer note first; no Electron case has a tie): notes the question
+// lifts alike come newest first.
+#[test]
+fn notes_the_question_lifts_alike_come_newest_first() {
+    let rows = twenty();
+    let chosen = memories_for_brief(&rows, Some("the sidebar"), 8);
+    assert_eq!(texts(&chosen[..3]), ["Locust note 12 about the sidebar.", "Locust note 6 about the sidebar.", "Locust note 0 about the sidebar."]);
+}
