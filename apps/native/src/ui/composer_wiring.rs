@@ -554,6 +554,9 @@ pub(super) fn submit_composer(s: &mut State, tx: &mut Tx, send_now: bool) {
         }
         return;
     }
+    if crate::folder_confirmation::hold_send(s) {
+        return;
+    }
     if s.sent_history.last().map(String::as_str) != Some(typed.as_str()) && !typed.is_empty() {
         s.sent_history.push(typed.clone());
         if s.sent_history.len() > 50 {
