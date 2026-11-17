@@ -325,8 +325,6 @@ pub(super) struct State {
     pub(super) files_asked: Option<std::time::Instant>,
     pub(super) sent_history: Vec<String>,
     pub(super) recall_at: isize,
-    /// Permission mode for Shift+Tab / slash (Electron mode chip).
-    pub(super) mode: String,
     /// Scene / discovery flags for placeholders and disabled-send.
     pub(super) nothing_installed: bool,
     pub(super) selected_ready: bool,
@@ -577,7 +575,6 @@ impl Default for State {
             files_asked: None,
             sent_history: Vec::new(),
             recall_at: -1,
-            mode: "ask".into(),
             nothing_installed: false,
             selected_ready: true,
             route_can_run: true,

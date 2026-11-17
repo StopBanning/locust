@@ -173,15 +173,12 @@ pub(super) fn tool_row_label(
             parts.server.as_str()
         } else if locust_core::mcp_names::is_bare_connector_tool(name) {
             "a connector"
-        } else { match name.to_lowercase().as_str() {
-            "read" | "read_file" | "readfile" | "view_file" | "cat" => "Read",
-            "write" | "write_file" | "writefile" => "Write",
-            "edit" | "edit_file" | "editfile" | "apply_patch" => "Edit",
-            "grep" | "grep_search" | "ripgrep" => "Grep",
-            "glob" | "list_dir" | "list_directory" | "ls" => "Glob",
-            "bash" | "shell" | "exec_command" | "commandexecution" => "",
-            _ => name,
-        } };
+        } else if matches!(name.to_lowercase().as_str(), "bash" | "shell" | "exec_command" | "commandexecution") {
+            // A shell row already says what ran; a word beside it would only repeat it.
+            ""
+        } else {
+            locust_core::activity_entries::file_tool_word(name)
+        };
         if tool_word.is_empty() || locust_core::activity_entries::tool_name(name, title).is_none() {
             format!("{title} · {result}")
         } else {

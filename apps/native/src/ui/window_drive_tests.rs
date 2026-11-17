@@ -5649,7 +5649,6 @@ fn asking_scout_from_window_uses_ask_mode_and_sealed_runtime_even_when_edit_sele
         // This fixture replaces the roster; explicitly pick its new teammate.
         s.selected = 0;
         s.composer_mode = Some("accept_edits".into());
-        s.mode = "accept_edits".into();
     });
     settle(&mut rt);
     type_and_send(&mut rt, "Synthetic prompt");

@@ -19,7 +19,7 @@ use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
 const MAX_MODELS: usize = 40;
-const ACCOUNT_DEFAULT: &str = "account-default";
+pub const ACCOUNT_DEFAULT: &str = "account-default";
 
 fn re(pattern: &'static str) -> regex::Regex {
     crate::invariants::regex(pattern)

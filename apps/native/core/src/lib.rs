@@ -54,6 +54,8 @@ pub mod compare_score;
 pub mod compact_now;
 pub mod connector_reader;
 pub mod connectors_off;
+#[cfg(test)]
+mod free_start_tests;
 pub mod context_usage;
 pub mod desk;
 pub mod door;
@@ -123,6 +125,8 @@ pub mod secrets;
 pub mod session_import;
 pub mod shell_path;
 pub mod shell_words;
+#[cfg(test)]
+mod shell_wrapper_tests;
 pub mod provider_error;
 pub mod failure_words;
 pub mod memory_tidy;
@@ -158,6 +162,10 @@ pub mod command_outcomes;
 pub mod activity_summary;
 
 pub mod activity_entries;
+#[cfg(test)]
+mod tool_words_tests;
+#[cfg(test)]
+mod tool_vocabulary_tests;
 pub mod activity_trace;
 pub mod conversation_turns;
 

@@ -46,14 +46,28 @@ fn in_order(text: &str, query: &str) -> bool {
     false
 }
 
+/// JavaScript's string order (UTF-16 code units). ASCII text orders the same byte by byte, without encoding.
+fn utf16_order(a: &str, b: &str) -> std::cmp::Ordering {
+    if a.is_ascii() && b.is_ascii() {
+        a.cmp(b)
+    } else {
+        a.encode_utf16().cmp(b.encode_utf16())
+    }
+}
+
 /// The files that match, best first (Electron order). Default max is 8.
 pub fn file_matches(paths: &[String], query: &str, max: usize) -> Vec<String> {
     let q = folded(&query.to_lowercase().replace('\\', "/"));
     let mut ranked: Vec<(String, i32, usize, usize)> = Vec::new();
     for path in paths {
+        // A bare `@` ranks every path first, so nothing needs lowering or folding (50,000 paths, R16).
+        if q.is_empty() {
+            ranked.push((path.clone(), 0, path.split('/').count(), path.encode_utf16().count()));
+            continue;
+        }
         let lower = folded(&path.to_lowercase());
         let base = base_of(&lower);
-        let rank = if q.is_empty() || base == q {
+        let rank = if base == q {
             0
         } else if base.starts_with(&q) {
             1
@@ -75,12 +89,15 @@ pub fn file_matches(paths: &[String], query: &str, max: usize) -> Vec<String> {
             ));
         }
     }
-    ranked.sort_by(|a, b| {
-        a.1.cmp(&b.1)
-            .then(a.2.cmp(&b.2))
-            .then(a.3.cmp(&b.3))
-            .then_with(|| a.0.encode_utf16().cmp(b.0.encode_utf16()))
-    });
+    let order = |a: &(String, i32, usize, usize), b: &(String, i32, usize, usize)| {
+        a.1.cmp(&b.1).then(a.2.cmp(&b.2)).then(a.3.cmp(&b.3)).then_with(|| utf16_order(&a.0, &b.0))
+    };
+    // Only the first `max` are shown: put them at the front, then sort just those.
+    if max > 0 && ranked.len() > max {
+        ranked.select_nth_unstable_by(max - 1, order);
+        ranked.truncate(max);
+    }
+    ranked.sort_by(order);
     ranked.into_iter().take(max).map(|(p, _, _, _)| p).collect()
 }
 
@@ -131,3 +148,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "at_file_tests.rs"]
+mod at_file_tests;

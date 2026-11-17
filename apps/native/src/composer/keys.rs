@@ -101,17 +101,17 @@ pub fn handle_key(key: ComposerKey, mods: KeyMods, ctx: &KeyContext<'_>) -> KeyA
 }
 
 /// Cycle permission mode the way Shift+Tab does in Electron (next usable mode).
-pub fn shift_tab_mode(current: &str, usable: &[&str]) -> Option<String> {
-    if usable.is_empty() {
+/// Shift+Tab (Composer.tsx `shiftTabMode`, M33): the next of the modes this route can run, with Auto among them only
+/// while the workspace's Auto switch is already on (landing on Auto used to turn that saved switch on). Off a mode no
+/// longer in the cycle (Auto with the switch off), the first mode. Nothing with fewer than two modes to cycle.
+pub fn shift_tab_mode(current: &str, usable: &[&str], auto_allowed: bool) -> Option<String> {
+    let cycle: Vec<&str> = usable.iter().copied().filter(|mode| *mode != "auto" || auto_allowed).collect();
+    if cycle.len() < 2 {
         return None;
     }
-    let at = usable.iter().position(|m| *m == current).unwrap_or(0);
-    let next = usable[(at + 1) % usable.len()];
-    if next == current {
-        None
-    } else {
-        Some((*next).to_owned())
-    }
+    // indexOf: -1 for a mode not in the cycle, so the next is the first.
+    let next = cycle.iter().position(|m| *m == current).map_or(0, |at| (at + 1) % cycle.len());
+    Some(cycle[next].to_owned())
 }
 
 #[cfg(test)]
@@ -258,3 +258,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "shift_tab_tests.rs"]
+mod shift_tab_tests;

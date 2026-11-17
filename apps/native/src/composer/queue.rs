@@ -25,6 +25,10 @@ pub struct QueuedRow {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Origin {
     Person,
+    /// A row the host queued (a routine's next step, a decision reply, a relay hand-off): never merged, since that would
+    /// put two intents in one instruction under whoever typed last. Nothing queues one yet, in either app.
+    #[allow(dead_code)]
+    Host,
 }
 
 pub fn queued_verdict(input: VerdictInput<'_>) -> QueuedVerdict {
@@ -348,3 +352,7 @@ mod renderer_conversation_tests {
         assert_eq!(queued_in(&rest, Some("pip"))[0].text, "PIP_QUEUED");
     }
 }
+
+#[cfg(test)]
+#[path = "combine_queued_tests.rs"]
+mod combine_queued_tests;

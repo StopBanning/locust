@@ -301,7 +301,7 @@ pub(super) fn run_slash_command(s: &mut State, command: &composer::SlashCommand)
     s.slash_at = 0;
     match &command.action {
         composer::SlashAction::Mode(mode) => {
-            s.mode = (*mode).to_owned();
+            s.composer_mode = Some((*mode).to_owned());
             s.draft.clear();
         }
         composer::SlashAction::Stop => {
@@ -480,12 +480,31 @@ pub(super) fn composer_input_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -
             true
         }
         composer::KeyAction::CycleMode => {
-            let usable = ["ask", "plan", "accept-edits", "approve-each", "auto"];
-            if let Some(next) = composer::shift_tab_mode(&s.mode, &usable) {
-                s.mode = next;
-            }
+            cycle_mode(s);
             true
         }
+    }
+}
+
+/// Shift+Tab on the message box: the mode chip moves to the next mode this teammate's route can run (in the menu's
+/// order), Auto only while Settings' Auto switch is on. The mode a turn runs in is the chip's (`composer_mode`).
+pub(super) fn cycle_mode(s: &mut State) {
+    let Some(teammate) = s.teammates.get(s.selected) else { return };
+    let runtime = s
+        .picks
+        .get(&teammate.id)
+        .and_then(|p| p.runtime.clone())
+        .or_else(|| teammate.runtime.clone())
+        .unwrap_or_else(|| "codex".into());
+    let current = s.composer_mode.clone().unwrap_or_else(|| teammate.runs_in.clone());
+    let usable: Vec<&str> = locust_core::mode_facts::MODE_FACTS
+        .iter()
+        .map(|f| f.mode)
+        .filter(|mode| locust_core::mode_facts::runs_on(mode, &runtime))
+        .collect();
+    let auto_allowed = s.settings_panel.settings.auto_mode;
+    if let Some(next) = composer::shift_tab_mode(&current, &usable, auto_allowed) {
+        s.composer_mode = Some(next);
     }
 }
 
@@ -626,3 +645,7 @@ pub(super) fn drain_queue_after_turn(s: &mut State, tx: &mut Tx) {
     send(s, tx);
     s.draft.replace_text(draft);
 }
+
+#[cfg(test)]
+#[path = "mode_cycle_tests.rs"]
+mod mode_cycle_tests;

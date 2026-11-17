@@ -369,10 +369,10 @@ pub fn post_headline(members: &[PostMemberStatus]) -> String {
         .iter()
         .filter(|m| m.state != MemberPostState::NotAsked)
         .collect();
-    if active.is_empty() {
-        return "0 asked".to_owned();
-    }
-    let mut parts = vec![format!("{} asked", active.len())];
+    // Absent is someone the post never reached, and Queued someone it has not reached yet: neither was asked, so
+    // neither is counted as asked (RoomScreen.tsx postHeadline); both are said elsewhere.
+    let asked = active.iter().filter(|m| !matches!(m.state, MemberPostState::Queued | MemberPostState::Absent)).count();
+    let mut parts = vec![format!("{asked} asked")];
     let done = active
         .iter()
         .filter(|m| m.state == MemberPostState::Completed)
@@ -397,7 +397,7 @@ pub fn post_headline(members: &[PostMemberStatus]) -> String {
         .filter(|m| m.state == MemberPostState::Queued)
         .count();
 
-    if done == active.len() {
+    if done > 0 && done == asked {
         parts.push("all answered".to_owned());
     } else if done > 0 {
         parts.push(format!("{done} answered"));
@@ -2542,3 +2542,11 @@ mod tests {
         assert_eq!(room_full_note(0), None);
     }
 }
+
+#[cfg(test)]
+#[path = "room_blocked_tests.rs"]
+mod room_blocked_tests;
+
+#[cfg(test)]
+#[path = "post_headline_tests.rs"]
+mod post_headline_tests;

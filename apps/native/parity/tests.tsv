@@ -601,7 +601,7 @@ apps/desktop/src/main/your-phone-buzzes-only-when-it-must.test.ts		waiting
 apps/desktop/src/preload/routine-inputs.test.ts	p11	waiting		`preload/routine-inputs.test.ts` | Unported and applicable: routine input/file/template or trigger behavior remains outside the implemented subset.
 apps/desktop/src/preload/routine-recovery.test.ts	p11	waiting		`preload/routine-recovery.test.ts` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.
 apps/desktop/src/preload/the-record-is-saved-through-one-channel.test.ts		waiting		
-apps/desktop/src/renderer/src/959-minutes-is-not-a-duration.test.ts		waiting		
+apps/desktop/src/renderer/src/959-minutes-is-not-a-duration.test.ts		carried	core/src/time_marker.rs tests: reads_minutes_only_while_minutes_are_readable, turns_hours_into_hours, turns_colins_own_number_into_something_a_person_reads, counts_days_once_it_has_been_days, names_the_day_when_a_turn_has_crossed_one_and_not_before, says_how_long_the_silence_was_and_skips_short_gaps	a test per case; breaks caught
 apps/desktop/src/renderer/src/a-background-command-says-what-became-of-it.test.tsx	P9	partial	helper_background_end_updates_original_row	renderer/src/a-background-command-says-what-became-of-it.test.tsx | Agent activity, not own commands; existing helper_background_end_updates_original_row and activity tests retained. Full static-render parity remains.
 apps/desktop/src/renderer/src/a-background-helper-says-it-is-still-working.test.ts		waiting		
 apps/desktop/src/renderer/src/a-bang-in-the-box-is-command-mode.test.tsx	P9	partial		renderer/src/a-bang-in-the-box-is-command-mode.test.tsx | Partial: Escape strips mark; mode note, result/Stop draw; accessibility/static markup assertions remain. Project template prompt outside typed scope.
@@ -623,7 +623,7 @@ apps/desktop/src/renderer/src/a-call-shows-on-its-conversation-row.test.tsx		wai
 apps/desktop/src/renderer/src/a-call-sums-up-what-it-handed-out.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-call-with-chatgpt-wears-an-orb.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-called-link-says-what-leaves-the-computer.test.tsx		waiting		
-apps/desktop/src/renderer/src/a-cancelled-run-spent-nothing.test.ts		waiting		
+apps/desktop/src/renderer/src/a-cancelled-run-spent-nothing.test.ts		waiting		native has no mission header cost strip (missionCostTail) or conversation cost line yet
 apps/desktop/src/renderer/src/a-carried-on-turn-is-said-as-locusts.test.tsx	RELAY	partial	src/ui/handoff_divider.rs	divider carried copy in handoff_divider.rs
 apps/desktop/src/renderer/src/a-chain-template-opens-in-the-editor.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-change-can-be-copied.test.tsx	P7	partial	copies_after_code_with_parts_apart_and_no_deleted_code	`renderer/src/a-change-can-be-copied.test.tsx` | `copies_after_code_with_parts_apart_and_no_deleted_code` covers separated hunks, new/deleted code behavior. Scene inspection covers visible copy controls. React static-markup assertions are i
@@ -638,7 +638,7 @@ apps/desktop/src/renderer/src/a-cloud-turn-says-where-it-ran.test.tsx		waiting
 apps/desktop/src/renderer/src/a-cloud-watch-stops-when-it-should.test.ts		waiting		
 apps/desktop/src/renderer/src/a-codex-sandbox-that-did-not-start-says-why.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-colour-code-shows-its-colour.test.tsx		waiting		
-apps/desktop/src/renderer/src/a-command-reads-as-a-command.test.ts		waiting		
+apps/desktop/src/renderer/src/a-command-reads-as-a-command.test.ts		carried	core/src/shell_wrapper_tests.rs (7 cases + the_live_row_names_the_command_without_its_shell)	withoutShellWrapper was missing: the live row showed cmd /c / bash -lc; fixed in shell_words::without_shell_wrapper + thread_view live_line
 apps/desktop/src/renderer/src/a-command-says-how-long-it-took.test.ts	P9	partial		renderer/src/a-command-says-how-long-it-took.test.ts | Agent activity duration tests, not OwnCommand; existing ledger/UI duration tests retained. Complete assertion-by-assertion comparison remains.
 apps/desktop/src/renderer/src/a-command-that-reaches-other-programs-says-so.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-command-wraps-at-its-spaces.test.tsx	P9	partial		renderer/src/a-command-wraps-at-its-spaces.test.tsx | Applicable approval/Board command typography not newly ported; own text uses Rune wrapping; no claim that every flag wrap assertion is met.
@@ -674,8 +674,8 @@ apps/desktop/src/renderer/src/a-design-pass-holds.test.tsx		waiting
 apps/desktop/src/renderer/src/a-diagram-in-a-reply-shows-as-one.test.tsx	p14	partial		`shared/diagram.ts` behavior (via `main/a-diagram-in-a-reply-is-drawn.test.ts`, `renderer/.../a-diagram-in-a-reply-shows-as-one.test.tsx`) | Partial: `is_diagram`, kind words, undrawn reason/caption, mmd→mermaid, flowchart `can_draw`, kanba
 apps/desktop/src/renderer/src/a-diff-is-not-read-out-of-a-files-content.test.ts	P7	partial	a_diff_is_not_read_out_of_a_files_content,header_like_rows_and_next_file	`renderer/src/a-diff-is-not-read-out-of-a-files-content.test.ts` | `a_diff_is_not_read_out_of_a_files_content` and `header_like_rows_and_next_file` cover new-file diff-looking content, removed SQL comments, added ++ rows and two files. Appr
 apps/desktop/src/renderer/src/a-diff-notes-place-is-relative-to-its-folder.test.tsx	DIFF-NOTES	carried	core/src/diff_notes.rs; src/ui/diff_notes_ui.rs	all 4 cases, one test each (diff_notes_ui.rs)
-apps/desktop/src/renderer/src/a-disabled-create-says-why.test.ts		waiting		
-apps/desktop/src/renderer/src/a-disabled-send-says-why.test.ts		waiting		
+apps/desktop/src/renderer/src/a-disabled-create-says-why.test.ts		carried	src/ui/room_blocked_tests.rs (5 cases)	
+apps/desktop/src/renderer/src/a-disabled-send-says-why.test.ts		carried	src/composer/send_blocked.rs tests: live_when_clear, install_first, empty_only_when_real_reason, install_wins_when_everything_wrong, separates_ready_from_mode	built and tested earlier; row was never set; breaks caught
 apps/desktop/src/renderer/src/a-document-change-reads-as-words.test.ts	P7	waiting		`renderer/src/a-document-change-reads-as-words.test.ts` | All three tests remain unported: passages, whole-word cuts, Markdown-as-read handling. Document passage mode is not claimed.
 apps/desktop/src/renderer/src/a-draft-naming-an-off-connector-says-so.test.ts	SETUP	carried	connectors_off::tests;window_drive_tests::a_send_with_the_connectors_off_says_so_first	`renderer/src/a-draft-naming-an-off-connector-says-so.test.ts` | Ported `connector_mentioned`, `connectors_off_hint`, and headless window test
 apps/desktop/src/renderer/src/a-dropped-free-model-is-said-before-the-send.test.tsx	SETUP	carried	connectors_off::tests::dropped_free_model_matches_electron_rules;window_drive_tests::a_dropped_free_model_is_said_before_the_send	`renderer/src/a-dropped-free-model-is-said-before-the-send.test.tsx` | Ported `dropped_free_model`, `free_start_model`, `opencode_model_display_name`, amber Home/Team card routes, and headless window test
@@ -685,11 +685,11 @@ apps/desktop/src/renderer/src/a-face-says-its-state-in-words.test.tsx	BOTS	parti
 apps/desktop/src/renderer/src/a-failed-column-cannot-be-kept.test.tsx	compare-more	carried	compare_window_tests::a_column_run_again_answers_again	`compare_window_tests::a_column_run_again_answers_again` (failed column shows Try again and Keep is disabled)
 apps/desktop/src/renderer/src/a-file-git-shows-without-lines-is-listed.test.ts	P7	partial	binary_empty_rename_mode_and_unicode_paths_stay_listed	`renderer/src/a-file-git-shows-without-lines-is-listed.test.ts` | `binary_empty_rename_mode_and_unicode_paths_stay_listed` covers binary/empty/rename/mode-only header records; mixed text files exercised by folder tests. Exact original fixtu
 apps/desktop/src/renderer/src/a-file-opens-on-itself.test.ts	P5	does-not-apply		`a-file-opens-on-itself.test.ts` | The native reader replaces its entire target/result when opening a file and has no selected historical version. Version/diff fold reset assertions do not apply until history is implemented; no equivalent s
-apps/desktop/src/renderer/src/a-file-row-says-a-word.test.ts		waiting		
+apps/desktop/src/renderer/src/a-file-row-says-a-word.test.ts		carried	core/src/tool_words_tests.rs: says_codexs_change_as_a_word, says_a_read_a_search_a_listing_and_a_fetch_in_claude_codes_words_whoever_ran_it, says_antigravitys_write_and_edit_in_claude_codes_words, keeps_a_word_with_no_claude_code_counterpart_as_it_is	activity_entries::file_tool_word ported exactly; the drawer table was short (no file_change, Antigravity names) and capitalised edit
 apps/desktop/src/renderer/src/a-finished-message-stops-typing.test.ts		waiting		
 apps/desktop/src/renderer/src/a-finished-run-has-nothing-still-running.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-first-hour-starts-plainly.test.ts		waiting		
-apps/desktop/src/renderer/src/a-folded-row-says-it-in-words.test.ts		waiting		
+apps/desktop/src/renderer/src/a-folded-row-says-it-in-words.test.ts		carried	core/src/tool_words_tests.rs: a_folded_group_reads_as_activitys_rows_do_for_each_runtimes_read_tool, a_folded_groups_searches_are_counted_as_searches, a_folded_tool_with_no_word_of_its_own_is_counted_never_named_in_code	native folds by tool_kind then folded_tools_lead
 apps/desktop/src/renderer/src/a-forgotten-memory-shows-with-restore.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-free-model-that-answered-comes-first.test.ts		waiting		
 apps/desktop/src/renderer/src/a-free-model-that-is-down-is-passed-over.test.ts		waiting		
@@ -902,7 +902,7 @@ apps/desktop/src/renderer/src/antigravity-rows-read-like-claude.test.ts		waiting
 apps/desktop/src/renderer/src/antigravity-shows-remaining-not-used.test.tsx	faces-6	carried	core/src/agent_card.rs	all 3: a_window_of_remaining_quota_names_what_is_left_and_draws_what_is_used, an_expired_reading_is_not_carried_into_the_current_warning, existing_used_readings_are_left_unchanged. Electron draws the card on Home's mark; the Rust card opens over the chat box's model chip (Home's row of marks is not built)
 apps/desktop/src/renderer/src/approval-patch.test.ts	approvals	carried	core/src/approval_patch.rs, core/src/changes.rs	all 2 tests; RENAMED detection in changes::parse + approval_patch::unified_patch_text round-trip
 apps/desktop/src/renderer/src/ask-for-a-review-is-one-row.test.ts		waiting		
-apps/desktop/src/renderer/src/at-picks-a-file-of-the-project.test.ts		waiting		
+apps/desktop/src/renderer/src/at-picks-a-file-of-the-project.test.ts		carried	src/composer/at_file_tests.rs (10 cases)	bare @ over 50,000 paths was over 250 ms in debug (UTF-16 tie-break per comparison); ASCII fast path, no folding for a bare @, top-8 select
 apps/desktop/src/renderer/src/backupWords.test.ts	BACKUP	carried	core/src/profile_backup.rs, core/src/retention.rs tests	carried (Hydrogen; reviewed 12 Nov, see notes/BACKUP-NOTES.md)
 apps/desktop/src/renderer/src/chat-apps-say-each-step-in-settings.test.tsx		waiting		
 apps/desktop/src/renderer/src/choosing-an-issue-sends-nothing.test.tsx	ISSUES	partial	core/src/github_issues_tests.rs, window test issues_lists_the_folders_issues	Partial: the list and its choice are carried; picture fetching and Home’s Start from an issue wait
@@ -913,10 +913,10 @@ apps/desktop/src/renderer/src/codex-buddy-lifts-in-sets.test.ts		waiting
 apps/desktop/src/renderer/src/codex-buddy-moves-on-his-own-rig.test.ts		waiting		
 apps/desktop/src/renderer/src/codex-buddy-wears-a-screen.test.tsx		waiting		
 apps/desktop/src/renderer/src/codex-buddys-face-changes-as-a-screen-does.test.ts	BOTS	partial	core/src/buddy_moves.rs	11 of 14 carried, named after them (shuts_his_eyes_brings_the_new_ones_in..., is_the_bots_and_his_face_changes_read_frame_by_frame, turns_his_eyes_that_way_while_it_lasts..., and the rest under that file's heading in buddy_moves.rs). Not carried: the three drawn-screen cases (keeps every eye inside its glass; draws his eyes as a bot screen's; puts his ink round the glass first). buddy_moves.rs said they were in src/look/bots.rs; bots.rs has no tests
-apps/desktop/src/renderer/src/combine-queued.test.ts		waiting		
+apps/desktop/src/renderer/src/combine-queued.test.ts		carried	src/composer/combine_queued_tests.rs (8 cases)	composer::Origin gains Host (nothing queues one yet in either app), so the host-row cases are real
 apps/desktop/src/renderer/src/combining-a-tunes-two-edits.test.tsx	tune	carried	noting_what_a_tune_showed_is_explicit_and_combines_edits_only_when_offered,tune_combine_edits_shows_combined_instructions_and_saves_only_when_pressed	`compare_view::tests::noting_what_a_tune_showed_is_explicit_and_combines_edits_only_when_offered` + `window_drive_tests::tune_combine_edits_shows_combined_instructions_and_saves_only_when_pressed`
 apps/desktop/src/renderer/src/command-output.test.tsx		waiting		
-apps/desktop/src/renderer/src/command-rows.test.ts		waiting		
+apps/desktop/src/renderer/src/command-rows.test.ts		carried	core/src/tool_vocabulary_tests.rs: a_command_is_every_runtimes_shell_however_it_spells_it, a_command_is_not_everything	
 apps/desktop/src/renderer/src/commands-and-paths-share-one-left-edge.test.tsx		waiting		
 apps/desktop/src/renderer/src/connectors-are-not-the-mode.test.tsx		waiting		
 apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	p12	partial		`renderer/src/conversations-as-a-board.test.ts` | columns, order, rooms/trash out, needs-you / to-look-at
@@ -987,7 +987,7 @@ apps/desktop/src/renderer/src/permissions-panel-is-true.test.tsx	TRASH-INSPECTOR
 apps/desktop/src/renderer/src/picker-empty-states.test.tsx		waiting		
 apps/desktop/src/renderer/src/plan-answer.test.tsx		waiting		
 apps/desktop/src/renderer/src/popular-skills-wait-for-keep.test.tsx		waiting		
-apps/desktop/src/renderer/src/post-headline.test.ts		waiting		
+apps/desktop/src/renderer/src/post-headline.test.ts		carried	src/ui/post_headline_tests.rs (10 cases)	BUG: native counted a queued or absent teammate as asked (8 asked for 6; never all answered beside an absent one)
 apps/desktop/src/renderer/src/prompt-is-the-codex-mascot.test.ts		waiting		
 apps/desktop/src/renderer/src/pull-request-news-is-said.test.tsx		waiting		
 apps/desktop/src/renderer/src/putting-a-file-back.test.ts		waiting		
@@ -1023,9 +1023,9 @@ apps/desktop/src/renderer/src/settings-opens-locust-in-a-browser-without-a-code.
 apps/desktop/src/renderer/src/settings-says-what-locust-can-stop.test.tsx		waiting		
 apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	P10	partial		`renderer/src/settings-pages-are-real.test.ts`, `settings-search-knows-the-words.test.ts`, `settings-read-like-claudes.test.ts` | page count/groups/ids; alsoKnownAs under real headings; memory/worktree/node/ledger search
 apps/desktop/src/renderer/src/settled-text.test.ts		waiting		
-apps/desktop/src/renderer/src/shift-tab-never-turns-auto-on.test.ts		waiting		
+apps/desktop/src/renderer/src/shift-tab-never-turns-auto-on.test.ts		carried	src/composer/shift_tab_tests.rs (4 cases); src/ui/mode_cycle_tests.rs	BUG: native Shift+Tab always cycled into Auto, ignored the route, and wrote State.mode, which nothing read (nor did /plan etc. or a starter's mode); now composer_mode over the route's modes, Auto only with the switch on; dead field removed
 apps/desktop/src/renderer/src/since-you-were-away-on-home.test.tsx	p12	partial		`a-routine-waiting-for-keep-is-on-the-board.test.tsx` remains outside the native feature set (`a-scout-card-that-needs-you-is-on-the-board.test.tsx` carried in `scout-2a`). Routine history is accepted by the pure away reducer but is not loaded into the Home rec
-apps/desktop/src/renderer/src/slashCommands.test.ts		waiting		
+apps/desktop/src/renderer/src/slashCommands.test.ts		carried	src/composer/slash_commands_tests.rs (19 cases)	
 apps/desktop/src/renderer/src/spawning-is-not-working.test.ts		waiting		
 apps/desktop/src/renderer/src/startPhase.test.ts		waiting		
 apps/desktop/src/renderer/src/status.test.ts	BOTS	partial	core/src/face_status_tests.rs	the teammate-status cases only (9): reports_a_blocked_runtime_even_while_a_mission_looks_like_it_is_running, puts_a_pending_approval_ahead_of_working, pulses_only_while_working, treats_usability_as_needing_both_the_flag_and_the_probe, decides_the_face_from_the_same_inputs_as_the_label_so_the_two_agree, carries_every_state_on_the_presence_dot_so_a_still_face_still_reads, and the three a_teammate_with_no_work / judged_against_the_runtime cases. The file's other cases (routes, modes, efforts, phases, pruning, search, ...) were not checked this round
@@ -1056,7 +1056,7 @@ apps/desktop/src/renderer/src/the-effort-control-is-claude-codes.test.tsx		waiti
 apps/desktop/src/renderer/src/the-effort-thumb-follows-the-pointer.test.ts		waiting		
 apps/desktop/src/renderer/src/the-face-legend-shows-every-face.test.tsx	LOOK	carried	core/src/face_legend_tests.rs; settings_panel::tests::face_legend_tests	5 of 5 carried, named after them: four in core (every face once, names, dots, times), the button and its real face in the window. notes/LOOK-NOTES.md
 apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	p14	partial		`shared/file-menu.test.ts`, `main/reveal-file.test.ts`, `renderer/.../the-file-viewer-renders-and-never-runs.test.tsx` | Partial: menu labels, containment, decide_reveal, relative/system paths; live Finder open, editor launch, “never runs” 
-apps/desktop/src/renderer/src/the-first-send-cannot-spend.test.ts		waiting		
+apps/desktop/src/renderer/src/the-first-send-cannot-spend.test.ts		carried	core/src/free_start_tests.rs (6 cases)	another runtime's free model: native's catalogue is grouped by runtime and the free route reads only OpenCode's group
 apps/desktop/src/renderer/src/the-flat-sidebar.test.ts	RELAY	partial	src/ui/sidebar.rs	Native ordering helpers, chain rows, and 1-level relayed origin nesting (sidebar::review_tests::relayed_conversations_nest_one_level_deep_under_their_origin) covered; face filter, compact flyout and TS presentation assertions remain unported.
 apps/desktop/src/renderer/src/the-folder-chip-says-a-folder-is-no-place-for-teammates.test.tsx	Renderer-19	carried	src/ui/thread_view.rs; core/src/thread_view.rs; src/ui/folder_confirmation.rs; src/ui/composer_wiring.rs; src/main.rs	All three Electron cases passed by name: two chip hovers and exact first-send question/button order. Native guards preserve the draft, bind the answer to the workspace and teammate, and atomically save confirmation before submission. Eight native confirmation tests; see notes/RENDERER-NOTES.md for controls and release receipt.
 apps/desktop/src/renderer/src/the-frame-pass.test.ts		waiting		
@@ -1076,13 +1076,13 @@ apps/desktop/src/renderer/src/the-model-chip-shows-usage-on-hover.test.tsx	faces
 apps/desktop/src/renderer/src/the-newest-group-stays-folded.test.tsx	GROUPS	carried	activity_drawers::tests::activity_group_stays_folded_until_opened_and_then_shows_every_row	1/1 carried (activity-step groups stay folded until opened, then show every row)
 apps/desktop/src/renderer/src/the-orb-never-contradicts-the-row.test.ts		waiting		
 apps/desktop/src/renderer/src/the-orb-reaches-the-running-step.test.ts		waiting		
-apps/desktop/src/renderer/src/the-others-line-describes-the-others.test.ts		waiting		
+apps/desktop/src/renderer/src/the-others-line-describes-the-others.test.ts		carried	src/others_line_tests.rs (4 cases)	BUG: native said "from its own vendor" for several, and took (n, here, vendor) flags; now derived from the rows as Electron. home_panel first-launch section is still a stand-in with a fixed list
 apps/desktop/src/renderer/src/the-picker-opens-on-what-is-chosen.test.ts		waiting		
 apps/desktop/src/renderer/src/the-picker-opens-on-what-works.test.ts		waiting		
 apps/desktop/src/renderer/src/the-picker-reads-as-names.test.tsx		waiting		
 apps/desktop/src/renderer/src/the-plan-marks-the-step-underway.test.tsx		waiting		
 apps/desktop/src/renderer/src/the-plus-menu-says-what-each-droplet-does.test.tsx		waiting		
-apps/desktop/src/renderer/src/the-rail-clock-is-made-once.test.ts		waiting		
+apps/desktop/src/renderer/src/the-rail-clock-is-made-once.test.ts		waiting	core/src/time_marker.rs rail_clock_formats_valid_iso_and_rejects_invalid	native always shows 24-hour HH:MM:SS; Electron uses the locale (12-hour on a US Mac): decide before carrying
 apps/desktop/src/renderer/src/the-ring-reads-what-the-conversation-holds.test.ts	renderer-10	carried	core/src/context_usage.rs; core/src/benchmark.rs; src/ui/context_ring.rs	All ten exact Electron cases passed by name in renderer-10-restored-workspace.log; additional headless ring wiring regression. Subscription suppression mutation caught and restored. See notes/RENDERER-NOTES.md.
 apps/desktop/src/renderer/src/the-runtimes-wear-their-marks.test.tsx	faces-6	carried	src/look/runtime_marks_tests.rs; src/look/face_marks_tests.rs; src/ui/chip_mark.rs tests; approval_card::tests; thread_view::picker_tests	All 16 (16 Nov: the last four). The composer chip (chip_mark.rs): wears_the_runtimes_mark_where_the_ready_dot_was, greys_the_mark_when_that_runtime_cannot_take_work_the_one_thing_the_dot_said, shows_no_makers_mark_on_a_model_of_the_persons_own_and_none_when_nothing_is_connected; an_approval_card_says_which_program_is_asking_with_its_mark; the_pickers_runtime_groups_carry_their_marks; 6 breaks caught. Earlier: 12 of 15 cases: the_marks_cover_every_runtime_a_teammate_can_run_on, the_marks_are_bundled_nothing_in_them_is_a_place_to_fetch_one_from, codex_is_openais_blossom_in_the_words_colour, gemini_is_drawn_in_googles_gradient_with_the_token_stops_in_a_28_box (the stops and the box; not 'each instance its own id'), antigravity_is_its_own_arch_in_its_own_box (the box and the arch; not the Muse/Meta source notes), nothing_is_drawn_for_what_no_teammate_runs_on, a_mark_is_drawn_for_every_runtime_that_has_one_and_nothing_for_one_that_does_not (`controls::agent_mark`, which the picker's groups, the rows and the chip use; the picker group header itself has no window test). Face badge (16 Nov, src/look/face_marks_tests.rs): wears_the_mark_of_the_runtime_it_is_given_on_a_badge, wears_none_when_it_is_too_small_for_a_mark_to_be_a_mark_or_is_given_no_runtime, in_the_sidebars_row_of_faces_says_which_model_is_who_and_nothing_on_a_model_of_their_own (the plain disc is gone: the runtime's own mark on a badge at 24% of the face, MARKED_FACE_MIN applied, the sidebar gives its faces their runtime; 4 breaks caught). Named or decorative and a muted grey Gemini (16 Nov, controls::runtime_mark, mark_drawn): a_mark_is_decorative_beside_a_name_and_named_where_it_stands_in_for_one, gemini_greys_with_its_words_no_gradient_when_muted; 3 breaks caught. NOT BUILT: the composer chip greying its mark for a runtime that cannot take work or showing none for a model of your own, the approval card's mark
 apps/desktop/src/renderer/src/the-screens-say-less.test.ts		waiting		
@@ -1101,7 +1101,7 @@ apps/desktop/src/renderer/src/the-window-says-when-macos-may-ask.test.tsx		waiti
 apps/desktop/src/renderer/src/thinking-is-not-using-a-tool.test.ts		waiting		
 apps/desktop/src/renderer/src/thought-folds-to-one-line.test.ts		waiting		
 apps/desktop/src/renderer/src/three-judges-vote.test.tsx	compare	carried	compare_score::tests::weighted_points_and_three_judges_vote; compare_window_tests::three_judges_score_the_answers_and_their_pick_is_marked	`compare_score::tests::weighted_points_and_three_judges_vote` + `compare_window_tests::three_judges_score_the_answers_and_their_pick_is_marked`
-apps/desktop/src/renderer/src/tool-vocabulary.test.ts		waiting		
+apps/desktop/src/renderer/src/tool-vocabulary.test.ts		carried	core/src/tool_vocabulary_tests.rs (27 vocabulary rows, a test each, + 2)	
 apps/desktop/src/renderer/src/transcriptView.test.ts		waiting		
 apps/desktop/src/renderer/src/tuning-never-applies-instructions-by-itself.test.tsx	tune	carried	tuning_never_applies_instructions_by_itself,slash_tune_opens_drafts_two_setups_and_saves_nothing,drafts_parser_handles_plain_and_skill_variants_and_repeats	`tune_teammate::tests::tuning_never_applies_instructions_by_itself` + `window_drive_tests::slash_tune_opens_drafts_two_setups_and_saves_nothing` + `tune::tests::drafts_parser_handles_plain_and_skill_variants_and_repeats`
 apps/desktop/src/renderer/src/two-files-with-one-name-stay-two.test.ts		waiting		

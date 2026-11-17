@@ -230,3 +230,7 @@ mod tests {
         assert!(all.last().unwrap().weighted);
     }
 }
+
+#[cfg(test)]
+#[path = "slash_commands_tests.rs"]
+mod slash_commands_tests;

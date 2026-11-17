@@ -31,6 +31,34 @@ pub fn shell_command_text(command: &str) -> String {
     unquoted.replace("\\\"", "\"").replace("\"\"", "\"").replace("''", "'").trim().to_owned()
 }
 
+/// A running step names the command, not the thing that launched it (Electron `missionView.ts` `withoutShellWrapper`):
+/// `cmd /c`, `powershell -Command`, `bash -lc`, `/bin/sh -c` come off the front, and one pair of quotes comes off only
+/// when it encloses the whole rest. Anything else comes back trimmed and otherwise untouched; a wrapper with nothing
+/// after it is kept, since a strange row beats an empty one.
+pub fn without_shell_wrapper(command: &str) -> String {
+    let trimmed = command.trim();
+    let wrapper = invariants::regex(
+        r"^(?:cmd(?:\.exe)?\s+/[cCkK]|powershell(?:\.exe)?(?:\s+-\w+)*\s+-[cC]ommand|pwsh(?:\s+-\w+)*\s+-[cC]ommand|(?:/bin/)?(?:ba|z)?sh\s+-[lic]*c)\s+",
+    );
+    let Some(found) = wrapper.find(trimmed) else {
+        return trimmed.to_owned();
+    };
+    let rest = trimmed[found.end()..].trim();
+    if rest.is_empty() {
+        return trimmed.to_owned();
+    }
+    for quote in ['"', '\''] {
+        if rest.len() > 1 && rest.starts_with(quote) && rest.ends_with(quote) {
+            let inner = &rest[1..rest.len() - 1];
+            // Only when the quotes wrap the whole thing: an inner quote is punctuation inside a larger line.
+            if !inner.contains(quote) {
+                return inner.trim().to_owned();
+            }
+        }
+    }
+    rest.to_owned()
+}
+
 /// A doubled backslash to one, and an escaped quote to a quote, when every backslash in the text is half of such a
 /// pair; otherwise nothing.
 fn without_escapes(text: &str) -> Option<String> {

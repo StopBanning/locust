@@ -280,35 +280,17 @@ pub fn path_discovery_sweep(now: u64) -> BootState {
     }
 }
 
-pub fn deferred_others_sentence(n: usize, install_here: bool, vendor: bool) -> String {
-    let noun = if n == 1 {
-        "1 other Locust can drive"
+pub fn deferred_others_sentence(installs_from_here: &[bool]) -> String {
+    // status.ts deferredOthersSentence: derived from the rows it hides, so each claim holds for every one of them.
+    let count = installs_from_here.len();
+    let head = format!("{count} other{} Locust can drive", if count == 1 { "" } else { "s" });
+    let from_here = installs_from_here.iter().filter(|here| **here).count();
+    if from_here == count {
+        format!("{head} — each installs from here, then signs in.")
+    } else if from_here == 0 {
+        format!("{head} — each installs from its own vendor.")
     } else {
-        // keep Electron shape: "{N} other(s) Locust can drive"
-        return match (install_here, vendor) {
-            (true, true) => format!(
-                "{n} others Locust can drive — some install from here, some from their own vendor."
-            ),
-            (true, false) => {
-                format!("{n} others Locust can drive — each installs from here, then signs in.")
-            }
-            (false, true) => {
-                format!("{n} others Locust can drive — from its own vendor.")
-            }
-            (false, false) => format!("{n} others Locust can drive — each installs from here, then signs in."),
-        };
-    };
-    // n == 1
-    let _ = noun;
-    match (install_here, vendor) {
-        (true, true) => {
-            "1 other Locust can drive — some install from here, some from their own vendor.".into()
-        }
-        (true, false) => "1 other Locust can drive — each installs from here, then signs in.".into(),
-        (false, true) => "1 other Locust can drive — from its own vendor.".into(),
-        (false, false) => {
-            "1 other Locust can drive — each installs from here, then signs in.".into()
-        }
+        format!("{head} — some install from here, some from their own vendor.")
     }
 }
 
@@ -390,8 +372,6 @@ mod tests {
         assert_eq!(USE_FREE, "Use a free model");
         assert_eq!(CONNECTED_ACCOUNTS, "Connected accounts");
         assert_eq!(SHOW_ALL, "Show all");
-        assert!(deferred_others_sentence(2, true, false).contains("2 others"));
-        assert!(deferred_others_sentence(1, false, true).contains("1 other"));
     }
 
     #[test]
@@ -404,3 +384,7 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "others_line_tests.rs"]
+mod others_line_tests;

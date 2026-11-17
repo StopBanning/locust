@@ -237,7 +237,6 @@ mod tests {
     fn state(entry: Value) -> State {
         let mut s = State::default();
         s.demo = true;
-        s.mode = "accept-edits".into();
         s.teammates = vec![Teammate {
             id: entry["teammateId"].as_str().unwrap().into(),
             name: entry["name"].as_str().unwrap().into(),
@@ -361,7 +360,6 @@ mod tests {
     #[test]
     fn the_idle_sentence_uses_the_composers_mode_instead_of_a_stale_global_mode() {
         let mut s = state(made(&TEAM_TEMPLATES[1].teammates[0]));
-        s.mode = "auto".into();
         s.composer_mode = Some("ask".into());
         let mut rt = rune::Runtime::new(
             s,

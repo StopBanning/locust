@@ -314,7 +314,7 @@ fn mark_away_seen(s: &mut State) {
 
 fn apply_starter(s: &mut State, starter_id: &str, prompt: &str, mode: Option<&str>) {
     if let Some(mode) = mode {
-        s.mode = mode.into();
+        s.composer_mode = Some(mode.into());
     }
     let team: Vec<(String, String)> = s
         .teammates
@@ -1158,7 +1158,9 @@ pub(super) fn boot_view_ui(s: &State, p: &Palette) -> El {
                 })),
         )
         .child(
-            text(boot_view::deferred_others_sentence(2, true, true))
+            // The first-launch section here is still a stand-in with no agent rows to hide; FirstLaunch.tsx derives this
+            // list from the rows it does not draw.
+            text(boot_view::deferred_others_sentence(&[true, false]))
                 .font(type_::LABEL)
                 .color(p.muted)
                 .wrap(),

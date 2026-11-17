@@ -67,9 +67,11 @@ pub fn live_line(
                 before_writing = None;
             }
             "tool.started" if s("parentItemId").is_empty() => {
+                // The command without the shell that launched it (missionView.ts withoutShellWrapper).
+                let command = p["command"].as_str().map(crate::shell_words::without_shell_wrapper);
                 let label = p["title"]
                     .as_str()
-                    .or(p["command"].as_str())
+                    .or(command.as_deref())
                     .or(p["name"].as_str())
                     .unwrap_or("");
                 open.retain(|(id, ..)| id != s("itemId"));

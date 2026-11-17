@@ -58,6 +58,25 @@ pub fn unreported(item: &Item) -> Option<(&str, bool, bool)> {
     (crate::activity_summary::is_edit(item) && files(item).is_empty()).then_some((if summary.is_empty() { name } else { summary }, *status != Status::Running, detail.runtime_status == "result too large to keep"))
 }
 pub fn tool_name<'a>(name: &'a str, target: &str) -> Option<&'a str> { (name != target).then_some(name) }
+/// The word beside a row, in Claude Code's own tool words (ActivityCard.tsx `fileToolWord`, 0.545): every runtime's
+/// read, search, listing, fetch and Antigravity's write and edit say what Claude Code's would; Codex's `file_change`
+/// says "changed"; a word with no counterpart stays its own.
+pub fn file_tool_word(tool: &str) -> &str {
+    if tool == "file_change" {
+        return "changed";
+    }
+    const WORDS: [(&str, &str); 8] = [
+        (r"(?i)^(read|read_?file|readfile|view|view_?file|view_?file_?outline|view_?code_?item|open_?file|readtoolcall)$", "Read"),
+        (r"(?i)^(write_?to_?file)$", "Write"),
+        (r"(?i)^(replace_file_content|multi_replace_file_content)$", "Edit"),
+        (r"(?i)^(grep|grep_?search|ripgrep|codebase_?search|semsearch)$", "Grep"),
+        (r"(?i)^(glob|find_?by_?name|file_?search|list_?dir|list_?directory|listdir|ls)$", "Glob"),
+        (r"(?i)^(web_?search|search_?web|websearch)$", "WebSearch"),
+        (r"(?i)^(fetch|web_?fetch|read_?url(_?content)?|url_?content)$", "WebFetch"),
+        (r"(?i)^(image_?generation|image_?gen|generate_?image)$", "Image"),
+    ];
+    WORDS.iter().find(|(pattern, _)| crate::invariants::regex(*pattern).is_match(tool)).map_or(tool, |(_, word)| word)
+}
 #[cfg(test)]
 #[path = "activity_entries_tests.rs"] mod tests;
 

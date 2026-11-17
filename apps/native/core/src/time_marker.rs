@@ -195,20 +195,30 @@ mod tests {
         }
     }
 
+    // Electron's 959-minutes-is-not-a-duration.test.ts, a test per case.
     #[test]
-    fn elapsed_in_reads_minutes_hours_and_days() {
+    fn reads_minutes_only_while_minutes_are_readable() {
         assert_eq!(elapsed_in_label(0), "0 min in");
         assert_eq!(elapsed_in_label(45), "45 min in");
         assert_eq!(elapsed_in_label(89), "89 min in");
+    }
 
+    #[test]
+    fn turns_hours_into_hours() {
         assert_eq!(elapsed_in_label(90), "1h 30m in");
         assert_eq!(elapsed_in_label(120), "2h in");
         assert_eq!(elapsed_in_label(305), "5h 5m in");
+    }
 
+    #[test]
+    fn turns_colins_own_number_into_something_a_person_reads() {
         // The exact figure from Colin's screenshot (959-minutes-is-not-a-duration.test.ts).
         assert_eq!(elapsed_in_label(959), "15h 59m in");
         assert!(!elapsed_in_label(959).contains("959"));
+    }
 
+    #[test]
+    fn counts_days_once_it_has_been_days() {
         assert_eq!(elapsed_in_label(1_440), "1d in");
         assert_eq!(elapsed_in_label(3_000), "2d 2h in");
     }
