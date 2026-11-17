@@ -124,8 +124,10 @@ fixture is not in `parity/events.json`.
 Breaks: 8, then 7 reruns (the first run's 60 s limit timed out waiting for the lock; a timeout is not a catch), then
 1 (`b5-breaks.log`, `b5b-breaks.log`). Caught by name but one:
 - dropping `title != command` (a title that only repeats the command is not kept) survived. No Electron case reaches it.
+  Round 2's `a_title_the_later_command_repeats_is_left_out_of_the_finished_row` catches it now (the rule moved into
+  `OpenTool::row`).
 
-Found, not fixed (the session stopped near its usage limit): Rust's ACP reader renames an open call more widely than
+Found here, fixed in round 2 (below): Rust's ACP reader renames an open call more widely than
 Electron's (`acp-events.ts` ~line 403). Electron renames a call still named `other`/`tool` only when the update's own
 kind is absent or `other`, reads the earlier title when the update has none, and never renames to `other` or `tool`.
 Rust (`acp_events.rs`, "if matches!(open["name"] ... Some("other" | "tool"))") renames on any update, to whatever
@@ -138,3 +140,137 @@ Left waiting, with a note in each row of what is missing: `qa-0365-opencode-work
 (no OpenCode worktree config), `a-self-updated-cli-is-asked-again` (no CLI facts cache),
 `a-result-too-large-to-keep-still-answered` (Rust's oversized stand-in is Cursor's only),
 `claude-thinking-is-kept-for-its-thinking-row` (Rust's Claude reader drops thinking text).
+
+# Round 2 (17 Nov, from HANDOFF-max-engine-packages-2)
+
+## Batch 6: the ACP rename bug batch 5 found (commit below)
+`runtime/acp_events.rs`'s `tool_call` / `tool_call_update` branch is Electron's now (`acp-events.ts` at 4ce2f37a,
+~line 364-408), written as `shown_tool` (`acpShownTool`), `plain_tool_word` (`plainAcpToolWord`), `is_shell`
+(`acpCallIsShell`), `file_target` (`fileTarget`) and an `OpenTool` that holds the raw command and title as Electron's
+`openTools` does, bounded only when a row is written. What was different:
+- an open call named `other`/`tool` was renamed on ANY update, to whatever its kind gave: an update of kind `read`
+  renamed it, and an update with no kind or title renamed `other` to `tool` (and `tool` to `other`). Electron renames
+  only when the update's kind is absent or `other`, reads the earlier title when the update has none, and never
+  renames to `other` or `tool`;
+- any later title replaced the earlier one, and a call opened with no title took the next one. Electron replaces a
+  title only while it is still a bare tool word;
+- a title was compared with the command only when it was stored, so a title the later command repeated stayed on the
+  finished row (Electron leaves it out);
+- a shell word in the title (`bash`, `execute`, ... with kind `other` or none, the update's or else the earlier one)
+  did not make the call a shell, so its folder in `locations` was taken for its command.
+
+Tests: `runtime/acp_rename_tests.rs`, 12, each with Electron's values; the first 8 were written first and all 8 failed
+on the old code. No Electron test file covers these rules (none of `acp-events.test.ts`'s cases renames or retitles),
+so no row moves; the values come from the source.
+
+Breaks: 13, then 4 reruns (`~/work/scratch/opus2/r2-acp-breaks*.log`). One run was cut by the 10-minute command limit
+and its restore failed (`killpg` refused): break 6 was left applied and put back by hand; the rest ran in the
+background. Four survived at first (a title equal to the name, the earlier title's shell word, `execute` as a shell
+word, the shell-name check; the last had timed out on the lock): each has a test now that catches it by name. One left:
+`Some(t) != open.title` in the retitle rule, which only stops a title being replaced by itself (no row can differ).
+
+## Batch 7: mission-store's record files and the checkpoint (commit below)
+Rust's counterpart of Electron's `getMission` is `mission_export::recover_mission_from_path` (it says it matches
+`readLedgerFile`'s shape); the writers are `ledger_write`'s; Electron's `reconcileMission` is `carry_on::reconcile`.
+
+Partial (each row names what is not built):
+- `a-check-result-is-kept-with-its-turn` (5 of 6), `a-card-answered-is-kept-with-its-turn` (4 of 9),
+  `a-helpers-calls-are-kept-as-its-own` (2 of 3): `mission_store_records_tests.rs`, plus 3 of Rust's own.
+- `checkpoint` (7 of 12, one in half): `checkpoint_reconcile_tests.rs`.
+Left waiting: `the-home-list-bounds-its-reads` (its pool half is Node's; its order half applies and is not carried).
+Left waiting, with a note: `a-long-field-is-kept-shortened` (no ledger-side fit), `a-busy-file-does-not-end-a-run`
+(no retry of a busy open), `unreadable-count` (the list has no such count), `the-storage-report-reads-only-what-changed`
+(no per-file cache).
+
+Bugs fixed in `ledger_write.rs`: the writers wrote what the reader refuses. `append_edit_check` wrote an outcome
+nobody defined and any number of lines (`ledger::decode` then dropped the record); `append_approval` wrote any answer
+and any answerer. They now run mission-store's `validateEditCheck` and `validateApproval` first
+(`ledger_write::validate_edit_check`, `validate_approval`, with `requireText` and `requireTimestamp`), and
+`bounded_edit_check` is `boundedEditCheck` (60 lines of 500, the command 500: the record's bound, wider than the
+checker's own 30 by 300). Not wired: Electron's host bounds before it appends (`codex-mission.ts:1454`), Rust's
+(`native.rs:2711`) passes the record straight in, so a command over 500 is now refused there rather than cut. `native.rs`
+is the maxlane lane's; it wants `bounded_edit_check(&rec)` at that call. A timestamp is read as RFC 3339, narrower than JavaScript's `Date.parse`.
+
+Found, not fixed (the readers are in `ledger.rs` and `mission_export.rs`, which the maxlane lane is changing; they
+belong with `schema-compat`): `recover_mission_from_path` reads every record leniently, so a check result in a v16 file,
+a card in a v19 file and an earlier Always in a v20 file come back as kept, where Electron reads each as damage
+(`invalid-record`). `ledger::decode` checks a checkpoint's field types only: it keeps one for another mission or run,
+one that says `safe` while listing an open action, a malformed digest, epoch 0, an unknown reason or safety, and an epoch
+out of order, each of which Electron's `parsedCheckpoint` refuses.
+
+Breaks: 19 on the writers, then 9 on `reconcile` and 1 rerun (`~/work/scratch/opus2/b7-breaks.log`, `b7b-breaks.log`).
+All caught by name but the command's cut in `bounded_edit_check`, which no Electron case reaches; Rust's
+`a_check_results_long_command_is_cut_to_what_the_reader_accepts` catches it now. The on-disk checkpoint tests read the
+file the way `native::turn_records` does, copied into the test (it finds its file through the app's store), so a break in
+`turn_records` itself would not be caught by them.
+
+## Batch 8: mission-store.test.ts (commit below)
+Partial, 9 of 15 (four in half): `mission_store_ledger_tests.rs`, on `LedgerWriter`, `recover_mission_from_path`,
+`try_list_recent` and `trash::delete_mission`. The row names the six not built.
+
+Fixed in `ledger_write.rs`: the words of a refused append. Rust said "Ledger changed outside the active writer" and then
+"Ledger write previously failed; refusing further appends"; Electron says "Mission ledger changed outside the active
+writer" and then "Mission ledger is unavailable". Nothing in Rust matched on the old words.
+
+Found, not fixed (`ledger.rs`, the maxlane lane's): `try_list_recent` orders by the file's modified time, Electron by
+the last time the ledger records. They differ only when the times recorded are not the order of the writes (the
+Electron case writes createdAt 10:00, 12:00, 11:00 in that order).
+
+Breaks: 11 (`~/work/scratch/opus2/b8-breaks.log`), on the writer's refusals and words, `trash::delete_mission`, the
+reader's version range, the list's order and `recover_mission_from_path`'s tail, phase and damage: all caught by name.
+
+## Batch 9: schema-compat, and the shared files whose note was empty (commit below)
+Partial: `schema-compat` (13 of 52, one in half): `schema_compat_tests.rs`. Rust's readers check types, not versions,
+so the 30-odd cases that refuse a hand-edited older file, or a field `createMission` would not write, are not built
+(the row lists them).
+
+Bug fixed in `ledger_write.rs`: `append_peer_links` wrote a peer link into a file of any version, and any link. It is
+mission-store's `appendPeerLinks` now: each link checked first (`validatePeerLink`: the direction, a safe message and
+teammate id, a timestamp), then "Mission ledger version cannot hold peer links" before version 5.
+
+Shared files:
+- carried: `the-about-you-line-is-taught-once` (2, on `people::brief`; `shared_rules_tests.rs`) and
+  `a-run-started-for-a-teammate-is-theirs` (5; `route_at_start_tests.rs`, written in batch 2, its row never set until
+  now, break checked here);
+- partial: `a-first-run-names-no-terminal` and `kilo-installs-in-one-click` (1 of 2 each; the other case reads
+  Electron's renderer source);
+- waiting, with a note: `messageFragments` (Rust does not repair a recorded restatement), `a-teammate-is-named...`
+  (no chat-app bridge), `a-lesson-reads-as-one-sentence` (a Rust lesson is one line, no when/do pair),
+  `a-voice-call-switches-every-add-on-off` (no voice call), the three `an-answer-reads-right-in-*` (no chat-app
+  formatter), `commit-and-land-from-a-browser` and `settings-from-a-browser` (the phone desk, networked).
+
+Round 1's deferred runtime rows, re-read: `a-busy-model-served-says-so` and `a-message-taken-and-never-begun-ends-the-run`
+are built in Rust (`opencode_serve.rs` turns `session.status` retry into `locust.retry`, which `opencode_events.rs` says
+once; `recover` asks the server about a silent session), but carrying them needs new scenarios in the fake server
+`scripts/fixtures/m4-opencode-serve.py`, and that file, `opencode_serve.rs` and `opencode_tests.rs` are the maxlane
+lane's (9 of its commits this week). Left for when that lane is done. `a-rate-limited-opencode-run-says-it-is-retrying`
+reads `opencode run`'s stderr, which Rust does not run (it serves OpenCode). The other deferred rows (the binary consent cache, the
+probe scheduler and its progress, a Windows cmd shim, context inspection, user-provider pricing, per-run skills, Cursor
+connectors, OpenCode's question card, Node's process runner, reference folders on a turn) were not re-checked in this
+round; their notes stand as round 1 wrote them.
+
+Breaks: 18, then 2 reruns (`~/work/scratch/opus2/b9-breaks.log`, `b9b-`, `b9c-`): on `append_peer_links`, `append_note`'s
+version, `ledger::metadata` and `decode`, `route_at_start::start_as`, `people`'s memory block and `agents`' install
+facts. All caught by name but two at first, the teammate id and the timestamp of a peer link, which no Electron case
+reaches; `a_peer_link_with_an_unsafe_teammate_id_or_a_time_that_is_not_one_is_refused` catches both now.
+
+## After round 2: a change the batch 7 validators made, for Colin to decide
+`approval.rs:989` records a command the hard command guard refused before any card as an approval with
+`by: "command-guard"`. Electron's mission-store knows no such answerer (`card`, `card-saving-a-rule`, `saved-rule`,
+`earlier-always`), and Electron records no approval for its guard (the guard is a hook, not a card). Since batch 7,
+`validate_approval` refuses that record, and `native.rs:2983` drops the error (`let _ =`), so a guard refusal is no longer
+written to the ledger (the refusal itself still happens; `approval.rs`'s own test reads the channel, not the ledger, and
+passes). Before batch 7 Rust wrote it, and Electron's reader would have stopped reading that file at it. Either keep it
+as Electron (no record of a guard refusal) or allow `command-guard` as Rust's own answerer (kept in Rust's saved record,
+a file Electron's reader stops at). Not changed until decided.
+
+Decided (Colin, 17 Nov): kept as Electron. A guard refusal leaves no line in the conversation's record, and every file
+stays readable by Electron. `a_card_answer_the_reader_would_refuse_in_any_field_is_never_written` now holds that
+`command-guard` is refused. Still to tidy, in `approval.rs` (the maxlane lane's): it need not make the record at all
+(`record.by = "command-guard"` at :989, and its test at :1794 reads it from the channel), so `native.rs:2983` stops
+trying a write that is always refused.
+
+Checked at the end: the peer-link callers (`native.rs:1656`, `:2666`) pass workroom message ids and `posted_at` times
+the checks accept; every approval's `askedAt` is `now_iso()` (RFC 3339) except `engine_process.rs:264`, which takes the
+card's own `requestedAt` and defaults to empty, which `validate_approval` refuses. The old writer messages appear nowhere
+else in `src`, `scripts` or `core`.
