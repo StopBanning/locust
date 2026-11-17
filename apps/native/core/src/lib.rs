@@ -351,6 +351,8 @@ mod every_runtime_ledger_tests;
 mod mission_store_records_tests;
 #[cfg(test)]
 mod checkpoint_reconcile_tests;
+#[cfg(test)]
+mod mission_store_ledger_tests;
 pub mod cover_activity;
 
 #[cfg(test)]

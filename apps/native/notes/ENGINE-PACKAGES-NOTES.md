@@ -201,3 +201,18 @@ All caught by name but the command's cut in `bounded_edit_check`, which no Elect
 `a_check_results_long_command_is_cut_to_what_the_reader_accepts` catches it now. The on-disk checkpoint tests read the
 file the way `native::turn_records` does, copied into the test (it finds its file through the app's store), so a break in
 `turn_records` itself would not be caught by them.
+
+## Batch 8: mission-store.test.ts (commit below)
+Partial, 9 of 15 (four in half): `mission_store_ledger_tests.rs`, on `LedgerWriter`, `recover_mission_from_path`,
+`try_list_recent` and `trash::delete_mission`. The row names the six not built.
+
+Fixed in `ledger_write.rs`: the words of a refused append. Rust said "Ledger changed outside the active writer" and then
+"Ledger write previously failed; refusing further appends"; Electron says "Mission ledger changed outside the active
+writer" and then "Mission ledger is unavailable". Nothing in Rust matched on the old words.
+
+Found, not fixed (`ledger.rs`, the maxlane lane's): `try_list_recent` orders by the file's modified time, Electron by
+the last time the ledger records. They differ only when the times recorded are not the order of the writes (the
+Electron case writes createdAt 10:00, 12:00, 11:00 in that order).
+
+Breaks: 11 (`~/work/scratch/opus2/b8-breaks.log`), on the writer's refusals and words, `trash::delete_mission`, the
+reader's version range, the list's order and `recover_mission_from_path`'s tail, phase and damage: all caught by name.

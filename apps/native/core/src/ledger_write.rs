@@ -363,7 +363,8 @@ impl LedgerWriter {
     fn line(&mut self, value: Value) -> io::Result<()> {
         if self.poisoned {
             return Err(io::Error::other(
-                "Ledger write previously failed; refusing further appends",
+                // mission-store's words for a ledger it will not extend.
+                "Mission ledger is unavailable",
             ));
         }
         let value = if self.keys.is_empty() { value } else { crate::teammate_keys::scrub_key_values(&value, &self.keys) };
@@ -376,7 +377,7 @@ impl LedgerWriter {
         }
         if self.file.metadata()?.len() != self.bytes {
             self.poisoned = true;
-            return Err(io::Error::other("Ledger changed outside the active writer"));
+            return Err(io::Error::other("Mission ledger changed outside the active writer"));
         }
         let result = self
             .file
