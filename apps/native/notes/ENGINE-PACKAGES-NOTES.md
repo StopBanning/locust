@@ -264,6 +264,12 @@ passes). Before batch 7 Rust wrote it, and Electron's reader would have stopped 
 as Electron (no record of a guard refusal) or allow `command-guard` as Rust's own answerer (kept in Rust's saved record,
 a file Electron's reader stops at). Not changed until decided.
 
+Decided (Colin, 17 Nov): kept as Electron. A guard refusal leaves no line in the conversation's record, and every file
+stays readable by Electron. `a_card_answer_the_reader_would_refuse_in_any_field_is_never_written` now holds that
+`command-guard` is refused. Still to tidy, in `approval.rs` (the maxlane lane's): it need not make the record at all
+(`record.by = "command-guard"` at :989, and its test at :1794 reads it from the channel), so `native.rs:2983` stops
+trying a write that is always refused.
+
 Checked at the end: the peer-link callers (`native.rs:1656`, `:2666`) pass workroom message ids and `posted_at` times
 the checks accept; every approval's `askedAt` is `now_iso()` (RFC 3339) except `engine_process.rs:264`, which takes the
 card's own `requestedAt` and defaults to empty, which `validate_approval` refuses. The old writer messages appear nowhere

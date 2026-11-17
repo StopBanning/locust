@@ -290,6 +290,9 @@ fn a_card_answer_the_reader_would_refuse_in_any_field_is_never_written() {
     assert_eq!(refused("words", Value::Null), "Approval words are invalid");
     assert_eq!(refused("askedAt", json!("soon")), "Approval asked timestamp is invalid");
     assert_eq!(refused("occurredAt", json!("")), "Approval timestamp is invalid");
+    // Colin, 17 Nov: kept as Electron. A refusal by the hard command guard is no card answer (Electron records none for
+    // its guard), so the answerer `command-guard` that approval.rs gives it is refused and leaves no line in the record.
+    assert_eq!(refused("by", json!("command-guard")), "Approval answerer is invalid");
     for kind in ["command", "file-change", "question", "connector"] {
         let mut approval = denied_by_rule();
         approval["kind"] = json!(kind);
