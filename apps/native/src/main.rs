@@ -82,6 +82,8 @@ mod look_picker;
 mod pet_picks;
 #[path = "ui/pet_faces.rs"]
 mod pet_faces;
+#[path = "ui/chip_mark.rs"]
+mod chip_mark;
 #[path = "ui/cover_watch.rs"]
 mod cover_watch;
 #[path = "ui/reply_actions.rs"]

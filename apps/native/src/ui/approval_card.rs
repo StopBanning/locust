@@ -113,21 +113,30 @@ pub(super) fn approval_card(s: &State, p: &Palette) -> El {
                 .w_full()
                 .wrap(),
         )
-        .child(
-            text(format!(
-                "{}{}",
-                runtime_display_name(&card.runtime),
-                if card.cwd.is_none() {
-                    " · this workspace"
-                } else {
-                    ""
-                }
-            ))
-            .font(type_::LABEL)
-            .color(p.muted)
-            .w_full()
-            .wrap_anywhere(),
-        )
+        .child({
+            // Which program is asking: its mark, then its name (ApprovalCard.tsx, the-runtimes-wear-their-marks).
+            let l = crate::look::controls::Look::new(p.dark);
+            let line = row().w_full().gap(5.0).center_y();
+            let line = match crate::look::controls::agent_mark(&l, &card.runtime, 12.0, p.muted) {
+                Some(mark) => line.child(mark.key(format!("approval-mark-{}", card.runtime))),
+                None => line,
+            };
+            line.child(
+                text(format!(
+                    "{}{}",
+                    runtime_display_name(&card.runtime),
+                    if card.cwd.is_none() {
+                        " · this workspace"
+                    } else {
+                        ""
+                    }
+                ))
+                .font(type_::LABEL)
+                .color(p.muted)
+                .grow(1.0)
+                .wrap_anywhere(),
+            )
+        })
         .child(
             text(format!("Action: {}", card.summary))
                 .font(type_::BODY)
@@ -447,6 +456,20 @@ mod tests {
         assert!(!opencode.contains("as Codex"), "{opencode}");
         let claude = card_text("claude");
         assert!(claude.contains("The change, as Claude Code would apply it"), "{claude}");
+    }
+
+    /// the-runtimes-wear-their-marks.test.tsx: "an approval card says which program is asking with its mark".
+    #[test]
+    fn an_approval_card_says_which_program_is_asking_with_its_mark() {
+        let mut s = State::default();
+        s.pending_approval = Some(request("copilot"));
+        let mut rt = Runtime::new(s, |s, _| approval_card(s, &Palette::new(true)), (600.0, 800.0), Env::new(true, 1.0));
+        rt.frame(0.0);
+        let elements = rt.elements();
+        assert!(runtime_display_name("copilot").contains("Copilot"));
+        let mark = elements.iter().position(|e| e.key.as_deref() == Some("approval-mark-copilot")).expect("the mark");
+        let name = elements.iter().position(|e| e.text.as_deref().is_some_and(|t| t.starts_with(&runtime_display_name("copilot")))).expect("the name");
+        assert!(mark < name, "the mark, then its name");
     }
 
     #[test]

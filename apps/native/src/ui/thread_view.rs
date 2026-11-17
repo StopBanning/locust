@@ -328,7 +328,12 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
             .or(teammate.runtime.as_deref())
             .or(current.map(|a| a.runtime.as_str()))
             .unwrap_or("codex");
-        let mark = crate::look::controls::agent_mark(&l, runtime, 13.0, l.c("text-secondary"));
+        // The runtime's mark where the ready dot was, greyed when it cannot take work; a dot for a model of the
+        // person's own; "No AI agent" when nothing can take work (chip_mark.rs).
+        let found = crate::chip_mark::found_agents(s);
+        let chip_mark = crate::chip_mark::chip_mark(runtime, model, found.as_deref());
+        let mark = crate::chip_mark::chip_mark_el(&l, runtime, &chip_mark);
+        let label = if chip_mark == crate::chip_mark::ChipMark::NoAgent { "No AI agent".to_owned() } else { label };
         let mut chip = crate::look::controls::composer_chip(&l, mark, &label, true)
             .key("model-chip")
             .on_hover_change(|s: &mut State, over, _| {
@@ -1105,7 +1110,7 @@ pub(super) fn model_picker(
         let (shown, hidden) = cap_rows(matched.len(), active_at, if searching { ROUTE_GROUP_LIMIT * 2 } else { ROUTE_GROUP_LIMIT });
         let mut group = row().gap(6.0).px(9.0).pt(12.0).pb(4.0).center_y();
         if let Some(mark) = crate::look::controls::agent_mark(l, &agent.runtime, 12.0, l.c("text-muted")) {
-            group = group.child(mark);
+            group = group.child(mark.key(format!("picker-group-mark-{}", agent.runtime)));
         }
         list = list.child(group.child(text(group_name).font(l.ty.body).color(l.c("text-muted"))));
         let usage_key = locust_core::agent_accounts::usage_key(&agent.runtime, acc_id);
@@ -1265,6 +1270,44 @@ mod picker_tests {
         assert_eq!(cap_rows(56, Some(30), 6), (vec![0, 1, 2, 3, 4, 30], 50));
         assert_eq!(route_search_text("Claude-Opus 5.5"), "claude opus 5 5");
         assert!(route_search_text("Cursor Agent GPT-5.5 Extra High").contains(&route_search_text("gpt 5.5")));
+    }
+
+    /// the-runtimes-wear-their-marks.test.tsx: "the picker's runtime groups carry their marks".
+    #[test]
+    fn the_pickers_runtime_groups_carry_their_marks() {
+        let agent = |runtime: &str| engine::Models {
+            teammate: None,
+            runtime: runtime.into(),
+            model: None,
+            effort: None,
+            models: vec![engine::Model { id: format!("{runtime}-model"), name: format!("{runtime} model"), efforts: vec![] }],
+        };
+        let mut s = State::default();
+        s.models.insert("tm_pick".into(), vec![agent("claude"), agent("cursor")]);
+        let mut rt = rune::Runtime::new(
+            s,
+            |s, _| {
+                let teammate = Teammate {
+                    id: "tm_pick".into(),
+                    name: "Pick".into(),
+                    role: "Custom".into(),
+                    runtime: Some("claude".into()),
+                    model: None,
+                    account: None,
+                    busy: false,
+                    runs_in: String::new(),
+                    folder: None,
+                };
+                model_picker(s, &crate::look::controls::Look::new(true), "tm_pick", &teammate, None, "claude-model", None, true)
+            },
+            (500.0, 900.0),
+            rune::Env::new(true, 1.0),
+        );
+        rt.frame(0.0);
+        let keys: Vec<String> = rt.elements().into_iter().filter_map(|e| e.key).collect();
+        for runtime in ["claude", "cursor"] {
+            assert!(keys.iter().any(|k| k == &format!("picker-group-mark-{runtime}")), "{runtime}: {keys:?}");
+        }
     }
 }
 
