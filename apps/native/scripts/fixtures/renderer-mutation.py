@@ -10,6 +10,42 @@ import subprocess
 import sys
 
 CONTROLS = {
+    "folder-chip-help": (
+        "src/ui/thread_view.rs",
+        '.help(locust_core::thread_view::folder_help(\n        folder, home, windows, system,\n    ))',
+        '.help("Folder")',
+        "says_why_in_its_hover_for_a_folder_like_claude_in_the_chips_own_colour",
+    ),
+    "team-folder-reset": (
+        "src/ui/people_panel.rs",
+        '.on_press(|s: &mut State| set_form_folder(s, None))',
+        '.on_press(|_s: &mut State| {})',
+        "resetting_the_folder_changes_only_the_form_until_saved",
+    ),
+    "team-folder-mode": (
+        "src/ui/people_panel.rs",
+        '"auto" => "may edit anything on this machine",',
+        '"auto" => "reads and explains, every write refused",',
+        "does_not_promise_a_permission_the_next_mission_will_not_have",
+    ),
+    "team-first-model": (
+        "src/ui/people_panel.rs",
+        'if route.is_some() || s.people_panel.model_open {',
+        'if route.is_some() {',
+        "a_new_team_without_a_composer_route_can_still_pick_its_first_model",
+    ),
+    "team-model-target": (
+        "src/ui/thread_view.rs",
+        'crate::people_panel::pick_model(s, pick);',
+        's.picks.insert(target.to_owned(), pick);',
+        "picking_a_model_and_effort_updates_only_the_form_and_saves_the_exact_route",
+    ),
+    "team-effort-default": (
+        "src/ui/people_panel.rs",
+        'if levels.iter().any(|e| e == "medium") { "medium" } else { &levels[levels.len()/2] }',
+        '&levels[0]',
+        "says_the_models_default_when_the_teammate_has_no_level_of_its_own",
+    ),
     "month-limit": (
         "core/src/teammate_month.rs",
         'limit.is_some_and(|l| limit_reached(Some(spend), l))',
@@ -225,7 +261,7 @@ env = dict(os.environ)
 try:
     path.write_text(source.replace(before, after, 1))
     with log.open("w") as out:
-        result = subprocess.run(["timeout", "5400", "python3", "scripts/gentle-cargo.py", "--timeout", "5380", "test", "--workspace", "--no-fail-fast"], stdout=out, stderr=subprocess.STDOUT, env=env)
+        result = subprocess.run(["timeout", "5400", "python3", "scripts/fixtures/renderer-cargo.py", "--timeout", "5380", "test", "--workspace", "--no-fail-fast"], stdout=out, stderr=subprocess.STDOUT, env=env)
     output = log.read_text()
     assert result.returncode != 0, "mutation survived"
     assert "Test isolation guard refused" not in output, "test isolation failure is not a caught mutation"

@@ -358,7 +358,7 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
         }
         let mut picker = col().w_full().px(24.0);
         if s.model_menu.as_ref() == Some(&id) {
-            picker = picker.child(row().w_full().justify_end().child(model_picker(s, &l, &id, teammate, current, model, effort)));
+            picker = picker.child(row().w_full().justify_end().child(model_picker(s, &l, &id, teammate, current, model, effort, false)));
         }
 
         let mut composer_stack = col().w_full().gap(8.0).px(24.0).pb(24.0);
@@ -860,13 +860,9 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
         let mode_now = s.composer_mode.clone().unwrap_or_else(|| teammate.runs_in.clone());
         let mode_word = locust_core::mode_facts::fact(&mode_now).chip;
         // Where the turn will run, as native::folder_for chooses: the teammate's own folder, else the one Locust has open.
-        let folder_word = teammate
-            .folder
-            .as_deref()
-            .or(s.home.folder_path.as_deref())
-            .and_then(|f| f.trim_end_matches('/').rsplit('/').next())
-            .filter(|f| !f.is_empty())
-            .unwrap_or("No folder");
+        let folder = teammate.folder.as_deref().or(s.home.folder_path.as_deref());
+        let home = std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE")).ok();
+        let system = std::env::var("SystemRoot").ok();
         let footer = row()
             .w_full()
             .center_y()
@@ -883,16 +879,8 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
                     }),
             )
             .child(
-                crate::look::controls::composer_chip(
-                    &l,
-                    Some(crate::look::controls::glyph(&l, &crate::look::icons::FOLDER, 13.0, Some(l.c("text-muted")))),
-                    folder_word,
-                    false,
-                )
-                .key("folder-chip")
-                .max_w(260.0)
-                .role("button")
-                .on_press(|s: &mut State| s.reference_menu = !s.reference_menu),
+                folder_chip(&l, folder, home.as_deref(), cfg!(windows), system.as_deref())
+                    .on_press(|s: &mut State| s.reference_menu = !s.reference_menu),
             )
             .child(crate::compare_view::composer_mode_chip(s, &l))
             .child(rune::spacer())
@@ -998,7 +986,7 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
 /// RoutePicker.tsx (`.lc-picker`): 420 wide on the raised fill with a strong edge and a menu shadow. Each agent's models
 /// under its mark and name, one row per model (a dot, its name, the levels it takes, ACTIVE on the one in use), and the
 /// level for the turn chosen at the foot, apart from the model, as Electron chose it ("effort being separate").
-fn model_picker(
+pub(super) fn model_picker(
     s: &State,
     l: &crate::look::controls::Look,
     id: &str,
@@ -1006,6 +994,7 @@ fn model_picker(
     current: Option<&engine::Models>,
     model: &str,
     effort: Option<&str>,
+    for_team: bool,
 ) -> El {
     let mut list = col().key("model-menu").w_full().max_h(330.0).scroll(ScrollSpec { stick_bottom: false }).padding(6.0);
     let Some(agents) = s.models.get(id).filter(|a| !a.is_empty()) else {
@@ -1033,10 +1022,10 @@ fn model_picker(
         r.role("button")
     };
     let reset_id = id.to_owned();
-    let picked = s.picks.get(id);
+    let picked = if for_team { None } else { s.picks.get(id) };
     let needle = route_search_text(&s.model_query.text);
     let searching = !needle.is_empty();
-    if !searching {
+    if !searching && !for_team {
         list = list.child(row_of("Teammate’s own".into(), "its saved model and level".into(), picked.is_none()).on_press(move |s: &mut State| {
             s.picks.remove(&reset_id);
             s.model_menu = None;
@@ -1053,14 +1042,14 @@ fn model_picker(
     };
     let mut groups: Vec<(&engine::Models, Option<&locust_core::agent_accounts::Account>)> = agents
         .iter()
-        .filter(|a| id != LEDGER_TARGET || teammate.runtime.as_deref() == Some(a.runtime.as_str()))
+        .filter(|a| for_team || id != LEDGER_TARGET || teammate.runtime.as_deref() == Some(a.runtime.as_str()))
         .map(|a| (a, None))
         .collect();
     if locust_core::org_policy::feature_refusal(Some(&policy), "accounts").is_none() {
         for acc in &s.agent_accounts.accounts {
             if let Some(agent) = agents
                 .iter()
-                .filter(|a| id != LEDGER_TARGET || teammate.runtime.as_deref() == Some(a.runtime.as_str()))
+                .filter(|a| for_team || id != LEDGER_TARGET || teammate.runtime.as_deref() == Some(a.runtime.as_str()))
                 .find(|a| a.runtime == acc.agent.as_str())
             {
                 groups.push((agent, Some(acc)));
@@ -1068,7 +1057,7 @@ fn model_picker(
         }
     }
     let offered: Vec<String> = agents.iter()
-        .filter(|a| id != LEDGER_TARGET || teammate.runtime.as_deref() == Some(a.runtime.as_str()))
+        .filter(|a| for_team || id != LEDGER_TARGET || teammate.runtime.as_deref() == Some(a.runtime.as_str()))
         .flat_map(|a| a.models.iter().filter(|m| locust_core::org_policy::model_allowed(Some(&policy), &a.runtime, Some(&m.id))).map(|m| format!("{}:{}", a.runtime, m.id)))
         .collect();
     let shortcuts = locust_core::recent_routes::shortcut_keys(&offered, &s.recent_route_keys);
@@ -1088,7 +1077,7 @@ fn model_picker(
         let keep = effort.map(str::to_owned);
         list = list.child(row_of(label,detail,active).key(format!("recent-model-{}-{}",agent.runtime,m.id)).on_press(move |s:&mut State| {
             let effort = keep.clone().filter(|e|levels.contains(e));
-            s.picks.insert(target.clone(),TurnPick {model:choice.clone(),effort,runtime:runtime.clone(),account:Some(None)});
+            apply_model_pick(s, &target, TurnPick {model:choice.clone(),effort,runtime:runtime.clone(),account:Some(None)}, for_team);
             s.model_menu=None;
         }));
     }
@@ -1112,7 +1101,7 @@ fn model_picker(
         any = true;
         let acc_id = acc.map(|a| a.id.as_str());
         let is_active_group = active_runtime == agent.runtime && active_account == acc_id;
-        let active_at = matched.iter().position(|m| is_active_group && (picked.is_some() || active_account.is_some()) && m.id == model);
+        let active_at = matched.iter().position(|m| is_active_group && (for_team || picked.is_some() || active_account.is_some()) && m.id == model);
         let (shown, hidden) = cap_rows(matched.len(), active_at, if searching { ROUTE_GROUP_LIMIT * 2 } else { ROUTE_GROUP_LIMIT });
         let mut group = row().gap(6.0).px(9.0).pt(12.0).pb(4.0).center_y();
         if let Some(mark) = crate::look::controls::agent_mark(l, &agent.runtime, 12.0, l.c("text-muted")) {
@@ -1123,7 +1112,7 @@ fn model_picker(
         let at_limit = s.limited_runtimes.contains_key(&usage_key);
         let needs_sign_in = acc.is_some_and(|a| a.state != locust_core::agent_accounts::AccountState::Ready);
         for m in shown.into_iter().map(|i| matched[i]) {
-            let active = is_active_group && (picked.is_some() || active_account.is_some()) && m.id == model;
+            let active = is_active_group && (for_team || picked.is_some() || active_account.is_some()) && m.id == model;
             let detail = if needs_sign_in {
                 "SIGN IN".to_owned()
             } else if at_limit {
@@ -1150,7 +1139,7 @@ fn model_picker(
             list = list.child(row_of(row_label, detail, active).key(row_key).on_press(move |s: &mut State| {
                 // The level stays with the turn when the new model takes it.
                 let effort = keep.clone().filter(|e| levels.contains(e));
-                s.picks.insert(key.clone(), TurnPick { model: choice.clone(), effort, runtime: runtime.clone(), account: account_pick.clone() });
+                apply_model_pick(s, &key, TurnPick { model: choice.clone(), effort, runtime: runtime.clone(), account: account_pick.clone() }, for_team);
                 s.model_menu = None;
             }));
         }
@@ -1176,7 +1165,7 @@ fn model_picker(
         .or_else(|| current.and_then(|a| a.models.iter().find(|m| Some(m.id.as_str()) == a.model.as_deref())).map(|m| m.efforts.clone()))
         .unwrap_or_default();
     let mut foot = row().w_full().gap(6.0).center_y();
-    if !levels.is_empty() {
+    if !levels.is_empty() && !for_team {
         foot = foot.child(text("Level").font(l.ty.body).color(l.c("text-muted")).pr(4.0));
         for level in levels {
             let on = effort == Some(level.as_str());
@@ -1184,7 +1173,7 @@ fn model_picker(
             let pick_runtime = s.picks.get(id).and_then(|p| p.runtime.clone());
             let pick_account = s.picks.get(id).and_then(|p| p.account.clone());
             foot = foot.child(crate::look::controls::chip(l, &level, on).on_press(move |s: &mut State| {
-                s.picks.insert(key.clone(), TurnPick { model: pick_model.clone(), effort: Some(choice.clone()), runtime: pick_runtime.clone(), account: pick_account.clone() });
+                apply_model_pick(s, &key, TurnPick { model: pick_model.clone(), effort: Some(choice.clone()), runtime: pick_runtime.clone(), account: pick_account.clone() }, for_team);
             }));
         }
     }
@@ -1212,6 +1201,14 @@ fn model_picker(
                 .on_edit(|s: &mut State| &mut s.model_query),
         );
     picker_card_with(l, Some(head), list, Some(foot))
+}
+
+fn apply_model_pick(s: &mut State, target: &str, pick: TurnPick, for_team: bool) {
+    if for_team {
+        crate::people_panel::pick_model(s, pick);
+    } else {
+        s.picks.insert(target.to_owned(), pick);
+    }
 }
 
 /// status.ts ROUTE_GROUP_LIMIT: rows a group shows until the person searches (twice that while searching).
@@ -1414,4 +1411,117 @@ fn plus_menu(s: &State, l: &crate::look::controls::Look, teammate: &Teammate) ->
             s.plus_menu = false;
             crate::home_panel::choose_folder(tx);
         }))
+}
+
+/// Settings folders retain the ordinary chip treatment; the hover explains why.
+fn folder_chip(
+    l: &crate::look::controls::Look,
+    folder: Option<&str>,
+    home: Option<&str>,
+    windows: bool,
+    system: Option<&str>,
+) -> El {
+    let word = folder
+        .map(locust_core::folders::folder_name)
+        .unwrap_or_else(|| "No folder".into());
+    crate::look::controls::composer_chip(
+        l,
+        Some(crate::look::controls::glyph(
+            l,
+            &crate::look::icons::FOLDER,
+            13.0,
+            Some(l.c("text-muted")),
+        )),
+        &word,
+        false,
+    )
+    .key("folder-chip")
+    .max_w(260.0)
+    .role("button")
+    .help(locust_core::thread_view::folder_help(
+        folder, home, windows, system,
+    ))
+}
+
+#[cfg(test)]
+mod renderer_folder_chip_tests {
+    use super::*;
+    fn hover(path: &str) -> rune::Runtime<String> {
+        let path = path.to_owned();
+        let mut rt = rune::Runtime::new(
+            path,
+            |path, _| {
+                col().padding(24.0).child(folder_chip(
+                    &crate::look::controls::Look::new(true),
+                    Some(path),
+                    Some(r"C:\Users\person"),
+                    true,
+                    None,
+                ))
+            },
+            (1000., 500.),
+            rune::Env::new(true, 1.),
+        );
+        rt.frame(0.);
+        let (x, y) = rt.find("folder-chip").unwrap();
+        rt.pointer_move(x, y);
+        for _ in 0..100 {
+            rt.frame(0.016);
+        }
+        rt
+    }
+    fn help_words(tree: &serde_json::Value) -> String {
+        match tree {
+            serde_json::Value::String(word) => word.clone(),
+            serde_json::Value::Array(items) => items.iter().map(help_words).collect::<Vec<_>>().join("\n"),
+            serde_json::Value::Object(items) => items.values().map(help_words).collect::<Vec<_>>().join("\n"),
+            _ => String::new(),
+        }
+    }
+    fn words(rt: &rune::Runtime<String>) -> String {
+        help_words(&rt.accessibility_json())
+    }
+    #[test]
+    fn says_why_in_its_hover_for_a_folder_like_claude_in_the_chips_own_colour() {
+        let rt = hover(r"C:\Users\person\.claude");
+        assert!(words(&rt).contains("This is .claude, where the agents keep their own settings: a teammate here reads it as its project, sign-in files included."), "{}", words(&rt));
+        assert!(!words(&rt).contains("Start this conversation"));
+    }
+    #[test]
+    fn the_thread_attaches_the_warning_to_its_effective_folder_chip() {
+        let home = std::env::var("HOME")
+            .or_else(|_| std::env::var("USERPROFILE"))
+            .unwrap();
+        let path = format!("{home}/.claude");
+        let mut s = State::default();
+        crate::team_scene(&mut s);
+        for mate in &mut s.teammates {
+            mate.folder = None;
+        }
+        s.home.folder_path = Some(path.clone());
+        let mut rt = rune::Runtime::new(
+            s,
+            |s, _| thread_view(s, &Palette::new(true)),
+            (1200., 900.),
+            rune::Env::new(true, 1.),
+        );
+        rt.frame(0.);
+        let (x, y) = rt.find("folder-chip").unwrap();
+        rt.pointer_move(x, y);
+        for _ in 0..100 {
+            rt.frame(0.016);
+        }
+        let words = help_words(&rt.accessibility_json());
+        assert!(words.contains(&format!("New conversations work in {path}. This is .claude,")), "{words}");
+    }
+    #[test]
+    fn stays_as_it_was_for_a_project_folder_control() {
+        let rt = hover(r"C:\Users\person\Documents\shop");
+        assert!(
+            words(&rt).contains(r"New conversations work in C:\Users\person\Documents\shop"),
+            "{}",
+            words(&rt)
+        );
+        assert!(!words(&rt).contains("sign-in files"));
+    }
 }

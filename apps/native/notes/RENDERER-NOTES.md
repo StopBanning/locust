@@ -1719,3 +1719,420 @@ are missing from this checkout, as recorded above. No unsupported carried claim.
   HANDOFF files remain. No live agent, Electron gate, live/packaged window,
   cross-platform or performance verification claimed. Continue the 14 waiting
   rows; do not treat this receipt as completion of the full port.
+
+### Renderer-16 — teammate model dialog (verification pending)
+
+- Arrival tracked tree clean at 25243882. The monthly recovery requested by
+  round 4 is already committed and documented above; its stash remains retained.
+- Read the six Electron model/effort cases and NewTeammateDialog's route, pick
+  and default-effort rules. Reused the real composer picker, including catalog,
+  account groups, policy filtering, search, recent routes and limit labels.
+  Dialog picks now update the form only. A different model clears the old effort;
+  saving an unchanged route-less teammate retains its inherited composer route.
+- Native offers the reported effort stops as selectable native chips, with the
+  current stop labelled for accessibility; it does not reconstruct an HTML
+  range input. Medium is the default when offered, otherwise the middle stop.
+- Six separate exact-input cases and one real picker/save isolation regression
+  added in people_panel::renderer_model_tests. Inventory stays waiting until
+  observed passing by name. Two negative controls prepared.
+- First compile attempts hit the shared target's stale core artifact (existing
+  teammate_month reported missing), not assertion failures. Applied the brief's
+  touch-all-Rust workaround, then restarted the complete debug nextest suite.
+- First completed debug run: 3028 passed, one new assertion failed because
+  the dialog used the long runtime label `Codex CLI` rather than Electron's
+  `Codex`. Corrected the model row to use native's existing short runtime
+  labels and catalog model name. Six other new tests passed by name. This
+  run is not a green baseline; subsequent controls and restored runs follow.
+- Opening the dialog picker clears the composer's popup state immediately;
+  cancelling an edit cannot leave that popup open on the conversation.
+- `team-model-target` control caught exactly the picker/save isolation
+  assertion: 2415 core passed (20 ignored), 614 window passed, one deliberate
+  failure. Source restored byte for byte. All six Electron cases passed by
+  name in this run; the extra model-switch effort reset case also passed.
+  The initial control attempt's stale-core compile error is not a catch.
+- First effort-control run was rejected: the shared target ran a different
+  worktree's 601-test window binary; none of this section's named tests were
+  present. No catch claimed. Added renderer-cargo.py, a thin entry to the
+  unchanged gentle-cargo wrapper that performs the brief's source-touch fix
+  after its shared lock is acquired, before Cargo starts. Touching before a
+  lock wait is insufficient when another tree builds during that wait.
+- `team-effort-default` control caught exactly the default-effort assertion:
+  2415 core passed (20 ignored), 614 window passed, one deliberate failure.
+  Source restored byte for byte. The in-lock touch workaround compiled this
+  worktree's 615-test window binary and observed the required named failure.
+- Added an inherited-route account regression: choosing an account adopts the
+  displayed composer route in the form and leaves the active chat unchanged.
+  Account choices use the displayed runtime, rather than stale hidden fields.
+
+Electron case -> Rust suffix in people_panel::renderer_model_tests:
+- names the model / own picker -> names_the_model_the_teammate_runs_on_and_offers_the_chats_own_picker
+- none of its own / chat box -> says_a_teammate_with_none_of_its_own_takes_the_chat_boxs_until_one_is_picked
+- no picker / nothing to press -> offers_nothing_to_press_when_there_is_no_picker_to_open
+- own effort / this model's four stops / selected High at index 2 -> states_the_teammates_own_level_with_this_models_stops
+- default Medium -> says_the_models_default_when_the_teammate_has_no_level_of_its_own
+- no reported levels -> is_not_offered_for_a_model_that_reports_no_levels
+
+Additional regressions:
+- picking_a_model_and_effort_updates_only_the_form_and_saves_the_exact_route
+- a_different_model_clears_the_previous_level_and_the_same_model_keeps_it
+- choosing_an_account_on_an_inherited_route_saves_that_route_without_changing_the_chat
+
+### Renderer-16 restored verification
+
+- Restored debug nextest: renderer-16-model-restored-debug.log exited 0;
+  3031 tests passed, 20 real-agent tests skipped. All nine names above were
+  observed passing. No filtered suite. Both controls are restored.
+- Model row carried after the six exact Electron cases passed by name.
+  Recount and --check passed: 221 carried, 64 does-not-apply, 205 partial,
+  819 waiting (1309 total). Thirteen matching requested rows remain waiting.
+- Release workspace suite and release binary build still pending below.
+- Final exact-input audit: the model-name case now uses Electron's empty
+  picker catalog, and the inherited-route case creates a new teammate with
+  no initial record. Added a readable GPT-ID fallback before discovery lands;
+  the model's reported catalog name takes precedence. The earlier release
+  run predates this audit; final verification is rerun below.
+
+
+### Renderer-16 round-4 verification recovery (in progress)
+
+- Read the round-4 restart, round-2 workflow, thread-5 case rules, current
+  inventory and all existing picker changes. Left the monthly stash alone.
+- Fresh full debug nextest, renderer-16-recovery-debug.log: exit 0,
+  3031 passed, 20 skipped. Observed all nine renderer_model_tests by name.
+- team-model-target rerun caught its named picker/save isolation assertion
+  and restored thread_view.rs byte for byte. Full workspace control, debug;
+  receipt renderer-16-recovery-target-receipt.log. Release checks pending.
+- Found and fixed an additional applicable picker gap: a new team with no
+  composer route could press Change but saw no picker. The catalog now opens
+  using Electron's claude/account-default display fallback, without saving
+  a route until a real selection. Added the surface regression
+  a_new_team_without_a_composer_route_can_still_pick_its_first_model and
+  team-first-model negative control. Fresh full validation follows.
+- Revisited waiting teammate files first. Inline page needs per-turn isolated
+  embedding (the existing singleton preview is not equivalent); pet and glyph
+  paint behavior lives in this round's protected look/rig/pet lane; Home needs
+  an actual fitted layout rather than an unused copy of homeIsShort.
+- Folder-row connector cases cannot be satisfied by UI alone: native.rs
+  claude_args explicitly keeps account connectors off because none can be
+  ticked yet. A checkbox without runtime enforcement would falsely promise
+  access. This main-process implementation is outside this round's owned
+  core files. Folder caution also lacks its once-per-folder send gate.
+- Conversation inspection: native has no live-call state in the sidebar or
+  phone conversation projection; queue.rs carries ten exact isolation cases
+  but explicitly lacks busy-elsewhere waitFor wiring. Review brief and savable
+  offers remain missing as recorded above. The two missing sidebar sources
+  remain waiting. No additional carried/excluded row is claimed.
+
+
+### Renderer-16 recovery controls and restored debug
+
+- renderer-16-recovery-fallback-debug.log: exit 0, 3032 passed, 20 skipped;
+  all ten renderer_model_tests mechanically matched to full named PASS lines.
+  This includes pressing Change with no composer route before selecting.
+- team-model-target: 2415 core passed, 20 ignored; window 615 passed and
+  exactly the intended picker/save isolation assertion failed (before the
+  additional route-less case). Receipt: renderer-16-recovery-target-receipt.log.
+- team-effort-default and team-first-model: each 2415 core passed, 20 ignored;
+  window 616 passed and exactly its intended assertion failed. Both restored
+  people_panel.rs byte for byte. Receipts: renderer-16-recovery-effort.log and
+  renderer-16-recovery-first-model.log. No unrelated failure counted as a catch.
+- Recount and --check passed: 221 carried, 64 does-not-apply, 205 partial,
+  819 waiting (1309 total). Thirteen requested renderer rows still waiting.
+- Python AST syntax for both fixture scripts and git diff --check passed.
+  Final restored release suite and build results follow before any commit.
+
+
+### Renderer-16 recovery restored release verification
+
+- renderer-16-recovery-release.log: exit 0; 2415 core + 617 window =
+  3032 passed, 20 real-agent tests ignored; doc tests 0. All ten full picker
+  names mechanically matched to `test people_panel::renderer_model_tests::...
+  ... ok`; no named FAILED line. This verifies the final fallback and its
+  real Change-button regression as well as the six Electron cases.
+- Release build is pending. The shared lock and default TypeScript reader
+  were used throughout; no filtered run or reader override.
+
+
+### Renderer-16 recovery final build and stopping receipt
+
+- Release build exited 0: renderer-16-recovery-build.log, optimized build
+  finished in 1m 39s after a 72-second shared-lock wait. Eleven native binary
+  warnings remain. No live or packaged window was launched.
+- Audited all three new original mutation anchors present exactly once and
+  the mutated team-target branch absent. No break remains. A first audit
+  incorrectly rejected the normal chat branch's identical assignment; checking
+  the team branch and original anchors verifies restoration without that false
+  positive. Both fixture scripts parse; diff whitespace and recount passed.
+- The full requested port is unfinished: thirteen renderer rows still wait,
+  as the renderer-15 list above minus the now-carried model-dialog row. The
+  concrete next gaps and protected-lane boundaries are recorded in this recovery.
+- No Electron/JavaScript gate, live window, packaged app, real agent/model,
+  other OS or performance benchmark was run. The 20 ignored tests are not
+  claimed as passes. The monthly stash and HANDOFF files were left alone.
+- All required verification commands completed before committing. No push,
+  merge, version or changelog change; only this section's owned files changed.
+
+- Recovery source commit: `907540b4` (shared picker, six exact Electron cases,
+  four native save/account/first-model regressions). Control/lock-workaround
+  commit: `fe1b65a8`. Parity and the complete verification receipt are committed
+  separately. Final tracked tree is clean; original untracked HANDOFF files stay.
+
+
+### Renderer-17 — teammate folder row (in progress)
+
+- Arrival was clean at b32d4ee5; renderer-16 recovery was already committed,
+  including named picker checks, controls and release suite/build receipts.
+  Left its stash and all HANDOFF files alone.
+- Read all thirteen remaining sources available in this checkout; two sidebar
+  sources are still absent. Teammate-first inspection confirms protected-lane
+  pet/glyph rendering, per-turn page embedding and fitted Home remain gaps.
+- The folder dialog had a generic Folder text input. Replaced it with Works in,
+  a path/default sentence, native Choose folder/Change and Use the project
+  folder. Choices belong to the form until Save; the open workspace is untouched.
+  Added Electron's mode summary words, including Auto's whole-machine scope.
+- Five separate exact-value folder cases plus a native reset/save isolation
+  regression are in people_panel::renderer_folder_tests. The four connector
+  cases in the same Electron file are not implemented: this requires native
+  runtime enforcement in native.rs, outside the round's owned core files.
+  The row cannot be called carried. Verification and controls follow.
+
+
+Renderer-17 named folder mapping (people_panel::renderer_folder_tests):
+- is named in the dialog / project folder -> is_named_in_the_dialog_and_reads_as_the_project_folder_when_it_has_none
+- pointed-at folder / way back -> shows_the_folder_it_was_pointed_at_and_the_way_back
+- reason in the person's terms -> says_why_the_folder_is_worth_setting_in_the_persons_terms
+- permission matches next mission -> does_not_promise_a_permission_the_next_mission_will_not_have
+- absent on creation / no chooser -> is_absent_while_a_teammate_is_being_created_or_without_a_host_chooser
+- native regression -> resetting_the_folder_changes_only_the_form_until_saved
+
+- Full debug nextest, renderer-17-folder-debug.log: exit 0, 3038 passed,
+  20 skipped. All six full folder names observed on PASS lines.
+- Conversation sources inspected after teammates: live-call sidebar state and
+  phone projection remain absent; review brief has no native author/reviewer
+  projection; Routines lacks finished-conversation offers/header action.
+  Queue's ten exact isolation cases already exist in src/composer/queue.rs,
+  but four busy-elsewhere cases still need waitFor persistence and end-run
+  routing. The final Electron source check is window wiring only. No code
+  or carried claim was fabricated for these missing product behaviors.
+
+
+- team-folder-reset control: exit 0, caught exactly
+  people_panel::renderer_folder_tests::resetting_the_folder_changes_only_the_form_until_saved;
+  2415 core passed, 20 ignored; 622 window passed and one deliberate failure.
+  people_panel.rs restored byte for byte. Receipt renderer-17-reset-receipt.log.
+- Final permission audit found a route-less form must describe its inherited
+  composer mode, not its unused default field. Summary now uses shown_route;
+  five mode cases set the composer's mode, with a seventh regression proving
+  the inherited mode wins until the teammate has its own saved route:
+  permissions_use_the_inherited_composer_mode_then_the_teammates_own_mode.
+  The earlier debug baseline predates this correction. Restored release must
+  verify the final seven names; the following control is against final code.
+
+- team-folder-mode control: exit 0, caught the five-mode case and the new
+  inherited-route regression; no unrelated assertion failed. Source restored
+  byte for byte. Receipt renderer-17-mode-receipt.log. Final restored release
+  suite is now running. Both original mutation anchors audited present once.
+
+- During the release run an unrelated edit appeared in scripts/gentle-cargo.py
+  (shared-target rebuild bookkeeping). This turn did not make that edit;
+  preserve it and exclude it from this section's commits. The release run had
+  already loaded the prior wrapper, waited 80 seconds, and is compiling this
+  worktree. Final stopping status must name the preserved unrelated change.
+
+
+### Renderer-17 restored release verification
+
+- renderer-17-folder-release.log: exit 0, 2415 core + 624 window = 3039
+  passed, 20 real-agent tests ignored, doc tests 0. Mechanically matched all
+  seven full folder names and all ten existing picker names to `... ok`.
+  This is the final inherited-mode code; no named FAILED line.
+- team-folder-mode: 2415 core passed, 20 ignored; window 622 passed and
+  exactly two intentional failures (five-mode case and inherited-route
+  regression). Both controls exited 0 and restored the source byte for byte.
+- Folder row is partial, not carried: five Electron folder cases are covered,
+  four connector cases remain. No exclusion claimed. Release build pending.
+- Native-only workflow: no Electron/JavaScript gate, real native folder-dialog
+  interaction, live or packaged window, real agent/model, other OS or benchmark
+  was run. Headless UI verifies row contents, reset interaction and entry
+  construction, not the operating system's chooser itself.
+
+- Release binary build: exit 0, renderer-17-folder-build.log; optimized build
+  finished in 1m 28s after a 288-second shared-lock wait. Eleven pre-existing
+  binary warnings remain. The unrelated wrapper edit was used by this build;
+  it is preserved separately and is not part of this section's patch.
+- Recount and --check passed: 221 carried, 64 does-not-apply, 206 partial,
+  818 waiting (1309 total). Twelve requested rows wait; folder row is partial.
+- Both fixture scripts parse; git diff --check passed; both original mutation
+  anchors present exactly once. No break remains. All commands completed.
+
+
+### Renderer-17 — existing conversation queue coverage classification
+
+- Re-read steering.ts and all fifteen cases in the requested Electron queue
+  file, plus src/composer/queue.rs and the window's queue send/drain path.
+  Ten exact Rust isolation cases already existed. All ten were mechanically
+  matched by full name to `... ok` in the final green release workspace run.
+  Marked the row partial to reflect those verified cases, not carried.
+- No queue source or new behavior changed in this metadata-only section.
+  Missing: three queueHome cases and one waitFor verdict case, with persistence
+  and real end-run routing. The fifteenth case is Electron App source wiring;
+  it is not a substitute for native integration. Existing tests prove only
+  the ten isolation rules below, not the missing busy-elsewhere behavior.
+
+Named passes in composer::queue::renderer_conversation_tests:
+- is_its_own_rows_in_the_order_they_were_typed
+- never_folds_into_another_conversations_message
+- still_folds_lines_typed_during_one_run_into_one_message
+- takes_that_conversations_rows_folded_and_leaves_every_other_row_where_it_was
+- takes_nothing_from_a_conversation_with_nothing_queued
+- goes_by_the_row_itself_two_rows_can_be_given_the_same_id
+- empty_that_conversations_queue_and_nobody_elses
+- the_reviewers_case_gems_line_edited_pips_untouched_each_sent_to_its_own
+- sends_each_its_own_as_each_run_ends_in_either_order_the_others_staying_pending
+- sends_nothing_the_words_are_back_in_the_box_not_the_queue_and_leaves_the_other_conversation_queued
+
+
+### Renderer-17 stopping receipt and remaining boundary
+
+- Code/control commit: 283ba1b8. Folder inventory/evidence: 449c4106.
+  This metadata-only queue classification is committed separately.
+- Final recount and --check: 221 carried, 64 does-not-apply, 207 partial,
+  817 waiting (1309 total). Of the requested matching files, eleven wait and
+  two are partial (folder and queue); no new carried/excluded row this run.
+- All seven folder cases passed by full name in the final release suite;
+  all ten picker and ten existing queue names also mechanically matched.
+  Both deliberate controls caught and restored; release suite and binary
+  build exited 0. Whitespace and fixture-script AST checks passed.
+- No source change after the green release suite/build. All this turn's work
+  is committed. Preserve the unrelated scripts/gentle-cargo.py edit and all
+  original untracked HANDOFF files. No stash operation, push, merge, version,
+  changelog, protected-lane or outside-workspace file changes by this turn.
+- The handoff remains unfinished. Completing connector enforcement requires
+  runtime code the brief reserves for the max lane; pet/glyph cases require
+  its explicitly protected pet/face/look files. Do not quietly cross those
+  ownership boundaries. Two sidebar test sources are still missing. Other
+  owned gaps (per-turn page embedding, fitted Home and folder caution) remain
+  applicable work, not exclusions. Conversation live-call/phone, reviewer
+  brief, savable offers and busy-elsewhere queue integration are still absent.
+- No Electron gate, actual OS folder dialog, live/packaged window, real agent,
+  other OS or benchmark was verified. The 20 ignored tests are not passes.
+
+Requested rows still waiting:
+- a-call-shows-on-its-conversation-row.test.tsx
+- a-page-a-teammate-made-runs-in-its-turn.test.tsx
+- a-phone-lists-conversations.test.ts
+- a-teammate-can-be-a-pet.test.tsx
+- a-teammates-eyes-are-drawn-not-typed.test.ts
+- a-waiting-conversation-is-first-in-the-sidebar.test.tsx
+- an-app-started-conversation-says-so-in-the-sidebar.test.tsx
+- home-fits-two-rows-of-teammates.test.ts
+- review-sees-the-conversation.test.ts
+- savable-conversations.test.ts
+- the-folder-chip-says-a-folder-is-no-place-for-teammates.test.tsx
+
+### Renderer-18 — folder-chip hover (in progress)
+
+- Arrival: d651c7a8, renderer-16 recovery and renderer-17 folder work already
+  committed. Preserved the unrelated gentle-cargo.py edit and HANDOFF files.
+- Read the remaining folder-caution renderer cases, Composer's hover copy and
+  workspace.ts's lexical classification. Native's chip had neither the warning
+  nor the ordinary project-path hover; Windows paths also displayed whole.
+- The chip now uses the existing native help surface with Electron's words,
+  retaining its ordinary composer-chip treatment. Folder names split on both
+  platform separators. Classification is lexical only, with explicit platform,
+  home and optional system paths; no folder contents or credentials are read.
+- Two separate exact-input renderer cases exercise the real native help surface;
+  extra path-boundary checks cover case, ancestors, descendants and dot segments.
+- The third Electron case (first-send question, Choose another folder before
+  Start here) is NOT implemented. Correct integration requires the common send
+  boundary and durable once-per-folder confirmation; rendering a disconnected
+  card in thread_view would not enforce it. Those shared send files are outside
+  this round's owned file list. Row remains waiting until observed named passes,
+  then partial, never carried. No confirmation/safety gate is claimed.
+- Initial nextest command ran the unchanged 3039-test baseline after a local
+  script path error; it is not evidence for these changes. Fresh debug run is
+  renderer-18-folder-final-debug.log; controls and release verification pending.
+- First changed-source full debug run: 3040 passed, three new tooltip tests
+  failed, 20 skipped. Path classification passed by name. Runtime::elements()
+  exposes the chip text but not native help text; this is not a passing hover
+  receipt. Tests now inspect native accessibility/help metadata instead, matching
+  Electron's static title check. The final surface result is still pending.
+- One test-harness compile error (capturing closure where Rune needs a function
+  pointer) was corrected by keeping the path in runtime state. Neither that
+  compile attempt nor the earlier path-error baseline counts as a new pass.
+
+Renderer-18 named mapping (`thread_view::renderer_folder_chip_tests`):
+- says why in its hover for a folder like .claude, in the chip's own colour ->
+  says_why_in_its_hover_for_a_folder_like_claude_in_the_chips_own_colour
+- stays as it was for a project folder (control) ->
+  stays_as_it_was_for_a_project_folder_control
+- Additional actual-thread integration ->
+  the_thread_attaches_the_warning_to_its_effective_folder_chip
+- Core regression (`thread_view::folder_help_tests`) ->
+  cautions_are_lexical_bounded_and_follow_the_paths_platform
+
+- renderer-18-folder-help-debug.log: exit 0, 3043 passed, 20 skipped.
+  All four full names observed on PASS lines. Native help is present in the
+  accessibility tree, rather than Runtime::elements()'s painted text list.
+  This matches the Electron tests' static title assertions. The production
+  chip retains the shared neutral composer-chip style without a caution branch;
+  no visual/pixel colour assertion or live tooltip interaction is claimed.
+- Inventory marked partial only after named passes; the third renderer case
+  and once-per-folder enforcement are still absent. No exclusion claimed.
+- folder-chip-help control: exit 0, caught the caution-hover assertion plus
+  the project-path and actual-thread integration assertions. No unrelated
+  failure: 2416 core passed, 20 ignored; 624 window passed, exactly three
+  deliberate failures. Source restored byte for byte. Receipt:
+  renderer-18-folder-control-receipt.log; full log renderer-control-folder-chip-help.log.
+- Recount and --check passed: 221 carried, 64 does-not-apply, 208 partial,
+  816 waiting (1309 total). Requested scope now has ten waiting and three
+  partial rows (folder dialog, queue, folder caution). Restored release suite
+  and release binary build pending before commit.
+
+### Renderer-18 restored release verification
+
+- renderer-18-folder-release.log: exit 0; 2416 core + 627 window = 3043
+  passed, 20 real-agent cases ignored; doc tests 0. Mechanically matched all
+  four full names above to `test ... ok` lines; no named failure. No source
+  change after this restored run. Release binary build follows.
+- Native-only handoff workflow: no Electron/JavaScript gate, real agent,
+  live/packaged window, actual tooltip visual/pixel comparison, other OS or
+  benchmark run. Explicit Windows strings are tested lexically on this Mac;
+  that is not a Windows execution. No first-send confirmation is implemented.
+
+### Remaining scope and ownership decision
+
+- The common first-send boundary lives in src/main.rs (send) and
+  src/ui/composer_wiring.rs (submit_composer), neither in the round-4 owned
+  list. A correct confirmation needs to preserve the pending draft, bind the
+  answer to the still-selected folder and save only that folder's answer;
+  a renderer-only card would not enforce this. Ask whether to extend ownership
+  to those send files or leave this row partial and continue other owned gaps.
+- Requested waiting rows: a-call-shows-on-its-conversation-row.test.tsx,
+  a-page-a-teammate-made-runs-in-its-turn.test.tsx,
+  a-phone-lists-conversations.test.ts, a-teammate-can-be-a-pet.test.tsx,
+  a-teammates-eyes-are-drawn-not-typed.test.ts,
+  a-waiting-conversation-is-first-in-the-sidebar.test.tsx,
+  an-app-started-conversation-says-so-in-the-sidebar.test.tsx,
+  home-fits-two-rows-of-teammates.test.ts, review-sees-the-conversation.test.ts,
+  savable-conversations.test.ts. The two sidebar sources are still absent.
+- Partial rows remain: teammate folder dialog (connectors need protected runtime
+  enforcement), conversation queue (busy-elsewhere routing/persistence), and
+  folder caution (first-send card and durable confirmation). Existing pet/face/
+  look ownership exclusions remain; no carried/excluded row added this section.
+
+### Renderer-18 final build and stopping receipt
+
+- renderer-18-folder-build.log: exit 0, optimized release build finished in
+  1m 12s after a 97-second shared-lock wait. Eleven existing binary warnings.
+- Source: 3bdd7cfe; control: 8db51834. Inventory and evidence are committed
+  separately. Final recount --check, fixture AST syntax, restoration-anchor
+  audit and git diff --check passed. No mutation remains applied.
+- All commands completed before committing. No source changed after the green
+  restored release suite/build. No stash operation, push, merge, version,
+  changelog, protected-lane or outside-workspace file change by this turn.
+- This section is verified; the full handoff remains unfinished. Paused at the
+  concrete ownership fork above, rather than editing shared-send files without
+  an expanded assignment. Preserve the unrelated scripts/gentle-cargo.py edit
+  and the original untracked HANDOFF files. No other turn-owned change is left
+  uncommitted. This is not a claim that the whole tracked tree is clean.
