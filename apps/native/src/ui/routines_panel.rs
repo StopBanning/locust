@@ -493,32 +493,23 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                         .font(type_::BODY)
                         .color(p.text),
                 )
+                // Who runs it and on what model (routineChain with models), then its schedule as the card says it:
+                // paused, missed, due, or its next time (routineScheduleSummary), and how many runs.
                 .child(
-                    text(format!(
-                        "{} · {} · {} runs",
-                        r["teammateId"].as_str().unwrap_or(""),
-                        crate::routines::schedule::label(&r["schedule"]),
-                        r["runs"].as_u64().unwrap_or(0)
-                    ))
-                    .font(type_::LABEL)
-                    .color(p.secondary)
-                    .wrap(),
+                    text(crate::routines::routine_chain_with_models(r, &s.teammates))
+                        .key(format!("routine-chain-{id}"))
+                        .font(type_::LABEL)
+                        .color(p.secondary)
+                        .wrap(),
                 );
-            if let Some(chain) = crate::routines::routine_chain(r, &s.teammates) {
-                card = card.child(text(chain).font(type_::LABEL).color(p.secondary).wrap());
-            }
-            if r["paused"] == true {
-                card = card.child(text("Paused").font(type_::LABEL).color(p.amber));
-            }
-            if let Some(history) = r["history"].as_array() {
-                for h in history.iter().rev().take(3) {
-                    card = card.child(
-                        text(format!("Missed · {}", h["dueAt"].as_str().unwrap_or("")))
-                            .font(type_::LABEL)
-                            .color(p.muted),
-                    );
-                }
-            }
+            let runs = r["runs"].as_u64().unwrap_or(0);
+            let schedule = crate::routines::schedule::summary(r, chrono::Local::now());
+            let line = match schedule {
+                Some(when) => format!("{when} · {runs} run{}", if runs == 1 { "" } else { "s" }),
+                None => format!("{runs} run{}", if runs == 1 { "" } else { "s" }),
+            };
+            let warn = r["paused"] == true || r["missedAt"].is_string();
+            card = card.child(text(line).key(format!("routine-when-{id}")).font(type_::LABEL).color(if warn { p.amber } else { p.secondary }).wrap());
             let entry = r.clone();
             let export_entry = r.clone();
             let remove = id.clone();
@@ -1775,5 +1766,28 @@ mod renderer_runner_interaction_tests {
         assert_eq!(rt.state.routines.entry["teammateId"], "tm_wren");
         assert_eq!(save_refusal(&rt.state), None);
         assert_eq!(rt.state.routines.steps[0].text, "Tidy the notes folder.");
+    }
+}
+
+#[cfg(test)]
+mod routine_row_lines_tests {
+    use super::*;
+
+    /// The routine row wears routineChain with models and routineScheduleSummary, not the teammate's id and the bare
+    /// rule (a-routine-says-what-it-runs-on, a-paused-routine-says-so).
+    #[test]
+    fn the_row_names_who_runs_it_on_what_model_and_says_when_it_is_paused() {
+        let mut s = State::default();
+        s.teammates = native::parse_roster(
+            &json!({"schemaVersion":1,"teammates":[{"teammateId":"tm_wren","name":"Wren","role":"Code & Migrations","hue":"lime","createdAt":"2026-09-05T05:00:00.000Z","route":{"runtime":"cursor","model":"grok-4.7-high","mode":"ask"}}]}).to_string(),
+        )
+        .unwrap();
+        s.routines.file = json!({"routines":[{"routineId":"rt_1","name":"Morning digest","teammateId":"tm_wren","steps":["Say good morning."],"runs":1,
+            "createdAt":"2026-10-02T08:00:00.000Z","lastRunAt":"2026-10-02T08:00:00.000Z","schedule":{"kind":"every","hours":1},"paused":true}]});
+        let mut rt = rune::Runtime::new(s, |s, _| view(s, &Palette::new(true)), (1200.0, 1800.0), rune::Env::new(true, 1.0));
+        rt.frame(0.0);
+        let text_of = |key: &str| rt.elements().into_iter().find(|e| e.key.as_deref() == Some(key)).and_then(|e| e.text);
+        assert_eq!(text_of("routine-chain-rt_1").as_deref(), Some("Wren (Grok 4.7 High)"));
+        assert_eq!(text_of("routine-when-rt_1").as_deref(), Some("every hour · paused · 1 run"));
     }
 }

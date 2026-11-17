@@ -335,6 +335,61 @@ pub fn record_misses(
     Ok(changed)
 }
 
+/// A teammate and the model their routine steps run on now: "Wren (Grok 4.7 High)" (`routineRunner`).
+pub fn routine_runner(teammate_id: &str, team: &[crate::engine::Teammate]) -> String {
+    let Some(mate) = team.iter().find(|m| m.id == teammate_id) else { return "someone removed".into() };
+    match (mate.runtime.as_deref(), mate.model.as_deref()) {
+        (Some(runtime), Some(model)) => format!("{} ({})", mate.name, model_said(runtime, model)),
+        _ => mate.name.clone(),
+    }
+}
+
+fn model_said(runtime: &str, model: &str) -> String {
+    if model == "account-default" {
+        format!("{} default", crate::inspector::runtime_display_name(runtime))
+    } else {
+        crate::teammate_tooltip::route_model_name(runtime, model)
+    }
+}
+
+/// The routine row's chain with each teammate's model (`routineChain(routine, team, true)`, 0.493): one teammate's
+/// routine names it with its model; a chain names each, except that one shared route is named once, after the chain,
+/// "both on" or "all on" it (0.636), so "(checks)" stays on the line. The same model through two tools is two routes.
+pub fn routine_chain_with_models(routine: &Value, team: &[crate::engine::Teammate]) -> String {
+    let owner = routine["teammateId"].as_str().unwrap_or("");
+    let handoffs = routine["handOffs"].as_array();
+    if !handoffs.is_some_and(|h| h.iter().any(|e| e["teammateId"].is_string() || e["check"] == true)) {
+        return routine_runner(owner, team);
+    }
+    let handoffs = handoffs.unwrap();
+    let mut steps: Vec<(&str, bool)> = Vec::new();
+    let mut last: Option<&str> = None;
+    for (i, _) in routine["steps"].as_array().map(Vec::as_slice).unwrap_or_default().iter().enumerate() {
+        let entry = handoffs.get(i).unwrap_or(&Value::Null);
+        let runner = entry["teammateId"].as_str().unwrap_or(owner);
+        let check = entry["check"] == true;
+        if last == Some(runner) && !check {
+            continue;
+        }
+        steps.push((runner, check));
+        last = Some(runner);
+    }
+    let link = |check: bool, label: String| if check { format!("{label} (checks)") } else { label };
+    let name = |id: &str| team.iter().find(|m| m.id == id).map_or("someone removed".to_owned(), |m| m.name.clone());
+    let routes: Vec<Option<(&str, &str)>> = steps
+        .iter()
+        .map(|(id, _)| team.iter().find(|m| m.id == *id).and_then(|m| Some((m.runtime.as_deref()?, m.model.as_deref()?))))
+        .collect();
+    let shared = routes.first().copied().flatten().filter(|first| routes.iter().all(|r| r.as_ref() == Some(first)));
+    if let Some((runtime, model)) = shared
+        && steps.len() > 1
+    {
+        let chain = steps.iter().map(|(id, check)| link(*check, name(id))).collect::<Vec<_>>().join(" → ");
+        return format!("{chain}, {} on {}", if steps.len() == 2 { "both" } else { "all" }, model_said(runtime, model));
+    }
+    steps.iter().map(|(id, check)| link(*check, routine_runner(id, team))).collect::<Vec<_>>().join(" → ")
+}
+
 /// A hand-off chain in step order; adjacent repeated runners collapse unless checking.
 pub fn routine_chain(routine: &Value, team: &[crate::engine::Teammate]) -> Option<String> {
     let handoffs = routine["handOffs"].as_array()?;

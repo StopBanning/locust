@@ -170,6 +170,66 @@ const DAY_NAMES: [&str; 7] = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTH_NAMES: [&str; 12] = [
     "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ];
+const WEEKDAYS: [&str; 7] = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+fn clock(at: DateTime<Local>) -> String {
+    format!("{:02}:{:02}", at.hour(), at.minute())
+}
+
+/// "Missed, 08:00 today", "... yesterday", or "Missed, Tue 08:00" (`missedLine`). None for a time that does not read.
+pub fn missed_line(missed_at: &str, now: DateTime<Local>) -> Option<String> {
+    let at = DateTime::parse_from_rfc3339(missed_at).ok()?.with_timezone(&Local);
+    let when = clock(at);
+    if at.date_naive() == now.date_naive() {
+        return Some(format!("Missed, {when} today"));
+    }
+    if Some(at.date_naive()) == now.date_naive().pred_opt() {
+        return Some(format!("Missed, {when} yesterday"));
+    }
+    Some(format!("Missed, {} {when}", WEEKDAYS[at.weekday().num_days_from_sunday() as usize]))
+}
+
+/// What a routine's card says about its schedule (`routineScheduleSummary`): paused, in progress, waiting for your OK,
+/// held for review, missed, watching, done, due now, or its next time in the person's own clock. None without one.
+pub fn summary(r: &Value, now: DateTime<Local>) -> Option<String> {
+    let schedule = r.get("schedule").filter(|s| !s.is_null())?;
+    let rule = label(schedule);
+    let execution = r.get("execution").filter(|e| !e.is_null());
+    let abandoned = execution.is_some_and(|e| e["status"] == "abandoned");
+    if r["paused"] == true && (execution.is_none() || abandoned) {
+        return Some(format!("{rule} · paused"));
+    }
+    if let Some(e) = execution.filter(|_| !abandoned) {
+        let state = if e["status"] == "running" {
+            "in progress"
+        } else if e["waitsForOk"] == true {
+            "waiting for your OK"
+        } else {
+            "held for review; no automatic retry"
+        };
+        return Some(format!("{rule} · {state}"));
+    }
+    if let Some(missed) = r["missedAt"].as_str().and_then(|at| missed_line(at, now)) {
+        return Some(missed);
+    }
+    if schedule["kind"] == "files" {
+        return Some(format!("{rule} · watching"));
+    }
+    let Some(next) = base(r).and_then(|last| self::next(schedule, last, now)) else {
+        return Some(format!("{rule} · done"));
+    };
+    let when = if next <= now {
+        "due now".to_owned()
+    } else if next.date_naive() == now.date_naive() {
+        format!("next {}", clock(next))
+    } else if Some(next.date_naive()) == now.date_naive().succ_opt() {
+        format!("next tomorrow {}", clock(next))
+    } else {
+        format!("next {} {}", WEEKDAYS[next.weekday().num_days_from_sunday() as usize], clock(next))
+    };
+    Some(format!("{rule} · {when}"))
+}
+
 pub fn label(v: &Value) -> String {
     let at = v["at"].as_str().unwrap_or("");
     match v["kind"].as_str().unwrap_or("") {

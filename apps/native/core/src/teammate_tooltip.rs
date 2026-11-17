@@ -23,6 +23,22 @@ fn spell(id: &str) -> String {
     out
 }
 
+/// A model as the chip and the routine line say it (`routeModelName`): Claude's own names, else the id spelt out with
+/// its runtime's own prefix taken off ("Grok 4.7 High", "Nemotron 3.5 Lightning Free"); `auto` is "Auto model".
+pub fn route_model_name(runtime: &str, model: &str) -> String {
+    if runtime == "claude"
+        && let Some(named) = crate::models::claude_model_name(model)
+    {
+        return named;
+    }
+    let bare = model.strip_prefix(&format!("{runtime}/")).unwrap_or(model);
+    let bare = bare.strip_prefix(&format!("{runtime}-")).unwrap_or(bare);
+    if bare.eq_ignore_ascii_case("auto") {
+        return "Auto model".into();
+    }
+    bare.split('/').map(spell).collect::<Vec<_>>().join("/")
+}
+
 pub fn teammate_tooltip(teammate: &Teammate) -> String {
     let mut said = format!("Message {} · {}", teammate.name, teammate.role);
     if let (Some(runtime), Some(model)) = (teammate.runtime.as_deref(), teammate.model.as_deref()) {

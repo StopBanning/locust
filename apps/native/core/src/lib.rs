@@ -277,6 +277,8 @@ pub mod pet_puppets;
 mod pet_library_tests;
 #[cfg(test)]
 mod pet_record_tests;
+#[cfg(test)]
+mod routine_lines_tests;
 pub mod cover_activity;
 
 #[cfg(test)]
