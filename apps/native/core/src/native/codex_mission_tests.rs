@@ -748,3 +748,130 @@ fn the_no_shell_and_plan_sections_are_electrons_words() {
         "PLAN FIRST. Do not change anything in this workspace on this turn, and do not run commands that change state.\nRead what you need, then answer with the plan itself: numbered steps, in the order you would do them, each one concrete enough to check off.\nName anything you had to assume, and anything you found that changes what was asked.\nIf the work is small enough that a plan would be longer than doing it, say so in one line and give the steps anyway -- brevity is a fine plan.\nThe person reads this and decides whether to have you carry it out; you are not being asked to start."
     );
 }
+
+// ---- Codex over app-server ----
+
+fn codex_settings(t: &Temp, chosen: Value) {
+    fs::write(t.0.join("work/commands-reply.json"), chosen.to_string()).unwrap();
+}
+
+fn index_of(requests: &[Value], method: &str) -> Option<usize> {
+    requests.iter().position(|r| r["method"] == method)
+}
+
+#[test]
+fn codexs_plan_tool_is_switched_on_from_0_153_so_its_plan_reaches_the_panel() {
+    use crate::runtime::codex::app_server_args;
+    assert_eq!(app_server_args(Some("0.153.0")), ["app-server", "-c", "tools.update_plan.enabled=true"]);
+    // The older runtime Electron's other tests run keeps plain `app-server`, as does one that did not say its version.
+    assert_eq!(app_server_args(Some("0.151.0-alpha")), ["app-server"]);
+    assert_eq!(app_server_args(None), ["app-server"]);
+}
+
+#[test]
+fn codex_runs_as_a_server_its_pieces_become_message_events_and_the_mode_earns_its_policy() {
+    let t = Temp::new();
+    let _hook = hooks::install(t.store(), codex_commands_hook(&t));
+    codex_settings(&t, json!({"deltas": ["Two ", "files."], "text": "Two files."}));
+    let mut mine = job(&t, None, "How many files?");
+    mine.teammate.runs_in = "accept-edits".into();
+    let started = send(mine).unwrap();
+    finished(&started.conversation_id);
+    let path = path_of(&t, &started.conversation_id);
+    let events = kinds(&path);
+    assert!(events.iter().filter(|k| *k == "message.delta").count() > 1, "{events:?}");
+    assert_eq!(events.last().map(String::as_str), Some("run.completed"));
+    assert!(fs::read_to_string(&path).unwrap().contains("Two "));
+    let opened = thread_request(&t);
+    assert_eq!(opened["method"], "thread/start");
+    assert_eq!(
+        (&opened["params"]["cwd"], &opened["params"]["sandbox"], &opened["params"]["approvalPolicy"]),
+        (&json!(t.0.join("work").to_string_lossy()), &json!("workspace-write"), &json!("never"))
+    );
+}
+
+#[test]
+fn a_read_only_mode_stays_read_only_and_never_asks_for_full_access() {
+    let t = Temp::new();
+    let _hook = hooks::install(t.store(), codex_commands_hook(&t));
+    let started = send(job(&t, None, "Just look.")).unwrap();
+    finished(&started.conversation_id);
+    assert_eq!(thread_request(&t)["params"]["sandbox"], "read-only");
+    assert!(!serde_json::to_string(&codex_requests(&t)).unwrap().contains("danger-full-access"));
+}
+
+#[test]
+fn ask_and_plan_start_none_of_the_persons_codex_programs_and_edit_leaves_codex_as_it_is() {
+    let settings = json!({"mcp_servers": {"node_repl": {"command": "node", "args": ["repl.mjs"]}, "docs": {"url": "https://docs.example.com/mcp"}}});
+    for mode in ["ask", "plan"] {
+        let t = Temp::new();
+        let _hook = hooks::install(t.store(), codex_commands_hook(&t));
+        codex_settings(&t, json!({"config": settings}));
+        let mut mine = job(&t, None, "Just look.");
+        mine.teammate.runs_in = mode.into();
+        finished(&send(mine).unwrap().conversation_id);
+        let asked = codex_requests(&t);
+        // Read first, which starts nothing; then the thread, with the programs off and the one at an address kept.
+        assert!(index_of(&asked, "config/read").unwrap() < index_of(&asked, "thread/start").unwrap(), "{mode}");
+        let config = &thread_request(&t)["params"]["config"];
+        assert_eq!((&config["features.plugins"], &config["mcp_servers.node_repl.enabled"]), (&json!(false), &json!(false)), "{mode}");
+        assert!(config.get("mcp_servers.docs.enabled").is_none(), "{mode}");
+    }
+    let t = Temp::new();
+    let _hook = hooks::install(t.store(), codex_commands_hook(&t));
+    codex_settings(&t, json!({"config": settings}));
+    let mut mine = job(&t, None, "Change it.");
+    mine.teammate.runs_in = "accept-edits".into();
+    finished(&send(mine).unwrap().conversation_id);
+    let asked = codex_requests(&t);
+    assert_eq!(index_of(&asked, "config/read"), None, "its settings are not asked for");
+    assert!(!serde_json::to_string(&asked).unwrap().contains("features.plugins"));
+}
+
+#[test]
+fn a_sealed_look_starts_with_no_shell_web_search_apps_or_servers_connectors_included() {
+    let t = Temp::new();
+    let _hook = hooks::install(t.store(), codex_commands_hook(&t));
+    codex_settings(&t, json!({"config": {"mcp_servers": {"node_repl": {"command": "node"}, "gmail": {"url": "https://mail.example.com/mcp"}}}}));
+    let origin = Origin { slot: Some(SlotOrigin { key: "scout:tm_scout:codex".into(), sealed: true, ..Default::default() }), ..Default::default() };
+    let started = send_from(job(&t, None, "Scout found: PR #7."), origin).unwrap();
+    finished(&started.conversation_id);
+    let config = &thread_request(&t)["params"]["config"];
+    for (key, value) in [
+        ("features.apps", json!(false)),
+        ("features.shell_tool", json!(false)),
+        ("web_search", json!("disabled")),
+        ("features.plugins", json!(false)),
+        ("mcp_servers.node_repl.enabled", json!(false)),
+        ("mcp_servers.gmail.enabled", json!(false)),
+    ] {
+        assert_eq!(config[key], value, "{key}: {config}");
+    }
+}
+
+#[test]
+fn a_codex_thread_gets_locusts_command_guard_for_its_folder_and_none_when_codex_would_load_another_hook() {
+    let t = Temp::new();
+    let home = t.0.join("codex-home");
+    fs::create_dir_all(&home).unwrap();
+    let folder = t.0.join("work");
+    let guard = crate::command_guard::codex_config_for_home(&folder, Some(&home)).expect("no other hook: the guard goes");
+    assert_eq!(guard["bypass_hook_trust"], true);
+    let hook = &guard["hooks"]["PreToolUse"][0];
+    assert_eq!((&hook["matcher"], &hook["hooks"][0]["type"], &hook["hooks"][0]["timeout"]), (&json!("Bash"), &json!("command"), &json!(15)));
+    assert!(hook["hooks"][0]["command"].as_str().unwrap().ends_with(" --command-guard"));
+    // Another hook Codex would load: no guard, and so no bypass either.
+    fs::write(home.join("hooks.json"), r#"{"hooks": {"PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "theirs"}]}]}}"#).unwrap();
+    assert_eq!(crate::command_guard::codex_config_for_home(&folder, Some(&home)), None);
+}
+
+#[test]
+fn every_other_runtime_keeps_the_transport_it_had() {
+    let t = Temp::new();
+    let fake = commands_claude(&t);
+    let _hook = hooks::install(t.store(), Some((PathBuf::from("python3"), vec![fake.to_string_lossy().into_owned()])));
+    let started = send(claude_job(&t, None, "Read this.")).unwrap();
+    finished(&started.conversation_id);
+    assert_eq!(sent_log(&t, "claude-sent.jsonl").len(), 1, "Claude Code was sent the turn");
+    assert!(codex_requests(&t).is_empty(), "no app-server was started");
+}

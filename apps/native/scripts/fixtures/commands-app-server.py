@@ -4,13 +4,17 @@
 import json, os, sys
 
 # A test may choose what the turn says and how it ends: `commands-reply.json` in the working folder, {"text": ...,
-# "status": "completed" or "failed"}. Without it the turn answers "Done." and completes.
-def chosen_reply():
+# "status": "completed" or "failed", "deltas": [pieces streamed before the whole text], "config": what config/read
+# answers}. Without it the turn answers "Done." and completes, and the person's Codex has no settings.
+def chosen():
     if os.path.exists('commands-reply.json'):
         with open('commands-reply.json') as f:
-            chosen = json.load(f)
-        return chosen.get('text', 'Done.'), chosen.get('status', 'completed')
-    return 'Done.', 'completed'
+            return json.load(f)
+    return {}
+
+def chosen_reply():
+    c = chosen()
+    return c.get('text', 'Done.'), c.get('status', 'completed')
 
 def send(v):
     print(json.dumps(dict(jsonrpc='2.0', **v)), flush=True)
@@ -22,6 +26,8 @@ def done(msg):
     send(dict(id=msg['id'], result={'turn': {'id': 'turn_fake'}}))
     notify('turn/started', turn={'id': 'turn_fake'})
     reply, status = chosen_reply()
+    for piece in chosen().get('deltas', []):
+        notify('item/agentMessage/delta', itemId='answer', delta=piece)
     notify('item/agentMessage/delta', itemId='answer', operation='replace', delta=reply)
     notify('item/completed', item=dict(id='answer', type='agentMessage', text=reply))
     turn = {'id': 'turn_fake', 'status': status}
@@ -38,7 +44,7 @@ for line in sys.stdin:
     if method == 'initialize':
         send(dict(id=msg['id'], result={}))
     elif method == 'config/read':
-        send(dict(id=msg['id'], result={'config': {}}))
+        send(dict(id=msg['id'], result={'config': chosen().get('config', {})}))
     elif method in ('thread/start', 'thread/resume'):
         send(dict(id=msg['id'], result={'thread': {'id': 'thread_fake'}}))
     elif method in ('turn/start', 'review/start'):

@@ -603,3 +603,21 @@ command briefed; the plan words; the received link's teammate; a posted link rec
 that did not complete; an unreadable workroom refusing the run.
 - Survivors, then caught: the no-shell words, whose test compared against the function, so a test now pins Electron's
   words for both sections; and the roster refusal, whose break was in the copy native does not use (above).
+
+## Batch 16: `codex-mission.test.ts`, Codex over app-server
+
+All 7 of the group's cases (2 of them half): 47 of 137 so far. No bug: native's Codex path already did what
+Electron's does. The recording fake app-server's `commands-reply.json` can now also hold `deltas` (pieces streamed
+before the whole text) and `config` (what `config/read` answers).
+
+Halves:
+- The plan tool (0.153) is tested on `runtime::codex::app_server_args`. Under test the hook replaces the command, so
+  the record holds the fake's argv. That argv is still what ran, which is Electron's claim.
+- The command guard is tested on `command_guard::codex_config_for_home` with a temporary Codex home, with no hook
+  beside it and with a `hooks.json` that declares one. A run reads `CODEX_HOME` or `~/.codex`, which is the
+  machine's own, so the guard on a run's `thread/start` is not asserted.
+
+Break checks (all 12 caught by the named test): the plan tool's first release; its setting; the settings read for
+every mode but Edit; for Edit too; an address server switched off when unsealed; the sealed shell; the sealed web
+search; the sealed config not used; a program left on; the guard beside another hook; the guard's bypass; Edit's
+sandbox widened.
