@@ -111,7 +111,8 @@ describe('file mission ledger', () => {
     const lines = (await readFile(join(root, 'mission_1.jsonl'), 'utf8')).trimEnd().split('\n')
     expect(lines).toHaveLength(events.length + 1)
     expect(JSON.parse(lines[0] ?? '{}')).toMatchObject({
-      schemaVersion: MISSION_LEDGER_SCHEMA_VERSION,
+      // 27, the newest the Rust app reads: only a mission on Apple Intelligence is written at 28 (0.878).
+      schemaVersion: 27,
       recordType: 'mission.created',
       ledgerSequence: 1
     })

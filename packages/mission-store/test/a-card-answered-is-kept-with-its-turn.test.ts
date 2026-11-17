@@ -76,7 +76,8 @@ describe('a card the person answered is kept on its mission', () => {
     const recovered = await createFileMissionLedger({ rootDirectory: root }).getMission('mission_1')
 
     expect(recovered?.approvals).toEqual([ALLOWED, DENIED_BY_RULE])
-    expect(recovered?.schemaVersion).toBe(MISSION_LEDGER_SCHEMA_VERSION)
+    // Written at 27, the newest the Rust app reads: only a mission on Apple Intelligence is written at 28 (0.878).
+    expect(recovered?.schemaVersion).toBe(27)
     expect(recovered?.issues).toEqual([])
   }, 20_000)
 

@@ -15,6 +15,12 @@ heading: the home screen then shows it once, as a splash.
 
 ### New
 
+- **Apple Intelligence as a teammate's model, on a Mac.** Since macOS 26 the model behind Apple Intelligence answers
+  other apps, so a teammate can now run on it: on this Mac, free, with no account, and nothing sent anywhere. It is
+  listed as "On-device model" under Apple Intelligence in the model picker, only where Apple Intelligence is turned on
+  and ready; where it is not, AI agents says why (turned off, still downloading, or a Mac that cannot run it). It only
+  talks: it cannot read or change files, run commands or open pages, so it runs in Ask and Plan. It reads about 8,000
+  tokens at once, so a long conversation may need a new one or another teammate, and it says so.
 - **Apps can carry on any of your conversations, and answer its questions.** While "Let apps see your conversations"
   is on, an app connected to Locust (the Claude app, Codex, your phone's chat apps) can now continue a conversation you
   started without a teammate, on that conversation's own AI agent and model. It used to be told to leave it to you. When

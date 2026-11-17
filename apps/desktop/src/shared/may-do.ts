@@ -192,5 +192,15 @@ export function whatItMayDo(runtime: MissionRuntimeId, sandbox: MissionSandbox, 
     case 'gemini':
       // Gemini CLI is refused before anything runs. Nothing to add to the mode itself.
       return rows()
+    case 'apple':
+      // Apple's on-device model has no tools at all (0.878): it reads only what the conversation says.
+      return {
+        rows: [
+          { verdict: 'deny', text: 'reading or changing your files' },
+          NO_COMMANDS,
+          { verdict: 'deny', text: 'searching the web or opening web pages' }
+        ],
+        rest: 'It only talks: it reads what is said in this conversation, on this Mac, and nothing leaves it.'
+      }
   }
 }

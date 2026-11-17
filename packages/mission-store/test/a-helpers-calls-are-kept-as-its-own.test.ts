@@ -114,7 +114,8 @@ describe("a helper's calls in the ledger (v22)", () => {
     await ledger.flush()
     const recovered = await createFileMissionLedger({ rootDirectory: root }).getMission('mission_1')
     // Written at whatever is current; v22 is the first that keeps a helper's calls.
-    expect(MISSION_LEDGER_SCHEMA_VERSION).toBe(27)
+    expect(MISSION_LEDGER_SCHEMA_VERSION).toBe(28)
+    // Written at 27, the newest the Rust app reads: only a mission on Apple Intelligence is written at 28 (0.878).
     expect(recovered?.schemaVersion).toBe(27)
     expect(recovered?.issues).toEqual([])
     expect(childrenOf(recovered?.events ?? [])).toEqual([

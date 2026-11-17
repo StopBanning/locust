@@ -1,3 +1,4 @@
+import { appleRequestLine } from "./apple-model.js";
 import { cursorResultStream } from "./cursor-result-stream.js";
 import { spawnShape } from "./cmd-line.js";
 import { execFile, execFileSync, spawn } from "node:child_process";
@@ -12,7 +13,7 @@ import { assertSafeRuntimeCommand, PROMPT_FILE_PLACEHOLDER } from "./commands.js
  * purpose: that spec is a server to be spoken to, and running it as an
  * ordinary process would start something nobody is listening to.
  */
-const ACCEPTED_TRANSPORTS: ReadonlySet<string> = new Set(["prompt", "none", "prompt-file", "stream-json", "agy-json"]);
+const ACCEPTED_TRANSPORTS: ReadonlySet<string> = new Set(["prompt", "none", "prompt-file", "stream-json", "agy-json", "apple-json"]);
 
 /** Antigravity CLI's input line (0.540): measured shape, the only one agy 1.2.14 accepted. */
 export function agyUserLine(text: string): string {
@@ -1083,9 +1084,9 @@ export function createNodeRuntimeProcessRunner(
       // reading, and some CLIs treat anything on stdin as extra input.
       if (terminationRequested || spec.stdin === "none" || spec.stdin === "prompt-file") {
         child.stdin.end();
-      } else if (spec.stdin === "agy-json") {
+      } else if (spec.stdin === "agy-json" || spec.stdin === "apple-json") {
         try {
-          child.stdin.write(agyUserLine(prompt), (error) => {
+          child.stdin.write(spec.stdin === "agy-json" ? agyUserLine(prompt) : appleRequestLine(prompt), (error) => {
             if (error === undefined || error === null || settled) return;
             inputDeliveryFailed = true;
             requestTermination(false);
