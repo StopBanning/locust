@@ -133,7 +133,8 @@ describe('ledger schema versions', () => {
     // app asked for (mcp); v24 a turn carried on after a plan ran out (0.774); v25 an agent the person added (0.777);
     // v26 a failing check sent back to fix (0.812); v27 a mission on Kilo; v28 one on Apple Intelligence (0.878).
     expect(MISSION_LEDGER_SCHEMA_VERSION).toBe(28)
-    expect(header.schemaVersion).toBe(28)
+    // A mission on any other runtime is written at 27, the newest the Rust app reads (0.878, schemaVersionWritten).
+    expect(header.schemaVersion).toBe(27)
     expect(SUPPORTED_MISSION_LEDGER_SCHEMA_VERSIONS).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28])
     /*
      * THE PAIR THAT DRIFTED, checked as a pair.
@@ -633,7 +634,7 @@ describe('ledger schema versions', () => {
     )
     const kept = await createFileMissionLedger({ rootDirectory: root }).getMission('mission_1')
     expect(kept?.metadata.runtime).toBe('acp')
-    expect(kept?.schemaVersion).toBe(MISSION_LEDGER_SCHEMA_VERSION)
+    expect(kept?.schemaVersion).toBe(27)
 
     const older = await temporaryRoot()
     const metadata = v1Metadata({ runtime: 'acp', model: 'acp_goose', sandbox: 'workspace-write' })
@@ -653,7 +654,7 @@ describe('ledger schema versions', () => {
     )
     const kept = await createFileMissionLedger({ rootDirectory: root }).getMission('mission_1')
     expect(kept?.metadata.runtime).toBe('kilo')
-    expect(kept?.schemaVersion).toBe(MISSION_LEDGER_SCHEMA_VERSION)
+    expect(kept?.schemaVersion).toBe(27)
 
     const older = await temporaryRoot()
     const metadata = v1Metadata({ runtime: 'kilo', model: 'kilo/kilo-auto/free', sandbox: 'full-access', mode: 'auto' })
@@ -695,7 +696,7 @@ describe('ledger schema versions', () => {
     )
     const kept = await createFileMissionLedger({ rootDirectory: root }).getMission('mission_1')
     expect(kept?.metadata.startedBy).toEqual(starter)
-    expect(kept?.schemaVersion).toBe(MISSION_LEDGER_SCHEMA_VERSION)
+    expect(kept?.schemaVersion).toBe(27)
 
     const older = await temporaryRoot()
     const metadata = v1Metadata({ sandbox: 'workspace-write', startedBy: starter })

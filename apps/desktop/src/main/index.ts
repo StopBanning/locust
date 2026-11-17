@@ -1128,8 +1128,9 @@ const startReadiness = createStartReadiness({
     if (fresh !== undefined) discoveryLog.emit({ kind: 'reasked', ids: [runtimeId], at: Date.now() })
     return fresh
   },
-  // Not a CLI: its readiness is whether the app is open, asked by the host.
-  sweepOnly: new Set(['antigravity'])
+  // Not a CLI: its readiness is whether the app is open, asked by the host. Apple Intelligence (0.878) is its helper's
+  // probe, asked once a launch by the sweep's own check.
+  sweepOnly: new Set(['antigravity', 'apple'])
 })
 
 /**

@@ -172,6 +172,16 @@ export const MISSION_LEDGER_SCHEMA_VERSION = 28 as const
 // said to send such a failure back (0.812, `check-fix`): nobody typed it either, so the number moves the same way.
 // v27 records a mission on Kilo. A v26 reader has no such runtime.
 // v28 records a mission on Apple Intelligence, the Mac's own model (0.878). A v27 reader has no such runtime.
+/**
+ * THE VERSION A NEW MISSION IS WRITTEN AT (0.878). v28 adds one thing, a mission on Apple Intelligence, so only such a
+ * mission is written at 28; every other is written at 27, the newest the Rust app reads (apps/native core/src/ledger.rs
+ * accepts 1..=27). Stamping 28 on every mission would have hidden every new conversation from the Rust app. Its later
+ * records keep the version the mission was created at (hydrateForAppend).
+ */
+export function schemaVersionWritten(metadata: Pick<MissionLedgerMetadata, 'runtime'>): MissionLedgerSchemaVersion {
+  return metadata.runtime === 'apple' ? MISSION_LEDGER_SCHEMA_VERSION : 27
+}
+
 export const SUPPORTED_MISSION_LEDGER_SCHEMA_VERSIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28] as const
 
 export type MissionLedgerSchemaVersion =
@@ -2026,8 +2036,9 @@ export function createFileMissionLedger(options: FileMissionLedgerOptions): Miss
       return serialize(async () => {
         validateMetadata(metadata)
         await ensureDirectory()
+        const schemaVersion = schemaVersionWritten(metadata)
         const record: CreatedRecord = {
-          schemaVersion: MISSION_LEDGER_SCHEMA_VERSION,
+          schemaVersion,
           recordType: 'mission.created',
           ledgerSequence: 1,
           occurredAt: metadata.createdAt,
@@ -2045,7 +2056,7 @@ export function createFileMissionLedger(options: FileMissionLedgerOptions): Miss
         metadataByMission.set(metadata.missionId, metadata)
         nextSequences.set(metadata.missionId, 2)
         nextEventSequences.set(metadata.missionId, 1)
-        schemaVersions.set(metadata.missionId, MISSION_LEDGER_SCHEMA_VERSION)
+        schemaVersions.set(metadata.missionId, schemaVersion)
         nextByteOffsets.set(metadata.missionId, Buffer.byteLength(line, 'utf8'))
       })
     },

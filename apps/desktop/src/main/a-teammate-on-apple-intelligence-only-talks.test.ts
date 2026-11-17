@@ -9,6 +9,7 @@ import { whatItMayDo } from '../shared/may-do.js'
 import { runtimeDisplayName } from '../shared/runtimes.js'
 import { appleHelperPath, createAppleModelHost } from './apple-model.js'
 import { createCodexMissionService } from './codex-mission.js'
+import { isFreeRoute } from './free-routes.js'
 import { appleModelsFrom, withAccountDefaults } from './model-catalog.js'
 
 /*
@@ -96,15 +97,54 @@ describe('a teammate on Apple Intelligence', () => {
     const root = await mkdtemp(join(tmpdir(), 'locust-apple-refused-')); roots.push(root)
     const ledger = createFileMissionLedger({ rootDirectory: join(root, 'ledger') })
     const runner = echoRunner()
-    const service = createCodexMissionService({ workspacePath: root, discover: async () => [READY], ledger, runner, createId: () => 'x', schedule: (task) => task(), autoModeAllowed: async () => true })
+    const discover = vi.fn(async (): Promise<readonly RuntimeDiscovery[]> => [READY])
+    const service = createCodexMissionService({ workspacePath: root, discover, ledger, runner, createId: () => 'x', schedule: (task) => task(), autoModeAllowed: async () => true })
     try {
       for (const mode of ['accept-edits', 'auto', 'approve-each'] as const) {
         const started = await service.start('Fix the bug', 'apple', mode, {}, () => undefined)
         expect(started.ok, mode).toBe(false)
+        // Refused by the command builder, which runs before anything durable is written.
         if (!started.ok) expect(started.error.message, mode).toContain('Ask mode only')
       }
       expect(runner.start).not.toHaveBeenCalled()
       expect((await ledger.listMissions()).missions).toEqual([])
+    } finally { await service.dispose() }
+  })
+
+  it('refuses a hand-off into a mode with tools before the running mission is stopped', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'locust-apple-handoff-')); roots.push(root)
+    const ledger = createFileMissionLedger({ rootDirectory: join(root, 'ledger') })
+    const codex: RuntimeDiscovery = {
+      id: 'codex', kind: 'agent-runtime', displayName: 'Codex CLI', optional: false, availability: 'available', readiness: 'ready',
+      executable: { commandName: 'codex', discoveredPath: 'agent', executablePath: 'agent', prefixArgs: [], kind: 'native' },
+      version: { raw: '0.151.0', version: '0.151.0', major: 0, minor: 151, patch: 0 },
+      supportedFeatures: ['non-interactive', 'jsonl-events', 'stdin-prompt', 'workspace-selection', 'read-only-sandbox'], requiredFeatures: [], diagnostics: []
+    }
+    let signal: AbortSignal | undefined
+    // A Codex run that keeps going until it is stopped.
+    const runner: RuntimeProcessRunner = {
+      start: vi.fn((_spec, _prompt, options) => {
+        signal = options?.signal
+        return {
+          records: { async *[Symbol.asyncIterator]() {}, drainAvailable: () => [] },
+          completion: new Promise<RuntimeProcessCompletion>((resolve) => {
+            signal?.addEventListener('abort', () => resolve({ ...completion, cancelled: true, exitCode: null }), { once: true })
+          })
+        }
+      })
+    }
+    const scheduled: (() => void)[] = []
+    let id = 0
+    const service = createCodexMissionService({ workspacePath: root, discover: async () => [codex, READY], ledger, runner, createId: () => String(++id), schedule: (task) => scheduled.push(task), autoModeAllowed: async () => true })
+    try {
+      const started = await service.start('Work', 'codex', 'auto', {}, () => undefined)
+      if (!started.ok) throw new Error(started.error.message)
+      scheduled.splice(0).forEach((task) => task())
+      const refused = await service.handOff(started.data.runId, 'apple', 'auto', {}, () => undefined)
+      expect(refused).toMatchObject({ ok: false, error: { code: 'HANDOFF_REFUSED', untouched: true, message: expect.stringContaining('Ask mode only') } })
+      // Asked before the run is stopped (targetRefusal): the Codex run goes on.
+      expect(signal?.aborted).toBe(false)
+      expect(service.hasMission(started.data.missionId)).toBe(true)
     } finally { await service.dispose() }
   })
 
@@ -114,6 +154,8 @@ describe('a teammate on Apple Intelligence', () => {
     expect(may.rows.map((row) => row.text)).toEqual(['reading or changing your files', 'running commands', 'searching the web or opening web pages'])
     expect(may.rest).toContain('nothing leaves it')
     expect(runtimeDisplayName('apple')).toBe('Apple Intelligence')
+    // Free: the Mac's own model, with no account to bill, so a free-routes-only window may use it.
+    expect(isFreeRoute('apple', 'apple-on-device')).toBe(true)
   })
 })
 

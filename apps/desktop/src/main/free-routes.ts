@@ -61,6 +61,8 @@ export function isFreeRoute(runtime: string, model: string | undefined): boolean
     const picked = parsedAcpRouteModel(model)?.model
     return picked !== undefined && /^opencode\/[a-z0-9.-]+-free$/i.test(picked)
   }
+  // Apple Intelligence (0.878) is the Mac's own model: free, with no account to bill.
+  if (runtime === 'apple') return true
   // Kilo labels a free model with /free, :free or -free. Auto Free is kilo/kilo-auto/free.
   // A gateway model is not free just because Kilo serves it.
   if (runtime === 'kilo') return model !== undefined && /(?:^|[-/:])free$/i.test(model)
