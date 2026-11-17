@@ -22,7 +22,9 @@ base = scenario[len('resume-'):] if scenario.startswith('resume-') else ('succes
 # told what was said up to there.
 rewinding = scenario == 'rewind'
 sealed_mode = scenario in ('sealed', 'sealed-asking')
-if approving or scenario == 'resume-undone' or rewinding or sealed_mode:
+# `no-model`: the account default, so no model is named on the turn.
+no_model = scenario == 'no-model'
+if approving or scenario == 'resume-undone' or rewinding or sealed_mode or no_model:
     base = 'success'
 SANDBOX = 'workspace-write' if (approving or scenario in ('cards-edit-check', 'cards-review-notes')) else 'read-only'
 thread_sandbox = SANDBOX
@@ -112,7 +114,7 @@ for line in sys.stdin:
             assert 'PR #9 minor lint' in text and text.index('PR #9 minor lint') < text.index(PROMPT), text
         if rewinding:
             assert 'The person went back to an earlier point in this conversation and changed their message there.' in text and 'Asked: "Synthetic prompt"' in text and 'Hello world' in text, text
-        assert p['model'] == 'synthetic-model'
+        assert ('model' not in p) if no_model else p['model'] == 'synthetic-model', p
         send(dict(id=msg['id'], result={'turn':{'id':'turn_fake'}}))
         notify('turn/started', turn={'id':'turn_fake'})
         send(dict(method='turn/completed', params={'threadId':'other_thread'}))

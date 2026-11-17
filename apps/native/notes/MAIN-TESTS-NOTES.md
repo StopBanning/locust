@@ -316,3 +316,34 @@ levels; a default for every runtime; Claude without Codex; a Cursor and a Claude
 reading: not written; not read back; a newer reading not taking the place.
 - One break survived, and it is equivalent. With `thinking` after a level not taken off (`split_cursor_model_id`),
   the word stays among the family's words, and the family comes out the same. No input tells the two apart.
+
+## Batch 7: `codex-mission.test.ts`, first three groups
+
+`codex-mission.test.ts` has 137 cases in 22 groups. It is carried a group at a time, in
+`core/src/native/codex_mission_tests.rs`, a child of `native::tests` so it shares that module's temp store, fake
+app-server and `send` helpers. The row stays `partial` with a running count: 12 of 137 so far.
+
+| Group | Carried | Rust tests |
+| --- | --- | --- |
+| mission sandbox | 6 of 8, 2 half | `codex_mission_tests` |
+| model selection | 3 of 3 | `codex_mission_tests` (a new `no-model` scenario in the fake app-server asserts no model is sent) |
+| a model of your own (0.357) | 3 of 3 | `codex_mission_tests` (removed: refused, nothing written); `own_models_tests` (env only; other models untouched) |
+| a file the runtime named but the host could not read (0.597) | 0 of 1 | not built: native writes no observed edits from disk |
+
+Bug found and fixed:
+- **A teammate's limit that could not be checked refused the run.** `native::spend_gate` refused with "The
+  spending record could not be read." Electron's personal limit fails open: `spendRefusalFor` logs "could not check
+  <id>'s monthly limit: ..." and the run starts. Only an organization's cap closes on an unreadable record, and
+  `org_spend_gate` still does. Native now writes Electron's line to stderr and lets the run start. It has no
+  diagnostic log file to write it to, so that half of the case is not tested.
+
+Not carried, and why:
+- `Started` reports the turn's mode, not its sandbox, so "the UI states the real posture" has no counterpart. The
+  ledger header carries the sandbox, and that part is tested.
+- The model of your own's key in the tests is not Electron's: its value is secret-shaped, and such literals stay out
+  of this public repository.
+
+Break checks (all caught by the named test, 12 in all): own branch skipped for another app's start; the limit
+skipped for another app's start; the limit's comparison; the fail-open put back; the header's sandbox; an unknown
+mode read as accept-edits; `startedBy` not recorded; account-default sent as a model; account-default not recorded;
+the turn's model not sent; a removed model of your own let through; a model invented when none was chosen.

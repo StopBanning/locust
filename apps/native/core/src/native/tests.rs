@@ -3309,3 +3309,6 @@ fn a_turn_whose_commit_could_not_be_made_says_so_as_a_warning_and_its_files_stay
     assert_eq!(fs::read_to_string(tree.join("notes.txt")).unwrap(), "BROKEN\n", "the files stay in its folder");
     assert_eq!(git(&["rev-list", "--count", "--all"]).trim(), "1");
 }
+
+#[path = "codex_mission_tests.rs"]
+mod codex_mission;
