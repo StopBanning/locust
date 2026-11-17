@@ -5,7 +5,9 @@ import json, os, sys
 
 # A test may choose what the turn says and how it ends: `commands-reply.json` in the working folder, {"text": ...,
 # "status": "completed" or "failed", "deltas": [pieces streamed before the whole text], "config": what config/read
-# answers}. Without it the turn answers "Done." and completes, and the person's Codex has no settings.
+# answers, "ask": {"method": ..., "params": ...}, a request the turn sends as `srv-1` and waits on before it ends}.
+# Without it the turn answers "Done." and completes, and the person's Codex has no settings. The answer to `srv-1` is
+# written to `commands-replies.jsonl`.
 def chosen():
     if os.path.exists('commands-reply.json'):
         with open('commands-reply.json') as f:
@@ -25,6 +27,13 @@ def notify(method, **params):
 def done(msg):
     send(dict(id=msg['id'], result={'turn': {'id': 'turn_fake'}}))
     notify('turn/started', turn={'id': 'turn_fake'})
+    ask = chosen().get('ask')
+    if ask:
+        send(dict(id='srv-1', method=ask['method'], params=dict(threadId='thread_fake', turnId='turn_fake', **ask['params'])))
+    else:
+        end()
+
+def end():
     reply, status = chosen_reply()
     for piece in chosen().get('deltas', []):
         notify('item/agentMessage/delta', itemId='answer', delta=piece)
@@ -41,7 +50,11 @@ for line in sys.stdin:
     if method not in (None, 'initialized'):
         with open('commands-requests.jsonl', 'a') as log:
             log.write(json.dumps({'method': method, 'params': p}) + '\n')
-    if method == 'initialize':
+    if method is None and msg.get('id') == 'srv-1':
+        with open('commands-replies.jsonl', 'a') as log:
+            log.write(json.dumps(msg) + '\n')
+        end()
+    elif method == 'initialize':
         send(dict(id=msg['id'], result={}))
     elif method == 'config/read':
         send(dict(id=msg['id'], result={'config': chosen().get('config', {})}))
@@ -53,3 +66,6 @@ for line in sys.stdin:
         send(dict(id=msg['id'], result={}))
         notify('turn/started', turn={'id': 'turn_compact'})
         notify('turn/completed', turn={'id': 'turn_compact', 'status': 'completed'})
+    elif method == 'turn/interrupt':
+        send(dict(id=msg['id'], result={}))
+        notify('turn/completed', turn={'id': 'turn_fake', 'status': 'interrupted'})
