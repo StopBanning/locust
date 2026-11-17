@@ -2029,3 +2029,110 @@ Requested rows still waiting:
 - review-sees-the-conversation.test.ts
 - savable-conversations.test.ts
 - the-folder-chip-says-a-folder-is-no-place-for-teammates.test.tsx
+
+### Renderer-18 — folder-chip hover (in progress)
+
+- Arrival: d651c7a8, renderer-16 recovery and renderer-17 folder work already
+  committed. Preserved the unrelated gentle-cargo.py edit and HANDOFF files.
+- Read the remaining folder-caution renderer cases, Composer's hover copy and
+  workspace.ts's lexical classification. Native's chip had neither the warning
+  nor the ordinary project-path hover; Windows paths also displayed whole.
+- The chip now uses the existing native help surface with Electron's words,
+  retaining its ordinary composer-chip treatment. Folder names split on both
+  platform separators. Classification is lexical only, with explicit platform,
+  home and optional system paths; no folder contents or credentials are read.
+- Two separate exact-input renderer cases exercise the real native help surface;
+  extra path-boundary checks cover case, ancestors, descendants and dot segments.
+- The third Electron case (first-send question, Choose another folder before
+  Start here) is NOT implemented. Correct integration requires the common send
+  boundary and durable once-per-folder confirmation; rendering a disconnected
+  card in thread_view would not enforce it. Those shared send files are outside
+  this round's owned file list. Row remains waiting until observed named passes,
+  then partial, never carried. No confirmation/safety gate is claimed.
+- Initial nextest command ran the unchanged 3039-test baseline after a local
+  script path error; it is not evidence for these changes. Fresh debug run is
+  renderer-18-folder-final-debug.log; controls and release verification pending.
+- First changed-source full debug run: 3040 passed, three new tooltip tests
+  failed, 20 skipped. Path classification passed by name. Runtime::elements()
+  exposes the chip text but not native help text; this is not a passing hover
+  receipt. Tests now inspect native accessibility/help metadata instead, matching
+  Electron's static title check. The final surface result is still pending.
+- One test-harness compile error (capturing closure where Rune needs a function
+  pointer) was corrected by keeping the path in runtime state. Neither that
+  compile attempt nor the earlier path-error baseline counts as a new pass.
+
+Renderer-18 named mapping (`thread_view::renderer_folder_chip_tests`):
+- says why in its hover for a folder like .claude, in the chip's own colour ->
+  says_why_in_its_hover_for_a_folder_like_claude_in_the_chips_own_colour
+- stays as it was for a project folder (control) ->
+  stays_as_it_was_for_a_project_folder_control
+- Additional actual-thread integration ->
+  the_thread_attaches_the_warning_to_its_effective_folder_chip
+- Core regression (`thread_view::folder_help_tests`) ->
+  cautions_are_lexical_bounded_and_follow_the_paths_platform
+
+- renderer-18-folder-help-debug.log: exit 0, 3043 passed, 20 skipped.
+  All four full names observed on PASS lines. Native help is present in the
+  accessibility tree, rather than Runtime::elements()'s painted text list.
+  This matches the Electron tests' static title assertions. The production
+  chip retains the shared neutral composer-chip style without a caution branch;
+  no visual/pixel colour assertion or live tooltip interaction is claimed.
+- Inventory marked partial only after named passes; the third renderer case
+  and once-per-folder enforcement are still absent. No exclusion claimed.
+- folder-chip-help control: exit 0, caught the caution-hover assertion plus
+  the project-path and actual-thread integration assertions. No unrelated
+  failure: 2416 core passed, 20 ignored; 624 window passed, exactly three
+  deliberate failures. Source restored byte for byte. Receipt:
+  renderer-18-folder-control-receipt.log; full log renderer-control-folder-chip-help.log.
+- Recount and --check passed: 221 carried, 64 does-not-apply, 208 partial,
+  816 waiting (1309 total). Requested scope now has ten waiting and three
+  partial rows (folder dialog, queue, folder caution). Restored release suite
+  and release binary build pending before commit.
+
+### Renderer-18 restored release verification
+
+- renderer-18-folder-release.log: exit 0; 2416 core + 627 window = 3043
+  passed, 20 real-agent cases ignored; doc tests 0. Mechanically matched all
+  four full names above to `test ... ok` lines; no named failure. No source
+  change after this restored run. Release binary build follows.
+- Native-only handoff workflow: no Electron/JavaScript gate, real agent,
+  live/packaged window, actual tooltip visual/pixel comparison, other OS or
+  benchmark run. Explicit Windows strings are tested lexically on this Mac;
+  that is not a Windows execution. No first-send confirmation is implemented.
+
+### Remaining scope and ownership decision
+
+- The common first-send boundary lives in src/main.rs (send) and
+  src/ui/composer_wiring.rs (submit_composer), neither in the round-4 owned
+  list. A correct confirmation needs to preserve the pending draft, bind the
+  answer to the still-selected folder and save only that folder's answer;
+  a renderer-only card would not enforce this. Ask whether to extend ownership
+  to those send files or leave this row partial and continue other owned gaps.
+- Requested waiting rows: a-call-shows-on-its-conversation-row.test.tsx,
+  a-page-a-teammate-made-runs-in-its-turn.test.tsx,
+  a-phone-lists-conversations.test.ts, a-teammate-can-be-a-pet.test.tsx,
+  a-teammates-eyes-are-drawn-not-typed.test.ts,
+  a-waiting-conversation-is-first-in-the-sidebar.test.tsx,
+  an-app-started-conversation-says-so-in-the-sidebar.test.tsx,
+  home-fits-two-rows-of-teammates.test.ts, review-sees-the-conversation.test.ts,
+  savable-conversations.test.ts. The two sidebar sources are still absent.
+- Partial rows remain: teammate folder dialog (connectors need protected runtime
+  enforcement), conversation queue (busy-elsewhere routing/persistence), and
+  folder caution (first-send card and durable confirmation). Existing pet/face/
+  look ownership exclusions remain; no carried/excluded row added this section.
+
+### Renderer-18 final build and stopping receipt
+
+- renderer-18-folder-build.log: exit 0, optimized release build finished in
+  1m 12s after a 97-second shared-lock wait. Eleven existing binary warnings.
+- Source: 3bdd7cfe; control: 8db51834. Inventory and evidence are committed
+  separately. Final recount --check, fixture AST syntax, restoration-anchor
+  audit and git diff --check passed. No mutation remains applied.
+- All commands completed before committing. No source changed after the green
+  restored release suite/build. No stash operation, push, merge, version,
+  changelog, protected-lane or outside-workspace file change by this turn.
+- This section is verified; the full handoff remains unfinished. Paused at the
+  concrete ownership fork above, rather than editing shared-send files without
+  an expanded assignment. Preserve the unrelated scripts/gentle-cargo.py edit
+  and the original untracked HANDOFF files. No other turn-owned change is left
+  uncommitted. This is not a claim that the whole tracked tree is clean.

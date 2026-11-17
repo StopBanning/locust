@@ -1058,7 +1058,7 @@ apps/desktop/src/renderer/src/the-face-legend-shows-every-face.test.tsx	LOOK	car
 apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	p14	partial		`shared/file-menu.test.ts`, `main/reveal-file.test.ts`, `renderer/.../the-file-viewer-renders-and-never-runs.test.tsx` | Partial: menu labels, containment, decide_reveal, relative/system paths; live Finder open, editor launch, “never runs” 
 apps/desktop/src/renderer/src/the-first-send-cannot-spend.test.ts		waiting		
 apps/desktop/src/renderer/src/the-flat-sidebar.test.ts	RELAY	partial	src/ui/sidebar.rs	Native ordering helpers, chain rows, and 1-level relayed origin nesting (sidebar::review_tests::relayed_conversations_nest_one_level_deep_under_their_origin) covered; face filter, compact flyout and TS presentation assertions remain unported.
-apps/desktop/src/renderer/src/the-folder-chip-says-a-folder-is-no-place-for-teammates.test.tsx		waiting		
+apps/desktop/src/renderer/src/the-folder-chip-says-a-folder-is-no-place-for-teammates.test.tsx	Renderer-18	partial	src/ui/thread_view.rs; core/src/thread_view.rs	Two exact chip hover cases passed by name; normal chip treatment retained. First-send question and durable per-folder confirmation are absent; not carried. See notes/RENDERER-NOTES.md.
 apps/desktop/src/renderer/src/the-frame-pass.test.ts		waiting		
 apps/desktop/src/renderer/src/the-free-promise-checks-itself.test.ts		waiting		
 apps/desktop/src/renderer/src/the-header-is-a-row-of-icons.test.tsx	P9	waiting		renderer/src/the-header-is-a-row-of-icons.test.tsx | Applicable terminal icon/hover policy assertions unported; current control is text in status row. Browser portions outside Area 7.
