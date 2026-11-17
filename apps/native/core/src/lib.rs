@@ -181,6 +181,12 @@ mod handoff_brief_tests;
 mod leave_out_brief_tests;
 
 #[cfg(test)]
+mod file_name_brief_tests;
+
+#[cfg(test)]
+mod switch_brief_tests;
+
+#[cfg(test)]
 mod mission_mode_tests;
 
 #[cfg(test)]

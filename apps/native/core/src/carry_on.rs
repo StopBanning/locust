@@ -342,11 +342,11 @@ pub fn reconcile(metadata: &Value, events: &[Value], incomplete: bool, reason: &
 
 /// MAX_HANDOFF_PROMPT_LENGTH: the composer's bound.
 pub const MAX_HANDOFF_PROMPT_LENGTH: usize = 8000;
-const NOTICE_BUDGET: usize = 120;
+pub(crate) const NOTICE_BUDGET: usize = 120;
 const ASKED_CHARS: usize = 240;
 const ANSWERED_CHARS: usize = 360;
-/// The optional sections in the order they are kept: the first given up is the last here.
-const KEEP_ORDER: [&str; 4] = ["unsettled", "settled", "summary", "earlier"];
+/// The optional sections in the order they are kept: the first given up is the last here (OPTIONAL_SECTION_NAMES).
+pub(crate) const KEEP_ORDER: [&str; 4] = ["unsettled", "settled", "summary", "earlier"];
 /// Sections the person can opt to leave out of a manual runtime-switch briefing.
 pub const DROPPABLE_SECTION_NAMES: [&str; 3] = ["earlier", "settled", "summary"];
 
@@ -401,6 +401,11 @@ pub struct Briefing {
 pub fn chosen_leave_out(value: &serde_json::Value) -> Vec<String> {
     let Some(sent) = value.as_array() else { return Vec::new() };
     DROPPABLE_SECTION_NAMES.iter().filter(|name| sent.iter().any(|s| s.as_str() == Some(**name))).map(|name| (*name).to_owned()).collect()
+}
+
+/// omissionNotice: the sections given up for room, named.
+pub(crate) fn omission_notice<S: AsRef<str>>(omitted: &[S]) -> String {
+    format!("(Some handoff detail did not fit and was left out: {}.)", omitted.iter().map(AsRef::as_ref).collect::<Vec<_>>().join(", "))
 }
 
 /// The person's own choice, named as such so it is never read as a gap in the record (`choiceNotice`).
@@ -647,7 +652,7 @@ pub fn compose_handoff_prompt_with(
     }
     let mut prompt = texts.join("\n\n");
     if !omitted.is_empty() {
-        prompt.push_str(&format!("\n\n(Some handoff detail did not fit and was left out: {}.)", omitted.join(", ")));
+        prompt.push_str(&format!("\n\n{}", omission_notice(&omitted)));
     }
     prompt.push_str(&chosen_notice);
     Some(Briefing { prompt, omitted, kept: kept_names, task_clipped, left_out_by_you: chosen })

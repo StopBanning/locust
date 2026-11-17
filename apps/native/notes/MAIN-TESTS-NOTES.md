@@ -401,3 +401,35 @@ a section that may not go let go; a section that was not there named; the sectio
 added; the notice not charged; the notice's words; the two notices swapped; the engine wire unfiltered; the link
 recording what was sent.
 
+## Batch 10: what a switch brief says, an attached name, a dead session, a refusal in Ask
+
+| File | Row | Rust tests |
+| --- | --- | --- |
+| `a-switch-brief-says-what-was-done.test.ts` | carried (10/10) | `core/src/switch_brief_tests.rs` |
+| `a-file-name-cannot-write-into-the-brief.test.ts` | carried (2/2) | `core/src/file_name_brief_tests.rs` |
+| `a-session-that-ended-is-not-resumed.test.ts` | carried (2/2) | `core/src/native/session_ended_tests.rs` |
+| `a-refusal-in-ask-says-the-mode.test.ts` | carried (2/2) | `core/src/runtime/opencode_refusal_tests.rs`, `runtime::opencode::tests::an_ask_or_plan_run_refuses_opencodes_question_naming_its_mode` |
+
+Bug found and fixed:
+- **An Ask or Plan run refused OpenCode without naming its mode.** Native answered every unasked refusal with
+  "this teammate's mode does not allow it". Electron's `openCodeReadOnlyRefusal` (0.822) says "this teammate is in
+  Ask mode, which reads and changes nothing" (Plan: "which reads and plans") for a read-only run nobody answers for.
+  `opencode_serve::rejection_message` now picks between the person's decline, the read-only refusal and the
+  plain unasked one, as Electron does.
+  - Electron's second case is a source check (`codex-mission.ts` passes the refusal only when nobody answers and
+    the sandbox is read-only). It is carried as behaviour: `rejection_message` for every mode, and a run in Ask and
+    in Plan over the fake OpenCode server, whose reply body is read back. The fixture
+    (`scripts/fixtures/m4-opencode-serve.py`) now logs each permission reply to `opencode-requests.jsonl`.
+
+`carry_on` changes, no behaviour change: `omission_notice` is a function of its own (Electron's `omissionNotice`),
+and `NOTICE_BUDGET` and `KEEP_ORDER` (Electron's `OPTIONAL_SECTION_NAMES`) are visible to the tests, so "the notice
+fits its reserve with every optional section named" has a test.
+
+Break checks (20 of 21 caught by the named test): the Plan words; the Ask words; Plan not read-only; the call
+site's message; the person's decline; a name's quoting; the list's `- ` kept; `sessionEnded` ignored; every failure
+ending the session; the tool named twice; the command not used; the forty cap; "other" swapped; "and N earlier"; the
+asked clip; the brief's no-reply words; the usage-limit words; a completed turn said to fail; the notice's reserve;
+the keep order.
+- The one survivor is not this batch's: the first copy of "no reply was recorded" is `compose_cold_follow_up`'s,
+  which these files never reach. The brief's own copy was broken next and caught.
+

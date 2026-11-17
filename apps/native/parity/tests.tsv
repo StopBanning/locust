@@ -84,7 +84,7 @@ apps/desktop/src/main/a-dying-server-says-why.test.ts		waiting
 apps/desktop/src/main/a-failed-connector-reading-is-not-kept.test.ts		waiting		
 apps/desktop/src/main/a-failing-check-goes-back-to-fix.test.ts		waiting		
 apps/desktop/src/main/a-file-arriving-starts-its-routine.test.ts	ROUTINES	carried	core/src/routine_files.rs, core/src/routine_runner_tests.rs, core/src/routine_host.rs tests	all cases carried; the index.ts source pin is replaced by the native checkpoint-record test (ROUTINES-NOTES.md)
-apps/desktop/src/main/a-file-name-cannot-write-into-the-brief.test.ts		waiting		
+apps/desktop/src/main/a-file-name-cannot-write-into-the-brief.test.ts	MAIN6	carried	core/src/file_name_brief_tests.rs	both cases: a name with a line break stays one quoted item; an ordinary name as it is and the prompt splits back
 apps/desktop/src/main/a-file-written-elsewhere-opens.test.ts		waiting		
 apps/desktop/src/main/a-folder-cannot-make-locust-run-its-program.test.ts		waiting		
 apps/desktop/src/main/a-folder-given-by-its-short-name-is-still-the-root.test.ts		waiting		
@@ -184,7 +184,7 @@ apps/desktop/src/main/a-quiet-runtime-is-asked-to-say-what-it-does.test.ts		wait
 apps/desktop/src/main/a-red-gate-says-why-and-retries-only-a-timeout.test.ts		waiting		
 apps/desktop/src/main/a-reference-is-briefed-on-every-turn.test.ts		waiting		
 apps/desktop/src/main/a-reference-stays-with-its-conversation.test.ts		waiting		
-apps/desktop/src/main/a-refusal-in-ask-says-the-mode.test.ts		waiting		
+apps/desktop/src/main/a-refusal-in-ask-says-the-mode.test.ts	MAIN6	carried	core/src/runtime/opencode_refusal_tests.rs, core/src/runtime/opencode_tests.rs	both cases: open_code_read_only_refusal names Ask or Plan and never says declined; the source check is carried as behaviour, rejection_message plus an_ask_or_plan_run_refuses_opencodes_question_naming_its_mode over the fake server's real reply. Fixed: native refused Ask and Plan with the generic "this teammate's mode does not allow it"
 apps/desktop/src/main/a-refusal-keeps-the-reason-it-was-refused-for.test.ts		waiting		
 apps/desktop/src/main/a-refused-link-says-so.test.ts		waiting		
 apps/desktop/src/main/a-relayed-conversation-sits-under-its-origin.test.ts	RELAY	partial	core/src/relay_tests.rs, src/ui/sidebar.rs	4/5 nestedUnder cases carried + sidebar::review_tests::relayed_conversations_nest_one_level_deep_under_their_origin (self-loop case omitted)
@@ -229,7 +229,7 @@ apps/desktop/src/main/a-scrolled-home-fades-its-top.test.ts		waiting
 apps/desktop/src/main/a-scrub-replaces-what-is-shaped-like-a-key.test.ts	P8	does-not-apply		`main/a-secret-is-never-remembered.test.ts`, `main/a-scrub-replaces-what-is-shaped-like-a-key.test.ts`, `main/a-key-is-never-about-you.test.ts` (subset) | `secret_in` / `scrub_secrets` / refusal words
 apps/desktop/src/main/a-second-edit-to-a-changed-file-is-seen.test.ts		waiting		
 apps/desktop/src/main/a-secret-is-never-remembered.test.ts	P8	does-not-apply		`main/a-secret-is-never-remembered.test.ts`, `main/a-scrub-replaces-what-is-shaped-like-a-key.test.ts`, `main/a-key-is-never-about-you.test.ts` (subset) | `secret_in` / `scrub_secrets` / refusal words
-apps/desktop/src/main/a-session-that-ended-is-not-resumed.test.ts		waiting		
+apps/desktop/src/main/a-session-that-ended-is-not-resumed.test.ts	MAIN6	carried	core/src/native/session_ended_tests.rs	both cases through native::prior_of: a sessionEnded failure leaves none to resume though it names the session; after any other failure the last session named is resumed
 apps/desktop/src/main/a-set-aside-turn-sends-nothing.test.ts	edit	carried	core/src/edit_earlier_tests.rs (retire); core/src/native/tests.rs an_edit_retires_what_set_aside_turns_sent_only_when_it_is_partway_through	all 4 tests: unread messages of set-aside turns are never delivered (recorded as delivered to the turn that sent them), a delivered one is left, the engine retires only on an edit partway through, a list that is not one retires none; the window names the turns the edit sets aside
 apps/desktop/src/main/a-setting-line-keeps-its-control-whole.test.ts		waiting		
 apps/desktop/src/main/a-shell-gets-one-line.test.ts		waiting		
@@ -240,7 +240,7 @@ apps/desktop/src/main/a-staged-update-left-behind-is-replaced.test.ts		waiting
 apps/desktop/src/main/a-start-asks-only-its-runtime.test.ts		waiting		
 apps/desktop/src/main/a-streamed-batch-is-written-before-it-is-shown.test.ts		waiting		
 apps/desktop/src/main/a-sweep-that-cannot-learn-is-not-run.test.ts		waiting		
-apps/desktop/src/main/a-switch-brief-says-what-was-done.test.ts		waiting		
+apps/desktop/src/main/a-switch-brief-says-what-was-done.test.ts	MAIN6	carried	core/src/switch_brief_tests.rs	all 10 cases: settled actions named from their start events (an orphan counted, never an id), an old checkpoint counted, Antigravity named by command or file not the tool twice, past forty said to be earlier, earlier turns oldest first, clipped, given up first without pushing out the person's words, giving way to the last reply, the notice inside its reserve, a usage limit said as not finished and a completed turn as finished
 apps/desktop/src/main/a-switch-knob-stays-in-its-track.test.ts		waiting		
 apps/desktop/src/main/a-task-goes-to-claudes-cloud.test.ts		waiting		
 apps/desktop/src/main/a-team-card-carries-its-routines.test.ts	TEAM-FILES	carried	core/src/team_card.rs, core/src/png_text.rs, src/ui/window_drive_tests.rs	PNG tEXt round-trip, routine carriage, secrets/ids/folders/own-models stripped, Auto downgraded to accept-edits, and headless team card export/import
