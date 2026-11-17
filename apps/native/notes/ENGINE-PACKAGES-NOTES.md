@@ -124,8 +124,10 @@ fixture is not in `parity/events.json`.
 Breaks: 8, then 7 reruns (the first run's 60 s limit timed out waiting for the lock; a timeout is not a catch), then
 1 (`b5-breaks.log`, `b5b-breaks.log`). Caught by name but one:
 - dropping `title != command` (a title that only repeats the command is not kept) survived. No Electron case reaches it.
+  Round 2's `a_title_the_later_command_repeats_is_left_out_of_the_finished_row` catches it now (the rule moved into
+  `OpenTool::row`).
 
-Found, not fixed (the session stopped near its usage limit): Rust's ACP reader renames an open call more widely than
+Found here, fixed in round 2 (below): Rust's ACP reader renames an open call more widely than
 Electron's (`acp-events.ts` ~line 403). Electron renames a call still named `other`/`tool` only when the update's own
 kind is absent or `other`, reads the earlier title when the update has none, and never renames to `other` or `tool`.
 Rust (`acp_events.rs`, "if matches!(open["name"] ... Some("other" | "tool"))") renames on any update, to whatever
@@ -138,3 +140,31 @@ Left waiting, with a note in each row of what is missing: `qa-0365-opencode-work
 (no OpenCode worktree config), `a-self-updated-cli-is-asked-again` (no CLI facts cache),
 `a-result-too-large-to-keep-still-answered` (Rust's oversized stand-in is Cursor's only),
 `claude-thinking-is-kept-for-its-thinking-row` (Rust's Claude reader drops thinking text).
+
+# Round 2 (17 Nov, from HANDOFF-max-engine-packages-2)
+
+## Batch 6: the ACP rename bug batch 5 found (commit below)
+`runtime/acp_events.rs`'s `tool_call` / `tool_call_update` branch is Electron's now (`acp-events.ts` at 4ce2f37a,
+~line 364-408), written as `shown_tool` (`acpShownTool`), `plain_tool_word` (`plainAcpToolWord`), `is_shell`
+(`acpCallIsShell`), `file_target` (`fileTarget`) and an `OpenTool` that holds the raw command and title as Electron's
+`openTools` does, bounded only when a row is written. What was different:
+- an open call named `other`/`tool` was renamed on ANY update, to whatever its kind gave: an update of kind `read`
+  renamed it, and an update with no kind or title renamed `other` to `tool` (and `tool` to `other`). Electron renames
+  only when the update's kind is absent or `other`, reads the earlier title when the update has none, and never
+  renames to `other` or `tool`;
+- any later title replaced the earlier one, and a call opened with no title took the next one. Electron replaces a
+  title only while it is still a bare tool word;
+- a title was compared with the command only when it was stored, so a title the later command repeated stayed on the
+  finished row (Electron leaves it out);
+- a shell word in the title (`bash`, `execute`, ... with kind `other` or none, the update's or else the earlier one)
+  did not make the call a shell, so its folder in `locations` was taken for its command.
+
+Tests: `runtime/acp_rename_tests.rs`, 12, each with Electron's values; the first 8 were written first and all 8 failed
+on the old code. No Electron test file covers these rules (none of `acp-events.test.ts`'s cases renames or retitles),
+so no row moves; the values come from the source.
+
+Breaks: 13, then 4 reruns (`~/work/scratch/opus2/r2-acp-breaks*.log`). One run was cut by the 10-minute command limit
+and its restore failed (`killpg` refused): break 6 was left applied and put back by hand; the rest ran in the
+background. Four survived at first (a title equal to the name, the earlier title's shell word, `execute` as a shell
+word, the shell-name check; the last had timed out on the lock): each has a test now that catches it by name. One left:
+`Some(t) != open.title` in the retitle rule, which only stops a title being replaced by itself (no row can differ).

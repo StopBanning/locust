@@ -13,7 +13,7 @@ pub struct AcpNormalizer {
     ordinal: usize,
     message: Option<(String, Option<String>, String)>,
     segments: HashMap<String, usize>,
-    tools: HashMap<String, Value>,
+    tools: HashMap<String, OpenTool>,
     declined: HashSet<String>,
     unknown: HashSet<String>,
     thinking: bool,
@@ -33,26 +33,75 @@ pub fn content_text(v: &Value) -> Option<String> {
         .then(|| v["text"].as_str().map(str::to_owned))
         .flatten()
 }
-fn naming(kind: &str, title: &str) -> (String, String) {
-    let word = title.trim().to_lowercase();
-    let plain = !word.is_empty()
-        && word.bytes().next().is_some_and(|b| b.is_ascii_lowercase())
+/// A title that is one tool word (`read`, `grep`, `shell`), not a sentence about the call (Electron's `plainAcpToolWord`).
+fn plain_tool_word(title: Option<&str>) -> Option<String> {
+    let word = title?.trim().to_lowercase();
+    let plain = word.bytes().next().is_some_and(|b| b.is_ascii_lowercase())
         && word
             .bytes()
             .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b"_-".contains(&b));
-    let k = if (kind.is_empty() || kind == "other") && plain {
-        word.as_str()
-    } else {
-        kind
+    plain.then_some(word)
+}
+/// How the row is named (Electron's `acpShownTool`): a kind of `other` or none is named from a tool word title.
+fn shown_tool(kind: Option<&str>, title: Option<&str>) -> (String, String) {
+    let word = plain_tool_word(title);
+    let k = match (kind, &word) {
+        (None | Some("other"), Some(w)) => Some(w.as_str()),
+        _ => kind,
     };
     let (kind, name) = match k {
-        "execute" => ("command_execution", "bash"),
-        "edit" | "delete" | "move" => ("file_change", k),
-        "fetch" => ("web_fetch", "webfetch"),
-        "" => ("tool", "tool"),
-        _ => (k, k),
+        Some("execute") => ("command_execution", "bash"),
+        Some(k @ ("edit" | "delete" | "move")) => ("file_change", k),
+        Some("fetch") => ("web_fetch", "webfetch"),
+        None => ("tool", "tool"),
+        Some(k) => (k, k),
     };
     (kind.into(), name.into())
+}
+/// A shell call (Electron's `acpCallIsShell`). Its `locations` entry is the folder it runs in, never the command.
+fn is_shell(kind: Option<&str>, title: Option<&str>, tool_kind: &str, name: &str) -> bool {
+    const SHELLS: [&str; 5] = ["bash", "shell", "powershell", "pwsh", "cmd"];
+    if kind == Some("execute") || tool_kind == "command_execution" {
+        return true;
+    }
+    if SHELLS.iter().any(|w| name.eq_ignore_ascii_case(w)) {
+        return true;
+    }
+    matches!(kind, None | Some("other"))
+        && plain_tool_word(title).is_some_and(|w| SHELLS.contains(&w.as_str()) || w == "execute")
+}
+/// The files a tool named, one per line. Never a shell's command: its `locations` path is its folder.
+fn file_target(v: &Value) -> Option<String> {
+    let paths: Vec<_> = v["locations"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|l| string(&l["path"]))
+        .collect();
+    (!paths.is_empty()).then(|| paths.join("\n"))
+}
+/// An open call as Electron holds it: the raw command and title, bounded only when a row is written.
+struct OpenTool {
+    tool_kind: String,
+    name: String,
+    command: Option<String>,
+    title: Option<String>,
+}
+impl OpenTool {
+    /// The row's words. A title that only repeats the command or the tool's name says nothing.
+    fn row(&self, id: &str) -> Value {
+        let mut p = json!({"itemId":id,"toolKind":self.tool_kind,"name":self.name});
+        if let Some(c) = &self.command {
+            p["command"] = json!(text(c, 16384));
+        }
+        if let Some(t) = &self.title
+            && Some(t) != self.command.as_ref()
+            && *t != self.name
+        {
+            p["title"] = json!(text(t, 16384));
+        }
+        p
+    }
 }
 impl AcpNormalizer {
     pub fn event(&self, kind: &str, mut payload: Value) -> Event {
@@ -199,63 +248,54 @@ impl AcpNormalizer {
             };
             self.start(&mut out);
             self.close_thought(&mut out);
-            let title = v["title"].as_str().unwrap_or("");
-            let (tk, name) = naming(v["kind"].as_str().unwrap_or(""), title);
-            let is_new = !self.tools.contains_key(id);
-            if is_new {
-                self.close_message(&mut out);
-                self.tools
-                    .insert(id.into(), json!({"itemId":id,"toolKind":tk,"name":name}));
-            }
-            let open = self
-                .tools
-                .get_mut(id)
-                // Invariant: tool inserted immediately above when absent.
-                .expect("tool inserted immediately above when absent");
-            if matches!(open["name"].as_str(), Some("other" | "tool")) {
-                open["toolKind"] = json!(tk);
-                open["name"] = json!(name);
-            }
-            let shell = v["kind"] == "execute"
-                || open["toolKind"] == "command_execution"
-                || matches!(
-                    open["name"].as_str(),
-                    Some("bash" | "shell" | "powershell" | "pwsh" | "cmd")
-                );
-            let command = string(&v["rawInput"]["command"])
-                .map(str::to_owned)
-                .or_else(|| {
-                    if shell {
-                        return None;
+            let incoming = string(&v["kind"]);
+            let title = string(&v["title"]);
+            let said = string(&v["rawInput"]["command"]);
+            if let Some(open) = self.tools.get_mut(id) {
+                let shell = is_shell(incoming, title.or(open.title.as_deref()), &open.tool_kind, &open.name);
+                if let Some(c) = said {
+                    open.command = Some(c.into());
+                } else if !shell && let Some(files) = file_target(v) {
+                    open.command = Some(files);
+                }
+                // A later update can replace a bare tool word (`shell`) with what it ran (`echo hi`).
+                if let Some(t) = title
+                    && Some(t) != open.title.as_deref()
+                    && plain_tool_word(open.title.as_deref()).is_some()
+                {
+                    open.title = Some(t.into());
+                }
+                // Kind `other` until the title arrives: take the tool word once it does, never `other` or `tool`.
+                if (open.name == "other" || open.name == "tool" || open.tool_kind == "other")
+                    && matches!(incoming, None | Some("other"))
+                {
+                    let (tk, name) = shown_tool(incoming, title.or(open.title.as_deref()));
+                    if name != "other" && name != "tool" {
+                        open.tool_kind = tk;
+                        open.name = name;
                     }
-                    let paths: Vec<_> = v["locations"]
-                        .as_array()
-                        .into_iter()
-                        .flatten()
-                        .filter_map(|l| string(&l["path"]))
-                        .collect();
-                    (!paths.is_empty()).then(|| paths.join("\n"))
-                });
-            if let Some(c) = command {
-                open["command"] = json!(text(&c, 16384));
-            }
-            if !title.is_empty()
-                && title != open["name"].as_str().unwrap_or("")
-                && title != open["command"].as_str().unwrap_or("")
-            {
-                open["title"] = json!(text(title, 16384));
-            }
-            if is_new {
-                let mut p = open.clone();
+                }
+            } else {
+                // What was said before the call is a message of its own.
+                self.close_message(&mut out);
+                let (tool_kind, name) = shown_tool(incoming, title);
+                let shell = is_shell(incoming, title, &tool_kind, &name);
+                let command = said
+                    .map(str::to_owned)
+                    .or_else(|| if shell { None } else { file_target(v) });
+                let open = OpenTool { tool_kind, name, command, title: title.map(str::to_owned) };
+                let mut p = open.row(id);
                 p["phase"] = json!("started");
                 out.push(self.event("tool.started", p));
+                self.tools.insert(id.into(), open);
             }
             if matches!(v["status"].as_str(), Some("completed" | "failed")) {
-                let mut p = self
+                let open = self
                     .tools
                     .remove(id)
-                    // Invariant: tool was retrieved above and no intervening removal occurs.
-                    .expect("tool was retrieved above and no intervening removal occurs");
+                    // Invariant: the call was found or inserted above and nothing removed it since.
+                    .expect("the call was found or inserted above");
+                let mut p = open.row(id);
                 let failed = v["status"] == "failed";
                 p["phase"] = json!("completed");
                 p["status"] = json!(if failed {
