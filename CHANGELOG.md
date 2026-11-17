@@ -11,6 +11,15 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.877.2 - 2026-11-16
+
+### Fixed
+
+- **An app that cannot continue a conversation says why.** A conversation started without a teammate, or whose
+  teammate was removed, cannot be continued by an app (an app works as a teammate). It said the conversation "no longer
+  has a teammate", which sent you looking for one that had gone; it now says the conversation was started without one
+  or lost it, and to continue it in Locust's window. The phone's Send says the same.
+
 ## 0.877.1 - 2026-11-16
 
 ### Improved

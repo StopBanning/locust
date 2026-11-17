@@ -10559,7 +10559,7 @@ if (!ownsSingleInstanceLock) {
       phoneSending.add(newest)
       try {
         const owner = (await teammates.missionOwners().catch(() => ({} as Readonly<Record<string, string>>)))[newest]
-        if (owner === undefined) return { ok: false, message: 'This conversation no longer has a teammate in Locust. Nothing was sent.', why: 'gone' }
+        if (owner === undefined) return { ok: false, message: 'This conversation has no teammate in Locust: it was started without one, or its teammate was removed. Continue it in Locust on the computer. Nothing was sent.', why: 'gone' }
         const list = await listTeammates()
         const mode = (list.ok ? list.data.teammates.find((mate) => mate.teammateId === owner)?.route?.mode : undefined) ?? 'ask'
         const response = await startMission({ prompt: text, teammateId: owner, followUpOf: newest, mode, keepSavedRoute: true } as CodexMissionStartRequest, sendToWindow)
