@@ -3165,6 +3165,7 @@ fn main() {
             ("references-light", references_light_scene),
             ("models", models_scene),
             ("models-light", models_light_scene),
+        ("models-apple", models_apple_scene),
             ("carry-on", carry_on_scene),
             ("carry-on-light", carry_on_light_scene),
             ("settings-door-light", settings_panel::door_light_scene),

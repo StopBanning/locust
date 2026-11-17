@@ -497,6 +497,7 @@ pub(super) fn scene(s: &mut State) {
         agent("kilo", "Kilo", Some("7.8.18"), Auth::NotApplicable, Probe::Ready),
         agent("muse", "Muse Code", None, Auth::Unknown, Probe::Missing),
         agent("gemini", "Gemini CLI", Some("0.66.0"), Auth::Authenticated, Probe::Ready),
+        agent("apple", "Apple Intelligence", None, Auth::NotApplicable, Probe::Ready),
     ]);
 }
 

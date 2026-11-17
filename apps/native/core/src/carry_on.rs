@@ -23,6 +23,7 @@ pub fn display_name(runtime: &str) -> &str {
         "copilot" => "Copilot CLI",
         "antigravity" => "Antigravity",
         "muse" => "Muse Code",
+        "apple" => "Apple Intelligence",
         "kilo" => "Kilo",
         "acp" => "Your own agent",
         other => other,

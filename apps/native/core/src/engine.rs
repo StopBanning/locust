@@ -473,6 +473,7 @@ pub fn runtime_name(runtime: &str) -> &str {
         "opencode" => "OpenCode",
         "antigravity" => "Antigravity",
         "muse" => "Muse Code",
+        "apple" => "Apple Intelligence",
         "kilo" => "Kilo",
         "acp" => "ACP agent",
         other => other,

@@ -452,6 +452,13 @@ pub fn muse_models() -> Vec<Value> {
     ]
 }
 
+/// Apple's on-device model, the one model the apple runtime has. It has no account, so no account-default row.
+pub fn apple_models() -> Vec<Value> {
+    use crate::runtime::apple::{APPLE_MODEL, APPLE_MODEL_NAME, APPLE_RUNTIME};
+    vec![json!({"id": APPLE_MODEL, "runtime": APPLE_RUNTIME, "displayName": APPLE_MODEL_NAME,
+        "description": "Apple Intelligence, on this Mac · free · nothing leaves it · talks only", "supportedEfforts": []})]
+}
+
 /// antigravityModelsFrom: `agy models`, each with its efforts beside it.
 pub fn antigravity_models_from(hints: Option<&Value>) -> Vec<Value> {
     let Some(listed) = hints.and_then(|h| h["models"].as_array()) else { return Vec::new() };
@@ -489,7 +496,7 @@ pub fn with_account_defaults(models: Vec<Value>) -> Vec<Value> {
     let already: Vec<String> = models.iter().filter(|m| m["id"] == ACCOUNT_DEFAULT).filter_map(|m| m["runtime"].as_str().map(str::to_owned)).collect();
     let defaults: Vec<Value> = runtimes
         .iter()
-        .filter(|r| *r != "kilo" && !already.contains(r))
+        .filter(|r| *r != "kilo" && *r != crate::runtime::apple::APPLE_RUNTIME && !already.contains(r))
         .filter_map(|r| account_default_model(&models, r))
         .collect();
     [defaults, models].concat()
@@ -505,6 +512,8 @@ pub struct Listed {
     pub antigravity: Option<Value>,
     pub copilot: bool,
     pub muse: bool,
+    /// Apple's on-device model answers on this Mac (`runtime::apple::probe`).
+    pub apple: bool,
 }
 
 /// The catalog, in the order Electron's probe builds it: Codex's, then Claude Code, Cursor, OpenCode, Copilot,
@@ -520,6 +529,9 @@ pub fn catalog(listed: &Listed) -> Vec<Value> {
     models.extend(antigravity_models_from(listed.antigravity.as_ref()));
     if listed.muse {
         models.extend(muse_models());
+    }
+    if listed.apple {
+        models.extend(apple_models());
     }
     with_account_defaults(models)
 }
@@ -649,6 +661,7 @@ pub fn read_listed_checked() -> (Listed, bool) {
         antigravity: agy.join().ok().flatten(),
         copilot: crate::runtime::discovery::find_named("copilot").is_ok(),
         muse: crate::runtime::discovery::find_named("muse").is_ok(),
+        apple: crate::runtime::apple::available(),
     };
     let installed = |name: &str| crate::runtime::discovery::find_named(name).is_ok();
     let mut ready: Vec<(&str, Option<&Value>)> = Vec::new();

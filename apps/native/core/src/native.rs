@@ -96,6 +96,7 @@ pub fn supported(t: &Teammate) -> bool {
             | Some("copilot")
             | Some("antigravity")
             | Some("muse")
+            | Some("apple")
     ) && t.runs_in != IN_LOCUST
 }
 
@@ -220,6 +221,7 @@ fn command_for_turn(
         ),
         "antigravity" => crate::runtime::antigravity::command(folder, mode, model, effort, resume, references, skills),
         "muse" => crate::runtime::muse::command(folder, mode, model, effort, resume),
+        "apple" => crate::runtime::apple::command(mode),
         "acp" => crate::runtime::acp::command(
             &electron_dir().ok_or_else(|| io::Error::other("Locust profile not found"))?,
             folder,
@@ -266,7 +268,7 @@ const ROLES: [&str; 7] = [
     "Custom",
 ];
 // shared/runtimes.ts DISPLAY_NAMES (isMissionRuntime)
-const RUNTIMES: [&str; 10] = [
+const RUNTIMES: [&str; 11] = [
     "codex",
     "claude",
     "cursor",
@@ -277,6 +279,7 @@ const RUNTIMES: [&str; 10] = [
     "muse",
     "kilo",
     "acp",
+    "apple",
 ];
 const MODES: [&str; 5] = ["ask", "accept-edits", "approve-each", "plan", "auto"];
 
@@ -406,6 +409,7 @@ pub fn parse_roster(text: &str) -> Result<Vec<Teammate>, String> {
                         | "copilot"
                         | "antigravity"
                         | "muse"
+                        | "apple"
                 ) =>
             {
                 (
@@ -2183,6 +2187,21 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
                 }
             }
         }
+    } else if runtime_name == crate::runtime::apple::APPLE_RUNTIME {
+        // Apple's on-device model gets a brief of its own, short and without the tag rules (runtime::apple::brief); a
+        // cold follow-up is still told what was said.
+        let words = match &cold {
+            Some((earlier, edited)) => crate::carry_on::compose_cold_follow_up(earlier, &job.prompt, *edited),
+            None => job.prompt.clone(),
+        };
+        let own = origin.slot.as_ref().and_then(|s| s.instructions.clone()).or_else(|| {
+            crate::people::team(&store).ok().and_then(|file| {
+                file["teammates"].as_array()?.iter().find(|t| t["teammateId"] == job.teammate.id.as_str())?["instructions"]
+                    .as_str()
+                    .map(str::to_owned)
+            })
+        });
+        crate::runtime::apple::brief(&job.teammate.name, &job.teammate.role, own.as_deref(), &words)
     } else if sealed {
         let refs = crate::references::section(&references);
         let mut out = match origin
@@ -3188,6 +3207,25 @@ fn run_turn(
             &mission_id,
             &store,
         );
+        return;
+    }
+    if runtime_name == "apple" {
+        let mut runtime = match crate::runtime::apple::Apple::spawn(&mut command) {
+            Ok(r) => r.with_cancel(flag.clone()),
+            Err(e) => {
+                record_failure(&mut writer, false, &e);
+                return finish(&mut writer, &mut registered, &channel, &mission_id);
+            }
+        };
+        if let Err(e) = runtime.start(&turn) {
+            let cancelled = flag.load(Ordering::Relaxed);
+            if cancelled {
+                let _ = runtime.stop();
+            }
+            record_failure(&mut writer, cancelled, &e);
+            return finish(&mut writer, &mut registered, &channel, &mission_id);
+        }
+        drive_runtime(&mut runtime, &mut writer, &flag, &mut registered, &channel, &mission_id, &store);
         return;
     }
     if runtime_name == "muse" {

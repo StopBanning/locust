@@ -288,6 +288,16 @@ pub(super) fn models_scene(s: &mut State) {
     s.picks.insert("codec".into(), TurnPick { model: "gpt-6.1-sol".into(), effort: Some("high".into()), runtime: None, account: None });
 }
 
+/// The model picker open with Codex's list and, under it, Apple's on-device model (runtime::apple) as this Mac offers it.
+pub(super) fn models_apple_scene(s: &mut State) {
+    models_scene(s);
+    let listed = r#"[{"teammate":"Codec","runtime":"codex","model":"gpt-6.1-sol","effort":"high","models":[
+        {"id":"account-default","name":"Account default","efforts":["low","medium","high","xhigh"]},
+        {"id":"gpt-6.1-sol","name":"GPT-6.1 Sol","efforts":["low","medium","high","xhigh"]}]},
+        {"runtime":"apple","models":[{"id":"apple-on-device","name":"On-device model","efforts":[]}]}]"#;
+    s.models.insert("codec".into(), engine::parse_models(listed).unwrap_or_default());
+}
+
 pub(super) fn models_light_scene(s: &mut State) {
     models_scene(s);
     s.appearance = Some(false);

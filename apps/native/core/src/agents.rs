@@ -32,7 +32,7 @@ impl Integration {
 /// integrationOf: an agent Locust does not know is planned.
 pub fn integration_of(id: &str) -> Integration {
     match id {
-        "codex" | "claude" | "cursor" | "opencode" | "copilot" | "muse" => Integration::Live,
+        "codex" | "claude" | "cursor" | "opencode" | "copilot" | "muse" | "apple" => Integration::Live,
         "antigravity" => Integration::Experimental,
         "kilo" => Integration::Preview,
         _ => Integration::Planned,
@@ -678,13 +678,40 @@ pub fn discover() -> Vec<Found> {
             discover_antigravity(&Seams { find: &find, run: &run, exists: &exists, home, xdg_config_home: xdg })
         })
     };
+    let apple = std::thread::spawn(|| apple_found(&crate::runtime::apple::probe()));
     let mut found: Vec<Found> = checks.into_iter().filter_map(|c| c.join().ok().flatten()).collect();
     // Electron lists Antigravity after Copilot.
     if let Ok(a) = agy.join() {
         let at = found.iter().position(|f| f.id == "copilot").map_or(found.len(), |i| i + 1);
         found.insert(at, a);
     }
+    // Apple's on-device model, last: nothing to install or sign in to, it is part of the Mac.
+    found.extend(apple.join().ok().flatten());
     found
+}
+
+/// Apple Intelligence's row, from what its helper's probe said: ready when the model answers; when the Mac says why it
+/// does not (turned off, still downloading, a Mac that cannot run it), that, in words, as the row's note; and no row at
+/// all where there is no helper to ask (not a Mac, or a build without Swift) or it could not start.
+pub fn apple_found(probe: &crate::runtime::apple::Probe) -> Option<Found> {
+    use crate::runtime::apple::{APPLE_DISPLAY_NAME, APPLE_RUNTIME, Probe as Said, unavailable_words};
+    let row = |ready: bool, note: Option<String>| Found {
+        id: APPLE_RUNTIME.into(),
+        display_name: APPLE_DISPLAY_NAME.into(),
+        installed: true,
+        version: None,
+        auth: Auth::NotApplicable,
+        ready,
+        status: if ready { Probe::Ready } else { Probe::Unsupported },
+        unsupported_note: note,
+        through_cli: false,
+        checking: false,
+    };
+    match probe {
+        Said::Available { .. } => Some(row(true, None)),
+        Said::Unavailable { reason } if reason != "unknown" => Some(row(false, Some(unavailable_words(reason).into()))),
+        Said::Unavailable { .. } => None,
+    }
 }
 
 #[cfg(test)]

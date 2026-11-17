@@ -202,6 +202,7 @@ impl LedgerWriter {
                 | "copilot"
                 | "antigravity"
                 | "muse"
+                | "apple"
         ) {
             return Err(io::Error::other("Unsupported runtime"));
         }

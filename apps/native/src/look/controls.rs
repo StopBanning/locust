@@ -214,10 +214,18 @@ pub fn agent_mark(l: &Look, runtime: &str, size: f32, words: Color) -> Option<El
 /// Gemini greyed with its words (`RuntimeMark muted`): its star in the words' colour, no gradient.
 static MARK_GEMINI_PLAIN: rune::Icon = Icon { name: "mark-gemini-plain", view: 28.0, body: r##"<path d="M14 28C14 26.0633 13.6267 24.2433 12.88 22.54C12.1567 20.8367 11.165 19.355 9.905 18.095C8.645 16.835 7.16333 15.8433 5.46 15.12C3.75667 14.3733 1.93667 14 0 14C1.93667 14 3.75667 13.6383 5.46 12.915C7.16333 12.1683 8.645 11.165 9.905 9.905C11.165 8.645 12.1567 7.16333 12.88 5.46C13.6267 3.75667 14 1.93667 14 0C14 1.93667 14.3617 3.75667 15.085 5.46C15.8317 7.16333 16.835 8.645 18.095 9.905C19.355 11.165 20.8367 12.1683 22.54 12.915C24.2433 13.6383 26.0633 14 28 14C26.0633 14 24.2433 14.3733 22.54 15.12C20.8367 15.8433 19.355 16.835 18.095 18.095C16.835 19.355 15.8317 20.8367 15.085 22.54C14.3617 24.2433 14 26.0633 14 28Z" fill="currentColor"/>"## };
 
-/// The mark to draw: `icons::mark`, but Gemini's plain star when muted, as Electron greys it with its words. Kept here,
-/// not in icons.rs, which `scripts/marks.py` writes from Electron's drawings.
+/// Apple Intelligence on this Mac (runtime::apple): not Apple's logo, which is theirs, but a chip with a spark in it --
+/// a model on the machine itself. Drawn here; Electron has no such runtime to copy a mark from.
+static MARK_APPLE_ON_DEVICE: rune::Icon = Icon { name: "mark-apple-on-device", view: 28.0, body: r##"<rect x="6" y="6" width="16" height="16" rx="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10 2.5v3.5M14 2.5v3.5M18 2.5v3.5M10 22v3.5M14 22v3.5M18 22v3.5M2.5 10H6M2.5 14H6M2.5 18H6M22 10h3.5M22 14h3.5M22 18h3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M14 9.2C14.4 12.1 15.9 13.6 18.8 14C15.9 14.4 14.4 15.9 14 18.8C13.6 15.9 12.1 14.4 9.2 14C12.1 13.6 13.6 12.1 14 9.2Z" fill="currentColor"/>"## };
+
+/// The mark to draw: `icons::mark`, but Gemini's plain star when muted, as Electron greys it with its words, and the
+/// apple runtime's chip. Kept here, not in icons.rs, which `scripts/marks.py` writes from Electron's drawings.
 pub fn mark_drawn(runtime: &str, muted: bool) -> Option<&'static rune::Icon> {
-    if muted && runtime == "gemini" { Some(&MARK_GEMINI_PLAIN) } else { super::icons::mark(runtime) }
+    match runtime {
+        "gemini" if muted => Some(&MARK_GEMINI_PLAIN),
+        "apple" => Some(&MARK_APPLE_ON_DEVICE),
+        _ => super::icons::mark(runtime),
+    }
 }
 
 /// `RuntimeMark`: decorative beside a name (hidden from a screen reader), or, given a label, named where it stands in

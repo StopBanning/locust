@@ -42,7 +42,7 @@ pub fn route_model_name(runtime: &str, model: &str) -> String {
 pub fn teammate_tooltip(teammate: &Teammate) -> String {
     let mut said = format!("Message {} · {}", teammate.name, teammate.role);
     if let (Some(runtime), Some(model)) = (teammate.runtime.as_deref(), teammate.model.as_deref()) {
-        if !matches!(runtime, "claude" | "codex" | "cursor" | "copilot" | "opencode" | "antigravity" | "muse" | "kilo" | "acp" | "gemini") {
+        if !matches!(runtime, "claude" | "codex" | "cursor" | "copilot" | "opencode" | "antigravity" | "muse" | "kilo" | "acp" | "gemini" | "apple") {
             return format!("{said} · {runtime} / {model}");
         }
         let runtime_label = match runtime { "claude" => "Claude", "copilot" => "Copilot", _ => runtime_name(runtime) };

@@ -122,6 +122,7 @@ pub(super) fn runtime_display_name(runtime: &str) -> &'static str {
         "copilot" => "Copilot CLI",
         "antigravity" => "Antigravity",
         "muse" => "Muse Code",
+        "apple" => "Apple Intelligence",
         "kilo" => "Kilo",
         "acp" => "ACP",
         _ => "Agent",

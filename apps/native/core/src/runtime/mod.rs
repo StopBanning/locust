@@ -3,6 +3,7 @@ pub mod acp;
 pub mod acp_events;
 pub mod agy_events;
 pub mod antigravity;
+pub mod apple;
 #[cfg(test)]
 #[cfg(test)]
 pub mod antigravity_events;
@@ -69,6 +70,8 @@ pub trait Runtime {
 
 #[cfg(test)]
 mod antigravity_tests;
+#[cfg(test)]
+mod apple_tests;
 #[cfg(test)]
 mod compaction_tests;
 #[cfg(test)]

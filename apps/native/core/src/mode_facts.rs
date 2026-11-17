@@ -36,6 +36,8 @@ fn modes_of(runtime: &str) -> &'static [&'static str] {
         "codex" | "claude" | "opencode" | "copilot" => &["ask", "accept-edits", "auto", "approve-each"],
         "cursor" | "antigravity" | "muse" | "kilo" => &["ask", "accept-edits", "auto"],
         "acp" => &["approve-each"],
+        // It only talks (runtime::apple).
+        "apple" => &["ask"],
         _ => &[],
     }
 }

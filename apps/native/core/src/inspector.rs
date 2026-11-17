@@ -26,6 +26,7 @@ pub fn runtime_display_name(runtime: &str) -> &str {
         "opencode" => "OpenCode",
         "copilot" => "Copilot CLI",
         "muse" => "Muse Code",
+        "apple" => "Apple Intelligence",
         "kilo" => "Kilo",
         "antigravity" => "Antigravity",
         "gemini" => "Gemini CLI",
@@ -154,6 +155,15 @@ pub fn what_it_may_do(runtime: &str, sandbox: &str, mode: Option<&str>) -> MayDo
     let asks = mode == Some("approve-each") && sandbox == "workspace-write";
 
     match runtime {
+        // Apple's on-device model has no tools at all: it reads only what the conversation says.
+        "apple" => MayDo {
+            rows: vec![
+                deny("reading or changing your files"),
+                no_commands,
+                deny("searching the web or opening web pages"),
+            ],
+            rest: "It only talks: it reads what is said in this conversation, on this Mac, and nothing leaves it.".into(),
+        },
         "codex" => {
             if sandbox == "full-access" {
                 return rows_with(vec![any_command, the_web]);
