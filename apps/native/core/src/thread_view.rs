@@ -250,6 +250,16 @@ pub fn folder_help(
     let Some(folder) = folder else {
         return "No folder chosen. Every teammate works inside one project folder.".into();
     };
+    let caution = folder_caution(folder, home, windows, system);
+    let mut help = format!("New conversations work in {folder}");
+    if let Some(why) = caution {
+        help.push_str(&format!(". This is {why}: a teammate here reads it as its project, sign-in files included. A project folder of its own is the safer place."));
+    }
+    help
+}
+
+/// The same lexical caution powers both the chip and the first-send boundary.
+pub fn folder_caution(folder: &str, home: Option<&str>, windows: bool, system: Option<&str>) -> Option<String> {
     let normalize = |path: &str| -> Option<String> {
         let path = if windows {
             path.replace('\\', "/").to_lowercase()
@@ -282,7 +292,7 @@ pub fn folder_help(
             || candidate.starts_with(&format!("{directory}/"))
             || directory.is_empty()
     };
-    let caution = normalize(folder).and_then(|path| {
+    normalize(folder).and_then(|path| {
         if windows
             && system
                 .and_then(normalize)
@@ -300,12 +310,7 @@ pub fn folder_help(
         .into_iter()
         .find(|name| inside(&path, &format!("{home}/{name}")))
         .map(|name| format!("{name}, where the agents keep their own settings"))
-    });
-    let mut help = format!("New conversations work in {folder}");
-    if let Some(why) = caution {
-        help.push_str(&format!(". This is {why}: a teammate here reads it as its project, sign-in files included. A project folder of its own is the safer place."));
-    }
-    help
+    })
 }
 
 #[cfg(test)]
