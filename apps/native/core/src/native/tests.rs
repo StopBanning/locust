@@ -2167,14 +2167,19 @@ fn relay_roundtrip_starts_recipient_records_peer_links_remembers_hub_and_returns
     let first = send(job(&t, None, "Check Vite config")).unwrap();
     // Waits on the relay's own state, up to the load limit: 6 s ran out mid-round-trip under load (15 Nov), with
     // Pip's hub made and Codec's follow-up running.
+    // Quiet for 200 ms, not for one look: between hops the relay is briefly idle (Pip's reply posted, Codec's
+    // follow-up not started yet), and one look in that gap ended the wait early under load (16 Nov, nextest).
     let deadline = Instant::now() + crate::load_waits::UNDER_LOAD;
-    while Instant::now() < deadline {
+    let mut quiet = 0;
+    while Instant::now() < deadline && quiet < 20 {
         if !owns(&first.conversation_id)
             && crate::invariants::lock(&ACTIVE_TEAMMATES).is_empty()
             && crate::people::hub_of(&store, "tm_pip").is_some()
             && real_tip(&first.conversation_id).ok().as_deref() != Some(first.conversation_id.as_str())
         {
-            break;
+            quiet += 1;
+        } else {
+            quiet = 0;
         }
         std::thread::sleep(Duration::from_millis(10));
     }
