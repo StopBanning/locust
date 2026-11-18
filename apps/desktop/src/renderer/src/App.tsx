@@ -1,3 +1,4 @@
+import { limitHasReset, readingHasQuotaLeft } from '../../shared/limit-lifts.js'
 import { accountUsageKey, accountFromRoute } from '../../shared/agent-accounts.js'
 import { accountName, routeAccount, useAgentAccounts } from './agentAccounts.js'
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
@@ -855,6 +856,14 @@ function worthAskingAgain(runtimes: readonly PublicRuntimeStatus[]): boolean {
  * pathological install grow in memory without end.
  */
 const INSTALL_LOG_LINES = 500
+
+/** The map without that runtime's limit, the same map when it had none (no render for nothing). */
+function withoutLimit(current: ReadonlyMap<string, string>, runtime: string): ReadonlyMap<string, string> {
+  if (!current.has(runtime)) return current
+  const next = new Map(current)
+  next.delete(runtime)
+  return next
+}
 
 export default function App(): ReactElement {
   const [runtimeState, setRuntimeState] = useState<RuntimeDiscoveryState>({ phase: 'loading' })
@@ -2397,6 +2406,10 @@ export default function App(): ReactElement {
       for (const [runtime, said] of entries) next.set(runtime, said)
       return next
     })
+    // Antigravity's reading is of the account signed in NOW (limit-lifts.ts): quota left there takes AT LIMIT off,
+    // however the last run in Locust ended -- a switched account, or a limit that lifted outside Locust.
+    const antigravity = windows?.antigravity
+    if (antigravity !== undefined && readingHasQuotaLeft(antigravity)) setLimitedRuntimes((current) => withoutLimit(current, 'antigravity'))
   }
   const [route, setRoute] = useState<RouteChoice>({ runtime: 'codex', model: 'account-default' })
   /** Words going back into the chat box (C9): a busy model's message, to send on another. */
@@ -3163,6 +3176,8 @@ export default function App(): ReactElement {
     setLimitedRuntimes((current) => {
       const next = new Map(current)
       for (const [runtime, said] of remembered) if (!next.has(runtime)) next.set(runtime, said)
+      // A limit whose named reset has passed is over (limit-lifts.ts); one kept from earlier in this window too.
+      for (const [runtime, said] of next) if (limitHasReset(said, Date.now())) next.delete(runtime)
       return next
     })
   }

@@ -1,4 +1,5 @@
 import { parseDecision } from '../shared/decision.js'
+import { limitHasReset } from '../shared/limit-lifts.js'
 import { createTranscriptTracker } from './peer-exchange.js'
 import { accountFromRoute, accountUsageKey } from '../shared/agent-accounts.js'
 import { createHash } from 'node:crypto'
@@ -114,7 +115,7 @@ export function publicPeerMessages(
  * window applies live, applied to the ledger at boot so a reload does not
  * amount to a lie about the account.
  */
-export function limitedRuntimesFrom(missions: readonly RecoveredMission[]): Record<string, string> {
+export function limitedRuntimesFrom(missions: readonly RecoveredMission[], now: number = Date.now()): Record<string, string> {
   const latest = new Map<string, { readonly at: string; readonly said: string | undefined }>()
   for (const mission of missions) {
     for (const event of mission.events) {
@@ -134,7 +135,8 @@ export function limitedRuntimesFrom(missions: readonly RecoveredMission[]): Reco
   }
   const limited: Record<string, string> = {}
   for (const [runtime, entry] of latest) {
-    if (entry.said !== undefined) limited[runtime] = entry.said
+    // A limit whose named reset has passed is over (limit-lifts.ts, 0.878): the next run is how to find out.
+    if (entry.said !== undefined && !limitHasReset(entry.said, now)) limited[runtime] = entry.said
   }
   return limited
 }
@@ -145,11 +147,10 @@ export function limitedRuntimesFrom(missions: readonly RecoveredMission[]): Reco
  * then the next run is how to find out, so it is allowed. `key` is `accountUsageKey(runtime, account)`.
  */
 export function planOutSentence(missions: readonly RecoveredMission[], key: string, runtimeName: string, now: Date = new Date()): string | undefined {
-  const said = limitedRuntimesFrom(missions)[key]
+  const said = limitedRuntimesFrom(missions, now.getTime())[key]
   if (said === undefined) return undefined
   const reset = /resets (\S+)/.exec(said)?.[1]
   const at = reset === undefined ? Number.NaN : Date.parse(reset)
-  if (Number.isFinite(at) && at <= now.getTime()) return undefined
   const until = Number.isFinite(at)
     ? ` until ${new Date(at).toLocaleString('en-US', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}`
     : ''
