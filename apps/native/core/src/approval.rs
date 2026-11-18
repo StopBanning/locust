@@ -532,6 +532,45 @@ pub fn command_reach_of(card: &Request) -> Option<crate::command_reach::CommandR
     crate::command_reach::command_reach(Some(&card.detail))
 }
 
+/// approval-channel.ts codexAlwaysFor: Codex asks again after an Always, so Locust remembers the exact action, not
+/// the runtime. A command by its whole text; a file change by its paths (moves included), sorted, as JSON so a path
+/// boundary is never ambiguous. Anything else, or a change naming no path, has no key: Always is then not offered a
+/// memory, and the next request asks.
+pub fn codex_always_for(kind: &Kind, params: &Value, changes: Option<&[crate::approval_patch::FileChangeRecord]>) -> Option<(String, String)> {
+    if *kind == Kind::Command {
+        let command = params["command"].as_str().filter(|c| !c.is_empty())?;
+        return Some((format!("codex:command:{command}"), "this same command again".into()));
+    }
+    if *kind != Kind::FileChange {
+        return None;
+    }
+    let mut paths: Vec<String> = Vec::new();
+    if let Some(records) = changes {
+        for change in records {
+            if change.path.is_empty() {
+                return None;
+            }
+            paths.push(change.path.clone());
+            if let Some(moved) = change.move_path.as_ref().filter(|m| !m.is_empty()) {
+                paths.push(moved.clone());
+            }
+        }
+    } else {
+        for entry in params["changes"].as_array().map(Vec::as_slice).unwrap_or_default() {
+            let path = entry.get("path").and_then(Value::as_str).filter(|p| !p.is_empty())?;
+            paths.push(path.to_owned());
+            if let Some(moved) = entry.get("movePath").and_then(Value::as_str).filter(|m| !m.is_empty()) {
+                paths.push(moved.to_owned());
+            }
+        }
+    }
+    if paths.is_empty() {
+        return None;
+    }
+    paths.sort();
+    Some((format!("codex:files:{}", serde_json::to_string(&paths).unwrap_or_default()), "the same change to these files again".into()))
+}
+
 /// `approval-channel.ts:protocolDecisionFor`
 pub fn protocol_decision_for(decision: &Decision) -> &'static str {
     match decision {
@@ -853,8 +892,11 @@ impl Channel {
                 }
             })
         };
+        // Codex's Always is Locust's to keep (codexAlwaysFor): answered to Codex as once, remembered here under the
+        // exact action, so a saved rule still decides the next request.
+        let codex_always = if codex { codex_always_for(&kind, params, changes.as_deref()) } else { None };
         let always_key = if codex {
-            None
+            codex_always.as_ref().map(|(key, _)| key.clone())
         } else {
             params["locustAlwaysKey"]
                 .as_str()
@@ -870,7 +912,7 @@ impl Channel {
             detail,
             cwd,
             requested_at: now_iso(),
-            always_covers: said("alwaysCovers"),
+            always_covers: codex_always.map(|(_, covers)| covers).or_else(|| said("alwaysCovers")),
             always_key,
             data_sent_says: said("dataSentSays"),
             reversible_says: said("reversibleSays"),
@@ -878,8 +920,18 @@ impl Channel {
             claude_input: None,
             questions,
         };
-        self.ask(request, cancel)
-            .map(|answer| protocol_answer_for(&answer))
+        let remembered_here = codex && request.always_key.is_some();
+        self.ask(request, cancel).map(|answer| {
+            // Never "acceptForSession" to Codex for an action Locust remembers itself: told that, Codex stops asking
+            // and a saved rule never sees the next one (approval-channel.ts, codexAlways).
+            let answer = match answer {
+                Answer::Decision { approval_id, decision: Decision::ApproveAlways, reason } if remembered_here => {
+                    Answer::Decision { approval_id, decision: Decision::ApproveOnce, reason }
+                }
+                other => other,
+            };
+            protocol_answer_for(&answer)
+        })
     }
 
     /// Raise a Claude `can_use_tool` card and block until answered.
@@ -1666,6 +1718,10 @@ pub fn needs_you_status(count: usize) -> String {
         n => format!("{n} need you"),
     }
 }
+
+#[cfg(test)]
+#[path = "approval_codex_always_tests.rs"]
+mod codex_always_tests;
 
 #[cfg(test)]
 mod question_tests {
