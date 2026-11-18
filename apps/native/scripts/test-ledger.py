@@ -91,7 +91,12 @@ def main():
         print(f"no line for: {f}")
     for p in bad:
         print("problem:", p)
-    return 1 if new or bad else 0
+    cases_bad = 0
+    if "--check" in sys.argv[1:]:
+        # Each partial note leads with how many of its Electron cases are named in Rust (scripts/case-map.py).
+        import subprocess
+        cases_bad = subprocess.run([sys.executable, str(HERE / "scripts" / "case-map.py"), "--check"]).returncode
+    return 1 if new or bad or cases_bad else 0
 
 
 if __name__ == "__main__":
