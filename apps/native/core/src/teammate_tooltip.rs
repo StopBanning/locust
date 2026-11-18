@@ -52,7 +52,13 @@ pub fn teammate_tooltip(teammate: &Teammate) -> String {
         }
         let runtime_label = match runtime { "claude" => "Claude", "copilot" => "Copilot", _ => runtime_name(runtime) };
         let route = if model == "account-default" { runtime_label.to_owned() } else {
-            let name = route_model_name(runtime, model);
+            // Strip a provider/prefix only when it repeats this runtime. Antigravity's tiers read by their names
+            // (antigravity-tiers-are-named-once); everything else keeps its whole id, as Electron's modelDisplayName.
+            let bare = model.strip_prefix(&format!("{runtime}/")).unwrap_or(model);
+            let bare = bare.strip_prefix(&format!("{runtime}-")).unwrap_or(bare);
+            let name = if let Some(tier) = (runtime == "antigravity").then(|| crate::runtime::antigravity::antigravity_tier_name(model)).flatten() { tier.to_owned() }
+                else if bare.eq_ignore_ascii_case("auto") { "Auto model".into() }
+                else { bare.split('/').map(spell).collect::<Vec<_>>().join("/") };
             if name.to_lowercase().starts_with(&format!("{} ", runtime_label.to_lowercase())) { name }
             else { format!("{runtime_label} / {name}") }
         };

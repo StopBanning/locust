@@ -251,6 +251,7 @@ mod tests {
             omitted_briefing: vec![],
             left_out_by_you: vec![],
             carried_on_for: None,
+            cwd: None,
         }
     }
 

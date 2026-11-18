@@ -54,6 +54,7 @@ pub struct Metadata {
     pub omitted_briefing: Vec<String>,
     pub left_out_by_you: Vec<String>,
     pub carried_on_for: Option<String>,
+    pub cwd: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -440,6 +441,12 @@ pub fn metadata(record: &Record) -> Option<Metadata> {
                     .then(|| v.get("for").and_then(Value::as_str))
                     .flatten()
             })
+            .map(str::to_owned),
+        cwd: m
+            .get("command")
+            .and_then(|c| c.get("cwd"))
+            .and_then(Value::as_str)
+            .filter(|s| !s.is_empty())
             .map(str::to_owned),
     })
 }
@@ -1076,7 +1083,8 @@ impl Transcript {
                     if !message.trim().is_empty() {
                         // The failure card: the host's sentence and the runtime's own last word (failureMessage).
                         let runtime = self.metadata.as_ref().map(|m| m.runtime.as_str()).filter(|r| !r.is_empty());
-                        let said = crate::failure_words::failure_message(&message, p["process"]["stderr"].as_str(), runtime);
+                        let cwd = self.metadata.as_ref().and_then(|m| m.cwd.as_deref());
+                        let said = crate::failure_words::failure_message_in_cwd(&message, p["process"]["stderr"].as_str(), runtime, cwd);
                         if !crate::thread_view::error_already_shown(&items, &said) {
                             items.push(Item::Note { level: "error".into(), text: scrub(&said) });
                         }
