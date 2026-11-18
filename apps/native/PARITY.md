@@ -163,7 +163,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 | :--- | :--- | :--- | :--- | :--- | :---: |
 | Routine editor, schedules/days/one-off, pause and run history | `renderer/src/components/AutomationsScreen.tsx`, `renderer/src/components/RoutineDialog.tsx`, `main/routine-runner.ts`, `main/routine-store.ts` | **partial** — native-owned seeded shelf/editor, clock schedule validation/calculation, pause/resume and retained history; scheduler, completion accounting and recovery cards by the runner (ROUTINES-NOTES.md); input forms and remaining TS tests are not ported (p11-NOTES.md) | yes | no | yes |
 | Arriving-file routine trigger | `main/routine-file-watch.ts` | **done** — settled batches start one run, six an hour, a teammate's own files let go from Undo's records; window test (ROUTINES-NOTES.md) | yes | no | yes |
-| Private routine link hook | `main/routine-hooks.ts`, `shared/routine-hook.ts` | **missing** | - | no | yes |
+| Private routine link hook | `main/routine-hooks.ts`, `shared/routine-hook.ts` | **partial** — `core/src/routine_hooks.rs`, `core/src/routine_runner.rs`, `core/src/routine_host.rs`, `src/ui/routines_panel.rs` (SecretBox-encrypted `routine-hooks.json` with v1 migration, 7-day retired password retention & redaction, fenced `hook_note` inside `STEP_BUDGET`, batch folding/expiry/preflight-restore, Ask-only runner path, `HookRelay` trait + UI editor/loss notice; live NSURLSession relay transport stubbed in `StubHookRelay`; `notes/LINKS-NOTES.md`) | yes | no | yes |
 | Routine input forms, Markdown import/export and starter templates | `renderer/src/components/RoutineInputs.tsx`, `renderer/src/components/RoutineFileDialog.tsx`, `renderer/src/components/RoutineTemplates.tsx`, `main/routine-file.ts`, `main/routine-templates.ts` | **done** — Hydrogen: `core/src/routine_inputs.rs`, `core/src/routine_file.rs`, `core/src/routine_templates.rs`, `core/src/routine_io.rs`, `assets/routines/*.locust-routine.json`, `src/ui/routines_panel.rs` (typed routine inputs, folder-picker validation, YAML-frontmatter Markdown/JSON import/export with absolute-path flagging, 16 shipped templates, W7 runner inputs; TEAM-FILES-NOTES.md) | yes | no | yes |
 | Routine copy-mode changes awaiting keep/discard | `renderer/src/components/RoutineChanges.tsx`, `main/routine-copy.ts` | **done** — each run in a fresh copy in the native data folder; Keep refuses over the person's edits, Discard asks first; window test (ROUTINES-NOTES.md) | yes | no | yes |
 | Routine retry-until-check, handoff steps and wait-for-OK gates | `renderer/src/components/RoutineRecovery.tsx`, `main/routine-recovery-ipc.ts`, `main/routine-runner.ts` | **partial** — runner ported: checks, checker verdicts, busy and wait-for-OK holds, recovery cards; no OS or phone alert when a step waits for OK (ROUTINES-NOTES.md) | yes | no | yes |
@@ -286,7 +286,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 6 | Changes, Git, Worktrees, Issues & Scout | 4 | 9 | 0 | 13 | 13 | 0 |
 | 7 | Terminal & Own Commands | 0 | 3 | 0 | 3 | 3 | 0 |
 | 8 | Built-in Browser & Page Previews | 4 | 1 | 1 | 6 | 5 | 0 |
-| 9 | Routines, Compare & Benchmarks | 7 | 2 | 1 | 10 | 9 | 0 |
+| 9 | Routines, Compare & Benchmarks | 7 | 3 | 0 | 10 | 10 | 0 |
 | 10 | Calls & Voice Typing | 0 | 0 | 5 | 5 | 0 | 0 |
 | 11 | Settings, Usage, Privacy & Backup | 5 | 3 | 0 | 8 | 8 | 0 |
 | 12 | Cloud, Remote, Phone & Chat Apps | 0 | 3 | 6 | 9 | 3 | 0 |

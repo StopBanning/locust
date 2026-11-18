@@ -132,6 +132,7 @@ pub mod route_at_start;
 pub mod routine_copy;
 pub mod routine_file;
 pub mod routine_files;
+pub mod routine_hooks;
 pub mod routine_host;
 pub mod routine_inputs;
 pub mod routine_io;
