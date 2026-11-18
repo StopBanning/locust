@@ -199,3 +199,6 @@ Next: part 1b opens-the-plan, then orb, frame-pass.
   starts a line, a wordless thought and calls fold in; running calls are left out while running. Both cases of
   a-wordless-thought are named in `steps_fold_tests` (3 pass). NOT done: the drawer/thread does not call it yet, and
   `stepsLine`'s phrase counting (a-long-silent-stretch) is not ported.
+- a-long-silent-stretch: `steps_fold::group_headline` (first thought headline is the whole line) and its two
+  buildThread cases are named in `steps_fold_tests`; the headline case is in `thread_words_tests`. The rest of
+  `stepsLine`'s counts phrases is still not ported.

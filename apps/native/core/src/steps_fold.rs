@@ -46,3 +46,12 @@ pub fn fold_steps(items: &[Item], running: bool) -> Vec<StepsGroup> {
     flush(&mut group, &mut out);
     out
 }
+
+/// The line's own words when one of its thoughts leads with a headline (`stepsLine`: `headline ??= thoughtHeadline(..)`,
+/// the first one wins, and it is the whole line, 0.610). None leaves the counts line to the caller.
+pub fn group_headline(items: &[Item], group: &StepsGroup) -> Option<String> {
+    group.items.iter().find_map(|&i| match &items[i] {
+        Item::Thought { text, .. } => crate::thread_words::thought_headline(text),
+        _ => None,
+    })
+}
