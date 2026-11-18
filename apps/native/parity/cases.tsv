@@ -2877,6 +2877,13 @@ apps/desktop/src/renderer/src/an-idle-teammate-offers-its-own-world.test.tsx	nev
 apps/desktop/src/renderer/src/an-idle-teammate-offers-its-own-world.test.tsx	never asks a non-coder for a page the app would only show as code	yes
 apps/desktop/src/renderer/src/an-idle-teammate-offers-its-own-world.test.tsx	says what the role is for, not that every role reads the workspace	yes
 apps/desktop/src/renderer/src/an-idle-teammate-offers-its-own-world.test.tsx	offers a hand-made teammate its role's, and speaks of code only for the roles that are code	yes
+apps/desktop/src/renderer/src/an-orb-needs-a-runtime-that-streams.test.ts	shows the working orb through an OpenCode tool call, because the tool is never open	yes
+apps/desktop/src/renderer/src/an-orb-needs-a-runtime-that-streams.test.ts	shows the tool orb on Antigravity, where the start and the result are apart	yes
+apps/desktop/src/renderer/src/an-orb-needs-a-runtime-that-streams.test.ts	reaches the writing orb on OpenCode, because text arriving IS writing	yes
+apps/desktop/src/renderer/src/an-orb-needs-a-runtime-that-streams.test.ts	says Writing in words too, over a thought the runtime left open (0.586)	yes
+apps/desktop/src/renderer/src/an-orb-needs-a-runtime-that-streams.test.ts	goes back to working when the text is complete	yes
+apps/desktop/src/renderer/src/an-orb-needs-a-runtime-that-streams.test.ts	never overrides a step that said something more specific	yes
+apps/desktop/src/renderer/src/an-orb-needs-a-runtime-that-streams.test.ts	cannot hold the thinking orb when a reasoning step opens and closes at once	yes
 apps/desktop/src/renderer/src/an-unknown-record-stays-out-of-the-thread.test.ts	is never a row of its own, even after the work has begun	yes
 apps/desktop/src/renderer/src/an-unknown-record-stays-out-of-the-thread.test.ts	is still said, in the fold with the turn’s other remarks	yes
 apps/desktop/src/renderer/src/an-unknown-record-stays-out-of-the-thread.test.ts	leaves real trouble where it was: a runtime error after work began is still a row	yes
@@ -3862,6 +3869,17 @@ apps/desktop/src/renderer/src/the-flat-sidebar.test.ts	counts against the face w
 apps/desktop/src/renderer/src/the-folder-chip-says-a-folder-is-no-place-for-teammates.test.tsx	says why in its hover for a folder like .claude, in the chip's own colour	yes
 apps/desktop/src/renderer/src/the-folder-chip-says-a-folder-is-no-place-for-teammates.test.tsx	stays as it was for a project folder (control)	yes
 apps/desktop/src/renderer/src/the-folder-chip-says-a-folder-is-no-place-for-teammates.test.tsx	names the folder and why, with Choose another folder first and Start here	yes
+apps/desktop/src/renderer/src/the-frame-pass.test.ts	times from the turn, not from the phase, before anything has happened	yes
+apps/desktop/src/renderer/src/the-frame-pass.test.ts	does not restart when a step opens three seconds in	yes
+apps/desktop/src/renderer/src/the-frame-pass.test.ts	does not restart when a tool opens either	yes
+apps/desktop/src/renderer/src/the-frame-pass.test.ts	bands them ready, experimental, sign-in, not installed, planned	yes
+apps/desktop/src/renderer/src/the-frame-pass.test.ts	never leaves something that does not exist above something that does	yes
+apps/desktop/src/renderer/src/the-frame-pass.test.ts	is stable between launches, so the list does not shuffle	yes
+apps/desktop/src/renderer/src/the-frame-pass.test.ts	keeps a known result while the next probe is still out	yes
+apps/desktop/src/renderer/src/the-frame-pass.test.ts	keeps a version the new answer simply did not print	yes
+apps/desktop/src/renderer/src/the-frame-pass.test.ts	takes every DEFINITE answer at once, including the unwelcome ones	yes
+apps/desktop/src/renderer/src/the-frame-pass.test.ts	lets a runtime that was out come back when it answers	yes
+apps/desktop/src/renderer/src/the-frame-pass.test.ts	passes through a runtime it has never seen	yes
 apps/desktop/src/renderer/src/the-home-cover-rests-after-inactivity.test.ts	pauses at 45 seconds, with no polling or timers left while resting	yes
 apps/desktop/src/renderer/src/the-home-cover-rests-after-inactivity.test.ts	%s resumes synchronously and resets the deadline	no
 apps/desktop/src/renderer/src/the-home-cover-rests-after-inactivity.test.ts	stream arrival resumes and extends the deadline without a change to the status words	yes
@@ -3900,6 +3918,14 @@ apps/desktop/src/renderer/src/the-kept-pets-are-puppets.test.tsx	gives a soft bo
 apps/desktop/src/renderer/src/the-kept-pets-are-puppets.test.tsx	Codex Buddy’s, for the changes worth looking up for, and only when asked	yes
 apps/desktop/src/renderer/src/the-kept-pets-are-puppets.test.tsx	moves a little every frame while he works, never held and never snapped (buddyRig.ts)	yes
 apps/desktop/src/renderer/src/the-kept-pets-are-puppets.test.tsx	rests only once his last pose has settled, so his clock still stops	yes
+apps/desktop/src/renderer/src/the-live-line-opens-the-plan.test.tsx	the control is a button with its label and aria-expanded	no
+apps/desktop/src/renderer/src/the-live-line-opens-the-plan.test.tsx	the card lists the steps in order with done/current/next marked	no
+apps/desktop/src/renderer/src/the-live-line-opens-the-plan.test.tsx	closes on Escape and cleans up listeners	no
+apps/desktop/src/renderer/src/the-live-line-opens-the-plan.test.tsx	no card without a plan: plain step words with no button or popover	no
+apps/desktop/src/renderer/src/the-live-line-opens-the-plan.test.tsx	buildThread attaches the plan to live-step only when step N of M is present	yes
+apps/desktop/src/renderer/src/the-live-line-says-the-starts-phase.test.tsx	leads with the phase, swept, in the place of the word "starting"	yes
+apps/desktop/src/renderer/src/the-live-line-says-the-starts-phase.test.tsx	names the runtime in the runtime's phase	yes
+apps/desktop/src/renderer/src/the-live-line-says-the-starts-phase.test.tsx	still says "Starting…" when no phase has been sent	yes
 apps/desktop/src/renderer/src/the-live-line-says-which-plan-step.test.ts	names the step underway, where the eye is	yes
 apps/desktop/src/renderer/src/the-live-line-says-which-plan-step.test.ts	leads with what the open call is doing, in words (0.569, Claude Code's status line)	yes
 apps/desktop/src/renderer/src/the-live-line-says-which-plan-step.test.ts	names the plan's step under way when no call is open to say more (OpenCode reports calls once they end)	yes

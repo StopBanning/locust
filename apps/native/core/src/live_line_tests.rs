@@ -217,3 +217,17 @@ fn cannot_hold_the_thinking_orb_when_a_reasoning_step_opens_and_closes_at_once()
     let got = orb_of(&[event(1, "step.started", json!({"stepKind": "reasoning", "itemId": "r1"})), event(2, "step.completed", json!({"stepKind": "reasoning", "itemId": "r1"}))]);
     assert_ne!(got.1, "listening");
 }
+
+// case: times from the turn, not from the phase, before anything has happened
+// case: does not restart when a step opens three seconds in
+// case: does not restart when a tool opens either
+#[test]
+fn the_elapsed_counter_times_from_the_turn_and_never_restarts_with_the_phase() {
+    const TURN: &str = "2026-09-15T10:00:00.000Z";
+    let at = |kind: &str, when: &str, payload: Value| json!({"type": kind, "occurredAt": when, "payload": payload});
+    assert_eq!(live_line(&[], true, TURN, false).unwrap().started_at, TURN);
+    let step = [at("run.started", "2026-09-15T10:00:03.000Z", json!({}))];
+    assert_eq!(live_line(&step, true, TURN, false).unwrap().started_at, TURN);
+    let tool = [at("run.started", "2026-09-15T10:00:01.000Z", json!({})), at("tool.started", "2026-09-15T10:00:09.000Z", json!({"itemId": "t1", "name": "read", "command": "read"}))];
+    assert_eq!(live_line(&tool, true, TURN, false).unwrap().started_at, TURN);
+}

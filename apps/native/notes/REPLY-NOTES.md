@@ -175,3 +175,13 @@ Final gates at 9cdb2375: `nextest run --workspace` passed (4,349, 22 skipped); `
 into the ledger snapshot (`ledger.rs:1356` still calls `live_line`), and the "title for hover" / one-time-drawn markup
 case is Electron's. Parity row left `waiting`; counts not yet recounted. Stopped at 93% of the 5-hour window.
 Next: part 1b opens-the-plan, then orb, frame-pass.
+
+## Part 1b-d (round 2)
+- opens-the-plan: `LiveLine::plan` (steps `done`/`running`/`pending`, read like `readPlan`) is attached only when the
+  line's detail is the plan's "step N of M". Only 1 of 5 cases named: the button, compact card, Escape and no-plan
+  markup are Electron drawing.
+- an-orb: `LiveLine::orb` (`tool_orb`, `register_orb`; `orbStateFor`) with all 7 cases named; the Plan-mode `solving`
+  floor is in `register_orb` but `live_line` is not yet told the turn is in Plan mode.
+- the-frame-pass: new `core/src/runtime_order.rs` (`runtime_list_order`, `keep_what_was_known`) plus the A1 counter
+  cases; localeCompare is approximated by lower-cased comparison; nothing draws from it yet (partial).
+- starts-phase: see Part 1a; row now partial 3 of 3 named.
