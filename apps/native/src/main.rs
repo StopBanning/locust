@@ -244,6 +244,8 @@ mod benchmarks_panel;
 mod compare_view;
 #[path = "ui/trash_section.rs"]
 mod trash_section;
+#[path = "ui/phone_section.rs"]
+mod phone_section;
 #[path = "ui/side_chat.rs"]
 mod side_chat;
 #[path = "ui/room_screen.rs"]
@@ -725,6 +727,7 @@ fn choose_engine() -> Result<(Kind, Vec<Teammate>), String> {
     if chosen.0 == Kind::Native {
         join_engine();
         open_door();
+        open_phone();
     }
     Ok(chosen)
 }
@@ -2963,6 +2966,13 @@ fn open_door() {
 #[cfg(test)]
 fn open_door() {}
 
+/// Your phone, listening again if the person left it on; never in a headless run.
+fn open_phone() {
+    if !HEADLESS.load(std::sync::atomic::Ordering::Relaxed) {
+        phone_section::open();
+    }
+}
+
 fn main() {
     // The command guard hook runs before every shell command a Claude Code turn makes: answer at once, before anything
     // else this binary does at start.
@@ -3181,6 +3191,8 @@ fn main() {
             ("carry-on", carry_on_scene),
             ("carry-on-light", carry_on_light_scene),
             ("settings-door-light", settings_panel::door_light_scene),
+            ("settings-phone", phone_section::scene),
+            ("settings-phone-light", phone_section::light_scene),
             ("settings-light", settings_panel::light_scene),
             ("usage", usage_panel::scene),
             ("usage-light", usage_panel::light_scene),
