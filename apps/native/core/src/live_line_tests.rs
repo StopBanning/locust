@@ -105,3 +105,28 @@ fn shows_a_file_name_whole_at_exactly_forty_characters_and_cuts_one_longer() {
     let forty_one = "b".repeat(37) + ".txt";
     assert_eq!(reading(&forty_one), format!("Reading {}\u{2026}", &forty_one[..39]));
 }
+
+// case: leads with the phase, swept, in the place of the word "starting"
+#[test]
+fn leads_with_the_phase_swept_in_the_place_of_the_word_starting() {
+    let line = crate::thread_view::live_line_starting(&[started()], true, "", false, Some("Reading the folder")).unwrap();
+    assert_eq!(sweep_text(&line.label), "Reading the folder\u{2026}");
+    assert_eq!(line.register, "starting");
+    assert!(line.waiting);
+}
+
+// case: names the runtime in the runtime's phase
+#[test]
+fn names_the_runtime_in_the_runtimes_phase() {
+    let line = crate::thread_view::live_line_starting(&[started()], true, "", false, Some("Starting OpenCode")).unwrap();
+    assert_eq!(sweep_text(&line.label), "Starting OpenCode\u{2026}");
+}
+
+// case: still says "Starting…" when no phase has been sent
+#[test]
+fn still_says_starting_when_no_phase_has_been_sent() {
+    for none in [None, Some("")] {
+        let line = crate::thread_view::live_line_starting(&[started()], true, "", false, none).unwrap();
+        assert_eq!(sweep_text(&line.label), "Starting\u{2026}");
+    }
+}

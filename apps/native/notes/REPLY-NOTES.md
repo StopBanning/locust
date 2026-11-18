@@ -165,3 +165,13 @@ Final gates at 9cdb2375: `nextest run --workspace` passed (4,349, 22 skipped); `
 ## Not mine
 `src/ui/routine_recovery_tests.rs` was untracked in this worktree before this lane started (17 Nov 23:58), and no
 `mod` names it. It is left as found.
+
+# Round 2
+
+## Part 1a: the live line says the start's phase (partial)
+`thread_view::live_line_starting(.., starting_label)` puts the host's phase ("Reading the folder") in the place of
+"Starting"; `live_line` is unchanged and calls it with `None`. Three `live_line_tests` carry the three Electron cases
+(only the swept word, the label is `sweep_text`'d by the window). NOT done: nothing yet passes a phase from the host
+into the ledger snapshot (`ledger.rs:1356` still calls `live_line`), and the "title for hover" / one-time-drawn markup
+case is Electron's. Parity row left `waiting`; counts not yet recounted. Stopped at 93% of the 5-hour window.
+Next: part 1b opens-the-plan, then orb, frame-pass.

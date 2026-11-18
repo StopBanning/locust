@@ -133,6 +133,18 @@ pub fn live_line(
     started_at: &str,
     awaiting_decision: bool,
 ) -> Option<LiveLine> {
+    live_line_starting(events, running, started_at, awaiting_decision, None)
+}
+
+/// `live_line` with the start's phase the host sent ("Reading the folder"), which takes the place of the word
+/// "Starting" while nothing has arrived (missionView.ts `options.startingLabel`).
+pub fn live_line_starting(
+    events: &[Value],
+    running: bool,
+    started_at: &str,
+    awaiting_decision: bool,
+    starting_label: Option<&str>,
+) -> Option<LiveLine> {
     if !live_visible(running, awaiting_decision) {
         return None;
     }
@@ -249,7 +261,7 @@ pub fn live_line(
         (
             if spoken { "Working" } else if events.iter().any(|e| {
                 e["type"] == "adapter.diagnostic" && e["payload"]["code"].as_str().is_some_and(|c| c == "opencode.runtime_error" || c.ends_with(".provider_busy.runtime_error"))
-            }) { "Trying the model again" } else { "Starting" }.into(),
+            }) { "Trying the model again" } else { starting_label.filter(|l| !l.is_empty()).unwrap_or("Starting") }.into(),
             if spoken { "working" } else { "starting" }.into(),
             true,
         )
