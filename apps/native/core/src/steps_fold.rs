@@ -55,3 +55,14 @@ pub fn group_headline(items: &[Item], group: &StepsGroup) -> Option<String> {
         _ => None,
     })
 }
+
+/// A turn that only planned (`touchedNothing`): it had no activity at all, so its plan is the answer and draws as a
+/// plain list; with any call or thought in the turn the plan's outcomes are drawn.
+pub fn touched_nothing(items: &[Item]) -> bool {
+    !items.iter().any(is_step)
+}
+
+/// How many of a plan's steps finished (`doneCount`).
+pub fn plan_done_count(steps: &[crate::ledger::PlanStep]) -> usize {
+    steps.iter().filter(|step| step.state == "done").count()
+}

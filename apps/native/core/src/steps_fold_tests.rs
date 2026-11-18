@@ -61,3 +61,39 @@ fn a_new_line_each_time_the_model_thinks_led_by_what_it_thought_about() {
 fn a_turn_with_no_thinking_is_one_line() {
     assert_eq!(fold_steps(&[call("ls"), call("pwd")], false).len(), 1);
 }
+
+// `a-plan-shows-what-happened-to-it.test.ts` (4 cases; Cursor's own TODO_STATUS_ spelling)
+fn cursor_plan(states: &[&str]) -> Vec<crate::ledger::PlanStep> {
+    let rows: Vec<_> = states.iter().enumerate().map(|(i, s)| serde_json::json!({"content": format!("step {}", i + 1), "status": s})).collect();
+    crate::ledger::read_plan(&serde_json::json!({ "plan": rows }))
+}
+fn plan_item(states: &[&str]) -> Item {
+    Item::Plan { id: "p".into(), steps: cursor_plan(states), finished: true }
+}
+
+// case: a turn that only planned is marked as having touched nothing
+#[test]
+fn a_turn_that_only_planned_touched_nothing() {
+    assert!(crate::steps_fold::touched_nothing(&[plan_item(&["TODO_STATUS_PENDING", "TODO_STATUS_PENDING"])]));
+}
+
+// case: a turn that carried its plan out is not marked as having touched nothing
+#[test]
+fn a_turn_that_carried_its_plan_out_touched_something() {
+    assert!(!crate::steps_fold::touched_nothing(&[plan_item(&["TODO_STATUS_COMPLETED", "TODO_STATUS_COMPLETED"]), call("read")]));
+}
+
+// case: counts the steps that finished
+#[test]
+fn counts_the_steps_that_finished() {
+    let steps = cursor_plan(&["TODO_STATUS_COMPLETED", "TODO_STATUS_COMPLETED", "TODO_STATUS_PENDING"]);
+    assert_eq!(crate::steps_fold::plan_done_count(&steps), 2);
+    assert_eq!(steps.len(), 3);
+}
+
+// case: reads Cursor's own status spelling
+#[test]
+fn reads_cursors_own_status_spelling() {
+    let states: Vec<_> = cursor_plan(&["TODO_STATUS_COMPLETED", "TODO_STATUS_IN_PROGRESS", "TODO_STATUS_PENDING"]).into_iter().map(|s| s.state).collect();
+    assert_eq!(states, vec!["done", "running", "pending"]);
+}

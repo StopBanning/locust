@@ -202,3 +202,7 @@ Next: part 1b opens-the-plan, then orb, frame-pass.
 - a-long-silent-stretch: `steps_fold::group_headline` (first thought headline is the whole line) and its two
   buildThread cases are named in `steps_fold_tests`; the headline case is in `thread_words_tests`. The rest of
   `stepsLine`'s counts phrases is still not ported.
+
+## Part 3 (round 2, started)
+- a-plan-shows-what-happened-to-it: all 4 cases named in `steps_fold_tests` (`touched_nothing`, `plan_done_count`,
+  `read_plan` for Cursor's TODO_STATUS_ spelling). The drawer does not yet call `touched_nothing` to pick the plain list.
