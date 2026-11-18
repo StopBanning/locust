@@ -406,3 +406,20 @@ Partial: `a-new-person-is-met-where-they-are` (4 of 7, one in half): `src/ui/new
 Electron's source (`App.tsx`, `FirstLaunch.tsx`); the starter row's wiring in the third is the same.
 No Rust code changed. Breaks: 15 on `scout/view.rs`, `scout_cards.rs`, `starters.rs`, `idle_teammate.rs` and
 `usage.rs` (`r3b8-breaks.log` and `r3b8-fix.txt`): all caught by name.
+
+## Batch 9 (window-9): command cards, Memory screen's forgotten/before rows, picker scroll
+Carried: `a-commands-card-says-unknown-once` (2): `src/ui/commands_card_tests.rs`, drawn headless through
+`approval_card`.
+Partial: `a-commands-card-says-what-it-is-for` (3 of 5): `src/ui/commands_card_tests.rs`, plus
+`command_plain::plain_command`'s `careful` flag. `approval_card.rs` draws `In short:` in `p.text` rather than amber
+when `careful` is true (`plain_action` returns `Option<String>`), and `phone-page.ts` is not in native.
+Partial: `a-forgotten-memory-shows-with-restore` (2 of 2, first in half) and `a-memory-shows-what-it-said-before` (2 of
+2, first in half): `src/ui/memory_screen_tests.rs`, drawn headless through `people_panel::memory_screen`. Rust draws
+`Recently forgotten` / `Restore` and `Before: …` without Electron's extra subtitle, `forgotten by`, date, or `Put it back`.
+Does-not-apply: `the-picker-opens-on-what-is-chosen` (reads `RoutePicker.tsx?raw` for React DOM `listRef` / `scrollTop`).
+
+**Bug fixed in `core/src/command_plain.rs`:** `redirect_targets` used `invariants::regex(r#"^(["'])(.*)\1$"#)` to
+unquote redirect targets. Rust's `regex` crate does not support backreferences (`\1`), so any command with a redirect
+(like `echo LOCUST-ACP-OK > approved.txt` from Electron's test) panicked at runtime. Replaced with `strip_prefix`/`strip_suffix`
+for matching `"` or `'` quotes. The Electron case was written first and panicked on the old code.
+Breaks: 8 on `approval_card.rs` and `people_panel.rs` (`r3b9-breaks.log`): all caught by name.
