@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { join } from 'node:path'
+import { posix } from 'node:path'
 
 import {
   APPLE_DISPLAY_NAME,
@@ -33,7 +33,8 @@ export function appleHelperPath(
   exists: (path: string) => boolean = existsSync
 ): string | undefined {
   if (platform !== 'darwin') return undefined
-  const path = join(mainDir, '..', 'native', APPLE_HELPER_NAME).replace(/([\\/])app\.asar([\\/])/, '$1app.asar.unpacked$2')
+  // A Mac's path, built the Mac's way on any computer (the tests run on Windows too).
+  const path = posix.join(mainDir, '..', 'native', APPLE_HELPER_NAME).replace(/([\\/])app\.asar([\\/])/, '$1app.asar.unpacked$2')
   return exists(path) ? path : undefined
 }
 

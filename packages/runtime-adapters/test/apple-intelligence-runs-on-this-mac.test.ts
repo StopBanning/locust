@@ -64,8 +64,14 @@ const kinds = (events: readonly NormalizedRuntimeEvent[]): string[] => events.ma
 const payload = (event: NormalizedRuntimeEvent | undefined): Record<string, unknown> => (event?.payload ?? {}) as Record<string, unknown>;
 const failure = (events: readonly NormalizedRuntimeEvent[]): string => String(payload(events.find((event) => event.type === "run.failed")).message);
 
+/** Python's path where there is a shell to ask; "python3" elsewhere (Windows CI), where the tests that run it are skipped
+ * and the rest only need a path to put in a command (0.878.0's Windows build stopped on `spawnSync /bin/sh ENOENT`). */
 function python(): string {
-  return execFileSync("/bin/sh", ["-c", "command -v python3"], { encoding: "utf8" }).trim();
+  try {
+    return execFileSync("/bin/sh", ["-c", "command -v python3"], { encoding: "utf8" }).trim();
+  } catch {
+    return "python3";
+  }
 }
 
 const fakeHelper = (answer: string): ExecutableLaunch => ({
@@ -99,7 +105,7 @@ async function runHelper(
 
 const hasPython = (() => {
   try {
-    return python().length > 0;
+    return execFileSync("/bin/sh", ["-c", "command -v python3"], { encoding: "utf8" }).trim().length > 0;
   } catch {
     return false;
   }
