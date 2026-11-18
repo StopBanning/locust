@@ -985,9 +985,6 @@ impl Channel {
                     decision: Decision::Deny,
                     reason: Some(reason),
                 };
-                let mut record = record_of(&request, &answer);
-                record.by = "command-guard".into();
-                guard.recorded.push(record);
                 return Ok((answer, "locust"));
             }
             // Saved rules answer before a card (Electron decideByRules). Unreadable → every card asks.
@@ -1779,6 +1776,22 @@ mod tests {
             .unwrap();
         assert_eq!(result["behavior"], "deny");
         assert_eq!(ch.take_recorded()[0].by, "saved-rule");
+        let done = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let watcher_done = Arc::clone(&done);
+        let watcher_ch = ch.clone();
+        let watcher = std::thread::spawn(move || {
+            while !watcher_done.load(std::sync::atomic::Ordering::Relaxed) {
+                if let Some(card) = watcher_ch.waiting().first() {
+                    let _ = watcher_ch.decide(Answer::Decision {
+                        approval_id: card.approval_id.clone(),
+                        decision: Decision::ApproveOnce,
+                        reason: None,
+                    });
+                    return;
+                }
+                std::thread::sleep(Duration::from_millis(5));
+            }
+        });
         let result = ch
             .ask_claude(
                 "r",
@@ -1790,8 +1803,10 @@ mod tests {
                 &|| false,
             )
             .unwrap();
+        done.store(true, std::sync::atomic::Ordering::Relaxed);
+        watcher.join().unwrap();
         assert_eq!(result["behavior"], "deny");
-        assert_eq!(ch.take_recorded()[0].by, "command-guard");
+        assert!(ch.take_recorded().is_empty());
         crate::invariants::lock(&ch.inner).always.clear();
         let worker = ch.clone();
         let handle = std::thread::spawn(move || {

@@ -170,6 +170,7 @@ pub struct Serve {
     started: Instant,
     recovery: Option<Instant>,
     last_check: Instant,
+    begin_check: Duration,
     stopping: Option<Instant>,
     overflow: Arc<AtomicBool>,
 }
@@ -204,6 +205,7 @@ impl Serve {
             started: Instant::now(),
             recovery: None,
             last_check: Instant::now(),
+            begin_check: Duration::from_secs(60),
             stopping: None,
             overflow: Arc::new(AtomicBool::new(false)),
         }
@@ -214,6 +216,11 @@ impl Serve {
     }
     pub fn with_command(mut self, name: Option<String>) -> Self {
         self.slash = name;
+        self
+    }
+    #[cfg(test)]
+    pub fn with_begin_check(mut self, d: Duration) -> Self {
+        self.begin_check = d;
         self
     }
     fn cancelled(&self) -> bool {
@@ -937,7 +944,7 @@ impl Runtime for Serve {
             self.finish(Some("OpenCode's event stream closed before the turn finished. Recovery deadline expired; its outcome could not be confirmed."));
         } else if (self.recovery.is_some()
             && self.last_check.elapsed() >= Duration::from_millis(250)
-            || !self.begun && self.last_check.elapsed() >= Duration::from_secs(60))
+            || !self.begun && self.last_check.elapsed() >= self.begin_check)
             && let Err(e) = self.recover()
         {
             self.finish(Some(&e.to_string()));

@@ -651,3 +651,219 @@ fn opencode_sealed_config_asks_every_tool_and_drops_plugins() {
     assert!(perms.iter().any(|p| p["action"] == "question" && p["effect"] == "deny"));
     assert!(perms.iter().any(|p| p["action"] == "subagent" && p["effect"] == "deny"));
 }
+
+#[test]
+fn a_busy_model_through_opencode_serve_is_said_once_in_the_providers_words() {
+    let temp = Temp::new();
+    let store = Store::new(temp.0.join("native"), temp.0.join("electron")).unwrap();
+    std::fs::create_dir_all(store.electron()).unwrap();
+    let mut command = Command::new("python3");
+    command
+        .arg(fixture("m4-opencode-serve.py"))
+        .arg("serve")
+        .arg("busy-model")
+        .current_dir(&temp.0)
+        .env("LOCUST_NATIVE_OPENCODE_PROTOCOL", "serve");
+    let mut rt = OpenCode::spawn(&mut command).unwrap();
+    let turn = Turn {
+        prompt: "Say hello.".into(),
+        folder: temp.0.clone(),
+        model: Some("opencode/ling-3.0-flash-fin-free".into()),
+        effort: None,
+        resume: None,
+        mode: Mode::Ask,
+        approvals: None,
+        mission_id: "opencode_busy_model".into(),
+        run_id: "run_opencode_busy_model".into(),
+    };
+    let mut writer = LedgerWriter::create_runtime(
+        &store,
+        "opencode_busy_model",
+        &turn.prompt,
+        "opencode/ling-3.0-flash-fin-free",
+        "fake-opencode",
+        "opencode",
+        &[],
+        None,
+    )
+    .unwrap();
+    rt.start(&turn).unwrap();
+    let events = drive(&mut rt, &mut writer, &Channel::new(), "opencode_busy_model");
+    let said: Vec<_> = events.iter().filter(|e| e.kind == "adapter.diagnostic").collect();
+    assert_eq!(said.len(), 1);
+    assert_eq!(said[0].payload["level"], "warning");
+    assert_eq!(
+        said[0].payload["code"],
+        "opencode.provider_busy.runtime_error"
+    );
+    let message = said[0].payload["message"].as_str().unwrap_or("");
+    assert!(message.contains("\"Rate limit exceeded. Please try again later.\""));
+    assert!(message.contains("press Stop and pick another model"));
+}
+
+#[test]
+fn a_message_opencode_took_and_never_began_ends_the_run_saying_so() {
+    let temp = Temp::new();
+    let store = Store::new(temp.0.join("native"), temp.0.join("electron")).unwrap();
+    std::fs::create_dir_all(store.electron()).unwrap();
+    let mut command = Command::new("python3");
+    command
+        .arg(fixture("m4-opencode-serve.py"))
+        .arg("serve")
+        .arg("never-begun")
+        .current_dir(&temp.0)
+        .env("LOCUST_NATIVE_OPENCODE_PROTOCOL", "serve");
+    let mut rt = OpenCode::spawn(&mut command)
+        .unwrap()
+        .with_begin_check(Duration::from_millis(80));
+    let turn = Turn {
+        prompt: "Which CRM should a five-person team buy?".into(),
+        folder: temp.0.clone(),
+        model: Some("opencode/muse-spark-1.3-contributor-free".into()),
+        effort: None,
+        resume: None,
+        mode: Mode::Ask,
+        approvals: None,
+        mission_id: "opencode_never_begun".into(),
+        run_id: "run_opencode_never_begun".into(),
+    };
+    let mut writer = LedgerWriter::create_runtime(
+        &store,
+        "opencode_never_begun",
+        &turn.prompt,
+        "opencode/muse-spark-1.3-contributor-free",
+        "fake-opencode",
+        "opencode",
+        &[],
+        None,
+    )
+    .unwrap();
+    rt.start(&turn).unwrap();
+    let events = drive(&mut rt, &mut writer, &Channel::new(), "opencode_never_begun");
+    let last = events.last().unwrap();
+    assert_eq!(last.kind, "run.failed");
+    assert!(
+        last.payload["message"]
+            .as_str()
+            .unwrap_or("")
+            .contains("took the message but never began on it")
+    );
+    let sent = std::fs::read_to_string(temp.0.join("opencode-requests.jsonl")).unwrap();
+    assert!(sent.contains("\"/session/status\""));
+}
+
+#[test]
+fn a_message_opencode_took_waits_on_while_the_server_says_it_is_busy() {
+    let temp = Temp::new();
+    let store = Store::new(temp.0.join("native"), temp.0.join("electron")).unwrap();
+    std::fs::create_dir_all(store.electron()).unwrap();
+    let mut command = Command::new("python3");
+    command
+        .arg(fixture("m4-opencode-serve.py"))
+        .arg("serve")
+        .arg("never-begun-busy")
+        .current_dir(&temp.0)
+        .env("LOCUST_NATIVE_OPENCODE_PROTOCOL", "serve");
+    let mut rt = OpenCode::spawn(&mut command)
+        .unwrap()
+        .with_begin_check(Duration::from_millis(80));
+    let turn = Turn {
+        prompt: "Which CRM should a five-person team buy?".into(),
+        folder: temp.0.clone(),
+        model: Some("opencode/muse-spark-1.3-contributor-free".into()),
+        effort: None,
+        resume: None,
+        mode: Mode::Ask,
+        approvals: None,
+        mission_id: "opencode_never_begun_busy".into(),
+        run_id: "run_opencode_never_begun_busy".into(),
+    };
+    let mut writer = LedgerWriter::create_runtime(
+        &store,
+        "opencode_never_begun_busy",
+        &turn.prompt,
+        "opencode/muse-spark-1.3-contributor-free",
+        "fake-opencode",
+        "opencode",
+        &[],
+        None,
+    )
+    .unwrap();
+    rt.start(&turn).unwrap();
+    let mut events = vec![];
+    let wait_until = Instant::now() + Duration::from_millis(200);
+    while Instant::now() < wait_until {
+        if let Some(e) = rt.next_event().unwrap() {
+            assert_ne!(e.kind, "run.failed");
+            events.push(e);
+        }
+    }
+    rt.stop().unwrap();
+    events.extend(drive(&mut rt, &mut writer, &Channel::new(), "opencode_never_begun_busy"));
+    assert!(events.iter().all(|e| {
+        !e.payload["message"]
+            .as_str()
+            .unwrap_or("")
+            .contains("never began")
+    }));
+    let sent = std::fs::read_to_string(temp.0.join("opencode-requests.jsonl")).unwrap();
+    let status_calls = sent.lines().filter(|l| l.contains("\"/session/status\"")).count();
+    assert!(status_calls > 1, "expected >1 status calls, got {status_calls}");
+}
+
+#[test]
+fn a_message_opencode_took_asks_nothing_once_the_model_has_begun() {
+    let temp = Temp::new();
+    let store = Store::new(temp.0.join("native"), temp.0.join("electron")).unwrap();
+    std::fs::create_dir_all(store.electron()).unwrap();
+    let mut command = Command::new("python3");
+    command
+        .arg(fixture("m4-opencode-serve.py"))
+        .arg("serve")
+        .arg("begun-no-idle")
+        .current_dir(&temp.0)
+        .env("LOCUST_NATIVE_OPENCODE_PROTOCOL", "serve");
+    let mut rt = OpenCode::spawn(&mut command)
+        .unwrap()
+        .with_begin_check(Duration::from_millis(80));
+    let turn = Turn {
+        prompt: "Which CRM should a five-person team buy?".into(),
+        folder: temp.0.clone(),
+        model: Some("opencode/muse-spark-1.3-contributor-free".into()),
+        effort: None,
+        resume: None,
+        mode: Mode::Ask,
+        approvals: None,
+        mission_id: "opencode_begun_no_idle".into(),
+        run_id: "run_opencode_begun_no_idle".into(),
+    };
+    let mut writer = LedgerWriter::create_runtime(
+        &store,
+        "opencode_begun_no_idle",
+        &turn.prompt,
+        "opencode/muse-spark-1.3-contributor-free",
+        "fake-opencode",
+        "opencode",
+        &[],
+        None,
+    )
+    .unwrap();
+    rt.start(&turn).unwrap();
+    let mut events = vec![];
+    let wait_until = Instant::now() + Duration::from_millis(200);
+    while Instant::now() < wait_until {
+        if let Some(e) = rt.next_event().unwrap() {
+            events.push(e);
+        }
+    }
+    rt.stop().unwrap();
+    events.extend(drive(&mut rt, &mut writer, &Channel::new(), "opencode_begun_no_idle"));
+    assert!(events.iter().all(|e| {
+        !e.payload["message"]
+            .as_str()
+            .unwrap_or("")
+            .contains("never began")
+    }));
+    let sent = std::fs::read_to_string(temp.0.join("opencode-requests.jsonl")).unwrap();
+    assert!(!sent.contains("\"/session/status\""));
+}

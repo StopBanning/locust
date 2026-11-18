@@ -87,6 +87,8 @@ pub struct OpenCode {
     fork: bool,
     /// One of OpenCode's own commands the person typed: sent by name to its server (0.427).
     slash: Option<String>,
+    #[cfg(test)]
+    begin_check: Option<Duration>,
 }
 /// Whether this OpenCode command runs OpenCode 2 over ACP (its `acp` argument, or the tests' protocol switch).
 pub fn uses_acp(c: &Command) -> bool {
@@ -110,6 +112,8 @@ impl OpenCode {
             started: false,
             fork: false,
             slash: None,
+            #[cfg(test)]
+            begin_check: None,
         })
     }
     pub fn with_fork(mut self, fork: bool) -> Self {
@@ -122,6 +126,11 @@ impl OpenCode {
     }
     pub fn with_cancel(mut self, cancel: Arc<AtomicBool>) -> Self {
         self.cancel = cancel;
+        self
+    }
+    #[cfg(test)]
+    pub fn with_begin_check(mut self, d: Duration) -> Self {
+        self.begin_check = Some(d);
         self
     }
     fn cancelled(&self) -> bool {
@@ -174,6 +183,10 @@ impl Runtime for OpenCode {
                 super::opencode_serve::Serve::new(copy_command(&self.command), self.cancel.clone())
                     .with_fork(self.fork)
                     .with_command(self.slash.clone());
+            #[cfg(test)]
+            if let Some(d) = self.begin_check {
+                serve = serve.with_begin_check(d);
+            }
             serve.start(t)?;
             self.driver = Some(Driver::Serve(Box::new(serve)));
             return Ok(());

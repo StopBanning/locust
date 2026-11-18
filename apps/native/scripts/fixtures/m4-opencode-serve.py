@@ -74,9 +74,18 @@ class Handler(BaseHTTPRequestHandler):
                         state['subscribers'].remove(q)
             return
         if self.path.startswith('/session/status'):
+            with open('opencode-requests.jsonl', 'a') as log:
+                log.write(json.dumps({'path': '/session/status'}) + '\n')
+            if scenario == 'never-begun-busy':
+                sid = state['session'] or 'sess1'
+                return self._json(200, {sid: {'type': 'busy'}})
+            if scenario in ('never-begun', 'begun-no-idle'):
+                return self._json(200, {})
             sid = state['session']
             return self._json(200, {sid: {'type': 'idle'}} if sid else {})
         if self.path.startswith('/session/') and self.path.endswith('/message'):
+            if scenario == 'never-begun':
+                return self._json(200, [{'info': {'id': 'msg_user', 'role': 'user'}, 'parts': []}])
             sid = self.path.split('/')[2]
             return self._json(200, [{
                 'info': {'id': 'msg_a', 'role': 'assistant', 'sessionID': sid, 'parentID': 'msg_u', 'finish': 'stop', 'error': None, 'time': {'created': 1, 'completed': 2}},
@@ -103,8 +112,19 @@ class Handler(BaseHTTPRequestHandler):
         if '/prompt_async' in self.path or self.path.endswith('/command'):
             state['prompted'] = True
             sid = 'sess1'
+            if scenario == 'begun-no-idle':
+                publish({'type': 'message.updated', 'properties': {'sessionID': sid, 'info': {'id': 'msg_answer', 'role': 'assistant', 'sessionID': sid}}})
+                return self._json(200, None)
             def work():
                 time.sleep(0.05)
+                if scenario == 'busy-model':
+                    publish({'type': 'session.status', 'properties': {'sessionID': sid, 'status': {'type': 'busy'}}})
+                    publish({'type': 'session.status', 'properties': {'sessionID': sid, 'status': {'type': 'retry', 'attempt': 1, 'message': 'Rate limit exceeded. Please try again later.', 'next': 0}}})
+                    publish({'type': 'session.status', 'properties': {'sessionID': sid, 'status': {'type': 'retry', 'attempt': 2, 'message': 'Rate limit exceeded. Please try again later.', 'next': 0}}})
+                    publish({'type': 'session.idle', 'properties': {'sessionID': sid}})
+                    return
+                if scenario in ('never-begun', 'never-begun-busy'):
+                    return
                 publish({'type': 'message.updated', 'properties': {'sessionID': sid, 'info': {'id': 'msg_u', 'role': 'user', 'sessionID': sid}}})
                 publish({'type': 'message.updated', 'properties': {'sessionID': sid, 'info': {'id': 'msg_a', 'role': 'assistant', 'sessionID': sid, 'parentID': 'msg_u'}}})
                 if scenario == 'approve':

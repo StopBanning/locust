@@ -696,3 +696,14 @@ Break checks (all 25 behaviours caught by the named test):
     terminal event, and when Codex's reader sees it. Broken together, they were caught.
 - Several breaks first hit their 130 s limit while other lanes held the build lock; each was run again alone and
   caught. Logs: `~/work/scratch/maxlane/b17`, `~/work/scratch/maxlane/b18`.
+
+## Round 4 (17 Nov 2026, night)
+
+Branch at f72f97c7.
+
+## Batch 18: OpenCode serve busy-model and never-begun, plus command-guard tidy
+
+- **`a-busy-model-served-says-so.test.ts`** (carried, 1/1): `a_busy_model_through_opencode_serve_is_said_once_in_the_providers_words` in `core/src/runtime/opencode_tests.rs` using `scripts/fixtures/m4-opencode-serve.py` (`busy-model`).
+- **`a-message-taken-and-never-begun-ends-the-run.test.ts`** (partial, 3 cases): the 3 "a message OpenCode took and never began" cases (`a_message_opencode_took_and_never_began_ends_the_run_saying_so`, `a_message_opencode_took_waits_on_while_the_server_says_it_is_busy`, `a_message_opencode_took_asks_nothing_once_the_model_has_begun`), with `#[cfg(test)] with_begin_check` on `OpenCode` / `Serve` and new scenarios (`never-begun`, `never-begun-busy`, `begun-no-idle`) in `m4-opencode-serve.py`. EOF stream-recovery and follow-up parentID groups were not carried here.
+- **Command-guard tidy** (`ENGINE-PACKAGES-NOTES.md`, Colin's decision): `approval.rs` no longer builds or queues a `"command-guard"` record on a guard refusal; `saved_deny_and_guard_precede_session_always` now asserts `ch.take_recorded().is_empty()` and uses a watcher thread so a missing guard refusal fails immediately instead of blocking on a card.
+- Break checks (all 6 caught by the named test): `session.status` retry ignored, `locust.retry` deduplication dropped, `busy | retry` ignored in `recover`, `self.begun = true` dropped on assistant `message.updated`, watchdog `!self.begun` check disabled, and `approval.rs` guard `Kind::Command` check disabled.
