@@ -361,6 +361,9 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
         if let Some(card) = crate::agent_card_ui::chip_card(s, &l, runtime, chip_account) {
             chip = chip.child(card);
         }
+        if let Some(asking) = crate::compare_view::asking_label(s) {
+            chip = crate::hover::tip(s, &l, "compare-route", &asking, chip);
+        }
         let mut picker = col().w_full().px(24.0);
         if s.model_menu.as_ref() == Some(&id) {
             picker = picker.child(row().w_full().justify_end().child(model_picker(s, &l, &id, teammate, current, model, effort, false)));

@@ -1903,6 +1903,29 @@ pub(super) fn benchmark_entries(s: &State) -> Vec<BenchmarkEntry> {
 
 // ---- Composer controls ----------------------------------------------------------------------------------------------
 
+pub(super) fn asking_label(s: &State) -> Option<String> {
+    if s.compare.composer_mode == CompareComposerMode::Direct || s.compare.picks.is_empty() {
+        return None;
+    }
+    if s.compare.composer_mode == CompareComposerMode::Blind {
+        let names: Vec<String> = [CompareSlotId::A, CompareSlotId::B, CompareSlotId::C]
+            .into_iter()
+            .take(s.compare.picks.len())
+            .map(|slot| locust_core::compare::blind_name(slot, false))
+            .collect();
+        let refs: Vec<&str> = names.iter().map(String::as_str).collect();
+        Some(locust_core::compare::versus_label(&refs))
+    } else {
+        let refs: Vec<&str> = s
+            .compare
+            .picks
+            .iter()
+            .map(|p| p.label.as_deref().unwrap_or(p.model.as_str()))
+            .collect();
+        Some(locust_core::compare::versus_label(&refs))
+    }
+}
+
 pub(super) fn composer_mode_chip(s: &State, l: &crate::look::controls::Look) -> El {
     let label = s.compare.composer_mode.label();
     crate::look::controls::composer_chip(l, None, label, s.compare.composer_mode != CompareComposerMode::Direct)

@@ -643,3 +643,50 @@ fn compares_the_same_agent_and_model_on_two_distinct_accounts_and_keeps_both_acr
     );
     assert!(dup.unwrap_err().contains("already"));
 }
+
+// a-comparison-shows-its-models-on-hover.test.tsx
+#[test]
+fn a_comparison_shows_its_models_on_hover() {
+    let (_dirs, _store, mut rt) = window();
+    settle(&mut rt);
+    let pick = |label: &str| crate::compare_view::ComparePick {
+        runtime: "opencode".into(),
+        model: label.into(),
+        account: None,
+        effort: None,
+        label: Some(label.into()),
+    };
+
+    rt.update(|s, _| {
+        s.compare.composer_mode = crate::compare_view::CompareComposerMode::Compare;
+        s.compare.picks = vec![
+            pick("Mimo V2.6 Flash Free"),
+            pick("Ling 3.0 Flash Fin Free"),
+            pick("Muse Spark 1.3 Contributor Free"),
+        ];
+    });
+    rt.frame(0.016);
+    let (x, y) = rt.find("model-chip").unwrap();
+    rt.pointer_move(x, y);
+    rt.frame(0.016);
+    rt.frame(0.6);
+    let tip = rt.elements().into_iter().find(|e| e.key.as_deref() == Some("compare-route-tooltip"));
+    assert_eq!(
+        tip.and_then(|e| e.label).as_deref(),
+        Some("Mimo V2.6 Flash Free vs Ling 3.0 Flash Fin Free vs Muse Spark 1.3 Contributor Free")
+    );
+
+    rt.update(|s, _| {
+        s.compare.composer_mode = crate::compare_view::CompareComposerMode::Blind;
+    });
+    rt.frame(0.016);
+    let (x, y) = rt.find("model-chip").unwrap();
+    rt.pointer_move(x, y);
+    rt.frame(0.016);
+    rt.frame(0.6);
+    let tip = rt.elements().into_iter().find(|e| e.key.as_deref() == Some("compare-route-tooltip"));
+    assert_eq!(
+        tip.and_then(|e| e.label).as_deref(),
+        Some("Model A vs Model B vs Model C")
+    );
+}
