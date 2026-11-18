@@ -901,3 +901,24 @@ fn keyed_once_builds_once_per_key_shares_a_build_in_flight_and_retries_after_a_f
     assert_eq!(once.get_or_build("c", || build(false)), Ok(4));
     assert_eq!(builds.load(Ordering::Relaxed), 4);
 }
+
+/// phone-host.ts checks the key again once the body has arrived (`key() !== expected` -> "This phone was unpaired."):
+/// a phone unpaired while its message was still arriving is refused, and nothing it asked for is done.
+#[test]
+fn a_phone_unpaired_while_its_message_was_arriving_is_refused_and_nothing_is_done() {
+    let calls = FakeCalls::new();
+    let key = "k".repeat(32);
+    let asked = Arc::new(AtomicUsize::new(0));
+    let (key_for, asked_for) = (key.clone(), asked.clone());
+    // The first look (before the body) finds the key; every look after it finds the phone unpaired.
+    let handler = PhoneRequestHandler::new(
+        Arc::new(move || (asked_for.fetch_add(1, Ordering::SeqCst) == 0).then(|| key_for.clone())),
+        Arc::new(String::new),
+        calls.clone(),
+        Arc::new(|| 1_700_000_000_000),
+    );
+    let answer = handler.handle(&post_req(8080, "/api/decide", &key, &json!({"approvalId": "a1", "approve": true}), "application/json"));
+    assert_eq!(answer.status, 401);
+    assert_eq!(body_json(&answer), json!({"message": "This phone was unpaired."}));
+    assert!(calls.decided.lock().unwrap().is_empty());
+}
