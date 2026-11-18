@@ -2219,9 +2219,12 @@ fn redirects(text: &str) -> Option<Vec<Saved>> {
                 .unwrap_or_default()
         };
         i = at + target.chars().count() - 1;
-        let file = crate::invariants::regex(r#"^(["'])(.*)\1$"#)
-            .replace(&target, "$2")
-            .into_owned();
+        let file = target
+            .strip_prefix('"')
+            .and_then(|s| s.strip_suffix('"'))
+            .or_else(|| target.strip_prefix('\'').and_then(|s| s.strip_suffix('\'')))
+            .unwrap_or(&target)
+            .to_owned();
         if crate::invariants::regex(r"(?i)^(&\d?|/dev/null|\$null|nul)$").is_match(&file) {
             i += 1;
             continue;

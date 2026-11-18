@@ -1264,6 +1264,10 @@ fn picker_card_with(l: &crate::look::controls::Look, head: Option<El>, list: El,
 }
 
 #[cfg(test)]
+#[path = "picker_empty_tests.rs"]
+mod picker_empty_tests;
+
+#[cfg(test)]
 mod picker_tests {
     use super::*;
 

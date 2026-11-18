@@ -274,3 +274,163 @@ Checked at the end: the peer-link callers (`native.rs:1656`, `:2666`) pass workr
 the checks accept; every approval's `askedAt` is `now_iso()` (RFC 3339) except `engine_process.rs:264`, which takes the
 card's own `requestedAt` and defaults to empty, which `validate_approval` refuses. The old writer messages appear nowhere
 else in `src`, `scripts` or `core`.
+
+# Round 3: window tests (17-18 Nov, from HANDOFF-max-renderer-3)
+
+The 273 waiting files under `apps/desktop/src/renderer/` outside Sol's (teammates and the conversation thread). The
+answer key is `~/work/locust` (4ce2f37a). Many of these are about the window's drawing, and the drawing of the
+composer, the picker and the thread lives in Sol's files (`src/ui/thread_view.rs`, `messages.rs`, `people_panel.rs`,
+`core/src/teammate_*.rs`); where the rule is there, the row says so and is left for Sol.
+
+A quick survey (each file's imports against Rust's function names, `~/work/scratch/opus2/r3-files.txt`): about 50 of
+the 273 import something Rust has by name. Not built at all, so left waiting: the effort scale and its descriptions
+(`effortScale`, `effortLevels`), `cost.ts` (`benchmark::cost_line` is Compare's record line, with other words: "$0",
+"$0.0010" where `cost.ts` says "$0.00", "< $0.01"), and the catalog spellings (`rememberOwnModels`).
+
+## Batch 1 (window-1): how a model is named
+Rust's `teammate_tooltip::route_model_name` is Electron's `routeModelName`: a Claude alias or id read through
+`claudeModelName`, every other runtime `modelDisplayName` with no catalog read. Rust has no separate
+`modelDisplayName`, so the one Claude id the Electron case spells (`claude-haiku-4-5-20251001`, "Haiku 4.5 20251001")
+is read on the hover (`teammate_tooltip`), which spells a Claude id without the alias table, as `modelDisplayName`
+does. `route_model_name` says "Haiku 4.5" there, as Electron's `routeModelName` does: no bug.
+
+Carried: `routeName` (10): `route_name_tests.rs`.
+Partial: `a-model-has-one-name` (1 of 5), `a-kilo-model-has-one-name` (1 of 3), `your-own-model-is-named-as-yours`
+(1 of 3). The catalog cases are not counted: they pass only because Rust has no catalog spelling to take.
+Left waiting, for Sol: `a-picker-row-is-named-not-an-id` and `the-picker-reads-as-names`. Rust's picker
+(`thread_view.rs` `model_picker`) draws the catalog's name raw (`m.name`). Electron's `RoutePicker` spells it with
+`modelDisplayName` when the name is the id, when the id ends in `/<name>` (OpenCode's `ling-3.0-flash-fin-free`), or
+when it is `account-default` ("Account Default", where `models.rs` writes "Account default"); a name the runtime gave
+is kept. The rule belongs at the picker, not in `engine::parse_models` (Electron keeps the catalog's name and
+decides at the picker; `engine.rs`'s own test holds `beam-free`).
+
+No Rust code changed. Breaks: 16 on `teammate_tooltip.rs` and `own_models.rs` (`~/work/scratch/opus2/r3b1-breaks.log`), then
+1 rerun (`r3b1r-`; the first timed out waiting for the lock): all caught by name.
+
+## Batch 2 (window-2): the free model a new person starts on
+Partial, 4 files (`free_model_order_tests.rs`, 10 tests): `a-new-person-starts-on-the-steadiest-free-model`,
+`a-free-model-that-is-down-is-passed-over`, `a-free-model-that-answered-comes-first`, `a-retired-free-model-is-not-offered`.
+Rust has `connectors_off::free_start_model` and `free_models_best_first`, which match Electron's `freeStartModel` and
+`freeModelsBestFirst` on every value these files give. It has none of what feeds them in Electron: `downFreeModels`
+(six hours after "Model is unavailable"), `freeModelsThatAnswered`, `retiredFreeModels` / `modelRetired`
+(`KNOWN_RETIRED_MODELS` and "has been deprecated"), the catalogue-aware `nextFreeModel` (Scout's
+`next_free_model` walks `FREE_MODELS_BEST_FIRST` only, with no catalogue, no down set and no wrap round), and
+Compare's `defaultComparePicks`. Where a case passes one of those into `freeStartModel`, its result is written into
+the Rust test, and the case counts as half.
+
+One difference in form, not a bug: Electron marks a model of your own `own: true`; Rust has no such flag on
+`engine::Model`, and knows one by its `own-<id>/` route, so "never a model of the person's own, even one named -free"
+is written with `own-a1b2c3d0/mine-free`.
+
+No Rust code changed. Breaks: 10 on `connectors_off.rs` (`r3b2-breaks.log`): the named order, the unnamed after it and
+its tie-break, the own and -free filters, the down set, the answered list and its listed check, the fall-back when
+all are down, the first of those up. All caught by name.
+
+## Batch 3 (window-3): a restored queue waits for Send
+Partial: `a-restored-queue-waits-for-send` (7 of 16, two in half): `src/composer/restored_queue_tests.rs`, on
+`composer::queue` (Electron's `steering.ts`) over rows written and read back through `queue_store` (a real file under
+a store of the test's own). A row read back from the file is `restored`, as Electron's is after a relaunch. Electron's
+`createConversationQueue` (serialized writes, the first read awaited, Send that removes its row before it dispatches,
+one Send at a time, a refused Send held) has no Rust counterpart outside the window: `src/ui/composer_wiring.rs`
+(Sol's) reads and writes the file around its own `State`. Rust has no "not sent — press Send to try again" words.
+The unreadable-file case is Rust's form of Electron's: Electron's queue refuses the update and never writes; Rust's
+`write_queue` refuses to replace a file it cannot read.
+
+No Rust code changed. Breaks: 11 on `queue.rs` and `queue_store.rs` (`r3b3-breaks.log`): the restored and held verdicts,
+a row read back as restored, Discard's and Send's removal, the rekey, the restored guard on folding, `queued_in`'s key,
+the refusal to replace an unreadable file, the person-only filter and the saved attachments. All caught by name.
+
+## Batch 4 (window-4): "Wren finished"
+Partial: `finishedToast` (5 of 6, one in half): `core/src/finished_toast_tests.rs`. Rust's `attention::finished_toast`
+takes what Electron's `EndedRun` holds as plain values; Electron's `lastSaid` is `carry_on::latest_final` plus the
+first-line pick in `finished_toast`. Found, left as they are (no Electron case reaches either; for Colin or the
+lane that owns `attention.rs`): Rust's `clip` folds every run of white space into one space, where Electron's
+`lastSaid` keeps the line as written; Electron passes over a final message with no words for an earlier one, where
+Rust's `latest_final` keeps the last final message and its toast then says "Done.". Electron also stays quiet when
+the run ends on an open question (`openQuestion`); neither Rust's toast nor its caller (`attention_watch.rs`) checks for one. No case in this file reaches it.
+
+No Rust code changed. Breaks: 11 on `attention.rs` and `carry_on.rs` (`r3b4-breaks.log`): the minute, who started it,
+the ended phases, the stop's title, its first line and "after", the first line said and its bound, "Done.", hours, and
+the final-only read. All caught by name.
+
+## Batch 5 (window-5): the rail's card, Claude's version names, the route after a handoff
+Carried: `railFlyout` (7): `src/ui/rail_flyout_tests.rs`, on `rail.rs`'s own helpers (its own test used other values).
+Partial: `a-claude-route-names-its-version` (2 of 9): `claude_route_name_tests.rs`, on `models::claude_model_name`;
+`a-handoff-keeps-the-route-handed-to` (1 of 2): `handoff_route_tests.rs`, on `route_at_start::composer_route_for` (the
+other case reads Electron's `App.tsx`).
+
+**A difference, for Sol (the code is in `core/src/teammate_tooltip.rs`, Sol's):** Rust's `route_model_name` is meant
+to be Electron's `routeModelName`, but for Claude it reads only a full id (`claude_model_name`). Electron reads an alias
+through `claudeRouteModelName`: a finished run's report, else Claude Code's own name for it, else
+`CLAUDE_ALIAS_DEFAULTS` (which `models.rs` has, privately, with the same four entries). So `route_model_name("claude",
+"fable")` is "Fable" where Electron's case says "Fable 5.1" (seen in a test run, 18 Nov). Where it shows: the routine row
+(`routines.rs` `model_said`, Electron's `routineChain` with models, which calls `routeModelName`): "Wren (Opus)" where
+Electron says "Wren (Opus 5.5)". Not changed here: the fix belongs in `route_model_name`, which is Sol's.
+
+No Rust code changed. Breaks: 5 on `models.rs` and `route_at_start.rs` (`r3b5c-breaks.log`), 8 on `rail.rs` and
+`conversation_list.rs` (`r3b5n-breaks.log`): all caught by name.
+
+## Batch 6 (window-6): a pull request's news, What's new's dates, what a comparison changed
+Carried: `pull-request-news-is-said` (3): `src/ui/pull_request_news_tests.rs`, drawn headless. Electron's `is-plain`
+class is Rust's plain fill (`bg-raised`; news to fix is `amber-tint`), and `aria-pressed` is "Watching" on a lime fill.
+Partial: `whats-new-reads-like-claude-codes` (1 of 6): `src/whats_new_tests.rs`; `a-comparison-that-edits-says-what-each-changed`
+(1 of 5, one in half): `compare_changes_line_tests.rs`.
+
+**Bug fixed in `src/changelog.rs`:** `changelog_date` said nothing for a date not written as three numbers (`someday`),
+so the heading fell back to "Version 0.281.0"; it also read `2026-9-3` and refused a day of `00` or `32`. It is
+Electron's `changelogDate` now: exactly `YYYY-MM-DD` with a real month reads as words, anything else is said as written.
+The Electron case was written first and failed on the old code (`left: None, right: Some("someday")`).
+
+Not built in Compare, for Colin (no such words in Rust): Electron's bar adds "On Auto, a model can still change files
+outside its copy if it is asked to." when the columns run on Auto (0.555, Sol's run that wrote into Colin's folder);
+Keep says "Its changes come into your folder, not committed", and in a folder too big to copy "its changes are there
+already". Rust's What's new heading is "0.281.0 · September 23, 2026" in one line where Electron draws the date with
+the version as a badge (`home_panel.rs`, Sol's).
+
+## Batch 7 (window-7): the judge's scorecard
+Partial: `a-judge-scorecard-sits-under-the-answers` (3 of 4, one in half): `src/ui/judge_scorecard_tests.rs`, on
+`render_scorecard` (called directly from a test module inside `compare_view.rs`). Where the card sits, before the
+judge's own words, is drawn in `view` and not checked. A verdict and its why are one cell in Rust.
+
+Breaks for batches 6 and 7: 26, after a first run where every break timed out waiting for the lock (stopped, rerun with
+1500 s each; `r3b67c-breaks.log`, `r3b67n-breaks.log`): the old `changelog_date` put back, its words and day, the
+banner's ask, words, fill and sentence, the toggle's words and fill, `pull_request_ask`, `changes_line`'s noun, zero
+and sign, the scorecard's headers, verdict, why, best, time, spent (twice), the judge's note, column order and
+`blind_name`. All caught by name.
+
+## Batch 8 (window-8): Scout's fix line, a new person's starters and usage line
+Partial: `a-scout-fix-says-where-it-stands` (2 of 3): `src/ui/scout_fix_tests.rs`, on `render_fix_line` drawn headless
+and `scout::view`'s `fix_said`, `fix_files_line` and `card_shows_draft`. Not checked: the Settings switch (its words
+are in `scout_setting.rs` and have Rust tests of their own, not one per Electron case).
+Partial: `a-new-person-is-met-where-they-are` (4 of 7, one in half): `src/ui/new_person_tests.rs`. Two cases read
+Electron's source (`App.tsx`, `FirstLaunch.tsx`); the starter row's wiring in the third is the same.
+No Rust code changed. Breaks: 15 on `scout/view.rs`, `scout_cards.rs`, `starters.rs`, `idle_teammate.rs` and
+`usage.rs` (`r3b8-breaks.log` and `r3b8-fix.txt`): all caught by name.
+
+## Batch 9 (window-9): command cards, Memory screen's forgotten/before rows, picker scroll
+Carried: `a-commands-card-says-unknown-once` (2): `src/ui/commands_card_tests.rs`, drawn headless through
+`approval_card`.
+Partial: `a-commands-card-says-what-it-is-for` (3 of 5): `src/ui/commands_card_tests.rs`, plus
+`command_plain::plain_command`'s `careful` flag. `approval_card.rs` draws `In short:` in `p.text` rather than amber
+when `careful` is true (`plain_action` returns `Option<String>`), and `phone-page.ts` is not in native.
+Partial: `a-forgotten-memory-shows-with-restore` (2 of 2, first in half) and `a-memory-shows-what-it-said-before` (2 of
+2, first in half): `src/ui/memory_screen_tests.rs`, drawn headless through `people_panel::memory_screen`. Rust draws
+`Recently forgotten` / `Restore` and `Before: …` without Electron's extra subtitle, `forgotten by`, date, or `Put it back`.
+Does-not-apply: `the-picker-opens-on-what-is-chosen` (reads `RoutePicker.tsx?raw` for React DOM `listRef` / `scrollTop`).
+
+**Bug fixed in `core/src/command_plain.rs`:** `redirect_targets` used `invariants::regex(r#"^(["'])(.*)\1$"#)` to
+unquote redirect targets. Rust's `regex` crate does not support backreferences (`\1`), so any command with a redirect
+(like `echo LOCUST-ACP-OK > approved.txt` from Electron's test) panicked at runtime. Replaced with `strip_prefix`/`strip_suffix`
+for matching `"` or `'` quotes. The Electron case was written first and panicked on the old code.
+Breaks: 8 on `approval_card.rs` and `people_panel.rs` (`r3b9-breaks.log`): all caught by name.
+
+## Batch 10 (window-10): other-app access in Settings, stay-awake switch, picker empty states
+Partial: `other-app-access-is-an-explicit-setting` (5 of 8): `src/ui/settings_door_tests.rs`, drawn headless through
+`settings_panel::door_section`. Not checked: React mock IPC toggle-off, OpenClaw line, `editorSeen` / `editorAnswers`,
+and `turnPromptLine`.
+Partial: `a-plugged-in-computer-stays-awake-in-settings` (1 of 1 in half): `src/ui/stay_awake_tests.rs`, drawn headless
+through `quit_guard_dialog::startup_section`.
+Partial: `picker-empty-states` (2 of 3 in half): `src/ui/picker_empty_tests.rs`, drawn headless through
+`thread_view::model_picker` ("Reading the models…" vs Electron's "Still reading the model list").
+No Rust code changed. Breaks: 9 on `settings_panel.rs`, `quit_guard_dialog.rs` and `thread_view.rs` (`r3b10-breaks.log`
+and `r3b10-fix.txt`): all caught by name.

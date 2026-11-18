@@ -518,6 +518,10 @@ pub(super) fn title_bar(s: &State, p: &Palette, toggles: bool, running: usize) -
 }
 
 #[cfg(test)]
+#[path = "rail_flyout_tests.rs"]
+mod rail_flyout_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
 

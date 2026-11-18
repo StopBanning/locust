@@ -1425,6 +1425,10 @@ pub(super) fn light_scene(s: &mut State) {
 }
 
 #[cfg(test)]
+#[path = "settings_door_tests.rs"]
+mod settings_door_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
 

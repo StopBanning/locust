@@ -1537,6 +1537,10 @@ pub(super) fn interview_origin() -> native::Origin {
 }
 
 #[cfg(test)]
+#[path = "memory_screen_tests.rs"]
+mod memory_screen_tests;
+
+#[cfg(test)]
 mod interview_tests {
     #[test]
     fn an_interview_starts_in_ask_so_it_changes_nothing() {

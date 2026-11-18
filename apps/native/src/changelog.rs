@@ -172,34 +172,22 @@ pub fn native_notes(extra: Option<&Path>) -> String {
     NATIVE_CHANGELOG.to_owned()
 }
 
-/// `September 23, 2026` from `2026-09-23` without Date parsing (Electron `changelogDate`).
+/// `September 23, 2026` from `2026-09-23` without Date parsing (Electron `changelogDate`): exactly four, two and two
+/// digits with a real month read as words; anything else is said as it was written.
 pub fn changelog_date(raw: &str) -> Option<String> {
-    let parts: Vec<&str> = raw.split('-').collect();
-    if parts.len() != 3 {
-        return None;
+    const MONTHS: [&str; 12] =
+        ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    let b = raw.as_bytes();
+    let digits = |r: std::ops::Range<usize>| b[r].iter().all(u8::is_ascii_digit);
+    if b.len() != 10 || b[4] != b'-' || b[7] != b'-' || !digits(0..4) || !digits(5..7) || !digits(8..10) {
+        return Some(raw.to_owned());
     }
-    let year: i32 = parts[0].parse().ok()?;
-    let month: u32 = parts[1].parse().ok()?;
-    let day: u32 = parts[2].parse().ok()?;
-    let name = match month {
-        1 => "January",
-        2 => "February",
-        3 => "March",
-        4 => "April",
-        5 => "May",
-        6 => "June",
-        7 => "July",
-        8 => "August",
-        9 => "September",
-        10 => "October",
-        11 => "November",
-        12 => "December",
-        _ => return None,
+    let month: usize = raw[5..7].parse().unwrap_or(0);
+    let Some(name) = month.checked_sub(1).and_then(|m| MONTHS.get(m)) else {
+        return Some(raw.to_owned());
     };
-    if !(1..=31).contains(&day) {
-        return None;
-    }
-    Some(format!("{name} {day}, {year}"))
+    let day: u32 = raw[8..10].parse().unwrap_or(0);
+    Some(format!("{name} {day}, {}", &raw[0..4]))
 }
 
 pub fn version_heading(entry: &ChangelogEntry) -> String {
@@ -208,6 +196,10 @@ pub fn version_heading(entry: &ChangelogEntry) -> String {
         None => format!("Version {}", entry.version),
     }
 }
+
+#[cfg(test)]
+#[path = "whats_new_tests.rs"]
+mod whats_new_tests;
 
 #[cfg(test)]
 mod tests {

@@ -383,3 +383,7 @@ mod combine_queued_tests;
 #[cfg(test)]
 #[path = "retried_after_busy_tests.rs"]
 mod retried_after_busy_tests;
+
+#[cfg(test)]
+#[path = "restored_queue_tests.rs"]
+mod restored_queue_tests;

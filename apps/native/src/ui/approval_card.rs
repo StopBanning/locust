@@ -478,3 +478,7 @@ mod tests {
         assert!(recorded.contains("The change, as Codex CLI would apply it"), "{recorded}");
     }
 }
+
+#[cfg(test)]
+#[path = "commands_card_tests.rs"]
+mod commands_card_tests;

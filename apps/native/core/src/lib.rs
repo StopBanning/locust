@@ -387,6 +387,18 @@ mod every_teammate_is_a_bot_tests;
 mod face_ledger_tests;
 #[cfg(test)]
 mod cost_sentences_tests;
+#[cfg(test)]
+mod route_name_tests;
+#[cfg(test)]
+mod free_model_order_tests;
+#[cfg(test)]
+mod finished_toast_tests;
+#[cfg(test)]
+mod claude_route_name_tests;
+#[cfg(test)]
+mod handoff_route_tests;
+#[cfg(test)]
+mod compare_changes_line_tests;
 
 #[cfg(test)]
 pub(crate) mod load_waits;
