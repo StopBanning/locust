@@ -666,7 +666,7 @@ apps/desktop/src/renderer/src/a-conversation-opens-beside-another.test.tsx	P4	pa
 apps/desktop/src/renderer/src/a-conversation-with-nobody-wears-its-model.test.tsx	R2	carried	src/ui/sidebar.rs renderer_model_mark_tests	2 exact cases drawn through actual sidebar; named passes in renderer-7-restored-workspace.log; own-model control caught and restored
 apps/desktop/src/renderer/src/a-copy-says-the-installed-locust-updates.test.ts		waiting		
 apps/desktop/src/renderer/src/a-count-says-only-what-changed.test.tsx	P7	does-not-apply	counts_only_say_what_changed	`renderer/src/a-count-says-only-what-changed.test.tsx` | `counts_only_say_what_changed` ports all four outputs: addition, deletion, mixed edit, neither; CSS class assertions do not apply.
-apps/desktop/src/renderer/src/a-damaged-record-says-so-in-the-thread.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-damaged-record-says-so-in-the-thread.test.tsx	hydrogen-1	waiting		integrity_issue_count is shown in inspector_panel.rs via ledger_verification_label, not as an inline thread note
 apps/desktop/src/renderer/src/a-decision-is-answered-by-number.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-decision-without-a-teammate-names-nobody.test.tsx	renderer-1	carried	decision_card::renderer_tests	2 cases; exact anonymous title and Wren title. notes/RENDERER-NOTES.md.
 apps/desktop/src/renderer/src/a-default-route-names-its-model.test.tsx		waiting		
@@ -704,7 +704,7 @@ apps/desktop/src/renderer/src/a-handoff-says-what-it-carries.test.ts		waiting
 apps/desktop/src/renderer/src/a-helpers-calls-fold-under-its-row.test.tsx	P10	carried	core/src/helper_calls_tests.rs; src/ui/activity_drawers.rs a_helpers_calls_count_on_its_row_and_open_onto_each_call	all 7 cases, on Electron's recorded helper run read by Rust's Claude reader; the card's 'Asked by' words are tested in core and drawn from them
 apps/desktop/src/renderer/src/a-helpers-summary-reads-as-words.test.ts		waiting		
 apps/desktop/src/renderer/src/a-home-starter-starts-with-a-teammate-or-compares.test.ts	p12	partial		`a-home-starter-starts-with-a-teammate-or-compares.test.ts`, `a-team-without-a-coder-gets-its-own-starters.test.tsx`, `a-build-starter-makes-one-page.test.ts` | STARTERS / role starters / page prompt
-apps/desktop/src/renderer/src/a-host-started-run-is-not-retried-as-your-message.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-host-started-run-is-not-retried-as-your-message.test.tsx	hydrogen-1	partial	core/src/thread_view_tests.rs	person_prompt is tested in thread_view_tests.rs:186; runAgainOffer / Run it again is not built in src/ui/messages.rs
 apps/desktop/src/renderer/src/a-hung-cli-gets-a-way-past.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-judge-scorecard-sits-under-the-answers.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-key-is-asked-for-on-a-card.test.tsx	P10	carried	src/ui/window_drive_tests.rs a_key_asked_for_is_kept_from_its_card_and_listed_in_the_teammates_form	all three it()s, in one drive of the window's card and edit form
@@ -747,7 +747,7 @@ apps/desktop/src/renderer/src/a-notice-is-said-once.test.ts		waiting
 apps/desktop/src/renderer/src/a-page-a-teammate-made-runs-in-its-turn.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-page-opens-running.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-part-of-a-reply-can-be-asked-about.test.tsx	SIDE-CHAT	partial	src/ui/side_chat.rs tests, window_drive_tests selecting_text_in_a_reply	Partial: quote line by line and capped; selection inside one reply in the window test; chip placement beside the selection not carried (pinned to the thread corner)
-apps/desktop/src/renderer/src/a-path-only-message-is-titled-by-its-file.test.ts		waiting		
+apps/desktop/src/renderer/src/a-path-only-message-is-titled-by-its-file.test.ts	hydrogen-1	waiting		No pathOnlyTitle in Rust conversation titles
 apps/desktop/src/renderer/src/a-paused-routine-says-so.test.ts	routines-1	carried	core/src/routine_lines_tests.rs; routines_panel::routine_row_lines_tests	Both: a_paused_routine_says_so_on_its_schedule_chip_in_place_of_its_next_time, a_paused_routine_counts_its_next_time_from_a_resume (routines::schedule::summary, ported 16 Nov), and the row wearing it (the_row_names_who_runs_it_on_what_model_and_says_when_it_is_paused). Breaks caught.
 apps/desktop/src/renderer/src/a-pdf-is-a-card.test.tsx	p14	partial		`main/a-pdf-arrives-readable.test.ts`, `main/a-pdf-shows-its-pages.test.ts`, `renderer/.../a-pdf-is-a-card.test.tsx`, `a-pdf-page-reads-in-order.test.ts` | Partial: reading text/BOM, picture names, note wording, path refusal, macOS PDFKit t
 apps/desktop/src/renderer/src/a-pdf-page-reads-in-order.test.ts	p14	partial		`main/a-pdf-arrives-readable.test.ts`, `main/a-pdf-shows-its-pages.test.ts`, `renderer/.../a-pdf-is-a-card.test.tsx`, `a-pdf-page-reads-in-order.test.ts` | Partial: reading text/BOM, picture names, note wording, path refusal, macOS PDFKit t
@@ -886,7 +886,7 @@ apps/desktop/src/renderer/src/an-empty-home-offers-a-team.test.tsx	p12	partial		
 apps/desktop/src/renderer/src/an-ended-run-offers-the-way-on.test.tsx		waiting		
 apps/desktop/src/renderer/src/an-idle-teammate-offers-its-own-world.test.tsx	renderer-12	carried	src/ui/idle_teammate.rs	5 exact Electron cases through real headless thread; cached template starters/custom titles at roster refresh; mode and startup regressions; 2 controls caught/restored. notes/RENDERER-NOTES.md.
 apps/desktop/src/renderer/src/an-image-can-be-zoomed-and-panned.test.ts		waiting		
-apps/desktop/src/renderer/src/an-image-request-lives-only-with-its-row.test.ts		waiting		the window asks the disk once per (folder, path) and never for a non-image (src/ui/step_pictures.rs thread_picture, workspace_image refuses by extension first); no test of its own yet, and React's late answer after unmount has no counterpart
+apps/desktop/src/renderer/src/an-image-request-lives-only-with-its-row.test.ts	hydrogen-1	does-not-apply		React async unmount guard in AttachedImage.tsx; Rust workspace_image is synchronous in src/workspace_image_tests.rs
 apps/desktop/src/renderer/src/an-issue-link-wears-its-state.test.tsx		waiting		
 apps/desktop/src/renderer/src/an-older-conversation-stays-read.test.ts	renderer-15	does-not-apply		Both cases test Electron skinny-history IPC merging (missingTranscripts, eventCount/digest and JavaScript object identity). Native keeps its full LedgerPane/Session independently of recents; main.rs begin_ledger and recents-result path never replace it with a summary. No native IPC cache protocol to recreate. See notes/RENDERER-NOTES.md.
 apps/desktop/src/renderer/src/an-opencode-run-that-edited-is-not-run-again.test.ts		waiting		
@@ -908,7 +908,7 @@ apps/desktop/src/renderer/src/chat-apps-say-each-step-in-settings.test.tsx		wait
 apps/desktop/src/renderer/src/choosing-an-issue-sends-nothing.test.tsx	ISSUES	partial	core/src/github_issues_tests.rs, window test issues_lists_the_folders_issues	Partial: the list and its choice are carried; picture fetching and Home’s Start from an issue wait
 apps/desktop/src/renderer/src/claude-thinking-appears-in-the-thinking-row.test.tsx		waiting		
 apps/desktop/src/renderer/src/claudes-cloud-says-what-it-works-on.test.tsx		waiting		
-apps/desktop/src/renderer/src/code-in-a-reply-is-coloured.test.tsx	P5	waiting	code_preserves_unicode_and_has_bounded_colouring	`code-in-a-reply-is-coloured.test.tsx` | `reply_actions::tests::code_preserves_unicode_and_has_bounded_colouring` checks real Rune highlighting, valid UTF-8 boundaries and unknown-language fallback. The streaming/60k guards are implemented.
+apps/desktop/src/renderer/src/code-in-a-reply-is-coloured.test.tsx	hydrogen-1	partial	src/code_colors_tests.rs	4 of 5: highlight_reply_code (ts, Python, bash, brainfudge, None, live, >60k); ps1/c++ not in rune_kit::syntax and languageOfPath not separately tested; 2/2 breaks killed
 apps/desktop/src/renderer/src/codex-buddy-lifts-in-sets.test.ts		carried	core/src/buddy_moves.rs tests	all 16 cases in buddy_moves::tests (his moves, a move at a moment, moments at rest)
 apps/desktop/src/renderer/src/codex-buddy-moves-on-his-own-rig.test.ts	hydrogen-1	partial	core/src/buddy_moves.rs	10 of 16: all rig, spring, framing, fps and resting cases in buddy_moves::tests; HTML5 Canvas pixel-cut and IndexedDB OLD_TWEENS_DATABASE cases do not apply
 apps/desktop/src/renderer/src/codex-buddy-wears-a-screen.test.tsx	hydrogen-1	partial	core/src/buddy_moves.rs	10 of 18: table, framing and sheet checks in buddy_moves::tests; UI toggle and faces.rs drawing cases not separately named

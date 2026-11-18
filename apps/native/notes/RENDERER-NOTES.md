@@ -2365,3 +2365,13 @@ Additional native cases (folder_confirmation::tests):
   - `a-pet-canvas-drawn-shrunk-is-in-software.test.ts`: source-inspection test of `buddyBody.ts` and `pets.ts` for HTML5 Canvas 2D `willReadFrequently` / `createImageBitmap`.
 - Waiting:
   - `a-queued-message-refused-as-busy-waits.test.ts`: `src/composer/queue.rs` has `combine_queued` but no `retried_after_busy` / `retry_at` exponential backoff.
+
+## Batch 4 (17 Nov 2026)
+- Partial:
+  - `code-in-a-reply-is-coloured.test.tsx` (4 of 5 cases): `src/code_colors_tests.rs` on `reply_actions::highlight_reply_code` (`ts`, `Python`, `bash`, `brainfudge`, `None`, `live`, `> 60_000`); `ps1` and `c++` fences are not carried by `rune_kit::syntax`, and `languageOfPath` is not separately tested. 2 of 2 breaks on `src/ui/reply_actions.rs` killed by name (`~/work/scratch/hydrogen/b4-breaks.log`, `b4b-breaks.log`).
+  - `a-host-started-run-is-not-retried-as-your-message.test.tsx`: `core/src/thread_view_tests.rs:186` tests `person_prompt`; `runAgainOffer` / `"Run it again"` is not built in `src/ui/messages.rs`.
+- Does-not-apply:
+  - `an-image-request-lives-only-with-its-row.test.ts`: React async unmount guard in `AttachedImage.tsx`; Rust `workspace_image` is synchronous (`src/workspace_image_tests.rs`).
+- Waiting:
+  - `a-path-only-message-is-titled-by-its-file.test.ts`: no `pathOnlyTitle` in Rust conversation titles.
+  - `a-damaged-record-says-so-in-the-thread.test.tsx`: `integrity_issue_count` is shown in `inspector_panel.rs` via `ledger_verification_label`, not as an inline thread note.
