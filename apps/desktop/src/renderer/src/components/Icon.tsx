@@ -72,7 +72,8 @@ export type IconName =
 export function Icon({ name, size = 16 }: { name: IconName; size?: number }): ReactNode {
   const paths: Record<IconName, ReactNode> = {
     mic: <><rect x="9" y="2" width="6" height="12" rx="3" /><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8" /></>,
-    activity: <path d="M3 12h3l2.1-6 3.8 12L14 12h7" />,
+    // Lucide's activity, in this set's stroke (0.879, 18 Nov: the first quick drawing replaced).
+    activity: <path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2" />,
     // A thought bubble: the cloud, then the two trailing dots that make it a
     // thought and not speech. Colin, 2026-09-17: "use a little thought bubble".
     thought: (
@@ -100,26 +101,36 @@ export function Icon({ name, size = 16 }: { name: IconName; size?: number }): Re
     waveform: <path d="M2 10v3M6 6v11M10 3v18M14 8v7M18 5v13M22 10v3" />,
     'mic-off': <><path d="M2 2l20 20" /><path d="M18.89 13.23A7.12 7.12 0 0 0 19 12v-2" /><path d="M5 10v2a7 7 0 0 0 12 5" /><path d="M15 9.34V5a3 3 0 0 0-5.68-1.33" /><path d="M9 9v3a3 3 0 0 0 5.12 2.12" /><path d="M12 19v3" /></>,
     diff: <><rect x="3" y="5" width="6" height="14" /><rect x="15" y="5" width="6" height="14" /><path d="M12 2v20" /></>,
-    file: <><path d="M6 3h8l4 4v14H6z" /><path d="M14 3v5h5" /></>,
+    // Lucide's file, in this set's stroke (0.879, 18 Nov: the first quick drawing replaced).
+    file: <><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" /><path d="M14 2v5a1 1 0 0 0 1 1h5" /></>,
     // The arrow into a tray: what every other client draws for "save this
     // somewhere". A desktop app copies rather than downloads, and the glyph
     // is still the one people know (Colin, 2026-09-20).
     download: <><path d="M12 4v10" /><path d="M8 11l4 4 4-4" /><path d="M5 19h14" /></>,
-    folder: <path d="M3 6h6l2 3h10v10H3z" />,
+    // Lucide's folder, in this set's stroke (0.879, 18 Nov: the first quick drawing replaced).
+    folder: <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />,
     grid: <><rect x="4" y="4" width="6" height="6" rx="1" /><rect x="14" y="4" width="6" height="6" rx="1" /><rect x="4" y="14" width="6" height="6" rx="1" /><rect x="14" y="14" width="6" height="6" rx="1" /></>,
-    inbox: <><path d="M4 5h16v13H4z" /><path d="M4 13h4l2 3h4l2-3h4" /></>,
+    // Lucide's inbox, in this set's stroke (0.879, 18 Nov: the first quick drawing replaced).
+    inbox: <><polyline points="22 12 16 12 14 15 10 15 8 12 2 12" /><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" /></>,
     maximize: <rect x="5" y="5" width="14" height="14" rx="1" />,
-    message: <path d="M4 5h16v12H9l-5 4z" />,
+    // Lucide's message-square, in this set's stroke (0.879, 18 Nov: the first quick drawing replaced).
+    message: <path d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z" />,
     minimize: <path d="M5 12h14" />,
-    pause: <><path d="M9 7v10" /><path d="M15 7v10" /></>,
-    play: <path d="m9 7 8 5-8 5z" />,
-    refresh: <><path d="M19 12a7 7 0 1 1-2.05-4.95" /><path d="M19 5v4h-4" /></>,
+    // Lucide's pause, in this set's stroke (0.879, 18 Nov: the first quick drawing replaced).
+    pause: <><rect x="14" y="3" width="5" height="18" rx="1" /><rect x="5" y="3" width="5" height="18" rx="1" /></>,
+    // Lucide's play, in this set's stroke (0.879, 18 Nov: the first quick drawing replaced).
+    play: <path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z" />,
+    // Lucide's rotate-cw, in this set's stroke (0.879, 18 Nov: the first quick drawing replaced).
+    refresh: <><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" /></>,
     plus: <><path d="M12 5v14" /><path d="M5 12h14" /></>,
-    route: <><circle cx="6" cy="6" r="2" /><circle cx="18" cy="18" r="2" /><path d="M8 6h4a4 4 0 0 1 4 4v4" /><path d="m13 12 3 3 3-3" /></>,
+    // Lucide's route, in this set's stroke (0.879, 18 Nov: the first quick drawing replaced).
+    route: <><path d="M9 5h8.5a1 1 0 010 7h-11a1 1 0 000 7H15" /><circle cx="18" cy="19" r="3" /><circle cx="6" cy="5" r="3" /></>,
     search: <><circle cx="11" cy="11" r="7" /><path d="m16 16 4 4" /></>,
-    settings: <><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6 1.7 1.7 0 0 0 10 3V2.8h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z" /></>,
+    // Lucide's settings, in this set's stroke (0.879, 18 Nov: the first quick drawing replaced).
+    settings: <><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" /><circle cx="12" cy="12" r="3" /></>,
     shield: <><path d="M12 3 5 6v5c0 4.7 2.8 8.2 7 10 4.2-1.8 7-5.3 7-10V6z" /><path d="m9 12 2 2 4-5" /></>,
-    spark: <><path d="m12 3 1.3 4.3L18 9l-4.7 1.7L12 15l-1.3-4.3L6 9l4.7-1.7z" /><path d="m18.5 15 .7 2.2 2.3.8-2.3.8-.7 2.2-.7-2.2-2.3-.8 2.3-.8z" /></>,
+    // Lucide's sparkles, in this set's stroke (0.879, 18 Nov: the first quick drawing replaced).
+    spark: <><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z" /><path d="M20 2v4" /><path d="M22 4h-4" /><circle cx="4" cy="20" r="2" /></>,
     /*
      * THE ONE ADDITION, and it was asked for rather than assumed.
      *
