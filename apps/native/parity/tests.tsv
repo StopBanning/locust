@@ -114,6 +114,7 @@ apps/desktop/src/main/a-kilo-follow-up-finds-its-session.test.ts		waiting
 apps/desktop/src/main/a-language-server-that-did-not-change-is-not-asked-again.test.ts		waiting		
 apps/desktop/src/main/a-large-file-in-a-plain-folder-shows-its-change.test.ts		waiting		
 apps/desktop/src/main/a-launch-from-an-agents-settings-folder-is-not-a-workspace.test.ts		waiting		
+apps/desktop/src/main/a-limit-lifts-when-the-account-says-so.test.ts	LIMITS	carried	core/src/limits_tests.rs	all 7 cases: lifts on Antigravity's reading when every window has some left, stays while any window is used up (Claude and GPT too), stays when the reading names no window, lifts once the reset has passed and not a moment before, never lifts on an unreadable reset, read back from the record until its reset then not, control with no readable time stays until a run finishes
 apps/desktop/src/main/a-link-opens-locust-with-a-message-ready.test.ts	LINKS	partial	core/src/locust_link_tests.rs	"a link": all 4 cases carried, and the window test a_link_opens_a_new_conversation_with_its_message_ready_and_never_sends_it; the inbox (Rune keeps the launching link itself) and claiming locust:// on Windows are Electron's host's
 apps/desktop/src/main/a-linux-app-sees-the-terminals-path.test.ts	P9	does-not-apply		main/a-linux-terminal-is-the-one-the-desktop-has.test.ts, main/a-linux-app-sees-the-terminals-path.test.ts | Linux launcher/environment not applicable to macOS pass.
 apps/desktop/src/main/a-linux-copy-updates-the-way-it-was-installed.test.ts		waiting		
@@ -195,7 +196,7 @@ apps/desktop/src/main/a-reopened-conversation-keeps-its-check.test.ts		waiting
 apps/desktop/src/main/a-reply-is-shown-the-message-it-answers.test.ts		waiting		
 apps/desktop/src/main/a-reply-lines-up-with-the-box.test.ts		waiting		
 apps/desktop/src/main/a-reply-outside-an-exchange-lands-in-the-hub.test.ts	RELAY	partial	core/src/relay_tests.rs, core/src/native/tests.rs	continues hub + remembers hub tested in relay_skips_mcp_and_deduplicates_recipients_and_tracks_hub and relay_roundtrip
-apps/desktop/src/main/a-reply-waits-for-a-plan-that-is-out.test.ts		waiting		
+apps/desktop/src/main/a-reply-waits-for-a-plan-that-is-out.test.ts	LIMITS	carried	core/src/limits_tests.rs	all 5 planOutSentence cases: out until named day and time, not out once reset passes, not out once later run finishes, reads only the plan asked about and omits time when no readable reset, nothing for no record (native::out_of_plan still returns the raw limit message, with reset-lifting via limits::limited_runtimes)
 apps/desktop/src/main/a-report-can-reach-support-by-email-or-file.test.ts	settings	carried	core/src/report_problem.rs	support mailto limit/fallback + uncut file report + secret scrubbing
 apps/desktop/src/main/a-resumed-session-is-told-only-what-changed.test.ts		waiting		
 apps/desktop/src/main/a-rewrite-is-credited-to-its-writer.test.ts		waiting		

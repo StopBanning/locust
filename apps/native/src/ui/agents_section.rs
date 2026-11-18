@@ -23,12 +23,23 @@ const CHECKING: &str = "Checking each AI agent on this Mac…";
 
 /// Ask every agent again, in the background. Tests never run real agents: they set the results themselves.
 pub(super) fn request(s: &mut State) {
+    if let Some(store) = &s.data {
+        let from_store = locust_core::limits::limited_runtimes(store);
+        if !from_store.is_empty()
+            || !cfg!(test)
+            || store.root().join("mission-ledger").exists()
+            || store.electron().join("mission-ledger").exists()
+        {
+            s.limited_runtimes = from_store;
+        }
+    }
+    s.limited_runtimes.retain(|_, said| {
+        !locust_core::limits::limit_has_reset(said, chrono::Utc::now().timestamp_millis())
+    });
     #[cfg(not(test))]
     if !s.settings_panel.agents_job.is_pending() {
         s.settings_panel.agents_job.request((), |()| agents::discover());
     }
-    #[cfg(test)]
-    let _ = s;
 }
 
 /// The background check's answer, when it lands; and an install's latest line and its end.
@@ -311,10 +322,20 @@ fn band(tag: &str) -> u8 {
     }
 }
 
-pub(super) fn ordered(found: &[Found]) -> Vec<(Found, RowStatus)> {
+pub(super) fn ordered(found: &[Found], limited: &std::collections::HashMap<String, String>) -> Vec<(Found, RowStatus)> {
     let mut rows: Vec<(Found, RowStatus)> = found
         .iter()
-        .map(|f| (f.clone(), agents::row_status(f, agents::integration_of(&f.id), false, None)))
+        .map(|f| {
+            (
+                f.clone(),
+                agents::row_status(
+                    f,
+                    agents::integration_of(&f.id),
+                    false,
+                    limited.get(&f.id).map(String::as_str),
+                ),
+            )
+        })
         .collect();
     if found.iter().any(|f| f.installed) {
         rows.sort_by(|(a, ra), (b, rb)| {
@@ -395,7 +416,7 @@ pub(super) fn section(s: &State, p: &Palette) -> El {
         .radius(l.t.px("radius-card"))
         .fill(l.c("bg-raised"))
         .border(1.0, l.c("border-card"));
-    for (f, status) in ordered(found) {
+    for (f, status) in ordered(found, &s.limited_runtimes) {
         let mut name = row()
             .gap(8.0)
             .center_y()
@@ -504,4 +525,114 @@ pub(super) fn scene(s: &mut State) {
 pub(super) fn light_scene(s: &mut State) {
     scene(s);
     s.appearance = Some(false);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use locust_core::agents::{Auth, Probe};
+    use serde_json::json;
+
+    fn found_agent(id: &str, name: &str) -> Found {
+        Found {
+            id: id.into(),
+            display_name: name.into(),
+            installed: true,
+            version: Some("1.2.14".into()),
+            auth: Auth::Authenticated,
+            ready: true,
+            status: Probe::Ready,
+            unsupported_note: None,
+            through_cli: id == "antigravity",
+            checking: false,
+        }
+    }
+
+    #[test]
+    fn ordered_marks_a_limited_agent_at_limit_with_its_words_and_places_it_in_band_two() {
+        let out = "Antigravity's quota is used up · resets 2099-11-22T05:28:22Z";
+        let limited: std::collections::HashMap<String, String> = [("antigravity".to_owned(), out.to_owned())].into_iter().collect();
+        let found = vec![
+            found_agent("antigravity", "Antigravity"),
+            found_agent("codex", "Codex CLI"),
+        ];
+        let rows = ordered(&found, &limited);
+        assert_eq!(rows[0].0.id, "codex");
+        assert_eq!(rows[0].1.tag, "READY");
+        assert_eq!(rows[1].0.id, "antigravity");
+        assert_eq!(rows[1].1.tag, "AT LIMIT");
+        assert_eq!(
+            rows[1].1.detail,
+            format!("Signed in, but the last run on it ended on your account's usage limit: {out}")
+        );
+    }
+
+    #[test]
+    fn section_draws_at_limit_from_the_ledger_and_lifts_it_once_the_reset_passes() {
+        let root = std::env::temp_dir().join(format!(
+            "locust-agents-section-limits-{}-{}",
+            std::process::id(),
+            locust_core::invariants::unique_nanos()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        let store = locust_core::store::Store::new(root.join("native"), root.join("electron")).unwrap();
+        let ledger = store.root().join("mission-ledger");
+        std::fs::create_dir_all(&ledger).unwrap();
+        let future_out = "Antigravity's quota is used up · resets 2099-11-22T05:28:22Z";
+        let write_out = |message: &str| {
+            let lines = [
+                json!({
+                    "schemaVersion": 27,
+                    "recordType": "mission.created",
+                    "metadata": {
+                        "missionId": "mission_out",
+                        "runtime": "antigravity",
+                        "resolvedRouteId": "antigravity-account:default"
+                    }
+                }),
+                json!({
+                    "schemaVersion": 27,
+                    "recordType": "mission.event",
+                    "event": {
+                        "id": "e0",
+                        "sequence": 1,
+                        "type": "route.limit_detected",
+                        "occurredAt": "2026-11-16T04:29:59.050Z",
+                        "sourceAdapter": "antigravity",
+                        "payload": { "kind": "quota-exhausted", "message": message }
+                    }
+                }),
+            ];
+            std::fs::write(
+                ledger.join("mission_out.jsonl"),
+                lines.iter().map(|r| format!("{r}\n")).collect::<String>(),
+            )
+            .unwrap();
+        };
+        write_out(future_out);
+
+        let mut s = State::default();
+        s.data = Some(store);
+        s.settings_panel.agents = Some(vec![found_agent("antigravity", "Antigravity")]);
+        request(&mut s);
+
+        let mut rt = rune::Runtime::new(s, |s, _| section(s, &Palette::new(true)), (1100.0, 780.0), rune::Env::new(true, 1.0));
+        rt.frame(0.0);
+        let texts = |rt: &rune::Runtime<State>| -> String {
+            rt.elements().into_iter().filter_map(|e| e.text).collect::<Vec<_>>().join(" | ")
+        };
+        let drawn = texts(&rt);
+        assert!(drawn.contains("AT LIMIT"), "{drawn}");
+        assert!(drawn.contains(future_out), "{drawn}");
+
+        // Once the reset time the limit named is in the past, refreshing lifts AT LIMIT back to READY.
+        write_out("Antigravity's quota is used up · resets 2020-11-22T05:28:22Z");
+        rt.update(|s, _| request(s));
+        rt.frame(0.05);
+        let drawn = texts(&rt);
+        assert!(!drawn.contains("AT LIMIT"), "{drawn}");
+        assert!(drawn.contains("READY"), "{drawn}");
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
 }
