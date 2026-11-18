@@ -356,3 +356,7 @@ mod renderer_conversation_tests {
 #[cfg(test)]
 #[path = "combine_queued_tests.rs"]
 mod combine_queued_tests;
+
+#[cfg(test)]
+#[path = "restored_queue_tests.rs"]
+mod restored_queue_tests;
