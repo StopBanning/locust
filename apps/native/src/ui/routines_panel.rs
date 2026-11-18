@@ -59,6 +59,10 @@ pub(super) struct Panel {
     pub import_preview: Option<ImportPreviewState>,
     pub export_dialog: Option<ExportDialogState>,
     pub templates_open: bool,
+    pub hook_state: Option<(String, locust_core::routine_hooks::RoutineHookState)>,
+    pub hook_copied: bool,
+    pub hook_busy: bool,
+    pub hook_pending: std::sync::Arc<std::sync::Mutex<Option<(String, locust_core::routine_hooks::RoutineHookState)>>>,
 }
 /// How often the window looks: the schedule (Electron: once a minute), the watched folders (`POLL_MS`), and the
 /// ends of the steps it follows. Tests set them to zero rather than waiting.
@@ -113,6 +117,10 @@ impl Default for Panel {
             import_preview: None,
             export_dialog: None,
             templates_open: false,
+            hook_state: None,
+            hook_copied: false,
+            hook_busy: false,
+            hook_pending: Default::default(),
         }
     }
 }
@@ -184,7 +192,41 @@ fn edit(s: &mut State, r: Value) {
             default_val: field(inp.default.as_deref().unwrap_or("")),
         })
         .collect();
-    s.routines.entry = r;
+    s.routines.entry = r.clone();
+    s.routines.hook_state = None;
+    s.routines.hook_copied = false;
+    s.routines.hook_busy = false;
+    if r["schedule"]["kind"] == "hook"
+        && let Some(id) = r["routineId"].as_str().filter(|id| !id.is_empty())
+    {
+        read_hook(s, id, false);
+    }
+}
+
+fn read_hook(s: &mut State, id: &str, replace: bool) {
+    let Some(engine) = engine(s) else { return };
+    let hooks = engine.host.hooks().clone();
+    let pending = s.routines.hook_pending.clone();
+    let id = id.to_owned();
+    s.routines.hook_busy = true;
+    if replace {
+        s.routines.hook_copied = false;
+    }
+    std::thread::spawn(move || {
+        let state = match hooks.state(&id, replace) {
+            Ok(st) => st,
+            Err(err) => locust_core::routine_hooks::RoutineHookState::message(err),
+        };
+        *pending.lock().unwrap_or_else(|e| e.into_inner()) = Some((id, state));
+    });
+}
+
+fn sync_hooks_async(s: &mut State) {
+    let Some(engine) = engine(s) else { return };
+    let hooks = engine.host.hooks().clone();
+    std::thread::spawn(move || {
+        let _ = hooks.sync();
+    });
 }
 fn result(s: &mut State, r: Result<(), String>) {
     match r {
@@ -370,16 +412,25 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
             ("weekly", "On set days"),
             ("once", "Once"),
             ("files", "On a new file"),
+            ("hook", "When a link is called"),
         ] {
             let selected =
                 panel.schedule["kind"] == kind || (kind == "off" && panel.schedule.is_null());
             body=body.child(button(label,p).fill(if selected{p.selected}else{p.raised}).on_press(move|s:&mut State|{
                 if s.routines.schedule["kind"]==kind {return;}
-                s.routines.schedule=match kind {"every"=>json!({"kind":"every","hours":4}),"daily"=>json!({"kind":"daily","at":"09:00"}),"weekly"=>json!({"kind":"weekly","days":[1,2,3,4,5],"at":"09:00"}),"once"=>json!({"kind":"once","on":(chrono::Local::now()+chrono::Duration::days(1)).format("%Y-%m-%dT09:00").to_string()}),"files"=>json!({"kind":"files","folder":"inbox"}),_=>Value::Null};
-                let value=if kind=="every"{"4".into()}else if kind=="once"{s.routines.schedule["on"].as_str().unwrap_or("").to_owned()}else if kind=="files"{"inbox".into()}else{"09:00".into()};s.routines.fields[1]=field(&value);
+                s.routines.schedule=match kind {"every"=>json!({"kind":"every","hours":4}),"daily"=>json!({"kind":"daily","at":"09:00"}),"weekly"=>json!({"kind":"weekly","days":[1,2,3,4,5],"at":"09:00"}),"once"=>json!({"kind":"once","on":(chrono::Local::now()+chrono::Duration::days(1)).format("%Y-%m-%dT09:00").to_string()}),"files"=>json!({"kind":"files","folder":"inbox"}),"hook"=>json!({"kind":"hook"}),_=>Value::Null};
+                let value=if kind=="every"{"4".into()}else if kind=="once"{s.routines.schedule["on"].as_str().unwrap_or("").to_owned()}else if kind=="files"{"inbox".into()}else if kind=="hook"{String::new()}else{"09:00".into()};s.routines.fields[1]=field(&value);
+                if kind == "hook"
+                    && let Some(id) = s.routines.entry["routineId"].as_str().filter(|id| !id.is_empty()).map(str::to_owned)
+                {
+                    read_hook(s, &id, false);
+                }
             }));
         }
         let kind = panel.schedule["kind"].as_str().unwrap_or("");
+        if kind == "hook" {
+            body = body.child(hook_link_view(s, p));
+        }
         if ["every", "daily", "weekly", "once", "files"].contains(&kind) {
             let label = if kind == "every" {
                 "Hours between runs"
@@ -485,6 +536,8 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                     result(s, r);
                     if ok {
                         s.routines.fields.clear();
+                        s.routines.hook_state = None;
+                        sync_hooks_async(s);
                     }
                 });
         }
@@ -564,7 +617,11 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                             .as_ref()
                             .ok_or("No native data folder".into())
                             .and_then(|store| crate::routines::remove(store, &remove));
+                        let ok = r.is_ok();
                         result(s, r);
+                        if ok {
+                            sync_hooks_async(s);
+                        }
                     }))
                     // A missed routine offers "Run now" (AutomationsScreen.tsx), unless a run of it is still under way.
                     .child(button(if missed_now { "Run now" } else { "Run" }, p).key(format!("routine-run-{id}")).on_press(move |s: &mut State| start_run(s, &run))),
@@ -574,6 +631,18 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
             }
             if let Some(failed) = r["lastFailed"].as_str() {
                 card = card.child(text(format!("Last run: {failed}")).font(type_::LABEL).color(p.muted).wrap());
+            }
+            if let Some(history) = r["history"].as_array() {
+                for entry in history {
+                    if let Some(calls) = entry["hookCalls"].as_u64() {
+                        card = card.child(
+                            text(format!("{calls} link calls were not run: calls are kept at most a week, with room for the newest 200 letters."))
+                                .font(type_::LABEL)
+                                .color(p.amber)
+                                .wrap(),
+                        );
+                    }
+                }
             }
             card = recovery_card(s, r, card, p);
             card = changes_card(s, r, card, p);
@@ -653,6 +722,71 @@ fn step_choices(s: &State, i: usize, p: &Palette) -> El {
         }));
     }
     choices
+}
+
+/// RoutineHookLink (RoutineDialog.tsx): link URL with Copy/New link, or Make link / status message,
+/// plus the relay privacy and Ask-mode warnings.
+fn hook_link_view(s: &State, p: &Palette) -> El {
+    use locust_core::routine_hooks::{HOOK_ASK, HOOK_WARNING};
+    let panel = &s.routines;
+    let routine_id = panel.entry["routineId"].as_str().filter(|id| !id.is_empty()).map(str::to_owned);
+    let mut box_el = col().key("routine-hook-section").w_full().gap(6.0).padding(8.0).fill(p.field).radius(6.0);
+    match routine_id {
+        None => {
+            box_el = box_el.child(
+                text("Save the routine to make its link. Your phone, from anywhere must be on in Settings > Phone.")
+                    .font(type_::LABEL)
+                    .color(p.secondary)
+                    .wrap(),
+            );
+        }
+        Some(id) => {
+            let state = panel
+                .hook_state
+                .as_ref()
+                .filter(|(held_id, _)| held_id == &id)
+                .map(|(_, st)| st);
+            match state {
+                None => {
+                    box_el = box_el.child(text("Checking the phone relay…").font(type_::LABEL).color(p.secondary).wrap());
+                }
+                Some(st) => {
+                    if let Some(url) = &st.url {
+                        let copy_url = url.clone();
+                        let new_id = id.clone();
+                        let copy_label = if panel.hook_copied { "Copied" } else { "Copy" };
+                        box_el = box_el.child(
+                            row()
+                                .gap(8.0)
+                                .center_y()
+                                .child(text(url.clone()).key("routine-hook-url").font(type_::LABEL.mono()).color(p.text).wrap_anywhere().grow(1.0))
+                                .child(button(copy_label, p).key("routine-hook-copy").on_press_tx(move |s: &mut State, tx| {
+                                    tx.copy(copy_url.clone());
+                                    s.routines.hook_copied = true;
+                                }))
+                                .child(button("New link", p).key("routine-hook-new").disabled(panel.hook_busy).on_press(move |s: &mut State| {
+                                    read_hook(s, &new_id, true);
+                                })),
+                        );
+                    }
+                    if let Some(msg) = &st.message {
+                        box_el = box_el.child(text(msg.clone()).key("routine-hook-message").font(type_::LABEL).color(p.secondary).wrap());
+                    }
+                    if st.url.is_none() && st.can_make {
+                        let make_id = id.clone();
+                        box_el = box_el.child(
+                            button("Make link", p).key("routine-hook-make").disabled(panel.hook_busy).on_press(move |s: &mut State| {
+                                read_hook(s, &make_id, true);
+                            }),
+                        );
+                    }
+                }
+            }
+        }
+    }
+    box_el
+        .child(text(HOOK_WARNING).font(type_::LABEL).color(p.muted).wrap())
+        .child(text(HOOK_ASK).font(type_::LABEL).color(p.muted).wrap())
 }
 
 /// Where it works (0.533) and when its steps are done (0.534), in RoutineDialog's words.
@@ -984,6 +1118,11 @@ fn settle(s: &mut State, id: &str, decision: locust_core::routine_recovery::Sett
 
 pub(super) fn poll(s: &mut State) -> bool {
     let mut changed = false;
+    if let Some((id, state)) = s.routines.hook_pending.lock().unwrap_or_else(|e| e.into_inner()).take() {
+        s.routines.hook_state = Some((id, state));
+        s.routines.hook_busy = false;
+        changed = true;
+    }
     if !s.routines.initialized
         && let Some(store) = &s.data
     {
@@ -1020,6 +1159,9 @@ pub(super) fn poll(s: &mut State) -> bool {
                     && host.watch(&list)
                 {
                     tick = true;
+                }
+                if tick {
+                    let _ = host.hooks().sync();
                 }
                 let result = if tick { runner.tick(locust_core::routine_runner::Host::now(&*host)).map(|_| ()) } else if ended { runner.ended() } else { Ok(()) };
                 if let Err(e) = result {
@@ -1836,5 +1978,55 @@ mod routine_row_lines_tests {
         let log_in = if cfg!(target_os = "macos") { "log in" } else { "sign in" };
         assert!(words.iter().any(|w| w == &format!("Routines run while Locust is open. Start Locust when you {log_in}:")), "{words:?}");
         assert!(words.iter().any(|w| w == "Off"), "{words:?}");
+    }
+}
+
+#[cfg(test)]
+mod routine_hook_ui_tests {
+    use super::*;
+    use locust_core::routine_hooks::{HOOK_ASK, HOOK_WARNING, RoutineHookState};
+
+    #[test]
+    fn a_called_link_in_the_editor_offers_the_kind_privacy_and_ask_words_with_save_first_for_a_new_routine() {
+        let mut s = State::default();
+        s.teammates = native::parse_roster(
+            &json!({"schemaVersion":1,"teammates":[{"teammateId":"tm_wren","name":"Wren","role":"Code & Migrations","hue":"lime","createdAt":"2026-10-02T08:00:00.000Z"}]}).to_string(),
+        )
+        .unwrap();
+        edit(&mut s, json!({"name":"Event","steps":["Read the event"],"teammateId":"tm_wren","schedule":{"kind":"hook"}}));
+        let mut rt = rune::Runtime::new(s, |s, _| view(s, &Palette::new(true)), (1200.0, 1800.0), rune::Env::new(true, 1.0));
+        rt.frame(0.0);
+        let words: String = rt.elements().into_iter().filter_map(|e| e.text).collect::<Vec<_>>().join("\n");
+        assert!(words.contains("When a link is called"));
+        assert!(words.contains(HOOK_WARNING));
+        assert!(words.contains(HOOK_ASK));
+        assert!(words.contains("Save the routine to make its link."));
+        assert!(words.contains("Settings > Phone"));
+        assert!(!words.contains("https://"));
+    }
+
+    #[test]
+    fn a_saved_hook_shows_url_copy_new_link_and_hook_loss_on_the_card() {
+        let mut s = State::default();
+        s.routines.file = json!({"routines":[{
+            "routineId":"rt_hook",
+            "name":"Event",
+            "teammateId":"tm_wren",
+            "steps":["Read the event"],
+            "runs":0,
+            "createdAt":"2026-10-02T08:00:00.000Z",
+            "schedule":{"kind":"hook"},
+            "history":[{"kind":"missed","dueAt":"2026-10-02T09:00:00.000Z","recordedAt":"2026-10-02T09:00:00.000Z","hookCalls":3}]
+        }]});
+        let row = s.routines.file["routines"][0].clone();
+        edit(&mut s, row);
+        s.routines.hook_state = Some(("rt_hook".into(), RoutineHookState::url("https://example.test/v1/room/abc/hook/tok123")));
+        let mut rt = rune::Runtime::new(s, |s, _| view(s, &Palette::new(true)), (1200.0, 1800.0), rune::Env::new(true, 1.0));
+        rt.frame(0.0);
+        let words: String = rt.elements().into_iter().filter_map(|e| e.text).collect::<Vec<_>>().join("\n");
+        assert!(words.contains("https://example.test/v1/room/abc/hook/tok123"));
+        assert!(words.contains("Copy"));
+        assert!(words.contains("New link"));
+        assert!(words.contains("3 link calls were not run: calls are kept at most a week, with room for the newest 200 letters."));
     }
 }

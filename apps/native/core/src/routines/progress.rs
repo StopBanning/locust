@@ -110,6 +110,7 @@ pub fn parsed_execution(item: &Value, steps: &Value, route: &Value) -> Value {
         && opt("settledAtDispatch", &Value::is_boolean)
         && opt("waitsForOk", &|v| v == true)
         && opt("inCopy", &|v| v == true)
+        && opt("hook", &|v| v == true)
         && opt("untilCheck", &valid_goal)
         && opt("goalTry", &|v| v.as_u64().is_some_and(|n| (1..=MAX_GOAL_TRIES).contains(&n)));
     if valid {

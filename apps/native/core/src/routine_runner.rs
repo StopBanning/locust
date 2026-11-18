@@ -112,11 +112,11 @@ pub struct GoalCheck {
     pub tail: Vec<String>,
 }
 
-/// The new files a watching routine runs for (0.522), named to step 1.
+/// What starts a routine on its own (0.522 new files, or a called private link).
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Arrival {
-    pub folder: String,
-    pub files: Vec<String>,
+pub enum Arrival {
+    Files { folder: String, files: Vec<String> },
+    Hook(crate::routine_hooks::HookBatch),
 }
 
 /// A step the runner is following.
@@ -200,6 +200,11 @@ pub trait Host: Send + Sync {
         Vec::new()
     }
     fn arrivals_fired(&self, _routine: &str, _files: &[String], _now: i64) {}
+    fn hook_ready(&self, _routine: &str) -> Option<crate::routine_hooks::HookBatch> {
+        None
+    }
+    fn hook_fired(&self, _routine: &str, _batch: &crate::routine_hooks::HookBatch) {}
+    fn hook_restore(&self, _routine: &str, _batch: &crate::routine_hooks::HookBatch) {}
     /// Where a routine was made (M15).
     fn home_of(&self, routine: &Value) -> Option<String> {
         routine["workspaceId"].as_str().map(str::to_owned)
@@ -601,10 +606,15 @@ impl Inner {
         let id = text(&routine["routineId"]).to_owned();
         let steps = steps_of(routine);
         let saved = steps.get((step as usize).wrapping_sub(1)).cloned();
-        let hook = routine["execution"]["hook"] == true;
+        let hook = matches!(arrived, Some(Arrival::Hook(_))) || routine["execution"]["hook"] == true;
         let prompt = match (&fix, &saved, arrived) {
             (Some((p, _)), _, _) => Some(p.clone()),
-            (None, Some(s), Some(a)) if step == 1 => Some(format!("{}\n\n{s}", routine_files::arrival_note(&a.folder, &a.files))),
+            (None, Some(s), Some(Arrival::Files { folder, files })) if step == 1 => {
+                Some(format!("{}\n\n{s}", routine_files::arrival_note(folder, files)))
+            }
+            (None, Some(s), Some(Arrival::Hook(batch))) if step == 1 => {
+                Some(crate::routine_hooks::hook_note(batch, s))
+            }
             (None, s, _) => s.clone(),
         };
         let Some(prompt) = prompt else {
@@ -702,6 +712,9 @@ impl Inner {
         // Persist BEFORE spawn: a spawn whose id was not recorded stays uncertain and is never replayed.
         let expected = if abandoned(&prior) { None } else { prior.as_ref().map(|p| text(&p["attemptId"]).to_owned()) };
         self.routines.save_progress(&id, &intent, expected.as_deref())?;
+        if let Some(Arrival::Hook(batch)) = arrived {
+            self.host.hook_fired(&id, batch);
+        }
         let cwd = if routine["inCopy"] == true { self.host.copies().and_then(|c| c.path(&id).ok()) } else { None };
         let request = StartRequest {
             prompt: sent,
@@ -716,7 +729,7 @@ impl Inner {
             cwd,
             home,
         };
-        match self.dispatch(routine, &intent, step, fresh, request) {
+        match self.dispatch(routine, &intent, step, fresh, request, arrived) {
             Err(error) => {
                 self.forget(&id);
                 self.changed();
@@ -727,7 +740,15 @@ impl Inner {
     }
 
     /// The start itself and what it leaves on record (`startStep`'s try block).
-    fn dispatch(&mut self, routine: &Value, intent: &Value, step: u64, fresh: bool, request: StartRequest) -> Result<Result<Begun, Refusal>, String> {
+    fn dispatch(
+        &mut self,
+        routine: &Value,
+        intent: &Value,
+        step: u64,
+        fresh: bool,
+        request: StartRequest,
+        arrived: Option<&Arrival>,
+    ) -> Result<Result<Begun, Refusal>, String> {
         let id = text(&routine["routineId"]).to_owned();
         let attempt = text(&intent["attemptId"]).to_owned();
         match self.host.start(request) {
@@ -744,6 +765,9 @@ impl Inner {
                 if step == 1 && fresh && PREFLIGHT.contains(&code.as_str()) {
                     // Only preflight refusals prove no dispatch.
                     self.routines.clear_progress(&id, &attempt)?;
+                    if let Some(Arrival::Hook(batch)) = arrived {
+                        self.host.hook_restore(&id, batch);
+                    }
                 } else if code == "SPEND_LIMIT_REACHED" {
                     self.hold(routine, intent, &format!("Step {step} was not started: {message}"), true, true, false)?;
                 } else {
@@ -862,10 +886,20 @@ impl Inner {
         let Some(stored) = self.routines.get(routine_id)? else {
             return Ok(Err("That routine no longer exists.".into()));
         };
-        let routine = match fill_inputs_with(&stored, given, folder_was_chosen) {
+        let mut routine = match fill_inputs_with(&stored, given, folder_was_chosen) {
             Ok(r) => r,
             Err(message) => return Ok(Err(message)),
         };
+        // A hook cannot run a folder check or make a writable copy. Its saved routine is otherwise unchanged.
+        if matches!(arrived, Some(Arrival::Hook(_))) {
+            if let Some(o) = routine.as_object_mut() {
+                o.remove("inCopy");
+                o.remove("untilCheck");
+            }
+            if let Some(route) = routine.get_mut("route").and_then(Value::as_object_mut) {
+                route.insert("mode".into(), json!("ask"));
+            }
+        }
         let id = text(&routine["routineId"]).to_owned();
         let name = text(&routine["name"]).to_owned();
         let execution = execution_of(&routine);
@@ -925,9 +959,9 @@ impl Inner {
         self.host.assign_owner(&peer.teammate_id, &begun.mission_id);
         let progress = self.announce(&routine, &peer, 1, &begun, None);
         // What started it, said: the bubble shows the saved step, not the note the run was given.
-        if let Some(arrived) = arrived {
-            let which = if arrived.files.len() == 1 { "a new file".to_owned() } else { format!("{} new files", arrived.files.len()) };
-            self.notice(&progress, format!("Started because {which} arrived: {}.", routine_files::named(&arrived.folder, &arrived.files)), Level::Info);
+        if let Some(Arrival::Files { folder, files }) = arrived {
+            let which = if files.len() == 1 { "a new file".to_owned() } else { format!("{} new files", files.len()) };
+            self.notice(&progress, format!("Started because {which} arrived: {}.", routine_files::named(folder, files)), Level::Info);
         }
         if count > 1 {
             self.notice(&progress, format!("Routine \"{name}\" · step 1 of {count}. Each next step starts when this one completes."), Level::Info);
@@ -1138,9 +1172,9 @@ impl Inner {
             let kind = text(&schedule["kind"]);
             // On a new file (0.522): due when the watcher has settled files for it and its hour is not full.
             let arrived = if kind == "files" { self.host.arrivals_ready(&id, now.timestamp_millis()) } else { Vec::new() };
-            // A private link (`hook`) needs the relay native does not have: never due here.
+            let hook_batch = if kind == "hook" { self.host.hook_ready(&id) } else { None };
             let due = match kind {
-                "hook" => false,
+                "hook" => hook_batch.is_some(),
                 "files" => !arrived.is_empty(),
                 _ => crate::routines::schedule::base(&routine)
                     .and_then(|base| crate::routines::schedule::next(schedule, base, local))
@@ -1157,7 +1191,7 @@ impl Inner {
                 continue;
             }
             // No catch-up: a time that passed while Locust was closed is missed, recorded, and not started.
-            if kind != "files" {
+            if kind != "files" && kind != "hook" {
                 let opened = self.host.opened_at().unwrap_or(DateTime::UNIX_EPOCH).with_timezone(&chrono::Local);
                 if let Some(slot) = crate::routines::schedule::base(&routine)
                     .and_then(|base| crate::routines::schedule::missed(schedule, base, opened, local))
@@ -1175,7 +1209,13 @@ impl Inner {
             if self.active.iter().any(|p| p.teammate_id == first) || self.host.teammate_busy(&first) == Some(true) {
                 continue;
             }
-            let arrival = (kind == "files").then(|| Arrival { folder: text(&schedule["folder"]).to_owned(), files: arrived.clone() });
+            let arrival = if let Some(batch) = hook_batch {
+                Some(Arrival::Hook(batch))
+            } else if kind == "files" {
+                Some(Arrival::Files { folder: text(&schedule["folder"]).to_owned(), files: arrived.clone() })
+            } else {
+                None
+            };
             match self.run(&id, arrival.as_ref())? {
                 Ok(_) => {
                     started.push(id.clone());

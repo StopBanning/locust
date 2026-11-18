@@ -13,9 +13,9 @@ apps/desktop/src/main/a-browser-opens-locust-without-a-code-to-carry.test.ts		wa
 apps/desktop/src/main/a-browser-signs-in-with-github-and-opens-locust.test.ts		waiting		
 apps/desktop/src/main/a-built-in-tool-is-not-a-connector.test.ts		waiting		
 apps/desktop/src/main/a-call-is-kept-with-its-conversation.test.ts		waiting		
-apps/desktop/src/main/a-called-link-is-closed-when-its-record-cannot-be-used.test.ts		waiting		
-apps/desktop/src/main/a-called-link-review.test.ts		waiting		
-apps/desktop/src/main/a-called-link-starts-its-routine.test.ts	p11	does-not-apply		`main/a-called-link-starts-its-routine.test.ts` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.
+apps/desktop/src/main/a-called-link-is-closed-when-its-record-cannot-be-used.test.ts	LINKS	carried	core/src/routine_hooks_tests.rs	unusable/locked records close relay link via HookRelay fake
+apps/desktop/src/main/a-called-link-review.test.ts	LINKS	partial	core/src/routine_hooks_tests.rs, core/src/desk.rs	desk access, retired password redaction/expiry and content-type fencing carried; relay roomCore hash-timing case stays in TS (apps/relay/)
+apps/desktop/src/main/a-called-link-starts-its-routine.test.ts	LINKS	carried	core/src/routine_hooks.rs, core/src/routine_hooks_tests.rs, core/src/routine_runner.rs	all 12 Electron cases carried with fake HookRelay and fake SecretBox
 apps/desktop/src/main/a-card-answer-is-recorded-past-64-open-cards.test.ts		waiting		
 apps/desktop/src/main/a-carried-conversation-keeps-its-route-and-reports-its-status.test.ts		waiting		not in this branch's Electron tree: the file was added to apps/desktop/src/main after the branch was cut (it is in ~/work/locust)
 apps/desktop/src/main/a-change-is-walked-through.test.ts		waiting		
@@ -530,7 +530,7 @@ apps/desktop/src/main/the-history-reads-only-what-changed.test.ts		waiting
 apps/desktop/src/main/the-home-keyframes-only-transform-and-fade.test.ts		waiting		
 apps/desktop/src/main/the-host-refuses-always-for-a-reaching-command.test.ts	P8	partial		`main/the-host-refuses-always-for-a-reaching-command.test.ts` | Existing host downgrade/refusal tests retained; card saving uses the host's pending request.
 apps/desktop/src/main/the-in-use-check-reads-any-path.test.ts	UPDATES	carried	core/src/agent_updates_tests.rs the_in_use_check_finds_a_process_whose_path_has_a_non_ascii_letter	the one it() is Windows-only (PowerShell read in the OEM code page); not applicable as written. Its promise is ported to the Mac: a real sh process with a non-ASCII folder on its command line is found in the real `ps -eo command` bytes by the same case-insensitive substring, and a Windows powershell/cmd path is not built (no Windows process table here)
-apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	P10	partial		`main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts` (quiet paths) | no note without key; note words exact; no keychain IO
+apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	P10	partial	core/src/routine_hooks_tests.rs	`main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts` (quiet paths + routine-hooks keychain gating in `routine_hooks_tests.rs`) | no note without key; note words exact; no keychain IO when no hook kept or scheduled
 apps/desktop/src/main/the-live-word-is-visibly-live.test.ts		waiting		
 apps/desktop/src/main/the-lock-is-the-same-on-both-sides.test.ts		waiting		
 apps/desktop/src/main/the-lockup-lighting-is-drawn.test.ts		waiting		
@@ -622,7 +622,7 @@ apps/desktop/src/renderer/src/a-call-joined-later-is-not-where-it-began.test.tsx
 apps/desktop/src/renderer/src/a-call-shows-on-its-conversation-row.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-call-sums-up-what-it-handed-out.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-call-with-chatgpt-wears-an-orb.test.tsx		waiting		
-apps/desktop/src/renderer/src/a-called-link-says-what-leaves-the-computer.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-called-link-says-what-leaves-the-computer.test.tsx	LINKS	partial	src/ui/routines_panel.rs (routine_hook_ui_tests)	editor warning/ask words and save-first prompt carried; browser-only remote mode stays Electron/browser
 apps/desktop/src/renderer/src/a-cancelled-run-spent-nothing.test.ts		waiting		native has no mission header cost strip (missionCostTail) or conversation cost line yet
 apps/desktop/src/renderer/src/a-carried-on-turn-is-said-as-locusts.test.tsx	RELAY	partial	src/ui/handoff_divider.rs	divider carried copy in handoff_divider.rs
 apps/desktop/src/renderer/src/a-chain-template-opens-in-the-editor.test.tsx		waiting		

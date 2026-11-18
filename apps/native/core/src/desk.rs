@@ -342,6 +342,8 @@ pub const WINDOW_ONLY: &[&str] = &[
     "profile:restore-preview",
     "claude-remote-control:set",
     "reply:page",
+    "routine:hook-read",
+    "routine:hook-new",
     "routines:export",
     "routines:chooseFolder",
     "routines:import",

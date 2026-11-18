@@ -251,6 +251,24 @@ fn mutate(
     f(r)?;
     store.save_json("routines.json", &file)
 }
+/// Record calls a private routine link could not run (expired or dropped past 200 letters).
+pub fn record_hook_loss(store: &Store, id: &str, count: u64, at: &str) -> Result<(), String> {
+    if !progress::safe_id(&json!(id)) || count == 0 || chrono::DateTime::parse_from_rfc3339(at).is_err() {
+        return Ok(());
+    }
+    let _guard = WRITES.lock().map_err(|e| e.to_string())?;
+    let mut file = list(store)?;
+    let Some(r) = file["routines"].as_array_mut().and_then(|rs| rs.iter_mut().find(|r| r["routineId"] == id)) else {
+        return Ok(());
+    };
+    let mut history = r["history"].as_array().cloned().unwrap_or_default();
+    history.push(json!({"kind": "missed", "dueAt": at, "recordedAt": at, "hookCalls": count}));
+    if history.len() > 30 {
+        history.drain(..history.len() - 30);
+    }
+    r["history"] = json!(history);
+    store.save_json("routines.json", &file)
+}
 #[cfg(test)]
 mod tests;
 /// Abandon a held attempt and remove its schedule. Never retries work.

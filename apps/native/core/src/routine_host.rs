@@ -14,23 +14,25 @@ use crate::engine::Teammate;
 use crate::native::{Origin, Send};
 use crate::routine_copy::RoutineCopies;
 use crate::routine_files::{FileArrivals, Watch};
+use crate::routine_hooks::{HookBatch, HookRelay, Options as HookOptions, ROUTINE_HOOKS_FILE, RoutineHooks, StubHookRelay};
 use crate::routine_runner::{Begun, GoalCheck, Host, Peer, Phase, StartError, StartRequest, Update};
 use crate::store::Store;
 use chrono::{DateTime, Utc};
 use serde_json::{Value, json};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
 use std::sync::atomic::{AtomicI64, Ordering};
+use std::sync::{Arc, Mutex};
 
 pub struct LiveHost {
     store: Store,
     copies: RoutineCopies,
     arrivals: Mutex<FileArrivals>,
+    hooks: Arc<RoutineHooks>,
     opened_at: DateTime<Utc>,
     updates: Mutex<Vec<Update>>,
     /// Added to the wall clock: a test moves time on rather than sleeping through a settle.
-    skew_ms: AtomicI64,
+    skew_ms: Arc<AtomicI64>,
     /// Checkpoint records already read, per project folder; the first look is a baseline.
     turns_seen: Mutex<HashMap<PathBuf, HashSet<String>>>,
 }
@@ -43,15 +45,39 @@ pub fn read_turn(mission: &str) -> Option<Turn> {
 
 impl LiveHost {
     pub fn new(store: Store, opened_at: DateTime<Utc>) -> Self {
+        Self::with_hook_relay(store, opened_at, Arc::new(StubHookRelay))
+    }
+
+    pub fn with_hook_relay(store: Store, opened_at: DateTime<Utc>, relay: Arc<dyn HookRelay>) -> Self {
+        let store_for_routines = store.clone();
+        let store_for_lost = store.clone();
+        let skew_ms = Arc::new(AtomicI64::new(0));
+        let skew_for_hooks = skew_ms.clone();
+        let hooks = Arc::new(RoutineHooks::new(HookOptions {
+            file: store.root().join(ROUTINE_HOOKS_FILE),
+            secrets: crate::own_models::secrets(),
+            relay: Box::new(move || Some(relay.clone())),
+            routines: Box::new(move || crate::routines::progress::all(&store_for_routines)),
+            lost: Box::new(move |id, count, at| crate::routines::record_hook_loss(&store_for_lost, id, count, at)),
+            tick: Box::new(|| {}),
+            protect_file: None,
+            now: Box::new(move || Utc::now().timestamp_millis() + skew_for_hooks.load(Ordering::SeqCst)),
+            random_token: None,
+        }));
         Self {
             copies: RoutineCopies::in_store(&store),
             store,
             arrivals: Mutex::new(FileArrivals::new()),
+            hooks,
             opened_at,
             updates: Mutex::default(),
-            skew_ms: AtomicI64::new(0),
+            skew_ms,
             turns_seen: Mutex::default(),
         }
+    }
+
+    pub fn hooks(&self) -> &Arc<RoutineHooks> {
+        &self.hooks
     }
 
     pub fn store(&self) -> &Store {
@@ -253,6 +279,18 @@ impl Host for LiveHost {
 
     fn arrivals_fired(&self, routine: &str, files: &[String], now: i64) {
         self.arrivals.lock().unwrap_or_else(|e| e.into_inner()).fired(routine, files, now);
+    }
+
+    fn hook_ready(&self, routine: &str) -> Option<HookBatch> {
+        self.hooks.ready(routine).ok().flatten()
+    }
+
+    fn hook_fired(&self, routine: &str, batch: &HookBatch) {
+        let _ = self.hooks.fired(routine, batch);
+    }
+
+    fn hook_restore(&self, routine: &str, batch: &HookBatch) {
+        let _ = self.hooks.restore(routine, batch);
     }
 
     fn opened_at(&self) -> Option<DateTime<Utc>> {
