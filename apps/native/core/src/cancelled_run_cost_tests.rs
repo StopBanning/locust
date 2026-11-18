@@ -1,6 +1,5 @@
-//! Electron's `a-cancelled-run-spent-nothing.test.ts` (cases 1-4), with Electron's values and words.
-//! Case 5 (`marks a live run as still going` with `"so far"`) is not built on `cost_line`.
-use crate::benchmark::{cost_line, cost_total};
+//! Electron's `a-cancelled-run-spent-nothing.test.ts` (all 5 cases), with Electron's values and words.
+use crate::benchmark::{cost_line, cost_total, mission_cost_tail};
 use crate::relay::mission_cost_from_events;
 use serde_json::{Value, json};
 
@@ -47,4 +46,10 @@ fn still_offers_the_conversation_total_on_the_conversation_scoped_surface() {
     let current = mission_cost_from_events(&turn(500, 20));
     let whole = cost_total(&[earlier, current]).expect("conversation total");
     assert!(whole.line.contains("2.3k"), "got {}", whole.line);
+}
+
+#[test]
+fn marks_a_live_run_as_still_going() {
+    let this_run = mission_cost_from_events(&turn(500, 20));
+    assert!(mission_cost_tail(this_run.as_ref(), true).contains("so far"));
 }

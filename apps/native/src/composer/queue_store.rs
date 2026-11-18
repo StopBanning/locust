@@ -128,6 +128,8 @@ pub fn saved_queued_messages(value: &serde_json::Value) -> Result<Vec<QueuedRow>
                 issue: saved_issue(row.get("issue")),
                 restored: true,
                 held: None,
+                retry_at: None,
+                tries: None,
             })
         })
         .collect()
@@ -247,6 +249,8 @@ mod tests {
             issue: None,
             restored: false,
             held: None,
+            retry_at: None,
+            tries: None,
         }];
         let text = serialize_queued(&rows).unwrap();
         let parsed = parse_queued_file(&text).unwrap();
@@ -273,6 +277,8 @@ mod tests {
             issue: None,
             restored: false,
             held: None,
+            retry_at: None,
+            tries: None,
         }];
         write_queue(&store, &rows).unwrap();
         let back = read_queue(&store).unwrap();

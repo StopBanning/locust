@@ -20,6 +20,13 @@ pub struct QueuedRow {
     pub issue: Option<serde_json::Value>,
     pub restored: bool,
     pub held: Option<String>,
+    /// When a row the host refused as busy may be tried again (ms since the epoch). See `retried_after_busy`. Never
+    /// saved: Electron's queue file has no such field.
+    #[allow(dead_code)]
+    pub retry_at: Option<u64>,
+    /// How many times the host has refused it as busy.
+    #[allow(dead_code)]
+    pub tries: Option<u32>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -75,6 +82,20 @@ pub struct VerdictInput<'a> {
     pub on_screen: bool,
     pub restored: bool,
     pub held: Option<&'a str>,
+}
+
+/// A queued message the host refused as busy goes back in line (Electron's `retriedAfterBusy`, `steering.ts`): pointed
+/// at the conversation it was typed in, and tried again after half a second, then one, two, four, and every eight
+/// after that.
+///
+/// Not wired yet: the window hands a queued message to the host and does not hear a busy refusal back for that row
+/// (`drain_queue_after_turn` removes it first, so an uncertain result never retries itself). The backoff is here for
+/// when it does.
+#[allow(dead_code)]
+pub fn retried_after_busy(row: &QueuedRow, key: &str, now: u64) -> QueuedRow {
+    let tries = row.tries.unwrap_or(0).saturating_add(1);
+    let wait = 250u64.saturating_mul(2u64.saturating_pow(tries)).min(8_000);
+    QueuedRow { key: key.to_owned(), tries: Some(tries), retry_at: Some(now.saturating_add(wait)), ..row.clone() }
 }
 
 pub fn can_merge_front(row: &QueuedRow) -> bool {
@@ -203,6 +224,8 @@ mod tests {
             issue: None,
             restored: false,
             held: None,
+            retry_at: None,
+            tries: None,
         }
     }
 
@@ -267,7 +290,7 @@ mod renderer_conversation_tests {
     use super::*;
     fn row(id: &str, key: &str) -> QueuedRow {
         QueuedRow { id: id.into(), key: key.into(), text: format!("{key}: {id}"), origin: Origin::Person,
-            attachments: vec![], issue: None, restored: false, held: None }
+            attachments: vec![], issue: None, restored: false, held: None, retry_at: None, tries: None }
     }
     fn said(id: &str, key: &str, text: &str) -> QueuedRow { QueuedRow { text: text.into(), ..row(id, key) } }
     fn ids(rows: &[QueuedRow]) -> Vec<&str> { rows.iter().map(|r| r.id.as_str()).collect() }
@@ -356,3 +379,7 @@ mod renderer_conversation_tests {
 #[cfg(test)]
 #[path = "combine_queued_tests.rs"]
 mod combine_queued_tests;
+
+#[cfg(test)]
+#[path = "retried_after_busy_tests.rs"]
+mod retried_after_busy_tests;

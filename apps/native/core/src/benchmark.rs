@@ -69,6 +69,15 @@ pub struct CostTotal {
 
 /// Sum reported units, counting only runs reporting the unit that is displayed.
 /// A subscription alone has no per-run total to state.
+/// Electron's `missionCostTail` (`cost.ts`): this run's cost after a ` · `, `so far` while the run is still going, and
+/// nothing at all when the run reported nothing.
+pub fn mission_cost_tail(cost: Option<&RunCost>, running: bool) -> String {
+    match cost_line(cost) {
+        Some(run) => format!(" \u{b7} {}{run}", if running { "so far " } else { "" }),
+        None => String::new(),
+    }
+}
+
 pub fn cost_total(costs: &[Option<RunCost>]) -> Option<CostTotal> {
     let total = crate::relay::sum_exchange_costs(costs.iter().cloned())?;
     let unit = |c: &RunCost| {

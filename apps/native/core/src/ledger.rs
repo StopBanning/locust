@@ -1452,12 +1452,10 @@ pub fn try_list_recent(dir: &Path, limit: usize) -> io::Result<Vec<Summary>> {
             .find_map(|e| e.get("occurredAt").and_then(Value::as_str))
             .unwrap_or(&m.created_at)
             .to_owned();
-        let title: String = m
-            .prompt
-            .lines()
-            .next()
-            .unwrap_or_default()
-            .trim()
+        let first = m.prompt.lines().next().unwrap_or_default().trim();
+        let title: String = crate::path_title::path_only_title(first)
+            .as_deref()
+            .unwrap_or(first)
             .chars()
             .take(60)
             .collect();
@@ -1514,6 +1512,10 @@ pub struct Snapshot {
     pub tip: String,
     pub running: bool,
     pub failed: bool,
+    /// The tip's record holds only its failure and the host's notes (`thread_view::runtime_never_started`).
+    pub never_started: bool,
+    /// Part of the tip's record could not be read: the same fact the inspector counts as an integrity issue.
+    pub damaged: bool,
 }
 
 /// A follow-up is a NEW mission file although MCP returns the original conversation ID.
@@ -1851,6 +1853,8 @@ impl Session {
             snapshot.turn_edits.insert(reader.id.clone(), turn_edits);
             snapshot.live = if snapshot.running { reader.transcript.live.clone() } else { None };
             snapshot.failed = reader.transcript.failed;
+            snapshot.never_started = crate::thread_view::runtime_never_started(reader.transcript.events.values());
+            snapshot.damaged = reader.transcript.error.is_some();
             snapshot.recovery = if snapshot.running {
                 None
             } else {
@@ -2625,6 +2629,18 @@ mod tests {
         assert_eq!(list.first().unwrap().title.chars().count(), 60);
     }
 
+    /// Electron's `a-path-only-message-is-titled-by-its-file.test.ts` case 3 (`App.tsx`'s
+    /// `return pathOnlyTitle(trimmed) ?? trimmed`): a conversation whose first message is only a path is titled by
+    /// the file, before the 60-character cut can take the file's name off the end.
+    #[test]
+    fn a_first_message_that_is_only_a_path_titles_the_conversation_by_its_file() {
+        let temp = Temp::new();
+        let path = temp.path("handoff");
+        write(&path, &[created("handoff", "/Users/locust/work/locust-move/handoffs/HANDOFF-menu-bar-icon.md")]);
+        let list = list_recent(&temp.0, 1);
+        assert_eq!(list.first().unwrap().title, "HANDOFF-menu-bar-icon.md");
+    }
+
     #[test]
     fn truncation_resets_tail_and_assistant_text_is_bounded() {
         let temp = Temp::new();
@@ -2851,6 +2867,20 @@ mod tests {
         let alive = "mission_native_1_2".to_string();
         write(&temp.path(&alive), &[created(&alive, "Prompt"), delta(1, "Partial", "append", false)]);
         assert!(Session::new(temp.0.clone(), alive).poll().unwrap().running);
+    }
+
+    /// The window's Run it again (`runAgainOffer`) asks whether the tip ever reached its runtime.
+    #[test]
+    fn a_failed_run_that_never_reached_its_runtime_says_so_on_the_snapshot() {
+        let temp = Temp::new();
+        write(&temp.path("never"), &[created("never", "Check the migration."),
+            event(1, "run.failed", json!({"message": "The CLI refused its arguments."}))]);
+        let snapshot = Session::new(temp.0.clone(), "never".into()).poll().unwrap();
+        assert!(snapshot.failed && snapshot.never_started && !snapshot.damaged);
+        write(&temp.path("began"), &[created("began", "Check the migration."),
+            event(1, "run.started", json!({"runtimeThreadId": "thread_1"})), event(2, "run.failed", json!({}))]);
+        let snapshot = Session::new(temp.0.clone(), "began".into()).poll().unwrap();
+        assert!(snapshot.failed && !snapshot.never_started);
     }
 
     #[test]
