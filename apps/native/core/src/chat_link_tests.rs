@@ -629,3 +629,50 @@ fn alerts_and_refusal_and_remove_work_as_expected() {
     assert!(removed.bot.is_none());
     assert!(!h.link.keeps_key());
 }
+
+/// A made-up token, built at run time so no secret-shaped text sits in the source.
+fn fake_token() -> String {
+    format!("ghp_{}", "abcdefghijklmnopqrstuvwxyz0123456789")
+}
+
+// Electron, teammates-answer-their-person-in-telegram.test.ts: "takes anything shaped like a key out of an answer
+// before Telegram has it".
+#[test]
+fn takes_anything_shaped_like_a_key_out_of_an_answer_before_the_chat_app_has_it() {
+    let h = make_harness("scrub-answer", two_mates());
+    pair_chat(&h);
+    let now = h.clock.load(Ordering::SeqCst);
+    h.link.handle_message(incoming("user_1", "chat_1", "30", Some("/ada the token?"), now));
+    assert_eq!(h.started.lock().unwrap().len(), 1);
+    h.live.lock().unwrap().remove("m_1");
+    h.missions.lock().unwrap().insert("m_1".into(), ChatMission {
+        mission_id: "m_1".into(),
+        phase: "completed".into(),
+        events: vec![json!({"type": "message.delta", "payload": {"itemId": "x", "operation": "append", "text": format!("It is {} in .env.", fake_token()), "final": true}})],
+        started_by_kind: None,
+        continues_from_mission_id: None,
+        host_failure_message: None,
+    });
+    h.link.on_run_ended("m_1");
+    let sent = h.app.transport.sent.lock().unwrap().last().unwrap().text.clone();
+    assert!(!sent.contains("ghp_"), "{sent}");
+    assert!(sent.contains("[secret-shaped text removed]"), "{sent}");
+}
+
+// Electron, approval-data.ts exactLine: the exact line a card shows is scrubbed too ("Nothing shaped like a key is
+// sent to Telegram's servers").
+#[test]
+fn the_exact_line_a_card_shows_has_nothing_shaped_like_a_key() {
+    let line = exact_line("Run the tests", &format!("npm test --token={} in tides", fake_token())).unwrap();
+    assert!(!line.contains("ghp_"), "{line}");
+    assert!(line.contains("[secret-shaped text removed]"), "{line}");
+}
+
+// Electron's PAIRING_CODE is exactly eight digits (/^\d{8}$/): nine is not a code.
+#[test]
+fn a_pairing_code_is_exactly_eight_digits() {
+    use crate::chat_apps::pairing_code_in;
+    assert_eq!(pairing_code_in("4729 1836").as_deref(), Some("47291836"));
+    assert_eq!(pairing_code_in("4729 18365"), None);
+    assert_eq!(pairing_code_in("4729 183"), None);
+}
