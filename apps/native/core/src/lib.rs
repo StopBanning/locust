@@ -86,6 +86,7 @@ pub mod connectors_off;
 mod free_start_tests;
 pub mod context_usage;
 pub mod desk;
+pub mod disk_observation;
 pub mod door;
 pub mod door_tools;
 pub mod edit_check;

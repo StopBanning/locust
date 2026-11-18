@@ -599,6 +599,58 @@ fn own_branch_folder(store: &Store, teammate: &Teammate, runtime: &str, folder: 
     }
 }
 
+/// Snapshots the folder after a write-capable turn and records `observed_edit` events (or a shared-folder notice).
+fn record_disk_observation(
+    store: &Store,
+    mission_id: &str,
+    folder: &Path,
+    disk_before: Option<crate::disk_observation::WorkspaceSnapshot>,
+    checkpoint: &crate::checkpoints::Turn,
+) {
+    let Some(before) = disk_before else { return };
+    let before_lookup = |rel: &str| checkpoint.before_text(store, rel);
+    let host = crate::disk_observation::DefaultDiskHost::with_before_text(&before_lookup);
+    let Some(after) = crate::disk_observation::snapshot_workspace(folder, &host) else {
+        return;
+    };
+    let changed = crate::disk_observation::changed_paths(&before, &after);
+    if changed.is_empty() {
+        return;
+    }
+    let Ok(path) = store.write_path(mission_id) else {
+        return;
+    };
+    let existing_events: Vec<Value> = turn_records(mission_id).map(|t| t.events).unwrap_or_default();
+    let shared = checkpoint.is_shared();
+    let _ = crate::ledger_write::append_events(&path, |run, mission, adapter, next_seq, at| {
+        if shared {
+            vec![crate::disk_observation::shared_tree_notice(
+                run, mission, adapter, next_seq, at, &changed,
+            )]
+        } else {
+            let unreported: std::collections::BTreeSet<String> =
+                crate::disk_observation::unreported_paths(&changed, &existing_events)
+                    .into_iter()
+                    .collect();
+            let reported: std::collections::BTreeSet<String> = changed
+                .iter()
+                .filter(|p| !unreported.contains(*p))
+                .cloned()
+                .collect();
+            let patches = crate::disk_observation::observed_patches(
+                folder,
+                &after,
+                &changed,
+                &host,
+                Some(&before),
+            );
+            crate::disk_observation::observed_edit_events(
+                run, mission, adapter, next_seq, &changed, at, &patches, &reported,
+            )
+        }
+    });
+}
+
 /// Commit a turn in a teammate's own copy on its branch, and record the receipt in the turn's stream: what was saved,
 /// what was left out for being too big, or why nothing could be saved (the files then stay in the copy).
 fn checkpoint_turn(store: &Store, mission: &str, root: &Path, teammate: &Teammate, prompt: &str, runtime: &str, model: Option<&str>) {
@@ -625,6 +677,68 @@ fn checkpoint_turn(store: &Store, mission: &str, root: &Path, teammate: &Teammat
             eprintln!("The turn's receipt was not recorded: {error}");
         }
     }
+}
+
+/// Looks up a known folder path by workspace ID in native's `folders.json`, falling back read-only to Electron's.
+fn known_folder_of(store: &Store, electron: &Path, id: &str) -> Result<Option<String>, String> {
+    if let Some(path) = crate::folders::path_of(store, id)? {
+        return Ok(Some(path));
+    }
+    let electron_file = electron.join(crate::folders::FOLDERS_FILE);
+    if let Ok(text) = std::fs::read_to_string(&electron_file)
+        && let Ok(val) = serde_json::from_str::<Value>(&text)
+        && let Some(arr) = val.get("folders").and_then(|v| v.as_array())
+    {
+        for entry in arr {
+            if entry.get("id").and_then(|v| v.as_str()) == Some(id)
+                && let Some(path) = entry.get("path").and_then(|v| v.as_str())
+                && Path::new(path).is_absolute()
+            {
+                return Ok(Some(path.to_owned()));
+            }
+        }
+    }
+    Ok(None)
+}
+
+/// Resolves the working folder for a turn: continuing turns run in the conversation's own folder rather than the
+/// window's current folder, and refuse when that folder is unknown or missing.
+fn resolve_run_folder(
+    store: &Store,
+    electron: &Path,
+    teammate: &Teammate,
+    runtime_name: &str,
+    origin: &Origin,
+    continues_mission_id: Option<&str>,
+) -> Result<(PathBuf, Option<PathBuf>), String> {
+    if let Some(slot_cwd) = origin.slot.as_ref().and_then(|s| s.cwd.clone()) {
+        return Ok((slot_cwd, None));
+    }
+    let current = match &origin.folder {
+        Some(named) => named.clone(),
+        None => folder_for(teammate, electron)?,
+    };
+    let mut run_folder = current.clone();
+    if let Some(earlier_id) = continues_mission_id
+        && let Some(earlier) = turn_records(earlier_id)
+        && let Some(earlier_ws) = earlier.metadata["workspaceId"].as_str()
+        // "native" is the placeholder a record written without its folder carries (older Rust builds, the terminal's
+        // records): it names no folder, so it is never a reason to refuse; the turn runs where it is asked to.
+        && earlier_ws != "native"
+        && earlier_ws != crate::workspace_settings::workspace_id_for(&current)
+    {
+        let Some(path) = known_folder_of(store, electron, earlier_ws)? else {
+            return Err("Locust does not know which folder this conversation ran in, so it will not continue it somewhere else. Start a new conversation instead.".into());
+        };
+        if !Path::new(&path).is_dir() {
+            return Err(format!("This conversation ran in {path}, and that folder is not there any more."));
+        }
+        run_folder = PathBuf::from(path);
+    }
+    if origin.slot.is_none() {
+        let _ = crate::folders::use_folder(store, &run_folder, &chrono::Utc::now().to_rfc3339());
+    }
+    own_branch_folder(store, teammate, runtime_name, run_folder)
 }
 
 /// Conversation cwd: teammate folder, else Electron's last workspace, else ~/Documents/Locust.
@@ -2071,10 +2185,10 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
     // there, and whether it is an edit.
     let mut cold: Option<(Vec<crate::carry_on::EarlierTurn>, bool)> = None;
     let mut rewind_link: Option<Value> = None;
-    let (continues, resume) = if let Some(side) = &side_req {
+    let (continues, resume, continues_folder_mission) = if let Some(side) = &side_req {
         let prepared = crate::side_question::prepare(&side.of, runtime_name, mode, &job.prompt)?;
         side_prompt = Some(prepared.runtime_prompt);
-        (None, Some(prepared.resume_thread))
+        (None, Some(prepared.resume_thread), Some(side.of.clone()))
     } else if let Some(rewind) = &origin.rewind {
         // Cold, on whichever agent is chosen: resuming the session of the turn before would hand the model the very
         // turns being set aside. The first message edited has nothing before it: a new conversation.
@@ -2085,12 +2199,14 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
             cold = Some((turns_through(before), true));
             rewind_link = Some(json!({"missionId": before, "checkpointEpoch": 1, "reason": "follow-up", "edited": true}));
         }
-        (None, None)
+        let folder_mission = rewind.before.clone().unwrap_or_else(|| rewind.tip.clone());
+        (None, None, Some(folder_mission))
     } else {
         match job.conversation.as_deref() {
-        None => (None, None),
+        None => (None, None, None),
         Some(conversation) => {
             let tip = real_tip(conversation)?;
+            let tip_owned = tip.clone();
             let tip = tip.as_str();
             if owns(tip) {
                 return Err(
@@ -2107,7 +2223,7 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
             }
             if prior.runtime != runtime_name || prior.account != effective_account {
                 switched = Some(route_switch(&store, tip, &job.prompt, &origin.left_out_by_you)?);
-                (None, None)
+                (None, None, Some(tip_owned))
             } else {
                 // codex-mission.ts: a reply on the same agent resumes its session, unless the mode changed since (a
                 // resumed session keeps the tools it was built with, so the mode on screen would not be the one that
@@ -2124,6 +2240,7 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
                         thread: thread.clone(),
                     }),
                     thread,
+                    Some(tip_owned),
                 )
             }
         }
@@ -2132,15 +2249,14 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
     // A teammate set to work on its own branch runs in its own copy of the project, and each of its turns is
     // committed there with a receipt (worktrees.rs; Electron's peer.repositoryRoot).
     // A comparison slot with its own `cwd` already has its own copy or worktree.
-    let (folder, repository_root) = if let Some(slot_cwd) = origin.slot.as_ref().and_then(|s| s.cwd.clone()) {
-        (slot_cwd, None)
-    } else {
-        let folder = match &origin.folder {
-            Some(named) => named.clone(),
-            None => folder_for(&job.teammate, &electron)?,
-        };
-        own_branch_folder(&store, &job.teammate, runtime_name, folder)?
-    };
+    let (folder, repository_root) = resolve_run_folder(
+        &store,
+        &electron,
+        &job.teammate,
+        runtime_name,
+        &origin,
+        continues_folder_mission.as_deref(),
+    )?;
     let checkpoint_prompt = job.prompt.clone();
     let model = job
         .model
@@ -2505,7 +2621,7 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
         .map(|a| a.to_string_lossy().into_owned())
         .collect();
     // The mode and sandbox the turn really runs in, where it stands, and who started it, as Electron records them.
-    let turn_workspace_id = crate::workspace_settings::workspace_id_for(&folder);
+    let turn_workspace_id = crate::workspace_settings::workspace_id_for(repository_root.as_deref().unwrap_or(&folder));
     let resolved_route_id = format!(
         "{runtime_name}:{}-account:{}",
         model.as_deref().unwrap_or("account-default"),
@@ -2645,6 +2761,14 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
             let _browser_registration = browser_registration;
             let checkpoint = crate::checkpoints::Turn::begin(&memory_store, &memory_folder);
             let cursor_guard = crate::cursor_config::CursorRunGuard::begin(memory_store.root(), &runtime_owned, &memory_folder, check_mode, check_model.as_deref());
+            let disk_before = if check_mode.sandbox() == "read-only" {
+                None
+            } else {
+                crate::disk_observation::snapshot_workspace(
+                    &memory_folder,
+                    &crate::disk_observation::DefaultDiskHost::new(),
+                )
+            };
             run_turn(
                 writer,
                 command,
@@ -2666,6 +2790,7 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
                 let _ = std::fs::remove_dir_all(copy);
             }
             crate::skills::forget_roots(&memory_id);
+            record_disk_observation(&memory_store, &memory_id, &memory_folder, disk_before, &checkpoint);
             let (edited, seen_changes) = match checkpoint.finish_reporting_changes(&memory_store, &memory_id) {
                 Ok((edited, seen)) => (Some(edited), seen),
                 Err(error) => {

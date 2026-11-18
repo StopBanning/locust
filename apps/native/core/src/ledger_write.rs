@@ -32,6 +32,50 @@ pub fn append_checkpoint(path: &std::path::Path, checkpoint: &Value) -> io::Resu
 
 /// A line Locust adds to a turn that has ended (`index.ts` noteCarryOn / noteCheckFix): an `adapter.diagnostic` with
 /// the next event and ledger sequence, appended to the turn's own native ledger.
+pub fn append_events<F>(path: &std::path::Path, make_events: F) -> io::Result<()>
+where
+    F: FnOnce(&str, &str, &str, u64, &str) -> Vec<Value>,
+{
+    use std::io::Write;
+    let text = std::fs::read_to_string(path)?;
+    if !text.is_empty() && !text.ends_with('\n') {
+        return Err(io::Error::other("Ledger does not end on a whole record"));
+    }
+    let records: Vec<Value> = text.lines().filter_map(|l| serde_json::from_str(l).ok()).collect();
+    let first = records.first().ok_or_else(|| io::Error::other("Ledger has no first record"))?;
+    let meta = &first["metadata"];
+    let last = records.iter().rev().find_map(|r| r.get("event"));
+    let next_seq = last.and_then(|e| e["sequence"].as_u64()).unwrap_or(0) + 1;
+    let mut ledger_seq = records.iter().filter_map(|r| r["ledgerSequence"].as_u64()).max().unwrap_or(0) + 1;
+    let at = now();
+    let run = meta["runId"].as_str().unwrap_or_default();
+    let mission = meta["missionId"].as_str().unwrap_or_default();
+    let adapter = last
+        .and_then(|e| e["sourceAdapter"].as_str())
+        .or(meta["runtime"].as_str())
+        .unwrap_or_default();
+    let events = make_events(run, mission, adapter, next_seq, &at);
+    if events.is_empty() {
+        return Ok(());
+    }
+    let mut buf = Vec::new();
+    for event in events {
+        let record = json!({
+            "schemaVersion": first["schemaVersion"],
+            "recordType": "mission.event",
+            "ledgerSequence": ledger_seq,
+            "occurredAt": at,
+            "event": event
+        });
+        ledger_seq += 1;
+        serde_json::to_writer(&mut buf, &record)?;
+        buf.push(b'\n');
+    }
+    let mut file = std::fs::OpenOptions::new().append(true).open(path)?;
+    file.write_all(&buf)?;
+    file.sync_all()
+}
+
 pub fn append_note(path: &std::path::Path, code: &str, message: &str) -> io::Result<()> {
     append_note_with_level(path, "warning", code, message)
 }

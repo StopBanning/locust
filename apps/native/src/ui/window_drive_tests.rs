@@ -1288,7 +1288,12 @@ fn a_failing_check_shows_its_card_and_sends_back_to_fix() {
     });
     settle(&mut rt);
 
-    let msg_text = text_in(&rt, "messages").join("\n");
+    // Both turns' edit cards (the first seen on disk, as the fake never reports its write) run past one window's
+    // height: read the thread from its top as well, as a person would scroll up.
+    let bottom_text = text_in(&rt, "messages").join("\n");
+    rt.update(|_, tx| tx.scroll_to_instant("messages", 0.0, 0.0));
+    settle(&mut rt);
+    let msg_text = format!("{}\n{bottom_text}", text_in(&rt, "messages").join("\n"));
     assert!(msg_text.contains("Wrote notes.txt."), "{msg_text}");
     assert!(msg_text.contains("failed after this turn:"), "{msg_text}");
     assert!(msg_text.contains("FAIL notes.txt is broken"), "{msg_text}");
@@ -4169,7 +4174,7 @@ fn relay_holds_reply_for_busy_teammate_and_starts_when_finished() {
     rt.update(|s, tx| select_teammate(s, "tm_pip", tx));
     settle(&mut rt);
     type_and_send(&mut rt, "Check the lock first");
-    let prompt_log = dirs.0.join("work").join("relay-prompts.jsonl");
+    let prompt_log = dirs.0.join("relay-prompts.jsonl");
     pump(&mut rt, "Pip's slow run enters turn/start", |_| {
         prompt_log.is_file() && !locust_core::engine_api::api().running().is_empty()
     });
@@ -4551,7 +4556,7 @@ fn making_a_room_and_posting_starts_one_run_per_member_and_shows_answers() {
     });
     settle(&mut rt);
 
-    let prompt_log = std::fs::read_to_string(dirs.0.join("work").join("room-prompts.jsonl")).unwrap();
+    let prompt_log = std::fs::read_to_string(dirs.0.join("room-prompts.jsonl")).unwrap();
     assert_eq!(prompt_log.lines().count(), 2, "one run started per member");
     let texts: Vec<String> = rt.elements().into_iter().filter_map(|e| e.text).collect();
     assert!(texts.iter().any(|t| t.contains("Codec room answer.")), "Codec answer shown: {texts:?}");
@@ -4588,7 +4593,7 @@ fn posting_with_target_mention_in_a_room_asks_only_that_member() {
     });
     settle(&mut rt);
 
-    let prompt_log = std::fs::read_to_string(dirs.0.join("work").join("room-prompts.jsonl")).unwrap();
+    let prompt_log = std::fs::read_to_string(dirs.0.join("room-prompts.jsonl")).unwrap();
     assert_eq!(prompt_log.lines().count(), 1, "only the named member started");
     let texts: Vec<String> = rt.elements().into_iter().filter_map(|e| e.text).collect();
     assert!(texts.iter().any(|t| t.contains("Codec room answer.")));
