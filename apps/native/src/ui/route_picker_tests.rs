@@ -295,3 +295,110 @@ fn the_chip_draws_free_as_its_own_tag_outside_the_truncated_name() {
     let chip_words = text_in(&rt, "model-chip");
     assert!(chip_words.iter().any(|w| w == "Muse Spark 1.3 Contributor"), "got: {chip_words:?}");
 }
+
+// routeChipReading.test.ts
+#[test]
+fn the_model_and_its_effort_read_as_one_control() {
+    let mut s = State::default();
+    s.teammates.push(Teammate {
+        id: "tm_1".into(),
+        name: "Wren".into(),
+        role: "Code".into(),
+        runtime: Some("claude".into()),
+        model: Some("haiku".into()),
+        account: None,
+        busy: false,
+        runs_in: "ask".into(),
+        folder: None,
+    });
+    s.selected = 0;
+    s.conversations.insert("tm_1".into(), Conversation::default());
+    s.models.insert(
+        "tm_1".into(),
+        vec![engine::Models {
+            runtime: "claude".into(),
+            model: None,
+            effort: Some("medium".into()),
+            teammate: None,
+            models: vec![engine::Model { id: "haiku".into(), name: "Haiku 5.5".into(), efforts: vec!["medium".into()] }],
+        }],
+    );
+    fn view_chip(s: &State, _cx: &mut Cx<State>) -> El {
+        crate::thread_view(s, &Palette::new(true))
+    }
+    let mut rt = Runtime::new(s, view_chip, (1000.0, 800.0), Env::new(true, 1.0));
+    rt.frame(0.0);
+    assert!(text_in(&rt, "model-chip").iter().any(|w| w == "Haiku 5.5 · Medium"));
+
+    rt.update(|s, _| {
+        s.picks.insert("tm_1".into(), TurnPick { model: "opus".into(), effort: Some("high-fast".into()), runtime: None, account: None });
+        s.models.get_mut("tm_1").unwrap()[0].models.push(engine::Model { id: "opus".into(), name: "Opus 5.5".into(), efforts: vec!["high-fast".into()] });
+    });
+    rt.frame(0.016);
+    assert!(text_in(&rt, "model-chip").iter().any(|w| w.contains("Opus 5.5 · High · Fast")));
+}
+
+// the-header-says-money-or-nothing.test.ts
+#[test]
+fn what_the_conversations_header_says_a_run_cost_is_money_or_nothing() {
+    let mut s = State::default();
+    s.teammates.push(Teammate {
+        id: "tm_1".into(),
+        name: "Wren".into(),
+        role: "Code".into(),
+        runtime: Some("claude".into()),
+        model: Some("opus".into()),
+        account: None,
+        busy: false,
+        runs_in: "ask".into(),
+        folder: None,
+    });
+    s.selected = 0;
+    s.conversations.insert("tm_1".into(), Conversation::default());
+    let mut snap = ledger::Snapshot::default();
+    snap.cost = Some(locust_core::benchmark::RunCost { input_tokens: Some(9000), output_tokens: Some(240), usd: Some(0.12), ..Default::default() });
+    s.ledger = Some(LedgerPane {
+        header: s.teammates[0].clone(),
+        conversation: Conversation::default(),
+        items: vec![],
+        dir: std::path::PathBuf::new(),
+        worker: None,
+        snapshot: snap,
+        due: f64::INFINITY,
+        loading: false,
+        after_tip: None,
+        after_tip_deadline: None,
+        backoff: 0.0,
+    });
+    fn view_hdr(s: &State, _cx: &mut Cx<State>) -> El {
+        crate::thread_view(s, &Palette::new(true))
+    }
+    let mut rt = Runtime::new(s, view_hdr, (1000.0, 800.0), Env::new(true, 1.0));
+    rt.frame(0.0);
+    assert!(text_in(&rt, "thread-header-route").join(" ").contains(" · $0.12"));
+
+    rt.update(|s, _| {
+        s.ledger.as_mut().unwrap().snapshot.cost = Some(locust_core::benchmark::RunCost {
+            input_tokens: Some(9000),
+            output_tokens: Some(240),
+            plan: true,
+            ..Default::default()
+        });
+    });
+    rt.frame(0.016);
+    let words = text_in(&rt, "thread-header-route").join(" ");
+    assert!(!words.contains("9.0k") && !words.contains("in your plan"), "got: {words}");
+}
+
+// connectors-are-not-the-mode.test.tsx
+#[test]
+fn reaches_the_screen_without_opening_the_menu() {
+    let mut rt = chip_runtime("claude", "sonnet", "Sonnet 5.5", None);
+    let (x, y) = rt.find("mode-chip").expect("mode-chip");
+    rt.pointer_move(x, y);
+    rt.frame(0.1);
+    rt.frame(0.6);
+    let tip = rt.elements().into_iter().find(|e| e.key.as_deref() == Some("mode-chip-tip-tooltip"));
+    let tip_text = tip.and_then(|e| e.label).unwrap_or_default();
+    assert!(tip_text.contains("Your connectors work"), "got: {tip_text}");
+}

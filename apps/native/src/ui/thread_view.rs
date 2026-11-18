@@ -340,13 +340,14 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
         let account_name = active_account
             .and_then(|acc| s.agent_accounts.accounts.iter().find(|a| a.id == acc))
             .map(|a| a.name.as_str());
-        let label = format!(
-            "{}{}{}{}",
-            chip_model_name,
-            account_name.map(|n| format!(" · {n}")).unwrap_or_default(),
-            effort.map(|e| format!(" · {e}")).unwrap_or_default(),
-            if picked.is_some() { ", this turn" } else { "" }
-        );
+        let base_name = if let Some(n) = account_name {
+            format!("{chip_model_name} \u{b7} {n}")
+        } else {
+            chip_model_name.to_owned()
+        };
+        let effort_text = effort.map(locust_core::effort_levels::effort_phrase);
+        let chip_reading = locust_core::effort_levels::route_chip_reading(&base_name, effort_text.as_deref());
+        let label = format!("{chip_reading}{}", if picked.is_some() { ", this turn" } else { "" });
         let chip_id = id.clone();
         let runtime = picked
             .and_then(|p| p.runtime.as_deref())
@@ -907,25 +908,33 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
         // The mode these turns run in: the one chosen here, else the teammate's own (Electron's composer mode).
         let mode_now = s.composer_mode.clone().unwrap_or_else(|| teammate.runs_in.clone());
         let mode_word = locust_core::mode_facts::fact(&mode_now).chip;
+        let mode_runtime = s
+            .picks
+            .get(&teammate.id)
+            .and_then(|pk| pk.runtime.as_deref())
+            .or(teammate.runtime.as_deref())
+            .unwrap_or("codex");
+        let has_connectors = s.connectors.connectors.as_ref().is_some_and(|c| !c.is_empty());
+        let mode_tip = locust_core::mode_facts::connectors_note(mode_runtime, &mode_now, has_connectors)
+            .unwrap_or_else(|| "Permission mode".to_owned());
         // Where the turn will run, as native::folder_for chooses: the teammate's own folder, else the one Locust has open.
         let folder = teammate.folder.as_deref().or(s.home.folder_path.as_deref());
         let home = std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE")).ok();
         let system = std::env::var("SystemRoot").ok();
+        let mode_btn = crate::look::controls::composer_chip(&l, None, mode_word, false)
+            .key("mode-chip")
+            .role("button")
+            .label(format!("Mode: {}", locust_core::mode_facts::fact(&mode_now).name))
+            .on_press(|s: &mut State| {
+                s.mode_menu = !s.mode_menu;
+                s.reference_menu = false;
+            });
         let footer = row()
             .w_full()
             .center_y()
             .gap(10.0)
             .px(6.0)
-            .child(
-                crate::look::controls::composer_chip(&l, None, mode_word, false)
-                    .key("mode-chip")
-                    .role("button")
-                    .label(format!("Mode: {}", locust_core::mode_facts::fact(&mode_now).name))
-                    .on_press(|s: &mut State| {
-                        s.mode_menu = !s.mode_menu;
-                        s.reference_menu = false;
-                    }),
-            )
+            .child(crate::hover::tip(s, &l, "mode-chip-tip", &mode_tip, el().child(mode_btn)))
             .child(
                 folder_chip(&l, folder, home.as_deref(), cfg!(windows), system.as_deref())
                     .on_press(|s: &mut State| s.reference_menu = !s.reference_menu),
@@ -1002,7 +1011,18 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
                                 if let Some(mark) = crate::look::controls::agent_mark(&l, teammate.runtime.as_deref().unwrap_or("codex"), 11.0, l.c("text-muted")) {
                                     line = line.child(mark);
                                 }
-                                line.child(text(agent_line(s, teammate)).font(rune::TextStyle::new(12.0, 400.0)).color(l.c("text-muted")).truncate().shrink())
+                                let header_cost = locust_core::benchmark::header_cost_tail(
+                                    s.ledger.as_ref().and_then(|ledger| ledger.snapshot.cost.as_ref()),
+                                    turn_running(s),
+                                );
+                                line.child(
+                                    text(format!("{}{header_cost}", agent_line(s, teammate)))
+                                        .key("thread-header-route")
+                                        .font(rune::TextStyle::new(12.0, 400.0))
+                                        .color(l.c("text-muted"))
+                                        .truncate()
+                                        .shrink(),
+                                )
                             }),
                     )
                     .child(actions),

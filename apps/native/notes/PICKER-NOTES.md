@@ -131,3 +131,10 @@ Breaks (`core-c` to `core-f`, `ui-d`, `ui-e` logs). All caught in the end:
 - `src/ui/free_offer.rs`: draws the busy-free offer (`busy-free-offer`) and quiet-free offer (`quiet-free-offer`, `quiet-free-offer-action`), stopping the run, switching `s.picks` to the next free model, and handing the prompt back to `s.draft`.
 - Tests passed: `model_alias::tests::*` (6), `route_picker_tests::*` (10), `free_offer::tests::*` (3), `window_drive_tests::the_picker_and_model_chip_show_the_name_earned_from_local_history` (1).
 - Breaks (`slice2-core.breaks`, `slice2-ui.breaks`): all 7 killed by their named tests.
+
+### Part 3, first three: chip reading, header cost, connectors mode note (done, 18 Nov)
+- `core/src/effort_levels.rs`: `effort_phrase` and `route_chip_reading` (`Haiku 5.5 · Medium`, `Opus 5.5 · High · Fast`); `thread_view.rs` formats `model-chip` with them.
+- `core/src/benchmark.rs`: `money_line` and `header_cost_tail` (dollars or premium requests only, never tokens or subscription); `thread_view.rs` appends it to `thread-header-route`.
+- `core/src/mode_facts.rs`: `connectors_note(runtime, mode, has_connectors)`; `thread_view.rs` attaches it to `mode-chip` via `hover::tip` (`mode-chip-tip`).
+- Tests passed: `effort_levels::tests::*` (17), `benchmark::tests::*`, `mode_facts::tests::*` (11), `route_picker_tests::*` (13).
+- Breaks (`part2a-core.breaks`, `part2a-ui.breaks`): all 7 killed by their named tests.

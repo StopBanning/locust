@@ -64,6 +64,30 @@ pub fn unavailable_reason(mode: &str, runtime: &str) -> Option<String> {
     })
 }
 
+/// `Composer.tsx` `connectorsNote`: what the chosen mode does to connectors, per runtime.
+pub fn connectors_note(runtime: &str, mode: &str, has_connectors: bool) -> Option<String> {
+    if runtime == "cursor" && mode != "auto" {
+        return Some("Your connectors work in this mode too: Locust allows each server you configured in this workspace's Cursor settings, since nobody is here to answer Cursor's per-call prompt. What this mode limits is this machine.".into());
+    }
+    if runtime != "claude" {
+        if !has_connectors {
+            return None;
+        }
+        return Some(format!(
+            "Your connectors are signed in on Claude Code. A teammate on {} uses that program's own instead \u{2014} a different set, signed in separately.",
+            crate::teammate_tooltip::short_runtime_name(runtime)
+        ));
+    }
+    if mode == "ask" || mode == "plan" {
+        return Some("Your connectors work in this mode, and each call asks you first, as Claude Code does. A connector acts on the service it reaches, not this machine.".into());
+    }
+    Some(if mode == "auto" {
+        "Your connectors work here, and so does everything else on this machine.".into()
+    } else {
+        "Your connectors work in this mode too. This mode only limits what happens on this machine \u{2014} a connector acts on the service it reaches.".into()
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -91,5 +115,90 @@ mod tests {
             Some("Claude Code, Codex CLI, OpenCode and Copilot CLI only. Cursor Agent cannot stop and ask yet.")
         );
         assert!(unavailable_reason("ask", "acp").is_some());
+    }
+
+    // --- connectors-are-not-the-mode.test.tsx
+
+    const RESTRICTED: [&str; 4] = ["ask", "accept-edits", "plan", "approve-each"];
+    const EVERY_MODE: [&str; 5] = ["ask", "accept-edits", "plan", "approve-each", "auto"];
+
+    #[test]
+    fn says_they_work_in_every_mode() {
+        for mode in EVERY_MODE {
+            assert!(connectors_note("claude", mode, false).unwrap().contains("Your connectors work"), "{mode}");
+        }
+    }
+
+    #[test]
+    fn says_the_one_thing_the_mode_cannot_tell_you_a_connector_is_not_this_machine() {
+        for mode in RESTRICTED {
+            if mode == "ask" || mode == "plan" { continue; }
+            let note = connectors_note("claude", mode, false).unwrap();
+            assert!(note.contains("only limits what happens on this machine"), "{mode}");
+            assert!(note.contains("a connector acts on the service it reaches"), "{mode}");
+        }
+        for mode in ["ask", "plan"] {
+            let note = connectors_note("claude", mode, false).unwrap();
+            assert!(note.contains("each call asks you first"), "{mode}");
+            assert!(note.contains("not this machine"), "{mode}");
+        }
+        assert!(connectors_note("claude", "auto", false).unwrap().contains("everything else on this machine"));
+    }
+
+    #[test]
+    fn never_repeats_any_of_the_three_sentences_that_turned_out_to_be_wrong() {
+        for mode in EVERY_MODE {
+            let note = connectors_note("claude", mode, false).unwrap_or_default();
+            assert!(!note.contains("own Claude Code settings"), "{mode}");
+            assert!(!note.contains("available in every mode"), "{mode}");
+            assert!(!note.contains("will be refused"), "{mode}");
+            assert!(!note.contains("Only Auto"), "{mode}");
+        }
+    }
+
+    #[test]
+    fn says_nothing_on_a_runtime_whose_launcher_never_touches_mcp() {
+        for runtime in ["codex", "opencode", "copilot", "antigravity"] {
+            assert_eq!(connectors_note(runtime, "accept-edits", false), None, "{runtime}");
+        }
+    }
+
+    #[test]
+    fn says_where_they_are_signed_in_once_there_are_any() {
+        let said = connectors_note("cursor", "auto", true).unwrap();
+        assert!(said.contains("Claude Code"));
+        assert!(said.contains("Cursor"));
+    }
+
+    #[test]
+    fn does_not_claim_the_other_route_has_none_because_that_is_not_true() {
+        let said = connectors_note("cursor", "auto", true).unwrap();
+        for wrong in ["no connectors", "cannot use", "without connectors"] {
+            assert!(!said.to_lowercase().contains(wrong));
+        }
+        assert!(said.contains("different set"));
+    }
+
+    #[test]
+    fn tells_a_cursor_route_outside_auto_that_its_connectors_work_and_how() {
+        for mode in ["accept-edits", "ask", "plan"] {
+            let said = connectors_note("cursor", mode, false).unwrap();
+            assert!(said.contains("Your connectors work in this mode too"));
+            assert!(said.contains("Cursor settings"));
+            assert!(!said.contains("refused"));
+        }
+        assert_eq!(connectors_note("cursor", "auto", false), None);
+    }
+
+    #[test]
+    fn stays_quiet_when_this_machine_has_none_because_then_there_is_nothing_to_place() {
+        assert_eq!(connectors_note("cursor", "auto", false), None);
+        assert_eq!(connectors_note("codex", "ask", false), None);
+    }
+
+    #[test]
+    fn leaves_the_claude_sentence_exactly_as_it_was() {
+        assert_eq!(connectors_note("claude", "auto", true), connectors_note("claude", "auto", false));
+        assert!(connectors_note("claude", "auto", true).unwrap().contains("work here"));
     }
 }

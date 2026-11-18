@@ -126,3 +126,19 @@ fn cursors_eight_levels_are_four_stops_and_a_fast_switch_sorted_least_to_most() 
     assert_eq!(levels_line(&plain).as_deref(), Some("Low, High"));
     assert_eq!(levels_line(&[]), None);
 }
+
+// --- routeChipReading.test.ts: the model and its effort read as one control
+
+#[test]
+fn joins_them_the_way_the_reference_does() {
+    assert_eq!(route_chip_reading("Haiku 5.5", Some("Medium")), "Haiku 5.5 · Medium");
+    assert_eq!(route_chip_reading("Opus 5.5", Some("High · Fast")), "Opus 5.5 · High · Fast");
+    assert_eq!(effort_phrase("medium"), "Medium");
+    assert_eq!(effort_phrase("high-fast"), "High · Fast");
+}
+
+#[test]
+fn leaves_the_name_alone_when_there_is_no_effort_to_state() {
+    assert_eq!(route_chip_reading("Haiku 5.5", None), "Haiku 5.5");
+    assert_eq!(route_chip_reading("Haiku 5.5", Some("  ")), "Haiku 5.5");
+}
