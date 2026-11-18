@@ -147,6 +147,9 @@ tests; the window drawing the label instead of the action →
 
 Suite: 4,349 passed, 22 skipped.
 
+Final gates at 9cdb2375: `nextest run --workspace` passed (4,349, 22 skipped); `test --release --workspace` passed
+(3,403 engine, 946 window); `build --release` passed.
+
 ## Not started (left `waiting`, each with its triage note)
 - Part 3: the-live-line-says-the-starts-phase, the-live-line-opens-the-plan, an-orb-needs-a-runtime-that-streams,
   the-frame-pass.
