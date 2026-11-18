@@ -1,0 +1,6 @@
+# Disk observation, conversation folders, and long turns (18 Nov 2026)
+
+## Part 1: A conversation runs in its own folder
+- `core/src/native.rs`: added `known_folder_of` and `resolve_run_folder` so continuing turns (follow-up, route switch, side question, rewind) look up the earlier mission's `workspaceId` in native's `folders.json` (falling back read-only to Electron's `folders.json`) when it differs from the current folder, and refuse with Electron's exact words if unknown or missing. Also records used folders via `folders::use_folder` and hashes the project root (not the worktree) for `turn_workspace_id`.
+- `core/src/native/codex_mission_tests.rs`: updated `earlier()` to use `workspace_id_for(&work)` instead of `"ws_test"`, and added 5 tests matching `main/a-conversation-runs-in-its-own-folder.test.ts` (68/68 `codex_mission` tests passed).
+- Break check (`mutsafe.py`): skipping `earlier_ws != workspace_id_for(&current)` killed by `runs_in_its_conversations_folder_not_the_windows_and_is_recorded_there`, `continues_a_restored_windows_conversation_in_the_chosen_mac_folder`, `is_refused_not_run_here_when_its_folder_is_not_known`, and `is_refused_not_run_here_when_its_folder_is_gone`.

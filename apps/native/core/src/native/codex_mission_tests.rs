@@ -262,9 +262,10 @@ const NOW: &str = "2026-11-16T12:00:00.000Z";
 /// metadata and the given events. Written to native's ledger folder (where a route switch checkpoints it) and aged an
 /// hour, so a turn whose events end without a terminal record still reads as finished.
 fn earlier(t: &Temp, overrides: Value, events: &[Value]) -> PathBuf {
+    let work = t.0.join("work").canonicalize().unwrap_or_else(|_| t.0.join("work"));
     let mut meta = json!({"missionId": "mission_prior", "runId": "run_prior", "prompt": "check the google stock price",
         "runtime": "codex", "model": "account-default", "requestedRouteId": "codex", "resolvedRouteId": "codex-account:default",
-        "cliVersion": null, "workspaceId": "ws_test", "sandbox": "read-only", "executionPolicyVersion": 1, "createdAt": NOW});
+        "cliVersion": null, "workspaceId": crate::workspace_settings::workspace_id_for(&work), "sandbox": "read-only", "executionPolicyVersion": 1, "createdAt": NOW});
     for (k, v) in overrides.as_object().unwrap() {
         meta[k] = v.clone();
     }
@@ -1172,4 +1173,115 @@ fn an_answer_to_a_card_nobody_raised_is_not_taken() {
     let t = Temp::new();
     let _hook = hooks::install(t.store(), codex_commands_hook(&t));
     assert!(decide_approval("ap_1", Decision::ApproveOnce, None).is_err());
+}
+
+// ---- a conversation runs in its own folder (main/a-conversation-runs-in-its-own-folder.test.ts) ----
+
+fn folder_setup(t: &Temp, folder_of_earlier: &str, known: &[(&str, &str)]) -> (PathBuf, PathBuf, PathBuf) {
+    let here = t.0.join("here");
+    let there = t.0.join("there");
+    fs::create_dir_all(&here).unwrap();
+    fs::create_dir_all(&there).unwrap();
+    let store = t.store();
+    crate::native::set_open_folder(&store, &here).unwrap();
+    let entries: Vec<(String, String)> = known
+        .iter()
+        .map(|(id, p)| ((*id).to_owned(), (*p).to_owned()))
+        .collect();
+    crate::folders::learn(&store, &entries).unwrap();
+    let prior = earlier(
+        t,
+        json!({
+            "missionId": "mission_earlier",
+            "runId": "run_earlier",
+            "workspaceId": crate::workspace_settings::workspace_id_for(Path::new(folder_of_earlier)),
+        }),
+        &[],
+    );
+    (here, there, prior)
+}
+
+fn folder_job(t: &Temp, here: &Path, conversation: Option<&str>, prompt: &str) -> Send {
+    let mut j = job(t, conversation, prompt);
+    j.teammate.folder = Some(here.to_string_lossy().into_owned());
+    j
+}
+
+#[test]
+fn runs_in_its_conversations_folder_not_the_windows_and_is_recorded_there() {
+    let t = Temp::new();
+    let here = t.0.join("here");
+    let there = t.0.join("there");
+    let there_s = there.to_string_lossy().into_owned();
+    let ws_there = crate::workspace_settings::workspace_id_for(&there);
+    let (_, _, prior) = folder_setup(&t, &there_s, &[(&ws_there, &there_s)]);
+    let _hook = hooks::install(t.store(), codex_commands_hook(&t));
+    let started = send(folder_job(&t, &here, Some("mission_earlier"), "And the tests?")).unwrap();
+    finished(&started.conversation_id);
+    let head = new_turn(&t, &[&prior]);
+    assert_eq!(head["command"]["cwd"], there_s);
+    assert_eq!(head["workspaceId"], ws_there);
+}
+
+#[test]
+fn continues_a_restored_windows_conversation_in_the_chosen_mac_folder() {
+    let t = Temp::new();
+    let here = t.0.join("here");
+    let there = t.0.join("there");
+    let there_s = there.to_string_lossy().into_owned();
+    let old = "C:\\work\\demo";
+    let ws_old = crate::workspace_settings::workspace_id_for(Path::new(old));
+    let ws_there = crate::workspace_settings::workspace_id_for(&there);
+    let (_, _, prior) = folder_setup(&t, old, &[(&ws_old, &there_s)]);
+    let _hook = hooks::install(t.store(), codex_commands_hook(&t));
+    let started = send(folder_job(&t, &here, Some("mission_earlier"), "And the tests?")).unwrap();
+    finished(&started.conversation_id);
+    let head = new_turn(&t, &[&prior]);
+    assert_eq!(head["command"]["cwd"], there_s);
+    assert_eq!(head["workspaceId"], ws_there);
+}
+
+#[test]
+fn a_new_conversation_still_starts_in_the_windows_folder() {
+    let t = Temp::new();
+    let (here, there, _) = folder_setup(&t, &t.0.join("there").to_string_lossy(), &[]);
+    let there_s = there.to_string_lossy().into_owned();
+    let ws_there = crate::workspace_settings::workspace_id_for(&there);
+    crate::folders::learn(&t.store(), &[(ws_there, there_s)]).unwrap();
+    let _hook = hooks::install(t.store(), codex_commands_hook(&t));
+    let started = send(folder_job(&t, &here, None, "Start something")).unwrap();
+    finished(&started.conversation_id);
+    let head = header(&path_of(&t, &started.conversation_id));
+    let here_canon = here.canonicalize().unwrap();
+    assert_eq!(head["command"]["cwd"], here_canon.to_string_lossy().as_ref());
+    assert_eq!(head["workspaceId"], crate::workspace_settings::workspace_id_for(&here_canon));
+}
+
+#[test]
+fn is_refused_not_run_here_when_its_folder_is_not_known() {
+    let t = Temp::new();
+    let here = t.0.join("here");
+    let there = t.0.join("there");
+    let there_s = there.to_string_lossy().into_owned();
+    folder_setup(&t, &there_s, &[]);
+    let _hook = hooks::install(t.store(), codex_commands_hook(&t));
+    let before = ledgers(&t).len();
+    let err = send(folder_job(&t, &here, Some("mission_earlier"), "And the tests?")).unwrap_err();
+    assert!(err.contains("does not know which folder this conversation ran in"), "{err}");
+    assert_eq!(ledgers(&t).len(), before);
+}
+
+#[test]
+fn is_refused_not_run_here_when_its_folder_is_gone() {
+    let t = Temp::new();
+    let here = t.0.join("here");
+    let gone = t.0.join("there").join("deleted-project");
+    let gone_s = gone.to_string_lossy().into_owned();
+    let ws_gone = crate::workspace_settings::workspace_id_for(&gone);
+    folder_setup(&t, &gone_s, &[(&ws_gone, &gone_s)]);
+    let _hook = hooks::install(t.store(), codex_commands_hook(&t));
+    let before = ledgers(&t).len();
+    let err = send(folder_job(&t, &here, Some("mission_earlier"), "And the tests?")).unwrap_err();
+    assert!(err.contains("that folder is not there any more"), "{err}");
+    assert_eq!(ledgers(&t).len(), before);
 }
