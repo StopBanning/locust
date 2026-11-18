@@ -138,3 +138,11 @@ Breaks (`core-c` to `core-f`, `ui-d`, `ui-e` logs). All caught in the end:
 - `core/src/mode_facts.rs`: `connectors_note(runtime, mode, has_connectors)`; `thread_view.rs` attaches it to `mode-chip` via `hover::tip` (`mode-chip-tip`).
 - Tests passed: `effort_levels::tests::*` (17), `benchmark::tests::*`, `mode_facts::tests::*` (11), `route_picker_tests::*` (13).
 - Breaks (`part2a-core.breaks`, `part2a-ui.breaks`): all 7 killed by their named tests.
+
+### Part 3, fourth: managed controls say who set them (done, 18 Nov)
+- `src/ui/settings_panel.rs`: `org_policy_section` draws `"Managed by your organization"` (or `role="alert"` on error) with `policy.path` and `org_policy::setting_words`; `door_section` disables `otherApps` with `"Set by your organization."`.
+- `src/ui/phone_section.rs`: `managed` adds `"Set by your organization."`.
+- `src/ui/thread_view.rs`: `mode_menu` filters modes with `org_policy::mode_allowed`.
+- `src/ui/people_panel.rs`: `edit_form` shows `"Set by your organization"` and `"Maximum {cap:.2} USD. You can set a lower amount."`.
+- Tests passed: `managed_controls_tests::*` (3).
+- Breaks (`part2b-ui.breaks`): all 5 killed by their named tests.

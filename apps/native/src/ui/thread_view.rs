@@ -1494,7 +1494,11 @@ fn mode_menu(s: &State, l: &crate::look::controls::Look, teammate: &Teammate, cu
         .box_shadow(l.t.shadows("shadow-menu").first().copied().unwrap_or_default())
         .role("menu")
         .label("Permission mode");
+    let policy = locust_core::org_policy::current();
     for fact in locust_core::mode_facts::MODE_FACTS {
+        if !locust_core::org_policy::mode_allowed(Some(&policy), fact.mode) {
+            continue;
+        }
         let unavailable = locust_core::mode_facts::unavailable_reason(fact.mode, &runtime);
         let chosen = fact.mode == current;
         let said = unavailable.clone().unwrap_or_else(|| fact.consequence.to_owned());

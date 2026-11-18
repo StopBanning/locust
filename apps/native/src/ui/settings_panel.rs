@@ -288,11 +288,43 @@ fn toggle_conversations(s: &mut State) {
 /// conversations, and the lines that add it to Claude Code and Codex.
 fn door_section(s: &State, p: &Palette) -> El {
     let l = crate::look::controls::Look::new(p.dark);
+    let managed = locust_core::org_policy::feature_refusal(Some(&locust_core::org_policy::current()), "otherApps").is_some();
     let Some(door) = &s.settings_panel.door else {
-        return deferred(DOOR_HEADING, p);
+        if !managed {
+            return deferred(DOOR_HEADING, p);
+        }
+        let words = col()
+            .grow(1.0)
+            .gap(4.0)
+            .child(text(DOOR_HEADING.to_owned()).font(l.ty.control).color(l.c("text-primary")))
+            .child(text("Set by your organization.").font(l.ty.body).color(l.c("text-muted")));
+        return row()
+            .w_full()
+            .gap(16.0)
+            .padding(10.0)
+            .center_y()
+            .child(words)
+            .child(crate::look::controls::switch(&l, false, DOOR_HEADING, true).key("door-switch"));
     };
     let set = &door.settings;
     let mut section = col().w_full().gap(2.0);
+    if managed {
+        let words = col()
+            .grow(1.0)
+            .gap(4.0)
+            .child(text(DOOR_HEADING.to_owned()).font(l.ty.control).color(l.c("text-primary")))
+            .child(text("Off.").font(l.ty.body).color(l.c("text-secondary")))
+            .child(text("Set by your organization.").font(l.ty.body).color(l.c("text-muted")));
+        return section.child(
+            row()
+                .w_full()
+                .gap(16.0)
+                .padding(10.0)
+                .center_y()
+                .child(words)
+                .child(crate::look::controls::switch(&l, false, DOOR_HEADING, true).key("door-switch")),
+        );
+    }
     section = section.child(setting_line(
         &l,
         DOOR_HEADING,
@@ -443,6 +475,55 @@ fn plan_runs_out_section(s: &State, p: &Palette) -> El {
         .child(text(lede).font(l.ty.body).color(l.c("text-secondary")).wrap())
         .child(picks)
         .child(row().w_full().gap(16.0).pl(24.0).center_y().child(words).child(toggle))
+}
+
+fn org_policy_section(p: &Palette) -> Option<El> {
+    let policy = locust_core::org_policy::current();
+    if !policy.present && policy.error.is_none() {
+        return None;
+    }
+    if let Some(err) = &policy.error {
+        return Some(
+            col()
+                .key("org-policy-alert")
+                .role("alert")
+                .w_full()
+                .gap(4.0)
+                .padding(10.0)
+                .radius(6.0)
+                .fill(p.raised)
+                .border(1.0, p.red)
+                .child(text("Managed by your organization").font(type_::LABEL).color(p.red))
+                .child(text(err.clone()).font(type_::BODY).color(p.text).wrap()),
+        );
+    }
+    let labels = [
+        ("allowedAgents", "Allowed AI agents"),
+        ("allowedModels", "Allowed models"),
+        ("highestMode", "Highest permission mode"),
+        ("monthlyLimitUsd", "Maximum monthly limit"),
+        ("phone", "Phone pairing"),
+        ("cloud", "Cloud computers and tasks"),
+        ("otherApps", "Access from other AI apps"),
+        ("chatApps", "Chat apps"),
+        ("terminal", "Terminal"),
+        ("browser", "Browser"),
+        ("accounts", "Accounts"),
+    ];
+    let mut box_el = col()
+        .key("org-policy-section")
+        .w_full()
+        .gap(4.0)
+        .padding(10.0)
+        .child(text("Managed by your organization").font(type_::LABEL).color(p.text))
+        .child(text(policy.path.clone()).font(type_::LABEL).color(p.muted).wrap());
+    for (key, title) in labels {
+        if let Some(val) = policy.policy.get(key) {
+            let words = locust_core::org_policy::setting_words(key, val);
+            box_el = box_el.child(text(format!("{title}: {words}")).font(type_::BODY).color(p.secondary).wrap());
+        }
+    }
+    Some(box_el)
 }
 
 fn deferred(heading: &str, p: &Palette) -> El {
@@ -813,7 +894,11 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                 s.settings_panel.settings.check_commands.get(&ws).cloned()
             });
             for heading in headings {
-                if heading == DOOR_HEADING {
+                if heading == "Managed by your organization" {
+                    if let Some(section) = org_policy_section(p) {
+                        body = body.child(section);
+                    }
+                } else if heading == DOOR_HEADING {
                     body = body.child(door_section(s, p));
                 } else if heading == "Chat apps" {
                     body = body.child(crate::chat_apps_section::section(s, p));

@@ -848,10 +848,22 @@ pub(super) fn edit_form(s: &State, p: &Palette) -> El {
             ),
     );
     let spent = month_spend(s, panel.entry["teammateId"].as_str().unwrap_or(""));
-    form = form.child(text("Monthly limit").font(type_::LABEL).color(p.secondary))
+    let org_cap = locust_core::org_policy::current()
+        .policy
+        .get("monthlyLimitUsd")
+        .and_then(serde_json::Value::as_f64);
+    let mut limit_label = row().gap(8.0).center_y().child(text("Monthly limit").font(type_::LABEL).color(p.secondary));
+    if org_cap.is_some() {
+        limit_label = limit_label.child(text("Set by your organization").font(type_::LABEL).color(p.muted));
+    }
+    let limit_note = match org_cap {
+        Some(cap) => format!("Maximum {cap:.2} USD. You can set a lower amount."),
+        None => locust_core::teammate_month::limit_hint(panel.fields.first().map(|f|f.text.as_str()).unwrap_or("Teammate"), spent.as_ref(), !creating),
+    };
+    form = form.child(limit_label)
         .child(text_input(&panel.limit, type_::BODY).key("team-monthly-limit").label("Monthly limit").w_full().padding(8.0).fill(p.field).color(p.text)
             .on_edit(|s: &mut State| &mut s.people_panel.limit))
-        .child(text(locust_core::teammate_month::limit_hint(panel.fields.first().map(|f|f.text.as_str()).unwrap_or("Teammate"), spent.as_ref(), !creating)).font(type_::LABEL).color(p.muted).w_full().wrap());
+        .child(text(limit_note).font(type_::LABEL).color(p.muted).w_full().wrap());
     if let Some(error) = limit_error { form = form.child(text(error).color(p.red)); }
     if let Some(error) = &panel.month_error { form = form.child(text(format!("This month's spending could not be read: {error}")).color(p.red).w_full().wrap()); }
     // Its keys (KeyCard.tsx TeammateKeysField), for a teammate that exists: a new one has no id to keep them under yet.
