@@ -232,6 +232,8 @@ pub(super) struct State {
     pub(super) model_query: TextEdit,
     /// Where the effort thumb is while the pointer holds it (effort_slider.rs); None when it rests on its stop.
     pub(super) effort_held: Option<f32>,
+    /// Whether the model picker's Older versions fold is open.
+    pub(super) older_models_open: bool,
     /// The conversation's reference folders on screen, the conversation they were read for, and the chips' menus.
     pub(super) reference_items: Vec<locust_core::references::Item>,
     pub(super) references_key: String,
@@ -510,6 +512,7 @@ impl Default for State {
             model_menu: None,
             model_query: TextEdit::default(),
             effort_held: None,
+            older_models_open: false,
             reference_items: Vec::new(),
             references_key: String::new(),
             reference_menu: false,

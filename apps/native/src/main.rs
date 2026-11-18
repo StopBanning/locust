@@ -84,6 +84,9 @@ mod memory_card;
 mod hover;
 #[path = "ui/effort_slider.rs"]
 mod effort_slider;
+#[cfg(test)]
+#[path = "ui/route_picker_tests.rs"]
+mod route_picker_tests;
 #[path = "ui/look_picker.rs"]
 mod look_picker;
 #[path = "ui/pet_picks.rs"]

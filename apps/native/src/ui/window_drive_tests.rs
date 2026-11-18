@@ -6288,7 +6288,8 @@ fn the_picker_and_model_chip_show_the_name_earned_from_local_history() {
     click(&mut rt, "model-search");
     rt.paste("fable");
     rt.frame(0.016);
-    assert!(text_in(&rt,"model-claude-fable").iter().any(|text| text == "claude-fable-5-1"));
+    // The line is the catalogue's words and the resolved name (RoutePicker): "Always the newest Fable · claude-fable-5-1".
+    assert!(text_in(&rt,"model-claude-fable").iter().any(|text| text.contains("claude-fable-5-1")));
     click(&mut rt,"model-claude-fable");
     assert!(text_in(&rt,"model-chip").iter().any(|text| text.contains("claude-fable-5-1")));
 }

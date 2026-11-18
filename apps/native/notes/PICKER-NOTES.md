@@ -27,6 +27,7 @@ Level chips.
 - `State::effort_held`: where the held thumb is.
 
 Not drawn: the gooey squash and stretch (Rune has no goo filter). The thumb is Claude Code's rectangle at rest.
+A drag on the track cannot scroll the model list: the foot sits outside the list's scroll.
 Not this part: the people panel's team form still has its own level chips (`for_team` draws no foot).
 
 Tests (all passed by name, nextest and release): core `effort_levels::tests::*` (15), window
@@ -63,6 +64,46 @@ Breaks (37, all caught; `core-a/b`, `ui-a/b/c` logs):
 | ? hover without the cost | the_control_reads_effort_max_with_a_question_mark_that_says_what_the_level_costs |
 | picker foot ignores the default level / defaultEffort not medium | the_model_pickers_foot_is_the_effort_control_on_the_models_default_level |
 
-## Left (parts 2 to 4)
+## Part 2, first slice: the picker list (done, 18 Nov)
 
-Not started: the picker (7 files), the chip and header (4), the rest of the thread's waiting rows (6).
+- `core/src/route_rows.rs`: `orderRouteRows` (RUNTIME_BAND, flagshipRank, Your models first, `localeCompare`
+  approximated by lower-case order), `freeTagOf`, `unfoldedRows`, `olderByGroup`, the row line and hover title,
+  `nextFreeModel` (on `connectors_off::free_models_best_first`), `quietFreeRun`.
+- `core/src/models.rs`: `claude_older_models` (the registry), `claude_older_offered` (claudeModelsFrom's rule), and
+  `catalogue_description` (Claude Code's alias and older words, the account default's).
+- `thread_view::model_picker`: groups and rows in `order_route_rows` order; each row one line
+  (`row_detail`) with its full hover (`hover::tip`, key `model-RUNTIME-ID-tip`); Claude Code's Older versions fold
+  (`State::older_models_open`), never folding the route in use, searched rows shown without opening.
+- Older versions do not reach `s.models` (`door_tools::list_models` hides them, as the app door should), so the
+  window adds them from `models::claude_older_offered`.
+- `window_drive_tests::the_picker_and_model_chip_show_the_name_earned_from_local_history` asserted the row line was
+  exactly the resolved name; Electron's line is the catalogue words then the resolved name, so it now checks that the
+  line contains it.
+
+Tests (passed by name): core `route_rows::tests::*` (24), `models::tests::what_the_fold_holds_*` (2) and
+`the_fold_skips_the_version_an_alias_means_now`; window `route_picker_tests::*` (6). Suite 4,318 passed (nextest);
+release 3,435 + 887 passed after touching `core/src/lib.rs` (the shared target first handed over a stale
+locust-core without the new modules); `build --release` passed; `Cargo.lock` unchanged.
+
+Breaks (`core-c` to `core-f`, `ui-d`, `ui-e` logs). All caught in the end:
+- Caught by the Electron cases: SIGN IN band, best row (min), alphabetical inside a band, ACTIVE first, freeTagOf
+  length and space, unfoldedRows and olderByGroup keeping Recent, levels line, hover detail, nextFreeModel's runtime
+  and wrap, quietFreeRun's two minutes, Claude's alias words (window hover test).
+- Survived the Electron values, so tests were added: NOT INSTALLED level with PLANNED (the Electron pair is already
+  alphabetical) -> `what_does_not_exist_sinks_below_what_is_not_installed_even_against_the_alphabet`; recent and
+  flagship order -> `inside_a_group_what_was_used_comes_first_then_the_flagships_then_the_rest`; Your models first
+  -> `your_models_lead_their_band`; an older version an alias means now -> `the_fold_skips_the_version_an_alias_means_now`.
+- Window: group order ignored -> `the_window_lifts_what_can_run_...`; no hover -> `keeps_what_the_catalogue_says_...`;
+  search not reaching into the fold -> `lets_a_search_reach_into_the_fold_...`; route in use folded ->
+  `never_folds_away_the_route_in_use`; fold drawn open or open shows nothing -> `keeps_older_versions_out_...`.
+- One window run of the Your-models break was "caught" by `window_drive_tests::quitting_asks_about_a_turn_started_outside_the_window`,
+  which has nothing to do with it: that test looks flaky under load. The break is caught properly by
+  `your_models_lead_their_band` on locust-core.
+
+## Left
+
+- Part 2, second slice: `a-default-route-names-its-model` (not started; the chip already uses
+  `resolved_model_names`, but no hover reads "its own default model, X on its last run" and `liveModelNames` is not
+  ported); the chip's Free tag (`free_tag_of` is ready); the busy and quiet offers in the thread (functions ready, the
+  thread rows are in `src/ui/messages.rs`, the other lane's).
+- Part 3, the chip and header (4 files), and part 4, the rest of the thread's waiting rows (6 files): not started.

@@ -1093,6 +1093,42 @@ pub(super) fn model_picker(
             s.model_menu=None;
         }));
     }
+    // orderRouteRows: groups by what can run, alphabetical inside a band; inside a group the route in use, then what was
+    // used, the flagships, the rest.
+    let group_name_of = |agent: &engine::Models, acc: Option<&locust_core::agent_accounts::Account>| {
+        let base = locust_core::carry_on::display_name(&agent.runtime);
+        match acc {
+            Some(a) => format!("{base} · {}", a.name),
+            None => base.to_owned(),
+        }
+    };
+    let mut route_rows: Vec<locust_core::route_rows::RouteRow> = Vec::new();
+    for (agent, acc) in &groups {
+        let acc_id = acc.map(|a| a.id.as_str());
+        let tag = if acc.is_some_and(|a| a.state != locust_core::agent_accounts::AccountState::Ready) {
+            "SIGN IN"
+        } else if s.limited_runtimes.contains_key(&locust_core::agent_accounts::usage_key(&agent.runtime, acc_id)) {
+            "AT LIMIT"
+        } else {
+            "READY"
+        };
+        let is_active_group = active_runtime == agent.runtime && active_account == acc_id;
+        for m in &agent.models {
+            let active = is_active_group && (for_team || picked.is_some() || active_account.is_some()) && m.id == model;
+            route_rows.push(locust_core::route_rows::RouteRow {
+                key: format!("{}:{}", agent.runtime, m.id),
+                group: group_name_of(agent, *acc),
+                model: Some(m.id.clone()),
+                tag: Some(if active { "ACTIVE".to_owned() } else { tag.to_owned() }),
+            });
+        }
+    }
+    let ordered = locust_core::route_rows::order_route_rows(&route_rows, &s.recent_route_keys);
+    let place_of = |group: &str, key: &str| ordered.iter().position(|&i| route_rows[i].group == group && route_rows[i].key == key).unwrap_or(usize::MAX);
+    groups.sort_by_key(|(agent, acc)| {
+        let name = group_name_of(agent, *acc);
+        ordered.iter().position(|&i| route_rows[i].group == name).unwrap_or(usize::MAX)
+    });
     let mut any = false;
     for (agent, acc) in groups {
         let base_name = locust_core::carry_on::display_name(&agent.runtime);
@@ -1106,8 +1142,24 @@ pub(super) fn model_picker(
             .filter(|m| locust_core::org_policy::model_allowed(Some(&policy), &agent.runtime, Some(&m.id)))
             .filter(|m| !searching || route_search_text(&format!("{group_name} {}", m.name)).contains(&needle))
             .collect();
-        matched.sort_by_key(|m| s.recent_route_keys.iter().position(|key| *key == format!("{}:{}",agent.runtime,m.id)).unwrap_or(usize::MAX));
-        if matched.is_empty() {
+        matched.sort_by_key(|m| place_of(&group_name, &format!("{}:{}", agent.runtime, m.id)));
+        // Claude Code's older fixed versions, folded under its group (RoutePicker's fold): searched, they are rows.
+        let older: Vec<(String, String, Vec<String>)> = if agent.runtime == "claude" && !agent.models.is_empty() {
+            let now: Vec<String> = agent.models.iter().map(|m| m.name.clone()).collect();
+            locust_core::models::claude_older_offered(&now)
+                .into_iter()
+                .filter(|(id, _, _)| locust_core::org_policy::model_allowed(Some(&policy), &agent.runtime, Some(id)))
+                .collect()
+        } else {
+            Vec::new()
+        };
+        let older_models: Vec<engine::Model> = older.iter().map(|(id, name, efforts)| engine::Model { id: id.clone(), name: name.clone(), efforts: efforts.clone() }).collect();
+        let (older_shown, older_folded): (Vec<&engine::Model>, Vec<&engine::Model>) = older_models
+            .iter()
+            .filter(|m| !searching || route_search_text(&format!("{group_name} {}", m.name)).contains(&needle))
+            .partition(|m| searching || (active_runtime == agent.runtime && active_account == acc.map(|a| a.id.as_str()) && m.id == model));
+        matched.extend(older_shown);
+        if matched.is_empty() && older_folded.is_empty() {
             continue;
         }
         any = true;
@@ -1129,16 +1181,19 @@ pub(super) fn model_picker(
                 "SIGN IN".to_owned()
             } else if at_limit {
                 "AT LIMIT".to_owned()
-            } else if m.efforts.is_empty() {
-                String::new()
             } else {
-                m.efforts.join(" · ")
+                String::new()
             };
-            let detail = match s.resolved_model_names.get(&format!("{}:{}", agent.runtime, m.id)) {
-                Some(name) if detail.is_empty() => name.clone(),
-                Some(name) => format!("{name} · {detail}"),
-                None => detail,
+            // One line: what the catalogue says and what the route resolved to, else its levels in words; everything
+            // known, levels included, on the hover (RoutePicker, a-model-is-one-line).
+            let description = locust_core::models::catalogue_description(&agent.runtime, &m.id);
+            let resolved = s.resolved_model_names.get(&format!("{}:{}", agent.runtime, m.id)).map(String::as_str);
+            let detail = if detail.is_empty() {
+                locust_core::route_rows::row_detail(description.as_deref(), resolved, &m.efforts)
+            } else {
+                detail
             };
+            let title = locust_core::route_rows::row_title(&m.name, description.as_deref(), resolved, &m.efforts);
             let (key, choice, levels) = (id.to_owned(), m.id.clone(), m.efforts.clone());
             let keep = effort.map(str::to_owned);
             // A model of another agent than the teammate's own moves this reply there.
@@ -1148,12 +1203,47 @@ pub(super) fn model_picker(
                 Some(a) => (format!("{} · {}", m.name, a.name), format!("model-{}-{}:{}", agent.runtime, m.id, a.id)),
                 None => (m.name.clone(), format!("model-{}-{}", agent.runtime, m.id)),
             };
-            list = list.child(row_of(row_label, detail, active).key(row_key).on_press(move |s: &mut State| {
+            let tip_key = format!("{row_key}-tip");
+            let drawn = row_of(row_label, detail, active).key(row_key).on_press(move |s: &mut State| {
                 // The level stays with the turn when the new model takes it.
                 let effort = keep.clone().filter(|e| levels.contains(e));
                 apply_model_pick(s, &key, TurnPick { model: choice.clone(), effort, runtime: runtime.clone(), account: account_pick.clone() }, for_team);
                 s.model_menu = None;
-            }));
+            });
+            list = list.child(crate::hover::tip(s, l, &tip_key, &title, drawn));
+        }
+        // The fold: how many older versions it holds, and them when it is open.
+        if !older_folded.is_empty() {
+            let open = s.older_models_open;
+            list = list.child(
+                row()
+                    .key(format!("picker-fold-{}", agent.runtime))
+                    .gap(6.0)
+                    .px(9.0)
+                    .py(6.0)
+                    .center_y()
+                    .child(text(if open { "▾" } else { "▸" }).font(l.ty.mono).color(l.c("text-muted")).a11y_hidden())
+                    .child(text("Older versions").font(l.ty.body).color(l.c("text-muted")))
+                    .child(text(older_folded.len().to_string()).key(format!("picker-fold-count-{}", agent.runtime)).font(l.ty.mono).color(l.c("text-muted")))
+                    .role("button")
+                    .label("Older versions")
+                    .expanded(open)
+                    .on_press(|s: &mut State| s.older_models_open = !s.older_models_open),
+            );
+            if open {
+                for m in older_folded {
+                    let (key, choice, runtime) = (id.to_owned(), m.id.clone(), (teammate.runtime.as_deref() != Some(agent.runtime.as_str())).then(|| agent.runtime.clone()));
+                    let account_pick = Some(acc.map(|a| a.id.clone()));
+                    let (levels, keep) = (m.efforts.clone(), effort.map(str::to_owned));
+                    let description = locust_core::models::catalogue_description(&agent.runtime, &m.id);
+                    let detail = locust_core::route_rows::row_detail(description.as_deref(), None, &m.efforts);
+                    list = list.child(row_of(m.name.clone(), detail, false).key(format!("model-{}-{}", agent.runtime, m.id)).on_press(move |s: &mut State| {
+                        let effort = keep.clone().filter(|e| levels.contains(e));
+                        apply_model_pick(s, &key, TurnPick { model: choice.clone(), effort, runtime: runtime.clone(), account: account_pick.clone() }, for_team);
+                        s.model_menu = None;
+                    }));
+                }
+            }
         }
         // Nothing dropped silently: a capped group says how many it holds back.
         if hidden > 0 {

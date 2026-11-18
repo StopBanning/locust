@@ -446,3 +446,5 @@ mod workspace_launch_tests;
 mod slow_agent_tests;
 // Reasoning effort in words and as Claude Code's slider (exec/native-picker).
 pub mod effort_levels;
+// The model picker's rows: order, fold, free tag, the free model to offer (exec/native-picker).
+pub mod route_rows;
