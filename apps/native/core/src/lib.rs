@@ -2,6 +2,8 @@
 //! `cargo tree -p locust-core` shows no Rune.
 
 pub mod agents;
+pub mod antigravity_cascade;
+pub mod antigravity_usage;
 pub mod approval;
 pub mod approval_patch;
 pub mod mode_facts;

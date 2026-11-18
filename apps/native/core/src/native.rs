@@ -753,8 +753,16 @@ pub struct Prior {
 pub fn prior_of(tip: &str) -> Result<Prior, String> {
     let path = find_ledger(tip).ok_or("The conversation's ledger could not be found.")?;
     let records = Tail::new(&path, 0).poll();
-    let meta = records.clone();
-    let meta = meta
+    let fresh = std::fs::metadata(&path)
+        .and_then(|m| m.modified())
+        .ok()
+        .and_then(|m| std::time::SystemTime::now().duration_since(m).ok())
+        .is_none_or(|age| age < ledger::ACTIVE_WINDOW);
+    prior_from_records(&records, fresh)
+}
+
+pub fn prior_from_records(records: &[Value], fresh: bool) -> Result<Prior, String> {
+    let meta = records
         .iter()
         .find(|r| r["recordType"] == "mission.created")
         .map(|r| &r["metadata"])
@@ -764,12 +772,20 @@ pub fn prior_of(tip: &str) -> Result<Prior, String> {
         .as_str()
         .and_then(crate::agent_accounts::account_from_route)
         .map(str::to_owned);
+    let hub_antigravity =
+        runtime == "antigravity" && meta["resolvedRouteId"].as_str() == Some("antigravity:hub");
     let mut held: Option<String> = None;
     let mut ended = false;
     let mut moved = false;
     for event in records.iter().filter_map(|r| r.get("event")) {
         let payload = &event["payload"];
-        if event["type"] == "run.failed" && payload["sessionEnded"] == true {
+        if event["type"] == "run.failed"
+            && (payload["sessionEnded"] == true
+                || (runtime == "antigravity"
+                    && payload["message"]
+                        .as_str()
+                        .is_some_and(|m| m.to_ascii_lowercase().contains("trajectory not found"))))
+        {
             held = None;
             ended = true;
             continue;
@@ -784,7 +800,7 @@ pub fn prior_of(tip: &str) -> Result<Prior, String> {
             held = Some(t.to_owned());
         }
     }
-    let thread = if moved || ended {
+    let thread = if moved || ended || hub_antigravity {
         None
     } else {
         held.or_else(|| {
@@ -795,12 +811,7 @@ pub fn prior_of(tip: &str) -> Result<Prior, String> {
         })
     };
     let mut transcript = ledger::Transcript::default();
-    transcript.apply(records);
-    let fresh = std::fs::metadata(&path)
-        .and_then(|m| m.modified())
-        .ok()
-        .and_then(|m| std::time::SystemTime::now().duration_since(m).ok())
-        .is_none_or(|age| age < ledger::ACTIVE_WINDOW);
+    transcript.apply(records.to_vec());
     Ok(Prior {
         runtime,
         account,

@@ -635,6 +635,13 @@ pub fn lists_its_models_but_listed_none(ready: &[(&str, Option<&Value>)]) -> boo
     })
 }
 
+/// Whether Antigravity is installed (`available`) and has not yet answered (`unknown` readiness):
+/// the model catalog must not be cached without it, whereas `ready`, `authentication-required`,
+/// and `unavailable` are settled answers (`a-slow-antigravity-holds-nothing-up`).
+pub fn antigravity_model_list_is_pending(installed: bool, status: crate::agents::Probe) -> bool {
+    installed && status == crate::agents::Probe::ProbeFailed
+}
+
 /// `read_listed`, and whether a ready runtime listed nothing, so the answer is not kept. OpenCode 2 lists its models in
 /// an ACP session this does not read, so it is not counted as having listed none.
 pub fn read_listed_checked() -> (Listed, bool) {

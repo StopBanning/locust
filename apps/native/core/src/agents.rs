@@ -598,7 +598,14 @@ fn missing_credentials(d: &Definition, seams: &Seams) -> bool {
 /// each on its own ten-second clock. A model list is "ready"; an answer with no list is "signed out"; no answer in
 /// time is "not confirmed", never "signed out". It runs through its own CLI, a published route.
 pub fn discover_antigravity(seams: &Seams) -> Found {
-    let base = |installed, version, auth, status| Found {
+    let Some(path) = (seams.find)("agy") else { return antigravity_found(false, None, Auth::Unknown, Probe::Missing, false) };
+    let version_ans = (seams.run)(&path, &["--version"]);
+    let models_ans = (seams.run)(&path, &["models"]);
+    antigravity_from_answers(version_ans, models_ans)
+}
+
+fn antigravity_found(installed: bool, version: Option<String>, auth: Auth, status: Probe, checking: bool) -> Found {
+    Found {
         id: "antigravity".into(),
         display_name: "Antigravity".into(),
         installed,
@@ -608,17 +615,92 @@ pub fn discover_antigravity(seams: &Seams) -> Found {
         status,
         unsupported_note: None,
         through_cli: installed,
-        checking: false,
-    };
-    let Some(path) = (seams.find)("agy") else { return base(false, None, Auth::Unknown, Probe::Missing) };
-    let version = (seams.run)(&path, &["--version"])
+        checking,
+    }
+}
+
+fn antigravity_from_answers(version_ans: Option<Answer>, models_ans: Option<Answer>) -> Found {
+    let version = version_ans
         .filter(|a| a.exit == Some(0) && !a.timed_out)
         .and_then(|a| a.stdout.trim().lines().next().and_then(|l| crate::runtime::version::parse(l)).map(|v| v.version));
-    match (seams.run)(&path, &["models"]) {
-        None => base(true, version, Auth::Unknown, Probe::ProbeFailed),
-        Some(a) if a.timed_out => base(true, version, Auth::Unknown, Probe::ProbeFailed),
-        Some(a) if crate::models::parse_agy_model_list(&a.stdout).is_some() => base(true, version, Auth::Authenticated, Probe::Ready),
-        Some(_) => base(true, version, Auth::Unauthenticated, Probe::AuthRequired),
+    match models_ans {
+        None => antigravity_found(true, version, Auth::Unknown, Probe::ProbeFailed, false),
+        Some(a) if a.timed_out => antigravity_found(true, version, Auth::Unknown, Probe::ProbeFailed, false),
+        Some(a) if crate::models::parse_agy_model_list(&a.stdout).is_some() => {
+            antigravity_found(true, version, Auth::Authenticated, Probe::Ready, false)
+        }
+        Some(_) => antigravity_found(true, version, Auth::Unauthenticated, Probe::AuthRequired, false),
+    }
+}
+
+/// Runs `agy --version` and `agy models` concurrently so the probe costs the slower one, not both.
+pub fn discover_antigravity_concurrent(
+    find: &(dyn Fn(&str) -> Option<std::path::PathBuf> + Sync),
+    run: &(dyn Fn(&std::path::Path, &[&str]) -> Option<Answer> + Sync),
+) -> Found {
+    let Some(path) = find("agy") else {
+        return antigravity_found(false, None, Auth::Unknown, Probe::Missing, false);
+    };
+    let (version_ans, models_ans) = std::thread::scope(|s| {
+        let v = s.spawn(|| run(&path, &["--version"]));
+        let m = s.spawn(|| run(&path, &["models"]));
+        (v.join().ok().flatten(), m.join().ok().flatten())
+    });
+    antigravity_from_answers(version_ans, models_ans)
+}
+
+/// Coalesces concurrent Antigravity checks so a second caller shares the in-flight check instead of spawning another `agy`.
+#[derive(Default)]
+pub struct AntigravityProbe {
+    in_flight: std::sync::Mutex<Option<std::sync::Arc<OnceProbe>>>,
+}
+
+struct OnceProbe {
+    done: std::sync::Mutex<Option<Found>>,
+    cv: std::sync::Condvar,
+}
+
+impl AntigravityProbe {
+    pub fn pending_record(&self, installed: bool) -> Found {
+        antigravity_found(installed, None, Auth::Unknown, Probe::ProbeFailed, installed)
+    }
+
+    pub fn discovery_record(
+        &self,
+        find: &(dyn Fn(&str) -> Option<std::path::PathBuf> + Sync),
+        run: &(dyn Fn(&std::path::Path, &[&str]) -> Option<Answer> + Sync),
+    ) -> Found {
+        let (cell, leader) = {
+            let mut guard = crate::invariants::lock(&self.in_flight);
+            if let Some(existing) = guard.as_ref() {
+                (existing.clone(), false)
+            } else {
+                let cell = std::sync::Arc::new(OnceProbe {
+                    done: std::sync::Mutex::new(None),
+                    cv: std::sync::Condvar::new(),
+                });
+                *guard = Some(cell.clone());
+                (cell, true)
+            }
+        };
+        if !leader {
+            let mut done = crate::invariants::lock(&cell.done);
+            while done.is_none() {
+                done = cell.cv.wait(done).unwrap_or_else(|e| e.into_inner());
+            }
+            return done.clone().expect("notified with result");
+        }
+        let result = discover_antigravity_concurrent(find, run);
+        {
+            let mut done = crate::invariants::lock(&cell.done);
+            *done = Some(result.clone());
+            cell.cv.notify_all();
+        }
+        let mut guard = crate::invariants::lock(&self.in_flight);
+        if guard.as_ref().is_some_and(|g| std::sync::Arc::ptr_eq(g, &cell)) {
+            *guard = None;
+        }
+        result
     }
 }
 
@@ -670,12 +752,10 @@ pub fn discover() -> Vec<Found> {
         })
         .collect();
     let agy = {
-        let (home, xdg) = (home.clone(), xdg.clone());
         std::thread::spawn(move || {
             let find = |c: &str| crate::runtime::discovery::find_named(c).ok();
             let run = |p: &std::path::Path, a: &[&str]| run_bounded(p, a, PROBE_TIMEOUT);
-            let exists = |p: &std::path::Path| p.exists();
-            discover_antigravity(&Seams { find: &find, run: &run, exists: &exists, home, xdg_config_home: xdg })
+            discover_antigravity_concurrent(&find, &run)
         })
     };
     let apple = std::thread::spawn(|| apple_found(&crate::runtime::apple::probe()));

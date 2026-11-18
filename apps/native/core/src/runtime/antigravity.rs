@@ -60,6 +60,49 @@ pub fn user_line(prompt: &str) -> Vec<u8> {
     bytes
 }
 
+pub const ANTIGRAVITY_TIER_NAMES: [(&str, &str); 3] = [
+    ("flash", "Gemini 3.8 Flash"),
+    ("pro", "Gemini Pro"),
+    ("flash_lite", "Gemini Flash Lite"),
+];
+
+pub fn antigravity_tier_name(tier: &str) -> Option<&'static str> {
+    ANTIGRAVITY_TIER_NAMES
+        .iter()
+        .find(|(id, _)| *id == tier)
+        .map(|(_, name)| *name)
+}
+
+/// Maps an app tier (`flash`, `pro`, `flash_lite`) or a model id with an optional
+/// `-(low|medium|high|max)` suffix to `(model, effort)` for `agy`.
+/// A chosen effort wins; a bare `gemini-*` id defaults to `medium`.
+pub fn agy_route(model: Option<&str>, effort: Option<&str>) -> (Option<String>, Option<String>) {
+    let model = model.map(str::trim).filter(|m| !m.is_empty());
+    let effort = effort.map(str::trim).filter(|e| !e.is_empty());
+    let Some(model) = model else {
+        return (None, effort.map(str::to_owned));
+    };
+    let (base, named) = match model {
+        "flash" => ("gemini-3.8-flash", Some("medium")),
+        "pro" => ("gemini-3.1-pro", Some("high")),
+        "flash_lite" => ("gemini-3.8-flash", Some("low")),
+        _ => {
+            let split = ["low", "medium", "high", "max"]
+                .into_iter()
+                .find_map(|suffix| {
+                    model
+                        .strip_suffix(&format!("-{suffix}"))
+                        .map(|b| (b, Some(suffix)))
+                });
+            split.unwrap_or((model, None))
+        }
+    };
+    let chosen = effort
+        .or(named)
+        .or_else(|| base.starts_with("gemini-").then_some("medium"));
+    (Some(base.to_owned()), chosen.map(str::to_owned))
+}
+
 pub fn print_args(
     mode: Mode,
     model: Option<&str>,
@@ -92,13 +135,14 @@ pub fn print_args(
             args.extend(["--add-dir".into(), (*folder).into()]);
         }
     }
-    if let Some(model) = model.map(str::trim).filter(|m| !m.is_empty()) {
+    let (resolved_model, resolved_effort) = agy_route(model, effort);
+    if let Some(model) = resolved_model {
         args.push("--model".into());
-        args.push(model.into());
+        args.push(model);
     }
-    if let Some(effort) = effort.map(str::trim).filter(|e| !e.is_empty()) {
+    if let Some(effort) = resolved_effort {
         args.push("--effort".into());
-        args.push(effort.into());
+        args.push(effort);
     }
     if let Some(resume) = resume.map(str::trim).filter(|s| !s.is_empty()) {
         args.push("--conversation".into());

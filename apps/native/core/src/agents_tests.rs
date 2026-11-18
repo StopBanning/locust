@@ -260,3 +260,62 @@ fn sign_in_opened_line_notes_in_window_account_switch_only_when_signing_in_again
         "In the window that opened, type /logout, then /login, and choose the account.",
     );
 }
+
+#[test]
+fn antigravity_runs_version_and_models_concurrently_and_coalesces() {
+    use std::sync::{Arc, Barrier, atomic::{AtomicUsize, Ordering}};
+    let barrier = Arc::new(Barrier::new(2));
+    let calls = Arc::new(AtomicUsize::new(0));
+    let find = |_: &str| Some(std::path::PathBuf::from("/usr/local/bin/agy"));
+    let run = {
+        let barrier = barrier.clone();
+        let calls = calls.clone();
+        move |_: &std::path::Path, args: &[&str]| {
+            calls.fetch_add(1, Ordering::SeqCst);
+            // Only returns if both threads enter concurrently.
+            barrier.wait();
+            if args == ["--version"] {
+                Some(Answer { exit: Some(0), stdout: "1.2.17\n".into(), stderr: String::new(), timed_out: false })
+            } else {
+                Some(Answer { exit: Some(0), stdout: "Fetching available models...\ngemini-3.8-flash-high\tGemini 3.8 Flash (High)\n".into(), stderr: String::new(), timed_out: false })
+            }
+        }
+    };
+    let probe = AntigravityProbe::default();
+    let pending = probe.pending_record(true);
+    assert!(pending.installed && !pending.ready && pending.checking && pending.auth == Auth::Unknown);
+    let found = probe.discovery_record(&find, &run);
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
+    assert_eq!(found.status, Probe::Ready);
+    assert_eq!(found.version.as_deref(), Some("1.2.17"));
+}
+
+#[test]
+fn antigravity_timeout_is_probe_failed_not_auth_required_and_pending_models_not_cached() {
+    let find = |_: &str| Some(std::path::PathBuf::from("/usr/local/bin/agy"));
+    let timed_out = |_: &std::path::Path, args: &[&str]| {
+        if args == ["--version"] {
+            Some(Answer { exit: Some(0), stdout: "1.2.17\n".into(), stderr: String::new(), timed_out: false })
+        } else {
+            Some(Answer { exit: None, stdout: String::new(), stderr: String::new(), timed_out: true })
+        }
+    };
+    let found = discover_antigravity_concurrent(&find, &timed_out);
+    assert_eq!(found.status, Probe::ProbeFailed);
+    assert_eq!(found.auth, Auth::Unknown);
+    assert!(crate::models::antigravity_model_list_is_pending(found.installed, found.status));
+    assert!(!crate::models::antigravity_model_list_is_pending(true, Probe::Ready));
+    assert!(!crate::models::antigravity_model_list_is_pending(true, Probe::AuthRequired));
+    assert!(!crate::models::antigravity_model_list_is_pending(false, Probe::ProbeFailed));
+
+    let signed_out = |_: &std::path::Path, args: &[&str]| {
+        if args == ["--version"] {
+            Some(Answer { exit: Some(0), stdout: "1.2.17\n".into(), stderr: String::new(), timed_out: false })
+        } else {
+            Some(Answer { exit: Some(1), stdout: "Please sign in\n".into(), stderr: String::new(), timed_out: false })
+        }
+    };
+    let found_out = discover_antigravity_concurrent(&find, &signed_out);
+    assert_eq!(found_out.status, Probe::AuthRequired);
+    assert_eq!(found_out.auth, Auth::Unauthenticated);
+}

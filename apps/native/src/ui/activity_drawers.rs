@@ -131,6 +131,8 @@ pub(super) fn tool_row_label(
         &parts.tool
     } else if !d.arguments.is_empty() {
         &d.arguments
+    } else if name == "manage_task" {
+        "Checked on a command"
     } else {
         name
     };
@@ -173,7 +175,7 @@ pub(super) fn tool_row_label(
             parts.server.as_str()
         } else if locust_core::mcp_names::is_bare_connector_tool(name) {
             "a connector"
-        } else if matches!(name.to_lowercase().as_str(), "bash" | "shell" | "exec_command" | "commandexecution") {
+        } else if matches!(name.to_lowercase().as_str(), "bash" | "shell" | "exec_command" | "commandexecution" | "run_command" | "manage_task") {
             // A shell row already says what ran; a word beside it would only repeat it.
             ""
         } else {
@@ -778,6 +780,18 @@ mod tests {
         let label = tool_row_label("mcp__claude_ai_Robinhood__get_watchlists", status, "", &detail, true);
         assert!(label.starts_with("get_watchlists · Robinhood · "), "{label}");
         assert!(!label.contains("mcp__"), "{label}");
+    }
+
+    #[test]
+    fn antigravity_rows_read_like_claude() {
+        let ledger::Item::Tool { status, detail, .. } = sample_tool("m1", "x", "", false) else { unreachable!() };
+        let check = tool_row_label("manage_task", status, "", &detail, true);
+        assert!(check.starts_with("Checked on a command · "), "{check}");
+        assert!(!check.contains("manage_task"), "{check}");
+        let mut refused = detail.clone();
+        refused.runtime_status = "refused".into();
+        let shell = tool_row_label("run_command", ledger::Status::Failed, "git status", &refused, true);
+        assert_eq!(shell, "git status · refused");
     }
 
     /// a-helpers-calls-fold-under-its-row.test.tsx, drawn: the helper row counts its calls and stays folded until
