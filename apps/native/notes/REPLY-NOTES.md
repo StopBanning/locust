@@ -115,6 +115,16 @@ puts the old order back is caught by it.
 - The thread draws a reply through `messages.rs` → `reply_actions::reply_with_copy` → `reply_markdown` →
   `markdown_prep::prepare_reply`, so these rules are what the window draws.
 
+## Part 2b: the rest of the reply, triaged (no code)
+
+| File | Row | Why |
+|---|---|---|
+| settled-text | partial | A live reply is drawn by rune-kit's `Markdown::streaming` (`stream.rs`), which parses the tail as what it will become, so no block changes kind. Not Electron's `splitSettled`, and not yet tested over Electron's stages. |
+| the-live-word-is-visibly-live | waiting | The sweep over the live word and the larger orb are Electron CSS; nothing like them is drawn. |
+| cold-start-is-not-an-alert | waiting | `native.rs` knows a turn started cold, but the window is never told. It needs a flag on the turn and the note under its time marker. |
+| an-other-app-origin-survives-a-restart | partial | `startedBy {kind: mcp}` is written and the backup exclusions hold. Missing: `via`, schema-22 refusal (outside this lane's `ledger.rs` scope), and the "Started from another app · …" line. |
+| a-lead-shows-what-it-handed-out | waiting | There is no Handed-out card. |
+
 ## Not mine
 `src/ui/routine_recovery_tests.rs` was untracked in this worktree before this lane started (17 Nov 23:58), and no
 `mod` names it. It is left as found.
