@@ -253,6 +253,100 @@ fn take_display_line(line: &str) -> Option<(String, &str)> {
     None
 }
 
+/// A lone TeX macro is its symbol (agentText.ts `TEX_SYMBOLS`): `$\rightarrow$` reads "→". Only a `$…$` that is
+/// exactly one of these, spaces allowed inside the dollars, is drawn as its character; a whole formula is math.
+pub const TEX_SYMBOLS: &[(&str, &str)] = &[
+    ("rightarrow", "→"),
+    ("to", "→"),
+    ("longrightarrow", "⟶"),
+    ("leftarrow", "←"),
+    ("gets", "←"),
+    ("leftrightarrow", "↔"),
+    ("Rightarrow", "⇒"),
+    ("implies", "⇒"),
+    ("Leftarrow", "⇐"),
+    ("Leftrightarrow", "⇔"),
+    ("iff", "⇔"),
+    ("mapsto", "↦"),
+    ("uparrow", "↑"),
+    ("downarrow", "↓"),
+    ("times", "×"),
+    ("div", "÷"),
+    ("cdot", "·"),
+    ("pm", "±"),
+    ("mp", "∓"),
+    ("le", "≤"),
+    ("leq", "≤"),
+    ("ge", "≥"),
+    ("geq", "≥"),
+    ("ne", "≠"),
+    ("neq", "≠"),
+    ("approx", "≈"),
+    ("equiv", "≡"),
+    ("sim", "∼"),
+    ("propto", "∝"),
+    ("ll", "≪"),
+    ("gg", "≫"),
+    ("infty", "∞"),
+    ("degree", "°"),
+    ("circ", "∘"),
+    ("bullet", "•"),
+    ("checkmark", "✓"),
+    ("ldots", "…"),
+    ("dots", "…"),
+    ("cdots", "⋯"),
+    ("in", "∈"),
+    ("notin", "∉"),
+    ("subset", "⊂"),
+    ("subseteq", "⊆"),
+    ("cup", "∪"),
+    ("cap", "∩"),
+    ("emptyset", "∅"),
+    ("forall", "∀"),
+    ("exists", "∃"),
+    ("neg", "¬"),
+    ("land", "∧"),
+    ("lor", "∨"),
+    ("therefore", "∴"),
+    ("sum", "∑"),
+    ("prod", "∏"),
+    ("partial", "∂"),
+    ("nabla", "∇"),
+    ("alpha", "α"),
+    ("beta", "β"),
+    ("gamma", "γ"),
+    ("delta", "δ"),
+    ("epsilon", "ε"),
+    ("theta", "θ"),
+    ("lambda", "λ"),
+    ("mu", "μ"),
+    ("pi", "π"),
+    ("sigma", "σ"),
+    ("tau", "τ"),
+    ("phi", "φ"),
+    ("omega", "ω"),
+    ("Gamma", "Γ"),
+    ("Delta", "Δ"),
+    ("Theta", "Θ"),
+    ("Lambda", "Λ"),
+    ("Pi", "Π"),
+    ("Sigma", "Σ"),
+    ("Phi", "Φ"),
+    ("Omega", "Ω"),
+];
+
+/// `$\name$` (or `$ \name $`) at the start of `s`, for a name in [`TEX_SYMBOLS`]: its symbol and the length read.
+fn lone_macro(s: &str) -> Option<(&'static str, usize)> {
+    let inner = s.strip_prefix('$')?;
+    let body = inner.trim_start_matches([' ', '\t']).strip_prefix('\\')?;
+    let name_len = body.bytes().take_while(u8::is_ascii_alphabetic).count();
+    let (name, after) = body.split_at(name_len);
+    let after_trim = after.trim_start_matches([' ', '\t']);
+    after_trim.strip_prefix('$')?;
+    let symbol = TEX_SYMBOLS.iter().find(|(n, _)| *n == name)?.1;
+    Some((symbol, s.len() - after_trim.len() + 1))
+}
+
 /// Inline `$…$`, `\(...\)`, mid-line `$$…$$` / `\[…\]` — pandoc dollar rules from agentText.ts.
 fn rewrite_inline(
     out: &mut String,
@@ -264,6 +358,28 @@ fn rewrite_inline(
     let bytes = line.as_bytes();
     let mut i = 0usize;
     while i < bytes.len() {
+        // A code span is code: nothing in it is math (agentText.ts reads code spans first).
+        if bytes[i] == b'`' {
+            let run = bytes[i..].iter().take_while(|b| **b == b'`').count();
+            let ticks = "`".repeat(run);
+            if let Some(end) = line[i + run..].find(ticks.as_str()) {
+                let end = i + run + end + run;
+                out.push_str(&line[i..end]);
+                i = end;
+            } else {
+                out.push_str(&ticks);
+                i += run;
+            }
+            continue;
+        }
+        if bytes[i] == b'$'
+            && (i == 0 || bytes[i - 1] != b'\\')
+            && let Some((symbol, len)) = lone_macro(&line[i..])
+        {
+            out.push_str(symbol);
+            i += len;
+            continue;
+        }
         // \( ... \)
         if bytes[i] == b'\\'
             && i + 1 < bytes.len()

@@ -17,7 +17,7 @@ pub struct Prepared {
 
 /// The reply's words as the thread draws them (`reply_actions::reply_markdown`).
 pub fn prepare_reply(body: &str, dark: bool) -> Prepared {
-    let body = keep_html_as_words(&end_lists_at_margin_prose(body));
+    let body = keep_html_as_words(&electron_line_shapes(&end_lists_at_margin_prose(body)));
     let prepared = crate::diagram::prepare_reply_markdown(&body);
     let (prepared, undrawn) = crate::diagram::take_undrawn_markers(&prepared);
     let (markdown, math) = crate::math_tex::prepare_math_markdown(&prepared, dark);
@@ -84,6 +84,42 @@ pub fn end_lists_at_margin_prose(body: &str) -> String {
         }
         after_blank = false;
         out.push_str(line);
+    }
+    out
+}
+
+/// Three line shapes `agentText.ts` reads another way than CommonMark (`agentText.test.ts`):
+/// - `2)` continues a list numbered `1.`: one list, whatever the numbers close with (CommonMark starts another);
+/// - a heading deeper than three is drawn as the third ("the thread has three sizes");
+/// - a lone `#` is a word, not an empty heading.
+///
+/// Nothing inside a code fence is touched.
+pub fn electron_line_shapes(body: &str) -> String {
+    let numbered = crate::invariants::regex(r"^([ \t>]*\d{1,9})\)([ \t])");
+    let deep = crate::invariants::regex(r"^( {0,3})#{4,6}([ \t])");
+    let lone = crate::invariants::regex(r"^( {0,3})(#{1,6}[ \t]*\r?)$");
+    let mut out = String::with_capacity(body.len() + 8);
+    let mut fence: Option<(char, usize)> = None;
+    for line in body.split_inclusive('\n') {
+        let words = line.trim_end_matches(['\r', '\n']);
+        let end = &line[words.len()..];
+        if let Some((mark, n)) = fence {
+            if fence_of(words).is_some_and(|(m, k)| m == mark && k >= n && words.trim_start().trim_start_matches(mark).trim().is_empty()) {
+                fence = None;
+            }
+            out.push_str(line);
+            continue;
+        }
+        if let Some(opened) = fence_of(words) {
+            fence = Some(opened);
+            out.push_str(line);
+            continue;
+        }
+        let shaped = numbered.replace(words, "$1.$2");
+        let shaped = deep.replace(&shaped, "$1###$2");
+        let shaped = lone.replace(&shaped, "$1\\$2");
+        out.push_str(&shaped);
+        out.push_str(end);
     }
     out
 }

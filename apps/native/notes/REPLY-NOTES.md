@@ -56,6 +56,26 @@ through what the window really draws with:
 
 Suite after part 1a: `nextest run --workspace` passed 4,294 tests, 22 skipped.
 
+## Part 1b: `agentText.test.ts` (34 cases)
+
+Most of it was already CommonMark's behaviour (fences, CRLF, tables, rules, quotes, emphasis rules, `mcp__` names).
+Each case has its own test anyway. Where it differed:
+- **`1.` then `2)`** made two lists. `markdown_prep::electron_line_shapes` writes `N)` as `N.`, so it is one list.
+- **`#####`** was drawn at rune-kit's fourth, muted size. Electron draws anything deeper than three as the third.
+- **A lone `#`** was an empty heading; now it is the word `#`.
+- **`$\rightarrow$`** was drawn as a math picture. Electron writes a lone macro from `TEX_SYMBOLS` as its character
+  ("README.md → docs/README.md"). `math_tex::TEX_SYMBOLS` holds the same 77 entries, read from `agentText.ts`.
+- **Math inside a code span** (`` `$\to$` ``) was rewritten into an image inside the code. `rewrite_inline` now
+  skips code spans.
+
+Breaks: `)` kept → `reads_a_numbered_list_as_ordered`; deep heading kept →
+`lifts_a_hash_heading_out_of_the_prose_at_its_level`; lone `#` kept →
+`does_not_mistake_a_hashtag_or_a_shell_comment_for_a_heading`; lone macro never matched →
+`a_lone_tex_macro_is_drawn_as_its_symbol_in_the_words_around_it`; code spans not skipped →
+`leaves_money_and_code_as_they_were_written_and_a_whole_formula_is_math` (and the changelog coverage test).
+
+Suite after 1b: 4,328 passed, 22 skipped.
+
 ## Not mine
 `src/ui/routine_recovery_tests.rs` was untracked in this worktree before this lane started (17 Nov 23:58), and no
 `mod` names it. It is left as found.

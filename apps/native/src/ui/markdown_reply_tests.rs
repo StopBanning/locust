@@ -118,13 +118,15 @@ fn drawn_words(blocks: &[Block], out: &mut Vec<String>) {
 }
 
 /// Electron's `segmentsCoverInput`: no word of the reply is lost on the way to the screen. A list item's number is
-/// drawn as its marker, so it is not looked for among the words.
+/// drawn as its marker, so it is not looked for among the words; nor is a fence line.
 fn missing_word(text: &str, blocks: &[Block]) -> Option<String> {
     let mut words = Vec::new();
     drawn_words(blocks, &mut words);
     let mut have = words.iter();
     let marker = crate::invariants::regex(r"^[\s>]*(?:[-*+]|\d{1,9}[.)])(?:\s|$)");
+    // A fence line (its language too) is the fence's syntax, like a list's number.
     text.lines()
+        .filter(|line| !line.trim_start().starts_with("```") && !line.trim_start().starts_with("~~~"))
         .flat_map(|line| {
             let line = marker.find(line).map_or(line, |m| &line[m.end()..]);
             line.split(|c: char| !c.is_alphanumeric()).filter(|w| !w.is_empty()).map(str::to_owned).collect::<Vec<_>>()
@@ -603,4 +605,297 @@ fn money_and_an_escaped_bracket_in_prose_are_still_prose() {
     }
     assert_eq!(para_of("It costs $5, or $$ if you upgrade."), "It costs $5, or $$ if you upgrade.");
     assert_eq!(para_of("As shown in \\[1\\] and \\[2\\], it holds."), "As shown in [1] and [2], it holds.");
+}
+
+// agentText.test.ts: Electron's parser cases, on what the window draws a reply from.
+
+fn para(text: &str) -> Block {
+    Block::Para(rune_kit::markdown::Inline { text: text.into(), ..Default::default() })
+}
+
+/// The one paragraph's spans of this style, as text.
+fn styled(text: &str, style: rune_kit::markdown::Style) -> Vec<String> {
+    let b = blocks(text);
+    let Some(Block::Para(i)) = b.first() else { panic!("{b:?}") };
+    i.spans.iter().filter(|s| s.2 == style).map(|s| i.text[s.0..s.1].to_owned()).collect()
+}
+
+/// The one paragraph's text, without the narrow spaces drawn around inline code.
+fn shown(text: &str) -> String {
+    para_of(text).replace('\u{202f}', "")
+}
+
+fn heading(level: u8, text: &str) -> Block {
+    Block::Heading(level, rune_kit::markdown::Inline { text: text.into(), ..Default::default() })
+}
+
+fn shape_kinds(blocks: &[Block]) -> Vec<&'static str> {
+    blocks
+        .iter()
+        .map(|b| match b {
+            Block::Rule => "rule",
+            Block::Table(_) => "table",
+            other => kinds(std::slice::from_ref(other))[0],
+        })
+        .collect()
+}
+
+#[test]
+fn pulls_a_fenced_block_out_of_the_prose_around_it() {
+    let b = blocks(&lines(&["Here is the patch:", "```diff", "-const a = 1", "+const a = 2", "```", "Apply it when ready."]));
+    assert_eq!(b, [para("Here is the patch:"), Block::Diff("-const a = 1\n+const a = 2".into()), para("Apply it when ready.")]);
+}
+
+#[test]
+fn treats_an_unclosed_fence_as_code_still_being_written_not_as_prose() {
+    assert_eq!(blocks(&lines(&["Working on it:", "```ts", "const x = 1"])), [para("Working on it:"), Block::Code("const x = 1".into())]);
+}
+
+#[test]
+fn keeps_a_longer_fence_inside_a_shorter_one_as_code() {
+    assert_eq!(blocks(&lines(&["````", "```", "still code", "````"])), [Block::Code("```\nstill code".into())]);
+}
+
+#[test]
+fn reads_a_fence_with_no_language() {
+    assert_eq!(blocks(&lines(&["```", "plain", "```"])), [Block::Code("plain".into())]);
+}
+
+#[test]
+fn leaves_a_reply_with_no_fences_as_a_single_block_of_prose() {
+    assert_eq!(blocks("Just an answer."), [para("Just an answer.")]);
+}
+
+#[test]
+fn drops_nothing_whatever_the_shape_of_the_reply() {
+    for input in [
+        String::new(),
+        "plain".into(),
+        lines(&["a", "```", "b", "```", "c"]),
+        lines(&["```", "only code", "```"]),
+        lines(&["unclosed", "```js", "x"]),
+        lines(&["```", "```"]),
+        lines(&["one", "", "two"]),
+        lines(&["trailing fence", "```"]),
+        lines(&["```", "a", "````", "b", "```"]),
+    ] {
+        assert_eq!(missing_word(&input, &blocks(&input)), None, "{input:?}");
+    }
+}
+
+#[test]
+fn handles_crlf_the_way_a_windows_runtime_emits_it() {
+    assert_eq!(blocks("intro\r\n```\r\ncode\r\n```"), [para("intro"), Block::Code("code".into())]);
+}
+
+#[test]
+fn lifts_a_run_of_bullets_out_of_the_prose_instead_of_running_them_together() {
+    let b = blocks(&lines(&["Implemented the streak fix.", "- currentStreak counts yesterday", "- It resets once missed", "Verification: 3 tests passed."]));
+    assert_eq!(kinds(&b), ["text", "list", "text"]);
+    assert_eq!(para_text(&b[0]), Some("Implemented the streak fix."));
+    assert_eq!(items_with_depth(&b), [("currentStreak counts yesterday".into(), 0), ("It resets once missed".into(), 0)]);
+    assert_eq!(para_text(&b[2]), Some("Verification: 3 tests passed."));
+}
+
+#[test]
+fn reads_a_numbered_list_as_ordered() {
+    // `2)` after `1.` is the same list: CommonMark would start a second one.
+    let b = blocks(&lines(&["1. first", "2) second"]));
+    let l = lists(&b);
+    assert_eq!(l.len(), 1, "{b:?}");
+    assert_eq!(l[0].0, Some(1));
+    assert_eq!(items_with_depth(&b), [("first".into(), 0), ("second".into(), 0)]);
+    let all = texts(&drawn(&lines(&["1. first", "2) second"])));
+    let markers: Vec<&str> = all.lines().filter(|l| *l == "1." || *l == "2.").collect();
+    assert_eq!(markers, ["1.", "2."], "{all}");
+}
+
+#[test]
+fn starts_a_new_list_when_the_kind_changes() {
+    let b = blocks(&lines(&["- a", "1. b"]));
+    assert_eq!(lists(&b).iter().map(|l| l.0).collect::<Vec<_>>(), [None, Some(1)]);
+}
+
+#[test]
+fn does_not_treat_a_sentence_containing_a_dash_as_a_list() {
+    let text = "It resets - once yesterday is missing.";
+    assert_eq!(blocks(text), [para(text)]);
+}
+
+#[test]
+fn a_list_still_drops_nothing() {
+    for input in [lines(&["intro", "- one", "- two"]), lines(&["- only"]), lines(&["1. a", "", "after"]), lines(&["- a", "```", "code", "```", "- b"])] {
+        assert_eq!(missing_word(&input, &blocks(&input)), None, "{input:?}");
+    }
+}
+
+#[test]
+fn shows_the_label_and_keeps_the_target_off_the_sentence() {
+    let text = "see [src/streak.test.js](C:/w/src/streak.test.js) for the cases";
+    assert_eq!(para_of(text), "see src/streak.test.js for the cases");
+    assert_eq!(links_of(text), [("src/streak.test.js".into(), "C:/w/src/streak.test.js".into())]);
+}
+
+#[test]
+fn leaves_brackets_that_are_not_a_link_alone() {
+    assert_eq!(blocks("an array [1, 2] and a note"), [para("an array [1, 2] and a note")]);
+}
+
+#[test]
+fn marks_a_matched_pair_and_leaves_the_words_around_it_alone() {
+    assert_eq!(styled("run `pnpm test` first", rune_kit::markdown::Style::Code), ["pnpm test"]);
+    assert_eq!(shown("run `pnpm test` first"), "run pnpm test first");
+}
+
+#[test]
+fn leaves_a_lone_backtick_visible_rather_than_swallowing_the_rest() {
+    assert_eq!(blocks("it's a ` and nothing else"), [para("it's a ` and nothing else")]);
+}
+
+#[test]
+fn inline_code_never_loses_text() {
+    // Electron's spans joined, with code shown without its ticks.
+    assert!(blocks("").is_empty());
+    for (input, seen) in [("a`b`c", "abc"), ("`x`", "x"), ("no ticks", "no ticks"), ("``", "``"), ("a `b` c `d` e", "a b c d e")] {
+        assert_eq!(shown(input), seen, "{input}");
+    }
+}
+
+#[test]
+fn a_lone_tex_macro_is_drawn_as_its_symbol_in_the_words_around_it() {
+    assert_eq!(blocks("README.md $\\rightarrow$ docs/README.md"), [para("README.md → docs/README.md")]);
+    assert_eq!(blocks("a $\\times$ b $\\le$ c, and $ \\to $ d"), [para("a × b ≤ c, and → d")]);
+}
+
+#[test]
+fn leaves_money_and_code_as_they_were_written_and_a_whole_formula_is_math() {
+    for text in ["$5 and $10", "costs $\\,5"] {
+        assert_eq!(para_of(text), text.replace("\\,", ","), "{text}");
+    }
+    // pulldown reads `\,` as an escaped comma, as Markdown does; the dollar is not math.
+    let mut shown_math = Vec::new();
+    equations(&blocks("costs $\\,5"), &mut shown_math);
+    assert!(shown_math.is_empty());
+    // A formula is drawn (RaTeX); one RaTeX cannot read stays as the TeX written, never a symbol.
+    let mut drawn_math = Vec::new();
+    equations(&blocks("so $x \\to y$ holds"), &mut drawn_math);
+    let inline = crate::markdown_prep::prepare_reply("so $x \\to y$ holds", false).markdown;
+    assert!(inline.contains(crate::math_tex::MATH_SRC_PREFIX), "{inline}");
+    for text in ["use $\\frac$ here", "$\\toolong$"] {
+        let out = crate::markdown_prep::prepare_reply(text, false).markdown;
+        assert!(out.contains(crate::math_tex::MATH_SRC_PREFIX) || out.contains(&text[text.find('$').unwrap()..text.rfind('$').unwrap() + 1]), "{text}: {out}");
+        assert!(!out.contains('→'));
+    }
+    assert_eq!(styled("write `$\\to$` for an arrow", rune_kit::markdown::Style::Code), ["$\\to$"]);
+    assert_eq!(shown("write `$\\to$` for an arrow"), "write $\\to$ for an arrow");
+}
+
+#[test]
+fn lifts_a_hash_heading_out_of_the_prose_at_its_level() {
+    assert_eq!(blocks(&lines(&["### Summary", "Two files changed."])), [heading(3, "Summary"), para("Two files changed.")]);
+    assert_eq!(blocks("# Title"), [heading(1, "Title")]);
+    assert_eq!(blocks("## Title ##"), [heading(2, "Title")]);
+    // A hash that is part of the words stays ("Why C#" read "Why C").
+    assert_eq!(blocks("## Why C#"), [heading(2, "Why C#")]);
+    assert_eq!(blocks("### F# and C# ##"), [heading(3, "F# and C#")]);
+    // Deeper than three is drawn as the third: the thread has three sizes.
+    assert_eq!(blocks("##### Deep"), [heading(3, "Deep")]);
+}
+
+#[test]
+fn does_not_mistake_a_hashtag_or_a_shell_comment_for_a_heading() {
+    assert_eq!(blocks("#123 is the issue"), [para("#123 is the issue")]);
+    assert_eq!(blocks("#"), [para("#")]);
+}
+
+#[test]
+fn a_heading_ends_the_list_before_it() {
+    let b = blocks(&lines(&["- one", "- two", "## Next", "prose"]));
+    assert_eq!(kinds(&b), ["list", "heading", "text"]);
+    assert_eq!(items_with_depth(&b), [("one".into(), 0), ("two".into(), 0)]);
+    assert_eq!(b[1..], [heading(2, "Next"), para("prose")]);
+}
+
+#[test]
+fn keeps_every_word_when_headings_are_lifted() {
+    let text = lines(&["# A", "para", "## B", "- x", "### C"]);
+    assert_eq!(missing_word(&text, &blocks(&text)), None);
+}
+
+#[test]
+fn draws_bold_and_emphasis_as_spans_and_leaves_the_markers_out() {
+    use rune_kit::markdown::Style::{Em, Strong};
+    let text = "**Yes, whitespace-only input is already covered.** Then more.";
+    assert_eq!(styled(text, Strong), ["Yes, whitespace-only input is already covered."]);
+    assert_eq!(para_of(text), "Yes, whitespace-only input is already covered. Then more.");
+    assert_eq!(styled("use *care* here", Em), ["care"]);
+    assert_eq!(para_of("use *care* here"), "use care here");
+    assert_eq!(styled("__also bold__ and _also em_", Strong), ["also bold"]);
+    assert_eq!(styled("__also bold__ and _also em_", Em), ["also em"]);
+    assert_eq!(para_of("__also bold__ and _also em_"), "also bold and also em");
+}
+
+#[test]
+fn does_not_turn_identifiers_or_arithmetic_into_emphasis() {
+    for text in ["snake_case_name and 2 * 3 * 4", "a lone * star", "**unclosed bold"] {
+        assert_eq!(blocks(text), [para(text)], "{text}");
+    }
+}
+
+#[test]
+fn keeps_markers_inside_code_spans_literal() {
+    assert_eq!(styled("run `a ** b` now", rune_kit::markdown::Style::Code), ["a ** b"]);
+    assert!(styled("run `a ** b` now", rune_kit::markdown::Style::Strong).is_empty());
+}
+
+#[test]
+fn reads_a_table_as_columns() {
+    let b = blocks(&lines(&["| Metric | Q2 2026 | Q2 2025 |", "|---|---|---|", "| Revenue | $30.4M | $60.9M |"]));
+    assert_eq!(b.len(), 1);
+    let Block::Table(t) = &b[0] else { panic!("{b:?}") };
+    assert_eq!(t.head.iter().map(|c| c.text.as_str()).collect::<Vec<_>>(), ["Metric", "Q2 2026", "Q2 2025"]);
+    assert_eq!(t.rows.iter().map(|r| r.iter().map(|c| c.text.as_str()).collect::<Vec<_>>()).collect::<Vec<_>>(), [["Revenue", "$30.4M", "$60.9M"]]);
+}
+
+#[test]
+fn takes_the_alignment_from_the_colons() {
+    let b = blocks(&lines(&["| a | b | c |", "|:--|:-:|--:|", "| 1 | 2 | 3 |"]));
+    let Block::Table(t) = &b[0] else { panic!("{b:?}") };
+    assert_eq!(t.align, [rune::Align::Start, rune::Align::Center, rune::Align::End]);
+}
+
+#[test]
+fn leaves_a_sentence_with_a_pipe_in_it_as_prose() {
+    assert_eq!(kinds(&blocks("Run the command `grep foo | head` and report back.")), ["text"]);
+}
+
+#[test]
+fn leaves_a_row_of_hyphens_with_nothing_above_it_as_a_rule_not_a_table() {
+    assert_eq!(shape_kinds(&blocks(&lines(&["Before.", "", "---", "", "After."]))), ["text", "rule", "text"]);
+}
+
+#[test]
+fn reads_a_quote_as_a_quote() {
+    let b = blocks(&lines(&["Before.", "", "> A caution worth reading.", "> Still the same caution.", "", "After."]));
+    assert_eq!(kinds(&b), ["text", "quote", "text"]);
+    let quote = prose_of(&b[1..2]);
+    assert!(quote.contains("A caution worth reading."));
+    assert!(!quote.contains('>'));
+}
+
+#[test]
+fn keeps_every_word_which_is_what_the_coverage_guard_is_for() {
+    let text = lines(&["Here is the split.", "", "| Metric | Q2 2026 |", "|---|---|", "| Revenue | $30.4M |", "", "> Treat that as a range.", "", "---", "", "Done."]);
+    assert_eq!(missing_word(&text, &blocks(&text)), None);
+}
+
+#[test]
+fn double_underscores_inside_a_word_are_not_bold_a_connector_tool_keeps_its_name() {
+    assert_eq!(blocks("Called mcp__github__create_issue twice."), [para("Called mcp__github__create_issue twice.")]);
+}
+
+#[test]
+fn double_underscores_still_make_bold_at_a_word_edge() {
+    assert_eq!(styled("This is __important__ now.", rune_kit::markdown::Style::Strong), ["important"]);
+    assert_eq!(para_of("This is __important__ now."), "This is important now.");
 }
