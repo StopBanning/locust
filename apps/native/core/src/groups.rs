@@ -1293,6 +1293,23 @@ mod tests {
         assert!(parse_ms(&left[0].until).is_some());
     }
 
+    // groups-remember-leaving.test.ts: "keeps the name and words the group HAD, after it is renamed, edited or removed".
+    #[test]
+    fn a_leaving_keeps_the_name_and_words_the_group_had_after_it_is_renamed_edited_or_removed() {
+        let (_d, store) = temp_store();
+        let trading = create_group(&store, "Trading").unwrap();
+        set_group_instructions(&store, &trading.group_id, "Old words.").unwrap();
+        assign_to_group(&store, "mission_1", Some(&trading.group_id)).unwrap();
+        assign_to_group(&store, "mission_1", None).unwrap();
+        rename_group(&store, &trading.group_id, "Markets").unwrap();
+        set_group_instructions(&store, &trading.group_id, "New words.").unwrap();
+        remove_group(&store, &trading.group_id).unwrap();
+        let listed = load_groups(&store).unwrap();
+        assert!(listed.groups.is_empty());
+        assert_eq!(listed.left["mission_1"][0].name, "Trading");
+        assert_eq!(listed.left["mission_1"][0].instructions, "Old words.");
+    }
+
     #[test]
     fn records_leaving_when_moving_to_another_group() {
         let (_d, store) = temp_store();

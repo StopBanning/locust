@@ -935,6 +935,54 @@ fn only_the_face_you_talk_to_hops_and_nested_under_sits_one_level_deep() {
     assert_eq!(map.get("cyc_b"), None);
 }
 
+// ---- main/a-relayed-conversation-sits-under-its-origin.test.ts, one test per case, Electron's values ----
+
+/// The test file's `row(missionId, memberIds?)`: no member ids is an empty list.
+fn nest_row(mission_id: &str, member_ids: &[&str]) -> NestedRow {
+    NestedRow { mission_id: mission_id.into(), member_ids: member_ids.iter().map(|m| m.to_string()).collect() }
+}
+
+fn nested_pairs(rows: &[NestedRow], from: &[(&str, &str)]) -> Vec<(String, String)> {
+    let mut pairs: Vec<(String, String)> = nested_under(rows, |row| {
+        from.iter().find(|(id, _)| *id == row.mission_id).map(|(_, origin)| origin.to_string())
+    })
+    .into_iter()
+    .collect();
+    pairs.sort();
+    pairs
+}
+
+#[test]
+fn a_relayed_conversation_sits_under_the_conversation_any_turn_of_which_sent_it() {
+    let rows = [nest_row("m_ask", &["m_ask", "m_ask2"]), nest_row("m_reply", &[])];
+    assert_eq!(nested_pairs(&rows, &[("m_reply", "m_ask2")]), [("m_reply".to_string(), "m_ask".to_string())]);
+}
+
+#[test]
+fn a_relayed_conversation_stays_where_it_was_when_the_one_it_came_from_is_not_listed() {
+    let rows = [nest_row("m_reply", &[])];
+    assert_eq!(nested_pairs(&rows, &[("m_reply", "m_gone")]), []);
+}
+
+#[test]
+fn a_relayed_conversation_nests_one_level_only_so_a_reply_to_a_reply_sits_at_the_top() {
+    let rows = [nest_row("m_person", &[]), nest_row("m_juno", &[]), nest_row("m_wren", &[])];
+    let from = [("m_juno", "m_person"), ("m_wren", "m_juno")];
+    assert_eq!(nested_pairs(&rows, &from), [("m_juno".to_string(), "m_person".to_string())]);
+}
+
+#[test]
+fn two_conversations_that_name_each_other_hide_nothing() {
+    let rows = [nest_row("m_a", &[]), nest_row("m_b", &[])];
+    assert_eq!(nested_pairs(&rows, &[("m_a", "m_b"), ("m_b", "m_a")]), []);
+}
+
+#[test]
+fn a_conversation_is_never_nested_under_itself() {
+    let rows = [nest_row("m_a", &["m_a", "m_a2"])];
+    assert_eq!(nested_pairs(&rows, &[("m_a", "m_a2")]), []);
+}
+
 #[test]
 fn exchange_of_and_exchange_across_walk_component_and_sum_cost_and_hops() {
     let m1 = ExchangeMission {

@@ -96,6 +96,42 @@ fn a_model_of_your_own_is_one_the_person_added_which_opencode_runs_and_an_old_re
     assert!(!is_own_model("opencode", ""));
 }
 
+/// The test file's RUNS, one turn per run: [mission, model, usage, owner], all on OpenCode, at its AT.
+fn unpriced_turn(conversation: &str, model: &str, usd: Option<f64>, input: u64, output: u64) -> crate::usage::UsageTurn {
+    crate::usage::UsageTurn {
+        at: "2026-09-15T12:00:00.000Z".into(),
+        runtime: "opencode".into(),
+        model: model.into(),
+        conversation: conversation.into(),
+        input_tokens: Some(input),
+        output_tokens: Some(output),
+        cache_read_tokens: None,
+        cache_write_tokens: None,
+        usd,
+        premium_requests: None,
+        plan: false,
+    }
+}
+
+#[test]
+fn a_run_with_tokens_and_no_price_counts_as_unpriced_never_as_dollars_and_a_free_catalog_model_stays_nothing() {
+    use crate::spend::spent_by;
+    let turns = [
+        // Wren runs on a gateway of the person's own: two unpriced runs, one priced.
+        unpriced_turn("mission_own_1", "own-gateway/big-model", None, 900, 40),
+        unpriced_turn("mission_own_2", "own-gateway/big-model", None, 300, 20),
+        unpriced_turn("mission_own_3", "own-gateway/big-model", Some(0.4), 300, 20),
+        // A run that used no tokens cost nothing anywhere.
+        unpriced_turn("mission_own_4", "own-gateway/big-model", None, 0, 0),
+        // Juno runs on OpenCode's own free model: free, and said as nothing, as before.
+        unpriced_turn("mission_free_1", "opencode/free-model", None, 900, 40),
+    ];
+    let owner = |mission: &str| if mission.starts_with("mission_own_") { "tm_wren" } else { "tm_juno" };
+    assert_eq!(spent_by(&turns, "2026-09", |m| owner(m) == "tm_wren"), Spend { usd: Some(0.4), premium_requests: None, unpriced_runs: Some(2) });
+    assert_eq!(spent_by(&turns, "2026-09", |m| owner(m) == "tm_juno"), Spend::default());
+    assert_eq!(spent_by(&turns, "2026-10", |_| true), Spend::default());
+}
+
 #[test]
 fn unpriced_runs_never_move_the_limit() {
     assert!(!limit_reached(Some(&Spend { unpriced_runs: Some(40), ..Default::default() }), 5.0));
