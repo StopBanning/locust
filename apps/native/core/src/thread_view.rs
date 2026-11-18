@@ -5,6 +5,9 @@ use serde_json::Value;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LiveLine {
     pub label: String,
+    /// What the step under way is doing, in words (missionView.ts `live-step` `action`): the open call's
+    /// `liveActionLine`, or the plan's step under way.
+    pub action: Option<String>,
     pub detail: Option<String>,
     pub register: String,
     pub waiting: bool,
@@ -17,6 +20,110 @@ pub fn streaming(final_: bool, running: bool) -> bool {
 
 pub fn live_visible(running: bool, awaiting_decision: bool) -> bool {
     running && !awaiting_decision
+}
+
+/// The live word, capitalised and ending in one ellipsis (ThreadItems.tsx `sweepText`).
+pub fn sweep_text(word: &str) -> String {
+    let mut chars = word.chars();
+    let first = chars.next().map(|c| c.to_uppercase().collect::<String>()).unwrap_or_default();
+    format!("{first}{}\u{2026}", chars.as_str())
+}
+
+/// The plan's step under way (missionView.ts `planAction` and `planAside`): its words without its own full stop (an
+/// ellipsis the model wrote stays), and "step 2 of 3".
+fn plan_step(event: &Value) -> Option<(String, String)> {
+    let steps = event["payload"]["plan"]["plan"].as_array()?;
+    let at = steps.iter().position(|s| s["status"] == "in_progress")?;
+    let words = steps[at]["step"].as_str().unwrap_or("").trim();
+    let words = if words.ends_with('.') && !words.ends_with("..") { &words[..words.len() - 1] } else { words };
+    Some((words.to_owned(), format!("step {} of {}", at + 1, steps.len())))
+}
+
+fn clip(text: &str, max: usize) -> String {
+    if text.chars().count() > max { format!("{}\u{2026}", text.chars().take(max - 1).collect::<String>()) } else { text.to_owned() }
+}
+
+fn capital(text: &str) -> String {
+    let mut chars = text.chars();
+    chars.next().map(|c| c.to_uppercase().chain(chars).collect()).unwrap_or_default()
+}
+
+/// A command's program, without its folder or `.exe`.
+fn command_head(command: &str) -> String {
+    let first = command.split_whitespace().next().unwrap_or("").trim_matches(['"', '\'']);
+    let name = first.rsplit(['/', '\\']).next().unwrap_or(first).to_lowercase();
+    name.strip_suffix(".exe").map(str::to_owned).unwrap_or(name)
+}
+
+/// What a command looks at (missionView.ts `commandLooksAt`).
+fn command_looks_at(command: &str) -> Option<&'static str> {
+    let head = command_head(command);
+    if ["cat", "head", "tail", "less", "more", "type", "get-content", "gc", "bat", "nl", "sed"].contains(&head.as_str()) {
+        return Some("read");
+    }
+    if head == "rg" && command.split_whitespace().any(|w| w == "--files") {
+        return Some("list");
+    }
+    if ["rg", "grep", "egrep", "fgrep", "findstr", "select-string", "sls", "ag", "ack"].contains(&head.as_str()) {
+        return Some("search");
+    }
+    ["ls", "dir", "tree", "find", "fd", "get-childitem", "gci", "ll", "la"].contains(&head.as_str()).then_some("list")
+}
+
+fn first_command(command: &str) -> &str {
+    let line = command.lines().next().unwrap_or("");
+    line.split("||").next().unwrap_or("").split("&&").next().unwrap_or("").split(';').next().unwrap_or("").split('|').next().unwrap_or("")
+}
+
+fn is_line_range(word: &str) -> bool {
+    let w = word.strip_suffix('p').unwrap_or(word);
+    w.split_once(',').is_some_and(|(a, b)| !a.is_empty() && !b.is_empty() && a.bytes().chain(b.bytes()).all(|c| c.is_ascii_digit()))
+}
+
+/// The last path-looking word of the first command, as its file name (`commandTarget`).
+fn command_target(command: &str) -> Option<String> {
+    let words = first_command(command).split_whitespace().skip(1).map(|w| w.trim_start_matches(['"', '\'']).trim_end_matches(['"', '\'', ',', ';']));
+    let last = words.filter(|w| w.len() > 1 && !w.starts_with('-') && w.contains(['.', '/', '\\']) && !is_line_range(w)).last()?;
+    last.split(['/', '\\']).rfind(|p| !p.is_empty()).map(str::to_owned)
+}
+
+/// What a search looked for: its first word that is not a flag (`commandPattern`).
+fn command_pattern(command: &str) -> Option<String> {
+    let word = first_command(command).split_whitespace().skip(1).find(|w| !w.starts_with('-') && w.chars().any(|c| c.is_ascii_alphanumeric()))?;
+    let bare = word.trim_matches(['"', '\'']);
+    (!bare.is_empty()).then(|| bare.to_owned())
+}
+
+/// The open call in words, as Claude Code's status line says it (missionView.ts `liveActionLine`, 0.569): the model's
+/// own title, else what a command looks at or runs, else the file a writing tool writes. None where Electron's
+/// helper, skill and reading-tool cases would answer (not carried yet): the line then shows the call as before.
+pub fn live_action(title: Option<&str>, kind: &str, name: &str, command: Option<&str>) -> Option<String> {
+    let title = title.map(|t| t.split_whitespace().collect::<Vec<_>>().join(" ")).filter(|t| !t.is_empty());
+    if let Some(title) = title {
+        return Some(clip(&capital(&title), 56));
+    }
+    let shell = kind == "command_execution" || (kind == "tool_use" && name.eq_ignore_ascii_case("bash")) || name == "shell";
+    if shell && let Some(command) = command {
+        let command = crate::shell_words::without_shell_wrapper(command);
+        return Some(match command_looks_at(&command) {
+            Some("read") => command_target(&command).map_or_else(|| "Reading a file".into(), |t| format!("Reading {}", clip(&t, 40))),
+            Some("search") => command_pattern(&command).map_or_else(|| "Searching the files".into(), |t| format!("Searching for {}", clip(&t, 32))),
+            Some(_) => "Listing files".into(),
+            None => {
+                let first = command.lines().next().unwrap_or("").trim();
+                if first.chars().filter(char::is_ascii_alphabetic).count() < 3 { "Running a script".into() } else { format!("Running {}", clip(first, 40)) }
+            }
+        });
+    }
+    let tool = name.to_lowercase();
+    let writes = ["write", "write_to_file", "writetofile", "create_file", "createfile", "edit", "edit_file", "editfile", "apply_patch", "applypatch"].contains(&tool.as_str())
+        || tool.starts_with("str_replace") || tool.starts_with("replace");
+    if writes || kind == "write_to_file" {
+        let target = command.unwrap_or("");
+        let file = target.trim().trim_matches(['"', '\'']).split(['/', '\\']).rfind(|p| !p.is_empty()).filter(|f| f.contains('.'));
+        return Some(file.map_or_else(|| "Writing a file".into(), |f| format!("Editing {}", clip(f, 40))));
+    }
+    None
 }
 
 /// An approval owns the waiting state, even when the approved tool remains open.
@@ -36,8 +143,9 @@ pub fn live_line(
     };
     let mut step: Option<(String, String)> = None;
     let mut before_writing = None;
-    let mut open: Vec<(String, String, Option<String>, bool)> = Vec::new();
+    let mut open: Vec<(String, String, Option<String>, bool, Option<String>)> = Vec::new();
     let mut messages = std::collections::HashMap::new();
+    let mut plan: Option<(String, String)> = None;
     for e in events {
         let p = &e["payload"];
         let s = |key: &str| p[key].as_str().unwrap_or("");
@@ -79,9 +187,11 @@ pub fn live_line(
                 let connector = mcp.is_some() || crate::mcp_names::is_bare_connector_tool(s("name"));
                 let shown = p["title"].as_str().filter(|t| !t.is_empty()).map(str::to_owned)
                     .or_else(|| mcp.as_ref().map(|m| m.tool.clone())).unwrap_or_else(|| label.into());
-                open.push((s("itemId").into(), shown, mcp.map(|m| m.server), connector));
+                let action = if connector { None } else { live_action(p["title"].as_str(), s("toolKind"), s("name"), p["command"].as_str()) };
+                open.push((s("itemId").into(), shown, mcp.map(|m| m.server), connector, action));
             }
             "tool.completed" | "tool.failed" => open.retain(|(id, ..)| id != s("itemId")),
+            "plan.updated" => plan = plan_step(e),
             "message.delta" => {
                 let final_ = p["final"] == true;
                 messages.insert(s("itemId").to_owned(), final_);
@@ -113,8 +223,16 @@ pub fn live_line(
             _ => {}
         }
     }
-    let detail = open.last().and_then(|(_, _, detail, _)| detail.clone());
-    let (label, register, waiting) = if let Some((_, label, _, connector)) = open.last() {
+    let (plan_action, plan_aside) = plan.map_or((None, None), |(a, d)| (Some(a), Some(d)));
+    // The open call's connector, else the plan's step: "step 2 of 3" (missionView.ts `detail`).
+    let detail = open.last().and_then(|(_, _, detail, ..)| detail.clone()).or(plan_aside);
+    let action = match (open.last(), &step) {
+        (Some((.., true, _)), _) => None,
+        (Some((.., action)), _) => action.clone().or(plan_action),
+        (None, Some((_, register))) if register == "thinking" => None,
+        _ => plan_action,
+    };
+    let (label, register, waiting) = if let Some((_, label, _, connector, _)) = open.last() {
         (label.clone(), if *connector { "connector" } else { "tool" }.into(), false)
     } else if let Some((label, register)) = step {
         let waiting = register == "thinking";
@@ -138,6 +256,7 @@ pub fn live_line(
     };
     Some(LiveLine {
         label: crate::ledger::scrub(&label),
+        action: action.map(|a| crate::ledger::scrub(&a)),
         detail: detail.map(|d| crate::ledger::scrub(&d)),
         register,
         waiting,

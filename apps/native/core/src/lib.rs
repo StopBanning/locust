@@ -444,3 +444,5 @@ pub mod workspace_launch;
 mod workspace_launch_tests;
 #[cfg(test)]
 mod slow_agent_tests;
+#[cfg(test)]
+mod live_line_tests;

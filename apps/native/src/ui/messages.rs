@@ -496,10 +496,13 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
     {
         let elapsed = chrono::DateTime::parse_from_rfc3339(&live.started_at).ok()
             .map(|at| (chrono::Utc::now().timestamp_millis() - at.timestamp_millis()).max(0) as u64);
-        let words = match live.register.as_str() {
-            "connector" => format!("Using a connector · {}", live.label),
-            "tool" => format!("Using a tool · {}", live.label),
-            _ => live.label.clone(),
+        let words = match (&live.action, live.register.as_str()) {
+            // What the step under way is doing, in words: "Running npm test", the plan's "Step 2" (live-step `action`).
+            (Some(action), _) => action.clone(),
+            (None, "connector") => format!("Using a connector · {}", live.label),
+            (None, "tool") => format!("Using a tool · {}", live.label),
+            // The live word, with its one ellipsis (sweepText): "Working…".
+            (None, _) => locust_core::thread_view::sweep_text(&live.label),
         };
         let words = live.detail.as_ref().map_or_else(|| words.clone(), |d| format!("{words} · {d}"));
         let label = elapsed.map_or_else(|| words.clone(), |ms| format!("{words} · {}", ledger::duration_text(ms)));
@@ -1010,6 +1013,23 @@ mod tests {
         assert!(thread_text(&items, &mut s).contains("Started Sep 2, 23:25"));
         s.ledger.as_mut().unwrap().snapshot.started_label = None;
         assert!(!thread_text(&items, &mut s).contains("Started "));
+    }
+
+    /// the-live-line-says-which-plan-step.test.ts, drawn: the open call in words and the plan's step, on the line a
+    /// person reads; and with nothing to say but the word, the word with its ellipsis.
+    #[test]
+    fn the_live_line_draws_what_the_call_is_doing_and_which_plan_step() {
+        let items = [ledger::Item::User("run the tests".into())];
+        let mut s = composition_state(None, true);
+        assert!(thread_text(&items, &mut s).contains("Starting\u{2026}"));
+        let events = [
+            serde_json::json!({"type": "run.started", "occurredAt": "2026-09-04T21:47:00.000Z", "payload": {}}),
+            serde_json::json!({"type": "plan.updated", "payload": {"plan": {"plan": [{"step": "Step 1", "status": "completed"}, {"step": "Step 2", "status": "in_progress"}, {"step": "Step 3", "status": "pending"}]}}}),
+            serde_json::json!({"type": "tool.started", "payload": {"itemId": "t", "toolKind": "command_execution", "name": "shell", "command": "npm test"}}),
+        ];
+        s.ledger.as_mut().unwrap().snapshot.live = locust_core::thread_view::live_line(&events, true, "2026-09-04T21:47:00.000Z", false);
+        let drawn = thread_text(&items, &mut s);
+        assert!(drawn.contains("Running npm test · step 2 of 3"), "{drawn}");
     }
 
     #[test]

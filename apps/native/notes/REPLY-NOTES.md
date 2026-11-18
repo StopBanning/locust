@@ -125,6 +125,40 @@ puts the old order back is caught by it.
 | an-other-app-origin-survives-a-restart | partial | `startedBy {kind: mcp}` is written and the backup exclusions hold. Missing: `via`, schema-22 refusal (outside this lane's `ledger.rs` scope), and the "Started from another app · …" line. |
 | a-lead-shows-what-it-handed-out | waiting | There is no Handed-out card. |
 
+## Part 3a: the live line names the plan step and the call, in words
+
+`core/src/thread_view.rs`:
+- `live_line` follows `plan.updated` now. Its `detail` is "step 2 of 3" when no connector names the call.
+- New field `LiveLine::action` holds Electron's `live-step` action. It is the open call in words (`live_action`, a
+  partial `liveActionLine`), or else the plan's step under way, with its own full stop dropped.
+- `sweep_text` is Electron's live word: capitalised, one ellipsis.
+
+`messages.rs` draws the action when there is one ("Running npm test · step 2 of 3 · 15s"). Otherwise it draws the
+swept word ("Starting…"), or "Using a tool · …" as before.
+
+`live_action` carries only the `liveActionLine` branches these cases name: a title, a shell command that reads,
+searches, lists or runs, and writing tools. Electron's helper, skill, reading-tool, web and edit-entry branches are
+not built; for those the line falls back to the call as before.
+
+Breaks: step number off by one → three `live_line_tests`; full stop kept → `drops_the_steps_own_full_stop_…`;
+"Reading" changed → `leads_with_what_the_open_call_is_doing_in_words`; ellipsis dropped → the three `the_live_word_…`
+tests; the window drawing the label instead of the action →
+`messages::tests::the_live_line_draws_what_the_call_is_doing_and_which_plan_step`.
+
+Suite: 4,349 passed, 22 skipped.
+
+## Not started (left `waiting`, each with its triage note)
+- Part 3: the-live-line-says-the-starts-phase, the-live-line-opens-the-plan, an-orb-needs-a-runtime-that-streams,
+  the-frame-pass.
+- Part 4 (all 14): a-long-call-is-named-while-it-runs, a-long-silent-stretch-reads-as-its-moves,
+  a-helpers-summary-reads-as-words, a-wordless-thought-does-not-start-a-line, a-plan-shows-what-happened-to-it,
+  plan-answer, a-step-keeps-its-own-change, a-large-diff-says-the-right-counts, a-new-document-reads-as-one,
+  a-resumed-file-card-matches-the-folder, command-output, commands-and-paths-share-one-left-edge,
+  a-verbose-transcript-opens-every-step, transcriptView.
+- Hint for the next lane: `a-long-call-is-named-while-it-runs` and `a-long-silent-stretch-reads-as-its-moves` need
+  more of `liveActionLine` / `stepsLine` (missionView.ts 2137-2300). `thread_view::live_action`, `command_looks_at`,
+  `command_target` and `command_pattern` are the start of that port.
+
 ## Not mine
 `src/ui/routine_recovery_tests.rs` was untracked in this worktree before this lane started (17 Nov 23:58), and no
 `mod` names it. It is left as found.
