@@ -4,7 +4,8 @@
 //! continue it, read its reply, stop a turn it started, and, while the person allows it, see their conversations. A turn
 //! it starts runs in Ask unless the person turned on "Use each teammate's own mode"; then in the teammate's saved mode,
 //! or a mode and folder the app names, checked here. Approval cards go only to Locust's window: there is no tool to
-//! answer one. Every refusal says that nothing was started, sent or stopped, so an app never retries blind.
+//! answer one. A question card (a finished turn asking the person to choose) is another thing: read_reply gives it,
+//! and answer_question sends what pressing an option sends (0.878). Every refusal says that nothing was started, sent or stopped, so an app never retries blind.
 //!
 //! The rules and words follow Electron's; what the native engine cannot do yet is said the way Electron's tools say it
 //! for a server that does not offer it: routines.
@@ -220,6 +221,15 @@ pub use crate::protocol_tags::unwrap_protocol_tags;
 /// next teammate is handed, a checker's verdict is read from, and a decision block is looked for in.
 pub fn latest_final(turn: &Turn) -> Option<String> {
     messages(&turn.events).into_iter().rev().find(|m| m.2).map(|m| m.1)
+}
+
+/// questionOf (0.878): a finished turn that ends asking the person to choose (`<locust-ask>`, the card under the answer
+/// in Locust): its question and options, which answer_question takes. Never from a turn that failed or was stopped.
+pub fn question_of(turn: &Turn) -> Option<crate::protocol_tags::DecisionRequest> {
+    if turn.phase() != "completed" {
+        return None;
+    }
+    crate::protocol_tags::parse_decision(&latest_final(turn)?)
 }
 
 /// answerOf: a finished turn's answer, with warnings Locust gave after it, or Locust's words for why there is none.
@@ -530,6 +540,23 @@ impl<L: Locust> Tools<L> {
             "folder": self.turn_folder(turn).or_else(|| self.locust.folder()),
             "can_carry_on": !live && stopped_reason(turn).is_some()
         }));
+        if let Some(asked) = if live { None } else { question_of(turn) }
+            && let Some(s) = result.structured.as_mut()
+        {
+            let options: Vec<Value> = asked
+                .options
+                .iter()
+                .enumerate()
+                .map(|(i, o)| {
+                    let mut row = json!({"number": i + 1, "label": o.label});
+                    if let Some(note) = &o.note {
+                        row["note"] = json!(note);
+                    }
+                    row
+                })
+                .collect();
+            s["question"] = json!({"text": asked.question, "options": options});
+        }
         result
     }
 
@@ -667,6 +694,7 @@ impl<L: Locust> Tools<L> {
                 }
             }
             "send_message" | "read_reply" => self.send_or_read(name, args),
+            "answer_question" => self.answer_question(args),
             _ => ToolResult::refused("That tool is not offered by Locust."),
         }
     }
@@ -732,6 +760,60 @@ impl<L: Locust> Tools<L> {
                 ToolResult::ok(reply.to_string())
             }
         }
+    }
+
+    /// answer_question (0.878): a question card answered from an app, by its option's number or label, with exactly what
+    /// pressing that option in Locust sends, as the conversation's next turn. Approvals of an action never come here.
+    fn answer_question(&self, args: &Value) -> ToolResult {
+        let Some(id) = text_arg(&args["conversation_id"], 200) else {
+            return ToolResult::refused("Give a conversation id from start_conversation or list_conversations.");
+        };
+        {
+            let mut starting = self.starting.lock().unwrap_or_else(|e| e.into_inner());
+            if !starting.insert(id.to_owned()) {
+                return ToolResult::refused("Still working: starting the next turn. Nothing was sent.");
+            }
+        }
+        let result = self.answer_question_claimed(id, args);
+        self.starting.lock().unwrap_or_else(|e| e.into_inner()).remove(id);
+        result
+    }
+
+    fn answer_question_claimed(&self, id: &str, args: &Value) -> ToolResult {
+        let Some(turn) = self.lookup(id) else {
+            return ToolResult::refused("That conversation could not be read from the local ledger. Use an id returned by this server.");
+        };
+        if self.locust.live(&turn.mission_id) {
+            return ToolResult::refused("It is still working, so there is no question to answer yet. read_reply first. Nothing was sent.");
+        }
+        let Some(asked) = question_of(&turn) else {
+            return ToolResult::refused("Its newest answer asks no question with choices. Use send_message to reply in words. Nothing was sent.");
+        };
+        let given = &args["choice"];
+        let option = match given {
+            Value::Number(n) => n.as_u64().filter(|n| *n >= 1).and_then(|n| asked.options.get(n as usize - 1)),
+            Value::String(s) => {
+                let wanted = s.trim().to_lowercase();
+                asked.options.iter().find(|o| o.label.to_lowercase() == wanted)
+            }
+            _ => None,
+        };
+        let Some(option) = option else {
+            let named: Vec<String> = asked.options.iter().enumerate().map(|(i, o)| format!("{} {}", i + 1, o.label)).collect();
+            return ToolResult::refused(format!("Choose one of: {}. Nothing was sent.", named.join("; ")));
+        };
+        let Some(teammate) = self.owner_of(&turn) else {
+            return ToolResult::refused("That conversation no longer has a teammate. Nothing was sent.");
+        };
+        // The words a press on the card sends, as the next turn: the thread shows it as the answer given.
+        self.started(teammate, &crate::protocol_tags::decision_reply(option), Some(id), &json!({}), Some(&turn))
+    }
+
+    /// The conversation's teammate, while it is still on the roster. A conversation with no teammate is not continued
+    /// from here: the Rust app's own window cannot continue one either (Electron can, since 0.878).
+    fn owner_of(&self, turn: &Turn) -> Option<Teammate> {
+        let owner = self.locust.owner(&turn.mission_id)?;
+        self.locust.teammates().ok()?.into_iter().find(|(t, _)| t.id == owner).map(|(t, _)| t)
     }
 
     fn send_or_read(&self, name: &str, args: &Value) -> ToolResult {

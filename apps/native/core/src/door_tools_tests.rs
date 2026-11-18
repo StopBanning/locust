@@ -14,6 +14,8 @@ struct Fake {
     started: Mutex<Vec<StartRequest>>,
     /// The mode the host really runs a turn in, when it differs from the one asked for.
     host_mode: Option<&'static str>,
+    /// The conversation's teammate was removed, or it never had one.
+    no_owner: bool,
 }
 
 fn mate(id: &str, name: &str, mode: &str) -> Teammate {
@@ -81,7 +83,7 @@ impl Locust for Fake {
         Some(at)
     }
     fn owner(&self, _: &str) -> Option<String> {
-        Some("tm_scout".into())
+        (!self.no_owner).then(|| "tm_scout".into())
     }
     fn live(&self, mission: &str) -> bool {
         self.live.lock().unwrap().contains(mission)
@@ -377,4 +379,134 @@ fn a_turn_whose_plan_ran_out_is_offered_and_carried_on_to_an_agent_this_locust_c
     edits.mode = Some("accept-edits".into());
     tools.locust.turns.lock().unwrap().insert("edits".into(), edits);
     assert!(tools.call("carry_on", &json!({"conversation_id": "edits", "runtime": "opencode"})).text.starts_with("That turn ran in accept-edits, not Ask."));
+}
+
+// A question a turn ends on (an-app-continues-a-conversation-with-no-teammate.test.ts, 0.878), Electron's values.
+const QUESTION: &str = "Batch 8 is done.\n\n<locust-ask>\nWhen Rust's command guard refuses a command, what should the record keep?\n- Keep it as Electron :: guard refusals leave no line, and every file stays readable by Electron\n- Allow \"command-guard\" in Rust :: the record shows guard refusals again\n</locust-ask>";
+
+fn asking(fake: Fake, said: &str, phase: &str) -> Tools<Fake> {
+    let mut events = vec![ev("message.delta", json!({"itemId": "m", "operation": "replace", "text": said, "final": true}))];
+    if phase != "interrupted" {
+        events.push(ev(&format!("run.{phase}"), json!({"message": "It broke."})));
+    }
+    let mut t = turn("tip", true, events);
+    t.mode = Some("auto".into());
+    fake.turns.lock().unwrap().insert("tip".into(), t);
+    Tools::new(fake)
+}
+
+#[test]
+fn a_question_a_turn_ends_on_reads_back_with_its_numbered_options() {
+    let tools = asking(Fake::default(), QUESTION, "completed");
+    let read = tools.call("read_reply", &json!({"conversation_id": "tip"}));
+    let s = read.structured.unwrap();
+    assert_eq!(s["status"], "done");
+    assert_eq!(
+        s["question"],
+        json!({"text": "When Rust's command guard refuses a command, what should the record keep?", "options": [
+            {"number": 1, "label": "Keep it as Electron", "note": "guard refusals leave no line, and every file stays readable by Electron"},
+            {"number": 2, "label": "Allow \"command-guard\" in Rust", "note": "the record shows guard refusals again"}
+        ]})
+    );
+}
+
+#[test]
+fn a_question_is_answered_by_number_with_exactly_what_the_cards_press_sends() {
+    let tools = asking(Fake::default(), QUESTION, "completed");
+    let r = tools.call("answer_question", &json!({"conversation_id": "tip", "choice": 1}));
+    assert!(!r.is_error, "{}", r.text);
+    let started = tools.locust.started.lock().unwrap();
+    assert_eq!(started.len(), 1);
+    assert_eq!(started[0].prompt, "Keep it as Electron (guard refusals leave no line, and every file stays readable by Electron). Continue with that.");
+    assert_eq!(started[0].follow_up_of.as_deref(), Some("tip"));
+    assert_eq!(started[0].mode, Mode::Ask);
+    assert_eq!(started[0].teammate.id, "tm_scout");
+    assert_eq!(reply(&r)["conversation_id"], "tip");
+}
+
+#[test]
+fn a_question_is_answered_by_label_whatever_its_case_in_the_conversations_own_mode_when_allowed() {
+    let tools = asking(Fake { own_mode: true, ..Default::default() }, QUESTION, "completed");
+    tools.call("answer_question", &json!({"conversation_id": "tip", "choice": "allow \"command-guard\" in rust"}));
+    let started = tools.locust.started.lock().unwrap();
+    assert_eq!(started[0].prompt, "Allow \"command-guard\" in Rust (the record shows guard refusals again). Continue with that.");
+    assert_eq!(started[0].mode, Mode::Auto);
+}
+
+#[test]
+fn a_choice_it_does_not_offer_is_refused_naming_the_ones_it_does_and_nothing_is_sent() {
+    let tools = asking(Fake::default(), QUESTION, "completed");
+    for choice in [json!(3), json!(0), json!(-1), json!(1.5), json!("Maybe"), json!(null), json!(true)] {
+        let r = tools.call("answer_question", &json!({"conversation_id": "tip", "choice": choice}));
+        assert!(r.is_error);
+        assert_eq!(r.text, "Choose one of: 1 Keep it as Electron; 2 Allow \"command-guard\" in Rust. Nothing was sent.", "{choice}");
+    }
+    assert!(tools.locust.started.lock().unwrap().is_empty());
+}
+
+#[test]
+fn no_question_is_there_when_the_answer_asks_nothing_or_while_the_turn_still_works() {
+    let plain = asking(Fake::default(), "All done.", "completed");
+    assert!(plain.call("read_reply", &json!({"conversation_id": "tip"})).structured.unwrap().get("question").is_none());
+    let asked = plain.call("answer_question", &json!({"conversation_id": "tip", "choice": 1}));
+    assert!(asked.is_error);
+    assert_eq!(asked.text, "Its newest answer asks no question with choices. Use send_message to reply in words. Nothing was sent.");
+    let working = asking(Fake::default(), QUESTION, "completed");
+    working.locust.live.lock().unwrap().insert("tip".into());
+    let early = working.call("answer_question", &json!({"conversation_id": "tip", "choice": 1}));
+    assert!(early.is_error);
+    assert_eq!(early.text, "It is still working, so there is no question to answer yet. read_reply first. Nothing was sent.");
+    assert!(working.call("read_reply", &json!({"conversation_id": "tip"})).structured.unwrap().get("question").is_none());
+    assert!(working.locust.started.lock().unwrap().is_empty());
+}
+
+#[test]
+fn no_question_is_offered_from_a_turn_that_failed_or_was_stopped_even_if_its_last_words_asked_one() {
+    for phase in ["failed", "cancelled", "interrupted"] {
+        let tools = asking(Fake::default(), QUESTION, phase);
+        assert!(tools.call("read_reply", &json!({"conversation_id": "tip"})).structured.unwrap().get("question").is_none(), "{phase}");
+        assert!(tools.call("answer_question", &json!({"conversation_id": "tip", "choice": 1})).is_error, "{phase}");
+        assert!(tools.locust.started.lock().unwrap().is_empty(), "{phase}");
+    }
+}
+
+#[test]
+fn a_question_in_the_persons_own_conversation_is_out_of_reach_while_they_do_not_let_apps_see_it() {
+    let fake = Fake::default();
+    let mut own = turn("tip", false, vec![ev("message.delta", json!({"itemId": "m", "text": QUESTION, "final": true})), ev("run.completed", json!({}))]);
+    own.mode = Some("ask".into());
+    fake.turns.lock().unwrap().insert("tip".into(), own.clone());
+    let tools = Tools::new(fake);
+    let r = tools.call("answer_question", &json!({"conversation_id": "tip", "choice": 1}));
+    assert!(r.is_error);
+    assert_eq!(r.text, "That conversation could not be read from the local ledger. Use an id returned by this server.");
+    assert!(tools.locust.started.lock().unwrap().is_empty());
+    let seen = Tools::new(Fake { see_all: true, ..Default::default() });
+    seen.locust.turns.lock().unwrap().insert("tip".into(), own);
+    assert!(!seen.call("answer_question", &json!({"conversation_id": "tip", "choice": 2})).is_error);
+}
+
+#[test]
+fn a_conversation_with_no_teammate_is_still_refused_from_here_as_the_rust_window_refuses_it() {
+    // Electron continues one since 0.878 (on its own agent, belonging to nobody); the Rust app's window cannot yet.
+    let tools = asking(Fake { no_owner: true, ..Default::default() }, QUESTION, "completed");
+    for (tool, args) in [("answer_question", json!({"conversation_id": "tip", "choice": 1})), ("send_message", json!({"conversation_id": "tip", "message": "Carry on."}))] {
+        let r = tools.call(tool, &args);
+        assert!(r.is_error);
+        assert_eq!(r.text, "That conversation no longer has a teammate. Nothing was sent.", "{tool}");
+    }
+    assert!(tools.locust.started.lock().unwrap().is_empty());
+}
+
+#[test]
+fn an_answer_already_starting_is_not_sent_twice() {
+    let tools = asking(Fake::default(), QUESTION, "completed");
+    tools.starting.lock().unwrap().insert("tip".into());
+    let r = tools.call("answer_question", &json!({"conversation_id": "tip", "choice": 1}));
+    assert!(r.is_error);
+    assert_eq!(r.text, "Still working: starting the next turn. Nothing was sent.");
+    assert!(tools.locust.started.lock().unwrap().is_empty());
+    tools.starting.lock().unwrap().clear();
+    assert!(!tools.call("answer_question", &json!({"conversation_id": "tip", "choice": 1})).is_error);
+    assert!(tools.starting.lock().unwrap().is_empty(), "the claim is let go after the answer");
 }

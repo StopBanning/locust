@@ -86,3 +86,20 @@ only the client side of that door. It now serves its own.
   (`Door::native_tools(true)`). A card such a turn still raises is refused at once with `quick::QUICK_DENY`, since no
   window can show it. The window's Stop on a turn it does not run, with Electron quit, now says the turn runs in
   another Locust process, instead of "Locust isn't running".
+
+## Question cards from an app (17 Nov, from Electron 0.878)
+Electron 0.878 (main, c3951884) lets an app answer a question card and continue a conversation with no teammate.
+- **Ported:** `read_reply` gives a finished turn's question and its numbered options in `structuredContent.question`
+  (`door_tools::question_of`: the last final message's `<locust-ask>`, never from a failed, stopped or live turn), and
+  `answer_question` takes an option's number or label (any case) and sends `protocol_tags::decision_reply`, exactly
+  what pressing it in the window sends, as the next turn, in the conversation's own mode and folder. Approvals of an
+  action are still never answered from here. Electron's words throughout. 9 tests in `door_tools_tests.rs`, values
+  from `an-app-continues-a-conversation-with-no-teammate.test.ts`.
+- **Also listed:** `carry_on` was served but missing from `door::tool_list`, so no app could find it; it is listed now,
+  in Electron's order and words, with `list_models`' fuller description.
+- **Not ported: a conversation with no teammate.** Electron continues one on its own agent, belonging to nobody. The
+  Rust send path (`native::Send`) needs a teammate (its brief, folder, spend limit, skills, keys, owner record), and
+  the Rust window cannot continue such a conversation either, so the door keeps refusing it ("That conversation no
+  longer has a teammate. Nothing was sent."), as a test now holds. Doing it means a teammate-less send first.
+- The Electron test file is on main, not in this branch's `apps/desktop`, so `parity/tests.tsv` gets its row when the
+  branch takes main's Electron side.

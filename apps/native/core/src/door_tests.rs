@@ -126,10 +126,14 @@ fn an_app_may_name_a_known_folder_one_inside_it_or_a_worktree_of_its_repository(
 fn the_bridge_lists_the_tools_and_marks_those_that_only_read() {
     let tools = tool_list();
     let names: Vec<&str> = tools.as_array().unwrap().iter().map(|t| t["name"].as_str().unwrap()).collect();
-    assert_eq!(names.len(), 11);
+    // Electron's bridge order: answer_question after read_reply, carry_on after list_conversations (0.878).
+    assert_eq!(
+        names,
+        ["list_teammates", "start_conversation", "send_message", "read_reply", "answer_question", "stop_turn", "list_conversations", "carry_on", "list_models", "list_background_runs", "list_routines", "run_routine", "routine_status"]
+    );
     for t in tools.as_array().unwrap() {
         let reads = t["annotations"]["readOnlyHint"] == true;
-        let writes = ["start_conversation", "send_message", "stop_turn", "run_routine"].contains(&t["name"].as_str().unwrap());
+        let writes = ["start_conversation", "send_message", "answer_question", "stop_turn", "carry_on", "run_routine"].contains(&t["name"].as_str().unwrap());
         assert_eq!(reads, !writes, "{}", t["name"]);
     }
 }
