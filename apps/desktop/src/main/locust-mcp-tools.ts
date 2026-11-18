@@ -156,18 +156,20 @@ export function createLocustMcpTools(options: {
    * Only on the teammate's own AI agent and account, only a model and effort that agent offers here, and never the
    * mode: that stays Ask, or the teammate's own when the person said so. The saved route is not changed.
    */
-  const choiceOf = async (teammateId: string | undefined, args: Record<string, unknown>, previous?: PublicRecoveredMission): Promise<Partial<CodexMissionStartRequest> | string | undefined> => {
-    if (args.model === undefined && args.effort === undefined) return undefined
+  const choiceOf = async (teammateId: string | undefined, args: Record<string, unknown>, previous?: PublicRecoveredMission, alone?: MissionRuntimeId): Promise<Partial<CodexMissionStartRequest> | string | undefined> => {
+    // A conversation with no teammate (0.879) always names its agent; left alone, the account's default model.
+    if (args.model === undefined && args.effort === undefined) return alone === undefined ? undefined : { runtime: alone }
     if (options.models === undefined) return 'This server does not take a model or effort. Leave them out to use the teammate’s own.'
     if ((args.model !== undefined && !text(args.model)) || (args.effort !== undefined && !text(args.effort, 40))) return 'model and effort are short text: use the ids list_models gives.'
-    const route: TeammateRoute | undefined = previous?.runtime !== undefined ? { runtime: previous.runtime, model: previous.model, mode: previous.mode ?? 'ask' } : teammateId === undefined ? undefined : await routeOf(teammateId)
+    if (alone !== undefined && args.model === undefined) return `With no teammate, ${alone} runs on its account’s default model, whose efforts Locust cannot name: give a model too, from list_models.`
+    const route: TeammateRoute | undefined = alone !== undefined ? { runtime: alone, model: '', mode: 'ask' } : previous?.runtime !== undefined ? { runtime: previous.runtime, model: previous.model, mode: previous.mode ?? 'ask' } : teammateId === undefined ? undefined : await routeOf(teammateId)
     if (route === undefined) return 'That teammate has no AI agent set up yet. Choose one for it in Locust first.'
     const offered = await modelsFor(route)
     const asked = typeof args.model === 'string' ? args.model.trim().toLowerCase() : route.model.toLowerCase()
     const model = offered.find(one => one.id.toLowerCase() === asked || one.displayName.toLowerCase() === asked || Object.values(one.variants ?? {}).some(id => id.toLowerCase() === asked))
     if (model === undefined) {
       if (args.model === undefined) return 'The teammate runs on its account’s default model, whose efforts Locust cannot name: give a model too, from list_models.'
-      return `That model is not one ${route.runtime} offers in this Locust. Ask list_models for this teammate’s choices.`
+      return alone !== undefined ? `That model is not one ${route.runtime} offers in this Locust. Ask list_models with no teammate for its choices.` : `That model is not one ${route.runtime} offers in this Locust. Ask list_models for this teammate’s choices.`
     }
     const effort = typeof args.effort === 'string' ? args.effort.trim().toLowerCase() : undefined
     if (effort !== undefined && !efforts(model).includes(effort)) {
@@ -177,9 +179,9 @@ export function createLocustMcpTools(options: {
     const kept = effort ?? (route.effort !== undefined && efforts(model).includes(route.effort) ? route.effort : undefined)
     return { runtime: route.runtime, model: model.id, ...(kept === undefined ? {} : { effort: kept }), ...(route.account === undefined ? {} : { account: route.account }), ...(teammateId === undefined ? {} : { routeOverrideFor: teammateId }) }
   }
-  const started = async (request: Pick<CodexMissionStartRequest, 'prompt' | 'teammateId' | 'followUpOf'>, conversation?: string, args: Record<string, unknown> = {}, previous?: PublicRecoveredMission): Promise<McpToolResult> => {
+  const started = async (request: Pick<CodexMissionStartRequest, 'prompt' | 'teammateId' | 'followUpOf'>, conversation?: string, args: Record<string, unknown> = {}, previous?: PublicRecoveredMission, alone?: MissionRuntimeId): Promise<McpToolResult> => {
     // This is the only request shape that can reach the start path. A saved route is never changed from here.
-    const choice = await choiceOf(request.teammateId, args, previous)
+    const choice = await choiceOf(request.teammateId, args, previous, alone)
     if (typeof choice === 'string') return mcpText(`${choice} Nothing was started.`, true)
     /*
      * THE APP CHOOSES, HONESTLY (0.869; Colin: "mcp should allow main agent to choose perms honestly"). With the
@@ -306,6 +308,21 @@ export function createLocustMcpTools(options: {
     }
     if (name === 'list_background_runs') return mcpText(JSON.stringify(await options.background()))
     if (name === 'start_conversation') {
+      /*
+       * A CONVERSATION WITH NO TEAMMATE (0.879; Colin: "how you still haven't developed the ability to start
+       * conversations without teammates"). The window starts one on any agent and model; an app may too, naming the
+       * agent as list_models with no teammate lists them. Same Ask, same switch for mode and folder, same cards in
+       * Locust's window; nothing is saved on a teammate, and send_message continues it like any ownerless conversation.
+       */
+      if (args.teammate === undefined) {
+        if (!text(args.message, 8_000)) return mcpText('Give a message of up to 8,000 characters. Nothing was started.', true)
+        if (options.models === undefined) return mcpText('This server starts a conversation only with a teammate. Name one from list_teammates. Nothing was started.', true)
+        const all = (await options.models()).filter(one => one.own !== true)
+        if (!text(args.runtime, 40) || !all.some(one => one.runtime === args.runtime)) {
+          return mcpText(`Name a teammate, or an AI agent this Locust can run, as list_models with no teammate lists them: ${[...new Set(all.map(one => one.runtime))].join(', ') || 'none'}. Nothing was started.`, true)
+        }
+        return started({ prompt: args.message }, undefined, args, undefined, args.runtime as MissionRuntimeId)
+      }
       if (!text(args.teammate) || !text(args.message, 8_000)) return mcpText('Choose a teammate and give it a message of up to 8,000 characters. Nothing was started.', true)
       const list = await options.teammates()
       if (!list.ok) return mcpText(list.error.message, true)

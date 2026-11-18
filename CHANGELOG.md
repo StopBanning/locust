@@ -11,6 +11,16 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.879.0 - unreleased
+
+### New
+
+- **Another app can start a conversation with no teammate.** Locust's window always could: pick an agent and a model
+  and just ask. Through Locust's MCP server, Claude, Codex or any other app had to pick a teammate first. Now
+  `start_conversation` takes an AI agent instead (`runtime`, as `list_models` lists them with no teammate), with a
+  model and effort if the app wants them. It runs in Ask, or the mode the app names when you have let apps choose,
+  shows up in your window like any conversation, and nothing is saved on any teammate.
+
 ## 0.878.0 - 2026-11-17
 
 ### New
