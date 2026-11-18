@@ -506,4 +506,11 @@ mod tests {
             "That command holds a GitHub token, so it isn't saved as a rule: a rule keeps the command as written. Allow it once instead."
         );
     }
+
+    #[test]
+    fn scrubs_a_key_in_json_shape_and_claude_token() {
+        let token = format!("sk-ant-oat01-{}", "Q".repeat(40)); // public-guard: allow
+        assert!(!redact_secrets(r#"{"refreshToken":"abcdef123456"}"#).contains("abcdef123456"));
+        assert!(!redact_secrets(&format!("token {token} here")).contains(&token));
+    }
 }

@@ -917,4 +917,106 @@ mod tests {
         assert_eq!(hooks["hooks"]["PreToolUse"][0]["hooks"][0]["command"], "\"/Apps/locust-native\" --command-guard || true");
         let _ = std::fs::remove_dir_all(&root);
     }
+
+    #[test]
+    fn codex_guard_names_it_elsewhere_as_claude_code_does() {
+        let exe = std::path::Path::new("/Applications/Locust.app/Contents/MacOS/Locust");
+        let codex = codex_config(exe);
+        let claude: serde_json::Value = serde_json::from_str(&claude_settings(exe)).unwrap();
+        assert_eq!(
+            codex["hooks"]["PreToolUse"][0]["hooks"][0]["command"],
+            claude["hooks"]["PreToolUse"][0]["hooks"][0]["command"]
+        );
+    }
+
+    #[test]
+    fn codex_guard_finds_none_where_there_are_none_or_bundled_or_uninstalled() {
+        let root = std::env::temp_dir().join(format!("lcg-none-{}-{}", std::process::id(), crate::invariants::unique_nanos()));
+        let home = root.join(".codex");
+        let work = root.join("work/pebble");
+        std::fs::create_dir_all(home.join("plugins/cache/openai-bundled/browser/1.0/.codex-plugin")).unwrap();
+        std::fs::create_dir_all(home.join("plugins/.remote-plugin-install-staging/bundle/.codex-plugin")).unwrap();
+        std::fs::create_dir_all(home.join(".tmp/marketplaces/x/plugins/y/hooks")).unwrap();
+        std::fs::create_dir_all(home.join("plugins/cache/claude-plugins-official/code-review/1.0/.claude-plugin")).unwrap();
+        std::fs::create_dir_all(&work).unwrap();
+        std::fs::write(
+            home.join("config.toml"),
+            "model = \"gpt-6-sol\"\nnotify = [\"hooks-are-not-this\"]\n[plugins.\"browser@openai-bundled\"]\nenabled = true\n",
+        )
+        .unwrap();
+        std::fs::write(
+            home.join("plugins/cache/openai-bundled/browser/1.0/.codex-plugin/plugin.json"),
+            r#"{"name":"browser","hooks":{"Interrupt":[{"hooks":[{"type":"mcp_tool"}]}]}}"#,
+        )
+        .unwrap();
+        std::fs::write(
+            home.join("plugins/.remote-plugin-install-staging/bundle/.codex-plugin/plugin.json"),
+            r#"{"hooks":{"PreToolUse":[]}}"#,
+        )
+        .unwrap();
+        std::fs::write(home.join(".tmp/marketplaces/x/plugins/y/hooks/hooks.json"), "{}").unwrap();
+        std::fs::write(
+            home.join("plugins/cache/claude-plugins-official/code-review/1.0/.claude-plugin/plugin.json"),
+            r#"{"name":"code-review"}"#,
+        )
+        .unwrap();
+        assert!(other_codex_hooks(&home, &work).is_empty());
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn codex_guard_finds_the_persons_own_a_plugins_and_a_projects_in_or_above() {
+        let cases: &[(&str, &str, &str)] = &[
+            ("config", "home:config.toml", "model = \"x\"\n[hooks]\nPreToolUse = []\n"),
+            ("config, dotted", "home:config.toml", "hooks.windows_managed_dir = \"C:/managed\"\n"),
+            ("hooks.json", "home:hooks.json", "{}"),
+            ("a plugin's hooks.json", "home:plugins/cache/someone/helper/1.0/hooks/hooks.json", "{}"),
+            ("a plugin that declares hooks", "home:plugins/cache/someone/helper/1.0/.claude-plugin/plugin.json", r#"{"hooks":"./hooks.json"}"#),
+            ("the project's", "work:.codex/hooks.json", "{}"),
+            ("a project above it", "work:../.codex/config.toml", "[hooks]\n"),
+        ];
+        for (what, rel, text) in cases {
+            let root = std::env::temp_dir().join(format!("lcg-hit-{}-{}", std::process::id(), crate::invariants::unique_nanos()));
+            let home = root.join(".codex");
+            let work = root.join("work/pebble");
+            std::fs::create_dir_all(&home).unwrap();
+            std::fs::create_dir_all(&work).unwrap();
+            let path = if let Some(r) = rel.strip_prefix("home:") {
+                home.join(r)
+            } else {
+                work.join(rel.strip_prefix("work:").unwrap())
+            };
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(&path, text).unwrap();
+            assert_eq!(other_codex_hooks(&home, &work).len(), 1, "{what}");
+            let _ = std::fs::remove_dir_all(&root);
+        }
+    }
+
+    #[test]
+    fn copilot_guard_names_it_elsewhere_as_claude_code_does_and_never_fails() {
+        let exe = std::path::Path::new("/Applications/Locust.app/Contents/MacOS/Locust");
+        let claude: serde_json::Value = serde_json::from_str(&claude_settings(exe)).unwrap();
+        let copilot: serde_json::Value = serde_json::from_str(&copilot_hooks(exe)).unwrap();
+        assert_eq!(
+            copilot["hooks"]["PreToolUse"][0]["hooks"][0]["command"].as_str().unwrap(),
+            format!("{} || true", claude["hooks"]["PreToolUse"][0]["hooks"][0]["command"].as_str().unwrap())
+        );
+    }
+
+    #[test]
+    fn copilot_guard_writes_manifest_and_hooks_beside_it() {
+        let root = std::env::temp_dir().join(format!("lcp-b19-{}-{}", std::process::id(), crate::invariants::unique_nanos()));
+        let exe = std::path::Path::new("/Applications/Locust.app/Contents/MacOS/Locust");
+        let plugin = write_copilot_plugin(&root, exe).unwrap();
+        assert_eq!(plugin, root.join("copilot-command-guard").to_string_lossy());
+        let manifest: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(format!("{plugin}/.claude-plugin/plugin.json")).unwrap()).unwrap();
+        assert_eq!(manifest["name"], "locust-command-guard");
+        assert_eq!(
+            std::fs::read_to_string(format!("{plugin}/hooks/hooks.json")).unwrap(),
+            copilot_hooks(exe)
+        );
+        let _ = std::fs::remove_dir_all(&root);
+    }
 }

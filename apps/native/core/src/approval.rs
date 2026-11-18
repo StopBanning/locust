@@ -2263,6 +2263,28 @@ mod tests {
     }
 
     #[test]
+    fn a_claude_bash_request_is_a_command_card() {
+        let card = describe_claude_tool("Bash", &json!({"command": "node check.js"}), "C:/work");
+        assert_eq!((card.0, card.1.as_str(), card.2.as_str()), (Kind::Command, "Run a command", "node check.js"));
+    }
+
+    #[test]
+    fn a_claude_edit_request_is_a_file_card_named_inside_the_folder() {
+        let card = describe_claude_tool(
+            "Edit",
+            &json!({"file_path": "C:/work/notes.txt", "old_string": "a", "new_string": "b"}),
+            "C:/work",
+        );
+        assert_eq!((card.0, card.1.as_str(), card.2.as_str()), (Kind::FileChange, "Change 1 file", "notes.txt"));
+    }
+
+    #[test]
+    fn a_claude_mcp_request_is_still_a_connector() {
+        let card = describe_claude_tool("mcp__claude_ai_Gmail__send_message", &json!({"to": "x"}), "C:/work");
+        assert_eq!(card.0, Kind::Connector);
+    }
+
+    #[test]
     fn draws_a_codex_file_change_whose_approval_arrived_before_its_item_was_read() {
         let ch = Channel::new();
         let ch2 = ch.clone();

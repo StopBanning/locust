@@ -707,3 +707,17 @@ Branch at f72f97c7.
 - **`a-message-taken-and-never-begun-ends-the-run.test.ts`** (partial, 3 cases): the 3 "a message OpenCode took and never began" cases (`a_message_opencode_took_and_never_began_ends_the_run_saying_so`, `a_message_opencode_took_waits_on_while_the_server_says_it_is_busy`, `a_message_opencode_took_asks_nothing_once_the_model_has_begun`), with `#[cfg(test)] with_begin_check` on `OpenCode` / `Serve` and new scenarios (`never-begun`, `never-begun-busy`, `begun-no-idle`) in `m4-opencode-serve.py`. EOF stream-recovery and follow-up parentID groups were not carried here.
 - **Command-guard tidy** (`ENGINE-PACKAGES-NOTES.md`, Colin's decision): `approval.rs` no longer builds or queues a `"command-guard"` record on a guard refusal; `saved_deny_and_guard_precede_session_always` now asserts `ch.take_recorded().is_empty()` and uses a watcher thread so a missing guard refusal fails immediately instead of blocking on a card.
 - Break checks (all 6 caught by the named test): `session.status` retry ignored, `locust.retry` deduplication dropped, `busy | retry` ignored in `recover`, `self.begun = true` dropped on assistant `message.updated`, watchdog `!self.begun` check disabled, and `approval.rs` guard `Kind::Command` check disabled.
+
+## Batch 19: command guard (Codex, Copilot), built-in Claude tools, check command, credential scrubbing
+
+| File | Row | Rust tests |
+| --- | --- | --- |
+| `a-built-in-tool-is-not-a-connector.test.ts` | carried (3/3) | `core/src/approval.rs` |
+| `a-check-command-is-one-line.test.ts` | carried (2/2) | `core/src/edit_check_tests.rs` |
+| `a-codex-teammate-is-guarded-too.test.ts` | partial (3/6) | `core/src/command_guard.rs` |
+| `a-copilot-teammate-is-guarded-too.test.ts` | partial (3/6) | `core/src/command_guard.rs` |
+| `a-credential-file-is-never-shown.test.ts` | partial (1/4) | `core/src/secrets.rs` |
+
+- `a-check-command-is-one-line.test.ts` was already tested as `edit_check::tests::a_check_command_is_one_line`; its row is now marked `carried` and break-checked.
+- Gaps: Windows PowerShell guard tests (`win32`), `LOCUST_GUARD_LOG`, and `disk-observation` (`holdsSecrets` / `observedPatches`) are not built in `core/src`.
+- Break checks (all 10 caught by the named test): Codex `hook_command` changed, bundled plugin skip dropped, dotted `hooks.` pattern dropped, Copilot `|| true` dropped, Copilot plugin dir name changed, `Bash` / `Edit` / `mcp__` branches in `describe_claude_tool`, `parsed_check_command` newline/NUL check, and `redact_secrets` `refresh[_-]?token` pattern.
