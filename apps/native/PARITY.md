@@ -204,7 +204,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 | Full window in browser with code/GitHub sign-in | `main/desk-host.ts`, `main/desk-page.ts`, `main/github-account.ts` | **partial** — native-owned desk request policy (`desk_access`), frame chunking/reassembly (`desk_parts`/`DeskJoiner`), and browser vs window event guards in `core/src/desk.rs` (APPROVALS-NOTES.md); HTTP/WebSocket host, pairing code, and GitHub sign-in remain | yes | no | yes |
 | Cloud computer, agent sign-in, hours and remote turns | `renderer/src/components/CloudComputers.tsx`, `renderer/src/components/CloudSetupDialog.tsx`, `renderer/src/components/CloudTurn.tsx`, `main/cloud-computer.ts`, `main/cloud-turns.ts` | **missing** | - | no | yes |
 | Cloud task changes/PRs, Claude cloud and background runs | `renderer/src/components/CloudTasks.tsx`, `renderer/src/components/BackgroundRuns.tsx`, `main/cloud-tasks.ts`, `main/claude-cloud.ts`, `main/claude-background-runs.ts` | **missing** | - | no | yes |
-| Telegram/Discord/Slack pairing and approval notifications | `renderer/src/components/ChatAppsSettings.tsx`, `renderer/src/components/TelegramSettings.tsx`, `main/telegram.ts`, `main/discord.ts`, `main/slack.ts` | **missing** | - | no | yes |
+| Telegram/Discord/Slack pairing and approval notifications | `renderer/src/components/ChatAppsSettings.tsx`, `renderer/src/components/TelegramSettings.tsx`, `main/telegram.ts`, `main/discord.ts`, `main/slack.ts` | **partial** — `core/src/chat_apps.rs`, `core/src/chat_link.rs`, `core/src/chat_{discord,slack,telegram}_fmt.rs`, `core/src/chat_{discord,slack,telegram}.rs`, `core/src/chat_http.rs` (Apple `NSURLSession` + `NSURLSessionWebSocketTask` via `objc2-foundation`), `core/src/chat_host.rs`, and `src/ui/chat_apps_section.rs` (Settings › General › Chat apps, `--scene chat-apps`). Still to check live with Colin's own bots, and `card_raised`/`card_settled` hooks from `approval.rs` + QR code rendering in Telegram Settings remain (notes/CHAT-APPS-NOTES.md) | yes | no | yes |
 | Remote MCP app pairing, in-window grants and revocation | `renderer/src/components/RemoteMcpSettings.tsx`, `renderer/src/components/RemoteConnectCard.tsx`, `main/remote-mcp.ts` | **missing** | - | no | yes |
 | GitHub account sealed profile sync, recovery and transfer | `renderer/src/components/YourAccountSettings.tsx`, `main/your-account.ts`, `main/profile-sync.ts`, `main/profile-sync-crypto.ts` | **missing** | - | no | yes |
 | Claude Code remote control and background access | `renderer/src/components/RemoteControlSetting.tsx`, `main/claude-remote-control.ts`, `main/claude-background.ts` | **partial** — `core/src/remote_control.rs` (Electron's claude-remote-control.ts: one owned claude remote-control --spawn worktree --name Locust per switch, ended and waited for when the switch goes off or Locust quits, a pending start that off or quit cancels, discovery and spawn errors verbatim, the first 64 KiB of each stream as printed with split characters kept, a trust or enable question never answered: the server ends and a terminal opens for the person only after it closed, no retry) and `src/ui/remote_control_card.rs`: the switch under AI agents, its line, and Claude Code's output and errors. Claude Code's background runs (claude-background.ts) remain | yes | no | yes |
@@ -289,11 +289,11 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 9 | Routines, Compare & Benchmarks | 7 | 2 | 1 | 10 | 9 | 0 |
 | 10 | Calls & Voice Typing | 0 | 0 | 5 | 5 | 0 | 0 |
 | 11 | Settings, Usage, Privacy & Backup | 5 | 3 | 0 | 8 | 8 | 0 |
-| 12 | Cloud, Remote, Phone & Chat Apps | 0 | 2 | 7 | 9 | 2 | 0 |
+| 12 | Cloud, Remote, Phone & Chat Apps | 0 | 3 | 6 | 9 | 3 | 0 |
 | 13 | Onboarding, Home, Updates & CLI | 7 | 6 | 0 | 13 | 13 | 2 |
 | 14 | Pets, Bots & Look / Window Chrome | 2 | 3 | 1 | 6 | 5 | 1 |
 | 15 | Documents, Diagrams & File Viewer | 1 | 6 | 0 | 7 | 7 | 0 |
-| | **TOTAL** | **71** | **67** | **15** | **153** | **138** | **15** |
+| | **TOTAL** | **71** | **68** | **14** | **153** | **139** | **15** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 

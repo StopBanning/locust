@@ -2798,6 +2798,7 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
                 crate::rooms::on_run_ended(&memory_store, &memory_id);
             }
             crate::scout::host::on_run_ended(&memory_store, &memory_id);
+            crate::chat_host::on_run_ended(&memory_id);
             if person_sent {
                 carry_on_without_asking(&memory_store, &memory_id);
             }

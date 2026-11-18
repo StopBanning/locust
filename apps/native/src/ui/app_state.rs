@@ -142,6 +142,7 @@ pub(super) struct State {
     pub(super) pr: crate::pull_request_chip::PrState,
     pub(super) side_chat: Option<crate::side_chat::SideChatState>,
     pub(super) review: Option<crate::review_changes::Review>,
+    pub(super) chat_apps: crate::chat_apps_section::ChatAppsState,
     pub(super) github: crate::github_section::Card,
     pub(super) claude_app: crate::claude_app_card::Card,
     /// The box holds a message a locust:// link brought, not yet sent or cleared.
@@ -431,6 +432,7 @@ impl Default for State {
             browser: crate::browser_panel::Panel::default(),
             terminal: crate::terminal_panel::Panel::default(),
             settings_panel: crate::settings_panel::Panel::default(),
+            chat_apps: Default::default(),
             carry_offer: None,
             usage_panel: crate::usage_panel::Panel::default(),
             keyboard_sheet: crate::keyboard_sheet::Panel::default(),

@@ -502,9 +502,9 @@ apps/desktop/src/main/talk-starts-from-any-app.test.ts		waiting
 apps/desktop/src/main/taskbar-attention.test.ts		waiting		
 apps/desktop/src/main/teammate-knows-its-connectors.test.ts		waiting		
 apps/desktop/src/main/teammate-store.test.ts	P6	partial		`main/teammate-store.test.ts`, `main/two-teammates-may-not-share-a-name.test.ts` | Trimmed, UTF-16-bounded names; duplicate refusal; persisted creation/edit; identity/route/folder preservation; removed ownership.
-apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts		waiting		
-apps/desktop/src/main/teammates-answer-their-person-in-slack.test.ts		waiting		
-apps/desktop/src/main/teammates-answer-their-person-in-telegram.test.ts		waiting		
+apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	chatapps	partial	core/src/chat_discord.rs, core/src/chat_link_tests.rs	Discord Gateway + REST transport, pairing code, button layout, and shared link tests carried; full stand-in WebSocket/slash-command end-to-end cases remain
+apps/desktop/src/main/teammates-answer-their-person-in-slack.test.ts	chatapps	partial	core/src/chat_slack.rs, core/src/chat_link_tests.rs	Slack Socket Mode + Web API transport, swapped-token check, pairing code, and shared link tests carried; thread/reaction/interactive cases remain
+apps/desktop/src/main/teammates-answer-their-person-in-telegram.test.ts	chatapps	partial	core/src/chat_telegram.rs, core/src/chat_link_tests.rs	Telegram getUpdates + sendMessage transport, webhook refusal, pairing, and shared link tests carried; 409/429/HTML fallback cases remain
 apps/desktop/src/main/testers-get-one-build-a-day.test.ts		waiting		
 apps/desktop/src/main/tests-assert-something.test.ts		waiting		
 apps/desktop/src/main/text-may-not-bleed.test.ts		waiting		
@@ -904,7 +904,7 @@ apps/desktop/src/renderer/src/approval-patch.test.ts	approvals	carried	core/src/
 apps/desktop/src/renderer/src/ask-for-a-review-is-one-row.test.ts		waiting		
 apps/desktop/src/renderer/src/at-picks-a-file-of-the-project.test.ts		carried	src/composer/at_file_tests.rs (10 cases)	bare @ over 50,000 paths was over 250 ms in debug (UTF-16 tie-break per comparison); ASCII fast path, no folding for a bare @, top-8 select
 apps/desktop/src/renderer/src/backupWords.test.ts	BACKUP	carried	core/src/profile_backup.rs, core/src/retention.rs tests	carried (Hydrogen; reviewed 12 Nov, see notes/BACKUP-NOTES.md)
-apps/desktop/src/renderer/src/chat-apps-say-each-step-in-settings.test.tsx		waiting		
+apps/desktop/src/renderer/src/chat-apps-say-each-step-in-settings.test.tsx	chatapps	partial	src/ui/chat_apps_section.rs	Discord, Slack, and Telegram rows, status labels, token fields, pairing codes/links, and alerts switch; QR code widget and live browser/clipboard drive remain
 apps/desktop/src/renderer/src/choosing-an-issue-sends-nothing.test.tsx	ISSUES	partial	core/src/github_issues_tests.rs, window test issues_lists_the_folders_issues	Partial: the list and its choice are carried; picture fetching and Home’s Start from an issue wait
 apps/desktop/src/renderer/src/claude-thinking-appears-in-the-thinking-row.test.tsx		waiting		
 apps/desktop/src/renderer/src/claudes-cloud-says-what-it-works-on.test.tsx		waiting		
@@ -1140,13 +1140,13 @@ apps/desktop/src/shared/a-rewritten-memory-is-new.test.ts	P6	partial		3. **Memor
 apps/desktop/src/shared/a-room-remembers-what-was-said.test.ts	ROOMS	partial	core/src/room_history.rs	older-first format, protocol block defanging, and task-only strip carried; full budget truncation sweep left partial
 apps/desktop/src/shared/a-run-started-for-a-teammate-is-theirs.test.ts	engine-9	carried	core/src/route_at_start_tests.rs	all 5 cases on route_at_start::start_as (written in batch 2; break checked in round 2's batch 9)
 apps/desktop/src/shared/a-tag-quoted-in-code-swallows-nothing.test.ts		carried	core/src/protocol_tags.rs	all 5 cases, one test each (protocol_tags.rs tests)
-apps/desktop/src/shared/a-teammate-is-named-the-way-a-person-writes.test.ts	engine-9	waiting		chat-apps.ts (teammateCommands, addressedTeammate, pairingCodeIn, spacedCode): Rust has no chat-app bridge
+apps/desktop/src/shared/a-teammate-is-named-the-way-a-person-writes.test.ts	chatapps	carried	core/src/chat_apps.rs	all 4 tests: addressed_teammate, pairing_code_in, spaced_code, teammate_commands
 apps/desktop/src/shared/a-tidy-block-is-read-exactly.test.ts		carried	core/src/memory_tidy.rs	all 8 cases, one test each (memory_tidy_tests.rs); people.rs reads replies with it
 apps/desktop/src/shared/a-torn-tag-keeps-the-letters-before-it.test.ts	engine-3	carried	core/src/torn_tag_tests.rs	the 1 case, on protocol_tags::unwrap_protocol_tags; break checks caught by name
 apps/desktop/src/shared/a-voice-call-switches-every-add-on-off.test.ts	engine-9	waiting		voice-call.ts: Rust has no voice call
-apps/desktop/src/shared/an-answer-reads-right-in-discord.test.ts	engine-9	waiting		Rust has no chat-app formatter (no Discord, Slack or Telegram delivery)
-apps/desktop/src/shared/an-answer-reads-right-in-slack.test.ts	engine-9	waiting		Rust has no chat-app formatter (no Discord, Slack or Telegram delivery)
-apps/desktop/src/shared/an-answer-reads-right-in-telegram.test.ts	engine-9	waiting		Rust has no chat-app formatter (no Discord, Slack or Telegram delivery)
+apps/desktop/src/shared/an-answer-reads-right-in-discord.test.ts	chatapps	carried	core/src/chat_discord_fmt.rs	all 6 tests: markdown blocks, code fences, long splits, escaping, token/invite
+apps/desktop/src/shared/an-answer-reads-right-in-slack.test.ts	chatapps	carried	core/src/chat_slack_fmt.rs	all 5 tests: mrkdwn, long splits, slack_plain, token shapes, Socket Mode manifest
+apps/desktop/src/shared/an-answer-reads-right-in-telegram.test.ts	chatapps	carried	core/src/chat_telegram_fmt.rs	all 7 tests: HTML tags/validation, blocks, long splits, code pieces, commands, token shape
 apps/desktop/src/shared/an-issue-becomes-a-brief.test.ts	ISSUES	carried	core/src/github_issues_tests.rs, window test issues_lists_the_folders_issues	carried (13 Nov)
 apps/desktop/src/shared/approval-data.test.ts	engine-3	carried	core/src/approval_data_tests.rs	all 8 cases, one Rust test each, on approval::data_sent_line and approval::command_reaches_network (new: the card had them inline), plus two of the card's own rows; break checks caught by name
 apps/desktop/src/shared/approval-rules.test.ts	P8	partial		`shared/approval-rules.test.ts` | Exact/prefix allow; compound never allowed; deny wins; outside paths ask; secret candidate refused
