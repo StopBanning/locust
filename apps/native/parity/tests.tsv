@@ -597,7 +597,7 @@ apps/desktop/src/main/your-line-breaks-are-kept.test.ts	P7	does-not-apply		`main
 apps/desktop/src/main/your-locust-ask-reaches-your-phone-while-the-pc-is-off.test.ts	phone-1	waiting		relay half, not this round: needs https and AES-GCM and the Rust app has no crate for either (PHONE-NOTES.md)
 apps/desktop/src/main/your-locust-is-kept-current-at-the-relay.test.ts		waiting		
 apps/desktop/src/main/your-own-model.test.ts	OWN-MODELS	carried	core/src/own_models_tests.rs, core/src/endpoint_test_tests.rs	all 18: the store's 6 and testing an endpoint's 12; the window test a_model_of_your_own_is_added_with_its_key_kept_out_of_sight_and_removed adds, tests, switches and removes one
-apps/desktop/src/main/your-phone-buzzes-only-when-it-must.test.ts		waiting		
+apps/desktop/src/main/your-phone-buzzes-only-when-it-must.test.ts	phone-1	carried	core/src/phone_alerts_tests.rs	all 9 tests carried with Electron values: window in front, 2-min coalescing + pressing-first, 6/day budget, quiet hours + night approvals, 4-hour untouched card, Later cards, chat-app fan-out, and Scout watch names (PHONE-NOTES.md)
 apps/desktop/src/preload/routine-inputs.test.ts	p11	waiting		`preload/routine-inputs.test.ts` | Unported and applicable: routine input/file/template or trigger behavior remains outside the implemented subset.
 apps/desktop/src/preload/routine-recovery.test.ts	p11	waiting		`preload/routine-recovery.test.ts` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.
 apps/desktop/src/preload/the-record-is-saved-through-one-channel.test.ts		waiting		

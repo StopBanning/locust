@@ -8,7 +8,7 @@ Branch `exec/native-phone`, from 19a93865. Area 12 of `parity/rows.tsv`. This ro
 `core/src/phone_host.rs` (from `main/phone-host.ts`, `main/phone-scout-cards.ts`, `main/ledger-writes.ts`) and
 `core/src/phone_page.rs` (from `main/phone-page.ts`), with `phone_host_tests.rs` and `phone_page_tests.rs`.
 
-- **The pairing key**: 32 random bytes as unpadded base64url (43 characters), sealed in the `SecretBox`
+- **The pairing key**: 24 random bytes as unpadded base64url (32 characters), as Electron makes it, sealed in the `SecretBox`
   (`own_models::SecretBox`, the same one `teammate_keys.rs` uses). `phone.json` (written `0o600`, temp file then
   rename) holds only `enabled` and the sealed key, never the key in plain text. `PairingKey` has no `Debug` that shows
   it, and `scrub_phone_error` takes the key out of any error before it is shown. Tests use a fake secret box; no test
@@ -81,6 +81,91 @@ Branch `exec/native-phone`, from 19a93865. Area 12 of `parity/rows.tsv`. This ro
 | ignore `refusal` | `ignores_a_saved_phone_opt_in_and_refuses_forged_pairing_without_a_listener_or_key` |
 | bold drawn as `em` in the page script | `draws_paragraphs_..`, `draws_the_bullets_..`, `keeps_every_word_..` |
 | `KeyedOnce` lets go of its lock while building | `keyed_once_builds_once_per_key_shares_a_build_in_flight_and_retries_after_a_failure` |
+
+## Section 2: alerts
+
+`core/src/phone_alerts.rs` (from `main/phone-alerts.ts`), with `phone_alerts_tests.rs`.
+
+- **Quiet when the window is in front**: stays quiet while Locust's window is active, or when a Scout card is already open.
+- **Coalescing and priority**: buzzes at most once every two minutes; anything else joins the next buzz, most pressing first (approvals and questions before other alerts).
+- **Daily budget and quiet hours**: 6/day budget on non-pressing alerts (approvals and questions bypass the budget, rest held for the brief). Quiet hours hold every buzz for the brief, approvals too unless `approvals_at_night` is on.
+- **Scout cards**: `Later` cards never buzz; `CouldWait` cards buzz once if still untouched 4 hours later; Scout cards are named by the watch they came from (`check` -> "The folder's check fails.", etc.), never by their raw words.
+- **Chat-app fan-out**: passes each buzz's parts (and card id) on for any chat apps that are on.
+
+### Tests (all 9 passed by name, `cargo test -p locust-core phone_alerts`, 18 Nov 2026)
+
+`phone_alerts::tests::`: `names_a_scout_card_by_the_watch_it_came_from_never_by_its_words`,
+`never_buzzes_for_a_card_that_can_wait_as_long_as_it_likes`,
+`buzzes_for_an_approval_at_once_naming_who_and_what_kind_never_the_command`,
+`stays_quiet_while_locusts_window_is_in_front_the_window_shows_it`,
+`spends_a_daily_budget_on_anything_but_approvals_and_questions_and_holds_the_rest_for_the_brief`,
+`buzzes_once_for_a_card_that_could_wait_when_it_is_still_untouched_four_hours_later`,
+`buzzes_at_most_once_every_two_minutes_the_rest_joining_the_next_buzz_the_most_pressing_first`,
+`holds_every_buzz_in_quiet_hours_for_the_brief_approvals_too_unless_they_may_come_through_at_night`,
+`hands_each_buzzs_parts_on_too_a_card_by_its_id_for_the_chat_apps_that_are_on`.
+
+### Breaks (`~/work/scratch/mut6.py`, log in `~/work/scratch/phone/sec2_breaks.log` — 10/10 KILLED)
+
+| Break | Caught by |
+| --- | --- |
+| ignore `away()` | `stays_quiet_while_locusts_window_is_in_front_the_window_shows_it` |
+| bypass 2-min `wait <= 0` coalesce | `buzzes_at_most_once_every_two_minutes_..`, `hands_each_buzzs_parts_on_..` |
+| ignore `DAILY_BUDGET` | `spends_a_daily_budget_..`, `approvals_from_the_window_tests::..` |
+| treat all alerts as pressing | `spends_a_daily_budget_..`, `approvals_from_the_window_tests::..` |
+| drop `approvals_at_night` exception | `holds_every_buzz_in_quiet_hours_..` |
+| buzz 4h card even when not open | `buzzes_once_for_a_card_that_could_wait_..` |
+| buzz on `CardUrgency::Later` | `never_buzzes_for_a_card_that_can_wait_as_long_as_it_likes` |
+| skip rank sort | `buzzes_at_most_once_every_two_minutes_..` |
+| drop `alert.who` | `hands_each_buzzs_parts_on_too_a_card_by_its_id_for_the_chat_apps_that_are_on` |
+| change `check` watch label | `names_a_scout_card_by_the_watch_it_came_from_never_by_its_words` |
+
+## Section 3: the server and engine calls
+
+`core/src/phone_calls.rs` (from `main/index.ts`'s `phoneCalls` / `phoneSend`) and `core/src/phone_server.rs` (plain-HTTP `std::net` listener behind `PhoneListenerFactory`), with `phone_calls_tests.rs` and `phone_server_tests.rs`.
+
+- **Approvals and next-turn send**: `EnginePhoneCalls` answers waiting cards as the window does (`api().decide`), reads conversations once per change (`change_mark`, live turns, or new minute), and sends a follow-up on the newest turn while guarding against concurrent double-sends (`ALREADY_ON_ITS_WAY`), running turns (`STILL_WORKING`), or unreadable conversations (`CANNOT_READ`).
+- **`approvals_from_the_window_tests.rs`**: `core/src/phone_calls.rs` is added to the allowlist as the paired-phone caller.
+- **Plain-HTTP listener**: `phone_server.rs` parses the head (`MAX_HEAD` = 16 KiB, `HEADERS_TIMEOUT` = 10 s, `REQUEST_TIMEOUT` = 30 s, `MAX_OPEN` = 32), runs `handler.check_head` (Host, path, wrong-key limit, key) before reading a byte of the body, refuses chunked bodies (411), and caps body reads at `MAX_BODY + 1`.
+
+### Tests (all passed by name, `cargo test -p locust-core`, 18 Nov 2026)
+
+`phone_calls::tests::`: `a_second_press_while_the_first_is_on_its_way_is_refused_and_a_failed_send_says_why`,
+`answers_a_card_as_approve_once_or_deny_through_the_engine`,
+`sends_nothing_while_the_conversation_is_still_working_or_cannot_be_read`,
+`sends_a_message_as_the_persons_next_turn_on_the_newest_turn_to_its_teammate_in_its_saved_mode`,
+`makes_a_turn_from_its_ledger_with_its_phase_parent_and_who_started_it`,
+`reads_the_conversations_once_per_change_a_turn_starting_or_ending_or_a_new_minute`,
+`shows_a_waiting_card_by_who_and_what_with_the_exact_line_it_allows_and_the_command_said_plainly`.
+
+`phone_server::tests::`: `checks_the_key_before_it_reads_a_byte_of_the_body`,
+`keeps_a_header_value_as_its_bytes_and_names_in_lower_case`,
+`reads_no_more_than_one_byte_past_the_limit_of_a_body_too_large`,
+`refuses_a_head_too_large_a_head_it_cannot_read_and_a_chunked_body`,
+`sends_a_message_whose_body_comes_in_pieces_and_closes_after_answering`,
+`serves_the_page_and_refuses_a_rebinding_host_over_the_wire`.
+
+### Breaks (`~/work/scratch/mut6.py`, logs in `~/work/scratch/phone/sec3_breaks.log`, `sec3b_breaks.log`)
+
+| Break | Caught by |
+| --- | --- |
+| skip `self.engine.running(&newest)` | `sends_nothing_while_the_conversation_is_still_working_or_cannot_be_read` |
+| skip `self.sending` insert guard | `a_second_press_while_the_first_is_on_its_way_is_refused_and_a_failed_send_says_why` |
+| constant cache key in `history()` | `reads_the_conversations_once_per_change_a_turn_starting_or_ending_or_a_new_minute` |
+| skip `summary.contains(exact)` | `shows_a_waiting_card_by_who_and_what_with_the_exact_line_it_allows_and_the_command_said_plainly` |
+| use raw `detail` for `exact` | `shows_a_waiting_card_by_who_and_what_with_the_exact_line_it_allows_and_the_command_said_plainly` |
+| skip `buf.len() > MAX_HEAD` | `refuses_a_head_too_large_a_head_it_cannot_read_and_a_chunked_body` |
+| ignore `chunked` | `refuses_a_head_too_large_a_head_it_cannot_read_and_a_chunked_body` |
+| drop `.min(MAX_BODY + 1)` | `reads_no_more_than_one_byte_past_the_limit_of_a_body_too_large` |
+
+## Section 4: QR code and Settings › General › "Your phone"
+
+`core/src/qr.rs` (ported from `qrcode-generator` 2.0.4, versions 1-10 at M, with `qr_tests.rs`) and `src/ui/phone_section.rs` (wired into `src/main.rs` and `src/ui/settings_panel.rs`), with headless scenes `settings-phone` and `settings-phone-light`.
+
+### Tests and breaks (18 Nov 2026)
+
+- `qr::tests::`: `draws_dark_squares_inside_a_four_square_margin_and_holds_at_most_213_bytes`, `draws_the_code_electron_draws_for_a_phones_link_and_for_short_and_long_texts`.
+- `phone_section::tests::`: `says_off_on_and_no_network_in_electrons_words_and_off_when_the_organization_turns_it_off`.
+- Break (`sec3b_breaks.log`): `qr.rs` always picking mask 0 -> caught by `draws_the_code_electron_draws_for_a_phones_link_and_for_short_and_long_texts`.
 
 ## Not this round
 

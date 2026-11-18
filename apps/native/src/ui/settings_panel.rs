@@ -40,6 +40,8 @@ pub(super) struct Panel {
     pub check_command: TextEdit,
     /// "Privacy & data": storage report, retention, and backup/restore state.
     pub privacy: crate::backup_section::PrivacyPanelState,
+    /// "Your phone": the phone host's switch and link (None when this window has no phone host).
+    pub phone: Option<locust_core::phone_host::PhoneSettings>,
 }
 
 fn button(label: impl Into<String>, p: &Palette) -> El {
@@ -135,6 +137,7 @@ fn reload(s: &mut State) {
                 &store.root().join(locust_core::keep_awake::AWAKE_FILE),
             );
             read_login_item(s);
+            crate::phone_section::read(s);
         }
     }
     crate::agents_section::request(s);
@@ -811,6 +814,8 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
             for heading in headings {
                 if heading == DOOR_HEADING {
                     body = body.child(door_section(s, p));
+                } else if heading == crate::phone_section::HEADING {
+                    body = body.child(crate::phone_section::section(s, p));
                 } else if heading == "Startup" {
                     body = body.child(crate::quit_guard_dialog::startup_section(s, p));
                 } else if heading == "Report a problem" {

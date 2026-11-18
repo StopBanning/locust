@@ -199,8 +199,8 @@ Native status evidence: each cell names its module or round notes; the engine is
 
 | Feature | Where in TS | Built | Alone | Live | Depends on engine |
 | :--- | :--- | :--- | :--- | :--- | :---: |
-| Phone Wi-Fi pairing and encrypted anywhere relay | `renderer/src/components/PhoneSettings.tsx`, `main/phone-host.ts`, `main/phone-anywhere.ts`, `main/relay-crypto.ts` | **missing** | - | no | yes |
-| Phone approvals, quiet hours/alerts and sealed offline message queue | `main/phone-alerts.ts`, `main/phone-page.ts`, `main/web-push.ts` | **missing** | - | no | yes |
+| Phone Wi-Fi pairing and encrypted anywhere relay | `renderer/src/components/PhoneSettings.tsx`, `main/phone-host.ts`, `main/phone-anywhere.ts`, `main/relay-crypto.ts` | **partial** — Wi-Fi half in `core/src/phone_host.rs`, `phone_server.rs`, `qr.rs` and `src/ui/phone_section.rs`: pairing key in `SecretBox`, QR code, plain-HTTP listener, Host/rate-limit guards; encrypted anywhere relay waits on TLS and AES-GCM crates (PHONE-NOTES.md) | yes | no | yes |
+| Phone approvals, quiet hours/alerts and sealed offline message queue | `main/phone-alerts.ts`, `main/phone-page.ts`, `main/web-push.ts` | **partial** — `core/src/phone_page.rs`, `phone_calls.rs` and `phone_alerts.rs`: phone page, approvals and next-turn send, quiet hours, daily budget and 2-minute coalescing; Web Push (RFC 8291) and sealed offline queue wait on AES-GCM and P-256 crates (PHONE-NOTES.md) | yes | no | yes |
 | Full window in browser with code/GitHub sign-in | `main/desk-host.ts`, `main/desk-page.ts`, `main/github-account.ts` | **partial** — native-owned desk request policy (`desk_access`), frame chunking/reassembly (`desk_parts`/`DeskJoiner`), and browser vs window event guards in `core/src/desk.rs` (APPROVALS-NOTES.md); HTTP/WebSocket host, pairing code, and GitHub sign-in remain | yes | no | yes |
 | Cloud computer, agent sign-in, hours and remote turns | `renderer/src/components/CloudComputers.tsx`, `renderer/src/components/CloudSetupDialog.tsx`, `renderer/src/components/CloudTurn.tsx`, `main/cloud-computer.ts`, `main/cloud-turns.ts` | **missing** | - | no | yes |
 | Cloud task changes/PRs, Claude cloud and background runs | `renderer/src/components/CloudTasks.tsx`, `renderer/src/components/BackgroundRuns.tsx`, `main/cloud-tasks.ts`, `main/claude-cloud.ts`, `main/claude-background-runs.ts` | **missing** | - | no | yes |
@@ -289,11 +289,11 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 9 | Routines, Compare & Benchmarks | 7 | 2 | 1 | 10 | 9 | 0 |
 | 10 | Calls & Voice Typing | 0 | 0 | 5 | 5 | 0 | 0 |
 | 11 | Settings, Usage, Privacy & Backup | 5 | 3 | 0 | 8 | 8 | 0 |
-| 12 | Cloud, Remote, Phone & Chat Apps | 0 | 2 | 7 | 9 | 2 | 0 |
+| 12 | Cloud, Remote, Phone & Chat Apps | 0 | 4 | 5 | 9 | 4 | 0 |
 | 13 | Onboarding, Home, Updates & CLI | 7 | 6 | 0 | 13 | 13 | 2 |
 | 14 | Pets, Bots & Look / Window Chrome | 2 | 3 | 1 | 6 | 5 | 1 |
 | 15 | Documents, Diagrams & File Viewer | 1 | 6 | 0 | 7 | 7 | 0 |
-| | **TOTAL** | **71** | **67** | **15** | **153** | **138** | **15** |
+| | **TOTAL** | **71** | **69** | **13** | **153** | **140** | **15** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 
