@@ -107,3 +107,12 @@ Electron 0.878 (main, c3951884) lets an app answer a question card and continue 
   continues only a teammate's conversation.
 - The Electron test file is on main, not in this branch's `apps/desktop`, so `parity/tests.tsv` gets its row when the
   branch takes main's Electron side.
+
+## Starting a conversation with no teammate (Electron 0.879)
+
+`start_conversation` takes `runtime` in place of `teammate`, as `list_models` with no teammate lists the agents (the
+person's own models do not make an agent nameable). A model is optional (left out: the account's default, so the turn
+names none); an effort needs a model. Same Ask, same switch for mode and folder, same refusal words as Electron. The turn
+goes to the engine as `native::nobody(runtime, None)` with the runtime on the request, and records no owner
+(`native/nobody_tests.rs`, fake Codex `no-model`). Not carried: Electron's refusal for a server with no model list (a
+voice call) — the Rust door always has one.

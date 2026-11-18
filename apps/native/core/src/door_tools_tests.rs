@@ -115,6 +115,7 @@ impl Locust for Fake {
             json!({"id": "gpt-5.5", "runtime": "codex", "displayName": "GPT-5.5", "description": "", "supportedEfforts": ["low", "high"]}),
             json!({"id": "gpt-4", "runtime": "codex", "displayName": "GPT-4", "description": "", "supportedEfforts": [], "older": true}),
             json!({"id": "opencode/free", "runtime": "opencode", "displayName": "free", "description": "", "supportedEfforts": []}),
+            json!({"id": "own_local", "runtime": "claude", "displayName": "My local model", "description": "", "supportedEfforts": [], "own": true}),
         ]
     }
     fn carry_on(&self, mission: &str, runtime: &str, _model: Option<&str>) -> Result<(String, Option<String>), String> {
@@ -567,4 +568,76 @@ fn an_answer_already_starting_is_not_sent_twice() {
     tools.starting.lock().unwrap().clear();
     assert!(!tools.call("answer_question", &json!({"conversation_id": "tip", "choice": 1})).is_error);
     assert!(tools.starting.lock().unwrap().is_empty(), "the claim is let go after the answer");
+}
+
+// Electron 0.879, `an-app-starts-a-conversation-with-no-teammate.test.ts`: an app names an agent instead of a teammate.
+#[test]
+fn an_app_starts_a_conversation_with_no_teammate_on_the_agent_it_names_in_ask() {
+    let tools = Tools::new(Fake::default());
+    let r = tools.call("start_conversation", &json!({"message": "Look at the login page.", "runtime": "opencode"}));
+    assert!(!r.is_error, "{}", r.text);
+    let started = tools.locust.started.lock().unwrap();
+    let request = &started[0];
+    assert!(crate::native::is_nobody(&request.teammate), "no teammate: {:?}", request.teammate.id);
+    assert_eq!(request.prompt, "Look at the login page.");
+    assert_eq!((request.runtime.as_deref(), request.model.as_deref(), request.effort.as_deref()), (Some("opencode"), None, None));
+    assert_eq!(request.mode, Mode::Ask);
+    assert_eq!(reply(&r)["mode"], "ask");
+}
+
+#[test]
+fn a_conversation_with_no_teammate_takes_a_model_and_effort_its_agent_offers() {
+    let tools = Tools::new(Fake::default());
+    let r = tools.call("start_conversation", &json!({"message": "Think hard.", "runtime": "codex", "model": "GPT-5.5", "effort": "HIGH"}));
+    assert!(!r.is_error, "{}", r.text);
+    let request = tools.locust.started.lock().unwrap()[0].clone();
+    assert_eq!((request.runtime.as_deref(), request.model.as_deref(), request.effort.as_deref()), (Some("codex"), Some("gpt-5.5"), Some("high")));
+    assert_eq!((reply(&r)["model"].as_str(), reply(&r)["effort"].as_str()), (Some("gpt-5.5"), Some("high")));
+}
+
+#[test]
+fn a_conversation_with_no_teammate_refuses_in_words_an_agent_model_or_effort_not_offered() {
+    let tools = Tools::new(Fake::default());
+    let agents = "Name a teammate, or an AI agent this Locust can run, as list_models with no teammate lists them: codex, opencode. Nothing was started.";
+    // An agent only the person's own models run on is not one an app may name.
+    for args in [json!({"message": "Go."}), json!({"message": "Go.", "runtime": "cursor"}), json!({"message": "Go.", "runtime": "claude"})] {
+        let r = tools.call("start_conversation", &args);
+        assert!(r.is_error);
+        assert_eq!(r.text, agents);
+    }
+    let said = |args: Value| tools.call("start_conversation", &args).text;
+    assert_eq!(
+        said(json!({"message": "Go.", "runtime": "opencode", "model": "gpt-5.5"})),
+        "That model is not one opencode offers in this Locust. Ask list_models with no teammate for its choices. Nothing was started."
+    );
+    assert_eq!(said(json!({"message": "Go.", "runtime": "codex", "model": "gpt-5.5", "effort": "max"})), "GPT-5.5 takes these efforts here: low, high. Nothing was started.");
+    assert_eq!(
+        said(json!({"message": "Go.", "runtime": "codex", "effort": "high"})),
+        "With no teammate, codex runs on its account’s default model, whose efforts Locust cannot name: give a model too, from list_models. Nothing was started."
+    );
+    assert_eq!(said(json!({"message": "", "runtime": "codex"})), "Give a message of up to 8,000 characters. Nothing was started.");
+    assert_eq!(said(json!({"message": "x".repeat(8001), "runtime": "codex"})), "Give a message of up to 8,000 characters. Nothing was started.");
+    assert!(tools.locust.started.lock().unwrap().is_empty());
+}
+
+#[test]
+fn a_conversation_with_no_teammate_runs_in_ask_with_the_switch_on_unless_a_mode_is_named() {
+    let tools = Tools::new(Fake { own_mode: true, ..Default::default() });
+    assert_eq!(reply(&tools.call("start_conversation", &json!({"message": "Go.", "runtime": "codex"})))["mode"], "ask");
+    assert_eq!(reply(&tools.call("start_conversation", &json!({"message": "Build it.", "runtime": "codex", "mode": "accept-edits"})))["mode"], "accept-edits");
+    assert_eq!(reply(&tools.call("start_conversation", &json!({"message": "Look.", "runtime": "codex", "mode": "auto", "read_only": true})))["mode"], "ask");
+    let off = Tools::new(Fake::default());
+    let r = off.call("start_conversation", &json!({"message": "Go.", "runtime": "codex", "mode": "auto"}));
+    assert!(r.is_error && r.text.starts_with("Choosing the mode or folder is off"), "{}", r.text);
+    assert!(off.locust.started.lock().unwrap().is_empty());
+}
+
+#[test]
+fn a_named_teammate_is_still_asked_and_a_runtime_beside_it_is_ignored() {
+    let tools = Tools::new(Fake::default());
+    let r = tools.call("start_conversation", &json!({"teammate": "Scout", "message": "Review this.", "runtime": "opencode"}));
+    assert!(!r.is_error, "{}", r.text);
+    let request = tools.locust.started.lock().unwrap()[0].clone();
+    assert_eq!(request.teammate.id, "tm_scout");
+    assert_eq!(request.runtime, None);
 }

@@ -57,3 +57,26 @@ fn nobody_is_the_empty_id_no_roster_entry_can_have() {
     let t = Temp::new();
     assert!(!is_nobody(&codex(&t)));
 }
+
+/// Electron 0.879 (`an-app-starts-a-conversation-with-no-teammate.test.ts`): an app starts a conversation with no
+/// teammate on the agent it names; the engine runs it on that agent and it stays nobody's.
+#[test]
+fn a_new_conversation_for_nobody_runs_on_the_named_agent_and_records_no_owner() {
+    let t = Temp::new();
+    // No model named: the agent's account default, so the turn names none (the fake's `no-model` checks that).
+    let _g = hooks::install(t.store(), fake("no-model"));
+    let work = t.0.join("work");
+    fs::create_dir_all(&work).unwrap();
+    let first = send_from(
+        Send { teammate: nobody(Some("codex".into()), None), conversation: None, prompt: "Synthetic prompt".into(), model: None, effort: None },
+        Origin { mode: Some(Mode::Ask), folder: Some(work), started_by: Some(json!({"kind": "mcp"})), runtime: Some("codex".into()), ..Default::default() },
+    )
+    .unwrap();
+    finished(&first.conversation_id);
+    let path = path_of(&t, &first.conversation_id);
+    let failed: Vec<Value> = records(&path).into_iter().filter(|r| r["event"]["type"] == "run.failed").map(|r| r["event"]["payload"].clone()).collect();
+    assert_eq!(kinds(&path).last().map(String::as_str), Some("run.completed"), "{:?} {failed:?}", kinds(&path));
+    assert_eq!(records(&path)[0]["metadata"]["runtime"], "codex");
+    assert!(owners(&t).get(&first.conversation_id).is_none(), "nobody's turn records no owner: {}", owners(&t));
+    assert_eq!(crate::people::owner_of(&t.store(), &first.conversation_id), None);
+}

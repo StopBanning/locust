@@ -136,4 +136,9 @@ fn the_bridge_lists_the_tools_and_marks_those_that_only_read() {
         let writes = ["start_conversation", "send_message", "answer_question", "stop_turn", "carry_on", "run_routine"].contains(&t["name"].as_str().unwrap());
         assert_eq!(reads, !writes, "{}", t["name"]);
     }
+    // Electron 0.879: start_conversation needs only a message; with no teammate it takes the agent as runtime.
+    let start = tools.as_array().unwrap().iter().find(|t| t["name"] == "start_conversation").unwrap();
+    assert_eq!(start["inputSchema"]["required"], json!(["message"]));
+    assert_eq!(start["inputSchema"]["properties"]["runtime"]["maxLength"], 40);
+    assert!(start["description"].as_str().unwrap().contains("or start a conversation with no teammate on an AI agent you name as runtime, from list_models with no teammate"));
 }

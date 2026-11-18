@@ -346,6 +346,14 @@ impl<L: Locust> Tools<L> {
         if (!args["model"].is_null() && text_arg(&args["model"], 200).is_none()) || (!args["effort"].is_null() && text_arg(&args["effort"], 40).is_none()) {
             return Err("model and effort are short text: use the ids list_models gives.".into());
         }
+        // A conversation with no teammate (Electron 0.879) names its agent and no saved model or effort.
+        let alone = previous.is_none() && crate::native::is_nobody(teammate);
+        if alone && args["model"].is_null() {
+            let runtime = teammate.runtime.clone().unwrap_or_default();
+            return Err(format!(
+                "With no teammate, {runtime} runs on its account’s default model, whose efforts Locust cannot name: give a model too, from list_models."
+            ));
+        }
         let (runtime, route_model, route_effort) = match previous.and_then(|p| p.runtime.clone()) {
             Some(r) => (r, previous.and_then(|p| p.model.clone()).unwrap_or_else(|| "account-default".into()), None),
             None => match &teammate.runtime {
@@ -364,7 +372,11 @@ impl<L: Locust> Tools<L> {
             return Err(if args["model"].is_null() {
                 "The teammate runs on its account’s default model, whose efforts Locust cannot name: give a model too, from list_models.".into()
             } else {
-                format!("That model is not one {runtime} offers in this Locust. Ask list_models for this teammate’s choices.")
+                if alone {
+                    format!("That model is not one {runtime} offers in this Locust. Ask list_models with no teammate for its choices.")
+                } else {
+                    format!("That model is not one {runtime} offers in this Locust. Ask list_models for this teammate’s choices.")
+                }
             });
         };
         let levels = efforts(model);
@@ -481,13 +493,15 @@ impl<L: Locust> Tools<L> {
         } else {
             self.mode_of(&teammate, previous)
         };
+        // With no teammate the turn always names its agent; left alone, the account's default model.
+        let alone = (previous.is_none() && crate::native::is_nobody(&teammate)).then(|| teammate.runtime.clone()).flatten();
         let request = StartRequest {
             teammate,
             prompt: prompt.to_owned(),
             follow_up_of: previous.map(|p| p.mission_id.clone()),
             mode,
             folder: folder.clone(),
-            runtime: choice.as_ref().map(|c| c.runtime.clone()).or_else(|| previous.and_then(|p| p.runtime.clone())),
+            runtime: choice.as_ref().map(|c| c.runtime.clone()).or_else(|| previous.and_then(|p| p.runtime.clone())).or(alone),
             model: choice.as_ref().map(|c| c.model.clone()).or_else(|| previous.and_then(|p| p.model.clone())),
             effort: choice.as_ref().and_then(|c| c.effort.clone()),
         };
@@ -604,6 +618,28 @@ impl<L: Locust> Tools<L> {
             }
             "list_background_runs" => ToolResult::ok("[]"),
             "start_conversation" => {
+                // A conversation with no teammate (Electron 0.879): the app names an agent as list_models with no
+                // teammate lists them. Same Ask, same switch for mode and folder; nothing saved on any teammate.
+                if args["teammate"].is_null() {
+                    let Some(message) = text_arg(&args["message"], 8000) else {
+                        return ToolResult::refused("Give a message of up to 8,000 characters. Nothing was started.");
+                    };
+                    let all: Vec<Value> = self.locust.models().into_iter().filter(|m| m["own"] != true).collect();
+                    let named = text_arg(&args["runtime"], 40).filter(|r| all.iter().any(|m| m["runtime"] == *r));
+                    let Some(runtime) = named else {
+                        let mut runtimes: Vec<&str> = Vec::new();
+                        for r in all.iter().filter_map(|m| m["runtime"].as_str()) {
+                            if !runtimes.contains(&r) {
+                                runtimes.push(r);
+                            }
+                        }
+                        let listed = if runtimes.is_empty() { "none".to_owned() } else { runtimes.join(", ") };
+                        return ToolResult::refused(format!(
+                            "Name a teammate, or an AI agent this Locust can run, as list_models with no teammate lists them: {listed}. Nothing was started."
+                        ));
+                    };
+                    return self.started(crate::native::nobody(Some(runtime.to_owned()), None), message, None, args, None);
+                }
                 let (Some(who), Some(message)) = (text_arg(&args["teammate"], 200), text_arg(&args["message"], 8000)) else {
                     return ToolResult::refused(
                         "Choose a teammate and give it a message of up to 8,000 characters. Nothing was started.",
