@@ -21,6 +21,12 @@ heading: the home screen then shows it once, as a splash.
   model and effort if the app wants them. It runs in Ask, or the mode the app names when you have let apps choose,
   shows up in your window like any conversation, and nothing is saved on any teammate.
 
+### Changed
+
+- **Eleven icons redrawn.** Activity, play, pause, route, spark, file, folder, message, inbox, settings and refresh
+  were the set's first quick drawings. They are now Lucide's (ISC), in the set's own 1.7 line, like the icons already
+  taken from it. The thought bubble, download, pencil and voice call stay as they were drawn.
+
 ## 0.878.0 - 2026-11-17
 
 ### New
