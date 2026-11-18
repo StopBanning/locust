@@ -2472,4 +2472,52 @@ mod memory_screen_tests {
         assert!(!plain_joined.contains("Put it back"), "{plain_joined}");
         assert!(!plain_joined.contains("changed "), "{plain_joined}");
     }
+
+    // MemoryScreen.tsx draws "Was:" only when the earlier words differ from the ones kept now.
+    #[test]
+    fn a_memory_put_back_to_its_old_words_shows_nothing_extra() {
+        let mut same = kept("mem_1", "Orb suite: 31/31 passing.");
+        same["previousText"] = json!("Orb suite: 31/31 passing.");
+        let joined = texts(&render(vec![same], "auto")).join("\n");
+        assert!(!joined.contains("Was: "), "{joined}");
+        assert!(!joined.contains("Put it back"), "{joined}");
+    }
+
+    // a-tidy-pass-is-answered-in-one-press.test.tsx: the press itself keeps every waiting memory.
+    #[test]
+    fn keep_all_pressed_keeps_every_waiting_memory() {
+        let root = std::env::temp_dir().join(format!(
+            "locust-keep-all-{}-{}",
+            std::process::id(),
+            locust_core::invariants::unique_nanos()
+        ));
+        let store = locust_core::store::Store::new(root.join("native"), root.join("electron")).unwrap();
+        let waiting = |id: &str, text: &str| {
+            let mut m = kept(id, text);
+            m["status"] = json!("proposed");
+            m["name"] = json!(id);
+            m
+        };
+        let rows = vec![waiting("mem_a", "Deploys go out on Fridays."), waiting("mem_b", "Tests run before a push.")];
+        store
+            .save_json("memories.json", &json!({ "schemaVersion": 1, "memories": rows.clone() }))
+            .unwrap();
+        let mut rt = render(rows, "ask");
+        rt.update(|s, _| s.data = Some(store.clone()));
+        rt.frame(0.0);
+        let (x, y) = rt.find("memory-keep-all").expect("Keep all 2 is offered");
+        rt.pointer_down(x, y);
+        rt.pointer_up(x, y);
+        rt.frame(0.1);
+        let file = people::memories(&store).unwrap();
+        let statuses: Vec<&str> = file["memories"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|m| m["status"].as_str().unwrap_or("kept"))
+            .collect();
+        assert_eq!(statuses.len(), 2, "{file}");
+        assert!(statuses.iter().all(|s| *s != "proposed"), "{file}");
+        let _ = std::fs::remove_dir_all(&root);
+    }
 }

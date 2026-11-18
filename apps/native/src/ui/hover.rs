@@ -54,21 +54,26 @@ mod tests {
     use rune::{Env, Runtime, col, text};
 
     fn render() -> Runtime<State> {
+        render_labelled("Full hover label")
+    }
+
+    fn view(s: &State, label: &str) -> El {
+        let l = crate::look::controls::Look::new(true);
+        col()
+            .w_full()
+            .h_full()
+            .pt(100.0)
+            .items_center()
+            .child(tip(s, &l, "sample", label, text("Chip").key("sample-chip").padding(8.0)))
+    }
+
+    fn render_labelled(label: &'static str) -> Runtime<State> {
         let s = State::default();
-        let mut rt = Runtime::new(
-            s,
-            |s, _| {
-                let l = crate::look::controls::Look::new(true);
-                col()
-                    .w_full()
-                    .h_full()
-                    .pt(100.0)
-                    .items_center()
-                    .child(tip(s, &l, "sample", "Full hover label", text("Chip").key("sample-chip").padding(8.0)))
-            },
-            (600.0, 400.0),
-            Env::new(true, 1.0),
-        );
+        let mut rt = if label.is_empty() {
+            Runtime::new(s, |s, _| view(s, ""), (600.0, 400.0), Env::new(true, 1.0))
+        } else {
+            Runtime::new(s, |s, _| view(s, "Full hover label"), (600.0, 400.0), Env::new(true, 1.0))
+        };
         rt.frame(0.0);
         rt
     }
@@ -101,5 +106,15 @@ mod tests {
         rt.pointer_move(5.0, 5.0);
         rt.frame(0.6);
         assert!(rt.find("sample-tooltip").is_none(), "leaving before delay cancels it");
+    }
+
+    #[test]
+    fn an_empty_label_never_opens_a_tooltip() {
+        let mut rt = render_labelled("");
+        let (x, y) = rt.find("sample-chip").unwrap();
+        rt.pointer_move(x, y);
+        rt.frame(0.1);
+        rt.frame(0.6);
+        assert!(rt.find("sample-tooltip").is_none());
     }
 }

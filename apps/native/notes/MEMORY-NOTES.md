@@ -32,3 +32,11 @@ Searching `apps/native/parity/tests.tsv` for `"hover"`:
 - `hover::tests` (2/2): `resting_the_pointer_shows_the_tooltip_only_after_the_delay_and_hides_when_leaving`, `moving_away_before_the_delay_cancels_the_tooltip`.
 - `compare_window_tests::a_comparison_shows_its_models_on_hover` (1/1).
 - `mutsafe.py`: 8/8 killed, 0 survived, 0 build/timeout.
+
+## Mac chat review (18 Nov)
+- Six breaks of my own. Three were caught at once: the `Keep all` threshold, the tidy offer's memory-off rule, and the nudge's `>`.
+- Three survived. Tests added for two:
+  - `"Was:"` drawn when the old words equal the new: now caught by `a_memory_put_back_to_its_old_words_shows_nothing_extra` (MemoryScreen.tsx's `previousText !== text`).
+  - `Keep all` pressed but keeping nothing: now caught by `keep_all_pressed_keeps_every_waiting_memory` (presses the real button, reads memories.json).
+- The third, `hover::tip`'s `!label.is_empty()`, is equivalent: `rune_kit::Tooltip` draws nothing for an empty label anyway. `an_empty_label_never_opens_a_tooltip` pins that behaviour.
+- Two ledger rows went from carried to partial: `a-proposed-change-says-what-it-changes` and `a-tidy-suggestion-says-what-it-does`. Their card and notice cases need an in-thread memory card, which Rust doesn't draw yet; `memories_of_conversation`, `memory_card_summary` and `memory_changed_notice` are only called by tests.
