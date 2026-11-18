@@ -185,3 +185,11 @@ Next: part 1b opens-the-plan, then orb, frame-pass.
 - the-frame-pass: new `core/src/runtime_order.rs` (`runtime_list_order`, `keep_what_was_known`) plus the A1 counter
   cases; localeCompare is approximated by lower-cased comparison; nothing draws from it yet (partial).
 - starts-phase: see Part 1a; row now partial 3 of 3 named.
+
+## Part 2 (round 2, started)
+- `core/src/thread_words.rs`: `thought_headline`, `plain_summary`, `helper_reported_back` (all cases of
+  a-helpers-summary named; the drawer's helper row does not call them yet).
+- a-long-call: the live line's label (the call's description) and clock are named in `live_line_tests`.
+- NOT done: the steps fold (a new line per thought that says something, a wordless thought folding into its line;
+  `buildThread`/`stepsLine`) does not exist in Rust yet, so a-wordless-thought and most of a-long-silent-stretch wait
+  on it; needs a design in the `ledger.rs` item builder.

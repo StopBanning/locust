@@ -2311,6 +2311,10 @@ apps/desktop/src/renderer/src/a-helpers-calls-fold-under-its-row.test.tsx	open o
 apps/desktop/src/renderer/src/a-helpers-calls-fold-under-its-row.test.tsx	are nothing at all where no helper ran: no row gains children	yes
 apps/desktop/src/renderer/src/a-helpers-calls-fold-under-its-row.test.tsx	names the helper and whose it is	yes
 apps/desktop/src/renderer/src/a-helpers-calls-fold-under-its-row.test.tsx	says nothing of a helper when the teammate asked, or the call is not known	yes
+apps/desktop/src/renderer/src/a-helpers-summary-reads-as-words.test.ts	drops bold, underline-bold, code and heading marks and keeps the words	yes
+apps/desktop/src/renderer/src/a-helpers-summary-reads-as-words.test.ts	drops single-star emphasis without touching a star that is not emphasis	yes
+apps/desktop/src/renderer/src/a-helpers-summary-reads-as-words.test.ts	is what the helper row says when it reported back	yes
+apps/desktop/src/renderer/src/a-helpers-summary-reads-as-words.test.ts	folds a summary onto one line	yes
 apps/desktop/src/renderer/src/a-home-starter-starts-with-a-teammate-or-compares.test.ts	are four rows, each saying what it does	no
 apps/desktop/src/renderer/src/a-home-starter-starts-with-a-teammate-or-compares.test.ts	suit their mode: a plan changes nothing yet, and a review only reads	no
 apps/desktop/src/renderer/src/a-home-starter-starts-with-a-teammate-or-compares.test.ts	leave the words for the person to finish where the ask needs them	no
@@ -2337,6 +2341,9 @@ apps/desktop/src/renderer/src/a-locust-bot-draws-before-its-first-frame.test.ts	
 apps/desktop/src/renderer/src/a-locust-bot-draws-before-its-first-frame.test.ts	draws at most 30 frames a second: every other frame at 60 Hz, every fifth at 144	yes
 apps/desktop/src/renderer/src/a-locust-bot-draws-before-its-first-frame.test.ts	draws at most 15 frames a second at the side, beside a name (0.670), still moving a whole second	yes
 apps/desktop/src/renderer/src/a-locust-bot-draws-before-its-first-frame.test.ts	stops when asked, cancelling the frame it was waiting on	yes
+apps/desktop/src/renderer/src/a-long-call-is-named-while-it-runs.test.ts	is one row, now carrying the command and what it is for	no
+apps/desktop/src/renderer/src/a-long-call-is-named-while-it-runs.test.ts	puts the description on the live line, not the tool	yes
+apps/desktop/src/renderer/src/a-long-call-is-named-while-it-runs.test.ts	keeps the clock from when the call began	yes
 apps/desktop/src/renderer/src/a-long-conversation-has-a-rail-of-your-messages.test.tsx	gives a rail to four of your messages when the thread scrolls, and withholds it otherwise	no
 apps/desktop/src/renderer/src/a-long-conversation-has-a-rail-of-your-messages.test.tsx	keeps the marks in the order you sent them, and the current one is the message nearest the top	no
 apps/desktop/src/renderer/src/a-long-conversation-has-a-rail-of-your-messages.test.tsx	jumps with Ctrl+Alt+Up and Ctrl+Alt+Down, which the other shortcuts do not use	no
@@ -2351,6 +2358,10 @@ apps/desktop/src/renderer/src/a-long-conversation-opens-on-its-newest-turns.test
 apps/desktop/src/renderer/src/a-long-conversation-opens-on-its-newest-turns.test.tsx	each "show earlier" adds a budget	yes
 apps/desktop/src/renderer/src/a-long-conversation-opens-on-its-newest-turns.test.tsx	a long one opens on its newest turns, with the older ones a press (or a scroll) away	yes
 apps/desktop/src/renderer/src/a-long-conversation-opens-on-its-newest-turns.test.tsx	a short one is whole, with nothing to press	yes
+apps/desktop/src/renderer/src/a-long-silent-stretch-reads-as-its-moves.test.ts	starts a new line each time the model thinks, led by what it thought about	no
+apps/desktop/src/renderer/src/a-long-silent-stretch-reads-as-its-moves.test.ts	leaves a turn with no thinking reported as one line between what was said (Claude Code without thinking)	no
+apps/desktop/src/renderer/src/a-long-silent-stretch-reads-as-its-moves.test.ts	reads a headline only where the summary leads with one	yes
+apps/desktop/src/renderer/src/a-long-silent-stretch-reads-as-its-moves.test.ts	carries the summary Codex shows, and never the raw reasoning	no
 apps/desktop/src/renderer/src/a-long-turn-keeps-what-it-said.test.ts	is longer than the old window held, as Colin's run was	yes
 apps/desktop/src/renderer/src/a-long-turn-keeps-what-it-said.test.ts	keeps both messages in a running turn of that length	yes
 apps/desktop/src/renderer/src/a-long-turn-keeps-what-it-said.test.ts	draws the live run and the record through one window	yes

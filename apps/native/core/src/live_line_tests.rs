@@ -231,3 +231,24 @@ fn the_elapsed_counter_times_from_the_turn_and_never_restarts_with_the_phase() {
     let tool = [at("run.started", "2026-09-15T10:00:01.000Z", json!({})), at("tool.started", "2026-09-15T10:00:09.000Z", json!({"itemId": "t1", "name": "read", "command": "read"}))];
     assert_eq!(live_line(&tool, true, TURN, false).unwrap().started_at, TURN);
 }
+
+fn long_call() -> Vec<Value> {
+    vec![
+        event(1, "run.started", json!({})),
+        event(2, "tool.started", json!({"itemId": "toolu_long", "toolKind": "tool_use", "name": "Bash", "phase": "started"})),
+        event(3, "tool.started", json!({"itemId": "toolu_long", "toolKind": "tool_use", "name": "Bash", "command": "npm test", "title": "Run the test suite", "phase": "started"})),
+    ]
+}
+
+// case: puts the description on the live line, not the tool
+#[test]
+fn puts_the_description_on_the_live_line_not_the_tool() {
+    assert_eq!(live_line(&long_call(), true, "", false).unwrap().label, "Run the test suite");
+}
+
+// case: keeps the clock from when the call began
+#[test]
+fn keeps_the_clock_from_when_the_call_began() {
+    let events = long_call();
+    assert_eq!(live_line(&events, true, "", false).unwrap().started_at, events[0]["occurredAt"].as_str().unwrap());
+}
