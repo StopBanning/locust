@@ -15,7 +15,11 @@ use std::{
     time::{Duration, Instant},
 };
 
-const MAX_PENDING: usize = 16;
+/// raised-approvals.ts MAX_RAISED_APPROVALS: the cards still waiting that Locust holds (0.599). An answered card leaves at
+/// once, so the cap counts only cards still waiting. Past it Rust refuses the newest, where Electron drops the oldest
+/// card's record: here the record and the runtime's waiting answer are one, and dropping it would leave a run waiting
+/// on an answer nobody can give.
+pub const MAX_PENDING: usize = 64;
 const MAX_DETAIL: usize = 20_000;
 /// Locust's own reason when a run ends before a card is answered: never told to a runtime as the person's words.
 const TURN_ENDED: &str = "The turn ended before this was answered.";

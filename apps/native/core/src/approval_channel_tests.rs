@@ -176,8 +176,8 @@ fn refuses_a_request_it_does_not_understand_rather_than_guessing_and_says_so() {
 #[test]
 fn refuses_rather_than_queueing_without_limit_when_too_many_are_waiting() {
     let host = channel();
-    let asked: Vec<_> = (0..16).map(|i| ask(&host, "mission_1", COMMAND, json!({"command": format!("step {i}")}), None)).collect();
-    cards(&host, 16);
+    let asked: Vec<_> = (0..crate::approval::MAX_PENDING).map(|i| ask(&host, "mission_1", COMMAND, json!({"command": format!("step {i}")}), None)).collect();
+    cards(&host, crate::approval::MAX_PENDING);
     let too_many = ask(&host, "mission_1", COMMAND, json!({"command": "one too many"}), None);
     let deadline = Instant::now() + Duration::from_secs(5);
     while !too_many.is_finished() && Instant::now() < deadline {
@@ -185,16 +185,33 @@ fn refuses_rather_than_queueing_without_limit_when_too_many_are_waiting() {
     }
     if !too_many.is_finished() {
         host.channel.release("mission_1");
-        panic!("the seventeenth request was queued instead of refused");
+        panic!("the 65th request was queued instead of refused");
     }
     let said = answered(too_many).unwrap_err();
-    assert_eq!(host.channel.pending_count(), 16);
+    assert_eq!(host.channel.pending_count(), 64);
     assert!(said.contains("already waiting on you"), "{said}");
-    assert_eq!(said, "Locust denied an action because 16 approvals are already waiting on you. Answer some of them and ask again.");
+    assert_eq!(said, "Locust denied an action because 64 approvals are already waiting on you. Answer some of them and ask again.");
     host.channel.release("mission_1");
     for a in asked {
         assert_eq!(decision_of(a.join().unwrap()), "reject");
     }
+}
+
+// a-card-answer-is-recorded-past-64-open-cards.test.ts
+#[test]
+fn still_has_the_first_card_when_its_answer_comes_after_80_more_were_raised_and_answered() {
+    let host = channel();
+    let first = ask(&host, "mission_1", COMMAND, json!({"command": "step 0"}), None);
+    let first_card = cards(&host, 1).remove(0);
+    for n in 1..=80 {
+        let later = ask(&host, "mission_1", COMMAND, json!({"command": format!("step {n}")}), None);
+        let card = cards(&host, 2).into_iter().find(|c| c.approval_id != first_card.approval_id).unwrap();
+        decide(&host, &card, Decision::ApproveOnce).unwrap();
+        assert_eq!(decision_of(later.join().unwrap()), "accept");
+    }
+    assert_eq!(host.channel.pending_count(), 1);
+    decide(&host, &first_card, Decision::ApproveOnce).unwrap();
+    assert_eq!(decision_of(first.join().unwrap()), "accept");
 }
 
 #[test]

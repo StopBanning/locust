@@ -68,6 +68,10 @@ apps/desktop/src/main/a-called-link-starts-its-routine.test.ts	keeps handed-on s
 apps/desktop/src/main/a-called-link-starts-its-routine.test.ts	expires collected data while the routine is paused, without waiting for a dispatch attempt	yes
 apps/desktop/src/main/a-called-link-starts-its-routine.test.ts	keeps the body after a monthly-limit preflight refusal and retries only after the normal hold-off	yes
 apps/desktop/src/main/a-called-link-starts-its-routine.test.ts	validates the kind, never schedules it by time, and bounds hostile fences to the existing brief budget	yes
+apps/desktop/src/main/a-card-answer-is-recorded-past-64-open-cards.test.ts	still has the first card when its answer comes after 80 more were raised and answered	yes
+apps/desktop/src/main/a-card-answer-is-recorded-past-64-open-cards.test.ts	keeps at most 64 cards still waiting, the newest; the oldest waiting one goes	no
+apps/desktop/src/main/a-card-answer-is-recorded-past-64-open-cards.test.ts	forgets an answered card, keeps who it was raised for until then, and an unknown id is nothing	no
+apps/desktop/src/main/a-card-answer-is-recorded-past-64-open-cards.test.ts	the answer funnel forgets the card right after recording it (source guard)	no
 apps/desktop/src/main/a-check-command-is-one-line.test.ts	is kept as the person typed it, trimmed	no
 apps/desktop/src/main/a-check-command-is-one-line.test.ts	is nothing when empty, too long, not text, or more than one line	no
 apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	names the guard on Windows the way Codex runs a hook there: in PowerShell, on Locust’s own binary run as node	no
