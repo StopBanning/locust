@@ -285,15 +285,32 @@ pub fn brand_row(l: &Look) -> El {
 /// `.lc-control`: a chip under the message box (the mode, the folder, the model): no box, secondary words at the
 /// control size, an optional lead (an icon or an agent's mark) and a chevron when it opens a menu.
 pub fn composer_chip(l: &Look, lead: Option<El>, words: &str, chevron: bool) -> El {
+    composer_route_chip(l, lead, words, false, chevron)
+}
+
+/// A composer chip with an optional non-truncating `Free` tag drawn outside the truncated model text.
+pub fn composer_route_chip(l: &Look, lead: Option<El>, words: &str, free: bool, chevron: bool) -> El {
     let mut e = row().py(4.0).px(6.0).gap(6.0).center_y().radius(l.t.px("radius-control")).hover(l.c("hover-surface"));
     if let Some(lead) = lead {
         e = e.child(lead);
     }
     e = e.child(text(words.to_owned()).font(TextStyle::new(13.0, 400.0)).color(l.c("text-secondary")).truncate().shrink());
+    if free {
+        e = e.child(
+            row()
+                .key("model-chip-free")
+                .px(5.0)
+                .py(1.0)
+                .radius(4.0)
+                .fill(l.c("hover-surface"))
+                .child(text("Free").font(TextStyle::new(10.5, 500.0)).color(l.c("text-muted"))),
+        );
+    }
     if chevron {
         e = e.child(glyph(l, &super::icons::CHEVRON_DOWN, 13.0, Some(l.c("text-muted"))));
     }
-    e.role("button").label(words.to_owned())
+    let accessible = if free && !words.is_empty() { format!("{words} Free") } else if free { "Free".to_owned() } else { words.to_owned() };
+    e.role("button").label(accessible)
 }
 
 /// What the round send button says and does.

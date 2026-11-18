@@ -120,3 +120,14 @@ Breaks (`core-c` to `core-f`, `ui-d`, `ui-e` logs). All caught in the end:
   ported); the chip's Free tag (`free_tag_of` is ready); the busy and quiet offers in the thread (functions ready, the
   thread rows are in `src/ui/messages.rs`, the other lane's).
 - Part 3, the chip and header (4 files), and part 4, the rest of the thread's waiting rows (6 files): not started.
+
+## Round 2 (18 Nov 2026)
+
+### Part 2, second slice (done, 18 Nov)
+- `core/src/model_alias.rs`: `live_model_names` (`LiveRun`) ports `liveModelNames`, tested by `names_the_model_of_a_run_under_way_from_its_start_record`.
+- `core/src/teammate_tooltip.rs`: `short_runtime_name` (`Codex`, `Claude`, `Cursor`, `Gemini`, `Copilot`, else `runtime_display_name`).
+- `src/look/controls.rs`: `composer_route_chip` draws `Free` as its own non-truncating tag (`model-chip-free`) outside the truncated model text.
+- `src/ui/thread_view.rs`: `account-default` shows the resolved model name (or `short_runtime_name` until known, never `account-default`) with `hover::tip` (`model-chip-tip`) reading `"{runtime_display_name} / its own default model[, {name} on its last run]"`; `free_tag_of` splits `Free` onto `model-chip-free`; `free_offer::view(s, p)` is called under `message_column`.
+- `src/ui/free_offer.rs`: draws the busy-free offer (`busy-free-offer`) and quiet-free offer (`quiet-free-offer`, `quiet-free-offer-action`), stopping the run, switching `s.picks` to the next free model, and handing the prompt back to `s.draft`.
+- Tests passed: `model_alias::tests::*` (6), `route_picker_tests::*` (10), `free_offer::tests::*` (3), `window_drive_tests::the_picker_and_model_chip_show_the_name_earned_from_local_history` (1).
+- Breaks (`slice2-core.breaks`, `slice2-ui.breaks`): all 7 killed by their named tests.

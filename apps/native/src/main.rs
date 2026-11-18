@@ -37,6 +37,8 @@ use locust_core::ledger_write;
 mod look;
 #[path = "ui/folder_confirmation.rs"]
 mod folder_confirmation;
+#[path = "ui/free_offer.rs"]
+mod free_offer;
 #[cfg(target_os = "macos")]
 mod browser_mac;
 #[path = "ui/browser_panel.rs"]

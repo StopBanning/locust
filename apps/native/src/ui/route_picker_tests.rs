@@ -186,3 +186,112 @@ fn a_claude_accounts_group_has_its_own_fold_keyed_as_its_rows_are() {
     unique.dedup();
     assert_eq!(keys.len(), unique.len(), "no key drawn twice: {keys:?}");
 }
+
+fn chip_runtime(runtime: &str, model: &str, model_display: &str, resolved: Option<(&str, &str)>) -> Runtime<State> {
+    let mut s = State::default();
+    s.teammates.push(Teammate {
+        id: "tm_1".into(),
+        name: "Wren".into(),
+        role: "Code".into(),
+        runtime: Some(runtime.into()),
+        model: Some(model.into()),
+        account: None,
+        busy: false,
+        runs_in: "local".into(),
+        folder: None,
+    });
+    s.selected = 0;
+    s.conversations.insert("tm_1".into(), Conversation::default());
+    s.models.insert(
+        "tm_1".into(),
+        vec![engine::Models {
+            runtime: runtime.into(),
+            model: None,
+            effort: None,
+            teammate: None,
+            models: vec![engine::Model {
+                id: model.into(),
+                name: model_display.into(),
+                efforts: vec![],
+            }],
+        }],
+    );
+    s.settings_panel.agents = Some(vec![locust_core::agents::Found {
+        id: runtime.into(),
+        display_name: runtime.into(),
+        installed: true,
+        version: None,
+        auth: locust_core::agents::Auth::Authenticated,
+        ready: true,
+        status: locust_core::agents::Probe::Ready,
+        unsupported_note: None,
+        through_cli: false,
+        checking: false,
+    }]);
+    if let Some((k, v)) = resolved {
+        s.resolved_model_names.insert(k.into(), v.into());
+    }
+    fn chip_view(s: &State, _cx: &mut Cx<State>) -> El {
+        let p = Palette::new(true);
+        crate::thread_view(s, &p)
+    }
+    let mut rt = Runtime::new(s, chip_view, (1000.0, 800.0), Env::new(true, 1.0));
+    rt.frame(0.0);
+    rt
+}
+
+// a-default-route-names-its-model.test.tsx
+#[test]
+fn names_the_model_the_default_turned_out_to_be_once_a_run_has_said() {
+    let mut rt = chip_runtime(
+        "claude",
+        "account-default",
+        "Account default",
+        Some(("claude:account-default", "claude-opus-5-5")),
+    );
+    let chip_words = text_in(&rt, "model-chip").join(" ");
+    assert!(chip_words.contains("Opus 5.5"), "got: {chip_words}");
+    assert!(!chip_words.contains("account-default"));
+    let (x, y) = rt.find("model-chip").expect("model-chip");
+    rt.pointer_move(x, y);
+    rt.frame(0.1);
+    rt.frame(0.6);
+    let tip = rt.elements().into_iter().find(|e| e.key.as_deref() == Some("model-chip-tip-tooltip"));
+    let tip_text = tip.and_then(|e| e.label).unwrap_or_default();
+    assert!(tip_text.contains("its own default model, Opus 5.5 on its last run"), "got: {tip_text}");
+    assert!(!tip_text.contains("account-default"));
+}
+
+// a-default-route-names-its-model.test.tsx
+#[test]
+fn reads_as_the_runtime_alone_until_then_and_never_as_its_id() {
+    let mut rt = chip_runtime("claude", "account-default", "Account default", None);
+    let chip_words = text_in(&rt, "model-chip").join(" ");
+    assert!(chip_words.contains("Claude"), "got: {chip_words}");
+    assert!(!chip_words.contains("No AI agent"));
+    assert!(!chip_words.contains("account-default"));
+    assert!(!chip_words.contains("Account default"));
+    let (x, y) = rt.find("model-chip").expect("model-chip");
+    rt.pointer_move(x, y);
+    rt.frame(0.1);
+    rt.frame(0.6);
+    let tip = rt.elements().into_iter().find(|e| e.key.as_deref() == Some("model-chip-tip-tooltip"));
+    let tip_text = tip.and_then(|e| e.label).unwrap_or_default();
+    assert!(tip_text.contains("its own default model"), "got: {tip_text}");
+    assert!(!tip_text.contains("account-default"));
+}
+
+// the-chip-keeps-free.test.ts
+#[test]
+fn the_chip_draws_free_as_its_own_tag_outside_the_truncated_name() {
+    let rt = chip_runtime(
+        "opencode",
+        "opencode/muse-spark-1.3-contributor-free",
+        "Muse Spark 1.3 Contributor Free",
+        None,
+    );
+    assert!(rt.find("model-chip-free").is_some(), "Free tag should be drawn as its own element");
+    assert_eq!(text_in(&rt, "model-chip-free"), vec!["Free"]);
+    let chip_words = text_in(&rt, "model-chip");
+    assert!(chip_words.iter().any(|w| w == "Muse Spark 1.3 Contributor"), "got: {chip_words:?}");
+}

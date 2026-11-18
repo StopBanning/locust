@@ -116,7 +116,15 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
                         tx.live_only();
                     }
                 })
-                .child(row().w_full().justify_center().child(message_column(items, &teammate.name, p, s)))
+                .child(
+                    row().w_full().justify_center().child(
+                        col()
+                            .w_full()
+                            .items_center()
+                            .child(message_column(items, &teammate.name, p, s))
+                            .children(crate::free_offer::view(s, p)),
+                    ),
+                )
         };
         let mut transcript_box = col()
             .w_full()
@@ -305,9 +313,26 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
                 None
             }
         });
-        let model_name = model_chip_name(model, current);
         let rt = picked.and_then(|p| p.runtime.as_deref()).or(teammate.runtime.as_deref()).or(current.map(|a| a.runtime.as_str())).unwrap_or("codex");
-        let model_name = s.resolved_model_names.get(&format!("{rt}:{model}")).map(String::as_str).unwrap_or(model_name);
+        let resolved_id = s.resolved_model_names.get(&format!("{rt}:{model}")).map(String::as_str);
+        let default_model_name = (model == locust_core::models::ACCOUNT_DEFAULT)
+            .then_some(resolved_id)
+            .flatten()
+            .map(|id| locust_core::teammate_tooltip::route_model_name(rt, id));
+        let model_name_owned: String;
+        let model_name = if model == locust_core::models::ACCOUNT_DEFAULT {
+            if let Some(ref resolved) = default_model_name {
+                resolved.as_str()
+            } else {
+                locust_core::teammate_tooltip::short_runtime_name(rt)
+            }
+        } else if let Some(resolved) = resolved_id {
+            resolved
+        } else {
+            model_name_owned = model_chip_name(model, current).to_owned();
+            model_name_owned.as_str()
+        };
+        let (chip_model_name, chip_is_free) = locust_core::route_rows::free_tag_of(model_name);
         let active_account = match picked.and_then(|p| p.account.as_ref()) {
             Some(explicit) => explicit.as_deref(),
             None => teammate.account.as_deref(),
@@ -317,7 +342,7 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
             .map(|a| a.name.as_str());
         let label = format!(
             "{}{}{}{}",
-            model_name,
+            chip_model_name,
             account_name.map(|n| format!(" · {n}")).unwrap_or_default(),
             effort.map(|e| format!(" · {e}")).unwrap_or_default(),
             if picked.is_some() { ", this turn" } else { "" }
@@ -333,8 +358,9 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
         let found = crate::chip_mark::found_agents(s);
         let chip_mark = crate::chip_mark::chip_mark(runtime, model, found.as_deref());
         let mark = crate::chip_mark::chip_mark_el(&l, runtime, &chip_mark);
-        let label = if chip_mark == crate::chip_mark::ChipMark::NoAgent { "No AI agent".to_owned() } else { label };
-        let mut chip = crate::look::controls::composer_chip(&l, mark, &label, true)
+        let no_agent = chip_mark == crate::chip_mark::ChipMark::NoAgent;
+        let label = if no_agent { "No AI agent".to_owned() } else { label };
+        let mut chip = crate::look::controls::composer_route_chip(&l, mark, &label, chip_is_free && !no_agent, true)
             .key("model-chip")
             .on_hover_change(|s: &mut State, over, _| {
                 s.chip_hover = over;
@@ -363,6 +389,16 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
         }
         if let Some(asking) = crate::compare_view::asking_label(s) {
             chip = crate::hover::tip(s, &l, "compare-route", &asking, chip);
+        } else if model == locust_core::models::ACCOUNT_DEFAULT {
+            let exact = format!(
+                "{} / its own default model{}",
+                locust_core::failure_words::runtime_display_name(runtime),
+                default_model_name
+                    .as_deref()
+                    .map(|n| format!(", {n} on its last run"))
+                    .unwrap_or_default()
+            );
+            chip = crate::hover::tip(s, &l, "model-chip-tip", &exact, el().child(chip));
         }
         let mut picker = col().w_full().px(24.0);
         if s.model_menu.as_ref() == Some(&id) {

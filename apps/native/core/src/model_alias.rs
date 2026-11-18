@@ -21,6 +21,27 @@ pub fn resolved_model_names<'a>(missions: impl IntoIterator<Item = &'a Summary>)
     }
     held.into_iter().map(|(key, (_, name))| (key, name)).collect()
 }
+
+/// One run as `live_model_names` reads it: its runtime, requested model, and events so far.
+pub struct LiveRun<'a> {
+    pub runtime: Option<&'a str>,
+    pub model: Option<&'a str>,
+    pub events: &'a [Value],
+}
+
+/// `missionView.ts` `liveModelNames`: which model a run under way is on, from its start record.
+pub fn live_model_names<'a>(runs: impl IntoIterator<Item = LiveRun<'a>>) -> HashMap<String, String> {
+    let mut named = HashMap::new();
+    for run in runs {
+        let (Some(runtime), Some(model)) = (run.runtime, run.model) else { continue };
+        let Some(started) = run.events.iter().find(|e| e["type"] == "run.started") else { continue };
+        let Some(raw_model) = started["payload"]["evidence"]["raw"]["model"].as_str() else { continue };
+        if !raw_model.is_empty() && raw_model != model {
+            named.insert(format!("{runtime}:{model}"), crate::ledger::scrub(raw_model));
+        }
+    }
+    named
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -64,6 +85,23 @@ mod tests {
     fn learns_nothing_from_a_run_that_never_named_one() {
         let m = completed_mission(None);
         assert_eq!(resolved_model_names([&m]).get("claude:sonnet"), None);
+    }
+
+    // a-default-route-names-its-model.test.tsx
+    #[test]
+    fn names_the_model_of_a_run_under_way_from_its_start_record() {
+        let started = json!({
+            "type": "run.started",
+            "payload": { "runtimeThreadId": "s1", "evidence": { "redacted": true, "raw": { "model": "claude-sonnet-5-5" } } }
+        });
+        let live = live_model_names([
+            LiveRun { runtime: Some("claude"), model: Some("account-default"), events: std::slice::from_ref(&started) },
+            // An alias the start only repeats teaches nothing; a run not yet started says nothing.
+            LiveRun { runtime: Some("claude"), model: Some("claude-sonnet-5-5"), events: std::slice::from_ref(&started) },
+            LiveRun { runtime: Some("codex"), model: Some("account-default"), events: &[] },
+        ]);
+        assert_eq!(live.len(), 1);
+        assert_eq!(live.get("claude:account-default").map(String::as_str), Some("claude-sonnet-5-5"));
     }
 
 }
