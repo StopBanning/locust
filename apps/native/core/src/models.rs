@@ -215,6 +215,43 @@ const CLAUDE_OLDER_MODELS: [(&str, &[&str]); 10] = [
     ("claude-sonnet-4-5", &[]),
     ("claude-haiku-4-5-20251001", &[]),
 ];
+/// claude-models.ts CLAUDE_OLDER_MODELS: the fixed versions offered under the aliases, newest first, with their levels.
+pub fn claude_older_models() -> Vec<(&'static str, Vec<String>)> {
+    CLAUDE_OLDER_MODELS.iter().map(|(id, e)| (*id, e.iter().map(|s| (*s).to_owned()).collect())).collect()
+}
+
+/// The older versions the picker folds under Claude Code (claudeModelsFrom's rule): each by its name, skipping one an
+/// alias already means now (`now` holds the current rows' names) and a name offered twice.
+pub fn claude_older_offered(now: &[String]) -> Vec<(String, String, Vec<String>)> {
+    let mut offered: Vec<String> = Vec::new();
+    let mut out = Vec::new();
+    for (id, efforts) in claude_older_models() {
+        let name = claude_model_name(id).unwrap_or_else(|| id.to_owned());
+        if now.contains(&name) || offered.contains(&name) {
+            continue;
+        }
+        offered.push(name.clone());
+        out.push((id.to_owned(), name, efforts));
+    }
+    out
+}
+
+/// What Claude Code's catalogue says about a model (claudeModelsFrom's descriptions): an alias is "Always the newest
+/// Opus", a fixed older version "This version, always", the account's default what it is. None where this build's
+/// window has no catalogue words for the model (the picker then shows its levels).
+pub fn catalogue_description(runtime: &str, id: &str) -> Option<String> {
+    if id == ACCOUNT_DEFAULT {
+        return Some("The model your account picks for you".to_owned());
+    }
+    if runtime != "claude" {
+        return None;
+    }
+    if CLAUDE_ALIAS_DEFAULTS.iter().any(|(alias, _)| *alias == id) {
+        return Some(format!("Always the newest {}", capitalised(id)));
+    }
+    CLAUDE_OLDER_MODELS.iter().any(|(older, _)| *older == id).then(|| "This version, always".to_owned())
+}
+
 /// CLAUDE_ALIASES_MEASURED: an alias Claude Code accepts that its help does not name.
 const CLAUDE_ALIASES_MEASURED: [&str; 1] = ["haiku"];
 

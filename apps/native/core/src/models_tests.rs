@@ -64,3 +64,49 @@ fn a_cursor_level_becomes_the_variant_id_it_names() {
     assert_eq!(cursor_choice_for(&models, Some("gpt-5.5-low"), Some("max")), (Some("gpt-5.5-low".into()), Some("max".into())));
     assert_eq!(cursor_choice_for(&models, Some("gpt-5.5-low"), None), (Some("gpt-5.5-low".into()), None));
 }
+
+// --- older-claude-versions-are-folded.test.tsx: what the fold holds (exec/native-picker)
+
+#[test]
+fn what_the_fold_holds_is_claude_codes_own_registry_newest_first_with_no_retired_generation() {
+    let ids: Vec<&str> = claude_older_models().into_iter().map(|(id, _)| id).collect();
+    assert_eq!(
+        ids,
+        [
+            "claude-opus-5",
+            "claude-opus-4-8",
+            "claude-opus-4-7",
+            "claude-opus-4-6",
+            "claude-opus-4-5",
+            "claude-fable-5",
+            "claude-sonnet-5",
+            "claude-sonnet-4-6",
+            "claude-sonnet-4-5",
+            "claude-haiku-4-5-20251001",
+        ]
+    );
+    assert!(!ids.iter().any(|id| id.contains("claude-3") || id.contains("mythos")));
+}
+
+#[test]
+fn what_the_fold_holds_offers_each_version_only_the_effort_levels_its_registry_entry_lists() {
+    let levels = |want: &str| claude_older_models().into_iter().find(|(id, _)| *id == want).map(|(_, e)| e.join(",")).unwrap();
+    assert_eq!(levels("claude-opus-4-8"), "low,medium,high,xhigh,max");
+    assert_eq!(levels("claude-opus-4-6"), "low,medium,high,max");
+    assert_eq!(levels("claude-sonnet-4-5"), "");
+}
+
+/// claudeModelsFrom's rule for the fold: a version an alias already means now is not offered again under it.
+#[test]
+fn the_fold_skips_the_version_an_alias_means_now() {
+    let ids: Vec<String> = claude_older_offered(&["Opus 5".to_owned()]).into_iter().map(|(id, _, _)| id).collect();
+    assert!(!ids.contains(&"claude-opus-5".to_owned()), "{ids:?}");
+    assert_eq!(ids.len(), 9);
+}
+
+/// a-model-is-one-line's second case names its row from Claude Code's alias table: `opus` reads Opus 5.5.
+#[test]
+fn the_opus_alias_reads_opus_5_5() {
+    let models = claude_models_from(Some(&json!({"aliases": ["opus"], "efforts": []})));
+    assert_eq!(models.iter().find(|m| m["id"] == "opus").map(|m| m["displayName"].clone()), Some(json!("Opus 5.5")));
+}

@@ -1866,6 +1866,13 @@ apps/desktop/src/main/the-chain-templates-hand-work-on.test.ts	previews which st
 apps/desktop/src/main/the-chain-templates-hand-work-on.test.ts	proposes a teammate on a different agent for each review, where the roster has one	no
 apps/desktop/src/main/the-chain-templates-hand-work-on.test.ts	with two agents, the third review goes to a teammate who has not reviewed yet; with one teammate, all three are theirs	no
 apps/desktop/src/main/the-chain-templates-hand-work-on.test.ts	is what the shipped template gets, read the way the window reads it	no
+apps/desktop/src/main/the-effort-thumb-is-claude-codes-shape.test.ts	is Claude Code's: a white rounded rectangle, 16 x 20, 4px corners -- painted by the liquid	yes
+apps/desktop/src/main/the-effort-thumb-is-claude-codes-shape.test.ts	fills the track's height, as Claude Code's does	yes
+apps/desktop/src/main/the-effort-thumb-is-claude-codes-shape.test.ts	is ONE thing (Colin, 2026-09-26: "a rectangle with no gooey with a gooey circle behind it, we gotta pick one")	no
+apps/desktop/src/main/the-effort-thumb-is-claude-codes-shape.test.ts	sits on a fill that shows, as Claude Code's does	yes
+apps/desktop/src/main/the-effort-track-takes-the-pointer.test.ts	lets the pointer through the input to the track	no
+apps/desktop/src/main/the-effort-track-takes-the-pointer.test.ts	does not start a scroll or a selection with a drag	yes
+apps/desktop/src/main/the-effort-track-takes-the-pointer.test.ts	keeps the fill under a held thumb	yes
 apps/desktop/src/main/the-github-cli-installs-from-the-card.test.ts	uses winget on Windows, GitHub’s own package, and then asks gh who is signed in	yes
 apps/desktop/src/main/the-github-cli-installs-from-the-card.test.ts	takes winget’s “already installed” as gh being there	no
 apps/desktop/src/main/the-github-cli-installs-from-the-card.test.ts	takes winget’s “already installed” and “no newer version” as Node reports them on Windows	yes
@@ -2101,6 +2108,11 @@ apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx	sends the ch
 apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx	says what the person left out, plainly, beside what did not fit	no
 apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx	says nothing more when nothing was left out	no
 apps/desktop/src/renderer/src/a-build-starter-makes-one-page.test.ts	asks for one named .html file with everything inside it	no
+apps/desktop/src/renderer/src/a-busy-free-model-offers-the-next.test.tsx	is the next of OpenCode's free models after the one the run is on	yes
+apps/desktop/src/renderer/src/a-busy-free-model-offers-the-next.test.tsx	skips a model of the person's own, and goes round after the last	yes
+apps/desktop/src/renderer/src/a-busy-free-model-offers-the-next.test.tsx	is nothing for a paid route, a model of their own, another runtime, or a lone free model	yes
+apps/desktop/src/renderer/src/a-busy-free-model-offers-the-next.test.tsx	is marked busy only for a provider that is turning requests away	no
+apps/desktop/src/renderer/src/a-busy-free-model-offers-the-next.test.tsx	carries the offer as a button under its words, and only the busy one does	no
 apps/desktop/src/renderer/src/a-called-link-says-what-leaves-the-computer.test.tsx	offers the new kind and its privacy and Ask words, with a save-first message for a new routine	yes
 apps/desktop/src/renderer/src/a-called-link-says-what-leaves-the-computer.test.tsx	tells a browser the link stays on this computer, with no Copy or New link	no
 apps/desktop/src/renderer/src/a-cancelled-run-spent-nothing.test.ts	says nothing at all about a run that reported nothing	yes
@@ -2286,6 +2298,12 @@ apps/desktop/src/renderer/src/a-free-model-that-is-down-is-passed-over.test.ts	i
 apps/desktop/src/renderer/src/a-free-model-that-is-down-is-passed-over.test.ts	"Use a free model" starts on one that is up, even one that answered before	yes
 apps/desktop/src/renderer/src/a-free-model-that-is-down-is-passed-over.test.ts	the card after a failure offers the next one that is up	no
 apps/desktop/src/renderer/src/a-free-model-that-is-down-is-passed-over.test.ts	Compare's second column is not one that is down	no
+apps/desktop/src/renderer/src/a-free-model-that-says-nothing-is-offered-another.test.tsx	is quiet two minutes after its run began with nothing back, and not a moment before	yes
+apps/desktop/src/renderer/src/a-free-model-that-says-nothing-is-offered-another.test.tsx	is never quiet once anything came back: a word, a thought, a step or a tool	yes
+apps/desktop/src/renderer/src/a-free-model-that-says-nothing-is-offered-another.test.tsx	is only an OpenCode free model, and only once its run has begun	yes
+apps/desktop/src/renderer/src/a-free-model-that-says-nothing-is-offered-another.test.tsx	is not quiet while its provider is said to be busy: that note already carries the same press	yes
+apps/desktop/src/renderer/src/a-free-model-that-says-nothing-is-offered-another.test.tsx	names the quiet model, says where the message goes, and offers the next one	no
+apps/desktop/src/renderer/src/a-free-model-that-says-nothing-is-offered-another.test.tsx	is wired: the window offers it for the run on screen, with the busy model’s own press	no
 apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	is offered for a conversation whose runtime lists /compact	yes
 apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	is not offered where the runtime lists no /compact, or the message would go elsewhere	yes
 apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	waits in line behind a running turn, as a message sent then does (Orca does the same)	yes
@@ -2371,6 +2389,8 @@ apps/desktop/src/renderer/src/a-model-has-one-name.test.ts	takes the runtime's s
 apps/desktop/src/renderer/src/a-model-has-one-name.test.ts	never takes an identifier for a name (seen on the probe: "nemotron-3-ultra-free" in the chip)	no
 apps/desktop/src/renderer/src/a-model-has-one-name.test.ts	leaves Locust's own "Account Default" as it reads everywhere (seen on the screen tour)	no
 apps/desktop/src/renderer/src/a-model-has-one-name.test.ts	never takes a different name, and keeps runtimes apart	no
+apps/desktop/src/renderer/src/a-model-is-one-line.test.tsx	keeps what the catalogue says, and leaves the effort levels to the hover	yes
+apps/desktop/src/renderer/src/a-model-is-one-line.test.tsx	a model the catalogue says nothing about keeps its levels as its line, in words	yes
 apps/desktop/src/renderer/src/a-new-person-is-met-where-they-are.test.tsx	offers to make something, not to read a project that is not there	yes
 apps/desktop/src/renderer/src/a-new-person-is-met-where-they-are.test.tsx	offers its own starters once the folder holds something, and a template teammate without fresh ones keeps its own	yes
 apps/desktop/src/renderer/src/a-new-person-is-met-where-they-are.test.tsx	is told the folder is empty by the window, which asks again after each turn	no
@@ -3006,6 +3026,12 @@ apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	a finish to look 
 apps/desktop/src/renderer/src/each-thin-part-is-its-own-solid.test.ts	are split into one piece per antenna, leg or wing	yes
 apps/desktop/src/renderer/src/each-thin-part-is-its-own-solid.test.ts	lose nothing in the split: the pieces put back together are the path	yes
 apps/desktop/src/renderer/src/each-thin-part-is-its-own-solid.test.ts	every piece starts with a move, so each is a path of its own	yes
+apps/desktop/src/renderer/src/effortLevels.test.ts	describes the levels runtimes actually list	yes
+apps/desktop/src/renderer/src/effortLevels.test.ts	says NOTHING for a level it does not know	yes
+apps/desktop/src/renderer/src/effortLevels.test.ts	talks about time and cost, not about how good the answer will be	yes
+apps/desktop/src/renderer/src/effortLevels.test.ts	is not case sensitive, because runtimes are not consistent	yes
+apps/desktop/src/renderer/src/effortLevels.test.ts	says how Cursor actually takes an effort	yes
+apps/desktop/src/renderer/src/effortLevels.test.ts	draws no note for a runtime it has nothing true to say about	yes
 apps/desktop/src/renderer/src/every-benchmark-is-listed-in-one-place.test.tsx	names the leader, and says a tie as a tie	no
 apps/desktop/src/renderer/src/every-benchmark-is-listed-in-one-place.test.tsx	puts the running ones first, then the newest	no
 apps/desktop/src/renderer/src/every-benchmark-is-listed-in-one-place.test.tsx	draws a row a benchmark, with what it is, who leads it, and where it is while it runs	no
@@ -3453,6 +3479,11 @@ apps/desktop/src/renderer/src/notes-on-a-diff-go-as-one-message.test.tsx	shows a
 apps/desktop/src/renderer/src/notes-on-a-diff-go-as-one-message.test.tsx	holds the notes as one tile that says how many, and none when there are none	yes
 apps/desktop/src/renderer/src/noting-what-a-tune-showed-is-explicit.test.tsx	runs nothing before Note what this tune showed is pressed, whether or not the person used the instructions	no
 apps/desktop/src/renderer/src/noting-what-a-tune-showed-is-explicit.test.tsx	shows the lesson as When … do … with Remove in the kept strip and in Edit teammate	no
+apps/desktop/src/renderer/src/older-claude-versions-are-folded.test.tsx	keeps older versions out of the list until it is opened, and says how many it holds	yes
+apps/desktop/src/renderer/src/older-claude-versions-are-folded.test.tsx	never folds away the route in use	yes
+apps/desktop/src/renderer/src/older-claude-versions-are-folded.test.tsx	lets a search reach into it without opening it	yes
+apps/desktop/src/renderer/src/older-claude-versions-are-folded.test.tsx	is Claude Code's own registry, newest first, with no retired generation	yes
+apps/desktop/src/renderer/src/older-claude-versions-are-folded.test.tsx	offers each version only the effort levels its registry entry lists	yes
 apps/desktop/src/renderer/src/one-fact-one-surface.test.ts	a 41-second run is 41s, not 0m	yes
 apps/desktop/src/renderer/src/one-fact-one-surface.test.ts	and a long one still reads in minutes	yes
 apps/desktop/src/renderer/src/one-fact-one-surface.test.ts	a completed run whose record is incomplete is amber, wherever it is drawn	no
@@ -3826,6 +3857,21 @@ apps/desktop/src/renderer/src/the-boot-screen.test.ts	counts only the runtimes i
 apps/desktop/src/renderer/src/the-boot-screen.test.ts	keeps antigravity, which is checked by the host rather than by a CLI	no
 apps/desktop/src/renderer/src/the-changes-panel-lists-every-file.test.tsx	counts each file’s added and removed lines	no
 apps/desktop/src/renderer/src/the-changes-panel-lists-every-file.test.tsx	groups them by folder, each folder’s own files under it	no
+apps/desktop/src/renderer/src/the-chip-keeps-free.test.ts	splits a trailing Free off the name	yes
+apps/desktop/src/renderer/src/the-chip-keeps-free.test.ts	leaves every other name whole	yes
+apps/desktop/src/renderer/src/the-effort-control-is-claude-codes.test.tsx	is named in words, as Claude Code names it	yes
+apps/desktop/src/renderer/src/the-effort-control-is-claude-codes.test.tsx	this build does not know keeps the runtime’s own word, capitalised, never renamed	yes
+apps/desktop/src/renderer/src/the-effort-control-is-claude-codes.test.tsx	reads "Effort Max", with a ? that says what the level costs	yes
+apps/desktop/src/renderer/src/the-effort-control-is-claude-codes.test.tsx	names the ends, Faster to Smarter, and draws a stop for every level the model has	yes
+apps/desktop/src/renderer/src/the-effort-control-is-claude-codes.test.tsx	puts the stops end to end along the track, and the thumb on its level	yes
+apps/desktop/src/renderer/src/the-effort-control-is-claude-codes.test.tsx	has ONE thumb, and it is the liquid (Colin, 2026-09-26: "we gotta pick one")	no
+apps/desktop/src/renderer/src/the-effort-control-is-claude-codes.test.tsx	leaves no tail (Colin, 2026-09-26: "if you cant make the main asset gooey thats fine but no tail")	no
+apps/desktop/src/renderer/src/the-effort-control-is-claude-codes.test.tsx	is a real range input over the track: the browser keeps its keys, its snapping and its name	yes
+apps/desktop/src/renderer/src/the-effort-control-is-claude-codes.test.tsx	offers the fast variant as a switch where the model has one, and says it in the name	yes
+apps/desktop/src/renderer/src/the-effort-thumb-follows-the-pointer.test.ts	is where the pointer is along the track	yes
+apps/desktop/src/renderer/src/the-effort-thumb-follows-the-pointer.test.ts	never leaves the stops: before the first or past the last it waits at the end	yes
+apps/desktop/src/renderer/src/the-effort-thumb-follows-the-pointer.test.ts	settles on the nearest stop, whichever side of it the thumb is	yes
+apps/desktop/src/renderer/src/the-effort-thumb-follows-the-pointer.test.ts	never names a stop that is not there	yes
 apps/desktop/src/renderer/src/the-face-legend-shows-every-face.test.tsx	shows every face a teammate has, each once: a subagent at work wears the work face, so it is shown as that	yes
 apps/desktop/src/renderer/src/the-face-legend-shows-every-face.test.tsx	names each in the words the app says beside a face, in sentence case	yes
 apps/desktop/src/renderer/src/the-face-legend-shows-every-face.test.tsx	gives each face the dot a teammate's has for it	yes
@@ -3922,6 +3968,13 @@ apps/desktop/src/renderer/src/the-others-line-describes-the-others.test.ts	keeps
 apps/desktop/src/renderer/src/the-others-line-describes-the-others.test.ts	says vendor when none of them install from here	yes
 apps/desktop/src/renderer/src/the-others-line-describes-the-others.test.ts	claims neither when the list is mixed	yes
 apps/desktop/src/renderer/src/the-others-line-describes-the-others.test.ts	counts one as one	yes
+apps/desktop/src/renderer/src/the-picker-opens-on-what-works.test.ts	lifts the one runtime that can run above the three that cannot	yes
+apps/desktop/src/renderer/src/the-picker-opens-on-what-works.test.ts	sinks what does not exist below what merely is not installed	yes
+apps/desktop/src/renderer/src/the-picker-opens-on-what-works.test.ts	keeps a signed-out runtime above one that is not on the machine at all	yes
+apps/desktop/src/renderer/src/the-picker-opens-on-what-works.test.ts	takes a group on its BEST row, not its first	yes
+apps/desktop/src/renderer/src/the-picker-opens-on-what-works.test.ts	sorts alphabetically inside a band, the way Settings already does	yes
+apps/desktop/src/renderer/src/the-picker-opens-on-what-works.test.ts	does not move a group out of its band to satisfy the alphabet	yes
+apps/desktop/src/renderer/src/the-picker-opens-on-what-works.test.ts	still sorts the active row to the top of its own group	yes
 apps/desktop/src/renderer/src/the-rail-clock-is-made-once.test.ts	says exactly what toLocaleTimeString said	no
 apps/desktop/src/renderer/src/the-rail-clock-is-made-once.test.ts	says nothing for a time that is not one	yes
 apps/desktop/src/renderer/src/the-ring-reads-what-the-conversation-holds.test.ts	reads what the conversation held after the last call, not the run added up	yes
