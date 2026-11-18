@@ -801,6 +801,13 @@ impl Transcript {
             }
             match kind.as_str() {
                 "message.delta" if !id.is_empty() => {
+                    for item in &mut items {
+                        if let Item::Assistant { item_id, r#final, .. } = item
+                            && item_id != &id
+                        {
+                            *r#final = true;
+                        }
+                    }
                     let (at, used) = messages.entry(id.clone()).or_insert_with(|| {
                         items.push(Item::Assistant {
                             item_id: id,
@@ -877,6 +884,13 @@ impl Transcript {
                     }
                 }
                 "tool.started" | "tool.completed" | "tool.failed" => {
+                    if kind == "tool.started" {
+                        for item in &mut items {
+                            if let Item::Assistant { r#final, .. } = item {
+                                *r#final = true;
+                            }
+                        }
+                    }
                     let key = if id.is_empty() {
                         sequence.to_string()
                     } else {
@@ -1211,7 +1225,7 @@ impl Transcript {
             "completed"
         };
         if !self.running && self.events.values().any(|e| e["type"] == "run.completed")
-            && !items.iter().any(|i| matches!(i, Item::Assistant { text, .. } if !text.trim().is_empty()) || matches!(i, Item::Tool { .. } | Item::Plan { .. } | Item::Thought { .. }))
+            && !items.iter().any(|i| matches!(i, Item::Assistant { text, .. } if !crate::peer_share::strip_share_blocks(text).trim().is_empty()) || matches!(i, Item::Tool { .. } | Item::Plan { .. } | Item::Thought { .. }))
             && !self.peer_links.iter().any(|p| p.direction == "posted")
             && !self.events.values().any(|e| string(&e["payload"], "code").ends_with(".context_compacted"))
         {

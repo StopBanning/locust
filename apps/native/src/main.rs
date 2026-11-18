@@ -3271,6 +3271,9 @@ mod compare_window_tests;
 mod approval_review_tests;
 
 #[cfg(test)]
+mod code_colors_tests;
+
+#[cfg(test)]
 mod renderer_address_tests {
     use super::*;
     fn mate(id: &str, name: &str) -> Teammate {

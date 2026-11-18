@@ -25,6 +25,19 @@ fn body_key(body: &str) -> u64 {
     hasher.finish()
 }
 
+/// Syntax highlights for a reply code block; stays plain while live or past 60,000 UTF-16 units.
+pub(crate) fn highlight_reply_code(
+    live: bool,
+    language: Option<&str>,
+    code: &str,
+) -> Vec<(std::ops::Range<usize>, rune_kit::syntax::Paint)> {
+    if live || code.encode_utf16().count() > 60_000 {
+        Vec::new()
+    } else {
+        rune_kit::syntax::highlight(language, code).to_vec()
+    }
+}
+
 /// Words and settle times from `CopyButton.tsx` (1_600 ms copied, 4_000 ms refused).
 pub fn copy_said(ok: bool) -> (&'static str, Duration) {
     if ok {
@@ -351,13 +364,7 @@ fn reply_markdown(s: &State, body: &str, live: bool, copy: bool, p: &Palette) ->
                 let _ = image.wait();
                 Some(image)
             })
-            .highlight(move |language, code| {
-                if live || code.encode_utf16().count() > 60_000 {
-                    Vec::new()
-                } else {
-                    rune_kit::syntax::highlight(language, code).to_vec()
-                }
-            })
+            .highlight(move |language, code| highlight_reply_code(live, language, code))
             .diagram_frame({
                 let tabs = diagram_tabs.clone();
                 let palette = Palette::new(p.dark);

@@ -2328,3 +2328,50 @@ Additional native cases (folder_confirmation::tests):
 - Limits: headless vector output/logic only. No live or packaged window,
   visual/pixel comparison, real agent call, phone session, Electron/JS gate,
   other OS, performance claim, or puppet change. Release suite/build pending.
+
+# Hydrogen: teammate and conversation window tests
+
+## Batch 1 (17 Nov 2026)
+- Carried:
+  - `an-unknown-record-stays-out-of-the-thread.test.ts` (3 cases): `core/src/unknown_record_tests.rs` on `Transcript::apply` and `signal_rail`.
+  - `an-earlier-turn-that-only-messaged-is-not-silent.test.tsx` (2 cases): `core/src/earlier_peer_only_tests.rs` on `Transcript::apply`.
+- Partial:
+  - `a-finished-message-stops-typing.test.ts` (3 of 4 cases): `core/src/finished_message_tests.rs` on `Transcript::apply` + `thread_view::streaming`. Case 4 (`stepsLine` `schedule` -> `"waited"`) is not built in `activity_summary`.
+- Does-not-apply:
+  - `a-shorter-window-keeps-the-newest-reply.test.ts`: source-inspection test of `useFollowBottom.ts?raw` for browser DOM `ResizeObserver`.
+- Waiting:
+  - `a-call-is-said-in-the-thread.test.tsx`: no voice calls in Rust.
+- Bugs fixed in `core/src/ledger.rs`:
+  - `Transcript::apply` now marks earlier open `Item::Assistant` items as `r#final = true` when a `tool.started` arrives or when a `message.delta` with a different `itemId` arrives (watched 2 tests fail first, then pass).
+  - `Transcript::apply`'s empty-turn check now strips `<locust-share>` blocks via `peer_share::strip_share_blocks` before checking whether `Item::Assistant` wrote anything, so a turn whose only text was `<locust-share>` without a `mission.peer` link still emits `"This turn ended without a reply"` (watched test fail first, then pass).
+- Breaks: 8 of 8 killed by name (`~/work/scratch/hydrogen/b1-breaks.log`).
+
+## Batch 2 (17 Nov 2026)
+- Partial:
+  - `a-cancelled-run-spent-nothing.test.ts` (4 of 5 cases): `core/src/cancelled_run_cost_tests.rs` on `mission_cost_from_events`, `cost_line`, and `cost_total`. Case 5 (`"so far"` on a live run) is not built on `cost_line`.
+  - `a-reply-suggests-tasks-as-cards.test.tsx` (core 4 of 4 + existing UI drive): `core/src/next_steps_cards_tests.rs` on `parse_next_steps`, `strip_next_blocks`, `defang_protocol_blocks`, `next_step_prompt`; `src/ui/window_drive_tests.rs:1004` covers the cards (`2 suggested tasks`, `Do it here`, `Start`, `Put away`). `Start all` is intentionally omitted in `src/ui/next_steps.rs`.
+- Waiting:
+  - `a-call-asks-on-a-card-in-the-thread.test.tsx`, `a-call-shows-on-its-conversation-row.test.tsx`: no voice calls in Rust.
+  - `a-phone-lists-conversations.test.ts`: no phone desk in Rust.
+- Breaks: 9 of 9 killed by name (`~/work/scratch/hydrogen/b2-breaks.log`, `b2b-breaks.log`, `b2c-breaks.log`).
+
+## Batch 3 (17 Nov 2026)
+- Carried:
+  - `the-home-cover-rests-after-inactivity.test.ts` (6 cases): `core/src/cover_activity_tests.rs` on `CoverActivity`; 5 of 5 breaks on `cover_activity.rs` killed by name (`~/work/scratch/hydrogen/b3-breaks.log`).
+- Partial:
+  - `codex-buddy-moves-on-his-own-rig.test.ts` (10 of 16): `core/src/buddy_moves.rs` (`stay_inside_his_window...`, etc.); HTML5 Canvas pixel-cut & IndexedDB `OLD_TWEENS_DATABASE` cases do not apply.
+  - `codex-buddy-wears-a-screen.test.tsx` (10 of 18): `core/src/buddy_moves.rs` (`is_his_alone...`, etc.); UI toggle & `faces.rs` drawing cases not separately named.
+- Does-not-apply:
+  - `a-pet-canvas-drawn-shrunk-is-in-software.test.ts`: source-inspection test of `buddyBody.ts` and `pets.ts` for HTML5 Canvas 2D `willReadFrequently` / `createImageBitmap`.
+- Waiting:
+  - `a-queued-message-refused-as-busy-waits.test.ts`: `src/composer/queue.rs` has `combine_queued` but no `retried_after_busy` / `retry_at` exponential backoff.
+
+## Batch 4 (17 Nov 2026)
+- Partial:
+  - `code-in-a-reply-is-coloured.test.tsx` (4 of 5 cases): `src/code_colors_tests.rs` on `reply_actions::highlight_reply_code` (`ts`, `Python`, `bash`, `brainfudge`, `None`, `live`, `> 60_000`); `ps1` and `c++` fences are not carried by `rune_kit::syntax`, and `languageOfPath` is not separately tested. 2 of 2 breaks on `src/ui/reply_actions.rs` killed by name (`~/work/scratch/hydrogen/b4-breaks.log`, `b4b-breaks.log`).
+  - `a-host-started-run-is-not-retried-as-your-message.test.tsx`: `core/src/thread_view_tests.rs:186` tests `person_prompt`; `runAgainOffer` / `"Run it again"` is not built in `src/ui/messages.rs`.
+- Does-not-apply:
+  - `an-image-request-lives-only-with-its-row.test.ts`: React async unmount guard in `AttachedImage.tsx`; Rust `workspace_image` is synchronous (`src/workspace_image_tests.rs`).
+- Waiting:
+  - `a-path-only-message-is-titled-by-its-file.test.ts`: no `pathOnlyTitle` in Rust conversation titles.
+  - `a-damaged-record-says-so-in-the-thread.test.tsx`: `integrity_issue_count` is shown in `inspector_panel.rs` via `ledger_verification_label`, not as an inline thread note.
