@@ -813,6 +813,7 @@ fn setup(s: &mut State, waker: Waker) {
         if s.last_restore.is_none() {
             s.last_restore = locust_core::profile_backup::take_last_restore(store.root());
         }
+        locust_core::cursor_config::recover_on_startup(store.root());
     }
     load_team(s);
     sync_draft_key(s);
