@@ -139,6 +139,7 @@ fn reload(s: &mut State) {
     }
     crate::agents_section::request(s);
     crate::github_section::request(s);
+    crate::chat_apps_section::reload(s);
     crate::claude_app_card::request(s);
     crate::agent_accounts_card::reload(s);
     crate::own_models_card::reload(s);
@@ -811,6 +812,8 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
             for heading in headings {
                 if heading == DOOR_HEADING {
                     body = body.child(door_section(s, p));
+                } else if heading == "Chat apps" {
+                    body = body.child(crate::chat_apps_section::section(s, p));
                 } else if heading == "Startup" {
                     body = body.child(crate::quit_guard_dialog::startup_section(s, p));
                 } else if heading == "Report a problem" {

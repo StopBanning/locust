@@ -195,6 +195,8 @@ mod issue_list;
 mod diff_notes_ui;
 #[path = "ui/connectors_section.rs"]
 mod connectors_section;
+#[path = "ui/chat_apps_section.rs"]
+mod chat_apps_section;
 #[path = "ui/github_section.rs"]
 mod github_section;
 #[path = "ui/claude_app_card.rs"]
@@ -3154,6 +3156,7 @@ fn main() {
             ("routines", routines_panel::scene),
             ("routines-light", routines_panel::light_scene),
             ("settings", settings_panel::scene),
+            ("chat-apps", chat_apps_section::scene),
             ("settings-door", settings_panel::door_scene),
             ("settings-carry", settings_panel::carry_settings_scene),
             ("settings-carry-light", settings_panel::carry_settings_light_scene),

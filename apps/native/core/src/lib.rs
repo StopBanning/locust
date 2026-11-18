@@ -14,6 +14,18 @@ pub mod benchmark;
 pub mod browser;
 pub mod browser_tools;
 pub mod carry_on;
+pub mod chat_apps;
+pub mod chat_discord;
+pub mod chat_discord_fmt;
+pub mod chat_host;
+pub mod chat_http;
+pub mod chat_link;
+pub mod chat_slack;
+pub mod chat_slack_fmt;
+pub mod chat_telegram;
+pub mod chat_telegram_fmt;
+#[cfg(test)]
+mod chat_link_tests;
 pub mod claude_app;
 pub mod locust_link;
 pub mod reply_page;

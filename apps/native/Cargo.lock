@@ -1824,6 +1824,7 @@ dependencies = [
 name = "locust-core"
 version = "0.1.0"
 dependencies = [
+ "block2 0.6.2",
  "calamine",
  "chrono",
  "ctrlc",
