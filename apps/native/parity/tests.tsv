@@ -11,7 +11,7 @@ apps/desktop/src/main/a-brief-between-teammates-arrives-whole.test.ts		waiting
 apps/desktop/src/main/a-browser-changes-only-what-grants-nothing.test.ts	P8	does-not-apply		`main/a-browser-changes-only-what-grants-nothing.test.ts` (subset) | `settings_change_kept` strips Auto/reach/swarm
 apps/desktop/src/main/a-browser-opens-locust-without-a-code-to-carry.test.ts		waiting		
 apps/desktop/src/main/a-browser-signs-in-with-github-and-opens-locust.test.ts		waiting		
-apps/desktop/src/main/a-built-in-tool-is-not-a-connector.test.ts		waiting		
+apps/desktop/src/main/a-built-in-tool-is-not-a-connector.test.ts	max-4	carried	core/src/approval.rs	all 3 cases (a_claude_bash_request_is_a_command_card, a_claude_edit_request_is_a_file_card_named_inside_the_folder, a_claude_mcp_request_is_still_a_connector); break checks caught by name
 apps/desktop/src/main/a-call-is-kept-with-its-conversation.test.ts		waiting		
 apps/desktop/src/main/a-called-link-is-closed-when-its-record-cannot-be-used.test.ts		waiting		
 apps/desktop/src/main/a-called-link-review.test.ts		waiting		
@@ -20,7 +20,7 @@ apps/desktop/src/main/a-card-answer-is-recorded-past-64-open-cards.test.ts		wait
 apps/desktop/src/main/a-carried-conversation-keeps-its-route-and-reports-its-status.test.ts		waiting		not in this branch's Electron tree: the file was added to apps/desktop/src/main after the branch was cut (it is in ~/work/locust)
 apps/desktop/src/main/a-change-is-walked-through.test.ts		waiting		
 apps/desktop/src/main/a-changed-memory-list-replaces-the-old-one.test.ts		waiting		
-apps/desktop/src/main/a-check-command-is-one-line.test.ts		waiting		
+apps/desktop/src/main/a-check-command-is-one-line.test.ts	max-4	carried	core/src/edit_check_tests.rs	a_check_command_is_one_line (2/2, already written in edit_check_tests.rs); break check caught by name
 apps/desktop/src/main/a-chosen-agent-settings-folder-is-asked-about.test.ts		waiting		
 apps/desktop/src/main/a-claim-arrives-beside-what-the-host-saw.test.ts		waiting		
 apps/desktop/src/main/a-claude-teammate-gets-its-skills.test.ts		waiting		
@@ -36,7 +36,7 @@ apps/desktop/src/main/a-cloud-session-is-read-only-once-at-a-time.test.ts		waiti
 apps/desktop/src/main/a-cloud-task-uses-the-organizations-environment.test.ts		waiting		
 apps/desktop/src/main/a-cloud-turn-keeps-its-change-there-until-applied.test.ts		waiting		
 apps/desktop/src/main/a-cloud-turn-runs-on-the-cloud-computer.test.ts		waiting		
-apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts		waiting		
+apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	max-4	partial	core/src/command_guard.rs	3/6 (codex_guard_names_it_elsewhere_as_claude_code_does, codex_guard_finds_none_where_there_are_none_or_bundled_or_uninstalled, codex_guard_finds_the_persons_own_a_plugins_and_a_projects_in_or_above); 2 Windows PowerShell cases and LOCUST_GUARD_LOG not built; break checks caught by name
 apps/desktop/src/main/a-codex-turn-on-its-branch-is-completed.test.ts		waiting		
 apps/desktop/src/main/a-column-answers-in-a-copy.test.ts		waiting		
 apps/desktop/src/main/a-column-can-be-tried-again.test.ts	compare-more	carried	a_column_run_again_answers_again,retry_clears_refusal_rejects_unknown_slot_and_compares_gone_with_checks_all_runs	`compare_window_tests::a_column_run_again_answers_again` + `compare::tests::retry_clears_refusal_rejects_unknown_slot_and_compares_gone_with_checks_all_runs` (all cases carried)
@@ -62,9 +62,9 @@ apps/desktop/src/main/a-conversation-in-a-settings-folder-is-asked-about-once.te
 apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	P9	partial		main/a-conversation-opens-in-its-own-terminal.test.ts | Partial: resume token rules and flags; newest-session lookup and busy/own-model refusals implemented. Windows Terminal/cmd cases not applicable on macOS. Remaining host facts/launch ma
 apps/desktop/src/main/a-conversation-runs-in-its-own-folder.test.ts		waiting		
 apps/desktop/src/main/a-copilot-permission-is-a-card.test.ts	MAIN5	partial	core/src/copilot_permission_tests.rs	6 of 7: Copilot 1.0.88's measured request as a command card, a folder-only shell, a shell that did not say its command (fixed), an edit's change relative to the folder (fixed), anything else in the agent's words with what it names (fixed: Use fetch), acpAnswerFor. ask_acp_runtime now builds Electron's acpPermissionRequest. Not built: a denial's reason as the run's next input (onDeniedSaying, declined)
-apps/desktop/src/main/a-copilot-teammate-is-guarded-too.test.ts		waiting		
+apps/desktop/src/main/a-copilot-teammate-is-guarded-too.test.ts	max-4	partial	core/src/command_guard.rs	3/6 (copilot_guard_names_it_elsewhere_as_claude_code_does_and_never_fails, copilot_guard_writes_manifest_and_hooks_beside_it, plus codex_mission_tests for print/approve-each --plugin-dir); 3 Windows PowerShell cases not run on macOS; break checks caught by name
 apps/desktop/src/main/a-copy-column-brings-its-changes-in.test.ts	tune	carried	refuses_bring_in_copy_over_own_edits_or_same_name_file_and_checks_lines_and_upfront_limit	`compare_copies::tests::*` + `compare_window_tests::keep_this_one_brings_column_change_into_folder_and_other_copies_go` (all cases carried)
-apps/desktop/src/main/a-credential-file-is-never-shown.test.ts		waiting		
+apps/desktop/src/main/a-credential-file-is-never-shown.test.ts	max-4	partial	core/src/secrets.rs	1/4 (scrubs_a_key_in_json_shape_and_claude_token); holdsSecrets and observedPatches not built in core/src; break check caught by name
 apps/desktop/src/main/a-cursor-level-becomes-its-id-at-the-start.test.ts		waiting		
 apps/desktop/src/main/a-cursor-mission-gives-its-connector-rules-back-when-it-ends.test.ts		waiting		
 apps/desktop/src/main/a-cursor-run-leaves-cursor-as-it-was.test.ts		waiting		
@@ -1224,7 +1224,7 @@ packages/runtime-adapters/src/probes-report-as-they-run.test.ts	M4-REVIEW	waitin
 packages/runtime-adapters/src/the-node-we-already-ship.test.ts	M4-REVIEW	does-not-apply		`src/the-node-we-already-ship.test.ts` — Not applicable: native ships a Rust binary, not Electron’s bundled Node runtime.
 packages/runtime-adapters/src/the-prompt-muse-cannot-be-told.test.ts	M4-REVIEW	partial		`src/the-prompt-muse-cannot-be-told.test.ts` — Partial → muse prompt-file argument and new native-owned file test; Node stdin/timer implementation is replaced, not ported literally.
 packages/runtime-adapters/test/a-backgrounded-call-says-so.test.ts	engine-2	carried	core/src/runtime/claude_background_calls_tests.rs	all 4 cases, one Rust test each, plus a_backgrounded_call_says_so_when_its_input_is_filled_in (Rust's own); break checks caught by name
-packages/runtime-adapters/test/a-busy-model-served-says-so.test.ts	M4-REVIEW	waiting		`test/a-busy-model-served-says-so.test.ts` — Deferred: retry notices exist; complete served-busy fixture/timing regression not ported.
+packages/runtime-adapters/test/a-busy-model-served-says-so.test.ts	max-4	carried	core/src/runtime/opencode_tests.rs	a_busy_model_through_opencode_serve_is_said_once_in_the_providers_words (1/1); break checks caught by name
 packages/runtime-adapters/test/a-claude-edit-says-what-it-changed.test.ts	M4-REVIEW	partial		`test/a-claude-edit-says-what-it-changed.test.ts` — Outside this review: Codex/Claude/app-server adapter tests belong to M1–M3; not rerouted to an M4 suite.
 packages/runtime-adapters/test/a-claude-run-that-lingers-after-its-result-completed.test.ts	M4-REVIEW	partial		`test/a-claude-run-that-lingers-after-its-result-completed.test.ts` — Outside this review: Codex/Claude/app-server adapter tests belong to M1–M3; not rerouted to an M4 suite.
 packages/runtime-adapters/test/a-cmd-shim-in-a-folder-with-a-space-runs.test.ts	M4-REVIEW	waiting		`test/a-cmd-shim-in-a-folder-with-a-space-runs.test.ts` — Deferred: Windows cmd shim launch semantics cannot be validated on this macOS native run.
@@ -1235,7 +1235,7 @@ packages/runtime-adapters/test/a-denied-read-and-a-file-row-are-said-as-they-are
 packages/runtime-adapters/test/a-free-model-refused-is-never-a-sign-in.test.ts	M4-REVIEW	partial	opencode_error_sentences_match_ts	`test/a-free-model-refused-is-never-a-sign-in.test.ts` — Partial → opencode_error_sentences_match_ts; every captured free-provider refusal shape is not ported.
 packages/runtime-adapters/test/a-helpers-calls-are-its-rows-children.test.ts	engine-2	carried	core/src/runtime/claude_helper_children_tests.rs	all 3 cases on fixtures/claude/helper-calls.jsonl, plus a_helpers_call_that_streams_its_start_is_still_the_helpers (Rust's own); break checks caught by name
 packages/runtime-adapters/test/a-large-cursor-result-keeps-its-terminal-status.test.ts	engine-2	carried	core/src/runtime/large_cursor_result_tests.rs	the 1 case, plus 5 of Rust's own (the driver's own reader with a 9 MiB result, an escape at the 64 Ki cut, a short last line); break checks caught by name
-packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	M4-REVIEW	waiting		`test/a-message-taken-and-never-begun-ends-the-run.test.ts` — Deferred: recovery code exists in opencode_serve.rs, but the TS silent prompt-accept/never-start timing matrix has no direct Rust regression.
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	max-4	partial	core/src/runtime/opencode_tests.rs	3/3 "never began" cases (a_message_opencode_took_and_never_began_ends_the_run_saying_so, a_message_opencode_took_waits_on_while_the_server_says_it_is_busy, a_message_opencode_took_asks_nothing_once_the_model_has_begun); EOF stream-recovery and follow-up parentID groups not carried here; break checks caught by name
 packages/runtime-adapters/test/a-model-of-your-own-is-priced-step-by-step.test.ts	M4-REVIEW	waiting		`test/a-model-of-your-own-is-priced-step-by-step.test.ts` — Deferred: user-provider pricing integration is not implemented in native.
 packages/runtime-adapters/test/a-muse-plan-used-up-is-said-once.test.ts	M4C	partial		`a-muse-plan-used-up-is-said-once.test.ts` — quota sentence helpers exist; dedicated plan-exhaust fixture not re-run as a separate file.
 packages/runtime-adapters/test/a-rate-limited-opencode-run-says-it-is-retrying.test.ts	M4-REVIEW	waiting		`test/a-rate-limited-opencode-run-says-it-is-retrying.test.ts` — Deferred: locust.retry normalization exists; exact stderr/retry deduplication fixture tests are not ported.

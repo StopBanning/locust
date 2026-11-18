@@ -985,9 +985,6 @@ impl Channel {
                     decision: Decision::Deny,
                     reason: Some(reason),
                 };
-                let mut record = record_of(&request, &answer);
-                record.by = "command-guard".into();
-                guard.recorded.push(record);
                 return Ok((answer, "locust"));
             }
             // Saved rules answer before a card (Electron decideByRules). Unreadable → every card asks.
@@ -1779,6 +1776,22 @@ mod tests {
             .unwrap();
         assert_eq!(result["behavior"], "deny");
         assert_eq!(ch.take_recorded()[0].by, "saved-rule");
+        let done = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let watcher_done = Arc::clone(&done);
+        let watcher_ch = ch.clone();
+        let watcher = std::thread::spawn(move || {
+            while !watcher_done.load(std::sync::atomic::Ordering::Relaxed) {
+                if let Some(card) = watcher_ch.waiting().first() {
+                    let _ = watcher_ch.decide(Answer::Decision {
+                        approval_id: card.approval_id.clone(),
+                        decision: Decision::ApproveOnce,
+                        reason: None,
+                    });
+                    return;
+                }
+                std::thread::sleep(Duration::from_millis(5));
+            }
+        });
         let result = ch
             .ask_claude(
                 "r",
@@ -1790,8 +1803,10 @@ mod tests {
                 &|| false,
             )
             .unwrap();
+        done.store(true, std::sync::atomic::Ordering::Relaxed);
+        watcher.join().unwrap();
         assert_eq!(result["behavior"], "deny");
-        assert_eq!(ch.take_recorded()[0].by, "command-guard");
+        assert!(ch.take_recorded().is_empty());
         crate::invariants::lock(&ch.inner).always.clear();
         let worker = ch.clone();
         let handle = std::thread::spawn(move || {
@@ -2245,6 +2260,28 @@ mod tests {
             (inside.0, inside.1.as_str(), inside.2.as_str(), inside.3, inside.4),
             (Kind::FileChange, "Change 1 file", "notes.txt", None, None)
         );
+    }
+
+    #[test]
+    fn a_claude_bash_request_is_a_command_card() {
+        let card = describe_claude_tool("Bash", &json!({"command": "node check.js"}), "C:/work");
+        assert_eq!((card.0, card.1.as_str(), card.2.as_str()), (Kind::Command, "Run a command", "node check.js"));
+    }
+
+    #[test]
+    fn a_claude_edit_request_is_a_file_card_named_inside_the_folder() {
+        let card = describe_claude_tool(
+            "Edit",
+            &json!({"file_path": "C:/work/notes.txt", "old_string": "a", "new_string": "b"}),
+            "C:/work",
+        );
+        assert_eq!((card.0, card.1.as_str(), card.2.as_str()), (Kind::FileChange, "Change 1 file", "notes.txt"));
+    }
+
+    #[test]
+    fn a_claude_mcp_request_is_still_a_connector() {
+        let card = describe_claude_tool("mcp__claude_ai_Gmail__send_message", &json!({"to": "x"}), "C:/work");
+        assert_eq!(card.0, Kind::Connector);
     }
 
     #[test]
