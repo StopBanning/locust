@@ -326,9 +326,8 @@ pub(super) fn reply_markdown_for_tests(s: &State, body: &str, p: &Palette) -> El
 fn reply_markdown(s: &State, body: &str, live: bool, copy: bool, p: &Palette) -> El {
     let frame_palette = Palette::new(p.dark);
     let feedback = s.copy_feedback.clone();
-    let prepared = crate::diagram::prepare_reply_markdown(body);
-    let (prepared, undrawn) = crate::diagram::take_undrawn_markers(&prepared);
-    let (prepared, math_pngs) = crate::math_tex::prepare_math_markdown(&prepared, p.dark);
+    let crate::markdown_prep::Prepared { markdown: prepared, undrawn, math: math_pngs } =
+        crate::markdown_prep::prepare_reply(body, p.dark);
     let diagram_tabs = s.diagram_code_tab.clone();
     let image_cache = s.image_cache.clone();
     let pictures = crate::step_pictures::reply_pictures(s, &prepared);
@@ -339,12 +338,21 @@ fn reply_markdown(s: &State, body: &str, live: bool, copy: bool, p: &Palette) ->
             .streaming(live)
             .selectable(true)
             .on_link(|s: &mut State, url| {
-                if let Some(target) = file_target(url) {
+                if crate::markdown_prep::is_own_mark(url) {
+                    // A status chip or a colour swatch: drawn, never opened.
+                } else if let Some(target) = file_target(url) {
                     open_file(s, target);
                 } else {
                     // A web address opens in the person's browser; any other scheme is refused, and says so.
                     crate::published_cards::open_web_link(s, url);
                 }
+            })
+            // Where a web link really goes, under the pointer, so its label cannot lie about it (linkHost).
+            .link_help(crate::markdown_prep::link_host)
+            // A table's status as a chip, a colour code's swatch (statusChips.ts, hexColourOf).
+            .link_style({
+                let dark = p.dark;
+                move |url| crate::markdown_prep::reply_link_look(url, dark)
             })
             .image_frame(move |shown, frame| {
                 // A picture from the conversation's folder is a rounded card with its caption; math stays inline.

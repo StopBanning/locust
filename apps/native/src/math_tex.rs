@@ -96,27 +96,46 @@ pub fn prepare_math_markdown(body: &str, dark: bool) -> (String, HashMap<String,
     let mut out = String::with_capacity(body.len());
     let mut fenced = false;
     let mut fence_ticks = 0usize;
-    for line in body.split_inclusive('\n') {
+    let lines: Vec<&str> = body.split_inclusive('\n').collect();
+    let mut index = 0usize;
+    while index < lines.len() {
+        let line = lines[index];
+        index += 1;
         let trimmed = line.trim_end_matches(['\r', '\n']);
         let newline = &line[trimmed.len()..];
         if !fenced {
-            if let Some(ticks) = opening_fence(trimmed) {
+            if let Some(ticks) = opening_fence(trimmed.trim_start()) {
                 fenced = true;
                 fence_ticks = ticks;
                 out.push_str(line);
                 continue;
             }
+            // A quote's `> ` or a list item's indent: math drawn on such a line stays inside it.
+            let (prefix, content) = line_prefix(trimmed);
+            let pad = prefix.is_empty();
+            // A displayed equation opening the line, closed on it or on a later one (agentText.ts's
+            // 'math' block): only when nothing but punctuation follows the close.
+            if let Some((tex, last)) = take_display_block(&lines, index - 1) {
+                out.push_str(prefix);
+                push_math(&mut out, &mut images, &tex, true, dark, pad);
+                let end = lines[last];
+                out.push_str(&end[end.trim_end_matches(['\r', '\n']).len()..]);
+                index = last + 1;
+                continue;
+            }
             // Display math that opens the line.
-            if let Some((tex, rest)) = take_display_line(trimmed) {
-                push_math(&mut out, &mut images, &tex, true, dark);
+            if let Some((tex, rest)) = take_display_line(content) {
+                out.push_str(prefix);
+                push_math(&mut out, &mut images, &tex, true, dark, pad);
                 out.push_str(rest);
                 out.push_str(newline);
                 continue;
             }
-            rewrite_inline(&mut out, &mut images, trimmed, dark);
+            out.push_str(prefix);
+            rewrite_inline(&mut out, &mut images, content, dark, pad);
             out.push_str(newline);
         } else {
-            if closing_fence(trimmed, fence_ticks) {
+            if closing_fence(trimmed.trim_start(), fence_ticks) {
                 fenced = false;
                 fence_ticks = 0;
             }
@@ -132,15 +151,20 @@ fn push_math(
     tex: &str,
     display: bool,
     dark: bool,
+    pad: bool,
 ) {
     match render_png(tex, display, dark) {
         Some(png) => {
             let src = format!("{MATH_SRC_PREFIX}{:016x}", tex_key(tex, display, dark));
             images.insert(src.clone(), png);
-            if display {
-                out.push_str(&format!("\n![{tex}]({src})\n"));
+            // An equation gathered from several lines is named on one, or its own lines would end the quote.
+            let alt = tex.split_whitespace().collect::<Vec<_>>().join(" ");
+            if display && pad {
+                out.push_str(&format!("\n![{alt}]({src})\n"));
             } else {
-                out.push_str(&format!("![{tex}]({src})"));
+                // Inside a quote or a list item the picture stays on the line, which Markdown still draws
+                // as a block of its own; a blank line around it would end the quote or the item.
+                out.push_str(&format!("![{alt}]({src})"));
             }
         }
         None => out.push_str(&fallback_tex(tex, display)),
@@ -163,6 +187,43 @@ fn closing_fence(line: &str, ticks: usize) -> bool {
         n += 1;
     }
     n >= ticks && line[n..].trim().is_empty()
+}
+
+/// A line's quote markers and indent, and what follows them.
+fn line_prefix(line: &str) -> (&str, &str) {
+    let content = line.trim_start_matches([' ', '\t', '>']);
+    (&line[..line.len() - content.len()], content)
+}
+
+/// `$$` or `\[` opening a line and closed on a LATER line, with nothing but punctuation after the close
+/// (agentText.ts's displayed-equation block): the TeX, and the index of the closing line. A quote's
+/// markers come off every line it gathers. One closed on its own line is [`take_display_line`]'s.
+fn take_display_block(lines: &[&str], first: usize) -> Option<(String, usize)> {
+    let (_, content) = line_prefix(lines[first].trim_end_matches(['\r', '\n']));
+    let close = if content.starts_with("$$") {
+        "$$"
+    } else if content.starts_with("\\[") {
+        "\\]"
+    } else {
+        return None;
+    };
+    if content[2..].contains(close) {
+        return None;
+    }
+    let mut gathered = vec![&content[2..]];
+    for (at, line) in lines.iter().enumerate().skip(first + 1) {
+        let (_, rest) = line_prefix(line.trim_end_matches(['\r', '\n']));
+        if let Some(end) = rest.find(close) {
+            if !rest[end + 2..].chars().all(|c| c.is_whitespace() || ".,;:".contains(c)) {
+                return None;
+            }
+            gathered.push(&rest[..end]);
+            let tex = gathered.join("\n").trim().to_owned();
+            return (!tex.is_empty()).then_some((tex, at));
+        }
+        gathered.push(rest);
+    }
+    None
 }
 
 fn take_display_line(line: &str) -> Option<(String, &str)> {
@@ -192,16 +253,133 @@ fn take_display_line(line: &str) -> Option<(String, &str)> {
     None
 }
 
+/// A lone TeX macro is its symbol (agentText.ts `TEX_SYMBOLS`): `$\rightarrow$` reads "→". Only a `$…$` that is
+/// exactly one of these, spaces allowed inside the dollars, is drawn as its character; a whole formula is math.
+pub const TEX_SYMBOLS: &[(&str, &str)] = &[
+    ("rightarrow", "→"),
+    ("to", "→"),
+    ("longrightarrow", "⟶"),
+    ("leftarrow", "←"),
+    ("gets", "←"),
+    ("leftrightarrow", "↔"),
+    ("Rightarrow", "⇒"),
+    ("implies", "⇒"),
+    ("Leftarrow", "⇐"),
+    ("Leftrightarrow", "⇔"),
+    ("iff", "⇔"),
+    ("mapsto", "↦"),
+    ("uparrow", "↑"),
+    ("downarrow", "↓"),
+    ("times", "×"),
+    ("div", "÷"),
+    ("cdot", "·"),
+    ("pm", "±"),
+    ("mp", "∓"),
+    ("le", "≤"),
+    ("leq", "≤"),
+    ("ge", "≥"),
+    ("geq", "≥"),
+    ("ne", "≠"),
+    ("neq", "≠"),
+    ("approx", "≈"),
+    ("equiv", "≡"),
+    ("sim", "∼"),
+    ("propto", "∝"),
+    ("ll", "≪"),
+    ("gg", "≫"),
+    ("infty", "∞"),
+    ("degree", "°"),
+    ("circ", "∘"),
+    ("bullet", "•"),
+    ("checkmark", "✓"),
+    ("ldots", "…"),
+    ("dots", "…"),
+    ("cdots", "⋯"),
+    ("in", "∈"),
+    ("notin", "∉"),
+    ("subset", "⊂"),
+    ("subseteq", "⊆"),
+    ("cup", "∪"),
+    ("cap", "∩"),
+    ("emptyset", "∅"),
+    ("forall", "∀"),
+    ("exists", "∃"),
+    ("neg", "¬"),
+    ("land", "∧"),
+    ("lor", "∨"),
+    ("therefore", "∴"),
+    ("sum", "∑"),
+    ("prod", "∏"),
+    ("partial", "∂"),
+    ("nabla", "∇"),
+    ("alpha", "α"),
+    ("beta", "β"),
+    ("gamma", "γ"),
+    ("delta", "δ"),
+    ("epsilon", "ε"),
+    ("theta", "θ"),
+    ("lambda", "λ"),
+    ("mu", "μ"),
+    ("pi", "π"),
+    ("sigma", "σ"),
+    ("tau", "τ"),
+    ("phi", "φ"),
+    ("omega", "ω"),
+    ("Gamma", "Γ"),
+    ("Delta", "Δ"),
+    ("Theta", "Θ"),
+    ("Lambda", "Λ"),
+    ("Pi", "Π"),
+    ("Sigma", "Σ"),
+    ("Phi", "Φ"),
+    ("Omega", "Ω"),
+];
+
+/// `$\name$` (or `$ \name $`) at the start of `s`, for a name in [`TEX_SYMBOLS`]: its symbol and the length read.
+fn lone_macro(s: &str) -> Option<(&'static str, usize)> {
+    let inner = s.strip_prefix('$')?;
+    let body = inner.trim_start_matches([' ', '\t']).strip_prefix('\\')?;
+    let name_len = body.bytes().take_while(u8::is_ascii_alphabetic).count();
+    let (name, after) = body.split_at(name_len);
+    let after_trim = after.trim_start_matches([' ', '\t']);
+    after_trim.strip_prefix('$')?;
+    let symbol = TEX_SYMBOLS.iter().find(|(n, _)| *n == name)?.1;
+    Some((symbol, s.len() - after_trim.len() + 1))
+}
+
 /// Inline `$…$`, `\(...\)`, mid-line `$$…$$` / `\[…\]` — pandoc dollar rules from agentText.ts.
 fn rewrite_inline(
     out: &mut String,
     images: &mut HashMap<String, Arc<[u8]>>,
     line: &str,
     dark: bool,
+    pad: bool,
 ) {
     let bytes = line.as_bytes();
     let mut i = 0usize;
     while i < bytes.len() {
+        // A code span is code: nothing in it is math (agentText.ts reads code spans first).
+        if bytes[i] == b'`' {
+            let run = bytes[i..].iter().take_while(|b| **b == b'`').count();
+            let ticks = "`".repeat(run);
+            if let Some(end) = line[i + run..].find(ticks.as_str()) {
+                let end = i + run + end + run;
+                out.push_str(&line[i..end]);
+                i = end;
+            } else {
+                out.push_str(&ticks);
+                i += run;
+            }
+            continue;
+        }
+        if bytes[i] == b'$'
+            && (i == 0 || bytes[i - 1] != b'\\')
+            && let Some((symbol, len)) = lone_macro(&line[i..])
+        {
+            out.push_str(symbol);
+            i += len;
+            continue;
+        }
         // \( ... \)
         if bytes[i] == b'\\'
             && i + 1 < bytes.len()
@@ -210,7 +388,7 @@ fn rewrite_inline(
         {
             let tex = line[i + 2..end].trim();
             if !tex.is_empty() {
-                push_math(out, images, tex, false, dark);
+                push_math(out, images, tex, false, dark, pad);
                 i = end + 2;
                 continue;
             }
@@ -223,7 +401,7 @@ fn rewrite_inline(
         {
             let tex = line[i + 2..end].trim();
             if !tex.is_empty() && tex.chars().any(|c| "\\^_={}".contains(c)) {
-                push_math(out, images, tex, true, dark);
+                push_math(out, images, tex, true, dark, pad);
                 i = end + 2;
                 continue;
             }
@@ -238,7 +416,7 @@ fn rewrite_inline(
             if let Some(end) = find_dollar_pair(line, i + 2, true) {
                 let tex = line[i + 2..end].trim();
                 if !tex.is_empty() {
-                    push_math(out, images, tex, true, dark);
+                    push_math(out, images, tex, true, dark, pad);
                     i = end + 2;
                     continue;
                 }
@@ -259,7 +437,7 @@ fn rewrite_inline(
             {
                 let tex = line[i + 1..end].trim();
                 if !tex.is_empty() {
-                    push_math(out, images, tex, false, dark);
+                    push_math(out, images, tex, false, dark, pad);
                     i = end + 1;
                     continue;
                 }

@@ -94,6 +94,8 @@ mod chip_mark;
 mod cover_watch;
 #[path = "ui/reply_actions.rs"]
 mod reply_actions;
+#[path = "ui/markdown_prep.rs"]
+mod markdown_prep;
 #[path = "ui/routines_panel.rs"]
 mod routines_panel;
 #[path = "ui/scenes.rs"]
@@ -3396,3 +3398,6 @@ mod renderer_address_tests {
         assert!(selected_conversation(&s).is_none());
     }
 }
+#[cfg(test)]
+#[path = "ui/markdown_reply_tests.rs"]
+mod markdown_reply_tests;

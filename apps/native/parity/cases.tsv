@@ -839,6 +839,10 @@ apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	
 apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	caps an absent or higher personal limit while keeping a lower one	no
 apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	refuses an unmetered launch when the monthly cap cannot be enforced	no
 apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	refuses an unrestricted cloud terminal when it cannot enforce the managed route	no
+apps/desktop/src/main/an-other-app-origin-survives-a-restart.test.ts	records schema 23 or later, recovers the origin, and projects it into history without forgetting Ask mode	no
+apps/desktop/src/main/an-other-app-origin-survives-a-restart.test.ts	keeps a voice call’s hand-off as one, across a restart (0.739)	no
+apps/desktop/src/main/an-other-app-origin-survives-a-restart.test.ts	makes the external origin visible in the thread and keeps the actual ask as a message	no
+apps/desktop/src/main/an-other-app-origin-survives-a-restart.test.ts	classifies the token file and opt-in as excluded from every profile backup	no
 apps/desktop/src/main/antigravity-runs-through-its-cli.test.ts	is a runtime whose events the host reads	no
 apps/desktop/src/main/antigravity-runs-through-its-cli.test.ts	carries an app tier, or an id with its effort on the end, to a model and an effort; the effort chosen in the box wins	no
 apps/desktop/src/main/antigravity-runs-through-its-cli.test.ts	starts the CLI fresh after a turn the app ran	no
@@ -2070,6 +2074,14 @@ apps/desktop/src/renderer/src/a-benchmark-reads-every-run.test.tsx	says why, in 
 apps/desktop/src/renderer/src/a-benchmark-reads-every-run.test.tsx	reads every run as one table, the best score marked, and sets a teammate on a row	no
 apps/desktop/src/renderer/src/a-benchmark-reads-every-run.test.tsx	says how many runs a model answered, when its answer failed in one	no
 apps/desktop/src/renderer/src/a-benchmark-reads-every-run.test.tsx	says which run it is on, and what that run is doing, with a way to stop	no
+apps/desktop/src/renderer/src/a-blank-line-does-not-end-a-list.test.tsx	keeps numbered steps with blank lines between them as ONE list	yes
+apps/desktop/src/renderer/src/a-blank-line-does-not-end-a-list.test.tsx	draws them 1, 2, 3 -- not 1, 1, 1	yes
+apps/desktop/src/renderer/src/a-blank-line-does-not-end-a-list.test.tsx	keeps an indented second paragraph inside its item	yes
+apps/desktop/src/renderer/src/a-blank-line-does-not-end-a-list.test.tsx	reads the changelog entry that showed it, with the paragraph inside its bullet	yes
+apps/desktop/src/renderer/src/a-blank-line-does-not-end-a-list.test.tsx	drops no words from any entry in the changelog	yes
+apps/desktop/src/renderer/src/a-blank-line-does-not-end-a-list.test.tsx	resumes the numbering after a code block splits the steps	yes
+apps/desktop/src/renderer/src/a-blank-line-does-not-end-a-list.test.tsx	still ends the list at prose that is not indented under it	yes
+apps/desktop/src/renderer/src/a-blank-line-does-not-end-a-list.test.tsx	still starts a new list when the kind changes after the blank line	yes
 apps/desktop/src/renderer/src/a-blind-comparison-hides-the-names.test.tsx	names its columns Model A and Model B, and shows nothing that names the model	no
 apps/desktop/src/renderer/src/a-blind-comparison-hides-the-names.test.tsx	shows the names once one is kept	no
 apps/desktop/src/renderer/src/a-blind-comparison-hides-the-names.test.tsx	counts, per model, the decided comparisons it answered in and the ones you kept it	no
@@ -2112,6 +2124,11 @@ apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	takes Cl
 apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	names the version on the controls that pick a route, and nothing else changes	no
 apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	labels the row with the version	no
 apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	believes a finished run over the table	no
+apps/desktop/src/renderer/src/a-colour-code-shows-its-colour.test.tsx	shows its colour beside it	yes
+apps/desktop/src/renderer/src/a-colour-code-shows-its-colour.test.tsx	shows it for a table cell or a list item that is nothing but a colour (0.362)	yes
+apps/desktop/src/renderer/src/a-colour-code-shows-its-colour.test.tsx	shows it inside bold and italic, with no backticks left showing (0.362)	yes
+apps/desktop/src/renderer/src/a-colour-code-shows-its-colour.test.tsx	draws nothing for code that is not exactly a colour	yes
+apps/desktop/src/renderer/src/a-colour-code-shows-its-colour.test.tsx	accepts #rrggbb only, as GitHub does -- a short form may be an issue number	yes
 apps/desktop/src/renderer/src/a-command-reads-as-a-command.test.ts	unwraps the shape that prompted this	yes
 apps/desktop/src/renderer/src/a-command-reads-as-a-command.test.ts	handles the spellings this app actually spawns	yes
 apps/desktop/src/renderer/src/a-command-reads-as-a-command.test.ts	leaves an ordinary command alone	yes
@@ -2456,6 +2473,11 @@ apps/desktop/src/renderer/src/a-queued-message-stays-in-its-conversation.test.ts
 apps/desktop/src/renderer/src/a-queued-message-stays-in-its-conversation.test.ts	replies into the live run on screen, whoever else is busy	no
 apps/desktop/src/renderer/src/a-queued-message-stays-in-its-conversation.test.ts	is judged by the run it waits for: held while that runs, sent when it ends	no
 apps/desktop/src/renderer/src/a-queued-message-stays-in-its-conversation.test.ts	judges and shows a waiting row by the run it waits for (M32)	no
+apps/desktop/src/renderer/src/a-quoted-equation-is-drawn.test.tsx	a quote is drawn as a quote, not as a paragraph	yes
+apps/desktop/src/renderer/src/a-quoted-equation-is-drawn.test.tsx	a displayed equation inside a quote is drawn by KaTeX, and none of its TeX is left showing	yes
+apps/desktop/src/renderer/src/a-quoted-equation-is-drawn.test.tsx	a quote inside a quote, and a list inside a quote, keep their shape	yes
+apps/desktop/src/renderer/src/a-quoted-equation-is-drawn.test.tsx	an equation written in the middle of a line is drawn too	yes
+apps/desktop/src/renderer/src/a-quoted-equation-is-drawn.test.tsx	money and an escaped bracket in prose are still prose	yes
 apps/desktop/src/renderer/src/a-remote-control-switch-shows-claudes-own-words.test.tsx	The off switch explains its lifetime and account requirements.	no
 apps/desktop/src/renderer/src/a-remote-control-switch-shows-claudes-own-words.test.tsx	Off, it reads as one switch: its state opens its own line, and nothing sits under it.	no
 apps/desktop/src/renderer/src/a-remote-control-switch-shows-claudes-own-words.test.tsx	A running switch shows Claude output and errors without summarizing or trimming them.	no
@@ -2593,6 +2615,10 @@ apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-un
 apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx	shows the same uncertainty when OpenCode reported no completed tools	no
 apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx	keeps reported interrupted commands and states OpenCode uncertainty once	no
 apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx	keeps the ordinary runtime warning and never invents OpenCode uncertainty for it	no
+apps/desktop/src/renderer/src/a-tables-status-is-a-chip.test.tsx	is found by its header, marks and all	yes
+apps/desktop/src/renderer/src/a-tables-status-is-a-chip.test.tsx	knows a value by its first words, and nothing it does not know	yes
+apps/desktop/src/renderer/src/a-tables-status-is-a-chip.test.tsx	draws as chips in a reply, and leaves other columns and unknown values alone	yes
+apps/desktop/src/renderer/src/a-tables-status-is-a-chip.test.tsx	is a chip you can change where the thread has a box, naming its row (0.733)	no
 apps/desktop/src/renderer/src/a-tagged-conversation-shows-the-message.test.ts	is titled by the message	yes
 apps/desktop/src/renderer/src/a-tagged-conversation-shows-the-message.test.ts	draws the message as the bubble, without the context after it	yes
 apps/desktop/src/renderer/src/a-team-card-says-what-it-waits-on.test.tsx	uses the same waiting words as Home, for a question, a command and another approval	no
@@ -2729,6 +2755,8 @@ apps/desktop/src/renderer/src/a-tidy-suggestion-says-what-it-does.test.tsx	once 
 apps/desktop/src/renderer/src/a-tidy-suggestion-says-what-it-does.test.tsx	says so outright past ${String(TIDY_NUDGE_AT)} memories	no
 apps/desktop/src/renderer/src/a-tidy-suggestion-says-what-it-does.test.tsx	the card names the merge and the retirement for what they ask	no
 apps/desktop/src/renderer/src/a-tidy-suggestion-says-what-it-does.test.tsx	the notice counts the suggestions and says which could not be made	no
+apps/desktop/src/renderer/src/a-tool-call-written-as-text.test.ts	becomes a code block labelled tool call, and the prose around it stays prose	yes
+apps/desktop/src/renderer/src/a-tool-call-written-as-text.test.ts	takes an unclosed one to the end, and leaves a reply without one alone	yes
 apps/desktop/src/renderer/src/a-trimmed-live-turn-says-so-on-screen.test.tsx	shows the omission notice once when a running turn exceeds 3000 events	yes
 apps/desktop/src/renderer/src/a-trimmed-live-turn-says-so-on-screen.test.tsx	shows no omission notice below or exactly at 3000 events	yes
 apps/desktop/src/renderer/src/a-tune-can-give-a-claude-teammate-a-skill.test.tsx	shows What it knows as a skill beside Current’s instructions: its name, when to use it, and what it says	no
@@ -2755,6 +2783,12 @@ apps/desktop/src/renderer/src/a-tune-says-when-a-setup-repeats.test.tsx	says whe
 apps/desktop/src/renderer/src/a-tune-says-when-a-setup-repeats.test.tsx	waits for the drafts: copies shown while they are written are placeholders, not repeats	no
 apps/desktop/src/renderer/src/a-week-with-scout-is-one-card.test.tsx	is one card, its lines under its sentence, its one suggestion as its button	no
 apps/desktop/src/renderer/src/a-week-with-scout-is-one-card.test.tsx	has no button but Dismiss when there is nothing to change	no
+apps/desktop/src/renderer/src/a-wrapped-bullet-stays-one-bullet.test.ts	stays one bullet, with the whole sentence in it	yes
+apps/desktop/src/renderer/src/a-wrapped-bullet-stays-one-bullet.test.ts	keeps wrapping with the item it belongs to, not the one before	yes
+apps/desktop/src/renderer/src/a-wrapped-bullet-stays-one-bullet.test.ts	wraps a nested item into the nested item	yes
+apps/desktop/src/renderer/src/a-wrapped-bullet-stays-one-bullet.test.ts	still ends the list at a blank line	yes
+apps/desktop/src/renderer/src/a-wrapped-bullet-stays-one-bullet.test.ts	still ends the list at UNINDENTED prose, which a model usually means as prose	yes
+apps/desktop/src/renderer/src/a-wrapped-bullet-stays-one-bullet.test.ts	drops nothing	yes
 apps/desktop/src/renderer/src/across-your-benchmarks.test.tsx	averages each model over the benchmarks it ran in, each counted once, and counts its runs over all of them	no
 apps/desktop/src/renderer/src/across-your-benchmarks.test.tsx	leaves a tune's setups out: one tune's Setup A is not another's (0.811)	no
 apps/desktop/src/renderer/src/across-your-benchmarks.test.tsx	reads nothing across until two models have each run in two benchmarks	no
@@ -2765,6 +2799,40 @@ apps/desktop/src/renderer/src/agent-updates-say-what-happened.test.ts	offers Upd
 apps/desktop/src/renderer/src/agent-updates-say-what-happened.test.ts	says an update is under way, landed, or failed -- and when	yes
 apps/desktop/src/renderer/src/agent-updates-say-what-happened.test.ts	the switch says what it does either way, and that the download is big	yes
 apps/desktop/src/renderer/src/agent-updates-say-what-happened.test.ts	says so, and still offers Update	yes
+apps/desktop/src/renderer/src/agentText.test.ts	pulls a fenced block out of the prose around it	yes
+apps/desktop/src/renderer/src/agentText.test.ts	treats an unclosed fence as code still being written, not as prose	yes
+apps/desktop/src/renderer/src/agentText.test.ts	keeps a longer fence inside a shorter one as code	yes
+apps/desktop/src/renderer/src/agentText.test.ts	reads a fence with no language	yes
+apps/desktop/src/renderer/src/agentText.test.ts	leaves a reply with no fences as a single block of prose	yes
+apps/desktop/src/renderer/src/agentText.test.ts	drops nothing, whatever the shape of the reply	yes
+apps/desktop/src/renderer/src/agentText.test.ts	handles CRLF the way a Windows runtime emits it	yes
+apps/desktop/src/renderer/src/agentText.test.ts	lifts a run of bullets out of the prose instead of running them together	yes
+apps/desktop/src/renderer/src/agentText.test.ts	reads a numbered list as ordered	yes
+apps/desktop/src/renderer/src/agentText.test.ts	starts a new list when the kind changes	yes
+apps/desktop/src/renderer/src/agentText.test.ts	does not treat a sentence containing a dash as a list	yes
+apps/desktop/src/renderer/src/agentText.test.ts	still drops nothing	yes
+apps/desktop/src/renderer/src/agentText.test.ts	shows the label and keeps the target off the sentence	yes
+apps/desktop/src/renderer/src/agentText.test.ts	leaves brackets that are not a link alone	yes
+apps/desktop/src/renderer/src/agentText.test.ts	marks a matched pair and leaves the words around it alone	yes
+apps/desktop/src/renderer/src/agentText.test.ts	leaves a lone backtick visible rather than swallowing the rest	yes
+apps/desktop/src/renderer/src/agentText.test.ts	never loses text	yes
+apps/desktop/src/renderer/src/agentText.test.ts	is drawn as its symbol, in the words around it	yes
+apps/desktop/src/renderer/src/agentText.test.ts	leaves money and code as they were written, and a whole formula is math (2026-09-29)	yes
+apps/desktop/src/renderer/src/agentText.test.ts	lifts a hash heading out of the prose, at its level	yes
+apps/desktop/src/renderer/src/agentText.test.ts	does not mistake a hashtag or a shell comment for a heading	yes
+apps/desktop/src/renderer/src/agentText.test.ts	a heading ends the list before it	yes
+apps/desktop/src/renderer/src/agentText.test.ts	keeps every word when headings are lifted	yes
+apps/desktop/src/renderer/src/agentText.test.ts	draws **bold** and *emphasis* as spans, and leaves the markers out	yes
+apps/desktop/src/renderer/src/agentText.test.ts	does not turn identifiers or arithmetic into emphasis	yes
+apps/desktop/src/renderer/src/agentText.test.ts	keeps markers inside code spans literal	yes
+apps/desktop/src/renderer/src/agentText.test.ts	reads a table as columns	yes
+apps/desktop/src/renderer/src/agentText.test.ts	takes the alignment from the colons	yes
+apps/desktop/src/renderer/src/agentText.test.ts	leaves a sentence with a pipe in it as prose	yes
+apps/desktop/src/renderer/src/agentText.test.ts	leaves a row of hyphens with nothing above it as a rule, not a table	yes
+apps/desktop/src/renderer/src/agentText.test.ts	reads a quote as a quote	yes
+apps/desktop/src/renderer/src/agentText.test.ts	keeps every word, which is what the coverage guard is for	yes
+apps/desktop/src/renderer/src/agentText.test.ts	are not bold: a connector tool keeps its name	yes
+apps/desktop/src/renderer/src/agentText.test.ts	still make bold at a word edge	yes
 apps/desktop/src/renderer/src/alt-and-an-arrow-moves-between-conversations.test.ts	open the next and the previous conversation as the sidebar draws them, round from the end	no
 apps/desktop/src/renderer/src/alt-and-an-arrow-moves-between-conversations.test.ts	start at the top, or the bottom, when none of them is on screen	no
 apps/desktop/src/renderer/src/alt-and-an-arrow-moves-between-conversations.test.ts	with Shift, pass over every conversation that is not waiting for you	yes
@@ -3068,6 +3136,14 @@ apps/desktop/src/renderer/src/its-own-settings-file.test.ts	does not put the raw
 apps/desktop/src/renderer/src/its-own-settings-file.test.ts	keeps the host sentence it is extending	no
 apps/desktop/src/renderer/src/its-own-settings-file.test.ts	leaves every other last word exactly as it was	no
 apps/desktop/src/renderer/src/keyboardShortcuts.test.ts	groups them for a person, and every row is a key the code actually handles	no
+apps/desktop/src/renderer/src/links-go-somewhere.test.ts	is a link, not four asterisks and a URL	yes
+apps/desktop/src/renderer/src/links-go-somewhere.test.ts	works for bold as well as italic	yes
+apps/desktop/src/renderer/src/links-go-somewhere.test.ts	leaves a plain link and plain emphasis exactly as they were	yes
+apps/desktop/src/renderer/src/links-go-somewhere.test.ts	keeps a code span literal even when it looks like a link	yes
+apps/desktop/src/renderer/src/links-go-somewhere.test.ts	accepts an ordinary web address	yes
+apps/desktop/src/renderer/src/links-go-somewhere.test.ts	refuses every way of reaching this machine	yes
+apps/desktop/src/renderer/src/links-go-somewhere.test.ts	still opens the three addresses the app itself links to	no
+apps/desktop/src/renderer/src/links-go-somewhere.test.ts	names where a link actually goes, so a label cannot lie about it	yes
 apps/desktop/src/renderer/src/locust-bots-keep-their-eyes-on-their-heads.test.ts	draws its wings behind the body, so an eye can never be drawn on one	yes
 apps/desktop/src/renderer/src/locust-bots-keep-their-eyes-on-their-heads.test.ts	keeps the leading eye on its head at the widest idle glance	yes
 apps/desktop/src/renderer/src/locust-bots-keep-their-eyes-on-their-heads.test.ts	draw legs and title-bar dots behind the body, so an eye is never drawn on one	yes
@@ -3355,6 +3431,13 @@ apps/desktop/src/renderer/src/missions-lists-conversations.test.tsx	names it by 
 apps/desktop/src/renderer/src/missions-lists-conversations.test.tsx	ends a hand-edited cycle instead of spinning	no
 apps/desktop/src/renderer/src/missions-lists-conversations.test.tsx	lists conversations, and deletes a conversation with every turn	no
 apps/desktop/src/renderer/src/missions-lists-conversations.test.tsx	says when, and how many turns	no
+apps/desktop/src/renderer/src/nested-lists.test.ts	reads two-space indents as depth	yes
+apps/desktop/src/renderer/src/nested-lists.test.ts	reads four-space indents as the SAME depth as two-space	yes
+apps/desktop/src/renderer/src/nested-lists.test.ts	comes back OUT of a nesting	yes
+apps/desktop/src/renderer/src/nested-lists.test.ts	treats a numbered list nested under a bullet as a child, not a new list	yes
+apps/desktop/src/renderer/src/nested-lists.test.ts	still starts a new list when the marker changes at the SAME depth	yes
+apps/desktop/src/renderer/src/nested-lists.test.ts	drops nothing, at any depth	yes
+apps/desktop/src/renderer/src/nested-lists.test.ts	a flat list is still flat	yes
 apps/desktop/src/renderer/src/nobodys-conversation-can-be-a-routine.test.tsx	asks who will run it	yes
 apps/desktop/src/renderer/src/nobodys-conversation-can-be-a-routine.test.tsx	will not save until that is answered	yes
 apps/desktop/src/renderer/src/nobodys-conversation-can-be-a-routine.test.tsx	picks nobody by default	yes
@@ -3524,6 +3607,19 @@ apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	an empty s
 apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	files every extra word under a heading the page really has	no
 apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	has extra words at all, on every page	no
 apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	never repeats a word across two pages, which would make the search useless	no
+apps/desktop/src/renderer/src/settled-text.test.ts	settles a paragraph at the blank line that ends it, and not before	no
+apps/desktop/src/renderer/src/settled-text.test.ts	leaves everything as tail while the first paragraph is still arriving	no
+apps/desktop/src/renderer/src/settled-text.test.ts	never splits an open fence, whatever blank lines it holds	no
+apps/desktop/src/renderer/src/settled-text.test.ts	settles a fence the moment it closes, blank line or not	no
+apps/desktop/src/renderer/src/settled-text.test.ts	loses nothing: settled plus tail is the text	no
+apps/desktop/src/renderer/src/settled-text.test.ts	only ever moves forward as text arrives	no
+apps/desktop/src/renderer/src/settled-text.test.ts	settles a table from its rule on, row by finished row	no
+apps/desktop/src/renderer/src/settled-text.test.ts	holds a header row back until the rule under it has arrived	no
+apps/desktop/src/renderer/src/settled-text.test.ts	settles a reply that opens with a table	no
+apps/desktop/src/renderer/src/settled-text.test.ts	settles each finished list item and heading, never the line still being written	no
+apps/desktop/src/renderer/src/settled-text.test.ts	stops at prose: a paragraph line still waits for its blank line	no
+apps/desktop/src/renderer/src/settled-text.test.ts	settles the rows after a closed fence too	no
+apps/desktop/src/renderer/src/settled-text.test.ts	only moves forward as a table arrives a character at a time	no
 apps/desktop/src/renderer/src/shift-tab-never-turns-auto-on.test.ts	skips Auto while the Auto switch is off	yes
 apps/desktop/src/renderer/src/shift-tab-never-turns-auto-on.test.ts	includes it once the switch is on	yes
 apps/desktop/src/renderer/src/shift-tab-never-turns-auto-on.test.ts	moves off Auto to the first mode when Auto is no longer allowed	yes
@@ -3804,6 +3900,15 @@ apps/desktop/src/renderer/src/the-kept-pets-are-puppets.test.tsx	gives a soft bo
 apps/desktop/src/renderer/src/the-kept-pets-are-puppets.test.tsx	Codex Buddy’s, for the changes worth looking up for, and only when asked	yes
 apps/desktop/src/renderer/src/the-kept-pets-are-puppets.test.tsx	moves a little every frame while he works, never held and never snapped (buddyRig.ts)	yes
 apps/desktop/src/renderer/src/the-kept-pets-are-puppets.test.tsx	rests only once his last pose has settled, so his clock still stops	yes
+apps/desktop/src/renderer/src/the-live-line-says-which-plan-step.test.ts	names the step underway, where the eye is	yes
+apps/desktop/src/renderer/src/the-live-line-says-which-plan-step.test.ts	leads with what the open call is doing, in words (0.569, Claude Code's status line)	yes
+apps/desktop/src/renderer/src/the-live-line-says-which-plan-step.test.ts	names the plan's step under way when no call is open to say more (OpenCode reports calls once they end)	yes
+apps/desktop/src/renderer/src/the-live-line-says-which-plan-step.test.ts	says nothing of a plan with no step underway	yes
+apps/desktop/src/renderer/src/the-live-line-says-which-plan-step.test.ts	drops the step's own full stop: " · step 1 of 3" follows it	yes
+apps/desktop/src/renderer/src/the-live-line-says-which-plan-step.test.ts	keeps an ellipsis the model wrote	yes
+apps/desktop/src/renderer/src/the-live-word-says-three-dots.test.ts	capitalises and ends in one ellipsis	yes
+apps/desktop/src/renderer/src/the-live-word-says-three-dots.test.ts	never trails a full stop after the ellipsis	yes
+apps/desktop/src/renderer/src/the-live-word-says-three-dots.test.ts	leaves the rest of the phrase alone	yes
 apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.test.tsx	draws nothing before the window has said the glass is offered	no
 apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.test.tsx	says what each look is, and that Liquid glass shows the desktop through it	no
 apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.test.tsx	says Windows' glass on a Windows 11 PC (0.864), and macOS's on a Mac	no
