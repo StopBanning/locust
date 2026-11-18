@@ -100,6 +100,8 @@ pub mod own_command;
 pub mod page_preview;
 pub mod pdf;
 pub mod people;
+pub mod phone_host;
+pub mod phone_page;
 pub mod png_text;
 pub mod profile_backup;
 pub mod protocol_tags;

@@ -163,9 +163,9 @@ apps/desktop/src/main/a-pdf-shows-its-pages.test.ts	p14	partial		`main/a-pdf-arr
 apps/desktop/src/main/a-person-can-leave-out-part-of-a-brief.test.ts	MAIN6	carried	core/src/leave_out_brief_tests.rs	all 6 cases: the last reply left out and said so, every offered section at once, the task, the reply and unsettled steps never go, only what was there is named, the bound holds, the window's list kept to what may go (and on the engine wire). Fixed: the brief never said the person chose to leave something out, the notice was not charged against the bound, and the switch's link recorded the list as sent
 apps/desktop/src/main/a-person-cannot-lift-the-organizations-spend-limit.test.ts	ORG-POLICY	partial	core/src/org_policy_tests.rs, native::tests::a_managed_turn_is_refused_before_an_agent_starts	Partial: reading, validating, the turn gate and the effective limit carried; the store overlays, Windows known folder and voice and door gates wait
 apps/desktop/src/main/a-pet-sheet-is-checked-before-it-is-kept.test.ts	pets-7	carried	core/src/pet_library_tests.rs; core/src/pet_gallery_tests.rs; core/src/pet_record_tests.rs	All 19 cases: 13 in pet_library_tests (WebP header, sheet shapes v1/v2, the 21 picks, the pets on this computer, links, removal and the removed list), 6 download cases in pet_gallery_tests (Opus round 5), and the two teammate-record cases in pet_record_tests (16 Nov; 3 breaks caught by name).
-apps/desktop/src/main/a-phone-is-paired-by-its-code.test.ts		waiting		
-apps/desktop/src/main/a-phone-pairs-and-asks-through-the-relay.test.ts		waiting		
-apps/desktop/src/main/a-phone-shows-an-answer-as-the-window-does.test.ts		waiting		
+apps/desktop/src/main/a-phone-is-paired-by-its-code.test.ts	phone-1	carried	core/src/phone_host_tests.rs	all 9 tests carried with Electron values (off/on, page without key, Host rebinding, JSON+key, 20 wrong keys in 10 min, byte-length key, key across restart, off/new code unpairs, no virtual switch); also secret-box and forged-pairing tests (PHONE-NOTES.md)
+apps/desktop/src/main/a-phone-pairs-and-asks-through-the-relay.test.ts	phone-1	waiting		relay half, not this round: needs https and AES-GCM and the Rust app has no crate for either (PHONE-NOTES.md)
+apps/desktop/src/main/a-phone-shows-an-answer-as-the-window-does.test.ts	phone-1	carried	core/src/phone_page_tests.rs	all 6 tests carried; the 5 that run the page script use node like native/tests.rs and skip where node is missing (PHONE-NOTES.md)
 apps/desktop/src/main/a-plain-folder-is-watched-too.test.ts		waiting		
 apps/desktop/src/main/a-plan-that-runs-out-is-carried-on.test.ts	MAIN6	partial	core/src/plan_carry_on_tests.rs, core/src/native/plan_carry_on_tests.rs	8 of 11, and two halves: a plan ran out from what the agent said (not a warning, not a run that went on; interrupted still ran out, Stop did not), one press on the agent offered as a reply in its mode, never twice / never the agent that ran out / never a finished turn, approve-each never to an agent that cannot ask, a failed start pressed again, Without asking only with a pick and the switch on (the pick's model carried), the notes when it could not, the card's offer, the setting's agents. Halves: "only for a turn the person sent" is native's person_sent gate at the run's end, untested here; the record is v24 or later with its startedBy, but native's reader does not refuse a v23 carry-on nor its writer a starter naming no agent. Not carried: the order beside the limit toast (index.ts source check; native's toast is src/notify.rs)
 apps/desktop/src/main/a-planted-git-is-never-run.test.ts		waiting		not built: Rust sets no NoDefaultCurrentDirectoryInExePath for itself or its runs (Windows-only); the index.ts import-order case is Electron source text
@@ -286,7 +286,7 @@ apps/desktop/src/main/about-you-is-read-by-every-teammate.test.ts	P6	does-not-ap
 apps/desktop/src/main/an-account-sign-in-belongs-to-its-agent.test.ts	ACCOUNTS	carried	core/src/agent_accounts_tests.rs	both cases, with a stand-in program: each documented login, hidden, with its home, output discarded, told once
 apps/desktop/src/main/an-added-account-has-only-its-own-home.test.ts	ACCOUNTS	partial	core/src/agent_accounts_tests.rs, core/src/route_at_start.rs, core/src/native/tests.rs, core/src/usage_ledger.rs, core/src/runtime_terminal.rs, src/ui/compare_window_tests.rs, src/ui/window_drive_tests.rs	12 of 13: store/home/removal/policy/busy/usage-keys (`agent_accounts_tests.rs`), route_at_start, launch env + route-switch + wrong/unsupported/removed/policy refusals (`named_codex_and_claude_accounts_launch_with_own_home_and_fail_cleanly`), separate account usage windows & limits (`keeps_usage_and_exhausted_limits_separate_for_each_account`), terminal env (`opens_an_existing_conversation_in_a_terminal_with_the_recorded_account_home`), Compare (`compares_the_same_agent_and_model_on_two_distinct_accounts_and_keeps_both_across_reload`), and window teammate/edit/busy-remove flows. Background work (`claude-background`, row 128) remains.
 apps/desktop/src/main/an-agent-of-your-own-is-added-by-its-command.test.ts		waiting		
-apps/desktop/src/main/an-alert-is-locked-for-its-phone-alone.test.ts		waiting		
+apps/desktop/src/main/an-alert-is-locked-for-its-phone-alone.test.ts	phone-1	waiting		Web Push encryption (RFC 8291, aes128gcm with ECDH P-256): needs AES-GCM and P-256 and the Rust app has no crate for either (PHONE-NOTES.md)
 apps/desktop/src/main/an-answer-not-written-back-is-brought-back.test.ts	RELAY	carried	core/src/relay_tests.rs, core/src/native/tests.rs	all 7 cases carried in relay_tests.rs + relay_prose_return_posts_unanswered_prose_back_to_asker
 apps/desktop/src/main/an-antigravity-model-with-its-own-limit-is-shown.test.ts		waiting		
 apps/desktop/src/main/an-antigravity-relay-reply-says-who-started-it.test.ts		waiting		
@@ -480,7 +480,7 @@ apps/desktop/src/main/scout-runs-the-check-only-when-the-folder-moved.test.ts	sc
 apps/desktop/src/main/scout-says-what-it-saw.test.ts	scout-1	carried	core/src/scout/brief_tests.rs	all 5 tests carried (look log merging, 14-day pruning, held phone reasons, whyBrief)
 apps/desktop/src/main/scout-turns-your-comments-into-asks.test.ts		waiting		
 apps/desktop/src/main/scouts-away-look-tells-only-what-is-new.test.ts		waiting		
-apps/desktop/src/main/scouts-cards-are-on-your-phone.test.ts		waiting		
+apps/desktop/src/main/scouts-cards-are-on-your-phone.test.ts	phone-1	carried	core/src/phone_host_tests.rs, core/src/phone_page_tests.rs	all 3 tests carried (cards in Locust words newest first, dismiss by id, both page headings); the away looks themselves reach the page only through the relay, which waits (PHONE-NOTES.md)
 apps/desktop/src/main/scouts-look-is-sealed.test.ts	scout-1	carried	core/src/native/tests.rs, core/src/runtime/{tests,opencode_tests}.rs, core/src/scout/host_tests.rs	both tests carried (sealed slot config & Ask read-only mode, no tools/briefs/memory writes)
 apps/desktop/src/main/settings-controls-keep-off-the-scrollbar.test.ts		waiting		
 apps/desktop/src/main/settings-pages-are-real.test.ts	P10	partial		`renderer/src/settings-pages-are-real.test.ts`, `settings-search-knows-the-words.test.ts`, `settings-read-like-claudes.test.ts` | page count/groups/ids; alsoKnownAs under real headings; memory/worktree/node/ledger search
@@ -542,7 +542,7 @@ apps/desktop/src/main/the-next-turn-is-not-refused-while-the-last-winds-down.tes
 apps/desktop/src/main/the-orb-uses-the-asset-that-reads.test.ts		waiting		
 apps/desktop/src/main/the-pages-a-browser-runs-are-whole.test.ts		waiting		
 apps/desktop/src/main/the-permission-bridge-keeps-its-characters.test.ts	MAIN5	carried	core/src/runtime/permission_bridge.rs	keeps_a_character_split_across_two_reads_whole: serve_from fed one tools/call line split inside é
-apps/desktop/src/main/the-phone-reads-history-once-per-change.test.ts		waiting		
+apps/desktop/src/main/the-phone-reads-history-once-per-change.test.ts	phone-1	carried	core/src/phone_host_tests.rs	both tests carried: ledger write counter, and keyed once (one build per key, shared in flight, retried after a failure) (PHONE-NOTES.md)
 apps/desktop/src/main/the-plan-is-drawn-as-what-it-is.test.ts		waiting		
 apps/desktop/src/main/the-rail-can-be-used.test.ts		waiting		
 apps/desktop/src/main/the-readme-names-this-weeks-packs.test.ts		waiting		
@@ -594,7 +594,7 @@ apps/desktop/src/main/worktrees.test.ts		waiting
 apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts		waiting		
 apps/desktop/src/main/your-github-is-connected-through-gh.test.ts	GITHUB	carried	core/src/github_account_tests.rs, src/ui/github_section.rs tests	carried (13 Nov)
 apps/desktop/src/main/your-line-breaks-are-kept.test.ts	P7	does-not-apply		`main/your-line-breaks-are-kept.test.ts` | This is conversation/room bubble CSS, not checkpoint byte preservation. Its CSS assertions do not apply to this change. CRLF and binary restoration are instead tested directly.
-apps/desktop/src/main/your-locust-ask-reaches-your-phone-while-the-pc-is-off.test.ts		waiting		
+apps/desktop/src/main/your-locust-ask-reaches-your-phone-while-the-pc-is-off.test.ts	phone-1	waiting		relay half, not this round: needs https and AES-GCM and the Rust app has no crate for either (PHONE-NOTES.md)
 apps/desktop/src/main/your-locust-is-kept-current-at-the-relay.test.ts		waiting		
 apps/desktop/src/main/your-own-model.test.ts	OWN-MODELS	carried	core/src/own_models_tests.rs, core/src/endpoint_test_tests.rs	all 18: the store's 6 and testing an endpoint's 12; the window test a_model_of_your_own_is_added_with_its_key_kept_out_of_sight_and_removed adds, tests, switches and removes one
 apps/desktop/src/main/your-phone-buzzes-only-when-it-must.test.ts		waiting		
