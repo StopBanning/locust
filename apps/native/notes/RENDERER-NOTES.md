@@ -2354,3 +2354,14 @@ Additional native cases (folder_confirmation::tests):
   - `a-call-asks-on-a-card-in-the-thread.test.tsx`, `a-call-shows-on-its-conversation-row.test.tsx`: no voice calls in Rust.
   - `a-phone-lists-conversations.test.ts`: no phone desk in Rust.
 - Breaks: 9 of 9 killed by name (`~/work/scratch/hydrogen/b2-breaks.log`, `b2b-breaks.log`, `b2c-breaks.log`).
+
+## Batch 3 (17 Nov 2026)
+- Carried:
+  - `the-home-cover-rests-after-inactivity.test.ts` (6 cases): `core/src/cover_activity_tests.rs` on `CoverActivity`; 5 of 5 breaks on `cover_activity.rs` killed by name (`~/work/scratch/hydrogen/b3-breaks.log`).
+- Partial:
+  - `codex-buddy-moves-on-his-own-rig.test.ts` (10 of 16): `core/src/buddy_moves.rs` (`stay_inside_his_window...`, etc.); HTML5 Canvas pixel-cut & IndexedDB `OLD_TWEENS_DATABASE` cases do not apply.
+  - `codex-buddy-wears-a-screen.test.tsx` (10 of 18): `core/src/buddy_moves.rs` (`is_his_alone...`, etc.); UI toggle & `faces.rs` drawing cases not separately named.
+- Does-not-apply:
+  - `a-pet-canvas-drawn-shrunk-is-in-software.test.ts`: source-inspection test of `buddyBody.ts` and `pets.ts` for HTML5 Canvas 2D `willReadFrequently` / `createImageBitmap`.
+- Waiting:
+  - `a-queued-message-refused-as-busy-waits.test.ts`: `src/composer/queue.rs` has `combine_queued` but no `retried_after_busy` / `retry_at` exponential backoff.
