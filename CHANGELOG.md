@@ -30,6 +30,14 @@ heading: the home screen then shows it once, as a splash.
 - **Your phone continues those conversations too.** Send on the phone carries on a conversation with no teammate as the
   window would, instead of asking you to go to the computer.
 
+### Fixed
+
+- **"At limit" comes off when your account has room again.** A model stayed marked "At limit" until a run on it finished
+  in Locust, so switching to another account, or using up and waiting out a plan outside Locust, left the tag on.
+  Antigravity's models now drop it as soon as its own usage reading (taken when the model list is read, and each time
+  you open the picker) says the account signed in now has some left, and any agent's tag goes once the reset time it
+  named has passed.
+
 ## 0.877.1 - 2026-11-16
 
 ### Improved
