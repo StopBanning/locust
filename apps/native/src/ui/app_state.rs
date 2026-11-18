@@ -149,6 +149,8 @@ pub(super) struct State {
     pub(super) from_link: bool,
     /// Claude Code's Remote Control server, as last read while Settings was open.
     pub(super) remote_control: Option<locust_core::remote_control::RemoteControlState>,
+    /// Other apps from anywhere (Electron remote-mcp.ts): the switch, the apps with keys, a sign-in waiting on its card.
+    pub(super) remote_mcp: Option<locust_core::remote_mcp::RemoteMcpState>,
     pub(super) agent_accounts: crate::agent_accounts_card::Card,
     /// The reply link last refused, and why (said beside it).
     pub(super) link_refusal: Option<(String, String)>,
@@ -461,6 +463,7 @@ impl Default for State {
             claude_app: Default::default(),
             from_link: false,
             remote_control: None,
+            remote_mcp: None,
             agent_accounts: Default::default(),
             link_refusal: None,
             opened_links: Vec::new(),
