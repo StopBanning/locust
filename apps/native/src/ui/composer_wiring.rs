@@ -111,6 +111,8 @@ pub(super) fn enqueue_follow_up(s: &mut State, text: String, attachments: Vec<St
         issue: None,
         restored: false,
         held: None,
+        retry_at: None,
+        tries: None,
     });
     if !persist_queue(s) {
         s.queue_rows.pop();

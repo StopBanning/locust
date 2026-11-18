@@ -381,6 +381,8 @@ pub(super) fn composer_queue_scene(s: &mut State) {
         issue: None,
         restored: false,
         held: None,
+        retry_at: None,
+        tries: None,
     }];
     s.draft.replace_text("");
     s.status = "Codec: Working…".into();

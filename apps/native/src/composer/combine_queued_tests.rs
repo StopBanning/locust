@@ -12,6 +12,8 @@ fn row(id: &str) -> QueuedRow {
         issue: None,
         restored: false,
         held: None,
+        retry_at: None,
+        tries: None,
     }
 }
 fn host(id: &str) -> QueuedRow {

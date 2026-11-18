@@ -507,6 +507,7 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
             .child(thread_face(s, "live", 34.0, p))
             .child(text(label).font(type_::LABEL).color(p.muted).grow(1.0).shrink()));
     }
+    messages = failed_turn_rows(messages, items, s, p);
     messages
         .child(approval_card(s, p))
         .on_layout_tx(|s: &mut State, r, tx| {
@@ -522,6 +523,54 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                 tx.live_only();
             }
         })
+}
+
+/// Thread.tsx under the current turn: a never-started run of the person's own words offers Run it again
+/// (`runAgainOffer(liveRun, running, ...)`), a host-started one says why it does not, and a damaged record says so
+/// where it is read.
+fn failed_turn_rows(mut messages: El, items: &[ledger::Item], s: &State, p: &Palette) -> El {
+    use locust_core::thread_view::{self as tv, RunAgainOffer};
+    let Some(pane) = s.ledger.as_ref() else { return messages };
+    let snap = &pane.snapshot;
+    if let Some(meta) = snap.turn_metas.last() {
+        let from = items.iter().rposition(|i| matches!(i, ledger::Item::User(_))).unwrap_or(0);
+        let turn = tv::RunAgainTurn {
+            prompt: &meta.prompt,
+            started_by_kind: meta.started_by_kind.as_deref(),
+            handoff: items[from..].iter().any(|i| matches!(i, ledger::Item::Handoff { .. })),
+            continues_reason: meta.continues_reason.as_deref(),
+        };
+        let phase = if snap.failed { "failed" } else if snap.running { "running" } else { "completed" };
+        match tv::run_again_offer(&turn, phase, snap.never_started, snap.running || turn_running(s)) {
+            Some(RunAgainOffer::Note(note)) => {
+                messages = messages.child(text(note).key("run-again-note").font(type_::LABEL).color(p.muted).w_full().wrap());
+            }
+            Some(RunAgainOffer::RunAgain) => {
+                let l = crate::look::controls::Look::new(p.dark);
+                let prompt = meta.prompt.clone();
+                messages = messages.child(
+                    row().key("run-again").w_full().gap(10.0).center_y()
+                        .child(text(tv::RUN_AGAIN_NOTHING_STARTED).font(type_::LABEL).color(p.muted).grow(1.0).shrink().wrap())
+                        .child(
+                            crate::look::controls::button(&l, "Run it again", crate::look::controls::Tone::Neutral, false)
+                                .key("run-again-button")
+                                .on_press_tx(move |s: &mut State, tx: &mut Tx| {
+                                    // The same words again, as Electron's startMission(liveRun.prompt); what is in the box stays.
+                                    let kept = s.draft.text.clone();
+                                    s.draft.replace_text(prompt.clone());
+                                    submit_composer(s, tx, false);
+                                    s.draft.replace_text(kept);
+                                }),
+                        ),
+                );
+            }
+            None => {}
+        }
+    }
+    if snap.damaged {
+        messages = messages.child(text(tv::DAMAGED_RECORD_NOTE).key("damaged-record-note").font(type_::LABEL).color(p.muted).w_full().wrap());
+    }
+    messages
 }
 
 fn thread_group_lines(
@@ -705,6 +754,9 @@ fn emit_group_lines_at(
 #[cfg(test)]
 #[path = "speech_run_tests.rs"]
 mod speech_run_tests;
+#[cfg(test)]
+#[path = "run_again_tests.rs"]
+mod run_again_tests;
 
 #[cfg(test)]
 mod tests {

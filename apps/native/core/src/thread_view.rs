@@ -155,6 +155,83 @@ pub fn person_prompt(kind: Option<&str>) -> bool {
     })
 }
 
+/// Electron's `runtimeNeverStarted` (missionView.ts, H4): any sign of the runtime at work means it started. Only a
+/// record of nothing but the failure and the host's own diagnostics, naming no runtime thread, never started.
+pub fn runtime_never_started<'a>(events: impl IntoIterator<Item = &'a Value>) -> bool {
+    events.into_iter().all(|event| {
+        matches!(event["type"].as_str(), Some("run.failed" | "adapter.diagnostic"))
+            && event.get("runtimeThreadId").is_none()
+    })
+}
+
+pub const RUN_AGAIN_RELAY_NOTE: &str = "The message is still waiting. It will be answered on this teammate's next run.";
+pub const RUN_AGAIN_HOST_NOTE: &str =
+    "Locust started this run. Start it again from its original control to keep its context.";
+pub const RUN_AGAIN_NOTHING_STARTED: &str = "Nothing had started, so running this again cannot repeat anything.";
+/// Thread.tsx's note for a damaged record (QA-2026-09-29 round 2, N7).
+pub const DAMAGED_RECORD_NOTE: &str =
+    "Part of this turn's record could not be read, so what came after it is missing here. The file is kept as it is.";
+
+/// What a failed turn's retry is asked about: whose words it carries, and whether the host is carrying it on.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct RunAgainTurn<'a> {
+    pub prompt: &'a str,
+    pub started_by_kind: Option<&'a str>,
+    /// A carry-on to another agent is under way in this turn (Electron's live `handoff`).
+    pub handoff: bool,
+    pub continues_reason: Option<&'a str>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RunAgainKind {
+    Person,
+    Relay,
+    Host,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RunAgainOffer {
+    RunAgain,
+    Note(&'static str),
+}
+
+static REVIEW_BRIEF: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+    regex::Regex::new(r"^(.+?) finished a piece of work and you are reviewing it\. You did not do this work").unwrap()
+});
+
+/// Electron's `briefAskedFor`, as a yes or no: the host's own brief (a tidy pass, a review), never the person's words.
+pub fn brief_asked_for(prompt: &str) -> bool {
+    crate::memory_tidy::is_tidy_prompt(Some(prompt)) || REVIEW_BRIEF.is_match(prompt)
+}
+
+/// Electron's `runAgainKind`: a relay waits for the teammate's next run; a host briefing keeps its own control.
+pub fn run_again_kind(turn: &RunAgainTurn<'_>) -> RunAgainKind {
+    if turn.started_by_kind == Some("relay") {
+        return RunAgainKind::Relay;
+    }
+    if turn.handoff || turn.continues_reason == Some("route-switch") || brief_asked_for(turn.prompt) {
+        return RunAgainKind::Host;
+    }
+    if matches!(turn.started_by_kind, None | Some("tag" | "terminal")) { RunAgainKind::Person } else { RunAgainKind::Host }
+}
+
+/// Electron's `runAgainOffer`: Run it again only for a failed, never-started run of the person's own words; a host
+/// briefing cannot be retried as a newly typed person message, so it says why instead.
+pub fn run_again_offer(turn: &RunAgainTurn<'_>, phase: &str, never_started: bool, running: bool) -> Option<RunAgainOffer> {
+    if running || phase != "failed" || !never_started || turn.prompt.trim().is_empty() {
+        return None;
+    }
+    Some(match run_again_kind(turn) {
+        RunAgainKind::Person => RunAgainOffer::RunAgain,
+        RunAgainKind::Relay => RunAgainOffer::Note(RUN_AGAIN_RELAY_NOTE),
+        RunAgainKind::Host => RunAgainOffer::Note(RUN_AGAIN_HOST_NOTE),
+    })
+}
+
+#[cfg(test)]
+#[path = "run_again_tests.rs"]
+mod run_again_tests;
+
 pub fn received_message<'a>(message_id: &str, links: &'a [PeerLink]) -> Option<&'a PeerLink> {
     if message_id.is_empty() {
         return None;

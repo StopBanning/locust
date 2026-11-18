@@ -2375,3 +2375,15 @@ Additional native cases (folder_confirmation::tests):
 - Waiting:
   - `a-path-only-message-is-titled-by-its-file.test.ts`: no `pathOnlyTitle` in Rust conversation titles.
   - `a-damaged-record-says-so-in-the-thread.test.tsx`: `integrity_issue_count` is shown in `inspector_panel.rs` via `ledger_verification_label`, not as an inline thread note.
+
+## Batch 5 (18 Nov 2026, round 2): what batches 1-4 found missing
+- Built, each test watched failing first, then passing by name:
+  - `mission_cost_tail` (`core/src/benchmark.rs`), Electron's `missionCostTail`: ` · so far $x` on a live run. Electron's window doesn't draw it anywhere either.
+  - `path_only_title` (`core/src/path_title.rs`), Electron's `pathOnlyTitle`. `ledger::list_recent` applies it to the first line before the 60-character cut, so a long path keeps its file name.
+  - `retried_after_busy` and `QueuedRow.retry_at` / `tries` (`src/composer/queue.rs`): 500 ms, then doubling, capped at 8 s. They are never saved, because Electron's queue file has no such fields, and `combine_queued` keeps the front's retry time. **Not wired:** the window hands a queued row to the host and never hears a busy refusal back for that row.
+  - `run_again_offer` / `run_again_kind` / `runtime_never_started` / `brief_asked_for` (`core/src/thread_view.rs`), Electron's `runAgainOffer` set. `Snapshot.never_started` comes from the tip's events. `messages::failed_turn_rows` draws Run it again with "Nothing had started…", or the relay or host note. Pressing it sends the same words through `submit_composer` and keeps what is in the box.
+  - `Snapshot.damaged` plus Electron's sentence under the thread. The flag is the tip record's read error, the same fact the inspector counts. Rust skips a bad line and reads on, so a skipped line doesn't count: "what came after it is missing" would be false there.
+- Carried: `a-cancelled-run-spent-nothing` (5/5), `a-path-only-message-is-titled-by-its-file` (3/3), `a-queued-message-refused-as-busy-waits` (3/3, unwired), `a-host-started-run-is-not-retried-as-your-message` (7/7), `a-damaged-record-says-so-in-the-thread` (2/2).
+- Still partial: `code-in-a-reply-is-coloured`. `rune_kit` is an external git crate with no PowerShell, C++ or Dockerfile scanner.
+- Watched failing with the behaviour off: 8 of 8 positive cases in `~/work/scratch/hydrogen/r2b-fail.log`; batch A's 6 failed against stubs.
+- Breaks: see below.
