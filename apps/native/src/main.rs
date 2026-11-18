@@ -78,6 +78,10 @@ mod keychain_note;
 mod home_panel;
 #[path = "ui/people_panel.rs"]
 mod people_panel;
+#[path = "ui/memory_card.rs"]
+mod memory_card;
+#[path = "ui/hover.rs"]
+mod hover;
 #[path = "ui/look_picker.rs"]
 mod look_picker;
 #[path = "ui/pet_picks.rs"]

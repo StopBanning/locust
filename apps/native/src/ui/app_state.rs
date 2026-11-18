@@ -166,6 +166,7 @@ pub(super) struct State {
     pub(super) usage_readings_job: Latest<HashMap<String, String>>,
     /// The pointer is on the model chip.
     pub(super) chip_hover: bool,
+    pub(super) hover: crate::hover::HoverState,
     /// The conversation whose run the person stopped from this window.
     pub(super) stopped_by_you: Option<String>,
     pub(super) own_models: crate::own_models_card::Card,
@@ -473,6 +474,7 @@ impl Default for State {
             usage_readings: HashMap::new(),
             usage_readings_job: Latest::default(),
             chip_hover: false,
+            hover: Default::default(),
             stopped_by_you: None,
             own_models: Default::default(),
             own_models_job: Latest::default(),

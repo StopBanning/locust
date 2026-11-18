@@ -1178,14 +1178,26 @@ fn memory_screen(s: &State, p: &Palette) -> El {
     let lede = |words: &str| text(words.to_owned()).font(l.ty.body).color(l.c("text-secondary")).w_full().wrap();
     let note = |words: &str| text(words.to_owned()).font(l.ty.body).color(l.c("text-muted")).w_full().wrap();
     let memories: Vec<&Value> = panel.memories["memories"].as_array().into_iter().flatten().collect();
-    let kept = memories.iter().filter(|m| m["status"] != "proposed").count();
+    let id_texts: Vec<(&str, &str)> = memories
+        .iter()
+        .filter(|m| m["status"] != "proposed")
+        .filter_map(|m| Some((m["memoryId"].as_str()?, m["text"].as_str()?)))
+        .collect();
+    let proposed: Vec<&Value> = memories.iter().filter(|m| m["status"] == "proposed").copied().collect();
+    let here: Vec<&Value> = memories
+        .iter()
+        .filter(|m| m["status"] != "proposed" && m["scope"] != "global")
+        .copied()
+        .collect();
+    let everywhere: Vec<&Value> = memories
+        .iter()
+        .filter(|m| m["status"] != "proposed" && m["scope"] == "global")
+        .copied()
+        .collect();
+    let kept = here.len() + everywhere.len();
+    let about_you_waiting = panel.team["settings"]["aboutYouSuggestions"].as_array().map_or(0, Vec::len);
+    let waiting_count = proposed.len() + about_you_waiting;
     let mode = panel.memory_mode.as_str();
-    let mode_word = match mode {
-        "ask" => crate::workspace_settings::MEMORY_ASK,
-        "off" => crate::workspace_settings::MEMORY_OFF,
-        _ => crate::workspace_settings::MEMORY_KEEP,
-    }
-    .to_lowercase();
     let mut out = col().w_full().gap(14.0).child(
         row()
             .w_full()
@@ -1193,7 +1205,24 @@ fn memory_screen(s: &State, p: &Palette) -> El {
             .center_y()
             .pt(6.0)
             .child(text("Memory").font(rune::TextStyle::new(20.0, 600.0)).color(p.text))
-            .child(text(format!("{} · {mode_word}", if kept == 0 { "nothing remembered yet".to_owned() } else { format!("{kept} remembered") })).font(type_::LABEL).color(p.muted)),
+            .child(
+                text(format!(
+                    "{}{}{}",
+                    if kept == 0 {
+                        "nothing remembered yet".to_owned()
+                    } else {
+                        format!("{kept} remembered")
+                    },
+                    if waiting_count > 0 {
+                        format!(" · {waiting_count} waiting for you")
+                    } else {
+                        String::new()
+                    },
+                    if mode == "off" { " · off" } else { "" }
+                ))
+                .font(type_::LABEL)
+                .color(p.muted),
+            ),
     );
 
     // About you, with the suggestions waiting for it.
@@ -1265,43 +1294,236 @@ fn memory_screen(s: &State, p: &Palette) -> El {
             })),
     );
 
-    // The memories, in this folder and everywhere.
+    // The memories, in waiting, this folder and everywhere.
     let row_of = |memory: &Value| {
         let id = memory["memoryId"].as_str().unwrap_or("").to_owned();
-        let mut item = col()
+        let body_text = memory["text"].as_str().unwrap_or("").to_owned();
+        let is_proposed = memory["status"] == "proposed";
+        let enabled = memory["enabled"] != false;
+        let text_color = if enabled { l.c("text-primary") } else { l.c("text-muted") };
+
+        let lead = if is_proposed {
+            el()
+                .key(format!("memory-suggested-{id}"))
+                .pt(2.0)
+                .child(crate::look::controls::glyph(&l, &crate::look::icons::SPARK, 14.0, Some(l.c("text-muted"))))
+                .a11y_hidden()
+        } else {
+            let id_toggle = id.clone();
+            crate::look::controls::switch(
+                &l,
+                enabled,
+                if enabled { "Switch this memory off" } else { "Switch this memory on" },
+                false,
+            )
+            .key(format!("memory-switch-{id}"))
+            .on_press(move |s: &mut State| action(s, &id_toggle, "toggle"))
+        };
+
+        let mut body = col().grow(1.0).shrink().gap(4.0);
+        if let Some(merges) = memory["merges"].as_array() {
+            body = body.child(
+                row()
+                    .w_full()
+                    .wrap()
+                    .child(text("Wants to merge these into one: ").font(l.ty.control).color(l.c("text-secondary")))
+                    .child(text(body_text.clone()).font(l.ty.control).color(text_color)),
+            );
+            for mid in merges {
+                let old = mid
+                    .as_str()
+                    .and_then(|target| id_texts.iter().find(|(k, _)| *k == target).map(|(_, t)| *t))
+                    .unwrap_or("no longer kept");
+                body = body.child(text(format!("Now: {old}")).font(type_::LABEL).color(l.c("text-muted")).w_full().wrap());
+            }
+        } else if memory["forgets"].as_str().is_some() {
+            body = body.child(
+                row()
+                    .w_full()
+                    .wrap()
+                    .child(text("Wants to forget this: ").font(l.ty.control).color(l.c("text-secondary")))
+                    .child(text(body_text.clone()).font(l.ty.control).color(text_color)),
+            );
+            if let Some(reason) = memory["reason"].as_str() {
+                let readable = locust_core::memory_tidy::readable_reason(reason, &id_texts);
+                body = body.child(text(format!("Why: {readable}")).font(type_::LABEL).color(l.c("text-muted")).w_full().wrap());
+            }
+        } else if let Some(replaces) = memory["replaces"].as_str() {
+            let old = id_texts
+                .iter()
+                .find(|(k, _)| *k == replaces)
+                .map(|(_, t)| *t)
+                .unwrap_or("no longer kept");
+            body = body
+                .child(
+                    row()
+                        .w_full()
+                        .wrap()
+                        .child(text("Wants to change this to: ").font(l.ty.control).color(l.c("text-secondary")))
+                        .child(text(body_text.clone()).font(l.ty.control).color(text_color)),
+                )
+                .child(text(format!("Now: {old}")).font(type_::LABEL).color(l.c("text-muted")).w_full().wrap());
+        } else {
+            body = body.child(text(body_text.clone()).font(l.ty.control).color(text_color).w_full().wrap());
+        }
+
+        if let Some(previous) = memory["previousText"].as_str()
+            && previous != body_text
+        {
+            let id_back = id.clone();
+            let prev_owned = previous.to_owned();
+            body = body.child(
+                row()
+                    .w_full()
+                    .gap(6.0)
+                    .center_y()
+                    .wrap()
+                    .child(text(format!("Was: {previous}")).font(type_::LABEL).color(l.c("text-muted")).wrap())
+                    .child(
+                        button("Put it back", p)
+                            .key(format!("memory-put-back-{id}"))
+                            .on_press(move |s: &mut State| {
+                                let result = s
+                                    .data
+                                    .as_ref()
+                                    .ok_or("No native data folder".into())
+                                    .and_then(|store| people::change_memory(store, &id_back, "edit", Some(&prev_owned)));
+                                done(s, result);
+                            }),
+                    ),
+            );
+        }
+
+        let writer = memory["updatedBy"]["name"]
+            .as_str()
+            .or_else(|| memory["by"]["name"].as_str())
+            .unwrap_or("");
+        let ws_name = memory["workspaceName"].as_str().unwrap_or("");
+        let scope_part = if memory["scope"] == "global" {
+            if ws_name.is_empty() { "everywhere".to_owned() } else { format!("everywhere, from {ws_name}") }
+        } else {
+            ws_name.to_owned()
+        };
+        let when_part = if let Some(updated_at) = memory["updatedAt"].as_str() {
+            let short = crate::memory_card::when_short(updated_at);
+            if short.is_empty() { String::new() } else { format!("changed {short}") }
+        } else {
+            crate::memory_card::when_short(memory["createdAt"].as_str().unwrap_or(""))
+        };
+        let meta: Vec<String> = [writer.to_owned(), scope_part, when_part]
+            .into_iter()
+            .filter(|part| !part.is_empty())
+            .collect();
+        if !meta.is_empty() {
+            body = body.child(text(meta.join(" · ")).font(type_::LABEL).color(l.c("text-muted")));
+        }
+
+        let mut actions = row().gap(6.0).pt(2.0);
+        if is_proposed {
+            let (keep_label, drop_label) = if memory.get("merges").is_some_and(|v| !v.is_null()) {
+                ("Merge them", "Keep them apart")
+            } else if memory.get("forgets").is_some_and(|v| !v.is_null()) {
+                ("Forget it", "Keep it")
+            } else if memory.get("replaces").is_some_and(|v| !v.is_null()) {
+                ("Keep the change", "Keep the old one")
+            } else {
+                ("Keep", "Forget")
+            };
+            let id_keep = id.clone();
+            let id_drop = id.clone();
+            actions = actions
+                .child(
+                    button(keep_label, p)
+                        .key(format!("memory-keep-{id}"))
+                        .on_press(move |s: &mut State| action(s, &id_keep, "keep")),
+                )
+                .child(
+                    button(drop_label, p)
+                        .key(format!("memory-drop-{id}"))
+                        .on_press(move |s: &mut State| action(s, &id_drop, "remove")),
+                );
+        } else {
+            for (label, act) in [("Edit", "edit"), ("Remove", "remove")] {
+                let id = id.clone();
+                actions = actions.child(button(label, p).on_press(move |s: &mut State| {
+                    if act == "edit" && s.people_panel.editing.as_deref() != Some(&id) {
+                        if let Some(m) = s.people_panel.memories["memories"].as_array().and_then(|r| r.iter().find(|m| m["memoryId"] == id)) {
+                            s.people_panel.memory = field(m["text"].as_str().unwrap_or(""));
+                            s.people_panel.editing = Some(id.clone());
+                        }
+                    } else {
+                        action(s, &id, act);
+                        s.people_panel.editing = None;
+                    }
+                }));
+            }
+        }
+
+        row()
             .w_full()
-            .gap(4.0)
+            .gap(10.0)
             .py(8.0)
             .border_sides([1.0, 0.0, 0.0, 0.0], l.c("border-hairline"))
-            .child(text(memory["text"].as_str().unwrap_or("").to_owned()).font(l.ty.control).color(if memory["enabled"] == false { l.c("text-muted") } else { l.c("text-primary") }).w_full().wrap())
-            .child(text(format!("{} · {}", memory["by"]["name"].as_str().unwrap_or(""), memory["status"].as_str().unwrap_or(""))).font(type_::LABEL).color(l.c("text-muted")));
-        if let Some(previous) = memory["previousText"].as_str() {
-            item = item.child(text(format!("Before: {previous}")).font(type_::LABEL).color(l.c("text-muted")).w_full().wrap());
-        }
-        let mut actions = row().gap(6.0).pt(2.0);
-        for (label, act) in [("Keep", "keep"), ("Edit", "edit"), (if memory["enabled"] == true { "Switch off" } else { "Switch on" }, "toggle"), ("Remove", "remove")] {
-            if act == "keep" && memory["status"] != "proposed" {
-                continue;
-            }
-            let id = id.clone();
-            actions = actions.child(button(label, p).on_press(move |s: &mut State| {
-                if act == "edit" && s.people_panel.editing.as_deref() != Some(&id) {
-                    if let Some(m) = s.people_panel.memories["memories"].as_array().and_then(|r| r.iter().find(|m| m["memoryId"] == id)) {
-                        s.people_panel.memory = field(m["text"].as_str().unwrap_or(""));
-                        s.people_panel.editing = Some(id.clone());
-                    }
-                } else {
-                    action(s, &id, act);
-                    s.people_panel.editing = None;
-                }
-            }));
-        }
-        item.child(actions)
+            .child(lead)
+            .child(body.child(actions))
     };
+
+    if !proposed.is_empty() {
+        let mut waiting_card = card().key("memory-waiting").child(heading("Waiting for you".into()));
+        if proposed.len() >= 2 {
+            let proposed_ids: Vec<String> = proposed
+                .iter()
+                .filter_map(|m| m["memoryId"].as_str().map(str::to_owned))
+                .collect();
+            waiting_card = waiting_card.child(
+                row()
+                    .w_full()
+                    .gap(8.0)
+                    .center_y()
+                    .child(note("Anything you keep can be put back.").grow(1.0).shrink())
+                    .child(
+                        button(&format!("Keep all {}", proposed.len()), p)
+                            .key("memory-keep-all")
+                            .on_press(move |s: &mut State| {
+                                let result = match s.data.as_ref() {
+                                    None => Err("Native data folder could not be determined.".into()),
+                                    Some(store) => {
+                                        match crate::memory_card::keep_every(&proposed_ids, |id| {
+                                            people::change_memory(store, id, "keep", None).err()
+                                        }) {
+                                            Some(err) => Err(err),
+                                            None => Ok(()),
+                                        }
+                                    }
+                                };
+                                done(s, result);
+                            }),
+                    ),
+            );
+        }
+        for m in proposed {
+            waiting_card = waiting_card.child(row_of(m));
+        }
+        out = out.child(waiting_card);
+    }
+
     let folder_name = s.home.folder_path.as_deref().and_then(|f| f.trim_end_matches('/').rsplit('/').next()).unwrap_or("no folder").to_owned();
-    let here: Vec<&&Value> = memories.iter().filter(|m| m["scope"] != "global").collect();
-    let everywhere: Vec<&&Value> = memories.iter().filter(|m| m["scope"] == "global").collect();
     let mut here_card = card().key("memory-here").child(heading(format!("This folder · {folder_name}")));
+    if mode != "off" && here.len() >= 2 {
+        let nudge = if here.len() > locust_core::memory_tidy::TIDY_NUDGE_AT {
+            format!("{} memories here. ", here.len())
+        } else {
+            String::new()
+        };
+        here_card = here_card.child(
+            row()
+                .w_full()
+                .gap(8.0)
+                .center_y()
+                .child(note(&format!("{nudge}A teammate reads them and suggests merges and retirements; nothing changes until you keep it.")).grow(1.0).shrink())
+                .child(button("Tidy up…", p).key("memory-tidy")),
+        );
+    }
     if here.is_empty() {
         here_card = here_card.child(note("Nothing remembered for this folder yet."));
     }
@@ -2025,5 +2247,281 @@ mod renderer_folder_tests {
         set_form_folder(&mut rt.state,Some(std::path::Path::new("/home/dev/new")));
         assert_eq!(build_entry_from_form(&rt.state).unwrap()["folder"],"/home/dev/new");
         assert_eq!(rt.state.home.folder_path.as_deref(),Some("/home/dev/project"));
+    }
+}
+
+#[cfg(test)]
+mod memory_proposal_tests {
+    use super::*;
+    use rune::{Env, Runtime};
+
+    fn kept(id: &str, text: &str) -> Value {
+        json!({
+            "memoryId": id,
+            "text": text,
+            "scope": "workspace",
+            "workspaceId": "ws_shop",
+            "workspaceName": "shop",
+            "by": { "name": "Yurt" },
+            "createdAt": "2026-09-01T10:00:00.000Z",
+            "status": "kept",
+            "enabled": true,
+            "name": "deploy-day"
+        })
+    }
+
+    fn render(memories: Vec<Value>, mode: &str) -> Runtime<State> {
+        let mut s = State::default();
+        s.people_panel.open = true;
+        s.people_panel.tab = 1;
+        s.people_panel.memory_tab = true;
+        s.people_panel.memory_mode = mode.to_owned();
+        s.people_panel.memories = json!({ "memories": memories, "forgotten": [] });
+        s.home.folder_path = Some("/tmp/shop".into());
+        let mut rt = Runtime::new(
+            s,
+            |s, _| memory_screen(s, &Palette::new(true)),
+            (900.0, 2000.0),
+            Env::new(true, 1.0),
+        );
+        rt.frame(0.0);
+        rt
+    }
+
+    fn texts(rt: &Runtime<State>) -> Vec<String> {
+        rt.elements().into_iter().filter_map(|e| e.text).collect()
+    }
+
+    // a-proposed-change-says-what-it-changes.test.tsx
+    #[test]
+    fn a_proposed_rewrite_shows_new_words_old_words_and_keep_the_change_or_old_one() {
+        let k = kept("mem_kept", "Deploys go out on Fridays.");
+        let mut rewrite = k.clone();
+        rewrite["memoryId"] = json!("mem_change");
+        rewrite["text"] = json!("Deploys go out on Thursdays.");
+        rewrite["status"] = json!("proposed");
+        rewrite["replaces"] = json!("mem_kept");
+        let rt = render(vec![k, rewrite], "ask");
+        let all = texts(&rt);
+        let joined = all.join("\n");
+        assert!(all.iter().any(|t| t == "Wants to change this to: "), "{joined}");
+        assert!(all.iter().any(|t| t == "Deploys go out on Thursdays."), "{joined}");
+        assert!(all.iter().any(|t| t == "Now: Deploys go out on Fridays."), "{joined}");
+        assert!(all.iter().any(|t| t == "Keep the change"), "{joined}");
+        assert!(all.iter().any(|t| t == "Keep the old one"), "{joined}");
+    }
+
+    // a-proposed-change-says-what-it-changes.test.tsx
+    #[test]
+    fn a_proposed_forget_says_so_with_forget_it_and_keep_it() {
+        let k = kept("mem_kept", "Deploys go out on Fridays.");
+        let mut forget = k.clone();
+        forget["memoryId"] = json!("mem_forget");
+        forget["status"] = json!("proposed");
+        forget["forgets"] = json!("mem_kept");
+        let rt = render(vec![k, forget], "ask");
+        let all = texts(&rt);
+        let joined = all.join("\n");
+        assert!(all.iter().any(|t| t == "Wants to forget this: "), "{joined}");
+        assert!(all.iter().any(|t| t == "Deploys go out on Fridays."), "{joined}");
+        assert!(all.iter().any(|t| t == "Forget it"), "{joined}");
+        assert!(all.iter().any(|t| t == "Keep it"), "{joined}");
+    }
+
+    // a-proposed-change-says-what-it-changes.test.tsx
+    #[test]
+    fn a_new_proposed_memory_uses_keep_and_forget() {
+        let mut fresh = kept("mem_new", "Tests run with pnpm test.");
+        fresh["status"] = json!("proposed");
+        let rt = render(vec![fresh], "ask");
+        let all = texts(&rt);
+        let joined = all.join("\n");
+        assert!(all.iter().any(|t| t == "Keep"), "{joined}");
+        assert!(all.iter().any(|t| t == "Forget"), "{joined}");
+        assert!(!joined.contains("Wants to "), "{joined}");
+    }
+
+    // a-tidy-suggestion-says-what-it-does.test.tsx
+    #[test]
+    fn a_merge_suggestion_lists_every_memory_it_replaces_with_merge_them_and_keep_them_apart() {
+        let a = kept("mem_a", "Deploys go out on Thursdays.");
+        let b = kept("mem_b", "We deploy every Thursday.");
+        let merge = json!({
+            "memoryId": "mem_m",
+            "text": "Deploys go out every Thursday.",
+            "status": "proposed",
+            "merges": ["mem_a", "mem_b"],
+            "by": { "name": "Wren" },
+            "scope": "workspace",
+            "workspaceName": "shop",
+            "createdAt": "2026-09-01T10:00:00.000Z"
+        });
+        let rt = render(vec![a, b, merge], "auto");
+        let all = texts(&rt);
+        let joined = all.join("\n");
+        assert!(all.iter().any(|t| t == "Wants to merge these into one: "), "{joined}");
+        assert!(all.iter().any(|t| t == "Deploys go out every Thursday."), "{joined}");
+        assert!(all.iter().any(|t| t == "Now: Deploys go out on Thursdays."), "{joined}");
+        assert!(all.iter().any(|t| t == "Now: We deploy every Thursday."), "{joined}");
+        assert!(all.iter().any(|t| t == "Merge them"), "{joined}");
+        assert!(all.iter().any(|t| t == "Keep them apart"), "{joined}");
+    }
+
+    // a-tidy-suggestion-says-what-it-does.test.tsx
+    #[test]
+    fn a_retirement_suggestion_says_why_without_citing_model_ids() {
+        let a = kept("mem_a", "Deploys go out on Thursdays.");
+        let c = kept("mem_c", "The API is on port 3000.");
+        let retire = json!({
+            "memoryId": "mem_r",
+            "text": "The API is on port 3000.",
+            "status": "proposed",
+            "forgets": "mem_c",
+            "reason": "the API moved to 3001 (mem_a)",
+            "by": { "name": "Wren" },
+            "scope": "workspace",
+            "workspaceName": "shop",
+            "createdAt": "2026-09-01T10:00:00.000Z"
+        });
+        let rt = render(vec![a, c, retire], "auto");
+        let all = texts(&rt);
+        let joined = all.join("\n");
+        assert!(all.iter().any(|t| t == "Wants to forget this: "), "{joined}");
+        assert!(all.iter().any(|t| t == "Why: the API moved to 3001"), "{joined}");
+        assert!(!joined.contains("mem_a"), "{joined}");
+    }
+
+    // a-tidy-suggestion-says-what-it-does.test.tsx
+    #[test]
+    fn offers_a_tidy_pass_when_two_or_more_and_mode_is_on_and_nudges_past_limit() {
+        let a = kept("mem_a", "Deploys go out on Thursdays.");
+        let b = kept("mem_b", "We deploy every Thursday.");
+        let offered = render(vec![a.clone(), b.clone()], "auto");
+        let joined = texts(&offered).join("\n");
+        assert!(joined.contains("Tidy up…"), "{joined}");
+        assert!(joined.contains("suggests merges and retirements; nothing changes until you keep it"), "{joined}");
+        assert!(!texts(&render(vec![a.clone()], "auto")).join("\n").contains("Tidy up…"));
+        assert!(!texts(&render(vec![a, b], "off")).join("\n").contains("Tidy up…"));
+
+        let at_limit: Vec<Value> = (0..locust_core::memory_tidy::TIDY_NUDGE_AT)
+            .map(|i| kept(&format!("mem_{i}"), &format!("Note number {i}.")))
+            .collect();
+        assert!(!texts(&render(at_limit.clone(), "auto")).join("\n").contains("memories here."));
+
+        let mut past_limit = at_limit;
+        past_limit.push(kept("mem_extra", "One more note."));
+        let expected = format!("{} memories here.", locust_core::memory_tidy::TIDY_NUDGE_AT + 1);
+        assert!(texts(&render(past_limit, "auto")).join("\n").contains(&expected));
+    }
+
+    // a-tidy-pass-is-answered-in-one-press.test.tsx
+    #[test]
+    fn keep_all_is_offered_for_two_or_more_waiting_and_suggestions_wear_mark_not_switch() {
+        let a = kept("mem_a", "Deploys go out on Thursdays.");
+        let b = kept("mem_b", "We deploy every Thursday.");
+        let c = kept("mem_c", "The API is on port 3000.");
+        let merge = json!({
+            "memoryId": "mem_m",
+            "text": "Deploys go out every Thursday.",
+            "status": "proposed",
+            "merges": ["mem_a", "mem_b"],
+            "by": { "name": "Wren" },
+            "scope": "workspace",
+            "workspaceName": "shop",
+            "createdAt": "2026-09-01T10:00:00.000Z"
+        });
+        let retire = json!({
+            "memoryId": "mem_r",
+            "text": "The API is on port 3000.",
+            "status": "proposed",
+            "forgets": "mem_c",
+            "reason": "the API moved to 3001",
+            "by": { "name": "Wren" },
+            "scope": "workspace",
+            "workspaceName": "shop",
+            "createdAt": "2026-09-01T10:00:00.000Z"
+        });
+
+        let one = render(vec![a.clone(), b.clone(), c.clone(), merge.clone()], "auto");
+        assert!(!texts(&one).join("\n").contains("Keep all"));
+
+        let two = render(vec![a, b, c, merge, retire], "auto");
+        let joined = texts(&two).join("\n");
+        assert!(texts(&two).iter().any(|t| t == "Keep all 2"), "{joined}");
+        assert!(joined.contains("Anything you keep can be put back."), "{joined}");
+
+        let switches = two.elements().into_iter().filter(|e| e.role == "switch").count();
+        assert_eq!(switches, 3, "only kept memories wear switches");
+        assert!(two.find("memory-suggested-mem_m").is_some());
+        assert!(two.find("memory-suggested-mem_r").is_some());
+    }
+
+    // a-memory-shows-what-it-said-before.test.tsx
+    #[test]
+    fn a_rewritten_memory_shows_what_it_said_before_when_it_changed_and_put_it_back() {
+        let mut rewritten = kept("mem_1", "Orb suite: 31/31 passing.");
+        rewritten["previousText"] = json!("Orb suite: 29/31, two flaky.");
+        rewritten["updatedAt"] = json!("2026-09-24T05:00:00.000Z");
+        let rt = render(vec![rewritten], "auto");
+        let all = texts(&rt);
+        let joined = all.join("\n");
+        assert!(all.iter().any(|t| t == "Was: Orb suite: 29/31, two flaky."), "{joined}");
+        assert!(all.iter().any(|t| t == "Put it back"), "{joined}");
+        let expected_when = format!("changed {}", crate::memory_card::when_short("2026-09-24T05:00:00.000Z"));
+        assert!(joined.contains(&expected_when), "expected {expected_when} in {joined}");
+
+        let plain = render(vec![kept("mem_1", "Orb suite: 31/31 passing.")], "auto");
+        let plain_joined = texts(&plain).join("\n");
+        assert!(!plain_joined.contains("Was: "), "{plain_joined}");
+        assert!(!plain_joined.contains("Put it back"), "{plain_joined}");
+        assert!(!plain_joined.contains("changed "), "{plain_joined}");
+    }
+
+    // MemoryScreen.tsx draws "Was:" only when the earlier words differ from the ones kept now.
+    #[test]
+    fn a_memory_put_back_to_its_old_words_shows_nothing_extra() {
+        let mut same = kept("mem_1", "Orb suite: 31/31 passing.");
+        same["previousText"] = json!("Orb suite: 31/31 passing.");
+        let joined = texts(&render(vec![same], "auto")).join("\n");
+        assert!(!joined.contains("Was: "), "{joined}");
+        assert!(!joined.contains("Put it back"), "{joined}");
+    }
+
+    // a-tidy-pass-is-answered-in-one-press.test.tsx: the press itself keeps every waiting memory.
+    #[test]
+    fn keep_all_pressed_keeps_every_waiting_memory() {
+        let root = std::env::temp_dir().join(format!(
+            "locust-keep-all-{}-{}",
+            std::process::id(),
+            locust_core::invariants::unique_nanos()
+        ));
+        let store = locust_core::store::Store::new(root.join("native"), root.join("electron")).unwrap();
+        let waiting = |id: &str, text: &str| {
+            let mut m = kept(id, text);
+            m["status"] = json!("proposed");
+            m["name"] = json!(id);
+            m
+        };
+        let rows = vec![waiting("mem_a", "Deploys go out on Fridays."), waiting("mem_b", "Tests run before a push.")];
+        store
+            .save_json("memories.json", &json!({ "schemaVersion": 1, "memories": rows.clone() }))
+            .unwrap();
+        let mut rt = render(rows, "ask");
+        rt.update(|s, _| s.data = Some(store.clone()));
+        rt.frame(0.0);
+        let (x, y) = rt.find("memory-keep-all").expect("Keep all 2 is offered");
+        rt.pointer_down(x, y);
+        rt.pointer_up(x, y);
+        rt.frame(0.1);
+        let file = people::memories(&store).unwrap();
+        let statuses: Vec<&str> = file["memories"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|m| m["status"].as_str().unwrap_or("kept"))
+            .collect();
+        assert_eq!(statuses.len(), 2, "{file}");
+        assert!(statuses.iter().all(|s| *s != "proposed"), "{file}");
+        let _ = std::fs::remove_dir_all(&root);
     }
 }

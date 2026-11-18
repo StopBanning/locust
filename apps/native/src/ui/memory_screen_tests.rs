@@ -80,11 +80,11 @@ fn shows_what_a_rewritten_memory_said_before() {
         }))],
         "forgotten": []
     }));
-    assert!(said.contains("Before: Orb suite: 29/31, two flaky."), "{said}");
+    assert!(said.contains("Was: Orb suite: 29/31, two flaky."), "{said}");
 }
 
 #[test]
 fn shows_nothing_extra_for_a_memory_never_changed() {
     let (said, _) = drawn(json!({"memories": [kept_memory(json!({}))], "forgotten": []}));
-    assert!(!said.contains("Before: "));
+    assert!(!said.contains("Was: "));
 }
