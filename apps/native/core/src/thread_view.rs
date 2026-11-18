@@ -2,9 +2,19 @@
 use crate::ledger::{Item, PeerLink};
 use serde_json::Value;
 
+/// One step of the plan with its state: "done", "running" or "pending" (missionView.ts `readPlan`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PlanStepView {
+    pub text: String,
+    pub state: &'static str,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LiveLine {
     pub label: String,
+    /// The plan, when the line's detail is its "step N of M": what the step control opens (missionView.ts
+    /// `live-step.plan`).
+    pub plan: Option<Vec<PlanStepView>>,
     /// What the step under way is doing, in words (missionView.ts `live-step` `action`): the open call's
     /// `liveActionLine`, or the plan's step under way.
     pub action: Option<String>,
@@ -37,6 +47,33 @@ fn plan_step(event: &Value) -> Option<(String, String)> {
     let words = steps[at]["step"].as_str().unwrap_or("").trim();
     let words = if words.ends_with('.') && !words.ends_with("..") { &words[..words.len() - 1] } else { words };
     Some((words.to_owned(), format!("step {} of {}", at + 1, steps.len())))
+}
+
+fn plan_steps(event: &Value) -> Vec<PlanStepView> {
+    let list = event["payload"]["plan"]["plan"].as_array().map(Vec::as_slice).unwrap_or(&[]);
+    list.iter()
+        .filter_map(|entry| {
+            let (text, status) = match entry {
+                Value::String(t) => (t.as_str(), String::new()),
+                Value::Object(_) => (
+                    ["step", "text", "title", "name", "content"].iter().find_map(|k| entry[*k].as_str())?,
+                    entry["status"].as_str().unwrap_or("").to_lowercase(),
+                ),
+                _ => return None,
+            };
+            if text.is_empty() {
+                return None;
+            }
+            let state = if status.contains("complete") || status == "done" {
+                "done"
+            } else if status.contains("progress") || status == "running" || status == "active" {
+                "running"
+            } else {
+                "pending"
+            };
+            Some(PlanStepView { text: text.to_owned(), state })
+        })
+        .collect()
 }
 
 fn clip(text: &str, max: usize) -> String {
@@ -158,6 +195,7 @@ pub fn live_line_starting(
     let mut open: Vec<(String, String, Option<String>, bool, Option<String>)> = Vec::new();
     let mut messages = std::collections::HashMap::new();
     let mut plan: Option<(String, String)> = None;
+    let mut plan_list: Vec<PlanStepView> = Vec::new();
     for e in events {
         let p = &e["payload"];
         let s = |key: &str| p[key].as_str().unwrap_or("");
@@ -203,7 +241,10 @@ pub fn live_line_starting(
                 open.push((s("itemId").into(), shown, mcp.map(|m| m.server), connector, action));
             }
             "tool.completed" | "tool.failed" => open.retain(|(id, ..)| id != s("itemId")),
-            "plan.updated" => plan = plan_step(e),
+            "plan.updated" => {
+                plan = plan_step(e);
+                plan_list = plan_steps(e);
+            }
             "message.delta" => {
                 let final_ = p["final"] == true;
                 messages.insert(s("itemId").to_owned(), final_);
@@ -237,7 +278,7 @@ pub fn live_line_starting(
     }
     let (plan_action, plan_aside) = plan.map_or((None, None), |(a, d)| (Some(a), Some(d)));
     // The open call's connector, else the plan's step: "step 2 of 3" (missionView.ts `detail`).
-    let detail = open.last().and_then(|(_, _, detail, ..)| detail.clone()).or(plan_aside);
+    let detail = open.last().and_then(|(_, _, detail, ..)| detail.clone()).or(plan_aside.clone());
     let action = match (open.last(), &step) {
         (Some((.., true, _)), _) => None,
         (Some((.., action)), _) => action.clone().or(plan_action),
@@ -266,7 +307,9 @@ pub fn live_line_starting(
             true,
         )
     };
+    let with_plan = detail.is_some() && detail == plan_aside && !plan_list.is_empty();
     Some(LiveLine {
+        plan: with_plan.then_some(plan_list),
         label: crate::ledger::scrub(&label),
         action: action.map(|a| crate::ledger::scrub(&a)),
         detail: detail.map(|d| crate::ledger::scrub(&d)),

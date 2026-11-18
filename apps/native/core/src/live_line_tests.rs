@@ -130,3 +130,18 @@ fn still_says_starting_when_no_phase_has_been_sent() {
         assert_eq!(sweep_text(&line.label), "Starting\u{2026}");
     }
 }
+
+// case: buildThread attaches the plan to live-step only when step N of M is present
+#[test]
+fn attaches_the_plan_to_the_live_line_only_when_step_n_of_m_is_present() {
+    let tool = event(3, "tool.started", json!({"itemId": "t", "toolKind": "command_execution", "name": "shell", "command": "npm test", "phase": "started"}));
+    let line = live_line(&[started(), plan(&["completed", "in_progress", "pending"]), tool], true, "", false).unwrap();
+    assert_eq!(line.detail.as_deref(), Some("step 2 of 3"));
+    let steps = line.plan.expect("a plan is attached");
+    assert_eq!(steps.len(), 3);
+    assert_eq!(steps.iter().map(|s| s.state).collect::<Vec<_>>(), ["done", "running", "pending"]);
+    assert_eq!(steps[0].text, "Step 1");
+    // CONTROL: a run without a plan has none attached.
+    let bare = event(2, "tool.started", json!({"itemId": "t2", "name": "shell", "phase": "started"}));
+    assert_eq!(live_line(&[started(), bare], true, "", false).unwrap().plan, None);
+}
