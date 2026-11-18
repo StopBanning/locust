@@ -65,3 +65,13 @@ fn keeps_the_existing_failed_only_nonempty_and_never_started_boundaries() {
         "occurredAt":"2026-10-06T12:00:00.000Z","payload":{"runtimeThreadId":"thread_1","evidence":{"redacted":true}}})];
     assert_eq!(run_again_offer(&turn(None), "failed", runtime_never_started(&started), false), None);
 }
+
+/// Electron's H4 rule, which its file does not test on its own: a failure that names the runtime's thread came from a
+/// runtime that started, so it is not offered Run it again.
+#[test]
+fn a_failure_that_names_the_runtimes_thread_has_started() {
+    let named = [json!({"id":"e","runId":"r","sequence":1,"type":"run.failed","sourceAdapter":"codex","runtimeThreadId":"thread_1",
+        "occurredAt":"2026-10-06T12:00:00.000Z","payload":{"message":"The CLI refused its arguments."}})];
+    assert!(!runtime_never_started(&named));
+    assert!(runtime_never_started(&failed_events()));
+}

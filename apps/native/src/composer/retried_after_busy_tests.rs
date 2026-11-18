@@ -45,3 +45,11 @@ fn keeps_its_retry_time_when_the_queue_folds_what_was_typed_behind_it_into_it() 
     assert_eq!(folded[0].retry_at, Some(1_500));
     assert!(folded[0].text.contains("And six.txt"));
 }
+
+/// Electron's case 1 passes the same key as the row's; App.tsx passes the conversation it was typed in
+/// (`previousKey ?? options.requeue.key`), which can differ from a row queued under a pending id.
+#[test]
+fn goes_back_under_the_key_it_is_given_not_the_one_it_had() {
+    let back = retried_after_busy(&QueuedRow { key: "pending:1".into(), ..row() }, "run_4", 1_000);
+    assert_eq!(back.key, "run_4");
+}
