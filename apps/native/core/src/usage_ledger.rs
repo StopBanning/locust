@@ -191,7 +191,7 @@ pub fn usage_turns(store: &Store) -> Result<Vec<UsageTurn>, String> {
     Ok(resolve_conversations(reads))
 }
 
-fn collect_dir_records(dir: &Path) -> Result<Vec<(String, Vec<Value>)>, String> {
+pub(crate) fn collect_dir_records(dir: &Path) -> Result<Vec<(String, Vec<Value>)>, String> {
     if !dir.exists() {
         return Ok(Vec::new());
     }
@@ -217,7 +217,7 @@ fn collect_dir_records(dir: &Path) -> Result<Vec<(String, Vec<Value>)>, String> 
     Ok(out)
 }
 
-fn collect_missions(store: &Store) -> Result<Vec<(String, Vec<Value>)>, String> {
+pub(crate) fn collect_missions(store: &Store) -> Result<Vec<(String, Vec<Value>)>, String> {
     let native_dir = store.root().join("mission-ledger");
     let native_reads = collect_dir_records(&native_dir)?;
     let mut unique: HashMap<String, Vec<Value>> = HashMap::new();
@@ -268,54 +268,11 @@ pub fn reading_of_warning(message: &str) -> Option<String> {
 
 /// Port of mission-history.ts `limitedRuntimesFrom`, keyed by `agent_accounts::usage_key`.
 pub fn limited_runtimes_from(missions: &[Vec<Value>]) -> HashMap<String, String> {
-    let mut latest: HashMap<String, (String, Option<String>)> = HashMap::new();
-    for records in missions {
-        let Some(metadata) = records.iter().find_map(|r| {
-            (r.get("recordType").and_then(Value::as_str) == Some("mission.created"))
-                .then(|| r.get("metadata"))
-                .flatten()
-        }) else {
-            continue;
-        };
-        for event in records.iter().filter_map(|r| r.get("event")) {
-            let kind = event.get("type").and_then(Value::as_str).unwrap_or("");
-            let payload = &event["payload"];
-            let (relevant, said) = if kind == "route.limit_detected"
-                && payload.get("kind").and_then(Value::as_str) == Some("quota-exhausted")
-            {
-                (true, payload.get("message").and_then(Value::as_str).map(str::to_owned))
-            } else if kind == "run.completed" {
-                (true, None)
-            } else {
-                (false, None)
-            };
-            if !relevant {
-                continue;
-            }
-            let Some(at) = event.get("occurredAt").and_then(Value::as_str) else {
-                continue;
-            };
-            let Some(key) = event_usage_key(metadata, event) else {
-                continue;
-            };
-            let replace = latest.get(&key).is_none_or(|(prev, _)| at > prev.as_str());
-            if replace {
-                latest.insert(key, (at.to_owned(), said));
-            }
-        }
-    }
-    latest
-        .into_iter()
-        .filter_map(|(k, (_, said))| said.map(|s| (k, s)))
-        .collect()
+    crate::limits::limited_runtimes_from(missions)
 }
 
 pub fn limited_runtimes(store: &Store) -> HashMap<String, String> {
-    let Ok(missions) = collect_missions(store) else {
-        return HashMap::new();
-    };
-    let records: Vec<Vec<Value>> = missions.into_iter().map(|(_, r)| r).collect();
-    limited_runtimes_from(&records)
+    crate::limits::limited_runtimes(store)
 }
 
 /// Port of mission-history.ts `usageWindowsFrom`, keyed by `agent_accounts::usage_key`.

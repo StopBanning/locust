@@ -1045,7 +1045,7 @@ fn open_models(s: &mut State, id: String) {
     }
     agent_accounts_card::reload(s);
     if let Some(store) = &s.data {
-        s.limited_runtimes = locust_core::usage_ledger::limited_runtimes(store);
+        s.limited_runtimes = locust_core::limits::limited_runtimes(store);
     }
     s.model_menu = Some(id.clone());
     s.model_query = TextEdit::default();
@@ -2991,10 +2991,14 @@ fn main() {
     // What discovery finds on this computer, as JSON: each agent's state and the row the AI agents screen shows.
     if std::env::args().nth(1).as_deref() == Some("--agents") {
         use locust_core::agents;
+        let limited = locust_core::store::Store::local()
+            .ok()
+            .map(|store| locust_core::limits::limited_runtimes(&store))
+            .unwrap_or_default();
         let rows: Vec<serde_json::Value> = agents::discover()
             .iter()
             .map(|f| {
-                let row = agents::row_status(f, agents::integration_of(&f.id), false, None);
+                let row = agents::row_status(f, agents::integration_of(&f.id), false, limited.get(&f.id).map(String::as_str));
                 serde_json::json!({"id": f.id, "installed": f.installed, "version": f.version, "auth": format!("{:?}", f.auth),
                     "status": format!("{:?}", f.status), "tag": row.tag, "detail": row.detail})
             })

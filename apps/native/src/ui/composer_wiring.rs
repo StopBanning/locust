@@ -76,6 +76,7 @@ pub(super) fn load_composer_store(s: &mut State) {
         if let Ok(settings) = crate::workspace_settings::load(&store) {
             s.layout_pref = settings.layout;
         }
+        s.limited_runtimes = locust_core::limits::limited_runtimes(&store);
         s.data = Some(store);
     }
 }
