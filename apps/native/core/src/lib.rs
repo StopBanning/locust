@@ -390,3 +390,7 @@ mod unknown_record_tests;
 mod earlier_peer_only_tests;
 #[cfg(test)]
 mod finished_message_tests;
+#[cfg(test)]
+mod cancelled_run_cost_tests;
+#[cfg(test)]
+mod next_steps_cards_tests;

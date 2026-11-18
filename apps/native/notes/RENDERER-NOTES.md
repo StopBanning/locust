@@ -2345,3 +2345,12 @@ Additional native cases (folder_confirmation::tests):
   - `Transcript::apply` now marks earlier open `Item::Assistant` items as `r#final = true` when a `tool.started` arrives or when a `message.delta` with a different `itemId` arrives (watched 2 tests fail first, then pass).
   - `Transcript::apply`'s empty-turn check now strips `<locust-share>` blocks via `peer_share::strip_share_blocks` before checking whether `Item::Assistant` wrote anything, so a turn whose only text was `<locust-share>` without a `mission.peer` link still emits `"This turn ended without a reply"` (watched test fail first, then pass).
 - Breaks: 8 of 8 killed by name (`~/work/scratch/hydrogen/b1-breaks.log`).
+
+## Batch 2 (17 Nov 2026)
+- Partial:
+  - `a-cancelled-run-spent-nothing.test.ts` (4 of 5 cases): `core/src/cancelled_run_cost_tests.rs` on `mission_cost_from_events`, `cost_line`, and `cost_total`. Case 5 (`"so far"` on a live run) is not built on `cost_line`.
+  - `a-reply-suggests-tasks-as-cards.test.tsx` (core 4 of 4 + existing UI drive): `core/src/next_steps_cards_tests.rs` on `parse_next_steps`, `strip_next_blocks`, `defang_protocol_blocks`, `next_step_prompt`; `src/ui/window_drive_tests.rs:1004` covers the cards (`2 suggested tasks`, `Do it here`, `Start`, `Put away`). `Start all` is intentionally omitted in `src/ui/next_steps.rs`.
+- Waiting:
+  - `a-call-asks-on-a-card-in-the-thread.test.tsx`, `a-call-shows-on-its-conversation-row.test.tsx`: no voice calls in Rust.
+  - `a-phone-lists-conversations.test.ts`: no phone desk in Rust.
+- Breaks: 9 of 9 killed by name (`~/work/scratch/hydrogen/b2-breaks.log`, `b2b-breaks.log`, `b2c-breaks.log`).

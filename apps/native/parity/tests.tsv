@@ -616,14 +616,14 @@ apps/desktop/src/renderer/src/a-build-starter-makes-one-page.test.ts	p12	partial
 apps/desktop/src/renderer/src/a-busy-free-model-offers-the-next.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-busy-provider-offers-continue.test.ts		waiting		
 apps/desktop/src/renderer/src/a-button-turn-says-what-was-asked.test.ts		waiting		
-apps/desktop/src/renderer/src/a-call-asks-on-a-card-in-the-thread.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-call-asks-on-a-card-in-the-thread.test.tsx	hydrogen-1	waiting		No voice calls in Rust
 apps/desktop/src/renderer/src/a-call-is-said-in-the-thread.test.tsx	hydrogen-1	waiting		No voice calls in Rust
 apps/desktop/src/renderer/src/a-call-joined-later-is-not-where-it-began.test.tsx		waiting		
-apps/desktop/src/renderer/src/a-call-shows-on-its-conversation-row.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-call-shows-on-its-conversation-row.test.tsx	hydrogen-1	waiting		No voice calls in Rust
 apps/desktop/src/renderer/src/a-call-sums-up-what-it-handed-out.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-call-with-chatgpt-wears-an-orb.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-called-link-says-what-leaves-the-computer.test.tsx		waiting		
-apps/desktop/src/renderer/src/a-cancelled-run-spent-nothing.test.ts		waiting		native has no mission header cost strip (missionCostTail) or conversation cost line yet
+apps/desktop/src/renderer/src/a-cancelled-run-spent-nothing.test.ts	hydrogen-1	partial	core/src/cancelled_run_cost_tests.rs	4 of 5: mission_cost_from_events, cost_line, cost_total; case 5 ("so far" on a live run) is not built on cost_line
 apps/desktop/src/renderer/src/a-carried-on-turn-is-said-as-locusts.test.tsx	RELAY	partial	src/ui/handoff_divider.rs	divider carried copy in handoff_divider.rs
 apps/desktop/src/renderer/src/a-chain-template-opens-in-the-editor.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-change-can-be-copied.test.tsx	P7	partial	copies_after_code_with_parts_apart_and_no_deleted_code	`renderer/src/a-change-can-be-copied.test.tsx` | `copies_after_code_with_parts_apart_and_no_deleted_code` covers separated hunks, new/deleted code behavior. Scene inspection covers visible copy controls. React static-markup assertions are i
@@ -753,7 +753,7 @@ apps/desktop/src/renderer/src/a-pdf-is-a-card.test.tsx	p14	partial		`main/a-pdf-
 apps/desktop/src/renderer/src/a-pdf-page-reads-in-order.test.ts	p14	partial		`main/a-pdf-arrives-readable.test.ts`, `main/a-pdf-shows-its-pages.test.ts`, `renderer/.../a-pdf-is-a-card.test.tsx`, `a-pdf-page-reads-in-order.test.ts` | Partial: reading text/BOM, picture names, note wording, path refusal, macOS PDFKit t
 apps/desktop/src/renderer/src/a-pet-canvas-drawn-shrunk-is-in-software.test.ts		waiting		
 apps/desktop/src/renderer/src/a-pet-plays-what-its-teammate-is-doing.test.ts	faces-6	carried	core/src/pet_motion_tests.rs	all 11: every_activity_maps_to_a_row_of_the_sheet, a_pet_at_rest_shows_its_resting_pose, work_and_thought_loop_through_their_rows_at_openpets_pace, a_pet_waves_and_jumps_twice_then_rests, a_pet_fails_twice_then_holds_its_lowest_moment, reduced_motion_holds_a_pose_never_a_row_half_played, a_version_2_pet_turns_its_head_toward_a_teammate_left_right_or_up, a_pet_keeps_its_pose_where_there_is_no_head_to_turn_or_only_the_back_of_it, each_drawing_melts_into_the_next_over_half_a_frame_at_most_the_maximum, nothing_fades_at_rest_or_when_still, how_dark_a_pet_is_comes_from_its_opaque_pixels_only
-apps/desktop/src/renderer/src/a-phone-lists-conversations.test.ts		waiting		
+apps/desktop/src/renderer/src/a-phone-lists-conversations.test.ts	hydrogen-1	waiting		No phone desk in Rust
 apps/desktop/src/renderer/src/a-picker-row-is-named-not-an-id.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-plain-conversation-wears-the-ghost.test.tsx		carried	messages::tests	Three exact cases passed by name in renderer-13-ghost-workspace.log; plain-ghost control caught all three assertions and restored source. See notes/RENDERER-NOTES.md (renderer-13).
 apps/desktop/src/renderer/src/a-plan-card-is-its-own-turns.test.ts		waiting		
@@ -777,7 +777,7 @@ apps/desktop/src/renderer/src/a-reload-keeps-every-comparison-column-live.test.t
 apps/desktop/src/renderer/src/a-remote-control-switch-shows-claudes-own-words.test.tsx	REMOTE-CONTROL	partial	core/src/remote_control_tests.rs	the line for each phase (the_switch_says_where_it_stands_first) and the window test the_remote_control_switch_runs_the_server_and_shows_claudes_own_words; the disabled switch while ending is not pinned
 apps/desktop/src/renderer/src/a-removed-teammate-is-not-replaced.test.ts	R2	carried	src/main.rs renderer_address_tests	3 exact cases; roster refresh keeps removed/no selection empty; named passes in renderer-6-restored-workspace.log; removed-selection control caught and restored
 apps/desktop/src/renderer/src/a-replaced-select-still-shows-its-value.test.tsx		waiting		
-apps/desktop/src/renderer/src/a-reply-suggests-tasks-as-cards.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-reply-suggests-tasks-as-cards.test.tsx	hydrogen-1	partial	core/src/next_steps_cards_tests.rs; src/ui/window_drive_tests.rs	core cases 1-4 in next_steps_cards_tests.rs + UI cards in window_drive_tests.rs:1004; Start all is intentionally omitted in src/ui/next_steps.rs and Do it here hidden-when-busy is not tested
 apps/desktop/src/renderer/src/a-request-is-answered-on-the-board.test.tsx	p12	partial		`renderer/src/a-request-is-answered-on-the-board.test.tsx`: native channel integration test above; real DOM bubbling, file-change/question navigation and live presses are not exercised.
 apps/desktop/src/renderer/src/a-restored-queue-offers-its-actions.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-restored-queue-waits-for-send.test.ts		waiting		
