@@ -1,7 +1,7 @@
 // Carries three packages/runtime-adapters tests on the Claude Code command line (Electron 4ce2f37a):
 // a-run-without-connectors-leaves-them-out, connector-allow-rules and the-browser-shares-one-flag-with-the-bridge.
 // Electron's sandboxes are Rust's modes: read-only is Ask, workspace-write is Accept edits, full-access is Auto.
-use super::claude::{BRIDGE_TOOL, PrintOptions, print_args};
+use super::claude::{BRIDGE_TOOL, PrintOptions, claude_connector_rules, print_args};
 use crate::approval::Mode;
 
 const BRIDGE: &str = "C:\\temp\\locust-permission\\mcp.json";
@@ -128,4 +128,24 @@ fn a_run_without_the_browser_is_unchanged() {
 fn a_claude_ai_names_runs_of_underscores_are_one_and_another_names_are_kept() {
     assert_eq!(super::claude::allow_rule_for("claude.ai Google Drive (beta)").as_deref(), Some("mcp__claude_ai_Google_Drive_beta__*"));
     assert_eq!(super::claude::allow_rule_for("My  Server").as_deref(), Some("mcp__My__Server__*"));
+}
+
+// ask-asks-before-a-connector.test.ts: claudeConnectorRules, the gate in front of the command builder.
+#[test]
+fn connector_rules_are_none_in_ask_or_plan_every_call_goes_to_the_card() {
+    for mode in [Mode::Ask, Mode::Plan] {
+        assert!(claude_connector_rules(mode, false, &["robinhood", "github"]).is_empty(), "{mode:?}");
+    }
+}
+
+#[test]
+fn connector_rules_are_the_named_ones_in_edit_as_before() {
+    assert_eq!(claude_connector_rules(Mode::AcceptEdits, false, &["github"]), &["github"]);
+}
+
+#[test]
+fn connector_rules_are_none_when_the_person_asked_to_be_asked_about_every_one_or_none_are_named() {
+    assert!(claude_connector_rules(Mode::AcceptEdits, true, &["github"]).is_empty());
+    assert!(claude_connector_rules(Mode::ApproveEach, false, &["github"]).is_empty());
+    assert!(claude_connector_rules(Mode::AcceptEdits, false, &[]).is_empty());
 }

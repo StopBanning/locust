@@ -1167,6 +1167,8 @@ fn claude_args_with_fork(
         fork,
         references,
         skills,
+        // No connector can be ticked in this engine yet; whatever is, passes the mode's gate first.
+        connectors: crate::runtime::claude::claude_connector_rules(mode, false, &[]),
         ..Default::default()
     })
 }

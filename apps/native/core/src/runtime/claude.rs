@@ -134,6 +134,15 @@ pub fn allow_rule_for(name: &str) -> Option<String> {
     server.bytes().any(|b| b.is_ascii_alphanumeric()).then(|| format!("{prefix}*"))
 }
 
+/// codex-mission.ts claudeConnectorRules (ask-asks-before-a-connector): which of the person's connectors a Claude turn
+/// may call without asking. None in Ask or Plan (read-only: every call goes to the card), none when the person asked to
+/// be asked about every one (or the turn is Approve each), otherwise the named ones. `print_args` builds whatever it is
+/// given, as Electron's command builder does; this is the gate in front of it.
+pub fn claude_connector_rules<'a>(mode: Mode, ask_every: bool, named: &'a [&'a str]) -> &'a [&'a str] {
+    let read_only = matches!(mode, Mode::Ask | Mode::Plan);
+    if ask_every || mode == Mode::ApproveEach || read_only || named.is_empty() { &[] } else { named }
+}
+
 fn connector_rules(names: &[&str], browser: bool) -> Vec<String> {
     let mut rules: Vec<String> = Vec::new();
     for name in names {
