@@ -599,6 +599,58 @@ fn own_branch_folder(store: &Store, teammate: &Teammate, runtime: &str, folder: 
     }
 }
 
+/// Snapshots the folder after a write-capable turn and records `observed_edit` events (or a shared-folder notice).
+fn record_disk_observation(
+    store: &Store,
+    mission_id: &str,
+    folder: &Path,
+    disk_before: Option<crate::disk_observation::WorkspaceSnapshot>,
+    checkpoint: &crate::checkpoints::Turn,
+) {
+    let Some(before) = disk_before else { return };
+    let before_lookup = |rel: &str| checkpoint.before_text(store, rel);
+    let host = crate::disk_observation::DefaultDiskHost::with_before_text(&before_lookup);
+    let Some(after) = crate::disk_observation::snapshot_workspace(folder, &host) else {
+        return;
+    };
+    let changed = crate::disk_observation::changed_paths(&before, &after);
+    if changed.is_empty() {
+        return;
+    }
+    let Ok(path) = store.write_path(mission_id) else {
+        return;
+    };
+    let existing_events: Vec<Value> = turn_records(mission_id).map(|t| t.events).unwrap_or_default();
+    let shared = checkpoint.is_shared();
+    let _ = crate::ledger_write::append_events(&path, |run, mission, adapter, next_seq, at| {
+        if shared {
+            vec![crate::disk_observation::shared_tree_notice(
+                run, mission, adapter, next_seq, at, &changed,
+            )]
+        } else {
+            let unreported: std::collections::BTreeSet<String> =
+                crate::disk_observation::unreported_paths(&changed, &existing_events)
+                    .into_iter()
+                    .collect();
+            let reported: std::collections::BTreeSet<String> = changed
+                .iter()
+                .filter(|p| !unreported.contains(*p))
+                .cloned()
+                .collect();
+            let patches = crate::disk_observation::observed_patches(
+                folder,
+                &after,
+                &changed,
+                &host,
+                Some(&before),
+            );
+            crate::disk_observation::observed_edit_events(
+                run, mission, adapter, next_seq, &changed, at, &patches, &reported,
+            )
+        }
+    });
+}
+
 /// Commit a turn in a teammate's own copy on its branch, and record the receipt in the turn's stream: what was saved,
 /// what was left out for being too big, or why nothing could be saved (the files then stay in the copy).
 fn checkpoint_turn(store: &Store, mission: &str, root: &Path, teammate: &Teammate, prompt: &str, runtime: &str, model: Option<&str>) {
@@ -670,6 +722,9 @@ fn resolve_run_folder(
     if let Some(earlier_id) = continues_mission_id
         && let Some(earlier) = turn_records(earlier_id)
         && let Some(earlier_ws) = earlier.metadata["workspaceId"].as_str()
+        // "native" is the placeholder a record written without its folder carries (older Rust builds, the terminal's
+        // records): it names no folder, so it is never a reason to refuse; the turn runs where it is asked to.
+        && earlier_ws != "native"
         && earlier_ws != crate::workspace_settings::workspace_id_for(&current)
     {
         let Some(path) = known_folder_of(store, electron, earlier_ws)? else {
@@ -2694,6 +2749,14 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
             let memory_completion = registered;
             let _browser_registration = browser_registration;
             let checkpoint = crate::checkpoints::Turn::begin(&memory_store, &memory_folder);
+            let disk_before = if check_mode.sandbox() == "read-only" {
+                None
+            } else {
+                crate::disk_observation::snapshot_workspace(
+                    &memory_folder,
+                    &crate::disk_observation::DefaultDiskHost::new(),
+                )
+            };
             run_turn(
                 writer,
                 command,
@@ -2714,6 +2777,7 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
                 let _ = std::fs::remove_dir_all(copy);
             }
             crate::skills::forget_roots(&memory_id);
+            record_disk_observation(&memory_store, &memory_id, &memory_folder, disk_before, &checkpoint);
             let (edited, seen_changes) = match checkpoint.finish_reporting_changes(&memory_store, &memory_id) {
                 Ok((edited, seen)) => (Some(edited), seen),
                 Err(error) => {

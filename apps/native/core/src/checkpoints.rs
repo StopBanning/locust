@@ -271,6 +271,19 @@ impl Turn {
             shared,
         }
     }
+    pub fn is_shared(&self) -> bool {
+        self.shared.load(Ordering::SeqCst)
+    }
+
+    /// Reads the pre-turn UTF-8 text of `rel` from this turn's checkpoint, bounded to `MAX_COMPARED_FILE_BYTES`.
+    pub fn before_text(&self, store: &Store, rel: &str) -> Option<String> {
+        safe(&self.workspace, rel).ok()?;
+        let hash = self.before.as_ref().ok()?.files.get(rel)?;
+        let dir = base(store, &self.workspace).ok()?;
+        let bytes = blob(&dir, hash).ok()?;
+        read_utf8_up_to(&bytes, 2 * 1024 * 1024)
+    }
+
     pub fn finish(self, store: &Store, id: &str) -> io::Result<()> {
         self.finish_reporting_edits(store, id).map(|_| ())
     }
@@ -666,6 +679,29 @@ struct PutBackStep {
     target: Option<Vec<u8>>,
     /// The bytes it has now, to write back if a later file in the set cannot be written.
     now: Option<Vec<u8>>,
+}
+
+fn read_utf8_up_to(bytes: &[u8], max: usize) -> Option<String> {
+    if bytes.len() > max || bytes.contains(&0) {
+        return None;
+    }
+    String::from_utf8(bytes.to_vec()).ok()
+}
+
+/// Reads a file's UTF-8 text from a recorded turn checkpoint (`before` state), refusing traversal, symlinks, or unknown ids.
+pub fn file_at(store: &Store, workspace: &Path, id: &str, rel: &str) -> Option<String> {
+    if id.eq_ignore_ascii_case("head") {
+        return None;
+    }
+    let valid = valid_id(id).ok()?;
+    let workspace = workspace.canonicalize().ok()?;
+    safe(&workspace, rel).ok()?;
+    let dir = base(store, &workspace).ok()?;
+    let record_text = fs::read_to_string(dir.join("turns").join(format!("{valid}.json"))).ok()?;
+    let record: Value = serde_json::from_str(&record_text).ok()?;
+    let hash = record["before"][rel].as_str()?;
+    let bytes = blob(&dir, hash).ok()?;
+    read_utf8_up_to(&bytes, 2 * 1024 * 1024)
 }
 
 fn blob(dir: &Path, hash_wanted: &str) -> io::Result<Vec<u8>> {

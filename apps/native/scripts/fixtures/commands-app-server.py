@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Synthetic Codex app-server for the slash-command tests: it answers every request and writes each one it was sent to
-`commands-requests.jsonl` in its working folder, for a test to read. No Codex, credentials or network."""
+`commands-requests.jsonl` beside its working folder, for a test to read. No Codex, credentials or network."""
 import json, os, sys
 
 # A test may choose what the turn says and how it ends: `commands-reply.json` in the working folder, {"text": ...,
@@ -44,14 +44,18 @@ def end():
         turn['error'] = {'message': 'Synthetic failure.'}
     notify('turn/completed', turn=turn)
 
+# The logs go one folder up, beside the working folder and not in it: a write-capable turn's disk observation reports
+# every file that changed in the working folder, and these are the stand-in's own notes, not the agent's work.
+LOG = lambda name: os.path.join(os.path.dirname(os.getcwd()), name)
+
 for line in sys.stdin:
     msg = json.loads(line)
     method, p = msg.get('method'), msg.get('params', {})
     if method not in (None, 'initialized'):
-        with open('commands-requests.jsonl', 'a') as log:
+        with open(LOG('commands-requests.jsonl'), 'a') as log:
             log.write(json.dumps({'method': method, 'params': p}) + '\n')
     if method is None and msg.get('id') == 'srv-1':
-        with open('commands-replies.jsonl', 'a') as log:
+        with open(LOG('commands-replies.jsonl'), 'a') as log:
             log.write(json.dumps(msg) + '\n')
         end()
     elif method == 'initialize':

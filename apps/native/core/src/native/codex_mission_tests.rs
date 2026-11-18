@@ -1285,3 +1285,25 @@ fn is_refused_not_run_here_when_its_folder_is_gone() {
     assert!(err.contains("that folder is not there any more"), "{err}");
     assert_eq!(ledgers(&t).len(), before);
 }
+
+#[test]
+fn a_write_capable_turn_records_observed_edit_for_a_file_modified_on_disk_without_a_tool_event() {
+    let t = Temp::new();
+    asks(&t, "item/commandExecution/requestApproval", json!({"command": "python3 build.py", "cwd": "C:\\work"}));
+    let _hook = hooks::install(t.store(), codex_commands_hook(&t));
+    let started = approve_each(&t, "Build it.");
+    let card = card_for(&started.conversation_id);
+    fs::write(t.0.join("work/unreported.txt"), "hello from disk\n").unwrap();
+    decide_approval(&card.approval_id, Decision::ApproveOnce, None).unwrap();
+    finished(&started.conversation_id);
+    let recs = records(&path_of(&t, &started.conversation_id));
+    let observed: Vec<&Value> = recs
+        .iter()
+        .filter_map(|r| r.get("event"))
+        .filter(|e| e["type"] == "tool.completed" && e["payload"]["toolKind"] == "observed_edit")
+        .collect();
+    assert_eq!(observed.len(), 1, "{recs:?}");
+    assert_eq!(observed[0]["payload"]["command"], "unreported.txt");
+    assert_eq!(observed[0]["payload"]["status"], "observed on disk");
+    assert_eq!(observed[0]["payload"]["patch"]["added"], 1);
+}

@@ -122,7 +122,7 @@ for line in sys.stdin:
         notify('turn/started', turn={'id':'turn_fake'})
         send(dict(method='turn/completed', params={'threadId':'other_thread'}))
         if room_mode:
-            with open('room-prompts.jsonl', 'a') as f:
+            with open(os.path.join(os.path.dirname(os.getcwd()), 'room-prompts.jsonl'), 'a') as f:
                 f.write(json.dumps(words) + '\n')
             if scenario == 'room-queue' and ('Hold slot' in words or 'You are Codec, answering' in words):
                 while os.path.exists('slot-hold.gate') and not os.path.exists('slot-release.gate'):
@@ -159,7 +159,7 @@ for line in sys.stdin:
                 continue
             elif scenario == 'cards-share':
                 # The brief as the teammate got it, for the test to read; then a share, or the reply to one.
-                with open('last-prompt.txt', 'w') as f:
+                with open(os.path.join(os.path.dirname(os.getcwd()), 'last-prompt.txt'), 'w') as f:
                     f.write(text)
                 if 'Messages from teammates, delivered before you started.' in text:
                     reply = 'Got the note about the port.'
@@ -215,7 +215,7 @@ for line in sys.stdin:
             notify('turn/completed', turn={'id':'turn_fake','status':'completed'})
             continue
         if scenario.startswith('relay-'):
-            with open('relay-prompts.jsonl', 'a') as f:
+            with open(os.path.join(os.path.dirname(os.getcwd()), 'relay-prompts.jsonl'), 'a') as f:
                 f.write(json.dumps({'prompt': text, 'words': words, 'resumed': is_resumed_turn}) + '\n')
             if scenario == 'relay-roundtrip':
                 if 'What port is Vite on?' in text and not is_resumed_turn:

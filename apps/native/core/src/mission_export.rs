@@ -148,7 +148,7 @@ pub fn edit_tool_name(name: &str) -> bool {
     words.iter().any(|w| edit_words.contains(w.as_str()))
 }
 
-fn reports_a_change(name: &str, tool_kind: Option<&str>, command: Option<&str>) -> bool {
+pub(crate) fn reports_a_change(name: &str, tool_kind: Option<&str>, command: Option<&str>) -> bool {
     if tool_kind == Some("observed_edit") {
         return true;
     }
@@ -158,7 +158,7 @@ fn reports_a_change(name: &str, tool_kind: Option<&str>, command: Option<&str>) 
     edit_tool_name(name)
 }
 
-fn by_helper(payload: &Value) -> bool {
+pub(crate) fn by_helper(payload: &Value) -> bool {
     payload
         .get("parentItemId")
         .and_then(Value::as_str)

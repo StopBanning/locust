@@ -92,9 +92,12 @@ fn records(path: &Path) -> Vec<Value> {
         .map(|l| serde_json::from_str(l).unwrap())
         .collect()
 }
+/// The run's own event types, in order. Locust's reading of the folder after the run (observed edits, written after the
+/// terminal event as codex-mission.ts does) is the host's, not the run's, so it is left out.
 fn kinds(path: &Path) -> Vec<String> {
     records(path)
         .iter()
+        .filter(|r| r["event"]["payload"]["toolKind"] != "observed_edit")
         .filter_map(|r| r["event"]["type"].as_str().map(str::to_owned))
         .collect()
 }
@@ -1917,7 +1920,7 @@ fn a_share_waits_in_the_workroom_and_reaches_the_teammates_next_brief() {
     let mate = |id: &str, name: &str, role: &str| json!({"teammateId": id, "name": name, "role": role, "route": {"runtime": "codex", "model": "synthetic-model", "mode": "ask"}});
     store.save_json("teammates.json", &json!({"schemaVersion": 1, "teammates": [mate("tm_codec", "Codec", "Code & Migrations"), mate("tm_pip", "Pip", "Docs & QA")], "missionOwners": {}, "settings": {"relay": false}})).unwrap();
     let _g = hooks::install(store.clone(), fake("cards-share"));
-    let prompt_file = t.0.join("work").join("last-prompt.txt");
+    let prompt_file = t.0.join("last-prompt.txt");
 
     let first = send(job(&t, None, "Check the dev server")).unwrap();
     finished(&first.conversation_id);
@@ -2192,7 +2195,7 @@ fn relay_roundtrip_starts_recipient_records_peer_links_remembers_hub_and_returns
             crate::people::hub_of(&store, "tm_pip"),
             real_tip(&first.conversation_id),
             notices,
-            fs::read_to_string(t.0.join("work/relay-prompts.jsonl")),
+            fs::read_to_string(t.0.join("relay-prompts.jsonl")),
         );
     }
 
@@ -2299,7 +2302,7 @@ fn relay_prose_return_posts_unanswered_prose_back_to_asker() {
             crate::people::hub_of(&store, "tm_pip"),
             real_tip(&first.conversation_id),
             notices,
-            fs::read_to_string(t.0.join("work/relay-prompts.jsonl")),
+            fs::read_to_string(t.0.join("relay-prompts.jsonl")),
         );
     }
 
@@ -2353,7 +2356,7 @@ fn relay_defers_while_busy_and_records_cap_diagnostic() {
         pip_job.teammate.id = "tm_pip".into();
         pip_job.teammate.name = "Pip".into();
         let pip_first = send(pip_job).unwrap();
-        let pip_prompt_file = t.0.join("work").join("relay-prompts.jsonl");
+        let pip_prompt_file = t.0.join("relay-prompts.jsonl");
         wait("Pip first turn to enter turn/start", || {
             pip_prompt_file.is_file() && owns(&pip_first.conversation_id)
         });
@@ -2747,7 +2750,10 @@ fn claude_job(t: &Temp, conversation: Option<&str>, prompt: &str) -> Send {
 
 /// What the fake runtime was sent, oldest first, from its log in the work folder.
 fn sent_log(t: &Temp, file: &str) -> Vec<Value> {
-    let path = t.0.join("work").join(file);
+    // The Codex stand-in writes its logs beside the working folder, not in it (commands-app-server.py); the other
+    // stand-ins still write theirs inside it.
+    let beside = t.0.join(file);
+    let path = if beside.exists() { beside } else { t.0.join("work").join(file) };
     fs::read_to_string(path).map(|text| text.lines().map(|l| serde_json::from_str(l).unwrap()).collect()).unwrap_or_default()
 }
 
