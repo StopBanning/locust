@@ -11,7 +11,7 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
-## 0.879.0 - unreleased
+## 0.879.0 - 2026-11-18
 
 ### New
 
