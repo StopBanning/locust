@@ -1553,6 +1553,10 @@ pub(super) fn invite_dialog(s: &State, p: &Palette) -> El {
 }
 
 #[cfg(test)]
+#[path = "scout_fix_tests.rs"]
+mod scout_fix_tests;
+
+#[cfg(test)]
 pub(super) mod tests {
     use super::*;
     use locust_core::engine::Model;

@@ -398,17 +398,11 @@ banner's ask, words, fill and sentence, the toggle's words and fill, `pull_reque
 and sign, the scorecard's headers, verdict, why, best, time, spent (twice), the judge's note, column order and
 `blind_name`. All caught by name.
 
-
-Breaks for batches 6 and 7: 26, after a first run where every break timed out waiting for the lock (stopped, rerun with
-1500 s each; `r3b67c-breaks.log`, `r3b67n-breaks.log`): the old `changelog_date` put back, its words and day, the
-banner's ask, words, fill and sentence, the toggle's words and fill, `pull_request_ask`, `changes_line`'s noun, zero
-and sign, the scorecard's headers, verdict, why, best, time, spent (twice), the judge's note, column order and
-`blind_name`. All caught by name.
-
 ## Batch 8 (window-8): Scout's fix line, a new person's starters and usage line
 Partial: `a-scout-fix-says-where-it-stands` (2 of 3): `src/ui/scout_fix_tests.rs`, on `render_fix_line` drawn headless
 and `scout::view`'s `fix_said`, `fix_files_line` and `card_shows_draft`. Not checked: the Settings switch (its words
 are in `scout_setting.rs` and have Rust tests of their own, not one per Electron case).
 Partial: `a-new-person-is-met-where-they-are` (4 of 7, one in half): `src/ui/new_person_tests.rs`. Two cases read
 Electron's source (`App.tsx`, `FirstLaunch.tsx`); the starter row's wiring in the third is the same.
-No Rust code changed.
+No Rust code changed. Breaks: 15 on `scout/view.rs`, `scout_cards.rs`, `starters.rs`, `idle_teammate.rs` and
+`usage.rs` (`r3b8-breaks.log` and `r3b8-fix.txt`): all caught by name.

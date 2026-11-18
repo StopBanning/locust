@@ -227,6 +227,10 @@ pub(super) fn view(s: &State, mate: &Teammate, p: &Palette) -> El {
 }
 
 #[cfg(test)]
+#[path = "new_person_tests.rs"]
+mod new_person_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::starters::{TEAM_TEMPLATES, TemplateTeammate};
