@@ -671,6 +671,10 @@ pub(super) fn link_chips_for_text(s: &State, body: &str, p: &Palette) -> Option<
 }
 
 #[cfg(test)]
+#[path = "pull_request_news_tests.rs"]
+mod pull_request_news_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use rune::{Env, Runtime};

@@ -369,3 +369,46 @@ Electron says "Wren (Opus 5.5)". Not changed here: the fix belongs in `route_mod
 
 No Rust code changed. Breaks: 5 on `models.rs` and `route_at_start.rs` (`r3b5c-breaks.log`), 8 on `rail.rs` and
 `conversation_list.rs` (`r3b5n-breaks.log`): all caught by name.
+
+## Batch 6 (window-6): a pull request's news, What's new's dates, what a comparison changed
+Carried: `pull-request-news-is-said` (3): `src/ui/pull_request_news_tests.rs`, drawn headless. Electron's `is-plain`
+class is Rust's plain fill (`bg-raised`; news to fix is `amber-tint`), and `aria-pressed` is "Watching" on a lime fill.
+Partial: `whats-new-reads-like-claude-codes` (1 of 6): `src/whats_new_tests.rs`; `a-comparison-that-edits-says-what-each-changed`
+(1 of 5, one in half): `compare_changes_line_tests.rs`.
+
+**Bug fixed in `src/changelog.rs`:** `changelog_date` said nothing for a date not written as three numbers (`someday`),
+so the heading fell back to "Version 0.281.0"; it also read `2026-9-3` and refused a day of `00` or `32`. It is
+Electron's `changelogDate` now: exactly `YYYY-MM-DD` with a real month reads as words, anything else is said as written.
+The Electron case was written first and failed on the old code (`left: None, right: Some("someday")`).
+
+Not built in Compare, for Colin (no such words in Rust): Electron's bar adds "On Auto, a model can still change files
+outside its copy if it is asked to." when the columns run on Auto (0.555, Sol's run that wrote into Colin's folder);
+Keep says "Its changes come into your folder, not committed", and in a folder too big to copy "its changes are there
+already". Rust's What's new heading is "0.281.0 · September 23, 2026" in one line where Electron draws the date with
+the version as a badge (`home_panel.rs`, Sol's).
+
+## Batch 7 (window-7): the judge's scorecard
+Partial: `a-judge-scorecard-sits-under-the-answers` (3 of 4, one in half): `src/ui/judge_scorecard_tests.rs`, on
+`render_scorecard` (called directly from a test module inside `compare_view.rs`). Where the card sits, before the
+judge's own words, is drawn in `view` and not checked. A verdict and its why are one cell in Rust.
+
+Breaks for batches 6 and 7: 26, after a first run where every break timed out waiting for the lock (stopped, rerun with
+1500 s each; `r3b67c-breaks.log`, `r3b67n-breaks.log`): the old `changelog_date` put back, its words and day, the
+banner's ask, words, fill and sentence, the toggle's words and fill, `pull_request_ask`, `changes_line`'s noun, zero
+and sign, the scorecard's headers, verdict, why, best, time, spent (twice), the judge's note, column order and
+`blind_name`. All caught by name.
+
+
+Breaks for batches 6 and 7: 26, after a first run where every break timed out waiting for the lock (stopped, rerun with
+1500 s each; `r3b67c-breaks.log`, `r3b67n-breaks.log`): the old `changelog_date` put back, its words and day, the
+banner's ask, words, fill and sentence, the toggle's words and fill, `pull_request_ask`, `changes_line`'s noun, zero
+and sign, the scorecard's headers, verdict, why, best, time, spent (twice), the judge's note, column order and
+`blind_name`. All caught by name.
+
+## Batch 8 (window-8): Scout's fix line, a new person's starters and usage line
+Partial: `a-scout-fix-says-where-it-stands` (2 of 3): `src/ui/scout_fix_tests.rs`, on `render_fix_line` drawn headless
+and `scout::view`'s `fix_said`, `fix_files_line` and `card_shows_draft`. Not checked: the Settings switch (its words
+are in `scout_setting.rs` and have Rust tests of their own, not one per Electron case).
+Partial: `a-new-person-is-met-where-they-are` (4 of 7, one in half): `src/ui/new_person_tests.rs`. Two cases read
+Electron's source (`App.tsx`, `FirstLaunch.tsx`); the starter row's wiring in the third is the same.
+No Rust code changed.

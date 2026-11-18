@@ -3609,6 +3609,10 @@ fn render_kept_tune_strip(
 }
 
 #[cfg(test)]
+#[path = "judge_scorecard_tests.rs"]
+mod judge_scorecard_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use locust_core::compare::{CompareKept, CompareSlot};

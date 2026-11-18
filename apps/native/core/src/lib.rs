@@ -375,6 +375,8 @@ mod finished_toast_tests;
 mod claude_route_name_tests;
 #[cfg(test)]
 mod handoff_route_tests;
+#[cfg(test)]
+mod compare_changes_line_tests;
 
 #[cfg(test)]
 pub(crate) mod load_waits;
