@@ -423,3 +423,14 @@ unquote redirect targets. Rust's `regex` crate does not support backreferences (
 (like `echo LOCUST-ACP-OK > approved.txt` from Electron's test) panicked at runtime. Replaced with `strip_prefix`/`strip_suffix`
 for matching `"` or `'` quotes. The Electron case was written first and panicked on the old code.
 Breaks: 8 on `approval_card.rs` and `people_panel.rs` (`r3b9-breaks.log`): all caught by name.
+
+## Batch 10 (window-10): other-app access in Settings, stay-awake switch, picker empty states
+Partial: `other-app-access-is-an-explicit-setting` (5 of 8): `src/ui/settings_door_tests.rs`, drawn headless through
+`settings_panel::door_section`. Not checked: React mock IPC toggle-off, OpenClaw line, `editorSeen` / `editorAnswers`,
+and `turnPromptLine`.
+Partial: `a-plugged-in-computer-stays-awake-in-settings` (1 of 1 in half): `src/ui/stay_awake_tests.rs`, drawn headless
+through `quit_guard_dialog::startup_section`.
+Partial: `picker-empty-states` (2 of 3 in half): `src/ui/picker_empty_tests.rs`, drawn headless through
+`thread_view::model_picker` ("Reading the models…" vs Electron's "Still reading the model list").
+No Rust code changed. Breaks: 9 on `settings_panel.rs`, `quit_guard_dialog.rs` and `thread_view.rs` (`r3b10-breaks.log`
+and `r3b10-fix.txt`): all caught by name.

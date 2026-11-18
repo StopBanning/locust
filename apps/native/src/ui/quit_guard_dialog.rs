@@ -260,3 +260,7 @@ pub(super) fn startup_section(s: &State, p: &Palette) -> El {
                 ),
         )
 }
+
+#[cfg(test)]
+#[path = "stay_awake_tests.rs"]
+mod stay_awake_tests;
