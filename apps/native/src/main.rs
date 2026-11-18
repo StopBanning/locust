@@ -205,6 +205,8 @@ mod link_open;
 mod reply_page_ui;
 #[path = "ui/remote_control_card.rs"]
 mod remote_control_card;
+#[path = "ui/remote_mcp_card.rs"]
+mod remote_mcp_card;
 #[path = "ui/agent_accounts_card.rs"]
 mod agent_accounts_card;
 #[path = "ui/published_cards.rs"]
@@ -1975,6 +1977,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     changed |= claude_app_card::poll(s);
     changed |= link_open::poll(s);
     changed |= remote_control_card::poll(s);
+    changed |= remote_mcp_card::poll(s);
     changed |= agent_accounts_card::poll(s);
     changed |= usage_line::poll(s);
     changed |= agent_card_ui::poll(s);
@@ -2405,6 +2408,7 @@ fn on_quit(s: &mut State, _: &mut Tx) {
     os_hosts::release_awake();
     // Claude Code's Remote Control server ends with Locust, waited for.
     remote_control_card::dispose();
+    remote_mcp_card::dispose();
     // A test's window quitting must not stop the turns of the other tests running beside it in this process (a
     // window test's on_quit stopped another's queued run seconds after it started); each test stops its own.
     if cfg!(test) {
@@ -2616,6 +2620,7 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
         .fill(p.bg)
         .child(rail::title_bar(s, &p, !thread_shown, running))
         .children(backup_section::restore_notice_banner(s, &p))
+        .children(remote_mcp_card::card(s, &p))
         .child(body)
         // Locust taps you on the shoulder only while its window is elsewhere (attention.ts shouldNotify).
         .on_window_focus(|s: &mut State, focused: bool, _tx: &mut Tx| s.window_focused = focused);

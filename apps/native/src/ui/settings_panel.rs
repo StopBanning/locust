@@ -811,6 +811,11 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
             for heading in headings {
                 if heading == DOOR_HEADING {
                     body = body.child(door_section(s, p));
+                } else if heading == "Your phone" {
+                    body = body.child(deferred(heading, p));
+                    if let Some(remote) = crate::remote_mcp_card::section(s, p) {
+                        body = body.child(remote);
+                    }
                 } else if heading == "Startup" {
                     body = body.child(crate::quit_guard_dialog::startup_section(s, p));
                 } else if heading == "Report a problem" {

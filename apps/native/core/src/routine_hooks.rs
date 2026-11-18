@@ -88,7 +88,7 @@ pub(crate) fn sha256_base64url(text: &str) -> String {
     base64url_encode(&digest)
 }
 
-fn iso_millis(at_ms: i64) -> String {
+pub(crate) fn iso_millis(at_ms: i64) -> String {
     DateTime::from_timestamp_millis(at_ms)
         .unwrap_or(DateTime::<Utc>::UNIX_EPOCH)
         .to_rfc3339_opts(SecondsFormat::Millis, true)

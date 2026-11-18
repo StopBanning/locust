@@ -300,7 +300,7 @@ apps/desktop/src/main/an-app-server-output-close-is-reported-once.test.ts		waiti
 apps/desktop/src/main/an-app-server-that-cannot-start-says-so.test.ts		waiting		
 apps/desktop/src/main/an-app-started-opencode-turn-works-where-it-was-sent.test.ts		waiting		
 apps/desktop/src/main/an-app-stops-a-turn-it-started.test.ts		waiting		
-apps/desktop/src/main/an-app-uses-the-team-from-anywhere.test.ts		waiting		
+apps/desktop/src/main/an-app-uses-the-team-from-anywhere.test.ts	LINKS	partial	core/src/remote_mcp_tests.rs	the computer's side of all six cases carried with a fake relay, fake tools and a fake clock (card and six digits, deny, code once with PKCE, MCP answers and refresh, hashes only and Remove/Off, refusals); the relay's own room-core (register, authorize page, held requests, 404/503 answers) stays in TS (apps/relay/); the tool words are checked against the bridge file
 apps/desktop/src/main/an-app-waits-for-the-answer.test.ts		waiting		
 apps/desktop/src/main/an-approval-says-what-it-allows.test.ts	approvals	carried	core/src/approval.rs, core/src/runtime/codex.rs, core/src/runtime/opencode_serve.rs	all 5 tests; open_code_permission_request, diff_patch_from, 250ms Codex item wait, outsideFolder via inside_folder
 apps/desktop/src/main/an-approval-shows-the-whole-action.test.ts	P8	partial		`main/an-approval-shows-the-whole-action.test.ts` | New detail normalization/counting and long Claude path regression; full tool-input/question matrix still partial.

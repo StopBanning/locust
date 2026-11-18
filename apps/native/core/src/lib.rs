@@ -18,6 +18,7 @@ pub mod claude_app;
 pub mod locust_link;
 pub mod reply_page;
 pub mod remote_control;
+pub mod remote_mcp;
 pub mod agent_accounts;
 pub mod agent_install;
 pub mod teammate_keys;
