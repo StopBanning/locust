@@ -2328,3 +2328,20 @@ Additional native cases (folder_confirmation::tests):
 - Limits: headless vector output/logic only. No live or packaged window,
   visual/pixel comparison, real agent call, phone session, Electron/JS gate,
   other OS, performance claim, or puppet change. Release suite/build pending.
+
+# Hydrogen: teammate and conversation window tests
+
+## Batch 1 (17 Nov 2026)
+- Carried:
+  - `an-unknown-record-stays-out-of-the-thread.test.ts` (3 cases): `core/src/unknown_record_tests.rs` on `Transcript::apply` and `signal_rail`.
+  - `an-earlier-turn-that-only-messaged-is-not-silent.test.tsx` (2 cases): `core/src/earlier_peer_only_tests.rs` on `Transcript::apply`.
+- Partial:
+  - `a-finished-message-stops-typing.test.ts` (3 of 4 cases): `core/src/finished_message_tests.rs` on `Transcript::apply` + `thread_view::streaming`. Case 4 (`stepsLine` `schedule` -> `"waited"`) is not built in `activity_summary`.
+- Does-not-apply:
+  - `a-shorter-window-keeps-the-newest-reply.test.ts`: source-inspection test of `useFollowBottom.ts?raw` for browser DOM `ResizeObserver`.
+- Waiting:
+  - `a-call-is-said-in-the-thread.test.tsx`: no voice calls in Rust.
+- Bugs fixed in `core/src/ledger.rs`:
+  - `Transcript::apply` now marks earlier open `Item::Assistant` items as `r#final = true` when a `tool.started` arrives or when a `message.delta` with a different `itemId` arrives (watched 2 tests fail first, then pass).
+  - `Transcript::apply`'s empty-turn check now strips `<locust-share>` blocks via `peer_share::strip_share_blocks` before checking whether `Item::Assistant` wrote anything, so a turn whose only text was `<locust-share>` without a `mission.peer` link still emits `"This turn ended without a reply"` (watched test fail first, then pass).
+- Breaks: 8 of 8 killed by name (`~/work/scratch/hydrogen/b1-breaks.log`).

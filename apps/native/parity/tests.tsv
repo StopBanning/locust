@@ -617,7 +617,7 @@ apps/desktop/src/renderer/src/a-busy-free-model-offers-the-next.test.tsx		waitin
 apps/desktop/src/renderer/src/a-busy-provider-offers-continue.test.ts		waiting		
 apps/desktop/src/renderer/src/a-button-turn-says-what-was-asked.test.ts		waiting		
 apps/desktop/src/renderer/src/a-call-asks-on-a-card-in-the-thread.test.tsx		waiting		
-apps/desktop/src/renderer/src/a-call-is-said-in-the-thread.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-call-is-said-in-the-thread.test.tsx	hydrogen-1	waiting		No voice calls in Rust
 apps/desktop/src/renderer/src/a-call-joined-later-is-not-where-it-began.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-call-shows-on-its-conversation-row.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-call-sums-up-what-it-handed-out.test.tsx		waiting		
@@ -686,7 +686,7 @@ apps/desktop/src/renderer/src/a-failed-column-cannot-be-kept.test.tsx	compare-mo
 apps/desktop/src/renderer/src/a-file-git-shows-without-lines-is-listed.test.ts	P7	partial	binary_empty_rename_mode_and_unicode_paths_stay_listed	`renderer/src/a-file-git-shows-without-lines-is-listed.test.ts` | `binary_empty_rename_mode_and_unicode_paths_stay_listed` covers binary/empty/rename/mode-only header records; mixed text files exercised by folder tests. Exact original fixtu
 apps/desktop/src/renderer/src/a-file-opens-on-itself.test.ts	P5	does-not-apply		`a-file-opens-on-itself.test.ts` | The native reader replaces its entire target/result when opening a file and has no selected historical version. Version/diff fold reset assertions do not apply until history is implemented; no equivalent s
 apps/desktop/src/renderer/src/a-file-row-says-a-word.test.ts		carried	core/src/tool_words_tests.rs: says_codexs_change_as_a_word, says_a_read_a_search_a_listing_and_a_fetch_in_claude_codes_words_whoever_ran_it, says_antigravitys_write_and_edit_in_claude_codes_words, keeps_a_word_with_no_claude_code_counterpart_as_it_is	activity_entries::file_tool_word ported exactly; the drawer table was short (no file_change, Antigravity names) and capitalised edit
-apps/desktop/src/renderer/src/a-finished-message-stops-typing.test.ts		waiting		
+apps/desktop/src/renderer/src/a-finished-message-stops-typing.test.ts	hydrogen-1	partial	core/src/finished_message_tests.rs	3 of 4: stops typing on tool.started or new message itemId, resumes on own itemId (bug fixed in ledger.rs). Not built: stepsLine schedule -> waited
 apps/desktop/src/renderer/src/a-finished-run-has-nothing-still-running.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-first-hour-starts-plainly.test.ts		partial	core/src/first_hour_tests.rs	2 of 5: a_connector_is_named_for_a_person, a_review_reads_ask_for_that_run_only. The other three read Electron's own source (Home's Use a free model button, the new-teammate dialog's model before its look, a copy's words about the machine's agents) and wait on those screens' Rust checks
 apps/desktop/src/renderer/src/a-folded-row-says-it-in-words.test.ts		carried	core/src/tool_words_tests.rs: a_folded_group_reads_as_activitys_rows_do_for_each_runtimes_read_tool, a_folded_groups_searches_are_counted_as_searches, a_folded_tool_with_no_word_of_its_own_is_counted_never_named_in_code	native folds by tool_kind then folded_tools_lead
@@ -810,7 +810,7 @@ apps/desktop/src/renderer/src/a-screen-keeps-its-face-to-you.test.ts	faces-6	car
 apps/desktop/src/renderer/src/a-screen-switches-on-and-its-dots-blink.test.ts		waiting		
 apps/desktop/src/renderer/src/a-screens-eyes-have-weight.test.ts		carried	core/src/screen_eye_weight_tests.rs	all 7 cases; bot_rig::step_lag
 apps/desktop/src/renderer/src/a-select-moves-and-chooses-by-the-keyboard.test.tsx		waiting		
-apps/desktop/src/renderer/src/a-shorter-window-keeps-the-newest-reply.test.ts		waiting		
+apps/desktop/src/renderer/src/a-shorter-window-keeps-the-newest-reply.test.ts	hydrogen-1	does-not-apply		Source-inspection test of useFollowBottom.ts?raw for browser DOM ResizeObserver
 apps/desktop/src/renderer/src/a-side-question-can-be-approved-and-stopped.test.tsx	SIDE-CHAT	carried	src/ui/side_chat.rs tests	both tests carried (Hydrogen)
 apps/desktop/src/renderer/src/a-signed-out-teammate-is-not-idle.test.ts		carried	teammate_reach::tests; home_panel::renderer_runtime_tests	All nine exact Electron cases passed by name in renderer-14-workspace.log. Home/Team share labels, tone and presence. signed-out-status control caught four core and two surface assertions and restored source. See notes/RENDERER-NOTES.md renderer-14.
 apps/desktop/src/renderer/src/a-skill-row-names-its-skill.test.ts		waiting		
@@ -880,7 +880,7 @@ apps/desktop/src/renderer/src/an-app-started-conversation-says-so-in-the-sidebar
 apps/desktop/src/renderer/src/an-approval-card-goes-with-its-run.test.ts	approvals	carried	src/ui/side_chat.rs	all 4 tests; approvals_of_live_runs filters completed/failed/cancelled runs by key or data_run_id and returns None when unchanged
 apps/desktop/src/renderer/src/an-approval-names-whose-change-it-is.test.tsx	approvals	carried	src/ui/approval_card.rs	all 2 tests; patch section rendered with runtime_display_name heading + Codex CLI fallback
 apps/desktop/src/renderer/src/an-earlier-message-can-be-edited.test.tsx	edit	carried	core/src/edit_earlier_tests.rs; src/ui/window_drive_tests.rs a_sent_message_offers_edit_on_each_turn_the_person_typed_and_nothing_while_a_turn_runs_or_on_one_they_did_not_type, editing_puts_the_words_in_the_box_under_a_line_that_says_what_sending_does_and_cancel_lets_go, sending_an_edit_starts_again_from_the_turn_before_says_so_above_it_and_both_versions_stay_reachable	all 10 tests: Edit on every typed turn (not while a turn runs, not on a turn an app or the host started), the started-again note, the box line and Cancel (and nothing of the kind otherwise), and the four version-before cases. Edit sits left of the bubble rather than inside it; "where editing is not offered" is the native-engine gate.
-apps/desktop/src/renderer/src/an-earlier-turn-that-only-messaged-is-not-silent.test.tsx		waiting		
+apps/desktop/src/renderer/src/an-earlier-turn-that-only-messaged-is-not-silent.test.tsx	hydrogen-1	carried	core/src/earlier_peer_only_tests.rs	both cases: peer-only turn not silent; empty turn without peer link warns (bug fixed in ledger.rs: strip_share_blocks before checking empty)
 apps/desktop/src/renderer/src/an-earlier-version-reads-as-it-was.test.ts		waiting		
 apps/desktop/src/renderer/src/an-empty-home-offers-a-team.test.tsx	p12	partial		Existing starter tests map to the Rust tests listed earlier. `renderer/src/an-empty-home-offers-a-team.test.tsx`, `home-leads-with-the-team.test.tsx`, `home-names-the-model-it-runs.test.tsx` and `home-free-model-keeps-its-tag.test.tsx` are 
 apps/desktop/src/renderer/src/an-ended-run-offers-the-way-on.test.tsx		waiting		
@@ -894,7 +894,7 @@ apps/desktop/src/renderer/src/an-orb-is-shrunk-in-software.test.ts		waiting
 apps/desktop/src/renderer/src/an-orb-needs-a-runtime-that-streams.test.ts		waiting		
 apps/desktop/src/renderer/src/an-unchanged-history-is-not-sent-again.test.ts		waiting		
 apps/desktop/src/renderer/src/an-undone-turn-says-so-on-its-card.test.tsx	P7	waiting		`renderer/src/an-undone-turn-says-so-on-its-card.test.tsx` | Both assertions remain unported: activity-card heading and callback integration. Panel receipts alone do not satisfy them.
-apps/desktop/src/renderer/src/an-unknown-record-stays-out-of-the-thread.test.ts		waiting		
+apps/desktop/src/renderer/src/an-unknown-record-stays-out-of-the-thread.test.ts	hydrogen-1	carried	core/src/unknown_record_tests.rs	all 3 cases on Transcript::apply and signal_rail
 apps/desktop/src/renderer/src/an-unsupported-opencode-version-is-not-offered.test.ts		waiting		
 apps/desktop/src/renderer/src/an-update-says-it-reopens-by-itself.test.tsx		waiting		
 apps/desktop/src/renderer/src/answer-state.test.ts		waiting		
