@@ -17,7 +17,9 @@ pub struct Prepared {
 
 /// The reply's words as the thread draws them (`reply_actions::reply_markdown`).
 pub fn prepare_reply(body: &str, dark: bool) -> Prepared {
-    let body = keep_html_as_words(&electron_line_shapes(&end_lists_at_margin_prose(body)));
+    let body = fence_tool_calls(body);
+    let body = keep_html_as_words(&electron_line_shapes(&end_lists_at_margin_prose(&body)));
+    let body = mark_colours(&mark_table_statuses(&body));
     let prepared = crate::diagram::prepare_reply_markdown(&body);
     let (prepared, undrawn) = crate::diagram::take_undrawn_markers(&prepared);
     let (markdown, math) = crate::math_tex::prepare_math_markdown(&prepared, dark);
@@ -199,4 +201,259 @@ pub fn link_host(url: &str) -> Option<String> {
     let authority = &rest[..rest.find(['/', '?', '#']).unwrap_or(rest.len())];
     let host = authority.rsplit('@').next()?.split(':').next()?.to_ascii_lowercase();
     Some(host.strip_prefix("www.").map(str::to_owned).unwrap_or(host))
+}
+
+/// A tool call a model wrote as TEXT (`<tool_call><function=edit>…`), fenced so it is drawn as code labelled "tool call"
+/// (agentText.ts `fenceToolCalls`, `a-tool-call-written-as-text.test.ts`). An unclosed one runs to the end.
+pub fn fence_tool_calls(text: &str) -> String {
+    let lower = text.to_ascii_lowercase();
+    if !lower.contains("<tool_call>") {
+        return text.to_owned();
+    }
+    let mut out = String::with_capacity(text.len() + 32);
+    let mut at = 0;
+    while let Some(open) = lower[at..].find("<tool_call>").map(|i| at + i) {
+        out.push_str(&text[at..open]);
+        let body_start = open + "<tool_call>".len();
+        let (body_end, next) = match lower[body_start..].find("</tool_call>") {
+            Some(i) => (body_start + i, body_start + i + "</tool_call>".len()),
+            None => (text.len(), text.len()),
+        };
+        out.push_str("\n```tool call\n");
+        out.push_str(text[body_start..body_end].trim());
+        out.push_str("\n```\n");
+        at = next;
+    }
+    out.push_str(&text[at..]);
+    out
+}
+
+/// A status's tone (`statusChips.ts`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Tone {
+    Green,
+    Blue,
+    Amber,
+    Red,
+    Quiet,
+}
+
+impl Tone {
+    fn word(self) -> &'static str {
+        match self {
+            Tone::Green => "green",
+            Tone::Blue => "blue",
+            Tone::Amber => "amber",
+            Tone::Red => "red",
+            Tone::Quiet => "quiet",
+        }
+    }
+}
+
+const TONES: &[(Tone, &[&str])] = &[
+    (Tone::Red, &["blocked", "failed", "failing", "fail", "error", "broken", "cancelled", "canceled", "at risk", "overdue", "stuck"]),
+    (Tone::Green, &["done", "complete", "completed", "finished", "shipped", "merged", "fixed", "resolved", "passed", "passing", "pass", "approved", "live", "ready"]),
+    (Tone::Blue, &["in progress", "in-progress", "doing", "working", "running", "started", "ongoing", "underway", "under way", "wip", "active"]),
+    (Tone::Amber, &["in review", "review", "needs review", "waiting", "pending", "on hold", "paused", "partial", "partly done"]),
+    (Tone::Quiet, &["to do", "todo", "not started", "planned", "queued", "backlog", "next", "open", "not begun"]),
+];
+
+/// A cell's words without marks or a leading emoji, lower case (`statusChips.ts` `plainOf`).
+fn plain_of(cell: &str) -> String {
+    let marks: String = cell.chars().filter(|c| !"*_`~".contains(*c)).collect();
+    let words = marks.trim_start_matches(|c: char| c.is_whitespace() || c == '\u{fe0f}' || c == '\u{200d}' || is_pictograph(c));
+    words.trim().to_lowercase()
+}
+
+/// Unicode's Extended_Pictographic, as far as a status cell needs it: the emoji blocks and the dingbats and symbols
+/// (✅ ❌ ⏳ 🚧 …).
+fn is_pictograph(c: char) -> bool {
+    matches!(c as u32, 0x2190..=0x21FF | 0x2300..=0x23FF | 0x2460..=0x27BF | 0x2900..=0x297F | 0x2B00..=0x2BFF | 0x1F000..=0x1FAFF)
+}
+
+/// The Status column of a table by its header, marks and all (`statusColumnOf`).
+pub fn status_column_of(header: &[&str]) -> Option<usize> {
+    header.iter().position(|cell| ["status", "state", "stage", "progress"].contains(&plain_of(cell).as_str()))
+}
+
+/// A status value's tone by its first words, and nothing it does not know (`statusToneOf`).
+pub fn status_tone_of(cell: &str) -> Option<Tone> {
+    let words = plain_of(cell);
+    if words.is_empty() || words.chars().count() > 40 {
+        return None;
+    }
+    TONES.iter().find_map(|(tone, known)| {
+        known
+            .iter()
+            .any(|word| words == *word || words.strip_prefix(word).and_then(|rest| rest.chars().next()).is_some_and(|c| c.is_whitespace() || ":;,.()-–—/".contains(c)))
+            .then_some(*tone)
+    })
+}
+
+/// An exact `#rrggbb` colour, as GitHub draws one: a short form may be an issue number (`hexColourOf`).
+pub fn hex_colour_of(text: &str) -> Option<&str> {
+    let t = text.trim();
+    (t.len() == 7 && t.starts_with('#') && t[1..].bytes().all(|b| b.is_ascii_hexdigit())).then_some(t)
+}
+
+/// A link's destination for a status chip or a colour swatch: the window's own marks, drawn by [`reply_link_look`] and
+/// never opened.
+pub const STATUS_MARK: &str = "locust-status:";
+pub const SWATCH_MARK: &str = "locust-swatch:";
+
+fn swatch(hex: &str) -> String {
+    format!("[\u{25a0}]({SWATCH_MARK}{})", &hex[1..])
+}
+
+fn table_cells(row: &str) -> Option<Vec<String>> {
+    let t = row.trim();
+    if !t.contains('|') {
+        return None;
+    }
+    let inner = t.strip_prefix('|').unwrap_or(t);
+    let inner = inner.strip_suffix('|').unwrap_or(inner);
+    let mut cells = vec![String::new()];
+    let mut prev = ' ';
+    for c in inner.chars() {
+        if c == '|' && prev != '\\' {
+            cells.push(String::new());
+        } else {
+            cells.last_mut()?.push(c);
+        }
+        prev = c;
+    }
+    Some(cells)
+}
+
+fn is_delimiter_row(row: &str) -> bool {
+    table_cells(row).is_some_and(|cells| {
+        cells.iter().all(|c| {
+            let c = c.trim();
+            let c = c.strip_prefix(':').unwrap_or(c);
+            let c = c.strip_suffix(':').unwrap_or(c);
+            !c.is_empty() && c.bytes().all(|b| b == b'-')
+        })
+    })
+}
+
+/// A table's known statuses drawn as chips in their tone, and a cell that is nothing but a colour with its swatch
+/// (`a-tables-status-is-a-chip.test.tsx`, `a-colour-code-shows-its-colour.test.tsx`). Other cells stay as written.
+pub fn mark_table_statuses(body: &str) -> String {
+    let lines: Vec<&str> = body.split_inclusive('\n').collect();
+    let mut out = String::with_capacity(body.len() + 64);
+    let mut fence: Option<(char, usize)> = None;
+    let mut i = 0;
+    while i < lines.len() {
+        let words = lines[i].trim_end_matches(['\r', '\n']);
+        if let Some((mark, n)) = fence {
+            if fence_of(words).is_some_and(|(m, k)| m == mark && k >= n) {
+                fence = None;
+            }
+            out.push_str(lines[i]);
+            i += 1;
+            continue;
+        }
+        if let Some(opened) = fence_of(words) {
+            fence = Some(opened);
+            out.push_str(lines[i]);
+            i += 1;
+            continue;
+        }
+        let header = table_cells(words);
+        let rule = lines.get(i + 1).map(|l| l.trim_end_matches(['\r', '\n']));
+        let (Some(header), Some(rule)) = (header, rule) else {
+            out.push_str(lines[i]);
+            i += 1;
+            continue;
+        };
+        if !is_delimiter_row(rule) {
+            out.push_str(lines[i]);
+            i += 1;
+            continue;
+        }
+        let status = status_column_of(&header.iter().map(String::as_str).collect::<Vec<_>>());
+        out.push_str(lines[i]);
+        out.push_str(lines[i + 1]);
+        i += 2;
+        while i < lines.len() {
+            let row = lines[i].trim_end_matches(['\r', '\n']);
+            let Some(cells) = table_cells(row).filter(|_| !row.trim().is_empty()) else { break };
+            let cells: Vec<String> = cells
+                .iter()
+                .enumerate()
+                .map(|(at, cell)| {
+                    let words = cell.trim();
+                    if let Some(hex) = hex_colour_of(words) {
+                        format!(" {} {hex} ", swatch(hex))
+                    } else if Some(at) == status && !words.contains("](") {
+                        match status_tone_of(words) {
+                            Some(tone) => format!(" [{words}]({STATUS_MARK}{}) ", tone.word()),
+                            None => cell.clone(),
+                        }
+                    } else {
+                        cell.clone()
+                    }
+                })
+                .collect();
+            out.push('|');
+            out.push_str(&cells.join("|"));
+            out.push('|');
+            out.push_str(&lines[i][row.len()..]);
+            i += 1;
+        }
+    }
+    out
+}
+
+/// A colour code with its colour beside it: one written as code (`` `#7a9e8e` ``), anywhere outside a fence, and a list
+/// item that is nothing but a colour. A colour inside a sentence is text, as GitHub draws it ("fixed in #123456").
+pub fn mark_colours(body: &str) -> String {
+    let code = crate::invariants::regex(r"(^|[^`])`(#[0-9a-fA-F]{6})`([^`]|$)");
+    let item = crate::invariants::regex(r"^(\s*(?:[-*+]|\d{1,9}[.)])\s+)(#[0-9a-fA-F]{6})\s*$");
+    let mut out = String::with_capacity(body.len() + 64);
+    let mut fence: Option<(char, usize)> = None;
+    for line in body.split_inclusive('\n') {
+        let words = line.trim_end_matches(['\r', '\n']);
+        if let Some((mark, n)) = fence {
+            if fence_of(words).is_some_and(|(m, k)| m == mark && k >= n) {
+                fence = None;
+            }
+            out.push_str(line);
+            continue;
+        }
+        if let Some(opened) = fence_of(words) {
+            fence = Some(opened);
+            out.push_str(line);
+            continue;
+        }
+        let shaped = item.replace(words, |c: &regex::Captures| format!("{}{} {}", &c[1], swatch(&c[2]), &c[2]));
+        let shaped = code.replace_all(&shaped, |c: &regex::Captures| format!("{}{} `{}`{}", &c[1], swatch(&c[2]), &c[2], &c[3]));
+        out.push_str(&shaped);
+        out.push_str(&line[words.len()..]);
+    }
+    out
+}
+
+/// How a status chip or a colour swatch is drawn: a chip in its tone's text, tint and edge (`.lc-status--*`), and a
+/// swatch as a square in its own colour (`.lc-swatch`). Other links keep Markdown's own look.
+pub fn reply_link_look(url: &str, dark: bool) -> Option<(rune::Span, rune::LinkPaint)> {
+    let l = crate::look::controls::Look::new(dark);
+    if let Some(tone) = url.strip_prefix(STATUS_MARK) {
+        let (ink, tint) = match tone {
+            "green" | "blue" | "amber" | "red" => (l.c(&format!("{tone}-text")), l.c(&format!("{tone}-tint"))),
+            _ => (l.c("text-muted"), l.c("chip-bg")),
+        };
+        let span = rune::Span::new(0, 0).color(ink).bg(tint, 3.0);
+        return Some((span, rune::LinkPaint::new().color(ink).bg(tint)));
+    }
+    if let Some(hex) = url.strip_prefix(SWATCH_MARK) {
+        let colour = rune::color::hex(&format!("#{hex}"))?;
+        return Some((rune::Span::new(0, 0).color(colour), rune::LinkPaint::new().color(colour)));
+    }
+    None
+}
+
+/// The window's own marks are drawn, not opened.
+pub fn is_own_mark(url: &str) -> bool {
+    url.starts_with(STATUS_MARK) || url.starts_with(SWATCH_MARK)
 }

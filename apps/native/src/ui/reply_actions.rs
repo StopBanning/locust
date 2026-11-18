@@ -338,7 +338,9 @@ fn reply_markdown(s: &State, body: &str, live: bool, copy: bool, p: &Palette) ->
             .streaming(live)
             .selectable(true)
             .on_link(|s: &mut State, url| {
-                if let Some(target) = file_target(url) {
+                if crate::markdown_prep::is_own_mark(url) {
+                    // A status chip or a colour swatch: drawn, never opened.
+                } else if let Some(target) = file_target(url) {
                     open_file(s, target);
                 } else {
                     // A web address opens in the person's browser; any other scheme is refused, and says so.
@@ -347,6 +349,11 @@ fn reply_markdown(s: &State, body: &str, live: bool, copy: bool, p: &Palette) ->
             })
             // Where a web link really goes, under the pointer, so its label cannot lie about it (linkHost).
             .link_help(crate::markdown_prep::link_host)
+            // A table's status as a chip, a colour code's swatch (statusChips.ts, hexColourOf).
+            .link_style({
+                let dark = p.dark;
+                move |url| crate::markdown_prep::reply_link_look(url, dark)
+            })
             .image_frame(move |shown, frame| {
                 // A picture from the conversation's folder is a rounded card with its caption; math stays inline.
                 if !framed.contains(frame.src) {

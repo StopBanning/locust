@@ -899,3 +899,153 @@ fn double_underscores_still_make_bold_at_a_word_edge() {
     assert_eq!(styled("This is __important__ now.", rune_kit::markdown::Style::Strong), ["important"]);
     assert_eq!(para_of("This is __important__ now."), "This is important now.");
 }
+
+// a-tool-call-written-as-text.test.ts
+
+#[test]
+fn a_tool_call_becomes_a_code_block_labelled_tool_call_and_the_prose_around_it_stays_prose() {
+    let text = "<tool_call><function=edit><parameter=path>notes.md</parameter></function></tool_call>\nI updated the notes.";
+    let prepared = crate::markdown_prep::prepare_reply(text, false).markdown;
+    assert!(prepared.contains("```tool call\n"), "{prepared}");
+    let b = blocks(text);
+    assert_eq!(b[0], Block::Code("<function=edit><parameter=path>notes.md</parameter></function>".into()));
+    assert!(b[1..].iter().any(|b| para_text(b) == Some("I updated the notes.")), "{b:?}");
+}
+
+#[test]
+fn takes_an_unclosed_tool_call_to_the_end_and_leaves_a_reply_without_one_alone() {
+    use crate::markdown_prep::fence_tool_calls;
+    assert!(fence_tool_calls("Done.\n<tool_call><function=bash>ls").contains("```tool call\n<function=bash>ls\n```"));
+    assert_eq!(fence_tool_calls("No calls here."), "No calls here.");
+}
+
+// a-tables-status-is-a-chip.test.tsx
+
+/// A table's cells as (text, link destination if the cell is one link).
+fn table_of(text: &str) -> Vec<Vec<(String, Option<String>)>> {
+    let b = blocks(text);
+    let Some(Block::Table(t)) = b.first() else { panic!("{b:?}") };
+    t.rows
+        .iter()
+        .map(|r| r.iter().map(|c| (c.text.clone(), c.links.first().filter(|l| l.0 == 0 && l.1 == c.text.len()).map(|l| l.2.clone()))).collect())
+        .collect()
+}
+
+#[test]
+fn a_status_column_is_found_by_its_header_marks_and_all() {
+    use crate::markdown_prep::status_column_of;
+    assert_eq!(status_column_of(&["Task", "Owner", "Status"]), Some(2));
+    assert_eq!(status_column_of(&["**State**", "Item"]), Some(0));
+    assert_eq!(status_column_of(&["Task", "Owner"]), None);
+    assert_eq!(status_column_of(&["Status of the build"]), None);
+}
+
+#[test]
+fn a_status_is_known_by_its_first_words_and_nothing_it_does_not_know() {
+    use crate::markdown_prep::{Tone, status_tone_of};
+    assert_eq!(status_tone_of("Done"), Some(Tone::Green));
+    assert_eq!(status_tone_of("✅ Done"), Some(Tone::Green));
+    assert_eq!(status_tone_of("**Merged** (#41)"), Some(Tone::Green));
+    assert_eq!(status_tone_of("In progress"), Some(Tone::Blue));
+    assert_eq!(status_tone_of("Blocked: waiting on the API key"), Some(Tone::Red));
+    assert_eq!(status_tone_of("Waiting"), Some(Tone::Amber));
+    assert_eq!(status_tone_of("Not started"), Some(Tone::Quiet));
+    // "Done" inside other words is not a status; neither is a sentence.
+    assert_eq!(status_tone_of("Doneness check"), None);
+    assert_eq!(status_tone_of("The second half of the build is still running on the old machine"), None);
+    assert_eq!(status_tone_of(""), None);
+}
+
+#[test]
+fn statuses_draw_as_chips_in_a_reply_and_other_columns_and_unknown_values_are_left_alone() {
+    let text = lines(&["| Task | Status |", "| --- | --- |", "| Login fix | Done |", "| Signup form | In progress |", "| Billing | Blocked |", "| Docs | Halfway, see notes |"]);
+    let chip = |tone: &str| Some(format!("{}{tone}", crate::markdown_prep::STATUS_MARK));
+    assert_eq!(
+        table_of(&text),
+        [
+            [("Login fix".into(), None), ("Done".into(), chip("green"))],
+            [("Signup form".into(), None), ("In progress".into(), chip("blue"))],
+            [("Billing".into(), None), ("Blocked".into(), chip("red"))],
+            [("Docs".into(), None), ("Halfway, see notes".to_owned(), None)],
+        ]
+    );
+    // Drawn in its tone's tint and text, the way `.lc-status--green` is.
+    let l = crate::look::controls::Look::new(false);
+    let (span, _) = crate::markdown_prep::reply_link_look(&chip("green").unwrap(), false).unwrap();
+    assert_eq!((span.color, span.bg), (Some(l.c("green-text")), Some(l.c("green-tint"))));
+    let (span, _) = crate::markdown_prep::reply_link_look(&chip("red").unwrap(), false).unwrap();
+    assert_eq!(span.bg, Some(l.c("red-tint")));
+    // A chip is never opened as an address.
+    assert!(crate::markdown_prep::is_own_mark(&chip("green").unwrap()));
+    assert!(texts(&drawn(&text)).contains("Done"));
+}
+
+// a-colour-code-shows-its-colour.test.tsx
+
+/// Every swatch the reply draws, as its `#rrggbb`.
+fn swatches(text: &str) -> Vec<String> {
+    fn inline(i: &rune_kit::markdown::Inline, out: &mut Vec<String>) {
+        for (_, _, to) in &i.links {
+            if let Some(hex) = to.strip_prefix(crate::markdown_prep::SWATCH_MARK) {
+                out.push(format!("#{hex}"));
+            }
+        }
+    }
+    fn walk(blocks: &[Block], out: &mut Vec<String>) {
+        for b in blocks {
+            match b {
+                Block::Para(i) | Block::Heading(_, i) => inline(i, out),
+                Block::Table(t) => t.head.iter().chain(t.rows.iter().flatten()).for_each(|i| inline(i, out)),
+                Block::Quote(inner) => walk(inner, out),
+                Block::List { items, .. } => items.iter().for_each(|i| walk(i, out)),
+                _ => {}
+            }
+        }
+    }
+    let mut out = Vec::new();
+    walk(&blocks(text), &mut out);
+    out
+}
+
+#[test]
+fn a_colour_code_shows_its_colour_beside_it() {
+    assert_eq!(swatches("The accent is `#7a9e8e` on paper `#F6F3EE`."), ["#7a9e8e", "#F6F3EE"]);
+    let (span, _) = crate::markdown_prep::reply_link_look("locust-swatch:7a9e8e", false).unwrap();
+    assert_eq!(span.color, rune::color::hex("#7a9e8e"));
+    // The code is still there to read and copy.
+    assert!(shown("The accent is `#7a9e8e` on paper `#F6F3EE`.").contains("#7a9e8e on paper"));
+}
+
+#[test]
+fn a_colour_shows_for_a_table_cell_or_a_list_item_that_is_nothing_but_a_colour() {
+    assert_eq!(swatches(&lines(&["| Role | Hex |", "| --- | --- |", "| Crust | #C8A27A |", "| Flour | #F4EFE6 |"])), ["#C8A27A", "#F4EFE6"]);
+    assert_eq!(swatches(&lines(&["- #2E4A3F", "- #D98E73"])), ["#2E4A3F", "#D98E73"]);
+    // Inside a sentence it is text, as GitHub draws it: "fixed in #123456" is not a colour.
+    assert!(swatches("Fixed in #123456 and the crust is #C8A27A now.").is_empty());
+}
+
+#[test]
+fn a_colour_shows_inside_bold_and_italic_with_no_backticks_left_showing() {
+    let text = "- **Crust Brown `#6B4226`** — Primary.\n- *Berry Jam `#A63D40`* — accent.";
+    assert_eq!(swatches(text), ["#6B4226", "#A63D40"]);
+    let words = texts(&drawn(text));
+    assert!(!words.contains('`'), "{words}");
+    assert!(words.contains("Crust Brown"), "{words}");
+    // And bold with nothing inside it is drawn exactly as it always was.
+    assert_eq!(styled("**Plain bold.** After.", rune_kit::markdown::Style::Strong), ["Plain bold."]);
+}
+
+#[test]
+fn draws_nothing_for_code_that_is_not_exactly_a_colour() {
+    assert!(swatches("Run `npm test`, see issue `#12a`, and `#7a9e8e;background:url(x)`.").is_empty());
+}
+
+#[test]
+fn accepts_rrggbb_only_as_github_does_a_short_form_may_be_an_issue_number() {
+    use crate::markdown_prep::hex_colour_of;
+    assert_eq!(hex_colour_of(" #a1b2c3 "), Some("#a1b2c3"));
+    assert_eq!(hex_colour_of("#333333"), Some("#333333"));
+    for no in ["#123", "#abc", "#a1b2c3d4", "#ggg000", "red", "#ffffff) no-repeat, url(x"] {
+        assert_eq!(hex_colour_of(no), None, "{no}");
+    }
+}

@@ -76,6 +76,28 @@ Breaks: `)` kept → `reads_a_numbered_list_as_ordered`; deep heading kept →
 
 Suite after 1b: 4,328 passed, 22 skipped.
 
+## Part 2a: tool calls, status chips, colour swatches
+
+All three are drawn inside the reply's Markdown, where rune-kit gives one hook per link: `link_style`. So the reply's
+words are rewritten into links on two private schemes, and `reply_link_look` paints them:
+- **`locust-status:<tone>`**: a table's Status/State/Stage/Progress cell whose value `statusToneOf` knows. It is drawn
+  in the tone's `-text` and `-tint`, the colours `.lc-status--*` uses.
+- **`locust-swatch:<rrggbb>`**: a `■` in that colour, set before the colour code.
+- `reply_actions`'s `on_link` ignores both schemes, so neither is ever opened.
+- **`<tool_call>…</tool_call>`** is fenced as ```` ```tool call ```` first, before anything else reads the reply.
+
+Breaks: tool calls not fenced → both tool-call tests; status never marked →
+`statuses_draw_as_chips_in_a_reply_and_other_columns_and_unknown_values_are_left_alone`; inline-code swatch never
+added → `a_colour_code_shows_its_colour_beside_it`, `a_colour_shows_inside_bold_and_italic_…`; chip painted in its ink
+instead of its tint → the chips test; `#rrggbb` accepting longer → `accepts_rrggbb_only_…`.
+
+**Left:**
+- The 0.733 chip is a button whose menu drafts `statusAsk`'s words into the message box. Here a chip is drawn, not
+  pressable; the box is the composer lane's.
+- A swatch is a `■` character, so it is copied with the text.
+
+Suite after 2a: 4,338 passed, 22 skipped.
+
 ## Not mine
 `src/ui/routine_recovery_tests.rs` was untracked in this worktree before this lane started (17 Nov 23:58), and no
 `mod` names it. It is left as found.
