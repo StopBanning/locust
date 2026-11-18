@@ -239,4 +239,9 @@ fn names_the_runtime_when_it_stopped_rather_than_failed_to_start() {
         transport_sentence("codex", Some(&here), "stream closed"),
         "Codex CLI stopped unexpectedly, before it said it had finished."
     );
+    // A run that fails with the bare transport words gets the same sentence on the thread, not "stream closed".
+    assert_eq!(
+        failure_message_in_cwd("stream closed", None, Some("codex"), Some(&here)),
+        "Codex CLI stopped unexpectedly, before it said it had finished."
+    );
 }
