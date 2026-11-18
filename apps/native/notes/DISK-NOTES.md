@@ -19,5 +19,20 @@
   - `looked_at >= MAX_UNTRACKED_LOOKED_AT` → `>`: caught by `carries_no_more_than_five_thousand_new_files_and_leaves_the_rest_bare`.
 - Ledger: 5 Electron files set to carried. Part 1's row had lost its round column; fixed.
 
-## Part 3: long turns keep their start — NOT DONE
-`a-long-turn-keeps-what-it-said` and `a-trimmed-live-turn-says-so-on-screen` are still waiting.
+## Part 3: long turns keep their start (Mac chat, 18 Nov)
+- `core/src/ledger.rs` `Transcript::hold`: Electron's event window (`shared/event-window.ts`, `liveEvents.ts`, `messageFragments.ts`).
+  - A streamed reply is folded into ONE event as it arrives. The event keeps its first fragment's sequence; each fragment is kept by sequence, so a replayed or late fragment folds in once and in order.
+  - The window is 3,000 events (was the newest 2,000, counting every fragment). The first 750 are kept, and the oldest after them are dropped, after each arrival.
+  - `trimmed` is set only when an event is actually dropped.
+- The thread: a trimmed turn starts with Electron's line ("This turn is long: …") just below its prompt. Its activity line says "at least", counts a lone command rather than naming it, and never says "no files changed" (`activity_trace_of`).
+- A reply held at its first piece is still typing if its text resumed after a call: the builder compares each reply's LAST fragment's sequence (`last_piece`), so `types_again_if_its_own_text_resumes_after_a_call` still passes with the fold.
+- Checkpoints keep their own cap (`MAX_EVENTS`, 2,000). The old cap test was rewritten to the new rule.
+- Tests:
+  - `core/src/long_turn_tests.rs`: one per Electron case in both files, plus a replayed-fragment test and three trace tests.
+  - `src/ui/messages.rs`: the on-screen notice at 3,001 events, and none at 739 or 3,000.
+- Breaks: 11 tried, all caught. They were:
+  - an opening of 0, and `>=` on the cap;
+  - no dedup, and no fold;
+  - the notice at the bottom, and no notice;
+  - trimmed not passed to the trace, and the last-piece rule removed;
+  - no "at least", "no files changed" when trimmed, and the lone command named when trimmed.

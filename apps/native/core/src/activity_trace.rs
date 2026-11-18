@@ -16,6 +16,12 @@ pub fn activity_trace(items:&[Item],events:&[Value],outcome:&str)->Trace {
     activity_trace_in(items, events, outcome, None, None)
 }
 pub fn activity_trace_in(items:&[Item],events:&[Value],outcome:&str,may_edit:Option<bool>,workspace:Option<&str>)->Trace {
+    activity_trace_of(items, events, outcome, may_edit, workspace, false)
+}
+/// `trimmed`: the turn is longer than its display window (`ledger::EVENT_WINDOW`), so these events are not all of it.
+/// Its counts then say "at least", a lone command is counted rather than named, and "no files changed" is never said
+/// (missionView's activityTrace, review 2026-10-15 C4: a 600-call turn read "596 tool calls").
+pub fn activity_trace_of(items:&[Item],events:&[Value],outcome:&str,may_edit:Option<bool>,workspace:Option<&str>,trimmed:bool)->Trace {
     let mut out=Trace { changed_paths: crate::activity_entries::changed_paths(items), ..Default::default() };
     let mut push=|key:&str,text:String,amber:bool| out.segments.push(Segment{key:key.into(),text,tone:amber.then(||"amber".into())});
     let times=events.iter().filter_map(stamp).collect::<Vec<_>>();
@@ -36,12 +42,13 @@ pub fn activity_trace_in(items:&[Item],events:&[Value],outcome:&str,may_edit:Opt
     if !helpers.is_empty() {let failed=helpers.iter().filter(|(s,_)|*s==Status::Failed).count();let silent=if outcome=="running"{0}else{helpers.iter().filter(|(s,_)|*s==Status::Running).count()};let n=helpers.len();let mut text=format!("asked {n} subagent{}",if n==1{""}else{"s"});if failed>0{text+=&if n==1{" · it failed".into()}else{format!(" · {failed} failed")};}else if silent>0{text+=&if n==1{" · it did not report".into()}else{format!(" · {silent} did not report")};}push("subagents",text,failed+silent>0);}
     let shells=items.iter().filter_map(|i|if let Item::Tool{name,summary,status,detail}=i { (crate::command_outcomes::is_shell(name) && !matches!(detail.runtime_status.as_str(),"refused"|"declined")).then_some((summary,status,detail)) }else{None}).collect::<Vec<_>>();
     let names=shells.iter().map(|(summary,_,d)|if d.arguments.is_empty(){(*summary).clone()}else{d.arguments.clone()}).collect::<Vec<_>>();
-    if shells.len()==1 {let command=crate::shell_words::shell_command_text(&names[0]);let command=command.lines().next().unwrap_or("").trim();if !command.is_empty(){let named=if command.chars().count()>60{format!("{}…",command.chars().take(59).collect::<String>())}else{command.into()};let result=crate::command_outcomes::commands_run_text(crate::command_outcomes::commands_run(items,outcome!="running"),&[]);let amber=result.as_ref().is_some_and(|r|r.amber);let suffix=result.filter(|r|r.amber).and_then(|r|r.text.split_once(" · ").map(|(_,s)|format!(" · {s}"))).unwrap_or_default();push("commands",format!("{} {named}{suffix}",if outcome=="running" && *shells[0].1==Status::Running{"running"}else{"ran"}),amber);}}
-    else if let Some(result)=crate::command_outcomes::commands_run_text(crate::command_outcomes::commands_run(items,outcome!="running"),&names){push("commands",result.text,result.amber);}
+    if shells.len()==1 && !trimmed {let command=crate::shell_words::shell_command_text(&names[0]);let command=command.lines().next().unwrap_or("").trim();if !command.is_empty(){let named=if command.chars().count()>60{format!("{}…",command.chars().take(59).collect::<String>())}else{command.into()};let result=crate::command_outcomes::commands_run_text(crate::command_outcomes::commands_run(items,outcome!="running"),&[]);let amber=result.as_ref().is_some_and(|r|r.amber);let suffix=result.filter(|r|r.amber).and_then(|r|r.text.split_once(" · ").map(|(_,s)|format!(" · {s}"))).unwrap_or_default();push("commands",format!("{} {named}{suffix}",if outcome=="running" && *shells[0].1==Status::Running{"running"}else{"ran"}),amber);}}
+    else if let Some(result)=crate::command_outcomes::commands_run_text(crate::command_outcomes::commands_run(items,outcome!="running"),if trimmed{&[]}else{&names}){let text=if trimmed{result.text.replacen("ran ","ran at least ",1)}else{result.text};push("commands",text,result.amber);}
     let calls=items.iter().filter(|i|matches!(i,Item::Tool{name,status,detail,..} if !detail.helper && !crate::command_outcomes::is_shell(name) && (!crate::activity_summary::is_edit(i) || *status==Status::Failed))).count();
-    if calls>0 {push("calls",format!("{calls} {}tool call{}",if shells.is_empty(){""}else{"other "},if calls==1{""}else{"s"}),false);}
-    if edits>0 {push("files",format!("{edits} file{}",if edits==1{""}else{"s"}),false);}
-    else if outcome=="completed" && may_edit==Some(true) && !events.iter().any(|e|e["type"]=="adapter.diagnostic" && e["payload"]["code"]=="host.shared_workspace") {
+    let at_least=if trimmed{"at least "}else{""};
+    if calls>0 {push("calls",format!("{at_least}{calls} {}tool call{}",if shells.is_empty(){""}else{"other "},if calls==1{""}else{"s"}),false);}
+    if edits>0 {push("files",format!("{at_least}{edits} file{}",if edits==1{""}else{"s"}),false);}
+    else if outcome=="completed" && may_edit==Some(true) && !trimmed && !events.iter().any(|e|e["type"]=="adapter.diagnostic" && e["payload"]["code"]=="host.shared_workspace") {
         push("files","no files changed".into(),false);
     }
     for state in ["refused","declined"] {let count=items.iter().filter(|i|matches!(i,Item::Tool{detail,..} if detail.runtime_status==state)).count();if count>0 {push(state,format!("{count} {state}"),true);}}

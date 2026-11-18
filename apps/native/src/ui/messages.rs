@@ -890,6 +890,28 @@ mod tests {
         assert!(!shown.contains("Save a copy"), "{shown}");
     }
 
+    // a-trimmed-live-turn-says-so-on-screen.test.tsx: one test per case, drawn in the window.
+    fn shown_after_steps(count: u64) -> String {
+        let mut t = ledger::Transcript::default();
+        for from in (1..=count).step_by(500) {
+            let batch = (from..=count.min(from + 499)).map(|sequence| serde_json::json!({"recordType":"mission.event","event":{
+                "id": format!("e{sequence}"), "runId":"run", "missionId":"mission", "sequence": sequence,
+                "occurredAt":"2026-10-05T12:00:00.000Z", "sourceAdapter":"claude", "type":"step.completed",
+                "payload":{"stepKind":"turn","evidence":{"redacted":true}}}})).collect();
+            t.apply(batch);
+        }
+        thread_text(&t.items, &mut composition_state(None, true))
+    }
+    #[test]
+    fn shows_the_omission_notice_once_when_a_running_turn_exceeds_3000_events() {
+        assert_eq!(shown_after_steps(3001).matches(ledger::TRIMMED_TURN_LINE).count(), 1);
+    }
+    #[test]
+    fn shows_no_omission_notice_below_or_exactly_at_3000_events() {
+        assert!(!shown_after_steps(739).contains(ledger::TRIMMED_TURN_LINE));
+        assert!(!shown_after_steps(3000).contains(ledger::TRIMMED_TURN_LINE));
+    }
+
     #[test]
     fn the_trace_and_its_folded_notices_reach_the_headless_thread() {
         let events = vec![serde_json::json!({"sequence":1,"type":"run.started","occurredAt":"2026-11-01T00:00:00Z","payload":{}}),

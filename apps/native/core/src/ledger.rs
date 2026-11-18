@@ -9,6 +9,14 @@ use std::time::{Duration, Instant, SystemTime};
 pub const MAX_LINE: usize = 1024 * 1024;
 pub const MAX_ASSISTANT: usize = 131_072;
 pub const MAX_EVENTS: usize = 2000;
+/// shared/event-window.ts: how many of a turn's events are drawn, live and read back alike (the record keeps them all).
+/// A streamed reply is folded into ONE event as it arrives (messageFragments.ts), so the window counts things that
+/// happened, not the pieces a reply came in.
+pub const EVENT_WINDOW: usize = 3_000;
+/// openingEventCount: a quarter is kept for the turn's opening plan and prose, the rest for its newest work.
+pub const OPENING_EVENTS: usize = EVENT_WINDOW / 4;
+/// The line at the top of a turn whose middle fell out of the window (shared/event-window.ts's TRIMMED_TURN_LINE).
+pub const TRIMMED_TURN_LINE: &str = "This turn is long: some work between its opening and recent updates is kept in its record, not shown here.";
 const MAX_JSON_DEPTH: usize = 6;
 const MAX_JSON_ARRAY: usize = 32;
 const MAX_JSON_KEYS: usize = 48;
@@ -705,6 +713,12 @@ pub struct Transcript {
     pub error: Option<io::ErrorKind>,
     // Sequence keys make out-of-order batches and duplicate records replay correctly.
     events: BTreeMap<u64, Value>,
+    /// Set once an event was actually dropped from the window; a window that is merely full is not trimmed.
+    pub trimmed: bool,
+    /// A held reply's fragments by sequence, so a replayed or late fragment folds in once and in order.
+    fragments: HashMap<String, BTreeMap<u64, Value>>,
+    /// Which held event carries each reply (its first fragment's sequence).
+    message_at: HashMap<String, u64>,
     checkpoints: Vec<Value>,
     pub peer_links: Vec<PeerLink>,
     pub cost: Option<crate::benchmark::RunCost>,
@@ -732,6 +746,67 @@ fn parse_peer_link(record: &Value) -> Option<PeerLink> {
 }
 
 impl Transcript {
+    /// The events this turn draws from: its opening and its newest, a reply folded into one.
+    pub fn events_in_view(&self) -> impl DoubleEndedIterator<Item = &Value> {
+        self.events.values()
+    }
+
+    /// liveEvents.ts withLiveEvents + messageFragments.ts withMessageDeltas: fold a reply's fragment into the event that
+    /// carries it, then keep the window after EACH arrival, dropping the oldest events after the opening quarter.
+    fn hold(&mut self, sequence: u64, event: &Value) {
+        let payload = event.get("payload").unwrap_or(&Value::Null);
+        let item_id = payload.get("itemId").and_then(Value::as_str).filter(|id| !id.is_empty());
+        match item_id.filter(|_| event["type"] == "message.delta") {
+            None => {
+                self.events.insert(sequence, event.clone());
+            }
+            Some(id) => {
+                let id = id.to_owned();
+                let parts = self.fragments.entry(id.clone()).or_default();
+                if parts.insert(sequence, payload.clone()).is_some() {
+                    return; // the same fragment again
+                }
+                let first = *parts.keys().next().expect("just inserted");
+                let held_at = self.message_at.insert(id.clone(), first);
+                if parts.len() == 1 {
+                    // A reply that arrived whole is held as it came.
+                    self.events.insert(sequence, event.clone());
+                } else {
+                    let mut text = String::new();
+                    for part in parts.values() {
+                        let piece = part.get("text").and_then(Value::as_str).unwrap_or("");
+                        if part.get("operation").and_then(Value::as_str) == Some("replace") {
+                            text = piece.to_owned();
+                        } else {
+                            text.push_str(piece);
+                        }
+                    }
+                    let last_final = parts.values().next_back().and_then(|p| p.get("final")).cloned().unwrap_or(Value::Bool(false));
+                    let mut joined = match held_at.and_then(|at| self.events.remove(&at)) {
+                        Some(held) if held_at == Some(first) => held,
+                        _ => event.clone(), // this fragment is now the reply's first
+                    };
+                    joined["payload"]["operation"] = Value::from("replace");
+                    joined["payload"]["text"] = Value::from(text);
+                    joined["payload"]["final"] = last_final;
+                    self.events.insert(first, joined);
+                }
+            }
+        }
+        while self.events.len() > EVENT_WINDOW {
+            let Some(at) = self.events.keys().nth(OPENING_EVENTS).copied() else { break };
+            if let Some(gone) = self.events.remove(&at)
+                && let Some(id) = gone["payload"].get("itemId").and_then(Value::as_str)
+                && self.message_at.get(id) == Some(&at)
+            {
+                // A reply out of view that speaks again starts a new event.
+                self.message_at.remove(id);
+                self.fragments.remove(id);
+            }
+            self.trimmed = true;
+        }
+    }
+
     pub fn apply(&mut self, records: Vec<Record>) {
         if records.is_empty() {
             return;
@@ -760,10 +835,7 @@ impl Transcript {
             } else if let Some(event) = record.get("event")
                 && let Some(sequence) = event.get("sequence").and_then(Value::as_u64)
             {
-                self.events.insert(sequence, event.clone());
-                while self.events.len() > MAX_EVENTS {
-                    self.events.pop_first();
-                }
+                self.hold(sequence, event);
             }
         }
 
@@ -799,6 +871,8 @@ impl Transcript {
         // missionView's workBegan: until the turn says or does anything, only trouble with the run itself reaches the
         // thread. OpenCode's "Aborted" when the person presses Stop is not that.
         let mut work_began = false;
+        let fragments = &self.fragments;
+        let last_piece = |id: &str| fragments.get(id).and_then(|f| f.keys().next_back().copied()).unwrap_or(0);
         for (sequence, event) in &self.events {
             let kind = string(event, "type");
             let p = event.get("payload").unwrap_or(&Value::Null);
@@ -808,9 +882,12 @@ impl Transcript {
             }
             match kind.as_str() {
                 "message.delta" if !id.is_empty() => {
+                    // A reply is held at its first piece; another one ended only if this one spoke after its last.
+                    let this_last = last_piece(&id).max(*sequence);
                     for item in &mut items {
                         if let Item::Assistant { item_id, r#final, .. } = item
                             && item_id != &id
+                            && last_piece(item_id) < this_last
                         {
                             *r#final = true;
                         }
@@ -893,7 +970,10 @@ impl Transcript {
                 "tool.started" | "tool.completed" | "tool.failed" => {
                     if kind == "tool.started" {
                         for item in &mut items {
-                            if let Item::Assistant { r#final, .. } = item {
+                            // A reply whose own text resumed after this call is still typing.
+                            if let Item::Assistant { item_id, r#final, .. } = item
+                                && last_piece(item_id) < *sequence
+                            {
                                 *r#final = true;
                             }
                         }
@@ -1275,8 +1355,13 @@ impl Transcript {
         self.cost = crate::relay::mission_cost_from_events(&event_vec);
         self.live = crate::thread_view::live_line(&event_vec, self.running,
             self.metadata.as_ref().map(|m| m.created_at.as_str()).unwrap_or(""), false);
+        if self.trimmed {
+            // missionView buildThread: the notice heads the turn's items, which draw below its prompt.
+            let at = usize::from(matches!(items.first(), Some(Item::User(_) | Item::CheckFix { .. })));
+            items.insert(at, Item::Note { level: "info".into(), text: TRIMMED_TURN_LINE.into() });
+        }
         if items.iter().any(|i| matches!(i, Item::Tool { .. } | Item::Thought { .. })) {
-            let mut trace = crate::activity_trace::activity_trace_in(&items, &event_vec, crate::activity_trace::outcome(&event_vec, self.running), self.metadata.as_ref().and_then(|m| match m.sandbox.as_str() { "read-only" => Some(false), "workspace-write" | "full-access" => Some(true), _ => None }), None);
+            let mut trace = crate::activity_trace::activity_trace_of(&items, &event_vec, crate::activity_trace::outcome(&event_vec, self.running), self.metadata.as_ref().and_then(|m| match m.sandbox.as_str() { "read-only" => Some(false), "workspace-write" | "full-access" => Some(true), _ => None }), None, self.trimmed);
             trace.notices.retain(|n| !items.iter().any(|i| matches!(i, Item::Note { text, .. } if crate::failure_words::same_sentence(text, &n.message))));
             items.push(Item::Trace(trace));
         }
@@ -2419,7 +2504,7 @@ mod tests {
         let mut rows = vec![
             json!({"schemaVersion":27,"recordType":"mission.created","metadata":{"missionId":"bound","prompt":"Synthetic","createdAt":"2026-01-01T00:00:00Z"}}),
         ];
-        for n in 0..(MAX_EVENTS as u64 + 25) {
+        for n in 0..(EVENT_WINDOW as u64 + 25) {
             rows.push(event(
                 n,
                 "adapter.diagnostic",
@@ -2427,12 +2512,13 @@ mod tests {
             ));
         }
         let t = synthetic_transcript(rows);
-        assert!(t.events.len() <= MAX_EVENTS);
-        assert!(
-            !t.items
-                .iter()
-                .any(|i| matches!(i, Item::Note { text, .. } if text == "n0"))
-        );
+        // The window holds its opening quarter and its newest events; the 25 dropped are the oldest after the opening.
+        assert_eq!(t.events.len(), EVENT_WINDOW);
+        assert!(t.trimmed);
+        let held: Vec<u64> = t.events.keys().copied().collect();
+        let opening = OPENING_EVENTS as u64;
+        let expected: Vec<u64> = (0..opening).chain(opening + 25..EVENT_WINDOW as u64 + 25).collect();
+        assert_eq!(held, expected);
         let deep = {
             let mut v = json!("leaf");
             for _ in 0..12 {
