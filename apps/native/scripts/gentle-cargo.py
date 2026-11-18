@@ -4,7 +4,7 @@
 Several agents build this port at once, each in its own folder, sharing one target folder. Cargo already serializes
 compiling there, but not running the tests: a second agent's test binaries ran while a third compiled, and the load
 reached 8-10 (Colin's own Locust froze once). This wrapper holds one lock for the whole cargo run, compile and tests,
-so only one runs at a time; the others wait and say so.
+so at most two run at once (since 18 Nov), each in its own target folder; the others wait and say so.
 
     python3 scripts/gentle-cargo.py nextest run --workspace     # every day (cargo-nextest: both test binaries at once)
     python3 scripts/gentle-cargo.py test -p locust-core         # every break check (debug: fast rebuilds)
@@ -39,18 +39,47 @@ if args[:1] == ["--timeout"]:
 if not args:
     sys.exit(__doc__)
 
-os.makedirs(TARGET, exist_ok=True)
-lock_path = os.path.join(TARGET, ".gentle-cargo.lock")
-with open(lock_path, "a+") as lock:
-    try:
-        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except BlockingIOError:
-        lock.seek(0)
-        holder = lock.read().strip() or "another run"
-        print(f"gentle-cargo: waiting for {holder} to finish", file=sys.stderr, flush=True)
-        started = time.time()
-        fcntl.flock(lock, fcntl.LOCK_EX)
-        print(f"gentle-cargo: waited {int(time.time() - started)} s", file=sys.stderr, flush=True)
+def _take_a_slot():
+    """Two runs at once since 18 Nov (Colin's call), each in its own target folder: one folder holds one checkout's
+    locust-core, so two checkouts sharing it would clean and replace each other's test binaries mid-run. Slot 1 is the
+    old folder and lock, so a lane still on the old wrapper only ever waits for slot 1. Slot 2 is taken only while the
+    Mac has room (load under 8), so two runs never push it to the freeze of 16 Nov."""
+    global TARGET
+    if "CARGO_TARGET_DIR" in os.environ and os.environ["CARGO_TARGET_DIR"] != TARGET:
+        slots = [os.environ["CARGO_TARGET_DIR"]]  # someone chose a folder: one slot, theirs
+    else:
+        slots = [TARGET, TARGET.rstrip("/") + "-2"]
+    files = []
+    for t in slots:
+        os.makedirs(t, exist_ok=True)
+        files.append(open(os.path.join(t, ".gentle-cargo.lock"), "a+"))
+    started, said = time.time(), False
+    while True:
+        for i, f in enumerate(files):
+            if i > 0 and os.getloadavg()[0] >= 8:
+                continue
+            try:
+                fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                continue
+            for other in files:
+                if other is not f:
+                    other.close()
+            TARGET = slots[i]
+            os.environ["CARGO_TARGET_DIR"] = TARGET
+            if said:
+                print(f"gentle-cargo: waited {int(time.time() - started)} s (slot {i + 1})", file=sys.stderr, flush=True)
+            return f
+        if not said:
+            holders = []
+            for f in files:
+                f.seek(0)
+                holders.append(f.read().strip() or "another run")
+            print(f"gentle-cargo: waiting for {' and '.join(holders)} to finish", file=sys.stderr, flush=True)
+            said = True
+        time.sleep(3)
+
+with _take_a_slot() as lock:
     lock.seek(0)
     lock.truncate()
     lock.write(f"cargo {' '.join(args)} in {os.getcwd()} (pid {os.getpid()})\n")
