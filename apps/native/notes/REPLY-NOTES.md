@@ -98,6 +98,23 @@ instead of its tint → the chips test; `#rrggbb` accepting longer → `accepts_
 
 Suite after 2a: 4,338 passed, 22 skipped.
 
+## Fix: HTML escaping ran before the math (found in review)
+
+`keep_html_as_words` ran before `prepare_math_markdown`, so `$0<x<1$` became `$0\<x\<1$` and was no longer drawn.
+It runs last now, once math has been read. Test: `an_equation_with_a_less_than_sign_is_still_drawn`. A break that
+puts the old order back is caught by it.
+
+## Gates (18 Nov, after 2a and this fix)
+- `nextest run --workspace`: passed (4,338, 22 skipped).
+- `test --release --workspace`: the first run failed one ENGINE test,
+  `permission_host_tests::leaves_an_answered_card_alone_when_its_connection_closes_after_the_answer` ("no card was
+  raised"). It passed alone in 0.12 s, and this lane changes nothing in `core/`, so it looks like a timing flake under
+  load. A rerun with `--no-fail-fast` passed: 3,394 engine tests and 945 window tests.
+- `build --release`: passed. No new warnings from this lane's files (the unused `reply_actions::reply` was already
+  there).
+- The thread draws a reply through `messages.rs` → `reply_actions::reply_with_copy` → `reply_markdown` →
+  `markdown_prep::prepare_reply`, so these rules are what the window draws.
+
 ## Not mine
 `src/ui/routine_recovery_tests.rs` was untracked in this worktree before this lane started (17 Nov 23:58), and no
 `mod` names it. It is left as found.

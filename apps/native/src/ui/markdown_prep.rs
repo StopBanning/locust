@@ -18,11 +18,13 @@ pub struct Prepared {
 /// The reply's words as the thread draws them (`reply_actions::reply_markdown`).
 pub fn prepare_reply(body: &str, dark: bool) -> Prepared {
     let body = fence_tool_calls(body);
-    let body = keep_html_as_words(&electron_line_shapes(&end_lists_at_margin_prose(&body)));
+    let body = electron_line_shapes(&end_lists_at_margin_prose(&body));
     let body = mark_colours(&mark_table_statuses(&body));
     let prepared = crate::diagram::prepare_reply_markdown(&body);
     let (prepared, undrawn) = crate::diagram::take_undrawn_markers(&prepared);
     let (markdown, math) = crate::math_tex::prepare_math_markdown(&prepared, dark);
+    // Last, once math has been read: `$0<x<1$` is an equation, not a tag.
+    let markdown = keep_html_as_words(&markdown);
     Prepared { markdown, undrawn, math }
 }
 

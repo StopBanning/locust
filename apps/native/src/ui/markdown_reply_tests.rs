@@ -258,6 +258,17 @@ fn a_line_that_opens_like_markup_is_drawn_as_words_not_dropped() {
     assert_eq!(blocks("```\n<div>x</div>\n```"), [Block::Code("<div>x</div>".into())]);
 }
 
+/// The words-not-markup rule must not reach inside math: `<` in an equation is a sign.
+#[test]
+fn an_equation_with_a_less_than_sign_is_still_drawn() {
+    for text in ["So $0<x<1$ holds.", "So \\(a<b\\) holds.", "\\[ x_0<y \\]"] {
+        let prepared = crate::markdown_prep::prepare_reply(text, false);
+        assert_eq!(prepared.math.len(), 1, "{text}: {}", prepared.markdown);
+        assert!(prepared.markdown.contains(crate::math_tex::MATH_SRC_PREFIX), "{text}: {}", prepared.markdown);
+        assert!(!prose_of(&blocks(text)).contains('<'), "{text}");
+    }
+}
+
 #[test]
 fn resumes_the_numbering_after_a_code_block_splits_the_steps() {
     let text = lines(&["1. one", "2. two", "```", "npm test", "```", "3. three"]);
