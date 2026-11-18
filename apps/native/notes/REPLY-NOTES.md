@@ -193,3 +193,9 @@ Next: part 1b opens-the-plan, then orb, frame-pass.
 - NOT done: the steps fold (a new line per thought that says something, a wordless thought folding into its line;
   `buildThread`/`stepsLine`) does not exist in Rust yet, so a-wordless-thought and most of a-long-silent-stretch wait
   on it; needs a design in the `ledger.rs` item builder.
+
+## Part 2 steps fold (round 2)
+- `core/src/steps_fold.rs` `fold_steps(items, running)`: a message/user/handoff breaks the turn, a thought with words
+  starts a line, a wordless thought and calls fold in; running calls are left out while running. Both cases of
+  a-wordless-thought are named in `steps_fold_tests` (3 pass). NOT done: the drawer/thread does not call it yet, and
+  `stepsLine`'s phrase counting (a-long-silent-stretch) is not ported.
