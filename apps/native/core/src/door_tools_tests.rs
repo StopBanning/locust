@@ -486,16 +486,74 @@ fn a_question_in_the_persons_own_conversation_is_out_of_reach_while_they_do_not_
     assert!(!seen.call("answer_question", &json!({"conversation_id": "tip", "choice": 2})).is_error);
 }
 
+// A conversation with no teammate (an-app-continues-a-conversation-with-no-teammate.test.ts, 0.878), Electron's values:
+// the person's own, on claude/opus, recorded in Auto.
+fn ownerless(fake: Fake, mode: Option<&str>) -> Tools<Fake> {
+    let mut t = turn("tip", false, vec![ev("message.delta", json!({"itemId": "m", "operation": "replace", "text": QUESTION, "final": true})), ev("run.completed", json!({}))]);
+    t.runtime = Some("claude".into());
+    t.model = Some("opus".into());
+    t.mode = mode.map(str::to_owned);
+    fake.turns.lock().unwrap().insert("tip".into(), t);
+    Tools::new(fake)
+}
+
 #[test]
-fn a_conversation_with_no_teammate_is_still_refused_from_here_as_the_rust_window_refuses_it() {
-    // Electron continues one since 0.878 (on its own agent, belonging to nobody); the Rust app's window cannot yet.
-    let tools = asking(Fake { no_owner: true, ..Default::default() }, QUESTION, "completed");
-    for (tool, args) in [("answer_question", json!({"conversation_id": "tip", "choice": 1})), ("send_message", json!({"conversation_id": "tip", "message": "Carry on."}))] {
-        let r = tools.call(tool, &args);
-        assert!(r.is_error);
-        assert_eq!(r.text, "That conversation no longer has a teammate. Nothing was sent.", "{tool}");
+fn a_conversation_with_no_teammate_is_continued_on_its_own_agent_and_model_belonging_to_nobody_in_ask() {
+    let tools = ownerless(Fake { no_owner: true, see_all: true, ..Default::default() }, Some("auto"));
+    let r = tools.call("send_message", &json!({"conversation_id": "tip", "message": "Carry on."}));
+    assert!(!r.is_error, "{}", r.text);
+    let started = tools.locust.started.lock().unwrap();
+    assert_eq!(started.len(), 1);
+    let request = &started[0];
+    assert_eq!(request.prompt, "Carry on.");
+    assert_eq!(request.follow_up_of.as_deref(), Some("tip"));
+    assert_eq!((request.runtime.as_deref(), request.model.as_deref()), (Some("claude"), Some("opus")));
+    assert_eq!(request.mode, Mode::Ask);
+    assert!(crate::native::is_nobody(&request.teammate), "no teammate is named: {:?}", request.teammate);
+    assert_eq!((request.teammate.runtime.as_deref(), request.teammate.model.as_deref()), (Some("claude"), Some("opus")));
+}
+
+#[test]
+fn a_conversation_with_no_teammate_keeps_its_own_mode_when_the_person_lets_apps_use_each_teammates_own() {
+    let tools = ownerless(Fake { no_owner: true, see_all: true, own_mode: true, ..Default::default() }, Some("auto"));
+    tools.call("send_message", &json!({"conversation_id": "tip", "message": "Carry on."}));
+    assert_eq!(tools.locust.started.lock().unwrap()[0].mode, Mode::Auto);
+}
+
+#[test]
+fn a_conversation_with_no_teammate_runs_in_ask_when_it_never_recorded_a_mode_the_switch_on_or_not() {
+    for own_mode in [true, false] {
+        let tools = ownerless(Fake { no_owner: true, see_all: true, own_mode, ..Default::default() }, None);
+        tools.call("send_message", &json!({"conversation_id": "tip", "message": "Carry on."}));
+        assert_eq!(tools.locust.started.lock().unwrap()[0].mode, Mode::Ask, "own mode {own_mode}");
+    }
+}
+
+#[test]
+fn a_conversation_with_no_teammate_stays_out_of_reach_while_the_person_does_not_let_apps_see_their_conversations() {
+    let tools = ownerless(Fake { no_owner: true, ..Default::default() }, Some("auto"));
+    for (tool, args) in [("send_message", json!({"conversation_id": "tip", "message": "Carry on."})), ("answer_question", json!({"conversation_id": "tip", "choice": 1}))] {
+        assert!(tools.call(tool, &args).is_error, "{tool}");
     }
     assert!(tools.locust.started.lock().unwrap().is_empty());
+}
+
+#[test]
+fn a_conversation_that_has_a_teammate_is_still_continued_as_that_teammate() {
+    let tools = ownerless(Fake { see_all: true, ..Default::default() }, Some("auto"));
+    tools.call("send_message", &json!({"conversation_id": "tip", "message": "Carry on."}));
+    assert_eq!(tools.locust.started.lock().unwrap()[0].teammate.id, "tm_scout");
+}
+
+#[test]
+fn a_question_in_a_conversation_with_no_teammate_is_answered_by_number_belonging_to_nobody() {
+    let tools = ownerless(Fake { no_owner: true, see_all: true, ..Default::default() }, Some("auto"));
+    let r = tools.call("answer_question", &json!({"conversation_id": "tip", "choice": 1}));
+    assert!(!r.is_error, "{}", r.text);
+    let started = tools.locust.started.lock().unwrap();
+    assert_eq!(started[0].prompt, "Keep it as Electron (guard refusals leave no line, and every file stays readable by Electron). Continue with that.");
+    assert_eq!(started[0].mode, Mode::Ask);
+    assert!(crate::native::is_nobody(&started[0].teammate));
 }
 
 #[test]

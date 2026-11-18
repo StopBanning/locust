@@ -802,18 +802,24 @@ impl<L: Locust> Tools<L> {
             let named: Vec<String> = asked.options.iter().enumerate().map(|(i, o)| format!("{} {}", i + 1, o.label)).collect();
             return ToolResult::refused(format!("Choose one of: {}. Nothing was sent.", named.join("; ")));
         };
-        let Some(teammate) = self.owner_of(&turn) else {
-            return ToolResult::refused("That conversation no longer has a teammate. Nothing was sent.");
+        let teammate = match self.owner_of(&turn) {
+            Ok(t) => t,
+            Err(why) => return ToolResult::refused(why),
         };
         // The words a press on the card sends, as the next turn: the thread shows it as the answer given.
         self.started(teammate, &crate::protocol_tags::decision_reply(option), Some(id), &json!({}), Some(&turn))
     }
 
-    /// The conversation's teammate, while it is still on the roster. A conversation with no teammate is not continued
-    /// from here: the Rust app's own window cannot continue one either (Electron can, since 0.878).
-    fn owner_of(&self, turn: &Turn) -> Option<Teammate> {
-        let owner = self.locust.owner(&turn.mission_id)?;
-        self.locust.teammates().ok()?.into_iter().find(|(t, _)| t.id == owner).map(|(t, _)| t)
+    /// Who the conversation's next turn is for: its teammate, or, when it never had one or its teammate was removed,
+    /// nobody, on the conversation's own agent and model (Electron 0.878). `lookup` already held it to what the app may
+    /// see; the mode rule is the same as a teammate's (Ask, or the conversation's own while each teammate's own is on).
+    fn owner_of(&self, turn: &Turn) -> Result<Teammate, String> {
+        let list = self.locust.teammates()?;
+        Ok(self
+            .locust
+            .owner(&turn.mission_id)
+            .and_then(|owner| list.into_iter().find(|(t, _)| t.id == owner).map(|(t, _)| t))
+            .unwrap_or_else(|| crate::native::nobody(turn.runtime.clone(), turn.model.clone())))
     }
 
     fn send_or_read(&self, name: &str, args: &Value) -> ToolResult {
@@ -885,15 +891,10 @@ impl<L: Locust> Tools<L> {
             let Some(message) = text_arg(&args["message"], 8000) else {
                 return ToolResult::refused("Give a message of up to 8,000 characters. Nothing was sent.");
             };
-            let Some(owner) = self.locust.owner(&turn.mission_id) else {
-                return ToolResult::refused("That conversation no longer has a teammate. Nothing was sent.");
-            };
-            let teammate = match self.locust.teammates() {
-                Ok(list) => list.into_iter().find(|(t, _)| t.id == owner).map(|(t, _)| t),
+            // No teammate: the conversation's own agent and model, belonging to nobody.
+            let teammate = match self.owner_of(&turn) {
+                Ok(t) => t,
                 Err(why) => return ToolResult::refused(why),
-            };
-            let Some(teammate) = teammate else {
-                return ToolResult::refused("That conversation no longer has a teammate. Nothing was sent.");
             };
             return self.started(teammate, message, Some(id), args, Some(&turn));
         }

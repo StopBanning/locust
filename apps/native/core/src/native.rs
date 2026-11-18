@@ -1055,6 +1055,7 @@ pub fn decide_approval(
 
 // ---- send --------------------------------------------------------------------------------------------------------
 pub struct Send {
+    /// Who the turn is for; `nobody` for a conversation that has no teammate.
     pub teammate: Teammate,
     /// The conversation being continued (its anchor id). The newest turn is never taken from the window: it is read
     /// from disk, in both folders, when sending.
@@ -1062,6 +1063,29 @@ pub struct Send {
     pub prompt: String,
     pub model: Option<String>,
     pub effort: Option<String>,
+}
+
+/// A CONVERSATION WITH NO TEAMMATE (Electron 0.878; Colin, 17 Nov: "Can we make it so you can interact with
+/// conversations?"). One the person started without a teammate, or whose teammate was removed, is continued on its own
+/// agent and model, belonging to nobody: no owner is recorded, no teammate's instructions, skills, keys or memory go
+/// into its brief, and no allow rule can be saved for one. The organization's policy and spending cap still hold.
+pub fn nobody(runtime: Option<String>, model: Option<String>) -> Teammate {
+    Teammate {
+        id: String::new(),
+        name: "This conversation".into(),
+        role: String::new(),
+        runtime,
+        model,
+        account: None,
+        busy: false,
+        runs_in: String::new(),
+        folder: None,
+    }
+}
+
+/// A turn for `nobody`: the empty id no roster entry can have.
+pub fn is_nobody(teammate: &Teammate) -> bool {
+    teammate.id.is_empty()
 }
 
 /// A random version-4 UUID from the OS's random source: what Copilot accepts for `--session-id`.
@@ -2527,9 +2551,12 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
     for msg in &delivered {
         let _ = writer.write_peer_link("received", &msg.message_id, &msg.from.teammate_id, &msg.posted_at);
     }
-    channel.register_teammate(&id, &job.teammate.id);
-    if let Err(error) = crate::people::record_owner(&store, &id, &job.teammate.id) {
-        eprintln!("The conversation's teammate was not recorded: {error}");
+    // A turn for nobody stays nobody's: no owner, and no teammate a card's allow rule could be saved for.
+    if !is_nobody(&job.teammate) {
+        channel.register_teammate(&id, &job.teammate.id);
+        if let Err(error) = crate::people::record_owner(&store, &id, &job.teammate.id) {
+            eprintln!("The conversation's teammate was not recorded: {error}");
+        }
     }
     // The conversation keeps these references for its next turns (bind), with the folder this turn stood in.
     let attached_ids: Vec<String> = attached.iter().map(|i| i.id.clone()).collect();

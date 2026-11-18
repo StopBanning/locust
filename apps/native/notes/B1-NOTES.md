@@ -97,9 +97,13 @@ Electron 0.878 (main, c3951884) lets an app answer a question card and continue 
   from `an-app-continues-a-conversation-with-no-teammate.test.ts`.
 - **Also listed:** `carry_on` was served but missing from `door::tool_list`, so no app could find it; it is listed now,
   in Electron's order and words, with `list_models`' fuller description.
-- **Not ported: a conversation with no teammate.** Electron continues one on its own agent, belonging to nobody. The
-  Rust send path (`native::Send`) needs a teammate (its brief, folder, spend limit, skills, keys, owner record), and
-  the Rust window cannot continue such a conversation either, so the door keeps refusing it ("That conversation no
-  longer has a teammate. Nothing was sent."), as a test now holds. Doing it means a teammate-less send first.
+- **A conversation with no teammate** (same evening): continued on its own agent and model, belonging to nobody.
+  `native::nobody` is a teammate with the empty id no roster entry can have; `send_from` records no owner for it and
+  registers no teammate a card's allow rule could be saved for, and its brief, memory and shares already read an unknown
+  id as nobody's. The org policy and spending cap still hold. The door's `owner_of` gives the conversation's teammate,
+  or nobody when it never had one or its teammate was removed, under the same mode rule. 6 door tests with Electron's
+  values and an engine test that resumes a removed teammate's conversation through the fake app-server; 4 of 5 breaks
+  caught, the fifth (the post-edit check's teammate id) had no effect and was taken back out. The Rust window still
+  continues only a teammate's conversation.
 - The Electron test file is on main, not in this branch's `apps/desktop`, so `parity/tests.tsv` gets its row when the
   branch takes main's Electron side.
