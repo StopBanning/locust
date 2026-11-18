@@ -145,3 +145,75 @@ fn attaches_the_plan_to_the_live_line_only_when_step_n_of_m_is_present() {
     let bare = event(2, "tool.started", json!({"itemId": "t2", "name": "shell", "phase": "started"}));
     assert_eq!(live_line(&[started(), bare], true, "", false).unwrap().plan, None);
 }
+
+fn orb_of(events: &[Value]) -> (String, &'static str, String) {
+    let line = live_line(events, true, "", false).unwrap();
+    (line.register, line.orb, line.label)
+}
+
+fn delta(n: usize, text: &str, op: &str, final_: bool) -> Value {
+    event(n, "message.delta", json!({"itemId": "m1", "operation": op, "text": text, "final": final_}))
+}
+
+// case: shows the working orb through an OpenCode tool call, because the tool is never open
+#[test]
+fn shows_the_working_orb_through_an_opencode_tool_call_because_the_tool_is_never_open() {
+    let got = orb_of(&[
+        event(1, "step.started", json!({"stepKind": "turn"})),
+        event(2, "tool.started", json!({"itemId": "t1", "name": "grep", "toolKind": "grep"})),
+        event(3, "tool.completed", json!({"itemId": "t1", "status": "completed"})),
+    ]);
+    assert_eq!((got.0.as_str(), got.1), ("working", "composing"));
+}
+
+// case: shows the tool orb on Antigravity, where the start and the result are apart
+#[test]
+fn shows_the_tool_orb_on_antigravity_where_the_start_and_the_result_are_apart() {
+    let got = orb_of(&[event(1, "tool.started", json!({"itemId": "t1", "name": "grep_search", "toolKind": "grep_search"}))]);
+    assert_eq!((got.0.as_str(), got.1), ("tool", "searching"));
+}
+
+// case: reaches the writing orb on OpenCode, because text arriving IS writing
+#[test]
+fn reaches_the_writing_orb_on_opencode_because_text_arriving_is_writing() {
+    let got = orb_of(&[event(1, "step.started", json!({"stepKind": "turn"})), delta(2, "hel", "append", false)]);
+    assert_eq!((got.0.as_str(), got.1), ("writing", "shaping"));
+}
+
+// case: says Writing in words too, over a thought the runtime left open (0.586)
+#[test]
+fn says_writing_in_words_too_over_a_thought_the_runtime_left_open() {
+    let thought = || event(1, "step.started", json!({"stepKind": "reasoning", "itemId": "r1"}));
+    let got = orb_of(&[thought(), delta(2, "All four", "append", false)]);
+    assert_eq!((got.0.as_str(), got.2.as_str()), ("writing", "Writing"));
+    let got = orb_of(&[thought(), delta(2, "All four pass.", "append", true)]);
+    assert_eq!((got.0.as_str(), got.2.as_str()), ("working", "Working"));
+    let named = || vec![event(1, "step.started", json!({"stepKind": "turn", "message": "Running the tests"})), delta(2, "All four", "append", false)];
+    let got = orb_of(&named());
+    assert_eq!((got.0.as_str(), got.2.as_str()), ("writing", "Writing"));
+    let mut done = named();
+    done.push(delta(3, " pass.", "append", true));
+    let got = orb_of(&done);
+    assert_eq!((got.0.as_str(), got.2.as_str()), ("working", "Running the tests"));
+}
+
+// case: goes back to working when the text is complete
+#[test]
+fn goes_back_to_working_when_the_text_is_complete() {
+    let got = orb_of(&[event(1, "step.started", json!({"stepKind": "turn"})), delta(2, "hel", "append", false), delta(3, "hello", "replace", true)]);
+    assert_eq!((got.0.as_str(), got.1), ("working", "composing"));
+}
+
+// case: never overrides a step that said something more specific
+#[test]
+fn never_overrides_a_step_that_said_something_more_specific() {
+    let got = orb_of(&[event(1, "tool.started", json!({"itemId": "t1", "name": "grep_search", "toolKind": "grep_search"})), delta(2, "hi", "append", false)]);
+    assert_eq!(got.0, "tool");
+}
+
+// case: cannot hold the thinking orb when a reasoning step opens and closes at once
+#[test]
+fn cannot_hold_the_thinking_orb_when_a_reasoning_step_opens_and_closes_at_once() {
+    let got = orb_of(&[event(1, "step.started", json!({"stepKind": "reasoning", "itemId": "r1"})), event(2, "step.completed", json!({"stepKind": "reasoning", "itemId": "r1"}))]);
+    assert_ne!(got.1, "listening");
+}

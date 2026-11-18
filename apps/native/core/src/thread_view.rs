@@ -12,6 +12,8 @@ pub struct PlanStepView {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LiveLine {
     pub label: String,
+    /// The orb the line draws beside its word (missionView.ts `orbStateFor`), from the same facts as the words.
+    pub orb: &'static str,
     /// The plan, when the line's detail is its "step N of M": what the step control opens (missionView.ts
     /// `live-step.plan`).
     pub plan: Option<Vec<PlanStepView>>,
@@ -74,6 +76,44 @@ fn plan_steps(event: &Value) -> Vec<PlanStepView> {
             Some(PlanStepView { text: text.to_owned(), state })
         })
         .collect()
+}
+
+/// The orb of an open call (missionView.ts `orbStateFor` with a tool detail): a helper weaves, a shell connects, a
+/// reading tool searches, any other tool connects.
+fn tool_orb(name: &str, tool_kind: &str) -> &'static str {
+    let lower = name.to_lowercase();
+    if matches!(lower.as_str(), "task" | "agent" | "subagent" | "spawn_agent") || lower.starts_with("subagent:") {
+        return "weaving";
+    }
+    if crate::mission_export::is_shell_tool(name, Some(tool_kind)) {
+        return "connecting";
+    }
+    let mut spaced = String::new();
+    let mut prev: Option<char> = None;
+    for c in name.chars() {
+        if c.is_ascii_uppercase() && prev.is_some_and(|p| p.is_ascii_lowercase() || p.is_ascii_digit()) {
+            spaced.push(' ');
+        }
+        spaced.push(c);
+        prev = Some(c);
+    }
+    let reads = ["view", "read", "open", "show", "list", "cat", "search", "find", "grep", "websearch", "fetch", "browse", "lookup"];
+    let looks = spaced.split(|c: char| !c.is_ascii_alphabetic()).any(|w| reads.contains(&w.to_lowercase().as_str()));
+    if looks { "searching" } else { "connecting" }
+}
+
+/// The orb for a line with no open tool, by its register (missionView.ts `orbStateFor` without a detail).
+fn register_orb(register: &str, plan_mode: bool) -> &'static str {
+    if plan_mode {
+        return "solving";
+    }
+    match register {
+        "writing" => "shaping",
+        "working" => "composing",
+        "thinking" => "listening",
+        "tool" => "connecting",
+        _ => "breathing",
+    }
 }
 
 fn clip(text: &str, max: usize) -> String {
@@ -196,6 +236,7 @@ pub fn live_line_starting(
     let mut messages = std::collections::HashMap::new();
     let mut plan: Option<(String, String)> = None;
     let mut plan_list: Vec<PlanStepView> = Vec::new();
+    let mut open_orbs: Vec<(String, &'static str)> = Vec::new();
     for e in events {
         let p = &e["payload"];
         let s = |key: &str| p[key].as_str().unwrap_or("");
@@ -233,14 +274,19 @@ pub fn live_line_starting(
                     .or(p["name"].as_str())
                     .unwrap_or("");
                 open.retain(|(id, ..)| id != s("itemId"));
+                open_orbs.retain(|(id, _)| id != s("itemId"));
                 let mcp = crate::mcp_names::mcp_tool_parts(s("name"));
                 let connector = mcp.is_some() || crate::mcp_names::is_bare_connector_tool(s("name"));
                 let shown = p["title"].as_str().filter(|t| !t.is_empty()).map(str::to_owned)
                     .or_else(|| mcp.as_ref().map(|m| m.tool.clone())).unwrap_or_else(|| label.into());
                 let action = if connector { None } else { live_action(p["title"].as_str(), s("toolKind"), s("name"), p["command"].as_str()) };
+                open_orbs.push((s("itemId").into(), if connector { "solving" } else { tool_orb(s("name"), s("toolKind")) }));
                 open.push((s("itemId").into(), shown, mcp.map(|m| m.server), connector, action));
             }
-            "tool.completed" | "tool.failed" => open.retain(|(id, ..)| id != s("itemId")),
+            "tool.completed" | "tool.failed" => {
+                open.retain(|(id, ..)| id != s("itemId"));
+                open_orbs.retain(|(id, _)| id != s("itemId"));
+            }
             "plan.updated" => {
                 plan = plan_step(e);
                 plan_list = plan_steps(e);
@@ -308,7 +354,12 @@ pub fn live_line_starting(
         )
     };
     let with_plan = detail.is_some() && detail == plan_aside && !plan_list.is_empty();
+    let orb = match open_orbs.last() {
+        Some((_, orb)) if open.last().is_some() => *orb,
+        _ => register_orb(&register, false),
+    };
     Some(LiveLine {
+        orb,
         plan: with_plan.then_some(plan_list),
         label: crate::ledger::scrub(&label),
         action: action.map(|a| crate::ledger::scrub(&a)),
