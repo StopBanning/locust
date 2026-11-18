@@ -1,7 +1,7 @@
 //! Two of Electron's worktree files, against real git and real hooks in temporary repositories, with Electron's values:
 //! - `main/a-half-made-worktree-is-finished-not-trusted.test.ts` (code review B4, main-stores 3);
 //! - `main/a-worktree-survives-only-a-finished-checkout.test.ts`: a checkout hook that fails after git made the tree.
-//! Electron's diagnostic `note` callback and its injected `runGit` have no Rust counterpart (see the ledger rows).
+//! Electron's diagnostic `note` callback has no Rust counterpart; its injected `runGit` is `Manager::with_git_program`.
 //! Nothing here touches a repository outside its temporary folder.
 
 use crate::worktrees::{worktree_add_args, Manager};
@@ -75,6 +75,26 @@ fn a_tree_whose_making_was_cut_short_is_finished_keeping_what_is_in_it_rather_th
     assert_eq!(status, [" M src/file0.txt", "?? WREN.md"]);
     assert!(!admin.join("locked").exists());
     assert!(!admin.join("index.lock").exists());
+}
+
+// "leaves a finished tree exactly as it is": no git at all for a tree that is already whole. Electron counts its
+// injected runGit's calls; here the manager runs a stand-in that writes down each call and then runs git.
+#[test]
+fn a_finished_tree_is_left_exactly_as_it_is_with_no_git_at_all() {
+    use std::os::unix::fs::PermissionsExt;
+    let root = repository_of(3);
+    let tools = temp("locust-halfmade-git");
+    let calls = tools.0.join("calls.txt");
+    let script = tools.0.join("counting-git");
+    std::fs::write(&script, format!("#!/bin/sh\nprintf '%s\\n' \"$*\" >> '{}'\nexec git \"$@\"\n", calls.display())).unwrap();
+    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let manager = Manager::new(&root.0).with_git_program(script.to_string_lossy().into_owned());
+    let path = manager.ensure("tm_wren", "Wren", None).unwrap();
+    assert!(std::fs::read_to_string(&calls).unwrap_or_default().contains("worktree add"), "the stand-in runs the add");
+    std::fs::remove_file(&calls).unwrap();
+
+    assert_eq!(manager.ensure("tm_wren", "Wren", None).unwrap(), path);
+    assert_eq!(std::fs::read_to_string(&calls).unwrap_or_default(), "");
 }
 
 #[test]

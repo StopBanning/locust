@@ -721,3 +721,47 @@ Branch at f72f97c7.
 - `a-check-command-is-one-line.test.ts` was already tested as `edit_check::tests::a_check_command_is_one_line`; its row is now marked `carried` and break-checked.
 - Gaps: Windows PowerShell guard tests (`win32`), `LOCUST_GUARD_LOG`, and `disk-observation` (`holdsSecrets` / `observedPatches`) are not built in `core/src`.
 - Break checks (all 10 caught by the named test): Codex `hook_command` changed, bundled plugin skip dropped, dotted `hooks.` pattern dropped, Copilot `|| true` dropped, Copilot plugin dir name changed, `Bash` / `Edit` / `mcp__` branches in `describe_claude_tool`, `parsed_check_command` newline/NUL check, and `redact_secrets` `refresh[_-]?token` pattern.
+
+## Round 5 (18 Nov 2026, early morning)
+
+Branch at 19a93865. Stopped at 93% of the 5-hour window (reading of 07:08 UTC), before batch 20 had its full
+suite and release build, so **batch 20 is not committed**. It is parked as a patch:
+`~/Archive/maxlane-batch20-2026-11-18/batch20.patch` (`git apply` from the repository root), with its break entries
+in `breaks/`. No `tests.tsv` row was changed.
+
+## Batch 20 (parked, not committed): five partial main files
+
+What the patch holds (each new test passed by name in a filtered nextest run):
+- `a-relayed-conversation-sits-under-its-origin.test.ts` (5/5 would make it `carried`): one test per case with
+  Electron's ids in `relay_tests.rs` (`a_relayed_conversation_sits_under_the_conversation_any_turn_of_which_sent_it`,
+  `..._stays_where_it_was_when_the_one_it_came_from_is_not_listed`, `..._nests_one_level_only_...`,
+  `two_conversations_that_name_each_other_hide_nothing`, `a_conversation_is_never_nested_under_itself`). No Rust change.
+- `a-half-made-worktree-is-finished-not-trusted.test.ts` (3/3 would make it `carried`):
+  `a_finished_tree_is_left_exactly_as_it_is_with_no_git_at_all`, through `Manager::with_git_program` and a
+  stand-in that writes down each call. Fix: `ensure`'s worktree add and `finish_making`'s three git calls ran plain
+  `git`, so the seam did not cover them; they now run the manager's own git program.
+- `a-model-of-your-own-is-unpriced-not-free.test.ts` (3/3 would make it `carried`):
+  `a_run_with_tokens_and_no_price_counts_as_unpriced_never_as_dollars_and_a_free_catalog_model_stays_nothing`.
+  Built: `spend::spent_by` counts `unpriced_runs` as Electron's `spendByTeammate`/`unpricedRunAt` does (own model, no
+  plan, no price, tokens used), and `usd` is `None` when nothing in the month had a price (`sumSpend`). Whether
+  `usage_ledger::usage_turns` (Argon's file) yields an own model's priceless turn was not checked.
+- `groups-remember-leaving.test.ts` (6/6 would make it `carried`):
+  `a_leaving_keeps_the_name_and_words_the_group_had_after_it_is_renamed_edited_or_removed` in `groups.rs`.
+
+Break checks (`mutfilter.py`, one per run, under six other lanes' release suites holding the build lock):
+- Caught by the named test: worktree finished-tree path running git; member ids ignored for ownership; the one-level
+  guard dropped; both self guards dropped together; the unpriced count dropped; the own-model check dropped; a
+  zero-token run counted.
+- Expected survivor, timed out in the queue, not seen: the self guard `parent != row.mission_id` alone (the second
+  pass drops a self-parent because its parent is itself wanted; redundant alone, caught together above).
+- Not run (timed out or stopped first): `usd` defaulting to `Some(0.0)`; the two groups breaks (a rename or an
+  instructions edit rewriting the left snapshot).
+
+Skipped this round, and why:
+- `free-routes.test.ts`: `freeRoutesOnly` gates Codex, Antigravity and background starts in Electron; carrying it means
+  a gate in `native.rs`'s start path, not a function alone.
+- `route-at-start.test.ts`'s "no permission mode" holds by type; a test could only fail to build, which is not a catch.
+- `a-handoff-keeps-its-mode.test.ts`: a lenient mode read contradicts the door's refusal of an unknown mode (Colin's call).
+
+To finish batch 20: apply the patch; run the three un-run breaks; the full nextest run; `test --release --workspace`
+and `build --release`; set the four rows to `carried` with their test files; `recount.py` and `--check`; commit.

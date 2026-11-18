@@ -475,9 +475,9 @@ impl Manager {
     /// a half-made tree reads every file as deleted, and committing it would delete the project on its branch.
     fn finish_making(&self, path: &Path, admin: &Path) -> Result<(), String> {
         let _ = std::fs::remove_file(admin.join("index.lock"));
-        run_git(&["reset", "-q"], path, CHECKOUT_TIMEOUT).map_err(|e| e.message)?;
-        let _ = run_git(&["checkout-index", "-a", "-q"], path, CHECKOUT_TIMEOUT);
-        let missing = run_git(&["ls-files", "--deleted"], path, CHECKOUT_TIMEOUT).map_err(|e| e.message)?;
+        run_git_with(&self.git_program, &["reset", "-q"], path, CHECKOUT_TIMEOUT).map_err(|e| e.message)?;
+        let _ = run_git_with(&self.git_program, &["checkout-index", "-a", "-q"], path, CHECKOUT_TIMEOUT);
+        let missing = run_git_with(&self.git_program, &["ls-files", "--deleted"], path, CHECKOUT_TIMEOUT).map_err(|e| e.message)?;
         if !missing.trim().is_empty() {
             return Err("This teammate's own branch was left half-made, and Locust could not finish it. Remove it on the Worktrees screen and it will be made again.".into());
         }
@@ -518,7 +518,7 @@ impl Manager {
         let path_text = path.to_string_lossy().into_owned();
         let args = worktree_add_args(&path_text, &branch, branch_exists, from.unwrap_or("HEAD"))?;
         let args: Vec<&str> = args.iter().map(String::as_str).collect();
-        if let Err(error) = run_git(&args, &self.root, CHECKOUT_TIMEOUT) {
+        if let Err(error) = run_git_with(&self.git_program, &args, &self.root, CHECKOUT_TIMEOUT) {
             // A checkout hook that failed after git made a usable tree: kept only when the tree is verified finished.
             let finished = error.exit.is_some_and(|c| c > 0) && {
                 let listing = self.git(&["worktree", "list", "--porcelain"], &self.root).unwrap_or_default();

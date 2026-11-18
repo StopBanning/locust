@@ -135,13 +135,24 @@ pub fn dollars(usd: f64) -> String {
 }
 
 /// spendByTeammate for one teammate and one month: the priced turns of the conversations it owns.
+/// mission-history.ts spendByTeammate for one owner: the month's dollars, and its unpriced runs (`unpricedRunAt`: a
+/// model of the person's own that used tokens and said no price) counted as runs, never as dollars. `usd` is `None`
+/// when no turn in the month had a price, as `sumSpend` leaves it out.
 pub fn spent_by(turns: &[crate::usage::UsageTurn], month: &str, owns: impl Fn(&str) -> bool) -> Spend {
-    let usd: f64 = turns
-        .iter()
-        .filter(|t| month_of(&t.at).as_deref() == Some(month) && owns(&t.conversation))
-        .filter_map(|t| t.usd)
-        .sum();
-    Spend { usd: Some(usd), ..Default::default() }
+    let mut usd: Option<f64> = None;
+    let mut unpriced: u32 = 0;
+    for t in turns.iter().filter(|t| month_of(&t.at).as_deref() == Some(month) && owns(&t.conversation)) {
+        if let Some(paid) = t.usd {
+            usd = Some(usd.unwrap_or(0.0) + paid);
+        } else if !t.plan
+            && t.premium_requests.is_none()
+            && is_own_model(&t.runtime, &t.model)
+            && t.input_tokens.unwrap_or(0) + t.output_tokens.unwrap_or(0) > 0
+        {
+            unpriced += 1;
+        }
+    }
+    Spend { usd, unpriced_runs: (unpriced > 0).then_some(unpriced), ..Default::default() }
 }
 
 pub fn limit_reached(spent: Option<&Spend>, limit_usd: f64) -> bool {
@@ -263,6 +274,19 @@ mod tests {
         assert_eq!(sum.usd, Some(1.5));
         assert_eq!(sum.premium_requests, Some(1.0));
         assert_eq!(sum.unpriced_runs, Some(2));
+    }
+
+    #[test]
+    fn a_month_of_only_unpriced_runs_adds_up_to_no_dollars_at_all() {
+        // spend.ts sumSpend: usd stays undefined unless something in the list had a price, so a month on a model of
+        // the person's own shows its unpriced runs and never "$0.00".
+        let sum = sum_spend(&[
+            Spend { usd: None, premium_requests: None, unpriced_runs: Some(2) },
+            Spend { usd: None, premium_requests: None, unpriced_runs: Some(1) },
+        ])
+        .unwrap();
+        assert_eq!(sum, Spend { usd: None, premium_requests: None, unpriced_runs: Some(3) });
+        assert_eq!(sum_spend(&[]), None);
     }
 
     #[test]
