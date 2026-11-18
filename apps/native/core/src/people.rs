@@ -1039,7 +1039,9 @@ pub fn turn_brief_with_group_and_room(
         runtime,
         Some(prompt),
     )?);
-    standing.extend(crate::briefing::standing_formats(runtime));
+    // The person's "keep a todo list" switch (todo-list-is-opt-in): a setting that cannot be read reads as off.
+    let todos = crate::workspace_settings::load(store).is_ok_and(|s| s.keep_a_todo_list);
+    standing.extend(crate::briefing::standing_formats(runtime, todos));
     let (composed, kept) = crate::briefing::assemble_with_room_history(
         &standing,
         inbound,

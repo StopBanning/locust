@@ -15,7 +15,7 @@ fn brief(prompt: &str, others: &[PeerEntry]) -> String {
     if !others.is_empty() {
         standing.push(roster_section(&atlas(), others));
     }
-    standing.extend(standing_formats(Some("claude")));
+    standing.extend(standing_formats(Some("claude"), true));
     assemble(&standing, &[], 0, &[], None, prompt).0
 }
 
@@ -76,7 +76,7 @@ fn keeps_the_persons_words_last_and_unaltered() {
 
 #[test]
 fn asks_for_a_todo_list_or_narration_only_from_the_runtimes_that_answer_them() {
-    let has = |runtime: &str, words: &str| standing_formats(Some(runtime)).iter().any(|s| s.contains(words));
+    let has = |runtime: &str, words: &str| standing_formats(Some(runtime), true).iter().any(|s| s.contains(words));
     assert!(has("codex", "KEEP A TODO LIST") && has("opencode", "KEEP A TODO LIST") && !has("claude", "KEEP A TODO LIST"));
     assert!(has("antigravity", "say in one short sentence what you are doing") && !has("codex", "say in one short sentence"));
 }
@@ -132,4 +132,14 @@ fn messages_are_shed_from_the_newest_end_only_when_that_brings_the_brief_under_t
     let long_ask = "a".repeat(MAX_RUNTIME_PROMPT_LENGTH + 1);
     let (_, kept) = assemble(&[], &messages, 0, &[], None, &long_ask);
     assert_eq!(kept, 3);
+}
+
+// Electron todo-list-is-opt-in.test.ts, "says nothing about todo lists unless asked to": the switch off leaves the ask
+// out even for a runtime that has the tool.
+#[test]
+fn says_nothing_about_todo_lists_when_the_person_turned_them_off() {
+    for runtime in ["codex", "cursor", "opencode"] {
+        assert!(standing_formats(Some(runtime), true).iter().any(|s| s.contains("KEEP A TODO LIST")), "{runtime}");
+        assert!(!standing_formats(Some(runtime), false).iter().any(|s| s.contains("KEEP A TODO LIST")), "{runtime}");
+    }
 }

@@ -204,11 +204,12 @@ pub fn inbound_section(messages: &[Message], remaining: usize, roster: &[PeerEnt
     lines.join("\n")
 }
 
-/// What goes after the workspace and memory sections for a run on `runtime`: the todo and narrate asks where the
-/// runtime answers them, then the four formats every run answers in.
-pub fn standing_formats(runtime: Option<&str>) -> Vec<String> {
+/// What goes after the workspace and memory sections for a run on `runtime`: the todo ask when the person keeps it on
+/// and the runtime has the tool (peer-exchange.ts: both halves), the narrate ask where the runtime answers it, then the
+/// four formats every run answers in.
+pub fn standing_formats(runtime: Option<&str>, keep_a_todo_list: bool) -> Vec<String> {
     let mut out = Vec::new();
-    if runtime.is_some_and(runtime_keeps_a_todo_list) {
+    if keep_a_todo_list && runtime.is_some_and(runtime_keeps_a_todo_list) {
         out.push(todo_section());
     }
     if runtime.is_some_and(runtime_narrates_when_asked) {
