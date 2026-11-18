@@ -62,6 +62,7 @@ pub mod peer_exchange;
 pub mod acp_agent;
 pub mod cancellation;
 pub mod cursor_config;
+pub mod cursor_config_allow;
 pub mod cursor_ignore;
 pub mod own_models;
 pub mod endpoint_test;

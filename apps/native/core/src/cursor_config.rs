@@ -190,6 +190,128 @@ impl CursorDefaultModel {
     }
 }
 
+fn home_cursor_cli_config() -> Option<PathBuf> {
+    std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .map(|h| PathBuf::from(h).join(".cursor").join("cli-config.json"))
+}
+
+fn shared_default_model(store_root: &std::path::Path) -> Option<&'static CursorDefaultModel> {
+    static GUARD: std::sync::OnceLock<CursorDefaultModel> = std::sync::OnceLock::new();
+    let cli_config = home_cursor_cli_config()?;
+    Some(GUARD.get_or_init(|| {
+        CursorDefaultModel::new(cli_config, store_root.join("cursor-default-model.json"))
+    }))
+}
+
+fn shared_connector_keeper(store_root: &std::path::Path) -> &'static crate::cursor_config_allow::CursorConnectorKeeper {
+    static KEEPER: std::sync::OnceLock<crate::cursor_config_allow::CursorConnectorKeeper> =
+        std::sync::OnceLock::new();
+    KEEPER.get_or_init(|| {
+        crate::cursor_config_allow::CursorConnectorKeeper::new(
+            std::sync::Arc::new(crate::cursor_config_allow::FsAllowIo),
+            Some(std::sync::Arc::new(crate::cursor_config_allow::FileHoldStore(
+                store_root.join("cursor-connector-holds.json"),
+            ))),
+        )
+    })
+}
+
+fn shared_connector_cache() -> &'static crate::cursor_config_allow::CursorConnectorCache {
+    static CACHE: std::sync::OnceLock<crate::cursor_config_allow::CursorConnectorCache> =
+        std::sync::OnceLock::new();
+    CACHE.get_or_init(|| {
+        let now: crate::cursor_config_allow::Clock = std::sync::Arc::new(|| {
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis() as u64)
+                .unwrap_or(0)
+        });
+        crate::cursor_config_allow::CursorConnectorCache::new(
+            std::sync::Arc::new(crate::cursor_config_allow::run_cursor_mcp_list),
+            now,
+        )
+    })
+}
+
+/// Recover any Cursor default-model or connector-rule state left behind by an earlier Locust that quit mid-run,
+/// and warm Cursor's connector list in the background so the first turn does not wait.
+/// codex-mission.ts: Cursor's connector rules are added only for an edit run (`effectiveSandbox === 'workspace-write'`):
+/// Auto already allows everything, and Ask and Plan must ask before a connector.
+pub fn adds_connector_rules(runtime: &str, mode: crate::approval::Mode) -> bool {
+    runtime == "cursor" && crate::runtime::cursor::sandbox_for(mode) == "workspace-write"
+}
+
+pub fn recover_on_startup(store_root: &std::path::Path) {
+    if cfg!(any(test, feature = "test-hooks")) {
+        return;
+    }
+    if let Some(guard) = shared_default_model(store_root) {
+        guard.recover();
+    }
+    shared_connector_keeper(store_root).recover();
+    if crate::runtime::discovery::find_named("cursor-agent").is_ok() {
+        shared_connector_cache().warm();
+    }
+}
+
+/// Per-run guard for Cursor turns: saves/restores `~/.cursor/cli-config.json`'s default model and merges/releases
+/// `Mcp(<server>:*)` connector allow rules in `<workspace>/.cursor/cli.json` outside Auto.
+pub struct CursorRunGuard {
+    model_guard: Option<&'static CursorDefaultModel>,
+    connector_grant: Option<crate::cursor_config_allow::CursorConnectorGrant>,
+}
+
+impl CursorRunGuard {
+    pub fn begin(
+        store_root: &std::path::Path,
+        runtime: &str,
+        workspace: &std::path::Path,
+        mode: crate::approval::Mode,
+        model: Option<&str>,
+    ) -> Self {
+        // Never in any test build (the app's tests turn on test-hooks): a test must not touch the real ~/.cursor.
+        if cfg!(any(test, feature = "test-hooks")) || runtime != "cursor" {
+            return Self { model_guard: None, connector_grant: None };
+        }
+        let model_guard = model
+            .map(str::trim)
+            .filter(|m| !m.is_empty())
+            .and_then(|m| {
+                let g = shared_default_model(store_root)?;
+                g.before(m);
+                Some(g)
+            });
+        let connector_grant = if adds_connector_rules(runtime, mode) {
+            let names = shared_connector_cache().configured_connector_names();
+            let refs: Vec<&str> = names.iter().map(String::as_str).collect();
+            Some(shared_connector_keeper(store_root).allow(workspace, &refs))
+        } else {
+            None
+        };
+        Self { model_guard, connector_grant }
+    }
+
+    pub fn end(mut self) {
+        self.finish();
+    }
+
+    fn finish(&mut self) {
+        if let Some(g) = self.model_guard.take() {
+            g.after();
+        }
+        if let Some(grant) = self.connector_grant.take() {
+            grant.release();
+        }
+    }
+}
+
+impl Drop for CursorRunGuard {
+    fn drop(&mut self) {
+        self.finish();
+    }
+}
+
 #[cfg(test)]
 #[path = "cursor_config_tests.rs"]
 mod tests;

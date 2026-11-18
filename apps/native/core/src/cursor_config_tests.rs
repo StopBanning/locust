@@ -168,3 +168,15 @@ fn reads_a_model_with_bracketed_options_as_its_plain_id() {
     assert_eq!(base_model_id("composer-2.5[fast=true]"), "composer-2.5");
     assert_eq!(base_model_id("grok-4.7"), "grok-4.7");
 }
+
+/// codex-mission.ts adds Cursor's connector rules only for `runtime === 'cursor' && effectiveSandbox === 'workspace-write'`.
+#[test]
+fn adds_connector_rules_only_for_a_cursor_edit_run() {
+    use crate::approval::Mode;
+    assert!(adds_connector_rules("cursor", Mode::AcceptEdits));
+    assert!(adds_connector_rules("cursor", Mode::ApproveEach));
+    assert!(!adds_connector_rules("cursor", Mode::Auto));
+    assert!(!adds_connector_rules("cursor", Mode::Ask));
+    assert!(!adds_connector_rules("cursor", Mode::Plan));
+    assert!(!adds_connector_rules("codex", Mode::AcceptEdits));
+}

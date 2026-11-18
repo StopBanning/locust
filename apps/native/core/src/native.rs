@@ -2633,6 +2633,7 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
             let memory_completion = registered;
             let _browser_registration = browser_registration;
             let checkpoint = crate::checkpoints::Turn::begin(&memory_store, &memory_folder);
+            let cursor_guard = crate::cursor_config::CursorRunGuard::begin(memory_store.root(), &runtime_owned, &memory_folder, check_mode, check_model.as_deref());
             run_turn(
                 writer,
                 command,
@@ -2648,6 +2649,7 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
                 codex_home,
                 slash_command,
             );
+            cursor_guard.end();
             // The run's skill copies go with it.
             for copy in &skill_copies {
                 let _ = std::fs::remove_dir_all(copy);
