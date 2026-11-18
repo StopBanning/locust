@@ -82,6 +82,8 @@ mod people_panel;
 mod memory_card;
 #[path = "ui/hover.rs"]
 mod hover;
+#[path = "ui/effort_slider.rs"]
+mod effort_slider;
 #[path = "ui/look_picker.rs"]
 mod look_picker;
 #[path = "ui/pet_picks.rs"]

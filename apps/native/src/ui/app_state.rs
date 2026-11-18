@@ -230,6 +230,8 @@ pub(super) struct State {
     pub(super) model_menu: Option<String>,
     /// What the person typed in the model picker's search.
     pub(super) model_query: TextEdit,
+    /// Where the effort thumb is while the pointer holds it (effort_slider.rs); None when it rests on its stop.
+    pub(super) effort_held: Option<f32>,
     /// The conversation's reference folders on screen, the conversation they were read for, and the chips' menus.
     pub(super) reference_items: Vec<locust_core::references::Item>,
     pub(super) references_key: String,
@@ -507,6 +509,7 @@ impl Default for State {
             limited_runtimes: HashMap::new(),
             model_menu: None,
             model_query: TextEdit::default(),
+            effort_held: None,
             reference_items: Vec::new(),
             references_key: String::new(),
             reference_menu: false,

@@ -444,3 +444,5 @@ pub mod workspace_launch;
 mod workspace_launch_tests;
 #[cfg(test)]
 mod slow_agent_tests;
+// Reasoning effort in words and as Claude Code's slider (exec/native-picker).
+pub mod effort_levels;

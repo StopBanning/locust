@@ -1176,18 +1176,19 @@ pub(super) fn model_picker(
         .map(|m| m.efforts.clone())
         .or_else(|| current.and_then(|a| a.models.iter().find(|m| Some(m.id.as_str()) == a.model.as_deref())).map(|m| m.efforts.clone()))
         .unwrap_or_default();
+    // Claude Code's effort control (EffortSlider in the RoutePicker's effort slot), on the level shown or its default.
     let mut foot = row().w_full().gap(6.0).center_y();
     if !levels.is_empty() && !for_team {
-        foot = foot.child(text("Level").font(l.ty.body).color(l.c("text-muted")).pr(4.0));
-        for level in levels {
-            let on = effort == Some(level.as_str());
-            let (key, choice, pick_model) = (id.to_owned(), level.clone(), model.to_owned());
-            let pick_runtime = s.picks.get(id).and_then(|p| p.runtime.clone());
-            let pick_account = s.picks.get(id).and_then(|p| p.account.clone());
-            foot = foot.child(crate::look::controls::chip(l, &level, on).on_press(move |s: &mut State| {
-                apply_model_pick(s, &key, TurnPick { model: pick_model.clone(), effort: Some(choice.clone()), runtime: pick_runtime.clone(), account: pick_account.clone() }, for_team);
-            }));
-        }
+        let (key, pick_model) = (id.to_owned(), model.to_owned());
+        let pick_runtime = s.picks.get(id).and_then(|p| p.runtime.clone());
+        let pick_account = s.picks.get(id).and_then(|p| p.account.clone());
+        let pick: crate::effort_slider::PickLevel = std::rc::Rc::new(move |s: &mut State, level: String| {
+            apply_model_pick(s, &key, TurnPick { model: pick_model.clone(), effort: Some(level), runtime: pick_runtime.clone(), account: pick_account.clone() }, for_team);
+        });
+        let shown_runtime = s.picks.get(id).and_then(|p| p.runtime.as_deref()).or(teammate.runtime.as_deref()).unwrap_or(active_runtime);
+        let runtime_default = agents.iter().find(|a| a.runtime == shown_runtime).and_then(|a| a.effort.as_deref());
+        let shown_effort = effort.map(str::to_owned).or_else(|| locust_core::effort_levels::default_effort(&levels, runtime_default));
+        foot = foot.child(crate::effort_slider::effort_panel(s, l, &levels, shown_effort.as_deref(), shown_runtime, pick));
     }
     // The note on a line of its own: beside four levels it ran past the card's edge.
     let foot = col()
