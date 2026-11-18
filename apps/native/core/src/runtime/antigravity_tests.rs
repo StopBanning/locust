@@ -509,3 +509,59 @@ fn agy_real_quota_shape_reaches_the_ledger_before_failure() {
     );
     reader_check(&store, "agy_quota_review", "failed");
 }
+
+#[test]
+fn agy_route_maps_tiers_and_effort_suffixes_and_defaults_gemini_to_medium() {
+    use crate::runtime::antigravity::{agy_route, print_args};
+    assert_eq!(agy_route(Some("flash"), None), (Some("gemini-3.8-flash".into()), Some("medium".into())));
+    assert_eq!(agy_route(Some("pro"), None), (Some("gemini-3.1-pro".into()), Some("high".into())));
+    assert_eq!(agy_route(Some("flash_lite"), None), (Some("gemini-3.8-flash".into()), Some("low".into())));
+    assert_eq!(agy_route(Some("gemini-3.8-flash-low"), None), (Some("gemini-3.8-flash".into()), Some("low".into())));
+    assert_eq!(agy_route(Some("gemini-3.8-flash-low"), Some("high")), (Some("gemini-3.8-flash".into()), Some("high".into())));
+    assert_eq!(agy_route(Some("claude-opus-4-6-thinking"), None), (Some("claude-opus-4-6-thinking".into()), None));
+    assert_eq!(agy_route(Some("gemini-3.8-flash"), None), (Some("gemini-3.8-flash".into()), Some("medium".into())));
+    assert_eq!(agy_route(Some("gemini-3.8-flash"), Some("low")), (Some("gemini-3.8-flash".into()), Some("low".into())));
+    assert_eq!(agy_route(None, None), (None, None));
+
+    let args = print_args(Mode::Ask, Some("flash"), None, None, &[], None);
+    assert!(args.windows(2).any(|w| w == ["--model", "gemini-3.8-flash"]));
+    assert!(args.windows(2).any(|w| w == ["--effort", "medium"]));
+}
+
+#[test]
+fn antigravity_tiers_are_named_once() {
+    use crate::runtime::antigravity::{ANTIGRAVITY_TIER_NAMES, antigravity_tier_name};
+    use crate::teammate_tooltip::route_model_name;
+    let mut keys: Vec<&str> = ANTIGRAVITY_TIER_NAMES.iter().map(|(k, _)| *k).collect();
+    keys.sort();
+    assert_eq!(keys, ["flash", "flash_lite", "pro"]);
+    assert_eq!(antigravity_tier_name("flash"), Some("Gemini 3.8 Flash"));
+    assert_eq!(route_model_name("antigravity", "flash"), "Gemini 3.8 Flash");
+    assert_eq!(route_model_name("antigravity", "pro"), "Gemini Pro");
+    assert_eq!(route_model_name("antigravity", "flash_lite"), "Gemini Flash Lite");
+}
+
+#[test]
+fn prior_skips_antigravity_hub_and_trajectory_not_found_and_keeps_cli_threads() {
+    use crate::native::prior_from_records;
+    use serde_json::json;
+    let app_id = "920da525-dde6-4610-9d16-9444d0422935";
+    let hub = [
+        json!({"recordType": "mission.created", "metadata": {"missionId": "m1", "runtime": "antigravity", "resolvedRouteId": "antigravity:hub"}}),
+        json!({"recordType": "event", "event": {"type": "run.completed", "payload": {"runtimeThreadId": app_id}}}),
+    ];
+    assert_eq!(prior_from_records(&hub, true).unwrap().thread, None);
+
+    let trajectory_missing = [
+        json!({"recordType": "mission.created", "metadata": {"missionId": "m1", "runtime": "antigravity", "resolvedRouteId": "antigravity", "continuesFrom": {"missionId": "m0", "runtimeThreadId": app_id}}}),
+        json!({"recordType": "event", "event": {"type": "step.started", "payload": {"runtimeThreadId": app_id}}}),
+        json!({"recordType": "event", "event": {"type": "run.failed", "payload": {"runtimeThreadId": app_id, "message": format!("Antigravity could not run it: failed to send message: trajectory not found: {app_id}")}}}),
+    ];
+    assert_eq!(prior_from_records(&trajectory_missing, true).unwrap().thread, None);
+
+    let cli_ok = [
+        json!({"recordType": "mission.created", "metadata": {"missionId": "m1", "runtime": "antigravity", "resolvedRouteId": "antigravity"}}),
+        json!({"recordType": "event", "event": {"type": "run.completed", "payload": {"runtimeThreadId": "cli-1"}}}),
+    ];
+    assert_eq!(prior_from_records(&cli_ok, true).unwrap().thread.as_deref(), Some("cli-1"));
+}

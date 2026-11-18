@@ -399,3 +399,23 @@ fn says_active_only_on_a_row_that_could_actually_run() {
     let signed_out = row_status(&signed_out_found, Integration::Live, true, None);
     assert_eq!(row_tag(&signed_out, true), "SIGN IN");
 }
+
+#[test]
+fn lift_limits_from_readings_lifts_antigravity_only_when_every_window_has_quota_left() {
+    let mut limited = HashMap::from([
+        ("antigravity".to_owned(), "out".to_owned()),
+        ("codex".to_owned(), "out".to_owned()),
+    ]);
+    let readings_empty = HashMap::from([("antigravity".to_owned(), "Gemini: 5-hour window 0% left".to_owned())]);
+    lift_limits_from_readings(&mut limited, &readings_empty);
+    assert!(limited.contains_key("antigravity"));
+    assert!(limited.contains_key("codex"));
+
+    let readings_ok = HashMap::from([(
+        "antigravity".to_owned(),
+        "Gemini: 5-hour window 95% left · Gemini: weekly window 67% left".to_owned(),
+    )]);
+    lift_limits_from_readings(&mut limited, &readings_ok);
+    assert!(!limited.contains_key("antigravity"));
+    assert!(limited.contains_key("codex"));
+}

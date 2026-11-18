@@ -31,6 +31,11 @@ pub fn route_model_name(runtime: &str, model: &str) -> String {
     {
         return named;
     }
+    if runtime == "antigravity"
+        && let Some(named) = crate::runtime::antigravity::antigravity_tier_name(model)
+    {
+        return named.to_owned();
+    }
     let bare = model.strip_prefix(&format!("{runtime}/")).unwrap_or(model);
     let bare = bare.strip_prefix(&format!("{runtime}-")).unwrap_or(bare);
     if bare.eq_ignore_ascii_case("auto") {
@@ -47,11 +52,7 @@ pub fn teammate_tooltip(teammate: &Teammate) -> String {
         }
         let runtime_label = match runtime { "claude" => "Claude", "copilot" => "Copilot", _ => runtime_name(runtime) };
         let route = if model == "account-default" { runtime_label.to_owned() } else {
-            // Strip a provider/prefix only when it repeats this runtime.
-            let bare = model.strip_prefix(&format!("{runtime}/")).unwrap_or(model);
-            let bare = bare.strip_prefix(&format!("{runtime}-")).unwrap_or(bare);
-            let name = if bare.eq_ignore_ascii_case("auto") { "Auto model".into() }
-                else { bare.split('/').map(spell).collect::<Vec<_>>().join("/") };
+            let name = route_model_name(runtime, model);
             if name.to_lowercase().starts_with(&format!("{} ", runtime_label.to_lowercase())) { name }
             else { format!("{runtime_label} / {name}") }
         };

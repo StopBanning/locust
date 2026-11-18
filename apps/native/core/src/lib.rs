@@ -3,6 +3,8 @@
 
 pub mod agents;
 pub mod path_title;
+pub mod antigravity_cascade;
+pub mod antigravity_usage;
 pub mod approval;
 pub mod approval_patch;
 pub mod mode_facts;

@@ -96,6 +96,17 @@ pub fn limited_runtimes_from_at(missions: &[Vec<Value>], now_ms: i64) -> HashMap
         .collect()
 }
 
+/// Drop any limit whose live usage reading says every named window has quota left (`reading_has_quota_left`).
+pub fn lift_limits_from_readings(limited: &mut HashMap<String, String>, readings: &HashMap<String, String>) {
+    limited.retain(|key, _| {
+        let runtime = key.split(':').next().unwrap_or(key);
+        readings
+            .get(key)
+            .or_else(|| readings.get(runtime))
+            .is_none_or(|reading| !reading_has_quota_left(reading))
+    });
+}
+
 /// Which runtimes and accounts are still at their usage limit right now (`limitedRuntimesFrom(missions)`).
 pub fn limited_runtimes_from(missions: &[Vec<Value>]) -> HashMap<String, String> {
     limited_runtimes_from_at(missions, Utc::now().timestamp_millis())
@@ -130,13 +141,18 @@ pub fn plan_out_sentence(missions: &[Vec<Value>], key: &str, runtime_name: &str)
 }
 
 /// Read limited runtimes at `now_ms` from both the native and Electron mission ledgers (`store.root()` and
-/// `store.electron()`).
+/// `store.electron()`), lifting Antigravity when a cached live `/usage` reading shows quota left.
 pub fn limited_runtimes_at(store: &Store, now_ms: i64) -> HashMap<String, String> {
     let Ok(missions) = crate::usage_ledger::collect_missions(store) else {
         return HashMap::new();
     };
     let records: Vec<Vec<Value>> = missions.into_iter().map(|(_, r)| r).collect();
-    limited_runtimes_from_at(&records, now_ms)
+    let mut limited = limited_runtimes_from_at(&records, now_ms);
+    if let Some(reading) = crate::antigravity_usage::cached_usage_text() {
+        let readings = HashMap::from([("antigravity".to_owned(), reading)]);
+        lift_limits_from_readings(&mut limited, &readings);
+    }
+    limited
 }
 
 /// Read limited runtimes right now from both the native and Electron mission ledgers.
