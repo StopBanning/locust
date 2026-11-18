@@ -811,9 +811,14 @@ fn setup(s: &mut State, waker: Waker) {
     }
     load_team(s);
     sync_draft_key(s);
-    // Home shows the folder Locust has open: the native app's own choice, else Electron's.
+    // Home shows the folder Locust has open: --workspace, launch folder (unless unsafe), else remembered/default.
     if !s.demo && s.home.folder_path.is_none() {
-        s.home.folder_path = native::open_folder().map(|p| p.to_string_lossy().into_owned());
+        let remembered = native::open_folder().map(|p| p.to_string_lossy().into_owned());
+        s.home.folder_path = if cfg!(test) {
+            remembered
+        } else {
+            locust_core::workspace_launch::resolve_startup_workspace(remembered.as_deref())
+        };
     }
     // No secrets stored in native yet → keeps_key false → note stays down. Never reads the keychain.
     // Scenes may force the note on for snaps; do not clear that.
@@ -2403,7 +2408,30 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
 /// The app is quitting (⌘Q, the Dock, logout): macOS may end the process once the quit hooks return, before `main`
 /// gets to wait. So the turns are asked to stop and their cancelled records waited for here, bounded, or a quit leaves
 /// ledgers with no ending that read as running.
+static WINDOW_HANDLE: std::sync::OnceLock<rune::WindowHandle> = std::sync::OnceLock::new();
+
+fn save_window_bounds() {
+    if cfg!(test) || HEADLESS.load(std::sync::atomic::Ordering::Relaxed) {
+        return;
+    }
+    let Some(handle) = WINDOW_HANDLE.get() else { return };
+    let Some(place) = handle.placement() else { return };
+    let Some(store) = locust_core::native::store() else { return };
+    let saved = locust_core::window_bounds::SavedWindow {
+        x: place.position.0,
+        y: place.position.1,
+        width: place.content_size.0 as i32,
+        height: place.content_size.1 as i32,
+        maximized: place.maximized,
+    };
+    let _ = locust_core::window_bounds::write_saved_window_file(
+        &store.root().join("window-bounds.json"),
+        &saved,
+    );
+}
+
 fn on_quit(s: &mut State, _: &mut Tx) {
+    save_window_bounds();
     os_hosts::release_awake();
     // Claude Code's Remote Control server ends with Locust, waited for.
     remote_control_card::dispose();
@@ -2446,6 +2474,7 @@ fn on_close(s: &mut State, _: &mut Tx) {
     // Drop ends the PTY/own-command trees; do not wait on the UI thread.
     terminal_panel::dispose(s);
     home_panel::save_attention(s);
+    save_window_bounds();
     #[cfg(target_os = "macos")]
     browser_mac::dispose();
     // Native turns live in this process: ask each to stop now and let a background thread watch them write their
@@ -3107,8 +3136,27 @@ fn main() {
         );
     }
 
+    let placement = if headless {
+        locust_core::window_bounds::OpeningPlacement {
+            width: 1215,
+            height: 800,
+            x: None,
+            y: None,
+            maximized: false,
+            min_width: locust_core::window_bounds::MIN_WINDOW_WIDTH,
+            min_height: locust_core::window_bounds::MIN_WINDOW_HEIGHT,
+        }
+    } else {
+        let saved = locust_core::native::store().and_then(|st| {
+            locust_core::window_bounds::read_saved_window_file(&st.root().join("window-bounds.json"))
+        });
+        let primary = locust_core::window_bounds::Size { width: 1920, height: 1080 };
+        let display = locust_core::window_bounds::Rect { x: 0, y: 0, width: primary.width, height: primary.height };
+        locust_core::window_bounds::opening_placement(saved.as_ref(), &[display], primary)
+    };
+
     App::new(AppSpec {
-        min_size: Some((720.0, 480.0)),
+        min_size: Some((placement.min_width as f32, placement.min_height as f32)),
         setup: Some(setup),
         poll: Some(poll),
         on_key: Some(on_key),
@@ -3235,8 +3283,9 @@ fn main() {
         families: look::families_for(
             &locust_core::workspace_settings::startup_code_font(locust_core::native::store().as_ref()),
         ),
-        ..AppSpec::new("Locust", (1040.0, 720.0), State::default, view)
+        ..AppSpec::new("Locust", (placement.width as f32, placement.height as f32), State::default, view)
     })
+    .maximized(placement.maximized)
     .chrome(Chrome {
         full_size_content: true,
         traffic_lights: Some((14.0, 13.0)),
@@ -3245,7 +3294,14 @@ fn main() {
     .on_close(on_close)
     .on_open_url(link_open::opened)
     .on_quit(on_quit)
-    .on_window(|window| { #[cfg(target_os = "macos")] browser_mac::attach(window); })
+    .on_window(move |window| {
+        let _ = WINDOW_HANDLE.set(window.clone());
+        if !headless && let (Some(x), Some(y)) = (placement.x, placement.y) {
+            window.set_position((x, y));
+        }
+        #[cfg(target_os = "macos")]
+        browser_mac::attach(window);
+    })
     .run();
     // The door closes with the window: its connection file goes, so no app reaches a Locust that is not there.
     if let Some(door) = DOOR.get() {

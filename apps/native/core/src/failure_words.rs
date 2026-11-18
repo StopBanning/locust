@@ -75,8 +75,84 @@ pub fn same_sentence(a: &str, b: &str) -> bool {
     !left.is_empty() && (left == right || left.contains(&right) || right.contains(&left))
 }
 
+/// The runtime's display name for a transport or startup sentence.
+pub fn runtime_display_name(runtime: &str) -> &str {
+    match runtime {
+        "codex" => "Codex CLI",
+        "claude" => "Claude Code",
+        "cursor" => "Cursor Agent",
+        "opencode" => "OpenCode",
+        "copilot" => "Copilot CLI",
+        "antigravity" => "Antigravity",
+        "muse" => "Muse Code",
+        "kilo" => "Kilo",
+        "apple" => "Apple Intelligence",
+        _ => runtime,
+    }
+}
+
+fn is_enoent(said: &str) -> bool {
+    said.contains("(ENOENT)")
+        || said.contains("os error 2)")
+        || said.contains("No such file or directory")
+        || said.contains("cannot find the file")
+}
+
+fn is_eacces(said: &str) -> bool {
+    said.contains("(EACCES)")
+        || said.contains("(EPERM)")
+        || said.contains("os error 13)")
+        || said.contains("os error 1)")
+        || said.contains("Permission denied")
+        || said.contains("Operation not permitted")
+}
+
+fn is_raw_transport_error(said: &str) -> bool {
+    said.contains("failed to start")
+        || is_enoent(said)
+        || is_eacces(said)
+        || said.trim() == "stream closed"
+}
+
+/// What went wrong with the runtime's process, in its own name (Electron `codex-mission.ts` `transportSentence`).
+pub fn transport_sentence(runtime: &str, cwd: Option<&str>, why: &str) -> String {
+    let name = runtime_display_name(runtime);
+    if !why.contains("failed to start") && !is_enoent(why) && !is_eacces(why) {
+        return format!("{name} stopped unexpectedly, before it said it had finished.");
+    }
+    if let Some(dir) = cwd.filter(|d| !d.is_empty())
+        && !std::path::Path::new(dir).exists()
+    {
+        return format!("{name} could not start: the folder it works in, {dir}, is not there any more.");
+    }
+    if is_enoent(why) {
+        return format!(
+            "{name} could not be started: its program was not found. It may have been moved or uninstalled; Settings can install it again."
+        );
+    }
+    if is_eacces(why) {
+        return format!("{name} could not be started: this computer did not allow its program to run.");
+    }
+    format!("{name} could not be started.")
+}
+
 /// The failure card's words: the host's message, and the runtime's own last word when it adds something.
 pub fn failure_message(message: &str, stderr: Option<&str>, runtime: Option<&str>) -> String {
+    failure_message_in_cwd(message, stderr, runtime, None)
+}
+
+/// Like [`failure_message`], with the conversation's working folder so a missing folder is named first.
+pub fn failure_message_in_cwd(
+    message: &str,
+    stderr: Option<&str>,
+    runtime: Option<&str>,
+    cwd: Option<&str>,
+) -> String {
+    if let Some(rt) = runtime
+        && is_raw_transport_error(message)
+    {
+        return transport_sentence(rt, cwd, message);
+    }
     let readable = provider_error_sentence(message, runtime);
     if readable != message {
         return readable;

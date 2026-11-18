@@ -625,6 +625,271 @@ pub fn discover_antigravity(seams: &Seams) -> Found {
 /// How long one check may take before it counts as not answering (PROBE_TIMEOUT_MS).
 pub const PROBE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 
+/// How long the first screen waits for agents, from the sweep starting (Electron `FIRST_SCREEN_DEADLINE_MS`).
+pub const FIRST_SCREEN_DEADLINE: std::time::Duration = std::time::Duration::from_millis(2_000);
+
+/// Placeholder for an agent that is installed and whose check has not finished yet.
+pub fn pending_found(id: &str, display_name: &str) -> Found {
+    Found {
+        id: id.into(),
+        display_name: display_name.into(),
+        installed: true,
+        version: None,
+        auth: Auth::Unknown,
+        ready: false,
+        status: Probe::ProbeFailed,
+        unsupported_note: None,
+        through_cli: false,
+        checking: true,
+    }
+}
+
+/// One agent's check in a bounded sweep (Electron `SweepCheck`).
+pub struct SweepCheck {
+    pub id: String,
+    pub run: Box<dyn FnOnce(Box<dyn FnOnce() + Send>) -> Option<Found> + Send>,
+    pub pending: Box<dyn Fn() -> Found + Send + Sync>,
+}
+
+/// Handle to a check that is still running after the deadline.
+#[derive(Clone)]
+pub struct CheckHandle {
+    pub id: String,
+    rx: std::sync::Arc<(std::sync::Mutex<Option<Option<Found>>>, std::sync::Condvar)>,
+}
+
+impl CheckHandle {
+    pub fn wait(&self) -> Option<Found> {
+        let (lock, cv) = &*self.rx;
+        let mut guard = lock.lock().unwrap_or_else(|e| e.into_inner());
+        while guard.is_none() {
+            guard = cv.wait(guard).unwrap_or_else(|e| e.into_inner());
+        }
+        guard.as_ref().cloned().flatten()
+    }
+}
+
+/// Result of [`settle_within`]: immediate answers in order, and handles for checks that ran past the deadline.
+pub struct Settled {
+    pub answers: Vec<Found>,
+    pub left: std::collections::HashMap<String, CheckHandle>,
+}
+
+/// Wait up to `deadline` for `checks` to finish, or as soon as all have answered. Any check still running past the
+/// deadline waits only for its PATH lookup (`located`), is shown via `pending()`, and delivers its eventual answer to
+/// `late` once.
+pub fn settle_within(
+    checks: Vec<SweepCheck>,
+    deadline: std::time::Duration,
+    late: impl Fn(&str, Option<&Found>) + Send + Sync + 'static,
+) -> Settled {
+    use std::sync::{Arc, Condvar, Mutex, atomic::{AtomicBool, Ordering}};
+
+    struct EntryState {
+        id: String,
+        pending: Box<dyn Fn() -> Found + Send + Sync>,
+        done: AtomicBool,
+        gone: AtomicBool,
+        located: Arc<(Mutex<bool>, Condvar)>,
+        result: Arc<(Mutex<Option<Option<Found>>>, Condvar)>,
+    }
+
+    let late = Arc::new(late);
+    let all_done = Arc::new((Mutex::new(0usize), Condvar::new()));
+    let total = checks.len();
+    let mut entries = Vec::with_capacity(total);
+
+    for check in checks {
+        let state = Arc::new(EntryState {
+            id: check.id,
+            pending: check.pending,
+            done: AtomicBool::new(false),
+            gone: AtomicBool::new(false),
+            located: Arc::new((Mutex::new(false), Condvar::new())),
+            result: Arc::new((Mutex::new(None), Condvar::new())),
+        });
+        entries.push(Arc::clone(&state));
+
+        let entry = Arc::clone(&state);
+        let all_done = Arc::clone(&all_done);
+        let late = Arc::clone(&late);
+        let run = check.run;
+        std::thread::spawn(move || {
+            let loc = Arc::clone(&entry.located);
+            let mark_located = Box::new(move || {
+                let (lock, cv) = &*loc;
+                let mut g = lock.lock().unwrap_or_else(|e| e.into_inner());
+                *g = true;
+                cv.notify_all();
+            });
+            let answer = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| run(mark_located))).unwrap_or(None);
+            // Ensure `located` is unblocked even if the check returned/panicked before calling it.
+            {
+                let (lock, cv) = &*entry.located;
+                let mut g = lock.lock().unwrap_or_else(|e| e.into_inner());
+                if !*g {
+                    *g = true;
+                    cv.notify_all();
+                }
+            }
+            {
+                let (lock, cv) = &*entry.result;
+                let mut g = lock.lock().unwrap_or_else(|e| e.into_inner());
+                *g = Some(answer.clone());
+                cv.notify_all();
+            }
+            entry.done.store(true, Ordering::Release);
+            {
+                let (lock, cv) = &*all_done;
+                let mut count = lock.lock().unwrap_or_else(|e| e.into_inner());
+                *count += 1;
+                if *count >= total {
+                    cv.notify_all();
+                }
+            }
+            if entry.gone.load(Ordering::Acquire) {
+                late(&entry.id, answer.as_ref());
+            }
+        });
+    }
+
+    // Wait until either all checks finish or the deadline expires.
+    if total > 0 {
+        let (lock, cv) = &*all_done;
+        let mut count = lock.lock().unwrap_or_else(|e| e.into_inner());
+        let start = std::time::Instant::now();
+        while *count < total {
+            let elapsed = start.elapsed();
+            if elapsed >= deadline {
+                break;
+            }
+            let (next, res) = cv.wait_timeout(count, deadline - elapsed).unwrap_or_else(|e| e.into_inner());
+            count = next;
+            if res.timed_out() {
+                break;
+            }
+        }
+    }
+
+    // Wait only for PATH lookups of checks that have not finished yet.
+    for entry in &entries {
+        if !entry.done.load(Ordering::Acquire) {
+            let (lock, cv) = &*entry.located;
+            let mut g = lock.lock().unwrap_or_else(|e| e.into_inner());
+            while !*g {
+                g = cv.wait(g).unwrap_or_else(|e| e.into_inner());
+            }
+        }
+    }
+
+    let mut answers = Vec::with_capacity(total);
+    let mut left = std::collections::HashMap::new();
+    for entry in entries {
+        if entry.done.load(Ordering::Acquire) {
+            let answer = entry.result.0.lock().unwrap_or_else(|e| e.into_inner()).clone().flatten();
+            if let Some(found) = answer {
+                answers.push(found);
+            }
+        } else {
+            entry.gone.store(true, Ordering::Release);
+            // If it finished in the small window between `done` check and `gone` store, deliver `late` once.
+            if entry.done.load(Ordering::Acquire) {
+                let answer = entry.result.0.lock().unwrap_or_else(|e| e.into_inner()).clone().flatten();
+                late(&entry.id, answer.as_ref());
+                if let Some(found) = answer {
+                    answers.push(found);
+                }
+            } else {
+                answers.push((entry.pending)());
+                left.insert(
+                    entry.id.clone(),
+                    CheckHandle {
+                        id: entry.id.clone(),
+                        rx: Arc::clone(&entry.result),
+                    },
+                );
+            }
+        }
+    }
+
+    Settled { answers, left }
+}
+
+/// Keep an agent's last definite answer when a later sweep goes on without it (Electron `keepWhatWasAnswered`).
+pub fn keep_what_was_answered(settled: &Settled, before: &[Found]) -> Vec<Found> {
+    let last: std::collections::HashMap<&str, &Found> = before.iter().map(|f| (f.id.as_str(), f)).collect();
+    settled
+        .answers
+        .iter()
+        .map(|entry| {
+            if !settled.left.contains_key(&entry.id) {
+                return entry.clone();
+            }
+            if let Some(was) = last.get(entry.id.as_str())
+                && was.installed
+                && matches!(was.status, Probe::Ready | Probe::AuthRequired)
+                && !was.checking
+            {
+                return (*was).clone();
+            }
+            entry.clone()
+        })
+        .collect()
+}
+
+/// Whether the sweep still has an installed agent that has not answered yet (Electron `listsItsModelsButListedNone`).
+pub fn sweep_has_pending_agent(runtimes: &[Found]) -> bool {
+    runtimes.iter().any(|entry| {
+        entry.installed
+            && ((entry.id == "antigravity" && entry.status == Probe::Unknown) || entry.checking)
+    })
+}
+
+/// Checks the sweep went on without, held so a start on that agent waits for its own check and no other.
+#[derive(Default)]
+pub struct OutstandingChecks {
+    held: std::collections::HashMap<String, CheckHandle>,
+}
+
+impl OutstandingChecks {
+    pub fn set(&mut self, handle: CheckHandle) {
+        self.held.insert(handle.id.clone(), handle);
+    }
+
+    pub fn get(&self, id: &str) -> Option<&CheckHandle> {
+        self.held.get(id)
+    }
+
+    pub fn has(&self, id: &str) -> bool {
+        self.held.contains_key(id)
+    }
+
+    pub fn delete(&mut self, id: &str) {
+        self.held.remove(id);
+    }
+
+    pub fn for_start(&self, runtime_id: Option<&str>, found: &[Found]) -> Vec<Found> {
+        let Some(runtime_id) = runtime_id else {
+            return found.to_vec();
+        };
+        let Some(checking) = self.held.get(runtime_id) else {
+            return found.to_vec();
+        };
+        if let Some(shown) = found.iter().find(|entry| entry.id == runtime_id)
+            && !shown.checking
+        {
+            return found.to_vec();
+        }
+        let Some(answer) = checking.wait() else {
+            return found.to_vec();
+        };
+        found
+            .iter()
+            .map(|entry| if entry.id == runtime_id { answer.clone() } else { entry.clone() })
+            .collect()
+    }
+}
+
 /// Run a check, bounded: its output, or a timed-out answer once `limit` passes (the check is then ended).
 fn run_bounded(path: &std::path::Path, args: &[&str], limit: std::time::Duration) -> Option<Answer> {
     use std::io::Read;
@@ -652,42 +917,78 @@ fn run_bounded(path: &std::path::Path, args: &[&str], limit: std::time::Duration
 }
 
 /// Every agent, checked for real and all at once: each one found on PATH (the window adopts the terminal's PATH at
-/// launch) is asked its version, its help and its sign-in check, ten seconds each. Reads no file but the presence of
-/// a credentials file; sends nothing anywhere.
+/// launch) is asked its version, its help and its sign-in check, bounded by `FIRST_SCREEN_DEADLINE` so one slow agent
+/// never stalls the first screen.
 pub fn discover() -> Vec<Found> {
+    discover_with_deadline(FIRST_SCREEN_DEADLINE)
+}
+
+/// Like [`discover`], with an explicit first-screen deadline.
+pub fn discover_with_deadline(deadline: std::time::Duration) -> Vec<Found> {
     let home = std::env::var_os("HOME").map(std::path::PathBuf::from);
     let xdg = std::env::var("XDG_CONFIG_HOME").ok();
-    let checks: Vec<_> = DEFINITIONS
-        .iter()
-        .map(|d| {
-            let (home, xdg) = (home.clone(), xdg.clone());
-            std::thread::spawn(move || {
-                let find = |c: &str| crate::runtime::discovery::find_named(c).ok();
+
+    let mut checks: Vec<SweepCheck> = Vec::with_capacity(DEFINITIONS.len() + 2);
+    for d in DEFINITIONS {
+        let (home, xdg) = (home.clone(), xdg.clone());
+        let id = d.id;
+        let name = d.name;
+        checks.push(SweepCheck {
+            id: id.into(),
+            run: Box::new(move |located| {
+                let located = std::sync::Mutex::new(Some(located));
+                let find = |c: &str| {
+                    let found = crate::runtime::discovery::find_named(c).ok();
+                    if let Some(cb) = located.lock().unwrap_or_else(|e| e.into_inner()).take() {
+                        cb();
+                    }
+                    found
+                };
                 let run = |p: &std::path::Path, a: &[&str]| run_bounded(p, a, PROBE_TIMEOUT);
                 let exists = |p: &std::path::Path| p.exists();
-                discover_one(d.id, &Seams { find: &find, run: &run, exists: &exists, home, xdg_config_home: xdg })
-            })
-        })
-        .collect();
-    let agy = {
-        let (home, xdg) = (home.clone(), xdg.clone());
-        std::thread::spawn(move || {
-            let find = |c: &str| crate::runtime::discovery::find_named(c).ok();
-            let run = |p: &std::path::Path, a: &[&str]| run_bounded(p, a, PROBE_TIMEOUT);
-            let exists = |p: &std::path::Path| p.exists();
-            discover_antigravity(&Seams { find: &find, run: &run, exists: &exists, home, xdg_config_home: xdg })
-        })
-    };
-    let apple = std::thread::spawn(|| apple_found(&crate::runtime::apple::probe()));
-    let mut found: Vec<Found> = checks.into_iter().filter_map(|c| c.join().ok().flatten()).collect();
-    // Electron lists Antigravity after Copilot.
-    if let Ok(a) = agy.join() {
-        let at = found.iter().position(|f| f.id == "copilot").map_or(found.len(), |i| i + 1);
-        found.insert(at, a);
+                discover_one(id, &Seams { find: &find, run: &run, exists: &exists, home, xdg_config_home: xdg })
+            }),
+            pending: Box::new(move || pending_found(id, name)),
+        });
     }
+
+    // Electron lists Antigravity after Copilot.
+    let agy_at = checks.iter().position(|c| c.id == "copilot").map_or(checks.len(), |i| i + 1);
+    let (agy_home, agy_xdg) = (home.clone(), xdg.clone());
+    checks.insert(
+        agy_at,
+        SweepCheck {
+            id: "antigravity".into(),
+            run: Box::new(move |located| {
+                let located = std::sync::Mutex::new(Some(located));
+                let find = |c: &str| {
+                    let found = crate::runtime::discovery::find_named(c).ok();
+                    if let Some(cb) = located.lock().unwrap_or_else(|e| e.into_inner()).take() {
+                        cb();
+                    }
+                    found
+                };
+                let run = |p: &std::path::Path, a: &[&str]| run_bounded(p, a, PROBE_TIMEOUT);
+                let exists = |p: &std::path::Path| p.exists();
+                Some(discover_antigravity(&Seams { find: &find, run: &run, exists: &exists, home: agy_home, xdg_config_home: agy_xdg }))
+            }),
+            pending: Box::new(|| pending_found("antigravity", "Antigravity")),
+        },
+    );
+
     // Apple's on-device model, last: nothing to install or sign in to, it is part of the Mac.
-    found.extend(apple.join().ok().flatten());
-    found
+    checks.push(SweepCheck {
+        id: crate::runtime::apple::APPLE_RUNTIME.into(),
+        run: Box::new(|located| {
+            located();
+            apple_found(&crate::runtime::apple::probe())
+        }),
+        pending: Box::new(|| {
+            pending_found(crate::runtime::apple::APPLE_RUNTIME, crate::runtime::apple::APPLE_DISPLAY_NAME)
+        }),
+    });
+
+    settle_within(checks, deadline, |_, _| {}).answers
 }
 
 /// Apple Intelligence's row, from what its helper's probe said: ready when the model answers; when the Mac says why it

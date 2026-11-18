@@ -190,3 +190,53 @@ fn the_same_sentence_allows_for_a_trailing_stop_and_a_message_inside_the_line() 
     assert_eq!(card("Done.", "done!"), "Done.");
     assert_eq!(card("disk is full", "error: the disk is full now"), "disk is full");
 }
+
+// a-runtime-that-cannot-start-says-why.test.ts
+
+#[test]
+fn says_its_program_was_not_found_and_where_to_get_it_again() {
+    let tmp = std::env::temp_dir();
+    let here = tmp.to_string_lossy();
+    assert_eq!(
+        transport_sentence("claude", Some(&here), "Runtime process failed to start (ENOENT)"),
+        "Claude Code could not be started: its program was not found. It may have been moved or uninstalled; Settings can install it again."
+    );
+    assert_eq!(
+        failure_message_in_cwd("No such file or directory (os error 2)", None, Some("claude"), Some(&here)),
+        "Claude Code could not be started: its program was not found. It may have been moved or uninstalled; Settings can install it again."
+    );
+}
+
+#[test]
+fn says_the_computer_would_not_run_it() {
+    let tmp = std::env::temp_dir();
+    let here = tmp.to_string_lossy();
+    assert!(
+        transport_sentence("claude", Some(&here), "Runtime process failed to start (EACCES)")
+            .starts_with("Claude Code could not be started: this computer did not allow")
+    );
+    assert!(
+        failure_message_in_cwd("Permission denied (os error 13)", None, Some("claude"), Some(&here))
+            .starts_with("Claude Code could not be started: this computer did not allow")
+    );
+}
+
+#[test]
+fn says_the_conversations_folder_is_gone_before_anything_else() {
+    let gone = std::env::temp_dir().join("locust-no-such-folder-9c1f");
+    let gone_str = gone.to_string_lossy();
+    assert_eq!(
+        transport_sentence("opencode", Some(&gone_str), "Runtime process failed to start (ENOENT)"),
+        format!("OpenCode could not start: the folder it works in, {gone_str}, is not there any more.")
+    );
+}
+
+#[test]
+fn names_the_runtime_when_it_stopped_rather_than_failed_to_start() {
+    let tmp = std::env::temp_dir();
+    let here = tmp.to_string_lossy();
+    assert_eq!(
+        transport_sentence("codex", Some(&here), "stream closed"),
+        "Codex CLI stopped unexpectedly, before it said it had finished."
+    );
+}

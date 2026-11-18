@@ -408,3 +408,11 @@ mod finished_message_tests;
 mod cancelled_run_cost_tests;
 #[cfg(test)]
 mod next_steps_cards_tests;
+pub mod window_bounds;
+#[cfg(test)]
+mod window_bounds_tests;
+pub mod workspace_launch;
+#[cfg(test)]
+mod workspace_launch_tests;
+#[cfg(test)]
+mod slow_agent_tests;
