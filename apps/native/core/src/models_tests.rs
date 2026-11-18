@@ -103,3 +103,10 @@ fn the_fold_skips_the_version_an_alias_means_now() {
     assert!(!ids.contains(&"claude-opus-5".to_owned()), "{ids:?}");
     assert_eq!(ids.len(), 9);
 }
+
+/// a-model-is-one-line's second case names its row from Claude Code's alias table: `opus` reads Opus 5.5.
+#[test]
+fn the_opus_alias_reads_opus_5_5() {
+    let models = claude_models_from(Some(&json!({"aliases": ["opus"], "efforts": []})));
+    assert_eq!(models.iter().find(|m| m["id"] == "opus").map(|m| m["displayName"].clone()), Some(json!("Opus 5.5")));
+}

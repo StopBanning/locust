@@ -161,3 +161,28 @@ fn the_window_lifts_what_can_run_and_sorts_alphabetically_inside_a_band() {
     rt.frame(0.0);
     assert_eq!(group_order(&rt), ["Claude Code", "OpenCode", "Codex CLI"]);
 }
+
+#[test]
+fn a_claude_accounts_group_has_its_own_fold_keyed_as_its_rows_are() {
+    let mut s = State::default();
+    s.models.insert(T.into(), claude_now());
+    s.agent_accounts.accounts.push(locust_core::agent_accounts::Account {
+        id: "account_work".into(),
+        agent: locust_core::agent_accounts::Agent::Claude,
+        name: "Work".into(),
+        state: locust_core::agent_accounts::AccountState::Ready,
+    });
+    let mut rt = Runtime::new(s, view, (600.0, 1400.0), Env::new(true, 1.0));
+    rt.frame(0.0);
+    assert!(rt.find("picker-fold-claude").is_some() && rt.find("picker-fold-claude:account_work").is_some());
+    let (x, y) = rt.find("picker-fold-claude:account_work").unwrap();
+    rt.pointer_down(x, y);
+    rt.pointer_up(x, y);
+    rt.frame(0.016);
+    assert!(rt.find("model-claude-claude-opus-4-8:account_work").is_some(), "the account's older rows, under its own keys");
+    let keys: Vec<String> = rt.elements().into_iter().filter_map(|e| e.key).filter(|k| k.starts_with("model-claude-claude-opus-4-8")).collect();
+    let mut unique = keys.clone();
+    unique.sort();
+    unique.dedup();
+    assert_eq!(keys.len(), unique.len(), "no key drawn twice: {keys:?}");
+}

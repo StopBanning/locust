@@ -231,3 +231,10 @@ fn your_models_lead_their_band() {
     let rows = [row("Claude Code", "c", "READY"), row(OWN_MODELS_GROUP, "o", "READY")];
     assert_eq!(groups(&rows), [OWN_MODELS_GROUP, "Claude Code"]);
 }
+
+/// Not an Electron case: Electron's best-row pair lists the best row last, so "the last row decides" passed it.
+#[test]
+fn takes_a_group_on_its_best_row_wherever_it_is_listed() {
+    let rows = [row("OpenCode", "o1", "READY"), row("OpenCode", "o2", "NOT INSTALLED"), row("Codex CLI", "c1", "SIGN IN")];
+    assert_eq!(groups(&rows)[0], "OpenCode");
+}

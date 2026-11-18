@@ -100,6 +100,19 @@ Breaks (`core-c` to `core-f`, `ui-d`, `ui-e` logs). All caught in the end:
   which has nothing to do with it: that test looks flaky under load. The break is caught properly by
   `your_models_lead_their_band` on locust-core.
 
+## Fixes after review (18 Nov)
+
+- A Claude account's group drew its fold and older rows under the plain group's keys; they carry `:ACCOUNT` now, as
+  its rows do (`route_picker_tests::a_claude_accounts_group_has_its_own_fold_keyed_as_its_rows_are`; break: no
+  suffix, caught by it).
+- `order_route_rows` reads each group's band once (Electron's `groupBand`), and the picker reads places from maps
+  instead of rescanning per row. Break "the last row decides the band" survived Electron's values (its best row is
+  listed last), so `takes_a_group_on_its_best_row_wherever_it_is_listed` was added and catches it.
+- `models::tests::the_opus_alias_reads_opus_5_5` backs a-model-is-one-line's naming half.
+- A folded older version sends as picked: `native::send_from` refuses an effort only for Cursor (read, not driven by a
+  test).
+- Suite 4,324 passed (nextest); release 3,437 + 888; `build --release` passed.
+
 ## Left
 
 - Part 2, second slice: `a-default-route-names-its-model` (not started; the chip already uses

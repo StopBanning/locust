@@ -52,16 +52,17 @@ pub fn flagship_rank(model_id: &str) -> Option<usize> {
 /// alphabetical; inside a group the route in use first, then what was used most recently, the flagships, the rest.
 /// Returns the rows' indexes in their new order.
 pub fn order_route_rows(rows: &[RouteRow], recent: &[String]) -> Vec<usize> {
-    let band_of = |group: &str| -> u32 {
-        rows.iter()
-            .filter(|r| r.group == group)
-            .map(|r| match r.tag.as_deref() {
-                Some("ACTIVE") => 0,
-                tag => runtime_band(tag.unwrap_or("")).unwrap_or(3),
-            })
-            .min()
-            .unwrap_or(9)
-    };
+    // A group on its BEST row, read once per group (Electron's groupBand).
+    let mut bands: std::collections::HashMap<&str, u32> = std::collections::HashMap::new();
+    for r in rows {
+        let band = match r.tag.as_deref() {
+            Some("ACTIVE") => 0,
+            tag => runtime_band(tag.unwrap_or("")).unwrap_or(3),
+        };
+        let best = bands.entry(r.group.as_str()).or_insert(9);
+        *best = (*best).min(band);
+    }
+    let band_of = |group: &str| -> u32 { bands.get(group).copied().unwrap_or(9) };
     let score = |row: &RouteRow| -> u64 {
         if row.tag.as_deref() == Some("ACTIVE") {
             return 0;

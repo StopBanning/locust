@@ -1124,11 +1124,15 @@ pub(super) fn model_picker(
         }
     }
     let ordered = locust_core::route_rows::order_route_rows(&route_rows, &s.recent_route_keys);
-    let place_of = |group: &str, key: &str| ordered.iter().position(|&i| route_rows[i].group == group && route_rows[i].key == key).unwrap_or(usize::MAX);
-    groups.sort_by_key(|(agent, acc)| {
-        let name = group_name_of(agent, *acc);
-        ordered.iter().position(|&i| route_rows[i].group == name).unwrap_or(usize::MAX)
-    });
+    // Each row's place and each group's first place, read once.
+    let mut places: HashMap<(&str, &str), usize> = HashMap::new();
+    let mut group_first: HashMap<&str, usize> = HashMap::new();
+    for (place, &i) in ordered.iter().enumerate() {
+        places.insert((route_rows[i].group.as_str(), route_rows[i].key.as_str()), place);
+        group_first.entry(route_rows[i].group.as_str()).or_insert(place);
+    }
+    let place_of = |group: &str, key: &str| places.get(&(group, key)).copied().unwrap_or(usize::MAX);
+    groups.sort_by_cached_key(|(agent, acc)| group_first.get(group_name_of(agent, *acc).as_str()).copied().unwrap_or(usize::MAX));
     let mut any = false;
     for (agent, acc) in groups {
         let base_name = locust_core::carry_on::display_name(&agent.runtime);
@@ -1215,16 +1219,18 @@ pub(super) fn model_picker(
         // The fold: how many older versions it holds, and them when it is open.
         if !older_folded.is_empty() {
             let open = s.older_models_open;
+            // Keyed as the group's rows are: a Claude account's group has its own fold.
+            let suffix = acc.map(|a| format!(":{}", a.id)).unwrap_or_default();
             list = list.child(
                 row()
-                    .key(format!("picker-fold-{}", agent.runtime))
+                    .key(format!("picker-fold-{}{suffix}", agent.runtime))
                     .gap(6.0)
                     .px(9.0)
                     .py(6.0)
                     .center_y()
                     .child(text(if open { "▾" } else { "▸" }).font(l.ty.mono).color(l.c("text-muted")).a11y_hidden())
                     .child(text("Older versions").font(l.ty.body).color(l.c("text-muted")))
-                    .child(text(older_folded.len().to_string()).key(format!("picker-fold-count-{}", agent.runtime)).font(l.ty.mono).color(l.c("text-muted")))
+                    .child(text(older_folded.len().to_string()).key(format!("picker-fold-count-{}{suffix}", agent.runtime)).font(l.ty.mono).color(l.c("text-muted")))
                     .role("button")
                     .label("Older versions")
                     .expanded(open)
@@ -1237,7 +1243,7 @@ pub(super) fn model_picker(
                     let (levels, keep) = (m.efforts.clone(), effort.map(str::to_owned));
                     let description = locust_core::models::catalogue_description(&agent.runtime, &m.id);
                     let detail = locust_core::route_rows::row_detail(description.as_deref(), None, &m.efforts);
-                    list = list.child(row_of(m.name.clone(), detail, false).key(format!("model-{}-{}", agent.runtime, m.id)).on_press(move |s: &mut State| {
+                    list = list.child(row_of(m.name.clone(), detail, false).key(format!("model-{}-{}{suffix}", agent.runtime, m.id)).on_press(move |s: &mut State| {
                         let effort = keep.clone().filter(|e| levels.contains(e));
                         apply_model_pick(s, &key, TurnPick { model: choice.clone(), effort, runtime: runtime.clone(), account: account_pick.clone() }, for_team);
                         s.model_menu = None;
