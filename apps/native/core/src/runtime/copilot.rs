@@ -44,6 +44,26 @@ pub fn sandbox_for(mode: Mode) -> &'static str {
     }
 }
 
+/// The MCP servers in the person's own Copilot settings (`~/.copilot/mcp-config.json`), by name, in the file's order
+/// (runtime-setup.ts `copilotMcpServerNames`). None when the file is absent or does not read as settings.
+pub fn mcp_server_names(home: &Path) -> Vec<String> {
+    std::fs::read_to_string(home.join(".copilot").join("mcp-config.json"))
+        .ok()
+        .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
+        .and_then(|v| v.get("mcpServers").and_then(|s| s.as_object()).map(|o| o.keys().cloned().collect()))
+        .unwrap_or_default()
+}
+
+/// NONE OF THE PERSON'S OWN MCP SERVERS in Ask and Plan (commands.ts, 0.824): `--allow-all-tools` allows every tool
+/// the deny does not name, an MCP server's among them, so each server in the person's Copilot settings is left off
+/// with Copilot's own `--disable-mcp-server`. Nothing in Edit or Auto.
+pub fn mcp_off_args(mode: Mode, servers: &[String]) -> Vec<String> {
+    if sandbox_for(mode) != "read-only" {
+        return Vec::new();
+    }
+    servers.iter().filter(|s| !s.trim().is_empty()).flat_map(|s| ["--disable-mcp-server".to_string(), s.clone()]).collect()
+}
+
 /// createCopilotPromptCommand argv after the executable.
 pub fn prompt_args(
     prompt: &str,
@@ -121,6 +141,9 @@ pub fn command(
         }
     } else {
         c.args(prompt_args(prompt, mode, model, effort, resume, session_id, references, skills));
+        if let Some(home) = std::env::var_os("HOME") {
+            c.args(mcp_off_args(mode, &mcp_server_names(Path::new(&home))));
+        }
     }
     c.current_dir(folder);
     Ok(c)

@@ -96,7 +96,7 @@ fn opencode_in_approve_each_action_its_server_asks_about_commands_changes_web_pa
 }
 
 #[test]
-fn copilot_asks_over_its_own_acp_in_approve_each_action_and_its_mcp_servers_are_not_turned_off_in_ask() {
+fn copilot_asks_over_its_own_acp_in_approve_each_action_and_its_mcp_servers_are_turned_off_in_ask() {
     let folder = std::env::temp_dir();
     let each = crate::runtime::copilot::command(&folder, "hi", Mode::ApproveEach, None, None, None, None, &[], None);
     if let Ok(c) = each {
@@ -104,9 +104,29 @@ fn copilot_asks_over_its_own_acp_in_approve_each_action_and_its_mcp_servers_are_
     }
     let ask = crate::runtime::copilot::prompt_args("hi", Mode::Ask, None, None, None, None, &[], None);
     assert!(ask.contains(&"--deny-tool=write,shell".into()));
-    // This engine does not yet pass Electron's --disable-mcp-server, and the row says so.
-    assert!(!ask.iter().any(|a| a == "--disable-mcp-server"));
-    assert!(the("copilot").without.contains("still start, since Locust does not turn them off here yet"));
+    let home_dir = std::env::temp_dir().join(format!("locust-copilot-mcp-{}", std::process::id()));
+    std::fs::create_dir_all(home_dir.join(".copilot")).unwrap();
+    struct Home(std::path::PathBuf);
+    impl Home { fn path(&self) -> &std::path::Path { &self.0 } }
+    impl Drop for Home { fn drop(&mut self) { let _ = std::fs::remove_dir_all(&self.0); } }
+    let home = Home(home_dir);
+    std::fs::write(home.path().join(".copilot/mcp-config.json"), r#"{"mcpServers":{"notes":{},"github":{}}}"#).unwrap();
+    let names = crate::runtime::copilot::mcp_server_names(home.path());
+    assert_eq!(names, ["notes", "github"]);
+    for mode in [Mode::Ask, Mode::Plan] {
+        assert_eq!(crate::runtime::copilot::mcp_off_args(mode, &names), ["--disable-mcp-server", "notes", "--disable-mcp-server", "github"]);
+    }
+    for mode in [Mode::AcceptEdits, Mode::Auto, Mode::ApproveEach] {
+        assert!(crate::runtime::copilot::mcp_off_args(mode, &names).is_empty(), "{mode:?}");
+    }
+    // No settings file, or one that does not read as settings: nothing to turn off.
+    assert!(crate::runtime::copilot::mcp_server_names(&home.path().join("nowhere")).is_empty());
+    std::fs::write(home.path().join(".copilot/mcp-config.json"), "not json").unwrap();
+    assert!(crate::runtime::copilot::mcp_server_names(home.path()).is_empty());
+    assert!(the("copilot").without.contains("none of the MCP servers in your Copilot settings"));
+    assert!(!the("copilot").without.contains("still start"));
+    // The print run asks for them (the ACP run is Approve each action, where nothing is turned off).
+    assert!(include_str!("runtime/copilot.rs").contains("c.args(mcp_off_args(mode, &mcp_server_names(Path::new(&home))));"));
 }
 
 #[test]
