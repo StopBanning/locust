@@ -2054,6 +2054,15 @@ apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	never take
 apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	waits while the newest turn is still running, even when an older one is named	no
 apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	does not bring back a terminal turn the person deleted	no
 apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	is found from any turn of it, the latest-made where it branches	no
+apps/desktop/src/main/what-locust-can-stop-is-what-it-asks.test.ts	lists each runtime with a mode, once, and none without one	yes
+apps/desktop/src/main/what-locust-can-stop-is-what-it-asks.test.ts	says "each action" exactly where Approve each action is offered and Locust sets what is asked	yes
+apps/desktop/src/main/what-locust-can-stop-is-what-it-asks.test.ts	Codex: asks in Approve each action, and never in the other modes	yes
+apps/desktop/src/main/what-locust-can-stop-is-what-it-asks.test.ts	Claude Code: asks in every mode but Auto, and has a shell only in Edit	yes
+apps/desktop/src/main/what-locust-can-stop-is-what-it-asks.test.ts	OpenCode: in Approve each action its server asks about commands, changes, web pages, outside paths and the person's own MCP tools, not searches	yes
+apps/desktop/src/main/what-locust-can-stop-is-what-it-asks.test.ts	Antigravity: only its questions reach a card	yes
+apps/desktop/src/main/what-locust-can-stop-is-what-it-asks.test.ts	Cursor and Muse: no path raises a card for them	yes
+apps/desktop/src/main/what-locust-can-stop-is-what-it-asks.test.ts	an Always is kept by Locust exactly where the request carries a key for it	yes
+apps/desktop/src/main/what-locust-can-stop-is-what-it-asks.test.ts	docs/WHAT-LOCUST-CAN-STOP.md is written from it (rewrite with -u)	no
 apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	keeps its groups -- New, Improved, Fixed -- as Claude Code's What's new does	yes
 apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	written before the groups, stays as it was written: one group, no label guessed for it	yes
 apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	marked big says so, and the mark itself is nowhere in what is shown	yes
@@ -3834,6 +3843,8 @@ apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	empties it, and l
 apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	every list the search narrows is narrowed by the teammate’s name too	no
 apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	lists conversations, found by every turn and the teammate -- the only search in the rail layout	no
 apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	shows only the five newest before anything is typed	no
+apps/desktop/src/renderer/src/settings-says-what-locust-can-stop.test.tsx	is one folded row per AI agent, named, with how much a card can stop	yes
+apps/desktop/src/renderer/src/settings-says-what-locust-can-stop.test.tsx	opens to the same sentences the document holds	yes
 apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	$typed finds the $page page	yes
 apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	$typed is answered with where it lives, not with itself	yes
 apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	$typed does not drag in every page	yes

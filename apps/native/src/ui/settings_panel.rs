@@ -1001,6 +1001,8 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
             for heading in headings {
                 if heading == "When an agent cannot go on" {
                     body = body.child(plan_runs_out_section(s, p));
+                } else if heading == crate::what_locust_can_stop_ui::HEADING {
+                    body = body.child(crate::what_locust_can_stop_ui::section(s, p));
                 } else if heading == crate::agents_section::HEADING {
                     body = body.child(crate::agents_section::section(s, p));
                     if let Some(accounts) = crate::agent_accounts_card::section(s, p) {

@@ -188,6 +188,7 @@ pub mod tune_lesson_store;
 #[cfg(any(test, feature = "test-hooks"))]
 pub mod test_isolation;
 pub mod usage;
+pub mod what_locust_can_stop;
 pub mod usage_ledger;
 pub mod workspace_settings;
 pub mod worktrees;

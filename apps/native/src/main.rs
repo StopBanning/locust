@@ -205,6 +205,8 @@ mod boot_view;
 mod changelog;
 #[path = "ui/changes_panel.rs"]
 mod changes_panel;
+#[path = "ui/what_locust_can_stop_ui.rs"]
+mod what_locust_can_stop_ui;
 #[path = "ui/commit_panel.rs"]
 mod commit_panel;
 #[path = "ui/issue_list.rs"]
