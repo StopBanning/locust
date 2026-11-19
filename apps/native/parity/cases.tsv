@@ -2671,6 +2671,8 @@ apps/desktop/src/renderer/src/a-spreadsheet-opens-as-a-grid.test.tsx	previews a 
 apps/desktop/src/renderer/src/a-spreadsheet-opens-as-a-grid.test.tsx	names a workbook a command made as a changed file, and opens it	no
 apps/desktop/src/renderer/src/a-spreadsheet-opens-as-a-grid.test.tsx	keeps the teammate's own word on a changed file the host could not read (0.597)	no
 apps/desktop/src/renderer/src/a-spreadsheet-opens-as-a-grid.test.tsx	still says a runtime did not report a change it did not see on disk	no
+apps/desktop/src/renderer/src/a-step-keeps-its-own-change.test.ts	keep each step its own diff, after the turn has ended too	yes
+apps/desktop/src/renderer/src/a-step-keeps-its-own-change.test.ts	list each file once in the turn's files, as its net change	yes
 apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx	counts plan states even when unrelated tools and disk observations settled	yes
 apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx	uses the latest plan and never treats extra tool calls as completed plan steps	no
 apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx	shows a fully finished plan even without tool calls	no

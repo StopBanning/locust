@@ -290,3 +290,6 @@ Next: part 1b opens-the-plan, then orb, frame-pass.
   `shows_no_counts_and_lets_large_say_it_when_true_counts_cannot_be_known`, `leaves_a_small_diffs_counts_unchanged`,
   and `activity_entries::tests::a_cut_patch_of_several_files_says_no_counts_and_an_uncut_one_says_each_files`; three
   older drawer tests now read the U+2212 minus. Breaks 5 of 5 killed.
+- a-step-keeps-its-own-change: Rust already matched; Electron's events replayed in `disk_observation_tests`
+  (`keep_each_step_its_own_diff_after_the_turn_has_ended_too`, `list_each_file_once_in_the_turns_files_as_its_net_change`).
+  Breaks on the ledger's no-diff guard and on `net_entries` both killed.
