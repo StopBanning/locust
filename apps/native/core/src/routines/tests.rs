@@ -469,3 +469,35 @@ fn keeps_pause_and_resume_in_the_routine_file_and_ignores_what_is_not_a_yes_or_n
     assert_eq!(again["schedule"], json!({"kind": "daily", "at": "08:00"}));
     std::fs::remove_dir_all(root).unwrap();
 }
+
+// ---- routines round 2 (19 Nov): routineRunSummary and the folder a routine runs in ------------------------------
+
+#[test]
+fn a_routines_row_says_its_steps_and_where_a_run_of_it_stands() {
+    let mut r = serde_json::json!({"steps": ["Fix the failing test.", "Push the branch."], "runs": 3});
+    r["execution"] = serde_json::json!({"status": "held", "waitsForOk": true});
+    assert_eq!(super::run_summary(&r), "2 steps · waiting for your OK · 3 completed runs");
+    r["execution"] = serde_json::json!({"status": "held"});
+    assert_eq!(super::run_summary(&r), "2 steps · waiting for review · 3 completed runs");
+    r["execution"] = serde_json::json!({"status": "running"});
+    assert_eq!(super::run_summary(&r), "2 steps · in progress · 3 completed runs");
+    r["execution"] = serde_json::json!({"status": "abandoned"});
+    assert_eq!(super::run_summary(&r), "2 steps · last attempt abandoned · 3 completed runs");
+    let one = serde_json::json!({"steps": ["npm test"], "runs": 0});
+    assert_eq!(super::run_summary(&one), "1 step · not run yet");
+    assert_eq!(super::run_summary(&serde_json::json!({"steps": ["npm test"], "runs": 1})), "1 step · run 1 time");
+    assert_eq!(super::run_summary(&serde_json::json!({"steps": ["a", "b"], "runs": 2})), "2 steps · run 2 times");
+}
+
+#[test]
+fn a_routine_names_the_folder_it_runs_in_only_among_the_folders_locust_knows() {
+    let here = std::path::PathBuf::from("/Users/x/sol-long-project");
+    let other = std::path::PathBuf::from("/Users/x/elsewhere");
+    let r = serde_json::json!({"workspaceId": crate::people::workspace_id(&here)});
+    assert_eq!(
+        super::routine_folder(&r, &[other.clone(), here.clone()]),
+        Some(("sol-long-project".to_owned(), "/Users/x/sol-long-project".to_owned()))
+    );
+    assert_eq!(super::routine_folder(&r, &[other.clone()]), None, "a folder Locust does not know is not guessed at");
+    assert_eq!(super::routine_folder(&serde_json::json!({}), &[here]), None, "a routine that names none says none");
+}

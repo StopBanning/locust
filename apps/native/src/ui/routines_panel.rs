@@ -63,6 +63,11 @@ pub(super) struct Panel {
     pub hook_copied: bool,
     pub hook_busy: bool,
     pub hook_pending: std::sync::Arc<std::sync::Mutex<Option<(String, locust_core::routine_hooks::RoutineHookState)>>>,
+    /// What a run of the routine open in the editor may do (RoutineDialog, 0.530): Some(true) only reads, Some(false)
+    /// changes files, None when its mode is not known (a routine not saved yet), and then nothing is said about it.
+    pub reads_only: Option<bool>,
+    /// The same, as saved: a choice left where it was keeps the saved mode exactly.
+    pub saved_reads_only: Option<bool>,
 }
 /// How often the window looks: the schedule (Electron: once a minute), the watched folders (`POLL_MS`), and the
 /// ends of the steps it follows. Tests set them to zero rather than waiting.
@@ -121,6 +126,8 @@ impl Default for Panel {
             hook_copied: false,
             hook_busy: false,
             hook_pending: Default::default(),
+            reads_only: None,
+            saved_reads_only: None,
         }
     }
 }
@@ -192,6 +199,9 @@ fn edit(s: &mut State, r: Value) {
             default_val: field(inp.default.as_deref().unwrap_or("")),
         })
         .collect();
+    // What a run may do is read off the mode saved with it (App.tsx: `savedMode ?? route.mode`); Ask and Plan only read.
+    s.routines.reads_only = r["route"]["mode"].as_str().map(|m| m == "ask" || m == "plan");
+    s.routines.saved_reads_only = s.routines.reads_only;
     s.routines.entry = r.clone();
     s.routines.hook_state = None;
     s.routines.hook_copied = false;
@@ -259,11 +269,84 @@ fn save_refusal(s: &State) -> Option<String> {
     None
 }
 
+/// The mode a run will be in, as the editor says it (RoutineDialog's `shownMode`): Ask when only reading is chosen,
+/// Edit when changing files is chosen over a mode that only read, else the saved mode's own name.
+fn shown_mode(s: &State) -> Option<&'static str> {
+    let panel = &s.routines;
+    let saved = panel.entry["route"]["mode"].as_str()?;
+    Some(match (panel.reads_only, panel.saved_reads_only) {
+        (Some(true), _) => "Ask",
+        (Some(false), Some(true)) => "Edit",
+        _ => locust_core::mode_facts::fact(saved).name,
+    })
+}
+
+/// "What a run may do" (0.530): one choice, Only read or Change files, and every sentence about the folder follows it.
+/// Shown only when the routine's mode is known, as RoutineDialog shows it only with a `modeName`.
+fn may_do_view(s: &State, p: &Palette) -> Option<El> {
+    let reads_only = s.routines.reads_only?;
+    let mut choice = row().gap(6.0).key("routine-may").child(text("What a run may do").font(type_::LABEL).color(p.secondary));
+    for (only, label, key) in [(true, "Only read", "routine-may-read"), (false, "Change files", "routine-may-change")] {
+        let chosen = reads_only == only;
+        choice = choice.child(
+            button(label, p)
+                .key(key)
+                .role("radio")
+                .label(format!("{label}{}", if chosen { ", chosen" } else { "" }))
+                .fill(if chosen { p.selected } else { p.raised })
+                .on_press(move |s: &mut State| s.routines.reads_only = Some(only)),
+        );
+    }
+    Some(col().gap(6.0).child(choice).child(text(change_words(s)).key("routine-may-note").font(type_::LABEL).color(p.muted).wrap()))
+}
+
+/// The mode a save writes, only when the choice moved (App.tsx): Only read is Ask, Change files is Accept edits.
+fn mode_to_save(now: Option<bool>, was: Option<bool>) -> Option<&'static str> {
+    match (now, was) {
+        (Some(now), Some(was)) if now != was => Some(if now { "ask" } else { "accept-edits" }),
+        _ => None,
+    }
+}
+
+/// What a run does to the folder, said from the choice above and where it works.
+fn change_words(s: &State) -> &'static str {
+    if s.routines.reads_only == Some(true) {
+        "It reads and answers; nothing in the folder changes."
+    } else if s.routines.entry["inCopy"] == true {
+        "It changes files in a copy of the folder. When a run finishes, its changes wait under Routines: Keep writes them into the folder, Discard throws them away."
+    } else {
+        "What a run changes lands in the folder straight away, with nothing to keep or undo first."
+    }
+}
+
+/// The folders Locust knows: the one it has open and each teammate's own, as their paths are on disk.
+fn known_folders(s: &State) -> Vec<std::path::PathBuf> {
+    let mut known: Vec<std::path::PathBuf> = locust_core::native::open_folder().into_iter().collect();
+    known.extend(s.teammates.iter().filter_map(|t| t.folder.as_deref()).map(std::path::PathBuf::from));
+    known.into_iter().map(|p| p.canonicalize().unwrap_or(p)).collect()
+}
+
+/// The folder a schedule runs this routine in (0.512): its own, or, for one not saved yet, the folder open now.
+fn editor_folder(s: &State) -> Option<(String, String)> {
+    let known = known_folders(s);
+    crate::routines::routine_folder(&s.routines.entry, &known).or_else(|| {
+        s.routines.entry["workspaceId"].is_null().then(|| locust_core::native::open_folder()).flatten().map(|p| {
+            let whole = p.to_string_lossy().into_owned();
+            (p.file_name().map_or_else(|| whole.clone(), |n| n.to_string_lossy().into_owned()), whole)
+        })
+    })
+}
+
 fn runner_choice(s: &State, p: &Palette) -> El {
     let owner = s.routines.entry["teammateId"].as_str().unwrap_or("");
     let named = s.teammates.iter().find(|t| t.id == owner);
     if !s.routines.choose_runner {
-        return text(named.map_or_else(|| "The teammate who runs it".into(), |t| format!("{} runs it", t.name))).font(type_::LABEL).color(p.secondary);
+        let who = named.map_or_else(|| "The teammate who runs it".into(), |t| format!("{} runs it", t.name));
+        let line = match shown_mode(s) {
+            Some(mode) => format!("{who}, in {mode}."),
+            None => who,
+        };
+        return text(line).key("routine-runs-it").font(type_::LABEL).color(p.secondary);
     }
     let mut choice = col().gap(6.0)
         .child(text("Who runs it").font(type_::LABEL).color(p.secondary))
@@ -349,6 +432,9 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
         body = body.child(runner_choice(s, p));
         if let Some(reason) = &refusal {
             body = body.child(text(reason.clone()).key("routine-save-refusal").font(type_::LABEL).color(p.secondary).wrap());
+        }
+        if let Some(may) = may_do_view(s, p) {
+            body = body.child(may);
         }
         body = body
             .child(text("Name").font(type_::LABEL).color(p.secondary))
@@ -453,6 +539,38 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                         .on_edit(|s: &mut State| &mut s.routines.fields[1]),
                 );
         }
+        if kind == "files" {
+            // SAID FROM THE MODE IT HAS (0.530): a file routine's line once promised it changed nothing under a line
+            // saying "always Edit", and the run wrote receipts at once. It follows the choice above now.
+            let follows = if s.routines.reads_only == Some(true) {
+                "It reads the file and changes nothing."
+            } else if s.routines.entry["inCopy"] == true {
+                "It may change files in its copy; nothing lands in the folder until you keep it."
+            } else {
+                "It may change files, and what it changes lands in the folder straight away."
+            };
+            body = body.child(
+                text(format!("A file that lands there starts a run once it stops changing, up to six an hour, and the run is told its name. What is there already starts nothing. {follows}"))
+                    .key("routine-files-note")
+                    .font(type_::LABEL)
+                    .color(p.muted)
+                    .wrap(),
+            );
+        }
+        if !panel.schedule.is_null() && kind != "hook" {
+            let who = s.teammates.iter().find(|t| panel.entry["teammateId"] == t.id.as_str()).map_or("the teammate", |t| t.name.as_str());
+            let mut note = row().gap(0.0).flex_wrap().key("routine-schedule-note").child(
+                text(format!("Only while Locust is open, and only when {who} is free. A run missed while Locust was closed happens once, the next time it is open."))
+                    .font(type_::LABEL)
+                    .color(p.muted)
+                    .wrap(),
+            );
+            // Where it runs (0.512), the whole path on hover.
+            if let Some((name, path)) = editor_folder(s) {
+                note = note.child(text(format!(" On a schedule it runs in {name}.")).key("routine-schedule-folder").help(path).font(type_::LABEL).color(p.muted).wrap());
+            }
+            body = body.child(note);
+        }
         if kind == "weekly" {
             let mut days = row().gap(6.0);
             for (day, label) in [
@@ -510,6 +628,10 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                         _ => {}
                     }
                     entry["schedule"] = schedule;
+                    // Only when it moved: a choice left where it was keeps the mode exactly as saved (App.tsx).
+                    if let Some(mode) = mode_to_save(s.routines.reads_only, s.routines.saved_reads_only) {
+                        entry["mode"] = json!(mode);
+                    }
                     // Who takes each step, lined up with the steps as they now are.
                     let count = entry["steps"].as_array().map_or(0, Vec::len);
                     let mut hand_offs = entry["handOffs"].as_array().cloned().unwrap_or_default();
@@ -554,6 +676,7 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                 body = body.child(templates_view(s, p));
             }
         }
+        let known = known_folders(s);
         for r in rs {
             let id = r["routineId"].as_str().unwrap_or("").to_owned();
             let mut card = col()
@@ -568,21 +691,25 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                 )
                 // Who runs it and on what model (routineChain with models), then its schedule as the card says it:
                 // paused, missed, due, or its next time (routineScheduleSummary), and how many runs.
-                .child(
-                    text(crate::routines::routine_chain_with_models(r, &s.teammates))
-                        .key(format!("routine-chain-{id}"))
-                        .font(type_::LABEL)
-                        .color(p.secondary)
-                        .wrap(),
-                );
-            let runs = r["runs"].as_u64().unwrap_or(0);
-            let schedule = crate::routines::schedule::summary(r, chrono::Local::now());
-            let line = match schedule {
-                Some(when) => format!("{when} · {runs} run{}", if runs == 1 { "" } else { "s" }),
-                None => format!("{runs} run{}", if runs == 1 { "" } else { "s" }),
-            };
-            let warn = r["paused"] == true || r["missedAt"].is_string();
-            card = card.child(text(line).key(format!("routine-when-{id}")).font(type_::LABEL).color(if warn { p.amber } else { p.secondary }).wrap());
+;
+            // Who runs it and on what, then routineRunSummary (steps, and where a run stands), then the folder it runs
+            // in when Locust knows it (0.512), the whole path on hover.
+            let mut who = row().gap(0.0).flex_wrap().child(
+                text(format!("{} · {}", crate::routines::routine_chain_with_models(r, &s.teammates), crate::routines::run_summary(r)))
+                    .key(format!("routine-chain-{id}"))
+                    .font(type_::LABEL)
+                    .color(p.secondary)
+                    .wrap(),
+            );
+            if let Some((name, path)) = crate::routines::routine_folder(r, &known) {
+                who = who.child(text(format!(" · in {name}")).key(format!("routine-folder-{id}")).help(path).font(type_::LABEL).color(p.secondary));
+            }
+            card = card.child(who);
+            // Its schedule as the card says it: paused, missed, due, waiting for your OK, or its next time.
+            if let Some(when) = crate::routines::schedule::summary(r, chrono::Local::now()) {
+                let warn = r["paused"] == true || r["missedAt"].is_string() || r["execution"]["waitsForOk"] == true;
+                card = card.child(text(when).key(format!("routine-when-{id}")).font(type_::LABEL).color(if warn { p.amber } else { p.secondary }).wrap());
+            }
             let entry = r.clone();
             let export_entry = r.clone();
             let remove = id.clone();
@@ -812,12 +939,16 @@ fn where_and_goal(s: &State, p: &Palette) -> El {
     if let Some(n) = tries {
         goal = goal.child(text(format!("at most {n} {}", if n == 1 { "fix" } else { "fixes" })).font(type_::LABEL).color(p.secondary));
     }
-    let note = if in_copy {
-        "It changes files in a copy of the folder. When a run finishes, its changes wait under Routines: Keep writes them into the folder, Discard throws them away."
-    } else {
-        "What a run changes lands in the folder straight away, with nothing to keep or undo first."
-    };
-    col().gap(6.0).child(places).child(text(note).font(type_::LABEL).color(p.muted).wrap()).child(goal)
+    // A run that only reads changes nothing, so where it changes things is not asked (RoutineDialog: `!readsOnly`); and
+    // where "What a run may do" is shown, it already says what lands in the folder.
+    let mut out = col().gap(6.0);
+    if s.routines.reads_only != Some(true) {
+        out = out.child(places);
+    }
+    if s.routines.reads_only.is_none() {
+        out = out.child(text(change_words(s)).font(type_::LABEL).color(p.muted).wrap());
+    }
+    out.child(goal)
 }
 
 /// When a run started, as `toLocaleString` says it here.
@@ -1952,8 +2083,10 @@ mod routine_row_lines_tests {
         let mut rt = rune::Runtime::new(s, |s, _| view(s, &Palette::new(true)), (1200.0, 1800.0), rune::Env::new(true, 1.0));
         rt.frame(0.0);
         let text_of = |key: &str| rt.elements().into_iter().find(|e| e.key.as_deref() == Some(key)).and_then(|e| e.text);
-        assert_eq!(text_of("routine-chain-rt_1").as_deref(), Some("Wren (Grok 4.7 High)"));
-        assert_eq!(text_of("routine-when-rt_1").as_deref(), Some("every hour · paused · 1 run"));
+        // routineChain, then routineRunSummary on the same line; the schedule line is routineScheduleSummary alone, as
+        // a-paused-routine-says-so has it: "every hour · paused".
+        assert_eq!(text_of("routine-chain-rt_1").as_deref(), Some("Wren (Grok 4.7 High) · 1 step · run 1 time"));
+        assert_eq!(text_of("routine-when-rt_1").as_deref(), Some("every hour · paused"));
     }
 
     /// a-missed-routine-says-missed-and-run-now.test.tsx: the row says Missed, 08:00 today, offers Run now, and the
@@ -1972,7 +2105,7 @@ mod routine_row_lines_tests {
         let text_of = |key: &str| els.iter().find(|e| e.key.as_deref() == Some(key)).and_then(|e| e.text.clone());
         let words: Vec<String> = els.iter().filter_map(|e| e.text.clone()).collect();
         if (now - chrono::Duration::minutes(1)).date_naive() == now.date_naive() {
-            assert_eq!(text_of("routine-when-rt_1"), Some(format!("Missed, {clock} today · 0 runs")));
+            assert_eq!(text_of("routine-when-rt_1"), Some(format!("Missed, {clock} today")));
         }
         assert!(words.iter().any(|w| w == "Run now"), "{words:?}");
         let log_in = if cfg!(target_os = "macos") { "log in" } else { "sign in" };
@@ -2030,3 +2163,7 @@ mod routine_hook_ui_tests {
         assert!(words.contains("3 link calls were not run: calls are kept at most a week, with room for the newest 200 letters."));
     }
 }
+
+#[cfg(test)]
+#[path = "routine_card_and_editor_tests.rs"]
+mod card_and_editor_tests;

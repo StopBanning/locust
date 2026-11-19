@@ -426,3 +426,38 @@ pub fn routine_chain(routine: &Value, team: &[crate::engine::Teammate]) -> Optio
     }
     Some(links.join(" → "))
 }
+
+/// The folder a routine runs in, among the folders Locust knows (AutomationsScreen, 0.512): its name and its whole
+/// path. A routine keeps the folder only as an id (`workspaceId`, the folder's path hashed), so a folder Locust does not
+/// know is not guessed at: None, and the card says nothing.
+pub fn routine_folder(routine: &Value, known: &[std::path::PathBuf]) -> Option<(String, String)> {
+    let id = routine["workspaceId"].as_str()?;
+    let path = known.iter().find(|p| crate::people::workspace_id(p) == id)?;
+    let whole = path.to_string_lossy().into_owned();
+    let name = path.file_name().map_or_else(|| whole.clone(), |n| n.to_string_lossy().into_owned());
+    Some((name, whole))
+}
+
+/// `routineRunSummary`: how many steps, then where a run of it stands -- in progress, waiting for your OK, waiting for
+/// review, or its last attempt abandoned, with its completed runs -- else how often it has run.
+pub fn run_summary(routine: &Value) -> String {
+    let count = routine["steps"].as_array().map_or(0, Vec::len);
+    let steps = format!("{count} step{}", if count == 1 { "" } else { "s" });
+    let runs = routine["runs"].as_u64().unwrap_or(0);
+    if let Some(e) = routine.get("execution").filter(|e| e.is_object()) {
+        let state = if e["status"] == "abandoned" {
+            "last attempt abandoned"
+        } else if e["status"] == "running" {
+            "in progress"
+        } else if e["waitsForOk"] == true {
+            "waiting for your OK"
+        } else {
+            "waiting for review"
+        };
+        return format!("{steps} · {state} · {runs} completed runs");
+    }
+    if runs == 0 {
+        return format!("{steps} · not run yet");
+    }
+    format!("{steps} · run {runs} time{}", if runs == 1 { "" } else { "s" })
+}

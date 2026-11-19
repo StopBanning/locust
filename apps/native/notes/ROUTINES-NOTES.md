@@ -133,3 +133,28 @@ Window tests (`src/ui/window_drive_tests.rs`, each also passes alone):
     103 routine tests still passing. `a_run_after_an_abandoned_one_is_a_fresh_attempt` now pins it, and it fails
     without the rule.
 
+
+## Routines round 2 (19 Nov): the folder, what a run may do, waiting for your OK
+
+Three rows carried (`src/ui/routine_card_and_editor_tests.rs`, 12 tests; core `routines::tests`, 2 tests):
+- **a-routine-names-its-folder**: the card says ` · in <folder>`, with the whole path as its hover. A routine keeps
+  its folder only as `workspaceId` (the path hashed), so `routines::routine_folder` matches it against the folders
+  Locust knows: the open folder and each teammate's own. A folder it does not know is not guessed. The editor's
+  schedule note ends "On a schedule it runs in <folder>."; a routine not saved yet names the folder open now.
+- **a-routine-says-what-it-may-do**: the editor has "What a run may do" (Only read / Change files), read off the saved
+  mode (Ask and Plan only read). The runner line ("Codec runs it, in Edit."), the folder note and the file trigger's
+  sentence follow the choice. A moved choice is saved as `ask` / `accept-edits` (`mode_to_save`); one left where it
+  was keeps the saved mode exactly. A routine not saved yet has no mode, so nothing is offered or said, as in Electron.
+  "Where it works" is not asked of a run that only reads.
+- **a-routine-waiting-for-your-ok-asks-plainly**: the card and the per-step "Wait for my OK first" were already
+  there. This round adds the row's `routineRunSummary` (`routines::run_summary`): "2 steps · waiting for your OK · 3
+  completed runs".
+- **The card's lines now read as Electron's.** Line 1: chain · run summary · folder. Line 2: the schedule summary
+  alone ("every hour · paused", not "every hour · paused · 1 run"). The two older row tests were updated to
+  a-paused-routine-says-so's words.
+- **Breaks: 13 of 13 caught by name** (entries in `~/work/scratch/routines1/`):
+  - core: the waiting-for-OK state, the folder match, "not run yet" and the step count;
+  - screen: Edit vs Ask in the runner line, the file trigger sentence, the card's " · in", the chosen mark, Ask and
+    Plan reading only, the save rule, the editor's folder name, "Where it works" hidden, and the section hidden with
+    no mode.
+- **Not checked:** the hover itself. rune's `ElementInfo` carries no help text, so the path is checked where it is made.
