@@ -153,6 +153,14 @@ fn reload(s: &mut State) {
     crate::scout_cards::request_refresh_state(s);
 }
 
+/// ⌘O: Normal or Verbose steps, remembered (App.tsx `toggleTranscriptView`). A window whose store refuses still
+/// switches for this moment.
+pub(super) fn toggle_transcript_view(s: &mut State) {
+    let settings = &mut s.settings_panel.settings;
+    settings.transcript_view = if settings.verbose() { "normal" } else { "verbose" }.into();
+    persist(s);
+}
+
 fn persist(s: &mut State) {
     let Some(store) = s.data.clone() else {
         s.settings_panel.error = "Native data folder could not be determined.".into();

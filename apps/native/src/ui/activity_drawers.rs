@@ -19,6 +19,12 @@ pub(super) fn disclosure(key: String, label: String, open: bool, p: &Palette) ->
         })
 }
 
+/// Verbose (⌘O, transcriptView.ts): every step group and every row in it starts open, unless the person opened or
+/// closed it themselves (ActivityCard `isOpen`: a toggle wins, then verbose).
+pub(super) fn verbose(s: &State) -> bool {
+    s.settings_panel.settings.verbose()
+}
+
 pub(super) fn tool_result(
     status: ledger::Status,
     d: &ledger::ToolDetail,
@@ -417,7 +423,7 @@ fn activity_item_with_files(item: &ledger::Item, p: &Palette, s: &State, scope: 
     }
     if files.is_empty() && !locust_core::activity_entries::files(item).is_empty() {
         let key = format!("{scope}/step/{}", activity_id(item));
-        let open = s.activity_open.get(&key).copied().unwrap_or(false);
+        let open = s.activity_open.get(&key).copied().unwrap_or(verbose(s));
         let mut step = col().w_full().child(disclosure(key, "Step change".into(), open, p));
         if open { step = step.child(activity_item_with_files(item, p, s, scope, locust_core::activity_entries::files(item))); }
         return step;
@@ -427,7 +433,7 @@ fn activity_item_with_files(item: &ledger::Item, p: &Palette, s: &State, scope: 
         let mut rows = col().w_full().gap(4.0);
         for entry in &files {
             let key = format!("{scope}/{}", entry.key);
-            let open = s.activity_open.get(&key).copied().unwrap_or(default == Some(entry.key.as_str()));
+            let open = s.activity_open.get(&key).copied().unwrap_or(verbose(s) || default == Some(entry.key.as_str()));
             // ActivityCard.tsx: "large" when it is, and counts only when they are the change's own (fileRowCounts).
             let mut label = format!("{} {}", entry.file.path, entry.file.status);
             if entry.large { label.push_str(" · large"); }
@@ -499,7 +505,7 @@ fn activity_item_with_files(item: &ledger::Item, p: &Palette, s: &State, scope: 
         .activity_open
         .get(&key)
         .copied()
-        .unwrap_or(matches!(item, ledger::Item::Plan { .. }));
+        .unwrap_or(verbose(s) || matches!(item, ledger::Item::Plan { .. }));
     let expandable = match item {
         // A thought that is only its headline already said everything on its row.
         ledger::Item::Thought { text, .. } => !without_headline(text).trim().is_empty(),
@@ -675,7 +681,7 @@ pub(super) fn turn_foot_card(turn: &[ledger::Item], p: &Palette, s: &State, scop
 
 pub(super) fn activity_group(items: &[ledger::Item], p: &Palette, s: &State, scope: &str) -> El {
     let key = format!("{scope}/group/{}", activity_id(&items[0]));
-    let open = s.activity_open.get(&key).copied().unwrap_or(false);
+    let open = s.activity_open.get(&key).copied().unwrap_or(verbose(s));
     let finished = items.iter().filter_map(|i| if let ledger::Item::Tool { detail, .. } = i { Some(detail.finished) } else { None }).all(|f| f);
     let workspace = selected_conversation(s).and_then(|(t,_)| t.folder.as_deref());
     let entries = locust_core::activity_entries::net_entries(items, workspace);
@@ -1292,5 +1298,50 @@ mod tests {
         assert!(at("pnpm test") < at("failed · exit 1"));
         let l = crate::look::controls::Look::new(true);
         assert_eq!(els.iter().find(|e| e.key.as_deref() == Some("conv/c1/badge")).map(|e| e.fill), Some(l.c("red-tint")));
+    }
+
+    // case: times the folded line and the open steps
+    #[test]
+    fn verbose_opens_every_step_of_a_long_transcript() {
+        let items: Vec<ledger::Item> = (0..220)
+            .map(|n| {
+                let mut item = sample_tool(&format!("s{n}"), "bash", &format!("Checked step {n}"), false);
+                if let ledger::Item::Tool { detail, .. } = &mut item {
+                    detail.arguments = format!("echo step-{n}");
+                    detail.output = format!("done {n}");
+                    detail.output_reported = true;
+                }
+                item
+            })
+            .collect();
+        let draw = |verbose: bool| {
+            let mut s = State::default();
+            if verbose { s.settings_panel.settings.transcript_view = "verbose".into(); }
+            let started = std::time::Instant::now();
+            let said = group_text(&items, &mut s);
+            (said, started.elapsed())
+        };
+        let (folded, folded_took) = draw(false);
+        let (open, open_took) = draw(true);
+        assert!(!folded.contains("done 219"), "Normal draws one line");
+        assert!(!folded.contains("Checked step 0"));
+        assert!(open.contains("Checked step 0") && open.contains("Checked step 219"));
+        assert!(open.contains("done 0") && open.contains("done 219"), "Verbose opens each command's output");
+        assert!(folded_took.as_millis() < 2000 && open_took.as_millis() < 2000, "{folded_took:?} {open_took:?}");
+        // A row the person closed stays closed in Verbose.
+        let mut s = State::default();
+        s.settings_panel.settings.transcript_view = "verbose".into();
+        s.activity_open.insert("conv/s7".into(), false);
+        let said = group_text(&items, &mut s);
+        assert!(said.contains("Checked step 7") && !said.contains("done 7\n") && said.contains("done 8"));
+    }
+
+    #[test]
+    fn verbose_switches_for_this_moment_when_there_is_no_store() {
+        let mut s = State::default();
+        settings_panel::toggle_transcript_view(&mut s);
+        assert!(verbose(&s));
+        settings_panel::toggle_transcript_view(&mut s);
+        assert!(!verbose(&s));
     }
 }

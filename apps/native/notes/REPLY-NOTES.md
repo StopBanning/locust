@@ -324,3 +324,12 @@ Next: part 1b opens-the-plan, then orb, frame-pass.
   with nothing behind it now keeps a 12 pt space where the chevron would be, so it starts there too. Tests
   `puts_the_command_before_its_badge_and_the_path_before_done`, `keeps_a_failures_wording_where_the_row_ends`;
   breaks 3 of 3 killed.
+
+### Verbose (19 Nov)
+- Rust had no Normal/Verbose. Now `WorkspaceSettings.transcript_view` ("transcriptView", `normal` unless `verbose`),
+  ⌘O flips and saves it (`settings_panel::toggle_transcript_view`; the shortcut row is now native), and
+  `activity_drawers::verbose` makes every step group, row, file and step change start open unless the person toggled
+  it. Missing: Electron's Verbose/Normal item in the thread header's … menu (Rust's header has no … menu).
+- Tests: `verbose_opens_every_step_of_a_long_transcript` (220 steps), `verbose_switches_for_this_moment_when_there_is_no_store`,
+  `window_drive_tests::command_o_switches_normal_and_verbose_steps_and_remembers_the_choice`, and core's
+  `reads_normal_until_verbose_was_chosen_and_ignores_anything_else`, `stays_usable_when_storage_refuses`. Breaks 4 of 4 killed.

@@ -123,7 +123,7 @@ pub const SHORTCUTS: &[ShortcutRow] = &[
         group: ShortcutGroup::Conversations,
         keys: "Ctrl+O",
         does: "Normal or Verbose steps",
-        native: false,
+        native: true,
         control_on_mac: false,
     },
     ShortcutRow {

@@ -44,6 +44,9 @@ pub struct WorkspaceSettings {
     pub plush: bool,
     /// `geist` (default) or `paper`: the face for code and the machine's words; read at start.
     pub code_font: String,
+    /// `normal` (default) or `verbose`: how a conversation's steps are drawn (transcriptView.ts). Electron keeps it in
+    /// the window's storage; Rust keeps it here, beside the other ways the window looks.
+    pub transcript_view: String,
     pub claude_own_skills: bool,
     pub check_commands: BTreeMap<String, String>,
     pub check_fixes: BTreeMap<String, u32>,
@@ -70,6 +73,7 @@ impl Default for WorkspaceSettings {
             terminal_faces: true,
             plush: false,
             code_font: "geist".into(),
+            transcript_view: "normal".into(),
             claude_own_skills: false,
             check_commands: BTreeMap::new(),
             check_fixes: BTreeMap::new(),
@@ -192,6 +196,7 @@ pub fn parse_settings(raw: &Value) -> WorkspaceSettings {
         terminal_faces: raw.get("terminalFaces") != Some(&Value::Bool(false)),
         plush: raw.get("plush") == Some(&Value::Bool(true)),
         code_font: one_of(raw.get("codeFont").unwrap_or(&Value::Null), &["geist", "paper"], "geist"),
+        transcript_view: one_of(raw.get("transcriptView").unwrap_or(&Value::Null), &["normal", "verbose"], "normal"),
         claude_own_skills: raw.get("claudeOwnSkills") == Some(&Value::Bool(true)),
         check_commands: parse_check_commands(raw.get("checkCommands").unwrap_or(&Value::Null)),
         check_fixes: parse_check_fixes(raw.get("checkFixes").unwrap_or(&Value::Null)),
@@ -221,6 +226,7 @@ pub fn settings_to_json(settings: &WorkspaceSettings) -> Value {
         "terminalFaces": settings.terminal_faces,
         "plush": settings.plush,
         "codeFont": settings.code_font,
+        "transcriptView": settings.transcript_view,
         "claudeOwnSkills": settings.claude_own_skills,
     });
     if !settings.check_commands.is_empty() {
@@ -246,6 +252,18 @@ pub fn startup_code_font(store: Option<&Store>) -> String {
         .and_then(|store| load(store).ok())
         .map(|settings| settings.code_font)
         .unwrap_or_else(|| "geist".into())
+}
+
+impl WorkspaceSettings {
+    /// Verbose opens every step; anything but `verbose` reads as Normal (readTranscriptView).
+    pub fn verbose(&self) -> bool {
+        self.transcript_view == "verbose"
+    }
+}
+
+/// The view to start with: the saved one, or Normal when there is no store or the file does not read.
+pub fn startup_transcript_view(store: Option<&Store>) -> String {
+    store.and_then(|store| load(store).ok()).map(|settings| settings.transcript_view).unwrap_or_else(|| "normal".into())
 }
 
 pub fn save(store: &Store, settings: &WorkspaceSettings) -> Result<(), String> {
@@ -581,6 +599,33 @@ mod tests {
         let file = _dir.0.join("native").join("teammates.json");
         fs::write(&file, "{ not json").unwrap();
         assert_eq!(startup_code_font(Some(&store)), "geist");
+    }
+
+    #[test]
+    fn reads_normal_until_verbose_was_chosen_and_ignores_anything_else() {
+        let (_dir, store) = temp_store();
+        assert_eq!(startup_transcript_view(Some(&store)), "normal");
+        let verbose = WorkspaceSettings { transcript_view: "verbose".into(), ..WorkspaceSettings::default() };
+        save(&store, &verbose).unwrap();
+        assert_eq!(startup_transcript_view(Some(&store)), "verbose");
+        assert!(load(&store).unwrap().verbose());
+        let loud = parse_settings(&json!({"transcriptView": "loud"}));
+        assert_eq!(loud.transcript_view, "normal");
+        assert!(!loud.verbose());
+    }
+
+    #[test]
+    fn stays_usable_when_storage_refuses() {
+        let (dir, store) = temp_store();
+        assert_eq!(startup_transcript_view(None), "normal");
+        let file = dir.0.join("native").join("teammates.json");
+        fs::create_dir_all(file.parent().unwrap()).unwrap();
+        fs::write(&file, "{ not json").unwrap();
+        assert_eq!(startup_transcript_view(Some(&store)), "normal");
+        let verbose = WorkspaceSettings { transcript_view: "verbose".into(), ..WorkspaceSettings::default() };
+        // A save that cannot read the file says so and does not panic; the choice still holds for this moment.
+        let _ = save(&store, &verbose);
+        assert!(verbose.verbose());
     }
 
     #[test]

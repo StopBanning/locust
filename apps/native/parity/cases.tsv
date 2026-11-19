@@ -2976,6 +2976,7 @@ apps/desktop/src/renderer/src/a-turns-steps-read-like-claude-code.test.ts	names 
 apps/desktop/src/renderer/src/a-turns-steps-read-like-claude-code.test.ts	cuts a long file name in the middle and keeps its extension	yes
 apps/desktop/src/renderer/src/a-turns-steps-read-like-claude-code.test.ts	offers shorter forms: names give way to counts, then the last phrases to "and N more"	yes
 apps/desktop/src/renderer/src/a-turns-steps-read-like-claude-code.test.ts	leaves a thought out of a line with other steps, and has nothing shorter for a lone failure	yes
+apps/desktop/src/renderer/src/a-verbose-transcript-opens-every-step.test.tsx	times the folded line and the open steps	yes
 apps/desktop/src/renderer/src/a-week-with-scout-is-one-card.test.tsx	is one card, its lines under its sentence, its one suggestion as its button	no
 apps/desktop/src/renderer/src/a-week-with-scout-is-one-card.test.tsx	has no button but Dismiss when there is nothing to change	no
 apps/desktop/src/renderer/src/a-wordless-thought-does-not-start-a-line.test.ts	is one line when the thoughts say nothing	yes
@@ -4267,6 +4268,8 @@ apps/desktop/src/renderer/src/three-judges-vote.test.tsx	offers to draft the poi
 apps/desktop/src/renderer/src/tool-vocabulary.test.ts	${row.adapter}: ${row.name} is ${row.shell ? 'a command' : row.edit ? 'a file change' : 'neither'}	no
 apps/desktop/src/renderer/src/tool-vocabulary.test.ts	a name that only LOOKS at a file is never a change, however it is spelled	yes
 apps/desktop/src/renderer/src/tool-vocabulary.test.ts	never calls a connector tool a file change, whatever its verb	yes
+apps/desktop/src/renderer/src/transcriptView.test.ts	reads Normal until Verbose was chosen, and ignores anything else	yes
+apps/desktop/src/renderer/src/transcriptView.test.ts	stays usable when storage refuses	yes
 apps/desktop/src/renderer/src/tuning-never-applies-instructions-by-itself.test.tsx	explains why tuning needs a finished teammate conversation and a model	no
 apps/desktop/src/renderer/src/tuning-never-applies-instructions-by-itself.test.tsx	starts one disclosed draft turn on /tune, while only the button starts the three trials	no
 apps/desktop/src/renderer/src/tuning-never-applies-instructions-by-itself.test.tsx	keeps the ask and all three instruction boxes editable with the teammate cap	no

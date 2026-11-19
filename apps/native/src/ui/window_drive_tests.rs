@@ -6504,3 +6504,20 @@ fn the_model_chip_wears_an_amber_dot_from_80_percent_and_is_quiet_below() {
     rt.frame(0.016);
     assert!(rt.find("model-chip-dot").is_some(), "amber from 80%");
 }
+
+#[test]
+fn command_o_switches_normal_and_verbose_steps_and_remembers_the_choice() {
+    let (_dirs, store, mut rt) = window();
+    let _g = native::hooks::install(store.clone(), None);
+    assert!(!rt.state.settings_panel.settings.verbose());
+    rt.update(|s, tx| {
+        assert!(on_key(s, &KeyEvent::from(Key::Command('o')), tx));
+    });
+    assert!(rt.state.settings_panel.settings.verbose());
+    assert_eq!(locust_core::workspace_settings::startup_transcript_view(Some(&store)), "verbose");
+    rt.update(|s, tx| {
+        assert!(on_key(s, &KeyEvent::from(Key::Command('o')), tx));
+    });
+    assert!(!rt.state.settings_panel.settings.verbose());
+    assert_eq!(locust_core::workspace_settings::startup_transcript_view(Some(&store)), "normal");
+}
