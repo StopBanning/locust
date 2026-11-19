@@ -7,7 +7,8 @@ import { effortRank, effortScale, joinEffort, levelsLine, splitEffort } from '..
 import { freeTagOf } from '../../../desktop/src/renderer/src/routeName.ts'
 import { defaultEffort } from '../../../desktop/src/renderer/src/status.ts'
 
-const here = new URL('../../../desktop/src/renderer/src/', import.meta.url)
+// The renderer's source folder, from record.sh (import.meta.url is the bundle's temporary file).
+const here = new URL(`file://${process.env.ELECTRON_RENDERER_SRC}/`)
 const TEST_FILES = [
   'effortLevels.test.ts',
   'the-chip-keeps-free.test.ts',

@@ -436,6 +436,9 @@ mod long_turn_tests;
 #[path = "recorded_picker_tests.rs"]
 mod recorded_picker_tests;
 #[cfg(test)]
+#[path = "recorded_routes_tests.rs"]
+mod recorded_routes_tests;
+#[cfg(test)]
 mod cancelled_run_cost_tests;
 #[cfg(test)]
 mod next_steps_cards_tests;

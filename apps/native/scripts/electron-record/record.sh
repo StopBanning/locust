@@ -12,5 +12,5 @@ trap 'rm -rf "$out"' EXIT
 "$esbuild" "$here/scripts/electron-record/$name.ts" --bundle --platform=node --format=esm --log-level=warning \
   --outfile="$out/$name.mjs" --external:electron
 mkdir -p "$here/parity/recorded"
-node "$out/$name.mjs" > "$here/parity/recorded/$name.jsonl"
+ELECTRON_RENDERER_SRC="$(cd "$here/../desktop/src/renderer/src" && pwd)" node "$out/$name.mjs" > "$here/parity/recorded/$name.jsonl"
 echo "$(wc -l < "$here/parity/recorded/$name.jsonl" | tr -d ' ') cases recorded in parity/recorded/$name.jsonl"

@@ -35,3 +35,17 @@ Areas with pure functions that hand-ported tests may have missed special cases i
 - failure words.
 
 Record again whenever Electron changes one of them.
+
+## Seen while gating (18 Nov)
+`permission_host_tests` fail only under heavy load (load 8, release builds running): today
+`carries_the_persons_reason_for_a_denial_when_they_gave_one` (release) and
+`refuses_a_questions_answer_aimed_at_a_permission_and_says_so` (60 s timeout). Each passes alone in under 0.1 s. Worth a
+look: something in those tests waits on wall time.
+
+## Routes (18 Nov)
+
+`routes.ts` records `routeModelName(runtime, id)` for every id in the eight route-name test files, under ten runtimes, plus
+traps: 1,160 cases. The first replay found 83 differences, four causes: a bare Claude alias (`opus`) is named by the
+version it means today ("Opus 5.5"); an id with a provider splits at its first slash only ("Kilo/Kilo Auto/free");
+`own-xxxxxxxx/name` is the name alone; `auto` is trimmed before the check. All four fixed in `route_model_name`; 0 of
+1,160 differ. Five breaks of the fix were all caught.

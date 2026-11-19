@@ -158,6 +158,416 @@
 {"fn":"effortFooter","args":["́a"],"out":null}
 {"fn":"splitEffort","args":["́a"],"out":{"base":"́a","fast":false}}
 {"fn":"effortRank","args":["́a"],"out":null}
+{"fn":"effortName","args":["vitest"],"out":"Vitest"}
+{"fn":"effortDescription","args":["vitest"],"out":null}
+{"fn":"effortFooter","args":["vitest"],"out":null}
+{"fn":"splitEffort","args":["vitest"],"out":{"base":"vitest","fast":false}}
+{"fn":"effortRank","args":["vitest"],"out":null}
+{"fn":"effortName","args":["./effortLevels.js"],"out":"./effortLevels.js"}
+{"fn":"effortDescription","args":["./effortLevels.js"],"out":null}
+{"fn":"effortFooter","args":["./effortLevels.js"],"out":null}
+{"fn":"splitEffort","args":["./effortLevels.js"],"out":{"base":"./effortLevels.js","fast":false}}
+{"fn":"effortRank","args":["./effortLevels.js"],"out":null}
+{"fn":"effortName","args":["describing a reasoning-effort level"],"out":"Describing a reasoning-effort level"}
+{"fn":"effortDescription","args":["describing a reasoning-effort level"],"out":null}
+{"fn":"effortFooter","args":["describing a reasoning-effort level"],"out":null}
+{"fn":"splitEffort","args":["describing a reasoning-effort level"],"out":{"base":"describing a reasoning-effort level","fast":false}}
+{"fn":"effortRank","args":["describing a reasoning-effort level"],"out":null}
+{"fn":"effortName","args":["turbo-ultra"],"out":"Turbo-ultra"}
+{"fn":"effortDescription","args":["turbo-ultra"],"out":null}
+{"fn":"effortFooter","args":["turbo-ultra"],"out":null}
+{"fn":"splitEffort","args":["turbo-ultra"],"out":{"base":"turbo-ultra","fast":false}}
+{"fn":"effortRank","args":["turbo-ultra"],"out":null}
+{"fn":"effortName","args":["the note under the menu"],"out":"The note under the menu"}
+{"fn":"effortDescription","args":["the note under the menu"],"out":null}
+{"fn":"effortFooter","args":["the note under the menu"],"out":null}
+{"fn":"splitEffort","args":["the note under the menu"],"out":{"base":"the note under the menu","fast":false}}
+{"fn":"effortRank","args":["the note under the menu"],"out":null}
+{"fn":"effortName","args":["says how Cursor actually takes an effort"],"out":"Says how Cursor actually takes an effort"}
+{"fn":"effortDescription","args":["says how Cursor actually takes an effort"],"out":null}
+{"fn":"effortFooter","args":["says how Cursor actually takes an effort"],"out":null}
+{"fn":"splitEffort","args":["says how Cursor actually takes an effort"],"out":{"base":"says how Cursor actually takes an effort","fast":false}}
+{"fn":"effortRank","args":["says how Cursor actually takes an effort"],"out":null}
+{"fn":"effortName","args":["cursor"],"out":"Cursor"}
+{"fn":"effortDescription","args":["cursor"],"out":null}
+{"fn":"effortFooter","args":["cursor"],"out":"Cursor puts the effort in the model name."}
+{"fn":"splitEffort","args":["cursor"],"out":{"base":"cursor","fast":false}}
+{"fn":"effortRank","args":["cursor"],"out":null}
+{"fn":"effortName","args":["claude"],"out":"Claude"}
+{"fn":"effortDescription","args":["claude"],"out":null}
+{"fn":"effortFooter","args":["claude"],"out":null}
+{"fn":"splitEffort","args":["claude"],"out":{"base":"claude","fast":false}}
+{"fn":"effortRank","args":["claude"],"out":null}
+{"fn":"effortName","args":["codex"],"out":"Codex"}
+{"fn":"effortDescription","args":["codex"],"out":null}
+{"fn":"effortFooter","args":["codex"],"out":null}
+{"fn":"splitEffort","args":["codex"],"out":{"base":"codex","fast":false}}
+{"fn":"effortRank","args":["codex"],"out":null}
+{"fn":"effortName","args":["opencode"],"out":"Opencode"}
+{"fn":"effortDescription","args":["opencode"],"out":null}
+{"fn":"effortFooter","args":["opencode"],"out":null}
+{"fn":"splitEffort","args":["opencode"],"out":{"base":"opencode","fast":false}}
+{"fn":"effortRank","args":["opencode"],"out":null}
+{"fn":"effortName","args":["copilot"],"out":"Copilot"}
+{"fn":"effortDescription","args":["copilot"],"out":null}
+{"fn":"effortFooter","args":["copilot"],"out":null}
+{"fn":"splitEffort","args":["copilot"],"out":{"base":"copilot","fast":false}}
+{"fn":"effortRank","args":["copilot"],"out":null}
+{"fn":"effortName","args":["./routeName.js"],"out":"./routeName.js"}
+{"fn":"effortDescription","args":["./routeName.js"],"out":null}
+{"fn":"effortFooter","args":["./routeName.js"],"out":null}
+{"fn":"splitEffort","args":["./routeName.js"],"out":{"base":"./routeName.js","fast":false}}
+{"fn":"effortRank","args":["./routeName.js"],"out":null}
+{"fn":"effortName","args":["splits a trailing Free off the name"],"out":"Splits a trailing Free off the name"}
+{"fn":"effortDescription","args":["splits a trailing Free off the name"],"out":null}
+{"fn":"effortFooter","args":["splits a trailing Free off the name"],"out":null}
+{"fn":"splitEffort","args":["splits a trailing Free off the name"],"out":{"base":"splits a trailing Free off the name","fast":false}}
+{"fn":"effortRank","args":["splits a trailing Free off the name"],"out":null}
+{"fn":"effortName","args":["Muse Spark 1.3 Contributor Free"],"out":"Muse Spark 1.3 Contributor Free"}
+{"fn":"effortDescription","args":["Muse Spark 1.3 Contributor Free"],"out":null}
+{"fn":"effortFooter","args":["Muse Spark 1.3 Contributor Free"],"out":null}
+{"fn":"splitEffort","args":["Muse Spark 1.3 Contributor Free"],"out":{"base":"Muse Spark 1.3 Contributor Free","fast":false}}
+{"fn":"effortRank","args":["Muse Spark 1.3 Contributor Free"],"out":null}
+{"fn":"effortName","args":["Muse Spark 1.3 Contributor"],"out":"Muse Spark 1.3 Contributor"}
+{"fn":"effortDescription","args":["Muse Spark 1.3 Contributor"],"out":null}
+{"fn":"effortFooter","args":["Muse Spark 1.3 Contributor"],"out":null}
+{"fn":"splitEffort","args":["Muse Spark 1.3 Contributor"],"out":{"base":"Muse Spark 1.3 Contributor","fast":false}}
+{"fn":"effortRank","args":["Muse Spark 1.3 Contributor"],"out":null}
+{"fn":"effortName","args":["Mimo V2.6 Flash Free"],"out":"Mimo V2.6 Flash Free"}
+{"fn":"effortDescription","args":["Mimo V2.6 Flash Free"],"out":null}
+{"fn":"effortFooter","args":["Mimo V2.6 Flash Free"],"out":null}
+{"fn":"splitEffort","args":["Mimo V2.6 Flash Free"],"out":{"base":"Mimo V2.6 Flash Free","fast":false}}
+{"fn":"effortRank","args":["Mimo V2.6 Flash Free"],"out":null}
+{"fn":"effortName","args":["Mimo V2.6 Flash"],"out":"Mimo V2.6 Flash"}
+{"fn":"effortDescription","args":["Mimo V2.6 Flash"],"out":null}
+{"fn":"effortFooter","args":["Mimo V2.6 Flash"],"out":null}
+{"fn":"splitEffort","args":["Mimo V2.6 Flash"],"out":{"base":"Mimo V2.6 Flash","fast":false}}
+{"fn":"effortRank","args":["Mimo V2.6 Flash"],"out":null}
+{"fn":"effortName","args":["leaves every other name whole"],"out":"Leaves every other name whole"}
+{"fn":"effortDescription","args":["leaves every other name whole"],"out":null}
+{"fn":"effortFooter","args":["leaves every other name whole"],"out":null}
+{"fn":"splitEffort","args":["leaves every other name whole"],"out":{"base":"leaves every other name whole","fast":false}}
+{"fn":"effortRank","args":["leaves every other name whole"],"out":null}
+{"fn":"effortName","args":["Haiku 4.5"],"out":"Haiku 4.5"}
+{"fn":"effortDescription","args":["Haiku 4.5"],"out":null}
+{"fn":"effortFooter","args":["Haiku 4.5"],"out":null}
+{"fn":"splitEffort","args":["Haiku 4.5"],"out":{"base":"Haiku 4.5","fast":false}}
+{"fn":"effortRank","args":["Haiku 4.5"],"out":null}
+{"fn":"effortName","args":["Freehand 2"],"out":"Freehand 2"}
+{"fn":"effortDescription","args":["Freehand 2"],"out":null}
+{"fn":"effortFooter","args":["Freehand 2"],"out":null}
+{"fn":"splitEffort","args":["Freehand 2"],"out":{"base":"Freehand 2","fast":false}}
+{"fn":"effortRank","args":["Freehand 2"],"out":null}
+{"fn":"effortName","args":["Free"],"out":"Free"}
+{"fn":"effortDescription","args":["Free"],"out":null}
+{"fn":"effortFooter","args":["Free"],"out":null}
+{"fn":"splitEffort","args":["Free"],"out":{"base":"Free","fast":false}}
+{"fn":"effortRank","args":["Free"],"out":null}
+{"fn":"effortName","args":["react-dom/server"],"out":"React-dom/server"}
+{"fn":"effortDescription","args":["react-dom/server"],"out":null}
+{"fn":"effortFooter","args":["react-dom/server"],"out":null}
+{"fn":"splitEffort","args":["react-dom/server"],"out":{"base":"react-dom/server","fast":false}}
+{"fn":"effortRank","args":["react-dom/server"],"out":null}
+{"fn":"effortName","args":["./components/EffortSlider.js"],"out":"./components/EffortSlider.js"}
+{"fn":"effortDescription","args":["./components/EffortSlider.js"],"out":null}
+{"fn":"effortFooter","args":["./components/EffortSlider.js"],"out":null}
+{"fn":"splitEffort","args":["./components/EffortSlider.js"],"out":{"base":"./components/EffortSlider.js","fast":false}}
+{"fn":"effortRank","args":["./components/EffortSlider.js"],"out":null}
+{"fn":"effortName","args":["a level"],"out":"A level"}
+{"fn":"effortDescription","args":["a level"],"out":null}
+{"fn":"effortFooter","args":["a level"],"out":null}
+{"fn":"splitEffort","args":["a level"],"out":{"base":"a level","fast":false}}
+{"fn":"effortRank","args":["a level"],"out":null}
+{"fn":"effortName","args":["Max"],"out":"Max"}
+{"fn":"effortDescription","args":["Max"],"out":"slowest, costliest"}
+{"fn":"effortFooter","args":["Max"],"out":null}
+{"fn":"splitEffort","args":["Max"],"out":{"base":"Max","fast":false}}
+{"fn":"effortRank","args":["Max"],"out":null}
+{"fn":"effortName","args":["Extra high"],"out":"Extra high"}
+{"fn":"effortDescription","args":["Extra high"],"out":null}
+{"fn":"effortFooter","args":["Extra high"],"out":null}
+{"fn":"splitEffort","args":["Extra high"],"out":{"base":"Extra high","fast":false}}
+{"fn":"effortRank","args":["Extra high"],"out":null}
+{"fn":"effortName","args":["Medium"],"out":"Medium"}
+{"fn":"effortDescription","args":["Medium"],"out":"in between"}
+{"fn":"effortFooter","args":["Medium"],"out":null}
+{"fn":"splitEffort","args":["Medium"],"out":{"base":"Medium","fast":false}}
+{"fn":"effortRank","args":["Medium"],"out":null}
+{"fn":"effortName","args":["Turbo"],"out":"Turbo"}
+{"fn":"effortDescription","args":["Turbo"],"out":null}
+{"fn":"effortFooter","args":["Turbo"],"out":null}
+{"fn":"splitEffort","args":["Turbo"],"out":{"base":"Turbo","fast":false}}
+{"fn":"effortRank","args":["Turbo"],"out":null}
+{"fn":"effortName","args":["the control"],"out":"The control"}
+{"fn":"effortDescription","args":["the control"],"out":null}
+{"fn":"effortFooter","args":["the control"],"out":null}
+{"fn":"splitEffort","args":["the control"],"out":{"base":"the control","fast":false}}
+{"fn":"effortRank","args":["the control"],"out":null}
+{"fn":"effortName","args":["title=\"Max: slowest, costliest\""],"out":"Title=\"Max: slowest, costliest\""}
+{"fn":"effortDescription","args":["title=\"Max: slowest, costliest\""],"out":null}
+{"fn":"effortFooter","args":["title=\"Max: slowest, costliest\""],"out":null}
+{"fn":"splitEffort","args":["title=\"Max: slowest, costliest\""],"out":{"base":"title=\"Max: slowest, costliest\"","fast":false}}
+{"fn":"effortRank","args":["title=\"Max: slowest, costliest\""],"out":null}
+{"fn":"effortName","args":["lc-effortpanel__drop"],"out":"Lc-effortpanel__drop"}
+{"fn":"effortDescription","args":["lc-effortpanel__drop"],"out":null}
+{"fn":"effortFooter","args":["lc-effortpanel__drop"],"out":null}
+{"fn":"splitEffort","args":["lc-effortpanel__drop"],"out":{"base":"lc-effortpanel__drop","fast":false}}
+{"fn":"effortRank","args":["lc-effortpanel__drop"],"out":null}
+{"fn":"effortName","args":["aria-valuetext=\"High\""],"out":"Aria-valuetext=\"High\""}
+{"fn":"effortDescription","args":["aria-valuetext=\"High\""],"out":null}
+{"fn":"effortFooter","args":["aria-valuetext=\"High\""],"out":null}
+{"fn":"splitEffort","args":["aria-valuetext=\"High\""],"out":{"base":"aria-valuetext=\"High\"","fast":false}}
+{"fn":"effortRank","args":["aria-valuetext=\"High\""],"out":null}
+{"fn":"effortName","args":["Fast variant"],"out":"Fast variant"}
+{"fn":"effortDescription","args":["Fast variant"],"out":null}
+{"fn":"effortFooter","args":["Fast variant"],"out":null}
+{"fn":"splitEffort","args":["Fast variant"],"out":{"base":"Fast variant","fast":false}}
+{"fn":"effortRank","args":["Fast variant"],"out":null}
+{"fn":"effortName","args":["role=\"switch\" aria-checked=\"true\""],"out":"Role=\"switch\" aria-checked=\"true\""}
+{"fn":"effortDescription","args":["role=\"switch\" aria-checked=\"true\""],"out":null}
+{"fn":"effortFooter","args":["role=\"switch\" aria-checked=\"true\""],"out":null}
+{"fn":"splitEffort","args":["role=\"switch\" aria-checked=\"true\""],"out":{"base":"role=\"switch\" aria-checked=\"true\"","fast":false}}
+{"fn":"effortRank","args":["role=\"switch\" aria-checked=\"true\""],"out":null}
+{"fn":"effortName","args":["./status.js"],"out":"./status.js"}
+{"fn":"effortDescription","args":["./status.js"],"out":null}
+{"fn":"effortFooter","args":["./status.js"],"out":null}
+{"fn":"splitEffort","args":["./status.js"],"out":{"base":"./status.js","fast":false}}
+{"fn":"effortRank","args":["./status.js"],"out":null}
+{"fn":"effortName","args":["the picker opens on what works"],"out":"The picker opens on what works"}
+{"fn":"effortDescription","args":["the picker opens on what works"],"out":null}
+{"fn":"effortFooter","args":["the picker opens on what works"],"out":null}
+{"fn":"splitEffort","args":["the picker opens on what works"],"out":{"base":"the picker opens on what works","fast":false}}
+{"fn":"effortRank","args":["the picker opens on what works"],"out":null}
+{"fn":"effortName","args":["s screen, in discovery"],"out":"S screen, in discovery"}
+{"fn":"effortDescription","args":["s screen, in discovery"],"out":null}
+{"fn":"effortFooter","args":["s screen, in discovery"],"out":null}
+{"fn":"splitEffort","args":["s screen, in discovery"],"out":{"base":"s screen, in discovery","fast":false}}
+{"fn":"effortRank","args":["s screen, in discovery"],"out":null}
+{"fn":"effortName","args":["Codex CLI · your account"],"out":"Codex CLI · your account"}
+{"fn":"effortDescription","args":["Codex CLI · your account"],"out":null}
+{"fn":"effortFooter","args":["Codex CLI · your account"],"out":null}
+{"fn":"splitEffort","args":["Codex CLI · your account"],"out":{"base":"Codex CLI · your account","fast":false}}
+{"fn":"effortRank","args":["Codex CLI · your account"],"out":null}
+{"fn":"effortName","args":["codex:gpt-5.6"],"out":"Codex:gpt-5.6"}
+{"fn":"effortDescription","args":["codex:gpt-5.6"],"out":null}
+{"fn":"effortFooter","args":["codex:gpt-5.6"],"out":null}
+{"fn":"splitEffort","args":["codex:gpt-5.6"],"out":{"base":"codex:gpt-5.6","fast":false}}
+{"fn":"effortRank","args":["codex:gpt-5.6"],"out":null}
+{"fn":"effortName","args":["NOT INSTALLED"],"out":"NOT INSTALLED"}
+{"fn":"effortDescription","args":["NOT INSTALLED"],"out":null}
+{"fn":"effortFooter","args":["NOT INSTALLED"],"out":null}
+{"fn":"splitEffort","args":["NOT INSTALLED"],"out":{"base":"NOT INSTALLED","fast":false}}
+{"fn":"effortRank","args":["NOT INSTALLED"],"out":null}
+{"fn":"effortName","args":["Claude Code"],"out":"Claude Code"}
+{"fn":"effortDescription","args":["Claude Code"],"out":null}
+{"fn":"effortFooter","args":["Claude Code"],"out":null}
+{"fn":"splitEffort","args":["Claude Code"],"out":{"base":"Claude Code","fast":false}}
+{"fn":"effortRank","args":["Claude Code"],"out":null}
+{"fn":"effortName","args":["claude:sonnet"],"out":"Claude:sonnet"}
+{"fn":"effortDescription","args":["claude:sonnet"],"out":null}
+{"fn":"effortFooter","args":["claude:sonnet"],"out":null}
+{"fn":"splitEffort","args":["claude:sonnet"],"out":{"base":"claude:sonnet","fast":false}}
+{"fn":"effortRank","args":["claude:sonnet"],"out":null}
+{"fn":"effortName","args":["Cursor Agent"],"out":"Cursor Agent"}
+{"fn":"effortDescription","args":["Cursor Agent"],"out":null}
+{"fn":"effortFooter","args":["Cursor Agent"],"out":null}
+{"fn":"splitEffort","args":["Cursor Agent"],"out":{"base":"Cursor Agent","fast":false}}
+{"fn":"effortRank","args":["Cursor Agent"],"out":null}
+{"fn":"effortName","args":["cursor:composer"],"out":"Cursor:composer"}
+{"fn":"effortDescription","args":["cursor:composer"],"out":null}
+{"fn":"effortFooter","args":["cursor:composer"],"out":null}
+{"fn":"splitEffort","args":["cursor:composer"],"out":{"base":"cursor:composer","fast":false}}
+{"fn":"effortRank","args":["cursor:composer"],"out":null}
+{"fn":"effortName","args":["Gemini CLI"],"out":"Gemini CLI"}
+{"fn":"effortDescription","args":["Gemini CLI"],"out":null}
+{"fn":"effortFooter","args":["Gemini CLI"],"out":null}
+{"fn":"splitEffort","args":["Gemini CLI"],"out":{"base":"Gemini CLI","fast":false}}
+{"fn":"effortRank","args":["Gemini CLI"],"out":null}
+{"fn":"effortName","args":["gemini:flash"],"out":"Gemini:flash"}
+{"fn":"effortDescription","args":["gemini:flash"],"out":null}
+{"fn":"effortFooter","args":["gemini:flash"],"out":null}
+{"fn":"splitEffort","args":["gemini:flash"],"out":{"base":"gemini:flash","fast":false}}
+{"fn":"effortRank","args":["gemini:flash"],"out":null}
+{"fn":"effortName","args":["PLANNED"],"out":"PLANNED"}
+{"fn":"effortDescription","args":["PLANNED"],"out":null}
+{"fn":"effortFooter","args":["PLANNED"],"out":null}
+{"fn":"splitEffort","args":["PLANNED"],"out":{"base":"PLANNED","fast":false}}
+{"fn":"effortRank","args":["PLANNED"],"out":null}
+{"fn":"effortName","args":["OpenCode"],"out":"OpenCode"}
+{"fn":"effortDescription","args":["OpenCode"],"out":null}
+{"fn":"effortFooter","args":["OpenCode"],"out":null}
+{"fn":"splitEffort","args":["OpenCode"],"out":{"base":"OpenCode","fast":false}}
+{"fn":"effortRank","args":["OpenCode"],"out":null}
+{"fn":"effortName","args":["opencode:ling-free"],"out":"Opencode:ling-free"}
+{"fn":"effortDescription","args":["opencode:ling-free"],"out":null}
+{"fn":"effortFooter","args":["opencode:ling-free"],"out":null}
+{"fn":"splitEffort","args":["opencode:ling-free"],"out":{"base":"opencode:ling-free","fast":false}}
+{"fn":"effortRank","args":["opencode:ling-free"],"out":null}
+{"fn":"effortName","args":["READY"],"out":"READY"}
+{"fn":"effortDescription","args":["READY"],"out":null}
+{"fn":"effortFooter","args":["READY"],"out":null}
+{"fn":"splitEffort","args":["READY"],"out":{"base":"READY","fast":false}}
+{"fn":"effortRank","args":["READY"],"out":null}
+{"fn":"effortName","args":["g"],"out":"G"}
+{"fn":"effortDescription","args":["g"],"out":null}
+{"fn":"effortFooter","args":["g"],"out":null}
+{"fn":"splitEffort","args":["g"],"out":{"base":"g","fast":false}}
+{"fn":"effortRank","args":["g"],"out":null}
+{"fn":"effortName","args":["c"],"out":"C"}
+{"fn":"effortDescription","args":["c"],"out":null}
+{"fn":"effortFooter","args":["c"],"out":null}
+{"fn":"splitEffort","args":["c"],"out":{"base":"c","fast":false}}
+{"fn":"effortRank","args":["c"],"out":null}
+{"fn":"effortName","args":["Codex CLI"],"out":"Codex CLI"}
+{"fn":"effortDescription","args":["Codex CLI"],"out":null}
+{"fn":"effortFooter","args":["Codex CLI"],"out":null}
+{"fn":"splitEffort","args":["Codex CLI"],"out":{"base":"Codex CLI","fast":false}}
+{"fn":"effortRank","args":["Codex CLI"],"out":null}
+{"fn":"effortName","args":["x"],"out":"X"}
+{"fn":"effortDescription","args":["x"],"out":null}
+{"fn":"effortFooter","args":["x"],"out":null}
+{"fn":"splitEffort","args":["x"],"out":{"base":"x","fast":false}}
+{"fn":"effortRank","args":["x"],"out":null}
+{"fn":"effortName","args":["SIGN IN"],"out":"SIGN IN"}
+{"fn":"effortDescription","args":["SIGN IN"],"out":null}
+{"fn":"effortFooter","args":["SIGN IN"],"out":null}
+{"fn":"splitEffort","args":["SIGN IN"],"out":{"base":"SIGN IN","fast":false}}
+{"fn":"effortRank","args":["SIGN IN"],"out":null}
+{"fn":"effortName","args":["o1"],"out":"O1"}
+{"fn":"effortDescription","args":["o1"],"out":null}
+{"fn":"effortFooter","args":["o1"],"out":null}
+{"fn":"splitEffort","args":["o1"],"out":{"base":"o1","fast":false}}
+{"fn":"effortRank","args":["o1"],"out":null}
+{"fn":"effortName","args":["o2"],"out":"O2"}
+{"fn":"effortDescription","args":["o2"],"out":null}
+{"fn":"effortFooter","args":["o2"],"out":null}
+{"fn":"splitEffort","args":["o2"],"out":{"base":"o2","fast":false}}
+{"fn":"effortRank","args":["o2"],"out":null}
+{"fn":"effortName","args":["c1"],"out":"C1"}
+{"fn":"effortDescription","args":["c1"],"out":null}
+{"fn":"effortFooter","args":["c1"],"out":null}
+{"fn":"splitEffort","args":["c1"],"out":{"base":"c1","fast":false}}
+{"fn":"effortRank","args":["c1"],"out":null}
+{"fn":"effortName","args":["a"],"out":"A"}
+{"fn":"effortDescription","args":["a"],"out":null}
+{"fn":"effortFooter","args":["a"],"out":null}
+{"fn":"splitEffort","args":["a"],"out":{"base":"a","fast":false}}
+{"fn":"effortRank","args":["a"],"out":null}
+{"fn":"effortName","args":["o"],"out":"O"}
+{"fn":"effortDescription","args":["o"],"out":null}
+{"fn":"effortFooter","args":["o"],"out":null}
+{"fn":"splitEffort","args":["o"],"out":{"base":"o","fast":false}}
+{"fn":"effortRank","args":["o"],"out":null}
+{"fn":"effortName","args":["Apple"],"out":"Apple"}
+{"fn":"effortDescription","args":["Apple"],"out":null}
+{"fn":"effortFooter","args":["Apple"],"out":null}
+{"fn":"splitEffort","args":["Apple"],"out":{"base":"Apple","fast":false}}
+{"fn":"effortRank","args":["Apple"],"out":null}
+{"fn":"effortName","args":["Zebra"],"out":"Zebra"}
+{"fn":"effortDescription","args":["Zebra"],"out":null}
+{"fn":"effortFooter","args":["Zebra"],"out":null}
+{"fn":"splitEffort","args":["Zebra"],"out":{"base":"Zebra","fast":false}}
+{"fn":"effortRank","args":["Zebra"],"out":null}
+{"fn":"effortName","args":["z"],"out":"Z"}
+{"fn":"effortDescription","args":["z"],"out":null}
+{"fn":"effortFooter","args":["z"],"out":null}
+{"fn":"splitEffort","args":["z"],"out":{"base":"z","fast":false}}
+{"fn":"effortRank","args":["z"],"out":null}
+{"fn":"effortName","args":["ACTIVE"],"out":"ACTIVE"}
+{"fn":"effortDescription","args":["ACTIVE"],"out":null}
+{"fn":"effortFooter","args":["ACTIVE"],"out":null}
+{"fn":"splitEffort","args":["ACTIVE"],"out":{"base":"ACTIVE","fast":false}}
+{"fn":"effortRank","args":["ACTIVE"],"out":null}
+{"fn":"effortName","args":["./components/RoutePicker.js"],"out":"./components/RoutePicker.js"}
+{"fn":"effortDescription","args":["./components/RoutePicker.js"],"out":null}
+{"fn":"effortFooter","args":["./components/RoutePicker.js"],"out":null}
+{"fn":"splitEffort","args":["./components/RoutePicker.js"],"out":{"base":"./components/RoutePicker.js","fast":false}}
+{"fn":"effortRank","args":["./components/RoutePicker.js"],"out":null}
+{"fn":"effortName","args":["../../shared/ipc.js"],"out":"../../shared/ipc.js"}
+{"fn":"effortDescription","args":["../../shared/ipc.js"],"out":null}
+{"fn":"effortFooter","args":["../../shared/ipc.js"],"out":null}
+{"fn":"splitEffort","args":["../../shared/ipc.js"],"out":{"base":"../../shared/ipc.js","fast":false}}
+{"fn":"effortRank","args":["../../shared/ipc.js"],"out":null}
+{"fn":"effortName","args":["s and Codex"],"out":"S and Codex"}
+{"fn":"effortDescription","args":["s and Codex"],"out":null}
+{"fn":"effortFooter","args":["s and Codex"],"out":null}
+{"fn":"splitEffort","args":["s and Codex"],"out":{"base":"s and Codex","fast":false}}
+{"fn":"effortRank","args":["s and Codex"],"out":null}
+{"fn":"effortName","args":["s second line carried the catalogue"],"out":"S second line carried the catalogue"}
+{"fn":"effortDescription","args":["s second line carried the catalogue"],"out":null}
+{"fn":"effortFooter","args":["s second line carried the catalogue"],"out":null}
+{"fn":"splitEffort","args":["s second line carried the catalogue"],"out":{"base":"s second line carried the catalogue","fast":false}}
+{"fn":"effortRank","args":["s second line carried the catalogue"],"out":null}
+{"fn":"effortName","args":["2.1.280"],"out":"2.1.280"}
+{"fn":"effortDescription","args":["2.1.280"],"out":null}
+{"fn":"effortFooter","args":["2.1.280"],"out":null}
+{"fn":"splitEffort","args":["2.1.280"],"out":{"base":"2.1.280","fast":false}}
+{"fn":"effortRank","args":["2.1.280"],"out":null}
+{"fn":"effortName","args":["authenticated"],"out":"Authenticated"}
+{"fn":"effortDescription","args":["authenticated"],"out":null}
+{"fn":"effortFooter","args":["authenticated"],"out":null}
+{"fn":"splitEffort","args":["authenticated"],"out":{"base":"authenticated","fast":false}}
+{"fn":"effortRank","args":["authenticated"],"out":null}
+{"fn":"effortName","args":["ready"],"out":"Ready"}
+{"fn":"effortDescription","args":["ready"],"out":null}
+{"fn":"effortFooter","args":["ready"],"out":null}
+{"fn":"splitEffort","args":["ready"],"out":{"base":"ready","fast":false}}
+{"fn":"effortRank","args":["ready"],"out":null}
+{"fn":"effortName","args":["fable"],"out":"Fable"}
+{"fn":"effortDescription","args":["fable"],"out":null}
+{"fn":"effortFooter","args":["fable"],"out":null}
+{"fn":"splitEffort","args":["fable"],"out":{"base":"fable","fast":false}}
+{"fn":"effortRank","args":["fable"],"out":null}
+{"fn":"effortName","args":["Fable 5.1"],"out":"Fable 5.1"}
+{"fn":"effortDescription","args":["Fable 5.1"],"out":null}
+{"fn":"effortFooter","args":["Fable 5.1"],"out":null}
+{"fn":"splitEffort","args":["Fable 5.1"],"out":{"base":"Fable 5.1","fast":false}}
+{"fn":"effortRank","args":["Fable 5.1"],"out":null}
+{"fn":"effortName","args":["Always the newest Fable"],"out":"Always the newest Fable"}
+{"fn":"effortDescription","args":["Always the newest Fable"],"out":null}
+{"fn":"effortFooter","args":["Always the newest Fable"],"out":null}
+{"fn":"splitEffort","args":["Always the newest Fable"],"out":{"base":"Always the newest Fable","fast":false}}
+{"fn":"effortRank","args":["Always the newest Fable"],"out":null}
+{"fn":"effortName","args":["sonnet"],"out":"Sonnet"}
+{"fn":"effortDescription","args":["sonnet"],"out":null}
+{"fn":"effortFooter","args":["sonnet"],"out":null}
+{"fn":"splitEffort","args":["sonnet"],"out":{"base":"sonnet","fast":false}}
+{"fn":"effortRank","args":["sonnet"],"out":null}
+{"fn":"effortName","args":["Sonnet 5.5"],"out":"Sonnet 5.5"}
+{"fn":"effortDescription","args":["Sonnet 5.5"],"out":null}
+{"fn":"effortFooter","args":["Sonnet 5.5"],"out":null}
+{"fn":"splitEffort","args":["Sonnet 5.5"],"out":{"base":"Sonnet 5.5","fast":false}}
+{"fn":"effortRank","args":["Sonnet 5.5"],"out":null}
+{"fn":"effortName","args":["a model is one line in the picker"],"out":"A model is one line in the picker"}
+{"fn":"effortDescription","args":["a model is one line in the picker"],"out":null}
+{"fn":"effortFooter","args":["a model is one line in the picker"],"out":null}
+{"fn":"splitEffort","args":["a model is one line in the picker"],"out":{"base":"a model is one line in the picker","fast":false}}
+{"fn":"effortRank","args":["a model is one line in the picker"],"out":null}
+{"fn":"effortName","args":["Low, High"],"out":"Low, High"}
+{"fn":"effortDescription","args":["Low, High"],"out":null}
+{"fn":"effortFooter","args":["Low, High"],"out":null}
+{"fn":"splitEffort","args":["Low, High"],"out":{"base":"Low, High","fast":false}}
+{"fn":"effortRank","args":["Low, High"],"out":null}
+{"fn":"effortName","args":["opus"],"out":"Opus"}
+{"fn":"effortDescription","args":["opus"],"out":null}
+{"fn":"effortFooter","args":["opus"],"out":null}
+{"fn":"splitEffort","args":["opus"],"out":{"base":"opus","fast":false}}
+{"fn":"effortRank","args":["opus"],"out":null}
+{"fn":"effortName","args":["Claude Opus 5.5 1M"],"out":"Claude Opus 5.5 1M"}
+{"fn":"effortDescription","args":["Claude Opus 5.5 1M"],"out":null}
+{"fn":"effortFooter","args":["Claude Opus 5.5 1M"],"out":null}
+{"fn":"splitEffort","args":["Claude Opus 5.5 1M"],"out":{"base":"Claude Opus 5.5 1M","fast":false}}
+{"fn":"effortRank","args":["Claude Opus 5.5 1M"],"out":null}
+{"fn":"effortName","args":["Opus 5.5"],"out":"Opus 5.5"}
+{"fn":"effortDescription","args":["Opus 5.5"],"out":null}
+{"fn":"effortFooter","args":["Opus 5.5"],"out":null}
+{"fn":"splitEffort","args":["Opus 5.5"],"out":{"base":"Opus 5.5","fast":false}}
+{"fn":"effortRank","args":["Opus 5.5"],"out":null}
+{"fn":"effortName","args":["Low to Max · Fast"],"out":"Low to Max · Fast"}
+{"fn":"effortDescription","args":["Low to Max · Fast"],"out":null}
+{"fn":"effortFooter","args":["Low to Max · Fast"],"out":null}
+{"fn":"splitEffort","args":["Low to Max · Fast"],"out":{"base":"Low to Max · Fast","fast":false}}
+{"fn":"effortRank","args":["Low to Max · Fast"],"out":null}
 {"fn":"freeTagOf","args":[""],"out":{"name":"","free":false}}
 {"fn":"freeTagOf","args":["Free"],"out":{"name":"Free","free":false}}
 {"fn":"freeTagOf","args":[" Free"],"out":{"name":" Free","free":false}}
@@ -183,6 +593,116 @@
 {"fn":"freeTagOf","args":["ﬀ Free"],"out":{"name":"ﬀ","free":true}}
 {"fn":"freeTagOf","args":["Model FREE"],"out":{"name":"Model","free":true}}
 {"fn":"freeTagOf","args":["Model Fr ee"],"out":{"name":"Model Fr ee","free":false}}
+{"fn":"freeTagOf","args":["vitest"],"out":{"name":"vitest","free":false}}
+{"fn":"freeTagOf","args":["./effortLevels.js"],"out":{"name":"./effortLevels.js","free":false}}
+{"fn":"freeTagOf","args":["describing a reasoning-effort level"],"out":{"name":"describing a reasoning-effort level","free":false}}
+{"fn":"freeTagOf","args":["describes the levels runtimes actually list"],"out":{"name":"describes the levels runtimes actually list","free":false}}
+{"fn":"freeTagOf","args":["low"],"out":{"name":"low","free":false}}
+{"fn":"freeTagOf","args":["medium"],"out":{"name":"medium","free":false}}
+{"fn":"freeTagOf","args":["high"],"out":{"name":"high","free":false}}
+{"fn":"freeTagOf","args":["high-fast"],"out":{"name":"high-fast","free":false}}
+{"fn":"freeTagOf","args":["max"],"out":{"name":"max","free":false}}
+{"fn":"freeTagOf","args":["fast"],"out":{"name":"fast","free":false}}
+{"fn":"freeTagOf","args":["says NOTHING for a level it does not know"],"out":{"name":"says NOTHING for a level it does not know","free":false}}
+{"fn":"freeTagOf","args":["turbo-ultra"],"out":{"name":"turbo-ultra","free":false}}
+{"fn":"freeTagOf","args":["talks about time and cost, not about how good the answer will be"],"out":{"name":"talks about time and cost, not about how good the answer will be","free":false}}
+{"fn":"freeTagOf","args":[" "],"out":{"name":" ","free":false}}
+{"fn":"freeTagOf","args":["is not case sensitive, because runtimes are not consistent"],"out":{"name":"is not case sensitive, because runtimes are not consistent","free":false}}
+{"fn":"freeTagOf","args":["HIGH"],"out":{"name":"HIGH","free":false}}
+{"fn":"freeTagOf","args":["the note under the menu"],"out":{"name":"the note under the menu","free":false}}
+{"fn":"freeTagOf","args":["says how Cursor actually takes an effort"],"out":{"name":"says how Cursor actually takes an effort","free":false}}
+{"fn":"freeTagOf","args":["cursor"],"out":{"name":"cursor","free":false}}
+{"fn":"freeTagOf","args":["draws no note for a runtime it has nothing true to say about"],"out":{"name":"draws no note for a runtime it has nothing true to say about","free":false}}
+{"fn":"freeTagOf","args":["claude"],"out":{"name":"claude","free":false}}
+{"fn":"freeTagOf","args":["codex"],"out":{"name":"codex","free":false}}
+{"fn":"freeTagOf","args":["opencode"],"out":{"name":"opencode","free":false}}
+{"fn":"freeTagOf","args":["copilot"],"out":{"name":"copilot","free":false}}
+{"fn":"freeTagOf","args":["./routeName.js"],"out":{"name":"./routeName.js","free":false}}
+{"fn":"freeTagOf","args":["splits a trailing Free off the name"],"out":{"name":"splits a trailing Free off the name","free":false}}
+{"fn":"freeTagOf","args":["Muse Spark 1.3 Contributor"],"out":{"name":"Muse Spark 1.3 Contributor","free":false}}
+{"fn":"freeTagOf","args":["Mimo V2.6 Flash Free"],"out":{"name":"Mimo V2.6 Flash","free":true}}
+{"fn":"freeTagOf","args":["Mimo V2.6 Flash"],"out":{"name":"Mimo V2.6 Flash","free":false}}
+{"fn":"freeTagOf","args":["leaves every other name whole"],"out":{"name":"leaves every other name whole","free":false}}
+{"fn":"freeTagOf","args":["Haiku 4.5"],"out":{"name":"Haiku 4.5","free":false}}
+{"fn":"freeTagOf","args":["Freehand 2"],"out":{"name":"Freehand 2","free":false}}
+{"fn":"freeTagOf","args":["react-dom/server"],"out":{"name":"react-dom/server","free":false}}
+{"fn":"freeTagOf","args":["./components/EffortSlider.js"],"out":{"name":"./components/EffortSlider.js","free":false}}
+{"fn":"freeTagOf","args":["xhigh"],"out":{"name":"xhigh","free":false}}
+{"fn":"freeTagOf","args":["a level"],"out":{"name":"a level","free":false}}
+{"fn":"freeTagOf","args":["is named in words, as Claude Code names it"],"out":{"name":"is named in words, as Claude Code names it","free":false}}
+{"fn":"freeTagOf","args":["Max"],"out":{"name":"Max","free":false}}
+{"fn":"freeTagOf","args":["Extra high"],"out":{"name":"Extra high","free":false}}
+{"fn":"freeTagOf","args":["Medium"],"out":{"name":"Medium","free":false}}
+{"fn":"freeTagOf","args":["turbo"],"out":{"name":"turbo","free":false}}
+{"fn":"freeTagOf","args":["Turbo"],"out":{"name":"Turbo","free":false}}
+{"fn":"freeTagOf","args":["the control"],"out":{"name":"the control","free":false}}
+{"fn":"freeTagOf","args":["reads \"Effort Max\", with a ? that says what the level costs"],"out":{"name":"reads \"Effort Max\", with a ? that says what the level costs","free":false}}
+{"fn":"freeTagOf","args":["title=\"Max: slowest, costliest\""],"out":{"name":"title=\"Max: slowest, costliest\"","free":false}}
+{"fn":"freeTagOf","args":["puts the stops end to end along the track, and the thumb on its level"],"out":{"name":"puts the stops end to end along the track, and the thumb on its level","free":false}}
+{"fn":"freeTagOf","args":["has ONE thumb, and it is the liquid (Colin, 2026-09-26: \"we gotta pick one\")"],"out":{"name":"has ONE thumb, and it is the liquid (Colin, 2026-09-26: \"we gotta pick one\")","free":false}}
+{"fn":"freeTagOf","args":["lc-effortpanel__drop"],"out":{"name":"lc-effortpanel__drop","free":false}}
+{"fn":"freeTagOf","args":["aria-valuetext=\"High\""],"out":{"name":"aria-valuetext=\"High\"","free":false}}
+{"fn":"freeTagOf","args":["Fast variant"],"out":{"name":"Fast variant","free":false}}
+{"fn":"freeTagOf","args":["role=\"switch\" aria-checked=\"true\""],"out":{"name":"role=\"switch\" aria-checked=\"true\"","free":false}}
+{"fn":"freeTagOf","args":["./status.js"],"out":{"name":"./status.js","free":false}}
+{"fn":"freeTagOf","args":["the picker opens on what works"],"out":{"name":"the picker opens on what works","free":false}}
+{"fn":"freeTagOf","args":["lifts the one runtime that can run above the three that cannot"],"out":{"name":"lifts the one runtime that can run above the three that cannot","free":false}}
+{"fn":"freeTagOf","args":["s screen, in discovery"],"out":{"name":"s screen, in discovery","free":false}}
+{"fn":"freeTagOf","args":["Codex CLI · your account"],"out":{"name":"Codex CLI · your account","free":false}}
+{"fn":"freeTagOf","args":["codex:gpt-5.6"],"out":{"name":"codex:gpt-5.6","free":false}}
+{"fn":"freeTagOf","args":["NOT INSTALLED"],"out":{"name":"NOT INSTALLED","free":false}}
+{"fn":"freeTagOf","args":["Claude Code"],"out":{"name":"Claude Code","free":false}}
+{"fn":"freeTagOf","args":["claude:sonnet"],"out":{"name":"claude:sonnet","free":false}}
+{"fn":"freeTagOf","args":["Cursor Agent"],"out":{"name":"Cursor Agent","free":false}}
+{"fn":"freeTagOf","args":["cursor:composer"],"out":{"name":"cursor:composer","free":false}}
+{"fn":"freeTagOf","args":["Gemini CLI"],"out":{"name":"Gemini CLI","free":false}}
+{"fn":"freeTagOf","args":["gemini:flash"],"out":{"name":"gemini:flash","free":false}}
+{"fn":"freeTagOf","args":["PLANNED"],"out":{"name":"PLANNED","free":false}}
+{"fn":"freeTagOf","args":["OpenCode"],"out":{"name":"OpenCode","free":false}}
+{"fn":"freeTagOf","args":["opencode:ling-free"],"out":{"name":"opencode:ling-free","free":false}}
+{"fn":"freeTagOf","args":["READY"],"out":{"name":"READY","free":false}}
+{"fn":"freeTagOf","args":["sinks what does not exist below what merely is not installed"],"out":{"name":"sinks what does not exist below what merely is not installed","free":false}}
+{"fn":"freeTagOf","args":["g"],"out":{"name":"g","free":false}}
+{"fn":"freeTagOf","args":["c"],"out":{"name":"c","free":false}}
+{"fn":"freeTagOf","args":["keeps a signed-out runtime above one that is not on the machine at all"],"out":{"name":"keeps a signed-out runtime above one that is not on the machine at all","free":false}}
+{"fn":"freeTagOf","args":["Codex CLI"],"out":{"name":"Codex CLI","free":false}}
+{"fn":"freeTagOf","args":["x"],"out":{"name":"x","free":false}}
+{"fn":"freeTagOf","args":["SIGN IN"],"out":{"name":"SIGN IN","free":false}}
+{"fn":"freeTagOf","args":["takes a group on its BEST row, not its first"],"out":{"name":"takes a group on its BEST row, not its first","free":false}}
+{"fn":"freeTagOf","args":["o1"],"out":{"name":"o1","free":false}}
+{"fn":"freeTagOf","args":["o2"],"out":{"name":"o2","free":false}}
+{"fn":"freeTagOf","args":["c1"],"out":{"name":"c1","free":false}}
+{"fn":"freeTagOf","args":["sorts alphabetically inside a band, the way Settings already does"],"out":{"name":"sorts alphabetically inside a band, the way Settings already does","free":false}}
+{"fn":"freeTagOf","args":["a"],"out":{"name":"a","free":false}}
+{"fn":"freeTagOf","args":["o"],"out":{"name":"o","free":false}}
+{"fn":"freeTagOf","args":["does not move a group out of its band to satisfy the alphabet"],"out":{"name":"does not move a group out of its band to satisfy the alphabet","free":false}}
+{"fn":"freeTagOf","args":["Apple"],"out":{"name":"Apple","free":false}}
+{"fn":"freeTagOf","args":["Zebra"],"out":{"name":"Zebra","free":false}}
+{"fn":"freeTagOf","args":["z"],"out":{"name":"z","free":false}}
+{"fn":"freeTagOf","args":["still sorts the active row to the top of its own group"],"out":{"name":"still sorts the active row to the top of its own group","free":false}}
+{"fn":"freeTagOf","args":["ACTIVE"],"out":{"name":"ACTIVE","free":false}}
+{"fn":"freeTagOf","args":["./components/RoutePicker.js"],"out":{"name":"./components/RoutePicker.js","free":false}}
+{"fn":"freeTagOf","args":["../../shared/ipc.js"],"out":{"name":"../../shared/ipc.js","free":false}}
+{"fn":"freeTagOf","args":["s and Codex"],"out":{"name":"s and Codex","free":false}}
+{"fn":"freeTagOf","args":["s second line carried the catalogue"],"out":{"name":"s second line carried the catalogue","free":false}}
+{"fn":"freeTagOf","args":["2.1.280"],"out":{"name":"2.1.280","free":false}}
+{"fn":"freeTagOf","args":["authenticated"],"out":{"name":"authenticated","free":false}}
+{"fn":"freeTagOf","args":["ready"],"out":{"name":"ready","free":false}}
+{"fn":"freeTagOf","args":["fable"],"out":{"name":"fable","free":false}}
+{"fn":"freeTagOf","args":["Fable 5.1"],"out":{"name":"Fable 5.1","free":false}}
+{"fn":"freeTagOf","args":["Always the newest Fable"],"out":{"name":"Always the newest Fable","free":false}}
+{"fn":"freeTagOf","args":["sonnet"],"out":{"name":"sonnet","free":false}}
+{"fn":"freeTagOf","args":["Sonnet 5.5"],"out":{"name":"Sonnet 5.5","free":false}}
+{"fn":"freeTagOf","args":["a model is one line in the picker"],"out":{"name":"a model is one line in the picker","free":false}}
+{"fn":"freeTagOf","args":["keeps what the catalogue says, and leaves the effort levels to the hover"],"out":{"name":"keeps what the catalogue says, and leaves the effort levels to the hover","free":false}}
+{"fn":"freeTagOf","args":["a model the catalogue says nothing about keeps its levels as its line, in words"],"out":{"name":"a model the catalogue says nothing about keeps its levels as its line, in words","free":false}}
+{"fn":"freeTagOf","args":["Low, High"],"out":{"name":"Low, High","free":false}}
+{"fn":"freeTagOf","args":["opus"],"out":{"name":"opus","free":false}}
+{"fn":"freeTagOf","args":["Claude Opus 5.5 1M"],"out":{"name":"Claude Opus 5.5 1M","free":false}}
+{"fn":"freeTagOf","args":["low-fast"],"out":{"name":"low-fast","free":false}}
+{"fn":"freeTagOf","args":["max-fast"],"out":{"name":"max-fast","free":false}}
+{"fn":"freeTagOf","args":["Opus 5.5"],"out":{"name":"Opus 5.5","free":false}}
+{"fn":"freeTagOf","args":["Low to Max · Fast"],"out":{"name":"Low to Max · Fast","free":false}}
 {"fn":"effortScale","args":[[]],"out":{"bases":[],"hasFast":false}}
 {"fn":"levelsLine","args":[[]],"out":null}
 {"fn":"defaultEffort","args":[[],null],"out":null}
@@ -200,6 +720,244 @@
 {"fn":"joinEffort","args":["turbo",true,[]],"out":null}
 {"fn":"joinEffort","args":["",false,[]],"out":null}
 {"fn":"joinEffort","args":["",true,[]],"out":null}
+{"fn":"effortScale","args":[["low","medium","high","high-fast","max","fast"]],"out":{"bases":["low","medium","high","max","fast"],"hasFast":true}}
+{"fn":"levelsLine","args":[["low","medium","high","high-fast","max","fast"]],"out":"Low to Fast · Fast"}
+{"fn":"defaultEffort","args":[["low","medium","high","high-fast","max","fast"],null],"out":"medium"}
+{"fn":"defaultEffort","args":[["low","medium","high","high-fast","max","fast"],"high"],"out":"high"}
+{"fn":"defaultEffort","args":[["low","medium","high","high-fast","max","fast"],"medium"],"out":"medium"}
+{"fn":"defaultEffort","args":[["low","medium","high","high-fast","max","fast"],"turbo"],"out":"medium"}
+{"fn":"defaultEffort","args":[["low","medium","high","high-fast","max","fast"],""],"out":"medium"}
+{"fn":"joinEffort","args":["low",false,["low","medium","high","high-fast","max","fast"]],"out":"low"}
+{"fn":"joinEffort","args":["low",true,["low","medium","high","high-fast","max","fast"]],"out":"low"}
+{"fn":"joinEffort","args":["high",false,["low","medium","high","high-fast","max","fast"]],"out":"high"}
+{"fn":"joinEffort","args":["high",true,["low","medium","high","high-fast","max","fast"]],"out":"high-fast"}
+{"fn":"joinEffort","args":["max",false,["low","medium","high","high-fast","max","fast"]],"out":"max"}
+{"fn":"joinEffort","args":["max",true,["low","medium","high","high-fast","max","fast"]],"out":"max"}
+{"fn":"joinEffort","args":["turbo",false,["low","medium","high","high-fast","max","fast"]],"out":null}
+{"fn":"joinEffort","args":["turbo",true,["low","medium","high","high-fast","max","fast"]],"out":null}
+{"fn":"joinEffort","args":["",false,["low","medium","high","high-fast","max","fast"]],"out":null}
+{"fn":"joinEffort","args":["",true,["low","medium","high","high-fast","max","fast"]],"out":null}
+{"fn":"effortScale","args":[["low","medium","high","max"]],"out":{"bases":["low","medium","high","max"],"hasFast":false}}
+{"fn":"levelsLine","args":[["low","medium","high","max"]],"out":"Low to Max"}
+{"fn":"defaultEffort","args":[["low","medium","high","max"],null],"out":"medium"}
+{"fn":"defaultEffort","args":[["low","medium","high","max"],"high"],"out":"high"}
+{"fn":"defaultEffort","args":[["low","medium","high","max"],"medium"],"out":"medium"}
+{"fn":"defaultEffort","args":[["low","medium","high","max"],"turbo"],"out":"medium"}
+{"fn":"defaultEffort","args":[["low","medium","high","max"],""],"out":"medium"}
+{"fn":"joinEffort","args":["low",false,["low","medium","high","max"]],"out":"low"}
+{"fn":"joinEffort","args":["low",true,["low","medium","high","max"]],"out":"low"}
+{"fn":"joinEffort","args":["high",false,["low","medium","high","max"]],"out":"high"}
+{"fn":"joinEffort","args":["high",true,["low","medium","high","max"]],"out":"high"}
+{"fn":"joinEffort","args":["max",false,["low","medium","high","max"]],"out":"max"}
+{"fn":"joinEffort","args":["max",true,["low","medium","high","max"]],"out":"max"}
+{"fn":"joinEffort","args":["turbo",false,["low","medium","high","max"]],"out":null}
+{"fn":"joinEffort","args":["turbo",true,["low","medium","high","max"]],"out":null}
+{"fn":"joinEffort","args":["",false,["low","medium","high","max"]],"out":null}
+{"fn":"joinEffort","args":["",true,["low","medium","high","max"]],"out":null}
+{"fn":"effortScale","args":[["claude","codex","opencode","copilot"]],"out":{"bases":["claude","codex","opencode","copilot"],"hasFast":false}}
+{"fn":"levelsLine","args":[["claude","codex","opencode","copilot"]],"out":"Claude to Copilot"}
+{"fn":"defaultEffort","args":[["claude","codex","opencode","copilot"],null],"out":"opencode"}
+{"fn":"defaultEffort","args":[["claude","codex","opencode","copilot"],"high"],"out":"opencode"}
+{"fn":"defaultEffort","args":[["claude","codex","opencode","copilot"],"medium"],"out":"opencode"}
+{"fn":"defaultEffort","args":[["claude","codex","opencode","copilot"],"turbo"],"out":"opencode"}
+{"fn":"defaultEffort","args":[["claude","codex","opencode","copilot"],""],"out":"opencode"}
+{"fn":"joinEffort","args":["low",false,["claude","codex","opencode","copilot"]],"out":null}
+{"fn":"joinEffort","args":["low",true,["claude","codex","opencode","copilot"]],"out":null}
+{"fn":"joinEffort","args":["high",false,["claude","codex","opencode","copilot"]],"out":null}
+{"fn":"joinEffort","args":["high",true,["claude","codex","opencode","copilot"]],"out":null}
+{"fn":"joinEffort","args":["max",false,["claude","codex","opencode","copilot"]],"out":null}
+{"fn":"joinEffort","args":["max",true,["claude","codex","opencode","copilot"]],"out":null}
+{"fn":"joinEffort","args":["turbo",false,["claude","codex","opencode","copilot"]],"out":null}
+{"fn":"joinEffort","args":["turbo",true,["claude","codex","opencode","copilot"]],"out":null}
+{"fn":"joinEffort","args":["",false,["claude","codex","opencode","copilot"]],"out":null}
+{"fn":"joinEffort","args":["",true,["claude","codex","opencode","copilot"]],"out":null}
+{"fn":"effortScale","args":[["low","medium","high","xhigh","max"]],"out":{"bases":["low","medium","high","xhigh","max"],"hasFast":false}}
+{"fn":"levelsLine","args":[["low","medium","high","xhigh","max"]],"out":"Low to Max"}
+{"fn":"defaultEffort","args":[["low","medium","high","xhigh","max"],null],"out":"medium"}
+{"fn":"defaultEffort","args":[["low","medium","high","xhigh","max"],"high"],"out":"high"}
+{"fn":"defaultEffort","args":[["low","medium","high","xhigh","max"],"medium"],"out":"medium"}
+{"fn":"defaultEffort","args":[["low","medium","high","xhigh","max"],"turbo"],"out":"medium"}
+{"fn":"defaultEffort","args":[["low","medium","high","xhigh","max"],""],"out":"medium"}
+{"fn":"joinEffort","args":["low",false,["low","medium","high","xhigh","max"]],"out":"low"}
+{"fn":"joinEffort","args":["low",true,["low","medium","high","xhigh","max"]],"out":"low"}
+{"fn":"joinEffort","args":["high",false,["low","medium","high","xhigh","max"]],"out":"high"}
+{"fn":"joinEffort","args":["high",true,["low","medium","high","xhigh","max"]],"out":"high"}
+{"fn":"joinEffort","args":["max",false,["low","medium","high","xhigh","max"]],"out":"max"}
+{"fn":"joinEffort","args":["max",true,["low","medium","high","xhigh","max"]],"out":"max"}
+{"fn":"joinEffort","args":["turbo",false,["low","medium","high","xhigh","max"]],"out":null}
+{"fn":"joinEffort","args":["turbo",true,["low","medium","high","xhigh","max"]],"out":null}
+{"fn":"joinEffort","args":["",false,["low","medium","high","xhigh","max"]],"out":null}
+{"fn":"joinEffort","args":["",true,["low","medium","high","xhigh","max"]],"out":null}
+{"fn":"effortScale","args":[["high"]],"out":{"bases":["high"],"hasFast":false}}
+{"fn":"levelsLine","args":[["high"]],"out":"High"}
+{"fn":"defaultEffort","args":[["high"],null],"out":"high"}
+{"fn":"defaultEffort","args":[["high"],"high"],"out":"high"}
+{"fn":"defaultEffort","args":[["high"],"medium"],"out":"high"}
+{"fn":"defaultEffort","args":[["high"],"turbo"],"out":"high"}
+{"fn":"defaultEffort","args":[["high"],""],"out":"high"}
+{"fn":"joinEffort","args":["low",false,["high"]],"out":null}
+{"fn":"joinEffort","args":["low",true,["high"]],"out":null}
+{"fn":"joinEffort","args":["high",false,["high"]],"out":"high"}
+{"fn":"joinEffort","args":["high",true,["high"]],"out":"high"}
+{"fn":"joinEffort","args":["max",false,["high"]],"out":null}
+{"fn":"joinEffort","args":["max",true,["high"]],"out":null}
+{"fn":"joinEffort","args":["turbo",false,["high"]],"out":null}
+{"fn":"joinEffort","args":["turbo",true,["high"]],"out":null}
+{"fn":"joinEffort","args":["",false,["high"]],"out":null}
+{"fn":"joinEffort","args":["",true,["high"]],"out":null}
+{"fn":"effortScale","args":[["OpenCode","Claude Code","Codex CLI · your account","Cursor Agent","Gemini CLI"]],"out":{"bases":["OpenCode","Claude Code","Codex CLI · your account","Cursor Agent","Gemini CLI"],"hasFast":false}}
+{"fn":"levelsLine","args":[["OpenCode","Claude Code","Codex CLI · your account","Cursor Agent","Gemini CLI"]],"out":"OpenCode to Gemini CLI"}
+{"fn":"defaultEffort","args":[["OpenCode","Claude Code","Codex CLI · your account","Cursor Agent","Gemini CLI"],null],"out":"Codex CLI · your account"}
+{"fn":"defaultEffort","args":[["OpenCode","Claude Code","Codex CLI · your account","Cursor Agent","Gemini CLI"],"high"],"out":"Codex CLI · your account"}
+{"fn":"defaultEffort","args":[["OpenCode","Claude Code","Codex CLI · your account","Cursor Agent","Gemini CLI"],"medium"],"out":"Codex CLI · your account"}
+{"fn":"defaultEffort","args":[["OpenCode","Claude Code","Codex CLI · your account","Cursor Agent","Gemini CLI"],"turbo"],"out":"Codex CLI · your account"}
+{"fn":"defaultEffort","args":[["OpenCode","Claude Code","Codex CLI · your account","Cursor Agent","Gemini CLI"],""],"out":"Codex CLI · your account"}
+{"fn":"joinEffort","args":["low",false,["OpenCode","Claude Code","Codex CLI · your account","Cursor Agent","Gemini CLI"]],"out":null}
+{"fn":"joinEffort","args":["low",true,["OpenCode","Claude Code","Codex CLI · your account","Cursor Agent","Gemini CLI"]],"out":null}
+{"fn":"joinEffort","args":["high",false,["OpenCode","Claude Code","Codex CLI · your account","Cursor Agent","Gemini CLI"]],"out":null}
+{"fn":"joinEffort","args":["high",true,["OpenCode","Claude Code","Codex CLI · your account","Cursor Agent","Gemini CLI"]],"out":null}
+{"fn":"joinEffort","args":["max",false,["OpenCode","Claude Code","Codex CLI · your account","Cursor Agent","Gemini CLI"]],"out":null}
+{"fn":"joinEffort","args":["max",true,["OpenCode","Claude Code","Codex CLI · your account","Cursor Agent","Gemini CLI"]],"out":null}
+{"fn":"joinEffort","args":["turbo",false,["OpenCode","Claude Code","Codex CLI · your account","Cursor Agent","Gemini CLI"]],"out":null}
+{"fn":"joinEffort","args":["turbo",true,["OpenCode","Claude Code","Codex CLI · your account","Cursor Agent","Gemini CLI"]],"out":null}
+{"fn":"joinEffort","args":["",false,["OpenCode","Claude Code","Codex CLI · your account","Cursor Agent","Gemini CLI"]],"out":null}
+{"fn":"joinEffort","args":["",true,["OpenCode","Claude Code","Codex CLI · your account","Cursor Agent","Gemini CLI"]],"out":null}
+{"fn":"effortScale","args":[["Claude Code","Gemini CLI"]],"out":{"bases":["Claude Code","Gemini CLI"],"hasFast":false}}
+{"fn":"levelsLine","args":[["Claude Code","Gemini CLI"]],"out":"Claude Code, Gemini CLI"}
+{"fn":"defaultEffort","args":[["Claude Code","Gemini CLI"],null],"out":"Gemini CLI"}
+{"fn":"defaultEffort","args":[["Claude Code","Gemini CLI"],"high"],"out":"Gemini CLI"}
+{"fn":"defaultEffort","args":[["Claude Code","Gemini CLI"],"medium"],"out":"Gemini CLI"}
+{"fn":"defaultEffort","args":[["Claude Code","Gemini CLI"],"turbo"],"out":"Gemini CLI"}
+{"fn":"defaultEffort","args":[["Claude Code","Gemini CLI"],""],"out":"Gemini CLI"}
+{"fn":"joinEffort","args":["low",false,["Claude Code","Gemini CLI"]],"out":null}
+{"fn":"joinEffort","args":["low",true,["Claude Code","Gemini CLI"]],"out":null}
+{"fn":"joinEffort","args":["high",false,["Claude Code","Gemini CLI"]],"out":null}
+{"fn":"joinEffort","args":["high",true,["Claude Code","Gemini CLI"]],"out":null}
+{"fn":"joinEffort","args":["max",false,["Claude Code","Gemini CLI"]],"out":null}
+{"fn":"joinEffort","args":["max",true,["Claude Code","Gemini CLI"]],"out":null}
+{"fn":"joinEffort","args":["turbo",false,["Claude Code","Gemini CLI"]],"out":null}
+{"fn":"joinEffort","args":["turbo",true,["Claude Code","Gemini CLI"]],"out":null}
+{"fn":"joinEffort","args":["",false,["Claude Code","Gemini CLI"]],"out":null}
+{"fn":"joinEffort","args":["",true,["Claude Code","Gemini CLI"]],"out":null}
+{"fn":"effortScale","args":[["Codex CLI","Claude Code"]],"out":{"bases":["Codex CLI","Claude Code"],"hasFast":false}}
+{"fn":"levelsLine","args":[["Codex CLI","Claude Code"]],"out":"Codex CLI, Claude Code"}
+{"fn":"defaultEffort","args":[["Codex CLI","Claude Code"],null],"out":"Claude Code"}
+{"fn":"defaultEffort","args":[["Codex CLI","Claude Code"],"high"],"out":"Claude Code"}
+{"fn":"defaultEffort","args":[["Codex CLI","Claude Code"],"medium"],"out":"Claude Code"}
+{"fn":"defaultEffort","args":[["Codex CLI","Claude Code"],"turbo"],"out":"Claude Code"}
+{"fn":"defaultEffort","args":[["Codex CLI","Claude Code"],""],"out":"Claude Code"}
+{"fn":"joinEffort","args":["low",false,["Codex CLI","Claude Code"]],"out":null}
+{"fn":"joinEffort","args":["low",true,["Codex CLI","Claude Code"]],"out":null}
+{"fn":"joinEffort","args":["high",false,["Codex CLI","Claude Code"]],"out":null}
+{"fn":"joinEffort","args":["high",true,["Codex CLI","Claude Code"]],"out":null}
+{"fn":"joinEffort","args":["max",false,["Codex CLI","Claude Code"]],"out":null}
+{"fn":"joinEffort","args":["max",true,["Codex CLI","Claude Code"]],"out":null}
+{"fn":"joinEffort","args":["turbo",false,["Codex CLI","Claude Code"]],"out":null}
+{"fn":"joinEffort","args":["turbo",true,["Codex CLI","Claude Code"]],"out":null}
+{"fn":"joinEffort","args":["",false,["Codex CLI","Claude Code"]],"out":null}
+{"fn":"joinEffort","args":["",true,["Codex CLI","Claude Code"]],"out":null}
+{"fn":"effortScale","args":[["Claude Code","Codex CLI","OpenCode"]],"out":{"bases":["Claude Code","Codex CLI","OpenCode"],"hasFast":false}}
+{"fn":"levelsLine","args":[["Claude Code","Codex CLI","OpenCode"]],"out":"Claude Code, Codex CLI, OpenCode"}
+{"fn":"defaultEffort","args":[["Claude Code","Codex CLI","OpenCode"],null],"out":"Codex CLI"}
+{"fn":"defaultEffort","args":[["Claude Code","Codex CLI","OpenCode"],"high"],"out":"Codex CLI"}
+{"fn":"defaultEffort","args":[["Claude Code","Codex CLI","OpenCode"],"medium"],"out":"Codex CLI"}
+{"fn":"defaultEffort","args":[["Claude Code","Codex CLI","OpenCode"],"turbo"],"out":"Codex CLI"}
+{"fn":"defaultEffort","args":[["Claude Code","Codex CLI","OpenCode"],""],"out":"Codex CLI"}
+{"fn":"joinEffort","args":["low",false,["Claude Code","Codex CLI","OpenCode"]],"out":null}
+{"fn":"joinEffort","args":["low",true,["Claude Code","Codex CLI","OpenCode"]],"out":null}
+{"fn":"joinEffort","args":["high",false,["Claude Code","Codex CLI","OpenCode"]],"out":null}
+{"fn":"joinEffort","args":["high",true,["Claude Code","Codex CLI","OpenCode"]],"out":null}
+{"fn":"joinEffort","args":["max",false,["Claude Code","Codex CLI","OpenCode"]],"out":null}
+{"fn":"joinEffort","args":["max",true,["Claude Code","Codex CLI","OpenCode"]],"out":null}
+{"fn":"joinEffort","args":["turbo",false,["Claude Code","Codex CLI","OpenCode"]],"out":null}
+{"fn":"joinEffort","args":["turbo",true,["Claude Code","Codex CLI","OpenCode"]],"out":null}
+{"fn":"joinEffort","args":["",false,["Claude Code","Codex CLI","OpenCode"]],"out":null}
+{"fn":"joinEffort","args":["",true,["Claude Code","Codex CLI","OpenCode"]],"out":null}
+{"fn":"effortScale","args":[["Zebra","Apple"]],"out":{"bases":["Zebra","Apple"],"hasFast":false}}
+{"fn":"levelsLine","args":[["Zebra","Apple"]],"out":"Zebra, Apple"}
+{"fn":"defaultEffort","args":[["Zebra","Apple"],null],"out":"Apple"}
+{"fn":"defaultEffort","args":[["Zebra","Apple"],"high"],"out":"Apple"}
+{"fn":"defaultEffort","args":[["Zebra","Apple"],"medium"],"out":"Apple"}
+{"fn":"defaultEffort","args":[["Zebra","Apple"],"turbo"],"out":"Apple"}
+{"fn":"defaultEffort","args":[["Zebra","Apple"],""],"out":"Apple"}
+{"fn":"joinEffort","args":["low",false,["Zebra","Apple"]],"out":null}
+{"fn":"joinEffort","args":["low",true,["Zebra","Apple"]],"out":null}
+{"fn":"joinEffort","args":["high",false,["Zebra","Apple"]],"out":null}
+{"fn":"joinEffort","args":["high",true,["Zebra","Apple"]],"out":null}
+{"fn":"joinEffort","args":["max",false,["Zebra","Apple"]],"out":null}
+{"fn":"joinEffort","args":["max",true,["Zebra","Apple"]],"out":null}
+{"fn":"joinEffort","args":["turbo",false,["Zebra","Apple"]],"out":null}
+{"fn":"joinEffort","args":["turbo",true,["Zebra","Apple"]],"out":null}
+{"fn":"joinEffort","args":["",false,["Zebra","Apple"]],"out":null}
+{"fn":"joinEffort","args":["",true,["Zebra","Apple"]],"out":null}
+{"fn":"effortScale","args":[["o2","o1","c"]],"out":{"bases":["o2","o1","c"],"hasFast":false}}
+{"fn":"levelsLine","args":[["o2","o1","c"]],"out":"O2, O1, C"}
+{"fn":"defaultEffort","args":[["o2","o1","c"],null],"out":"o1"}
+{"fn":"defaultEffort","args":[["o2","o1","c"],"high"],"out":"o1"}
+{"fn":"defaultEffort","args":[["o2","o1","c"],"medium"],"out":"o1"}
+{"fn":"defaultEffort","args":[["o2","o1","c"],"turbo"],"out":"o1"}
+{"fn":"defaultEffort","args":[["o2","o1","c"],""],"out":"o1"}
+{"fn":"joinEffort","args":["low",false,["o2","o1","c"]],"out":null}
+{"fn":"joinEffort","args":["low",true,["o2","o1","c"]],"out":null}
+{"fn":"joinEffort","args":["high",false,["o2","o1","c"]],"out":null}
+{"fn":"joinEffort","args":["high",true,["o2","o1","c"]],"out":null}
+{"fn":"joinEffort","args":["max",false,["o2","o1","c"]],"out":null}
+{"fn":"joinEffort","args":["max",true,["o2","o1","c"]],"out":null}
+{"fn":"joinEffort","args":["turbo",false,["o2","o1","c"]],"out":null}
+{"fn":"joinEffort","args":["turbo",true,["o2","o1","c"]],"out":null}
+{"fn":"joinEffort","args":["",false,["o2","o1","c"]],"out":null}
+{"fn":"joinEffort","args":["",true,["o2","o1","c"]],"out":null}
+{"fn":"effortScale","args":[["low","medium","high","xhigh","max"]],"out":{"bases":["low","medium","high","xhigh","max"],"hasFast":false}}
+{"fn":"levelsLine","args":[["low","medium","high","xhigh","max"]],"out":"Low to Max"}
+{"fn":"defaultEffort","args":[["low","medium","high","xhigh","max"],null],"out":"medium"}
+{"fn":"defaultEffort","args":[["low","medium","high","xhigh","max"],"high"],"out":"high"}
+{"fn":"defaultEffort","args":[["low","medium","high","xhigh","max"],"medium"],"out":"medium"}
+{"fn":"defaultEffort","args":[["low","medium","high","xhigh","max"],"turbo"],"out":"medium"}
+{"fn":"defaultEffort","args":[["low","medium","high","xhigh","max"],""],"out":"medium"}
+{"fn":"joinEffort","args":["low",false,["low","medium","high","xhigh","max"]],"out":"low"}
+{"fn":"joinEffort","args":["low",true,["low","medium","high","xhigh","max"]],"out":"low"}
+{"fn":"joinEffort","args":["high",false,["low","medium","high","xhigh","max"]],"out":"high"}
+{"fn":"joinEffort","args":["high",true,["low","medium","high","xhigh","max"]],"out":"high"}
+{"fn":"joinEffort","args":["max",false,["low","medium","high","xhigh","max"]],"out":"max"}
+{"fn":"joinEffort","args":["max",true,["low","medium","high","xhigh","max"]],"out":"max"}
+{"fn":"joinEffort","args":["turbo",false,["low","medium","high","xhigh","max"]],"out":null}
+{"fn":"joinEffort","args":["turbo",true,["low","medium","high","xhigh","max"]],"out":null}
+{"fn":"joinEffort","args":["",false,["low","medium","high","xhigh","max"]],"out":null}
+{"fn":"joinEffort","args":["",true,["low","medium","high","xhigh","max"]],"out":null}
+{"fn":"effortScale","args":[["low","high"]],"out":{"bases":["low","high"],"hasFast":false}}
+{"fn":"levelsLine","args":[["low","high"]],"out":"Low, High"}
+{"fn":"defaultEffort","args":[["low","high"],null],"out":"high"}
+{"fn":"defaultEffort","args":[["low","high"],"high"],"out":"high"}
+{"fn":"defaultEffort","args":[["low","high"],"medium"],"out":"high"}
+{"fn":"defaultEffort","args":[["low","high"],"turbo"],"out":"high"}
+{"fn":"defaultEffort","args":[["low","high"],""],"out":"high"}
+{"fn":"joinEffort","args":["low",false,["low","high"]],"out":"low"}
+{"fn":"joinEffort","args":["low",true,["low","high"]],"out":"low"}
+{"fn":"joinEffort","args":["high",false,["low","high"]],"out":"high"}
+{"fn":"joinEffort","args":["high",true,["low","high"]],"out":"high"}
+{"fn":"joinEffort","args":["max",false,["low","high"]],"out":null}
+{"fn":"joinEffort","args":["max",true,["low","high"]],"out":null}
+{"fn":"joinEffort","args":["turbo",false,["low","high"]],"out":null}
+{"fn":"joinEffort","args":["turbo",true,["low","high"]],"out":null}
+{"fn":"joinEffort","args":["",false,["low","high"]],"out":null}
+{"fn":"joinEffort","args":["",true,["low","high"]],"out":null}
+{"fn":"effortScale","args":[["low","low-fast","medium","high","xhigh","max","max-fast"]],"out":{"bases":["low","medium","high","xhigh","max"],"hasFast":true}}
+{"fn":"levelsLine","args":[["low","low-fast","medium","high","xhigh","max","max-fast"]],"out":"Low to Max · Fast"}
+{"fn":"defaultEffort","args":[["low","low-fast","medium","high","xhigh","max","max-fast"],null],"out":"medium"}
+{"fn":"defaultEffort","args":[["low","low-fast","medium","high","xhigh","max","max-fast"],"high"],"out":"high"}
+{"fn":"defaultEffort","args":[["low","low-fast","medium","high","xhigh","max","max-fast"],"medium"],"out":"medium"}
+{"fn":"defaultEffort","args":[["low","low-fast","medium","high","xhigh","max","max-fast"],"turbo"],"out":"medium"}
+{"fn":"defaultEffort","args":[["low","low-fast","medium","high","xhigh","max","max-fast"],""],"out":"medium"}
+{"fn":"joinEffort","args":["low",false,["low","low-fast","medium","high","xhigh","max","max-fast"]],"out":"low"}
+{"fn":"joinEffort","args":["low",true,["low","low-fast","medium","high","xhigh","max","max-fast"]],"out":"low-fast"}
+{"fn":"joinEffort","args":["high",false,["low","low-fast","medium","high","xhigh","max","max-fast"]],"out":"high"}
+{"fn":"joinEffort","args":["high",true,["low","low-fast","medium","high","xhigh","max","max-fast"]],"out":"high"}
+{"fn":"joinEffort","args":["max",false,["low","low-fast","medium","high","xhigh","max","max-fast"]],"out":"max"}
+{"fn":"joinEffort","args":["max",true,["low","low-fast","medium","high","xhigh","max","max-fast"]],"out":"max-fast"}
+{"fn":"joinEffort","args":["turbo",false,["low","low-fast","medium","high","xhigh","max","max-fast"]],"out":null}
+{"fn":"joinEffort","args":["turbo",true,["low","low-fast","medium","high","xhigh","max","max-fast"]],"out":null}
+{"fn":"joinEffort","args":["",false,["low","low-fast","medium","high","xhigh","max","max-fast"]],"out":null}
+{"fn":"joinEffort","args":["",true,["low","low-fast","medium","high","xhigh","max","max-fast"]],"out":null}
 {"fn":"effortScale","args":[["none"]],"out":{"bases":["none"],"hasFast":false}}
 {"fn":"levelsLine","args":[["none"]],"out":"None"}
 {"fn":"defaultEffort","args":[["none"],null],"out":"none"}

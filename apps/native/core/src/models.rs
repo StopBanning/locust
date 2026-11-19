@@ -199,7 +199,7 @@ pub fn parse_codex_models(result: &Value) -> Vec<Value> {
 }
 
 /// claude-models.ts: the version each alias means, and the fixed versions offered under them.
-const CLAUDE_ALIAS_DEFAULTS: [(&str, &str); 4] =
+pub const CLAUDE_ALIAS_DEFAULTS: [(&str, &str); 4] =
     [("fable", "claude-fable-5-1"), ("opus", "claude-opus-5-5"), ("sonnet", "claude-sonnet-5-5"), ("haiku", "claude-haiku-5-5")];
 const FIVE: &[&str] = &["low", "medium", "high", "xhigh", "max"];
 const FOUR: &[&str] = &["low", "medium", "high", "max"];

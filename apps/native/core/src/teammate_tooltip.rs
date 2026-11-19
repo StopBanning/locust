@@ -26,22 +26,41 @@ fn spell(id: &str) -> String {
 /// A model as the chip and the routine line say it (`routeModelName`): Claude's own names, else the id spelt out with
 /// its runtime's own prefix taken off ("Grok 4.7 High", "Nemotron 3.5 Lightning Free"); `auto` is "Auto model".
 pub fn route_model_name(runtime: &str, model: &str) -> String {
-    if runtime == "claude"
-        && let Some(named) = crate::models::claude_model_name(model)
-    {
-        return named;
+    if runtime == "claude" {
+        // claudeRouteModelName: a bare alias by the version it means today (`opus` is "Opus 5.5").
+        let meant = crate::models::CLAUDE_ALIAS_DEFAULTS.iter().find(|(alias, _)| *alias == model).map_or(model, |(_, id)| *id);
+        if let Some(named) = crate::models::claude_model_name(meant) {
+            return named;
+        }
     }
     if runtime == "antigravity"
         && let Some(named) = crate::runtime::antigravity::antigravity_tier_name(model)
     {
         return named.to_owned();
     }
+    // A model of the person's own (`own-1a2b3c4d/acme-70b`) by its own name.
+    if let Some(rest) = model.strip_prefix("own-")
+        && let Some((hex, name)) = rest.split_once('/')
+        && hex.len() == 8
+        && hex.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        && !name.is_empty()
+    {
+        return spell(name);
+    }
     let bare = model.strip_prefix(&format!("{runtime}/")).unwrap_or(model);
-    let bare = bare.strip_prefix(&format!("{runtime}-")).unwrap_or(bare);
-    if bare.eq_ignore_ascii_case("auto") {
+    if bare.trim().eq_ignore_ascii_case("auto") {
         return "Auto model".into();
     }
-    bare.split('/').map(spell).collect::<Vec<_>>().join("/")
+    // modelDisplayName: an id with a provider is split at its FIRST slash only, each side spelt out.
+    if let Some(at) = bare.find('/').filter(|at| *at > 0) {
+        return format!("{}/{}", spell(&bare[..at]), spell(&bare[at + 1..]));
+    }
+    let prefix = format!("{runtime}-");
+    let bare = match bare.get(..prefix.len()) {
+        Some(head) if bare.len() > prefix.len() && head.eq_ignore_ascii_case(&prefix) => &bare[prefix.len()..],
+        _ => bare,
+    };
+    spell(bare)
 }
 
 pub fn teammate_tooltip(teammate: &Teammate) -> String {

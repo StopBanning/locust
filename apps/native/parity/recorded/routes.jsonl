@@ -1,0 +1,1160 @@
+{"fn":"routeModelName","args":["claude","vitest"],"out":"Vitest"}
+{"fn":"routeModelName","args":["claude","./routeName.js"],"out":"./RouteName.js"}
+{"fn":"routeModelName","args":["claude","cursor"],"out":"Cursor"}
+{"fn":"routeModelName","args":["claude","cursor-grok-4.6"],"out":"Cursor Grok 4.6"}
+{"fn":"routeModelName","args":["claude","claude"],"out":"Claude"}
+{"fn":"routeModelName","args":["claude","fable-5.1"],"out":"Fable 5.1"}
+{"fn":"routeModelName","args":["claude","codex"],"out":"Codex"}
+{"fn":"routeModelName","args":["claude","gpt-6-astra"],"out":"GPT-6 Astra"}
+{"fn":"routeModelName","args":["claude","gpt-5.6-luna"],"out":"GPT-5.6 Luna"}
+{"fn":"routeModelName","args":["claude","cursor-grok-4.6-medium"],"out":"Cursor Grok 4.6 Medium"}
+{"fn":"routeModelName","args":["claude","composer-2.5"],"out":"Composer 2.5"}
+{"fn":"routeModelName","args":["claude","opencode"],"out":"Opencode"}
+{"fn":"routeModelName","args":["claude","opencode/deepseek-v4.1-flash-free"],"out":"Opencode/DeepSeek V4.1 Flash Free"}
+{"fn":"routeModelName","args":["claude","opencode/glm-5.3-flash-free"],"out":"Opencode/GLM 5.3 Flash Free"}
+{"fn":"routeModelName","args":["claude","opencode/mimo-v2.6-flash-free"],"out":"Opencode/MiMo V2.6 Flash Free"}
+{"fn":"routeModelName","args":["claude","opencode/nemotron-3.5-super-vl-free"],"out":"Opencode/Nemotron 3.5 Super VL Free"}
+{"fn":"routeModelName","args":["claude","opencode/minimax-m2.5-free"],"out":"Opencode/MiniMax M2.5 Free"}
+{"fn":"routeModelName","args":["claude","opencode/ling-3.0-flash-fin-free"],"out":"Opencode/Ling 3.0 Flash Fin Free"}
+{"fn":"routeModelName","args":["claude","anthropic/claude-sonnet-4"],"out":"Anthropic/Claude Sonnet 4"}
+{"fn":"routeModelName","args":["claude","some-unheard-of-model-9"],"out":"Some Unheard Of Model 9"}
+{"fn":"routeModelName","args":["claude","sonnet"],"out":"Sonnet 5.5"}
+{"fn":"routeModelName","args":["claude","claude-opus-5-5-medium"],"out":"Opus 5.5 Medium"}
+{"fn":"routeModelName","args":["claude","claude-opus-4-8-thinking-low"],"out":"Opus 4.8 Thinking Low"}
+{"fn":"routeModelName","args":["claude","claude-3-5-sonnet"],"out":"3 5 Sonnet"}
+{"fn":"routeModelName","args":["claude","claude-haiku-4-5-20251001"],"out":"Haiku 4.5"}
+{"fn":"routeModelName","args":["claude","gpt-4o-2024-08-06"],"out":"GPT-4o 2024 08 06"}
+{"fn":"routeModelName","args":["claude","cursor-grok-4.6-high"],"out":"Cursor Grok 4.6 High"}
+{"fn":"routeModelName","args":["claude","some-model-1-2-3"],"out":"Some Model 1 2 3"}
+{"fn":"routeModelName","args":["claude","antigravity"],"out":"Antigravity"}
+{"fn":"routeModelName","args":["claude","copilot"],"out":"Copilot"}
+{"fn":"routeModelName","args":["claude","auto"],"out":"Auto model"}
+{"fn":"routeModelName","args":["claude","model"],"out":"Model"}
+{"fn":"routeModelName","args":["claude","GPT-6-Luna"],"out":"GPT-6 Luna"}
+{"fn":"routeModelName","args":["claude","gpt-6-luna"],"out":"GPT-6 Luna"}
+{"fn":"routeModelName","args":["claude","gpt-6.1-sol"],"out":"GPT-6.1 Sol"}
+{"fn":"routeModelName","args":["claude","GPT-6.1-Sol"],"out":"GPT-6.1 Sol"}
+{"fn":"routeModelName","args":["claude","nemotron-3-ultra-free"],"out":"Nemotron 3 Ultra Free"}
+{"fn":"routeModelName","args":["claude","opencode/nemotron-3-ultra-free"],"out":"Opencode/Nemotron 3 Ultra Free"}
+{"fn":"routeModelName","args":["claude","account-default"],"out":"Account Default"}
+{"fn":"routeModelName","args":["claude","gpt-6-sol"],"out":"GPT-6 Sol"}
+{"fn":"routeModelName","args":["claude","GPT-6-Sol"],"out":"GPT-6 Sol"}
+{"fn":"routeModelName","args":["claude","kilo/kilo-auto/free"],"out":"Kilo/Kilo Auto/free"}
+{"fn":"routeModelName","args":["claude","kilo"],"out":"Kilo"}
+{"fn":"routeModelName","args":["claude","kilo/nvidia/nemotron-3.5-lightning:free"],"out":"Kilo/Nvidia/nemotron 3.5 Lightning:free"}
+{"fn":"routeModelName","args":["claude","kilo/nvidia/nemotron-3-nano-30b-a3b"],"out":"Kilo/Nvidia/nemotron 3 Nano 30b A3b"}
+{"fn":"routeModelName","args":["claude","react-dom/server"],"out":"React Dom/Server"}
+{"fn":"routeModelName","args":["claude","../../shared/claude-models.js"],"out":"../../shared/claude Models.js"}
+{"fn":"routeModelName","args":["claude","../../shared/ipc.js"],"out":"../../shared/ipc.js"}
+{"fn":"routeModelName","args":["claude","./components/RoutePicker.js"],"out":"./Components/RoutePicker.js"}
+{"fn":"routeModelName","args":["claude","claude-opus-5-5"],"out":"Opus 5.5"}
+{"fn":"routeModelName","args":["claude","claude-fable-5-1"],"out":"Fable 5.1"}
+{"fn":"routeModelName","args":["claude","claude-sonnet-5"],"out":"Sonnet 5"}
+{"fn":"routeModelName","args":["claude","claude-opus-4-1-20250805-v1"],"out":"Opus 4.1"}
+{"fn":"routeModelName","args":["claude","claude-opus-4-20250514"],"out":"Opus 4"}
+{"fn":"routeModelName","args":["claude","opus"],"out":"Opus 5.5"}
+{"fn":"routeModelName","args":["claude","claude-fable-5-mythos-5"],"out":"Fable 5 Mythos 5"}
+{"fn":"routeModelName","args":["claude","gpt-6"],"out":"GPT-6"}
+{"fn":"routeModelName","args":["claude","claude-sonnet-5-5"],"out":"Sonnet 5.5"}
+{"fn":"routeModelName","args":["claude","claude-haiku-5-5"],"out":"Haiku 5.5"}
+{"fn":"routeModelName","args":["claude","claude-opus-4-7"],"out":"Opus 4.7"}
+{"fn":"routeModelName","args":["claude","claude-opus-4-8"],"out":"Opus 4.8"}
+{"fn":"routeModelName","args":["claude","haiku"],"out":"Haiku 5.5"}
+{"fn":"routeModelName","args":["claude","fable"],"out":"Fable 5.1"}
+{"fn":"routeModelName","args":["claude","claude-opus-5-5-20260901"],"out":"Opus 5.5"}
+{"fn":"routeModelName","args":["claude","authenticated"],"out":"Authenticated"}
+{"fn":"routeModelName","args":["claude","ready"],"out":"Ready"}
+{"fn":"routeModelName","args":["claude","./components/Composer.js"],"out":"./Components/Composer.js"}
+{"fn":"routeModelName","args":["claude","./missionView.js"],"out":"./MissionView.js"}
+{"fn":"routeModelName","args":["claude","accept-edits"],"out":"Accept Edits"}
+{"fn":"routeModelName","args":["claude","C:/test"],"out":"C:/Test"}
+{"fn":"routeModelName","args":["claude","claude:account-default"],"out":"Claude:account Default"}
+{"fn":"routeModelName","args":["claude","./components/GroupSettingsDialog.js"],"out":"./Components/GroupSettingsDialog.js"}
+{"fn":"routeModelName","args":["claude","own-a1b2c3d0/acme-70b"],"out":"Acme 70b"}
+{"fn":"routeModelName","args":["claude","route"],"out":"Route"}
+{"fn":"routeModelName","args":["claude","shop"],"out":"Shop"}
+{"fn":"routeModelName","args":["claude","listbox"],"out":"Listbox"}
+{"fn":"routeModelName","args":["claude","opencode/muse-spark-1.3-contributor-free"],"out":"Opencode/Muse Spark 1.3 Contributor Free"}
+{"fn":"routeModelName","args":["claude","./status.js"],"out":"./Status.js"}
+{"fn":"routeModelName","args":["claude","codex:gpt-5.6"],"out":"Codex:gpt 5.6"}
+{"fn":"routeModelName","args":["claude","opencode:ling-free"],"out":"Opencode:ling Free"}
+{"fn":"routeModelName","args":["claude",""],"out":""}
+{"fn":"routeModelName","args":["claude","AUTO"],"out":"Auto model"}
+{"fn":"routeModelName","args":["claude"," Auto "],"out":"Auto model"}
+{"fn":"routeModelName","args":["claude","gpt-6-codex"],"out":"GPT-6 Codex"}
+{"fn":"routeModelName","args":["claude","gpt-6.1-mini"],"out":"GPT-6.1 Mini"}
+{"fn":"routeModelName","args":["claude","claude-sonnet-5-5-20261001"],"out":"Sonnet 5.5"}
+{"fn":"routeModelName","args":["claude","opencode/nemotron-3.5-lightning-free"],"out":"Opencode/Nemotron 3.5 Lightning Free"}
+{"fn":"routeModelName","args":["claude","deepseek-v4-flash"],"out":"DeepSeek V4 Flash"}
+{"fn":"routeModelName","args":["claude","glm-5"],"out":"GLM 5"}
+{"fn":"routeModelName","args":["claude","qwen3-coder"],"out":"Qwen3 Coder"}
+{"fn":"routeModelName","args":["claude","kimi-k2-free"],"out":"Kimi K2 Free"}
+{"fn":"routeModelName","args":["claude","mimo-v2"],"out":"MiMo V2"}
+{"fn":"routeModelName","args":["claude","minimax-m3"],"out":"MiniMax M3"}
+{"fn":"routeModelName","args":["claude","grok-4.7-high"],"out":"Grok 4.7 High"}
+{"fn":"routeModelName","args":["claude","gemini-4-neon"],"out":"Gemini 4 Neon"}
+{"fn":"routeModelName","args":["claude","gemini-4-hydrogen-medium"],"out":"Gemini 4 Hydrogen Medium"}
+{"fn":"routeModelName","args":["claude","flash"],"out":"Flash"}
+{"fn":"routeModelName","args":["claude","pro"],"out":"Pro"}
+{"fn":"routeModelName","args":["claude","flash_lite"],"out":"Flash_lite"}
+{"fn":"routeModelName","args":["claude","cursor-auto"],"out":"Cursor Auto"}
+{"fn":"routeModelName","args":["claude","copilot-gpt-6"],"out":"Copilot GPT-6"}
+{"fn":"routeModelName","args":["claude","nvidia/nemotron-3.5-lightning:free"],"out":"Nvidia/Nemotron 3.5 Lightning:free"}
+{"fn":"routeModelName","args":["claude","a--b"],"out":"A  B"}
+{"fn":"routeModelName","args":["claude","-lead"],"out":" Lead"}
+{"fn":"routeModelName","args":["claude","trail-"],"out":"Trail "}
+{"fn":"routeModelName","args":["claude","émile-2"],"out":"Émile 2"}
+{"fn":"routeModelName","args":["claude","model-🚀-1"],"out":"Model 🚀 1"}
+{"fn":"routeModelName","args":["claude","x-1-2-3"],"out":"X 1 2 3"}
+{"fn":"routeModelName","args":["claude","v1-2"],"out":"V1 2"}
+{"fn":"routeModelName","args":["claude","gpt-oss-120b"],"out":"GPT Oss 120b"}
+{"fn":"routeModelName","args":["claude","llama-4-70b-vl"],"out":"Llama 4 70b VL"}
+{"fn":"routeModelName","args":["claude","ai-21"],"out":"AI-21"}
+{"fn":"routeModelName","args":["claude","cli-2"],"out":"CLI-2"}
+{"fn":"routeModelName","args":["claude","own-0123abcd/my-model"],"out":"My Model"}
+{"fn":"routeModelName","args":["claude","acp_goose"],"out":"Acp_goose"}
+{"fn":"routeModelName","args":["claude","acp_goose::deepseek-v4-flash"],"out":"Acp_goose::deepseek V4 Flash"}
+{"fn":"routeModelName","args":["codex","vitest"],"out":"Vitest"}
+{"fn":"routeModelName","args":["codex","./routeName.js"],"out":"./RouteName.js"}
+{"fn":"routeModelName","args":["codex","cursor"],"out":"Cursor"}
+{"fn":"routeModelName","args":["codex","cursor-grok-4.6"],"out":"Cursor Grok 4.6"}
+{"fn":"routeModelName","args":["codex","claude"],"out":"Claude"}
+{"fn":"routeModelName","args":["codex","fable-5.1"],"out":"Fable 5.1"}
+{"fn":"routeModelName","args":["codex","codex"],"out":"Codex"}
+{"fn":"routeModelName","args":["codex","gpt-6-astra"],"out":"GPT-6 Astra"}
+{"fn":"routeModelName","args":["codex","gpt-5.6-luna"],"out":"GPT-5.6 Luna"}
+{"fn":"routeModelName","args":["codex","cursor-grok-4.6-medium"],"out":"Cursor Grok 4.6 Medium"}
+{"fn":"routeModelName","args":["codex","composer-2.5"],"out":"Composer 2.5"}
+{"fn":"routeModelName","args":["codex","opencode"],"out":"Opencode"}
+{"fn":"routeModelName","args":["codex","opencode/deepseek-v4.1-flash-free"],"out":"Opencode/DeepSeek V4.1 Flash Free"}
+{"fn":"routeModelName","args":["codex","opencode/glm-5.3-flash-free"],"out":"Opencode/GLM 5.3 Flash Free"}
+{"fn":"routeModelName","args":["codex","opencode/mimo-v2.6-flash-free"],"out":"Opencode/MiMo V2.6 Flash Free"}
+{"fn":"routeModelName","args":["codex","opencode/nemotron-3.5-super-vl-free"],"out":"Opencode/Nemotron 3.5 Super VL Free"}
+{"fn":"routeModelName","args":["codex","opencode/minimax-m2.5-free"],"out":"Opencode/MiniMax M2.5 Free"}
+{"fn":"routeModelName","args":["codex","opencode/ling-3.0-flash-fin-free"],"out":"Opencode/Ling 3.0 Flash Fin Free"}
+{"fn":"routeModelName","args":["codex","anthropic/claude-sonnet-4"],"out":"Anthropic/Claude Sonnet 4"}
+{"fn":"routeModelName","args":["codex","some-unheard-of-model-9"],"out":"Some Unheard Of Model 9"}
+{"fn":"routeModelName","args":["codex","sonnet"],"out":"Sonnet"}
+{"fn":"routeModelName","args":["codex","claude-opus-5-5-medium"],"out":"Claude Opus 5.5 Medium"}
+{"fn":"routeModelName","args":["codex","claude-opus-4-8-thinking-low"],"out":"Claude Opus 4.8 Thinking Low"}
+{"fn":"routeModelName","args":["codex","claude-3-5-sonnet"],"out":"Claude 3.5 Sonnet"}
+{"fn":"routeModelName","args":["codex","claude-haiku-4-5-20251001"],"out":"Claude Haiku 4.5 20251001"}
+{"fn":"routeModelName","args":["codex","gpt-4o-2024-08-06"],"out":"GPT-4o 2024 08 06"}
+{"fn":"routeModelName","args":["codex","cursor-grok-4.6-high"],"out":"Cursor Grok 4.6 High"}
+{"fn":"routeModelName","args":["codex","some-model-1-2-3"],"out":"Some Model 1 2 3"}
+{"fn":"routeModelName","args":["codex","antigravity"],"out":"Antigravity"}
+{"fn":"routeModelName","args":["codex","copilot"],"out":"Copilot"}
+{"fn":"routeModelName","args":["codex","auto"],"out":"Auto model"}
+{"fn":"routeModelName","args":["codex","model"],"out":"Model"}
+{"fn":"routeModelName","args":["codex","GPT-6-Luna"],"out":"GPT-6 Luna"}
+{"fn":"routeModelName","args":["codex","gpt-6-luna"],"out":"GPT-6 Luna"}
+{"fn":"routeModelName","args":["codex","gpt-6.1-sol"],"out":"GPT-6.1 Sol"}
+{"fn":"routeModelName","args":["codex","GPT-6.1-Sol"],"out":"GPT-6.1 Sol"}
+{"fn":"routeModelName","args":["codex","nemotron-3-ultra-free"],"out":"Nemotron 3 Ultra Free"}
+{"fn":"routeModelName","args":["codex","opencode/nemotron-3-ultra-free"],"out":"Opencode/Nemotron 3 Ultra Free"}
+{"fn":"routeModelName","args":["codex","account-default"],"out":"Account Default"}
+{"fn":"routeModelName","args":["codex","gpt-6-sol"],"out":"GPT-6 Sol"}
+{"fn":"routeModelName","args":["codex","GPT-6-Sol"],"out":"GPT-6 Sol"}
+{"fn":"routeModelName","args":["codex","kilo/kilo-auto/free"],"out":"Kilo/Kilo Auto/free"}
+{"fn":"routeModelName","args":["codex","kilo"],"out":"Kilo"}
+{"fn":"routeModelName","args":["codex","kilo/nvidia/nemotron-3.5-lightning:free"],"out":"Kilo/Nvidia/nemotron 3.5 Lightning:free"}
+{"fn":"routeModelName","args":["codex","kilo/nvidia/nemotron-3-nano-30b-a3b"],"out":"Kilo/Nvidia/nemotron 3 Nano 30b A3b"}
+{"fn":"routeModelName","args":["codex","react-dom/server"],"out":"React Dom/Server"}
+{"fn":"routeModelName","args":["codex","../../shared/claude-models.js"],"out":"../../shared/claude Models.js"}
+{"fn":"routeModelName","args":["codex","../../shared/ipc.js"],"out":"../../shared/ipc.js"}
+{"fn":"routeModelName","args":["codex","./components/RoutePicker.js"],"out":"./Components/RoutePicker.js"}
+{"fn":"routeModelName","args":["codex","claude-opus-5-5"],"out":"Claude Opus 5.5"}
+{"fn":"routeModelName","args":["codex","claude-fable-5-1"],"out":"Claude Fable 5.1"}
+{"fn":"routeModelName","args":["codex","claude-sonnet-5"],"out":"Claude Sonnet 5"}
+{"fn":"routeModelName","args":["codex","claude-opus-4-1-20250805-v1"],"out":"Claude Opus 4.1 20250805 V1"}
+{"fn":"routeModelName","args":["codex","claude-opus-4-20250514"],"out":"Claude Opus 4 20250514"}
+{"fn":"routeModelName","args":["codex","opus"],"out":"Opus"}
+{"fn":"routeModelName","args":["codex","claude-fable-5-mythos-5"],"out":"Claude Fable 5 Mythos 5"}
+{"fn":"routeModelName","args":["codex","gpt-6"],"out":"GPT-6"}
+{"fn":"routeModelName","args":["codex","claude-sonnet-5-5"],"out":"Claude Sonnet 5.5"}
+{"fn":"routeModelName","args":["codex","claude-haiku-5-5"],"out":"Claude Haiku 5.5"}
+{"fn":"routeModelName","args":["codex","claude-opus-4-7"],"out":"Claude Opus 4.7"}
+{"fn":"routeModelName","args":["codex","claude-opus-4-8"],"out":"Claude Opus 4.8"}
+{"fn":"routeModelName","args":["codex","haiku"],"out":"Haiku"}
+{"fn":"routeModelName","args":["codex","fable"],"out":"Fable"}
+{"fn":"routeModelName","args":["codex","claude-opus-5-5-20260901"],"out":"Claude Opus 5.5 20260901"}
+{"fn":"routeModelName","args":["codex","authenticated"],"out":"Authenticated"}
+{"fn":"routeModelName","args":["codex","ready"],"out":"Ready"}
+{"fn":"routeModelName","args":["codex","./components/Composer.js"],"out":"./Components/Composer.js"}
+{"fn":"routeModelName","args":["codex","./missionView.js"],"out":"./MissionView.js"}
+{"fn":"routeModelName","args":["codex","accept-edits"],"out":"Accept Edits"}
+{"fn":"routeModelName","args":["codex","C:/test"],"out":"C:/Test"}
+{"fn":"routeModelName","args":["codex","claude:account-default"],"out":"Claude:account Default"}
+{"fn":"routeModelName","args":["codex","./components/GroupSettingsDialog.js"],"out":"./Components/GroupSettingsDialog.js"}
+{"fn":"routeModelName","args":["codex","own-a1b2c3d0/acme-70b"],"out":"Acme 70b"}
+{"fn":"routeModelName","args":["codex","route"],"out":"Route"}
+{"fn":"routeModelName","args":["codex","shop"],"out":"Shop"}
+{"fn":"routeModelName","args":["codex","listbox"],"out":"Listbox"}
+{"fn":"routeModelName","args":["codex","opencode/muse-spark-1.3-contributor-free"],"out":"Opencode/Muse Spark 1.3 Contributor Free"}
+{"fn":"routeModelName","args":["codex","./status.js"],"out":"./Status.js"}
+{"fn":"routeModelName","args":["codex","codex:gpt-5.6"],"out":"Codex:gpt 5.6"}
+{"fn":"routeModelName","args":["codex","opencode:ling-free"],"out":"Opencode:ling Free"}
+{"fn":"routeModelName","args":["codex",""],"out":""}
+{"fn":"routeModelName","args":["codex","AUTO"],"out":"Auto model"}
+{"fn":"routeModelName","args":["codex"," Auto "],"out":"Auto model"}
+{"fn":"routeModelName","args":["codex","gpt-6-codex"],"out":"GPT-6 Codex"}
+{"fn":"routeModelName","args":["codex","gpt-6.1-mini"],"out":"GPT-6.1 Mini"}
+{"fn":"routeModelName","args":["codex","claude-sonnet-5-5-20261001"],"out":"Claude Sonnet 5.5 20261001"}
+{"fn":"routeModelName","args":["codex","opencode/nemotron-3.5-lightning-free"],"out":"Opencode/Nemotron 3.5 Lightning Free"}
+{"fn":"routeModelName","args":["codex","deepseek-v4-flash"],"out":"DeepSeek V4 Flash"}
+{"fn":"routeModelName","args":["codex","glm-5"],"out":"GLM 5"}
+{"fn":"routeModelName","args":["codex","qwen3-coder"],"out":"Qwen3 Coder"}
+{"fn":"routeModelName","args":["codex","kimi-k2-free"],"out":"Kimi K2 Free"}
+{"fn":"routeModelName","args":["codex","mimo-v2"],"out":"MiMo V2"}
+{"fn":"routeModelName","args":["codex","minimax-m3"],"out":"MiniMax M3"}
+{"fn":"routeModelName","args":["codex","grok-4.7-high"],"out":"Grok 4.7 High"}
+{"fn":"routeModelName","args":["codex","gemini-4-neon"],"out":"Gemini 4 Neon"}
+{"fn":"routeModelName","args":["codex","gemini-4-hydrogen-medium"],"out":"Gemini 4 Hydrogen Medium"}
+{"fn":"routeModelName","args":["codex","flash"],"out":"Flash"}
+{"fn":"routeModelName","args":["codex","pro"],"out":"Pro"}
+{"fn":"routeModelName","args":["codex","flash_lite"],"out":"Flash_lite"}
+{"fn":"routeModelName","args":["codex","cursor-auto"],"out":"Cursor Auto"}
+{"fn":"routeModelName","args":["codex","copilot-gpt-6"],"out":"Copilot GPT-6"}
+{"fn":"routeModelName","args":["codex","nvidia/nemotron-3.5-lightning:free"],"out":"Nvidia/Nemotron 3.5 Lightning:free"}
+{"fn":"routeModelName","args":["codex","a--b"],"out":"A  B"}
+{"fn":"routeModelName","args":["codex","-lead"],"out":" Lead"}
+{"fn":"routeModelName","args":["codex","trail-"],"out":"Trail "}
+{"fn":"routeModelName","args":["codex","émile-2"],"out":"Émile 2"}
+{"fn":"routeModelName","args":["codex","model-🚀-1"],"out":"Model 🚀 1"}
+{"fn":"routeModelName","args":["codex","x-1-2-3"],"out":"X 1 2 3"}
+{"fn":"routeModelName","args":["codex","v1-2"],"out":"V1 2"}
+{"fn":"routeModelName","args":["codex","gpt-oss-120b"],"out":"GPT Oss 120b"}
+{"fn":"routeModelName","args":["codex","llama-4-70b-vl"],"out":"Llama 4 70b VL"}
+{"fn":"routeModelName","args":["codex","ai-21"],"out":"AI-21"}
+{"fn":"routeModelName","args":["codex","cli-2"],"out":"CLI-2"}
+{"fn":"routeModelName","args":["codex","own-0123abcd/my-model"],"out":"My Model"}
+{"fn":"routeModelName","args":["codex","acp_goose"],"out":"Acp_goose"}
+{"fn":"routeModelName","args":["codex","acp_goose::deepseek-v4-flash"],"out":"Acp_goose::deepseek V4 Flash"}
+{"fn":"routeModelName","args":["cursor","vitest"],"out":"Vitest"}
+{"fn":"routeModelName","args":["cursor","./routeName.js"],"out":"./RouteName.js"}
+{"fn":"routeModelName","args":["cursor","cursor"],"out":"Cursor"}
+{"fn":"routeModelName","args":["cursor","cursor-grok-4.6"],"out":"Grok 4.6"}
+{"fn":"routeModelName","args":["cursor","claude"],"out":"Claude"}
+{"fn":"routeModelName","args":["cursor","fable-5.1"],"out":"Fable 5.1"}
+{"fn":"routeModelName","args":["cursor","codex"],"out":"Codex"}
+{"fn":"routeModelName","args":["cursor","gpt-6-astra"],"out":"GPT-6 Astra"}
+{"fn":"routeModelName","args":["cursor","gpt-5.6-luna"],"out":"GPT-5.6 Luna"}
+{"fn":"routeModelName","args":["cursor","cursor-grok-4.6-medium"],"out":"Grok 4.6 Medium"}
+{"fn":"routeModelName","args":["cursor","composer-2.5"],"out":"Composer 2.5"}
+{"fn":"routeModelName","args":["cursor","opencode"],"out":"Opencode"}
+{"fn":"routeModelName","args":["cursor","opencode/deepseek-v4.1-flash-free"],"out":"Opencode/DeepSeek V4.1 Flash Free"}
+{"fn":"routeModelName","args":["cursor","opencode/glm-5.3-flash-free"],"out":"Opencode/GLM 5.3 Flash Free"}
+{"fn":"routeModelName","args":["cursor","opencode/mimo-v2.6-flash-free"],"out":"Opencode/MiMo V2.6 Flash Free"}
+{"fn":"routeModelName","args":["cursor","opencode/nemotron-3.5-super-vl-free"],"out":"Opencode/Nemotron 3.5 Super VL Free"}
+{"fn":"routeModelName","args":["cursor","opencode/minimax-m2.5-free"],"out":"Opencode/MiniMax M2.5 Free"}
+{"fn":"routeModelName","args":["cursor","opencode/ling-3.0-flash-fin-free"],"out":"Opencode/Ling 3.0 Flash Fin Free"}
+{"fn":"routeModelName","args":["cursor","anthropic/claude-sonnet-4"],"out":"Anthropic/Claude Sonnet 4"}
+{"fn":"routeModelName","args":["cursor","some-unheard-of-model-9"],"out":"Some Unheard Of Model 9"}
+{"fn":"routeModelName","args":["cursor","sonnet"],"out":"Sonnet"}
+{"fn":"routeModelName","args":["cursor","claude-opus-5-5-medium"],"out":"Claude Opus 5.5 Medium"}
+{"fn":"routeModelName","args":["cursor","claude-opus-4-8-thinking-low"],"out":"Claude Opus 4.8 Thinking Low"}
+{"fn":"routeModelName","args":["cursor","claude-3-5-sonnet"],"out":"Claude 3.5 Sonnet"}
+{"fn":"routeModelName","args":["cursor","claude-haiku-4-5-20251001"],"out":"Claude Haiku 4.5 20251001"}
+{"fn":"routeModelName","args":["cursor","gpt-4o-2024-08-06"],"out":"GPT-4o 2024 08 06"}
+{"fn":"routeModelName","args":["cursor","cursor-grok-4.6-high"],"out":"Grok 4.6 High"}
+{"fn":"routeModelName","args":["cursor","some-model-1-2-3"],"out":"Some Model 1 2 3"}
+{"fn":"routeModelName","args":["cursor","antigravity"],"out":"Antigravity"}
+{"fn":"routeModelName","args":["cursor","copilot"],"out":"Copilot"}
+{"fn":"routeModelName","args":["cursor","auto"],"out":"Auto model"}
+{"fn":"routeModelName","args":["cursor","model"],"out":"Model"}
+{"fn":"routeModelName","args":["cursor","GPT-6-Luna"],"out":"GPT-6 Luna"}
+{"fn":"routeModelName","args":["cursor","gpt-6-luna"],"out":"GPT-6 Luna"}
+{"fn":"routeModelName","args":["cursor","gpt-6.1-sol"],"out":"GPT-6.1 Sol"}
+{"fn":"routeModelName","args":["cursor","GPT-6.1-Sol"],"out":"GPT-6.1 Sol"}
+{"fn":"routeModelName","args":["cursor","nemotron-3-ultra-free"],"out":"Nemotron 3 Ultra Free"}
+{"fn":"routeModelName","args":["cursor","opencode/nemotron-3-ultra-free"],"out":"Opencode/Nemotron 3 Ultra Free"}
+{"fn":"routeModelName","args":["cursor","account-default"],"out":"Account Default"}
+{"fn":"routeModelName","args":["cursor","gpt-6-sol"],"out":"GPT-6 Sol"}
+{"fn":"routeModelName","args":["cursor","GPT-6-Sol"],"out":"GPT-6 Sol"}
+{"fn":"routeModelName","args":["cursor","kilo/kilo-auto/free"],"out":"Kilo/Kilo Auto/free"}
+{"fn":"routeModelName","args":["cursor","kilo"],"out":"Kilo"}
+{"fn":"routeModelName","args":["cursor","kilo/nvidia/nemotron-3.5-lightning:free"],"out":"Kilo/Nvidia/nemotron 3.5 Lightning:free"}
+{"fn":"routeModelName","args":["cursor","kilo/nvidia/nemotron-3-nano-30b-a3b"],"out":"Kilo/Nvidia/nemotron 3 Nano 30b A3b"}
+{"fn":"routeModelName","args":["cursor","react-dom/server"],"out":"React Dom/Server"}
+{"fn":"routeModelName","args":["cursor","../../shared/claude-models.js"],"out":"../../shared/claude Models.js"}
+{"fn":"routeModelName","args":["cursor","../../shared/ipc.js"],"out":"../../shared/ipc.js"}
+{"fn":"routeModelName","args":["cursor","./components/RoutePicker.js"],"out":"./Components/RoutePicker.js"}
+{"fn":"routeModelName","args":["cursor","claude-opus-5-5"],"out":"Claude Opus 5.5"}
+{"fn":"routeModelName","args":["cursor","claude-fable-5-1"],"out":"Claude Fable 5.1"}
+{"fn":"routeModelName","args":["cursor","claude-sonnet-5"],"out":"Claude Sonnet 5"}
+{"fn":"routeModelName","args":["cursor","claude-opus-4-1-20250805-v1"],"out":"Claude Opus 4.1 20250805 V1"}
+{"fn":"routeModelName","args":["cursor","claude-opus-4-20250514"],"out":"Claude Opus 4 20250514"}
+{"fn":"routeModelName","args":["cursor","opus"],"out":"Opus"}
+{"fn":"routeModelName","args":["cursor","claude-fable-5-mythos-5"],"out":"Claude Fable 5 Mythos 5"}
+{"fn":"routeModelName","args":["cursor","gpt-6"],"out":"GPT-6"}
+{"fn":"routeModelName","args":["cursor","claude-sonnet-5-5"],"out":"Claude Sonnet 5.5"}
+{"fn":"routeModelName","args":["cursor","claude-haiku-5-5"],"out":"Claude Haiku 5.5"}
+{"fn":"routeModelName","args":["cursor","claude-opus-4-7"],"out":"Claude Opus 4.7"}
+{"fn":"routeModelName","args":["cursor","claude-opus-4-8"],"out":"Claude Opus 4.8"}
+{"fn":"routeModelName","args":["cursor","haiku"],"out":"Haiku"}
+{"fn":"routeModelName","args":["cursor","fable"],"out":"Fable"}
+{"fn":"routeModelName","args":["cursor","claude-opus-5-5-20260901"],"out":"Claude Opus 5.5 20260901"}
+{"fn":"routeModelName","args":["cursor","authenticated"],"out":"Authenticated"}
+{"fn":"routeModelName","args":["cursor","ready"],"out":"Ready"}
+{"fn":"routeModelName","args":["cursor","./components/Composer.js"],"out":"./Components/Composer.js"}
+{"fn":"routeModelName","args":["cursor","./missionView.js"],"out":"./MissionView.js"}
+{"fn":"routeModelName","args":["cursor","accept-edits"],"out":"Accept Edits"}
+{"fn":"routeModelName","args":["cursor","C:/test"],"out":"C:/Test"}
+{"fn":"routeModelName","args":["cursor","claude:account-default"],"out":"Claude:account Default"}
+{"fn":"routeModelName","args":["cursor","./components/GroupSettingsDialog.js"],"out":"./Components/GroupSettingsDialog.js"}
+{"fn":"routeModelName","args":["cursor","own-a1b2c3d0/acme-70b"],"out":"Acme 70b"}
+{"fn":"routeModelName","args":["cursor","route"],"out":"Route"}
+{"fn":"routeModelName","args":["cursor","shop"],"out":"Shop"}
+{"fn":"routeModelName","args":["cursor","listbox"],"out":"Listbox"}
+{"fn":"routeModelName","args":["cursor","opencode/muse-spark-1.3-contributor-free"],"out":"Opencode/Muse Spark 1.3 Contributor Free"}
+{"fn":"routeModelName","args":["cursor","./status.js"],"out":"./Status.js"}
+{"fn":"routeModelName","args":["cursor","codex:gpt-5.6"],"out":"Codex:gpt 5.6"}
+{"fn":"routeModelName","args":["cursor","opencode:ling-free"],"out":"Opencode:ling Free"}
+{"fn":"routeModelName","args":["cursor",""],"out":""}
+{"fn":"routeModelName","args":["cursor","AUTO"],"out":"Auto model"}
+{"fn":"routeModelName","args":["cursor"," Auto "],"out":"Auto model"}
+{"fn":"routeModelName","args":["cursor","gpt-6-codex"],"out":"GPT-6 Codex"}
+{"fn":"routeModelName","args":["cursor","gpt-6.1-mini"],"out":"GPT-6.1 Mini"}
+{"fn":"routeModelName","args":["cursor","claude-sonnet-5-5-20261001"],"out":"Claude Sonnet 5.5 20261001"}
+{"fn":"routeModelName","args":["cursor","opencode/nemotron-3.5-lightning-free"],"out":"Opencode/Nemotron 3.5 Lightning Free"}
+{"fn":"routeModelName","args":["cursor","deepseek-v4-flash"],"out":"DeepSeek V4 Flash"}
+{"fn":"routeModelName","args":["cursor","glm-5"],"out":"GLM 5"}
+{"fn":"routeModelName","args":["cursor","qwen3-coder"],"out":"Qwen3 Coder"}
+{"fn":"routeModelName","args":["cursor","kimi-k2-free"],"out":"Kimi K2 Free"}
+{"fn":"routeModelName","args":["cursor","mimo-v2"],"out":"MiMo V2"}
+{"fn":"routeModelName","args":["cursor","minimax-m3"],"out":"MiniMax M3"}
+{"fn":"routeModelName","args":["cursor","grok-4.7-high"],"out":"Grok 4.7 High"}
+{"fn":"routeModelName","args":["cursor","gemini-4-neon"],"out":"Gemini 4 Neon"}
+{"fn":"routeModelName","args":["cursor","gemini-4-hydrogen-medium"],"out":"Gemini 4 Hydrogen Medium"}
+{"fn":"routeModelName","args":["cursor","flash"],"out":"Flash"}
+{"fn":"routeModelName","args":["cursor","pro"],"out":"Pro"}
+{"fn":"routeModelName","args":["cursor","flash_lite"],"out":"Flash_lite"}
+{"fn":"routeModelName","args":["cursor","cursor-auto"],"out":"Auto"}
+{"fn":"routeModelName","args":["cursor","copilot-gpt-6"],"out":"Copilot GPT-6"}
+{"fn":"routeModelName","args":["cursor","nvidia/nemotron-3.5-lightning:free"],"out":"Nvidia/Nemotron 3.5 Lightning:free"}
+{"fn":"routeModelName","args":["cursor","a--b"],"out":"A  B"}
+{"fn":"routeModelName","args":["cursor","-lead"],"out":" Lead"}
+{"fn":"routeModelName","args":["cursor","trail-"],"out":"Trail "}
+{"fn":"routeModelName","args":["cursor","émile-2"],"out":"Émile 2"}
+{"fn":"routeModelName","args":["cursor","model-🚀-1"],"out":"Model 🚀 1"}
+{"fn":"routeModelName","args":["cursor","x-1-2-3"],"out":"X 1 2 3"}
+{"fn":"routeModelName","args":["cursor","v1-2"],"out":"V1 2"}
+{"fn":"routeModelName","args":["cursor","gpt-oss-120b"],"out":"GPT Oss 120b"}
+{"fn":"routeModelName","args":["cursor","llama-4-70b-vl"],"out":"Llama 4 70b VL"}
+{"fn":"routeModelName","args":["cursor","ai-21"],"out":"AI-21"}
+{"fn":"routeModelName","args":["cursor","cli-2"],"out":"CLI-2"}
+{"fn":"routeModelName","args":["cursor","own-0123abcd/my-model"],"out":"My Model"}
+{"fn":"routeModelName","args":["cursor","acp_goose"],"out":"Acp_goose"}
+{"fn":"routeModelName","args":["cursor","acp_goose::deepseek-v4-flash"],"out":"Acp_goose::deepseek V4 Flash"}
+{"fn":"routeModelName","args":["copilot","vitest"],"out":"Vitest"}
+{"fn":"routeModelName","args":["copilot","./routeName.js"],"out":"./RouteName.js"}
+{"fn":"routeModelName","args":["copilot","cursor"],"out":"Cursor"}
+{"fn":"routeModelName","args":["copilot","cursor-grok-4.6"],"out":"Cursor Grok 4.6"}
+{"fn":"routeModelName","args":["copilot","claude"],"out":"Claude"}
+{"fn":"routeModelName","args":["copilot","fable-5.1"],"out":"Fable 5.1"}
+{"fn":"routeModelName","args":["copilot","codex"],"out":"Codex"}
+{"fn":"routeModelName","args":["copilot","gpt-6-astra"],"out":"GPT-6 Astra"}
+{"fn":"routeModelName","args":["copilot","gpt-5.6-luna"],"out":"GPT-5.6 Luna"}
+{"fn":"routeModelName","args":["copilot","cursor-grok-4.6-medium"],"out":"Cursor Grok 4.6 Medium"}
+{"fn":"routeModelName","args":["copilot","composer-2.5"],"out":"Composer 2.5"}
+{"fn":"routeModelName","args":["copilot","opencode"],"out":"Opencode"}
+{"fn":"routeModelName","args":["copilot","opencode/deepseek-v4.1-flash-free"],"out":"Opencode/DeepSeek V4.1 Flash Free"}
+{"fn":"routeModelName","args":["copilot","opencode/glm-5.3-flash-free"],"out":"Opencode/GLM 5.3 Flash Free"}
+{"fn":"routeModelName","args":["copilot","opencode/mimo-v2.6-flash-free"],"out":"Opencode/MiMo V2.6 Flash Free"}
+{"fn":"routeModelName","args":["copilot","opencode/nemotron-3.5-super-vl-free"],"out":"Opencode/Nemotron 3.5 Super VL Free"}
+{"fn":"routeModelName","args":["copilot","opencode/minimax-m2.5-free"],"out":"Opencode/MiniMax M2.5 Free"}
+{"fn":"routeModelName","args":["copilot","opencode/ling-3.0-flash-fin-free"],"out":"Opencode/Ling 3.0 Flash Fin Free"}
+{"fn":"routeModelName","args":["copilot","anthropic/claude-sonnet-4"],"out":"Anthropic/Claude Sonnet 4"}
+{"fn":"routeModelName","args":["copilot","some-unheard-of-model-9"],"out":"Some Unheard Of Model 9"}
+{"fn":"routeModelName","args":["copilot","sonnet"],"out":"Sonnet"}
+{"fn":"routeModelName","args":["copilot","claude-opus-5-5-medium"],"out":"Claude Opus 5.5 Medium"}
+{"fn":"routeModelName","args":["copilot","claude-opus-4-8-thinking-low"],"out":"Claude Opus 4.8 Thinking Low"}
+{"fn":"routeModelName","args":["copilot","claude-3-5-sonnet"],"out":"Claude 3.5 Sonnet"}
+{"fn":"routeModelName","args":["copilot","claude-haiku-4-5-20251001"],"out":"Claude Haiku 4.5 20251001"}
+{"fn":"routeModelName","args":["copilot","gpt-4o-2024-08-06"],"out":"GPT-4o 2024 08 06"}
+{"fn":"routeModelName","args":["copilot","cursor-grok-4.6-high"],"out":"Cursor Grok 4.6 High"}
+{"fn":"routeModelName","args":["copilot","some-model-1-2-3"],"out":"Some Model 1 2 3"}
+{"fn":"routeModelName","args":["copilot","antigravity"],"out":"Antigravity"}
+{"fn":"routeModelName","args":["copilot","copilot"],"out":"Copilot"}
+{"fn":"routeModelName","args":["copilot","auto"],"out":"Auto model"}
+{"fn":"routeModelName","args":["copilot","model"],"out":"Model"}
+{"fn":"routeModelName","args":["copilot","GPT-6-Luna"],"out":"GPT-6 Luna"}
+{"fn":"routeModelName","args":["copilot","gpt-6-luna"],"out":"GPT-6 Luna"}
+{"fn":"routeModelName","args":["copilot","gpt-6.1-sol"],"out":"GPT-6.1 Sol"}
+{"fn":"routeModelName","args":["copilot","GPT-6.1-Sol"],"out":"GPT-6.1 Sol"}
+{"fn":"routeModelName","args":["copilot","nemotron-3-ultra-free"],"out":"Nemotron 3 Ultra Free"}
+{"fn":"routeModelName","args":["copilot","opencode/nemotron-3-ultra-free"],"out":"Opencode/Nemotron 3 Ultra Free"}
+{"fn":"routeModelName","args":["copilot","account-default"],"out":"Account Default"}
+{"fn":"routeModelName","args":["copilot","gpt-6-sol"],"out":"GPT-6 Sol"}
+{"fn":"routeModelName","args":["copilot","GPT-6-Sol"],"out":"GPT-6 Sol"}
+{"fn":"routeModelName","args":["copilot","kilo/kilo-auto/free"],"out":"Kilo/Kilo Auto/free"}
+{"fn":"routeModelName","args":["copilot","kilo"],"out":"Kilo"}
+{"fn":"routeModelName","args":["copilot","kilo/nvidia/nemotron-3.5-lightning:free"],"out":"Kilo/Nvidia/nemotron 3.5 Lightning:free"}
+{"fn":"routeModelName","args":["copilot","kilo/nvidia/nemotron-3-nano-30b-a3b"],"out":"Kilo/Nvidia/nemotron 3 Nano 30b A3b"}
+{"fn":"routeModelName","args":["copilot","react-dom/server"],"out":"React Dom/Server"}
+{"fn":"routeModelName","args":["copilot","../../shared/claude-models.js"],"out":"../../shared/claude Models.js"}
+{"fn":"routeModelName","args":["copilot","../../shared/ipc.js"],"out":"../../shared/ipc.js"}
+{"fn":"routeModelName","args":["copilot","./components/RoutePicker.js"],"out":"./Components/RoutePicker.js"}
+{"fn":"routeModelName","args":["copilot","claude-opus-5-5"],"out":"Claude Opus 5.5"}
+{"fn":"routeModelName","args":["copilot","claude-fable-5-1"],"out":"Claude Fable 5.1"}
+{"fn":"routeModelName","args":["copilot","claude-sonnet-5"],"out":"Claude Sonnet 5"}
+{"fn":"routeModelName","args":["copilot","claude-opus-4-1-20250805-v1"],"out":"Claude Opus 4.1 20250805 V1"}
+{"fn":"routeModelName","args":["copilot","claude-opus-4-20250514"],"out":"Claude Opus 4 20250514"}
+{"fn":"routeModelName","args":["copilot","opus"],"out":"Opus"}
+{"fn":"routeModelName","args":["copilot","claude-fable-5-mythos-5"],"out":"Claude Fable 5 Mythos 5"}
+{"fn":"routeModelName","args":["copilot","gpt-6"],"out":"GPT-6"}
+{"fn":"routeModelName","args":["copilot","claude-sonnet-5-5"],"out":"Claude Sonnet 5.5"}
+{"fn":"routeModelName","args":["copilot","claude-haiku-5-5"],"out":"Claude Haiku 5.5"}
+{"fn":"routeModelName","args":["copilot","claude-opus-4-7"],"out":"Claude Opus 4.7"}
+{"fn":"routeModelName","args":["copilot","claude-opus-4-8"],"out":"Claude Opus 4.8"}
+{"fn":"routeModelName","args":["copilot","haiku"],"out":"Haiku"}
+{"fn":"routeModelName","args":["copilot","fable"],"out":"Fable"}
+{"fn":"routeModelName","args":["copilot","claude-opus-5-5-20260901"],"out":"Claude Opus 5.5 20260901"}
+{"fn":"routeModelName","args":["copilot","authenticated"],"out":"Authenticated"}
+{"fn":"routeModelName","args":["copilot","ready"],"out":"Ready"}
+{"fn":"routeModelName","args":["copilot","./components/Composer.js"],"out":"./Components/Composer.js"}
+{"fn":"routeModelName","args":["copilot","./missionView.js"],"out":"./MissionView.js"}
+{"fn":"routeModelName","args":["copilot","accept-edits"],"out":"Accept Edits"}
+{"fn":"routeModelName","args":["copilot","C:/test"],"out":"C:/Test"}
+{"fn":"routeModelName","args":["copilot","claude:account-default"],"out":"Claude:account Default"}
+{"fn":"routeModelName","args":["copilot","./components/GroupSettingsDialog.js"],"out":"./Components/GroupSettingsDialog.js"}
+{"fn":"routeModelName","args":["copilot","own-a1b2c3d0/acme-70b"],"out":"Acme 70b"}
+{"fn":"routeModelName","args":["copilot","route"],"out":"Route"}
+{"fn":"routeModelName","args":["copilot","shop"],"out":"Shop"}
+{"fn":"routeModelName","args":["copilot","listbox"],"out":"Listbox"}
+{"fn":"routeModelName","args":["copilot","opencode/muse-spark-1.3-contributor-free"],"out":"Opencode/Muse Spark 1.3 Contributor Free"}
+{"fn":"routeModelName","args":["copilot","./status.js"],"out":"./Status.js"}
+{"fn":"routeModelName","args":["copilot","codex:gpt-5.6"],"out":"Codex:gpt 5.6"}
+{"fn":"routeModelName","args":["copilot","opencode:ling-free"],"out":"Opencode:ling Free"}
+{"fn":"routeModelName","args":["copilot",""],"out":""}
+{"fn":"routeModelName","args":["copilot","AUTO"],"out":"Auto model"}
+{"fn":"routeModelName","args":["copilot"," Auto "],"out":"Auto model"}
+{"fn":"routeModelName","args":["copilot","gpt-6-codex"],"out":"GPT-6 Codex"}
+{"fn":"routeModelName","args":["copilot","gpt-6.1-mini"],"out":"GPT-6.1 Mini"}
+{"fn":"routeModelName","args":["copilot","claude-sonnet-5-5-20261001"],"out":"Claude Sonnet 5.5 20261001"}
+{"fn":"routeModelName","args":["copilot","opencode/nemotron-3.5-lightning-free"],"out":"Opencode/Nemotron 3.5 Lightning Free"}
+{"fn":"routeModelName","args":["copilot","deepseek-v4-flash"],"out":"DeepSeek V4 Flash"}
+{"fn":"routeModelName","args":["copilot","glm-5"],"out":"GLM 5"}
+{"fn":"routeModelName","args":["copilot","qwen3-coder"],"out":"Qwen3 Coder"}
+{"fn":"routeModelName","args":["copilot","kimi-k2-free"],"out":"Kimi K2 Free"}
+{"fn":"routeModelName","args":["copilot","mimo-v2"],"out":"MiMo V2"}
+{"fn":"routeModelName","args":["copilot","minimax-m3"],"out":"MiniMax M3"}
+{"fn":"routeModelName","args":["copilot","grok-4.7-high"],"out":"Grok 4.7 High"}
+{"fn":"routeModelName","args":["copilot","gemini-4-neon"],"out":"Gemini 4 Neon"}
+{"fn":"routeModelName","args":["copilot","gemini-4-hydrogen-medium"],"out":"Gemini 4 Hydrogen Medium"}
+{"fn":"routeModelName","args":["copilot","flash"],"out":"Flash"}
+{"fn":"routeModelName","args":["copilot","pro"],"out":"Pro"}
+{"fn":"routeModelName","args":["copilot","flash_lite"],"out":"Flash_lite"}
+{"fn":"routeModelName","args":["copilot","cursor-auto"],"out":"Cursor Auto"}
+{"fn":"routeModelName","args":["copilot","copilot-gpt-6"],"out":"GPT-6"}
+{"fn":"routeModelName","args":["copilot","nvidia/nemotron-3.5-lightning:free"],"out":"Nvidia/Nemotron 3.5 Lightning:free"}
+{"fn":"routeModelName","args":["copilot","a--b"],"out":"A  B"}
+{"fn":"routeModelName","args":["copilot","-lead"],"out":" Lead"}
+{"fn":"routeModelName","args":["copilot","trail-"],"out":"Trail "}
+{"fn":"routeModelName","args":["copilot","émile-2"],"out":"Émile 2"}
+{"fn":"routeModelName","args":["copilot","model-🚀-1"],"out":"Model 🚀 1"}
+{"fn":"routeModelName","args":["copilot","x-1-2-3"],"out":"X 1 2 3"}
+{"fn":"routeModelName","args":["copilot","v1-2"],"out":"V1 2"}
+{"fn":"routeModelName","args":["copilot","gpt-oss-120b"],"out":"GPT Oss 120b"}
+{"fn":"routeModelName","args":["copilot","llama-4-70b-vl"],"out":"Llama 4 70b VL"}
+{"fn":"routeModelName","args":["copilot","ai-21"],"out":"AI-21"}
+{"fn":"routeModelName","args":["copilot","cli-2"],"out":"CLI-2"}
+{"fn":"routeModelName","args":["copilot","own-0123abcd/my-model"],"out":"My Model"}
+{"fn":"routeModelName","args":["copilot","acp_goose"],"out":"Acp_goose"}
+{"fn":"routeModelName","args":["copilot","acp_goose::deepseek-v4-flash"],"out":"Acp_goose::deepseek V4 Flash"}
+{"fn":"routeModelName","args":["opencode","vitest"],"out":"Vitest"}
+{"fn":"routeModelName","args":["opencode","./routeName.js"],"out":"./RouteName.js"}
+{"fn":"routeModelName","args":["opencode","cursor"],"out":"Cursor"}
+{"fn":"routeModelName","args":["opencode","cursor-grok-4.6"],"out":"Cursor Grok 4.6"}
+{"fn":"routeModelName","args":["opencode","claude"],"out":"Claude"}
+{"fn":"routeModelName","args":["opencode","fable-5.1"],"out":"Fable 5.1"}
+{"fn":"routeModelName","args":["opencode","codex"],"out":"Codex"}
+{"fn":"routeModelName","args":["opencode","gpt-6-astra"],"out":"GPT-6 Astra"}
+{"fn":"routeModelName","args":["opencode","gpt-5.6-luna"],"out":"GPT-5.6 Luna"}
+{"fn":"routeModelName","args":["opencode","cursor-grok-4.6-medium"],"out":"Cursor Grok 4.6 Medium"}
+{"fn":"routeModelName","args":["opencode","composer-2.5"],"out":"Composer 2.5"}
+{"fn":"routeModelName","args":["opencode","opencode"],"out":"Opencode"}
+{"fn":"routeModelName","args":["opencode","opencode/deepseek-v4.1-flash-free"],"out":"DeepSeek V4.1 Flash Free"}
+{"fn":"routeModelName","args":["opencode","opencode/glm-5.3-flash-free"],"out":"GLM 5.3 Flash Free"}
+{"fn":"routeModelName","args":["opencode","opencode/mimo-v2.6-flash-free"],"out":"MiMo V2.6 Flash Free"}
+{"fn":"routeModelName","args":["opencode","opencode/nemotron-3.5-super-vl-free"],"out":"Nemotron 3.5 Super VL Free"}
+{"fn":"routeModelName","args":["opencode","opencode/minimax-m2.5-free"],"out":"MiniMax M2.5 Free"}
+{"fn":"routeModelName","args":["opencode","opencode/ling-3.0-flash-fin-free"],"out":"Ling 3.0 Flash Fin Free"}
+{"fn":"routeModelName","args":["opencode","anthropic/claude-sonnet-4"],"out":"Anthropic/Claude Sonnet 4"}
+{"fn":"routeModelName","args":["opencode","some-unheard-of-model-9"],"out":"Some Unheard Of Model 9"}
+{"fn":"routeModelName","args":["opencode","sonnet"],"out":"Sonnet"}
+{"fn":"routeModelName","args":["opencode","claude-opus-5-5-medium"],"out":"Claude Opus 5.5 Medium"}
+{"fn":"routeModelName","args":["opencode","claude-opus-4-8-thinking-low"],"out":"Claude Opus 4.8 Thinking Low"}
+{"fn":"routeModelName","args":["opencode","claude-3-5-sonnet"],"out":"Claude 3.5 Sonnet"}
+{"fn":"routeModelName","args":["opencode","claude-haiku-4-5-20251001"],"out":"Claude Haiku 4.5 20251001"}
+{"fn":"routeModelName","args":["opencode","gpt-4o-2024-08-06"],"out":"GPT-4o 2024 08 06"}
+{"fn":"routeModelName","args":["opencode","cursor-grok-4.6-high"],"out":"Cursor Grok 4.6 High"}
+{"fn":"routeModelName","args":["opencode","some-model-1-2-3"],"out":"Some Model 1 2 3"}
+{"fn":"routeModelName","args":["opencode","antigravity"],"out":"Antigravity"}
+{"fn":"routeModelName","args":["opencode","copilot"],"out":"Copilot"}
+{"fn":"routeModelName","args":["opencode","auto"],"out":"Auto model"}
+{"fn":"routeModelName","args":["opencode","model"],"out":"Model"}
+{"fn":"routeModelName","args":["opencode","GPT-6-Luna"],"out":"GPT-6 Luna"}
+{"fn":"routeModelName","args":["opencode","gpt-6-luna"],"out":"GPT-6 Luna"}
+{"fn":"routeModelName","args":["opencode","gpt-6.1-sol"],"out":"GPT-6.1 Sol"}
+{"fn":"routeModelName","args":["opencode","GPT-6.1-Sol"],"out":"GPT-6.1 Sol"}
+{"fn":"routeModelName","args":["opencode","nemotron-3-ultra-free"],"out":"Nemotron 3 Ultra Free"}
+{"fn":"routeModelName","args":["opencode","opencode/nemotron-3-ultra-free"],"out":"Nemotron 3 Ultra Free"}
+{"fn":"routeModelName","args":["opencode","account-default"],"out":"Account Default"}
+{"fn":"routeModelName","args":["opencode","gpt-6-sol"],"out":"GPT-6 Sol"}
+{"fn":"routeModelName","args":["opencode","GPT-6-Sol"],"out":"GPT-6 Sol"}
+{"fn":"routeModelName","args":["opencode","kilo/kilo-auto/free"],"out":"Kilo/Kilo Auto/free"}
+{"fn":"routeModelName","args":["opencode","kilo"],"out":"Kilo"}
+{"fn":"routeModelName","args":["opencode","kilo/nvidia/nemotron-3.5-lightning:free"],"out":"Kilo/Nvidia/nemotron 3.5 Lightning:free"}
+{"fn":"routeModelName","args":["opencode","kilo/nvidia/nemotron-3-nano-30b-a3b"],"out":"Kilo/Nvidia/nemotron 3 Nano 30b A3b"}
+{"fn":"routeModelName","args":["opencode","react-dom/server"],"out":"React Dom/Server"}
+{"fn":"routeModelName","args":["opencode","../../shared/claude-models.js"],"out":"../../shared/claude Models.js"}
+{"fn":"routeModelName","args":["opencode","../../shared/ipc.js"],"out":"../../shared/ipc.js"}
+{"fn":"routeModelName","args":["opencode","./components/RoutePicker.js"],"out":"./Components/RoutePicker.js"}
+{"fn":"routeModelName","args":["opencode","claude-opus-5-5"],"out":"Claude Opus 5.5"}
+{"fn":"routeModelName","args":["opencode","claude-fable-5-1"],"out":"Claude Fable 5.1"}
+{"fn":"routeModelName","args":["opencode","claude-sonnet-5"],"out":"Claude Sonnet 5"}
+{"fn":"routeModelName","args":["opencode","claude-opus-4-1-20250805-v1"],"out":"Claude Opus 4.1 20250805 V1"}
+{"fn":"routeModelName","args":["opencode","claude-opus-4-20250514"],"out":"Claude Opus 4 20250514"}
+{"fn":"routeModelName","args":["opencode","opus"],"out":"Opus"}
+{"fn":"routeModelName","args":["opencode","claude-fable-5-mythos-5"],"out":"Claude Fable 5 Mythos 5"}
+{"fn":"routeModelName","args":["opencode","gpt-6"],"out":"GPT-6"}
+{"fn":"routeModelName","args":["opencode","claude-sonnet-5-5"],"out":"Claude Sonnet 5.5"}
+{"fn":"routeModelName","args":["opencode","claude-haiku-5-5"],"out":"Claude Haiku 5.5"}
+{"fn":"routeModelName","args":["opencode","claude-opus-4-7"],"out":"Claude Opus 4.7"}
+{"fn":"routeModelName","args":["opencode","claude-opus-4-8"],"out":"Claude Opus 4.8"}
+{"fn":"routeModelName","args":["opencode","haiku"],"out":"Haiku"}
+{"fn":"routeModelName","args":["opencode","fable"],"out":"Fable"}
+{"fn":"routeModelName","args":["opencode","claude-opus-5-5-20260901"],"out":"Claude Opus 5.5 20260901"}
+{"fn":"routeModelName","args":["opencode","authenticated"],"out":"Authenticated"}
+{"fn":"routeModelName","args":["opencode","ready"],"out":"Ready"}
+{"fn":"routeModelName","args":["opencode","./components/Composer.js"],"out":"./Components/Composer.js"}
+{"fn":"routeModelName","args":["opencode","./missionView.js"],"out":"./MissionView.js"}
+{"fn":"routeModelName","args":["opencode","accept-edits"],"out":"Accept Edits"}
+{"fn":"routeModelName","args":["opencode","C:/test"],"out":"C:/Test"}
+{"fn":"routeModelName","args":["opencode","claude:account-default"],"out":"Claude:account Default"}
+{"fn":"routeModelName","args":["opencode","./components/GroupSettingsDialog.js"],"out":"./Components/GroupSettingsDialog.js"}
+{"fn":"routeModelName","args":["opencode","own-a1b2c3d0/acme-70b"],"out":"Acme 70b"}
+{"fn":"routeModelName","args":["opencode","route"],"out":"Route"}
+{"fn":"routeModelName","args":["opencode","shop"],"out":"Shop"}
+{"fn":"routeModelName","args":["opencode","listbox"],"out":"Listbox"}
+{"fn":"routeModelName","args":["opencode","opencode/muse-spark-1.3-contributor-free"],"out":"Muse Spark 1.3 Contributor Free"}
+{"fn":"routeModelName","args":["opencode","./status.js"],"out":"./Status.js"}
+{"fn":"routeModelName","args":["opencode","codex:gpt-5.6"],"out":"Codex:gpt 5.6"}
+{"fn":"routeModelName","args":["opencode","opencode:ling-free"],"out":"Opencode:ling Free"}
+{"fn":"routeModelName","args":["opencode",""],"out":""}
+{"fn":"routeModelName","args":["opencode","AUTO"],"out":"Auto model"}
+{"fn":"routeModelName","args":["opencode"," Auto "],"out":"Auto model"}
+{"fn":"routeModelName","args":["opencode","gpt-6-codex"],"out":"GPT-6 Codex"}
+{"fn":"routeModelName","args":["opencode","gpt-6.1-mini"],"out":"GPT-6.1 Mini"}
+{"fn":"routeModelName","args":["opencode","claude-sonnet-5-5-20261001"],"out":"Claude Sonnet 5.5 20261001"}
+{"fn":"routeModelName","args":["opencode","opencode/nemotron-3.5-lightning-free"],"out":"Nemotron 3.5 Lightning Free"}
+{"fn":"routeModelName","args":["opencode","deepseek-v4-flash"],"out":"DeepSeek V4 Flash"}
+{"fn":"routeModelName","args":["opencode","glm-5"],"out":"GLM 5"}
+{"fn":"routeModelName","args":["opencode","qwen3-coder"],"out":"Qwen3 Coder"}
+{"fn":"routeModelName","args":["opencode","kimi-k2-free"],"out":"Kimi K2 Free"}
+{"fn":"routeModelName","args":["opencode","mimo-v2"],"out":"MiMo V2"}
+{"fn":"routeModelName","args":["opencode","minimax-m3"],"out":"MiniMax M3"}
+{"fn":"routeModelName","args":["opencode","grok-4.7-high"],"out":"Grok 4.7 High"}
+{"fn":"routeModelName","args":["opencode","gemini-4-neon"],"out":"Gemini 4 Neon"}
+{"fn":"routeModelName","args":["opencode","gemini-4-hydrogen-medium"],"out":"Gemini 4 Hydrogen Medium"}
+{"fn":"routeModelName","args":["opencode","flash"],"out":"Flash"}
+{"fn":"routeModelName","args":["opencode","pro"],"out":"Pro"}
+{"fn":"routeModelName","args":["opencode","flash_lite"],"out":"Flash_lite"}
+{"fn":"routeModelName","args":["opencode","cursor-auto"],"out":"Cursor Auto"}
+{"fn":"routeModelName","args":["opencode","copilot-gpt-6"],"out":"Copilot GPT-6"}
+{"fn":"routeModelName","args":["opencode","nvidia/nemotron-3.5-lightning:free"],"out":"Nvidia/Nemotron 3.5 Lightning:free"}
+{"fn":"routeModelName","args":["opencode","a--b"],"out":"A  B"}
+{"fn":"routeModelName","args":["opencode","-lead"],"out":" Lead"}
+{"fn":"routeModelName","args":["opencode","trail-"],"out":"Trail "}
+{"fn":"routeModelName","args":["opencode","émile-2"],"out":"Émile 2"}
+{"fn":"routeModelName","args":["opencode","model-🚀-1"],"out":"Model 🚀 1"}
+{"fn":"routeModelName","args":["opencode","x-1-2-3"],"out":"X 1 2 3"}
+{"fn":"routeModelName","args":["opencode","v1-2"],"out":"V1 2"}
+{"fn":"routeModelName","args":["opencode","gpt-oss-120b"],"out":"GPT Oss 120b"}
+{"fn":"routeModelName","args":["opencode","llama-4-70b-vl"],"out":"Llama 4 70b VL"}
+{"fn":"routeModelName","args":["opencode","ai-21"],"out":"AI-21"}
+{"fn":"routeModelName","args":["opencode","cli-2"],"out":"CLI-2"}
+{"fn":"routeModelName","args":["opencode","own-0123abcd/my-model"],"out":"My Model"}
+{"fn":"routeModelName","args":["opencode","acp_goose"],"out":"Acp_goose"}
+{"fn":"routeModelName","args":["opencode","acp_goose::deepseek-v4-flash"],"out":"Acp_goose::deepseek V4 Flash"}
+{"fn":"routeModelName","args":["antigravity","vitest"],"out":"Vitest"}
+{"fn":"routeModelName","args":["antigravity","./routeName.js"],"out":"./RouteName.js"}
+{"fn":"routeModelName","args":["antigravity","cursor"],"out":"Cursor"}
+{"fn":"routeModelName","args":["antigravity","cursor-grok-4.6"],"out":"Cursor Grok 4.6"}
+{"fn":"routeModelName","args":["antigravity","claude"],"out":"Claude"}
+{"fn":"routeModelName","args":["antigravity","fable-5.1"],"out":"Fable 5.1"}
+{"fn":"routeModelName","args":["antigravity","codex"],"out":"Codex"}
+{"fn":"routeModelName","args":["antigravity","gpt-6-astra"],"out":"GPT-6 Astra"}
+{"fn":"routeModelName","args":["antigravity","gpt-5.6-luna"],"out":"GPT-5.6 Luna"}
+{"fn":"routeModelName","args":["antigravity","cursor-grok-4.6-medium"],"out":"Cursor Grok 4.6 Medium"}
+{"fn":"routeModelName","args":["antigravity","composer-2.5"],"out":"Composer 2.5"}
+{"fn":"routeModelName","args":["antigravity","opencode"],"out":"Opencode"}
+{"fn":"routeModelName","args":["antigravity","opencode/deepseek-v4.1-flash-free"],"out":"Opencode/DeepSeek V4.1 Flash Free"}
+{"fn":"routeModelName","args":["antigravity","opencode/glm-5.3-flash-free"],"out":"Opencode/GLM 5.3 Flash Free"}
+{"fn":"routeModelName","args":["antigravity","opencode/mimo-v2.6-flash-free"],"out":"Opencode/MiMo V2.6 Flash Free"}
+{"fn":"routeModelName","args":["antigravity","opencode/nemotron-3.5-super-vl-free"],"out":"Opencode/Nemotron 3.5 Super VL Free"}
+{"fn":"routeModelName","args":["antigravity","opencode/minimax-m2.5-free"],"out":"Opencode/MiniMax M2.5 Free"}
+{"fn":"routeModelName","args":["antigravity","opencode/ling-3.0-flash-fin-free"],"out":"Opencode/Ling 3.0 Flash Fin Free"}
+{"fn":"routeModelName","args":["antigravity","anthropic/claude-sonnet-4"],"out":"Anthropic/Claude Sonnet 4"}
+{"fn":"routeModelName","args":["antigravity","some-unheard-of-model-9"],"out":"Some Unheard Of Model 9"}
+{"fn":"routeModelName","args":["antigravity","sonnet"],"out":"Sonnet"}
+{"fn":"routeModelName","args":["antigravity","claude-opus-5-5-medium"],"out":"Claude Opus 5.5 Medium"}
+{"fn":"routeModelName","args":["antigravity","claude-opus-4-8-thinking-low"],"out":"Claude Opus 4.8 Thinking Low"}
+{"fn":"routeModelName","args":["antigravity","claude-3-5-sonnet"],"out":"Claude 3.5 Sonnet"}
+{"fn":"routeModelName","args":["antigravity","claude-haiku-4-5-20251001"],"out":"Claude Haiku 4.5 20251001"}
+{"fn":"routeModelName","args":["antigravity","gpt-4o-2024-08-06"],"out":"GPT-4o 2024 08 06"}
+{"fn":"routeModelName","args":["antigravity","cursor-grok-4.6-high"],"out":"Cursor Grok 4.6 High"}
+{"fn":"routeModelName","args":["antigravity","some-model-1-2-3"],"out":"Some Model 1 2 3"}
+{"fn":"routeModelName","args":["antigravity","antigravity"],"out":"Antigravity"}
+{"fn":"routeModelName","args":["antigravity","copilot"],"out":"Copilot"}
+{"fn":"routeModelName","args":["antigravity","auto"],"out":"Auto model"}
+{"fn":"routeModelName","args":["antigravity","model"],"out":"Model"}
+{"fn":"routeModelName","args":["antigravity","GPT-6-Luna"],"out":"GPT-6 Luna"}
+{"fn":"routeModelName","args":["antigravity","gpt-6-luna"],"out":"GPT-6 Luna"}
+{"fn":"routeModelName","args":["antigravity","gpt-6.1-sol"],"out":"GPT-6.1 Sol"}
+{"fn":"routeModelName","args":["antigravity","GPT-6.1-Sol"],"out":"GPT-6.1 Sol"}
+{"fn":"routeModelName","args":["antigravity","nemotron-3-ultra-free"],"out":"Nemotron 3 Ultra Free"}
+{"fn":"routeModelName","args":["antigravity","opencode/nemotron-3-ultra-free"],"out":"Opencode/Nemotron 3 Ultra Free"}
+{"fn":"routeModelName","args":["antigravity","account-default"],"out":"Account Default"}
+{"fn":"routeModelName","args":["antigravity","gpt-6-sol"],"out":"GPT-6 Sol"}
+{"fn":"routeModelName","args":["antigravity","GPT-6-Sol"],"out":"GPT-6 Sol"}
+{"fn":"routeModelName","args":["antigravity","kilo/kilo-auto/free"],"out":"Kilo/Kilo Auto/free"}
+{"fn":"routeModelName","args":["antigravity","kilo"],"out":"Kilo"}
+{"fn":"routeModelName","args":["antigravity","kilo/nvidia/nemotron-3.5-lightning:free"],"out":"Kilo/Nvidia/nemotron 3.5 Lightning:free"}
+{"fn":"routeModelName","args":["antigravity","kilo/nvidia/nemotron-3-nano-30b-a3b"],"out":"Kilo/Nvidia/nemotron 3 Nano 30b A3b"}
+{"fn":"routeModelName","args":["antigravity","react-dom/server"],"out":"React Dom/Server"}
+{"fn":"routeModelName","args":["antigravity","../../shared/claude-models.js"],"out":"../../shared/claude Models.js"}
+{"fn":"routeModelName","args":["antigravity","../../shared/ipc.js"],"out":"../../shared/ipc.js"}
+{"fn":"routeModelName","args":["antigravity","./components/RoutePicker.js"],"out":"./Components/RoutePicker.js"}
+{"fn":"routeModelName","args":["antigravity","claude-opus-5-5"],"out":"Claude Opus 5.5"}
+{"fn":"routeModelName","args":["antigravity","claude-fable-5-1"],"out":"Claude Fable 5.1"}
+{"fn":"routeModelName","args":["antigravity","claude-sonnet-5"],"out":"Claude Sonnet 5"}
+{"fn":"routeModelName","args":["antigravity","claude-opus-4-1-20250805-v1"],"out":"Claude Opus 4.1 20250805 V1"}
+{"fn":"routeModelName","args":["antigravity","claude-opus-4-20250514"],"out":"Claude Opus 4 20250514"}
+{"fn":"routeModelName","args":["antigravity","opus"],"out":"Opus"}
+{"fn":"routeModelName","args":["antigravity","claude-fable-5-mythos-5"],"out":"Claude Fable 5 Mythos 5"}
+{"fn":"routeModelName","args":["antigravity","gpt-6"],"out":"GPT-6"}
+{"fn":"routeModelName","args":["antigravity","claude-sonnet-5-5"],"out":"Claude Sonnet 5.5"}
+{"fn":"routeModelName","args":["antigravity","claude-haiku-5-5"],"out":"Claude Haiku 5.5"}
+{"fn":"routeModelName","args":["antigravity","claude-opus-4-7"],"out":"Claude Opus 4.7"}
+{"fn":"routeModelName","args":["antigravity","claude-opus-4-8"],"out":"Claude Opus 4.8"}
+{"fn":"routeModelName","args":["antigravity","haiku"],"out":"Haiku"}
+{"fn":"routeModelName","args":["antigravity","fable"],"out":"Fable"}
+{"fn":"routeModelName","args":["antigravity","claude-opus-5-5-20260901"],"out":"Claude Opus 5.5 20260901"}
+{"fn":"routeModelName","args":["antigravity","authenticated"],"out":"Authenticated"}
+{"fn":"routeModelName","args":["antigravity","ready"],"out":"Ready"}
+{"fn":"routeModelName","args":["antigravity","./components/Composer.js"],"out":"./Components/Composer.js"}
+{"fn":"routeModelName","args":["antigravity","./missionView.js"],"out":"./MissionView.js"}
+{"fn":"routeModelName","args":["antigravity","accept-edits"],"out":"Accept Edits"}
+{"fn":"routeModelName","args":["antigravity","C:/test"],"out":"C:/Test"}
+{"fn":"routeModelName","args":["antigravity","claude:account-default"],"out":"Claude:account Default"}
+{"fn":"routeModelName","args":["antigravity","./components/GroupSettingsDialog.js"],"out":"./Components/GroupSettingsDialog.js"}
+{"fn":"routeModelName","args":["antigravity","own-a1b2c3d0/acme-70b"],"out":"Acme 70b"}
+{"fn":"routeModelName","args":["antigravity","route"],"out":"Route"}
+{"fn":"routeModelName","args":["antigravity","shop"],"out":"Shop"}
+{"fn":"routeModelName","args":["antigravity","listbox"],"out":"Listbox"}
+{"fn":"routeModelName","args":["antigravity","opencode/muse-spark-1.3-contributor-free"],"out":"Opencode/Muse Spark 1.3 Contributor Free"}
+{"fn":"routeModelName","args":["antigravity","./status.js"],"out":"./Status.js"}
+{"fn":"routeModelName","args":["antigravity","codex:gpt-5.6"],"out":"Codex:gpt 5.6"}
+{"fn":"routeModelName","args":["antigravity","opencode:ling-free"],"out":"Opencode:ling Free"}
+{"fn":"routeModelName","args":["antigravity",""],"out":""}
+{"fn":"routeModelName","args":["antigravity","AUTO"],"out":"Auto model"}
+{"fn":"routeModelName","args":["antigravity"," Auto "],"out":"Auto model"}
+{"fn":"routeModelName","args":["antigravity","gpt-6-codex"],"out":"GPT-6 Codex"}
+{"fn":"routeModelName","args":["antigravity","gpt-6.1-mini"],"out":"GPT-6.1 Mini"}
+{"fn":"routeModelName","args":["antigravity","claude-sonnet-5-5-20261001"],"out":"Claude Sonnet 5.5 20261001"}
+{"fn":"routeModelName","args":["antigravity","opencode/nemotron-3.5-lightning-free"],"out":"Opencode/Nemotron 3.5 Lightning Free"}
+{"fn":"routeModelName","args":["antigravity","deepseek-v4-flash"],"out":"DeepSeek V4 Flash"}
+{"fn":"routeModelName","args":["antigravity","glm-5"],"out":"GLM 5"}
+{"fn":"routeModelName","args":["antigravity","qwen3-coder"],"out":"Qwen3 Coder"}
+{"fn":"routeModelName","args":["antigravity","kimi-k2-free"],"out":"Kimi K2 Free"}
+{"fn":"routeModelName","args":["antigravity","mimo-v2"],"out":"MiMo V2"}
+{"fn":"routeModelName","args":["antigravity","minimax-m3"],"out":"MiniMax M3"}
+{"fn":"routeModelName","args":["antigravity","grok-4.7-high"],"out":"Grok 4.7 High"}
+{"fn":"routeModelName","args":["antigravity","gemini-4-neon"],"out":"Gemini 4 Neon"}
+{"fn":"routeModelName","args":["antigravity","gemini-4-hydrogen-medium"],"out":"Gemini 4 Hydrogen Medium"}
+{"fn":"routeModelName","args":["antigravity","flash"],"out":"Gemini 3.8 Flash"}
+{"fn":"routeModelName","args":["antigravity","pro"],"out":"Gemini Pro"}
+{"fn":"routeModelName","args":["antigravity","flash_lite"],"out":"Gemini Flash Lite"}
+{"fn":"routeModelName","args":["antigravity","cursor-auto"],"out":"Cursor Auto"}
+{"fn":"routeModelName","args":["antigravity","copilot-gpt-6"],"out":"Copilot GPT-6"}
+{"fn":"routeModelName","args":["antigravity","nvidia/nemotron-3.5-lightning:free"],"out":"Nvidia/Nemotron 3.5 Lightning:free"}
+{"fn":"routeModelName","args":["antigravity","a--b"],"out":"A  B"}
+{"fn":"routeModelName","args":["antigravity","-lead"],"out":" Lead"}
+{"fn":"routeModelName","args":["antigravity","trail-"],"out":"Trail "}
+{"fn":"routeModelName","args":["antigravity","émile-2"],"out":"Émile 2"}
+{"fn":"routeModelName","args":["antigravity","model-🚀-1"],"out":"Model 🚀 1"}
+{"fn":"routeModelName","args":["antigravity","x-1-2-3"],"out":"X 1 2 3"}
+{"fn":"routeModelName","args":["antigravity","v1-2"],"out":"V1 2"}
+{"fn":"routeModelName","args":["antigravity","gpt-oss-120b"],"out":"GPT Oss 120b"}
+{"fn":"routeModelName","args":["antigravity","llama-4-70b-vl"],"out":"Llama 4 70b VL"}
+{"fn":"routeModelName","args":["antigravity","ai-21"],"out":"AI-21"}
+{"fn":"routeModelName","args":["antigravity","cli-2"],"out":"CLI-2"}
+{"fn":"routeModelName","args":["antigravity","own-0123abcd/my-model"],"out":"My Model"}
+{"fn":"routeModelName","args":["antigravity","acp_goose"],"out":"Acp_goose"}
+{"fn":"routeModelName","args":["antigravity","acp_goose::deepseek-v4-flash"],"out":"Acp_goose::deepseek V4 Flash"}
+{"fn":"routeModelName","args":["kilo","vitest"],"out":"Vitest"}
+{"fn":"routeModelName","args":["kilo","./routeName.js"],"out":"./RouteName.js"}
+{"fn":"routeModelName","args":["kilo","cursor"],"out":"Cursor"}
+{"fn":"routeModelName","args":["kilo","cursor-grok-4.6"],"out":"Cursor Grok 4.6"}
+{"fn":"routeModelName","args":["kilo","claude"],"out":"Claude"}
+{"fn":"routeModelName","args":["kilo","fable-5.1"],"out":"Fable 5.1"}
+{"fn":"routeModelName","args":["kilo","codex"],"out":"Codex"}
+{"fn":"routeModelName","args":["kilo","gpt-6-astra"],"out":"GPT-6 Astra"}
+{"fn":"routeModelName","args":["kilo","gpt-5.6-luna"],"out":"GPT-5.6 Luna"}
+{"fn":"routeModelName","args":["kilo","cursor-grok-4.6-medium"],"out":"Cursor Grok 4.6 Medium"}
+{"fn":"routeModelName","args":["kilo","composer-2.5"],"out":"Composer 2.5"}
+{"fn":"routeModelName","args":["kilo","opencode"],"out":"Opencode"}
+{"fn":"routeModelName","args":["kilo","opencode/deepseek-v4.1-flash-free"],"out":"Opencode/DeepSeek V4.1 Flash Free"}
+{"fn":"routeModelName","args":["kilo","opencode/glm-5.3-flash-free"],"out":"Opencode/GLM 5.3 Flash Free"}
+{"fn":"routeModelName","args":["kilo","opencode/mimo-v2.6-flash-free"],"out":"Opencode/MiMo V2.6 Flash Free"}
+{"fn":"routeModelName","args":["kilo","opencode/nemotron-3.5-super-vl-free"],"out":"Opencode/Nemotron 3.5 Super VL Free"}
+{"fn":"routeModelName","args":["kilo","opencode/minimax-m2.5-free"],"out":"Opencode/MiniMax M2.5 Free"}
+{"fn":"routeModelName","args":["kilo","opencode/ling-3.0-flash-fin-free"],"out":"Opencode/Ling 3.0 Flash Fin Free"}
+{"fn":"routeModelName","args":["kilo","anthropic/claude-sonnet-4"],"out":"Anthropic/Claude Sonnet 4"}
+{"fn":"routeModelName","args":["kilo","some-unheard-of-model-9"],"out":"Some Unheard Of Model 9"}
+{"fn":"routeModelName","args":["kilo","sonnet"],"out":"Sonnet"}
+{"fn":"routeModelName","args":["kilo","claude-opus-5-5-medium"],"out":"Claude Opus 5.5 Medium"}
+{"fn":"routeModelName","args":["kilo","claude-opus-4-8-thinking-low"],"out":"Claude Opus 4.8 Thinking Low"}
+{"fn":"routeModelName","args":["kilo","claude-3-5-sonnet"],"out":"Claude 3.5 Sonnet"}
+{"fn":"routeModelName","args":["kilo","claude-haiku-4-5-20251001"],"out":"Claude Haiku 4.5 20251001"}
+{"fn":"routeModelName","args":["kilo","gpt-4o-2024-08-06"],"out":"GPT-4o 2024 08 06"}
+{"fn":"routeModelName","args":["kilo","cursor-grok-4.6-high"],"out":"Cursor Grok 4.6 High"}
+{"fn":"routeModelName","args":["kilo","some-model-1-2-3"],"out":"Some Model 1 2 3"}
+{"fn":"routeModelName","args":["kilo","antigravity"],"out":"Antigravity"}
+{"fn":"routeModelName","args":["kilo","copilot"],"out":"Copilot"}
+{"fn":"routeModelName","args":["kilo","auto"],"out":"Auto model"}
+{"fn":"routeModelName","args":["kilo","model"],"out":"Model"}
+{"fn":"routeModelName","args":["kilo","GPT-6-Luna"],"out":"GPT-6 Luna"}
+{"fn":"routeModelName","args":["kilo","gpt-6-luna"],"out":"GPT-6 Luna"}
+{"fn":"routeModelName","args":["kilo","gpt-6.1-sol"],"out":"GPT-6.1 Sol"}
+{"fn":"routeModelName","args":["kilo","GPT-6.1-Sol"],"out":"GPT-6.1 Sol"}
+{"fn":"routeModelName","args":["kilo","nemotron-3-ultra-free"],"out":"Nemotron 3 Ultra Free"}
+{"fn":"routeModelName","args":["kilo","opencode/nemotron-3-ultra-free"],"out":"Opencode/Nemotron 3 Ultra Free"}
+{"fn":"routeModelName","args":["kilo","account-default"],"out":"Account Default"}
+{"fn":"routeModelName","args":["kilo","gpt-6-sol"],"out":"GPT-6 Sol"}
+{"fn":"routeModelName","args":["kilo","GPT-6-Sol"],"out":"GPT-6 Sol"}
+{"fn":"routeModelName","args":["kilo","kilo/kilo-auto/free"],"out":"Kilo Auto/Free"}
+{"fn":"routeModelName","args":["kilo","kilo"],"out":"Kilo"}
+{"fn":"routeModelName","args":["kilo","kilo/nvidia/nemotron-3.5-lightning:free"],"out":"Nvidia/Nemotron 3.5 Lightning:free"}
+{"fn":"routeModelName","args":["kilo","kilo/nvidia/nemotron-3-nano-30b-a3b"],"out":"Nvidia/Nemotron 3 Nano 30b A3b"}
+{"fn":"routeModelName","args":["kilo","react-dom/server"],"out":"React Dom/Server"}
+{"fn":"routeModelName","args":["kilo","../../shared/claude-models.js"],"out":"../../shared/claude Models.js"}
+{"fn":"routeModelName","args":["kilo","../../shared/ipc.js"],"out":"../../shared/ipc.js"}
+{"fn":"routeModelName","args":["kilo","./components/RoutePicker.js"],"out":"./Components/RoutePicker.js"}
+{"fn":"routeModelName","args":["kilo","claude-opus-5-5"],"out":"Claude Opus 5.5"}
+{"fn":"routeModelName","args":["kilo","claude-fable-5-1"],"out":"Claude Fable 5.1"}
+{"fn":"routeModelName","args":["kilo","claude-sonnet-5"],"out":"Claude Sonnet 5"}
+{"fn":"routeModelName","args":["kilo","claude-opus-4-1-20250805-v1"],"out":"Claude Opus 4.1 20250805 V1"}
+{"fn":"routeModelName","args":["kilo","claude-opus-4-20250514"],"out":"Claude Opus 4 20250514"}
+{"fn":"routeModelName","args":["kilo","opus"],"out":"Opus"}
+{"fn":"routeModelName","args":["kilo","claude-fable-5-mythos-5"],"out":"Claude Fable 5 Mythos 5"}
+{"fn":"routeModelName","args":["kilo","gpt-6"],"out":"GPT-6"}
+{"fn":"routeModelName","args":["kilo","claude-sonnet-5-5"],"out":"Claude Sonnet 5.5"}
+{"fn":"routeModelName","args":["kilo","claude-haiku-5-5"],"out":"Claude Haiku 5.5"}
+{"fn":"routeModelName","args":["kilo","claude-opus-4-7"],"out":"Claude Opus 4.7"}
+{"fn":"routeModelName","args":["kilo","claude-opus-4-8"],"out":"Claude Opus 4.8"}
+{"fn":"routeModelName","args":["kilo","haiku"],"out":"Haiku"}
+{"fn":"routeModelName","args":["kilo","fable"],"out":"Fable"}
+{"fn":"routeModelName","args":["kilo","claude-opus-5-5-20260901"],"out":"Claude Opus 5.5 20260901"}
+{"fn":"routeModelName","args":["kilo","authenticated"],"out":"Authenticated"}
+{"fn":"routeModelName","args":["kilo","ready"],"out":"Ready"}
+{"fn":"routeModelName","args":["kilo","./components/Composer.js"],"out":"./Components/Composer.js"}
+{"fn":"routeModelName","args":["kilo","./missionView.js"],"out":"./MissionView.js"}
+{"fn":"routeModelName","args":["kilo","accept-edits"],"out":"Accept Edits"}
+{"fn":"routeModelName","args":["kilo","C:/test"],"out":"C:/Test"}
+{"fn":"routeModelName","args":["kilo","claude:account-default"],"out":"Claude:account Default"}
+{"fn":"routeModelName","args":["kilo","./components/GroupSettingsDialog.js"],"out":"./Components/GroupSettingsDialog.js"}
+{"fn":"routeModelName","args":["kilo","own-a1b2c3d0/acme-70b"],"out":"Acme 70b"}
+{"fn":"routeModelName","args":["kilo","route"],"out":"Route"}
+{"fn":"routeModelName","args":["kilo","shop"],"out":"Shop"}
+{"fn":"routeModelName","args":["kilo","listbox"],"out":"Listbox"}
+{"fn":"routeModelName","args":["kilo","opencode/muse-spark-1.3-contributor-free"],"out":"Opencode/Muse Spark 1.3 Contributor Free"}
+{"fn":"routeModelName","args":["kilo","./status.js"],"out":"./Status.js"}
+{"fn":"routeModelName","args":["kilo","codex:gpt-5.6"],"out":"Codex:gpt 5.6"}
+{"fn":"routeModelName","args":["kilo","opencode:ling-free"],"out":"Opencode:ling Free"}
+{"fn":"routeModelName","args":["kilo",""],"out":""}
+{"fn":"routeModelName","args":["kilo","AUTO"],"out":"Auto model"}
+{"fn":"routeModelName","args":["kilo"," Auto "],"out":"Auto model"}
+{"fn":"routeModelName","args":["kilo","gpt-6-codex"],"out":"GPT-6 Codex"}
+{"fn":"routeModelName","args":["kilo","gpt-6.1-mini"],"out":"GPT-6.1 Mini"}
+{"fn":"routeModelName","args":["kilo","claude-sonnet-5-5-20261001"],"out":"Claude Sonnet 5.5 20261001"}
+{"fn":"routeModelName","args":["kilo","opencode/nemotron-3.5-lightning-free"],"out":"Opencode/Nemotron 3.5 Lightning Free"}
+{"fn":"routeModelName","args":["kilo","deepseek-v4-flash"],"out":"DeepSeek V4 Flash"}
+{"fn":"routeModelName","args":["kilo","glm-5"],"out":"GLM 5"}
+{"fn":"routeModelName","args":["kilo","qwen3-coder"],"out":"Qwen3 Coder"}
+{"fn":"routeModelName","args":["kilo","kimi-k2-free"],"out":"Kimi K2 Free"}
+{"fn":"routeModelName","args":["kilo","mimo-v2"],"out":"MiMo V2"}
+{"fn":"routeModelName","args":["kilo","minimax-m3"],"out":"MiniMax M3"}
+{"fn":"routeModelName","args":["kilo","grok-4.7-high"],"out":"Grok 4.7 High"}
+{"fn":"routeModelName","args":["kilo","gemini-4-neon"],"out":"Gemini 4 Neon"}
+{"fn":"routeModelName","args":["kilo","gemini-4-hydrogen-medium"],"out":"Gemini 4 Hydrogen Medium"}
+{"fn":"routeModelName","args":["kilo","flash"],"out":"Flash"}
+{"fn":"routeModelName","args":["kilo","pro"],"out":"Pro"}
+{"fn":"routeModelName","args":["kilo","flash_lite"],"out":"Flash_lite"}
+{"fn":"routeModelName","args":["kilo","cursor-auto"],"out":"Cursor Auto"}
+{"fn":"routeModelName","args":["kilo","copilot-gpt-6"],"out":"Copilot GPT-6"}
+{"fn":"routeModelName","args":["kilo","nvidia/nemotron-3.5-lightning:free"],"out":"Nvidia/Nemotron 3.5 Lightning:free"}
+{"fn":"routeModelName","args":["kilo","a--b"],"out":"A  B"}
+{"fn":"routeModelName","args":["kilo","-lead"],"out":" Lead"}
+{"fn":"routeModelName","args":["kilo","trail-"],"out":"Trail "}
+{"fn":"routeModelName","args":["kilo","émile-2"],"out":"Émile 2"}
+{"fn":"routeModelName","args":["kilo","model-🚀-1"],"out":"Model 🚀 1"}
+{"fn":"routeModelName","args":["kilo","x-1-2-3"],"out":"X 1 2 3"}
+{"fn":"routeModelName","args":["kilo","v1-2"],"out":"V1 2"}
+{"fn":"routeModelName","args":["kilo","gpt-oss-120b"],"out":"GPT Oss 120b"}
+{"fn":"routeModelName","args":["kilo","llama-4-70b-vl"],"out":"Llama 4 70b VL"}
+{"fn":"routeModelName","args":["kilo","ai-21"],"out":"AI-21"}
+{"fn":"routeModelName","args":["kilo","cli-2"],"out":"CLI-2"}
+{"fn":"routeModelName","args":["kilo","own-0123abcd/my-model"],"out":"My Model"}
+{"fn":"routeModelName","args":["kilo","acp_goose"],"out":"Acp_goose"}
+{"fn":"routeModelName","args":["kilo","acp_goose::deepseek-v4-flash"],"out":"Acp_goose::deepseek V4 Flash"}
+{"fn":"routeModelName","args":["muse","vitest"],"out":"Vitest"}
+{"fn":"routeModelName","args":["muse","./routeName.js"],"out":"./RouteName.js"}
+{"fn":"routeModelName","args":["muse","cursor"],"out":"Cursor"}
+{"fn":"routeModelName","args":["muse","cursor-grok-4.6"],"out":"Cursor Grok 4.6"}
+{"fn":"routeModelName","args":["muse","claude"],"out":"Claude"}
+{"fn":"routeModelName","args":["muse","fable-5.1"],"out":"Fable 5.1"}
+{"fn":"routeModelName","args":["muse","codex"],"out":"Codex"}
+{"fn":"routeModelName","args":["muse","gpt-6-astra"],"out":"GPT-6 Astra"}
+{"fn":"routeModelName","args":["muse","gpt-5.6-luna"],"out":"GPT-5.6 Luna"}
+{"fn":"routeModelName","args":["muse","cursor-grok-4.6-medium"],"out":"Cursor Grok 4.6 Medium"}
+{"fn":"routeModelName","args":["muse","composer-2.5"],"out":"Composer 2.5"}
+{"fn":"routeModelName","args":["muse","opencode"],"out":"Opencode"}
+{"fn":"routeModelName","args":["muse","opencode/deepseek-v4.1-flash-free"],"out":"Opencode/DeepSeek V4.1 Flash Free"}
+{"fn":"routeModelName","args":["muse","opencode/glm-5.3-flash-free"],"out":"Opencode/GLM 5.3 Flash Free"}
+{"fn":"routeModelName","args":["muse","opencode/mimo-v2.6-flash-free"],"out":"Opencode/MiMo V2.6 Flash Free"}
+{"fn":"routeModelName","args":["muse","opencode/nemotron-3.5-super-vl-free"],"out":"Opencode/Nemotron 3.5 Super VL Free"}
+{"fn":"routeModelName","args":["muse","opencode/minimax-m2.5-free"],"out":"Opencode/MiniMax M2.5 Free"}
+{"fn":"routeModelName","args":["muse","opencode/ling-3.0-flash-fin-free"],"out":"Opencode/Ling 3.0 Flash Fin Free"}
+{"fn":"routeModelName","args":["muse","anthropic/claude-sonnet-4"],"out":"Anthropic/Claude Sonnet 4"}
+{"fn":"routeModelName","args":["muse","some-unheard-of-model-9"],"out":"Some Unheard Of Model 9"}
+{"fn":"routeModelName","args":["muse","sonnet"],"out":"Sonnet"}
+{"fn":"routeModelName","args":["muse","claude-opus-5-5-medium"],"out":"Claude Opus 5.5 Medium"}
+{"fn":"routeModelName","args":["muse","claude-opus-4-8-thinking-low"],"out":"Claude Opus 4.8 Thinking Low"}
+{"fn":"routeModelName","args":["muse","claude-3-5-sonnet"],"out":"Claude 3.5 Sonnet"}
+{"fn":"routeModelName","args":["muse","claude-haiku-4-5-20251001"],"out":"Claude Haiku 4.5 20251001"}
+{"fn":"routeModelName","args":["muse","gpt-4o-2024-08-06"],"out":"GPT-4o 2024 08 06"}
+{"fn":"routeModelName","args":["muse","cursor-grok-4.6-high"],"out":"Cursor Grok 4.6 High"}
+{"fn":"routeModelName","args":["muse","some-model-1-2-3"],"out":"Some Model 1 2 3"}
+{"fn":"routeModelName","args":["muse","antigravity"],"out":"Antigravity"}
+{"fn":"routeModelName","args":["muse","copilot"],"out":"Copilot"}
+{"fn":"routeModelName","args":["muse","auto"],"out":"Auto model"}
+{"fn":"routeModelName","args":["muse","model"],"out":"Model"}
+{"fn":"routeModelName","args":["muse","GPT-6-Luna"],"out":"GPT-6 Luna"}
+{"fn":"routeModelName","args":["muse","gpt-6-luna"],"out":"GPT-6 Luna"}
+{"fn":"routeModelName","args":["muse","gpt-6.1-sol"],"out":"GPT-6.1 Sol"}
+{"fn":"routeModelName","args":["muse","GPT-6.1-Sol"],"out":"GPT-6.1 Sol"}
+{"fn":"routeModelName","args":["muse","nemotron-3-ultra-free"],"out":"Nemotron 3 Ultra Free"}
+{"fn":"routeModelName","args":["muse","opencode/nemotron-3-ultra-free"],"out":"Opencode/Nemotron 3 Ultra Free"}
+{"fn":"routeModelName","args":["muse","account-default"],"out":"Account Default"}
+{"fn":"routeModelName","args":["muse","gpt-6-sol"],"out":"GPT-6 Sol"}
+{"fn":"routeModelName","args":["muse","GPT-6-Sol"],"out":"GPT-6 Sol"}
+{"fn":"routeModelName","args":["muse","kilo/kilo-auto/free"],"out":"Kilo/Kilo Auto/free"}
+{"fn":"routeModelName","args":["muse","kilo"],"out":"Kilo"}
+{"fn":"routeModelName","args":["muse","kilo/nvidia/nemotron-3.5-lightning:free"],"out":"Kilo/Nvidia/nemotron 3.5 Lightning:free"}
+{"fn":"routeModelName","args":["muse","kilo/nvidia/nemotron-3-nano-30b-a3b"],"out":"Kilo/Nvidia/nemotron 3 Nano 30b A3b"}
+{"fn":"routeModelName","args":["muse","react-dom/server"],"out":"React Dom/Server"}
+{"fn":"routeModelName","args":["muse","../../shared/claude-models.js"],"out":"../../shared/claude Models.js"}
+{"fn":"routeModelName","args":["muse","../../shared/ipc.js"],"out":"../../shared/ipc.js"}
+{"fn":"routeModelName","args":["muse","./components/RoutePicker.js"],"out":"./Components/RoutePicker.js"}
+{"fn":"routeModelName","args":["muse","claude-opus-5-5"],"out":"Claude Opus 5.5"}
+{"fn":"routeModelName","args":["muse","claude-fable-5-1"],"out":"Claude Fable 5.1"}
+{"fn":"routeModelName","args":["muse","claude-sonnet-5"],"out":"Claude Sonnet 5"}
+{"fn":"routeModelName","args":["muse","claude-opus-4-1-20250805-v1"],"out":"Claude Opus 4.1 20250805 V1"}
+{"fn":"routeModelName","args":["muse","claude-opus-4-20250514"],"out":"Claude Opus 4 20250514"}
+{"fn":"routeModelName","args":["muse","opus"],"out":"Opus"}
+{"fn":"routeModelName","args":["muse","claude-fable-5-mythos-5"],"out":"Claude Fable 5 Mythos 5"}
+{"fn":"routeModelName","args":["muse","gpt-6"],"out":"GPT-6"}
+{"fn":"routeModelName","args":["muse","claude-sonnet-5-5"],"out":"Claude Sonnet 5.5"}
+{"fn":"routeModelName","args":["muse","claude-haiku-5-5"],"out":"Claude Haiku 5.5"}
+{"fn":"routeModelName","args":["muse","claude-opus-4-7"],"out":"Claude Opus 4.7"}
+{"fn":"routeModelName","args":["muse","claude-opus-4-8"],"out":"Claude Opus 4.8"}
+{"fn":"routeModelName","args":["muse","haiku"],"out":"Haiku"}
+{"fn":"routeModelName","args":["muse","fable"],"out":"Fable"}
+{"fn":"routeModelName","args":["muse","claude-opus-5-5-20260901"],"out":"Claude Opus 5.5 20260901"}
+{"fn":"routeModelName","args":["muse","authenticated"],"out":"Authenticated"}
+{"fn":"routeModelName","args":["muse","ready"],"out":"Ready"}
+{"fn":"routeModelName","args":["muse","./components/Composer.js"],"out":"./Components/Composer.js"}
+{"fn":"routeModelName","args":["muse","./missionView.js"],"out":"./MissionView.js"}
+{"fn":"routeModelName","args":["muse","accept-edits"],"out":"Accept Edits"}
+{"fn":"routeModelName","args":["muse","C:/test"],"out":"C:/Test"}
+{"fn":"routeModelName","args":["muse","claude:account-default"],"out":"Claude:account Default"}
+{"fn":"routeModelName","args":["muse","./components/GroupSettingsDialog.js"],"out":"./Components/GroupSettingsDialog.js"}
+{"fn":"routeModelName","args":["muse","own-a1b2c3d0/acme-70b"],"out":"Acme 70b"}
+{"fn":"routeModelName","args":["muse","route"],"out":"Route"}
+{"fn":"routeModelName","args":["muse","shop"],"out":"Shop"}
+{"fn":"routeModelName","args":["muse","listbox"],"out":"Listbox"}
+{"fn":"routeModelName","args":["muse","opencode/muse-spark-1.3-contributor-free"],"out":"Opencode/Muse Spark 1.3 Contributor Free"}
+{"fn":"routeModelName","args":["muse","./status.js"],"out":"./Status.js"}
+{"fn":"routeModelName","args":["muse","codex:gpt-5.6"],"out":"Codex:gpt 5.6"}
+{"fn":"routeModelName","args":["muse","opencode:ling-free"],"out":"Opencode:ling Free"}
+{"fn":"routeModelName","args":["muse",""],"out":""}
+{"fn":"routeModelName","args":["muse","AUTO"],"out":"Auto model"}
+{"fn":"routeModelName","args":["muse"," Auto "],"out":"Auto model"}
+{"fn":"routeModelName","args":["muse","gpt-6-codex"],"out":"GPT-6 Codex"}
+{"fn":"routeModelName","args":["muse","gpt-6.1-mini"],"out":"GPT-6.1 Mini"}
+{"fn":"routeModelName","args":["muse","claude-sonnet-5-5-20261001"],"out":"Claude Sonnet 5.5 20261001"}
+{"fn":"routeModelName","args":["muse","opencode/nemotron-3.5-lightning-free"],"out":"Opencode/Nemotron 3.5 Lightning Free"}
+{"fn":"routeModelName","args":["muse","deepseek-v4-flash"],"out":"DeepSeek V4 Flash"}
+{"fn":"routeModelName","args":["muse","glm-5"],"out":"GLM 5"}
+{"fn":"routeModelName","args":["muse","qwen3-coder"],"out":"Qwen3 Coder"}
+{"fn":"routeModelName","args":["muse","kimi-k2-free"],"out":"Kimi K2 Free"}
+{"fn":"routeModelName","args":["muse","mimo-v2"],"out":"MiMo V2"}
+{"fn":"routeModelName","args":["muse","minimax-m3"],"out":"MiniMax M3"}
+{"fn":"routeModelName","args":["muse","grok-4.7-high"],"out":"Grok 4.7 High"}
+{"fn":"routeModelName","args":["muse","gemini-4-neon"],"out":"Gemini 4 Neon"}
+{"fn":"routeModelName","args":["muse","gemini-4-hydrogen-medium"],"out":"Gemini 4 Hydrogen Medium"}
+{"fn":"routeModelName","args":["muse","flash"],"out":"Flash"}
+{"fn":"routeModelName","args":["muse","pro"],"out":"Pro"}
+{"fn":"routeModelName","args":["muse","flash_lite"],"out":"Flash_lite"}
+{"fn":"routeModelName","args":["muse","cursor-auto"],"out":"Cursor Auto"}
+{"fn":"routeModelName","args":["muse","copilot-gpt-6"],"out":"Copilot GPT-6"}
+{"fn":"routeModelName","args":["muse","nvidia/nemotron-3.5-lightning:free"],"out":"Nvidia/Nemotron 3.5 Lightning:free"}
+{"fn":"routeModelName","args":["muse","a--b"],"out":"A  B"}
+{"fn":"routeModelName","args":["muse","-lead"],"out":" Lead"}
+{"fn":"routeModelName","args":["muse","trail-"],"out":"Trail "}
+{"fn":"routeModelName","args":["muse","émile-2"],"out":"Émile 2"}
+{"fn":"routeModelName","args":["muse","model-🚀-1"],"out":"Model 🚀 1"}
+{"fn":"routeModelName","args":["muse","x-1-2-3"],"out":"X 1 2 3"}
+{"fn":"routeModelName","args":["muse","v1-2"],"out":"V1 2"}
+{"fn":"routeModelName","args":["muse","gpt-oss-120b"],"out":"GPT Oss 120b"}
+{"fn":"routeModelName","args":["muse","llama-4-70b-vl"],"out":"Llama 4 70b VL"}
+{"fn":"routeModelName","args":["muse","ai-21"],"out":"AI-21"}
+{"fn":"routeModelName","args":["muse","cli-2"],"out":"CLI-2"}
+{"fn":"routeModelName","args":["muse","own-0123abcd/my-model"],"out":"My Model"}
+{"fn":"routeModelName","args":["muse","acp_goose"],"out":"Acp_goose"}
+{"fn":"routeModelName","args":["muse","acp_goose::deepseek-v4-flash"],"out":"Acp_goose::deepseek V4 Flash"}
+{"fn":"routeModelName","args":["gemini","vitest"],"out":"Vitest"}
+{"fn":"routeModelName","args":["gemini","./routeName.js"],"out":"./RouteName.js"}
+{"fn":"routeModelName","args":["gemini","cursor"],"out":"Cursor"}
+{"fn":"routeModelName","args":["gemini","cursor-grok-4.6"],"out":"Cursor Grok 4.6"}
+{"fn":"routeModelName","args":["gemini","claude"],"out":"Claude"}
+{"fn":"routeModelName","args":["gemini","fable-5.1"],"out":"Fable 5.1"}
+{"fn":"routeModelName","args":["gemini","codex"],"out":"Codex"}
+{"fn":"routeModelName","args":["gemini","gpt-6-astra"],"out":"GPT-6 Astra"}
+{"fn":"routeModelName","args":["gemini","gpt-5.6-luna"],"out":"GPT-5.6 Luna"}
+{"fn":"routeModelName","args":["gemini","cursor-grok-4.6-medium"],"out":"Cursor Grok 4.6 Medium"}
+{"fn":"routeModelName","args":["gemini","composer-2.5"],"out":"Composer 2.5"}
+{"fn":"routeModelName","args":["gemini","opencode"],"out":"Opencode"}
+{"fn":"routeModelName","args":["gemini","opencode/deepseek-v4.1-flash-free"],"out":"Opencode/DeepSeek V4.1 Flash Free"}
+{"fn":"routeModelName","args":["gemini","opencode/glm-5.3-flash-free"],"out":"Opencode/GLM 5.3 Flash Free"}
+{"fn":"routeModelName","args":["gemini","opencode/mimo-v2.6-flash-free"],"out":"Opencode/MiMo V2.6 Flash Free"}
+{"fn":"routeModelName","args":["gemini","opencode/nemotron-3.5-super-vl-free"],"out":"Opencode/Nemotron 3.5 Super VL Free"}
+{"fn":"routeModelName","args":["gemini","opencode/minimax-m2.5-free"],"out":"Opencode/MiniMax M2.5 Free"}
+{"fn":"routeModelName","args":["gemini","opencode/ling-3.0-flash-fin-free"],"out":"Opencode/Ling 3.0 Flash Fin Free"}
+{"fn":"routeModelName","args":["gemini","anthropic/claude-sonnet-4"],"out":"Anthropic/Claude Sonnet 4"}
+{"fn":"routeModelName","args":["gemini","some-unheard-of-model-9"],"out":"Some Unheard Of Model 9"}
+{"fn":"routeModelName","args":["gemini","sonnet"],"out":"Sonnet"}
+{"fn":"routeModelName","args":["gemini","claude-opus-5-5-medium"],"out":"Claude Opus 5.5 Medium"}
+{"fn":"routeModelName","args":["gemini","claude-opus-4-8-thinking-low"],"out":"Claude Opus 4.8 Thinking Low"}
+{"fn":"routeModelName","args":["gemini","claude-3-5-sonnet"],"out":"Claude 3.5 Sonnet"}
+{"fn":"routeModelName","args":["gemini","claude-haiku-4-5-20251001"],"out":"Claude Haiku 4.5 20251001"}
+{"fn":"routeModelName","args":["gemini","gpt-4o-2024-08-06"],"out":"GPT-4o 2024 08 06"}
+{"fn":"routeModelName","args":["gemini","cursor-grok-4.6-high"],"out":"Cursor Grok 4.6 High"}
+{"fn":"routeModelName","args":["gemini","some-model-1-2-3"],"out":"Some Model 1 2 3"}
+{"fn":"routeModelName","args":["gemini","antigravity"],"out":"Antigravity"}
+{"fn":"routeModelName","args":["gemini","copilot"],"out":"Copilot"}
+{"fn":"routeModelName","args":["gemini","auto"],"out":"Auto model"}
+{"fn":"routeModelName","args":["gemini","model"],"out":"Model"}
+{"fn":"routeModelName","args":["gemini","GPT-6-Luna"],"out":"GPT-6 Luna"}
+{"fn":"routeModelName","args":["gemini","gpt-6-luna"],"out":"GPT-6 Luna"}
+{"fn":"routeModelName","args":["gemini","gpt-6.1-sol"],"out":"GPT-6.1 Sol"}
+{"fn":"routeModelName","args":["gemini","GPT-6.1-Sol"],"out":"GPT-6.1 Sol"}
+{"fn":"routeModelName","args":["gemini","nemotron-3-ultra-free"],"out":"Nemotron 3 Ultra Free"}
+{"fn":"routeModelName","args":["gemini","opencode/nemotron-3-ultra-free"],"out":"Opencode/Nemotron 3 Ultra Free"}
+{"fn":"routeModelName","args":["gemini","account-default"],"out":"Account Default"}
+{"fn":"routeModelName","args":["gemini","gpt-6-sol"],"out":"GPT-6 Sol"}
+{"fn":"routeModelName","args":["gemini","GPT-6-Sol"],"out":"GPT-6 Sol"}
+{"fn":"routeModelName","args":["gemini","kilo/kilo-auto/free"],"out":"Kilo/Kilo Auto/free"}
+{"fn":"routeModelName","args":["gemini","kilo"],"out":"Kilo"}
+{"fn":"routeModelName","args":["gemini","kilo/nvidia/nemotron-3.5-lightning:free"],"out":"Kilo/Nvidia/nemotron 3.5 Lightning:free"}
+{"fn":"routeModelName","args":["gemini","kilo/nvidia/nemotron-3-nano-30b-a3b"],"out":"Kilo/Nvidia/nemotron 3 Nano 30b A3b"}
+{"fn":"routeModelName","args":["gemini","react-dom/server"],"out":"React Dom/Server"}
+{"fn":"routeModelName","args":["gemini","../../shared/claude-models.js"],"out":"../../shared/claude Models.js"}
+{"fn":"routeModelName","args":["gemini","../../shared/ipc.js"],"out":"../../shared/ipc.js"}
+{"fn":"routeModelName","args":["gemini","./components/RoutePicker.js"],"out":"./Components/RoutePicker.js"}
+{"fn":"routeModelName","args":["gemini","claude-opus-5-5"],"out":"Claude Opus 5.5"}
+{"fn":"routeModelName","args":["gemini","claude-fable-5-1"],"out":"Claude Fable 5.1"}
+{"fn":"routeModelName","args":["gemini","claude-sonnet-5"],"out":"Claude Sonnet 5"}
+{"fn":"routeModelName","args":["gemini","claude-opus-4-1-20250805-v1"],"out":"Claude Opus 4.1 20250805 V1"}
+{"fn":"routeModelName","args":["gemini","claude-opus-4-20250514"],"out":"Claude Opus 4 20250514"}
+{"fn":"routeModelName","args":["gemini","opus"],"out":"Opus"}
+{"fn":"routeModelName","args":["gemini","claude-fable-5-mythos-5"],"out":"Claude Fable 5 Mythos 5"}
+{"fn":"routeModelName","args":["gemini","gpt-6"],"out":"GPT-6"}
+{"fn":"routeModelName","args":["gemini","claude-sonnet-5-5"],"out":"Claude Sonnet 5.5"}
+{"fn":"routeModelName","args":["gemini","claude-haiku-5-5"],"out":"Claude Haiku 5.5"}
+{"fn":"routeModelName","args":["gemini","claude-opus-4-7"],"out":"Claude Opus 4.7"}
+{"fn":"routeModelName","args":["gemini","claude-opus-4-8"],"out":"Claude Opus 4.8"}
+{"fn":"routeModelName","args":["gemini","haiku"],"out":"Haiku"}
+{"fn":"routeModelName","args":["gemini","fable"],"out":"Fable"}
+{"fn":"routeModelName","args":["gemini","claude-opus-5-5-20260901"],"out":"Claude Opus 5.5 20260901"}
+{"fn":"routeModelName","args":["gemini","authenticated"],"out":"Authenticated"}
+{"fn":"routeModelName","args":["gemini","ready"],"out":"Ready"}
+{"fn":"routeModelName","args":["gemini","./components/Composer.js"],"out":"./Components/Composer.js"}
+{"fn":"routeModelName","args":["gemini","./missionView.js"],"out":"./MissionView.js"}
+{"fn":"routeModelName","args":["gemini","accept-edits"],"out":"Accept Edits"}
+{"fn":"routeModelName","args":["gemini","C:/test"],"out":"C:/Test"}
+{"fn":"routeModelName","args":["gemini","claude:account-default"],"out":"Claude:account Default"}
+{"fn":"routeModelName","args":["gemini","./components/GroupSettingsDialog.js"],"out":"./Components/GroupSettingsDialog.js"}
+{"fn":"routeModelName","args":["gemini","own-a1b2c3d0/acme-70b"],"out":"Acme 70b"}
+{"fn":"routeModelName","args":["gemini","route"],"out":"Route"}
+{"fn":"routeModelName","args":["gemini","shop"],"out":"Shop"}
+{"fn":"routeModelName","args":["gemini","listbox"],"out":"Listbox"}
+{"fn":"routeModelName","args":["gemini","opencode/muse-spark-1.3-contributor-free"],"out":"Opencode/Muse Spark 1.3 Contributor Free"}
+{"fn":"routeModelName","args":["gemini","./status.js"],"out":"./Status.js"}
+{"fn":"routeModelName","args":["gemini","codex:gpt-5.6"],"out":"Codex:gpt 5.6"}
+{"fn":"routeModelName","args":["gemini","opencode:ling-free"],"out":"Opencode:ling Free"}
+{"fn":"routeModelName","args":["gemini",""],"out":""}
+{"fn":"routeModelName","args":["gemini","AUTO"],"out":"Auto model"}
+{"fn":"routeModelName","args":["gemini"," Auto "],"out":"Auto model"}
+{"fn":"routeModelName","args":["gemini","gpt-6-codex"],"out":"GPT-6 Codex"}
+{"fn":"routeModelName","args":["gemini","gpt-6.1-mini"],"out":"GPT-6.1 Mini"}
+{"fn":"routeModelName","args":["gemini","claude-sonnet-5-5-20261001"],"out":"Claude Sonnet 5.5 20261001"}
+{"fn":"routeModelName","args":["gemini","opencode/nemotron-3.5-lightning-free"],"out":"Opencode/Nemotron 3.5 Lightning Free"}
+{"fn":"routeModelName","args":["gemini","deepseek-v4-flash"],"out":"DeepSeek V4 Flash"}
+{"fn":"routeModelName","args":["gemini","glm-5"],"out":"GLM 5"}
+{"fn":"routeModelName","args":["gemini","qwen3-coder"],"out":"Qwen3 Coder"}
+{"fn":"routeModelName","args":["gemini","kimi-k2-free"],"out":"Kimi K2 Free"}
+{"fn":"routeModelName","args":["gemini","mimo-v2"],"out":"MiMo V2"}
+{"fn":"routeModelName","args":["gemini","minimax-m3"],"out":"MiniMax M3"}
+{"fn":"routeModelName","args":["gemini","grok-4.7-high"],"out":"Grok 4.7 High"}
+{"fn":"routeModelName","args":["gemini","gemini-4-neon"],"out":"4 Neon"}
+{"fn":"routeModelName","args":["gemini","gemini-4-hydrogen-medium"],"out":"4 Hydrogen Medium"}
+{"fn":"routeModelName","args":["gemini","flash"],"out":"Flash"}
+{"fn":"routeModelName","args":["gemini","pro"],"out":"Pro"}
+{"fn":"routeModelName","args":["gemini","flash_lite"],"out":"Flash_lite"}
+{"fn":"routeModelName","args":["gemini","cursor-auto"],"out":"Cursor Auto"}
+{"fn":"routeModelName","args":["gemini","copilot-gpt-6"],"out":"Copilot GPT-6"}
+{"fn":"routeModelName","args":["gemini","nvidia/nemotron-3.5-lightning:free"],"out":"Nvidia/Nemotron 3.5 Lightning:free"}
+{"fn":"routeModelName","args":["gemini","a--b"],"out":"A  B"}
+{"fn":"routeModelName","args":["gemini","-lead"],"out":" Lead"}
+{"fn":"routeModelName","args":["gemini","trail-"],"out":"Trail "}
+{"fn":"routeModelName","args":["gemini","émile-2"],"out":"Émile 2"}
+{"fn":"routeModelName","args":["gemini","model-🚀-1"],"out":"Model 🚀 1"}
+{"fn":"routeModelName","args":["gemini","x-1-2-3"],"out":"X 1 2 3"}
+{"fn":"routeModelName","args":["gemini","v1-2"],"out":"V1 2"}
+{"fn":"routeModelName","args":["gemini","gpt-oss-120b"],"out":"GPT Oss 120b"}
+{"fn":"routeModelName","args":["gemini","llama-4-70b-vl"],"out":"Llama 4 70b VL"}
+{"fn":"routeModelName","args":["gemini","ai-21"],"out":"AI-21"}
+{"fn":"routeModelName","args":["gemini","cli-2"],"out":"CLI-2"}
+{"fn":"routeModelName","args":["gemini","own-0123abcd/my-model"],"out":"My Model"}
+{"fn":"routeModelName","args":["gemini","acp_goose"],"out":"Acp_goose"}
+{"fn":"routeModelName","args":["gemini","acp_goose::deepseek-v4-flash"],"out":"Acp_goose::deepseek V4 Flash"}
+{"fn":"routeModelName","args":["apple","vitest"],"out":"Vitest"}
+{"fn":"routeModelName","args":["apple","./routeName.js"],"out":"./RouteName.js"}
+{"fn":"routeModelName","args":["apple","cursor"],"out":"Cursor"}
+{"fn":"routeModelName","args":["apple","cursor-grok-4.6"],"out":"Cursor Grok 4.6"}
+{"fn":"routeModelName","args":["apple","claude"],"out":"Claude"}
+{"fn":"routeModelName","args":["apple","fable-5.1"],"out":"Fable 5.1"}
+{"fn":"routeModelName","args":["apple","codex"],"out":"Codex"}
+{"fn":"routeModelName","args":["apple","gpt-6-astra"],"out":"GPT-6 Astra"}
+{"fn":"routeModelName","args":["apple","gpt-5.6-luna"],"out":"GPT-5.6 Luna"}
+{"fn":"routeModelName","args":["apple","cursor-grok-4.6-medium"],"out":"Cursor Grok 4.6 Medium"}
+{"fn":"routeModelName","args":["apple","composer-2.5"],"out":"Composer 2.5"}
+{"fn":"routeModelName","args":["apple","opencode"],"out":"Opencode"}
+{"fn":"routeModelName","args":["apple","opencode/deepseek-v4.1-flash-free"],"out":"Opencode/DeepSeek V4.1 Flash Free"}
+{"fn":"routeModelName","args":["apple","opencode/glm-5.3-flash-free"],"out":"Opencode/GLM 5.3 Flash Free"}
+{"fn":"routeModelName","args":["apple","opencode/mimo-v2.6-flash-free"],"out":"Opencode/MiMo V2.6 Flash Free"}
+{"fn":"routeModelName","args":["apple","opencode/nemotron-3.5-super-vl-free"],"out":"Opencode/Nemotron 3.5 Super VL Free"}
+{"fn":"routeModelName","args":["apple","opencode/minimax-m2.5-free"],"out":"Opencode/MiniMax M2.5 Free"}
+{"fn":"routeModelName","args":["apple","opencode/ling-3.0-flash-fin-free"],"out":"Opencode/Ling 3.0 Flash Fin Free"}
+{"fn":"routeModelName","args":["apple","anthropic/claude-sonnet-4"],"out":"Anthropic/Claude Sonnet 4"}
+{"fn":"routeModelName","args":["apple","some-unheard-of-model-9"],"out":"Some Unheard Of Model 9"}
+{"fn":"routeModelName","args":["apple","sonnet"],"out":"Sonnet"}
+{"fn":"routeModelName","args":["apple","claude-opus-5-5-medium"],"out":"Claude Opus 5.5 Medium"}
+{"fn":"routeModelName","args":["apple","claude-opus-4-8-thinking-low"],"out":"Claude Opus 4.8 Thinking Low"}
+{"fn":"routeModelName","args":["apple","claude-3-5-sonnet"],"out":"Claude 3.5 Sonnet"}
+{"fn":"routeModelName","args":["apple","claude-haiku-4-5-20251001"],"out":"Claude Haiku 4.5 20251001"}
+{"fn":"routeModelName","args":["apple","gpt-4o-2024-08-06"],"out":"GPT-4o 2024 08 06"}
+{"fn":"routeModelName","args":["apple","cursor-grok-4.6-high"],"out":"Cursor Grok 4.6 High"}
+{"fn":"routeModelName","args":["apple","some-model-1-2-3"],"out":"Some Model 1 2 3"}
+{"fn":"routeModelName","args":["apple","antigravity"],"out":"Antigravity"}
+{"fn":"routeModelName","args":["apple","copilot"],"out":"Copilot"}
+{"fn":"routeModelName","args":["apple","auto"],"out":"Auto model"}
+{"fn":"routeModelName","args":["apple","model"],"out":"Model"}
+{"fn":"routeModelName","args":["apple","GPT-6-Luna"],"out":"GPT-6 Luna"}
+{"fn":"routeModelName","args":["apple","gpt-6-luna"],"out":"GPT-6 Luna"}
+{"fn":"routeModelName","args":["apple","gpt-6.1-sol"],"out":"GPT-6.1 Sol"}
+{"fn":"routeModelName","args":["apple","GPT-6.1-Sol"],"out":"GPT-6.1 Sol"}
+{"fn":"routeModelName","args":["apple","nemotron-3-ultra-free"],"out":"Nemotron 3 Ultra Free"}
+{"fn":"routeModelName","args":["apple","opencode/nemotron-3-ultra-free"],"out":"Opencode/Nemotron 3 Ultra Free"}
+{"fn":"routeModelName","args":["apple","account-default"],"out":"Account Default"}
+{"fn":"routeModelName","args":["apple","gpt-6-sol"],"out":"GPT-6 Sol"}
+{"fn":"routeModelName","args":["apple","GPT-6-Sol"],"out":"GPT-6 Sol"}
+{"fn":"routeModelName","args":["apple","kilo/kilo-auto/free"],"out":"Kilo/Kilo Auto/free"}
+{"fn":"routeModelName","args":["apple","kilo"],"out":"Kilo"}
+{"fn":"routeModelName","args":["apple","kilo/nvidia/nemotron-3.5-lightning:free"],"out":"Kilo/Nvidia/nemotron 3.5 Lightning:free"}
+{"fn":"routeModelName","args":["apple","kilo/nvidia/nemotron-3-nano-30b-a3b"],"out":"Kilo/Nvidia/nemotron 3 Nano 30b A3b"}
+{"fn":"routeModelName","args":["apple","react-dom/server"],"out":"React Dom/Server"}
+{"fn":"routeModelName","args":["apple","../../shared/claude-models.js"],"out":"../../shared/claude Models.js"}
+{"fn":"routeModelName","args":["apple","../../shared/ipc.js"],"out":"../../shared/ipc.js"}
+{"fn":"routeModelName","args":["apple","./components/RoutePicker.js"],"out":"./Components/RoutePicker.js"}
+{"fn":"routeModelName","args":["apple","claude-opus-5-5"],"out":"Claude Opus 5.5"}
+{"fn":"routeModelName","args":["apple","claude-fable-5-1"],"out":"Claude Fable 5.1"}
+{"fn":"routeModelName","args":["apple","claude-sonnet-5"],"out":"Claude Sonnet 5"}
+{"fn":"routeModelName","args":["apple","claude-opus-4-1-20250805-v1"],"out":"Claude Opus 4.1 20250805 V1"}
+{"fn":"routeModelName","args":["apple","claude-opus-4-20250514"],"out":"Claude Opus 4 20250514"}
+{"fn":"routeModelName","args":["apple","opus"],"out":"Opus"}
+{"fn":"routeModelName","args":["apple","claude-fable-5-mythos-5"],"out":"Claude Fable 5 Mythos 5"}
+{"fn":"routeModelName","args":["apple","gpt-6"],"out":"GPT-6"}
+{"fn":"routeModelName","args":["apple","claude-sonnet-5-5"],"out":"Claude Sonnet 5.5"}
+{"fn":"routeModelName","args":["apple","claude-haiku-5-5"],"out":"Claude Haiku 5.5"}
+{"fn":"routeModelName","args":["apple","claude-opus-4-7"],"out":"Claude Opus 4.7"}
+{"fn":"routeModelName","args":["apple","claude-opus-4-8"],"out":"Claude Opus 4.8"}
+{"fn":"routeModelName","args":["apple","haiku"],"out":"Haiku"}
+{"fn":"routeModelName","args":["apple","fable"],"out":"Fable"}
+{"fn":"routeModelName","args":["apple","claude-opus-5-5-20260901"],"out":"Claude Opus 5.5 20260901"}
+{"fn":"routeModelName","args":["apple","authenticated"],"out":"Authenticated"}
+{"fn":"routeModelName","args":["apple","ready"],"out":"Ready"}
+{"fn":"routeModelName","args":["apple","./components/Composer.js"],"out":"./Components/Composer.js"}
+{"fn":"routeModelName","args":["apple","./missionView.js"],"out":"./MissionView.js"}
+{"fn":"routeModelName","args":["apple","accept-edits"],"out":"Accept Edits"}
+{"fn":"routeModelName","args":["apple","C:/test"],"out":"C:/Test"}
+{"fn":"routeModelName","args":["apple","claude:account-default"],"out":"Claude:account Default"}
+{"fn":"routeModelName","args":["apple","./components/GroupSettingsDialog.js"],"out":"./Components/GroupSettingsDialog.js"}
+{"fn":"routeModelName","args":["apple","own-a1b2c3d0/acme-70b"],"out":"Acme 70b"}
+{"fn":"routeModelName","args":["apple","route"],"out":"Route"}
+{"fn":"routeModelName","args":["apple","shop"],"out":"Shop"}
+{"fn":"routeModelName","args":["apple","listbox"],"out":"Listbox"}
+{"fn":"routeModelName","args":["apple","opencode/muse-spark-1.3-contributor-free"],"out":"Opencode/Muse Spark 1.3 Contributor Free"}
+{"fn":"routeModelName","args":["apple","./status.js"],"out":"./Status.js"}
+{"fn":"routeModelName","args":["apple","codex:gpt-5.6"],"out":"Codex:gpt 5.6"}
+{"fn":"routeModelName","args":["apple","opencode:ling-free"],"out":"Opencode:ling Free"}
+{"fn":"routeModelName","args":["apple",""],"out":""}
+{"fn":"routeModelName","args":["apple","AUTO"],"out":"Auto model"}
+{"fn":"routeModelName","args":["apple"," Auto "],"out":"Auto model"}
+{"fn":"routeModelName","args":["apple","gpt-6-codex"],"out":"GPT-6 Codex"}
+{"fn":"routeModelName","args":["apple","gpt-6.1-mini"],"out":"GPT-6.1 Mini"}
+{"fn":"routeModelName","args":["apple","claude-sonnet-5-5-20261001"],"out":"Claude Sonnet 5.5 20261001"}
+{"fn":"routeModelName","args":["apple","opencode/nemotron-3.5-lightning-free"],"out":"Opencode/Nemotron 3.5 Lightning Free"}
+{"fn":"routeModelName","args":["apple","deepseek-v4-flash"],"out":"DeepSeek V4 Flash"}
+{"fn":"routeModelName","args":["apple","glm-5"],"out":"GLM 5"}
+{"fn":"routeModelName","args":["apple","qwen3-coder"],"out":"Qwen3 Coder"}
+{"fn":"routeModelName","args":["apple","kimi-k2-free"],"out":"Kimi K2 Free"}
+{"fn":"routeModelName","args":["apple","mimo-v2"],"out":"MiMo V2"}
+{"fn":"routeModelName","args":["apple","minimax-m3"],"out":"MiniMax M3"}
+{"fn":"routeModelName","args":["apple","grok-4.7-high"],"out":"Grok 4.7 High"}
+{"fn":"routeModelName","args":["apple","gemini-4-neon"],"out":"Gemini 4 Neon"}
+{"fn":"routeModelName","args":["apple","gemini-4-hydrogen-medium"],"out":"Gemini 4 Hydrogen Medium"}
+{"fn":"routeModelName","args":["apple","flash"],"out":"Flash"}
+{"fn":"routeModelName","args":["apple","pro"],"out":"Pro"}
+{"fn":"routeModelName","args":["apple","flash_lite"],"out":"Flash_lite"}
+{"fn":"routeModelName","args":["apple","cursor-auto"],"out":"Cursor Auto"}
+{"fn":"routeModelName","args":["apple","copilot-gpt-6"],"out":"Copilot GPT-6"}
+{"fn":"routeModelName","args":["apple","nvidia/nemotron-3.5-lightning:free"],"out":"Nvidia/Nemotron 3.5 Lightning:free"}
+{"fn":"routeModelName","args":["apple","a--b"],"out":"A  B"}
+{"fn":"routeModelName","args":["apple","-lead"],"out":" Lead"}
+{"fn":"routeModelName","args":["apple","trail-"],"out":"Trail "}
+{"fn":"routeModelName","args":["apple","émile-2"],"out":"Émile 2"}
+{"fn":"routeModelName","args":["apple","model-🚀-1"],"out":"Model 🚀 1"}
+{"fn":"routeModelName","args":["apple","x-1-2-3"],"out":"X 1 2 3"}
+{"fn":"routeModelName","args":["apple","v1-2"],"out":"V1 2"}
+{"fn":"routeModelName","args":["apple","gpt-oss-120b"],"out":"GPT Oss 120b"}
+{"fn":"routeModelName","args":["apple","llama-4-70b-vl"],"out":"Llama 4 70b VL"}
+{"fn":"routeModelName","args":["apple","ai-21"],"out":"AI-21"}
+{"fn":"routeModelName","args":["apple","cli-2"],"out":"CLI-2"}
+{"fn":"routeModelName","args":["apple","own-0123abcd/my-model"],"out":"My Model"}
+{"fn":"routeModelName","args":["apple","acp_goose"],"out":"Acp_goose"}
+{"fn":"routeModelName","args":["apple","acp_goose::deepseek-v4-flash"],"out":"Acp_goose::deepseek V4 Flash"}
