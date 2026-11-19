@@ -242,6 +242,29 @@ pub(super) fn activity_drawer_key(scope: &str, item: &ledger::Item) -> String {
     }
 }
 
+/// A plan with no run behind it is the teammate's answer, not a card (ThreadItems.tsx `PlanSteps` with no outcomes): an
+/// ordered list beside the face, numbered rather than given states, with no PLAN label and no counter. Past nine steps
+/// the ordinal gutter widens so the text column stays flush (`is-wide`). No steps draws nothing.
+pub(super) fn plan_answer(steps: &[ledger::PlanStep], scope: &str, p: &Palette) -> Option<El> {
+    if steps.is_empty() {
+        return None;
+    }
+    let wide = steps.len() > 9;
+    let gutter = if wide { 22.0 } else { 14.0 };
+    let mut list = col().w_full().gap(6.0).key(format!("{scope}/plan-answer{}", if wide { "/is-wide" } else { "" }));
+    for (index, step) in steps.iter().enumerate() {
+        list = list.child(
+            row()
+                .w_full()
+                .gap(8.0)
+                .child(text(format!("{}", index + 1)).font(type_::BODY.mono()).color(p.muted).w(gutter).key(format!("{scope}/plan-ordinal/{index}")))
+                .child(text(step.text.clone()).font(type_::BODY).color(p.text).grow(1.0).shrink().wrap()),
+        );
+    }
+    // The thread keys each item it draws, so the list's own key sits one level in.
+    Some(col().w_full().child(list))
+}
+
 /// ThreadItems.tsx PlanCard (`.lc-plancard`): a card with a head ("PLAN", how many are done) over the steps, each with
 /// its marker: green once done, a pulsing dot on the step underway, faded when the run ended without reaching it.
 fn plan_card(steps: &[ledger::PlanStep], finished: bool, p: &Palette) -> El {

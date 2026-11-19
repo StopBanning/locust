@@ -2487,6 +2487,10 @@ apps/desktop/src/renderer/src/a-pet-plays-what-its-teammate-is-doing.test.ts	mea
 apps/desktop/src/renderer/src/a-plain-conversation-wears-the-ghost.test.tsx	beside a reply: the ghost when the conversation is nobody's, the teammate's own bot when it has one	yes
 apps/desktop/src/renderer/src/a-plain-conversation-wears-the-ghost.test.tsx	wears the ghost's own white, as the cover's ghost does (0.624), on the reply and the live row alike	no
 apps/desktop/src/renderer/src/a-plain-conversation-wears-the-ghost.test.tsx	on the live row: the same ghost while nobody's conversation thinks	yes
+apps/desktop/src/renderer/src/a-plan-shows-what-happened-to-it.test.ts	is marked as having touched nothing, so it draws as an answer	no
+apps/desktop/src/renderer/src/a-plan-shows-what-happened-to-it.test.ts	is NOT marked as having touched nothing, so its outcomes are drawn	no
+apps/desktop/src/renderer/src/a-plan-shows-what-happened-to-it.test.ts	counts the steps that finished	yes
+apps/desktop/src/renderer/src/a-plan-shows-what-happened-to-it.test.ts	reads Cursor's own status spelling	yes
 apps/desktop/src/renderer/src/a-plugged-in-computer-stays-awake-in-settings.test.ts	sits in Settings under Startup and says what it leaves alone	no
 apps/desktop/src/renderer/src/a-proposed-change-says-what-it-changes.test.tsx	a rewrite shows the new words, the ones kept now, and Keep the change / Keep the old one	no
 apps/desktop/src/renderer/src/a-proposed-change-says-what-it-changes.test.tsx	a forget says so, and its buttons are Forget it / Keep it	no
@@ -3601,6 +3605,13 @@ apps/desktop/src/renderer/src/permissions-panel-is-true.test.tsx	still refuses e
 apps/desktop/src/renderer/src/picker-empty-states.test.tsx	does not blame the search when the catalog has not arrived	yes
 apps/desktop/src/renderer/src/picker-empty-states.test.tsx	still blames the search when there genuinely is nothing like it	yes
 apps/desktop/src/renderer/src/picker-empty-states.test.tsx	is what the picker actually renders, not just what the helper returns	no
+apps/desktop/src/renderer/src/plan-answer.test.tsx	is an ordered list, not a card	yes
+apps/desktop/src/renderer/src/plan-answer.test.tsx	numbers the steps instead of giving them states	yes
+apps/desktop/src/renderer/src/plan-answer.test.tsx	has no header at all — not the label, not the counter	yes
+apps/desktop/src/renderer/src/plan-answer.test.tsx	widens the gutter past nine steps so the text column stays flush	yes
+apps/desktop/src/renderer/src/plan-answer.test.tsx	renders nothing at all when the turn produced no steps	yes
+apps/desktop/src/renderer/src/plan-answer.test.tsx	keeps its markers, its counter and its label	yes
+apps/desktop/src/renderer/src/plan-answer.test.tsx	also renders nothing when there are no steps	yes
 apps/desktop/src/renderer/src/post-headline.test.ts	says so when everyone answered	yes
 apps/desktop/src/renderer/src/post-headline.test.ts	names one or two, and counts more	yes
 apps/desktop/src/renderer/src/post-headline.test.ts	counts a queue separately from what was asked	yes

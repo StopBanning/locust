@@ -393,6 +393,13 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                 }
                 msg
             }
+            // A turn that only planned (`touchedNothing`): its plan is the answer, a numbered list; with any step in the
+            // turn the plan is a record of work and keeps its outcomes card (a-plan-shows-what-happened-to-it).
+            ledger::Item::Plan { steps, .. } if {
+                let from = items[..index].iter().rposition(|i| matches!(i, ledger::Item::User(_))).map_or(0, |at| at + 1);
+                let to = items[index..].iter().position(|i| matches!(i, ledger::Item::User(_))).map_or(items.len(), |n| index + n);
+                locust_core::steps_fold::touched_nothing(&items[from..to])
+            } => plan_answer(steps, &key, p).unwrap_or_else(col),
             ledger::Item::Tool { .. }
             | ledger::Item::Plan { .. }
             | ledger::Item::Thought { .. } => activity_item(item, p, s, conversation),
@@ -966,6 +973,71 @@ mod tests {
         let items = vec![thought("t1"), call("c1", "Get-ChildItem"), thought("t2"), call("c2", "Get-Content a.md"), thought("t3"), call("c3", "git status")];
         let shown = thread_text(&items, &mut State::default());
         assert_eq!(shown.matches("Listed a folder, read a file, ran a command").count(), 1, "{shown}");
+    }
+
+    fn plan_of(count: usize, state: &str) -> ledger::Item {
+        let steps = (0..count).map(|i| ledger::PlanStep { text: format!("step {}", i + 1), state: state.into() }).collect();
+        ledger::Item::Plan { id: "plan".into(), steps, finished: true }
+    }
+    /// The thread's texts and keys for these items.
+    fn thread_drawn(items: &[ledger::Item]) -> (Vec<String>, Vec<String>) {
+        let mut rt = rune::Runtime::new(
+            (State::default(), items.to_vec()),
+            |(s, items), _| message_column(items, "Codec", &Palette::new(true), s),
+            (800.0, 800.0),
+            rune::Env::new(true, 1.0),
+        );
+        rt.frame(0.0);
+        let elements = rt.elements();
+        (elements.iter().filter_map(|e| e.text.clone()).collect(), elements.iter().filter_map(|e| e.key.clone()).collect())
+    }
+
+    // case: is an ordered list, not a card
+    // case: numbers the steps instead of giving them states
+    // case: has no header at all — not the label, not the counter
+    // case: is marked as having touched nothing, so it draws as an answer (drawn)
+    #[test]
+    fn a_turn_that_only_planned_draws_its_plan_as_a_numbered_answer_with_no_header() {
+        let (texts, keys) = thread_drawn(&[ledger::Item::User("plan it".into()), plan_of(5, "pending")]);
+        assert!(keys.iter().any(|k| k.ends_with("/plan-answer")), "{keys:?}");
+        let ordinals: Vec<&String> = keys.iter().filter(|k| k.contains("/plan-ordinal/")).collect();
+        assert_eq!(ordinals.len(), 5);
+        for n in 1..=5 {
+            assert!(texts.contains(&n.to_string()) && texts.contains(&format!("step {n}")), "{texts:?}");
+        }
+        assert!(!texts.iter().any(|t| t == "PLAN" || t.contains("of 5 done")), "{texts:?}");
+    }
+
+    // case: widens the gutter past nine steps so the text column stays flush
+    #[test]
+    fn a_planned_answer_widens_its_gutter_past_nine_steps() {
+        let (_, nine) = thread_drawn(&[ledger::Item::User("plan it".into()), plan_of(9, "pending")]);
+        let (_, ten) = thread_drawn(&[ledger::Item::User("plan it".into()), plan_of(10, "pending")]);
+        assert!(!nine.iter().any(|k| k.ends_with("/is-wide")));
+        assert!(ten.iter().any(|k| k.ends_with("/plan-answer/is-wide")), "{ten:?}");
+    }
+
+    // case: renders nothing at all when the turn produced no steps
+    // case: also renders nothing when there are no steps
+    #[test]
+    fn a_plan_with_no_steps_draws_nothing_answer_or_card() {
+        let call = ledger::Item::Tool { name: "shell".into(), status: ledger::Status::Done, summary: "ls".into(), detail: Box::new(ledger::ToolDetail { id: "c".into(), arguments: "ls".into(), finished: true, ..Default::default() }) };
+        for items in [vec![ledger::Item::User("plan it".into()), plan_of(0, "pending")], vec![ledger::Item::User("do it".into()), plan_of(0, "pending"), call]] {
+            let (texts, keys) = thread_drawn(&items);
+            assert!(!keys.iter().any(|k| k.contains("plan-answer")) && !texts.iter().any(|t| t == "PLAN"), "{texts:?}");
+        }
+    }
+
+    // case: keeps its markers, its counter and its label
+    // case: is NOT marked as having touched nothing, so its outcomes are drawn (drawn)
+    #[test]
+    fn a_plan_in_a_turn_that_did_work_keeps_its_label_counter_and_markers() {
+        let call = ledger::Item::Tool { name: "read".into(), status: ledger::Status::Done, summary: "read".into(), detail: Box::new(ledger::ToolDetail { id: "t1".into(), arguments: "read".into(), finished: true, ..Default::default() }) };
+        let mut plan = plan_of(5, "pending");
+        if let ledger::Item::Plan { steps, .. } = &mut plan { steps[0].state = "done".into(); }
+        let (texts, keys) = thread_drawn(&[ledger::Item::User("do it".into()), plan, call]);
+        assert!(texts.iter().any(|t| t == "PLAN") && texts.iter().any(|t| t == "1 of 5 done"), "{texts:?}");
+        assert!(!keys.iter().any(|k| k.contains("plan-answer") || k.contains("plan-ordinal")));
     }
 
     fn composition_state(kind: Option<&str>, running: bool) -> State {

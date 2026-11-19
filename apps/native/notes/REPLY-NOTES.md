@@ -268,3 +268,14 @@ Next: part 1b opens-the-plan, then orb, frame-pass.
 - Frame pass: NOT drawn. The agents list and the re-check that stores it are in `src/ui/agents_section.rs`
   (`s.settings_panel.agents = Some(found)`), a picker-lane file, so `runtime_list_order` / `keep_what_was_known` are
   still not called. The row stays partial and says so. The picker lane (or the next round) should call them there.
+
+## Part 2: plans in the thread (Mac chat took over, 18 Nov night)
+- `activity_drawers::plan_answer`: a plan in a turn that touched nothing (`steps_fold::touched_nothing` over the turn's
+  items) draws as an ordered list beside the face, numbered, no PLAN label, no counter, the ordinal gutter widened past
+  nine steps; nothing for no steps. A plan in a turn that did work keeps `plan_card`. The list sits one level inside a
+  wrapper because the thread keys every item it draws.
+- Tests: `messages::tests::a_turn_that_only_planned_draws_its_plan_as_a_numbered_answer_with_no_header`,
+  `a_planned_answer_widens_its_gutter_past_nine_steps`, `a_plan_with_no_steps_draws_nothing_answer_or_card`,
+  `a_plan_in_a_turn_that_did_work_keeps_its_label_counter_and_markers`.
+- Breaks: gutter at ten -> the gutter test; every plan an answer -> the did-work test; the empty guard survives
+  (an empty list draws nothing either way, an equivalent change). Rows plan-answer and a-plan-shows carried.
