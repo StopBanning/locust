@@ -265,9 +265,7 @@ Next: part 1b opens-the-plan, then orb, frame-pass.
 - `live_line_tests::a_restated_call_is_one_row_now_carrying_the_command_and_what_it_is_for`: Claude Code's restated
   `tool.started` folds into one unsettled row with `npm test` and "Run the test suite", and the steps line says the
   title. Break (the ledger ignores a later title) → that test fails (and `ledger::tests::tool_keeps_title…`). Row carried.
-- Frame pass: NOT drawn. The agents list and the re-check that stores it are in `src/ui/agents_section.rs`
-  (`s.settings_panel.agents = Some(found)`), a picker-lane file, so `runtime_list_order` / `keep_what_was_known` are
-  still not called. The row stays partial and says so. The picker lane (or the next round) should call them there.
+- Frame pass: not drawn at the time (another lane's file); drawn 19 Nov, see "The frame pass, drawn" below.
 
 ## Part 2: plans in the thread (Mac chat took over, 18 Nov night)
 - `activity_drawers::plan_answer`: a plan in a turn that touched nothing (`steps_fold::touched_nothing` over the turn's
@@ -339,3 +337,23 @@ Next: part 1b opens-the-plan, then orb, frame-pass.
 - **The turn foot's Undo** (`src/ui/turn_undo.rs`, TurnUndo.tsx): under the files card, "Undo these changes", asked first in Electron's words, run off the window's thread through `changes_panel::undo_turn_in`, then "Undone: N files put back…" with each file left alone and why. `checkpoints::undo_state` answers in Electron's order (undone, shared, ready, none); the latest turn is asked again every 750 ms up to 20 times while its record is not written yet. The heading adds "· undone" only when Undo put a file back.
 - **A resumed file card** 5 of 5: a stopped Write says "not confirmed", never "did not report".
 - **The header ⋯** (`src/ui/header_menu.rs`): Verbose/Normal, Send feedback (the turns as feedback.ts writes them; a failure's words from the turn's error note; a stopped turn's "(the turn was stopped)" is not yet said, since the window's items do not keep the run's ending), Delete conversation once nothing runs. Electron's other entries (Open in terminal, Ask on the side, Cloud tasks, Save as routine, the review ask) stay where Rust draws them, as header icons, or are not built yet.
+
+## 19 Nov: the frame pass, drawn (`src/ui/agents_section.rs`, freed for this lane)
+- Settings › AI agents now draws its rows through core's `runtime_list_order` (Screens.tsx), with the tag of each row
+  from `agents::row_status`; the section's own copy of the band rule is gone. Nothing installed still puts OpenCode
+  first, as Electron does.
+- `poll` stores each discovery answer through `keep_what_was_known` against the list already held, an empty one before
+  the first answer (App.tsx `keepWhatWasKnown(held, response.runtimes)`). A runtime whose answer is silence
+  (`probe-failed`, `offline`; discovery's "still checking" placeholder `agents::pending_found` is `probe-failed`) keeps
+  its earlier `Found` whole; an answer without a version keeps the version printed before; every definite answer wins.
+  `Probe` is read as PublicRuntimeStatus's status word by `status_word`.
+- Rust tags Antigravity READY when it goes through its own CLI, so the order test uses it through the app
+  (EXPERIMENTAL), the band the Electron case is about.
+- Tests (`agents_section::tests`): `the_window_draws_what_can_be_used_first_and_what_does_not_exist_last`,
+  `the_window_draws_one_band_by_name_whatever_order_discovery_answered_in`,
+  `a_recheck_still_out_keeps_the_row_it_had_and_a_version_not_printed_again`,
+  `a_recheck_draws_every_definite_answer_at_once_and_rows_it_never_saw`. Each reads the drawn rows (top to bottom, and
+  each row's own words); a re-check lands through the real `agents_job` and `poll`.
+- Breaks 6 of 6 killed: no keep (`let kept = found`), silence not held, version not kept, discovery order, every tag
+  READY, every row held.
+- localeCompare is still approximated by lower-cased comparison. Row carried.
