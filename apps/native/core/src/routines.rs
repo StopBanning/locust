@@ -461,3 +461,18 @@ pub fn run_summary(routine: &Value) -> String {
     }
     format!("{steps} · run {runs} time{}", if runs == 1 { "" } else { "s" })
 }
+
+/// `routineStepLabel`: what the sidebar says under a teammate replaying a routine.
+pub fn step_label(step: u64, of: u64) -> String {
+    format!("routine · step {step} of {of}")
+}
+
+/// `routineWaitsForYou` (0.591): a scheduled routine on a teammate in Approve each, fired while nobody is at the
+/// window, stops on its first card and waits there. Said where the schedule is set; None for every other mode and for
+/// a routine that only runs when pressed (someone is there).
+pub fn waits_for_you(routine: &Value) -> Option<&'static str> {
+    if routine.get("schedule").is_none_or(Value::is_null) || routine["route"]["mode"] != "approve-each" {
+        return None;
+    }
+    Some("Runs in Approve each: fired while you are away, it waits for you on its first card. Ask or Accept edits runs through.")
+}

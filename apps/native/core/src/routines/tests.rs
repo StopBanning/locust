@@ -501,3 +501,49 @@ fn a_routine_names_the_folder_it_runs_in_only_among_the_folders_locust_knows() {
     assert_eq!(super::routine_folder(&r, &[other.clone()]), None, "a folder Locust does not know is not guessed at");
     assert_eq!(super::routine_folder(&serde_json::json!({}), &[here]), None, "a routine that names none says none");
 }
+
+// ---- routines.test.ts, "how a routine reads", "what a card says about a schedule" and Approve each ----------------
+
+#[test]
+fn says_which_step_is_running() {
+    assert_eq!(super::step_label(2, 3), "routine · step 2 of 3");
+}
+
+#[test]
+fn says_nothing_for_a_routine_that_only_runs_when_pressed() {
+    let base = serde_json::json!({"createdAt": at(2026, 9, 4, 9, 0).to_rfc3339()});
+    assert_eq!(schedule::summary(&base, at(2026, 9, 5, 8, 0)), None);
+}
+
+#[test]
+fn names_the_rule_and_the_next_run_in_local_clock_words_today_tomorrow_a_weekday_or_due_now() {
+    let now = at(2026, 9, 5, 8, 0);
+    let with = |schedule: Value, last: Option<chrono::DateTime<Local>>| {
+        let mut r = serde_json::json!({"createdAt": at(2026, 9, 4, 9, 0).to_rfc3339(), "schedule": schedule});
+        if let Some(l) = last { r["lastRunAt"] = serde_json::json!(l.to_rfc3339()); }
+        schedule::summary(&r, now)
+    };
+    assert_eq!(with(serde_json::json!({"kind": "daily", "at": "09:30"}), None).as_deref(), Some("daily at 09:30 · next 09:30"));
+    assert_eq!(with(serde_json::json!({"kind": "daily", "at": "07:00"}), Some(at(2026, 9, 5, 7, 1))).as_deref(), Some("daily at 07:00 · next tomorrow 07:00"));
+    assert_eq!(with(serde_json::json!({"kind": "every", "hours": 4}), Some(at(2026, 9, 5, 6, 0))).as_deref(), Some("every 4 hours · next 10:00"));
+    assert_eq!(with(serde_json::json!({"kind": "every", "hours": 168}), Some(at(2026, 9, 5, 6, 0))).as_deref(), Some("every 168 hours · next Sat 06:00"));
+    assert_eq!(with(serde_json::json!({"kind": "every", "hours": 1}), None).as_deref(), Some("every hour · due now"));
+}
+
+#[test]
+fn says_it_waits_for_you_when_it_fires_unattended() {
+    let r = serde_json::json!({"route": {"runtime": "codex", "model": "account-default", "mode": "approve-each"}, "schedule": {"kind": "daily", "at": "07:00"}});
+    assert_eq!(super::waits_for_you(&r), Some("Runs in Approve each: fired while you are away, it waits for you on its first card. Ask or Accept edits runs through."));
+}
+
+#[test]
+fn says_nothing_for_the_other_modes_or_for_a_routine_that_only_runs_when_pressed() {
+    let r = |mode: &str, schedule: Value| serde_json::json!({"route": {"runtime": "codex", "model": "account-default", "mode": mode}, "schedule": schedule});
+    assert_eq!(super::waits_for_you(&r("ask", serde_json::json!({"kind": "daily", "at": "07:00"}))), None);
+    assert_eq!(super::waits_for_you(&r("accept-edits", serde_json::json!({"kind": "every", "hours": 2}))), None);
+    assert_eq!(super::waits_for_you(&r("auto", serde_json::json!({"kind": "daily", "at": "07:00"}))), None);
+    assert_eq!(super::waits_for_you(&r("approve-each", Value::Null)), None);
+    let mut none = r("approve-each", Value::Null);
+    none.as_object_mut().unwrap().remove("schedule");
+    assert_eq!(super::waits_for_you(&none), None);
+}

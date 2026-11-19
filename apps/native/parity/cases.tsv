@@ -3927,6 +3927,20 @@ apps/desktop/src/renderer/src/routine-recovery.test.tsx	names when Keep runs it 
 apps/desktop/src/renderer/src/routine-recovery.test.tsx	says why Continue is off, and offers to keep the schedule (0.390 beta pass)	yes
 apps/desktop/src/renderer/src/routine-recovery.test.tsx	says a refused start would be refused again, not that the step before it never finished (0.818)	yes
 apps/desktop/src/renderer/src/routine-recovery.test.tsx	an unresolved dispatch has the same visible protection; no optimistic next-run promise	no
+apps/desktop/src/renderer/src/routines.test.ts	is named after what the person typed, not the attachment line	yes
+apps/desktop/src/renderer/src/routines.test.ts	takes the words a person typed on each turn, in order, with where each came from	yes
+apps/desktop/src/renderer/src/routines.test.ts	drops turns the HOST wrote, whatever started them	yes
+apps/desktop/src/renderer/src/routines.test.ts	leaves out a turn the person stopped, and keeps the ones that worked	yes
+apps/desktop/src/renderer/src/routines.test.ts	still offers a conversation whose every turn failed, less the ones stopped	yes
+apps/desktop/src/renderer/src/routines.test.ts	has nothing to save when a person typed nothing in it	yes
+apps/desktop/src/renderer/src/routines.test.ts	cuts a long conversation at the limit and says it was cut	yes
+apps/desktop/src/renderer/src/routines.test.ts	names itself from the first step, on a word boundary, without pretending to be short	yes
+apps/desktop/src/renderer/src/routines.test.ts	says how many steps and whether it has ever run	no
+apps/desktop/src/renderer/src/routines.test.ts	says which step is running	yes
+apps/desktop/src/renderer/src/routines.test.ts	says nothing for a routine that only runs when pressed	yes
+apps/desktop/src/renderer/src/routines.test.ts	names the rule and the next run in local clock words: today, tomorrow, a weekday, or due now	yes
+apps/desktop/src/renderer/src/routines.test.ts	says it waits for you when it fires unattended	yes
+apps/desktop/src/renderer/src/routines.test.ts	says nothing for the other modes, or for a routine that only runs when pressed (controls)	yes
 apps/desktop/src/renderer/src/scout-says-what-needs-you.test.tsx	lead with Locust’s sentence, say who noticed it and when, and open what it is about	no
 apps/desktop/src/renderer/src/scout-says-what-needs-you.test.tsx	raise what needs the person now, first, whenever it was found	no
 apps/desktop/src/renderer/src/scout-says-what-needs-you.test.tsx	show Scout’s take and draft as Scout’s, with Send and Change it first, and say while it is still reading	no

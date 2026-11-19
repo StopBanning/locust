@@ -492,3 +492,13 @@ fn export_paths_are_shown_with_a_conversion_offer_and_the_routines_screen_has_fi
     assert!(any_text(&all, "Import routine"));
     assert!(labelled(&all, "Export Notes"));
 }
+
+#[test]
+fn a_scheduled_routine_in_approve_each_says_on_its_card_that_it_waits_for_you() {
+    let mut r = routine(None);
+    r["route"]["mode"] = json!("approve-each");
+    let all = draw(screen(vec![r.clone()], None));
+    assert_eq!(shown(&all, "routine-waits-rt_1").as_deref(), locust_core::routines::waits_for_you(&r));
+    r["route"]["mode"] = json!("accept-edits");
+    assert!(shown(&draw(screen(vec![r], None)), "routine-waits-rt_1").is_none());
+}

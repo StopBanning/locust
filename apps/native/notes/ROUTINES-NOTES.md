@@ -197,3 +197,25 @@ Three rows carried (`src/ui/routine_card_and_editor_tests.rs`, 12 tests; core `r
   The shelf says Import routine, and each card's file button is labelled "Export <name>".
 - **Breaks: 11 of 11 caught by name** (`~/work/scratch/routines1/r4.txt`, `r4b.txt`). "Source role:" survived until
   the test named it.
+
+## Routines round 5 (19 Nov): the draft from a conversation, the step label, waits for you
+
+- **routines.test.ts: carried, all 14 cases.**
+- `core/src/routine_draft.rs` ports `routineDraft` and `draftName`. It walks `conversation_turns` and takes
+  `typed_prompt` for each turn, so a turn carried to another agent gives the person's words, not the briefing.
+  - It drops host-written turns (any `startedBy`).
+  - It keeps completed turns; where none completed, it keeps any that were not stopped.
+  - It is named from the first step with its attachment line split off, and cut at 12 steps.
+  - A turn's phase comes in through a lookup, since the ledger metadata does not carry it.
+  - `draft_name` counts characters where Electron counts UTF-16 units, so accented or emoji names are cut where a
+    person would count.
+- `routines::step_label` and `routines::waits_for_you` are ported. The waits-for-you line is drawn on the card under
+  the schedule, as Electron's row has it. `step_label` has no Rust sidebar place yet.
+- The schedule summary's local-clock cases (today, tomorrow, a weekday, due now) are now pinned by name.
+- **Breaks: 13 of 13 caught by name** (`~/work/scratch/routines1/r5*.txt`, `r6*.txt`). Three draft breaks survived
+  until tests were added for them:
+  - only the turns that worked are kept;
+  - a name with no late space is cut hard;
+  - the person's words on a carried turn.
+- **Left: routines-shelf.** It needs the shelf named Routines, the finished conversations with Save as routine
+  (opening the editor on this draft), the empty-shelf sentence, and the CLI agents list.

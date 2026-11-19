@@ -723,6 +723,10 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                 let warn = r["paused"] == true || r["missedAt"].is_string() || r["execution"]["waitsForOk"] == true;
                 card = card.child(text(when).key(format!("routine-when-{id}")).font(type_::LABEL).color(if warn { p.amber } else { p.secondary }).wrap());
             }
+            // Scheduled in Approve each (0.591): fired while nobody is there, it waits on its first card. Said here.
+            if let Some(waits) = crate::routines::waits_for_you(r) {
+                card = card.child(text(waits).key(format!("routine-waits-{id}")).font(type_::LABEL).color(p.amber).wrap());
+            }
             let entry = r.clone();
             let export_entry = r.clone();
             let remove = id.clone();
