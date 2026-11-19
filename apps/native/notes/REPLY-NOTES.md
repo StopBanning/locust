@@ -320,3 +320,7 @@ Next: part 1b opens-the-plan, then orb, frame-pass.
   of several lines (`shell_command_folded`; that last case is Rust's, since its row draws one line). "no output" still
   needs the runtime to have reported output.
 - Tests: the 5 Electron cases plus `a_described_or_multi_line_command_opens_onto_the_command`. Breaks 7 of 7 killed.
+- One left edge: a command that opens and a file row both start their words 20 pt in, after the chevron; a command
+  with nothing behind it now keeps a 12 pt space where the chevron would be, so it starts there too. Tests
+  `puts_the_command_before_its_badge_and_the_path_before_done`, `keeps_a_failures_wording_where_the_row_ends`;
+  breaks 3 of 3 killed.

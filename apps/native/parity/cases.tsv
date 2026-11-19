@@ -3208,6 +3208,8 @@ apps/desktop/src/renderer/src/command-output.test.tsx	a command whose output the
 apps/desktop/src/renderer/src/command-output.test.tsx	a command WITH output offers to open	yes
 apps/desktop/src/renderer/src/command-rows.test.ts	is every runtime’s shell, however it spells it	yes
 apps/desktop/src/renderer/src/command-rows.test.ts	is not everything	yes
+apps/desktop/src/renderer/src/commands-and-paths-share-one-left-edge.test.tsx	puts the command before its badge, and the path before done	yes
+apps/desktop/src/renderer/src/commands-and-paths-share-one-left-edge.test.tsx	keeps a failure's wording where the row ends	yes
 apps/desktop/src/renderer/src/connectors-are-not-the-mode.test.tsx	says they work, in every mode	yes
 apps/desktop/src/renderer/src/connectors-are-not-the-mode.test.tsx	says the one thing the mode cannot tell you: a connector is not this machine	yes
 apps/desktop/src/renderer/src/connectors-are-not-the-mode.test.tsx	never repeats any of the three sentences that turned out to be wrong	yes

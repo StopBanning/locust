@@ -143,6 +143,9 @@ fn shell_heading(key: String, label: String, result: &str, badge: ShellBadge, ex
     if expandable {
         let chevron = if open { &crate::look::icons::CHEVRON_DOWN } else { &crate::look::icons::CHEVRON_RIGHT };
         line = line.child(crate::look::controls::glyph(&l, chevron, 12.0, Some(l.c("text-muted"))).mt(3.0));
+    } else {
+        // Where the chevron would be, so a command that cannot open starts where the paths and other commands do.
+        line = line.child(el().key(format!("{key}/edge")).w(12.0));
     }
     line = line
         .child(text(title).font(type_::LABEL.mono()).color(l.c("text-secondary")).shrink().wrap_anywhere())
@@ -1230,5 +1233,64 @@ mod tests {
         assert!(shell_command_folded("", "cd a\nmake"));
         assert!(!shell_command_folded("", "git status"));
         assert!(!shell_command_folded("Checked", ""));
+    }
+
+    fn left_edge_items(failed: bool) -> Vec<ledger::Item> {
+        let mut edit = sample_tool("e1", "edit", "src/webhook.ts", false);
+        if let ledger::Item::Tool { detail, .. } = &mut edit {
+            detail.patch = Some(locust_core::activity_entries::Patch {
+                text: "--- a/src/webhook.ts\n+++ b/src/webhook.ts\n@@ -1 +1 @@\n-old\n+new\n".into(),
+                added: 1, removed: 1, truncated: false,
+            });
+        }
+        let mut run = sample_tool("c1", "shell", "", false);
+        if let ledger::Item::Tool { detail, status, .. } = &mut run {
+            detail.arguments = if failed { "pnpm test" } else { "rg handleLegacyWebhook src/" }.into();
+            detail.output = if failed { "FAIL" } else { "src/webhook.ts:1" }.into();
+            detail.output_reported = true;
+            detail.exit_code = Some(if failed { 1 } else { 0 });
+            if failed { *status = ledger::Status::Failed; }
+        }
+        if failed { vec![run] } else { vec![edit, run] }
+    }
+
+    fn group_elements(items: &[ledger::Item], open: &str) -> Vec<rune::ElementInfo> {
+        let mut s = State::default();
+        s.activity_open.insert(open.into(), true);
+        let mut rt = rune::Runtime::new(
+            (s, items.to_vec()),
+            |(s, items), _| activity_group(items, &Palette::new(true), s, "conv"),
+            (600.0, 400.0),
+            rune::Env::new(true, 1.0),
+        );
+        rt.frame(0.0);
+        rt.elements()
+    }
+
+    #[test]
+    fn puts_the_command_before_its_badge_and_the_path_before_done() {
+        let els = group_elements(&left_edge_items(false), "conv/group/e1");
+        let x = |words: &str| els.iter().find(|e| e.text.as_deref() == Some(words)).map(|e| (e.rect[0], e.rect[1])).unwrap_or_else(|| panic!("{words} not drawn"));
+        let path = els.iter().find(|e| e.text.as_deref().is_some_and(|t| t.starts_with("src/webhook.ts "))).expect("the file row");
+        let (command_x, command_y) = x("rg handleLegacyWebhook src/");
+        let (badge_x, badge_y) = x("exit 0");
+        assert_eq!(command_x, path.rect[0], "the command starts where the path does");
+        assert!(command_x < badge_x && command_y == badge_y, "the badge ends the row");
+        assert!(path.text.as_deref().unwrap().ends_with("+1 \u{2212}1"), "the path leads its row");
+        // A command with nothing behind it keeps the same edge.
+        let mut quiet = left_edge_items(false);
+        if let ledger::Item::Tool { detail, .. } = &mut quiet[1] { detail.output = String::new(); }
+        let els = group_elements(&quiet, "conv/group/e1");
+        let command = els.iter().find(|e| e.text.as_deref() == Some("rg handleLegacyWebhook src/")).expect("the quiet command");
+        assert_eq!(command.rect[0], path.rect[0]);
+    }
+
+    #[test]
+    fn keeps_a_failures_wording_where_the_row_ends() {
+        let els = group_elements(&left_edge_items(true), "conv/group/c1");
+        let at = |words: &str| els.iter().find(|e| e.text.as_deref() == Some(words)).map(|e| e.rect[0]).unwrap_or_else(|| panic!("{words} not drawn"));
+        assert!(at("pnpm test") < at("failed · exit 1"));
+        let l = crate::look::controls::Look::new(true);
+        assert_eq!(els.iter().find(|e| e.key.as_deref() == Some("conv/c1/badge")).map(|e| e.fill), Some(l.c("red-tint")));
     }
 }
