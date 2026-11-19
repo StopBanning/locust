@@ -3201,6 +3201,11 @@ apps/desktop/src/renderer/src/combining-a-tunes-two-edits.test.tsx	are none when
 apps/desktop/src/renderer/src/combining-a-tunes-two-edits.test.tsx	takes one set of instructions and one line, through a fence or a think block, and nothing else	no
 apps/desktop/src/renderer/src/combining-a-tunes-two-edits.test.tsx	is offered beside Note what this tune showed when there are two edits to combine, and runs only when pressed	no
 apps/desktop/src/renderer/src/combining-a-tunes-two-edits.test.tsx	is not offered when Current was kept or there is no second edit	no
+apps/desktop/src/renderer/src/command-output.test.tsx	a clean run keeps a green exit badge, after the command	yes
+apps/desktop/src/renderer/src/command-output.test.tsx	a failing run is red, and still says so	yes
+apps/desktop/src/renderer/src/command-output.test.tsx	a command that printed nothing says so, and does not offer to open	yes
+apps/desktop/src/renderer/src/command-output.test.tsx	a command whose output the runtime never reported is NOT called empty	yes
+apps/desktop/src/renderer/src/command-output.test.tsx	a command WITH output offers to open	yes
 apps/desktop/src/renderer/src/command-rows.test.ts	is every runtime’s shell, however it spells it	yes
 apps/desktop/src/renderer/src/command-rows.test.ts	is not everything	yes
 apps/desktop/src/renderer/src/connectors-are-not-the-mode.test.tsx	says they work, in every mode	yes

@@ -87,6 +87,81 @@ pub(super) fn tool_result(
     }
 }
 
+/// `shellResultClass`: the colour of a command's verdict.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum ShellBadge {
+    Ok,
+    Failed,
+    Running,
+    Stalled,
+}
+
+pub(super) fn shell_badge(status: ledger::Status, d: &ledger::ToolDetail, finished: bool) -> ShellBadge {
+    let finished = finished || d.finished;
+    if status == ledger::Status::Running {
+        return if finished { ShellBadge::Stalled } else { ShellBadge::Running };
+    }
+    if matches!(d.runtime_status.as_str(), "declined" | "refused") {
+        return ShellBadge::Stalled;
+    }
+    if status == ledger::Status::Failed {
+        return ShellBadge::Failed;
+    }
+    if d.background {
+        return match d.background_ended.as_str() {
+            "completed" => ShellBadge::Ok,
+            "failed" => ShellBadge::Failed,
+            "" => if finished { ShellBadge::Stalled } else { ShellBadge::Running },
+            _ => ShellBadge::Stalled,
+        };
+    }
+    ShellBadge::Ok
+}
+
+/// The command is behind the fold, not on the row: the row led with a description, or the command runs past its
+/// first line (the row draws one line).
+pub(super) fn shell_command_folded(summary: &str, arguments: &str) -> bool {
+    !arguments.trim().is_empty() && (!summary.is_empty() || arguments.trim().lines().count() > 1)
+}
+
+/// `.lc-filerow.is-shell`: the command first, then its verdict in a green, red, amber or quiet badge, then the
+/// quiet words after it ("no output", the time it took). A chevron only when something is behind it (`is-static`).
+fn shell_heading(key: String, label: String, result: &str, badge: ShellBadge, expandable: bool, open: bool, p: &Palette) -> El {
+    let l = crate::look::controls::Look::new(p.dark);
+    let marker = format!(" · {result}");
+    let (title, rest) = match label.rfind(&marker) {
+        Some(at) => (label[..at].to_owned(), label[at + marker.len()..].trim_start_matches(" · ").to_owned()),
+        None => (label.clone(), String::new()),
+    };
+    let (fg, bg) = match badge {
+        ShellBadge::Ok => (l.c("green-text"), l.c("green-tint")),
+        ShellBadge::Failed => (l.c("red"), l.c("red-tint")),
+        ShellBadge::Stalled => (l.c("amber-text"), l.c("amber-tint")),
+        ShellBadge::Running => (l.c("text-muted"), l.c("bg-raised-2")),
+    };
+    let mut line = row().w_full().gap(6.0).py(4.0).px(2.0).radius(5.0).label(label);
+    if expandable {
+        let chevron = if open { &crate::look::icons::CHEVRON_DOWN } else { &crate::look::icons::CHEVRON_RIGHT };
+        line = line.child(crate::look::controls::glyph(&l, chevron, 12.0, Some(l.c("text-muted"))).mt(3.0));
+    }
+    line = line
+        .child(text(title).font(type_::LABEL.mono()).color(l.c("text-secondary")).shrink().wrap_anywhere())
+        .child(
+            el().key(format!("{key}/badge")).px(6.0).radius(5.0).fill(bg)
+                .child(text(result.to_owned()).font(type_::LABEL.mono()).color(fg)),
+        );
+    if !rest.is_empty() {
+        line = line.child(text(rest).font(type_::LABEL).color(l.c("text-muted")).shrink().wrap_anywhere());
+    }
+    if expandable {
+        line.key(key.clone()).role("button").on_press(move |s: &mut State| {
+            s.activity_open.insert(key.clone(), !open);
+        })
+    } else {
+        line.key(key)
+    }
+}
+
 pub(super) fn is_shell_tool(name: &str) -> bool {
     matches!(
         name.to_lowercase().as_str(),
@@ -425,13 +500,24 @@ fn activity_item_with_files(item: &ledger::Item, p: &Palette, s: &State, scope: 
     let expandable = match item {
         // A thought that is only its headline already said everything on its row.
         ledger::Item::Thought { text, .. } => !without_headline(text).trim().is_empty(),
+        ledger::Item::Tool { name, summary, detail, .. } if is_shell_tool(name) && !detail.helper => {
+            !detail.output.trim().is_empty() || shell_command_folded(summary, &detail.arguments) || !detail.children.is_empty()
+        }
         ledger::Item::Tool { detail, .. } => {
             !detail.arguments.is_empty() || !detail.output.is_empty() || !detail.children.is_empty()
         }
         ledger::Item::Plan { steps, .. } => !steps.is_empty(),
         _ => false,
     };
-    let heading = if expandable {
+    let shell = match item {
+        ledger::Item::Tool { name, status, detail, .. } if is_shell_tool(name) && !detail.helper => {
+            Some((tool_result(*status, detail, finished), shell_badge(*status, detail, finished)))
+        }
+        _ => None,
+    };
+    let heading = if let Some((result, badge)) = shell {
+        shell_heading(key.clone(), label, &result, badge, expandable, open, p)
+    } else if expandable {
         disclosure(key.clone(), label, open, p)
     } else {
         el().w_full().padding(8.0).child(
@@ -454,13 +540,16 @@ fn activity_item_with_files(item: &ledger::Item, p: &Palette, s: &State, scope: 
         let code = rune::TextStyle::new(11.5, 400.0).mono().lh(17.0);
         let mut body = col().w_full().pl(20.0).pr(4.0).pb(6.0).gap(8.0);
         match item {
-            ledger::Item::Tool { detail: d, .. } => {
-                if !d.arguments.is_empty() {
+            ledger::Item::Tool { name, summary, detail: d, .. } => {
+                // A shell row already shows its command; the fold repeats it only when the row led with a
+                // description, or showed just the first of its lines (ActivityCard.tsx: `entry.title !== undefined`).
+                let command_shown = is_shell_tool(name) && !d.helper && !shell_command_folded(summary, &d.arguments);
+                if !d.arguments.is_empty() && !command_shown {
                     body = body.child(
                         el().w_full().padding(10.0).radius(8.0).fill(l.c("hover-surface")).child(text(d.arguments.clone()).font(code).color(l.c("text-secondary")).w_full().wrap_anywhere().selectable(true)),
                     );
                 }
-                if !d.output.is_empty() {
+                if !d.output.trim().is_empty() {
                     let all_key = format!("{key}/output");
                     let all = s.activity_open.get(&all_key).copied().unwrap_or(false);
                     let output=ledger::bounded_output(&d.output,all);
@@ -1071,4 +1160,75 @@ mod tests {
         assert!(roles.iter().any(|(r, l)| *r == "button" && l == "Show it as a document"), "{roles:?}");
     }
 
+
+    /// One shell row drawn alone (ActivityCard's command row), with its elements.
+    fn shell_row(command: &str, output: Option<&str>, exit: i32, failed: bool) -> Vec<rune::ElementInfo> {
+        let mut item = sample_tool("c1", "shell", "", false);
+        if let ledger::Item::Tool { detail, status, .. } = &mut item {
+            detail.arguments = command.into();
+            detail.output = output.unwrap_or("").into();
+            detail.output_reported = output.is_some();
+            detail.exit_code = Some(exit.into());
+            if failed { *status = ledger::Status::Failed; }
+        }
+        let mut rt = rune::Runtime::new(
+            (State::default(), item),
+            |(s, item), _| activity_item(item, &Palette::new(true), s, "conv"),
+            (600.0, 200.0),
+            rune::Env::new(true, 1.0),
+        );
+        rt.frame(0.0);
+        rt.elements()
+    }
+
+    fn texts(els: &[rune::ElementInfo]) -> Vec<String> { els.iter().filter_map(|e| e.text.clone()).collect() }
+    fn opens(els: &[rune::ElementInfo]) -> usize { els.iter().filter(|e| e.role == "button").count() }
+    fn badge_fill(els: &[rune::ElementInfo]) -> Option<rune::Color> { els.iter().find(|e| e.key.as_deref() == Some("conv/c1/badge")).map(|e| e.fill) }
+
+    #[test]
+    fn a_clean_run_keeps_a_green_exit_badge_after_the_command() {
+        let els = shell_row("seq 1 300", Some("1\n2\n3"), 0, false);
+        let t = texts(&els);
+        let command = t.iter().position(|x| x == "seq 1 300").expect("the command is drawn");
+        let badge = t.iter().position(|x| x == "exit 0").expect("the badge is drawn");
+        assert!(command < badge, "{t:?}");
+        let l = crate::look::controls::Look::new(true);
+        assert_eq!(badge_fill(&els), Some(l.c("green-tint")));
+    }
+
+    #[test]
+    fn a_failing_run_is_red_and_still_says_so() {
+        let els = shell_row("pnpm test billing", Some("FAIL src/billing.test.ts"), 1, true);
+        assert!(texts(&els).iter().any(|x| x == "failed · exit 1"), "{:?}", texts(&els));
+        let l = crate::look::controls::Look::new(true);
+        assert_eq!(badge_fill(&els), Some(l.c("red-tint")));
+    }
+
+    #[test]
+    fn a_command_that_printed_nothing_says_so_and_does_not_offer_to_open() {
+        let els = shell_row("chmod +x run.sh", Some(""), 0, false);
+        assert!(texts(&els).iter().any(|x| x == "no output"), "{:?}", texts(&els));
+        assert_eq!(opens(&els), 0);
+    }
+
+    #[test]
+    fn a_command_whose_output_the_runtime_never_reported_is_not_called_empty() {
+        let els = shell_row("git status", None, 0, false);
+        assert!(!texts(&els).iter().any(|x| x.contains("no output")), "{:?}", texts(&els));
+        assert_eq!(opens(&els), 0);
+    }
+
+    #[test]
+    fn a_command_with_output_offers_to_open() {
+        let els = shell_row("ls -la", Some("a\nb"), 0, false);
+        assert_eq!(opens(&els), 1);
+    }
+
+    #[test]
+    fn a_described_or_multi_line_command_opens_onto_the_command() {
+        assert!(shell_command_folded("Checked the free route", "curl x"));
+        assert!(shell_command_folded("", "cd a\nmake"));
+        assert!(!shell_command_folded("", "git status"));
+        assert!(!shell_command_folded("Checked", ""));
+    }
 }

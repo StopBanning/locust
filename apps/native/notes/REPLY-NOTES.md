@@ -310,3 +310,13 @@ Next: part 1b opens-the-plan, then orb, frame-pass.
   a_failing_check_shows_its_card_and_sends_back_to_fix` now reads the thread a screen at a time (the open feet made it
   taller than top + bottom).
 - Breaks: 7 of 7 killed (folder filter, observed status, the 0.672 fold, relative paths, no foot while going, totals drop the files segment, open by default).
+
+### The command row (19 Nov)
+- Rust drew a shell row as one muted line (`ls · exit 0`) that opened onto the command it already showed, even when
+  nothing was behind it. Now `activity_drawers::shell_heading` (ActivityCard.tsx `lc-filerow is-shell`,
+  `shellResultClass`): the command first in the code face, then the verdict in a badge (green tint for a clean run,
+  red for a failure, amber for stalled or refused, quiet while running), then the quiet words ("no output", the time).
+  The row opens only onto output, or onto the command when the row led with a description or showed only the first
+  of several lines (`shell_command_folded`; that last case is Rust's, since its row draws one line). "no output" still
+  needs the runtime to have reported output.
+- Tests: the 5 Electron cases plus `a_described_or_multi_line_command_opens_onto_the_command`. Breaks 7 of 7 killed.
