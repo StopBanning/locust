@@ -742,6 +742,20 @@ apps/desktop/src/main/a-theme-is-the-persons-choice.test.ts	leaves a Linux profi
 apps/desktop/src/main/a-theme-is-the-persons-choice.test.ts	follows the computer under Match computer, and is itself otherwise	no
 apps/desktop/src/main/a-theme-is-the-persons-choice.test.ts	paints the window's first frame in that theme's ground	no
 apps/desktop/src/main/a-theme-is-the-persons-choice.test.ts	reaches the page on its command line, and reads as dark when it says nothing readable	no
+apps/desktop/src/main/a-tidy-pass-only-suggests.test.ts	a merge, a retirement and a rewrite wait beside the memories, which stay briefed	yes
+apps/desktop/src/main/a-tidy-pass-only-suggests.test.ts	refuses what it cannot stand behind, and says why	yes
+apps/desktop/src/main/a-tidy-pass-only-suggests.test.ts	asked twice, still one of each; a newer rewrite updates the one waiting	yes
+apps/desktop/src/main/a-tidy-pass-only-suggests.test.ts	Merge them: the first takes the words, the rest go to Recently forgotten by who suggested it	yes
+apps/desktop/src/main/a-tidy-pass-only-suggests.test.ts	Keep them apart: only the suggestion goes	yes
+apps/desktop/src/main/a-tidy-pass-only-suggests.test.ts	THE HASH GATE: a suggestion about words that changed is refused when kept, and dropped	yes
+apps/desktop/src/main/a-tidy-pass-only-suggests.test.ts	the gate covers an "Ask me first" rewrite too: kept after the person edited it, refused	yes
+apps/desktop/src/main/a-tidy-pass-only-suggests.test.ts	makes a tidy reply proposals even in "Keep and tell me", and says what it could not make	yes
+apps/desktop/src/main/a-tidy-pass-only-suggests.test.ts	reads a block in a code fence, with bulleted and numbered lines	yes
+apps/desktop/src/main/a-tidy-pass-only-suggests.test.ts	says, in the conversation, how many lines it could not read -- and still proposes the rest	yes
+apps/desktop/src/main/a-tidy-pass-only-suggests.test.ts	says so even when nothing at all could be read	yes
+apps/desktop/src/main/a-tidy-pass-only-suggests.test.ts	says, quietly, when a tidy pass put nothing to the person -- and says nothing for any other reply	yes
+apps/desktop/src/main/a-tidy-pass-only-suggests.test.ts	says nothing about the brief’s own example, repeated	yes
+apps/desktop/src/main/a-tidy-pass-only-suggests.test.ts	names each memory by its id, so a tidy pass can	yes
 apps/desktop/src/main/a-tune-can-give-a-claude-teammate-a-skill.test.ts	takes a name Claude Code takes, one line on when, and what it says	no
 apps/desktop/src/main/a-tune-can-give-a-claude-teammate-a-skill.test.ts	is written as Claude Code reads a SKILL.md: a colon in its description cannot break the header	no
 apps/desktop/src/main/a-tune-can-give-a-claude-teammate-a-skill.test.ts	are asked for "knows" as a skill, and only for Claude Code	no

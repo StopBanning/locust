@@ -333,3 +333,23 @@ Branch `exec/native-memory-1`, tests in `core/src/memory_round_tests.rs` (new), 
   s5 the explanation first -> `puts_what_is_waiting_for_an_answer_above_how_memory_works`;
   s6 the screen names `by` -> `names_the_writer_of_the_words_shown_not_who_first_kept_it`;
   b13 noted on every brief -> `a_brief_notes_what_it_gave_once_a_day_and_starts_the_count`.
+- **Tidy pass** (A1.2): `people::propose_tidy_from` is Electron's `proposeTidy` as one batch. Each proposal carries
+  its writer and mission (the old code had `by: you` fixed). Refusals are per kind ("to forget"/"to change", and a
+  merge across this folder and everywhere). A key in new wording is refused, and so is anything past the 400 cap.
+  Asked twice gives one of each, and a newer rewrite updates the one waiting. `propose_tidy` is now the person's own
+  one-suggestion wrapper. A kept merge takes the proposal's mission. A named "Ask me first" rewrite (`add_memory`
+  proposed) carries a `basis`, so the hash gate covers it.
+  `record_reply_for(.., mission, prompt)` (native.rs passes the run's id and prompt) answers `(line, level)`: the
+  forget miss (warning), refused suggestions (warning), lines it could not read (warning, Electron's words), and
+  "Nothing from this tidy pass waits on the Memory screen." (info, only when the prompt is the tidy prompt). Partial:
+  Electron sends refused suggestions to the Memory screen's notice through its memory-changed update; Rust has no
+  such update, so the conversation says them.
+- Tidy breaks: 9 of 9 caught by name (`~/work/scratch/memory1/t1..t9`):
+  t1 mixed-scope merge allowed -> `refuses_what_it_cannot_stand_behind_and_says_why`;
+  t2 a merge asked twice, and t3 the newer rewrite dropped -> `asked_twice_still_one_of_each_...`;
+  t4 proposals by "you" -> `a_merge_a_retirement_and_a_rewrite_wait_beside_...` and two more;
+  t5 the merge's mission dropped -> `merge_them_the_first_takes_the_words_...`;
+  t6 no basis on a named proposal -> `the_gate_covers_an_ask_me_first_rewrite_too_...`;
+  t7 unread lines unsaid -> `says_in_the_conversation_how_many_lines_...` and `says_so_even_when_nothing_...`;
+  t8 the quiet line on every reply -> `says_quietly_when_a_tidy_pass_put_nothing_...`;
+  t9 refusals unsaid -> `a_tidy_suggestion_the_store_refuses_never_drops_the_ones_after_it`.

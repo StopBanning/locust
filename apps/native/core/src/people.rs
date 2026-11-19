@@ -524,6 +524,8 @@ pub fn add_memory(
     }
     if let Some(at) = at {
         row["replaces"] = rows[at]["memoryId"].clone();
+        // The hash gate covers an "Ask me first" rewrite too: kept after the person changed the words, it is refused.
+        row["basis"] = json!(fingerprint(std::slice::from_ref(&rows[at])));
     }
     rows.push(row);
     store.save_json("memories.json", &file)
@@ -622,6 +624,9 @@ pub fn change_memory(
                     held["text"] = proposal["text"].clone();
                     held["updatedAt"] = json!(now());
                     held["updatedBy"] = proposal["by"].clone();
+                    if proposal["missionId"].is_string() {
+                        held["missionId"] = proposal["missionId"].clone();
+                    }
                     rows.retain(|r| {
                         if ids.iter().skip(1).any(|id| r["memoryId"] == *id) {
                             gone.push(r.clone());
@@ -1496,7 +1501,20 @@ fn opening(name: &str) -> String {
 /// Read a finished reply's memory, about-you and tidy blocks into the store. Answers what the thread should say: a
 /// forget that missed, in amber, while every other line of the reply is still read (0.785; a miss used to abort the
 /// lines after it). A forget where nothing is remembered says nothing -- there is nothing for the person to settle.
-pub fn record_reply(store: &Store, who: &str, folder: &Path, reply: &str) -> Result<Vec<String>, String> {
+pub fn record_reply(store: &Store, who: &str, folder: &Path, reply: &str) -> Result<Vec<(String, &'static str)>, String> {
+    record_reply_for(store, who, folder, reply, None, None)
+}
+
+/// `record_reply` for a run: `mission` goes on each tidy suggestion it makes, and `prompt` says whether the run was
+/// a tidy pass (one that put nothing to the person says so, quietly). Answers each thread notice with its level.
+pub fn record_reply_for(
+    store: &Store,
+    who: &str,
+    folder: &Path,
+    reply: &str,
+    mission: Option<&str>,
+    prompt: Option<&str>,
+) -> Result<Vec<(String, &'static str)>, String> {
     let file = team(store)?;
     let by = file["teammates"]
         .as_array()
@@ -1575,31 +1593,41 @@ pub fn record_reply(store: &Store, who: &str, folder: &Path, reply: &str) -> Res
             }
         }
     }
+    let mut said: Vec<(String, &'static str)> = Vec::new();
+    let name = by["name"].as_str().unwrap_or("a conversation").to_owned();
     if mode != "off" {
-        // One reader for the block (memory_tidy.rs, memory-tidy.ts), and every suggestion proposed: one the store
-        // refuses (a memory changed or gone) never drops the ones after it (memory-reader.ts proposeTidy).
-        let mut refused = None;
-        for suggestion in crate::memory_tidy::parse_tidy_blocks(reply) {
-            let (ids, text, retire) = match suggestion {
-                crate::memory_tidy::TidySuggestion::Merge { ids, text } => (ids, text, false),
-                crate::memory_tidy::TidySuggestion::Retire { id, reason } => (vec![id], reason, true),
-                crate::memory_tidy::TidySuggestion::Rewrite { id, text } => (vec![id], text, false),
-            };
-            if let Err(why) = propose_tidy(store, &workspace_id(folder), &ids, &text, retire) {
-                refused.get_or_insert(why);
+        // One reader for the block (memory_tidy.rs, memory-tidy.ts), every suggestion proposed together: one the
+        // store refuses never drops the ones after it (memory-reader.ts proposeTidy). Even in "Keep and tell me", a
+        // tidy suggestion waits for the person.
+        let (suggestions, unread) = crate::memory_tidy::read_tidy_blocks(reply);
+        if !suggestions.is_empty() {
+            let (_, refused) = propose_tidy_from(store, &workspace_id(folder), by.clone(), mission, &suggestions)?;
+            // Electron says these on the Memory screen's notice; nothing carries that notice here yet, so the
+            // conversation says them instead of nobody.
+            if !refused.is_empty() {
+                said.push((format!("{} of {name}'s suggestions could not be made: {}", refused.len(), refused.join(" ")), "warning"));
             }
         }
-        if let Some(why) = refused {
-            return Err(why);
+        if unread > 0 {
+            // 0.372: said where the person is reading "Here are my suggestions:", not dropped in silence.
+            let (whose, them, they) = if unread == 1 {
+                (format!("One of {name}'s suggestions was"), "it", "it was")
+            } else {
+                (format!("{unread} of {name}'s suggestions were"), "them", "they were")
+            };
+            said.push((
+                format!("{whose} not written in a form Locust reads, so {they} not put to you. Ask {name} to write {them} again, one per line."),
+                "warning",
+            ));
+        }
+        let wrote_nothing = memory_ops(reply).is_empty() && suggestions.is_empty() && unread == 0;
+        if wrote_nothing && crate::memory_tidy::is_tidy_prompt(prompt) {
+            said.push(("Nothing from this tidy pass waits on the Memory screen.".to_owned(), "info"));
         }
     }
-    let mut said = Vec::new();
     if !missed.is_empty() {
-        said.push(format!(
-            "{} tried to forget something and could not. {} It is still remembered.",
-            opening(by["name"].as_str().unwrap_or("a conversation")),
-            missed.join(" ")
-        ));
+        // Amber: the memory meant to go is still there, and only the person can settle what it should say.
+        said.insert(0, (format!("{} tried to forget something and could not. {} It is still remembered.", opening(&name), missed.join(" ")), "warning"));
     }
     Ok(said)
 }
@@ -1613,6 +1641,7 @@ fn fingerprint(rows: &[Value]) -> String {
         .join("\n");
     format!("{:x}", Sha256::digest(text.as_bytes()))[..16].to_owned()
 }
+/// The person's own "Suggest rewrite" on the Memory screen: one suggestion, by "you". Answers its refusal, if any.
 pub fn propose_tidy(
     store: &Store,
     workspace: &str,
@@ -1620,53 +1649,141 @@ pub fn propose_tidy(
     text: &str,
     retire: bool,
 ) -> Result<(), String> {
+    use crate::memory_tidy::TidySuggestion;
+    let suggestion = match (retire, ids) {
+        (true, [id]) => TidySuggestion::Retire { id: id.clone(), reason: text.to_owned() },
+        (false, [id]) => TidySuggestion::Rewrite { id: id.clone(), text: text.to_owned() },
+        (false, ids) if (2..=crate::memory_tidy::MAX_MERGED).contains(&ids.len()) => TidySuggestion::Merge { ids: ids.to_vec(), text: text.to_owned() },
+        _ => return Err("A suggestion to change a memory named one this folder does not keep.".into()),
+    };
+    let (_, refused) = propose_tidy_from(store, workspace, json!({"name":"you"}), None, &[suggestion])?;
+    refused.into_iter().next().map_or(Ok(()), Err)
+}
+
+/// Electron `memory-store.proposeTidy`: each suggestion becomes a proposal that waits for the person's answer, by
+/// whoever suggested it and from its mission, with a fingerprint of the words it was made about. Nothing kept
+/// changes. Asked twice, still one of each; a newer rewrite updates the one waiting. Answers how many were proposed
+/// and why the rest were not.
+pub fn propose_tidy_from(
+    store: &Store,
+    workspace: &str,
+    by: Value,
+    mission: Option<&str>,
+    suggestions: &[crate::memory_tidy::TidySuggestion],
+) -> Result<(usize, Vec<String>), String> {
+    use crate::memory_tidy::TidySuggestion;
     let _lock = WRITES.lock().map_err(|e| e.to_string())?;
     let mut file = memories(store)?;
     let rows = file["memories"].as_array_mut().ok_or(MEMORY_UNREADABLE)?;
-    let sources: Vec<_> = ids
-        .iter()
-        .filter_map(|id| {
-            rows.iter()
-                .find(|r| {
-                    r["memoryId"] == *id
-                        && r["status"] == "kept"
-                        && (r["scope"] == "global" || r["workspaceId"] == workspace)
-                })
-                .cloned()
-        })
-        .collect();
-    if ids.is_empty()
-        || ids.len() > 6
-        || sources.len() != ids.len()
-        || ids.iter().collect::<std::collections::HashSet<_>>().len() != ids.len()
-    {
-        return Err("A suggestion to change a memory named one this folder does not keep.".into());
-    }
-    if secret(text) || text.trim().is_empty() {
-        return Err("A memory is one line of text, up to 300 characters.".into());
-    }
-    let mut proposal = sources[0].clone();
-    proposal["memoryId"] = json!(id("mem")?);
-    proposal["status"] = json!("proposed");
-    proposal["basis"] = json!(fingerprint(&sources));
-    proposal["by"] = json!({"name":"you"});
-    proposal["createdAt"] = json!(now());
-    if retire {
-        proposal["forgets"] = sources[0]["memoryId"].clone();
-        proposal["reason"] = json!(bounded(text, 300));
-    } else {
-        proposal["text"] = json!(bounded(text, 300));
-        if ids.len() > 1 {
-            proposal["merges"] = json!(ids);
-        } else {
-            proposal["replaces"] = sources[0]["memoryId"].clone();
+    let reachable = |rows: &[Value], id: &str| -> Option<Value> {
+        rows.iter()
+            .find(|r| r["memoryId"] == id && r["status"] == "kept" && (r["scope"] == "global" || r["workspaceId"] == workspace))
+            .cloned()
+    };
+    let place = |m: &Value| if m["scope"] == "global" { "global".to_owned() } else { format!("ws:{}", m["workspaceId"]) };
+    let waiting = |rows: &[Value], test: &dyn Fn(&Value) -> bool| rows.iter().position(|r| r["status"] == "proposed" && test(r));
+    let proposal = |sources: &[Value], text: &str| -> Result<Value, String> {
+        let mut p = json!({
+            "memoryId": id("mem")?, "text": text, "scope": sources[0]["scope"], "workspaceId": sources[0]["workspaceId"],
+            "workspaceName": sources[0]["workspaceName"], "by": by, "createdAt": now(), "status": "proposed",
+            "enabled": true, "basis": fingerprint(sources),
+        });
+        if let Some(mission) = mission {
+            p["missionId"] = json!(mission);
+        }
+        Ok(p)
+    };
+    let (mut proposed, mut refused) = (0usize, Vec::new());
+    for suggestion in suggestions {
+        let words = match suggestion {
+            TidySuggestion::Retire { .. } => None,
+            TidySuggestion::Merge { text, .. } | TidySuggestion::Rewrite { text, .. } => Some(text.as_str()),
+        };
+        // A tidy pass writes new wording too; a key in it is refused like one written directly.
+        if let Some(kind) = words.and_then(secret_kind) {
+            refused.push(memory_secret_refusal(kind));
+            continue;
+        }
+        if words.is_some_and(|w| w.trim().is_empty()) {
+            refused.push("A memory is one line of text, up to 300 characters.".into());
+            continue;
+        }
+        if rows.len() >= 400 {
+            refused.push("Locust keeps at most 400 memories, so the rest were not kept. Forget some first.".into());
+            break;
+        }
+        match suggestion {
+            TidySuggestion::Merge { ids, text } => {
+                let found: Vec<Option<Value>> = ids.iter().map(|id| reachable(rows, id)).collect();
+                if found.iter().any(Option::is_none) {
+                    refused.push("A suggested merge named a memory this folder does not keep.".into());
+                    continue;
+                }
+                let sources: Vec<Value> = found.into_iter().flatten().collect();
+                if sources.iter().map(place).collect::<std::collections::HashSet<_>>().len() > 1 {
+                    refused.push("A suggested merge joined memories kept in different places -- this folder and everywhere.".into());
+                    continue;
+                }
+                let same: std::collections::HashSet<&str> = ids.iter().map(String::as_str).collect();
+                let already = |r: &Value| {
+                    r["merges"].as_array().is_some_and(|m| m.len() == same.len() && m.iter().all(|id| id.as_str().is_some_and(|id| same.contains(id))))
+                };
+                if waiting(rows, &already).is_some() {
+                    continue;
+                }
+                let mut p = proposal(&sources, &bounded(text, 300))?;
+                p["merges"] = json!(ids);
+                rows.push(p);
+                proposed += 1;
+            }
+            TidySuggestion::Retire { id: target_id, reason } | TidySuggestion::Rewrite { id: target_id, text: reason } => {
+                let retire = matches!(suggestion, TidySuggestion::Retire { .. });
+                let Some(target) = reachable(rows, target_id) else {
+                    refused.push(format!(
+                        "A suggestion to {} a memory named one this folder does not keep.",
+                        if retire { "forget" } else { "change" }
+                    ));
+                    continue;
+                };
+                if retire {
+                    if waiting(rows, &|r: &Value| r["forgets"] == target["memoryId"]).is_some() {
+                        continue;
+                    }
+                    let mut p = proposal(std::slice::from_ref(&target), target["text"].as_str().unwrap_or(""))?;
+                    p["forgets"] = target["memoryId"].clone();
+                    p["reason"] = json!(bounded(reason, 300));
+                    rows.push(p);
+                    proposed += 1;
+                    continue;
+                }
+                let text = bounded(reason, 300);
+                if target["text"] == text.as_str() {
+                    continue;
+                }
+                if let Some(at) = waiting(rows, &|r: &Value| r["replaces"] == target["memoryId"]) {
+                    // Its own earlier rewrite, still unanswered: the newer words win.
+                    if rows[at]["text"] != text.as_str() {
+                        rows[at]["text"] = json!(text);
+                        rows[at]["basis"] = json!(fingerprint(std::slice::from_ref(&target)));
+                        rows[at]["updatedAt"] = json!(now());
+                        if let Some(mission) = mission {
+                            rows[at]["missionId"] = json!(mission);
+                        }
+                        proposed += 1;
+                    }
+                    continue;
+                }
+                let mut p = proposal(std::slice::from_ref(&target), &text)?;
+                p["replaces"] = target["memoryId"].clone();
+                rows.push(p);
+                proposed += 1;
+            }
         }
     }
-    if rows.len() >= 400 {
-        return Err("Too many memories".into());
+    if proposed > 0 {
+        store.save_json("memories.json", &file)?;
     }
-    rows.push(proposal);
-    store.save_json("memories.json", &file)
+    Ok((proposed, refused))
 }
 
 #[cfg(test)]
@@ -2010,7 +2127,8 @@ mod tests {
         add_memory(&store, "kept one", None, "workspace", &ws, json!({"name":"Codec"}), "kept").unwrap();
         let kept = memories(&store).unwrap()["memories"][0]["memoryId"].as_str().unwrap().to_owned();
         let reply = format!("Done.\n<locust-tidy>\nretire mem_gone :: stale\nretire {kept} :: superseded\n</locust-tidy>");
-        assert!(record_reply(&store, "unknown", Path::new("/tmp"), &reply).is_err(), "the refusal is still said");
+        let said = record_reply(&store, "unknown", Path::new("/tmp"), &reply).unwrap();
+        assert!(said.iter().any(|(line, _)| line.contains("could not be made: A suggestion to forget a memory named one this folder does not keep.")), "the refusal is still said: {said:?}");
         let file = memories(&store).unwrap();
         let proposed: Vec<_> = file["memories"].as_array().unwrap().iter().filter(|m| m["status"] == "proposed" && m["forgets"] == kept.as_str()).collect();
         assert_eq!(proposed.len(), 1, "the second suggestion was proposed: {file}");

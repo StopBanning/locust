@@ -2749,6 +2749,7 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
     let memory_who = job.teammate.id.clone();
     let memory_folder = turn.folder.clone();
     let memory_id = id.clone();
+    let memory_prompt = job.prompt.clone();
     let check_teammate = job.teammate.clone();
     let check_mode = mode;
     let check_runtime = runtime_owned.clone();
@@ -2850,10 +2851,10 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
                         .next_back()
                         .unwrap_or("")
                         .to_owned();
-                    match crate::people::record_reply(&memory_store, &memory_who, &memory_folder, &reply) {
+                    match crate::people::record_reply_for(&memory_store, &memory_who, &memory_folder, &reply, Some(&memory_id), Some(&memory_prompt)) {
                         Ok(said) => {
-                            for line in said {
-                                push_relay_notice(&memory_id, &line, "warning");
+                            for (line, level) in said {
+                                push_relay_notice(&memory_id, &line, level);
                             }
                         }
                         Err(error) => eprintln!("Memory was not recorded: {error}"),

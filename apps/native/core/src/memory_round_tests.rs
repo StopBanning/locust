@@ -55,8 +55,8 @@ fn still_says_a_miss_when_something_is_remembered_opening_with_a_capital() {
     let reply = format!("{}\n<locust-memory>\nremember :: The port is 3001.\n</locust-memory>", FORGET_REPLY);
     let said = record_reply(&store, "unknown", &folder, &reply).unwrap();
     assert_eq!(said.len(), 1, "{said:?}");
-    assert!(said[0].starts_with("A conversation tried to forget something and could not."), "{}", said[0]);
-    assert!(said[0].contains("It is still remembered."));
+    assert!(said[0].0.starts_with("A conversation tried to forget something and could not."), "{}", said[0].0);
+    assert!(said[0].0.contains("It is still remembered."));
     assert!(rows(&store).iter().any(|m| m["text"] == "The port is 3001."), "the later line was still read");
 }
 
@@ -334,4 +334,235 @@ fn a_brief_notes_what_it_gave_once_a_day_and_starts_the_count() {
     assert_eq!(crate::people::days_unused(&old, Some("2026-01-15T00:00:00.000Z"), now), Some(59));
     assert_eq!(crate::people::days_unused(&old, Some("2026-03-15T00:00:00.000Z"), now), None);
     assert_eq!(crate::people::days_unused(&old, None, now), None);
+}
+
+// ---- a-tidy-pass-only-suggests.test.ts (A1.2, 0.372) ----
+use crate::memory_tidy::TidySuggestion;
+use crate::people::{change_memory, propose_tidy_from, record_reply_for};
+
+const SEED: [&str; 4] = ["Deploys go out on Thursdays.", "We deploy every Thursday.", "The API is on port 3000.", "Tests run with npm test."];
+/// The four memories most cases start from, in `ws`, and their ids.
+fn seeded(store: &Store, ws: &str) -> Vec<String> {
+    for text in SEED {
+        add_memory(store, text, None, "workspace", ws, json!({"name":"you"}), "kept").unwrap();
+    }
+    rows(store).iter().map(|m| m["memoryId"].as_str().unwrap().to_owned()).collect()
+}
+fn wren() -> Value {
+    json!({"teammateId":"tm_wren","name":"Wren"})
+}
+fn waiting(store: &Store) -> Vec<Value> {
+    rows(store).into_iter().filter(|m| m["status"] == "proposed").collect()
+}
+fn kept_texts(store: &Store) -> Vec<String> {
+    rows(store).iter().filter(|m| m["status"] == "kept").map(|m| m["text"].as_str().unwrap().to_owned()).collect()
+}
+fn three(ids: &[String], rewrite: &str) -> Vec<TidySuggestion> {
+    vec![
+        TidySuggestion::Merge { ids: vec![ids[0].clone(), ids[1].clone()], text: "Deploys go out every Thursday.".into() },
+        TidySuggestion::Retire { id: ids[2].clone(), reason: "the API moved to 3001".into() },
+        TidySuggestion::Rewrite { id: ids[3].clone(), text: rewrite.into() },
+    ]
+}
+
+#[test]
+fn a_merge_a_retirement_and_a_rewrite_wait_beside_the_memories_which_stay_briefed() {
+    let (_t, store, _) = fixture();
+    let ids = seeded(&store, "ws_shop");
+    assert_eq!(propose_tidy_from(&store, "ws_shop", wren(), Some("mission_tidy"), &three(&ids, "Tests run with pnpm test.")), Ok((3, vec![])));
+    assert_eq!(kept_texts(&store), SEED);
+    let shown: Vec<Value> = waiting(&store)
+        .iter()
+        .map(|m| json!([m.get("merges").or(m.get("forgets")).or(m.get("replaces")), m["text"], m.get("reason"), m["by"]["name"], m["missionId"]]))
+        .collect();
+    assert_eq!(
+        shown,
+        [
+            json!([[ids[0], ids[1]], "Deploys go out every Thursday.", null, "Wren", "mission_tidy"]),
+            json!([ids[2], SEED[2], "the API moved to 3001", "Wren", "mission_tidy"]),
+            json!([ids[3], "Tests run with pnpm test.", null, "Wren", "mission_tidy"]),
+        ]
+    );
+    assert!(waiting(&store).iter().all(|m| m["basis"].is_string()));
+}
+
+#[test]
+fn refuses_what_it_cannot_stand_behind_and_says_why() {
+    let (_t, store, _) = fixture();
+    let ids = seeded(&store, "ws_shop");
+    add_memory(&store, "Another project.", None, "workspace", "ws_other", json!({"name":"you"}), "kept").unwrap();
+    add_memory(&store, "Colin reads on his phone.", None, "global", "ws_shop", json!({"name":"you"}), "kept").unwrap();
+    let all = rows(&store);
+    let id_of = |text: &str| all.iter().find(|m| m["text"] == text).unwrap()["memoryId"].as_str().unwrap().to_owned();
+    let (proposed, refused) = propose_tidy_from(
+        &store,
+        "ws_shop",
+        wren(),
+        None,
+        &[
+            TidySuggestion::Retire { id: "mem_nothing".into(), reason: "x".into() },
+            TidySuggestion::Rewrite { id: id_of("Another project."), text: "Not this folder.".into() },
+            TidySuggestion::Merge { ids: vec![ids[0].clone(), id_of("Colin reads on his phone.")], text: "Two places.".into() },
+        ],
+    )
+    .unwrap();
+    assert_eq!(proposed, 0);
+    assert_eq!(
+        refused,
+        [
+            "A suggestion to forget a memory named one this folder does not keep.",
+            "A suggestion to change a memory named one this folder does not keep.",
+            "A suggested merge joined memories kept in different places -- this folder and everywhere.",
+        ]
+    );
+}
+
+#[test]
+fn asked_twice_still_one_of_each_a_newer_rewrite_updates_the_one_waiting() {
+    let (_t, store, _) = fixture();
+    let ids = seeded(&store, "ws_shop");
+    propose_tidy_from(&store, "ws_shop", wren(), None, &three(&ids, "Tests run with pnpm test.")).unwrap();
+    propose_tidy_from(&store, "ws_shop", wren(), None, &three(&ids, "Tests run with pnpm vitest.")).unwrap();
+    let held = waiting(&store);
+    assert_eq!(held.len(), 3);
+    assert_eq!(held.iter().find(|m| m["replaces"] == ids[3].as_str()).unwrap()["text"], "Tests run with pnpm vitest.");
+}
+
+fn merge_proposal(store: &Store, ids: &[String], text: &str) -> String {
+    let merge = TidySuggestion::Merge { ids: vec![ids[0].clone(), ids[1].clone()], text: text.into() };
+    propose_tidy_from(store, "ws_shop", wren(), Some("mission_tidy"), &[merge]).unwrap();
+    waiting(store).into_iter().find(|m| m.get("merges").is_some()).unwrap()["memoryId"].as_str().unwrap().to_owned()
+}
+
+#[test]
+fn merge_them_the_first_takes_the_words_the_rest_go_to_recently_forgotten_by_who_suggested_it() {
+    let (_t, store, _) = fixture();
+    let ids = seeded(&store, "ws_shop");
+    let proposal = merge_proposal(&store, &ids, "Deploys go out every Thursday.");
+    change_memory(&store, &proposal, "keep", None).unwrap();
+    let file = memories(&store).unwrap();
+    let merged = rows(&store).into_iter().find(|m| m["memoryId"] == ids[0].as_str()).unwrap();
+    assert_eq!(merged["text"], "Deploys go out every Thursday.");
+    assert_eq!(merged["previousText"], SEED[0]);
+    assert_eq!(merged["updatedBy"], wren());
+    assert_eq!(merged["missionId"], "mission_tidy");
+    assert!(!rows(&store).iter().any(|m| m["memoryId"] == ids[1].as_str()));
+    assert!(waiting(&store).is_empty());
+    let bin: Vec<Value> = file["forgotten"].as_array().unwrap().iter().map(|e| json!([e["memory"]["memoryId"], e["forgottenBy"]["name"]])).collect();
+    assert_eq!(bin, [json!([ids[1], "Wren"])]);
+}
+
+#[test]
+fn keep_them_apart_only_the_suggestion_goes() {
+    let (_t, store, _) = fixture();
+    let ids = seeded(&store, "ws_shop");
+    let proposal = merge_proposal(&store, &ids, "One.");
+    change_memory(&store, &proposal, "remove", None).unwrap();
+    assert_eq!(rows(&store).iter().map(|m| m["text"].as_str().unwrap()).collect::<Vec<_>>(), SEED);
+}
+
+#[test]
+fn the_hash_gate_a_suggestion_about_words_that_changed_is_refused_when_kept_and_dropped() {
+    let (_t, store, _) = fixture();
+    let ids = seeded(&store, "ws_shop");
+    let proposal = merge_proposal(&store, &ids, "Deploys go out every Thursday.");
+    // The person corrects one of them after the suggestion was made.
+    change_memory(&store, &ids[1], "edit", Some("We deploy every Wednesday now.")).unwrap();
+    let refused = change_memory(&store, &proposal, "keep", None).unwrap_err();
+    assert!(refused.starts_with("What this suggestion would change has changed since it was made"), "{refused}");
+    let after = rows(&store);
+    assert!(!after.iter().any(|m| m["memoryId"] == proposal.as_str()));
+    assert_eq!(after.iter().find(|m| m["memoryId"] == ids[1].as_str()).unwrap()["text"], "We deploy every Wednesday now.");
+    assert_eq!(after.iter().find(|m| m["memoryId"] == ids[0].as_str()).unwrap()["text"], SEED[0]);
+}
+
+#[test]
+fn the_gate_covers_an_ask_me_first_rewrite_too_kept_after_the_person_edited_it_refused() {
+    let (_t, store, _) = fixture();
+    add_memory(&store, "Deploys go out on Fridays.", Some("deploy-day"), "workspace", "ws_shop", json!({"name":"you"}), "kept").unwrap();
+    add_memory(&store, "Deploys go out on Thursdays.", Some("deploy-day"), "workspace", "ws_shop", wren(), "proposed").unwrap();
+    let kept = rows(&store).into_iter().find(|m| m["status"] == "kept").unwrap()["memoryId"].as_str().unwrap().to_owned();
+    let proposal = waiting(&store)[0]["memoryId"].as_str().unwrap().to_owned();
+    change_memory(&store, &kept, "edit", Some("Deploys go out on Mondays.")).unwrap();
+    assert!(change_memory(&store, &proposal, "keep", None).is_err());
+    assert_eq!(rows(&store).iter().map(|m| m["text"].as_str().unwrap()).collect::<Vec<_>>(), ["Deploys go out on Mondays."]);
+}
+
+/// A finished run of Wren's in `folder`: the reply read into a store seeded with the four memories.
+fn read_reply(reply: impl Fn(&[String]) -> String, prompt: Option<&str>) -> (Temp, Store, Vec<String>, Vec<(String, &'static str)>) {
+    let (t, store, folder) = fixture();
+    std::fs::write(
+        store.electron().join("teammates.json"),
+        json!({"schemaVersion":1,"teammates":[{"teammateId":"tm_wren","name":"Wren"}],"missionOwners":{"mission_tidy":"tm_wren"},"settings":{"memoryMode":"auto"}}).to_string(),
+    )
+    .unwrap();
+    let ids = seeded(&store, &workspace_id(&folder));
+    let said = record_reply_for(&store, "tm_wren", &folder, &reply(&ids), Some("mission_tidy"), prompt).unwrap();
+    (t, store, ids, said)
+}
+
+#[test]
+fn makes_a_tidy_reply_proposals_even_in_keep_and_tell_me_and_says_what_it_could_not_make() {
+    let (_t, store, _, said) = read_reply(
+        |ids| format!("Two say the same thing.\n<locust-tidy>\nmerge {} {} :: Deploys go out every Thursday.\nretire mem_gone :: stale\n</locust-tidy>", ids[0], ids[1]),
+        None,
+    );
+    let held = waiting(&store);
+    assert_eq!(held.len(), 1);
+    assert_eq!((held[0]["by"]["name"].as_str(), held[0]["missionId"].as_str()), (Some("Wren"), Some("mission_tidy")));
+    assert_eq!(said, [("1 of Wren's suggestions could not be made: A suggestion to forget a memory named one this folder does not keep.".to_owned(), "warning")]);
+    assert_eq!(kept_texts(&store), SEED);
+}
+
+#[test]
+fn reads_a_block_in_a_code_fence_with_bulleted_and_numbered_lines() {
+    let (_t, store, _, said) = read_reply(
+        |ids| format!("Here are my suggestions:\n\n```\n<locust-tidy>\n- merge {} {} :: Deploys go out every Thursday.\n2. retire {} :: the API moved\n</locust-tidy>\n```", ids[0], ids[1], ids[2]),
+        None,
+    );
+    assert_eq!(waiting(&store).len(), 2);
+    assert!(said.is_empty(), "{said:?}");
+}
+
+#[test]
+fn says_in_the_conversation_how_many_lines_it_could_not_read_and_still_proposes_the_rest() {
+    let (_t, store, _, said) = read_reply(
+        |ids| format!("Found some.\n<locust-tidy>\nmerge {} {} :: Deploys go out every Thursday.\nmerge: the two port notes -> one\nretire the old test command\n</locust-tidy>", ids[0], ids[1]),
+        None,
+    );
+    assert_eq!(waiting(&store).len(), 1);
+    assert_eq!(said, [("2 of Wren's suggestions were not written in a form Locust reads, so they were not put to you. Ask Wren to write them again, one per line.".to_owned(), "warning")]);
+}
+
+#[test]
+fn says_so_even_when_nothing_at_all_could_be_read() {
+    let (_t, _store, _, said) = read_reply(|_| "Here are my suggestions:\n<locust-tidy>\nmerge the deploy ones\n</locust-tidy>".into(), None);
+    assert_eq!(said, [("One of Wren's suggestions was not written in a form Locust reads, so it was not put to you. Ask Wren to write it again, one per line.".to_owned(), "warning")]);
+}
+
+#[test]
+fn says_quietly_when_a_tidy_pass_put_nothing_to_the_person_and_says_nothing_for_any_other_reply() {
+    // The 0.372 drive: the block went into a shell command, and the reply was a summary.
+    let summary = |_: &[String]| "Summary: two deploy-day memories should merge; the port memory is stale.".to_owned();
+    let tidy = crate::memory_tidy::tidy_prompt();
+    assert_eq!(read_reply(summary, Some(&tidy)).3, [("Nothing from this tidy pass waits on the Memory screen.".to_owned(), "info")]);
+    assert!(read_reply(summary, Some("What does this repo do?")).3.is_empty());
+    assert!(read_reply(summary, None).3.is_empty());
+}
+
+#[test]
+fn says_nothing_about_the_briefs_own_example_repeated() {
+    let (_t, store, _, said) = read_reply(
+        |_| "Nothing needs tidying. The form was:\n<locust-tidy>\nmerge mem_a mem_b :: the one sentence that replaces them\n</locust-tidy>".into(),
+        None,
+    );
+    assert!(said.is_empty(), "{said:?}");
+    assert!(waiting(&store).is_empty());
+}
+
+#[test]
+fn names_each_memory_by_its_id_so_a_tidy_pass_can() {
+    let line = json!({"memoryId":"mem_abc","text":"Deploys go out on Thursdays.","scope":"workspace","by":{"name":"you"},"createdAt":"2026-09-24T12:00:00.000Z"});
+    let text = memory_file_text(&[line], at("2026-09-24T12:00:00.000Z"));
+    assert!(text.contains("- Deploys go out on Thursdays. (by the person -- 2026-09-24 (today)) [mem_abc]"), "{text}");
 }
