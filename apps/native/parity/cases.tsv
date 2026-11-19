@@ -1121,9 +1121,9 @@ apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	puts the window's
 apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	is one section when there is one folder, so it draws as it always did	no
 apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	keeps the window's folder even with nothing in it yet: a folder just switched to	no
 apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	are told apart by the folder above each; a name nobody shares stays bare	no
-apps/desktop/src/main/every-settings-switch-says-what-it-is.test.ts	are named for what they control	no
-apps/desktop/src/main/every-settings-switch-says-what-it-is.test.ts	show an off knob you can see: the lifted knob on the track, not a raised surface (0.419)	no
-apps/desktop/src/main/every-settings-switch-says-what-it-is.test.ts	and the two between teammates say their name before their state	no
+apps/desktop/src/main/every-settings-switch-says-what-it-is.test.ts	are named for what they control	yes
+apps/desktop/src/main/every-settings-switch-says-what-it-is.test.ts	show an off knob you can see: the lifted knob on the track, not a raised surface (0.419)	yes
+apps/desktop/src/main/every-settings-switch-says-what-it-is.test.ts	and the two between teammates say their name before their state	yes
 apps/desktop/src/main/forget-hits-one-memory.test.ts	hits the memory it quotes exactly	no
 apps/desktop/src/main/forget-hits-one-memory.test.ts	still hits it when the quote is punctuated or cased differently	no
 apps/desktop/src/main/forget-hits-one-memory.test.ts	hits it when the teammate drops a trailing clause -- the case that used to fail	no

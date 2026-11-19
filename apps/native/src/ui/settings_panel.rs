@@ -284,6 +284,33 @@ fn toggle_conversations(s: &mut State) {
     }
 }
 
+/// Screens.tsx "Auto mode": one setting line, the switch named for what it controls. Off unless picked; the
+/// organization can hold it off (`mode_allowed(.., "auto")`), and then the switch is drawn but does nothing.
+pub(super) const AUTO_ON: &str = "On. A run started in Auto goes ahead without asking and is not kept to the project folder.";
+pub(super) const AUTO_OFF: &str = "Off. Teammates may change files inside the project folder and nowhere else.";
+
+fn auto_mode_section(s: &State, p: &Palette) -> El {
+    let l = crate::look::controls::Look::new(p.dark);
+    let managed = !locust_core::org_policy::mode_allowed(Some(&locust_core::org_policy::current()), "auto");
+    let on = s.settings_panel.settings.auto_mode;
+    let mut words = col()
+        .grow(1.0)
+        .gap(4.0)
+        .child(text("Auto mode").role("heading").level(2).font(l.ty.control).color(l.c("text-primary")));
+    if managed {
+        words = words.child(text("Set by your organization.").font(l.ty.body).color(l.c("text-muted")));
+    }
+    words = words.child(text(if on { AUTO_ON } else { AUTO_OFF }).font(l.ty.body).color(l.c("text-secondary")).wrap());
+    let mut knob = crate::look::controls::switch(&l, on, "Auto mode", managed).key("settings-auto-mode");
+    if !managed {
+        knob = knob.on_press(|s: &mut State| {
+            s.settings_panel.settings.auto_mode = !s.settings_panel.settings.auto_mode;
+            persist(s);
+        });
+    }
+    row().w_full().gap(16.0).padding(10.0).center_y().child(words).child(knob)
+}
+
 /// LocustMcpSettings.tsx: the door's switch, and once it is on, each teammate's own mode, the person's
 /// conversations, and the lines that add it to Claude Code and Codex.
 fn door_section(s: &State, p: &Palette) -> El {
@@ -1007,6 +1034,7 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                                 s.people_panel.memory_tab = false;
                             }));
                     }
+                    "Auto mode" => body = body.child(auto_mode_section(s, p)),
                     _ => body = body.child(deferred(heading, p)),
                 }
             }
@@ -1791,3 +1819,7 @@ mod tests {
 #[cfg(test)]
 #[path = "settings_pages_real_tests.rs"]
 mod pages_real_tests;
+
+#[cfg(test)]
+#[path = "settings_switches_tests.rs"]
+mod switches_tests;

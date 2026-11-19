@@ -195,3 +195,9 @@ Breaks (`core-c` to `core-f`, `ui-d`, `ui-e` logs). All caught in the end:
 - Breaks (`~/work/scratch/pick3-breaks*.txt`): 5 of 5 killed by the page tests.
 - `src/settings_search_words_tests.rs` (new, `settings-search-knows-the-words.test.ts`, 9 of 9): the index already
   matched Electron's; breaks 3 of 4 killed, the survivor (dropping "worktree") is equal since "worktrees" contains it.
+- Auto mode (Teammates) was a "runs in Locust for now" placeholder. Now `auto_mode_section`: heading, "Set by your
+  organization." when `mode_allowed(.., "auto")` is false, the on/off sentence, and a switch named "Auto mode" that
+  flips `auto_mode` and saves (drawn but deaf when held off). Electron's "How it works" fold is not drawn: Rust has no
+  fold yet (settings-read-like-claudes).
+- `src/ui/settings_switches_tests.rs` (new, `every-settings-switch-says-what-it-is.test.ts`, 3 of 3 + 2 of ours);
+  breaks 6 of 6 killed.
