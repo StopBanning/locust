@@ -650,13 +650,16 @@ fn doc_preview(s: &State, key: &str, entry: &locust_core::activity_entries::File
 }
 
 /// Thread.tsx `TurnFoot`'s files card: the turn's files one row each, headed by `files_heading`, open until closed.
-/// `turn` is the finished turn's items; `scope` keys the card's open state.
-pub(super) fn turn_foot_card(turn: &[ledger::Item], p: &Palette, s: &State, scope: &str) -> Option<El> {
+/// `turn` is the finished turn's items; `scope` keys the card's open state; `mission` is the turn's own id, whose
+/// Undo (TurnUndo) sits under the card and, once it has put files back, adds "undone" to the heading (0.840).
+pub(super) fn turn_foot_card(turn: &[ledger::Item], p: &Palette, s: &State, scope: &str, mission: Option<&str>) -> Option<El> {
     let workspace = selected_conversation(s).and_then(|(t, _)| t.folder.as_deref());
     let foot = locust_core::turn_foot::turn_foot(turn, workspace)?;
     let key = format!("{scope}/files");
     let open = s.activity_open.get(&key).copied().unwrap_or(true);
-    let mut card = col().w_full().gap(4.0).key(format!("{scope}/turn-foot")).child(disclosure(key, foot.heading.clone(), open, p));
+    let undone = mission.is_some_and(|m| crate::turn_undo::put_back(s, m));
+    let heading = locust_core::turn_foot::files_heading(foot.edited, foot.seen, undone);
+    let mut card = col().w_full().gap(4.0).key(format!("{scope}/turn-foot")).child(disclosure(key, heading, open, p));
     if open {
         for row in &foot.rows {
             card = card.child(match row {
@@ -675,6 +678,9 @@ pub(super) fn turn_foot_card(turn: &[ledger::Item], p: &Palette, s: &State, scop
                 }
             });
         }
+    }
+    if let Some(undo) = mission.and_then(|m| crate::turn_undo::view(s, m, scope, p)) {
+        card = card.child(undo);
     }
     Some(card)
 }
