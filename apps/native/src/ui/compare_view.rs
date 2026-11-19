@@ -441,6 +441,35 @@ pub(super) fn start_tune_comparison(
     )
 }
 
+/// Where an editing comparison runs: worktrees in a git repo, plain copies when the folder fits,
+/// or the folder itself when it is too big to copy (never refused for size).
+fn resolve_changes_in(
+    folder: Option<&std::path::Path>,
+    changes: bool,
+    limits: Option<locust_core::routine_copy::Limits>,
+) -> (Option<ChangesIn>, Option<String>) {
+    if !changes {
+        return (None, None);
+    }
+    if let Some(f) = folder {
+        if is_git_repo(f) {
+            (None, git_head(f))
+        } else if copy_refusal(f, limits).is_none() {
+            (Some(ChangesIn::Copy), None)
+        } else {
+            (Some(ChangesIn::Folder), None)
+        }
+    } else {
+        (Some(ChangesIn::Folder), None)
+    }
+}
+
+/// Whether keeping a column needs to bring changes in from a copy or worktree.
+/// In-place (`ChangesIn::Folder`) changes are already in the folder itself.
+fn keep_needs_bring_in(cmp: &Compare) -> bool {
+    cmp.changes && cmp.kept.is_none() && cmp.changes_in != Some(ChangesIn::Folder)
+}
+
 fn launch_compare(
     s: &mut State,
     teammate_id: Option<String>,
@@ -453,21 +482,7 @@ fn launch_compare(
         return Err("Could not open comparisons store.".into());
     };
     let folder = active_folder(s);
-    let (changes_in, base) = if changes {
-        if let Some(ref f) = folder {
-            if is_git_repo(f) {
-                (None, git_head(f))
-            } else if copy_refusal(f, None).is_none() {
-                (Some(ChangesIn::Copy), None)
-            } else {
-                (Some(ChangesIn::Folder), None)
-            }
-        } else {
-            (Some(ChangesIn::Folder), None)
-        }
-    } else {
-        (None, None)
-    };
+    let (changes_in, base) = resolve_changes_in(folder.as_deref(), changes, None);
 
     let cmp_store = locust_core::compare::CompareStore::from_store(&store)
         .map_err(|_| "Could not open comparisons store.".to_owned())?;
@@ -609,7 +624,7 @@ pub(super) fn keep_column(s: &mut State, slot: CompareSlotId) {
     let folder = active_folder(s);
     let mut brought: Option<Vec<String>> = None;
 
-    if cmp.changes && cmp.changes_in != Some(ChangesIn::Folder)
+    if keep_needs_bring_in(&cmp)
         && let Some(ref f) = folder
     {
         let res = if cmp.changes_in == Some(ChangesIn::Copy) {
@@ -3745,5 +3760,85 @@ mod tests {
 
         let offer_unsupported = kept_tune_offer(&cmp, "Codec", Some("kilo"), false, None).unwrap();
         assert!(offer_unsupported.skill.is_none());
+    }
+
+    // ---- Electron main/a-big-folder-compares-in-place.test.ts ------------------------------------------------------
+
+    // case: is never refused for its size: it works in the folder itself
+    #[test]
+    fn is_never_refused_for_its_size_it_works_in_the_folder_itself() {
+        let dir = std::env::temp_dir().join(format!(
+            "locust-big-compare-{}",
+            locust_core::invariants::unique_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("big.bin"), vec![b'x'; 64]).unwrap();
+        let tiny = locust_core::routine_copy::Limits { files: 1, bytes: 10 };
+        assert!(copy_refusal(&dir, Some(tiny)).is_some());
+        let (changes_in, base) = resolve_changes_in(Some(&dir), true, Some(tiny));
+        assert_eq!(changes_in, Some(ChangesIn::Folder));
+        assert_eq!(base, None);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    // case: the menu never greys Auto out for it
+    #[test]
+    fn the_menu_never_greys_auto_out_for_it() {
+        let dir = std::env::temp_dir().join(format!(
+            "locust-big-compare-auto-{}",
+            locust_core::invariants::unique_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("a.txt"), "hello").unwrap();
+        let tiny = locust_core::routine_copy::Limits { files: 1, bytes: 1 };
+        assert!(copy_refusal(&dir, Some(tiny)).is_some());
+        let (changes_in, _) = resolve_changes_in(Some(&dir), true, Some(tiny));
+        assert_eq!(changes_in, Some(ChangesIn::Folder));
+        let mut s = State::default();
+        s.compare.changes = false;
+        s.compare.changes = true;
+        assert!(s.compare.changes);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    // case: keeping one brings nothing in: its changes are already there
+    #[test]
+    fn keeping_one_brings_nothing_in_its_changes_are_already_there() {
+        let root = std::env::temp_dir().join(format!(
+            "locust-big-compare-keep-{}",
+            locust_core::invariants::unique_nanos()
+        ));
+        std::fs::create_dir_all(root.join("work")).unwrap();
+        let store = locust_core::store::Store::new(root.join("native"), root.join("electron")).unwrap();
+        let cmp_store = locust_core::compare::CompareStore::from_store(&store).unwrap();
+        let cmp = cmp_store
+            .create(CreateCompareInput {
+                teammate_id: None,
+                prompt: "Edit in place".into(),
+                routes: vec![
+                    CompareRoute { runtime: "codex".into(), model: "gpt".into(), account: None, effort: None, label: Some("A".into()), instructions: None, mode: None, skill: None, why: None },
+                    CompareRoute { runtime: "codex".into(), model: "gpt".into(), account: None, effort: None, label: Some("B".into()), instructions: None, mode: None, skill: None, why: None },
+                ],
+                changes: true,
+                changes_in: Some(ChangesIn::Folder),
+                blind: false,
+                base: None,
+                rerun_of: None,
+            })
+            .unwrap();
+        let cmp = cmp_store.add_turn(&cmp.compare_id, CompareSlotId::A, "m-a").unwrap();
+        assert!(!keep_needs_bring_in(&cmp));
+        let mut copy_cmp = cmp.clone();
+        copy_cmp.changes_in = Some(ChangesIn::Copy);
+        assert!(keep_needs_bring_in(&copy_cmp));
+
+        let mut s = State::default();
+        s.data = Some(store.clone());
+        s.compare.active_id = Some(cmp.compare_id.clone());
+        keep_column(&mut s, CompareSlotId::A);
+        let saved = cmp_store.get(&cmp.compare_id).unwrap().unwrap();
+        assert_eq!(saved.kept.as_ref().map(|k| k.slot), Some(CompareSlotId::A));
+        assert!(s.compare.problem.is_none());
+        let _ = std::fs::remove_dir_all(&root);
     }
 }

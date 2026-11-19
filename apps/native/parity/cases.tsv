@@ -31,6 +31,9 @@ apps/desktop/src/main/a-beta-can-report-itself.test.ts	remembers what it deleted
 apps/desktop/src/main/a-beta-can-report-itself.test.ts	checks every history read against that list	no
 apps/desktop/src/main/a-beta-can-report-itself.test.ts	records ids and never a prompt, because this file is made to be sent	no
 apps/desktop/src/main/a-beta-can-report-itself.test.ts	forgets across restarts, since a durable list of deletions is the opposite of the point	no
+apps/desktop/src/main/a-big-folder-compares-in-place.test.ts	is never refused for its size: it works in the folder itself	yes
+apps/desktop/src/main/a-big-folder-compares-in-place.test.ts	the menu never greys Auto out for it	yes
+apps/desktop/src/main/a-big-folder-compares-in-place.test.ts	keeping one brings nothing in: its changes are already there	yes
 apps/desktop/src/main/a-big-folder-does-not-invent-changes.test.ts	a file that only moved into view is not a change; one written during the run is	yes
 apps/desktop/src/main/a-big-folder-does-not-invent-changes.test.ts	a file that crossed the text bound is compared by its time, not by how it was looked at	yes
 apps/desktop/src/main/a-big-folder-does-not-invent-changes.test.ts	a folder looked at whole still reports every new file, however old its time	yes
@@ -1881,6 +1884,11 @@ apps/desktop/src/main/the-chain-templates-hand-work-on.test.ts	previews which st
 apps/desktop/src/main/the-chain-templates-hand-work-on.test.ts	proposes a teammate on a different agent for each review, where the roster has one	no
 apps/desktop/src/main/the-chain-templates-hand-work-on.test.ts	with two agents, the third review goes to a teammate who has not reviewed yet; with one teammate, all three are theirs	no
 apps/desktop/src/main/the-chain-templates-hand-work-on.test.ts	is what the shipped template gets, read the way the window reads it	no
+apps/desktop/src/main/the-changes-panel-reads-every-change.test.ts	b/caf303251.txt	no
+apps/desktop/src/main/the-changes-panel-reads-every-change.test.ts	names a path with an accented letter as it is, as a change, not a rename (CH2)	yes
+apps/desktop/src/main/the-changes-panel-reads-every-change.test.ts	takes master as the base of a repository with no remote and no main (CH3)	yes
+apps/desktop/src/main/the-changes-panel-reads-every-change.test.ts	lists a new file too big to show whole, and says when there are more new files than it shows (CH1)	yes
+apps/desktop/src/main/the-changes-panel-reads-every-change.test.ts	shows all the changes for a commit no longer on the branch, and says it shows all (CH4)	yes
 apps/desktop/src/main/the-effort-thumb-is-claude-codes-shape.test.ts	is Claude Code's: a white rounded rectangle, 16 x 20, 4px corners -- painted by the liquid	yes
 apps/desktop/src/main/the-effort-thumb-is-claude-codes-shape.test.ts	fills the track's height, as Claude Code's does	yes
 apps/desktop/src/main/the-effort-thumb-is-claude-codes-shape.test.ts	is ONE thing (Colin, 2026-09-26: "a rectangle with no gooey with a gooey circle behind it, we gotta pick one")	no
@@ -1888,6 +1896,10 @@ apps/desktop/src/main/the-effort-thumb-is-claude-codes-shape.test.ts	sits on a f
 apps/desktop/src/main/the-effort-track-takes-the-pointer.test.ts	lets the pointer through the input to the track	no
 apps/desktop/src/main/the-effort-track-takes-the-pointer.test.ts	does not start a scroll or a selection with a drag	yes
 apps/desktop/src/main/the-effort-track-takes-the-pointer.test.ts	keeps the fill under a held thumb	yes
+apps/desktop/src/main/the-folders-changes-are-read.test.ts	adds every line, says when the last has no newline, and calls a binary file binary	yes
+apps/desktop/src/main/the-folders-changes-are-read.test.ts	on a branch: its commits and what is not committed yet, against main, new files whole	yes
+apps/desktop/src/main/the-folders-changes-are-read.test.ts	on main: what is not committed yet, and nothing when nothing has changed	yes
+apps/desktop/src/main/the-folders-changes-are-read.test.ts	shows no commit it was not asked about, and no folder that is not a repository	yes
 apps/desktop/src/main/the-github-cli-installs-from-the-card.test.ts	uses winget on Windows, GitHub’s own package, and then asks gh who is signed in	yes
 apps/desktop/src/main/the-github-cli-installs-from-the-card.test.ts	takes winget’s “already installed” as gh being there	no
 apps/desktop/src/main/the-github-cli-installs-from-the-card.test.ts	takes winget’s “already installed” and “no newer version” as Node reports them on Windows	yes
@@ -1900,6 +1912,9 @@ apps/desktop/src/main/the-github-cli-updates-from-the-card.test.ts	says nothing 
 apps/desktop/src/main/the-github-cli-updates-from-the-card.test.ts	is behind only when GitHub has a higher number	yes
 apps/desktop/src/main/the-github-cli-updates-from-the-card.test.ts	runs winget’s upgrade of GitHub’s own package on Windows, and Homebrew’s on a Mac	yes
 apps/desktop/src/main/the-github-cli-updates-from-the-card.test.ts	says why when it could not update	yes
+apps/desktop/src/main/the-history-reads-only-what-changed.test.ts	answers exactly what the whole listing answered	yes
+apps/desktop/src/main/the-history-reads-only-what-changed.test.ts	reads no file twice when nothing changed	yes
+apps/desktop/src/main/the-history-reads-only-what-changed.test.ts	reads the one file that changed, and the answer carries the change	yes
 apps/desktop/src/main/the-host-refuses-always-for-a-reaching-command.test.ts	passes every answer from the window through enforcedAnswer before it reaches a holder	no
 apps/desktop/src/main/the-host-refuses-always-for-a-reaching-command.test.ts	refuses a rule from a card before any rule is built or saved	no
 apps/desktop/src/main/the-in-use-check-reads-any-path.test.ts	finds a process whose path has a non-ASCII letter	yes
@@ -3957,8 +3972,8 @@ apps/desktop/src/renderer/src/the-boot-screen.test.ts	finds the row for a runtim
 apps/desktop/src/renderer/src/the-boot-screen.test.ts	does not report a probe result for a runtime this build cannot run	no
 apps/desktop/src/renderer/src/the-boot-screen.test.ts	counts only the runtimes it is actually showing	no
 apps/desktop/src/renderer/src/the-boot-screen.test.ts	keeps antigravity, which is checked by the host rather than by a CLI	no
-apps/desktop/src/renderer/src/the-changes-panel-lists-every-file.test.tsx	counts each file’s added and removed lines	no
-apps/desktop/src/renderer/src/the-changes-panel-lists-every-file.test.tsx	groups them by folder, each folder’s own files under it	no
+apps/desktop/src/renderer/src/the-changes-panel-lists-every-file.test.tsx	counts each file’s added and removed lines	yes
+apps/desktop/src/renderer/src/the-changes-panel-lists-every-file.test.tsx	groups them by folder, each folder’s own files under it	yes
 apps/desktop/src/renderer/src/the-chip-keeps-free.test.ts	splits a trailing Free off the name	yes
 apps/desktop/src/renderer/src/the-chip-keeps-free.test.ts	leaves every other name whole	yes
 apps/desktop/src/renderer/src/the-effort-control-is-claude-codes.test.tsx	is named in words, as Claude Code names it	yes

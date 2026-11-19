@@ -28,7 +28,30 @@
   - `worktrees.rs` treat timeout as finished hook failure -> `worktree_checkout_tests::does_not_treat_a_timeout_as_a_finished_hook_failure`
   - `worktrees.rs` disable Windows longpaths -> `worktree_checkout_tests::adds_the_longpaths_flag_only_for_windows_on_both_branch_forms`
 
+## Part 2: Reading the folder's changes — DONE (5/5 carried)
+- `main/the-folders-changes-are-read.test.ts` (4/4 named in `core/src/changes.rs`):
+  - Fixed `changes::new_file` to emit `@@ -0,0 +1 @@` for single-line files and `\ No newline at end of file\n` when the file does not end with `\n`.
+  - Added `showing` and `raw` fields on `changes::Folder`.
+- `main/the-changes-panel-reads-every-change.test.ts` (4/4 named in `core/src/changes.rs`):
+  - All 4 cases (CH1–CH4) named and tested, including amended-commit fallback with `showing == "all"`.
+- `main/the-history-reads-only-what-changed.test.ts` (4/4 named in `core/src/history_cache.rs`):
+  - Added `core/src/history_cache.rs` (`HistoryCache`) caching parsed ledger summaries by `(size, mtime)`, preserving `event_count` and `waiting_question` (via `protocol_tags::parse_decision`) on light history rows (older than newest 20).
+  - Wired `history_cache::global().list_recent_summaries` into `core/src/native.rs::list_recent` without modifying `core/src/ledger.rs`.
+- `main/a-big-folder-compares-in-place.test.ts` (3/3 named in `src/ui/compare_view.rs`):
+  - Extracted `resolve_changes_in` and `keep_needs_bring_in` and verified in-place `ChangesIn::Folder` fallback, Auto staying enabled, and `keep_column` skipping bring-in.
+- `renderer/src/the-changes-panel-lists-every-file.test.tsx` (2/2 named in `src/ui/changes_panel.rs`):
+  - Added `changes::TreeFolder` + `changes::tree_of` and replaced the flat list in `src/ui/changes_panel.rs` with a collapsible folder-first file tree (`render_file_tree`), verified in headless `rune::Runtime`.
+- Mutation checks (`mutsafe.py`, 8/8 killed):
+  - `changes.rs` single-line range always `+1,N` -> `changes::tests::adds_every_line_says_when_the_last_has_no_newline_and_calls_a_binary_file_binary`
+  - `changes.rs` drop no-newline marker -> same test
+  - `changes.rs` `showing` default empty -> `on_a_branch_its_commits_and_what_is_not_committed_yet_against_main_new_files_whole`, `shows_all_the_changes_for_a_commit_no_longer_on_the_branch_and_says_it_shows_all`
+  - `changes.rs` `tree_of` flat (no folders) -> `changes_panel::tests::groups_them_by_folder_each_folders_own_files_under_it` (locust-native; survives a core-only run)
+  - `history_cache.rs` never hit the cache -> `reads_no_file_twice_when_nothing_changed`, `reads_the_one_file_that_changed_and_the_answer_carries_the_change`
+  - `history_cache.rs` drop `waiting_question` -> `keeps_its_question_on_light_history_rows_on_the_first_and_cached_reads`
+  - `compare_view.rs` big plain folder goes to a copy -> `is_never_refused_for_its_size_it_works_in_the_folder_itself`, `the_menu_never_greys_auto_out_for_it`
+  - `compare_view.rs` keep in place brings in -> `keeping_one_brings_nothing_in_its_changes_are_already_there`
+- Surprise: case-map reads the comment `("b/caf\303\251.txt")` in the CH test's header as a case; it is listed as unnamed noise in `parity/cases.tsv`.
+
 ## Remaining
-- Part 2: Reading the folder's changes (5 files)
 - Part 3: Committing (4 files)
 - Part 4: Pull-request and issue links (7 files)

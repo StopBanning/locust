@@ -378,6 +378,7 @@ diff --git a/src/app.ts b/src/app.ts
             files: vec![file],
             truncated: false,
             commits: Vec::new(),
+            ..changes::Folder::default()
         }));
         s
     }
@@ -672,6 +673,7 @@ deleted file mode 100644
             files: vec![file],
             truncated: false,
             commits: Vec::new(),
+            ..changes::Folder::default()
         }));
         fn render_eval(s: &State, _cx: &mut Cx<State>) -> El {
             let (_, notes) = diff_notes::split_diff_notes(&s.draft.text);

@@ -274,14 +274,24 @@ pub fn new_file(path: &str, bytes: &[u8]) -> String {
         return format!("{head}Binary files /dev/null and b/{path} differ\n");
     }
     let text = String::from_utf8_lossy(bytes);
+    let ends_with_newline = text.ends_with('\n');
     let lines: Vec<_> = text
         .strip_suffix('\n')
         .unwrap_or(&text)
         .split('\n')
         .collect();
+    let range = if lines.len() == 1 {
+        "+1".to_owned()
+    } else {
+        format!("+1,{}", lines.len())
+    };
+    let tail = if ends_with_newline {
+        ""
+    } else {
+        "\\ No newline at end of file\n"
+    };
     format!(
-        "{head}--- /dev/null\n+++ b/{path}\n@@ -0,0 +1,{} @@\n{}\n",
-        lines.len(),
+        "{head}--- /dev/null\n+++ b/{path}\n@@ -0,0 {range} @@\n{}\n{tail}",
         lines
             .iter()
             .map(|l| format!("+{l}"))
@@ -289,10 +299,52 @@ pub fn new_file(path: &str, bytes: &[u8]) -> String {
             .join("\n")
     )
 }
-#[derive(Clone, Default)]
+/// A folder node in the Changes panel's file tree (`ChangesPanel.tsx::treeOf`).
+/// Insertion order of subfolders is preserved, and folders are rendered before files.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct TreeFolder {
+    pub name: String,
+    pub folders: Vec<(String, TreeFolder)>,
+    pub files: Vec<usize>,
+}
+impl TreeFolder {
+    pub fn folder(&self, name: &str) -> Option<&TreeFolder> {
+        self.folders.iter().find(|(n, _)| n == name).map(|(_, f)| f)
+    }
+    fn folder_mut(&mut self, name: &str) -> &mut TreeFolder {
+        if let Some(pos) = self.folders.iter().position(|(n, _)| n == name) {
+            return &mut self.folders[pos].1;
+        }
+        self.folders.push((
+            name.to_owned(),
+            TreeFolder {
+                name: name.to_owned(),
+                folders: Vec::new(),
+                files: Vec::new(),
+            },
+        ));
+        &mut self.folders.last_mut().unwrap().1
+    }
+}
+/// Groups changed files by folder, each folder's own files under it (`ChangesPanel.tsx::treeOf`).
+pub fn tree_of(files: &[File]) -> TreeFolder {
+    let mut root = TreeFolder::default();
+    for (index, file) in files.iter().enumerate() {
+        let parts: Vec<&str> = file.path.split('/').collect();
+        let mut at = &mut root;
+        for part in &parts[..parts.len().saturating_sub(1)] {
+            at = at.folder_mut(part);
+        }
+        at.files.push(index);
+    }
+    root
+}
+#[derive(Clone, Debug, Default)]
 pub struct Folder {
     pub base: String,
     pub branch: String,
+    pub showing: String,
+    pub raw: String,
     pub files: Vec<File>,
     pub truncated: bool,
     pub commits: Vec<(String, String)>,
@@ -431,10 +483,14 @@ pub fn read(folder: &Path, sha: Option<&str>) -> Result<Folder, String> {
         text.truncate(cut);
         truncated = true;
     }
+    let showing = one.unwrap_or("all").to_owned();
+    let files = parse(&text);
     Ok(Folder {
         base,
         branch,
-        files: parse(&text),
+        showing,
+        raw: text,
+        files,
         truncated,
         commits,
     })
@@ -753,5 +809,159 @@ mod tests {
             out.contains("a.txt"),
             "stdout must survive a non-zero git exit: {out:?}"
         );
+    }
+
+    // ---- Electron main/the-folders-changes-are-read.test.ts --------------------------------------------------------
+
+    // case: adds every line, says when the last has no newline, and calls a binary file binary
+    #[test]
+    fn adds_every_line_says_when_the_last_has_no_newline_and_calls_a_binary_file_binary() {
+        assert_eq!(
+            new_file("notes.md", b"# Notes\nsecond\n"),
+            "diff --git a/notes.md b/notes.md\nnew file mode 100644\n--- /dev/null\n+++ b/notes.md\n@@ -0,0 +1,2 @@\n+# Notes\n+second\n"
+        );
+        assert_eq!(
+            new_file("a.txt", b"one"),
+            "diff --git a/a.txt b/a.txt\nnew file mode 100644\n--- /dev/null\n+++ b/a.txt\n@@ -0,0 +1 @@\n+one\n\\ No newline at end of file\n"
+        );
+        assert_eq!(
+            new_file("empty.txt", b""),
+            "diff --git a/empty.txt b/empty.txt\nnew file mode 100644\n"
+        );
+        assert_eq!(
+            new_file("logo.png", &[0x89, 0x50, 0x4e, 0x47, 0, 1]),
+            "diff --git a/logo.png b/logo.png\nnew file mode 100644\nBinary files /dev/null and b/logo.png differ\n"
+        );
+    }
+
+    fn cart_repo(default_branch: &str) -> Temp {
+        let t = Temp::new();
+        git(&t.0, &["init", "-q", "-b", default_branch]).unwrap();
+        git(&t.0, &["config", "user.email", "you@example.test"]).unwrap();
+        git(&t.0, &["config", "user.name", "You"]).unwrap();
+        git(&t.0, &["config", "commit.gpgsign", "false"]).unwrap();
+        git(&t.0, &["config", "core.autocrlf", "false"]).unwrap();
+        fs::write(t.0.join("cart.py"), "def total(items):\n    return 0\n").unwrap();
+        git(&t.0, &["add", "."]).unwrap();
+        git(&t.0, &["commit", "-q", "-m", "first"]).unwrap();
+        t
+    }
+
+    // case: on a branch: its commits and what is not committed yet, against main, new files whole
+    #[test]
+    fn on_a_branch_its_commits_and_what_is_not_committed_yet_against_main_new_files_whole() {
+        let t = cart_repo("main");
+        git(&t.0, &["checkout", "-q", "-b", "fix-totals"]).unwrap();
+        fs::write(t.0.join("cart.py"), "def total(items):\n    return sum(items)\n").unwrap();
+        git(&t.0, &["commit", "-q", "-am", "Sum the items"]).unwrap();
+        fs::write(t.0.join("cart.py"), "def total(items):\n    return sum(items)\n\n# done\n").unwrap();
+        fs::write(t.0.join("notes.md"), "# Notes\n").unwrap();
+        let got = read(&t.0, None).unwrap();
+        assert_eq!((got.base.as_str(), got.branch.as_str(), got.showing.as_str()), ("main", "fix-totals", "all"));
+        let subjects: Vec<&str> = got.commits.iter().map(|(_, s)| s.as_str()).collect();
+        assert_eq!(subjects, vec!["Sum the items"]);
+        assert!(got.raw.contains("+    return sum(items)"));
+        assert!(got.raw.contains("+# done"));
+        assert!(got.raw.contains("+# Notes"));
+        let one = read(&t.0, Some(&got.commits[0].0)).unwrap();
+        assert_eq!(one.showing, got.commits[0].0);
+        assert!(one.raw.contains("+    return sum(items)") && !one.raw.contains("# done") && !one.raw.contains("# Notes"));
+    }
+
+    // case: on main: what is not committed yet, and nothing when nothing has changed
+    #[test]
+    fn on_main_what_is_not_committed_yet_and_nothing_when_nothing_has_changed() {
+        let t = cart_repo("main");
+        let clean = read(&t.0, None).unwrap();
+        assert!(clean.files.is_empty());
+        fs::write(t.0.join("cart.py"), "def total(items):\n    return 1\n").unwrap();
+        let got = read(&t.0, None).unwrap();
+        assert_eq!(got.base, "HEAD");
+        assert!(got.commits.is_empty());
+        assert!(got.raw.contains("+    return 1"));
+    }
+
+    // case: shows no commit it was not asked about, and no folder that is not a repository
+    #[test]
+    fn shows_no_commit_it_was_not_asked_about_and_no_folder_that_is_not_a_repository() {
+        let t = cart_repo("main");
+        git(&t.0, &["checkout", "-q", "-b", "other"]).unwrap();
+        let unknown = "a".repeat(40);
+        let got = read(&t.0, Some(&unknown)).unwrap();
+        assert!(got.files.is_empty());
+        let plain = Temp::new();
+        assert!(read(&plain.0, None).unwrap_err().contains("not a git repository"));
+    }
+
+    // ---- Electron main/the-changes-panel-reads-every-change.test.ts ------------------------------------------------
+
+    fn panel_repo(default_branch: &str) -> Temp {
+        let t = Temp::new();
+        git(&t.0, &["init", "-q", "-b", default_branch]).unwrap();
+        git(&t.0, &["config", "user.name", "Locust test"]).unwrap();
+        git(&t.0, &["config", "user.email", "test@locust.test"]).unwrap();
+        git(&t.0, &["config", "commit.gpgsign", "false"]).unwrap();
+        git(&t.0, &["config", "core.autocrlf", "false"]).unwrap();
+        fs::write(t.0.join("notes.txt"), "one\ntwo\n").unwrap();
+        fs::write(t.0.join("café.txt"), "bonjour\n").unwrap();
+        git(&t.0, &["add", "-A"]).unwrap();
+        git(&t.0, &["commit", "-q", "-m", "base"]).unwrap();
+        git(&t.0, &["checkout", "-q", "-b", "feature"]).unwrap();
+        t
+    }
+
+    // case: names a path with an accented letter as it is, as a change, not a rename (CH2)
+    #[test]
+    fn names_a_path_with_an_accented_letter_as_it_is_as_a_change_not_a_rename() {
+        let t = panel_repo("main");
+        fs::write(t.0.join("café.txt"), "bonjour\nsalut\n").unwrap();
+        let got = read(&t.0, None).unwrap();
+        assert!(got.raw.contains("diff --git a/café.txt b/café.txt"), "{}", got.raw);
+        assert!(!got.raw.contains("\\303"), "{}", got.raw);
+        assert_eq!(got.files[0].status, "MODIFIED");
+    }
+
+    // case: takes master as the base of a repository with no remote and no main (CH3)
+    #[test]
+    fn takes_master_as_the_base_of_a_repository_with_no_remote_and_no_main() {
+        let t = panel_repo("master");
+        fs::write(t.0.join("notes.txt"), "one\ntwo\nthree\n").unwrap();
+        git(&t.0, &["commit", "-q", "-am", "a third line"]).unwrap();
+        let got = read(&t.0, None).unwrap();
+        assert_eq!(got.base, "master");
+        let subjects: Vec<&str> = got.commits.iter().map(|(_, s)| s.as_str()).collect();
+        assert_eq!(subjects, vec!["a third line"]);
+        assert!(got.raw.contains("+three"));
+    }
+
+    // case: lists a new file too big to show whole, and says when there are more new files than it shows (CH1)
+    #[test]
+    fn lists_a_new_file_too_big_to_show_whole_and_says_when_there_are_more_new_files_than_it_shows() {
+        let t = panel_repo("main");
+        let line = format!("{}\n", "x".repeat(100));
+        let reps = (512 * 1024 + 1_000) / line.len() + 1;
+        fs::write(t.0.join("big.log"), line.repeat(reps)).unwrap();
+        let big = read(&t.0, None).unwrap();
+        assert!(big.raw.contains("diff --git a/big.log b/big.log\nnew file mode 100644\n"));
+        assert!(!big.truncated);
+        for at in 0..=200 {
+            fs::write(t.0.join(format!("new-{at:03}.txt")), "n\n").unwrap();
+        }
+        let many = read(&t.0, None).unwrap();
+        assert!(many.truncated);
+    }
+
+    // case: shows all the changes for a commit no longer on the branch, and says it shows all (CH4)
+    #[test]
+    fn shows_all_the_changes_for_a_commit_no_longer_on_the_branch_and_says_it_shows_all() {
+        let t = panel_repo("main");
+        fs::write(t.0.join("notes.txt"), "one\ntwo\nthree\n").unwrap();
+        git(&t.0, &["commit", "-q", "-am", "first try"]).unwrap();
+        let gone = git(&t.0, &["rev-parse", "HEAD"]).unwrap().trim().to_owned();
+        git(&t.0, &["commit", "-q", "--amend", "-m", "second try"]).unwrap();
+        let got = read(&t.0, Some(&gone)).unwrap();
+        assert_eq!(got.showing, "all");
+        let subjects: Vec<&str> = got.commits.iter().map(|(_, s)| s.as_str()).collect();
+        assert_eq!(subjects, vec!["second try"]);
     }
 }

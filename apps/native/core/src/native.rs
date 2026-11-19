@@ -770,10 +770,10 @@ pub struct Listed {
 /// Electron's read-only list merged with the native one, newest first. None when neither folder could be listed.
 pub fn list_recent(limit: usize, native_engine: bool) -> Option<Listed> {
     let native_dir = store().and_then(|s| s.ledger_dir().ok());
-    let theirs = electron_ledger_dir().and_then(|d| ledger::try_list_recent(&d, limit).ok());
+    let theirs = electron_ledger_dir().and_then(|d| crate::history_cache::global().list_recent_summaries(&d, limit).ok());
     let mut ours = native_dir
         .as_ref()
-        .and_then(|d| ledger::try_list_recent(d, limit).ok());
+        .and_then(|d| crate::history_cache::global().list_recent_summaries(d, limit).ok());
     // A native folder not made yet is simply empty; only the native engine reads that as "nothing to show".
     if ours.is_none() && native_engine && native_dir.is_some_and(|d| !d.exists()) {
         ours = Some(Vec::new());
