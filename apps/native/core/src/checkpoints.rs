@@ -553,6 +553,58 @@ pub fn undone(store: &Store, workspace: &Path, id: &str) -> Option<Value> {
     let receipt = base(store, &workspace).ok()?.join("receipts").join(format!("{}.json", valid_id(id).ok()?));
     serde_json::from_slice(&fs::read(receipt).ok()?).ok()
 }
+/// What a turn's foot may offer (Electron checkpoints.ts `state`, TurnUndo): nothing, nothing because the folder was
+/// shared, Undo for so many files, or what Undo already did.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum UndoState {
+    None,
+    Shared,
+    Ready { files: usize, not_kept: Vec<String> },
+    Undone { restored: Vec<String>, left_alone: Vec<(String, String)> },
+}
+
+/// The turn's undo state, in Electron's order: undone first, then shared, then ready when it changed a file.
+pub fn undo_state(store: &Store, workspace: &Path, id: &str) -> UndoState {
+    let Ok(id) = valid_id(id) else { return UndoState::None };
+    let Ok(workspace) = workspace.canonicalize() else { return UndoState::None };
+    let Ok(dir) = base(store, &workspace) else { return UndoState::None };
+    let Some(record) = fs::read(dir.join("turns").join(format!("{id}.json"))).ok().and_then(|b| serde_json::from_slice::<Value>(&b).ok()) else {
+        return UndoState::None;
+    };
+    if let Some(receipt) = undone(store, &workspace, id) {
+        return UndoState::from_receipt(&receipt);
+    }
+    if record["shared"] == true {
+        return UndoState::Shared;
+    }
+    match changed(&record).len() {
+        0 => UndoState::None,
+        files => UndoState::Ready { files, not_kept: strings(&record["notKept"]) },
+    }
+}
+
+fn strings(v: &Value) -> Vec<String> {
+    v.as_array().into_iter().flatten().filter_map(|s| s.as_str().map(str::to_owned)).collect()
+}
+
+impl UndoState {
+    /// Undo's receipt as the state it leaves: what was put back, and each file left alone with why.
+    pub fn from_receipt(receipt: &Value) -> Self {
+        let left_alone = receipt["leftAlone"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .map(|f| (f["path"].as_str().unwrap_or("").to_owned(), f["why"].as_str().unwrap_or("").to_owned()))
+            .collect();
+        UndoState::Undone { restored: strings(&receipt["restored"]), left_alone }
+    }
+
+    /// TurnUndo's `putBack`: Undo ran and put at least one file back, so the card above may say "undone".
+    pub fn put_back(&self) -> bool {
+        matches!(self, UndoState::Undone { restored, .. } if !restored.is_empty())
+    }
+}
+
 /// A receipt, as Undo leaves one, for a test of what follows an undone turn.
 #[cfg(test)]
 pub(crate) fn put_receipt(store: &Store, workspace: &Path, id: &str, receipt: &Value) {
@@ -914,6 +966,33 @@ mod tests {
             assert_eq!(r["shared"], true)
         }
         assert!(undo(&s, &w, "run_a").is_err());
+    }
+    // TurnUndo's states (checkpoints.ts `state`): nothing without a record or a change, nothing for a shared folder,
+    // Undo for so many files, then what Undo did, which stays said.
+    #[test]
+    fn a_turns_foot_offers_undo_only_for_its_own_change_then_says_what_undo_did() {
+        let (_t, s, w) = setup();
+        assert_eq!(undo_state(&s, &w, "run_1"), UndoState::None);
+        let quiet = Turn::begin(&s, &w);
+        quiet.finish(&s, "run_quiet").unwrap();
+        assert_eq!(undo_state(&s, &w, "run_quiet"), UndoState::None);
+        let turn = Turn::begin(&s, &w);
+        edit(&w);
+        turn.finish(&s, "run_1").unwrap();
+        assert_eq!(undo_state(&s, &w, "run_1"), UndoState::Ready { files: 3, not_kept: vec![] });
+        assert!(!undo_state(&s, &w, "run_1").put_back());
+        undo(&s, &w, "run_1").unwrap();
+        let after = undo_state(&s, &w, "run_1");
+        assert!(matches!(&after, UndoState::Undone { restored, left_alone } if restored.len() == 3 && left_alone.is_empty()), "{after:?}");
+        assert!(after.put_back());
+        let a = Turn::begin(&s, &w);
+        let b = Turn::begin(&s, &w);
+        edit(&w);
+        a.finish(&s, "run_a").unwrap();
+        b.finish(&s, "run_b").unwrap();
+        assert_eq!(undo_state(&s, &w, "run_a"), UndoState::Shared);
+        // Undo that put nothing back is not "undone" on the card.
+        assert!(!UndoState::from_receipt(&serde_json::json!({"restored": [], "leftAlone": [{"path": "a", "why": "changed since"}]})).put_back());
     }
     #[test]
     fn without_git_walk_skips_dot_folders_and_dependencies() {

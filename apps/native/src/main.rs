@@ -205,6 +205,10 @@ mod boot_view;
 mod changelog;
 #[path = "ui/changes_panel.rs"]
 mod changes_panel;
+#[path = "ui/turn_undo.rs"]
+mod turn_undo;
+#[path = "ui/header_menu.rs"]
+mod header_menu;
 #[path = "ui/commit_panel.rs"]
 mod commit_panel;
 #[path = "ui/issue_list.rs"]
@@ -2029,6 +2033,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     bench_opened(s);
     changed |= browser_panel::poll(s, tx);
     changed |= changes_panel::poll(s);
+    changed |= turn_undo::poll(s);
     changed |= edit_message::poll(s);
     changed |= commit_panel::poll(s);
     changed |= pull_request_chip::poll(s, tx);

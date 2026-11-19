@@ -132,6 +132,9 @@ pub(super) struct State {
     pub(super) changes_job: Latest<crate::changes_panel::ReadResult>,
     /// Undo of a turn, run off the window's thread.
     pub(super) undo_job: Latest<crate::changes_panel::UndoAnswer>,
+    /// What each finished turn's foot may offer to put back (TurnUndo), read off the window's thread.
+    pub(super) turn_undo: crate::turn_undo::Panel,
+    pub(super) turn_undo_job: Latest<crate::turn_undo::Answer>,
     pub(super) commit: crate::commit_panel::Panel,
     pub(super) commit_read_job: Latest<crate::commit_panel::ReadAnswer>,
     pub(super) commit_job: Latest<crate::commit_panel::CommitAnswer>,
@@ -366,6 +369,8 @@ pub(super) struct State {
     pub(super) org_menu_id: Option<String>,
     /// The right-click menu open over the window (context_menu.rs).
     pub(super) row_menu: Option<crate::context_menu::MenuState>,
+    /// Where the conversation header's `⋯` was laid out, so its menu opens under it.
+    pub(super) header_menu_at: [f32; 4],
     pub(super) group_menu_id: Option<String>,
     pub(super) group_remove_confirm: bool,
     pub(super) folded_groups: std::collections::HashSet<String>,
@@ -456,6 +461,8 @@ impl Default for State {
             changes: crate::changes_panel::Panel::default(),
             changes_job: Latest::default(),
             undo_job: Latest::default(),
+            turn_undo: crate::turn_undo::Panel::default(),
+            turn_undo_job: Latest::default(),
             commit: crate::commit_panel::Panel::default(),
             commit_read_job: Latest::default(),
             commit_job: Latest::default(),
@@ -620,6 +627,7 @@ impl Default for State {
             rename_draft: TextEdit::new(""),
             org_menu_id: None,
             row_menu: None,
+            header_menu_at: [0.0; 4],
             group_menu_id: None,
             group_remove_confirm: false,
             folded_groups: std::collections::HashSet::new(),

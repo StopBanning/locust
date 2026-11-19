@@ -133,6 +133,14 @@ fn heads_the_card_as_electrons_files_heading_does() {
 }
 
 #[test]
+fn adds_undone_to_the_heading_and_only_once_undo_has_put_files_back() {
+    assert_eq!(files_heading(1, 0, false), "Edited 1 file");
+    assert_eq!(files_heading(1, 0, true), "Edited 1 file \u{b7} undone");
+    assert_eq!(files_heading(2, 1, true), "Edited 2 files \u{b7} 1 more changed in the folder \u{b7} undone");
+    assert_eq!(files_heading(0, 3, true), "3 files changed in the folder while it ran \u{b7} undone");
+}
+
+#[test]
 fn has_no_foot_when_nothing_changed() {
     let mut e = Events::new();
     e.push("run.started", json!({}));

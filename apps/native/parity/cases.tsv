@@ -2677,8 +2677,8 @@ apps/desktop/src/renderer/src/a-restored-queue-waits-for-send.test.ts	A refused 
 apps/desktop/src/renderer/src/a-restored-queue-waits-for-send.test.ts	A failed removal write sends nothing and keeps the saved words.	no
 apps/desktop/src/renderer/src/a-restored-queue-waits-for-send.test.ts	A refused folded message restores its original rows without exceeding the saved row limit.	no
 apps/desktop/src/renderer/src/a-resumed-file-card-matches-the-folder.test.tsx	counts the folder's change, not every Write outside it, and does not blame Claude Code for those Writes	yes
-apps/desktop/src/renderer/src/a-resumed-file-card-matches-the-folder.test.tsx	keeps a normal finished turn's card: one Write with a diff is still one edited file	no
-apps/desktop/src/renderer/src/a-resumed-file-card-matches-the-folder.test.tsx	says a Write the turn stopped before settling was stopped, not that Claude Code failed to report	no
+apps/desktop/src/renderer/src/a-resumed-file-card-matches-the-folder.test.tsx	keeps a normal finished turn's card: one Write with a diff is still one edited file	yes
+apps/desktop/src/renderer/src/a-resumed-file-card-matches-the-folder.test.tsx	says a Write the turn stopped before settling was stopped, not that Claude Code failed to report	yes
 apps/desktop/src/renderer/src/a-resumed-file-card-matches-the-folder.test.tsx	keeps one row when the same file was written twice without a diff	yes
 apps/desktop/src/renderer/src/a-resumed-file-card-matches-the-folder.test.tsx	knows a scratch path is not the compare folder	yes
 apps/desktop/src/renderer/src/a-retired-free-model-is-not-offered.test.ts	reads OpenCode's own words, and nothing else, as retired	no
@@ -3086,6 +3086,8 @@ apps/desktop/src/renderer/src/an-orb-needs-a-runtime-that-streams.test.ts	says W
 apps/desktop/src/renderer/src/an-orb-needs-a-runtime-that-streams.test.ts	goes back to working when the text is complete	yes
 apps/desktop/src/renderer/src/an-orb-needs-a-runtime-that-streams.test.ts	never overrides a step that said something more specific	yes
 apps/desktop/src/renderer/src/an-orb-needs-a-runtime-that-streams.test.ts	cannot hold the thinking orb when a reasoning step opens and closes at once	yes
+apps/desktop/src/renderer/src/an-undone-turn-says-so-on-its-card.test.tsx	adds undone to the heading, and only once Undo has put files back	yes
+apps/desktop/src/renderer/src/an-undone-turn-says-so-on-its-card.test.tsx	is told by the Undo below the card when files were put back, not when nothing was	yes
 apps/desktop/src/renderer/src/an-unknown-record-stays-out-of-the-thread.test.ts	is never a row of its own, even after the work has begun	yes
 apps/desktop/src/renderer/src/an-unknown-record-stays-out-of-the-thread.test.ts	is still said, in the fold with the turn’s other remarks	yes
 apps/desktop/src/renderer/src/an-unknown-record-stays-out-of-the-thread.test.ts	leaves real trouble where it was: a runtime error after work began is still a row	yes

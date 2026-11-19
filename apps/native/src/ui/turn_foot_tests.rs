@@ -98,3 +98,28 @@ fn counts_the_folders_change_in_a_resumed_compare_column_not_the_writes_outside_
     assert!(!said.contains("did not report"), "{said}");
     assert!(!said.contains("cdp.mjs \u{b7} change not reported"), "the scratch writes are not this turn's files: {said}");
 }
+
+#[test]
+fn keeps_a_normal_finished_turns_card_one_write_with_a_diff_is_still_one_edited_file() {
+    let mut rows: Vec<(&str, Value)> = vec![("run.started", json!({}))];
+    rows.extend(tool("w", "file_change", "Write", "report.md", None, Some(new_file("report.md"))));
+    rows.push(("run.completed", json!({"process": {"exitCode": 0}})));
+    let (said, _) = drawn(events(&rows), "C:/work", false);
+    assert!(said.contains("Edited 1 file"), "{said}");
+    assert!(said.contains("report.md"), "{said}");
+    assert!(!said.contains("did not report"), "{said}");
+    assert!(!said.contains("not confirmed"), "{said}");
+}
+
+#[test]
+fn says_a_write_the_turn_stopped_before_settling_was_stopped_not_that_claude_code_failed_to_report() {
+    let rows: Vec<(&str, Value)> = vec![
+        ("run.started", json!({})),
+        ("tool.started", json!({"itemId": "w", "toolKind": "tool_use", "name": "Write", "command": "notes.md", "phase": "started"})),
+        ("run.cancelled", json!({})),
+    ];
+    let (said, _) = drawn(events(&rows), "C:/work", false);
+    assert!(said.contains("not confirmed"), "{said}");
+    assert!(!said.contains("Claude Code did not report"), "{said}");
+    assert!(!said.lines().any(|l| l.trim() == "did not report"), "{said}");
+}

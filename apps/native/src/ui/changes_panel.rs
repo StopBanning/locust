@@ -89,10 +89,16 @@ pub(super) type UndoAnswer = (PathBuf, String, Result<serde_json::Value, String>
 
 /// Put the turn's files back, off the window's thread (checkpoints::undo reads and writes the folder). One at a time.
 pub(super) fn undo_turn(s: &mut State, run: String) {
+    let folder = s.changes.folder.clone();
+    undo_turn_in(s, folder, run);
+}
+
+/// Undo in a named folder: the Changes panel's, or the folder of the turn whose foot was pressed (TurnUndo).
+pub(super) fn undo_turn_in(s: &mut State, folder: PathBuf, run: String) {
     if s.undo_job.is_pending() {
         return;
     }
-    let (folder, store) = (s.changes.folder.clone(), native::store());
+    let store = native::store();
     s.undo_job.request((folder, run, store), |(folder, run, store)| {
         let answer = store.ok_or_else(|| "No native store".to_owned()).and_then(|store| checkpoints::undo(&store, &folder, &run).map_err(|e| e.to_string()));
         (folder, run, answer)
@@ -154,7 +160,10 @@ pub(super) fn poll(s: &mut State) -> bool {
         }
         changed = true;
     }
-    if let Some((folder, _run, answer)) = s.undo_job.take() {
+    if let Some((folder, run, answer)) = s.undo_job.take() {
+        if let Ok(receipt) = &answer {
+            crate::turn_undo::heard(s, &run, receipt);
+        }
         s.changes.result = Some(match answer {
             Ok(receipt) => undone_words(&receipt),
             Err(e) => e,
