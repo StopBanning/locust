@@ -201,3 +201,8 @@ Breaks (`core-c` to `core-f`, `ui-d`, `ui-e` logs). All caught in the end:
   fold yet (settings-read-like-claudes).
 - `src/ui/settings_switches_tests.rs` (new, `every-settings-switch-says-what-it-is.test.ts`, 3 of 3 + 2 of ours);
   breaks 6 of 6 killed.
+- Project settings dialog (`group-settings-dialog.test.tsx`, 5 of 5 by name in `group_settings_dialog.rs`). Two
+  differences fixed: the route was "Runtime / Model · Mode · level" from the catalog's names, and is now Electron's
+  `routeLabel` (`core/src/teammate_tooltip.rs` `route_chrome`, new, with Electron's values from four test files in
+  `route_name_tests`); with a route picked, the foot said the picked route, and now names the composer's.
+  Breaks 9 of 9 killed (two only by the core test).

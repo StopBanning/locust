@@ -108,3 +108,32 @@ fn a_model_of_your_own_is_known_by_its_route() {
     assert!(!is_own_route_model("opencode/muse-spark-1.3-contributor-free"));
     assert!(!is_own_route_model("gpt-6-astra"));
 }
+
+// routeChrome, with Electron's values from a-kilo-model-has-one-name, your-own-model-is-named-as-yours,
+// the-screens-say-less and routine-dialog-names-the-model.
+#[test]
+fn route_chrome_says_a_route_as_the_composer_chip_does() {
+    use crate::teammate_tooltip::route_chrome;
+    assert_eq!(route_chrome("kilo", "kilo/kilo-auto/free", "Kilo Auto Free", " / "), "Kilo Auto Free");
+    assert_eq!(
+        route_chrome("kilo", "kilo/nvidia/nemotron-3.5-lightning:free", "NVIDIA: Nemotron 3.5 Lightning (free)", " / "),
+        "Kilo / NVIDIA: Nemotron 3.5 Lightning (free)"
+    );
+    assert_eq!(route_chrome("opencode", "own-a1b2c3d0/acme-70b", "Acme Chat", " / "), "Acme Chat");
+    assert_eq!(route_chrome("opencode", "own-a1b2c3d0/acme-70b", "Acme Chat", " · "), "Acme Chat");
+    assert_eq!(route_chrome("codex", "gpt-6-astra", "GPT-6 Astra", " / "), "Codex / GPT-6 Astra");
+    assert_eq!(
+        route_chrome("opencode", "opencode/ling-3.0-flash-fin-free", "Ling 3.0 Flash Fin Free", " · "),
+        "OpenCode · Ling 3.0 Flash Fin Free"
+    );
+    assert_eq!(route_chrome("codex", "account-default", "Account Default", " / "), "Codex");
+    assert_eq!(route_chrome("claude", "account-default", "default", " / "), "Claude");
+    assert_eq!(route_chrome("codex", "account-default", "Account Default · Medium", " · "), "Codex · Medium");
+    assert_eq!(route_chrome("codex", "gpt-6-luna", "GPT-6 Luna", " / "), "Codex / GPT-6 Luna");
+    assert_eq!(
+        route_chrome("opencode", "opencode/nemotron-3-ultra-free", &model_display_name("opencode", "opencode/nemotron-3-ultra-free"), " / "),
+        "OpenCode / Nemotron 3 Ultra Free"
+    );
+    // Not own: the hex is not eight, so the runtime is said.
+    assert_eq!(route_chrome("opencode", "own-a1b2/acme", "Acme", " / "), "OpenCode / Acme");
+}

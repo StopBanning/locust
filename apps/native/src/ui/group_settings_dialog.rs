@@ -103,28 +103,11 @@ pub(super) fn seed_route_from_group(s: &mut State, route: &GroupRoute) {
     s.composer_mode = Some(route.mode.clone());
 }
 
-pub(super) fn route_label(s: &State, route: &GroupRoute) -> String {
-    let rt_name = locust_core::carry_on::display_name(&route.runtime);
-    let model_name = if route.model == "account-default" {
-        "Account default".to_owned()
-    } else {
-        s.models
-            .values()
-            .flatten()
-            .filter(|a| a.runtime == route.runtime)
-            .flat_map(|a| a.models.iter())
-            .find(|m| m.id == route.model)
-            .map(|m| m.name.clone())
-            .unwrap_or_else(|| route.model.clone())
-    };
-    let mode_chip = locust_core::mode_facts::fact(&route.mode).chip;
-    let mut parts = vec![format!("{rt_name} / {model_name}"), mode_chip.to_owned()];
-    if let Some(effort) = &route.effort
-        && !effort.is_empty()
-    {
-        parts.push(effort.clone());
-    }
-    parts.join(" · ")
+/// `GroupSettingsDialog.tsx` `routeLabel`: the route in the composer chip's own names (`routeChrome` over
+/// `routeModelName`), never a raw model id. The mode and level are not part of the name, as in Electron.
+pub(super) fn route_label(_s: &State, route: &GroupRoute) -> String {
+    use locust_core::teammate_tooltip::{route_chrome, route_model_name};
+    route_chrome(&route.runtime, &route.model, &route_model_name(&route.runtime, &route.model), " / ")
 }
 
 pub(super) fn save(s: &mut State) -> bool {
@@ -208,12 +191,12 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
         .map(|r| route_label(s, r))
         .unwrap_or_else(|| ROUTE_NONE.to_owned());
     let composer_route = current_composer_route(s);
-    let route_foot = if let Some(picked) = &s.group_settings.route {
-        format!("Composer now shows {}.", route_label(s, picked))
-    } else if let Some(cur) = &composer_route {
-        format!("Use current takes {} from the composer.", route_label(s, cur))
-    } else {
-        "Pick a teammate in the composer to set a default route here.".to_owned()
+    // GroupSettingsDialog.tsx: the foot always names the COMPOSER's route, so a picked route can be told from what
+    // the composer shows now.
+    let route_foot = match (&s.group_settings.route, &composer_route) {
+        (Some(_), Some(cur)) => format!("Composer now shows {}.", route_label(s, cur)),
+        (None, Some(cur)) => format!("Use current takes {} from the composer.", route_label(s, cur)),
+        (_, None) => "Pick a teammate in the composer to set a default route here.".to_owned(),
     };
 
     let mut card = col()
@@ -547,5 +530,84 @@ mod tests {
         assert_eq!(pick.effort.as_deref(), Some("high"));
         assert_eq!(pick.account, Some(Some("acct_work".into())));
         assert_eq!(s.composer_mode.as_deref(), Some("plan"));
+    }
+
+    // group-settings-dialog.test.tsx, by Electron's case names: a group "Trading" and a composer on Codex's own
+    // account default in Auto.
+    fn trading() -> (TempDir, State, String) {
+        let (dir, mut s) = test_state();
+        s.teammates[0].model = None;
+        s.composer_mode = Some("auto".into());
+        let gid = org::create_group(s.data.as_ref().unwrap(), &mut s.org, "Trading").unwrap();
+        open(&mut s, &gid);
+        (dir, s, gid)
+    }
+
+    fn current() -> GroupRoute {
+        GroupRoute { runtime: "codex".into(), model: "account-default".into(), mode: "auto".into(), account: None, effort: None }
+    }
+
+    /// Whether the Clear beside the route takes a press or focus (drawn either way).
+    fn clear_enabled(s: &mut State) -> Option<bool> {
+        let taken = std::mem::take(s);
+        let mut rt = rune::Runtime::new(taken, |s, _| view(s, &Palette::new(true)), (900.0, 700.0), rune::Env::new(true, 1.0));
+        rt.frame(0.0);
+        let clear = rt.elements().into_iter().find(|e| e.key.as_deref() == Some("group-settings-clear-route")).map(|e| e.focusable);
+        *s = rt.state;
+        clear
+    }
+
+    #[test]
+    fn is_titled_for_the_group_not_for_one_of_its_two_properties() {
+        let (_dir, mut s, _) = trading();
+        let page = all_text(&mut s);
+        for words in ["Project settings", "Trading", "Standing instructions", "Default route"] {
+            assert!(page.contains(words), "{words} in {page}");
+        }
+    }
+
+    #[test]
+    fn says_the_one_claim_above_the_box_and_the_provenance_below_it() {
+        let (_dir, mut s, _) = trading();
+        let page = all_text(&mut s);
+        assert!(page.contains("Briefs every turn started from now on. Turns already run were not briefed."));
+        assert!(page.contains("Given after the folder's own LOCUST.md."));
+        assert!(!page.contains("Clear it and"));
+    }
+
+    #[test]
+    fn shows_the_counter_only_once_it_is_worth_reading() {
+        let (_dir, mut s, _) = trading();
+        assert!(!all_text(&mut s).contains("/ 4000"));
+        s.group_settings.draft.replace_text(&"x".repeat(WARN_AT + 1));
+        assert!(all_text(&mut s).contains(&format!("{} / 4000", WARN_AT + 1)));
+    }
+
+    #[test]
+    fn names_the_route_the_way_the_composer_does_and_says_what_use_current_would_take() {
+        let (_dir, mut s, _) = trading();
+        assert_eq!(route_label(&s, &current()), "Codex");
+        let none = all_text(&mut s);
+        assert!(none.contains("None — each conversation keeps what it has"), "{none}");
+        assert!(none.contains("Use current takes Codex from the composer."), "{none}");
+        s.group_settings.route = Some(GroupRoute {
+            runtime: "opencode".into(),
+            model: "opencode/muse-spark-1.3-contributor-free".into(),
+            mode: "ask".into(),
+            account: None,
+            effort: None,
+        });
+        let routed = all_text(&mut s);
+        assert!(routed.contains("OpenCode / Muse Spark 1.3 Contributor Free"), "{routed}");
+        assert!(!routed.contains("opencode/muse-spark-1.3-contributor-free"), "{routed}");
+        assert!(routed.contains("Composer now shows Codex."), "{routed}");
+    }
+
+    #[test]
+    fn disables_clear_when_there_is_no_route_rather_than_hiding_it() {
+        let (_dir, mut s, _) = trading();
+        assert_eq!(clear_enabled(&mut s), Some(false), "drawn, and not pressable");
+        s.group_settings.route = Some(current());
+        assert_eq!(clear_enabled(&mut s), Some(true));
     }
 }

@@ -53,6 +53,34 @@ pub fn route_model_name(runtime: &str, model: &str) -> String {
     model_display_name(runtime, model)
 }
 
+/// `routeName.ts` `routeChrome`: a route as the composer's chip says it. A model of the person's own by its name alone;
+/// a name that already starts with the runtime's says it once ("Kilo Auto Free"); the account's own default is the
+/// runtime's name alone ("Codex"), keeping what follows it ("Codex · Medium"); else runtime, `separator`, model.
+pub fn route_chrome(runtime: &str, model_id: &str, model: &str, separator: &str) -> String {
+    let own = model_id.strip_prefix("own-").and_then(|rest| rest.split_once('/')).is_some_and(|(hex, name)| {
+        hex.len() == 8 && hex.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)) && !name.is_empty()
+    });
+    if own {
+        return model.to_owned();
+    }
+    let short = short_runtime_name(runtime);
+    if model.to_lowercase().starts_with(&format!("{} ", short.to_lowercase())) {
+        return model.to_owned();
+    }
+    if model_id == "account-default" {
+        let lower = model.to_lowercase();
+        let rest = ["account default", "default"]
+            .iter()
+            .find(|head| lower.starts_with(*head))
+            .map_or(model, |head| {
+                let after = &model[head.len()..];
+                after.strip_prefix(" · ").unwrap_or(after)
+            });
+        return if rest.is_empty() { short.to_owned() } else { format!("{short}{separator}{rest}") };
+    }
+    format!("{short}{separator}{model}")
+}
+
 /// `routeName.ts` `modelDisplayName`: an id spelt out with no alias read (`claude`/`sonnet` is "Sonnet"); the chip's
 /// `route_model_name` and the hover both end here.
 pub fn model_display_name(runtime: &str, model: &str) -> String {

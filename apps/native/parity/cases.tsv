@@ -3183,11 +3183,11 @@ apps/desktop/src/renderer/src/group-leaving-line.test.ts	sits before the first t
 apps/desktop/src/renderer/src/group-leaving-line.test.ts	sits below the last turn when the leave came after it	no
 apps/desktop/src/renderer/src/group-leaving-line.test.ts	says nothing for a group that had no words, or a leave with no readable moment	no
 apps/desktop/src/renderer/src/group-leaving-line.test.ts	draws one line per leave, oldest first, and treats an unknown turn start as before the leave	no
-apps/desktop/src/renderer/src/group-settings-dialog.test.tsx	is titled for the group, not for one of its two properties	no
-apps/desktop/src/renderer/src/group-settings-dialog.test.tsx	says the one claim above the box and the provenance below it	no
-apps/desktop/src/renderer/src/group-settings-dialog.test.tsx	shows the counter only once it is worth reading	no
-apps/desktop/src/renderer/src/group-settings-dialog.test.tsx	names the route the way the composer does, and says what Use current would take	no
-apps/desktop/src/renderer/src/group-settings-dialog.test.tsx	disables Clear when there is no route, rather than hiding it	no
+apps/desktop/src/renderer/src/group-settings-dialog.test.tsx	is titled for the group, not for one of its two properties	yes
+apps/desktop/src/renderer/src/group-settings-dialog.test.tsx	says the one claim above the box and the provenance below it	yes
+apps/desktop/src/renderer/src/group-settings-dialog.test.tsx	shows the counter only once it is worth reading	yes
+apps/desktop/src/renderer/src/group-settings-dialog.test.tsx	names the route the way the composer does, and says what Use current would take	yes
+apps/desktop/src/renderer/src/group-settings-dialog.test.tsx	disables Clear when there is no route, rather than hiding it	yes
 apps/desktop/src/renderer/src/groups-unreadable-is-a-line.test.tsx	is said in the sidebar, above the conversations it could not sort	no
 apps/desktop/src/renderer/src/groups-unreadable-is-a-line.test.tsx	is not said when there are simply no groups	no
 apps/desktop/src/renderer/src/groups-unreadable-is-a-line.test.tsx	names every file that would not read, in one sentence, roster first	no
