@@ -2379,7 +2379,7 @@ apps/desktop/src/renderer/src/a-locust-bot-draws-before-its-first-frame.test.ts	
 apps/desktop/src/renderer/src/a-locust-bot-draws-before-its-first-frame.test.ts	draws at most 30 frames a second: every other frame at 60 Hz, every fifth at 144	yes
 apps/desktop/src/renderer/src/a-locust-bot-draws-before-its-first-frame.test.ts	draws at most 15 frames a second at the side, beside a name (0.670), still moving a whole second	yes
 apps/desktop/src/renderer/src/a-locust-bot-draws-before-its-first-frame.test.ts	stops when asked, cancelling the frame it was waiting on	yes
-apps/desktop/src/renderer/src/a-long-call-is-named-while-it-runs.test.ts	is one row, now carrying the command and what it is for	no
+apps/desktop/src/renderer/src/a-long-call-is-named-while-it-runs.test.ts	is one row, now carrying the command and what it is for	yes
 apps/desktop/src/renderer/src/a-long-call-is-named-while-it-runs.test.ts	puts the description on the live line, not the tool	yes
 apps/desktop/src/renderer/src/a-long-call-is-named-while-it-runs.test.ts	keeps the clock from when the call began	yes
 apps/desktop/src/renderer/src/a-long-conversation-has-a-rail-of-your-messages.test.tsx	gives a rail to four of your messages when the thread scrolls, and withholds it otherwise	no

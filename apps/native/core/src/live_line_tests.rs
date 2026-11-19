@@ -240,6 +240,20 @@ fn long_call() -> Vec<Value> {
     ]
 }
 
+// case: is one row, now carrying the command and what it is for
+#[test]
+fn a_restated_call_is_one_row_now_carrying_the_command_and_what_it_is_for() {
+    let t = folded(None, long_call());
+    let rows: Vec<_> = t.items.iter().filter(|i| matches!(i, crate::ledger::Item::Tool { .. })).collect();
+    assert_eq!(rows.len(), 1, "{rows:?}");
+    let crate::ledger::Item::Tool { summary, status, detail, .. } = rows[0] else { unreachable!() };
+    assert_eq!(detail.arguments, "npm test");
+    assert_eq!(summary, "Run the test suite");
+    assert_eq!(*status, crate::ledger::Status::Running, "not settled");
+    // The steps line reads it by what it is for (stepsLine: a titled command is said as its title).
+    assert_eq!(crate::steps_line::steps_line(&t.items, false, None, false).segments[0].text, "Run the test suite");
+}
+
 // case: puts the description on the live line, not the tool
 #[test]
 fn puts_the_description_on_the_live_line_not_the_tool() {

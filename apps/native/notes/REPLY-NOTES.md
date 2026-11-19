@@ -260,3 +260,11 @@ Next: part 1b opens-the-plan, then orb, frame-pass.
   `messages::tests::the_live_line_leads_with_the_starts_phase_and_holds_it_as_its_hover_title`. Breaks: no
   `set_starting_label` in the snapshot → the ledger test; empty hover → the messages test. Row carried.
 - `nextest run --workspace --no-fail-fast`: 4,523 passed.
+
+## Part 1: the last long-call case, and the frame pass (not drawn: another lane's file)
+- `live_line_tests::a_restated_call_is_one_row_now_carrying_the_command_and_what_it_is_for`: Claude Code's restated
+  `tool.started` folds into one unsettled row with `npm test` and "Run the test suite", and the steps line says the
+  title. Break (the ledger ignores a later title) → that test fails (and `ledger::tests::tool_keeps_title…`). Row carried.
+- Frame pass: NOT drawn. The agents list and the re-check that stores it are in `src/ui/agents_section.rs`
+  (`s.settings_panel.agents = Some(found)`), a picker-lane file, so `runtime_list_order` / `keep_what_was_known` are
+  still not called. The row stays partial and says so. The picker lane (or the next round) should call them there.
