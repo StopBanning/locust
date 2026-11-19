@@ -42,7 +42,7 @@ const drive = await startDrive({
       }
     ],
     missionOwners: {},
-    settings: { swarm: false, relay: false, relayHopCap: 2, memoryMode: 'off', autoMode: false }
+    settings: { relay: false, relayHopCap: 2, memoryMode: 'off', autoMode: false }
   }
 })
 
@@ -70,13 +70,10 @@ const OPEN_PICKER = `(async () => {
   if (!picker) return 'picker did not open'
   const flat = (el) => el.innerText.split(/\\s+/).join(' ').trim()
   const head = picker.querySelector('.lc-picker__head')
-  // Swarm left the picker and the composer: a Settings switch, said by the title bar's chip while it is on.
-  const swarm = document.querySelector('.lc-swarmchip')
   const efforts = picker.querySelectorAll('.lc-effortpanel__notch')
   const held = picker.querySelector('.lc-effortpanel__now')
   return [
     'head: ' + (head ? flat(head).slice(0, 70) : 'none'),
-    'swarm chip in the title bar: ' + (swarm ? 'YES -- ' + flat(swarm) : 'NO (swarm off)'),
     'effort chips: ' + efforts.length + (efforts.length ? ' >> ' + [...efforts].map(flat).join(' ') : ''),
     'held line: ' + (held ? flat(held) : 'none')
   ].join('  ||  ')

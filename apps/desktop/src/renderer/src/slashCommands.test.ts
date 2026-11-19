@@ -4,7 +4,7 @@ import type { MissionMode } from '../../shared/ipc.js'
 import { availableCommands, matchingCommands, runtimeSlashCommands, slashQuery, SLASH_COMMANDS } from './slashCommands.js'
 
 const ALL_MODES: readonly MissionMode[] = ['ask', 'plan', 'accept-edits', 'approve-each', 'auto']
-const every = availableCommands({ modes: ALL_MODES, running: true, canSwarm: true })
+const every = availableCommands({ modes: ALL_MODES, running: true })
 
 describe('recognising a command being typed', () => {
   it('reads a bare slash as the menu opening', () => {
@@ -34,14 +34,14 @@ describe('recognising a command being typed', () => {
 
 describe('which commands are offered', () => {
   it('offers /tune only with a finished teammate conversation', () => {
-    expect(availableCommands({ modes: ['ask'], running: false, canSwarm: false }).some((row) => row.name === 'tune')).toBe(false)
-    expect(availableCommands({ modes: ['ask'], running: false, canSwarm: false, tune: true }).some((row) => row.name === 'tune')).toBe(true)
-    expect(availableCommands({ modes: ['ask'], running: true, canSwarm: false, tune: true }).some((row) => row.name === 'tune')).toBe(false)
+    expect(availableCommands({ modes: ['ask'], running: false }).some((row) => row.name === 'tune')).toBe(false)
+    expect(availableCommands({ modes: ['ask'], running: false, tune: true }).some((row) => row.name === 'tune')).toBe(true)
+    expect(availableCommands({ modes: ['ask'], running: true, tune: true }).some((row) => row.name === 'tune')).toBe(false)
   })
   it('offers only modes this runtime can honour', () => {
     // A command listed and then refused is the dead control this app keeps
     // removing. The filter is the reason it cannot happen.
-    const limited = availableCommands({ modes: ['ask', 'plan'], running: false, canSwarm: true })
+    const limited = availableCommands({ modes: ['ask', 'plan'], running: false })
     const names = limited.map((command) => command.name)
     expect(names).toContain('ask')
     expect(names).toContain('plan')
@@ -50,21 +50,21 @@ describe('which commands are offered', () => {
   })
 
   it('offers stop only while something is running', () => {
-    expect(availableCommands({ modes: ALL_MODES, running: false, canSwarm: true }).map((c) => c.name)).not.toContain('stop')
+    expect(availableCommands({ modes: ALL_MODES, running: false }).map((c) => c.name)).not.toContain('stop')
     expect(every.map((command) => command.name)).toContain('stop')
   })
 
-  it('offers swarm only where it can be turned on', () => {
-    expect(availableCommands({ modes: ALL_MODES, running: false, canSwarm: false }).map((c) => c.name)).not.toContain('swarm')
+  it('offers no /swarm: swarm was cut in 0.880', () => {
+    expect(SLASH_COMMANDS.map((command) => command.name)).not.toContain('swarm')
   })
 
   it('always offers the route picker, which is always reachable', () => {
-    expect(availableCommands({ modes: [], running: false, canSwarm: false }).map((c) => c.name)).toEqual(['model'])
+    expect(availableCommands({ modes: [], running: false }).map((c) => c.name)).toEqual(['model'])
   })
 
   it('offers an issue only for a folder whose issues can be read', () => {
-    expect(availableCommands({ modes: ALL_MODES, running: false, canSwarm: false }).some((command) => command.name === 'issue')).toBe(false)
-    expect(availableCommands({ modes: ALL_MODES, running: false, canSwarm: false, issues: true }).some((command) => command.name === 'issue')).toBe(true)
+    expect(availableCommands({ modes: ALL_MODES, running: false }).some((command) => command.name === 'issue')).toBe(false)
+    expect(availableCommands({ modes: ALL_MODES, running: false, issues: true }).some((command) => command.name === 'issue')).toBe(true)
   })
 })
 
@@ -108,7 +108,7 @@ describe("a runtime's own commands (0.426)", () => {
   ])
 
   it("sit under the runtime, after Locust's own, with what goes after them", () => {
-    const offered = availableCommands({ modes: ALL_MODES, running: false, canSwarm: true, runtimeCommands: claude })
+    const offered = availableCommands({ modes: ALL_MODES, running: false, runtimeCommands: claude })
     const names = offered.map((command) => command.name)
     expect(names.slice(0, names.indexOf('auto') + 1)).toEqual(SLASH_COMMANDS.filter((c) => c.name !== 'stop' && c.action.kind !== 'issues' && c.action.kind !== 'tune' && c.action.kind !== 'setup').map((c) => c.name))
     expect(names.slice(names.indexOf('auto') + 1)).toEqual(['compact', 'security-review', 'plugin:skill'])
@@ -121,12 +121,12 @@ describe("a runtime's own commands (0.426)", () => {
   })
 
   it('are not offered while a run is going, since one is sent as a message', () => {
-    const offered = availableCommands({ modes: ALL_MODES, running: true, canSwarm: true, runtimeCommands: claude })
+    const offered = availableCommands({ modes: ALL_MODES, running: true, runtimeCommands: claude })
     expect(offered.some((command) => command.action.kind === 'runtime')).toBe(false)
   })
 
   it('are found by what is typed, names with marks included', () => {
-    const offered = availableCommands({ modes: ALL_MODES, running: false, canSwarm: true, runtimeCommands: claude })
+    const offered = availableCommands({ modes: ALL_MODES, running: false, runtimeCommands: claude })
     expect(slashQuery('/security-r')).toBe('security-r')
     expect(slashQuery('/plugin:')).toBe('plugin:')
     expect(slashQuery('/team/review')).toBe('team/review')
@@ -139,7 +139,7 @@ describe("a runtime's own commands (0.426)", () => {
 // A TEAMMATE'S SETUP (0.811): reading changes nothing, so /setup is there while a run goes too.
 describe('/setup', () => {
   const names = (setupOpen: boolean, running: boolean): readonly string[] =>
-    availableCommands({ modes: ['ask'], running, canSwarm: false, setup: setupOpen }).map((command) => command.name)
+    availableCommands({ modes: ['ask'], running, setup: setupOpen }).map((command) => command.name)
 
   it('is offered in a teammate’s conversation, while it runs too, and not elsewhere', () => {
     expect(names(true, false)).toContain('setup')

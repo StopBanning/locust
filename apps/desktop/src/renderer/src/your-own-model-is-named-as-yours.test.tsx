@@ -40,8 +40,6 @@ const composer = (route: ComposerProps['route']): string =>
       platform="win32"
       effort={undefined}
       onEffortChange={() => undefined}
-      swarm={false}
-      onSwarmChange={() => undefined}
       onStart={async () => true}
       onCancel={() => undefined}
       onOpenRoutePicker={() => undefined}

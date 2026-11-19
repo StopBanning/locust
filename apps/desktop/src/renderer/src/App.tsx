@@ -726,11 +726,6 @@ function withoutRun(runs: RunMap, key: string): RunMap {
 }
 
 /**
- * The effort a mission should actually be started with. Swarm means this
- * model's maximum, so it is the last effort THIS model reported rather than a
- * fixed name some models do not have.
- */
-/**
  * Who a message goes to: the teammate the person picked, and ONLY that one.
  *
  * It used to be `selectedTeammate` whenever an id was set -- and that falls
@@ -761,16 +756,18 @@ export function markedCancelling(run: LiveRunState): LiveRunState {
   return liveRunIsActive(run) ? { ...run, phase: 'cancelling', error: undefined, stopPressed: true } : run
 }
 
-export function swarmEffortFor(
+/**
+ * The effort a mission is started with: the one the chip shows. (Swarm, which held every run at its model's maximum,
+ * was cut in 0.880: the effort chip already says Max in one click, and nobody turned it on.)
+ */
+export function runEffortFor(
   models: readonly PublicModel[],
   modelId: string,
-  swarm: boolean,
   chosen: string | undefined,
   runtime?: MissionRuntimeId
 ): string | undefined {
   const family = models.find((model) => model.id === modelId && (runtime === undefined || model.runtime === runtime))
   const supported = family?.supportedEfforts ?? []
-  if (swarm) return supported[supported.length - 1]
   // The SAME fallback the chip renders (`effort ?? defaultEffort(...)` in
   // Composer.tsx), so the level on screen and the level the run is given are
   // one expression rather than two that agree by luck.
@@ -2769,14 +2766,6 @@ export default function App(): ReactElement {
   const chatSetups = useRef(new Map<string, { readonly mode: MissionMode; readonly effort: string | undefined; readonly kind?: { readonly compare: boolean; readonly blind: boolean; readonly cloud: boolean; readonly computer?: boolean } }>())
   /** What a new chat with nobody starts on, as saved (0.552). */
   const [newChatSetup, setNewChatSetup] = useState<{ readonly mode: MissionMode; readonly effort: string | undefined }>()
-  const [swarm, setSwarm] = useState(false)
-  /*
-   * How many times the person has turned swarm on this session. The title
-   * screen flies the swarm across for each new one (HomeCover's SwarmRun) --
-   * a count, not the setting, because the setting also turns on by itself
-   * at launch, read back from disk, and that is not a moment.
-   */
-  const [swarmCalls, setSwarmCalls] = useState(0)
   // Off until the workspace says otherwise, and re-read from the host rather
   // than remembered: this is the switch that decides whether a mode which can
   // write anywhere on the machine is offered at all.
@@ -3866,7 +3855,6 @@ export default function App(): ReactElement {
       .readWorkspaceSettings()
       .then((settings) => {
         if (active) {
-          setSwarm(settings.swarm === true)
           setRelay(settings.relay === true)
           setAutoMode(settings.autoMode === true)
           setAutoModeKnown(true)
@@ -5871,12 +5859,10 @@ export default function App(): ReactElement {
         // chosen effort names a different model, and sending the family's
         // default with an effort beside it would run the wrong one.
         // Only sent when the chosen model advertised it; the composer cannot
-        // offer an effort the catalog did not report for that model. Swarm
-        // overrides the picked effort with the model's maximum, and the
-        // composer shows that -- so what is sent must match what is shown.
+        // offer an effort the catalog did not report for that model.
         // Where the effort lives inside the model id, it is sent as the id
         // alone (startRoute).
-        ...startRoute(models, route.runtime, route.model, swarmEffortFor(models, route.model, swarm, runEffort, route.runtime)),
+        ...startRoute(models, route.runtime, route.model, runEffortFor(models, route.model, runEffort, route.runtime)),
         modelChoice: route.model,
         // The host keeps a teammate's saved model unless this route was chosen
         // here: picked in this chat, or the conversation's own (0.552).
@@ -6192,7 +6178,7 @@ export default function App(): ReactElement {
         models,
         route.runtime,
         route.model,
-        swarmEffortFor(models, route.model, swarm, effort, route.runtime)
+        runEffortFor(models, route.model, effort, route.runtime)
       )
       const response = await bridge.resumeMission({
         missionId,
@@ -6260,7 +6246,7 @@ export default function App(): ReactElement {
         // run: Ask onto Cursor on Windows would have become Edit unasked. A
         // mode the runtime cannot run is refused with nothing stopped (M9).
         mode,
-        ...startRoute(models, choice.runtime, choice.model, swarmEffortFor(models, choice.model, swarm, effort, choice.runtime))
+        ...startRoute(models, choice.runtime, choice.model, runEffortFor(models, choice.model, effort, choice.runtime))
       })
 
       if (!response.ok && response.error.untouched === true) {
@@ -9384,7 +9370,6 @@ export default function App(): ReactElement {
         // build instead (Colin, 2026-09-05).
         workspaceName={workspaceName.length === 0 ? `Locust${build === undefined ? '' : ` ${build.version}`}` : workspaceName}
         runningCount={runningCount}
-        swarm={swarm}
         needsYou={needsYouItems.length}
         onNeedsYou={openNeedsYou}
         browser={liveRun === undefined ? <BrowserToggle open={browserOpen} refusal={browserRefusal} onToggle={toggleBrowser} /> : undefined}
@@ -9772,7 +9757,6 @@ export default function App(): ReactElement {
                 void window.desktop?.setStayAwake(next).then((state) => setStayAwake(state.stayAwake)).catch(() => setStayAwake(!next))
               }}
               relay={relay}
-              swarm={swarm}
               tube={tube}
             onTubeChange={chooseTube}
               replySize={replySize}
@@ -9792,16 +9776,6 @@ export default function App(): ReactElement {
               onTerminalFacesChange={chooseTerminalFaces}
               plush={plush}
               onPlushChange={choosePlush}
-            onSwarmChange={(next) => {
-                // The same write the composer mark performs: optimistic, then
-                // reconciled with what the store actually saved.
-                setSwarm(next)
-                if (next) setSwarmCalls((count) => count + 1)
-                void window.desktop
-                  ?.writeWorkspaceSettings({ swarm: next })
-                  .then((settings) => setSwarm(settings.swarm === true))
-                  .catch(() => setSwarm(!next))
-              }}
               autoMode={autoMode}
               onAutoModeChange={(next) => {
                 setAutoMode(next)
@@ -10091,7 +10065,6 @@ export default function App(): ReactElement {
                 })}
                 discoveryPhase={runtimeState.phase}
                 tube={tube}
-                swarmCalls={swarmCalls}
                 coverActivity={coverWork}
                 // Who is working and who waits on you, for the cover's glass (0.610): the same facts the cards say.
                 {...((status) => (status === undefined ? {} : { coverStatus: status }))(runtimeState.phase !== 'ready' ? undefined : glassStatus(
@@ -10959,18 +10932,6 @@ export default function App(): ReactElement {
             platform={build?.platform}
             effort={effort}
             onEffortChange={setEffort}
-            swarm={swarm}
-            onSwarmChange={(next) => {
-              // Optimistic, then reconciled with what the store actually
-              // saved -- a rejected write must not leave the chip claiming a
-              // setting that is not on disk.
-              setSwarm(next)
-              if (next) setSwarmCalls((count) => count + 1)
-              void window.desktop
-                ?.writeWorkspaceSettings({ swarm: next })
-                .then((settings) => setSwarm(settings.swarm === true))
-                .catch(() => setSwarm(!next))
-            }}
             error={
               /*
                * Only when something is standing: a runtime that is here and
@@ -11484,25 +11445,6 @@ export default function App(): ReactElement {
                 label: 'Keyboard shortcuts',
                 hint: windowKeys('Ctrl+/'),
                 run: () => setShortcutsOpen(true)
-              },
-              {
-                id: 'toggle-swarm',
-                group: 'Workspace',
-                label: swarm ? 'Turn swarm off' : 'Turn swarm on',
-                hint: 'every run at its model maximum',
-                run: () => {
-                  // Same write as the composer mark, which is the only other
-                  // way in -- and it only exists on the workroom, and is
-                  // disabled while a mission runs. A workspace-wide setting
-                  // needs one way in from anywhere.
-                  const next = !swarm
-                  setSwarm(next)
-                  if (next) setSwarmCalls((count) => count + 1)
-                  void window.desktop
-                    ?.writeWorkspaceSettings({ swarm: next })
-                    .then((settings) => setSwarm(settings.swarm === true))
-                    .catch(() => setSwarm(!next))
-                }
               },
               // In the order of their shortcuts (design pass, 0.715): listed 1, 4, 5, 2, 3, they read as unsorted.
               { id: 'go-missions', group: 'Go to', label: 'Conversations', hint: windowKeys('Ctrl 1'), run: () => setScreen('missions') },

@@ -56,8 +56,8 @@ describe('the chat box in a browser', () => {
   const props = (over: Partial<ComposerProps> = {}): ComposerProps => ({
     runtimes: [], limitedRuntimes: new Map(), discoveryPhase: 'ready', running: false, cancelling: false, activeRoute: undefined,
     error: undefined, mode: 'accept-edits', onModeChange: noop, route: { runtime: 'codex', model: 'account-default' }, onRouteChange: noop,
-    models: [], resolvedModels: new Map(), recentRoutes: [], platform: 'darwin', effort: undefined, onEffortChange: noop, swarm: false,
-    onSwarmChange: noop, onStart: async () => true, onCancel: noop, onOpenRoutePicker: noop, onHandOff: noop, handingOff: false,
+    models: [], resolvedModels: new Map(), recentRoutes: [], platform: 'darwin', effort: undefined, onEffortChange: noop,
+    onStart: async () => true, onCancel: noop, onOpenRoutePicker: noop, onHandOff: noop, handingOff: false,
     workspaceName: 'shop', workspacePath: '/Users/me/shop', onChooseFolder: noop, teammateName: undefined, busyWith: undefined,
     queued: undefined, queuedNote: undefined, onQueue: noop, onUnqueue: noop, onSendQueued: noop, continuationNote: undefined,
     queuedElsewhere: false, ...over

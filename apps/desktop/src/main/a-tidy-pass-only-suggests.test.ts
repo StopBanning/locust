@@ -193,7 +193,7 @@ describe('the person answers', () => {
 })
 
 describe('the reader, on a real store', () => {
-  const SETTINGS: WorkspaceSettings = { swarm: false, relay: true, relayHopCap: 6, interrupt: false, memoryMode: 'auto', autoMode: false, askConnectors: false, keepATodoList: false, layout: 'auto', tube: 'full', replySize: 'standard' }
+  const SETTINGS: WorkspaceSettings = { relay: true, relayHopCap: 6, interrupt: false, memoryMode: 'auto', autoMode: false, askConnectors: false, keepATodoList: false, layout: 'auto', tube: 'full', replySize: 'standard' }
 
   it('makes a tidy reply proposals even in "Keep and tell me", and says what it could not make', async () => {
     const { memories, a, b } = await seeded()
@@ -235,7 +235,7 @@ describe('the reader, on a real store', () => {
  * reading "Here are my suggestions:" -- rather than dropped in silence.
  */
 describe('the reader, on a reply written the way models write', () => {
-  const SETTINGS: WorkspaceSettings = { swarm: false, relay: true, relayHopCap: 6, interrupt: false, memoryMode: 'auto', autoMode: false, askConnectors: false, keepATodoList: false, layout: 'auto', tube: 'full', replySize: 'standard' }
+  const SETTINGS: WorkspaceSettings = { relay: true, relayHopCap: 6, interrupt: false, memoryMode: 'auto', autoMode: false, askConnectors: false, keepATodoList: false, layout: 'auto', tube: 'full', replySize: 'standard' }
   const read = async (reply: Reply, prompt?: string) => {
     const { memories, a, b, c } = await seeded()
     const updates: CodexMissionUpdate[] = []

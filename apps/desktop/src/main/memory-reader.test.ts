@@ -4,7 +4,7 @@ import type { CodexMissionUpdate, PublicTeammate, WorkspaceSettings } from '../s
 import { createMemoryReader } from './memory-reader.js'
 import type { MemoryReaderOptions } from './memory-reader.js'
 
-const SETTINGS: WorkspaceSettings = { swarm: false, relay: true, relayHopCap: 6, interrupt: false, memoryMode: 'auto', autoMode: false, askConnectors: false, keepATodoList: false, layout: 'auto', tube: 'full', replySize: 'standard' }
+const SETTINGS: WorkspaceSettings = { relay: true, relayHopCap: 6, interrupt: false, memoryMode: 'auto', autoMode: false, askConnectors: false, keepATodoList: false, layout: 'auto', tube: 'full', replySize: 'standard' }
 
 const reply = (text: string) => [
   { type: 'message.delta', payload: { itemId: 'm1', operation: 'append', text, final: true } }

@@ -1,6 +1,5 @@
 import { accountUsageKey } from '../../../shared/agent-accounts.js'
 import { chipAccountName, routeAccount, useAgentAccounts } from '../agentAccounts.js'
-import mark from '../assets/locust-mark.svg'
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { usagePercent, usageWindowSentence } from '../missionView.js'
 import { useDismissOnOutsidePress } from '../useDismissOnOutsidePress.js'
@@ -300,8 +299,6 @@ export interface ComposerProps {
   readonly metalBend?: boolean
   readonly effort: string | undefined
   readonly onEffortChange: (effort: string | undefined) => void
-  readonly swarm: boolean
-  readonly onSwarmChange: (swarm: boolean) => void
   /** True when it started; false, or the words saying why not (M27), when it did not. */
   /** `leaveOut`: a reply on another runtime, the brief sections the person left out (0.527). */
   readonly onStart: (prompt: string, options?: { readonly leaveOut?: readonly string[]; readonly referenceIds?: readonly string[] }) => Promise<boolean | string>
@@ -479,8 +476,8 @@ export interface ComposerProps {
 /**
  * The composer: one field, one border, controls underneath.
  *
- * The design puts mode, add, route, effort and swarm on this row. Mode, add,
- * effort and swarm are drawn as disabled here on purpose -- each needs a
+ * The design puts mode, add, route and effort on this row. Mode, add and
+ * effort are drawn as disabled here on purpose -- each needs a
  * capability that does not exist yet, and a control that silently does nothing
  * is worse than one that says it is not ready. The route control is real: it
  * opens the picker, and what it displays comes from the running mission or from
@@ -582,8 +579,6 @@ export function Composer({
   metalBend,
   effort,
   onEffortChange,
-  swarm,
-  onSwarmChange,
   onStart,
   team,
   currentTeammateId,
@@ -889,7 +884,6 @@ export function Composer({
         ...availableCommands({
           modes: modesFor(route.runtime, platform).filter((value) => policyModeAllowed(policy, value)),
           running,
-          canSwarm: !running,
           issues,
           tune: canTune,
           setup: canSetup
@@ -1032,9 +1026,6 @@ export function Composer({
         break
       case 'stop':
         onCancel()
-        break
-      case 'swarm':
-        onSwarmChange(!swarm)
         break
     }
   }
@@ -1643,11 +1634,7 @@ export function Composer({
   const supportedEfforts = shownFamily?.supportedEfforts ?? []
   /** Only true once the catalog has actually answered for THIS model. */
   const effortIsGenuinelyFixed = shownFamily !== undefined && shownFamily.supportedEfforts.length === 0
-  // Swarm means "this model's maximum", and the catalog orders efforts lowest
-  // to highest, so the maximum is the last one THIS model reported -- not a
-  // fixed name that some models do not have.
-  const swarmEffort = supportedEfforts[supportedEfforts.length - 1]
-  // What the chip states. Swarm overrides it, and otherwise an unchosen
+  // What the chip states: an unchosen
   // level shows the model's default rather than nothing -- the same value
   // App.tsx sets on a route change, so the chip says what the run gets.
   /*
@@ -1663,7 +1650,7 @@ export function Composer({
    */
   const effortOfShownId = Object.entries(shownFamily?.variants ?? {})
     .find(([, id]) => id === shownModel)?.[0]
-  const shownEffort = swarm ? swarmEffort : effort ?? effortOfShownId ?? defaultEffort(supportedEfforts, shownFamily?.defaultEffort)
+  const shownEffort = effort ?? effortOfShownId ?? defaultEffort(supportedEfforts, shownFamily?.defaultEffort)
   // The scale this model actually offers, and where the current level sits on
   // it. Four stops and a switch rather than eight rows; see `effortScale.ts`.
   const { bases: effortBases, hasFast: effortHasFast } = effortScale(supportedEfforts)
@@ -2641,8 +2628,9 @@ export function Composer({
                 * it just looks cool, its our logo"), and let it go on
                 * 2026-09-23: "its going to cause a cache reread for most
                 * models, and is very very niche. we can leave it as a
-                * command maybe?" So it is `/swarm` and Settings, and while
-                * it is on, the effort chip it holds wears the mark.
+                * command maybe?" So it was `/swarm` and Settings, until it
+                * was cut in 0.880 (Colin, 2026-11-18): nobody turned it on,
+                * and the effort chip says Max in one click.
                 */}
               {/*
                 * Which folder this message runs in. Stated on the bar that
@@ -2917,9 +2905,6 @@ export function Composer({
                     {...(comparing || effortIsGenuinelyFixed || supportedEfforts.length === 0 ? {} : {
                       effort: (
                         <div data-effort-focus="true">
-                          {swarm ? (
-                            <p className="lc-picker__effortnote">Swarm holds this at {effortName(effortBase)}.</p>
-                          ) : (
                             <EffortSlider
                               bases={effortBases}
                               index={effortIndex}
@@ -2935,7 +2920,6 @@ export function Composer({
                                 if (level !== undefined) onEffortChange(level)
                               }}
                             />
-                          )}
                         </div>
                       )
                     })}
@@ -3043,7 +3027,6 @@ export function Composer({
                     </>
                   )}
                   {!comparing && effortPhrase !== undefined && <span className="lc-control__effort">· {effortPhrase}</span>}
-                  {swarm && !comparing && <img className="lc-control__swarmmark" src={mark} alt="" aria-hidden="true" />}
                   {/*
                     * One control: the model and its effort, as `Haiku 5.5 · Medium`,
                     * with the agent's mark in front. The list and the effort

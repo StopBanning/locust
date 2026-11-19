@@ -3,7 +3,7 @@
  *
  * Deliberately not a new capability. Every command here maps to a control that
  * is already on the composer row -- the mode menu, the route picker, the
- * effort chip, the swarm mark, the stop button -- so the first version adds a
+ * effort chip, the stop button -- so the first version adds a
  * keyboard path to things that exist and demonstrably work, and nothing that
  * has to be built underneath it.
  *
@@ -25,7 +25,6 @@ export type SlashAction =
   | { readonly kind: 'mode'; readonly mode: MissionMode }
   | { readonly kind: 'route' }
   | { readonly kind: 'stop' }
-  | { readonly kind: 'swarm' }
   /** One of the runtime's own commands (0.426): written into the box, to be sent as the message. */
   | { readonly kind: 'runtime' }
   /** One of the person's own commands: the expanded prompt is written into the box, and nothing is sent. */
@@ -73,7 +72,6 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
   { name: 'edit', detail: 'May edit files inside this folder.', action: { kind: 'mode', mode: 'accept-edits' } },
   { name: 'approve', detail: 'Stops and asks before every command or file change.', action: { kind: 'mode', mode: 'approve-each' } },
   { name: 'model', detail: 'Choose the runtime and model.', action: { kind: 'route' } },
-  { name: 'swarm', detail: 'Every run at its model maximum.', action: { kind: 'swarm' } },
   { name: 'stop', detail: 'Stop the running mission.', action: { kind: 'stop' } },
   { name: 'issue', detail: 'Start from an open GitHub issue in this folder.', action: { kind: 'issues' } },
   { name: 'tune', detail: 'Try this teammate’s instructions three ways on your last ask, and keep the one that worked best.', action: { kind: 'tune' } },
@@ -125,7 +123,6 @@ export function runtimeSlashCommands(
 export function availableCommands(input: {
   readonly modes: readonly MissionMode[]
   readonly running: boolean
-  readonly canSwarm: boolean
   /** The folder is a GitHub repository gh can read. Otherwise `/issue` is absent. */
   readonly issues?: boolean
   readonly tune?: boolean
@@ -142,8 +139,6 @@ export function availableCommands(input: {
         return input.modes.includes(command.action.mode)
       case 'stop':
         return input.running
-      case 'swarm':
-        return input.canSwarm
       case 'issues':
         return input.issues === true
       case 'tune':

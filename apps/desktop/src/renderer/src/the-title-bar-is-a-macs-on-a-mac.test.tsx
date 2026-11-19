@@ -9,7 +9,7 @@ import { TitleBar } from './components/TitleBar.js'
  * bar draws none; on Windows and Linux it still draws its own.
  */
 afterEach(() => { vi.unstubAllGlobals() })
-const bar = (): string => renderToStaticMarkup(<TitleBar workspaceName="tides" runningCount={0} swarm={false} />)
+const bar = (): string => renderToStaticMarkup(<TitleBar workspaceName="tides" runningCount={0} />)
 
 describe('the title bar on a Mac', () => {
   it('draws no window controls of its own, and nothing in its left column', () => {

@@ -29,7 +29,7 @@ const drive = await startDrive({
     schemaVersion: 1,
     teammates: [{ teammateId: 'tm_wren', name: 'Wren', hue: 'lime', role: 'Code & Migrations', createdAt: '2026-09-05T05:00:00.000Z' }],
     missionOwners: {},
-    settings: { swarm: false, relay: false, relayHopCap: 2, memoryMode: 'off', autoMode: false }
+    settings: { relay: false, relayHopCap: 2, memoryMode: 'off', autoMode: false }
   }
 })
 
@@ -56,8 +56,6 @@ try {
     return drive.evaluate(`(() => {
       const picker = document.querySelector('.lc-picker')
       if (picker === null) return 'picker did not open'
-      // Swarm left the picker: a Settings switch, said by the title bar's chip while it is on.
-      const swarm = document.querySelector('.lc-swarmchip')
       const efforts = [...picker.querySelectorAll('.lc-effortpanel__notch')].map(b => b.innerText.trim())
       const actives = [...picker.querySelectorAll('.lc-picker__row.is-active')].map(r => ({
         name: r.innerText.replace(/[ ]+/g, ' ').split(String.fromCharCode(10))[0],
@@ -68,7 +66,6 @@ try {
       const groups = picker.querySelectorAll('.lc-effortpanel__notches').length
       return 'actives: ' + JSON.stringify(actives) + ' || active row: ' + (active === null ? 'NONE MARKED ACTIVE' : active.innerText.replace(/[ ]+/g, ' ').split(String.fromCharCode(10))[0])
         + ' || effort groups in the DOM: ' + groups
-        + ' || swarm chip: ' + (swarm === null ? 'not shown (swarm off)' : swarm.innerText.trim())
         + ' || effort levels on the chosen row: ' + (efforts.length === 0 ? 'none drawn' : efforts.join(', '))
     })()`)
   })

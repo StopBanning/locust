@@ -71,7 +71,7 @@ describe('a store that cannot reach the disk says so', () => {
       createTeammateStore({ rootDirectory: await good() }).create({ name: 'Wren', hue: 'lime', role: 'Code & Migrations' })
     ).resolves.toBeDefined()
     await expect(
-      createTeammateStore({ rootDirectory: await good() }).writeSettings({ swarm: true, relay: false })
+      createTeammateStore({ rootDirectory: await good() }).writeSettings({ relay: false })
     ).resolves.toBeDefined()
     await expect(
       createRoutineStore({ rootDirectory: await good() }).create({
@@ -107,7 +107,7 @@ describe('a store that cannot reach the disk says so', () => {
     // today. The store itself has to reject for the caller to have anything
     // to react to.
     const store = createTeammateStore({ rootDirectory: await unwritableRoot() })
-    await expect(store.writeSettings({ swarm: true, relay: false })).rejects.toThrow()
+    await expect(store.writeSettings({ relay: false })).rejects.toThrow()
   })
 
   it('a routine rejects rather than pretending to save', async () => {

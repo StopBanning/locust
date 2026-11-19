@@ -44,8 +44,8 @@ describe('Settings in a browser', () => {
 
   it("keeps the teammates' switches that grant something on the computer, and lets Plans change from here", () => {
     browser()
-    const html = page('teammates', { swarm: false, autoMode: false, keepATodoList: true, claudeOwnSkills: false })
-    for (const label of ['Swarm', 'Your skills']) {
+    const html = page('teammates', { autoMode: false, keepATodoList: true, claudeOwnSkills: false })
+    for (const label of ['Your skills']) {
       expect(html).toMatch(new RegExp(`<fieldset class="lc-oncomputer" disabled=""><div class="lc-settingline"><div class="lc-settingline__text"><h2 class="lc-settings__heading">${label}</h2>`))
     }
     expect(html).toContain('<fieldset class="lc-oncomputer" disabled=""><div class="lc-settingline"><div class="lc-settingline__text"><h2 class="lc-settings__heading">Auto mode</h2>')

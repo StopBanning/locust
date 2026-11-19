@@ -42,7 +42,7 @@ const drive = await startDrive({
       }
     ],
     missionOwners: {},
-    settings: { swarm: false, relay: false, relayHopCap: 2, memoryMode: 'off', autoMode: false }
+    settings: { relay: false, relayHopCap: 2, memoryMode: 'off', autoMode: false }
   }
 })
 
@@ -54,13 +54,10 @@ const STATE = `(async () => {
   if (!dock) return 'no composer'
   const effortChip = [...dock.querySelectorAll('button')].find((b) => b.getAttribute('aria-label') === 'Reasoning effort')
   const route = [...dock.querySelectorAll('.lc-control')].find((b) => b.getAttribute('aria-haspopup') === 'listbox')
-  // Swarm is a Settings switch and a /swarm command now; the title bar's chip says while it is on.
-  const swarm = document.querySelector('.lc-swarmchip')
   return [
     'route: ' + (route ? flat(route) : 'none'),
     'effort chip: ' + (effortChip ? flat(effortChip) + (effortChip.disabled ? ' [DISABLED]' : '') : 'ABSENT'),
-    'effort title: ' + (effortChip ? (effortChip.getAttribute('title') ?? '') : '-'),
-    'swarm: ' + (swarm ? 'on' : 'off')
+    'effort title: ' + (effortChip ? (effortChip.getAttribute('title') ?? '') : '-')
   ].join('  ||  ')
 })()`
 
@@ -76,21 +73,6 @@ const PICKER_HAS_EFFORT = `(async () => {
   control.click()
   await new Promise((r) => setTimeout(r, 500))
   return 'effort chips in picker: ' + chips.length + ' || held line: ' + (held ? 'present' : 'none')
-})()`
-
-const setSwarm = (on) => `(async () => {
-  // The composer's swarm pill is gone: /swarm in the chat box turns it over, and the title bar's chip says it is on.
-  const isOn = () => document.querySelector('.lc-swarmchip') !== null
-  if (isOn() !== ${on ? 'true' : 'false'}) {
-    const box = document.querySelector('form.command-dock textarea')
-    if (!box) return 'no chat box'
-    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(box, '/swarm')
-    box.dispatchEvent(new Event('input', { bubbles: true }))
-    await new Promise((r) => setTimeout(r, 400))
-    box.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
-    await new Promise((r) => setTimeout(r, 700))
-  }
-  return isOn() ? 'on' : 'off'
 })()`
 
 // Antigravity reports no effort levels at all -- the case where a chip must
@@ -123,16 +105,6 @@ try {
     await drive.capture(`  ...what the composer says`, () => drive.evaluate(STATE))
   }
 
-  await drive.capture('swarm on: the chip should lock and name its holder', async () => {
-    await drive.evaluate(pickRouteScript({ group: '/claude/i', search: 'sonnet', row: '/^sonnet/i' }))
-    await drive.evaluate(setSwarm(true))
-    return drive.evaluate(STATE)
-  })
-
-  await drive.capture('swarm off again: the chip comes back', async () => {
-    await drive.evaluate(setSwarm(false))
-    return drive.evaluate(STATE)
-  })
 } catch (error) {
   say(`drive failed: ${error instanceof Error ? error.message : String(error)}`)
 } finally {

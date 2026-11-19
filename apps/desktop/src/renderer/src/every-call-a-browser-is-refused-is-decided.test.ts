@@ -229,7 +229,7 @@ App.tsx talkShortcut.pending 1
 App.tsx updateRuntimeNow 1
 App.tsx useTuneSkill 1
 App.tsx writeClipboard 1
-App.tsx writeWorkspaceSettings 14
+App.tsx writeWorkspaceSettings 11
 ElsewhereApp.tsx deskTakeBack 1
 ElsewhereApp.tsx deskWhere 1
 components/AcpAgentsSettings.tsx acpAgents.remove 1

@@ -967,10 +967,9 @@ export function TeammatesScreen({
 /**
  * Settings.
  *
- * Runtimes read from discovery. Fallback policy and swarm are drawn because the
- * design places them here, but both are shown as unavailable with the reason --
- * fallback needs route switching, and swarm needs a route that reports whether
- * it honours effort. Neither is rendered as a working toggle that does nothing.
+ * Runtimes read from discovery. Fallback policy is drawn because the design
+ * places it here, but shown as unavailable with the reason -- fallback needs
+ * route switching. It is not rendered as a working toggle that does nothing.
  */
 /** The ages offered. Long by default: history is the point of the ledger. */
 const RETENTION_CHOICES = [30, 90, 365] as const
@@ -1738,7 +1737,6 @@ export function SettingsScreen({
   onClaudeOwnSkillsChange,
   onAskConnectorsChange,
   onOwnModelsChanged,
-  swarm,
   tube,
   replySize,
   codeFont = 'geist',
@@ -1758,7 +1756,6 @@ export function SettingsScreen({
   onPlushChange,
   onReplySizeChange,
   onTubeChange,
-  onSwarmChange,
   onAutoModeChange,
   relayHopCap,
   onRelayHopCapChange,
@@ -1862,9 +1859,6 @@ export function SettingsScreen({
   readonly onInterruptChange: (interrupt: boolean) => void
   /** Whether the Auto permission mode may be chosen at all. */
   readonly autoMode: boolean
-  /** Workspace-wide: every mission at its model's maximum effort. */
-  readonly swarm: boolean
-  readonly onSwarmChange: (swarm: boolean) => void
   readonly tube: TubePreference
   readonly onTubeChange: (tube: TubePreference) => void
   /** How big a reply is set. The person's, not the app's -- see ReplyTextSize. */
@@ -2861,45 +2855,6 @@ export function SettingsScreen({
         </section>
         )}
 
-        {shownPage === 'teammates' && (
-        <section className="lc-settings__section lc-settings__section--line">
-          <OnTheComputer channel={WORKSPACE_SETTINGS_WRITE_CHANNEL}>
-          <div className="lc-settingline">
-            <div className="lc-settingline__text">
-              <h2 className="lc-settings__heading">Swarm</h2>
-              <p className="lc-settings__lede">
-                {swarm
-                  ? 'On. Every run uses its model\u2019s maximum effort.'
-                  : 'Off. Each run uses the effort its model is set to.'}
-              </p>
-            </div>
-            <button
-              type="button"
-              className={`lc-switch${swarm ? ' is-on' : ''}`}
-              role="switch"
-              aria-checked={swarm}
-              aria-label="Swarm"
-              onClick={() => onSwarmChange(!swarm)}
-            >
-              <span className="lc-switch__knob" />
-            </button>
-          </div>
-          </OnTheComputer>
-          <More>
-            <p>
-              Swarm is a statement about every run rather than about one of them: while it is on, each
-              run is given the highest effort the model it lands on reports, and the effort control says who
-              is holding it. A model that reports no levels is unaffected — there is nothing to raise.
-            </p>
-            <p>
-              The mark on the composer is the same switch seen from the other side. It is the glance; this
-              is the record, and the way to take it back from a screen that has no composer on it — which
-              is every screen but the workroom, and the conversation itself while a reply is running.
-            </p>
-          </More>
-
-        </section>
-        )}
         {shownPage === 'teammates' && (
         <section className="lc-settings__section lc-settings__section--line">
           <OnTheComputer channel={WORKSPACE_SETTINGS_WRITE_CHANNEL}>

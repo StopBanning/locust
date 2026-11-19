@@ -59,7 +59,7 @@ describe('a free model OpenCode dropped', () => {
       activeRoute: undefined, error: undefined, mode: 'accept-edits', onModeChange: () => undefined,
       route: { runtime: 'opencode', model: 'opencode/longcat-2.5-preview-free' }, onRouteChange: () => undefined,
       models: LISTED, resolvedModels: new Map(), recentRoutes: [], platform: 'win32', effort: undefined,
-      onEffortChange: () => undefined, swarm: false, onSwarmChange: () => undefined,
+      onEffortChange: () => undefined, 
       onStart: async () => true, onCancel: () => undefined, onOpenRoutePicker: () => undefined,
       onHandOff: () => undefined, handingOff: false, workspaceName: 'Test', workspacePath: 'C:/test',
       onChooseFolder: () => undefined, teammateName: 'Pip', busyWith: undefined, queued: undefined,

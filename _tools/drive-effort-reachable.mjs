@@ -42,7 +42,7 @@ const drive = await startDrive({
       }
     ],
     missionOwners: {},
-    settings: { swarm: false, relay: false, relayHopCap: 2, memoryMode: 'off', autoMode: false }
+    settings: { relay: false, relayHopCap: 2, memoryMode: 'off', autoMode: false }
   }
 })
 
@@ -70,13 +70,10 @@ const REPORT = `(async () => {
     }
   }
   const chips = picker.querySelectorAll('.lc-effortpanel__notch')
-  // Swarm is a Settings switch and a /swarm command now; the title bar's chip says while it is on.
-  const swarmPill = document.querySelector('.lc-swarmchip')
   return [
     'chip: ' + chip.slice(0, 46),
     'ACTIVE rows: ' + activeRows.length + (activeRows.length ? ' >> ' + activeRows.join(' ;; ') : ''),
-    'effort chips: ' + chips.length + (chips.length ? ' >> ' + [...chips].map(flat).join(' ') : ''),
-    'swarm chip in the title bar: ' + (swarmPill ? 'yes' : 'no (swarm off)')
+    'effort chips: ' + chips.length + (chips.length ? ' >> ' + [...chips].map(flat).join(' ') : '')
   ].join('  ||  ')
 })()`
 

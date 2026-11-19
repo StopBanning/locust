@@ -5043,12 +5043,12 @@ if (!ownsSingleInstanceLock) {
       return { ...rest, checkCommands: commands, checkFixes: fixes }
     }
     ipcMain.handle(WORKSPACE_SETTINGS_READ_CHANNEL, async (event) => {
-      if (!fromOwnWindow(event)) return { swarm: false, relay: true, relayHopCap: DEFAULT_RELAY_HOP_CAP, memoryMode: DEFAULT_MEMORY_MODE, autoMode: false, askConnectors: false, keepATodoList: false, layout: 'auto', tube: 'full', replySize: 'standard', codeFont: 'geist' } as const
+      if (!fromOwnWindow(event)) return { relay: true, relayHopCap: DEFAULT_RELAY_HOP_CAP, memoryMode: DEFAULT_MEMORY_MODE, autoMode: false, askConnectors: false, keepATodoList: false, layout: 'auto', tube: 'full', replySize: 'standard', codeFont: 'geist' } as const
       try {
         return forThisFolder(await teammates.readSettings())
       } catch {
-        // An unreadable switch reads as its default: swarm off, replies on.
-        return { swarm: false, relay: true, relayHopCap: DEFAULT_RELAY_HOP_CAP, memoryMode: DEFAULT_MEMORY_MODE, autoMode: false, askConnectors: false, keepATodoList: false, layout: 'auto', tube: 'full', replySize: 'standard', codeFont: 'geist' } as const
+        // An unreadable switch reads as its default: replies on.
+        return { relay: true, relayHopCap: DEFAULT_RELAY_HOP_CAP, memoryMode: DEFAULT_MEMORY_MODE, autoMode: false, askConnectors: false, keepATodoList: false, layout: 'auto', tube: 'full', replySize: 'standard', codeFont: 'geist' } as const
       }
     })
 
@@ -7283,7 +7283,7 @@ if (!ownsSingleInstanceLock) {
     })
 
     ipcMain.handle(WORKSPACE_SETTINGS_WRITE_CHANNEL, async (event, settings: unknown) => {
-      if (!fromOwnWindow(event)) return { swarm: false, relay: true, relayHopCap: DEFAULT_RELAY_HOP_CAP, memoryMode: DEFAULT_MEMORY_MODE, autoMode: false, askConnectors: false, keepATodoList: false, layout: 'auto', tube: 'full', replySize: 'standard', codeFont: 'geist' } as const
+      if (!fromOwnWindow(event)) return { relay: true, relayHopCap: DEFAULT_RELAY_HOP_CAP, memoryMode: DEFAULT_MEMORY_MODE, autoMode: false, askConnectors: false, keepATodoList: false, layout: 'auto', tube: 'full', replySize: 'standard', codeFont: 'geist' } as const
       try {
         return forThisFolder(await teammates.writeSettings(await withThisFolder(settings)))
       } catch {
@@ -7303,7 +7303,6 @@ if (!ownsSingleInstanceLock) {
          * there is nothing else to say.
          */
         return await teammates.readSettings().catch(() => ({
-          swarm: false,
           relay: true,
           relayHopCap: DEFAULT_RELAY_HOP_CAP,
           memoryMode: DEFAULT_MEMORY_MODE,
@@ -7316,7 +7315,7 @@ if (!ownsSingleInstanceLock) {
     })
 
     // The settings that grant nothing (0.849), from a browser or the window: only these keys of a change are kept,
-    // merged into the settings on disk, so a change that names Auto, reach, swarm or relay changes none of them.
+    // merged into the settings on disk, so a change that names Auto, reach or relay changes none of them.
     ipcMain.handle(WORKSPACE_SETTINGS_CHANGE_CHANNEL, async (event, change: unknown) => {
       if (!fromOwnWindow(event)) throw new Error('Not from Locust’s own window.')
       // writeSettings lays it over what is stored inside its own lock, so a write landing meanwhile is kept (0.850).

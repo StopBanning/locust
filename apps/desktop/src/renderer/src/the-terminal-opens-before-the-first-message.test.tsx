@@ -7,7 +7,7 @@ import { isTerminalToggle } from './terminalKeys.js'
 import { terminalInputChunks } from '../../shared/terminal.js'
 
 it('offers an accessible toggle in the title bar before a conversation exists', () => {
-  const html = renderToStaticMarkup(<TitleBar workspaceName="Project" runningCount={0} swarm={false} terminal={<TerminalToggle open={false} onToggle={() => undefined} />} />)
+  const html = renderToStaticMarkup(<TitleBar workspaceName="Project" runningCount={0} terminal={<TerminalToggle open={false} onToggle={() => undefined} />} />)
   expect(html).toContain('aria-label="Terminal"')
   expect(html).toContain('aria-pressed="false"')
   expect(html).toContain('Control+`')

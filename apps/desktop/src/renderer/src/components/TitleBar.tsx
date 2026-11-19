@@ -13,7 +13,6 @@ import { needsYouChip } from '../needsYou.js'
 export function TitleBar({
   workspaceName,
   runningCount,
-  swarm,
   needsYou = 0,
   onNeedsYou,
   browser,
@@ -21,7 +20,6 @@ export function TitleBar({
 }: {
   readonly workspaceName: string
   readonly runningCount: number
-  readonly swarm: boolean
   /** How many things wait on the person (needsYou.ts); the chip shows only above zero. */
   readonly needsYou?: number
   /** Opens the list under the chip. */
@@ -36,8 +34,6 @@ export function TitleBar({
       <div className="lc-titlebar__right" onDoubleClick={(event) => event.stopPropagation()}>
         {browser}
         {terminal}
-        {/* A workspace-wide setting deserves a persistent, visible statement. */}
-        {swarm && <span className="lc-swarmchip">Swarm · every run at max effort</span>}
         {/* What waits on the person, before what is merely running: the list is one press away. */}
         {needsYou > 0 && onNeedsYou !== undefined && (
           <button type="button" className="lc-needsyou" aria-haspopup="menu" onClick={(event) => onNeedsYou(event.currentTarget)}>

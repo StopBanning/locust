@@ -47,7 +47,7 @@ describe('the store', () => {
     const store = createTeammateStore({ rootDirectory: folder })
     await store.writeSettings({ aboutYou: 'Ask before deleting anything.' })
     // Every other settings write names every field but this one.
-    await store.writeSettings({ swarm: true, relay: true, memoryMode: 'on' })
+    await store.writeSettings({ relay: true, memoryMode: 'on' })
     expect((await store.readSettings()).aboutYou).toBe('Ask before deleting anything.')
     await store.writeSettings({ aboutYou: '' })
     expect((await store.readSettings()).aboutYou).toBeUndefined()

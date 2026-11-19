@@ -13,6 +13,14 @@ heading: the home screen then shows it once, as a splash.
 
 ## 0.880.0 - unreleased
 
+### Changed
+
+- **Swarm is gone.** It held every run at its model's highest effort, from `/swarm`, a Settings switch or the command
+  palette, and flew a few small locusts across the home screen when turned on. The effort chip already says Max in
+  one click, and nobody turned Swarm on, so it was a second name for the same choice. The command, the switch, the
+  palette action, the title-bar chip and the flight are removed; a saved Swarm setting is ignored. The Swarm, Locust's
+  own bot, stays.
+
 ### Fixed
 
 - **A finished Antigravity answer no longer reads as failed.** When Gemini wrote its whole answer and then sent one

@@ -165,9 +165,8 @@ export const SETTINGS_PAGES: readonly SettingsPage[] = [
     label: 'Teammates',
     group: 'Team',
     icon: 'users',
-    headings: ['Swarm', 'Auto mode', 'Plans', 'Your skills', 'Skills from GitHub', 'Saved approvals'],
+    headings: ['Auto mode', 'Plans', 'Your skills', 'Skills from GitHub', 'Saved approvals'],
     alsoKnownAs: {
-      Swarm: ['parallel', 'at once', 'concurrent'],
       'Auto mode': ['permission', 'approve', 'ask first', 'sandbox'],
       Plans: ['plan', 'steps'],
       'Your skills': ['skill', 'skills', 'claude code', 'plugin', 'slash'],
