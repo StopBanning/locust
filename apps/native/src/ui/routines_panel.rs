@@ -68,6 +68,9 @@ pub(super) struct Panel {
     pub reads_only: Option<bool>,
     /// The same, as saved: a choice left where it was keeps the saved mode exactly.
     pub saved_reads_only: Option<bool>,
+    /// The check command of the folder the routine runs in (Settings > Project folder), read when the editor opens;
+    /// None when the folder has none, and then "Keep going until the check passes" cannot be chosen.
+    pub check_command: Option<String>,
 }
 /// How often the window looks: the schedule (Electron: once a minute), the watched folders (`POLL_MS`), and the
 /// ends of the steps it follows. Tests set them to zero rather than waiting.
@@ -128,6 +131,7 @@ impl Default for Panel {
             hook_pending: Default::default(),
             reads_only: None,
             saved_reads_only: None,
+            check_command: None,
         }
     }
 }
@@ -202,6 +206,9 @@ fn edit(s: &mut State, r: Value) {
     // What a run may do is read off the mode saved with it (App.tsx: `savedMode ?? route.mode`); Ask and Plan only read.
     s.routines.reads_only = r["route"]["mode"].as_str().map(|m| m == "ask" || m == "plan");
     s.routines.saved_reads_only = s.routines.reads_only;
+    // The folder's own check, read once here: the routine's folder, or for one not saved yet the folder open now.
+    let workspace = r["workspaceId"].as_str().map(str::to_owned).or_else(|| locust_core::native::open_folder().map(|p| locust_core::people::workspace_id(&p)));
+    s.routines.check_command = s.data.as_ref().and_then(|store| locust_core::edit_check::check_command_for(store, workspace.as_deref()));
     s.routines.entry = r.clone();
     s.routines.hook_state = None;
     s.routines.hook_copied = false;
@@ -751,7 +758,7 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                         }
                     }))
                     // A missed routine offers "Run now" (AutomationsScreen.tsx), unless a run of it is still under way.
-                    .child(button(if missed_now { "Run now" } else { "Run" }, p).key(format!("routine-run-{id}")).on_press(move |s: &mut State| start_run(s, &run))),
+                    .child(run_button(s, r, if missed_now { "Run now" } else { "Run" }, p).key(format!("routine-run-{id}")).on_press(move |s: &mut State| start_run(s, &run))),
             );
             if let Some((said, warn)) = panel.notices.get(&id) {
                 card = card.child(text(said.clone()).font(type_::LABEL).color(if *warn { p.amber } else { p.secondary }).wrap());
@@ -923,22 +930,40 @@ fn where_and_goal(s: &State, p: &Palette) -> El {
     let tries = entry["untilCheck"]["tries"].as_u64();
     let mut places = row().gap(6.0).child(text("Where it works").font(type_::LABEL).color(p.secondary));
     for (copy, label) in [(false, "In the folder"), (true, "In a copy, you keep")] {
-        places = places.child(button(label, p).fill(if in_copy == copy { p.selected } else { p.raised }).key(format!("routine-in-copy-{copy}")).on_press(move |s: &mut State| {
+        places = places.child(button(label, p).role("radio").label(format!("{label}{}", if in_copy == copy { ", chosen" } else { "" })).fill(if in_copy == copy { p.selected } else { p.raised }).key(format!("routine-in-copy-{copy}")).on_press(move |s: &mut State| {
             s.routines.entry["inCopy"] = json!(copy);
         }));
     }
+    let check = s.routines.check_command.clone();
     let mut goal = row().gap(6.0).child(text("When its steps are done").font(type_::LABEL).color(p.secondary));
-    goal = goal.child(button("Stop", p).fill(if tries.is_none() { p.selected } else { p.raised }).on_press(|s: &mut State| {
+    goal = goal.child(button("Stop", p).role("radio").label(format!("Stop{}", if tries.is_none() { ", chosen" } else { "" })).fill(if tries.is_none() { p.selected } else { p.raised }).on_press(|s: &mut State| {
         s.routines.entry["untilCheck"] = Value::Null;
     }));
-    goal = goal.child(button("Keep going until the check passes", p).fill(if tries.is_some() { p.selected } else { p.raised }).key("routine-goal").on_press(move |s: &mut State| {
-        // at most 1 to 5 fixes, round again; three first, as RoutineDialog starts.
-        let next = match tries { None => 3, Some(5) => 1, Some(n) => n + 1 };
-        s.routines.entry["untilCheck"] = json!({"tries": next});
-    }));
+    // With no check command it cannot be chosen (a goal saved before stays shown, so it can be turned off).
+    let can_choose = check.is_some() || tries.is_some();
+    let mut keep_going = button("Keep going until the check passes", p)
+        .role("radio")
+        .label(format!("Keep going until the check passes{}", if tries.is_some() { ", chosen" } else { "" }))
+        .fill(if tries.is_some() { p.selected } else { p.raised })
+        .key("routine-goal");
+    if can_choose {
+        keep_going = keep_going.on_press(move |s: &mut State| {
+            // at most 1 to 5 fixes, round again; three first, as RoutineDialog starts.
+            let next = match tries { None => 3, Some(5) => 1, Some(n) => n + 1 };
+            s.routines.entry["untilCheck"] = json!({"tries": next});
+        });
+    } else {
+        keep_going = keep_going.disabled(true).opacity(0.45);
+    }
+    goal = goal.child(keep_going);
     if let Some(n) = tries {
         goal = goal.child(text(format!("at most {n} {}", if n == 1 { "fix" } else { "fixes" })).font(type_::LABEL).color(p.secondary));
     }
+    let goal_note = match (&check, tries) {
+        (None, _) => "This folder has no check command yet. Set one in Settings > Project folder, such as npm test, to keep going until it passes.".to_owned(),
+        (Some(cmd), None) => format!("It stops when its steps are done. Or it can run `{cmd}` then, and keep fixing until it passes."),
+        (Some(cmd), Some(n)) => format!("When its steps are done it runs `{cmd}`. While that fails, it is asked to fix what it says, up to {n} time{}; then it stops and says what still fails. Each fix is one more turn.", if n == 1 { "" } else { "s" }),
+    };
     // A run that only reads changes nothing, so where it changes things is not asked (RoutineDialog: `!readsOnly`); and
     // where "What a run may do" is shown, it already says what lands in the folder.
     let mut out = col().gap(6.0);
@@ -948,7 +973,35 @@ fn where_and_goal(s: &State, p: &Palette) -> El {
     if s.routines.reads_only.is_none() {
         out = out.child(text(change_words(s)).font(type_::LABEL).color(p.muted).wrap());
     }
-    out.child(goal)
+    // When its steps are done, and where it works, are asked only of a run that may change files (RoutineDialog).
+    if s.routines.reads_only == Some(true) {
+        return out;
+    }
+    out.child(goal).child(text(goal_note).key("routine-goal-note").font(type_::LABEL).color(p.muted).wrap())
+}
+
+/// Why Run cannot be pressed now (AutomationsScreen.tsx), or None: its teammate is gone, its last run's changes wait
+/// for Keep or Discard, or an attempt of it is still held or under way. A held attempt is decided on its card, so Run
+/// says nothing more on hover there, as Electron's says nothing.
+fn run_refusal(s: &State, r: &Value) -> Option<Option<&'static str>> {
+    if !s.teammates.iter().any(|t| r["teammateId"] == t.id.as_str()) {
+        return Some(Some("The teammate this was taught to is gone, so it has no route to run on."));
+    }
+    if r.get("staged").is_some_and(|v| v.is_object()) {
+        return Some(Some("Its last run's changes are waiting: Keep or Discard them first."));
+    }
+    r.get("execution").filter(|e| e.is_object() && e["status"] != "abandoned").map(|_| None)
+}
+
+fn run_button(s: &State, r: &Value, label: &str, p: &Palette) -> El {
+    let b = button(label, p).role("button");
+    match run_refusal(s, r) {
+        None => b,
+        Some(why) => {
+            let b = b.disabled(true).opacity(0.45);
+            match why { Some(w) => b.help(w), None => b }
+        }
+    }
 }
 
 /// When a run started, as `toLocaleString` says it here.
@@ -973,7 +1026,8 @@ fn next_run_words(r: &Value) -> String {
 }
 
 fn open_button(label: &str, mission: String, p: &Palette) -> El {
-    button(label, p).on_press_tx(move |s: &mut State, tx| {
+    // A button to a screen reader as well as to the eye (routine-recovery.test.tsx finds it by its role).
+    button(label, p).role("button").on_press_tx(move |s: &mut State, tx| {
         if let Some(row) = s.recent.iter().find(|row| row.id == mission).cloned() {
             s.routines.open = false;
             open_recent(s, row, tx);
@@ -2167,3 +2221,7 @@ mod routine_hook_ui_tests {
 #[cfg(test)]
 #[path = "routine_card_and_editor_tests.rs"]
 mod card_and_editor_tests;
+
+#[cfg(test)]
+#[path = "routine_recovery_tests.rs"]
+mod recovery_tests;

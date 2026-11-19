@@ -158,3 +158,20 @@ Three rows carried (`src/ui/routine_card_and_editor_tests.rs`, 12 tests; core `r
     Plan reading only, the save rule, the editor's folder name, "Where it works" hidden, and the section hidden with
     no mode.
 - **Not checked:** the hover itself. rune's `ElementInfo` carries no help text, so the path is checked where it is made.
+
+## Routines round 3 (19 Nov): the held card, when Run can be pressed, and the check command
+
+- **routine-recovery.test.tsx: 8 of 9 cases.** The port in `src/ui/routine_recovery_tests.rs` was written on 17 Nov and
+  left uncommitted in opus2; it is adopted here, unchanged. Two of its tests failed because "Open the saved
+  conversation" was not a button by role. It is now, so a screen reader finds it too. Still missing: the Team
+  screen's copy of the card.
+- **Run can be pressed only when it would start something** (`run_refusal`, AutomationsScreen's `disabled`). It is
+  off while an attempt is held or under way, while its changes wait for Keep or Discard, and when its teammate is
+  gone, with Electron's words on hover for the last two. Not ported: Electron's "<name> is running: <step>" while
+  another routine of the same teammate replays.
+- **a-routine-keeps-what-you-keep: carried.** The editor reads the folder's check command once, when it opens
+  (`edit_check::check_command_for`). With none, "Keep going until the check passes" is drawn off, a press chooses
+  nothing, and the note says where to set one. With one, the note names the command and the fixes, as Electron's does.
+  "When its steps are done" and "Where it works" are asked only of a run that may change files.
+- **Breaks: 8 of 8 caught by name** (`~/work/scratch/routines1/r3.txt`). The hidden goal survived at first; a check in
+  `offers_the_copy_only_to_a_routine_that_may_change_files` now catches it.

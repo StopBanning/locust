@@ -228,3 +228,157 @@ fn is_set_per_step_from_step_2_on_in_the_routine_editor_for_one_teammate_too() {
         Some(json!([{}, {"askFirst": true}]))
     );
 }
+
+// ---- routines round 3: routine-recovery.test.tsx's screen cases, and when Run can be pressed ---------------------
+
+fn held() -> Value {
+    let route = json!({"runtime": "codex", "model": "account-default", "mode": "ask"});
+    json!({
+        "routineId": "rt_one", "name": "Release", "teammateId": "codec", "route": route,
+        "steps": ["Open PR", "Summarise", "Report"], "learnedFrom": [], "createdAt": "2026-09-01T00:00:00.000Z", "runs": 0,
+        "schedule": {"kind": "every", "hours": 6},
+        "execution": {"attemptId": "attempt_one", "status": "held", "step": 2, "of": 3, "workspaceId": "ws_test",
+            "startedAt": "2026-09-04T00:00:00.000Z", "updatedAt": "2026-09-04T00:00:00.000Z",
+            "steps": ["Open PR", "Summarise", "Report"], "route": route,
+            "missionId": "mission_two", "runId": "run_two", "reason": "The dispatch outcome is uncertain.", "canContinue": false}
+    })
+}
+
+#[test]
+fn the_routines_screen_draws_a_held_attempt_from_its_saved_record_with_run_off() {
+    // Read back from the file as written: nothing but the saved record, no notice from a run.
+    let saved: Value = serde_json::from_str(&held().to_string()).unwrap();
+    let s = screen(vec![saved.clone()], None);
+    assert!(s.routines.notices.is_empty());
+    let all = draw(s);
+    assert!(any_text(&all, "Waiting for your review · Step 2 of 3 · Attempt started"));
+    assert!(shown(&all, "routine-when-rt_one").is_some_and(|t| t.ends_with("no automatic retry")));
+    assert!(!any_text(&all, "not run yet") && !any_text(&all, "due now"));
+    // Run is off while the attempt waits: drawn faded, and pressing it starts nothing.
+    let screen_state = screen(vec![saved.clone()], None);
+    assert_eq!(run_refusal(&screen_state, &saved), Some(None));
+    let run = all.iter().find(|e| e.key.as_deref() == Some("routine-run-rt_one")).expect("Run is drawn");
+    assert!(run.opacity < 0.5, "Run is drawn off while the attempt waits");
+}
+
+#[test]
+fn run_is_off_while_changes_wait_or_the_teammate_is_gone_and_says_why() {
+    let s = screen(vec![], None);
+    let mut staged = routine(None);
+    staged["staged"] = json!({"files": ["a.md"]});
+    assert_eq!(run_refusal(&s, &staged), Some(Some("Its last run's changes are waiting: Keep or Discard them first.")));
+    let mut orphan = routine(None);
+    orphan["teammateId"] = json!("tm_gone");
+    assert_eq!(run_refusal(&s, &orphan), Some(Some("The teammate this was taught to is gone, so it has no route to run on.")));
+    let mut abandoned = held();
+    abandoned["execution"]["status"] = json!("abandoned");
+    assert_eq!(run_refusal(&s, &abandoned), None, "an abandoned attempt leaves Run free");
+    assert_eq!(run_refusal(&s, &routine(None)), None);
+}
+
+#[test]
+fn the_held_attempt_is_a_card_of_its_own_never_the_rows_meta_line() {
+    let all = draw(screen(vec![held()], None));
+    let chain = shown(&all, "routine-chain-rt_one").unwrap();
+    assert!(!chain.contains("Waiting for your review") && !chain.contains("I reviewed"), "{chain}");
+    // Its own lines: the heading, the reason and the review box each wrap at the card's width.
+    let heading = all.iter().find(|e| e.text.as_deref().is_some_and(|t| t.starts_with("Waiting for your review"))).unwrap();
+    let card = all.iter().find(|e| e.key.as_deref() == Some("routine-rt_one")).unwrap();
+    assert!(heading.rect[2] > card.rect[2] * 0.5, "the heading has the card's width, not a clipped cell");
+}
+
+// ---- a-routine-keeps-what-you-keep.test.tsx ---------------------------------------------------------------------
+
+fn keeps(mode: &str, in_copy: bool) -> State {
+    let mut s = file_routine(mode);
+    s.routines.entry["inCopy"] = json!(in_copy);
+    s
+}
+
+#[test]
+fn offers_the_copy_only_to_a_routine_that_may_change_files() {
+    assert!(any_text(&draw(keeps("accept-edits", false)), "Where it works"));
+    let ask = draw(keeps("ask", false));
+    assert!(!any_text(&ask, "Where it works"));
+    assert!(shown(&ask, "routine-in-copy-true").is_none());
+    // Nor is it asked what happens when its steps are done: a run that only reads has nothing to fix.
+    assert!(!any_text(&ask, "When its steps are done"));
+    assert!(any_text(&draw(keeps("accept-edits", false)), "When its steps are done"));
+}
+
+#[test]
+fn in_a_copy_every_sentence_says_nothing_lands_until_you_keep_it() {
+    let all = draw(keeps("accept-edits", true));
+    assert!(chosen(&all, "routine-in-copy-true") && !chosen(&all, "routine-in-copy-false"));
+    assert!(any_text(&all, "It changes files in a copy of the folder. When a run finishes, its changes wait under Routines"));
+    assert!(any_text(&all, "It may change files in its copy; nothing lands in the folder until you keep it."));
+    assert!(!any_text(&all, "lands in the folder straight away"));
+}
+
+#[test]
+fn in_the_folder_it_says_the_change_lands_straight_away() {
+    let all = draw(keeps("accept-edits", false));
+    assert!(chosen(&all, "routine-in-copy-false"));
+    assert!(any_text(&all, "lands in the folder straight away"));
+}
+
+#[test]
+fn with_no_check_command_says_where_to_set_one_and_cannot_be_chosen() {
+    let s = keeps("accept-edits", false);
+    assert_eq!(s.routines.check_command, None);
+    let all = draw(s);
+    assert!(any_text(&all, "This folder has no check command yet. Set one in Settings > Project folder"));
+    let goal = all.iter().find(|e| e.key.as_deref() == Some("routine-goal")).unwrap();
+    assert!(goal.opacity < 0.5, "drawn off");
+    // Pressing it chooses nothing; the control: with a check command the same press chooses three fixes.
+    let press = |s: State| {
+        let mut rt = Runtime::new(s, crate::view, (1200.0, 6000.0), Env::new(true, 1.0));
+        rt.frame(0.016);
+        let (x, y) = rt.find("routine-goal").expect("drawn");
+        rt.pointer_down(x, y);
+        rt.pointer_up(x, y);
+        rt.frame(0.032);
+        rt.state.routines.entry["untilCheck"]["tries"].as_u64()
+    };
+    assert_eq!(press(keeps("accept-edits", false)), None);
+    let mut with_check = keeps("accept-edits", false);
+    with_check.routines.check_command = Some("npm test".into());
+    assert_eq!(press(with_check), Some(3));
+}
+
+#[test]
+fn chosen_it_names_the_command_the_fixes_it_may_make_and_that_each_is_one_more_turn() {
+    let mut s = keeps("accept-edits", false);
+    s.routines.check_command = Some("npm test".into());
+    s.routines.entry["untilCheck"] = json!({"tries": 3});
+    let all = draw(s);
+    assert!(chosen(&all, "routine-goal"));
+    assert_eq!(
+        shown(&all, "routine-goal-note").as_deref(),
+        Some("When its steps are done it runs `npm test`. While that fails, it is asked to fix what it says, up to 3 times; then it stops and says what still fails. Each fix is one more turn.")
+    );
+    let mut one = keeps("accept-edits", false);
+    one.routines.check_command = Some("npm test".into());
+    one.routines.entry["untilCheck"] = json!({"tries": 1});
+    assert!(shown(&draw(one), "routine-goal-note").is_some_and(|t| t.contains("up to 1 time;")));
+}
+
+#[test]
+fn names_what_changed_says_nothing_has_reached_the_folder_and_offers_keep_discard_and_the_copy() {
+    let mut r = routine(None);
+    r["routineId"] = json!("rt_inbox");
+    r["inCopy"] = json!(true);
+    r["staged"] = json!({"attemptId": "a1", "finishedAt": "2026-10-01T10:00:00.000Z", "folder": "/work",
+        "changed": ["receipts/a.md", "receipts/b.md", "notes.md", "x.md", "y.md"], "deleted": ["old.md"]});
+    let all = draw(screen(vec![r.clone()], None));
+    assert!(any_text(&all, "its last run changed 6 files in its copy"));
+    assert!(any_text(&all, "receipts/a.md, receipts/b.md, notes.md, x.md and 2 more"));
+    assert!(any_text(&all, "Nothing has reached the folder."));
+    for key in ["routine-keep-rt_inbox", "routine-discard-rt_inbox", "routine-open-copy-rt_inbox"] {
+        assert!(all.iter().any(|e| e.key.as_deref() == Some(key)), "{key}");
+    }
+    // Draws nothing when nothing waits.
+    r.as_object_mut().unwrap().remove("staged");
+    let quiet = draw(screen(vec![r], None));
+    assert!(!quiet.iter().any(|e| e.key.as_deref() == Some("routine-changes-rt_inbox")));
+}
