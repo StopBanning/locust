@@ -390,3 +390,16 @@ Branch `exec/native-memory-1`, tests in `core/src/memory_round_tests.rs` (new), 
 - `window_drive_tests::group_standing_instructions_brief_turns_after_folder_and_render_join_note_in_window` checks
   the section order of a full brief on a follow-up. The follow-up now resumes and gets only the new group paragraph
   (A2.5), so the test removes `brief-sessions.json` before turn 2.
+- **Call sites, broken once each** (`~/work/scratch/memory1/w1..w5`). Each break above was inside a function its
+  tests call directly, so these check that the app calls them.
+  - w1 (no memory file before a turn) and w2 (briefs not noted) ->
+    `a_turn_writes_the_memory_file_where_it_stands_and_notes_what_its_brief_was_given`, one real turn through the
+    fake app-server.
+  - w3 (thread notices dropped) -> `a_forget_that_missed_is_said_in_the_thread_in_amber` and
+    `a_tidy_pass_that_put_nothing_to_the_person_says_so_quietly_in_the_thread`. The fake replies with a block via
+    `commands-reply.json`.
+  - w4 (the prompt not passed) -> the tidy-pass one.
+  - w5 (`reload` not reading changed files) -> `the_screen_reads_what_changed_when_it_loads`.
+  - w3, w4 and w5 survived until those tests were written.
+- The host's own `.locust/memory.md` write is not a change the turn made. It is written before the turn's checkpoint
+  begins. The plain walk skips `.locust/`, and in a repository `.locust/` is in `.git/info/exclude`.

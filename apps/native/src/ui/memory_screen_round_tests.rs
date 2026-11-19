@@ -171,3 +171,22 @@ fn puts_what_is_waiting_for_an_answer_above_how_memory_works() {
     let how = shown.iter().position(|t| t == "How memory is kept").expect("a How memory is kept heading");
     assert!(waiting < how, "{shown:?}");
 }
+
+#[test]
+fn the_screen_reads_what_changed_when_it_loads() {
+    // reload() itself: the store's memory, checked against the open folder's files.
+    let root = std::env::temp_dir().join(format!("locust-memory-reload-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(root.join("electron")).unwrap();
+    std::fs::create_dir_all(root.join("shop/src")).unwrap();
+    std::fs::write(root.join("shop/src/net.ts"), "export {}").unwrap();
+    let store = locust_core::store::Store::new(root.join("native"), root.join("electron")).unwrap();
+    store.save_json("memories.json", &json!({"schemaVersion": 1, "memories": [retries()]})).unwrap();
+    let mut s = State::default();
+    s.data = Some(store);
+    s.home.folder_path = Some(root.join("shop").to_string_lossy().into_owned());
+    reload(&mut s);
+    let found = s.people_panel.changed_since.get("mem_r").cloned();
+    let _ = std::fs::remove_dir_all(&root);
+    assert_eq!(found, Some(vec!["src/net.ts".to_owned()]));
+}
