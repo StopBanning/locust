@@ -49,3 +49,8 @@ traps: 1,160 cases. The first replay found 83 differences, four causes: a bare C
 version it means today ("Opus 5.5"); an id with a provider splits at its first slash only ("Kilo/Kilo Auto/free");
 `own-xxxxxxxx/name` is the name alone; `auto` is trimmed before the check. All four fixed in `route_model_name`; 0 of
 1,160 differ. Five breaks of the fix were all caught.
+The first gates then caught `route_name_tests::invents_nothing_every_word_comes_from_the_id`: that case is Electron's
+`modelDisplayName('claude', 'sonnet')` ("Sonnet"), with no alias read, which Rust had folded into `route_model_name`.
+`model_display_name` is now its own function; the chip's `route_model_name` and the hover both end in it, so the
+hover gets the first-slash, own-model and trimmed-auto fixes too. (`mut6.py` does not run a clean baseline first: a
+test that already fails shows as "catching" every break. Look at the recorded test's line, not the others.)

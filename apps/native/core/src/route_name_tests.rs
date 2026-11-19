@@ -6,7 +6,7 @@
 //! `teammate_tooltip` is Rust's "Runtime / Model" (`routeChrome(shortRuntimeName, modelDisplayName)`), and it spells a
 //! Claude id as `modelDisplayName` does, so the Claude cases on `modelDisplayName` are read there.
 use crate::engine::Teammate;
-use crate::teammate_tooltip::{route_model_name as name, teammate_tooltip};
+use crate::teammate_tooltip::{model_display_name, route_model_name as name, teammate_tooltip};
 
 /// The route as the hover says it after "Message Wren · Custom · ".
 fn route(runtime: &str, model: &str) -> String {
@@ -55,7 +55,7 @@ fn drops_a_provider_that_repeats_the_runtime_and_keeps_one_that_does_not() {
 #[test]
 fn invents_nothing_every_word_comes_from_the_id() {
     assert_eq!(name("cursor", "some-unheard-of-model-9"), "Some Unheard Of Model 9");
-    assert_eq!(name("claude", "sonnet"), "Sonnet");
+    assert_eq!(model_display_name("claude", "sonnet"), "Sonnet");
 }
 
 #[test]

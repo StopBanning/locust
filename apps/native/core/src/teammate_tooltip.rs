@@ -50,6 +50,12 @@ pub fn route_model_name(runtime: &str, model: &str) -> String {
     {
         return named.to_owned();
     }
+    model_display_name(runtime, model)
+}
+
+/// `routeName.ts` `modelDisplayName`: an id spelt out with no alias read (`claude`/`sonnet` is "Sonnet"); the chip's
+/// `route_model_name` and the hover both end here.
+pub fn model_display_name(runtime: &str, model: &str) -> String {
     // A model of the person's own (`own-1a2b3c4d/acme-70b`) by its own name.
     if let Some(rest) = model.strip_prefix("own-")
         && let Some((hex, name)) = rest.split_once('/')
@@ -85,11 +91,8 @@ pub fn teammate_tooltip(teammate: &Teammate) -> String {
         let route = if model == "account-default" { runtime_label.to_owned() } else {
             // Strip a provider/prefix only when it repeats this runtime. Antigravity's tiers read by their names
             // (antigravity-tiers-are-named-once); everything else keeps its whole id, as Electron's modelDisplayName.
-            let bare = model.strip_prefix(&format!("{runtime}/")).unwrap_or(model);
-            let bare = bare.strip_prefix(&format!("{runtime}-")).unwrap_or(bare);
             let name = if let Some(tier) = (runtime == "antigravity").then(|| crate::runtime::antigravity::antigravity_tier_name(model)).flatten() { tier.to_owned() }
-                else if bare.eq_ignore_ascii_case("auto") { "Auto model".into() }
-                else { bare.split('/').map(spell).collect::<Vec<_>>().join("/") };
+                else { model_display_name(runtime, model) };
             if name.to_lowercase().starts_with(&format!("{} ", runtime_label.to_lowercase())) { name }
             else { format!("{runtime_label} / {name}") }
         };
