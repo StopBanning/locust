@@ -2425,6 +2425,11 @@ apps/desktop/src/renderer/src/a-model-has-one-name.test.ts	leaves Locust's own "
 apps/desktop/src/renderer/src/a-model-has-one-name.test.ts	never takes a different name, and keeps runtimes apart	no
 apps/desktop/src/renderer/src/a-model-is-one-line.test.tsx	keeps what the catalogue says, and leaves the effort levels to the hover	yes
 apps/desktop/src/renderer/src/a-model-is-one-line.test.tsx	a model the catalogue says nothing about keeps its levels as its line, in words	yes
+apps/desktop/src/renderer/src/a-new-document-reads-as-one.test.tsx	is known: a new Markdown file, and nothing else	yes
+apps/desktop/src/renderer/src/a-new-document-reads-as-one.test.tsx	is its written text, every added line in order	yes
+apps/desktop/src/renderer/src/a-new-document-reads-as-one.test.tsx	is drawn as the page it is, with the whole file one press away	yes
+apps/desktop/src/renderer/src/a-new-document-reads-as-one.test.tsx	still opens a CHANGED document as its change, and a new script as code	yes
+apps/desktop/src/renderer/src/a-new-document-reads-as-one.test.tsx	offers no Open where the fold has no viewer to open	yes
 apps/desktop/src/renderer/src/a-new-person-is-met-where-they-are.test.tsx	offers to make something, not to read a project that is not there	yes
 apps/desktop/src/renderer/src/a-new-person-is-met-where-they-are.test.tsx	offers its own starters once the folder holds something, and a template teammate without fresh ones keeps its own	yes
 apps/desktop/src/renderer/src/a-new-person-is-met-where-they-are.test.tsx	is told the folder is empty by the window, which asks again after each turn	no

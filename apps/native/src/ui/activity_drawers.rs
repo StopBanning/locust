@@ -357,8 +357,13 @@ fn activity_item_with_files(item: &ledger::Item, p: &Palette, s: &State, scope: 
                 label.push(' ');
                 label.push_str(&locust_core::changes::line_counts(a, d));
             }
-            let mut card = col().w_full().child(disclosure(key, label, open, p));
-            if open { card = card.child(super::review_changes::file_diff(s, None, false, &entry.file, p)); }
+            let mut card = col().w_full().child(disclosure(key.clone(), label, open, p));
+            if open {
+                card = card.child(match locust_core::changes::new_document(&entry.file) {
+                    Some(locust_core::changes::NewDocument::Markdown) => doc_preview(s, &key, entry, p),
+                    _ => super::review_changes::file_diff(s, None, false, &entry.file, p),
+                });
+            }
             rows = rows.child(card);
         }
         return rows;
@@ -504,6 +509,48 @@ pub(super) fn activity_id(item: &ledger::Item) -> &str {
         _ => "",
     }
 }
+/// DocPreview.tsx: a new Markdown file drawn as the page it is (the renderer a reply uses), with Open beside it when
+/// there is a folder to open it from, and "Show the change" for its diff (and back).
+fn doc_preview(s: &State, key: &str, entry: &locust_core::activity_entries::FileEntry, p: &Palette) -> El {
+    let l = crate::look::controls::Look::new(p.dark);
+    let as_change_key = format!("{key}/as-change");
+    let name = entry.file.path.replace('\\', "/").rsplit('/').next().unwrap_or(&entry.file.path).to_owned();
+    let switch = |label: &str| {
+        let flip = as_change_key.clone();
+        crate::look::controls::button(&l, label, crate::look::controls::Tone::Neutral, false).on_press(move |s: &mut State| {
+            let now = s.activity_open.get(&flip).copied().unwrap_or(false);
+            s.activity_open.insert(flip.clone(), !now);
+        })
+    };
+    if s.activity_open.get(&as_change_key).copied().unwrap_or(false) {
+        return col()
+            .w_full()
+            .gap(6.0)
+            .child(super::review_changes::file_diff(s, None, false, &entry.file, p))
+            .child(row().child(switch("Show it as a document")));
+    }
+    let mut foot = row().w_full().gap(8.0).center_y();
+    if selected_conversation(s).is_some_and(|(t, _)| t.folder.is_some()) {
+        let path = entry.file.path.clone();
+        foot = foot.child(
+            crate::look::controls::button(&l, &format!("Open {name}"), crate::look::controls::Tone::Neutral, false).on_press(move |s: &mut State| {
+                super::reply_actions::open_file(s, super::reply_actions::FileTarget { path: path.clone(), start: 0, end: 0 });
+            }),
+        );
+    }
+    if entry.truncated {
+        foot = foot.child(text("Only its start was recorded here.").font(type_::LABEL).color(p.muted));
+    }
+    foot = foot.child(switch("Show the change"));
+    col()
+        .w_full()
+        .gap(6.0)
+        .role("region")
+        .label(format!("{name}, as written"))
+        .child(super::reply_actions::reply_with_copy(s, &locust_core::changes::document_text_of(&entry.file), false, false, p))
+        .child(foot)
+}
+
 pub(super) fn activity_group(items: &[ledger::Item], p: &Palette, s: &State, scope: &str) -> El {
     let key = format!("{scope}/group/{}", activity_id(&items[0]));
     let open = s.activity_open.get(&key).copied().unwrap_or(false);
@@ -920,6 +967,78 @@ mod tests {
         let said = opened(item);
         assert!(said.contains("src/small.ts MODIFIED +2 \u{2212}1"), "{said}");
         assert!(!said.contains("large"), "{said}");
+    }
+
+    // a-new-document-reads-as-one.test.tsx: a new Markdown file in the fold reads as its page.
+    const NEW_GUIDE: &str = "diff --git a/brand-guide.md b/brand-guide.md\nnew file mode 100644\n--- /dev/null\n+++ b/brand-guide.md\n@@ -0,0 +1,5 @@\n+# Small Bakery Brand Guide\n+\n+## Colour Palette\n+\n+- **Crust** `#6B4226` for headlines";
+
+    fn written(path: &str, patch: &str) -> ledger::Item {
+        let mut item = sample_tool("t1", "write", path, false);
+        if let ledger::Item::Tool { detail, .. } = &mut item {
+            let (a, d) = locust_core::changes::parse(patch).iter().fold((0, 0), |(a, d), f| { let c = f.counts(); (a + c.0, d + c.1) });
+            detail.patch = Some(locust_core::activity_entries::Patch { text: patch.into(), added: a, removed: d, truncated: false });
+        }
+        item
+    }
+
+    /// The fold open with its one file open, as Electron's `openByDefault`; and the roles drawn.
+    fn doc_fold(item: ledger::Item, folder: bool) -> (String, Vec<(&'static str, String)>) {
+        doc_fold_as(item, folder, false)
+    }
+
+    fn doc_fold_as(item: ledger::Item, folder: bool, as_change: bool) -> (String, Vec<(&'static str, String)>) {
+        let mut s = State::default();
+        if as_change {
+            s.activity_open.insert("conv/t1/file/0/as-change".into(), true);
+        }
+        s.activity_open.insert("conv/group/t1".into(), true);
+        s.activity_open.insert("conv/t1/file/0".into(), true);
+        if folder {
+            s.teammates.push(crate::Teammate { id: "tm".into(), name: "Iris".into(), role: "Custom".into(), model: None, runtime: Some("opencode".into()), folder: Some("C:/work".into()), runs_in: "ask".into(), account: None, busy: false });
+            s.conversations.insert("tm".into(), Default::default());
+        }
+        let mut rt = rune::Runtime::new((s, vec![item]), |(s, items), _| activity_group(items, &Palette::new(true), s, "conv"), (700.0, 900.0), rune::Env::new(true, 1.0));
+        rt.frame(0.0);
+        let all = rt.elements();
+        (all.iter().filter_map(|e| e.text.clone()).collect::<Vec<_>>().join("\n"), all.iter().map(|e| (e.role, e.label.clone().or(e.text.clone()).unwrap_or_default())).collect())
+    }
+
+    #[test]
+    fn is_drawn_as_the_page_it_is_with_the_whole_file_one_press_away() {
+        let (said, roles) = doc_fold(written("C:/work/brand-guide.md", NEW_GUIDE), true);
+        assert!(roles.iter().any(|(r, l)| *r == "region" && l == "brand-guide.md, as written"), "{said}");
+        assert!(roles.iter().any(|(r, l)| *r == "heading" && l.contains("Small Bakery Brand Guide")), "{roles:?}");
+        assert!(roles.iter().any(|(r, l)| *r == "button" && l == "Open brand-guide.md"), "{roles:?}");
+        assert!(roles.iter().any(|(r, l)| *r == "button" && l == "Show the change"), "{roles:?}");
+        assert!(!said.contains("## Colour Palette"), "no raw heading marks: {said}");
+        assert!(!said.contains("# Small Bakery"), "{said}");
+    }
+
+    #[test]
+    fn still_opens_a_changed_document_as_its_change_and_a_new_script_as_code() {
+        let edited = "diff --git a/brand-guide.md b/brand-guide.md\n--- a/brand-guide.md\n+++ b/brand-guide.md\n@@ -1,3 +1,3 @@\n # Small Bakery Brand Guide\n-Warm and plain.\n+Warm, plain and proud.\n ## Colour Palette";
+        let (said, roles) = doc_fold(written("C:/work/brand-guide.md", edited), true);
+        assert!(!roles.iter().any(|(r, _)| *r == "region"), "{said}");
+        assert!(said.contains("Warm and plain.") && said.contains("Warm, plain and proud."), "{said}");
+        let (code, roles) = doc_fold(written("C:/work/build.ts", "--- /dev/null\n+++ b/build.ts\n@@ -0,0 +1,1 @@\n+export const x = 1"), true);
+        assert!(!roles.iter().any(|(r, _)| *r == "region"), "{code}");
+        // Drawn as code: highlighted, so its words are tokens of their own.
+        assert!(code.contains("export") && code.contains("const") && code.contains("@@ -0,0 +1 @@"), "{code}");
+    }
+
+    #[test]
+    fn offers_no_open_where_the_fold_has_no_viewer_to_open() {
+        let (_, roles) = doc_fold(written("C:/work/brand-guide.md", NEW_GUIDE), false);
+        assert!(roles.iter().any(|(r, l)| *r == "button" && l == "Show the change"));
+        assert!(!roles.iter().any(|(_, l)| l == "Open brand-guide.md"), "{roles:?}");
+    }
+
+    #[test]
+    fn a_new_document_shows_its_change_on_a_press_and_goes_back_to_the_page() {
+        let (said, roles) = doc_fold_as(written("C:/work/brand-guide.md", NEW_GUIDE), true, true);
+        assert!(!roles.iter().any(|(r, _)| *r == "region"), "{said}");
+        assert!(said.contains("@@ -0,0 +1,5 @@"), "the diff: {said}");
+        assert!(roles.iter().any(|(r, l)| *r == "button" && l == "Show it as a document"), "{roles:?}");
     }
 
 }

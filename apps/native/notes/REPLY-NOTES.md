@@ -293,3 +293,8 @@ Next: part 1b opens-the-plan, then orb, frame-pass.
 - a-step-keeps-its-own-change: Rust already matched; Electron's events replayed in `disk_observation_tests`
   (`keep_each_step_its_own_diff_after_the_turn_has_ended_too`, `list_each_file_once_in_the_turns_files_as_its_net_change`).
   Breaks on the ledger's no-diff guard and on `net_entries` both killed.
+- a-new-document-reads-as-one: Rust drew a new Markdown file as a green diff of raw Markdown. Now
+  `core/src/changes.rs` `new_document` (Markdown, Table, Page, as DocPreview's isNewDocument) and `document_text_of`,
+  and `activity_drawers::doc_preview` draws a new Markdown file through the reply renderer, with "Open {name}" when
+  the conversation has a folder, "Show the change" and back, and "Only its start was recorded here." when cut. A new
+  table or page still opens as its diff (no sheet or page frame in the drawer yet). Breaks 5 of 5 killed.
