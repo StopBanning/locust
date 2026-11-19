@@ -566,3 +566,39 @@ fn names_each_memory_by_its_id_so_a_tidy_pass_can() {
     let text = memory_file_text(&[line], at("2026-09-24T12:00:00.000Z"));
     assert!(text.contains("- Deploys go out on Thursdays. (by the person -- 2026-09-24 (today)) [mem_abc]"), "{text}");
 }
+
+// ---- memory-recall.test.ts (0.454): the brief ranked by meaning. Recall itself (the WordPiece tokenizer, the
+// all-MiniLM model through onnxruntime, its cache and its wait) needs an ONNX runtime this app does not have. ----
+fn recall_notes() -> Vec<Value> {
+    [
+        ("The site deploys from the gh-pages branch; pushing there makes it live.", "2026-09-01T00:00:00.000Z"),
+        ("The person likes short replies, no headers.", "2026-09-02T00:00:00.000Z"),
+        ("Unit tests run with vitest from apps/desktop.", "2026-09-03T00:00:00.000Z"),
+        ("The website hero has a rainbow border around the dashboard link.", "2026-09-04T00:00:00.000Z"),
+    ]
+    .iter()
+    .map(|(text, at)| json!({"text": text, "scope": "workspace", "by": {"name": "Wren"}, "createdAt": at}))
+    .collect()
+}
+const RECALL_QUERY: &str = "how do I publish the website?";
+
+#[test]
+fn pastes_the_closest_first_the_newer_first_on_a_tie() {
+    let notes = recall_notes();
+    let order: Vec<&str> = crate::people::briefed_memories_by(&notes, Some(RECALL_QUERY), None, Some(&[0.4, 0.1, 0.1, 0.2]))
+        .iter()
+        .map(|m| m["text"].as_str().unwrap())
+        .collect();
+    let text = |i: usize| notes[i]["text"].as_str().unwrap();
+    assert_eq!(order, [text(0), text(3), text(2), text(1)]);
+}
+
+#[test]
+fn is_exactly_the_keyword_brief_when_recall_did_not_answer() {
+    use crate::people::{briefed_memories, briefed_memories_by};
+    let notes = recall_notes();
+    assert_eq!(briefed_memories_by(&notes, Some(RECALL_QUERY), None, Some(&[0.4, 0.1])), briefed_memories(&notes, Some(RECALL_QUERY), None));
+    assert_eq!(briefed_memories_by(&notes, None, None, Some(&[0.4, 0.1, 0.1, 0.2])), briefed_memories(&notes, None, None));
+    // The keyword brief leads with the note that says "website".
+    assert_eq!(briefed_memories(&notes, Some(RECALL_QUERY), None)[0]["text"], notes[3]["text"]);
+}

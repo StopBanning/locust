@@ -374,3 +374,16 @@ Branch `exec/native-memory-1`, tests in `core/src/memory_round_tests.rs` (new), 
   r03, r08, r09 and r10 were caught by their own plan, record and compaction cases. r04 (identity) was caught by the
   later-turn case, r05 (replaces line) by the changed-paragraph case, and r06 (compaction ignored in native.rs) and
   r07 (no record written) by the mission-service case.
+- **Memory recall** (0.454), partial: `people::memories_for_brief_by` and `briefed_memories_by` take recall's
+  `similarity`. They rank every note by it, newer first on a tie, and ignore an answer of the wrong length or one
+  with no question, which gives exactly the keyword brief. Nothing produces a similarity yet. Electron's recall runs
+  all-MiniLM-L6-v2 through onnxruntime-web, and this round allows no new crate. The tokenizer, cache and wait were
+  left unported rather than built around a model that is not there.
+  Breaks: q1 (tie order) -> `pastes_the_closest_first_the_newer_first_on_a_tie`; q2 (an answer of the wrong length
+  trusted) -> `is_exactly_the_keyword_brief_when_recall_did_not_answer`.
+- **Left after round 1:**
+  - The Memory screen's notice has nothing to set it: Electron's memory-changed update has no Rust channel, which
+    keeps `a-tidy-answered-leaves-no-banner` and `a-tidy-pass-only-suggests` partial.
+  - Recall needs an embedding runtime decided (`memory-recall`, partial).
+  - Row `main/a-memory-nobody-is-given-says-so` (145) still names none of its cases, though `note_briefed` now does
+    its work.

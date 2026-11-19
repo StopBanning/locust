@@ -811,6 +811,24 @@ pub fn memories_for_brief<'a>(
     query: Option<&str>,
     max_lines: usize,
 ) -> Vec<&'a Value> {
+    memories_for_brief_by(rows, query, max_lines, None)
+}
+
+/// `memories_for_brief` with recall's answer (Electron 0.454, `similarity`: one score per row, in the rows' order).
+/// By meaning when recall answered: every note in order of how close it is to what was asked, the newer first on a
+/// tie -- replacing the shared-word order rather than joining it. An answer of the wrong length, or no question, is
+/// no answer: the keyword brief, exactly.
+pub fn memories_for_brief_by<'a>(
+    rows: &'a [Value],
+    query: Option<&str>,
+    max_lines: usize,
+    similarity: Option<&[f64]>,
+) -> Vec<&'a Value> {
+    if let Some(scores) = similarity.filter(|s| query.is_some() && s.len() == rows.len()) {
+        let mut ranked: Vec<(usize, &Value)> = rows.iter().enumerate().collect();
+        ranked.sort_by(|l, r| scores[r.0].total_cmp(&scores[l.0]).then_with(|| r.0.cmp(&l.0)));
+        return ranked.into_iter().map(|(_, m)| m).collect();
+    }
     let here: Vec<&Value> = rows.iter().filter(|m| m["scope"] != "global").collect();
     let everywhere: Vec<&Value> = rows.iter().filter(|m| m["scope"] == "global").collect();
     let mut by_date: Vec<&Value> = here.iter().rev().take(max_lines).copied().collect();
@@ -871,6 +889,16 @@ pub fn briefed_memories<'a>(
     query: Option<&str>,
     file: Option<&str>,
 ) -> Vec<&'a Value> {
+    briefed_memories_by(rows, query, file, None)
+}
+
+/// `briefed_memories` ranked by recall's `similarity` when it answered (`memories_for_brief_by`).
+pub fn briefed_memories_by<'a>(
+    rows: &'a [Value],
+    query: Option<&str>,
+    file: Option<&str>,
+    similarity: Option<&[f64]>,
+) -> Vec<&'a Value> {
     let max_lines = if file.is_some() {
         MEMORY_BRIEF_LINES_WITH_FILE
     } else {
@@ -881,7 +909,7 @@ pub fn briefed_memories<'a>(
     } else {
         MEMORY_BRIEF_BUDGET
     };
-    let candidates = memories_for_brief(rows, query, max_lines);
+    let candidates = memories_for_brief_by(rows, query, max_lines, similarity);
     let mut briefed = Vec::new();
     let mut spent = 0usize;
     for memory in candidates.into_iter().take(max_lines) {

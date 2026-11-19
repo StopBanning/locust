@@ -1333,6 +1333,14 @@ apps/desktop/src/main/memory-reader.test.ts	off means nothing is read; a run tha
 apps/desktop/src/main/memory-reader.test.ts	a conversation nobody owns is attributed as one; a store that refuses is not a crash, and the person is told why	no
 apps/desktop/src/main/memory-reader.test.ts	puts an everywhere memory to the person, in auto mode, while a folder one keeps itself	no
 apps/desktop/src/main/memory-reader.test.ts	says how many memory lines past the cap were not kept	no
+apps/desktop/src/main/memory-recall.test.ts	lower-cases, strips accents, splits punctuation and spells a word in the longest pieces it has	no
+apps/desktop/src/main/memory-recall.test.ts	stops at the model's 256 tokens, and still ends the sentence	no
+apps/desktop/src/main/memory-recall.test.ts	scores each note by how close it is to what was asked, in the notes' order	no
+apps/desktop/src/main/memory-recall.test.ts	embeds a note once, and keeps it for the next launch	no
+apps/desktop/src/main/memory-recall.test.ts	answers nothing, and says so once, when the model cannot load	no
+apps/desktop/src/main/memory-recall.test.ts	never holds a brief up: a slow answer is no answer, and the next brief has it	no
+apps/desktop/src/main/memory-recall.test.ts	pastes the closest first, the newer first on a tie	yes
+apps/desktop/src/main/memory-recall.test.ts	is exactly the keyword brief when recall did not answer	yes
 apps/desktop/src/main/memory-says-how-old.test.ts	says it the way a person would	no
 apps/desktop/src/main/memory-says-how-old.test.ts	says nothing rather than something wrong	no
 apps/desktop/src/main/memory-says-how-old.test.ts	puts the age beside who wrote it, in the brief itself	no
