@@ -61,3 +61,18 @@ fn huge(path: &str, page: bool) -> String {
     assert_eq!(counts(&t.items),(2,1));
     let Item::Tool{detail,..}=&t.items[0] else {panic!()}; assert_eq!(detail.reported_by,"codex");
 }
+
+// diff.ts fileRowCounts: across a cut patch of several files the tool's total belongs to none, and a cut excerpt's
+// lines are not a file's change, so no row and no header says counts; an uncut patch says each file's own.
+#[test]
+fn a_cut_patch_of_several_files_says_no_counts_and_an_uncut_one_says_each_files() {
+    let text = "--- a/a.ts\n+++ b/a.ts\n@@ -1 +1 @@\n-x\n+y\n--- a/b.ts\n+++ b/b.ts\n@@ -1 +1,2 @@\n-p\n+q\n+r\n";
+    let cut = edited(text, 900, 900, true);
+    let rows = files(&cut);
+    assert_eq!(rows.len(), 2);
+    assert!(rows.iter().all(|f| f.row_counts().is_none() && f.large), "{rows:?}");
+    assert_eq!(header_counts(&[cut], None), None);
+    let whole = edited(text, 3, 2, false);
+    assert_eq!(files(&whole).iter().map(FileEntry::row_counts).collect::<Vec<_>>(), vec![Some((1, 1)), Some((2, 1))]);
+    assert_eq!(header_counts(&[whole], None), Some((3, 2)));
+}

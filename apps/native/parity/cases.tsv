@@ -2374,6 +2374,9 @@ apps/desktop/src/renderer/src/a-key-is-asked-for-on-a-card.test.tsx	lists a team
 apps/desktop/src/renderer/src/a-kilo-model-has-one-name.test.ts	says the name Kilo lists it by, as the picker does	no
 apps/desktop/src/renderer/src/a-kilo-model-has-one-name.test.ts	leaves every other runtime to spell its ids	no
 apps/desktop/src/renderer/src/a-kilo-model-has-one-name.test.ts	spells the id while Kilo has not listed its models yet	yes
+apps/desktop/src/renderer/src/a-large-diff-says-the-right-counts.test.tsx	never says +0 with a deletion count when lines were added in a recorded LARGE rewrite	yes
+apps/desktop/src/renderer/src/a-large-diff-says-the-right-counts.test.tsx	shows no counts and lets LARGE say it when true counts cannot be known	yes
+apps/desktop/src/renderer/src/a-large-diff-says-the-right-counts.test.tsx	leaves a small diff's counts unchanged	yes
 apps/desktop/src/renderer/src/a-locust-bot-draws-before-its-first-frame.test.ts	is drawn once before any animation frame, so a page that paints none still shows it	yes
 apps/desktop/src/renderer/src/a-locust-bot-draws-before-its-first-frame.test.ts	then moves and draws while it is showing, and only then	yes
 apps/desktop/src/renderer/src/a-locust-bot-draws-before-its-first-frame.test.ts	draws at most 30 frames a second: every other frame at 60 Hz, every fifth at 144	yes

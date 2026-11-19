@@ -279,3 +279,14 @@ Next: part 1b opens-the-plan, then orb, frame-pass.
   `a_plan_in_a_turn_that_did_work_keeps_its_label_counter_and_markers`.
 - Breaks: gutter at ten -> the gutter test; every plan an answer -> the did-work test; the empty guard survives
   (an empty list draws nothing either way, an equivalent change). Rows plan-answer and a-plan-shows carried.
+
+### Part 2: a large diff says the right counts (19 Nov, picked up by the Mac chat)
+- A file row said the cut excerpt's counts (+0 -747 for a 1,700-line rewrite) and then "runtime reported +a -d".
+  Now Electron's `fileRowCounts` (`core/src/activity_entries.rs` `FileEntry::row_counts`, new `truncated` field):
+  the tool's record, else none when cut, else the drawn lines. The card's header adds up the rows' own counts, or
+  says none when any row has none (`header_counts`, ActivityCard.tsx). Counts read as `changes::line_counts`
+  (Electron's LineCounts: no zero side, U+2212 minus), and "large" is lowercase, as on Electron's file row.
+- Tests: `activity_drawers::tests::never_says_0_with_a_deletion_count_when_lines_were_added_in_a_recorded_large_rewrite`,
+  `shows_no_counts_and_lets_large_say_it_when_true_counts_cannot_be_known`, `leaves_a_small_diffs_counts_unchanged`,
+  and `activity_entries::tests::a_cut_patch_of_several_files_says_no_counts_and_an_uncut_one_says_each_files`; three
+  older drawer tests now read the U+2212 minus. Breaks 5 of 5 killed.

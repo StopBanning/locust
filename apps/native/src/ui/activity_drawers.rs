@@ -350,10 +350,13 @@ fn activity_item_with_files(item: &ledger::Item, p: &Palette, s: &State, scope: 
         for entry in &files {
             let key = format!("{scope}/{}", entry.key);
             let open = s.activity_open.get(&key).copied().unwrap_or(default == Some(entry.key.as_str()));
-            let (a, d) = entry.counts;
-            let mut label = format!("{} {} +{a} -{d}", entry.file.path, entry.file.status);
-            if entry.large { label.push_str(" · LARGE"); }
-            if let Some((a,d)) = entry.reported { label.push_str(&format!(" · runtime reported +{a} -{d}")); }
+            // ActivityCard.tsx: "large" when it is, and counts only when they are the change's own (fileRowCounts).
+            let mut label = format!("{} {}", entry.file.path, entry.file.status);
+            if entry.large { label.push_str(" · large"); }
+            if let Some((a, d)) = entry.row_counts().filter(|(a, d)| a + d > 0) {
+                label.push(' ');
+                label.push_str(&locust_core::changes::line_counts(a, d));
+            }
             let mut card = col().w_full().child(disclosure(key, label, open, p));
             if open { card = card.child(super::review_changes::file_diff(s, None, false, &entry.file, p)); }
             rows = rows.child(card);
@@ -507,12 +510,15 @@ pub(super) fn activity_group(items: &[ledger::Item], p: &Palette, s: &State, sco
     let finished = items.iter().filter_map(|i| if let ledger::Item::Tool { detail, .. } = i { Some(detail.finished) } else { None }).all(|f| f);
     let workspace = selected_conversation(s).and_then(|(t,_)| t.folder.as_deref());
     let entries = locust_core::activity_entries::net_entries(items, workspace);
-    let (added, removed) = locust_core::activity_entries::counts_in(items, workspace);
+    let counts = locust_core::activity_entries::header_counts(items, workspace);
     // The line is `stepsLine`'s (Thread.tsx: the closed line, or the open one, which drops a lone thought's preview):
     // its sentence, then the file counts beside it (ActivityCard's LineCounts), and its amber outcomes under it.
     let line = locust_core::steps_line::steps_line(items, finished, workspace, open);
     let mut label = line.segments[0].text.clone();
-    if added + removed > 0 { label.push_str(&format!(" +{added} -{removed}")); }
+    if let Some((added, removed)) = counts.filter(|(a, d)| a + d > 0) {
+        label.push(' ');
+        label.push_str(&locust_core::changes::line_counts(added, removed));
+    }
     let rest: Vec<&locust_core::steps_line::Segment> = line.segments[1..].iter().collect();
     let outcome = (!rest.is_empty()).then(|| (rest.iter().map(|seg| seg.text.as_str()).collect::<Vec<_>>().join(" \u{b7} "), rest.iter().any(|seg| seg.amber) || line.segments[0].amber));
     // A thought that is only its headline has nothing to open onto (ActivityCard 0.875, Colin's frame of 13 Nov:
@@ -629,12 +635,12 @@ mod tests {
         let mut s = State::default();
         s.activity_open.insert("conv/group/step".into(), true);
         let said = group_text(&items, &mut s);
-        assert!(said.contains("+2 -2"), "{said}");
-        assert!(!said.contains("+3 -3"), "{said}");
+        assert!(said.contains("+2 \u{2212}2"), "{said}");
+        assert!(!said.contains("+3"), "{said}");
         assert!(said.contains("Step change"), "{said}");
-        assert!(!said.contains("+1 -1"), "{said}");
+        assert!(!said.contains("+1 \u{2212}1"), "{said}");
         s.activity_open.insert("conv/step/step".into(), true);
-        assert!(group_text(&items, &mut s).contains("+1 -1"));
+        assert!(group_text(&items, &mut s).contains("+1 \u{2212}1"));
     }
 
     fn group_text(items: &[ledger::Item], s: &mut State) -> String {
@@ -846,7 +852,7 @@ mod tests {
         let mut s = State::default();
         s.activity_open.insert("conv/group/t1".into(), true);
         let said = group_text(&[item], &mut s);
-        assert!(said.contains("src/billing.ts MODIFIED +1 -1"), "{said}");
+        assert!(said.contains("src/billing.ts MODIFIED +1 \u{2212}1"), "{said}");
         assert!(said.contains("old") && said.contains("new"), "{said}");
         assert!(!said.contains("900") && !said.contains("change not reported"), "{said}");
     }
@@ -861,8 +867,59 @@ mod tests {
         if let ledger::Item::Tool { detail, .. } = &mut second { detail.id="t2".into(); }
         let mut s=State::default(); s.activity_open.insert("conv/group/t1".into(),true);
         let said=group_text(&[first,second],&mut s);
-        assert_eq!(said.matches("notes.md MODIFIED +1 -0").count(),1,"{said}");
-        assert!(said.contains("+1 -0"),"{said}"); assert!(!said.contains("+2 -0"),"{said}");
+        assert_eq!(said.matches("notes.md MODIFIED +1").count(),1,"{said}");
+        assert!(!said.contains("+2"),"{said}");
+    }
+
+    // a-large-diff-says-the-right-counts.test.tsx: a cut excerpt's lines are never shown as the change's counts.
+    fn cut_lines() -> String {
+        let mut out = vec!["--- a/src/big.ts".to_owned(), "+++ b/src/big.ts".to_owned(), "@@ -1,1700 +1,1700 @@".to_owned()];
+        out.extend((1..=747).map(|i| format!("-line {i}")));
+        out.join("\n")
+    }
+
+    fn edit(text: String, added: usize, removed: usize, truncated: bool) -> ledger::Item {
+        let mut item = sample_tool("t1", "edit", "src/big.ts", false);
+        if let ledger::Item::Tool { detail, .. } = &mut item {
+            detail.patch = Some(locust_core::activity_entries::Patch { text, added, removed, truncated });
+        }
+        item
+    }
+
+    fn opened(item: ledger::Item) -> String {
+        let mut s = State::default();
+        s.activity_open.insert("conv/group/t1".into(), true);
+        group_text(&[item], &mut s)
+    }
+
+    #[test]
+    fn never_says_0_with_a_deletion_count_when_lines_were_added_in_a_recorded_large_rewrite() {
+        let said = opened(edit(cut_lines(), 1700, 1700, true));
+        assert!(said.contains("src/big.ts MODIFIED · large +1700 \u{2212}1700"), "{said}");
+        assert!(!said.contains("+0"), "{said}");
+        assert!(!said.contains("\u{2212}747"), "{said}");
+    }
+
+    #[test]
+    fn shows_no_counts_and_lets_large_say_it_when_true_counts_cannot_be_known() {
+        let text = format!("{}\n--- a/src/other.ts\n+++ b/src/other.ts\n@@ -1,1 +1,1 @@\n-a\n+b\n", cut_lines());
+        let said = opened(edit(text, 1701, 1701, true));
+        // Electron reads this cut patch as one file (the hunk's counts decide) and, one file, trusts the tool's total.
+        assert!(said.contains("src/big.ts MODIFIED · large"), "{said}");
+        assert!(!said.contains("+0"), "{said}");
+        assert!(!said.contains("\u{2212}747"), "{said}");
+    }
+
+    #[test]
+    fn leaves_a_small_diffs_counts_unchanged() {
+        let small = "--- a/src/small.ts\n+++ b/src/small.ts\n@@ -1,2 +1,3 @@\n unchanged\n-old\n+new 1\n+new 2".to_owned();
+        let mut item = edit(small, 2, 1, false);
+        if let ledger::Item::Tool { summary, .. } = &mut item {
+            *summary = "src/small.ts".into();
+        }
+        let said = opened(item);
+        assert!(said.contains("src/small.ts MODIFIED +2 \u{2212}1"), "{said}");
+        assert!(!said.contains("large"), "{said}");
     }
 
 }
