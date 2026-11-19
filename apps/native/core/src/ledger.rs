@@ -725,6 +725,8 @@ pub struct Transcript {
     pub edit_check: Option<Value>,
     pub recovery: Option<crate::recovery::Offer>,
     pub context: Option<crate::context_usage::Reading>,
+    /// The phase the host sent while the run starts ("Reading the folder"); it takes the word "Starting"'s place.
+    pub starting_label: Option<String>,
 }
 
 fn parse_peer_link(record: &Value) -> Option<PeerLink> {
@@ -746,6 +748,20 @@ fn parse_peer_link(record: &Value) -> Option<PeerLink> {
 }
 
 impl Transcript {
+    /// The live line, from the held events, the start's phase the host sent and whether the turn is in Plan mode.
+    fn refresh_live(&mut self, events: &[Value]) {
+        self.live = crate::thread_view::live_line_in(events, self.running,
+            self.metadata.as_ref().map(|m| m.created_at.as_str()).unwrap_or(""), false, self.starting_label.as_deref(),
+            self.metadata.as_ref().is_some_and(|m| m.mode.as_deref() == Some("plan")));
+    }
+
+    /// The host's phase for a run that is starting ("Reading the folder"); the live line says it in place of "Starting".
+    pub fn set_starting_label(&mut self, label: Option<String>) {
+        self.starting_label = label;
+        let events: Vec<Value> = self.events.values().cloned().collect();
+        self.refresh_live(&events);
+    }
+
     /// The events this turn draws from: its opening and its newest, a reply folded into one.
     pub fn events_in_view(&self) -> impl DoubleEndedIterator<Item = &Value> {
         self.events.values()
@@ -1353,8 +1369,7 @@ impl Transcript {
         let event_vec: Vec<Value> = self.events.values().cloned().collect();
         self.signal_rail = crate::signal_rail::build(&event_vec, self.running);
         self.cost = crate::relay::mission_cost_from_events(&event_vec);
-        self.live = crate::thread_view::live_line(&event_vec, self.running,
-            self.metadata.as_ref().map(|m| m.created_at.as_str()).unwrap_or(""), false);
+        self.refresh_live(&event_vec);
         if self.trimmed {
             // missionView buildThread: the notice heads the turn's items, which draw below its prompt.
             let at = usize::from(matches!(items.first(), Some(Item::User(_) | Item::CheckFix { .. })));
@@ -1944,6 +1959,14 @@ impl Session {
                 reader.edits.clone()
             };
             snapshot.turn_edits.insert(reader.id.clone(), turn_edits);
+            // The start's phase (startPhase.ts `carriedStartPhase`): `native::send` returns once the ledger exists and the
+            // runtime is being launched on its own thread, so the phase the host is in from then until the runtime's first
+            // word is Electron's `starting-runtime`, "Starting Codex". The live line drops it the moment anything arrives.
+            if is_tip && snapshot.running && reader.transcript.starting_label.is_none()
+                && let Some(label) = reader.transcript.metadata.as_ref().and_then(|m| crate::thread_view::launched_phase_label(&m.runtime))
+            {
+                reader.transcript.set_starting_label(Some(label));
+            }
             snapshot.live = if snapshot.running { reader.transcript.live.clone() } else { None };
             snapshot.failed = reader.transcript.failed;
             snapshot.never_started = crate::thread_view::runtime_never_started(reader.transcript.events.values());
@@ -2777,6 +2800,31 @@ mod tests {
             transcript.items.last(),
             Some(Item::Assistant { text, .. }) if text.len() == MAX_ASSISTANT
         ));
+    }
+
+    // case: leads with the phase, swept, in the place of the word "starting" (the host's phase reaches the snapshot)
+    #[test]
+    fn a_launched_run_that_has_said_nothing_yet_reads_as_starting_its_runtime() {
+        let temp = Temp::new();
+        let mut first = created("m1", "Reply with one word");
+        first["metadata"]["runtime"] = json!("opencode");
+        write(&temp.path("m1"), &[first]);
+        let snapshot = Session::new(temp.0.clone(), "m1".into()).poll().unwrap();
+        assert!(snapshot.running);
+        let live = snapshot.live.expect("a running turn has a live line");
+        assert_eq!(crate::thread_view::sweep_text(&live.label), "Starting OpenCode\u{2026}");
+        // Once the runtime speaks, the phase is gone.
+        let mut started = created("m2", "Reply with one word");
+        started["metadata"]["runtime"] = json!("codex");
+        write(&temp.path("m2"), &[started, event(1, "run.started", json!({})), event(2, "step.started", json!({"stepKind": "reasoning", "itemId": "r"}))]);
+        let live = Session::new(temp.0.clone(), "m2".into()).poll().unwrap().live.expect("still running");
+        assert!(!live.label.contains("Starting Codex"), "{}", live.label);
+        // A runtime Locust does not name keeps the word.
+        let mut other = created("m3", "Reply with one word");
+        other["metadata"]["runtime"] = json!("someone-else");
+        write(&temp.path("m3"), &[other]);
+        let live = Session::new(temp.0.clone(), "m3".into()).poll().unwrap().live.expect("running");
+        assert_eq!(crate::thread_view::sweep_text(&live.label), "Starting\u{2026}");
     }
 
     #[test]

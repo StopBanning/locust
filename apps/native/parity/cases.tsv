@@ -2468,12 +2468,15 @@ apps/desktop/src/renderer/src/a-key-is-asked-for-on-a-card.test.tsx	lists a team
 apps/desktop/src/renderer/src/a-kilo-model-has-one-name.test.ts	says the name Kilo lists it by, as the picker does	no
 apps/desktop/src/renderer/src/a-kilo-model-has-one-name.test.ts	leaves every other runtime to spell its ids	no
 apps/desktop/src/renderer/src/a-kilo-model-has-one-name.test.ts	spells the id while Kilo has not listed its models yet	yes
+apps/desktop/src/renderer/src/a-large-diff-says-the-right-counts.test.tsx	never says +0 with a deletion count when lines were added in a recorded LARGE rewrite	yes
+apps/desktop/src/renderer/src/a-large-diff-says-the-right-counts.test.tsx	shows no counts and lets LARGE say it when true counts cannot be known	yes
+apps/desktop/src/renderer/src/a-large-diff-says-the-right-counts.test.tsx	leaves a small diff's counts unchanged	yes
 apps/desktop/src/renderer/src/a-locust-bot-draws-before-its-first-frame.test.ts	is drawn once before any animation frame, so a page that paints none still shows it	yes
 apps/desktop/src/renderer/src/a-locust-bot-draws-before-its-first-frame.test.ts	then moves and draws while it is showing, and only then	yes
 apps/desktop/src/renderer/src/a-locust-bot-draws-before-its-first-frame.test.ts	draws at most 30 frames a second: every other frame at 60 Hz, every fifth at 144	yes
 apps/desktop/src/renderer/src/a-locust-bot-draws-before-its-first-frame.test.ts	draws at most 15 frames a second at the side, beside a name (0.670), still moving a whole second	yes
 apps/desktop/src/renderer/src/a-locust-bot-draws-before-its-first-frame.test.ts	stops when asked, cancelling the frame it was waiting on	yes
-apps/desktop/src/renderer/src/a-long-call-is-named-while-it-runs.test.ts	is one row, now carrying the command and what it is for	no
+apps/desktop/src/renderer/src/a-long-call-is-named-while-it-runs.test.ts	is one row, now carrying the command and what it is for	yes
 apps/desktop/src/renderer/src/a-long-call-is-named-while-it-runs.test.ts	puts the description on the live line, not the tool	yes
 apps/desktop/src/renderer/src/a-long-call-is-named-while-it-runs.test.ts	keeps the clock from when the call began	yes
 apps/desktop/src/renderer/src/a-long-conversation-has-a-rail-of-your-messages.test.tsx	gives a rail to four of your messages when the thread scrolls, and withholds it otherwise	no
@@ -2490,10 +2493,10 @@ apps/desktop/src/renderer/src/a-long-conversation-opens-on-its-newest-turns.test
 apps/desktop/src/renderer/src/a-long-conversation-opens-on-its-newest-turns.test.tsx	each "show earlier" adds a budget	yes
 apps/desktop/src/renderer/src/a-long-conversation-opens-on-its-newest-turns.test.tsx	a long one opens on its newest turns, with the older ones a press (or a scroll) away	yes
 apps/desktop/src/renderer/src/a-long-conversation-opens-on-its-newest-turns.test.tsx	a short one is whole, with nothing to press	yes
-apps/desktop/src/renderer/src/a-long-silent-stretch-reads-as-its-moves.test.ts	starts a new line each time the model thinks, led by what it thought about	no
-apps/desktop/src/renderer/src/a-long-silent-stretch-reads-as-its-moves.test.ts	leaves a turn with no thinking reported as one line between what was said (Claude Code without thinking)	no
+apps/desktop/src/renderer/src/a-long-silent-stretch-reads-as-its-moves.test.ts	starts a new line each time the model thinks, led by what it thought about	yes
+apps/desktop/src/renderer/src/a-long-silent-stretch-reads-as-its-moves.test.ts	leaves a turn with no thinking reported as one line between what was said (Claude Code without thinking)	yes
 apps/desktop/src/renderer/src/a-long-silent-stretch-reads-as-its-moves.test.ts	reads a headline only where the summary leads with one	yes
-apps/desktop/src/renderer/src/a-long-silent-stretch-reads-as-its-moves.test.ts	carries the summary Codex shows, and never the raw reasoning	no
+apps/desktop/src/renderer/src/a-long-silent-stretch-reads-as-its-moves.test.ts	carries the summary Codex shows, and never the raw reasoning	yes
 apps/desktop/src/renderer/src/a-long-turn-keeps-what-it-said.test.ts	is longer than the old window held, as Colin's run was	yes
 apps/desktop/src/renderer/src/a-long-turn-keeps-what-it-said.test.ts	keeps both messages in a running turn of that length	yes
 apps/desktop/src/renderer/src/a-long-turn-keeps-what-it-said.test.ts	draws the live run and the record through one window	yes
@@ -2516,6 +2519,11 @@ apps/desktop/src/renderer/src/a-model-has-one-name.test.ts	leaves Locust's own "
 apps/desktop/src/renderer/src/a-model-has-one-name.test.ts	never takes a different name, and keeps runtimes apart	no
 apps/desktop/src/renderer/src/a-model-is-one-line.test.tsx	keeps what the catalogue says, and leaves the effort levels to the hover	yes
 apps/desktop/src/renderer/src/a-model-is-one-line.test.tsx	a model the catalogue says nothing about keeps its levels as its line, in words	yes
+apps/desktop/src/renderer/src/a-new-document-reads-as-one.test.tsx	is known: a new Markdown file, and nothing else	yes
+apps/desktop/src/renderer/src/a-new-document-reads-as-one.test.tsx	is its written text, every added line in order	yes
+apps/desktop/src/renderer/src/a-new-document-reads-as-one.test.tsx	is drawn as the page it is, with the whole file one press away	yes
+apps/desktop/src/renderer/src/a-new-document-reads-as-one.test.tsx	still opens a CHANGED document as its change, and a new script as code	yes
+apps/desktop/src/renderer/src/a-new-document-reads-as-one.test.tsx	offers no Open where the fold has no viewer to open	yes
 apps/desktop/src/renderer/src/a-new-person-is-met-where-they-are.test.tsx	offers to make something, not to read a project that is not there	yes
 apps/desktop/src/renderer/src/a-new-person-is-met-where-they-are.test.tsx	offers its own starters once the folder holds something, and a template teammate without fresh ones keeps its own	yes
 apps/desktop/src/renderer/src/a-new-person-is-met-where-they-are.test.tsx	is told the folder is empty by the window, which asks again after each turn	no
@@ -2581,6 +2589,10 @@ apps/desktop/src/renderer/src/a-pet-plays-what-its-teammate-is-doing.test.ts	mea
 apps/desktop/src/renderer/src/a-plain-conversation-wears-the-ghost.test.tsx	beside a reply: the ghost when the conversation is nobody's, the teammate's own bot when it has one	yes
 apps/desktop/src/renderer/src/a-plain-conversation-wears-the-ghost.test.tsx	wears the ghost's own white, as the cover's ghost does (0.624), on the reply and the live row alike	no
 apps/desktop/src/renderer/src/a-plain-conversation-wears-the-ghost.test.tsx	on the live row: the same ghost while nobody's conversation thinks	yes
+apps/desktop/src/renderer/src/a-plan-shows-what-happened-to-it.test.ts	is marked as having touched nothing, so it draws as an answer	no
+apps/desktop/src/renderer/src/a-plan-shows-what-happened-to-it.test.ts	is NOT marked as having touched nothing, so its outcomes are drawn	no
+apps/desktop/src/renderer/src/a-plan-shows-what-happened-to-it.test.ts	counts the steps that finished	yes
+apps/desktop/src/renderer/src/a-plan-shows-what-happened-to-it.test.ts	reads Cursor's own status spelling	yes
 apps/desktop/src/renderer/src/a-plugged-in-computer-stays-awake-in-settings.test.ts	sits in Settings under Startup and says what it leaves alone	yes
 apps/desktop/src/renderer/src/a-proposed-change-says-what-it-changes.test.tsx	a rewrite shows the new words, the ones kept now, and Keep the change / Keep the old one	no
 apps/desktop/src/renderer/src/a-proposed-change-says-what-it-changes.test.tsx	a forget says so, and its buttons are Forget it / Keep it	no
@@ -2762,6 +2774,8 @@ apps/desktop/src/renderer/src/a-spreadsheet-opens-as-a-grid.test.tsx	previews a 
 apps/desktop/src/renderer/src/a-spreadsheet-opens-as-a-grid.test.tsx	names a workbook a command made as a changed file, and opens it	no
 apps/desktop/src/renderer/src/a-spreadsheet-opens-as-a-grid.test.tsx	keeps the teammate's own word on a changed file the host could not read (0.597)	no
 apps/desktop/src/renderer/src/a-spreadsheet-opens-as-a-grid.test.tsx	still says a runtime did not report a change it did not see on disk	no
+apps/desktop/src/renderer/src/a-step-keeps-its-own-change.test.ts	keep each step its own diff, after the turn has ended too	yes
+apps/desktop/src/renderer/src/a-step-keeps-its-own-change.test.ts	list each file once in the turn's files, as its net change	yes
 apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx	counts plan states even when unrelated tools and disk observations settled	yes
 apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx	uses the latest plan and never treats extra tool calls as completed plan steps	no
 apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx	shows a fully finished plan even without tool calls	no
@@ -2940,8 +2954,23 @@ apps/desktop/src/renderer/src/a-tune-says-when-a-setup-repeats.test.tsx	waits fo
 apps/desktop/src/renderer/src/a-turn-that-goes-quiet-says-so.test.tsx	says so after five minutes without a word, with Stop beside it	yes
 apps/desktop/src/renderer/src/a-turn-that-goes-quiet-says-so.test.tsx	says nothing while the turn is heard from, or while a command it named runs	no
 apps/desktop/src/renderer/src/a-turn-that-goes-quiet-says-so.test.tsx	counts whole minutes from when it was last heard, and only once there are five	yes
+apps/desktop/src/renderer/src/a-turns-steps-read-like-claude-code.test.ts	names a lone command by what the model said it was for (Claude Code)	yes
+apps/desktop/src/renderer/src/a-turns-steps-read-like-claude-code.test.ts	says a lone described command that failed as the thing not done	yes
+apps/desktop/src/renderer/src/a-turns-steps-read-like-claude-code.test.ts	counts reads and commands the way Claude Code does, naming nothing when it mixes kinds (0.610)	yes
+apps/desktop/src/renderer/src/a-turns-steps-read-like-claude-code.test.ts	reads a command that only looks as looking (Codex and Cursor send no descriptions)	yes
+apps/desktop/src/renderer/src/a-turns-steps-read-like-claude-code.test.ts	names what it made when that is all it did, and counts it beside other steps (0.610)	yes
+apps/desktop/src/renderer/src/a-turns-steps-read-like-claude-code.test.ts	says the thought only when nothing else was done: Claude Code's lines never lead with it (0.610)	yes
+apps/desktop/src/renderer/src/a-turns-steps-read-like-claude-code.test.ts	never hides what went wrong: failures, silence, refusals in amber after the words	yes
+apps/desktop/src/renderer/src/a-turns-steps-read-like-claude-code.test.ts	says searches, waits and a phrase-named read the way a person would	yes
+apps/desktop/src/renderer/src/a-turns-steps-read-like-claude-code.test.ts	reads a script, a phrase-named command and a folder searched as a person would	yes
+apps/desktop/src/renderer/src/a-turns-steps-read-like-claude-code.test.ts	names a connector and a tool it does not know by their own names	yes
+apps/desktop/src/renderer/src/a-turns-steps-read-like-claude-code.test.ts	cuts a long file name in the middle and keeps its extension	yes
+apps/desktop/src/renderer/src/a-turns-steps-read-like-claude-code.test.ts	offers shorter forms: names give way to counts, then the last phrases to "and N more"	yes
+apps/desktop/src/renderer/src/a-turns-steps-read-like-claude-code.test.ts	leaves a thought out of a line with other steps, and has nothing shorter for a lone failure	yes
 apps/desktop/src/renderer/src/a-week-with-scout-is-one-card.test.tsx	is one card, its lines under its sentence, its one suggestion as its button	no
 apps/desktop/src/renderer/src/a-week-with-scout-is-one-card.test.tsx	has no button but Dismiss when there is nothing to change	no
+apps/desktop/src/renderer/src/a-wordless-thought-does-not-start-a-line.test.ts	is one line when the thoughts say nothing	yes
+apps/desktop/src/renderer/src/a-wordless-thought-does-not-start-a-line.test.ts	still starts a line at a thought that says something	yes
 apps/desktop/src/renderer/src/a-wrapped-bullet-stays-one-bullet.test.ts	stays one bullet, with the whole sentence in it	yes
 apps/desktop/src/renderer/src/a-wrapped-bullet-stays-one-bullet.test.ts	keeps wrapping with the item it belongs to, not the one before	yes
 apps/desktop/src/renderer/src/a-wrapped-bullet-stays-one-bullet.test.ts	wraps a nested item into the nested item	yes
@@ -3688,6 +3717,13 @@ apps/desktop/src/renderer/src/permissions-panel-is-true.test.tsx	still refuses e
 apps/desktop/src/renderer/src/picker-empty-states.test.tsx	does not blame the search when the catalog has not arrived	yes
 apps/desktop/src/renderer/src/picker-empty-states.test.tsx	still blames the search when there genuinely is nothing like it	yes
 apps/desktop/src/renderer/src/picker-empty-states.test.tsx	is what the picker actually renders, not just what the helper returns	no
+apps/desktop/src/renderer/src/plan-answer.test.tsx	is an ordered list, not a card	yes
+apps/desktop/src/renderer/src/plan-answer.test.tsx	numbers the steps instead of giving them states	yes
+apps/desktop/src/renderer/src/plan-answer.test.tsx	has no header at all — not the label, not the counter	yes
+apps/desktop/src/renderer/src/plan-answer.test.tsx	widens the gutter past nine steps so the text column stays flush	yes
+apps/desktop/src/renderer/src/plan-answer.test.tsx	renders nothing at all when the turn produced no steps	yes
+apps/desktop/src/renderer/src/plan-answer.test.tsx	keeps its markers, its counter and its label	yes
+apps/desktop/src/renderer/src/plan-answer.test.tsx	also renders nothing when there are no steps	yes
 apps/desktop/src/renderer/src/post-headline.test.ts	says so when everyone answered	yes
 apps/desktop/src/renderer/src/post-headline.test.ts	names one or two, and counts more	yes
 apps/desktop/src/renderer/src/post-headline.test.ts	counts a queue separately from what was asked	yes

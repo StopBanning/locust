@@ -531,6 +531,35 @@ pub fn empty_diff_words(commits: usize) -> &'static str {
         "This commit changes no files Locust can show."
     }
 }
+/// A new file that reads better as itself than as its additions (DocPreview.tsx, 0.363 / 0.425).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NewDocument {
+    Markdown,
+    Table,
+    Page,
+}
+
+/// DocPreview.tsx `isNewDocument`: an ADDED Markdown file, table (csv, tsv) or web page (html, htm); never a changed
+/// one, and never code.
+pub fn new_document(file: &File) -> Option<NewDocument> {
+    if file.status != "ADDED" {
+        return None;
+    }
+    if crate::text_files::viewer_mode(&file.path) == crate::text_files::ViewerMode::Markdown {
+        return Some(NewDocument::Markdown);
+    }
+    match crate::text_files::extension_of(&file.path).as_str() {
+        "csv" | "tsv" => Some(NewDocument::Table),
+        "html" | "htm" => Some(NewDocument::Page),
+        _ => None,
+    }
+}
+
+/// DocPreview.tsx `documentTextOf`: every added line, in order.
+pub fn document_text_of(file: &File) -> String {
+    file.hunks.iter().flat_map(|h| h.rows.iter().filter(|r| r.kind == '+').map(|r| r.text.as_str())).collect::<Vec<_>>().join("\n")
+}
+
 pub fn line_counts(added: usize, removed: usize) -> String {
     let mut parts = vec![];
     if added > 0 {
@@ -963,5 +992,34 @@ mod tests {
         assert_eq!(got.showing, "all");
         let subjects: Vec<&str> = got.commits.iter().map(|(_, s)| s.as_str()).collect();
         assert_eq!(subjects, vec!["second try"]);
+    }
+}
+
+#[cfg(test)]
+mod new_document_tests {
+    // a-new-document-reads-as-one.test.tsx: the core of it.
+    use super::*;
+    const NEW_GUIDE: &str = "diff --git a/brand-guide.md b/brand-guide.md\nnew file mode 100644\n--- /dev/null\n+++ b/brand-guide.md\n@@ -0,0 +1,5 @@\n+# Small Bakery Brand Guide\n+\n+## Colour Palette\n+\n+- **Crust** `#6B4226` for headlines";
+    const EDITED_GUIDE: &str = "diff --git a/brand-guide.md b/brand-guide.md\n--- a/brand-guide.md\n+++ b/brand-guide.md\n@@ -1,3 +1,3 @@\n # Small Bakery Brand Guide\n-Warm and plain.\n+Warm, plain and proud.\n ## Colour Palette";
+    const NEW_SCRIPT: &str = "--- /dev/null\n+++ b/build.ts\n@@ -0,0 +1,1 @@\n+export const x = 1";
+
+    #[test]
+    fn is_known_a_new_markdown_file_and_nothing_else() {
+        assert_eq!(new_document(&parse(NEW_GUIDE)[0]), Some(NewDocument::Markdown));
+        assert_eq!(new_document(&parse(EDITED_GUIDE)[0]), None);
+        assert_eq!(new_document(&parse(NEW_SCRIPT)[0]), None);
+        // DocPreview's other two: a new table and a new page.
+        assert_eq!(new_document(&parse("--- /dev/null\n+++ b/a.csv\n@@ -0,0 +1 @@\n+a,b")[0]), Some(NewDocument::Table));
+        assert_eq!(new_document(&parse("--- /dev/null\n+++ b/a.html\n@@ -0,0 +1 @@\n+<p>")[0]), Some(NewDocument::Page));
+    }
+
+    #[test]
+    fn is_its_written_text_every_added_line_in_order() {
+        assert_eq!(
+            document_text_of(&parse(NEW_GUIDE)[0]),
+            "# Small Bakery Brand Guide\n\n## Colour Palette\n\n- **Crust** `#6B4226` for headlines"
+        );
+        // Added lines only: what stayed and what went are not written text.
+        assert_eq!(document_text_of(&parse(EDITED_GUIDE)[0]), "Warm, plain and proud.");
     }
 }

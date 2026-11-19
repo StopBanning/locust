@@ -832,3 +832,68 @@ fn never_reads_a_changed_file_through_a_link() {
     assert_eq!(host.read_text(&root.join("project").join("linked.txt")), None);
     let _ = std::fs::remove_dir_all(&root);
 }
+
+// a-step-keeps-its-own-change.test.ts (0.494): the host's net record of a file, read after the run, is the turn's
+// files card; each step keeps its own diff, after the turn has ended too.
+fn step_events() -> Vec<serde_json::Value> {
+    let diff = |path: &str, added: usize, removed: usize| {
+        json!({"text": format!("diff --git a/{path} b/{path}\n--- a/{path}\n+++ b/{path}\n@@ -1,{removed} +1,{added} @@\n{}{}", "-old\n".repeat(removed), "+new\n".repeat(added)), "truncated": false, "added": added, "removed": removed})
+    };
+    let mut events: Vec<serde_json::Value> = vec![];
+    let mut push = |kind: &str, payload: serde_json::Value| {
+        let n = events.len() + 1;
+        events.push(json!({"recordType": "mission.event", "event": {"type": kind, "sequence": n, "payload": payload}}));
+    };
+    push("run.started", json!({}));
+    for (id, tool, status, text, patch) in [
+        ("c1", "fileChange", None, None, Some(diff("src/cli.mjs", 80, 1))),
+        ("m1", "", None, Some("Refining the month check."), None),
+        ("c2", "fileChange", None, None, Some(diff("src/cli.mjs", 2, 2))),
+        ("m2", "", None, Some("Done."), None),
+        ("end", "", None, None, None),
+        ("o1", "observed_edit", Some("reported by the runtime, read from disk"), None, Some(diff("src/cli.mjs", 81, 1))),
+    ] {
+        if id == "end" {
+            push("run.completed", json!({}));
+            continue;
+        }
+        if let Some(text) = text {
+            push("message.delta", json!({"itemId": id, "operation": "append", "text": text, "final": true}));
+            continue;
+        }
+        let name = if tool == "fileChange" { "file_change" } else { "edit" };
+        let mut started = json!({"itemId": id, "toolKind": tool, "name": name, "command": "src/cli.mjs", "phase": "started"});
+        if let Some(status) = status { started["status"] = json!(status); }
+        let mut completed = started.clone();
+        completed["phase"] = json!("completed");
+        completed["patch"] = patch.unwrap();
+        push("tool.started", started);
+        push("tool.completed", completed);
+    }
+    events
+}
+
+#[test]
+fn keep_each_step_its_own_diff_after_the_turn_has_ended_too() {
+    let mut t = Transcript::default();
+    t.apply(step_events());
+    let steps: Vec<(usize, usize)> = t
+        .items
+        .iter()
+        .filter(|i| matches!(i, Item::Tool { detail, .. } if detail.id == "c1" || detail.id == "c2"))
+        .flat_map(activity_entries::files)
+        .map(|f| f.counts)
+        .collect();
+    assert_eq!(steps, vec![(80, 1), (2, 2)], "{:#?}", t.items);
+}
+
+#[test]
+fn list_each_file_once_in_the_turns_files_as_its_net_change() {
+    let mut t = Transcript::default();
+    t.apply(step_events());
+    let files: Vec<String> = activity_entries::net_entries(&t.items, None)
+        .iter()
+        .map(|(_, f)| format!("{} +{}/-{}", f.file.path, f.counts.0, f.counts.1))
+        .collect();
+    assert_eq!(files, vec!["src/cli.mjs +81/-1"]);
+}

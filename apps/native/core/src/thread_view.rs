@@ -203,6 +203,13 @@ pub fn live_action(title: Option<&str>, kind: &str, name: &str, command: Option<
     None
 }
 
+/// The start's phase once the host has launched the runtime (start-phase.ts `startPhaseLabel('starting-runtime', ..)`):
+/// "Starting Codex". None for a runtime Locust does not name (`startingLabelOf` needs `isMissionRuntime`).
+pub fn launched_phase_label(runtime: &str) -> Option<String> {
+    let name = crate::inspector::runtime_display_name(runtime);
+    (name != runtime).then(|| format!("Starting {name}"))
+}
+
 /// An approval owns the waiting state, even when the approved tool remains open.
 pub fn live_line(
     events: &[Value],
@@ -221,6 +228,19 @@ pub fn live_line_starting(
     started_at: &str,
     awaiting_decision: bool,
     starting_label: Option<&str>,
+) -> Option<LiveLine> {
+    live_line_in(events, running, started_at, awaiting_decision, starting_label, false)
+}
+
+/// `live_line_starting` that also knows the turn is in Plan mode, which holds the orb at `solving` while no call is open
+/// (`orbStateFor`'s Plan floor).
+pub fn live_line_in(
+    events: &[Value],
+    running: bool,
+    started_at: &str,
+    awaiting_decision: bool,
+    starting_label: Option<&str>,
+    plan_mode: bool,
 ) -> Option<LiveLine> {
     if !live_visible(running, awaiting_decision) {
         return None;
@@ -356,7 +376,7 @@ pub fn live_line_starting(
     let with_plan = detail.is_some() && detail == plan_aside && !plan_list.is_empty();
     let orb = match open_orbs.last() {
         Some((_, orb)) if open.last().is_some() => *orb,
-        _ => register_orb(&register, false),
+        _ => register_orb(&register, plan_mode),
     };
     Some(LiveLine {
         orb,

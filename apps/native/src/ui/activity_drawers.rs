@@ -242,6 +242,29 @@ pub(super) fn activity_drawer_key(scope: &str, item: &ledger::Item) -> String {
     }
 }
 
+/// A plan with no run behind it is the teammate's answer, not a card (ThreadItems.tsx `PlanSteps` with no outcomes): an
+/// ordered list beside the face, numbered rather than given states, with no PLAN label and no counter. Past nine steps
+/// the ordinal gutter widens so the text column stays flush (`is-wide`). No steps draws nothing.
+pub(super) fn plan_answer(steps: &[ledger::PlanStep], scope: &str, p: &Palette) -> Option<El> {
+    if steps.is_empty() {
+        return None;
+    }
+    let wide = steps.len() > 9;
+    let gutter = if wide { 22.0 } else { 14.0 };
+    let mut list = col().w_full().gap(6.0).key(format!("{scope}/plan-answer{}", if wide { "/is-wide" } else { "" }));
+    for (index, step) in steps.iter().enumerate() {
+        list = list.child(
+            row()
+                .w_full()
+                .gap(8.0)
+                .child(text(format!("{}", index + 1)).font(type_::BODY.mono()).color(p.muted).w(gutter).key(format!("{scope}/plan-ordinal/{index}")))
+                .child(text(step.text.clone()).font(type_::BODY).color(p.text).grow(1.0).shrink().wrap()),
+        );
+    }
+    // The thread keys each item it draws, so the list's own key sits one level in.
+    Some(col().w_full().child(list))
+}
+
 /// ThreadItems.tsx PlanCard (`.lc-plancard`): a card with a head ("PLAN", how many are done) over the steps, each with
 /// its marker: green once done, a pulsing dot on the step underway, faded when the run ended without reaching it.
 fn plan_card(steps: &[ledger::PlanStep], finished: bool, p: &Palette) -> El {
@@ -327,12 +350,20 @@ fn activity_item_with_files(item: &ledger::Item, p: &Palette, s: &State, scope: 
         for entry in &files {
             let key = format!("{scope}/{}", entry.key);
             let open = s.activity_open.get(&key).copied().unwrap_or(default == Some(entry.key.as_str()));
-            let (a, d) = entry.counts;
-            let mut label = format!("{} {} +{a} -{d}", entry.file.path, entry.file.status);
-            if entry.large { label.push_str(" · LARGE"); }
-            if let Some((a,d)) = entry.reported { label.push_str(&format!(" · runtime reported +{a} -{d}")); }
-            let mut card = col().w_full().child(disclosure(key, label, open, p));
-            if open { card = card.child(super::review_changes::file_diff(s, None, false, &entry.file, p)); }
+            // ActivityCard.tsx: "large" when it is, and counts only when they are the change's own (fileRowCounts).
+            let mut label = format!("{} {}", entry.file.path, entry.file.status);
+            if entry.large { label.push_str(" · large"); }
+            if let Some((a, d)) = entry.row_counts().filter(|(a, d)| a + d > 0) {
+                label.push(' ');
+                label.push_str(&locust_core::changes::line_counts(a, d));
+            }
+            let mut card = col().w_full().child(disclosure(key.clone(), label, open, p));
+            if open {
+                card = card.child(match locust_core::changes::new_document(&entry.file) {
+                    Some(locust_core::changes::NewDocument::Markdown) => doc_preview(s, &key, entry, p),
+                    _ => super::review_changes::file_diff(s, None, false, &entry.file, p),
+                });
+            }
             rows = rows.child(card);
         }
         return rows;
@@ -478,39 +509,65 @@ pub(super) fn activity_id(item: &ledger::Item) -> &str {
         _ => "",
     }
 }
+/// DocPreview.tsx: a new Markdown file drawn as the page it is (the renderer a reply uses), with Open beside it when
+/// there is a folder to open it from, and "Show the change" for its diff (and back).
+fn doc_preview(s: &State, key: &str, entry: &locust_core::activity_entries::FileEntry, p: &Palette) -> El {
+    let l = crate::look::controls::Look::new(p.dark);
+    let as_change_key = format!("{key}/as-change");
+    let name = entry.file.path.replace('\\', "/").rsplit('/').next().unwrap_or(&entry.file.path).to_owned();
+    let switch = |label: &str| {
+        let flip = as_change_key.clone();
+        crate::look::controls::button(&l, label, crate::look::controls::Tone::Neutral, false).on_press(move |s: &mut State| {
+            let now = s.activity_open.get(&flip).copied().unwrap_or(false);
+            s.activity_open.insert(flip.clone(), !now);
+        })
+    };
+    if s.activity_open.get(&as_change_key).copied().unwrap_or(false) {
+        return col()
+            .w_full()
+            .gap(6.0)
+            .child(super::review_changes::file_diff(s, None, false, &entry.file, p))
+            .child(row().child(switch("Show it as a document")));
+    }
+    let mut foot = row().w_full().gap(8.0).center_y();
+    if selected_conversation(s).is_some_and(|(t, _)| t.folder.is_some()) {
+        let path = entry.file.path.clone();
+        foot = foot.child(
+            crate::look::controls::button(&l, &format!("Open {name}"), crate::look::controls::Tone::Neutral, false).on_press(move |s: &mut State| {
+                super::reply_actions::open_file(s, super::reply_actions::FileTarget { path: path.clone(), start: 0, end: 0 });
+            }),
+        );
+    }
+    if entry.truncated {
+        foot = foot.child(text("Only its start was recorded here.").font(type_::LABEL).color(p.muted));
+    }
+    foot = foot.child(switch("Show the change"));
+    col()
+        .w_full()
+        .gap(6.0)
+        .role("region")
+        .label(format!("{name}, as written"))
+        .child(super::reply_actions::reply_with_copy(s, &locust_core::changes::document_text_of(&entry.file), false, false, p))
+        .child(foot)
+}
+
 pub(super) fn activity_group(items: &[ledger::Item], p: &Palette, s: &State, scope: &str) -> El {
     let key = format!("{scope}/group/{}", activity_id(&items[0]));
     let open = s.activity_open.get(&key).copied().unwrap_or(false);
-    let thought_ms: u64 = items.iter().filter_map(|i| if let ledger::Item::Thought { duration_ms, .. } = i { *duration_ms } else { None }).sum();
-    let headline = items.iter().rev().find_map(|i| if let ledger::Item::Thought { text, .. } = i { thought_headline(text).map(str::to_owned) } else { None });
     let finished = items.iter().filter_map(|i| if let ledger::Item::Tool { detail, .. } = i { Some(detail.finished) } else { None }).all(|f| f);
-    let run = locust_core::command_outcomes::commands_run(items, finished);
-    let names = items.iter().filter_map(|i| if let ledger::Item::Tool { name, detail, summary, .. } = i {
-        (locust_core::command_outcomes::is_shell(name) && !matches!(detail.runtime_status.as_str(), "refused" | "declined"))
-            .then(|| if detail.arguments.is_empty() { summary.clone() } else { detail.arguments.clone() })
-    } else { None }).collect::<Vec<_>>();
-    let outcome = locust_core::command_outcomes::commands_run_text(run, &names);
-    let mut words = Vec::new();
-    let summary = locust_core::activity_summary::activity_summary(items);
     let workspace = selected_conversation(s).and_then(|(t,_)| t.folder.as_deref());
     let entries = locust_core::activity_entries::net_entries(items, workspace);
-    let (added, removed) = locust_core::activity_entries::counts_in(items, workspace);
-    if added + removed > 0 { words.push(format!("+{added} -{removed}")); }
-    if summary != "No tool activity" { words.push(summary); }
-    let mut label = headline.unwrap_or_else(|| {
-        if words.is_empty() {
-            if thought_ms >= 1000 {
-                format!("Thought for {}", ledger::duration_text(thought_ms))
-            } else {
-                "Thought".into()
-            }
-        } else {
-            words.join(", ")
-        }
-    });
-    if let Some(first) = label.chars().next() {
-        label = format!("{}{}", first.to_uppercase(), &label[first.len_utf8()..]);
+    let counts = locust_core::activity_entries::header_counts(items, workspace);
+    // The line is `stepsLine`'s (Thread.tsx: the closed line, or the open one, which drops a lone thought's preview):
+    // its sentence, then the file counts beside it (ActivityCard's LineCounts), and its amber outcomes under it.
+    let line = locust_core::steps_line::steps_line(items, finished, workspace, open);
+    let mut label = line.segments[0].text.clone();
+    if let Some((added, removed)) = counts.filter(|(a, d)| a + d > 0) {
+        label.push(' ');
+        label.push_str(&locust_core::changes::line_counts(added, removed));
     }
+    let rest: Vec<&locust_core::steps_line::Segment> = line.segments[1..].iter().collect();
+    let outcome = (!rest.is_empty()).then(|| (rest.iter().map(|seg| seg.text.as_str()).collect::<Vec<_>>().join(" \u{b7} "), rest.iter().any(|seg| seg.amber) || line.segments[0].amber));
     // A thought that is only its headline has nothing to open onto (ActivityCard 0.875, Colin's frame of 13 Nov:
     // "Waiting for script output" opened onto an empty quote bar). The headline is already the line, so such a
     // thought draws nothing inside the step, and a step with nothing else inside is a line with no chevron.
@@ -522,8 +579,8 @@ pub(super) fn activity_group(items: &[ledger::Item], p: &Palette, s: &State, sco
         disclosure(key, label, open, p)
     };
     let mut group = col().w_full().gap(4.0).child(heading);
-    if let Some(outcome) = &outcome {
-        group = group.child(text(&outcome.text).font(type_::LABEL).color(if outcome.amber { p.amber } else { p.muted }).w_full());
+    if let Some((said, amber)) = &outcome {
+        group = group.child(text(said).font(type_::LABEL).color(if *amber { p.amber } else { p.muted }).w_full());
     }
     // The pictures the step read or made, under its line whether or not it is open (ThreadImage, laid out as Claude's
     // app shows a turn's screenshots).
@@ -625,12 +682,12 @@ mod tests {
         let mut s = State::default();
         s.activity_open.insert("conv/group/step".into(), true);
         let said = group_text(&items, &mut s);
-        assert!(said.contains("+2 -2"), "{said}");
-        assert!(!said.contains("+3 -3"), "{said}");
+        assert!(said.contains("+2 \u{2212}2"), "{said}");
+        assert!(!said.contains("+3"), "{said}");
         assert!(said.contains("Step change"), "{said}");
-        assert!(!said.contains("+1 -1"), "{said}");
+        assert!(!said.contains("+1 \u{2212}1"), "{said}");
         s.activity_open.insert("conv/step/step".into(), true);
-        assert!(group_text(&items, &mut s).contains("+1 -1"));
+        assert!(group_text(&items, &mut s).contains("+1 \u{2212}1"));
     }
 
     fn group_text(items: &[ledger::Item], s: &mut State) -> String {
@@ -661,8 +718,8 @@ mod tests {
         ];
         let mut s = State::default();
         let folded_text = group_text(&items, &mut s);
-        assert!(folded_text.contains("Ran 1 command · 1 tool call"));
-        assert!(folded_text.contains("ran cargo"));
+        // stepsLine's counts: mixed kinds name nothing (0.610).
+        assert!(folded_text.contains("Read a file, ran a command"), "{folded_text}");
         assert!(!folded_text.contains("Read Cargo.toml"));
         assert!(!folded_text.contains("cargo test"));
 
@@ -842,7 +899,7 @@ mod tests {
         let mut s = State::default();
         s.activity_open.insert("conv/group/t1".into(), true);
         let said = group_text(&[item], &mut s);
-        assert!(said.contains("src/billing.ts MODIFIED +1 -1"), "{said}");
+        assert!(said.contains("src/billing.ts MODIFIED +1 \u{2212}1"), "{said}");
         assert!(said.contains("old") && said.contains("new"), "{said}");
         assert!(!said.contains("900") && !said.contains("change not reported"), "{said}");
     }
@@ -857,8 +914,131 @@ mod tests {
         if let ledger::Item::Tool { detail, .. } = &mut second { detail.id="t2".into(); }
         let mut s=State::default(); s.activity_open.insert("conv/group/t1".into(),true);
         let said=group_text(&[first,second],&mut s);
-        assert_eq!(said.matches("notes.md MODIFIED +1 -0").count(),1,"{said}");
-        assert!(said.contains("+1 -0"),"{said}"); assert!(!said.contains("+2 -0"),"{said}");
+        assert_eq!(said.matches("notes.md MODIFIED +1").count(),1,"{said}");
+        assert!(!said.contains("+2"),"{said}");
+    }
+
+    // a-large-diff-says-the-right-counts.test.tsx: a cut excerpt's lines are never shown as the change's counts.
+    fn cut_lines() -> String {
+        let mut out = vec!["--- a/src/big.ts".to_owned(), "+++ b/src/big.ts".to_owned(), "@@ -1,1700 +1,1700 @@".to_owned()];
+        out.extend((1..=747).map(|i| format!("-line {i}")));
+        out.join("\n")
+    }
+
+    fn edit(text: String, added: usize, removed: usize, truncated: bool) -> ledger::Item {
+        let mut item = sample_tool("t1", "edit", "src/big.ts", false);
+        if let ledger::Item::Tool { detail, .. } = &mut item {
+            detail.patch = Some(locust_core::activity_entries::Patch { text, added, removed, truncated });
+        }
+        item
+    }
+
+    fn opened(item: ledger::Item) -> String {
+        let mut s = State::default();
+        s.activity_open.insert("conv/group/t1".into(), true);
+        group_text(&[item], &mut s)
+    }
+
+    #[test]
+    fn never_says_0_with_a_deletion_count_when_lines_were_added_in_a_recorded_large_rewrite() {
+        let said = opened(edit(cut_lines(), 1700, 1700, true));
+        assert!(said.contains("src/big.ts MODIFIED · large +1700 \u{2212}1700"), "{said}");
+        assert!(!said.contains("+0"), "{said}");
+        assert!(!said.contains("\u{2212}747"), "{said}");
+    }
+
+    #[test]
+    fn shows_no_counts_and_lets_large_say_it_when_true_counts_cannot_be_known() {
+        let text = format!("{}\n--- a/src/other.ts\n+++ b/src/other.ts\n@@ -1,1 +1,1 @@\n-a\n+b\n", cut_lines());
+        let said = opened(edit(text, 1701, 1701, true));
+        // Electron reads this cut patch as one file (the hunk's counts decide) and, one file, trusts the tool's total.
+        assert!(said.contains("src/big.ts MODIFIED · large"), "{said}");
+        assert!(!said.contains("+0"), "{said}");
+        assert!(!said.contains("\u{2212}747"), "{said}");
+    }
+
+    #[test]
+    fn leaves_a_small_diffs_counts_unchanged() {
+        let small = "--- a/src/small.ts\n+++ b/src/small.ts\n@@ -1,2 +1,3 @@\n unchanged\n-old\n+new 1\n+new 2".to_owned();
+        let mut item = edit(small, 2, 1, false);
+        if let ledger::Item::Tool { summary, .. } = &mut item {
+            *summary = "src/small.ts".into();
+        }
+        let said = opened(item);
+        assert!(said.contains("src/small.ts MODIFIED +2 \u{2212}1"), "{said}");
+        assert!(!said.contains("large"), "{said}");
+    }
+
+    // a-new-document-reads-as-one.test.tsx: a new Markdown file in the fold reads as its page.
+    const NEW_GUIDE: &str = "diff --git a/brand-guide.md b/brand-guide.md\nnew file mode 100644\n--- /dev/null\n+++ b/brand-guide.md\n@@ -0,0 +1,5 @@\n+# Small Bakery Brand Guide\n+\n+## Colour Palette\n+\n+- **Crust** `#6B4226` for headlines";
+
+    fn written(path: &str, patch: &str) -> ledger::Item {
+        let mut item = sample_tool("t1", "write", path, false);
+        if let ledger::Item::Tool { detail, .. } = &mut item {
+            let (a, d) = locust_core::changes::parse(patch).iter().fold((0, 0), |(a, d), f| { let c = f.counts(); (a + c.0, d + c.1) });
+            detail.patch = Some(locust_core::activity_entries::Patch { text: patch.into(), added: a, removed: d, truncated: false });
+        }
+        item
+    }
+
+    /// The fold open with its one file open, as Electron's `openByDefault`; and the roles drawn.
+    fn doc_fold(item: ledger::Item, folder: bool) -> (String, Vec<(&'static str, String)>) {
+        doc_fold_as(item, folder, false)
+    }
+
+    fn doc_fold_as(item: ledger::Item, folder: bool, as_change: bool) -> (String, Vec<(&'static str, String)>) {
+        let mut s = State::default();
+        if as_change {
+            s.activity_open.insert("conv/t1/file/0/as-change".into(), true);
+        }
+        s.activity_open.insert("conv/group/t1".into(), true);
+        s.activity_open.insert("conv/t1/file/0".into(), true);
+        if folder {
+            s.teammates.push(crate::Teammate { id: "tm".into(), name: "Iris".into(), role: "Custom".into(), model: None, runtime: Some("opencode".into()), folder: Some("C:/work".into()), runs_in: "ask".into(), account: None, busy: false });
+            s.conversations.insert("tm".into(), Default::default());
+        }
+        let mut rt = rune::Runtime::new((s, vec![item]), |(s, items), _| activity_group(items, &Palette::new(true), s, "conv"), (700.0, 900.0), rune::Env::new(true, 1.0));
+        rt.frame(0.0);
+        let all = rt.elements();
+        (all.iter().filter_map(|e| e.text.clone()).collect::<Vec<_>>().join("\n"), all.iter().map(|e| (e.role, e.label.clone().or(e.text.clone()).unwrap_or_default())).collect())
+    }
+
+    #[test]
+    fn is_drawn_as_the_page_it_is_with_the_whole_file_one_press_away() {
+        let (said, roles) = doc_fold(written("C:/work/brand-guide.md", NEW_GUIDE), true);
+        assert!(roles.iter().any(|(r, l)| *r == "region" && l == "brand-guide.md, as written"), "{said}");
+        assert!(roles.iter().any(|(r, l)| *r == "heading" && l.contains("Small Bakery Brand Guide")), "{roles:?}");
+        assert!(roles.iter().any(|(r, l)| *r == "button" && l == "Open brand-guide.md"), "{roles:?}");
+        assert!(roles.iter().any(|(r, l)| *r == "button" && l == "Show the change"), "{roles:?}");
+        assert!(!said.contains("## Colour Palette"), "no raw heading marks: {said}");
+        assert!(!said.contains("# Small Bakery"), "{said}");
+    }
+
+    #[test]
+    fn still_opens_a_changed_document_as_its_change_and_a_new_script_as_code() {
+        let edited = "diff --git a/brand-guide.md b/brand-guide.md\n--- a/brand-guide.md\n+++ b/brand-guide.md\n@@ -1,3 +1,3 @@\n # Small Bakery Brand Guide\n-Warm and plain.\n+Warm, plain and proud.\n ## Colour Palette";
+        let (said, roles) = doc_fold(written("C:/work/brand-guide.md", edited), true);
+        assert!(!roles.iter().any(|(r, _)| *r == "region"), "{said}");
+        assert!(said.contains("Warm and plain.") && said.contains("Warm, plain and proud."), "{said}");
+        let (code, roles) = doc_fold(written("C:/work/build.ts", "--- /dev/null\n+++ b/build.ts\n@@ -0,0 +1,1 @@\n+export const x = 1"), true);
+        assert!(!roles.iter().any(|(r, _)| *r == "region"), "{code}");
+        // Drawn as code: highlighted, so its words are tokens of their own.
+        assert!(code.contains("export") && code.contains("const") && code.contains("@@ -0,0 +1 @@"), "{code}");
+    }
+
+    #[test]
+    fn offers_no_open_where_the_fold_has_no_viewer_to_open() {
+        let (_, roles) = doc_fold(written("C:/work/brand-guide.md", NEW_GUIDE), false);
+        assert!(roles.iter().any(|(r, l)| *r == "button" && l == "Show the change"));
+        assert!(!roles.iter().any(|(_, l)| l == "Open brand-guide.md"), "{roles:?}");
+    }
+
+    #[test]
+    fn a_new_document_shows_its_change_on_a_press_and_goes_back_to_the_page() {
+        let (said, roles) = doc_fold_as(written("C:/work/brand-guide.md", NEW_GUIDE), true, true);
+        assert!(!roles.iter().any(|(r, _)| *r == "region"), "{said}");
+        assert!(said.contains("@@ -0,0 +1,5 @@"), "the diff: {said}");
+        assert!(roles.iter().any(|(r, l)| *r == "button" && l == "Show it as a document"), "{roles:?}");
     }
 
 }

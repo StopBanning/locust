@@ -69,7 +69,7 @@ fn a_step_that_read_a_picture_shows_it_while_folded_and_keeps_its_line() {
     let (s, _dir) = state_in_folder();
     let (pictures, words) = pictures_drawn(&[tool("t1", "Read", "chart.png"), tool("t2", "Bash", "ls")], s);
     assert_eq!(pictures, ["Picture chart.png"]);
-    assert!(words.contains("Ran 1 command"), "{words}");
+    assert!(words.contains("Read a file, listed a folder"), "{words}");
 }
 
 #[test]

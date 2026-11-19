@@ -3,7 +3,17 @@ use crate::{changes, ledger::{Item, Status}};
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Patch { pub text: String, pub added: usize, pub removed: usize, pub truncated: bool }
 #[derive(Clone, Debug)]
-pub struct FileEntry { pub key: String, pub file: changes::File, pub counts: (usize, usize), pub reported: Option<(usize, usize)>, pub large: bool }
+pub struct FileEntry { pub key: String, pub file: changes::File, pub counts: (usize, usize), pub reported: Option<(usize, usize)>, pub large: bool, pub truncated: bool }
+impl FileEntry {
+    /// diff.ts `fileRowCounts`: the counts a file's row may say. The tool's own record when there is one; none when
+    /// the excerpt was cut (its lines are not the change's), so "large" says it; else the lines drawn.
+    pub fn row_counts(&self) -> Option<(usize, usize)> {
+        if let Some(reported) = self.reported {
+            return Some(reported);
+        }
+        (!self.truncated).then_some(self.counts)
+    }
+}
 pub fn files(item: &Item) -> Vec<FileEntry> {
     let Item::Tool { detail, .. } = item else { return vec![] };
     let Some(patch) = &detail.patch else { return vec![] };
@@ -13,7 +23,7 @@ pub fn files(item: &Item) -> Vec<FileEntry> {
         let counts = file.counts();
         let reported = (patch.truncated && single).then_some((patch.added, patch.removed));
         let total = reported.unwrap_or(counts);
-        FileEntry { key: format!("{}/file/{i}", detail.id), file, counts, reported, large: total.0 + total.1 > 200 || patch.truncated }
+        FileEntry { key: format!("{}/file/{i}", detail.id), file, counts, reported, large: total.0 + total.1 > 200 || patch.truncated, truncated: patch.truncated }
     }).collect()
 }
 /// File identity uses the displayed path, status and every hunk/row. Restatements fold;
@@ -31,6 +41,15 @@ pub fn entries(items: &[Item], workspace: Option<&str>) -> Vec<(usize, FileEntry
 pub fn counts(items: &[Item]) -> (usize, usize) { counts_in(items, None) }
 pub fn counts_in(items: &[Item], workspace: Option<&str>) -> (usize, usize) {
     net_entries(items, workspace).iter().fold((0,0), |(a,d), (_,f)| (a+f.counts.0,d+f.counts.1))
+}
+/// ActivityCard.tsx: the card's line counts are its file rows' own (`row_counts`) added up, and none when any row has
+/// none (a cut excerpt), so a header never says what its rows could not.
+pub fn header_counts(items: &[Item], workspace: Option<&str>) -> Option<(usize, usize)> {
+    let entries = net_entries(items, workspace);
+    if entries.is_empty() {
+        return None;
+    }
+    entries.iter().map(|(_, f)| f.row_counts()).try_fold((0, 0), |(a, d), c| c.map(|(x, y)| (a + x, d + y)))
 }
 pub fn changed_paths(items: &[Item]) -> Vec<String> {
     items.iter().flat_map(|item| {

@@ -206,3 +206,95 @@ Next: part 1b opens-the-plan, then orb, frame-pass.
 ## Part 3 (round 2, started)
 - a-plan-shows-what-happened-to-it: all 4 cases named in `steps_fold_tests` (`touched_nothing`, `plan_done_count`,
   `read_plan` for Cursor's TODO_STATUS_ spelling). The drawer does not yet call `touched_nothing` to pick the plain list.
+
+# Round 3
+
+## Part 1 (partial): plan mode and the start's phase reach the live line
+- `thread_view::live_line_in(.., starting_label, plan_mode)`; `live_line_starting` and `live_line` call it. The orb's
+  `solving` floor now holds when `Metadata.mode == "plan"` (test `a_turn_in_plan_mode_holds_the_solving_orb_with_no_call_open`).
+- `Transcript::starting_label` + `set_starting_label` re-draw the snapshot's live line (test
+  `the_hosts_phase_reaches_the_snapshots_live_line`). NOT done: nothing in the host calls `set_starting_label` yet, so the
+  starts-phase row stays `partial`.
+- NOT started: steps fold wiring, `stepsLine` phrase counting, frame-pass drawing, a-long-call's last case, parts 2 and 3.
+- Not run: the full gates, recount, case-map and break tests.
+
+## Part 1 (partial): the steps fold is wired into the thread
+- `messages.rs` splits each run of thoughts and calls through `steps_fold::fold_steps(run, turn_running)` and draws one
+  `activity_group` per line; a group's headline is `group_headline` (first thought's wins), not the last as before.
+- Test: `messages::tests::the_thread_draws_one_steps_line_per_thought_that_says_something`. Break (one group per run) →
+  that test fails; restored.
+- Full `nextest run --workspace`: 4,500 passed; `permission_bridge::…refuses_after_end` failed under load (60 s) and
+  passed alone in 0.13 s, the same engine flake as round 1.
+- NOT done: `stepsLine` phrase counting, so a line's words are still the old summary; the drawers' wordless-thought rows
+  are not yet checked against Electron's detail list; the rows `a-wordless-thought…` and `a-long-silent-stretch…` stay
+  `partial`. Frame-pass drawing, a-long-call's last case, parts 2 and 3, release gates, recount: not done.
+
+## Part 1: `stepsLine` phrase counting (`core/src/steps_line.rs`)
+- `steps_line(items, finished, workspace, open)` ports `stepsLine` whole: phrases by kind in first-seen order, the
+  headline as the whole line, a lone thought's preview, "Failed to …" for a lone titled failure, the amber segments
+  (failed, sandbox, working, did not report, refused, declined), `shorterForms` and the hover title. Its own
+  `command_head` skips `cd x &&` as Electron's does (`thread_view::command_head` does not; left alone).
+- Reading Electron's detail off a ledger item: the ledger keeps no separate title (`summary` is the title when the
+  runtime sent one, else the command), so a shell call has a title only when its summary is not its command.
+- `activity_group` now draws the line's sentence (closed or open), the file counts after it, and the other segments
+  under it in amber; the old `activity_summary` + `commands_run_text` line is gone from the drawer. Two old tests that
+  asserted the old words now assert Electron's (`activity_group_stays_folded…`, `a_step_that_read_a_picture…`).
+- Tests: 13 in `steps_line_tests` (one per case of a-turns-steps-read-like-claude-code), 4 `from_events` tests (events →
+  ledger → fold → line), `a_codex_thought_carries_the_summary…` (the Codex adapter), and the window test
+  `messages::tests::the_thread_draws_a_wordless_stretch_as_one_line_of_its_moves`.
+- Breaks, all caught: headline dropped → `from_events::a_silent_stretch_starts_a_line…`; mixed kinds named →
+  7 tests incl. `counts_reads_and_commands…`; `cd` hop removed → `reads_a_command_that_only_looks…`; drawer back on
+  `activity_summary` → `activity_group_stays_folded…` and three headline tests.
+- Rows: a-long-silent-stretch and a-wordless-thought carried; a-turns-steps-read-like-claude-code partial (13 of 13
+  named; the window does not yet pick a shorter form for a narrow row, nor draw the hover title).
+- `nextest run --workspace --no-fail-fast`: 4,521 passed.
+
+## Part 1: the start's phase reaches the window
+- The Rust host has no phase messages: `native::send` does Electron's looking/briefing/reading-folder work before it
+  returns, while the window has no ledger yet, and returns once the ledger exists and the runtime is being launched.
+  So the phase from then until the runtime's first word is `starting-runtime` (what `carriedStartPhase` keeps). The
+  ledger snapshot sets it on the tip's transcript (`thread_view::launched_phase_label`: "Starting Codex", None for a
+  runtime Locust does not name). No engine file was changed. First-setup (OpenCode) and cloud phases are not sent.
+- The live line's label carries its headline as its hover (`.help(words)`), as `lc-livestep__label`'s title does.
+- Tests: `ledger::tests::a_launched_run_that_has_said_nothing_yet_reads_as_starting_its_runtime`,
+  `messages::tests::the_live_line_leads_with_the_starts_phase_and_holds_it_as_its_hover_title`. Breaks: no
+  `set_starting_label` in the snapshot → the ledger test; empty hover → the messages test. Row carried.
+- `nextest run --workspace --no-fail-fast`: 4,523 passed.
+
+## Part 1: the last long-call case, and the frame pass (not drawn: another lane's file)
+- `live_line_tests::a_restated_call_is_one_row_now_carrying_the_command_and_what_it_is_for`: Claude Code's restated
+  `tool.started` folds into one unsettled row with `npm test` and "Run the test suite", and the steps line says the
+  title. Break (the ledger ignores a later title) → that test fails (and `ledger::tests::tool_keeps_title…`). Row carried.
+- Frame pass: NOT drawn. The agents list and the re-check that stores it are in `src/ui/agents_section.rs`
+  (`s.settings_panel.agents = Some(found)`), a picker-lane file, so `runtime_list_order` / `keep_what_was_known` are
+  still not called. The row stays partial and says so. The picker lane (or the next round) should call them there.
+
+## Part 2: plans in the thread (Mac chat took over, 18 Nov night)
+- `activity_drawers::plan_answer`: a plan in a turn that touched nothing (`steps_fold::touched_nothing` over the turn's
+  items) draws as an ordered list beside the face, numbered, no PLAN label, no counter, the ordinal gutter widened past
+  nine steps; nothing for no steps. A plan in a turn that did work keeps `plan_card`. The list sits one level inside a
+  wrapper because the thread keys every item it draws.
+- Tests: `messages::tests::a_turn_that_only_planned_draws_its_plan_as_a_numbered_answer_with_no_header`,
+  `a_planned_answer_widens_its_gutter_past_nine_steps`, `a_plan_with_no_steps_draws_nothing_answer_or_card`,
+  `a_plan_in_a_turn_that_did_work_keeps_its_label_counter_and_markers`.
+- Breaks: gutter at ten -> the gutter test; every plan an answer -> the did-work test; the empty guard survives
+  (an empty list draws nothing either way, an equivalent change). Rows plan-answer and a-plan-shows carried.
+
+### Part 2: a large diff says the right counts (19 Nov, picked up by the Mac chat)
+- A file row said the cut excerpt's counts (+0 -747 for a 1,700-line rewrite) and then "runtime reported +a -d".
+  Now Electron's `fileRowCounts` (`core/src/activity_entries.rs` `FileEntry::row_counts`, new `truncated` field):
+  the tool's record, else none when cut, else the drawn lines. The card's header adds up the rows' own counts, or
+  says none when any row has none (`header_counts`, ActivityCard.tsx). Counts read as `changes::line_counts`
+  (Electron's LineCounts: no zero side, U+2212 minus), and "large" is lowercase, as on Electron's file row.
+- Tests: `activity_drawers::tests::never_says_0_with_a_deletion_count_when_lines_were_added_in_a_recorded_large_rewrite`,
+  `shows_no_counts_and_lets_large_say_it_when_true_counts_cannot_be_known`, `leaves_a_small_diffs_counts_unchanged`,
+  and `activity_entries::tests::a_cut_patch_of_several_files_says_no_counts_and_an_uncut_one_says_each_files`; three
+  older drawer tests now read the U+2212 minus. Breaks 5 of 5 killed.
+- a-step-keeps-its-own-change: Rust already matched; Electron's events replayed in `disk_observation_tests`
+  (`keep_each_step_its_own_diff_after_the_turn_has_ended_too`, `list_each_file_once_in_the_turns_files_as_its_net_change`).
+  Breaks on the ledger's no-diff guard and on `net_entries` both killed.
+- a-new-document-reads-as-one: Rust drew a new Markdown file as a green diff of raw Markdown. Now
+  `core/src/changes.rs` `new_document` (Markdown, Table, Page, as DocPreview's isNewDocument) and `document_text_of`,
+  and `activity_drawers::doc_preview` draws a new Markdown file through the reply renderer, with "Open {name}" when
+  the conversation has a folder, "Show the change" and back, and "Only its start was recorded here." when cut. A new
+  table or page still opens as its diff (no sheet or page frame in the drawer yet). Breaks 5 of 5 killed.

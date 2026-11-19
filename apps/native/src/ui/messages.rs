@@ -95,7 +95,12 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                 .position(|i| !is_activity(i))
                 .map(|n| index + n)
                 .unwrap_or(items.len());
-            messages = messages.child(activity_group(&items[index..end], p, s, conversation));
+            // The steps fold: a thought that says something starts a line, a wordless one folds into its line.
+            let run = &items[index..end];
+            for line in locust_core::steps_fold::fold_steps(run, turn_running(s)) {
+                let held: Vec<ledger::Item> = line.items.iter().map(|&i| run[i].clone()).collect();
+                messages = messages.child(activity_group(&held, p, s, conversation));
+            }
             continue;
         }
         let content = match item {
@@ -388,6 +393,13 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                 }
                 msg
             }
+            // A turn that only planned (`touchedNothing`): its plan is the answer, a numbered list; with any step in the
+            // turn the plan is a record of work and keeps its outcomes card (a-plan-shows-what-happened-to-it).
+            ledger::Item::Plan { steps, .. } if {
+                let from = items[..index].iter().rposition(|i| matches!(i, ledger::Item::User(_))).map_or(0, |at| at + 1);
+                let to = items[index..].iter().position(|i| matches!(i, ledger::Item::User(_))).map_or(items.len(), |n| index + n);
+                locust_core::steps_fold::touched_nothing(&items[from..to])
+            } => plan_answer(steps, &key, p).unwrap_or_else(col),
             ledger::Item::Tool { .. }
             | ledger::Item::Plan { .. }
             | ledger::Item::Thought { .. } => activity_item(item, p, s, conversation),
@@ -508,7 +520,8 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
         let label = elapsed.map_or_else(|| words.clone(), |ms| format!("{words} · {}", ledger::duration_text(ms)));
         messages = messages.child(row().w_full().gap(8.0).center_y()
             .child(thread_face(s, "live", 34.0, p))
-            .child(text(label).font(type_::LABEL).color(p.muted).grow(1.0).shrink()));
+            // The headline is the label's hover title too, for a row that ellipsizes (lc-livestep__label's `title`).
+            .child(text(label).font(type_::LABEL).color(p.muted).grow(1.0).shrink().help(words)));
     }
     messages = failed_turn_rows(messages, items, s, p);
     messages
@@ -933,6 +946,100 @@ mod tests {
         assert!(opened.contains("claude · Skill descriptions were shortened."), "{opened}");
     }
 
+    // case: starts a new line each time the model thinks, led by what it thought about (drawn in the window)
+    #[test]
+    fn the_thread_draws_one_steps_line_per_thought_that_says_something() {
+        let thought = |id: &str, words: &str| ledger::Item::Thought { id: id.into(), text: words.into(), duration_ms: Some(1_000) };
+        let call = |id: &str, command: &str| ledger::Item::Tool {
+            name: "shell".into(), status: ledger::Status::Done, summary: command.into(),
+            detail: Box::new(ledger::ToolDetail { id: id.into(), arguments: command.into(), finished: true, ..Default::default() }),
+        };
+        let items = vec![
+            thought("r1", "**Inspecting the config**\n\nWhere the port is set."), call("c1", "cat config.json"),
+            thought("r2", "**Running the tests**\n\nThen the suite."), call("c2", "npm test"),
+        ];
+        let shown = thread_text(&items, &mut State::default());
+        assert!(shown.contains("Inspecting the config") && shown.contains("Running the tests"), "{shown}");
+    }
+
+    // case: a wordless thought folds into its line, which reads as its moves (drawn in the window)
+    #[test]
+    fn the_thread_draws_a_wordless_stretch_as_one_line_of_its_moves() {
+        let thought = |id: &str| ledger::Item::Thought { id: id.into(), text: String::new(), duration_ms: Some(3_800) };
+        let call = |id: &str, command: &str| ledger::Item::Tool {
+            name: "run_command".into(), status: ledger::Status::Done, summary: command.into(),
+            detail: Box::new(ledger::ToolDetail { id: id.into(), arguments: command.into(), finished: true, ..Default::default() }),
+        };
+        let items = vec![thought("t1"), call("c1", "Get-ChildItem"), thought("t2"), call("c2", "Get-Content a.md"), thought("t3"), call("c3", "git status")];
+        let shown = thread_text(&items, &mut State::default());
+        assert_eq!(shown.matches("Listed a folder, read a file, ran a command").count(), 1, "{shown}");
+    }
+
+    fn plan_of(count: usize, state: &str) -> ledger::Item {
+        let steps = (0..count).map(|i| ledger::PlanStep { text: format!("step {}", i + 1), state: state.into() }).collect();
+        ledger::Item::Plan { id: "plan".into(), steps, finished: true }
+    }
+    /// The thread's texts and keys for these items.
+    fn thread_drawn(items: &[ledger::Item]) -> (Vec<String>, Vec<String>) {
+        let mut rt = rune::Runtime::new(
+            (State::default(), items.to_vec()),
+            |(s, items), _| message_column(items, "Codec", &Palette::new(true), s),
+            (800.0, 800.0),
+            rune::Env::new(true, 1.0),
+        );
+        rt.frame(0.0);
+        let elements = rt.elements();
+        (elements.iter().filter_map(|e| e.text.clone()).collect(), elements.iter().filter_map(|e| e.key.clone()).collect())
+    }
+
+    // case: is an ordered list, not a card
+    // case: numbers the steps instead of giving them states
+    // case: has no header at all — not the label, not the counter
+    // case: is marked as having touched nothing, so it draws as an answer (drawn)
+    #[test]
+    fn a_turn_that_only_planned_draws_its_plan_as_a_numbered_answer_with_no_header() {
+        let (texts, keys) = thread_drawn(&[ledger::Item::User("plan it".into()), plan_of(5, "pending")]);
+        assert!(keys.iter().any(|k| k.ends_with("/plan-answer")), "{keys:?}");
+        let ordinals: Vec<&String> = keys.iter().filter(|k| k.contains("/plan-ordinal/")).collect();
+        assert_eq!(ordinals.len(), 5);
+        for n in 1..=5 {
+            assert!(texts.contains(&n.to_string()) && texts.contains(&format!("step {n}")), "{texts:?}");
+        }
+        assert!(!texts.iter().any(|t| t == "PLAN" || t.contains("of 5 done")), "{texts:?}");
+    }
+
+    // case: widens the gutter past nine steps so the text column stays flush
+    #[test]
+    fn a_planned_answer_widens_its_gutter_past_nine_steps() {
+        let (_, nine) = thread_drawn(&[ledger::Item::User("plan it".into()), plan_of(9, "pending")]);
+        let (_, ten) = thread_drawn(&[ledger::Item::User("plan it".into()), plan_of(10, "pending")]);
+        assert!(!nine.iter().any(|k| k.ends_with("/is-wide")));
+        assert!(ten.iter().any(|k| k.ends_with("/plan-answer/is-wide")), "{ten:?}");
+    }
+
+    // case: renders nothing at all when the turn produced no steps
+    // case: also renders nothing when there are no steps
+    #[test]
+    fn a_plan_with_no_steps_draws_nothing_answer_or_card() {
+        let call = ledger::Item::Tool { name: "shell".into(), status: ledger::Status::Done, summary: "ls".into(), detail: Box::new(ledger::ToolDetail { id: "c".into(), arguments: "ls".into(), finished: true, ..Default::default() }) };
+        for items in [vec![ledger::Item::User("plan it".into()), plan_of(0, "pending")], vec![ledger::Item::User("do it".into()), plan_of(0, "pending"), call]] {
+            let (texts, keys) = thread_drawn(&items);
+            assert!(!keys.iter().any(|k| k.contains("plan-answer")) && !texts.iter().any(|t| t == "PLAN"), "{texts:?}");
+        }
+    }
+
+    // case: keeps its markers, its counter and its label
+    // case: is NOT marked as having touched nothing, so its outcomes are drawn (drawn)
+    #[test]
+    fn a_plan_in_a_turn_that_did_work_keeps_its_label_counter_and_markers() {
+        let call = ledger::Item::Tool { name: "read".into(), status: ledger::Status::Done, summary: "read".into(), detail: Box::new(ledger::ToolDetail { id: "t1".into(), arguments: "read".into(), finished: true, ..Default::default() }) };
+        let mut plan = plan_of(5, "pending");
+        if let ledger::Item::Plan { steps, .. } = &mut plan { steps[0].state = "done".into(); }
+        let (texts, keys) = thread_drawn(&[ledger::Item::User("do it".into()), plan, call]);
+        assert!(texts.iter().any(|t| t == "PLAN") && texts.iter().any(|t| t == "1 of 5 done"), "{texts:?}");
+        assert!(!keys.iter().any(|k| k.contains("plan-answer") || k.contains("plan-ordinal")));
+    }
+
     fn composition_state(kind: Option<&str>, running: bool) -> State {
         let mut s = State::default();
         s.ledger = Some(LedgerPane {
@@ -1030,6 +1137,27 @@ mod tests {
         s.ledger.as_mut().unwrap().snapshot.live = locust_core::thread_view::live_line(&events, true, "2026-09-04T21:47:00.000Z", false);
         let drawn = thread_text(&items, &mut s);
         assert!(drawn.contains("Running npm test · step 2 of 3"), "{drawn}");
+    }
+
+    // case: leads with the phase, swept, in the place of the word "starting"
+    #[test]
+    fn the_live_line_leads_with_the_starts_phase_and_holds_it_as_its_hover_title() {
+        let items = [ledger::Item::User("Reply with one word".into())];
+        let mut s = composition_state(None, true);
+        s.ledger.as_mut().unwrap().snapshot.live =
+            locust_core::thread_view::live_line_starting(&[], true, "2026-10-04T20:00:00.000Z", false, Some("Reading the folder"));
+        let taken = std::mem::take(&mut s);
+        let mut rt = rune::Runtime::new(
+            (taken, items.to_vec()),
+            |(s, items), _| message_column(items, "Codec", &Palette::new(true), s),
+            (800.0, 800.0),
+            rune::Env::new(true, 1.0),
+        );
+        rt.frame(0.0);
+        let elements = rt.elements();
+        let line = elements.iter().find(|e| e.text.as_deref().is_some_and(|t| t.starts_with("Reading the folder\u{2026}"))).expect("the phase leads the line");
+        assert_eq!(line.help.as_deref(), Some("Reading the folder\u{2026}"));
+        assert!(!elements.iter().any(|e| e.text.as_deref().is_some_and(|t| t.contains("Starting\u{2026}"))));
     }
 
     #[test]
