@@ -481,36 +481,17 @@ pub(super) fn activity_id(item: &ledger::Item) -> &str {
 pub(super) fn activity_group(items: &[ledger::Item], p: &Palette, s: &State, scope: &str) -> El {
     let key = format!("{scope}/group/{}", activity_id(&items[0]));
     let open = s.activity_open.get(&key).copied().unwrap_or(false);
-    let thought_ms: u64 = items.iter().filter_map(|i| if let ledger::Item::Thought { duration_ms, .. } = i { *duration_ms } else { None }).sum();
-    let headline = locust_core::steps_fold::group_headline(items, &locust_core::steps_fold::StepsGroup { items: (0..items.len()).collect() });
     let finished = items.iter().filter_map(|i| if let ledger::Item::Tool { detail, .. } = i { Some(detail.finished) } else { None }).all(|f| f);
-    let run = locust_core::command_outcomes::commands_run(items, finished);
-    let names = items.iter().filter_map(|i| if let ledger::Item::Tool { name, detail, summary, .. } = i {
-        (locust_core::command_outcomes::is_shell(name) && !matches!(detail.runtime_status.as_str(), "refused" | "declined"))
-            .then(|| if detail.arguments.is_empty() { summary.clone() } else { detail.arguments.clone() })
-    } else { None }).collect::<Vec<_>>();
-    let outcome = locust_core::command_outcomes::commands_run_text(run, &names);
-    let mut words = Vec::new();
-    let summary = locust_core::activity_summary::activity_summary(items);
     let workspace = selected_conversation(s).and_then(|(t,_)| t.folder.as_deref());
     let entries = locust_core::activity_entries::net_entries(items, workspace);
     let (added, removed) = locust_core::activity_entries::counts_in(items, workspace);
-    if added + removed > 0 { words.push(format!("+{added} -{removed}")); }
-    if summary != "No tool activity" { words.push(summary); }
-    let mut label = headline.unwrap_or_else(|| {
-        if words.is_empty() {
-            if thought_ms >= 1000 {
-                format!("Thought for {}", ledger::duration_text(thought_ms))
-            } else {
-                "Thought".into()
-            }
-        } else {
-            words.join(", ")
-        }
-    });
-    if let Some(first) = label.chars().next() {
-        label = format!("{}{}", first.to_uppercase(), &label[first.len_utf8()..]);
-    }
+    // The line is `stepsLine`'s (Thread.tsx: the closed line, or the open one, which drops a lone thought's preview):
+    // its sentence, then the file counts beside it (ActivityCard's LineCounts), and its amber outcomes under it.
+    let line = locust_core::steps_line::steps_line(items, finished, workspace, open);
+    let mut label = line.segments[0].text.clone();
+    if added + removed > 0 { label.push_str(&format!(" +{added} -{removed}")); }
+    let rest: Vec<&locust_core::steps_line::Segment> = line.segments[1..].iter().collect();
+    let outcome = (!rest.is_empty()).then(|| (rest.iter().map(|seg| seg.text.as_str()).collect::<Vec<_>>().join(" \u{b7} "), rest.iter().any(|seg| seg.amber) || line.segments[0].amber));
     // A thought that is only its headline has nothing to open onto (ActivityCard 0.875, Colin's frame of 13 Nov:
     // "Waiting for script output" opened onto an empty quote bar). The headline is already the line, so such a
     // thought draws nothing inside the step, and a step with nothing else inside is a line with no chevron.
@@ -522,8 +503,8 @@ pub(super) fn activity_group(items: &[ledger::Item], p: &Palette, s: &State, sco
         disclosure(key, label, open, p)
     };
     let mut group = col().w_full().gap(4.0).child(heading);
-    if let Some(outcome) = &outcome {
-        group = group.child(text(&outcome.text).font(type_::LABEL).color(if outcome.amber { p.amber } else { p.muted }).w_full());
+    if let Some((said, amber)) = &outcome {
+        group = group.child(text(said).font(type_::LABEL).color(if *amber { p.amber } else { p.muted }).w_full());
     }
     // The pictures the step read or made, under its line whether or not it is open (ThreadImage, laid out as Claude's
     // app shows a turn's screenshots).
@@ -661,8 +642,8 @@ mod tests {
         ];
         let mut s = State::default();
         let folded_text = group_text(&items, &mut s);
-        assert!(folded_text.contains("Ran 1 command · 1 tool call"));
-        assert!(folded_text.contains("ran cargo"));
+        // stepsLine's counts: mixed kinds name nothing (0.610).
+        assert!(folded_text.contains("Read a file, ran a command"), "{folded_text}");
         assert!(!folded_text.contains("Read Cargo.toml"));
         assert!(!folded_text.contains("cargo test"));
 

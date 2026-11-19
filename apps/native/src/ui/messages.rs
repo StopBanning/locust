@@ -954,6 +954,19 @@ mod tests {
         assert!(shown.contains("Inspecting the config") && shown.contains("Running the tests"), "{shown}");
     }
 
+    // case: a wordless thought folds into its line, which reads as its moves (drawn in the window)
+    #[test]
+    fn the_thread_draws_a_wordless_stretch_as_one_line_of_its_moves() {
+        let thought = |id: &str| ledger::Item::Thought { id: id.into(), text: String::new(), duration_ms: Some(3_800) };
+        let call = |id: &str, command: &str| ledger::Item::Tool {
+            name: "run_command".into(), status: ledger::Status::Done, summary: command.into(),
+            detail: Box::new(ledger::ToolDetail { id: id.into(), arguments: command.into(), finished: true, ..Default::default() }),
+        };
+        let items = vec![thought("t1"), call("c1", "Get-ChildItem"), thought("t2"), call("c2", "Get-Content a.md"), thought("t3"), call("c3", "git status")];
+        let shown = thread_text(&items, &mut State::default());
+        assert_eq!(shown.matches("Listed a folder, read a file, ran a command").count(), 1, "{shown}");
+    }
+
     fn composition_state(kind: Option<&str>, running: bool) -> State {
         let mut s = State::default();
         s.ledger = Some(LedgerPane {

@@ -228,3 +228,23 @@ Next: part 1b opens-the-plan, then orb, frame-pass.
 - NOT done: `stepsLine` phrase counting, so a line's words are still the old summary; the drawers' wordless-thought rows
   are not yet checked against Electron's detail list; the rows `a-wordless-thought…` and `a-long-silent-stretch…` stay
   `partial`. Frame-pass drawing, a-long-call's last case, parts 2 and 3, release gates, recount: not done.
+
+## Part 1: `stepsLine` phrase counting (`core/src/steps_line.rs`)
+- `steps_line(items, finished, workspace, open)` ports `stepsLine` whole: phrases by kind in first-seen order, the
+  headline as the whole line, a lone thought's preview, "Failed to …" for a lone titled failure, the amber segments
+  (failed, sandbox, working, did not report, refused, declined), `shorterForms` and the hover title. Its own
+  `command_head` skips `cd x &&` as Electron's does (`thread_view::command_head` does not; left alone).
+- Reading Electron's detail off a ledger item: the ledger keeps no separate title (`summary` is the title when the
+  runtime sent one, else the command), so a shell call has a title only when its summary is not its command.
+- `activity_group` now draws the line's sentence (closed or open), the file counts after it, and the other segments
+  under it in amber; the old `activity_summary` + `commands_run_text` line is gone from the drawer. Two old tests that
+  asserted the old words now assert Electron's (`activity_group_stays_folded…`, `a_step_that_read_a_picture…`).
+- Tests: 13 in `steps_line_tests` (one per case of a-turns-steps-read-like-claude-code), 4 `from_events` tests (events →
+  ledger → fold → line), `a_codex_thought_carries_the_summary…` (the Codex adapter), and the window test
+  `messages::tests::the_thread_draws_a_wordless_stretch_as_one_line_of_its_moves`.
+- Breaks, all caught: headline dropped → `from_events::a_silent_stretch_starts_a_line…`; mixed kinds named →
+  7 tests incl. `counts_reads_and_commands…`; `cd` hop removed → `reads_a_command_that_only_looks…`; drawer back on
+  `activity_summary` → `activity_group_stays_folded…` and three headline tests.
+- Rows: a-long-silent-stretch and a-wordless-thought carried; a-turns-steps-read-like-claude-code partial (13 of 13
+  named; the window does not yet pick a shorter form for a narrow row, nor draw the hover title).
+- `nextest run --workspace --no-fail-fast`: 4,521 passed.

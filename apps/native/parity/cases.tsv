@@ -2396,10 +2396,10 @@ apps/desktop/src/renderer/src/a-long-conversation-opens-on-its-newest-turns.test
 apps/desktop/src/renderer/src/a-long-conversation-opens-on-its-newest-turns.test.tsx	each "show earlier" adds a budget	yes
 apps/desktop/src/renderer/src/a-long-conversation-opens-on-its-newest-turns.test.tsx	a long one opens on its newest turns, with the older ones a press (or a scroll) away	yes
 apps/desktop/src/renderer/src/a-long-conversation-opens-on-its-newest-turns.test.tsx	a short one is whole, with nothing to press	yes
-apps/desktop/src/renderer/src/a-long-silent-stretch-reads-as-its-moves.test.ts	starts a new line each time the model thinks, led by what it thought about	no
-apps/desktop/src/renderer/src/a-long-silent-stretch-reads-as-its-moves.test.ts	leaves a turn with no thinking reported as one line between what was said (Claude Code without thinking)	no
+apps/desktop/src/renderer/src/a-long-silent-stretch-reads-as-its-moves.test.ts	starts a new line each time the model thinks, led by what it thought about	yes
+apps/desktop/src/renderer/src/a-long-silent-stretch-reads-as-its-moves.test.ts	leaves a turn with no thinking reported as one line between what was said (Claude Code without thinking)	yes
 apps/desktop/src/renderer/src/a-long-silent-stretch-reads-as-its-moves.test.ts	reads a headline only where the summary leads with one	yes
-apps/desktop/src/renderer/src/a-long-silent-stretch-reads-as-its-moves.test.ts	carries the summary Codex shows, and never the raw reasoning	no
+apps/desktop/src/renderer/src/a-long-silent-stretch-reads-as-its-moves.test.ts	carries the summary Codex shows, and never the raw reasoning	yes
 apps/desktop/src/renderer/src/a-long-turn-keeps-what-it-said.test.ts	is longer than the old window held, as Colin's run was	yes
 apps/desktop/src/renderer/src/a-long-turn-keeps-what-it-said.test.ts	keeps both messages in a running turn of that length	yes
 apps/desktop/src/renderer/src/a-long-turn-keeps-what-it-said.test.ts	draws the live run and the record through one window	yes
@@ -2842,8 +2842,23 @@ apps/desktop/src/renderer/src/a-tune-says-when-a-setup-repeats.test.tsx	waits fo
 apps/desktop/src/renderer/src/a-turn-that-goes-quiet-says-so.test.tsx	says so after five minutes without a word, with Stop beside it	yes
 apps/desktop/src/renderer/src/a-turn-that-goes-quiet-says-so.test.tsx	says nothing while the turn is heard from, or while a command it named runs	no
 apps/desktop/src/renderer/src/a-turn-that-goes-quiet-says-so.test.tsx	counts whole minutes from when it was last heard, and only once there are five	yes
+apps/desktop/src/renderer/src/a-turns-steps-read-like-claude-code.test.ts	names a lone command by what the model said it was for (Claude Code)	yes
+apps/desktop/src/renderer/src/a-turns-steps-read-like-claude-code.test.ts	says a lone described command that failed as the thing not done	yes
+apps/desktop/src/renderer/src/a-turns-steps-read-like-claude-code.test.ts	counts reads and commands the way Claude Code does, naming nothing when it mixes kinds (0.610)	yes
+apps/desktop/src/renderer/src/a-turns-steps-read-like-claude-code.test.ts	reads a command that only looks as looking (Codex and Cursor send no descriptions)	yes
+apps/desktop/src/renderer/src/a-turns-steps-read-like-claude-code.test.ts	names what it made when that is all it did, and counts it beside other steps (0.610)	yes
+apps/desktop/src/renderer/src/a-turns-steps-read-like-claude-code.test.ts	says the thought only when nothing else was done: Claude Code's lines never lead with it (0.610)	yes
+apps/desktop/src/renderer/src/a-turns-steps-read-like-claude-code.test.ts	never hides what went wrong: failures, silence, refusals in amber after the words	yes
+apps/desktop/src/renderer/src/a-turns-steps-read-like-claude-code.test.ts	says searches, waits and a phrase-named read the way a person would	yes
+apps/desktop/src/renderer/src/a-turns-steps-read-like-claude-code.test.ts	reads a script, a phrase-named command and a folder searched as a person would	yes
+apps/desktop/src/renderer/src/a-turns-steps-read-like-claude-code.test.ts	names a connector and a tool it does not know by their own names	yes
+apps/desktop/src/renderer/src/a-turns-steps-read-like-claude-code.test.ts	cuts a long file name in the middle and keeps its extension	yes
+apps/desktop/src/renderer/src/a-turns-steps-read-like-claude-code.test.ts	offers shorter forms: names give way to counts, then the last phrases to "and N more"	yes
+apps/desktop/src/renderer/src/a-turns-steps-read-like-claude-code.test.ts	leaves a thought out of a line with other steps, and has nothing shorter for a lone failure	yes
 apps/desktop/src/renderer/src/a-week-with-scout-is-one-card.test.tsx	is one card, its lines under its sentence, its one suggestion as its button	no
 apps/desktop/src/renderer/src/a-week-with-scout-is-one-card.test.tsx	has no button but Dismiss when there is nothing to change	no
+apps/desktop/src/renderer/src/a-wordless-thought-does-not-start-a-line.test.ts	is one line when the thoughts say nothing	yes
+apps/desktop/src/renderer/src/a-wordless-thought-does-not-start-a-line.test.ts	still starts a line at a thought that says something	yes
 apps/desktop/src/renderer/src/a-wrapped-bullet-stays-one-bullet.test.ts	stays one bullet, with the whole sentence in it	yes
 apps/desktop/src/renderer/src/a-wrapped-bullet-stays-one-bullet.test.ts	keeps wrapping with the item it belongs to, not the one before	yes
 apps/desktop/src/renderer/src/a-wrapped-bullet-stays-one-bullet.test.ts	wraps a nested item into the nested item	yes

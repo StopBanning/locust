@@ -462,6 +462,9 @@ pub mod runtime_order;
 pub mod steps_fold;
 #[cfg(test)]
 mod steps_fold_tests;
+pub mod steps_line;
+#[cfg(test)]
+mod steps_line_tests;
 pub mod thread_words;
 #[cfg(test)]
 mod thread_words_tests;
