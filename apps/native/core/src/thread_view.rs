@@ -203,6 +203,13 @@ pub fn live_action(title: Option<&str>, kind: &str, name: &str, command: Option<
     None
 }
 
+/// The start's phase once the host has launched the runtime (start-phase.ts `startPhaseLabel('starting-runtime', ..)`):
+/// "Starting Codex". None for a runtime Locust does not name (`startingLabelOf` needs `isMissionRuntime`).
+pub fn launched_phase_label(runtime: &str) -> Option<String> {
+    let name = crate::inspector::runtime_display_name(runtime);
+    (name != runtime).then(|| format!("Starting {name}"))
+}
+
 /// An approval owns the waiting state, even when the approved tool remains open.
 pub fn live_line(
     events: &[Value],

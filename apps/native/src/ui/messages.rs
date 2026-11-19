@@ -513,7 +513,8 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
         let label = elapsed.map_or_else(|| words.clone(), |ms| format!("{words} · {}", ledger::duration_text(ms)));
         messages = messages.child(row().w_full().gap(8.0).center_y()
             .child(thread_face(s, "live", 34.0, p))
-            .child(text(label).font(type_::LABEL).color(p.muted).grow(1.0).shrink()));
+            // The headline is the label's hover title too, for a row that ellipsizes (lc-livestep__label's `title`).
+            .child(text(label).font(type_::LABEL).color(p.muted).grow(1.0).shrink().help(words)));
     }
     messages = failed_turn_rows(messages, items, s, p);
     messages
@@ -1064,6 +1065,27 @@ mod tests {
         s.ledger.as_mut().unwrap().snapshot.live = locust_core::thread_view::live_line(&events, true, "2026-09-04T21:47:00.000Z", false);
         let drawn = thread_text(&items, &mut s);
         assert!(drawn.contains("Running npm test · step 2 of 3"), "{drawn}");
+    }
+
+    // case: leads with the phase, swept, in the place of the word "starting"
+    #[test]
+    fn the_live_line_leads_with_the_starts_phase_and_holds_it_as_its_hover_title() {
+        let items = [ledger::Item::User("Reply with one word".into())];
+        let mut s = composition_state(None, true);
+        s.ledger.as_mut().unwrap().snapshot.live =
+            locust_core::thread_view::live_line_starting(&[], true, "2026-10-04T20:00:00.000Z", false, Some("Reading the folder"));
+        let taken = std::mem::take(&mut s);
+        let mut rt = rune::Runtime::new(
+            (taken, items.to_vec()),
+            |(s, items), _| message_column(items, "Codec", &Palette::new(true), s),
+            (800.0, 800.0),
+            rune::Env::new(true, 1.0),
+        );
+        rt.frame(0.0);
+        let elements = rt.elements();
+        let line = elements.iter().find(|e| e.text.as_deref().is_some_and(|t| t.starts_with("Reading the folder\u{2026}"))).expect("the phase leads the line");
+        assert_eq!(line.help.as_deref(), Some("Reading the folder\u{2026}"));
+        assert!(!elements.iter().any(|e| e.text.as_deref().is_some_and(|t| t.contains("Starting\u{2026}"))));
     }
 
     #[test]

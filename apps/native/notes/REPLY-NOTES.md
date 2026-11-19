@@ -248,3 +248,15 @@ Next: part 1b opens-the-plan, then orb, frame-pass.
 - Rows: a-long-silent-stretch and a-wordless-thought carried; a-turns-steps-read-like-claude-code partial (13 of 13
   named; the window does not yet pick a shorter form for a narrow row, nor draw the hover title).
 - `nextest run --workspace --no-fail-fast`: 4,521 passed.
+
+## Part 1: the start's phase reaches the window
+- The Rust host has no phase messages: `native::send` does Electron's looking/briefing/reading-folder work before it
+  returns, while the window has no ledger yet, and returns once the ledger exists and the runtime is being launched.
+  So the phase from then until the runtime's first word is `starting-runtime` (what `carriedStartPhase` keeps). The
+  ledger snapshot sets it on the tip's transcript (`thread_view::launched_phase_label`: "Starting Codex", None for a
+  runtime Locust does not name). No engine file was changed. First-setup (OpenCode) and cloud phases are not sent.
+- The live line's label carries its headline as its hover (`.help(words)`), as `lc-livestep__label`'s title does.
+- Tests: `ledger::tests::a_launched_run_that_has_said_nothing_yet_reads_as_starting_its_runtime`,
+  `messages::tests::the_live_line_leads_with_the_starts_phase_and_holds_it_as_its_hover_title`. Breaks: no
+  `set_starting_label` in the snapshot → the ledger test; empty hover → the messages test. Row carried.
+- `nextest run --workspace --no-fail-fast`: 4,523 passed.

@@ -1959,6 +1959,14 @@ impl Session {
                 reader.edits.clone()
             };
             snapshot.turn_edits.insert(reader.id.clone(), turn_edits);
+            // The start's phase (startPhase.ts `carriedStartPhase`): `native::send` returns once the ledger exists and the
+            // runtime is being launched on its own thread, so the phase the host is in from then until the runtime's first
+            // word is Electron's `starting-runtime`, "Starting Codex". The live line drops it the moment anything arrives.
+            if is_tip && snapshot.running && reader.transcript.starting_label.is_none()
+                && let Some(label) = reader.transcript.metadata.as_ref().and_then(|m| crate::thread_view::launched_phase_label(&m.runtime))
+            {
+                reader.transcript.set_starting_label(Some(label));
+            }
             snapshot.live = if snapshot.running { reader.transcript.live.clone() } else { None };
             snapshot.failed = reader.transcript.failed;
             snapshot.never_started = crate::thread_view::runtime_never_started(reader.transcript.events.values());
@@ -2792,6 +2800,31 @@ mod tests {
             transcript.items.last(),
             Some(Item::Assistant { text, .. }) if text.len() == MAX_ASSISTANT
         ));
+    }
+
+    // case: leads with the phase, swept, in the place of the word "starting" (the host's phase reaches the snapshot)
+    #[test]
+    fn a_launched_run_that_has_said_nothing_yet_reads_as_starting_its_runtime() {
+        let temp = Temp::new();
+        let mut first = created("m1", "Reply with one word");
+        first["metadata"]["runtime"] = json!("opencode");
+        write(&temp.path("m1"), &[first]);
+        let snapshot = Session::new(temp.0.clone(), "m1".into()).poll().unwrap();
+        assert!(snapshot.running);
+        let live = snapshot.live.expect("a running turn has a live line");
+        assert_eq!(crate::thread_view::sweep_text(&live.label), "Starting OpenCode\u{2026}");
+        // Once the runtime speaks, the phase is gone.
+        let mut started = created("m2", "Reply with one word");
+        started["metadata"]["runtime"] = json!("codex");
+        write(&temp.path("m2"), &[started, event(1, "run.started", json!({})), event(2, "step.started", json!({"stepKind": "reasoning", "itemId": "r"}))]);
+        let live = Session::new(temp.0.clone(), "m2".into()).poll().unwrap().live.expect("still running");
+        assert!(!live.label.contains("Starting Codex"), "{}", live.label);
+        // A runtime Locust does not name keeps the word.
+        let mut other = created("m3", "Reply with one word");
+        other["metadata"]["runtime"] = json!("someone-else");
+        write(&temp.path("m3"), &[other]);
+        let live = Session::new(temp.0.clone(), "m3".into()).poll().unwrap().live.expect("running");
+        assert_eq!(crate::thread_view::sweep_text(&live.label), "Starting\u{2026}");
     }
 
     #[test]
