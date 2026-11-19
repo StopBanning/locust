@@ -852,6 +852,19 @@ fn recents_merge_electrons_read_only_list_with_native_marked() {
     assert_eq!(list_recent(1, false).unwrap().summaries.len(), 1);
 }
 
+// main/a-commit-message-is-written-from-the-changes.test.ts: the run that wrote a draft is never listed.
+#[test]
+fn a_run_electron_kept_for_a_panel_is_never_listed_as_a_conversation() {
+    let t = Temp::new();
+    synthetic_electron_codex_ledger(&t, "root_e", "thread_fake");
+    synthetic_electron_codex_ledger(&t, "draft_e", "thread_draft");
+    let _g = hooks::install(t.store(), None);
+    assert_eq!(list_recent(12, true).unwrap().summaries.len(), 2);
+    crate::panel_runs::PanelRuns::of_electron(t.store().electron()).add("draft_e").unwrap();
+    let ids: Vec<String> = list_recent(12, true).unwrap().summaries.into_iter().map(|s| s.mission_id).collect();
+    assert_eq!(ids, ["root_e"]);
+}
+
 // ---- the guard ------------------------------------------------------------------------------------------------
 #[test]
 fn nothing_can_be_written_inside_electrons_folder() {

@@ -771,6 +771,9 @@ pub struct Listed {
 pub fn list_recent(limit: usize, native_engine: bool) -> Option<Listed> {
     let native_dir = store().and_then(|s| s.ledger_dir().ok());
     let theirs = electron_ledger_dir().and_then(|d| crate::history_cache::global().list_recent_summaries(&d, limit).ok());
+    // A run whose answer belongs to an Electron panel (a commit message, a walkthrough) is never a conversation.
+    let panel_runs = electron_dir().map(|d| crate::panel_runs::PanelRuns::of_electron(&d).ids()).unwrap_or_default();
+    let theirs = theirs.map(|t| t.into_iter().filter(|s| !panel_runs.contains(&s.mission_id)).collect::<Vec<_>>());
     let mut ours = native_dir
         .as_ref()
         .and_then(|d| crate::history_cache::global().list_recent_summaries(d, limit).ok());
@@ -2496,6 +2499,15 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
         sealed,
     )
     .map_err(|e| e.to_string())?;
+    // openCodeModeEnv: a worktree run reaches its parent repository's `.git`; a run with no shell gets Locust's git tool.
+    if runtime_name == "opencode" {
+        let git_reads = std::env::current_exe().ok().map(|exe| vec![exe.to_string_lossy().into_owned(), "--git-reads".to_owned()]);
+        let root = repository_root.as_deref().map(|r| r.to_string_lossy().into_owned());
+        let at = folder.to_string_lossy().into_owned();
+        crate::runtime::opencode_config::rewrite_config(&mut command, |config| {
+            crate::runtime::opencode_config::for_run(config, mode, sealed, root.as_deref(), git_reads.as_deref(), &at)
+        });
+    }
     command.current_dir(&folder);
     for (key, value) in &launch_env {
         command.env(key, value);

@@ -80,6 +80,7 @@ fn commits() -> (FolderCommits, Arc<Mutex<Vec<Vec<String>>>>) {
     (FolderCommits::new(Box::new(Fake(calls.clone()))), calls)
 }
 
+// case: lists what a commit would take, never .locust/
 #[test]
 fn lists_what_a_commit_would_take_never_dot_locust() {
     let (folder, _bare) = repository();

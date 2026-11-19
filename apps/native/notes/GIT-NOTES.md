@@ -60,6 +60,21 @@
 - Fixed all three in `history_cache.rs` (`ledger.rs` is another lane's). `answers_exactly_what_the_whole_listing_answered` now compares whole `Summary` values (peer links included) on the first read and the cached one, and the picks under a small limit. Added `a_cached_run_stops_counting_as_running_once_its_file_has_been_quiet_for_the_window`.
 - Breaks: peer-link record shape -> `answers_exactly…`; cached running -> `a_cached_run_stops…`; no limit -> `answers_exactly…`.
 
+## Part 3: Committing — DONE (4/4 carried, 23/23 cases named)
+- `main/a-commit-message-is-written-from-the-changes.test.ts` (5/5): `commit_draft.rs` tests now use Electron's own `PENDING` (`src/total.ts`) and carry `// case:` lines. New `core/src/panel_runs.rs` ports `panel-runs.ts` (`{missionIds}`, each once, oldest out past the limit of 5,000, ids up to 200 characters, an unusable file reads as none, written through a scratch file then renamed).
+  - Window gap fixed: native lists Electron's ledgers beside its own, but never read Electron's `panel-runs.json`, so Electron's commit-draft and walkthrough runs showed as conversations. `native::list_recent` now hides them (`native::tests::a_run_electron_kept_for_a_panel_is_never_listed_as_a_conversation`). Native's own panel runs already live in their own store (`run_once`).
+- `main/the-folder-commits-as-you.test.ts` (9/9): already ported in `core/src/folder_commit/tests.rs` with Electron's values (refspec, `gh pr create` args, `Fixes #123`). Added the one missing `// case:` line. Driven by `src/ui/commit_panel.rs`.
+- `main/git-reaches-a-run-with-no-shell.test.ts` (6/6): new `core/src/git_reads.rs`, a port of `resources/locust-git-reads.mjs`. `locust-native --git-reads` (in `src/main.rs`) serves six read-only tools, with Electron's checks and words, error codes, and `GIT_*` dropped. A diff reads a copy of the index that keeps its times. Tests run in-process against temporary repositories, with the index copies in a folder of the test's own.
+  - Wired: `opencode_config::for_run` adds it as `locust_git` (with `locust_git_*` allowed last) to every OpenCode 1 Ask/Plan run that is not sealed (`native.rs`, after `command_for_turn`).
+  - Not carried: Electron's `instructions` file telling the run about the tool, and OpenCode 2 (ACP) runs (Electron leaves those out too).
+- `packages/runtime-adapters/test/the-parent-git-is-reachable-on-every-platform.test.ts` (2/2): `git_dir_pattern` and `with_parent_git` in `opencode_config.rs`, applied by `for_run` to every OpenCode 1 run with a `repository_root` (a worktree). Auto and sealed runs are untouched, and reference folders stay allowed.
+- Breaks (24 caught):
+  - git_reads: `GIT_*` kept, `-` revision, `:` pathspec, no index copy, copy left behind, `GIT_OPTIONAL_LOCKS` dropped -> `writes_nothing…` / `takes_no_option…`; not-a-repo words -> `says_so…`; `readOnlyHint` -> `lists_six_tools…`; `-32602` -> `takes_no_option…`; "No difference." -> `reads_what_a_review_needs…`.
+  - opencode_config (via mutfilter): backslash-only root (needed a new UNC assertion; it survived until then), Auto, sealed, git tool outside Ask/Plan, pattern not allowed, `locust_git_*` not allowed.
+  - panel_runs: dedupe, limit, id length; native filter -> `a_run_electron_kept…`; commit_draft cut-short words.
+  - Not catchable on this Mac: dropping the index copy's `set_modified`. On macOS `fs::copy` already keeps the times; on Windows/Linux it is what keeps the racy-git case right. Only an unrelated whole-package test failed for it, which is not a catch.
+- Surprise: Electron's Ask/Plan OpenCode config leaves `bash` at "ask" (not "deny"), because a deny makes the free provider refuse the run (measured 2026-09-22). Native already matches.
+- Flaky, not ours: `permission_host_tests::refuses_a_questions_answer_aimed_at_a_permission_and_says_so` failed once in a whole-package run.
+
 ## Remaining
-- Part 3: Committing (4 files)
 - Part 4: Pull-request and issue links (7 files)

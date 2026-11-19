@@ -89,6 +89,11 @@ apps/desktop/src/main/a-column-can-be-tried-again.test.ts	puts the new answer in
 apps/desktop/src/main/a-column-can-be-tried-again.test.ts	gives a column that could not start its first turn, and drops the refusal	no
 apps/desktop/src/main/a-column-can-be-tried-again.test.ts	goes, copies and all, only when every answer it held is gone for good (0.445)	no
 apps/desktop/src/main/a-column-can-be-tried-again.test.ts	says so for a column the comparison does not have	no
+apps/desktop/src/main/a-commit-message-is-written-from-the-changes.test.ts	is the diff, the files, the asks and the recent messages, with the shape to answer in	yes
+apps/desktop/src/main/a-commit-message-is-written-from-the-changes.test.ts	is the subject and the body, and nothing said around them	yes
+apps/desktop/src/main/a-commit-message-is-written-from-the-changes.test.ts	cuts a long subject, and is nothing when the answer is not in the shape asked for	yes
+apps/desktop/src/main/a-commit-message-is-written-from-the-changes.test.ts	are kept across a restart, each once, the oldest going first past the limit	yes
+apps/desktop/src/main/a-commit-message-is-written-from-the-changes.test.ts	reads a file it cannot use as none	yes
 apps/desktop/src/main/a-compaction-summary-is-not-the-reply.test.ts	leaves the reply the host reads blocks from as what came after it	yes
 apps/desktop/src/main/a-compaction-summary-is-not-the-reply.test.ts	never makes the summary the reply, even when nothing came after it	yes
 apps/desktop/src/main/a-compare-column-works-outside-the-folder.test.ts	is made outside the project folder, and is still one of its worktrees	no
@@ -1158,6 +1163,12 @@ apps/desktop/src/main/free-routes.test.ts	knows every free model OpenCode 1.18.2
 apps/desktop/src/main/free-routes.test.ts	holds a launch with a debugging port to free routes	no
 apps/desktop/src/main/free-routes.test.ts	leaves an ordinary launch alone	no
 apps/desktop/src/main/free-routes.test.ts	lifts only for the person who said to spend	no
+apps/desktop/src/main/git-reaches-a-run-with-no-shell.test.ts	lists six tools, every one marked read only	yes
+apps/desktop/src/main/git-reaches-a-run-with-no-shell.test.ts	reads what a review needs: the change, the history, a file as it was	yes
+apps/desktop/src/main/git-reaches-a-run-with-no-shell.test.ts	sees a change of the same size made in the same second as the index was written	yes
+apps/desktop/src/main/git-reaches-a-run-with-no-shell.test.ts	takes no option, no path outside the folder, and nothing it does not name	yes
+apps/desktop/src/main/git-reaches-a-run-with-no-shell.test.ts	writes nothing: no index refresh, no lock, and no program a variable names	yes
+apps/desktop/src/main/git-reaches-a-run-with-no-shell.test.ts	says so when the folder is not a repository	yes
 apps/desktop/src/main/groups-hold-conversations.test.ts	keeps what it was called	no
 apps/desktop/src/main/groups-hold-conversations.test.ts	refuses a name that is only spaces	no
 apps/desktop/src/main/groups-hold-conversations.test.ts	flattens a name to one line, because a row is one line	no
@@ -1896,6 +1907,16 @@ apps/desktop/src/main/the-effort-thumb-is-claude-codes-shape.test.ts	sits on a f
 apps/desktop/src/main/the-effort-track-takes-the-pointer.test.ts	lets the pointer through the input to the track	no
 apps/desktop/src/main/the-effort-track-takes-the-pointer.test.ts	does not start a scroll or a selection with a drag	yes
 apps/desktop/src/main/the-effort-track-takes-the-pointer.test.ts	keeps the fill under a held thumb	yes
+apps/desktop/src/main/the-folder-commits-as-you.test.ts	lists what a commit would take, never .locust/	yes
+apps/desktop/src/main/the-folder-commits-as-you.test.ts	commits everything as you, with your hooks, and says what it did	yes
+apps/desktop/src/main/the-folder-commits-as-you.test.ts	a hook that refuses leaves what you had staged exactly as it was	yes
+apps/desktop/src/main/the-folder-commits-as-you.test.ts	commit and push sends it to the branch it tracks	yes
+apps/desktop/src/main/the-folder-commits-as-you.test.ts	a pull request from main goes from a branch of its own, and main is left where it was	yes
+apps/desktop/src/main/the-folder-commits-as-you.test.ts	a pull request for an issue says which issue it fixes	yes
+apps/desktop/src/main/the-folder-commits-as-you.test.ts	a refused push keeps the commit and says so	yes
+apps/desktop/src/main/the-folder-commits-as-you.test.ts	no pull request without GitHub, and nothing at all mid-merge	yes
+apps/desktop/src/main/the-folder-commits-as-you.test.ts	a folder inside a repository, not its top, offers nothing	yes
+apps/desktop/src/main/the-folder-commits-as-you.test.ts	drafts from the asks, and names a branch from the subject	yes
 apps/desktop/src/main/the-folders-changes-are-read.test.ts	adds every line, says when the last has no newline, and calls a binary file binary	yes
 apps/desktop/src/main/the-folders-changes-are-read.test.ts	on a branch: its commits and what is not committed yet, against main, new files whole	yes
 apps/desktop/src/main/the-folders-changes-are-read.test.ts	on main: what is not committed yet, and nothing when nothing has changed	yes
@@ -5627,6 +5648,8 @@ packages/runtime-adapters/test/the-browser-shares-one-flag-with-the-bridge.test.
 packages/runtime-adapters/test/the-browser-shares-one-flag-with-the-bridge.test.ts	joins the connectors' rules in one --allowedTools	yes
 packages/runtime-adapters/test/the-browser-shares-one-flag-with-the-bridge.test.ts	is still the only --mcp-config in Auto, where there is no bridge and no rule is needed	yes
 packages/runtime-adapters/test/the-browser-shares-one-flag-with-the-bridge.test.ts	changes nothing for a run without it	no
+packages/runtime-adapters/test/the-parent-git-is-reachable-on-every-platform.test.ts	is spelled as the root is: backslashes on Windows, slashes elsewhere	yes
+packages/runtime-adapters/test/the-parent-git-is-reachable-on-every-platform.test.ts	is the one directory allowed outside the worktree	yes
 packages/runtime-adapters/test/the-steps-show-what-the-runtimes-show.test.ts	carries a command's output, as Claude Code shows it under the command	no
 packages/runtime-adapters/test/the-steps-show-what-the-runtimes-show.test.ts	reads output given as text blocks	no
 packages/runtime-adapters/test/the-steps-show-what-the-runtimes-show.test.ts	does not carry a file's text for a Read, which Claude Code never shows	no
