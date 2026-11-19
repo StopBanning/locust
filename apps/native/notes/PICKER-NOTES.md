@@ -206,3 +206,6 @@ Breaks (`core-c` to `core-f`, `ui-d`, `ui-e` logs). All caught in the end:
   `routeLabel` (`core/src/teammate_tooltip.rs` `route_chrome`, new, with Electron's values from four test files in
   `route_name_tests`); with a route picked, the foot said the picked route, and now names the composer's.
   Breaks 9 of 9 killed (two only by the core test).
+- Stay awake (Startup): Rust said its own subtitle ("Prevents idle sleep on AC power...") and never Electron's note.
+  Now Electron's one sentence names the row and the switch, and "Only the sleep that comes when nobody uses it..."
+  shows while it is on. `stay_awake_tests` holds Electron's case by name; breaks 2 of 2 killed.

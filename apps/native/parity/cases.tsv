@@ -2487,7 +2487,7 @@ apps/desktop/src/renderer/src/a-pet-plays-what-its-teammate-is-doing.test.ts	mea
 apps/desktop/src/renderer/src/a-plain-conversation-wears-the-ghost.test.tsx	beside a reply: the ghost when the conversation is nobody's, the teammate's own bot when it has one	yes
 apps/desktop/src/renderer/src/a-plain-conversation-wears-the-ghost.test.tsx	wears the ghost's own white, as the cover's ghost does (0.624), on the reply and the live row alike	no
 apps/desktop/src/renderer/src/a-plain-conversation-wears-the-ghost.test.tsx	on the live row: the same ghost while nobody's conversation thinks	yes
-apps/desktop/src/renderer/src/a-plugged-in-computer-stays-awake-in-settings.test.ts	sits in Settings under Startup and says what it leaves alone	no
+apps/desktop/src/renderer/src/a-plugged-in-computer-stays-awake-in-settings.test.ts	sits in Settings under Startup and says what it leaves alone	yes
 apps/desktop/src/renderer/src/a-proposed-change-says-what-it-changes.test.tsx	a rewrite shows the new words, the ones kept now, and Keep the change / Keep the old one	no
 apps/desktop/src/renderer/src/a-proposed-change-says-what-it-changes.test.tsx	a forget says so, and its buttons are Forget it / Keep it	no
 apps/desktop/src/renderer/src/a-proposed-change-says-what-it-changes.test.tsx	a new memory is asked about as it always was	no
