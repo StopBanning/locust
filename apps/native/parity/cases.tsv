@@ -4184,10 +4184,10 @@ apps/desktop/src/renderer/src/the-live-line-says-which-plan-step.test.ts	keeps a
 apps/desktop/src/renderer/src/the-live-word-says-three-dots.test.ts	capitalises and ends in one ellipsis	yes
 apps/desktop/src/renderer/src/the-live-word-says-three-dots.test.ts	never trails a full stop after the ellipsis	yes
 apps/desktop/src/renderer/src/the-live-word-says-three-dots.test.ts	leaves the rest of the phrase alone	yes
-apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.test.tsx	draws nothing before the window has said the glass is offered	no
-apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.test.tsx	says what each look is, and that Liquid glass shows the desktop through it	no
-apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.test.tsx	says Windows' glass on a Windows 11 PC (0.864), and macOS's on a Mac	no
-apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.test.tsx	is hidden in a browser, and sits under the theme on the Appearance page	no
+apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.test.tsx	draws nothing before the window has said the glass is offered	yes
+apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.test.tsx	says what each look is, and that Liquid glass shows the desktop through it	yes
+apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.test.tsx	says Windows' glass on a Windows 11 PC (0.864), and macOS's on a Mac	yes
+apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.test.tsx	is hidden in a browser, and sits under the theme on the Appearance page	yes
 apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.test.tsx	the panel runs from the window's top inset to its bottom inset, as wide as the sidebar, or is none	no
 apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.test.tsx	the panel the page asks for is the shape the sheet washes	no
 apps/desktop/src/renderer/src/the-model-chip-shows-usage-on-hover.test.tsx	opens the agent's card, with a bar for each window, placed for the chip	no

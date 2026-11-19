@@ -736,6 +736,20 @@ mod tests {
     }
 
     #[test]
+    fn says_what_each_look_is_and_that_liquid_glass_shows_the_desktop_through_it() {
+        assert!(look_lede(LookChoice::Liquid, "darwin").contains("glass"));
+        assert!(look_lede(LookChoice::Liquid, "darwin").contains("desktop"));
+        assert!(look_lede(LookChoice::Standard, "darwin").contains("everywhere"));
+    }
+
+    #[test]
+    fn says_windows_glass_on_a_windows_11_pc_0_864_and_macoss_on_a_mac() {
+        assert!(look_lede(LookChoice::Liquid, "win32").contains("Windows\u{2019} glass"));
+        assert!(look_lede(LookChoice::Liquid, "darwin").contains("macOS\u{2019}s glass"));
+        assert!(!look_lede(LookChoice::Standard, "win32").contains("Mac"));
+    }
+
+    #[test]
     fn save_appearance_keeps_all_fields_together() {
         let (_dir, store) = temp_store();
         let prefs = AppearancePrefs {

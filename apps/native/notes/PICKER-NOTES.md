@@ -226,3 +226,4 @@ Breaks (`core-c` to `core-f`, `ui-d`, `ui-e` logs). All caught in the end:
 
 - **What's new**: Electron's nine cases named. The home splash reads the repository CHANGELOG.md first (`changelog_paths`); Settings > What's new shows the Rust app's own notes. Every big build from 0.276 holds, in Electron's order.
 - **Usage drawn**: the dialog's heatmap is now Electron's grid (`usage_panel::heatmap`, `usage::heat_columns`). `compact_count` rounded a half to even and wrote 12.5 billion as 12B; it now goes through `benchmark::to_fixed` (13B), the same JS rounding as the cost words.
+- **The look offered**: 4 of 6. The Rust window draws no macOS or Windows glass, so `liquid_offered` is never set and the Look row never shows; the two glass-panel geometry cases wait for a glass window.

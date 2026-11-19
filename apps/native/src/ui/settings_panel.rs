@@ -1833,3 +1833,7 @@ mod pages_real_tests;
 #[cfg(test)]
 #[path = "settings_switches_tests.rs"]
 mod switches_tests;
+
+#[cfg(test)]
+#[path = "settings_look_tests.rs"]
+mod settings_look_tests;
