@@ -13,6 +13,7 @@
 use super::*;
 use locust_core::agent_updates as updates;
 use locust_core::agents::{self, Found, RowStatus};
+use locust_core::runtime_order::{RuntimeEntry, keep_what_was_known, runtime_list_order};
 
 pub(super) const HEADING: &str = "AI agents & accounts";
 /// Electron's lede, minus "Claude Code and Codex can also use accounts you add here": named accounts are not built.
@@ -46,7 +47,9 @@ pub(super) fn request(s: &mut State) {
 pub(super) fn poll(s: &mut State) -> bool {
     let mut changed = match s.settings_panel.agents_job.take() {
         Some(found) => {
-            s.settings_panel.agents = Some(found);
+            // A re-check does not make the list go backwards (App.tsx: `keepWhatWasKnown(held, response.runtimes)`).
+            let kept = keep_known(s.settings_panel.agents.as_deref().unwrap_or(&[]), found);
+            s.settings_panel.agents = Some(kept);
             true
         }
         None => false,
@@ -310,16 +313,39 @@ fn install_part(s: &State, l: &crate::look::controls::Look, f: &Found, command: 
     part.child(copy_line(l, format!("agents-copy-install-{}", f.id), shown_command))
 }
 
-/// RUNTIME_BAND, then the name: what can be used first, what is planned last (runtimeListOrder).
-fn band(tag: &str) -> u8 {
-    match tag {
-        "READY" => 0,
-        "EXPERIMENTAL" => 1,
-        "SIGN IN" | "AT LIMIT" => 2,
-        "NOT INSTALLED" => 3,
-        "PLANNED" => 4,
-        _ => 3,
+/// PublicRuntimeStatus's `status` word for a probe: the two rules read only "probe-failed" and "offline" as no answer.
+fn status_word(p: agents::Probe) -> &'static str {
+    use agents::Probe::*;
+    match p {
+        Ready => "ready",
+        AuthRequired => "auth-required",
+        Unsupported => "unsupported",
+        Offline => "offline",
+        ProbeFailed => "probe-failed",
+        Missing => "not-installed",
+        Unknown => "unknown",
     }
+}
+
+fn entry(f: &Found) -> RuntimeEntry {
+    RuntimeEntry { id: f.id.clone(), display_name: f.display_name.clone(), installed: f.installed, version: f.version.clone(), status: status_word(f.status).to_owned() }
+}
+
+/// `keep_what_was_known` over discovery's answers: a runtime whose new answer is silence keeps the row it had, whole;
+/// one that answered without a version keeps the version it printed before; every definite answer is taken.
+fn keep_known(previous: &[Found], next: Vec<Found>) -> Vec<Found> {
+    let before: Vec<RuntimeEntry> = previous.iter().map(entry).collect();
+    let after: Vec<RuntimeEntry> = next.iter().map(entry).collect();
+    keep_what_was_known(&before, &after)
+        .into_iter()
+        .zip(next)
+        .map(|(kept, new)| {
+            if kept.status != status_word(new.status) {
+                return previous.iter().find(|p| p.id == kept.id).cloned().unwrap_or(new);
+            }
+            Found { version: kept.version, ..new }
+        })
+        .collect()
 }
 
 pub(super) fn ordered(found: &[Found], limited: &std::collections::HashMap<String, String>) -> Vec<(Found, RowStatus)> {
@@ -338,9 +364,12 @@ pub(super) fn ordered(found: &[Found], limited: &std::collections::HashMap<Strin
         })
         .collect();
     if found.iter().any(|f| f.installed) {
-        rows.sort_by(|(a, ra), (b, rb)| {
-            band(ra.tag).cmp(&band(rb.tag)).then_with(|| a.display_name.to_lowercase().cmp(&b.display_name.to_lowercase()))
-        });
+        // What can be used first, what is planned last, by name inside a band (Screens.tsx: runtimeListOrder).
+        let tags: std::collections::HashMap<String, &'static str> = rows.iter().map(|(f, r)| (f.id.clone(), r.tag)).collect();
+        let entries: Vec<RuntimeEntry> = rows.iter().map(|(f, _)| entry(f)).collect();
+        let order = runtime_list_order(&entries, |e| tags.get(&e.id).copied().unwrap_or("NOT INSTALLED").to_owned());
+        let mut by_id: std::collections::HashMap<String, (Found, RowStatus)> = rows.into_iter().map(|r| (r.0.id.clone(), r)).collect();
+        rows = order.iter().filter_map(|e| by_id.remove(&e.id)).collect();
     } else {
         // Nothing installed: OpenCode, the free start, first.
         rows.sort_by_key(|(f, _)| f.id != agents::FREE_START_RUNTIME);
@@ -634,5 +663,135 @@ mod tests {
         assert!(drawn.contains("READY"), "{drawn}");
 
         let _ = std::fs::remove_dir_all(&root);
+    }
+
+    // `the-frame-pass.test.ts`, drawn: the window's own list, through `ordered` and `poll`.
+    fn agent(id: &str, name: &str, version: Option<&str>, auth: Auth, status: Probe) -> Found {
+        Found {
+            id: id.into(),
+            display_name: name.into(),
+            installed: status != Probe::Missing,
+            version: version.map(Into::into),
+            auth,
+            ready: status == Probe::Ready,
+            status,
+            unsupported_note: None,
+            // Antigravity through its own CLI is READY; through the app it is EXPERIMENTAL, the band under test.
+            through_cli: false,
+            checking: false,
+        }
+    }
+    fn window(agents: Vec<Found>) -> rune::Runtime<State> {
+        let mut s = State::default();
+        s.settings_panel.agents = Some(agents);
+        let mut rt = rune::Runtime::new(s, |s, _| section(s, &Palette::new(true)), (1100.0, 1400.0), rune::Env::new(true, 1.0));
+        rt.frame(0.0);
+        rt
+    }
+    /// A re-check lands as discovery's answer does: through the job, then the window's poll.
+    fn recheck(rt: &mut rune::Runtime<State>, answer: Vec<Found>) {
+        rt.update(move |s, _| s.settings_panel.agents_job.request((), move |()| answer));
+        let until = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        let mut landed = false;
+        while !landed && std::time::Instant::now() < until {
+            rt.update(|s, _| landed = poll(s));
+            if !landed {
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+        }
+        assert!(landed, "the re-check never landed");
+        rt.frame(0.05);
+    }
+    /// The drawn rows, top to bottom.
+    fn drawn_order(rt: &rune::Runtime<State>) -> Vec<String> {
+        let mut rows: Vec<(f32, String)> = rt
+            .elements()
+            .into_iter()
+            .filter_map(|e| e.key.and_then(|k| k.strip_prefix("agents-row-").map(str::to_owned)).map(|id| (e.rect[1], id)))
+            .collect();
+        rows.sort_by(|a, b| a.0.total_cmp(&b.0));
+        rows.into_iter().map(|(_, id)| id).collect()
+    }
+    /// Every word drawn inside one agent's row.
+    fn row_words(rt: &rune::Runtime<State>, id: &str) -> String {
+        let all = rt.elements();
+        let key = format!("agents-row-{id}");
+        let Some(row) = all.iter().position(|e| e.key.as_deref() == Some(key.as_str())) else { return String::new() };
+        let inside = |mut i: usize| loop {
+            if i == row {
+                return true;
+            }
+            match all[i].parent {
+                Some(p) => i = p,
+                None => return false,
+            }
+        };
+        (0..all.len()).filter(|&i| !all[i].exiting && inside(i)).filter_map(|i| all[i].text.clone()).collect::<Vec<_>>().join(" | ")
+    }
+
+    // case: bands them ready, experimental, sign-in, not installed, planned
+    // case: never leaves something that does not exist above something that does
+    #[test]
+    fn the_window_draws_what_can_be_used_first_and_what_does_not_exist_last() {
+        let rt = window(vec![
+            agent("gemini", "Gemini CLI", Some("0.66.0"), Auth::Authenticated, Probe::Ready),
+            agent("codex", "Codex CLI", Some("0.167.2"), Auth::Authenticated, Probe::Ready),
+            agent("antigravity", "Antigravity", Some("1.2.14"), Auth::Authenticated, Probe::Ready),
+            agent("muse", "Muse Code", None, Auth::Unknown, Probe::Missing),
+            agent("claude", "Claude Code", Some("2.1.322"), Auth::Unauthenticated, Probe::AuthRequired),
+            agent("omniroute", "OmniRoute", Some("1.0"), Auth::Authenticated, Probe::Ready),
+        ]);
+        assert_eq!(drawn_order(&rt), ["codex", "antigravity", "claude", "muse", "gemini", "omniroute"]);
+        let tags: Vec<String> = drawn_order(&rt).iter().map(|id| row_words(&rt, id)).collect();
+        for (words, tag) in tags.iter().zip(["READY", "EXPERIMENTAL", "SIGN IN", "NOT INSTALLED", "PLANNED", "PLANNED"]) {
+            assert!(words.ends_with(tag), "{words} should carry {tag}");
+        }
+    }
+
+    // case: is stable between launches, so the list does not shuffle
+    #[test]
+    fn the_window_draws_one_band_by_name_whatever_order_discovery_answered_in() {
+        let ready = |id: &str, name: &str| agent(id, name, Some("1.0"), Auth::Authenticated, Probe::Ready);
+        let first = window(vec![ready("cursor", "Cursor Agent"), ready("claude", "Claude Code"), ready("codex", "Codex CLI")]);
+        let again = window(vec![ready("codex", "Codex CLI"), ready("cursor", "Cursor Agent"), ready("claude", "Claude Code")]);
+        assert_eq!(drawn_order(&first), ["claude", "codex", "cursor"]);
+        assert_eq!(drawn_order(&again), drawn_order(&first));
+    }
+
+    // case: keeps a known result while the next probe is still out
+    // case: keeps a version the new answer simply did not print
+    #[test]
+    fn a_recheck_still_out_keeps_the_row_it_had_and_a_version_not_printed_again() {
+        let mut rt = window(vec![
+            agent("claude", "Claude Code", Some("2.1.270"), Auth::Authenticated, Probe::Ready),
+            agent("codex", "Codex CLI", Some("0.153.0"), Auth::Authenticated, Probe::Ready),
+        ]);
+        recheck(&mut rt, vec![agents::pending_found("claude", "Claude Code"), agent("codex", "Codex CLI", None, Auth::Authenticated, Probe::Ready)]);
+        let claude = row_words(&rt, "claude");
+        assert_eq!(claude, "Claude Code | 2.1.270 | READY");
+        assert_eq!(row_words(&rt, "codex"), "Codex CLI | 0.153.0 | READY");
+    }
+
+    // case: takes every DEFINITE answer at once, including the unwelcome ones
+    // case: lets a runtime that was out come back when it answers
+    // case: passes through a runtime it has never seen
+    #[test]
+    fn a_recheck_draws_every_definite_answer_at_once_and_rows_it_never_saw() {
+        let mut rt = window(vec![
+            agent("claude", "Claude Code", Some("2.1.270"), Auth::Authenticated, Probe::Ready),
+            agent("cursor", "Cursor Agent", Some("1.0"), Auth::Authenticated, Probe::Ready),
+            agents::pending_found("opencode", "OpenCode"),
+        ]);
+        recheck(&mut rt, vec![
+            agent("claude", "Claude Code", Some("2.1.270"), Auth::Unauthenticated, Probe::AuthRequired),
+            agent("cursor", "Cursor Agent", None, Auth::Unknown, Probe::Missing),
+            agent("opencode", "OpenCode", Some("1.18.27"), Auth::NotApplicable, Probe::Ready),
+            agent("codex", "Codex CLI", Some("0.58.0"), Auth::Authenticated, Probe::Ready),
+        ]);
+        assert!(row_words(&rt, "claude").ends_with("SIGN IN"), "{}", row_words(&rt, "claude"));
+        assert!(row_words(&rt, "cursor").ends_with("NOT INSTALLED"), "{}", row_words(&rt, "cursor"));
+        assert!(!row_words(&rt, "cursor").contains("1.0"), "{}", row_words(&rt, "cursor"));
+        assert_eq!(row_words(&rt, "opencode"), "OpenCode | 1.18.27 | READY");
+        assert_eq!(row_words(&rt, "codex"), "Codex CLI | 0.58.0 | READY");
     }
 }
