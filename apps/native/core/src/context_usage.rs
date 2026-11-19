@@ -62,11 +62,8 @@ pub fn compact_count(value: u64) -> String {
             continue;
         }
         let scaled = value as f64 / *size as f64;
-        let text = if scaled >= 9.95 {
-            format!("{scaled:.0}")
-        } else {
-            format!("{scaled:.1}")
-        };
+        // JS toFixed, which rounds a half up: 12.5 billion is 13B, where Rust's own formatting says 12B.
+        let text = crate::benchmark::to_fixed(scaled, if scaled >= 9.95 { 0 } else { 1 });
         if text == "1000"
             && let Some((larger_size, larger_unit)) =
                 index.checked_sub(1).and_then(|i| UNITS.get(i)).copied()

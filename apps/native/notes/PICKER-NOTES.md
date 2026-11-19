@@ -221,3 +221,8 @@ Breaks (`core-c` to `core-f`, `ui-d`, `ui-e` logs). All caught in the end:
   steps were built, but every token field showed the token as it was pasted. Now `.secure()` (Electron's
   type="password"), with a test that a typed token is never drawn. Breaks 3 of 3 killed.
 - Suite on picker-3 before the chat change: nextest 4554 passed.
+
+## Round 4 (19 Nov, the Mac chat took it over)
+
+- **What's new**: Electron's nine cases named. The home splash reads the repository CHANGELOG.md first (`changelog_paths`); Settings > What's new shows the Rust app's own notes. Every big build from 0.276 holds, in Electron's order.
+- **Usage drawn**: the dialog's heatmap is now Electron's grid (`usage_panel::heatmap`, `usage::heat_columns`). `compact_count` rounded a half to even and wrote 12.5 billion as 12B; it now goes through `benchmark::to_fixed` (13B), the same JS rounding as the cost words.

@@ -4267,17 +4267,17 @@ apps/desktop/src/renderer/src/two-teammates-look-at-each-other.test.ts	when the 
 apps/desktop/src/renderer/src/two-teammates-look-at-each-other.test.ts	for a message to oneself	yes
 apps/desktop/src/renderer/src/two-teammates-look-at-each-other.test.ts	with nothing handed over	yes
 apps/desktop/src/renderer/src/two-teammates-look-at-each-other.test.ts	a face in two handoffs at once looks toward the latest	yes
-apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	says the month in one line: turns, tokens, and money only when something was priced	no
+apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	says the month in one line: turns, tokens, and money only when something was priced	yes
 apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	a bar a day, the busiest full height, a quiet day flat, today marked	yes
-apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	is not drawn before there is anything to count: a new person’s Home is unchanged	no
-apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	draws the label, the facts, thirty bars and the way in	no
-apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	names how each model was paid for, in the receipts’ words	no
-apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	says what was spent, or that nothing was beyond the plans	no
-apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	a heatmap cell is one of five shades, by steps of the busiest day	no
-apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	names a month over the week it starts in, and never two names run together	no
-apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	the grid: twelve weeks of cells, today ringed, the days to come left out	no
-apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	writes a token count the way the app does everywhere	no
-apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	writes a billion and more as B, never as a thousand of the unit below	no
+apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	is not drawn before there is anything to count: a new person’s Home is unchanged	yes
+apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	draws the label, the facts, thirty bars and the way in	yes
+apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	names how each model was paid for, in the receipts’ words	yes
+apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	says what was spent, or that nothing was beyond the plans	yes
+apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	a heatmap cell is one of five shades, by steps of the busiest day	yes
+apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	names a month over the week it starts in, and never two names run together	yes
+apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	the grid: twelve weeks of cells, today ringed, the days to come left out	yes
+apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	writes a token count the way the app does everywhere	yes
+apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	writes a billion and more as B, never as a thousand of the unit below	yes
 apps/desktop/src/renderer/src/what-a-teammate-published-is-a-card.test.tsx	knows each kind by its address, and names it	yes
 apps/desktop/src/renderer/src/what-a-teammate-published-is-a-card.test.tsx	takes the reply’s own words for a link’s name, and vouches for nothing it does not know	yes
 apps/desktop/src/renderer/src/what-a-teammate-published-is-a-card.test.tsx	finds them as links and as bare addresses, in order, each once, and none inside code	yes
