@@ -96,7 +96,7 @@ pub(super) fn section(s: &State, p: &Palette) -> El {
         .w_full()
         .gap(8.0)
         .padding(10.0)
-        .child(text("Trash").font(type_::TITLE).color(p.text));
+        .child(text("Trash").role("heading").level(2).font(type_::TITLE).color(p.text));
 
     let note = match &state.held {
         None => "Reading the trash…".to_owned(),

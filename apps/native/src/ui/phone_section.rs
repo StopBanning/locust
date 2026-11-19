@@ -133,7 +133,7 @@ pub(crate) fn section(s: &State, p: &Palette) -> El {
             .w_full()
             .gap(4.0)
             .padding(10.0)
-            .child(text(HEADING).font(type_::TITLE).color(p.text))
+            .child(text(HEADING).role("heading").level(2).font(type_::TITLE).color(p.text))
             .child(text("Your phone opens when Locust runs on its own engine.").font(type_::LABEL).color(p.muted).wrap());
     };
     let managed = locust_core::org_policy::feature_refusal(Some(&locust_core::org_policy::current()), "phone").is_some();
@@ -141,7 +141,7 @@ pub(crate) fn section(s: &State, p: &Palette) -> El {
     let mut words = col()
         .grow(1.0)
         .gap(4.0)
-        .child(text(HEADING).font(l.ty.control).color(l.c("text-primary")))
+        .child(text(HEADING).role("heading").level(2).font(l.ty.control).color(l.c("text-primary")))
         .child(text(lede(phone, managed)).font(l.ty.body).color(l.c("text-secondary")).wrap());
     if let Some(message) = &phone.message {
         words = words.child(text(message.clone()).key("phone-message").font(l.ty.body).color(l.c("text-secondary")).wrap());

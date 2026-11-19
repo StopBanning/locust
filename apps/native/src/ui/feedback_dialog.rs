@@ -194,7 +194,7 @@ pub(super) fn settings_section(s: &State, p: &Palette) -> El {
         .padding(10.0)
         .fill(p.field)
         .radius(6.0)
-        .child(text("Report a problem".to_owned()).font(type_::TITLE).color(p.text))
+        .child(text("Report a problem".to_owned()).role("heading").level(2).font(type_::TITLE).color(p.text))
         .child(
             text("Every mission is recorded to an append-only ledger on this machine. Nothing is uploaded. The error log records what happened, never what was said.".to_owned())
                 .font(type_::LABEL)

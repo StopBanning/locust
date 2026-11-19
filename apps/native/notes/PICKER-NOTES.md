@@ -178,3 +178,18 @@ Breaks (`core-c` to `core-f`, `ui-d`, `ui-e` logs). All caught in the end:
   `route_picker_tests::the_conversations_header_names_the_model_and_says_the_phase_only_when_it_is_news`.
 - Breaks (`~/work/scratch/picker3/part1-*.breaks`, `c1`, `c2`): all 13 killed by their named tests.
 - Gates: nextest 4518 passed; `test --release --workspace` 3520 + 998 passed; `build --release` ok.
+
+### Part 2: Settings headings held to the index (19 Nov, picked up from the lane by the Mac chat)
+- Every Settings section title is a heading (`role("heading")`, level 2): `section_heading` in `settings_panel.rs`
+  and the titles in agents, backup, chat apps, phone, scout, trash, feedback and quit-guard.
+- `src/ui/settings_pages_real_tests.rs` (new, Electron `settings-pages-are-real.test.ts`, 3 of 3 + one of ours): every
+  page drawn headless; its level-2 headings equal its index entries; nothing indexed goes undrawn; each page says its
+  own name once besides the nav.
+- Found by it: Project folder drew no "Project folder" heading, only the native-only "Native data folder" block as one.
+  Now the heading opens the page (Electron's h2); the data-folder block is a level-3 sub-heading.
+- Five pages whose name is also a heading (Between teammates, Your own models, Connectors, Cloud computers, Project
+  folder) said the name twice: once as the plain page title and once as the heading. The plain title is now skipped.
+- `core/src/org_policy.rs`: `use_policy_on_this_thread`. The page test needs a policy for "Managed by your
+  organization", and the process-wide one made the door tests fail under `cargo test` (one process). Tested in
+  `org_policy_tests::a_policy_on_one_thread_is_not_seen_on_another_and_leaves_when_cleared`.
+- Breaks (`~/work/scratch/pick3-breaks*.txt`): 5 of 5 killed by the page tests.

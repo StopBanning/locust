@@ -369,6 +369,8 @@ pub(super) fn section_at(
         .gap(4.0)
         .child(
             text(SCOUT_SETTING_HEADING)
+                .role("heading")
+                .level(2)
                 .font(type_::TITLE)
                 .color(p.text),
         )

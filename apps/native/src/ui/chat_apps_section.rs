@@ -94,7 +94,7 @@ pub(super) fn section(s: &State, p: &Palette) -> El {
         .w_full()
         .gap(8.0)
         .padding(10.0)
-        .child(text("Chat apps".to_owned()).font(type_::TITLE).color(p.text));
+        .child(text("Chat apps".to_owned()).role("heading").level(2).font(type_::TITLE).color(p.text));
 
     if s.chat_apps.managed {
         return box_.child(

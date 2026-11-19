@@ -316,7 +316,7 @@ pub(super) fn storage_and_retention_section(s: &State, p: &Palette) -> El {
         .w_full()
         .gap(8.0)
         .padding(10.0)
-        .child(text("Privacy & local data").font(type_::TITLE).color(p.text))
+        .child(text("Privacy & local data").role("heading").level(2).font(type_::TITLE).color(p.text))
         .child(
             text("Nothing here is ever deleted on a timer. Turns go when you ask, after you have been shown exactly what would go, and a turn an ongoing conversation continues from is kept even when it is old.")
                 .font(type_::LABEL)
@@ -409,7 +409,7 @@ pub(super) fn backup_section(s: &State, p: &Palette) -> El {
         .w_full()
         .gap(8.0)
         .padding(10.0)
-        .child(text("Back up and restore").font(type_::TITLE).color(p.text))
+        .child(text("Back up and restore").role("heading").level(2).font(type_::TITLE).color(p.text))
         .child(
             text("A backup is a folder you choose, holding your teammates, routines, memories, saved approvals and conversations. Your own model keys are never in it.")
                 .font(type_::LABEL)

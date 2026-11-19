@@ -131,7 +131,7 @@ pub(super) fn startup_section(s: &State, p: &Palette) -> El {
         .padding(10.0)
         .fill(p.field)
         .radius(6.0)
-        .child(text("Startup".to_owned()).font(type_::TITLE).color(p.text))
+        .child(text("Startup".to_owned()).role("heading").level(2).font(type_::TITLE).color(p.text))
         .child(
             row()
                 .w_full()

@@ -1736,9 +1736,9 @@ apps/desktop/src/main/scouts-cards-are-on-your-phone.test.ts	dismisses a card th
 apps/desktop/src/main/scouts-cards-are-on-your-phone.test.ts	has the page show them, and what the away looks found with the computer off	no
 apps/desktop/src/main/scouts-look-is-sealed.test.ts	starts every look in its own slot, sealed	no
 apps/desktop/src/main/scouts-look-is-sealed.test.ts	on the mode that reads and changes nothing	no
-apps/desktop/src/main/settings-pages-are-real.test.ts	are found at all, so this cannot pass by reading nothing	no
-apps/desktop/src/main/settings-pages-are-real.test.ts	index every heading the screen renders, and invent none	no
-apps/desktop/src/main/settings-pages-are-real.test.ts	are the areas the screen actually splits on	no
+apps/desktop/src/main/settings-pages-are-real.test.ts	are found at all, so this cannot pass by reading nothing	yes
+apps/desktop/src/main/settings-pages-are-real.test.ts	index every heading the screen renders, and invent none	yes
+apps/desktop/src/main/settings-pages-are-real.test.ts	are the areas the screen actually splits on	yes
 apps/desktop/src/main/settings-read-like-claudes.test.ts	files every page under a group, with an icon the set can draw	no
 apps/desktop/src/main/settings-read-like-claudes.test.ts	keeps each group together, in order, so every label is said once	no
 apps/desktop/src/main/settings-read-like-claudes.test.ts	draws the group label above its first page and the icon beside each name	no
