@@ -69,6 +69,8 @@ fn draws_the_files_card_above_the_totals_with_electrons_heading() {
     // Open by default: its rows are drawn.
     assert!(said.contains("report.md"), "{said}");
     assert!(said.contains("backups/.claude.json.backup.1"), "{said}");
+    // The totals under it do not say how many files again (TurnFoot drops the trace's files segment).
+    assert!(!said.lines().any(|l| l == "3 files" || l == "1 file"), "{said}");
 }
 
 #[test]

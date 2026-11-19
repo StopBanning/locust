@@ -309,3 +309,4 @@ Next: part 1b opens-the-plan, then orb, frame-pass.
 - Tests: `turn_foot_tests` (core, 8), `messages::turn_foot_tests` (window, 3). `window_drive_tests::
   a_failing_check_shows_its_card_and_sends_back_to_fix` now reads the thread a screen at a time (the open feet made it
   taller than top + bottom).
+- Breaks: 7 of 7 killed (folder filter, observed status, the 0.672 fold, relative paths, no foot while going, totals drop the files segment, open by default).
