@@ -155,3 +155,26 @@ Breaks (`core-c` to `core-f`, `ui-d`, `ui-e` logs). All caught in the end:
 - Partial rows: `a-context-menu-stays-in-the-window.test.tsx` (`place_menu` carried, no right-click `ContextMenu` in Rust), `swarm.test.ts` (`swarm_effort_for` carried, no swarm toggle in Rust composer), `main/three-placements.test.ts` (`peer_thread` already says `"{from} sent"`, mission strip / left-ruled note register not in Rust).
 - Tests passed: `route_rows::tests::*` (30), `effort_levels::tests::*` (19), `route_picker_tests::*` (16), `free_offer::tests::*` (4).
 - Breaks (`part3-core.breaks`, `part3-ui.breaks`, `part3-native.breaks`): `quiet_minutes`, `place_menu`, `swarm_effort_for`, `row_detail_repeats_heading`, and `free_offer` `quiet-turn-row` killed by their named tests.
+
+## Round 3 (18 Nov 2026)
+
+### Part 1: the right-click menu and three placements (done, 18 Nov)
+- `src/ui/context_menu.rs` (new): the right-click menu (`ContextMenu.tsx`). Own surface, not rune-kit's `Menu`: the kit
+  has no accessible name for the menu and draws shortcuts as given. Placed by `route_rows::place_menu` from its measured
+  size (`cx.layout("row-menu")`, an estimate before the first layout) inside `app-body`. No title bar (the title is the
+  `role="menu"` label), upper-case key at each row's end that chooses the row, hairlines where `divider_above` and
+  index > 0, Delete red and arming "Delete for good?" before acting, lists behind `›` opened on hover or press, refused
+  rows greyed with the reason drawn under the label (no `›`). Escape (modal) or a press on the scrim closes it.
+- `src/ui/sidebar.rs`: `mission_row` opens `context_menu::conversation_menu` on `on_secondary_press` at the pointer:
+  Open, Open beside, Rename, Pin/Unpin, Settle/Bring back, Snooze ›, Move to project ›, Save the record…, Copy its
+  record id, Delete (refused while running). The DOTS inline `org_menu` stays as it was (its tests use its keys).
+  Not in the Rust menu: Assign to and Save as routine (no such actions in Rust yet). Not wired: rail teammates, rooms,
+  Changes panel (git lane), file viewer, activity cards (reply lane).
+- `core/src/mission_strip.rs` (new): `mission_strip(runtime, model, phase, cost_tail)`; `thread_view.rs` draws
+  `thread-header-route` as runtime · strip · "runs in Locust for now" (without calling `agent_line`).
+- `src/ui/peer_thread_tests.rs` (new): the four attribution cases on `cards_for_mission`.
+- three-placements stays partial (7 of 9): the note-vs-marker register is drawn in `src/ui/messages.rs` (reply lane).
+- Tests passed: `context_menu::tests::*` (9), `peer_thread::tests::*` (4), `mission_strip::tests::*` (3),
+  `route_picker_tests::the_conversations_header_names_the_model_and_says_the_phase_only_when_it_is_news`.
+- Breaks (`~/work/scratch/picker3/part1-*.breaks`, `c1`, `c2`): all 13 killed by their named tests.
+- Gates: nextest 4518 passed; `test --release --workspace` 3520 + 998 passed; `build --release` ok.

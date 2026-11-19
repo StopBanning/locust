@@ -1928,15 +1928,15 @@ apps/desktop/src/main/the-starter-routines-are-routines.test.ts	leaves out, and 
 apps/desktop/src/main/the-starter-routines-are-routines.test.ts	previews by id, then adds it once: Ask, no schedule, in this folder, run by nobody	no
 apps/desktop/src/main/the-starter-routines-are-routines.test.ts	asks for a folder first in its own words, not the words for a file	no
 apps/desktop/src/main/three-judges-are-kept.test.ts	keeps the panel of the newest ask, and every panel run as the comparison's, across a restart	no
-apps/desktop/src/main/three-placements.test.ts	dropped the noun that labelled the line once and cost eight characters forever	no
-apps/desktop/src/main/three-placements.test.ts	dropped the permission prose, which the composer already states where it can be changed	no
-apps/desktop/src/main/three-placements.test.ts	names the model always, and the phase only when it is news	no
+apps/desktop/src/main/three-placements.test.ts	dropped the noun that labelled the line once and cost eight characters forever	yes
+apps/desktop/src/main/three-placements.test.ts	dropped the permission prose, which the composer already states where it can be changed	yes
+apps/desktop/src/main/three-placements.test.ts	names the model always, and the phase only when it is news	yes
 apps/desktop/src/main/three-placements.test.ts	gives the note its own register: left-ruled, not centred	no
 apps/desktop/src/main/three-placements.test.ts	leaves the boundary marker centred, because it IS a boundary	no
-apps/desktop/src/main/three-placements.test.ts	says the teammate SENT it, rather than naming them and stopping	no
-apps/desktop/src/main/three-placements.test.ts	offers the sender’s own conversation, once, in the header	no
-apps/desktop/src/main/three-placements.test.ts	never claims there is more, which is the comparison it cannot make	no
-apps/desktop/src/main/three-placements.test.ts	reaches the sender by their own mission, which the store always had	no
+apps/desktop/src/main/three-placements.test.ts	says the teammate SENT it, rather than naming them and stopping	yes
+apps/desktop/src/main/three-placements.test.ts	offers the sender’s own conversation, once, in the header	yes
+apps/desktop/src/main/three-placements.test.ts	never claims there is more, which is the comparison it cannot make	yes
+apps/desktop/src/main/three-placements.test.ts	reaches the sender by their own mission, which the store always had	yes
 apps/desktop/src/main/todo-list-is-opt-in.test.ts	says nothing about todo lists unless asked to	no
 apps/desktop/src/main/todo-list-is-opt-in.test.ts	asks once, and asks for the list to be kept current	no
 apps/desktop/src/main/todo-list-is-opt-in.test.ts	leaves the person words last, so the ask still reads closest to the asking	no
@@ -2190,10 +2190,10 @@ apps/desktop/src/renderer/src/a-context-menu-stays-in-the-window.test.tsx	at the
 apps/desktop/src/renderer/src/a-context-menu-stays-in-the-window.test.tsx	upward from the pointer, when it would run off the bottom	yes
 apps/desktop/src/renderer/src/a-context-menu-stays-in-the-window.test.tsx	leftward from the pointer, when it would run off the right	yes
 apps/desktop/src/renderer/src/a-context-menu-stays-in-the-window.test.tsx	held off the edge when neither side has room	yes
-apps/desktop/src/renderer/src/a-context-menu-stays-in-the-window.test.tsx	has no title bar; what was clicked is the menu’s name	no
-apps/desktop/src/renderer/src/a-context-menu-stays-in-the-window.test.tsx	shows each row’s key at its end	no
-apps/desktop/src/renderer/src/a-context-menu-stays-in-the-window.test.tsx	draws a hairline between kinds of action, and red for the one that deletes	no
-apps/desktop/src/renderer/src/a-context-menu-stays-in-the-window.test.tsx	puts a list behind one row, and says why when it cannot open	no
+apps/desktop/src/renderer/src/a-context-menu-stays-in-the-window.test.tsx	has no title bar; what was clicked is the menu’s name	yes
+apps/desktop/src/renderer/src/a-context-menu-stays-in-the-window.test.tsx	shows each row’s key at its end	yes
+apps/desktop/src/renderer/src/a-context-menu-stays-in-the-window.test.tsx	draws a hairline between kinds of action, and red for the one that deletes	yes
+apps/desktop/src/renderer/src/a-context-menu-stays-in-the-window.test.tsx	puts a list behind one row, and says why when it cannot open	yes
 apps/desktop/src/renderer/src/a-conversation-can-be-pinned.test.tsx	puts the pinned ones on top, newest pin first, and the rest under Recents, each once	no
 apps/desktop/src/renderer/src/a-conversation-can-be-pinned.test.tsx	looks as it did with nothing pinned	no
 apps/desktop/src/renderer/src/a-conversation-can-be-put-away.test.tsx	is out of the list while settled, or until its snooze ends	no

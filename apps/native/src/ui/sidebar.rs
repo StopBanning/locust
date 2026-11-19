@@ -245,6 +245,14 @@ fn mission_row(s: &State, p: &Palette, item: &SidebarMission, picked: bool) -> E
             if let Some(item) = s.recent.iter().find(|r| r.id == id).cloned() {
                 open_recent(s, item, tx);
             }
+        })
+        // Right-click: the conversation's menu at the pointer (Sidebar.tsx onContextMenu -> App.tsx openMissionMenu).
+        .on_secondary_press({
+            let (menu_id, menu_title) = (item.mission_id.clone(), item.title.clone());
+            move |s: &mut State, at: rune::PointerPress, _| {
+                s.org_menu_id = None;
+                s.row_menu = Some(crate::context_menu::conversation_menu(s, &menu_id, &menu_title, (at.x, at.y)));
+            }
         });
     if s.org_menu_id.as_deref() == Some(item.mission_id.as_str()) {
         row_el = row_el.child(org_menu(s, p, &item.mission_id));

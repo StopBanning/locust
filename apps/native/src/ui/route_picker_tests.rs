@@ -484,3 +484,51 @@ fn leaves_out_a_line_that_only_names_the_group_and_the_ready_tag() {
     assert!(!flash.iter().any(|w| w == "READY"));
     assert!(!flash.iter().any(|w| w.contains("Through Antigravity")));
 }
+
+// three-placements.test.ts, part 1, in the window: the header's route line is the runtime and then the mission strip.
+#[test]
+fn the_conversations_header_names_the_model_and_says_the_phase_only_when_it_is_news() {
+    let mut s = State::default();
+    s.teammates.push(Teammate {
+        id: "tm_1".into(),
+        name: "Wren".into(),
+        role: "Code".into(),
+        runtime: Some("claude".into()),
+        model: Some("sonnet".into()),
+        account: None,
+        busy: false,
+        runs_in: "ask".into(),
+        folder: None,
+    });
+    s.selected = 0;
+    s.conversations.insert("tm_1".into(), Conversation::default());
+    let mut snap = ledger::Snapshot::default();
+    snap.running = true;
+    s.ledger = Some(LedgerPane {
+        header: s.teammates[0].clone(),
+        conversation: Conversation::default(),
+        items: vec![],
+        dir: std::path::PathBuf::new(),
+        worker: None,
+        snapshot: snap,
+        due: f64::INFINITY,
+        loading: false,
+        after_tip: None,
+        after_tip_deadline: None,
+        backoff: 0.0,
+    });
+    fn view_hdr(s: &State, _cx: &mut Cx<State>) -> El {
+        crate::thread_view(s, &Palette::new(true))
+    }
+    let mut rt = Runtime::new(s, view_hdr, (1000.0, 800.0), Env::new(true, 1.0));
+    rt.frame(0.0);
+    assert_eq!(text_in(&rt, "thread-header-route").join(" "), "Claude Code · Sonnet 5.5 · running");
+
+    rt.update(|s, _| s.ledger.as_mut().unwrap().snapshot.running = false);
+    rt.frame(0.016);
+    assert_eq!(text_in(&rt, "thread-header-route").join(" "), "Claude Code · Sonnet 5.5", "a finished run says nothing about it");
+
+    rt.update(|s, _| s.ledger.as_mut().unwrap().snapshot.failed = true);
+    rt.frame(0.016);
+    assert_eq!(text_in(&rt, "thread-header-route").join(" "), "Claude Code · Sonnet 5.5 · failed");
+}

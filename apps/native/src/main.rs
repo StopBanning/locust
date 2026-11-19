@@ -189,6 +189,8 @@ mod beside;
 use beside::*;
 #[path = "ui/sidebar.rs"]
 mod sidebar;
+#[path = "ui/context_menu.rs"]
+mod context_menu;
 use sidebar::*;
 #[path = "ui/thread_view.rs"]
 mod thread_view;
@@ -2694,6 +2696,12 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
                     ),
             )
             .child(app);
+    }
+    if s.row_menu.is_some() {
+        // The right-click menu over everything, kept inside the window (context_menu.rs, ContextMenu.tsx placeMenu).
+        let win = cx.layout("app-body").map(|r| (r[0] + r[2], r[1] + r[3])).unwrap_or((f32::MAX, f32::MAX));
+        let measured = cx.layout("row-menu").map(|r| (r[2], r[3]));
+        app = app.children(context_menu::view(s, &p, win, measured));
     }
     if s.home.splash_open {
         app = app.child(

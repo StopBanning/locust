@@ -364,6 +364,8 @@ pub(super) struct State {
     pub(super) rename_id: Option<String>,
     pub(super) rename_draft: TextEdit,
     pub(super) org_menu_id: Option<String>,
+    /// The right-click menu open over the window (context_menu.rs).
+    pub(super) row_menu: Option<crate::context_menu::MenuState>,
     pub(super) group_menu_id: Option<String>,
     pub(super) group_remove_confirm: bool,
     pub(super) folded_groups: std::collections::HashSet<String>,
@@ -617,6 +619,7 @@ impl Default for State {
             rename_id: None,
             rename_draft: TextEdit::new(""),
             org_menu_id: None,
+            row_menu: None,
             group_menu_id: None,
             group_remove_confirm: false,
             folded_groups: std::collections::HashSet::new(),

@@ -1015,8 +1015,30 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
                                     s.ledger.as_ref().and_then(|ledger| ledger.snapshot.cost.as_ref()),
                                     turn_running(s),
                                 );
+                                // The runtime, then the mission strip: the model by the chip's name and the phase only when it
+                                // is news; no id, no `Mission ·`, no permission prose (mission_strip.rs, THREE-PLACEMENTS).
+                                let phase = if turn_running(s) {
+                                    "running"
+                                } else if s.ledger.as_ref().is_some_and(|ledger| ledger.snapshot.failed) {
+                                    "failed"
+                                } else {
+                                    "completed"
+                                };
+                                let strip = locust_core::mission_strip::mission_strip(
+                                    teammate.runtime.as_deref().unwrap_or(""),
+                                    teammate.model.as_deref(),
+                                    phase,
+                                    &header_cost,
+                                );
+                                let runtime_word = teammate.runtime.as_deref().map(engine::runtime_name).unwrap_or("Agent");
+                                let in_locust = (s.engine == Some(Kind::Native) && !native::supported(teammate)).then_some("runs in Locust for now");
+                                let route_words = [Some(runtime_word), (!strip.is_empty()).then_some(strip.as_str()), in_locust]
+                                    .into_iter()
+                                    .flatten()
+                                    .collect::<Vec<_>>()
+                                    .join(" · ");
                                 line.child(
-                                    text(format!("{}{header_cost}", agent_line(s, teammate)))
+                                    text(route_words)
                                         .key("thread-header-route")
                                         .font(rune::TextStyle::new(12.0, 400.0))
                                         .color(l.c("text-muted"))
