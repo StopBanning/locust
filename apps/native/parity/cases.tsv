@@ -1981,6 +1981,8 @@ apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.t
 apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	a window that never listens is not waited on forever: the keys are opened anyway, for the readers that need them	no
 apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	a read before the step leaves nothing to say	no
 apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	is one step however often it is begun, and settled once it is over	no
+apps/desktop/src/main/the-pages-a-browser-runs-are-whole.test.ts	parses as the browser receives it: the phone page both ways, its service worker, and the way in	yes
+apps/desktop/src/main/the-pages-a-browser-runs-are-whole.test.ts	names a computer’s browser by its name and system, as Settings lists it	yes
 apps/desktop/src/main/the-permission-bridge-keeps-its-characters.test.ts	keeps a character split across two reads whole	yes
 apps/desktop/src/main/the-phone-reads-history-once-per-change.test.ts	counts a write once it is asked for and again once it has landed, and never a read	no
 apps/desktop/src/main/the-phone-reads-history-once-per-change.test.ts	builds once per key, shares a build in flight, and tries again after a failure	yes
@@ -2568,6 +2570,13 @@ apps/desktop/src/renderer/src/a-new-teammate-wears-a-new-colour.test.tsx	says wh
 apps/desktop/src/renderer/src/a-new-teammate-wears-a-new-colour.test.tsx	says nothing about a name nobody else has	yes
 apps/desktop/src/renderer/src/a-note-can-be-left-in-the-changes-panel.test.ts	can be left in the Changes panel: it sits inside the notes of the conversation on screen	yes
 apps/desktop/src/renderer/src/a-note-can-be-left-in-the-changes-panel.test.ts	can be left in Review changes only for the teammate whose conversation is on screen	yes
+apps/desktop/src/renderer/src/a-page-a-teammate-made-runs-in-its-turn.test.tsx	opens a new web page, so it runs	yes
+apps/desktop/src/renderer/src/a-page-a-teammate-made-runs-in-its-turn.test.tsx	opens the page even when another file came first, and only the page	yes
+apps/desktop/src/renderer/src/a-page-a-teammate-made-runs-in-its-turn.test.tsx	stays folded in a comparison's cell, whose page runs above it	no
+apps/desktop/src/renderer/src/a-page-a-teammate-made-runs-in-its-turn.test.tsx	leaves a changed page and any other new file folded, as before	yes
+apps/desktop/src/renderer/src/a-page-opens-running.test.tsx	runs a page in a sandboxed frame at its own address, with Page and Source	yes
+apps/desktop/src/renderer/src/a-page-opens-running.test.tsx	runs nothing without a page address -- the same file shows as its source	yes
+apps/desktop/src/renderer/src/a-page-opens-running.test.tsx	previews a new page, and only a new one	yes
 apps/desktop/src/renderer/src/a-part-of-a-reply-can-be-asked-about.test.tsx	is quoted line by line, blank lines kept as quote lines	no
 apps/desktop/src/renderer/src/a-part-of-a-reply-can-be-asked-about.test.tsx	is cut past its limit, and says so with an ellipsis	no
 apps/desktop/src/renderer/src/a-part-of-a-reply-can-be-asked-about.test.tsx	says it is looking before the list arrives, and names both runtimes	no

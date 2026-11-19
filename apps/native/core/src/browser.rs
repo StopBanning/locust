@@ -145,6 +145,20 @@ impl Host {
                 .map(|t| t.id);
         }
     }
+/// Runs the web page at `path` in tab `id` at its own `locust-page` address, served from its folder only while
+    /// `folder` holds it (page_preview), as the person asked. `navigate` takes what a person types, which never names
+    /// that scheme; a page Locust itself opens comes here.
+    pub fn open_page(&mut self, id: u64, path: &Path, folder: &Path) -> Result<(), String> {
+        if let Some(refusal) = &self.refusal {
+            return Err(refusal.clone());
+        }
+        let address = self.preview.url_for(path, Some(folder))?;
+        let tab = self.tabs.iter_mut().find(|t| t.id == id).ok_or("That browser tab is no longer open.")?;
+        tab.origins.insert("file://workspace".into());
+        tab.tool_control = false;
+        tab.commands.push_back(Command::Load(address));
+        Ok(())
+    }
     pub fn navigate(&mut self, id: u64, raw: &str, person: bool) -> Result<(), String> {
         if let Some(refusal) = &self.refusal {
             return Err(refusal.clone());

@@ -1004,6 +1004,12 @@ mod new_document_tests {
     const NEW_SCRIPT: &str = "--- /dev/null\n+++ b/build.ts\n@@ -0,0 +1,1 @@\n+export const x = 1";
 
     #[test]
+    fn previews_a_new_page_and_only_a_new_one() {
+        // a-page-opens-running.test.tsx, the card of the turn that made it.
+        assert_eq!(new_document(&parse("--- /dev/null\n+++ b/site/index.html\n@@ -0,0 +1 @@\n+<h1>Corner Shop</h1>")[0]), Some(NewDocument::Page));
+        assert_eq!(new_document(&parse("--- a/site/index.html\n+++ b/site/index.html\n@@ -1 +1 @@\n-<h1>Old</h1>\n+<h1>New</h1>")[0]), None);
+    }
+    #[test]
     fn is_known_a_new_markdown_file_and_nothing_else() {
         assert_eq!(new_document(&parse(NEW_GUIDE)[0]), Some(NewDocument::Markdown));
         assert_eq!(new_document(&parse(EDITED_GUIDE)[0]), None);

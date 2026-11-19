@@ -1239,15 +1239,8 @@ pub(super) fn preview_column_page(s: &mut State, slot: CompareSlotId, requested:
     } else {
         folder
     };
-    let url = {
+    {
         let mut host = crate::invariants::lock(&s.browser.host);
-        let url = match host.preview.url_for(&resolved, Some(&workspace)) {
-            Ok(u) => u,
-            Err(why) => {
-                s.compare.problem = Some(why);
-                return;
-            }
-        };
         let tab_id = if let Some(id) = host.active {
             id
         } else {
@@ -1259,14 +1252,13 @@ pub(super) fn preview_column_page(s: &mut State, slot: CompareSlotId, requested:
                 }
             }
         };
-        if let Err(why) = host.navigate(tab_id, &url, true) {
+        // navigate() refuses the locust-page scheme a person never types; open_page serves the column's page.
+        if let Err(why) = host.open_page(tab_id, &resolved, &workspace) {
             s.compare.problem = Some(why);
             return;
         }
         host.open = true;
-        url
-    };
-    let _ = url;
+    }
     s.compare.problem = None;
 }
 

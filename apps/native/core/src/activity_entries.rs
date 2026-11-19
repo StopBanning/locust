@@ -72,6 +72,11 @@ pub fn default_open(entries: &[FileEntry]) -> Option<&str> {
     let page = first.file.status == "ADDED" && (path.ends_with(".html") || path.ends_with(".htm"));
     (!first.large || page).then_some(first.key.as_str())
 }
+/// ActivityCard.tsx `newPageEntry` (0.580): the turn's files card opens a new web page, wherever it sits in the
+/// list, and nothing else; a changed page and any other new file stay folded.
+pub fn new_page_entry(entries: &[FileEntry]) -> Option<&str> {
+    entries.iter().find(|e| crate::changes::new_document(&e.file) == Some(crate::changes::NewDocument::Page)).map(|e| e.key.as_str())
+}
 pub fn unreported(item: &Item) -> Option<(&str, bool, bool)> {
     let Item::Tool { name, summary, status, detail } = item else { return None };
     (crate::activity_summary::is_edit(item) && files(item).is_empty()).then_some((if summary.is_empty() { name } else { summary }, *status != Status::Running, detail.runtime_status == "result too large to keep"))

@@ -1392,3 +1392,6 @@ mod renderer_newest_scroll_tests {
 #[cfg(test)]
 #[path = "turn_foot_tests.rs"]
 mod turn_foot_tests;
+#[cfg(test)]
+#[path = "a_page_runs_tests.rs"]
+mod a_page_runs_tests;

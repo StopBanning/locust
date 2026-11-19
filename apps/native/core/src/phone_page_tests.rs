@@ -130,3 +130,69 @@ fn is_in_the_page_both_ways_drawing_the_thread_and_the_snippets() {
     assert!(!phone_page(PhonePageVia::Lan, None).contains("manifest.webmanifest"));
     assert!(phone_page(PhonePageVia::Relay, None).contains("manifest.webmanifest"));
 }
+
+// THE PAGES A BROWSER RUNS ARE WHOLE (`main/the-pages-a-browser-runs-are-whole.test.ts`, 0.830). Electron's pages are
+// scripts inside template strings, where `\/` came out as `/`; Rust's raw strings keep every character, but the page
+// must still parse as the browser receives it. Run with node, as the tests above are; skipped where node is missing.
+
+fn script_of(html: &str) -> &str {
+    let start = html.find("<script>").expect("the page has a script");
+    let end = html.rfind("</script>").expect("the script is closed");
+    assert!(start > 0);
+    &html[start + "<script>".len()..end]
+}
+
+/// Whether node parses `script` as a function body, as `new Function` does; `None` without node.
+fn parses(script: &str) -> Option<bool> {
+    let probe = format!("try {{ new Function({}); process.stdout.write('true') }} catch (e) {{ process.stdout.write('false') }}", serde_json::to_string(script).unwrap());
+    let out = match Command::new("node").arg("-e").arg(&probe).output() {
+        Ok(out) => out,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return None,
+        Err(e) => panic!("node failed: {e}"),
+    };
+    assert!(out.status.success(), "node: {}", String::from_utf8_lossy(&out.stderr));
+    Some(out.stdout == b"true")
+}
+
+#[test]
+fn parses_as_the_browser_receives_it_the_phone_page_both_ways_its_service_worker_and_the_way_in() {
+    // The way in (Electron's deskPage) is not built in this app: there is no desk page to parse (tests.tsv says so).
+    for (name, script) in [
+        ("the home Wi-Fi page", script_of(&phone_page(PhonePageVia::Lan, None)).to_owned()),
+        ("the relay page", script_of(&phone_page(PhonePageVia::Relay, Some(&"k".repeat(87)))).to_owned()),
+        ("the service worker", PHONE_SERVICE_WORKER.to_owned()),
+    ] {
+        let Some(ok) = parses(&script) else { return };
+        assert!(ok, "{name} does not parse as the browser receives it");
+    }
+    // And a page that does not parse is caught, so the check is not always yes.
+    assert_eq!(parses("var a = /Edg//; }"), Some(false));
+}
+
+#[test]
+fn names_a_computers_browser_by_its_name_and_system_as_settings_lists_it() {
+    let page = phone_page(PhonePageVia::Relay, None);
+    let script = script_of(&page);
+    let named = &script[script.find("function deviceName()").unwrap()..script.find("function readCode()").unwrap()];
+    let agents = [
+        ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36", "Chrome on Windows"),
+        ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0", "Edge on Windows"),
+        ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Safari/605.1.15", "Safari on Mac"),
+        ("Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0", "Firefox on Linux"),
+        ("Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1", "iPhone"),
+        ("Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Mobile Safari/537.36", "Android phone"),
+    ];
+    let uas = serde_json::to_string(&agents.iter().map(|(ua, _)| *ua).collect::<Vec<_>>()).unwrap();
+    let probe = format!(
+        "const named = new Function('navigator', {} + '; return deviceName();'); process.stdout.write(JSON.stringify({uas}.map((userAgent) => named({{ userAgent }}))));",
+        serde_json::to_string(named).unwrap()
+    );
+    let out = match Command::new("node").arg("-e").arg(&probe).output() {
+        Ok(out) => out,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return,
+        Err(e) => panic!("node failed: {e}"),
+    };
+    assert!(out.status.success(), "node: {}", String::from_utf8_lossy(&out.stderr));
+    let names: Vec<String> = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(names, agents.iter().map(|(_, n)| n.to_string()).collect::<Vec<_>>());
+}
