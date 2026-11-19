@@ -252,3 +252,33 @@ fn keeps_the_clock_from_when_the_call_began() {
     let events = long_call();
     assert_eq!(live_line(&events, true, "", false).unwrap().started_at, events[0]["occurredAt"].as_str().unwrap());
 }
+
+fn folded(mode: Option<&str>, events: Vec<Value>) -> crate::ledger::Transcript {
+    let mut meta = json!({"missionId": "m", "prompt": "Plan it", "createdAt": "2026-09-30T09:00:00.000Z"});
+    if let Some(mode) = mode {
+        meta["mode"] = json!(mode);
+    }
+    let mut records = vec![json!({"schemaVersion": 27, "recordType": "mission.created", "metadata": meta})];
+    records.extend(events.into_iter().map(|e| json!({"recordType": "mission.event", "event": e})));
+    let mut t = crate::ledger::Transcript::default();
+    t.apply(records);
+    t
+}
+
+// case: the Plan-mode orb floor is solving (the orb's `solving` floor needs the turn's mode)
+#[test]
+fn a_turn_in_plan_mode_holds_the_solving_orb_with_no_call_open() {
+    let thinking = vec![started(), event(2, "step.started", json!({"stepKind": "reasoning", "itemId": "r1"}))];
+    assert_eq!(folded(Some("plan"), thinking.clone()).live.unwrap().orb, "solving");
+    assert_ne!(folded(Some("agent"), thinking.clone()).live.unwrap().orb, "solving");
+    assert_ne!(folded(None, thinking).live.unwrap().orb, "solving");
+}
+
+// case: leads with the phase, swept, in the place of the word "starting" (the host's phase reaches the snapshot)
+#[test]
+fn the_hosts_phase_reaches_the_snapshots_live_line() {
+    let mut t = folded(None, vec![started()]);
+    assert_eq!(sweep_text(&t.live.as_ref().unwrap().label), "Starting\u{2026}");
+    t.set_starting_label(Some("Reading the folder".into()));
+    assert_eq!(sweep_text(&t.live.as_ref().unwrap().label), "Reading the folder\u{2026}");
+}

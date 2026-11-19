@@ -206,3 +206,14 @@ Next: part 1b opens-the-plan, then orb, frame-pass.
 ## Part 3 (round 2, started)
 - a-plan-shows-what-happened-to-it: all 4 cases named in `steps_fold_tests` (`touched_nothing`, `plan_done_count`,
   `read_plan` for Cursor's TODO_STATUS_ spelling). The drawer does not yet call `touched_nothing` to pick the plain list.
+
+# Round 3
+
+## Part 1 (partial): plan mode and the start's phase reach the live line
+- `thread_view::live_line_in(.., starting_label, plan_mode)`; `live_line_starting` and `live_line` call it. The orb's
+  `solving` floor now holds when `Metadata.mode == "plan"` (test `a_turn_in_plan_mode_holds_the_solving_orb_with_no_call_open`).
+- `Transcript::starting_label` + `set_starting_label` re-draw the snapshot's live line (test
+  `the_hosts_phase_reaches_the_snapshots_live_line`). NOT done: nothing in the host calls `set_starting_label` yet, so the
+  starts-phase row stays `partial`.
+- NOT started: steps fold wiring, `stepsLine` phrase counting, frame-pass drawing, a-long-call's last case, parts 2 and 3.
+- Not run: the full gates, recount, case-map and break tests.

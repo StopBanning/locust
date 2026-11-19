@@ -725,6 +725,8 @@ pub struct Transcript {
     pub edit_check: Option<Value>,
     pub recovery: Option<crate::recovery::Offer>,
     pub context: Option<crate::context_usage::Reading>,
+    /// The phase the host sent while the run starts ("Reading the folder"); it takes the word "Starting"'s place.
+    pub starting_label: Option<String>,
 }
 
 fn parse_peer_link(record: &Value) -> Option<PeerLink> {
@@ -746,6 +748,20 @@ fn parse_peer_link(record: &Value) -> Option<PeerLink> {
 }
 
 impl Transcript {
+    /// The live line, from the held events, the start's phase the host sent and whether the turn is in Plan mode.
+    fn refresh_live(&mut self, events: &[Value]) {
+        self.live = crate::thread_view::live_line_in(events, self.running,
+            self.metadata.as_ref().map(|m| m.created_at.as_str()).unwrap_or(""), false, self.starting_label.as_deref(),
+            self.metadata.as_ref().is_some_and(|m| m.mode.as_deref() == Some("plan")));
+    }
+
+    /// The host's phase for a run that is starting ("Reading the folder"); the live line says it in place of "Starting".
+    pub fn set_starting_label(&mut self, label: Option<String>) {
+        self.starting_label = label;
+        let events: Vec<Value> = self.events.values().cloned().collect();
+        self.refresh_live(&events);
+    }
+
     /// The events this turn draws from: its opening and its newest, a reply folded into one.
     pub fn events_in_view(&self) -> impl DoubleEndedIterator<Item = &Value> {
         self.events.values()
@@ -1353,8 +1369,7 @@ impl Transcript {
         let event_vec: Vec<Value> = self.events.values().cloned().collect();
         self.signal_rail = crate::signal_rail::build(&event_vec, self.running);
         self.cost = crate::relay::mission_cost_from_events(&event_vec);
-        self.live = crate::thread_view::live_line(&event_vec, self.running,
-            self.metadata.as_ref().map(|m| m.created_at.as_str()).unwrap_or(""), false);
+        self.refresh_live(&event_vec);
         if self.trimmed {
             // missionView buildThread: the notice heads the turn's items, which draw below its prompt.
             let at = usize::from(matches!(items.first(), Some(Item::User(_) | Item::CheckFix { .. })));
