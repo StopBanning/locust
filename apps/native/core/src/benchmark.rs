@@ -17,16 +17,38 @@ pub struct RunCost {
     pub plan: bool,
 }
 
+/// JavaScript's `Number.prototype.toFixed` for a non-negative number: of the two nearest, an exact tie goes UP
+/// (`0.125` -> "0.13"), where Rust's `{:.2}` goes to even ("0.12"). Read off the number's exact decimal digits, so a
+/// value that only looks like a tie (`1.005`, really 1.00499...) rounds down in both.
+pub fn to_fixed(x: f64, places: usize) -> String {
+    let exact = format!("{x:.60}");
+    let (whole, frac) = exact.split_once('.').unwrap_or((&exact, ""));
+    let kept = &frac[..places.min(frac.len())];
+    let rest = &frac[places.min(frac.len())..];
+    let up = rest.as_bytes().first().is_some_and(|d| *d >= b'5');
+    let digits: String = format!("{whole}{kept}");
+    let mut n: u128 = digits.parse().unwrap_or(0);
+    if up {
+        n += 1;
+    }
+    let s = format!("{n:0>width$}", width = places + 1);
+    if places == 0 {
+        return s;
+    }
+    let (w, f) = s.split_at(s.len() - places);
+    format!("{w}.{f}")
+}
+
 pub fn cost_line(cost: Option<&RunCost>) -> Option<String> {
     let c = cost?;
     if let Some(usd) = c.usd {
-        if usd == 0.0 {
-            return Some("$0".into());
-        }
-        return Some(if usd < 0.01 {
-            format!("${usd:.4}")
+        // cost.ts `costLine`: "$0.00", "< $0.01" under a cent, else two places (recorded/cost.jsonl).
+        return Some(if usd == 0.0 {
+            "$0.00".into()
+        } else if usd < 0.01 {
+            "< $0.01".into()
         } else {
-            format!("${usd:.2}")
+            format!("${}", to_fixed(usd, 2))
         });
     }
     if let Some(pr) = c.premium_requests {

@@ -1,0 +1,1026 @@
+{"fn":"costLine","args":[null],"out":null}
+{"fn":"moneyLine","args":[null],"out":null}
+{"fn":"costLine","args":[{}],"out":null}
+{"fn":"moneyLine","args":[{}],"out":null}
+{"fn":"costLine","args":[{"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"plan":true}],"out":null}
+{"fn":"costLine","args":[{"plan":false}],"out":null}
+{"fn":"moneyLine","args":[{"plan":false}],"out":null}
+{"fn":"costLine","args":[{"premiumRequests":0}],"out":"0 premium requests"}
+{"fn":"moneyLine","args":[{"premiumRequests":0}],"out":"0 premium requests"}
+{"fn":"costLine","args":[{"premiumRequests":0,"plan":true}],"out":"0 premium requests"}
+{"fn":"moneyLine","args":[{"premiumRequests":0,"plan":true}],"out":"0 premium requests"}
+{"fn":"costLine","args":[{"premiumRequests":0,"plan":false}],"out":"0 premium requests"}
+{"fn":"moneyLine","args":[{"premiumRequests":0,"plan":false}],"out":"0 premium requests"}
+{"fn":"costLine","args":[{"premiumRequests":1}],"out":"1 premium request"}
+{"fn":"moneyLine","args":[{"premiumRequests":1}],"out":"1 premium request"}
+{"fn":"costLine","args":[{"premiumRequests":1,"plan":true}],"out":"1 premium request"}
+{"fn":"moneyLine","args":[{"premiumRequests":1,"plan":true}],"out":"1 premium request"}
+{"fn":"costLine","args":[{"premiumRequests":1,"plan":false}],"out":"1 premium request"}
+{"fn":"moneyLine","args":[{"premiumRequests":1,"plan":false}],"out":"1 premium request"}
+{"fn":"costLine","args":[{"premiumRequests":2}],"out":"2 premium requests"}
+{"fn":"moneyLine","args":[{"premiumRequests":2}],"out":"2 premium requests"}
+{"fn":"costLine","args":[{"premiumRequests":2,"plan":true}],"out":"2 premium requests"}
+{"fn":"moneyLine","args":[{"premiumRequests":2,"plan":true}],"out":"2 premium requests"}
+{"fn":"costLine","args":[{"premiumRequests":2,"plan":false}],"out":"2 premium requests"}
+{"fn":"moneyLine","args":[{"premiumRequests":2,"plan":false}],"out":"2 premium requests"}
+{"fn":"costLine","args":[{"premiumRequests":1.5}],"out":"1.5 premium requests"}
+{"fn":"moneyLine","args":[{"premiumRequests":1.5}],"out":"1.5 premium requests"}
+{"fn":"costLine","args":[{"premiumRequests":1.5,"plan":true}],"out":"1.5 premium requests"}
+{"fn":"moneyLine","args":[{"premiumRequests":1.5,"plan":true}],"out":"1.5 premium requests"}
+{"fn":"costLine","args":[{"premiumRequests":1.5,"plan":false}],"out":"1.5 premium requests"}
+{"fn":"moneyLine","args":[{"premiumRequests":1.5,"plan":false}],"out":"1.5 premium requests"}
+{"fn":"costLine","args":[{"premiumRequests":300}],"out":"300 premium requests"}
+{"fn":"moneyLine","args":[{"premiumRequests":300}],"out":"300 premium requests"}
+{"fn":"costLine","args":[{"premiumRequests":300,"plan":true}],"out":"300 premium requests"}
+{"fn":"moneyLine","args":[{"premiumRequests":300,"plan":true}],"out":"300 premium requests"}
+{"fn":"costLine","args":[{"premiumRequests":300,"plan":false}],"out":"300 premium requests"}
+{"fn":"moneyLine","args":[{"premiumRequests":300,"plan":false}],"out":"300 premium requests"}
+{"fn":"costLine","args":[{"usd":0}],"out":"$0.00"}
+{"fn":"moneyLine","args":[{"usd":0}],"out":"$0.00"}
+{"fn":"costLine","args":[{"usd":0,"plan":true}],"out":"$0.00"}
+{"fn":"moneyLine","args":[{"usd":0,"plan":true}],"out":"$0.00"}
+{"fn":"costLine","args":[{"usd":0,"plan":false}],"out":"$0.00"}
+{"fn":"moneyLine","args":[{"usd":0,"plan":false}],"out":"$0.00"}
+{"fn":"costLine","args":[{"usd":0,"premiumRequests":0}],"out":"$0.00"}
+{"fn":"moneyLine","args":[{"usd":0,"premiumRequests":0}],"out":"$0.00"}
+{"fn":"costLine","args":[{"usd":0,"premiumRequests":0,"plan":true}],"out":"$0.00"}
+{"fn":"moneyLine","args":[{"usd":0,"premiumRequests":0,"plan":true}],"out":"$0.00"}
+{"fn":"costLine","args":[{"usd":0,"premiumRequests":0,"plan":false}],"out":"$0.00"}
+{"fn":"moneyLine","args":[{"usd":0,"premiumRequests":0,"plan":false}],"out":"$0.00"}
+{"fn":"costLine","args":[{"usd":0,"premiumRequests":1}],"out":"$0.00"}
+{"fn":"moneyLine","args":[{"usd":0,"premiumRequests":1}],"out":"$0.00"}
+{"fn":"costLine","args":[{"usd":0,"premiumRequests":1,"plan":true}],"out":"$0.00"}
+{"fn":"moneyLine","args":[{"usd":0,"premiumRequests":1,"plan":true}],"out":"$0.00"}
+{"fn":"costLine","args":[{"usd":0,"premiumRequests":1,"plan":false}],"out":"$0.00"}
+{"fn":"moneyLine","args":[{"usd":0,"premiumRequests":1,"plan":false}],"out":"$0.00"}
+{"fn":"costLine","args":[{"usd":0,"premiumRequests":2}],"out":"$0.00"}
+{"fn":"moneyLine","args":[{"usd":0,"premiumRequests":2}],"out":"$0.00"}
+{"fn":"costLine","args":[{"usd":0,"premiumRequests":2,"plan":true}],"out":"$0.00"}
+{"fn":"moneyLine","args":[{"usd":0,"premiumRequests":2,"plan":true}],"out":"$0.00"}
+{"fn":"costLine","args":[{"usd":0,"premiumRequests":2,"plan":false}],"out":"$0.00"}
+{"fn":"moneyLine","args":[{"usd":0,"premiumRequests":2,"plan":false}],"out":"$0.00"}
+{"fn":"costLine","args":[{"usd":0,"premiumRequests":1.5}],"out":"$0.00"}
+{"fn":"moneyLine","args":[{"usd":0,"premiumRequests":1.5}],"out":"$0.00"}
+{"fn":"costLine","args":[{"usd":0,"premiumRequests":1.5,"plan":true}],"out":"$0.00"}
+{"fn":"moneyLine","args":[{"usd":0,"premiumRequests":1.5,"plan":true}],"out":"$0.00"}
+{"fn":"costLine","args":[{"usd":0,"premiumRequests":1.5,"plan":false}],"out":"$0.00"}
+{"fn":"moneyLine","args":[{"usd":0,"premiumRequests":1.5,"plan":false}],"out":"$0.00"}
+{"fn":"costLine","args":[{"usd":0,"premiumRequests":300}],"out":"$0.00"}
+{"fn":"moneyLine","args":[{"usd":0,"premiumRequests":300}],"out":"$0.00"}
+{"fn":"costLine","args":[{"usd":0,"premiumRequests":300,"plan":true}],"out":"$0.00"}
+{"fn":"moneyLine","args":[{"usd":0,"premiumRequests":300,"plan":true}],"out":"$0.00"}
+{"fn":"costLine","args":[{"usd":0,"premiumRequests":300,"plan":false}],"out":"$0.00"}
+{"fn":"moneyLine","args":[{"usd":0,"premiumRequests":300,"plan":false}],"out":"$0.00"}
+{"fn":"costLine","args":[{"usd":0.001}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.001}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.001,"plan":true}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.001,"plan":true}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.001,"plan":false}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.001,"plan":false}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.001,"premiumRequests":0}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.001,"premiumRequests":0}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.001,"premiumRequests":0,"plan":true}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.001,"premiumRequests":0,"plan":true}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.001,"premiumRequests":0,"plan":false}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.001,"premiumRequests":0,"plan":false}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.001,"premiumRequests":1}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.001,"premiumRequests":1}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.001,"premiumRequests":1,"plan":true}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.001,"premiumRequests":1,"plan":true}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.001,"premiumRequests":1,"plan":false}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.001,"premiumRequests":1,"plan":false}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.001,"premiumRequests":2}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.001,"premiumRequests":2}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.001,"premiumRequests":2,"plan":true}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.001,"premiumRequests":2,"plan":true}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.001,"premiumRequests":2,"plan":false}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.001,"premiumRequests":2,"plan":false}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.001,"premiumRequests":1.5}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.001,"premiumRequests":1.5}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.001,"premiumRequests":1.5,"plan":true}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.001,"premiumRequests":1.5,"plan":true}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.001,"premiumRequests":1.5,"plan":false}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.001,"premiumRequests":1.5,"plan":false}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.001,"premiumRequests":300}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.001,"premiumRequests":300}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.001,"premiumRequests":300,"plan":true}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.001,"premiumRequests":300,"plan":true}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.001,"premiumRequests":300,"plan":false}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.001,"premiumRequests":300,"plan":false}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.004999}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.004999}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.004999,"plan":true}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.004999,"plan":true}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.004999,"plan":false}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.004999,"plan":false}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.004999,"premiumRequests":0}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.004999,"premiumRequests":0}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.004999,"premiumRequests":0,"plan":true}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.004999,"premiumRequests":0,"plan":true}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.004999,"premiumRequests":0,"plan":false}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.004999,"premiumRequests":0,"plan":false}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.004999,"premiumRequests":1}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.004999,"premiumRequests":1}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.004999,"premiumRequests":1,"plan":true}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.004999,"premiumRequests":1,"plan":true}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.004999,"premiumRequests":1,"plan":false}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.004999,"premiumRequests":1,"plan":false}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.004999,"premiumRequests":2}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.004999,"premiumRequests":2}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.004999,"premiumRequests":2,"plan":true}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.004999,"premiumRequests":2,"plan":true}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.004999,"premiumRequests":2,"plan":false}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.004999,"premiumRequests":2,"plan":false}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.004999,"premiumRequests":1.5}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.004999,"premiumRequests":1.5}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.004999,"premiumRequests":1.5,"plan":true}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.004999,"premiumRequests":1.5,"plan":true}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.004999,"premiumRequests":1.5,"plan":false}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.004999,"premiumRequests":1.5,"plan":false}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.004999,"premiumRequests":300}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.004999,"premiumRequests":300}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.004999,"premiumRequests":300,"plan":true}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.004999,"premiumRequests":300,"plan":true}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.004999,"premiumRequests":300,"plan":false}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.004999,"premiumRequests":300,"plan":false}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.005}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.005}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.005,"plan":true}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.005,"plan":true}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.005,"plan":false}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.005,"plan":false}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.005,"premiumRequests":0}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.005,"premiumRequests":0}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.005,"premiumRequests":0,"plan":true}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.005,"premiumRequests":0,"plan":true}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.005,"premiumRequests":0,"plan":false}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.005,"premiumRequests":0,"plan":false}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.005,"premiumRequests":1}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.005,"premiumRequests":1}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.005,"premiumRequests":1,"plan":true}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.005,"premiumRequests":1,"plan":true}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.005,"premiumRequests":1,"plan":false}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.005,"premiumRequests":1,"plan":false}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.005,"premiumRequests":2}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.005,"premiumRequests":2}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.005,"premiumRequests":2,"plan":true}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.005,"premiumRequests":2,"plan":true}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.005,"premiumRequests":2,"plan":false}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.005,"premiumRequests":2,"plan":false}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.005,"premiumRequests":1.5}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.005,"premiumRequests":1.5}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.005,"premiumRequests":1.5,"plan":true}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.005,"premiumRequests":1.5,"plan":true}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.005,"premiumRequests":1.5,"plan":false}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.005,"premiumRequests":1.5,"plan":false}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.005,"premiumRequests":300}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.005,"premiumRequests":300}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.005,"premiumRequests":300,"plan":true}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.005,"premiumRequests":300,"plan":true}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.005,"premiumRequests":300,"plan":false}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.005,"premiumRequests":300,"plan":false}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.00999}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.00999}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.00999,"plan":true}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.00999,"plan":true}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.00999,"plan":false}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.00999,"plan":false}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.00999,"premiumRequests":0}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.00999,"premiumRequests":0}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.00999,"premiumRequests":0,"plan":true}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.00999,"premiumRequests":0,"plan":true}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.00999,"premiumRequests":0,"plan":false}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.00999,"premiumRequests":0,"plan":false}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.00999,"premiumRequests":1}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.00999,"premiumRequests":1}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.00999,"premiumRequests":1,"plan":true}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.00999,"premiumRequests":1,"plan":true}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.00999,"premiumRequests":1,"plan":false}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.00999,"premiumRequests":1,"plan":false}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.00999,"premiumRequests":2}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.00999,"premiumRequests":2}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.00999,"premiumRequests":2,"plan":true}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.00999,"premiumRequests":2,"plan":true}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.00999,"premiumRequests":2,"plan":false}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.00999,"premiumRequests":2,"plan":false}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.00999,"premiumRequests":1.5}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.00999,"premiumRequests":1.5}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.00999,"premiumRequests":1.5,"plan":true}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.00999,"premiumRequests":1.5,"plan":true}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.00999,"premiumRequests":1.5,"plan":false}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.00999,"premiumRequests":1.5,"plan":false}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.00999,"premiumRequests":300}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.00999,"premiumRequests":300}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.00999,"premiumRequests":300,"plan":true}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.00999,"premiumRequests":300,"plan":true}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.00999,"premiumRequests":300,"plan":false}],"out":"< $0.01"}
+{"fn":"moneyLine","args":[{"usd":0.00999,"premiumRequests":300,"plan":false}],"out":"< $0.01"}
+{"fn":"costLine","args":[{"usd":0.01}],"out":"$0.01"}
+{"fn":"moneyLine","args":[{"usd":0.01}],"out":"$0.01"}
+{"fn":"costLine","args":[{"usd":0.01,"plan":true}],"out":"$0.01"}
+{"fn":"moneyLine","args":[{"usd":0.01,"plan":true}],"out":"$0.01"}
+{"fn":"costLine","args":[{"usd":0.01,"plan":false}],"out":"$0.01"}
+{"fn":"moneyLine","args":[{"usd":0.01,"plan":false}],"out":"$0.01"}
+{"fn":"costLine","args":[{"usd":0.01,"premiumRequests":0}],"out":"$0.01"}
+{"fn":"moneyLine","args":[{"usd":0.01,"premiumRequests":0}],"out":"$0.01"}
+{"fn":"costLine","args":[{"usd":0.01,"premiumRequests":0,"plan":true}],"out":"$0.01"}
+{"fn":"moneyLine","args":[{"usd":0.01,"premiumRequests":0,"plan":true}],"out":"$0.01"}
+{"fn":"costLine","args":[{"usd":0.01,"premiumRequests":0,"plan":false}],"out":"$0.01"}
+{"fn":"moneyLine","args":[{"usd":0.01,"premiumRequests":0,"plan":false}],"out":"$0.01"}
+{"fn":"costLine","args":[{"usd":0.01,"premiumRequests":1}],"out":"$0.01"}
+{"fn":"moneyLine","args":[{"usd":0.01,"premiumRequests":1}],"out":"$0.01"}
+{"fn":"costLine","args":[{"usd":0.01,"premiumRequests":1,"plan":true}],"out":"$0.01"}
+{"fn":"moneyLine","args":[{"usd":0.01,"premiumRequests":1,"plan":true}],"out":"$0.01"}
+{"fn":"costLine","args":[{"usd":0.01,"premiumRequests":1,"plan":false}],"out":"$0.01"}
+{"fn":"moneyLine","args":[{"usd":0.01,"premiumRequests":1,"plan":false}],"out":"$0.01"}
+{"fn":"costLine","args":[{"usd":0.01,"premiumRequests":2}],"out":"$0.01"}
+{"fn":"moneyLine","args":[{"usd":0.01,"premiumRequests":2}],"out":"$0.01"}
+{"fn":"costLine","args":[{"usd":0.01,"premiumRequests":2,"plan":true}],"out":"$0.01"}
+{"fn":"moneyLine","args":[{"usd":0.01,"premiumRequests":2,"plan":true}],"out":"$0.01"}
+{"fn":"costLine","args":[{"usd":0.01,"premiumRequests":2,"plan":false}],"out":"$0.01"}
+{"fn":"moneyLine","args":[{"usd":0.01,"premiumRequests":2,"plan":false}],"out":"$0.01"}
+{"fn":"costLine","args":[{"usd":0.01,"premiumRequests":1.5}],"out":"$0.01"}
+{"fn":"moneyLine","args":[{"usd":0.01,"premiumRequests":1.5}],"out":"$0.01"}
+{"fn":"costLine","args":[{"usd":0.01,"premiumRequests":1.5,"plan":true}],"out":"$0.01"}
+{"fn":"moneyLine","args":[{"usd":0.01,"premiumRequests":1.5,"plan":true}],"out":"$0.01"}
+{"fn":"costLine","args":[{"usd":0.01,"premiumRequests":1.5,"plan":false}],"out":"$0.01"}
+{"fn":"moneyLine","args":[{"usd":0.01,"premiumRequests":1.5,"plan":false}],"out":"$0.01"}
+{"fn":"costLine","args":[{"usd":0.01,"premiumRequests":300}],"out":"$0.01"}
+{"fn":"moneyLine","args":[{"usd":0.01,"premiumRequests":300}],"out":"$0.01"}
+{"fn":"costLine","args":[{"usd":0.01,"premiumRequests":300,"plan":true}],"out":"$0.01"}
+{"fn":"moneyLine","args":[{"usd":0.01,"premiumRequests":300,"plan":true}],"out":"$0.01"}
+{"fn":"costLine","args":[{"usd":0.01,"premiumRequests":300,"plan":false}],"out":"$0.01"}
+{"fn":"moneyLine","args":[{"usd":0.01,"premiumRequests":300,"plan":false}],"out":"$0.01"}
+{"fn":"costLine","args":[{"usd":0.015}],"out":"$0.01"}
+{"fn":"moneyLine","args":[{"usd":0.015}],"out":"$0.01"}
+{"fn":"costLine","args":[{"usd":0.015,"plan":true}],"out":"$0.01"}
+{"fn":"moneyLine","args":[{"usd":0.015,"plan":true}],"out":"$0.01"}
+{"fn":"costLine","args":[{"usd":0.015,"plan":false}],"out":"$0.01"}
+{"fn":"moneyLine","args":[{"usd":0.015,"plan":false}],"out":"$0.01"}
+{"fn":"costLine","args":[{"usd":0.015,"premiumRequests":0}],"out":"$0.01"}
+{"fn":"moneyLine","args":[{"usd":0.015,"premiumRequests":0}],"out":"$0.01"}
+{"fn":"costLine","args":[{"usd":0.015,"premiumRequests":0,"plan":true}],"out":"$0.01"}
+{"fn":"moneyLine","args":[{"usd":0.015,"premiumRequests":0,"plan":true}],"out":"$0.01"}
+{"fn":"costLine","args":[{"usd":0.015,"premiumRequests":0,"plan":false}],"out":"$0.01"}
+{"fn":"moneyLine","args":[{"usd":0.015,"premiumRequests":0,"plan":false}],"out":"$0.01"}
+{"fn":"costLine","args":[{"usd":0.015,"premiumRequests":1}],"out":"$0.01"}
+{"fn":"moneyLine","args":[{"usd":0.015,"premiumRequests":1}],"out":"$0.01"}
+{"fn":"costLine","args":[{"usd":0.015,"premiumRequests":1,"plan":true}],"out":"$0.01"}
+{"fn":"moneyLine","args":[{"usd":0.015,"premiumRequests":1,"plan":true}],"out":"$0.01"}
+{"fn":"costLine","args":[{"usd":0.015,"premiumRequests":1,"plan":false}],"out":"$0.01"}
+{"fn":"moneyLine","args":[{"usd":0.015,"premiumRequests":1,"plan":false}],"out":"$0.01"}
+{"fn":"costLine","args":[{"usd":0.015,"premiumRequests":2}],"out":"$0.01"}
+{"fn":"moneyLine","args":[{"usd":0.015,"premiumRequests":2}],"out":"$0.01"}
+{"fn":"costLine","args":[{"usd":0.015,"premiumRequests":2,"plan":true}],"out":"$0.01"}
+{"fn":"moneyLine","args":[{"usd":0.015,"premiumRequests":2,"plan":true}],"out":"$0.01"}
+{"fn":"costLine","args":[{"usd":0.015,"premiumRequests":2,"plan":false}],"out":"$0.01"}
+{"fn":"moneyLine","args":[{"usd":0.015,"premiumRequests":2,"plan":false}],"out":"$0.01"}
+{"fn":"costLine","args":[{"usd":0.015,"premiumRequests":1.5}],"out":"$0.01"}
+{"fn":"moneyLine","args":[{"usd":0.015,"premiumRequests":1.5}],"out":"$0.01"}
+{"fn":"costLine","args":[{"usd":0.015,"premiumRequests":1.5,"plan":true}],"out":"$0.01"}
+{"fn":"moneyLine","args":[{"usd":0.015,"premiumRequests":1.5,"plan":true}],"out":"$0.01"}
+{"fn":"costLine","args":[{"usd":0.015,"premiumRequests":1.5,"plan":false}],"out":"$0.01"}
+{"fn":"moneyLine","args":[{"usd":0.015,"premiumRequests":1.5,"plan":false}],"out":"$0.01"}
+{"fn":"costLine","args":[{"usd":0.015,"premiumRequests":300}],"out":"$0.01"}
+{"fn":"moneyLine","args":[{"usd":0.015,"premiumRequests":300}],"out":"$0.01"}
+{"fn":"costLine","args":[{"usd":0.015,"premiumRequests":300,"plan":true}],"out":"$0.01"}
+{"fn":"moneyLine","args":[{"usd":0.015,"premiumRequests":300,"plan":true}],"out":"$0.01"}
+{"fn":"costLine","args":[{"usd":0.015,"premiumRequests":300,"plan":false}],"out":"$0.01"}
+{"fn":"moneyLine","args":[{"usd":0.015,"premiumRequests":300,"plan":false}],"out":"$0.01"}
+{"fn":"costLine","args":[{"usd":0.125}],"out":"$0.13"}
+{"fn":"moneyLine","args":[{"usd":0.125}],"out":"$0.13"}
+{"fn":"costLine","args":[{"usd":0.125,"plan":true}],"out":"$0.13"}
+{"fn":"moneyLine","args":[{"usd":0.125,"plan":true}],"out":"$0.13"}
+{"fn":"costLine","args":[{"usd":0.125,"plan":false}],"out":"$0.13"}
+{"fn":"moneyLine","args":[{"usd":0.125,"plan":false}],"out":"$0.13"}
+{"fn":"costLine","args":[{"usd":0.125,"premiumRequests":0}],"out":"$0.13"}
+{"fn":"moneyLine","args":[{"usd":0.125,"premiumRequests":0}],"out":"$0.13"}
+{"fn":"costLine","args":[{"usd":0.125,"premiumRequests":0,"plan":true}],"out":"$0.13"}
+{"fn":"moneyLine","args":[{"usd":0.125,"premiumRequests":0,"plan":true}],"out":"$0.13"}
+{"fn":"costLine","args":[{"usd":0.125,"premiumRequests":0,"plan":false}],"out":"$0.13"}
+{"fn":"moneyLine","args":[{"usd":0.125,"premiumRequests":0,"plan":false}],"out":"$0.13"}
+{"fn":"costLine","args":[{"usd":0.125,"premiumRequests":1}],"out":"$0.13"}
+{"fn":"moneyLine","args":[{"usd":0.125,"premiumRequests":1}],"out":"$0.13"}
+{"fn":"costLine","args":[{"usd":0.125,"premiumRequests":1,"plan":true}],"out":"$0.13"}
+{"fn":"moneyLine","args":[{"usd":0.125,"premiumRequests":1,"plan":true}],"out":"$0.13"}
+{"fn":"costLine","args":[{"usd":0.125,"premiumRequests":1,"plan":false}],"out":"$0.13"}
+{"fn":"moneyLine","args":[{"usd":0.125,"premiumRequests":1,"plan":false}],"out":"$0.13"}
+{"fn":"costLine","args":[{"usd":0.125,"premiumRequests":2}],"out":"$0.13"}
+{"fn":"moneyLine","args":[{"usd":0.125,"premiumRequests":2}],"out":"$0.13"}
+{"fn":"costLine","args":[{"usd":0.125,"premiumRequests":2,"plan":true}],"out":"$0.13"}
+{"fn":"moneyLine","args":[{"usd":0.125,"premiumRequests":2,"plan":true}],"out":"$0.13"}
+{"fn":"costLine","args":[{"usd":0.125,"premiumRequests":2,"plan":false}],"out":"$0.13"}
+{"fn":"moneyLine","args":[{"usd":0.125,"premiumRequests":2,"plan":false}],"out":"$0.13"}
+{"fn":"costLine","args":[{"usd":0.125,"premiumRequests":1.5}],"out":"$0.13"}
+{"fn":"moneyLine","args":[{"usd":0.125,"premiumRequests":1.5}],"out":"$0.13"}
+{"fn":"costLine","args":[{"usd":0.125,"premiumRequests":1.5,"plan":true}],"out":"$0.13"}
+{"fn":"moneyLine","args":[{"usd":0.125,"premiumRequests":1.5,"plan":true}],"out":"$0.13"}
+{"fn":"costLine","args":[{"usd":0.125,"premiumRequests":1.5,"plan":false}],"out":"$0.13"}
+{"fn":"moneyLine","args":[{"usd":0.125,"premiumRequests":1.5,"plan":false}],"out":"$0.13"}
+{"fn":"costLine","args":[{"usd":0.125,"premiumRequests":300}],"out":"$0.13"}
+{"fn":"moneyLine","args":[{"usd":0.125,"premiumRequests":300}],"out":"$0.13"}
+{"fn":"costLine","args":[{"usd":0.125,"premiumRequests":300,"plan":true}],"out":"$0.13"}
+{"fn":"moneyLine","args":[{"usd":0.125,"premiumRequests":300,"plan":true}],"out":"$0.13"}
+{"fn":"costLine","args":[{"usd":0.125,"premiumRequests":300,"plan":false}],"out":"$0.13"}
+{"fn":"moneyLine","args":[{"usd":0.125,"premiumRequests":300,"plan":false}],"out":"$0.13"}
+{"fn":"costLine","args":[{"usd":0.995}],"out":"$0.99"}
+{"fn":"moneyLine","args":[{"usd":0.995}],"out":"$0.99"}
+{"fn":"costLine","args":[{"usd":0.995,"plan":true}],"out":"$0.99"}
+{"fn":"moneyLine","args":[{"usd":0.995,"plan":true}],"out":"$0.99"}
+{"fn":"costLine","args":[{"usd":0.995,"plan":false}],"out":"$0.99"}
+{"fn":"moneyLine","args":[{"usd":0.995,"plan":false}],"out":"$0.99"}
+{"fn":"costLine","args":[{"usd":0.995,"premiumRequests":0}],"out":"$0.99"}
+{"fn":"moneyLine","args":[{"usd":0.995,"premiumRequests":0}],"out":"$0.99"}
+{"fn":"costLine","args":[{"usd":0.995,"premiumRequests":0,"plan":true}],"out":"$0.99"}
+{"fn":"moneyLine","args":[{"usd":0.995,"premiumRequests":0,"plan":true}],"out":"$0.99"}
+{"fn":"costLine","args":[{"usd":0.995,"premiumRequests":0,"plan":false}],"out":"$0.99"}
+{"fn":"moneyLine","args":[{"usd":0.995,"premiumRequests":0,"plan":false}],"out":"$0.99"}
+{"fn":"costLine","args":[{"usd":0.995,"premiumRequests":1}],"out":"$0.99"}
+{"fn":"moneyLine","args":[{"usd":0.995,"premiumRequests":1}],"out":"$0.99"}
+{"fn":"costLine","args":[{"usd":0.995,"premiumRequests":1,"plan":true}],"out":"$0.99"}
+{"fn":"moneyLine","args":[{"usd":0.995,"premiumRequests":1,"plan":true}],"out":"$0.99"}
+{"fn":"costLine","args":[{"usd":0.995,"premiumRequests":1,"plan":false}],"out":"$0.99"}
+{"fn":"moneyLine","args":[{"usd":0.995,"premiumRequests":1,"plan":false}],"out":"$0.99"}
+{"fn":"costLine","args":[{"usd":0.995,"premiumRequests":2}],"out":"$0.99"}
+{"fn":"moneyLine","args":[{"usd":0.995,"premiumRequests":2}],"out":"$0.99"}
+{"fn":"costLine","args":[{"usd":0.995,"premiumRequests":2,"plan":true}],"out":"$0.99"}
+{"fn":"moneyLine","args":[{"usd":0.995,"premiumRequests":2,"plan":true}],"out":"$0.99"}
+{"fn":"costLine","args":[{"usd":0.995,"premiumRequests":2,"plan":false}],"out":"$0.99"}
+{"fn":"moneyLine","args":[{"usd":0.995,"premiumRequests":2,"plan":false}],"out":"$0.99"}
+{"fn":"costLine","args":[{"usd":0.995,"premiumRequests":1.5}],"out":"$0.99"}
+{"fn":"moneyLine","args":[{"usd":0.995,"premiumRequests":1.5}],"out":"$0.99"}
+{"fn":"costLine","args":[{"usd":0.995,"premiumRequests":1.5,"plan":true}],"out":"$0.99"}
+{"fn":"moneyLine","args":[{"usd":0.995,"premiumRequests":1.5,"plan":true}],"out":"$0.99"}
+{"fn":"costLine","args":[{"usd":0.995,"premiumRequests":1.5,"plan":false}],"out":"$0.99"}
+{"fn":"moneyLine","args":[{"usd":0.995,"premiumRequests":1.5,"plan":false}],"out":"$0.99"}
+{"fn":"costLine","args":[{"usd":0.995,"premiumRequests":300}],"out":"$0.99"}
+{"fn":"moneyLine","args":[{"usd":0.995,"premiumRequests":300}],"out":"$0.99"}
+{"fn":"costLine","args":[{"usd":0.995,"premiumRequests":300,"plan":true}],"out":"$0.99"}
+{"fn":"moneyLine","args":[{"usd":0.995,"premiumRequests":300,"plan":true}],"out":"$0.99"}
+{"fn":"costLine","args":[{"usd":0.995,"premiumRequests":300,"plan":false}],"out":"$0.99"}
+{"fn":"moneyLine","args":[{"usd":0.995,"premiumRequests":300,"plan":false}],"out":"$0.99"}
+{"fn":"costLine","args":[{"usd":1}],"out":"$1.00"}
+{"fn":"moneyLine","args":[{"usd":1}],"out":"$1.00"}
+{"fn":"costLine","args":[{"usd":1,"plan":true}],"out":"$1.00"}
+{"fn":"moneyLine","args":[{"usd":1,"plan":true}],"out":"$1.00"}
+{"fn":"costLine","args":[{"usd":1,"plan":false}],"out":"$1.00"}
+{"fn":"moneyLine","args":[{"usd":1,"plan":false}],"out":"$1.00"}
+{"fn":"costLine","args":[{"usd":1,"premiumRequests":0}],"out":"$1.00"}
+{"fn":"moneyLine","args":[{"usd":1,"premiumRequests":0}],"out":"$1.00"}
+{"fn":"costLine","args":[{"usd":1,"premiumRequests":0,"plan":true}],"out":"$1.00"}
+{"fn":"moneyLine","args":[{"usd":1,"premiumRequests":0,"plan":true}],"out":"$1.00"}
+{"fn":"costLine","args":[{"usd":1,"premiumRequests":0,"plan":false}],"out":"$1.00"}
+{"fn":"moneyLine","args":[{"usd":1,"premiumRequests":0,"plan":false}],"out":"$1.00"}
+{"fn":"costLine","args":[{"usd":1,"premiumRequests":1}],"out":"$1.00"}
+{"fn":"moneyLine","args":[{"usd":1,"premiumRequests":1}],"out":"$1.00"}
+{"fn":"costLine","args":[{"usd":1,"premiumRequests":1,"plan":true}],"out":"$1.00"}
+{"fn":"moneyLine","args":[{"usd":1,"premiumRequests":1,"plan":true}],"out":"$1.00"}
+{"fn":"costLine","args":[{"usd":1,"premiumRequests":1,"plan":false}],"out":"$1.00"}
+{"fn":"moneyLine","args":[{"usd":1,"premiumRequests":1,"plan":false}],"out":"$1.00"}
+{"fn":"costLine","args":[{"usd":1,"premiumRequests":2}],"out":"$1.00"}
+{"fn":"moneyLine","args":[{"usd":1,"premiumRequests":2}],"out":"$1.00"}
+{"fn":"costLine","args":[{"usd":1,"premiumRequests":2,"plan":true}],"out":"$1.00"}
+{"fn":"moneyLine","args":[{"usd":1,"premiumRequests":2,"plan":true}],"out":"$1.00"}
+{"fn":"costLine","args":[{"usd":1,"premiumRequests":2,"plan":false}],"out":"$1.00"}
+{"fn":"moneyLine","args":[{"usd":1,"premiumRequests":2,"plan":false}],"out":"$1.00"}
+{"fn":"costLine","args":[{"usd":1,"premiumRequests":1.5}],"out":"$1.00"}
+{"fn":"moneyLine","args":[{"usd":1,"premiumRequests":1.5}],"out":"$1.00"}
+{"fn":"costLine","args":[{"usd":1,"premiumRequests":1.5,"plan":true}],"out":"$1.00"}
+{"fn":"moneyLine","args":[{"usd":1,"premiumRequests":1.5,"plan":true}],"out":"$1.00"}
+{"fn":"costLine","args":[{"usd":1,"premiumRequests":1.5,"plan":false}],"out":"$1.00"}
+{"fn":"moneyLine","args":[{"usd":1,"premiumRequests":1.5,"plan":false}],"out":"$1.00"}
+{"fn":"costLine","args":[{"usd":1,"premiumRequests":300}],"out":"$1.00"}
+{"fn":"moneyLine","args":[{"usd":1,"premiumRequests":300}],"out":"$1.00"}
+{"fn":"costLine","args":[{"usd":1,"premiumRequests":300,"plan":true}],"out":"$1.00"}
+{"fn":"moneyLine","args":[{"usd":1,"premiumRequests":300,"plan":true}],"out":"$1.00"}
+{"fn":"costLine","args":[{"usd":1,"premiumRequests":300,"plan":false}],"out":"$1.00"}
+{"fn":"moneyLine","args":[{"usd":1,"premiumRequests":300,"plan":false}],"out":"$1.00"}
+{"fn":"costLine","args":[{"usd":1.005}],"out":"$1.00"}
+{"fn":"moneyLine","args":[{"usd":1.005}],"out":"$1.00"}
+{"fn":"costLine","args":[{"usd":1.005,"plan":true}],"out":"$1.00"}
+{"fn":"moneyLine","args":[{"usd":1.005,"plan":true}],"out":"$1.00"}
+{"fn":"costLine","args":[{"usd":1.005,"plan":false}],"out":"$1.00"}
+{"fn":"moneyLine","args":[{"usd":1.005,"plan":false}],"out":"$1.00"}
+{"fn":"costLine","args":[{"usd":1.005,"premiumRequests":0}],"out":"$1.00"}
+{"fn":"moneyLine","args":[{"usd":1.005,"premiumRequests":0}],"out":"$1.00"}
+{"fn":"costLine","args":[{"usd":1.005,"premiumRequests":0,"plan":true}],"out":"$1.00"}
+{"fn":"moneyLine","args":[{"usd":1.005,"premiumRequests":0,"plan":true}],"out":"$1.00"}
+{"fn":"costLine","args":[{"usd":1.005,"premiumRequests":0,"plan":false}],"out":"$1.00"}
+{"fn":"moneyLine","args":[{"usd":1.005,"premiumRequests":0,"plan":false}],"out":"$1.00"}
+{"fn":"costLine","args":[{"usd":1.005,"premiumRequests":1}],"out":"$1.00"}
+{"fn":"moneyLine","args":[{"usd":1.005,"premiumRequests":1}],"out":"$1.00"}
+{"fn":"costLine","args":[{"usd":1.005,"premiumRequests":1,"plan":true}],"out":"$1.00"}
+{"fn":"moneyLine","args":[{"usd":1.005,"premiumRequests":1,"plan":true}],"out":"$1.00"}
+{"fn":"costLine","args":[{"usd":1.005,"premiumRequests":1,"plan":false}],"out":"$1.00"}
+{"fn":"moneyLine","args":[{"usd":1.005,"premiumRequests":1,"plan":false}],"out":"$1.00"}
+{"fn":"costLine","args":[{"usd":1.005,"premiumRequests":2}],"out":"$1.00"}
+{"fn":"moneyLine","args":[{"usd":1.005,"premiumRequests":2}],"out":"$1.00"}
+{"fn":"costLine","args":[{"usd":1.005,"premiumRequests":2,"plan":true}],"out":"$1.00"}
+{"fn":"moneyLine","args":[{"usd":1.005,"premiumRequests":2,"plan":true}],"out":"$1.00"}
+{"fn":"costLine","args":[{"usd":1.005,"premiumRequests":2,"plan":false}],"out":"$1.00"}
+{"fn":"moneyLine","args":[{"usd":1.005,"premiumRequests":2,"plan":false}],"out":"$1.00"}
+{"fn":"costLine","args":[{"usd":1.005,"premiumRequests":1.5}],"out":"$1.00"}
+{"fn":"moneyLine","args":[{"usd":1.005,"premiumRequests":1.5}],"out":"$1.00"}
+{"fn":"costLine","args":[{"usd":1.005,"premiumRequests":1.5,"plan":true}],"out":"$1.00"}
+{"fn":"moneyLine","args":[{"usd":1.005,"premiumRequests":1.5,"plan":true}],"out":"$1.00"}
+{"fn":"costLine","args":[{"usd":1.005,"premiumRequests":1.5,"plan":false}],"out":"$1.00"}
+{"fn":"moneyLine","args":[{"usd":1.005,"premiumRequests":1.5,"plan":false}],"out":"$1.00"}
+{"fn":"costLine","args":[{"usd":1.005,"premiumRequests":300}],"out":"$1.00"}
+{"fn":"moneyLine","args":[{"usd":1.005,"premiumRequests":300}],"out":"$1.00"}
+{"fn":"costLine","args":[{"usd":1.005,"premiumRequests":300,"plan":true}],"out":"$1.00"}
+{"fn":"moneyLine","args":[{"usd":1.005,"premiumRequests":300,"plan":true}],"out":"$1.00"}
+{"fn":"costLine","args":[{"usd":1.005,"premiumRequests":300,"plan":false}],"out":"$1.00"}
+{"fn":"moneyLine","args":[{"usd":1.005,"premiumRequests":300,"plan":false}],"out":"$1.00"}
+{"fn":"costLine","args":[{"usd":2.675}],"out":"$2.67"}
+{"fn":"moneyLine","args":[{"usd":2.675}],"out":"$2.67"}
+{"fn":"costLine","args":[{"usd":2.675,"plan":true}],"out":"$2.67"}
+{"fn":"moneyLine","args":[{"usd":2.675,"plan":true}],"out":"$2.67"}
+{"fn":"costLine","args":[{"usd":2.675,"plan":false}],"out":"$2.67"}
+{"fn":"moneyLine","args":[{"usd":2.675,"plan":false}],"out":"$2.67"}
+{"fn":"costLine","args":[{"usd":2.675,"premiumRequests":0}],"out":"$2.67"}
+{"fn":"moneyLine","args":[{"usd":2.675,"premiumRequests":0}],"out":"$2.67"}
+{"fn":"costLine","args":[{"usd":2.675,"premiumRequests":0,"plan":true}],"out":"$2.67"}
+{"fn":"moneyLine","args":[{"usd":2.675,"premiumRequests":0,"plan":true}],"out":"$2.67"}
+{"fn":"costLine","args":[{"usd":2.675,"premiumRequests":0,"plan":false}],"out":"$2.67"}
+{"fn":"moneyLine","args":[{"usd":2.675,"premiumRequests":0,"plan":false}],"out":"$2.67"}
+{"fn":"costLine","args":[{"usd":2.675,"premiumRequests":1}],"out":"$2.67"}
+{"fn":"moneyLine","args":[{"usd":2.675,"premiumRequests":1}],"out":"$2.67"}
+{"fn":"costLine","args":[{"usd":2.675,"premiumRequests":1,"plan":true}],"out":"$2.67"}
+{"fn":"moneyLine","args":[{"usd":2.675,"premiumRequests":1,"plan":true}],"out":"$2.67"}
+{"fn":"costLine","args":[{"usd":2.675,"premiumRequests":1,"plan":false}],"out":"$2.67"}
+{"fn":"moneyLine","args":[{"usd":2.675,"premiumRequests":1,"plan":false}],"out":"$2.67"}
+{"fn":"costLine","args":[{"usd":2.675,"premiumRequests":2}],"out":"$2.67"}
+{"fn":"moneyLine","args":[{"usd":2.675,"premiumRequests":2}],"out":"$2.67"}
+{"fn":"costLine","args":[{"usd":2.675,"premiumRequests":2,"plan":true}],"out":"$2.67"}
+{"fn":"moneyLine","args":[{"usd":2.675,"premiumRequests":2,"plan":true}],"out":"$2.67"}
+{"fn":"costLine","args":[{"usd":2.675,"premiumRequests":2,"plan":false}],"out":"$2.67"}
+{"fn":"moneyLine","args":[{"usd":2.675,"premiumRequests":2,"plan":false}],"out":"$2.67"}
+{"fn":"costLine","args":[{"usd":2.675,"premiumRequests":1.5}],"out":"$2.67"}
+{"fn":"moneyLine","args":[{"usd":2.675,"premiumRequests":1.5}],"out":"$2.67"}
+{"fn":"costLine","args":[{"usd":2.675,"premiumRequests":1.5,"plan":true}],"out":"$2.67"}
+{"fn":"moneyLine","args":[{"usd":2.675,"premiumRequests":1.5,"plan":true}],"out":"$2.67"}
+{"fn":"costLine","args":[{"usd":2.675,"premiumRequests":1.5,"plan":false}],"out":"$2.67"}
+{"fn":"moneyLine","args":[{"usd":2.675,"premiumRequests":1.5,"plan":false}],"out":"$2.67"}
+{"fn":"costLine","args":[{"usd":2.675,"premiumRequests":300}],"out":"$2.67"}
+{"fn":"moneyLine","args":[{"usd":2.675,"premiumRequests":300}],"out":"$2.67"}
+{"fn":"costLine","args":[{"usd":2.675,"premiumRequests":300,"plan":true}],"out":"$2.67"}
+{"fn":"moneyLine","args":[{"usd":2.675,"premiumRequests":300,"plan":true}],"out":"$2.67"}
+{"fn":"costLine","args":[{"usd":2.675,"premiumRequests":300,"plan":false}],"out":"$2.67"}
+{"fn":"moneyLine","args":[{"usd":2.675,"premiumRequests":300,"plan":false}],"out":"$2.67"}
+{"fn":"costLine","args":[{"usd":12.3456}],"out":"$12.35"}
+{"fn":"moneyLine","args":[{"usd":12.3456}],"out":"$12.35"}
+{"fn":"costLine","args":[{"usd":12.3456,"plan":true}],"out":"$12.35"}
+{"fn":"moneyLine","args":[{"usd":12.3456,"plan":true}],"out":"$12.35"}
+{"fn":"costLine","args":[{"usd":12.3456,"plan":false}],"out":"$12.35"}
+{"fn":"moneyLine","args":[{"usd":12.3456,"plan":false}],"out":"$12.35"}
+{"fn":"costLine","args":[{"usd":12.3456,"premiumRequests":0}],"out":"$12.35"}
+{"fn":"moneyLine","args":[{"usd":12.3456,"premiumRequests":0}],"out":"$12.35"}
+{"fn":"costLine","args":[{"usd":12.3456,"premiumRequests":0,"plan":true}],"out":"$12.35"}
+{"fn":"moneyLine","args":[{"usd":12.3456,"premiumRequests":0,"plan":true}],"out":"$12.35"}
+{"fn":"costLine","args":[{"usd":12.3456,"premiumRequests":0,"plan":false}],"out":"$12.35"}
+{"fn":"moneyLine","args":[{"usd":12.3456,"premiumRequests":0,"plan":false}],"out":"$12.35"}
+{"fn":"costLine","args":[{"usd":12.3456,"premiumRequests":1}],"out":"$12.35"}
+{"fn":"moneyLine","args":[{"usd":12.3456,"premiumRequests":1}],"out":"$12.35"}
+{"fn":"costLine","args":[{"usd":12.3456,"premiumRequests":1,"plan":true}],"out":"$12.35"}
+{"fn":"moneyLine","args":[{"usd":12.3456,"premiumRequests":1,"plan":true}],"out":"$12.35"}
+{"fn":"costLine","args":[{"usd":12.3456,"premiumRequests":1,"plan":false}],"out":"$12.35"}
+{"fn":"moneyLine","args":[{"usd":12.3456,"premiumRequests":1,"plan":false}],"out":"$12.35"}
+{"fn":"costLine","args":[{"usd":12.3456,"premiumRequests":2}],"out":"$12.35"}
+{"fn":"moneyLine","args":[{"usd":12.3456,"premiumRequests":2}],"out":"$12.35"}
+{"fn":"costLine","args":[{"usd":12.3456,"premiumRequests":2,"plan":true}],"out":"$12.35"}
+{"fn":"moneyLine","args":[{"usd":12.3456,"premiumRequests":2,"plan":true}],"out":"$12.35"}
+{"fn":"costLine","args":[{"usd":12.3456,"premiumRequests":2,"plan":false}],"out":"$12.35"}
+{"fn":"moneyLine","args":[{"usd":12.3456,"premiumRequests":2,"plan":false}],"out":"$12.35"}
+{"fn":"costLine","args":[{"usd":12.3456,"premiumRequests":1.5}],"out":"$12.35"}
+{"fn":"moneyLine","args":[{"usd":12.3456,"premiumRequests":1.5}],"out":"$12.35"}
+{"fn":"costLine","args":[{"usd":12.3456,"premiumRequests":1.5,"plan":true}],"out":"$12.35"}
+{"fn":"moneyLine","args":[{"usd":12.3456,"premiumRequests":1.5,"plan":true}],"out":"$12.35"}
+{"fn":"costLine","args":[{"usd":12.3456,"premiumRequests":1.5,"plan":false}],"out":"$12.35"}
+{"fn":"moneyLine","args":[{"usd":12.3456,"premiumRequests":1.5,"plan":false}],"out":"$12.35"}
+{"fn":"costLine","args":[{"usd":12.3456,"premiumRequests":300}],"out":"$12.35"}
+{"fn":"moneyLine","args":[{"usd":12.3456,"premiumRequests":300}],"out":"$12.35"}
+{"fn":"costLine","args":[{"usd":12.3456,"premiumRequests":300,"plan":true}],"out":"$12.35"}
+{"fn":"moneyLine","args":[{"usd":12.3456,"premiumRequests":300,"plan":true}],"out":"$12.35"}
+{"fn":"costLine","args":[{"usd":12.3456,"premiumRequests":300,"plan":false}],"out":"$12.35"}
+{"fn":"moneyLine","args":[{"usd":12.3456,"premiumRequests":300,"plan":false}],"out":"$12.35"}
+{"fn":"costLine","args":[{"usd":1234.5}],"out":"$1234.50"}
+{"fn":"moneyLine","args":[{"usd":1234.5}],"out":"$1234.50"}
+{"fn":"costLine","args":[{"usd":1234.5,"plan":true}],"out":"$1234.50"}
+{"fn":"moneyLine","args":[{"usd":1234.5,"plan":true}],"out":"$1234.50"}
+{"fn":"costLine","args":[{"usd":1234.5,"plan":false}],"out":"$1234.50"}
+{"fn":"moneyLine","args":[{"usd":1234.5,"plan":false}],"out":"$1234.50"}
+{"fn":"costLine","args":[{"usd":1234.5,"premiumRequests":0}],"out":"$1234.50"}
+{"fn":"moneyLine","args":[{"usd":1234.5,"premiumRequests":0}],"out":"$1234.50"}
+{"fn":"costLine","args":[{"usd":1234.5,"premiumRequests":0,"plan":true}],"out":"$1234.50"}
+{"fn":"moneyLine","args":[{"usd":1234.5,"premiumRequests":0,"plan":true}],"out":"$1234.50"}
+{"fn":"costLine","args":[{"usd":1234.5,"premiumRequests":0,"plan":false}],"out":"$1234.50"}
+{"fn":"moneyLine","args":[{"usd":1234.5,"premiumRequests":0,"plan":false}],"out":"$1234.50"}
+{"fn":"costLine","args":[{"usd":1234.5,"premiumRequests":1}],"out":"$1234.50"}
+{"fn":"moneyLine","args":[{"usd":1234.5,"premiumRequests":1}],"out":"$1234.50"}
+{"fn":"costLine","args":[{"usd":1234.5,"premiumRequests":1,"plan":true}],"out":"$1234.50"}
+{"fn":"moneyLine","args":[{"usd":1234.5,"premiumRequests":1,"plan":true}],"out":"$1234.50"}
+{"fn":"costLine","args":[{"usd":1234.5,"premiumRequests":1,"plan":false}],"out":"$1234.50"}
+{"fn":"moneyLine","args":[{"usd":1234.5,"premiumRequests":1,"plan":false}],"out":"$1234.50"}
+{"fn":"costLine","args":[{"usd":1234.5,"premiumRequests":2}],"out":"$1234.50"}
+{"fn":"moneyLine","args":[{"usd":1234.5,"premiumRequests":2}],"out":"$1234.50"}
+{"fn":"costLine","args":[{"usd":1234.5,"premiumRequests":2,"plan":true}],"out":"$1234.50"}
+{"fn":"moneyLine","args":[{"usd":1234.5,"premiumRequests":2,"plan":true}],"out":"$1234.50"}
+{"fn":"costLine","args":[{"usd":1234.5,"premiumRequests":2,"plan":false}],"out":"$1234.50"}
+{"fn":"moneyLine","args":[{"usd":1234.5,"premiumRequests":2,"plan":false}],"out":"$1234.50"}
+{"fn":"costLine","args":[{"usd":1234.5,"premiumRequests":1.5}],"out":"$1234.50"}
+{"fn":"moneyLine","args":[{"usd":1234.5,"premiumRequests":1.5}],"out":"$1234.50"}
+{"fn":"costLine","args":[{"usd":1234.5,"premiumRequests":1.5,"plan":true}],"out":"$1234.50"}
+{"fn":"moneyLine","args":[{"usd":1234.5,"premiumRequests":1.5,"plan":true}],"out":"$1234.50"}
+{"fn":"costLine","args":[{"usd":1234.5,"premiumRequests":1.5,"plan":false}],"out":"$1234.50"}
+{"fn":"moneyLine","args":[{"usd":1234.5,"premiumRequests":1.5,"plan":false}],"out":"$1234.50"}
+{"fn":"costLine","args":[{"usd":1234.5,"premiumRequests":300}],"out":"$1234.50"}
+{"fn":"moneyLine","args":[{"usd":1234.5,"premiumRequests":300}],"out":"$1234.50"}
+{"fn":"costLine","args":[{"usd":1234.5,"premiumRequests":300,"plan":true}],"out":"$1234.50"}
+{"fn":"moneyLine","args":[{"usd":1234.5,"premiumRequests":300,"plan":true}],"out":"$1234.50"}
+{"fn":"costLine","args":[{"usd":1234.5,"premiumRequests":300,"plan":false}],"out":"$1234.50"}
+{"fn":"moneyLine","args":[{"usd":1234.5,"premiumRequests":300,"plan":false}],"out":"$1234.50"}
+{"fn":"costLine","args":[{}],"out":null}
+{"fn":"moneyLine","args":[{}],"out":null}
+{"fn":"costLine","args":[{"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"plan":true}],"out":null}
+{"fn":"costLine","args":[{"outputTokens":0}],"out":"0 in · 0 out"}
+{"fn":"moneyLine","args":[{"outputTokens":0}],"out":null}
+{"fn":"costLine","args":[{"outputTokens":0,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"outputTokens":0,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"outputTokens":999}],"out":"0 in · 999 out"}
+{"fn":"moneyLine","args":[{"outputTokens":999}],"out":null}
+{"fn":"costLine","args":[{"outputTokens":999,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"outputTokens":999,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"outputTokens":1000}],"out":"0 in · 1.0k out"}
+{"fn":"moneyLine","args":[{"outputTokens":1000}],"out":null}
+{"fn":"costLine","args":[{"outputTokens":1000,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"outputTokens":1000,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"outputTokens":1499}],"out":"0 in · 1.5k out"}
+{"fn":"moneyLine","args":[{"outputTokens":1499}],"out":null}
+{"fn":"costLine","args":[{"outputTokens":1499,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"outputTokens":1499,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"outputTokens":1500}],"out":"0 in · 1.5k out"}
+{"fn":"moneyLine","args":[{"outputTokens":1500}],"out":null}
+{"fn":"costLine","args":[{"outputTokens":1500,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"outputTokens":1500,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"outputTokens":9999}],"out":"0 in · 10k out"}
+{"fn":"moneyLine","args":[{"outputTokens":9999}],"out":null}
+{"fn":"costLine","args":[{"outputTokens":9999,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"outputTokens":9999,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"outputTokens":12345}],"out":"0 in · 12k out"}
+{"fn":"moneyLine","args":[{"outputTokens":12345}],"out":null}
+{"fn":"costLine","args":[{"outputTokens":12345,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"outputTokens":12345,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"outputTokens":999999}],"out":"0 in · 1.0M out"}
+{"fn":"moneyLine","args":[{"outputTokens":999999}],"out":null}
+{"fn":"costLine","args":[{"outputTokens":999999,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"outputTokens":999999,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"outputTokens":1000000}],"out":"0 in · 1.0M out"}
+{"fn":"moneyLine","args":[{"outputTokens":1000000}],"out":null}
+{"fn":"costLine","args":[{"outputTokens":1000000,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"outputTokens":1000000,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"outputTokens":2500000}],"out":"0 in · 2.5M out"}
+{"fn":"moneyLine","args":[{"outputTokens":2500000}],"out":null}
+{"fn":"costLine","args":[{"outputTokens":2500000,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"outputTokens":2500000,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":0}],"out":"0 in · 0 out"}
+{"fn":"moneyLine","args":[{"inputTokens":0}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":0,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":0,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":0,"outputTokens":0}],"out":"0 in · 0 out"}
+{"fn":"moneyLine","args":[{"inputTokens":0,"outputTokens":0}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":0,"outputTokens":0,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":0,"outputTokens":0,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":0,"outputTokens":999}],"out":"0 in · 999 out"}
+{"fn":"moneyLine","args":[{"inputTokens":0,"outputTokens":999}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":0,"outputTokens":999,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":0,"outputTokens":999,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":0,"outputTokens":1000}],"out":"0 in · 1.0k out"}
+{"fn":"moneyLine","args":[{"inputTokens":0,"outputTokens":1000}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":0,"outputTokens":1000,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":0,"outputTokens":1000,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":0,"outputTokens":1499}],"out":"0 in · 1.5k out"}
+{"fn":"moneyLine","args":[{"inputTokens":0,"outputTokens":1499}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":0,"outputTokens":1499,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":0,"outputTokens":1499,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":0,"outputTokens":1500}],"out":"0 in · 1.5k out"}
+{"fn":"moneyLine","args":[{"inputTokens":0,"outputTokens":1500}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":0,"outputTokens":1500,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":0,"outputTokens":1500,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":0,"outputTokens":9999}],"out":"0 in · 10k out"}
+{"fn":"moneyLine","args":[{"inputTokens":0,"outputTokens":9999}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":0,"outputTokens":9999,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":0,"outputTokens":9999,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":0,"outputTokens":12345}],"out":"0 in · 12k out"}
+{"fn":"moneyLine","args":[{"inputTokens":0,"outputTokens":12345}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":0,"outputTokens":12345,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":0,"outputTokens":12345,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":0,"outputTokens":999999}],"out":"0 in · 1.0M out"}
+{"fn":"moneyLine","args":[{"inputTokens":0,"outputTokens":999999}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":0,"outputTokens":999999,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":0,"outputTokens":999999,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":0,"outputTokens":1000000}],"out":"0 in · 1.0M out"}
+{"fn":"moneyLine","args":[{"inputTokens":0,"outputTokens":1000000}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":0,"outputTokens":1000000,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":0,"outputTokens":1000000,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":0,"outputTokens":2500000}],"out":"0 in · 2.5M out"}
+{"fn":"moneyLine","args":[{"inputTokens":0,"outputTokens":2500000}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":0,"outputTokens":2500000,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":0,"outputTokens":2500000,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":999}],"out":"999 in · 0 out"}
+{"fn":"moneyLine","args":[{"inputTokens":999}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":999,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":999,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":999,"outputTokens":0}],"out":"999 in · 0 out"}
+{"fn":"moneyLine","args":[{"inputTokens":999,"outputTokens":0}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":999,"outputTokens":0,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":999,"outputTokens":0,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":999,"outputTokens":999}],"out":"999 in · 999 out"}
+{"fn":"moneyLine","args":[{"inputTokens":999,"outputTokens":999}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":999,"outputTokens":999,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":999,"outputTokens":999,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":999,"outputTokens":1000}],"out":"999 in · 1.0k out"}
+{"fn":"moneyLine","args":[{"inputTokens":999,"outputTokens":1000}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":999,"outputTokens":1000,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":999,"outputTokens":1000,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":999,"outputTokens":1499}],"out":"999 in · 1.5k out"}
+{"fn":"moneyLine","args":[{"inputTokens":999,"outputTokens":1499}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":999,"outputTokens":1499,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":999,"outputTokens":1499,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":999,"outputTokens":1500}],"out":"999 in · 1.5k out"}
+{"fn":"moneyLine","args":[{"inputTokens":999,"outputTokens":1500}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":999,"outputTokens":1500,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":999,"outputTokens":1500,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":999,"outputTokens":9999}],"out":"999 in · 10k out"}
+{"fn":"moneyLine","args":[{"inputTokens":999,"outputTokens":9999}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":999,"outputTokens":9999,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":999,"outputTokens":9999,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":999,"outputTokens":12345}],"out":"999 in · 12k out"}
+{"fn":"moneyLine","args":[{"inputTokens":999,"outputTokens":12345}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":999,"outputTokens":12345,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":999,"outputTokens":12345,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":999,"outputTokens":999999}],"out":"999 in · 1.0M out"}
+{"fn":"moneyLine","args":[{"inputTokens":999,"outputTokens":999999}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":999,"outputTokens":999999,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":999,"outputTokens":999999,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":999,"outputTokens":1000000}],"out":"999 in · 1.0M out"}
+{"fn":"moneyLine","args":[{"inputTokens":999,"outputTokens":1000000}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":999,"outputTokens":1000000,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":999,"outputTokens":1000000,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":999,"outputTokens":2500000}],"out":"999 in · 2.5M out"}
+{"fn":"moneyLine","args":[{"inputTokens":999,"outputTokens":2500000}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":999,"outputTokens":2500000,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":999,"outputTokens":2500000,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1000}],"out":"1.0k in · 0 out"}
+{"fn":"moneyLine","args":[{"inputTokens":1000}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1000,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":1000,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1000,"outputTokens":0}],"out":"1.0k in · 0 out"}
+{"fn":"moneyLine","args":[{"inputTokens":1000,"outputTokens":0}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1000,"outputTokens":0,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":1000,"outputTokens":0,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1000,"outputTokens":999}],"out":"1.0k in · 999 out"}
+{"fn":"moneyLine","args":[{"inputTokens":1000,"outputTokens":999}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1000,"outputTokens":999,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":1000,"outputTokens":999,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1000,"outputTokens":1000}],"out":"1.0k in · 1.0k out"}
+{"fn":"moneyLine","args":[{"inputTokens":1000,"outputTokens":1000}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1000,"outputTokens":1000,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":1000,"outputTokens":1000,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1000,"outputTokens":1499}],"out":"1.0k in · 1.5k out"}
+{"fn":"moneyLine","args":[{"inputTokens":1000,"outputTokens":1499}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1000,"outputTokens":1499,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":1000,"outputTokens":1499,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1000,"outputTokens":1500}],"out":"1.0k in · 1.5k out"}
+{"fn":"moneyLine","args":[{"inputTokens":1000,"outputTokens":1500}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1000,"outputTokens":1500,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":1000,"outputTokens":1500,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1000,"outputTokens":9999}],"out":"1.0k in · 10k out"}
+{"fn":"moneyLine","args":[{"inputTokens":1000,"outputTokens":9999}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1000,"outputTokens":9999,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":1000,"outputTokens":9999,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1000,"outputTokens":12345}],"out":"1.0k in · 12k out"}
+{"fn":"moneyLine","args":[{"inputTokens":1000,"outputTokens":12345}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1000,"outputTokens":12345,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":1000,"outputTokens":12345,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1000,"outputTokens":999999}],"out":"1.0k in · 1.0M out"}
+{"fn":"moneyLine","args":[{"inputTokens":1000,"outputTokens":999999}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1000,"outputTokens":999999,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":1000,"outputTokens":999999,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1000,"outputTokens":1000000}],"out":"1.0k in · 1.0M out"}
+{"fn":"moneyLine","args":[{"inputTokens":1000,"outputTokens":1000000}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1000,"outputTokens":1000000,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":1000,"outputTokens":1000000,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1000,"outputTokens":2500000}],"out":"1.0k in · 2.5M out"}
+{"fn":"moneyLine","args":[{"inputTokens":1000,"outputTokens":2500000}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1000,"outputTokens":2500000,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":1000,"outputTokens":2500000,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1499}],"out":"1.5k in · 0 out"}
+{"fn":"moneyLine","args":[{"inputTokens":1499}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1499,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":1499,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1499,"outputTokens":0}],"out":"1.5k in · 0 out"}
+{"fn":"moneyLine","args":[{"inputTokens":1499,"outputTokens":0}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1499,"outputTokens":0,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":1499,"outputTokens":0,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1499,"outputTokens":999}],"out":"1.5k in · 999 out"}
+{"fn":"moneyLine","args":[{"inputTokens":1499,"outputTokens":999}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1499,"outputTokens":999,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":1499,"outputTokens":999,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1499,"outputTokens":1000}],"out":"1.5k in · 1.0k out"}
+{"fn":"moneyLine","args":[{"inputTokens":1499,"outputTokens":1000}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1499,"outputTokens":1000,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":1499,"outputTokens":1000,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1499,"outputTokens":1499}],"out":"1.5k in · 1.5k out"}
+{"fn":"moneyLine","args":[{"inputTokens":1499,"outputTokens":1499}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1499,"outputTokens":1499,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":1499,"outputTokens":1499,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1499,"outputTokens":1500}],"out":"1.5k in · 1.5k out"}
+{"fn":"moneyLine","args":[{"inputTokens":1499,"outputTokens":1500}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1499,"outputTokens":1500,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":1499,"outputTokens":1500,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1499,"outputTokens":9999}],"out":"1.5k in · 10k out"}
+{"fn":"moneyLine","args":[{"inputTokens":1499,"outputTokens":9999}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1499,"outputTokens":9999,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":1499,"outputTokens":9999,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1499,"outputTokens":12345}],"out":"1.5k in · 12k out"}
+{"fn":"moneyLine","args":[{"inputTokens":1499,"outputTokens":12345}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1499,"outputTokens":12345,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":1499,"outputTokens":12345,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1499,"outputTokens":999999}],"out":"1.5k in · 1.0M out"}
+{"fn":"moneyLine","args":[{"inputTokens":1499,"outputTokens":999999}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1499,"outputTokens":999999,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":1499,"outputTokens":999999,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1499,"outputTokens":1000000}],"out":"1.5k in · 1.0M out"}
+{"fn":"moneyLine","args":[{"inputTokens":1499,"outputTokens":1000000}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1499,"outputTokens":1000000,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":1499,"outputTokens":1000000,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1499,"outputTokens":2500000}],"out":"1.5k in · 2.5M out"}
+{"fn":"moneyLine","args":[{"inputTokens":1499,"outputTokens":2500000}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1499,"outputTokens":2500000,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":1499,"outputTokens":2500000,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1500}],"out":"1.5k in · 0 out"}
+{"fn":"moneyLine","args":[{"inputTokens":1500}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1500,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":1500,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1500,"outputTokens":0}],"out":"1.5k in · 0 out"}
+{"fn":"moneyLine","args":[{"inputTokens":1500,"outputTokens":0}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1500,"outputTokens":0,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":1500,"outputTokens":0,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1500,"outputTokens":999}],"out":"1.5k in · 999 out"}
+{"fn":"moneyLine","args":[{"inputTokens":1500,"outputTokens":999}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1500,"outputTokens":999,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":1500,"outputTokens":999,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1500,"outputTokens":1000}],"out":"1.5k in · 1.0k out"}
+{"fn":"moneyLine","args":[{"inputTokens":1500,"outputTokens":1000}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1500,"outputTokens":1000,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":1500,"outputTokens":1000,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1500,"outputTokens":1499}],"out":"1.5k in · 1.5k out"}
+{"fn":"moneyLine","args":[{"inputTokens":1500,"outputTokens":1499}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1500,"outputTokens":1499,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":1500,"outputTokens":1499,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1500,"outputTokens":1500}],"out":"1.5k in · 1.5k out"}
+{"fn":"moneyLine","args":[{"inputTokens":1500,"outputTokens":1500}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1500,"outputTokens":1500,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":1500,"outputTokens":1500,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1500,"outputTokens":9999}],"out":"1.5k in · 10k out"}
+{"fn":"moneyLine","args":[{"inputTokens":1500,"outputTokens":9999}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1500,"outputTokens":9999,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":1500,"outputTokens":9999,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1500,"outputTokens":12345}],"out":"1.5k in · 12k out"}
+{"fn":"moneyLine","args":[{"inputTokens":1500,"outputTokens":12345}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1500,"outputTokens":12345,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":1500,"outputTokens":12345,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1500,"outputTokens":999999}],"out":"1.5k in · 1.0M out"}
+{"fn":"moneyLine","args":[{"inputTokens":1500,"outputTokens":999999}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1500,"outputTokens":999999,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":1500,"outputTokens":999999,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1500,"outputTokens":1000000}],"out":"1.5k in · 1.0M out"}
+{"fn":"moneyLine","args":[{"inputTokens":1500,"outputTokens":1000000}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1500,"outputTokens":1000000,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":1500,"outputTokens":1000000,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1500,"outputTokens":2500000}],"out":"1.5k in · 2.5M out"}
+{"fn":"moneyLine","args":[{"inputTokens":1500,"outputTokens":2500000}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1500,"outputTokens":2500000,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":1500,"outputTokens":2500000,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":9999}],"out":"10k in · 0 out"}
+{"fn":"moneyLine","args":[{"inputTokens":9999}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":9999,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":9999,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":9999,"outputTokens":0}],"out":"10k in · 0 out"}
+{"fn":"moneyLine","args":[{"inputTokens":9999,"outputTokens":0}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":9999,"outputTokens":0,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":9999,"outputTokens":0,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":9999,"outputTokens":999}],"out":"10k in · 999 out"}
+{"fn":"moneyLine","args":[{"inputTokens":9999,"outputTokens":999}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":9999,"outputTokens":999,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":9999,"outputTokens":999,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":9999,"outputTokens":1000}],"out":"10k in · 1.0k out"}
+{"fn":"moneyLine","args":[{"inputTokens":9999,"outputTokens":1000}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":9999,"outputTokens":1000,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":9999,"outputTokens":1000,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":9999,"outputTokens":1499}],"out":"10k in · 1.5k out"}
+{"fn":"moneyLine","args":[{"inputTokens":9999,"outputTokens":1499}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":9999,"outputTokens":1499,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":9999,"outputTokens":1499,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":9999,"outputTokens":1500}],"out":"10k in · 1.5k out"}
+{"fn":"moneyLine","args":[{"inputTokens":9999,"outputTokens":1500}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":9999,"outputTokens":1500,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":9999,"outputTokens":1500,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":9999,"outputTokens":9999}],"out":"10k in · 10k out"}
+{"fn":"moneyLine","args":[{"inputTokens":9999,"outputTokens":9999}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":9999,"outputTokens":9999,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":9999,"outputTokens":9999,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":9999,"outputTokens":12345}],"out":"10k in · 12k out"}
+{"fn":"moneyLine","args":[{"inputTokens":9999,"outputTokens":12345}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":9999,"outputTokens":12345,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":9999,"outputTokens":12345,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":9999,"outputTokens":999999}],"out":"10k in · 1.0M out"}
+{"fn":"moneyLine","args":[{"inputTokens":9999,"outputTokens":999999}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":9999,"outputTokens":999999,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":9999,"outputTokens":999999,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":9999,"outputTokens":1000000}],"out":"10k in · 1.0M out"}
+{"fn":"moneyLine","args":[{"inputTokens":9999,"outputTokens":1000000}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":9999,"outputTokens":1000000,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":9999,"outputTokens":1000000,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":9999,"outputTokens":2500000}],"out":"10k in · 2.5M out"}
+{"fn":"moneyLine","args":[{"inputTokens":9999,"outputTokens":2500000}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":9999,"outputTokens":2500000,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":9999,"outputTokens":2500000,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":12345}],"out":"12k in · 0 out"}
+{"fn":"moneyLine","args":[{"inputTokens":12345}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":12345,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":12345,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":12345,"outputTokens":0}],"out":"12k in · 0 out"}
+{"fn":"moneyLine","args":[{"inputTokens":12345,"outputTokens":0}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":12345,"outputTokens":0,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":12345,"outputTokens":0,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":12345,"outputTokens":999}],"out":"12k in · 999 out"}
+{"fn":"moneyLine","args":[{"inputTokens":12345,"outputTokens":999}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":12345,"outputTokens":999,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":12345,"outputTokens":999,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":12345,"outputTokens":1000}],"out":"12k in · 1.0k out"}
+{"fn":"moneyLine","args":[{"inputTokens":12345,"outputTokens":1000}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":12345,"outputTokens":1000,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":12345,"outputTokens":1000,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":12345,"outputTokens":1499}],"out":"12k in · 1.5k out"}
+{"fn":"moneyLine","args":[{"inputTokens":12345,"outputTokens":1499}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":12345,"outputTokens":1499,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":12345,"outputTokens":1499,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":12345,"outputTokens":1500}],"out":"12k in · 1.5k out"}
+{"fn":"moneyLine","args":[{"inputTokens":12345,"outputTokens":1500}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":12345,"outputTokens":1500,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":12345,"outputTokens":1500,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":12345,"outputTokens":9999}],"out":"12k in · 10k out"}
+{"fn":"moneyLine","args":[{"inputTokens":12345,"outputTokens":9999}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":12345,"outputTokens":9999,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":12345,"outputTokens":9999,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":12345,"outputTokens":12345}],"out":"12k in · 12k out"}
+{"fn":"moneyLine","args":[{"inputTokens":12345,"outputTokens":12345}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":12345,"outputTokens":12345,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":12345,"outputTokens":12345,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":12345,"outputTokens":999999}],"out":"12k in · 1.0M out"}
+{"fn":"moneyLine","args":[{"inputTokens":12345,"outputTokens":999999}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":12345,"outputTokens":999999,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":12345,"outputTokens":999999,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":12345,"outputTokens":1000000}],"out":"12k in · 1.0M out"}
+{"fn":"moneyLine","args":[{"inputTokens":12345,"outputTokens":1000000}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":12345,"outputTokens":1000000,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":12345,"outputTokens":1000000,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":12345,"outputTokens":2500000}],"out":"12k in · 2.5M out"}
+{"fn":"moneyLine","args":[{"inputTokens":12345,"outputTokens":2500000}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":12345,"outputTokens":2500000,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":12345,"outputTokens":2500000,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":999999}],"out":"1.0M in · 0 out"}
+{"fn":"moneyLine","args":[{"inputTokens":999999}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":999999,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":999999,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":999999,"outputTokens":0}],"out":"1.0M in · 0 out"}
+{"fn":"moneyLine","args":[{"inputTokens":999999,"outputTokens":0}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":999999,"outputTokens":0,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":999999,"outputTokens":0,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":999999,"outputTokens":999}],"out":"1.0M in · 999 out"}
+{"fn":"moneyLine","args":[{"inputTokens":999999,"outputTokens":999}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":999999,"outputTokens":999,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":999999,"outputTokens":999,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":999999,"outputTokens":1000}],"out":"1.0M in · 1.0k out"}
+{"fn":"moneyLine","args":[{"inputTokens":999999,"outputTokens":1000}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":999999,"outputTokens":1000,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":999999,"outputTokens":1000,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":999999,"outputTokens":1499}],"out":"1.0M in · 1.5k out"}
+{"fn":"moneyLine","args":[{"inputTokens":999999,"outputTokens":1499}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":999999,"outputTokens":1499,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":999999,"outputTokens":1499,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":999999,"outputTokens":1500}],"out":"1.0M in · 1.5k out"}
+{"fn":"moneyLine","args":[{"inputTokens":999999,"outputTokens":1500}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":999999,"outputTokens":1500,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":999999,"outputTokens":1500,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":999999,"outputTokens":9999}],"out":"1.0M in · 10k out"}
+{"fn":"moneyLine","args":[{"inputTokens":999999,"outputTokens":9999}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":999999,"outputTokens":9999,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":999999,"outputTokens":9999,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":999999,"outputTokens":12345}],"out":"1.0M in · 12k out"}
+{"fn":"moneyLine","args":[{"inputTokens":999999,"outputTokens":12345}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":999999,"outputTokens":12345,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":999999,"outputTokens":12345,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":999999,"outputTokens":999999}],"out":"1.0M in · 1.0M out"}
+{"fn":"moneyLine","args":[{"inputTokens":999999,"outputTokens":999999}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":999999,"outputTokens":999999,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":999999,"outputTokens":999999,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":999999,"outputTokens":1000000}],"out":"1.0M in · 1.0M out"}
+{"fn":"moneyLine","args":[{"inputTokens":999999,"outputTokens":1000000}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":999999,"outputTokens":1000000,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":999999,"outputTokens":1000000,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":999999,"outputTokens":2500000}],"out":"1.0M in · 2.5M out"}
+{"fn":"moneyLine","args":[{"inputTokens":999999,"outputTokens":2500000}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":999999,"outputTokens":2500000,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":999999,"outputTokens":2500000,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1000000}],"out":"1.0M in · 0 out"}
+{"fn":"moneyLine","args":[{"inputTokens":1000000}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1000000,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":1000000,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1000000,"outputTokens":0}],"out":"1.0M in · 0 out"}
+{"fn":"moneyLine","args":[{"inputTokens":1000000,"outputTokens":0}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1000000,"outputTokens":0,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":1000000,"outputTokens":0,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1000000,"outputTokens":999}],"out":"1.0M in · 999 out"}
+{"fn":"moneyLine","args":[{"inputTokens":1000000,"outputTokens":999}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1000000,"outputTokens":999,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":1000000,"outputTokens":999,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1000000,"outputTokens":1000}],"out":"1.0M in · 1.0k out"}
+{"fn":"moneyLine","args":[{"inputTokens":1000000,"outputTokens":1000}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1000000,"outputTokens":1000,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":1000000,"outputTokens":1000,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1000000,"outputTokens":1499}],"out":"1.0M in · 1.5k out"}
+{"fn":"moneyLine","args":[{"inputTokens":1000000,"outputTokens":1499}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1000000,"outputTokens":1499,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":1000000,"outputTokens":1499,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1000000,"outputTokens":1500}],"out":"1.0M in · 1.5k out"}
+{"fn":"moneyLine","args":[{"inputTokens":1000000,"outputTokens":1500}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1000000,"outputTokens":1500,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":1000000,"outputTokens":1500,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1000000,"outputTokens":9999}],"out":"1.0M in · 10k out"}
+{"fn":"moneyLine","args":[{"inputTokens":1000000,"outputTokens":9999}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1000000,"outputTokens":9999,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":1000000,"outputTokens":9999,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1000000,"outputTokens":12345}],"out":"1.0M in · 12k out"}
+{"fn":"moneyLine","args":[{"inputTokens":1000000,"outputTokens":12345}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1000000,"outputTokens":12345,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":1000000,"outputTokens":12345,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1000000,"outputTokens":999999}],"out":"1.0M in · 1.0M out"}
+{"fn":"moneyLine","args":[{"inputTokens":1000000,"outputTokens":999999}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1000000,"outputTokens":999999,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":1000000,"outputTokens":999999,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1000000,"outputTokens":1000000}],"out":"1.0M in · 1.0M out"}
+{"fn":"moneyLine","args":[{"inputTokens":1000000,"outputTokens":1000000}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1000000,"outputTokens":1000000,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":1000000,"outputTokens":1000000,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1000000,"outputTokens":2500000}],"out":"1.0M in · 2.5M out"}
+{"fn":"moneyLine","args":[{"inputTokens":1000000,"outputTokens":2500000}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":1000000,"outputTokens":2500000,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":1000000,"outputTokens":2500000,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":2500000}],"out":"2.5M in · 0 out"}
+{"fn":"moneyLine","args":[{"inputTokens":2500000}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":2500000,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":2500000,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":2500000,"outputTokens":0}],"out":"2.5M in · 0 out"}
+{"fn":"moneyLine","args":[{"inputTokens":2500000,"outputTokens":0}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":2500000,"outputTokens":0,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":2500000,"outputTokens":0,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":2500000,"outputTokens":999}],"out":"2.5M in · 999 out"}
+{"fn":"moneyLine","args":[{"inputTokens":2500000,"outputTokens":999}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":2500000,"outputTokens":999,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":2500000,"outputTokens":999,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":2500000,"outputTokens":1000}],"out":"2.5M in · 1.0k out"}
+{"fn":"moneyLine","args":[{"inputTokens":2500000,"outputTokens":1000}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":2500000,"outputTokens":1000,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":2500000,"outputTokens":1000,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":2500000,"outputTokens":1499}],"out":"2.5M in · 1.5k out"}
+{"fn":"moneyLine","args":[{"inputTokens":2500000,"outputTokens":1499}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":2500000,"outputTokens":1499,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":2500000,"outputTokens":1499,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":2500000,"outputTokens":1500}],"out":"2.5M in · 1.5k out"}
+{"fn":"moneyLine","args":[{"inputTokens":2500000,"outputTokens":1500}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":2500000,"outputTokens":1500,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":2500000,"outputTokens":1500,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":2500000,"outputTokens":9999}],"out":"2.5M in · 10k out"}
+{"fn":"moneyLine","args":[{"inputTokens":2500000,"outputTokens":9999}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":2500000,"outputTokens":9999,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":2500000,"outputTokens":9999,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":2500000,"outputTokens":12345}],"out":"2.5M in · 12k out"}
+{"fn":"moneyLine","args":[{"inputTokens":2500000,"outputTokens":12345}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":2500000,"outputTokens":12345,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":2500000,"outputTokens":12345,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":2500000,"outputTokens":999999}],"out":"2.5M in · 1.0M out"}
+{"fn":"moneyLine","args":[{"inputTokens":2500000,"outputTokens":999999}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":2500000,"outputTokens":999999,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":2500000,"outputTokens":999999,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":2500000,"outputTokens":1000000}],"out":"2.5M in · 1.0M out"}
+{"fn":"moneyLine","args":[{"inputTokens":2500000,"outputTokens":1000000}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":2500000,"outputTokens":1000000,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":2500000,"outputTokens":1000000,"plan":true}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":2500000,"outputTokens":2500000}],"out":"2.5M in · 2.5M out"}
+{"fn":"moneyLine","args":[{"inputTokens":2500000,"outputTokens":2500000}],"out":null}
+{"fn":"costLine","args":[{"inputTokens":2500000,"outputTokens":2500000,"plan":true}],"out":"in your plan"}
+{"fn":"moneyLine","args":[{"inputTokens":2500000,"outputTokens":2500000,"plan":true}],"out":null}

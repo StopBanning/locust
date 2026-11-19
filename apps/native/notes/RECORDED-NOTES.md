@@ -63,3 +63,13 @@ case-insensitive folder match and the first-dot MCP split are caught by the repl
 test; `without_shell_wrapper`'s "nothing after the wrapper" guard cannot be reached (the wrapper pattern needs a space
 after it, and the command is trimmed first), so its break survives as an equivalent change. `record.sh` now points
 `@teammate/runtime-adapters` at its source, so files that import it can be recorded.
+
+## Cost words (18 Nov)
+
+`cost.ts` records cost.ts's `costLine` and `moneyLine` over a grid of 513 costs (each field present or not; cents,
+thousands and millions at their edges): 1,026 cases. The first replay found 216 differences, three causes, all in
+Rust's `cost_line`: a zero cost said "$0" (Electron "$0.00"); under a cent it said "$0.0010" (Electron "< $0.01");
+and an exact half cent rounded to even ("$0.12" for 0.125) where JavaScript's `toFixed` rounds up ("$0.13").
+`benchmark::to_fixed` now rounds as `toFixed` does, from the number's exact digits, so 1.005 (really 1.00499...)
+still reads "1.00" in both. 0 of 1,026 differ. The connector words (`connectorMentioned`) wait: `connectorLabel`
+lives in a React component, which the recorder cannot load yet.
