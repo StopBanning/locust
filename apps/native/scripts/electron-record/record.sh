@@ -10,7 +10,9 @@ esbuild="$(ls -d "$electron"/node_modules/.pnpm/esbuild@*/node_modules/esbuild/b
 out="$(mktemp -d)"
 trap 'rm -rf "$out"' EXIT
 "$esbuild" "$here/scripts/electron-record/$name.ts" --bundle --platform=node --format=esm --log-level=warning \
-  --outfile="$out/$name.mjs" --external:electron
+  --outfile="$out/$name.mjs" --external:electron \
+  --alias:@teammate/runtime-adapters/provider-error="$here/../../packages/runtime-adapters/src/provider-error.ts" \
+  --alias:@teammate/runtime-adapters="$here/../../packages/runtime-adapters/src/index.ts"
 mkdir -p "$here/parity/recorded"
 ELECTRON_RENDERER_SRC="$(cd "$here/../desktop/src/renderer/src" && pwd)" node "$out/$name.mjs" > "$here/parity/recorded/$name.jsonl"
 echo "$(wc -l < "$here/parity/recorded/$name.jsonl" | tr -d ' ') cases recorded in parity/recorded/$name.jsonl"

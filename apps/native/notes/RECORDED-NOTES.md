@@ -54,3 +54,12 @@ The first gates then caught `route_name_tests::invents_nothing_every_word_comes_
 `model_display_name` is now its own function; the chip's `route_model_name` and the hover both end in it, so the
 hover gets the first-slash, own-model and trimmed-auto fixes too. (`mut6.py` does not run a clean baseline first: a
 test that already fails shows as "catching" every break. Look at the recorded test's line, not the others.)
+
+## Command and path words (18 Nov)
+
+`words.ts` records missionView.ts's `shellCommandText`, `withoutShellWrapper`, `relativePath` and `mcpToolParts`: 6,942
+cases from their seven test files plus traps. 0 differ on the first replay: these were ported exactly. Breaks: the
+case-insensitive folder match and the first-dot MCP split are caught by the replay; the doubled-quote undo by a unit
+test; `without_shell_wrapper`'s "nothing after the wrapper" guard cannot be reached (the wrapper pattern needs a space
+after it, and the command is trimmed first), so its break survives as an equivalent change. `record.sh` now points
+`@teammate/runtime-adapters` at its source, so files that import it can be recorded.
