@@ -5,7 +5,6 @@ pub enum SlashAction {
     Mode(&'static str),
     Route,
     Stop,
-    Swarm,
     Issues,
     Tune,
     Setup,
@@ -54,12 +53,6 @@ pub fn slash_commands() -> Vec<SlashCommand> {
             "model",
             "Choose the runtime and model.",
             SlashAction::Route,
-            false,
-        ),
-        cmd(
-            "swarm",
-            "Every run at its model maximum.",
-            SlashAction::Swarm,
             false,
         ),
         cmd(
@@ -119,7 +112,6 @@ pub fn slash_query(text: &str) -> Option<String> {
 pub struct AvailableInput<'a> {
     pub modes: &'a [&'a str],
     pub running: bool,
-    pub can_swarm: bool,
     pub issues: bool,
     pub tune: bool,
     pub setup: bool,
@@ -141,7 +133,6 @@ pub fn available_commands(input: AvailableInput<'_>) -> Vec<SlashCommand> {
         .filter(|command| match &command.action {
             SlashAction::Mode(mode) => input.modes.iter().any(|m| m == mode),
             SlashAction::Stop => input.running,
-            SlashAction::Swarm => input.can_swarm,
             SlashAction::Issues => input.issues,
             SlashAction::Tune => input.tune && !input.running,
             SlashAction::Setup => input.setup,
@@ -194,7 +185,6 @@ mod tests {
         let idle = available_commands(AvailableInput {
             modes: &["ask", "plan", "accept-edits", "approve-each", "auto"],
             running: false,
-            can_swarm: false,
             issues: false,
             tune: false,
             setup: true,
@@ -204,7 +194,6 @@ mod tests {
         let busy = available_commands(AvailableInput {
             modes: &["ask"],
             running: true,
-            can_swarm: false,
             issues: false,
             tune: false,
             setup: true,

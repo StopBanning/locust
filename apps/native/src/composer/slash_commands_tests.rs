@@ -5,14 +5,14 @@ use super::*;
 
 const ALL_MODES: [&str; 5] = ["ask", "plan", "accept-edits", "approve-each", "auto"];
 
-fn input<'a>(modes: &'a [&'a str], running: bool, can_swarm: bool) -> AvailableInput<'a> {
-    AvailableInput { modes, running, can_swarm, issues: false, tune: false, setup: false, runtime_commands: &[] }
+fn input<'a>(modes: &'a [&'a str], running: bool) -> AvailableInput<'a> {
+    AvailableInput { modes, running, issues: false, tune: false, setup: false, runtime_commands: &[] }
 }
 fn names(commands: &[SlashCommand]) -> Vec<String> {
     commands.iter().map(|c| c.name.clone()).collect()
 }
 fn every() -> Vec<SlashCommand> {
-    available_commands(input(&ALL_MODES, true, true))
+    available_commands(input(&ALL_MODES, true))
 }
 fn claude() -> Vec<SlashCommand> {
     let row = |n: &str, d: &str, h: &str| (n.to_owned(), d.to_owned(), h.to_owned());
@@ -55,7 +55,7 @@ fn is_not_a_command_when_there_is_no_slash_at_all() {
 #[test]
 fn offers_tune_only_with_a_finished_teammate_conversation() {
     let has_tune = |running: bool, tune: bool| {
-        available_commands(AvailableInput { tune, ..input(&["ask"], running, false) }).iter().any(|c| c.name == "tune")
+        available_commands(AvailableInput { tune, ..input(&["ask"], running) }).iter().any(|c| c.name == "tune")
     };
     assert!(!has_tune(false, false));
     assert!(has_tune(false, true));
@@ -64,7 +64,7 @@ fn offers_tune_only_with_a_finished_teammate_conversation() {
 
 #[test]
 fn offers_only_modes_this_runtime_can_honour() {
-    let limited = names(&available_commands(input(&["ask", "plan"], false, true)));
+    let limited = names(&available_commands(input(&["ask", "plan"], false)));
     assert!(limited.contains(&"ask".into()));
     assert!(limited.contains(&"plan".into()));
     assert!(!limited.contains(&"auto".into()));
@@ -73,24 +73,26 @@ fn offers_only_modes_this_runtime_can_honour() {
 
 #[test]
 fn offers_stop_only_while_something_is_running() {
-    assert!(!names(&available_commands(input(&ALL_MODES, false, true))).contains(&"stop".into()));
+    assert!(!names(&available_commands(input(&ALL_MODES, false))).contains(&"stop".into()));
     assert!(names(&every()).contains(&"stop".into()));
 }
 
+// Electron 0.880: swarm was cut, so there is no /swarm anywhere.
 #[test]
-fn offers_swarm_only_where_it_can_be_turned_on() {
-    assert!(!names(&available_commands(input(&ALL_MODES, false, false))).contains(&"swarm".into()));
+fn offers_no_swarm_swarm_was_cut() {
+    assert!(!names(&available_commands(input(&ALL_MODES, true))).contains(&"swarm".into()));
+    assert!(!names(&available_commands(input(&ALL_MODES, false))).contains(&"swarm".into()));
 }
 
 #[test]
 fn always_offers_the_route_picker_which_is_always_reachable() {
-    assert_eq!(names(&available_commands(input(&[], false, false))), ["model"]);
+    assert_eq!(names(&available_commands(input(&[], false))), ["model"]);
 }
 
 #[test]
 fn offers_an_issue_only_for_a_folder_whose_issues_can_be_read() {
-    assert!(!available_commands(input(&ALL_MODES, false, false)).iter().any(|c| c.name == "issue"));
-    assert!(available_commands(AvailableInput { issues: true, ..input(&ALL_MODES, false, false) }).iter().any(|c| c.name == "issue"));
+    assert!(!available_commands(input(&ALL_MODES, false)).iter().any(|c| c.name == "issue"));
+    assert!(available_commands(AvailableInput { issues: true, ..input(&ALL_MODES, false) }).iter().any(|c| c.name == "issue"));
 }
 
 #[test]
@@ -127,7 +129,7 @@ fn names_no_command_twice() {
 #[test]
 fn a_runtimes_own_commands_sit_under_the_runtime_after_locusts_own_with_what_goes_after_them() {
     let theirs = claude();
-    let offered = available_commands(AvailableInput { runtime_commands: &theirs, ..input(&ALL_MODES, false, true) });
+    let offered = available_commands(AvailableInput { runtime_commands: &theirs, ..input(&ALL_MODES, false) });
     let all = names(&offered);
     let auto_at = all.iter().position(|n| n == "auto").unwrap();
     let own: Vec<String> = slash_commands()
@@ -149,14 +151,14 @@ fn a_runtimes_own_commands_sit_under_the_runtime_after_locusts_own_with_what_goe
 #[test]
 fn a_runtimes_own_commands_are_not_offered_while_a_run_is_going() {
     let theirs = claude();
-    let offered = available_commands(AvailableInput { runtime_commands: &theirs, ..input(&ALL_MODES, true, true) });
+    let offered = available_commands(AvailableInput { runtime_commands: &theirs, ..input(&ALL_MODES, true) });
     assert!(!offered.iter().any(|c| c.action == SlashAction::Runtime));
 }
 
 #[test]
 fn a_runtimes_own_commands_are_found_by_what_is_typed_names_with_marks_included() {
     let theirs = claude();
-    let offered = available_commands(AvailableInput { runtime_commands: &theirs, ..input(&ALL_MODES, false, true) });
+    let offered = available_commands(AvailableInput { runtime_commands: &theirs, ..input(&ALL_MODES, false) });
     assert_eq!(slash_query("/security-r").as_deref(), Some("security-r"));
     assert_eq!(slash_query("/plugin:").as_deref(), Some("plugin:"));
     assert_eq!(slash_query("/team/review").as_deref(), Some("team/review"));
@@ -168,7 +170,7 @@ fn a_runtimes_own_commands_are_found_by_what_is_typed_names_with_marks_included(
 #[test]
 fn setup_is_offered_in_a_teammates_conversation_while_it_runs_too_and_not_elsewhere() {
     let has = |setup: bool, running: bool| {
-        names(&available_commands(AvailableInput { setup, ..input(&["ask"], running, false) })).contains(&"setup".into())
+        names(&available_commands(AvailableInput { setup, ..input(&["ask"], running) })).contains(&"setup".into())
     };
     assert!(has(true, false));
     assert!(has(true, true));

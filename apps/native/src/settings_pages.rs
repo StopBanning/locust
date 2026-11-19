@@ -355,7 +355,6 @@ pub const SETTINGS_PAGES: &[SettingsPage] = &[
         label: "Teammates",
         group: SettingsGroup::Team,
         headings: &[
-            "Swarm",
             "Auto mode",
             "Plans",
             "Your skills",
@@ -363,7 +362,6 @@ pub const SETTINGS_PAGES: &[SettingsPage] = &[
             "Saved approvals",
         ],
         also_known_as: &[
-            ("Swarm", &["parallel", "at once", "concurrent"]),
             (
                 "Auto mode",
                 &["permission", "approve", "ask first", "sandbox"],

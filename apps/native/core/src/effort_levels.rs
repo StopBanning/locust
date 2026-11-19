@@ -202,28 +202,6 @@ pub fn route_chip_reading(model: &str, effort: Option<&str>) -> String {
     }
 }
 
-/// `App.tsx` `swarmEffortFor`: chosen effort (or model's default) when swarm is off; the model's maximum when swarm is on.
-pub fn swarm_effort_for(
-    models: &[crate::engine::Models],
-    runtime: Option<&str>,
-    model_id: &str,
-    swarm: bool,
-    effort: Option<&str>,
-) -> Option<String> {
-    let found = models
-        .iter()
-        .filter(|a| runtime.is_none_or(|rt| a.runtime == rt))
-        .flat_map(|a| a.models.iter())
-        .find(|m| m.id == model_id)?;
-    if found.efforts.is_empty() {
-        return None;
-    }
-    if swarm {
-        return effort_scale(&found.efforts).bases.last().cloned();
-    }
-    effort.map(str::to_owned).or_else(|| default_effort(&found.efforts, None))
-}
-
 #[cfg(test)]
 #[path = "effort_levels_tests.rs"]
 mod tests;

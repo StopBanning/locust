@@ -26,7 +26,6 @@ pub const THEME_SYSTEM: &str = "Match computer";
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct WorkspaceSettings {
-    pub swarm: bool,
     pub relay: bool,
     pub relay_hop_cap: u32,
     pub interrupt: bool,
@@ -54,7 +53,6 @@ pub struct WorkspaceSettings {
 impl Default for WorkspaceSettings {
     fn default() -> Self {
         Self {
-            swarm: false,
             relay: true,
             relay_hop_cap: DEFAULT_RELAY_HOP_CAP,
             interrupt: false,
@@ -143,7 +141,6 @@ pub fn parse_settings(raw: &Value) -> WorkspaceSettings {
     let empty = Value::Object(Default::default());
     let raw = if raw.is_object() { raw } else { &empty };
     WorkspaceSettings {
-        swarm: raw.get("swarm") == Some(&Value::Bool(true)),
         relay: raw.get("relay") != Some(&Value::Bool(false)),
         relay_hop_cap: hop_cap(raw.get("relayHopCap").unwrap_or(&Value::Null)),
         interrupt: raw.get("interrupt") == Some(&Value::Bool(true)),
@@ -207,7 +204,6 @@ pub fn parse_settings(raw: &Value) -> WorkspaceSettings {
 
 pub fn settings_to_json(settings: &WorkspaceSettings) -> Value {
     let mut obj = json!({
-        "swarm": settings.swarm,
         "relay": settings.relay,
         "relayHopCap": settings.relay_hop_cap,
         "interrupt": settings.interrupt,
@@ -592,7 +588,6 @@ mod tests {
         let s = parse_settings(&json!({}));
         assert_eq!(s, WorkspaceSettings::default());
         assert!(s.relay);
-        assert!(!s.swarm);
         assert_eq!(s.relay_hop_cap, 12);
         assert_eq!(s.memory_mode, "auto");
         assert!(s.terminal_faces);
@@ -641,8 +636,8 @@ mod tests {
                 }),
             )
             .unwrap();
+        // An old file's `swarm` (cut in Electron 0.880) loads and is simply not a setting.
         let mut settings = load(&store).unwrap();
-        assert!(settings.swarm);
         settings.auto_mode = true;
         settings.memory_mode = "ask".into();
         save(&store, &settings).unwrap();

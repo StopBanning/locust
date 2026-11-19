@@ -3731,7 +3731,7 @@ apps/desktop/src/renderer/src/slashCommands.test.ts	is not a command when there 
 apps/desktop/src/renderer/src/slashCommands.test.ts	offers /tune only with a finished teammate conversation	yes
 apps/desktop/src/renderer/src/slashCommands.test.ts	offers only modes this runtime can honour	yes
 apps/desktop/src/renderer/src/slashCommands.test.ts	offers stop only while something is running	yes
-apps/desktop/src/renderer/src/slashCommands.test.ts	offers swarm only where it can be turned on	yes
+apps/desktop/src/renderer/src/slashCommands.test.ts	offers swarm only where it can be turned on	no
 apps/desktop/src/renderer/src/slashCommands.test.ts	always offers the route picker, which is always reachable	yes
 apps/desktop/src/renderer/src/slashCommands.test.ts	offers an issue only for a folder whose issues can be read	yes
 apps/desktop/src/renderer/src/slashCommands.test.ts	keeps the ones that start with what was typed	yes
@@ -3869,14 +3869,6 @@ apps/desktop/src/renderer/src/status.test.ts	is recognised through the family id
 apps/desktop/src/renderer/src/status.test.ts	is recognised through the variant id a run actually resolves to	no
 apps/desktop/src/renderer/src/status.test.ts	is not claimed for a runtime that takes the effort beside the model	no
 apps/desktop/src/renderer/src/status.test.ts	is not claimed for a model nothing in the catalog folds	no
-apps/desktop/src/renderer/src/swarm.test.ts	uses the chosen effort when swarm is off	yes
-apps/desktop/src/renderer/src/swarm.test.ts	falls back to the level the chip shows, not to nothing	yes
-apps/desktop/src/renderer/src/swarm.test.ts	still sends nothing for a model that reports no levels	yes
-apps/desktop/src/renderer/src/swarm.test.ts	uses THIS model's maximum, not a fixed name	yes
-apps/desktop/src/renderer/src/swarm.test.ts	sends nothing for a model that reports no efforts	yes
-apps/desktop/src/renderer/src/swarm.test.ts	sends nothing for a model it has never heard of	yes
-apps/desktop/src/renderer/src/swarm.test.ts	overrides a chosen effort rather than deferring to it	yes
-apps/desktop/src/renderer/src/swarm.test.ts	reads a Claude alias's maximum from the Claude entry, never a Codex one	yes
 apps/desktop/src/renderer/src/teamBoard.test.ts	puts each teammate where what they need from you says -- most urgent first	yes
 apps/desktop/src/renderer/src/teamBoard.test.ts	draws a quiet team as the plain grid: no board of empty columns	yes
 apps/desktop/src/renderer/src/teamBoard.test.ts	leaves out a section with nobody in it	yes

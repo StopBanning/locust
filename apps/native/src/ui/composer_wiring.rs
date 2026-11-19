@@ -199,7 +199,6 @@ pub(super) fn slash_choices_now(s: &State) -> Vec<composer::SlashCommand> {
             &composer::available_commands(composer::AvailableInput {
                 modes: &["ask", "plan", "accept-edits", "approve-each", "auto"],
                 running: turn_running(s),
-                can_swarm: false,
                 issues: false,
                 tune: !s.teammates.is_empty(),
                 setup: true,
@@ -218,7 +217,6 @@ pub(super) fn slash_choices_now(s: &State) -> Vec<composer::SlashCommand> {
     let available = composer::available_commands(composer::AvailableInput {
         modes: &["ask", "plan", "accept-edits", "approve-each", "auto"],
         running: turn_running(s),
-        can_swarm: false,
         issues: crate::issue_list::offered(s),
         tune: !s.teammates.is_empty(),
         setup: true,
@@ -328,8 +326,7 @@ pub(super) fn run_slash_command(s: &mut State, command: &composer::SlashCommand)
         composer::SlashAction::Runtime => {
             s.draft.replace_text(format!("/{} ", command.name));
         }
-        composer::SlashAction::Route
-        | composer::SlashAction::Swarm => {
+        composer::SlashAction::Route => {
             s.draft.clear();
             s.composer_note = Some(format!(
                 "/{name} — {detail}",
