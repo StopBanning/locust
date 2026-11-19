@@ -23,6 +23,18 @@ fn spell(id: &str) -> String {
     out
 }
 
+/// `routeName.ts` `shortRuntimeName`: `Cursor`, not `Cursor Agent`. Runtimes whose name is already one word keep it.
+pub fn short_runtime_name(runtime: &str) -> &str {
+    match runtime {
+        "codex" => "Codex",
+        "claude" => "Claude",
+        "cursor" => "Cursor",
+        "gemini" => "Gemini",
+        "copilot" => "Copilot",
+        _ => crate::failure_words::runtime_display_name(runtime),
+    }
+}
+
 /// A model as the chip and the routine line say it (`routeModelName`): Claude's own names, else the id spelt out with
 /// its runtime's own prefix taken off ("Grok 4.7 High", "Nemotron 3.5 Lightning Free"); `auto` is "Auto model".
 pub fn route_model_name(runtime: &str, model: &str) -> String {

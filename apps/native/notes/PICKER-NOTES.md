@@ -120,3 +120,38 @@ Breaks (`core-c` to `core-f`, `ui-d`, `ui-e` logs). All caught in the end:
   ported); the chip's Free tag (`free_tag_of` is ready); the busy and quiet offers in the thread (functions ready, the
   thread rows are in `src/ui/messages.rs`, the other lane's).
 - Part 3, the chip and header (4 files), and part 4, the rest of the thread's waiting rows (6 files): not started.
+
+## Round 2 (18 Nov 2026)
+
+### Part 2, second slice (done, 18 Nov)
+- `core/src/model_alias.rs`: `live_model_names` (`LiveRun`) ports `liveModelNames`, tested by `names_the_model_of_a_run_under_way_from_its_start_record`.
+- `core/src/teammate_tooltip.rs`: `short_runtime_name` (`Codex`, `Claude`, `Cursor`, `Gemini`, `Copilot`, else `runtime_display_name`).
+- `src/look/controls.rs`: `composer_route_chip` draws `Free` as its own non-truncating tag (`model-chip-free`) outside the truncated model text.
+- `src/ui/thread_view.rs`: `account-default` shows the resolved model name (or `short_runtime_name` until known, never `account-default`) with `hover::tip` (`model-chip-tip`) reading `"{runtime_display_name} / its own default model[, {name} on its last run]"`; `free_tag_of` splits `Free` onto `model-chip-free`; `free_offer::view(s, p)` is called under `message_column`.
+- `src/ui/free_offer.rs`: draws the busy-free offer (`busy-free-offer`) and quiet-free offer (`quiet-free-offer`, `quiet-free-offer-action`), stopping the run, switching `s.picks` to the next free model, and handing the prompt back to `s.draft`.
+- Tests passed: `model_alias::tests::*` (6), `route_picker_tests::*` (10), `free_offer::tests::*` (3), `window_drive_tests::the_picker_and_model_chip_show_the_name_earned_from_local_history` (1).
+- Breaks (`slice2-core.breaks`, `slice2-ui.breaks`): all 7 killed by their named tests.
+
+### Part 3, first three: chip reading, header cost, connectors mode note (done, 18 Nov)
+- `core/src/effort_levels.rs`: `effort_phrase` and `route_chip_reading` (`Haiku 5.5 · Medium`, `Opus 5.5 · High · Fast`); `thread_view.rs` formats `model-chip` with them.
+- `core/src/benchmark.rs`: `money_line` and `header_cost_tail` (dollars or premium requests only, never tokens or subscription); `thread_view.rs` appends it to `thread-header-route`.
+- `core/src/mode_facts.rs`: `connectors_note(runtime, mode, has_connectors)`; `thread_view.rs` attaches it to `mode-chip` via `hover::tip` (`mode-chip-tip`).
+- Tests passed: `effort_levels::tests::*` (17), `benchmark::tests::*`, `mode_facts::tests::*` (11), `route_picker_tests::*` (13).
+- Breaks (`part2a-core.breaks`, `part2a-ui.breaks`): all 7 killed by their named tests.
+
+### Part 3, fourth: managed controls say who set them (done, 18 Nov)
+- `src/ui/settings_panel.rs`: `org_policy_section` draws `"Managed by your organization"` (or `role="alert"` on error) with `policy.path` and `org_policy::setting_words`; `door_section` disables `otherApps` with `"Set by your organization."`.
+- `src/ui/phone_section.rs`: `managed` adds `"Set by your organization."`.
+- `src/ui/thread_view.rs`: `mode_menu` filters modes with `org_policy::mode_allowed`.
+- `src/ui/people_panel.rs`: `edit_form` shows `"Set by your organization"` and `"Maximum {cap:.2} USD. You can set a lower amount."`.
+- Tests passed: `managed_controls_tests::*` (3).
+- Breaks (`part2b-ui.breaks`): all 5 killed by their named tests.
+
+### Part 4: the rest of the thread's waiting rows (done, 18 Nov)
+- `core/src/route_rows.rs`: `row_detail_repeats_heading`, `quiet_minutes` (`QUIET_MINUTES_BEFORE_SAYING_SO = 5`), and `place_menu` (`placeMenu`).
+- `core/src/effort_levels.rs`: `swarm_effort_for` (`swarmEffortFor`, all 8 Electron cases).
+- `src/ui/thread_view.rs`: `model_picker` omits detail lines where `row_detail_repeats_heading` is true (keeping hover tooltips) and omits `READY` tags; restored queue strip + `queue_error` already present and tested.
+- `src/ui/free_offer.rs`: `view_at` draws `"no word for {mins} min"` + `Stop` (`quiet-turn-row`, `quiet-turn-stop`) when a turn has been quiet >= 5 minutes without a running tool.
+- Partial rows: `a-context-menu-stays-in-the-window.test.tsx` (`place_menu` carried, no right-click `ContextMenu` in Rust), `swarm.test.ts` (`swarm_effort_for` carried, no swarm toggle in Rust composer), `main/three-placements.test.ts` (`peer_thread` already says `"{from} sent"`, mission strip / left-ruled note register not in Rust).
+- Tests passed: `route_rows::tests::*` (30), `effort_levels::tests::*` (19), `route_picker_tests::*` (16), `free_offer::tests::*` (4).
+- Breaks (`part3-core.breaks`, `part3-ui.breaks`, `part3-native.breaks`): `quiet_minutes`, `place_menu`, `swarm_effort_for`, `row_detail_repeats_heading`, and `free_offer` `quiet-turn-row` killed by their named tests.

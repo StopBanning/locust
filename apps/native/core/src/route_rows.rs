@@ -198,6 +198,57 @@ pub fn quiet_free_run(runtime: Option<&str>, model: Option<&str>, events: &[Quie
     })
 }
 
+/// `RoutePicker.tsx` `rowDetailRepeatsHeading`: true when the detail line only repeats the runtime the group heading names.
+pub fn row_detail_repeats_heading(detail: &str, group: &str) -> bool {
+    const FILLER: &[&str] = &[
+        "through", "via", "cli", "model", "models", "tier", "tiers", "the", "a", "an", "its", "and",
+        "of", "on", "with", "your", "own", "account",
+    ];
+    let words = |s: &str| -> Vec<String> {
+        s.to_ascii_lowercase()
+            .split(|c: char| !c.is_ascii_alphanumeric())
+            .filter(|w| !w.is_empty())
+            .map(str::to_owned)
+            .collect()
+    };
+    let said: Vec<String> = words(detail).into_iter().filter(|w| !FILLER.contains(&w.as_str())).collect();
+    if said.is_empty() {
+        return !detail.trim().is_empty();
+    }
+    let head = group.split(" \u{b7} ").next().unwrap_or(group);
+    let named: std::collections::HashSet<String> = words(head).into_iter().collect();
+    said.iter().all(|w| named.contains(w))
+}
+
+/// `quiet.ts`: five minutes without a word before saying so.
+pub const QUIET_MINUTES_BEFORE_SAYING_SO: i64 = 5;
+
+/// Whole minutes since the turn was last heard from, once at least 5 minutes; otherwise None.
+pub fn quiet_minutes(last_heard_at: Option<&str>, now_ms: i64) -> Option<i64> {
+    let raw = last_heard_at?;
+    let heard = chrono::DateTime::parse_from_rfc3339(raw).ok()?.timestamp_millis();
+    let minutes = (now_ms - heard).div_euclid(60_000);
+    (minutes >= QUIET_MINUTES_BEFORE_SAYING_SO).then_some(minutes)
+}
+
+/// `ContextMenu.tsx` `placeMenu`: keep a pointer-placed menu inside the window with an 8px margin.
+pub fn place_menu(at: (f32, f32), menu: (f32, f32), view: (f32, f32)) -> (f32, f32) {
+    const MARGIN: f32 = 8.0;
+    let left = if at.0 + menu.0 <= view.0 - MARGIN {
+        at.0.max(MARGIN)
+    } else {
+        (at.0 - menu.0).max(MARGIN).min((view.0 - MARGIN - menu.0).max(MARGIN))
+    };
+    let top = if at.1 + menu.1 <= view.1 - MARGIN {
+        at.1.max(MARGIN)
+    } else if at.1 - menu.1 >= MARGIN {
+        at.1 - menu.1
+    } else {
+        (view.1 - MARGIN - menu.1).max(MARGIN)
+    };
+    (left, top)
+}
+
 #[cfg(test)]
 #[path = "route_rows_tests.rs"]
 mod tests;

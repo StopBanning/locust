@@ -1928,6 +1928,15 @@ apps/desktop/src/main/the-starter-routines-are-routines.test.ts	leaves out, and 
 apps/desktop/src/main/the-starter-routines-are-routines.test.ts	previews by id, then adds it once: Ask, no schedule, in this folder, run by nobody	no
 apps/desktop/src/main/the-starter-routines-are-routines.test.ts	asks for a folder first in its own words, not the words for a file	no
 apps/desktop/src/main/three-judges-are-kept.test.ts	keeps the panel of the newest ask, and every panel run as the comparison's, across a restart	no
+apps/desktop/src/main/three-placements.test.ts	dropped the noun that labelled the line once and cost eight characters forever	no
+apps/desktop/src/main/three-placements.test.ts	dropped the permission prose, which the composer already states where it can be changed	no
+apps/desktop/src/main/three-placements.test.ts	names the model always, and the phase only when it is news	no
+apps/desktop/src/main/three-placements.test.ts	gives the note its own register: left-ruled, not centred	no
+apps/desktop/src/main/three-placements.test.ts	leaves the boundary marker centred, because it IS a boundary	no
+apps/desktop/src/main/three-placements.test.ts	says the teammate SENT it, rather than naming them and stopping	no
+apps/desktop/src/main/three-placements.test.ts	offers the sender’s own conversation, once, in the header	no
+apps/desktop/src/main/three-placements.test.ts	never claims there is more, which is the comparison it cannot make	no
+apps/desktop/src/main/three-placements.test.ts	reaches the sender by their own mission, which the store always had	no
 apps/desktop/src/main/todo-list-is-opt-in.test.ts	says nothing about todo lists unless asked to	no
 apps/desktop/src/main/todo-list-is-opt-in.test.ts	asks once, and asks for the list to be kept current	no
 apps/desktop/src/main/todo-list-is-opt-in.test.ts	leaves the person words last, so the ask still reads closest to the asking	no
@@ -2112,7 +2121,7 @@ apps/desktop/src/renderer/src/a-busy-free-model-offers-the-next.test.tsx	is the 
 apps/desktop/src/renderer/src/a-busy-free-model-offers-the-next.test.tsx	skips a model of the person's own, and goes round after the last	yes
 apps/desktop/src/renderer/src/a-busy-free-model-offers-the-next.test.tsx	is nothing for a paid route, a model of their own, another runtime, or a lone free model	yes
 apps/desktop/src/renderer/src/a-busy-free-model-offers-the-next.test.tsx	is marked busy only for a provider that is turning requests away	no
-apps/desktop/src/renderer/src/a-busy-free-model-offers-the-next.test.tsx	carries the offer as a button under its words, and only the busy one does	no
+apps/desktop/src/renderer/src/a-busy-free-model-offers-the-next.test.tsx	carries the offer as a button under its words, and only the busy one does	yes
 apps/desktop/src/renderer/src/a-called-link-says-what-leaves-the-computer.test.tsx	offers the new kind and its privacy and Ask words, with a save-first message for a new routine	yes
 apps/desktop/src/renderer/src/a-called-link-says-what-leaves-the-computer.test.tsx	tells a browser the link stays on this computer, with no Copy or New link	no
 apps/desktop/src/renderer/src/a-cancelled-run-spent-nothing.test.ts	says nothing at all about a run that reported nothing	yes
@@ -2177,6 +2186,14 @@ apps/desktop/src/renderer/src/a-connector-says-what-to-do.test.ts	says each stat
 apps/desktop/src/renderer/src/a-connector-says-what-to-do.test.ts	says when it last worked	yes
 apps/desktop/src/renderer/src/a-connector-says-what-to-do.test.ts	says where a connector lives only as a host, or as a program on this computer	yes
 apps/desktop/src/renderer/src/a-connector-says-what-to-do.test.ts	the report has names, states, timings and hosts, and nothing else	yes
+apps/desktop/src/renderer/src/a-context-menu-stays-in-the-window.test.tsx	at the pointer, when it fits there	yes
+apps/desktop/src/renderer/src/a-context-menu-stays-in-the-window.test.tsx	upward from the pointer, when it would run off the bottom	yes
+apps/desktop/src/renderer/src/a-context-menu-stays-in-the-window.test.tsx	leftward from the pointer, when it would run off the right	yes
+apps/desktop/src/renderer/src/a-context-menu-stays-in-the-window.test.tsx	held off the edge when neither side has room	yes
+apps/desktop/src/renderer/src/a-context-menu-stays-in-the-window.test.tsx	has no title bar; what was clicked is the menu’s name	no
+apps/desktop/src/renderer/src/a-context-menu-stays-in-the-window.test.tsx	shows each row’s key at its end	no
+apps/desktop/src/renderer/src/a-context-menu-stays-in-the-window.test.tsx	draws a hairline between kinds of action, and red for the one that deletes	no
+apps/desktop/src/renderer/src/a-context-menu-stays-in-the-window.test.tsx	puts a list behind one row, and says why when it cannot open	no
 apps/desktop/src/renderer/src/a-conversation-can-be-pinned.test.tsx	puts the pinned ones on top, newest pin first, and the rest under Recents, each once	no
 apps/desktop/src/renderer/src/a-conversation-can-be-pinned.test.tsx	looks as it did with nothing pinned	no
 apps/desktop/src/renderer/src/a-conversation-can-be-put-away.test.tsx	is out of the list while settled, or until its snooze ends	no
@@ -2220,6 +2237,9 @@ apps/desktop/src/renderer/src/a-damaged-record-says-so-in-the-thread.test.tsx	sa
 apps/desktop/src/renderer/src/a-damaged-record-says-so-in-the-thread.test.tsx	says nothing of the kind when the record read whole	yes
 apps/desktop/src/renderer/src/a-decision-without-a-teammate-names-nobody.test.tsx	says a decision is needed, and no word for the machinery, when nobody asked by name	yes
 apps/desktop/src/renderer/src/a-decision-without-a-teammate-names-nobody.test.tsx	names the teammate who asked	yes
+apps/desktop/src/renderer/src/a-default-route-names-its-model.test.tsx	names the model the default turned out to be, once a run has said	yes
+apps/desktop/src/renderer/src/a-default-route-names-its-model.test.tsx	reads as the runtime alone until then, and never as its id	yes
+apps/desktop/src/renderer/src/a-default-route-names-its-model.test.tsx	names the model of a run under way, from its start record	yes
 apps/desktop/src/renderer/src/a-diagram-in-a-reply-shows-as-one.test.tsx	is framed as a diagram once its block has closed, its text a tab away	no
 apps/desktop/src/renderer/src/a-diagram-in-a-reply-shows-as-one.test.tsx	is text while it is still being written	no
 apps/desktop/src/renderer/src/a-diagram-in-a-reply-shows-as-one.test.tsx	leaves every other block as the code it was	no
@@ -2302,7 +2322,7 @@ apps/desktop/src/renderer/src/a-free-model-that-says-nothing-is-offered-another.
 apps/desktop/src/renderer/src/a-free-model-that-says-nothing-is-offered-another.test.tsx	is never quiet once anything came back: a word, a thought, a step or a tool	yes
 apps/desktop/src/renderer/src/a-free-model-that-says-nothing-is-offered-another.test.tsx	is only an OpenCode free model, and only once its run has begun	yes
 apps/desktop/src/renderer/src/a-free-model-that-says-nothing-is-offered-another.test.tsx	is not quiet while its provider is said to be busy: that note already carries the same press	yes
-apps/desktop/src/renderer/src/a-free-model-that-says-nothing-is-offered-another.test.tsx	names the quiet model, says where the message goes, and offers the next one	no
+apps/desktop/src/renderer/src/a-free-model-that-says-nothing-is-offered-another.test.tsx	names the quiet model, says where the message goes, and offers the next one	yes
 apps/desktop/src/renderer/src/a-free-model-that-says-nothing-is-offered-another.test.tsx	is wired: the window offers it for the run on screen, with the busy model’s own press	no
 apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	is offered for a conversation whose runtime lists /compact	yes
 apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	is not offered where the runtime lists no /compact, or the message would go elsewhere	yes
@@ -2517,6 +2537,8 @@ apps/desktop/src/renderer/src/a-reply-suggests-tasks-as-cards.test.tsx	are taugh
 apps/desktop/src/renderer/src/a-request-is-answered-on-the-board.test.tsx	shows a command whole, where it runs, and Allow once and Deny	no
 apps/desktop/src/renderer/src/a-request-is-answered-on-the-board.test.tsx	opens the conversation for anything it cannot show whole	no
 apps/desktop/src/renderer/src/a-request-is-answered-on-the-board.test.tsx	leaves a conversation without a request as the card it was	no
+apps/desktop/src/renderer/src/a-restored-queue-offers-its-actions.test.tsx	The restored queue shows the original words, its hold reason and Edit, Discard and Send.	yes
+apps/desktop/src/renderer/src/a-restored-queue-offers-its-actions.test.tsx	A queue read failure is visible even when no rows can be displayed.	yes
 apps/desktop/src/renderer/src/a-restored-queue-waits-for-send.test.ts	Restored messages wait for Send even when the previous turn completed.	yes
 apps/desktop/src/renderer/src/a-restored-queue-waits-for-send.test.ts	A newly queued message still sends when its turn completes in the same session.	yes
 apps/desktop/src/renderer/src/a-restored-queue-waits-for-send.test.ts	Edit and Discard remove only their conversation durably.	yes
@@ -2572,6 +2594,11 @@ apps/desktop/src/renderer/src/a-routine-waiting-for-keep-is-on-the-board.test.ts
 apps/desktop/src/renderer/src/a-routine-waiting-for-keep-is-on-the-board.test.tsx	leaves the board as it was when no routine is waiting (control)	no
 apps/desktop/src/renderer/src/a-routine-waiting-for-keep-is-on-the-board.test.tsx	marks that row so Routines can bring it into view	no
 apps/desktop/src/renderer/src/a-routine-waiting-for-keep-is-on-the-board.test.tsx	is the same Keep the Routines screen already uses	no
+apps/desktop/src/renderer/src/a-row-repeats-nothing-its-heading-says.test.tsx	leaves out a line that only names the group, and the READY tag	yes
+apps/desktop/src/renderer/src/a-row-repeats-nothing-its-heading-says.test.tsx	keeps a line that says something of its own	no
+apps/desktop/src/renderer/src/a-row-repeats-nothing-its-heading-says.test.tsx	keeps the record of a comparison, which the heading does not say	no
+apps/desktop/src/renderer/src/a-row-repeats-nothing-its-heading-says.test.tsx	draws a row with nothing extra at least 32px tall	no
+apps/desktop/src/renderer/src/a-row-repeats-nothing-its-heading-says.test.tsx	treats a repeated runtime name as the heading, and a limit or an endpoint as news	yes
 apps/desktop/src/renderer/src/a-run-a-teammate-stopped-does-not-say-you.test.tsx	says "You" for a Stop the person pressed	no
 apps/desktop/src/renderer/src/a-run-a-teammate-stopped-does-not-say-you.test.tsx	does not, for a run stopped by anything else	no
 apps/desktop/src/renderer/src/a-runtime-gap-is-not-the-teammate.test.tsx	draws the marker as a note	yes
@@ -2801,6 +2828,9 @@ apps/desktop/src/renderer/src/a-tune-says-when-a-setup-repeats.test.tsx	says not
 apps/desktop/src/renderer/src/a-tune-says-when-a-setup-repeats.test.tsx	marks the repeating draft and says what two runs of one setup show	no
 apps/desktop/src/renderer/src/a-tune-says-when-a-setup-repeats.test.tsx	says when all three are the same, as when the drafts could not be written	no
 apps/desktop/src/renderer/src/a-tune-says-when-a-setup-repeats.test.tsx	waits for the drafts: copies shown while they are written are placeholders, not repeats	no
+apps/desktop/src/renderer/src/a-turn-that-goes-quiet-says-so.test.tsx	says so after five minutes without a word, with Stop beside it	yes
+apps/desktop/src/renderer/src/a-turn-that-goes-quiet-says-so.test.tsx	says nothing while the turn is heard from, or while a command it named runs	no
+apps/desktop/src/renderer/src/a-turn-that-goes-quiet-says-so.test.tsx	counts whole minutes from when it was last heard, and only once there are five	yes
 apps/desktop/src/renderer/src/a-week-with-scout-is-one-card.test.tsx	is one card, its lines under its sentence, its one suggestion as its button	no
 apps/desktop/src/renderer/src/a-week-with-scout-is-one-card.test.tsx	has no button but Dismiss when there is nothing to change	no
 apps/desktop/src/renderer/src/a-wrapped-bullet-stays-one-bullet.test.ts	stays one bullet, with the whole sentence in it	yes
@@ -3015,6 +3045,16 @@ apps/desktop/src/renderer/src/combining-a-tunes-two-edits.test.tsx	is offered be
 apps/desktop/src/renderer/src/combining-a-tunes-two-edits.test.tsx	is not offered when Current was kept or there is no second edit	no
 apps/desktop/src/renderer/src/command-rows.test.ts	is every runtime’s shell, however it spells it	yes
 apps/desktop/src/renderer/src/command-rows.test.ts	is not everything	yes
+apps/desktop/src/renderer/src/connectors-are-not-the-mode.test.tsx	says they work, in every mode	yes
+apps/desktop/src/renderer/src/connectors-are-not-the-mode.test.tsx	says the one thing the mode cannot tell you: a connector is not this machine	yes
+apps/desktop/src/renderer/src/connectors-are-not-the-mode.test.tsx	never repeats any of the three sentences that turned out to be wrong	yes
+apps/desktop/src/renderer/src/connectors-are-not-the-mode.test.tsx	says nothing on a runtime whose launcher never touches MCP	yes
+apps/desktop/src/renderer/src/connectors-are-not-the-mode.test.tsx	reaches the screen without opening the menu	yes
+apps/desktop/src/renderer/src/connectors-are-not-the-mode.test.tsx	says where they are signed in, once there are any	yes
+apps/desktop/src/renderer/src/connectors-are-not-the-mode.test.tsx	does not claim the other route has none, because that is not true	yes
+apps/desktop/src/renderer/src/connectors-are-not-the-mode.test.tsx	tells a Cursor route outside Auto that its connectors work, and how	yes
+apps/desktop/src/renderer/src/connectors-are-not-the-mode.test.tsx	stays quiet when this machine has none, because then there is nothing to place	yes
+apps/desktop/src/renderer/src/connectors-are-not-the-mode.test.tsx	leaves the Claude sentence exactly as it was	yes
 apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	puts a live run in Working and every other phase in Done	no
 apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	orders a column newest first	no
 apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	leaves a room and a trashed conversation out	no
@@ -3176,6 +3216,13 @@ apps/desktop/src/renderer/src/locust-bots-keep-their-eyes-on-their-heads.test.ts
 apps/desktop/src/renderer/src/locust-bots-keep-their-eyes-on-their-heads.test.ts	keep the leading eye inside the main block at the widest idle glance, clear of its round corner	yes
 apps/desktop/src/renderer/src/locust-bots-keep-their-eyes-on-their-heads.test.ts	draws its legs and antennae behind the body	yes
 apps/desktop/src/renderer/src/locust-bots-keep-their-eyes-on-their-heads.test.ts	keeps the leading eye on its body at the widest idle glance	yes
+apps/desktop/src/renderer/src/managed-controls-say-who-set-them.test.tsx	finds organization policy in the General settings search	yes
+apps/desktop/src/renderer/src/managed-controls-say-who-set-them.test.tsx	names the file and every setting in Settings	yes
+apps/desktop/src/renderer/src/managed-controls-say-who-set-them.test.tsx	shows a broken policy as an alert with its path	no
+apps/desktop/src/renderer/src/managed-controls-say-who-set-them.test.tsx	leaves the phone and other-app switches visible, off, disabled and attributed	no
+apps/desktop/src/renderer/src/managed-controls-say-who-set-them.test.tsx	filters the picker including account-default fallbacks	no
+apps/desktop/src/renderer/src/managed-controls-say-who-set-them.test.tsx	shows the maximum monthly limit while allowing a lower personal amount	no
+apps/desktop/src/renderer/src/managed-controls-say-who-set-them.test.tsx	applies the ceiling to the mode menu, slash commands and the keyboard cycle	no
 apps/desktop/src/renderer/src/math-in-a-reply-is-drawn.test.tsx	draws each $$...$$ as a displayed equation, and loses no line	no
 apps/desktop/src/renderer/src/math-in-a-reply-is-drawn.test.tsx	draws $...$ inside a sentence as inline math	no
 apps/desktop/src/renderer/src/math-in-a-reply-is-drawn.test.tsx	leaves money as money	no
@@ -3588,6 +3635,8 @@ apps/desktop/src/renderer/src/room-too-big-to-make.test.tsx	is a state a person 
 apps/desktop/src/renderer/src/room-too-big-to-make.test.tsx	says what is wrong and what to do about it	no
 apps/desktop/src/renderer/src/room-too-big-to-make.test.tsx	stays quiet at and under the limit	no
 apps/desktop/src/renderer/src/room-too-big-to-make.test.tsx	no longer claims a full room will not all start	no
+apps/desktop/src/renderer/src/routeChipReading.test.ts	joins them the way the reference does	yes
+apps/desktop/src/renderer/src/routeChipReading.test.ts	leaves the name alone when there is no effort to state	yes
 apps/desktop/src/renderer/src/routeName.test.ts	says the three Colin named, exactly as he named them	yes
 apps/desktop/src/renderer/src/routeName.test.ts	keeps the hyphen only where the makers keep one	yes
 apps/desktop/src/renderer/src/routeName.test.ts	spells the free models a new person meets first as their makers do	yes
@@ -3802,6 +3851,14 @@ apps/desktop/src/renderer/src/status.test.ts	is recognised through the family id
 apps/desktop/src/renderer/src/status.test.ts	is recognised through the variant id a run actually resolves to	no
 apps/desktop/src/renderer/src/status.test.ts	is not claimed for a runtime that takes the effort beside the model	no
 apps/desktop/src/renderer/src/status.test.ts	is not claimed for a model nothing in the catalog folds	no
+apps/desktop/src/renderer/src/swarm.test.ts	uses the chosen effort when swarm is off	yes
+apps/desktop/src/renderer/src/swarm.test.ts	falls back to the level the chip shows, not to nothing	yes
+apps/desktop/src/renderer/src/swarm.test.ts	still sends nothing for a model that reports no levels	yes
+apps/desktop/src/renderer/src/swarm.test.ts	uses THIS model's maximum, not a fixed name	yes
+apps/desktop/src/renderer/src/swarm.test.ts	sends nothing for a model that reports no efforts	yes
+apps/desktop/src/renderer/src/swarm.test.ts	sends nothing for a model it has never heard of	yes
+apps/desktop/src/renderer/src/swarm.test.ts	overrides a chosen effort rather than deferring to it	yes
+apps/desktop/src/renderer/src/swarm.test.ts	reads a Claude alias's maximum from the Claude entry, never a Codex one	yes
 apps/desktop/src/renderer/src/teamBoard.test.ts	puts each teammate where what they need from you says -- most urgent first	yes
 apps/desktop/src/renderer/src/teamBoard.test.ts	draws a quiet team as the plain grid: no board of empty columns	yes
 apps/desktop/src/renderer/src/teamBoard.test.ts	leaves out a section with nobody in it	yes
@@ -3908,6 +3965,11 @@ apps/desktop/src/renderer/src/the-flat-sidebar.test.ts	counts against the face w
 apps/desktop/src/renderer/src/the-folder-chip-says-a-folder-is-no-place-for-teammates.test.tsx	says why in its hover for a folder like .claude, in the chip's own colour	yes
 apps/desktop/src/renderer/src/the-folder-chip-says-a-folder-is-no-place-for-teammates.test.tsx	stays as it was for a project folder (control)	yes
 apps/desktop/src/renderer/src/the-folder-chip-says-a-folder-is-no-place-for-teammates.test.tsx	names the folder and why, with Choose another folder first and Start here	yes
+apps/desktop/src/renderer/src/the-header-says-money-or-nothing.test.ts	says dollars	yes
+apps/desktop/src/renderer/src/the-header-says-money-or-nothing.test.ts	says Copilot's premium requests	yes
+apps/desktop/src/renderer/src/the-header-says-money-or-nothing.test.ts	says nothing for token counts alone, or for a subscription	yes
+apps/desktop/src/renderer/src/the-header-says-money-or-nothing.test.ts	says nothing before the run has reported	yes
+apps/desktop/src/renderer/src/the-header-says-money-or-nothing.test.ts	is money, or nothing	yes
 apps/desktop/src/renderer/src/the-home-cover-rests-after-inactivity.test.ts	pauses at 45 seconds, with no polling or timers left while resting	yes
 apps/desktop/src/renderer/src/the-home-cover-rests-after-inactivity.test.ts	%s resumes synchronously and resets the deadline	no
 apps/desktop/src/renderer/src/the-home-cover-rests-after-inactivity.test.ts	stream arrival resumes and extends the deadline without a change to the status words	yes

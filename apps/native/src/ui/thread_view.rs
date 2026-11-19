@@ -116,7 +116,15 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
                         tx.live_only();
                     }
                 })
-                .child(row().w_full().justify_center().child(message_column(items, &teammate.name, p, s)))
+                .child(
+                    row().w_full().justify_center().child(
+                        col()
+                            .w_full()
+                            .items_center()
+                            .child(message_column(items, &teammate.name, p, s))
+                            .children(crate::free_offer::view(s, p)),
+                    ),
+                )
         };
         let mut transcript_box = col()
             .w_full()
@@ -305,9 +313,26 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
                 None
             }
         });
-        let model_name = model_chip_name(model, current);
         let rt = picked.and_then(|p| p.runtime.as_deref()).or(teammate.runtime.as_deref()).or(current.map(|a| a.runtime.as_str())).unwrap_or("codex");
-        let model_name = s.resolved_model_names.get(&format!("{rt}:{model}")).map(String::as_str).unwrap_or(model_name);
+        let resolved_id = s.resolved_model_names.get(&format!("{rt}:{model}")).map(String::as_str);
+        let default_model_name = (model == locust_core::models::ACCOUNT_DEFAULT)
+            .then_some(resolved_id)
+            .flatten()
+            .map(|id| locust_core::teammate_tooltip::route_model_name(rt, id));
+        let model_name_owned: String;
+        let model_name = if model == locust_core::models::ACCOUNT_DEFAULT {
+            if let Some(ref resolved) = default_model_name {
+                resolved.as_str()
+            } else {
+                locust_core::teammate_tooltip::short_runtime_name(rt)
+            }
+        } else if let Some(resolved) = resolved_id {
+            resolved
+        } else {
+            model_name_owned = model_chip_name(model, current).to_owned();
+            model_name_owned.as_str()
+        };
+        let (chip_model_name, chip_is_free) = locust_core::route_rows::free_tag_of(model_name);
         let active_account = match picked.and_then(|p| p.account.as_ref()) {
             Some(explicit) => explicit.as_deref(),
             None => teammate.account.as_deref(),
@@ -315,13 +340,14 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
         let account_name = active_account
             .and_then(|acc| s.agent_accounts.accounts.iter().find(|a| a.id == acc))
             .map(|a| a.name.as_str());
-        let label = format!(
-            "{}{}{}{}",
-            model_name,
-            account_name.map(|n| format!(" · {n}")).unwrap_or_default(),
-            effort.map(|e| format!(" · {e}")).unwrap_or_default(),
-            if picked.is_some() { ", this turn" } else { "" }
-        );
+        let base_name = if let Some(n) = account_name {
+            format!("{chip_model_name} \u{b7} {n}")
+        } else {
+            chip_model_name.to_owned()
+        };
+        let effort_text = effort.map(locust_core::effort_levels::effort_phrase);
+        let chip_reading = locust_core::effort_levels::route_chip_reading(&base_name, effort_text.as_deref());
+        let label = format!("{chip_reading}{}", if picked.is_some() { ", this turn" } else { "" });
         let chip_id = id.clone();
         let runtime = picked
             .and_then(|p| p.runtime.as_deref())
@@ -333,8 +359,9 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
         let found = crate::chip_mark::found_agents(s);
         let chip_mark = crate::chip_mark::chip_mark(runtime, model, found.as_deref());
         let mark = crate::chip_mark::chip_mark_el(&l, runtime, &chip_mark);
-        let label = if chip_mark == crate::chip_mark::ChipMark::NoAgent { "No AI agent".to_owned() } else { label };
-        let mut chip = crate::look::controls::composer_chip(&l, mark, &label, true)
+        let no_agent = chip_mark == crate::chip_mark::ChipMark::NoAgent;
+        let label = if no_agent { "No AI agent".to_owned() } else { label };
+        let mut chip = crate::look::controls::composer_route_chip(&l, mark, &label, chip_is_free && !no_agent, true)
             .key("model-chip")
             .on_hover_change(|s: &mut State, over, _| {
                 s.chip_hover = over;
@@ -363,6 +390,16 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
         }
         if let Some(asking) = crate::compare_view::asking_label(s) {
             chip = crate::hover::tip(s, &l, "compare-route", &asking, chip);
+        } else if model == locust_core::models::ACCOUNT_DEFAULT {
+            let exact = format!(
+                "{} / its own default model{}",
+                locust_core::failure_words::runtime_display_name(runtime),
+                default_model_name
+                    .as_deref()
+                    .map(|n| format!(", {n} on its last run"))
+                    .unwrap_or_default()
+            );
+            chip = crate::hover::tip(s, &l, "model-chip-tip", &exact, el().child(chip));
         }
         let mut picker = col().w_full().px(24.0);
         if s.model_menu.as_ref() == Some(&id) {
@@ -871,25 +908,33 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
         // The mode these turns run in: the one chosen here, else the teammate's own (Electron's composer mode).
         let mode_now = s.composer_mode.clone().unwrap_or_else(|| teammate.runs_in.clone());
         let mode_word = locust_core::mode_facts::fact(&mode_now).chip;
+        let mode_runtime = s
+            .picks
+            .get(&teammate.id)
+            .and_then(|pk| pk.runtime.as_deref())
+            .or(teammate.runtime.as_deref())
+            .unwrap_or("codex");
+        let has_connectors = s.connectors.connectors.as_ref().is_some_and(|c| !c.is_empty());
+        let mode_tip = locust_core::mode_facts::connectors_note(mode_runtime, &mode_now, has_connectors)
+            .unwrap_or_else(|| "Permission mode".to_owned());
         // Where the turn will run, as native::folder_for chooses: the teammate's own folder, else the one Locust has open.
         let folder = teammate.folder.as_deref().or(s.home.folder_path.as_deref());
         let home = std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE")).ok();
         let system = std::env::var("SystemRoot").ok();
+        let mode_btn = crate::look::controls::composer_chip(&l, None, mode_word, false)
+            .key("mode-chip")
+            .role("button")
+            .label(format!("Mode: {}", locust_core::mode_facts::fact(&mode_now).name))
+            .on_press(|s: &mut State| {
+                s.mode_menu = !s.mode_menu;
+                s.reference_menu = false;
+            });
         let footer = row()
             .w_full()
             .center_y()
             .gap(10.0)
             .px(6.0)
-            .child(
-                crate::look::controls::composer_chip(&l, None, mode_word, false)
-                    .key("mode-chip")
-                    .role("button")
-                    .label(format!("Mode: {}", locust_core::mode_facts::fact(&mode_now).name))
-                    .on_press(|s: &mut State| {
-                        s.mode_menu = !s.mode_menu;
-                        s.reference_menu = false;
-                    }),
-            )
+            .child(crate::hover::tip(s, &l, "mode-chip-tip", &mode_tip, el().child(mode_btn)))
             .child(
                 folder_chip(&l, folder, home.as_deref(), cfg!(windows), system.as_deref())
                     .on_press(|s: &mut State| s.reference_menu = !s.reference_menu),
@@ -966,7 +1011,18 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
                                 if let Some(mark) = crate::look::controls::agent_mark(&l, teammate.runtime.as_deref().unwrap_or("codex"), 11.0, l.c("text-muted")) {
                                     line = line.child(mark);
                                 }
-                                line.child(text(agent_line(s, teammate)).font(rune::TextStyle::new(12.0, 400.0)).color(l.c("text-muted")).truncate().shrink())
+                                let header_cost = locust_core::benchmark::header_cost_tail(
+                                    s.ledger.as_ref().and_then(|ledger| ledger.snapshot.cost.as_ref()),
+                                    turn_running(s),
+                                );
+                                line.child(
+                                    text(format!("{}{header_cost}", agent_line(s, teammate)))
+                                        .key("thread-header-route")
+                                        .font(rune::TextStyle::new(12.0, 400.0))
+                                        .color(l.c("text-muted"))
+                                        .truncate()
+                                        .shrink(),
+                                )
                             }),
                     )
                     .child(actions),
@@ -1175,7 +1231,7 @@ pub(super) fn model_picker(
         if let Some(mark) = crate::look::controls::agent_mark(l, &agent.runtime, 12.0, l.c("text-muted")) {
             group = group.child(mark.key(format!("picker-group-mark-{}", agent.runtime)));
         }
-        list = list.child(group.child(text(group_name).font(l.ty.body).color(l.c("text-muted"))));
+        list = list.child(group.child(text(group_name.clone()).font(l.ty.body).color(l.c("text-muted"))));
         let usage_key = locust_core::agent_accounts::usage_key(&agent.runtime, acc_id);
         let at_limit = s.limited_runtimes.contains_key(&usage_key);
         let needs_sign_in = acc.is_some_and(|a| a.state != locust_core::agent_accounts::AccountState::Ready);
@@ -1193,7 +1249,12 @@ pub(super) fn model_picker(
             let description = locust_core::models::catalogue_description(&agent.runtime, &m.id);
             let resolved = s.resolved_model_names.get(&format!("{}:{}", agent.runtime, m.id)).map(String::as_str);
             let detail = if detail.is_empty() {
-                locust_core::route_rows::row_detail(description.as_deref(), resolved, &m.efforts)
+                let raw = locust_core::route_rows::row_detail(description.as_deref(), resolved, &m.efforts);
+                if locust_core::route_rows::row_detail_repeats_heading(&raw, &group_name) {
+                    String::new()
+                } else {
+                    raw
+                }
             } else {
                 detail
             };
@@ -1438,7 +1499,11 @@ fn mode_menu(s: &State, l: &crate::look::controls::Look, teammate: &Teammate, cu
         .box_shadow(l.t.shadows("shadow-menu").first().copied().unwrap_or_default())
         .role("menu")
         .label("Permission mode");
+    let policy = locust_core::org_policy::current();
     for fact in locust_core::mode_facts::MODE_FACTS {
+        if !locust_core::org_policy::mode_allowed(Some(&policy), fact.mode) {
+            continue;
+        }
         let unavailable = locust_core::mode_facts::unavailable_reason(fact.mode, &runtime);
         let chosen = fact.mode == current;
         let said = unavailable.clone().unwrap_or_else(|| fact.consequence.to_owned());

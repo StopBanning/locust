@@ -186,3 +186,301 @@ fn a_claude_accounts_group_has_its_own_fold_keyed_as_its_rows_are() {
     unique.dedup();
     assert_eq!(keys.len(), unique.len(), "no key drawn twice: {keys:?}");
 }
+
+fn chip_runtime(runtime: &str, model: &str, model_display: &str, resolved: Option<(&str, &str)>) -> Runtime<State> {
+    let mut s = State::default();
+    s.teammates.push(Teammate {
+        id: "tm_1".into(),
+        name: "Wren".into(),
+        role: "Code".into(),
+        runtime: Some(runtime.into()),
+        model: Some(model.into()),
+        account: None,
+        busy: false,
+        runs_in: "local".into(),
+        folder: None,
+    });
+    s.selected = 0;
+    s.conversations.insert("tm_1".into(), Conversation::default());
+    s.models.insert(
+        "tm_1".into(),
+        vec![engine::Models {
+            runtime: runtime.into(),
+            model: None,
+            effort: None,
+            teammate: None,
+            models: vec![engine::Model {
+                id: model.into(),
+                name: model_display.into(),
+                efforts: vec![],
+            }],
+        }],
+    );
+    s.settings_panel.agents = Some(vec![locust_core::agents::Found {
+        id: runtime.into(),
+        display_name: runtime.into(),
+        installed: true,
+        version: None,
+        auth: locust_core::agents::Auth::Authenticated,
+        ready: true,
+        status: locust_core::agents::Probe::Ready,
+        unsupported_note: None,
+        through_cli: false,
+        checking: false,
+    }]);
+    if let Some((k, v)) = resolved {
+        s.resolved_model_names.insert(k.into(), v.into());
+    }
+    fn chip_view(s: &State, _cx: &mut Cx<State>) -> El {
+        let p = Palette::new(true);
+        crate::thread_view(s, &p)
+    }
+    let mut rt = Runtime::new(s, chip_view, (1000.0, 800.0), Env::new(true, 1.0));
+    rt.frame(0.0);
+    rt
+}
+
+// a-default-route-names-its-model.test.tsx
+#[test]
+fn names_the_model_the_default_turned_out_to_be_once_a_run_has_said() {
+    let mut rt = chip_runtime(
+        "claude",
+        "account-default",
+        "Account default",
+        Some(("claude:account-default", "claude-opus-5-5")),
+    );
+    let chip_words = text_in(&rt, "model-chip").join(" ");
+    assert!(chip_words.contains("Opus 5.5"), "got: {chip_words}");
+    assert!(!chip_words.contains("account-default"));
+    let (x, y) = rt.find("model-chip").expect("model-chip");
+    rt.pointer_move(x, y);
+    rt.frame(0.1);
+    rt.frame(0.6);
+    let tip = rt.elements().into_iter().find(|e| e.key.as_deref() == Some("model-chip-tip-tooltip"));
+    let tip_text = tip.and_then(|e| e.label).unwrap_or_default();
+    assert!(tip_text.contains("its own default model, Opus 5.5 on its last run"), "got: {tip_text}");
+    assert!(!tip_text.contains("account-default"));
+}
+
+// a-default-route-names-its-model.test.tsx
+#[test]
+fn reads_as_the_runtime_alone_until_then_and_never_as_its_id() {
+    let mut rt = chip_runtime("claude", "account-default", "Account default", None);
+    let chip_words = text_in(&rt, "model-chip").join(" ");
+    assert!(chip_words.contains("Claude"), "got: {chip_words}");
+    assert!(!chip_words.contains("No AI agent"));
+    assert!(!chip_words.contains("account-default"));
+    assert!(!chip_words.contains("Account default"));
+    let (x, y) = rt.find("model-chip").expect("model-chip");
+    rt.pointer_move(x, y);
+    rt.frame(0.1);
+    rt.frame(0.6);
+    let tip = rt.elements().into_iter().find(|e| e.key.as_deref() == Some("model-chip-tip-tooltip"));
+    let tip_text = tip.and_then(|e| e.label).unwrap_or_default();
+    assert!(tip_text.contains("its own default model"), "got: {tip_text}");
+    assert!(!tip_text.contains("account-default"));
+}
+
+// the-chip-keeps-free.test.ts
+#[test]
+fn the_chip_draws_free_as_its_own_tag_outside_the_truncated_name() {
+    let rt = chip_runtime(
+        "opencode",
+        "opencode/muse-spark-1.3-contributor-free",
+        "Muse Spark 1.3 Contributor Free",
+        None,
+    );
+    assert!(rt.find("model-chip-free").is_some(), "Free tag should be drawn as its own element");
+    assert_eq!(text_in(&rt, "model-chip-free"), vec!["Free"]);
+    let chip_words = text_in(&rt, "model-chip");
+    assert!(chip_words.iter().any(|w| w == "Muse Spark 1.3 Contributor"), "got: {chip_words:?}");
+}
+
+// routeChipReading.test.ts
+#[test]
+fn the_model_and_its_effort_read_as_one_control() {
+    let mut s = State::default();
+    s.teammates.push(Teammate {
+        id: "tm_1".into(),
+        name: "Wren".into(),
+        role: "Code".into(),
+        runtime: Some("claude".into()),
+        model: Some("haiku".into()),
+        account: None,
+        busy: false,
+        runs_in: "ask".into(),
+        folder: None,
+    });
+    s.selected = 0;
+    s.conversations.insert("tm_1".into(), Conversation::default());
+    s.models.insert(
+        "tm_1".into(),
+        vec![engine::Models {
+            runtime: "claude".into(),
+            model: None,
+            effort: Some("medium".into()),
+            teammate: None,
+            models: vec![engine::Model { id: "haiku".into(), name: "Haiku 5.5".into(), efforts: vec!["medium".into()] }],
+        }],
+    );
+    fn view_chip(s: &State, _cx: &mut Cx<State>) -> El {
+        crate::thread_view(s, &Palette::new(true))
+    }
+    let mut rt = Runtime::new(s, view_chip, (1000.0, 800.0), Env::new(true, 1.0));
+    rt.frame(0.0);
+    assert!(text_in(&rt, "model-chip").iter().any(|w| w == "Haiku 5.5 · Medium"));
+
+    rt.update(|s, _| {
+        s.picks.insert("tm_1".into(), TurnPick { model: "opus".into(), effort: Some("high-fast".into()), runtime: None, account: None });
+        s.models.get_mut("tm_1").unwrap()[0].models.push(engine::Model { id: "opus".into(), name: "Opus 5.5".into(), efforts: vec!["high-fast".into()] });
+    });
+    rt.frame(0.016);
+    assert!(text_in(&rt, "model-chip").iter().any(|w| w.contains("Opus 5.5 · High · Fast")));
+}
+
+// the-header-says-money-or-nothing.test.ts
+#[test]
+fn what_the_conversations_header_says_a_run_cost_is_money_or_nothing() {
+    let mut s = State::default();
+    s.teammates.push(Teammate {
+        id: "tm_1".into(),
+        name: "Wren".into(),
+        role: "Code".into(),
+        runtime: Some("claude".into()),
+        model: Some("opus".into()),
+        account: None,
+        busy: false,
+        runs_in: "ask".into(),
+        folder: None,
+    });
+    s.selected = 0;
+    s.conversations.insert("tm_1".into(), Conversation::default());
+    let mut snap = ledger::Snapshot::default();
+    snap.cost = Some(locust_core::benchmark::RunCost { input_tokens: Some(9000), output_tokens: Some(240), usd: Some(0.12), ..Default::default() });
+    s.ledger = Some(LedgerPane {
+        header: s.teammates[0].clone(),
+        conversation: Conversation::default(),
+        items: vec![],
+        dir: std::path::PathBuf::new(),
+        worker: None,
+        snapshot: snap,
+        due: f64::INFINITY,
+        loading: false,
+        after_tip: None,
+        after_tip_deadline: None,
+        backoff: 0.0,
+    });
+    fn view_hdr(s: &State, _cx: &mut Cx<State>) -> El {
+        crate::thread_view(s, &Palette::new(true))
+    }
+    let mut rt = Runtime::new(s, view_hdr, (1000.0, 800.0), Env::new(true, 1.0));
+    rt.frame(0.0);
+    assert!(text_in(&rt, "thread-header-route").join(" ").contains(" · $0.12"));
+
+    rt.update(|s, _| {
+        s.ledger.as_mut().unwrap().snapshot.cost = Some(locust_core::benchmark::RunCost {
+            input_tokens: Some(9000),
+            output_tokens: Some(240),
+            plan: true,
+            ..Default::default()
+        });
+    });
+    rt.frame(0.016);
+    let words = text_in(&rt, "thread-header-route").join(" ");
+    assert!(!words.contains("9.0k") && !words.contains("in your plan"), "got: {words}");
+}
+
+// connectors-are-not-the-mode.test.tsx
+#[test]
+fn reaches_the_screen_without_opening_the_menu() {
+    let mut rt = chip_runtime("claude", "sonnet", "Sonnet 5.5", None);
+    let (x, y) = rt.find("mode-chip").expect("mode-chip");
+    rt.pointer_move(x, y);
+    rt.frame(0.1);
+    rt.frame(0.6);
+    let tip = rt.elements().into_iter().find(|e| e.key.as_deref() == Some("mode-chip-tip-tooltip"));
+    let tip_text = tip.and_then(|e| e.label).unwrap_or_default();
+    assert!(tip_text.contains("Your connectors work"), "got: {tip_text}");
+}
+
+// a-restored-queue-offers-its-actions.test.tsx
+#[test]
+fn the_restored_queue_shows_the_original_words_its_hold_reason_and_edit_discard_and_send() {
+    let mut s = State::default();
+    s.teammates.push(Teammate {
+        id: "tm_1".into(),
+        name: "Ash".into(),
+        role: "Code".into(),
+        runtime: Some("opencode".into()),
+        model: Some("opencode/free".into()),
+        account: None,
+        busy: false,
+        runs_in: "accept-edits".into(),
+        folder: None,
+    });
+    s.selected = 0;
+    s.conversations.insert("tm_1".into(), Conversation { conversation_id: Some("conv_1".into()), ..Default::default() });
+    s.queue_rows.push(crate::composer::QueuedRow {
+        id: "q1".into(),
+        key: "conv_1".into(),
+        text: "Please review paragraph two.".into(),
+        origin: crate::composer::Origin::Person,
+        attachments: vec![],
+        issue: None,
+        restored: true,
+        held: None,
+        retry_at: None,
+        tries: None,
+    });
+    fn view_q(s: &State, _cx: &mut Cx<State>) -> El {
+        crate::thread_view(s, &Palette::new(true))
+    }
+    let mut rt = Runtime::new(s, view_q, (1000.0, 900.0), Env::new(true, 1.0));
+    rt.frame(0.0);
+    let q = text_in(&rt, "queued").join(" | ");
+    assert!(q.contains("Please review paragraph two."), "got: {q}");
+    assert!(q.contains("Saved before Locust closed"), "got: {q}");
+    assert!(q.contains("press Send to continue"), "got: {q}");
+    assert!(q.contains("Edit") && q.contains("Discard") && q.contains("Send now"), "got: {q}");
+    assert!(!q.contains("Sends when Ash finishes"));
+}
+
+#[test]
+fn a_queue_read_failure_is_visible_even_when_no_rows_can_be_displayed() {
+    let mut s = State::default();
+    s.teammates.push(Teammate {
+        id: "tm_1".into(),
+        name: "Ash".into(),
+        role: "Code".into(),
+        runtime: Some("opencode".into()),
+        model: Some("opencode/free".into()),
+        account: None,
+        busy: false,
+        runs_in: "accept-edits".into(),
+        folder: None,
+    });
+    s.selected = 0;
+    s.conversations.insert("tm_1".into(), Conversation::default());
+    s.queue_error = Some("Saved messages are unreadable; the file has been kept.".into());
+    fn view_qe(s: &State, _cx: &mut Cx<State>) -> El {
+        crate::thread_view(s, &Palette::new(true))
+    }
+    let mut rt = Runtime::new(s, view_qe, (1000.0, 900.0), Env::new(true, 1.0));
+    rt.frame(0.0);
+    assert!(texts(&rt).iter().any(|w| w.contains("Saved messages are unreadable; the file has been kept.")));
+}
+
+// a-row-repeats-nothing-its-heading-says.test.tsx
+#[test]
+fn leaves_out_a_line_that_only_names_the_group_and_the_ready_tag() {
+    let rt = picker(
+        vec![
+            agent("antigravity", vec![m("flash", "Flash", &[])]),
+            agent("opencode", vec![m("opencode/glm-5.3-flash-free", "GLM 5.3 Flash Free", &[])]),
+        ],
+        None,
+    );
+    let flash = text_in(&rt, "model-antigravity-flash");
+    assert!(!flash.iter().any(|w| w == "READY"));
+    assert!(!flash.iter().any(|w| w.contains("Through Antigravity")));
+}

@@ -186,6 +186,44 @@ pub fn nearest_stop(x: f32, count: usize) -> usize {
     at.max(0.0).min((count - 1) as f32) as usize
 }
 
+/// Format an effort level as the chip's phrase: `medium` -> `Medium`, `high-fast` -> `High · Fast`.
+pub fn effort_phrase(level: &str) -> String {
+    let (base, fast) = split_effort(level);
+    let name = effort_name(base);
+    if fast { format!("{name} \u{b7} Fast") } else { name }
+}
+
+/// `routeChipReading.ts`: the model, then its effort, as `Haiku 5.5 · Medium`.
+pub fn route_chip_reading(model: &str, effort: Option<&str>) -> String {
+    let name = model.trim();
+    match effort.map(str::trim).filter(|e| !e.is_empty()) {
+        Some(e) => format!("{name} \u{b7} {e}"),
+        None => name.to_owned(),
+    }
+}
+
+/// `App.tsx` `swarmEffortFor`: chosen effort (or model's default) when swarm is off; the model's maximum when swarm is on.
+pub fn swarm_effort_for(
+    models: &[crate::engine::Models],
+    runtime: Option<&str>,
+    model_id: &str,
+    swarm: bool,
+    effort: Option<&str>,
+) -> Option<String> {
+    let found = models
+        .iter()
+        .filter(|a| runtime.is_none_or(|rt| a.runtime == rt))
+        .flat_map(|a| a.models.iter())
+        .find(|m| m.id == model_id)?;
+    if found.efforts.is_empty() {
+        return None;
+    }
+    if swarm {
+        return effort_scale(&found.efforts).bases.last().cloned();
+    }
+    effort.map(str::to_owned).or_else(|| default_effort(&found.efforts, None))
+}
+
 #[cfg(test)]
 #[path = "effort_levels_tests.rs"]
 mod tests;

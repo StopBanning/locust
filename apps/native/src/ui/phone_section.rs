@@ -146,6 +146,9 @@ pub(crate) fn section(s: &State, p: &Palette) -> El {
     if let Some(message) = &phone.message {
         words = words.child(text(message.clone()).key("phone-message").font(l.ty.body).color(l.c("text-secondary")).wrap());
     }
+    if managed {
+        words = words.child(text("Set by your organization.").font(l.ty.body).color(l.c("text-muted")));
+    }
     let mut switch = crate::look::controls::switch(&l, on, SWITCH_LABEL, managed).key("phone-switch");
     if !managed {
         switch = switch.on_press(toggle);

@@ -78,6 +78,23 @@ pub fn mission_cost_tail(cost: Option<&RunCost>, running: bool) -> String {
     }
 }
 
+/// `cost.ts` `moneyLine`: dollars or Copilot's premium requests, or None for token counts / subscription.
+pub fn money_line(cost: Option<&RunCost>) -> Option<String> {
+    let c = cost?;
+    if c.usd.is_none() && c.premium_requests.is_none() {
+        return None;
+    }
+    cost_line(Some(c))
+}
+
+/// `cost.ts` `headerCostTail`: what the conversation's header says a run cost — money, or nothing.
+pub fn header_cost_tail(cost: Option<&RunCost>, running: bool) -> String {
+    match money_line(cost) {
+        Some(line) => format!(" \u{b7} {}{line}", if running { "so far " } else { "" }),
+        None => String::new(),
+    }
+}
+
 pub fn cost_total(costs: &[Option<RunCost>]) -> Option<CostTotal> {
     let total = crate::relay::sum_exchange_costs(costs.iter().cloned())?;
     let unit = |c: &RunCost| {
@@ -960,5 +977,41 @@ mod tests {
         assert_eq!(rows[0].time.as_deref(), Some("41s"));
         assert_eq!(rows[0].cost.as_deref(), Some("$0.02"));
         assert_eq!(rows[1].cost.as_deref(), Some("in your plan"));
+    }
+
+    // --- the-header-says-money-or-nothing.test.ts
+
+    #[test]
+    fn says_dollars() {
+        let c = RunCost { input_tokens: Some(9000), output_tokens: Some(240), usd: Some(0.12), ..Default::default() };
+        assert_eq!(header_cost_tail(Some(&c), false), " · $0.12");
+    }
+
+    #[test]
+    fn says_copilots_premium_requests() {
+        let c = RunCost { premium_requests: Some(1.0), ..Default::default() };
+        assert_eq!(header_cost_tail(Some(&c), false), " · 1 premium request");
+    }
+
+    #[test]
+    fn says_nothing_for_token_counts_alone_or_for_a_subscription() {
+        let tok = RunCost { input_tokens: Some(9000), output_tokens: Some(240), ..Default::default() };
+        let sub = RunCost { input_tokens: Some(9000), output_tokens: Some(240), plan: true, ..Default::default() };
+        assert_eq!(header_cost_tail(Some(&tok), false), "");
+        assert_eq!(header_cost_tail(Some(&sub), false), "");
+    }
+
+    #[test]
+    fn says_nothing_before_the_run_has_reported() {
+        assert_eq!(header_cost_tail(None, true), "");
+    }
+
+    #[test]
+    fn is_money_or_nothing() {
+        assert_eq!(money_line(Some(&RunCost { usd: Some(1.2), ..Default::default() })).as_deref(), Some("$1.20"));
+        assert_eq!(money_line(Some(&RunCost { premium_requests: Some(2.0), ..Default::default() })).as_deref(), Some("2 premium requests"));
+        assert_eq!(money_line(Some(&RunCost { input_tokens: Some(9000), output_tokens: Some(240), ..Default::default() })), None);
+        assert_eq!(money_line(Some(&RunCost { input_tokens: Some(9000), output_tokens: Some(240), plan: true, ..Default::default() })), None);
+        assert_eq!(money_line(None), None);
     }
 }

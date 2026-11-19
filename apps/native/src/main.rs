@@ -37,6 +37,8 @@ use locust_core::ledger_write;
 mod look;
 #[path = "ui/folder_confirmation.rs"]
 mod folder_confirmation;
+#[path = "ui/free_offer.rs"]
+mod free_offer;
 #[cfg(target_os = "macos")]
 mod browser_mac;
 #[path = "ui/browser_panel.rs"]
@@ -87,6 +89,9 @@ mod effort_slider;
 #[cfg(test)]
 #[path = "ui/route_picker_tests.rs"]
 mod route_picker_tests;
+#[cfg(test)]
+#[path = "ui/managed_controls_tests.rs"]
+mod managed_controls_tests;
 #[path = "ui/look_picker.rs"]
 mod look_picker;
 #[path = "ui/pet_picks.rs"]
