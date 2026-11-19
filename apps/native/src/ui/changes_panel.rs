@@ -11,6 +11,8 @@ pub(super) struct Panel {
     /// Open context folds keyed by (file, hunk, first-hidden-row index), matching Electron per-segment folds.
     pub contexts: HashSet<(usize, usize, usize)>,
     pub files: bool,
+    /// Collapsed folder paths in the file tree (`prefix/name/`).
+    pub closed_folders: HashSet<String>,
     pub records: Vec<(String, serde_json::Value)>,
     pub asking: Option<String>,
     pub result: Option<String>,
@@ -79,6 +81,7 @@ fn refresh(s: &mut State, sha: Option<&str>) {
     s.changes.folded.clear();
     s.changes.expanded.clear();
     s.changes.contexts.clear();
+    s.changes.closed_folders.clear();
     s.changes.asking = None;
 }
 /// Undo's answer: the folder, the turn, and the receipt or why it could not.
@@ -358,6 +361,66 @@ fn more_menu(s: &State, p: &Palette) -> El {
     )
 }
 
+/// Renders the Changes panel's file tree grouped by folder, folders first (`ChangesPanel.tsx::FileTree`).
+fn render_file_tree(
+    folder: &changes::TreeFolder,
+    files: &[changes::File],
+    closed: &HashSet<String>,
+    prefix: &str,
+    depth: usize,
+    p: &Palette,
+    out: &mut Vec<El>,
+) {
+    let l = crate::look::controls::Look::new(p.dark);
+    for (name, child) in &folder.folders {
+        let key = format!("{prefix}{name}/");
+        let open = !closed.contains(&key);
+        let chevron = if open {
+            &crate::look::icons::CHEVRON_DOWN
+        } else {
+            &crate::look::icons::CHEVRON_RIGHT
+        };
+        let toggle_key = key.clone();
+        out.push(
+            row()
+                .pl(8.0 + depth as f32 * 12.0)
+                .gap(6.0)
+                .py(3.0)
+                .center_y()
+                .child(crate::look::controls::glyph(&l, chevron, 11.0, Some(l.c("text-muted"))))
+                .child(text(name.clone()).font(type_::LABEL).color(p.secondary))
+                .role("button")
+                .label(format!("Folder {name}"))
+                .on_press(move |s: &mut State| {
+                    if !s.changes.closed_folders.remove(&toggle_key) {
+                        s.changes.closed_folders.insert(toggle_key.clone());
+                    }
+                }),
+        );
+        if open {
+            render_file_tree(child, files, closed, &key, depth + 1, p, out);
+        }
+    }
+    for &i in &folder.files {
+        let f = &files[i];
+        let (a, d) = f.counts();
+        let badge = kind(&f.path);
+        let display_name = f.path.rsplit('/').next().unwrap_or(&f.path);
+        out.push(
+            row()
+                .pl(8.0 + depth as f32 * 12.0)
+                .gap(8.0)
+                .center_y()
+                .child(button(format!("{badge}  {display_name}"), p).on_press(
+                    move |s: &mut State| {
+                        s.changes.folded.remove(&i);
+                    },
+                ))
+                .child(line_count_marks(a, d, p)),
+        );
+    }
+}
+
 pub(super) fn view(s: &State, p: &Palette) -> El {
     let panel = &s.changes;
     let mut head = col().w_full().gap(6.0).child(self::head(s, p));
@@ -441,20 +504,11 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                 }
             }
             if panel.files {
-                for (i, f) in diff.files.iter().enumerate() {
-                    let (a, d) = f.counts();
-                    let badge = kind(&f.path);
-                    body = body.child(
-                        row()
-                            .gap(8.0)
-                            .center_y()
-                            .child(button(format!("{badge}  {}", f.path), p).on_press(
-                                move |s: &mut State| {
-                                    s.changes.folded.remove(&i);
-                                },
-                            ))
-                            .child(line_count_marks(a, d, p)),
-                    );
+                let tree = changes::tree_of(&diff.files);
+                let mut rows = Vec::new();
+                render_file_tree(&tree, &diff.files, &panel.closed_folders, "", 0, p, &mut rows);
+                for item in rows {
+                    body = body.child(item);
                 }
             }
             for (i, f) in diff.files.iter().enumerate() {
@@ -721,5 +775,93 @@ mod tests {
                 assert!(code.get(range.clone()).is_some())
             }
         }
+    }
+
+    // ---- Electron renderer/src/the-changes-panel-lists-every-file.test.tsx ----------------------------------------
+
+    const SAMPLE_DIFF: &str = "\
+diff --git a/src/cart.py b/src/cart.py
+--- a/src/cart.py
++++ b/src/cart.py
+@@ -1,2 +1,3 @@
+ def total(items):
+-    return 0
++    return sum(items)
++
+diff --git a/src/shop/price.py b/src/shop/price.py
+--- a/src/shop/price.py
++++ b/src/shop/price.py
+@@ -1 +1 @@
+-PRICE = 1
++PRICE = 2
+diff --git a/README.md b/README.md
+new file mode 100644
+--- /dev/null
++++ b/README.md
+@@ -0,0 +1 @@
++# Shop";
+
+    // case: counts each file’s added and removed lines
+    #[test]
+    fn counts_each_files_added_and_removed_lines() {
+        let files = crate::changes::parse(SAMPLE_DIFF);
+        let got: Vec<(&str, (usize, usize))> = files.iter().map(|f| (f.path.as_str(), f.counts())).collect();
+        assert_eq!(
+            got,
+            vec![
+                ("src/cart.py", (2, 1)),
+                ("src/shop/price.py", (1, 1)),
+                ("README.md", (1, 0)),
+            ]
+        );
+    }
+
+    // case: groups them by folder, each folder’s own files under it
+    #[test]
+    fn groups_them_by_folder_each_folders_own_files_under_it() {
+        let files = crate::changes::parse(SAMPLE_DIFF);
+        let root = crate::changes::tree_of(&files);
+        let paths_of = |idxs: &[usize]| -> Vec<&str> { idxs.iter().map(|&i| files[i].path.as_str()).collect() };
+        assert_eq!(paths_of(&root.files), vec!["README.md"]);
+        let src = root.folder("src").expect("src folder");
+        assert_eq!(paths_of(&src.files), vec!["src/cart.py"]);
+        let src_subfolders: Vec<&str> = src.folders.iter().map(|(k, _)| k.as_str()).collect();
+        assert_eq!(src_subfolders, vec!["shop"]);
+        assert_eq!(paths_of(&src.folder("shop").expect("shop folder").files), vec!["src/shop/price.py"]);
+
+        // And the panel draws the folder tree in the headless window, folders before root files.
+        let mut s = super::State::default();
+        s.changes = super::Panel {
+            open: true,
+            files: true,
+            diff: Some(Ok(crate::changes::Folder {
+                base: "main".into(),
+                branch: "feature".into(),
+                showing: "all".into(),
+                files,
+                ..crate::changes::Folder::default()
+            })),
+            ..super::Panel::default()
+        };
+        let mut rt = rune::Runtime::new(
+            s,
+            |s, _| super::view(s, &super::Palette::new(true)),
+            (1000.0, 800.0),
+            rune::Env::new(true, 1.0),
+        );
+        rt.frame(0.0);
+        let mut texts = String::new();
+        for t in rt.elements().into_iter().filter_map(|e| e.text) {
+            texts.push_str(&t);
+            texts.push('\n');
+        }
+        assert!(texts.contains("src\n"), "src folder heading missing: {texts}");
+        assert!(texts.contains("shop\n"), "shop folder heading missing: {texts}");
+        assert!(texts.contains("price.py"), "price.py missing: {texts}");
+        assert!(texts.contains("README.md"), "README.md missing: {texts}");
+        assert!(
+            texts.find("src\n").unwrap() < texts.find("README.md").unwrap(),
+            "folders must be drawn before root files: {texts}"
+        );
     }
 }

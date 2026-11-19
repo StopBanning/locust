@@ -241,8 +241,16 @@ pub fn brief_for_runtime(raw: &str, runtime: &str) -> String {
     kept.join("\n")
 }
 
-/// Reads and bounds `LOCUST.md` (`readWorkspaceBrief`).
-pub fn read_workspace_brief(folder: &Path, runtime: Option<&str>) -> Option<LocustMdSetup> {
+/// A folder's `LOCUST.md` with its bounded text, line count, and truncation flag (`WorkspaceBrief`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct WorkspaceBrief {
+    pub text: String,
+    pub lines: usize,
+    pub truncated: bool,
+}
+
+/// Reads and bounds `LOCUST.md` with its text (`readWorkspaceBrief`).
+pub fn read_workspace_brief_text(folder: &Path, runtime: Option<&str>) -> Option<WorkspaceBrief> {
     let raw = std::fs::read_to_string(folder.join(WORKSPACE_BRIEF)).ok()?;
     let filtered = match runtime {
         Some(r) => brief_for_runtime(&raw, r),
@@ -266,10 +274,18 @@ pub fn read_workspace_brief(folder: &Path, runtime: Option<&str>) -> Option<Locu
         }
         text = kept.join("\n");
     }
-    let _ = text;
-    Some(LocustMdSetup {
+    Some(WorkspaceBrief {
+        text: text.trim_end().to_owned(),
         lines: kept.len(),
         truncated,
+    })
+}
+
+/// Reads and bounds `LOCUST.md` (`readWorkspaceBrief`).
+pub fn read_workspace_brief(folder: &Path, runtime: Option<&str>) -> Option<LocustMdSetup> {
+    read_workspace_brief_text(folder, runtime).map(|b| LocustMdSetup {
+        lines: b.lines,
+        truncated: b.truncated,
     })
 }
 

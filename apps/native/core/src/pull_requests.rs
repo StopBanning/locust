@@ -1280,3 +1280,7 @@ pub fn is_pull_link_moving(link: &LinkedPullRequest) -> bool {
 #[cfg(test)]
 #[path = "pull_requests_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "pull_links_tests.rs"]
+mod link_tests;

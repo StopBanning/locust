@@ -139,9 +139,37 @@ fn two_teammates_whose_names_fold_to_one_branch_each_get_a_tree() {
     assert_eq!(git(&["rev-parse", "--abbrev-ref", "HEAD"], &second).trim(), "locust/dev-1-dev_one_b2");
     manager.ensure("tm_ming_c3", "小明", None).unwrap();
     manager.ensure("tm_hong_d4", "小红", None).unwrap();
-    assert_eq!(manager.list().len(), 4);
+    let mut branches: Vec<String> = manager.list().into_iter().map(|e| e.branch).collect();
+    branches.sort();
+    assert_eq!(branches, vec!["locust/dev-1", "locust/dev-1-dev_one_b2", "locust/tm_hong_d4", "locust/tm_ming_c3"]);
 }
 
+#[test]
+fn two_teammates_get_two_trees_that_do_not_see_each_other_and_the_main_checkout_stays_untouched() {
+    let root = repository();
+    let manager = Manager::new(&root.0);
+    let wren = manager.ensure("tm_wren", "Wren", None).unwrap();
+    let booty = manager.ensure("tm_booty", "Booty", None).unwrap();
+    std::fs::write(wren.join("cart.py"), "# notes\nwren was here\n").unwrap();
+    std::fs::write(booty.join("cart.py"), "# notes\nbooty was here\n").unwrap();
+    assert_eq!(std::fs::read_to_string(root.0.join("cart.py")).unwrap(), "def total(items):\n    return 0\n");
+    assert!(std::fs::read_to_string(wren.join("cart.py")).unwrap().contains("wren"));
+    assert!(!std::fs::read_to_string(booty.join("cart.py")).unwrap().contains("wren"));
+    let mut branches: Vec<String> = manager.list().into_iter().map(|e| e.branch).collect();
+    branches.sort();
+    assert_eq!(branches, vec!["locust/booty", "locust/wren"]);
+    // Booty's edit is uncommitted: removing the tree deletes it, so it goes only when agreed to (C1).
+    manager.remove("tm_booty", Some(&["cart.py".into()])).unwrap();
+    let ids: Vec<String> = manager.list().into_iter().map(|e| e.teammate_id).collect();
+    assert_eq!(ids, vec!["tm_wren"]);
+    // The branch outlives the tree: the work is the person's to merge or drop.
+    assert!(git(&["branch", "--list", "locust/booty"], &root.0).contains("locust/booty"));
+    // A tree removed and asked for again comes back on the same branch.
+    let again = manager.ensure("tm_booty", "Booty", None).unwrap();
+    assert_eq!(git(&["rev-parse", "--abbrev-ref", "HEAD"], &again).trim(), "locust/booty");
+}
+
+// case: C1: refuses to remove a copy with uncommitted work, naming it, and keeps every file
 #[test]
 fn refuses_to_remove_a_copy_with_uncommitted_work_naming_it_and_keeps_every_file() {
     let root = repository();
@@ -149,12 +177,16 @@ fn refuses_to_remove_a_copy_with_uncommitted_work_naming_it_and_keeps_every_file
     let wren = manager.ensure("tm_wren", "Wren", None).unwrap();
     std::fs::write(wren.join("cart.py"), "changed\n").unwrap();
     std::fs::write(wren.join("REPORT.md"), "the findings\n").unwrap();
+    let mut changes = manager.uncommitted("tm_wren").unwrap();
+    changes.sort();
+    assert_eq!(changes, vec!["REPORT.md", "cart.py"]);
     let refused = manager.remove("tm_wren", None).unwrap_err();
     assert_eq!(refused, "It has 2 uncommitted changes, and removing it would delete them.");
     assert_eq!(std::fs::read_to_string(wren.join("REPORT.md")).unwrap(), "the findings\n");
     assert_eq!(manager.list().len(), 1);
 }
 
+// case: C1: removes it only for the exact changes agreed to -- one made since is refused again
 #[test]
 fn removes_it_only_for_the_exact_changes_agreed_to_one_made_since_is_refused_again() {
     let root = repository();
@@ -170,13 +202,30 @@ fn removes_it_only_for_the_exact_changes_agreed_to_one_made_since_is_refused_aga
     assert!(git(&["branch", "--list", "locust/wren"], &root.0).contains("locust/wren"));
 }
 
+// case: C1: removes a clean copy at once, with git’s own unforced remove
 #[test]
 fn removes_a_clean_copy_at_once() {
     let root = repository();
-    let manager = Manager::new(&root.0);
+    #[cfg(unix)]
+    let (manager, calls_file, _tools) = {
+        use std::os::unix::fs::PermissionsExt;
+        let tools = temp("locust-remove-git");
+        let calls = tools.0.join("calls.txt");
+        let script = tools.0.join("recording-git");
+        std::fs::write(&script, format!("#!/bin/sh\nprintf '%s\\n' \"$*\" >> '{}'\nexec git \"$@\"\n", calls.display())).unwrap();
+        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        (Manager::new(&root.0).with_git_program(script.to_string_lossy().into_owned()), Some(calls), Some(tools))
+    };
+    #[cfg(not(unix))]
+    let (manager, calls_file, _tools): (Manager, Option<PathBuf>, Option<Temp>) = (Manager::new(&root.0), None, None);
     manager.ensure("tm_wren", "Wren", None).unwrap();
     manager.remove("tm_wren", None).unwrap();
     assert!(manager.list().is_empty());
+    if let Some(calls) = calls_file {
+        let log = std::fs::read_to_string(&calls).unwrap();
+        let removal = log.lines().find(|l| l.contains("worktree remove")).expect("worktree remove called");
+        assert!(!removal.contains("--force"), "clean removal must not pass --force: {removal}");
+    }
 }
 
 #[test]
@@ -568,5 +617,115 @@ fn landing_is_blocked_with_the_version_when_git_is_older_than_2_38() {
     let (_dir, fake) = git_that("echo 'git version 2.30.1'; exit 0");
     let manager = manager.with_git_program(fake);
     assert_eq!(manager.land_preview("tm_wren", "Wren").unwrap().block, Some(LandBlock::OldGit(Some("2.30.1".into()))));
+}
+
+// ---- Electron a-codex-turn-on-its-branch-is-completed.test.ts ------------------------------------------------------
+
+#[test]
+fn finds_a_completion_written_before_the_process_ended() {
+    assert_eq!(
+        turn_outcome_of(&["run.started", "message.delta", "run.completed", "usage"]),
+        TurnOutcome::Completed
+    );
+}
+
+#[test]
+fn says_stopped_for_a_run_the_person_stopped_and_failed_for_one_that_failed() {
+    assert_eq!(turn_outcome_of(&["run.started", "run.cancelled"]), TurnOutcome::Stopped);
+    assert_eq!(turn_outcome_of(&["run.started", "run.failed"]), TurnOutcome::Failed);
+}
+
+#[test]
+fn takes_the_newest_ending_and_says_failed_when_there_is_none() {
+    assert_eq!(turn_outcome_of(&["run.failed", "run.completed"]), TurnOutcome::Completed);
+    assert_eq!(turn_outcome_of(&["run.started"]), TurnOutcome::Failed);
+}
+
+// ---- Electron a-run-in-its-own-copy-is-not-told-the-project-folder.test.ts -----------------------------------------
+
+fn sample_brief() -> crate::teammate_setup::WorkspaceBrief {
+    crate::teammate_setup::WorkspaceBrief {
+        text: "# Project\nKeep answers short.".into(),
+        lines: 2,
+        truncated: false,
+    }
+}
+
+#[test]
+fn names_the_project_folder_to_a_run_that_stands_in_it() {
+    let b = sample_brief();
+    assert!(crate::people::folder_sentences(None, false, "arena-rpg").join("\n").contains("You are working in the folder \"arena-rpg\""));
+    assert!(crate::people::folder_sentences(Some(&b), false, "arena-rpg").join("\n").contains("Instructions for the folder \"arena-rpg\""));
+}
+
+#[test]
+fn tells_a_run_in_its_own_copy_that_it_has_one_and_never_the_folders_name() {
+    let b = sample_brief();
+    let plain = crate::people::folder_sentences(None, true, "arena-rpg").join("\n");
+    assert_eq!(plain, crate::people::worktree_section());
+    assert!(!plain.contains("arena-rpg"));
+    let with_brief = crate::people::folder_sentences(Some(&b), true, "arena-rpg").join("\n");
+    assert!(!with_brief.contains("\"arena-rpg\""));
+    assert!(with_brief.contains("Keep answers short."));
+}
+
+// case: hands the run's own folder to the brief, for a teammate's run and for nobody's
+#[test]
+fn hands_the_runs_own_folder_to_the_brief_for_a_teammates_run_and_for_nobodys() {
+    let store_dir = temp("locust-own-copy-store");
+    let project_dir = temp("locust-arena-rpg");
+    let copy_dir = temp("locust-cmp-1-b");
+    let store = crate::store::Store::new(store_dir.0.join("native"), store_dir.0.join("electron")).unwrap();
+    std::fs::write(project_dir.0.join("LOCUST.md"), "# Project\nKeep answers short.\n").unwrap();
+    // Solo / nobody's run in its own copy: never told the project folder's path, gets worktree wording + LOCUST.md.
+    let (solo, _) = crate::people::turn_brief_with_group_room_and_copy(
+        &store,
+        "nobody",
+        &project_dir.0,
+        "Make the game.",
+        None,
+        None,
+        Some("opencode"),
+        &[],
+        0,
+        None,
+        Some(&copy_dir.0),
+    )
+    .unwrap();
+    assert!(!solo.contains(&project_dir.0.display().to_string()), "solo own copy must not name project folder: {solo}");
+    assert!(solo.contains("Your missions run in your own copy of the project"), "{solo}");
+    assert!(solo.contains("Keep answers short."), "{solo}");
+    // Standing in the project folder itself: told the project folder's full path.
+    let (in_project, _) = crate::people::turn_brief_with_group_room_and_copy(
+        &store,
+        "nobody",
+        &project_dir.0,
+        "Make the game.",
+        None,
+        None,
+        Some("opencode"),
+        &[],
+        0,
+        None,
+        None,
+    )
+    .unwrap();
+    assert!(in_project.contains(&format!("Instructions for the folder \"{}\", from its LOCUST.md.", project_dir.0.display())), "{in_project}");
+}
+
+#[test]
+fn in_its_own_line_and_in_its_locust_md_section() {
+    let b = sample_brief();
+    let folder = "C:\\Users\\me\\work\\shop";
+    assert!(crate::people::folder_sentences(None, false, folder).join("\n").contains(&format!("You are working in the folder \"{folder}\".")));
+    assert!(crate::people::folder_sentences(Some(&b), false, folder).join("\n").contains(&format!("Instructions for the folder \"{folder}\", from its LOCUST.md.")));
+}
+
+#[test]
+fn and_a_run_in_its_own_copy_still_hears_neither() {
+    let b = sample_brief();
+    let folder = "C:\\Users\\me\\work\\shop";
+    assert!(!crate::people::folder_sentences(None, true, folder).join("\n").contains(folder));
+    assert!(!crate::people::folder_sentences(Some(&b), true, folder).join("\n").contains(folder));
 }
 

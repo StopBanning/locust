@@ -654,17 +654,20 @@ fn record_disk_observation(
 /// Commit a turn in a teammate's own copy on its branch, and record the receipt in the turn's stream: what was saved,
 /// what was left out for being too big, or why nothing could be saved (the files then stay in the copy).
 fn checkpoint_turn(store: &Store, mission: &str, root: &Path, teammate: &Teammate, prompt: &str, runtime: &str, model: Option<&str>) {
-    use crate::worktrees::{CHECKPOINT_CODE, Manager, TurnOutcome, checkpoint_message, checkpoint_sentence};
+    use crate::worktrees::{CHECKPOINT_CODE, Manager, checkpoint_message, checkpoint_sentence, turn_outcome_of};
     let Ok(path) = store.write_path(mission) else { return };
     let transcript = ledger::read_transcript(path.clone());
-    let stopped = transcript.items.iter().any(|i| matches!(i, ledger::Item::Note { text, .. } if text == "Stopped"));
-    let outcome = if stopped {
-        TurnOutcome::Stopped
-    } else if transcript.failed || transcript.running {
-        TurnOutcome::Failed
-    } else {
-        TurnOutcome::Completed
-    };
+    let event_types: Vec<String> = std::fs::read_to_string(&path)
+        .ok()
+        .map(|text| {
+            text.lines()
+                .filter_map(|line| serde_json::from_str::<Value>(line).ok())
+                .filter_map(|v| v.get("event").and_then(|e| e.get("type")).and_then(Value::as_str).map(str::to_owned))
+                .collect()
+        })
+        .unwrap_or_default();
+    let kind_refs: Vec<&str> = event_types.iter().map(String::as_str).collect();
+    let outcome = turn_outcome_of(&kind_refs);
     let answer = transcript.items.iter().filter_map(|i| match i {
         ledger::Item::Assistant { text, .. } => Some(text.as_str()),
         _ => None,
@@ -767,10 +770,13 @@ pub struct Listed {
 /// Electron's read-only list merged with the native one, newest first. None when neither folder could be listed.
 pub fn list_recent(limit: usize, native_engine: bool) -> Option<Listed> {
     let native_dir = store().and_then(|s| s.ledger_dir().ok());
-    let theirs = electron_ledger_dir().and_then(|d| ledger::try_list_recent(&d, limit).ok());
+    let theirs = electron_ledger_dir().and_then(|d| crate::history_cache::global().list_recent_summaries(&d, limit).ok());
+    // A run whose answer belongs to an Electron panel (a commit message, a walkthrough) is never a conversation.
+    let panel_runs = electron_dir().map(|d| crate::panel_runs::PanelRuns::of_electron(&d).ids()).unwrap_or_default();
+    let theirs = theirs.map(|t| t.into_iter().filter(|s| !panel_runs.contains(&s.mission_id)).collect::<Vec<_>>());
     let mut ours = native_dir
         .as_ref()
-        .and_then(|d| ledger::try_list_recent(d, limit).ok());
+        .and_then(|d| crate::history_cache::global().list_recent_summaries(d, limit).ok());
     // A native folder not made yet is simply empty; only the native engine reads that as "nothing to show".
     if ours.is_none() && native_engine && native_dir.is_some_and(|d| !d.exists()) {
         ours = Some(Vec::new());
@@ -2386,10 +2392,18 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
         };
         // A conversation's group briefs every turn after the folder's own and before the teammate's.
         let group_brief = crate::groups::group_brief_for_tip(&store, previous.as_deref());
-        let (brief, quoted) = crate::people::turn_brief_with_group_and_room(
+        // A run in its own copy (worktree or comparison slot copy) stands apart from the project folder and is never
+        // told the project folder's name or path (a-run-in-its-own-copy-is-not-told-the-project-folder).
+        let own_folder = if repository_root.is_some() || origin.slot.as_ref().and_then(|s| s.cwd.as_ref()).is_some() {
+            Some(folder.as_path())
+        } else {
+            None
+        };
+        let brief_folder = repository_root.as_deref().unwrap_or(&folder);
+        let (brief, quoted) = crate::people::turn_brief_with_group_room_and_copy(
             &store,
             &job.teammate.id,
-            &folder,
+            brief_folder,
             &words,
             slot_inst,
             group_brief
@@ -2399,6 +2413,7 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
             &waiting,
             remaining,
             origin.room_history.as_ref(),
+            own_folder,
         )?;
         delivered = quoted;
         format!("{brief}\n\n{}", crate::references::section(&references))
@@ -2484,6 +2499,15 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
         sealed,
     )
     .map_err(|e| e.to_string())?;
+    // openCodeModeEnv: a worktree run reaches its parent repository's `.git`; a run with no shell gets Locust's git tool.
+    if runtime_name == "opencode" {
+        let git_reads = std::env::current_exe().ok().map(|exe| vec![exe.to_string_lossy().into_owned(), "--git-reads".to_owned()]);
+        let root = repository_root.as_deref().map(|r| r.to_string_lossy().into_owned());
+        let at = folder.to_string_lossy().into_owned();
+        crate::runtime::opencode_config::rewrite_config(&mut command, |config| {
+            crate::runtime::opencode_config::for_run(config, mode, sealed, root.as_deref(), git_reads.as_deref(), &at)
+        });
+    }
     command.current_dir(&folder);
     for (key, value) in &launch_env {
         command.env(key, value);

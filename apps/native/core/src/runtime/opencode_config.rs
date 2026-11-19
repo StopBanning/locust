@@ -83,6 +83,86 @@ pub fn with_references(mut config: Value, mode: Mode, references: &[&str]) -> Va
     config
 }
 
+/// commands.ts:gitDirPattern: the parent repository's `.git`, spelled as the root is spelled (backslashes on Windows).
+pub fn git_dir_pattern(repository_root: &str) -> String {
+    let b = repository_root.as_bytes();
+    let windows = (b.len() >= 3 && b[0].is_ascii_alphabetic() && b[1] == b':' && matches!(b[2], b'\\' | b'/'))
+        || repository_root.contains('\\');
+    if windows {
+        format!("{repository_root}\\.git\\*")
+    } else {
+        format!("{}/.git/*", repository_root.trim_end_matches('/'))
+    }
+}
+
+/// commands.ts:opencodeWorktreeConfig, applied to a run's config: a worktree run may reach its parent repository's
+/// `.git` and nothing else outside its folder. Auto reaches past both, and a config whose permissions are not an object
+/// (OpenCode 2's list) is left as it was. Reference folders already allowed stay allowed beside it.
+pub fn with_parent_git(mut config: Value, mode: Mode, repository_root: &str) -> Value {
+    if mode == Mode::Auto || !config["permission"].is_object() {
+        return config;
+    }
+    let pattern = git_dir_pattern(repository_root);
+    match config["permission"]["external_directory"].as_object_mut() {
+        Some(allowed) => {
+            allowed.insert(pattern, json!("allow"));
+            allowed.entry("*").or_insert(json!("deny"));
+        }
+        None => {
+            let mut allowed = serde_json::Map::new();
+            allowed.insert(pattern, json!("allow"));
+            allowed.insert("*".into(), json!("deny"));
+            config["permission"]["external_directory"] = Value::Object(allowed);
+        }
+    }
+    config
+}
+
+/// commands.ts:withOpenCodeGitReads: Locust's read-only git tool (`git_reads.rs`) as the run's `locust_git` MCP server,
+/// started in this run's folder, and its tools allowed after every other rule.
+pub fn with_git_reads(mut config: Value, command: &[String], folder: &str) -> Value {
+    if !config["mcp"].is_object() {
+        config["mcp"] = json!({});
+    }
+    config["mcp"]["locust_git"] = json!({
+        "type": "local",
+        "command": command,
+        "environment": { "LOCUST_GIT_FOLDER": folder },
+        "enabled": true,
+    });
+    if config["permission"].is_object() {
+        config["permission"]["locust_git_*"] = json!("allow");
+    }
+    config
+}
+
+/// What openCodeModeEnv adds for one run after its mode's config: the parent `.git` for a run in a worktree, and
+/// Locust's git tool for a run with no shell (Ask, Plan). A sealed run gets neither.
+pub fn for_run(config: Value, mode: Mode, sealed: bool, repository_root: Option<&str>, git_reads: Option<&[String]>, folder: &str) -> Value {
+    if sealed {
+        return config;
+    }
+    let config = match repository_root {
+        Some(root) => with_parent_git(config, mode, root),
+        None => config,
+    };
+    match git_reads {
+        Some(command) if matches!(mode, Mode::Ask | Mode::Plan) => with_git_reads(config, command, folder),
+        _ => config,
+    }
+}
+
+/// A run's OpenCode 1 config, rewritten in place: only when it carries one whose permissions are an object.
+pub fn rewrite_config(command: &mut Command, change: impl FnOnce(Value) -> Value) {
+    let config = command
+        .get_envs()
+        .find(|(k, _)| *k == "OPENCODE_CONFIG_CONTENT")
+        .and_then(|(_, v)| v.and_then(|v| v.to_str()).and_then(|v| serde_json::from_str::<Value>(v).ok()));
+    if let Some(config) = config.filter(|c| c["permission"].is_object()) {
+        command.env("OPENCODE_CONFIG_CONTENT", change(config).to_string());
+    }
+}
+
 /// withOpenCodeSkills: the run's skills folder in `skills.paths` (after any the config had), and that folder readable
 /// outside the workspace unless every folder already is.
 pub fn with_skills(mut config: Value, dir: Option<&str>) -> Value {

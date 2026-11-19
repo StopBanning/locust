@@ -31,6 +31,9 @@ apps/desktop/src/main/a-beta-can-report-itself.test.ts	remembers what it deleted
 apps/desktop/src/main/a-beta-can-report-itself.test.ts	checks every history read against that list	no
 apps/desktop/src/main/a-beta-can-report-itself.test.ts	records ids and never a prompt, because this file is made to be sent	no
 apps/desktop/src/main/a-beta-can-report-itself.test.ts	forgets across restarts, since a durable list of deletions is the opposite of the point	no
+apps/desktop/src/main/a-big-folder-compares-in-place.test.ts	is never refused for its size: it works in the folder itself	yes
+apps/desktop/src/main/a-big-folder-compares-in-place.test.ts	the menu never greys Auto out for it	yes
+apps/desktop/src/main/a-big-folder-compares-in-place.test.ts	keeping one brings nothing in: its changes are already there	yes
 apps/desktop/src/main/a-big-folder-does-not-invent-changes.test.ts	a file that only moved into view is not a change; one written during the run is	yes
 apps/desktop/src/main/a-big-folder-does-not-invent-changes.test.ts	a file that crossed the text bound is compared by its time, not by how it was looked at	yes
 apps/desktop/src/main/a-big-folder-does-not-invent-changes.test.ts	a folder looked at whole still reports every new file, however old its time	yes
@@ -79,10 +82,18 @@ apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	names it elsewhere
 apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	is written only when LOCUST_GUARD_LOG names a file, one per question, with what was decided	no
 apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	finds none where there are none, and none in what Codex ships itself or never installed	no
 apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	finds the person’s own, a plugin’s, and a project’s, in the folder or above it	yes
+apps/desktop/src/main/a-codex-turn-on-its-branch-is-completed.test.ts	finds a completion written before the process ended	yes
+apps/desktop/src/main/a-codex-turn-on-its-branch-is-completed.test.ts	says stopped for a run the person stopped, and failed for one that failed	yes
+apps/desktop/src/main/a-codex-turn-on-its-branch-is-completed.test.ts	takes the newest ending, and says failed when there is none	yes
 apps/desktop/src/main/a-column-can-be-tried-again.test.ts	puts the new answer in the failed one's place, turn for turn, and keeps the failed one folded in	no
 apps/desktop/src/main/a-column-can-be-tried-again.test.ts	gives a column that could not start its first turn, and drops the refusal	no
 apps/desktop/src/main/a-column-can-be-tried-again.test.ts	goes, copies and all, only when every answer it held is gone for good (0.445)	no
 apps/desktop/src/main/a-column-can-be-tried-again.test.ts	says so for a column the comparison does not have	no
+apps/desktop/src/main/a-commit-message-is-written-from-the-changes.test.ts	is the diff, the files, the asks and the recent messages, with the shape to answer in	yes
+apps/desktop/src/main/a-commit-message-is-written-from-the-changes.test.ts	is the subject and the body, and nothing said around them	yes
+apps/desktop/src/main/a-commit-message-is-written-from-the-changes.test.ts	cuts a long subject, and is nothing when the answer is not in the shape asked for	yes
+apps/desktop/src/main/a-commit-message-is-written-from-the-changes.test.ts	are kept across a restart, each once, the oldest going first past the limit	yes
+apps/desktop/src/main/a-commit-message-is-written-from-the-changes.test.ts	reads a file it cannot use as none	yes
 apps/desktop/src/main/a-compaction-summary-is-not-the-reply.test.ts	leaves the reply the host reads blocks from as what came after it	yes
 apps/desktop/src/main/a-compaction-summary-is-not-the-reply.test.ts	never makes the summary the reply, even when nothing came after it	yes
 apps/desktop/src/main/a-compare-column-works-outside-the-folder.test.ts	is made outside the project folder, and is still one of its worktrees	no
@@ -434,6 +445,29 @@ apps/desktop/src/main/a-provider-that-fails-first-is-carried-on.test.ts	leaves a
 apps/desktop/src/main/a-provider-that-fails-first-is-carried-on.test.ts	one press starts the task from the start on the agent offered, told why	yes
 apps/desktop/src/main/a-provider-that-fails-first-is-carried-on.test.ts	goes on by itself with Without asking on, and says so when the picked agent is the one that failed	yes
 apps/desktop/src/main/a-provider-that-fails-first-is-carried-on.test.ts	says why on the card and on the seam, and Settings says it covers both	no
+apps/desktop/src/main/a-pull-request-can-be-watched.test.ts	a check that fails, a review that asks for changes, a conflict: each something to fix	yes
+apps/desktop/src/main/a-pull-request-can-be-watched.test.ts	checks passing, an approval, a merge: news, nothing to fix	yes
+apps/desktop/src/main/a-pull-request-can-be-watched.test.ts	nothing changed, or a check still failing, is not news again	yes
+apps/desktop/src/main/a-pull-request-can-be-watched.test.ts	reads a conflict off gh’s own field	yes
+apps/desktop/src/main/a-pull-request-can-be-watched.test.ts	looks at once, then on each tick, and says only what changed	yes
+apps/desktop/src/main/a-pull-request-can-be-watched.test.ts	stops watching a merged one once it has said so, and the timer with it	yes
+apps/desktop/src/main/a-pull-request-can-be-watched.test.ts	has no timer while nothing is watched	yes
+apps/desktop/src/main/a-pull-request-link-wears-its-state.test.ts	is a pull request, and an issue is named beside it	yes
+apps/desktop/src/main/a-pull-request-link-wears-its-state.test.ts	leaves a commit, a file, and anything that is not that address	yes
+apps/desktop/src/main/a-pull-request-link-wears-its-state.test.ts	finds a bare pull request in a sentence, and the issue beside it as a link of its own kind	yes
+apps/desktop/src/main/a-pull-request-link-wears-its-state.test.ts	refuses anything that is not an owner, a repo and a number	yes
+apps/desktop/src/main/a-pull-request-link-wears-its-state.test.ts	reads open, draft, merged and closed	yes
+apps/desktop/src/main/a-pull-request-link-wears-its-state.test.ts	reads checks as passing, failing, running or none, and says the hover	yes
+apps/desktop/src/main/a-pull-request-link-wears-its-state.test.ts	asks gh for that pull request and nothing else	yes
+apps/desktop/src/main/a-pull-request-link-wears-its-state.test.ts	reads once when many links ask together, and keeps the answer for a minute	yes
+apps/desktop/src/main/a-pull-request-link-wears-its-state.test.ts	does not ask fifty times at once	yes
+apps/desktop/src/main/a-pull-request-link-wears-its-state.test.ts	reads nothing into the chip when gh cannot, and does not ask again for a minute	yes
+apps/desktop/src/main/a-pull-request-shows-in-the-header.test.ts	reads its state and how its checks stand	yes
+apps/desktop/src/main/a-pull-request-shows-in-the-header.test.ts	takes only a GitHub pull request address	yes
+apps/desktop/src/main/a-pull-request-shows-in-the-header.test.ts	says it in a line	yes
+apps/desktop/src/main/a-pull-request-shows-in-the-header.test.ts	is the one for the branch the folder is on, asked of gh from that branch (0.731: a fork’s too)	yes
+apps/desktop/src/main/a-pull-request-shows-in-the-header.test.ts	is nothing on the default branch, on a branch with none, or when gh is signed out -- and gh is not asked on main	yes
+apps/desktop/src/main/a-pull-request-shows-in-the-header.test.ts	is kept a minute, asked again for another branch, and asked again after a sign-in	yes
 apps/desktop/src/main/a-refusal-in-ask-says-the-mode.test.ts	names the mode and says nobody was asked	yes
 apps/desktop/src/main/a-refusal-in-ask-says-the-mode.test.ts	is what a served Ask or Plan run is given, and only one nobody answers for	yes
 apps/desktop/src/main/a-relayed-conversation-sits-under-its-origin.test.ts	sits under the conversation any turn of which sent it	yes
@@ -563,6 +597,11 @@ apps/desktop/src/main/a-routine-works-in-a-copy.test.ts	runs its step in the cop
 apps/desktop/src/main/a-routine-works-in-a-copy.test.ts	will not run again while those changes wait, on Run or on its own	yes
 apps/desktop/src/main/a-routine-works-in-a-copy.test.ts	a run that changed nothing leaves nothing waiting, and no copy	yes
 apps/desktop/src/main/a-routine-works-in-a-copy.test.ts	keeps what waits when the routine is read back, and drops it if it does not read	no
+apps/desktop/src/main/a-run-in-its-own-copy-is-not-told-the-project-folder.test.ts	names the project folder to a run that stands in it	yes
+apps/desktop/src/main/a-run-in-its-own-copy-is-not-told-the-project-folder.test.ts	tells a run in its own copy that it has one, and never the folder's name	yes
+apps/desktop/src/main/a-run-in-its-own-copy-is-not-told-the-project-folder.test.ts	hands the run's own folder to the brief, for a teammate's run and for nobody's	yes
+apps/desktop/src/main/a-run-in-its-own-copy-is-not-told-the-project-folder.test.ts	in its own line, and in its LOCUST.md section	yes
+apps/desktop/src/main/a-run-in-its-own-copy-is-not-told-the-project-folder.test.ts	and a run in its own copy still hears neither	yes
 apps/desktop/src/main/a-runtime-command-is-sent-as-typed.test.ts	goes to the runtime alone, with no brief and no plan instruction after it	yes
 apps/desktop/src/main/a-runtime-command-is-sent-as-typed.test.ts	is briefed like any message when the words came from a routine, whatever the caller says	yes
 apps/desktop/src/main/a-runtime-command-is-sent-as-typed.test.ts	is briefed like any message when nobody said it was a command	no
@@ -703,6 +742,13 @@ apps/desktop/src/main/a-tune-is-measured-before-one-is-kept.test.ts	is none at a
 apps/desktop/src/main/a-tune-is-measured-before-one-is-kept.test.ts	reads each setup's record over every run, and how to weigh it	no
 apps/desktop/src/main/a-tune-is-measured-before-one-is-kept.test.ts	is as it was for a tune run once	no
 apps/desktop/src/main/a-tune-is-measured-before-one-is-kept.test.ts	is told it reads one model's setups, not different models	no
+apps/desktop/src/main/a-turn-is-committed-on-its-own-branch.test.ts	commits nothing when the turn changed nothing	yes
+apps/desktop/src/main/a-turn-is-committed-on-its-own-branch.test.ts	commits every change, new files too, as the teammate, past a hook that would refuse, and leaves the person's branch alone	yes
+apps/desktop/src/main/a-turn-is-committed-on-its-own-branch.test.ts	refuses a teammate with no tree of its own	yes
+apps/desktop/src/main/a-turn-is-committed-on-its-own-branch.test.ts	shows the branch against where it left the person's branch, whole and turn by turn, oldest first	yes
+apps/desktop/src/main/a-turn-is-committed-on-its-own-branch.test.ts	never runs a program the repository names to draw a diff	yes
+apps/desktop/src/main/a-turn-is-committed-on-its-own-branch.test.ts	reads status -z, a rename's old name skipped	yes
+apps/desktop/src/main/a-turn-is-committed-on-its-own-branch.test.ts	reads the turns of a log	yes
 apps/desktop/src/main/a-turn-on-its-own-branch-leaves-a-receipt.test.ts	is committed to its branch when it ends, and the receipt is recorded in its stream	no
 apps/desktop/src/main/a-turn-on-its-own-branch-leaves-a-receipt.test.ts	is never committed when it ran in the shared folder, the person's own checkout	yes
 apps/desktop/src/main/a-turn-on-its-own-branch-leaves-a-receipt.test.ts	is never committed from a slot of its own -- a comparison's column, a judge, a side question (0.532)	no
@@ -729,15 +775,15 @@ apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	names columns the
 apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	knows a number when it sees one written	no
 apps/desktop/src/main/a-worktree-branch-is-named-after-the-issue.test.ts	checks out a branch named after the issue in the teammate's copy	yes
 apps/desktop/src/main/a-worktree-branch-is-named-after-the-issue.test.ts	uses the branch when it already exists, and leaves a checkout git refuses	yes
-apps/desktop/src/main/a-worktree-survives-only-a-finished-checkout.test.ts	accepts and uses the real worktree, keeping full hook stderr in the diagnostic callback	no
+apps/desktop/src/main/a-worktree-survives-only-a-finished-checkout.test.ts	accepts and uses the real worktree, keeping full hook stderr in the diagnostic callback	yes
 apps/desktop/src/main/a-worktree-survives-only-a-finished-checkout.test.ts	refuses a hook failure that removes the worktree	yes
 apps/desktop/src/main/a-worktree-survives-only-a-finished-checkout.test.ts	refuses a hook that leaves HEAD on the wrong branch	yes
-apps/desktop/src/main/a-worktree-survives-only-a-finished-checkout.test.ts	requires HEAD verification to succeed before accepting a nonzero add	no
-apps/desktop/src/main/a-worktree-survives-only-a-finished-checkout.test.ts	does not treat a timeout as a finished hook failure	no
+apps/desktop/src/main/a-worktree-survives-only-a-finished-checkout.test.ts	requires HEAD verification to succeed before accepting a nonzero add	yes
+apps/desktop/src/main/a-worktree-survives-only-a-finished-checkout.test.ts	does not treat a timeout as a finished hook failure	yes
 apps/desktop/src/main/a-worktree-survives-only-a-finished-checkout.test.ts	keeps an initializing checkout refused even if its recorded branch and HEAD exist	yes
-apps/desktop/src/main/a-worktree-survives-only-a-finished-checkout.test.ts	does not fail an otherwise usable tree if the diagnostics callback fails	no
-apps/desktop/src/main/a-worktree-survives-only-a-finished-checkout.test.ts	uses longpaths only on add commands without changing core.longpaths config	no
-apps/desktop/src/main/a-worktree-survives-only-a-finished-checkout.test.ts	adds the longpaths flag only for Windows (%s), on both branch forms	no
+apps/desktop/src/main/a-worktree-survives-only-a-finished-checkout.test.ts	does not fail an otherwise usable tree if the diagnostics callback fails	yes
+apps/desktop/src/main/a-worktree-survives-only-a-finished-checkout.test.ts	uses longpaths only on add commands without changing core.longpaths config	yes
+apps/desktop/src/main/a-worktree-survives-only-a-finished-checkout.test.ts	adds the longpaths flag only for Windows (%s), on both branch forms	yes
 apps/desktop/src/main/an-account-sign-in-belongs-to-its-agent.test.ts	runs each documented login command hidden with its home and discards all process output	no
 apps/desktop/src/main/an-account-sign-in-belongs-to-its-agent.test.ts	reports failure once without returning the process error or any token	no
 apps/desktop/src/main/an-added-account-has-only-its-own-home.test.ts	preserves the exact launch and environment when no account is selected	yes
@@ -804,6 +850,14 @@ apps/desktop/src/main/an-image-preview-stays-in-its-folder.test.ts	refuses a lin
 apps/desktop/src/main/an-image-preview-stays-in-its-folder.test.ts	draws no SVG, network URL, missing file, folder, or oversized image	yes
 apps/desktop/src/main/an-issue-image-comes-only-from-github.test.ts	fetches a picture only from GitHub's own hosts, and stops at a redirect that leaves them	no
 apps/desktop/src/main/an-issue-image-comes-only-from-github.test.ts	follows a redirect that stays on GitHub's hosts	no
+apps/desktop/src/main/an-issue-link-wears-its-state.test.ts	is an issue, beside the pull request with the same address shape	yes
+apps/desktop/src/main/an-issue-link-wears-its-state.test.ts	finds a bare issue in a sentence, and a written one, beside the pull request	yes
+apps/desktop/src/main/an-issue-link-wears-its-state.test.ts	refuses anything that is not an owner, a repo and a number	yes
+apps/desktop/src/main/an-issue-link-wears-its-state.test.ts	reads open, closed completed and closed not planned, and says the words and the hover	yes
+apps/desktop/src/main/an-issue-link-wears-its-state.test.ts	asks gh for that issue and nothing else	yes
+apps/desktop/src/main/an-issue-link-wears-its-state.test.ts	keeps a pull request and an issue with one number apart	yes
+apps/desktop/src/main/an-issue-link-wears-its-state.test.ts	reads once when many links ask together, and keeps the answer for a minute	yes
+apps/desktop/src/main/an-issue-link-wears-its-state.test.ts	reads nothing into the chip when gh cannot, and does not ask again for a minute	yes
 apps/desktop/src/main/an-issue-list-is-only-a-github-folder.test.ts	asks for issues only when the folder is one gh can read	yes
 apps/desktop/src/main/an-issue-list-is-only-a-github-folder.test.ts	lists the open issues through gh in the folder	yes
 apps/desktop/src/main/an-office-file-is-read-for-its-words.test.ts	has its title, headings, paragraphs, list items and table, in order	no
@@ -1140,6 +1194,12 @@ apps/desktop/src/main/free-routes.test.ts	knows every free model OpenCode 1.18.2
 apps/desktop/src/main/free-routes.test.ts	holds a launch with a debugging port to free routes	no
 apps/desktop/src/main/free-routes.test.ts	leaves an ordinary launch alone	no
 apps/desktop/src/main/free-routes.test.ts	lifts only for the person who said to spend	no
+apps/desktop/src/main/git-reaches-a-run-with-no-shell.test.ts	lists six tools, every one marked read only	yes
+apps/desktop/src/main/git-reaches-a-run-with-no-shell.test.ts	reads what a review needs: the change, the history, a file as it was	yes
+apps/desktop/src/main/git-reaches-a-run-with-no-shell.test.ts	sees a change of the same size made in the same second as the index was written	yes
+apps/desktop/src/main/git-reaches-a-run-with-no-shell.test.ts	takes no option, no path outside the folder, and nothing it does not name	yes
+apps/desktop/src/main/git-reaches-a-run-with-no-shell.test.ts	writes nothing: no index refresh, no lock, and no program a variable names	yes
+apps/desktop/src/main/git-reaches-a-run-with-no-shell.test.ts	says so when the folder is not a repository	yes
 apps/desktop/src/main/groups-hold-conversations.test.ts	keeps what it was called	no
 apps/desktop/src/main/groups-hold-conversations.test.ts	refuses a name that is only spaces	no
 apps/desktop/src/main/groups-hold-conversations.test.ts	flattens a name to one line, because a row is one line	no
@@ -1866,6 +1926,11 @@ apps/desktop/src/main/the-chain-templates-hand-work-on.test.ts	previews which st
 apps/desktop/src/main/the-chain-templates-hand-work-on.test.ts	proposes a teammate on a different agent for each review, where the roster has one	no
 apps/desktop/src/main/the-chain-templates-hand-work-on.test.ts	with two agents, the third review goes to a teammate who has not reviewed yet; with one teammate, all three are theirs	no
 apps/desktop/src/main/the-chain-templates-hand-work-on.test.ts	is what the shipped template gets, read the way the window reads it	no
+apps/desktop/src/main/the-changes-panel-reads-every-change.test.ts	b/caf303251.txt	no
+apps/desktop/src/main/the-changes-panel-reads-every-change.test.ts	names a path with an accented letter as it is, as a change, not a rename (CH2)	yes
+apps/desktop/src/main/the-changes-panel-reads-every-change.test.ts	takes master as the base of a repository with no remote and no main (CH3)	yes
+apps/desktop/src/main/the-changes-panel-reads-every-change.test.ts	lists a new file too big to show whole, and says when there are more new files than it shows (CH1)	yes
+apps/desktop/src/main/the-changes-panel-reads-every-change.test.ts	shows all the changes for a commit no longer on the branch, and says it shows all (CH4)	yes
 apps/desktop/src/main/the-effort-thumb-is-claude-codes-shape.test.ts	is Claude Code's: a white rounded rectangle, 16 x 20, 4px corners -- painted by the liquid	yes
 apps/desktop/src/main/the-effort-thumb-is-claude-codes-shape.test.ts	fills the track's height, as Claude Code's does	yes
 apps/desktop/src/main/the-effort-thumb-is-claude-codes-shape.test.ts	is ONE thing (Colin, 2026-09-26: "a rectangle with no gooey with a gooey circle behind it, we gotta pick one")	no
@@ -1873,6 +1938,20 @@ apps/desktop/src/main/the-effort-thumb-is-claude-codes-shape.test.ts	sits on a f
 apps/desktop/src/main/the-effort-track-takes-the-pointer.test.ts	lets the pointer through the input to the track	no
 apps/desktop/src/main/the-effort-track-takes-the-pointer.test.ts	does not start a scroll or a selection with a drag	yes
 apps/desktop/src/main/the-effort-track-takes-the-pointer.test.ts	keeps the fill under a held thumb	yes
+apps/desktop/src/main/the-folder-commits-as-you.test.ts	lists what a commit would take, never .locust/	yes
+apps/desktop/src/main/the-folder-commits-as-you.test.ts	commits everything as you, with your hooks, and says what it did	yes
+apps/desktop/src/main/the-folder-commits-as-you.test.ts	a hook that refuses leaves what you had staged exactly as it was	yes
+apps/desktop/src/main/the-folder-commits-as-you.test.ts	commit and push sends it to the branch it tracks	yes
+apps/desktop/src/main/the-folder-commits-as-you.test.ts	a pull request from main goes from a branch of its own, and main is left where it was	yes
+apps/desktop/src/main/the-folder-commits-as-you.test.ts	a pull request for an issue says which issue it fixes	yes
+apps/desktop/src/main/the-folder-commits-as-you.test.ts	a refused push keeps the commit and says so	yes
+apps/desktop/src/main/the-folder-commits-as-you.test.ts	no pull request without GitHub, and nothing at all mid-merge	yes
+apps/desktop/src/main/the-folder-commits-as-you.test.ts	a folder inside a repository, not its top, offers nothing	yes
+apps/desktop/src/main/the-folder-commits-as-you.test.ts	drafts from the asks, and names a branch from the subject	yes
+apps/desktop/src/main/the-folders-changes-are-read.test.ts	adds every line, says when the last has no newline, and calls a binary file binary	yes
+apps/desktop/src/main/the-folders-changes-are-read.test.ts	on a branch: its commits and what is not committed yet, against main, new files whole	yes
+apps/desktop/src/main/the-folders-changes-are-read.test.ts	on main: what is not committed yet, and nothing when nothing has changed	yes
+apps/desktop/src/main/the-folders-changes-are-read.test.ts	shows no commit it was not asked about, and no folder that is not a repository	yes
 apps/desktop/src/main/the-github-cli-installs-from-the-card.test.ts	uses winget on Windows, GitHub’s own package, and then asks gh who is signed in	yes
 apps/desktop/src/main/the-github-cli-installs-from-the-card.test.ts	takes winget’s “already installed” as gh being there	no
 apps/desktop/src/main/the-github-cli-installs-from-the-card.test.ts	takes winget’s “already installed” and “no newer version” as Node reports them on Windows	yes
@@ -1885,6 +1964,9 @@ apps/desktop/src/main/the-github-cli-updates-from-the-card.test.ts	says nothing 
 apps/desktop/src/main/the-github-cli-updates-from-the-card.test.ts	is behind only when GitHub has a higher number	yes
 apps/desktop/src/main/the-github-cli-updates-from-the-card.test.ts	runs winget’s upgrade of GitHub’s own package on Windows, and Homebrew’s on a Mac	yes
 apps/desktop/src/main/the-github-cli-updates-from-the-card.test.ts	says why when it could not update	yes
+apps/desktop/src/main/the-history-reads-only-what-changed.test.ts	answers exactly what the whole listing answered	yes
+apps/desktop/src/main/the-history-reads-only-what-changed.test.ts	reads no file twice when nothing changed	yes
+apps/desktop/src/main/the-history-reads-only-what-changed.test.ts	reads the one file that changed, and the answer carries the change	yes
 apps/desktop/src/main/the-host-refuses-always-for-a-reaching-command.test.ts	passes every answer from the window through enforcedAnswer before it reaches a holder	no
 apps/desktop/src/main/the-host-refuses-always-for-a-reaching-command.test.ts	refuses a rule from a card before any rule is built or saved	no
 apps/desktop/src/main/the-in-use-check-reads-any-path.test.ts	finds a process whose path has a non-ASCII letter	yes
@@ -2027,6 +2109,18 @@ apps/desktop/src/main/workspace.test.ts	never defaults INTO the install folder, 
 apps/desktop/src/main/workspace.test.ts	gives the same folder the same id, and a different folder a different one	no
 apps/desktop/src/main/workspace.test.ts	round-trips through its file	no
 apps/desktop/src/main/workspace.test.ts	is nothing when the file is missing, malformed, or empty -- never a crash at start-up	no
+apps/desktop/src/main/worktrees.test.ts	names a branch from the teammate, folded to what git accepts	yes
+apps/desktop/src/main/worktrees.test.ts	reads the git version and knows which ones have worktrees	yes
+apps/desktop/src/main/worktrees.test.ts	keeps only the trees Locust made under the folder out of a porcelain list	yes
+apps/desktop/src/main/worktrees.test.ts	refuses a folder that is not a repository, with the reason	yes
+apps/desktop/src/main/worktrees.test.ts	makes the tree under .locust/worktrees on its own branch, excludes .locust, and is idempotent	yes
+apps/desktop/src/main/worktrees.test.ts	two teammates whose names fold to one branch each get a tree	yes
+apps/desktop/src/main/worktrees.test.ts	two teammates get two trees that do not see each other, and the main checkout stays untouched	yes
+apps/desktop/src/main/worktrees.test.ts	C1: refuses to remove a copy with uncommitted work, naming it, and keeps every file	yes
+apps/desktop/src/main/worktrees.test.ts	C1: removes it only for the exact changes agreed to -- one made since is refused again	yes
+apps/desktop/src/main/worktrees.test.ts	C1: removes a clean copy at once, with git’s own unforced remove	yes
+apps/desktop/src/main/worktrees.test.ts	names changes the way git status does, a quoted path unquoted	yes
+apps/desktop/src/main/worktrees.test.ts	refuses an id that could name a path outside the folder	yes
 apps/desktop/src/main/your-github-is-connected-through-gh.test.ts	reads the active account, its scopes, and an account GitHub no longer takes	yes
 apps/desktop/src/main/your-github-is-connected-through-gh.test.ts	never names a login GitHub could not have issued	yes
 apps/desktop/src/main/your-github-is-connected-through-gh.test.ts	reads an older gh by its exit and first account line	yes
@@ -2502,6 +2596,10 @@ apps/desktop/src/renderer/src/a-provider-error-is-readable-and-said-once.test.ts
 apps/desktop/src/renderer/src/a-provider-error-is-readable-and-said-once.test.tsx	formats restored errors for each runtime without inventing its upstream provider	no
 apps/desktop/src/renderer/src/a-provider-error-is-readable-and-said-once.test.tsx	reads a JSON stderr cause without appending the raw body to a readable error	yes
 apps/desktop/src/renderer/src/a-provider-error-is-readable-and-said-once.test.tsx	keeps a distinct failure card and does not let a warning hide the failure	no
+apps/desktop/src/renderer/src/a-pull-request-chip-says-its-state.test.tsx	names the pull request by number and state, with GitHub’s mark, and the whole line on hover	yes
+apps/desktop/src/renderer/src/a-pull-request-chip-says-its-state.test.tsx	wears its checks’ tone while open, and merged’s own once merged	yes
+apps/desktop/src/renderer/src/a-pull-request-link-wears-its-state.test.tsx	wears the state in words, and the checks as one mark	no
+apps/desktop/src/renderer/src/a-pull-request-link-wears-its-state.test.tsx	makes a bare pull request in the person's message a link, and a bare issue one too	no
 apps/desktop/src/renderer/src/a-question-makes-the-face-wait-on-you.test.ts	counts questions a teammate stopped on beside its paused runs	no
 apps/desktop/src/renderer/src/a-question-makes-the-face-wait-on-you.test.ts	leaves out memory suggestions, Scout cards, waiting routines, and items no teammate owns	no
 apps/desktop/src/renderer/src/a-question-makes-the-face-wait-on-you.test.ts	a question alone makes the face wait, in amber, with nothing running	yes
@@ -2938,6 +3036,10 @@ apps/desktop/src/renderer/src/an-idle-teammate-offers-its-own-world.test.tsx	nev
 apps/desktop/src/renderer/src/an-idle-teammate-offers-its-own-world.test.tsx	never asks a non-coder for a page the app would only show as code	yes
 apps/desktop/src/renderer/src/an-idle-teammate-offers-its-own-world.test.tsx	says what the role is for, not that every role reads the workspace	yes
 apps/desktop/src/renderer/src/an-idle-teammate-offers-its-own-world.test.tsx	offers a hand-made teammate its role's, and speaks of code only for the roles that are code	yes
+apps/desktop/src/renderer/src/an-issue-link-wears-its-state.test.tsx	wears open, closed and not planned, its standing and title on hover	no
+apps/desktop/src/renderer/src/an-issue-link-wears-its-state.test.tsx	makes a bare issue in the person's message a link, as a pull request is	no
+apps/desktop/src/renderer/src/an-issue-link-wears-its-state.test.tsx	reads on show, again on focus after a minute, and never on a timer	no
+apps/desktop/src/renderer/src/an-issue-link-wears-its-state.test.tsx	says nothing and wears nothing when gh cannot answer	no
 apps/desktop/src/renderer/src/an-orb-needs-a-runtime-that-streams.test.ts	shows the working orb through an OpenCode tool call, because the tool is never open	yes
 apps/desktop/src/renderer/src/an-orb-needs-a-runtime-that-streams.test.ts	shows the tool orb on Antigravity, where the start and the result are apart	yes
 apps/desktop/src/renderer/src/an-orb-needs-a-runtime-that-streams.test.ts	reaches the writing orb on OpenCode, because text arriving IS writing	yes
@@ -3922,8 +4024,8 @@ apps/desktop/src/renderer/src/the-boot-screen.test.ts	finds the row for a runtim
 apps/desktop/src/renderer/src/the-boot-screen.test.ts	does not report a probe result for a runtime this build cannot run	no
 apps/desktop/src/renderer/src/the-boot-screen.test.ts	counts only the runtimes it is actually showing	no
 apps/desktop/src/renderer/src/the-boot-screen.test.ts	keeps antigravity, which is checked by the host rather than by a CLI	no
-apps/desktop/src/renderer/src/the-changes-panel-lists-every-file.test.tsx	counts each file’s added and removed lines	no
-apps/desktop/src/renderer/src/the-changes-panel-lists-every-file.test.tsx	groups them by folder, each folder’s own files under it	no
+apps/desktop/src/renderer/src/the-changes-panel-lists-every-file.test.tsx	counts each file’s added and removed lines	yes
+apps/desktop/src/renderer/src/the-changes-panel-lists-every-file.test.tsx	groups them by folder, each folder’s own files under it	yes
 apps/desktop/src/renderer/src/the-chip-keeps-free.test.ts	splits a trailing Free off the name	yes
 apps/desktop/src/renderer/src/the-chip-keeps-free.test.ts	leaves every other name whole	yes
 apps/desktop/src/renderer/src/the-effort-control-is-claude-codes.test.tsx	is named in words, as Claude Code names it	yes
@@ -5577,6 +5679,8 @@ packages/runtime-adapters/test/the-browser-shares-one-flag-with-the-bridge.test.
 packages/runtime-adapters/test/the-browser-shares-one-flag-with-the-bridge.test.ts	joins the connectors' rules in one --allowedTools	yes
 packages/runtime-adapters/test/the-browser-shares-one-flag-with-the-bridge.test.ts	is still the only --mcp-config in Auto, where there is no bridge and no rule is needed	yes
 packages/runtime-adapters/test/the-browser-shares-one-flag-with-the-bridge.test.ts	changes nothing for a run without it	no
+packages/runtime-adapters/test/the-parent-git-is-reachable-on-every-platform.test.ts	is spelled as the root is: backslashes on Windows, slashes elsewhere	yes
+packages/runtime-adapters/test/the-parent-git-is-reachable-on-every-platform.test.ts	is the one directory allowed outside the worktree	yes
 packages/runtime-adapters/test/the-steps-show-what-the-runtimes-show.test.ts	carries a command's output, as Claude Code shows it under the command	no
 packages/runtime-adapters/test/the-steps-show-what-the-runtimes-show.test.ts	reads output given as text blocks	no
 packages/runtime-adapters/test/the-steps-show-what-the-runtimes-show.test.ts	does not carry a file's text for a Read, which Claude Code never shows	no

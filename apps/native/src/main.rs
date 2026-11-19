@@ -3026,6 +3026,10 @@ fn main() {
         locust_core::command_guard::hook_main();
         std::process::exit(0);
     }
+    // Locust's git tool for an OpenCode run with no shell (git_reads.rs): one run's stdio MCP server, nothing else.
+    if std::env::args().nth(1).as_deref() == Some("--git-reads") {
+        std::process::exit(locust_core::git_reads::serve_stdio());
+    }
     // Another app's stdio connection to Locust's door: it only reads the connection file and posts to the door.
     if std::env::args().nth(1).as_deref() == Some("--door-bridge") {
         let connection = std::env::args().nth(2).unwrap_or_default();

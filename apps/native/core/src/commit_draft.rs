@@ -185,13 +185,14 @@ mod tests {
 
     fn pending_example() -> Pending {
         Pending {
-            diff: "diff --git a/cart.py b/cart.py\n-    return a - b\n+    return a + b\n".into(),
-            stat: " cart.py | 2 +-\n 1 file changed, 1 insertion(+), 1 deletion(-)".into(),
+            diff: "diff --git a/src/total.ts b/src/total.ts\n--- a/src/total.ts\n+++ b/src/total.ts\n@@ -1 +1 @@\n-export const total = (a, b) => a - b\n+export const total = (a, b) => a + b\n".into(),
+            stat: " src/total.ts | 2 +-\n 1 file changed, 1 insertion(+), 1 deletion(-)".into(),
             cut: false,
             recent: vec!["Totals round to the cent".into(), "Invoices list their lines in order".into()],
         }
     }
 
+    // case: is the diff, the files, the asks and the recent messages, with the shape to answer in
     #[test]
     fn the_teammate_gets_the_diff_the_files_the_asks_and_the_recent_messages_with_the_shape_to_answer_in() {
         let p = pending_example();
@@ -208,6 +209,7 @@ mod tests {
         assert!(!cut.contains("recent commit messages") && !cut.contains("What the person asked for"));
     }
 
+    // case: is the subject and the body, and nothing said around them
     #[test]
     fn the_message_is_the_subject_and_the_body_and_nothing_said_around_them() {
         assert_eq!(
@@ -223,6 +225,7 @@ mod tests {
         assert_eq!(drafted_commit_message("SUBJECT: Fix\nBODY: one line\nand another").as_deref(), Some("Fix\n\none line\nand another"));
     }
 
+    // case: cuts a long subject, and is nothing when the answer is not in the shape asked for
     #[test]
     fn a_long_subject_is_cut_and_an_answer_not_in_the_shape_asked_for_is_none() {
         let long = drafted_commit_message(&format!("SUBJECT: {}\nBODY:\nEND", "word ".repeat(30))).expect("a subject");

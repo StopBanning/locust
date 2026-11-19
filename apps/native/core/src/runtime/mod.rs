@@ -111,6 +111,8 @@ mod side_question_fork_tests;
 #[cfg(test)]
 mod opencode_2_step_tests;
 #[cfg(test)]
+mod opencode_parent_git_tests;
+#[cfg(test)]
 mod acp_rename_tests;
 
 pub mod permission_bridge;

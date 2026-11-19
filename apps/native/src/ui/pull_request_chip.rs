@@ -719,6 +719,7 @@ mod tests {
 
     // --- a-pull-request-chip-says-its-state.test.tsx ---
 
+    // case: wears its checks’ tone while open, and merged’s own once merged
     #[test]
     fn pull_request_chip_names_number_state_and_line() {
         let pr = FolderPullRequest {

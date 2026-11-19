@@ -74,6 +74,7 @@ pub mod command_guard;
 pub mod command_plain;
 pub mod command_reach;
 pub mod commit_draft;
+pub mod panel_runs;
 pub mod compare;
 pub mod compare_copies;
 pub mod compare_judge;
@@ -100,6 +101,7 @@ pub mod github_account;
 pub mod github_issues;
 pub mod groups;
 pub mod hand_off;
+pub mod history_cache;
 pub mod image_files;
 pub mod inspector;
 pub mod interview;
@@ -335,6 +337,7 @@ pub mod buddy_moves;
 pub mod teammate_tooltip;
 
 pub mod git_quiet;
+pub mod git_reads;
 
 pub mod face_status;
 pub mod face_legend;
