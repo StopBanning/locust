@@ -234,7 +234,8 @@ fn setting_line(l: &crate::look::controls::Look, heading: &str, lede: &str, on: 
 }
 
 /// A setup line to paste, with its Copy.
-fn setup_block(l: &crate::look::controls::Look, said: &str, line: &str) -> El {
+/// One line to paste, with a Copy named for what it copies ("Copy the OpenClaw command", Electron's CopyButton).
+fn setup_block(l: &crate::look::controls::Look, said: &str, copies: &str, line: &str) -> El {
     let body = line.to_owned();
     col()
         .w_full()
@@ -257,7 +258,7 @@ fn setup_block(l: &crate::look::controls::Look, said: &str, line: &str) -> El {
                         .radius(l.t.px("radius-control"))
                         .hover(l.c("hover-surface"))
                         .role("button")
-                        .label(format!("Copy: {said}"))
+                        .label(format!("Copy {copies}"))
                         .on_press_tx(move |_s: &mut State, tx| crate::reply_actions::request_copy(tx, body.clone())),
                 ),
         )
@@ -357,7 +358,7 @@ fn door_section(s: &State, p: &Palette) -> El {
         DOOR_HEADING,
         &if set.enabled {
             format!(
-                "On. Other apps on this computer can ask teammates and read replies. {}, with no automatic teammate handoffs. Locust must be running; your AI account usage and monthly limits still apply.",
+                "On. Other apps on this computer can ask teammates, run your routines and read replies. {}, with no automatic teammate handoffs. Locust must be running; your AI account usage and monthly limits still apply.",
                 if set.own_mode { "New turns use each teammate's own mode" } else { "New turns are Ask mode (read only)" }
             )
         } else {
@@ -402,12 +403,20 @@ fn door_section(s: &State, p: &Palette) -> El {
             .w_full()
             .gap(10.0)
             .padding(10.0)
-            .child(text("Add Locust to Claude Code or Codex").font(l.ty.control).color(l.c("text-primary")));
+            .child(text("Add Locust to Claude Code, Codex or OpenClaw by hand").font(l.ty.control).color(l.c("text-primary")));
         if let Some(line) = &door.claude_command {
-            by_hand = by_hand.child(setup_block(&l, "Claude Code: run this in Terminal.", line));
+            by_hand = by_hand.child(setup_block(&l, "Claude Code \u{2014} run this in Terminal:", "the Claude Code command", line));
         }
         if let Some(config) = &door.codex_config {
-            by_hand = by_hand.child(setup_block(&l, "Codex: add this to ~/.codex/config.toml.", config));
+            by_hand = by_hand.child(setup_block(&l, "Codex \u{2014} add this to ~/.codex/config.toml:", "the Codex settings", config));
+        }
+        if let Some(line) = &door.openclaw_command {
+            by_hand = by_hand.child(setup_block(
+                &l,
+                "OpenClaw \u{2014} run this in Terminal. It checks the connection first, and its tool policy decides which of its chats can use it:",
+                "the OpenClaw command",
+                line,
+            ));
         }
         by_hand = by_hand.child(
             text("Locust changes another app\u{2019}s settings only when you press Add to the Claude app; it keeps a copy of the file first, and Remove takes its entry out again. Turning this off stops new requests, not turns already running.")
@@ -1525,7 +1534,7 @@ pub(super) fn scene(s: &mut State) {
 pub(super) fn door_scene(s: &mut State) {
     scene(s);
     s.settings_panel.page = Some(SettingsPageId::App);
-    let (claude, codex) = locust_core::door::setup(
+    let (claude, codex, openclaw) = locust_core::door::setup(
         "/Applications/Locust Native.app/Contents/MacOS/locust-native",
         "/Users/locust/Library/Application Support/@teammate/desktop-native/locust-mcp-connection.json",
     );
@@ -1533,6 +1542,7 @@ pub(super) fn door_scene(s: &mut State) {
         settings: locust_core::door::Settings { enabled: true, own_mode: true, conversations: false },
         claude_command: Some(claude),
         codex_config: Some(codex),
+        openclaw_command: Some(openclaw),
         message: None,
     });
 }

@@ -2980,8 +2980,19 @@ static HEADLESS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::
 
 /// The door for other apps, wherever it is served: by the shared engine, which runs the door's turns (E4), else by
 /// this window. None when there is no door at all.
+#[cfg(test)]
+thread_local! {
+    /// A test's own door, on its thread only: it hears each change a press asks for and answers as the host would.
+    pub(crate) static TEST_DOOR: std::cell::RefCell<Option<Box<dyn FnMut(locust_core::engine_api::DoorChange) -> locust_core::door::State>>> =
+        std::cell::RefCell::new(None);
+}
+
 pub(crate) fn door_now(change: locust_core::engine_api::DoorChange) -> Option<locust_core::door::State> {
     use locust_core::engine_api::DoorChange;
+    #[cfg(test)]
+    if let Some(state) = TEST_DOOR.with(|d| d.borrow_mut().as_mut().map(|answer| answer(change.clone()))) {
+        return Some(state);
+    }
     if locust_core::engine_api::shared() {
         return match locust_core::engine_api::api().door(change) {
             Ok(state) => Some(state),

@@ -211,3 +211,9 @@ Breaks (`core-c` to `core-f`, `ui-d`, `ui-e` logs). All caught in the end:
   shows while it is on. `stay_awake_tests` holds Electron's case by name; breaks 2 of 2 killed.
 - Remote Control (`a-remote-control-switch-shows-claudes-own-words.test.tsx`): the card already matched; 6 of 6 cases in
   `src/ui/remote_control_card_tests.rs` (new); breaks 5 of 5 killed.
+- Other apps (`other-app-access-is-an-explicit-setting.test.tsx`, now 6 of 8): Rust said "can ask teammates and read
+  replies" though its door runs routines; now Electron's "ask teammates, run your routines and read replies". The
+  OpenClaw line is new end to end (`door::setup` returns three lines; `State.openclaw_command`; the engine's door JSON
+  carries `openclawCommand`), drawn with "Copy the OpenClaw command" under "Add Locust to Claude Code, Codex or
+  OpenClaw by hand"; each Copy is named for what it copies. Presses are tested through `main.rs` `TEST_DOOR` (this
+  thread only). Still partial: the editor switch is not built. Breaks 6 of 6 killed (one by the core door test).

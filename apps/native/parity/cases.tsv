@@ -3565,9 +3565,9 @@ apps/desktop/src/renderer/src/only-the-face-you-talk-to-hops.test.tsx	bounces on
 apps/desktop/src/renderer/src/only-the-face-you-talk-to-hops.test.tsx	is what a teammate bot is unless it is told otherwise	no
 apps/desktop/src/renderer/src/only-the-face-you-talk-to-hops.test.tsx	keeps the whole performance: it hops at work, and flips on its own schedule	no
 apps/desktop/src/renderer/src/only-the-face-you-talk-to-hops.test.tsx	does not bounce as well -- it hops	no
-apps/desktop/src/renderer/src/other-app-access-is-an-explicit-setting.test.tsx	loads the actual setting, makes no enable request on mount, and shows no setup while off	no
-apps/desktop/src/renderer/src/other-app-access-is-an-explicit-setting.test.tsx	enables only after a press, then shows the exact host-owned command/config and tradeoff	no
-apps/desktop/src/renderer/src/other-app-access-is-an-explicit-setting.test.tsx	turns the server off and removes the setup text when the host confirms it	no
+apps/desktop/src/renderer/src/other-app-access-is-an-explicit-setting.test.tsx	loads the actual setting, makes no enable request on mount, and shows no setup while off	yes
+apps/desktop/src/renderer/src/other-app-access-is-an-explicit-setting.test.tsx	enables only after a press, then shows the exact host-owned command/config and tradeoff	yes
+apps/desktop/src/renderer/src/other-app-access-is-an-explicit-setting.test.tsx	turns the server off and removes the setup text when the host confirms it	yes
 apps/desktop/src/renderer/src/other-app-access-is-an-explicit-setting.test.tsx	keeps the actual off state and says why if the listener could not be enabled	yes
 apps/desktop/src/renderer/src/other-app-access-is-an-explicit-setting.test.tsx	offers each teammate's own mode only while the server is on, off by default and said so	yes
 apps/desktop/src/renderer/src/other-app-access-is-an-explicit-setting.test.tsx	turns own mode on only after a press, and says who answers approvals	yes
