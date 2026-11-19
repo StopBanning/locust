@@ -226,6 +226,9 @@ apps/desktop/src/main/a-folder-is-one-folder-however-spelled.test.ts	is the know
 apps/desktop/src/main/a-folder-is-one-folder-however-spelled.test.ts	and at start, before the registry is open	no
 apps/desktop/src/main/a-folder-is-one-folder-however-spelled.test.ts	a different folder stays itself	no
 apps/desktop/src/main/a-folder-is-one-folder-however-spelled.test.ts	a folder that is not there, or no registry yet, is left as written	no
+apps/desktop/src/main/a-forget-with-nothing-remembered-says-nothing.test.ts	is answered as nothing remembered, by the store	yes
+apps/desktop/src/main/a-forget-with-nothing-remembered-says-nothing.test.ts	says nothing in the thread	yes
+apps/desktop/src/main/a-forget-with-nothing-remembered-says-nothing.test.ts	still says a miss when something is remembered, opening with a capital	yes
 apps/desktop/src/main/a-forgotten-memory-can-come-back.test.ts	a person’s Remove: held, by you -- and Restore puts it back exactly as it was, briefed again	no
 apps/desktop/src/main/a-forgotten-memory-can-come-back.test.ts	a teammate’s forget in "Keep and tell me": held, by that teammate	no
 apps/desktop/src/main/a-forgotten-memory-can-come-back.test.ts	a forget the person agreed to ("Forget it"): held, by the teammate who asked	no
@@ -320,6 +323,12 @@ apps/desktop/src/main/a-memory-nobody-is-given-says-so.test.ts	a proposal, or an
 apps/desktop/src/main/a-memory-nobody-is-given-says-so.test.ts	is counted from the last brief, the last write, or when counting began -- whichever is latest -- past ${String(UNUSED_AFTER_DAYS)} days	no
 apps/desktop/src/main/a-memory-nobody-is-given-says-so.test.ts	says so in the file every teammate reads, so a tidy pass can see it	no
 apps/desktop/src/main/a-memory-nobody-is-given-says-so.test.ts	the same choice, made by the same function	no
+apps/desktop/src/main/a-memory-whose-file-changed-may-be-out-of-date.test.ts	takes paths and project file names; not URLs, versions or abbreviations	yes
+apps/desktop/src/main/a-memory-whose-file-changed-may-be-out-of-date.test.ts	names them in a sentence	yes
+apps/desktop/src/main/a-memory-whose-file-changed-may-be-out-of-date.test.ts	a named file saved after the memory is listed; one saved before, missing, or outside the folder is not	yes
+apps/desktop/src/main/a-memory-whose-file-changed-may-be-out-of-date.test.ts	a date that does not read says nothing	yes
+apps/desktop/src/main/a-memory-whose-file-changed-may-be-out-of-date.test.ts	the brief says so beside the memory	yes
+apps/desktop/src/main/a-memory-whose-file-changed-may-be-out-of-date.test.ts	and so does the file	yes
 apps/desktop/src/main/a-model-list-missing-one-is-asked-again.test.ts	names the case	no
 apps/desktop/src/main/a-model-list-missing-one-is-asked-again.test.ts	reads again instead of keeping the incomplete answer	no
 apps/desktop/src/main/a-model-of-your-own-is-unpriced-not-free.test.ts	is one the person added, which OpenCode runs -- and an old record without a model is not	yes
@@ -336,6 +345,9 @@ apps/desktop/src/main/a-named-memory-replaces-the-one-before-it.test.ts	does not
 apps/desktop/src/main/a-named-memory-replaces-the-one-before-it.test.ts	keeps a name to its own place: this folder and everywhere are different memories	no
 apps/desktop/src/main/a-named-memory-replaces-the-one-before-it.test.ts	does not promote a proposed memory by rewriting it	no
 apps/desktop/src/main/a-named-memory-replaces-the-one-before-it.test.ts	survives a reload, name and history intact	no
+apps/desktop/src/main/a-new-project-is-told-how-to-write-its-first-memory.test.ts	says nothing is remembered and how to write the first memory, block and all	yes
+apps/desktop/src/main/a-new-project-is-told-how-to-write-its-first-memory.test.ts	leaves out how to read memories until there is one, and brings it back with the first	yes
+apps/desktop/src/main/a-new-project-is-told-how-to-write-its-first-memory.test.ts	still gives the memory paragraphs up first when a run that belongs to nobody is over the cap (A5.3)	yes
 apps/desktop/src/main/a-paused-routine-waits-to-be-resumed.test.ts	is not started by its schedule and records no miss, however overdue	yes
 apps/desktop/src/main/a-paused-routine-waits-to-be-resumed.test.ts	still starts when a person presses Run	yes
 apps/desktop/src/main/a-paused-routine-waits-to-be-resumed.test.ts	resumed, counts from the resume: a long-overdue hourly routine does not fire on the spot, and does an hour on	yes
@@ -516,6 +528,24 @@ apps/desktop/src/main/a-report-can-reach-support-by-email-or-file.test.ts	carrie
 apps/desktop/src/main/a-report-can-reach-support-by-email-or-file.test.ts	keeps the END of a long conversation while it fits, and when none fits says the file carries it	no
 apps/desktop/src/main/a-report-can-reach-support-by-email-or-file.test.ts	subjects a long description by its first words, and a blank one as a problem	no
 apps/desktop/src/main/a-report-can-reach-support-by-email-or-file.test.ts	is whole: the words, the facts, the conversation uncut, and the log line	no
+apps/desktop/src/main/a-resumed-session-is-told-only-what-changed.test.ts	is the whole brief on the first turn, and says which paragraphs it stands on	yes
+apps/desktop/src/main/a-resumed-session-is-told-only-what-changed.test.ts	is only what the session was not given on a later turn, after one line that says the rest holds	yes
+apps/desktop/src/main/a-resumed-session-is-told-only-what-changed.test.ts	sends again the paragraph that changed, and only that one	yes
+apps/desktop/src/main/a-resumed-session-is-told-only-what-changed.test.ts	is the whole brief, word for word, when the session holds none of it	yes
+apps/desktop/src/main/a-resumed-session-is-told-only-what-changed.test.ts	works the same for a run that belongs to nobody	yes
+apps/desktop/src/main/a-resumed-session-is-told-only-what-changed.test.ts	is trusted only for a turn that resumes a session that did not compact	yes
+apps/desktop/src/main/a-resumed-session-is-told-only-what-changed.test.ts	is set aside every few turns regardless, so the whole brief comes back	yes
+apps/desktop/src/main/a-resumed-session-is-told-only-what-changed.test.ts	keeps what the session held, with this brief's paragraphs newest	yes
+apps/desktop/src/main/a-resumed-session-is-told-only-what-changed.test.ts	reads a compaction from any runtime that reports one	yes
+apps/desktop/src/main/a-resumed-session-is-told-only-what-changed.test.ts	is read back by the next start of the app	yes
+apps/desktop/src/main/a-resumed-session-is-told-only-what-changed.test.ts	is no record at all when it cannot be read, so the turn is briefed in full	yes
+apps/desktop/src/main/a-resumed-session-is-told-only-what-changed.test.ts	briefs a resumed turn with what changed, and in full again after the session compacted	yes
+apps/desktop/src/main/a-rewrite-is-credited-to-its-writer.test.ts	a teammate’s rewrite ("Keep and tell me"): credited to the teammate; `by` stays who first kept it	yes
+apps/desktop/src/main/a-rewrite-is-credited-to-its-writer.test.ts	a change the person kept ("Keep the change"): credited to the teammate who proposed it	yes
+apps/desktop/src/main/a-rewrite-is-credited-to-its-writer.test.ts	the person’s own edit, and Put it back: credited to the person	yes
+apps/desktop/src/main/a-rewrite-is-credited-to-its-writer.test.ts	a writer in the file that does not read is dropped, not trusted	yes
+apps/desktop/src/main/a-rewrite-is-credited-to-its-writer.test.ts	rewrites a file that still lists memories, so a teammate cannot read them there	yes
+apps/desktop/src/main/a-rewrite-is-credited-to-its-writer.test.ts	writes nothing in a folder that never had the file, or where it already says so	yes
 apps/desktop/src/main/a-room-member-is-told-the-room-so-far.test.ts	carries the room so far between what arrived this turn and the post	yes
 apps/desktop/src/main/a-room-member-is-told-the-room-so-far.test.ts	is exactly the brief it was when there is no room	yes
 apps/desktop/src/main/a-room-member-is-told-the-room-so-far.test.ts	never pushes out a waiting message: it takes only what is left	yes
@@ -602,6 +632,10 @@ apps/desktop/src/main/a-run-in-its-own-copy-is-not-told-the-project-folder.test.
 apps/desktop/src/main/a-run-in-its-own-copy-is-not-told-the-project-folder.test.ts	hands the run's own folder to the brief, for a teammate's run and for nobody's	yes
 apps/desktop/src/main/a-run-in-its-own-copy-is-not-told-the-project-folder.test.ts	in its own line, and in its LOCUST.md section	yes
 apps/desktop/src/main/a-run-in-its-own-copy-is-not-told-the-project-folder.test.ts	and a run in its own copy still hears neither	yes
+apps/desktop/src/main/a-run-that-is-nobodys-still-knows-the-project.test.ts	is briefed with the folder and the project memory, and with no roster	yes
+apps/desktop/src/main/a-run-that-is-nobodys-still-knows-the-project.test.ts	runs on the person's words alone when there is no memory to read	yes
+apps/desktop/src/main/a-run-that-is-nobodys-still-knows-the-project.test.ts	keeps the person's words when the briefing would not fit	yes
+apps/desktop/src/main/a-run-that-is-nobodys-still-knows-the-project.test.ts	sheds the team memory first when it would not fit, and keeps LOCUST.md and the formats	yes
 apps/desktop/src/main/a-runtime-command-is-sent-as-typed.test.ts	goes to the runtime alone, with no brief and no plan instruction after it	yes
 apps/desktop/src/main/a-runtime-command-is-sent-as-typed.test.ts	is briefed like any message when the words came from a routine, whatever the caller says	yes
 apps/desktop/src/main/a-runtime-command-is-sent-as-typed.test.ts	is briefed like any message when nobody said it was a command	no
@@ -720,6 +754,20 @@ apps/desktop/src/main/a-theme-is-the-persons-choice.test.ts	leaves a Linux profi
 apps/desktop/src/main/a-theme-is-the-persons-choice.test.ts	follows the computer under Match computer, and is itself otherwise	no
 apps/desktop/src/main/a-theme-is-the-persons-choice.test.ts	paints the window's first frame in that theme's ground	no
 apps/desktop/src/main/a-theme-is-the-persons-choice.test.ts	reaches the page on its command line, and reads as dark when it says nothing readable	no
+apps/desktop/src/main/a-tidy-pass-only-suggests.test.ts	a merge, a retirement and a rewrite wait beside the memories, which stay briefed	yes
+apps/desktop/src/main/a-tidy-pass-only-suggests.test.ts	refuses what it cannot stand behind, and says why	yes
+apps/desktop/src/main/a-tidy-pass-only-suggests.test.ts	asked twice, still one of each; a newer rewrite updates the one waiting	yes
+apps/desktop/src/main/a-tidy-pass-only-suggests.test.ts	Merge them: the first takes the words, the rest go to Recently forgotten by who suggested it	yes
+apps/desktop/src/main/a-tidy-pass-only-suggests.test.ts	Keep them apart: only the suggestion goes	yes
+apps/desktop/src/main/a-tidy-pass-only-suggests.test.ts	THE HASH GATE: a suggestion about words that changed is refused when kept, and dropped	yes
+apps/desktop/src/main/a-tidy-pass-only-suggests.test.ts	the gate covers an "Ask me first" rewrite too: kept after the person edited it, refused	yes
+apps/desktop/src/main/a-tidy-pass-only-suggests.test.ts	makes a tidy reply proposals even in "Keep and tell me", and says what it could not make	yes
+apps/desktop/src/main/a-tidy-pass-only-suggests.test.ts	reads a block in a code fence, with bulleted and numbered lines	yes
+apps/desktop/src/main/a-tidy-pass-only-suggests.test.ts	says, in the conversation, how many lines it could not read -- and still proposes the rest	yes
+apps/desktop/src/main/a-tidy-pass-only-suggests.test.ts	says so even when nothing at all could be read	yes
+apps/desktop/src/main/a-tidy-pass-only-suggests.test.ts	says, quietly, when a tidy pass put nothing to the person -- and says nothing for any other reply	yes
+apps/desktop/src/main/a-tidy-pass-only-suggests.test.ts	says nothing about the brief’s own example, repeated	yes
+apps/desktop/src/main/a-tidy-pass-only-suggests.test.ts	names each memory by its id, so a tidy pass can	yes
 apps/desktop/src/main/a-tune-can-give-a-claude-teammate-a-skill.test.ts	takes a name Claude Code takes, one line on when, and what it says	no
 apps/desktop/src/main/a-tune-can-give-a-claude-teammate-a-skill.test.ts	is written as Claude Code reads a SKILL.md: a colon in its description cannot break the header	no
 apps/desktop/src/main/a-tune-can-give-a-claude-teammate-a-skill.test.ts	are asked for "knows" as a skill, and only for Claude Code	no
@@ -1285,6 +1333,14 @@ apps/desktop/src/main/memory-reader.test.ts	off means nothing is read; a run tha
 apps/desktop/src/main/memory-reader.test.ts	a conversation nobody owns is attributed as one; a store that refuses is not a crash, and the person is told why	no
 apps/desktop/src/main/memory-reader.test.ts	puts an everywhere memory to the person, in auto mode, while a folder one keeps itself	no
 apps/desktop/src/main/memory-reader.test.ts	says how many memory lines past the cap were not kept	no
+apps/desktop/src/main/memory-recall.test.ts	lower-cases, strips accents, splits punctuation and spells a word in the longest pieces it has	no
+apps/desktop/src/main/memory-recall.test.ts	stops at the model's 256 tokens, and still ends the sentence	no
+apps/desktop/src/main/memory-recall.test.ts	scores each note by how close it is to what was asked, in the notes' order	no
+apps/desktop/src/main/memory-recall.test.ts	embeds a note once, and keeps it for the next launch	no
+apps/desktop/src/main/memory-recall.test.ts	answers nothing, and says so once, when the model cannot load	no
+apps/desktop/src/main/memory-recall.test.ts	never holds a brief up: a slow answer is no answer, and the next brief has it	no
+apps/desktop/src/main/memory-recall.test.ts	pastes the closest first, the newer first on a tie	yes
+apps/desktop/src/main/memory-recall.test.ts	is exactly the keyword brief when recall did not answer	yes
 apps/desktop/src/main/memory-says-how-old.test.ts	says it the way a person would	no
 apps/desktop/src/main/memory-says-how-old.test.ts	says nothing rather than something wrong	no
 apps/desktop/src/main/memory-says-how-old.test.ts	puts the age beside who wrote it, in the brief itself	no
@@ -2518,6 +2574,10 @@ apps/desktop/src/renderer/src/a-mac-says-cmd.test.tsx	says Cmd for the chords th
 apps/desktop/src/renderer/src/a-mac-says-cmd.test.tsx	keeps Control where the handler listens for Control alone	no
 apps/desktop/src/renderer/src/a-mac-says-cmd.test.tsx	draws the shortcuts sheet in a Mac's marks, and a PC's in its own words, a key to a cap	no
 apps/desktop/src/renderer/src/a-mac-says-cmd.test.tsx	leaves no Ctrl written into a palette hint or a button title	no
+apps/desktop/src/renderer/src/a-memory-nobody-is-given-says-so-on-screen.test.tsx	says how long	yes
+apps/desktop/src/renderer/src/a-memory-nobody-is-given-says-so-on-screen.test.tsx	says nothing for one given lately, or before a month of counting	yes
+apps/desktop/src/renderer/src/a-memory-says-when-it-may-be-out-of-date.test.tsx	says which file, under the memory	yes
+apps/desktop/src/renderer/src/a-memory-says-when-it-may-be-out-of-date.test.tsx	says nothing when nothing it names changed	yes
 apps/desktop/src/renderer/src/a-memory-shows-what-it-said-before.test.tsx	shows what it said before, with Put it back, and when it changed	no
 apps/desktop/src/renderer/src/a-memory-shows-what-it-said-before.test.tsx	shows nothing extra for a memory never changed	yes
 apps/desktop/src/renderer/src/a-missed-routine-says-missed-and-run-now.test.tsx	says Missed, 08:00 today, and the row offers Run now	no
@@ -2695,6 +2755,9 @@ apps/desktop/src/renderer/src/a-retired-free-model-is-not-offered.test.ts	Exo Fr
 apps/desktop/src/renderer/src/a-retired-free-model-is-not-offered.test.ts	a model whose run ended "has been deprecated" is left out from then on	no
 apps/desktop/src/renderer/src/a-retired-free-model-is-not-offered.test.ts	one that answered again afterwards is back; another failure is not a retirement	no
 apps/desktop/src/renderer/src/a-retired-free-model-is-not-offered.test.ts	Compare on a free model puts another WORKING free model beside it	no
+apps/desktop/src/renderer/src/a-rewrite-shows-its-writer.test.tsx	names the writer of the words shown, not who first kept it	yes
+apps/desktop/src/renderer/src/a-rewrite-shows-its-writer.test.tsx	credits the rewrite to its writer	yes
+apps/desktop/src/renderer/src/a-rewrite-shows-its-writer.test.tsx	names every writer when the lines are more than one person’s	yes
 apps/desktop/src/renderer/src/a-room-names-who-it-asked.test.tsx	draws every answer, each with a Reply beside its Open	no
 apps/desktop/src/renderer/src/a-room-names-who-it-asked.test.tsx	says who the post was put to, beside its time, and only on that post	no
 apps/desktop/src/renderer/src/a-room-names-who-it-asked.test.tsx	does not report the others as not asked on the post put to Wren -- but still does on a post to everyone	no
@@ -2938,6 +3001,10 @@ apps/desktop/src/renderer/src/a-thread-shows-local-pictures.test.tsx	draws an im
 apps/desktop/src/renderer/src/a-thread-shows-local-pictures.test.tsx	draws no outside, network, SVG or refused Markdown image	no
 apps/desktop/src/renderer/src/a-thread-shows-local-pictures.test.tsx	keeps image reads out of a folded run of plain tool names	no
 apps/desktop/src/renderer/src/a-thread-shows-local-pictures.test.tsx	bounds the picture to the column width and 320 pixels without cropping	no
+apps/desktop/src/renderer/src/a-tidy-answered-leaves-no-banner.test.tsx	points at what is waiting, and says so of itself	yes
+apps/desktop/src/renderer/src/a-tidy-answered-leaves-no-banner.test.tsx	is shown while something is still waiting	yes
+apps/desktop/src/renderer/src/a-tidy-answered-leaves-no-banner.test.tsx	is gone once nothing is -- but a notice about what already happened stays until dismissed	yes
+apps/desktop/src/renderer/src/a-tidy-answered-leaves-no-banner.test.tsx	puts what is waiting for an answer above how memory works	yes
 apps/desktop/src/renderer/src/a-tidy-pass-is-answered-in-one-press.test.tsx	is offered once two or more are waiting, beside why it is safe	no
 apps/desktop/src/renderer/src/a-tidy-pass-is-answered-in-one-press.test.tsx	keeps each in turn, in order, and says every refusal once	no
 apps/desktop/src/renderer/src/a-tidy-pass-is-answered-in-one-press.test.tsx	waits for each before the next: a later one is judged against what the earlier one did	no

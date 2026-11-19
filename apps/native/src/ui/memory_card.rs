@@ -125,6 +125,11 @@ pub(crate) struct MemoryChangedUpdate<'a> {
     pub about_you_suggested: &'a [&'a str],
 }
 
+/// Whether the notice points at something waiting for the person (Electron `noticeWaits`): it goes once nothing does.
+pub(crate) fn notice_waits(update: &MemoryChangedUpdate<'_>) -> bool {
+    update.proposed.len() + update.proposed_changes.len() + update.proposed_forgets.len() + update.proposed_tidy + update.about_you_suggested.len() > 0
+}
+
 pub(crate) fn memory_changed_notice(update: &MemoryChangedUpdate<'_>) -> Option<String> {
     let quoted = |texts: &[&str]| texts.iter().map(|t| format!("\"{t}\"")).collect::<Vec<_>>().join("; ");
     let mut said = Vec::new();

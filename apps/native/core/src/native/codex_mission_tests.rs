@@ -1307,3 +1307,104 @@ fn a_write_capable_turn_records_observed_edit_for_a_file_modified_on_disk_withou
     assert_eq!(observed[0]["payload"]["status"], "observed on disk");
     assert_eq!(observed[0]["payload"]["patch"]["added"], 1);
 }
+
+// ---- a-resumed-session-is-told-only-what-changed.test.ts: through the mission service (A2.5) ----
+#[test]
+fn briefs_a_resumed_turn_with_what_changed_and_in_full_again_after_the_session_compacted() {
+    const ROSTER_RULE: &str = "Writing a teammate's name in your reply does NOT reach them.";
+    const STILL_HOLDS: &str = "You were given standing instructions earlier in this conversation";
+    let t = Temp::new();
+    t.store()
+        .save_json(
+            "teammates.json",
+            &json!({"schemaVersion": 1, "teammates": [{"teammateId": "tm_codec", "name": "Codec", "role": "Code & Migrations"},
+                {"teammateId": "tm_atlas", "name": "Atlas", "role": "Research & Briefs"}], "missionOwners": {}, "settings": {}}),
+        )
+        .unwrap();
+    let _hook = hooks::install(t.store(), codex_commands_hook(&t));
+    let sent = |t: &Temp| -> Vec<String> {
+        codex_requests(t)
+            .iter()
+            .filter(|r| r["method"] == "turn/start")
+            .map(|r| r["params"]["input"][0]["text"].as_str().unwrap().to_owned())
+            .collect()
+    };
+    // Each turn's own ledger: the one that was not there before it started (a reply answers with the conversation).
+    let turn = |t: &Temp, conversation: Option<&str>, words: &str| -> PathBuf {
+        let before = ledgers(t);
+        let started = send(job(t, conversation, words)).unwrap();
+        let path = ledgers(t).into_iter().find(|p| !before.contains(p)).expect("a turn was started");
+        finished(path.file_stem().unwrap().to_str().unwrap());
+        let _ = started;
+        path
+    };
+    let one = turn(&t, None, "First.");
+    let conversation = one.file_stem().unwrap().to_str().unwrap().to_owned();
+    let two = turn(&t, Some(&conversation), "Second.");
+    // The session summarized itself during turn two.
+    let compacted = json!({"schemaVersion": 27, "recordType": "mission.event", "occurredAt": NOW, "event": {"id": "e_compact", "sequence": 99,
+        "type": "adapter.diagnostic", "occurredAt": NOW, "sourceAdapter": "codex",
+        "payload": {"code": "codex.context_compacted", "level": "info", "message": "x", "terminal": false, "evidence": {"redacted": true}}}});
+    let mut ledger = fs::OpenOptions::new().append(true).open(&two).unwrap();
+    std::io::Write::write_all(&mut ledger, format!("{compacted}\n").as_bytes()).unwrap();
+    turn(&t, Some(&conversation), "Third.");
+
+    let told = sent(&t);
+    assert_eq!(told.len(), 3, "{told:?}");
+    assert!(told[0].contains(ROSTER_RULE));
+    // Resumed, not compacted: the line, not the rules.
+    assert!(told[1].contains(STILL_HOLDS), "{}", told[1]);
+    assert!(!told[1].contains(ROSTER_RULE));
+    assert!(told[1].split("\n\nReference folders").next().unwrap().ends_with("Second."), "{}", told[1]);
+    // The whole brief again.
+    assert!(told[2].contains(ROSTER_RULE), "{}", told[2]);
+    assert!(!told[2].contains(STILL_HOLDS));
+}
+
+// ---- memory round 1: what a real turn does with memory before it starts ----
+#[test]
+fn a_turn_writes_the_memory_file_where_it_stands_and_notes_what_its_brief_was_given() {
+    let t = Temp::new();
+    crate::people::add_memory(&t.store(), "The build is pnpm check.", None, "global", "ws_any", json!({"name": "you"}), "kept").unwrap();
+    let _hook = hooks::install(t.store(), codex_commands_hook(&t));
+    let before = ledgers(&t);
+    send(job(&t, None, "What is the build?")).unwrap();
+    let path = ledgers(&t).into_iter().find(|p| !before.contains(p)).expect("a turn was started");
+    finished(path.file_stem().unwrap().to_str().unwrap());
+    let file = fs::read_to_string(t.0.join("work").join(crate::memory_file::MEMORY_FILE_IN_FOLDER)).expect("the memory file was written");
+    let kept = crate::people::memories(&t.store()).unwrap();
+    let id = kept["memories"][0]["memoryId"].as_str().unwrap().to_owned();
+    assert!(file.contains(&format!("- The build is pnpm check. (by the person -- ")) && file.contains(&format!("[{id}]")), "{file}");
+    assert!(kept["memories"][0]["lastBriefedAt"].is_string(), "{kept}");
+    assert!(kept["briefTrackingSince"].is_string(), "{kept}");
+}
+
+/// A turn that answers `reply` to `prompt`, and the notices it left for its conversation.
+fn memory_notices(t: &Temp, prompt: &str, reply: &str) -> Vec<RelayNotice> {
+    crate::people::add_memory(&t.store(), "Tests run with pnpm test.", None, "global", "ws_any", json!({"name": "you"}), "kept").unwrap();
+    fs::write(t.0.join("work/commands-reply.json"), json!({"text": reply, "status": "completed"}).to_string()).unwrap();
+    let _hook = hooks::install(t.store(), codex_commands_hook(t));
+    let before = ledgers(t);
+    send(job(t, None, prompt)).unwrap();
+    let path = ledgers(t).into_iter().find(|p| !before.contains(p)).expect("a turn was started");
+    let id = path.file_stem().unwrap().to_str().unwrap().to_owned();
+    finished(&id);
+    relay_live_state(&[id]).notices
+}
+
+#[test]
+fn a_forget_that_missed_is_said_in_the_thread_in_amber() {
+    let t = Temp::new();
+    let said = memory_notices(&t, "Clean up.", "Done.\n<locust-memory>\nforget :: anything at all\n</locust-memory>");
+    assert_eq!(said.len(), 1, "{said:?}");
+    assert!(said[0].message.contains("tried to forget something and could not."), "{said:?}");
+    assert_eq!(said[0].level, "warning");
+}
+
+#[test]
+fn a_tidy_pass_that_put_nothing_to_the_person_says_so_quietly_in_the_thread() {
+    let t = Temp::new();
+    let said = memory_notices(&t, &crate::memory_tidy::tidy_prompt(), "Summary: the port memory is stale.");
+    assert_eq!(said.len(), 1, "{said:?}");
+    assert_eq!((said[0].message.as_str(), said[0].level.as_str()), ("Nothing from this tidy pass waits on the Memory screen.", "info"));
+}

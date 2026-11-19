@@ -51,6 +51,16 @@ pub fn memories(store: &Store) -> Result<Value, String> {
     {
         return Err(MEMORY_UNREADABLE.into());
     }
+    // A writer in the file that does not read is dropped, not trusted (A1.6): the memory reads as its first keeper's.
+    if let Some(rows) = file.get_mut("memories").and_then(Value::as_array_mut) {
+        for row in rows.iter_mut() {
+            if row.get("updatedBy").is_some() && !actor_reads(&row["updatedBy"]) {
+                if let Some(fields) = row.as_object_mut() {
+                    fields.remove("updatedBy");
+                }
+            }
+        }
+    }
     if let Some(bin) = file.get_mut("forgotten").and_then(Value::as_array_mut) {
         bin.retain(|m| {
             chrono::DateTime::parse_from_rfc3339(m["forgottenAt"].as_str().unwrap_or(""))
@@ -58,6 +68,15 @@ pub fn memories(store: &Store) -> Result<Value, String> {
         });
     }
     Ok(file)
+}
+/// Electron `memory-store.parsedActor`: a name of 1-80 characters that is not blank, and a safe teammate id if any.
+fn actor_reads(actor: &Value) -> bool {
+    let name_reads = actor["name"].as_str().is_some_and(|n| !n.trim().is_empty() && n.encode_utf16().count() <= 80);
+    let id_reads = match actor.get("teammateId") {
+        None => true,
+        Some(id) => id.as_str().is_some_and(|id| crate::invariants::regex(r"^[A-Za-z0-9_-]{1,64}$").is_match(id)),
+    };
+    actor.is_object() && name_reads && id_reads
 }
 fn secret_kind(text: &str) -> Option<&'static str> {
     crate::secrets::secret_in(text)
@@ -505,6 +524,8 @@ pub fn add_memory(
     }
     if let Some(at) = at {
         row["replaces"] = rows[at]["memoryId"].clone();
+        // The hash gate covers an "Ask me first" rewrite too: kept after the person changed the words, it is refused.
+        row["basis"] = json!(fingerprint(std::slice::from_ref(&rows[at])));
     }
     rows.push(row);
     store.save_json("memories.json", &file)
@@ -603,6 +624,9 @@ pub fn change_memory(
                     held["text"] = proposal["text"].clone();
                     held["updatedAt"] = json!(now());
                     held["updatedBy"] = proposal["by"].clone();
+                    if proposal["missionId"].is_string() {
+                        held["missionId"] = proposal["missionId"].clone();
+                    }
                     rows.retain(|r| {
                         if ids.iter().skip(1).any(|id| r["memoryId"] == *id) {
                             gone.push(r.clone());
@@ -632,9 +656,13 @@ pub fn change_memory(
                 if text.is_empty() || secret(&text) {
                     return Err("A memory is one line of text, up to 300 characters.".into());
                 }
-                rows[at]["previousText"] = rows[at]["text"].clone();
-                rows[at]["text"] = json!(text);
-                rows[at]["updatedAt"] = json!(now());
+                // The person's own words are credited to the person, whoever kept the memory first (A1.6).
+                if rows[at]["text"] != text {
+                    rows[at]["previousText"] = rows[at]["text"].clone();
+                    rows[at]["text"] = json!(text);
+                    rows[at]["updatedAt"] = json!(now());
+                    rows[at]["updatedBy"] = json!({"name":"you"});
+                }
             }
             _ => return Err("That change could not be read.".into()),
         }
@@ -722,7 +750,7 @@ fn about_you_section(note: &str) -> String {
     .join("\n")
 }
 /// Electron `memory.memoryAge`.
-fn memory_age_owned(at: &str, now: chrono::DateTime<chrono::Utc>) -> Option<String> {
+pub(crate) fn memory_age(at: &str, now: chrono::DateTime<chrono::Utc>) -> Option<String> {
     let written = chrono::DateTime::parse_from_rfc3339(at).ok()?;
     let days = now.signed_duration_since(written).num_days();
     if days < 0 {
@@ -743,6 +771,12 @@ fn memory_age_owned(at: &str, now: chrono::DateTime<chrono::Utc>) -> Option<Stri
 }
 const BLOCK_PLACEMENT: &str = "put it at the end of your reply; if more than one of these blocks applies, put them one after another, in any order";
 const ABOUT_YOU_OP: &str = "about you :: one sentence for the person's own About-you note (how they like to work), which they decide whether to add";
+/// How the memory section's paragraphs open (Electron `MEMORY_HEADING`, `MEMORY_RULES`, `MEMORY_WRITE`): the listing,
+/// the rules for reading notes, and -- with nothing remembered -- the rules for writing the first one (0.810).
+pub const MEMORY_HEADING: &str = "Your team keeps a shared memory.";
+pub const MEMORY_RULES: &str = "These are notes your team wrote earlier,";
+pub const MEMORY_WRITE: &str = "If this work taught you something";
+pub const MEMORY_OPENINGS: [&str; 3] = [MEMORY_HEADING, MEMORY_RULES, MEMORY_WRITE];
 pub const MEMORY_BRIEF_LINES: usize = 24;
 pub const MEMORY_BRIEF_BUDGET: usize = 4000;
 pub const MEMORY_BRIEF_LINES_WITH_FILE: usize = 8;
@@ -777,6 +811,24 @@ pub fn memories_for_brief<'a>(
     query: Option<&str>,
     max_lines: usize,
 ) -> Vec<&'a Value> {
+    memories_for_brief_by(rows, query, max_lines, None)
+}
+
+/// `memories_for_brief` with recall's answer (Electron 0.454, `similarity`: one score per row, in the rows' order).
+/// By meaning when recall answered: every note in order of how close it is to what was asked, the newer first on a
+/// tie -- replacing the shared-word order rather than joining it. An answer of the wrong length, or no question, is
+/// no answer: the keyword brief, exactly.
+pub fn memories_for_brief_by<'a>(
+    rows: &'a [Value],
+    query: Option<&str>,
+    max_lines: usize,
+    similarity: Option<&[f64]>,
+) -> Vec<&'a Value> {
+    if let Some(scores) = similarity.filter(|s| query.is_some() && s.len() == rows.len()) {
+        let mut ranked: Vec<(usize, &Value)> = rows.iter().enumerate().collect();
+        ranked.sort_by(|l, r| scores[r.0].total_cmp(&scores[l.0]).then_with(|| r.0.cmp(&l.0)));
+        return ranked.into_iter().map(|(_, m)| m).collect();
+    }
     let here: Vec<&Value> = rows.iter().filter(|m| m["scope"] != "global").collect();
     let everywhere: Vec<&Value> = rows.iter().filter(|m| m["scope"] == "global").collect();
     let mut by_date: Vec<&Value> = here.iter().rev().take(max_lines).copied().collect();
@@ -837,6 +889,16 @@ pub fn briefed_memories<'a>(
     query: Option<&str>,
     file: Option<&str>,
 ) -> Vec<&'a Value> {
+    briefed_memories_by(rows, query, file, None)
+}
+
+/// `briefed_memories` ranked by recall's `similarity` when it answered (`memories_for_brief_by`).
+pub fn briefed_memories_by<'a>(
+    rows: &'a [Value],
+    query: Option<&str>,
+    file: Option<&str>,
+    similarity: Option<&[f64]>,
+) -> Vec<&'a Value> {
     let max_lines = if file.is_some() {
         MEMORY_BRIEF_LINES_WITH_FILE
     } else {
@@ -847,7 +909,7 @@ pub fn briefed_memories<'a>(
     } else {
         MEMORY_BRIEF_BUDGET
     };
-    let candidates = memories_for_brief(rows, query, max_lines);
+    let candidates = memories_for_brief_by(rows, query, max_lines, similarity);
     let mut briefed = Vec::new();
     let mut spent = 0usize;
     for memory in candidates.into_iter().take(max_lines) {
@@ -862,7 +924,7 @@ pub fn briefed_memories<'a>(
 }
 
 /// Electron `memory.memorySection` (with topic recall and optional workspace file disclosure).
-fn memory_section(
+pub(crate) fn memory_section(
     self_name: Option<&str>,
     workspace_name: Option<&str>,
     rows: &[Value],
@@ -889,11 +951,8 @@ fn memory_section(
         let mut lines: Vec<String> = briefed
             .iter()
             .map(|memory| {
-                let mut by = memory["by"]["name"]
-                    .as_str()
-                    .or_else(|| memory["updatedBy"]["name"].as_str())
-                    .unwrap_or("a conversation")
-                    .to_owned();
+                // Whoever wrote the words the teammate will read (A1.6), not who first kept it.
+                let mut by = crate::memory_file::writer(memory).to_owned();
                 if by == "you" {
                     by = "the person".into();
                 }
@@ -907,9 +966,21 @@ fn memory_section(
                     .and_then(|v| v.as_str())
                     .or_else(|| memory["createdAt"].as_str())
                     .unwrap_or("");
-                let dated = match memory_age_owned(at, now) {
+                let dated = match memory_age(at, now) {
                     Some(age) => format!("{place}, {age}"),
                     None => place,
+                };
+                // A1.3: said where the teammate will weigh it, not hidden.
+                let changed: Vec<String> = memory["changedSince"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|f| f.as_str().map(str::to_owned))
+                    .collect();
+                let dated = if changed.is_empty() {
+                    dated
+                } else {
+                    format!("{dated}; may be out of date: {}", crate::memory_file::out_of_date(&changed))
                 };
                 format!(
                     "- {} ({dated})",
@@ -996,7 +1067,7 @@ pub fn brief_with_instructions(
         None,
         None,
         Some(prompt),
-        false,
+        None,
     )?;
     sections.push(prompt.to_owned());
     Ok(sections.join("\n\n"))
@@ -1098,6 +1169,29 @@ pub fn turn_brief_with_group_room_and_copy(
     room_history: Option<&crate::room_history::RoomHistory>,
     own_folder: Option<&Path>,
 ) -> Result<(String, Vec<crate::workroom::Message>), String> {
+    let (composed, quoted, _) = turn_brief_held(
+        store, who, folder, prompt, instructions_override, group, runtime, inbound, remaining, room_history, own_folder, None,
+    )?;
+    Ok((composed, quoted))
+}
+
+/// A2.5: `turn_brief_with_group_room_and_copy` for a turn whose session already holds `already_given`. Answers the
+/// prompt, the waiting messages it quotes, and the paragraph keys the brief stands on (brief_sessions).
+#[allow(clippy::too_many_arguments)]
+pub fn turn_brief_held(
+    store: &Store,
+    who: &str,
+    folder: &Path,
+    prompt: &str,
+    instructions_override: Option<&str>,
+    group: Option<(&str, &str)>,
+    runtime: Option<&str>,
+    inbound: &[crate::workroom::Message],
+    remaining: usize,
+    room_history: Option<&crate::room_history::RoomHistory>,
+    own_folder: Option<&Path>,
+    already_given: Option<&std::collections::HashSet<String>>,
+) -> Result<(String, Vec<crate::workroom::Message>, Vec<String>), String> {
     let file = team(store)?;
     let roster: Vec<crate::briefing::PeerEntry> = file["teammates"].as_array().into_iter().flatten().filter_map(peer_entry).collect();
     let mut standing = Vec::new();
@@ -1115,12 +1209,14 @@ pub fn turn_brief_with_group_room_and_copy(
         group,
         runtime,
         Some(prompt),
-        own_folder.is_some(),
+        own_folder,
     )?);
     // The person's "keep a todo list" switch (todo-list-is-opt-in): a setting that cannot be read reads as off.
     let todos = crate::workspace_settings::load(store).is_ok_and(|s| s.keep_a_todo_list);
     standing.extend(crate::briefing::standing_formats(runtime, todos));
-    let (composed, kept) = crate::briefing::assemble_with_room_history(
+    let me = roster.iter().find(|e| e.teammate_id == who);
+    let others: Vec<crate::briefing::PeerEntry> = roster.iter().filter(|e| e.teammate_id != who).cloned().collect();
+    let (composed, kept, given) = crate::briefing::assemble_held(
         &standing,
         inbound,
         remaining,
@@ -1128,8 +1224,10 @@ pub fn turn_brief_with_group_room_and_copy(
         Some(chrono::Utc::now()),
         prompt,
         room_history.map(|h| (h, who)),
+        already_given,
+        me.map(|me| (me, others.as_slice())),
     );
-    Ok((composed, inbound[..kept].to_vec()))
+    Ok((composed, inbound[..kept].to_vec(), given))
 }
 
 /// Post a finished reply's share blocks from this teammate (peer_exchange::share_reply); returns what the person should
@@ -1173,6 +1271,128 @@ pub fn share_reply_for_relay(
     )
 }
 
+/// What a brief says in place of the memory when the memory file cannot be read (Electron index.ts memoryPart).
+pub const MEMORY_NOT_READ: &str =
+    "TEAM MEMORY could not be read for this run. Nothing in it was changed; do not assume it is empty.";
+
+/// The memories a brief in `folder` stands on -- kept, switched on, this folder's and everywhere's -- each marked with
+/// the files it names that changed since it was written, checked where the run stands. `None` when the memory file
+/// cannot be read.
+fn briefed_rows(store: &Store, folder: &Path, stands_in: Option<&Path>) -> Option<Vec<Value>> {
+    let held = memories(store).ok()?;
+    let here = workspace_id(folder);
+    let looked_in = stands_in.unwrap_or(folder);
+    let tracking = held["briefTrackingSince"].as_str();
+    let now = chrono::Utc::now();
+    Some(
+        held["memories"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter(|m| m["status"] == "kept" && m["enabled"] == true && (m["scope"] == "global" || m["workspaceId"] == here))
+            .map(|m| {
+                let mut row = m.clone();
+                let changed = crate::memory_file::changed_since(
+                    looked_in,
+                    m["text"].as_str().unwrap_or(""),
+                    crate::memory_file::last_written(m).unwrap_or(""),
+                );
+                if !changed.is_empty() {
+                    row["changedSince"] = json!(changed);
+                }
+                if let Some(days) = days_unused(m, tracking, now) {
+                    row["unusedDays"] = json!(days);
+                }
+                row
+            })
+            .collect(),
+    )
+}
+
+/// Before a run: the whole list written to `.locust/memory.md` where the run stands, so the brief can paste the newest
+/// few and the teammate can read the rest itself; with memory off, a file left from before is retired (A1.7). Best
+/// effort: answers the file the brief will name, or `None`, and the brief then pastes as before.
+pub fn write_brief_memory_file(store: &Store, folder: &Path, stands_in: Option<&Path>) -> Option<&'static str> {
+    let at = stands_in.unwrap_or(folder);
+    if team(store).is_ok_and(|f| f["settings"]["memoryMode"] == "off") {
+        crate::memory_file::retire_memory_file(at);
+        return None;
+    }
+    let rows = briefed_rows(store, folder, stands_in)?;
+    let written = crate::memory_file::write_memory_file(at, &crate::memory_file::memory_file_text(&rows, chrono::Utc::now()));
+    if written.is_none() {
+        eprintln!("Memory file was not written under {}", at.display());
+    }
+    written
+}
+
+/// A memory no teammate has been given in this many days says so (A1.4).
+pub const UNUSED_AFTER_DAYS: i64 = 30;
+
+/// How many days since a memory was last given to a teammate, counted from the last brief, the last write, or when
+/// counting began -- whichever is latest -- once that is past `UNUSED_AFTER_DAYS`. Nothing before counting began.
+pub fn days_unused(memory: &Value, tracking_since: Option<&str>, now: chrono::DateTime<chrono::Utc>) -> Option<i64> {
+    let read = |at: Option<&str>| at.and_then(|at| chrono::DateTime::parse_from_rfc3339(at).ok()).map(|at| at.timestamp_millis());
+    let tracking = read(tracking_since)?;
+    let since = [read(crate::memory_file::last_written(memory)), read(memory["lastBriefedAt"].as_str()), Some(tracking)]
+        .into_iter()
+        .flatten()
+        .max()?;
+    let days = (now.timestamp_millis() - since).div_euclid(24 * 60 * 60 * 1000);
+    (days > UNUSED_AFTER_DAYS).then_some(days)
+}
+
+/// Electron `memory-store.noteBriefed`: these memories were given to a teammate. At most once a day per memory, so a
+/// day of runs is one write; a proposal, or an id the store does not keep, is not noted. The first note starts the
+/// count (`briefTrackingSince`).
+pub fn note_briefed(store: &Store, ids: &[String]) -> Result<(), String> {
+    let _lock = WRITES.lock().map_err(|e| e.to_string())?;
+    let mut file = memories(store)?;
+    let now = chrono::Utc::now();
+    let mut changed = file.get("briefTrackingSince").and_then(Value::as_str).is_none();
+    for row in file["memories"].as_array_mut().into_iter().flatten() {
+        if row["status"] != "kept" || !ids.iter().any(|id| row["memoryId"] == id.as_str()) {
+            continue;
+        }
+        let recent = row["lastBriefedAt"]
+            .as_str()
+            .and_then(|at| chrono::DateTime::parse_from_rfc3339(at).ok())
+            .is_some_and(|at| now.signed_duration_since(at) < chrono::Duration::days(1));
+        if !recent {
+            row["lastBriefedAt"] = json!(now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true));
+            changed = true;
+        }
+    }
+    if !changed {
+        return Ok(());
+    }
+    if file.get("briefTrackingSince").and_then(Value::as_str).is_none() {
+        file["briefTrackingSince"] = json!(now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true));
+    }
+    store.save_json("memories.json", &file)
+}
+
+/// After a run's brief: note what it was given -- exactly what the section pasted, the same choice made by the same
+/// function (`briefed_memories`, with the prompt and the file as the brief had them).
+pub fn note_brief_given(store: &Store, folder: &Path, stands_in: Option<&Path>, prompt: &str) -> Result<(), String> {
+    if team(store).is_ok_and(|f| f["settings"]["memoryMode"] == "off") {
+        return Ok(());
+    }
+    let Some(rows) = briefed_rows(store, folder, stands_in) else {
+        return Ok(());
+    };
+    let file = crate::memory_file::memory_file_is(
+        stands_in.unwrap_or(folder),
+        &crate::memory_file::memory_file_text(&rows, chrono::Utc::now()),
+    )
+    .then_some(crate::memory_file::MEMORY_FILE_IN_FOLDER);
+    let ids: Vec<String> = briefed_memories(&rows, Some(prompt), file)
+        .into_iter()
+        .filter_map(|m| m["memoryId"].as_str().map(str::to_owned))
+        .collect();
+    note_briefed(store, &ids)
+}
+
 /// The workspace, the teammate's standing instructions, the person's note, the memory, and the folder's office files.
 #[allow(clippy::too_many_arguments)]
 fn workspace_sections(
@@ -1183,8 +1403,9 @@ fn workspace_sections(
     group: Option<(&str, &str)>,
     runtime: Option<&str>,
     query: Option<&str>,
-    stands_apart: bool,
+    stands_in: Option<&Path>,
 ) -> Result<Vec<String>, String> {
+    let stands_apart = stands_in.is_some();
     let file = team(store)?;
     let teammate = file["teammates"]
         .as_array()
@@ -1223,19 +1444,14 @@ fn workspace_sections(
     if let Some(note) = about {
         sections.push(about_you_section(note));
     }
-    if !memory_off {
-        let memories = memories(store)?;
-        let applicable: Vec<Value> = memories["memories"]
-            .as_array()
-            .into_iter()
-            .flatten()
-            .filter(|m| {
-                m["status"] == "kept"
-                    && m["enabled"] == true
-                    && (m["scope"] == "global" || m["workspaceId"] == workspace_id(folder))
-            })
-            .cloned()
-            .collect();
+    if memory_off {
+        // A1.7: a file written while memory was on no longer lists what is remembered.
+        crate::memory_file::retire_memory_file(stands_in.unwrap_or(folder));
+    } else if let Some(applicable) = briefed_rows(store, folder, stands_in) {
+        let file_text = crate::memory_file::memory_file_text(&applicable, chrono::Utc::now());
+        // The brief names the file only when it is there and says what the store says (write_brief_memory_file).
+        let named_file = crate::memory_file::memory_file_is(stands_in.unwrap_or(folder), &file_text)
+            .then_some(crate::memory_file::MEMORY_FILE_IN_FOLDER);
         let workspace_name = folder
             .file_name()
             .and_then(|n| n.to_str())
@@ -1248,9 +1464,12 @@ fn workspace_sections(
             ask_first,
             about.is_some(),
             chrono::Utc::now(),
-            None,
+            named_file,
             query,
         ));
+    } else {
+        // A memory file that cannot be read is never a refusal to run, and never passes for empty.
+        sections.push(MEMORY_NOT_READ.to_owned());
     }
     if let Some(office) = crate::office::office_words_section(folder) {
         sections.push(office);
@@ -1294,7 +1513,63 @@ pub fn memory_ops(reply: &str) -> Vec<(String, Option<String>, String)> {
         .take(4)
         .collect()
 }
-pub fn record_reply(store: &Store, who: &str, folder: &Path, reply: &str) -> Result<(), String> {
+/// Why a `forget` found nothing to forget (Electron `memory-store.forget`'s refusal).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ForgetRefusal {
+    /// This folder and everywhere hold no memory at all: there is nothing the forget could mean, and nothing to say.
+    NothingRemembered,
+    NothingMatched,
+    /// The quote is more than one memory's; these are the ones it could have meant.
+    Ambiguous(Vec<String>),
+}
+
+/// The one memory a forget's quote names, among this folder's and everywhere's. A proposed change carries the words
+/// of the memory it points at and is not one itself, so it is never a candidate.
+pub fn forget_target(rows: &[Value], workspace: &str, quote: &str) -> Result<Value, ForgetRefusal> {
+    let reachable: Vec<&Value> = rows
+        .iter()
+        .filter(|m| m["scope"] == "global" || m["workspaceId"] == workspace)
+        .filter(|m| m.get("replaces").is_none() && m.get("forgets").is_none() && m.get("merges").is_none())
+        .collect();
+    if reachable.is_empty() {
+        return Err(ForgetRefusal::NothingRemembered);
+    }
+    let exact: Vec<&&Value> = reachable
+        .iter()
+        .filter(|m| key(m["text"].as_str().unwrap_or("")) == key(quote))
+        .collect();
+    match exact.as_slice() {
+        [one] => Ok((**one).clone()),
+        [] => Err(ForgetRefusal::NothingMatched),
+        many => Err(ForgetRefusal::Ambiguous(
+            many.iter().map(|m| m["text"].as_str().unwrap_or("").to_owned()).collect(),
+        )),
+    }
+}
+
+/// Who wrote it, opening a notice: "a conversation" there starts a sentence.
+fn opening(name: &str) -> String {
+    let mut chars = name.chars();
+    chars.next().map(|first| first.to_uppercase().chain(chars).collect()).unwrap_or_default()
+}
+
+/// Read a finished reply's memory, about-you and tidy blocks into the store. Answers what the thread should say: a
+/// forget that missed, in amber, while every other line of the reply is still read (0.785; a miss used to abort the
+/// lines after it). A forget where nothing is remembered says nothing -- there is nothing for the person to settle.
+pub fn record_reply(store: &Store, who: &str, folder: &Path, reply: &str) -> Result<Vec<(String, &'static str)>, String> {
+    record_reply_for(store, who, folder, reply, None, None)
+}
+
+/// `record_reply` for a run: `mission` goes on each tidy suggestion it makes, and `prompt` says whether the run was
+/// a tidy pass (one that put nothing to the person says so, quietly). Answers each thread notice with its level.
+pub fn record_reply_for(
+    store: &Store,
+    who: &str,
+    folder: &Path,
+    reply: &str,
+    mission: Option<&str>,
+    prompt: Option<&str>,
+) -> Result<Vec<(String, &'static str)>, String> {
     let file = team(store)?;
     let by = file["teammates"]
         .as_array()
@@ -1302,6 +1577,7 @@ pub fn record_reply(store: &Store, who: &str, folder: &Path, reply: &str) -> Res
         .map(|t| json!({"name":t["name"],"teammateId":who}))
         .unwrap_or_else(|| json!({"name":"a conversation"}));
     let mode = file["settings"]["memoryMode"].as_str().unwrap_or("auto");
+    let mut missed: Vec<String> = Vec::new();
     for (verb, name, text) in memory_ops(reply) {
         if verb == "about you" {
             let mut current = team(store)?;
@@ -1336,26 +1612,25 @@ pub fn record_reply(store: &Store, who: &str, folder: &Path, reply: &str) -> Res
             )?;
         } else if mode != "off" && verb == "forget" {
             let memories = memories(store)?;
-            let reachable: Vec<_> = memories["memories"]
-                .as_array()
-                .into_iter()
-                .flatten()
-                .filter(|m| m["scope"] == "global" || m["workspaceId"] == workspace_id(folder))
-                .collect();
-            let exact: Vec<_> = reachable
-                .iter()
-                .filter(|m| key(m["text"].as_str().unwrap_or("")) == key(&text))
-                .collect();
-            if exact.len() != 1 {
-                return Err(
-                    "The forget quote did not match exactly one memory; nothing was removed."
-                        .into(),
-                );
-            }
-            let target = exact[0];
+            let rows = memories["memories"].as_array().map(Vec::as_slice).unwrap_or_default();
+            let target = match forget_target(rows, &workspace_id(folder), &text) {
+                Ok(target) => target,
+                Err(ForgetRefusal::NothingRemembered) => continue,
+                Err(ForgetRefusal::NothingMatched) => {
+                    missed.push(format!("\"{text}\" matches nothing that is remembered, so nothing was forgotten."));
+                    continue;
+                }
+                Err(ForgetRefusal::Ambiguous(candidates)) => {
+                    let quoted = candidates.iter().map(|c| format!("\"{c}\"")).collect::<Vec<_>>().join("; ");
+                    missed.push(format!(
+                        "\"{text}\" matches more than one memory ({quoted}), so none was forgotten. Quote one of them exactly."
+                    ));
+                    continue;
+                }
+            };
             if mode == "ask" {
                 let mut file = self::memories(store)?;
-                let mut proposal = (**target).clone();
+                let mut proposal = target.clone();
                 proposal["memoryId"] = json!(id("mem")?);
                 proposal["status"] = json!("proposed");
                 proposal["forgets"] = target["memoryId"].clone();
@@ -1373,25 +1648,43 @@ pub fn record_reply(store: &Store, who: &str, folder: &Path, reply: &str) -> Res
             }
         }
     }
+    let mut said: Vec<(String, &'static str)> = Vec::new();
+    let name = by["name"].as_str().unwrap_or("a conversation").to_owned();
     if mode != "off" {
-        // One reader for the block (memory_tidy.rs, memory-tidy.ts), and every suggestion proposed: one the store
-        // refuses (a memory changed or gone) never drops the ones after it (memory-reader.ts proposeTidy).
-        let mut refused = None;
-        for suggestion in crate::memory_tidy::parse_tidy_blocks(reply) {
-            let (ids, text, retire) = match suggestion {
-                crate::memory_tidy::TidySuggestion::Merge { ids, text } => (ids, text, false),
-                crate::memory_tidy::TidySuggestion::Retire { id, reason } => (vec![id], reason, true),
-                crate::memory_tidy::TidySuggestion::Rewrite { id, text } => (vec![id], text, false),
-            };
-            if let Err(why) = propose_tidy(store, &workspace_id(folder), &ids, &text, retire) {
-                refused.get_or_insert(why);
+        // One reader for the block (memory_tidy.rs, memory-tidy.ts), every suggestion proposed together: one the
+        // store refuses never drops the ones after it (memory-reader.ts proposeTidy). Even in "Keep and tell me", a
+        // tidy suggestion waits for the person.
+        let (suggestions, unread) = crate::memory_tidy::read_tidy_blocks(reply);
+        if !suggestions.is_empty() {
+            let (_, refused) = propose_tidy_from(store, &workspace_id(folder), by.clone(), mission, &suggestions)?;
+            // Electron says these on the Memory screen's notice; nothing carries that notice here yet, so the
+            // conversation says them instead of nobody.
+            if !refused.is_empty() {
+                said.push((format!("{} of {name}'s suggestions could not be made: {}", refused.len(), refused.join(" ")), "warning"));
             }
         }
-        if let Some(why) = refused {
-            return Err(why);
+        if unread > 0 {
+            // 0.372: said where the person is reading "Here are my suggestions:", not dropped in silence.
+            let (whose, them, they) = if unread == 1 {
+                (format!("One of {name}'s suggestions was"), "it", "it was")
+            } else {
+                (format!("{unread} of {name}'s suggestions were"), "them", "they were")
+            };
+            said.push((
+                format!("{whose} not written in a form Locust reads, so {they} not put to you. Ask {name} to write {them} again, one per line."),
+                "warning",
+            ));
+        }
+        let wrote_nothing = memory_ops(reply).is_empty() && suggestions.is_empty() && unread == 0;
+        if wrote_nothing && crate::memory_tidy::is_tidy_prompt(prompt) {
+            said.push(("Nothing from this tidy pass waits on the Memory screen.".to_owned(), "info"));
         }
     }
-    Ok(())
+    if !missed.is_empty() {
+        // Amber: the memory meant to go is still there, and only the person can settle what it should say.
+        said.insert(0, (format!("{} tried to forget something and could not. {} It is still remembered.", opening(&name), missed.join(" ")), "warning"));
+    }
+    Ok(said)
 }
 
 fn fingerprint(rows: &[Value]) -> String {
@@ -1403,6 +1696,7 @@ fn fingerprint(rows: &[Value]) -> String {
         .join("\n");
     format!("{:x}", Sha256::digest(text.as_bytes()))[..16].to_owned()
 }
+/// The person's own "Suggest rewrite" on the Memory screen: one suggestion, by "you". Answers its refusal, if any.
 pub fn propose_tidy(
     store: &Store,
     workspace: &str,
@@ -1410,53 +1704,141 @@ pub fn propose_tidy(
     text: &str,
     retire: bool,
 ) -> Result<(), String> {
+    use crate::memory_tidy::TidySuggestion;
+    let suggestion = match (retire, ids) {
+        (true, [id]) => TidySuggestion::Retire { id: id.clone(), reason: text.to_owned() },
+        (false, [id]) => TidySuggestion::Rewrite { id: id.clone(), text: text.to_owned() },
+        (false, ids) if (2..=crate::memory_tidy::MAX_MERGED).contains(&ids.len()) => TidySuggestion::Merge { ids: ids.to_vec(), text: text.to_owned() },
+        _ => return Err("A suggestion to change a memory named one this folder does not keep.".into()),
+    };
+    let (_, refused) = propose_tidy_from(store, workspace, json!({"name":"you"}), None, &[suggestion])?;
+    refused.into_iter().next().map_or(Ok(()), Err)
+}
+
+/// Electron `memory-store.proposeTidy`: each suggestion becomes a proposal that waits for the person's answer, by
+/// whoever suggested it and from its mission, with a fingerprint of the words it was made about. Nothing kept
+/// changes. Asked twice, still one of each; a newer rewrite updates the one waiting. Answers how many were proposed
+/// and why the rest were not.
+pub fn propose_tidy_from(
+    store: &Store,
+    workspace: &str,
+    by: Value,
+    mission: Option<&str>,
+    suggestions: &[crate::memory_tidy::TidySuggestion],
+) -> Result<(usize, Vec<String>), String> {
+    use crate::memory_tidy::TidySuggestion;
     let _lock = WRITES.lock().map_err(|e| e.to_string())?;
     let mut file = memories(store)?;
     let rows = file["memories"].as_array_mut().ok_or(MEMORY_UNREADABLE)?;
-    let sources: Vec<_> = ids
-        .iter()
-        .filter_map(|id| {
-            rows.iter()
-                .find(|r| {
-                    r["memoryId"] == *id
-                        && r["status"] == "kept"
-                        && (r["scope"] == "global" || r["workspaceId"] == workspace)
-                })
-                .cloned()
-        })
-        .collect();
-    if ids.is_empty()
-        || ids.len() > 6
-        || sources.len() != ids.len()
-        || ids.iter().collect::<std::collections::HashSet<_>>().len() != ids.len()
-    {
-        return Err("A suggestion to change a memory named one this folder does not keep.".into());
-    }
-    if secret(text) || text.trim().is_empty() {
-        return Err("A memory is one line of text, up to 300 characters.".into());
-    }
-    let mut proposal = sources[0].clone();
-    proposal["memoryId"] = json!(id("mem")?);
-    proposal["status"] = json!("proposed");
-    proposal["basis"] = json!(fingerprint(&sources));
-    proposal["by"] = json!({"name":"you"});
-    proposal["createdAt"] = json!(now());
-    if retire {
-        proposal["forgets"] = sources[0]["memoryId"].clone();
-        proposal["reason"] = json!(bounded(text, 300));
-    } else {
-        proposal["text"] = json!(bounded(text, 300));
-        if ids.len() > 1 {
-            proposal["merges"] = json!(ids);
-        } else {
-            proposal["replaces"] = sources[0]["memoryId"].clone();
+    let reachable = |rows: &[Value], id: &str| -> Option<Value> {
+        rows.iter()
+            .find(|r| r["memoryId"] == id && r["status"] == "kept" && (r["scope"] == "global" || r["workspaceId"] == workspace))
+            .cloned()
+    };
+    let place = |m: &Value| if m["scope"] == "global" { "global".to_owned() } else { format!("ws:{}", m["workspaceId"]) };
+    let waiting = |rows: &[Value], test: &dyn Fn(&Value) -> bool| rows.iter().position(|r| r["status"] == "proposed" && test(r));
+    let proposal = |sources: &[Value], text: &str| -> Result<Value, String> {
+        let mut p = json!({
+            "memoryId": id("mem")?, "text": text, "scope": sources[0]["scope"], "workspaceId": sources[0]["workspaceId"],
+            "workspaceName": sources[0]["workspaceName"], "by": by, "createdAt": now(), "status": "proposed",
+            "enabled": true, "basis": fingerprint(sources),
+        });
+        if let Some(mission) = mission {
+            p["missionId"] = json!(mission);
+        }
+        Ok(p)
+    };
+    let (mut proposed, mut refused) = (0usize, Vec::new());
+    for suggestion in suggestions {
+        let words = match suggestion {
+            TidySuggestion::Retire { .. } => None,
+            TidySuggestion::Merge { text, .. } | TidySuggestion::Rewrite { text, .. } => Some(text.as_str()),
+        };
+        // A tidy pass writes new wording too; a key in it is refused like one written directly.
+        if let Some(kind) = words.and_then(secret_kind) {
+            refused.push(memory_secret_refusal(kind));
+            continue;
+        }
+        if words.is_some_and(|w| w.trim().is_empty()) {
+            refused.push("A memory is one line of text, up to 300 characters.".into());
+            continue;
+        }
+        if rows.len() >= 400 {
+            refused.push("Locust keeps at most 400 memories, so the rest were not kept. Forget some first.".into());
+            break;
+        }
+        match suggestion {
+            TidySuggestion::Merge { ids, text } => {
+                let found: Vec<Option<Value>> = ids.iter().map(|id| reachable(rows, id)).collect();
+                if found.iter().any(Option::is_none) {
+                    refused.push("A suggested merge named a memory this folder does not keep.".into());
+                    continue;
+                }
+                let sources: Vec<Value> = found.into_iter().flatten().collect();
+                if sources.iter().map(place).collect::<std::collections::HashSet<_>>().len() > 1 {
+                    refused.push("A suggested merge joined memories kept in different places -- this folder and everywhere.".into());
+                    continue;
+                }
+                let same: std::collections::HashSet<&str> = ids.iter().map(String::as_str).collect();
+                let already = |r: &Value| {
+                    r["merges"].as_array().is_some_and(|m| m.len() == same.len() && m.iter().all(|id| id.as_str().is_some_and(|id| same.contains(id))))
+                };
+                if waiting(rows, &already).is_some() {
+                    continue;
+                }
+                let mut p = proposal(&sources, &bounded(text, 300))?;
+                p["merges"] = json!(ids);
+                rows.push(p);
+                proposed += 1;
+            }
+            TidySuggestion::Retire { id: target_id, reason } | TidySuggestion::Rewrite { id: target_id, text: reason } => {
+                let retire = matches!(suggestion, TidySuggestion::Retire { .. });
+                let Some(target) = reachable(rows, target_id) else {
+                    refused.push(format!(
+                        "A suggestion to {} a memory named one this folder does not keep.",
+                        if retire { "forget" } else { "change" }
+                    ));
+                    continue;
+                };
+                if retire {
+                    if waiting(rows, &|r: &Value| r["forgets"] == target["memoryId"]).is_some() {
+                        continue;
+                    }
+                    let mut p = proposal(std::slice::from_ref(&target), target["text"].as_str().unwrap_or(""))?;
+                    p["forgets"] = target["memoryId"].clone();
+                    p["reason"] = json!(bounded(reason, 300));
+                    rows.push(p);
+                    proposed += 1;
+                    continue;
+                }
+                let text = bounded(reason, 300);
+                if target["text"] == text.as_str() {
+                    continue;
+                }
+                if let Some(at) = waiting(rows, &|r: &Value| r["replaces"] == target["memoryId"]) {
+                    // Its own earlier rewrite, still unanswered: the newer words win.
+                    if rows[at]["text"] != text.as_str() {
+                        rows[at]["text"] = json!(text);
+                        rows[at]["basis"] = json!(fingerprint(std::slice::from_ref(&target)));
+                        rows[at]["updatedAt"] = json!(now());
+                        if let Some(mission) = mission {
+                            rows[at]["missionId"] = json!(mission);
+                        }
+                        proposed += 1;
+                    }
+                    continue;
+                }
+                let mut p = proposal(std::slice::from_ref(&target), &text)?;
+                p["replaces"] = target["memoryId"].clone();
+                rows.push(p);
+                proposed += 1;
+            }
         }
     }
-    if rows.len() >= 400 {
-        return Err("Too many memories".into());
+    if proposed > 0 {
+        store.save_json("memories.json", &file)?;
     }
-    rows.push(proposal);
-    store.save_json("memories.json", &file)
+    Ok((proposed, refused))
 }
 
 #[cfg(test)]
@@ -1800,7 +2182,8 @@ mod tests {
         add_memory(&store, "kept one", None, "workspace", &ws, json!({"name":"Codec"}), "kept").unwrap();
         let kept = memories(&store).unwrap()["memories"][0]["memoryId"].as_str().unwrap().to_owned();
         let reply = format!("Done.\n<locust-tidy>\nretire mem_gone :: stale\nretire {kept} :: superseded\n</locust-tidy>");
-        assert!(record_reply(&store, "unknown", Path::new("/tmp"), &reply).is_err(), "the refusal is still said");
+        let said = record_reply(&store, "unknown", Path::new("/tmp"), &reply).unwrap();
+        assert!(said.iter().any(|(line, _)| line.contains("could not be made: A suggestion to forget a memory named one this folder does not keep.")), "the refusal is still said: {said:?}");
         let file = memories(&store).unwrap();
         let proposed: Vec<_> = file["memories"].as_array().unwrap().iter().filter(|m| m["status"] == "proposed" && m["forgets"] == kept.as_str()).collect();
         assert_eq!(proposed.len(), 1, "the second suggestion was proposed: {file}");

@@ -268,3 +268,138 @@ Breaks (`core-c` to `core-f`, `ui-d`, `ui-e` logs). All caught in the end:
   Report a problem cards put back were caught by the no-card case.
 - Release gate: `permission_host_tests::always_is_the_tool_not_the_connector_each_card_keyed_by_its_own_tool` (core,
   untouched here) failed once with "no card was raised" at load 6-7, and passed when run again.
+
+## Memory round 1 (19 Nov, what a teammate remembers)
+
+Branch `exec/native-memory-1`, tests in `core/src/memory_round_tests.rs` (new), one per Electron case.
+
+- **Forget with nothing remembered** (0.785): `people::forget_target` answers `NothingRemembered`, `NothingMatched` or
+  `Ambiguous(candidates)`. `record_reply` now returns the lines the thread should say (`Ok(Vec<String>)`), and
+  `native.rs` posts each as an amber relay notice. A miss used to return `Err` and abort every later line of the reply;
+  now it is collected and the rest are read. Nothing remembered says nothing. A miss opens with a capital ("A
+  conversation tried to forget..."). A proposed change is never a forget candidate.
+- **First memory** (0.810): `memory_section` already left the reading rules out when empty; it now has the tests.
+  `MEMORY_HEADING`, `MEMORY_RULES` and `MEMORY_WRITE` are named in `people.rs`.
+- **Over the cap** (A5.3): `briefing::assemble_with_room_history` drops the memory paragraphs, and only them, when the
+  brief is still over 12,000 after shedding waiting messages. LOCUST.md and the reply formats stay, and the person's
+  words stay last. Electron did this only for a run that is nobody's; here it is every brief, because a teammate's
+  over-cap brief had nothing to give up.
+- **Nobody's run**: an unreadable `memories.json` briefs Electron's "TEAM MEMORY could not be read for this run..."
+  (`people::MEMORY_NOT_READ`) instead of failing the turn. An unreadable `teammates.json` still fails it (not a case).
+- **The memory file** (`core/src/memory_file.rs`, new): `cited_paths`, `out_of_date`, `changed_since`,
+  `memory_file_text`, `write_memory_file`, `retire_memory_file`. Before a run, `native.rs` calls
+  `people::write_brief_memory_file`, which writes `.locust/memory.md` where the run stands (its own copy for a worktree)
+  and adds `.locust/` to `.git/info/exclude`. With memory off, it retires a file left from before (A1.7). The brief
+  names the file, and pastes 8 lines rather than 24, only when the file is there and matches what the store holds
+  (`memory_file_is`). So a test, or any brief built without a run, writes nothing into a folder. Until now the Rust
+  tidy brief told the teammate to read a `.locust/memory.md` that nothing wrote. The constant is
+  `MEMORY_FILE_IN_FOLDER`: the profile scan reads every `pub const *_FILE` as a profile file, and this file is not one.
+  One stricter case than Electron's: `file:src/net.ts` is no path (the scheme check had no case that needed it).
+- **Out of date** (A1.3): each briefed memory carries `changedSince` (2 s grace, at most 5 files, only inside the
+  folder) into the brief line ("; may be out of date: src/net.ts changed since") and the file line.
+- **Credit** (A1.6): the brief and the file name `updatedBy` before `by` (`memory_file::writer`). The person's edit
+  credits "you" (only when the words change). An `updatedBy` with a blank name, over 80 characters or a bad id is
+  dropped when the file is read.
+- Breaks (`~/work/scratch/memory1/b01..b12`): 12 of 12, each caught by name:
+  b01 nothing-remembered says a miss -> `says_nothing_in_the_thread`;
+  b02 lower-case opening -> `still_says_a_miss_when_something_is_remembered_opening_with_a_capital`;
+  b03 no shedding -> `sheds_the_team_memory_first_...` and `still_gives_the_memory_paragraphs_up_first_...`;
+  b04 outside the folder allowed and b05 any save counts -> `a_named_file_saved_after_the_memory_is_listed_...`;
+  b06 the brief names `by` -> `a_teammates_rewrite_keep_and_tell_me_credited_to_the_teammate_...`;
+  b07 the edit credits nobody -> `the_persons_own_edit_and_put_it_back_credited_to_the_person`;
+  b08 a blank writer trusted -> `a_writer_in_the_file_that_does_not_read_is_dropped_not_trusted`;
+  b09 retire rewrites a retired file -> `writes_nothing_in_a_folder_that_never_had_the_file_...`;
+  b10 unreadable memory fails the turn -> `runs_on_the_persons_words_alone_when_there_is_no_memory_to_read`;
+  b11 no stale mark in the brief -> `the_brief_says_so_beside_the_memory`;
+  b12 no scheme check -> `takes_paths_and_project_file_names_...` (survived until the `file:src/net.ts` line was added).
+- **Memory screen** (`src/ui/memory_screen_round_tests.rs`, new, drawn headless):
+  - Under a kept memory, when not editing, the screen says "No teammate has been given this in N days." It reads
+    `days_unused` from `lastBriefedAt` and the file's `briefTrackingSince`.
+  - It also says "May be out of date: src/net.ts changed since." It reads `people_panel.changed_since`, which
+    `reload()` fills from the open folder (`changed_in_folder`) when the screen loads, never per frame.
+  - "Waiting for you" now comes before "How memory is kept".
+  - The notice (`people_panel.memory_notice`, with `memory_notice_waits`) is drawn at the top with a Dismiss. One that
+    points at something waiting goes once nothing waits (`memory_card::notice_waits`). **Not done:** nothing sets
+    the notice yet. A finished run's memory changes have no way to the Memory screen, so the row stays partial.
+- **Briefs are noted** (A1.4): `people::note_brief_given` runs after each brief in `native.rs`. It notes exactly what
+  `briefed_memories` pasted (same prompt, same file), at most once a day per memory, and never a proposal. The first
+  note sets `briefTrackingSince`. The memory file says "not given to a teammate in N days" too. Row
+  `main/a-memory-nobody-is-given-says-so` (145) is still partial: its own five cases are not named yet.
+- Screen breaks: 7 of 7 caught by name (`~/work/scratch/memory1/s1..s6`, `b13`):
+  s1 notice kept with nothing waiting -> `is_gone_once_nothing_is_but_a_notice_about_what_already_happened_...`;
+  s2 counting from before it began -> `says_nothing_for_one_given_lately_or_before_a_month_of_counting`;
+  s3 changed files inverted -> `the_screen_checks_the_open_folder_once_when_it_loads`;
+  s4 a tidy notice that does not wait -> `points_at_what_is_waiting_and_says_so_of_itself`;
+  s5 the explanation first -> `puts_what_is_waiting_for_an_answer_above_how_memory_works`;
+  s6 the screen names `by` -> `names_the_writer_of_the_words_shown_not_who_first_kept_it`;
+  b13 noted on every brief -> `a_brief_notes_what_it_gave_once_a_day_and_starts_the_count`.
+- **Tidy pass** (A1.2): `people::propose_tidy_from` is Electron's `proposeTidy` as one batch. Each proposal carries
+  its writer and mission (the old code had `by: you` fixed). Refusals are per kind ("to forget"/"to change", and a
+  merge across this folder and everywhere). A key in new wording is refused, and so is anything past the 400 cap.
+  Asked twice gives one of each, and a newer rewrite updates the one waiting. `propose_tidy` is now the person's own
+  one-suggestion wrapper. A kept merge takes the proposal's mission. A named "Ask me first" rewrite (`add_memory`
+  proposed) carries a `basis`, so the hash gate covers it.
+  `record_reply_for(.., mission, prompt)` (native.rs passes the run's id and prompt) answers `(line, level)`: the
+  forget miss (warning), refused suggestions (warning), lines it could not read (warning, Electron's words), and
+  "Nothing from this tidy pass waits on the Memory screen." (info, only when the prompt is the tidy prompt). Partial:
+  Electron sends refused suggestions to the Memory screen's notice through its memory-changed update; Rust has no
+  such update, so the conversation says them.
+- Tidy breaks: 9 of 9 caught by name (`~/work/scratch/memory1/t1..t9`):
+  t1 mixed-scope merge allowed -> `refuses_what_it_cannot_stand_behind_and_says_why`;
+  t2 a merge asked twice, and t3 the newer rewrite dropped -> `asked_twice_still_one_of_each_...`;
+  t4 proposals by "you" -> `a_merge_a_retirement_and_a_rewrite_wait_beside_...` and two more;
+  t5 the merge's mission dropped -> `merge_them_the_first_takes_the_words_...`;
+  t6 no basis on a named proposal -> `the_gate_covers_an_ask_me_first_rewrite_too_...`;
+  t7 unread lines unsaid -> `says_in_the_conversation_how_many_lines_...` and `says_so_even_when_nothing_...`;
+  t8 the quiet line on every reply -> `says_quietly_when_a_tidy_pass_put_nothing_...`;
+  t9 refusals unsaid -> `a_tidy_suggestion_the_store_refuses_never_drops_the_ones_after_it`.
+- **A resumed session is told only what changed** (A2.5): `core/src/brief_sessions.rs` (new) is Electron's
+  `brief-sessions.ts` plus `standingFor`, `paragraphKey` and `stillHoldsLine`. `briefing::assemble_held` and
+  `people::turn_brief_held` take the keys the session holds. The old `assemble_with_room_history` and
+  `turn_brief_with_group_room_and_copy` wrap them with none held.
+  - In `native.rs`, a reply that resumes its session (same agent, same mode, a thread) plans from
+    `brief-sessions.json`. A compaction in the prior ledger (`Prior.compacted`), no record, or 8 turns gone by gives
+    a full brief.
+  - The record is written once the turn's id is minted. A bare command, a side question and a sealed run record
+    none.
+  - Over the cap, the keys of shed memory paragraphs are left out of the record. A re-sent memory list (with its
+    "replaces" line) still counts as memory there.
+  - `brief_held` sorts what was held: a set has no order, where Electron's keeps insertion order. Only which keys go
+    first past 400 differs.
+  - Tests: `core/src/brief_sessions_tests.rs` (12) and
+    `briefs_a_resumed_turn_with_what_changed_and_in_full_again_after_the_session_compacted` in
+    `native/codex_mission_tests.rs`, which runs three real turns through the fake app-server.
+- Resumed-session breaks: 11 of 11 caught by name (`~/work/scratch/memory1/r01..r11`). r11 (shed keys still recorded)
+  survived at first, and `a_brief_shed_for_length_is_recorded_as_told_only_what_went` was written for it. r01, r02,
+  r03, r08, r09 and r10 were caught by their own plan, record and compaction cases. r04 (identity) was caught by the
+  later-turn case, r05 (replaces line) by the changed-paragraph case, and r06 (compaction ignored in native.rs) and
+  r07 (no record written) by the mission-service case.
+- **Memory recall** (0.454), partial: `people::memories_for_brief_by` and `briefed_memories_by` take recall's
+  `similarity`. They rank every note by it, newer first on a tie, and ignore an answer of the wrong length or one
+  with no question, which gives exactly the keyword brief. Nothing produces a similarity yet. Electron's recall runs
+  all-MiniLM-L6-v2 through onnxruntime-web, and this round allows no new crate. The tokenizer, cache and wait were
+  left unported rather than built around a model that is not there.
+  Breaks: q1 (tie order) -> `pastes_the_closest_first_the_newer_first_on_a_tie`; q2 (an answer of the wrong length
+  trusted) -> `is_exactly_the_keyword_brief_when_recall_did_not_answer`.
+- **Left after round 1:**
+  - The Memory screen's notice has nothing to set it: Electron's memory-changed update has no Rust channel, which
+    keeps `a-tidy-answered-leaves-no-banner` and `a-tidy-pass-only-suggests` partial.
+  - Recall needs an embedding runtime decided (`memory-recall`, partial).
+  - Row `main/a-memory-nobody-is-given-says-so` (145) still names none of its cases, though `note_briefed` now does
+    its work.
+- `window_drive_tests::group_standing_instructions_brief_turns_after_folder_and_render_join_note_in_window` checks
+  the section order of a full brief on a follow-up. The follow-up now resumes and gets only the new group paragraph
+  (A2.5), so the test removes `brief-sessions.json` before turn 2.
+- **Call sites, broken once each** (`~/work/scratch/memory1/w1..w5`). Each break above was inside a function its
+  tests call directly, so these check that the app calls them.
+  - w1 (no memory file before a turn) and w2 (briefs not noted) ->
+    `a_turn_writes_the_memory_file_where_it_stands_and_notes_what_its_brief_was_given`, one real turn through the
+    fake app-server.
+  - w3 (thread notices dropped) -> `a_forget_that_missed_is_said_in_the_thread_in_amber` and
+    `a_tidy_pass_that_put_nothing_to_the_person_says_so_quietly_in_the_thread`. The fake replies with a block via
+    `commands-reply.json`.
+  - w4 (the prompt not passed) -> the tidy-pass one.
+  - w5 (`reload` not reading changed files) -> `the_screen_reads_what_changed_when_it_loads`.
+  - w3, w4 and w5 survived until those tests were written.
+- The host's own `.locust/memory.md` write is not a change the turn made. It is written before the turn's checkpoint
+  begins. The plain walk skips `.locust/`, and in a repository `.locust/` is in `.git/info/exclude`.
