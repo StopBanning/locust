@@ -84,6 +84,8 @@ pub struct SettingsPage {
     pub id: SettingsPageId,
     pub label: &'static str,
     pub group: SettingsGroup,
+    /// Electron's icon for the page (`settingsPages.ts` `icon`), drawn 16 pt beside its name in the list.
+    pub icon: &'static rune::Icon,
     pub headings: &'static [&'static str],
     /// Words a person types that are not the heading, keyed by heading index.
     pub also_known_as: &'static [(&'static str, &'static [&'static str])],
@@ -94,6 +96,7 @@ pub const SETTINGS_PAGES: &[SettingsPage] = &[
         id: SettingsPageId::App,
         label: "General",
         group: SettingsGroup::Locust,
+        icon: &crate::look::icons::SETTINGS,
         headings: &[
             "Managed by your organization",
             "Let your other AI apps use Locust",
@@ -211,6 +214,7 @@ pub const SETTINGS_PAGES: &[SettingsPage] = &[
         id: SettingsPageId::Chat,
         label: "Chat",
         group: SettingsGroup::Locust,
+        icon: &crate::look::icons::MESSAGE,
         headings: &["Your commands", "How to write one"],
         also_known_as: &[
             (
@@ -227,6 +231,7 @@ pub const SETTINGS_PAGES: &[SettingsPage] = &[
         id: SettingsPageId::Appearance,
         label: "Appearance",
         group: SettingsGroup::Locust,
+        icon: &crate::look::icons::PALETTE,
         headings: &[
             "Reply text size",
             "Code font",
@@ -309,6 +314,7 @@ pub const SETTINGS_PAGES: &[SettingsPage] = &[
         id: SettingsPageId::Privacy,
         label: "Privacy & data",
         group: SettingsGroup::Locust,
+        icon: &crate::look::icons::SHIELD,
         headings: &["Privacy & local data", "Trash", "Back up and restore"],
         also_known_as: &[
             (
@@ -354,6 +360,7 @@ pub const SETTINGS_PAGES: &[SettingsPage] = &[
         id: SettingsPageId::Teammates,
         label: "Teammates",
         group: SettingsGroup::Team,
+        icon: &crate::look::icons::USERS,
         headings: &[
             "Auto mode",
             "Plans",
@@ -391,6 +398,7 @@ pub const SETTINGS_PAGES: &[SettingsPage] = &[
         id: SettingsPageId::Memory,
         label: "Memory",
         group: SettingsGroup::Team,
+        icon: &crate::look::icons::BRAIN,
         headings: &["What your team remembers"],
         also_known_as: &[(
             "What your team remembers",
@@ -401,6 +409,7 @@ pub const SETTINGS_PAGES: &[SettingsPage] = &[
         id: SettingsPageId::Relay,
         label: "Between teammates",
         group: SettingsGroup::Team,
+        icon: &crate::look::icons::MESSAGE,
         headings: &["Between teammates"],
         also_known_as: &[(
             "Between teammates",
@@ -423,6 +432,7 @@ pub const SETTINGS_PAGES: &[SettingsPage] = &[
         id: SettingsPageId::Runtimes,
         label: "AI agents",
         group: SettingsGroup::Agents,
+        icon: &crate::look::icons::TERMINAL,
         headings: &[
             "AI agents & accounts",
             "What Locust can stop",
@@ -504,6 +514,7 @@ pub const SETTINGS_PAGES: &[SettingsPage] = &[
         id: SettingsPageId::Models,
         label: "Your own models",
         group: SettingsGroup::Agents,
+        icon: &crate::look::icons::CHIP,
         headings: &["Your own models"],
         also_known_as: &[(
             "Your own models",
@@ -529,6 +540,7 @@ pub const SETTINGS_PAGES: &[SettingsPage] = &[
         id: SettingsPageId::Connectors,
         label: "Connectors",
         group: SettingsGroup::Agents,
+        icon: &crate::look::icons::PLUG,
         headings: &["GitHub", "Connectors", "Add a connector"],
         also_known_as: &[
             (
@@ -555,6 +567,7 @@ pub const SETTINGS_PAGES: &[SettingsPage] = &[
         id: SettingsPageId::Cloud,
         label: "Cloud computers",
         group: SettingsGroup::Agents,
+        icon: &crate::look::icons::CLOUD,
         headings: &["Cloud computers"],
         also_known_as: &[(
             "Cloud computers",
@@ -575,6 +588,7 @@ pub const SETTINGS_PAGES: &[SettingsPage] = &[
         id: SettingsPageId::Workspace,
         label: "Project folder",
         group: SettingsGroup::ThisFolder,
+        icon: &crate::look::icons::FOLDER,
         headings: &["Project folder"],
         also_known_as: &[(
             "Project folder",
@@ -601,6 +615,7 @@ pub const SETTINGS_PAGES: &[SettingsPage] = &[
         id: SettingsPageId::WhatsNew,
         label: "What's new",
         group: SettingsGroup::About,
+        icon: &crate::look::icons::SPARK,
         headings: &["Changelog"],
         also_known_as: &[(
             "Changelog",

@@ -197,8 +197,7 @@ Breaks (`core-c` to `core-f`, `ui-d`, `ui-e` logs). All caught in the end:
   matched Electron's; breaks 3 of 4 killed, the survivor (dropping "worktree") is equal since "worktrees" contains it.
 - Auto mode (Teammates) was a "runs in Locust for now" placeholder. Now `auto_mode_section`: heading, "Set by your
   organization." when `mode_allowed(.., "auto")` is false, the on/off sentence, and a switch named "Auto mode" that
-  flips `auto_mode` and saves (drawn but deaf when held off). Electron's "How it works" fold is not drawn: Rust has no
-  fold yet (settings-read-like-claudes).
+  flips `auto_mode` and saves (drawn but deaf when held off). Its "How it works" fold came in Round 5.
 - `src/ui/settings_switches_tests.rs` (new, `every-settings-switch-says-what-it-is.test.ts`, 3 of 3 + 2 of ours);
   breaks 6 of 6 killed.
 - Project settings dialog (`group-settings-dialog.test.tsx`, 5 of 5 by name in `group_settings_dialog.rs`). Two
@@ -227,3 +226,23 @@ Breaks (`core-c` to `core-f`, `ui-d`, `ui-e` logs). All caught in the end:
 - **What's new**: Electron's nine cases named. The home splash reads the repository CHANGELOG.md first (`changelog_paths`); Settings > What's new shows the Rust app's own notes. Every big build from 0.276 holds, in Electron's order.
 - **Usage drawn**: the dialog's heatmap is now Electron's grid (`usage_panel::heatmap`, `usage::heat_columns`). `compact_count` rounded a half to even and wrote 12.5 billion as 12B; it now goes through `benchmark::to_fixed` (13B), the same JS rounding as the cost words.
 - **The look offered**: 4 of 6. The Rust window draws no macOS or Windows glass, so `liquid_offered` is never set and the Look row never shows; the two glass-panel geometry cases wait for a glass window.
+
+## Round 5 (19 Nov, settings read like Claude's)
+
+- `settings-read-like-claudes.test.ts`: 6 of 6 named in `src/ui/settings_read_like_claudes_tests.rs` (new), drawn
+  headless. The row stays partial: what is not drawn is listed below.
+- **Icons**: `SettingsPage.icon` (`src/settings_pages.rs`), Electron's icon per page. The list draws it at 16 pt before
+  the name (`settings-navicon-<id>`), and each entry is one button row (`settings-nav-<id>`, labelled with the page name).
+- **How it works**: `src/ui/how_it_works.rs` (new) is Electron's `<More>`. It starts closed. The summary is a chevron
+  and the words in sentence case, a button that says whether it is open. Open folds are kept by key in
+  `settings_panel.folds`. It is used on Auto mode only, with Electron's two paragraphs word for word; Electron uses
+  `<More>` about 25 times. The muted "How it works" that ended every page was not a fold, and it is gone.
+- **One line**: `settings_panel::line` puts a 1 pt hairline above the setting, with no fill and no radius. The name and
+  description sit left and the control right, centred on the line. Auto mode, the door's switches (`setting_line`),
+  What a face says, and Code font, Terminal faces and Sidebar all go through it; the last three were columns with the
+  control underneath. Still not drawn: Plans, Your skills, Reply text size, Boot screen, Voice typing ("runs in
+  Locust for now"). The first line on a page keeps its hairline; Electron drops it (`:first-child`).
+- Breaks (`~/work/scratch/picker5/breaks.txt`): 10 of 10, each caught by name. Swapping an icon was caught by the
+  icons case; no nav glyph by the beside-each-name case; a group label on every page by the said-once case; the fold
+  open by default, uppercased, or never closing by the sentence-case case; Sidebar back to a column, or the words and
+  control swapped, by the one-line case; a filled, rounded row, or no hairline, by the no-card case.
