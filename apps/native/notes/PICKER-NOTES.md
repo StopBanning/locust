@@ -231,7 +231,8 @@ Breaks (`core-c` to `core-f`, `ui-d`, `ui-e` logs). All caught in the end:
 ### What Locust can stop (19 Nov)
 - `core/src/what_locust_can_stop.rs`: Electron's table, rewritten from this engine's own run flags, not copied. Claude
   Code loads no connectors here (`--strict-mcp-config`), so Electron's connector clauses are left out.
-- **Gap, follow-up:** Copilot in Ask and Plan does not pass Electron's `--disable-mcp-server`; the row says so and a
-  test pins it, so the fix must change both.
+- Copilot in Ask and Plan now passes `--disable-mcp-server` for each server in `~/.copilot/mcp-config.json`
+  (`copilot::mcp_server_names`, `mcp_off_args`, called from `copilot::command`), as Electron does since 0.824; the row
+  says so. Not measured against a live Copilot (Electron's own note: every turn here is refused by policy).
 - Drawn in Settings > AI agents (`src/ui/what_locust_can_stop_ui.rs`), replacing the heading-only placeholder.
 - Breaks: 5 UI, 9 core, all caught by name (Kilo's reach and the Copilot sentence needed a tighter test first).

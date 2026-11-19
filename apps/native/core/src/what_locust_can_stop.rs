@@ -6,8 +6,6 @@
 //! from Electron the sentence says what this engine does:
 //! - Claude Code: this engine loads none of the account's connectors (`--strict-mcp-config`), so no connector call is
 //!   made and none is asked about; Electron's connector clauses are left out.
-//! - Copilot: in Ask and Plan, Electron turns off each MCP server in the person's Copilot settings
-//!   (`--disable-mcp-server`); this engine does not yet, and says so.
 //! - Antigravity: Electron's "what it refused is listed after the run" is not built here, so it is not said.
 //! - The on-device model (Apple) only talks, and has a row of its own.
 
@@ -74,7 +72,7 @@ pub const WHAT_LOCUST_CAN_STOP: &[StopRow] = &[
         runtime: "copilot",
         reach: StopReach::EachAction,
         asks: "In Approve each action: every action Copilot asks about, before it runs: its commands and file changes, and each fetch or place outside this folder.",
-        without: "Reading files, in every mode. In Ask and Plan, no file changes and no commands; the MCP servers in your Copilot settings still start, since Locust does not turn them off here yet. In Edit, commands and changes in this folder. In Auto, everything.",
+        without: "Reading files, in every mode. In Ask and Plan, no file changes, no commands and none of the MCP servers in your Copilot settings. In Edit, commands and changes in this folder. In Auto, everything.",
         always: Some(KEPT_BY_LOCUST),
     },
     StopRow {
