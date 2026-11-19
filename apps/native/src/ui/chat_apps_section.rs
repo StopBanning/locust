@@ -153,12 +153,12 @@ fn app_row(s: &State, p: &Palette, l: &crate::look::controls::Look, app: ChatApp
         );
     }
 
+    // `.lc-chatapp`: no card, a hairline under each app.
     let mut card = col()
         .w_full()
         .gap(8.0)
         .padding(10.0)
-        .fill(p.field)
-        .radius(8.0)
+        .border_sides([0.0, 0.0, 1.0, 0.0], p.hairline)
         .child(head);
 
     if let Some(ref msg) = state.message {

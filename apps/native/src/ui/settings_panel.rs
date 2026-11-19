@@ -328,16 +328,17 @@ fn auto_mode_section(s: &State, p: &Palette) -> El {
     col()
         .w_full()
         .child(line(&l, "settings-line-auto-mode", 10.0, words, knob))
-        .child(crate::how_it_works::fold(&l, &s.settings_panel.folds, "auto-mode", AUTO_HOW_IT_WORKS, |s: &mut State| {
-            s.settings_panel.folds.toggle("auto-mode")
-        }))
+        .child(more(s, p, "auto-mode"))
 }
 
-/// Screens.tsx's `<More>` under Auto mode, word for word.
-const AUTO_HOW_IT_WORKS: &[&str] = &[
-    "Every other mode confines a run to the folder you chose for it, and a runtime that wants to touch anything outside it is refused. Auto is the mode that does not: a run started in Auto goes ahead without asking and may read and change files anywhere this computer lets you, including outside the folder.",
-    "It exists because some work genuinely lives in more than one place. Auto is always in the composer's permission menu and picking it there is what switches it on, so this is the same decision seen from the other side: what is on now, and the way to take it back. It is checked again each time a run starts \u{2014} switching it off here stops the next run, including one a teammate or a routine was about to start \u{2014} and it is never the mode a malformed or missing choice falls back to.",
-];
+/// The section's "How it works" (`how_it_works::FOLDS` under `key`), kept open or closed in `settings_panel.folds`.
+fn more(s: &State, p: &Palette, key: &'static str) -> El {
+    let l = crate::look::controls::Look::new(p.dark);
+    crate::how_it_works::fold(&l, &s.settings_panel.folds, key, crate::how_it_works::words(key), move |s: &mut State| {
+        s.settings_panel.folds.toggle(key)
+    })
+}
+
 
 /// LocustMcpSettings.tsx: the door's switch, and once it is on, each teammate's own mode, the person's
 /// conversations, and the lines that add it to Claude Code and Codex.
@@ -959,7 +960,7 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                 } else if heading == DOOR_HEADING {
                     body = body.child(door_section(s, p));
                 } else if heading == "Chat apps" {
-                    body = body.child(crate::chat_apps_section::section(s, p));
+                    body = body.child(crate::chat_apps_section::section(s, p)).child(more(s, p, "chat-apps"));
                 } else if heading == crate::phone_section::HEADING {
                     body = body.child(crate::phone_section::section(s, p));
                     if let Some(remote) = crate::remote_mcp_card::section(s, p) {
@@ -968,7 +969,7 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                 } else if heading == "Startup" {
                     body = body.child(crate::quit_guard_dialog::startup_section(s, p));
                 } else if heading == "Report a problem" {
-                    body = body.child(crate::feedback_dialog::settings_section(s, p));
+                    body = body.child(crate::feedback_dialog::settings_section(s, p)).child(more(s, p, "report-a-problem"));
                 } else if heading == locust_core::scout::view::SCOUT_SETTING_HEADING {
                     body = body.child(crate::scout_setting::section(
                         s,
@@ -984,7 +985,7 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
             for heading in headings {
                 match heading {
                     "Privacy & local data" => {
-                        body = body.child(crate::backup_section::storage_and_retention_section(s, p));
+                        body = body.child(crate::backup_section::storage_and_retention_section(s, p)).child(more(s, p, "privacy"));
                     }
                     "Trash" => {
                         body = body.child(crate::trash_section::section(s, p));
@@ -1001,7 +1002,7 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
         SettingsPageId::Connectors => {
             for heading in headings {
                 if heading == "GitHub" {
-                    body = body.child(section_heading(heading, p)).child(crate::github_section::section(s, p));
+                    body = body.child(section_heading(heading, p)).child(crate::github_section::section(s, p)).child(more(s, p, "github"));
                 } else if heading == "Connectors" {
                     body = body.child(section_heading(heading, p)).child(crate::connectors_section::section(s, p));
                 } else {
@@ -1098,6 +1099,7 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                                     )),
                             ),
                     );
+                    body = body.child(more(s, p, "memory"));
                 } else {
                     body = body.child(deferred(heading, p));
                 }
@@ -1292,6 +1294,7 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                         .wrap()
                         .padding(10.0),
                 )
+                .child(more(s, p, "between-teammates"))
                 .child(
                     col()
                         .w_full()
@@ -1405,7 +1408,7 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
         }
 
         SettingsPageId::Models => {
-            body = body.child(section_heading("Your own models", p)).child(crate::own_models_card::section(s, p));
+            body = body.child(section_heading("Your own models", p)).child(crate::own_models_card::section(s, p)).child(more(s, p, "own-models"));
         }
         _ => {
             for heading in headings {

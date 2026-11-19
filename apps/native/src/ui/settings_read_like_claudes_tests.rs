@@ -127,6 +127,18 @@ fn puts_no_card_around_a_setting_rows_sit_on_the_pane_with_a_hairline_between() 
         assert_eq!(rule.rect[2], line.rect[2], "{name}: across the line");
         assert!(rule.rect[1] <= row.rect[1], "{name}: the hairline is above its row");
     }
+    // And no page boxes a setting in: nothing in the pane wider than a field is a filled, rounded card (Startup,
+    // Report a problem and each chat app were). Fields, 32 pt tall, are controls, not cards.
+    for page in SETTINGS_PAGES {
+        let all = shown(&window(page.id));
+        let pane = keyed(&all, "settings-nav-app").rect;
+        let cards: Vec<_> = all
+            .iter()
+            .filter(|e| e.rect[0] >= pane[0] + pane[2] && e.rect[2] > 400.0 && e.rect[3] > 40.0 && e.radius > 0.0 && e.fill.a > 0.0)
+            .map(|e| (e.key.clone(), e.rect))
+            .collect();
+        assert!(cards.is_empty(), "{}: a card around a setting {cards:?}", page.id.as_str());
+    }
 }
 
 // Plans, Your skills, Reply text size, Boot screen and Voice typing are not drawn in Rust ("runs in Locust for now");
@@ -183,3 +195,49 @@ fn says_how_it_works_in_sentence_case() {
     press(&mut rt);
     assert!(!shown(&rt).iter().any(|e| e.key.as_deref() == Some("how-it-works-auto-mode-text")), "a second press folds it");
 }
+
+/// Where Electron says "How it works" (`<More>`) under a section Rust draws, and the page it is on.
+const FOLDED: &[(&str, SettingsPageId)] = &[
+    ("auto-mode", SettingsPageId::Teammates),
+    ("report-a-problem", SettingsPageId::App),
+    ("between-teammates", SettingsPageId::Relay),
+    ("own-models", SettingsPageId::Models),
+    ("github", SettingsPageId::Connectors),
+    ("memory", SettingsPageId::Memory),
+    ("chat-apps", SettingsPageId::App),
+    ("privacy", SettingsPageId::Privacy),
+];
+
+// Not an Electron case of its own: the fold the sentence-case case holds on Auto mode, held wherever it is used.
+#[test]
+fn each_section_electron_folds_says_how_it_works_under_it_and_opens_on_its_own_words() {
+    let keys: Vec<_> = crate::how_it_works::FOLDS.iter().map(|(k, _, _)| *k).collect();
+    assert_eq!(keys, FOLDED.iter().map(|(k, _)| *k).collect::<Vec<_>>());
+    for (key, page) in FOLDED {
+        let (_, heading, words) = crate::how_it_works::FOLDS.iter().find(|(k, _, _)| k == key).unwrap();
+        assert!(crate::settings_pages::page_by_id(*page).headings.contains(heading), "{key}: under {heading}");
+        assert!(!words.is_empty());
+        let mut s = State::default();
+        s.settings_panel.open = true;
+        s.settings_panel.page = Some(*page);
+        let mut rt = Runtime::new(s, view, (1200.0, 9000.0), Env::new(true, 1.0));
+        rt.frame(0.0);
+        let summary = format!("how-it-works-{key}");
+        let all = shown(&rt);
+        assert_eq!(keyed(&all, &summary).expanded, Some(false), "{key}: closed until pressed");
+        let (x, y) = rt.find(&summary).unwrap_or_else(|| panic!("{key}: no fold on screen"));
+        rt.pointer_down(x, y);
+        rt.pointer_up(x, y);
+        rt.frame(0.016);
+        rt.frame(1.0);
+        let all = shown(&rt);
+        let said: Vec<_> = all.iter().filter_map(|e| e.text.clone()).collect();
+        for paragraph in *words {
+            assert!(said.iter().any(|t| t == paragraph), "{key}: {paragraph}");
+        }
+        // Only this one opened.
+        let open = all.iter().filter(|e| e.key.as_deref().is_some_and(|k| k.starts_with("how-it-works-")) && e.expanded == Some(true)).count();
+        assert_eq!(open, 1, "{key}");
+    }
+}
+
