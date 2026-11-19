@@ -73,3 +73,11 @@ and an exact half cent rounded to even ("$0.12" for 0.125) where JavaScript's `t
 `benchmark::to_fixed` now rounds as `toFixed` does, from the number's exact digits, so 1.005 (really 1.00499...)
 still reads "1.00" in both. 0 of 1,026 differ. The connector words (`connectorMentioned`) wait: `connectorLabel`
 lives in a React component, which the recorder cannot load yet.
+
+## Failure sentences (18 Nov)
+
+`failure.ts` records what Electron says when a run fails: missionView.ts `failureMessage` and `sameSentence`, and
+runtime-adapters `providerErrorSentence`, for the strings in their seven test files, as messages and as stderr, under
+nine runtimes: 11,197 cases. 0 differ on the first replay: these were ported exactly. Three breaks (the two-way
+same-sentence match, the last-word wrapper, the out-of-capacity wrapper) were all caught. `record.sh` now records from
+`packages/runtime-adapters` sources too. The grid is trimmed to keep the file near 2 MB.

@@ -443,6 +443,8 @@ mod recorded_words_tests;
 #[cfg(test)]
 mod recorded_cost_tests;
 #[cfg(test)]
+mod recorded_failure_tests;
+#[cfg(test)]
 mod cancelled_run_cost_tests;
 #[cfg(test)]
 mod next_steps_cards_tests;
