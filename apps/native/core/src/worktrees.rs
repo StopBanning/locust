@@ -197,11 +197,16 @@ pub fn branch_turns_of(log: &str) -> Vec<BranchTurn> {
 
 /// worktreeAddArgs: `worktree add` on a new branch from `from` (HEAD or a recorded commit), or on one that exists.
 pub fn worktree_add_args(path: &str, branch: &str, branch_exists: bool, from: &str) -> Result<Vec<String>, String> {
+    worktree_add_args_for_platform(path, branch, branch_exists, from, cfg!(windows))
+}
+
+/// Platform-explicit `worktreeAddArgs`: adds `-c core.longpaths=true` only when `windows` is true.
+pub fn worktree_add_args_for_platform(path: &str, branch: &str, branch_exists: bool, from: &str, windows: bool) -> Result<Vec<String>, String> {
     if from != "HEAD" && !(from.len() == 40 && from.bytes().all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())) {
         return Err("That is not a commit Locust recorded.".into());
     }
     let mut args: Vec<String> = Vec::new();
-    if cfg!(windows) {
+    if windows {
         args.extend(["-c".into(), "core.longpaths=true".into()]);
     }
     args.extend(["worktree".into(), "add".into()]);
@@ -215,11 +220,12 @@ pub fn worktree_add_args(path: &str, branch: &str, branch_exists: bool, from: &s
 
 // ---- running git ------------------------------------------------------------------------------------------------------
 
-/// A git command that did not succeed: what it said, what it printed, and its exit code (None when it was stopped).
+/// A git command that did not succeed: what it said, what it printed, its full stderr, and its exit code (None when it was stopped).
 #[derive(Clone, Debug)]
 pub struct GitError {
     pub message: String,
     pub stdout: String,
+    pub stderr: String,
     pub exit: Option<i32>,
 }
 
@@ -233,7 +239,7 @@ pub fn run_git_with(program: &str, args: &[&str], cwd: &Path, limit: Duration) -
     use std::io::Read;
     use std::process::{Command, Stdio};
     let first = args.first().copied().unwrap_or("");
-    let fail = |message: String| GitError { message, stdout: String::new(), exit: None };
+    let fail = |message: String| GitError { message, stdout: String::new(), stderr: String::new(), exit: None };
     let (lock_key, lock_value) = crate::git_quiet::NO_OPTIONAL_LOCKS;
     let mut child = Command::new(program)
         .args(OWN_GIT_CONFIG)
@@ -260,8 +266,9 @@ pub fn run_git_with(program: &str, args: &[&str], cwd: &Path, limit: Duration) -
             if status.success() {
                 Ok(stdout)
             } else {
-                let said = String::from_utf8_lossy(&e).trim().chars().take(300).collect::<String>();
-                Err(GitError { message: format!("git {first}: {said}"), stdout, exit: status.code() })
+                let stderr = String::from_utf8_lossy(&e).trim().to_string();
+                let said = stderr.chars().take(300).collect::<String>();
+                Err(GitError { message: format!("git {first}: {said}"), stdout, stderr, exit: status.code() })
             }
         }
         Err(_) => {
@@ -414,18 +421,40 @@ pub struct Manager {
     trees: String,
     /// The program run for `git`: `git` itself, unless a test hands in a stand-in.
     git_program: String,
+    /// Optional diagnostic callback notified when a finished worktree survives a post-checkout hook failure.
+    note: Option<Box<dyn Fn(&str) + Send + Sync>>,
+    /// Bound on checkout commands (`worktree add`, `finish_making`).
+    checkout_timeout: Duration,
 }
 
 impl Manager {
     /// A manager for the project at `workspace` (its real spelling, as git prints it).
     pub fn new(workspace: &Path) -> Self {
-        Manager { root: std::fs::canonicalize(workspace).unwrap_or_else(|_| workspace.to_path_buf()), trees: WORKTREE_DIR.into(), git_program: "git".into() }
+        Manager {
+            root: std::fs::canonicalize(workspace).unwrap_or_else(|_| workspace.to_path_buf()),
+            trees: WORKTREE_DIR.into(),
+            git_program: "git".into(),
+            note: None,
+            checkout_timeout: CHECKOUT_TIMEOUT,
+        }
     }
 
     /// The same manager running `program` where it would run `git`: a seam for tests, which cannot change the process's
     /// `PATH` without changing it under every test running beside them.
     pub fn with_git_program(mut self, program: impl Into<String>) -> Self {
         self.git_program = program.into();
+        self
+    }
+
+    /// A diagnostic callback invoked (with full hook stderr) when a finished checkout survives a nonzero hook exit.
+    pub fn with_note(mut self, note: impl Fn(&str) + Send + Sync + 'static) -> Self {
+        self.note = Some(Box::new(note));
+        self
+    }
+
+    /// Override the checkout timeout (used by tests to verify a timeout is not treated as a finished hook failure).
+    pub fn with_checkout_timeout(mut self, limit: Duration) -> Self {
+        self.checkout_timeout = limit;
         self
     }
 
@@ -518,7 +547,7 @@ impl Manager {
         let path_text = path.to_string_lossy().into_owned();
         let args = worktree_add_args(&path_text, &branch, branch_exists, from.unwrap_or("HEAD"))?;
         let args: Vec<&str> = args.iter().map(String::as_str).collect();
-        if let Err(error) = run_git_with(&self.git_program, &args, &self.root, CHECKOUT_TIMEOUT) {
+        if let Err(error) = run_git_with(&self.git_program, &args, &self.root, self.checkout_timeout) {
             // A checkout hook that failed after git made a usable tree: kept only when the tree is verified finished.
             let finished = error.exit.is_some_and(|c| c > 0) && {
                 let listing = self.git(&["worktree", "list", "--porcelain"], &self.root).unwrap_or_default();
@@ -529,6 +558,10 @@ impl Manager {
             };
             if !finished {
                 return Err(error.message);
+            }
+            if let Some(ref note) = self.note {
+                let detail = if error.stderr.is_empty() { &error.message } else { &error.stderr };
+                let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| note(detail)));
             }
         }
         Ok(path)
@@ -829,6 +862,19 @@ impl TurnOutcome {
             TurnOutcome::Stopped => "stopped",
         }
     }
+}
+
+/// How a turn ended, from every event it wrote, newest terminal one first (Electron `main/turn-checkpoint.ts::turnOutcomeOf`).
+pub fn turn_outcome_of(event_types: &[&str]) -> TurnOutcome {
+    for &kind in event_types.iter().rev() {
+        match kind {
+            "run.completed" => return TurnOutcome::Completed,
+            "run.cancelled" => return TurnOutcome::Stopped,
+            "run.failed" => return TurnOutcome::Failed,
+            _ => {}
+        }
+    }
+    TurnOutcome::Failed
 }
 
 /// The person's words, not the host text around them: a routine step's own words, and a tag's context cut off.

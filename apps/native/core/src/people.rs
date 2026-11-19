@@ -650,11 +650,56 @@ fn defang_protocol(text: &str) -> String {
     crate::protocol_tags::defang_protocol_blocks(text)
 }
 /// Electron `workspace-brief.whereSection`.
-fn where_section(folder: &Path) -> String {
+pub fn where_section_text(folder: &str) -> String {
     format!(
-        "You are working in the folder \"{}\". Everything you read or change belongs to it unless you are told otherwise.",
-        folder.display()
+        "You are working in the folder \"{folder}\". Everything you read or change belongs to it unless you are told otherwise."
     )
+}
+#[cfg(test)]
+fn where_section(folder: &Path) -> String {
+    where_section_text(&folder.display().to_string())
+}
+/// Electron `workspace-brief.worktreeSection`: what a run standing apart from the project folder is told.
+pub fn worktree_section() -> &'static str {
+    "Your missions run in your own copy of this project, so work only inside the folder you were started in."
+}
+/// Electron `workspace-brief.briefSection`: the folder's `LOCUST.md`, with or without the folder's path.
+pub fn brief_section(brief: &crate::teammate_setup::WorkspaceBrief, folder: Option<&str>) -> String {
+    let head = match folder {
+        None => format!(
+            "Instructions for this project, from its {}. Every teammate on every runtime is given these; follow them as you would your own instruction file. Your missions run in your own copy of the project, so work only inside the folder you were started in.",
+            crate::teammate_setup::WORKSPACE_BRIEF
+        ),
+        Some(f) => format!(
+            "Instructions for the folder \"{f}\", from its {}. Every teammate on every runtime is given these; follow them as you would your own instruction file.",
+            crate::teammate_setup::WORKSPACE_BRIEF
+        ),
+    };
+    let mut lines = vec![head, brief.text.clone()];
+    if brief.truncated {
+        lines.push(format!(
+            "({} is longer than {} lines; the rest was not loaded.)",
+            crate::teammate_setup::WORKSPACE_BRIEF,
+            crate::teammate_setup::MAX_BRIEF_LINES
+        ));
+    }
+    lines.join("\n")
+}
+/// Electron `workspace-brief.folderSentences`: where a run stands, said once.
+/// A run in its own copy (`stands_apart = true`) never hears the project folder's name or path.
+pub fn folder_sentences(
+    brief: Option<&crate::teammate_setup::WorkspaceBrief>,
+    stands_apart: bool,
+    folder: &str,
+) -> Vec<String> {
+    if let Some(b) = brief {
+        return vec![brief_section(b, (!stands_apart).then_some(folder))];
+    }
+    vec![if stands_apart {
+        worktree_section().to_owned()
+    } else {
+        where_section_text(folder)
+    }]
 }
 /// Electron `workspace-brief.teammateSection`.
 fn teammate_section(name: &str, instructions: &str) -> String {
@@ -951,6 +996,7 @@ pub fn brief_with_instructions(
         None,
         None,
         Some(prompt),
+        false,
     )?;
     sections.push(prompt.to_owned());
     Ok(sections.join("\n\n"))
@@ -1021,6 +1067,37 @@ pub fn turn_brief_with_group_and_room(
     remaining: usize,
     room_history: Option<&crate::room_history::RoomHistory>,
 ) -> Result<(String, Vec<crate::workroom::Message>), String> {
+    turn_brief_with_group_room_and_copy(
+        store,
+        who,
+        folder,
+        prompt,
+        instructions_override,
+        group,
+        runtime,
+        inbound,
+        remaining,
+        room_history,
+        None,
+    )
+}
+
+/// Like `turn_brief_with_group_and_room`, with `own_folder` when the run stands in its own copy
+/// (a teammate's worktree or a comparison slot's copy) rather than the project folder itself.
+#[allow(clippy::too_many_arguments)]
+pub fn turn_brief_with_group_room_and_copy(
+    store: &Store,
+    who: &str,
+    folder: &Path,
+    prompt: &str,
+    instructions_override: Option<&str>,
+    group: Option<(&str, &str)>,
+    runtime: Option<&str>,
+    inbound: &[crate::workroom::Message],
+    remaining: usize,
+    room_history: Option<&crate::room_history::RoomHistory>,
+    own_folder: Option<&Path>,
+) -> Result<(String, Vec<crate::workroom::Message>), String> {
     let file = team(store)?;
     let roster: Vec<crate::briefing::PeerEntry> = file["teammates"].as_array().into_iter().flatten().filter_map(peer_entry).collect();
     let mut standing = Vec::new();
@@ -1038,6 +1115,7 @@ pub fn turn_brief_with_group_and_room(
         group,
         runtime,
         Some(prompt),
+        own_folder.is_some(),
     )?);
     // The person's "keep a todo list" switch (todo-list-is-opt-in): a setting that cannot be read reads as off.
     let todos = crate::workspace_settings::load(store).is_ok_and(|s| s.keep_a_todo_list);
@@ -1096,6 +1174,7 @@ pub fn share_reply_for_relay(
 }
 
 /// The workspace, the teammate's standing instructions, the person's note, the memory, and the folder's office files.
+#[allow(clippy::too_many_arguments)]
 fn workspace_sections(
     store: &Store,
     who: &str,
@@ -1104,6 +1183,7 @@ fn workspace_sections(
     group: Option<(&str, &str)>,
     runtime: Option<&str>,
     query: Option<&str>,
+    stands_apart: bool,
 ) -> Result<Vec<String>, String> {
     let file = team(store)?;
     let teammate = file["teammates"]
@@ -1114,7 +1194,8 @@ fn workspace_sections(
         .map(str::trim)
         .filter(|s| !s.is_empty());
     let memory_off = file["settings"]["memoryMode"] == "off";
-    let mut sections = vec![where_section(folder)];
+    let workspace_brief = crate::teammate_setup::read_workspace_brief_text(folder, runtime);
+    let mut sections = folder_sentences(workspace_brief.as_ref(), stands_apart, &folder.display().to_string());
     if let Some((group_name, group_instructions)) = group
         && let Some(section) = crate::groups::group_section(group_name, group_instructions)
     {

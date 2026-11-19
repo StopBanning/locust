@@ -79,6 +79,9 @@ apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	names it elsewhere
 apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	is written only when LOCUST_GUARD_LOG names a file, one per question, with what was decided	no
 apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	finds none where there are none, and none in what Codex ships itself or never installed	no
 apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	finds the person’s own, a plugin’s, and a project’s, in the folder or above it	yes
+apps/desktop/src/main/a-codex-turn-on-its-branch-is-completed.test.ts	finds a completion written before the process ended	yes
+apps/desktop/src/main/a-codex-turn-on-its-branch-is-completed.test.ts	says stopped for a run the person stopped, and failed for one that failed	yes
+apps/desktop/src/main/a-codex-turn-on-its-branch-is-completed.test.ts	takes the newest ending, and says failed when there is none	yes
 apps/desktop/src/main/a-column-can-be-tried-again.test.ts	puts the new answer in the failed one's place, turn for turn, and keeps the failed one folded in	no
 apps/desktop/src/main/a-column-can-be-tried-again.test.ts	gives a column that could not start its first turn, and drops the refusal	no
 apps/desktop/src/main/a-column-can-be-tried-again.test.ts	goes, copies and all, only when every answer it held is gone for good (0.445)	no
@@ -563,6 +566,11 @@ apps/desktop/src/main/a-routine-works-in-a-copy.test.ts	runs its step in the cop
 apps/desktop/src/main/a-routine-works-in-a-copy.test.ts	will not run again while those changes wait, on Run or on its own	yes
 apps/desktop/src/main/a-routine-works-in-a-copy.test.ts	a run that changed nothing leaves nothing waiting, and no copy	yes
 apps/desktop/src/main/a-routine-works-in-a-copy.test.ts	keeps what waits when the routine is read back, and drops it if it does not read	no
+apps/desktop/src/main/a-run-in-its-own-copy-is-not-told-the-project-folder.test.ts	names the project folder to a run that stands in it	yes
+apps/desktop/src/main/a-run-in-its-own-copy-is-not-told-the-project-folder.test.ts	tells a run in its own copy that it has one, and never the folder's name	yes
+apps/desktop/src/main/a-run-in-its-own-copy-is-not-told-the-project-folder.test.ts	hands the run's own folder to the brief, for a teammate's run and for nobody's	yes
+apps/desktop/src/main/a-run-in-its-own-copy-is-not-told-the-project-folder.test.ts	in its own line, and in its LOCUST.md section	yes
+apps/desktop/src/main/a-run-in-its-own-copy-is-not-told-the-project-folder.test.ts	and a run in its own copy still hears neither	yes
 apps/desktop/src/main/a-runtime-command-is-sent-as-typed.test.ts	goes to the runtime alone, with no brief and no plan instruction after it	yes
 apps/desktop/src/main/a-runtime-command-is-sent-as-typed.test.ts	is briefed like any message when the words came from a routine, whatever the caller says	yes
 apps/desktop/src/main/a-runtime-command-is-sent-as-typed.test.ts	is briefed like any message when nobody said it was a command	no
@@ -703,6 +711,13 @@ apps/desktop/src/main/a-tune-is-measured-before-one-is-kept.test.ts	is none at a
 apps/desktop/src/main/a-tune-is-measured-before-one-is-kept.test.ts	reads each setup's record over every run, and how to weigh it	no
 apps/desktop/src/main/a-tune-is-measured-before-one-is-kept.test.ts	is as it was for a tune run once	no
 apps/desktop/src/main/a-tune-is-measured-before-one-is-kept.test.ts	is told it reads one model's setups, not different models	no
+apps/desktop/src/main/a-turn-is-committed-on-its-own-branch.test.ts	commits nothing when the turn changed nothing	yes
+apps/desktop/src/main/a-turn-is-committed-on-its-own-branch.test.ts	commits every change, new files too, as the teammate, past a hook that would refuse, and leaves the person's branch alone	yes
+apps/desktop/src/main/a-turn-is-committed-on-its-own-branch.test.ts	refuses a teammate with no tree of its own	yes
+apps/desktop/src/main/a-turn-is-committed-on-its-own-branch.test.ts	shows the branch against where it left the person's branch, whole and turn by turn, oldest first	yes
+apps/desktop/src/main/a-turn-is-committed-on-its-own-branch.test.ts	never runs a program the repository names to draw a diff	yes
+apps/desktop/src/main/a-turn-is-committed-on-its-own-branch.test.ts	reads status -z, a rename's old name skipped	yes
+apps/desktop/src/main/a-turn-is-committed-on-its-own-branch.test.ts	reads the turns of a log	yes
 apps/desktop/src/main/a-turn-on-its-own-branch-leaves-a-receipt.test.ts	is committed to its branch when it ends, and the receipt is recorded in its stream	no
 apps/desktop/src/main/a-turn-on-its-own-branch-leaves-a-receipt.test.ts	is never committed when it ran in the shared folder, the person's own checkout	yes
 apps/desktop/src/main/a-turn-on-its-own-branch-leaves-a-receipt.test.ts	is never committed from a slot of its own -- a comparison's column, a judge, a side question (0.532)	no
@@ -729,15 +744,15 @@ apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	names columns the
 apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	knows a number when it sees one written	no
 apps/desktop/src/main/a-worktree-branch-is-named-after-the-issue.test.ts	checks out a branch named after the issue in the teammate's copy	yes
 apps/desktop/src/main/a-worktree-branch-is-named-after-the-issue.test.ts	uses the branch when it already exists, and leaves a checkout git refuses	yes
-apps/desktop/src/main/a-worktree-survives-only-a-finished-checkout.test.ts	accepts and uses the real worktree, keeping full hook stderr in the diagnostic callback	no
+apps/desktop/src/main/a-worktree-survives-only-a-finished-checkout.test.ts	accepts and uses the real worktree, keeping full hook stderr in the diagnostic callback	yes
 apps/desktop/src/main/a-worktree-survives-only-a-finished-checkout.test.ts	refuses a hook failure that removes the worktree	yes
 apps/desktop/src/main/a-worktree-survives-only-a-finished-checkout.test.ts	refuses a hook that leaves HEAD on the wrong branch	yes
-apps/desktop/src/main/a-worktree-survives-only-a-finished-checkout.test.ts	requires HEAD verification to succeed before accepting a nonzero add	no
-apps/desktop/src/main/a-worktree-survives-only-a-finished-checkout.test.ts	does not treat a timeout as a finished hook failure	no
+apps/desktop/src/main/a-worktree-survives-only-a-finished-checkout.test.ts	requires HEAD verification to succeed before accepting a nonzero add	yes
+apps/desktop/src/main/a-worktree-survives-only-a-finished-checkout.test.ts	does not treat a timeout as a finished hook failure	yes
 apps/desktop/src/main/a-worktree-survives-only-a-finished-checkout.test.ts	keeps an initializing checkout refused even if its recorded branch and HEAD exist	yes
-apps/desktop/src/main/a-worktree-survives-only-a-finished-checkout.test.ts	does not fail an otherwise usable tree if the diagnostics callback fails	no
-apps/desktop/src/main/a-worktree-survives-only-a-finished-checkout.test.ts	uses longpaths only on add commands without changing core.longpaths config	no
-apps/desktop/src/main/a-worktree-survives-only-a-finished-checkout.test.ts	adds the longpaths flag only for Windows (%s), on both branch forms	no
+apps/desktop/src/main/a-worktree-survives-only-a-finished-checkout.test.ts	does not fail an otherwise usable tree if the diagnostics callback fails	yes
+apps/desktop/src/main/a-worktree-survives-only-a-finished-checkout.test.ts	uses longpaths only on add commands without changing core.longpaths config	yes
+apps/desktop/src/main/a-worktree-survives-only-a-finished-checkout.test.ts	adds the longpaths flag only for Windows (%s), on both branch forms	yes
 apps/desktop/src/main/an-account-sign-in-belongs-to-its-agent.test.ts	runs each documented login command hidden with its home and discards all process output	no
 apps/desktop/src/main/an-account-sign-in-belongs-to-its-agent.test.ts	reports failure once without returning the process error or any token	no
 apps/desktop/src/main/an-added-account-has-only-its-own-home.test.ts	preserves the exact launch and environment when no account is selected	yes
@@ -2027,6 +2042,18 @@ apps/desktop/src/main/workspace.test.ts	never defaults INTO the install folder, 
 apps/desktop/src/main/workspace.test.ts	gives the same folder the same id, and a different folder a different one	no
 apps/desktop/src/main/workspace.test.ts	round-trips through its file	no
 apps/desktop/src/main/workspace.test.ts	is nothing when the file is missing, malformed, or empty -- never a crash at start-up	no
+apps/desktop/src/main/worktrees.test.ts	names a branch from the teammate, folded to what git accepts	yes
+apps/desktop/src/main/worktrees.test.ts	reads the git version and knows which ones have worktrees	yes
+apps/desktop/src/main/worktrees.test.ts	keeps only the trees Locust made under the folder out of a porcelain list	yes
+apps/desktop/src/main/worktrees.test.ts	refuses a folder that is not a repository, with the reason	yes
+apps/desktop/src/main/worktrees.test.ts	makes the tree under .locust/worktrees on its own branch, excludes .locust, and is idempotent	yes
+apps/desktop/src/main/worktrees.test.ts	two teammates whose names fold to one branch each get a tree	yes
+apps/desktop/src/main/worktrees.test.ts	two teammates get two trees that do not see each other, and the main checkout stays untouched	yes
+apps/desktop/src/main/worktrees.test.ts	C1: refuses to remove a copy with uncommitted work, naming it, and keeps every file	yes
+apps/desktop/src/main/worktrees.test.ts	C1: removes it only for the exact changes agreed to -- one made since is refused again	yes
+apps/desktop/src/main/worktrees.test.ts	C1: removes a clean copy at once, with git’s own unforced remove	yes
+apps/desktop/src/main/worktrees.test.ts	names changes the way git status does, a quoted path unquoted	yes
+apps/desktop/src/main/worktrees.test.ts	refuses an id that could name a path outside the folder	yes
 apps/desktop/src/main/your-github-is-connected-through-gh.test.ts	reads the active account, its scopes, and an account GitHub no longer takes	yes
 apps/desktop/src/main/your-github-is-connected-through-gh.test.ts	never names a login GitHub could not have issued	yes
 apps/desktop/src/main/your-github-is-connected-through-gh.test.ts	reads an older gh by its exit and first account line	yes
