@@ -333,3 +333,9 @@ Next: part 1b opens-the-plan, then orb, frame-pass.
 - Tests: `verbose_opens_every_step_of_a_long_transcript` (220 steps), `verbose_switches_for_this_moment_when_there_is_no_store`,
   `window_drive_tests::command_o_switches_normal_and_verbose_steps_and_remembers_the_choice`, and core's
   `reads_normal_until_verbose_was_chosen_and_ignores_anything_else`, `stays_usable_when_storage_refuses`. Breaks 4 of 4 killed.
+
+## 19 Nov (later): Undo on the turn foot, the header ⋯
+
+- **The turn foot's Undo** (`src/ui/turn_undo.rs`, TurnUndo.tsx): under the files card, "Undo these changes", asked first in Electron's words, run off the window's thread through `changes_panel::undo_turn_in`, then "Undone: N files put back…" with each file left alone and why. `checkpoints::undo_state` answers in Electron's order (undone, shared, ready, none); the latest turn is asked again every 750 ms up to 20 times while its record is not written yet. The heading adds "· undone" only when Undo put a file back.
+- **A resumed file card** 5 of 5: a stopped Write says "not confirmed", never "did not report".
+- **The header ⋯** (`src/ui/header_menu.rs`): Verbose/Normal, Send feedback (the turns as feedback.ts writes them; a failure's words from the turn's error note; a stopped turn's "(the turn was stopped)" is not yet said, since the window's items do not keep the run's ending), Delete conversation once nothing runs. Electron's other entries (Open in terminal, Ask on the side, Cloud tasks, Save as routine, the review ask) stay where Rust draws them, as header icons, or are not built yet.

@@ -369,6 +369,8 @@ pub(super) struct State {
     pub(super) org_menu_id: Option<String>,
     /// The right-click menu open over the window (context_menu.rs).
     pub(super) row_menu: Option<crate::context_menu::MenuState>,
+    /// Where the conversation header's `⋯` was laid out, so its menu opens under it.
+    pub(super) header_menu_at: [f32; 4],
     pub(super) group_menu_id: Option<String>,
     pub(super) group_remove_confirm: bool,
     pub(super) folded_groups: std::collections::HashSet<String>,
@@ -625,6 +627,7 @@ impl Default for State {
             rename_draft: TextEdit::new(""),
             org_menu_id: None,
             row_menu: None,
+            header_menu_at: [0.0; 4],
             group_menu_id: None,
             group_remove_confirm: false,
             folded_groups: std::collections::HashSet::new(),

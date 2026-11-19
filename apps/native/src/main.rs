@@ -207,6 +207,8 @@ mod changelog;
 mod changes_panel;
 #[path = "ui/turn_undo.rs"]
 mod turn_undo;
+#[path = "ui/header_menu.rs"]
+mod header_menu;
 #[path = "ui/commit_panel.rs"]
 mod commit_panel;
 #[path = "ui/issue_list.rs"]

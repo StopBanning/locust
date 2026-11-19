@@ -159,6 +159,7 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
         if let Some(btn) = side_chat::header_button(s, p) {
             actions = actions.child(btn);
         }
+        actions = actions.children(crate::header_menu::control(s, p));
         let mut status = row().w_full().center_y().gap(8.0).px(28.0).py(8.0);
         if s.flight.is_some() || s.opening_teammate.is_some() {
             status = status.child(
