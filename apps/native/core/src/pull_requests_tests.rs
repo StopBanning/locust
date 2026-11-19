@@ -123,6 +123,9 @@ impl Network for FakeHeaderGh {
 
 // --- a-pull-request-shows-in-the-header.test.ts ---
 
+// case: reads its state and how its checks stand
+// case: takes only a GitHub pull request address
+// case: says it in a line
 #[test]
 fn a_pull_request_read_from_gh_reads_state_checks_and_line() {
     let m = pull_request_of(&merged_json()).unwrap();
@@ -214,6 +217,9 @@ fn a_pull_request_read_from_gh_reads_state_checks_and_line() {
     );
 }
 
+// case: is the one for the branch the folder is on, asked of gh from that branch (0.731: a fork’s too)
+// case: is nothing on the default branch, on a branch with none, or when gh is signed out -- and gh is not asked on main
+// case: is kept a minute, asked again for another branch, and asked again after a sign-in
 #[test]
 fn folder_pull_request_reads_for_branch_skips_main_and_caches_for_a_minute() {
     let repo = repository();
@@ -300,6 +306,13 @@ fn sample_pr() -> FolderPullRequest {
     }
 }
 
+// case: a check that fails, a review that asks for changes, a conflict: each something to fix
+// case: checks passing, an approval, a merge: news, nothing to fix
+// case: nothing changed, or a check still failing, is not news again
+// case: reads a conflict off gh’s own field
+// case: looks at once, then on each tick, and says only what changed
+// case: stops watching a merged one once it has said so, and the timer with it
+// case: has no timer while nothing is watched
 #[test]
 fn pull_request_news_and_watch_behave_as_electron_pins() {
     assert_eq!(PULL_REQUEST_WATCH_MS, 180_000);

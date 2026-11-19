@@ -76,5 +76,19 @@
 - Surprise: Electron's Ask/Plan OpenCode config leaves `bash` at "ask" (not "deny"), because a deny makes the free provider refuse the run (measured 2026-09-22). Native already matches.
 - Flaky, not ours: `permission_host_tests::refuses_a_questions_answer_aimed_at_a_permission_and_says_so` failed once in a whole-package run.
 
+## Gates after Part 3 (60f779a5)
+- `nextest run --workspace --no-fail-fast`: 4542 passed, 22 skipped.
+- `test --release --workspace`: 3553 core + 989 window, all passed.
+- `build --release`: built. The release binary's `--git-reads` answered `initialize`, `log` and `diff` on a scratch repository and wrote nothing.
+
+## Part 4: Pull-request and issue links — 3 carried, 4 partial
+- `main/a-pull-request-link-wears-its-state.test.ts` (10/10) and `main/an-issue-link-wears-its-state.test.ts` (8/8): carried. They are in the new `core/src/pull_links_tests.rs`, one test per case with Electron's values, replacing three bundled tests. Those had skipped merged-with-checks, closed-with-a-failure, failing-and-running, the Draft and Merged hovers, markdown links, and every issue case. The stand-in gh can hold its answer, so "reads once when many links ask together" is proven with three readers waiting on one call.
+- `main/a-pull-request-shows-in-the-header.test.ts` (6/6): carried. The existing tests already held Electron's values; added `// case:` lines. The header chip calls `FolderCommits::pull_request`.
+- `main/a-pull-request-can-be-watched.test.ts`: partial, with all 7 cases named. The window's own watch loop (`pull_request_chip.rs`: `watched_urls`, `next_watch_at`) calls `pull_request_news`, but the three timer cases are proven on core `PullRequestWatch`, which the window does not call.
+- `renderer/src/a-pull-request-chip-says-its-state.test.tsx`: partial (2/2 named by the case map). The chip's line reads "Pull request 17, Open · … Opens on GitHub." where Electron's hover is "Pull request #17: Fix the cart total / … / Opens on GitHub", and GitHub's mark is not checked.
+- `renderer/src/a-pull-request-link-wears-its-state.test.tsx` (0/2) and `renderer/src/an-issue-link-wears-its-state.test.tsx` (0/4): partial. The window draws both kinds of chip (issue chips too; the triage's "gap" was stale), but no window test drives the checks mark, links in the person's own message, or the issue chip's states, focus refresh and gh failure.
+- Breaks (5 caught, via mutfilter on `pull_requests::`): issue and pull keys made one -> `keeps_a_pull_request_and_an_issue_with_one_number_apart`; no minute's keeping -> both "reads once…" tests; no shared flight -> both "reads once…" tests; at-once limit raised -> `does_not_ask_fifty_times_at_once`; "Not planned" word -> `reads_open_closed_completed…`.
+
 ## Remaining
-- Part 4: Pull-request and issue links (7 files)
+- Window tests for the three partial renderer files and the watch timer: drive `pull_request_chip.rs` in `rune::Runtime` for the issue chip (open, closed, not planned, hover, gh failure, focus refresh), the pull link's checks mark, and links in the person's own message. Then decide whether the window's watch loop should use `PullRequestWatch` or the timer tests should move onto the window's loop.
+- Electron's OpenCode `instructions` file that tells a run about the git tool is not ported.

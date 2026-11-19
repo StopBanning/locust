@@ -445,6 +445,13 @@ apps/desktop/src/main/a-provider-that-fails-first-is-carried-on.test.ts	leaves a
 apps/desktop/src/main/a-provider-that-fails-first-is-carried-on.test.ts	one press starts the task from the start on the agent offered, told why	yes
 apps/desktop/src/main/a-provider-that-fails-first-is-carried-on.test.ts	goes on by itself with Without asking on, and says so when the picked agent is the one that failed	yes
 apps/desktop/src/main/a-provider-that-fails-first-is-carried-on.test.ts	says why on the card and on the seam, and Settings says it covers both	no
+apps/desktop/src/main/a-pull-request-can-be-watched.test.ts	a check that fails, a review that asks for changes, a conflict: each something to fix	yes
+apps/desktop/src/main/a-pull-request-can-be-watched.test.ts	checks passing, an approval, a merge: news, nothing to fix	yes
+apps/desktop/src/main/a-pull-request-can-be-watched.test.ts	nothing changed, or a check still failing, is not news again	yes
+apps/desktop/src/main/a-pull-request-can-be-watched.test.ts	reads a conflict off gh’s own field	yes
+apps/desktop/src/main/a-pull-request-can-be-watched.test.ts	looks at once, then on each tick, and says only what changed	yes
+apps/desktop/src/main/a-pull-request-can-be-watched.test.ts	stops watching a merged one once it has said so, and the timer with it	yes
+apps/desktop/src/main/a-pull-request-can-be-watched.test.ts	has no timer while nothing is watched	yes
 apps/desktop/src/main/a-pull-request-link-wears-its-state.test.ts	is a pull request, and an issue is named beside it	yes
 apps/desktop/src/main/a-pull-request-link-wears-its-state.test.ts	leaves a commit, a file, and anything that is not that address	yes
 apps/desktop/src/main/a-pull-request-link-wears-its-state.test.ts	finds a bare pull request in a sentence, and the issue beside it as a link of its own kind	yes
@@ -455,6 +462,12 @@ apps/desktop/src/main/a-pull-request-link-wears-its-state.test.ts	asks gh for th
 apps/desktop/src/main/a-pull-request-link-wears-its-state.test.ts	reads once when many links ask together, and keeps the answer for a minute	yes
 apps/desktop/src/main/a-pull-request-link-wears-its-state.test.ts	does not ask fifty times at once	yes
 apps/desktop/src/main/a-pull-request-link-wears-its-state.test.ts	reads nothing into the chip when gh cannot, and does not ask again for a minute	yes
+apps/desktop/src/main/a-pull-request-shows-in-the-header.test.ts	reads its state and how its checks stand	yes
+apps/desktop/src/main/a-pull-request-shows-in-the-header.test.ts	takes only a GitHub pull request address	yes
+apps/desktop/src/main/a-pull-request-shows-in-the-header.test.ts	says it in a line	yes
+apps/desktop/src/main/a-pull-request-shows-in-the-header.test.ts	is the one for the branch the folder is on, asked of gh from that branch (0.731: a fork’s too)	yes
+apps/desktop/src/main/a-pull-request-shows-in-the-header.test.ts	is nothing on the default branch, on a branch with none, or when gh is signed out -- and gh is not asked on main	yes
+apps/desktop/src/main/a-pull-request-shows-in-the-header.test.ts	is kept a minute, asked again for another branch, and asked again after a sign-in	yes
 apps/desktop/src/main/a-refusal-in-ask-says-the-mode.test.ts	names the mode and says nobody was asked	yes
 apps/desktop/src/main/a-refusal-in-ask-says-the-mode.test.ts	is what a served Ask or Plan run is given, and only one nobody answers for	yes
 apps/desktop/src/main/a-relayed-conversation-sits-under-its-origin.test.ts	sits under the conversation any turn of which sent it	yes
@@ -2583,6 +2596,10 @@ apps/desktop/src/renderer/src/a-provider-error-is-readable-and-said-once.test.ts
 apps/desktop/src/renderer/src/a-provider-error-is-readable-and-said-once.test.tsx	formats restored errors for each runtime without inventing its upstream provider	no
 apps/desktop/src/renderer/src/a-provider-error-is-readable-and-said-once.test.tsx	reads a JSON stderr cause without appending the raw body to a readable error	yes
 apps/desktop/src/renderer/src/a-provider-error-is-readable-and-said-once.test.tsx	keeps a distinct failure card and does not let a warning hide the failure	no
+apps/desktop/src/renderer/src/a-pull-request-chip-says-its-state.test.tsx	names the pull request by number and state, with GitHub’s mark, and the whole line on hover	yes
+apps/desktop/src/renderer/src/a-pull-request-chip-says-its-state.test.tsx	wears its checks’ tone while open, and merged’s own once merged	yes
+apps/desktop/src/renderer/src/a-pull-request-link-wears-its-state.test.tsx	wears the state in words, and the checks as one mark	no
+apps/desktop/src/renderer/src/a-pull-request-link-wears-its-state.test.tsx	makes a bare pull request in the person's message a link, and a bare issue one too	no
 apps/desktop/src/renderer/src/a-question-makes-the-face-wait-on-you.test.ts	counts questions a teammate stopped on beside its paused runs	no
 apps/desktop/src/renderer/src/a-question-makes-the-face-wait-on-you.test.ts	leaves out memory suggestions, Scout cards, waiting routines, and items no teammate owns	no
 apps/desktop/src/renderer/src/a-question-makes-the-face-wait-on-you.test.ts	a question alone makes the face wait, in amber, with nothing running	yes
@@ -3019,6 +3036,10 @@ apps/desktop/src/renderer/src/an-idle-teammate-offers-its-own-world.test.tsx	nev
 apps/desktop/src/renderer/src/an-idle-teammate-offers-its-own-world.test.tsx	never asks a non-coder for a page the app would only show as code	yes
 apps/desktop/src/renderer/src/an-idle-teammate-offers-its-own-world.test.tsx	says what the role is for, not that every role reads the workspace	yes
 apps/desktop/src/renderer/src/an-idle-teammate-offers-its-own-world.test.tsx	offers a hand-made teammate its role's, and speaks of code only for the roles that are code	yes
+apps/desktop/src/renderer/src/an-issue-link-wears-its-state.test.tsx	wears open, closed and not planned, its standing and title on hover	no
+apps/desktop/src/renderer/src/an-issue-link-wears-its-state.test.tsx	makes a bare issue in the person's message a link, as a pull request is	no
+apps/desktop/src/renderer/src/an-issue-link-wears-its-state.test.tsx	reads on show, again on focus after a minute, and never on a timer	no
+apps/desktop/src/renderer/src/an-issue-link-wears-its-state.test.tsx	says nothing and wears nothing when gh cannot answer	no
 apps/desktop/src/renderer/src/an-orb-needs-a-runtime-that-streams.test.ts	shows the working orb through an OpenCode tool call, because the tool is never open	yes
 apps/desktop/src/renderer/src/an-orb-needs-a-runtime-that-streams.test.ts	shows the tool orb on Antigravity, where the start and the result are apart	yes
 apps/desktop/src/renderer/src/an-orb-needs-a-runtime-that-streams.test.ts	reaches the writing orb on OpenCode, because text arriving IS writing	yes
