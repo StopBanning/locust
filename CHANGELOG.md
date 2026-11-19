@@ -11,6 +11,15 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.880.0 - unreleased
+
+### Fixed
+
+- **A finished Antigravity answer no longer reads as failed.** When Gemini wrote its whole answer and then sent one
+  empty tool call, Antigravity ended with "Malformed function call", and Locust drew the turn as failed, offering to
+  carry it on with another agent under a finished report. The answer is now kept as finished, with a line saying what
+  happened and to send "continue" if it was not done. An empty call while a tool was still running is still a failure.
+
 ## 0.879.0 - 2026-11-18
 
 ### New

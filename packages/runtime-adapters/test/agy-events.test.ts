@@ -75,7 +75,7 @@ describe("Antigravity CLI's stream", () => {
    * in the result, then status ERROR, "The stream was interrupted. Please continue the task you were working on.",
    * exit 0 -- and Locust drew "failed" with "Try again" over a finished 91 KB page.
    */
-  const interrupted = (after: readonly string[]) => {
+  const interrupted = (after: readonly string[], error = "The stream was interrupted. Please continue the task you were working on.") => {
     const normalizer = createAgyEventNormalizer({ runId: "run_1", missionId: "mission_1", now: () => new Date("2026-10-02T00:00:00Z") });
     const step = (index: number, fields: Record<string, unknown>) => JSON.stringify({ event: "step_update", step_update: { conversation_id: "c1", step_index: index, ...fields } });
     const lines = [
@@ -84,7 +84,7 @@ describe("Antigravity CLI's stream", () => {
       step(30, { step_type: "agent_response", state: "ACTIVE", text_delta: "I have built the station in index.html." }),
       step(30, { step_type: "agent_response", state: "DONE", text_delta: " Open it in Chrome." }),
       ...after,
-      '{"event":"result","result":{"conversation_id":"c1","status":"ERROR","response":"I have built the station in index.html. Open it in Chrome.","error":"The stream was interrupted. Please continue the task you were working on.","duration_seconds":1109.15}}'
+      JSON.stringify({ event: "result", result: { conversation_id: "c1", status: "ERROR", response: "I have built the station in index.html. Open it in Chrome.", error, duration_seconds: 1109.15 } })
     ];
     return [...lines.flatMap((raw, index) => normalizer.accept({ sequence: index + 1, raw } as never)), ...normalizer.finish(completion(0))];
   };
@@ -102,6 +102,28 @@ describe("Antigravity CLI's stream", () => {
     const events = interrupted([JSON.stringify({ event: "step_update", step_update: { conversation_id: "c1", step_index: 31, step_type: "tool", state: "ACTIVE", tool_name: "run_command", tool_info: { parameters: { CommandLine: "npx serve" } } } })]);
     expect(events.at(-1)!.type).toBe("run.failed");
     expect(events.some((event) => event.type === "adapter.diagnostic" && payload<{ code: string }>(event).code === "antigravity.interrupted_after_answer")).toBe(false);
+  });
+
+  /*
+   * Gemini 4 Hydrogen's picker round, 2026-11-18: 72 minutes, the whole report written and its step DONE, then status
+   * ERROR, "Your previous response contained an improperly formatted function call: Malformed function call: ...
+   * Function call is empty", exit 0 -- and Locust drew "failed" with "Carry on with Codex CLI" under a finished report.
+   */
+  const MALFORMED = "Your previous response contained an improperly formatted function call: Malformed function call: Failed to parse function call: Function call is empty - no input to parse.\nPlease retry with a properly formatted function call\nRetries remaining: 3";
+
+  it("the answer closed, then an empty function call: finished, with a line saying so", () => {
+    const events = interrupted([], MALFORMED);
+    const said = events.find((event) => event.type === "adapter.diagnostic" && payload<{ code: string }>(event).code === "antigravity.malformed_call_after_answer");
+    expect(payload<{ level: string }>(said)).toMatchObject({ level: "warning" });
+    expect(payload<{ message: string }>(said).message).toMatch(/kept.*send "continue"/);
+    expect(events.at(-1)!.type).toBe("run.completed");
+    expect(events.some((event) => event.type === "run.failed")).toBe(false);
+  });
+
+  it("an empty function call while a tool was still going is still a failure", () => {
+    const events = interrupted([JSON.stringify({ event: "step_update", step_update: { conversation_id: "c1", step_index: 31, step_type: "tool", state: "ACTIVE", tool_name: "run_command", tool_info: { parameters: { CommandLine: "npx serve" } } } })], MALFORMED);
+    expect(events.at(-1)!.type).toBe("run.failed");
+    expect(events.some((event) => event.type === "adapter.diagnostic" && payload<{ code: string }>(event).code === "antigravity.malformed_call_after_answer")).toBe(false);
   });
 
   // 0.823, from the 2026-10-22 handoff drive (Gemini 4 Argon in Ask): the card pasted AGY_ERROR's raw JSON after the

@@ -462,6 +462,19 @@ export function createAgyEventNormalizer(context: AgyInvocationContext): AgyEven
         answeredThenUnavailable = true;
         events.push(diagnostic("warning", "antigravity.interrupted_after_answer", "Antigravity said its stream was interrupted after this answer had finished. The answer and its changes are kept. If it was not finished, send \"continue\".", evidence));
       }
+      /*
+       * OR ITS MODEL SENT AN EMPTY CALL AFTER IT (0.880). Gemini 4 Hydrogen's
+       * picker round, 2026-11-18: 72 minutes, the whole report written and its
+       * step DONE, then status ERROR, "improperly formatted function call:
+       * Malformed function call: ... Function call is empty", exit 0. Locust
+       * drew "failed" and offered to carry on with another agent under a
+       * finished report. The same rule as the interrupted stream: only when the
+       * last step agy reported was that answer, closed.
+       */
+      if (status !== "SUCCESS" && !stopped && !answeredThenUnavailable && answerClosed && resultError !== undefined && /malformed function call|improperly formatted function call/i.test(resultError)) {
+        answeredThenUnavailable = true;
+        events.push(diagnostic("warning", "antigravity.malformed_call_after_answer", "Antigravity's model sent an empty tool call after this answer had finished. The answer and its changes are kept. If it was not finished, send \"continue\".", evidence));
+      }
       if (turnOpen) {
         turnOpen = false;
         events.push(emit("step.completed", { stepKind: "turn", evidence }));
