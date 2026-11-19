@@ -2677,8 +2677,8 @@ apps/desktop/src/renderer/src/a-restored-queue-waits-for-send.test.ts	A refused 
 apps/desktop/src/renderer/src/a-restored-queue-waits-for-send.test.ts	A failed removal write sends nothing and keeps the saved words.	no
 apps/desktop/src/renderer/src/a-restored-queue-waits-for-send.test.ts	A refused folded message restores its original rows without exceeding the saved row limit.	no
 apps/desktop/src/renderer/src/a-resumed-file-card-matches-the-folder.test.tsx	counts the folder's change, not every Write outside it, and does not blame Claude Code for those Writes	yes
-apps/desktop/src/renderer/src/a-resumed-file-card-matches-the-folder.test.tsx	keeps a normal finished turn's card: one Write with a diff is still one edited file	no
-apps/desktop/src/renderer/src/a-resumed-file-card-matches-the-folder.test.tsx	says a Write the turn stopped before settling was stopped, not that Claude Code failed to report	no
+apps/desktop/src/renderer/src/a-resumed-file-card-matches-the-folder.test.tsx	keeps a normal finished turn's card: one Write with a diff is still one edited file	yes
+apps/desktop/src/renderer/src/a-resumed-file-card-matches-the-folder.test.tsx	says a Write the turn stopped before settling was stopped, not that Claude Code failed to report	yes
 apps/desktop/src/renderer/src/a-resumed-file-card-matches-the-folder.test.tsx	keeps one row when the same file was written twice without a diff	yes
 apps/desktop/src/renderer/src/a-resumed-file-card-matches-the-folder.test.tsx	knows a scratch path is not the compare folder	yes
 apps/desktop/src/renderer/src/a-retired-free-model-is-not-offered.test.ts	reads OpenCode's own words, and nothing else, as retired	no
