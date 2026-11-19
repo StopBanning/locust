@@ -382,3 +382,113 @@ fn names_what_changed_says_nothing_has_reached_the_folder_and_offers_keep_discar
     let quiet = draw(screen(vec![r], None));
     assert!(!quiet.iter().any(|e| e.key.as_deref() == Some("routine-changes-rt_inbox")));
 }
+
+// ---- a-routine-previews-its-inputs-and-file.test.tsx ------------------------------------------------------------
+
+fn notes() -> Value {
+    json!({"routineId": "rt_one", "name": "Notes", "teammateId": "codec", "route": {"runtime": "opencode", "model": "free", "mode": "ask"},
+        "steps": ["Read {{topic}} in {{folder}}"], "learnedFrom": [], "createdAt": "2026-10-03T00:00:00Z", "runs": 0,
+        "inputs": [{"key": "topic", "label": "Topic", "kind": "text", "required": true, "default": "Daily notes"},
+            {"key": "folder", "label": "Folder", "kind": "folder", "required": true},
+            {"key": "tone", "label": "Tone", "kind": "choice", "required": false, "choices": ["Brief", "Detailed"], "default": "Brief"},
+            {"key": "note", "label": "Note", "kind": "long-text", "required": false, "default": "two\nlines"}]})
+}
+fn labelled(all: &[rune::ElementInfo], label: &str) -> bool {
+    all.iter().any(|e| e.label.as_deref() == Some(label))
+}
+
+#[test]
+fn fills_defaults_draws_each_kind_and_a_folder_has_a_picker_with_no_typed_path_field() {
+    let mut s = screen(vec![notes()], None);
+    start_run(&mut s, "rt_one");
+    let dlg = s.routines.run_dialog.as_ref().expect("Run asks for the values first");
+    assert_eq!(dlg.values.iter().map(|v| v.text.clone()).collect::<Vec<_>>(), ["Daily notes", "", "Brief", "two\nlines"]);
+    let all = draw(s);
+    assert!(any_text(&all, "Run Notes"));
+    assert!(labelled(&all, "Value for Topic") && labelled(&all, "Value for Note"));
+    assert!(all.iter().any(|e| e.key.as_deref() == Some("routine-run-choice-2-0") && e.fill != rune::Color::TRANSPARENT), "Brief is chosen");
+    assert!(all.iter().any(|e| e.text.as_deref() == Some("Choose Folder")));
+    assert!(!labelled(&all, "Value for Folder"), "a folder is chosen with the picker, never typed");
+    assert!(any_text(&all, "No folder chosen"));
+    let run = all.iter().find(|e| e.key.as_deref() == Some("routine-run-submit")).unwrap();
+    assert_eq!(run.text.as_deref(), Some("Run routine"));
+    assert!(run.opacity < 0.5, "Run routine waits for the folder");
+    assert!(shown(&all, "routine-run-unsettled").is_some(), "and says what is missing");
+}
+
+#[test]
+fn the_routine_editor_shows_declarations_and_refuses_a_step_with_an_undeclared_input() {
+    let mut s = screen(vec![], None);
+    let mut r = notes();
+    r["steps"] = json!(["Read {{missing}}"]);
+    edit(&mut s, r);
+    assert!(save_refusal(&s).is_some_and(|why| why.contains("not declared as an input")));
+    let all = draw(s);
+    assert!(labelled(&all, "Input 1 key"));
+    assert!(any_text(&all, "not declared as an input"));
+    assert!(any_text(&all, "Add input"));
+    assert!(all.iter().any(|e| e.key.as_deref() == Some("routine-save")));
+    // Save waits: pressed, it does nothing (with no data folder here, a save that ran would say so).
+    let mut s = screen(vec![], None);
+    let mut r = notes();
+    r["steps"] = json!(["Read {{missing}}"]);
+    edit(&mut s, r);
+    let mut rt = Runtime::new(s, crate::view, (1200.0, 6000.0), Env::new(true, 1.0));
+    rt.frame(0.016);
+    let (x, y) = rt.find("routine-save").unwrap();
+    rt.pointer_down(x, y);
+    rt.pointer_up(x, y);
+    rt.frame(0.032);
+    assert!(rt.state.routines.error.is_empty() && !rt.state.routines.fields.is_empty(), "nothing was saved or tried");
+}
+
+fn import_state(from_template: bool) -> State {
+    let mut s = screen(vec![], None);
+    let inputs = locust_core::routine_inputs::parse_inputs_array(&notes()["inputs"]).unwrap();
+    s.routines.import_preview = Some(ImportPreviewState {
+        preview: locust_core::routine_io::RoutineImportPreview {
+            token: "token".into(), name: "Notes".into(), steps: vec!["Read {{topic}} in {{folder}}".into()], inputs,
+            hand_off_roles: vec![Some("Finance Bro".into())], hand_off_checks: vec![false], hand_off_asks: None,
+            changes_files: false, hand_off_on_another_agent: None, runtime: Some("opencode".into()),
+            connectors: vec![
+                locust_core::routine_io::ConnectorPresence { name: "available".into(), present: true },
+                locust_core::routine_io::ConnectorPresence { name: "needed".into(), present: false },
+            ],
+        },
+        teammate_id: String::new(),
+        error: String::new(),
+        from_template,
+    });
+    s
+}
+
+#[test]
+fn the_import_preview_names_steps_inputs_choices_source_roles_and_present_or_missing_connectors() {
+    let all = draw(import_state(false));
+    for saying in ["Read {{topic}} in {{folder}}", "Daily notes", "Brief, Detailed", "Source role: Finance Bro", "available · present", "needed · missing", "Give it to", "with no schedule, and runs nothing", "Made for OpenCode."] {
+        assert!(any_text(&all, saying), "{saying}");
+    }
+    assert!(labelled(&all, "Give routine to"));
+    let import = all.iter().find(|e| e.key.as_deref() == Some("routine-import-confirm")).unwrap();
+    assert!(import.opacity < 0.5, "Import waits for an owner");
+    // Chosen, it can be pressed.
+    let mut s = import_state(false);
+    s.routines.import_preview.as_mut().unwrap().teammate_id = "codec".into();
+    let all = draw(s);
+    assert!(chosen(&all, "routine-import-owner-codec"));
+    assert!(all.iter().find(|e| e.key.as_deref() == Some("routine-import-confirm")).unwrap().opacity > 0.9);
+    // A starter is added, not imported, with its own words.
+    let starter = draw(import_state(true));
+    assert!(any_text(&starter, "Add routine") && any_text(&starter, "runs nothing until you press Run."));
+}
+
+#[test]
+fn export_paths_are_shown_with_a_conversion_offer_and_the_routines_screen_has_file_actions() {
+    let mut s = screen(vec![notes()], None);
+    s.routines.export_dialog = Some(ExportDialogState { routine: notes(), paths: vec!["Step 1: C:\\private\\folder".into()] });
+    let all = draw(s);
+    assert!(any_text(&all, "C:\\private\\folder"));
+    assert!(any_text(&all, "Make paths inputs") && any_text(&all, "Keep paths"));
+    assert!(any_text(&all, "Import routine"));
+    assert!(labelled(&all, "Export Notes"));
+}

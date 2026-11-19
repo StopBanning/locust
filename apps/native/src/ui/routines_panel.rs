@@ -20,8 +20,11 @@ pub(super) struct RunDialogState {
 
 pub(super) struct ImportPreviewState {
     pub preview: locust_core::routine_io::RoutineImportPreview,
+    /// Who it is given to: empty until the person chooses (RoutineImportDialog asks, never guesses).
     pub teammate_id: String,
     pub error: String,
+    /// A starter routine Locust ships, added rather than imported (0.615).
+    pub from_template: bool,
 }
 
 pub(super) struct ExportDialogState {
@@ -273,7 +276,9 @@ fn save_refusal(s: &State) -> Option<String> {
     if let Some(at) = panel.steps.iter().position(|step| step.text.trim().encode_utf16().count() > 8000) {
         return Some(format!("Shorten step {} to save this routine.", at + 1));
     }
-    None
+    // A step that names an input nobody declared is said before Save, not refused after it (RoutineDialog).
+    let steps: Vec<String> = panel.steps.iter().map(|e| e.text.clone()).collect();
+    locust_core::routine_inputs::inputs_refusal(&Value::Array(serialize_input_rows(&panel.input_rows)), Some(&steps))
 }
 
 /// The mode a run will be in, as the editor says it (RoutineDialog's `shownMode`): Ask when only reading is chosen,
@@ -404,8 +409,9 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                 }),
         )
         .child(
-            button("Open routine", p)
+            button("Import routine", p)
                 .key("routine-import-file")
+                .role("button")
                 .on_press_tx(|_s: &mut State, tx: &mut Tx| {
                     open_routine_file(tx);
                 }),
@@ -728,7 +734,7 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                 row()
                     .gap(10.0)
                     .child(button("Edit", p).on_press(move |s: &mut State| edit(s, entry.clone())))
-                    .child(button("Save as file", p).key(format!("routine-export-{id}")).on_press_tx(move |s: &mut State, tx: &mut Tx| {
+                    .child(button("Save as file", p).key(format!("routine-export-{id}")).role("button").label(format!("Export {}", r["name"].as_str().unwrap_or("Routine"))).on_press_tx(move |s: &mut State, tx: &mut Tx| {
                         begin_export_routine(s, export_entry.clone(), tx);
                     }))
                     .child(button(if paused { "Resume" } else { "Pause" }, p).on_press(
@@ -1451,7 +1457,7 @@ fn inputs_editor(s: &State, p: &Palette) -> El {
                     .child(
                         text_input(&row_draft.key, type_::LABEL)
                             .key(format!("routine-input-key-{i}"))
-                            .label("Key")
+                            .label(format!("Input {} key", i + 1))
                             .grow(1.0)
                             .padding(6.0)
                             .fill(p.field)
@@ -1461,7 +1467,7 @@ fn inputs_editor(s: &State, p: &Palette) -> El {
                     .child(
                         text_input(&row_draft.label, type_::LABEL)
                             .key(format!("routine-input-label-{i}"))
-                            .label("Label")
+                            .label(format!("Input {} label", i + 1))
                             .grow(1.0)
                             .padding(6.0)
                             .fill(p.field)
@@ -1534,6 +1540,17 @@ fn inputs_editor(s: &State, p: &Palette) -> El {
     box_el
 }
 
+/// The values as typed, settled as a run would settle them: Err says what is still missing or wrong.
+fn run_values_settled(dlg: &RunDialogState) -> Result<(), String> {
+    let mut given = serde_json::Map::new();
+    for (i, inp) in dlg.inputs.iter().enumerate() {
+        if let Some(v) = dlg.values.get(i) {
+            given.insert(inp.key.clone(), json!(v.text));
+        }
+    }
+    locust_core::routine_inputs::resolve_values(&dlg.inputs, Some(&Value::Object(given))).map(|_| ())
+}
+
 fn run_dialog_view(dlg: &RunDialogState, p: &Palette) -> El {
     let mut box_el = col()
         .w_full()
@@ -1545,7 +1562,7 @@ fn run_dialog_view(dlg: &RunDialogState, p: &Palette) -> El {
             row()
                 .w_full()
                 .child(
-                    text(format!("Run \"{}\"", dlg.routine_name))
+                    text(format!("Run {}", dlg.routine_name))
                         .font(type_::TITLE)
                         .color(p.text)
                         .grow(1.0),
@@ -1571,7 +1588,7 @@ fn run_dialog_view(dlg: &RunDialogState, p: &Palette) -> El {
                 row()
                     .gap(8.0)
                     .child(text(display.to_owned()).font(type_::LABEL).color(p.text).grow(1.0))
-                    .child(button("Choose folder", p).key(format!("routine-run-folder-{i}")).on_press_tx(move |_s: &mut State, tx: &mut Tx| {
+                    .child(button(&format!("Choose {}", inp.label), p).role("button").key(format!("routine-run-folder-{i}")).on_press_tx(move |_s: &mut State, tx: &mut Tx| {
                         let options = rune::FileDialogOptions { title: "Choose folder".into(), ..Default::default() };
                         tx.open_folder(options, move |s: &mut State, answer, _tx| {
                             let Ok(Some(path)) = answer else { return };
@@ -1608,7 +1625,7 @@ fn run_dialog_view(dlg: &RunDialogState, p: &Palette) -> El {
             box_el = box_el.child(
                 text_input(val_edit, type_::BODY)
                     .key(format!("routine-run-input-{i}"))
-                    .label(&inp.label)
+                    .label(format!("Value for {}", inp.label))
                     .w_full()
                     .padding(8.0)
                     .fill(p.raised)
@@ -1619,10 +1636,18 @@ fn run_dialog_view(dlg: &RunDialogState, p: &Palette) -> El {
             );
         }
     }
+    // RoutineRunDialog: what is still missing is said under the inputs, and Run routine waits for it (resolveValues).
+    let settled = run_values_settled(dlg);
+    if let Err(missing) = &settled {
+        box_el = box_el.child(text(missing.clone()).key("routine-run-unsettled").font(type_::LABEL).color(p.secondary).wrap());
+    }
+    let mut run = button("Run routine", p).key("routine-run-submit").role("button");
+    if settled.is_err() {
+        run = run.disabled(true).opacity(0.45);
+    }
     box_el.child(
         row().gap(8.0).child(
-            button("Run now", p)
-                .key("routine-run-submit")
+            run
                 .on_press(|s: &mut State| {
                     let Some(dlg) = s.routines.run_dialog.as_ref() else { return };
                     let mut given = serde_json::Map::new();
@@ -1709,19 +1734,14 @@ fn templates_view(_s: &State, p: &Palette) -> El {
                                 .as_deref()
                                 .map(std::path::Path::new)
                                 .map(locust_core::people::workspace_id);
-                            let teammate_id = s
-                                .teammates
-                                .get(s.selected)
-                                .or_else(|| s.teammates.first())
-                                .map(|t| t.id.clone())
-                                .unwrap_or_default();
                             match s.routines.io.preview_template(&tid, ws.as_deref(), &[]) {
                                 Ok(preview) => {
                                     s.routines.templates_open = false;
-                                    s.routines.import_preview = Some(ImportPreviewState {
+                                                                        s.routines.import_preview = Some(ImportPreviewState {
                                         preview,
-                                        teammate_id,
+                                        teammate_id: String::new(),
                                         error: String::new(),
+                                        from_template: true,
                                     });
                                 }
                                 Err(e) => s.routines.error = e,
@@ -1734,17 +1754,22 @@ fn templates_view(_s: &State, p: &Palette) -> El {
 }
 
 fn import_preview_view(s: &State, imp: &ImportPreviewState, p: &Palette) -> El {
+    let pv = &imp.preview;
+    let note = |t: String| text(t).font(type_::LABEL).color(p.secondary).wrap();
+    let head = |t: &str| text(t.to_owned()).font(type_::LABEL).color(p.muted);
     let mut box_el = col()
         .w_full()
         .padding(14.0)
         .gap(8.0)
         .fill(p.field)
         .radius(10.0)
+        .key("routine-import")
+        .label(if imp.from_template { "Add a starter routine" } else { "Import routine" })
         .child(
             row()
                 .w_full()
                 .child(
-                    text(format!("Import \"{}\"", imp.preview.name))
+                    text(if imp.from_template { pv.name.clone() } else { format!("Import {}", pv.name) })
                         .font(type_::TITLE)
                         .color(p.text)
                         .grow(1.0),
@@ -1753,62 +1778,76 @@ fn import_preview_view(s: &State, imp: &ImportPreviewState, p: &Palette) -> El {
                     s.routines.import_preview = None;
                 })),
         )
-        .child(
-            text(format!(
-                "{} {} · arrives in Ask mode without a schedule",
-                imp.preview.steps.len(),
-                if imp.preview.steps.len() == 1 { "step" } else { "steps" }
-            ))
-            .font(type_::LABEL)
-            .color(p.muted),
-        );
-    let missing_connectors: Vec<&str> = imp
-        .preview
-        .connectors
-        .iter()
-        .filter(|c| !c.present)
-        .map(|c| c.name.as_str())
-        .collect();
-    if !missing_connectors.is_empty() {
-        box_el = box_el.child(
-            text(format!(
-                "Needs connectors on this computer: {}",
-                missing_connectors.join(", ")
-            ))
-            .font(type_::LABEL)
-            .color(p.amber)
-            .wrap(),
+        // RoutineImportDialog: every step in its own words, with the role it came from and whether it waits for an OK.
+        .child(head("Steps"));
+    for (at, step) in pv.steps.iter().enumerate() {
+        box_el = box_el.child(text(format!("{}. {step}", at + 1)).key(format!("routine-import-step-{at}")).font(type_::LABEL).color(p.text).wrap());
+        if let Some(Some(role)) = pv.hand_off_roles.get(at) {
+            box_el = box_el.child(note(format!("Source role: {role}")));
+        }
+        if pv.hand_off_asks.as_ref().and_then(|a| a.get(at)).copied() == Some(true) {
+            box_el = box_el.child(note("Waits for your OK before it starts".into()));
+        }
+    }
+    box_el = box_el.child(head("Inputs"));
+    if pv.inputs.is_empty() {
+        box_el = box_el.child(note("None".into()));
+    }
+    for input in &pv.inputs {
+        let mut line = format!("{} · {}", input.label, input.kind.as_str());
+        if input.required { line.push_str(" · required"); }
+        if let Some(d) = &input.default { line.push_str(&format!(" · default: {d}")); }
+        if let Some(c) = &input.choices { line.push_str(&format!(" · choices: {}", c.join(", "))); }
+        box_el = box_el.child(note(line));
+    }
+    // A starter names no connector, so it lists none (0.615).
+    if !(imp.from_template && pv.connectors.is_empty()) {
+        box_el = box_el.child(head("Connectors it needs"));
+        if pv.connectors.is_empty() {
+            box_el = box_el.child(note("None named".into()));
+        }
+        for c in &pv.connectors {
+            let line = format!("{} · {}", c.name, if c.present { "present" } else { "missing" });
+            box_el = box_el.child(text(line).font(type_::LABEL).color(if c.present { p.secondary } else { p.amber }).wrap());
+        }
+    }
+    if let Some(rt) = pv.runtime.as_deref().filter(|r| !r.is_empty()) {
+        // runtimes.ts DISPLAY_NAMES; a name it does not know is said as written, as isMissionRuntime falls back.
+        let named = locust_core::carry_on::display_name(rt);
+        box_el = box_el.child(note(format!("Made for {named}. It will use your selected teammate\u{2019}s route.")));
+    }
+    let mut give = row().gap(6.0).flex_wrap().key("routine-import-owner").label("Give routine to").child(head("Give it to"));
+    for t in &s.teammates {
+        let (id, chosen) = (t.id.clone(), t.id == imp.teammate_id);
+        give = give.child(
+            button(&t.name, p)
+                .key(format!("routine-import-owner-{id}"))
+                .role("radio")
+                .label(format!("{}{}", t.name, if chosen { ", chosen" } else { "" }))
+                .fill(if chosen { p.selected } else { p.raised })
+                .on_press(move |s: &mut State| {
+                    if let Some(imp) = &mut s.routines.import_preview { imp.teammate_id = id.clone(); }
+                }),
         );
     }
-    let roles: Vec<&str> = imp
-        .preview
-        .hand_off_roles
-        .iter()
-        .filter_map(|r| r.as_deref())
-        .collect();
-    if !roles.is_empty() {
-        box_el = box_el.child(
-            text(format!("Step roles: {}", roles.join(", ")))
-                .font(type_::LABEL)
-                .color(p.secondary)
-                .wrap(),
-        );
-    }
+    box_el = box_el.child(give).child(note(if imp.from_template {
+        "Every step goes to this teammate. It is added read-only, with no schedule, and runs nothing until you press Run.".into()
+    } else {
+        "Every step goes to this teammate. Import saves it read-only, with no schedule, and runs nothing.".into()
+    }));
     if !imp.error.is_empty() {
         box_el = box_el.child(text(imp.error.clone()).font(type_::LABEL).color(p.red).wrap());
     }
-    let owner_name = s
-        .teammates
-        .iter()
-        .find(|t| t.id == imp.teammate_id)
-        .map(|t| t.name.as_str())
-        .unwrap_or("Selected teammate");
+    let chosen = s.teammates.iter().any(|t| t.id == imp.teammate_id);
+    let mut confirm = button(if imp.from_template { "Add routine" } else { "Import routine" }, p).role("button");
+    if !chosen {
+        confirm = confirm.disabled(true).opacity(0.45);
+    }
     box_el.child(
         row()
             .gap(8.0)
-            .child(text(format!("Owner: {owner_name}")).font(type_::LABEL).color(p.secondary))
             .child(
-                button("Import routine", p)
+                confirm
                     .key("routine-import-confirm")
                     .on_press(|s: &mut State| {
                         let Some(store) = s.data.clone() else { return };
@@ -1856,22 +1895,25 @@ fn export_dialog_view(exp: &ExportDialogState, p: &Palette) -> El {
         .child(
             row()
                 .w_full()
-                .child(text("This routine names folders from this computer").font(type_::TITLE).color(p.text).grow(1.0))
+                .child(text("Paths in this routine").font(type_::TITLE).color(p.text).grow(1.0))
                 .child(button("Cancel", p).on_press(|s: &mut State| {
                     s.routines.export_dialog = None;
                 })),
         )
+        .key("routine-export-paths")
+        .label("Export routine paths")
         .child(
-            text(format!("Found: {}", exp.paths.join(", ")))
+            text("These steps name paths on this machine. Make them text inputs to enter when you run the imported routine, or keep them in the file.")
                 .font(type_::LABEL)
-                .color(p.muted)
+                .color(p.secondary)
                 .wrap(),
         )
+        .children(exp.paths.iter().enumerate().map(|(at, line)| text(line.clone()).key(format!("routine-export-path-{at}")).font(type_::LABEL).color(p.text).wrap()))
         .child(
             row()
                 .gap(8.0)
                 .child(
-                    button("Turn paths into inputs", p)
+                    button("Make paths inputs", p)
                         .key("routine-export-as-inputs")
                         .on_press_tx(|s: &mut State, tx: &mut Tx| {
                             if let Some(exp) = s.routines.export_dialog.take() {
@@ -1880,7 +1922,7 @@ fn export_dialog_view(exp: &ExportDialogState, p: &Palette) -> El {
                         }),
                 )
                 .child(
-                    button("Keep paths as written", p)
+                    button("Keep paths", p)
                         .key("routine-export-keep-paths")
                         .on_press_tx(|s: &mut State, tx: &mut Tx| {
                             if let Some(exp) = s.routines.export_dialog.take() {
@@ -1905,19 +1947,14 @@ fn open_routine_file(tx: &mut Tx) {
             .as_deref()
             .map(std::path::Path::new)
             .map(locust_core::people::workspace_id);
-        let teammate_id = s
-            .teammates
-            .get(s.selected)
-            .or_else(|| s.teammates.first())
-            .map(|t| t.id.clone())
-            .unwrap_or_default();
         match s.routines.io.preview_file_path(&path, ws.as_deref(), &[]) {
             Ok(preview) => {
                 s.routines.error.clear();
-                s.routines.import_preview = Some(ImportPreviewState {
+                                s.routines.import_preview = Some(ImportPreviewState {
                     preview,
-                    teammate_id,
+                    teammate_id: String::new(),
                     error: String::new(),
+                    from_template: false,
                 });
             }
             Err(e) => s.routines.error = e,
@@ -1943,7 +1980,8 @@ fn export_with_choice(
         .unwrap_or_default();
     match s.routines.io.prepare_export(routine, paths, &team_vals, &[]) {
         Ok(locust_core::routine_io::ExportOutcome::AbsolutePaths(flagged)) => {
-            let path_strs: Vec<String> = flagged.into_iter().map(|f| f.path).collect();
+            // Each path with the step that names it (RoutineExportDialog lists "Step 2: <path>").
+            let path_strs: Vec<String> = flagged.into_iter().map(|f| format!("Step {}: {}", f.step, f.path)).collect();
             s.routines.export_dialog = Some(ExportDialogState {
                 routine: routine.clone(),
                 paths: path_strs,

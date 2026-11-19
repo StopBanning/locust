@@ -2837,6 +2837,10 @@ fn routine_saved_as_markdown_and_opened_again_is_the_same_routine() {
     rt.resolve_file_dialog(Some(md_path)).unwrap();
     settle(&mut rt);
 
+    // Import is off until the person says who gets it (RoutineImportDialog asks, never guesses).
+    click(&mut rt, "routine-import-confirm");
+    assert!(locust_core::routines::list(&store).unwrap()["routines"].as_array().unwrap().is_empty(), "nothing imported before an owner is chosen");
+    click(&mut rt, "routine-import-owner-tm_codec");
     click(&mut rt, "routine-import-confirm");
     settle(&mut rt);
 

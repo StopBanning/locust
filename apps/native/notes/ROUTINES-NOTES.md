@@ -175,3 +175,25 @@ Three rows carried (`src/ui/routine_card_and_editor_tests.rs`, 12 tests; core `r
   "When its steps are done" and "Where it works" are asked only of a run that may change files.
 - **Breaks: 8 of 8 caught by name** (`~/work/scratch/routines1/r3.txt`). The hidden goal survived at first; a check in
   `offers_the_copy_only_to_a_routine_that_may_change_files` now catches it.
+
+## Routines round 4 (19 Nov): the run dialog, the editor's inputs, import and export
+
+**a-routine-previews-its-inputs-and-file: carried, all 4 cases.**
+- **Run dialog.** It reads as Electron's: "Run <name>", "Value for <label>" and "Choose <label>" for a folder (picked,
+  never typed). "Run routine" is off until the values settle (`routine_inputs::resolve_values`, as the run will
+  settle them), and what is missing is said under the inputs.
+- **Editor.** A step naming an input nobody declared is said before Save, and Save waits. `inputs_refusal` was in
+  core but unused by the editor. Input rows are named "Input N key" and "Input N label".
+- **Import, asked rather than guessed.** Rust used to give the imported routine to whichever teammate was open.
+  Electron asks, and so does this now: "Give it to" with a choice per teammate, and Import off until one is chosen.
+  The preview lists:
+  - the steps, with source role and "Waits for your OK";
+  - the inputs, with kind, required, default and choices;
+  - the connectors, present or missing;
+  - what it was made for.
+  A starter template is "Add routine", with Electron's starter words. The window test that imports now chooses Codec
+  first, and checks that nothing is imported before an owner is chosen.
+- **Export.** "Paths in this routine": each path by its step ("Step 1: <path>"), with Make paths inputs / Keep paths.
+  The shelf says Import routine, and each card's file button is labelled "Export <name>".
+- **Breaks: 11 of 11 caught by name** (`~/work/scratch/routines1/r4.txt`, `r4b.txt`). "Source role:" survived until
+  the test named it.

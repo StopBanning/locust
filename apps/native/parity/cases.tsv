@@ -2779,6 +2779,10 @@ apps/desktop/src/renderer/src/a-routine-keeps-what-you-keep.test.tsx	draws nothi
 apps/desktop/src/renderer/src/a-routine-names-its-folder.test.tsx	on its card, with the whole path on hover	yes
 apps/desktop/src/renderer/src/a-routine-names-its-folder.test.tsx	and says nothing it does not know	yes
 apps/desktop/src/renderer/src/a-routine-names-its-folder.test.tsx	and in its editor, beside when it runs	yes
+apps/desktop/src/renderer/src/a-routine-previews-its-inputs-and-file.test.tsx	fills defaults, draws each kind, and a folder has a picker with no typed path field	yes
+apps/desktop/src/renderer/src/a-routine-previews-its-inputs-and-file.test.tsx	the routine editor shows declarations and refuses a step with an undeclared input	yes
+apps/desktop/src/renderer/src/a-routine-previews-its-inputs-and-file.test.tsx	the import preview names steps, inputs, choices, source roles and present/missing connectors	yes
+apps/desktop/src/renderer/src/a-routine-previews-its-inputs-and-file.test.tsx	export paths are shown with a conversion offer, and the routines screen has file actions	yes
 apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	carries the Routines clock, and the conversation it came from does not	no
 apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	says whose each row is, and which routine, on hover	no
 apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	still marks a run whose routine was since deleted	no
