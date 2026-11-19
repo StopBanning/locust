@@ -197,8 +197,7 @@ Breaks (`core-c` to `core-f`, `ui-d`, `ui-e` logs). All caught in the end:
   matched Electron's; breaks 3 of 4 killed, the survivor (dropping "worktree") is equal since "worktrees" contains it.
 - Auto mode (Teammates) was a "runs in Locust for now" placeholder. Now `auto_mode_section`: heading, "Set by your
   organization." when `mode_allowed(.., "auto")` is false, the on/off sentence, and a switch named "Auto mode" that
-  flips `auto_mode` and saves (drawn but deaf when held off). Electron's "How it works" fold is not drawn: Rust has no
-  fold yet (settings-read-like-claudes).
+  flips `auto_mode` and saves (drawn but deaf when held off). Its "How it works" fold came in Round 5.
 - `src/ui/settings_switches_tests.rs` (new, `every-settings-switch-says-what-it-is.test.ts`, 3 of 3 + 2 of ours);
   breaks 6 of 6 killed.
 - Project settings dialog (`group-settings-dialog.test.tsx`, 5 of 5 by name in `group_settings_dialog.rs`). Two
@@ -235,3 +234,36 @@ Breaks (`core-c` to `core-f`, `ui-d`, `ui-e` logs). All caught in the end:
   test pins it, so the fix must change both.
 - Drawn in Settings > AI agents (`src/ui/what_locust_can_stop_ui.rs`), replacing the heading-only placeholder.
 - Breaks: 5 UI, 9 core, all caught by name (Kilo's reach and the Copilot sentence needed a tighter test first).
+
+## Round 5 (19 Nov, settings read like Claude's)
+
+- `settings-read-like-claudes.test.ts`: 6 of 6 named in `src/ui/settings_read_like_claudes_tests.rs` (new), drawn
+  headless. The row stays partial: what is not drawn is listed below.
+- **Icons**: `SettingsPage.icon` (`src/settings_pages.rs`), Electron's icon per page. The list draws it at 16 pt before
+  the name (`settings-navicon-<id>`), and each entry is one button row (`settings-nav-<id>`, labelled with the page name).
+- **How it works**: `src/ui/how_it_works.rs` (new) is Electron's `<More>`. It starts closed. The summary is a chevron
+  and the words in sentence case, a button that says whether it is open. Open folds are kept by key in
+  `settings_panel.folds`. The words are in `how_it_works::FOLDS`, word for word from Screens.tsx (copied from Electron,
+  not read at test time, so a test cannot catch a word drifting from Electron's). The fold is under 8 of Electron's 24
+  `<More>`: Auto mode, Report a problem, Between teammates, Your own models, GitHub, What your team remembers, Chat
+  apps, and Privacy & local data. Left out: the sections Rust does not draw, plus four whose words would describe what
+  Rust has not built. Those four are Connectors (the ask-first switch), Your phone (the relay; Rust has only the Wi-Fi
+  half), AI agents & accounts (hooks under each agent), and Project folder (changing the folder). The muted "How it
+  works" that ended every page was not a fold, and it is gone.
+- **No card**: Startup, Report a problem and each chat app were filled, rounded boxes. They are now flat, and each chat
+  app has a hairline under it (`.lc-chatapp`). The GitHub card stays: Electron draws `.lc-github` as its own card. The
+  no-card case now also scans every page for a filled, rounded box in the pane.
+- **One line**: `settings_panel::line` puts a 1 pt hairline above the setting, with no fill and no radius. The name and
+  description sit left and the control right, centred on the line. Auto mode, the door's switches (`setting_line`),
+  What a face says, and Code font, Terminal faces and Sidebar all go through it; the last three were columns with the
+  control underneath. Still not drawn: Plans, Your skills, Reply text size, Boot screen, Voice typing ("runs in
+  Locust for now"). The first line on a page keeps its hairline; Electron drops it (`:first-child`).
+- Breaks (`~/work/scratch/picker5/breaks.txt`, `breaks2.txt`): 15 of 15, each caught by name. Swapping an icon was caught by the
+  icons case; no nav glyph by the beside-each-name case; a group label on every page by the said-once case; the fold
+  open by default, uppercased, or never closing by the sentence-case case; Sidebar back to a column, or the words and
+  control swapped, by the one-line case; a filled, rounded row, or no hairline, by the no-card case.
+  Second set: a fold left off GitHub, and every fold toggling Auto mode's, were caught by
+  `each_section_electron_folds_says_how_it_works_under_it_and_opens_on_its_own_words`. The chat app, Startup and
+  Report a problem cards put back were caught by the no-card case.
+- Release gate: `permission_host_tests::always_is_the_tool_not_the_connector_each_card_keyed_by_its_own_tool` (core,
+  untouched here) failed once with "no card was raised" at load 6-7, and passed when run again.

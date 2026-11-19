@@ -117,6 +117,8 @@ mod scout_setting;
 mod settings_pages;
 #[path = "ui/settings_panel.rs"]
 mod settings_panel;
+#[path = "ui/how_it_works.rs"]
+mod how_it_works;
 #[path = "ui/terminal_panel.rs"]
 mod terminal_panel;
 #[cfg(test)]

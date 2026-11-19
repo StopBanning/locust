@@ -1799,12 +1799,12 @@ apps/desktop/src/main/scouts-look-is-sealed.test.ts	on the mode that reads and c
 apps/desktop/src/main/settings-pages-are-real.test.ts	are found at all, so this cannot pass by reading nothing	yes
 apps/desktop/src/main/settings-pages-are-real.test.ts	index every heading the screen renders, and invent none	yes
 apps/desktop/src/main/settings-pages-are-real.test.ts	are the areas the screen actually splits on	yes
-apps/desktop/src/main/settings-read-like-claudes.test.ts	files every page under a group, with an icon the set can draw	no
-apps/desktop/src/main/settings-read-like-claudes.test.ts	keeps each group together, in order, so every label is said once	no
-apps/desktop/src/main/settings-read-like-claudes.test.ts	draws the group label above its first page and the icon beside each name	no
-apps/desktop/src/main/settings-read-like-claudes.test.ts	puts no card around a setting: rows sit on the pane with a hairline between	no
-apps/desktop/src/main/settings-read-like-claudes.test.ts	draws a setting that is one control as one line: name and description left, the control right (0.393, Appearance 0.394)	no
-apps/desktop/src/main/settings-read-like-claudes.test.ts	says "How it works" in sentence case	no
+apps/desktop/src/main/settings-read-like-claudes.test.ts	files every page under a group, with an icon the set can draw	yes
+apps/desktop/src/main/settings-read-like-claudes.test.ts	keeps each group together, in order, so every label is said once	yes
+apps/desktop/src/main/settings-read-like-claudes.test.ts	draws the group label above its first page and the icon beside each name	yes
+apps/desktop/src/main/settings-read-like-claudes.test.ts	puts no card around a setting: rows sit on the pane with a hairline between	yes
+apps/desktop/src/main/settings-read-like-claudes.test.ts	draws a setting that is one control as one line: name and description left, the control right (0.393, Appearance 0.394)	yes
+apps/desktop/src/main/settings-read-like-claudes.test.ts	says "How it works" in sentence case	yes
 apps/desktop/src/main/teammate-store.test.ts	keeps the bot the person picked, and only the fields it knows	no
 apps/desktop/src/main/teammate-store.test.ts	refuses a shape there is no bot for	no
 apps/desktop/src/main/teammate-store.test.ts	takes every one of the nine colours	no

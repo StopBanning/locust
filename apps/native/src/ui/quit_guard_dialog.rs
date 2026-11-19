@@ -129,8 +129,6 @@ pub(super) fn startup_section(s: &State, p: &Palette) -> El {
         .w_full()
         .gap(8.0)
         .padding(10.0)
-        .fill(p.field)
-        .radius(6.0)
         .child(text("Startup".to_owned()).role("heading").level(2).font(type_::TITLE).color(p.text))
         .child(
             row()
