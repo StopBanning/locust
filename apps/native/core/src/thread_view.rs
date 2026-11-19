@@ -2,9 +2,21 @@
 use crate::ledger::{Item, PeerLink};
 use serde_json::Value;
 
+/// One step of the plan with its state: "done", "running" or "pending" (missionView.ts `readPlan`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PlanStepView {
+    pub text: String,
+    pub state: &'static str,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LiveLine {
     pub label: String,
+    /// The orb the line draws beside its word (missionView.ts `orbStateFor`), from the same facts as the words.
+    pub orb: &'static str,
+    /// The plan, when the line's detail is its "step N of M": what the step control opens (missionView.ts
+    /// `live-step.plan`).
+    pub plan: Option<Vec<PlanStepView>>,
     /// What the step under way is doing, in words (missionView.ts `live-step` `action`): the open call's
     /// `liveActionLine`, or the plan's step under way.
     pub action: Option<String>,
@@ -37,6 +49,71 @@ fn plan_step(event: &Value) -> Option<(String, String)> {
     let words = steps[at]["step"].as_str().unwrap_or("").trim();
     let words = if words.ends_with('.') && !words.ends_with("..") { &words[..words.len() - 1] } else { words };
     Some((words.to_owned(), format!("step {} of {}", at + 1, steps.len())))
+}
+
+fn plan_steps(event: &Value) -> Vec<PlanStepView> {
+    let list = event["payload"]["plan"]["plan"].as_array().map(Vec::as_slice).unwrap_or(&[]);
+    list.iter()
+        .filter_map(|entry| {
+            let (text, status) = match entry {
+                Value::String(t) => (t.as_str(), String::new()),
+                Value::Object(_) => (
+                    ["step", "text", "title", "name", "content"].iter().find_map(|k| entry[*k].as_str())?,
+                    entry["status"].as_str().unwrap_or("").to_lowercase(),
+                ),
+                _ => return None,
+            };
+            if text.is_empty() {
+                return None;
+            }
+            let state = if status.contains("complete") || status == "done" {
+                "done"
+            } else if status.contains("progress") || status == "running" || status == "active" {
+                "running"
+            } else {
+                "pending"
+            };
+            Some(PlanStepView { text: text.to_owned(), state })
+        })
+        .collect()
+}
+
+/// The orb of an open call (missionView.ts `orbStateFor` with a tool detail): a helper weaves, a shell connects, a
+/// reading tool searches, any other tool connects.
+fn tool_orb(name: &str, tool_kind: &str) -> &'static str {
+    let lower = name.to_lowercase();
+    if matches!(lower.as_str(), "task" | "agent" | "subagent" | "spawn_agent") || lower.starts_with("subagent:") {
+        return "weaving";
+    }
+    if crate::mission_export::is_shell_tool(name, Some(tool_kind)) {
+        return "connecting";
+    }
+    let mut spaced = String::new();
+    let mut prev: Option<char> = None;
+    for c in name.chars() {
+        if c.is_ascii_uppercase() && prev.is_some_and(|p| p.is_ascii_lowercase() || p.is_ascii_digit()) {
+            spaced.push(' ');
+        }
+        spaced.push(c);
+        prev = Some(c);
+    }
+    let reads = ["view", "read", "open", "show", "list", "cat", "search", "find", "grep", "websearch", "fetch", "browse", "lookup"];
+    let looks = spaced.split(|c: char| !c.is_ascii_alphabetic()).any(|w| reads.contains(&w.to_lowercase().as_str()));
+    if looks { "searching" } else { "connecting" }
+}
+
+/// The orb for a line with no open tool, by its register (missionView.ts `orbStateFor` without a detail).
+fn register_orb(register: &str, plan_mode: bool) -> &'static str {
+    if plan_mode {
+        return "solving";
+    }
+    match register {
+        "writing" => "shaping",
+        "working" => "composing",
+        "thinking" => "listening",
+        "tool" => "connecting",
+        _ => "breathing",
+    }
 }
 
 fn clip(text: &str, max: usize) -> String {
@@ -133,6 +210,18 @@ pub fn live_line(
     started_at: &str,
     awaiting_decision: bool,
 ) -> Option<LiveLine> {
+    live_line_starting(events, running, started_at, awaiting_decision, None)
+}
+
+/// `live_line` with the start's phase the host sent ("Reading the folder"), which takes the place of the word
+/// "Starting" while nothing has arrived (missionView.ts `options.startingLabel`).
+pub fn live_line_starting(
+    events: &[Value],
+    running: bool,
+    started_at: &str,
+    awaiting_decision: bool,
+    starting_label: Option<&str>,
+) -> Option<LiveLine> {
     if !live_visible(running, awaiting_decision) {
         return None;
     }
@@ -146,6 +235,8 @@ pub fn live_line(
     let mut open: Vec<(String, String, Option<String>, bool, Option<String>)> = Vec::new();
     let mut messages = std::collections::HashMap::new();
     let mut plan: Option<(String, String)> = None;
+    let mut plan_list: Vec<PlanStepView> = Vec::new();
+    let mut open_orbs: Vec<(String, &'static str)> = Vec::new();
     for e in events {
         let p = &e["payload"];
         let s = |key: &str| p[key].as_str().unwrap_or("");
@@ -183,15 +274,23 @@ pub fn live_line(
                     .or(p["name"].as_str())
                     .unwrap_or("");
                 open.retain(|(id, ..)| id != s("itemId"));
+                open_orbs.retain(|(id, _)| id != s("itemId"));
                 let mcp = crate::mcp_names::mcp_tool_parts(s("name"));
                 let connector = mcp.is_some() || crate::mcp_names::is_bare_connector_tool(s("name"));
                 let shown = p["title"].as_str().filter(|t| !t.is_empty()).map(str::to_owned)
                     .or_else(|| mcp.as_ref().map(|m| m.tool.clone())).unwrap_or_else(|| label.into());
                 let action = if connector { None } else { live_action(p["title"].as_str(), s("toolKind"), s("name"), p["command"].as_str()) };
+                open_orbs.push((s("itemId").into(), if connector { "solving" } else { tool_orb(s("name"), s("toolKind")) }));
                 open.push((s("itemId").into(), shown, mcp.map(|m| m.server), connector, action));
             }
-            "tool.completed" | "tool.failed" => open.retain(|(id, ..)| id != s("itemId")),
-            "plan.updated" => plan = plan_step(e),
+            "tool.completed" | "tool.failed" => {
+                open.retain(|(id, ..)| id != s("itemId"));
+                open_orbs.retain(|(id, _)| id != s("itemId"));
+            }
+            "plan.updated" => {
+                plan = plan_step(e);
+                plan_list = plan_steps(e);
+            }
             "message.delta" => {
                 let final_ = p["final"] == true;
                 messages.insert(s("itemId").to_owned(), final_);
@@ -225,7 +324,7 @@ pub fn live_line(
     }
     let (plan_action, plan_aside) = plan.map_or((None, None), |(a, d)| (Some(a), Some(d)));
     // The open call's connector, else the plan's step: "step 2 of 3" (missionView.ts `detail`).
-    let detail = open.last().and_then(|(_, _, detail, ..)| detail.clone()).or(plan_aside);
+    let detail = open.last().and_then(|(_, _, detail, ..)| detail.clone()).or(plan_aside.clone());
     let action = match (open.last(), &step) {
         (Some((.., true, _)), _) => None,
         (Some((.., action)), _) => action.clone().or(plan_action),
@@ -249,12 +348,19 @@ pub fn live_line(
         (
             if spoken { "Working" } else if events.iter().any(|e| {
                 e["type"] == "adapter.diagnostic" && e["payload"]["code"].as_str().is_some_and(|c| c == "opencode.runtime_error" || c.ends_with(".provider_busy.runtime_error"))
-            }) { "Trying the model again" } else { "Starting" }.into(),
+            }) { "Trying the model again" } else { starting_label.filter(|l| !l.is_empty()).unwrap_or("Starting") }.into(),
             if spoken { "working" } else { "starting" }.into(),
             true,
         )
     };
+    let with_plan = detail.is_some() && detail == plan_aside && !plan_list.is_empty();
+    let orb = match open_orbs.last() {
+        Some((_, orb)) if open.last().is_some() => *orb,
+        _ => register_orb(&register, false),
+    };
     Some(LiveLine {
+        orb,
+        plan: with_plan.then_some(plan_list),
         label: crate::ledger::scrub(&label),
         action: action.map(|a| crate::ledger::scrub(&a)),
         detail: detail.map(|d| crate::ledger::scrub(&d)),

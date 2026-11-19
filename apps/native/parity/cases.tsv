@@ -2349,6 +2349,10 @@ apps/desktop/src/renderer/src/a-helpers-calls-fold-under-its-row.test.tsx	open o
 apps/desktop/src/renderer/src/a-helpers-calls-fold-under-its-row.test.tsx	are nothing at all where no helper ran: no row gains children	yes
 apps/desktop/src/renderer/src/a-helpers-calls-fold-under-its-row.test.tsx	names the helper and whose it is	yes
 apps/desktop/src/renderer/src/a-helpers-calls-fold-under-its-row.test.tsx	says nothing of a helper when the teammate asked, or the call is not known	yes
+apps/desktop/src/renderer/src/a-helpers-summary-reads-as-words.test.ts	drops bold, underline-bold, code and heading marks and keeps the words	yes
+apps/desktop/src/renderer/src/a-helpers-summary-reads-as-words.test.ts	drops single-star emphasis without touching a star that is not emphasis	yes
+apps/desktop/src/renderer/src/a-helpers-summary-reads-as-words.test.ts	is what the helper row says when it reported back	yes
+apps/desktop/src/renderer/src/a-helpers-summary-reads-as-words.test.ts	folds a summary onto one line	yes
 apps/desktop/src/renderer/src/a-home-starter-starts-with-a-teammate-or-compares.test.ts	are four rows, each saying what it does	no
 apps/desktop/src/renderer/src/a-home-starter-starts-with-a-teammate-or-compares.test.ts	suit their mode: a plan changes nothing yet, and a review only reads	no
 apps/desktop/src/renderer/src/a-home-starter-starts-with-a-teammate-or-compares.test.ts	leave the words for the person to finish where the ask needs them	no
@@ -2375,6 +2379,9 @@ apps/desktop/src/renderer/src/a-locust-bot-draws-before-its-first-frame.test.ts	
 apps/desktop/src/renderer/src/a-locust-bot-draws-before-its-first-frame.test.ts	draws at most 30 frames a second: every other frame at 60 Hz, every fifth at 144	yes
 apps/desktop/src/renderer/src/a-locust-bot-draws-before-its-first-frame.test.ts	draws at most 15 frames a second at the side, beside a name (0.670), still moving a whole second	yes
 apps/desktop/src/renderer/src/a-locust-bot-draws-before-its-first-frame.test.ts	stops when asked, cancelling the frame it was waiting on	yes
+apps/desktop/src/renderer/src/a-long-call-is-named-while-it-runs.test.ts	is one row, now carrying the command and what it is for	no
+apps/desktop/src/renderer/src/a-long-call-is-named-while-it-runs.test.ts	puts the description on the live line, not the tool	yes
+apps/desktop/src/renderer/src/a-long-call-is-named-while-it-runs.test.ts	keeps the clock from when the call began	yes
 apps/desktop/src/renderer/src/a-long-conversation-has-a-rail-of-your-messages.test.tsx	gives a rail to four of your messages when the thread scrolls, and withholds it otherwise	no
 apps/desktop/src/renderer/src/a-long-conversation-has-a-rail-of-your-messages.test.tsx	keeps the marks in the order you sent them, and the current one is the message nearest the top	no
 apps/desktop/src/renderer/src/a-long-conversation-has-a-rail-of-your-messages.test.tsx	jumps with Ctrl+Alt+Up and Ctrl+Alt+Down, which the other shortcuts do not use	no
@@ -2389,6 +2396,10 @@ apps/desktop/src/renderer/src/a-long-conversation-opens-on-its-newest-turns.test
 apps/desktop/src/renderer/src/a-long-conversation-opens-on-its-newest-turns.test.tsx	each "show earlier" adds a budget	yes
 apps/desktop/src/renderer/src/a-long-conversation-opens-on-its-newest-turns.test.tsx	a long one opens on its newest turns, with the older ones a press (or a scroll) away	yes
 apps/desktop/src/renderer/src/a-long-conversation-opens-on-its-newest-turns.test.tsx	a short one is whole, with nothing to press	yes
+apps/desktop/src/renderer/src/a-long-silent-stretch-reads-as-its-moves.test.ts	starts a new line each time the model thinks, led by what it thought about	no
+apps/desktop/src/renderer/src/a-long-silent-stretch-reads-as-its-moves.test.ts	leaves a turn with no thinking reported as one line between what was said (Claude Code without thinking)	no
+apps/desktop/src/renderer/src/a-long-silent-stretch-reads-as-its-moves.test.ts	reads a headline only where the summary leads with one	yes
+apps/desktop/src/renderer/src/a-long-silent-stretch-reads-as-its-moves.test.ts	carries the summary Codex shows, and never the raw reasoning	no
 apps/desktop/src/renderer/src/a-long-turn-keeps-what-it-said.test.ts	is longer than the old window held, as Colin's run was	yes
 apps/desktop/src/renderer/src/a-long-turn-keeps-what-it-said.test.ts	keeps both messages in a running turn of that length	yes
 apps/desktop/src/renderer/src/a-long-turn-keeps-what-it-said.test.ts	draws the live run and the record through one window	yes
@@ -2927,6 +2938,13 @@ apps/desktop/src/renderer/src/an-idle-teammate-offers-its-own-world.test.tsx	nev
 apps/desktop/src/renderer/src/an-idle-teammate-offers-its-own-world.test.tsx	never asks a non-coder for a page the app would only show as code	yes
 apps/desktop/src/renderer/src/an-idle-teammate-offers-its-own-world.test.tsx	says what the role is for, not that every role reads the workspace	yes
 apps/desktop/src/renderer/src/an-idle-teammate-offers-its-own-world.test.tsx	offers a hand-made teammate its role's, and speaks of code only for the roles that are code	yes
+apps/desktop/src/renderer/src/an-orb-needs-a-runtime-that-streams.test.ts	shows the working orb through an OpenCode tool call, because the tool is never open	yes
+apps/desktop/src/renderer/src/an-orb-needs-a-runtime-that-streams.test.ts	shows the tool orb on Antigravity, where the start and the result are apart	yes
+apps/desktop/src/renderer/src/an-orb-needs-a-runtime-that-streams.test.ts	reaches the writing orb on OpenCode, because text arriving IS writing	yes
+apps/desktop/src/renderer/src/an-orb-needs-a-runtime-that-streams.test.ts	says Writing in words too, over a thought the runtime left open (0.586)	yes
+apps/desktop/src/renderer/src/an-orb-needs-a-runtime-that-streams.test.ts	goes back to working when the text is complete	yes
+apps/desktop/src/renderer/src/an-orb-needs-a-runtime-that-streams.test.ts	never overrides a step that said something more specific	yes
+apps/desktop/src/renderer/src/an-orb-needs-a-runtime-that-streams.test.ts	cannot hold the thinking orb when a reasoning step opens and closes at once	yes
 apps/desktop/src/renderer/src/an-unknown-record-stays-out-of-the-thread.test.ts	is never a row of its own, even after the work has begun	yes
 apps/desktop/src/renderer/src/an-unknown-record-stays-out-of-the-thread.test.ts	is still said, in the fold with the turn’s other remarks	yes
 apps/desktop/src/renderer/src/an-unknown-record-stays-out-of-the-thread.test.ts	leaves real trouble where it was: a runtime error after work began is still a row	yes
@@ -3965,6 +3983,17 @@ apps/desktop/src/renderer/src/the-flat-sidebar.test.ts	counts against the face w
 apps/desktop/src/renderer/src/the-folder-chip-says-a-folder-is-no-place-for-teammates.test.tsx	says why in its hover for a folder like .claude, in the chip's own colour	yes
 apps/desktop/src/renderer/src/the-folder-chip-says-a-folder-is-no-place-for-teammates.test.tsx	stays as it was for a project folder (control)	yes
 apps/desktop/src/renderer/src/the-folder-chip-says-a-folder-is-no-place-for-teammates.test.tsx	names the folder and why, with Choose another folder first and Start here	yes
+apps/desktop/src/renderer/src/the-frame-pass.test.ts	times from the turn, not from the phase, before anything has happened	yes
+apps/desktop/src/renderer/src/the-frame-pass.test.ts	does not restart when a step opens three seconds in	yes
+apps/desktop/src/renderer/src/the-frame-pass.test.ts	does not restart when a tool opens either	yes
+apps/desktop/src/renderer/src/the-frame-pass.test.ts	bands them ready, experimental, sign-in, not installed, planned	yes
+apps/desktop/src/renderer/src/the-frame-pass.test.ts	never leaves something that does not exist above something that does	yes
+apps/desktop/src/renderer/src/the-frame-pass.test.ts	is stable between launches, so the list does not shuffle	yes
+apps/desktop/src/renderer/src/the-frame-pass.test.ts	keeps a known result while the next probe is still out	yes
+apps/desktop/src/renderer/src/the-frame-pass.test.ts	keeps a version the new answer simply did not print	yes
+apps/desktop/src/renderer/src/the-frame-pass.test.ts	takes every DEFINITE answer at once, including the unwelcome ones	yes
+apps/desktop/src/renderer/src/the-frame-pass.test.ts	lets a runtime that was out come back when it answers	yes
+apps/desktop/src/renderer/src/the-frame-pass.test.ts	passes through a runtime it has never seen	yes
 apps/desktop/src/renderer/src/the-header-says-money-or-nothing.test.ts	says dollars	yes
 apps/desktop/src/renderer/src/the-header-says-money-or-nothing.test.ts	says Copilot's premium requests	yes
 apps/desktop/src/renderer/src/the-header-says-money-or-nothing.test.ts	says nothing for token counts alone, or for a subscription	yes
@@ -4008,6 +4037,14 @@ apps/desktop/src/renderer/src/the-kept-pets-are-puppets.test.tsx	gives a soft bo
 apps/desktop/src/renderer/src/the-kept-pets-are-puppets.test.tsx	Codex Buddy’s, for the changes worth looking up for, and only when asked	yes
 apps/desktop/src/renderer/src/the-kept-pets-are-puppets.test.tsx	moves a little every frame while he works, never held and never snapped (buddyRig.ts)	yes
 apps/desktop/src/renderer/src/the-kept-pets-are-puppets.test.tsx	rests only once his last pose has settled, so his clock still stops	yes
+apps/desktop/src/renderer/src/the-live-line-opens-the-plan.test.tsx	the control is a button with its label and aria-expanded	no
+apps/desktop/src/renderer/src/the-live-line-opens-the-plan.test.tsx	the card lists the steps in order with done/current/next marked	no
+apps/desktop/src/renderer/src/the-live-line-opens-the-plan.test.tsx	closes on Escape and cleans up listeners	no
+apps/desktop/src/renderer/src/the-live-line-opens-the-plan.test.tsx	no card without a plan: plain step words with no button or popover	no
+apps/desktop/src/renderer/src/the-live-line-opens-the-plan.test.tsx	buildThread attaches the plan to live-step only when step N of M is present	yes
+apps/desktop/src/renderer/src/the-live-line-says-the-starts-phase.test.tsx	leads with the phase, swept, in the place of the word "starting"	yes
+apps/desktop/src/renderer/src/the-live-line-says-the-starts-phase.test.tsx	names the runtime in the runtime's phase	yes
+apps/desktop/src/renderer/src/the-live-line-says-the-starts-phase.test.tsx	still says "Starting…" when no phase has been sent	yes
 apps/desktop/src/renderer/src/the-live-line-says-which-plan-step.test.ts	names the step underway, where the eye is	yes
 apps/desktop/src/renderer/src/the-live-line-says-which-plan-step.test.ts	leads with what the open call is doing, in words (0.569, Claude Code's status line)	yes
 apps/desktop/src/renderer/src/the-live-line-says-which-plan-step.test.ts	names the plan's step under way when no call is open to say more (OpenCode reports calls once they end)	yes

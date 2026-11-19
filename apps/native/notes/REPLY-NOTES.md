@@ -165,3 +165,44 @@ Final gates at 9cdb2375: `nextest run --workspace` passed (4,349, 22 skipped); `
 ## Not mine
 `src/ui/routine_recovery_tests.rs` was untracked in this worktree before this lane started (17 Nov 23:58), and no
 `mod` names it. It is left as found.
+
+# Round 2
+
+## Part 1a: the live line says the start's phase (partial)
+`thread_view::live_line_starting(.., starting_label)` puts the host's phase ("Reading the folder") in the place of
+"Starting"; `live_line` is unchanged and calls it with `None`. Three `live_line_tests` carry the three Electron cases
+(only the swept word, the label is `sweep_text`'d by the window). NOT done: nothing yet passes a phase from the host
+into the ledger snapshot (`ledger.rs:1356` still calls `live_line`), and the "title for hover" / one-time-drawn markup
+case is Electron's. Parity row left `waiting`; counts not yet recounted. Stopped at 93% of the 5-hour window.
+Next: part 1b opens-the-plan, then orb, frame-pass.
+
+## Part 1b-d (round 2)
+- opens-the-plan: `LiveLine::plan` (steps `done`/`running`/`pending`, read like `readPlan`) is attached only when the
+  line's detail is the plan's "step N of M". Only 1 of 5 cases named: the button, compact card, Escape and no-plan
+  markup are Electron drawing.
+- an-orb: `LiveLine::orb` (`tool_orb`, `register_orb`; `orbStateFor`) with all 7 cases named; the Plan-mode `solving`
+  floor is in `register_orb` but `live_line` is not yet told the turn is in Plan mode.
+- the-frame-pass: new `core/src/runtime_order.rs` (`runtime_list_order`, `keep_what_was_known`) plus the A1 counter
+  cases; localeCompare is approximated by lower-cased comparison; nothing draws from it yet (partial).
+- starts-phase: see Part 1a; row now partial 3 of 3 named.
+
+## Part 2 (round 2, started)
+- `core/src/thread_words.rs`: `thought_headline`, `plain_summary`, `helper_reported_back` (all cases of
+  a-helpers-summary named; the drawer's helper row does not call them yet).
+- a-long-call: the live line's label (the call's description) and clock are named in `live_line_tests`.
+- NOT done: the steps fold (a new line per thought that says something, a wordless thought folding into its line;
+  `buildThread`/`stepsLine`) does not exist in Rust yet, so a-wordless-thought and most of a-long-silent-stretch wait
+  on it; needs a design in the `ledger.rs` item builder.
+
+## Part 2 steps fold (round 2)
+- `core/src/steps_fold.rs` `fold_steps(items, running)`: a message/user/handoff breaks the turn, a thought with words
+  starts a line, a wordless thought and calls fold in; running calls are left out while running. Both cases of
+  a-wordless-thought are named in `steps_fold_tests` (3 pass). NOT done: the drawer/thread does not call it yet, and
+  `stepsLine`'s phrase counting (a-long-silent-stretch) is not ported.
+- a-long-silent-stretch: `steps_fold::group_headline` (first thought headline is the whole line) and its two
+  buildThread cases are named in `steps_fold_tests`; the headline case is in `thread_words_tests`. The rest of
+  `stepsLine`'s counts phrases is still not ported.
+
+## Part 3 (round 2, started)
+- a-plan-shows-what-happened-to-it: all 4 cases named in `steps_fold_tests` (`touched_nothing`, `plan_done_count`,
+  `read_plan` for Cursor's TODO_STATUS_ spelling). The drawer does not yet call `touched_nothing` to pick the plain list.

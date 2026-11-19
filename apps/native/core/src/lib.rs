@@ -456,3 +456,12 @@ mod live_line_tests;
 pub mod effort_levels;
 // The model picker's rows: order, fold, free tag, the free model to offer (exec/native-picker).
 pub mod route_rows;
+pub mod runtime_order;
+pub mod steps_fold;
+#[cfg(test)]
+mod steps_fold_tests;
+pub mod thread_words;
+#[cfg(test)]
+mod thread_words_tests;
+#[cfg(test)]
+mod runtime_order_tests;
