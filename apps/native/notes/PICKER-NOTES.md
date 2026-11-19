@@ -193,3 +193,5 @@ Breaks (`core-c` to `core-f`, `ui-d`, `ui-e` logs). All caught in the end:
   organization", and the process-wide one made the door tests fail under `cargo test` (one process). Tested in
   `org_policy_tests::a_policy_on_one_thread_is_not_seen_on_another_and_leaves_when_cleared`.
 - Breaks (`~/work/scratch/pick3-breaks*.txt`): 5 of 5 killed by the page tests.
+- `src/settings_search_words_tests.rs` (new, `settings-search-knows-the-words.test.ts`, 9 of 9): the index already
+  matched Electron's; breaks 3 of 4 killed, the survivor (dropping "worktree") is equal since "worktrees" contains it.

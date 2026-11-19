@@ -731,3 +731,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "settings_search_words_tests.rs"]
+mod search_words_tests;

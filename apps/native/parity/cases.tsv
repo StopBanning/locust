@@ -3696,15 +3696,15 @@ apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	empties it, and l
 apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	every list the search narrows is narrowed by the teammate’s name too	no
 apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	lists conversations, found by every turn and the teammate -- the only search in the rail layout	no
 apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	shows only the five newest before anything is typed	no
-apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	$typed finds the $page page	no
-apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	$typed is answered with where it lives, not with itself	no
-apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	$typed does not drag in every page	no
-apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	$typed still finds $heading	no
-apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	a word that is on no page still answers honestly	no
-apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	an empty search is not a match for everything by accident	no
-apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	files every extra word under a heading the page really has	no
-apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	has extra words at all, on every page	no
-apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	never repeats a word across two pages, which would make the search useless	no
+apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	$typed finds the $page page	yes
+apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	$typed is answered with where it lives, not with itself	yes
+apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	$typed does not drag in every page	yes
+apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	$typed still finds $heading	yes
+apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	a word that is on no page still answers honestly	yes
+apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	an empty search is not a match for everything by accident	yes
+apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	files every extra word under a heading the page really has	yes
+apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	has extra words at all, on every page	yes
+apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	never repeats a word across two pages, which would make the search useless	yes
 apps/desktop/src/renderer/src/settled-text.test.ts	settles a paragraph at the blank line that ends it, and not before	no
 apps/desktop/src/renderer/src/settled-text.test.ts	leaves everything as tail while the first paragraph is still arriving	no
 apps/desktop/src/renderer/src/settled-text.test.ts	never splits an open fence, whatever blank lines it holds	no
