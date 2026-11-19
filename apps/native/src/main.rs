@@ -1776,6 +1776,10 @@ fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
         s.palette_open = true;
         return true;
     }
+    if event.is_command('o') {
+        settings_panel::toggle_transcript_view(s);
+        return true;
+    }
     if event.is_command('n') {
         fresh_conversation(s);
         tx.scroll_to_bottom("messages");

@@ -310,3 +310,26 @@ Next: part 1b opens-the-plan, then orb, frame-pass.
   a_failing_check_shows_its_card_and_sends_back_to_fix` now reads the thread a screen at a time (the open feet made it
   taller than top + bottom).
 - Breaks: 7 of 7 killed (folder filter, observed status, the 0.672 fold, relative paths, no foot while going, totals drop the files segment, open by default).
+
+### The command row (19 Nov)
+- Rust drew a shell row as one muted line (`ls · exit 0`) that opened onto the command it already showed, even when
+  nothing was behind it. Now `activity_drawers::shell_heading` (ActivityCard.tsx `lc-filerow is-shell`,
+  `shellResultClass`): the command first in the code face, then the verdict in a badge (green tint for a clean run,
+  red for a failure, amber for stalled or refused, quiet while running), then the quiet words ("no output", the time).
+  The row opens only onto output, or onto the command when the row led with a description or showed only the first
+  of several lines (`shell_command_folded`; that last case is Rust's, since its row draws one line). "no output" still
+  needs the runtime to have reported output.
+- Tests: the 5 Electron cases plus `a_described_or_multi_line_command_opens_onto_the_command`. Breaks 7 of 7 killed.
+- One left edge: a command that opens and a file row both start their words 20 pt in, after the chevron; a command
+  with nothing behind it now keeps a 12 pt space where the chevron would be, so it starts there too. Tests
+  `puts_the_command_before_its_badge_and_the_path_before_done`, `keeps_a_failures_wording_where_the_row_ends`;
+  breaks 3 of 3 killed.
+
+### Verbose (19 Nov)
+- Rust had no Normal/Verbose. Now `WorkspaceSettings.transcript_view` ("transcriptView", `normal` unless `verbose`),
+  ⌘O flips and saves it (`settings_panel::toggle_transcript_view`; the shortcut row is now native), and
+  `activity_drawers::verbose` makes every step group, row, file and step change start open unless the person toggled
+  it. Missing: Electron's Verbose/Normal item in the thread header's … menu (Rust's header has no … menu).
+- Tests: `verbose_opens_every_step_of_a_long_transcript` (220 steps), `verbose_switches_for_this_moment_when_there_is_no_store`,
+  `window_drive_tests::command_o_switches_normal_and_verbose_steps_and_remembers_the_choice`, and core's
+  `reads_normal_until_verbose_was_chosen_and_ignores_anything_else`, `stays_usable_when_storage_refuses`. Breaks 4 of 4 killed.

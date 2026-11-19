@@ -19,6 +19,12 @@ pub(super) fn disclosure(key: String, label: String, open: bool, p: &Palette) ->
         })
 }
 
+/// Verbose (⌘O, transcriptView.ts): every step group and every row in it starts open, unless the person opened or
+/// closed it themselves (ActivityCard `isOpen`: a toggle wins, then verbose).
+pub(super) fn verbose(s: &State) -> bool {
+    s.settings_panel.settings.verbose()
+}
+
 pub(super) fn tool_result(
     status: ledger::Status,
     d: &ledger::ToolDetail,
@@ -84,6 +90,84 @@ pub(super) fn tool_result(
         format!("exit {code}")
     } else {
         "done".into()
+    }
+}
+
+/// `shellResultClass`: the colour of a command's verdict.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum ShellBadge {
+    Ok,
+    Failed,
+    Running,
+    Stalled,
+}
+
+pub(super) fn shell_badge(status: ledger::Status, d: &ledger::ToolDetail, finished: bool) -> ShellBadge {
+    let finished = finished || d.finished;
+    if status == ledger::Status::Running {
+        return if finished { ShellBadge::Stalled } else { ShellBadge::Running };
+    }
+    if matches!(d.runtime_status.as_str(), "declined" | "refused") {
+        return ShellBadge::Stalled;
+    }
+    if status == ledger::Status::Failed {
+        return ShellBadge::Failed;
+    }
+    if d.background {
+        return match d.background_ended.as_str() {
+            "completed" => ShellBadge::Ok,
+            "failed" => ShellBadge::Failed,
+            "" => if finished { ShellBadge::Stalled } else { ShellBadge::Running },
+            _ => ShellBadge::Stalled,
+        };
+    }
+    ShellBadge::Ok
+}
+
+/// The command is behind the fold, not on the row: the row led with a description, or the command runs past its
+/// first line (the row draws one line).
+pub(super) fn shell_command_folded(summary: &str, arguments: &str) -> bool {
+    !arguments.trim().is_empty() && (!summary.is_empty() || arguments.trim().lines().count() > 1)
+}
+
+/// `.lc-filerow.is-shell`: the command first, then its verdict in a green, red, amber or quiet badge, then the
+/// quiet words after it ("no output", the time it took). A chevron only when something is behind it (`is-static`).
+fn shell_heading(key: String, label: String, result: &str, badge: ShellBadge, expandable: bool, open: bool, p: &Palette) -> El {
+    let l = crate::look::controls::Look::new(p.dark);
+    let marker = format!(" · {result}");
+    let (title, rest) = match label.rfind(&marker) {
+        Some(at) => (label[..at].to_owned(), label[at + marker.len()..].trim_start_matches(" · ").to_owned()),
+        None => (label.clone(), String::new()),
+    };
+    let (fg, bg) = match badge {
+        ShellBadge::Ok => (l.c("green-text"), l.c("green-tint")),
+        ShellBadge::Failed => (l.c("red"), l.c("red-tint")),
+        ShellBadge::Stalled => (l.c("amber-text"), l.c("amber-tint")),
+        ShellBadge::Running => (l.c("text-muted"), l.c("bg-raised-2")),
+    };
+    let mut line = row().w_full().gap(6.0).py(4.0).px(2.0).radius(5.0).label(label);
+    if expandable {
+        let chevron = if open { &crate::look::icons::CHEVRON_DOWN } else { &crate::look::icons::CHEVRON_RIGHT };
+        line = line.child(crate::look::controls::glyph(&l, chevron, 12.0, Some(l.c("text-muted"))).mt(3.0));
+    } else {
+        // Where the chevron would be, so a command that cannot open starts where the paths and other commands do.
+        line = line.child(el().key(format!("{key}/edge")).w(12.0));
+    }
+    line = line
+        .child(text(title).font(type_::LABEL.mono()).color(l.c("text-secondary")).shrink().wrap_anywhere())
+        .child(
+            el().key(format!("{key}/badge")).px(6.0).radius(5.0).fill(bg)
+                .child(text(result.to_owned()).font(type_::LABEL.mono()).color(fg)),
+        );
+    if !rest.is_empty() {
+        line = line.child(text(rest).font(type_::LABEL).color(l.c("text-muted")).shrink().wrap_anywhere());
+    }
+    if expandable {
+        line.key(key.clone()).role("button").on_press(move |s: &mut State| {
+            s.activity_open.insert(key.clone(), !open);
+        })
+    } else {
+        line.key(key)
     }
 }
 
@@ -339,7 +423,7 @@ fn activity_item_with_files(item: &ledger::Item, p: &Palette, s: &State, scope: 
     }
     if files.is_empty() && !locust_core::activity_entries::files(item).is_empty() {
         let key = format!("{scope}/step/{}", activity_id(item));
-        let open = s.activity_open.get(&key).copied().unwrap_or(false);
+        let open = s.activity_open.get(&key).copied().unwrap_or(verbose(s));
         let mut step = col().w_full().child(disclosure(key, "Step change".into(), open, p));
         if open { step = step.child(activity_item_with_files(item, p, s, scope, locust_core::activity_entries::files(item))); }
         return step;
@@ -349,7 +433,7 @@ fn activity_item_with_files(item: &ledger::Item, p: &Palette, s: &State, scope: 
         let mut rows = col().w_full().gap(4.0);
         for entry in &files {
             let key = format!("{scope}/{}", entry.key);
-            let open = s.activity_open.get(&key).copied().unwrap_or(default == Some(entry.key.as_str()));
+            let open = s.activity_open.get(&key).copied().unwrap_or(verbose(s) || default == Some(entry.key.as_str()));
             // ActivityCard.tsx: "large" when it is, and counts only when they are the change's own (fileRowCounts).
             let mut label = format!("{} {}", entry.file.path, entry.file.status);
             if entry.large { label.push_str(" · large"); }
@@ -421,17 +505,28 @@ fn activity_item_with_files(item: &ledger::Item, p: &Palette, s: &State, scope: 
         .activity_open
         .get(&key)
         .copied()
-        .unwrap_or(matches!(item, ledger::Item::Plan { .. }));
+        .unwrap_or(verbose(s) || matches!(item, ledger::Item::Plan { .. }));
     let expandable = match item {
         // A thought that is only its headline already said everything on its row.
         ledger::Item::Thought { text, .. } => !without_headline(text).trim().is_empty(),
+        ledger::Item::Tool { name, summary, detail, .. } if is_shell_tool(name) && !detail.helper => {
+            !detail.output.trim().is_empty() || shell_command_folded(summary, &detail.arguments) || !detail.children.is_empty()
+        }
         ledger::Item::Tool { detail, .. } => {
             !detail.arguments.is_empty() || !detail.output.is_empty() || !detail.children.is_empty()
         }
         ledger::Item::Plan { steps, .. } => !steps.is_empty(),
         _ => false,
     };
-    let heading = if expandable {
+    let shell = match item {
+        ledger::Item::Tool { name, status, detail, .. } if is_shell_tool(name) && !detail.helper => {
+            Some((tool_result(*status, detail, finished), shell_badge(*status, detail, finished)))
+        }
+        _ => None,
+    };
+    let heading = if let Some((result, badge)) = shell {
+        shell_heading(key.clone(), label, &result, badge, expandable, open, p)
+    } else if expandable {
         disclosure(key.clone(), label, open, p)
     } else {
         el().w_full().padding(8.0).child(
@@ -454,13 +549,16 @@ fn activity_item_with_files(item: &ledger::Item, p: &Palette, s: &State, scope: 
         let code = rune::TextStyle::new(11.5, 400.0).mono().lh(17.0);
         let mut body = col().w_full().pl(20.0).pr(4.0).pb(6.0).gap(8.0);
         match item {
-            ledger::Item::Tool { detail: d, .. } => {
-                if !d.arguments.is_empty() {
+            ledger::Item::Tool { name, summary, detail: d, .. } => {
+                // A shell row already shows its command; the fold repeats it only when the row led with a
+                // description, or showed just the first of its lines (ActivityCard.tsx: `entry.title !== undefined`).
+                let command_shown = is_shell_tool(name) && !d.helper && !shell_command_folded(summary, &d.arguments);
+                if !d.arguments.is_empty() && !command_shown {
                     body = body.child(
                         el().w_full().padding(10.0).radius(8.0).fill(l.c("hover-surface")).child(text(d.arguments.clone()).font(code).color(l.c("text-secondary")).w_full().wrap_anywhere().selectable(true)),
                     );
                 }
-                if !d.output.is_empty() {
+                if !d.output.trim().is_empty() {
                     let all_key = format!("{key}/output");
                     let all = s.activity_open.get(&all_key).copied().unwrap_or(false);
                     let output=ledger::bounded_output(&d.output,all);
@@ -583,7 +681,7 @@ pub(super) fn turn_foot_card(turn: &[ledger::Item], p: &Palette, s: &State, scop
 
 pub(super) fn activity_group(items: &[ledger::Item], p: &Palette, s: &State, scope: &str) -> El {
     let key = format!("{scope}/group/{}", activity_id(&items[0]));
-    let open = s.activity_open.get(&key).copied().unwrap_or(false);
+    let open = s.activity_open.get(&key).copied().unwrap_or(verbose(s));
     let finished = items.iter().filter_map(|i| if let ledger::Item::Tool { detail, .. } = i { Some(detail.finished) } else { None }).all(|f| f);
     let workspace = selected_conversation(s).and_then(|(t,_)| t.folder.as_deref());
     let entries = locust_core::activity_entries::net_entries(items, workspace);
@@ -1071,4 +1169,179 @@ mod tests {
         assert!(roles.iter().any(|(r, l)| *r == "button" && l == "Show it as a document"), "{roles:?}");
     }
 
+
+    /// One shell row drawn alone (ActivityCard's command row), with its elements.
+    fn shell_row(command: &str, output: Option<&str>, exit: i32, failed: bool) -> Vec<rune::ElementInfo> {
+        let mut item = sample_tool("c1", "shell", "", false);
+        if let ledger::Item::Tool { detail, status, .. } = &mut item {
+            detail.arguments = command.into();
+            detail.output = output.unwrap_or("").into();
+            detail.output_reported = output.is_some();
+            detail.exit_code = Some(exit.into());
+            if failed { *status = ledger::Status::Failed; }
+        }
+        let mut rt = rune::Runtime::new(
+            (State::default(), item),
+            |(s, item), _| activity_item(item, &Palette::new(true), s, "conv"),
+            (600.0, 200.0),
+            rune::Env::new(true, 1.0),
+        );
+        rt.frame(0.0);
+        rt.elements()
+    }
+
+    fn texts(els: &[rune::ElementInfo]) -> Vec<String> { els.iter().filter_map(|e| e.text.clone()).collect() }
+    fn opens(els: &[rune::ElementInfo]) -> usize { els.iter().filter(|e| e.role == "button").count() }
+    fn badge_fill(els: &[rune::ElementInfo]) -> Option<rune::Color> { els.iter().find(|e| e.key.as_deref() == Some("conv/c1/badge")).map(|e| e.fill) }
+
+    #[test]
+    fn a_clean_run_keeps_a_green_exit_badge_after_the_command() {
+        let els = shell_row("seq 1 300", Some("1\n2\n3"), 0, false);
+        let t = texts(&els);
+        let command = t.iter().position(|x| x == "seq 1 300").expect("the command is drawn");
+        let badge = t.iter().position(|x| x == "exit 0").expect("the badge is drawn");
+        assert!(command < badge, "{t:?}");
+        let l = crate::look::controls::Look::new(true);
+        assert_eq!(badge_fill(&els), Some(l.c("green-tint")));
+    }
+
+    #[test]
+    fn a_failing_run_is_red_and_still_says_so() {
+        let els = shell_row("pnpm test billing", Some("FAIL src/billing.test.ts"), 1, true);
+        assert!(texts(&els).iter().any(|x| x == "failed · exit 1"), "{:?}", texts(&els));
+        let l = crate::look::controls::Look::new(true);
+        assert_eq!(badge_fill(&els), Some(l.c("red-tint")));
+    }
+
+    #[test]
+    fn a_command_that_printed_nothing_says_so_and_does_not_offer_to_open() {
+        let els = shell_row("chmod +x run.sh", Some(""), 0, false);
+        assert!(texts(&els).iter().any(|x| x == "no output"), "{:?}", texts(&els));
+        assert_eq!(opens(&els), 0);
+    }
+
+    #[test]
+    fn a_command_whose_output_the_runtime_never_reported_is_not_called_empty() {
+        let els = shell_row("git status", None, 0, false);
+        assert!(!texts(&els).iter().any(|x| x.contains("no output")), "{:?}", texts(&els));
+        assert_eq!(opens(&els), 0);
+    }
+
+    #[test]
+    fn a_command_with_output_offers_to_open() {
+        let els = shell_row("ls -la", Some("a\nb"), 0, false);
+        assert_eq!(opens(&els), 1);
+    }
+
+    #[test]
+    fn a_described_or_multi_line_command_opens_onto_the_command() {
+        assert!(shell_command_folded("Checked the free route", "curl x"));
+        assert!(shell_command_folded("", "cd a\nmake"));
+        assert!(!shell_command_folded("", "git status"));
+        assert!(!shell_command_folded("Checked", ""));
+    }
+
+    fn left_edge_items(failed: bool) -> Vec<ledger::Item> {
+        let mut edit = sample_tool("e1", "edit", "src/webhook.ts", false);
+        if let ledger::Item::Tool { detail, .. } = &mut edit {
+            detail.patch = Some(locust_core::activity_entries::Patch {
+                text: "--- a/src/webhook.ts\n+++ b/src/webhook.ts\n@@ -1 +1 @@\n-old\n+new\n".into(),
+                added: 1, removed: 1, truncated: false,
+            });
+        }
+        let mut run = sample_tool("c1", "shell", "", false);
+        if let ledger::Item::Tool { detail, status, .. } = &mut run {
+            detail.arguments = if failed { "pnpm test" } else { "rg handleLegacyWebhook src/" }.into();
+            detail.output = if failed { "FAIL" } else { "src/webhook.ts:1" }.into();
+            detail.output_reported = true;
+            detail.exit_code = Some(if failed { 1 } else { 0 });
+            if failed { *status = ledger::Status::Failed; }
+        }
+        if failed { vec![run] } else { vec![edit, run] }
+    }
+
+    fn group_elements(items: &[ledger::Item], open: &str) -> Vec<rune::ElementInfo> {
+        let mut s = State::default();
+        s.activity_open.insert(open.into(), true);
+        let mut rt = rune::Runtime::new(
+            (s, items.to_vec()),
+            |(s, items), _| activity_group(items, &Palette::new(true), s, "conv"),
+            (600.0, 400.0),
+            rune::Env::new(true, 1.0),
+        );
+        rt.frame(0.0);
+        rt.elements()
+    }
+
+    #[test]
+    fn puts_the_command_before_its_badge_and_the_path_before_done() {
+        let els = group_elements(&left_edge_items(false), "conv/group/e1");
+        let x = |words: &str| els.iter().find(|e| e.text.as_deref() == Some(words)).map(|e| (e.rect[0], e.rect[1])).unwrap_or_else(|| panic!("{words} not drawn"));
+        let path = els.iter().find(|e| e.text.as_deref().is_some_and(|t| t.starts_with("src/webhook.ts "))).expect("the file row");
+        let (command_x, command_y) = x("rg handleLegacyWebhook src/");
+        let (badge_x, badge_y) = x("exit 0");
+        assert_eq!(command_x, path.rect[0], "the command starts where the path does");
+        assert!(command_x < badge_x && command_y == badge_y, "the badge ends the row");
+        assert!(path.text.as_deref().unwrap().ends_with("+1 \u{2212}1"), "the path leads its row");
+        // A command with nothing behind it keeps the same edge.
+        let mut quiet = left_edge_items(false);
+        if let ledger::Item::Tool { detail, .. } = &mut quiet[1] { detail.output = String::new(); }
+        let els = group_elements(&quiet, "conv/group/e1");
+        let command = els.iter().find(|e| e.text.as_deref() == Some("rg handleLegacyWebhook src/")).expect("the quiet command");
+        assert_eq!(command.rect[0], path.rect[0]);
+    }
+
+    #[test]
+    fn keeps_a_failures_wording_where_the_row_ends() {
+        let els = group_elements(&left_edge_items(true), "conv/group/c1");
+        let at = |words: &str| els.iter().find(|e| e.text.as_deref() == Some(words)).map(|e| e.rect[0]).unwrap_or_else(|| panic!("{words} not drawn"));
+        assert!(at("pnpm test") < at("failed · exit 1"));
+        let l = crate::look::controls::Look::new(true);
+        assert_eq!(els.iter().find(|e| e.key.as_deref() == Some("conv/c1/badge")).map(|e| e.fill), Some(l.c("red-tint")));
+    }
+
+    // case: times the folded line and the open steps
+    #[test]
+    fn verbose_opens_every_step_of_a_long_transcript() {
+        let items: Vec<ledger::Item> = (0..220)
+            .map(|n| {
+                let mut item = sample_tool(&format!("s{n}"), "bash", &format!("Checked step {n}"), false);
+                if let ledger::Item::Tool { detail, .. } = &mut item {
+                    detail.arguments = format!("echo step-{n}");
+                    detail.output = format!("done {n}");
+                    detail.output_reported = true;
+                }
+                item
+            })
+            .collect();
+        let draw = |verbose: bool| {
+            let mut s = State::default();
+            if verbose { s.settings_panel.settings.transcript_view = "verbose".into(); }
+            let started = std::time::Instant::now();
+            let said = group_text(&items, &mut s);
+            (said, started.elapsed())
+        };
+        let (folded, folded_took) = draw(false);
+        let (open, open_took) = draw(true);
+        assert!(!folded.contains("done 219"), "Normal draws one line");
+        assert!(!folded.contains("Checked step 0"));
+        assert!(open.contains("Checked step 0") && open.contains("Checked step 219"));
+        assert!(open.contains("done 0") && open.contains("done 219"), "Verbose opens each command's output");
+        assert!(folded_took.as_millis() < 2000 && open_took.as_millis() < 2000, "{folded_took:?} {open_took:?}");
+        // A row the person closed stays closed in Verbose.
+        let mut s = State::default();
+        s.settings_panel.settings.transcript_view = "verbose".into();
+        s.activity_open.insert("conv/s7".into(), false);
+        let said = group_text(&items, &mut s);
+        assert!(said.contains("Checked step 7") && !said.contains("done 7\n") && said.contains("done 8"));
+    }
+
+    #[test]
+    fn verbose_switches_for_this_moment_when_there_is_no_store() {
+        let mut s = State::default();
+        settings_panel::toggle_transcript_view(&mut s);
+        assert!(verbose(&s));
+        settings_panel::toggle_transcript_view(&mut s);
+        assert!(!verbose(&s));
+    }
 }
