@@ -217,3 +217,14 @@ Next: part 1b opens-the-plan, then orb, frame-pass.
   starts-phase row stays `partial`.
 - NOT started: steps fold wiring, `stepsLine` phrase counting, frame-pass drawing, a-long-call's last case, parts 2 and 3.
 - Not run: the full gates, recount, case-map and break tests.
+
+## Part 1 (partial): the steps fold is wired into the thread
+- `messages.rs` splits each run of thoughts and calls through `steps_fold::fold_steps(run, turn_running)` and draws one
+  `activity_group` per line; a group's headline is `group_headline` (first thought's wins), not the last as before.
+- Test: `messages::tests::the_thread_draws_one_steps_line_per_thought_that_says_something`. Break (one group per run) →
+  that test fails; restored.
+- Full `nextest run --workspace`: 4,500 passed; `permission_bridge::…refuses_after_end` failed under load (60 s) and
+  passed alone in 0.13 s, the same engine flake as round 1.
+- NOT done: `stepsLine` phrase counting, so a line's words are still the old summary; the drawers' wordless-thought rows
+  are not yet checked against Electron's detail list; the rows `a-wordless-thought…` and `a-long-silent-stretch…` stay
+  `partial`. Frame-pass drawing, a-long-call's last case, parts 2 and 3, release gates, recount: not done.

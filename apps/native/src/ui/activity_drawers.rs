@@ -482,7 +482,7 @@ pub(super) fn activity_group(items: &[ledger::Item], p: &Palette, s: &State, sco
     let key = format!("{scope}/group/{}", activity_id(&items[0]));
     let open = s.activity_open.get(&key).copied().unwrap_or(false);
     let thought_ms: u64 = items.iter().filter_map(|i| if let ledger::Item::Thought { duration_ms, .. } = i { *duration_ms } else { None }).sum();
-    let headline = items.iter().rev().find_map(|i| if let ledger::Item::Thought { text, .. } = i { thought_headline(text).map(str::to_owned) } else { None });
+    let headline = locust_core::steps_fold::group_headline(items, &locust_core::steps_fold::StepsGroup { items: (0..items.len()).collect() });
     let finished = items.iter().filter_map(|i| if let ledger::Item::Tool { detail, .. } = i { Some(detail.finished) } else { None }).all(|f| f);
     let run = locust_core::command_outcomes::commands_run(items, finished);
     let names = items.iter().filter_map(|i| if let ledger::Item::Tool { name, detail, summary, .. } = i {

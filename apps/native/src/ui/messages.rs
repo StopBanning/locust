@@ -95,7 +95,12 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                 .position(|i| !is_activity(i))
                 .map(|n| index + n)
                 .unwrap_or(items.len());
-            messages = messages.child(activity_group(&items[index..end], p, s, conversation));
+            // The steps fold: a thought that says something starts a line, a wordless one folds into its line.
+            let run = &items[index..end];
+            for line in locust_core::steps_fold::fold_steps(run, turn_running(s)) {
+                let held: Vec<ledger::Item> = line.items.iter().map(|&i| run[i].clone()).collect();
+                messages = messages.child(activity_group(&held, p, s, conversation));
+            }
             continue;
         }
         let content = match item {
@@ -931,6 +936,22 @@ mod tests {
         s.activity_open.insert(format!("preview/trace/{index}/notices"), true);
         let opened = thread_text(&t.items, &mut s);
         assert!(opened.contains("claude · Skill descriptions were shortened."), "{opened}");
+    }
+
+    // case: starts a new line each time the model thinks, led by what it thought about (drawn in the window)
+    #[test]
+    fn the_thread_draws_one_steps_line_per_thought_that_says_something() {
+        let thought = |id: &str, words: &str| ledger::Item::Thought { id: id.into(), text: words.into(), duration_ms: Some(1_000) };
+        let call = |id: &str, command: &str| ledger::Item::Tool {
+            name: "shell".into(), status: ledger::Status::Done, summary: command.into(),
+            detail: Box::new(ledger::ToolDetail { id: id.into(), arguments: command.into(), finished: true, ..Default::default() }),
+        };
+        let items = vec![
+            thought("r1", "**Inspecting the config**\n\nWhere the port is set."), call("c1", "cat config.json"),
+            thought("r2", "**Running the tests**\n\nThen the suite."), call("c2", "npm test"),
+        ];
+        let shown = thread_text(&items, &mut State::default());
+        assert!(shown.contains("Inspecting the config") && shown.contains("Running the tests"), "{shown}");
     }
 
     fn composition_state(kind: Option<&str>, running: bool) -> State {
