@@ -357,3 +357,93 @@ Next: part 1b opens-the-plan, then orb, frame-pass.
 - Breaks 6 of 6 killed: no keep (`let kept = found`), silence not held, version not kept, discovery order, every tag
   READY, every row held.
 - localeCompare is still approximated by lower-cased comparison. Row carried.
+
+## Page round 1 (19 Nov, `exec/native-page-1`)
+Groundwork for the design plan: a page a teammate makes runs beside the conversation, and the person can point at a part
+of it. Codex started this round and left nothing behind; it was done again from the start.
+
+**A page that runs** (44851679)
+- The turn's files card opens a new web page wherever it sits, and only it (`activity_entries::new_page_entry`,
+  ActivityCard's `newPageEntry`). Before, each row went through `default_open` as a one-row list, so every small file's
+  diff opened; a changed page and any other new file now stay folded, as in Electron.
+- An opened new page is `page_preview` in `src/ui/activity_drawers.rs`: "index.html, running", what it cannot reach, its
+  Page (runs it) and "Show the change". The file viewer gives an .html file Page and Source. Electron frames the page
+  inside the card and the viewer; this window has no frame inside a pane, so Page runs it in the browser panel at its own
+  `locust-page` address, and the panel opens on it.
+- Found and fixed: `Host::navigate` refuses the `locust-page` scheme (it takes what a person types), and both the
+  reply page's "Open the page" and a compare column's page passed it one, so neither ever loaded. `Host::open_page`
+  serves the page through `page_preview` and loads it; both now use it.
+- **Still broken, not fixed here:** `page_preview::read` serves a page only while the open conversation's folder holds
+  it. A reply page is kept under the app's data folder, so once loaded it is answered 403. The fix is a decision about
+  that guard: let a root granted for Locust's own pages folder be served whatever conversation is open.
+- The page draws twice in a turn that wrote it: in the step's own card (open by default for a new page) and in the
+  files card. Electron's step group is folded unless verbose; why Rust's is open was not looked into.
+- The pages a browser runs are whole: the phone page both ways and its service worker parse with node, and
+  `deviceName` names the six browsers. The desk page (the way into Locust in a browser) is not built, so the row is
+  partial.
+- The comparison-cell case is not named: the compare view draws no turn files card, so there is nothing to fold.
+
+**What a browser last saw** (not built)
+- `a-browser-opens-on-what-it-last-saw` is `desk-snapshot.ts`, the sealed cache inside the Locust-in-a-browser desk
+  page, not the browser panel reopening on its last page, as the hand-off read it. Rust has no desk page or DeskHost, so
+  a port would have nowhere to run. The row stays waiting, with that note.
+
+**Pointing** (83403adb)
+- `core/src/browser_point.rs` carries shared/browser-point.ts and the decisions in pointInBrowser. Two promises, each
+  with its own named test:
+  - *Form values never come along.* `BrowserPoint`'s fields are private, and the only way to make one is
+    `read_browser_point`, which scrubs (`omit_form_values`). In Electron a point is a plain object, so its own chip test
+    builds one holding `value="s3cret-pass"`, and that value would reach the block. Here it cannot.
+    Test: `form_values_never_appear_in_a_pick`.
+  - *A password or card field is never pictured.* `picture_rect` gives no rect for a part with a picture note.
+    `point_answer` asks the camera only where it gives one, and the WKWebView host photographs only that rect.
+    Tests: `a_password_field_is_not_pictured_with_its_contents`, `a_card_or_one_time_code_field_is_never_pictured_either`.
+- The picker is Electron's script (`core/src/browser_point.js`, template escapes undone). `browser_mac::point` runs the
+  probe, then the picker, through `callAsyncJavaScript`, which awaits the picker's promise (`Command::Evaluate`'s
+  `evaluateJavaScript` would not). They run in their own content world, `locust-native-point`. Then it takes a
+  `takeSnapshotWithConfiguration` of the rect.
+  - **Not run on a live page:** no test opens a WKWebView. The snapshot rect assumes page zoom 1.
+  - In that world React and Vue expandos are not seen, so a part's source comes only from `data-*` attributes.
+- `src/ui/page_points_ui.rs`:
+  - The point button sits beside Go in the browser panel. Its name is what it would do, or why it cannot. It tells
+    its shortcut, Control+Shift+C; ⌘⇧C and Ctrl+Shift+C both work here.
+  - A page that will not run the picker is remembered, and its button says so. A pick left 5 minutes is let go.
+  - Chips sit in the chat box: place, source, styles, picture note, a note field and ×. Removing a chip deletes its
+    picture.
+  - Send puts the blocks after the person's words and attaches the pictures. Pictures are kept under the data folder's
+    `page-parts`.
+  - The chip shows "Picture", not a thumbnail.
+- Rows: the chat-box test carried; the browser-pointing test partial, its 10 cases named, with the live pick noted;
+  the viewer-frame test does-not-apply with a true note; PARITY area 8's row partial.
+
+**Breaks** (`~/work/scratch/page1/b01..b19`, one per run; all killed in the end)
+- b01 new_page_entry takes any new file: `opens_the_page_even_when_another_file_came_first_and_only_the_page` (core).
+  It first survived the core-only run, so the core test was added.
+- b02 open_page loads nothing: `opens_a_page_locust_runs_at_its_own_address_which_an_address_typed_in_may_not_name`.
+- b03 Edge named Chrome: `names_a_computers_browser_by_its_name_and_system_as_settings_lists_it`.
+- b04 the service worker does not parse: `parses_as_the_browser_receives_it_…`.
+- b05 a new page falls to its diff: `opens_a_new_web_page_so_it_runs` and two more.
+- b06 every row opens again: `leaves_a_changed_page_and_any_other_new_file_folded_as_before`, plus one more. It
+  survived at first: diffs are drawn token by token, so checking for "export const x" proved nothing. The tests now
+  read the diff's state line.
+- b07 the viewer gives a page no Page: `runs_a_page_in_a_sandboxed_frame_at_its_own_address_with_page_and_source`.
+- b08 the panel stays shut: `runs_the_new_page_beside_the_conversation_…`. It survived at first, because adding a tab
+  opens the panel; the test now starts with a tab and the panel shut.
+- b09 and b12 values and textarea words kept: `form_values_never_appear_in_a_pick`.
+- b10 the guard in picture_rect gone, and b13 the camera asked for any part: the password and card tests.
+- b11 CVV no longer a card field: `a_card_or_one_time_code_field_is_never_pictured_either`.
+- b14 a blocked page still pointable: `takes_ctrl_or_cmd_with_shift_and_c_and_says_so_on_the_button`.
+- b15 pictures not attached: `sends_each_part_after_the_words_…`.
+- b16 shortcut not told: `a_blocked_page_says_it_does_not_allow_pointing`.
+- b17 removed picture kept: `removing_a_part_takes_its_picture_off_the_message_and_the_disk`.
+- b18 picture not written: `points_at_the_open_page_when_pressed_…`.
+- b19 Send leaves the parts out: `a_pointed_part_goes_with_the_next_message_after_the_words_and_leaves_the_box`
+  (window_drive_tests). It survived at first, and that test was added for it. In that run
+  `compare_of_two_models_shows_two_columns_each_answering` also failed; it passed in the full gate.
+
+**Gates:** nextest workspace 4771 of 4771 passed; `test --release --workspace` 1115 + 3656 passed; `build --release`
+finished.
+
+**Left:** `the-thread-beside-the-browser-keeps-its-parts-whole` (six narrow-column layout cases) was not started. Also
+left: the reply-page read guard above, a live run of pointing on a real page, the desk page and its snapshot, and the
+page drawn twice in one turn.
