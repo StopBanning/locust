@@ -233,7 +233,7 @@ mod tests {
 ";
 
     #[test]
-    fn keeps_groups_as_claude_code_does() {
+    fn keeps_its_groups_new_improved_fixed_as_claude_codes_whats_new_does() {
         let all = entries(FILE);
         let newest = &all[0];
         assert_eq!(
@@ -252,7 +252,7 @@ mod tests {
     }
 
     #[test]
-    fn pre_group_entries_stay_unlabeled() {
+    fn written_before_the_groups_stays_as_it_was_written_one_group_no_label_guessed_for_it() {
         assert_eq!(
             entries(FILE)[1].groups,
             vec![ChangelogGroup {
@@ -263,7 +263,7 @@ mod tests {
     }
 
     #[test]
-    fn big_mark_is_flagged_and_stripped() {
+    fn marked_big_says_so_and_the_mark_itself_is_nowhere_in_what_is_shown() {
         let bot = entries(FILE)
             .into_iter()
             .find(|e| e.version == "0.277.0")
@@ -282,7 +282,7 @@ mod tests {
     }
 
     #[test]
-    fn splash_shows_big_builds_between_seen_and_current() {
+    fn shows_the_big_builds_between_the_one_last_seen_and_the_one_running() {
         let all = entries(FILE);
         assert_eq!(
             splash_entries(&all, Some("0.276.0"), "0.281.0")
@@ -291,11 +291,56 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec!["0.277.0"]
         );
+    }
+
+    #[test]
+    fn shows_nothing_when_nothing_big_came_since_on_the_same_version_or_on_a_first_install() {
+        let all = entries(FILE);
         assert!(splash_entries(&all, Some("0.277.0"), "0.281.0").is_empty());
         assert!(splash_entries(&all, Some("0.281.0"), "0.281.0").is_empty());
         assert!(splash_entries(&all, None, "0.281.0").is_empty());
+    }
+
+    #[test]
+    fn shows_nothing_when_the_version_last_seen_is_not_in_the_file_a_splash_about_the_wrong_builds_is_worse() {
+        let all = entries(FILE);
         assert!(splash_entries(&all, Some("9.9.9"), "0.281.0").is_empty());
         assert!(splash_entries(&all, Some("0.280.0"), "0.276.0").is_empty());
+    }
+
+    /// The repository's own CHANGELOG.md, the file the home splash reads first (`changelog_paths`), read only.
+    fn shipped() -> String {
+        std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../CHANGELOG.md")).expect("the repository's CHANGELOG.md")
+    }
+
+    #[test]
+    fn is_read_whole_hundreds_of_builds_each_with_something_to_say() {
+        let all = entries(&shipped());
+        assert!(all.len() > 300, "{}", all.len());
+        let empty: Vec<&str> = all.iter().filter(|e| e.groups.is_empty()).map(|e| e.version.as_str()).collect();
+        assert!(empty.is_empty(), "entries with nothing to say: {empty:?}");
+    }
+
+    // case: gives someone arriving from 0.276 the bots, the machine, the design pass, their own model, a room that remembers, pages that run each runtime's own commands a monochrome Locust, hand-off chains, landing a teammate's branch, comparing models, comparing their work and building to compare, pets, talking with ChatGPT's voice, the voice using their connectors, talking to a teammate by voice, starting Talk from any app, Scout keeping watch, their own cloud computer, their own benchmark, Claude Code and Codex on their cloud computer, the work carried on when a plan runs out, Locust on their phone, and agents of their own; from 0.777 nothing
+    #[test]
+    fn gives_someone_arriving_from_0_276_every_big_build_since_and_from_the_last_big_one_nothing() {
+        let all = entries(&shipped());
+        let newest = all[0].version.clone();
+        // Electron's list, newest first: every build the file marks big.
+        let big: Vec<&str> = vec![
+            "0.845.0", "0.844.0", "0.843.0", "0.842.0", "0.841.0", "0.840.0", "0.839.0", "0.838.0", "0.837.0", "0.836.0", "0.835.0", "0.834.0",
+            "0.833.0", "0.832.0", "0.831.0", "0.830.0", "0.829.0", "0.828.0", "0.826.0", "0.806.0", "0.804.0", "0.799.0", "0.798.0", "0.797.0",
+            "0.796.0", "0.794.0", "0.789.0", "0.777.0", "0.775.0", "0.774.0", "0.768.0", "0.763.0", "0.761.0", "0.756.0", "0.755.0", "0.746.0",
+            "0.742.0", "0.737.0", "0.563.0", "0.506.0", "0.503.0", "0.501.0", "0.498.0", "0.491.0", "0.474.0", "0.462.0", "0.458.0", "0.448.0",
+            "0.445.0", "0.441.0", "0.440.0", "0.435.0", "0.434.0", "0.426.0", "0.425.0", "0.370.0", "0.357.0", "0.350.0", "0.295.0", "0.277.0",
+        ];
+        let splash = |seen: &str| splash_entries(&all, Some(seen), &newest).iter().map(|e| e.version.clone()).collect::<Vec<_>>();
+        assert_eq!(splash("0.276.0"), big);
+        assert_eq!(splash("0.280.0"), big[..big.len() - 1]);
+        // From each big build, the big builds after it and nothing older; from the newest big one, nothing.
+        for (at, seen) in big.iter().enumerate() {
+            assert_eq!(splash(seen), big[..at], "arriving from {seen}");
+        }
     }
 
     #[test]

@@ -1818,3 +1818,7 @@ mod renderer_runtime_tests {
     }
 
 }
+
+#[cfg(test)]
+#[path = "whats_new_tests.rs"]
+mod whats_new_tests;

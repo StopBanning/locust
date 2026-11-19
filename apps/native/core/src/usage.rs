@@ -581,6 +581,53 @@ pub fn streak_text(days: u64) -> String {
     }
 }
 
+/// One week of the heatmap (usageView.ts `HeatColumn`): seven cells, Sunday first, a day still to come as None, and
+/// the month named over it when one is.
+#[derive(Clone, Debug, PartialEq)]
+pub struct HeatColumn {
+    pub days: Vec<Option<UsageDay>>,
+    pub month: Option<String>,
+}
+
+/// How many weeks apart two month names must be, so two never run together ("JuAug").
+const MONTH_COLUMNS: usize = 3;
+
+/// usageView.ts `heatColumns`: the days in weeks of seven, each month named over the week it starts in, the first
+/// week named for its own month unless another starts too soon after it, and a name left out where it would run into
+/// the one before it.
+pub fn heat_columns(heatmap: &[UsageDay]) -> Vec<HeatColumn> {
+    let weeks: Vec<(Vec<Option<UsageDay>>, Option<UsageDay>)> = heatmap
+        .chunks(7)
+        .map(|chunk| {
+            let mut days: Vec<Option<UsageDay>> = chunk.iter().cloned().map(Some).collect();
+            days.resize(7, None);
+            (days, chunk.iter().find(|d| d.date.ends_with("-01")).cloned())
+        })
+        .collect();
+    const MONTHS: [&str; 12] = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    let month_of = |d: &UsageDay| {
+        d.date.split('-').nth(1).and_then(|m| m.parse::<usize>().ok()).and_then(|m| MONTHS.get(m.wrapping_sub(1))).copied().unwrap_or("").to_owned()
+    };
+    let mut last_named: isize = -(MONTH_COLUMNS as isize);
+    weeks
+        .iter()
+        .enumerate()
+        .map(|(index, (days, opening))| {
+            let first = days[0].as_ref();
+            let next_opening = weeks.iter().enumerate().position(|(at, w)| at > index && w.1.is_some());
+            let own_month = index == 0 && first.is_some() && next_opening.is_none_or(|n| n >= MONTH_COLUMNS);
+            let named = opening.as_ref().or(if own_month { first } else { None });
+            match named {
+                Some(day) if index as isize - last_named >= MONTH_COLUMNS as isize => {
+                    last_named = index as isize;
+                    HeatColumn { days: days.clone(), month: Some(month_of(day)) }
+                }
+                _ => HeatColumn { days: days.clone(), month: None },
+            }
+        })
+        .collect()
+}
+
 pub fn day_label(date: &str) -> String {
     let parts: Vec<_> = date.split('-').collect();
     let (y, m, d): (i32, u32, u32) = (
@@ -812,3 +859,7 @@ mod tests {
         assert_eq!(USAGE_PERCENT_LEFT, "% left");
     }
 }
+
+#[cfg(test)]
+#[path = "usage_drawn_tests.rs"]
+mod usage_drawn_tests;

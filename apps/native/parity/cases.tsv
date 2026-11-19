@@ -2054,15 +2054,24 @@ apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	never take
 apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	waits while the newest turn is still running, even when an older one is named	no
 apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	does not bring back a terminal turn the person deleted	no
 apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	is found from any turn of it, the latest-made where it branches	no
-apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	keeps its groups -- New, Improved, Fixed -- as Claude Code's What's new does	no
-apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	written before the groups, stays as it was written: one group, no label guessed for it	no
-apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	marked big says so, and the mark itself is nowhere in what is shown	no
-apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	shows the big builds between the one last seen and the one running	no
-apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	shows nothing when nothing big came since, on the same version, or on a first install	no
-apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	shows nothing when the version last seen is not in the file -- a splash about the wrong builds is worse	no
-apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	is read whole: hundreds of builds, each with something to say	no
-apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	gives someone arriving from 0.276 the bots, the machine, the design pass, their own model, a room that remembers, pages that run each runtime's own commands a monochrome Locust, hand-off chains, landing a teammate's branch, comparing models, comparing their work and building to compare, pets, talking with ChatGPT's voice, the voice using their connectors, talking to a teammate by voice, starting Talk from any app, Scout keeping watch, their own cloud computer, their own benchmark, Claude Code and Codex on their cloud computer, the work carried on when a plan runs out, Locust on their phone, and agents of their own; from 0.777 nothing	no
-apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	is gone: What changed lives in Settings, and a big build gets the splash	no
+apps/desktop/src/main/what-locust-can-stop-is-what-it-asks.test.ts	lists each runtime with a mode, once, and none without one	yes
+apps/desktop/src/main/what-locust-can-stop-is-what-it-asks.test.ts	says "each action" exactly where Approve each action is offered and Locust sets what is asked	yes
+apps/desktop/src/main/what-locust-can-stop-is-what-it-asks.test.ts	Codex: asks in Approve each action, and never in the other modes	yes
+apps/desktop/src/main/what-locust-can-stop-is-what-it-asks.test.ts	Claude Code: asks in every mode but Auto, and has a shell only in Edit	yes
+apps/desktop/src/main/what-locust-can-stop-is-what-it-asks.test.ts	OpenCode: in Approve each action its server asks about commands, changes, web pages, outside paths and the person's own MCP tools, not searches	yes
+apps/desktop/src/main/what-locust-can-stop-is-what-it-asks.test.ts	Antigravity: only its questions reach a card	yes
+apps/desktop/src/main/what-locust-can-stop-is-what-it-asks.test.ts	Cursor and Muse: no path raises a card for them	yes
+apps/desktop/src/main/what-locust-can-stop-is-what-it-asks.test.ts	an Always is kept by Locust exactly where the request carries a key for it	yes
+apps/desktop/src/main/what-locust-can-stop-is-what-it-asks.test.ts	docs/WHAT-LOCUST-CAN-STOP.md is written from it (rewrite with -u)	no
+apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	keeps its groups -- New, Improved, Fixed -- as Claude Code's What's new does	yes
+apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	written before the groups, stays as it was written: one group, no label guessed for it	yes
+apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	marked big says so, and the mark itself is nowhere in what is shown	yes
+apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	shows the big builds between the one last seen and the one running	yes
+apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	shows nothing when nothing big came since, on the same version, or on a first install	yes
+apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	shows nothing when the version last seen is not in the file -- a splash about the wrong builds is worse	yes
+apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	is read whole: hundreds of builds, each with something to say	yes
+apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	gives someone arriving from 0.276 the bots, the machine, the design pass, their own model, a room that remembers, pages that run each runtime's own commands a monochrome Locust, hand-off chains, landing a teammate's branch, comparing models, comparing their work and building to compare, pets, talking with ChatGPT's voice, the voice using their connectors, talking to a teammate by voice, starting Talk from any app, Scout keeping watch, their own cloud computer, their own benchmark, Claude Code and Codex on their cloud computer, the work carried on when a plan runs out, Locust on their phone, and agents of their own; from 0.777 nothing	yes
+apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	is gone: What changed lives in Settings, and a big build gets the splash	yes
 apps/desktop/src/main/window-bounds.test.ts	uses the opening size when nothing was saved	yes
 apps/desktop/src/main/window-bounds.test.ts	reopens where and how the person left it	yes
 apps/desktop/src/main/window-bounds.test.ts	keeps a saved size larger than the default opening size	yes
@@ -3853,6 +3862,8 @@ apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	empties it, and l
 apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	every list the search narrows is narrowed by the teammate’s name too	no
 apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	lists conversations, found by every turn and the teammate -- the only search in the rail layout	no
 apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	shows only the five newest before anything is typed	no
+apps/desktop/src/renderer/src/settings-says-what-locust-can-stop.test.tsx	is one folded row per AI agent, named, with how much a card can stop	yes
+apps/desktop/src/renderer/src/settings-says-what-locust-can-stop.test.tsx	opens to the same sentences the document holds	yes
 apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	$typed finds the $page page	yes
 apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	$typed is answered with where it lives, not with itself	yes
 apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	$typed does not drag in every page	yes
@@ -4203,10 +4214,10 @@ apps/desktop/src/renderer/src/the-live-line-says-which-plan-step.test.ts	keeps a
 apps/desktop/src/renderer/src/the-live-word-says-three-dots.test.ts	capitalises and ends in one ellipsis	yes
 apps/desktop/src/renderer/src/the-live-word-says-three-dots.test.ts	never trails a full stop after the ellipsis	yes
 apps/desktop/src/renderer/src/the-live-word-says-three-dots.test.ts	leaves the rest of the phrase alone	yes
-apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.test.tsx	draws nothing before the window has said the glass is offered	no
-apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.test.tsx	says what each look is, and that Liquid glass shows the desktop through it	no
-apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.test.tsx	says Windows' glass on a Windows 11 PC (0.864), and macOS's on a Mac	no
-apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.test.tsx	is hidden in a browser, and sits under the theme on the Appearance page	no
+apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.test.tsx	draws nothing before the window has said the glass is offered	yes
+apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.test.tsx	says what each look is, and that Liquid glass shows the desktop through it	yes
+apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.test.tsx	says Windows' glass on a Windows 11 PC (0.864), and macOS's on a Mac	yes
+apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.test.tsx	is hidden in a browser, and sits under the theme on the Appearance page	yes
 apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.test.tsx	the panel runs from the window's top inset to its bottom inset, as wide as the sidebar, or is none	no
 apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.test.tsx	the panel the page asks for is the shape the sheet washes	no
 apps/desktop/src/renderer/src/the-model-chip-shows-usage-on-hover.test.tsx	opens the agent's card, with a bar for each window, placed for the chip	no
@@ -4288,17 +4299,17 @@ apps/desktop/src/renderer/src/two-teammates-look-at-each-other.test.ts	when the 
 apps/desktop/src/renderer/src/two-teammates-look-at-each-other.test.ts	for a message to oneself	yes
 apps/desktop/src/renderer/src/two-teammates-look-at-each-other.test.ts	with nothing handed over	yes
 apps/desktop/src/renderer/src/two-teammates-look-at-each-other.test.ts	a face in two handoffs at once looks toward the latest	yes
-apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	says the month in one line: turns, tokens, and money only when something was priced	no
+apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	says the month in one line: turns, tokens, and money only when something was priced	yes
 apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	a bar a day, the busiest full height, a quiet day flat, today marked	yes
-apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	is not drawn before there is anything to count: a new person’s Home is unchanged	no
-apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	draws the label, the facts, thirty bars and the way in	no
-apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	names how each model was paid for, in the receipts’ words	no
-apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	says what was spent, or that nothing was beyond the plans	no
-apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	a heatmap cell is one of five shades, by steps of the busiest day	no
-apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	names a month over the week it starts in, and never two names run together	no
-apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	the grid: twelve weeks of cells, today ringed, the days to come left out	no
-apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	writes a token count the way the app does everywhere	no
-apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	writes a billion and more as B, never as a thousand of the unit below	no
+apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	is not drawn before there is anything to count: a new person’s Home is unchanged	yes
+apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	draws the label, the facts, thirty bars and the way in	yes
+apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	names how each model was paid for, in the receipts’ words	yes
+apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	says what was spent, or that nothing was beyond the plans	yes
+apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	a heatmap cell is one of five shades, by steps of the busiest day	yes
+apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	names a month over the week it starts in, and never two names run together	yes
+apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	the grid: twelve weeks of cells, today ringed, the days to come left out	yes
+apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	writes a token count the way the app does everywhere	yes
+apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	writes a billion and more as B, never as a thousand of the unit below	yes
 apps/desktop/src/renderer/src/what-a-teammate-published-is-a-card.test.tsx	knows each kind by its address, and names it	yes
 apps/desktop/src/renderer/src/what-a-teammate-published-is-a-card.test.tsx	takes the reply’s own words for a link’s name, and vouches for nothing it does not know	yes
 apps/desktop/src/renderer/src/what-a-teammate-published-is-a-card.test.tsx	finds them as links and as bare addresses, in order, each once, and none inside code	yes

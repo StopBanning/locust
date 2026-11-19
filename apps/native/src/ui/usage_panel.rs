@@ -202,24 +202,7 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                         .unwrap_or_else(|| "—".into()),
                     p,
                 ));
-                let busiest = summary.busiest.as_ref().map(|d| d.turns).unwrap_or(0);
-                let heat = summary
-                    .heatmap
-                    .iter()
-                    .rev()
-                    .take(14)
-                    .map(|d| match usage::heat_level(d.turns, busiest) {
-                        0 => "·",
-                        1 => "░",
-                        2 => "▒",
-                        3 => "▓",
-                        _ => "█",
-                    })
-                    .collect::<Vec<_>>()
-                    .join("");
-                if !heat.is_empty() {
-                    body = body.child(stat_row("Recent heat", &heat, p));
-                }
+                body = body.child(heatmap(summary, p));
                 let _ = summary.range.as_str();
 
                 body = body
@@ -346,6 +329,58 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
         )
 }
 
+/// UsageDialog.tsx `Heatmap`: twelve weeks of cells, Sunday first, months over the weeks they start in, Mon, Wed and Fri
+/// beside the rows, a cell one of five shades by steps of the busiest day, today ringed, the days to come left out
+/// (an empty cell), and a Less-to-More key under it.
+pub(super) fn heatmap(summary: &usage::UsageSummary, p: &Palette) -> El {
+    const CELL: f32 = 11.0;
+    const GAP: f32 = 3.0;
+    let columns = usage::heat_columns(&summary.heatmap);
+    let busiest = summary.heatmap.iter().map(|d| d.turns).max().unwrap_or(0);
+    let shade = |level: u8| match level {
+        0 => p.hairline,
+        1 => p.text.alpha(0.25),
+        2 => p.text.alpha(0.45),
+        3 => p.text.alpha(0.7),
+        _ => p.text,
+    };
+    let cell = |level: u8| el().size(CELL, CELL).radius(2.0).fill(shade(level));
+    let mut months = row().gap(GAP).child(el().w(26.0));
+    let mut grid = row().gap(GAP);
+    for (index, column) in columns.iter().enumerate() {
+        months = months.child(el().w(CELL).child(text(column.month.clone().unwrap_or_default()).font(type_::LABEL).color(p.muted)));
+        let mut week = col().gap(GAP).key(format!("heat-week-{index}"));
+        for (at, day) in column.days.iter().enumerate() {
+            week = week.child(match day {
+                None => el().size(CELL, CELL).key(format!("heat-future-{index}-{at}")),
+                Some(day) => {
+                    let said = if day.turns == 0 { "nothing".to_owned() } else { usage::plural(day.turns, "turn") };
+                    let mut c = cell(usage::heat_level(day.turns, busiest)).key(format!("heat-cell-{}", day.date)).label(format!("{}: {said}", usage::day_label(&day.date)));
+                    if day.date == summary.today {
+                        c = c.child(el().key("heat-today").size(CELL, CELL).radius(2.0).border(1.5, p.text));
+                    }
+                    c
+                }
+            });
+        }
+        grid = grid.child(week);
+    }
+    let weekdays = col().gap(GAP).w(26.0).children(["", "Mon", "", "Wed", "", "Fri", ""].into_iter().map(|d| el().h(CELL).child(text(d.to_owned()).font(type_::LABEL).color(p.muted))));
+    let mut legend = row().gap(GAP).center_y().child(text("Less".to_owned()).font(type_::LABEL).color(p.muted));
+    for level in 0..=4u8 {
+        legend = legend.child(cell(level).key(format!("heat-legend-{level}")));
+    }
+    legend = legend.child(text("More".to_owned()).font(type_::LABEL).color(p.muted));
+    col()
+        .gap(6.0)
+        .key("usage-heatmap")
+        .role("img")
+        .label(format!("Turns a day over the last twelve weeks; the busiest day had {}.", usage::plural(busiest, "turn")))
+        .child(months)
+        .child(row().gap(0.0).child(weekdays).child(grid))
+        .child(legend)
+}
+
 fn stat_row(label: &str, value: &str, p: &Palette) -> El {
     row()
         .w_full()
@@ -443,3 +478,7 @@ mod tests {
         assert!(!usage_line_facts(summary).is_empty());
     }
 }
+
+#[cfg(test)]
+#[path = "usage_drawn_tests.rs"]
+mod usage_drawn_tests;
