@@ -1141,6 +1141,29 @@ pub fn turn_brief_with_group_room_and_copy(
     room_history: Option<&crate::room_history::RoomHistory>,
     own_folder: Option<&Path>,
 ) -> Result<(String, Vec<crate::workroom::Message>), String> {
+    let (composed, quoted, _) = turn_brief_held(
+        store, who, folder, prompt, instructions_override, group, runtime, inbound, remaining, room_history, own_folder, None,
+    )?;
+    Ok((composed, quoted))
+}
+
+/// A2.5: `turn_brief_with_group_room_and_copy` for a turn whose session already holds `already_given`. Answers the
+/// prompt, the waiting messages it quotes, and the paragraph keys the brief stands on (brief_sessions).
+#[allow(clippy::too_many_arguments)]
+pub fn turn_brief_held(
+    store: &Store,
+    who: &str,
+    folder: &Path,
+    prompt: &str,
+    instructions_override: Option<&str>,
+    group: Option<(&str, &str)>,
+    runtime: Option<&str>,
+    inbound: &[crate::workroom::Message],
+    remaining: usize,
+    room_history: Option<&crate::room_history::RoomHistory>,
+    own_folder: Option<&Path>,
+    already_given: Option<&std::collections::HashSet<String>>,
+) -> Result<(String, Vec<crate::workroom::Message>, Vec<String>), String> {
     let file = team(store)?;
     let roster: Vec<crate::briefing::PeerEntry> = file["teammates"].as_array().into_iter().flatten().filter_map(peer_entry).collect();
     let mut standing = Vec::new();
@@ -1163,7 +1186,9 @@ pub fn turn_brief_with_group_room_and_copy(
     // The person's "keep a todo list" switch (todo-list-is-opt-in): a setting that cannot be read reads as off.
     let todos = crate::workspace_settings::load(store).is_ok_and(|s| s.keep_a_todo_list);
     standing.extend(crate::briefing::standing_formats(runtime, todos));
-    let (composed, kept) = crate::briefing::assemble_with_room_history(
+    let me = roster.iter().find(|e| e.teammate_id == who);
+    let others: Vec<crate::briefing::PeerEntry> = roster.iter().filter(|e| e.teammate_id != who).cloned().collect();
+    let (composed, kept, given) = crate::briefing::assemble_held(
         &standing,
         inbound,
         remaining,
@@ -1171,8 +1196,10 @@ pub fn turn_brief_with_group_room_and_copy(
         Some(chrono::Utc::now()),
         prompt,
         room_history.map(|h| (h, who)),
+        already_given,
+        me.map(|me| (me, others.as_slice())),
     );
-    Ok((composed, inbound[..kept].to_vec()))
+    Ok((composed, inbound[..kept].to_vec(), given))
 }
 
 /// Post a finished reply's share blocks from this teammate (peer_exchange::share_reply); returns what the person should

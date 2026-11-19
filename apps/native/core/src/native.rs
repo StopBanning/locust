@@ -867,6 +867,8 @@ pub struct Prior {
     pub thread: Option<String>,
     /// The mode its header recorded; None for a header that names none (never read as a change of mode).
     pub mode: Option<String>,
+    /// Its session compacted during the turn (brief_sessions::compacted_during): it holds a summary, not the brief.
+    pub compacted: bool,
 }
 /// Ports codex-mission.ts `runtimeThreadIdOf` and `resumableThreadOf`: the last runtimeThreadId in the mission's events;
 /// nothing after a failure that ended the session or a moved folder; else the one its own `continuesFrom` carried.
@@ -938,6 +940,7 @@ pub fn prior_from_records(records: &[Value], fresh: bool) -> Result<Prior, Strin
         running: transcript.running && fresh,
         thread,
         mode: meta["mode"].as_str().map(str::to_owned),
+        compacted: crate::brief_sessions::compacted_during(&records.iter().filter_map(|r| r.get("event").cloned()).collect::<Vec<_>>()),
     })
 }
 
@@ -2191,6 +2194,8 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
     // there, and whether it is an edit.
     let mut cold: Option<(Vec<crate::carry_on::EarlierTurn>, bool)> = None;
     let mut rewind_link: Option<Value> = None;
+    // A2.5: whether the session a reply resumes compacted during its last turn.
+    let mut resumed_compacted = false;
     let (continues, resume, continues_folder_mission) = if let Some(side) = &side_req {
         let prepared = crate::side_question::prepare(&side.of, runtime_name, mode, &job.prompt)?;
         side_prompt = Some(prepared.runtime_prompt);
@@ -2237,6 +2242,7 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
                 // starts cold, still in this conversation, told what was said so far.
                 let mode_changed = prior.mode.as_deref().is_some_and(|m| m != mode.as_str());
                 let thread = if mode_changed { None } else { prior.thread };
+                resumed_compacted = prior.compacted;
                 if thread.is_none() {
                     cold = Some((cold_earlier(tip, &job.prompt), false));
                 }
@@ -2312,6 +2318,9 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
         .collect();
     let references: Vec<&str> = shared.iter().map(String::as_str).collect();
     let mut delivered: Vec<crate::workroom::Message> = Vec::new();
+    // What this turn's session will hold once it is sent (A2.5); none for a bare command, a side question or a
+    // sealed run, whose next turn is then briefed whole.
+    let mut brief_record: Option<crate::brief_sessions::BriefRecord> = None;
     // A command the person typed goes to the runtime bare (0.426): a CLI reads a slash command only at the very start of
     // what it is given, and a brief before it made `/compact` just words. Only the person's own message counts: never
     // words an app, a routine, a relay, a room or a comparison started, and never a reply on another agent (a brief of
@@ -2402,7 +2411,13 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
         let brief_folder = repository_root.as_deref().unwrap_or(&folder);
         // The whole memory list where the run stands, so the brief can name the file for what it does not paste.
         crate::people::write_brief_memory_file(&store, brief_folder, own_folder);
-        let (brief, quoted) = crate::people::turn_brief_with_group_room_and_copy(
+        // A2.5: a turn that resumes a session which did not compact is sent only what that session was not given.
+        let resumed = continues.as_ref().filter(|c| c.thread.is_some() && resume.is_some());
+        let earlier_brief = resumed
+            .filter(|_| !resumed_compacted)
+            .and_then(|c| crate::brief_sessions::BriefSessions::for_store(&store).after(&c.mission_id));
+        let plan = crate::brief_sessions::brief_plan(resumed.is_some(), resumed_compacted, earlier_brief.as_ref());
+        let (brief, quoted, given) = crate::people::turn_brief_held(
             &store,
             &job.teammate.id,
             brief_folder,
@@ -2416,7 +2431,12 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
             remaining,
             origin.room_history.as_ref(),
             own_folder,
+            plan.already_given.as_ref(),
         )?;
+        brief_record = Some(crate::brief_sessions::BriefRecord {
+            given: crate::brief_sessions::brief_held(plan.already_given.as_ref(), &given),
+            turns: plan.turns,
+        });
         delivered = quoted;
         // A1.4: which memories this teammate was given, so one nobody is given in a month can say so.
         if let Err(error) = crate::people::note_brief_given(&store, brief_folder, own_folder, &words) {
@@ -2446,6 +2466,12 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
         told
     };
     let id = new_id();
+    // Best effort: a record that is not written costs the next turn a full brief, and nothing else.
+    if let Some(record) = &brief_record
+        && let Err(error) = crate::brief_sessions::BriefSessions::for_store(&store).record(&id, record)
+    {
+        eprintln!("What this session was told was not recorded: {error}");
+    }
     // Copilot needs a host session id on first turn so a failure before `result` can still resume.
     let session_id = if runtime_name == "copilot" && resume.is_none() {
         // Copilot takes only a UUID for a new session ("The value is not a valid UUID"), as the host mints one.

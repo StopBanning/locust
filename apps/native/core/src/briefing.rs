@@ -236,7 +236,28 @@ pub fn assemble_with_room_history(
     prompt: &str,
     room_history: Option<(&crate::room_history::RoomHistory, &str)>,
 ) -> (String, usize) {
-    let mut standing: Vec<String> = standing.to_vec();
+    let (composed, count, _) = assemble_held(standing, inbound, remaining, roster, now, prompt, room_history, None, None);
+    (composed, count)
+}
+
+/// A2.5: `assemble_with_room_history` for a turn whose CLI session already holds `already_given` (paragraph keys):
+/// only what it does not hold is sent, after the line that says the rest still holds (brief_sessions::standing_for).
+/// What arrived this turn and the person's words always go. Answers the prompt, how many waiting messages went into
+/// it, and the key of every standing paragraph the brief stands on -- less any shed for length.
+#[allow(clippy::too_many_arguments)]
+pub fn assemble_held(
+    standing: &[String],
+    inbound: &[Message],
+    remaining: usize,
+    roster: &[PeerEntry],
+    now: Option<chrono::DateTime<chrono::Utc>>,
+    prompt: &str,
+    room_history: Option<(&crate::room_history::RoomHistory, &str)>,
+    already_given: Option<&std::collections::HashSet<String>>,
+    identity: Option<(&PeerEntry, &[PeerEntry])>,
+) -> (String, usize, Vec<String>) {
+    let (sent, mut given) = crate::brief_sessions::standing_for(standing, already_given, identity);
+    let mut standing: Vec<String> = sent;
     let build = |standing: &[String], count: usize, history: Option<&str>| {
         let mut sections: Vec<String> = standing.to_vec();
         if count > 0 {
@@ -265,10 +286,21 @@ pub fn assemble_with_room_history(
         let paragraphs: Vec<String> = standing.join(SECTION_GAP).split(SECTION_GAP).map(str::to_owned).collect();
         let kept: Vec<String> = paragraphs
             .iter()
-            .filter(|p| !crate::people::MEMORY_OPENINGS.iter().any(|opening| p.trim_start().starts_with(opening)))
+            .filter(|p| {
+                let p = p.trim_start();
+                !(crate::people::MEMORY_OPENINGS.iter().any(|opening| p.starts_with(opening))
+                    || p.starts_with(crate::brief_sessions::MEMORY_LIST_REPLACES))
+            })
             .cloned()
             .collect();
         if kept.len() != paragraphs.len() {
+            // Recorded as told only what went.
+            let shed: std::collections::HashSet<String> = paragraphs
+                .iter()
+                .filter(|p| !kept.contains(p))
+                .map(|p| crate::brief_sessions::paragraph_key(p.trim_start_matches(crate::brief_sessions::MEMORY_LIST_REPLACES).trim_start_matches('\n')))
+                .collect();
+            given.retain(|k| !shed.contains(k));
             standing = kept;
             composed = build(&standing, count, None);
         }
@@ -279,7 +311,7 @@ pub fn assemble_with_room_history(
             composed = build(&standing, count, Some(&section));
         }
     }
-    (composed, count)
+    (composed, count, given)
 }
 
 #[cfg(test)]

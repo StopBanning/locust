@@ -72,6 +72,7 @@ const NEVER_COPIED: &[&str] = &[".writable", "checkpoints"];
 /// What a backup never carries, and why — in the manifest, so a backup says what it is not.
 pub const LEFT_OUT: &[(&str, &str)] = &[
     ("routine-hooks.json", "private link passwords and collected webhook data: tied to this computer and never backed up"),
+    ("brief-sessions.json", "what this computer's agent sessions were already told: tied to those sessions, and a missing record only means a full brief"),
     ("claude-context-launches.json", "machine-local flags for context inspection: recorded again by the next Claude turn"),
     ("conversation-references.json", "reference folders belong to this machine: choose them again after a restore"),
     ("reference-repositories", "shallow reference copies: downloaded again after choosing a repository"),

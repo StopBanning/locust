@@ -528,6 +528,18 @@ apps/desktop/src/main/a-report-can-reach-support-by-email-or-file.test.ts	carrie
 apps/desktop/src/main/a-report-can-reach-support-by-email-or-file.test.ts	keeps the END of a long conversation while it fits, and when none fits says the file carries it	no
 apps/desktop/src/main/a-report-can-reach-support-by-email-or-file.test.ts	subjects a long description by its first words, and a blank one as a problem	no
 apps/desktop/src/main/a-report-can-reach-support-by-email-or-file.test.ts	is whole: the words, the facts, the conversation uncut, and the log line	no
+apps/desktop/src/main/a-resumed-session-is-told-only-what-changed.test.ts	is the whole brief on the first turn, and says which paragraphs it stands on	yes
+apps/desktop/src/main/a-resumed-session-is-told-only-what-changed.test.ts	is only what the session was not given on a later turn, after one line that says the rest holds	yes
+apps/desktop/src/main/a-resumed-session-is-told-only-what-changed.test.ts	sends again the paragraph that changed, and only that one	yes
+apps/desktop/src/main/a-resumed-session-is-told-only-what-changed.test.ts	is the whole brief, word for word, when the session holds none of it	yes
+apps/desktop/src/main/a-resumed-session-is-told-only-what-changed.test.ts	works the same for a run that belongs to nobody	yes
+apps/desktop/src/main/a-resumed-session-is-told-only-what-changed.test.ts	is trusted only for a turn that resumes a session that did not compact	yes
+apps/desktop/src/main/a-resumed-session-is-told-only-what-changed.test.ts	is set aside every few turns regardless, so the whole brief comes back	yes
+apps/desktop/src/main/a-resumed-session-is-told-only-what-changed.test.ts	keeps what the session held, with this brief's paragraphs newest	yes
+apps/desktop/src/main/a-resumed-session-is-told-only-what-changed.test.ts	reads a compaction from any runtime that reports one	yes
+apps/desktop/src/main/a-resumed-session-is-told-only-what-changed.test.ts	is read back by the next start of the app	yes
+apps/desktop/src/main/a-resumed-session-is-told-only-what-changed.test.ts	is no record at all when it cannot be read, so the turn is briefed in full	yes
+apps/desktop/src/main/a-resumed-session-is-told-only-what-changed.test.ts	briefs a resumed turn with what changed, and in full again after the session compacted	yes
 apps/desktop/src/main/a-rewrite-is-credited-to-its-writer.test.ts	a teammate’s rewrite ("Keep and tell me"): credited to the teammate; `by` stays who first kept it	yes
 apps/desktop/src/main/a-rewrite-is-credited-to-its-writer.test.ts	a change the person kept ("Keep the change"): credited to the teammate who proposed it	yes
 apps/desktop/src/main/a-rewrite-is-credited-to-its-writer.test.ts	the person’s own edit, and Put it back: credited to the person	yes

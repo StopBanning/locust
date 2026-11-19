@@ -353,3 +353,24 @@ Branch `exec/native-memory-1`, tests in `core/src/memory_round_tests.rs` (new), 
   t7 unread lines unsaid -> `says_in_the_conversation_how_many_lines_...` and `says_so_even_when_nothing_...`;
   t8 the quiet line on every reply -> `says_quietly_when_a_tidy_pass_put_nothing_...`;
   t9 refusals unsaid -> `a_tidy_suggestion_the_store_refuses_never_drops_the_ones_after_it`.
+- **A resumed session is told only what changed** (A2.5): `core/src/brief_sessions.rs` (new) is Electron's
+  `brief-sessions.ts` plus `standingFor`, `paragraphKey` and `stillHoldsLine`. `briefing::assemble_held` and
+  `people::turn_brief_held` take the keys the session holds. The old `assemble_with_room_history` and
+  `turn_brief_with_group_room_and_copy` wrap them with none held.
+  - In `native.rs`, a reply that resumes its session (same agent, same mode, a thread) plans from
+    `brief-sessions.json`. A compaction in the prior ledger (`Prior.compacted`), no record, or 8 turns gone by gives
+    a full brief.
+  - The record is written once the turn's id is minted. A bare command, a side question and a sealed run record
+    none.
+  - Over the cap, the keys of shed memory paragraphs are left out of the record. A re-sent memory list (with its
+    "replaces" line) still counts as memory there.
+  - `brief_held` sorts what was held: a set has no order, where Electron's keeps insertion order. Only which keys go
+    first past 400 differs.
+  - Tests: `core/src/brief_sessions_tests.rs` (12) and
+    `briefs_a_resumed_turn_with_what_changed_and_in_full_again_after_the_session_compacted` in
+    `native/codex_mission_tests.rs`, which runs three real turns through the fake app-server.
+- Resumed-session breaks: 11 of 11 caught by name (`~/work/scratch/memory1/r01..r11`). r11 (shed keys still recorded)
+  survived at first, and `a_brief_shed_for_length_is_recorded_as_told_only_what_went` was written for it. r01, r02,
+  r03, r08, r09 and r10 were caught by their own plan, record and compaction cases. r04 (identity) was caught by the
+  later-turn case, r05 (replaces line) by the changed-paragraph case, and r06 (compaction ignored in native.rs) and
+  r07 (no record written) by the mission-service case.

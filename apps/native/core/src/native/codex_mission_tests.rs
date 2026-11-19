@@ -1307,3 +1307,56 @@ fn a_write_capable_turn_records_observed_edit_for_a_file_modified_on_disk_withou
     assert_eq!(observed[0]["payload"]["status"], "observed on disk");
     assert_eq!(observed[0]["payload"]["patch"]["added"], 1);
 }
+
+// ---- a-resumed-session-is-told-only-what-changed.test.ts: through the mission service (A2.5) ----
+#[test]
+fn briefs_a_resumed_turn_with_what_changed_and_in_full_again_after_the_session_compacted() {
+    const ROSTER_RULE: &str = "Writing a teammate's name in your reply does NOT reach them.";
+    const STILL_HOLDS: &str = "You were given standing instructions earlier in this conversation";
+    let t = Temp::new();
+    t.store()
+        .save_json(
+            "teammates.json",
+            &json!({"schemaVersion": 1, "teammates": [{"teammateId": "tm_codec", "name": "Codec", "role": "Code & Migrations"},
+                {"teammateId": "tm_atlas", "name": "Atlas", "role": "Research & Briefs"}], "missionOwners": {}, "settings": {}}),
+        )
+        .unwrap();
+    let _hook = hooks::install(t.store(), codex_commands_hook(&t));
+    let sent = |t: &Temp| -> Vec<String> {
+        codex_requests(t)
+            .iter()
+            .filter(|r| r["method"] == "turn/start")
+            .map(|r| r["params"]["input"][0]["text"].as_str().unwrap().to_owned())
+            .collect()
+    };
+    // Each turn's own ledger: the one that was not there before it started (a reply answers with the conversation).
+    let turn = |t: &Temp, conversation: Option<&str>, words: &str| -> PathBuf {
+        let before = ledgers(t);
+        let started = send(job(t, conversation, words)).unwrap();
+        let path = ledgers(t).into_iter().find(|p| !before.contains(p)).expect("a turn was started");
+        finished(path.file_stem().unwrap().to_str().unwrap());
+        let _ = started;
+        path
+    };
+    let one = turn(&t, None, "First.");
+    let conversation = one.file_stem().unwrap().to_str().unwrap().to_owned();
+    let two = turn(&t, Some(&conversation), "Second.");
+    // The session summarized itself during turn two.
+    let compacted = json!({"schemaVersion": 27, "recordType": "mission.event", "occurredAt": NOW, "event": {"id": "e_compact", "sequence": 99,
+        "type": "adapter.diagnostic", "occurredAt": NOW, "sourceAdapter": "codex",
+        "payload": {"code": "codex.context_compacted", "level": "info", "message": "x", "terminal": false, "evidence": {"redacted": true}}}});
+    let mut ledger = fs::OpenOptions::new().append(true).open(&two).unwrap();
+    std::io::Write::write_all(&mut ledger, format!("{compacted}\n").as_bytes()).unwrap();
+    turn(&t, Some(&conversation), "Third.");
+
+    let told = sent(&t);
+    assert_eq!(told.len(), 3, "{told:?}");
+    assert!(told[0].contains(ROSTER_RULE));
+    // Resumed, not compacted: the line, not the rules.
+    assert!(told[1].contains(STILL_HOLDS), "{}", told[1]);
+    assert!(!told[1].contains(ROSTER_RULE));
+    assert!(told[1].split("\n\nReference folders").next().unwrap().ends_with("Second."), "{}", told[1]);
+    // The whole brief again.
+    assert!(told[2].contains(ROSTER_RULE), "{}", told[2]);
+    assert!(!told[2].contains(STILL_HOLDS));
+}
