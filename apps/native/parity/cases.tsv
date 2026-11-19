@@ -2054,15 +2054,15 @@ apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	never take
 apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	waits while the newest turn is still running, even when an older one is named	no
 apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	does not bring back a terminal turn the person deleted	no
 apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	is found from any turn of it, the latest-made where it branches	no
-apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	keeps its groups -- New, Improved, Fixed -- as Claude Code's What's new does	no
-apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	written before the groups, stays as it was written: one group, no label guessed for it	no
-apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	marked big says so, and the mark itself is nowhere in what is shown	no
-apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	shows the big builds between the one last seen and the one running	no
-apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	shows nothing when nothing big came since, on the same version, or on a first install	no
-apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	shows nothing when the version last seen is not in the file -- a splash about the wrong builds is worse	no
-apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	is read whole: hundreds of builds, each with something to say	no
-apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	gives someone arriving from 0.276 the bots, the machine, the design pass, their own model, a room that remembers, pages that run each runtime's own commands a monochrome Locust, hand-off chains, landing a teammate's branch, comparing models, comparing their work and building to compare, pets, talking with ChatGPT's voice, the voice using their connectors, talking to a teammate by voice, starting Talk from any app, Scout keeping watch, their own cloud computer, their own benchmark, Claude Code and Codex on their cloud computer, the work carried on when a plan runs out, Locust on their phone, and agents of their own; from 0.777 nothing	no
-apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	is gone: What changed lives in Settings, and a big build gets the splash	no
+apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	keeps its groups -- New, Improved, Fixed -- as Claude Code's What's new does	yes
+apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	written before the groups, stays as it was written: one group, no label guessed for it	yes
+apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	marked big says so, and the mark itself is nowhere in what is shown	yes
+apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	shows the big builds between the one last seen and the one running	yes
+apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	shows nothing when nothing big came since, on the same version, or on a first install	yes
+apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	shows nothing when the version last seen is not in the file -- a splash about the wrong builds is worse	yes
+apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	is read whole: hundreds of builds, each with something to say	yes
+apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	gives someone arriving from 0.276 the bots, the machine, the design pass, their own model, a room that remembers, pages that run each runtime's own commands a monochrome Locust, hand-off chains, landing a teammate's branch, comparing models, comparing their work and building to compare, pets, talking with ChatGPT's voice, the voice using their connectors, talking to a teammate by voice, starting Talk from any app, Scout keeping watch, their own cloud computer, their own benchmark, Claude Code and Codex on their cloud computer, the work carried on when a plan runs out, Locust on their phone, and agents of their own; from 0.777 nothing	yes
+apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	is gone: What changed lives in Settings, and a big build gets the splash	yes
 apps/desktop/src/main/window-bounds.test.ts	uses the opening size when nothing was saved	yes
 apps/desktop/src/main/window-bounds.test.ts	reopens where and how the person left it	yes
 apps/desktop/src/main/window-bounds.test.ts	keeps a saved size larger than the default opening size	yes
