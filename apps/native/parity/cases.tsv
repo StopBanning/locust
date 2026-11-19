@@ -226,6 +226,9 @@ apps/desktop/src/main/a-folder-is-one-folder-however-spelled.test.ts	is the know
 apps/desktop/src/main/a-folder-is-one-folder-however-spelled.test.ts	and at start, before the registry is open	no
 apps/desktop/src/main/a-folder-is-one-folder-however-spelled.test.ts	a different folder stays itself	no
 apps/desktop/src/main/a-folder-is-one-folder-however-spelled.test.ts	a folder that is not there, or no registry yet, is left as written	no
+apps/desktop/src/main/a-forget-with-nothing-remembered-says-nothing.test.ts	is answered as nothing remembered, by the store	yes
+apps/desktop/src/main/a-forget-with-nothing-remembered-says-nothing.test.ts	says nothing in the thread	yes
+apps/desktop/src/main/a-forget-with-nothing-remembered-says-nothing.test.ts	still says a miss when something is remembered, opening with a capital	yes
 apps/desktop/src/main/a-forgotten-memory-can-come-back.test.ts	a person’s Remove: held, by you -- and Restore puts it back exactly as it was, briefed again	no
 apps/desktop/src/main/a-forgotten-memory-can-come-back.test.ts	a teammate’s forget in "Keep and tell me": held, by that teammate	no
 apps/desktop/src/main/a-forgotten-memory-can-come-back.test.ts	a forget the person agreed to ("Forget it"): held, by the teammate who asked	no
@@ -320,6 +323,12 @@ apps/desktop/src/main/a-memory-nobody-is-given-says-so.test.ts	a proposal, or an
 apps/desktop/src/main/a-memory-nobody-is-given-says-so.test.ts	is counted from the last brief, the last write, or when counting began -- whichever is latest -- past ${String(UNUSED_AFTER_DAYS)} days	no
 apps/desktop/src/main/a-memory-nobody-is-given-says-so.test.ts	says so in the file every teammate reads, so a tidy pass can see it	no
 apps/desktop/src/main/a-memory-nobody-is-given-says-so.test.ts	the same choice, made by the same function	no
+apps/desktop/src/main/a-memory-whose-file-changed-may-be-out-of-date.test.ts	takes paths and project file names; not URLs, versions or abbreviations	yes
+apps/desktop/src/main/a-memory-whose-file-changed-may-be-out-of-date.test.ts	names them in a sentence	yes
+apps/desktop/src/main/a-memory-whose-file-changed-may-be-out-of-date.test.ts	a named file saved after the memory is listed; one saved before, missing, or outside the folder is not	yes
+apps/desktop/src/main/a-memory-whose-file-changed-may-be-out-of-date.test.ts	a date that does not read says nothing	yes
+apps/desktop/src/main/a-memory-whose-file-changed-may-be-out-of-date.test.ts	the brief says so beside the memory	yes
+apps/desktop/src/main/a-memory-whose-file-changed-may-be-out-of-date.test.ts	and so does the file	yes
 apps/desktop/src/main/a-model-list-missing-one-is-asked-again.test.ts	names the case	no
 apps/desktop/src/main/a-model-list-missing-one-is-asked-again.test.ts	reads again instead of keeping the incomplete answer	no
 apps/desktop/src/main/a-model-of-your-own-is-unpriced-not-free.test.ts	is one the person added, which OpenCode runs -- and an old record without a model is not	yes
@@ -336,6 +345,9 @@ apps/desktop/src/main/a-named-memory-replaces-the-one-before-it.test.ts	does not
 apps/desktop/src/main/a-named-memory-replaces-the-one-before-it.test.ts	keeps a name to its own place: this folder and everywhere are different memories	no
 apps/desktop/src/main/a-named-memory-replaces-the-one-before-it.test.ts	does not promote a proposed memory by rewriting it	no
 apps/desktop/src/main/a-named-memory-replaces-the-one-before-it.test.ts	survives a reload, name and history intact	no
+apps/desktop/src/main/a-new-project-is-told-how-to-write-its-first-memory.test.ts	says nothing is remembered and how to write the first memory, block and all	yes
+apps/desktop/src/main/a-new-project-is-told-how-to-write-its-first-memory.test.ts	leaves out how to read memories until there is one, and brings it back with the first	yes
+apps/desktop/src/main/a-new-project-is-told-how-to-write-its-first-memory.test.ts	still gives the memory paragraphs up first when a run that belongs to nobody is over the cap (A5.3)	yes
 apps/desktop/src/main/a-paused-routine-waits-to-be-resumed.test.ts	is not started by its schedule and records no miss, however overdue	yes
 apps/desktop/src/main/a-paused-routine-waits-to-be-resumed.test.ts	still starts when a person presses Run	yes
 apps/desktop/src/main/a-paused-routine-waits-to-be-resumed.test.ts	resumed, counts from the resume: a long-overdue hourly routine does not fire on the spot, and does an hour on	yes
@@ -516,6 +528,12 @@ apps/desktop/src/main/a-report-can-reach-support-by-email-or-file.test.ts	carrie
 apps/desktop/src/main/a-report-can-reach-support-by-email-or-file.test.ts	keeps the END of a long conversation while it fits, and when none fits says the file carries it	no
 apps/desktop/src/main/a-report-can-reach-support-by-email-or-file.test.ts	subjects a long description by its first words, and a blank one as a problem	no
 apps/desktop/src/main/a-report-can-reach-support-by-email-or-file.test.ts	is whole: the words, the facts, the conversation uncut, and the log line	no
+apps/desktop/src/main/a-rewrite-is-credited-to-its-writer.test.ts	a teammate’s rewrite ("Keep and tell me"): credited to the teammate; `by` stays who first kept it	yes
+apps/desktop/src/main/a-rewrite-is-credited-to-its-writer.test.ts	a change the person kept ("Keep the change"): credited to the teammate who proposed it	yes
+apps/desktop/src/main/a-rewrite-is-credited-to-its-writer.test.ts	the person’s own edit, and Put it back: credited to the person	yes
+apps/desktop/src/main/a-rewrite-is-credited-to-its-writer.test.ts	a writer in the file that does not read is dropped, not trusted	yes
+apps/desktop/src/main/a-rewrite-is-credited-to-its-writer.test.ts	rewrites a file that still lists memories, so a teammate cannot read them there	yes
+apps/desktop/src/main/a-rewrite-is-credited-to-its-writer.test.ts	writes nothing in a folder that never had the file, or where it already says so	yes
 apps/desktop/src/main/a-room-member-is-told-the-room-so-far.test.ts	carries the room so far between what arrived this turn and the post	yes
 apps/desktop/src/main/a-room-member-is-told-the-room-so-far.test.ts	is exactly the brief it was when there is no room	yes
 apps/desktop/src/main/a-room-member-is-told-the-room-so-far.test.ts	never pushes out a waiting message: it takes only what is left	yes
@@ -602,6 +620,10 @@ apps/desktop/src/main/a-run-in-its-own-copy-is-not-told-the-project-folder.test.
 apps/desktop/src/main/a-run-in-its-own-copy-is-not-told-the-project-folder.test.ts	hands the run's own folder to the brief, for a teammate's run and for nobody's	yes
 apps/desktop/src/main/a-run-in-its-own-copy-is-not-told-the-project-folder.test.ts	in its own line, and in its LOCUST.md section	yes
 apps/desktop/src/main/a-run-in-its-own-copy-is-not-told-the-project-folder.test.ts	and a run in its own copy still hears neither	yes
+apps/desktop/src/main/a-run-that-is-nobodys-still-knows-the-project.test.ts	is briefed with the folder and the project memory, and with no roster	yes
+apps/desktop/src/main/a-run-that-is-nobodys-still-knows-the-project.test.ts	runs on the person's words alone when there is no memory to read	yes
+apps/desktop/src/main/a-run-that-is-nobodys-still-knows-the-project.test.ts	keeps the person's words when the briefing would not fit	yes
+apps/desktop/src/main/a-run-that-is-nobodys-still-knows-the-project.test.ts	sheds the team memory first when it would not fit, and keeps LOCUST.md and the formats	yes
 apps/desktop/src/main/a-runtime-command-is-sent-as-typed.test.ts	goes to the runtime alone, with no brief and no plan instruction after it	yes
 apps/desktop/src/main/a-runtime-command-is-sent-as-typed.test.ts	is briefed like any message when the words came from a routine, whatever the caller says	yes
 apps/desktop/src/main/a-runtime-command-is-sent-as-typed.test.ts	is briefed like any message when nobody said it was a command	no

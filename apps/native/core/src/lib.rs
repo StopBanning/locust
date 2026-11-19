@@ -169,6 +169,7 @@ pub mod shell_words;
 mod shell_wrapper_tests;
 pub mod provider_error;
 pub mod failure_words;
+pub mod memory_file;
 pub mod memory_tidy;
 pub mod codex_failure;
 pub mod side_question;
@@ -365,6 +366,8 @@ mod compare_points_tests;
 mod example_file_tests;
 #[cfg(test)]
 mod notes_for_a_question_tests;
+#[cfg(test)]
+mod memory_round_tests;
 #[cfg(test)]
 mod approval_data_tests;
 #[cfg(test)]

@@ -236,7 +236,8 @@ pub fn assemble_with_room_history(
     prompt: &str,
     room_history: Option<(&crate::room_history::RoomHistory, &str)>,
 ) -> (String, usize) {
-    let build = |count: usize, history: Option<&str>| {
+    let mut standing: Vec<String> = standing.to_vec();
+    let build = |standing: &[String], count: usize, history: Option<&str>| {
         let mut sections: Vec<String> = standing.to_vec();
         if count > 0 {
             sections.push(inbound_section(&inbound[..count], remaining + inbound.len() - count, roster, now));
@@ -249,17 +250,33 @@ pub fn assemble_with_room_history(
     };
     let units = |s: &str| s.encode_utf16().count();
     let mut count = inbound.len();
-    let mut composed = build(count, None);
-    if units(&composed) > MAX_RUNTIME_PROMPT_LENGTH && units(&build(0, None)) <= MAX_RUNTIME_PROMPT_LENGTH {
+    let mut composed = build(&standing, count, None);
+    if units(&composed) > MAX_RUNTIME_PROMPT_LENGTH && units(&build(&standing, 0, None)) <= MAX_RUNTIME_PROMPT_LENGTH {
         while units(&composed) > MAX_RUNTIME_PROMPT_LENGTH && count > 0 {
             count -= 1;
-            composed = build(count, None);
+            composed = build(&standing, count, None);
+        }
+    }
+    // A5.3 (composeSoloPrompt): still over the cap, the team's memory gives way -- its listing and its rules, the bulk
+    // and the part also kept in the memory file -- never the folder's own instructions or the reply formats. What is
+    // left goes whole, long or not. Electron did this only for a run that belongs to nobody; a teammate's brief over
+    // the cap had nothing to give, so it is done here for both.
+    if units(&composed) > MAX_RUNTIME_PROMPT_LENGTH {
+        let paragraphs: Vec<String> = standing.join(SECTION_GAP).split(SECTION_GAP).map(str::to_owned).collect();
+        let kept: Vec<String> = paragraphs
+            .iter()
+            .filter(|p| !crate::people::MEMORY_OPENINGS.iter().any(|opening| p.trim_start().starts_with(opening)))
+            .cloned()
+            .collect();
+        if kept.len() != paragraphs.len() {
+            standing = kept;
+            composed = build(&standing, count, None);
         }
     }
     if let Some((history, self_id)) = room_history {
         let left = MAX_RUNTIME_PROMPT_LENGTH.saturating_sub(units(&composed) + units(SECTION_GAP));
         if let Some(section) = crate::room_history::room_history_section(history, self_id, left) {
-            composed = build(count, Some(&section));
+            composed = build(&standing, count, Some(&section));
         }
     }
     (composed, count)

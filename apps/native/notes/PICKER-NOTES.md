@@ -268,3 +268,47 @@ Breaks (`core-c` to `core-f`, `ui-d`, `ui-e` logs). All caught in the end:
   Report a problem cards put back were caught by the no-card case.
 - Release gate: `permission_host_tests::always_is_the_tool_not_the_connector_each_card_keyed_by_its_own_tool` (core,
   untouched here) failed once with "no card was raised" at load 6-7, and passed when run again.
+
+## Memory round 1 (19 Nov, what a teammate remembers)
+
+Branch `exec/native-memory-1`, tests in `core/src/memory_round_tests.rs` (new), one per Electron case.
+
+- **Forget with nothing remembered** (0.785): `people::forget_target` answers `NothingRemembered`, `NothingMatched` or
+  `Ambiguous(candidates)`. `record_reply` now returns the lines the thread should say (`Ok(Vec<String>)`), and
+  `native.rs` posts each as an amber relay notice. A miss used to return `Err` and abort every later line of the reply;
+  now it is collected and the rest are read. Nothing remembered says nothing. A miss opens with a capital ("A
+  conversation tried to forget..."). A proposed change is never a forget candidate.
+- **First memory** (0.810): `memory_section` already left the reading rules out when empty; it now has the tests.
+  `MEMORY_HEADING`, `MEMORY_RULES` and `MEMORY_WRITE` are named in `people.rs`.
+- **Over the cap** (A5.3): `briefing::assemble_with_room_history` drops the memory paragraphs, and only them, when the
+  brief is still over 12,000 after shedding waiting messages. LOCUST.md and the reply formats stay, and the person's
+  words stay last. Electron did this only for a run that is nobody's; here it is every brief, because a teammate's
+  over-cap brief had nothing to give up.
+- **Nobody's run**: an unreadable `memories.json` briefs Electron's "TEAM MEMORY could not be read for this run..."
+  (`people::MEMORY_NOT_READ`) instead of failing the turn. An unreadable `teammates.json` still fails it (not a case).
+- **The memory file** (`core/src/memory_file.rs`, new): `cited_paths`, `out_of_date`, `changed_since`,
+  `memory_file_text`, `write_memory_file`, `retire_memory_file`. Before a run, `native.rs` calls
+  `people::write_brief_memory_file`, which writes `.locust/memory.md` where the run stands (its own copy for a worktree)
+  and adds `.locust/` to `.git/info/exclude`. With memory off, it retires a file left from before (A1.7). The brief
+  names the file, and pastes 8 lines rather than 24, only when the file is there and matches what the store holds
+  (`memory_file_is`). So a test, or any brief built without a run, writes nothing into a folder. Until now the Rust
+  tidy brief told the teammate to read a `.locust/memory.md` that nothing wrote. The constant is
+  `MEMORY_FILE_IN_FOLDER`: the profile scan reads every `pub const *_FILE` as a profile file, and this file is not one.
+  One stricter case than Electron's: `file:src/net.ts` is no path (the scheme check had no case that needed it).
+- **Out of date** (A1.3): each briefed memory carries `changedSince` (2 s grace, at most 5 files, only inside the
+  folder) into the brief line ("; may be out of date: src/net.ts changed since") and the file line.
+- **Credit** (A1.6): the brief and the file name `updatedBy` before `by` (`memory_file::writer`). The person's edit
+  credits "you" (only when the words change). An `updatedBy` with a blank name, over 80 characters or a bad id is
+  dropped when the file is read.
+- Breaks (`~/work/scratch/memory1/b01..b12`): 12 of 12, each caught by name:
+  b01 nothing-remembered says a miss -> `says_nothing_in_the_thread`;
+  b02 lower-case opening -> `still_says_a_miss_when_something_is_remembered_opening_with_a_capital`;
+  b03 no shedding -> `sheds_the_team_memory_first_...` and `still_gives_the_memory_paragraphs_up_first_...`;
+  b04 outside the folder allowed and b05 any save counts -> `a_named_file_saved_after_the_memory_is_listed_...`;
+  b06 the brief names `by` -> `a_teammates_rewrite_keep_and_tell_me_credited_to_the_teammate_...`;
+  b07 the edit credits nobody -> `the_persons_own_edit_and_put_it_back_credited_to_the_person`;
+  b08 a blank writer trusted -> `a_writer_in_the_file_that_does_not_read_is_dropped_not_trusted`;
+  b09 retire rewrites a retired file -> `writes_nothing_in_a_folder_that_never_had_the_file_...`;
+  b10 unreadable memory fails the turn -> `runs_on_the_persons_words_alone_when_there_is_no_memory_to_read`;
+  b11 no stale mark in the brief -> `the_brief_says_so_beside_the_memory`;
+  b12 no scheme check -> `takes_paths_and_project_file_names_...` (survived until the `file:src/net.ts` line was added).

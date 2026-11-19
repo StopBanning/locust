@@ -2400,6 +2400,8 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
             None
         };
         let brief_folder = repository_root.as_deref().unwrap_or(&folder);
+        // The whole memory list where the run stands, so the brief can name the file for what it does not paste.
+        crate::people::write_brief_memory_file(&store, brief_folder, own_folder);
         let (brief, quoted) = crate::people::turn_brief_with_group_room_and_copy(
             &store,
             &job.teammate.id,
@@ -2844,13 +2846,13 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
                         .next_back()
                         .unwrap_or("")
                         .to_owned();
-                    if let Err(error) = crate::people::record_reply(
-                        &memory_store,
-                        &memory_who,
-                        &memory_folder,
-                        &reply,
-                    ) {
-                        eprintln!("Memory was not recorded: {error}");
+                    match crate::people::record_reply(&memory_store, &memory_who, &memory_folder, &reply) {
+                        Ok(said) => {
+                            for line in said {
+                                push_relay_notice(&memory_id, &line, "warning");
+                            }
+                        }
+                        Err(error) => eprintln!("Memory was not recorded: {error}"),
                     }
                     // What the reply shares with a teammate goes to the workroom, to wait for that teammate's next run,
                     // and may automatically start or steer the recipient through the relay.
