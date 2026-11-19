@@ -92,3 +92,4 @@
 ## Remaining
 - Window tests for the three partial renderer files and the watch timer: drive `pull_request_chip.rs` in `rune::Runtime` for the issue chip (open, closed, not planned, hover, gh failure, focus refresh), the pull link's checks mark, and links in the person's own message. Then decide whether the window's watch loop should use `PullRequestWatch` or the timer tests should move onto the window's loop.
 - Electron's OpenCode `instructions` file that tells a run about the git tool is not ported.
+- `history_cache.rs` still keeps its own copy of the ledger summary code. `ledger::try_list_recent` reads only a bounded head and tail of a file, and the cache reads it whole, so on a very long ledger `cost`, `reported_model` and the lifecycle can differ. A `Summary` field added in `ledger.rs` also won't reach the cache unless it is copied over. The lasting fix is a per-file summary function in `ledger.rs`, which is the reply lane's file.
