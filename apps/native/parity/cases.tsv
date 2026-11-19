@@ -445,6 +445,16 @@ apps/desktop/src/main/a-provider-that-fails-first-is-carried-on.test.ts	leaves a
 apps/desktop/src/main/a-provider-that-fails-first-is-carried-on.test.ts	one press starts the task from the start on the agent offered, told why	yes
 apps/desktop/src/main/a-provider-that-fails-first-is-carried-on.test.ts	goes on by itself with Without asking on, and says so when the picked agent is the one that failed	yes
 apps/desktop/src/main/a-provider-that-fails-first-is-carried-on.test.ts	says why on the card and on the seam, and Settings says it covers both	no
+apps/desktop/src/main/a-pull-request-link-wears-its-state.test.ts	is a pull request, and an issue is named beside it	yes
+apps/desktop/src/main/a-pull-request-link-wears-its-state.test.ts	leaves a commit, a file, and anything that is not that address	yes
+apps/desktop/src/main/a-pull-request-link-wears-its-state.test.ts	finds a bare pull request in a sentence, and the issue beside it as a link of its own kind	yes
+apps/desktop/src/main/a-pull-request-link-wears-its-state.test.ts	refuses anything that is not an owner, a repo and a number	yes
+apps/desktop/src/main/a-pull-request-link-wears-its-state.test.ts	reads open, draft, merged and closed	yes
+apps/desktop/src/main/a-pull-request-link-wears-its-state.test.ts	reads checks as passing, failing, running or none, and says the hover	yes
+apps/desktop/src/main/a-pull-request-link-wears-its-state.test.ts	asks gh for that pull request and nothing else	yes
+apps/desktop/src/main/a-pull-request-link-wears-its-state.test.ts	reads once when many links ask together, and keeps the answer for a minute	yes
+apps/desktop/src/main/a-pull-request-link-wears-its-state.test.ts	does not ask fifty times at once	yes
+apps/desktop/src/main/a-pull-request-link-wears-its-state.test.ts	reads nothing into the chip when gh cannot, and does not ask again for a minute	yes
 apps/desktop/src/main/a-refusal-in-ask-says-the-mode.test.ts	names the mode and says nobody was asked	yes
 apps/desktop/src/main/a-refusal-in-ask-says-the-mode.test.ts	is what a served Ask or Plan run is given, and only one nobody answers for	yes
 apps/desktop/src/main/a-relayed-conversation-sits-under-its-origin.test.ts	sits under the conversation any turn of which sent it	yes
@@ -827,6 +837,14 @@ apps/desktop/src/main/an-image-preview-stays-in-its-folder.test.ts	refuses a lin
 apps/desktop/src/main/an-image-preview-stays-in-its-folder.test.ts	draws no SVG, network URL, missing file, folder, or oversized image	yes
 apps/desktop/src/main/an-issue-image-comes-only-from-github.test.ts	fetches a picture only from GitHub's own hosts, and stops at a redirect that leaves them	no
 apps/desktop/src/main/an-issue-image-comes-only-from-github.test.ts	follows a redirect that stays on GitHub's hosts	no
+apps/desktop/src/main/an-issue-link-wears-its-state.test.ts	is an issue, beside the pull request with the same address shape	yes
+apps/desktop/src/main/an-issue-link-wears-its-state.test.ts	finds a bare issue in a sentence, and a written one, beside the pull request	yes
+apps/desktop/src/main/an-issue-link-wears-its-state.test.ts	refuses anything that is not an owner, a repo and a number	yes
+apps/desktop/src/main/an-issue-link-wears-its-state.test.ts	reads open, closed completed and closed not planned, and says the words and the hover	yes
+apps/desktop/src/main/an-issue-link-wears-its-state.test.ts	asks gh for that issue and nothing else	yes
+apps/desktop/src/main/an-issue-link-wears-its-state.test.ts	keeps a pull request and an issue with one number apart	yes
+apps/desktop/src/main/an-issue-link-wears-its-state.test.ts	reads once when many links ask together, and keeps the answer for a minute	yes
+apps/desktop/src/main/an-issue-link-wears-its-state.test.ts	reads nothing into the chip when gh cannot, and does not ask again for a minute	yes
 apps/desktop/src/main/an-issue-list-is-only-a-github-folder.test.ts	asks for issues only when the folder is one gh can read	yes
 apps/desktop/src/main/an-issue-list-is-only-a-github-folder.test.ts	lists the open issues through gh in the folder	yes
 apps/desktop/src/main/an-office-file-is-read-for-its-words.test.ts	has its title, headings, paragraphs, list items and table, in order	no
