@@ -2971,11 +2971,11 @@ apps/desktop/src/renderer/src/at-picks-a-file-of-the-project.test.ts	finds a nam
 apps/desktop/src/renderer/src/backupWords.test.ts	names what has something in it, in the person's own nouns, one and many	no
 apps/desktop/src/renderer/src/backupWords.test.ts	says what a backup did and where, by the folder's own name	no
 apps/desktop/src/renderer/src/backupWords.test.ts	says what a restore did after the restart, or that it changed nothing	no
-apps/desktop/src/renderer/src/chat-apps-say-each-step-in-settings.test.tsx	names Discord, Slack and Telegram in that order, each off with Set up	no
-apps/desktop/src/renderer/src/chat-apps-say-each-step-in-settings.test.tsx	walks Discord from the Developer Portal to the code sent to the bot	no
-apps/desktop/src/renderer/src/chat-apps-say-each-step-in-settings.test.tsx	walks Slack from the app it makes in one step to its two tokens and the code	no
-apps/desktop/src/renderer/src/chat-apps-say-each-step-in-settings.test.tsx	walks Telegram from BotFather to the link that pairs a chat	no
-apps/desktop/src/renderer/src/chat-apps-say-each-step-in-settings.test.tsx	offers, once paired, to tell you there when something needs you: off until turned on, saying what is sent (0.837)	no
+apps/desktop/src/renderer/src/chat-apps-say-each-step-in-settings.test.tsx	names Discord, Slack and Telegram in that order, each off with Set up	yes
+apps/desktop/src/renderer/src/chat-apps-say-each-step-in-settings.test.tsx	walks Discord from the Developer Portal to the code sent to the bot	yes
+apps/desktop/src/renderer/src/chat-apps-say-each-step-in-settings.test.tsx	walks Slack from the app it makes in one step to its two tokens and the code	yes
+apps/desktop/src/renderer/src/chat-apps-say-each-step-in-settings.test.tsx	walks Telegram from BotFather to the link that pairs a chat	yes
+apps/desktop/src/renderer/src/chat-apps-say-each-step-in-settings.test.tsx	offers, once paired, to tell you there when something needs you: off until turned on, saying what is sent (0.837)	yes
 apps/desktop/src/renderer/src/choosing-an-issue-sends-nothing.test.tsx	lists the issue and does not send by being chosen	no
 apps/desktop/src/renderer/src/choosing-an-issue-sends-nothing.test.tsx	offers Start from an issue on Home only when the folder has issues to read	no
 apps/desktop/src/renderer/src/code-in-a-reply-is-coloured.test.tsx	knows a fence by the words people write on it	yes

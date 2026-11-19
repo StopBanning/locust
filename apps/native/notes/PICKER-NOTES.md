@@ -217,3 +217,7 @@ Breaks (`core-c` to `core-f`, `ui-d`, `ui-e` logs). All caught in the end:
   carries `openclawCommand`), drawn with "Copy the OpenClaw command" under "Add Locust to Claude Code, Codex or
   OpenClaw by hand"; each Copy is named for what it copies. Presses are tested through `main.rs` `TEST_DOOR` (this
   thread only). Still partial: the editor switch is not built. Breaks 6 of 6 killed (one by the core door test).
+- Chat apps (`chat-apps-say-each-step-in-settings.test.tsx`, 5 of 5 in `src/ui/chat_apps_steps_tests.rs`, new): the
+  steps were built, but every token field showed the token as it was pasted. Now `.secure()` (Electron's
+  type="password"), with a test that a typed token is never drawn. Breaks 3 of 3 killed.
+- Suite on picker-3 before the chat change: nextest 4554 passed.

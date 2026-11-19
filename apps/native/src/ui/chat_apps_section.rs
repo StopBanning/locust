@@ -285,9 +285,11 @@ fn token_input(
     label: &str,
     pick: fn(&mut State) -> &mut TextEdit,
 ) -> El {
+    // A token is never shown (Electron's type="password"): the field draws a mask, not what was pasted.
     text_input(edit, type_::BODY)
         .key(key)
         .single_line()
+        .secure()
         .label(label)
         .placeholder(placeholder, p.secondary)
         .grow(1.0)
@@ -626,3 +628,7 @@ mod tests {
         let _el = section(&s, &p);
     }
 }
+
+#[cfg(test)]
+#[path = "chat_apps_steps_tests.rs"]
+mod steps_tests;
