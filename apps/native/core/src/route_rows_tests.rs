@@ -238,3 +238,59 @@ fn takes_a_group_on_its_best_row_wherever_it_is_listed() {
     let rows = [row("OpenCode", "o1", "READY"), row("OpenCode", "o2", "NOT INSTALLED"), row("Codex CLI", "c1", "SIGN IN")];
     assert_eq!(groups(&rows)[0], "OpenCode");
 }
+
+// --- a-row-repeats-nothing-its-heading-says.test.tsx
+
+#[test]
+fn treats_a_repeated_runtime_name_as_the_heading_and_a_limit_or_an_endpoint_as_news() {
+    assert!(row_detail_repeats_heading("Through Antigravity CLI", "Antigravity · your account"));
+    assert!(row_detail_repeats_heading("Antigravity model tier", "Antigravity · your account"));
+    assert!(row_detail_repeats_heading("Through OpenCode", "OpenCode"));
+    assert!(!row_detail_repeats_heading("Free · no sign-in", "OpenCode"));
+    assert!(!row_detail_repeats_heading("Your model · llm.acme.example", "Your models"));
+    assert!(!row_detail_repeats_heading(
+        "Signed in, but the last run on it ended on your account's usage limit: resets Thursday",
+        "Codex CLI · your account"
+    ));
+}
+
+// --- a-turn-that-goes-quiet-says-so.test.tsx
+
+#[test]
+fn counts_whole_minutes_from_when_it_was_last_heard_and_only_once_there_are_five() {
+    let now: i64 = 1_793_512_800_000;
+    let ago = |mins: f64| -> String {
+        chrono::DateTime::from_timestamp_millis(now - (mins * 60_000.0) as i64).unwrap().to_rfc3339()
+    };
+    assert_eq!(quiet_minutes(Some(&ago(4.9)), now), None);
+    assert_eq!(quiet_minutes(Some(&ago(5.0)), now), Some(5));
+    assert_eq!(quiet_minutes(Some(&ago(42.5)), now), Some(42));
+    assert_eq!(quiet_minutes(None, now), None);
+    assert_eq!(quiet_minutes(Some("not a time"), now), None);
+}
+
+// --- a-context-menu-stays-in-the-window.test.tsx
+
+#[test]
+fn at_the_pointer_when_it_fits_there() {
+    assert_eq!(place_menu((200.0, 150.0), (220.0, 300.0), (1477.0, 920.0)), (200.0, 150.0));
+}
+
+#[test]
+fn upward_from_the_pointer_when_it_would_run_off_the_bottom() {
+    let placed = place_menu((120.0, 800.0), (220.0, 300.0), (1477.0, 920.0));
+    assert_eq!(placed.1, 800.0 - 300.0);
+    assert!(placed.1 + 300.0 <= 920.0 - 8.0);
+}
+
+#[test]
+fn leftward_from_the_pointer_when_it_would_run_off_the_right() {
+    assert_eq!(place_menu((1400.0, 150.0), (220.0, 300.0), (1477.0, 920.0)).0, 1400.0 - 220.0);
+}
+
+#[test]
+fn held_off_the_edge_when_neither_side_has_room() {
+    let placed = place_menu((100.0, 160.0), (220.0, 300.0), (500.0, 320.0));
+    assert_eq!(placed.1, 320.0 - 8.0 - 300.0);
+    assert!(placed.1 >= 8.0);
+}

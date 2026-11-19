@@ -402,3 +402,85 @@ fn reaches_the_screen_without_opening_the_menu() {
     let tip_text = tip.and_then(|e| e.label).unwrap_or_default();
     assert!(tip_text.contains("Your connectors work"), "got: {tip_text}");
 }
+
+// a-restored-queue-offers-its-actions.test.tsx
+#[test]
+fn the_restored_queue_shows_the_original_words_its_hold_reason_and_edit_discard_and_send() {
+    let mut s = State::default();
+    s.teammates.push(Teammate {
+        id: "tm_1".into(),
+        name: "Ash".into(),
+        role: "Code".into(),
+        runtime: Some("opencode".into()),
+        model: Some("opencode/free".into()),
+        account: None,
+        busy: false,
+        runs_in: "accept-edits".into(),
+        folder: None,
+    });
+    s.selected = 0;
+    s.conversations.insert("tm_1".into(), Conversation { conversation_id: Some("conv_1".into()), ..Default::default() });
+    s.queue_rows.push(crate::composer::QueuedRow {
+        id: "q1".into(),
+        key: "conv_1".into(),
+        text: "Please review paragraph two.".into(),
+        origin: crate::composer::Origin::Person,
+        attachments: vec![],
+        issue: None,
+        restored: true,
+        held: None,
+        retry_at: None,
+        tries: None,
+    });
+    fn view_q(s: &State, _cx: &mut Cx<State>) -> El {
+        crate::thread_view(s, &Palette::new(true))
+    }
+    let mut rt = Runtime::new(s, view_q, (1000.0, 900.0), Env::new(true, 1.0));
+    rt.frame(0.0);
+    let q = text_in(&rt, "queued").join(" | ");
+    assert!(q.contains("Please review paragraph two."), "got: {q}");
+    assert!(q.contains("Saved before Locust closed"), "got: {q}");
+    assert!(q.contains("press Send to continue"), "got: {q}");
+    assert!(q.contains("Edit") && q.contains("Discard") && q.contains("Send now"), "got: {q}");
+    assert!(!q.contains("Sends when Ash finishes"));
+}
+
+#[test]
+fn a_queue_read_failure_is_visible_even_when_no_rows_can_be_displayed() {
+    let mut s = State::default();
+    s.teammates.push(Teammate {
+        id: "tm_1".into(),
+        name: "Ash".into(),
+        role: "Code".into(),
+        runtime: Some("opencode".into()),
+        model: Some("opencode/free".into()),
+        account: None,
+        busy: false,
+        runs_in: "accept-edits".into(),
+        folder: None,
+    });
+    s.selected = 0;
+    s.conversations.insert("tm_1".into(), Conversation::default());
+    s.queue_error = Some("Saved messages are unreadable; the file has been kept.".into());
+    fn view_qe(s: &State, _cx: &mut Cx<State>) -> El {
+        crate::thread_view(s, &Palette::new(true))
+    }
+    let mut rt = Runtime::new(s, view_qe, (1000.0, 900.0), Env::new(true, 1.0));
+    rt.frame(0.0);
+    assert!(texts(&rt).iter().any(|w| w.contains("Saved messages are unreadable; the file has been kept.")));
+}
+
+// a-row-repeats-nothing-its-heading-says.test.tsx
+#[test]
+fn leaves_out_a_line_that_only_names_the_group_and_the_ready_tag() {
+    let rt = picker(
+        vec![
+            agent("antigravity", vec![m("flash", "Flash", &[])]),
+            agent("opencode", vec![m("opencode/glm-5.3-flash-free", "GLM 5.3 Flash Free", &[])]),
+        ],
+        None,
+    );
+    let flash = text_in(&rt, "model-antigravity-flash");
+    assert!(!flash.iter().any(|w| w == "READY"));
+    assert!(!flash.iter().any(|w| w.contains("Through Antigravity")));
+}

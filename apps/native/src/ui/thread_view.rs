@@ -1231,7 +1231,7 @@ pub(super) fn model_picker(
         if let Some(mark) = crate::look::controls::agent_mark(l, &agent.runtime, 12.0, l.c("text-muted")) {
             group = group.child(mark.key(format!("picker-group-mark-{}", agent.runtime)));
         }
-        list = list.child(group.child(text(group_name).font(l.ty.body).color(l.c("text-muted"))));
+        list = list.child(group.child(text(group_name.clone()).font(l.ty.body).color(l.c("text-muted"))));
         let usage_key = locust_core::agent_accounts::usage_key(&agent.runtime, acc_id);
         let at_limit = s.limited_runtimes.contains_key(&usage_key);
         let needs_sign_in = acc.is_some_and(|a| a.state != locust_core::agent_accounts::AccountState::Ready);
@@ -1249,7 +1249,12 @@ pub(super) fn model_picker(
             let description = locust_core::models::catalogue_description(&agent.runtime, &m.id);
             let resolved = s.resolved_model_names.get(&format!("{}:{}", agent.runtime, m.id)).map(String::as_str);
             let detail = if detail.is_empty() {
-                locust_core::route_rows::row_detail(description.as_deref(), resolved, &m.efforts)
+                let raw = locust_core::route_rows::row_detail(description.as_deref(), resolved, &m.efforts);
+                if locust_core::route_rows::row_detail_repeats_heading(&raw, &group_name) {
+                    String::new()
+                } else {
+                    raw
+                }
             } else {
                 detail
             };

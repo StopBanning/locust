@@ -142,3 +142,60 @@ fn leaves_the_name_alone_when_there_is_no_effort_to_state() {
     assert_eq!(route_chip_reading("Haiku 5.5", None), "Haiku 5.5");
     assert_eq!(route_chip_reading("Haiku 5.5", Some("  ")), "Haiku 5.5");
 }
+
+// --- swarm.test.ts
+
+fn swarm_models() -> Vec<crate::engine::Models> {
+    let m = |id: &str, efforts: &[&str]| crate::engine::Model {
+        id: id.into(),
+        name: id.into(),
+        efforts: efforts.iter().map(|e| (*e).to_owned()).collect(),
+    };
+    vec![
+        crate::engine::Models {
+            runtime: "codex".into(),
+            model: None,
+            effort: None,
+            teammate: None,
+            models: vec![
+                m("sol", &["low", "medium", "high", "xhigh", "max", "ultra"]),
+                m("luna", &["low", "medium", "high", "xhigh", "max"]),
+                m("plain", &[]),
+            ],
+        },
+        crate::engine::Models {
+            runtime: "claude".into(),
+            model: None,
+            effort: None,
+            teammate: None,
+            models: vec![m("fable", &["low", "medium", "high", "xhigh", "max"])],
+        },
+    ]
+}
+
+// case: uses the chosen effort when swarm is off
+// case: falls back to the level the chip shows, not to nothing
+// case: still sends nothing for a model that reports no levels
+// case: uses THIS model's maximum, not a fixed name
+// case: sends nothing for a model that reports no efforts
+// case: sends nothing for a model it has never heard of
+// case: overrides a chosen effort rather than deferring to it
+#[test]
+fn swarm_effort_picks_maximum_when_on_and_chosen_or_default_when_off() {
+    let models = swarm_models();
+    assert_eq!(swarm_effort_for(&models, None, "sol", false, Some("medium")).as_deref(), Some("medium"));
+    assert_eq!(swarm_effort_for(&models, None, "sol", false, None).as_deref(), Some("medium"));
+    assert_eq!(swarm_effort_for(&models, None, "plain", false, None), None);
+    assert_eq!(swarm_effort_for(&models, None, "sol", true, None).as_deref(), Some("ultra"));
+    assert_eq!(swarm_effort_for(&models, None, "luna", true, None).as_deref(), Some("max"));
+    assert_eq!(swarm_effort_for(&models, None, "plain", true, Some("high")), None);
+    assert_eq!(swarm_effort_for(&models, None, "account-default", true, Some("high")), None);
+    assert_eq!(swarm_effort_for(&models, None, "sol", true, Some("low")).as_deref(), Some("ultra"));
+}
+
+#[test]
+fn reads_a_claude_aliass_maximum_from_the_claude_entry_never_a_codex_one() {
+    let models = swarm_models();
+    assert_eq!(swarm_effort_for(&models, Some("claude"), "fable", true, None).as_deref(), Some("max"));
+    assert_eq!(swarm_effort_for(&models, Some("codex"), "fable", true, None), None);
+}

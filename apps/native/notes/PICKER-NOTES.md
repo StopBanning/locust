@@ -146,3 +146,12 @@ Breaks (`core-c` to `core-f`, `ui-d`, `ui-e` logs). All caught in the end:
 - `src/ui/people_panel.rs`: `edit_form` shows `"Set by your organization"` and `"Maximum {cap:.2} USD. You can set a lower amount."`.
 - Tests passed: `managed_controls_tests::*` (3).
 - Breaks (`part2b-ui.breaks`): all 5 killed by their named tests.
+
+### Part 4: the rest of the thread's waiting rows (done, 18 Nov)
+- `core/src/route_rows.rs`: `row_detail_repeats_heading`, `quiet_minutes` (`QUIET_MINUTES_BEFORE_SAYING_SO = 5`), and `place_menu` (`placeMenu`).
+- `core/src/effort_levels.rs`: `swarm_effort_for` (`swarmEffortFor`, all 8 Electron cases).
+- `src/ui/thread_view.rs`: `model_picker` omits detail lines where `row_detail_repeats_heading` is true (keeping hover tooltips) and omits `READY` tags; restored queue strip + `queue_error` already present and tested.
+- `src/ui/free_offer.rs`: `view_at` draws `"no word for {mins} min"` + `Stop` (`quiet-turn-row`, `quiet-turn-stop`) when a turn has been quiet >= 5 minutes without a running tool.
+- Partial rows: `a-context-menu-stays-in-the-window.test.tsx` (`place_menu` carried, no right-click `ContextMenu` in Rust), `swarm.test.ts` (`swarm_effort_for` carried, no swarm toggle in Rust composer), `main/three-placements.test.ts` (`peer_thread` already says `"{from} sent"`, mission strip / left-ruled note register not in Rust).
+- Tests passed: `route_rows::tests::*` (30), `effort_levels::tests::*` (19), `route_picker_tests::*` (16), `free_offer::tests::*` (4).
+- Breaks (`part3-core.breaks`, `part3-ui.breaks`, `part3-native.breaks`): `quiet_minutes`, `place_menu`, `swarm_effort_for`, `row_detail_repeats_heading`, and `free_offer` `quiet-turn-row` killed by their named tests.

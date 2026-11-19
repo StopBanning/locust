@@ -85,10 +85,10 @@ fn view_at(s: &State, p: &Palette, now_ms: i64) -> Option<El> {
         .map(|m| m.prompt.clone())
         .unwrap_or_default();
 
-    let models = opencode_models(s, &teammate_id);
-    let next = locust_core::route_rows::next_free_model(&runtime, Some(&model), &models, &[])?;
-    let label = format!("Stop and switch to {}", locust_core::teammate_tooltip::route_model_name("opencode", &next.id));
-
+    let started_at = last_meta
+        .map(|m| m.created_at.as_str())
+        .filter(|s| !s.is_empty())
+        .unwrap_or(pane.snapshot.started_at.as_str());
     let turn_start_idx = pane
         .snapshot
         .items
@@ -96,12 +96,19 @@ fn view_at(s: &State, p: &Palette, now_ms: i64) -> Option<El> {
         .rposition(|i| matches!(i, ledger::Item::User(_)))
         .map_or(0, |at| at + 1);
     let turn_items = &pane.snapshot.items[turn_start_idx..];
+    let has_running_tool = turn_items
+        .iter()
+        .any(|i| matches!(i, ledger::Item::Tool { status: ledger::Status::Running, .. }));
+
+    let models = opencode_models(s, &teammate_id);
+    let next = locust_core::route_rows::next_free_model(&runtime, Some(&model), &models, &[]);
 
     let has_busy_note = turn_items.iter().any(|i| match i {
         ledger::Item::Note { level, text } => is_busy_note(level, text),
         _ => false,
     });
-    if has_busy_note {
+    if has_busy_note && let Some(next) = next {
+        let label = format!("Stop and switch to {}", locust_core::teammate_tooltip::route_model_name("opencode", &next.id));
         return Some(
             row()
                 .w_full()
@@ -131,64 +138,84 @@ fn view_at(s: &State, p: &Palette, now_ms: i64) -> Option<El> {
                 | ledger::Item::Limit { .. }
         )
     });
-    if has_work {
-        return None;
-    }
-
-    let started_at = last_meta
-        .map(|m| m.created_at.as_str())
-        .filter(|s| !s.is_empty())
-        .unwrap_or(pane.snapshot.started_at.as_str());
-    let began_ms = parse_rfc3339_ms(started_at);
-    let mut events = vec![locust_core::route_rows::QuietEvent {
-        kind: "run.started".into(),
-        at_ms: began_ms,
-        code: None,
-    }];
-    for item in turn_items {
-        if let ledger::Item::Note { .. } = item {
-            events.push(locust_core::route_rows::QuietEvent {
-                kind: "adapter.diagnostic".into(),
-                at_ms: began_ms,
-                code: None,
-            });
+    if !has_work && let Some(next) = next {
+        let began_ms = parse_rfc3339_ms(started_at);
+        let mut events = vec![locust_core::route_rows::QuietEvent {
+            kind: "run.started".into(),
+            at_ms: began_ms,
+            code: None,
+        }];
+        for item in turn_items {
+            if let ledger::Item::Note { .. } = item {
+                events.push(locust_core::route_rows::QuietEvent {
+                    kind: "adapter.diagnostic".into(),
+                    at_ms: began_ms,
+                    code: None,
+                });
+            }
+        }
+        if locust_core::route_rows::quiet_free_run(Some(&runtime), Some(&model), &events, now_ms) {
+            let label = format!("Stop and switch to {}", locust_core::teammate_tooltip::route_model_name("opencode", &next.id));
+            let current_name = locust_core::teammate_tooltip::route_model_name(&runtime, &model);
+            let sentence = format!(
+                "{current_name} has said nothing in two minutes. Free models get busy; your message goes back in the chat box, to send there."
+            );
+            return Some(
+                row()
+                    .key("quiet-free-offer")
+                    .w_full()
+                    .max_w(720.0)
+                    .px(24.0)
+                    .pb(12.0)
+                    .gap(10.0)
+                    .center_y()
+                    .child(
+                        text(sentence)
+                            .font(type_::LABEL)
+                            .color(p.muted)
+                            .grow(1.0)
+                            .shrink()
+                            .wrap(),
+                    )
+                    .child(offer_button(
+                        "quiet-free-offer-action",
+                        label,
+                        teammate_id,
+                        "opencode".into(),
+                        next.id.clone(),
+                        prompt,
+                        p,
+                    )),
+            );
         }
     }
-    if !locust_core::route_rows::quiet_free_run(Some(&runtime), Some(&model), &events, now_ms) {
-        return None;
+
+    if !has_running_tool
+        && let Some(mins) = locust_core::route_rows::quiet_minutes((!started_at.is_empty()).then_some(started_at), now_ms)
+    {
+        return Some(
+            row()
+                .key("quiet-turn-row")
+                .w_full()
+                .max_w(720.0)
+                .px(24.0)
+                .pb(12.0)
+                .gap(8.0)
+                .center_y()
+                .child(text(format!("no word for {mins} min")).font(type_::LABEL).color(p.muted))
+                .child(
+                    el().key("quiet-turn-stop")
+                        .px(6.0)
+                        .py(2.0)
+                        .child(text("Stop").font(type_::LABEL).color(p.text))
+                        .role("button")
+                        .label("Stop")
+                        .on_press(stop),
+                ),
+        );
     }
 
-    let current_name = locust_core::teammate_tooltip::route_model_name(&runtime, &model);
-    let sentence = format!(
-        "{current_name} has said nothing in two minutes. Free models get busy; your message goes back in the chat box, to send there."
-    );
-    Some(
-        row()
-            .key("quiet-free-offer")
-            .w_full()
-            .max_w(720.0)
-            .px(24.0)
-            .pb(12.0)
-            .gap(10.0)
-            .center_y()
-            .child(
-                text(sentence)
-                    .font(type_::LABEL)
-                    .color(p.muted)
-                    .grow(1.0)
-                    .shrink()
-                    .wrap(),
-            )
-            .child(offer_button(
-                "quiet-free-offer-action",
-                label,
-                teammate_id,
-                "opencode".into(),
-                next.id.clone(),
-                prompt,
-                p,
-            )),
-    )
+    None
 }
 
 #[cfg(test)]
@@ -355,5 +382,37 @@ mod tests {
             began + locust_core::route_rows::QUIET_FREE_MS - 1,
         );
         assert!(rt_early.find("quiet-free-offer").is_none());
+    }
+
+    // a-turn-that-goes-quiet-says-so.test.tsx
+    #[test]
+    fn says_so_after_five_minutes_without_a_word_with_stop_beside_it() {
+        let began = chrono::DateTime::parse_from_rfc3339("2026-11-01T05:00:00.000Z").unwrap().timestamp_millis();
+        let rt_quiet = render_offer(
+            "claude",
+            "opus",
+            "2026-11-01T05:00:00.000Z",
+            vec![ledger::Item::Assistant { item_id: "m1".into(), text: "ONE".into(), r#final: true }],
+            began + 7 * 60_000,
+        );
+        assert!(rt_quiet.find("quiet-turn-row").is_some());
+        let words = text_in(&rt_quiet, "quiet-turn-row").join(" ");
+        assert!(words.contains("no word for 7 min"), "got: {words}");
+        assert!(words.contains("Stop"), "got: {words}");
+
+        // While a command it named runs, it says nothing.
+        let rt_tool = render_offer(
+            "claude",
+            "opus",
+            "2026-11-01T05:00:00.000Z",
+            vec![ledger::Item::Tool {
+                name: "Bash".into(),
+                status: ledger::Status::Running,
+                summary: "Running".into(),
+                detail: Box::new(ledger::ToolDetail::default()),
+            }],
+            began + 7 * 60_000,
+        );
+        assert!(rt_tool.find("quiet-turn-row").is_none());
     }
 }
