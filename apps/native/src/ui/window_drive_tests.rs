@@ -1290,10 +1290,16 @@ fn a_failing_check_shows_its_card_and_sends_back_to_fix() {
 
     // Both turns' edit cards (the first seen on disk, as the fake never reports its write) run past one window's
     // height: read the thread from its top as well, as a person would scroll up.
+    // The turn feet open their files cards, so read it top to bottom a screen at a time.
     let bottom_text = text_in(&rt, "messages").join("\n");
-    rt.update(|_, tx| tx.scroll_to_instant("messages", 0.0, 0.0));
-    settle(&mut rt);
-    let msg_text = format!("{}\n{bottom_text}", text_in(&rt, "messages").join("\n"));
+    let mut msg_text = String::new();
+    for step in 0..12 {
+        rt.update(move |_, tx| tx.scroll_to_instant("messages", 0.0, step as f32 * 400.0));
+        settle(&mut rt);
+        msg_text.push_str(&text_in(&rt, "messages").join("\n"));
+        msg_text.push('\n');
+    }
+    msg_text.push_str(&bottom_text);
     assert!(msg_text.contains("Wrote notes.txt."), "{msg_text}");
     assert!(msg_text.contains("failed after this turn:"), "{msg_text}");
     assert!(msg_text.contains("FAIL notes.txt is broken"), "{msg_text}");

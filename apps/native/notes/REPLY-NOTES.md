@@ -298,3 +298,14 @@ Next: part 1b opens-the-plan, then orb, frame-pass.
   and `activity_drawers::doc_preview` draws a new Markdown file through the reply renderer, with "Open {name}" when
   the conversation has a folder, "Show the change" and back, and "Only its start was recorded here." when cut. A new
   table or page still opens as its diff (no sheet or page frame in the drawer yet). Breaks 5 of 5 killed.
+
+### The turn foot (19 Nov)
+- Rust drew no foot: a finished turn ended in its step groups and a totals line. Now `core/src/turn_foot.rs` (Thread.tsx
+  `TurnFoot`, `filesHeading`; missionView `pathInWorkspace`): the turn's edits that did not fail, only those in the
+  folder unless every one is outside, one row a file (net entries, then files named with no diff, one row each, a
+  file the host could not read folded into its step's row), counted as edited (runtime named it) or seen ("observed
+  on disk"). `activity_drawers::turn_foot_card` draws it above the totals, open by default; the totals drop their
+  files segment under it; a turn still going has none (`messages.rs` Trace arm).
+- Tests: `turn_foot_tests` (core, 8), `messages::turn_foot_tests` (window, 3). `window_drive_tests::
+  a_failing_check_shows_its_card_and_sends_back_to_fix` now reads the thread a screen at a time (the open feet made it
+  taller than top + bottom).

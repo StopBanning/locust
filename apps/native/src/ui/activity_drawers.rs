@@ -551,6 +551,36 @@ fn doc_preview(s: &State, key: &str, entry: &locust_core::activity_entries::File
         .child(foot)
 }
 
+/// Thread.tsx `TurnFoot`'s files card: the turn's files one row each, headed by `files_heading`, open until closed.
+/// `turn` is the finished turn's items; `scope` keys the card's open state.
+pub(super) fn turn_foot_card(turn: &[ledger::Item], p: &Palette, s: &State, scope: &str) -> Option<El> {
+    let workspace = selected_conversation(s).and_then(|(t, _)| t.folder.as_deref());
+    let foot = locust_core::turn_foot::turn_foot(turn, workspace)?;
+    let key = format!("{scope}/files");
+    let open = s.activity_open.get(&key).copied().unwrap_or(true);
+    let mut card = col().w_full().gap(4.0).key(format!("{scope}/turn-foot")).child(disclosure(key, foot.heading.clone(), open, p));
+    if open {
+        for row in &foot.rows {
+            card = card.child(match row {
+                locust_core::turn_foot::Row::File { at, entry, .. } => activity_item_with_files(&turn[*at], p, s, scope, vec![entry.clone()]),
+                locust_core::turn_foot::Row::Unreported { at, path, .. } => {
+                    let settled = !matches!(&turn[*at], ledger::Item::Tool { status: ledger::Status::Running, .. });
+                    text(format!(
+                        "{} \u{b7} {}",
+                        locust_core::path_words::display_path(path, workspace),
+                        if settled { "change not reported" } else { "not confirmed" }
+                    ))
+                    .font(type_::LABEL)
+                    .color(p.muted)
+                    .w_full()
+                    .wrap_anywhere()
+                }
+            });
+        }
+    }
+    Some(card)
+}
+
 pub(super) fn activity_group(items: &[ledger::Item], p: &Palette, s: &State, scope: &str) -> El {
     let key = format!("{scope}/group/{}", activity_id(&items[0]));
     let open = s.activity_open.get(&key).copied().unwrap_or(false);
