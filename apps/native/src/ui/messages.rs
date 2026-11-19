@@ -106,14 +106,22 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
         let content = match item {
             ledger::Item::Handoff { from, to } => handoff_divider::view(Some(from), to, p).unwrap_or_else(col),
             ledger::Item::Trace(trace) => {
+                // Thread.tsx TurnFoot: a finished turn closes with its files card above the totals, and the line need
+                // not say how many files again. A turn still going has no foot.
+                let start = items[..index].iter().rposition(|i| matches!(i, ledger::Item::User(_))).map_or(0, |at| at + 1);
+                let finished = !(turn_running(s) && items[index + 1..].iter().all(|i| !matches!(i, ledger::Item::User(_))));
+                let foot = if finished { turn_foot_card(&items[start..index], p, s, &format!("{conversation}/foot/{index}")) } else { None };
                 let mut line = row().w_full().gap(5.0);
                 let file_count = locust_core::activity_entries::file_count(&trace.changed_paths, selected_conversation(s).and_then(|(t,_)|t.folder.as_deref()));
-                for (i, segment) in trace.segments.iter().enumerate() {
+                let mut first = true;
+                for segment in &trace.segments {
+                    if segment.key == "files" && foot.is_some() { continue; }
                     let shown = if segment.key == "files" && file_count > 0 { format!("{file_count} file{}", if file_count==1 {""} else {"s"}) } else {segment.text.clone()};
-                    if i > 0 { line = line.child(text("·").font(type_::LABEL).color(p.muted)); }
+                    if !first { line = line.child(text("·").font(type_::LABEL).color(p.muted)); }
+                    first = false;
                     line = line.child(text(shown).font(type_::LABEL).color(if segment.tone.as_deref() == Some("amber") {p.amber} else {p.muted}));
                 }
-                let mut body = col().w_full().gap(4.0).child(line);
+                let mut body = col().w_full().gap(4.0).children(foot).child(line);
                 if !trace.notices.is_empty() {
                     let key = format!("{conversation}/trace/{index}/notices");
                     let open = s.activity_open.get(&key).copied().unwrap_or(false);
@@ -1379,3 +1387,7 @@ mod renderer_newest_scroll_tests {
         assert_eq!(rt.state.earlier_turn_budgets.get("preview"), Some(&800));
     }
 }
+
+#[cfg(test)]
+#[path = "turn_foot_tests.rs"]
+mod turn_foot_tests;

@@ -40,6 +40,7 @@ pub mod teammate_keys;
 pub mod text_files;
 pub mod undone_note;
 pub mod tool_fold;
+pub mod turn_foot;
 pub mod step_pictures;
 pub mod speech_runs;
 #[cfg(test)]
