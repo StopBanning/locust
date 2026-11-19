@@ -296,8 +296,21 @@ pub fn setting_words(key: &str, value: &Value) -> String {
 
 static STATE: Mutex<Option<PolicyState>> = Mutex::new(None);
 
+thread_local! {
+    /// A test's policy that only its own thread sees, so tests running side by side in one process never see it.
+    static THIS_THREAD: std::cell::RefCell<Option<PolicyState>> = const { std::cell::RefCell::new(None) };
+}
+
+/// A policy of a test's own on this thread only, until `None` puts the process's policy back for it.
+pub fn use_policy_on_this_thread(state: Option<PolicyState>) {
+    THIS_THREAD.with(|t| *t.borrow_mut() = state);
+}
+
 /// This process's policy, read once at first use from the machine-wide file.
 pub fn current() -> PolicyState {
+    if let Some(here) = THIS_THREAD.with(|t| t.borrow().clone()) {
+        return here;
+    }
     STATE
         .lock()
         .unwrap_or_else(|e| e.into_inner())

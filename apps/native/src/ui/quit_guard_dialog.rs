@@ -131,7 +131,7 @@ pub(super) fn startup_section(s: &State, p: &Palette) -> El {
         .padding(10.0)
         .fill(p.field)
         .radius(6.0)
-        .child(text("Startup".to_owned()).font(type_::TITLE).color(p.text))
+        .child(text("Startup".to_owned()).role("heading").level(2).font(type_::TITLE).color(p.text))
         .child(
             row()
                 .w_full()
@@ -223,43 +223,31 @@ pub(super) fn startup_section(s: &State, p: &Palette) -> El {
             row()
                 .w_full()
                 .gap(12.0)
+                .center_y()
+                .child(text(STAY_AWAKE.to_owned()).font(type_::LABEL).color(p.text).wrap().grow(1.0))
                 .child(
-                    col()
-                        .grow(1.0)
-                        .gap(2.0)
-                        .child(
-                            text("Keep this computer awake while it is plugged in".to_owned())
-                                .font(type_::LABEL)
-                                .color(p.text),
-                        )
-                        .child(
-                            text("Prevents idle sleep on AC power so scheduled routines and Scout run on time.".to_owned())
-                                .font(type_::LABEL)
-                                .color(p.secondary)
-                                .wrap(),
-                        ),
-                )
-                .child(
-                    switch(
-                        &l,
-                        s.settings_panel.stay_awake,
-                        "Keep this computer awake while it is plugged in",
-                        false,
-                    )
-                    .key("settings-stay-awake")
-                    .on_press(|s: &mut State| {
-                        let next = !s.settings_panel.stay_awake;
-                        s.settings_panel.stay_awake = next;
-                        if let Some(store) = &s.data {
-                            let _ = keep_awake::write_stay_awake(
-                                &store.root().join(keep_awake::AWAKE_FILE),
-                                next,
-                            );
-                        }
-                    }),
+                    switch(&l, s.settings_panel.stay_awake, STAY_AWAKE, false)
+                        .key("settings-stay-awake")
+                        .on_press(|s: &mut State| {
+                            let next = !s.settings_panel.stay_awake;
+                            s.settings_panel.stay_awake = next;
+                            if let Some(store) = &s.data {
+                                let _ = keep_awake::write_stay_awake(&store.root().join(keep_awake::AWAKE_FILE), next);
+                            }
+                        }),
                 ),
         )
+        // Said only once it is on: what staying awake leaves alone.
+        .children(
+            s.settings_panel
+                .stay_awake
+                .then(|| text(STAY_AWAKE_LEAVES.to_owned()).font(type_::LABEL).color(p.secondary).wrap()),
+        )
 }
+
+/// Screens.tsx, the stay-awake row under Startup: the note and the switch's name are one sentence.
+pub(super) const STAY_AWAKE: &str = "Keep this computer awake while it is plugged in, so routines and Scout run on time.";
+pub(super) const STAY_AWAKE_LEAVES: &str = "Only the sleep that comes when nobody uses it is held off, while Locust is open. The screen still turns off, and Sleep and closing the lid work as they always do. On battery it sleeps as usual.";
 
 #[cfg(test)]
 #[path = "stay_awake_tests.rs"]

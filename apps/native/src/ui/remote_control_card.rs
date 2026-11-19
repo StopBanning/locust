@@ -127,3 +127,7 @@ pub(super) fn section(s: &State, p: &Palette) -> Option<El> {
     }
     Some(out)
 }
+
+#[cfg(test)]
+#[path = "remote_control_card_tests.rs"]
+mod tests;

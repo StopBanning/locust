@@ -13,7 +13,7 @@ impl Drop for PolicyGuard {
     }
 }
 
-fn sample_policy() -> locust_core::org_policy::PolicyState {
+pub(crate) fn sample_policy() -> locust_core::org_policy::PolicyState {
     let mut map = serde_json::Map::new();
     map.insert("allowedAgents".into(), json!(["codex"]));
     map.insert("allowedModels".into(), json!({"codex": ["safe"]}));

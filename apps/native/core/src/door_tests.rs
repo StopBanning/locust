@@ -32,10 +32,12 @@ fn the_door_is_off_until_turned_on_and_answers_only_its_current_token() {
     assert!(!state.settings.enabled);
     assert!(!door.connection_path().exists(), "a crashed process's token is never reused");
     assert!(state.claude_command.is_none());
+    assert!(state.openclaw_command.is_none(), "no setup lines while off");
 
     let on = door.set_enabled(true);
     assert!(on.settings.enabled, "{:?}", on.message);
     assert!(on.claude_command.as_deref().unwrap().contains("--door-bridge '"));
+    assert!(on.openclaw_command.as_deref().unwrap().starts_with("openclaw mcp add locust-native --command '"));
     let connection: Value = serde_json::from_str(&std::fs::read_to_string(door.connection_path()).unwrap()).unwrap();
     let (url, token) = (connection["url"].as_str().unwrap(), connection["token"].as_str().unwrap());
     assert_eq!(token.len(), 64);
@@ -141,4 +143,15 @@ fn the_bridge_lists_the_tools_and_marks_those_that_only_read() {
     assert_eq!(start["inputSchema"]["required"], json!(["message"]));
     assert_eq!(start["inputSchema"]["properties"]["runtime"]["maxLength"], 40);
     assert!(start["description"].as_str().unwrap().contains("or start a conversation with no teammate on an AI agent you name as runtime, from list_models with no teammate"));
+}
+
+// locust-mcp-host.ts mcpSetup (0.754): OpenClaw's line names the server (locust-native, beside Electron's), the program and the bridge's arguments one
+// --arg each, POSIX-quoted, and carries the connection file's path, never a token.
+#[test]
+fn the_openclaw_line_adds_the_door_by_command_and_one_arg_each() {
+    let (_, _, openclaw) = super::setup("/Apps/Locust Native/locust-native", "/Users/x/it's here/connection.json");
+    assert_eq!(
+        openclaw,
+        "openclaw mcp add locust-native --command '/Apps/Locust Native/locust-native' --arg '--door-bridge' --arg '/Users/x/it'\\''s here/connection.json'"
+    );
 }

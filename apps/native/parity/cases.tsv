@@ -1175,9 +1175,9 @@ apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	puts the window's
 apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	is one section when there is one folder, so it draws as it always did	no
 apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	keeps the window's folder even with nothing in it yet: a folder just switched to	no
 apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	are told apart by the folder above each; a name nobody shares stays bare	no
-apps/desktop/src/main/every-settings-switch-says-what-it-is.test.ts	are named for what they control	no
-apps/desktop/src/main/every-settings-switch-says-what-it-is.test.ts	show an off knob you can see: the lifted knob on the track, not a raised surface (0.419)	no
-apps/desktop/src/main/every-settings-switch-says-what-it-is.test.ts	and the two between teammates say their name before their state	no
+apps/desktop/src/main/every-settings-switch-says-what-it-is.test.ts	are named for what they control	yes
+apps/desktop/src/main/every-settings-switch-says-what-it-is.test.ts	show an off knob you can see: the lifted knob on the track, not a raised surface (0.419)	yes
+apps/desktop/src/main/every-settings-switch-says-what-it-is.test.ts	and the two between teammates say their name before their state	yes
 apps/desktop/src/main/forget-hits-one-memory.test.ts	hits the memory it quotes exactly	no
 apps/desktop/src/main/forget-hits-one-memory.test.ts	still hits it when the quote is punctuated or cased differently	no
 apps/desktop/src/main/forget-hits-one-memory.test.ts	hits it when the teammate drops a trailing clause -- the case that used to fail	no
@@ -1796,9 +1796,9 @@ apps/desktop/src/main/scouts-cards-are-on-your-phone.test.ts	dismisses a card th
 apps/desktop/src/main/scouts-cards-are-on-your-phone.test.ts	has the page show them, and what the away looks found with the computer off	no
 apps/desktop/src/main/scouts-look-is-sealed.test.ts	starts every look in its own slot, sealed	no
 apps/desktop/src/main/scouts-look-is-sealed.test.ts	on the mode that reads and changes nothing	no
-apps/desktop/src/main/settings-pages-are-real.test.ts	are found at all, so this cannot pass by reading nothing	no
-apps/desktop/src/main/settings-pages-are-real.test.ts	index every heading the screen renders, and invent none	no
-apps/desktop/src/main/settings-pages-are-real.test.ts	are the areas the screen actually splits on	no
+apps/desktop/src/main/settings-pages-are-real.test.ts	are found at all, so this cannot pass by reading nothing	yes
+apps/desktop/src/main/settings-pages-are-real.test.ts	index every heading the screen renders, and invent none	yes
+apps/desktop/src/main/settings-pages-are-real.test.ts	are the areas the screen actually splits on	yes
 apps/desktop/src/main/settings-read-like-claudes.test.ts	files every page under a group, with an icon the set can draw	no
 apps/desktop/src/main/settings-read-like-claudes.test.ts	keeps each group together, in order, so every label is said once	no
 apps/desktop/src/main/settings-read-like-claudes.test.ts	draws the group label above its first page and the icon beside each name	no
@@ -2010,15 +2010,15 @@ apps/desktop/src/main/the-starter-routines-are-routines.test.ts	leaves out, and 
 apps/desktop/src/main/the-starter-routines-are-routines.test.ts	previews by id, then adds it once: Ask, no schedule, in this folder, run by nobody	no
 apps/desktop/src/main/the-starter-routines-are-routines.test.ts	asks for a folder first in its own words, not the words for a file	no
 apps/desktop/src/main/three-judges-are-kept.test.ts	keeps the panel of the newest ask, and every panel run as the comparison's, across a restart	no
-apps/desktop/src/main/three-placements.test.ts	dropped the noun that labelled the line once and cost eight characters forever	no
-apps/desktop/src/main/three-placements.test.ts	dropped the permission prose, which the composer already states where it can be changed	no
-apps/desktop/src/main/three-placements.test.ts	names the model always, and the phase only when it is news	no
+apps/desktop/src/main/three-placements.test.ts	dropped the noun that labelled the line once and cost eight characters forever	yes
+apps/desktop/src/main/three-placements.test.ts	dropped the permission prose, which the composer already states where it can be changed	yes
+apps/desktop/src/main/three-placements.test.ts	names the model always, and the phase only when it is news	yes
 apps/desktop/src/main/three-placements.test.ts	gives the note its own register: left-ruled, not centred	no
 apps/desktop/src/main/three-placements.test.ts	leaves the boundary marker centred, because it IS a boundary	no
-apps/desktop/src/main/three-placements.test.ts	says the teammate SENT it, rather than naming them and stopping	no
-apps/desktop/src/main/three-placements.test.ts	offers the sender’s own conversation, once, in the header	no
-apps/desktop/src/main/three-placements.test.ts	never claims there is more, which is the comparison it cannot make	no
-apps/desktop/src/main/three-placements.test.ts	reaches the sender by their own mission, which the store always had	no
+apps/desktop/src/main/three-placements.test.ts	says the teammate SENT it, rather than naming them and stopping	yes
+apps/desktop/src/main/three-placements.test.ts	offers the sender’s own conversation, once, in the header	yes
+apps/desktop/src/main/three-placements.test.ts	never claims there is more, which is the comparison it cannot make	yes
+apps/desktop/src/main/three-placements.test.ts	reaches the sender by their own mission, which the store always had	yes
 apps/desktop/src/main/todo-list-is-opt-in.test.ts	says nothing about todo lists unless asked to	no
 apps/desktop/src/main/todo-list-is-opt-in.test.ts	asks once, and asks for the list to be kept current	no
 apps/desktop/src/main/todo-list-is-opt-in.test.ts	leaves the person words last, so the ask still reads closest to the asking	no
@@ -2284,10 +2284,10 @@ apps/desktop/src/renderer/src/a-context-menu-stays-in-the-window.test.tsx	at the
 apps/desktop/src/renderer/src/a-context-menu-stays-in-the-window.test.tsx	upward from the pointer, when it would run off the bottom	yes
 apps/desktop/src/renderer/src/a-context-menu-stays-in-the-window.test.tsx	leftward from the pointer, when it would run off the right	yes
 apps/desktop/src/renderer/src/a-context-menu-stays-in-the-window.test.tsx	held off the edge when neither side has room	yes
-apps/desktop/src/renderer/src/a-context-menu-stays-in-the-window.test.tsx	has no title bar; what was clicked is the menu’s name	no
-apps/desktop/src/renderer/src/a-context-menu-stays-in-the-window.test.tsx	shows each row’s key at its end	no
-apps/desktop/src/renderer/src/a-context-menu-stays-in-the-window.test.tsx	draws a hairline between kinds of action, and red for the one that deletes	no
-apps/desktop/src/renderer/src/a-context-menu-stays-in-the-window.test.tsx	puts a list behind one row, and says why when it cannot open	no
+apps/desktop/src/renderer/src/a-context-menu-stays-in-the-window.test.tsx	has no title bar; what was clicked is the menu’s name	yes
+apps/desktop/src/renderer/src/a-context-menu-stays-in-the-window.test.tsx	shows each row’s key at its end	yes
+apps/desktop/src/renderer/src/a-context-menu-stays-in-the-window.test.tsx	draws a hairline between kinds of action, and red for the one that deletes	yes
+apps/desktop/src/renderer/src/a-context-menu-stays-in-the-window.test.tsx	puts a list behind one row, and says why when it cannot open	yes
 apps/desktop/src/renderer/src/a-conversation-can-be-pinned.test.tsx	puts the pinned ones on top, newest pin first, and the rest under Recents, each once	no
 apps/desktop/src/renderer/src/a-conversation-can-be-pinned.test.tsx	looks as it did with nothing pinned	no
 apps/desktop/src/renderer/src/a-conversation-can-be-put-away.test.tsx	is out of the list while settled, or until its snooze ends	no
@@ -2581,7 +2581,7 @@ apps/desktop/src/renderer/src/a-pet-plays-what-its-teammate-is-doing.test.ts	mea
 apps/desktop/src/renderer/src/a-plain-conversation-wears-the-ghost.test.tsx	beside a reply: the ghost when the conversation is nobody's, the teammate's own bot when it has one	yes
 apps/desktop/src/renderer/src/a-plain-conversation-wears-the-ghost.test.tsx	wears the ghost's own white, as the cover's ghost does (0.624), on the reply and the live row alike	no
 apps/desktop/src/renderer/src/a-plain-conversation-wears-the-ghost.test.tsx	on the live row: the same ghost while nobody's conversation thinks	yes
-apps/desktop/src/renderer/src/a-plugged-in-computer-stays-awake-in-settings.test.ts	sits in Settings under Startup and says what it leaves alone	no
+apps/desktop/src/renderer/src/a-plugged-in-computer-stays-awake-in-settings.test.ts	sits in Settings under Startup and says what it leaves alone	yes
 apps/desktop/src/renderer/src/a-proposed-change-says-what-it-changes.test.tsx	a rewrite shows the new words, the ones kept now, and Keep the change / Keep the old one	no
 apps/desktop/src/renderer/src/a-proposed-change-says-what-it-changes.test.tsx	a forget says so, and its buttons are Forget it / Keep it	no
 apps/desktop/src/renderer/src/a-proposed-change-says-what-it-changes.test.tsx	a new memory is asked about as it always was	no
@@ -2627,12 +2627,12 @@ apps/desktop/src/renderer/src/a-quoted-equation-is-drawn.test.tsx	a displayed eq
 apps/desktop/src/renderer/src/a-quoted-equation-is-drawn.test.tsx	a quote inside a quote, and a list inside a quote, keep their shape	yes
 apps/desktop/src/renderer/src/a-quoted-equation-is-drawn.test.tsx	an equation written in the middle of a line is drawn too	yes
 apps/desktop/src/renderer/src/a-quoted-equation-is-drawn.test.tsx	money and an escaped bracket in prose are still prose	yes
-apps/desktop/src/renderer/src/a-remote-control-switch-shows-claudes-own-words.test.tsx	The off switch explains its lifetime and account requirements.	no
-apps/desktop/src/renderer/src/a-remote-control-switch-shows-claudes-own-words.test.tsx	Off, it reads as one switch: its state opens its own line, and nothing sits under it.	no
-apps/desktop/src/renderer/src/a-remote-control-switch-shows-claudes-own-words.test.tsx	A running switch shows Claude output and errors without summarizing or trimming them.	no
-apps/desktop/src/renderer/src/a-remote-control-switch-shows-claudes-own-words.test.tsx	A trust handoff stays off and asks the person to finish setup and deliberately enable again.	no
-apps/desktop/src/renderer/src/a-remote-control-switch-shows-claudes-own-words.test.tsx	The switch is disabled while ending and states when later output was omitted.	no
-apps/desktop/src/renderer/src/a-remote-control-switch-shows-claudes-own-words.test.tsx	Settings search finds Remote Control and claude.ai under AI agents, and phone at Your phone (0.775).	no
+apps/desktop/src/renderer/src/a-remote-control-switch-shows-claudes-own-words.test.tsx	The off switch explains its lifetime and account requirements.	yes
+apps/desktop/src/renderer/src/a-remote-control-switch-shows-claudes-own-words.test.tsx	Off, it reads as one switch: its state opens its own line, and nothing sits under it.	yes
+apps/desktop/src/renderer/src/a-remote-control-switch-shows-claudes-own-words.test.tsx	A running switch shows Claude output and errors without summarizing or trimming them.	yes
+apps/desktop/src/renderer/src/a-remote-control-switch-shows-claudes-own-words.test.tsx	A trust handoff stays off and asks the person to finish setup and deliberately enable again.	yes
+apps/desktop/src/renderer/src/a-remote-control-switch-shows-claudes-own-words.test.tsx	The switch is disabled while ending and states when later output was omitted.	yes
+apps/desktop/src/renderer/src/a-remote-control-switch-shows-claudes-own-words.test.tsx	Settings search finds Remote Control and claude.ai under AI agents, and phone at Your phone (0.775).	yes
 apps/desktop/src/renderer/src/a-removed-teammate-is-not-replaced.test.ts	is the teammate picked	yes
 apps/desktop/src/renderer/src/a-removed-teammate-is-not-replaced.test.ts	is nobody once that teammate is removed, never whoever is first	yes
 apps/desktop/src/renderer/src/a-removed-teammate-is-not-replaced.test.ts	is nobody when nobody was picked	yes
@@ -3073,11 +3073,11 @@ apps/desktop/src/renderer/src/at-picks-a-file-of-the-project.test.ts	finds a nam
 apps/desktop/src/renderer/src/backupWords.test.ts	names what has something in it, in the person's own nouns, one and many	no
 apps/desktop/src/renderer/src/backupWords.test.ts	says what a backup did and where, by the folder's own name	no
 apps/desktop/src/renderer/src/backupWords.test.ts	says what a restore did after the restart, or that it changed nothing	no
-apps/desktop/src/renderer/src/chat-apps-say-each-step-in-settings.test.tsx	names Discord, Slack and Telegram in that order, each off with Set up	no
-apps/desktop/src/renderer/src/chat-apps-say-each-step-in-settings.test.tsx	walks Discord from the Developer Portal to the code sent to the bot	no
-apps/desktop/src/renderer/src/chat-apps-say-each-step-in-settings.test.tsx	walks Slack from the app it makes in one step to its two tokens and the code	no
-apps/desktop/src/renderer/src/chat-apps-say-each-step-in-settings.test.tsx	walks Telegram from BotFather to the link that pairs a chat	no
-apps/desktop/src/renderer/src/chat-apps-say-each-step-in-settings.test.tsx	offers, once paired, to tell you there when something needs you: off until turned on, saying what is sent (0.837)	no
+apps/desktop/src/renderer/src/chat-apps-say-each-step-in-settings.test.tsx	names Discord, Slack and Telegram in that order, each off with Set up	yes
+apps/desktop/src/renderer/src/chat-apps-say-each-step-in-settings.test.tsx	walks Discord from the Developer Portal to the code sent to the bot	yes
+apps/desktop/src/renderer/src/chat-apps-say-each-step-in-settings.test.tsx	walks Slack from the app it makes in one step to its two tokens and the code	yes
+apps/desktop/src/renderer/src/chat-apps-say-each-step-in-settings.test.tsx	walks Telegram from BotFather to the link that pairs a chat	yes
+apps/desktop/src/renderer/src/chat-apps-say-each-step-in-settings.test.tsx	offers, once paired, to tell you there when something needs you: off until turned on, saying what is sent (0.837)	yes
 apps/desktop/src/renderer/src/choosing-an-issue-sends-nothing.test.tsx	lists the issue and does not send by being chosen	no
 apps/desktop/src/renderer/src/choosing-an-issue-sends-nothing.test.tsx	offers Start from an issue on Home only when the folder has issues to read	no
 apps/desktop/src/renderer/src/code-in-a-reply-is-coloured.test.tsx	knows a fence by the words people write on it	yes
@@ -3285,11 +3285,11 @@ apps/desktop/src/renderer/src/group-leaving-line.test.ts	sits before the first t
 apps/desktop/src/renderer/src/group-leaving-line.test.ts	sits below the last turn when the leave came after it	no
 apps/desktop/src/renderer/src/group-leaving-line.test.ts	says nothing for a group that had no words, or a leave with no readable moment	no
 apps/desktop/src/renderer/src/group-leaving-line.test.ts	draws one line per leave, oldest first, and treats an unknown turn start as before the leave	no
-apps/desktop/src/renderer/src/group-settings-dialog.test.tsx	is titled for the group, not for one of its two properties	no
-apps/desktop/src/renderer/src/group-settings-dialog.test.tsx	says the one claim above the box and the provenance below it	no
-apps/desktop/src/renderer/src/group-settings-dialog.test.tsx	shows the counter only once it is worth reading	no
-apps/desktop/src/renderer/src/group-settings-dialog.test.tsx	names the route the way the composer does, and says what Use current would take	no
-apps/desktop/src/renderer/src/group-settings-dialog.test.tsx	disables Clear when there is no route, rather than hiding it	no
+apps/desktop/src/renderer/src/group-settings-dialog.test.tsx	is titled for the group, not for one of its two properties	yes
+apps/desktop/src/renderer/src/group-settings-dialog.test.tsx	says the one claim above the box and the provenance below it	yes
+apps/desktop/src/renderer/src/group-settings-dialog.test.tsx	shows the counter only once it is worth reading	yes
+apps/desktop/src/renderer/src/group-settings-dialog.test.tsx	names the route the way the composer does, and says what Use current would take	yes
+apps/desktop/src/renderer/src/group-settings-dialog.test.tsx	disables Clear when there is no route, rather than hiding it	yes
 apps/desktop/src/renderer/src/groups-unreadable-is-a-line.test.tsx	is said in the sidebar, above the conversations it could not sort	no
 apps/desktop/src/renderer/src/groups-unreadable-is-a-line.test.tsx	is not said when there are simply no groups	no
 apps/desktop/src/renderer/src/groups-unreadable-is-a-line.test.tsx	names every file that would not read, in one sentence, roster first	no
@@ -3667,9 +3667,9 @@ apps/desktop/src/renderer/src/only-the-face-you-talk-to-hops.test.tsx	bounces on
 apps/desktop/src/renderer/src/only-the-face-you-talk-to-hops.test.tsx	is what a teammate bot is unless it is told otherwise	no
 apps/desktop/src/renderer/src/only-the-face-you-talk-to-hops.test.tsx	keeps the whole performance: it hops at work, and flips on its own schedule	no
 apps/desktop/src/renderer/src/only-the-face-you-talk-to-hops.test.tsx	does not bounce as well -- it hops	no
-apps/desktop/src/renderer/src/other-app-access-is-an-explicit-setting.test.tsx	loads the actual setting, makes no enable request on mount, and shows no setup while off	no
-apps/desktop/src/renderer/src/other-app-access-is-an-explicit-setting.test.tsx	enables only after a press, then shows the exact host-owned command/config and tradeoff	no
-apps/desktop/src/renderer/src/other-app-access-is-an-explicit-setting.test.tsx	turns the server off and removes the setup text when the host confirms it	no
+apps/desktop/src/renderer/src/other-app-access-is-an-explicit-setting.test.tsx	loads the actual setting, makes no enable request on mount, and shows no setup while off	yes
+apps/desktop/src/renderer/src/other-app-access-is-an-explicit-setting.test.tsx	enables only after a press, then shows the exact host-owned command/config and tradeoff	yes
+apps/desktop/src/renderer/src/other-app-access-is-an-explicit-setting.test.tsx	turns the server off and removes the setup text when the host confirms it	yes
 apps/desktop/src/renderer/src/other-app-access-is-an-explicit-setting.test.tsx	keeps the actual off state and says why if the listener could not be enabled	yes
 apps/desktop/src/renderer/src/other-app-access-is-an-explicit-setting.test.tsx	offers each teammate's own mode only while the server is on, off by default and said so	yes
 apps/desktop/src/renderer/src/other-app-access-is-an-explicit-setting.test.tsx	turns own mode on only after a press, and says who answers approvals	yes
@@ -3798,15 +3798,15 @@ apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	empties it, and l
 apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	every list the search narrows is narrowed by the teammate’s name too	no
 apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	lists conversations, found by every turn and the teammate -- the only search in the rail layout	no
 apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	shows only the five newest before anything is typed	no
-apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	$typed finds the $page page	no
-apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	$typed is answered with where it lives, not with itself	no
-apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	$typed does not drag in every page	no
-apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	$typed still finds $heading	no
-apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	a word that is on no page still answers honestly	no
-apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	an empty search is not a match for everything by accident	no
-apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	files every extra word under a heading the page really has	no
-apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	has extra words at all, on every page	no
-apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	never repeats a word across two pages, which would make the search useless	no
+apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	$typed finds the $page page	yes
+apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	$typed is answered with where it lives, not with itself	yes
+apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	$typed does not drag in every page	yes
+apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	$typed still finds $heading	yes
+apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	a word that is on no page still answers honestly	yes
+apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	an empty search is not a match for everything by accident	yes
+apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	files every extra word under a heading the page really has	yes
+apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	has extra words at all, on every page	yes
+apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	never repeats a word across two pages, which would make the search useless	yes
 apps/desktop/src/renderer/src/settled-text.test.ts	settles a paragraph at the blank line that ends it, and not before	no
 apps/desktop/src/renderer/src/settled-text.test.ts	leaves everything as tail while the first paragraph is still arriving	no
 apps/desktop/src/renderer/src/settled-text.test.ts	never splits an open fence, whatever blank lines it holds	no

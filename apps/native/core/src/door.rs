@@ -69,12 +69,15 @@ pub struct State {
     pub settings: Settings,
     pub claude_command: Option<String>,
     pub codex_config: Option<String>,
+    /// `openclaw mcp add`: OpenClaw's chat apps (WhatsApp, Telegram, iMessage, Slack) can then ask the team here.
+    pub openclaw_command: Option<String>,
     pub message: Option<String>,
 }
 
-/// mcpSetup: the lines that add this door to Claude Code and Codex. They carry the connection file's path, never the
-/// token or a port, so they stay right across restarts. Single quotes, where a POSIX shell expands nothing.
-pub fn setup(exe: &str, connection: &str) -> (String, String) {
+/// mcpSetup: the lines that add this door to Claude Code, Codex and OpenClaw. They carry the connection file's path,
+/// never the token or a port, so they stay right across restarts. Single quotes, where a POSIX shell expands nothing.
+/// OpenClaw's `mcp add` takes --command and a repeatable --arg, and connects before it saves.
+pub fn setup(exe: &str, connection: &str) -> (String, String, String) {
     let quote = |v: &str| format!("'{}'", v.replace('\'', r"'\''"));
     (
         format!("claude mcp add --transport stdio --scope user {SERVER_NAME} -- {} --door-bridge {}", quote(exe), quote(connection)),
@@ -84,6 +87,7 @@ pub fn setup(exe: &str, connection: &str) -> (String, String) {
             json!(exe),
             json!(connection)
         ),
+        format!("openclaw mcp add {SERVER_NAME} --command {} --arg '--door-bridge' --arg {}", quote(exe), quote(connection)),
     )
 }
 
@@ -309,11 +313,12 @@ impl Door {
     pub fn state(&self, message: Option<String>) -> State {
         let settings = self.settings();
         let on = self.listening.lock().unwrap_or_else(|e| e.into_inner()).is_some();
-        let (claude, codex) = setup(&self.exe, &self.connection_path().to_string_lossy());
+        let (claude, codex, openclaw) = setup(&self.exe, &self.connection_path().to_string_lossy());
         State {
             settings: Settings { enabled: on, ..settings },
             claude_command: on.then_some(claude),
             codex_config: on.then_some(codex),
+            openclaw_command: on.then_some(openclaw),
             message,
         }
     }

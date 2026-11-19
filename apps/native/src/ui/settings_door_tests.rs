@@ -1,7 +1,9 @@
 //! Electron's `other-app-access-is-an-explicit-setting.test.tsx`, the cases Rust's `settings_panel::door_section`
 //! builds, drawn headless with Electron's values and words: off state, enabled setup lines and tradeoffs,
 //! listener error message, `Use each teammate's own mode` off/on.
-//! Not checked: React mock IPC toggle-off, OpenClaw line, `editorSeen` / `editorAnswers`, and `turnPromptLine`.
+//! Presses go to a door of the test's own (`TEST_DOOR`, this thread only), which records each change and answers as
+//! the host would. Not built in Rust: the editor switch (`editorSeen` / `editorAnswers`); `turnPromptLine` is the
+//! reply lane's.
 use super::*;
 use locust_core::door;
 use rune::{Env, Runtime};
@@ -29,6 +31,7 @@ fn enabled_door() -> door::State {
         settings: door::Settings { enabled: true, own_mode: false, conversations: false },
         claude_command: Some("claude mcp add example".into()),
         codex_config: Some("[mcp_servers.locust]\ncommand = \"example\"".into()),
+        openclaw_command: Some("openclaw mcp add locust --command example".into()),
         message: None,
     }
 }
@@ -47,7 +50,7 @@ fn shows_the_exact_commands_and_tradeoffs_when_on() {
     assert!(said.contains("claude mcp add example"), "{said}");
     assert!(said.contains("[mcp_servers.locust]"), "{said}");
     assert!(said.contains("New turns are Ask mode (read only)"), "{said}");
-    assert!(said.contains("can ask teammates and read replies"), "{said}");
+    assert!(said.contains("can ask teammates, run your routines and read replies"), "{said}");
     assert!(said.contains("with no automatic teammate handoffs"), "{said}");
     assert!(said.contains("Locust must be running"), "{said}");
     assert!(said.contains("monthly limits still apply"), "{said}");
@@ -78,6 +81,125 @@ fn says_who_answers_approvals_when_own_mode_is_on() {
     let mut d = enabled_door();
     d.settings.own_mode = true;
     let (said, _) = drawn(d);
+    assert!(said.contains("New turns use each teammate's own mode"), "{said}");
+    assert!(said.contains("only you can answer them"), "{said}");
+    assert!(said.contains("Auto runs only if Auto is on in Settings"), "{said}");
+}
+
+// The rest of Electron's cases: what a press asks the door for, and what the screen says once the host answers.
+
+/// The door section drawn in a runtime of its own, with presses answered by `answer` and every change kept.
+struct Pressing {
+    rt: Runtime<State>,
+    asked: std::rc::Rc<std::cell::RefCell<Vec<locust_core::engine_api::DoorChange>>>,
+}
+
+impl Pressing {
+    fn new(first: door::State, mut answer: impl FnMut(locust_core::engine_api::DoorChange) -> door::State + 'static) -> Self {
+        let asked = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let kept = asked.clone();
+        crate::TEST_DOOR.with(|d| {
+            *d.borrow_mut() = Some(Box::new(move |change| {
+                kept.borrow_mut().push(change);
+                answer(change)
+            }))
+        });
+        let mut state = State::default();
+        state.settings_panel.door = Some(first);
+        let mut rt = Runtime::new(state, view, (900.0, 1400.0), Env::new(true, 1.0));
+        rt.frame(0.0);
+        Pressing { rt, asked }
+    }
+
+    fn press(&mut self, label: &str) {
+        let [left, top, width, height] = self
+            .rt
+            .elements()
+            .into_iter()
+            .find(|e| e.role == "switch" && e.label.as_deref() == Some(label))
+            .map(|e| e.rect)
+            .unwrap_or_else(|| panic!("no switch named {label}"));
+        let (x, y) = (left + width / 2.0, top + height / 2.0);
+        self.rt.pointer_down(x, y);
+        self.rt.pointer_up(x, y);
+        self.rt.frame(0.016);
+        self.rt.frame(1.0);
+    }
+
+    fn said(&self) -> String {
+        self.rt.elements().into_iter().filter_map(|e| e.text).collect::<Vec<_>>().join("\n")
+    }
+
+    fn on(&self, label: &str) -> bool {
+        let look = crate::look::controls::Look::new(true);
+        self.rt.elements().iter().any(|e| e.role == "switch" && e.label.as_deref() == Some(label) && e.fill == look.c("switch-on"))
+    }
+}
+
+impl Drop for Pressing {
+    fn drop(&mut self) {
+        crate::TEST_DOOR.with(|d| *d.borrow_mut() = None);
+    }
+}
+
+#[test]
+fn loads_the_actual_setting_makes_no_enable_request_on_mount_and_shows_no_setup_while_off() {
+    let p = Pressing::new(door::State::default(), |_| enabled_door());
+    assert!(p.said().contains("Off. No local server is listening."));
+    assert!(!p.on(DOOR_HEADING));
+    assert!(!p.said().contains("mcp_servers"));
+    assert!(p.asked.borrow().is_empty(), "drawing asked the door for {:?}", p.asked.borrow());
+}
+
+#[test]
+fn enables_only_after_a_press_then_shows_the_exact_host_owned_command_config_and_tradeoff() {
+    use locust_core::engine_api::DoorChange;
+    let mut p = Pressing::new(door::State::default(), |_| enabled_door());
+    p.press(DOOR_HEADING);
+    assert_eq!(*p.asked.borrow(), vec![DoorChange::Enabled(true)]);
+    assert!(p.on(DOOR_HEADING));
+    let said = p.said();
+    for words in [
+        "claude mcp add example",
+        "[mcp_servers.locust]",
+        "openclaw mcp add locust --command example",
+        "its tool policy decides which of its chats can use it",
+        "Add Locust to Claude Code, Codex or OpenClaw by hand",
+        "New turns are Ask mode (read only)",
+        "can ask teammates, run your routines and read replies",
+        "with no automatic teammate handoffs",
+        "Locust must be running",
+        "monthly limits still apply",
+        "Locust changes another app\u{2019}s settings only when you press Add to the Claude app",
+    ] {
+        assert!(said.contains(words), "{words} in {said}");
+    }
+    let copies: Vec<String> = p.rt.elements().into_iter().filter(|e| e.role == "button").filter_map(|e| e.label).collect();
+    assert!(copies.iter().any(|c| c == "Copy the OpenClaw command"), "{copies:?}");
+}
+
+#[test]
+fn turns_the_server_off_and_removes_the_setup_text_when_the_host_confirms_it() {
+    use locust_core::engine_api::DoorChange;
+    let mut p = Pressing::new(enabled_door(), |_| door::State::default());
+    assert!(p.said().contains("[mcp_servers.locust]"));
+    p.press(DOOR_HEADING);
+    assert_eq!(*p.asked.borrow(), vec![DoorChange::Enabled(false)]);
+    assert!(!p.said().contains("[mcp_servers.locust]"));
+    assert!(!p.on(DOOR_HEADING));
+}
+
+#[test]
+fn turns_own_mode_on_only_after_a_press_and_says_who_answers_approvals() {
+    use locust_core::engine_api::DoorChange;
+    let mut p = Pressing::new(enabled_door(), |change| {
+        let mut next = enabled_door();
+        next.settings.own_mode = change == DoorChange::OwnMode(true);
+        next
+    });
+    p.press("Use each teammate's own mode");
+    assert_eq!(*p.asked.borrow(), vec![DoorChange::OwnMode(true)], "own mode only; the door itself untouched");
+    let said = p.said();
     assert!(said.contains("New turns use each teammate's own mode"), "{said}");
     assert!(said.contains("only you can answer them"), "{said}");
     assert!(said.contains("Auto runs only if Auto is on in Settings"), "{said}");

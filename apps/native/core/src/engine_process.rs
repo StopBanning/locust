@@ -274,7 +274,7 @@ fn card_from(v: &Value) -> Result<Request, String> {
 
 fn door_state_json(d: &crate::door::State) -> Value {
     json!({"settings": {"enabled": d.settings.enabled, "ownMode": d.settings.own_mode, "conversations": d.settings.conversations},
-        "claudeCommand": d.claude_command, "codexConfig": d.codex_config, "message": d.message})
+        "claudeCommand": d.claude_command, "codexConfig": d.codex_config, "openclawCommand": d.openclaw_command, "message": d.message})
 }
 
 fn door_state_from(v: &Value) -> crate::door::State {
@@ -286,6 +286,7 @@ fn door_state_from(v: &Value) -> crate::door::State {
         },
         claude_command: text(v, "claudeCommand"),
         codex_config: text(v, "codexConfig"),
+        openclaw_command: text(v, "openclawCommand"),
         message: text(v, "message"),
     }
 }

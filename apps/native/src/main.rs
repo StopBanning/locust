@@ -189,6 +189,8 @@ mod beside;
 use beside::*;
 #[path = "ui/sidebar.rs"]
 mod sidebar;
+#[path = "ui/context_menu.rs"]
+mod context_menu;
 use sidebar::*;
 #[path = "ui/thread_view.rs"]
 mod thread_view;
@@ -2695,6 +2697,12 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
             )
             .child(app);
     }
+    if s.row_menu.is_some() {
+        // The right-click menu over everything, kept inside the window (context_menu.rs, ContextMenu.tsx placeMenu).
+        let win = cx.layout("app-body").map(|r| (r[0] + r[2], r[1] + r[3])).unwrap_or((f32::MAX, f32::MAX));
+        let measured = cx.layout("row-menu").map(|r| (r[2], r[3]));
+        app = app.children(context_menu::view(s, &p, win, measured));
+    }
     if s.home.splash_open {
         app = app.child(
             el().absolute(0.0, 0.0)
@@ -2972,8 +2980,19 @@ static HEADLESS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::
 
 /// The door for other apps, wherever it is served: by the shared engine, which runs the door's turns (E4), else by
 /// this window. None when there is no door at all.
+#[cfg(test)]
+thread_local! {
+    /// A test's own door, on its thread only: it hears each change a press asks for and answers as the host would.
+    pub(crate) static TEST_DOOR: std::cell::RefCell<Option<Box<dyn FnMut(locust_core::engine_api::DoorChange) -> locust_core::door::State>>> =
+        std::cell::RefCell::new(None);
+}
+
 pub(crate) fn door_now(change: locust_core::engine_api::DoorChange) -> Option<locust_core::door::State> {
     use locust_core::engine_api::DoorChange;
+    #[cfg(test)]
+    if let Some(state) = TEST_DOOR.with(|d| d.borrow_mut().as_mut().map(|answer| answer(change.clone()))) {
+        return Some(state);
+    }
     if locust_core::engine_api::shared() {
         return match locust_core::engine_api::api().door(change) {
             Ok(state) => Some(state),

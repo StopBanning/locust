@@ -155,3 +155,69 @@ Breaks (`core-c` to `core-f`, `ui-d`, `ui-e` logs). All caught in the end:
 - Partial rows: `a-context-menu-stays-in-the-window.test.tsx` (`place_menu` carried, no right-click `ContextMenu` in Rust), `swarm.test.ts` (`swarm_effort_for` carried, no swarm toggle in Rust composer), `main/three-placements.test.ts` (`peer_thread` already says `"{from} sent"`, mission strip / left-ruled note register not in Rust).
 - Tests passed: `route_rows::tests::*` (30), `effort_levels::tests::*` (19), `route_picker_tests::*` (16), `free_offer::tests::*` (4).
 - Breaks (`part3-core.breaks`, `part3-ui.breaks`, `part3-native.breaks`): `quiet_minutes`, `place_menu`, `swarm_effort_for`, `row_detail_repeats_heading`, and `free_offer` `quiet-turn-row` killed by their named tests.
+
+## Round 3 (18 Nov 2026)
+
+### Part 1: the right-click menu and three placements (done, 18 Nov)
+- `src/ui/context_menu.rs` (new): the right-click menu (`ContextMenu.tsx`). Own surface, not rune-kit's `Menu`: the kit
+  has no accessible name for the menu and draws shortcuts as given. Placed by `route_rows::place_menu` from its measured
+  size (`cx.layout("row-menu")`, an estimate before the first layout) inside `app-body`. No title bar (the title is the
+  `role="menu"` label), upper-case key at each row's end that chooses the row, hairlines where `divider_above` and
+  index > 0, Delete red and arming "Delete for good?" before acting, lists behind `›` opened on hover or press, refused
+  rows greyed with the reason drawn under the label (no `›`). Escape (modal) or a press on the scrim closes it.
+- `src/ui/sidebar.rs`: `mission_row` opens `context_menu::conversation_menu` on `on_secondary_press` at the pointer:
+  Open, Open beside, Rename, Pin/Unpin, Settle/Bring back, Snooze ›, Move to project ›, Save the record…, Copy its
+  record id, Delete (refused while running). The DOTS inline `org_menu` stays as it was (its tests use its keys).
+  Not in the Rust menu: Assign to and Save as routine (no such actions in Rust yet). Not wired: rail teammates, rooms,
+  Changes panel (git lane), file viewer, activity cards (reply lane).
+- `core/src/mission_strip.rs` (new): `mission_strip(runtime, model, phase, cost_tail)`; `thread_view.rs` draws
+  `thread-header-route` as runtime · strip · "runs in Locust for now" (without calling `agent_line`).
+- `src/ui/peer_thread_tests.rs` (new): the four attribution cases on `cards_for_mission`.
+- three-placements stays partial (7 of 9): the note-vs-marker register is drawn in `src/ui/messages.rs` (reply lane).
+- Tests passed: `context_menu::tests::*` (9), `peer_thread::tests::*` (4), `mission_strip::tests::*` (3),
+  `route_picker_tests::the_conversations_header_names_the_model_and_says_the_phase_only_when_it_is_news`.
+- Breaks (`~/work/scratch/picker3/part1-*.breaks`, `c1`, `c2`): all 13 killed by their named tests.
+- Gates: nextest 4518 passed; `test --release --workspace` 3520 + 998 passed; `build --release` ok.
+
+### Part 2: Settings headings held to the index (19 Nov, picked up from the lane by the Mac chat)
+- Every Settings section title is a heading (`role("heading")`, level 2): `section_heading` in `settings_panel.rs`
+  and the titles in agents, backup, chat apps, phone, scout, trash, feedback and quit-guard.
+- `src/ui/settings_pages_real_tests.rs` (new, Electron `settings-pages-are-real.test.ts`, 3 of 3 + one of ours): every
+  page drawn headless; its level-2 headings equal its index entries; nothing indexed goes undrawn; each page says its
+  own name once besides the nav.
+- Found by it: Project folder drew no "Project folder" heading, only the native-only "Native data folder" block as one.
+  Now the heading opens the page (Electron's h2); the data-folder block is a level-3 sub-heading.
+- Five pages whose name is also a heading (Between teammates, Your own models, Connectors, Cloud computers, Project
+  folder) said the name twice: once as the plain page title and once as the heading. The plain title is now skipped.
+- `core/src/org_policy.rs`: `use_policy_on_this_thread`. The page test needs a policy for "Managed by your
+  organization", and the process-wide one made the door tests fail under `cargo test` (one process). Tested in
+  `org_policy_tests::a_policy_on_one_thread_is_not_seen_on_another_and_leaves_when_cleared`.
+- Breaks (`~/work/scratch/pick3-breaks*.txt`): 5 of 5 killed by the page tests.
+- `src/settings_search_words_tests.rs` (new, `settings-search-knows-the-words.test.ts`, 9 of 9): the index already
+  matched Electron's; breaks 3 of 4 killed, the survivor (dropping "worktree") is equal since "worktrees" contains it.
+- Auto mode (Teammates) was a "runs in Locust for now" placeholder. Now `auto_mode_section`: heading, "Set by your
+  organization." when `mode_allowed(.., "auto")` is false, the on/off sentence, and a switch named "Auto mode" that
+  flips `auto_mode` and saves (drawn but deaf when held off). Electron's "How it works" fold is not drawn: Rust has no
+  fold yet (settings-read-like-claudes).
+- `src/ui/settings_switches_tests.rs` (new, `every-settings-switch-says-what-it-is.test.ts`, 3 of 3 + 2 of ours);
+  breaks 6 of 6 killed.
+- Project settings dialog (`group-settings-dialog.test.tsx`, 5 of 5 by name in `group_settings_dialog.rs`). Two
+  differences fixed: the route was "Runtime / Model · Mode · level" from the catalog's names, and is now Electron's
+  `routeLabel` (`core/src/teammate_tooltip.rs` `route_chrome`, new, with Electron's values from four test files in
+  `route_name_tests`); with a route picked, the foot said the picked route, and now names the composer's.
+  Breaks 9 of 9 killed (two only by the core test).
+- Stay awake (Startup): Rust said its own subtitle ("Prevents idle sleep on AC power...") and never Electron's note.
+  Now Electron's one sentence names the row and the switch, and "Only the sleep that comes when nobody uses it..."
+  shows while it is on. `stay_awake_tests` holds Electron's case by name; breaks 2 of 2 killed.
+- Remote Control (`a-remote-control-switch-shows-claudes-own-words.test.tsx`): the card already matched; 6 of 6 cases in
+  `src/ui/remote_control_card_tests.rs` (new); breaks 5 of 5 killed.
+- Other apps (`other-app-access-is-an-explicit-setting.test.tsx`, now 6 of 8): Rust said "can ask teammates and read
+  replies" though its door runs routines; now Electron's "ask teammates, run your routines and read replies". The
+  OpenClaw line is new end to end (`door::setup` returns three lines; `State.openclaw_command`; the engine's door JSON
+  carries `openclawCommand`), drawn with "Copy the OpenClaw command" under "Add Locust to Claude Code, Codex or
+  OpenClaw by hand"; each Copy is named for what it copies. Presses are tested through `main.rs` `TEST_DOOR` (this
+  thread only). Still partial: the editor switch is not built. Breaks 6 of 6 killed (one by the core door test).
+- Chat apps (`chat-apps-say-each-step-in-settings.test.tsx`, 5 of 5 in `src/ui/chat_apps_steps_tests.rs`, new): the
+  steps were built, but every token field showed the token as it was pasted. Now `.secure()` (Electron's
+  type="password"), with a test that a typed token is never drawn. Breaks 3 of 3 killed.
+- Suite on picker-3 before the chat change: nextest 4554 passed.

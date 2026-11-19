@@ -207,7 +207,7 @@ fn sidebar_line(s: &State, p: &Palette) -> El {
         .w_full()
         .gap(6.0)
         .padding(10.0)
-        .child(text("Sidebar").font(type_::TITLE).color(p.text))
+        .child(text("Sidebar").role("heading").level(2).font(type_::TITLE).color(p.text))
         .child(text(crate::rail::layout_lede(pref, s.layout_compact.get())).font(type_::LABEL).color(p.secondary).wrap())
         .child(row().gap(6.0).child(choice("auto", "Auto")).child(choice("wide", "Full")).child(choice("compact", "Rail")))
 }
@@ -234,7 +234,8 @@ fn setting_line(l: &crate::look::controls::Look, heading: &str, lede: &str, on: 
 }
 
 /// A setup line to paste, with its Copy.
-fn setup_block(l: &crate::look::controls::Look, said: &str, line: &str) -> El {
+/// One line to paste, with a Copy named for what it copies ("Copy the OpenClaw command", Electron's CopyButton).
+fn setup_block(l: &crate::look::controls::Look, said: &str, copies: &str, line: &str) -> El {
     let body = line.to_owned();
     col()
         .w_full()
@@ -257,7 +258,7 @@ fn setup_block(l: &crate::look::controls::Look, said: &str, line: &str) -> El {
                         .radius(l.t.px("radius-control"))
                         .hover(l.c("hover-surface"))
                         .role("button")
-                        .label(format!("Copy: {said}"))
+                        .label(format!("Copy {copies}"))
                         .on_press_tx(move |_s: &mut State, tx| crate::reply_actions::request_copy(tx, body.clone())),
                 ),
         )
@@ -284,6 +285,33 @@ fn toggle_conversations(s: &mut State) {
     }
 }
 
+/// Screens.tsx "Auto mode": one setting line, the switch named for what it controls. Off unless picked; the
+/// organization can hold it off (`mode_allowed(.., "auto")`), and then the switch is drawn but does nothing.
+pub(super) const AUTO_ON: &str = "On. A run started in Auto goes ahead without asking and is not kept to the project folder.";
+pub(super) const AUTO_OFF: &str = "Off. Teammates may change files inside the project folder and nowhere else.";
+
+fn auto_mode_section(s: &State, p: &Palette) -> El {
+    let l = crate::look::controls::Look::new(p.dark);
+    let managed = !locust_core::org_policy::mode_allowed(Some(&locust_core::org_policy::current()), "auto");
+    let on = s.settings_panel.settings.auto_mode;
+    let mut words = col()
+        .grow(1.0)
+        .gap(4.0)
+        .child(text("Auto mode").role("heading").level(2).font(l.ty.control).color(l.c("text-primary")));
+    if managed {
+        words = words.child(text("Set by your organization.").font(l.ty.body).color(l.c("text-muted")));
+    }
+    words = words.child(text(if on { AUTO_ON } else { AUTO_OFF }).font(l.ty.body).color(l.c("text-secondary")).wrap());
+    let mut knob = crate::look::controls::switch(&l, on, "Auto mode", managed).key("settings-auto-mode");
+    if !managed {
+        knob = knob.on_press(|s: &mut State| {
+            s.settings_panel.settings.auto_mode = !s.settings_panel.settings.auto_mode;
+            persist(s);
+        });
+    }
+    row().w_full().gap(16.0).padding(10.0).center_y().child(words).child(knob)
+}
+
 /// LocustMcpSettings.tsx: the door's switch, and once it is on, each teammate's own mode, the person's
 /// conversations, and the lines that add it to Claude Code and Codex.
 fn door_section(s: &State, p: &Palette) -> El {
@@ -296,7 +324,7 @@ fn door_section(s: &State, p: &Palette) -> El {
         let words = col()
             .grow(1.0)
             .gap(4.0)
-            .child(text(DOOR_HEADING.to_owned()).font(l.ty.control).color(l.c("text-primary")))
+            .child(text(DOOR_HEADING.to_owned()).role("heading").level(2).font(l.ty.control).color(l.c("text-primary")))
             .child(text("Set by your organization.").font(l.ty.body).color(l.c("text-muted")));
         return row()
             .w_full()
@@ -312,7 +340,7 @@ fn door_section(s: &State, p: &Palette) -> El {
         let words = col()
             .grow(1.0)
             .gap(4.0)
-            .child(text(DOOR_HEADING.to_owned()).font(l.ty.control).color(l.c("text-primary")))
+            .child(text(DOOR_HEADING.to_owned()).role("heading").level(2).font(l.ty.control).color(l.c("text-primary")))
             .child(text("Off.").font(l.ty.body).color(l.c("text-secondary")))
             .child(text("Set by your organization.").font(l.ty.body).color(l.c("text-muted")));
         return section.child(
@@ -330,7 +358,7 @@ fn door_section(s: &State, p: &Palette) -> El {
         DOOR_HEADING,
         &if set.enabled {
             format!(
-                "On. Other apps on this computer can ask teammates and read replies. {}, with no automatic teammate handoffs. Locust must be running; your AI account usage and monthly limits still apply.",
+                "On. Other apps on this computer can ask teammates, run your routines and read replies. {}, with no automatic teammate handoffs. Locust must be running; your AI account usage and monthly limits still apply.",
                 if set.own_mode { "New turns use each teammate's own mode" } else { "New turns are Ask mode (read only)" }
             )
         } else {
@@ -375,12 +403,20 @@ fn door_section(s: &State, p: &Palette) -> El {
             .w_full()
             .gap(10.0)
             .padding(10.0)
-            .child(text("Add Locust to Claude Code or Codex").font(l.ty.control).color(l.c("text-primary")));
+            .child(text("Add Locust to Claude Code, Codex or OpenClaw by hand").font(l.ty.control).color(l.c("text-primary")));
         if let Some(line) = &door.claude_command {
-            by_hand = by_hand.child(setup_block(&l, "Claude Code: run this in Terminal.", line));
+            by_hand = by_hand.child(setup_block(&l, "Claude Code \u{2014} run this in Terminal:", "the Claude Code command", line));
         }
         if let Some(config) = &door.codex_config {
-            by_hand = by_hand.child(setup_block(&l, "Codex: add this to ~/.codex/config.toml.", config));
+            by_hand = by_hand.child(setup_block(&l, "Codex \u{2014} add this to ~/.codex/config.toml:", "the Codex settings", config));
+        }
+        if let Some(line) = &door.openclaw_command {
+            by_hand = by_hand.child(setup_block(
+                &l,
+                "OpenClaw \u{2014} run this in Terminal. It checks the connection first, and its tool policy decides which of its chats can use it:",
+                "the OpenClaw command",
+                line,
+            ));
         }
         by_hand = by_hand.child(
             text("Locust changes another app\u{2019}s settings only when you press Add to the Claude app; it keeps a copy of the file first, and Remove takes its entry out again. Turning this off stops new requests, not turns already running.")
@@ -471,7 +507,7 @@ fn plan_runs_out_section(s: &State, p: &Palette) -> El {
         .w_full()
         .gap(10.0)
         .padding(10.0)
-        .child(text("When an agent cannot go on").font(l.ty.control).color(l.c("text-primary")))
+        .child(text("When an agent cannot go on").role("heading").level(2).font(l.ty.control).color(l.c("text-primary")))
         .child(text(lede).font(l.ty.body).color(l.c("text-secondary")).wrap())
         .child(picks)
         .child(row().w_full().gap(16.0).pl(24.0).center_y().child(words).child(toggle))
@@ -493,7 +529,7 @@ fn org_policy_section(p: &Palette) -> Option<El> {
                 .radius(6.0)
                 .fill(p.raised)
                 .border(1.0, p.red)
-                .child(text("Managed by your organization").font(type_::LABEL).color(p.red))
+                .child(text("Managed by your organization").role("heading").level(2).font(type_::LABEL).color(p.red))
                 .child(text(err.clone()).font(type_::BODY).color(p.text).wrap()),
         );
     }
@@ -515,7 +551,7 @@ fn org_policy_section(p: &Palette) -> Option<El> {
         .w_full()
         .gap(4.0)
         .padding(10.0)
-        .child(text("Managed by your organization").font(type_::LABEL).color(p.text))
+        .child(text("Managed by your organization").role("heading").level(2).font(type_::LABEL).color(p.text))
         .child(text(policy.path.clone()).font(type_::LABEL).color(p.muted).wrap());
     for (key, title) in labels {
         if let Some(val) = policy.policy.get(key) {
@@ -531,13 +567,19 @@ fn deferred(heading: &str, p: &Palette) -> El {
         .w_full()
         .gap(4.0)
         .padding(10.0)
-        .child(text(heading.to_owned()).font(type_::TITLE).color(p.text))
+        .child(text(heading.to_owned()).role("heading").level(2).font(type_::TITLE).color(p.text))
         .child(
             text(RUNS_IN_LOCUST.to_owned())
                 .font(type_::LABEL)
                 .color(p.muted)
                 .wrap(),
         )
+}
+
+/// A section's heading on a Settings page (Screens.tsx `<h2 className="lc-settings__heading">`): the words the search
+/// index lists for the page, marked as a heading so the index can be held to what is drawn.
+fn section_heading(words: &str, p: &Palette) -> El {
+    text(words.to_owned()).role("heading").level(2).font(type_::TITLE).color(p.text).px(10.0).pt(10.0)
 }
 
 /// The page Settings shows: the one picked, while the search still finds it, else the first the search finds.
@@ -632,7 +674,7 @@ fn face_legend(s: &State, p: &Palette, l: &crate::look::controls::Look) -> El {
                 .grow(1.0)
                 .shrink()
                 .gap(6.0)
-                .child(text("What a face says".to_owned()).font(type_::TITLE).color(p.text))
+                .child(text("What a face says".to_owned()).role("heading").level(2).font(type_::TITLE).color(p.text))
                 .child(text(legend_lede(s.settings_panel.settings.terminal_faces).to_owned()).font(type_::LABEL).color(p.secondary).wrap()),
         )
         .child(legend)
@@ -647,7 +689,11 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
         settings_pages::matched_headings(meta, &query)
     };
     let mut body = col().w_full().gap(8.0).padding(12.0);
-    body = body.child(text(meta.label.to_owned()).font(type_::TITLE).color(p.text));
+    // A page whose name is also one of its section headings draws that heading itself (Electron's h2), so the name
+    // is not said twice.
+    if !meta.headings.contains(&meta.label) {
+        body = body.child(text(meta.label.to_owned()).font(type_::TITLE).color(p.text));
+    }
 
     match page {
         SettingsPageId::Appearance => {
@@ -811,7 +857,7 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                             .w_full()
                             .gap(6.0)
                             .padding(10.0)
-                            .child(text("Code font".to_owned()).font(type_::TITLE).color(p.text))
+                            .child(text("Code font".to_owned()).role("heading").level(2).font(type_::TITLE).color(p.text))
                             .child(
                                 text("The face for code, paths and commands. Takes effect the next time Locust starts.".to_owned())
                                     .font(type_::LABEL)
@@ -837,7 +883,7 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                             .w_full()
                             .gap(6.0)
                             .padding(10.0)
-                            .child(text("Terminal faces".to_owned()).font(type_::TITLE).color(p.text))
+                            .child(text("Terminal faces".to_owned()).role("heading").level(2).font(type_::TITLE).color(p.text))
                             .child(
                                 text("Draw CRT screen expressions on screen-ready bots and Codex Buddy. Turn off for classic eyes everywhere.".to_owned())
                                     .font(type_::LABEL)
@@ -864,7 +910,7 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                             .w_full()
                             .gap(6.0)
                             .padding(10.0)
-                            .child(text("Plush".to_owned()).font(type_::TITLE).color(p.text))
+                            .child(text("Plush".to_owned()).role("heading").level(2).font(type_::TITLE).color(p.text))
                             .child(
                                 text("Soft felt and brushed-fur contours instead of glossy plastic.".to_owned())
                                     .font(type_::LABEL)
@@ -943,9 +989,9 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
         SettingsPageId::Connectors => {
             for heading in headings {
                 if heading == "GitHub" {
-                    body = body.child(crate::github_section::section(s, p));
+                    body = body.child(section_heading(heading, p)).child(crate::github_section::section(s, p));
                 } else if heading == "Connectors" {
-                    body = body.child(crate::connectors_section::section(s, p));
+                    body = body.child(section_heading(heading, p)).child(crate::connectors_section::section(s, p));
                 } else {
                     body = body.child(deferred(heading, p));
                 }
@@ -977,6 +1023,8 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                                 text(
                                     crate::approval_rule_store::SAVED_APPROVALS_HEADING.to_owned(),
                                 )
+                                .role("heading")
+                                .level(2)
                                 .font(type_::TITLE)
                                 .color(p.text)
                                 .padding(10.0),
@@ -995,6 +1043,7 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                                 s.people_panel.memory_tab = false;
                             }));
                     }
+                    "Auto mode" => body = body.child(auto_mode_section(s, p)),
                     _ => body = body.child(deferred(heading, p)),
                 }
             }
@@ -1008,7 +1057,7 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                             .w_full()
                             .gap(6.0)
                             .padding(10.0)
-                            .child(text(heading.to_owned()).font(type_::TITLE).color(p.text))
+                            .child(text(heading.to_owned()).role("heading").level(2).font(type_::TITLE).color(p.text))
                             .child(
                                 text(MEMORY_WHEN.to_owned())
                                     .font(type_::LABEL)
@@ -1060,6 +1109,7 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                 .and_then(|ws| s.settings_panel.settings.check_fixes.get(ws).copied());
 
             body = body
+                .child(section_heading("Project folder", p))
                 .child(
                     text(PROJECT_FOLDER_LEDE.to_owned())
                         .font(type_::LABEL)
@@ -1072,7 +1122,7 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                         .w_full()
                         .gap(4.0)
                         .padding(10.0)
-                        .child(text(DATA_FOLDER_HEADING.to_owned()).font(type_::TITLE).color(p.text))
+                        .child(text(DATA_FOLDER_HEADING.to_owned()).role("heading").level(3).font(type_::LABEL).color(p.text))
                         .child(
                             text(if s.settings_panel.data_folder.is_empty() {
                                 "No folder chosen".into()
@@ -1221,6 +1271,7 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
             } else {
                 "Teammates do not answer each other on their own. A message waits until its recipient next runs.".to_owned()
             };
+            body = body.child(section_heading("Between teammates", p));
             body = body
                 .child(
                     text(lede)
@@ -1318,6 +1369,16 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
             );
         }
         SettingsPageId::WhatsNew => {
+            // Screens.tsx: "Changelog", and which version is running.
+            let version = if s.home.current_version.is_empty() { "the one running".to_owned() } else { s.home.current_version.clone() };
+            body = body.child(section_heading("Changelog", p)).child(
+                text(format!("Every version of Locust, newest first. This is {version}."))
+                    .key("settings-changelog-lede")
+                    .font(type_::LABEL)
+                    .color(p.secondary)
+                    .wrap()
+                    .px(10.0),
+            );
             if s.home.changelog.is_empty() {
                 body = body.child(
                     text(crate::changelog::READING.to_owned())
@@ -1331,7 +1392,9 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
             }
         }
 
-        SettingsPageId::Models => body = body.child(crate::own_models_card::section(s, p)),
+        SettingsPageId::Models => {
+            body = body.child(section_heading("Your own models", p)).child(crate::own_models_card::section(s, p));
+        }
         _ => {
             for heading in headings {
                 body = body.child(deferred(heading, p));
@@ -1471,7 +1534,7 @@ pub(super) fn scene(s: &mut State) {
 pub(super) fn door_scene(s: &mut State) {
     scene(s);
     s.settings_panel.page = Some(SettingsPageId::App);
-    let (claude, codex) = locust_core::door::setup(
+    let (claude, codex, openclaw) = locust_core::door::setup(
         "/Applications/Locust Native.app/Contents/MacOS/locust-native",
         "/Users/locust/Library/Application Support/@teammate/desktop-native/locust-mcp-connection.json",
     );
@@ -1479,6 +1542,7 @@ pub(super) fn door_scene(s: &mut State) {
         settings: locust_core::door::Settings { enabled: true, own_mode: true, conversations: false },
         claude_command: Some(claude),
         codex_config: Some(codex),
+        openclaw_command: Some(openclaw),
         message: None,
     });
 }
@@ -1761,3 +1825,11 @@ mod tests {
         let _ = std::fs::remove_dir_all(root);
     }
 }
+
+#[cfg(test)]
+#[path = "settings_pages_real_tests.rs"]
+mod pages_real_tests;
+
+#[cfg(test)]
+#[path = "settings_switches_tests.rs"]
+mod switches_tests;

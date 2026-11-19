@@ -113,3 +113,14 @@ fn says_each_setting_in_words() {
     assert_eq!(setting_words("monthlyLimitUsd", &json!(0)), "$0, so nothing that spends can start");
     assert_eq!(setting_words("phone", &json!(false)), "Off");
 }
+
+#[test]
+fn a_policy_on_one_thread_is_not_seen_on_another_and_leaves_when_cleared() {
+    let mine = PolicyState { path: "/this/thread.json".into(), present: true, policy: Map::new(), error: None };
+    use_policy_on_this_thread(Some(mine));
+    assert_eq!(current().path, "/this/thread.json");
+    let elsewhere = std::thread::spawn(|| current().path).join().unwrap();
+    assert_ne!(elsewhere, "/this/thread.json");
+    use_policy_on_this_thread(None);
+    assert_ne!(current().path, "/this/thread.json");
+}

@@ -403,7 +403,7 @@ pub(super) fn section(s: &State, p: &Palette) -> El {
     let mut body = col()
         .key("agents-section")
         .gap(10.0)
-        .child(text(HEADING.to_owned()).font(type_::TITLE).color(p.text))
+        .child(text(HEADING.to_owned()).role("heading").level(2).font(type_::TITLE).color(p.text))
         .child(text(LEDE.to_owned()).font(l.ty.body).color(l.c("text-secondary")).wrap());
     let Some(found) = &s.settings_panel.agents else {
         return body.child(text(CHECKING.to_owned()).font(l.ty.body).color(l.c("text-muted")));
