@@ -5113,7 +5113,10 @@ fn group_standing_instructions_brief_turns_after_folder_and_render_join_note_in_
     assert!(!rt.state.group_settings.open, "dialog closes on Save");
     settle(&mut rt);
 
-    // Follow-up turn runs with the group's standing instructions injected after folder, before teammate.
+    // Follow-up turn runs with the group's standing instructions injected after folder, before teammate. A resumed
+    // session is sent only what it was not given (A2.5, brief_sessions.rs); the order is a full brief's, so the
+    // record of what turn 1's session holds goes, as it would for a session with no record.
+    let _ = std::fs::remove_file(store.root().join(locust_core::brief_sessions::BRIEF_SESSIONS_FILE));
     let _guard = {
         drop(guard);
         native::hooks::install(

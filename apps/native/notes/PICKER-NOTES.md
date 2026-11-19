@@ -387,3 +387,6 @@ Branch `exec/native-memory-1`, tests in `core/src/memory_round_tests.rs` (new), 
   - Recall needs an embedding runtime decided (`memory-recall`, partial).
   - Row `main/a-memory-nobody-is-given-says-so` (145) still names none of its cases, though `note_briefed` now does
     its work.
+- `window_drive_tests::group_standing_instructions_brief_turns_after_folder_and_render_join_note_in_window` checks
+  the section order of a full brief on a follow-up. The follow-up now resumes and gets only the new group paragraph
+  (A2.5), so the test removes `brief-sessions.json` before turn 2.
