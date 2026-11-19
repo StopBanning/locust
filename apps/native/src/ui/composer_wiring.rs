@@ -534,7 +534,7 @@ pub(super) fn submit_composer(s: &mut State, tx: &mut Tx, send_now: bool) {
         }
         return;
     }
-    if typed.is_empty() && s.attached.is_empty() {
+    if typed.is_empty() && s.attached.is_empty() && s.page_points.chips.is_empty() {
         if let Some(why) = send_blocked_now(s) {
             s.composer_note = Some(why.to_owned());
         }
@@ -583,6 +583,8 @@ pub(super) fn submit_composer(s: &mut State, tx: &mut Tx, send_now: bool) {
         }
     }
     s.recall_at = -1;
+    // The parts pointed at in the browser go with this message, after the person's words (PagePointChips).
+    let typed = crate::page_points_ui::take_into(s, &typed);
     s.draft
         .replace_text(composer::with_attachments(&typed, &s.attached));
     s.attached.clear();

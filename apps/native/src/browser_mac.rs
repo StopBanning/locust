@@ -445,6 +445,15 @@ pub fn sync(shared: &Shared) -> Result<bool, String> {
                             p.view.reload();
                         }
                         Command::Stop => p.view.stopLoading(),
+                        Command::CancelPoint => {
+                            p.view.evaluateJavaScript_inFrame_inContentWorld_completionHandler(
+                                &NSString::from_str(locust_core::browser_point::BROWSER_POINT_CANCEL),
+                                None,
+                                &WKContentWorld::worldWithName(&NSString::from_str(POINT_WORLD), mtm),
+                                None,
+                            );
+                        }
+                        Command::Point { reply } => point(&p.view, reply, mtm),
                         Command::Evaluate {
                             script,
                             expected_url,
@@ -530,4 +539,77 @@ pub fn sync(shared: &Shared) -> Result<bool, String> {
         })?;
         Ok(changed)
     })
+}
+
+/// The content world pointing runs in: the page's DOM, none of its script's own names. A part's source is read from
+/// the `data-*` attributes a dev server writes; React's and Vue's expandos live in the page's world and are not seen.
+const POINT_WORLD: &str = "locust-native-point";
+
+/// The answer a function body gave as a JSON string, read; none when it failed or said something else.
+fn json_answer(result: *mut objc2::runtime::AnyObject, error: *mut objc2_foundation::NSError) -> Option<serde_json::Value> {
+    if !error.is_null() {
+        return None;
+    }
+    let said = unsafe { result.as_ref() }?.downcast_ref::<NSString>()?.to_string();
+    serde_json::from_str(&said).ok()
+}
+
+/// Electron's `pointInBrowser` in this page (needs a live WKWebView; not run headless): Locust's probe, then its
+/// picker, each awaited (`callAsyncJavaScript`); what to answer, and whether a picture may be taken, is
+/// `browser_point::point_answer`'s, and the picture is of that rect alone.
+fn point(view: &Retained<WKWebView>, reply: std::sync::mpsc::SyncSender<locust_core::browser_point::PointAnswer>, mtm: MainThreadMarker) {
+    use locust_core::browser_point::{BROWSER_PICKER_SCRIPT, BROWSER_POINT_PROBE, PointAnswer, point_answer};
+    let url = unsafe { view.URL() }.and_then(|u| u.absoluteString()).map(|s| s.to_string()).unwrap_or_default();
+    let probe = format!("return JSON.stringify({BROWSER_POINT_PROBE})");
+    let picker = format!("return {BROWSER_PICKER_SCRIPT}.then(function (picked) {{ return JSON.stringify(picked === undefined ? null : picked) }})");
+    let world = unsafe { WKContentWorld::worldWithName(&NSString::from_str(POINT_WORLD), mtm) };
+    let shown = view.clone();
+    let after_probe = block2::RcBlock::new(move |result: *mut objc2::runtime::AnyObject, error: *mut objc2_foundation::NSError| {
+        let said = json_answer(result, error);
+        if said != Some(serde_json::Value::Bool(true)) {
+            let _ = reply.send(point_answer(said.as_ref(), Err(()), false, &url, |_| None));
+            return;
+        }
+        let (reply, url, page) = (reply.clone(), url.clone(), shown.clone());
+        let after_pick = block2::RcBlock::new(move |result: *mut objc2::runtime::AnyObject, error: *mut objc2_foundation::NSError| {
+            let picked = if error.is_null() { Ok(json_answer(result, error)) } else { Err(()) };
+            let place = Cell::new(None);
+            let answer = point_answer(Some(&serde_json::Value::Bool(true)), picked.as_ref().map(Option::as_ref).map_err(|_| ()), unsafe { page.URL() }.is_none(), &url, |rect| {
+                place.set(Some(rect));
+                None
+            });
+            let (PointAnswer::Picked { point, .. }, Some(rect)) = (&answer, place.get()) else {
+                let _ = reply.send(answer);
+                return;
+            };
+            let point = point.clone();
+            let reply = reply.clone();
+            let done = block2::RcBlock::new(move |image: *mut objc2_app_kit::NSImage, _error: *mut objc2_foundation::NSError| {
+                let png = unsafe { image.as_ref() }
+                    .and_then(|image| image.TIFFRepresentation())
+                    .and_then(|tiff| objc2_app_kit::NSBitmapImageRep::imageRepWithData(&tiff))
+                    .and_then(|rep| unsafe { rep.representationUsingType_properties(objc2_app_kit::NSBitmapImageFileType::PNG, &NSDictionary::new()) })
+                    .map(|data| data.to_vec());
+                let _ = reply.send(PointAnswer::Picked { point: point.clone(), png });
+            });
+            unsafe {
+                let config = WKSnapshotConfiguration::new(mtm);
+                config.setRect(NSRect::new(NSPoint::new(rect.x, rect.y), NSSize::new(rect.width, rect.height)));
+                config.setAfterScreenUpdates(true);
+                page.takeSnapshotWithConfiguration_completionHandler(Some(&config), &done);
+            }
+        });
+        unsafe {
+            shown.callAsyncJavaScript_arguments_inFrame_inContentWorld_completionHandler(
+                &NSString::from_str(&picker),
+                None,
+                None,
+                &WKContentWorld::worldWithName(&NSString::from_str(POINT_WORLD), mtm),
+                Some(&after_pick),
+            );
+        }
+    });
+    unsafe {
+        view.callAsyncJavaScript_arguments_inFrame_inContentWorld_completionHandler(&NSString::from_str(&probe), None, None, &world, Some(&after_probe));
+    }
 }

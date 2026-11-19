@@ -379,7 +379,8 @@ pub(super) fn view(s: &State, p: &Palette) -> Option<El> {
                         .font(type_::LABEL)
                         .color(p.secondary)
                         .on_press(submit),
-                ),
+                )
+                .child(crate::page_points_ui::point_button(crate::page_points_ui::control_of(&h, s), p)),
         );
     if let Some(error) = h.error.as_ref().or(h.refusal.as_ref()) {
         out = out.child(

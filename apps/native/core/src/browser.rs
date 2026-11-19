@@ -23,6 +23,13 @@ pub enum Command {
     Forward,
     Reload,
     Stop,
+    /// Point at a part of the page the person chooses (browser_point): the host runs Locust's own probe and picker,
+    /// photographs the part where `browser_point::picture_rect` allows, and answers once.
+    Point {
+        reply: std::sync::mpsc::SyncSender<crate::browser_point::PointAnswer>,
+    },
+    /// Let go of a pick still waiting on the person; its Point answers Nothing.
+    CancelPoint,
     Evaluate {
         script: String,
         expected_url: String,

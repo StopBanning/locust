@@ -231,6 +231,8 @@ mod claude_app_card;
 mod link_open;
 #[path = "ui/reply_page_ui.rs"]
 mod reply_page_ui;
+#[path = "ui/page_points_ui.rs"]
+mod page_points_ui;
 #[path = "ui/remote_control_card.rs"]
 mod remote_control_card;
 #[path = "ui/remote_mcp_card.rs"]
@@ -889,7 +891,7 @@ fn can_send(s: &State) -> bool {
         && s.selected_ready
         && s.route_can_run
         && !s.nothing_installed
-        && (!s.draft.text.trim().is_empty() || !s.attached.is_empty() || !s.diff_notes.waiting.is_empty())
+        && (!s.draft.text.trim().is_empty() || !s.attached.is_empty() || !s.diff_notes.waiting.is_empty() || !s.page_points.chips.is_empty())
 }
 
 fn can_queue(s: &State) -> bool {
@@ -1611,6 +1613,9 @@ fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
     if issue_list::key(s, event) {
         return true;
     }
+    if page_points_ui::key(s, event) {
+        return true;
+    }
     if s.changes.open && event.mods.shift && !event.mods.alt && event.is_command('y') {
         s.changes.files = !s.changes.files;
         return true;
@@ -2036,6 +2041,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     changed |= open_pressed_notification(s, tx);
     bench_opened(s);
     changed |= browser_panel::poll(s, tx);
+    changed |= page_points_ui::poll(s);
     changed |= changes_panel::poll(s);
     changed |= turn_undo::poll(s);
     changed |= edit_message::poll(s);
