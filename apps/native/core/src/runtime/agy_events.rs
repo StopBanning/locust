@@ -528,6 +528,18 @@ impl AgyNormalizer {
             events.push(self.diagnostic("warning","antigravity.interrupted_after_answer",
                 "Antigravity said its stream was interrupted after this answer had finished. The answer and its changes are kept. If it was not finished, send \"continue\"."));
         }
+        // Electron 0.880: or its model sent an empty call after the closed answer ("Malformed function call ... Function
+        // call is empty", Gemini 4 Hydrogen 18 Nov). Same rule: only when the last step reported was that answer, closed.
+        if status != "SUCCESS"
+            && !stopped
+            && !self.answered_then_unavailable
+            && self.answer_closed
+            && crate::invariants::regex(r"(?i)malformed function call|improperly formatted function call").is_match(&err)
+        {
+            self.answered_then_unavailable = true;
+            events.push(self.diagnostic("warning","antigravity.malformed_call_after_answer",
+                "Antigravity's model sent an empty tool call after this answer had finished. The answer and its changes are kept. If it was not finished, send \"continue\"."));
+        }
         if self.turn_open {
             self.turn_open = false;
             events.push(self.event(

@@ -4877,8 +4877,8 @@ packages/runtime-adapters/test/acp-run.test.ts	holds the session to the mode tha
 packages/runtime-adapters/test/agy-events.test.ts	reads a file: one tool row, the answer whole, the conversation to carry on, and usage	no
 packages/runtime-adapters/test/agy-events.test.ts	the answer arrived whole, then the service was unavailable: finished, with a line saying so (0.657)	no
 packages/runtime-adapters/test/agy-events.test.ts	a sentence said before a step is not said again on top of the answer (0.668)	no
-packages/runtime-adapters/test/agy-events.test.ts	the answer closed, then the stream was "interrupted": finished, with a line saying so (0.779)	no
-packages/runtime-adapters/test/agy-events.test.ts	a stream interrupted while a tool was still going is still a failure	no
+packages/runtime-adapters/test/agy-events.test.ts	the answer closed, then the stream was "interrupted": finished, with a line saying so (0.779)	yes
+packages/runtime-adapters/test/agy-events.test.ts	a stream interrupted while a tool was still going is still a failure	yes
 packages/runtime-adapters/test/agy-events.test.ts	a quota used up is the limit card, with the reset as the instant it names	no
 packages/runtime-adapters/test/agy-events.test.ts	a 503 with no answer is still a failure	no
 packages/runtime-adapters/test/agy-events.test.ts	a write in the default mode is refused, its row says so, and the person is told how to allow it	no

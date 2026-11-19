@@ -565,3 +565,66 @@ fn prior_skips_antigravity_hub_and_trajectory_not_found_and_keeps_cli_threads() 
     ];
     assert_eq!(prior_from_records(&cli_ok, true).unwrap().thread.as_deref(), Some("cli-1"));
 }
+
+/// agy-events.test.ts `interrupted`: the answer's own step DONE and the whole answer in the result, then an ERROR.
+fn after_answer(extra: &[serde_json::Value], error: &str) -> Vec<Event> {
+    let step = |index: u64, fields: serde_json::Value| {
+        let mut update = json!({ "conversation_id": "c1", "step_index": index });
+        update.as_object_mut().unwrap().extend(fields.as_object().unwrap().clone());
+        json!({ "event": "step_update", "step_update": update }).to_string()
+    };
+    let mut lines = vec![
+        r#"{"event":"init","conversation_id":"c1"}"#.to_owned(),
+        step(28, json!({ "step_type": "tool", "state": "DONE", "tool_name": "write_to_file", "tool_info": { "parameters": { "TargetFile": "C:/w/index.html" } } })),
+        step(30, json!({ "step_type": "agent_response", "state": "ACTIVE", "text_delta": "I have built the station in index.html." })),
+        step(30, json!({ "step_type": "agent_response", "state": "DONE", "text_delta": " Open it in Chrome." })),
+    ];
+    lines.extend(extra.iter().map(|e| e.to_string()));
+    lines.push(json!({ "event": "result", "result": { "conversation_id": "c1", "status": "ERROR",
+        "response": "I have built the station in index.html. Open it in Chrome.", "error": error, "duration_seconds": 1109.15 } }).to_string());
+    run_lines(&lines, Some(0), "read-only").1
+}
+const INTERRUPTED: &str = "The stream was interrupted. Please continue the task you were working on.";
+const MALFORMED: &str = "Your previous response contained an improperly formatted function call: Malformed function call: Failed to parse function call: Function call is empty - no input to parse.\nPlease retry with a properly formatted function call\nRetries remaining: 3";
+fn tool_still_going() -> serde_json::Value {
+    json!({ "event": "step_update", "step_update": { "conversation_id": "c1", "step_index": 31, "step_type": "tool", "state": "ACTIVE",
+        "tool_name": "run_command", "tool_info": { "parameters": { "CommandLine": "npx serve" } } } })
+}
+fn said(events: &[Event], code: &str) -> Option<String> {
+    events.iter().find(|e| e.kind == "adapter.diagnostic" && e.payload["code"] == code).map(|e| e.payload["message"].as_str().unwrap_or("").to_owned())
+}
+
+// case: the answer closed, then the stream was "interrupted": finished, with a line saying so (0.779)
+#[test]
+fn the_answer_closed_then_the_stream_was_interrupted_finished_with_a_line_saying_so() {
+    let events = after_answer(&[], INTERRUPTED);
+    assert!(said(&events, "antigravity.interrupted_after_answer").unwrap().contains("send \"continue\""));
+    assert_eq!(events.last().unwrap().kind, "run.completed");
+    assert!(!events.iter().any(|e| e.kind == "run.failed"));
+}
+
+// case: a stream interrupted while a tool was still going is still a failure
+#[test]
+fn a_stream_interrupted_while_a_tool_was_still_going_is_still_a_failure() {
+    let events = after_answer(&[tool_still_going()], INTERRUPTED);
+    assert_eq!(events.last().unwrap().kind, "run.failed");
+    assert_eq!(said(&events, "antigravity.interrupted_after_answer"), None);
+}
+
+// case: the answer closed, then an empty function call: finished, with a line saying so
+#[test]
+fn the_answer_closed_then_an_empty_function_call_finished_with_a_line_saying_so() {
+    let events = after_answer(&[], MALFORMED);
+    let line = said(&events, "antigravity.malformed_call_after_answer").expect("a line saying what happened");
+    assert!(line.contains("kept") && line.contains("send \"continue\""));
+    assert_eq!(events.last().unwrap().kind, "run.completed");
+    assert!(!events.iter().any(|e| e.kind == "run.failed"));
+}
+
+// case: an empty function call while a tool was still going is still a failure
+#[test]
+fn an_empty_function_call_while_a_tool_was_still_going_is_still_a_failure() {
+    let events = after_answer(&[tool_still_going()], MALFORMED);
+    assert_eq!(events.last().unwrap().kind, "run.failed");
+    assert_eq!(said(&events, "antigravity.malformed_call_after_answer"), None);
+}
