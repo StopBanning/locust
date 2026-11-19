@@ -35,6 +35,13 @@ pub(super) struct Panel {
     pub share_card_open: bool,
     /// Routines snapshot for the Share your team card preview.
     pub share_card_routines: Value,
+    /// A1.3: for each memory id, the files it names that changed since it was written, checked in the open folder
+    /// when the screen loads (never per frame).
+    pub changed_since: std::collections::HashMap<String, Vec<String>>,
+    /// What a teammate's last reply did to memory (memory_card::memory_changed_notice), shown at the top until
+    /// dismissed; and whether it points at something waiting, so it goes once nothing waits (0.372).
+    pub memory_notice: Option<String>,
+    pub memory_notice_waits: bool,
 }
 fn field(value: &str) -> TextEdit {
     let mut edit = TextEdit::default();
@@ -104,12 +111,28 @@ fn reload(s: &mut State) {
             s.people_panel.memory_mode = team["settings"]["memoryMode"].as_str().unwrap_or(crate::workspace_settings::DEFAULT_MEMORY_MODE).to_owned();
             s.people_panel.note = field(team["settings"]["aboutYou"].as_str().unwrap_or(""));
             s.people_panel.team = team;
+            s.people_panel.changed_since = changed_in_folder(&memories, s.home.folder_path.as_deref());
             s.people_panel.memories = memories;
             s.people_panel.rules = rules;
             agent_accounts_card::reload(s);
         }
         Err(e) => s.people_panel.error = e,
     }
+}
+/// Which kept memories name a file in `folder` that changed after they were written (memory_file::changed_since).
+fn changed_in_folder(memories: &Value, folder: Option<&str>) -> std::collections::HashMap<String, Vec<String>> {
+    let Some(folder) = folder else { return Default::default() };
+    memories["memories"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|m| m["status"] == "kept")
+        .filter_map(|m| {
+            let at = locust_core::memory_file::last_written(m)?;
+            let files = locust_core::memory_file::changed_since(std::path::Path::new(folder), m["text"].as_str()?, at);
+            (!files.is_empty()).then(|| (m["memoryId"].as_str().unwrap_or("").to_owned(), files))
+        })
+        .collect()
 }
 pub(super) fn edit(s: &mut State, id: Option<&str>) {
     let mut entry = id.and_then(|id|s.people_panel.team["teammates"].as_array()?.iter().find(|t|t["teammateId"] == id)).cloned().unwrap_or_else(||json!({"teammateId":"","role":"Custom"}));
@@ -1237,6 +1260,26 @@ fn memory_screen(s: &State, p: &Palette) -> El {
             ),
     );
 
+    // What a teammate's reply just did to memory. One that points at something waiting goes once nothing does; one
+    // about what already happened stays until dismissed (0.372: it stayed, pointing at a section that was gone).
+    if let Some(notice) = panel.memory_notice.as_deref().filter(|n| !n.is_empty())
+        && !(panel.memory_notice_waits && waiting_count == 0)
+    {
+        out = out.child(
+            row()
+                .w_full()
+                .max_w(680.0)
+                .gap(8.0)
+                .center_y()
+                .key("memory-notice")
+                .child(text(notice.to_owned()).font(l.ty.body).color(l.c("text-primary")).grow(1.0).shrink().wrap())
+                .child(button("Dismiss", p).key("memory-notice-dismiss").on_press(|s: &mut State| {
+                    s.people_panel.memory_notice = None;
+                    s.people_panel.memory_notice_waits = false;
+                })),
+        );
+    }
+
     // About you, with the suggestions waiting for it.
     let mut about = card()
         .key("memory-about")
@@ -1286,25 +1329,6 @@ fn memory_screen(s: &State, p: &Palette) -> El {
         );
     }
     out = out.child(about);
-
-    // How memory is kept.
-    let mut modes = row().gap(6.0);
-    for (value, label) in [("auto", crate::workspace_settings::MEMORY_KEEP), ("ask", crate::workspace_settings::MEMORY_ASK), ("off", crate::workspace_settings::MEMORY_OFF)] {
-        let on = mode == value || (value == "auto" && !matches!(mode, "ask" | "off"));
-        modes = modes.child(crate::look::controls::chip(&l, label, on).key(format!("memory-mode-{value}")).on_press(move |s: &mut State| set_memory_mode(s, value)));
-    }
-    out = out.child(
-        card()
-            .key("memory-mode")
-            .child(heading("How memory is kept".into()))
-            .child(lede("Every teammate in a folder reads what is remembered for that folder and everything marked everywhere. A teammate writes a memory by ending a reply with one; you can also write one below. Nothing here is uploaded: memory lives in Locust's own data on this machine."))
-            .child(modes)
-            .child(note(match mode {
-                "ask" => "A memory a teammate writes, changes or forgets waits below until you answer it.",
-                "off" => "Teammates are not told what is remembered and cannot write memory. What is kept stays here.",
-                _ => "A memory a teammate writes is kept at once and said in the conversation; undo it here.",
-            })),
-    );
 
     // The memories, in waiting, this folder and everywhere.
     let row_of = |memory: &Value| {
@@ -1406,6 +1430,19 @@ fn memory_screen(s: &State, p: &Palette) -> El {
             );
         }
 
+        let editing = panel.editing.as_deref() == Some(id.as_str());
+        if !is_proposed && !editing {
+            let tracking = panel.memories["briefTrackingSince"].as_str();
+            if let Some(days) = people::days_unused(memory, tracking, chrono::Utc::now()) {
+                body = body.child(note(&format!("No teammate has been given this in {days} days.")).key(format!("memory-unused-{id}")));
+            }
+            if let Some(files) = panel.changed_since.get(&id).filter(|f| !f.is_empty()) {
+                body = body.child(
+                    note(&format!("May be out of date: {}.", locust_core::memory_file::out_of_date(files)))
+                        .key(format!("memory-stale-{id}")),
+                );
+            }
+        }
         let writer = memory["updatedBy"]["name"]
             .as_str()
             .or_else(|| memory["by"]["name"].as_str())
@@ -1518,6 +1555,26 @@ fn memory_screen(s: &State, p: &Palette) -> El {
         }
         out = out.child(waiting_card);
     }
+
+    // How memory is kept: below what is waiting, so a person sent to answer arrives at the answers first (0.372).
+    let mut modes = row().gap(6.0);
+    for (value, label) in [("auto", crate::workspace_settings::MEMORY_KEEP), ("ask", crate::workspace_settings::MEMORY_ASK), ("off", crate::workspace_settings::MEMORY_OFF)] {
+        let on = mode == value || (value == "auto" && !matches!(mode, "ask" | "off"));
+        modes = modes.child(crate::look::controls::chip(&l, label, on).key(format!("memory-mode-{value}")).on_press(move |s: &mut State| set_memory_mode(s, value)));
+    }
+    out = out.child(
+        card()
+            .key("memory-mode")
+            .child(heading("How memory is kept".into()))
+            .child(lede("Every teammate in a folder reads what is remembered for that folder and everything marked everywhere. A teammate writes a memory by ending a reply with one; you can also write one below. Nothing here is uploaded: memory lives in Locust's own data on this machine."))
+            .child(modes)
+            .child(note(match mode {
+                "ask" => "A memory a teammate writes, changes or forgets waits below until you answer it.",
+                "off" => "Teammates are not told what is remembered and cannot write memory. What is kept stays here.",
+                _ => "A memory a teammate writes is kept at once and said in the conversation; undo it here.",
+            })),
+    );
+
 
     let folder_name = s.home.folder_path.as_deref().and_then(|f| f.trim_end_matches('/').rsplit('/').next()).unwrap_or("no folder").to_owned();
     let mut here_card = card().key("memory-here").child(heading(format!("This folder · {folder_name}")));
@@ -2537,3 +2594,6 @@ mod memory_proposal_tests {
         let _ = std::fs::remove_dir_all(&root);
     }
 }
+#[cfg(test)]
+#[path = "memory_screen_round_tests.rs"]
+mod memory_screen_round_tests;

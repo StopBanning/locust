@@ -2418,6 +2418,10 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
             own_folder,
         )?;
         delivered = quoted;
+        // A1.4: which memories this teammate was given, so one nobody is given in a month can say so.
+        if let Err(error) = crate::people::note_brief_given(&store, brief_folder, own_folder, &words) {
+            eprintln!("Which memories were briefed was not noted: {error}");
+        }
         format!("{brief}\n\n{}", crate::references::section(&references))
     };
     // A follow-up to a turn the person undid starts with what Undo put back (undone-note.ts, 0.784): the session it

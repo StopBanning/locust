@@ -312,3 +312,24 @@ Branch `exec/native-memory-1`, tests in `core/src/memory_round_tests.rs` (new), 
   b10 unreadable memory fails the turn -> `runs_on_the_persons_words_alone_when_there_is_no_memory_to_read`;
   b11 no stale mark in the brief -> `the_brief_says_so_beside_the_memory`;
   b12 no scheme check -> `takes_paths_and_project_file_names_...` (survived until the `file:src/net.ts` line was added).
+- **Memory screen** (`src/ui/memory_screen_round_tests.rs`, new, drawn headless):
+  - Under a kept memory, when not editing, the screen says "No teammate has been given this in N days." It reads
+    `days_unused` from `lastBriefedAt` and the file's `briefTrackingSince`.
+  - It also says "May be out of date: src/net.ts changed since." It reads `people_panel.changed_since`, which
+    `reload()` fills from the open folder (`changed_in_folder`) when the screen loads, never per frame.
+  - "Waiting for you" now comes before "How memory is kept".
+  - The notice (`people_panel.memory_notice`, with `memory_notice_waits`) is drawn at the top with a Dismiss. One that
+    points at something waiting goes once nothing waits (`memory_card::notice_waits`). **Not done:** nothing sets
+    the notice yet. A finished run's memory changes have no way to the Memory screen, so the row stays partial.
+- **Briefs are noted** (A1.4): `people::note_brief_given` runs after each brief in `native.rs`. It notes exactly what
+  `briefed_memories` pasted (same prompt, same file), at most once a day per memory, and never a proposal. The first
+  note sets `briefTrackingSince`. The memory file says "not given to a teammate in N days" too. Row
+  `main/a-memory-nobody-is-given-says-so` (145) is still partial: its own five cases are not named yet.
+- Screen breaks: 7 of 7 caught by name (`~/work/scratch/memory1/s1..s6`, `b13`):
+  s1 notice kept with nothing waiting -> `is_gone_once_nothing_is_but_a_notice_about_what_already_happened_...`;
+  s2 counting from before it began -> `says_nothing_for_one_given_lately_or_before_a_month_of_counting`;
+  s3 changed files inverted -> `the_screen_checks_the_open_folder_once_when_it_loads`;
+  s4 a tidy notice that does not wait -> `points_at_what_is_waiting_and_says_so_of_itself`;
+  s5 the explanation first -> `puts_what_is_waiting_for_an_answer_above_how_memory_works`;
+  s6 the screen names `by` -> `names_the_writer_of_the_words_shown_not_who_first_kept_it`;
+  b13 noted on every brief -> `a_brief_notes_what_it_gave_once_a_day_and_starts_the_count`.

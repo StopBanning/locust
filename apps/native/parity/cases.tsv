@@ -2540,6 +2540,10 @@ apps/desktop/src/renderer/src/a-mac-says-cmd.test.tsx	says Cmd for the chords th
 apps/desktop/src/renderer/src/a-mac-says-cmd.test.tsx	keeps Control where the handler listens for Control alone	no
 apps/desktop/src/renderer/src/a-mac-says-cmd.test.tsx	draws the shortcuts sheet in a Mac's marks, and a PC's in its own words, a key to a cap	no
 apps/desktop/src/renderer/src/a-mac-says-cmd.test.tsx	leaves no Ctrl written into a palette hint or a button title	no
+apps/desktop/src/renderer/src/a-memory-nobody-is-given-says-so-on-screen.test.tsx	says how long	yes
+apps/desktop/src/renderer/src/a-memory-nobody-is-given-says-so-on-screen.test.tsx	says nothing for one given lately, or before a month of counting	yes
+apps/desktop/src/renderer/src/a-memory-says-when-it-may-be-out-of-date.test.tsx	says which file, under the memory	yes
+apps/desktop/src/renderer/src/a-memory-says-when-it-may-be-out-of-date.test.tsx	says nothing when nothing it names changed	yes
 apps/desktop/src/renderer/src/a-memory-shows-what-it-said-before.test.tsx	shows what it said before, with Put it back, and when it changed	no
 apps/desktop/src/renderer/src/a-memory-shows-what-it-said-before.test.tsx	shows nothing extra for a memory never changed	yes
 apps/desktop/src/renderer/src/a-missed-routine-says-missed-and-run-now.test.tsx	says Missed, 08:00 today, and the row offers Run now	no
@@ -2717,6 +2721,9 @@ apps/desktop/src/renderer/src/a-retired-free-model-is-not-offered.test.ts	Exo Fr
 apps/desktop/src/renderer/src/a-retired-free-model-is-not-offered.test.ts	a model whose run ended "has been deprecated" is left out from then on	no
 apps/desktop/src/renderer/src/a-retired-free-model-is-not-offered.test.ts	one that answered again afterwards is back; another failure is not a retirement	no
 apps/desktop/src/renderer/src/a-retired-free-model-is-not-offered.test.ts	Compare on a free model puts another WORKING free model beside it	no
+apps/desktop/src/renderer/src/a-rewrite-shows-its-writer.test.tsx	names the writer of the words shown, not who first kept it	yes
+apps/desktop/src/renderer/src/a-rewrite-shows-its-writer.test.tsx	credits the rewrite to its writer	yes
+apps/desktop/src/renderer/src/a-rewrite-shows-its-writer.test.tsx	names every writer when the lines are more than one person’s	yes
 apps/desktop/src/renderer/src/a-room-names-who-it-asked.test.tsx	draws every answer, each with a Reply beside its Open	no
 apps/desktop/src/renderer/src/a-room-names-who-it-asked.test.tsx	says who the post was put to, beside its time, and only on that post	no
 apps/desktop/src/renderer/src/a-room-names-who-it-asked.test.tsx	does not report the others as not asked on the post put to Wren -- but still does on a post to everyone	no
@@ -2951,6 +2958,10 @@ apps/desktop/src/renderer/src/a-thread-shows-local-pictures.test.tsx	draws an im
 apps/desktop/src/renderer/src/a-thread-shows-local-pictures.test.tsx	draws no outside, network, SVG or refused Markdown image	no
 apps/desktop/src/renderer/src/a-thread-shows-local-pictures.test.tsx	keeps image reads out of a folded run of plain tool names	no
 apps/desktop/src/renderer/src/a-thread-shows-local-pictures.test.tsx	bounds the picture to the column width and 320 pixels without cropping	no
+apps/desktop/src/renderer/src/a-tidy-answered-leaves-no-banner.test.tsx	points at what is waiting, and says so of itself	yes
+apps/desktop/src/renderer/src/a-tidy-answered-leaves-no-banner.test.tsx	is shown while something is still waiting	yes
+apps/desktop/src/renderer/src/a-tidy-answered-leaves-no-banner.test.tsx	is gone once nothing is -- but a notice about what already happened stays until dismissed	yes
+apps/desktop/src/renderer/src/a-tidy-answered-leaves-no-banner.test.tsx	puts what is waiting for an answer above how memory works	yes
 apps/desktop/src/renderer/src/a-tidy-pass-is-answered-in-one-press.test.tsx	is offered once two or more are waiting, beside why it is safe	no
 apps/desktop/src/renderer/src/a-tidy-pass-is-answered-in-one-press.test.tsx	keeps each in turn, in order, and says every refusal once	no
 apps/desktop/src/renderer/src/a-tidy-pass-is-answered-in-one-press.test.tsx	waits for each before the next: a later one is judged against what the earlier one did	no

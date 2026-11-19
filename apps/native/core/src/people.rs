@@ -1222,6 +1222,8 @@ fn briefed_rows(store: &Store, folder: &Path, stands_in: Option<&Path>) -> Optio
     let held = memories(store).ok()?;
     let here = workspace_id(folder);
     let looked_in = stands_in.unwrap_or(folder);
+    let tracking = held["briefTrackingSince"].as_str();
+    let now = chrono::Utc::now();
     Some(
         held["memories"]
             .as_array()
@@ -1237,6 +1239,9 @@ fn briefed_rows(store: &Store, folder: &Path, stands_in: Option<&Path>) -> Optio
                 );
                 if !changed.is_empty() {
                     row["changedSince"] = json!(changed);
+                }
+                if let Some(days) = days_unused(m, tracking, now) {
+                    row["unusedDays"] = json!(days);
                 }
                 row
             })
@@ -1259,6 +1264,73 @@ pub fn write_brief_memory_file(store: &Store, folder: &Path, stands_in: Option<&
         eprintln!("Memory file was not written under {}", at.display());
     }
     written
+}
+
+/// A memory no teammate has been given in this many days says so (A1.4).
+pub const UNUSED_AFTER_DAYS: i64 = 30;
+
+/// How many days since a memory was last given to a teammate, counted from the last brief, the last write, or when
+/// counting began -- whichever is latest -- once that is past `UNUSED_AFTER_DAYS`. Nothing before counting began.
+pub fn days_unused(memory: &Value, tracking_since: Option<&str>, now: chrono::DateTime<chrono::Utc>) -> Option<i64> {
+    let read = |at: Option<&str>| at.and_then(|at| chrono::DateTime::parse_from_rfc3339(at).ok()).map(|at| at.timestamp_millis());
+    let tracking = read(tracking_since)?;
+    let since = [read(crate::memory_file::last_written(memory)), read(memory["lastBriefedAt"].as_str()), Some(tracking)]
+        .into_iter()
+        .flatten()
+        .max()?;
+    let days = (now.timestamp_millis() - since).div_euclid(24 * 60 * 60 * 1000);
+    (days > UNUSED_AFTER_DAYS).then_some(days)
+}
+
+/// Electron `memory-store.noteBriefed`: these memories were given to a teammate. At most once a day per memory, so a
+/// day of runs is one write; a proposal, or an id the store does not keep, is not noted. The first note starts the
+/// count (`briefTrackingSince`).
+pub fn note_briefed(store: &Store, ids: &[String]) -> Result<(), String> {
+    let _lock = WRITES.lock().map_err(|e| e.to_string())?;
+    let mut file = memories(store)?;
+    let now = chrono::Utc::now();
+    let mut changed = file.get("briefTrackingSince").and_then(Value::as_str).is_none();
+    for row in file["memories"].as_array_mut().into_iter().flatten() {
+        if row["status"] != "kept" || !ids.iter().any(|id| row["memoryId"] == id.as_str()) {
+            continue;
+        }
+        let recent = row["lastBriefedAt"]
+            .as_str()
+            .and_then(|at| chrono::DateTime::parse_from_rfc3339(at).ok())
+            .is_some_and(|at| now.signed_duration_since(at) < chrono::Duration::days(1));
+        if !recent {
+            row["lastBriefedAt"] = json!(now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true));
+            changed = true;
+        }
+    }
+    if !changed {
+        return Ok(());
+    }
+    if file.get("briefTrackingSince").and_then(Value::as_str).is_none() {
+        file["briefTrackingSince"] = json!(now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true));
+    }
+    store.save_json("memories.json", &file)
+}
+
+/// After a run's brief: note what it was given -- exactly what the section pasted, the same choice made by the same
+/// function (`briefed_memories`, with the prompt and the file as the brief had them).
+pub fn note_brief_given(store: &Store, folder: &Path, stands_in: Option<&Path>, prompt: &str) -> Result<(), String> {
+    if team(store).is_ok_and(|f| f["settings"]["memoryMode"] == "off") {
+        return Ok(());
+    }
+    let Some(rows) = briefed_rows(store, folder, stands_in) else {
+        return Ok(());
+    };
+    let file = crate::memory_file::memory_file_is(
+        stands_in.unwrap_or(folder),
+        &crate::memory_file::memory_file_text(&rows, chrono::Utc::now()),
+    )
+    .then_some(crate::memory_file::MEMORY_FILE_IN_FOLDER);
+    let ids: Vec<String> = briefed_memories(&rows, Some(prompt), file)
+        .into_iter()
+        .filter_map(|m| m["memoryId"].as_str().map(str::to_owned))
+        .collect();
+    note_briefed(store, &ids)
 }
 
 /// The workspace, the teammate's standing instructions, the person's note, the memory, and the folder's office files.

@@ -310,3 +310,28 @@ fn writes_nothing_in_a_folder_that_never_had_the_file_or_where_it_already_says_s
     assert!(!retire_memory_file(&folder));
     assert_eq!(std::fs::metadata(folder.join(MEMORY_FILE_IN_FOLDER)).unwrap().modified().unwrap(), before);
 }
+
+// ---- what a brief was given (A1.4; the store half of a-memory-nobody-is-given-says-so, row 145) ----
+#[test]
+fn a_brief_notes_what_it_gave_once_a_day_and_starts_the_count() {
+    let (_t, store, folder) = fixture();
+    let ws = workspace_id(&folder);
+    add_memory(&store, "Port is 3001.", None, "workspace", &ws, json!({"name":"you"}), "kept").unwrap();
+    add_memory(&store, "Maybe the port.", None, "workspace", &ws, json!({"name":"Wren"}), "proposed").unwrap();
+    crate::people::note_brief_given(&store, &folder, None, "What port?").unwrap();
+    let file = memories(&store).unwrap();
+    assert!(file["briefTrackingSince"].is_string(), "{file}");
+    let given = rows(&store);
+    let first = given.iter().find(|m| m["status"] == "kept").unwrap()["lastBriefedAt"].clone();
+    assert!(first.is_string());
+    assert!(given.iter().find(|m| m["status"] == "proposed").unwrap().get("lastBriefedAt").is_none(), "a proposal is not noted");
+    // A second run the same day writes nothing new.
+    crate::people::note_brief_given(&store, &folder, None, "What port?").unwrap();
+    assert_eq!(rows(&store).iter().find(|m| m["status"] == "kept").unwrap()["lastBriefedAt"], first);
+    // And a month without one says so, counted from the latest of the brief, the write and the start of counting.
+    let old = json!({"createdAt":"2026-01-01T00:00:00.000Z","lastBriefedAt":"2026-02-01T00:00:00.000Z"});
+    let now = at("2026-04-01T00:00:00.000Z");
+    assert_eq!(crate::people::days_unused(&old, Some("2026-01-15T00:00:00.000Z"), now), Some(59));
+    assert_eq!(crate::people::days_unused(&old, Some("2026-03-15T00:00:00.000Z"), now), None);
+    assert_eq!(crate::people::days_unused(&old, None, now), None);
+}
