@@ -15,7 +15,7 @@ import type { MemoryReaderOptions } from './memory-reader.js'
  * whatever the memory mode -- the note is the person's -- and is added only
  * when they press Add. drive-about-you-suggestion drives it packaged.
  */
-const SETTINGS: WorkspaceSettings = { swarm: false, relay: true, relayHopCap: 6, interrupt: false, memoryMode: 'auto', autoMode: false, askConnectors: false, keepATodoList: false, layout: 'auto', tube: 'full', replySize: 'standard' }
+const SETTINGS: WorkspaceSettings = { relay: true, relayHopCap: 6, interrupt: false, memoryMode: 'auto', autoMode: false, askConnectors: false, keepATodoList: false, layout: 'auto', tube: 'full', replySize: 'standard' }
 
 function harness(reply: string, mode: WorkspaceSettings['memoryMode']) {
   const added: string[] = []

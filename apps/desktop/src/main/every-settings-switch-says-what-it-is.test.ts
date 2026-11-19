@@ -16,7 +16,7 @@ const screens = readFileSync(fileURLToPath(new URL('../renderer/src/components/S
 
 describe('Settings switches', () => {
   it('are named for what they control', () => {
-    for (const name of ['Automatic replies', 'Urgent messages interrupt', 'Swarm', 'Auto mode']) {
+    for (const name of ['Automatic replies', 'Urgent messages interrupt', 'Auto mode']) {
       expect(screens).toContain(`aria-label="${name}"`)
     }
     expect(screens).not.toContain("'Switch this off' : 'Switch this on'")

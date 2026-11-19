@@ -232,7 +232,7 @@ describe('how many missions the roster will hold', () => {
     }
     await writeFile(
       join(root, 'teammates.json'),
-      JSON.stringify({ schemaVersion: 1, teammates: [wren], missionOwners: owners, settings: { swarm: false } }),
+      JSON.stringify({ schemaVersion: 1, teammates: [wren], missionOwners: owners, settings: { relay: true } }),
       'utf8'
     )
 
@@ -251,7 +251,7 @@ describe('how many missions the roster will hold', () => {
     }
     await writeFile(
       join(root, 'teammates.json'),
-      JSON.stringify({ schemaVersion: 1, teammates: [wren], missionOwners: owners, settings: { swarm: false } }),
+      JSON.stringify({ schemaVersion: 1, teammates: [wren], missionOwners: owners, settings: { relay: true } }),
       'utf8'
     )
 
@@ -341,17 +341,17 @@ describe('workspace settings', () => {
     // a workspace-wide bound on spend, so a malformed value must not widen it.
     const { root, store: teammates } = await store()
     expect((await teammates.readSettings()).relayHopCap).toBe(12)
-    await teammates.writeSettings({ swarm: false, relay: true, relayHopCap: 2 })
+    await teammates.writeSettings({ relay: true, relayHopCap: 2 })
     expect((await teammates.readSettings()).relayHopCap).toBe(2)
     expect((await createTeammateStore({ rootDirectory: root }).readSettings()).relayHopCap).toBe(2)
     // 25 is past the bound now, and the old bound of 13 is inside it: the
     // budget counts the WHOLE exchange rather than one chain of it, and six
     // was firing as the ordinary ending rather than as a backstop.
     for (const value of [0, 25, 2.5, '4', -1, null, undefined, Number.NaN]) {
-      await teammates.writeSettings({ swarm: false, relay: true, relayHopCap: value })
+      await teammates.writeSettings({ relay: true, relayHopCap: value })
       expect((await teammates.readSettings()).relayHopCap, String(value)).toBe(12)
     }
-    await teammates.writeSettings({ swarm: false, relay: true, relayHopCap: 24 })
+    await teammates.writeSettings({ relay: true, relayHopCap: 24 })
     expect((await teammates.readSettings()).relayHopCap).toBe(24)
   })
 
@@ -363,11 +363,11 @@ describe('workspace settings', () => {
     const { root, store: teammates } = await store()
     expect((await teammates.readSettings()).relay).toBe(true)
     for (const value of ['false', 0, null, undefined]) {
-      await teammates.writeSettings({ swarm: false, relay: value })
+      await teammates.writeSettings({ relay: value })
       expect((await teammates.readSettings()).relay).toBe(true)
     }
-    await teammates.writeSettings({ swarm: false, relay: false })
-    expect(await createTeammateStore({ rootDirectory: root }).readSettings()).toEqual({ swarm: false, relay: false, relayHopCap: 12, interrupt: false, memoryMode: 'auto', autoMode: false, askConnectors: false, keepATodoList: true, layout: 'auto', tube: 'full', replySize: 'standard', codeFont: 'geist', metal: 'silver', metalStrength: 'standard', metalMotion: 'hover', metalBend: false, terminalFaces: true, plush: false, claudeOwnSkills: false })
+    await teammates.writeSettings({ relay: false })
+    expect(await createTeammateStore({ rootDirectory: root }).readSettings()).toEqual({ relay: false, relayHopCap: 12, interrupt: false, memoryMode: 'auto', autoMode: false, askConnectors: false, keepATodoList: true, layout: 'auto', tube: 'full', replySize: 'standard', codeFont: 'geist', metal: 'silver', metalStrength: 'standard', metalMotion: 'hover', metalBend: false, terminalFaces: true, plush: false, claudeOwnSkills: false })
   })
 
   // L19 (the code review): a write replaced the whole settings object, so a
@@ -383,21 +383,21 @@ describe('workspace settings', () => {
     expect((await teammates.readSettings()).autoMode).toBe(false)
   })
 
-  it('defaults swarm off and persists a change', async () => {
+  it('reads the defaults, and keeps no swarm: a write naming it, or an old file holding it, sets nothing (0.880)', async () => {
     const { root, store: teammates } = await store()
-    expect(await teammates.readSettings()).toEqual({ swarm: false, relay: true, relayHopCap: 12, interrupt: false, memoryMode: 'auto', autoMode: false, askConnectors: false, keepATodoList: true, layout: 'auto', tube: 'full', replySize: 'standard', codeFont: 'geist', metal: 'silver', metalStrength: 'standard', metalMotion: 'hover', metalBend: false, terminalFaces: true, plush: false, claudeOwnSkills: false })
+    expect(await teammates.readSettings()).toEqual({ relay: true, relayHopCap: 12, interrupt: false, memoryMode: 'auto', autoMode: false, askConnectors: false, keepATodoList: true, layout: 'auto', tube: 'full', replySize: 'standard', codeFont: 'geist', metal: 'silver', metalStrength: 'standard', metalMotion: 'hover', metalBend: false, terminalFaces: true, plush: false, claudeOwnSkills: false })
 
-    await teammates.writeSettings({ swarm: true })
+    await teammates.writeSettings({ swarm: true } as never)
 
-    expect(await createTeammateStore({ rootDirectory: root }).readSettings()).toEqual({ swarm: true, relay: true, relayHopCap: 12, interrupt: false, memoryMode: 'auto', autoMode: false, askConnectors: false, keepATodoList: true, layout: 'auto', tube: 'full', replySize: 'standard', codeFont: 'geist', metal: 'silver', metalStrength: 'standard', metalMotion: 'hover', metalBend: false, terminalFaces: true, plush: false, claudeOwnSkills: false })
+    expect(await createTeammateStore({ rootDirectory: root }).readSettings()).toEqual({ relay: true, relayHopCap: 12, interrupt: false, memoryMode: 'auto', autoMode: false, askConnectors: false, keepATodoList: true, layout: 'auto', tube: 'full', replySize: 'standard', codeFont: 'geist', metal: 'silver', metalStrength: 'standard', metalMotion: 'hover', metalBend: false, terminalFaces: true, plush: false, claudeOwnSkills: false })
   })
 
-  it('only a literal true turns it on', async () => {
+  it('only a literal true turns Auto on', async () => {
     // A malformed message must not be able to enable a workspace-wide setting.
     const { store: teammates } = await store()
     for (const value of ['true', 1, {}, [], null, undefined]) {
-      await teammates.writeSettings({ swarm: value, relay: false })
-      expect(await teammates.readSettings()).toEqual({ swarm: false, relay: false, relayHopCap: 12, interrupt: false, memoryMode: 'auto', autoMode: false, askConnectors: false, keepATodoList: true, layout: 'auto', tube: 'full', replySize: 'standard', codeFont: 'geist', metal: 'silver', metalStrength: 'standard', metalMotion: 'hover', metalBend: false, terminalFaces: true, plush: false, claudeOwnSkills: false })
+      await teammates.writeSettings({ autoMode: value as never, relay: false })
+      expect(await teammates.readSettings()).toEqual({ relay: false, relayHopCap: 12, interrupt: false, memoryMode: 'auto', autoMode: false, askConnectors: false, keepATodoList: true, layout: 'auto', tube: 'full', replySize: 'standard', codeFont: 'geist', metal: 'silver', metalStrength: 'standard', metalMotion: 'hover', metalBend: false, terminalFaces: true, plush: false, claudeOwnSkills: false })
     }
   })
 
@@ -410,14 +410,14 @@ describe('workspace settings', () => {
     await writeFile(path, JSON.stringify(file), 'utf8')
 
     const reopened = createTeammateStore({ rootDirectory: root })
-    expect(await reopened.readSettings()).toEqual({ swarm: false, relay: true, relayHopCap: 12, interrupt: false, memoryMode: 'auto', autoMode: false, askConnectors: false, keepATodoList: true, layout: 'auto', tube: 'full', replySize: 'standard', codeFont: 'geist', metal: 'silver', metalStrength: 'standard', metalMotion: 'hover', metalBend: false, terminalFaces: true, plush: false, claudeOwnSkills: false })
+    expect(await reopened.readSettings()).toEqual({ relay: true, relayHopCap: 12, interrupt: false, memoryMode: 'auto', autoMode: false, askConnectors: false, keepATodoList: true, layout: 'auto', tube: 'full', replySize: 'standard', codeFont: 'geist', metal: 'silver', metalStrength: 'standard', metalMotion: 'hover', metalBend: false, terminalFaces: true, plush: false, claudeOwnSkills: false })
     expect((await reopened.list()).map((entry) => entry.teammateId)).toEqual([wren.teammateId])
   })
 
   it('keeps teammates when settings are written', async () => {
     const { store: teammates } = await store()
     await teammates.create({ name: 'Wren', hue: 'lime', role: 'Docs & QA' })
-    await teammates.writeSettings({ swarm: true })
+    await teammates.writeSettings({ relay: false })
     expect(await teammates.list()).toHaveLength(1)
   })
 })
@@ -499,9 +499,9 @@ describe('memory mode', () => {
     roots.push(root)
     const teammates = createTeammateStore({ rootDirectory: root })
     expect((await teammates.readSettings()).memoryMode).toBe('auto')
-    expect((await teammates.writeSettings({ swarm: false, relay: true, relayHopCap: 12, memoryMode: 'ask' })).memoryMode).toBe('ask')
-    expect((await teammates.writeSettings({ swarm: false, relay: true, relayHopCap: 12, memoryMode: 'off' })).memoryMode).toBe('off')
-    expect((await teammates.writeSettings({ swarm: false, relay: true, relayHopCap: 12, memoryMode: 'sometimes' } as never)).memoryMode).toBe('auto')
+    expect((await teammates.writeSettings({ relay: true, relayHopCap: 12, memoryMode: 'ask' })).memoryMode).toBe('ask')
+    expect((await teammates.writeSettings({ relay: true, relayHopCap: 12, memoryMode: 'off' })).memoryMode).toBe('off')
+    expect((await teammates.writeSettings({ relay: true, relayHopCap: 12, memoryMode: 'sometimes' } as never)).memoryMode).toBe('auto')
     expect((await createTeammateStore({ rootDirectory: root }).readSettings()).memoryMode).toBe('auto')
   })
 })
@@ -595,7 +595,7 @@ describe('asking before every connector call', () => {
     const { store: teammates } = await store()
     expect((await teammates.readSettings()).askConnectors).toBe(false)
     for (const wrong of ['true', 1, 'yes', {}] as const) {
-      const written = await teammates.writeSettings({ swarm: false, relay: true, relayHopCap: 12, interrupt: false, memoryMode: 'auto', autoMode: false, askConnectors: wrong as never, layout: 'auto', tube: 'full', replySize: 'standard', codeFont: 'geist', metal: 'silver', metalStrength: 'standard', metalMotion: 'hover', metalBend: false, terminalFaces: true })
+      const written = await teammates.writeSettings({ relay: true, relayHopCap: 12, interrupt: false, memoryMode: 'auto', autoMode: false, askConnectors: wrong as never, layout: 'auto', tube: 'full', replySize: 'standard', codeFont: 'geist', metal: 'silver', metalStrength: 'standard', metalMotion: 'hover', metalBend: false, terminalFaces: true })
       expect(written.askConnectors, String(wrong)).toBe(false)
     }
   })
@@ -604,8 +604,8 @@ describe('asking before every connector call', () => {
     // Every write carries the whole object; a caller that forgot this field
     // would switch it off as a side effect of changing the layout.
     const { store: teammates } = await store()
-    await teammates.writeSettings({ swarm: false, relay: true, relayHopCap: 12, interrupt: false, memoryMode: 'auto', autoMode: false, askConnectors: true, layout: 'auto', tube: 'full', replySize: 'standard', codeFont: 'geist', metal: 'silver', metalStrength: 'standard', metalMotion: 'hover', metalBend: false, terminalFaces: true })
-    const after = await teammates.writeSettings({ swarm: true, relay: true, relayHopCap: 12, interrupt: false, memoryMode: 'auto', autoMode: false, askConnectors: true, layout: 'rail' })
+    await teammates.writeSettings({ relay: true, relayHopCap: 12, interrupt: false, memoryMode: 'auto', autoMode: false, askConnectors: true, layout: 'auto', tube: 'full', replySize: 'standard', codeFont: 'geist', metal: 'silver', metalStrength: 'standard', metalMotion: 'hover', metalBend: false, terminalFaces: true })
+    const after = await teammates.writeSettings({ relay: true, relayHopCap: 12, interrupt: false, memoryMode: 'auto', autoMode: false, askConnectors: true, layout: 'rail' })
     expect(after.askConnectors).toBe(true)
     expect((await teammates.readSettings()).askConnectors).toBe(true)
   })
@@ -660,7 +660,7 @@ describe('the plan a teammate keeps', () => {
     // A file from before this setting existed: no `keepATodoList` at all.
     await writeFile(
       join(root, 'teammates.json'),
-      JSON.stringify({ schemaVersion: 1, teammates: [], missionOwners: {}, settings: { swarm: false, relay: true } }),
+      JSON.stringify({ schemaVersion: 1, teammates: [], missionOwners: {}, settings: { relay: true } }),
       'utf8'
     )
     expect((await createTeammateStore({ rootDirectory: root }).readSettings()).keepATodoList).toBe(true)
@@ -724,9 +724,9 @@ describe('terminal faces are on until somebody turns them off', () => {
   it('stays off once turned off, across a write of something else', async () => {
     const { root, store: teammates } = await store()
     await teammates.writeSettings({ ...(await teammates.readSettings()), terminalFaces: false })
-    await teammates.writeSettings({ swarm: true })
+    await teammates.writeSettings({ relay: false })
     expect((await createTeammateStore({ rootDirectory: root }).readSettings()).terminalFaces).toBe(false)
-    await teammates.writeSettings({ swarm: true, terminalFaces: true })
+    await teammates.writeSettings({ relay: false, terminalFaces: true })
     expect((await createTeammateStore({ rootDirectory: root }).readSettings()).terminalFaces).toBe(true)
   })
 })

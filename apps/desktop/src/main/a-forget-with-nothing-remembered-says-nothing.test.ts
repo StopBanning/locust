@@ -18,7 +18,7 @@ import { createMemoryStore } from './memory-store.js'
  * now opening with a capital.
  */
 
-const SETTINGS: WorkspaceSettings = { swarm: false, relay: true, relayHopCap: 6, interrupt: false, memoryMode: 'auto', autoMode: false, askConnectors: false, keepATodoList: false, layout: 'auto', tube: 'full', replySize: 'standard' }
+const SETTINGS: WorkspaceSettings = { relay: true, relayHopCap: 6, interrupt: false, memoryMode: 'auto', autoMode: false, askConnectors: false, keepATodoList: false, layout: 'auto', tube: 'full', replySize: 'standard' }
 const SHOP = { workspaceId: 'ws_shop', workspaceName: 'shop' }
 const REPLY = 'Done.\n<locust-memory>\nforget :: laptop-setup.md, the checklist the person undid\n</locust-memory>'
 

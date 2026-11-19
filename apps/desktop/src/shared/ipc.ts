@@ -877,7 +877,7 @@ export const WORKSPACE_SETTINGS_READ_CHANNEL = 'workspace-settings:read'
 export const WORKSPACE_SETTINGS_WRITE_CHANNEL = 'workspace-settings:write'
 /**
  * THE SETTINGS THAT GRANT NOTHING (0.849), changed alone. The whole write stays on the computer, since it carries Auto,
- * what teammates may reach, swarm and relay; so in a browser Colin could not turn Plans off (2026-11-01). These change
+ * what teammates may reach and relay; so in a browser Colin could not turn Plans off (2026-11-01). These change
  * the look, the asking for a plan, and what teammates remember, which a browser already adds to; the computer merges
  * only them into its own settings, whatever else a change names. The model a new chat starts on is one too (0.850):
  * a browser already starts a run on any model.
@@ -2698,11 +2698,6 @@ export type ModelCatalogResponse =
     }
   | { readonly ok: false; readonly error: { readonly code: 'MODELS_UNAVAILABLE'; readonly message: string } }
 
-/**
- * Workspace-wide settings. `swarm` runs every mission at its model's MAXIMUM
- * supported effort -- which is only meaningful because the catalog reports
- * effort per model, so "maximum" is a real value rather than a guess.
- */
 /** The shell layout a person has asked for. `auto` follows the window width. */
 export type LayoutPreference = 'auto' | 'compact' | 'wide'
 /** How much theatre the boot screen is allowed. */
@@ -2769,8 +2764,8 @@ export type MetalStrength = 'subtle' | 'standard' | 'strong'
  */
 export type MetalMotion = 'hover' | 'always'
 
+/** Workspace-wide settings. (`swarm`, every run at its model's maximum effort, was cut in 0.880.) */
 export interface WorkspaceSettings {
-  readonly swarm: boolean
   /** The metal on the send button; `off` removes it entirely. */
   readonly metal?: MetalPreset
   readonly metalStrength?: MetalStrength

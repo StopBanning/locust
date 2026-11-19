@@ -9,7 +9,7 @@ import { TitleBar } from './components/TitleBar.js'
  */
 const bar = (needsYou: number, withList = true): string =>
   renderToStaticMarkup(
-    <TitleBar workspaceName="tides" runningCount={1} swarm={false} needsYou={needsYou} {...(withList ? { onNeedsYou: () => undefined } : {})} />
+    <TitleBar workspaceName="tides" runningCount={1} needsYou={needsYou} {...(withList ? { onNeedsYou: () => undefined } : {})} />
   )
 
 describe('the title bar', () => {

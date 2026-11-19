@@ -10,7 +10,7 @@ const props: ComposerProps = {
   activeRoute: undefined, error: undefined, mode: 'accept-edits', onModeChange: () => undefined,
   route: { runtime: 'opencode', model: 'opencode/free' }, onRouteChange: () => undefined,
   models: [], resolvedModels: new Map(), recentRoutes: [], platform: 'win32', effort: undefined,
-  onEffortChange: () => undefined, swarm: false, onSwarmChange: () => undefined, onStart: async () => true,
+  onEffortChange: () => undefined, onStart: async () => true,
   onCancel: () => undefined, onOpenRoutePicker: () => undefined, onHandOff: () => undefined, handingOff: false,
   workspaceName: 'Scratch', workspacePath: 'C:/scratch', onChooseFolder: () => undefined,
   teammateName: 'Ash', busyWith: undefined, queued: 'Please review paragraph two.', queuedNote: QUEUE_RESTORED_NOTE,

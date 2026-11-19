@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { CSSProperties, ReactElement } from 'react'
 
 import type { BotAvatarState } from 'bot-avatars'
@@ -41,8 +41,8 @@ import { COVER_REST_AFTER_MS, useCoverActivity } from '../useCoverActivity.js'
  * AND THE SCREEN NOTICES YOU (0.300). Colin's "have fun" list, 2026-09-23 --
  * "you can run all those": the sleeping Hopper opens its eyes and watches a
  * pointer that comes near, and dozes off again once it has gone; a click on
- * the glass powers the lockup on again; turning swarm on sends a few small
- * swarm bots up across the screen, once.
+ * the glass powers the lockup on again. (Turning swarm on sent a few small
+ * swarm bots up across the screen, once, until swarm was cut in 0.880.)
  */
 
 /** The cover's canvas, in its own units. Everything is placed on it. */
@@ -231,7 +231,7 @@ export const COVER_CAST: readonly CoverBot[] = [
   { key: 'atlas', type: 'prompt', hue: 'blue', state: 'default', part: 'worker', x: 432, y: -4 },
   // The sleeper is Claw'd's critter (0.583). Colin, 2026-10-04, under Plush: "plush looks good on
   // the regular avatars but locust is jagged" -- the Hopper's thin legs and antennae step at this
-  // size and take no fur -- "might be worth swapping to claw'd". The swarm still flies past.
+  // size and take no fur -- "might be worth swapping to claw'd".
   { key: 'sable', type: 'critter', hue: 'clay', state: 'sleeping', part: 'sleeper', x: 619, y: -2 }
 ]
 
@@ -325,138 +325,13 @@ export function widthsFrom(
   return Math.hypot(x - (box.left + box.width / 2), y - (box.top + box.height / 2)) / (box.width || 1)
 }
 
-/**
- * ONE SWARM FLIGHT: where a small swarm bot comes from and goes, on the
- * cover's own canvas, how big it is, and when. The swarm bot is the mark in
- * flight seen from above, head up, so each climbs up and to the right and
- * leans into its heading -- out of the lower left, over the machine and
- * behind the three standing on it, and off the top.
- */
-export interface SwarmFlight {
-  readonly x0: number
-  readonly y0: number
-  readonly x1: number
-  readonly y1: number
-  readonly size: number
-  readonly delay: number
-  readonly duration: number
-  /** How far it weaves off its line, either side. */
-  readonly sway: number
-}
-
-export const SWARM_FLIGHTS: readonly SwarmFlight[] = [
-  { x0: 150, y0: 262, x1: 470, y1: -90, size: 26, delay: 0, duration: 2300, sway: 10 },
-  { x0: 250, y0: 280, x1: 590, y1: -70, size: 22, delay: 120, duration: 2500, sway: -8 },
-  { x0: 60, y0: 250, x1: 380, y1: -100, size: 30, delay: 260, duration: 2200, sway: 12 },
-  { x0: 330, y0: 270, x1: 700, y1: -80, size: 24, delay: 380, duration: 2600, sway: -10 },
-  { x0: 190, y0: 300, x1: 540, y1: -60, size: 20, delay: 520, duration: 2400, sway: 8 },
-  { x0: 420, y0: 265, x1: 800, y1: -95, size: 28, delay: 640, duration: 2350, sway: -12 },
-  { x0: 100, y0: 290, x1: 430, y1: -85, size: 22, delay: 780, duration: 2550, sway: 9 }
-]
-
-/** The whole flight, first take-off to the last one gone. */
-export const SWARM_MS = Math.max(...SWARM_FLIGHTS.map((flight) => flight.delay + flight.duration))
-
-/** Degrees clockwise from straight up: the way a flight is heading. */
-export function headingOf(flight: SwarmFlight): number {
-  return Math.round((Math.atan2(flight.x1 - flight.x0, flight.y0 - flight.y1) * 180) / Math.PI)
-}
-
-/**
- * A flight's keyframes on a cover drawn at `scale`: along its line with a
- * weave, fading in as it leaves and out as it goes.
- */
-export function flightFrames(flight: SwarmFlight, scale: number): Keyframe[] {
-  const dx = flight.x1 - flight.x0
-  const dy = flight.y1 - flight.y0
-  const length = Math.hypot(dx, dy) || 1
-  const heading = headingOf(flight)
-  return [
-    { offset: 0, opacity: 0 },
-    { offset: 0.12, opacity: 1 },
-    { offset: 0.5, opacity: 1 },
-    { offset: 0.85, opacity: 1 },
-    { offset: 1, opacity: 0 }
-  ].map((frame) => {
-    const weave = flight.sway * Math.sin(2 * Math.PI * frame.offset)
-    const x = flight.x0 + dx * frame.offset + (-dy / length) * weave - flight.size / 2
-    const y = flight.y0 + dy * frame.offset + (dx / length) * weave - flight.size / 2
-    return {
-      offset: frame.offset,
-      opacity: frame.opacity,
-      transform: `translate(${String(Math.round(x * scale))}px, ${String(Math.round(y * scale))}px) rotate(${String(heading)}deg)`
-    }
-  })
-}
-
 function reducedMotion(): boolean {
   return typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true
-}
-
-/** The swarm, once: every flight, then it tells the cover it has gone. */
-function SwarmRun({ scale, originX = 0, onGone, paused, presence }: { readonly scale: number; readonly originX?: number; readonly onGone: () => void; readonly paused: boolean; readonly presence: import('../windowPresence.js').WindowPresence }): ReactElement {
-  const flyers = useRef<(HTMLSpanElement | null)[]>([])
-  const flights = useRef<Animation[]>([])
-  useEffect(() => {
-    const running: Animation[] = []
-    for (const [index, flight] of SWARM_FLIGHTS.entries()) {
-      const element = flyers.current[index]
-      if (element === null || element === undefined || typeof element.animate !== 'function') continue
-      running.push(
-        element.animate(flightFrames(flight, scale), {
-          duration: flight.duration,
-          delay: flight.delay,
-          easing: 'cubic-bezier(0.3, 0.05, 0.5, 1)',
-          fill: 'both'
-        })
-      )
-    }
-    if (running.length === 0) {
-      onGone()
-      return undefined
-    }
-    flights.current = running
-    if (paused) for (const animation of running) animation.pause()
-    let flying = running.length
-    for (const animation of running) {
-      animation.onfinish = () => {
-        flying -= 1
-        if (flying === 0) onGone()
-      }
-    }
-    return () => {
-      for (const animation of running) animation.cancel()
-    }
-    // One run per mount: the cover gives each run its own key.
-  }, [])
-  useEffect(() => {
-    for (const animation of flights.current) {
-      if (paused) animation.pause()
-      else if (animation.playState === 'paused') animation.play()
-    }
-  }, [paused])
-  return (
-    <span className="lc-cover__swarm" aria-hidden="true" style={originX === 0 ? undefined : { transform: `translateX(${String(originX)}px)` }}>
-      {SWARM_FLIGHTS.map((flight, index) => (
-        <span
-          key={index}
-          className="lc-cover__flyer"
-          ref={(node) => {
-            flyers.current[index] = node
-          }}
-          style={{ width: Math.round(flight.size * scale), height: Math.round(flight.size * scale) }}
-        >
-          <Bot type="swarm" size={Math.round(flight.size * scale)} state="default" jumpEvery={0} seed={0.11 + index * 0.13} motionPresence={presence} />
-        </span>
-      ))}
-    </span>
-  )
 }
 
 export function HomeCover({
   ready,
   tube,
-  swarmCalls = 0,
   grow = 1,
   status,
   activity
@@ -464,8 +339,6 @@ export function HomeCover({
   /** The runtimes have answered: the loading screen's work is done. */
   readonly ready: boolean
   readonly tube: TubePreference
-  /** How many times swarm has been turned on this session: each new one flies the swarm across. */
-  readonly swarmCalls?: number
   /** Spare height the page gives the drawing, as a factor (`coverGrowFor`). */
   readonly grow?: number
   /**
@@ -480,20 +353,6 @@ export function HomeCover({
   const faces = useRef(new Map<string, HTMLSpanElement>())
   const [sleeper, setSleeper] = useState<Wakefulness>(ASLEEP)
   const [relights, setRelights] = useState(0)
-  /*
-   * Only a swarm turned on while the cover is up flies. The count the cover
-   * came up with is the past -- swarm turned on in a conversation, or before
-   * this screen was shown -- and flying it now would say something had just
-   * happened that had not.
-   */
-  const swarmSeen = useRef(swarmCalls)
-  const [swarmRun, setSwarmRun] = useState<number>()
-  useEffect(() => {
-    if (swarmCalls === swarmSeen.current) return
-    swarmSeen.current = swarmCalls
-    if (!reducedMotion()) setSwarmRun(swarmCalls)
-  }, [swarmCalls])
-  const swarmGone = useCallback(() => setSwarmRun(undefined), [])
   const { paused, presence } = useCoverActivity(activity)
   const awake = !paused
 
@@ -649,7 +508,6 @@ export function HomeCover({
             </div>
           </Beam>
         </div>
-        {swarmRun !== undefined && <SwarmRun key={swarmRun} scale={drawn} originX={originX} onGone={swarmGone} paused={paused} presence={presence} />}
         {COVER_CAST.map((mate, index) => {
           const size = at(FACE)
           const color = mate.hue === undefined ? undefined : hueColor(mate.hue)

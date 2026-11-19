@@ -8,7 +8,7 @@ import { settingsChangeKept } from './workspace-settings-change.js'
 
 /**
  * A BROWSER CHANGES ONLY WHAT GRANTS NOTHING (0.849). Colin, in a browser, could not turn Plans off: the whole settings
- * write stays on the computer because it carries Auto, reach, swarm and relay. The narrow change works from a browser
+ * write stays on the computer because it carries Auto, reach and relay. The narrow change works from a browser
  * and the computer keeps only the harmless keys of it.
  */
 describe('a settings change from a browser', () => {
@@ -22,7 +22,7 @@ describe('a settings change from a browser', () => {
       .toEqual({ keepATodoList: false, replySize: 'large', layout: 'compact', plush: true, aboutYou: 'Short answers.' })
   })
 
-  it('sets none of Auto, reach, swarm, relay or the check command', () => {
+  it('sets none of Auto, reach, relay or the check command, nor a swarm it no longer has', () => {
     expect(settingsChangeKept({ autoMode: true, askConnectors: true, swarm: true, relay: true, relayHopCap: 12, checkCommand: 'rm -rf /', planRunsOut: { runtime: 'claude', automatic: true }, keepATodoList: true }))
       .toEqual({ keepATodoList: true })
     // The model a new chat starts on is kept (0.850): a browser already starts a run on any model.

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { PublicRuntimeStatus } from '../../shared/ipc.js'
-import { swarmEffortFor } from './App.js'
+import { runEffortFor } from './App.js'
 import {
   effortIsInModelId,
   modelLabelFor,
@@ -1060,23 +1060,18 @@ describe('the level on the chip is the level the run is given', () => {
     { id: 'auto', runtime: 'copilot' as const, displayName: 'Auto', description: '', supportedEfforts: [] }
   ]
   // Exactly what Composer.tsx renders on the chip.
-  const displayed = (modelId: string, swarm: boolean, chosen: string | undefined): string | undefined => {
+  const displayed = (modelId: string, chosen: string | undefined): string | undefined => {
     const supported = models.find((model) => model.id === modelId)?.supportedEfforts ?? []
-    return swarm ? supported[supported.length - 1] : chosen ?? defaultEffort(supported)
+    return chosen ?? defaultEffort(supported)
   }
 
   it('agree when nobody has chosen a level', () => {
-    expect(swarmEffortFor(models, 'gpt-5.6-sol', false, undefined, 'codex')).toBe('medium')
-    expect(swarmEffortFor(models, 'gpt-5.6-sol', false, undefined, 'codex')).toBe(displayed('gpt-5.6-sol', false, undefined))
+    expect(runEffortFor(models, 'gpt-5.6-sol', undefined, 'codex')).toBe('medium')
+    expect(runEffortFor(models, 'gpt-5.6-sol', undefined, 'codex')).toBe(displayed('gpt-5.6-sol', undefined))
   })
 
   it('agree when someone has', () => {
-    expect(swarmEffortFor(models, 'gpt-5.6-sol', false, 'high', 'codex')).toBe(displayed('gpt-5.6-sol', false, 'high'))
-  })
-
-  it('agree under swarm, which overrides both', () => {
-    expect(swarmEffortFor(models, 'gpt-5.6-sol', true, 'low', 'codex')).toBe('high')
-    expect(swarmEffortFor(models, 'gpt-5.6-sol', true, 'low', 'codex')).toBe(displayed('gpt-5.6-sol', true, 'low'))
+    expect(runEffortFor(models, 'gpt-5.6-sol', 'high', 'codex')).toBe(displayed('gpt-5.6-sol', 'high'))
   })
 
   it("agree on a Cursor family, whose id already names a level", () => {
@@ -1102,10 +1097,9 @@ describe('the level on the chip is the level the run is given', () => {
         variants: { low: 'grok-4.7-low', medium: 'grok-4.7-medium', high: 'grok-4.7-high' }
       }
     ]
-    expect(swarmEffortFor(cursor, 'claude-opus-5-5-medium', false, undefined, 'cursor')).toBe('medium')
-    expect(swarmEffortFor(cursor, 'grok-4.7-low', false, undefined, 'cursor')).toBe('low')
-    expect(swarmEffortFor(cursor, 'grok-4.7-low', false, 'high', 'cursor')).toBe('high')
-    expect(swarmEffortFor(cursor, 'claude-opus-5-5-medium', true, undefined, 'cursor')).toBe('max')
+    expect(runEffortFor(cursor, 'claude-opus-5-5-medium', undefined, 'cursor')).toBe('medium')
+    expect(runEffortFor(cursor, 'grok-4.7-low', undefined, 'cursor')).toBe('low')
+    expect(runEffortFor(cursor, 'grok-4.7-low', 'high', 'cursor')).toBe('high')
   })
 
   it("start a new route on the level the runtime names as its default, where it names one", () => {
@@ -1122,12 +1116,12 @@ describe('the level on the chip is the level the run is given', () => {
   })
 
   it('agree on a model with no levels: both say nothing, and nothing is sent', () => {
-    expect(swarmEffortFor(models, 'auto', false, undefined, 'copilot')).toBeUndefined()
-    expect(displayed('auto', false, undefined)).toBeUndefined()
+    expect(runEffortFor(models, 'auto', undefined, 'copilot')).toBeUndefined()
+    expect(displayed('auto', undefined)).toBeUndefined()
   })
 
   it('never invents a level for a model the catalogue does not know', () => {
-    expect(swarmEffortFor(models, 'not-in-catalogue', false, undefined, 'codex')).toBeUndefined()
+    expect(runEffortFor(models, 'not-in-catalogue', undefined, 'codex')).toBeUndefined()
   })
 })
 

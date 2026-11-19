@@ -10,7 +10,7 @@ import { TitleBar } from './components/TitleBar.js'
  * is a cover that says so and takes it back, with no app behind it.
  */
 afterEach(() => { vi.unstubAllGlobals() })
-const bar = (): string => renderToStaticMarkup(<TitleBar workspaceName="tides" runningCount={0} swarm={false} />)
+const bar = (): string => renderToStaticMarkup(<TitleBar workspaceName="tides" runningCount={0} />)
 
 describe('the window in a browser, and its cover here', () => {
   it('draws its own window controls on this computer, and none in a browser', () => {

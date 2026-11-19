@@ -87,7 +87,6 @@ export function FirstLaunch({
   onOpenUsage,
   discoveryPhase,
   tube,
-  swarmCalls = 0,
   coverStatus,
   coverActivity,
   freeStart = 'unknown',
@@ -146,8 +145,6 @@ export function FirstLaunch({
   readonly discoveryPhase: 'loading' | 'ready' | 'error'
   /** The boot screen's preference; the lockup's lighting follows it. Absent reads as full. */
   readonly tube?: TubePreference
-  /** How many times swarm has been turned on this session: the cover flies the swarm for a new one. */
-  readonly swarmCalls?: number
   /** Who is working and who waits on you, for the cover's glass (0.610, glassStatus). */
   readonly coverStatus?: string
   /** Changes whenever a teammate's live work arrives, including a streaming delta. */
@@ -877,7 +874,7 @@ export function FirstLaunch({
     <div className={`lc-empty${scrolled ? ' is-scrolled' : ''}${tight ? ' is-tight' : ''}`} ref={pane}>
       <div className="lc-empty__inner" ref={inner}>
         {/* The design system's cover: the lockup lighting up once the runtimes have answered, and the teammates. */}
-        <HomeCover ready={discoveryPhase === 'ready'} tube={tube ?? 'full'} swarmCalls={swarmCalls} grow={coverGrow} activity={coverActivity} {...(coverStatus === undefined ? {} : { status: coverStatus })} />
+        <HomeCover ready={discoveryPhase === 'ready'} tube={tube ?? 'full'} grow={coverGrow} activity={coverActivity} {...(coverStatus === undefined ? {} : { status: coverStatus })} />
 
         {/*
           * The only words on the screen, both carrying information: what

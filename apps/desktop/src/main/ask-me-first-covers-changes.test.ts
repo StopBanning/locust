@@ -160,7 +160,7 @@ describe('words already waiting as a change', () => {
 })
 
 describe('the reader, in ask mode, on a real store', () => {
-  const SETTINGS: WorkspaceSettings = { swarm: false, relay: true, relayHopCap: 6, interrupt: false, memoryMode: 'ask', autoMode: false, askConnectors: false, keepATodoList: false, layout: 'auto', tube: 'full', replySize: 'standard' }
+  const SETTINGS: WorkspaceSettings = { relay: true, relayHopCap: 6, interrupt: false, memoryMode: 'ask', autoMode: false, askConnectors: false, keepATodoList: false, layout: 'auto', tube: 'full', replySize: 'standard' }
 
   async function run(reply: string) {
     const { memories } = await withKept('Deploys go out on Fridays.', 'deploy-day')

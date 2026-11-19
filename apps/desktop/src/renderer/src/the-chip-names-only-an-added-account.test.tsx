@@ -26,7 +26,7 @@ const props: ComposerProps = {
   activeRoute: undefined, error: undefined, mode: 'accept-edits', onModeChange: () => undefined,
   route: { runtime: 'claude', model: 'account-default' }, onRouteChange: () => undefined,
   models: [], resolvedModels: new Map(), recentRoutes: [], platform: 'win32', effort: undefined,
-  onEffortChange: () => undefined, swarm: false, onSwarmChange: () => undefined,
+  onEffortChange: () => undefined, 
   onStart: async () => true, onCancel: () => undefined, onOpenRoutePicker: () => undefined,
   onHandOff: () => undefined, handingOff: false, workspaceName: 'Test', workspacePath: 'C:/test',
   onChooseFolder: () => undefined, teammateName: undefined, busyWith: undefined, queued: undefined,

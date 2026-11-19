@@ -5247,25 +5247,6 @@ svg.lc-filetype.is-image .lc-filetype__dot {
   }
 }
 
-/* Swarm, turned on (HomeCover's SwarmRun): small swarm bots crossing the
-   cover once -- over the machine, under the three standing on it (the order
-   they are drawn in), and never in the way of a click. Each is placed by its
-   own animation, and unseen before it leaves and after it has gone. */
-.lc-cover__swarm {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-.lc-cover__flyer {
-  position: absolute;
-  left: 0;
-  top: 0;
-  display: block;
-  line-height: 0;
-  opacity: 0;
-}
-
 /*
  * A BOT, AND LOCUST'S OWN MARKS ON IT -- see Bot.tsx.
  *
@@ -14138,63 +14119,6 @@ svg.lc-filetype.is-image .lc-filetype__dot {
   color: var(--lc-text-muted);
 }
 
-/* Swarm, at the head of the thing it is about. It was a chip beside the
-   effort chip in the composer, and it DISABLED that chip to hold it at the
-   model maximum -- two controls that were one setting (design review,
-   2026-09-06). */
-/* A pill beside the search, not a row across the picker. The reference draws
-   it small and to the right; it is one setting, not a section. */
-.lc-picker__swarm {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  flex: 0 0 auto;
-  padding: 4px 10px;
-  border: 1px solid var(--lc-border-control);
-  border-radius: 999px;
-  background: transparent;
-  color: var(--lc-text-muted);
-  font: inherit;
-  font-size: var(--lc-text-mono-label);
-  cursor: pointer;
-}
-
-.lc-picker__swarm:hover {
-  background: var(--lc-hover-surface);
-  color: var(--lc-text-primary);
-}
-
-.lc-picker__swarm img {
-  width: 16px;
-  height: 16px;
-  opacity: 0.55;
-}
-
-.lc-picker__swarm.is-on {
-  color: var(--lc-lime-text);
-  border-color: var(--lc-lime-border);
-  background: var(--lc-lime-tint-strong);
-}
-
-.lc-picker__swarm.is-on img {
-  opacity: 1;
-}
-
-.lc-picker__swarmtext {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  min-width: 0;
-}
-
-.lc-picker__swarmhint {
-  font-family: var(--lc-font-mono);
-  color: var(--lc-text-muted);
-  font-size: var(--lc-text-mono-label);
-  text-transform: uppercase;
-  letter-spacing: var(--lc-tracking-label);
-}
-
 /* Effort, under the model it belongs to and only under the chosen one. */
 .lc-picker__efforts {
   display: flex;
@@ -15399,70 +15323,6 @@ textarea.lc-compare__judgecriteria {
   left: auto;
   right: 0;
   width: 220px;
-}
-
-/* --- Swarm ------------------------------------------------------------- */
-
-.lc-swarm {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 24px;
-  padding: 0;
-  /* Boxed, the same border and ground as the chips beside it. It was a bare
-     glyph at the right edge and read as an artifact rather than a control --
-     the design agent's app-wide read, 2026-09-10. A control that reads as
-     decoration is one nobody presses. */
-  border: 1px solid var(--lc-border-control);
-  border-radius: var(--lc-radius-control);
-  background: var(--lc-bg-control);
-  cursor: pointer;
-  transition: background var(--lc-motion-hover) var(--lc-ease), border-color var(--lc-motion-hover) var(--lc-ease);
-}
-
-.lc-swarm:hover:not(:disabled) {
-  border-color: var(--lc-border-hover);
-  background: var(--lc-hover-surface);
-}
-
-.lc-swarm img {
-  height: 15px;
-  width: auto;
-  opacity: 0.55;
-}
-
-.lc-swarm:hover:not(:disabled) img {
-  opacity: 0.85;
-}
-
-.lc-swarm.is-on {
-  border-color: var(--lc-lime-border);
-  background: var(--lc-lime-tint);
-}
-
-.lc-swarm.is-on img {
-  opacity: 1;
-}
-
-.lc-swarm:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
-
-.lc-swarmchip {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--lc-space-3);
-  padding: 1px var(--lc-space-4);
-  border-radius: var(--lc-radius-control);
-  border: 1px solid var(--lc-lime-border);
-  background: var(--lc-lime-tint);
-  color: var(--lc-lime-text);
-  font-family: var(--lc-font-mono);
-  font-size: var(--lc-text-mono-label);
-  letter-spacing: var(--lc-tracking-label);
-  text-transform: uppercase;
-  white-space: nowrap;
 }
 
 .lc-cancel__list {
@@ -22253,15 +22113,6 @@ button.lc-switch:hover:not(:disabled):not(.is-on) {
   }
 }
 
-/* Swarm is a command now (`/swarm`); while it holds the effort, the chip
-   wears the mark, so it is still plain when it is on. */
-.lc-control__swarmmark {
-  height: 14px;
-  width: auto;
-  flex: none;
-  filter: var(--lc-logo-filter);
-}
-
 /* The send: a 40px dark disc, the metal ring around it (`.mx-circle`). Its
    16px arrow in the 38px inside the border sits 11px in: whole pixels. */
 .lc-composer__controls .lc-send {
@@ -25281,7 +25132,6 @@ textarea.lc-tune__skillwhen { height: auto; min-height: 34px; max-height: calc(4
   color: var(--lc-text-secondary);
 }
 .lc-composer__under .lc-control__model { max-width: 24ch; }
-.lc-picker__effortnote { margin: 0 0 8px; color: var(--lc-text-muted); }
 .lc-shortcuts { width: min(540px, calc(100% - var(--lc-space-8))); }
 .lc-shortcuts__body { overflow: auto; display: flex; flex-direction: column; gap: 16px; }
 .lc-shortcuts__group h2 { margin: 0 0 6px; font-size: 12px; font-weight: 600; color: var(--lc-text-secondary); }
@@ -26055,7 +25905,6 @@ textarea.lc-tune__skillwhen { height: auto; min-height: 34px; max-height: calc(4
 .lc-select__group,
 .lc-shellnotice__source,
 .lc-slash__group,
-.lc-picker__swarmhint,
 .lc-handoff__label,
 .lc-rostercard__cost dt,
 .lc-rostercard__recentlabel,

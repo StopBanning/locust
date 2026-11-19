@@ -38,7 +38,7 @@ const drive = await startDrive({
     schemaVersion: 1,
     teammates: [],
     missionOwners: {},
-    settings: { swarm: false, relay: false, relayHopCap: 2, memoryMode: 'off', autoMode: false, tube: 'full' }
+    settings: { relay: false, relayHopCap: 2, memoryMode: 'off', autoMode: false, tube: 'full' }
   }
 })
 
@@ -150,62 +150,7 @@ try {
   say(`after a click on the glass: ${JSON.stringify(lit)}`)
   check('a click on the glass powers the lockup on again, and it is animating', lit.powering === true && lit.running.includes('lcLockupPower'), JSON.stringify(lit))
 
-  // THE SWARM.
-  // Through the palette, which says what it will do: "Turn swarm on" or "off".
-  // A miss prints what the palette did offer.
-  const turnSwarm = (word) => drive.evaluate(`(async () => {
-    if (document.querySelector('.lc-palette__item') === null) {
-      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }))
-    }
-    let item
-    for (let tries = 0; tries < 20 && item === undefined; tries += 1) {
-      await new Promise((r) => setTimeout(r, 150))
-      item = [...document.querySelectorAll('.lc-palette__item')].find((el) => /Turn swarm ${word}/.test(el.textContent ?? ''))
-    }
-    if (!item) {
-      const offered = [...document.querySelectorAll('.lc-palette__item')].map((el) => el.textContent).filter((t) => /swarm/i.test(t))
-      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-      return 'no "Turn swarm ${word}" in the palette; it offered ' + JSON.stringify(offered)
-    }
-    item.click()
-    return 'turned ${word}'
-  })()`)
-  const FLYERS = `(() => JSON.stringify([...document.querySelectorAll('.lc-cover__flyer')].map((el) => {
-    const r = el.getBoundingClientRect()
-    const c = el.querySelector('canvas')
-    let ink = 0
-    if (c && c.width > 0) {
-      const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data
-      for (let i = 3; i < d.length; i += 4) if (d[i] > 64) ink += 1
-    }
-    return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2), opacity: Number(getComputedStyle(el).opacity), ink }
-  })))()`
-  say(await turnSwarm('on'))
-  const frames = []
-  for (let n = 0; n < 5; n += 1) {
-    await sleep(n === 0 ? 450 : 350)
-    frames.push(JSON.parse(String(await drive.evaluate(FLYERS))))
-    if (n === 2) await shoot('03-the-swarm-flying.png')
-  }
-  const seen = frames.map((frame) => frame.filter((flyer) => flyer.opacity > 0.2))
-  say(`flyers in view at 0.45, 0.8, 1.15, 1.5, 1.85 s: ${seen.map((frame) => frame.length).join(', ')}`)
-  check('turning swarm on flies the swarm: seven flyers', frames[0].length === 7, String(frames[0].length))
-  // None of these can pass on nothing: no flyers is a fail, not a vacuous pass.
-  check('each is a bot drawn in its canvas', frames[2].length === 7 && frames[2].every((flyer) => flyer.ink > 50), frames[2].map((flyer) => flyer.ink).join(', '))
-  const first = frames[1]
-  const later = frames[3]
-  const climbed = first.length === 7 && first.every((flyer, index) => later[index] !== undefined && later[index].y < flyer.y - 20 && later[index].x > flyer.x + 15)
-  check('every one climbs up and to the right', climbed, first.map((flyer, index) => `(${String(flyer.x)},${String(flyer.y)})->(${String(later[index]?.x)},${String(later[index]?.y)})`).join(' '))
-  await sleep(2500)
-  const gone = await drive.evaluate(`document.querySelector('.lc-cover__swarm') === null`)
-  check('and then it has gone', frames[0].length === 7 && gone === true)
-  const off = String(await turnSwarm('off'))
-  say(off)
-  await sleep(900)
-  check('turning it off flies nothing', off === 'turned off' && (await drive.evaluate(`document.querySelectorAll('.lc-cover__flyer').length`)) === 0, off)
-  say(await turnSwarm('on'))
-  await sleep(500)
-  check('turning it on again flies it again', (await drive.evaluate(`document.querySelectorAll('.lc-cover__flyer').length`)) === 7)
+  // (The swarm flight went with swarm, 0.880.)
   say(failures === 0 ? '\nCOVER NOTICES PASSED' : `\nCOVER NOTICES: ${String(failures)} FAILED`)
 } catch (error) {
   say(`probe failed: ${error instanceof Error ? error.message : String(error)}`)

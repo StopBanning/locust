@@ -173,7 +173,7 @@ interface StoredFile {
 
 // Relay is ON unless switched off: teammates talking to each other is the
 // point of having more than one, and the hop cap is what bounds the spend.
-const DEFAULT_SETTINGS: WorkspaceSettings = { swarm: false, relay: true, relayHopCap: DEFAULT_RELAY_HOP_CAP, interrupt: false, memoryMode: DEFAULT_MEMORY_MODE, autoMode: false, askConnectors: false, keepATodoList: true, layout: 'auto', tube: 'full', replySize: 'standard', codeFont: 'geist', metal: 'silver', metalStrength: 'standard', metalMotion: 'hover', metalBend: false, terminalFaces: true, plush: false, claudeOwnSkills: false }
+const DEFAULT_SETTINGS: WorkspaceSettings = { relay: true, relayHopCap: DEFAULT_RELAY_HOP_CAP, interrupt: false, memoryMode: DEFAULT_MEMORY_MODE, autoMode: false, askConnectors: false, keepATodoList: true, layout: 'auto', tube: 'full', replySize: 'standard', codeFont: 'geist', metal: 'silver', metalStrength: 'standard', metalMotion: 'hover', metalBend: false, terminalFaces: true, plush: false, claudeOwnSkills: false }
 
 /** A layout this build can draw, or the default. Never trusts the file. */
 function parsedLayout(value: unknown): LayoutPreference {
@@ -546,9 +546,6 @@ function parsedFile(text: string): StoredFile {
   // roster with it, and `off` is the safe reading of an unreadable switch.
   const rawSettings = record.settings
   const settings: WorkspaceSettings = {
-    swarm: typeof rawSettings === 'object' && rawSettings !== null
-      ? (rawSettings as Record<string, unknown>).swarm === true
-      : false,
     // Only a literal false turns replies off; absent or malformed keeps the default.
     relay: typeof rawSettings === 'object' && rawSettings !== null
       ? (rawSettings as Record<string, unknown>).relay !== false
@@ -1100,9 +1097,6 @@ export function createTeammateStore(options: { readonly rootDirectory: string; r
         // a truthy object -- is off, so a malformed message cannot enable a
         // workspace-wide setting.
         const next: WorkspaceSettings = {
-          swarm: typeof settings === 'object' && settings !== null
-            ? (settings as Record<string, unknown>).swarm === true
-            : false,
           relay: typeof settings === 'object' && settings !== null
             ? (settings as Record<string, unknown>).relay !== false
             : true,
