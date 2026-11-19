@@ -209,3 +209,5 @@ Breaks (`core-c` to `core-f`, `ui-d`, `ui-e` logs). All caught in the end:
 - Stay awake (Startup): Rust said its own subtitle ("Prevents idle sleep on AC power...") and never Electron's note.
   Now Electron's one sentence names the row and the switch, and "Only the sleep that comes when nobody uses it..."
   shows while it is on. `stay_awake_tests` holds Electron's case by name; breaks 2 of 2 killed.
+- Remote Control (`a-remote-control-switch-shows-claudes-own-words.test.tsx`): the card already matched; 6 of 6 cases in
+  `src/ui/remote_control_card_tests.rs` (new); breaks 5 of 5 killed.

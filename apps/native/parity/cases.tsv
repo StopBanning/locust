@@ -2529,12 +2529,12 @@ apps/desktop/src/renderer/src/a-quoted-equation-is-drawn.test.tsx	a displayed eq
 apps/desktop/src/renderer/src/a-quoted-equation-is-drawn.test.tsx	a quote inside a quote, and a list inside a quote, keep their shape	yes
 apps/desktop/src/renderer/src/a-quoted-equation-is-drawn.test.tsx	an equation written in the middle of a line is drawn too	yes
 apps/desktop/src/renderer/src/a-quoted-equation-is-drawn.test.tsx	money and an escaped bracket in prose are still prose	yes
-apps/desktop/src/renderer/src/a-remote-control-switch-shows-claudes-own-words.test.tsx	The off switch explains its lifetime and account requirements.	no
-apps/desktop/src/renderer/src/a-remote-control-switch-shows-claudes-own-words.test.tsx	Off, it reads as one switch: its state opens its own line, and nothing sits under it.	no
-apps/desktop/src/renderer/src/a-remote-control-switch-shows-claudes-own-words.test.tsx	A running switch shows Claude output and errors without summarizing or trimming them.	no
-apps/desktop/src/renderer/src/a-remote-control-switch-shows-claudes-own-words.test.tsx	A trust handoff stays off and asks the person to finish setup and deliberately enable again.	no
-apps/desktop/src/renderer/src/a-remote-control-switch-shows-claudes-own-words.test.tsx	The switch is disabled while ending and states when later output was omitted.	no
-apps/desktop/src/renderer/src/a-remote-control-switch-shows-claudes-own-words.test.tsx	Settings search finds Remote Control and claude.ai under AI agents, and phone at Your phone (0.775).	no
+apps/desktop/src/renderer/src/a-remote-control-switch-shows-claudes-own-words.test.tsx	The off switch explains its lifetime and account requirements.	yes
+apps/desktop/src/renderer/src/a-remote-control-switch-shows-claudes-own-words.test.tsx	Off, it reads as one switch: its state opens its own line, and nothing sits under it.	yes
+apps/desktop/src/renderer/src/a-remote-control-switch-shows-claudes-own-words.test.tsx	A running switch shows Claude output and errors without summarizing or trimming them.	yes
+apps/desktop/src/renderer/src/a-remote-control-switch-shows-claudes-own-words.test.tsx	A trust handoff stays off and asks the person to finish setup and deliberately enable again.	yes
+apps/desktop/src/renderer/src/a-remote-control-switch-shows-claudes-own-words.test.tsx	The switch is disabled while ending and states when later output was omitted.	yes
+apps/desktop/src/renderer/src/a-remote-control-switch-shows-claudes-own-words.test.tsx	Settings search finds Remote Control and claude.ai under AI agents, and phone at Your phone (0.775).	yes
 apps/desktop/src/renderer/src/a-removed-teammate-is-not-replaced.test.ts	is the teammate picked	yes
 apps/desktop/src/renderer/src/a-removed-teammate-is-not-replaced.test.ts	is nobody once that teammate is removed, never whoever is first	yes
 apps/desktop/src/renderer/src/a-removed-teammate-is-not-replaced.test.ts	is nobody when nobody was picked	yes
