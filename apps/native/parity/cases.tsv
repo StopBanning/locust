@@ -2706,6 +2706,13 @@ apps/desktop/src/renderer/src/a-room-post-can-ask-one-teammate.test.ts	is every 
 apps/desktop/src/renderer/src/a-room-post-can-ask-one-teammate.test.ts	takes the @-word out, leaving one space and none at the start	no
 apps/desktop/src/renderer/src/a-room-post-can-ask-one-teammate.test.ts	happens by itself when a whole name is typed and then a space	no
 apps/desktop/src/renderer/src/a-room-post-can-ask-one-teammate.test.ts	reads as a person would write it	no
+apps/desktop/src/renderer/src/a-routine-keeps-what-you-keep.test.tsx	offers the copy only to a routine that may change files	yes
+apps/desktop/src/renderer/src/a-routine-keeps-what-you-keep.test.tsx	in a copy, every sentence says nothing lands until you keep it	yes
+apps/desktop/src/renderer/src/a-routine-keeps-what-you-keep.test.tsx	in the folder, it says the change lands straight away	yes
+apps/desktop/src/renderer/src/a-routine-keeps-what-you-keep.test.tsx	with no check command, says where to set one and cannot be chosen	yes
+apps/desktop/src/renderer/src/a-routine-keeps-what-you-keep.test.tsx	chosen, it names the command, the fixes it may make, and that each is one more turn	yes
+apps/desktop/src/renderer/src/a-routine-keeps-what-you-keep.test.tsx	names what changed, says nothing has reached the folder, and offers Keep, Discard and the copy	yes
+apps/desktop/src/renderer/src/a-routine-keeps-what-you-keep.test.tsx	draws nothing when nothing waits	no
 apps/desktop/src/renderer/src/a-routine-names-its-folder.test.tsx	on its card, with the whole path on hover	yes
 apps/desktop/src/renderer/src/a-routine-names-its-folder.test.tsx	and says nothing it does not know	yes
 apps/desktop/src/renderer/src/a-routine-names-its-folder.test.tsx	and in its editor, beside when it runs	yes
@@ -3840,6 +3847,15 @@ apps/desktop/src/renderer/src/routeName.test.ts	leaves an id with nothing but th
 apps/desktop/src/renderer/src/routeName.test.ts	reads a version written with a hyphen as a version	yes
 apps/desktop/src/renderer/src/routeName.test.ts	keeps the second word where it is the program being named	yes
 apps/desktop/src/renderer/src/routeName.test.ts	says it is a model, never the bare word a mode is named (0.378)	yes
+apps/desktop/src/renderer/src/routine-recovery.test.tsx	both routine surfaces render a held attempt from persisted data, with no notification event	no
+apps/desktop/src/renderer/src/routine-recovery.test.tsx	review acknowledgement is unchecked and both decisions start disabled, even for a confirmed step	yes
+apps/desktop/src/renderer/src/routine-recovery.test.tsx	abandonment stays visible after acknowledgement instead of reverting to never ran	yes
+apps/desktop/src/renderer/src/routine-recovery.test.tsx	is a card of its own, never the row meta the Routines screen crushes into one clipped cell (2026-09-27)	no
+apps/desktop/src/renderer/src/routine-recovery.test.tsx	says the reason once, and opens the saved conversation rather than printing its id	yes
+apps/desktop/src/renderer/src/routine-recovery.test.tsx	names when Keep runs it next -- six hours from the decision, not the attempt (0.402 beta retest)	yes
+apps/desktop/src/renderer/src/routine-recovery.test.tsx	says why Continue is off, and offers to keep the schedule (0.390 beta pass)	yes
+apps/desktop/src/renderer/src/routine-recovery.test.tsx	says a refused start would be refused again, not that the step before it never finished (0.818)	yes
+apps/desktop/src/renderer/src/routine-recovery.test.tsx	an unresolved dispatch has the same visible protection; no optimistic next-run promise	no
 apps/desktop/src/renderer/src/scout-says-what-needs-you.test.tsx	lead with Locust’s sentence, say who noticed it and when, and open what it is about	no
 apps/desktop/src/renderer/src/scout-says-what-needs-you.test.tsx	raise what needs the person now, first, whenever it was found	no
 apps/desktop/src/renderer/src/scout-says-what-needs-you.test.tsx	show Scout’s take and draft as Scout’s, with Send and Change it first, and say while it is still reading	no
