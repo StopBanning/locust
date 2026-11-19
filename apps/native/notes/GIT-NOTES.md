@@ -52,6 +52,14 @@
   - `compare_view.rs` keep in place brings in -> `keeping_one_brings_nothing_in_its_changes_are_already_there`
 - Surprise: case-map reads the comment `("b/caf\303\251.txt")` in the CH test's header as a case; it is listed as unnamed noise in `parity/cases.tsv`.
 
+### Part 2 fix (after the first workspace run)
+- The first `nextest run --workspace` after `e580f32c` failed two relay window tests (`relay_share_starts_recipient_and_returns_reply_to_origin_thread`, `relay_stops_at_hop_cap_and_exchange_strip_stop_ends_live_run`). `history_cache.rs` had its own copy of the ledger summary that had drifted from `ledger::try_list_recent`:
+  - it read peer links from `peer.link`/`peerLink`, but the ledger writes `mission.peer`/`link`, so no ExchangeStrip was shown;
+  - it cached `running` with the freshness of the moment it was read;
+  - it chose the `limit` rows by `updated` instead of by file time.
+- Fixed all three in `history_cache.rs` (`ledger.rs` is another lane's). `answers_exactly_what_the_whole_listing_answered` now compares whole `Summary` values (peer links included) on the first read and the cached one, and the picks under a small limit. Added `a_cached_run_stops_counting_as_running_once_its_file_has_been_quiet_for_the_window`.
+- Breaks: peer-link record shape -> `answers_exactly…`; cached running -> `a_cached_run_stops…`; no limit -> `answers_exactly…`.
+
 ## Remaining
 - Part 3: Committing (4 files)
 - Part 4: Pull-request and issue links (7 files)

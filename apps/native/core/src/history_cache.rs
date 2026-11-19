@@ -29,6 +29,10 @@ pub struct HistoryRow {
 #[derive(Clone)]
 struct CachedFile {
     stamp: (u64, u128),
+    /// The run's own lifecycle says it is running; whether it still counts as running is decided at each read,
+    /// from the file's time, as `ledger::try_list_recent` decides it.
+    running: bool,
+    modified: SystemTime,
     summary: Option<Summary>,
     event_count: usize,
     waiting_question: Option<String>,
@@ -62,6 +66,11 @@ impl HistoryCache {
     /// on the newest `MAX_FULL_MISSIONS` rows and preserving `event_count` and `waiting_question`
     /// on light rows. Returns `(rows, mission_ids_read_from_disk)`.
     pub fn read_history_tracked(&self, dir: &Path, limit: usize) -> io::Result<(Vec<HistoryRow>, Vec<String>)> {
+        self.read_history_at(dir, limit, SystemTime::now())
+    }
+
+    /// `read_history_tracked` as of `now`, which decides whether a running mission still counts as running.
+    fn read_history_at(&self, dir: &Path, limit: usize, now: SystemTime) -> io::Result<(Vec<HistoryRow>, Vec<String>)> {
         let mut files = Vec::new();
         let mut present = HashSet::new();
         for entry in fs::read_dir(dir)? {
@@ -94,9 +103,14 @@ impl HistoryCache {
             cache.retain(|p, _| !p.starts_with(dir) || present.contains(p));
         }
 
+        // Chosen as `ledger::try_list_recent` chooses: newest file first, the first `limit` that are conversations.
+        files.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
         let mut read_ids = Vec::new();
         let mut all_rows: Vec<(HistoryRow, PathBuf)> = Vec::new();
         for (modified, path, id, stamp) in files {
+            if all_rows.len() == limit {
+                break;
+            }
             let cached = {
                 let cache = lock(&self.entries);
                 cache.get(&path).filter(|c| c.stamp == stamp).cloned()
@@ -110,7 +124,8 @@ impl HistoryCache {
                     parsed
                 }
             };
-            if let Some(summary) = entry.summary {
+            if let Some(mut summary) = entry.summary {
+                summary.running = entry.running && fresh(entry.modified, now);
                 all_rows.push((
                     HistoryRow {
                         summary,
@@ -130,7 +145,6 @@ impl HistoryCache {
                 .cmp(&a.summary.updated)
                 .then_with(|| a.summary.mission_id.cmp(&b.summary.mission_id))
         });
-        all_rows.truncate(limit);
 
         // Keep full events only on the newest MAX_FULL_MISSIONS rows; older rows stay light.
         let mut cache = lock(&self.entries);
@@ -148,6 +162,11 @@ impl HistoryCache {
     }
 }
 
+/// `ledger::fresh`: a running mission whose file has not moved for `ACTIVE_WINDOW` is not running any more.
+fn fresh(modified: SystemTime, now: SystemTime) -> bool {
+    modified != UNIX_EPOCH && now.duration_since(modified).unwrap_or_default() < ledger::ACTIVE_WINDOW
+}
+
 fn safe_id(id: &str) -> bool {
     !id.is_empty()
         && id.len() <= 128
@@ -156,10 +175,31 @@ fn safe_id(id: &str) -> bool {
             .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-'))
 }
 
+/// `ledger::parse_peer_link`: a `mission.peer` record's `link`, its time falling back to the record's.
+fn peer_link(record: &Value) -> Option<PeerLink> {
+    if record["recordType"] != "mission.peer" {
+        return None;
+    }
+    let link = record.get("link")?;
+    Some(PeerLink {
+        direction: link.get("direction")?.as_str()?.to_owned(),
+        message_id: link.get("messageId")?.as_str()?.to_owned(),
+        peer_teammate_id: link.get("peerTeammateId")?.as_str()?.to_owned(),
+        occurred_at: link
+            .get("occurredAt")
+            .and_then(Value::as_str)
+            .or_else(|| record.get("occurredAt").and_then(Value::as_str))
+            .unwrap_or_default()
+            .to_owned(),
+    })
+}
+
 fn parse_file(path: &Path, modified: SystemTime, stamp: (u64, u128)) -> CachedFile {
     let Ok(text) = fs::read_to_string(path) else {
         return CachedFile {
             stamp,
+            running: false,
+            modified,
             summary: None,
             event_count: 0,
             waiting_question: None,
@@ -173,6 +213,8 @@ fn parse_file(path: &Path, modified: SystemTime, stamp: (u64, u128)) -> CachedFi
     let Some(m) = records.iter().find_map(ledger::metadata) else {
         return CachedFile {
             stamp,
+            running: false,
+            modified,
             summary: None,
             event_count: 0,
             waiting_question: None,
@@ -182,6 +224,8 @@ fn parse_file(path: &Path, modified: SystemTime, stamp: (u64, u128)) -> CachedFi
     if m.side || m.started_by_kind.as_deref() == Some("scout") {
         return CachedFile {
             stamp,
+            running: false,
+            modified,
             summary: None,
             event_count: 0,
             waiting_question: None,
@@ -192,27 +236,12 @@ fn parse_file(path: &Path, modified: SystemTime, stamp: (u64, u128)) -> CachedFi
     let mut events_map: BTreeMap<u64, Value> = BTreeMap::new();
     let mut peer_links: Vec<PeerLink> = Vec::new();
     for record in &records {
-        if record.get("recordType").and_then(Value::as_str) == Some("peer.link")
-            && let Some(p) = record.get("peerLink")
-            && let (Some(direction), Some(message_id), Some(peer_teammate_id)) = (
-                p.get("direction").and_then(Value::as_str),
-                p.get("messageId").and_then(Value::as_str),
-                p.get("peerTeammateId").and_then(Value::as_str),
-            )
+        if let Some(link) = peer_link(record)
             && !peer_links
                 .iter()
-                .any(|l| l.direction == direction && l.message_id == message_id)
+                .any(|l: &PeerLink| l.direction == link.direction && l.message_id == link.message_id)
         {
-            peer_links.push(PeerLink {
-                direction: direction.to_owned(),
-                message_id: message_id.to_owned(),
-                peer_teammate_id: peer_teammate_id.to_owned(),
-                occurred_at: p
-                    .get("occurredAt")
-                    .and_then(Value::as_str)
-                    .unwrap_or_default()
-                    .to_owned(),
-            });
+            peer_links.push(link);
         }
         if let Some(event) = record.get("event")
             && let Some(seq) = event.get("sequence").and_then(Value::as_u64)
@@ -286,10 +315,6 @@ fn parse_file(path: &Path, modified: SystemTime, stamp: (u64, u128)) -> CachedFi
         .chars()
         .take(60)
         .collect();
-    let fresh = SystemTime::now()
-        .duration_since(modified)
-        .map(|d| d < ledger::ACTIVE_WINDOW)
-        .unwrap_or(true);
     let summary = Summary {
         reported_model: crate::model_alias::reported_model(&ordered_events, &m.model),
         parent: m.parent,
@@ -303,7 +328,7 @@ fn parse_file(path: &Path, modified: SystemTime, stamp: (u64, u128)) -> CachedFi
         runtime: m.runtime,
         model: m.model,
         created_at: m.created_at,
-        running: running && fresh,
+        running,
         failed,
         updated,
         started_by_kind: m.started_by_kind,
@@ -317,6 +342,8 @@ fn parse_file(path: &Path, modified: SystemTime, stamp: (u64, u128)) -> CachedFi
 
     CachedFile {
         stamp,
+        running,
+        modified,
         summary: Some(summary),
         event_count,
         waiting_question,
@@ -405,6 +432,15 @@ mod tests {
         for index in 1..=25 {
             write_mission(&dir.0, index);
         }
+        // A conversation that messaged a teammate carries the link, as the relay writes it.
+        let mut f = fs::OpenOptions::new().append(true).open(dir.0.join("mission_002.jsonl")).unwrap();
+        let link = json!({
+            "schemaVersion": 1,
+            "recordType": "mission.peer",
+            "occurredAt": at(2),
+            "link": { "direction": "posted", "messageId": "wm_1", "peerTeammateId": "tm_pip" }
+        });
+        writeln!(f, "{link}").unwrap();
         dir
     }
 
@@ -442,21 +478,38 @@ mod tests {
         let mut whole = ledger::try_list_recent(&dir.0, 100).unwrap();
         whole.sort_by(|a, b| b.updated.cmp(&a.updated).then_with(|| a.mission_id.cmp(&b.mission_id)));
         let kept_summaries: Vec<Summary> = kept.iter().map(|r| r.summary.clone()).collect();
-        assert_eq!(kept_summaries.len(), whole.len());
-        for (a, b) in kept_summaries.iter().zip(whole.iter()) {
-            assert_eq!(a.mission_id, b.mission_id);
-            assert_eq!(a.title, b.title);
-            assert_eq!(a.runtime, b.runtime);
-            assert_eq!(a.model, b.model);
-            assert_eq!(a.created_at, b.created_at);
-            assert_eq!(a.updated, b.updated);
-            assert_eq!(a.running, b.running);
-            assert_eq!(a.failed, b.failed);
-        }
+        // Every field, peer links and running included, on the first read and on the cached one.
+        assert_eq!(kept_summaries, whole);
+        let (again, _) = cache.read_history_tracked(&dir.0, 100).unwrap();
+        assert_eq!(again.iter().map(|r| r.summary.clone()).collect::<Vec<_>>(), whole);
+        assert_eq!(
+            kept_summaries.iter().find(|s| s.mission_id == "mission_002").map(|s| s.peer_links.len()),
+            Some(1)
+        );
+        // A smaller limit picks the same conversations the whole listing picks.
+        let mut few: Vec<String> = cache.list_recent_summaries(&dir.0, 7).unwrap().into_iter().map(|s| s.mission_id).collect();
+        let mut few_whole: Vec<String> = ledger::try_list_recent(&dir.0, 7).unwrap().into_iter().map(|s| s.mission_id).collect();
+        few.sort();
+        few_whole.sort();
+        assert_eq!(few, few_whole);
         // Premise: some rows came WITHOUT events, and still count them.
         let light: Vec<&HistoryRow> = kept.iter().filter(|r| r.events.is_empty()).collect();
         assert_eq!(light.len(), 5);
         assert!(light.iter().all(|r| r.event_count > 0));
+    }
+
+    #[test]
+    fn a_cached_run_stops_counting_as_running_once_its_file_has_been_quiet_for_the_window() {
+        let dir = ledger_with_missions();
+        append_event(&dir.0, 4, 3, 4, "run.started", json!({}));
+        let cache = HistoryCache::new();
+        let now = SystemTime::now();
+        let running_of = |rows: &[HistoryRow]| rows.iter().find(|r| r.summary.mission_id == "mission_004").map(|r| r.summary.running);
+        let (first, _) = cache.read_history_at(&dir.0, 100, now).unwrap();
+        assert_eq!(running_of(&first), Some(true));
+        let (later, reads) = cache.read_history_at(&dir.0, 100, now + ledger::ACTIVE_WINDOW + std::time::Duration::from_secs(60)).unwrap();
+        assert!(reads.is_empty(), "nothing changed on disk: {reads:?}");
+        assert_eq!(running_of(&later), Some(false));
     }
 
     // case: reads no file twice when nothing changed
