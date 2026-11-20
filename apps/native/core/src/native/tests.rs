@@ -3490,3 +3490,20 @@ fn an_app_server_that_cannot_start_says_so_at_once() {
     }
     assert!(begun.elapsed() < Duration::from_secs(10), "{:?}", begun.elapsed());
 }
+
+/// a-stop-on-a-finished-run-changes-nothing.test.ts: Electron marked any run cancelling on Stop, and a run that had
+/// finished between the render and the click stayed "running" for good. Rust's Stop acts only on a turn this window
+/// still holds: on a finished one it says so and writes nothing.
+// case: leaves a run that has already finished exactly as it was
+#[test]
+fn a_stop_on_a_finished_turn_changes_nothing() {
+    let t = Temp::new();
+    let _g = hooks::install(t.store(), fake("success"));
+    let run = send(job(&t, None, "Synthetic prompt")).unwrap();
+    finished(&run.conversation_id);
+    let path = path_of(&t, &run.conversation_id);
+    let before = fs::read_to_string(&path).unwrap();
+    assert!(stop(&run.conversation_id).is_err());
+    assert_eq!(owned_key(Some(&run.conversation_id), Some(&run.conversation_id)), None, "no Stop is offered");
+    assert_eq!(fs::read_to_string(&path).unwrap(), before, "nothing written");
+}
