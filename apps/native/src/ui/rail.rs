@@ -548,6 +548,28 @@ mod tests {
         assert_eq!(layout_lede("wide", true), "Full. The names beside the faces, whatever the window.");
     }
 
+    // ---- layout.test.ts ----
+    // case: follows the width when nobody has chosen
+    // case: covers the smallest window the app will open
+    // case: lets a choice win at every width, in both directions
+    // case: recognises only the three preferences it can honour
+    #[test]
+    fn the_layout_follows_the_width_covers_the_smallest_window_and_a_choice_wins() {
+        assert!(compact_for("auto", 1120.0) && compact_for("auto", COMPACT_MAX_WIDTH));
+        assert!(!compact_for("auto", COMPACT_MAX_WIDTH + 1.0) && !compact_for("auto", 1920.0));
+        assert!(compact_for("auto", locust_core::window_bounds::MIN_WINDOW_WIDTH as f32), "the smallest window gets the rail");
+        assert!(!compact_for("wide", 1120.0) && !compact_for("wide", 800.0));
+        assert!(compact_for("compact", 1920.0) && compact_for("compact", 3840.0));
+        for good in ["auto", "compact", "wide"] {
+            let read = locust_core::workspace_settings::parse_settings(&serde_json::json!({"layout": good}));
+            assert_eq!(read.layout, good);
+        }
+        for bad in [serde_json::json!("rail"), serde_json::json!(""), serde_json::Value::Null, serde_json::json!(1), serde_json::json!({})] {
+            let read = locust_core::workspace_settings::parse_settings(&serde_json::json!({"layout": bad}));
+            assert_eq!(read.layout, "auto", "{bad}");
+        }
+    }
+
     #[test]
     fn the_card_says_what_electron_says() {
         assert_eq!(count_badge(1), None);

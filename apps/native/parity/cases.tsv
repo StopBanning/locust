@@ -3855,6 +3855,10 @@ apps/desktop/src/renderer/src/its-own-settings-file.test.ts	does not put the raw
 apps/desktop/src/renderer/src/its-own-settings-file.test.ts	keeps the host sentence it is extending	no
 apps/desktop/src/renderer/src/its-own-settings-file.test.ts	leaves every other last word exactly as it was	no
 apps/desktop/src/renderer/src/keyboardShortcuts.test.ts	groups them for a person, and every row is a key the code actually handles	no
+apps/desktop/src/renderer/src/layout.test.ts	follows the width when nobody has chosen	yes
+apps/desktop/src/renderer/src/layout.test.ts	covers the smallest window the app will open	yes
+apps/desktop/src/renderer/src/layout.test.ts	lets a choice win at every width, in both directions	yes
+apps/desktop/src/renderer/src/layout.test.ts	recognises only the three preferences it can honour	yes
 apps/desktop/src/renderer/src/links-go-somewhere.test.ts	is a link, not four asterisks and a URL	yes
 apps/desktop/src/renderer/src/links-go-somewhere.test.ts	works for bold as well as italic	yes
 apps/desktop/src/renderer/src/links-go-somewhere.test.ts	leaves a plain link and plain emphasis exactly as they were	yes
