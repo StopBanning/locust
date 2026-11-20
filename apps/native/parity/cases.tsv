@@ -1010,6 +1010,8 @@ apps/desktop/src/main/an-approval-shows-the-whole-action.test.ts	keeps a command
 apps/desktop/src/main/an-approval-shows-the-whole-action.test.ts	shows the path of a Codex command on Windows as the shell gets it	no
 apps/desktop/src/main/an-approval-shows-the-whole-action.test.ts	leaves a command as sent when its path was not escaped as a whole, and leaves the rest alone	no
 apps/desktop/src/main/an-approval-shows-the-whole-action.test.ts	counts what it cannot show, and never cuts it silently	no
+apps/desktop/src/main/an-attention-mark-says-when-you-were-last-here.test.ts	reads back what was written, making the folder on the way, and leaves no half-written file	yes
+apps/desktop/src/main/an-attention-mark-says-when-you-were-last-here.test.ts	treats a file it cannot read as no mark (control)	yes
 apps/desktop/src/main/an-automatic-reply-stays-on-the-model-picked-in-its-conversation.test.ts	the answer brought back starts the asker on the model picked there, not the one on their profile	no
 apps/desktop/src/main/an-automatic-reply-stays-on-the-model-picked-in-its-conversation.test.ts	so does a reply written back	no
 apps/desktop/src/main/an-automatic-reply-stays-on-the-model-picked-in-its-conversation.test.ts	and so does the turn after a meeting, when several were asked at once	no

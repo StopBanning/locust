@@ -577,3 +577,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "attention_mark_tests.rs"]
+mod attention_mark_tests;
