@@ -2341,6 +2341,10 @@ apps/desktop/src/main/workspace-brief.test.ts	is bounded by lines and by bytes, 
 apps/desktop/src/main/workspace-brief.test.ts	gives each runtime its own section and everyone the rest	yes
 apps/desktop/src/main/workspace-brief.test.ts	leaves alone a tag that names no runtime, a tag inside a code fence, and a tag never closed	yes
 apps/desktop/src/main/workspace-brief.test.ts	is what a run on that runtime is given, bounded after the other sections are gone	no
+apps/desktop/src/main/workspace-files.test.ts	are git's own list in a repository, and never a path that climbs out or Locust's own folder	yes
+apps/desktop/src/main/workspace-files.test.ts	are walked outside a repository, skipping the folders nobody attaches from	yes
+apps/desktop/src/main/workspace-files.test.ts	stop at the cap, and say so	yes
+apps/desktop/src/main/workspace-files.test.ts	reach past docs/ in a repository the size of Locust	yes
 apps/desktop/src/main/workspace.test.ts	is the folder the app was launched from, as it always was	yes
 apps/desktop/src/main/workspace.test.ts	is NEVER the install folder -- the Start menu launches the app from there	yes
 apps/desktop/src/main/workspace.test.ts	treats a folder UNDER the install folder the same, whatever its case	yes

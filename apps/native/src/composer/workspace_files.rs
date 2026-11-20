@@ -18,6 +18,23 @@ const SKIP: &[&str] = &[
     "coverage",
 ];
 
+/// What git listed, as the box offers it: forward slashes, never a path that climbs out, a whole path, a drive path or
+/// Locust's own folder, and at most `MAX` (said as truncated).
+fn from_git<'a>(listed: impl Iterator<Item = &'a str>) -> (Vec<String>, bool) {
+    let mut paths: Vec<_> = listed
+        .map(|p| p.replace('\\', "/"))
+        .filter(|p| {
+            !p.is_empty()
+                && !p.starts_with('/')
+                && !p.split('/').any(|v| v == ".." || v == ".locust")
+                && !(p.as_bytes().get(1) == Some(&b':'))
+        })
+        .collect();
+    let truncated = paths.len() > MAX;
+    paths.truncate(MAX);
+    (paths, truncated)
+}
+
 pub fn list(root: &Path) -> (Vec<String>, bool) {
     if let Ok(output) = Command::new("git")
         .args([
@@ -31,19 +48,7 @@ pub fn list(root: &Path) -> (Vec<String>, bool) {
         .output()
         && output.status.success()
     {
-        let mut paths: Vec<_> = String::from_utf8_lossy(&output.stdout)
-            .split('\0')
-            .map(|p| p.replace('\\', "/"))
-            .filter(|p| {
-                !p.is_empty()
-                    && !p.starts_with('/')
-                    && !p.split('/').any(|v| v == ".." || v == ".locust")
-                    && !(p.as_bytes().get(1) == Some(&b':'))
-            })
-            .collect();
-        let truncated = paths.len() > MAX;
-        paths.truncate(MAX);
-        return (paths, truncated);
+        return from_git(String::from_utf8_lossy(&output.stdout).split('\0'));
     }
     fn walk(
         root: &Path,
@@ -107,3 +112,7 @@ mod tests {
         fs::remove_dir_all(root).unwrap();
     }
 }
+
+#[cfg(test)]
+#[path = "workspace_files_electron_tests.rs"]
+mod workspace_files_electron_tests;
