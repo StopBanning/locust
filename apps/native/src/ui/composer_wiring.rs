@@ -167,8 +167,8 @@ pub(super) fn composer_placeholder(s: &State) -> String {
         f.status == locust_core::agents::Probe::AuthRequired || f.auth == locust_core::agents::Auth::Unauthenticated
     });
     let installed = agents.iter().any(|f| f.installed);
-    // The sweep is over when no installed agent is still being asked; then the box counts the ones it is about.
-    let gave_up = installed && !agents.iter().any(|f| f.installed && f.checking);
+    // Counted only once the window has stopped asking (`runtimesGaveUp`); until then, installed is "Checking".
+    let gave_up = installed && s.settings_panel.agents_gave_up;
     let installed_silent = if gave_up { agents.iter().filter(|f| f.installed && !usable(f)).count() } else { 0 };
     composer::placeholder(composer::PlaceholderInput {
         working_now: turn_running(s),

@@ -32,6 +32,7 @@ fn found(agents: Vec<Found>) -> State {
     let mut s = State::default();
     crate::scenes::composer_base_scene(&mut s, false);
     s.settings_panel.agents = Some(agents);
+    s.settings_panel.agents_gave_up = true;
     s
 }
 
@@ -85,9 +86,8 @@ fn a_working_agent_is_named_instead_of_the_hung_ones() {
 // case: says nothing of the kind while discovery is still asking
 #[test]
 fn nothing_of_the_kind_while_discovery_asks() {
-    let mut asking = hung(3);
-    asking[1] = agent("hung1", "Agent 1", Is::Asking);
-    let s = found(asking);
+    let mut s = found(hung(3));
+    s.settings_panel.agents_gave_up = false;
     let said = composer_placeholder(&s);
     assert!(!said.contains("not answering"), "{said}");
     assert_eq!(said, "Checking the AI agents on this machine…");

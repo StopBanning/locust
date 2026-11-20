@@ -37,6 +37,11 @@ pub(super) struct Panel {
     /// "AI agents & accounts": what discovery found (None until the first check lands), and the check itself.
     pub agents: Option<Vec<locust_core::agents::Found>>,
     pub agents_job: Latest<Vec<locust_core::agents::Found>>,
+    /// The re-asks after the first check (App.tsx's give-up budget): sweeps answered so far, whether the window has
+    /// stopped asking an agent that will not answer, and the wait before the next ask.
+    pub agent_sweeps: u8,
+    pub agents_gave_up: bool,
+    pub agents_recheck: Latest<()>,
     /// "OWN COPIES": the project folder's teammate copies, and what a Remove came back with.
     pub own_copies: Option<crate::own_copies::OwnCopies>,
     pub check_command: TextEdit,

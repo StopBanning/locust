@@ -43,13 +43,50 @@ pub(super) fn request(s: &mut State) {
     }
 }
 
+/// How long the window waits before asking agents again (App.tsx `RUNTIME_RECHECK_MS`).
+pub(super) const RECHECK: std::time::Duration = std::time::Duration::from_secs(15);
+/// Sweeps before the window stops asking an agent that will not answer (App.tsx `SWEEPS_BEFORE_GIVING_UP`).
+pub(super) const SWEEPS_BEFORE_GIVING_UP: u8 = 4;
+
+/// Check again: ask now, with the give-up budget back in full (App.tsx `resetDiscoveryBudget`).
+fn check_again(s: &mut State) {
+    s.settings_panel.agent_sweeps = 0;
+    s.settings_panel.agents_gave_up = false;
+    request(s);
+}
+
+/// An installed agent that has not answered ready-or-not yet: still being asked, or its check did not come back.
+fn still_checking(agents: &[Found]) -> bool {
+    agents.iter().any(|f| f.installed && (f.checking || matches!(f.status, agents::Probe::ProbeFailed | agents::Probe::Offline)))
+}
+
+/// One sweep answered: ask again in a while while an agent is still unanswered, and stop after the budget, so the
+/// screen stops saying "checking" and offers a way past an agent that will never answer.
+fn after_a_sweep(s: &mut State) {
+    let p = &mut s.settings_panel;
+    p.agent_sweeps = p.agent_sweeps.saturating_add(1);
+    if p.agents_gave_up || !still_checking(p.agents.as_deref().unwrap_or(&[])) {
+        return;
+    }
+    if p.agent_sweeps >= SWEEPS_BEFORE_GIVING_UP {
+        p.agents_gave_up = true;
+        return;
+    }
+    #[cfg(not(test))]
+    p.agents_recheck.request((), |()| std::thread::sleep(RECHECK));
+}
+
 /// The background check's answer, when it lands; and an install's latest line and its end.
 pub(super) fn poll(s: &mut State) -> bool {
+    if s.settings_panel.agents_recheck.take().is_some() && !s.settings_panel.agents_gave_up {
+        request(s);
+    }
     let mut changed = match s.settings_panel.agents_job.take() {
         Some(found) => {
             // A re-check does not make the list go backwards (App.tsx: `keepWhatWasKnown(held, response.runtimes)`).
             let kept = keep_known(s.settings_panel.agents.as_deref().unwrap_or(&[]), found);
             s.settings_panel.agents = Some(kept);
+            after_a_sweep(s);
             true
         }
         None => false,
@@ -517,7 +554,7 @@ pub(super) fn section(s: &State, p: &Palette) -> El {
             .hover(l.c("hover-surface"))
             .key("agents-check-again")
             .role("button")
-            .on_press(request),
+            .on_press(check_again),
     )
 }
 
@@ -555,6 +592,10 @@ pub(super) fn light_scene(s: &mut State) {
     scene(s);
     s.appearance = Some(false);
 }
+
+#[cfg(test)]
+#[path = "agents_recheck_tests.rs"]
+mod agents_recheck_tests;
 
 #[cfg(test)]
 mod tests {
