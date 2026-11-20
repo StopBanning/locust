@@ -1348,3 +1348,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "a_long_command_tests.rs"]
+mod a_long_command_tests;

@@ -385,6 +385,8 @@ apps/desktop/src/main/a-long-answer-is-not-too-much-to-record.test.ts	accepts a 
 apps/desktop/src/main/a-long-answer-is-not-too-much-to-record.test.ts	writes them as one unbroken run, and the next append continues it	yes
 apps/desktop/src/main/a-long-answer-is-not-too-much-to-record.test.ts	splits on total size too, not only on count	yes
 apps/desktop/src/main/a-long-answer-is-not-too-much-to-record.test.ts	still refuses an event it could not read back, before writing any of them	yes
+apps/desktop/src/main/a-long-command-does-not-stop-the-run.test.ts	is recorded, cut to fit with both ends kept, and the run goes on	yes
+apps/desktop/src/main/a-long-json-key-does-not-stop-a-run.test.ts	is recorded, not a reason to stop the run	yes
 apps/desktop/src/main/a-long-judge-reads-files.test.ts	three long answers quoted do not fit one message	no
 apps/desktop/src/main/a-long-judge-reads-files.test.ts	named as files, they do, and the judge is told to read each one	no
 apps/desktop/src/main/a-long-judge-reads-files.test.ts	the host switches to files only when the quoted message is too long	no
@@ -2135,6 +2137,16 @@ apps/desktop/src/main/skills-kept-from-github.test.ts	says plainly what GitHub w
 apps/desktop/src/main/skills-kept-from-github.test.ts	follows a redirect only to GitHub's own hosts	yes
 apps/desktop/src/main/skills-kept-from-github.test.ts	refuses a keep it was not shown: a name not in that commit, or no commit	yes
 apps/desktop/src/main/skills-kept-from-github.test.ts	outside Auto beside the folder's own; in Auto, the kept ones alone	yes
+apps/desktop/src/main/sols-review-is-answered.test.ts	1. more than the check reads is never cut: Codex lines past 1 MiB, then the person's own, are all kept	no
+apps/desktop/src/main/sols-review-is-answered.test.ts	2. a line the person's program adds after the check is never cut	no
+apps/desktop/src/main/sols-review-is-answered.test.ts	3. a branch named like a flag is refused before git is ever asked to push it	yes
+apps/desktop/src/main/sols-review-is-answered.test.ts	4. a .locust file already staged is never committed	yes
+apps/desktop/src/main/sols-review-is-answered.test.ts	5. a refused commit leaves alone what the person staged while the hook ran, and says so	yes
+apps/desktop/src/main/sols-review-is-answered.test.ts	6. the commit is of the files the person was shown, or nothing	yes
+apps/desktop/src/main/sols-review-is-answered.test.ts	8. a checkout hook that fails after the switch leaves the person on their branch, and no new one	yes
+apps/desktop/src/main/sols-review-is-answered.test.ts	9. a marker check that fails is not "no markers", and the thread does not say it can land	yes
+apps/desktop/src/main/sols-review-is-answered.test.ts	10. a URL that only mentions github.com is not GitHub	yes
+apps/desktop/src/main/sols-review-is-answered.test.ts	the log a cleanup leaves for a call that made it is gone, as before	no
 apps/desktop/src/main/stopping-app-server-holds-nothing.test.ts	walks the tree once however many times it is stopped	yes
 apps/desktop/src/main/stopping-app-server-holds-nothing.test.ts	returns before the walk finishes -- the walk never has to finish for kill() to return	no
 apps/desktop/src/main/stopping-app-server-holds-nothing.test.ts	kills the process itself when taskkill could not	no
