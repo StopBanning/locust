@@ -4591,7 +4591,7 @@ fn making_a_room_and_posting_starts_one_run_per_member_and_shows_answers() {
     settle(&mut rt);
 
     let prompt_log = std::fs::read_to_string(dirs.0.join("room-prompts.jsonl")).unwrap();
-    assert_eq!(prompt_log.lines().count(), 2, "one run started per member");
+    assert_eq!(prompt_log.lines().count(), 2, "one run started per member; the prompts were:\n{prompt_log}");
     let texts: Vec<String> = rt.elements().into_iter().filter_map(|e| e.text).collect();
     assert!(texts.iter().any(|t| t.contains("Codec room answer.")), "Codec answer shown: {texts:?}");
     assert!(texts.iter().any(|t| t.contains("Pip room answer.")), "Pip answer shown: {texts:?}");

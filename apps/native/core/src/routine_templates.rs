@@ -228,7 +228,7 @@ pub fn template_meta(info: &RoutineTemplateInfo) -> String {
         1 => "1 question".to_owned(),
         n => format!("{n} questions"),
     };
-    format!("{steps} · {asks}")
+    format!("{steps} · {}{asks}", if info.chain { "hand-offs · " } else { "" })
 }
 
 /// `templatesLine` from `RoutineTemplates.tsx`.
@@ -376,6 +376,76 @@ pub fn proposed_hand_offs(
         .collect();
     (owner, hand_offs)
 }
+
+/// A teammate as a chain draft reads them: who they are for the proposal, and their route (`runtime`, `model`, `mode`)
+/// when they have one of their own.
+#[derive(Clone, Debug, PartialEq)]
+pub struct DraftTeammate {
+    pub who: ProposableTeammate,
+    pub route: Option<Value>,
+}
+
+/// What the routine editor opens on for a chain template (routines.ts `chainDraftFrom`).
+#[derive(Clone, Debug, PartialEq)]
+pub struct ChainDraft {
+    pub teammate_id: Option<String>,
+    pub name: String,
+    pub steps: Vec<String>,
+    pub hand_offs: Vec<Value>,
+    /// The role the template named for each step, for the editor to show beside who was proposed.
+    pub step_roles: Vec<Option<String>>,
+    pub route: Option<Value>,
+    /// A chain that changes files opens set to change them, in a copy that waits for Keep or Discard.
+    pub in_copy: bool,
+    pub force_mode: Option<&'static str>,
+}
+
+/// routines.ts `chainDraftFrom`: a teammate proposed for each step from this roster (the checker marked, a step the
+/// template gives to another agent given to one), each step's ask-first kept, the owner's route (or `fallback`, the
+/// one the box shows, for a teammate with none) set to change files when the chain does.
+pub fn chain_draft_from(preview: &crate::routine_io::RoutineImportPreview, team: &[DraftTeammate], fallback: &Value) -> ChainDraft {
+    let steps: Vec<ChainStep> = (0..preview.steps.len())
+        .map(|at| ChainStep {
+            role: preview.hand_off_roles.get(at).cloned().flatten(),
+            check: preview.hand_off_checks.get(at).copied().unwrap_or(false),
+            another: preview.hand_off_on_another_agent.as_ref().and_then(|a| a.get(at).copied()).unwrap_or(false),
+        })
+        .collect();
+    let who: Vec<ProposableTeammate> = team.iter().map(|t| t.who.clone()).collect();
+    let (owner, proposed) = proposed_hand_offs(&steps, &who);
+    let hand_offs = proposed
+        .into_iter()
+        .enumerate()
+        .map(|(at, mut entry)| {
+            if preview.hand_off_asks.as_ref().and_then(|a| a.get(at)) == Some(&true) {
+                entry["askFirst"] = json!(true);
+            }
+            entry
+        })
+        .collect();
+    let changes = preview.changes_files;
+    let base = team.iter().find(|t| Some(&t.who.teammate_id) == owner.as_ref()).map(|t| t.route.clone().unwrap_or_else(|| fallback.clone()));
+    let route = base.map(|mut r| {
+        if changes {
+            r["mode"] = json!("accept-edits");
+        }
+        r
+    });
+    ChainDraft {
+        teammate_id: owner,
+        name: preview.name.clone(),
+        steps: preview.steps.clone(),
+        hand_offs,
+        step_roles: preview.hand_off_roles.clone(),
+        route,
+        in_copy: changes,
+        force_mode: changes.then_some("accept-edits"),
+    }
+}
+
+#[cfg(test)]
+#[path = "chain_draft_tests.rs"]
+mod chain_draft_tests;
 
 #[cfg(test)]
 mod tests {

@@ -62,6 +62,9 @@ pub(super) struct Panel {
     pub import_preview: Option<ImportPreviewState>,
     pub export_dialog: Option<ExportDialogState>,
     pub templates_open: bool,
+    /// The routine opened in the editor was a chain with a checker (RoutineDialog `canHandOff`, read from the hand-offs it
+    /// opened with): its step choices show even for one teammate on their own.
+    pub opened_as_chain: bool,
     pub hook_state: Option<(String, locust_core::routine_hooks::RoutineHookState)>,
     pub hook_copied: bool,
     pub hook_busy: bool,
@@ -140,6 +143,7 @@ impl Default for Panel {
             import_preview: None,
             export_dialog: None,
             templates_open: false,
+            opened_as_chain: false,
             hook_state: None,
             hook_copied: false,
             hook_busy: false,
@@ -261,6 +265,7 @@ fn edit(s: &mut State, r: Value) {
     // The folder's own check, read once here: the routine's folder, or for one not saved yet the folder open now.
     let workspace = r["workspaceId"].as_str().map(str::to_owned).or_else(|| locust_core::native::open_folder().map(|p| locust_core::people::workspace_id(&p)));
     s.routines.check_command = s.data.as_ref().and_then(|store| locust_core::edit_check::check_command_for(store, workspace.as_deref()));
+    s.routines.opened_as_chain = r["handOffs"].as_array().is_some_and(|h| h.iter().any(|e| e["check"] == true));
     s.routines.entry = r.clone();
     s.routines.hook_state = None;
     s.routines.hook_copied = false;
@@ -712,6 +717,8 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                     }
                     let inputs_val = serialize_input_rows(&s.routines.input_rows);
                     if let Some(obj) = entry.as_object_mut() {
+                        // What the template proposed each step for is the editor's alone; a routine never keeps it.
+                        obj.remove("stepRoles");
                         if inputs_val.is_empty() {
                             obj.remove("inputs");
                         } else {
@@ -943,7 +950,9 @@ fn step_choices(s: &State, i: usize, p: &Palette) -> El {
     let owner = panel.entry["teammateId"].as_str().unwrap_or("").to_owned();
     let name_of = |id: &str| s.teammates.iter().find(|t| t.id == id).map(|t| t.name.clone());
     let mut choices = row().gap(10.0);
-    if s.teammates.len() > 1 {
+    // RoutineDialog: the choices show with two teammates or more, and for one on their own when the routine is a chain
+    // with a checker, so every step is theirs and the last still has to approve.
+    if s.teammates.len() > 1 || (panel.opened_as_chain && !s.teammates.is_empty()) {
         let who = match entry["teammateId"].as_str() {
             Some(id) => name_of(id).unwrap_or_else(|| id.to_owned()),
             None => name_of(&owner).map_or("The teammate who runs it".into(), |n| format!("{n} (runs it)")),
@@ -970,6 +979,10 @@ fn step_choices(s: &State, i: usize, p: &Palette) -> El {
                     if on { o.remove("check"); } else { o.insert("check".into(), json!(true)); }
                 }
             }));
+    }
+    // The role the template proposed this step for, beside who takes it (`initialStepRoles`); nothing without roles.
+    if let Some(role) = panel.entry["stepRoles"][i].as_str() {
+        choices = choices.child(text(format!("Role: {role}")).key(format!("routine-step-role-{i}")).font(type_::LABEL).color(p.muted));
     }
     if i > 0 {
         choices = choices.child(button(&tick_box(entry["askFirst"] == true, "Wait for my OK first"), p).key(format!("routine-step-ok-{i}")).on_press(move |s: &mut State| {
@@ -1854,6 +1867,12 @@ fn templates_view(_s: &State, p: &Palette) -> El {
                                 .map(std::path::Path::new)
                                 .map(locust_core::people::workspace_id);
                             match s.routines.io.preview_template(&tid, ws.as_deref(), &[]) {
+                                // App.tsx openRoutineTemplate: a CHAIN opens in the editor, a teammate proposed for
+                                // each step from this roster, not in the preview that gives every step to one.
+                                Ok(preview) if preview.hand_off_checks.iter().any(|c| *c) => {
+                                    s.routines.templates_open = false;
+                                    open_chain_draft(s, &preview);
+                                }
                                 Ok(preview) => {
                                     s.routines.templates_open = false;
                                                                         s.routines.import_preview = Some(ImportPreviewState {
@@ -1870,6 +1889,44 @@ fn templates_view(_s: &State, p: &Palette) -> El {
         );
     }
     box_el
+}
+
+/// The editor, opened on a chain template (`chainDraftFrom`): who takes each step proposed from the team, the checker
+/// marked, the role beside each step, and a chain that changes files set to change them, in a copy.
+fn open_chain_draft(s: &mut State, preview: &locust_core::routine_io::RoutineImportPreview) {
+    use locust_core::routine_templates::{chain_draft_from, DraftTeammate, ProposableTeammate};
+    let team: Vec<DraftTeammate> = s
+        .teammates
+        .iter()
+        .map(|t| DraftTeammate {
+            who: ProposableTeammate { teammate_id: t.id.clone(), role: t.role.clone(), role_title: None, runtime: t.runtime.clone() },
+            route: t.runtime.as_ref().map(|rt| json!({"runtime": rt, "model": t.model.clone().unwrap_or_else(|| "account-default".into()), "mode": t.runs_in})),
+        })
+        .collect();
+    // The route the box shows: the selected teammate's, else the account default on Codex, in the box's mode.
+    let shown = s.teammates.get(s.selected);
+    let fallback = json!({
+        "runtime": shown.and_then(|t| t.runtime.clone()).unwrap_or_else(|| "codex".into()),
+        "model": shown.and_then(|t| t.model.clone()).unwrap_or_else(|| "account-default".into()),
+        "mode": s.composer_mode.clone().or_else(|| shown.map(|t| t.runs_in.clone())).unwrap_or_else(|| "ask".into()),
+    });
+    let draft = chain_draft_from(preview, &team, &fallback);
+    let mut entry = json!({
+        "name": draft.name,
+        "steps": draft.steps,
+        "teammateId": draft.teammate_id.unwrap_or_default(),
+        "handOffs": draft.hand_offs,
+        "stepRoles": draft.step_roles,
+        "inCopy": draft.in_copy,
+        "inputs": preview.inputs.iter().map(|i| i.to_json()).collect::<Vec<_>>(),
+    });
+    if let Some(route) = draft.route {
+        entry["route"] = route;
+    }
+    if let Some(mode) = draft.force_mode {
+        entry["mode"] = json!(mode);
+    }
+    edit(s, entry);
 }
 
 fn import_preview_view(s: &State, imp: &ImportPreviewState, p: &Palette) -> El {
@@ -2137,6 +2194,10 @@ fn save_routine_file_dialog(content: String, suggested: String, tx: &mut Tx) {
 }
 
 #[cfg(test)]
+#[path = "chain_editor_tests.rs"]
+mod chain_editor_tests;
+
+#[cfg(test)]
 mod renderer_handoff_tests {
     use super::*;
     fn team() -> Vec<Teammate> {
@@ -2169,7 +2230,9 @@ mod renderer_handoff_tests {
     }
     #[test]
     fn draws_no_choice_for_a_teammate_on_their_own() {
-        let rt=draw(1); let els=rt.elements();
+        // Electron's dialog([WREN]): one teammate on a routine with no hand-offs. (A chain with a checker keeps its
+        // choices for one teammate: src/ui/chain_editor_tests.rs.)
+        let mut rt=draw(1); rt.update(|s,_| { s.routines.entry["handOffs"]=json!([{},{},{}]); s.routines.opened_as_chain=false; }); rt.frame(0.0); let els=rt.elements();
         assert!(!els.iter().any(|e|e.label.as_deref().is_some_and(|l|l.starts_with("Who takes step "))));
         assert!(!els.iter().filter_map(|e|e.text.as_deref()).any(|t|t.contains("Checker")));
     }

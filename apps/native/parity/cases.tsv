@@ -2663,6 +2663,19 @@ apps/desktop/src/renderer/src/a-carried-on-turn-is-said-as-locusts.test.tsx	draw
 apps/desktop/src/renderer/src/a-carried-on-turn-is-said-as-locusts.test.tsx	the divider says the plan ran out and where the work went	no
 apps/desktop/src/renderer/src/a-carried-on-turn-is-said-as-locusts.test.tsx	the stopped run says its provider failed first, and that another agent can start it clean (0.839)	no
 apps/desktop/src/renderer/src/a-carried-on-turn-is-said-as-locusts.test.tsx	the stopped run offers one press that names the agent, and says why a press was refused	no
+apps/desktop/src/renderer/src/a-chain-template-opens-in-the-editor.test.tsx	shows who takes each step, the checker marked on the last, and the run set to change files in a copy	yes
+apps/desktop/src/renderer/src/a-chain-template-opens-in-the-editor.test.tsx	says beside each step the role it was proposed for, and nothing when the routine has no roles	yes
+apps/desktop/src/renderer/src/a-chain-template-opens-in-the-editor.test.tsx	keeps the checker for a teammate on their own: every step is theirs and the last still has to approve	yes
+apps/desktop/src/renderer/src/a-chain-template-opens-in-the-editor.test.tsx	still draws no choice for one teammate on a plain routine	yes
+apps/desktop/src/renderer/src/a-chain-template-opens-in-the-editor.test.tsx	names the chain Atlas → Wren → Sable (checks), as any hand-off chain reads	yes
+apps/desktop/src/renderer/src/a-chain-template-opens-in-the-editor.test.tsx	says the checker is the same teammate when there is only one	yes
+apps/desktop/src/renderer/src/a-chain-template-opens-in-the-editor.test.tsx	names a model once when the whole chain runs on it	yes
+apps/desktop/src/renderer/src/a-chain-template-opens-in-the-editor.test.tsx	says a chain hands work on, and says nothing new about the others	yes
+apps/desktop/src/renderer/src/a-chain-template-opens-in-the-editor.test.tsx	proposes the roles, marks the checker, and opens a chain that changes files set to change them, in a copy	yes
+apps/desktop/src/renderer/src/a-chain-template-opens-in-the-editor.test.tsx	opens a chain that only reads as it reads: no copy, no forced mode, the own mode of the teammate	yes
+apps/desktop/src/renderer/src/a-chain-template-opens-in-the-editor.test.tsx	replays a teammate with no route of their own on the one the box shows, changing files when the chain does	yes
+apps/desktop/src/renderer/src/a-chain-template-opens-in-the-editor.test.tsx	has nobody to propose and no route when the roster is empty (the editor then says to add a teammate first)	yes
+apps/desktop/src/renderer/src/a-chain-template-opens-in-the-editor.test.tsx	gives a Council review step to a teammate on another agent, as its template says (0.837)	yes
 apps/desktop/src/renderer/src/a-change-can-be-copied.test.tsx	gives the code as it reads after an edit: no signs, no removed lines, parts apart	no
 apps/desktop/src/renderer/src/a-change-can-be-copied.test.tsx	gives a new file whole, and nothing for a deleted one	no
 apps/desktop/src/renderer/src/a-change-can-be-copied.test.tsx	offers Copy at the foot of an opened change	no
