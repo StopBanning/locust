@@ -2323,6 +2323,8 @@ apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.t
 apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	a window that never listens is not waited on forever: the keys are opened anyway, for the readers that need them	no
 apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	a read before the step leaves nothing to say	no
 apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	is one step however often it is begun, and settled once it is over	no
+apps/desktop/src/main/the-next-turn-is-not-refused-while-the-last-winds-down.test.ts	takes the next turn of that conversation	yes
+apps/desktop/src/main/the-next-turn-is-not-refused-while-the-last-winds-down.test.ts	starts another conversation at once: it waits for nothing (0.551)	no
 apps/desktop/src/main/the-pages-a-browser-runs-are-whole.test.ts	parses as the browser receives it: the phone page both ways, its service worker, and the way in	yes
 apps/desktop/src/main/the-pages-a-browser-runs-are-whole.test.ts	names a computer’s browser by its name and system, as Settings lists it	yes
 apps/desktop/src/main/the-permission-bridge-keeps-its-characters.test.ts	keeps a character split across two reads whole	yes

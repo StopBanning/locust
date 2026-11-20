@@ -465,3 +465,44 @@ fn door_engine_still_goes_through_the_door_path() {
     assert_eq!(agent_line(&s, &s.teammates[1]), "Antigravity · m");
     assert!(!can_stop(&s));
 }
+
+/// the-next-turn-is-not-refused-while-the-last-winds-down.test.ts: Electron's window sent a queued follow-up on seeing
+/// the end, while the host still held the turn, and the host refused it. Rust's window reads a turn the engine still
+/// holds as running, so a queued follow-up waits (the row is removed before dispatch, so a refusal would lose it), and
+/// goes on the first tick after the engine lets go.
+// case: takes the next turn of that conversation
+#[test]
+fn a_queued_follow_up_waits_while_the_last_turn_winds_down_then_goes() {
+    let (_dirs, store, mut s) = setup();
+    s.data = Some(store.clone());
+    let _g = native::hooks::install(store.clone(), fake("success"));
+    struct Release;
+    impl Drop for Release {
+        fn drop(&mut self) {
+            native::hooks::HOLD_WIND_DOWN.store(false, std::sync::atomic::Ordering::Relaxed);
+        }
+    }
+    let release = Release;
+    native::hooks::HOLD_WIND_DOWN.store(true, std::sync::atomic::Ordering::Relaxed);
+    s.draft.replace_text("Synthetic prompt");
+    send(&mut s, &mut Tx::default());
+    pump(&mut s, "the answer in the ledger", |s| answers(s) >= 1);
+    for _ in 0..40 {
+        poll(&mut s, 0.0, &mut Tx::default());
+        std::thread::sleep(Duration::from_millis(15));
+    }
+    let id = s.ledger.as_ref().and_then(|p| p.conversation.conversation_id.clone()).unwrap();
+    assert!(locust_core::engine_api::api().owns(&id), "the engine still holds the turn");
+    // The window reads a turn the engine still holds as running, so nothing goes yet.
+    assert!(turn_running(&s));
+    *crate::invariants::lock(&native::hooks::STATE) = (Some(store.clone()), fake("resume"));
+    assert!(enqueue_follow_up(&mut s, "Synthetic follow-up".into(), vec![]));
+    drain_queue_after_turn(&mut s, &mut Tx::default());
+    assert_eq!(s.queue_rows.len(), 1, "it waits rather than being refused and lost");
+    assert!(!s.sending.is_pending());
+    drop(release);
+    pump(&mut s, "the follow-up's answer", |s| {
+        idle(s) && answers(s) >= 2
+    });
+    assert!(s.queue_rows.is_empty());
+}

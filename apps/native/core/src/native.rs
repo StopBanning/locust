@@ -107,6 +107,9 @@ pub mod hooks {
     pub static LOCK: Mutex<()> = Mutex::new(());
     pub static STATE: Mutex<(Option<Store>, Option<(PathBuf, Vec<String>)>)> =
         Mutex::new((None, None));
+    /// While set, a turn whose end is recorded is held before the engine lets go of it, as its disk observation and
+    /// share can hold it (the-next-turn-is-not-refused-while-the-last-winds-down).
+    pub static HOLD_WIND_DOWN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
     /// Serialises tests that point the engine at a temporary store and a fake `codex`.
     pub struct Guard {
         _lock: std::sync::MutexGuard<'static, ()>,
@@ -2973,6 +2976,10 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
             }
             // The turn is no longer this window's: a carry-on or check-fix may now continue its conversation,
             // and the relay may hand off posted messages or return unanswered questions.
+            #[cfg(any(test, feature = "test-hooks"))]
+            while hooks::HOLD_WIND_DOWN.load(Ordering::Relaxed) {
+                std::thread::sleep(Duration::from_millis(5));
+            }
             drop(memory_completion);
             if !posted_relayed.is_empty()
                 && let Some(peer) = relay_teammate.clone()
