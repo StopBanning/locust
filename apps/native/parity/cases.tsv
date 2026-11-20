@@ -3648,6 +3648,7 @@ apps/desktop/src/renderer/src/an-issue-link-wears-its-state.test.tsx	wears open,
 apps/desktop/src/renderer/src/an-issue-link-wears-its-state.test.tsx	makes a bare issue in the person's message a link, as a pull request is	no
 apps/desktop/src/renderer/src/an-issue-link-wears-its-state.test.tsx	reads on show, again on focus after a minute, and never on a timer	no
 apps/desktop/src/renderer/src/an-issue-link-wears-its-state.test.tsx	says nothing and wears nothing when gh cannot answer	no
+apps/desktop/src/renderer/src/an-opencode-run-that-edited-is-not-run-again.test.ts	is not taken for one that never started	yes
 apps/desktop/src/renderer/src/an-orb-needs-a-runtime-that-streams.test.ts	shows the working orb through an OpenCode tool call, because the tool is never open	yes
 apps/desktop/src/renderer/src/an-orb-needs-a-runtime-that-streams.test.ts	shows the tool orb on Antigravity, where the start and the result are apart	yes
 apps/desktop/src/renderer/src/an-orb-needs-a-runtime-that-streams.test.ts	reaches the writing orb on OpenCode, because text arriving IS writing	yes
