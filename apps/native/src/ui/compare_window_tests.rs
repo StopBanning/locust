@@ -103,7 +103,9 @@ fn type_and_send(rt: &mut Runtime<State>, text: &str) {
 }
 
 fn pump(rt: &mut Runtime<State>, what: &str, mut done: impl FnMut(&State) -> bool) {
-    let deadline = std::time::Instant::now() + Duration::from_secs(20);
+    // 60 s, not 20: alone each test answers in under a second, but the workspace's release run beside another build
+    // took one past 20 twice on 20 Nov. A real hang still fails, only later.
+    let deadline = std::time::Instant::now() + Duration::from_secs(60);
     let mut now = 0.0;
     while !done(&rt.state) {
         assert!(
