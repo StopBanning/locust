@@ -3423,3 +3423,20 @@ fn a_reference_is_briefed_on_every_turn_of_its_conversation_and_no_other() {
     let (_, said) = turn(Some(&second), None);
     assert!(said.contains("earlier references are not attached now"), "{said}");
 }
+
+/// an-antigravity-relay-reply-says-who-started-it.test.ts: Electron's Antigravity path dropped the relay's origin, so a
+/// reply the host began read, after a restart, as one the person began. Rust records every runtime's turn through the
+/// one writer (`create_runtime_with`'s `extra`), so the relay's `startedBy` is written whatever the runtime.
+// case: records that the relay started it, at its hop
+// case: records no starter for a run the person started
+#[test]
+fn a_relay_started_turn_records_its_starter_and_a_persons_turn_records_none() {
+    let t = Temp::new();
+    let _g = hooks::install(t.store(), fake("success"));
+    let relayed = send_from(job(&t, None, "Synthetic prompt"), Origin { started_by: Some(json!({"kind": "relay", "hop": 2})), ..Default::default() }).unwrap();
+    finished(&relayed.conversation_id);
+    assert_eq!(ledger_of(&t, &relayed.conversation_id)[0]["metadata"]["startedBy"], json!({"kind": "relay", "hop": 2}));
+    let mine = send_from(job(&t, None, "Synthetic prompt"), Origin::default()).unwrap();
+    finished(&mine.conversation_id);
+    assert!(ledger_of(&t, &mine.conversation_id)[0]["metadata"].get("startedBy").is_none());
+}

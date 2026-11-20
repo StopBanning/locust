@@ -981,6 +981,8 @@ apps/desktop/src/main/an-antigravity-model-with-its-own-limit-is-shown.test.ts	l
 apps/desktop/src/main/an-antigravity-model-with-its-own-limit-is-shown.test.ts	shows a group with one window, and leaves out a window it has no words for	no
 apps/desktop/src/main/an-antigravity-model-with-its-own-limit-is-shown.test.ts	reads an answer with no Gemini group from its first group	no
 apps/desktop/src/main/an-antigravity-model-with-its-own-limit-is-shown.test.ts	still says nothing when no group can be read	no
+apps/desktop/src/main/an-antigravity-relay-reply-says-who-started-it.test.ts	records that the relay started it, at its hop	yes
+apps/desktop/src/main/an-antigravity-relay-reply-says-who-started-it.test.ts	records no starter for a run the person started	yes
 apps/desktop/src/main/an-app-carries-on-a-conversation-that-ran-out.test.ts	lists the person’s conversations only while they let it, saying which ran out	yes
 apps/desktop/src/main/an-app-carries-on-a-conversation-that-ran-out.test.ts	carries one on to another agent and model through Locust’s own carry-on	yes
 apps/desktop/src/main/an-app-carries-on-a-conversation-that-ran-out.test.ts	carries on its own conversations with the switch off, and never the person’s	yes
