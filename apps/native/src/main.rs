@@ -39,6 +39,8 @@ mod look;
 mod folder_confirmation;
 #[path = "ui/free_offer.rs"]
 mod free_offer;
+#[path = "ui/busy_continue.rs"]
+mod busy_continue;
 #[cfg(target_os = "macos")]
 mod browser_mac;
 #[path = "ui/browser_panel.rs"]
