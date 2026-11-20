@@ -1807,3 +1807,7 @@ mod free_answered_tests {
         assert_eq!(free_models_answered_here(&s), vec!["opencode/mimo-v2.6-flash-free".to_owned(), "opencode/muse-spark-1.3-contributor-free".to_owned()]);
     }
 }
+
+#[cfg(test)]
+#[path = "plus_menu_words_tests.rs"]
+mod plus_menu_words_tests;
