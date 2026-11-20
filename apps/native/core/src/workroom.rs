@@ -471,3 +471,7 @@ impl Workroom {
 #[cfg(test)]
 #[path = "workroom_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "started_for_tests.rs"]
+mod started_for_tests;

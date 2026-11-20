@@ -3368,3 +3368,27 @@ mod plan_carry_on;
 mod nobody;
 #[path = "todo_setting_tests.rs"]
 mod todo_setting;
+
+/// a-reply-is-shown-the-message-it-answers.test.ts, case 2 through the engine: a run the relay starts to answer a
+/// message (Origin.include_messages, from the relay's `answering`) is sent that message, though six older ones wait
+/// before it and a brief holds five.
+#[test]
+fn a_run_started_for_a_message_is_sent_that_message_whatever_waits_before_it() {
+    let t = Temp::new();
+    let store = t.store();
+    let fake = commands_claude(&t);
+    let _g = hooks::install(store.clone(), Some((PathBuf::from("python3"), vec![fake.to_string_lossy().into_owned()])));
+    let room = crate::workroom::Workroom::for_store(&store);
+    let wren = crate::workroom::Party { teammate_id: "tm_wren".into(), name: "Wren".into() };
+    let me = crate::workroom::Party { teammate_id: "tm_claude".into(), name: "Claude".into() };
+    for n in 1..=6 {
+        room.post(&wren, "mission_wren", &me, &format!("Note {n}: the deploy finished. No further action is needed from you."), None).unwrap();
+    }
+    let question = room.post(&wren, "mission_wren", &me, "Claude, what does the lint step run?", None).unwrap().message_id;
+    let run = send_from(claude_job(&t, None, "Answer Wren."), Origin { include_messages: vec![question], ..Default::default() }).unwrap();
+    finished(&run.conversation_id);
+    let sent = sent_log(&t, "claude-sent.jsonl");
+    let first = sent.first().map(Value::to_string).unwrap_or_default();
+    assert!(first.contains("Claude, what does the lint step run?"), "{first}");
+    assert!(!first.contains("Note 6"), "the five quoted are the question and the four oldest: {first}");
+}
