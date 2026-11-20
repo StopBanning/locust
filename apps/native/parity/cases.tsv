@@ -3957,7 +3957,7 @@ apps/desktop/src/renderer/src/permissions-panel-is-true.test.tsx	says Approve ea
 apps/desktop/src/renderer/src/permissions-panel-is-true.test.tsx	still refuses every write for a read-only run	yes
 apps/desktop/src/renderer/src/picker-empty-states.test.tsx	does not blame the search when the catalog has not arrived	yes
 apps/desktop/src/renderer/src/picker-empty-states.test.tsx	still blames the search when there genuinely is nothing like it	yes
-apps/desktop/src/renderer/src/picker-empty-states.test.tsx	is what the picker actually renders, not just what the helper returns	no
+apps/desktop/src/renderer/src/picker-empty-states.test.tsx	is what the picker actually renders, not just what the helper returns	yes
 apps/desktop/src/renderer/src/plan-answer.test.tsx	is an ordered list, not a card	yes
 apps/desktop/src/renderer/src/plan-answer.test.tsx	numbers the steps instead of giving them states	yes
 apps/desktop/src/renderer/src/plan-answer.test.tsx	has no header at all — not the label, not the counter	yes

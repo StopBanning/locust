@@ -53,3 +53,12 @@ fn still_blames_the_search_when_there_genuinely_is_nothing_like_it() {
     assert!(said.contains("Nothing matches that."), "{said}");
     assert!(!said.contains("Reading the models…"));
 }
+
+/// The wiring: no agents, no models and no search, so there are no rows at all, and the empty branch the picker draws
+/// is the loading sentence, never the search one. Rust keeps no separate helper: the picker itself decides.
+#[test]
+fn is_what_the_picker_actually_renders_not_just_what_the_helper_returns() {
+    let said = drawn(State::default());
+    assert!(said.contains("Reading the models…"), "{said}");
+    assert!(!said.contains("Nothing matches that."), "{said}");
+}
