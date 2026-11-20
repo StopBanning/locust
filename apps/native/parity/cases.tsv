@@ -2866,6 +2866,13 @@ apps/desktop/src/renderer/src/a-kilo-model-has-one-name.test.ts	spells the id wh
 apps/desktop/src/renderer/src/a-large-diff-says-the-right-counts.test.tsx	never says +0 with a deletion count when lines were added in a recorded LARGE rewrite	yes
 apps/desktop/src/renderer/src/a-large-diff-says-the-right-counts.test.tsx	shows no counts and lets LARGE say it when true counts cannot be known	yes
 apps/desktop/src/renderer/src/a-large-diff-says-the-right-counts.test.tsx	leaves a small diff's counts unchanged	yes
+apps/desktop/src/renderer/src/a-limit-note-leaves-when-it-stops-being-true.test.ts	shows while the run waits on the provider	yes
+apps/desktop/src/renderer/src/a-limit-note-leaves-when-it-stops-being-true.test.ts	goes once the model answers after all	yes
+apps/desktop/src/renderer/src/a-limit-note-leaves-when-it-stops-being-true.test.ts	goes once the run has ended	yes
+apps/desktop/src/renderer/src/a-limit-note-leaves-when-it-stops-being-true.test.ts	shows while the run waits, and goes once the column has failed	yes
+apps/desktop/src/renderer/src/a-limit-note-leaves-when-it-stops-being-true.test.ts	keeps what the provider said when the card does not say it (0.551)	yes
+apps/desktop/src/renderer/src/a-limit-note-leaves-when-it-stops-being-true.test.ts	is said as its error, not as the line	no
+apps/desktop/src/renderer/src/a-limit-note-leaves-when-it-stops-being-true.test.ts	leaves a plain line as it is	no
 apps/desktop/src/renderer/src/a-locust-bot-draws-before-its-first-frame.test.ts	is drawn once before any animation frame, so a page that paints none still shows it	yes
 apps/desktop/src/renderer/src/a-locust-bot-draws-before-its-first-frame.test.ts	then moves and draws while it is showing, and only then	yes
 apps/desktop/src/renderer/src/a-locust-bot-draws-before-its-first-frame.test.ts	draws at most 30 frames a second: every other frame at 60 Hz, every fifth at 144	yes

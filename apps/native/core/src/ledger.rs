@@ -700,6 +700,34 @@ impl Tail {
 
 /// missionView: the diagnostics that may interrupt a thread before any work: the run itself in trouble, a runtime's
 /// notification, a compaction.
+/// a-limit-note-leaves-when-it-stops-being-true: a provider note saying the runtime "is trying again on its own" is
+/// true only while the run waits on it. None when `text` is no such note; otherwise what the thread shows: the note
+/// while nothing has come after it, nothing once the model answered or the run ended, and on a failure the provider's
+/// words alone, unless the failure already quotes them.
+fn retrying_note(events: &BTreeMap<u64, Value>, at: u64, code: &str, text: &str) -> Option<Option<String>> {
+    let retrying = (code == "opencode.runtime_error" || code.ends_with(".provider_busy.runtime_error")) && text.contains("trying again on its own");
+    if !retrying {
+        return None;
+    }
+    let later = || events.range(at + 1..).map(|(_, e)| e);
+    let answered = later().any(|e| matches!(e["type"].as_str(), Some("message.delta" | "tool.started")));
+    let ended = later().find(|e| matches!(e["type"].as_str(), Some("run.completed" | "run.failed" | "run.cancelled")));
+    let Some(end) = ended else {
+        return Some((!answered).then(|| text.to_owned()));
+    };
+    if end["type"] != "run.failed" {
+        return Some(None);
+    }
+    let said = crate::invariants::regex(r#"^(.*?answered\s+["\u{201C}](.*?)["\u{201D}])"#).captures(text);
+    let Some(said) = said else { return Some(None) };
+    let failure = end["payload"]["message"].as_str().unwrap_or_default();
+    let words = said.get(2).map_or("", |m| m.as_str()).trim_end_matches('.');
+    if !words.is_empty() && failure.contains(words) {
+        return Some(None);
+    }
+    Some(Some(format!("{}.", &said[1])))
+}
+
 fn run_trouble(code: &str) -> bool {
     code.ends_with(".runtime_error") || code.ends_with(".notification") || code.ends_with(".context_compacted")
 }
@@ -1139,6 +1167,12 @@ impl Transcript {
                 "adapter.diagnostic" => {
                     let level = string(p, "level");
                     let code = string(p, "code");
+                    if let Some(shown) = retrying_note(&self.events, *sequence, &code, &string(p, "message")) {
+                        if let Some(text) = shown {
+                            items.push(Item::Note { level, text: scrub(&text) });
+                        }
+                        continue;
+                    }
                     if self.events.values().any(|e| e["type"] == "route.limit_detected"
                         && e["payload"]["kind"] == "quota-exhausted"
                         && crate::failure_words::same_sentence(&string(p, "message"), &string(&e["payload"], "message"))) { continue; }
@@ -1295,9 +1329,13 @@ impl Transcript {
         // Without any work there is no fold to hold the runtime's remarks.
         // Promote them only once the turn ends; while it runs the live line stands for it.
         if !self.running && !items.iter().any(|i| matches!(i, Item::Tool { .. } | Item::Thought { .. })) {
-            for e in self.events.values().filter(|e| e["type"] == "adapter.diagnostic") {
+            for (at, e) in self.events.iter().filter(|(_, e)| e["type"] == "adapter.diagnostic") {
                 let code = string(&e["payload"], "code");
                 let text = scrub(&string(&e["payload"], "message"));
+                // Decided where it stands in the turn, above: never promoted as it was.
+                if retrying_note(&self.events, *at, &code, &string(&e["payload"], "message")).is_some() {
+                    continue;
+                }
                 if code.starts_with("host.") || code.ends_with(".usage_window") || text.is_empty()
                     || crate::invariants::regex(r"(?i)^(Codex is ignoring \d+ unrecognized configuration settings?\b|Skill descriptions were shortened to fit\b)").is_match(text.trim()) { continue; }
                 if !items.iter().any(|i| matches!(i, Item::Note { text: held, .. } | Item::Limit { text: held, .. } if crate::failure_words::same_sentence(held, &text))) {

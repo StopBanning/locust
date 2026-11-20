@@ -450,3 +450,50 @@ fn never_shows_the_same_orb_twice_across_the_busiest_transition() {
     let orbs: std::collections::HashSet<&str> = [working, tool, connector, thinking].into_iter().collect();
     assert_eq!(orbs.len(), 4, "{working} {tool} {connector} {thinking}");
 }
+
+// ---- a-limit-note-leaves-when-it-stops-being-true.test.ts ----
+fn busy() -> Value {
+    event("adapter.diagnostic", json!({"level": "warning", "code": "opencode.provider_busy.runtime_error", "message": "The model’s provider answered \"Rate limit exceeded\", and OpenCode is trying again on its own. To go on now, press Stop and pick another model."}))
+}
+fn other() -> Value {
+    event("adapter.diagnostic", json!({"level": "warning", "code": "opencode.runtime_error", "message": "The model’s provider answered \"Upstream request failed: Endpoint is unavailable.\", and OpenCode is trying again on its own."}))
+}
+fn notes(t: &Transcript) -> Vec<String> {
+    t.items.iter().filter_map(|i| match i { Item::Note { text, .. } => Some(text.clone()), _ => None }).collect()
+}
+fn turn() -> Value {
+    event("step.started", json!({"stepKind": "turn"}))
+}
+// case: shows while the run waits on the provider
+#[test]
+fn the_busy_note_shows_while_the_run_waits_on_the_provider() {
+    assert!(notes(&fold(vec![turn(), busy()])).iter().any(|n| n.contains("trying again on its own")));
+}
+// case: goes once the model answers after all
+#[test]
+fn the_busy_note_goes_once_the_model_answers_after_all() {
+    let t = fold(vec![turn(), busy(), delta("It worked on the third try.", false)]);
+    assert!(!notes(&t).iter().any(|n| n.contains("trying again")), "{:?}", t.items);
+}
+// case: goes once the run has ended
+#[test]
+fn the_busy_note_goes_once_the_run_has_ended() {
+    let t = fold(vec![turn(), busy(), event("run.completed", json!({}))]);
+    assert!(!notes(&t).iter().any(|n| n.contains("trying again")), "{:?}", t.items);
+}
+// case: shows while the run waits, and goes once the column has failed
+#[test]
+fn the_other_provider_note_shows_while_waiting_and_goes_once_the_column_has_failed() {
+    assert!(notes(&fold(vec![turn(), other()])).iter().any(|n| n.contains("trying again on its own")));
+    let failed = fold(vec![turn(), other(), event("run.failed", json!({"kind": "process-failed", "message": "Error from provider (Console): Upstream request failed: Endpoint is unavailable."}))]);
+    let said = notes(&failed);
+    assert!(!said.iter().any(|n| n.contains("trying again on its own")), "{said:?}");
+    assert!(!said.iter().any(|n| n.contains("provider answered")), "the failure quotes the provider, so the note does not: {said:?}");
+}
+// case: keeps what the provider said when the card does not say it (0.551)
+#[test]
+fn keeps_what_the_provider_said_when_the_failure_does_not() {
+    let failed = fold(vec![turn(), other(), event("run.failed", json!({"kind": "process-failed", "message": "OpenCode stopped."}))]);
+    let said = notes(&failed);
+    assert!(said.iter().any(|n| n == "The model’s provider answered \"Upstream request failed: Endpoint is unavailable.\"."), "{said:?}");
+}
