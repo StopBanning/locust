@@ -444,6 +444,34 @@ of it. Codex started this round and left nothing behind; it was done again from 
 **Gates:** nextest workspace 4771 of 4771 passed; `test --release --workspace` 1115 + 3656 passed; `build --release`
 finished.
 
-**Left:** `the-thread-beside-the-browser-keeps-its-parts-whole` (six narrow-column layout cases) was not started. Also
-left: the reply-page read guard above, a live run of pointing on a real page, the desk page and its snapshot, and the
-page drawn twice in one turn.
+**After the usage limit lifted (same day)**
+- A message queued behind a running turn now carries the parts pointed at (`page_points_ui::with_points`, then `sent`
+  once queued). Before, Enter with only parts queued an empty message and left them behind. A second message refused
+  by a full queue keeps its parts. Test: `a_part_waits_with_a_message_queued_behind_a_running_turn_…`.
+- `capture_rect_of` is tested with Electron's numbers (`is_the_part_inside_the_frame_in_the_windows_pixels_at_its_zoom`,
+  `is_cut_to_what_the_frame_shows_and_is_none_when_nothing_of_it_is`), so the viewer-frame row is partial, 2 of 8.
+- The press test now presses the files card's Page, not the step card's (the page draws in both).
+- The chat-box row is partial, not carried: the chip says "Picture" where Electron draws the picture, and the live
+  pick, which is what finds a blocked page, has not been run.
+- The thread beside the browser (row 557), drawn at 418px against full width, 3 of 6:
+  - the live line was one text, cut through "step 2 of"; its words now give way and the step and time stay whole;
+  - the turn's closing line never wrapped; it now wraps by whole parts;
+  - the handed file's pill now gives way inside the reply, Copy and Save a copy stay whole, and the next file wraps.
+    The path keeps 96px (`PATH_KEPT`) while the note is cut. Rune has no shrink weight for Electron's
+    `flex: 0 1000 auto`, and the note is not dropped in a narrow reply.
+  - Not named: the file row (Rust's has no open and copy buttons beside it), the workroom header and Home's account
+    marks (not found in the Rust window).
+  - The group key is `handed-group-…`, because the handed-file tests count keys starting `handed-file-`.
+- Breaks, all killed:
+  - b20 the queue drops the parts: `a_part_waits_with_a_message_queued_behind_…`;
+  - b21 zoom dropped: `is_the_part_inside_the_frame_in_the_windows_pixels_at_its_zoom`;
+  - b22 the pill cannot shrink, and b23 the path has no floor: `fits_a_handed_files_pill_to_the_reply_…`;
+  - b24 the live words cannot give way: `keeps_the_plan_pill_of_the_running_line_whole_…`;
+  - b25 the closing line never wraps: `wraps_a_turns_closing_line_by_whole_parts_…`.
+
+**Left:**
+- the reply-page read guard above;
+- a live run of pointing on a real page, and the chip's picture thumbnail;
+- the desk page and its snapshot;
+- the page drawn twice in one turn;
+- row 557's three unnamed cases.

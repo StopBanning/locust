@@ -545,9 +545,12 @@ pub(super) fn submit_composer(s: &mut State, tx: &mut Tx, send_now: bool) {
         return;
     }
     if turn_running(s) {
-        if queue_front(s).is_some() || !enqueue_follow_up(s, typed.clone(), s.attached.clone()) {
+        // A queued message carries the parts pointed at too; they leave the box only once it is queued.
+        let (queued, attached) = crate::page_points_ui::with_points(s, &typed, &s.attached);
+        if queue_front(s).is_some() || !enqueue_follow_up(s, queued, attached) {
             return;
         }
+        crate::page_points_ui::sent(s);
         s.draft.clear();
         s.attached.clear();
         s.tagged.clear();

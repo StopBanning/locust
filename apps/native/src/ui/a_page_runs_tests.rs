@@ -172,7 +172,12 @@ fn runs_the_new_page_beside_the_conversation_at_its_own_address_when_its_page_is
         host.add(crate::browser::Profile(None)).unwrap();
         host.open = false;
     }
-    press(&mut rt, "/run");
+    // The files card's Page (its keys are under the turn's foot), not the step card's.
+    let page = keys(&rt).into_iter().find(|k| k.contains("/foot/") && k.ends_with("/run")).expect("the files card's Page");
+    let (x, y) = rt.find(&page).unwrap();
+    rt.pointer_down(x, y);
+    rt.pointer_up(x, y);
+    rt.frame(0.05);
     let urls = loaded(&rt.state);
     assert_eq!(urls.len(), 1, "{urls:?} status: {}", rt.state.status);
     assert!(urls[0].starts_with("locust-page://") && urls[0].ends_with("/index.html"), "{urls:?}");

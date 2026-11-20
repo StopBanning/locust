@@ -228,24 +228,38 @@ pub(super) fn chips(s: &State, p: &Palette) -> Option<El> {
     Some(list)
 }
 
-/// The message with the waiting parts after the person's words, and their pictures attached; the box is emptied.
-pub(super) fn take_into(s: &mut State, typed: &str) -> String {
+/// The message with the waiting parts after the person's words, and the attachments with their pictures; the box is
+/// left as it is, so a message that is not taken (a queue already full) keeps them.
+pub(super) fn with_points(s: &State, typed: &str, attached: &[String]) -> (String, Vec<String>) {
+    let mut attached = attached.to_vec();
     if s.page_points.chips.is_empty() {
-        return typed.to_owned();
+        return (typed.to_owned(), attached);
     }
-    let notes: Vec<(String, String)> = s.page_points.notes.iter().map(|(id, edit)| (id.clone(), edit.text.clone())).collect();
-    for (id, note) in notes {
-        note_on_page_point(&mut s.page_points.chips, &id, &note);
+    let mut chips = s.page_points.chips.clone();
+    for (id, edit) in &s.page_points.notes {
+        note_on_page_point(&mut chips, id, &edit.text);
     }
-    let chips = std::mem::take(&mut s.page_points.chips);
-    s.page_points.notes.clear();
     let (blocks, pictures) = message_of_page_points(&chips);
     for picture in pictures {
-        if !s.attached.contains(&picture) {
-            s.attached.push(picture);
+        if !attached.contains(&picture) {
+            attached.push(picture);
         }
     }
-    if typed.trim().is_empty() { blocks } else { format!("{typed}\n\n{blocks}") }
+    (if typed.trim().is_empty() { blocks } else { format!("{typed}\n\n{blocks}") }, attached)
+}
+
+/// The box emptied, once its parts went with a message; their pictures stay on disk for it.
+pub(super) fn sent(s: &mut State) {
+    s.page_points.chips.clear();
+    s.page_points.notes.clear();
+}
+
+/// The message with the waiting parts after the person's words, and their pictures attached; the box is emptied.
+pub(super) fn take_into(s: &mut State, typed: &str) -> String {
+    let (message, attached) = with_points(s, typed, &s.attached);
+    s.attached = attached;
+    sent(s);
+    message
 }
 
 #[cfg(test)]

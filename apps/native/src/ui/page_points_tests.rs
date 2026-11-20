@@ -216,3 +216,27 @@ fn sends_each_part_after_the_words_with_its_note_and_picture_and_empties_the_box
     // Nothing waiting: the words go as they are.
     assert_eq!(page_points_ui::take_into(&mut s, "Just words"), "Just words");
 }
+
+#[test]
+fn a_part_waits_with_a_message_queued_behind_a_running_turn_and_leaves_the_box_only_then() {
+    let t = temp();
+    let mut s = State::default();
+    s.data = Some(store_in(&t));
+    s.teammates.push(crate::Teammate { id: "tm".into(), name: "Codec".into(), role: "Custom".into(), model: None, runtime: Some("claude".into()), folder: Some("/tmp".into()), runs_in: "ask".into(), account: None, busy: true });
+    s.conversations.insert("tm".into(), Conversation { conversation_id: Some("mission_running".into()), turns: Vec::new() });
+    s.opening_teammate = Some("tm".into());
+    with_chips(&mut s);
+    s.draft.replace_text("And this".to_owned());
+    let mut rt = rune::Runtime::new(s, |_, _| col(), (100.0, 100.0), rune::Env::new(true, 1.0));
+    rt.update(|s, tx| crate::composer_wiring::submit_composer(s, tx, false));
+    let row = rt.state.queue_rows.first().expect("the message is queued");
+    assert!(row.text.starts_with("And this\n\n") && row.text.contains("Part: button#save"), "{}", row.text);
+    assert_eq!(row.attachments, ["page-part-1.png"]);
+    assert!(rt.state.page_points.chips.is_empty(), "the parts went with it");
+    // A second message while one waits is not queued, and its parts stay in the box.
+    rt.update(|s, _| with_chips(s));
+    rt.update(|s, _| s.draft.replace_text("Another".to_owned()));
+    rt.update(|s, tx| crate::composer_wiring::submit_composer(s, tx, false));
+    assert_eq!(rt.state.queue_rows.len(), 1);
+    assert_eq!(rt.state.page_points.chips.len(), 2);
+}

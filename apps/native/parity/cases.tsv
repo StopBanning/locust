@@ -336,6 +336,14 @@ apps/desktop/src/main/a-named-memory-replaces-the-one-before-it.test.ts	does not
 apps/desktop/src/main/a-named-memory-replaces-the-one-before-it.test.ts	keeps a name to its own place: this folder and everywhere are different memories	no
 apps/desktop/src/main/a-named-memory-replaces-the-one-before-it.test.ts	does not promote a proposed memory by rewriting it	no
 apps/desktop/src/main/a-named-memory-replaces-the-one-before-it.test.ts	survives a reload, name and history intact	no
+apps/desktop/src/main/a-part-of-a-page-can-be-pointed-at.test.ts	is a script that parses, and so is its cancel	no
+apps/desktop/src/main/a-part-of-a-page-can-be-pointed-at.test.ts	finds the viewer's frame showing the page, and no other	no
+apps/desktop/src/main/a-part-of-a-page-can-be-pointed-at.test.ts	reads a pick, and lets go of one that never comes	no
+apps/desktop/src/main/a-part-of-a-page-can-be-pointed-at.test.ts	is kept to its shape and its bounds	no
+apps/desktop/src/main/a-part-of-a-page-can-be-pointed-at.test.ts	names the file and the part, and quotes its code	no
+apps/desktop/src/main/a-part-of-a-page-can-be-pointed-at.test.ts	counts what it leaves out, and a fence in the code cannot close the quote	no
+apps/desktop/src/main/a-part-of-a-page-can-be-pointed-at.test.ts	is the part inside the frame, in the window’s pixels at its zoom	yes
+apps/desktop/src/main/a-part-of-a-page-can-be-pointed-at.test.ts	is cut to what the frame shows, and is none when nothing of it is	yes
 apps/desktop/src/main/a-part-of-the-browser-can-be-pointed-at.test.ts	the picker script parses	yes
 apps/desktop/src/main/a-part-of-the-browser-can-be-pointed-at.test.ts	the picker request goes through main only	yes
 apps/desktop/src/main/a-part-of-the-browser-can-be-pointed-at.test.ts	form values never appear in a pick	yes
@@ -2021,6 +2029,12 @@ apps/desktop/src/main/the-starter-routines-are-routines.test.ts	reads one by its
 apps/desktop/src/main/the-starter-routines-are-routines.test.ts	leaves out, and names, a file in the folder that is not a routine	no
 apps/desktop/src/main/the-starter-routines-are-routines.test.ts	previews by id, then adds it once: Ask, no schedule, in this folder, run by nobody	no
 apps/desktop/src/main/the-starter-routines-are-routines.test.ts	asks for a folder first in its own words, not the words for a file	no
+apps/desktop/src/main/the-thread-beside-the-browser-keeps-its-parts-whole.test.ts	keeps the plan pill of the running line whole, so the thread never scrolls sideways under it	yes
+apps/desktop/src/main/the-thread-beside-the-browser-keeps-its-parts-whole.test.ts	wraps a turn's closing line by whole parts instead of cutting it at the Copy button	yes
+apps/desktop/src/main/the-thread-beside-the-browser-keeps-its-parts-whole.test.ts	fits a handed file's pill to the reply, the note giving way before the path	yes
+apps/desktop/src/main/the-thread-beside-the-browser-keeps-its-parts-whole.test.ts	lets a file row give way to its open and copy buttons, never push them past the card	no
+apps/desktop/src/main/the-thread-beside-the-browser-keeps-its-parts-whole.test.ts	gives the header's name the room beside the face, and in a narrow header the name before the role	no
+apps/desktop/src/main/the-thread-beside-the-browser-keeps-its-parts-whole.test.ts	keeps Home's account marks in a row, the row wrapping before the marks stack	no
 apps/desktop/src/main/three-judges-are-kept.test.ts	keeps the panel of the newest ask, and every panel run as the comparison's, across a restart	no
 apps/desktop/src/main/three-placements.test.ts	dropped the noun that labelled the line once and cost eight characters forever	yes
 apps/desktop/src/main/three-placements.test.ts	dropped the permission prose, which the composer already states where it can be changed	yes

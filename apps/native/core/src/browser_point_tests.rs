@@ -239,3 +239,20 @@ fn takes_ctrl_or_cmd_with_shift_and_c_and_says_so_on_the_button() {
     assert_eq!(browser_point_control(None, true, false, true), PointControl { label: POINT_BLOCKED.into(), disabled: true, pressed: false, sentence: true });
     assert!(browser_point_control(None, false, true, true).pressed);
 }
+
+// a-part-of-a-page-can-be-pointed-at.test.ts, the picture of it (captureRectOf), with Electron's numbers.
+
+#[test]
+fn is_the_part_inside_the_frame_in_the_windows_pixels_at_its_zoom() {
+    let frame = Rect { x: 600.0, y: 100.0, width: 400.0, height: 300.0 };
+    let part = Rect { x: 10.0, y: 20.0, width: 100.0, height: 50.0 };
+    assert_eq!(capture_rect_of(frame, part, 1.0), Some(Rect { x: 610.0, y: 120.0, width: 100.0, height: 50.0 }));
+    assert_eq!(capture_rect_of(frame, part, 1.25), Some(Rect { x: 763.0, y: 150.0, width: 125.0, height: 63.0 }));
+}
+
+#[test]
+fn is_cut_to_what_the_frame_shows_and_is_none_when_nothing_of_it_is() {
+    let frame = Rect { x: 600.0, y: 100.0, width: 400.0, height: 300.0 };
+    assert_eq!(capture_rect_of(frame, Rect { x: -50.0, y: 250.0, width: 100.0, height: 200.0 }, 1.0), Some(Rect { x: 600.0, y: 350.0, width: 50.0, height: 50.0 }));
+    assert_eq!(capture_rect_of(frame, Rect { x: 10.0, y: 400.0, width: 100.0, height: 50.0 }, 1.0), None);
+}
