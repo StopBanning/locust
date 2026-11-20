@@ -921,7 +921,9 @@ fn scrolling_up_shows_way_down_working_says_so_and_pressing_returns_to_bottom() 
     });
     settle(&mut rt);
     assert!(rt.find("jump-to-bottom-dots").is_some());
-    assert!(rt.find("jump-to-bottom-chevron").is_none());
+    // The chevron waits under the dots, unseen until hover or Tab brings it back (shell.css's swap).
+    let chevron = rt.elements().into_iter().find(|e| e.key.as_deref() == Some("jump-to-bottom-chevron")).map(|e| e.opacity);
+    assert!(chevron.is_some_and(|o| o < 0.01), "the chevron is hidden while working: {chevron:?}");
     let has_working_label = rt.elements().into_iter().any(|e| {
         e.key.as_deref() == Some("jump-to-bottom")
             && e.label.as_deref() == Some("Still working. Go to the newest message")
