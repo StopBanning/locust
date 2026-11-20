@@ -455,7 +455,8 @@ pub fn classify_reply(said: ToolText) -> Reply {
         return Reply::Failed(said.text);
     }
     if let Some(rest) = said.text.strip_prefix("Still working") {
-        return Reply::Working(rest.trim_start_matches(':').trim().to_string());
+        // "Still working: Using bash", or "Still working, but held up: <why>".
+        return Reply::Working(rest.trim_start_matches([':', ',']).trim().to_string());
     }
     if said.text.starts_with("Waiting for the person") {
         return Reply::WaitingForYou(said.text);

@@ -641,3 +641,27 @@ fn a_named_teammate_is_still_asked_and_a_runtime_beside_it_is_ignored() {
     assert_eq!(request.teammate.id, "tm_scout");
     assert_eq!(request.runtime, None);
 }
+
+/// A run held up behind its provider (a free quota spent, OpenCode trying again on its own) says so, still as working,
+/// and goes back to saying what it does once it moves again.
+#[test]
+fn a_run_held_up_by_its_provider_says_why_instead_of_only_still_working() {
+    let busy = json!({"type": "adapter.diagnostic", "payload": {"level": "warning", "code": "opencode.provider_busy.runtime_error", "terminal": false,
+        "message": "The model's provider answered \"Free usage exceeded, subscribe to Go\", and OpenCode is trying again on its own. To go on now, press Stop and pick another model."}});
+    let bash = json!({"type": "tool.started", "payload": {"name": "bash"}});
+    let fake = Fake::default();
+    fake.turns.lock().unwrap().insert("m1".into(), turn("m1", true, vec![bash.clone(), busy]));
+    fake.live.lock().unwrap().insert("m1".into());
+    let tools = Tools::new(fake);
+    let r = tools.call("read_reply", &json!({"conversation_id": "m1"}));
+    assert!(r.text.starts_with("Still working, but held up: The model's provider answered \"Free usage exceeded"), "{}", r.text);
+    assert!(r.text.contains("press Stop and pick another model"), "{}", r.text);
+    // An app still reads it as a turn at work, with the reason as what it is doing.
+    let said = crate::engine::classify_reply(crate::engine::ToolText { text: r.text.clone(), is_error: false });
+    assert!(matches!(said, crate::engine::Reply::Working(ref why) if why.starts_with("but held up")), "{said:?}");
+    // Once it moves again, it says what it is doing.
+    let mut turns = tools.locust.turns.lock().unwrap();
+    turns.get_mut("m1").unwrap().events.push(bash);
+    drop(turns);
+    assert_eq!(tools.call("read_reply", &json!({"conversation_id": "m1"})).text, "Still working: Using bash");
+}

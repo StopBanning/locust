@@ -917,9 +917,14 @@ impl<L: Locust> Tools<L> {
                     p["message"].as_str().map(str::to_owned)
                 }
             });
-            let words = match doing.filter(|d| !d.is_empty()) {
-                Some(d) => format!("Still working: {d}"),
-                None => "Still working: waiting for the AI agent to answer.".into(),
+            // Held up, not busy: when the newest thing the run said is a warning (a provider refusing, OpenCode trying
+            // again on its own), say it, or an app waits on "Still working" while nothing can happen (20 Nov: a free
+            // model's quota ran out and the door said "Still working" for 48 minutes).
+            let held = turn.events.last().filter(|e| e["type"] == "adapter.diagnostic" && e["payload"]["level"] == "warning" && e["payload"]["terminal"] != true).and_then(|e| e["payload"]["message"].as_str()).filter(|m| !m.is_empty());
+            let words = match (held, doing.filter(|d| !d.is_empty())) {
+                (Some(why), _) => format!("Still working, but held up: {why}"),
+                (None, Some(d)) => format!("Still working: {d}"),
+                (None, None) => "Still working: waiting for the AI agent to answer.".into(),
             };
             return self.with_status(ToolResult::ok(words), &turn);
         }
