@@ -34,13 +34,18 @@ pub fn find_named(name: &str) -> io::Result<PathBuf> {
     {
         return Err(io::Error::other("Invalid executable command name"));
     }
+    find_in(name, &std::env::var_os("PATH").unwrap_or_default())
+}
+
+/// `find_named` over a given PATH (its name already checked), for a test to hand it one: the first absolute entry holding `name` as an
+/// executable file; relative and empty entries are never searched.
+pub(crate) fn find_in(name: &str, paths: &std::ffi::OsStr) -> io::Result<PathBuf> {
     let file = if cfg!(windows) {
         format!("{name}.exe")
     } else {
         name.to_owned()
     };
-    let paths = std::env::var_os("PATH").unwrap_or_default();
-    for dir in std::env::split_paths(&paths) {
+    for dir in std::env::split_paths(paths) {
         if !dir.is_absolute() {
             continue;
         }

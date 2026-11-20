@@ -219,3 +219,7 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "agy_on_a_mac_tests.rs"]
+mod agy_on_a_mac_tests;

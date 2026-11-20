@@ -1102,6 +1102,8 @@ apps/desktop/src/main/an-other-app-origin-survives-a-restart.test.ts	makes the e
 apps/desktop/src/main/an-other-app-origin-survives-a-restart.test.ts	classifies the token file and opt-in as excluded from every profile backup	no
 apps/desktop/src/main/an-unsupported-opencode-version-reaches-the-window.test.ts	reaches the window as unsupported, with why and what to do	yes
 apps/desktop/src/main/an-unsupported-opencode-version-reaches-the-window.test.ts	leaves every other runtime as it was (control)	yes
+apps/desktop/src/main/antigravity-is-found-on-a-mac.test.ts	is not found where there is none, and a relative PATH entry is not searched (control)	yes
+apps/desktop/src/main/antigravity-is-found-on-a-mac.test.ts	on Windows, still looks only where install.ps1 puts it, not in ~/.local/bin (control)	yes
 apps/desktop/src/main/antigravity-runs-through-its-cli.test.ts	is a runtime whose events the host reads	no
 apps/desktop/src/main/antigravity-runs-through-its-cli.test.ts	carries an app tier, or an id with its effort on the end, to a model and an effort; the effort chosen in the box wins	no
 apps/desktop/src/main/antigravity-runs-through-its-cli.test.ts	starts the CLI fresh after a turn the app ran	no
