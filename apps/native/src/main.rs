@@ -1760,6 +1760,9 @@ fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
     if prompt_rail::handle_key(s, event, tx) {
         return true;
     }
+    if question_card::handle_key(s, event) {
+        return true;
+    }
     if decision_card::handle_key(s, event, tx) {
         return true;
     }

@@ -10,6 +10,27 @@ use std::collections::HashMap;
 pub(super) struct Answers {
     pub chosen: HashMap<String, String>,
     pub typed: HashMap<String, TextEdit>,
+    /// The question whose option was pressed last: where the card's focus is, so a number key answers it again.
+    pub focused: Option<String>,
+}
+
+/// A number key on the card (questionKeys.ts, 0.801): 1 to 9 choose that option of the question the focus is in, else
+/// of the first still without a choice. Not while a field takes the typing, nor with Ctrl, Alt or Cmd held.
+pub(super) fn handle_key(s: &mut State, event: &KeyEvent) -> bool {
+    let Some(card) = s.pending_approval.as_ref().filter(|card| !card.questions.is_empty()) else { return false };
+    let Key::Text(ref key) = event.key else { return false };
+    let modified = event.mods.cmd || event.mods.ctrl || event.mods.alt;
+    let typing = s.draft.focused || s.approval_reason.focused || s.question_answers.typed.values().any(|field| field.focused);
+    let questions: Vec<_> = card
+        .questions
+        .iter()
+        .map(|q| locust_core::question_keys::NumberKeyQuestion { id: &q.id, options: q.options.iter().map(|o| o.label.as_str()).collect() })
+        .collect();
+    let answer = locust_core::question_keys::number_key_answer(key, modified, typing, &questions, &s.question_answers.chosen, s.question_answers.focused.as_deref());
+    let Some((question, label)) = answer else { return false };
+    s.question_answers.chosen.insert(question.clone(), label);
+    s.question_answers.focused = Some(question);
+    true
 }
 
 fn answers_for(s: &State, question: &approval::Question) -> Vec<String> {
@@ -78,6 +99,7 @@ pub(super) fn questions(s: &State, card: &approval::Request, p: &Palette) -> El 
                     .label(option.label.clone())
                     .on_press(move |s: &mut State| {
                         s.question_answers.chosen.insert(qid.clone(), label.clone());
+                        s.question_answers.focused = Some(qid.clone());
                     });
                 if index < 9 {
                     line = line.child(text(format!("{}", index + 1)).font(type_::LABEL.mono()).color(p.muted));
@@ -121,3 +143,7 @@ pub(super) fn questions(s: &State, card: &approval::Request, p: &Palette) -> El 
             .wrap(),
     )
 }
+
+#[cfg(test)]
+#[path = "question_card_keys_tests.rs"]
+mod keys_tests;

@@ -133,6 +133,7 @@ pub mod profile_backup;
 pub mod protocol_tags;
 pub mod pull_requests;
 pub mod qr;
+pub mod question_keys;
 pub mod quit_guard;
 pub mod recovery;
 pub mod references;
