@@ -83,6 +83,9 @@ apps/desktop/src/main/a-changed-memory-list-replaces-the-old-one.test.ts	says so
 apps/desktop/src/main/a-changed-memory-list-replaces-the-old-one.test.ts	is not said on a first brief, or when the list did not change	yes
 apps/desktop/src/main/a-check-command-is-one-line.test.ts	is kept as the person typed it, trimmed	no
 apps/desktop/src/main/a-check-command-is-one-line.test.ts	is nothing when empty, too long, not text, or more than one line	no
+apps/desktop/src/main/a-chosen-agent-settings-folder-is-asked-about.test.ts	says which folder it is	yes
+apps/desktop/src/main/a-chosen-agent-settings-folder-is-asked-about.test.ts	asks about home too, and nothing about a project folder (control)	yes
+apps/desktop/src/main/a-chosen-agent-settings-folder-is-asked-about.test.ts	is not asked in a Windows dialog by the picker: the first conversation there asks, in the window	yes
 apps/desktop/src/main/a-claim-arrives-beside-what-the-host-saw.test.ts	keeps what the host saw, across a reread from disk	yes
 apps/desktop/src/main/a-claim-arrives-beside-what-the-host-saw.test.ts	lists at most the cap, and counts the rest	yes
 apps/desktop/src/main/a-claim-arrives-beside-what-the-host-saw.test.ts	drops a record whose observation was edited into something that is not a list of paths	yes

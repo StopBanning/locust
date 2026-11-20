@@ -406,3 +406,18 @@ fn launch_folder_that_is_a_project_is_still_the_workspace_and_arg_wins() {
         }
     );
 }
+
+// ---- a-chosen-agent-settings-folder-is-asked-about.test.ts ----
+// case: says which folder it is
+// case: asks about home too, and nothing about a project folder (control)
+#[test]
+fn a_chosen_folder_that_is_no_place_for_teammates_is_named_and_a_project_folder_is_not() {
+    let home = "C:\\Users\\person";
+    assert_eq!(not_a_teammate_folder(&format!("{home}\\.claude"), Some(home), true, None).as_deref(), Some(".claude, where the agents keep their own settings"));
+    assert_eq!(not_a_teammate_folder(home, Some(home), true, None).as_deref(), Some("your home folder"));
+    assert_eq!(not_a_teammate_folder(&format!("{home}\\.copilot\\session-state"), Some(home), true, None).as_deref(), Some(".copilot, where the agents keep their own settings"));
+    assert_eq!(not_a_teammate_folder(&format!("{home}\\Documents\\shop"), Some(home), true, None), None);
+}
+// case: is not asked in a Windows dialog by the picker: the first conversation there asks, in the window
+// Rust has no picker dialog at all: src/ui/folder_confirmation.rs holds the first send in such a folder and asks in
+// the window (names_the_folder_and_why_with_choose_another_folder_first_and_start_here and the tests beside it).
