@@ -16,6 +16,11 @@ struct Fake {
     host_mode: Option<&'static str>,
     /// The conversation's teammate was removed, or it never had one.
     no_owner: bool,
+    /// How many times a waiting read paused, and after how many pauses the turn finishes (None: at the first look).
+    pauses: Mutex<u64>,
+    finish_after: Option<u64>,
+    /// Locust's own Stop did not take.
+    cancel_fails: bool,
 }
 
 fn mate(id: &str, name: &str, mode: &str) -> Teammate {
@@ -92,7 +97,7 @@ impl Locust for Fake {
         self.waiting.lock().unwrap().contains(mission)
     }
     fn cancel(&self, mission: &str) -> bool {
-        self.live.lock().unwrap().remove(mission)
+        !self.cancel_fails && self.live.lock().unwrap().remove(mission)
     }
     fn conversations(&self) -> Vec<Turn> {
         self.turns.lock().unwrap().values().cloned().collect()
@@ -127,9 +132,12 @@ impl Locust for Fake {
         Ok((id, None))
     }
     fn pause(&self, _: u64) {
-        // A waiting read finds the turn finished at its first look.
-        let mut live = self.live.lock().unwrap();
-        live.clear();
+        // A waiting read finds the turn finished at its first look, unless told how many pauses it takes.
+        let mut pauses = self.pauses.lock().unwrap();
+        *pauses += 1;
+        if self.finish_after.is_none_or(|n| *pauses >= n) {
+            self.live.lock().unwrap().clear();
+        }
     }
 }
 
@@ -665,3 +673,7 @@ fn a_run_held_up_by_its_provider_says_why_instead_of_only_still_working() {
     drop(turns);
     assert_eq!(tools.call("read_reply", &json!({"conversation_id": "m1"})).text, "Still working: Using bash");
 }
+
+#[cfg(test)]
+#[path = "an_app_stops_and_waits_tests.rs"]
+mod an_app_stops_and_waits_tests;
