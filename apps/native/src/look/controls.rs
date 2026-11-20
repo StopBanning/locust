@@ -237,6 +237,8 @@ pub fn runtime_mark(l: &Look, runtime: &str, size: f32, words: Color, label: Opt
     let mark = mark_drawn(runtime, muted)?;
     let colour = if runtime == "claude" && !muted { l.c("mark-claude") } else { words };
     let icon = rune::icon(mark, size).color(colour);
+    // shell.css `.lc-runtimemark.is-muted[data-runtime]`: the words' colour, at half strength.
+    let icon = if muted { icon.opacity(0.5) } else { icon };
     Some(match label {
         Some(name) => icon.role("img").label(name.to_owned()),
         None => icon.a11y_hidden(),
@@ -407,3 +409,7 @@ pub fn header_button(l: &Look, i: &'static Icon, words: &str) -> El {
         .child(text(words.to_owned()).font(TextStyle::new(13.0, 400.0)).color(l.c("text-secondary")));
     focusable(l, e, words, false)
 }
+
+#[cfg(test)]
+#[path = "runtime_mark_colour_tests.rs"]
+mod runtime_mark_colour_tests;

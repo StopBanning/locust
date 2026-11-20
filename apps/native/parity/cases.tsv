@@ -766,6 +766,10 @@ apps/desktop/src/main/a-runtime-command-is-sent-as-typed.test.ts	is briefed like
 apps/desktop/src/main/a-runtime-command-is-sent-as-typed.test.ts	is briefed like any message when nobody said it was a command	no
 apps/desktop/src/main/a-runtime-command-is-sent-as-typed.test.ts	leaves the next turn briefed in full, since the command may have cleared or compacted the session	yes
 apps/desktop/src/main/a-runtime-command-is-sent-as-typed.test.ts	goes to OpenCode by name, with only what follows the name as its message (0.427)	yes
+apps/desktop/src/main/a-runtime-mark-wears-its-colour-as-a-token.test.ts	is a token, for every mark whose colour is part of the mark	yes
+apps/desktop/src/main/a-runtime-mark-wears-its-colour-as-a-token.test.ts	is painted by runtime for Claude alone: Gemini carries its gradient in the mark	yes
+apps/desktop/src/main/a-runtime-mark-wears-its-colour-as-a-token.test.ts	draws an account's usage bars in the app's own tones: quiet, amber from 80%, red when spent (0.389)	yes
+apps/desktop/src/main/a-runtime-mark-wears-its-colour-as-a-token.test.ts	goes grey with its words when the runtime cannot take work, brand colour and all	yes
 apps/desktop/src/main/a-runtime-that-cannot-start-says-why.test.ts	says its program was not found, and where to get it again	yes
 apps/desktop/src/main/a-runtime-that-cannot-start-says-why.test.ts	says the computer would not run it	yes
 apps/desktop/src/main/a-runtime-that-cannot-start-says-why.test.ts	says the conversation's folder is gone, before anything else	yes

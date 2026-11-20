@@ -69,11 +69,7 @@ fn window_block(l: &crate::look::controls::Look, window: &CardWindow) -> El {
             .child(text(label.clone()).font(l.ty.body).color(l.c("text-secondary")))
             .child(text(window.reset_since().unwrap_or_default()).font(l.ty.body).color(l.c("text-muted"))),
         CardWindow::Bar { label, value, fill, tone, .. } => {
-            let colour = match tone {
-                Tone::Spent => l.c("red"),
-                Tone::Pressing => l.c("amber"),
-                Tone::Calm => l.c("text-secondary"),
-            };
+            let colour = bar_colour(l, *tone);
             let mut block = col()
                 .gap(3.0)
                 .child(row().gap(8.0).child(text(label.clone()).font(l.ty.body).color(l.c("text-secondary")).grow(1.0).shrink().truncate()).child(text(value.clone()).font(l.ty.body).color(colour)))
@@ -85,5 +81,15 @@ fn window_block(l: &crate::look::controls::Look, window: &CardWindow) -> El {
             }
             block
         }
+    }
+}
+
+/// shell.css `.lc-agentcard__fill`: a usage bar in the app's own tones, quiet, amber from 80% (`is-pressing`), red when
+/// spent (`is-spent`).
+pub(crate) fn bar_colour(l: &crate::look::controls::Look, tone: Tone) -> Color {
+    match tone {
+        Tone::Spent => l.c("red"),
+        Tone::Pressing => l.c("amber"),
+        Tone::Calm => l.c("text-secondary"),
     }
 }
