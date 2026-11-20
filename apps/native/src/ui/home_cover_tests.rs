@@ -255,6 +255,30 @@ fn draws_smaller_when_the_page_gives_less_than_it_needs_and_no_smaller_than_the_
 }
 
 #[test]
+fn the_cover_takes_the_spare_height_and_leaves_only_the_air() {
+    // Grown, the page is the pane less the air kept above the cover (cover_room_for), plus the 10% the measure counts
+    // the cover over what Home draws (COVER_HOME_SCALE). A measure that read the cover as one of the other sections
+    // would leave its whole footprint again as empty space.
+    let mut checked = 0;
+    for height in (900..=1800).step_by(20) {
+        let rt = drawn(on(), (1215.0, height as f32));
+        let fit = rt.state.home.fit;
+        let grow = fit.grow.unwrap();
+        if grow <= 1.0 || grow >= COVER_MAX_GROW || fit.tight {
+            continue;
+        }
+        let (pane, column) = (fit.pane_height.unwrap(), fit.column.unwrap().0);
+        let (pad, _) = locust_core::home_cover::home_spacing(false);
+        let air = 48.0_f64.max((pane - 2.0 * pad) * 0.1);
+        let base = (locust_core::home_cover::COVER_HEIGHT + locust_core::home_cover::COVER_REACH) * locust_core::home_cover::cover_scale(760.0);
+        let left = pane - column;
+        assert!(left >= air - 2.0 && left <= air + 0.1 * base * grow + 4.0, "at {height}: {left:.0} left, air {air:.0}, grow {grow}");
+        checked += 1;
+    }
+    assert!(checked >= 2, "only {checked} heights grew without reaching the cap");
+}
+
+#[test]
 fn keeps_clear_of_the_card_edges_at_its_largest() {
     let rt = drawn(on(), (1215.0, 2400.0));
     let (m, card) = machine_on_card(&rt);
