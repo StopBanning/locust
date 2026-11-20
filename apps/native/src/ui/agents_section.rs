@@ -18,8 +18,8 @@ use locust_core::runtime_order::{RuntimeEntry, keep_what_was_known, runtime_list
 pub(super) const HEADING: &str = "AI agents & accounts";
 /// Electron's lede, minus "Claude Code and Codex can also use accounts you add here": named accounts are not built.
 const LEDE: &str = "Each AI agent starts with this Mac's sign-in.";
-/// Electron's, with "press its Install" made "run its line": this window has no Install button yet (see `shown_detail`).
-const NONE_INSTALLED: &str = "None of these are on this machine yet. The quickest start is OpenCode: run its line below, no account, and its free model runs as soon as it is there. The others below are worth adding when you want a stronger model, and each needs its own sign-in.";
+/// Electron's word for word: the row has its Install button now (`install_part`).
+const NONE_INSTALLED: &str = "None of these are on this machine yet. The quickest start is OpenCode: press its Install, no account, and its free model runs as soon as it is there. The others below are worth adding when you want a stronger model, and each needs its own sign-in.";
 const CHECKING: &str = "Checking each AI agent on this Mac…";
 
 /// Ask every agent again, in the background. Tests never run real agents: they set the results themselves.

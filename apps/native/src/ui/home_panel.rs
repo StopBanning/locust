@@ -76,6 +76,10 @@ pub(super) fn open_home(s: &mut State) {
     refresh_changelog(s);
     crate::usage_line::request(s);
     crate::scout_cards::request_refresh_state(s);
+    // Home draws the AI agents (first, when none is installed): ask for them if nothing has answered yet.
+    if s.settings_panel.agents.is_none() {
+        crate::agents_section::request(s);
+    }
 }
 
 pub(super) fn open_board(s: &mut State) {
@@ -442,11 +446,26 @@ fn starter_icon(label: &str) -> &'static rune::Icon {
 }
 
 /// Home's banner: the Locust lockup and its line on the boot screen's dark glass, dark in both themes as Electron's.
-fn banner(l: &crate::look::controls::Look) -> El {
+/// HomeCover.tsx's glass line while work runs (0.610): who waits on you, then who is working, by the same facts the
+/// cards below say (`teammate_status`). None: the glass keeps its claim.
+fn cover_status(s: &State) -> Option<String> {
+    let (mut working, mut waiting) = (Vec::new(), Vec::new());
+    for mate in &s.teammates {
+        match teammate_status(s, &mate.id, mate.busy, mate.runtime.as_deref(), &mate.role).status {
+            "working" => working.push(mate.name.as_str()),
+            "approval-needed" => waiting.push(mate.name.as_str()),
+            _ => {}
+        }
+    }
+    locust_core::home_cover::glass_status(&working, &waiting)
+}
+
+fn banner(l: &crate::look::controls::Look, status: Option<String>) -> El {
     let ink = l.c("boot-ink");
     let (mark_h, word_h) = (30.0_f32, 21.0_f32);
     let mark_w = mark_h * 306.89 / 176.39;
     let word_w = word_h * 283.65 / 39.36;
+    let line = status.unwrap_or_else(|| COVER_CLAIM.to_owned());
     col()
         .gap(12.0)
         .center()
@@ -462,9 +481,9 @@ fn banner(l: &crate::look::controls::Look) -> El {
                 .child(rune::icon(&crate::look::icons::LOCUST_MARK, mark_w).color(ink).my(-(mark_w - mark_h) / 2.0).a11y_hidden())
                 .child(rune::icon(&crate::look::icons::LOCUST_WORDMARK, word_w).color(ink).my(-(word_w - word_h) / 2.0)),
         )
-        .child(text(COVER_CLAIM.to_uppercase()).font(rune::TextStyle::new(9.5, 400.0).mono().tracking(1.9)).color(l.c("boot-ink-muted")))
+        .child(text(line.to_uppercase()).font(rune::TextStyle::new(9.5, 400.0).mono().tracking(1.9)).color(l.c("boot-ink-muted")).key("home-cover-line"))
         .role("img")
-        .label(format!("Locust. {COVER_CLAIM}"))
+        .label(format!("Locust. {line}"))
 }
 
 /// A Home section's head: its title, a count when it has one, and what sits at its right.
@@ -537,6 +556,42 @@ pub(super) fn teammate_section(s: &State, id: &str, busy: bool, runtime: Option<
         "working" => Status::Working, _ => Status::Idle }), s.home.to_look_at.iter().any(|key| s.people_panel.team["missionOwners"][key].as_str() == Some(id)))
 }
 
+/// FirstLaunch.tsx's `lc-intro`: one line under the machine, centred on it (Colin, 2026-09-24: "text is way off
+/// center"), for a first run only, which lasts until the first conversation. Said once discovery has answered. Its
+/// second sentence is a promise about OpenCode's price list, withdrawn only on evidence (`free_start_still_free`).
+fn intro_line(s: &State) -> Option<String> {
+    let found = s.settings_panel.agents.as_ref()?;
+    if !(s.teammates.is_empty() || s.recent.is_empty()) {
+        return None;
+    }
+    let opencode_ready = found.iter().any(|f| f.id == locust_core::agents::FREE_START_RUNTIME && f.status == locust_core::agents::Probe::Ready);
+    let listed = s.models.values().flatten().filter(|a| a.runtime == locust_core::agents::FREE_START_RUNTIME).flat_map(|a| a.models.iter().map(|m| m.id.as_str()));
+    Some(match locust_core::home_order::free_start_still_free(opencode_ready, listed) {
+        locust_core::home_order::FreeStart::No => boot_view::INTRO,
+        _ => boot_view::INTRO_WITH_FREE,
+    }.to_owned())
+}
+
+/// `waitingLine` for the card a teammate's conversation waits on (`home_team_state::waiting_line`): the question as
+/// asked, the command it wants to run, or the approval it asks for. Owners are recorded ids, never names.
+fn waiting_line_for(s: &State, teammate: &str) -> Option<String> {
+    use locust_core::home_team_state::{Waiting, waiting_line};
+    let owners = &s.people_panel.team["missionOwners"];
+    let (mission, ask) = s.home.asks.iter().filter(|(m, _)| owners[m.as_str()].as_str() == Some(teammate)).min_by_key(|(_, a)| a.shown)?;
+    let summary = s.home.waiting_for.get(mission).map(String::as_str).unwrap_or_default();
+    waiting_line(match ask.kind.as_str() {
+        "question" => Waiting::Approval { what: summary, asking: true, command: false },
+        "command" => Waiting::Approval { what: ask.command.as_deref().unwrap_or(summary), asking: false, command: true },
+        _ => Waiting::Approval { what: summary, asking: false, command: false },
+    })
+}
+
+/// When a teammate last worked: the newest conversation recorded as theirs (by owner id).
+fn last_worked_at(s: &State, teammate: &str) -> Option<String> {
+    let owners = &s.people_panel.team["missionOwners"];
+    s.recent.iter().filter(|r| owners[r.id.as_str()].as_str() == Some(teammate)).map(|r| r.updated.clone()).max()
+}
+
 pub(super) fn home_view(s: &State, p: &Palette) -> El {
     let l = crate::look::controls::Look::new(p.dark);
     let mut body = col().w_full().max_w(760.0).gap(12.0).pt(18.0).pb(28.0);
@@ -550,7 +605,17 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
                     .build(l.k),
             ),
     );
-    body = body.child(row().w_full().justify_center().pb(10.0).child(banner(&l)));
+    body = body.child(row().w_full().justify_center().pb(10.0).child(banner(&l, cover_status(s))));
+    if let Some(line) = intro_line(s) {
+        body = body.child(row().w_full().justify_center().child(text(line).font(l.ty.body).color(l.c("text-secondary")).wrap().key("home-intro")));
+    }
+    // FirstLaunch.tsx `accountsLead`: with nothing installed, the press that makes a team runnable comes before the
+    // teams and the folder; once anything is installed, after them, so a returning Home never reorders.
+    let installed: Option<Vec<bool>> = s.settings_panel.agents.as_ref().map(|found| found.iter().map(|f| f.installed).collect());
+    let accounts_lead = locust_core::home_order::accounts_lead(installed.as_deref());
+    if accounts_lead {
+        body = body.child(crate::agents_section::section(s, p).key("home-agents"));
+    }
 
     // Folder strip
     let folder_line = s
@@ -719,6 +784,7 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
         }
         body = body.child(section_head(&l, YOUR_TEAM, Some(s.teammates.len()), Some(add)));
         // HomeTeam.tsx's cards: a square for the face (faces come in C4), the name, the role, the agent and model.
+        let faces = crate::teammate_faces::views(s);
         let groups = crate::team_board::team_board(&s.teammates, |mate| teammate_section(s, &mate.id, mate.busy, mate.runtime.as_deref()));
         let grouped = groups.is_some();
         let has_ready = groups.as_ref().is_none_or(|groups| groups.iter().any(|(section, _)| *section == crate::team_board::Section::Ready));
@@ -752,11 +818,21 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
             );
             let looked = crate::scout_cards::looked_line_for_teammate(s, &mate.id);
             let status = teammate_status(s, &mate.id, mate.busy, mate.runtime.as_deref(), &mate.role);
-            let sub_text = looked
-                .as_ref()
-                .map(|(line, _)| line.clone())
-                .unwrap_or_else(|| status.label.clone());
-            let card = row()
+            // HomeTeam.tsx (0.606/0.609/0.610): the state beside the name, the same fact the sidebar face draws; while
+            // they wait, what on, under the name in the role's place; idle, what they last did on hover.
+            let activity = faces.get(&mate.id).map_or(locust_core::bot_rig::FaceActivity::Idle, |v| v.activity);
+            let state = locust_core::home_team_state::team_card_state(Some(&status), activity);
+            let doing = state.as_ref().filter(|st| st.tone != "red").and_then(|_| waiting_line_for(s, &mate.id));
+            let looked_line = looked.as_ref().map(|(line, _)| line.clone());
+            let busy_line = doing.is_some();
+            let sub_text = doing.or(looked_line).unwrap_or_else(|| mate.role.clone());
+            let mut name_row = row().gap(6.0).center_y().child(text(mate.name.clone()).font(rune::TextStyle::new(14.0, 500.0)).color(l.c("text-name")).truncate().shrink());
+            if let Some(st) = &state {
+                let tone = match st.tone { "red" => p.red, "amber" => p.amber, _ => p.green };
+                name_row = name_row.child(text(st.word.clone()).font(rune::TextStyle::new(11.5, 500.0)).color(tone).label(st.spoken.clone()));
+            }
+            let last_worked = locust_core::home_team_state::last_worked_phrase(last_worked_at(s, &mate.id).as_deref(), chrono::Utc::now());
+            let mut card = row()
                 .gap(12.0)
                 .padding(12.0)
                 .center_y()
@@ -769,10 +845,12 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
                         .gap(2.0)
                         .grow(1.0)
                         .shrink()
-                        .child(text(mate.name.clone()).font(rune::TextStyle::new(14.0, 500.0)).color(l.c("text-name")).truncate())
-                        .child(row().gap(5.0).center_y().child(teammate_presence(&status, p)).child(text(sub_text).font(rune::TextStyle::new(12.5, 400.0)).color(teammate_status_color(&status, p)).truncate()))
+                        .child(name_row)
+                        .child(row().gap(5.0).center_y().child(teammate_presence(&status, p)).child(text(sub_text).font(rune::TextStyle::new(12.5, 400.0)).color(if busy_line { l.c("text-secondary") } else { l.c("text-muted") }).truncate()))
                         .child(agent),
-                );
+                )
+                .key(format!("home-card-{}", mate.id));
+            if state.is_none() { card = card.help(last_worked); }
             if let Some((_, looking)) = looked {
                 let mut eye = row()
                     .padding(6.0)
@@ -812,6 +890,10 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
         if !has_ready && crate::scout_cards::invite_offer_active(s) {
             body = body.child(row().w_full().gap(10.0).child(crate::scout_cards::invite_team_tile(&l)));
         }
+    }
+
+    if !accounts_lead {
+        body = body.child(crate::agents_section::section(s, p).key("home-agents"));
     }
 
     // Starters
@@ -1794,7 +1876,9 @@ mod renderer_runtime_tests {
                 else { crate::people_panel::view(s,&Palette::new(true)) }, (1200.0,1800.0),rune::Env::new(true,1.0));
             rt.frame(0.0);
             let elements = rt.elements();
-            assert!(elements.iter().any(|e| e.text.as_deref() == Some("Sign-in needed")), "home={home}");
+            // Home's card says it beside the name, mid-line (HomeTeam.tsx, homeTeamState `lowerFirst`); Team says it as a line.
+            let said = if home { "sign-in needed" } else { "Sign-in needed" };
+            assert!(elements.iter().any(|e| e.text.as_deref() == Some(said)), "home={home}");
             assert!(elements.iter().any(|e| e.label.as_deref() == Some("blocked")), "home={home}");
             assert!(!elements.iter().any(|e| e.text.as_ref().is_some_and(|t| t.contains("Docs & QA · idle"))), "home={home}");
         }
@@ -1822,3 +1906,15 @@ mod renderer_runtime_tests {
 #[cfg(test)]
 #[path = "whats_new_tests.rs"]
 mod whats_new_tests;
+
+#[cfg(test)]
+#[path = "home_install_first_tests.rs"]
+mod home_install_first_tests;
+
+#[cfg(test)]
+#[path = "home_cover_status_tests.rs"]
+mod home_cover_status_tests;
+
+#[cfg(test)]
+#[path = "home_team_cards_tests.rs"]
+mod home_team_cards_tests;
