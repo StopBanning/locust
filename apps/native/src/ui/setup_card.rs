@@ -118,7 +118,7 @@ pub(super) fn open_for_teammate(s: &mut State, teammate_id: &str) {
         .as_deref()
         .filter(|m| !m.is_empty())
         .unwrap_or("account-default");
-    let mode_label = locust_core::mode_facts::fact(&mate.runs_in).chip;
+    let mode_label = locust_core::mode_facts::fact(&mate.runs_in).name;
     let model_line = format!("{runtime_display} / {model} · {mode_label}");
     let name = mate.name.clone();
 

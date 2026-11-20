@@ -4191,6 +4191,10 @@ apps/desktop/src/renderer/src/missions-lists-conversations.test.tsx	names it by 
 apps/desktop/src/renderer/src/missions-lists-conversations.test.tsx	ends a hand-edited cycle instead of spinning	no
 apps/desktop/src/renderer/src/missions-lists-conversations.test.tsx	lists conversations, and deletes a conversation with every turn	no
 apps/desktop/src/renderer/src/missions-lists-conversations.test.tsx	says when, and how many turns	no
+apps/desktop/src/renderer/src/mode-says-one-thing.test.ts	covers the whole union exactly once	yes
+apps/desktop/src/renderer/src/mode-says-one-thing.test.ts	names each mode the same way everywhere it is named	yes
+apps/desktop/src/renderer/src/mode-says-one-thing.test.ts	says read-only for every mode that is read-only, on every surface	yes
+apps/desktop/src/renderer/src/mode-says-one-thing.test.ts	says of Auto, on every surface, that it reaches past this folder	yes
 apps/desktop/src/renderer/src/nested-lists.test.ts	reads two-space indents as depth	yes
 apps/desktop/src/renderer/src/nested-lists.test.ts	reads four-space indents as the SAME depth as two-space	yes
 apps/desktop/src/renderer/src/nested-lists.test.ts	comes back OUT of a nesting	yes

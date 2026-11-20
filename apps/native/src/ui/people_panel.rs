@@ -294,17 +294,6 @@ fn set_form_folder(s: &mut State, folder: Option<&std::path::Path>) {
     }
 }
 
-fn form_mode_summary(mode: &str) -> String {
-    let short = match mode {
-        "auto" => "may edit anything on this machine",
-        "accept-edits" => "may change files in this workspace",
-        "approve-each" => "asks before every command or change",
-        "plan" => "answers with the steps it would take, changes nothing",
-        _ => "reads and explains, every write refused",
-    };
-    format!("{} · {short}", locust_core::mode_facts::fact(mode).name)
-}
-
 fn teammate_folder_row(s: &State, p: &Palette) -> Option<El> {
     let panel = &s.people_panel;
     let id = panel.entry["teammateId"].as_str().filter(|id| !id.is_empty())?;
@@ -792,7 +781,7 @@ pub(super) fn edit_form(s: &State, p: &Palette) -> El {
     }
     form = form.child(model_row(s, p));
     if let Some(folder) = teammate_folder_row(s, p) { form = form.child(folder); }
-    form = form.child(text(form_mode_summary(shown_route(s).as_ref().map(|r| r.mode.as_str()).unwrap_or("ask"))).key("team-permissions").font(type_::LABEL).color(p.secondary).wrap());
+    form = form.child(text(locust_core::mode_facts::mode_summary(shown_route(s).as_ref().map(|r| r.mode.as_str()).unwrap_or("ask"))).key("team-permissions").font(type_::LABEL).color(p.secondary).wrap());
     let limit_error = locust_core::teammate_month::parsed_limit(&panel.limit.text).err();
     let effective_route = shown_route(s);
     let runtime_now = effective_route.as_ref().map(|r|r.runtime.as_str()).unwrap_or("");
@@ -1035,7 +1024,6 @@ fn team_grid(s: &State, p: &Palette) -> El {
         let role = t["role"].as_str().unwrap_or("").to_owned();
         let runtime = t["route"]["runtime"].as_str().unwrap_or("").to_owned();
         let model = t["route"]["model"].as_str().unwrap_or("").to_owned();
-        let mode = t["route"]["mode"].as_str().unwrap_or("ask").to_owned();
         let work = locust_core::teammate_work::teammate_work(&id, &missions, &owners, |m| m.title.clone());
         let last = work.last_run_at.and_then(ago_label);
         let status = crate::home_panel::teammate_status(s, &id, s.teammates.iter().any(|m| m.id == id && m.busy), t["route"]["runtime"].as_str(), &role);
@@ -1109,7 +1097,8 @@ fn team_grid(s: &State, p: &Palette) -> El {
                     .truncate(),
             );
         }
-        let mode_chip = row().child(crate::look::controls::chip(&l, locust_core::mode_facts::fact(&mode).chip, false));
+        // Screens.tsx roster card: the mode in its receipt words (modeLabel), read-only or whole machine said with it.
+        let mode_chip = row().key(format!("team-mode-{id}")).child(crate::look::controls::chip(&l, &locust_core::mode_facts::mode_label(t["route"]["mode"].as_str()), false));
 
         let stat = |label: &str, value: String, quiet: bool| {
             col()
@@ -2597,3 +2586,7 @@ mod memory_proposal_tests {
 #[cfg(test)]
 #[path = "memory_screen_round_tests.rs"]
 mod memory_screen_round_tests;
+
+#[cfg(test)]
+#[path = "mode_registers_tests.rs"]
+mod mode_registers_tests;

@@ -138,20 +138,6 @@ fn description(role: &str) -> Option<&'static str> {
         _ => return None,
     })
 }
-fn mode_sentence(mode: &str) -> &'static str {
-    match mode {
-        "accept-edits" => {
-            "Edit is on, so it may change files here; switch to Ask below to keep it read-only."
-        }
-        "plan" => "In Plan mode it answers with the steps it would take and changes nothing.",
-        "approve-each" => "Every change waits for your approval before it lands.",
-        "auto" => {
-            "Auto is on: it runs without asking and may change files anywhere on this machine, not only in this folder."
-        }
-        _ => "In Ask mode nothing is changed: every write is refused.",
-    }
-}
-
 pub(super) fn view(s: &State, mate: &Teammate, p: &Palette) -> El {
     let l = crate::look::controls::Look::new(p.dark);
     let entry = s.people_panel.team["teammates"]
@@ -195,7 +181,7 @@ pub(super) fn view(s: &State, mate: &Teammate, p: &Palette) -> El {
         .child(
             text(format!(
                 "{label}{about}. {}",
-                mode_sentence(s.composer_mode.as_deref().unwrap_or(&mate.runs_in))
+                locust_core::mode_facts::mode_sentence(s.composer_mode.as_deref().unwrap_or(&mate.runs_in))
             ))
             .color(p.secondary)
             .wrap(),
