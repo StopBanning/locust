@@ -211,6 +211,10 @@ pub fn queue_note(verdict: &QueuedVerdict, working_name: &str, count: usize) -> 
 }
 
 #[cfg(test)]
+#[path = "steering_tests.rs"]
+mod steering_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
 

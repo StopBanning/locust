@@ -4690,6 +4690,16 @@ apps/desktop/src/renderer/src/status.test.ts	is recognised through the family id
 apps/desktop/src/renderer/src/status.test.ts	is recognised through the variant id a run actually resolves to	no
 apps/desktop/src/renderer/src/status.test.ts	is not claimed for a runtime that takes the effort beside the model	no
 apps/desktop/src/renderer/src/status.test.ts	is not claimed for a model nothing in the catalog folds	no
+apps/desktop/src/renderer/src/steering.test.ts	waits while the run is still going	yes
+apps/desktop/src/renderer/src/steering.test.ts	goes as the next turn once that run completed	yes
+apps/desktop/src/renderer/src/steering.test.ts	is HELD when the run did not complete, and says which way it ended	yes
+apps/desktop/src/renderer/src/steering.test.ts	is held when the person has moved to another conversation	yes
+apps/desktop/src/renderer/src/steering.test.ts	is held rather than sent when the run it belonged to is gone	yes
+apps/desktop/src/renderer/src/steering.test.ts	never sends on anything but a completed run that is on screen	yes
+apps/desktop/src/renderer/src/steering.test.ts	moves to the real runId when the run is re-keyed	yes
+apps/desktop/src/renderer/src/steering.test.ts	leaves a message queued against another conversation alone	yes
+apps/desktop/src/renderer/src/steering.test.ts	has nothing to move when nothing is queued	yes
+apps/desktop/src/renderer/src/steering.test.ts	no longer reports the conversation as gone once it has followed	yes
 apps/desktop/src/renderer/src/stop-card-says-tools-not-work.test.tsx	says no tools were used, not that no work was done	yes
 apps/desktop/src/renderer/src/teamBoard.test.ts	puts each teammate where what they need from you says -- most urgent first	yes
 apps/desktop/src/renderer/src/teamBoard.test.ts	draws a quiet team as the plain grid: no board of empty columns	yes
