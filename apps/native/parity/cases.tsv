@@ -1354,6 +1354,12 @@ apps/desktop/src/main/cursor-connector-allow.test.ts	leaves a file it cannot rea
 apps/desktop/src/main/cursor-connector-allow.test.ts	adds the rules under the workspace and says which were added	yes
 apps/desktop/src/main/cursor-connector-allow.test.ts	does nothing with no servers, and does not write when nothing is new	yes
 apps/desktop/src/main/cursor-connector-allow.test.ts	does not write over a file it could not read, and does not throw	yes
+apps/desktop/src/main/cursor-visibility.test.ts	names the rule, so the person can go and change it	yes
+apps/desktop/src/main/cursor-visibility.test.ts	reads the home file when the workspace has none	yes
+apps/desktop/src/main/cursor-visibility.test.ts	prefers the workspace file, which is nearer to the work	yes
+apps/desktop/src/main/cursor-visibility.test.ts	says nothing when nothing hides the folder	yes
+apps/desktop/src/main/cursor-visibility.test.ts	says nothing when there is no rule file at all	yes
+apps/desktop/src/main/cursor-visibility.test.ts	raises it as a runtime_error, or the thread would drop it	yes
 apps/desktop/src/main/disk-observation.test.ts	parses the NUL-separated porcelain form, including a rename with its source	yes
 apps/desktop/src/main/disk-observation.test.ts	looks at the folder itself when git cannot answer, and is nothing when that cannot be read either	yes
 apps/desktop/src/main/disk-observation.test.ts	asks for untracked files one by one, so a new file inside a new folder is a path, not a folder	yes

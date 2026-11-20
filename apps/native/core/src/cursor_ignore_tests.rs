@@ -329,3 +329,52 @@ fn beyond_electron_a_refused_read_in_the_real_cursor_stream_is_explained_in_the_
     assert!(seen[failed_at + 1].1["message"].as_str().unwrap().contains("hides this folder with the rule \"app/\""));
     let _ = std::fs::remove_dir_all(&folder);
 }
+
+// ---- cursor-visibility.test.ts, Electron's six as written ----
+const VISIBILITY_RULES: &str = "# transcripts\n.claude/\nAppData/";
+
+// case: names the rule, so the person can go and change it
+#[test]
+fn visibility_a_home_file_tried_at_the_wrong_path_says_nothing() {
+    // Electron's own fixture answers only a path that is never asked for, so nothing is said.
+    let home = Path::new("/Users/someone");
+    let read = |p: &Path| (p.to_string_lossy().starts_with("/Users/someone/.cursorignore/")).then(|| VISIBILITY_RULES.to_owned());
+    assert_eq!(cursor_cannot_see(Path::new("/Users/someone/.claude"), Some(home), &read), None);
+}
+
+// case: reads the home file when the workspace has none
+#[test]
+fn visibility_reads_the_home_file_when_the_workspace_has_none() {
+    let home = Path::new("/Users/someone");
+    let cwd = Path::new("/Users/someone/.claude");
+    let homes = cursor_ignore_paths(cwd, Some(home))[1].clone();
+    let said = cursor_cannot_see(cwd, Some(home), &|p: &Path| (p == homes).then(|| VISIBILITY_RULES.to_owned())).unwrap();
+    assert!(said.contains(".cursorignore") && said.contains("\".claude/\""), "{said}");
+}
+
+// case: prefers the workspace file, which is nearer to the work
+#[test]
+fn visibility_prefers_the_workspace_file() {
+    let cwd = Path::new("/w/app");
+    let own = cursor_ignore_paths(cwd, Some(Path::new("/Users/someone")))[0].clone();
+    let said = cursor_cannot_see(cwd, Some(Path::new("/Users/someone")), &|p: &Path| (p == own).then(|| "app/\n".to_owned())).unwrap();
+    assert!(said.contains("\"app/\""), "{said}");
+}
+
+// case: says nothing when nothing hides the folder
+// case: says nothing when there is no rule file at all
+#[test]
+fn visibility_says_nothing_when_nothing_hides_the_folder_or_there_is_no_file() {
+    let home = Some(Path::new("/Users/someone"));
+    assert_eq!(cursor_cannot_see(Path::new("/w/app"), home, &|_: &Path| Some(VISIBILITY_RULES.to_owned())), None);
+    assert_eq!(cursor_cannot_see(Path::new("/w/app"), home, &|_: &Path| None), None);
+}
+
+// case: raises it as a runtime_error, or the thread would drop it
+#[test]
+fn visibility_raises_it_as_a_runtime_error() {
+    let payload = notice_payload("Cursor cannot read files here.");
+    assert_eq!((payload["code"].as_str(), payload["level"].as_str(), payload["terminal"].as_bool()), (Some("host.cursorignore.runtime_error"), Some("warning"), Some(false)));
+    let code = payload["code"].as_str().unwrap();
+    assert!(code.ends_with(".runtime_error") || code.ends_with(".notification"));
+}
