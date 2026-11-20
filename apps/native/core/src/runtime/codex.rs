@@ -653,6 +653,23 @@ mod tests {
         }
         assert_eq!(event.kind, "run.cancelled");
     }
+    /// stopping-app-server-holds-nothing.test.ts: Electron stopped its app server twice (a turn's end, then the
+    /// transport's close), each a synchronous tree walk that held the main process. Rust's stop holds nothing (it
+    /// marks the deadline and asks to interrupt; the watchdog kills) and a second stop is nothing at all.
+    // case: walks the tree once however many times it is stopped
+    #[test]
+    fn stopping_twice_holds_nothing_and_happens_once() {
+        let mut command = Command::new("python3");
+        command.args(["-c", "import time; time.sleep(60)"]);
+        let mut runtime = Codex::spawn(&mut command).unwrap();
+        let start = Instant::now();
+        runtime.stop().unwrap();
+        let first = runtime.stopping;
+        runtime.stop().unwrap();
+        assert!(start.elapsed() < Duration::from_millis(250), "{:?}", start.elapsed());
+        assert_eq!(runtime.stopping, first, "the second stop changes nothing");
+        drop(runtime);
+    }
     #[test]
     fn stdout_overflow_terminates_without_consumer_draining() {
         let mut command = Command::new("python3");

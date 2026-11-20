@@ -2119,6 +2119,12 @@ apps/desktop/src/main/skills-kept-from-github.test.ts	says plainly what GitHub w
 apps/desktop/src/main/skills-kept-from-github.test.ts	follows a redirect only to GitHub's own hosts	yes
 apps/desktop/src/main/skills-kept-from-github.test.ts	refuses a keep it was not shown: a name not in that commit, or no commit	yes
 apps/desktop/src/main/skills-kept-from-github.test.ts	outside Auto beside the folder's own; in Auto, the kept ones alone	yes
+apps/desktop/src/main/stopping-app-server-holds-nothing.test.ts	walks the tree once however many times it is stopped	yes
+apps/desktop/src/main/stopping-app-server-holds-nothing.test.ts	returns before the walk finishes -- the walk never has to finish for kill() to return	no
+apps/desktop/src/main/stopping-app-server-holds-nothing.test.ts	kills the process itself when taskkill could not	no
+apps/desktop/src/main/stopping-app-server-holds-nothing.test.ts	without a pid, is the ordinary kill, once	no
+apps/desktop/src/main/stopping-app-server-holds-nothing.test.ts	off Windows, ends the process group, and kills the process only when that could not be done	no
+apps/desktop/src/main/stopping-app-server-holds-nothing.test.ts	the old call holds the thread; the new one does not, and still takes the tree down	no
 apps/desktop/src/main/stores-fail-closed.test.ts	the fault is real: the root genuinely cannot be written into	yes
 apps/desktop/src/main/stores-fail-closed.test.ts	and the SAME calls all succeed on a root that works	yes
 apps/desktop/src/main/stores-fail-closed.test.ts	the teammate roster rejects rather than pretending to save	yes
