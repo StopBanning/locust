@@ -179,7 +179,7 @@ fn kilo_runs_without_asking_locust() {
 /// this engine does not do. `LOCUST_WRITE_DOCS=1` rewrites it (vitest's `-u`).
 #[test]
 fn docs_what_locust_can_stop_md_is_written_from_it_rewrite_with_u() {
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join(WHAT_LOCUST_CAN_STOP_FILE);
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join(WHAT_LOCUST_CAN_STOP_PAGE);
     let written = what_locust_can_stop_document();
     if std::env::var_os("LOCUST_WRITE_DOCS").is_some() {
         std::fs::write(&path, &written).expect("the document is writable");

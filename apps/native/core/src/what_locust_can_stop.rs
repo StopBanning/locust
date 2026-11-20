@@ -119,9 +119,9 @@ pub const WHAT_LOCUST_CAN_STOP: &[StopRow] = &[
     },
 ];
 
-/// Where the document written from this table lives, beside this app (Electron's is `docs/WHAT-LOCUST-CAN-STOP.md`, written
+/// The page written from this table, beside this app (a source document, not a file in the profile: no `_FILE` name) (Electron's is `docs/WHAT-LOCUST-CAN-STOP.md`, written
 /// from Electron's own table; this engine's sentences differ where its code does).
-pub const WHAT_LOCUST_CAN_STOP_FILE: &str = "WHAT-LOCUST-CAN-STOP.md";
+pub const WHAT_LOCUST_CAN_STOP_PAGE: &str = "WHAT-LOCUST-CAN-STOP.md";
 
 /// An agent's name in the document, as Electron's `runtimeDisplayName` writes it; a custom ACP agent is "Your own agent".
 fn document_name(runtime: &str) -> &str {
