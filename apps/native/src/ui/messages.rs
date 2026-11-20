@@ -1399,3 +1399,7 @@ mod renderer_newest_scroll_tests {
 #[cfg(test)]
 #[path = "turn_foot_tests.rs"]
 mod turn_foot_tests;
+
+#[cfg(test)]
+#[path = "terminal_thread_tests.rs"]
+mod terminal_thread_tests;

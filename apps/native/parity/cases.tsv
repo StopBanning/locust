@@ -707,6 +707,13 @@ apps/desktop/src/main/a-team-card-carries-its-routines.test.ts	takes a routine o
 apps/desktop/src/main/a-team-template-makes-ordinary-teammates.test.ts	are three teams of three, each with names and colours of its own	no
 apps/desktop/src/main/a-team-template-makes-ordinary-teammates.test.ts	each makes three teammates the store accepts, with the faces the cards showed	no
 apps/desktop/src/main/a-team-template-makes-ordinary-teammates.test.ts	keep a teammate's first messages through an edit, and refuse a list that is not one (0.359)	no
+apps/desktop/src/main/a-teammate-can-be-tagged-from-any-conversation.test.ts	is the message first -- so their conversation is titled by it -- then where it came from and the latest answer there	yes
+apps/desktop/src/main/a-teammate-can-be-tagged-from-any-conversation.test.ts	says only where it came from when that conversation has no answer yet	yes
+apps/desktop/src/main/a-teammate-can-be-tagged-from-any-conversation.test.ts	is the message alone when it was sent from nobody's conversation	yes
+apps/desktop/src/main/a-teammate-can-be-tagged-from-any-conversation.test.ts	fits the mission limit, cutting the answer rather than the message	yes
+apps/desktop/src/main/a-teammate-can-be-tagged-from-any-conversation.test.ts	reaches at most a handful of teammates at once	yes
+apps/desktop/src/main/a-teammate-can-be-tagged-from-any-conversation.test.ts	is the message, after a restart too, when the ledger has recorded the run as an ordinary one	yes
+apps/desktop/src/main/a-teammate-can-be-tagged-from-any-conversation.test.ts	leaves a message nobody was tagged in alone	yes
 apps/desktop/src/main/a-teammate-cut-off-is-not-said-to-have-finished.test.ts	is said to have stopped, and why, not to have finished	no
 apps/desktop/src/main/a-teammate-cut-off-is-not-said-to-have-finished.test.ts	has no answer brought back, even when one was asked for	no
 apps/desktop/src/main/a-teammate-cut-off-is-not-said-to-have-finished.test.ts	stopped by the person is said so	no
@@ -2281,6 +2288,10 @@ apps/desktop/src/renderer/src/a-busy-free-model-offers-the-next.test.tsx	skips a
 apps/desktop/src/renderer/src/a-busy-free-model-offers-the-next.test.tsx	is nothing for a paid route, a model of their own, another runtime, or a lone free model	yes
 apps/desktop/src/renderer/src/a-busy-free-model-offers-the-next.test.tsx	is marked busy only for a provider that is turning requests away	no
 apps/desktop/src/renderer/src/a-busy-free-model-offers-the-next.test.tsx	carries the offer as a button under its words, and only the busy one does	yes
+apps/desktop/src/renderer/src/a-button-turn-says-what-was-asked.test.ts	a tidy pass: what the person asked for, not the brief	yes
+apps/desktop/src/renderer/src/a-button-turn-says-what-was-asked.test.ts	a tidy pass sent with the brief before 0.372, its example in a code fence: the same	yes
+apps/desktop/src/renderer/src/a-button-turn-says-what-was-asked.test.ts	a review: whose work, not the review material	yes
+apps/desktop/src/renderer/src/a-button-turn-says-what-was-asked.test.ts	a person's own words, even ones that begin the same way, are left as they are	yes
 apps/desktop/src/renderer/src/a-called-link-says-what-leaves-the-computer.test.tsx	offers the new kind and its privacy and Ask words, with a save-first message for a new routine	yes
 apps/desktop/src/renderer/src/a-called-link-says-what-leaves-the-computer.test.tsx	tells a browser the link stays on this computer, with no Copy or New link	no
 apps/desktop/src/renderer/src/a-cancelled-run-spent-nothing.test.ts	says nothing at all about a run that reported nothing	yes
@@ -2288,7 +2299,7 @@ apps/desktop/src/renderer/src/a-cancelled-run-spent-nothing.test.ts	never puts a
 apps/desktop/src/renderer/src/a-cancelled-run-spent-nothing.test.ts	shows THIS run when this run reported one	yes
 apps/desktop/src/renderer/src/a-cancelled-run-spent-nothing.test.ts	still offers the conversation total, on the conversation-scoped surface	yes
 apps/desktop/src/renderer/src/a-cancelled-run-spent-nothing.test.ts	marks a live run as still going	yes
-apps/desktop/src/renderer/src/a-carried-on-turn-is-said-as-locusts.test.tsx	draws no bubble in the person's voice	no
+apps/desktop/src/renderer/src/a-carried-on-turn-is-said-as-locusts.test.tsx	draws no bubble in the person's voice	yes
 apps/desktop/src/renderer/src/a-carried-on-turn-is-said-as-locusts.test.tsx	the divider says the plan ran out and where the work went	no
 apps/desktop/src/renderer/src/a-carried-on-turn-is-said-as-locusts.test.tsx	the stopped run says its provider failed first, and that another agent can start it clean (0.839)	no
 apps/desktop/src/renderer/src/a-carried-on-turn-is-said-as-locusts.test.tsx	the stopped run offers one press that names the agent, and says why a press was refused	no
@@ -2681,6 +2692,10 @@ apps/desktop/src/renderer/src/a-pull-request-chip-says-its-state.test.tsx	names 
 apps/desktop/src/renderer/src/a-pull-request-chip-says-its-state.test.tsx	wears its checks’ tone while open, and merged’s own once merged	yes
 apps/desktop/src/renderer/src/a-pull-request-link-wears-its-state.test.tsx	wears the state in words, and the checks as one mark	no
 apps/desktop/src/renderer/src/a-pull-request-link-wears-its-state.test.tsx	makes a bare pull request in the person's message a link, and a bare issue one too	no
+apps/desktop/src/renderer/src/a-question-is-answered-by-number.test.ts	chooses that option of the first question still without one	yes
+apps/desktop/src/renderer/src/a-question-is-answered-by-number.test.ts	answers the question the focus is in, even one already answered	yes
+apps/desktop/src/renderer/src/a-question-is-answered-by-number.test.ts	does nothing while typing, with a modifier held, past the options, or for other keys	yes
+apps/desktop/src/renderer/src/a-question-is-answered-by-number.test.ts	does nothing once every question with options has its answer, unless the focus says which	yes
 apps/desktop/src/renderer/src/a-question-makes-the-face-wait-on-you.test.ts	counts questions a teammate stopped on beside its paused runs	no
 apps/desktop/src/renderer/src/a-question-makes-the-face-wait-on-you.test.ts	leaves out memory suggestions, Scout cards, waiting routines, and items no teammate owns	no
 apps/desktop/src/renderer/src/a-question-makes-the-face-wait-on-you.test.ts	a question alone makes the face wait, in amber, with nothing running	yes
@@ -3056,6 +3071,15 @@ apps/desktop/src/renderer/src/a-turn-says-what-it-changed-apart-from-the-folder.
 apps/desktop/src/renderer/src/a-turn-says-what-it-changed-apart-from-the-folder.test.tsx	says a turn that edited nothing itself only saw files change	yes
 apps/desktop/src/renderer/src/a-turn-says-what-it-changed-apart-from-the-folder.test.tsx	counts a file the host could not read once, as the step that changed it (0.672)	yes
 apps/desktop/src/renderer/src/a-turn-says-what-it-changed-apart-from-the-folder.test.tsx	draws no foot while the turn is still going	yes
+apps/desktop/src/renderer/src/a-turn-sent-back-to-fix-is-said-as-locusts.test.tsx	draws no bubble in the person's voice	yes
+apps/desktop/src/renderer/src/a-turn-sent-back-to-fix-is-said-as-locusts.test.tsx	says what failed and which fix it is, for an earlier turn and the one on screen, with what was sent a click away	yes
+apps/desktop/src/renderer/src/a-turn-sent-back-to-fix-is-said-as-locusts.test.tsx	a routine’s own fix turn is Locust’s too, read from its words; a routine’s step stays the person’s	yes
+apps/desktop/src/renderer/src/a-turn-sent-back-to-fix-is-said-as-locusts.test.tsx	names whom it went back to, when the conversation has a teammate	yes
+apps/desktop/src/renderer/src/a-turn-sent-back-to-fix-is-said-as-locusts.test.tsx	says why it stopped under the turn it stopped after, when the conversation is opened again	yes
+apps/desktop/src/renderer/src/a-turn-sent-back-to-fix-is-said-as-locusts.test.tsx	a pass after a fix is the fix's; after the person's own turn it is the turn's	yes
+apps/desktop/src/renderer/src/a-turn-sent-back-to-fix-is-said-as-locusts.test.tsx	is off until chosen: the failure is shown, with the button	yes
+apps/desktop/src/renderer/src/a-turn-sent-back-to-fix-is-said-as-locusts.test.tsx	when on, says how many fixes at most and that each is a turn	yes
+apps/desktop/src/renderer/src/a-turn-sent-back-to-fix-is-said-as-locusts.test.tsx	cannot be turned on before there is a check to run	yes
 apps/desktop/src/renderer/src/a-turn-that-goes-quiet-says-so.test.tsx	says so after five minutes without a word, with Stop beside it	yes
 apps/desktop/src/renderer/src/a-turn-that-goes-quiet-says-so.test.tsx	says nothing while the turn is heard from, or while a command it named runs	no
 apps/desktop/src/renderer/src/a-turn-that-goes-quiet-says-so.test.tsx	counts whole minutes from when it was last heard, and only once there are five	yes
@@ -3144,6 +3168,9 @@ apps/desktop/src/renderer/src/an-added-account-is-named-in-the-picker.test.tsx	n
 apps/desktop/src/renderer/src/an-added-account-is-named-in-the-picker.test.tsx	hides added routes under organization policy while saying why Add is unavailable	no
 apps/desktop/src/renderer/src/an-added-account-is-named-in-the-picker.test.tsx	shows the agent-owned sign-in card without starting a login on render	no
 apps/desktop/src/renderer/src/an-antigravity-model-limit-is-its-own-bar.test.ts	reads each group's windows from the reading, the model's own limit last	yes
+apps/desktop/src/renderer/src/an-antigravity-question-is-answered-here.test.tsx	names Antigravity, offers every option and a written answer, and sends -- or skips	yes
+apps/desktop/src/renderer/src/an-antigravity-question-is-answered-here.test.tsx	offers no Skip where the runtime takes none	yes
+apps/desktop/src/renderer/src/an-antigravity-question-is-answered-here.test.tsx	shows the question and its options, says where to answer, and has no buttons	yes
 apps/desktop/src/renderer/src/an-approval-card-goes-with-its-run.test.ts	go when their run is stopped, fails or finishes	yes
 apps/desktop/src/renderer/src/an-approval-card-goes-with-its-run.test.ts	stay while their run is live, found by key or by its runId	yes
 apps/desktop/src/renderer/src/an-approval-card-goes-with-its-run.test.ts	stay when the window does not know the run yet	yes
@@ -4376,6 +4403,13 @@ apps/desktop/src/renderer/src/the-terminal-opens-before-the-first-message.test.t
 apps/desktop/src/renderer/src/the-terminal-opens-before-the-first-message.test.tsx	shows the organization restriction on the disabled terminal control	no
 apps/desktop/src/renderer/src/the-terminal-opens-before-the-first-message.test.tsx	recognizes Ctrl backtick on every platform and leaves unrelated keys alone	no
 apps/desktop/src/renderer/src/the-terminal-opens-before-the-first-message.test.tsx	keeps a pasted Unicode character whole at every IPC boundary	no
+apps/desktop/src/renderer/src/the-terminal-turns-are-drawn-as-yours.test.tsx	is the person's own words, with nothing attached	yes
+apps/desktop/src/renderer/src/the-terminal-turns-are-drawn-as-yours.test.tsx	carries its runtime through the conversation's turns, and Locust's own turns do not	yes
+apps/desktop/src/renderer/src/the-terminal-turns-are-drawn-as-yours.test.tsx	go into the terminal before its first turn, and back in Locust before the next of its own	yes
+apps/desktop/src/renderer/src/the-terminal-turns-are-drawn-as-yours.test.tsx	say whose terminal, and that it ran with that runtime's own permissions	yes
+apps/desktop/src/renderer/src/the-terminal-turns-are-drawn-as-yours.test.tsx	draws the terminal turns between one seam going in and one coming back, the words in order	yes
+apps/desktop/src/renderer/src/the-terminal-turns-are-drawn-as-yours.test.tsx	keeps the flag on every copy of a turn the window makes, the one a reply carries included	no
+apps/desktop/src/renderer/src/the-terminal-turns-are-drawn-as-yours.test.tsx	opens on a conversation whose newest turn was the terminal’s with the seam going in and none coming back	yes
 apps/desktop/src/renderer/src/the-theme-control-says-what-it-chose.test.tsx	offers the three, and marks Dark until the saved choice is read	no
 apps/desktop/src/renderer/src/the-theme-control-says-what-it-chose.test.tsx	says what each choice means, and what the computer is now under Match computer	no
 apps/desktop/src/renderer/src/the-thinking-dots-never-jump.test.ts	end each loop where the next begins: no wrap to jump across	yes
