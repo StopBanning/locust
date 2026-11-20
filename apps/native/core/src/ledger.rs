@@ -3316,3 +3316,7 @@ mod thought_folds_to_one_line_tests;
 #[cfg(test)]
 #[path = "a_turn_that_answered_in_a_block_is_not_silent_tests.rs"]
 mod a_turn_that_answered_in_a_block_is_not_silent_tests;
+
+#[cfg(test)]
+#[path = "fall_off_tests.rs"]
+mod fall_off_tests;

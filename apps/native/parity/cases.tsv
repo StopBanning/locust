@@ -160,6 +160,12 @@ apps/desktop/src/main/a-comparison-runs-again.test.ts	settles at a start a run L
 apps/desktop/src/main/a-comparison-runs-again.test.ts	keeps its runs again out of the conversation list, and a settled one claims no copies	no
 apps/desktop/src/main/a-connector-check-says-how-it-went.test.ts	keeps how long the check took and when each was last seen connected	yes
 apps/desktop/src/main/a-connector-check-says-how-it-went.test.ts	a check that timed out says so for every connector, and the rules keep the last good reading	yes
+apps/desktop/src/main/a-conversation-does-not-fall-off-the-list.test.ts	lists a conversation older than the newest twenty	yes
+apps/desktop/src/main/a-conversation-does-not-fall-off-the-list.test.ts	carries its prompt, because the row is named from it	yes
+apps/desktop/src/main/a-conversation-does-not-fall-off-the-list.test.ts	lists it WITHOUT its transcript	yes
+apps/desktop/src/main/a-conversation-does-not-fall-off-the-list.test.ts	still carries the transcript for the newest	yes
+apps/desktop/src/main/a-conversation-does-not-fall-off-the-list.test.ts	lists every conversation exactly once	yes
+apps/desktop/src/main/a-conversation-does-not-fall-off-the-list.test.ts	still finds an ancestor that is off the end of even the long list	yes
 apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	are each runtime’s own flag	no
 apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	do not exist for a runtime that does not run here	no
 apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	take a session id only when it is a plain token: never an option, never a shell word	no
@@ -1215,6 +1221,10 @@ apps/desktop/src/main/block-placement.test.ts	finds the briefings, so a pass mea
 apps/desktop/src/main/block-placement.test.ts	never says a block must be the last thing in the reply	yes
 apps/desktop/src/main/block-placement.test.ts	says instead that several blocks may follow one another	yes
 apps/desktop/src/main/block-placement.test.ts	is used by every briefing that asks for a block	yes
+apps/desktop/src/main/bounded-shutdown.test.ts	leaves on its own when the work never settles	yes
+apps/desktop/src/main/bounded-shutdown.test.ts	leaves as soon as the work is done, and not again at the deadline	yes
+apps/desktop/src/main/bounded-shutdown.test.ts	reports a failed flush as a failure rather than as a clean exit	no
+apps/desktop/src/main/bounded-shutdown.test.ts	does not leave twice when the work lands right after the deadline	no
 apps/desktop/src/main/changelog.test.ts	finds every entry, newest first, in the order the file writes them	no
 apps/desktop/src/main/changelog.test.ts	gives an entry its body and not its heading	no
 apps/desktop/src/main/changelog.test.ts	keeps a multi-line entry whole	no

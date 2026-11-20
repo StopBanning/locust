@@ -3440,3 +3440,28 @@ fn a_relay_started_turn_records_its_starter_and_a_persons_turn_records_none() {
     finished(&mine.conversation_id);
     assert!(ledger_of(&t, &mine.conversation_id)[0]["metadata"].get("startedBy").is_none());
 }
+
+/// bounded-shutdown.test.ts: a quit that never finishes must still end. Rust's shutdown tells every running turn to
+/// stop and waits for them, bounded: with nothing running it is over at once, and a turn that never settles does not
+/// hold it past its deadline. (Electron's failed-flush and late-landing cases do not apply: Rust writes each record
+/// synchronously as it happens, so a shutdown has no flush to fail, and it leaves exactly once, when its wait ends.)
+// case: leaves on its own when the work never settles
+// case: leaves as soon as the work is done, and not again at the deadline
+#[test]
+fn a_bounded_shutdown_ends_at_its_deadline_when_a_turn_never_settles_and_at_once_when_nothing_runs() {
+    let t = Temp::new();
+    let _g = hooks::install(t.store(), None);
+    let begun = Instant::now();
+    shutdown_in_background_for(Duration::from_secs(5));
+    wait_for_shutdown();
+    assert!(begun.elapsed() < Duration::from_secs(1), "nothing running: over at once ({:?})", begun.elapsed());
+    let flag = Arc::new(AtomicBool::new(false));
+    with_running(|m| m.insert("turn_that_never_settles".into(), flag.clone()));
+    let begun = Instant::now();
+    shutdown_in_background_for(Duration::from_millis(300));
+    wait_for_shutdown();
+    let took = begun.elapsed();
+    with_running(|m| m.remove("turn_that_never_settles"));
+    assert!(flag.load(Ordering::Relaxed), "the turn was told to stop");
+    assert!(took >= Duration::from_millis(300) && took < Duration::from_secs(5), "ended at its deadline: {took:?}");
+}
