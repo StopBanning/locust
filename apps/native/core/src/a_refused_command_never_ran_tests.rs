@@ -72,3 +72,23 @@ fn keeps_its_row_with_the_reason_the_runtime_gave() {
     assert!(detail.runtime_status.is_empty(), "the second was not refused: {}", detail.runtime_status);
     assert!(detail.output.is_empty());
 }
+
+/// Electron's third case (a fresh-profile beta report of 0.345): an edit the person declined on its card read "edit
+/// failed" in its row and "1 refused" in the summary. Declined is the person's no; refused is the mode's.
+#[test]
+fn says_declined_in_its_row_and_in_the_summary_never_failed_or_refused() {
+    let declined = vec![
+        ev(1, "run.started", json!({})),
+        ev(2, "tool.started", json!({"itemId": "e", "toolKind": "tool_use", "name": "db/query.sql", "tool": "edit", "phase": "started"})),
+        ev(3, "tool.failed", json!({"itemId": "e", "toolKind": "tool_use", "name": "db/query.sql", "tool": "edit", "phase": "completed", "status": "declined", "output": "The person declined this in Locust."})),
+        ev(4, "run.completed", json!({})),
+    ];
+    let t = transcript(&declined);
+    let rows: Vec<&Item> = t.items.iter().filter(|i| matches!(i, Item::Tool { .. })).collect();
+    assert_eq!(rows.len(), 1, "{:?}", t.items);
+    let Item::Tool { detail, .. } = rows[0] else { unreachable!() };
+    assert_eq!(detail.runtime_status, "declined", "the row's word (activity_drawers) is its runtime status");
+    let line = activity_trace(&t.items, &declined, outcome(&declined, false)).text();
+    assert!(line.contains("1 declined"), "{line}");
+    assert!(!line.contains("refused"), "{line}");
+}
