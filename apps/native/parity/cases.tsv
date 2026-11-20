@@ -2656,6 +2656,13 @@ apps/desktop/src/renderer/src/a-comparison-that-edits-says-what-each-changed.tes
 apps/desktop/src/renderer/src/a-comparison-that-edits-says-what-each-changed.test.tsx	in a folder too big to copy, says they all work in the folder itself, and Keep brings nothing in	no
 apps/desktop/src/renderer/src/a-comparison-that-edits-says-what-each-changed.test.tsx	puts what each changed at its foot, before its time	yes
 apps/desktop/src/renderer/src/a-comparison-that-edits-says-what-each-changed.test.tsx	counts one file as a file	yes
+apps/desktop/src/renderer/src/a-connector-call-is-known-to-be-one.test.ts	reads a bare mcp tool name as a connector call	yes
+apps/desktop/src/renderer/src/a-connector-call-is-known-to-be-one.test.ts	does not turn a file or an ordinary tool into one	yes
+apps/desktop/src/renderer/src/a-connector-call-is-known-to-be-one.test.ts	puts the live line on the connector register	yes
+apps/desktop/src/renderer/src/a-connector-call-is-known-to-be-one.test.ts	names no server it was not told	yes
+apps/desktop/src/renderer/src/a-connector-call-is-known-to-be-one.test.ts	still names the server when the name carries one	yes
+apps/desktop/src/renderer/src/a-connector-call-is-known-to-be-one.test.ts	leaves an ordinary tool alone	yes
+apps/desktop/src/renderer/src/a-connector-call-is-known-to-be-one.test.ts	never shows the same orb twice across the busiest transition	yes
 apps/desktop/src/renderer/src/a-connector-says-what-to-do.test.ts	says each state in words, with what to do	yes
 apps/desktop/src/renderer/src/a-connector-says-what-to-do.test.ts	says when it last worked	yes
 apps/desktop/src/renderer/src/a-connector-says-what-to-do.test.ts	says where a connector lives only as a host, or as a program on this computer	yes

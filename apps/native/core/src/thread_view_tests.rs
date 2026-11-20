@@ -401,3 +401,52 @@ fn the_start_says_starting_on_every_route_until_the_run_does_something() {
         assert_eq!(working.label, "Working", "{runtime}");
     }
 }
+
+// ---- a-connector-call-is-known-to-be-one.test.ts ----
+fn started_tool(name: &str) -> Value {
+    let mut e = event("tool.started", json!({"itemId": "t1", "name": name}));
+    e["sourceAdapter"] = json!("antigravity");
+    e
+}
+// case: reads a bare mcp tool name as a connector call
+// case: does not turn a file or an ordinary tool into one
+#[test]
+fn a_bare_mcp_name_is_a_connector_call_and_a_file_or_ordinary_tool_is_not() {
+    use crate::mcp_names::is_bare_connector_tool;
+    assert!(is_bare_connector_tool("mcp") && is_bare_connector_tool("MCP") && is_bare_connector_tool("use_mcp_tool"));
+    for name in ["mcp_server_config.json", "Read", "grep_search", ""] {
+        assert!(!is_bare_connector_tool(name), "{name}");
+    }
+}
+// case: puts the live line on the connector register
+// case: names no server it was not told
+#[test]
+fn a_bare_mcp_call_is_on_the_connector_register_naming_no_server() {
+    let line = live(&[started_tool("mcp")], true, false).unwrap();
+    assert_eq!((line.register.as_str(), line.orb), ("connector", "solving"));
+    assert_eq!(line.detail, None);
+}
+// case: still names the server when the name carries one
+#[test]
+fn a_connector_call_names_the_server_its_name_carries() {
+    let line = live(&[started_tool("mcp__claude_ai_Robinhood__get_watchlists")], true, false).unwrap();
+    assert_eq!(line.register, "connector");
+    assert_eq!(line.detail.as_deref(), Some("Robinhood"));
+    assert_eq!(line.label, "get_watchlists");
+}
+// case: leaves an ordinary tool alone
+#[test]
+fn an_ordinary_tool_is_left_alone() {
+    let line = live(&[started_tool("grep_search")], true, false).unwrap();
+    assert_eq!((line.register.as_str(), line.orb), ("tool", "searching"));
+}
+// case: never shows the same orb twice across the busiest transition
+#[test]
+fn never_shows_the_same_orb_twice_across_the_busiest_transition() {
+    let working = live(&[event("step.started", json!({"stepKind": "turn"}))], true, false).unwrap().orb;
+    let tool = live(&[started_tool("run_command")], true, false).unwrap().orb;
+    let connector = live(&[started_tool("mcp")], true, false).unwrap().orb;
+    let thinking = live(&[event("step.started", json!({"stepKind": "reasoning"}))], true, false).unwrap().orb;
+    let orbs: std::collections::HashSet<&str> = [working, tool, connector, thinking].into_iter().collect();
+    assert_eq!(orbs.len(), 4, "{working} {tool} {connector} {thinking}");
+}
