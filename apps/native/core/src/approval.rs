@@ -243,6 +243,32 @@ fn remember_tool_use(approval_id: &str, tool_use_id: &str) {
     kept.drain(..extra);
 }
 
+static ASKED_AGAIN: std::sync::Mutex<Vec<(String, String)>> = std::sync::Mutex::new(Vec::new());
+
+/// who-decides.ts decide, step 4: an Always given earlier in this run covers this card's key, but the command reaches
+/// beyond its run, so the card asks anyway. The host says why, and the card shows it in place of the general line.
+/// None for any other card.
+pub fn asked_again_why(card: &Request, remembered: bool) -> Option<String> {
+    if !remembered || card.kind == Kind::Question {
+        return None;
+    }
+    let reach = command_reach_of(card)?;
+    Some(format!("Asked again, though you chose Always earlier in this run: this command {}, and such a command is asked about every time.", reach.short))
+}
+
+fn remember_asked_again(approval_id: &str, why: String) {
+    let mut kept = crate::invariants::lock(&ASKED_AGAIN);
+    kept.push((approval_id.to_owned(), why));
+    // Bounded: only cards still being answered need it.
+    let extra = kept.len().saturating_sub(64);
+    kept.drain(..extra);
+}
+
+/// Why a card is asked although Always was given earlier in its run (`askedAgain`), when it is.
+pub fn asked_again_of(approval_id: &str) -> Option<String> {
+    crate::invariants::lock(&ASKED_AGAIN).iter().rev().find(|(a, _)| a == approval_id).map(|(_, w)| w.clone())
+}
+
 /// The tool call a card was raised for, when the runtime said (Claude Code's `tool_use_id`).
 pub fn tool_use_of(approval_id: &str) -> Option<String> {
     crate::invariants::lock(&TOOL_USES).iter().rev().find(|(a, _)| a == approval_id).map(|(_, t)| t.clone())
@@ -1054,15 +1080,12 @@ impl Channel {
                 guard.recorded.push(record);
                 return Ok((auto, "person"));
             }
-            if readable
-                && request.kind != Kind::Question
-                && !asks_every_time(&request)
-                && request.always_key.as_ref().is_some_and(|key| {
-                    guard
-                        .always
-                        .contains_key(&(request.mission_id.clone(), key.clone()))
-                })
-            {
+            let remembered = readable
+                && request.always_key.as_ref().is_some_and(|key| guard.always.contains_key(&(request.mission_id.clone(), key.clone())));
+            if let Some(why) = asked_again_why(&request, remembered) {
+                remember_asked_again(&id, why);
+            }
+            if remembered && request.kind != Kind::Question && !asks_every_time(&request) {
                 let answer = Answer::Decision {
                     approval_id: id,
                     decision: Decision::ApproveOnce,
@@ -1651,6 +1674,9 @@ fn save_pending_rule(
 }
 
 pub fn card_note(card: &Request) -> String {
+    if let Some(why) = asked_again_of(&card.approval_id) {
+        return format!("Nothing has happened yet. {why}");
+    }
     if asks_every_time(card) {
         return "Nothing has happened yet. A command that reaches beyond this run is asked about every time.".into();
     }

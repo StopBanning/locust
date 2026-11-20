@@ -132,7 +132,7 @@ pub(super) fn shell_command_folded(summary: &str, arguments: &str) -> bool {
 
 /// `.lc-filerow.is-shell`: the command first, then its verdict in a green, red, amber or quiet badge, then the
 /// quiet words after it ("no output", the time it took). A chevron only when something is behind it (`is-static`).
-fn shell_heading(key: String, label: String, result: &str, badge: ShellBadge, expandable: bool, open: bool, p: &Palette) -> El {
+fn shell_heading(key: String, label: String, result: &str, badge: ShellBadge, reach: Option<El>, expandable: bool, open: bool, p: &Palette) -> El {
     let l = crate::look::controls::Look::new(p.dark);
     let marker = format!(" · {result}");
     let (title, rest) = match label.rfind(&marker) {
@@ -159,6 +159,9 @@ fn shell_heading(key: String, label: String, result: &str, badge: ShellBadge, ex
             el().key(format!("{key}/badge")).px(6.0).radius(5.0).fill(bg)
                 .child(text(result.to_owned()).font(type_::LABEL.mono()).color(fg)),
         );
+    if let Some(reach) = reach {
+        line = line.child(reach);
+    }
     if !rest.is_empty() {
         line = line.child(text(rest).font(type_::LABEL).color(l.c("text-muted")).shrink().wrap_anywhere());
     }
@@ -169,6 +172,27 @@ fn shell_heading(key: String, label: String, result: &str, badge: ShellBadge, ex
     } else {
         line.key(key)
     }
+}
+
+/// ActivityCard.tsx ReachBadge (0.578): a command that acted on programs this run did not start says so on its row, in
+/// a few words, the whole sentence on hover. In Auto no card is asked, so the row is the only place left to say that
+/// `taskkill //F //IM python.exe` stopped every Python on the computer. Not on a refused or declined command: it never
+/// ran.
+fn reach_badge(s: &State, key: &str, d: &ledger::ToolDetail, p: &Palette) -> Option<El> {
+    if matches!(d.runtime_status.as_str(), "declined" | "refused") {
+        return None;
+    }
+    let reach = locust_core::command_reach::command_reach(Some(&d.arguments))?;
+    let l = crate::look::controls::Look::new(p.dark);
+    let badge_key = format!("{key}/reach/{}", reach.kind.as_str());
+    let badge = el()
+        .key(badge_key.clone())
+        .label(reach.said.clone())
+        .px(6.0)
+        .radius(5.0)
+        .fill(l.c("amber-tint"))
+        .child(text(reach.short.clone()).font(type_::LABEL.mono()).color(l.c("amber-text")));
+    Some(super::hover::tip(s, &l, &badge_key, &reach.said, badge))
 }
 
 pub(super) fn is_shell_tool(name: &str) -> bool {
@@ -527,12 +551,12 @@ fn activity_item_with_files(item: &ledger::Item, p: &Palette, s: &State, scope: 
     };
     let shell = match item {
         ledger::Item::Tool { name, status, detail, .. } if is_shell_tool(name) && !detail.helper => {
-            Some((tool_result(*status, detail, finished), shell_badge(*status, detail, finished)))
+            Some((tool_result(*status, detail, finished), shell_badge(*status, detail, finished), reach_badge(s, &key, detail, p)))
         }
         _ => None,
     };
-    let heading = if let Some((result, badge)) = shell {
-        shell_heading(key.clone(), label, &result, badge, expandable, open, p)
+    let heading = if let Some((result, badge, reach)) = shell {
+        shell_heading(key.clone(), label, &result, badge, reach, expandable, open, p)
     } else if expandable {
         disclosure(key.clone(), label, open, p)
     } else {
@@ -798,6 +822,10 @@ pub(super) fn activity_group(items: &[ledger::Item], p: &Palette, s: &State, sco
     }
     group
 }
+
+#[cfg(test)]
+#[path = "reach_says_so_tests.rs"]
+mod reach_says_so_tests;
 
 #[cfg(test)]
 mod tests {

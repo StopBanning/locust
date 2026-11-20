@@ -18,7 +18,7 @@ pub enum CommandReachKind {
 }
 
 impl CommandReachKind {
-    #[cfg(any(test, feature = "test-hooks"))]
+    /// command-reach.ts's kind names, which the row's reach badge carries in its key (`data-reach`).
     pub fn as_str(self) -> &'static str {
         match self {
             Self::EveryProcessNamed => "every-process-named",

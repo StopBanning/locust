@@ -2660,6 +2660,15 @@ apps/desktop/src/renderer/src/a-command-reads-as-a-command.test.ts	trims, so a r
 apps/desktop/src/renderer/src/a-command-says-how-long-it-took.test.ts	says how long it ran, from its start to its end	no
 apps/desktop/src/renderer/src/a-command-says-how-long-it-took.test.ts	says nothing when there is nothing true to say: instant, backgrounded, or refused	no
 apps/desktop/src/renderer/src/a-command-says-how-long-it-took.test.ts	says nothing while it is still running	no
+apps/desktop/src/renderer/src/a-command-that-reaches-other-programs-says-so.test.tsx	says what the command reaches before it runs	yes
+apps/desktop/src/renderer/src/a-command-that-reaches-other-programs-says-so.test.tsx	has no such row for a command that acts on its own work	yes
+apps/desktop/src/renderer/src/a-command-that-reaches-other-programs-says-so.test.tsx	offers neither Always nor a saved rule, and says why	yes
+apps/desktop/src/renderer/src/a-command-that-reaches-other-programs-says-so.test.tsx	still offers both on an ordinary command (control)	yes
+apps/desktop/src/renderer/src/a-command-that-reaches-other-programs-says-so.test.tsx	says a saved rule still comes first, where Locust keeps the Always	yes
+apps/desktop/src/renderer/src/a-command-that-reaches-other-programs-says-so.test.tsx	says why it is asked again when Always was given earlier in the run	yes
+apps/desktop/src/renderer/src/a-command-that-reaches-other-programs-says-so.test.tsx	says what the command reached after it ran	yes
+apps/desktop/src/renderer/src/a-command-that-reaches-other-programs-says-so.test.tsx	says nothing more about a command that acts on its own work	yes
+apps/desktop/src/renderer/src/a-command-that-reaches-other-programs-says-so.test.tsx	says nothing about a command that was refused, since it never ran	yes
 apps/desktop/src/renderer/src/a-command-wraps-at-its-spaces.test.tsx	holds each flag to its dash and changes no character	no
 apps/desktop/src/renderer/src/a-command-wraps-at-its-spaces.test.tsx	leaves a dash inside a word, a lone dash and a number alone	no
 apps/desktop/src/renderer/src/a-command-wraps-at-its-spaces.test.tsx	is drawn so on the approval card, and a connector call is not	no
