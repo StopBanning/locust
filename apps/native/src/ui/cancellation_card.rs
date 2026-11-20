@@ -64,3 +64,7 @@ pub(super) fn card(summary: &Summary, by_person: bool, p: &Palette) -> El {
     }
     out
 }
+
+#[cfg(test)]
+#[path = "stop_card_words_tests.rs"]
+mod stop_card_words_tests;

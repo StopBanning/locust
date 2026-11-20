@@ -4673,6 +4673,7 @@ apps/desktop/src/renderer/src/status.test.ts	is recognised through the family id
 apps/desktop/src/renderer/src/status.test.ts	is recognised through the variant id a run actually resolves to	no
 apps/desktop/src/renderer/src/status.test.ts	is not claimed for a runtime that takes the effort beside the model	no
 apps/desktop/src/renderer/src/status.test.ts	is not claimed for a model nothing in the catalog folds	no
+apps/desktop/src/renderer/src/stop-card-says-tools-not-work.test.tsx	says no tools were used, not that no work was done	yes
 apps/desktop/src/renderer/src/teamBoard.test.ts	puts each teammate where what they need from you says -- most urgent first	yes
 apps/desktop/src/renderer/src/teamBoard.test.ts	draws a quiet team as the plain grid: no board of empty columns	yes
 apps/desktop/src/renderer/src/teamBoard.test.ts	leaves out a section with nobody in it	yes
