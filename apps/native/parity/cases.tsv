@@ -2928,7 +2928,7 @@ apps/desktop/src/renderer/src/a-scout-card-that-needs-you-is-on-the-board.test.t
 apps/desktop/src/renderer/src/a-scout-card-that-needs-you-is-on-the-board.test.tsx	sends a title-bar row to Home with that card in view, and the Board’s buttons are Home’s	no
 apps/desktop/src/renderer/src/a-scout-fix-says-where-it-stands.test.tsx	says each step in words, with only the presses that step has	yes
 apps/desktop/src/renderer/src/a-scout-fix-says-where-it-stands.test.tsx	drops the handoff drafted for the same check while the fix is the next step, and offers it again when the fix could not be made	yes
-apps/desktop/src/renderer/src/a-scout-fix-says-where-it-stands.test.tsx	is off until turned on, needs the folder’s check first, and once on names who prepares them and how many a day	no
+apps/desktop/src/renderer/src/a-scout-fix-says-where-it-stands.test.tsx	is off until turned on, needs the folder’s check first, and once on names who prepares them and how many a day	yes
 apps/desktop/src/renderer/src/a-screen-holds-its-eyes.test.ts	keeps every stroke of every pair inside the screen, whatever the glance or the moment	yes
 apps/desktop/src/renderer/src/a-screen-holds-its-eyes.test.ts	never lets the two eyes touch	yes
 apps/desktop/src/renderer/src/a-screen-holds-its-eyes.test.ts	draws Prompt's screen at the mascot's size: the room is there, so the glyphs are not shrunk	yes

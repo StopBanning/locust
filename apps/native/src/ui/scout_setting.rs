@@ -1393,6 +1393,20 @@ mod tests {
 
     // --- 1:1 port of `a-scout-fix-says-where-it-stands.test.tsx` (1 settings case) ---
 
+    /// The toggle's states as a screen reader hears them (Electron's `aria-checked` and `disabled`).
+    fn toggle_states(rt: &rune::Runtime<State>, key: &str) -> Vec<String> {
+        fn find<'a>(node: &'a serde_json::Value, key: &str) -> Option<&'a serde_json::Value> {
+            if node["key"] == key {
+                return Some(node);
+            }
+            node["children"].as_array()?.iter().find_map(|child| find(child, key))
+        }
+        let tree = rt.accessibility_json();
+        let node = find(&tree, key).unwrap_or_else(|| panic!("{key} in the accessibility tree"));
+        node["states"].as_array().into_iter().flatten().filter_map(|v| v.as_str().map(str::to_owned)).collect()
+    }
+
+    // case: is off until turned on, needs the folder’s check first, and once on names who prepares them and how many a day
     #[test]
     fn fixes_setting_requires_check_first_offers_non_scout_teammates_and_adds_today_fixes() {
         let mut no_check = State::default();
@@ -1400,7 +1414,10 @@ mod tests {
         let mut no_check_rt = render_state(no_check, draw_npm_cmd);
         let words = collect_rt_text(&no_check_rt);
         assert!(words.contains("Prepare fixes before I look"));
+        assert!(words.contains("Nothing reaches your folder until you press Apply, and it never pushes or opens a pull request. It runs on that teammate’s plan."));
         assert!(words.contains("Turn on This folder’s check first."));
+        let off = toggle_states(&no_check_rt, "scout-fixes-toggle");
+        assert!(off.contains(&"unchecked".to_owned()) && off.contains(&"disabled".to_owned()), "{off:?}");
         click_key(&mut no_check_rt, "scout-fixes-toggle");
         assert!(!no_check_rt.state.scout.setting_busy);
 
@@ -1450,6 +1467,7 @@ mod tests {
         let rt = render_state(on_fixes, draw_npm_cmd);
         let words = collect_rt_text(&rt);
         assert!(!words.contains("Turn on This folder’s check first."));
+        assert!(toggle_states(&rt, "scout-fixes-toggle").contains(&"checked".to_owned()));
         assert!(words.contains("Who prepares Scout’s fixes"));
         assert!(words.contains("At most 1 a day"));
         assert!(words.contains("At most 2 a day"));

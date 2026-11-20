@@ -144,7 +144,9 @@ pub fn switch(l: &Look, on: bool, label: &str, disabled: bool) -> El {
     if disabled {
         e = e.opacity(0.45);
     }
-    focusable(l, e, label, disabled).role("switch")
+    // Says on or off and whether it can be used, as Electron's `aria-checked` and `disabled` do: a switch that only
+    // looked on was silent to a screen reader.
+    focusable(l, e, label, disabled).role("switch").checked(on).disabled(disabled)
 }
 
 /// `.lc-input`: 34 high, 11 across, radius 8, a card border on the raised fill, primary text at 14. `focused` draws
