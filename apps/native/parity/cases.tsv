@@ -1177,6 +1177,7 @@ apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	keeps mod
 apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	keeps both readings beside their models without asking either runtime for a turn	no
 apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	keeps Antigravity usage even when the Codex model probe fails	no
 apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	does not run usage for missing, unready or non-agy discoveries	no
+apps/desktop/src/main/app-server-output-keeps-its-characters.test.ts	keeps a character split across two reads whole	yes
 apps/desktop/src/main/approval-channel.test.ts	recognizes the three protocol methods and nothing else	yes
 apps/desktop/src/main/approval-channel.test.ts	carries the exact command so the card can say what would happen	yes
 apps/desktop/src/main/approval-channel.test.ts	says so plainly when the runtime described nothing	yes

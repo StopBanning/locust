@@ -224,16 +224,38 @@ pub fn stderr_tail(mut pipe: impl Read + Send + 'static) -> Arc<Mutex<String>> {
     let output = tail.clone();
     std::thread::spawn(move || {
         let mut bytes = [0u8; 8192];
+        // A character split across two reads is held until its rest arrives, not decoded as two halves.
+        let mut pending: Vec<u8> = Vec::new();
         while let Ok(n) = pipe.read(&mut bytes) {
             if n == 0 {
                 break;
             }
+            pending.extend_from_slice(&bytes[..n]);
             let mut held = crate::invariants::lock(&output);
-            held.push_str(&String::from_utf8_lossy(&bytes[..n]));
+            held.push_str(&take_whole_characters(&mut pending));
+            *held = super::events::text(&held, 16384);
+        }
+        if !pending.is_empty() {
+            let mut held = crate::invariants::lock(&output);
+            held.push_str(&String::from_utf8_lossy(&pending));
             *held = super::events::text(&held, 16384);
         }
     });
     tail
+}
+
+/// The text of `pending` up to a character its last read split, leaving that character's first bytes behind. Bytes
+/// that can never be a character are decoded as replacement characters, as before.
+pub(crate) fn take_whole_characters(pending: &mut Vec<u8>) -> String {
+    let keep = match std::str::from_utf8(pending) {
+        Ok(_) => 0,
+        Err(e) if e.error_len().is_none() => pending.len() - e.valid_up_to(),
+        Err(_) => 0,
+    };
+    let rest = pending.split_off(pending.len() - keep);
+    let text = String::from_utf8_lossy(pending).into_owned();
+    *pending = rest;
+    text
 }
 
 /// Configure each runtime's pipe policy, then isolate the child from the host process group.
@@ -441,3 +463,7 @@ pub fn end_terminal_tree(pid: u32) {
     // Root: process group, then the process itself if the group is already gone (Electron fallback).
     kill_process(pid);
 }
+
+#[cfg(test)]
+#[path = "split_characters_tests.rs"]
+mod split_characters_tests;
