@@ -2878,6 +2878,15 @@ apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx
 apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	and reads again from the next turn that reports	no
 apps/desktop/src/renderer/src/a-growing-group-shows-its-rows.test.tsx	shows its rows under its line	no
 apps/desktop/src/renderer/src/a-growing-group-shows-its-rows.test.tsx	a group that is not growing starts folded, as before (control)	no
+apps/desktop/src/renderer/src/a-handed-file-is-a-control.test.tsx	names the file and says what it is	yes
+apps/desktop/src/renderer/src/a-handed-file-is-a-control.test.tsx	is a control, not a sentence	yes
+apps/desktop/src/renderer/src/a-handed-file-is-a-control.test.tsx	offers to show the file, and never to open it	yes
+apps/desktop/src/renderer/src/a-handed-file-is-a-control.test.tsx	draws a file with no note without an empty caption beside it	yes
+apps/desktop/src/renderer/src/a-handed-file-is-a-control.test.tsx	offers it, beside the reveal rather than instead of it	yes
+apps/desktop/src/renderer/src/a-handed-file-is-a-control.test.tsx	still never offers to open it	yes
+apps/desktop/src/renderer/src/a-handed-file-is-a-control.test.tsx	keeps the whole note reachable when the pill truncates it	yes
+apps/desktop/src/renderer/src/a-handed-file-is-a-control.test.tsx	is drawn as a control, by its file's name, with all of its path on hover	yes
+apps/desktop/src/renderer/src/a-handed-file-is-a-control.test.tsx	leaves a path in the folder exactly as it was drawn before	yes
 apps/desktop/src/renderer/src/a-handoff-keeps-the-route-handed-to.test.ts	shows the route handed to, over the teammate's saved model	yes
 apps/desktop/src/renderer/src/a-handoff-keeps-the-route-handed-to.test.ts	does not make the handed-to route the teammate's own	no
 apps/desktop/src/renderer/src/a-handoff-names-the-models-either-side.test.tsx	draws each side’s mark beside the model it ran, the receiving side in its brand	no

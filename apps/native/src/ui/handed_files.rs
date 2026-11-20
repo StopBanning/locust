@@ -164,10 +164,16 @@ pub(super) fn view(
                 .focusable(true)
                 .focus_ring(2.0, 2.0, l.c("focus-ring"))
                 .role("button")
-                .label(file.path.clone())
+                .label(format!("Show {} in the file manager", file.path))
                 .on_press(move |s: &mut State| {
                     reveal_handed_file(s, &scope_owned, &path);
                 });
+            // THE NOTE IS IN THE HOVER (Thread.tsx HandedFiles), because the note is what truncates: the teammate's
+            // own words about the file, then what a press does, so the cut-off half is never lost.
+            let what = format!("Show {} in the file manager", file.path);
+            let hover = match &file.note { Some(note) => format!("{note}\n\n{what}"), None => what };
+            // The tooltip's anchor row must give way as the pill does, or a narrow reply cannot cut the note.
+            let pill = super::hover::tip(s, &l, &format!("handed-tip-{scope}-{idx}"), &hover, pill).shrink().min_w(0.0);
             let (copy_path, copy_scope, save_path, save_scope) = (file.path.clone(), scope.to_owned(), file.path.clone(), scope.to_owned());
             let small = |label: &str, key: String, words: String| {
                 text(label.to_owned()).font(l.ty.label).color(l.c("text-secondary")).py(5.0).px(8.0).radius(6.0).hover(l.c("hover-surface")).key(key).role("button").label(words)
@@ -223,3 +229,7 @@ pub(super) fn view(
 #[cfg(test)]
 #[path = "handed_files_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "handed_control_tests.rs"]
+mod handed_control_tests;
