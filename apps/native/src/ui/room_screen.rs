@@ -2111,6 +2111,15 @@ mod tests {
     use rune::{Env, Runtime};
     use std::collections::BTreeMap;
 
+    /// answer-state.test.ts: two seconds of silence is normal and forty-five alarming (measured), so twenty is past
+    /// normal and short of the bad case.
+    // case: comes from measured numbers, not a round one that felt right
+    #[test]
+    fn the_quiet_threshold_comes_from_measured_numbers() {
+        assert!(NO_WORD_BACK_SECS > 2 && NO_WORD_BACK_SECS < 45);
+        assert_eq!(NO_WORD_BACK_SECS, 20);
+    }
+
     const SOURCE: &str = include_str!("room_screen.rs");
     const SIDEBAR_SOURCE: &str = include_str!("sidebar.rs");
 
