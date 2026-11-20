@@ -1058,6 +1058,9 @@ apps/desktop/src/main/an-office-file-reads-in-any-mode.test.ts	keeps each docume
 apps/desktop/src/main/an-office-file-reads-in-any-mode.test.ts	refreshes a copy only when its document changed	no
 apps/desktop/src/main/an-office-file-reads-in-any-mode.test.ts	leaves out a damaged file, Word's lock files, and anything past the limit	no
 apps/desktop/src/main/an-office-file-reads-in-any-mode.test.ts	writes a table cell's pipe so it cannot split the row	no
+apps/desktop/src/main/an-old-message-says-it-is-old.test.ts	is said once it is half an hour old, in the unit that reads	yes
+apps/desktop/src/main/an-old-message-says-it-is-old.test.ts	goes beside the message it describes, with what to do about it	yes
+apps/desktop/src/main/an-old-message-says-it-is-old.test.ts	is read against the time now when the host prepares a run	yes
 apps/desktop/src/main/an-opencode-run-keeps-the-persons-skill-paths.test.ts	keeps the last config that names them, in OpenCode’s own order, without changing any file	yes
 apps/desktop/src/main/an-opencode-run-keeps-the-persons-skill-paths.test.ts	reads the global folder once and first, honors XDG and the config directories, and stops at the worktree	yes
 apps/desktop/src/main/an-opencode-run-keeps-the-persons-skill-paths.test.ts	does not load disabled project config, and names a file it cannot read	yes
