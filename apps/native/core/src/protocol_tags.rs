@@ -1159,3 +1159,7 @@ mod tests {
         assert!(refused_file_lines(&block).is_empty());
     }
 }
+
+#[cfg(test)]
+#[path = "decision_electron_tests.rs"]
+mod decision_electron_tests;
