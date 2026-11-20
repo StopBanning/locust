@@ -3551,7 +3551,7 @@ apps/desktop/src/renderer/src/groups-unreadable-is-a-line.test.tsx	is said in th
 apps/desktop/src/renderer/src/groups-unreadable-is-a-line.test.tsx	is not said when there are simply no groups	no
 apps/desktop/src/renderer/src/groups-unreadable-is-a-line.test.tsx	names every file that would not read, in one sentence, roster first	no
 apps/desktop/src/renderer/src/groups-unreadable-is-a-line.test.tsx	is not said when the groups read fine	no
-apps/desktop/src/renderer/src/home-fits-one-screen.test.tsx	puts the accounts between the cover and the team, and the starters after the team	no
+apps/desktop/src/renderer/src/home-fits-one-screen.test.tsx	puts the accounts between the cover and the team, and the starters after the team	yes
 apps/desktop/src/renderer/src/home-fits-one-screen.test.tsx	keeps the order it had before there is a team: what to add first, the accounts after	yes
 apps/desktop/src/renderer/src/home-fits-one-screen.test.tsx	draws Scout's quiet watch on its own card, with Look now as the eye there	yes
 apps/desktop/src/renderer/src/home-fits-one-screen.test.tsx	says Looking… while a look is out, and a first look on its way before any	yes

@@ -293,6 +293,18 @@ fn top_of(rt: &rune::Runtime<State>, hit: impl Fn(&rune::ElementInfo) -> bool) -
 }
 
 #[test]
+fn puts_the_accounts_between_the_cover_and_the_team_and_the_starters_after_the_team() {
+    let mut s = on();
+    crate::team_scene(&mut s);
+    let rt = drawn(s, (1215.0, 4000.0));
+    let cover = rect(&rt, "home-cover")[1];
+    let accounts = rect(&rt, "home-agents")[1];
+    let team = top_of(&rt, |e| e.text.as_deref() == Some(crate::starters::YOUR_TEAM)).expect("the team");
+    let starters = rt.elements().iter().find(|e| e.key.as_deref().is_some_and(|k| k.starts_with("starter-"))).map(|e| e.rect[1]).expect("the starters");
+    assert!(cover < accounts && accounts < team && team < starters, "cover {cover}, accounts {accounts}, team {team}, starters {starters}");
+}
+
+#[test]
 fn keeps_the_order_it_had_before_there_is_a_team_what_to_add_first_the_accounts_after() {
     let rt = drawn(on(), (1215.0, 4000.0));
     let cover = rect(&rt, "home-cover")[1];
@@ -392,4 +404,27 @@ fn home_holds_still_at_every_height_once_it_has_measured() {
             assert!(settled.windows(2).all(|w| w[0] == w[1]), "at {height} it flicked: {seen:?}");
         }
     }
+}
+
+/// Home inside the whole window, beside the sidebar and under the title bar, as a person sees it.
+fn in_window(mut s: State, size: (f32, f32)) -> rune::Runtime<State> {
+    s.home.home_open = true;
+    let mut rt = rune::Runtime::new(s, crate::view, size, rune::Env::new(true, 1.0));
+    for _ in 0..16 {
+        rt.frame(0.25);
+    }
+    rt
+}
+
+#[test]
+fn in_the_window_a_home_with_room_grows_its_cover_and_stays_loose() {
+    // In the window the scroll pane stretches its content to its own height; Home measures its sections, not that.
+    let rt = in_window(on(), (1215.0, 1400.0));
+    let fit = rt.state.home.fit;
+    let (pane, column) = (fit.pane_height.expect("measured the pane"), fit.column.expect("measured the column").0);
+    assert!(column < pane - 20.0, "the page's own height, not the pane's: {column} in {pane}");
+    assert!(!fit.tight && fit.grow.unwrap() > 1.0, "{fit:?}");
+    // And a crowded Home in a short window still tightens there, and scrolls in the window rather than past it.
+    let short = in_window(crowded(), (1215.0, 700.0)).state.home.fit;
+    assert!(short.tight && short.grow == Some(COVER_MIN_GROW), "{short:?}");
 }

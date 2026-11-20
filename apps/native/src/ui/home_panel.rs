@@ -835,7 +835,9 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
     let l = crate::look::controls::Look::new(p.dark);
     // Home's spacing: normal, or tight when even the smallest cover does not fit (FirstLaunch.tsx `homeIsShort`).
     let (pad, gap) = locust_core::home_cover::home_spacing(s.home.fit.tight);
-    let mut body = HomeColumn { el: col().w_full().max_w(760.0).gap(gap as f32).pt(pad as f32).pb(pad as f32), count: 0 };
+    // The sections in an inner column that is only as tall as they are: in the window, the scroll pane stretches its
+    // content to its own height, so the outer column read as the pane's height and Home was always short.
+    let mut body = HomeColumn { el: col().w_full().gap(gap as f32), count: 0 };
     body = body.child(
         row()
             .w_full()
@@ -855,11 +857,9 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
     // teams and the folder; once anything is installed, after them, so a returning Home never reorders.
     let installed: Option<Vec<bool>> = s.settings_panel.agents.as_ref().map(|found| found.iter().map(|f| f.installed).collect());
     let accounts_lead = locust_core::home_order::accounts_lead(installed.as_deref());
-    // Not carried: home-fits-one-screen (0.799) puts the accounts between the cover and the team once there is one.
-    // Drawn there (Settings' whole agents panel, not Electron's one-line head), Scout's comment Send lost its press in
-    // window_drive_tests::scout_comment_ask_sends_and_posts_reviewed_reply_from_window, cause not found
-    // (notes/HOME-NOTES.md, Home round 2). With a team the accounts stay after it, as before.
-    let accounts_above = accounts_lead;
+    // home-fits-one-screen (0.799): with a team, the accounts sit between the cover and the team, and the starters
+    // after it, so a returning Home reads cover, accounts, team, what to start.
+    let accounts_above = accounts_lead || !s.teammates.is_empty();
     if accounts_above {
         body = body.child(crate::agents_section::section(s, p).key("home-agents"));
     }
@@ -1207,16 +1207,17 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
     }
     body = body.child(list);
 
-    // What in the column does not move with the cover: its height as drawn, less its padding, its gaps and the cover's
-    // footprint as drawn. Measured from itself, so a cover that grows never shrinks the room it was given.
+    // What in the column does not move with the cover: the sections' own height as drawn, less the gaps between them
+    // and the cover's footprint as drawn. Measured from itself, so a cover that grows never shrinks the room it was
+    // given. The column's height kept beside it is the sections and the padding: the page as tall as it is drawn.
     let count = body.count;
     let tight_now = s.home.fit.tight;
     let place = locust_core::home_cover::cover_place(s.home.fit.card_width.unwrap_or(0.0), s.home.fit.grow.unwrap_or(1.0));
     let footprint = place.height + place.reach;
-    let column = body.el.on_layout_tx(move |s: &mut State, [_, _, _, h], tx| {
+    let sections_el = body.el.key("home-sections").on_layout_tx(move |s: &mut State, [_, _, _, h], tx| {
         let h = f64::from(h);
-        let sections = (h - 2.0 * pad - gap * count.saturating_sub(1) as f64 - footprint).max(0.0);
-        let measured = Some((h, sections, count, tight_now));
+        let sections = (h - gap * count.saturating_sub(1) as f64 - footprint).max(0.0);
+        let measured = Some((h + 2.0 * pad, sections, count, tight_now));
         if s.home.fit.column == measured {
             tx.live_only();
             return;
@@ -1224,9 +1225,14 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
         s.home.fit.column = measured;
         s.home.fit.decide();
     });
-    // A centred column, as Home's `max-width` holds it in Electron.
+    let column = col().w_full().max_w(760.0).pt(pad as f32).pb(pad as f32).child(sections_el);
+    // A centred column, as Home's `max-width` holds it in Electron. It fills the window's column and scrolls inside
+    // it: without `grow` and `min_h(0)` the pane grew to its content, nothing scrolled, and what fell below the
+    // window could not be pressed (Scout's Send, when the accounts came above the team).
     col()
         .w_full()
+        .grow(1.0)
+        .min_h(0.0)
         .px(28.0)
         .items_center()
         .child(column)

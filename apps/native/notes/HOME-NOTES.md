@@ -48,6 +48,7 @@
 - Home drawing the cover rules (scale, growth, fitting one screen):
   - `the-home-screen-is-the-cover`, `home-fits-one-screen`, `home-fits-two-rows-of-teammates`;
   - `home-holds-still-when-tight-spacing-shrinks-it`, `the-cover-grows-into-spare-height`.
+  - Done in round 2 below, except fitting one screen.
 
 ## Home round 2 (20 Nov 2026)
 
@@ -90,9 +91,12 @@
 - **Core (11):** the worker's loop length, the thinker's eyes, the done beat's hop, the time to the next beat, the
   clock's banking, the critter's clay, the ghost's float, the cover's origin, deciding at the normal spacing, the
   growth, and the claim's floor.
-- **Home (13):** the column's sections, tight spacing drawn, the growth drawn, the scan layer's place, the float, the
+- **Home (13, then 2 more in part 4):** the column's sections, tight spacing drawn, the growth drawn, the scan layer's place, the float, the
   z's before the cover is on, the bots hidden from screen readers, the eye's name, the watch line's hover, reduced
   motion's still beats, the beat names before the cover is on, and the clock starting.
+- **Part 4 (2):** the sections measured on the inner column, caught by
+  `in_the_window_a_home_with_room_grows_its_cover_and_stays_loose` and
+  `the_cover_takes_the_spare_height_and_leaves_only_the_air`; the pane filling the window, caught by the first.
 - Counting the cover in its own sections first survived. `the_cover_takes_the_spare_height_and_leaves_only_the_air`
   now catches it: a cover too small still fits, so only the leftover space shows it.
 
@@ -106,23 +110,27 @@
 - The claim stepping aside when the glass is narrower than it. It is drawn, at alpha 0 and out of the layout, but
   no test makes the glass that narrow.
 
+### Part 4: Home scrolls in the window, and the accounts come above the team
+- **An older fault, found by moving the accounts up.**
+  - Home's scroll pane sits in the window's thread column with no `grow` and no `min_h(0)`. So it grew to its content
+    and never scrolled: 968px of page in an 803 window, and what fell below the window could not be pressed.
+  - Moving the accounts above the team pushed Scout's Send to y=847 in the drive test's 780-tall window, so
+    `window_drive_tests::scout_comment_ask_sends_and_posts_reviewed_reply_from_window` lost its press.
+  - The pane now fills the column and scrolls inside it, as Settings' does. The accounts sit between the cover and the
+    team, as Electron's do.
+  - For a bisect: a raw test binary refuses to run outside the isolated runner (core/src/test_isolation.rs). Run it
+    through `python3 scripts/isolated-test-runner.py <binary> <filter>`.
+- **The measure in the window.** Every other Home test draws `home_view` as the whole window, where none of this
+  shows. `in_the_window_a_home_with_room_grows_its_cover_and_stays_loose` draws Home inside `crate::view`:
+  - a first run at 1215x1400 is loose and grows its cover;
+  - a crowded Home at 700 tall tightens.
+- **The sections are measured on an inner column** (`home-sections`) that is only as tall as they are, inside the
+  padded column.
+
 ### Not done
-- **The accounts between the cover and the team** (home-fits-one-screen case 1). Tried, and taken back:
-  - Drawn above the team, Scout's comment Send lost its press in
-    `window_drive_tests::scout_comment_ask_sends_and_posts_reviewed_reply_from_window`. `send_draft` never ran.
-  - Bisected through `scripts/isolated-test-runner.py`, with temporary switches: the order alone passed. The order
-    with the cover, or with the new spacing, failed. So it depends on where the button lands.
-  - The button was on top at the press point, its hit target matched its rect, nothing in the tree changed between
-    frames, and no modal was open. Cause not found.
-  - **Repro:** set `accounts_above = accounts_lead || !s.teammates.is_empty()` in `home_view` and run that test.
-  - If the lost press is real, Scout's comment Send would do nothing for a person. That blocks the flip.
-  - Note: a raw test binary refuses to run outside the isolated runner (core/src/test_isolation.rs). Run a bisect
-    through `python3 scripts/isolated-test-runner.py <binary> <filter>`, never the bare binary.
-- **Home fitting one screen.** Measured headless:
-  - At 1205x803 with Codec, Argon and Scout, the column is 968px tight in an 803 pane. Its other sections are 673px
-    (Electron 326).
-  - At 1209x782 with six teammates, it is 1054px in 782. Its sections are 759px.
+- **Home fitting one screen.** Measured in the window (`crate::view`, beside the sidebar and under the title bar):
+  - at 1205x803 with Codec, Argon and Scout: 968px of page in a 765 pane, other sections 673px (Electron 326);
+  - at 1209x782 with six teammates: 1054px in 744, sections 759px.
   - Mostly this is the whole agents panel, where Electron folds a ready list to one line. The folder card above the
-    team, the close row and the starters' lede add the rest. The rule tightens and floors the cover, but the page
-    still scrolls.
-  - home-fits-two-rows stays partial on that outcome.
+    team, the close row and the starters' lede add the rest.
+  - The rule tightens and floors the cover, but the page still scrolls. home-fits-two-rows stays partial on that.
