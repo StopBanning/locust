@@ -97,17 +97,30 @@ pub fn turn_foot(items: &[Item], workspace: Option<&str>) -> Option<Foot> {
         };
         let observed = crate::invariants::regex(r"on disk|from disk").is_match(observed_status(item));
         for path in paths {
-            // A file the host could not read sits beside the step that changed it: one row, the step's (0.672).
-            if has_file(&rows, &path) || rows.iter().any(|r| path_key(r.path(), workspace) == path_key(&path, workspace)) {
+            let key = path_key(&path, workspace);
+            // A FILE THE HOST SAW CHANGE BUT COULD NOT READ (netFileEntries, 0.672): ONE step that changed it is its
+            // net change and stands in for the host's row; several are not (each is part of it), so the host's word
+            // stays and the steps' rows give way to it.
+            let steps = rows.iter().filter(|r| matches!(r, Row::File { observed: false, .. }) && path_key(r.path(), workspace) == key).count();
+            if observed && steps > 1 {
+                rows.retain(|r| !(matches!(r, Row::File { observed: false, .. }) && path_key(r.path(), workspace) == key));
+            } else if has_file(&rows, &path) || rows.iter().any(|r| path_key(r.path(), workspace) == key) {
                 continue;
             }
             rows.push(Row::Unreported { at: edits[at], path, observed });
         }
     }
+    // One row per file, the first one (netFileEntries' last pass).
+    let mut kept = std::collections::HashSet::new();
+    rows.retain(|r| kept.insert(path_key(r.path(), workspace)));
     let count = |seen: bool| rows.iter().filter(|r| r.observed() == seen).map(|r| path_key(r.path(), workspace)).collect::<std::collections::HashSet<_>>().len();
     let (edited, seen) = (count(false), count(true));
     (edited + seen > 0).then(|| Foot { heading: files_heading(edited, seen, false), edits, rows, edited, seen })
 }
+
+#[cfg(test)]
+#[path = "step_change_tests.rs"]
+mod step_change_tests;
 
 #[cfg(test)]
 #[path = "turn_foot_tests.rs"]

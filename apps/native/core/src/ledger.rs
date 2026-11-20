@@ -1045,8 +1045,10 @@ impl Transcript {
                         && string(p, "status").contains("reported by the runtime")
                     {
                         let path = crate::activity_entries::path_key(&string(p, "command"), None);
+                        // Never a step that failed: it changed nothing, so the change is not its (Haiku, 6 Oct: two
+                        // failed Edits before the one that landed kept their failure).
                         if let Some(at) = items.iter().position(|item| matches!(item,
-                            Item::Tool { summary, detail, .. } if detail.patch.is_none()
+                            Item::Tool { summary, detail, status, .. } if detail.patch.is_none() && *status != Status::Failed
                                 && crate::activity_summary::is_edit(item)
                                 && crate::activity_entries::path_key(summary, None) == path))
                         { tools.insert(key.clone(), at); }

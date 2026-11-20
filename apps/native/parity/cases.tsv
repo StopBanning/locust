@@ -3300,6 +3300,9 @@ apps/desktop/src/renderer/src/a-spreadsheet-opens-as-a-grid.test.tsx	still says 
 apps/desktop/src/renderer/src/a-start-time-is-kept-not-shown.test.ts	is kept for the record and never drawn in the thread	yes
 apps/desktop/src/renderer/src/a-start-time-is-kept-not-shown.test.ts	takes nothing else with it: another host note is still said	yes
 apps/desktop/src/renderer/src/a-start-time-is-kept-not-shown.test.ts	keeps a usage window out of the thread, as before	yes
+apps/desktop/src/renderer/src/a-step-change-stands-in-for-an-unread-file.test.ts	reads as the one step that changed it	yes
+apps/desktop/src/renderer/src/a-step-change-stands-in-for-an-unread-file.test.ts	reads as the step that landed, after edits that failed (Haiku, 2026-10-06: two Edits before reading)	yes
+apps/desktop/src/renderer/src/a-step-change-stands-in-for-an-unread-file.test.ts	keeps the host's word when two steps changed it: neither is the whole change	yes
 apps/desktop/src/renderer/src/a-step-keeps-its-own-change.test.ts	keep each step its own diff, after the turn has ended too	yes
 apps/desktop/src/renderer/src/a-step-keeps-its-own-change.test.ts	list each file once in the turn's files, as its net change	yes
 apps/desktop/src/renderer/src/a-step-that-never-ran-is-not-still-to-come.test.ts	still shows the plan, with the step it did not reach	yes
