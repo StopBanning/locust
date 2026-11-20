@@ -790,7 +790,9 @@ impl<L: Locust> Tools<L> {
                     reply["model"] = json!(m);
                 }
                 reply["mode"] = json!(mode);
-                if let Some(f) = self.locust.read(&carried).and_then(|t| self.turn_folder(&t)).or(folder) {
+                // Where the carried turn works, as a full path: its own folder, the one carry-on named, else the open one
+                // every turn without a folder of its own works in (read_reply says the same).
+                if let Some(f) = self.locust.read(&carried).and_then(|t| self.turn_folder(&t)).or(folder).or_else(|| self.locust.folder()) {
                     reply["folder"] = json!(f);
                 }
                 ToolResult::ok(reply.to_string())

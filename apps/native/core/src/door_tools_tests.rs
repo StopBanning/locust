@@ -26,6 +26,8 @@ struct Fake {
     model_list: Option<Vec<Value>>,
     /// Whose conversations are, when not Scout's.
     owner_id: Option<&'static str>,
+    /// Each carry-on Locust was asked for: the conversation, the agent and the model.
+    carried: Mutex<Vec<(String, String, Option<String>)>>,
 }
 
 fn mate(id: &str, name: &str, mode: &str) -> Teammate {
@@ -134,10 +136,13 @@ impl Locust for Fake {
             json!({"id": "own_local", "runtime": "claude", "displayName": "My local model", "description": "", "supportedEfforts": [], "own": true}),
         ]
     }
-    fn carry_on(&self, mission: &str, runtime: &str, _model: Option<&str>) -> Result<(String, Option<String>), String> {
-        if runtime == "codex" {
-            return Err("Codex CLI is the agent whose plan ran out.".into());
+    fn carry_on(&self, mission: &str, runtime: &str, model: Option<&str>) -> Result<(String, Option<String>), String> {
+        // The agent whose plan ran out cannot carry its own turn on (Locust's own carry-on refuses it).
+        let ran = self.turns.lock().unwrap().get(mission).and_then(|t| t.runtime.clone());
+        if ran.as_deref() == Some(runtime) {
+            return Err(format!("{} is the agent whose plan ran out.", if runtime == "codex" { "Codex CLI" } else { runtime }));
         }
+        self.carried.lock().unwrap().push((mission.to_owned(), runtime.to_owned(), model.map(str::to_owned)));
         let id = format!("{mission}-carried");
         self.turns.lock().unwrap().insert(id.clone(), turn(&id, false, vec![]));
         Ok((id, None))
@@ -696,3 +701,7 @@ mod an_app_hears_why_tests;
 #[cfg(test)]
 #[path = "an_app_picks_a_model_tests.rs"]
 mod an_app_picks_a_model_tests;
+
+#[cfg(test)]
+#[path = "an_app_carries_on_tests.rs"]
+mod an_app_carries_on_tests;
