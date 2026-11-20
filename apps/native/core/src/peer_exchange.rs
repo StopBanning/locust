@@ -206,3 +206,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&root);
     }
 }
+
+#[cfg(test)]
+#[path = "a_message_is_delivered_once_tests.rs"]
+mod a_message_is_delivered_once_tests;
