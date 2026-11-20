@@ -775,7 +775,41 @@ pub fn folder_for(teammate: &Teammate, electron: &Path) -> Result<PathBuf, Strin
 pub struct Listed {
     pub summaries: Vec<ledger::Summary>,
     pub native: HashSet<String>,
+    /// How many conversations the records keep, said only when that is more than are listed (`totalMissions`).
+    pub total: Option<usize>,
 }
+
+/// The most conversations the window lists, newest first (mission-history.ts `MAX_LISTED_MISSIONS`): far past the old
+/// 300, and a history longer than this says how much of it is listed.
+pub const MAX_LISTED_MISSIONS: usize = 2_000;
+
+/// What a list capped at `listed` says of a history of `total` (Screens.tsx), or nothing when all of it is listed.
+pub fn listed_words(listed: usize, total: Option<usize>) -> Option<String> {
+    let total = total.filter(|t| *t > listed)?;
+    let thousands = |n: usize| {
+        let digits = n.to_string();
+        let mut out = String::new();
+        for (i, c) in digits.chars().enumerate() {
+            if i > 0 && (digits.len() - i) % 3 == 0 {
+                out.push(',');
+            }
+            out.push(c);
+        }
+        out
+    };
+    Some(format!("Only the newest {} of {} turns are listed", thousands(listed), thousands(total)))
+}
+/// Newest first, each conversation once, the first `limit`; and the records' whole count (`whole`, asked only when
+/// the list is full) when that is more than are listed.
+pub(crate) fn capped(mut all: Vec<ledger::Summary>, limit: usize, whole: impl FnOnce() -> usize) -> (Vec<ledger::Summary>, Option<usize>) {
+    all.sort_by(|a, b| b.updated.cmp(&a.updated).then_with(|| a.mission_id.cmp(&b.mission_id)));
+    all.dedup_by(|a, b| a.mission_id == b.mission_id);
+    let total = (all.len() >= limit).then(whole);
+    all.truncate(limit);
+    let total = total.filter(|t| *t > all.len());
+    (all, total)
+}
+
 /// Electron's read-only list merged with the native one, newest first. None when neither folder could be listed.
 pub fn list_recent(limit: usize, native_engine: bool) -> Option<Listed> {
     let native_dir = store().and_then(|s| s.ledger_dir().ok());
@@ -787,7 +821,7 @@ pub fn list_recent(limit: usize, native_engine: bool) -> Option<Listed> {
         .as_ref()
         .and_then(|d| crate::history_cache::global().list_recent_summaries(d, limit).ok());
     // A native folder not made yet is simply empty; only the native engine reads that as "nothing to show".
-    if ours.is_none() && native_engine && native_dir.is_some_and(|d| !d.exists()) {
+    if ours.is_none() && native_engine && native_dir.as_ref().is_some_and(|d| !d.exists()) {
         ours = Some(Vec::new());
     }
     if theirs.is_none() && ours.is_none() {
@@ -798,18 +832,19 @@ pub fn list_recent(limit: usize, native_engine: bool) -> Option<Listed> {
         .flatten()
         .map(|m| m.mission_id.clone())
         .collect();
-    let mut all: Vec<ledger::Summary> = theirs
+    let all: Vec<ledger::Summary> = theirs
         .into_iter()
         .flatten()
         .chain(ours.into_iter().flatten())
         .collect();
-    all.sort_by(|a, b| {
-        b.updated
-            .cmp(&a.updated)
-            .then_with(|| a.mission_id.cmp(&b.mission_id))
+    let (mut all, total) = capped(all, limit, || {
+        let mut ids: HashSet<String> = HashSet::new();
+        for dir in [electron_ledger_dir(), native_dir.clone()].into_iter().flatten() {
+            ids.extend(crate::history_cache::global().mission_ids(&dir).unwrap_or_default());
+        }
+        ids.retain(|id| !panel_runs.contains(id));
+        ids.len()
     });
-    all.dedup_by(|a, b| a.mission_id == b.mission_id);
-    all.truncate(limit);
     // A native turn whose process is gone (Locust quit or crashed before its last record) is not running, whatever the
     // file's age says.
     for summary in all.iter_mut().filter(|s| s.running) {
@@ -820,6 +855,7 @@ pub fn list_recent(limit: usize, native_engine: bool) -> Option<Listed> {
     Some(Listed {
         summaries: all,
         native,
+        total,
     })
 }
 
@@ -3641,3 +3677,7 @@ fn drive_runtime(
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+#[path = "long_history_tests.rs"]
+mod long_history_tests;

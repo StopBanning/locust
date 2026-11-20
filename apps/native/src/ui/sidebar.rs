@@ -885,6 +885,19 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
         );
     }
 
+    // A history longer than the list says how much of it is listed (Screens.tsx).
+    if let Some(words) = locust_core::native::listed_words(s.recent.len(), s.recent_total) {
+        recent = recent.child(
+            text(words)
+                .font(type_::LABEL)
+                .color(p.muted)
+                .w_full()
+                .px(12.0)
+                .wrap()
+                .key("sidebar-listed-of"),
+        );
+    }
+
     let unreadable: Vec<_> = [
         (s.org.groups_unreadable, "groups"),
         (s.org.teammates_org_unreadable, "teammates"),
@@ -1386,6 +1399,10 @@ fn footer(l: &crate::look::controls::Look) -> El {
         .child(cell(&crate::look::icons::SETTINGS, "Settings", settings_panel::open))
         .child(cell(&crate::look::icons::COLUMNS, "Board", home_panel::open_board))
 }
+
+#[cfg(test)]
+#[path = "long_history_line_tests.rs"]
+mod long_history_line_tests;
 
 #[cfg(test)]
 #[path = "sidebar_search_words_tests.rs"]

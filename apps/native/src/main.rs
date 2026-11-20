@@ -324,6 +324,8 @@ struct RecentBatch {
     mission_owners: HashMap<String, String>,
     relay_hop_cap: u32,
     local: bool,
+    /// The records' whole count, when more than are listed.
+    total: Option<usize>,
 }
 
 struct LedgerPane {
@@ -1265,7 +1267,7 @@ fn refresh_recent(s: &mut State) {
     let on_native = s.engine == Some(Kind::Native);
     s.recents.request((), move |()| {
         // Electron's folder (read-only) and native's own, merged newest first; native rows are marked.
-        if let Some(listed) = native::list_recent(usize::MAX, on_native) {
+        if let Some(listed) = native::list_recent(native::MAX_LISTED_MISSIONS, on_native) {
             // The teammate each conversation belongs to, by name, as Electron's list shows it; the agent when unknown.
             let owners = native::store().map(|store| locust_core::people::owner_names(&store)).unwrap_or_default();
             let store_opt = native::store();
@@ -1330,6 +1332,7 @@ fn refresh_recent(s: &mut State) {
                 mission_owners,
                 relay_hop_cap,
                 local: true,
+                total: listed.total,
             });
         }
         if on_native {
@@ -1343,6 +1346,7 @@ fn refresh_recent(s: &mut State) {
             mission_owners: HashMap::new(),
             relay_hop_cap: locust_core::workspace_settings::DEFAULT_RELAY_HOP_CAP,
             local: false,
+            total: None,
         })
     });
 }
@@ -2402,6 +2406,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
                 s.mission_owners = batch.mission_owners;
                 s.relay_hop_cap = batch.relay_hop_cap;
                 s.ledger_available = batch.local;
+                s.recent_total = batch.total;
                 s.recent_error = None;
                 if let Some(id) = s.import_dialog.open_after_import.take()
                     && let Some(row) = s.recent.iter().find(|r| r.id == id).cloned()

@@ -392,6 +392,8 @@ apps/desktop/src/main/a-long-answer-is-not-too-much-to-record.test.ts	writes the
 apps/desktop/src/main/a-long-answer-is-not-too-much-to-record.test.ts	splits on total size too, not only on count	yes
 apps/desktop/src/main/a-long-answer-is-not-too-much-to-record.test.ts	still refuses an event it could not read back, before writing any of them	yes
 apps/desktop/src/main/a-long-command-does-not-stop-the-run.test.ts	is recorded, cut to fit with both ends kept, and the run goes on	yes
+apps/desktop/src/main/a-long-history-says-what-it-lists.test.ts	lists far past the old 300, and says nothing more when everything is listed	yes
+apps/desktop/src/main/a-long-history-says-what-it-lists.test.ts	past 2,000, says how many the ledger keeps and how many are listed	yes
 apps/desktop/src/main/a-long-json-key-does-not-stop-a-run.test.ts	is recorded, not a reason to stop the run	yes
 apps/desktop/src/main/a-long-judge-reads-files.test.ts	three long answers quoted do not fit one message	no
 apps/desktop/src/main/a-long-judge-reads-files.test.ts	named as files, they do, and the judge is told to read each one	no

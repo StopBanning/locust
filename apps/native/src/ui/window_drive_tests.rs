@@ -6374,7 +6374,7 @@ fn a_relay_history_refresh_names_the_received_message_in_the_sidebar() {
     rt.update(|s, _| {
         s.recents.request((), move |()| Ok(RecentBatch {
             rows: vec![ConversationRow { id: "m_relay".into(), teammate: "Booty".into(), title: summary.title.clone(), started_by: "native".into(), state: "completed".into(), updated: message.posted_at.clone() }],
-            summaries: HashMap::from([("m_relay".into(), summary)]), workroom_messages: HashMap::from([("msg_1".into(), message)]), mission_owners: HashMap::new(), relay_hop_cap: 3, local: true,
+            summaries: HashMap::from([("m_relay".into(), summary)]), workroom_messages: HashMap::from([("msg_1".into(), message)]), mission_owners: HashMap::new(), relay_hop_cap: 3, local: true, total: None,
         }));
     });
     pump(&mut rt, "the relay's received title", |s| s.recent.iter().any(|r| r.title == "Wren asked: Please reply with the passphrase PEBBLE-9993."));
@@ -6444,6 +6444,7 @@ fn a_live_run_the_list_was_read_too_early_to_know_is_read_again_until_it_is_ther
                 mission_owners: HashMap::new(),
                 relay_hop_cap: 3,
                 local: true,
+                total: None,
             })
         });
     });

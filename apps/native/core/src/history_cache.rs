@@ -57,6 +57,23 @@ impl HistoryCache {
 
     /// Lists up to `limit` recent `Summary` entries from `dir`, re-reading only files whose
     /// `(size, modified)` changed since the last call.
+    /// Every conversation id the folder keeps, from file names alone (nothing is read): what a capped list counts
+    /// its total from.
+    pub fn mission_ids(&self, dir: &Path) -> io::Result<HashSet<String>> {
+        let mut ids = HashSet::new();
+        for entry in fs::read_dir(dir)? {
+            let Ok(entry) = entry else { continue };
+            let path = entry.path();
+            if !entry.file_type().is_ok_and(|t| t.is_file()) || path.extension().is_none_or(|e| e != "jsonl") {
+                continue;
+            }
+            if let Some(id) = path.file_stem().and_then(|v| v.to_str()).filter(|id| safe_id(id)) {
+                ids.insert(id.to_owned());
+            }
+        }
+        Ok(ids)
+    }
+
     pub fn list_recent_summaries(&self, dir: &Path, limit: usize) -> io::Result<Vec<Summary>> {
         let (rows, _) = self.read_history_tracked(dir, limit)?;
         Ok(rows.into_iter().map(|r| r.summary).collect())
