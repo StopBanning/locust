@@ -495,3 +495,53 @@ work as part 1 (4a8605fc), break-checked it, and did the rest.
 - **Breaks: 34 of 34 caught by name** (`~/work/scratch/turns1/`). One survived until a case was added: a question that
   takes only words, coming first, must not swallow the number.
 - **Left:** the fix turns' whole-thread drawing in one frame.
+
+## Gaps round 1 (20 Nov, `exec/native-gaps-1`)
+Four rows the triage left `waiting`. Two of its notes were wrong, in opposite directions.
+
+- **A changed memory list replaces the old one** (carried, tests only). The triage said Rust re-sends the whole brief
+  on every resumed turn. It does not: `brief_sessions::standing_for` (A2.5, memory-1) already sends a resumed session
+  only the paragraphs it does not hold, and puts `MEMORY_LIST_REPLACES` above a memory list sent again. An emptied
+  list still opens with the memory heading, so it gets the line too. The three cases run the real
+  `people::turn_brief_held` twice (`memory_list_replaces_tests.rs`). `briefing.rs`'s code is unchanged: only its test
+  `mod` line was added. The `briefing` tests pass on this branch and in both test gates. No clean run at 2ba1c6ed was
+  made: the first attempt already held the new test files and stopped on a compile error in one of them.
+- **A folder with only dot-files holds nothing yet** (carried). `folders::holds_nothing_yet` is Electron's
+  `holdsNothingYet`: an unreadable folder, a file, or an entry that cannot be read is never empty. Electron uses the
+  answer once, for an idle teammate's starters (`workspaceEmpty` → `folderEmpty`). The Rust starters read
+  `home.folder_invented`, which nothing set from disk. They now ask `idle_teammate::folder_holds_nothing_yet` about
+  the teammate's own folder, else the open one. No folder is not an empty one.
+  - Done differently: Electron asks again when the folder changes and after each turn. Here the answer is asked as
+    the view is drawn, kept for 2 s (`State::folder_empty_seen`), so the first file a turn writes ends the starters
+    with no hook in every place a folder can change.
+  - Not part of this row, and unverified: Home's own starter (`home_panel.rs:333`, home-2's file) still reads
+    `folder_invented`. Electron reads `workspaceEmpty` only for IdleTeammate, so that is no gap here.
+- **The cover counts only work** (partial, 3 of 4). The triage thought this might already work. It did not: nothing in
+  Rust counted arriving work at all, because `cover_watch` touches on input only. `cover_activity::work_signature`,
+  `is_stoppable` and `CoverActivity::work` are ported; `work` touches only when the signature changes.
+  - Done differently: Electron's signature is in its `Map`'s insertion order. This one is sorted, so a `HashMap`
+    rebuilt with the same runs says the same (a break that drops the sort is caught).
+  - Missing (case 3, "what the app hands the cover"): the Rust app has no Home cover that follows the rest rule.
+    Home's bots run on `bot_stage`, and `cover_watch` drives only Settings' face legend, which Electron also hands no
+    work. Wiring work into that one shared cover would wake the legend on work, which Electron does not do. The Home
+    cover's watcher should call `CoverActivity::work` with the signature of `seen_live`'s runs, once it exists.
+- **The screens say less** (partial, 3 of 4). `route_chrome` already made the account default "Codex". Two surfaces
+  spelled routes their own way:
+  - the rail and the empty conversation's line (`main.rs` `agent`) said "Codex · account-default";
+  - the exchange strip said "Codex CLI / default" and raw ids.
+
+  Both now say the runtime's name alone. The strip goes through `route_chrome`, so other models read "Codex / GPT-6
+  Luna". Electron's own strip still says "Codex / default", the one place its 0.723 declutter missed.
+  - Not changed: the rail keeps its " · " form and `engine::runtime_name` ("Claude Code"), where Electron's sidebar
+    says "Claude / Fable 5.1". The routine line's "Codex default" is Electron's routine wording, not a route chip. And
+    `worktrees::route_label` writes a commit trailer, not a screen.
+  - Recent lists conversations (`teammate_work`): tested through the panel's own title function.
+  - Missing (case 3, the cost cell): Electron's Missions screen has a cost column (`costGlanceCell`), and the Rust
+    app has no Missions screen.
+- **Breaks: 12 of 12 caught by name** (`~/work/scratch/gaps1/`). The first was run a second time against
+  `memory_list_replaces` alone, and both of its cases caught it:
+  - core: the replaces line dropped (`says_it_replaces_the_earlier_list_…`, `says_so_when_everything_was_forgotten_too`, and
+    `brief_sessions_tests::sends_again_the_paragraph_that_changed_…`), dot-files counted as real files, an unreadable
+    folder called empty, the sort dropped, finished runs counted, events not counted, the same signature touching;
+  - window: the idle starters back on `folder_invented`, the strip's "Codex CLI / default", the rail's account-default,
+    `route_chrome`'s default branch, and Recent titled by the newest turn instead of the first.

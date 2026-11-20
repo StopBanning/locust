@@ -393,6 +393,9 @@ pub(super) struct State {
     /// Pictures a step or reply draws, by (conversation folder, path as written): the handle keeps the decode alive
     /// between frames, and None remembers a refusal so the disk is asked once (`step_pictures.rs`).
     pub(super) thread_pictures: std::cell::RefCell<HashMap<(std::path::PathBuf, String), Option<rune::Image>>>,
+    /// The last answer to whether the idle teammate's folder holds nothing yet: the folder, when it was asked, and the
+    /// answer (idle_teammate::folder_holds_nothing_yet).
+    pub(super) folder_empty_seen: std::cell::RefCell<Option<(std::path::PathBuf, std::time::Instant, bool)>>,
     /// Suggested tasks the person put away (`NextSteps.tsx` `gone`).
     pub(super) next_steps_gone: std::collections::HashSet<String>,
     /// Last handed-file reveal refusal, keyed by message scope.
@@ -650,6 +653,7 @@ impl Default for State {
             diagram_code_tab: HashMap::new(),
             image_cache: None,
             thread_pictures: std::cell::RefCell::new(HashMap::new()),
+            folder_empty_seen: std::cell::RefCell::new(None),
             next_steps_gone: std::collections::HashSet::new(),
             handed_file_refusal: None,
             running_checks: HashMap::new(),

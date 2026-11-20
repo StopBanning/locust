@@ -75,6 +75,9 @@ apps/desktop/src/main/a-card-answer-is-recorded-past-64-open-cards.test.ts	still
 apps/desktop/src/main/a-card-answer-is-recorded-past-64-open-cards.test.ts	keeps at most 64 cards still waiting, the newest; the oldest waiting one goes	no
 apps/desktop/src/main/a-card-answer-is-recorded-past-64-open-cards.test.ts	forgets an answered card, keeps who it was raised for until then, and an unknown id is nothing	no
 apps/desktop/src/main/a-card-answer-is-recorded-past-64-open-cards.test.ts	the answer funnel forgets the card right after recording it (source guard)	no
+apps/desktop/src/main/a-changed-memory-list-replaces-the-old-one.test.ts	says it replaces the earlier list, and the old line is not in it	yes
+apps/desktop/src/main/a-changed-memory-list-replaces-the-old-one.test.ts	says so when everything was forgotten, too	yes
+apps/desktop/src/main/a-changed-memory-list-replaces-the-old-one.test.ts	is not said on a first brief, or when the list did not change	yes
 apps/desktop/src/main/a-check-command-is-one-line.test.ts	is kept as the person typed it, trimmed	no
 apps/desktop/src/main/a-check-command-is-one-line.test.ts	is nothing when empty, too long, not text, or more than one line	no
 apps/desktop/src/main/a-claude-teammate-gets-its-skills.test.ts	the folder's skills always, as the plugin `project`, named the way a run calls them	yes
@@ -254,6 +257,8 @@ apps/desktop/src/main/a-folder-is-one-folder-however-spelled.test.ts	is the know
 apps/desktop/src/main/a-folder-is-one-folder-however-spelled.test.ts	and at start, before the registry is open	no
 apps/desktop/src/main/a-folder-is-one-folder-however-spelled.test.ts	a different folder stays itself	no
 apps/desktop/src/main/a-folder-is-one-folder-however-spelled.test.ts	a folder that is not there, or no registry yet, is left as written	no
+apps/desktop/src/main/a-folder-with-only-dot-files-holds-nothing-yet.test.ts	is one with nothing, or nothing but dot files, in it	yes
+apps/desktop/src/main/a-folder-with-only-dot-files-holds-nothing-yet.test.ts	is never a folder that cannot be read	yes
 apps/desktop/src/main/a-forget-with-nothing-remembered-says-nothing.test.ts	is answered as nothing remembered, by the store	yes
 apps/desktop/src/main/a-forget-with-nothing-remembered-says-nothing.test.ts	says nothing in the thread	yes
 apps/desktop/src/main/a-forget-with-nothing-remembered-says-nothing.test.ts	still says a miss when something is remembered, opening with a capital	yes
@@ -4387,6 +4392,10 @@ apps/desktop/src/renderer/src/the-changes-panel-lists-every-file.test.tsx	counts
 apps/desktop/src/renderer/src/the-changes-panel-lists-every-file.test.tsx	groups them by folder, each folder’s own files under it	yes
 apps/desktop/src/renderer/src/the-chip-keeps-free.test.ts	splits a trailing Free off the name	yes
 apps/desktop/src/renderer/src/the-chip-keeps-free.test.ts	leaves every other name whole	yes
+apps/desktop/src/renderer/src/the-cover-counts-only-work.test.ts	is the same for a rebuilt map that holds the same runs	yes
+apps/desktop/src/renderer/src/the-cover-counts-only-work.test.ts	changes when a running run gets an event, starts or ends	yes
+apps/desktop/src/renderer/src/the-cover-counts-only-work.test.ts	is what the app hands the cover, never the map itself	no
+apps/desktop/src/renderer/src/the-cover-counts-only-work.test.ts	is empty, for good, when nothing is running	yes
 apps/desktop/src/renderer/src/the-effort-control-is-claude-codes.test.tsx	is named in words, as Claude Code names it	yes
 apps/desktop/src/renderer/src/the-effort-control-is-claude-codes.test.tsx	this build does not know keeps the runtime’s own word, capitalised, never renamed	yes
 apps/desktop/src/renderer/src/the-effort-control-is-claude-codes.test.tsx	reads "Effort Max", with a ? that says what the level costs	yes
@@ -4555,6 +4564,10 @@ apps/desktop/src/renderer/src/the-runtimes-wear-their-marks.test.tsx	the picker'
 apps/desktop/src/renderer/src/the-runtimes-wear-their-marks.test.tsx	wears the mark of the runtime it is given, on a badge	yes
 apps/desktop/src/renderer/src/the-runtimes-wear-their-marks.test.tsx	wears none when it is too small for a mark to be a mark, or is given no runtime	yes
 apps/desktop/src/renderer/src/the-runtimes-wear-their-marks.test.tsx	in the sidebar's row of faces, says which model is who -- and nothing on a model of their own	yes
+apps/desktop/src/renderer/src/the-screens-say-less.test.ts	is the runtime’s name alone, wherever routes are spelled	yes
+apps/desktop/src/renderer/src/the-screens-say-less.test.ts	keeps what follows the model’s name, and every other model as it was	yes
+apps/desktop/src/renderer/src/the-screens-say-less.test.ts	says what a person pays, or that a model is free, and nothing for counted tokens	no
+apps/desktop/src/renderer/src/the-screens-say-less.test.ts	lists conversations, each named by its first words, not each turn of one	yes
 apps/desktop/src/renderer/src/the-terminal-opens-before-the-first-message.test.tsx	offers an accessible toggle in the title bar before a conversation exists	no
 apps/desktop/src/renderer/src/the-terminal-opens-before-the-first-message.test.tsx	shows the organization restriction on the disabled terminal control	no
 apps/desktop/src/renderer/src/the-terminal-opens-before-the-first-message.test.tsx	recognizes Ctrl backtick on every platform and leaves unrelated keys alone	no

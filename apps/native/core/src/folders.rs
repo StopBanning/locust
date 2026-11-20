@@ -33,6 +33,16 @@ pub fn folder_name(path: &str) -> String {
         .to_owned()
 }
 
+/// `workspace.ts` `holdsNothingYet` (2026-10-30): whether a folder holds nothing yet, as far as the person is concerned --
+/// nothing in it, or nothing but dot-files (the `.locust` folder the first turn makes, a `.DS_Store`). A teammate there
+/// offers to make something rather than to read a project that is not there. The first real file ends it, and a folder
+/// that cannot be read, or an entry that cannot be, is never called empty.
+pub fn holds_nothing_yet(folder: &Path) -> bool {
+    std::fs::read_dir(folder).is_ok_and(|mut entries| {
+        entries.all(|entry| entry.is_ok_and(|entry| entry.file_name().to_string_lossy().starts_with('.')))
+    })
+}
+
 // Electron's path.resolve keeps a symlink's spelling; identity checks are separate.
 fn absolute_path(path: &Path) -> Result<std::path::PathBuf, String> {
     let path = if path.is_absolute() {
@@ -423,3 +433,7 @@ mod review_tests {
         std::fs::remove_dir_all(root).unwrap();
     }
 }
+
+#[cfg(test)]
+#[path = "folders_nothing_yet_tests.rs"]
+mod folders_nothing_yet_tests;

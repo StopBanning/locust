@@ -10,6 +10,24 @@
 pub const COVER_REST_AFTER_MS: u64 = 45_000;
 const REST_AFTER_S: f64 = COVER_REST_AFTER_MS as f64 / 1000.0;
 
+/// `stopPress.ts` `isStoppable`: the phases of a run that is still going.
+pub fn is_stoppable(phase: &str) -> bool {
+    matches!(phase, "starting" | "running" | "cancelling")
+}
+
+/// `workSignature` (0.623): what the cover counts as work arriving -- each run still `going`, by its key, phase and how
+/// many events it has. It changes when a run starts, gets an event or ends, and not when the map holding the runs is
+/// rebuilt; with nothing running it is the empty string, for good. Electron handed the cover the whole map of runs,
+/// which is rebuilt on routine updates that are not work, so Home never rested while focused. Electron's signature is
+/// in the map's insertion order; this one is sorted, so a map that iterates in no fixed order (a `HashMap`) rebuilt
+/// with the same runs still says the same.
+pub fn work_signature<'a>(runs: impl IntoIterator<Item = (&'a str, &'a str, usize)>, going: impl Fn(&str) -> bool) -> String {
+    let mut parts: Vec<String> =
+        runs.into_iter().filter(|(_, phase, _)| going(phase)).map(|(key, phase, events)| format!("{key}:{phase}:{events}")).collect();
+    parts.sort();
+    parts.join("|")
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct CoverActivity {
     /// When input or work last arrived (`last`), in the caller's seconds.
@@ -17,12 +35,14 @@ pub struct CoverActivity {
     focused: bool,
     hidden: bool,
     reduced: bool,
+    /// The work signature last handed over (`useCoverActivity`'s `activity`): only a different one is work arriving.
+    work: String,
 }
 
 impl CoverActivity {
     /// Starts watching at `now_s`, as the window is: its first deadline is 45 s away (`last = performance.now()`).
     pub fn new(now_s: f64, focused: bool, hidden: bool, reduced: bool) -> Self {
-        Self { last_s: now_s, focused, hidden, reduced }
+        Self { last_s: now_s, focused, hidden, reduced, work: String::new() }
     }
 
     /// `held()`: not focused, hidden, or reduced motion. Nothing wakes it while held.
@@ -55,6 +75,17 @@ impl CoverActivity {
         self.last_s = now_s;
     }
 
+    /// `useCoverActivity(activity)`: the cover is handed `work_signature` of the runs, never the runs themselves, and
+    /// is touched only when it differs from the last one. Answers whether that was work arriving.
+    pub fn work(&mut self, signature: &str, now_s: f64) -> bool {
+        if signature == self.work {
+            return false;
+        }
+        signature.clone_into(&mut self.work);
+        self.touch(now_s);
+        true
+    }
+
     /// `focus` touches; `blur` holds.
     pub fn set_focused(&mut self, focused: bool, now_s: f64) {
         self.focused = focused;
@@ -83,3 +114,7 @@ impl CoverActivity {
 #[cfg(test)]
 #[path = "cover_activity_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "cover_counts_only_work_tests.rs"]
+mod cover_counts_only_work_tests;

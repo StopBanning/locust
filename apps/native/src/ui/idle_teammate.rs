@@ -102,6 +102,31 @@ fn starters(entry: &Value, role: &str, fresh: bool) -> Vec<String> {
     }
     own.unwrap_or_else(|| role_starters(role))
 }
+/// How long an answer to `folder_holds_nothing_yet` stands. The view is drawn far more often than a folder changes.
+const FOLDER_EMPTY_FRESH: std::time::Duration = std::time::Duration::from_secs(2);
+
+/// Whether the folder this teammate works in holds nothing yet (`folders::holds_nothing_yet`): the teammate's own
+/// folder, else the one Locust has open; no folder is not an empty one. Electron asks when the folder changes and after
+/// each turn (`workspaceEmpty`); here it is asked as the view is drawn, at most every two seconds, so the first file a
+/// turn writes ends the empty-folder starters without a hook on every place a folder can change.
+pub(super) fn folder_holds_nothing_yet(s: &State, mate: &Teammate) -> bool {
+    let Some(folder) = mate.folder.as_deref().filter(|f| !f.is_empty()).or(s.home.folder_path.as_deref()) else {
+        return false;
+    };
+    let folder = std::path::Path::new(folder);
+    let now = std::time::Instant::now();
+    let mut seen = s.folder_empty_seen.borrow_mut();
+    if let Some((path, at, empty)) = seen.as_ref()
+        && path == folder
+        && now.duration_since(*at) < FOLDER_EMPTY_FRESH
+    {
+        return *empty;
+    }
+    let empty = locust_core::folders::holds_nothing_yet(folder);
+    *seen = Some((folder.to_owned(), now, empty));
+    empty
+}
+
 fn description(role: &str) -> Option<&'static str> {
     Some(match role {
         "Code & Migrations" => "Repo work, refactors, test runs",
@@ -186,7 +211,7 @@ pub(super) fn view(s: &State, mate: &Teammate, p: &Palette) -> El {
             Some("needs-signin") => Some("Sign-in needed"),
             _ => None,
         });
-    for (i, prompt) in starters(entry, role, s.home.folder_invented)
+    for (i, prompt) in starters(entry, role, folder_holds_nothing_yet(s, mate))
         .into_iter()
         .enumerate()
     {
@@ -421,3 +446,7 @@ mod tests {
         std::fs::remove_dir_all(root).unwrap();
     }
 }
+
+#[cfg(test)]
+#[path = "folder_holds_nothing_tests.rs"]
+mod folder_holds_nothing_tests;
