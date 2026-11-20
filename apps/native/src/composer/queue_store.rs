@@ -287,3 +287,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(temp);
     }
 }
+
+#[cfg(test)]
+#[path = "queue_survives_tests.rs"]
+mod queue_survives_tests;
