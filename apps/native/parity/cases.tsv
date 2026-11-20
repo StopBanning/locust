@@ -3803,6 +3803,10 @@ apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	draws nothing whe
 apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	lands each conversation in the column the sidebar mark already gives that row	no
 apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	puts a conversation waiting on you first, even while its run is live, and a finish not looked at since in Ready to look at	no
 apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	a finish to look at keeps the board up on its own; one looked at since does not (control)	no
+apps/desktop/src/renderer/src/each-compared-model-has-its-own-effort.test.tsx	gives each model its own effort, at the level chosen for it	yes
+apps/desktop/src/renderer/src/each-compared-model-has-its-own-effort.test.tsx	shows a model's default when none was chosen, and the level a Cursor id already names	yes
+apps/desktop/src/renderer/src/each-compared-model-has-its-own-effort.test.tsx	offers no effort for a model that lists no levels	yes
+apps/desktop/src/renderer/src/each-compared-model-has-its-own-effort.test.tsx	sends the effort as a flag, or as the Cursor id it names	yes
 apps/desktop/src/renderer/src/each-thin-part-is-its-own-solid.test.ts	are split into one piece per antenna, leg or wing	yes
 apps/desktop/src/renderer/src/each-thin-part-is-its-own-solid.test.ts	lose nothing in the split: the pieces put back together are the path	yes
 apps/desktop/src/renderer/src/each-thin-part-is-its-own-solid.test.ts	every piece starts with a move, so each is a path of its own	yes

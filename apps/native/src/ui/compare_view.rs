@@ -188,10 +188,8 @@ fn effort_title(effort: &str) -> String {
 
 /// Effective effort for a pick against the model catalog (`each-compared-model-has-its-own-effort`).
 pub(super) fn effective_effort(pick: &ComparePick, models: &[locust_core::engine::Models]) -> Option<String> {
-    let entry = models
-        .iter()
-        .find(|m| m.runtime == pick.runtime)
-        .and_then(|m| m.models.iter().find(|model| model.id == pick.model));
+    let agent = models.iter().find(|m| m.runtime == pick.runtime);
+    let entry = agent.and_then(|m| m.models.iter().find(|model| model.id == pick.model));
     let supported = entry.map(|m| m.efforts.as_slice()).unwrap_or(&[]);
     if supported.is_empty() && pick.effort.is_none() {
         if pick.runtime == "cursor" {
@@ -206,7 +204,8 @@ pub(super) fn effective_effort(pick: &ComparePick, models: &[locust_core::engine
     if let Some(e) = &pick.effort {
         return Some(e.clone());
     }
-    supported.first().cloned()
+    // status.ts defaultEffort, as the composer's own effort shows it: the runtime's default, else medium, else the middle.
+    locust_core::effort_levels::default_effort(supported, agent.and_then(|a| a.effort.as_deref()))
 }
 
 pub(super) fn effort_aria_label(
@@ -3834,3 +3833,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&root);
     }
 }
+
+#[cfg(test)]
+#[path = "compared_effort_tests.rs"]
+mod compared_effort_tests;
