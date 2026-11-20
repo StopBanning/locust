@@ -10,10 +10,6 @@ pub(super) fn aria_label(working: bool) -> &'static str {
     if working { LABEL_WORKING } else { LABEL_IDLE }
 }
 
-pub(super) fn shows_dots(working: bool, hovered: bool) -> bool {
-    working && !hovered
-}
-
 fn thinking_dots(color: Color) -> El {
     let dot = |phase: f32| {
         el().size(4.0, 4.0)
@@ -43,11 +39,17 @@ pub(super) fn view(shown: bool, working: bool, hovered: bool, p: &Palette) -> Op
     let l = crate::look::controls::Look::new(p.dark);
     let icon_color = l.c(if hovered { "text-primary" } else { "text-muted" });
     let border_color = l.c(if hovered { "border-hover" } else { "border-button" });
-    let content = if shows_dots(working, hovered) {
-        thinking_dots(icon_color)
+    // Electron's shell.css draws both while a run works and lets `:hover` and `:focus-visible` swap them: the chevron
+    // comes back where the button is about to be pressed, by pointer or by Tab.
+    let chevron = crate::look::controls::glyph(&l, &crate::look::icons::CHEVRON_DOWN, 14.0, Some(icon_color))
+        .key("jump-to-bottom-chevron");
+    let content: Vec<El> = if working {
+        vec![
+            chevron.group_opacity(0.0, 1.0),
+            row().pin(Some(0.0), Some(0.0), Some(0.0), Some(0.0)).center().child(thinking_dots(icon_color).group_opacity(1.0, 0.0)),
+        ]
     } else {
-        crate::look::controls::glyph(&l, &crate::look::icons::CHEVRON_DOWN, 14.0, Some(icon_color))
-            .key("jump-to-bottom-chevron")
+        vec![chevron]
     };
     Some(
         el().key("jump-to-bottom")
@@ -59,7 +61,10 @@ pub(super) fn view(shown: bool, working: bool, hovered: bool, p: &Palette) -> Op
             .border(1.0, border_color)
             .role("button")
             .label(aria_label(working))
-            .child(content)
+            .focusable(true)
+            .focus_ring(2.0, 2.0, l.c("focus-ring"))
+            .hover_group_focus()
+            .children(content)
             .on_hover_change(|s: &mut State, over, _| {
                 s.jump_hover = over;
             })
@@ -72,29 +77,5 @@ pub(super) fn view(shown: bool, working: bool, hovered: bool, p: &Palette) -> Op
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn wears_thinking_dots_while_working_and_says_so() {
-        let p = Palette::new(true);
-        assert_eq!(aria_label(true), "Still working. Go to the newest message");
-        assert!(shows_dots(true, false));
-        let el = view(true, true, false, &p);
-        assert!(el.is_some());
-    }
-
-    #[test]
-    fn plain_chevron_when_idle_and_absent_at_bottom() {
-        let p = Palette::new(true);
-        assert_eq!(aria_label(false), "Go to the newest message");
-        assert!(!shows_dots(false, false));
-        assert!(view(true, false, false, &p).is_some());
-        assert!(view(false, true, false, &p).is_none());
-    }
-
-    #[test]
-    fn brings_chevron_back_on_hover() {
-        assert!(!shows_dots(true, true));
-    }
-}
+#[path = "jump_way_down_tests.rs"]
+mod jump_way_down_tests;
