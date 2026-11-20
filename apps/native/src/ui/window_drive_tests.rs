@@ -5843,7 +5843,7 @@ fn scout_fixes_settings_apply_and_skip_work_from_window_in_isolated_fix_root() {
     // Scout's team card is below the fold on this Home (the folder card sits above it), and Rune presses only what it
     // drew. The eye's own press is checked in scout_invite_flow_adds_scout_to_team_and_shows_look_now_eye_button; here
     // the look starts the way the eye starts it, and the fix that follows is the subject.
-    assert!(crate::scout_cards::tests::collect_rt_text(&rt).contains("Look now"), "the eye is on Scout's card");
+    assert!(crate::scout_cards::tests::collect_rt_text(&rt).contains(": look now"), "the eye is on Scout's card, named for whose eye it is");
     rt.update(|s, _| crate::scout_cards::look_now(s));
     pump(&mut rt, "preparing fix in isolated copy", |s| {
         s.scout.state.as_ref().is_some_and(|st| {

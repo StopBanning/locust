@@ -39,6 +39,36 @@ pub(super) struct Panel {
     pub seen_version: Option<String>,
     pub current_version: String,
     pub first_launch_done: bool,
+    /// The cover's parts' clock (coverScript.ts): runs while the cover plays, banked while it is held.
+    pub cover_clock: locust_core::cover_script::CoverClock,
+    /// What Home last measured of itself, and what that decided (FirstLaunch.tsx's measure step).
+    pub fit: HomeMeasure,
+}
+
+/// Home's own measure: the pane it scrolls in, the cover's card, the column as drawn, and what they decided.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub(super) struct HomeMeasure {
+    pub pane_height: Option<f64>,
+    pub card_width: Option<f64>,
+    /// The column's height as drawn, and what in it does not move with the cover, at the spacing it was drawn at.
+    pub column: Option<(f64, f64, usize, bool)>,
+    pub seen: locust_core::home_cover::HomeSpacingSeen,
+    pub tight: bool,
+    /// The cover's growth into spare height; `None` before a measure (drawn as 1).
+    pub grow: Option<f64>,
+}
+
+impl HomeMeasure {
+    /// Decides again from what was measured. Changes nothing until the pane, the card and the column are all known.
+    fn decide(&mut self) {
+        let (Some(pane), Some(card), Some((_, sections, count, tight_now))) = (self.pane_height, self.card_width, self.column) else {
+            return;
+        };
+        let (seen, fit) = locust_core::home_cover::home_fit(self.seen, count, sections, tight_now, card, pane);
+        self.seen = seen;
+        self.tight = fit.tight;
+        self.grow = Some(fit.grow);
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -460,30 +490,239 @@ fn cover_status(s: &State) -> Option<String> {
     locust_core::home_cover::glass_status(&working, &waiting)
 }
 
-fn banner(l: &crate::look::controls::Look, status: Option<String>) -> El {
+/// Seconds on the cover's own clock: from the first time Home asked, so every reading shares one origin.
+fn cover_now() -> f64 {
+    static EPOCH: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
+    EPOCH.get_or_init(std::time::Instant::now).elapsed().as_secs_f64()
+}
+
+/// The cover is on once the agents have answered: the moment the loading screen's work is done (HomeCover `ready`).
+fn cover_ready(s: &State) -> bool {
+    s.settings_panel.agents.is_some()
+}
+
+/// The parts' clock runs only while the cover is on, in front, and not asked to hold still.
+fn cover_playing(s: &State) -> bool {
+    cover_ready(s) && s.window_focused && !s.reduced_motion.get()
+}
+
+/// What one bot on the cover was drawn as, for the window's own tests (HomeCover's `data-*` attributes).
+#[cfg(test)]
+#[derive(Clone, Debug, PartialEq)]
+pub(super) struct CoverDrawn {
+    pub key: &'static str,
+    pub bot: &'static str,
+    pub hue: Option<&'static str>,
+    pub state: &'static str,
+    pub beat: &'static str,
+    pub eyes: Option<[String; 2]>,
+    pub tone: locust_core::bot_spec::Phosphor,
+    pub floating: bool,
+    pub zzz: bool,
+}
+
+#[cfg(test)]
+thread_local! {
+    pub(super) static DRAWN_COVER: std::cell::RefCell<Vec<CoverDrawn>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// lcBotFloat: up 6% of the bot's height and back, on a curve, over 3.8 s. Electron steps it in 11; this is smooth.
+const FLOAT_CURVE: &[[f32; 2]] = &[
+    [0.0, 0.0], [0.1, 0.095], [0.2, 0.345], [0.3, 0.655], [0.4, 0.905], [0.5, 1.0],
+    [0.6, 0.905], [0.7, 0.655], [0.8, 0.345], [0.9, 0.095], [1.0, 0.0],
+];
+
+/// HomeCover.tsx, drawn to the column: the boot screen's bezel and glass, the lockup and the claim on the glass under
+/// its scanlines, and the three standing on its top edge, each playing its part. Everything is placed on the cover's
+/// own grid and drawn at the card's width's scale, grown into the room Home measured (`home_cover::cover_place`).
+fn cover(s: &State, l: &crate::look::controls::Look, status: Option<String>) -> El {
+    use locust_core::cover_script::{self as script, CoverBeat};
+    use locust_core::home_cover::{cover_place, claim_size, CoverPart, COVER_CAST};
+    let card_width = s.home.fit.card_width.unwrap_or(0.0);
+    let at = cover_place(card_width, s.home.fit.grow.unwrap_or(1.0));
+    let k = at.drawn as f32;
+    let ready = cover_ready(s);
+    let playing = cover_playing(s);
+    let still = !ready || s.reduced_motion.get();
+    let elapsed = s.home.cover_clock.elapsed(cover_now());
+    let (worker, thinker, _) = script::cover_beats(elapsed);
+    let beat_of = |part: CoverPart| -> CoverBeat {
+        match part {
+            CoverPart::Worker if still => script::STILL_WORKER,
+            CoverPart::Worker => worker,
+            CoverPart::Thinker if still => script::STILL_THINKER,
+            CoverPart::Thinker => thinker,
+            // Not carried: the sleeper waking for a pointer that comes near (`hopperWakes`); it sleeps.
+            CoverPart::Sleeper => script::SLEEPING,
+        }
+    };
+
     let ink = l.c("boot-ink");
-    let (mark_h, word_h) = (30.0_f32, 21.0_f32);
-    let mark_w = mark_h * 306.89 / 176.39;
+    let line = status.clone().unwrap_or_else(|| COVER_CLAIM.to_owned());
+    let mark_w = 100.0 * k;
+    let mark_h = mark_w * 176.39 / 306.89;
+    let word_h = 48.0 * k * 0.62;
     let word_w = word_h * 283.65 / 39.36;
-    let line = status.unwrap_or_else(|| COVER_CLAIM.to_owned());
-    col()
-        .gap(12.0)
+    let m = at.machine;
+    // The claim steps aside when the glass is narrower than it (0.405): out of the layout, still measured, so it comes
+    // back when it fits again.
+    let glass_w = m.width as f32 - 2.0 * 9.0 * k - 2.0;
+    let claim_fits = rune::memo::layout("home-cover-line").is_none_or(|r| r[2] + 24.0 <= glass_w);
+    let mut claim = text(line.to_uppercase())
+        .font(rune::TextStyle::new(claim_size(at.drawn) as f32, 400.0).mono().tracking(0.16 * claim_size(at.drawn) as f32))
+        .color(if claim_fits { l.c("boot-ink-muted") } else { l.c("boot-ink-muted").alpha(0.0) })
+        .key("home-cover-line");
+    if !claim_fits {
+        claim = claim.absolute(0.0, 0.0);
+    }
+    let screen = col()
         .center()
-        .py(20.0)
-        .px(26.0)
-        .radius(12.0)
-        .fill(l.c("boot-screen-mid"))
-        .border(1.0, l.c("boot-bezel-hi"))
+        .gap(16.0 * k)
         .child(
             row()
-                .gap(10.0)
+                .gap(18.0 * k)
                 .center_y()
+                .key("home-cover-lockup")
                 .child(rune::icon(&crate::look::icons::LOCUST_MARK, mark_w).color(ink).my(-(mark_w - mark_h) / 2.0).a11y_hidden())
                 .child(rune::icon(&crate::look::icons::LOCUST_WORDMARK, word_w).color(ink).my(-(word_w - word_h) / 2.0)),
         )
-        .child(text(line.to_uppercase()).font(rune::TextStyle::new(9.5, 400.0).mono().tracking(1.9)).color(l.c("boot-ink-muted")).key("home-cover-line"))
+        .child(claim);
+    // The tube's scanlines lie over the lockup and the claim, as the boot screen's do: drawn after them, so on top.
+    let scan = rune::canvas({
+        let (w, h) = (glass_w, m.height as f32 - 2.0 * 9.0 * k - 2.0);
+        let mut shape = rune::Shape::new().view_box(w, h);
+        let mut y = 1.0;
+        while y < h {
+            shape = shape.fill(vec![[0.0, y], [w, y], [w, y + 1.0], [0.0, y + 1.0]], rune::Color::BLACK.alpha(0.16));
+            y += 3.0;
+        }
+        shape
+    })
+    .pin(Some(0.0), Some(0.0), Some(0.0), Some(0.0))
+    .key("home-cover-scan")
+    .a11y_hidden();
+    let glass = col()
+        .w_full()
+        .h_full()
+        .center()
+        .radius(10.0 * k)
+        .fill(l.c("boot-screen-mid"))
+        .border(1.0, l.c("boot-screen-cold"))
+        .clip_rounded(10.0 * k)
+        .key("home-cover-glass")
+        .child(screen)
+        .child(scan);
+    let machine = col()
+        .absolute(m.x as f32, m.y as f32)
+        .w(m.width as f32)
+        .h(m.height as f32)
+        .padding(9.0 * k)
+        .radius(18.0 * k)
+        .fill(l.c("boot-bezel-hi"))
+        .border(1.0, l.c("border-hairline"))
+        .key("home-cover-machine")
+        .child(glass)
         .role("img")
-        .label(format!("Locust. {line}"))
+        .label(format!("Locust. {line}"));
+
+    let mut card = col()
+        .w_full()
+        .h(at.height as f32)
+        .mt(at.reach as f32)
+        .key("home-cover")
+        .on_layout_tx(|s: &mut State, [_, _, w, _], tx| {
+            let w = f64::from(w);
+            if s.home.fit.card_width == Some(w) {
+                tx.live_only();
+                return;
+            }
+            s.home.fit.card_width = Some(w);
+            s.home.fit.decide();
+        })
+        .child(machine);
+    #[cfg(test)]
+    DRAWN_COVER.with(|d| d.borrow_mut().clear());
+    for (mate, place) in COVER_CAST.iter().zip(at.faces) {
+        let beat = beat_of(mate.part);
+        let size = place.width as f32;
+        let pose_state = locust_core::bot_rig::BotAvatarState::from_str(if ready { mate.state } else { "default" });
+        let eyes = beat.eyes.map(|e| [e[0].to_owned(), e[1].to_owned()]).unwrap_or_else(|| locust_core::bot_rig::SCREEN_RESTING_EYES.map(str::to_owned));
+        let snap = crate::look::bot_stage::BotSnapshot {
+            pose: locust_core::bot_rig::rest_pose(pose_state),
+            eyes: Some(eyes.clone()),
+            tone: beat.phosphor,
+            flash: None,
+            flash_progress: 1.0,
+            power_on: None,
+            shut: 0.0,
+            lag_x: 0.0,
+            lag_y: 0.0,
+            // Not drawn: the hop. The rig's lift would hold for the whole beat, which reads as a float, not a hop.
+            hop: false,
+            blinking: false,
+            screen: true,
+            plush: s.settings_panel.settings.plush,
+            s_seconds: 0.0,
+            hovered: false,
+        };
+        let face = locust_core::bot_spec::preset_of(mate.bot).map_or(locust_core::bot_spec::BotFace::Eyes, |p| p.face);
+        // No presence dot and no waiting ring on a character (0.610): who is really working is said on the glass.
+        let shape = crate::look::bots::draw_bot_shape(&crate::look::bots::BotDrawSpec {
+            shape: mate.bot,
+            face,
+            hue: mate.hue.unwrap_or(""),
+            size,
+            light_theme: !l.k.dark,
+            presence: None,
+            ring: false,
+            snap: &snap,
+        });
+        let beat_name = if ready { beat.name } else { "still" };
+        let floating = ready && mate.floats;
+        let mut bot = rune::canvas(shape).size(size, size).key(format!("home-cover-bot-{}-{beat_name}", mate.key)).a11y_hidden();
+        if floating {
+            bot = bot.looping(rune::LoopSpec::slide(3.8, [0.0, 0.0], [0.0, -0.06 * size]).easing(rune::Easing::Piecewise(FLOAT_CURVE)));
+        }
+        let asleep = ready && mate.part == CoverPart::Sleeper;
+        let mut slot = col().absolute(place.x as f32, place.y as f32).w(size).h(size).key(format!("home-cover-face-{}", mate.key)).child(bot);
+        if asleep {
+            slot = slot.child(
+                text("z z z")
+                    .font(rune::TextStyle::new((size * 0.18).max(8.0), 700.0).mono())
+                    .color(crate::look::bots::color_from_css("#99eeff", 1.0))
+                    .absolute(size * 0.7, size * 0.06)
+                    .key("home-cover-zzz")
+                    .a11y_hidden()
+                    .looping(rune::LoopSpec::opacity(2.4, 0.0, 0.35, 1.0)),
+            );
+        }
+        #[cfg(test)]
+        DRAWN_COVER.with(|d| d.borrow_mut().push(CoverDrawn {
+            key: mate.key, bot: mate.bot, hue: mate.hue, state: if ready { mate.state } else { "still" }, beat: beat_name, eyes: Some(eyes), tone: beat.phosphor, floating, zzz: asleep,
+        }));
+        card = card.child(slot);
+    }
+    // The parts' clock: an empty mark keyed by the beats and whether the cover plays. Each new key is laid out once,
+    // and that is where the clock is started or held and the one wake is asked for, at the next change of beat. The
+    // cover is drawn again only then, never on a tick.
+    let clock_key = format!("home-cover-clock-{playing}-{}-{}", worker.name, thinker.name);
+    card.child(
+        row()
+            .absolute(0.0, 0.0)
+            .w(0.0)
+            .h(0.0)
+            .key(clock_key)
+            .a11y_hidden()
+            .on_layout_tx(move |s: &mut State, _, tx| {
+                let now = cover_now();
+                let playing = cover_playing(s);
+                s.home.cover_clock.set_playing(playing, now);
+                if playing {
+                    let (_, _, left) = locust_core::cover_script::cover_beats(s.home.cover_clock.elapsed(now));
+                    tx.wake_after(std::time::Duration::from_secs_f64(left + 0.03));
+                }
+            }),
+    )
 }
 
 /// A Home section's head: its title, a count when it has one, and what sits at its right.
@@ -594,7 +833,9 @@ fn last_worked_at(s: &State, teammate: &str) -> Option<String> {
 
 pub(super) fn home_view(s: &State, p: &Palette) -> El {
     let l = crate::look::controls::Look::new(p.dark);
-    let mut body = col().w_full().max_w(760.0).gap(12.0).pt(18.0).pb(28.0);
+    // Home's spacing: normal, or tight when even the smallest cover does not fit (FirstLaunch.tsx `homeIsShort`).
+    let (pad, gap) = locust_core::home_cover::home_spacing(s.home.fit.tight);
+    let mut body = HomeColumn { el: col().w_full().max_w(760.0).gap(gap as f32).pt(pad as f32).pb(pad as f32), count: 0 };
     body = body.child(
         row()
             .w_full()
@@ -603,9 +844,10 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
                 crate::look::controls::head_icon(&crate::look::icons::CLOSE, "Close Home", "Close")
                     .on_press(|s: &mut State| s.home.home_open = false)
                     .build(l.k),
-            ),
+            )
+            .key("home-close-row"),
     );
-    body = body.child(row().w_full().justify_center().pb(10.0).child(banner(&l, cover_status(s))));
+    body = body.child(cover(s, &l, cover_status(s)));
     if let Some(line) = intro_line(s) {
         body = body.child(row().w_full().justify_center().child(text(line).font(l.ty.body).color(l.c("text-secondary")).wrap().key("home-intro")));
     }
@@ -613,7 +855,12 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
     // teams and the folder; once anything is installed, after them, so a returning Home never reorders.
     let installed: Option<Vec<bool>> = s.settings_panel.agents.as_ref().map(|found| found.iter().map(|f| f.installed).collect());
     let accounts_lead = locust_core::home_order::accounts_lead(installed.as_deref());
-    if accounts_lead {
+    // Not carried: home-fits-one-screen (0.799) puts the accounts between the cover and the team once there is one.
+    // Drawn there (Settings' whole agents panel, not Electron's one-line head), Scout's comment Send lost its press in
+    // window_drive_tests::scout_comment_ask_sends_and_posts_reviewed_reply_from_window, cause not found
+    // (notes/HOME-NOTES.md, Home round 2). With a team the accounts stay after it, as before.
+    let accounts_above = accounts_lead;
+    if accounts_above {
         body = body.child(crate::agents_section::section(s, p).key("home-agents"));
     }
 
@@ -825,6 +1072,7 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
             let doing = state.as_ref().filter(|st| st.tone != "red").and_then(|_| waiting_line_for(s, &mate.id));
             let looked_line = looked.as_ref().map(|(line, _)| line.clone());
             let busy_line = doing.is_some();
+            let watch_line = doing.is_none() && looked_line.is_some();
             let sub_text = doing.or(looked_line).unwrap_or_else(|| mate.role.clone());
             let mut name_row = row().gap(6.0).center_y().child(text(mate.name.clone()).font(rune::TextStyle::new(14.0, 500.0)).color(l.c("text-name")).truncate().shrink());
             if let Some(st) = &state {
@@ -846,7 +1094,11 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
                         .grow(1.0)
                         .shrink()
                         .child(name_row)
-                        .child(row().gap(5.0).center_y().child(teammate_presence(&status, p)).child(text(sub_text).font(rune::TextStyle::new(12.5, 400.0)).color(if busy_line { l.c("text-secondary") } else { l.c("text-muted") }).truncate()))
+                        .child(row().gap(5.0).center_y().child(teammate_presence(&status, p)).child({
+                            let line = text(sub_text).font(rune::TextStyle::new(12.5, 400.0)).color(if busy_line { l.c("text-secondary") } else { l.c("text-muted") }).truncate();
+                            // Scout's watch takes its role's place on its own card; the role is still the line's hover.
+                            if watch_line { line.help(mate.role.clone()).key("home-card-watch") } else { line }
+                        }))
                         .child(agent),
                 )
                 .key(format!("home-card-{}", mate.id));
@@ -857,7 +1109,8 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
                     .radius(6.0)
                     .hover(l.c("hover-surface"))
                     .role("button")
-                    .label("Look now")
+                    .label(format!("{}: look now", mate.name))
+                    .help(if looking { "Looking…" } else { "Look now" })
                     .key("scout-look-now")
                     .child(crate::look::controls::glyph(
                         &l,
@@ -892,7 +1145,7 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
         }
     }
 
-    if !accounts_lead {
+    if !accounts_above {
         body = body.child(crate::agents_section::section(s, p).key("home-agents"));
     }
 
@@ -954,13 +1207,54 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
     }
     body = body.child(list);
 
+    // What in the column does not move with the cover: its height as drawn, less its padding, its gaps and the cover's
+    // footprint as drawn. Measured from itself, so a cover that grows never shrinks the room it was given.
+    let count = body.count;
+    let tight_now = s.home.fit.tight;
+    let place = locust_core::home_cover::cover_place(s.home.fit.card_width.unwrap_or(0.0), s.home.fit.grow.unwrap_or(1.0));
+    let footprint = place.height + place.reach;
+    let column = body.el.on_layout_tx(move |s: &mut State, [_, _, _, h], tx| {
+        let h = f64::from(h);
+        let sections = (h - 2.0 * pad - gap * count.saturating_sub(1) as f64 - footprint).max(0.0);
+        let measured = Some((h, sections, count, tight_now));
+        if s.home.fit.column == measured {
+            tx.live_only();
+            return;
+        }
+        s.home.fit.column = measured;
+        s.home.fit.decide();
+    });
     // A centred column, as Home's `max-width` holds it in Electron.
     col()
         .w_full()
         .px(28.0)
         .items_center()
-        .child(body)
+        .child(column)
         .scroll(ScrollSpec { stick_bottom: false })
+        .key("home-pane")
+        .on_layout_tx(|s: &mut State, [_, _, _, h], tx| {
+            let h = f64::from(h);
+            if s.home.fit.pane_height == Some(h) {
+                tx.live_only();
+                return;
+            }
+            s.home.fit.pane_height = Some(h);
+            s.home.fit.decide();
+        })
+}
+
+/// Home's column, counting what it holds: the measure needs the number of its gaps (FirstLaunch.tsx `children.length`).
+struct HomeColumn {
+    el: El,
+    count: usize,
+}
+
+impl HomeColumn {
+    fn child(mut self, child: El) -> Self {
+        self.count += 1;
+        self.el = self.el.child(child);
+        self
+    }
 }
 
 /// The Board with one teammate's conversations only (Electron opens their list from the rail card).
@@ -1918,3 +2212,7 @@ mod home_cover_status_tests;
 #[cfg(test)]
 #[path = "home_team_cards_tests.rs"]
 mod home_team_cards_tests;
+
+#[cfg(test)]
+#[path = "home_cover_tests.rs"]
+mod home_cover_tests;

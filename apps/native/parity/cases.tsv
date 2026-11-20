@@ -3551,9 +3551,21 @@ apps/desktop/src/renderer/src/groups-unreadable-is-a-line.test.tsx	is said in th
 apps/desktop/src/renderer/src/groups-unreadable-is-a-line.test.tsx	is not said when there are simply no groups	no
 apps/desktop/src/renderer/src/groups-unreadable-is-a-line.test.tsx	names every file that would not read, in one sentence, roster first	no
 apps/desktop/src/renderer/src/groups-unreadable-is-a-line.test.tsx	is not said when the groups read fine	no
+apps/desktop/src/renderer/src/home-fits-one-screen.test.tsx	puts the accounts between the cover and the team, and the starters after the team	no
+apps/desktop/src/renderer/src/home-fits-one-screen.test.tsx	keeps the order it had before there is a team: what to add first, the accounts after	yes
+apps/desktop/src/renderer/src/home-fits-one-screen.test.tsx	draws Scout's quiet watch on its own card, with Look now as the eye there	yes
+apps/desktop/src/renderer/src/home-fits-one-screen.test.tsx	says Looking… while a look is out, and a first look on its way before any	yes
+apps/desktop/src/renderer/src/home-fits-two-rows-of-teammates.test.ts	is short at its normal spacing, so it tightens	yes
+apps/desktop/src/renderer/src/home-fits-two-rows-of-teammates.test.ts	then fits: tight spacing saves enough with the cover at its floor	yes
+apps/desktop/src/renderer/src/home-fits-two-rows-of-teammates.test.ts	is not short with room to spare (control), nor with nothing measured	yes
+apps/desktop/src/renderer/src/home-fits-two-rows-of-teammates.test.ts	counts the bots' reach above the cover, which the old measure left out	yes
 apps/desktop/src/renderer/src/home-free-model-keeps-its-tag.test.tsx	keeps the Free tag whole and lets the name give way	no
 apps/desktop/src/renderer/src/home-free-model-keeps-its-tag.test.tsx	draws a paid model as the line it was	no
 apps/desktop/src/renderer/src/home-free-model-keeps-its-tag.test.tsx	names a teammate on its account's default by the runtime, as the chip and Team do	no
+apps/desktop/src/renderer/src/home-holds-still-when-tight-spacing-shrinks-it.test.ts	the two heights argue each other: short at the normal spacing, not short as drawn tight	yes
+apps/desktop/src/renderer/src/home-holds-still-when-tight-spacing-shrinks-it.test.ts	goes tight once and stays tight	yes
+apps/desktop/src/renderer/src/home-holds-still-when-tight-spacing-shrinks-it.test.ts	adds back what tight took, and only while tight	yes
+apps/desktop/src/renderer/src/home-holds-still-when-tight-spacing-shrinks-it.test.ts	a new count of sections starts over rather than borrowing an old height	yes
 apps/desktop/src/renderer/src/home-leads-with-the-team.test.tsx	leads with the team: a card per teammate, and who is working	no
 apps/desktop/src/renderer/src/home-leads-with-the-team.test.tsx	folds the agent list to one line when every installed agent is ready	no
 apps/desktop/src/renderer/src/home-leads-with-the-team.test.tsx	keeps the whole list when an installed agent needs the person	no
@@ -4341,6 +4353,17 @@ apps/desktop/src/renderer/src/the-changes-panel-lists-every-file.test.tsx	counts
 apps/desktop/src/renderer/src/the-changes-panel-lists-every-file.test.tsx	groups them by folder, each folder’s own files under it	yes
 apps/desktop/src/renderer/src/the-chip-keeps-free.test.ts	splits a trailing Free off the name	yes
 apps/desktop/src/renderer/src/the-chip-keeps-free.test.ts	leaves every other name whole	yes
+apps/desktop/src/renderer/src/the-cover-grows-into-spare-height.test.tsx	not at all with exactly the room it needs, or none measured	yes
+apps/desktop/src/renderer/src/the-cover-grows-into-spare-height.test.tsx	shrinks by what the page is short, down to 0.85x and no further	yes
+apps/desktop/src/renderer/src/the-cover-grows-into-spare-height.test.tsx	by the room it is given, relative to its own height	yes
+apps/desktop/src/renderer/src/the-cover-grows-into-spare-height.test.tsx	at most 1.45x, however much room there is	yes
+apps/desktop/src/renderer/src/the-cover-grows-into-spare-height.test.tsx	a page that fits is never short: it grows past some air, or stays as it is	yes
+apps/desktop/src/renderer/src/the-cover-grows-into-spare-height.test.tsx	a page that does not fit is short by what it lacks, and a little air	yes
+apps/desktop/src/renderer/src/the-cover-grows-into-spare-height.test.tsx	measures nothing into nothing	yes
+apps/desktop/src/renderer/src/the-cover-grows-into-spare-height.test.tsx	stays centred on its card, at its own size and grown	yes
+apps/desktop/src/renderer/src/the-cover-grows-into-spare-height.test.tsx	draws smaller when the page gives less than it needs, and no smaller than the floor	yes
+apps/desktop/src/renderer/src/the-cover-grows-into-spare-height.test.tsx	keeps clear of the card edges at its largest	yes
+apps/desktop/src/renderer/src/the-cover-grows-into-spare-height.test.tsx	is the narrowest column's floor at every width, and never more than 0.85x	yes
 apps/desktop/src/renderer/src/the-effort-control-is-claude-codes.test.tsx	is named in words, as Claude Code names it	yes
 apps/desktop/src/renderer/src/the-effort-control-is-claude-codes.test.tsx	this build does not know keeps the runtime’s own word, capitalised, never renamed	yes
 apps/desktop/src/renderer/src/the-effort-control-is-claude-codes.test.tsx	reads "Effort Max", with a ? that says what the level costs	yes
@@ -4412,6 +4435,19 @@ apps/desktop/src/renderer/src/the-home-cover-rests-after-inactivity.test.ts	stre
 apps/desktop/src/renderer/src/the-home-cover-rests-after-inactivity.test.ts	blur and hiding pause immediately, work cannot wake a window nobody sees	yes
 apps/desktop/src/renderer/src/the-home-cover-rests-after-inactivity.test.ts	reduced motion never animates despite input, focus or a stream, and follows preference changes	yes
 apps/desktop/src/renderer/src/the-home-cover-rests-after-inactivity.test.ts	notifies canvas clocks on pause and resume and removes listeners on unmount	no
+apps/desktop/src/renderer/src/the-home-screen-is-the-cover.test.tsx	is the cover at the column width: 960 is its own size, 760 is 0.79 of it	yes
+apps/desktop/src/renderer/src/the-home-screen-is-the-cover.test.tsx	starts at the narrowest column before it has been measured	yes
+apps/desktop/src/renderer/src/the-home-screen-is-the-cover.test.tsx	has the lockup and, under it, the claim -- both on the machine's glass	yes
+apps/desktop/src/renderer/src/the-home-screen-is-the-cover.test.tsx	has the three teammates on the machine, in the cover order: a ghost, Prompt, a Locust	yes
+apps/desktop/src/renderer/src/the-home-screen-is-the-cover.test.tsx	has a white ghost that floats, and Claw'd asleep (0.583: the Hopper was jagged in Plush)	yes
+apps/desktop/src/renderer/src/the-home-screen-is-the-cover.test.tsx	wakes the teammates with the lockup: still and unmarked until the runtimes answer	yes
+apps/desktop/src/renderer/src/the-home-screen-is-the-cover.test.tsx	places each bot on the cover grid at the starting scale, in whole pixels	yes
+apps/desktop/src/renderer/src/the-home-screen-is-the-cover.test.tsx	is decorative apart from its words: no bot answers to a name	yes
+apps/desktop/src/renderer/src/the-home-screen-is-the-cover.test.tsx	runs the worker on a 17 s loop and the thinker on a 13 s one	yes
+apps/desktop/src/renderer/src/the-home-screen-is-the-cover.test.tsx	keeps the worker and the thinker in different faces nearly all of the time	yes
+apps/desktop/src/renderer/src/the-home-screen-is-the-cover.test.tsx	shows the states a teammate really has, in their real colours	yes
+apps/desktop/src/renderer/src/the-home-screen-is-the-cover.test.tsx	says how long until the next beat, so the cover renders only at a change	yes
+apps/desktop/src/renderer/src/the-home-screen-is-the-cover.test.tsx	says who is working in place of the claim, and the claim when nothing runs	yes
 apps/desktop/src/renderer/src/the-kept-pets-are-puppets.test.tsx	are the eight he named, each once; Codex Buddy keeps his own drawings	yes
 apps/desktop/src/renderer/src/the-kept-pets-are-puppets.test.tsx	keeps all of each drawing above its neck, from its very top: no ear, antenna or headphone is lost	yes
 apps/desktop/src/renderer/src/the-kept-pets-are-puppets.test.tsx	cuts only a body that walks and a stand, straight across its neck, well below its screen	yes
