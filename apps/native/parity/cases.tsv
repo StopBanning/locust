@@ -2258,7 +2258,7 @@ apps/desktop/src/main/window-bounds.test.ts	never restores below what the layout
 apps/desktop/src/main/window-bounds.test.ts	never restores taller than a work area smaller than the minimum (M21)	yes
 apps/desktop/src/main/window-bounds.test.ts	never restores taller than the display it lands on	yes
 apps/desktop/src/main/window-bounds.test.ts	accepts a whole rectangle	yes
-apps/desktop/src/main/window-bounds.test.ts	refuses %s	no
+apps/desktop/src/main/window-bounds.test.ts	refuses %s	yes
 apps/desktop/src/main/window-bounds.test.ts	treats a missing maximized flag as not maximized	yes
 apps/desktop/src/main/window-size.test.ts	takes a fraction of the display rather than most of it	yes
 apps/desktop/src/main/window-size.test.ts	never opens below what the layout needs, on a display that has it	yes
@@ -5028,6 +5028,31 @@ apps/desktop/src/shared/which-notes-bear-on-a-question.test.ts	a word few notes 
 apps/desktop/src/shared/which-notes-bear-on-a-question.test.ts	the rarer of two shared words counts for more than the newer note	yes
 apps/desktop/src/shared/which-notes-bear-on-a-question.test.ts	plain English words do not count	yes
 apps/desktop/src/shared/which-notes-bear-on-a-question.test.ts	the brief keeps the newest when the allowance runs out	yes
+apps/desktop/test/decision.test.ts	reads the question and both options	yes
+apps/desktop/test/decision.test.ts	drops the template brackets a model kept, and leaves arrows and comparisons alone	yes
+apps/desktop/test/decision.test.ts	accepts an option that states no cost	yes
+apps/desktop/test/decision.test.ts	takes an asterisk bullet as readily as a dash	yes
+apps/desktop/test/decision.test.ts	refuses a single option, which is an announcement rather than a decision	yes
+apps/desktop/test/decision.test.ts	refuses more options than a person will read	yes
+apps/desktop/test/decision.test.ts	refuses two options that say the same thing	yes
+apps/desktop/test/decision.test.ts	refuses a block with options but no question	yes
+apps/desktop/test/decision.test.ts	refuses a block with a question but no options	yes
+apps/desktop/test/decision.test.ts	ignores prose that arrives after the options	yes
+apps/desktop/test/decision.test.ts	takes only the first well-formed question	yes
+apps/desktop/test/decision.test.ts	skips a malformed block to find a good one after it	yes
+apps/desktop/test/decision.test.ts	finds nothing in an ordinary reply	yes
+apps/desktop/test/decision.test.ts	strips a control byte rather than refusing the whole question	yes
+apps/desktop/test/decision.test.ts	cuts an overlong question rather than showing a memo	yes
+apps/desktop/test/decision.test.ts	cuts an overlong option label	yes
+apps/desktop/test/decision.test.ts	is taken out, because the card asks it answerably	yes
+apps/desktop/test/decision.test.ts	leaves an ordinary reply exactly as it was	yes
+apps/desktop/test/decision.test.ts	takes out a malformed block too, so no raw tag ever reaches the reader	yes
+apps/desktop/test/decision.test.ts	reads as the answer the person gave	yes
+apps/desktop/test/decision.test.ts	says the label alone when the option stated no cost	yes
+apps/desktop/test/decision.test.ts	refuses a yes/no question, because that is an approval	yes
+apps/desktop/test/decision.test.ts	refuses %s	yes
+apps/desktop/test/decision.test.ts	keeps a real fork whose option merely BEGINS with an assent word	yes
+apps/desktop/test/decision.test.ts	keeps options that name what to do, even when one sounds decisive	yes
 apps/desktop/test/handoff.test.ts	carries the original task and names the runtime that stopped	yes
 apps/desktop/test/handoff.test.ts	tells the new runtime to verify actions that never reported back	yes
 apps/desktop/test/handoff.test.ts	separates what finished from what did not	yes
