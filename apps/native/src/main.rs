@@ -152,6 +152,10 @@ mod messages;
 use messages::*;
 #[path = "ui/handoff_divider.rs"]
 mod handoff_divider;
+#[path = "ui/terminal_divider.rs"]
+mod terminal_divider;
+#[path = "ui/tag_send.rs"]
+mod tag_send;
 #[path = "ui/handoff_glances.rs"]
 mod handoff_glances;
 #[path = "ui/live_list.rs"]
@@ -795,6 +799,7 @@ fn load_team(s: &mut State) {
 
 fn setup(s: &mut State, waker: Waker) {
     s.changes_job.set_waker(waker.clone());
+    s.tag_job.set_waker(waker.clone());
     s.review_job.set_waker(waker.clone());
     s.github_job.set_waker(waker.clone());
     s.connectors_job.set_waker(waker.clone());
@@ -1762,6 +1767,9 @@ fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
     if prompt_rail::handle_key(s, event, tx) {
         return true;
     }
+    if question_card::handle_key(s, event) {
+        return true;
+    }
     if decision_card::handle_key(s, event, tx) {
         return true;
     }
@@ -2040,6 +2048,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     changed |= issue_list::poll(s);
     changed |= attention_watch::poll(s);
     changed |= scout_cards::poll(s);
+    changed |= tag_send::poll(s);
     changed |= rail::poll(s);
     changed |= open_pressed_notification(s, tx);
     bench_opened(s);

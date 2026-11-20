@@ -224,6 +224,11 @@ pub struct Request {
 
     /// Claude `can_use_tool` input, kept so allow can return updatedInput.
     pub claude_input: Option<Value>,
+    /// A question the runtime lets the person skip (Antigravity's own card has Skip): every answer left empty.
+    pub skippable: bool,
+    /// Where a question has to be answered when Locust cannot answer it (Antigravity, when its waiting step was not
+    /// found): the card shows it and says where, with no buttons.
+    pub answer_in: Option<String>,
     /// What a question card asks, each answered by id (empty for an authorization).
     pub questions: Vec<Question>,
 }
@@ -921,7 +926,7 @@ impl Channel {
             data_sent_says: said("dataSentSays"),
             reversible_says: said("reversibleSays"),
             patch,
-            claude_input: None,
+            skippable: false, answer_in: None, claude_input: None,
             questions,
         };
         let remembered_here = codex && request.always_key.is_some();
@@ -972,7 +977,7 @@ impl Channel {
             reversible_says: reversible,
             patch: None,
 
-            claude_input: Some(input.clone()),
+            skippable: false, answer_in: None, claude_input: Some(input.clone()),
 
             questions: Vec::new(),
         };
@@ -1005,7 +1010,7 @@ impl Channel {
 
     /// Browser actions never inherit a command allow rule or Auto-mode bypass.
     pub fn ask_browser(&self, mission: &str, title: &str, detail: &str, cancel: &dyn Fn() -> bool) -> Result<bool, String> {
-        let request = Request { approval_id: new_id(), mission_id: mission.into(), runtime: "browser".into(), kind: Kind::Connector, summary: whole_detail(title), detail: whole_detail(detail), cwd: None, requested_at: now_iso(), always_covers: None, always_key: None, data_sent_says: None, reversible_says: None, patch: None, claude_input: None, questions: Vec::new() };
+        let request = Request { approval_id: new_id(), mission_id: mission.into(), runtime: "browser".into(), kind: Kind::Connector, summary: whole_detail(title), detail: whole_detail(detail), cwd: None, requested_at: now_iso(), always_covers: None, always_key: None, data_sent_says: None, reversible_says: None, patch: None, skippable: false, answer_in: None, claude_input: None, questions: Vec::new() };
         self.ask(request, cancel).map(|a| matches!(a, Answer::Decision { decision: Decision::ApproveOnce | Decision::ApproveAlways, .. }))
     }
 
@@ -1960,7 +1965,7 @@ mod tests {
             reversible_says: None,
             patch: None,
 
-            claude_input: None,
+            skippable: false, answer_in: None, claude_input: None,
 
             questions: Vec::new(),
         };
@@ -2447,7 +2452,7 @@ mod tests {
             data_sent_says: None,
             reversible_says: None,
             patch: Some(patch),
-            claude_input: None,
+            skippable: false, answer_in: None, claude_input: None,
             questions: Vec::new(),
         };
         assert_eq!(

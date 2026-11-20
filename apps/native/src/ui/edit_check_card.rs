@@ -277,3 +277,7 @@ pub(super) fn check_fix_line(
     }
     box_
 }
+
+#[cfg(test)]
+#[path = "check_fix_words_tests.rs"]
+mod check_fix_words_tests;

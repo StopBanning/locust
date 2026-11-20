@@ -1394,7 +1394,7 @@ pub(super) fn board_scene(s: &mut State) {
         data_sent_says: None,
         reversible_says: None,
         patch: None,
-        claude_input: None,
+        skippable: false, answer_in: None, claude_input: None,
         questions: Vec::new(),
     });
     s.home.to_look_at.insert("m_done".into());

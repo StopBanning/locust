@@ -475,3 +475,23 @@ finished.
 - the desk page and its snapshot;
 - the page drawn twice in one turn;
 - row 557's three unnamed cases.
+## Turns round 1 (19 Nov, `exec/native-turns-1`)
+Started by a Claude run on the second account, which hit its limit with nothing committed; the Mac chat committed its
+work as part 1 (4a8605fc), break-checked it, and did the rest.
+
+- **A button's turn says what was asked** (`thread_view::brief_line`, `conversation_turns::turn_line`): a tidy pass
+  reads "Tidy this folder's team memory.", a review "Review <name>'s work." The person's own words that begin the same
+  way are left alone. Display only: `typed_prompt`, which a routine replays, is unchanged.
+- **A fix Locust sent is Locust's line**: `fix_of_turn` reads a check-fix turn's starter, or a routine's fix turn from
+  its own words, and the thread draws the check-fix line, not a bubble. The settings row for it now says what happens
+  to a failure, names its choices to a screen reader (", chosen"), and stays off until a check is saved.
+- **Terminal turns** carry their runtime (`conversation_turns::in_terminal`, one place), and the thread draws one
+  seam going in before the first and one coming back before Locust's next turn (`terminal_divider`).
+- **Tagging** sends the message to each teammate tagged, in a conversation of their own, the person's words first
+  (`tagging`, `tag_send`); the composer says who it reached and who was busy.
+- **Number keys** answer a question card (`question_keys`): the focus is the question last pressed.
+- **Skip, and answered elsewhere**: `approval::Request` gains `skippable` and `answer_in`. Native's Antigravity runs
+  through `agy -p`, which answers its own questions, so no native run raises either yet.
+- **Breaks: 34 of 34 caught by name** (`~/work/scratch/turns1/`). One survived until a case was added: a question that
+  takes only words, coming first, must not swallow the number.
+- **Left:** the fix turns' whole-thread drawing in one frame.
