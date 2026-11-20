@@ -2321,10 +2321,14 @@ fn relay_prose_return_posts_unanswered_prose_back_to_asker() {
 
     let pip_hub = crate::people::hub_of(&store, "tm_pip").unwrap();
     wait("Pip hub finished", || !owns(&pip_hub));
-    let codec_tip = real_tip(&first.conversation_id).unwrap();
-    wait("Codec follow-up finished", || !owns(&codec_tip));
-    let codec_tip_snap = crate::ledger::read_transcript(store.write_path(&codec_tip).unwrap());
-    assert!(codec_tip_snap.items.iter().any(|item| matches!(item, Item::Assistant { text, .. } if text == "Recorded 5173.")));
+    // The wait is on the answer itself, not on a quiet moment: between Pip's turn ending and Codec's follow-up starting
+    // nobody is active, and a tip read then is not yet the follow-up (failed in 1.3 s under the full gate, 20 Nov).
+    let answered = |tip: &str| {
+        store.write_path(tip).is_ok_and(|path| {
+            crate::ledger::read_transcript(path).items.iter().any(|item| matches!(item, Item::Assistant { text, .. } if text == "Recorded 5173."))
+        })
+    };
+    wait("Codec's follow-up answered", || real_tip(&first.conversation_id).is_ok_and(|tip| !owns(&tip) && answered(&tip)));
     crate::load_waits::note_time("relay_prose_return_posts_unanswered_prose_back_to_asker", started_at.elapsed());
 }
 
