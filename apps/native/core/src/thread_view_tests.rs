@@ -497,3 +497,35 @@ fn keeps_what_the_provider_said_when_the_failure_does_not() {
     let said = notes(&failed);
     assert!(said.iter().any(|n| n == "The model’s provider answered \"Upstream request failed: Endpoint is unavailable.\"."), "{said:?}");
 }
+
+// ---- a-start-time-is-kept-not-shown.test.ts ----
+fn host_note(code: &str, message: &str) -> Value {
+    event("adapter.diagnostic", json!({"level": "info", "code": code, "message": message}))
+}
+fn drawn(t: &Transcript) -> String {
+    t.items.iter().map(|i| format!("{i:?}")).collect::<Vec<_>>().join("\n")
+}
+const STARTED: &str = "Started in 6.1 s: looked for OpenCode 0.2 s, briefed 0.1 s; OpenCode took 5.4 s to say it had started.";
+// case: is kept for the record and never drawn in the thread
+#[test]
+fn how_long_a_start_took_is_kept_and_never_drawn() {
+    let t = fold(vec![delta("Done: the file says hi.", true), event("run.completed", json!({})), host_note("host.start-timing", STARTED)]);
+    assert!(!drawn(&t).contains("Started in") && drawn(&t).contains("the file says hi"), "{}", drawn(&t));
+}
+// case: takes nothing else with it: another host note is still said
+#[test]
+fn hiding_the_start_time_takes_nothing_else_with_it() {
+    let t = fold(vec![
+        delta("Done: the file says hi.", true),
+        event("run.completed", json!({})),
+        host_note("host.start-timing", STARTED),
+        host_note(crate::worktrees::CHECKPOINT_CODE, "Saved this turn on the teammate’s branch."),
+    ]);
+    assert!(drawn(&t).contains("Saved this turn") && !drawn(&t).contains("Started in"), "{}", drawn(&t));
+}
+// case: keeps a usage window out of the thread, as before
+#[test]
+fn a_usage_window_stays_out_of_the_thread() {
+    let t = fold(vec![event("run.completed", json!({})), host_note("codex.usage_window", "5h window: 40% used")]);
+    assert!(!drawn(&t).contains("window"), "{}", drawn(&t));
+}
