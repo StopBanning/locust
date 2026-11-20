@@ -247,6 +247,9 @@ apps/desktop/src/main/a-cursor-teammate-gets-its-skills.test.ts	gives Cursor a d
 apps/desktop/src/main/a-cursor-turn-does-not-wait-for-its-connector-list.test.ts	answers from an old reading at once, and reads a new one behind it	yes
 apps/desktop/src/main/a-cursor-turn-does-not-wait-for-its-connector-list.test.ts	reads once, however many turns ask while it is reading	yes
 apps/desktop/src/main/a-cursor-turn-does-not-wait-for-its-connector-list.test.ts	is read when Cursor is found, so the first turn finds it read	yes
+apps/desktop/src/main/a-declined-call-is-not-a-failure.test.ts	is said as declined when it fails, and nothing else changes	yes
+apps/desktop/src/main/a-declined-call-is-not-a-failure.test.ts	is left alone when there is nothing declined	yes
+apps/desktop/src/main/a-declined-call-is-not-a-failure.test.ts	remembers the items the person declined in a run -- and only those, and only while the run lasts	yes
 apps/desktop/src/main/a-diagram-in-a-reply-is-drawn.test.ts	is a block the model named Mermaid, with something in it, of a size Locust draws	no
 apps/desktop/src/main/a-diagram-in-a-reply-is-drawn.test.ts	is taken as a picture only when it is an SVG of a sensible size	no
 apps/desktop/src/main/a-diagram-in-a-reply-is-drawn.test.ts	says Mermaid's reason as one short line	no

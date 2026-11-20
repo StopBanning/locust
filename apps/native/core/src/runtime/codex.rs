@@ -4,7 +4,7 @@ use super::{Event, Runtime, Turn, events::Normalizer};
 use crate::approval::{Channel, Mode};
 use serde_json::{Value, json};
 use std::{
-    collections::{HashMap, VecDeque},
+    collections::{HashMap, HashSet, VecDeque},
     io::{self, BufReader, Write},
     process::{Child, Command, Stdio},
     sync::{
@@ -42,6 +42,9 @@ pub struct Codex {
     slash: Option<String>,
     /// Sealed run (`SlotOrigin.sealed`, e.g. Scout's look): no tools, no shell, no web search, no connectors.
     sealed: bool,
+    /// The items the person declined in this run, copied from the channel as each answer comes back: the reader thread
+    /// releases the channel on `turn/completed` before the item's own `item/completed` is read here.
+    declined: HashSet<String>,
 }
 
 fn err(message: impl ToString) -> io::Error {
@@ -152,6 +155,7 @@ impl Codex {
             fork: false,
             slash: None,
             sealed: false,
+            declined: HashSet::new(),
         })
     }
     pub fn with_thread_config(mut self, config: Option<Value>) -> Self {
@@ -238,7 +242,9 @@ impl Codex {
             };
             self.send(json!({"jsonrpc":"2.0","id":wire_id,"result":result}))?;
         } else {
-            self.queued.extend(self.normal.accept(method, &v["params"]));
+            // A call the person declined reads as declined, however Codex put it (0.374).
+            let events = self.normal.accept(method, &v["params"]);
+            self.queued.extend(crate::approval::with_declines(events, &self.declined));
         }
         Ok(())
     }
@@ -320,7 +326,10 @@ impl Codex {
             Some(&self.changes_by_item),
             &is_cancelled,
         ) {
-            Ok(result) => Ok(result),
+            Ok(result) => {
+                self.declined = channel.declined(&run);
+                Ok(result)
+            }
             Err(message) => {
                 self.queued
                     .push_back(self.normal.diagnostic(method, &message));
@@ -738,3 +747,7 @@ mod tests {
         assert!(decider.join().unwrap(), "Codex fileChange approval should carry patch from item/started");
     }
 }
+
+#[cfg(test)]
+#[path = "codex_declined_tests.rs"]
+mod codex_declined_tests;

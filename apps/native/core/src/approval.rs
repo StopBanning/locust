@@ -7,7 +7,7 @@
 
 use serde_json::{Value, json};
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     sync::{
         Arc, Mutex,
         mpsc::{self, Receiver, RecvTimeoutError, SyncSender},
@@ -745,6 +745,9 @@ fn now_iso() -> String {
 struct Pending {
     request: Request,
     tx: SyncSender<Answer>,
+    /// The run that asked, and the item it asked about when it named one: a denial is remembered under them.
+    run_id: String,
+    item_id: Option<String>,
 }
 
 /// In-process approval channel: raise a card, wait for decide(), release on turn end.
@@ -760,6 +763,9 @@ struct Inner {
     recorded: Vec<Recorded>,
     always: HashMap<(String, String), ()>,
     teammates: HashMap<String, String>,
+    /// The items the person declined, by run id, with the mission the run belongs to (approval-channel.ts
+    /// `declinedByRun`): kept only while the run lasts.
+    declined: HashMap<String, (String, HashSet<String>)>,
 }
 
 impl Channel {
@@ -771,6 +777,7 @@ impl Channel {
                 recorded: Vec::new(),
                 always: HashMap::new(),
                 teammates: HashMap::new(),
+                declined: HashMap::new(),
             }),
         })
     }
@@ -841,7 +848,7 @@ impl Channel {
     #[allow(clippy::too_many_arguments)]
     pub fn ask_codex_with_changes(
         &self,
-        _run_id: &str,
+        run_id: &str,
         mission_id: &str,
         runtime: &str,
         method: &str,
@@ -952,7 +959,8 @@ impl Channel {
             questions,
         };
         let remembered_here = codex && request.always_key.is_some();
-        self.ask(request, cancel).map(|answer| {
+        let item = item_id.map(str::to_owned);
+        self.ask_by_run(request, run_id, item, cancel).map(|(answer, _)| {
             // Never "acceptForSession" to Codex for an action Locust remembers itself: told that, Codex stops asking
             // and a saved rule never sees the next one (approval-channel.ts, codexAlways).
             let answer = match answer {
@@ -1043,6 +1051,17 @@ impl Channel {
     /// The answer, and whose it is: the person's own (`person`, a card or a rule they saved) or Locust's (`locust`: the
     /// command guard, an earlier Always, a turn that ended first).
     fn ask_by(&self, request: Request, cancel: &dyn Fn() -> bool) -> Result<(Answer, &'static str), String> {
+        self.ask_by_run(request, "", None, cancel)
+    }
+
+    /// `ask_by`, for a run that names the item it asks about, so the person's denial of it is remembered.
+    fn ask_by_run(
+        &self,
+        request: Request,
+        run_id: &str,
+        item_id: Option<String>,
+        cancel: &dyn Fn() -> bool,
+    ) -> Result<(Answer, &'static str), String> {
         let (tx, rx) = mpsc::sync_channel(1);
         let id = request.approval_id.clone();
         {
@@ -1099,7 +1118,7 @@ impl Channel {
             if guard.pending.len() >= MAX_PENDING {
                 return Err(format!("Locust denied an action because {MAX_PENDING} approvals are already waiting on you. Answer some of them and ask again."));
             }
-            guard.pending.insert(id.clone(), Pending { request, tx });
+            guard.pending.insert(id.clone(), Pending { request, tx, run_id: run_id.to_owned(), item_id });
         }
         let answer = wait_answer(&rx, cancel);
         // If wait ended without decide(), drop the pending entry.
@@ -1209,6 +1228,7 @@ impl Channel {
         }
         let recorded = record_of(&pending.request, &answer);
         guard.recorded.push(recorded.clone());
+        let denied = matches!(&answer, Answer::Decision { decision: Decision::Deny, .. });
         if pending.tx.try_send(answer).is_err() {
             if let Some(key) = &pending.request.always_key {
                 guard
@@ -1218,7 +1238,25 @@ impl Channel {
             guard.recorded.pop();
             return Err("That approval is no longer waiting.".into());
         }
+        // The person said no to this item: when the runtime reports it failed, it is said as declined (0.374).
+        if denied && let Some(item) = &pending.item_id {
+            guard
+                .declined
+                .entry(pending.run_id.clone())
+                .or_insert_with(|| (pending.request.mission_id.clone(), HashSet::new()))
+                .1
+                .insert(item.clone());
+        }
         Ok(recorded)
+    }
+
+    /// The items in a run the person declined, by item id (`with_declines`).
+    pub fn declined(&self, run_id: &str) -> HashSet<String> {
+        crate::invariants::lock(&self.inner)
+            .declined
+            .get(run_id)
+            .map(|(_, items)| items.clone())
+            .unwrap_or_default()
     }
 
     /// The run is over: refuse whatever it was still asking.
@@ -1227,6 +1265,7 @@ impl Channel {
         guard.ended.insert(mission_id.to_owned(), Instant::now());
         guard.always.retain(|(mission, _), _| mission != mission_id);
         guard.teammates.remove(mission_id);
+        guard.declined.retain(|_, (mission, _)| mission != mission_id);
         let ids: Vec<_> = guard
             .pending
             .iter()
@@ -1243,6 +1282,31 @@ impl Channel {
             }
         }
     }
+}
+
+/// A call the person declined, recorded as declined (approval-channel.ts `withDeclines`, 0.374).
+///
+/// Codex 0.157 runs a command inside a script, and a declined approval comes back as the script FAILING -- no
+/// `declined` status -- so the row read "failed" in red and the fold counted a command that "exited non-zero". Nothing
+/// failed: the person said no. Locust answered that approval itself, so a failure of an item the person declined is
+/// said as declined, and reads "refused" like every other runtime's.
+pub fn with_declines(events: Vec<crate::runtime::Event>, declined: &HashSet<String>) -> Vec<crate::runtime::Event> {
+    if declined.is_empty() {
+        return events;
+    }
+    events
+        .into_iter()
+        .map(|mut event| {
+            let item = event.payload["itemId"].as_str();
+            if event.kind == "tool.failed"
+                && item.is_some_and(|id| declined.contains(id))
+                && event.payload["status"] != "declined"
+            {
+                event.payload["status"] = json!("declined");
+            }
+            event
+        })
+        .collect()
 }
 
 fn wait_answer(rx: &Receiver<Answer>, cancel: &dyn Fn() -> bool) -> Result<Answer, String> {
@@ -2493,3 +2557,7 @@ mod web_search_asks_tests;
 #[cfg(test)]
 #[path = "opencode_card_tests.rs"]
 mod opencode_card_tests;
+
+#[cfg(test)]
+#[path = "approval_declined_tests.rs"]
+mod approval_declined_tests;
