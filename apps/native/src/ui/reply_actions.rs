@@ -612,6 +612,20 @@ pub(super) fn viewer(s: &State, p: &Palette) -> Option<El> {
             el().child(text("Close").color(p.secondary))
                 .on_press(|s: &mut State| s.file_view = None),
         );
+    // FileViewer.tsx (0.425): a web page runs, its source a tab away. Electron frames it in the viewer; here its Page
+    // runs it at its own address in the browser beside the conversation, and the viewer stays its Source. Any other
+    // file runs nothing.
+    if body.is_ok() && matches!(locust_core::text_files::extension_of(&target.path).to_ascii_lowercase().as_str(), "html" | "htm") {
+        pane = pane
+            .child(
+                row()
+                    .gap(8.0)
+                    .center_y()
+                    .child(crate::reply_page_ui::page_control("file-reader/page".into(), target.path.clone(), p))
+                    .child(el().key("file-reader/source").role("tab").label("Source").child(text("Source").font(type_::LABEL).color(p.text))),
+            )
+            .child(text(crate::reply_page_ui::RUNS_APART).font(type_::LABEL).color(p.muted).wrap_anywhere());
+    }
     match body {
         Ok(_) if picture => {
             // ThreadImage's press: the picture at the pane's width, its own shape, never enlarged.

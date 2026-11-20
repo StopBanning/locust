@@ -15,6 +15,7 @@ pub mod attention;
 pub mod away;
 pub mod benchmark;
 pub mod browser;
+pub mod browser_point;
 pub mod browser_tools;
 pub mod carry_on;
 pub mod chat_apps;

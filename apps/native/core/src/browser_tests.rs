@@ -581,3 +581,22 @@ fn only_the_main_frame_is_held_to_the_address_rules_as_electron_does() {
     assert!(navigation_is_checked(false, "https://elsewhere.test/", true));
     assert!(navigation_is_checked(true, "about:blank", true));
 }
+#[test]
+fn opens_a_page_locust_runs_at_its_own_address_which_an_address_typed_in_may_not_name() {
+    let t = Temp::new();
+    let site = t.0.join("site");
+    fs::create_dir(&site).unwrap();
+    fs::write(site.join("index.html"), "<h1>Page</h1>").unwrap();
+    let mut host = Host::default();
+    let id = host.add(Profile(None)).unwrap();
+    host.open_page(id, &site.join("index.html"), &t.0).unwrap();
+    let Some(Command::Load(url)) = host.tabs[0].commands.pop_front() else { panic!("nothing was loaded") };
+    assert!(url.starts_with("locust-page://") && url.ends_with("/index.html"), "{url}");
+    assert_eq!(host.preview.read(&url, Some(&t.0)).body, b"<h1>Page</h1>");
+    // What a person types never names the scheme, and a page outside the folder is not opened.
+    assert!(host.navigate(id, &url, true).is_err());
+    let outside = Temp::new();
+    fs::write(outside.0.join("x.html"), "<p>").unwrap();
+    assert!(host.open_page(id, &outside.0.join("x.html"), &t.0).is_err());
+    assert!(host.tabs[0].commands.is_empty());
+}

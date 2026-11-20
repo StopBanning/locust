@@ -23,6 +23,13 @@ pub enum Command {
     Forward,
     Reload,
     Stop,
+    /// Point at a part of the page the person chooses (browser_point): the host runs Locust's own probe and picker,
+    /// photographs the part where `browser_point::picture_rect` allows, and answers once.
+    Point {
+        reply: std::sync::mpsc::SyncSender<crate::browser_point::PointAnswer>,
+    },
+    /// Let go of a pick still waiting on the person; its Point answers Nothing.
+    CancelPoint,
     Evaluate {
         script: String,
         expected_url: String,
@@ -144,6 +151,20 @@ impl Host {
                 .and_then(|i| self.tabs.get(i.min(self.tabs.len().saturating_sub(1))))
                 .map(|t| t.id);
         }
+    }
+/// Runs the web page at `path` in tab `id` at its own `locust-page` address, served from its folder only while
+    /// `folder` holds it (page_preview), as the person asked. `navigate` takes what a person types, which never names
+    /// that scheme; a page Locust itself opens comes here.
+    pub fn open_page(&mut self, id: u64, path: &Path, folder: &Path) -> Result<(), String> {
+        if let Some(refusal) = &self.refusal {
+            return Err(refusal.clone());
+        }
+        let address = self.preview.url_for(path, Some(folder))?;
+        let tab = self.tabs.iter_mut().find(|t| t.id == id).ok_or("That browser tab is no longer open.")?;
+        tab.origins.insert("file://workspace".into());
+        tab.tool_control = false;
+        tab.commands.push_back(Command::Load(address));
+        Ok(())
     }
     pub fn navigate(&mut self, id: u64, raw: &str, person: bool) -> Result<(), String> {
         if let Some(refusal) = &self.refusal {

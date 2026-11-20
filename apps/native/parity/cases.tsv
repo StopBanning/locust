@@ -348,6 +348,24 @@ apps/desktop/src/main/a-named-memory-replaces-the-one-before-it.test.ts	survives
 apps/desktop/src/main/a-new-project-is-told-how-to-write-its-first-memory.test.ts	says nothing is remembered and how to write the first memory, block and all	yes
 apps/desktop/src/main/a-new-project-is-told-how-to-write-its-first-memory.test.ts	leaves out how to read memories until there is one, and brings it back with the first	yes
 apps/desktop/src/main/a-new-project-is-told-how-to-write-its-first-memory.test.ts	still gives the memory paragraphs up first when a run that belongs to nobody is over the cap (A5.3)	yes
+apps/desktop/src/main/a-part-of-a-page-can-be-pointed-at.test.ts	is a script that parses, and so is its cancel	no
+apps/desktop/src/main/a-part-of-a-page-can-be-pointed-at.test.ts	finds the viewer's frame showing the page, and no other	no
+apps/desktop/src/main/a-part-of-a-page-can-be-pointed-at.test.ts	reads a pick, and lets go of one that never comes	no
+apps/desktop/src/main/a-part-of-a-page-can-be-pointed-at.test.ts	is kept to its shape and its bounds	no
+apps/desktop/src/main/a-part-of-a-page-can-be-pointed-at.test.ts	names the file and the part, and quotes its code	no
+apps/desktop/src/main/a-part-of-a-page-can-be-pointed-at.test.ts	counts what it leaves out, and a fence in the code cannot close the quote	no
+apps/desktop/src/main/a-part-of-a-page-can-be-pointed-at.test.ts	is the part inside the frame, in the window’s pixels at its zoom	yes
+apps/desktop/src/main/a-part-of-a-page-can-be-pointed-at.test.ts	is cut to what the frame shows, and is none when nothing of it is	yes
+apps/desktop/src/main/a-part-of-the-browser-can-be-pointed-at.test.ts	the picker script parses	yes
+apps/desktop/src/main/a-part-of-the-browser-can-be-pointed-at.test.ts	the picker request goes through main only	yes
+apps/desktop/src/main/a-part-of-the-browser-can-be-pointed-at.test.ts	form values never appear in a pick	yes
+apps/desktop/src/main/a-part-of-the-browser-can-be-pointed-at.test.ts	lists the styles that matter for a visual fix	yes
+apps/desktop/src/main/a-part-of-the-browser-can-be-pointed-at.test.ts	a trimmed HTML says it was trimmed	yes
+apps/desktop/src/main/a-part-of-the-browser-can-be-pointed-at.test.ts	several picks become several blocks	yes
+apps/desktop/src/main/a-part-of-the-browser-can-be-pointed-at.test.ts	removing a chip removes its picture	yes
+apps/desktop/src/main/a-part-of-the-browser-can-be-pointed-at.test.ts	browser: false turns pointing off too	yes
+apps/desktop/src/main/a-part-of-the-browser-can-be-pointed-at.test.ts	a password field is not pictured with its contents	yes
+apps/desktop/src/main/a-part-of-the-browser-can-be-pointed-at.test.ts	says when the page does not allow pointing	yes
 apps/desktop/src/main/a-paused-routine-waits-to-be-resumed.test.ts	is not started by its schedule and records no miss, however overdue	yes
 apps/desktop/src/main/a-paused-routine-waits-to-be-resumed.test.ts	still starts when a person presses Run	yes
 apps/desktop/src/main/a-paused-routine-waits-to-be-resumed.test.ts	resumed, counts from the resume: a long-overdue hourly routine does not fire on the spot, and does an hour on	yes
@@ -2037,6 +2055,8 @@ apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.t
 apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	a window that never listens is not waited on forever: the keys are opened anyway, for the readers that need them	no
 apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	a read before the step leaves nothing to say	no
 apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	is one step however often it is begun, and settled once it is over	no
+apps/desktop/src/main/the-pages-a-browser-runs-are-whole.test.ts	parses as the browser receives it: the phone page both ways, its service worker, and the way in	yes
+apps/desktop/src/main/the-pages-a-browser-runs-are-whole.test.ts	names a computer’s browser by its name and system, as Settings lists it	yes
 apps/desktop/src/main/the-permission-bridge-keeps-its-characters.test.ts	keeps a character split across two reads whole	yes
 apps/desktop/src/main/the-phone-reads-history-once-per-change.test.ts	counts a write once it is asked for and again once it has landed, and never a read	no
 apps/desktop/src/main/the-phone-reads-history-once-per-change.test.ts	builds once per key, shares a build in flight, and tries again after a failure	yes
@@ -2065,6 +2085,12 @@ apps/desktop/src/main/the-starter-routines-are-routines.test.ts	reads one by its
 apps/desktop/src/main/the-starter-routines-are-routines.test.ts	leaves out, and names, a file in the folder that is not a routine	no
 apps/desktop/src/main/the-starter-routines-are-routines.test.ts	previews by id, then adds it once: Ask, no schedule, in this folder, run by nobody	no
 apps/desktop/src/main/the-starter-routines-are-routines.test.ts	asks for a folder first in its own words, not the words for a file	no
+apps/desktop/src/main/the-thread-beside-the-browser-keeps-its-parts-whole.test.ts	keeps the plan pill of the running line whole, so the thread never scrolls sideways under it	yes
+apps/desktop/src/main/the-thread-beside-the-browser-keeps-its-parts-whole.test.ts	wraps a turn's closing line by whole parts instead of cutting it at the Copy button	yes
+apps/desktop/src/main/the-thread-beside-the-browser-keeps-its-parts-whole.test.ts	fits a handed file's pill to the reply, the note giving way before the path	yes
+apps/desktop/src/main/the-thread-beside-the-browser-keeps-its-parts-whole.test.ts	lets a file row give way to its open and copy buttons, never push them past the card	no
+apps/desktop/src/main/the-thread-beside-the-browser-keeps-its-parts-whole.test.ts	gives the header's name the room beside the face, and in a narrow header the name before the role	no
+apps/desktop/src/main/the-thread-beside-the-browser-keeps-its-parts-whole.test.ts	keeps Home's account marks in a row, the row wrapping before the marks stack	no
 apps/desktop/src/main/three-judges-are-kept.test.ts	keeps the panel of the newest ask, and every panel run as the comparison's, across a restart	no
 apps/desktop/src/main/three-placements.test.ts	dropped the noun that labelled the line once and cost eight characters forever	yes
 apps/desktop/src/main/three-placements.test.ts	dropped the permission prose, which the composer already states where it can be changed	yes
@@ -2628,6 +2654,13 @@ apps/desktop/src/renderer/src/a-new-teammate-wears-a-new-colour.test.tsx	says wh
 apps/desktop/src/renderer/src/a-new-teammate-wears-a-new-colour.test.tsx	says nothing about a name nobody else has	yes
 apps/desktop/src/renderer/src/a-note-can-be-left-in-the-changes-panel.test.ts	can be left in the Changes panel: it sits inside the notes of the conversation on screen	yes
 apps/desktop/src/renderer/src/a-note-can-be-left-in-the-changes-panel.test.ts	can be left in Review changes only for the teammate whose conversation is on screen	yes
+apps/desktop/src/renderer/src/a-page-a-teammate-made-runs-in-its-turn.test.tsx	opens a new web page, so it runs	yes
+apps/desktop/src/renderer/src/a-page-a-teammate-made-runs-in-its-turn.test.tsx	opens the page even when another file came first, and only the page	yes
+apps/desktop/src/renderer/src/a-page-a-teammate-made-runs-in-its-turn.test.tsx	stays folded in a comparison's cell, whose page runs above it	no
+apps/desktop/src/renderer/src/a-page-a-teammate-made-runs-in-its-turn.test.tsx	leaves a changed page and any other new file folded, as before	yes
+apps/desktop/src/renderer/src/a-page-opens-running.test.tsx	runs a page in a sandboxed frame at its own address, with Page and Source	yes
+apps/desktop/src/renderer/src/a-page-opens-running.test.tsx	runs nothing without a page address -- the same file shows as its source	yes
+apps/desktop/src/renderer/src/a-page-opens-running.test.tsx	previews a new page, and only a new one	yes
 apps/desktop/src/renderer/src/a-part-of-a-reply-can-be-asked-about.test.tsx	is quoted line by line, blank lines kept as quote lines	no
 apps/desktop/src/renderer/src/a-part-of-a-reply-can-be-asked-about.test.tsx	is cut past its limit, and says so with an ellipsis	no
 apps/desktop/src/renderer/src/a-part-of-a-reply-can-be-asked-about.test.tsx	says it is looking before the list arrives, and names both runtimes	no
@@ -2663,6 +2696,9 @@ apps/desktop/src/renderer/src/a-plan-shows-what-happened-to-it.test.ts	is NOT ma
 apps/desktop/src/renderer/src/a-plan-shows-what-happened-to-it.test.ts	counts the steps that finished	yes
 apps/desktop/src/renderer/src/a-plan-shows-what-happened-to-it.test.ts	reads Cursor's own status spelling	yes
 apps/desktop/src/renderer/src/a-plugged-in-computer-stays-awake-in-settings.test.ts	sits in Settings under Startup and says what it leaves alone	yes
+apps/desktop/src/renderer/src/a-pointed-part-sits-in-the-chat-box.test.tsx	a blocked page says it does not allow pointing	yes
+apps/desktop/src/renderer/src/a-pointed-part-sits-in-the-chat-box.test.tsx	a pointed part is a chip with a note, its styles, and a way to remove it	yes
+apps/desktop/src/renderer/src/a-pointed-part-sits-in-the-chat-box.test.tsx	a password field's chip has no picture of its contents	yes
 apps/desktop/src/renderer/src/a-proposed-change-says-what-it-changes.test.tsx	a rewrite shows the new words, the ones kept now, and Keep the change / Keep the old one	no
 apps/desktop/src/renderer/src/a-proposed-change-says-what-it-changes.test.tsx	a forget says so, and its buttons are Forget it / Keep it	no
 apps/desktop/src/renderer/src/a-proposed-change-says-what-it-changes.test.tsx	a new memory is asked about as it always was	no
