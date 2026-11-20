@@ -93,3 +93,15 @@ fn still_refuses_an_event_it_could_not_read_back_before_writing_any_of_them() {
     .unwrap();
     assert_eq!(event_sequences(&w.path).len(), 120);
 }
+
+/// a-streamed-batch-is-written-before-it-is-shown.test.ts, the part Rust shares: what the window shows is read from
+/// the ledger, and every event is on disk, whole, the moment `append` returns (each is written and synced on its own,
+/// so there is no batch to lose in a crash and no timer to time). Electron's batcher cases have no Rust counterpart.
+#[test]
+fn every_streamed_event_is_on_disk_when_append_returns() {
+    let (_t, mut w) = writer();
+    for n in 1..=7 {
+        delta(&mut w, &format!("word {n} "));
+        assert_eq!(event_sequences(&w.path).len(), n, "event {n} is on disk before anything could show it");
+    }
+}

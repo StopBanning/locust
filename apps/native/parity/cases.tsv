@@ -815,6 +815,14 @@ apps/desktop/src/main/a-slow-antigravity-holds-nothing-up.test.ts	treats a model
 apps/desktop/src/main/a-slow-antigravity-holds-nothing-up.test.ts	runs one check at a time: a second ask while one is going is given that one, and starts no second `agy`	no
 apps/desktop/src/main/a-slow-antigravity-holds-nothing-up.test.ts	has a pending answer that is installed and not answered, and claims nothing about signing in	no
 apps/desktop/src/main/a-slow-antigravity-holds-nothing-up.test.ts	is not kept as the list: asked again, because it was built without Antigravity	no
+apps/desktop/src/main/a-streamed-batch-is-written-before-it-is-shown.test.ts	starts a new text deadline after an approval flush waited on an in-flight write	no
+apps/desktop/src/main/a-streamed-batch-is-written-before-it-is-shown.test.ts	measures frame to fifty millisecond windows on the same paced answer and keeps its first-fragment deadline	no
+apps/desktop/src/main/a-streamed-batch-is-written-before-it-is-shown.test.ts	reads the entire batch from disk at send time and recovers it after a crash before send	no
+apps/desktop/src/main/a-streamed-batch-is-written-before-it-is-shown.test.ts	sends nothing when the durable append fails	no
+apps/desktop/src/main/a-streamed-batch-is-written-before-it-is-shown.test.ts	flushes text ahead of activity immediately and preserves order across both batches	no
+apps/desktop/src/main/a-streamed-batch-is-written-before-it-is-shown.test.ts	delivers a lone delta at the deadline without another record or a run ending	no
+apps/desktop/src/main/a-streamed-batch-is-written-before-it-is-shown.test.ts	writes pending text before a run ending and drains the last fragment on process exit	no
+apps/desktop/src/main/a-streamed-batch-is-written-before-it-is-shown.test.ts	keeps one write in flight, awaits backpressure, and stops after a timer write fails	no
 apps/desktop/src/main/a-switch-brief-says-what-was-done.test.ts	are named by what they did, from the ledger’s own start events	yes
 apps/desktop/src/main/a-switch-brief-says-what-was-done.test.ts	from a checkpoint written before names existed are counted, not listed as ids	yes
 apps/desktop/src/main/a-switch-brief-says-what-was-done.test.ts	are named by the command run and the file read or written, never the tool twice	yes
