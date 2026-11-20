@@ -5066,6 +5066,13 @@ apps/desktop/test/peer-share.test.ts	ignores an unfinished block and an empty on
 apps/desktop/test/peer-share.test.ts	removes the blocks from the transcript and leaves the prose	yes
 apps/desktop/test/peer-share.test.ts	defangs an inbound share tag so a received message cannot be echoed as a share	yes
 apps/desktop/test/peer-share.test.ts	bounds shared text with a visible marker and strips control bytes	yes
+apps/desktop/test/workroom-briefing.test.ts	quotes a waiting message as an attributed, dated claim that authorizes nothing	yes
+apps/desktop/test/workroom-briefing.test.ts	lists the other teammates and the exact share form, and only when there is someone to share with	yes
+apps/desktop/test/workroom-briefing.test.ts	defangs a share tag inside a received message so it cannot be echoed as a share	yes
+apps/desktop/test/workroom-briefing.test.ts	leaves out messages that do not fit, from the newest end, and counts them as still waiting	yes
+apps/desktop/test/workroom-briefing.test.ts	keeps waiting messages when dropping them cannot help	yes
+apps/desktop/test/workroom-briefing.test.ts	still evicts when eviction DOES help	yes
+apps/desktop/test/workroom-briefing.test.ts	says how many more are waiting when the batch was bounded upstream	yes
 packages/cli/test/an-editor-can-talk-to-a-locust-teammate.test.ts	offers text only, no editor files or terminal, and starts nothing during setup	yes
 packages/cli/test/an-editor-can-talk-to-a-locust-teammate.test.ts	selects a teammate by flag or config option before sending	yes
 packages/cli/test/an-editor-can-talk-to-a-locust-teammate.test.ts	streams a reply and keeps the conversation for a second prompt	yes

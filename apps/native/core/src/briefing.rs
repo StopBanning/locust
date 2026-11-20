@@ -321,3 +321,7 @@ mod tests;
 #[cfg(test)]
 #[path = "memory_list_replaces_tests.rs"]
 mod memory_list_replaces_tests;
+
+#[cfg(test)]
+#[path = "workroom_briefing_electron_tests.rs"]
+mod workroom_briefing_electron_tests;
