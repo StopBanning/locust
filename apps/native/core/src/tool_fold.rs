@@ -135,3 +135,7 @@ mod tests;
 #[cfg(test)]
 #[path = "a_read_row_names_the_file_tests.rs"]
 mod a_read_row_names_the_file_tests;
+
+#[cfg(test)]
+#[path = "reasoning_kept_tests.rs"]
+mod reasoning_kept_tests;

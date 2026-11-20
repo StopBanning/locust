@@ -4391,6 +4391,14 @@ apps/desktop/src/renderer/src/railFlyout.test.ts	is drawn only past one conversa
 apps/desktop/src/renderer/src/railFlyout.test.ts	reads now, minutes, hours, days, weeks	yes
 apps/desktop/src/renderer/src/railFlyout.test.ts	says nothing for a missing or unreadable time rather than a wrong one	yes
 apps/desktop/src/renderer/src/railFlyout.test.ts	names the teammate and points at the composer	yes
+apps/desktop/src/renderer/src/reasoning-is-kept.test.ts	keeps the text the runtime sent	yes
+apps/desktop/src/renderer/src/reasoning-is-kept.test.ts	draws "thought for" with no text when the runtime sent none	yes
+apps/desktop/src/renderer/src/reasoning-is-kept.test.ts	and none for a thought under a second, or whitespace that never had a length	yes
+apps/desktop/src/renderer/src/reasoning-is-kept.test.ts	draws Codex's reasoning item the same way	yes
+apps/desktop/src/renderer/src/reasoning-is-kept.test.ts	still reports how long it thought	yes
+apps/desktop/src/renderer/src/reasoning-is-kept.test.ts	does not count thinking among the tool calls	yes
+apps/desktop/src/renderer/src/reasoning-is-kept.test.ts	says nothing about tool calls when a turn only thought	yes
+apps/desktop/src/renderer/src/reasoning-is-kept.test.ts	gives thinking its own row rather than folding it in with tools	yes
 apps/desktop/src/renderer/src/review-notes-survive-a-revision.test.tsx	are read back out of it, the person's own words apart	yes
 apps/desktop/src/renderer/src/review-notes-survive-a-revision.test.tsx	leave a message with no notes exactly as it was	yes
 apps/desktop/src/renderer/src/review-notes-survive-a-revision.test.tsx	says the line changed, only the file changed, nothing changed, or the file went	yes
