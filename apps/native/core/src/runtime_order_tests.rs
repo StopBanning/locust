@@ -80,3 +80,14 @@ fn lets_a_runtime_that_was_out_come_back_when_it_answers() {
 fn passes_through_a_runtime_it_has_never_seen() {
     assert_eq!(keep_what_was_known(&[], &[at("gemini", "ready", Some("0.58.0"), true)])[0].version.as_deref(), Some("0.58.0"));
 }
+
+// a-slow-agent-row-says-it-is-being-checked.test.ts
+// case: keeps the last thing the agent said until its answer arrives
+#[test]
+fn keeps_the_last_answer_until_the_next_arrives_and_then_takes_it() {
+    let ready = at("opencode", "ready", Some("1.18.27"), true);
+    let checking = at("opencode", "probe-failed", None, true);
+    assert_eq!(keep_what_was_known(std::slice::from_ref(&ready), std::slice::from_ref(&checking))[0].version.as_deref(), Some("1.18.27"));
+    let answered = at("opencode", "ready", Some("1.18.30"), true);
+    assert_eq!(keep_what_was_known(std::slice::from_ref(&checking), std::slice::from_ref(&answered))[0].version.as_deref(), Some("1.18.30"));
+}

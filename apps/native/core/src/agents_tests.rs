@@ -382,3 +382,39 @@ fn a_ready_opencode_is_not_said_to_be_signed_in_and_a_ready_codex_is() {
     assert!(codex.ready, "{codex:?}");
     assert_eq!(auth_word(codex.auth), "authenticated");
 }
+
+// ---- a-slow-agent-row-says-it-is-being-checked.test.ts and an-unsupported-opencode-version-is-not-offered.test.ts ----
+fn opencode_row(status: Probe, ready: bool, checking: bool, note: Option<&str>) -> Found {
+    Found {
+        id: "opencode".into(),
+        display_name: "OpenCode".into(),
+        installed: true,
+        version: None,
+        auth: Auth::NotApplicable,
+        ready,
+        status,
+        unsupported_note: note.map(Into::into),
+        through_cli: false,
+        checking,
+    }
+}
+// case: says it is being checked, and that Locust asks again -- not that it did not answer its version probe
+// case: still says what it always did for an agent that really did not answer
+#[test]
+fn an_agent_still_being_checked_says_so_and_one_that_did_not_answer_says_that() {
+    let row = row_status(&opencode_row(Probe::ProbeFailed, false, true, None), Integration::Live, false, None);
+    assert_eq!((row.tag, row.selectable), ("CHECKING", false));
+    assert!(row.detail.contains("OpenCode is still being checked"), "{}", row.detail);
+    for wrong in ["version probe", "sign", "could not be reached"] {
+        assert!(!row.detail.to_lowercase().contains(wrong), "{}", row.detail);
+    }
+    let silent = row_status(&opencode_row(Probe::ProbeFailed, false, false, None), Integration::Live, false, None);
+    assert!(silent.detail.contains("did not answer its version probe in time"), "{}", silent.detail);
+}
+// case: is not offered in the picker, and says why rather than "checking"
+#[test]
+fn an_unsupported_opencode_is_not_offered_and_says_why() {
+    let note = "OpenCode 3.0.0 is installed; this Locust supports OpenCode 1 and OpenCode 2.";
+    let row = row_status(&opencode_row(Probe::Unsupported, false, false, Some(note)), Integration::Live, false, None);
+    assert_eq!((row.tag, row.selectable, row.detail.as_str()), ("UNAVAILABLE", false, note));
+}

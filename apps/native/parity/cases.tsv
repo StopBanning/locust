@@ -3215,6 +3215,9 @@ apps/desktop/src/renderer/src/a-skill-row-names-its-skill.test.ts	one with no na
 apps/desktop/src/renderer/src/a-skill-row-names-its-skill.test.ts	the steps' line says which skill, and its short form says a skill, never a tool	yes
 apps/desktop/src/renderer/src/a-skill-row-names-its-skill.test.ts	a skill's own file reads as the file it is a copy of, not the run's copy	yes
 apps/desktop/src/renderer/src/a-skill-row-names-its-skill.test.ts	the live line and the rail say the same	yes
+apps/desktop/src/renderer/src/a-slow-agent-row-says-it-is-being-checked.test.ts	says it is being checked, and that Locust asks again -- not that it did not answer its version probe	yes
+apps/desktop/src/renderer/src/a-slow-agent-row-says-it-is-being-checked.test.ts	still says what it always did for an agent that really did not answer	yes
+apps/desktop/src/renderer/src/a-slow-agent-row-says-it-is-being-checked.test.ts	keeps the last thing the agent said until its answer arrives	yes
 apps/desktop/src/renderer/src/a-spreadsheet-opens-as-a-grid.test.tsx	is the grid a spreadsheet person reads: letters across, numbers down	no
 apps/desktop/src/renderer/src/a-spreadsheet-opens-as-a-grid.test.tsx	shows a formula with no result as written, and says why once	no
 apps/desktop/src/renderer/src/a-spreadsheet-opens-as-a-grid.test.tsx	has a tab per sheet, below the grid as Excel keeps them	no
@@ -3560,6 +3563,7 @@ apps/desktop/src/renderer/src/an-undone-turn-says-so-on-its-card.test.tsx	is tol
 apps/desktop/src/renderer/src/an-unknown-record-stays-out-of-the-thread.test.ts	is never a row of its own, even after the work has begun	yes
 apps/desktop/src/renderer/src/an-unknown-record-stays-out-of-the-thread.test.ts	is still said, in the fold with the turn’s other remarks	yes
 apps/desktop/src/renderer/src/an-unknown-record-stays-out-of-the-thread.test.ts	leaves real trouble where it was: a runtime error after work began is still a row	yes
+apps/desktop/src/renderer/src/an-unsupported-opencode-version-is-not-offered.test.ts	is not offered in the picker, and says why rather than "checking"	yes
 apps/desktop/src/renderer/src/answer-state.test.ts	comes from measured numbers, not a round one that felt right	yes
 apps/desktop/src/renderer/src/antigravity-rows-read-like-claude.test.ts	reads "Thought for Ns" from the time agy gives the step, though the step arrives already over	no
 apps/desktop/src/renderer/src/antigravity-rows-read-like-claude.test.ts	reads as a wait on that helper, at the length agy timed, with what its list said under it	no
