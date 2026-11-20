@@ -73,6 +73,10 @@ pub fn placeholder(input: PlaceholderInput<'_>) -> String {
 }
 
 #[cfg(test)]
+#[path = "counts_what_it_is_about_tests.rs"]
+mod counts_what_it_is_about_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
