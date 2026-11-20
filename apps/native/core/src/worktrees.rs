@@ -1000,3 +1000,7 @@ pub fn checkpoint_sentence(result: &Result<Checkpoint, String>) -> Option<String
 #[cfg(test)]
 #[path = "worktrees_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "a_folder_cannot_make_locust_run_its_program_tests.rs"]
+mod a_folder_cannot_make_locust_run_its_program_tests;

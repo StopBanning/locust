@@ -228,6 +228,8 @@ apps/desktop/src/main/a-file-arriving-starts-its-routine.test.ts	is let go even 
 apps/desktop/src/main/a-file-arriving-starts-its-routine.test.ts	reaches the watcher from every turn Undo records, and the host says when a run is live	no
 apps/desktop/src/main/a-file-name-cannot-write-into-the-brief.test.ts	stays one list item, quoted, with its break escaped	yes
 apps/desktop/src/main/a-file-name-cannot-write-into-the-brief.test.ts	leaves an ordinary name as it is, and the prompt still splits back	yes
+apps/desktop/src/main/a-folder-cannot-make-locust-run-its-program.test.ts	is looked at by Locust without running it	yes
+apps/desktop/src/main/a-folder-cannot-make-locust-run-its-program.test.ts	has a teammate's worktree checked without running it	yes
 apps/desktop/src/main/a-folder-is-one-folder-however-spelled.test.ts	is the known folder, spelled as it was first known	no
 apps/desktop/src/main/a-folder-is-one-folder-however-spelled.test.ts	and at start, before the registry is open	no
 apps/desktop/src/main/a-folder-is-one-folder-however-spelled.test.ts	a different folder stays itself	no
@@ -335,6 +337,8 @@ apps/desktop/src/main/a-memory-whose-file-changed-may-be-out-of-date.test.ts	a n
 apps/desktop/src/main/a-memory-whose-file-changed-may-be-out-of-date.test.ts	a date that does not read says nothing	yes
 apps/desktop/src/main/a-memory-whose-file-changed-may-be-out-of-date.test.ts	the brief says so beside the memory	yes
 apps/desktop/src/main/a-memory-whose-file-changed-may-be-out-of-date.test.ts	and so does the file	yes
+apps/desktop/src/main/a-message-is-delivered-once.test.ts	the same block twice in one reply: one message, one record, one report, one relay	yes
+apps/desktop/src/main/a-message-is-delivered-once.test.ts	the same reply read again delivers nothing new	yes
 apps/desktop/src/main/a-model-list-missing-one-is-asked-again.test.ts	names the case	no
 apps/desktop/src/main/a-model-list-missing-one-is-asked-again.test.ts	reads again instead of keeping the incomplete answer	no
 apps/desktop/src/main/a-model-of-your-own-is-unpriced-not-free.test.ts	is one the person added, which OpenCode runs -- and an old record without a model is not	yes
@@ -3157,6 +3161,11 @@ apps/desktop/src/renderer/src/a-turn-sent-back-to-fix-is-said-as-locusts.test.ts
 apps/desktop/src/renderer/src/a-turn-sent-back-to-fix-is-said-as-locusts.test.tsx	is off until chosen: the failure is shown, with the button	yes
 apps/desktop/src/renderer/src/a-turn-sent-back-to-fix-is-said-as-locusts.test.tsx	when on, says how many fixes at most and that each is a turn	yes
 apps/desktop/src/renderer/src/a-turn-sent-back-to-fix-is-said-as-locusts.test.tsx	cannot be turned on before there is a check to run	yes
+apps/desktop/src/renderer/src/a-turn-that-answered-in-a-block-is-not-silent.test.ts	is not said to have ended without a reply when it handed over a file	yes
+apps/desktop/src/renderer/src/a-turn-that-answered-in-a-block-is-not-silent.test.ts	is not said to have ended without a reply when it asked a question	yes
+apps/desktop/src/renderer/src/a-turn-that-answered-in-a-block-is-not-silent.test.ts	is not said to have ended without a reply when it wrote a plan	yes
+apps/desktop/src/renderer/src/a-turn-that-answered-in-a-block-is-not-silent.test.ts	is not said to have ended without a reply when the answer was a summarized conversation (0.426)	yes
+apps/desktop/src/renderer/src/a-turn-that-answered-in-a-block-is-not-silent.test.ts	still is when nothing came back at all	yes
 apps/desktop/src/renderer/src/a-turn-that-goes-quiet-says-so.test.tsx	says so after five minutes without a word, with Stop beside it	yes
 apps/desktop/src/renderer/src/a-turn-that-goes-quiet-says-so.test.tsx	says nothing while the turn is heard from, or while a command it named runs	no
 apps/desktop/src/renderer/src/a-turn-that-goes-quiet-says-so.test.tsx	counts whole minutes from when it was last heard, and only once there are five	yes
@@ -5107,6 +5116,10 @@ packages/mission-store/test/workroom.test.ts	refuses a delivery record for a mes
 packages/mission-store/test/workroom.test.ts	refuses a schema it does not know rather than guessing at it	yes
 packages/mission-store/test/workroom.test.ts	writes each record with a version, a sequence and an fsynced line	yes
 packages/mission-store/test/workroom.test.ts	reads as empty, not as broken, before anyone has posted	yes
+packages/runtime-adapters/src/a-refusal-is-not-a-crash.test.ts	names the tool the mode refused, not the missing stop step	yes
+packages/runtime-adapters/src/a-refusal-is-not-a-crash.test.ts	covers the other three tools a mode can deny	yes
+packages/runtime-adapters/src/a-refusal-is-not-a-crash.test.ts	leaves the folder refusal saying which folder	yes
+packages/runtime-adapters/src/a-refusal-is-not-a-crash.test.ts	still says the vague thing when there is nothing better to say	yes
 packages/runtime-adapters/src/the-prompt-muse-cannot-be-told.test.ts	names where the prompt file path goes, and never puts the prompt in argv	no
 packages/runtime-adapters/src/the-prompt-muse-cannot-be-told.test.ts	still refuses to build a run with nothing to say	no
 packages/runtime-adapters/src/the-prompt-muse-cannot-be-told.test.ts	holds a read-only run with the flags that actually hold it	no

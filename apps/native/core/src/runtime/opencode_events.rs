@@ -526,3 +526,7 @@ pub fn patch(diff: &str) -> Value {
     }
     json!({"text":text(diff,65536),"added":added,"removed":removed,"truncated":diff.encode_utf16().count()>65536})
 }
+
+#[cfg(test)]
+#[path = "a_refusal_is_not_a_crash_tests.rs"]
+mod a_refusal_is_not_a_crash_tests;
