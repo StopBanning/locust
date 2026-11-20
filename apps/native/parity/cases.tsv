@@ -422,6 +422,11 @@ apps/desktop/src/main/a-memory-whose-file-changed-may-be-out-of-date.test.ts	the
 apps/desktop/src/main/a-memory-whose-file-changed-may-be-out-of-date.test.ts	and so does the file	yes
 apps/desktop/src/main/a-message-is-delivered-once.test.ts	the same block twice in one reply: one message, one record, one report, one relay	yes
 apps/desktop/src/main/a-message-is-delivered-once.test.ts	the same reply read again delivers nothing new	yes
+apps/desktop/src/main/a-message-waits-until-its-runtime-starts.test.ts	leaves an instantly refused relay message waiting and quotes it on the next run	yes
+apps/desktop/src/main/a-message-waits-until-its-runtime-starts.test.ts	keeps delivery after a relay started and failed, without quoting it again	yes
+apps/desktop/src/main/a-message-waits-until-its-runtime-starts.test.ts	an Antigravity CLI diagnostic leaves the relay message for the next real turn	yes
+apps/desktop/src/main/a-message-waits-until-its-runtime-starts.test.ts	leaves a silent hub run undelivered and quotes its message on the next run	no
+apps/desktop/src/main/a-message-waits-until-its-runtime-starts.test.ts	marks a hub message on its first step and keeps it delivered when stopped	no
 apps/desktop/src/main/a-model-list-missing-one-is-asked-again.test.ts	names the case	no
 apps/desktop/src/main/a-model-list-missing-one-is-asked-again.test.ts	reads again instead of keeping the incomplete answer	no
 apps/desktop/src/main/a-model-of-your-own-is-unpriced-not-free.test.ts	is one the person added, which OpenCode runs -- and an old record without a model is not	yes

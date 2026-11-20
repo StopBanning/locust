@@ -161,6 +161,10 @@ for line in sys.stdin:
                 # The brief as the teammate got it, for the test to read; then a share, or the reply to one.
                 with open(os.path.join(os.path.dirname(os.getcwd()), 'last-prompt.txt'), 'w') as f:
                     f.write(text)
+                # The turn began, then failed (a-message-waits-until-its-runtime-starts): no answer at all.
+                if os.path.exists(os.path.join(os.path.dirname(os.getcwd()), 'fail-after-start.gate')):
+                    notify('turn/completed', turn={'id':'turn_fake','status':'failed','error':{'message':'The model stopped answering.'}})
+                    continue
                 if 'Messages from teammates, delivered before you started.' in text:
                     reply = 'Got the note about the port.'
                 else:

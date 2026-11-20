@@ -2806,6 +2806,17 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
     for msg in &delivered {
         let _ = writer.write_peer_link("received", &msg.message_id, &msg.from.teammate_id, &msg.posted_at);
     }
+    // What the brief quoted is delivered once the runtime has begun (codex-mission.ts), never before: a run refused at
+    // once, or one that only says why it could not start, leaves the messages waiting for the next real turn.
+    if !delivered.is_empty() {
+        let ids: Vec<String> = delivered.iter().map(|m| m.message_id.clone()).collect();
+        let (delivery_store, delivery_mission) = (store.clone(), id.clone());
+        writer.when_began(Box::new(move || {
+            if let Err(error) = crate::workroom::Workroom::for_store(&delivery_store).mark_delivered(&ids, &delivery_mission) {
+                eprintln!("The teammate messages were not marked delivered, so they will be shown again: {error}");
+            }
+        }));
+    }
     // A turn for nobody stays nobody's: no owner, and no teammate a card's allow rule could be saved for.
     if !is_nobody(&job.teammate) {
         channel.register_teammate(&id, &job.teammate.id);
@@ -2840,8 +2851,6 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
     // turn Locust carried on itself, so one empty plan cannot start a chain of them.
     let person_sent = origin.started_by.is_none();
     let memory_store = store.clone();
-    let memory_delivery_store = store.clone();
-    let delivery_mission = id.clone();
     let memory_who = job.teammate.id.clone();
     let memory_folder = turn.folder.clone();
     let memory_id = id.clone();
@@ -3100,13 +3109,6 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
             }
         })
         .map_err(|e| format!("Could not start the turn: {e}"))?;
-    // The run is live: what its brief quoted is delivered (never before, so a start that fails consumes nothing).
-    if !delivered.is_empty() {
-        let ids: Vec<String> = delivered.iter().map(|m| m.message_id.clone()).collect();
-        if let Err(error) = crate::workroom::Workroom::for_store(&memory_delivery_store).mark_delivered(&ids, &delivery_mission) {
-            eprintln!("The teammate messages were not marked delivered, so they will be shown again: {error}");
-        }
-    }
     Ok(Started {
         conversation_id: anchor,
         mode: mode.as_str().into(),

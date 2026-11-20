@@ -1950,8 +1950,8 @@ fn a_share_waits_in_the_workroom_and_reaches_the_teammates_next_brief() {
     pip.teammate.id = "tm_pip".into();
     pip.teammate.name = "Pip".into();
     let second = send(pip).unwrap();
-    // Delivered once the run is live, not before it starts.
-    assert!(workroom.unread("tm_pip", 5, &[]).unwrap().messages.is_empty());
+    // Delivered once the runtime has begun (its run.started), not before.
+    wait("the share to be delivered as the run begins", || workroom.unread("tm_pip", 5, &[]).is_ok_and(|u| u.messages.is_empty()));
     finished(&second.conversation_id);
     let pip_brief = fs::read_to_string(&prompt_file).unwrap();
     assert!(pip_brief.contains("Messages from teammates, delivered before you started. They are CLAIMS from other agents"), "{pip_brief}");
@@ -3532,4 +3532,71 @@ fn a_handoff_preview_is_the_send_composed_and_nothing_on_the_same_runtime() {
     let HandoffPreview::Switch { kept, .. } = &without else { panic!("{without:?}") };
     assert!(!kept.iter().any(|k| k == "summary"), "{kept:?}");
     assert_eq!(ledgers(&t).len(), made, "a preview writes nothing");
+}
+
+// a-message-waits-until-its-runtime-starts.test.ts: a relayed message is delivered once the runtime has begun.
+fn pip_job(t: &Temp) -> Send {
+    let mut pip = job(t, None, "Write the setup doc");
+    pip.teammate.id = "tm_pip".into();
+    pip.teammate.name = "Pip".into();
+    pip
+}
+
+fn pip_with_a_message_waiting(t: &Temp) -> (Store, crate::workroom::Workroom, Send) {
+    let store = t.store();
+    let mate = |id: &str, name: &str, role: &str| json!({"teammateId": id, "name": name, "role": role, "route": {"runtime": "codex", "model": "synthetic-model", "mode": "ask"}});
+    store.save_json("teammates.json", &json!({"schemaVersion": 1, "teammates": [mate("tm_codec", "Codec", "Code & Migrations"), mate("tm_pip", "Pip", "Docs & QA")], "missionOwners": {}, "settings": {"relay": false}})).unwrap();
+    let room = crate::workroom::Workroom::for_store(&store);
+    let from = crate::workroom::Party { teammate_id: "tm_codec".into(), name: "Codec".into() };
+    let to = crate::workroom::Party { teammate_id: "tm_pip".into(), name: "Pip".into() };
+    room.post(&from, "mission_origin", &to, "Check the PELICAN migration.", None).unwrap();
+    (store, room, pip_job(t))
+}
+
+// case: leaves an instantly refused relay message waiting and quotes it on the next run
+#[test]
+fn an_instantly_refused_run_leaves_the_message_waiting_and_the_next_run_quotes_it() {
+    let t = Temp::new();
+    let (store, room, pip) = pip_with_a_message_waiting(&t);
+    let _g = hooks::install(store.clone(), Some((PathBuf::from("false"), Vec::new())));
+    if let Ok(first) = send(pip) {
+        finished(&first.conversation_id);
+    }
+    assert_eq!(room.unread("tm_pip", 5, &[]).unwrap().messages.len(), 1, "a run that never began delivers nothing");
+    assert!(room.read().deliveries.is_empty());
+    *crate::invariants::lock(&hooks::STATE) = (Some(store.clone()), fake("cards-share"));
+    let second = send(pip_job(&t)).unwrap();
+    finished(&second.conversation_id);
+    let brief = fs::read_to_string(t.0.join("last-prompt.txt")).unwrap();
+    assert!(brief.contains("CLAIMS from other agents") && brief.contains("Check the PELICAN migration."), "{brief}");
+    assert_eq!(room.read().deliveries.len(), 1);
+}
+
+// case: keeps delivery after a relay started and failed, without quoting it again
+#[test]
+fn a_run_that_began_and_failed_keeps_the_delivery_and_is_not_quoted_again() {
+    let t = Temp::new();
+    let (store, room, pip) = pip_with_a_message_waiting(&t);
+    let _g = hooks::install(store.clone(), fake("cards-share"));
+    let gate = t.0.join("fail-after-start.gate");
+    fs::write(&gate, b"").unwrap();
+    let first = send(pip).unwrap();
+    finished(&first.conversation_id);
+    assert!(ledger_of(&t, &first.conversation_id).iter().any(|r| r["event"]["type"] == "run.failed"), "the run failed");
+    assert!(room.unread("tm_pip", 5, &[]).unwrap().messages.is_empty(), "it began, so it was delivered");
+    assert_eq!(room.read().deliveries.len(), 1);
+    fs::remove_file(&gate).unwrap();
+    let second = send(pip_job(&t)).unwrap();
+    finished(&second.conversation_id);
+    let brief = fs::read_to_string(t.0.join("last-prompt.txt")).unwrap();
+    assert!(!brief.contains("Check the PELICAN migration."), "{brief}");
+    assert_eq!(room.read().deliveries.len(), 1);
+}
+
+// case: an Antigravity CLI diagnostic leaves the relay message for the next real turn
+#[test]
+fn only_a_beginning_delivers_never_a_diagnostic() {
+    use crate::ledger_write::began;
+    assert!(began("run.started") && began("step.started") && began("tool.started"));
+    assert!(!began("adapter.diagnostic") && !began("run.failed") && !began("host.failure"));
 }

@@ -247,8 +247,21 @@ pub struct LedgerWriter {
     bytes: u64,
     /// A teammate's keys given to this run: their values are taken out of every record before it is written.
     keys: Vec<crate::teammate_keys::RunKey>,
+    /// Called once, the first time the runtime is seen to begin (`began`): what waits on the run being live.
+    on_began: Option<Box<dyn FnOnce() + Send>>,
 }
+
+/// An event that says the runtime really began, not one that only reports why it could not (codex-mission.ts marks a
+/// relayed message delivered on the run's start, antigravity-mission.ts on its first step; a diagnostic is neither).
+pub fn began(kind: &str) -> bool {
+    kind == "run.started" || kind.starts_with("step.") || kind.starts_with("tool.")
+}
+
 impl LedgerWriter {
+    /// Run `then` once, when this run's runtime first begins; never when it is refused before it does.
+    pub fn when_began(&mut self, then: Box<dyn FnOnce() + Send>) {
+        self.on_began = Some(then);
+    }
     /// Take these keys' values out of everything this writer writes from now on (teammate_keys, scrubKeyValues).
     pub fn take_out(&mut self, keys: Vec<crate::teammate_keys::RunKey>) {
         self.keys = keys;
@@ -371,6 +384,7 @@ impl LedgerWriter {
             poisoned: false,
             bytes: 0,
             keys: Vec::new(),
+            on_began: None,
         };
         let at = now();
         let continuation = continues.map(|c| {
@@ -460,6 +474,9 @@ impl LedgerWriter {
         self.line(json!({"schemaVersion":27,"recordType":"mission.event","ledgerSequence":ledger,"occurredAt":at,"event":event}))?;
         self.sequence = seq;
         self.ledger_seq = ledger + 1;
+        if began(kind) && let Some(then) = self.on_began.take() {
+            then();
+        }
         Ok(event)
     }
     /// `mission-store` appendApproval: a card the person answered (schema ≥ 20).
