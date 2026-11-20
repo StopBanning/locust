@@ -166,6 +166,10 @@ apps/desktop/src/main/a-conversation-does-not-fall-off-the-list.test.ts	lists it
 apps/desktop/src/main/a-conversation-does-not-fall-off-the-list.test.ts	still carries the transcript for the newest	yes
 apps/desktop/src/main/a-conversation-does-not-fall-off-the-list.test.ts	lists every conversation exactly once	yes
 apps/desktop/src/main/a-conversation-does-not-fall-off-the-list.test.ts	still finds an ancestor that is off the end of even the long list	yes
+apps/desktop/src/main/a-conversation-in-a-settings-folder-is-asked-about-once.test.ts	keeps the folders said yes to, and reads nothing odd as one	yes
+apps/desktop/src/main/a-conversation-in-a-settings-folder-is-asked-about-once.test.ts	matches the same folder only, as Windows spells it either way	yes
+apps/desktop/src/main/a-conversation-in-a-settings-folder-is-asked-about-once.test.ts	starts nothing for a new conversation there until the folder is said yes to, and asks in the window	yes
+apps/desktop/src/main/a-conversation-in-a-settings-folder-is-asked-about-once.test.ts	keeps only the current folder, only from its own window, and only one that needed asking	yes
 apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	are each runtime’s own flag	no
 apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	do not exist for a runtime that does not run here	no
 apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	take a session id only when it is a plain token: never an option, never a shell word	no

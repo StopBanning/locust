@@ -23,27 +23,29 @@ fn target(s: &State) -> Option<(String, String)> {
 
 fn confirmed(store: &store::Store) -> Result<Vec<String>, String> {
     let value = store.seeded_json(FILE, serde_json::json!({"schemaVersion":1,"confirmed":[]}))?;
-    Ok(value["confirmed"]
+    Ok(kept_folders(&value))
+}
+
+/// workspace.ts readConfirmedFolders: only absolute folders count; anything else in the file is read as nothing.
+fn kept_folders(value: &serde_json::Value) -> Vec<String> {
+    value["confirmed"]
         .as_array()
-        .map(|a| {
-            a.iter()
-                .filter_map(|v| v.as_str().map(str::to_owned))
-                .collect()
-        })
-        .unwrap_or_default())
+        .map(|a| a.iter().filter_map(|v| v.as_str()).filter(|p| std::path::Path::new(p).is_absolute()).map(str::to_owned).collect())
+        .unwrap_or_default()
 }
 
 fn same_folder(a: &str, b: &str) -> bool {
+    let real = |p: &str| std::fs::canonicalize(p).map(|r| r.to_string_lossy().into_owned()).unwrap_or_else(|_| p.to_owned());
+    same_folder_on(&real(a), &real(b), cfg!(windows))
+}
+
+/// workspace.ts sameFolder: the same folder only (never a child), a trailing separator ignored, and on Windows either
+/// slash and any case.
+fn same_folder_on(a: &str, b: &str, windows: bool) -> bool {
     let normalize = |p: &str| {
-        let p = std::fs::canonicalize(p)
-            .unwrap_or_else(|_| p.into())
-            .to_string_lossy()
-            .into_owned();
-        if cfg!(windows) {
-            p.replace('\\', "/").to_lowercase()
-        } else {
-            p
-        }
+        let p = if windows { p.replace('\\', "/").to_lowercase() } else { p.to_owned() };
+        let trimmed = p.trim_end_matches('/');
+        if trimmed.is_empty() { "/".to_owned() } else { trimmed.to_owned() }
     };
     normalize(a) == normalize(b)
 }
@@ -96,7 +98,9 @@ fn keep_answer(s: &mut State) -> bool {
     };
     let answer = (|| {
         let store = s.data.as_ref().ok_or("The data folder is unavailable.")?;
-        let mut kept = confirmed(store)?;
+        // A file that cannot be read is read as no answers and written over, as Electron's is: never a question
+        // that can never be answered.
+        let mut kept = confirmed(store).unwrap_or_default();
         if !kept.iter().any(|p| same_folder(p, &question.folder)) {
             kept.push(question.folder);
         }
@@ -136,6 +140,10 @@ pub(super) fn view(s: &State, p: &Palette) -> Option<El> {
                 if keep_answer(s) { crate::composer_wiring::submit_composer(s, tx, false); }
             }))))
 }
+
+#[cfg(test)]
+#[path = "settings_folder_once_tests.rs"]
+mod settings_folder_once_tests;
 
 #[cfg(test)]
 mod tests {
