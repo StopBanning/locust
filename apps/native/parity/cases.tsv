@@ -3435,6 +3435,8 @@ apps/desktop/src/renderer/src/a-thinking-face-looks-with-its-head.test.ts	share 
 apps/desktop/src/renderer/src/a-thinking-face-looks-with-its-head.test.ts	never thin in a blink: every stroke keeps its weight, open, blinking or shut	no
 apps/desktop/src/renderer/src/a-thinking-face-looks-with-its-head.test.ts	blink, dots too: a dot, with no length to squash, closes into the screen's dash and never thinner (2026-10-05)	no
 apps/desktop/src/renderer/src/a-thinking-face-looks-with-its-head.test.ts	never thin as the head turns: a round dot is drawn round, the same size, however far it is turned	no
+apps/desktop/src/renderer/src/a-thought-line-opens-onto-its-words.test.tsx	opens straight onto its words, without saying the headline again	yes
+apps/desktop/src/renderer/src/a-thought-line-opens-onto-its-words.test.tsx	and a thought beside other steps reads the same way (0.515)	yes
 apps/desktop/src/renderer/src/a-thread-shows-local-pictures.test.tsx	draws an image under each runtime Read row while keeping its name	no
 apps/desktop/src/renderer/src/a-thread-shows-local-pictures.test.tsx	leaves a refused read row exactly as it was	no
 apps/desktop/src/renderer/src/a-thread-shows-local-pictures.test.tsx	draws a thumbnail below a changed image file, including a disk observation	no

@@ -815,6 +815,17 @@ pub(super) fn activity_group(items: &[ledger::Item], p: &Palette, s: &State, sco
             for folded_row in locust_core::tool_fold::fold_plain_tool_runs(items) {
                 group = match folded_row {
                     locust_core::tool_fold::Row::One(i) if headline_only(&items[i]) => group,
+                    // ONE WAY A THOUGHT READS (ActivityCard 0.515, Colin's two frames of 1 Oct: "i think the first is
+                    // cleaner"): inside a step line a thought beside other steps is its words, as a lone thought's are,
+                    // never a "Thought for 3s · <headline>" row that opens onto the headline again.
+                    locust_core::tool_fold::Row::One(i) if matches!(&items[i], ledger::Item::Thought { .. }) => {
+                        let ledger::Item::Thought { text: words, .. } = &items[i] else { unreachable!() };
+                        group.child(
+                            col().key(format!("{scope}/steps-thought/{}", activity_id(&items[i]))).w_full().child(
+                                Markdown::new(without_headline(words).trim().to_owned()).selectable(true).render(&markdown_style(p)).w_full(),
+                            ),
+                        )
+                    }
                     locust_core::tool_fold::Row::One(i) => {
                         let paths = locust_core::activity_summary::unreported_paths(&items[i]);
                         if paths.is_empty() { group.child(activity_item_with_files(&items[i], p, s, scope, entries.iter().filter(|(at,_)| *at==i).map(|(_,f)|f.clone()).collect())) }
@@ -839,6 +850,10 @@ pub(super) fn activity_group(items: &[ledger::Item], p: &Palette, s: &State, sco
     }
     group
 }
+
+#[cfg(test)]
+#[path = "thought_line_tests.rs"]
+mod thought_line_tests;
 
 #[cfg(test)]
 #[path = "background_helper_tests.rs"]
