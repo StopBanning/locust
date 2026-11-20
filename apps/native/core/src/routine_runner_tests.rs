@@ -663,6 +663,27 @@ mod routine_runner_ts {
         assert!(host.notices().join(" ").to_lowercase().contains("asked you something"));
     }
 
+    // case: does not say "run the routine again" as if it would continue
+    // case: says the attempt cannot be continued
+    // case: says where the restart would begin, which is the fact that costs money
+    // case: names the surface holding the attempt
+    // case: still says to answer the question, which is genuinely the first step
+    #[test]
+    fn a_held_routine_says_the_attempt_restarts_from_step_one_and_where_it_is_held() {
+        let (mem, host) = harness(vec![routine(json!({}))]);
+        let r = runner(&mem, &host);
+        ok(r.run("rt_1", None));
+        host.phase("mission_1", Phase::Completed);
+        host.asked.lock().unwrap().as_mut().unwrap().insert("mission_1".into());
+        r.on_run_ended("mission_1").unwrap();
+        let said = host.notices().join(" ");
+        assert!(!said.contains("then run the routine again when you are ready"), "{said}");
+        assert!(said.contains("this attempt cannot be continued"), "{said}");
+        assert!(said.contains("starts from step 1"), "{said}");
+        assert!(said.contains("under Routines"), "{said}");
+        assert!(said.contains("Answer it in that mission"), "{said}");
+    }
+
     #[test]
     fn a_step_that_asked_nothing_still_advances() {
         let (mem, host) = harness(vec![routine(json!({}))]);

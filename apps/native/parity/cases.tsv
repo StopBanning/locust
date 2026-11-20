@@ -2444,6 +2444,14 @@ apps/desktop/src/main/what-locust-can-stop-is-what-it-asks.test.ts	Antigravity: 
 apps/desktop/src/main/what-locust-can-stop-is-what-it-asks.test.ts	Cursor and Muse: no path raises a card for them	yes
 apps/desktop/src/main/what-locust-can-stop-is-what-it-asks.test.ts	an Always is kept by Locust exactly where the request carries a key for it	yes
 apps/desktop/src/main/what-locust-can-stop-is-what-it-asks.test.ts	docs/WHAT-LOCUST-CAN-STOP.md is written from it (rewrite with -u)	yes
+apps/desktop/src/main/what-running-it-again-does.test.ts	does not say "run the routine again" as if it would continue	yes
+apps/desktop/src/main/what-running-it-again-does.test.ts	says the attempt cannot be continued	yes
+apps/desktop/src/main/what-running-it-again-does.test.ts	says where the restart would begin, which is the fact that costs money	yes
+apps/desktop/src/main/what-running-it-again-does.test.ts	names the surface holding the attempt	yes
+apps/desktop/src/main/what-running-it-again-does.test.ts	still says to answer the question, which is genuinely the first step	yes
+apps/desktop/src/main/what-running-it-again-does.test.ts	does not promise missions, which live on their own screen and do not filter	yes
+apps/desktop/src/main/what-running-it-again-does.test.ts	names what this list actually holds	yes
+apps/desktop/src/main/what-running-it-again-does.test.ts	agrees with itself when nothing matches	yes
 apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	keeps its groups -- New, Improved, Fixed -- as Claude Code's What's new does	yes
 apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	written before the groups, stays as it was written: one group, no label guessed for it	yes
 apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	marked big says so, and the mark itself is nowhere in what is shown	yes

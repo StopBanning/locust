@@ -598,6 +598,10 @@ pub(super) fn step_from_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> boo
     true
 }
 
+/// Sidebar.tsx: a search that matches nothing says so, rather than emptying into what reads as "you have none". The
+/// noun is the list's own: it holds conversations, which the Missions screen does not filter.
+const NO_MATCH: &str = "No conversations match that.";
+
 pub(super) fn sidebar(s: &State, p: &Palette) -> El {
     let l = crate::look::controls::Look::new(p.dark);
     let meta = rune::TextStyle::new(11.5, 400.0).lh(15.0);
@@ -922,7 +926,7 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
             text(if s.recents.is_pending() {
                 "Loading…"
             } else if !s.sidebar_query.text.trim().is_empty() {
-                "Nothing in here yet."
+                NO_MATCH
             } else {
                 "No recent conversations."
             })
@@ -934,7 +938,7 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
         );
     } else if missions.is_empty() {
         recent = recent.child(
-            text("Nothing in here yet.")
+            text(if s.sidebar_query.text.trim().is_empty() { "Nothing in here yet." } else { NO_MATCH })
                 .font(type_::LABEL)
                 .color(p.muted)
                 .w_full()
@@ -1382,6 +1386,10 @@ fn footer(l: &crate::look::controls::Look) -> El {
         .child(cell(&crate::look::icons::SETTINGS, "Settings", settings_panel::open))
         .child(cell(&crate::look::icons::COLUMNS, "Board", home_panel::open_board))
 }
+
+#[cfg(test)]
+#[path = "sidebar_search_words_tests.rs"]
+mod sidebar_search_words_tests;
 
 #[cfg(test)]
 mod review_tests {
