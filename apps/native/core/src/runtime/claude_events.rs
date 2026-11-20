@@ -186,7 +186,14 @@ pub fn claude_tool_title(name: &str, input: &Value) -> Option<String> {
     if name != "Bash" || !obj(input) {
         return None;
     }
-    input["description"].as_str().map(str::to_owned)
+    said(&input["description"])
+}
+
+/// codex-events.ts stringValue for a title: a string with something left in it once NUL is taken out, else nothing,
+/// so a row with no sentence goes on showing its command.
+pub(crate) fn said(v: &Value) -> Option<String> {
+    let s = v.as_str()?.replace('\0', "");
+    (!s.is_empty()).then_some(s)
 }
 
 /// claude-events.ts withoutThinkingEvidence: a thinking block or delta kept only as its type. None when nothing changed.
@@ -1230,6 +1237,10 @@ fn regex_replace_ctrl(text_v: &str) -> String {
     let re = crate::invariants::regex(r"(?i)\s*·\s*ctrl\+o to see\s*$");
     re.replace(text_v, "").into_owned()
 }
+
+#[cfg(test)]
+#[path = "tool_title_tests.rs"]
+mod tool_title_tests;
 
 #[cfg(test)]
 mod tests {

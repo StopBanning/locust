@@ -2381,6 +2381,10 @@ apps/desktop/src/main/todo-list-is-opt-in.test.ts	leaves the person words last, 
 apps/desktop/src/main/todo-list-is-opt-in.test.ts	offers it only to runtimes that have the tool	no
 apps/desktop/src/main/todo-list-is-opt-in.test.ts	never offers it to Claude Code, which has no such tool	no
 apps/desktop/src/main/todo-list-is-opt-in.test.ts	describes a tool rather than a format, so it cannot compete with the real one	no
+apps/desktop/src/main/tool-rows-say-what-they-did.test.ts	takes the model’s own description	yes
+apps/desktop/src/main/tool-rows-say-what-they-did.test.ts	has nothing to say when the model wrote nothing	yes
+apps/desktop/src/main/tool-rows-say-what-they-did.test.ts	is only for commands	yes
+apps/desktop/src/main/tool-rows-say-what-they-did.test.ts	reaches OpenCode too, which is the runtime anyone can actually run	yes
 apps/desktop/src/main/two-teammates-may-not-share-a-name.test.ts	cannot be given to a second teammate, whatever its case or spaces	no
 apps/desktop/src/main/two-teammates-may-not-share-a-name.test.ts	cannot be taken by a rename, but a teammate keeps its own	no
 apps/desktop/src/main/unreadable-is-not-empty.test.ts	never reports that a room does not exist	yes

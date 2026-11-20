@@ -295,10 +295,8 @@ impl Normalizer {
                 if let Some(t) = target {
                     common["command"] = json!(text(t, 16384));
                 }
-                if matches!(tool.to_lowercase().as_str(), "bash" | "shell")
-                    && let Some(title) = input["description"].as_str()
-                {
-                    common["title"] = json!(text(title, 16384));
+                if let Some(title) = opencode_tool_title(&tool, input) {
+                    common["title"] = json!(text(&title, 16384));
                 }
                 let mut start = common.clone();
                 start["phase"] = json!("started");
@@ -525,6 +523,15 @@ pub fn patch(diff: &str) -> Value {
         }
     }
     json!({"text":text(diff,65536),"added":added,"removed":removed,"truncated":diff.encode_utf16().count()>65536})
+}
+
+/// opencode-events.ts openCodeToolTitle: a command's own description, for bash or shell alone; a file tool's row is
+/// already its path and `task` has used the description as its text since before this.
+pub fn opencode_tool_title(tool: &str, input: &Value) -> Option<String> {
+    if !matches!(tool.to_lowercase().as_str(), "bash" | "shell") {
+        return None;
+    }
+    super::claude_events::said(&input["description"])
 }
 
 #[cfg(test)]
