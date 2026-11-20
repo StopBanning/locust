@@ -1322,6 +1322,13 @@ apps/desktop/src/main/connector-reader.test.ts	are read once and held, not re-re
 apps/desktop/src/main/connector-reader.test.ts	keep the last good reading when a read fails or cannot run	yes
 apps/desktop/src/main/connector-reader.test.ts	take one reading at a time, however many runs start at once	yes
 apps/desktop/src/main/connector-reader.test.ts	read again after a connector is added, even when a reading was already under way (0.716)	yes
+apps/desktop/src/main/conversation-chain.test.ts	lists every id from the previous turn to the root, newest first	yes
+apps/desktop/src/main/conversation-chain.test.ts	reads each turn once for the life of the process	yes
+apps/desktop/src/main/conversation-chain.test.ts	stops where a turn is gone, and where a read fails, without guessing	yes
+apps/desktop/src/main/conversation-chain.test.ts	does not loop on a cycle, and does not walk forever	yes
+apps/desktop/src/main/conversation-chain.test.ts	finds the membership on any id the conversation has worn, root included	yes
+apps/desktop/src/main/conversation-chain.test.ts	briefs nothing for a group with no instructions -- it is a folder	yes
+apps/desktop/src/main/conversation-chain.test.ts	is one short section: the group named, then its words	yes
 apps/desktop/src/main/cursor-connector-allow.test.ts	allows every tool of that server and nothing else	yes
 apps/desktop/src/main/cursor-connector-allow.test.ts	creates the file when there is none	yes
 apps/desktop/src/main/cursor-connector-allow.test.ts	keeps everything already in the file, and never touches deny	yes

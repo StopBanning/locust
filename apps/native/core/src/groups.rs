@@ -789,6 +789,11 @@ fn read_continues_from(store: &Store, mission_id: &str) -> Option<String> {
         Some(store.electron().join("ledger").join(&name)),
     ];
     for path in candidates.into_iter().flatten() {
+        // A turn's parent is written when the turn is made and never changes, so each is read once for the life of
+        // the process (conversation-chain.ts). Only a file found is remembered: a turn not written yet may be later.
+        if let Some(known) = crate::invariants::lock(parents_read()).get(&path) {
+            return known.clone();
+        }
         let Ok(file) = std::fs::File::open(&path) else {
             continue;
         };
@@ -797,16 +802,20 @@ fn read_continues_from(store: &Store, mission_id: &str) -> Option<String> {
             continue;
         }
         let first_line = head.lines().next().unwrap_or("");
-        if let Ok(record) = serde_json::from_str::<Value>(first_line)
-            && let Some(prev) = record["continuesFrom"]["missionId"].as_str()
-            && !prev.is_empty()
-        {
-            return Some(prev.to_owned());
-        }
+        let parent = serde_json::from_str::<Value>(first_line)
+            .ok()
+            .and_then(|record| record["continuesFrom"]["missionId"].as_str().filter(|p| !p.is_empty()).map(str::to_owned));
+        crate::invariants::lock(parents_read()).insert(path, parent.clone());
         // Even if `continuesFrom` is absent, finding the file means we should not scan further.
-        return None;
+        return parent;
     }
     None
+}
+
+/// Each turn's parent as read from its ledger, by the file's path.
+fn parents_read() -> &'static std::sync::Mutex<HashMap<std::path::PathBuf, Option<String>>> {
+    static READ: std::sync::OnceLock<std::sync::Mutex<HashMap<std::path::PathBuf, Option<String>>>> = std::sync::OnceLock::new();
+    READ.get_or_init(Default::default)
 }
 
 /// Every `missionId` in a conversation ending at `tip`, newest first, walking `continuesFrom.missionId`
@@ -1695,3 +1704,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "conversation_chain_tests.rs"]
+mod conversation_chain_tests;
