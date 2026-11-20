@@ -126,6 +126,7 @@ pub mod limits;
 pub mod login_item;
 pub mod mission_export;
 pub mod models;
+pub mod named_files;
 pub mod named_folder;
 pub mod native;
 pub mod org_policy;

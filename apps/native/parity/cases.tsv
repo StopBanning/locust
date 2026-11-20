@@ -289,6 +289,18 @@ apps/desktop/src/main/a-file-arriving-starts-its-routine.test.ts	is let go even 
 apps/desktop/src/main/a-file-arriving-starts-its-routine.test.ts	reaches the watcher from every turn Undo records, and the host says when a run is live	no
 apps/desktop/src/main/a-file-name-cannot-write-into-the-brief.test.ts	stays one list item, quoted, with its break escaped	yes
 apps/desktop/src/main/a-file-name-cannot-write-into-the-brief.test.ts	leaves an ordinary name as it is, and the prompt still splits back	yes
+apps/desktop/src/main/a-file-written-elsewhere-opens.test.ts	names the file its finished step wrote and the file it handed over, as one file	yes
+apps/desktop/src/main/a-file-written-elsewhere-opens.test.ts	names nothing for a step that was declined, failed, or never finished	yes
+apps/desktop/src/main/a-file-written-elsewhere-opens.test.ts	does not read a shell command for paths, nor take a network path or a relative one	yes
+apps/desktop/src/main/a-file-written-elsewhere-opens.test.ts	reads a handover only from what the teammate said, never a file block quoted in code	yes
+apps/desktop/src/main/a-file-written-elsewhere-opens.test.ts	opens the one the teammate wrote and handed over, in any spelling of it	yes
+apps/desktop/src/main/a-file-written-elsewhere-opens.test.ts	refuses a file no teammate named, the way it always has	yes
+apps/desktop/src/main/a-file-written-elsewhere-opens.test.ts	finds a file handed over while the turn is still running	yes
+apps/desktop/src/main/a-file-written-elsewhere-opens.test.ts	stops opening it once the conversation is deleted	yes
+apps/desktop/src/main/a-file-written-elsewhere-opens.test.ts	never looks up a network path, a relative one, or one inside the folder	yes
+apps/desktop/src/main/a-file-written-elsewhere-opens.test.ts	keeps the relative path a file block hands over, and no whole path for it	yes
+apps/desktop/src/main/a-file-written-elsewhere-opens.test.ts	copies it when the folder its turn ran in is one Locust knows	yes
+apps/desktop/src/main/a-file-written-elsewhere-opens.test.ts	resolves it against that folder only, never another one it knows	yes
 apps/desktop/src/main/a-folder-cannot-make-locust-run-its-program.test.ts	is looked at by Locust without running it	yes
 apps/desktop/src/main/a-folder-cannot-make-locust-run-its-program.test.ts	has a teammate's worktree checked without running it	yes
 apps/desktop/src/main/a-folder-is-one-folder-however-spelled.test.ts	is the known folder, spelled as it was first known	no

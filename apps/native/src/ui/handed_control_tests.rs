@@ -94,3 +94,46 @@ fn a_path_in_the_folder_is_drawn_as_it_was() {
     let texts: Vec<String> = drawn(vec![report()], false).into_iter().filter_map(|e| e.text).collect();
     assert!(texts.iter().any(|t| t == "docs/report.md"), "{texts:?}");
 }
+
+/// A file outside every folder that no teammate's record names is refused in Electron's words (index.ts: the reveal,
+/// Save a copy and the read behind Copy each say it their own way), and nothing is shown.
+#[test]
+fn a_file_no_teammate_named_is_refused_in_electrons_words() {
+    let mut s = State::default();
+    s.teammates.push(crate::Teammate { id: "tm".into(), name: "Codec".into(), role: "Custom".into(), model: None, runtime: Some("codex".into()), folder: Some("/work/now-coding".into()), runs_in: "ask".into(), account: None, busy: false });
+    s.conversations.insert("tm".into(), Default::default());
+    let never = "/home/someone/.locust-never-named/id_rsa";
+    reveal_handed_file(&mut s, "r1", never);
+    let open = "That file is outside the folders your teammates work in, and no teammate wrote it or handed it over, so Locust will not open it.";
+    assert_eq!(s.handed_file_refusal, Some(("r1".into(), open.into())));
+    s.handed_file_refusal = None;
+    assert_eq!(resolved(&mut s, "r1", never, Asked::Copy), None);
+    assert_eq!(s.handed_file_refusal, Some(("r1".into(), open.into())));
+    assert_eq!(resolved(&mut s, "r1", never, Asked::Save), None);
+    let copy = "That file is outside the folders your teammates work in, and no teammate wrote it or handed it over, so Locust will not copy it.";
+    assert_eq!(s.handed_file_refusal, Some(("r1".into(), copy.into())));
+    // A file in the conversation's folder is the conversation's, named or not.
+    assert_eq!(resolved(&mut s, "r1", "docs/report.md", Asked::Save), Some(PathBuf::from("/work/now-coding/docs/report.md")));
+}
+
+/// The window asks its own ledger (`named_files::ledger_dirs`): a whole path a teammate handed over opens from outside
+/// every folder, and a relative one is resolved against the folder its turn ran in, a teammate's folder.
+#[test]
+fn a_file_a_teammate_handed_over_outside_the_folder_is_reached_from_its_own_record() {
+    let root = std::env::temp_dir().join(format!("locust-handed-named-{}", std::process::id()));
+    let store = locust_core::store::Store::new(root.join("native"), root.join("electron")).unwrap();
+    let _guard = locust_core::native::hooks::install(store.clone(), None);
+    let ledger = store.ledger_dir().unwrap();
+    std::fs::create_dir_all(&ledger).unwrap();
+    let head = serde_json::json!({"schemaVersion": 1, "recordType": "mission.created", "metadata": {"missionId": "mission_review", "runId": "run_review", "prompt": "Write the report", "runtime": "codex", "model": "gpt-6.1-sol", "createdAt": "2026-11-06T20:00:00.000Z", "workspaceId": locust_core::workspace_settings::workspace_id_for(Path::new("/work/now-coding"))}});
+    let said = serde_json::json!({"schemaVersion": 1, "recordType": "mission.event", "event": {"id": "e1", "runId": "run_review", "missionId": "mission_review", "sequence": 1, "type": "message.delta", "occurredAt": "2026-11-06T20:00:01.000Z", "sourceAdapter": "codex", "payload": {"itemId": "m1", "operation": "append", "final": true, "text": "<locust-file>\n/work/scratch/toaster-review2/Codex.md :: the review\n../locust-wt/spotify-artist/REPORT.md :: the report\n</locust-file>"}}});
+    std::fs::write(ledger.join("mission_review.jsonl"), format!("{head}\n{said}\n")).unwrap();
+    let mut s = State::default();
+    s.teammates.push(crate::Teammate { id: "tm".into(), name: "Codec".into(), role: "Custom".into(), model: None, runtime: Some("codex".into()), folder: Some("/work/now-coding".into()), runs_in: "ask".into(), account: None, busy: false });
+    s.conversations.insert("tm".into(), Default::default());
+    let whole = resolved(&mut s, "r1", "/work/scratch/toaster-review2/Codex.md", Asked::Save);
+    let relative = resolved(&mut s, "r1", "../locust-wt/spotify-artist/REPORT.md", Asked::Save);
+    let _ = std::fs::remove_dir_all(&root);
+    assert_eq!(whole, Some(PathBuf::from("/work/scratch/toaster-review2/Codex.md")), "{:?}", s.handed_file_refusal);
+    assert_eq!(relative, Some(PathBuf::from("/work/locust-wt/spotify-artist/REPORT.md")), "{:?}", s.handed_file_refusal);
+}
