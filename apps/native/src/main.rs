@@ -152,6 +152,10 @@ mod messages;
 use messages::*;
 #[path = "ui/handoff_divider.rs"]
 mod handoff_divider;
+#[path = "ui/terminal_divider.rs"]
+mod terminal_divider;
+#[path = "ui/tag_send.rs"]
+mod tag_send;
 #[path = "ui/handoff_glances.rs"]
 mod handoff_glances;
 #[path = "ui/live_list.rs"]
@@ -225,12 +229,16 @@ mod connectors_section;
 mod chat_apps_section;
 #[path = "ui/github_section.rs"]
 mod github_section;
+#[path = "ui/skills_from_github.rs"]
+mod skills_from_github;
 #[path = "ui/claude_app_card.rs"]
 mod claude_app_card;
 #[path = "ui/link_open.rs"]
 mod link_open;
 #[path = "ui/reply_page_ui.rs"]
 mod reply_page_ui;
+#[path = "ui/page_points_ui.rs"]
+mod page_points_ui;
 #[path = "ui/remote_control_card.rs"]
 mod remote_control_card;
 #[path = "ui/remote_mcp_card.rs"]
@@ -791,6 +799,7 @@ fn load_team(s: &mut State) {
 
 fn setup(s: &mut State, waker: Waker) {
     s.changes_job.set_waker(waker.clone());
+    s.tag_job.set_waker(waker.clone());
     s.review_job.set_waker(waker.clone());
     s.github_job.set_waker(waker.clone());
     s.connectors_job.set_waker(waker.clone());
@@ -889,7 +898,7 @@ fn can_send(s: &State) -> bool {
         && s.selected_ready
         && s.route_can_run
         && !s.nothing_installed
-        && (!s.draft.text.trim().is_empty() || !s.attached.is_empty() || !s.diff_notes.waiting.is_empty())
+        && (!s.draft.text.trim().is_empty() || !s.attached.is_empty() || !s.diff_notes.waiting.is_empty() || !s.page_points.chips.is_empty())
 }
 
 fn can_queue(s: &State) -> bool {
@@ -1611,6 +1620,9 @@ fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
     if issue_list::key(s, event) {
         return true;
     }
+    if page_points_ui::key(s, event) {
+        return true;
+    }
     if s.changes.open && event.mods.shift && !event.mods.alt && event.is_command('y') {
         s.changes.files = !s.changes.files;
         return true;
@@ -1753,6 +1765,9 @@ fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
         return true;
     }
     if prompt_rail::handle_key(s, event, tx) {
+        return true;
+    }
+    if question_card::handle_key(s, event) {
         return true;
     }
     if decision_card::handle_key(s, event, tx) {
@@ -2015,6 +2030,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     changed |= reference_chips::poll(s);
     changed |= agents_section::poll(s);
     changed |= github_section::poll(s);
+    changed |= skills_from_github::poll(s);
     changed |= claude_app_card::poll(s);
     changed |= link_open::poll(s);
     changed |= remote_control_card::poll(s);
@@ -2032,10 +2048,12 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     changed |= issue_list::poll(s);
     changed |= attention_watch::poll(s);
     changed |= scout_cards::poll(s);
+    changed |= tag_send::poll(s);
     changed |= rail::poll(s);
     changed |= open_pressed_notification(s, tx);
     bench_opened(s);
     changed |= browser_panel::poll(s, tx);
+    changed |= page_points_ui::poll(s);
     changed |= changes_panel::poll(s);
     changed |= turn_undo::poll(s);
     changed |= edit_message::poll(s);

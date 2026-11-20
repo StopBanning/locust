@@ -801,7 +801,7 @@ mod tests {
             data_sent_says: None,
             reversible_says: None,
             patch: None,
-            claude_input: None,
+            skippable: false, answer_in: None, claude_input: None,
             questions: Vec::new(),
         };
         let (texts, _) = render_texts_and_labels(sample_side("running", vec![approval]));
@@ -836,7 +836,7 @@ mod tests {
             data_sent_says: None,
             reversible_says: None,
             patch: None,
-            claude_input: None,
+            skippable: false, answer_in: None, claude_input: None,
             questions: Vec::new(),
         }
     }

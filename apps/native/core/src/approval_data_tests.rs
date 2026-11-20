@@ -70,7 +70,7 @@ fn card(kind: Kind, detail: &str, reversible_says: Option<&str>) -> crate::appro
         data_sent_says: None,
         reversible_says: reversible_says.map(str::to_owned),
         patch: None,
-        claude_input: None,
+        skippable: false, answer_in: None, claude_input: None,
         questions: Vec::new(),
     }
 }

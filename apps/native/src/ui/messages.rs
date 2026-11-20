@@ -21,6 +21,11 @@ fn thread_face(s: &State, key: &str, size: f32, p: &Palette) -> El {
         .key(format!("thread-face-{key}-{shape}-{hue}"))
 }
 
+/// Where the ui-th bubble's turn is among the conversation's turns: every turn but the fixes Locust sent back.
+fn person_turn_at(metas: &[ledger::Metadata], ui: usize) -> Option<usize> {
+    metas.iter().enumerate().filter(|(_, m)| locust_core::conversation_turns::fix_of_turn(m).is_none()).nth(ui).map(|(i, _)| i)
+}
+
 pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s: &State) -> El {
     let mut messages = col().w_full().max_w(super::thread_view::THREAD_MAX).gap(24.0).padding(24.0);
     if let Some(label) = s.ledger.as_ref().and_then(|pane| pane.snapshot.started_label.as_ref()) {
@@ -112,15 +117,20 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                 let finished = !(turn_running(s) && items[index + 1..].iter().all(|i| !matches!(i, ledger::Item::User(_))));
                 let mission = s.ledger.as_ref().and_then(|pane| pane.snapshot.turn_metas.get(user_index.saturating_sub(1))).map(|m| m.mission_id.as_str());
                 let foot = if finished { turn_foot_card(&items[start..index], p, s, &format!("{conversation}/foot/{index}"), mission) } else { None };
-                let mut line = row().w_full().gap(5.0);
+                // Beside the browser (~418px, the-thread-beside-the-browser-keeps-its-parts-whole, 0.867) the line wraps
+                // by whole parts, each with the "·" before it, and a part longer than the line gives way to its own
+                // ellipsis rather than being cut mid-word at the column's edge.
+                let mut line = row().w_full().flex_wrap().key(format!("{conversation}/trace/{index}"));
                 let file_count = locust_core::activity_entries::file_count(&trace.changed_paths, selected_conversation(s).and_then(|(t,_)|t.folder.as_deref()));
                 let mut first = true;
                 for segment in &trace.segments {
                     if segment.key == "files" && foot.is_some() { continue; }
                     let shown = if segment.key == "files" && file_count > 0 { format!("{file_count} file{}", if file_count==1 {""} else {"s"}) } else {segment.text.clone()};
-                    if !first { line = line.child(text("·").font(type_::LABEL).color(p.muted)); }
+                    let mut part = row().shrink().key(format!("{conversation}/trace/{index}/{}", segment.key)).pr(5.0);
+                    if !first { part = part.child(text("· ").font(type_::LABEL).color(p.muted)); }
                     first = false;
-                    line = line.child(text(shown).font(type_::LABEL).color(if segment.tone.as_deref() == Some("amber") {p.amber} else {p.muted}));
+                    part = part.child(text(shown).font(type_::LABEL).color(if segment.tone.as_deref() == Some("amber") {p.amber} else {p.muted}).shrink().truncate());
+                    line = line.child(part);
                 }
                 let mut body = col().w_full().gap(4.0).children(foot).child(line);
                 if !trace.notices.is_empty() {
@@ -226,17 +236,25 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                     messages = emit_turn_peers(messages, ui - 1, false);
                     messages = emit_turn_peers(messages, ui, true);
                 }
-                if let Some(pane) = s.ledger.as_ref()
-                    && let Some(to_meta) = pane.snapshot.turn_metas.get(ui)
+                // The ui-th bubble's own turn: a fix turn Locust sent draws a line, not a bubble, so it is passed over.
+                let at = s.ledger.as_ref().and_then(|pane| person_turn_at(&pane.snapshot.turn_metas, ui));
+                let this_meta = at.and_then(|i| s.ledger.as_ref()?.snapshot.turn_metas.get(i));
+                let before_meta = at.and_then(|i| i.checked_sub(1)).and_then(|i| s.ledger.as_ref()?.snapshot.turn_metas.get(i));
+                if let Some(to_meta) = this_meta
+                    && let Some(div) = handoff_divider::view(before_meta, to_meta, p)
                 {
-                    let from_meta = ui.checked_sub(1).and_then(|i| pane.snapshot.turn_metas.get(i));
-                    if let Some(div) = handoff_divider::view(from_meta, to_meta, p) {
-                        messages = messages.child(div.key(format!("{key}-handoff")));
-                    }
+                    messages = messages.child(div.key(format!("{key}-handoff")));
+                }
+                // Into the runtime's own terminal before its first turn there; back in Locust before the next of its own.
+                if let Some(seam) = locust_core::conversation_turns::terminal_seam_before(
+                    before_meta.and_then(locust_core::conversation_turns::in_terminal),
+                    this_meta.and_then(locust_core::conversation_turns::in_terminal),
+                ) {
+                    messages = messages.child(crate::terminal_divider::view(&seam, p).key(format!("{key}-terminal-seam")));
                 }
                 // An edit this turn began, or one that touched it, says so above it (0.498).
                 if let Some(pane) = s.ledger.as_ref()
-                    && let Some(meta) = pane.snapshot.turn_metas.iter().filter(|m| m.check_fix.is_none()).nth(ui)
+                    && let Some(meta) = person_turn_at(&pane.snapshot.turn_metas, ui).and_then(|i| pane.snapshot.turn_metas.get(i))
                     && let Some(note) = crate::edit_message::note_above(s, meta, p)
                 {
                     messages = messages.child(note);
@@ -250,21 +268,15 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                     p,
                     s,
                 );
-                if s.ledger.as_ref().and_then(|p| p.snapshot.turn_metas.get(ui))
-                    .is_some_and(|m| !locust_core::thread_view::person_prompt(m.started_by_kind.as_deref())) { continue; }
+                if this_meta.is_some_and(|m| locust_core::conversation_turns::turn_line(m).is_none()) { continue; }
                 let hit = s.prompt_rail.hit_key.as_deref() == Some(key.as_str());
                 // Notes on a diff came as one block after the person's words: the bubble shows the words, the notes go under it.
-                let kind = s.ledger.as_ref().and_then(|p| p.snapshot.turn_metas.get(ui)).and_then(|m| m.started_by_kind.as_deref());
+                let kind = this_meta.and_then(|m| m.started_by_kind.as_deref());
                 let body = if kind.is_none() { locust_core::conversation_turns::tagged_words(body) } else { body };
                 let (own_words, sent_notes) = locust_core::diff_notes::split_diff_notes(body);
                 let edit = crate::edit_message::edit_control(s, ui, &own_words, !sent_notes.is_empty(), p);
                 let turn_edited: Option<&[locust_core::changes::File]> = s.ledger.as_ref().and_then(|pane| {
-                    let meta = pane
-                        .snapshot
-                        .turn_metas
-                        .iter()
-                        .filter(|m| m.check_fix.is_none())
-                        .nth(ui)?;
+                    let meta = pane.snapshot.turn_metas.get(person_turn_at(&pane.snapshot.turn_metas, ui)?)?;
                     pane.snapshot.turn_edits.get(&meta.mission_id)?.as_deref()
                 });
                 let layout_track = move |s: &mut State, r: [f32; 4], tx: &mut Tx| {
@@ -525,12 +537,22 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
             // The live word, with its one ellipsis (sweepText): "Working…".
             (None, _) => locust_core::thread_view::sweep_text(&live.label),
         };
-        let words = live.detail.as_ref().map_or_else(|| words.clone(), |d| format!("{words} · {d}"));
-        let label = elapsed.map_or_else(|| words.clone(), |ms| format!("{words} · {}", ledger::duration_text(ms)));
-        messages = messages.child(row().w_full().gap(8.0).center_y()
+        let headline = live.detail.as_ref().map_or_else(|| words.clone(), |d| format!("{words} · {d}"));
+        // Beside the browser the column is ~418px (the-thread-beside-the-browser-keeps-its-parts-whole, 0.867): the
+        // words give way to their ellipsis, and the plan's "step 2 of 3" and the time stay whole after them
+        // (lc-livestep__label `min-width: 0; overflow: hidden`, lc-livestep__peek `flex: none`).
+        let mut line = row().w_full().center_y()
             .child(thread_face(s, "live", 34.0, p))
+            .child(el().w(8.0))
             // The headline is the label's hover title too, for a row that ellipsizes (lc-livestep__label's `title`).
-            .child(text(label).font(type_::LABEL).color(p.muted).grow(1.0).shrink().help(words)));
+            .child(text(words).key("live-step-label").font(type_::LABEL).color(p.muted).shrink().truncate().help(headline));
+        if let Some(step) = &live.detail {
+            line = line.child(text(format!(" · {step}")).key("live-step-peek").font(type_::LABEL).color(p.muted));
+        }
+        if let Some(ms) = elapsed {
+            line = line.child(text(format!(" · {}", ledger::duration_text(ms))).key("live-step-time").font(type_::LABEL).color(p.muted));
+        }
+        messages = messages.child(line);
     }
     messages = failed_turn_rows(messages, items, s, p);
     messages
@@ -955,6 +977,40 @@ mod tests {
         assert!(opened.contains("claude · Skill descriptions were shortened."), "{opened}");
     }
 
+    // case: wraps a turn's closing line by whole parts instead of cutting it at the Copy button
+    #[test]
+    fn wraps_a_turns_closing_line_by_whole_parts_instead_of_cutting_it_at_the_copy_button() {
+        // the-thread-beside-the-browser-keeps-its-parts-whole.test.ts (0.867): "3 exited non-zero · 4 o" at ~418px.
+        let seg = |key: &str, text: &str| locust_core::activity_trace::Segment { key: key.into(), text: text.into(), tone: None };
+        let trace = locust_core::activity_trace::Trace {
+            segments: vec![seg("took", "12m 40s"), seg("ran", "ran 23 commands"), seg("failed", "3 exited non-zero"), seg("other", "4 other tool calls"), seg("read", "read 18 files"), seg("search", "searched 6 times")],
+            notices: vec![],
+            changed_paths: vec![],
+        };
+        fn drawn(items: &[ledger::Item], width: f32) -> Vec<(String, [f32; 4])> {
+            let draw: fn(&(State, Vec<ledger::Item>), &mut rune::Cx<(State, Vec<ledger::Item>)>) -> El = if width < 500.0 {
+                |(s, items), _| row().child(col().w(418.0).child(message_column(items, "Codec", &Palette::new(true), s)))
+            } else {
+                |(s, items), _| row().child(col().w(1400.0).child(message_column(items, "Codec", &Palette::new(true), s)))
+            };
+            let mut rt = rune::Runtime::new((State::default(), items.to_vec()), draw, (1600.0, 900.0), rune::Env::new(true, 1.0));
+            rt.frame(0.0);
+            rt.elements().into_iter().filter_map(|e| Some((e.key?, e.rect))).filter(|(k, _)| k.contains("/trace/")).collect()
+        }
+        let items = [ledger::Item::User("go".into()), ledger::Item::Trace(trace)];
+        let (narrow, wide) = (drawn(&items, 418.0), drawn(&items, 1400.0));
+        let parts: Vec<_> = narrow.iter().filter(|(k, _)| k.matches('/').count() >= 3).collect();
+        assert_eq!(parts.len(), 6, "{narrow:?}");
+        for (key, [x, _, w, _]) in &parts {
+            assert!(x + w <= 418.5, "{key} ends at {} in a 418px column", x + w);
+            // Whole: as wide as with room to spare.
+            let whole = wide.iter().find(|(k, _)| k == key).unwrap().1[2];
+            assert!((w - whole).abs() < 0.5, "{key} is {w}px, {whole}px whole");
+        }
+        let lines: std::collections::BTreeSet<i32> = parts.iter().map(|(_, r)| r[1].round() as i32).collect();
+        assert!(lines.len() > 1, "the line wrapped: {parts:?}");
+    }
+
     // case: starts a new line each time the model thinks, led by what it thought about (drawn in the window)
     #[test]
     fn the_thread_draws_one_steps_line_per_thought_that_says_something() {
@@ -1145,7 +1201,43 @@ mod tests {
         ];
         s.ledger.as_mut().unwrap().snapshot.live = locust_core::thread_view::live_line(&events, true, "2026-09-04T21:47:00.000Z", false);
         let drawn = thread_text(&items, &mut s);
-        assert!(drawn.contains("Running npm test · step 2 of 3"), "{drawn}");
+        // The words, then the plan's step as its own part (kept whole in a narrow column).
+        assert!(drawn.contains("Running npm test\n · step 2 of 3"), "{drawn}");
+    }
+
+    // case: keeps the plan pill of the running line whole, so the thread never scrolls sideways under it
+    #[test]
+    fn keeps_the_plan_pill_of_the_running_line_whole_so_the_thread_never_scrolls_sideways_under_it() {
+        // the-thread-beside-the-browser-keeps-its-parts-whole.test.ts (0.867): a long turn beside the browser, the
+        // conversation ~418px wide; "step 2 of" was cut at the edge.
+        fn drawn(narrow: bool) -> Vec<(String, [f32; 4])> {
+            let items = vec![ledger::Item::User("run the tests".into())];
+            let mut s = composition_state(None, true);
+            let events = [
+                serde_json::json!({"type": "run.started", "occurredAt": "2026-09-04T21:47:00.000Z", "payload": {}}),
+                serde_json::json!({"type": "plan.updated", "payload": {"plan": {"plan": [{"step": "Step 1", "status": "completed"}, {"step": "Step 2", "status": "in_progress"}, {"step": "Step 3", "status": "pending"}]}}}),
+                serde_json::json!({"type": "tool.started", "payload": {"itemId": "t", "toolKind": "command_execution", "name": "shell", "command": "pnpm --filter @locust/desktop exec vitest run src/renderer/src/a-very-long-test-file-name.test.tsx --reporter verbose"}}),
+            ];
+            s.ledger.as_mut().unwrap().snapshot.live = locust_core::thread_view::live_line(&events, true, "2026-09-04T21:47:00.000Z", false);
+            let draw: fn(&(State, Vec<ledger::Item>), &mut rune::Cx<(State, Vec<ledger::Item>)>) -> El = if narrow {
+                |(s, items), _| row().child(col().w(418.0).child(message_column(items, "Codec", &Palette::new(true), s)))
+            } else {
+                |(s, items), _| row().child(col().w(1400.0).child(message_column(items, "Codec", &Palette::new(true), s)))
+            };
+            let mut rt = rune::Runtime::new((s, items), draw, (1600.0, 800.0), rune::Env::new(true, 1.0));
+            rt.frame(0.0);
+            rt.elements().into_iter().filter_map(|e| Some((e.key?, e.rect))).filter(|(k, _)| k.starts_with("live-step")).collect()
+        }
+        let at = |all: &[(String, [f32; 4])], key: &str| all.iter().find(|(k, _)| k == key).unwrap_or_else(|| panic!("no {key}: {all:?}")).1;
+        let (narrow, wide) = (drawn(true), drawn(false));
+        for (key, [x, _, w, _]) in &narrow {
+            assert!(x + w <= 418.5, "{key} ends at {} in a 418px column: {narrow:?}", x + w);
+        }
+        // The pill and the time are as wide as when there is room; the words gave way.
+        for key in ["live-step-peek", "live-step-time"] {
+            assert!((at(&narrow, key)[2] - at(&wide, key)[2]).abs() < 0.5, "{key}: {narrow:?} / {wide:?}");
+        }
+        assert!(at(&narrow, "live-step-label")[2] < at(&wide, "live-step-label")[2], "the words gave way");
     }
 
     // case: leads with the phase, swept, in the place of the word "starting"
@@ -1392,3 +1484,10 @@ mod renderer_newest_scroll_tests {
 #[cfg(test)]
 #[path = "turn_foot_tests.rs"]
 mod turn_foot_tests;
+#[cfg(test)]
+#[path = "a_page_runs_tests.rs"]
+mod a_page_runs_tests;
+
+#[cfg(test)]
+#[path = "terminal_thread_tests.rs"]
+mod terminal_thread_tests;

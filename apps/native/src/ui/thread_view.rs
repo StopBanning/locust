@@ -952,6 +952,9 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
         if let Some(list) = crate::issue_list::view(s, p) {
             composer_stack = composer_stack.child(list);
         }
+        if let Some(points) = crate::page_points_ui::chips(s, p) {
+            composer_stack = composer_stack.child(points);
+        }
         if let Some(tile) = crate::diff_notes_ui::tile(s, p) {
             composer_stack = composer_stack.child(row().w_full().child(tile));
         }

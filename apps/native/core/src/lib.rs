@@ -15,6 +15,7 @@ pub mod attention;
 pub mod away;
 pub mod benchmark;
 pub mod browser;
+pub mod browser_point;
 pub mod browser_tools;
 pub mod carry_on;
 pub mod chat_apps;
@@ -68,6 +69,10 @@ pub mod cursor_config;
 pub mod cursor_config_allow;
 pub mod cursor_ignore;
 pub mod own_models;
+pub mod opencode_skill_paths;
+pub mod skill_library;
+#[cfg(test)]
+mod skill_row_tests;
 pub mod endpoint_test;
 pub mod changes;
 pub mod checkpoints;
@@ -135,6 +140,7 @@ pub mod profile_backup;
 pub mod protocol_tags;
 pub mod pull_requests;
 pub mod qr;
+pub mod question_keys;
 pub mod quit_guard;
 pub mod recovery;
 pub mod references;
@@ -216,6 +222,7 @@ mod tool_words_tests;
 mod tool_vocabulary_tests;
 pub mod activity_trace;
 pub mod conversation_turns;
+pub mod tagging;
 
 pub mod peer_thread;
 

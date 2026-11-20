@@ -77,6 +77,12 @@ apps/desktop/src/main/a-card-answer-is-recorded-past-64-open-cards.test.ts	forge
 apps/desktop/src/main/a-card-answer-is-recorded-past-64-open-cards.test.ts	the answer funnel forgets the card right after recording it (source guard)	no
 apps/desktop/src/main/a-check-command-is-one-line.test.ts	is kept as the person typed it, trimmed	no
 apps/desktop/src/main/a-check-command-is-one-line.test.ts	is nothing when empty, too long, not text, or more than one line	no
+apps/desktop/src/main/a-claude-teammate-gets-its-skills.test.ts	the folder's skills always, as the plugin `project`, named the way a run calls them	yes
+apps/desktop/src/main/a-claude-teammate-gets-its-skills.test.ts	the person's own only when Settings lends them, as the plugin `personal`	yes
+apps/desktop/src/main/a-claude-teammate-gets-its-skills.test.ts	only folders holding a SKILL.md, with a name a skill can have, and never a link	yes
+apps/desktop/src/main/a-claude-teammate-gets-its-skills.test.ts	a link inside a skill is not copied, so removing the copy cannot reach past it	yes
+apps/desktop/src/main/a-claude-teammate-gets-its-skills.test.ts	a folder with no skills hands over nothing and leaves nothing behind	yes
+apps/desktop/src/main/a-claude-teammate-gets-its-skills.test.ts	a skill folder past the size bound is left out	yes
 apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	names the guard on Windows the way Codex runs a hook there: in PowerShell, on Locust’s own binary run as node	no
 apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	names it elsewhere exactly as Claude Code’s is named	no
 apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	is written only when LOCUST_GUARD_LOG names a file, one per question, with what was decided	no
@@ -348,6 +354,24 @@ apps/desktop/src/main/a-named-memory-replaces-the-one-before-it.test.ts	survives
 apps/desktop/src/main/a-new-project-is-told-how-to-write-its-first-memory.test.ts	says nothing is remembered and how to write the first memory, block and all	yes
 apps/desktop/src/main/a-new-project-is-told-how-to-write-its-first-memory.test.ts	leaves out how to read memories until there is one, and brings it back with the first	yes
 apps/desktop/src/main/a-new-project-is-told-how-to-write-its-first-memory.test.ts	still gives the memory paragraphs up first when a run that belongs to nobody is over the cap (A5.3)	yes
+apps/desktop/src/main/a-part-of-a-page-can-be-pointed-at.test.ts	is a script that parses, and so is its cancel	no
+apps/desktop/src/main/a-part-of-a-page-can-be-pointed-at.test.ts	finds the viewer's frame showing the page, and no other	no
+apps/desktop/src/main/a-part-of-a-page-can-be-pointed-at.test.ts	reads a pick, and lets go of one that never comes	no
+apps/desktop/src/main/a-part-of-a-page-can-be-pointed-at.test.ts	is kept to its shape and its bounds	no
+apps/desktop/src/main/a-part-of-a-page-can-be-pointed-at.test.ts	names the file and the part, and quotes its code	no
+apps/desktop/src/main/a-part-of-a-page-can-be-pointed-at.test.ts	counts what it leaves out, and a fence in the code cannot close the quote	no
+apps/desktop/src/main/a-part-of-a-page-can-be-pointed-at.test.ts	is the part inside the frame, in the window’s pixels at its zoom	yes
+apps/desktop/src/main/a-part-of-a-page-can-be-pointed-at.test.ts	is cut to what the frame shows, and is none when nothing of it is	yes
+apps/desktop/src/main/a-part-of-the-browser-can-be-pointed-at.test.ts	the picker script parses	yes
+apps/desktop/src/main/a-part-of-the-browser-can-be-pointed-at.test.ts	the picker request goes through main only	yes
+apps/desktop/src/main/a-part-of-the-browser-can-be-pointed-at.test.ts	form values never appear in a pick	yes
+apps/desktop/src/main/a-part-of-the-browser-can-be-pointed-at.test.ts	lists the styles that matter for a visual fix	yes
+apps/desktop/src/main/a-part-of-the-browser-can-be-pointed-at.test.ts	a trimmed HTML says it was trimmed	yes
+apps/desktop/src/main/a-part-of-the-browser-can-be-pointed-at.test.ts	several picks become several blocks	yes
+apps/desktop/src/main/a-part-of-the-browser-can-be-pointed-at.test.ts	removing a chip removes its picture	yes
+apps/desktop/src/main/a-part-of-the-browser-can-be-pointed-at.test.ts	browser: false turns pointing off too	yes
+apps/desktop/src/main/a-part-of-the-browser-can-be-pointed-at.test.ts	a password field is not pictured with its contents	yes
+apps/desktop/src/main/a-part-of-the-browser-can-be-pointed-at.test.ts	says when the page does not allow pointing	yes
 apps/desktop/src/main/a-paused-routine-waits-to-be-resumed.test.ts	is not started by its schedule and records no miss, however overdue	yes
 apps/desktop/src/main/a-paused-routine-waits-to-be-resumed.test.ts	still starts when a person presses Run	yes
 apps/desktop/src/main/a-paused-routine-waits-to-be-resumed.test.ts	resumed, counts from the resume: a long-overdue hourly routine does not fire on the spot, and does an hour on	yes
@@ -707,6 +731,13 @@ apps/desktop/src/main/a-team-card-carries-its-routines.test.ts	takes a routine o
 apps/desktop/src/main/a-team-template-makes-ordinary-teammates.test.ts	are three teams of three, each with names and colours of its own	no
 apps/desktop/src/main/a-team-template-makes-ordinary-teammates.test.ts	each makes three teammates the store accepts, with the faces the cards showed	no
 apps/desktop/src/main/a-team-template-makes-ordinary-teammates.test.ts	keep a teammate's first messages through an edit, and refuse a list that is not one (0.359)	no
+apps/desktop/src/main/a-teammate-can-be-tagged-from-any-conversation.test.ts	is the message first -- so their conversation is titled by it -- then where it came from and the latest answer there	yes
+apps/desktop/src/main/a-teammate-can-be-tagged-from-any-conversation.test.ts	says only where it came from when that conversation has no answer yet	yes
+apps/desktop/src/main/a-teammate-can-be-tagged-from-any-conversation.test.ts	is the message alone when it was sent from nobody's conversation	yes
+apps/desktop/src/main/a-teammate-can-be-tagged-from-any-conversation.test.ts	fits the mission limit, cutting the answer rather than the message	yes
+apps/desktop/src/main/a-teammate-can-be-tagged-from-any-conversation.test.ts	reaches at most a handful of teammates at once	yes
+apps/desktop/src/main/a-teammate-can-be-tagged-from-any-conversation.test.ts	is the message, after a restart too, when the ledger has recorded the run as an ordinary one	yes
+apps/desktop/src/main/a-teammate-can-be-tagged-from-any-conversation.test.ts	leaves a message nobody was tagged in alone	yes
 apps/desktop/src/main/a-teammate-cut-off-is-not-said-to-have-finished.test.ts	is said to have stopped, and why, not to have finished	no
 apps/desktop/src/main/a-teammate-cut-off-is-not-said-to-have-finished.test.ts	has no answer brought back, even when one was asked for	no
 apps/desktop/src/main/a-teammate-cut-off-is-not-said-to-have-finished.test.ts	stopped by the person is said so	no
@@ -922,6 +953,10 @@ apps/desktop/src/main/an-office-file-reads-in-any-mode.test.ts	keeps each docume
 apps/desktop/src/main/an-office-file-reads-in-any-mode.test.ts	refreshes a copy only when its document changed	no
 apps/desktop/src/main/an-office-file-reads-in-any-mode.test.ts	leaves out a damaged file, Word's lock files, and anything past the limit	no
 apps/desktop/src/main/an-office-file-reads-in-any-mode.test.ts	writes a table cell's pipe so it cannot split the row	no
+apps/desktop/src/main/an-opencode-run-keeps-the-persons-skill-paths.test.ts	keeps the last config that names them, in OpenCode’s own order, without changing any file	yes
+apps/desktop/src/main/an-opencode-run-keeps-the-persons-skill-paths.test.ts	reads the global folder once and first, honors XDG and the config directories, and stops at the worktree	yes
+apps/desktop/src/main/an-opencode-run-keeps-the-persons-skill-paths.test.ts	does not load disabled project config, and names a file it cannot read	yes
+apps/desktop/src/main/an-opencode-run-keeps-the-persons-skill-paths.test.ts	keeps an empty configuration empty and returns only string paths	yes
 apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	uses the machine-wide path on each platform and ignores the test override in a packaged app	yes
 apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	leaves a missing file unrestricted and never creates it	yes
 apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	uses the Windows known folder even if the process changes ProgramData	no
@@ -1477,6 +1512,11 @@ apps/desktop/src/main/permission-host.test.ts	refuses a question's answer aimed 
 apps/desktop/src/main/permission-host.test.ts	is an mcp.json that names the bridge, the loopback URL and the token, under the name the tool flag expects	yes
 apps/desktop/src/main/permission-host.test.ts	names a connector the way the activity rows do	yes
 apps/desktop/src/main/permission-host.test.ts	share one listener, and both are answered on it	no
+apps/desktop/src/main/popular-skill-packs-fit-and-agent-copies-are-chosen.test.ts	a font-bearing skill above five MB is kept and handed to Claude Code but ten MB remains the ceiling	yes
+apps/desktop/src/main/popular-skill-packs-fit-and-agent-copies-are-chosen.test.ts	agent copies choose skills then Claude then agents then any without hiding real name clashes	yes
+apps/desktop/src/main/popular-skill-packs-fit-and-agent-copies-are-chosen.test.ts	a popular pack is only previewed on the first click and all offered skills are ready for the second	yes
+apps/desktop/src/main/popular-skill-packs-fit-and-agent-copies-are-chosen.test.ts	the five popular packs have dated stars and licenses and Claude Mem names its separate install	yes
+apps/desktop/src/main/popular-skill-packs-fit-and-agent-copies-are-chosen.test.ts	the new-this-week packs are dated, licensed, younger than the snapshot and can be opened	yes
 apps/desktop/src/main/qa-0365-rooms.test.ts	room-store.ts	no
 apps/desktop/src/main/qa-0365-rooms.test.ts	the placeholders are not read as operations	yes
 apps/desktop/src/main/qa-0365-rooms.test.ts	does not put the placeholders on the board	yes
@@ -1861,6 +1901,20 @@ apps/desktop/src/main/settings-read-like-claudes.test.ts	draws the group label a
 apps/desktop/src/main/settings-read-like-claudes.test.ts	puts no card around a setting: rows sit on the pane with a hairline between	yes
 apps/desktop/src/main/settings-read-like-claudes.test.ts	draws a setting that is one control as one line: name and description left, the control right (0.393, Appearance 0.394)	yes
 apps/desktop/src/main/settings-read-like-claudes.test.ts	says "How it works" in sentence case	yes
+apps/desktop/src/main/skills-kept-from-github.test.ts	reads owner/repo, a github.com link, and a link to a folder on a branch	yes
+apps/desktop/src/main/skills-kept-from-github.test.ts	refuses what is not one	yes
+apps/desktop/src/main/skills-kept-from-github.test.ts	reads a SKILL.md's description, quoted or not	yes
+apps/desktop/src/main/skills-kept-from-github.test.ts	lists each skill with its files, the ones that run marked, and keeps nothing yet	yes
+apps/desktop/src/main/skills-kept-from-github.test.ts	keeps the picked skills at the commit that was looked at, byte for byte	yes
+apps/desktop/src/main/skills-kept-from-github.test.ts	keeps the folder the link named, not a same-named one elsewhere, nor nothing for a root skill (2026-10-10 sweep)	yes
+apps/desktop/src/main/skills-kept-from-github.test.ts	looking again shows what is kept, and keeping again replaces it with the new commit	yes
+apps/desktop/src/main/skills-kept-from-github.test.ts	a file that does not arrive as GitHub lists it keeps nothing at all	yes
+apps/desktop/src/main/skills-kept-from-github.test.ts	and leaves no staging folder when the other files are still arriving as it refuses	yes
+apps/desktop/src/main/skills-kept-from-github.test.ts	a name kept from one repository is held in another, and refused if asked anyway	yes
+apps/desktop/src/main/skills-kept-from-github.test.ts	says plainly what GitHub would not give	yes
+apps/desktop/src/main/skills-kept-from-github.test.ts	follows a redirect only to GitHub's own hosts	yes
+apps/desktop/src/main/skills-kept-from-github.test.ts	refuses a keep it was not shown: a name not in that commit, or no commit	yes
+apps/desktop/src/main/skills-kept-from-github.test.ts	outside Auto beside the folder's own; in Auto, the kept ones alone	yes
 apps/desktop/src/main/teammate-store.test.ts	keeps the bot the person picked, and only the fields it knows	no
 apps/desktop/src/main/teammate-store.test.ts	refuses a shape there is no bot for	no
 apps/desktop/src/main/teammate-store.test.ts	takes every one of the nine colours	no
@@ -2037,6 +2091,8 @@ apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.t
 apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	a window that never listens is not waited on forever: the keys are opened anyway, for the readers that need them	no
 apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	a read before the step leaves nothing to say	no
 apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	is one step however often it is begun, and settled once it is over	no
+apps/desktop/src/main/the-pages-a-browser-runs-are-whole.test.ts	parses as the browser receives it: the phone page both ways, its service worker, and the way in	yes
+apps/desktop/src/main/the-pages-a-browser-runs-are-whole.test.ts	names a computer’s browser by its name and system, as Settings lists it	yes
 apps/desktop/src/main/the-permission-bridge-keeps-its-characters.test.ts	keeps a character split across two reads whole	yes
 apps/desktop/src/main/the-phone-reads-history-once-per-change.test.ts	counts a write once it is asked for and again once it has landed, and never a read	no
 apps/desktop/src/main/the-phone-reads-history-once-per-change.test.ts	builds once per key, shares a build in flight, and tries again after a failure	yes
@@ -2065,6 +2121,12 @@ apps/desktop/src/main/the-starter-routines-are-routines.test.ts	reads one by its
 apps/desktop/src/main/the-starter-routines-are-routines.test.ts	leaves out, and names, a file in the folder that is not a routine	no
 apps/desktop/src/main/the-starter-routines-are-routines.test.ts	previews by id, then adds it once: Ask, no schedule, in this folder, run by nobody	no
 apps/desktop/src/main/the-starter-routines-are-routines.test.ts	asks for a folder first in its own words, not the words for a file	no
+apps/desktop/src/main/the-thread-beside-the-browser-keeps-its-parts-whole.test.ts	keeps the plan pill of the running line whole, so the thread never scrolls sideways under it	yes
+apps/desktop/src/main/the-thread-beside-the-browser-keeps-its-parts-whole.test.ts	wraps a turn's closing line by whole parts instead of cutting it at the Copy button	yes
+apps/desktop/src/main/the-thread-beside-the-browser-keeps-its-parts-whole.test.ts	fits a handed file's pill to the reply, the note giving way before the path	yes
+apps/desktop/src/main/the-thread-beside-the-browser-keeps-its-parts-whole.test.ts	lets a file row give way to its open and copy buttons, never push them past the card	no
+apps/desktop/src/main/the-thread-beside-the-browser-keeps-its-parts-whole.test.ts	gives the header's name the room beside the face, and in a narrow header the name before the role	no
+apps/desktop/src/main/the-thread-beside-the-browser-keeps-its-parts-whole.test.ts	keeps Home's account marks in a row, the row wrapping before the marks stack	no
 apps/desktop/src/main/three-judges-are-kept.test.ts	keeps the panel of the newest ask, and every panel run as the comparison's, across a restart	no
 apps/desktop/src/main/three-placements.test.ts	dropped the noun that labelled the line once and cost eight characters forever	yes
 apps/desktop/src/main/three-placements.test.ts	dropped the permission prose, which the composer already states where it can be changed	yes
@@ -2281,6 +2343,10 @@ apps/desktop/src/renderer/src/a-busy-free-model-offers-the-next.test.tsx	skips a
 apps/desktop/src/renderer/src/a-busy-free-model-offers-the-next.test.tsx	is nothing for a paid route, a model of their own, another runtime, or a lone free model	yes
 apps/desktop/src/renderer/src/a-busy-free-model-offers-the-next.test.tsx	is marked busy only for a provider that is turning requests away	no
 apps/desktop/src/renderer/src/a-busy-free-model-offers-the-next.test.tsx	carries the offer as a button under its words, and only the busy one does	yes
+apps/desktop/src/renderer/src/a-button-turn-says-what-was-asked.test.ts	a tidy pass: what the person asked for, not the brief	yes
+apps/desktop/src/renderer/src/a-button-turn-says-what-was-asked.test.ts	a tidy pass sent with the brief before 0.372, its example in a code fence: the same	yes
+apps/desktop/src/renderer/src/a-button-turn-says-what-was-asked.test.ts	a review: whose work, not the review material	yes
+apps/desktop/src/renderer/src/a-button-turn-says-what-was-asked.test.ts	a person's own words, even ones that begin the same way, are left as they are	yes
 apps/desktop/src/renderer/src/a-called-link-says-what-leaves-the-computer.test.tsx	offers the new kind and its privacy and Ask words, with a save-first message for a new routine	yes
 apps/desktop/src/renderer/src/a-called-link-says-what-leaves-the-computer.test.tsx	tells a browser the link stays on this computer, with no Copy or New link	no
 apps/desktop/src/renderer/src/a-cancelled-run-spent-nothing.test.ts	says nothing at all about a run that reported nothing	yes
@@ -2288,7 +2354,7 @@ apps/desktop/src/renderer/src/a-cancelled-run-spent-nothing.test.ts	never puts a
 apps/desktop/src/renderer/src/a-cancelled-run-spent-nothing.test.ts	shows THIS run when this run reported one	yes
 apps/desktop/src/renderer/src/a-cancelled-run-spent-nothing.test.ts	still offers the conversation total, on the conversation-scoped surface	yes
 apps/desktop/src/renderer/src/a-cancelled-run-spent-nothing.test.ts	marks a live run as still going	yes
-apps/desktop/src/renderer/src/a-carried-on-turn-is-said-as-locusts.test.tsx	draws no bubble in the person's voice	no
+apps/desktop/src/renderer/src/a-carried-on-turn-is-said-as-locusts.test.tsx	draws no bubble in the person's voice	yes
 apps/desktop/src/renderer/src/a-carried-on-turn-is-said-as-locusts.test.tsx	the divider says the plan ran out and where the work went	no
 apps/desktop/src/renderer/src/a-carried-on-turn-is-said-as-locusts.test.tsx	the stopped run says its provider failed first, and that another agent can start it clean (0.839)	no
 apps/desktop/src/renderer/src/a-carried-on-turn-is-said-as-locusts.test.tsx	the stopped run offers one press that names the agent, and says why a press was refused	no
@@ -2628,6 +2694,13 @@ apps/desktop/src/renderer/src/a-new-teammate-wears-a-new-colour.test.tsx	says wh
 apps/desktop/src/renderer/src/a-new-teammate-wears-a-new-colour.test.tsx	says nothing about a name nobody else has	yes
 apps/desktop/src/renderer/src/a-note-can-be-left-in-the-changes-panel.test.ts	can be left in the Changes panel: it sits inside the notes of the conversation on screen	yes
 apps/desktop/src/renderer/src/a-note-can-be-left-in-the-changes-panel.test.ts	can be left in Review changes only for the teammate whose conversation is on screen	yes
+apps/desktop/src/renderer/src/a-page-a-teammate-made-runs-in-its-turn.test.tsx	opens a new web page, so it runs	yes
+apps/desktop/src/renderer/src/a-page-a-teammate-made-runs-in-its-turn.test.tsx	opens the page even when another file came first, and only the page	yes
+apps/desktop/src/renderer/src/a-page-a-teammate-made-runs-in-its-turn.test.tsx	stays folded in a comparison's cell, whose page runs above it	no
+apps/desktop/src/renderer/src/a-page-a-teammate-made-runs-in-its-turn.test.tsx	leaves a changed page and any other new file folded, as before	yes
+apps/desktop/src/renderer/src/a-page-opens-running.test.tsx	runs a page in a sandboxed frame at its own address, with Page and Source	yes
+apps/desktop/src/renderer/src/a-page-opens-running.test.tsx	runs nothing without a page address -- the same file shows as its source	yes
+apps/desktop/src/renderer/src/a-page-opens-running.test.tsx	previews a new page, and only a new one	yes
 apps/desktop/src/renderer/src/a-part-of-a-reply-can-be-asked-about.test.tsx	is quoted line by line, blank lines kept as quote lines	no
 apps/desktop/src/renderer/src/a-part-of-a-reply-can-be-asked-about.test.tsx	is cut past its limit, and says so with an ellipsis	no
 apps/desktop/src/renderer/src/a-part-of-a-reply-can-be-asked-about.test.tsx	says it is looking before the list arrives, and names both runtimes	no
@@ -2663,6 +2736,9 @@ apps/desktop/src/renderer/src/a-plan-shows-what-happened-to-it.test.ts	is NOT ma
 apps/desktop/src/renderer/src/a-plan-shows-what-happened-to-it.test.ts	counts the steps that finished	yes
 apps/desktop/src/renderer/src/a-plan-shows-what-happened-to-it.test.ts	reads Cursor's own status spelling	yes
 apps/desktop/src/renderer/src/a-plugged-in-computer-stays-awake-in-settings.test.ts	sits in Settings under Startup and says what it leaves alone	yes
+apps/desktop/src/renderer/src/a-pointed-part-sits-in-the-chat-box.test.tsx	a blocked page says it does not allow pointing	yes
+apps/desktop/src/renderer/src/a-pointed-part-sits-in-the-chat-box.test.tsx	a pointed part is a chip with a note, its styles, and a way to remove it	yes
+apps/desktop/src/renderer/src/a-pointed-part-sits-in-the-chat-box.test.tsx	a password field's chip has no picture of its contents	yes
 apps/desktop/src/renderer/src/a-proposed-change-says-what-it-changes.test.tsx	a rewrite shows the new words, the ones kept now, and Keep the change / Keep the old one	no
 apps/desktop/src/renderer/src/a-proposed-change-says-what-it-changes.test.tsx	a forget says so, and its buttons are Forget it / Keep it	no
 apps/desktop/src/renderer/src/a-proposed-change-says-what-it-changes.test.tsx	a new memory is asked about as it always was	no
@@ -2681,6 +2757,10 @@ apps/desktop/src/renderer/src/a-pull-request-chip-says-its-state.test.tsx	names 
 apps/desktop/src/renderer/src/a-pull-request-chip-says-its-state.test.tsx	wears its checks’ tone while open, and merged’s own once merged	yes
 apps/desktop/src/renderer/src/a-pull-request-link-wears-its-state.test.tsx	wears the state in words, and the checks as one mark	no
 apps/desktop/src/renderer/src/a-pull-request-link-wears-its-state.test.tsx	makes a bare pull request in the person's message a link, and a bare issue one too	no
+apps/desktop/src/renderer/src/a-question-is-answered-by-number.test.ts	chooses that option of the first question still without one	yes
+apps/desktop/src/renderer/src/a-question-is-answered-by-number.test.ts	answers the question the focus is in, even one already answered	yes
+apps/desktop/src/renderer/src/a-question-is-answered-by-number.test.ts	does nothing while typing, with a modifier held, past the options, or for other keys	yes
+apps/desktop/src/renderer/src/a-question-is-answered-by-number.test.ts	does nothing once every question with options has its answer, unless the focus says which	yes
 apps/desktop/src/renderer/src/a-question-makes-the-face-wait-on-you.test.ts	counts questions a teammate stopped on beside its paused runs	no
 apps/desktop/src/renderer/src/a-question-makes-the-face-wait-on-you.test.ts	leaves out memory suggestions, Scout cards, waiting routines, and items no teammate owns	no
 apps/desktop/src/renderer/src/a-question-makes-the-face-wait-on-you.test.ts	a question alone makes the face wait, in amber, with nothing running	yes
@@ -2861,6 +2941,11 @@ apps/desktop/src/renderer/src/a-signed-out-teammate-is-not-idle.test.ts	keeps a 
 apps/desktop/src/renderer/src/a-signed-out-teammate-is-not-idle.test.ts	is blocked when nothing at all is signed in, whatever it is set to	yes
 apps/desktop/src/renderer/src/a-signed-out-teammate-is-not-idle.test.ts	is not told to sign in	yes
 apps/desktop/src/renderer/src/a-signed-out-teammate-is-not-idle.test.ts	still is, when the runtime says it is signed out	yes
+apps/desktop/src/renderer/src/a-skill-row-names-its-skill.test.ts	reads as the skill used, without the prefix Locust added	yes
+apps/desktop/src/renderer/src/a-skill-row-names-its-skill.test.ts	one with no name still reads as a skill, never as the tool id	yes
+apps/desktop/src/renderer/src/a-skill-row-names-its-skill.test.ts	the steps' line says which skill, and its short form says a skill, never a tool	yes
+apps/desktop/src/renderer/src/a-skill-row-names-its-skill.test.ts	a skill's own file reads as the file it is a copy of, not the run's copy	yes
+apps/desktop/src/renderer/src/a-skill-row-names-its-skill.test.ts	the live line and the rail say the same	yes
 apps/desktop/src/renderer/src/a-spreadsheet-opens-as-a-grid.test.tsx	is the grid a spreadsheet person reads: letters across, numbers down	no
 apps/desktop/src/renderer/src/a-spreadsheet-opens-as-a-grid.test.tsx	shows a formula with no result as written, and says why once	no
 apps/desktop/src/renderer/src/a-spreadsheet-opens-as-a-grid.test.tsx	has a tab per sheet, below the grid as Excel keeps them	no
@@ -3056,6 +3141,15 @@ apps/desktop/src/renderer/src/a-turn-says-what-it-changed-apart-from-the-folder.
 apps/desktop/src/renderer/src/a-turn-says-what-it-changed-apart-from-the-folder.test.tsx	says a turn that edited nothing itself only saw files change	yes
 apps/desktop/src/renderer/src/a-turn-says-what-it-changed-apart-from-the-folder.test.tsx	counts a file the host could not read once, as the step that changed it (0.672)	yes
 apps/desktop/src/renderer/src/a-turn-says-what-it-changed-apart-from-the-folder.test.tsx	draws no foot while the turn is still going	yes
+apps/desktop/src/renderer/src/a-turn-sent-back-to-fix-is-said-as-locusts.test.tsx	draws no bubble in the person's voice	yes
+apps/desktop/src/renderer/src/a-turn-sent-back-to-fix-is-said-as-locusts.test.tsx	says what failed and which fix it is, for an earlier turn and the one on screen, with what was sent a click away	yes
+apps/desktop/src/renderer/src/a-turn-sent-back-to-fix-is-said-as-locusts.test.tsx	a routine’s own fix turn is Locust’s too, read from its words; a routine’s step stays the person’s	yes
+apps/desktop/src/renderer/src/a-turn-sent-back-to-fix-is-said-as-locusts.test.tsx	names whom it went back to, when the conversation has a teammate	yes
+apps/desktop/src/renderer/src/a-turn-sent-back-to-fix-is-said-as-locusts.test.tsx	says why it stopped under the turn it stopped after, when the conversation is opened again	yes
+apps/desktop/src/renderer/src/a-turn-sent-back-to-fix-is-said-as-locusts.test.tsx	a pass after a fix is the fix's; after the person's own turn it is the turn's	yes
+apps/desktop/src/renderer/src/a-turn-sent-back-to-fix-is-said-as-locusts.test.tsx	is off until chosen: the failure is shown, with the button	yes
+apps/desktop/src/renderer/src/a-turn-sent-back-to-fix-is-said-as-locusts.test.tsx	when on, says how many fixes at most and that each is a turn	yes
+apps/desktop/src/renderer/src/a-turn-sent-back-to-fix-is-said-as-locusts.test.tsx	cannot be turned on before there is a check to run	yes
 apps/desktop/src/renderer/src/a-turn-that-goes-quiet-says-so.test.tsx	says so after five minutes without a word, with Stop beside it	yes
 apps/desktop/src/renderer/src/a-turn-that-goes-quiet-says-so.test.tsx	says nothing while the turn is heard from, or while a command it named runs	no
 apps/desktop/src/renderer/src/a-turn-that-goes-quiet-says-so.test.tsx	counts whole minutes from when it was last heard, and only once there are five	yes
@@ -3144,6 +3238,9 @@ apps/desktop/src/renderer/src/an-added-account-is-named-in-the-picker.test.tsx	n
 apps/desktop/src/renderer/src/an-added-account-is-named-in-the-picker.test.tsx	hides added routes under organization policy while saying why Add is unavailable	no
 apps/desktop/src/renderer/src/an-added-account-is-named-in-the-picker.test.tsx	shows the agent-owned sign-in card without starting a login on render	no
 apps/desktop/src/renderer/src/an-antigravity-model-limit-is-its-own-bar.test.ts	reads each group's windows from the reading, the model's own limit last	yes
+apps/desktop/src/renderer/src/an-antigravity-question-is-answered-here.test.tsx	names Antigravity, offers every option and a written answer, and sends -- or skips	yes
+apps/desktop/src/renderer/src/an-antigravity-question-is-answered-here.test.tsx	offers no Skip where the runtime takes none	yes
+apps/desktop/src/renderer/src/an-antigravity-question-is-answered-here.test.tsx	shows the question and its options, says where to answer, and has no buttons	yes
 apps/desktop/src/renderer/src/an-approval-card-goes-with-its-run.test.ts	go when their run is stopped, fails or finishes	yes
 apps/desktop/src/renderer/src/an-approval-card-goes-with-its-run.test.ts	stay while their run is live, found by key or by its runId	yes
 apps/desktop/src/renderer/src/an-approval-card-goes-with-its-run.test.ts	stay when the window does not know the run yet	yes
@@ -3839,6 +3936,10 @@ apps/desktop/src/renderer/src/plan-answer.test.tsx	widens the gutter past nine s
 apps/desktop/src/renderer/src/plan-answer.test.tsx	renders nothing at all when the turn produced no steps	yes
 apps/desktop/src/renderer/src/plan-answer.test.tsx	keeps its markers, its counter and its label	yes
 apps/desktop/src/renderer/src/plan-answer.test.tsx	also renders nothing when there are no steps	yes
+apps/desktop/src/renderer/src/popular-skills-wait-for-keep.test.tsx	a kept pack says how many of its files run, in a sentence that agrees	yes
+apps/desktop/src/renderer/src/popular-skills-wait-for-keep.test.tsx	the popular shelf shows five packs and opens the existing Look before any Keep	yes
+apps/desktop/src/renderer/src/popular-skills-wait-for-keep.test.tsx	the new-this-week row uses the same tile and says how long each pack has been climbing	yes
+apps/desktop/src/renderer/src/popular-skills-wait-for-keep.test.tsx	every file that runs is named before keeping even when a skill has more than four scripts	yes
 apps/desktop/src/renderer/src/post-headline.test.ts	says so when everyone answered	yes
 apps/desktop/src/renderer/src/post-headline.test.ts	names one or two, and counts more	yes
 apps/desktop/src/renderer/src/post-headline.test.ts	counts a queue separately from what was asked	yes
@@ -3927,6 +4028,13 @@ apps/desktop/src/renderer/src/routine-recovery.test.tsx	names when Keep runs it 
 apps/desktop/src/renderer/src/routine-recovery.test.tsx	says why Continue is off, and offers to keep the schedule (0.390 beta pass)	yes
 apps/desktop/src/renderer/src/routine-recovery.test.tsx	says a refused start would be refused again, not that the step before it never finished (0.818)	yes
 apps/desktop/src/renderer/src/routine-recovery.test.tsx	an unresolved dispatch has the same visible protection; no optimistic next-run promise	no
+apps/desktop/src/renderer/src/routines-shelf.test.tsx	is called Routines, in its heading and to a screen reader	yes
+apps/desktop/src/renderer/src/routines-shelf.test.tsx	no longer holds the things a person cannot run	yes
+apps/desktop/src/renderer/src/routines-shelf.test.tsx	offers finished conversations instead of describing a right-click	yes
+apps/desktop/src/renderer/src/routines-shelf.test.tsx	says the honest sentence when a workspace has finished nothing at all	yes
+apps/desktop/src/renderer/src/routines-shelf.test.tsx	offers New routine, written from nothing, where the screen is given one (0.530, Sol's 0.528 pass)	yes
+apps/desktop/src/renderer/src/routines-shelf.test.tsx	is listed as a fact about that runtime, with no apology needed	no
+apps/desktop/src/renderer/src/routines-shelf.test.tsx	draws nothing at all for a runtime that has none	no
 apps/desktop/src/renderer/src/routines.test.ts	is named after what the person typed, not the attachment line	yes
 apps/desktop/src/renderer/src/routines.test.ts	takes the words a person typed on each turn, in order, with where each came from	yes
 apps/desktop/src/renderer/src/routines.test.ts	drops turns the HOST wrote, whatever started them	yes
@@ -4376,6 +4484,13 @@ apps/desktop/src/renderer/src/the-terminal-opens-before-the-first-message.test.t
 apps/desktop/src/renderer/src/the-terminal-opens-before-the-first-message.test.tsx	shows the organization restriction on the disabled terminal control	no
 apps/desktop/src/renderer/src/the-terminal-opens-before-the-first-message.test.tsx	recognizes Ctrl backtick on every platform and leaves unrelated keys alone	no
 apps/desktop/src/renderer/src/the-terminal-opens-before-the-first-message.test.tsx	keeps a pasted Unicode character whole at every IPC boundary	no
+apps/desktop/src/renderer/src/the-terminal-turns-are-drawn-as-yours.test.tsx	is the person's own words, with nothing attached	yes
+apps/desktop/src/renderer/src/the-terminal-turns-are-drawn-as-yours.test.tsx	carries its runtime through the conversation's turns, and Locust's own turns do not	yes
+apps/desktop/src/renderer/src/the-terminal-turns-are-drawn-as-yours.test.tsx	go into the terminal before its first turn, and back in Locust before the next of its own	yes
+apps/desktop/src/renderer/src/the-terminal-turns-are-drawn-as-yours.test.tsx	say whose terminal, and that it ran with that runtime's own permissions	yes
+apps/desktop/src/renderer/src/the-terminal-turns-are-drawn-as-yours.test.tsx	draws the terminal turns between one seam going in and one coming back, the words in order	yes
+apps/desktop/src/renderer/src/the-terminal-turns-are-drawn-as-yours.test.tsx	keeps the flag on every copy of a turn the window makes, the one a reply carries included	no
+apps/desktop/src/renderer/src/the-terminal-turns-are-drawn-as-yours.test.tsx	opens on a conversation whose newest turn was the terminal’s with the seam going in and none coming back	yes
 apps/desktop/src/renderer/src/the-theme-control-says-what-it-chose.test.tsx	offers the three, and marks Dark until the saved choice is read	no
 apps/desktop/src/renderer/src/the-theme-control-says-what-it-chose.test.tsx	says what each choice means, and what the computer is now under Match computer	no
 apps/desktop/src/renderer/src/the-thinking-dots-never-jump.test.ts	end each loop where the next begins: no wrap to jump across	yes
@@ -5081,6 +5196,15 @@ packages/runtime-adapters/test/a-real-muse-wonder-run-reads-whole.test.ts	reads 
 packages/runtime-adapters/test/a-real-muse-wonder-run-reads-whole.test.ts	says once that Meta's model is being tried again, and nothing for its first try	no
 packages/runtime-adapters/test/a-real-muse-wonder-run-reads-whole.test.ts	lets the session's bookkeeping go quietly, the branch it saw in a git folder among it	no
 packages/runtime-adapters/test/a-real-muse-wonder-run-reads-whole.test.ts	fails a tool it would not run on that tool's row, and lets its own reminder go quietly	no
+packages/runtime-adapters/test/a-run-is-handed-its-own-skills.test.ts	names the run's skill folder after the handshake and before the thread starts	yes
+packages/runtime-adapters/test/a-run-is-handed-its-own-skills.test.ts	runs the turn without them when the server does not know the request	yes
+packages/runtime-adapters/test/a-run-is-handed-its-own-skills.test.ts	says nothing about skills to a run that has none	yes
+packages/runtime-adapters/test/a-run-is-handed-its-own-skills.test.ts	in its per-run config's skills.paths, in every mode and on both routes, beside the rest of that config	yes
+packages/runtime-adapters/test/a-run-is-handed-its-own-skills.test.ts	never as a config folder: OpenCode would install its plugin package into it before every run	yes
+packages/runtime-adapters/test/a-run-is-handed-its-own-skills.test.ts	adds to configured paths on both routes and preserves the skill URLs	yes
+packages/runtime-adapters/test/a-run-is-handed-its-own-skills.test.ts	allows only the run's skills subtree and leaves every other mode rule in place	yes
+packages/runtime-adapters/test/a-run-is-handed-its-own-skills.test.ts	names the run's plugin on the print route and the ACP route, beside the command guard, and nowhere when there is none	yes
+packages/runtime-adapters/test/a-run-is-handed-its-own-skills.test.ts	adds the run's folder on every mode, as an absolute --add-dir, and still only lends a reference folder to a read-only run	yes
 packages/runtime-adapters/test/a-run-without-connectors-leaves-them-out.test.ts	stay out when the run is told so, on every model and in every mode, and Locust's own servers stay in	yes
 packages/runtime-adapters/test/a-run-without-connectors-leaves-them-out.test.ts	come along for a teammate that has them on, and where nothing was said	no
 packages/runtime-adapters/test/a-running-codex-turn-can-be-steered.test.ts	sends turn/steer on the thread, with the running turn's id, and says it was taken	no

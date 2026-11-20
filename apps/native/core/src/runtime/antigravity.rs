@@ -166,6 +166,12 @@ pub fn command(
             "Antigravity does not support Approve-each in the native driver.",
         ));
     }
+    // agy reads `--add-dir` against its own folder; the run's skills are elsewhere, so only an absolute one will do.
+    if let Some(dir) = skills
+        && !Path::new(dir).is_absolute()
+    {
+        return Err(err(format!("Skills folder must be an absolute path: {dir}")));
+    }
     let mut c = Command::new(super::discovery::find_named("agy")?);
     c.args(print_args(mode, model, effort, resume, references, skills))
         .current_dir(folder);

@@ -237,8 +237,14 @@ fn command_for_turn(
                 .find(|(k, _)| *k == "OPENCODE_CONFIG_CONTENT")
                 .and_then(|(_, v)| v.and_then(|v| v.to_str()).and_then(|v| serde_json::from_str::<Value>(v).ok()));
             if let Some(config) = config.filter(|c| !sealed && c["permission"].is_object() && (!references.is_empty() || skills.is_some())) {
+                // The person's own skill paths go beside the run's folder (opencode-skill-paths.ts, 0.816); settings
+                // OpenCode could not read refuse the run before it starts, naming the file.
+                let person = match skills {
+                    Some(_) => crate::opencode_skill_paths::for_this_process(folder).map_err(io::Error::other)?,
+                    None => Vec::new(),
+                };
                 let config = crate::runtime::opencode_config::with_references(config, mode, references);
-                c.env("OPENCODE_CONFIG_CONTENT", crate::runtime::opencode_config::with_skills(config, skills).to_string());
+                c.env("OPENCODE_CONFIG_CONTENT", crate::runtime::opencode_config::with_skills(config, skills, &person).to_string());
             }
             Ok(c)
         }
@@ -2515,8 +2521,7 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
         "copilot" | "cursor" | "antigravity" => run_dir.clone(),
         _ => None,
     };
-    let skill_copies: Vec<PathBuf> =
-        claude_plugins.first().and_then(|p| p.dir.parent().map(Path::to_path_buf)).into_iter().chain(run_skills.as_ref().map(|r| r.dir.clone())).collect();
+    let skill_copies: Vec<PathBuf> = crate::skills::copies_of(&claude_plugins, run_skills.as_ref());
     let mut command = command_for_turn(
         runtime_name,
         &folder,
@@ -2843,9 +2848,7 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
             );
             cursor_guard.end();
             // The run's skill copies go with it.
-            for copy in &skill_copies {
-                let _ = std::fs::remove_dir_all(copy);
-            }
+            crate::skills::remove_copies(&skill_copies);
             crate::skills::forget_roots(&memory_id);
             record_disk_observation(&memory_store, &memory_id, &memory_folder, disk_before, &checkpoint);
             let (edited, seen_changes) = match checkpoint.finish_reporting_changes(&memory_store, &memory_id) {

@@ -53,6 +53,23 @@ fn button(label: impl Into<String>, p: &Palette) -> El {
         .padding(7.0)
 }
 
+/// A radio's name to a screen reader, with ", chosen" on the one picked (Electron's aria-checked).
+fn chosen_label(label: &str, chosen: bool) -> String {
+    format!("{label}{}", if chosen { ", chosen" } else { "" })
+}
+
+/// The line under "When it fails" (CheckAfterEditsRow): what happens to a failure, in the folder's own choice.
+pub(super) fn check_fix_note(has_check: bool, fix_tries: Option<u32>) -> String {
+    match fix_tries {
+        None if has_check => "What is new in the failure is shown under the turn, with a button to send it to the teammate.".into(),
+        None => "Save a check first. Then a failure can be shown to you, or sent back to the teammate to fix.".into(),
+        Some(tries) => format!(
+            "After a turn you sent, what is new in the failure goes back to the same teammate, on the same model, until the check passes: {tries} time{} at most, and it stops sooner when a fix changes nothing. Each fix is one more turn.",
+            if tries == 1 { "" } else { "s" }
+        ),
+    }
+}
+
 fn active_button(label: impl Into<String>, p: &Palette, on: bool) -> El {
     text(label.into())
         .font(type_::LABEL)
@@ -144,6 +161,7 @@ fn reload(s: &mut State) {
     }
     crate::agents_section::request(s);
     crate::github_section::request(s);
+    crate::skills_from_github::reload(s);
     crate::chat_apps_section::reload(s);
     crate::claude_app_card::request(s);
     crate::agent_accounts_card::reload(s);
@@ -1067,6 +1085,7 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                             }));
                     }
                     "Auto mode" => body = body.child(auto_mode_section(s, p)),
+                    crate::skills_from_github::HEADING => body = body.child(crate::skills_from_github::section(s, p)),
                     _ => body = body.child(deferred(heading, p)),
                 }
             }
@@ -1239,15 +1258,25 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                     .child(text("When it fails").font(type_::LABEL).color(p.secondary))
                     .child(
                         active_button("Show me", p, fix_tries.is_none())
+                            .role("radio")
+                            .label(chosen_label("Show me", fix_tries.is_none()))
                             .key("settings-check-fix-off")
                             .on_press(move |s: &mut State| {
                                 s.settings_panel.settings.check_fixes.remove(&ws_off);
                                 persist(s);
                             }),
                     )
-                    .child(
-                        active_button("Send it back to fix", p, fix_tries.is_some())
-                            .key("settings-check-fix-on")
+                    .child({
+                        // Off until there is a check to run (CheckAfterEditsRow): it says why on hover.
+                        let unusable = !has_check && fix_tries.is_none();
+                        let mut on = active_button("Send it back to fix", p, fix_tries.is_some())
+                            .role("radio")
+                            .label(chosen_label("Send it back to fix", fix_tries.is_some()))
+                            .key("settings-check-fix-on");
+                        if unusable {
+                            on = on.opacity(0.45).help("Save a check first.");
+                        }
+                        on
                             .on_press(move |s: &mut State| {
                                 let has = s.settings_panel.settings.check_commands.contains_key(&ws_on);
                                 let current = s.settings_panel.settings.check_fixes.get(&ws_on).copied();
@@ -1256,14 +1285,16 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                                     s.settings_panel.settings.check_fixes.insert(ws_on.clone(), next);
                                     persist(s);
                                 }
-                            }),
-                    );
+                            })
+                    });
                 if let Some(tries) = fix_tries {
                     fail_row = fail_row.child(text("at most").font(type_::LABEL).color(p.secondary));
                     for most in 1..=locust_core::edit_check::MAX_CHECK_FIXES {
                         let ws_m = ws.clone();
                         fail_row = fail_row.child(
                             active_button(most.to_string(), p, tries == most)
+                                .role("radio")
+                                .label(chosen_label(&format!("{most} {}", if most == 1 { "fix" } else { "fixes" }), tries == most))
                                 .key(format!("settings-check-fix-{most}"))
                                 .on_press(move |s: &mut State| {
                                     s.settings_panel.settings.check_fixes.insert(ws_m.clone(), most);
@@ -1277,7 +1308,9 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                             .color(p.secondary),
                     );
                 }
-                check_col = check_col.child(fail_row);
+                check_col = check_col.child(fail_row).child(
+                    text(check_fix_note(has_check, fix_tries)).key("settings-check-fix-note").font(type_::LABEL).color(p.secondary).w_full().wrap(),
+                );
                 body = body.child(check_col);
             }
             body = body.child(crate::own_copies::section(s, p));
@@ -1880,3 +1913,7 @@ mod settings_look_tests;
 #[cfg(test)]
 #[path = "settings_read_like_claudes_tests.rs"]
 mod settings_read_like_claudes_tests;
+
+#[cfg(test)]
+#[path = "check_fix_settings_tests.rs"]
+mod check_fix_settings_tests;

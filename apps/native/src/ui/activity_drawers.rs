@@ -411,6 +411,33 @@ fn plan_card(steps: &[ledger::PlanStep], finished: bool, p: &Palette) -> El {
         .child(list)
 }
 
+/// A row per file, each folded but the one `default` names (or every one, in verbose mode). A new Markdown file opens
+/// as the document it is, and a new web page as the page, run beside the conversation.
+fn file_rows(files: &[locust_core::activity_entries::FileEntry], default: Option<&str>, p: &Palette, s: &State, scope: &str) -> El {
+    let mut rows = col().w_full().gap(4.0);
+    for entry in files {
+        let key = format!("{scope}/{}", entry.key);
+        let open = s.activity_open.get(&key).copied().unwrap_or(verbose(s) || default == Some(entry.key.as_str()));
+        // ActivityCard.tsx: "large" when it is, and counts only when they are the change's own (fileRowCounts).
+        let mut label = format!("{} {}", entry.file.path, entry.file.status);
+        if entry.large { label.push_str(" · large"); }
+        if let Some((a, d)) = entry.row_counts().filter(|(a, d)| a + d > 0) {
+            label.push(' ');
+            label.push_str(&locust_core::changes::line_counts(a, d));
+        }
+        let mut card = col().w_full().child(disclosure(key.clone(), label, open, p));
+        if open {
+            card = card.child(match locust_core::changes::new_document(&entry.file) {
+                Some(locust_core::changes::NewDocument::Markdown) => doc_preview(s, &key, entry, p),
+                Some(locust_core::changes::NewDocument::Page) => page_preview(s, &key, entry, p),
+                _ => super::review_changes::file_diff(s, None, false, &entry.file, p),
+            });
+        }
+        rows = rows.child(card);
+    }
+    rows
+}
+
 pub(super) fn activity_item(item: &ledger::Item, p: &Palette, s: &State, scope: &str) -> El {
     activity_item_with_files(item, p, s, scope, locust_core::activity_entries::files(item))
 }
@@ -429,28 +456,8 @@ fn activity_item_with_files(item: &ledger::Item, p: &Palette, s: &State, scope: 
         return step;
     }
     if !files.is_empty() {
-        let default = locust_core::activity_entries::default_open(&files);
-        let mut rows = col().w_full().gap(4.0);
-        for entry in &files {
-            let key = format!("{scope}/{}", entry.key);
-            let open = s.activity_open.get(&key).copied().unwrap_or(verbose(s) || default == Some(entry.key.as_str()));
-            // ActivityCard.tsx: "large" when it is, and counts only when they are the change's own (fileRowCounts).
-            let mut label = format!("{} {}", entry.file.path, entry.file.status);
-            if entry.large { label.push_str(" · large"); }
-            if let Some((a, d)) = entry.row_counts().filter(|(a, d)| a + d > 0) {
-                label.push(' ');
-                label.push_str(&locust_core::changes::line_counts(a, d));
-            }
-            let mut card = col().w_full().child(disclosure(key.clone(), label, open, p));
-            if open {
-                card = card.child(match locust_core::changes::new_document(&entry.file) {
-                    Some(locust_core::changes::NewDocument::Markdown) => doc_preview(s, &key, entry, p),
-                    _ => super::review_changes::file_diff(s, None, false, &entry.file, p),
-                });
-            }
-            rows = rows.child(card);
-        }
-        return rows;
+        let default = locust_core::activity_entries::default_open(&files).map(str::to_owned);
+        return file_rows(&files, default.as_deref(), p, s, scope);
     }
     if let Some((name, _, too_large)) = locust_core::activity_entries::unreported(item) {
         return text(format!("{name} · {}", if too_large { "result too large to keep" } else { "change not reported" })).font(type_::LABEL).color(p.muted).w_full().wrap_anywhere();
@@ -649,6 +656,32 @@ fn doc_preview(s: &State, key: &str, entry: &locust_core::activity_entries::File
         .child(foot)
 }
 
+/// DocPreview.tsx's PagePreview (0.425): a new web page, run. Electron frames it inside the card; this window has no
+/// frame inside the thread, so its Page runs it at its own address in the browser beside the conversation, and
+/// "Show the change" is its source.
+fn page_preview(s: &State, key: &str, entry: &locust_core::activity_entries::FileEntry, p: &Palette) -> El {
+    let l = crate::look::controls::Look::new(p.dark);
+    let as_change_key = format!("{key}/as-change");
+    let name = entry.file.path.replace('\\', "/").rsplit('/').next().unwrap_or(&entry.file.path).to_owned();
+    let flip = as_change_key.clone();
+    let as_change = s.activity_open.get(&as_change_key).copied().unwrap_or(false);
+    let switch = crate::look::controls::button(&l, if as_change { "Show it as a page" } else { "Show the change" }, crate::look::controls::Tone::Neutral, false).on_press(move |s: &mut State| {
+        let now = s.activity_open.get(&flip).copied().unwrap_or(false);
+        s.activity_open.insert(flip.clone(), !now);
+    });
+    if as_change {
+        return col().w_full().gap(6.0).child(super::review_changes::file_diff(s, None, false, &entry.file, p)).child(row().child(switch));
+    }
+    col()
+        .w_full()
+        .gap(6.0)
+        .key(format!("{key}/page"))
+        .role("region")
+        .label(format!("{name}, running"))
+        .child(text(super::reply_page_ui::RUNS_APART).font(type_::LABEL).color(p.muted).w_full().wrap_anywhere())
+        .child(row().w_full().gap(8.0).center_y().child(super::reply_page_ui::page_control(format!("{key}/run"), entry.file.path.clone(), p)).child(switch))
+}
+
 /// Thread.tsx `TurnFoot`'s files card: the turn's files one row each, headed by `files_heading`, open until closed.
 /// `turn` is the finished turn's items; `scope` keys the card's open state; `mission` is the turn's own id, whose
 /// Undo (TurnUndo) sits under the card and, once it has put files back, adds "undone" to the heading (0.840).
@@ -661,9 +694,12 @@ pub(super) fn turn_foot_card(turn: &[ledger::Item], p: &Palette, s: &State, scop
     let heading = locust_core::turn_foot::files_heading(foot.edited, foot.seen, undone);
     let mut card = col().w_full().gap(4.0).key(format!("{scope}/turn-foot")).child(disclosure(key, heading, open, p));
     if open {
+        // ActivityCard.tsx's files variant (0.580): only a new web page opens, wherever it is in the list.
+        let entries: Vec<_> = foot.rows.iter().filter_map(|r| match r { locust_core::turn_foot::Row::File { entry, .. } => Some(entry.clone()), _ => None }).collect();
+        let page = locust_core::activity_entries::new_page_entry(&entries).map(str::to_owned);
         for row in &foot.rows {
             card = card.child(match row {
-                locust_core::turn_foot::Row::File { at, entry, .. } => activity_item_with_files(&turn[*at], p, s, scope, vec![entry.clone()]),
+                locust_core::turn_foot::Row::File { entry, .. } => file_rows(std::slice::from_ref(entry), page.as_deref(), p, s, scope),
                 locust_core::turn_foot::Row::Unreported { at, path, .. } => {
                     let settled = !matches!(&turn[*at], ledger::Item::Tool { status: ledger::Status::Running, .. });
                     text(format!(

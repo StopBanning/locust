@@ -33,7 +33,7 @@ fn request(kind: Kind, summary: &str, detail: &str) -> Request {
         data_sent_says: None,
         reversible_says: None,
         patch: None,
-        claude_input: None,
+        skippable: false, answer_in: None, claude_input: None,
         questions: Vec::new(),
     }
 }

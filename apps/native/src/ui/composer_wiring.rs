@@ -284,7 +284,7 @@ pub(super) fn pick_at_choice(s: &mut State, choice: AtChoice) {
         .replace_text(composer::without_at_query(&s.draft.text));
     match choice {
         AtChoice::Teammate { id, .. } => {
-            if !s.tagged.contains(&id) && s.tagged.len() < 5 {
+            if !s.tagged.contains(&id) && s.tagged.len() < locust_core::tagging::MAX_TAGGED {
                 s.tagged.push(id);
             }
         }
@@ -534,7 +534,7 @@ pub(super) fn submit_composer(s: &mut State, tx: &mut Tx, send_now: bool) {
         }
         return;
     }
-    if typed.is_empty() && s.attached.is_empty() {
+    if typed.is_empty() && s.attached.is_empty() && s.page_points.chips.is_empty() {
         if let Some(why) = send_blocked_now(s) {
             s.composer_note = Some(why.to_owned());
         }
@@ -545,9 +545,13 @@ pub(super) fn submit_composer(s: &mut State, tx: &mut Tx, send_now: bool) {
         return;
     }
     if turn_running(s) {
-        if queue_front(s).is_some() || !enqueue_follow_up(s, typed.clone(), s.attached.clone()) {
+        // A queued message carries the parts pointed at too; they leave the box only once it is queued.
+        let (queued, attached) = crate::page_points_ui::with_points(s, &typed, &s.attached);
+        if queue_front(s).is_some() || !enqueue_follow_up(s, queued, attached) {
             return;
         }
+        crate::tag_send::send_tags(s, &composer::with_attachments(&typed, &s.attached));
+        crate::page_points_ui::sent(s);
         s.draft.clear();
         s.attached.clear();
         s.tagged.clear();
@@ -583,8 +587,11 @@ pub(super) fn submit_composer(s: &mut State, tx: &mut Tx, send_now: bool) {
         }
     }
     s.recall_at = -1;
+    // The parts pointed at in the browser go with this message, after the person's words (PagePointChips).
+    let typed = crate::page_points_ui::take_into(s, &typed);
     s.draft
         .replace_text(composer::with_attachments(&typed, &s.attached));
+    crate::tag_send::send_tags(s, &s.draft.text.clone());
     s.attached.clear();
     s.tagged.clear();
     s.off_the_queue = false;

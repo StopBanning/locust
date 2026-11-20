@@ -172,8 +172,9 @@ fn command_pattern(command: &str) -> Option<String> {
 }
 
 /// The open call in words, as Claude Code's status line says it (missionView.ts `liveActionLine`, 0.569): the model's
-/// own title, else what a command looks at or runs, else the file a writing tool writes. None where Electron's
-/// helper, skill and reading-tool cases would answer (not carried yet): the line then shows the call as before.
+/// own title, else what a command looks at or runs, else the skill a Skill call uses, else the file a writing tool
+/// writes. None where Electron's helper and reading-tool cases would answer (not carried yet): the line then shows the
+/// call as before.
 pub fn live_action(title: Option<&str>, kind: &str, name: &str, command: Option<&str>) -> Option<String> {
     let title = title.map(|t| t.split_whitespace().collect::<Vec<_>>().join(" ")).filter(|t| !t.is_empty());
     if let Some(title) = title {
@@ -191,6 +192,10 @@ pub fn live_action(title: Option<&str>, kind: &str, name: &str, command: Option<
                 if first.chars().filter(char::is_ascii_alphabetic).count() < 3 { "Running a script".into() } else { format!("Running {}", clip(first, 40)) }
             }
         });
+    }
+    let target = command.unwrap_or("").trim();
+    if let Some(skill) = crate::signal_rail::skill_called(name, if target == name.trim() { "" } else { target }) {
+        return Some(crate::signal_rail::skill_words(&skill, true));
     }
     let tool = name.to_lowercase();
     let writes = ["write", "write_to_file", "writetofile", "create_file", "createfile", "edit", "edit_file", "editfile", "apply_patch", "applypatch"].contains(&tool.as_str())
@@ -446,7 +451,16 @@ static REVIEW_BRIEF: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::ne
 
 /// Electron's `briefAskedFor`, as a yes or no: the host's own brief (a tidy pass, a review), never the person's words.
 pub fn brief_asked_for(prompt: &str) -> bool {
-    crate::memory_tidy::is_tidy_prompt(Some(prompt)) || REVIEW_BRIEF.is_match(prompt)
+    brief_line(prompt).is_some()
+}
+
+/// What a button's brief asked for, in the one line the person would have said: a tidy pass (any version of its
+/// brief, the fenced one sent before 0.372 included) or a review of a teammate's work. None for anything else.
+pub fn brief_line(prompt: &str) -> Option<String> {
+    if crate::memory_tidy::is_tidy_prompt(Some(prompt)) {
+        return Some("Tidy this folder's team memory.".into());
+    }
+    REVIEW_BRIEF.captures(prompt).map(|found| format!("Review {}'s work.", &found[1]))
 }
 
 /// Electron's `runAgainKind`: a relay waits for the teammate's next run; a host briefing keeps its own control.

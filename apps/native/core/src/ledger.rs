@@ -862,15 +862,18 @@ impl Transcript {
         }
         let mut items = Vec::new();
         if let Some(m) = &self.metadata {
-            if let Some(cf) = &m.check_fix {
+            // A turn Locust sent back to fix a check -- its own, or a routine's -- is a line of Locust's, not a bubble.
+            if let Some(cf) = crate::conversation_turns::fix_of_turn(m) {
                 items.push(Item::CheckFix {
-                    command: cf.command.clone(),
+                    command: cf.command,
                     fix: cf.fix,
                     of: cf.of,
                     prompt: scrub(&m.prompt),
                 });
             } else {
-                items.push(Item::User(scrub(if crate::conversation_turns::is_reply_switch(m) { crate::conversation_turns::handoff_instruction(&m.prompt).unwrap_or(&m.prompt) } else { crate::conversation_turns::shown_prompt(m) })));
+                // What the bubble says (a button's brief as what it asked for); the turn's start stays when it says nothing.
+                let shown = crate::conversation_turns::turn_line(m).unwrap_or(std::borrow::Cow::Borrowed(crate::conversation_turns::shown_prompt(m)));
+                items.push(Item::User(scrub(if crate::conversation_turns::is_reply_switch(m) { crate::conversation_turns::handoff_instruction(&m.prompt).unwrap_or(&m.prompt) } else { &shown })));
             }
         }
         // Fix 8: store (item_index, utf16_units) so streaming deltas count UTF-16 units incrementally.

@@ -74,6 +74,18 @@ pub(super) struct Panel {
     /// The check command of the folder the routine runs in (Settings > Project folder), read when the editor opens;
     /// None when the folder has none, and then "Keep going until the check passes" cannot be chosen.
     pub check_command: Option<String>,
+    /// The finished conversations an empty shelf offers to save (savableConversations.ts), read when the shelf loads.
+    pub savable: Vec<SavableRow>,
+    /// How a finished conversation is read back from the ledger; tests hand it their own turns.
+    pub read_saved: fn(&str) -> Option<locust_core::routine_draft::Saved>,
+    /// The editor holds a draft from a conversation with more turns than a routine can hold.
+    pub truncated: bool,
+}
+/// A finished conversation on the shelf: its row, and what reading it back gave (None when it could not be read).
+#[derive(Clone)]
+pub(super) struct SavableRow {
+    pub row: locust_core::engine::ConversationRow,
+    pub saved: Option<locust_core::routine_draft::Saved>,
 }
 /// How often the window looks: the schedule (Electron: once a minute), the watched folders (`POLL_MS`), and the
 /// ends of the steps it follows. Tests set them to zero rather than waiting.
@@ -135,6 +147,9 @@ impl Default for Panel {
             reads_only: None,
             saved_reads_only: None,
             check_command: None,
+            savable: Vec::new(),
+            read_saved: locust_core::routine_draft::read_saved,
+            truncated: false,
         }
     }
 }
@@ -153,6 +168,22 @@ fn reload(s: &mut State) {
         Ok(v) => s.routines.file = v,
         Err(e) => s.routines.error = e,
     }
+    offer_savable(s);
+}
+
+/// The finished conversations an empty shelf offers (savableConversations.ts), each read back for its turns and
+/// draft. Only an empty shelf offers them, so only then are they read.
+fn offer_savable(s: &mut State) {
+    let empty = s.routines.file["routines"].as_array().is_some_and(Vec::is_empty);
+    let read = s.routines.read_saved;
+    s.routines.savable = if empty {
+        locust_core::routine_draft::savable_conversations(&s.recent, locust_core::routine_draft::SAVABLE_SHOWN)
+            .into_iter()
+            .map(|row| SavableRow { row: row.clone(), saved: read(&row.id) })
+            .collect()
+    } else {
+        Vec::new()
+    };
 }
 pub(super) fn open(s: &mut State) {
     crate::room_screen::close(s);
@@ -162,6 +193,23 @@ pub(super) fn open(s: &mut State) {
     // The note under the list says whether Locust starts at login, so read it as Settings does.
     #[cfg(not(test))]
     crate::settings_panel::read_login_item(s);
+}
+
+/// Save as routine on a finished conversation (App.tsx openSaveRoutine): the editor opens on its draft -- the words
+/// the person typed, named from the first -- for the teammate the conversation belongs to, or asking who runs it when
+/// it was nobody's. Where it came from is kept with it.
+fn save_from_conversation(s: &mut State, at: usize) {
+    let Some(shelf) = s.routines.savable.get(at).cloned() else { return };
+    let Some(saved) = shelf.saved else { return };
+    let Some(draft) = saved.draft else { return };
+    // The conversation's owner, walked back (conversationOwnerOf): a follow-up typed after it was assigned records no
+    // owner of its own. Then the name its row shows; else nobody, and the editor asks who runs it.
+    let known = |id: &str| s.teammates.iter().any(|t| t.id == id);
+    let owner = saved.chain.iter().find_map(|m| s.mission_owners.get(m).filter(|id| known(id)).cloned())
+        .or_else(|| s.teammates.iter().find(|t| t.name == shelf.row.teammate).map(|t| t.id.clone()))
+        .unwrap_or_default();
+    edit(s, json!({"name": draft.name, "steps": draft.steps, "teammateId": owner, "learnedFrom": draft.learned_from}));
+    s.routines.truncated = draft.truncated;
 }
 
 /// "Routines run while Locust is open. Start Locust when you log in: On/Off" (AutomationsScreen.tsx), the word a
@@ -181,6 +229,7 @@ pub(super) fn login_note(s: &State, p: &Palette) -> El {
         }))
 }
 fn edit(s: &mut State, r: Value) {
+    s.routines.truncated = false;
     s.routines.choose_runner = r["teammateId"].as_str().is_none_or(str::is_empty);
     s.routines.steps = r["steps"]
         .as_array()
@@ -381,12 +430,15 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
         .child(
             row()
                 .gap(12.0)
+                // Called what every control on it already calls the object (routines-shelf.test.tsx): Save as routine,
+                // Edit routine, routineRunSummary. The count beside it, as Electron's ScreenHeader meta says it.
                 .child(
-                    text("Automations")
+                    text("Routines")
+                        .key("routines-heading")
                         .font(type_::TITLE)
-                        .color(p.text)
-                        .grow(1.0),
+                        .color(p.text),
                 )
+                .child(text(shelf_meta(&panel.file)).key("routines-meta").font(type_::LABEL).color(p.muted).grow(1.0))
                 .child(button("Close", p).on_press(|s: &mut State| s.routines.open = false)),
         );
     let owner = s.teammates.get(s.selected).map(|t| t.id.clone());
@@ -498,6 +550,10 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
             );
         }
         body = body.child(inputs_editor(s, p));
+        if panel.truncated {
+            body = body.child(text(format!("This conversation had more turns than a routine can hold, so the first {} are here.", locust_core::routine_draft::MAX_ROUTINE_STEPS))
+                .key("routine-truncated").font(type_::LABEL).color(p.secondary).wrap());
+        }
         body = body.child(where_and_goal(s, p));
         body = body.child(
             text("Runs on its own")
@@ -684,7 +740,7 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
     }
     if let Some(rs) = panel.file["routines"].as_array() {
         if rs.is_empty() {
-            body = body.child(text("No routines yet").font(type_::BODY).color(p.muted));
+            body = body.child(empty_shelf(s, p));
             if !panel.templates_open {
                 body = body.child(templates_view(s, p));
             }
@@ -794,7 +850,66 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
         }
         body = body.child(login_note(s, p));
     }
-    body.scroll(ScrollSpec { stick_bottom: false }).h_full()
+    body.key("routines-shelf").label("Routines").scroll(ScrollSpec { stick_bottom: false }).h_full()
+}
+
+/// The header's count (AutomationsScreen meta): "none saved", or how many, how many go on a schedule, and how many of
+/// those are paused -- a paused one is not going on its own, so it is counted apart.
+fn shelf_meta(file: &Value) -> String {
+    let rs = file["routines"].as_array().map_or(&[][..], Vec::as_slice);
+    if rs.is_empty() {
+        return "none saved".into();
+    }
+    let timed = |r: &&Value| r.get("schedule").is_some_and(|s| !s.is_null());
+    let paused = rs.iter().filter(timed).filter(|r| r["paused"] == true).count();
+    let scheduled = rs.iter().filter(timed).count() - paused;
+    let on = if scheduled == 0 { "none on a schedule".to_owned() } else { format!("{scheduled} on a schedule") };
+    let held = if paused == 0 { String::new() } else { format!(" · {paused} paused") };
+    format!("{} saved · {on}{held}", rs.len())
+}
+
+/// An empty shelf CONTAINS the entrance rather than describing it (AutomationsScreen): what a routine is, then the
+/// newest finished conversations, each with Save as routine. With none, the one honest line -- unless there are starter
+/// templates to offer instead, and then they are the material.
+fn empty_shelf(s: &State, p: &Palette) -> El {
+    let mut shelf = col().gap(8.0).w_full().key("routines-empty").child(
+        text("A routine is a job a teammate does again: steps you write, or the turns of a conversation you save, replayed when you press Run or on a schedule.")
+            .font(type_::BODY).color(p.text).wrap(),
+    );
+    let offered = !locust_core::routine_templates::list_shipped_templates().is_empty();
+    if s.routines.savable.is_empty() {
+        if !offered {
+            shelf = shelf.child(text(locust_core::routine_draft::NOTHING_TO_SAVE_YET).key("routines-nothing-yet").font(type_::LABEL).color(p.muted).wrap());
+        }
+    } else {
+        shelf = shelf.child(text("Save one of your finished conversations to start.").font(type_::LABEL).color(p.secondary));
+        let now = chrono::Utc::now().timestamp_millis();
+        let mut card = col().gap(4.0).w_full().padding(8.0).fill(p.raised).radius(8.0);
+        for (at, item) in s.routines.savable.iter().enumerate() {
+            let id = item.row.id.clone();
+            let draft = item.saved.as_ref().and_then(|saved| saved.draft.as_ref());
+            let turns = item.saved.as_ref().map_or(1, |saved| saved.turns);
+            let mut save = button("Save as routine", p).key(format!("routine-save-from-{id}")).role("button");
+            save = match draft {
+                Some(_) => save.on_press(move |s: &mut State| save_from_conversation(s, at)),
+                // App.tsx's menu says why on a conversation with nothing typed in it; here the button says it.
+                None => save.disabled(true).help("Nothing here was typed by you"),
+            };
+            card = card.child(
+                row().gap(8.0).center_y().w_full()
+                    .child(open_button(&item.row.title, id.clone(), p).key(format!("routine-savable-{id}")).help(item.row.title.clone()).grow(1.0))
+                    .child(text(locust_core::routine_draft::turns_label(turns)).key(format!("routine-savable-turns-{id}")).font(type_::LABEL).color(p.muted))
+                    .child(text(crate::rail::short_ago(Some(&item.row.updated), now).unwrap_or_default()).font(type_::LABEL).color(p.muted))
+                    .child(save),
+            );
+        }
+        shelf = shelf.child(card);
+    }
+    if offered {
+        let head = if s.routines.savable.is_empty() { "Start from a template, or press New routine to write your own." } else { "Or start from a template." };
+        shelf = shelf.child(text(head).font(type_::LABEL).color(p.secondary));
+    }
+    shelf
 }
 pub(super) fn scene(s: &mut State) {
     crate::scenes::team_scene(s);
@@ -1042,7 +1157,7 @@ fn open_button(label: &str, mission: String, p: &Palette) -> El {
             s.routines.open = false;
             open_recent(s, row, tx);
         } else {
-            s.routines.error = "The conversation is not in Recent yet. Reload the team, then open Automations again.".into();
+            s.routines.error = "The conversation is not in Recent yet. Reload the team, then open Routines again.".into();
         }
     })
 }
@@ -2267,3 +2382,7 @@ mod card_and_editor_tests;
 #[cfg(test)]
 #[path = "routine_recovery_tests.rs"]
 mod recovery_tests;
+
+#[cfg(test)]
+#[path = "routines_shelf_tests.rs"]
+mod shelf_tests;

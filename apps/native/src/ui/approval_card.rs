@@ -427,7 +427,7 @@ mod tests {
                 removed: 1,
                 truncated: false,
             }),
-            claude_input: None,
+            skippable: false, answer_in: None, claude_input: None,
             questions: Vec::new(),
         }
     }

@@ -32,19 +32,45 @@ pub(super) fn open_page(s: &mut State, html: &str) {
     let Some(store) = s.data.clone() else { return refused(s, NOT_OPENED.into()) };
     let Some(path) = write_reply_page(html, &store.root().join(REPLY_PAGES_FOLDER)) else { return refused(s, NOT_OPENED.into()) };
     let Some(folder) = path.parent().map(std::path::Path::to_path_buf) else { return refused(s, NOT_OPENED.into()) };
-    let opened = {
-        let mut host = crate::invariants::lock(&s.browser.host);
-        host.preview.url_for(&path, Some(&folder)).and_then(|url| {
-            let tab = match host.active {
-                Some(id) => id,
-                None => host.add(crate::browser::Profile(None))?,
-            };
-            host.navigate(tab, &url, true)?;
-            host.open = true;
-            Ok(())
-        })
-    };
+    let opened = run_beside(s, &path, &folder);
     if let Err(why) = opened {
         refused(s, why);
     }
+}
+
+/// Runs the page at `path` in the browser panel beside the conversation, at its own `locust-page` address under
+/// `folder` (page_preview): the same way a reply's page, a teammate's new page and the viewer's Page open.
+pub(super) fn run_beside(s: &mut State, path: &std::path::Path, folder: &std::path::Path) -> Result<(), String> {
+    let mut host = crate::invariants::lock(&s.browser.host);
+    let tab = match host.active {
+        Some(id) => id,
+        None => host.add(crate::browser::Profile(None))?,
+    };
+    host.open_page(tab, path, folder)?;
+    host.open = true;
+    Ok(())
+}
+
+/// The Page of a web page in the file viewer and on its turn's card: what it is and where it runs.
+pub(super) const RUNS_APART: &str = "It runs at its own address in the browser beside the conversation, and cannot reach Locust, your files or your accounts.";
+pub(super) const RUN_THE_PAGE: &str = "Page";
+
+/// The Page control for a web page at `path` (relative to the conversation's folder, or absolute): runs it beside the
+/// conversation, or says why not where the person is looking.
+pub(super) fn page_control(key: String, path: String, p: &Palette) -> El {
+    let l = crate::look::controls::Look::new(p.dark);
+    crate::look::controls::button(&l, RUN_THE_PAGE, crate::look::controls::Tone::Neutral, false)
+        .key(key)
+        .on_press(move |s: &mut State| {
+            let Some(folder) = selected_conversation(s).and_then(|(t, _)| t.folder.clone()) else {
+                s.status = "This conversation has no folder, so the page has nowhere to run.".into();
+                s.status_tone = StatusTone::Muted;
+                return;
+            };
+            let absolute = std::path::PathBuf::from(crate::file_menu::rooted_path(&path, Some(&folder)));
+            if let Err(why) = run_beside(s, &absolute, std::path::Path::new(&folder)) {
+                s.status = why;
+                s.status_tone = StatusTone::Muted;
+            }
+        })
 }

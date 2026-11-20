@@ -96,6 +96,9 @@ fn reveal_handed_file(s: &mut State, scope: &str, path: &str) {
     }
 }
 
+/// How much of a handed file's path its pill keeps when the reply is narrow; the note gives way first.
+const PATH_KEPT: f32 = 96.0;
+
 pub(super) fn view(
     s: &State,
     files: &[HandedFile],
@@ -110,7 +113,10 @@ pub(super) fn view(
     let mut container = col().w_full().gap(6.0);
 
     if !files.is_empty() {
-        let mut pills = row().w_full().gap(8.0);
+        // Beside the browser the reply is ~418px wide (the-thread-beside-the-browser-keeps-its-parts-whole, 0.867): a
+        // file and its buttons wrap to a line of their own, the pill gives way inside the reply, its note before its
+        // path, and Copy and Save a copy stay whole.
+        let mut pills = row().w_full().gap(8.0).flex_wrap();
         for (idx, file) in files.iter().enumerate() {
             let display_path = if protocol_tags::is_whole_path(&file.path) {
                 file.path
@@ -128,18 +134,26 @@ pub(super) fn view(
                 .child(
                     text(display_path)
                         .font(l.ty.label)
-                        .color(l.c("text-primary")),
+                        .color(l.c("text-primary"))
+                        .shrink()
+                        .truncate()
+                        .min_w(PATH_KEPT),
                 );
             if let Some(note) = &file.note {
+                // Electron's note is `flex: 0 1000 auto`: it goes before the path does. Rune has no shrink weight, so
+                // the path keeps PATH_KEPT and the note takes the rest of the cut.
                 inner = inner.child(
                     text(note.clone())
                         .font(l.ty.label)
-                        .color(l.c("text-muted")),
+                        .color(l.c("text-muted"))
+                        .shrink()
+                        .truncate(),
                 );
             }
             let path = file.path.clone();
             let scope_owned = scope.to_owned();
             let pill = inner
+                .shrink()
                 .key(format!("handed-file-{scope}-{idx}"))
                 .py(5.0)
                 .px(10.0)
@@ -158,10 +172,16 @@ pub(super) fn view(
             let small = |label: &str, key: String, words: String| {
                 text(label.to_owned()).font(l.ty.label).color(l.c("text-secondary")).py(5.0).px(8.0).radius(6.0).hover(l.c("hover-surface")).key(key).role("button").label(words)
             };
-            pills = pills
-                .child(pill)
-                .child(small("Copy", format!("handed-file-copy-{scope}-{idx}"), format!("Copy {}", file.path)).on_press_tx(move |s: &mut State, tx: &mut Tx| copy_handed_file(s, tx, &copy_scope, &copy_path)))
-                .child(small("Save a copy\u{2026}", format!("handed-file-save-{scope}-{idx}"), format!("Save a copy of {}", file.path)).on_press_tx(move |s: &mut State, tx: &mut Tx| save_handed_copy(s, tx, &save_scope, &save_path)));
+            pills = pills.child(
+                row()
+                    .gap(8.0)
+                    .center_y()
+                    .shrink()
+                    .key(format!("handed-group-{scope}-{idx}"))
+                    .child(pill)
+                    .child(small("Copy", format!("handed-file-copy-{scope}-{idx}"), format!("Copy {}", file.path)).on_press_tx(move |s: &mut State, tx: &mut Tx| copy_handed_file(s, tx, &copy_scope, &copy_path)))
+                    .child(small("Save a copy\u{2026}", format!("handed-file-save-{scope}-{idx}"), format!("Save a copy of {}", file.path)).on_press_tx(move |s: &mut State, tx: &mut Tx| save_handed_copy(s, tx, &save_scope, &save_path))),
+            );
         }
         container = container.child(pills);
     }
@@ -199,3 +219,7 @@ pub(super) fn view(
 
     Some(container)
 }
+
+#[cfg(test)]
+#[path = "handed_files_tests.rs"]
+mod tests;

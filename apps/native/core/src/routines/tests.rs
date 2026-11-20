@@ -547,3 +547,19 @@ fn says_nothing_for_the_other_modes_or_for_a_routine_that_only_runs_when_pressed
     none.as_object_mut().unwrap().remove("schedule");
     assert_eq!(super::waits_for_you(&none), None);
 }
+
+// routine-store.ts validLearnedFrom: a routine saved from a conversation keeps where it came from.
+#[test]
+fn keeps_the_turns_a_routine_was_learned_from_and_refuses_ids_that_are_not_ids() {
+    let (root, store) = fixture();
+    assert_eq!(made(&store, json!({"learnedFrom": ["mission_a", "mission_b"]})).unwrap()["learnedFrom"], json!(["mission_a", "mission_b"]));
+    assert_eq!(made(&store, json!({})).unwrap()["learnedFrom"], json!([]));
+    assert_eq!(made(&store, json!({"learnedFrom": null})).unwrap()["learnedFrom"], json!([]));
+    assert_eq!(made(&store, json!({"learnedFrom": ["../x"]})).unwrap_err(), "Routine provenance is invalid");
+    assert_eq!(made(&store, json!({"learnedFrom": "mission_a"})).unwrap_err(), "Routine provenance is invalid");
+    let many: Vec<String> = (0..65).map(|i| format!("mission_{i}")).collect();
+    assert_eq!(made(&store, json!({"learnedFrom": many})).unwrap_err(), "Routine provenance is invalid");
+    let enough: Vec<String> = (0..64).map(|i| format!("mission_{i}")).collect();
+    assert_eq!(made(&store, json!({"learnedFrom": enough})).unwrap()["learnedFrom"].as_array().unwrap().len(), 64);
+    std::fs::remove_dir_all(root).unwrap();
+}

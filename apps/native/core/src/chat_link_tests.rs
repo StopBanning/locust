@@ -510,7 +510,7 @@ fn raises_and_settles_approval_and_question_cards() {
         data_sent_says: None,
         reversible_says: None,
         patch: None,
-        claude_input: None,
+        skippable: false, answer_in: None, claude_input: None,
         questions: vec![],
     };
     h.waiting.lock().unwrap().push((req.clone(), Some("t_ada".into())));
@@ -559,7 +559,7 @@ fn raises_and_settles_approval_and_question_cards() {
         data_sent_says: None,
         reversible_says: None,
         patch: None,
-        claude_input: None,
+        skippable: false, answer_in: None, claude_input: None,
         questions: vec![Question {
             id: "q1".into(),
             header: Some("Mode".into()),

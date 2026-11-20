@@ -76,3 +76,13 @@ fn a_cut_patch_of_several_files_says_no_counts_and_an_uncut_one_says_each_files(
     assert_eq!(files(&whole).iter().map(FileEntry::row_counts).collect::<Vec<_>>(), vec![Some((1, 1)), Some((2, 1))]);
     assert_eq!(header_counts(&[whole], None), Some((3, 2)));
 }
+#[test] fn opens_the_page_even_when_another_file_came_first_and_only_the_page() {
+    // a-page-a-teammate-made-runs-in-its-turn.test.tsx: newPageEntry, the turn's files card.
+    let script=files(&edited("--- /dev/null\n+++ b/build.ts\n@@ -0,0 +1 @@\n+export const x = 1\n",1,0,false));
+    let page=files(&edited("--- /dev/null\n+++ b/index.html\n@@ -0,0 +1 @@\n+<h1>Cozy</h1>\n",1,0,false));
+    let changed=files(&edited("--- a/index.html\n+++ b/index.html\n@@ -1 +1 @@\n-<h1>Old</h1>\n+<h1>New</h1>\n",1,1,false));
+    let both: Vec<FileEntry>=script.iter().chain(page.iter()).cloned().collect();
+    assert_eq!(new_page_entry(&both),Some(page[0].key.as_str()));
+    assert_eq!(new_page_entry(&script),None);
+    assert_eq!(new_page_entry(&changed),None);
+}

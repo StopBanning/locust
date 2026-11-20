@@ -109,7 +109,7 @@ fn the_wire_carries_a_send_an_origin_and_a_card_whole() {
         data_sent_says: None,
         reversible_says: Some("Undo with git".into()),
         patch: None,
-        claude_input: Some(json!({"file_path": "hello.txt"})),
+        skippable: false, answer_in: None, claude_input: Some(json!({"file_path": "hello.txt"})),
         questions: Vec::new(),
     };
     let c = card_from(&card_json(&card)).unwrap();
