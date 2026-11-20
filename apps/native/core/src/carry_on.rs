@@ -686,3 +686,7 @@ pub fn compose_handoff_prompt_with(
 #[cfg(test)]
 #[path = "carry_on_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "handoff_electron_tests.rs"]
+mod handoff_electron_tests;

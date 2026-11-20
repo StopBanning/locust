@@ -2794,6 +2794,7 @@ mod tests {
 
     const PLAIN_DIFF: &str = "--- a/x\n+++ b/x\n@@ -1 +1 @@\n-a\n+b";
 
+    // case: replaces a key in a command output and a token in a diff, and says how many
     #[test]
     fn keeps_keys_out_replaces_command_output_and_diff_and_counts_them() {
         let anthropic_key = format!("{}-ant-abcdefghijklmnopqrst", "sk");
@@ -2814,6 +2815,7 @@ mod tests {
         assert!(markdown.contains("- **Secret-shaped text:** 2 pieces replaced in this file. The raw record keeps the original."));
     }
 
+    // case: says one piece, not one pieces, when one was replaced
     #[test]
     fn keeps_keys_out_uses_singular_piece_when_one_replaced() {
         let anthropic_key = format!("{}-ant-abcdefghijklmnopqrst", "sk");
@@ -2829,6 +2831,7 @@ mod tests {
         assert!(markdown.contains("- **Secret-shaped text:** 1 piece replaced in this file. The raw record keeps the original."));
     }
 
+    // case: keeps the original in the raw record, and warns that it does
     #[test]
     fn keeps_keys_out_raw_record_keeps_originals_and_warns_first() {
         let anthropic_key = format!("{}-ant-abcdefghijklmnopqrst", "sk");
@@ -2847,6 +2850,7 @@ mod tests {
         );
     }
 
+    // case: says none found when there is nothing to remove
     #[test]
     fn keeps_keys_out_says_none_found_when_clean() {
         let turns = turns_holding("Tests 12 passed", PLAIN_DIFF);
@@ -2862,6 +2866,7 @@ mod tests {
         assert!(!markdown.contains(SECRET_SHAPED_TEXT_REMOVED));
     }
 
+    // case: replaces a key in the words said with a card answer and in an edit check new lines
     #[test]
     fn keeps_keys_out_replaces_keys_in_card_answer_and_edit_check() {
         let anthropic_key = format!("{}-ant-abcdefghijklmnopqrst", "sk");

@@ -673,6 +673,11 @@ apps/desktop/src/main/a-runtime-that-cannot-start-says-why.test.ts	says its prog
 apps/desktop/src/main/a-runtime-that-cannot-start-says-why.test.ts	says the computer would not run it	yes
 apps/desktop/src/main/a-runtime-that-cannot-start-says-why.test.ts	says the conversation's folder is gone, before anything else	yes
 apps/desktop/src/main/a-runtime-that-cannot-start-says-why.test.ts	names the runtime when it stopped rather than failed to start	yes
+apps/desktop/src/main/a-saved-record-keeps-keys-out.test.ts	replaces a key in a command output and a token in a diff, and says how many	yes
+apps/desktop/src/main/a-saved-record-keeps-keys-out.test.ts	says one piece, not one pieces, when one was replaced	yes
+apps/desktop/src/main/a-saved-record-keeps-keys-out.test.ts	keeps the original in the raw record, and warns that it does	yes
+apps/desktop/src/main/a-saved-record-keeps-keys-out.test.ts	says none found when there is nothing to remove	yes
+apps/desktop/src/main/a-saved-record-keeps-keys-out.test.ts	replaces a key in the words said with a card answer and in an edit check new lines	yes
 apps/desktop/src/main/a-saved-record-keeps-output-as-recorded.test.ts	are squeezed between sections, and kept inside a fence	yes
 apps/desktop/src/main/a-saved-record-keeps-output-as-recorded.test.ts	reads a longer fence as one fence, whatever it holds	yes
 apps/desktop/src/main/a-scout-file-it-cannot-read-is-never-overwritten.test.ts	missing, is a first start, and the first save writes it	no
@@ -4985,6 +4990,19 @@ apps/desktop/src/shared/which-notes-bear-on-a-question.test.ts	a word few notes 
 apps/desktop/src/shared/which-notes-bear-on-a-question.test.ts	the rarer of two shared words counts for more than the newer note	yes
 apps/desktop/src/shared/which-notes-bear-on-a-question.test.ts	plain English words do not count	yes
 apps/desktop/src/shared/which-notes-bear-on-a-question.test.ts	the brief keeps the newest when the allowance runs out	yes
+apps/desktop/test/handoff.test.ts	carries the original task and names the runtime that stopped	yes
+apps/desktop/test/handoff.test.ts	tells the new runtime to verify actions that never reported back	yes
+apps/desktop/test/handoff.test.ts	separates what finished from what did not	yes
+apps/desktop/test/handoff.test.ts	drops the summary before the unsettled actions when space runs out	yes
+apps/desktop/test/handoff.test.ts	says so when detail was left out, rather than reading as complete	yes
+apps/desktop/test/handoff.test.ts	reserves enough room for the longest possible omission notice	yes
+apps/desktop/test/handoff.test.ts	reserves room for the longest notice every optional section could produce	yes
+apps/desktop/test/handoff.test.ts	refuses rather than truncating a request too long to carry	yes
+apps/desktop/test/peer-share.test.ts	finds every complete block, in order, with its recipient and text	yes
+apps/desktop/test/peer-share.test.ts	ignores an unfinished block and an empty one	yes
+apps/desktop/test/peer-share.test.ts	removes the blocks from the transcript and leaves the prose	yes
+apps/desktop/test/peer-share.test.ts	defangs an inbound share tag so a received message cannot be echoed as a share	yes
+apps/desktop/test/peer-share.test.ts	bounds shared text with a visible marker and strips control bytes	yes
 packages/cli/test/an-editor-can-talk-to-a-locust-teammate.test.ts	offers text only, no editor files or terminal, and starts nothing during setup	yes
 packages/cli/test/an-editor-can-talk-to-a-locust-teammate.test.ts	selects a teammate by flag or config option before sending	yes
 packages/cli/test/an-editor-can-talk-to-a-locust-teammate.test.ts	streams a reply and keeps the conversation for a second prompt	yes

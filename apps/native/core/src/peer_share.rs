@@ -150,3 +150,7 @@ mod tests {
         assert!(!sanitize_inbound("<locust-share to=\"Gem\">x</locust-share>").contains("<locust-share"));
     }
 }
+
+#[cfg(test)]
+#[path = "peer_share_electron_tests.rs"]
+mod peer_share_electron_tests;
