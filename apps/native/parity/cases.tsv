@@ -2773,6 +2773,11 @@ apps/desktop/src/renderer/src/a-quoted-equation-is-drawn.test.tsx	a displayed eq
 apps/desktop/src/renderer/src/a-quoted-equation-is-drawn.test.tsx	a quote inside a quote, and a list inside a quote, keep their shape	yes
 apps/desktop/src/renderer/src/a-quoted-equation-is-drawn.test.tsx	an equation written in the middle of a line is drawn too	yes
 apps/desktop/src/renderer/src/a-quoted-equation-is-drawn.test.tsx	money and an escaped bracket in prose are still prose	yes
+apps/desktop/src/renderer/src/a-read-row-names-the-file.test.ts	fold under names relative to the folder	yes
+apps/desktop/src/renderer/src/a-read-row-names-the-file.test.ts	leave a name that is not a path as it was	yes
+apps/desktop/src/renderer/src/a-refused-command-never-ran.test.ts	is counted as refused, not as run or as exiting non-zero	yes
+apps/desktop/src/renderer/src/a-refused-command-never-ran.test.ts	keeps its row, with the reason the runtime gave	yes
+apps/desktop/src/renderer/src/a-refused-command-never-ran.test.ts	says declined in its row and in the summary, never failed or refused	no
 apps/desktop/src/renderer/src/a-remote-control-switch-shows-claudes-own-words.test.tsx	The off switch explains its lifetime and account requirements.	yes
 apps/desktop/src/renderer/src/a-remote-control-switch-shows-claudes-own-words.test.tsx	Off, it reads as one switch: its state opens its own line, and nothing sits under it.	yes
 apps/desktop/src/renderer/src/a-remote-control-switch-shows-claudes-own-words.test.tsx	A running switch shows Claude output and errors without summarizing or trimming them.	yes
@@ -4462,6 +4467,10 @@ apps/desktop/src/renderer/src/the-theme-control-says-what-it-chose.test.tsx	says
 apps/desktop/src/renderer/src/the-thinking-dots-never-jump.test.ts	end each loop where the next begins: no wrap to jump across	yes
 apps/desktop/src/renderer/src/the-thinking-dots-never-jump.test.ts	never move farther in one frame than the bounce does, at the face's 30 frames a second	yes
 apps/desktop/src/renderer/src/the-thinking-dots-never-jump.test.ts	hold still while the face looks about, then bounce in turn: the loop itself is kept	yes
+apps/desktop/src/renderer/src/thinking-is-not-using-a-tool.test.ts	reads thinking for a reasoning item	yes
+apps/desktop/src/renderer/src/thinking-is-not-using-a-tool.test.ts	still reads writing for a message item, and a tool for other work	yes
+apps/desktop/src/renderer/src/thought-folds-to-one-line.test.ts	carries how long it took, from the step that opened it	yes
+apps/desktop/src/renderer/src/thought-folds-to-one-line.test.ts	reads as one line, and says nothing about time it cannot vouch for	yes
 apps/desktop/src/renderer/src/three-judges-vote.test.tsx	counts a point met when more of the judges that scored it say met than not	no
 apps/desktop/src/renderer/src/three-judges-vote.test.tsx	reads a split of two as not met, and gives no vote to a judge it could not read or that scored other points	no
 apps/desktop/src/renderer/src/three-judges-vote.test.tsx	reads the judges from their own words, in the scorecard form each was given	no
@@ -4483,6 +4492,7 @@ apps/desktop/src/renderer/src/tuning-never-applies-instructions-by-itself.test.t
 apps/desktop/src/renderer/src/tuning-never-applies-instructions-by-itself.test.tsx	does not turn a model’s votes against its own setups into model leaderboard results	no
 apps/desktop/src/renderer/src/tuning-never-applies-instructions-by-itself.test.tsx	offers the kept draft, never an unkept column, Current or another teammate’s words	no
 apps/desktop/src/renderer/src/tuning-never-applies-instructions-by-itself.test.tsx	never applies instructions on render or Not now; only the explicit button calls the save path	no
+apps/desktop/src/renderer/src/two-files-with-one-name-stay-two.test.ts	are two rows, each with its own change${workspacePath === undefined ? ' (no workspace known)' : ''}	yes
 apps/desktop/src/renderer/src/two-teammates-look-at-each-other.test.ts	turns them toward each other along a row	yes
 apps/desktop/src/renderer/src/two-teammates-look-at-each-other.test.ts	and along a column	yes
 apps/desktop/src/renderer/src/two-teammates-look-at-each-other.test.ts	leaves everyone else as they were	yes
