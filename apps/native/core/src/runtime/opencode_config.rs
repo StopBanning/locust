@@ -366,3 +366,7 @@ pub fn configure_with_seal(
     }
     Ok(plugin)
 }
+
+#[cfg(test)]
+#[path = "opencode_guard_tests.rs"]
+mod opencode_guard_tests;

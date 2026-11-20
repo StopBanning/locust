@@ -1078,6 +1078,12 @@ apps/desktop/src/main/an-office-file-reads-in-any-mode.test.ts	writes a table ce
 apps/desktop/src/main/an-old-message-says-it-is-old.test.ts	is said once it is half an hour old, in the unit that reads	yes
 apps/desktop/src/main/an-old-message-says-it-is-old.test.ts	goes beside the message it describes, with what to do about it	yes
 apps/desktop/src/main/an-old-message-says-it-is-old.test.ts	is read against the time now when the host prepares a run	yes
+apps/desktop/src/main/an-opencode-2-teammate-keeps-the-command-guard.test.ts	writes a separate V2 entrypoint while leaving the V1 plugin unchanged	yes
+apps/desktop/src/main/an-opencode-2-teammate-keeps-the-command-guard.test.ts	denies a browser termination before either a bash tool or a shell starts and permits harmless commands	no
+apps/desktop/src/main/an-opencode-2-teammate-keeps-the-command-guard.test.ts	passes the hook envelope and Locust parent to the same guard without running the requested command	no
+apps/desktop/src/main/an-opencode-2-teammate-keeps-the-command-guard.test.ts	fails open promptly when the guard cannot start or returns malformed output	no
+apps/desktop/src/main/an-opencode-2-teammate-keeps-the-command-guard.test.ts	bounds guard output and kills an overflowing child instead of accumulating it	no
+apps/desktop/src/main/an-opencode-2-teammate-keeps-the-command-guard.test.ts	bounds a stalled guard to fifteen seconds and releases the child once	no
 apps/desktop/src/main/an-opencode-permission-is-a-card.test.ts	is a command card naming the command, from OpenCode, and the answer comes back as its reply	yes
 apps/desktop/src/main/an-opencode-permission-is-a-card.test.ts	shows the edit it proposes, by its file relative to the folder (the 0.345 beta report)	yes
 apps/desktop/src/main/an-opencode-permission-is-a-card.test.ts	names an edit by its file, and anything else by what it is	yes
@@ -1088,6 +1094,11 @@ apps/desktop/src/main/an-opencode-run-keeps-the-persons-skill-paths.test.ts	keep
 apps/desktop/src/main/an-opencode-run-keeps-the-persons-skill-paths.test.ts	reads the global folder once and first, honors XDG and the config directories, and stops at the worktree	yes
 apps/desktop/src/main/an-opencode-run-keeps-the-persons-skill-paths.test.ts	does not load disabled project config, and names a file it cannot read	yes
 apps/desktop/src/main/an-opencode-run-keeps-the-persons-skill-paths.test.ts	keeps an empty configuration empty and returns only string paths	yes
+apps/desktop/src/main/an-opencode-teammate-is-guarded-too.test.ts	is added to the config’s plugin list, beside any already there, and nothing is added without one	no
+apps/desktop/src/main/an-opencode-teammate-is-guarded-too.test.ts	is named on the run route and on the server, Approve each included, in every mode	yes
+apps/desktop/src/main/an-opencode-teammate-is-guarded-too.test.ts	is written in the profile and named by its file URL	no
+apps/desktop/src/main/an-opencode-teammate-is-guarded-too.test.ts	refuses, with the guard’s own reason, what the guard refuses, and lets the rest through	yes
+apps/desktop/src/main/an-opencode-teammate-is-guarded-too.test.ts	lets the command run when the guard cannot be started, as OpenCode does for a plugin it cannot load	no
 apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	uses the machine-wide path on each platform and ignores the test override in a packaged app	yes
 apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	leaves a missing file unrestricted and never creates it	yes
 apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	uses the Windows known folder even if the process changes ProgramData	no
