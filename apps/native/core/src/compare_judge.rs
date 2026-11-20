@@ -321,6 +321,59 @@ pub fn build_judge_brief(
     ))
 }
 
+/// `CompareView.tsx` `checkWord`: a check's outcome in a cell of a table, an em dash for none.
+pub fn check_word(check: Option<&JudgedCheck>) -> &'static str {
+    check.map_or("\u{2014}", |c| c.outcome.word())
+}
+
+/// `CompareView.tsx` `checkFailedEverywhere` (0.810): every column's check failed (or could not run) with the same new
+/// lines, so it tells them apart on nothing. A check still running is no failure.
+pub fn check_failed_everywhere(checks: &[Option<&JudgedCheck>]) -> bool {
+    let said: Vec<Option<String>> = checks
+        .iter()
+        .map(|c| {
+            c.filter(|c| matches!(c.outcome, JudgedCheckOutcome::Failed | JudgedCheckOutcome::CouldNotRun))
+                .map(|c| c.lines.join("\n"))
+        })
+        .collect();
+    said.len() >= 2
+        && said
+            .iter()
+            .all(|t| t.as_ref().is_some_and(|t| !t.is_empty() && Some(t) == said[0].as_ref()))
+}
+
+/// The sentence under the columns when every copy's check failed the same way (`CompareView.tsx`, 0.810).
+pub const CHECK_FAILED_EVERYWHERE: &str = "Your check failed the same way in every copy, so it tells them apart on nothing. It may need something a copy leaves out, such as installed dependencies: a check that installs them first, such as npm ci && npm test, runs in a copy too.";
+
+/// `CompareView.tsx` `checkNote` (0.810, 0.811): over the columns of a comparison in copies, what the judges read of the
+/// person's check. `checks` is each column's check as (its command, its outcome); `folder_command` is the folder's own
+/// check command (Settings > Project folder). Set, but no copy has run it yet: nothing to promise and nothing to ask.
+pub fn check_note(
+    in_copies: bool,
+    checks: &[Option<(&str, JudgedCheckOutcome)>],
+    folder_command: Option<&str>,
+) -> Option<String> {
+    if !in_copies {
+        return None;
+    }
+    let checked = checks.iter().flatten().map(|(command, _)| *command).next();
+    let running = checks
+        .iter()
+        .flatten()
+        .any(|(_, outcome)| *outcome == JudgedCheckOutcome::Running);
+    match checked {
+        Some(command) if running => Some(format!(
+            "Your check, {command}, is still running in a copy. A judge asked now waits for it to finish, then reads what it said in each copy."
+        )),
+        Some(command) => Some(format!("Each judge also reads what your check, {command}, said in each copy.")),
+        None if folder_command.is_none_or(|c| c.trim().is_empty()) => Some(
+            "Set a check command in Settings > Project folder, and each judge also reads whether every copy passes it."
+                .to_owned(),
+        ),
+        None => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -571,3 +624,7 @@ mod tests {
         assert!(p_everywhere.contains("Here it failed the same way in every copy, so it does not tell the answers apart"));
     }
 }
+
+#[cfg(test)]
+#[path = "compare_judge_check_tests.rs"]
+mod compare_judge_check_tests;

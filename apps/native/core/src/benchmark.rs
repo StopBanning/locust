@@ -528,6 +528,16 @@ pub fn benchmark_chart(rows: &[BenchmarkRow]) -> Option<BenchmarkChart> {
     })
 }
 
+/// The note under the benchmark's table (`CompareBenchmark.tsx`): what each column counts, and Check passed only when a
+/// run of it was checked (0.810).
+pub fn benchmark_note(scored_runs: usize, checked: bool) -> String {
+    let runs = if scored_runs == 1 { "run".to_owned() } else { format!("{scored_runs} runs") };
+    let check = if checked { " Check passed counts the runs whose copy passed your check." } else { "" };
+    format!(
+        "A score is the judge's points met, out of 100, averaged over the {runs} it scored. Met every point counts the runs that met all of them.{check} Time and cost are each run's own, as its agent reported them."
+    )
+}
+
 pub fn step_words(progress: &RerunProgress, three_judges: bool) -> String {
     let step = match progress.step {
         RerunStep::Checking => "waiting for checks before judging",
@@ -1037,3 +1047,7 @@ mod tests {
         assert_eq!(money_line(None), None);
     }
 }
+
+#[cfg(test)]
+#[path = "benchmark_check_tests.rs"]
+mod benchmark_check_tests;
