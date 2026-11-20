@@ -247,3 +247,18 @@ fn a_measure_with_room_to_spare_stays_loose_and_grows() {
     let steps = fit_steps(1100.0, SECTIONS, 14.0, 6);
     assert!(steps.iter().all(|f| !f.tight && f.grow > 1.0), "{steps:?}");
 }
+
+#[test]
+fn a_measure_in_the_band_goes_tight_once_and_holds() {
+    // home-holds-still's numbers through the whole measure: a card whose footprint is 220, sections 409 loose and 395
+    // tight, in a pane short at the normal spacing and not as drawn tight.
+    let card = 220.0 / (COVER_HEIGHT + COVER_REACH) * COVER_WIDTH;
+    let pane = (400..1200).map(f64::from).find(|&p| home_is_short(409.0, 4, 220.0, p) && !home_is_short(395.0, 4, 220.0, p)).unwrap();
+    let (mut seen, mut tight) = (HomeSpacingSeen::default(), false);
+    for step in 0..12 {
+        let (next, fit) = home_fit(seen, 4, if tight { 395.0 } else { 409.0 }, tight, card, pane);
+        seen = next;
+        tight = fit.tight;
+        assert!(tight, "step {step} went loose");
+    }
+}

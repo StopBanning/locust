@@ -202,6 +202,15 @@ fn the_parts_move_on_with_the_clock_and_hold_still_with_reduced_motion() {
     assert_eq!(cast()[1].beat, "typing", "reduced motion holds each at its first beat");
 }
 
+#[test]
+fn the_parts_clock_runs_once_the_cover_is_on_and_not_before() {
+    let before = drawn_before();
+    assert_eq!(before.state.home.cover_clock.elapsed(cover_now() + 60.0), 0.0, "no clock before the agents answer");
+    let after = drawn(on(), (1215.0, 1600.0));
+    let now = cover_now();
+    assert!(after.state.home.cover_clock.elapsed(now + 1.0) > after.state.home.cover_clock.elapsed(now), "the clock runs");
+}
+
 // --- the-cover-grows-into-spare-height.test.tsx: the grown drawing, as Home measures its room
 
 fn machine_on_card(rt: &rune::Runtime<State>) -> ([f32; 4], [f32; 4]) {
