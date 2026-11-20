@@ -280,7 +280,8 @@ fn real_kilo_one_line() {
     let t = Temp::new();
     let store = Store::new(t.0.join("native"), t.0.join("electron")).unwrap();
     std::fs::create_dir_all(store.electron()).unwrap();
-    let mut command = crate::runtime::kilo::command(&t.0, &store).unwrap();
+    let (home, _) = conversation_home(&store, "real_kilo").unwrap();
+    let mut command = crate::runtime::kilo::command(&t.0, &store, &home).unwrap();
     command.current_dir(&t.0);
     let model = model_for_run(None);
     let mut writer = LedgerWriter::create_runtime(
@@ -326,22 +327,23 @@ fn real_kilo_one_line() {
 }
 
 #[test]
-fn kilo_follow_up_uses_the_same_native_session_home() {
+fn a_conversation_keeps_one_kilo_folder_in_the_profile_named_for_it() {
     let temp = Temp::new();
     let store = Store::new(temp.0.join("native"), temp.0.join("electron")).unwrap();
-    let first = write_home(&store).unwrap();
-    std::fs::write(first.join("saved-session"), "s1").unwrap();
-    let next = write_home(&store).unwrap();
-    assert_eq!(first, next);
-    assert!(first.starts_with(store.root()));
-    assert_eq!(
-        std::fs::read_to_string(next.join("saved-session")).unwrap(),
-        "s1"
-    );
+    let (first, made) = conversation_home(&store, "mission_a").unwrap();
+    assert!(made);
+    std::fs::write(first.join("kilo.db"), "s1").unwrap();
+    let (again, made) = conversation_home(&store, "mission_a").unwrap();
+    assert_eq!((first.clone(), made), (again, false));
+    assert_eq!(std::fs::read_to_string(first.join("kilo.db")).unwrap(), "s1");
+    assert!(first.ends_with("kilo-conversations/mission_a"));
+    assert_ne!(conversation_home(&store, "mission_b").unwrap().0, first);
+    // A name that is not a turn's id names no folder.
+    assert!(conversation_home(&store, "../elsewhere").is_err());
     for (_, v) in isolation_env(&first)
         .iter()
         .filter(|(k, _)| k.starts_with("XDG_") || k == "KILO_CONFIG_DIR")
     {
-        assert!(std::path::Path::new(v).starts_with(store.root()));
+        assert!(std::path::Path::new(v).starts_with(store.check(store.root()).unwrap()));
     }
 }

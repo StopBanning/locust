@@ -3,30 +3,56 @@
 
 use super::*;
 use locust_core::protocol_tags::{self, HandedFile, RefusedFileLine};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-/// The file on disk, inside this conversation's folders, or why not (said beside the files).
-fn resolved(s: &mut State, scope: &str, path: &str) -> Option<PathBuf> {
+/// What a press on a handed file asks for: each says its refusal in Electron's own words (index.ts, the reveal, the save
+/// and the read).
+#[derive(Clone, Copy)]
+enum Asked {
+    Show,
+    Copy,
+    Save,
+}
+
+const OUTSIDE: &str = "That file is outside the folders your teammates work in, and no teammate wrote it or handed it over, so Locust will";
+
+/// The file on disk, inside this conversation's folders or named by a teammate's own record (`decideTeammateFile`, 0.787),
+/// or why not (said beside the files).
+fn resolved(s: &mut State, scope: &str, path: &str, asked: Asked) -> Option<PathBuf> {
     let refuse = |s: &mut State, why: String| {
         s.handed_file_refusal = Some((scope.to_owned(), why));
         None
     };
-    let Some(folder) = selected_conversation(s).and_then(|(t, _)| t.folder.clone()).filter(|f| !f.is_empty()) else {
-        return refuse(s, "Locust could not reach that file. Nothing was changed.".into());
+    let folder = selected_conversation(s).and_then(|(t, _)| t.folder.clone()).filter(|f| !f.is_empty());
+    // A whole path needs no folder to be found; a relative one is the conversation's folder's.
+    let on_disk = match &folder {
+        Some(folder) => protocol_tags::handed_file_on_disk(folder, path),
+        None if protocol_tags::is_whole_path(path) => path.to_owned(),
+        None => return refuse(s, "Locust could not reach that file. Nothing was changed.".into()),
     };
-    let on_disk = protocol_tags::handed_file_on_disk(&folder, path);
-    let mut roots = vec![PathBuf::from(&folder)];
+    let mut roots: Vec<PathBuf> = folder.iter().map(PathBuf::from).collect();
     roots.extend(s.reference_items.iter().map(|r| PathBuf::from(&r.path)));
-    match crate::file_menu::decide_reveal(&on_disk, &roots) {
+    // The folders a relative handover may be resolved against: every teammate's, and this conversation's.
+    let mut folders: Vec<String> = s.teammates.iter().filter_map(|t| t.folder.clone()).filter(|f| !f.is_empty()).collect();
+    folders.extend(folder);
+    let named = |file: &Path| locust_core::named_files::named_by_a_teammate(&locust_core::named_files::ledger_dirs(), &file.to_string_lossy(), &folders);
+    match crate::file_menu::decide_teammate_file(&on_disk, &roots, named) {
         crate::file_menu::RevealDecision::Ok { path, .. } => Some(path),
-        crate::file_menu::RevealDecision::NoPath => refuse(s, "Locust could not reach that file. Nothing was changed.".into()),
-        crate::file_menu::RevealDecision::Outside { path: bad } => refuse(s, format!("Not shown as a file: {bad} -- outside this conversation's folders.")),
+        refused => refuse(
+            s,
+            match (asked, refused) {
+                (Asked::Show, crate::file_menu::RevealDecision::NoPath) => "There is no file to show.".into(),
+                (Asked::Save, crate::file_menu::RevealDecision::NoPath) => "There is no file to save.".into(),
+                (Asked::Save, _) => format!("{OUTSIDE} not copy it."),
+                _ => format!("{OUTSIDE} not open it."),
+            },
+        ),
     }
 }
 
 /// Copy a handed text file's words (Electron's CopyButton on the file): a spreadsheet or a Word file has none to copy.
 fn copy_handed_file(s: &mut State, tx: &mut Tx, scope: &str, path: &str) {
-    let Some(file) = resolved(s, scope, path) else { return };
+    let Some(file) = resolved(s, scope, path, Asked::Copy) else { return };
     // The same reading as the viewer's (Electron's CopyButton asks `readTextFile`): a spreadsheet or a Word file has no
     // text to copy as it is; a kind of file a teammate does not write to be read, a folder, a file not there and a file
     // past a quarter of a megabyte are each refused in the viewer's own words.
@@ -41,7 +67,7 @@ fn copy_handed_file(s: &mut State, tx: &mut Tx, scope: &str, path: &str) {
 
 /// Save a copy where the person picks, in the system's save dialog; the file itself is never opened or run.
 fn save_handed_copy(s: &mut State, tx: &mut Tx, scope: &str, path: &str) {
-    let Some(file) = resolved(s, scope, path) else { return };
+    let Some(file) = resolved(s, scope, path, Asked::Save) else { return };
     let name = file.file_name().map(|n| n.to_string_lossy().into_owned());
     let scope = scope.to_owned();
     let options = rune::FileDialogOptions { title: "Save a copy".into(), file_name: name, ..Default::default() };
@@ -58,42 +84,11 @@ fn save_handed_copy(s: &mut State, tx: &mut Tx, scope: &str, path: &str) {
 }
 
 fn reveal_handed_file(s: &mut State, scope: &str, path: &str) {
-    let Some((teammate, _)) = selected_conversation(s) else {
+    if selected_conversation(s).is_none() {
         return;
-    };
-    let Some(folder) = teammate.folder.as_deref().filter(|f| !f.is_empty()) else {
-        s.handed_file_refusal = Some((
-            scope.to_owned(),
-            "Locust could not reach that file. Nothing was changed.".into(),
-        ));
-        return;
-    };
-    let on_disk = protocol_tags::handed_file_on_disk(folder, path);
-    let mut roots = vec![PathBuf::from(folder)];
-    for r in &s.reference_items {
-        roots.push(PathBuf::from(&r.path));
     }
-    match crate::file_menu::decide_reveal(&on_disk, &roots) {
-        crate::file_menu::RevealDecision::Ok { path: resolved, .. } => {
-            if let Err(err) = crate::file_menu::reveal_path(&resolved) {
-                s.handed_file_refusal = Some((scope.to_owned(), err));
-            } else {
-                s.handed_file_refusal = None;
-            }
-        }
-        crate::file_menu::RevealDecision::NoPath => {
-            s.handed_file_refusal = Some((
-                scope.to_owned(),
-                "Locust could not reach that file. Nothing was changed.".into(),
-            ));
-        }
-        crate::file_menu::RevealDecision::Outside { path: bad } => {
-            s.handed_file_refusal = Some((
-                scope.to_owned(),
-                format!("Not shown as a file: {bad} -- outside this conversation's folders."),
-            ));
-        }
-    }
+    let Some(resolved) = resolved(s, scope, path, Asked::Show) else { return };
+    s.handed_file_refusal = crate::file_menu::reveal_path(&resolved).err().map(|err| (scope.to_owned(), err));
 }
 
 /// How much of a handed file's path its pill keeps when the reply is narrow; the note gives way first.

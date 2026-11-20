@@ -234,22 +234,51 @@ pub fn decide_reveal(requested: &str, roots: &[PathBuf]) -> RevealDecision {
     if requested.is_empty() {
         return RevealDecision::NoPath;
     }
-    let path = PathBuf::from(requested);
-    if !path.is_absolute() {
+    // A relative path is meaningless without knowing which root it is relative to, and guessing would mean trying each
+    // root until one exists -- which is a way to probe the disk.
+    if !Path::new(requested).is_absolute() {
         return RevealDecision::Outside {
             path: requested.into(),
         };
     }
-    if roots.iter().any(|root| contains(root, &path) || root == &path) {
+    let path = normalize(Path::new(requested));
+    if roots.iter().any(|root| contains(root, &path)) {
         RevealDecision::Ok {
             path,
             named: false,
         }
     } else {
         RevealDecision::Outside {
-            path: requested.into(),
+            path: path.to_string_lossy().into_owned(),
         }
     }
+}
+
+/// A teammate's file, wherever it is (`decideTeammateFile`, 0.787): inside one of `roots`, or outside them all and named
+/// as the teammate's own by its recorded turn (`locust_core::named_files`). `named` is the host's lookup in its own
+/// ledger, so the path asked for is still only a request -- one honoured for a file the app has itself shown as a
+/// teammate's.
+pub fn decide_teammate_file(requested: &str, roots: &[PathBuf], named: impl FnOnce(&Path) -> bool) -> RevealDecision {
+    let decision = decide_reveal(requested, roots);
+    let RevealDecision::Outside { path } = &decision else { return decision };
+    let requested = requested.trim();
+    if Path::new(requested).is_relative() {
+        return decision;
+    }
+    // A network or device path is never looked up, and so never looked at.
+    if requested.chars().take(2).filter(|c| matches!(c, '/' | '\\')).count() == 2 {
+        return decision;
+    }
+    let path = PathBuf::from(path);
+    if named(&path) { RevealDecision::Ok { path, named: true } } else { decision }
+}
+
+/// The folders a read asks its link question of (`readRoots`): a named file is inside none of the roots, so it is asked
+/// of its own folder -- a link there that leads somewhere else is still not the file the teammate named.
+// Electron hands these to `insideOnDisk` before a read; the window has no such link check yet, so only the tests ask.
+#[cfg_attr(not(test), allow(dead_code))]
+pub fn read_roots(path: &Path, named: bool, roots: &[PathBuf]) -> Vec<PathBuf> {
+    if named { vec![path.parent().map(Path::to_path_buf).unwrap_or_default()] } else { roots.to_vec() }
 }
 
 /// Reveal in Finder / file manager. Never opens/runs the file (`reveal-file.ts` rule).
@@ -285,6 +314,10 @@ pub fn reveal_path(path: &Path) -> Result<(), String> {
         Err("Locust could not show that file.".into())
     }
 }
+
+#[cfg(test)]
+#[path = "named_file_tests.rs"]
+mod named_file_tests;
 
 #[cfg(test)]
 mod tests {

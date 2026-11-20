@@ -114,28 +114,31 @@ pub fn write_git_shim(store: &Store) -> io::Result<Option<PathBuf>> {
     Ok(Some(dir))
 }
 
-pub fn write_home(store: &Store) -> io::Result<PathBuf> {
+/// A CONVERSATION WITH A KILO TEAMMATE KEEPS ONE KILO FOLDER (codex-mission.ts / index.ts `kiloHome`, 0.845). Kilo keeps
+/// its sessions in its data folder (kilo.db), so every turn of a conversation is given the same one, in the profile,
+/// named for the conversation's first turn: a follow-up's `session/load` finds the session it continues. `made` says it
+/// was not there before this turn.
+pub fn conversation_home(store: &Store, conversation: &str) -> io::Result<(PathBuf, bool)> {
+    if !crate::ledger::safe_id(conversation) {
+        return Err(err("That conversation's Kilo folder could not be named."));
+    }
     let root = store
         .ledger_dir()?
         .parent()
         .ok_or_else(|| io::Error::other("Native ledger has no parent directory"))?
         .to_path_buf();
-    // Stable data home: session/load must see the preceding process's sessions.
-    let dir = store.check(&root.join("kilo-home"))?;
-    let marker = format!(
-        ".run-{}",
-        crate::invariants::unique_nanos()
-    );
-    store.create_new_file_in(&dir, &marker)?.write_all(b"")?;
-    Ok(dir)
+    let dir = store.check(&root.join(crate::profile_backup::KILO_CONVERSATIONS_FOLDER).join(conversation))?;
+    let made = !dir.is_dir();
+    std::fs::create_dir_all(&dir)?;
+    Ok((dir, made))
 }
 
-pub fn command(folder: &Path, store: &Store) -> io::Result<Command> {
+/// The Kilo process for a turn, its config and data in `home` (`conversation_home`), never the person's.
+pub fn command(folder: &Path, store: &Store, home: &Path) -> io::Result<Command> {
     let path = super::discovery::find_named("kilo")?;
-    let home = write_home(store)?;
     let mut c = Command::new(path);
     c.arg("acp").current_dir(folder);
-    for (k, v) in isolation_env(&home) {
+    for (k, v) in isolation_env(home) {
         c.env(k, v);
     }
     if let Some(shim) = write_git_shim(store)? {
@@ -348,3 +351,7 @@ fn _shares_opencode_restart_shape() -> Option<OpenCode> {
 #[cfg(test)]
 #[path = "kilo_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "kilo_follow_up_tests.rs"]
+mod kilo_follow_up_tests;
