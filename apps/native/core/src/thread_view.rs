@@ -527,6 +527,7 @@ pub fn ended_question(items: &[Item], running: bool, latest_turn: bool) -> Optio
 }
 #[cfg(test)] #[path="ended_question_tests.rs"] mod ended_question_tests;
 #[cfg(test)] #[path="spawning_word_tests.rs"] mod spawning_word_tests;
+#[cfg(test)] #[path="repeats_nothing_tests.rs"] mod repeats_nothing_tests;
 
 
 /// Earlier turns are drawn whole; always retain the newest earlier turn,

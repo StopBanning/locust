@@ -4463,6 +4463,14 @@ apps/desktop/src/renderer/src/routines.test.ts	says nothing for a routine that o
 apps/desktop/src/renderer/src/routines.test.ts	names the rule and the next run in local clock words: today, tomorrow, a weekday, or due now	yes
 apps/desktop/src/renderer/src/routines.test.ts	says it waits for you when it fires unattended	yes
 apps/desktop/src/renderer/src/routines.test.ts	says nothing for the other modes, or for a routine that only runs when pressed (controls)	yes
+apps/desktop/src/renderer/src/run-it-again-repeats-nothing.test.ts	says yes when the runtime never started	yes
+apps/desktop/src/renderer/src/run-it-again-repeats-nothing.test.ts	says no the moment the runtime started, however early it then failed	yes
+apps/desktop/src/renderer/src/run-it-again-repeats-nothing.test.ts	says no for a run that reached a tool	yes
+apps/desktop/src/renderer/src/run-it-again-repeats-nothing.test.ts	takes any event from the runtime, even one it does not know, as a start	yes
+apps/desktop/src/renderer/src/run-it-again-repeats-nothing.test.ts	H4: a run that reached a tool without ever saying run.started DID start (OpenCode, Muse, Antigravity)	yes
+apps/desktop/src/renderer/src/run-it-again-repeats-nothing.test.ts	is still true for a run that never reached its runtime: its failure and the host’s notes	yes
+apps/desktop/src/renderer/src/run-it-again-repeats-nothing.test.ts	counts a runtime thread on any event as a start	yes
+apps/desktop/src/renderer/src/run-it-again-repeats-nothing.test.ts	H4: keeps its first event past the cap, so a failed turn still reads as started	yes
 apps/desktop/src/renderer/src/scout-says-what-needs-you.test.tsx	lead with Locust’s sentence, say who noticed it and when, and open what it is about	no
 apps/desktop/src/renderer/src/scout-says-what-needs-you.test.tsx	raise what needs the person now, first, whenever it was found	no
 apps/desktop/src/renderer/src/scout-says-what-needs-you.test.tsx	show Scout’s take and draft as Scout’s, with Send and Change it first, and say while it is still reading	no
