@@ -119,6 +119,54 @@ pub const WHAT_LOCUST_CAN_STOP: &[StopRow] = &[
     },
 ];
 
+/// Where the document written from this table lives, beside this app (Electron's is `docs/WHAT-LOCUST-CAN-STOP.md`, written
+/// from Electron's own table; this engine's sentences differ where its code does).
+pub const WHAT_LOCUST_CAN_STOP_FILE: &str = "WHAT-LOCUST-CAN-STOP.md";
+
+/// An agent's name in the document, as Electron's `runtimeDisplayName` writes it; a custom ACP agent is "Your own agent".
+fn document_name(runtime: &str) -> &str {
+    if runtime == "acp" { "Your own agent" } else { crate::failure_words::runtime_display_name(runtime) }
+}
+
+/// `whatLocustCanStopDocument`: the table and each agent's three sentences, as one Markdown page, so the page can never
+/// say what this engine does not do.
+pub fn what_locust_can_stop_document() -> String {
+    let mut lines: Vec<String> = vec![
+        "# What Locust can stop".into(),
+        String::new(),
+        "<!-- Written from apps/native/core/src/what_locust_can_stop.rs. Edit that file, then run".into(),
+        "     `LOCUST_WRITE_DOCS=1 cargo test -p locust-core what_locust_can_stop` in apps/native to rewrite this one. -->".into(),
+        String::new(),
+        WHAT_LOCUST_CAN_STOP_LEDE.into(),
+        String::new(),
+        "| AI agent | Can stop | Asks first | Always kept by |".into(),
+        "| --- | --- | --- | --- |".into(),
+    ];
+    for row in WHAT_LOCUST_CAN_STOP {
+        let brief = match (row.runtime, row.reach) {
+            ("acp", _) => "what the agent asks about",
+            (_, StopReach::Nothing) => "never",
+            (_, StopReach::QuestionsOnly) => "its questions",
+            (_, StopReach::EachAction) => "in Approve each action",
+            (_, StopReach::SomeActions) => "some of its actions",
+        };
+        let kept = match row.always {
+            None => "\u{2014}",
+            Some(KEPT_BY_LOCUST) => "Locust",
+            Some(_) => document_name(row.runtime),
+        };
+        lines.push(format!("| {} | {} | {brief} | {kept} |", document_name(row.runtime), row.reach.label()));
+    }
+    lines.push(String::new());
+    for row in WHAT_LOCUST_CAN_STOP {
+        lines.extend([format!("## {}", document_name(row.runtime)), String::new(), format!("**Asks first.** {}", row.asks), String::new(), format!("**Without asking.** {}", row.without), String::new()]);
+        if let Some(always) = row.always {
+            lines.extend([format!("**Always.** {always}"), String::new()]);
+        }
+    }
+    lines.join("\n")
+}
+
 /// The row for one agent.
 pub fn row(runtime: &str) -> Option<&'static StopRow> {
     WHAT_LOCUST_CAN_STOP.iter().find(|r| r.runtime == runtime)

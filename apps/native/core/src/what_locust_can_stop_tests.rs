@@ -174,3 +174,20 @@ fn kilo_runs_without_asking_locust() {
     assert_eq!(the("kilo").reach, StopReach::Nothing);
     assert!(the("kilo").always.is_none());
 }
+
+/// Electron's "the document is the list": the page beside this app is written from this table, so it cannot say what
+/// this engine does not do. `LOCUST_WRITE_DOCS=1` rewrites it (vitest's `-u`).
+#[test]
+fn docs_what_locust_can_stop_md_is_written_from_it_rewrite_with_u() {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join(WHAT_LOCUST_CAN_STOP_FILE);
+    let written = what_locust_can_stop_document();
+    if std::env::var_os("LOCUST_WRITE_DOCS").is_some() {
+        std::fs::write(&path, &written).expect("the document is writable");
+    }
+    let kept = std::fs::read_to_string(&path).unwrap_or_default();
+    assert_eq!(kept, written, "{} is not what the table says: rewrite it with LOCUST_WRITE_DOCS=1", path.display());
+    // Every agent in the table has its section.
+    for row in WHAT_LOCUST_CAN_STOP {
+        assert!(written.contains(&format!("\n## {}\n", super::document_name(row.runtime))), "{}", row.runtime);
+    }
+}

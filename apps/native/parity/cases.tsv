@@ -2191,7 +2191,7 @@ apps/desktop/src/main/what-locust-can-stop-is-what-it-asks.test.ts	OpenCode: in 
 apps/desktop/src/main/what-locust-can-stop-is-what-it-asks.test.ts	Antigravity: only its questions reach a card	yes
 apps/desktop/src/main/what-locust-can-stop-is-what-it-asks.test.ts	Cursor and Muse: no path raises a card for them	yes
 apps/desktop/src/main/what-locust-can-stop-is-what-it-asks.test.ts	an Always is kept by Locust exactly where the request carries a key for it	yes
-apps/desktop/src/main/what-locust-can-stop-is-what-it-asks.test.ts	docs/WHAT-LOCUST-CAN-STOP.md is written from it (rewrite with -u)	no
+apps/desktop/src/main/what-locust-can-stop-is-what-it-asks.test.ts	docs/WHAT-LOCUST-CAN-STOP.md is written from it (rewrite with -u)	yes
 apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	keeps its groups -- New, Improved, Fixed -- as Claude Code's What's new does	yes
 apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	written before the groups, stays as it was written: one group, no label guessed for it	yes
 apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	marked big says so, and the mark itself is nowhere in what is shown	yes
