@@ -349,6 +349,8 @@ fn passed_check() -> CheckFixResultOrNoEdits {
     })
 }
 
+// case: sends what the turn broke back to the same conversation, as fix 1 of the most, recorded as Locust's
+// case: a pass ends it, with nothing more said
 #[test]
 fn check_fix_sends_what_turn_broke_and_loops_until_pass_or_stop() {
     let cf = CheckFix::new();
@@ -394,6 +396,9 @@ fn check_fix_sends_what_turn_broke_and_loops_until_pass_or_stop() {
     assert!(notes.is_empty());
 }
 
+// case: does nothing while the folder is set to show the failure, or for a check that did not fail
+// case: never sends back a turn the person did not send, a comparison column, a reply between teammates or a stopped turn
+// case: says nothing about a failure the turn did not cause: the card under it already says nothing in it is new
 #[test]
 fn check_fix_ignores_off_non_failed_apart_incomplete_and_unchanged() {
     let cf = CheckFix::new();
@@ -435,6 +440,13 @@ fn check_fix_ignores_off_non_failed_apart_incomplete_and_unchanged() {
     assert_eq!(notes, 0);
 }
 
+// case: a fix that cleared some of it is sent back again with what is left, never with what was failing before
+// case: stops when a fix leaves the failure exactly as it was
+// case: stops, and says it is done, when all that still fails was failing before the person's turn
+// case: stops at the most, and says how to go on
+// case: a fix that changed no files is said, since its check did not run again
+// case: leaves the conversation alone when the person got there first, and says so
+// case: a fix that could not start says why, and the same check may be tried again
 #[test]
 fn check_fix_partial_progress_and_stop_conditions() {
     // Partial progress sends only what is left beyond baseline.
@@ -513,6 +525,9 @@ fn check_fix_partial_progress_and_stop_conditions() {
     assert_eq!(started7, 1);
 }
 
+// case: tells a fix at most the last 30 lines of the failure, each bounded
+// case: says when every line is listed because there was no earlier check, and when it printed nothing
+// case: keeps only a whole number of fixes from 1 to 5, for each folder
 #[test]
 fn check_fix_bounds_prompt_and_parses_settings() {
     let cf = CheckFix::new();
@@ -656,4 +671,58 @@ fn a_reopened_conversation_keeps_its_check() {
             .unwrap();
         assert!(status.success(), "TypeScript reader rejected mission_1 with edit_check");
     }
+}
+
+// ---- a-failing-check-goes-back-to-fix.test.ts, the cases the tests above did not hold ----
+
+#[test]
+fn reads_the_setting_of_the_folder_the_turn_ran_in_not_the_folder_now_on_screen_0_813_sols_review() {
+    let cf = CheckFix::new();
+    let mut asked_for = Vec::new();
+    cf.on_checked(
+        &CheckedTurn { workspace_id: Some("ws_folder_a".into()), ..person_turn() },
+        failed_check(&["FAIL x"], Some(&[])),
+        |ws| { asked_for.push(ws.map(str::to_owned)); Some(2) },
+        |_| false,
+        |_| "Wren".into(),
+        |_| FixStartOutcome::Ok { mission_id: "fix_1".into() },
+        |_, _, _| {},
+    );
+    assert_eq!(asked_for, vec![Some("ws_folder_a".to_owned())]);
+}
+
+#[test]
+fn a_start_refused_because_the_person_got_there_first_is_said_as_theirs_not_as_a_failure_0_813() {
+    let cf = CheckFix::new();
+    let mut notes = Vec::new();
+    cf.on_checked(&person_turn(), failed_check(&["FAIL a"], Some(&[])), |_| Some(2), |_| false, |_| "Wren".into(), |_| FixStartOutcome::Busy, |id, m, l| notes.push((id.to_owned(), m.to_owned(), l)));
+    assert_eq!(notes, vec![("turn_1".to_owned(), stopped_reason::busy("Wren"), "info")]);
+}
+
+#[test]
+fn a_second_word_about_the_same_check_starts_one_fix_not_two() {
+    let cf = CheckFix::new();
+    let mut started = 0;
+    for _ in 0..2 {
+        cf.on_checked(&person_turn(), failed_check(&["FAIL a"], Some(&[])), |_| Some(2), |_| false, |_| "Wren".into(), |_| { started += 1; FixStartOutcome::Ok { mission_id: "fix_1".into() } }, |_, _, _| {});
+    }
+    assert_eq!(started, 1);
+}
+
+#[test]
+fn after_a_restart_a_fix_with_no_chain_behind_it_is_judged_against_the_check_before_it() {
+    let cf = CheckFix::new();
+    let mut notes = Vec::new();
+    let mut started = Vec::new();
+    cf.on_checked(&fix_turn("fix_9", 1), failed_check(&["FAIL a"], Some(&["FAIL a"])), |_| Some(3), |_| false, |_| "Wren".into(), |req| { started.push(req); FixStartOutcome::Ok { mission_id: "next".into() } }, |id, m, l| notes.push((id.to_owned(), m.to_owned(), l)));
+    assert_eq!(notes, vec![("fix_9".to_owned(), stopped_reason::no_progress(1), "warning")]);
+    cf.on_checked(&fix_turn("fix_8", 1), failed_check(&["FAIL z"], Some(&["FAIL a"])), |_| Some(3), |_| false, |_| "Wren".into(), |req| { started.push(req); FixStartOutcome::Ok { mission_id: "next".into() } }, |_, _, _| {});
+    assert_eq!(started.iter().map(|asked| asked.started_by.fix).collect::<Vec<_>>(), vec![2]);
+}
+
+#[test]
+fn a_routines_fix_opens_with_the_words_the_thread_reads_it_by_missionview_ts_fixofturn() {
+    let check = crate::routine_runner::GoalCheck { command: "node check.js".into(), passed: false, tail: vec!["x".into()] };
+    let prompt = crate::routine_runner::goal_fix_prompt(&check, 1, 2);
+    assert!(prompt.starts_with("The check `node check.js` failed after the work above (fix 1 of 2). The end of its output:"), "{prompt}");
 }

@@ -217,6 +217,26 @@ apps/desktop/src/main/a-diagram-in-a-reply-is-drawn.test.ts	draws a burst in one
 apps/desktop/src/main/a-diagram-in-a-reply-is-drawn.test.ts	draws again in a fresh view when one stalls, and gives up when that one stalls too	no
 apps/desktop/src/main/a-diagram-in-a-reply-is-drawn.test.ts	opens a view afresh, once, when its page did not load	no
 apps/desktop/src/main/a-diagram-in-a-reply-is-drawn.test.ts	passes on Mermaid's reason for text it cannot read, keeping the view	no
+apps/desktop/src/main/a-failing-check-goes-back-to-fix.test.ts	sends what the turn broke back to the same conversation, as fix 1 of the most, recorded as Locust's	yes
+apps/desktop/src/main/a-failing-check-goes-back-to-fix.test.ts	reads the setting of the folder the turn ran in, not the folder now on screen (0.813, Sol's review)	yes
+apps/desktop/src/main/a-failing-check-goes-back-to-fix.test.ts	does nothing while the folder is set to show the failure, or for a check that did not fail	yes
+apps/desktop/src/main/a-failing-check-goes-back-to-fix.test.ts	never sends back a turn the person did not send, a comparison column, a reply between teammates or a stopped turn	yes
+apps/desktop/src/main/a-failing-check-goes-back-to-fix.test.ts	says nothing about a failure the turn did not cause: the card under it already says nothing in it is new	yes
+apps/desktop/src/main/a-failing-check-goes-back-to-fix.test.ts	a fix that cleared some of it is sent back again with what is left, never with what was failing before	yes
+apps/desktop/src/main/a-failing-check-goes-back-to-fix.test.ts	stops when a fix leaves the failure exactly as it was	yes
+apps/desktop/src/main/a-failing-check-goes-back-to-fix.test.ts	stops, and says it is done, when all that still fails was failing before the person's turn	yes
+apps/desktop/src/main/a-failing-check-goes-back-to-fix.test.ts	stops at the most, and says how to go on	yes
+apps/desktop/src/main/a-failing-check-goes-back-to-fix.test.ts	a pass ends it, with nothing more said	yes
+apps/desktop/src/main/a-failing-check-goes-back-to-fix.test.ts	a fix that changed no files is said, since its check did not run again	yes
+apps/desktop/src/main/a-failing-check-goes-back-to-fix.test.ts	leaves the conversation alone when the person got there first, and says so	yes
+apps/desktop/src/main/a-failing-check-goes-back-to-fix.test.ts	a start refused because the person got there first is said as theirs, not as a failure (0.813)	yes
+apps/desktop/src/main/a-failing-check-goes-back-to-fix.test.ts	a second word about the same check starts one fix, not two	yes
+apps/desktop/src/main/a-failing-check-goes-back-to-fix.test.ts	a fix that could not start says why, and the same check may be tried again	yes
+apps/desktop/src/main/a-failing-check-goes-back-to-fix.test.ts	after a restart, a fix with no chain behind it is judged against the check before it	yes
+apps/desktop/src/main/a-failing-check-goes-back-to-fix.test.ts	tells a fix at most the last 30 lines of the failure, each bounded	yes
+apps/desktop/src/main/a-failing-check-goes-back-to-fix.test.ts	a routine’s fix opens with the words the thread reads it by (missionView.ts fixOfTurn)	yes
+apps/desktop/src/main/a-failing-check-goes-back-to-fix.test.ts	says when every line is listed because there was no earlier check, and when it printed nothing	yes
+apps/desktop/src/main/a-failing-check-goes-back-to-fix.test.ts	keeps only a whole number of fixes from 1 to 5, for each folder	yes
 apps/desktop/src/main/a-file-arriving-starts-its-routine.test.ts	starts nothing for what is there at the first look, and counts a new file once it stops changing	yes
 apps/desktop/src/main/a-file-arriving-starts-its-routine.test.ts	skips hidden, temporary and partly downloaded names, and folders	yes
 apps/desktop/src/main/a-file-arriving-starts-its-routine.test.ts	runs at most six times an hour; files waiting past that wait for the hour	yes
