@@ -60,7 +60,8 @@ pub struct StartAs {
     pub one_off: bool,
 }
 
-fn is_mission_runtime(runtime: &str) -> bool {
+/// A runtime Locust starts missions on (Electron `isMissionRuntime`).
+pub fn is_mission_runtime(runtime: &str) -> bool {
     KNOWN_RUNTIMES.contains(&runtime)
 }
 

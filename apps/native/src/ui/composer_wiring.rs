@@ -123,6 +123,32 @@ pub(super) fn enqueue_follow_up(s: &mut State, text: String, attachments: Vec<St
     true
 }
 
+/// Electron `runtimeIsUsable`: it answered, and answered ready.
+fn usable(f: &locust_core::agents::Found) -> bool {
+    f.ready && f.status == locust_core::agents::Probe::Ready
+}
+
+/// What discovery says of the box's own agent (Composer.tsx `selectedReady`), or nothing when it cannot say: no
+/// answer yet, an account route or an added agent (the host finds those when the message goes), or an agent whose
+/// check is still out. Nothing keeps the window's own answer, so a launch is never blocked on a sweep in flight.
+pub(super) fn discovered_ready(s: &State) -> Option<bool> {
+    let agents = s.settings_panel.agents.as_ref()?;
+    let route = crate::group_settings_dialog::current_composer_route(s)?;
+    if route.account.is_some() || route.runtime == "acp" {
+        return None;
+    }
+    let own = agents.iter().find(|f| f.id == route.runtime)?;
+    if own.checking {
+        return None;
+    }
+    Some(usable(own))
+}
+
+/// Whether the box's agent can take this message: discovery's word when it has one, else the window's.
+pub(super) fn selected_ready_now(s: &State) -> bool {
+    discovered_ready(s).unwrap_or(s.selected_ready)
+}
+
 pub(super) fn composer_placeholder(s: &State) -> String {
     if native_blocked(s)
         && let Some((teammate, _)) = selected_conversation(s)
@@ -130,20 +156,34 @@ pub(super) fn composer_placeholder(s: &State) -> String {
         return format!("{} runs in Locust for now", teammate.name);
     }
     let teammate_name = selected_conversation(s).map(|(t, _)| t.name.as_str());
+    let agents = s.settings_panel.agents.as_deref().unwrap_or(&[]);
+    // Something else here can run, though the box does not point at it (`readyElsewhere`).
+    let ready_elsewhere = agents
+        .iter()
+        .find(|f| usable(f) && locust_core::route_at_start::is_mission_runtime(&f.id))
+        .map(|f| f.display_name.as_str());
+    // "and sign in" only when an agent has SAID it wants a sign-in.
+    let auth_required = agents.iter().any(|f| {
+        f.status == locust_core::agents::Probe::AuthRequired || f.auth == locust_core::agents::Auth::Unauthenticated
+    });
+    let installed = agents.iter().any(|f| f.installed);
+    // The sweep is over when no installed agent is still being asked; then the box counts the ones it is about.
+    let gave_up = installed && !agents.iter().any(|f| f.installed && f.checking);
+    let installed_silent = if gave_up { agents.iter().filter(|f| f.installed && !usable(f)).count() } else { 0 };
     composer::placeholder(composer::PlaceholderInput {
         working_now: turn_running(s),
         working_name: &working_name(s),
         queued: queue_front(s).is_some(),
         route_can_run: s.route_can_run && !native_blocked(s),
-        selected_ready: s.selected_ready && !s.nothing_installed,
+        selected_ready: selected_ready_now(s) && !s.nothing_installed,
         selected_display: None,
         teammate_name,
-        discovery_loading: false,
+        discovery_loading: s.settings_panel.agents.is_none() && s.settings_panel.agents_job.is_pending(),
         discovery_error: false,
-        ready_elsewhere: None,
-        auth_required: false,
-        installed_silent: 0,
-        checking: false,
+        ready_elsewhere,
+        auth_required,
+        installed_silent,
+        checking: installed && !gave_up,
         nothing_installed: s.nothing_installed,
     })
 }
@@ -185,7 +225,7 @@ pub(super) fn unqueue(s: &mut State, edit: bool) -> bool {
 pub(super) fn send_blocked_now(s: &State) -> Option<&'static str> {
     composer::send_blocked_reason(composer::SendBlocked {
         nothing_installed: s.nothing_installed,
-        runtime_ready: s.selected_ready && !native_blocked(s),
+        runtime_ready: selected_ready_now(s) && !native_blocked(s),
         route_can_run: s.route_can_run,
         busy: s.team.is_pending() || s.opening_teammate.is_some(),
         empty: s.draft.text.trim().is_empty() && s.attached.is_empty(),
@@ -570,7 +610,7 @@ pub(super) fn submit_composer(s: &mut State, tx: &mut Tx, send_now: bool) {
                 "Locust cannot run that AI agent fully yet, so it cannot start here. Pick another model."
                     .into(),
             );
-        } else if s.nothing_installed || !s.selected_ready {
+        } else if s.nothing_installed || !selected_ready_now(s) {
             s.composer_note = Some(
                 "No AI agent on this machine can start yet. Settings lists what to install.".into(),
             );
@@ -656,3 +696,7 @@ pub(super) fn drain_queue_after_turn(s: &mut State, tx: &mut Tx) {
 #[cfg(test)]
 #[path = "mode_cycle_tests.rs"]
 mod mode_cycle_tests;
+
+#[cfg(test)]
+#[path = "composer_counts_tests.rs"]
+mod composer_counts_tests;

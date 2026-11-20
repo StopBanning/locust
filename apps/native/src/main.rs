@@ -908,7 +908,7 @@ fn can_send(s: &State) -> bool {
         && !s.ledger.as_ref().is_some_and(|p| p.loading)
         && selected_conversation(s).is_some()
         && !native_blocked(s)
-        && s.selected_ready
+        && composer_wiring::selected_ready_now(s)
         && s.route_can_run
         && !s.nothing_installed
         && (!s.draft.text.trim().is_empty() || !s.attached.is_empty() || !s.diff_notes.waiting.is_empty() || !s.page_points.chips.is_empty())

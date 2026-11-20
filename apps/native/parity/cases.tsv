@@ -4799,7 +4799,7 @@ apps/desktop/src/renderer/src/the-chip-keeps-free.test.ts	splits a trailing Free
 apps/desktop/src/renderer/src/the-chip-keeps-free.test.ts	leaves every other name whole	yes
 apps/desktop/src/renderer/src/the-composer-counts-what-it-is-about.test.tsx	says one in the singular	yes
 apps/desktop/src/renderer/src/the-composer-counts-what-it-is-about.test.tsx	counts five as five, not as one	yes
-apps/desktop/src/renderer/src/the-composer-counts-what-it-is-about.test.tsx	counts only what is installed, not every runtime it knows about	no
+apps/desktop/src/renderer/src/the-composer-counts-what-it-is-about.test.tsx	counts only what is installed, not every runtime it knows about	yes
 apps/desktop/src/renderer/src/the-composer-counts-what-it-is-about.test.tsx	does not complain about hung agents when one of them works	yes
 apps/desktop/src/renderer/src/the-composer-counts-what-it-is-about.test.tsx	says nothing of the kind while discovery is still asking	yes
 apps/desktop/src/renderer/src/the-cover-counts-only-work.test.ts	is the same for a rebuilt map that holds the same runs	yes
