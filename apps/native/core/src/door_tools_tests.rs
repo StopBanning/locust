@@ -677,3 +677,7 @@ fn a_run_held_up_by_its_provider_says_why_instead_of_only_still_working() {
 #[cfg(test)]
 #[path = "an_app_stops_and_waits_tests.rs"]
 mod an_app_stops_and_waits_tests;
+
+#[cfg(test)]
+#[path = "an_app_hears_why_tests.rs"]
+mod an_app_hears_why_tests;
