@@ -2267,6 +2267,9 @@ apps/desktop/src/main/usage-is-counted.test.ts	streaks run back from today, or f
 apps/desktop/src/main/usage-is-counted.test.ts	a model each, most turns first, and how each was paid for	no
 apps/desktop/src/main/usage-is-counted.test.ts	a cache share is over the turns whose runtime counts a cache, not a 0% for one that says nothing	no
 apps/desktop/src/main/usage-is-counted.test.ts	active days, the busiest day, and nothing counted twice	no
+apps/desktop/src/main/what-a-teammate-wrote-is-quoted-dead.test.ts	carries no live tag, of any kind	yes
+apps/desktop/src/main/what-a-teammate-wrote-is-quoted-dead.test.ts	carries no live tag in the memory file the teammate reads either	yes
+apps/desktop/src/main/what-a-teammate-wrote-is-quoted-dead.test.ts	carries no live tag	yes
 apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	are the prompts typed in the terminal after the turn, each with its last words in answer	no
 apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	never take Locust's own print-mode turn, or its answer, for the terminal's	no
 apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	hold back an exchange still going, so no answer comes back half-written	no

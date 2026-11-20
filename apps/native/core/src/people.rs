@@ -2818,3 +2818,7 @@ mod renderer_defaults_tests {
         assert_eq!(fresh_hue(&again), "blue");
     }
 }
+
+#[cfg(test)]
+#[path = "quoted_dead_tests.rs"]
+mod quoted_dead_tests;
