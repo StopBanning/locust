@@ -793,10 +793,13 @@ pub fn tune_lesson_prompt(
         }
         lines.push(String::new());
     }
+    // tune-lessons.ts (0.810, a-kept-setup-is-not-proof-its-edit-helped): adoption says which answer read best, not which
+    // edit worked, and an invented attribution poisons every later tune's lessons.
+    lines.push("Which column the person kept says which answer they preferred, not that its edit caused the difference: judge every verdict from what the runs did. Use \"helped\" or \"hurt\" only when you can point to the moment in a run where the edit made it better or worse than Current; when one run is all that stands behind a difference, prefer \"cannot tell\".".to_owned());
     lines.push("Reply with ONLY a JSON object:".to_owned());
     lines.push(r#"{"kept": "A|B|C", "confidence": "certain|tentative|unclear", "outcomes": [{"column": "A", "label": "...", "verdict": "helped|hurt|no clear effect|cannot tell", "reason": "..."}], "lesson": "When ..., ...", "summary": "one sentence"}"#.to_owned());
     lines.push(
-        "Only write `lesson` if confidence is not unclear and there is one clear standing rule starting with `When ..., ...` (under 400 chars); otherwise omit `lesson`."
+        "Only write `lesson` when confidence is not unclear and a \"helped\" or \"hurt\" outcome shows something that would change how this teammate should work on a different ask, as one standing rule starting with `When ..., ...` (under 400 chars); otherwise omit `lesson`, which is a normal outcome. A lesson resting only on \"cannot tell\" outcomes is never written."
             .to_owned(),
     );
     lines.join("\n")
@@ -1168,3 +1171,7 @@ mod tests {
         assert!(prompt.contains("Do NOT assume the kept column (B) won because its edit helped"));
     }
 }
+
+#[cfg(test)]
+#[path = "kept_setup_tests.rs"]
+mod kept_setup_tests;

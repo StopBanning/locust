@@ -333,6 +333,8 @@ apps/desktop/src/main/a-kept-page-forgets-its-removed-copy.test.ts	makes an abso
 apps/desktop/src/main/a-kept-page-forgets-its-removed-copy.test.ts	does not reinterpret an absolute page outside this copy or in a similarly named sibling	no
 apps/desktop/src/main/a-kept-page-forgets-its-removed-copy.test.ts	does not mistake an inside file beginning with two dots for a parent path	no
 apps/desktop/src/main/a-kept-page-forgets-its-removed-copy.test.ts	serves the kept page from the folder when the recorded tool path names a removed copy	no
+apps/desktop/src/main/a-kept-setup-is-not-proof-its-edit-helped.test.ts	judges each edit from the runs, never from which setup the person kept	yes
+apps/desktop/src/main/a-kept-setup-is-not-proof-its-edit-helped.test.ts	writes a lesson only when it would change work on a different ask, and no lesson is a normal outcome	yes
 apps/desktop/src/main/a-large-file-in-a-plain-folder-shows-its-change.test.ts	reads as one line changed when the checkpoint has it from before	yes
 apps/desktop/src/main/a-large-file-in-a-plain-folder-shows-its-change.test.ts	is read back from a real checkpoint as it was, after the file changed	yes
 apps/desktop/src/main/a-launch-from-an-agents-settings-folder-is-not-a-workspace.test.ts	%s falls back to the folder chosen last time	no
