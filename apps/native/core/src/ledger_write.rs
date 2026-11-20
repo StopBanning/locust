@@ -58,6 +58,11 @@ where
     if events.is_empty() {
         return Ok(());
     }
+    // One event that is not this ledger's run would not read back as part of it: refuse the whole batch before any of
+    // it is written (mission-store's appendEvents, a-long-answer-is-not-too-much-to-record).
+    if let Some(stranger) = events.iter().position(|e| e["runId"] != run || e["missionId"] != mission) {
+        return Err(io::Error::other(format!("Event {} of {} is not this mission's run (correlation), so none were written", stranger + 1, events.len())));
+    }
     let mut buf = Vec::new();
     for event in events {
         let record = json!({
@@ -656,3 +661,7 @@ mod tests {
         std::fs::remove_dir_all(temp).unwrap();
     }
 }
+
+#[cfg(test)]
+#[path = "long_answer_tests.rs"]
+mod long_answer_tests;

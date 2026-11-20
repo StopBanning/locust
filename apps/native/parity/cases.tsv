@@ -358,6 +358,10 @@ apps/desktop/src/main/a-locust-comment-is-read-within-a-minute.test.ts	are not r
 apps/desktop/src/main/a-login-item-registers-only-the-packaged-app.test.ts	sets --background on the packaged executable and reads back what the host holds	yes
 apps/desktop/src/main/a-login-item-registers-only-the-packaged-app.test.ts	does not register electron.exe from a development build, or off Windows	no
 apps/desktop/src/main/a-login-item-registers-only-the-packaged-app.test.ts	registers the app itself on a Mac, and reads back when macOS waits for the person to allow it	no
+apps/desktop/src/main/a-long-answer-is-not-too-much-to-record.test.ts	accepts a burst of more than a hundred events, which used to be refused	yes
+apps/desktop/src/main/a-long-answer-is-not-too-much-to-record.test.ts	writes them as one unbroken run, and the next append continues it	yes
+apps/desktop/src/main/a-long-answer-is-not-too-much-to-record.test.ts	splits on total size too, not only on count	yes
+apps/desktop/src/main/a-long-answer-is-not-too-much-to-record.test.ts	still refuses an event it could not read back, before writing any of them	yes
 apps/desktop/src/main/a-long-judge-reads-files.test.ts	three long answers quoted do not fit one message	no
 apps/desktop/src/main/a-long-judge-reads-files.test.ts	named as files, they do, and the judge is told to read each one	no
 apps/desktop/src/main/a-long-judge-reads-files.test.ts	the host switches to files only when the quoted message is too long	no
