@@ -396,7 +396,7 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                                 }
                             }
                         })
-                        .child(reply_actions::reply_with_copy(s, &shown, locust_core::thread_view::streaming(*r#final, running), last_speech == Some(index), p));
+                        .child(reply_actions::reply_in_thread(s, &shown, locust_core::thread_view::streaming(*r#final, running), last_speech == Some(index), p));
                     msg = msg.child(reply_box);
                     if let Some(chips) = pull_request_chip::link_chips_for_text(s, &shown, p) {
                         msg = msg.child(chips);

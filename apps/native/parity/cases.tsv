@@ -2986,7 +2986,7 @@ apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-un
 apps/desktop/src/renderer/src/a-tables-status-is-a-chip.test.tsx	is found by its header, marks and all	yes
 apps/desktop/src/renderer/src/a-tables-status-is-a-chip.test.tsx	knows a value by its first words, and nothing it does not know	yes
 apps/desktop/src/renderer/src/a-tables-status-is-a-chip.test.tsx	draws as chips in a reply, and leaves other columns and unknown values alone	yes
-apps/desktop/src/renderer/src/a-tables-status-is-a-chip.test.tsx	is a chip you can change where the thread has a box, naming its row (0.733)	no
+apps/desktop/src/renderer/src/a-tables-status-is-a-chip.test.tsx	is a chip you can change where the thread has a box, naming its row (0.733)	yes
 apps/desktop/src/renderer/src/a-tagged-conversation-shows-the-message.test.ts	is titled by the message	yes
 apps/desktop/src/renderer/src/a-tagged-conversation-shows-the-message.test.ts	draws the message as the bubble, without the context after it	yes
 apps/desktop/src/renderer/src/a-team-card-says-what-it-waits-on.test.tsx	uses the same waiting words as Home, for a question, a command and another approval	no

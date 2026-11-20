@@ -233,6 +233,8 @@ pub(super) struct State {
     pub(super) conversations: HashMap<String, Conversation>,
     pub(super) folder_question: Option<crate::folder_confirmation::Question>,
     pub(super) draft: TextEdit,
+    /// A tracker status in a reply being changed: its strip of other statuses is open (reply_actions::StatusChange).
+    pub(super) status_change: Option<crate::reply_actions::StatusChange>,
     pub(super) picks: HashMap<String, TurnPick>,
     pub(super) models: HashMap<String, Vec<engine::Models>>,
     pub(super) limited_runtimes: HashMap<String, String>,
@@ -525,6 +527,7 @@ impl Default for State {
             conversations: HashMap::new(),
             folder_question: None,
             draft: TextEdit::new(""),
+            status_change: None,
             picks: HashMap::new(),
             models: HashMap::new(),
             limited_runtimes: HashMap::new(),

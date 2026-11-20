@@ -970,13 +970,15 @@ fn a_status_is_known_by_its_first_words_and_nothing_it_does_not_know() {
 #[test]
 fn statuses_draw_as_chips_in_a_reply_and_other_columns_and_unknown_values_are_left_alone() {
     let text = lines(&["| Task | Status |", "| --- | --- |", "| Login fix | Done |", "| Signup form | In progress |", "| Billing | Blocked |", "| Docs | Halfway, see notes |"]);
-    let chip = |tone: &str| Some(format!("{}{tone}", crate::markdown_prep::STATUS_MARK));
+    // Each chip names its row (its first other cell), so a press can say which one changes.
+    let named = |tone: &str, row: &str| Some(crate::markdown_prep::status_link(tone, row));
+    let chip = |tone: &str| named(tone, "Login fix");
     assert_eq!(
         table_of(&text),
         [
-            [("Login fix".into(), None), ("Done".into(), chip("green"))],
-            [("Signup form".into(), None), ("In progress".into(), chip("blue"))],
-            [("Billing".into(), None), ("Blocked".into(), chip("red"))],
+            [("Login fix".into(), None), ("Done".into(), named("green", "Login fix"))],
+            [("Signup form".into(), None), ("In progress".into(), named("blue", "Signup form"))],
+            [("Billing".into(), None), ("Blocked".into(), named("red", "Billing"))],
             [("Docs".into(), None), ("Halfway, see notes".to_owned(), None)],
         ]
     );

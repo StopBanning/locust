@@ -273,8 +273,74 @@ pub(super) fn reply(s: &State, body: &str, live: bool, p: &Palette) -> El {
     reply_with_copy(s, body, live, true, p)
 }
 
-/// A reply, with Copy under it only when `copy` (the turn's last reply, `speech_runs::last_speech`).
+/// A reply, with Copy under it only when `copy` (the turn's last reply, `speech_runs::last_speech`). Its status chips
+/// are only drawn: this is a reply with no box to write into (a file preview).
 pub(super) fn reply_with_copy(s: &State, body: &str, live: bool, copy: bool, p: &Palette) -> El {
+    reply_with(s, body, live, copy, false, p)
+}
+
+/// A reply in a conversation's thread, which has the box: a status chip in it can be changed (StatusChip.tsx, 0.733).
+pub(super) fn reply_in_thread(s: &State, body: &str, live: bool, copy: bool, p: &Palette) -> El {
+    reply_with(s, body, live, copy, true, p)
+}
+
+/// A status in a teammate's tracker, being changed: the reply it is in, its tone now, and the row it names.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) struct StatusChange {
+    pub reply: u64,
+    pub tone: String,
+    pub item: String,
+}
+
+/// A press on a status chip: where the thread has a box it opens the other statuses under that reply (a second press
+/// closes them); anywhere else the chip is the plain chip it was.
+pub(super) fn status_pressed(s: &mut State, url: &str, can_draft: bool, reply: u64) {
+    let Some((tone, item)) = crate::markdown_prep::status_of_link(url) else { return };
+    if !can_draft {
+        return;
+    }
+    let change = StatusChange { reply, tone, item };
+    s.status_change = if s.status_change.as_ref() == Some(&change) { None } else { Some(change) };
+}
+
+/// The other statuses, under the reply whose chip was pressed: picking one writes "Mark <the row> as <status>." into the
+/// box for the person to send, never a change made behind the teammate's back.
+fn status_strip(change: &StatusChange, p: &Palette) -> El {
+    let mut strip = row()
+        .key("status-change")
+        .role("menu")
+        .label(format!("Change the status of {}", change.item))
+        .gap(6.0)
+        .flex_wrap()
+        .center_y()
+        .child(text(format!("Change the status of {}", change.item)).font(type_::LABEL).color(p.muted));
+    for (label, tone) in crate::markdown_prep::STATUS_CHOICES.iter().filter(|(_, tone)| *tone != change.tone) {
+        let ask = crate::markdown_prep::status_ask(&change.item, label);
+        let look = crate::markdown_prep::reply_link_look(&crate::markdown_prep::status_link(tone, &change.item), p.dark);
+        let mut chip = text((*label).to_owned()).font(type_::LABEL).padding(4.0).radius(3.0);
+        if let Some((span, _)) = look {
+            if let Some(ink) = span.color {
+                chip = chip.color(ink);
+            }
+            if let Some(tint) = span.bg {
+                chip = chip.fill(tint);
+            }
+        }
+        strip = strip.child(
+            chip.key(format!("status-change-{}", tone))
+                .role("menuitem")
+                .label((*label).to_owned())
+                .on_press(move |s: &mut State| {
+                    s.status_change = None;
+                    s.draft.replace_text(&ask);
+                    s.draft.focused = true;
+                }),
+        );
+    }
+    strip
+}
+
+fn reply_with(s: &State, body: &str, live: bool, copy: bool, can_draft: bool, p: &Palette) -> El {
     let mut out = col().w_full().gap(8.0);
     let mut start = 0;
     let mut offset = 0;
@@ -296,7 +362,7 @@ pub(super) fn reply_with_copy(s: &State, body: &str, live: bool, copy: bool, p: 
             .strip_prefix("<truncated ").and_then(|t| t.strip_suffix(" bytes>"))
             .filter(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit())) {
             if start < offset {
-                out = out.child(reply_markdown(s, &body[start..offset], live, false, p));
+                out = out.child(reply_markdown(s, &body[start..offset], live, false, can_draft, p));
             }
             out = out.child(text(format!("{bytes} bytes the runtime did not keep"))
                 .key(format!("runtime-gap-{offset}"))
@@ -306,10 +372,10 @@ pub(super) fn reply_with_copy(s: &State, body: &str, live: bool, copy: bool, p: 
         offset += line.len();
     }
     if start == 0 {
-        return reply_markdown(s, body, live, copy, p);
+        return reply_markdown(s, body, live, copy, can_draft, p);
     }
     if start < body.len() {
-        out = out.child(reply_markdown(s, &body[start..], live, false, p));
+        out = out.child(reply_markdown(s, &body[start..], live, false, can_draft, p));
     }
     // A reply with a gap in it still copies whole, once.
     if copy {
@@ -320,10 +386,11 @@ pub(super) fn reply_with_copy(s: &State, body: &str, live: bool, copy: bool, p: 
 
 #[cfg(test)]
 pub(super) fn reply_markdown_for_tests(s: &State, body: &str, p: &Palette) -> El {
-    reply_markdown(s, body, false, true, p)
+    reply_markdown(s, body, false, true, true, p)
 }
 
-fn reply_markdown(s: &State, body: &str, live: bool, copy: bool, p: &Palette) -> El {
+fn reply_markdown(s: &State, body: &str, live: bool, copy: bool, can_draft: bool, p: &Palette) -> El {
+    let chip_reply = body_key(body);
     let frame_palette = Palette::new(p.dark);
     let feedback = s.copy_feedback.clone();
     let crate::markdown_prep::Prepared { markdown: prepared, undrawn, math: math_pngs } =
@@ -337,8 +404,10 @@ fn reply_markdown(s: &State, body: &str, live: bool, copy: bool, p: &Palette) ->
         Markdown::new(prepared)
             .streaming(live)
             .selectable(true)
-            .on_link(|s: &mut State, url| {
-                if crate::markdown_prep::is_own_mark(url) {
+            .on_link(move |s: &mut State, url| {
+                if crate::markdown_prep::status_of_link(url).is_some() {
+                    status_pressed(s, url, can_draft, chip_reply);
+                } else if crate::markdown_prep::is_own_mark(url) {
                     // A status chip or a colour swatch: drawn, never opened.
                 } else if let Some(target) = file_target(url) {
                     open_file(s, target);
@@ -517,6 +586,9 @@ fn reply_markdown(s: &State, body: &str, live: bool, copy: bool, p: &Palette) ->
                 .on_press(move |s: &mut State| open_file(s, target.clone())),
             );
         }
+    }
+    if can_draft && let Some(change) = s.status_change.as_ref().filter(|c| c.reply == chip_reply) {
+        out = out.child(status_strip(change, p));
     }
     if !copy {
         return out;
@@ -739,3 +811,7 @@ mod tests {
         assert_eq!(copy_label(Some(&bad), "other", now), "Copy");
     }
 }
+
+#[cfg(test)]
+#[path = "status_chip_tests.rs"]
+mod status_chip_tests;

@@ -303,6 +303,57 @@ pub fn hex_colour_of(text: &str) -> Option<&str> {
 pub const STATUS_MARK: &str = "locust-status:";
 pub const SWATCH_MARK: &str = "locust-swatch:";
 
+/// `STATUS_CHOICES` (statusChips.ts): what a status chip can be changed to, each with its tone.
+pub const STATUS_CHOICES: [(&str, &str); 5] = [("Not started", "quiet"), ("In progress", "blue"), ("Waiting", "amber"), ("Blocked", "red"), ("Done", "green")];
+
+/// ThreadItems.tsx's `plainCell`: a cell's words without emphasis or link marks, at most 80 characters, or "this row".
+pub fn plain_cell(cell: &str) -> String {
+    let link = crate::invariants::regex(r"\[([^\]]*)\]\([^)]*\)");
+    let words: String = link.replace_all(cell, "$1").chars().filter(|c| !matches!(c, '*' | '_' | '`' | '~')).collect();
+    let kept: String = words.trim().chars().take(80).collect();
+    if kept.is_empty() { "this row".into() } else { kept }
+}
+
+/// A status chip's address: its tone, then the row it names, written so a Markdown link keeps it whole.
+pub fn status_link(tone: &str, item: &str) -> String {
+    let mut out = format!("{STATUS_MARK}{tone}/");
+    for b in item.bytes() {
+        if b.is_ascii_alphanumeric() || matches!(b, b'-' | b'.' | b'~') {
+            out.push(b as char);
+        } else {
+            out.push_str(&format!("%{b:02X}"));
+        }
+    }
+    out
+}
+
+/// A status chip's tone and the row it names, from its address; None for anything else.
+pub fn status_of_link(url: &str) -> Option<(String, String)> {
+    let rest = url.strip_prefix(STATUS_MARK)?;
+    let (tone, item) = rest.split_once('/').unwrap_or((rest, ""));
+    let bytes = item.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' && i + 2 < bytes.len() {
+            if let Ok(b) = u8::from_str_radix(std::str::from_utf8(&bytes[i + 1..i + 3]).unwrap_or(""), 16) {
+                out.push(b);
+                i += 3;
+                continue;
+            }
+        }
+        out.push(bytes[i]);
+        i += 1;
+    }
+    let item = String::from_utf8(out).unwrap_or_default();
+    Some((tone.to_owned(), if item.is_empty() { "this row".into() } else { item }))
+}
+
+/// `statusAsk`: the words a picked status puts in the box. The teammate keeps the tracker, so the change is told to it.
+pub fn status_ask(item: &str, status: &str) -> String {
+    format!("Mark \"{item}\" as {status} in the tracker, and say what that changes.")
+}
+
 fn swatch(hex: &str) -> String {
     format!("[\u{25a0}]({SWATCH_MARK}{})", &hex[1..])
 }
@@ -389,7 +440,8 @@ pub fn mark_table_statuses(body: &str) -> String {
                         format!(" {} {hex} ", swatch(hex))
                     } else if Some(at) == status && !words.contains("](") {
                         match status_tone_of(words) {
-                            Some(tone) => format!(" [{words}]({STATUS_MARK}{}) ", tone.word()),
+                            // The row is named by its first other cell (ThreadItems.tsx), so a press can say which row.
+                            Some(tone) => format!(" [{words}]({}) ", status_link(tone.word(), &plain_cell(cells.iter().enumerate().find(|(other, _)| Some(*other) != status).map_or("", |(_, c)| c.as_str())))),
                             None => cell.clone(),
                         }
                     } else {
@@ -440,7 +492,8 @@ pub fn mark_colours(body: &str) -> String {
 /// swatch as a square in its own colour (`.lc-swatch`). Other links keep Markdown's own look.
 pub fn reply_link_look(url: &str, dark: bool) -> Option<(rune::Span, rune::LinkPaint)> {
     let l = crate::look::controls::Look::new(dark);
-    if let Some(tone) = url.strip_prefix(STATUS_MARK) {
+    if let Some(rest) = url.strip_prefix(STATUS_MARK) {
+        let tone = rest.split('/').next().unwrap_or(rest);
         let (ink, tint) = match tone {
             "green" | "blue" | "amber" | "red" => (l.c(&format!("{tone}-text")), l.c(&format!("{tone}-tint"))),
             _ => (l.c("text-muted"), l.c("chip-bg")),
