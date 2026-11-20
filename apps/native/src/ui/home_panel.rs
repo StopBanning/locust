@@ -2265,6 +2265,9 @@ mod home_cover_status_tests;
 mod home_team_cards_tests;
 
 #[cfg(test)]
+#[path = "cover_ink_tests.rs"]
+mod cover_ink_tests;
+#[cfg(test)]
 #[path = "home_cover_tests.rs"]
 mod home_cover_tests;
 

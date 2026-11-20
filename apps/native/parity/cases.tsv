@@ -2297,6 +2297,8 @@ apps/desktop/src/main/the-changes-panel-reads-every-change.test.ts	names a path 
 apps/desktop/src/main/the-changes-panel-reads-every-change.test.ts	takes master as the base of a repository with no remote and no main (CH3)	yes
 apps/desktop/src/main/the-changes-panel-reads-every-change.test.ts	lists a new file too big to show whole, and says when there are more new files than it shows (CH1)	yes
 apps/desktop/src/main/the-changes-panel-reads-every-change.test.ts	shows all the changes for a commit no longer on the branch, and says it shows all (CH4)	yes
+apps/desktop/src/main/the-cover-glass-reads-in-both-themes.test.ts	writes the wordmark and the claim in its own ink	yes
+apps/desktop/src/main/the-cover-glass-reads-in-both-themes.test.ts	keeps that ink the same in both themes, as the glass is	yes
 apps/desktop/src/main/the-effort-thumb-is-claude-codes-shape.test.ts	is Claude Code's: a white rounded rectangle, 16 x 20, 4px corners -- painted by the liquid	yes
 apps/desktop/src/main/the-effort-thumb-is-claude-codes-shape.test.ts	fills the track's height, as Claude Code's does	yes
 apps/desktop/src/main/the-effort-thumb-is-claude-codes-shape.test.ts	is ONE thing (Colin, 2026-09-26: "a rectangle with no gooey with a gooey circle behind it, we gotta pick one")	no
