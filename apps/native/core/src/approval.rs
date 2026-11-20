@@ -2463,3 +2463,7 @@ mod tests {
 #[cfg(test)]
 #[path = "web_search_asks_tests.rs"]
 mod web_search_asks_tests;
+
+#[cfg(test)]
+#[path = "opencode_card_tests.rs"]
+mod opencode_card_tests;
