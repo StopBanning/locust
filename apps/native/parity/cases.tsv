@@ -1024,6 +1024,7 @@ apps/desktop/src/main/an-app-picks-a-model-for-one-turn.test.ts	is refused by a 
 apps/desktop/src/main/an-app-picks-a-model-for-one-turn.test.ts	steps a turn down to Ask when the app asks for read only, and never up	yes
 apps/desktop/src/main/an-app-picks-a-model-for-one-turn.test.ts	says which folder its turns work in, by name only	yes
 apps/desktop/src/main/an-app-picks-a-model-for-one-turn.test.ts	takes the same choice when a conversation goes on	yes
+apps/desktop/src/main/an-app-server-that-cannot-start-says-so.test.ts	reports the failure as its exit, and throws nothing	yes
 apps/desktop/src/main/an-app-stops-a-turn-it-started.test.ts	stops the running turn by its own run id, and says what is kept	yes
 apps/desktop/src/main/an-app-stops-a-turn-it-started.test.ts	never stops a turn the person started, even in a conversation the app began	yes
 apps/desktop/src/main/an-app-stops-a-turn-it-started.test.ts	says so when nothing is running, or when Locust could not stop it	yes

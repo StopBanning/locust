@@ -3465,3 +3465,28 @@ fn a_bounded_shutdown_ends_at_its_deadline_when_a_turn_never_settles_and_at_once
     assert!(flag.load(Ordering::Relaxed), "the turn was told to stop");
     assert!(took >= Duration::from_millis(300) && took < Duration::from_secs(5), "ended at its deadline: {took:?}");
 }
+
+/// an-app-server-that-cannot-start-says-so.test.ts: a CLI moved or deleted since discovery. Electron's child had no
+/// error listener, so the failure threw in the main process and the turn waited out its 60 s. Rust's spawn answers the
+/// failure at once (Codex::spawn returns it; stderr is never piped, so nothing can fill), and the turn says so promptly.
+// case: reports the failure as its exit, and throws nothing
+#[test]
+fn an_app_server_that_cannot_start_says_so_at_once() {
+    let mut command = std::process::Command::new("/nowhere/locust-no-such-codex");
+    command.arg("app-server");
+    let begun = Instant::now();
+    assert!(crate::runtime::codex::Codex::spawn(&mut command).is_err());
+    assert!(begun.elapsed() < Duration::from_secs(2));
+    let t = Temp::new();
+    let _g = hooks::install(t.store(), Some((PathBuf::from("/nowhere/locust-no-such-codex"), Vec::new())));
+    let begun = Instant::now();
+    match send(job(&t, None, "Synthetic prompt")) {
+        Err(said) => assert!(!said.is_empty()),
+        Ok(run) => {
+            finished(&run.conversation_id);
+            let k = kinds(&path_of(&t, &run.conversation_id));
+            assert_eq!(k.last().map(String::as_str), Some("run.failed"), "{k:?}");
+        }
+    }
+    assert!(begun.elapsed() < Duration::from_secs(10), "{:?}", begun.elapsed());
+}
