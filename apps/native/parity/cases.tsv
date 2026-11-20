@@ -931,6 +931,11 @@ apps/desktop/src/main/an-antigravity-model-with-its-own-limit-is-shown.test.ts	l
 apps/desktop/src/main/an-antigravity-model-with-its-own-limit-is-shown.test.ts	shows a group with one window, and leaves out a window it has no words for	no
 apps/desktop/src/main/an-antigravity-model-with-its-own-limit-is-shown.test.ts	reads an answer with no Gemini group from its first group	no
 apps/desktop/src/main/an-antigravity-model-with-its-own-limit-is-shown.test.ts	still says nothing when no group can be read	no
+apps/desktop/src/main/an-app-names-a-folder-locust-knows.test.ts	is taken when it is the open folder, or inside it	yes
+apps/desktop/src/main/an-app-names-a-folder-locust-knows.test.ts	is taken when it is a worktree of the open folder's repository, wherever it was made	yes
+apps/desktop/src/main/an-app-names-a-folder-locust-knows.test.ts	is refused when Locust never knew it, even a repository of its own	yes
+apps/desktop/src/main/an-app-names-a-folder-locust-knows.test.ts	is refused when it is the folder above a known one, a relative path, missing, or a file	yes
+apps/desktop/src/main/an-app-names-a-folder-locust-knows.test.ts	is refused when a path climbs out of a known folder	yes
 apps/desktop/src/main/an-app-stops-a-turn-it-started.test.ts	stops the running turn by its own run id, and says what is kept	yes
 apps/desktop/src/main/an-app-stops-a-turn-it-started.test.ts	never stops a turn the person started, even in a conversation the app began	yes
 apps/desktop/src/main/an-app-stops-a-turn-it-started.test.ts	says so when nothing is running, or when Locust could not stop it	yes

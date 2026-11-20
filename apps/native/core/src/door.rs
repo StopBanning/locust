@@ -829,3 +829,7 @@ pub fn serve_main(exe: &str) -> Result<(), String> {
 #[cfg(test)]
 #[path = "door_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "an_app_names_a_folder_tests.rs"]
+mod an_app_names_a_folder_tests;
