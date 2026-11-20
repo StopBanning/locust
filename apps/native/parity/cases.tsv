@@ -2257,6 +2257,10 @@ apps/desktop/src/main/todo-list-is-opt-in.test.ts	never offers it to Claude Code
 apps/desktop/src/main/todo-list-is-opt-in.test.ts	describes a tool rather than a format, so it cannot compete with the real one	no
 apps/desktop/src/main/two-teammates-may-not-share-a-name.test.ts	cannot be given to a second teammate, whatever its case or spaces	no
 apps/desktop/src/main/two-teammates-may-not-share-a-name.test.ts	cannot be taken by a rename, but a teammate keeps its own	no
+apps/desktop/src/main/unreadable-is-not-empty.test.ts	never reports that a room does not exist	yes
+apps/desktop/src/main/unreadable-is-not-empty.test.ts	says every room is as it was, because nothing was established	yes
+apps/desktop/src/main/unreadable-is-not-empty.test.ts	still treats a file that is simply not there as empty	yes
+apps/desktop/src/main/unreadable-is-not-empty.test.ts	still reports a genuinely missing room as missing	yes
 apps/desktop/src/main/usage-is-counted.test.ts	names the model the run reported, and keeps a plan’s dollars out of the money	no
 apps/desktop/src/main/usage-is-counted.test.ts	an API key’s turn is money; a turn with no receipt still counts, at its last moment	no
 apps/desktop/src/main/usage-is-counted.test.ts	every turn the ledger holds, each named by its conversation’s first turn	no

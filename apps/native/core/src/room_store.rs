@@ -2018,3 +2018,7 @@ mod tests {
         assert_eq!(get(&t.store, &room.room_id).unwrap().unwrap().teammate_ids, vec!["tm_booty"]);
     }
 }
+
+#[cfg(test)]
+#[path = "unreadable_rooms_tests.rs"]
+mod unreadable_rooms_tests;
