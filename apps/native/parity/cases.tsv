@@ -3023,6 +3023,8 @@ apps/desktop/src/renderer/src/a-new-teammate-wears-a-new-colour.test.tsx	is the 
 apps/desktop/src/renderer/src/a-new-teammate-wears-a-new-colour.test.tsx	is where the dialog opens, and an edit keeps the colour it has	yes
 apps/desktop/src/renderer/src/a-new-teammate-wears-a-new-colour.test.tsx	says when it is taken, and will not save it	yes
 apps/desktop/src/renderer/src/a-new-teammate-wears-a-new-colour.test.tsx	says nothing about a name nobody else has	yes
+apps/desktop/src/renderer/src/a-note-between-steps-renders-its-code.test.tsx	is drawn by the reply’s renderer	yes
+apps/desktop/src/renderer/src/a-note-between-steps-renders-its-code.test.tsx	which turns a fenced block into code, with no fences left as text	yes
 apps/desktop/src/renderer/src/a-note-can-be-left-in-the-changes-panel.test.ts	can be left in the Changes panel: it sits inside the notes of the conversation on screen	yes
 apps/desktop/src/renderer/src/a-note-can-be-left-in-the-changes-panel.test.ts	can be left in Review changes only for the teammate whose conversation is on screen	yes
 apps/desktop/src/renderer/src/a-page-a-teammate-made-runs-in-its-turn.test.tsx	opens a new web page, so it runs	yes

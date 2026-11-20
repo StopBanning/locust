@@ -870,6 +870,10 @@ pub(super) fn activity_group(items: &[ledger::Item], p: &Palette, s: &State, sco
 }
 
 #[cfg(test)]
+#[path = "note_code_tests.rs"]
+mod note_code_tests;
+
+#[cfg(test)]
 #[path = "thought_line_tests.rs"]
 mod thought_line_tests;
 
