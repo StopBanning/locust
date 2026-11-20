@@ -3,12 +3,12 @@
 use super::*;
 use locust_core::benchmark::{
     BenchmarkAnswer, BenchmarkCheck, BenchmarkEntry, BenchmarkRow, BenchmarkRunInput, ChartAxis,
-    RunCost, TimeBecause, benchmark_chart, benchmark_rows, cost_cell, cost_line, step_words,
+    RunCost, TimeBecause, benchmark_chart, benchmark_note, benchmark_rows, cost_cell, cost_line, step_words,
 };
 use locust_core::compare::{
     ChangesIn, Compare, CompareRoute, CompareSlotId, CreateCompareInput, JudgePanelMember,
     MAX_COMPARE_SLOTS, MIN_COMPARE_SLOTS, RerunProgress, blind_name, changes_line,
-    compare_refusal_of, compare_slot_key, has_column_instructions, judge_pick_of,
+    compare_refusal_of, compare_route_name, compare_slot_key, has_column_instructions, judge_pick_of,
     newest_judge_mission_ids, rerun_refusal_of, shuffled_columns,
 };
 use locust_core::compare_copies::{
@@ -17,7 +17,8 @@ use locust_core::compare_copies::{
     make_compare_copy, remove_compare_copies, resolve_compare_page_path,
 };
 use locust_core::compare_judge::{
-    JudgeChangesKind, JudgedAnswer, JudgedCheck, JudgedCheckOutcome, build_judge_brief,
+    CHECK_FAILED_EVERYWHERE, JudgeChangesKind, JudgedAnswer, JudgedCheck, JudgedCheckOutcome, build_judge_brief,
+    check_failed_everywhere, check_note, check_word,
 };
 use locust_core::compare_reruns::{CompareReruns, CompareRerunsHost};
 use locust_core::compare_score::{
@@ -111,6 +112,8 @@ pub(super) struct CompareState {
     pub(super) tune_review_skill: bool,
     pub(super) tune_dismissed_id: Option<String>,
     pub(super) tune_saved_feedback: Option<String>,
+    /// A judge asked while a copy's check still ran (0.811): this comparison's, asked again once every check has said.
+    pub(super) judge_waiting: Option<String>,
 }
 
 pub(super) fn runtime_display_name(runtime: &str) -> &'static str {
@@ -678,16 +681,100 @@ fn snapshot_final_text(snap: &ledger::Snapshot) -> String {
     String::new()
 }
 
-fn snapshot_check(snap: &ledger::Snapshot, running_checks: &HashMap<String, String>) -> Option<JudgedCheck> {
-    if running_checks.contains_key(&snap.tip) {
-        return Some(JudgedCheck {
+/// What the person's check said in a column's copy after its newest turn (A3.3, 0.810), or that it still runs there
+/// (0.811): the column shows it as the conversation's card does, without Send, and its judges read the same.
+#[derive(Clone, Debug, PartialEq)]
+pub(super) struct ColumnCheck {
+    pub(super) command: String,
+    pub(super) outcome: JudgedCheckOutcome,
+    pub(super) new_lines: Vec<String>,
+    pub(super) unchanged: bool,
+    pub(super) first: bool,
+}
+
+impl ColumnCheck {
+    pub(super) fn judged(&self) -> JudgedCheck {
+        JudgedCheck { outcome: self.outcome, lines: self.new_lines.clone(), unchanged: self.unchanged }
+    }
+}
+
+pub(super) fn snapshot_check(snap: &ledger::Snapshot, running_checks: &HashMap<String, String>) -> Option<ColumnCheck> {
+    if let Some(command) = running_checks.get(&snap.tip) {
+        return Some(ColumnCheck {
+            command: command.clone(),
             outcome: JudgedCheckOutcome::Running,
-            lines: Vec::new(),
+            new_lines: Vec::new(),
             unchanged: false,
+            first: false,
         });
     }
-    let _ = snap;
-    None
+    // The check after the newest turn only: a turn that was not checked says nothing of an older one's.
+    snap.items.iter().rev().find_map(|item| match item {
+        ledger::Item::EditCheck { mission_id, command, outcome, new_lines, unchanged, first, .. } if *mission_id == snap.tip => {
+            use locust_core::edit_check::EditCheckOutcome as E;
+            Some(ColumnCheck {
+                command: command.clone(),
+                outcome: match outcome {
+                    E::Passed => JudgedCheckOutcome::Passed,
+                    E::Failed => JudgedCheckOutcome::Failed,
+                    E::TimedOut => JudgedCheckOutcome::TimedOut,
+                    E::CouldNotRun => JudgedCheckOutcome::CouldNotRun,
+                },
+                new_lines: new_lines.clone(),
+                unchanged: *unchanged,
+                first: *first,
+            })
+        }
+        _ => None,
+    })
+}
+
+/// The folder's check command (Settings > Project folder), as the settings were last read: never read from disk while
+/// drawing.
+fn folder_check_command(s: &State) -> Option<String> {
+    let folder = active_folder(s)?;
+    let ws = locust_core::workspace_settings::workspace_id_for(&folder);
+    s.settings_panel.settings.check_commands.get(&ws).cloned()
+}
+
+/// A column's check under its answer, as the conversation's card says it, with nothing to send from here (0.810).
+fn column_check_card(slot: CompareSlotId, chk: &ColumnCheck, p: &Palette, s: &State) -> El {
+    use locust_core::edit_check::EditCheckOutcome as E;
+    let outcome = match chk.outcome {
+        JudgedCheckOutcome::Running | JudgedCheckOutcome::NotRun => {
+            return edit_check_card::running_card(&chk.command, p).key(format!("compare-check-{}", slot.as_str()));
+        }
+        JudgedCheckOutcome::Passed => E::Passed,
+        JudgedCheckOutcome::Failed => E::Failed,
+        JudgedCheckOutcome::TimedOut => E::TimedOut,
+        JudgedCheckOutcome::CouldNotRun => E::CouldNotRun,
+    };
+    edit_check_card::card(
+        &format!("compare-{}", slot.as_str()),
+        &chk.command,
+        outcome,
+        &chk.new_lines,
+        chk.unchanged,
+        chk.first,
+        None,
+        false,
+        None,
+        p,
+        s,
+    )
+    .key(format!("compare-check-{}", slot.as_str()))
+}
+
+/// A copy's check still runs for this comparison's newest turns: a judge asked now waits for it (0.811).
+fn checks_running(s: &State, cmp: &Compare) -> bool {
+    cmp.changes
+        && cmp.changes_in != Some(ChangesIn::Folder)
+        && cmp.slots.iter().any(|col| {
+            col.mission_ids
+                .last()
+                .and_then(|id| s.compare.snapshots.get(id))
+                .is_some_and(|snap| s.running_checks.contains_key(&snap.tip))
+        })
 }
 
 pub(super) fn ask_judge(s: &mut State) {
@@ -731,10 +818,19 @@ pub(super) fn ask_judge(s: &mut State) {
         return;
     }
 
+    if checks_running(s, &cmp) {
+        s.compare.judge_waiting = Some(cmp.compare_id.clone());
+        s.compare.problem = None;
+        return;
+    }
+    s.compare.judge_waiting = None;
+
     let copy_root = compare_root(&store);
     let folder = active_folder(s);
     let mut answers: Vec<JudgedAnswer> = Vec::new();
-    let check_command: Option<String> = None;
+    // The brief names the check by the command a copy ran, else the folder's, and only beside answers that were
+    // checked (Electron index.ts `checkCommand ??=`).
+    let mut check_command: Option<String> = None;
 
     for col in &cmp.slots {
         let Some(newest) = col.mission_ids.last() else { continue };
@@ -761,7 +857,11 @@ pub(super) fn ask_judge(s: &mut State) {
                     return;
                 }
             }
-            check = snapshot_check(snap, &s.running_checks);
+            let ran = snapshot_check(snap, &s.running_checks);
+            if let Some(c) = ran.as_ref().filter(|c| c.outcome != JudgedCheckOutcome::Running) {
+                check_command.get_or_insert_with(|| c.command.clone());
+            }
+            check = ran.map(|c| c.judged());
         }
         answers.push(JudgedAnswer {
             letter: col.slot.upper().to_owned(),
@@ -785,6 +885,14 @@ pub(super) fn ask_judge(s: &mut State) {
                     unchanged: false,
                 });
             }
+        }
+        if check_command.is_none() {
+            check_command = folder.as_ref().and_then(|f| {
+                locust_core::edit_check::check_command_for(
+                    &store,
+                    Some(&locust_core::workspace_settings::workspace_id_for(f)),
+                )
+            });
         }
     }
 
@@ -1700,7 +1808,7 @@ pub(super) fn poll(s: &mut State) -> bool {
         changed = true;
     }
 
-    let Some(active_id) = s.compare.active_id.as_deref() else {
+    let Some(active_id) = s.compare.active_id.clone() else {
         return changed;
     };
     let Some(cmp) = s.compare.compares.iter().find(|c| c.compare_id == active_id).cloned() else {
@@ -1732,7 +1840,27 @@ pub(super) fn poll(s: &mut State) -> bool {
     if ended {
         count_changes(s);
     }
+    changed |= ask_waiting_judge(s);
     changed
+}
+
+/// A judge asked while a copy's check ran is asked again once every check has said (0.811), and once only: the wait
+/// is cleared before asking, so a refusal (no model to judge, no points for three) is said and not asked every tick.
+pub(super) fn ask_waiting_judge(s: &mut State) -> bool {
+    let Some(id) = s.compare.judge_waiting.clone() else { return false };
+    if s.compare.active_id.as_deref() != Some(id.as_str()) {
+        return false;
+    }
+    let Some(cmp) = s.compare.compares.iter().find(|c| c.compare_id == id).cloned() else {
+        s.compare.judge_waiting = None;
+        return false;
+    };
+    if checks_running(s, &cmp) {
+        return false;
+    }
+    s.compare.judge_waiting = None;
+    ask_judge(s);
+    true
 }
 
 fn snapshot_span_ms(snap: &ledger::Snapshot) -> Option<u64> {
@@ -1816,8 +1944,10 @@ pub(super) fn benchmark_runs_for(s: &State, origin: &Compare) -> Vec<BenchmarkRu
                         })
                         .filter(|(_, of)| *of > 0)
                         .map_or((None, None), |(m, o)| (Some(m), Some(o)));
+                    // A check still running says nothing yet: the run is not counted as checked (App.tsx 0.811).
                     let check = snap
                         .and_then(|sn| snapshot_check(sn, &s.running_checks))
+                        .filter(|c| c.outcome != JudgedCheckOutcome::Running)
                         .map(|c| match c.outcome {
                             JudgedCheckOutcome::Passed => BenchmarkCheck::Passed,
                             JudgedCheckOutcome::Failed => BenchmarkCheck::Failed,
@@ -1829,11 +1959,7 @@ pub(super) fn benchmark_runs_for(s: &State, origin: &Compare) -> Vec<BenchmarkRu
                     } else {
                         format!("{}:{}", col.route.runtime, col.route.model)
                     };
-                    let name = col
-                        .route
-                        .label
-                        .clone()
-                        .unwrap_or_else(|| col.route.model.clone());
+                    let name = compare_route_name(&col.route);
                     BenchmarkAnswer {
                         key,
                         runtime: col.route.runtime.clone(),
@@ -2089,7 +2215,7 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
     let mut col_answers: Vec<String> = Vec::new();
     let mut col_spans: Vec<Option<String>> = Vec::new();
     let mut col_costs: Vec<Option<String>> = Vec::new();
-    let mut col_checks: Vec<Option<JudgedCheck>> = Vec::new();
+    let mut col_checks: Vec<Option<ColumnCheck>> = Vec::new();
     let mut col_running: Vec<bool> = Vec::new();
     let mut col_failed: Vec<bool> = Vec::new();
     let mut col_keepable: Vec<bool> = Vec::new();
@@ -2099,10 +2225,7 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
         let name = if veiled {
             blind_name(slot.slot, setups)
         } else {
-            slot.route
-                .label
-                .clone()
-                .unwrap_or_else(|| slot.route.model.clone())
+            compare_route_name(&slot.route)
         };
         let newest = slot.mission_ids.last().and_then(|id| s.compare.snapshots.get(id));
         let running = newest.is_some_and(|snap| snap.running);
@@ -2339,14 +2462,11 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
             .child(head)
             .child(text(body_text).font(l.ty.body).color(p.text).w_full().wrap());
 
-        if let Some(chk) = check {
-            let chk_line = match chk.outcome {
-                JudgedCheckOutcome::Passed => "passed after this turn.".to_owned(),
-                JudgedCheckOutcome::Failed => format!("failed after this turn\n{}", chk.lines.join("\n")),
-                JudgedCheckOutcome::Running => "running after this turn…".to_owned(),
-                _ => format!("{} after this turn.", chk.outcome.word()),
-            };
-            cell = cell.child(text(chk_line).font(l.ty.label).color(p.muted).wrap());
+        // What your check said in its copy after that turn (0.810): its judges read the same.
+        if let Some(chk) = check
+            && !running
+        {
+            cell = cell.child(column_check_card(slot.slot, chk, p, s));
         }
 
         for page in pages {
@@ -2419,6 +2539,23 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
     }
     scroll_body = scroll_body.child(cols_row);
 
+    // JUDGES SEE THE CHECK (0.810): in copies, each column ran your check after its turn, and every judge reads it.
+    let in_copies = cmp.changes && cmp.changes_in != Some(ChangesIn::Folder);
+    let judged_checks: Vec<Option<JudgedCheck>> = col_checks.iter().map(|c| c.as_ref().map(ColumnCheck::judged)).collect();
+    if in_copies && check_failed_everywhere(&judged_checks.iter().map(Option::as_ref).collect::<Vec<_>>()) {
+        scroll_body = scroll_body.child(
+            text(CHECK_FAILED_EVERYWHERE)
+                .key("compare-check-across")
+                .font(l.ty.label)
+                .color(p.muted)
+                .wrap(),
+        );
+    }
+    let check_said: Vec<Option<(&str, JudgedCheckOutcome)>> =
+        col_checks.iter().map(|c| c.as_ref().map(|c| (c.command.as_str(), c.outcome))).collect();
+    let folder_command = folder_check_command(s);
+    let judge_check_note = check_note(in_copies, &check_said, folder_command.as_deref());
+
     // Judge's view & Scorecard
     if let Some((judge_title, any_running, scorecard_opt, _pick, prose, is_single, panel_names, silent_names, words_of)) = judge_view {
         let mut jbox = col()
@@ -2432,7 +2569,7 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
             .child(text(judge_title).font(l.ty.label).color(p.muted));
 
         if let Some(sc) = scorecard_opt {
-            jbox = jbox.child(render_scorecard(&sc, &cmp.slots, &col_names, &col_spans, &col_costs, &col_checks, veiled, p, &l));
+            jbox = jbox.child(render_scorecard(&sc, &cmp.slots, &col_names, &col_spans, &col_costs, &judged_checks, veiled, p, &l));
         }
 
         if !is_single && !any_running {
@@ -2512,17 +2649,25 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
             .key("compare-judge-three-toggle")
             .on_press(|s: &mut State| s.compare.three_judges = !s.compare.three_judges),
         );
-        let ask_label = if s.compare.three_judges {
+        // Waiting on a copy's check, a judge asked says so (0.811): "Asking…", as Electron's button does.
+        let waiting = s.compare.judge_waiting.as_deref() == Some(cmp.compare_id.as_str());
+        let ask_label = if waiting {
+            "Asking…"
+        } else if s.compare.three_judges {
             "Ask three judges"
         } else {
             "Ask a judge"
         };
-        btn_row = btn_row.child(
-            crate::look::controls::button(&l, ask_label, crate::look::controls::Tone::Active, false)
-                .key("compare-ask-judge")
-                .on_press(|s: &mut State| ask_judge(s)),
-        );
+        let mut ask_btn = crate::look::controls::button(&l, ask_label, crate::look::controls::Tone::Active, waiting)
+            .key("compare-ask-judge");
+        if !waiting {
+            ask_btn = ask_btn.on_press(|s: &mut State| ask_judge(s));
+        }
+        btn_row = btn_row.child(ask_btn);
         ask_box = ask_box.child(btn_row);
+        if let Some(note) = &judge_check_note {
+            ask_box = ask_box.child(text(note.clone()).key("compare-check-note").font(l.ty.label).color(p.muted).wrap());
+        }
         scroll_body = scroll_body.child(ask_box);
     }
 
@@ -2755,9 +2900,14 @@ fn render_scorecard(
 
     if col_checks.iter().any(|c| c.is_some()) {
         let mut chk_row = row().w_full().gap(8.0).child(text("Your check").font(l.ty.label).color(p.muted).grow(1.0));
+        // Your check in each copy (0.810), beside their score: green for passed, amber for not, no colour running.
         for c in col_checks {
-            let word = c.as_ref().map(|chk| chk.outcome.word()).unwrap_or("—");
-            chk_row = chk_row.child(text(word).font(l.ty.label).color(p.text).grow(1.0));
+            let tone = match c.as_ref().map(|chk| chk.outcome) {
+                None | Some(JudgedCheckOutcome::Running) => p.text,
+                Some(JudgedCheckOutcome::Passed) => p.green,
+                Some(_) => p.amber,
+            };
+            chk_row = chk_row.child(text(check_word(c.as_ref())).font(l.ty.label).color(tone).grow(1.0));
         }
         table = table.child(chk_row);
     }
@@ -2788,6 +2938,18 @@ fn render_scorecard(
     }
 
     table
+}
+
+/// A benchmark row's Check passed cell (0.810): "2 of 2" green when every checked run passed, amber otherwise, a dash
+/// in no colour for a model none of whose runs was checked.
+pub(super) fn check_passed_cell(r: &BenchmarkRow, p: &Palette) -> (String, rune::Color) {
+    if r.checked == 0 {
+        ("\u{2014}".to_owned(), p.text)
+    } else if r.check_passed == r.checked {
+        (format!("{} of {}", r.check_passed, r.checked), p.green)
+    } else {
+        (format!("{} of {}", r.check_passed, r.checked), p.amber)
+    }
 }
 
 fn render_benchmark_section(
@@ -2979,12 +3141,8 @@ fn render_benchmark_section(
             )
             .child(text(every_txt).font(l.ty.body).color(p.text).grow(1.0));
         if checked {
-            let chk_txt = if r.checked == 0 {
-                "—".to_owned()
-            } else {
-                format!("{} of {}", r.check_passed, r.checked)
-            };
-            tr = tr.child(text(chk_txt).font(l.ty.body).color(p.text).grow(1.0));
+            let (chk_txt, tone) = check_passed_cell(r, p);
+            tr = tr.child(text(chk_txt).font(l.ty.body).color(tone).grow(1.0));
         }
         tr = tr
             .child(text(time_txt).font(l.ty.body).color(p.text).grow(1.0))
@@ -3015,6 +3173,14 @@ fn render_benchmark_section(
         table = table.child(tr);
     }
     box_col = box_col.child(table);
+    let scored_runs = runs_input.iter().filter(|r| r.answers.iter().any(|a| a.of.is_some())).count();
+    box_col = box_col.child(
+        text(benchmark_note(scored_runs, checked))
+            .key("benchmark-note")
+            .font(l.ty.label)
+            .color(p.muted)
+            .wrap(),
+    );
 
     if let Some(chart) = benchmark_chart(&rows) {
         let axis_note = match chart.axis {
@@ -3837,3 +4003,7 @@ mod tests {
 #[cfg(test)]
 #[path = "compared_effort_tests.rs"]
 mod compared_effort_tests;
+
+#[cfg(test)]
+#[path = "judges_see_the_check_tests.rs"]
+mod judges_see_the_check_tests;

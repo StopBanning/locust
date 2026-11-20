@@ -1683,6 +1683,40 @@ mod tests {
     }
 }
 
+/// `routeName.ts` `shownRouteLabel` (0.810, 0.811): a compared route's own name. A model added with its own id as its
+/// name ("claude-haiku-5-5" on `own-0a1b2c3d/claude-haiku-5-5`) reads spelled, "Claude Haiku 5.5"; any other name stands
+/// as the person wrote it; a label that is the route's whole id, or none, is no name, so the caller spells the model.
+pub fn shown_route_label(model: &str, label: Option<&str>) -> Option<String> {
+    let label = label.map(str::trim).filter(|l| !l.is_empty() && *l != model)?;
+    let bare = model.strip_prefix("own-").and_then(|rest| {
+        let (hex, name) = rest.split_once('/')?;
+        (hex.len() == 8 && hex.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)) && !name.is_empty())
+            .then_some(name)
+    });
+    let spellable = |l: &str| {
+        let parts: Vec<&str> = l.split('-').collect();
+        parts.len() >= 2
+            && parts
+                .iter()
+                .all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'.'))
+    };
+    if bare == Some(label) && spellable(label) {
+        return Some(crate::teammate_tooltip::model_display_name("opencode", model));
+    }
+    Some(label.to_owned())
+}
+
+/// `App.tsx` `compareRouteName` (0.811): a compared model by name, the person's name for it, else the picker's spelling
+/// of its id, never the raw id.
+pub fn compare_route_name(route: &CompareRoute) -> String {
+    shown_route_label(&route.model, route.label.as_deref())
+        .unwrap_or_else(|| crate::teammate_tooltip::route_model_name(&route.runtime, &route.model))
+}
+
 #[cfg(test)]
 #[path = "compare_remembered_tests.rs"]
 mod compare_remembered_tests;
+
+#[cfg(test)]
+#[path = "compare_route_label_tests.rs"]
+mod compare_route_label_tests;

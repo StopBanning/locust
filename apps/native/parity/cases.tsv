@@ -4025,6 +4025,19 @@ apps/desktop/src/renderer/src/its-own-settings-file.test.ts	names the way forwar
 apps/desktop/src/renderer/src/its-own-settings-file.test.ts	does not put the raw errno and two absolute paths on the card	no
 apps/desktop/src/renderer/src/its-own-settings-file.test.ts	keeps the host sentence it is extending	no
 apps/desktop/src/renderer/src/its-own-settings-file.test.ts	leaves every other last word exactly as it was	no
+apps/desktop/src/renderer/src/judges-see-the-check.test.tsx	shows what it said in each copy, under that column's answer	yes
+apps/desktop/src/renderer/src/judges-see-the-check.test.tsx	tells the person the judges read it, or where to set one	yes
+apps/desktop/src/renderer/src/judges-see-the-check.test.tsx	puts it beside the judges' score	yes
+apps/desktop/src/renderer/src/judges-see-the-check.test.tsx	says once when it failed the same way in every copy, and what to do about it	yes
+apps/desktop/src/renderer/src/judges-see-the-check.test.tsx	reads each outcome in a word	yes
+apps/desktop/src/renderer/src/judges-see-the-check.test.tsx	says so under the turn, with nothing to send yet	yes
+apps/desktop/src/renderer/src/judges-see-the-check.test.tsx	tells the person a judge asked now waits for it, and reads it as running, in no colour	yes
+apps/desktop/src/renderer/src/judges-see-the-check.test.tsx	counts the runs each model's copy passed it	yes
+apps/desktop/src/renderer/src/judges-see-the-check.test.tsx	has no such column where no run was checked	yes
+apps/desktop/src/renderer/src/judges-see-the-check.test.tsx	says a run again by the batch's own count, and three judges as three	yes
+apps/desktop/src/renderer/src/judges-see-the-check.test.tsx	joins a label moved off its point's line to its point	no
+apps/desktop/src/renderer/src/judges-see-the-check.test.tsx	moves a label that would run into another from the other side, though their points are far apart (0.811)	no
+apps/desktop/src/renderer/src/judges-see-the-check.test.tsx	reads a model added under its own id by its name, and leaves a name the person wrote alone	yes
 apps/desktop/src/renderer/src/keyboardShortcuts.test.ts	groups them for a person, and every row is a key the code actually handles	no
 apps/desktop/src/renderer/src/layout.test.ts	follows the width when nobody has chosen	yes
 apps/desktop/src/renderer/src/layout.test.ts	covers the smallest window the app will open	yes
