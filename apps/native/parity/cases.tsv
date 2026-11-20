@@ -892,6 +892,10 @@ apps/desktop/src/main/an-antigravity-model-with-its-own-limit-is-shown.test.ts	l
 apps/desktop/src/main/an-antigravity-model-with-its-own-limit-is-shown.test.ts	shows a group with one window, and leaves out a window it has no words for	no
 apps/desktop/src/main/an-antigravity-model-with-its-own-limit-is-shown.test.ts	reads an answer with no Gemini group from its first group	no
 apps/desktop/src/main/an-antigravity-model-with-its-own-limit-is-shown.test.ts	still says nothing when no group can be read	no
+apps/desktop/src/main/an-app-stops-a-turn-it-started.test.ts	stops the running turn by its own run id, and says what is kept	yes
+apps/desktop/src/main/an-app-stops-a-turn-it-started.test.ts	never stops a turn the person started, even in a conversation the app began	yes
+apps/desktop/src/main/an-app-stops-a-turn-it-started.test.ts	says so when nothing is running, or when Locust could not stop it	yes
+apps/desktop/src/main/an-app-stops-a-turn-it-started.test.ts	is not offered by a server without the window’s Stop, and the window’s Stop is what Locust passes	yes
 apps/desktop/src/main/an-app-uses-the-team-from-anywhere.test.ts	signs in only when the person allows its card, which shows the six digits its page does	yes
 apps/desktop/src/main/an-app-uses-the-team-from-anywhere.test.ts	sends the app its own word for no when the person denies it, and makes no code	yes
 apps/desktop/src/main/an-app-uses-the-team-from-anywhere.test.ts	trades the code for keys once, and only with the proof the app started with	yes
@@ -899,6 +903,9 @@ apps/desktop/src/main/an-app-uses-the-team-from-anywhere.test.ts	answers MCP wit
 apps/desktop/src/main/an-app-uses-the-team-from-anywhere.test.ts	keeps only hashes of the keys, and Remove or Off takes them away at once	yes
 apps/desktop/src/main/an-app-uses-the-team-from-anywhere.test.ts	asks nothing of a computer that is off, and refuses a sign-in that is not one	yes
 apps/desktop/src/main/an-app-uses-the-team-from-anywhere.test.ts	are word for word the ones an app on this computer is offered	yes
+apps/desktop/src/main/an-app-waits-for-the-answer.test.ts	waits for the turn to finish and gives its answer in the same call	yes
+apps/desktop/src/main/an-app-waits-for-the-answer.test.ts	says it is still working once the wait runs out, never longer than the limit	yes
+apps/desktop/src/main/an-app-waits-for-the-answer.test.ts	does not wait at all unless asked, or while a card waits for the person	yes
 apps/desktop/src/main/an-approval-says-what-it-allows.test.ts	says what Always lets through on Claude: the one tool, or every command for Bash	yes
 apps/desktop/src/main/an-approval-says-what-it-allows.test.ts	carries OpenCode's own words to the card: a fetch, and what Always matches	yes
 apps/desktop/src/main/an-approval-says-what-it-allows.test.ts	says when a subagent the teammate started is the one asking (R36)	yes
