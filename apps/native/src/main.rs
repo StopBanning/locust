@@ -225,6 +225,8 @@ mod connectors_section;
 mod chat_apps_section;
 #[path = "ui/github_section.rs"]
 mod github_section;
+#[path = "ui/skills_from_github.rs"]
+mod skills_from_github;
 #[path = "ui/claude_app_card.rs"]
 mod claude_app_card;
 #[path = "ui/link_open.rs"]
@@ -2015,6 +2017,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     changed |= reference_chips::poll(s);
     changed |= agents_section::poll(s);
     changed |= github_section::poll(s);
+    changed |= skills_from_github::poll(s);
     changed |= claude_app_card::poll(s);
     changed |= link_open::poll(s);
     changed |= remote_control_card::poll(s);

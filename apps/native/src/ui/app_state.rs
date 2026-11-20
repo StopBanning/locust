@@ -196,6 +196,9 @@ pub(super) struct State {
     pub(super) connectors: crate::connectors_section::Card,
     pub(super) connectors_job: Latest<Vec<locust_core::connector_reader::Connector>>,
     pub(super) github_job: Latest<crate::github_section::Answer>,
+    /// Settings › Teammates › Skills from GitHub: the shelf, a look and what is kept.
+    pub(super) skills_from_github: crate::skills_from_github::Shelf,
+    pub(super) skills_job: Latest<crate::skills_from_github::Answer>,
     pub(super) claude_app_job: Latest<crate::claude_app_card::Answer>,
     pub(super) review_job: Latest<crate::review_changes::Answer>,
     pub(super) selection_ask: Option<crate::side_chat::SelectionAskState>,
@@ -507,6 +510,8 @@ impl Default for State {
             connectors: Default::default(),
             connectors_job: Latest::default(),
             github_job: Latest::default(),
+            skills_from_github: Default::default(),
+            skills_job: Latest::default(),
             claude_app_job: Latest::default(),
             review_job: Latest::default(),
             selection_ask: None,
