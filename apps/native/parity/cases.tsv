@@ -2771,6 +2771,10 @@ apps/desktop/src/renderer/src/a-conversation-with-nobody-wears-its-model.test.ts
 apps/desktop/src/renderer/src/a-conversation-with-nobody-wears-its-model.test.tsx	keeps the empty place for a model of your own, or a runtime not yet known	yes
 apps/desktop/src/renderer/src/a-damaged-record-says-so-in-the-thread.test.tsx	says what is missing and that the file is kept	yes
 apps/desktop/src/renderer/src/a-damaged-record-says-so-in-the-thread.test.tsx	says nothing of the kind when the record read whole	yes
+apps/desktop/src/renderer/src/a-decision-is-answered-by-number.test.tsx	numbers its options with the keys that choose them	yes
+apps/desktop/src/renderer/src/a-decision-is-answered-by-number.test.tsx	takes number keys only off a text field, and hands a typed letter to the chat box	yes
+apps/desktop/src/renderer/src/a-decision-is-answered-by-number.test.tsx	takes the focus itself, so no option looks chosen before anyone chooses	yes
+apps/desktop/src/renderer/src/a-decision-is-answered-by-number.test.tsx	draws each number as a key, and sits raised but never amber	yes
 apps/desktop/src/renderer/src/a-decision-without-a-teammate-names-nobody.test.tsx	says a decision is needed, and no word for the machinery, when nobody asked by name	yes
 apps/desktop/src/renderer/src/a-decision-without-a-teammate-names-nobody.test.tsx	names the teammate who asked	yes
 apps/desktop/src/renderer/src/a-default-route-names-its-model.test.tsx	names the model the default turned out to be, once a run has said	yes

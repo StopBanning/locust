@@ -88,9 +88,10 @@ pub(super) fn handle_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
     let Some(ch) = chars.next() else {
         return false;
     };
-    if chars.next().is_some() || !('1'..='9').contains(&ch) {
+    if chars.next().is_some() {
         return false;
     }
+    let digit = ('1'..='9').contains(&ch);
     if s.draft.focused
         || s.find_query.focused
         || s.palette_query.focused
@@ -116,6 +117,16 @@ pub(super) fn handle_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
     let Some((_, _, request)) = active_decision(s) else {
         return false;
     };
+    if !digit {
+        // A typed letter goes to the chat box (DecisionCard.tsx): the person is replying in their own words, which
+        // the card says they may.
+        if ch == ' ' || ch.is_control() {
+            return false;
+        }
+        s.draft.focused = true;
+        s.draft.insert(&ch.to_string());
+        return true;
+    }
     let idx = (ch as u8 - b'1') as usize;
     let Some(option) = request.options.get(idx) else {
         return false;
@@ -191,15 +202,21 @@ pub(super) fn card(s: &State, p: &Palette) -> Option<El> {
         options_col = options_col.child(btn);
     }
 
+    // `.lc-decision`: raised as a pending card is (bg-pending, shadow-pending), never amber — the run has ended and
+    // nothing is waiting against the folder.
+    let mut card = col()
+        .key("decision-card")
+        .w_full()
+        .gap(10.0)
+        .padding(14.0)
+        .radius(l.t.px("radius-card"))
+        .fill(l.c("bg-pending"))
+        .border(1.0, l.c("border-card"));
+    for shadow in l.t.shadows("shadow-pending") {
+        card = card.box_shadow(shadow);
+    }
     Some(
-        col()
-            .key("decision-card")
-            .w_full()
-            .gap(10.0)
-            .padding(14.0)
-            .radius(l.t.px("radius-card"))
-            .fill(l.c("bg-raised"))
-            .border(1.0, l.c("border-card"))
+        card
             .child(head)
             .child(
                 text(request.question)
@@ -223,6 +240,10 @@ fn decision_title(teammate_name: Option<&str>) -> String {
         None => "A decision is needed to continue".into(),
     }
 }
+
+#[cfg(test)]
+#[path = "decision_number_tests.rs"]
+mod decision_number_tests;
 
 #[cfg(test)]
 mod renderer_tests {
