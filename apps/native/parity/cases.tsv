@@ -2288,6 +2288,7 @@ apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	counts the turn 
 apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	is the full brief on a first reply, and a line on the next	no
 apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	closes a meeting by writing to the person, not by saying nobody is there	no
 apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	still says nobody is there to a teammate the person is not reading	no
+apps/desktop/src/main/the-start-says-its-phase-on-every-route.test.ts	${route}: the phase is said before the process starts	no
 apps/desktop/src/main/the-starter-routines-are-routines.test.ts	is there: sixteen -- the ten of R16, the challenge of its section 7, three chains, the overnight polish and Council review -- each in the order offered	no
 apps/desktop/src/main/the-starter-routines-are-routines.test.ts	reads as a routine file, names no route, no path and no connector, and asks only for what its steps use	no
 apps/desktop/src/main/the-starter-routines-are-routines.test.ts	has a name of its own: no two the same	no

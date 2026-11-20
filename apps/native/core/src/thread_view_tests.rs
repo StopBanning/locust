@@ -385,3 +385,19 @@ fn carries_the_step_kind_so_thought_and_action_draw_differently() {
     assert_eq!((thinking.label.as_str(),thinking.register.as_str()),("Thinking","thinking"));
     assert_eq!((acting.label.as_str(),acting.register.as_str()),("Working","working"));
 }
+
+/// the-start-says-its-phase-on-every-route.test.ts: Electron's Codex app server, OpenCode server and Copilot ACP routes
+/// went from "Reading the folder" straight to "Working" before their CLI had booted. Rust has no start-phase words and
+/// one live line for every route: after each runtime's own `run.started`, the line still says "Starting" until the run
+/// does something.
+#[test]
+fn the_start_says_starting_on_every_route_until_the_run_does_something() {
+    for runtime in ["codex", "claude", "opencode", "copilot", "cursor", "antigravity", "kilo", "muse"] {
+        let mut started = event("run.started", json!({"runtime": runtime}));
+        started["sourceAdapter"] = json!(runtime);
+        let line = live(&[started.clone()], true, false).unwrap();
+        assert_eq!(line.label, "Starting", "{runtime}");
+        let working = live(&[started, event("step.started", json!({"stepKind": "turn"}))], true, false).unwrap();
+        assert_eq!(working.label, "Working", "{runtime}");
+    }
+}
