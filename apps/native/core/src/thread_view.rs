@@ -677,3 +677,7 @@ mod folder_help_tests {
         assert!(!why("relative/.claude", false));
     }
 }
+
+#[cfg(test)]
+#[path = "thinking_is_not_a_tool_tests.rs"]
+mod thinking_is_not_a_tool_tests;

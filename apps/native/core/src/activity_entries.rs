@@ -130,3 +130,7 @@ pub fn net_entries(items: &[Item], workspace: Option<&str>) -> Vec<(usize, FileE
 }
 #[cfg(test)]
 #[path = "disk_observation_tests.rs"] mod disk_observation_tests;
+
+#[cfg(test)]
+#[path = "two_files_with_one_name_stay_two_tests.rs"]
+mod two_files_with_one_name_stay_two_tests;

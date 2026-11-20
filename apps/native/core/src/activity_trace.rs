@@ -58,3 +58,7 @@ pub fn activity_trace_of(items:&[Item],events:&[Value],outcome:&str,may_edit:Opt
 #[cfg(test)] #[path="activity_trace_tests.rs"] mod tests;
 
 #[cfg(test)] #[path="path_claim_tests.rs"] mod path_claim_tests;
+
+#[cfg(test)]
+#[path = "a_refused_command_never_ran_tests.rs"]
+mod a_refused_command_never_ran_tests;

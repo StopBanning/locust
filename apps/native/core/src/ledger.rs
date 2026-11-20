@@ -3301,3 +3301,7 @@ mod carry_tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "thought_folds_to_one_line_tests.rs"]
+mod thought_folds_to_one_line_tests;
