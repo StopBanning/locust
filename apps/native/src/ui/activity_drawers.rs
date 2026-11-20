@@ -841,6 +841,10 @@ pub(super) fn activity_group(items: &[ledger::Item], p: &Palette, s: &State, sco
 }
 
 #[cfg(test)]
+#[path = "background_helper_tests.rs"]
+mod background_helper_tests;
+
+#[cfg(test)]
 #[path = "plan_unticked_tests.rs"]
 mod plan_unticked_tests;
 

@@ -2585,6 +2585,8 @@ apps/desktop/src/renderer/src/a-background-command-says-what-became-of-it.test.t
 apps/desktop/src/renderer/src/a-background-command-says-what-became-of-it.test.tsx	stopped with the run: amber, and says why	no
 apps/desktop/src/renderer/src/a-background-command-says-what-became-of-it.test.tsx	still running while the run is live, and not claimed afterwards	no
 apps/desktop/src/renderer/src/a-background-command-says-what-became-of-it.test.tsx	a described row keeps the command one press away	no
+apps/desktop/src/renderer/src/a-background-helper-says-it-is-still-working.test.ts	works in the background, saying what it is doing, until it reports (${order})	yes
+apps/desktop/src/renderer/src/a-background-helper-says-it-is-still-working.test.ts	says it did not report when the turn ended with it still out	yes
 apps/desktop/src/renderer/src/a-bang-in-the-box-is-command-mode.test.tsx	shows command mode in the box, and Escape leaves it	no
 apps/desktop/src/renderer/src/a-bang-in-the-box-is-command-mode.test.tsx	shows the person's command, its output and its exit code, and Stop only while it runs	no
 apps/desktop/src/renderer/src/a-bang-in-the-box-is-command-mode.test.tsx	asks before a project command runs, and choosing one fills the box instead of sending	no
