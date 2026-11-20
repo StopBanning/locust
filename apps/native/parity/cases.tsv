@@ -3710,6 +3710,9 @@ apps/desktop/src/renderer/src/every-bot-is-drawn-by-the-rig.test.ts	is BotAvatar
 apps/desktop/src/renderer/src/every-bot-is-drawn-by-the-rig.test.ts	is flat for Locust's own, which never took the treatment	yes
 apps/desktop/src/renderer/src/every-bot-is-drawn-by-the-rig.test.ts	looks straight at a pointer within a head width	yes
 apps/desktop/src/renderer/src/every-bot-is-drawn-by-the-rig.test.ts	lets go by three head widths, and never looks further than one head across	yes
+apps/desktop/src/renderer/src/every-colour-has-a-light-one.test.ts	gives every colour token a light value, or says why it is the same in both	yes
+apps/desktop/src/renderer/src/every-colour-has-a-light-one.test.ts	names only tokens the dark theme has, so a typo cannot leave a colour behind	yes
+apps/desktop/src/renderer/src/every-colour-has-a-light-one.test.ts	draws its readable text dark enough on its own window	yes
 apps/desktop/src/renderer/src/every-face-draws-on-one-beat.test.ts	lets two clocks that started on different frames draw in the same frames, 30 a second in all	yes
 apps/desktop/src/renderer/src/every-face-draws-on-one-beat.test.ts	draws at most 30 frames a second on a 144 Hz screen too	yes
 apps/desktop/src/renderer/src/every-face-draws-on-one-beat.test.ts	starts again for a clock whose time went backwards	yes

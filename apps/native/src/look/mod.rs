@@ -423,3 +423,7 @@ mod runtime_marks_tests;
 #[path = "face_motion_sites_tests.rs"]
 mod face_motion_sites_tests;
 
+
+#[cfg(test)]
+#[path = "light_colours_tests.rs"]
+mod light_colours_tests;
