@@ -155,8 +155,8 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
             .child(changes_panel::controls(s, p))
             .children(review_changes::control(s, p))
             .child(terminal_panel::runtime_controls(s, p))
-            .child(terminal_panel::toggle(p))
-            .child(browser_panel::toggle(p));
+            .child(terminal_panel::toggle(s, p))
+            .child(browser_panel::toggle(s, p));
         if let Some(btn) = side_chat::header_button(s, p) {
             actions = actions.child(btn);
         }

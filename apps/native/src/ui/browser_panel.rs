@@ -28,9 +28,11 @@ fn add(s: &mut State, profile: Profile) {
     s.browser.menu = false;
 }
 /// BrowserToggle.tsx: the globe in the toolbar.
-pub(super) fn toggle(p: &Palette) -> El {
+pub(super) fn toggle(s: &State, p: &Palette) -> El {
     let l = crate::look::controls::Look::new(p.dark);
-    crate::look::controls::head_icon(&crate::look::icons::GLOBE, "Browser", "Browser")
+    let refusal = locust_core::org_policy::feature_refusal(Some(&locust_core::org_policy::current()), "browser");
+    let open = crate::invariants::lock(&s.browser.host).open && refusal.is_none();
+    crate::look::controls::head_toggle(&crate::look::icons::GLOBE, "Browser", "Browser", open, refusal.as_deref())
         .on_press(|s: &mut State| {
             {
                 let mut h = crate::invariants::lock(&s.browser.host);
@@ -45,6 +47,8 @@ pub(super) fn toggle(p: &Palette) -> El {
             }
         })
         .build(l.k)
+        .key("browser-toggle")
+        .checked(open)
 }
 fn submit(s: &mut State) {
     let id = crate::invariants::lock(&s.browser.host).active;

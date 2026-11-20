@@ -484,7 +484,7 @@ pub(super) fn title_bar(s: &State, p: &Palette, toggles: bool, running: usize) -
         });
     let mut right = row().gap(12.0).center_y();
     if toggles {
-        right = right.child(browser_panel::toggle(p)).child(terminal_panel::toggle(p));
+        right = right.child(browser_panel::toggle(s, p)).child(terminal_panel::toggle(s, p));
     }
     if running > 0 {
         right = right.child(

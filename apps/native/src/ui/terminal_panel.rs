@@ -52,9 +52,11 @@ fn add(s: &mut State) {
     }
 }
 /// TerminalToggle.tsx: the terminal glyph in the toolbar.
-pub(super) fn toggle(p: &Palette) -> El {
+pub(super) fn toggle(s: &State, p: &Palette) -> El {
     let l = crate::look::controls::Look::new(p.dark);
-    crate::look::controls::head_icon(&crate::look::icons::TERMINAL, "Terminal", "Terminal (Ctrl+`)")
+    let refusal = locust_core::org_policy::feature_refusal(Some(&locust_core::org_policy::current()), "terminal");
+    let open = s.terminal.open && refusal.is_none();
+    crate::look::controls::head_toggle(&crate::look::icons::TERMINAL, "Terminal", "Terminal (Ctrl+`)", open, refusal.as_deref())
         .on_press(|s: &mut State| {
             s.terminal.open = !s.terminal.open;
             if s.terminal.open && s.terminal.tabs.is_empty() {
@@ -62,6 +64,8 @@ pub(super) fn toggle(p: &Palette) -> El {
             }
         })
         .build(l.k)
+        .key("terminal-toggle")
+        .checked(open)
 }
 pub(super) fn run_command(s: &mut State) {
     let command = own_command::bang(&s.draft.text)
@@ -617,3 +621,7 @@ mod tests {
         assert!(s.terminal.preview.is_none());
     }
 }
+
+#[cfg(test)]
+#[path = "head_icons_tests.rs"]
+mod head_icons_tests;

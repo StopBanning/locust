@@ -265,6 +265,20 @@ pub fn head_icon(i: &'static Icon, label: &str, help: &str) -> rune_kit::IconBut
     rune_kit::IconButton::new(i).variant(rune_kit::IconButtonVariant::Ghost).label(label).help(help)
 }
 
+/// A header icon that opens a panel beside the conversation (Electron's BrowserToggle and TerminalToggle): pressed
+/// while its panel is open (`aria-pressed`, `.is-active`), and, turned off by the organization, disabled, named
+/// "<name>, set by your organization" and saying the refusal where its tooltip was. Add `.on_press(..)`, then
+/// `.build(l.k)` and `.checked(open)`.
+pub fn head_toggle(i: &'static Icon, name: &str, help: &str, open: bool, refusal: Option<&str>) -> rune_kit::IconButton {
+    let label = match refusal {
+        Some(_) => format!("{name}, set by your organization"),
+        None => name.to_owned(),
+    };
+    let button = head_icon(i, &label, refusal.unwrap_or(help));
+    let button = if open && refusal.is_none() { button.state(rune_kit::State::Pressed) } else { button };
+    button.disabled(refusal.is_some())
+}
+
 /// `.lc-brand__lockup`: the mark (24 high) beside the wordmark (13 high), 9 apart, as the sidebar's head draws them.
 pub fn brand_row(l: &Look) -> El {
     let (mark_h, word_h) = (24.0_f32, 13.0_f32);

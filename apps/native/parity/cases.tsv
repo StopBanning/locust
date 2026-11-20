@@ -4814,6 +4814,10 @@ apps/desktop/src/renderer/src/the-frame-pass.test.ts	keeps a version the new ans
 apps/desktop/src/renderer/src/the-frame-pass.test.ts	takes every DEFINITE answer at once, including the unwelcome ones	yes
 apps/desktop/src/renderer/src/the-frame-pass.test.ts	lets a runtime that was out come back when it answers	yes
 apps/desktop/src/renderer/src/the-frame-pass.test.ts	passes through a runtime it has never seen	yes
+apps/desktop/src/renderer/src/the-header-is-a-row-of-icons.test.tsx	the browser is an icon, named for hover and screen readers	yes
+apps/desktop/src/renderer/src/the-header-is-a-row-of-icons.test.tsx	open, it reads as on	yes
+apps/desktop/src/renderer/src/the-header-is-a-row-of-icons.test.tsx	the terminal is an icon too, with its shortcut on hover	yes
+apps/desktop/src/renderer/src/the-header-is-a-row-of-icons.test.tsx	turned off by the organization, each says so where the word used to be	yes
 apps/desktop/src/renderer/src/the-header-says-money-or-nothing.test.ts	says dollars	yes
 apps/desktop/src/renderer/src/the-header-says-money-or-nothing.test.ts	says Copilot's premium requests	yes
 apps/desktop/src/renderer/src/the-header-says-money-or-nothing.test.ts	says nothing for token counts alone, or for a subscription	yes
