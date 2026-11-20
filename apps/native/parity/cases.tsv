@@ -669,6 +669,8 @@ apps/desktop/src/main/a-runtime-that-cannot-start-says-why.test.ts	says its prog
 apps/desktop/src/main/a-runtime-that-cannot-start-says-why.test.ts	says the computer would not run it	yes
 apps/desktop/src/main/a-runtime-that-cannot-start-says-why.test.ts	says the conversation's folder is gone, before anything else	yes
 apps/desktop/src/main/a-runtime-that-cannot-start-says-why.test.ts	names the runtime when it stopped rather than failed to start	yes
+apps/desktop/src/main/a-saved-record-keeps-output-as-recorded.test.ts	are squeezed between sections, and kept inside a fence	yes
+apps/desktop/src/main/a-saved-record-keeps-output-as-recorded.test.ts	reads a longer fence as one fence, whatever it holds	yes
 apps/desktop/src/main/a-scout-file-it-cannot-read-is-never-overwritten.test.ts	missing, is a first start, and the first save writes it	no
 apps/desktop/src/main/a-scout-file-it-cannot-read-is-never-overwritten.test.ts	that does not parse, is kept beside it, and Scout starts fresh	no
 apps/desktop/src/main/a-scout-file-it-cannot-read-is-never-overwritten.test.ts	that cannot be read at all, is left as it is: Scout works from memory and writes nothing over it	no
@@ -1878,6 +1880,13 @@ apps/desktop/src/main/scout-keeps-watch.test.ts	watches only what it is set to w
 apps/desktop/src/main/scout-keeps-watch.test.ts	stops when Scout is taken off the team	yes
 apps/desktop/src/main/scout-keeps-watch.test.ts	lasts across a restart, and a card that was waiting on a look waits on nothing after it	yes
 apps/desktop/src/main/scout-keeps-watch.test.ts	forgets a card the person dismissed, and does not bring it back	yes
+apps/desktop/src/main/scout-prepares-the-fix.test.ts	works in a copy with no remote, where a push fails and the guard refuses push, remote and gh	yes
+apps/desktop/src/main/scout-prepares-the-fix.test.ts	refuses a push in the copy through the hook itself, from the folder it runs in	yes
+apps/desktop/src/main/scout-prepares-the-fix.test.ts	stops at the turn limit and the time limit, and says why; a turn that changes nothing says what it said	yes
+apps/desktop/src/main/scout-prepares-the-fix.test.ts	applies beside the person’s own edits, and refuses when they changed the same file since	yes
+apps/desktop/src/main/scout-prepares-the-fix.test.ts	prepares nothing until fixes are on; then says who is preparing it, then that it is ready, and Apply brings it in	yes
+apps/desktop/src/main/scout-prepares-the-fix.test.ts	stops at the day’s limit and says why; turned off, the fix under way stops	yes
+apps/desktop/src/main/scout-prepares-the-fix.test.ts	says when nobody is picked to prepare it	yes
 apps/desktop/src/main/scout-reads-what-github-has.test.ts	asks for when each pull request last moved and for the open issues, with the CLI in the folder	no
 apps/desktop/src/main/scout-reads-what-github-has.test.ts	asks nothing more when the first read fails: no GitHub here is no news	yes
 apps/desktop/src/main/scout-runs-the-check-only-when-the-folder-moved.test.ts	stays put while nothing changes, and moves on a commit, a save to a changed file, and a new file	no
