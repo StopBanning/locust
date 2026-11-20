@@ -971,6 +971,15 @@ apps/desktop/src/main/an-app-names-a-folder-locust-knows.test.ts	is taken when i
 apps/desktop/src/main/an-app-names-a-folder-locust-knows.test.ts	is refused when Locust never knew it, even a repository of its own	yes
 apps/desktop/src/main/an-app-names-a-folder-locust-knows.test.ts	is refused when it is the folder above a known one, a relative path, missing, or a file	yes
 apps/desktop/src/main/an-app-names-a-folder-locust-knows.test.ts	is refused when a path climbs out of a known folder	yes
+apps/desktop/src/main/an-app-picks-a-model-for-one-turn.test.ts	runs that model and effort on the teammate’s own agent and account, in Ask, keeping the saved route	yes
+apps/desktop/src/main/an-app-picks-a-model-for-one-turn.test.ts	uses the teammate’s own when the app names neither	yes
+apps/desktop/src/main/an-app-picks-a-model-for-one-turn.test.ts	takes an effort alone on the saved model, and keeps the saved effort with a model named alone when it fits	yes
+apps/desktop/src/main/an-app-picks-a-model-for-one-turn.test.ts	starts nothing for a model the agent does not offer here, or an effort the model does not take	yes
+apps/desktop/src/main/an-app-picks-a-model-for-one-turn.test.ts	lists the choices for a teammate, current ones first, without retired or own models	yes
+apps/desktop/src/main/an-app-picks-a-model-for-one-turn.test.ts	is refused by a server that does not offer the choice, such as a voice call’s	yes
+apps/desktop/src/main/an-app-picks-a-model-for-one-turn.test.ts	steps a turn down to Ask when the app asks for read only, and never up	yes
+apps/desktop/src/main/an-app-picks-a-model-for-one-turn.test.ts	says which folder its turns work in, by name only	yes
+apps/desktop/src/main/an-app-picks-a-model-for-one-turn.test.ts	takes the same choice when a conversation goes on	yes
 apps/desktop/src/main/an-app-stops-a-turn-it-started.test.ts	stops the running turn by its own run id, and says what is kept	yes
 apps/desktop/src/main/an-app-stops-a-turn-it-started.test.ts	never stops a turn the person started, even in a conversation the app began	yes
 apps/desktop/src/main/an-app-stops-a-turn-it-started.test.ts	says so when nothing is running, or when Locust could not stop it	yes

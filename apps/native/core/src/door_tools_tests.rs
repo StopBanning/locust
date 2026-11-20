@@ -21,6 +21,11 @@ struct Fake {
     finish_after: Option<u64>,
     /// Locust's own Stop did not take.
     cancel_fails: bool,
+    /// A roster and a model list of the test's own, in place of the usual ones.
+    roster: Option<Vec<(Teammate, Option<String>)>>,
+    model_list: Option<Vec<Value>>,
+    /// Whose conversations are, when not Scout's.
+    owner_id: Option<&'static str>,
 }
 
 fn mate(id: &str, name: &str, mode: &str) -> Teammate {
@@ -56,6 +61,9 @@ fn ev(kind: &str, payload: Value) -> Value {
 
 impl Locust for Fake {
     fn teammates(&self) -> Result<Vec<(Teammate, Option<String>)>, String> {
+        if let Some(roster) = &self.roster {
+            return Ok(roster.clone());
+        }
         Ok(vec![(mate("tm_scout", "Scout", "auto"), Some("high".into())), (mate("tm_pip", "Pip", "accept-edits"), None)])
     }
     fn busy(&self, _: &str) -> bool {
@@ -75,7 +83,7 @@ impl Locust for Fake {
         }
         self.live.lock().unwrap().insert(id.clone());
         self.started.lock().unwrap().push(request);
-        Ok(Begun { mission_id: id, mode, runtime: Some("codex".into()), model: Some("gpt-5.5".into()) })
+        Ok(Begun { mission_id: id, mode, runtime: Some("codex".into()), model: Some(self.started.lock().unwrap().last().and_then(|r| r.model.clone()).unwrap_or_else(|| "gpt-5.5".into())) })
     }
     fn read(&self, mission: &str) -> Option<Turn> {
         self.turns.lock().unwrap().get(mission).cloned()
@@ -88,7 +96,7 @@ impl Locust for Fake {
         Some(at)
     }
     fn owner(&self, _: &str) -> Option<String> {
-        (!self.no_owner).then(|| "tm_scout".into())
+        (!self.no_owner).then(|| self.owner_id.unwrap_or("tm_scout").into())
     }
     fn live(&self, mission: &str) -> bool {
         self.live.lock().unwrap().contains(mission)
@@ -115,6 +123,9 @@ impl Locust for Fake {
         self.see_all
     }
     fn models(&self) -> Vec<Value> {
+        if let Some(list) = &self.model_list {
+            return list.clone();
+        }
         vec![
             json!({"id": "account-default", "runtime": "codex", "displayName": "Account default", "description": "", "supportedEfforts": ["low", "high"]}),
             json!({"id": "gpt-5.5", "runtime": "codex", "displayName": "GPT-5.5", "description": "", "supportedEfforts": ["low", "high"]}),
@@ -681,3 +692,7 @@ mod an_app_stops_and_waits_tests;
 #[cfg(test)]
 #[path = "an_app_hears_why_tests.rs"]
 mod an_app_hears_why_tests;
+
+#[cfg(test)]
+#[path = "an_app_picks_a_model_tests.rs"]
+mod an_app_picks_a_model_tests;
