@@ -4375,6 +4375,15 @@ apps/desktop/src/renderer/src/prompt-is-the-codex-mascot.test.ts	is picked only:
 apps/desktop/src/renderer/src/pull-request-news-is-said.test.tsx	says what changed and offers the teammate the fix, as words in the box	yes
 apps/desktop/src/renderer/src/pull-request-news-is-said.test.tsx	offers no fix for news with nothing to fix	yes
 apps/desktop/src/renderer/src/pull-request-news-is-said.test.tsx	has a Watch toggle that says which it is	yes
+apps/desktop/src/renderer/src/putting-a-file-back.test.ts	is put back as it was before the first of them, newest change undone first	yes
+apps/desktop/src/renderer/src/putting-a-file-back.test.ts	keeps Windows line endings	yes
+apps/desktop/src/renderer/src/putting-a-file-back.test.ts	is left alone when it was changed after those turns	yes
+apps/desktop/src/renderer/src/putting-a-file-back.test.ts	is left alone when a recorded change is incomplete	yes
+apps/desktop/src/renderer/src/putting-a-file-back.test.ts	is removed, when it is exactly what was created	yes
+apps/desktop/src/renderer/src/putting-a-file-back.test.ts	is left alone when something was added to it since	yes
+apps/desktop/src/renderer/src/putting-a-file-back.test.ts	created and then changed by the next turn, is removed	yes
+apps/desktop/src/renderer/src/putting-a-file-back.test.ts	is brought back from a record of the whole file	yes
+apps/desktop/src/renderer/src/putting-a-file-back.test.ts	is left alone when something is there again	yes
 apps/desktop/src/renderer/src/railFlyout.test.ts	puts the live one first, then newest first	yes
 apps/desktop/src/renderer/src/railFlyout.test.ts	never lets an unknown age outrank a known recent one	yes
 apps/desktop/src/renderer/src/railFlyout.test.ts	shows at most six and says how many there are	yes

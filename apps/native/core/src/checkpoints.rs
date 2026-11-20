@@ -882,6 +882,10 @@ pub fn put_back(store: &Store, workspace: &Path, turns: &[String]) -> io::Result
 }
 
 #[cfg(test)]
+#[path = "putting_back_tests.rs"]
+mod putting_back_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     struct Temp(PathBuf);
