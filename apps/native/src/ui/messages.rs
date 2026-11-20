@@ -828,6 +828,47 @@ mod tests {
         out
     }
 
+    /// a-turn-sent-back-to-fix-is-said-as-locusts.test.tsx, the whole thread in one frame: the person's turn, an
+    /// earlier fix turn and the one on screen. Each fix is a line, never a bubble, and what was sent waits behind a click.
+    #[test]
+    fn says_what_failed_and_which_fix_it_is_for_an_earlier_turn_and_the_one_on_screen_with_what_was_sent_a_click_away() {
+        let sent = |line: &str, fix: u32| locust_core::edit_check::check_fix_prompt("npm test", &[line.to_owned()], false, fix, 2);
+        let said = |id: &str, body: &str| ledger::Item::Assistant { item_id: id.into(), text: body.into(), r#final: true };
+        let fix = |n: u32, line: &str| ledger::Item::CheckFix { command: "npm test".into(), fix: n, of: 2, prompt: sent(line, n) };
+        let items = vec![
+            ledger::Item::User("Add a sum function.".into()),
+            said("m_person_m", "Added sum."),
+            fix(1, "FAIL adds two numbers"),
+            said("m_fix1_m", "Fixed the off-by-one."),
+            fix(2, "FAIL adds three numbers"),
+            said("m_fix2_m", "Fixed the three-number case."),
+        ];
+        // Electron's fixture has no teammate: "Locust" is how a thread with none is drawn (`check_fix_line` names nobody).
+        let draw = |s: State| {
+            let mut rt = rune::Runtime::new((s, items.clone()), |(s, items), _| message_column(items, "Locust", &Palette::new(true), s), (800.0, 1600.0), rune::Env::new(true, 1.0));
+            rt.frame(0.0);
+            rt.elements()
+        };
+        let all = draw(composition_state(None, false));
+        let shown = all.iter().filter_map(|e| e.text.clone()).collect::<Vec<_>>().join("\n");
+        assert!(shown.contains("Add a sum function."), "{shown}");
+        assert!(shown.contains("npm test failed, so Locust sent it back"), "{shown}");
+        assert!(shown.contains("· fix 1 of 2"), "{shown}");
+        assert!(shown.contains("npm test still failed, so Locust sent it back again"), "{shown}");
+        assert!(shown.contains("· fix 2 of 2"), "{shown}");
+        assert_eq!(shown.matches("What Locust sent").count(), 2, "{shown}");
+        // One bubble in the whole thread, the person's: what was sent is the fold-out's, never a bubble.
+        let bubble = Palette::new(true).your_bubble;
+        let bubbles: Vec<_> = all.iter().filter(|e| e.fill == bubble && e.text.is_some()).filter_map(|e| e.text.clone()).collect();
+        assert_eq!(bubbles, vec!["Add a sum function.".to_owned()]);
+        assert!(!shown.contains("FAIL adds three numbers"), "what was sent waits behind the click: {shown}");
+        // A click away: the second fix's fold-out holds the failing line it sent.
+        let mut s = composition_state(None, false);
+        s.open_check_fix_prompts.insert("m_1/ledger-item-4".into());
+        let opened = draw(s).iter().filter_map(|e| e.text.clone()).collect::<Vec<_>>().join("\n");
+        assert!(opened.contains("FAIL adds three numbers"), "{opened}");
+    }
+
     #[test]
     fn draws_the_tagged_message_as_the_bubble_without_the_context_after_it() {
         let prompt = "Can you double-check the tax rate?\n\n(You were tagged in Wren's conversation. Wren's latest answer there, for context:)\n\nI changed TAX_RATE.";
