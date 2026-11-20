@@ -1318,3 +1318,7 @@ mod paused {
 
 #[path = "routine_runner_recovery_tests.rs"]
 mod recovery;
+
+#[cfg(test)]
+#[path = "refusal_reason_tests.rs"]
+mod refusal_reason;
