@@ -3,6 +3,15 @@ use locust_core::relay::{
     ExchangeMission, ExchangeOverview, ExchangePeerMessage, exchange_across, exchange_of,
 };
 
+/// A participant's route as the composer chip spells it (`route_chrome` over `model_display_name`): the account's own
+/// default is the runtime's name alone ("Codex"), any other model by its name ("Codex / GPT-6 Luna"). Electron's strip
+/// still says "Codex / default" and a raw id for other runtimes, the one surface 0.723's declutter missed; a route reads
+/// one way everywhere here.
+pub(super) fn participant_route(runtime: &str, model: &str) -> String {
+    use locust_core::teammate_tooltip::{model_display_name, route_chrome};
+    route_chrome(runtime, model, &model_display_name(runtime, model), " / ")
+}
+
 pub(super) fn compute(s: &State) -> Option<(ExchangeOverview, u32)> {
     let pane = s.ledger.as_ref()?;
     let tip_id = if pane.snapshot.tip.is_empty() {
@@ -152,15 +161,7 @@ pub(super) fn view(s: &State, p: &Palette) -> Option<El> {
             )
             .child(text(part.name.clone()).font(l.ty.label).color(l.c("text-primary")))
             .child(
-                text(format!(
-                    "{} / {}",
-                    locust_core::carry_on::display_name(&part.runtime),
-                    if part.model == "account-default" {
-                        "default"
-                    } else {
-                        part.model.as_str()
-                    }
-                ))
+                text(participant_route(&part.runtime, &part.model))
                 .font(l.ty.label)
                 .color(l.c("text-muted")),
             );
@@ -226,3 +227,7 @@ pub(super) fn view(s: &State, p: &Palette) -> Option<El> {
     }
     Some(strip)
 }
+
+#[cfg(test)]
+#[path = "screens_say_less_tests.rs"]
+mod screens_say_less_tests;

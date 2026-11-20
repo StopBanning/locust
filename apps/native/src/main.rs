@@ -2559,7 +2559,8 @@ fn agent(teammate: &Teammate) -> String {
         .as_deref()
         .map(engine::runtime_name)
         .unwrap_or("Agent");
-    match teammate.model.as_deref() {
+    // The account's own default is the runtime's name alone, as every route is spelled (the screens say less, 0.723).
+    match teammate.model.as_deref().filter(|m| *m != locust_core::models::ACCOUNT_DEFAULT) {
         Some(model) => format!("{runtime} · {}", model.rsplit('/').next().unwrap_or(model)),
         None => runtime.into(),
     }
