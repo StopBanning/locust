@@ -2047,6 +2047,13 @@ apps/desktop/src/main/skills-kept-from-github.test.ts	says plainly what GitHub w
 apps/desktop/src/main/skills-kept-from-github.test.ts	follows a redirect only to GitHub's own hosts	yes
 apps/desktop/src/main/skills-kept-from-github.test.ts	refuses a keep it was not shown: a name not in that commit, or no commit	yes
 apps/desktop/src/main/skills-kept-from-github.test.ts	outside Auto beside the folder's own; in Auto, the kept ones alone	yes
+apps/desktop/src/main/stores-fail-closed.test.ts	the fault is real: the root genuinely cannot be written into	yes
+apps/desktop/src/main/stores-fail-closed.test.ts	and the SAME calls all succeed on a root that works	yes
+apps/desktop/src/main/stores-fail-closed.test.ts	the teammate roster rejects rather than pretending to save	yes
+apps/desktop/src/main/stores-fail-closed.test.ts	workspace settings reject rather than pretending to save	yes
+apps/desktop/src/main/stores-fail-closed.test.ts	a routine rejects rather than pretending to save	yes
+apps/desktop/src/main/stores-fail-closed.test.ts	a room rejects rather than pretending to save	yes
+apps/desktop/src/main/stores-fail-closed.test.ts	a memory rejects rather than pretending to save	yes
 apps/desktop/src/main/teammate-store.test.ts	keeps the bot the person picked, and only the fields it knows	no
 apps/desktop/src/main/teammate-store.test.ts	refuses a shape there is no bot for	no
 apps/desktop/src/main/teammate-store.test.ts	takes every one of the nine colours	no

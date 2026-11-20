@@ -30,6 +30,8 @@ pub mod chat_telegram;
 pub mod chat_telegram_fmt;
 #[cfg(test)]
 mod chat_link_tests;
+#[cfg(test)]
+mod stores_fail_closed_tests;
 pub mod claude_app;
 pub mod locust_link;
 pub mod reply_page;
