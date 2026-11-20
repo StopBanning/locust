@@ -231,6 +231,9 @@ pub(super) fn tool_row_label(
     finished: bool,
 ) -> String {
     let result = tool_result(status, d, finished);
+    // ActivityCard's tool and file rows say a live call is "still running"; a command's own badge says "running".
+    let shell_like = matches!(name.to_lowercase().as_str(), "bash" | "shell" | "exec_command" | "commandexecution" | "run_command" | "manage_task");
+    let result = if result == "running" && !d.helper && !shell_like { "still running".to_owned() } else { result };
     // A connector call names the server as its tool and the tool as its name (mcpToolParts).
     let mcp = locust_core::mcp_names::mcp_tool_parts(name);
     let title = if !summary.is_empty() {
@@ -822,6 +825,10 @@ pub(super) fn activity_group(items: &[ledger::Item], p: &Palette, s: &State, sco
     }
     group
 }
+
+#[cfg(test)]
+#[path = "nothing_still_running_tests.rs"]
+mod nothing_still_running_tests;
 
 #[cfg(test)]
 #[path = "reach_says_so_tests.rs"]

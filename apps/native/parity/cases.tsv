@@ -2830,6 +2830,11 @@ apps/desktop/src/renderer/src/a-finished-message-stops-typing.test.ts	stops typi
 apps/desktop/src/renderer/src/a-finished-message-stops-typing.test.ts	stops typing once another message begins, and the newest still types	yes
 apps/desktop/src/renderer/src/a-finished-message-stops-typing.test.ts	types again if its own text resumes after a call	yes
 apps/desktop/src/renderer/src/a-finished-message-stops-typing.test.ts	says its check-back timer as a wait, not "used schedule"	yes
+apps/desktop/src/renderer/src/a-finished-run-has-nothing-still-running.test.tsx	says a command did not report once the turn is over	yes
+apps/desktop/src/renderer/src/a-finished-run-has-nothing-still-running.test.tsx	says a tool did not report once the turn is over	yes
+apps/desktop/src/renderer/src/a-finished-run-has-nothing-still-running.test.tsx	still says running while the turn is genuinely going	yes
+apps/desktop/src/renderer/src/a-finished-run-has-nothing-still-running.test.tsx	marks it stalled rather than failed	yes
+apps/desktop/src/renderer/src/a-finished-run-has-nothing-still-running.test.tsx	leaves a settled row alone	yes
 apps/desktop/src/renderer/src/a-first-hour-starts-plainly.test.ts	Home's free sentence has a button that puts the chat box on the free model	no
 apps/desktop/src/renderer/src/a-first-hour-starts-plainly.test.ts	a new teammate's model is chosen right under its name, before how it looks	no
 apps/desktop/src/renderer/src/a-first-hour-starts-plainly.test.ts	a connector is named for a person, its id kept for hover	yes
