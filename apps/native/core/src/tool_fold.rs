@@ -131,3 +131,7 @@ pub fn folded_tools_text(names: &[String], verb: Option<&str>) -> String {
 #[cfg(test)]
 #[path = "tool_fold_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "a_read_row_names_the_file_tests.rs"]
+mod a_read_row_names_the_file_tests;
