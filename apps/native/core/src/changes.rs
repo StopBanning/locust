@@ -181,7 +181,7 @@ pub fn parse(text: &str) -> Vec<File> {
             f.hunks.push(Hunk {
                 old: numbers.0,
                 new: numbers.1,
-                heading: c.get(5).map_or("", |m| m.as_str()).into(),
+                heading: c.get(5).map_or("", |m| m.as_str().trim()).into(),
                 rows: vec![],
             });
         }
@@ -581,6 +581,64 @@ pub fn kept_context(rows: &[Row]) -> Vec<bool> {
                     .any(|(q, t)| t.kind != ' ' && q.abs_diff(k) <= 3)
         })
         .collect()
+}
+/// A piece of a changed line, marked when it is what changed (diff.ts `WordSpan`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Span {
+    pub text: String,
+    pub changed: bool,
+}
+/// diff.ts `wordDiff`: only what changed between a removed line and the added line that replaced it is marked; the
+/// common prefix and suffix stay plain. Read by character, so a mark never splits one.
+pub fn word_diff(old: &str, new: &str) -> (Vec<Span>, Vec<Span>) {
+    let (o, n): (Vec<char>, Vec<char>) = (old.chars().collect(), new.chars().collect());
+    let limit = o.len().min(n.len());
+    let mut prefix = 0;
+    while prefix < limit && o[prefix] == n[prefix] {
+        prefix += 1
+    }
+    let mut suffix = 0;
+    while suffix < limit - prefix && o[o.len() - 1 - suffix] == n[n.len() - 1 - suffix] {
+        suffix += 1
+    }
+    let spans = |t: &[char]| {
+        let mut out: Vec<Span> = [(&t[..prefix], false), (&t[prefix..t.len() - suffix], true), (&t[t.len() - suffix..], false)]
+            .into_iter()
+            .filter(|(part, _)| !part.is_empty())
+            .map(|(part, changed)| Span { text: part.iter().collect(), changed })
+            .collect();
+        if out.is_empty() {
+            out.push(Span { text: String::new(), changed: false })
+        }
+        out
+    };
+    (spans(&o), spans(&n))
+}
+/// diff.ts `pairedSpans`: a run of removed lines and the added lines after it pair by position, each pair marked by
+/// `word_diff`; a line left unpaired is a whole-line change and has none. One entry per row.
+pub fn paired_spans(rows: &[Row]) -> Vec<Option<Vec<Span>>> {
+    let mut out = vec![None; rows.len()];
+    let mut i = 0;
+    while i < rows.len() {
+        if rows[i].kind != '-' {
+            i += 1;
+            continue;
+        }
+        let dels = i;
+        while i < rows.len() && rows[i].kind == '-' {
+            i += 1
+        }
+        let adds = i;
+        while i < rows.len() && rows[i].kind == '+' {
+            i += 1
+        }
+        for k in 0..(adds - dels).min(i - adds) {
+            let (old, new) = word_diff(&rows[dels + k].text, &rows[adds + k].text);
+            out[dels + k] = Some(old);
+            out[adds + k] = Some(new);
+        }
+    }
+    out
 }
 #[cfg(test)]
 mod tests {
@@ -1029,3 +1087,6 @@ mod new_document_tests {
         assert_eq!(document_text_of(&parse(EDITED_GUIDE)[0]), "Warm, plain and proud.");
     }
 }
+#[cfg(test)]
+#[path = "changes_diff_tests.rs"]
+mod changes_diff_tests;

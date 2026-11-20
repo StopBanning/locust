@@ -403,12 +403,15 @@ fn land_card(s: &State, r: &Review, p: &Palette) -> Option<El> {
 }
 
 /// The diff of one file, as the Changes panel draws its rows (every hunk, every line: a review reads it all),
-/// carrying review-note controls when `may_note` holds for the teammate on screen.
+/// carrying review-note controls when `may_note` holds for the teammate on screen. It ends, as DiffView.tsx does, by
+/// saying all of it is shown, or, when the recorded text is shorter than the change (`truncated`), that the rest was
+/// not recorded: never in silence.
 pub(super) fn file_diff(
     s: &State,
     folder: Option<&str>,
     may_note: bool,
     f: &changes::File,
+    truncated: bool,
     p: &Palette,
 ) -> El {
     let (a, d) = f.counts();
@@ -427,7 +430,8 @@ pub(super) fn file_diff(
         let (before, after) = h.sides();
         let (bh, ah) = (rune_kit::syntax::highlight(lang, &before), rune_kit::syntax::highlight(lang, &after));
         let mut offsets = (0, 0);
-        for r in &h.rows {
+        let marks = changes::paired_spans(&h.rows);
+        for (k, r) in h.rows.iter().enumerate() {
             let offset = if r.kind == '-' { offsets.0 } else { offsets.1 };
             if r.kind != '+' {
                 offsets.0 += r.text.len() + 1;
@@ -435,7 +439,7 @@ pub(super) fn file_diff(
             if r.kind != '-' {
                 offsets.1 += r.text.len() + 1;
             }
-            let line = crate::changes_panel::code_row(r, &r.text, offset, if r.kind == '-' { &bh } else { &ah }, p);
+            let line = crate::changes_panel::code_row(r, &r.text, offset, if r.kind == '-' { &bh } else { &ah }, marks[k].as_deref(), p);
             out = crate::diff_notes_ui::append_noted_row(
                 out,
                 s,
@@ -448,7 +452,7 @@ pub(super) fn file_diff(
             );
         }
     }
-    out
+    out.child(text(changes::completeness(f, f.hunks.len(), truncated)).font(type_::LABEL).color(p.muted).wrap())
 }
 
 pub(super) fn panel(s: &State, p: &Palette) -> Option<El> {
@@ -600,7 +604,7 @@ pub(super) fn panel(s: &State, p: &Palette) -> Option<El> {
         let may_note = crate::diff_notes_ui::may_note(s)
             && selected_conversation(s).is_some_and(|(t, _)| t.id == r.teammate_id);
         for f in &files {
-            body = body.child(file_diff(s, r.folder.to_str(), may_note, f, p));
+            body = body.child(file_diff(s, r.folder.to_str(), may_note, f, false, p));
         }
     }
     Some(

@@ -471,7 +471,7 @@ fn file_rows(files: &[locust_core::activity_entries::FileEntry], default: Option
             card = card.child(match locust_core::changes::new_document(&entry.file) {
                 Some(locust_core::changes::NewDocument::Markdown) => doc_preview(s, &key, entry, p),
                 Some(locust_core::changes::NewDocument::Page) => page_preview(s, &key, entry, p),
-                _ => super::review_changes::file_diff(s, None, false, &entry.file, p),
+                _ => super::review_changes::file_diff(s, None, false, &entry.file, entry.truncated, p),
             });
         }
         rows = rows.child(card);
@@ -672,7 +672,7 @@ fn doc_preview(s: &State, key: &str, entry: &locust_core::activity_entries::File
         return col()
             .w_full()
             .gap(6.0)
-            .child(super::review_changes::file_diff(s, None, false, &entry.file, p))
+            .child(super::review_changes::file_diff(s, None, false, &entry.file, entry.truncated, p))
             .child(row().child(switch("Show it as a document")));
     }
     let mut foot = row().w_full().gap(8.0).center_y();
@@ -711,7 +711,7 @@ fn page_preview(s: &State, key: &str, entry: &locust_core::activity_entries::Fil
         s.activity_open.insert(flip.clone(), !now);
     });
     if as_change {
-        return col().w_full().gap(6.0).child(super::review_changes::file_diff(s, None, false, &entry.file, p)).child(row().child(switch));
+        return col().w_full().gap(6.0).child(super::review_changes::file_diff(s, None, false, &entry.file, entry.truncated, p)).child(row().child(switch));
     }
     col()
         .w_full()
@@ -1283,7 +1283,8 @@ mod tests {
         let edited = "diff --git a/brand-guide.md b/brand-guide.md\n--- a/brand-guide.md\n+++ b/brand-guide.md\n@@ -1,3 +1,3 @@\n # Small Bakery Brand Guide\n-Warm and plain.\n+Warm, plain and proud.\n ## Colour Palette";
         let (said, roles) = doc_fold(written("C:/work/brand-guide.md", edited), true);
         assert!(!roles.iter().any(|(r, _)| *r == "region"), "{said}");
-        assert!(said.contains("Warm and plain.") && said.contains("Warm, plain and proud."), "{said}");
+        // Both sides drawn as the change, what changed within the line marked apart (diff.ts `pairedSpans`).
+        assert!(said.contains("Warm\n and plain\n.") && said.contains("Warm\n, plain and proud\n."), "{said}");
         let (code, roles) = doc_fold(written("C:/work/build.ts", "--- /dev/null\n+++ b/build.ts\n@@ -0,0 +1,1 @@\n+export const x = 1"), true);
         assert!(!roles.iter().any(|(r, _)| *r == "region"), "{code}");
         // Drawn as code: highlighted, so its words are tokens of their own.

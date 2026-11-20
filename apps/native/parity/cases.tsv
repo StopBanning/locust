@@ -3814,6 +3814,28 @@ apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	draws nothing whe
 apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	lands each conversation in the column the sidebar mark already gives that row	no
 apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	puts a conversation waiting on you first, even while its run is live, and a finish not looked at since in Ready to look at	no
 apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	a finish to look at keeps the board up on its own; one looked at since does not (control)	no
+apps/desktop/src/renderer/src/diff.test.ts	reads an added file the way Cursor writes one	yes
+apps/desktop/src/renderer/src/diff.test.ts	reads a modified file with two hunks and their headings	yes
+apps/desktop/src/renderer/src/diff.test.ts	numbers lines from the hunk start, on each side	yes
+apps/desktop/src/renderer/src/diff.test.ts	computes a file total from its rows alone	yes
+apps/desktop/src/renderer/src/diff.test.ts	rebuilds each @@ range from its rows, and it agrees with what was written	yes
+apps/desktop/src/renderer/src/diff.test.ts	does not trust a header that disagrees with its rows	yes
+apps/desktop/src/renderer/src/diff.test.ts	keeps three lines either side of a change and folds the rest with an exact count	yes
+apps/desktop/src/renderer/src/diff.test.ts	never folds a change, only context	yes
+apps/desktop/src/renderer/src/diff.test.ts	says all hunks are shown when they are	yes
+apps/desktop/src/renderer/src/diff.test.ts	offers to expand, naming exactly what remains	yes
+apps/desktop/src/renderer/src/diff.test.ts	states a remainder it could not render, rather than nothing	yes
+apps/desktop/src/renderer/src/diff.test.ts	cannot produce an empty statement for any input	yes
+apps/desktop/src/renderer/src/diff.test.ts	leaves the common prefix and suffix plain	yes
+apps/desktop/src/renderer/src/diff.test.ts	pairs a removed line with the added line that replaced it, positionally	yes
+apps/desktop/src/renderer/src/diff.test.ts	keeps a removed SQL comment as a removed line	yes
+apps/desktop/src/renderer/src/diff.test.ts	keeps an added line beginning ++ as an added line, not a rename	yes
+apps/desktop/src/renderer/src/diff.test.ts	still starts the next file once a hunk is used up	yes
+apps/desktop/src/renderer/src/diff.test.ts	is ADDED, whatever its header says	yes
+apps/desktop/src/renderer/src/diff.test.ts	but a file edited from its first line is still MODIFIED	yes
+apps/desktop/src/renderer/src/diff.test.ts	shows the true reported counts for a truncated large file rewrite	yes
+apps/desktop/src/renderer/src/diff.test.ts	withholds counts for a truncated diff when true counts cannot be known	yes
+apps/desktop/src/renderer/src/diff.test.ts	keeps counts unchanged for a small diff	yes
 apps/desktop/src/renderer/src/each-compared-model-has-its-own-effort.test.tsx	gives each model its own effort, at the level chosen for it	yes
 apps/desktop/src/renderer/src/each-compared-model-has-its-own-effort.test.tsx	shows a model's default when none was chosen, and the level a Cursor id already names	yes
 apps/desktop/src/renderer/src/each-compared-model-has-its-own-effort.test.tsx	offers no effort for a model that lists no levels	yes
