@@ -308,3 +308,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "team_picture_tests.rs"]
+mod team_picture_tests;

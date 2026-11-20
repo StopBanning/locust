@@ -787,6 +787,14 @@ apps/desktop/src/main/a-team-card-carries-its-routines.test.ts	takes a routine o
 apps/desktop/src/main/a-team-template-makes-ordinary-teammates.test.ts	are three teams of three, each with names and colours of its own	no
 apps/desktop/src/main/a-team-template-makes-ordinary-teammates.test.ts	each makes three teammates the store accepts, with the faces the cards showed	no
 apps/desktop/src/main/a-team-template-makes-ordinary-teammates.test.ts	keep a teammate's first messages through an edit, and refuse a list that is not one (0.359)	no
+apps/desktop/src/main/a-team-travels-as-a-picture.test.ts	goes in and comes back, names that are not Latin-1 included, and the image stays well formed	yes
+apps/desktop/src/main/a-team-travels-as-a-picture.test.ts	replaces the one already there rather than stacking a second	yes
+apps/desktop/src/main/a-team-travels-as-a-picture.test.ts	reads nothing from an image without one, or from something that is not a PNG	yes
+apps/desktop/src/main/a-team-travels-as-a-picture.test.ts	carries name, role, look and model -- and no id, folder, limit or model of your own	yes
+apps/desktop/src/main/a-team-travels-as-a-picture.test.ts	never brings a teammate in on Auto: a picture from someone else does not widen what runs unasked	yes
+apps/desktop/src/main/a-team-travels-as-a-picture.test.ts	is refused when it is not a Locust team card	yes
+apps/desktop/src/main/a-team-travels-as-a-picture.test.ts	never takes more than twelve teammates from one card	yes
+apps/desktop/src/main/a-team-travels-as-a-picture.test.ts	gives a teammate whose name is taken the next free one	yes
 apps/desktop/src/main/a-teammate-can-be-tagged-from-any-conversation.test.ts	is the message first -- so their conversation is titled by it -- then where it came from and the latest answer there	yes
 apps/desktop/src/main/a-teammate-can-be-tagged-from-any-conversation.test.ts	says only where it came from when that conversation has no answer yet	yes
 apps/desktop/src/main/a-teammate-can-be-tagged-from-any-conversation.test.ts	is the message alone when it was sent from nobody's conversation	yes
