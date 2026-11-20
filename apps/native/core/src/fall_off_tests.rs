@@ -69,3 +69,30 @@ fn still_finds_an_ancestor_off_the_end_of_the_list() {
     assert!(listed.iter().any(|s| s.mission_id == "mission_tip"));
     assert_eq!(read_metadata(&dir.join("mission_root.jsonl")).map(|m| m.mission_id), Some("mission_root".to_owned()));
 }
+
+/// the-home-list-bounds-its-reads.test.ts: Electron's list read up to sixteen ledgers at once and had to be bounded.
+/// Rust's reads one ledger at a time, at most its head and tail, so the bound is one; what carries is the order, newest
+/// first, with nearly two thousand empty files in the way.
+// case: lists all 40 ledgers in order with no more than 16 reads or stats in flight
+#[test]
+fn lists_all_forty_ledgers_newest_first_past_empty_files() {
+    let dir = std::env::temp_dir().join(format!("locust-home-list-{}", crate::invariants::unique_nanos()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let _t = Temp(dir.clone());
+    let base = std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_791_072_000);
+    let ids: Vec<String> = (0..40).map(|i| format!("mission_{i}")).collect();
+    for (i, id) in ids.iter().enumerate() {
+        turn(&dir, id, "Test history.", &format!("2026-10-04T00:00:{i:02}.000Z"), None);
+        let file = std::fs::File::options().append(true).open(dir.join(format!("{id}.jsonl"))).unwrap();
+        file.set_modified(base + std::time::Duration::from_secs(i as u64)).unwrap();
+    }
+    let newest_first: Vec<String> = ids.iter().rev().cloned().collect();
+    let listed = |dir: &Path| try_list_recent(dir, 40).unwrap().into_iter().map(|s| s.mission_id).collect::<Vec<_>>();
+    assert_eq!(listed(&dir), newest_first);
+    for n in 0..1961 {
+        let path = dir.join(format!("empty_{n}.jsonl"));
+        std::fs::write(&path, "").unwrap();
+        std::fs::File::options().append(true).open(&path).unwrap().set_modified(std::time::SystemTime::UNIX_EPOCH).unwrap();
+    }
+    assert_eq!(listed(&dir), newest_first);
+}

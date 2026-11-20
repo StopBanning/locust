@@ -5433,6 +5433,7 @@ packages/mission-store/test/schema-compat.test.ts	refuses an event from a runtim
 packages/mission-store/test/schema-compat.test.ts	records a workspace-write mission at the current version	yes
 packages/mission-store/test/schema-compat.test.ts	refuses a pre-v3 file claiming a mission was allowed to write	no
 packages/mission-store/test/schema-compat.test.ts	still reads v1 and v2 read-only missions	yes
+packages/mission-store/test/the-home-list-bounds-its-reads.test.ts	lists all 40 ledgers in order with no more than 16 reads or stats in flight	yes
 packages/mission-store/test/workroom.test.ts	counts "+N more" from the paths that are paths	yes
 packages/mission-store/test/workroom.test.ts	records an attributed, routed message and reads it back	yes
 packages/mission-store/test/workroom.test.ts	shows a message to its recipient once, and never to anyone else	yes
