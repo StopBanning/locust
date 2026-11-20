@@ -563,6 +563,7 @@ fn check_fix_bounds_prompt_and_parses_settings() {
     assert_eq!(parsed_check_fixes(&json!({"ws_a": 2, "ws_b": 9, "ws_c": "x", "": 3})), BTreeMap::from([("ws_a".into(), 2)]));
 }
 
+// case: reads back the newest check on the mission it ran after
 #[test]
 fn a_reopened_conversation_keeps_its_check() {
     let dir = TempDir::new("reopen-check");
@@ -671,6 +672,19 @@ fn a_reopened_conversation_keeps_its_check() {
             .unwrap();
         assert!(status.success(), "TypeScript reader rejected mission_1 with edit_check");
     }
+}
+
+/// a-reopened-conversation-keeps-its-check.test.ts, case 2: a reopened conversation whose turn ran no check has none.
+#[test]
+fn has_no_check_when_none_ran() {
+    let dir = TempDir::new("reopen-no-check");
+    let store = Store::new(dir.0.join("native"), dir.0.join("electron")).unwrap();
+    let mut writer = crate::ledger_write::LedgerWriter::create_runtime_with(&store, "mission_1", "Replace notes.txt with BROKEN.", "haiku", "claude", "claude", &[], None, &json!({"workspaceId": "ws_test"})).unwrap();
+    writer.append("run.started", json!({"runtimeThreadId": "t1"}), None).unwrap();
+    writer.append("run.completed", json!({"runtimeThreadId": "t1"}), None).unwrap();
+    drop(writer);
+    let transcript = crate::ledger::read_transcript(&store.write_path("mission_1").unwrap());
+    assert!(!transcript.items.iter().any(|i| matches!(i, crate::ledger::Item::EditCheck { .. })));
 }
 
 // ---- a-failing-check-goes-back-to-fix.test.ts, the cases the tests above did not hold ----
