@@ -739,7 +739,7 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
             && let Some(next_id) = locust_core::connectors_off::free_start_model(
                 effective_runtime,
                 oc_models,
-                &[],
+                &free_models_answered_here(s),
                 &std::collections::HashSet::new(),
             )
         {
@@ -1765,5 +1765,44 @@ mod renderer_folder_chip_tests {
             words(&rt)
         );
         assert!(!words(&rt).contains("sign-in files"));
+    }
+}
+
+/// `freeModelsThatAnswered` over the runs this window has listed: a free model that finished a run here is offered
+/// before the catalogue's own order (a-free-model-that-answered-comes-first).
+pub(super) fn free_models_answered_here(s: &State) -> Vec<String> {
+    let runs: Vec<locust_core::connectors_off::RunSeen<'_>> = s
+        .ledger_summaries
+        .values()
+        .map(|m| locust_core::connectors_off::RunSeen {
+            runtime: &m.runtime,
+            model: &m.model,
+            phase: if m.running { "running" } else if m.failed { "failed" } else if m.cancelled { "cancelled" } else { "completed" },
+            at: &m.updated,
+        })
+        .collect();
+    locust_core::connectors_off::free_models_that_answered(&runs)
+}
+
+#[cfg(test)]
+mod free_answered_tests {
+    use super::*;
+
+    fn summary(id: &str, model: &str, failed: bool, cancelled: bool, updated: &str) -> locust_core::ledger::Summary {
+        locust_core::ledger::Summary { mission_id: id.into(), runtime: "opencode".into(), model: model.into(), failed, cancelled, updated: updated.into(), ..Default::default() }
+    }
+
+    /// The window feeds what it has listed into the rule: the newest finished free model first, a stopped one not at all.
+    #[test]
+    fn the_window_offers_the_free_model_that_finished_a_run_here_and_never_one_that_was_stopped() {
+        let mut s = State::default();
+        for m in [
+            summary("m1", "opencode/muse-spark-1.3-contributor-free", false, false, "2026-09-29T10:00:00Z"),
+            summary("m2", "opencode/mimo-v2.6-flash-free", false, false, "2026-09-30T10:00:00Z"),
+            summary("m3", "opencode/ling-3.0-flash-fin-free", false, true, "2026-09-30T12:00:00Z"),
+        ] {
+            s.ledger_summaries.insert(m.mission_id.clone(), m);
+        }
+        assert_eq!(free_models_answered_here(&s), vec!["opencode/mimo-v2.6-flash-free".to_owned(), "opencode/muse-spark-1.3-contributor-free".to_owned()]);
     }
 }

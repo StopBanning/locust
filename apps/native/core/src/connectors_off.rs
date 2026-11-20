@@ -100,6 +100,33 @@ pub fn dropped_free_model(runtime: &str, model: Option<&str>, opencode_models: &
     !listed.is_empty() && !listed.iter().any(|m| m.id == model_id)
 }
 
+/// A run as `free_models_that_answered` reads it: its agent, its model, how it ended ("completed", "failed",
+/// "cancelled", "running"), and when.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RunSeen<'a> {
+    pub runtime: &'a str,
+    pub model: &'a str,
+    pub phase: &'a str,
+    pub at: &'a str,
+}
+
+/// `freeModelsThatAnswered`: the OpenCode free models that finished a run here, newest first, each once. A run that
+/// failed or was stopped, or was on a paid model or another agent, does not count: answering is what earns the spot.
+pub fn free_models_that_answered(runs: &[RunSeen<'_>]) -> Vec<String> {
+    let mut answered: Vec<&RunSeen<'_>> = runs
+        .iter()
+        .filter(|r| r.runtime == FREE_START_RUNTIME && r.phase == "completed" && r.model.starts_with("opencode/") && r.model.ends_with("-free"))
+        .collect();
+    answered.sort_by(|a, b| b.at.cmp(a.at));
+    let mut out: Vec<String> = Vec::new();
+    for run in answered {
+        if !out.iter().any(|m| m == run.model) {
+            out.push(run.model.to_owned());
+        }
+    }
+    out
+}
+
 /// Best listed OpenCode free model to switch to (`freeStartModel`).
 pub fn free_start_model(
     runtime: &str,

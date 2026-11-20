@@ -256,6 +256,7 @@ fn parse_file(path: &Path, modified: SystemTime, stamp: (u64, u128)) -> CachedFi
     let mut running = true;
     let mut failed = false;
     let mut completed = false;
+    let mut cancelled = false;
     let mut assistant_text = String::new();
     for event in &ordered_events {
         match event.get("type").and_then(Value::as_str) {
@@ -263,6 +264,7 @@ fn parse_file(path: &Path, modified: SystemTime, stamp: (u64, u128)) -> CachedFi
                 running = true;
                 failed = false;
                 completed = false;
+                cancelled = false;
             }
             Some("route.limit_detected") => {
                 running = false;
@@ -271,16 +273,19 @@ fn parse_file(path: &Path, modified: SystemTime, stamp: (u64, u128)) -> CachedFi
                 running = false;
                 failed = true;
                 completed = false;
+                cancelled = false;
             }
             Some("run.completed") => {
                 running = false;
                 failed = false;
                 completed = true;
+                cancelled = false;
             }
             Some("run.cancelled") => {
                 running = false;
                 failed = false;
                 completed = false;
+                cancelled = true;
             }
             Some("message.delta") => {
                 if let Some(p) = event.get("payload")
@@ -330,6 +335,7 @@ fn parse_file(path: &Path, modified: SystemTime, stamp: (u64, u128)) -> CachedFi
         created_at: m.created_at,
         running,
         failed,
+        cancelled,
         updated,
         started_by_kind: m.started_by_kind,
         started_by_hop: m.started_by_hop,
@@ -465,6 +471,23 @@ mod tests {
             }
         });
         writeln!(f, "{ev}").unwrap();
+    }
+
+    /// A stopped run is told from a finished one, by the cache and by the whole listing alike: only a run that finished
+    /// counts as one a free model answered (a-free-model-that-answered-comes-first).
+    #[test]
+    fn a_stopped_run_is_marked_cancelled_and_a_finished_one_is_not() {
+        let dir = ledger_with_missions();
+        append_event(&dir.0, 3, 900, 59, "run.cancelled", json!({}));
+        append_event(&dir.0, 4, 900, 59, "run.completed", json!({}));
+        let cache = HistoryCache::new();
+        let (kept, _) = cache.read_history_tracked(&dir.0, 100).unwrap();
+        let whole = ledger::try_list_recent(&dir.0, 100).unwrap();
+        for (said, list) in [("cache", kept.iter().map(|r| r.summary.clone()).collect::<Vec<_>>()), ("listing", whole)] {
+            let of = |id: &str| list.iter().find(|s| s.mission_id == id).unwrap_or_else(|| panic!("{said}: {id}"));
+            assert!(of("mission_003").cancelled && !of("mission_003").failed && !of("mission_003").running, "{said}");
+            assert!(!of("mission_004").cancelled, "{said}");
+        }
     }
 
     // ---- Electron main/the-history-reads-only-what-changed.test.ts -------------------------------------------------

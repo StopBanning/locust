@@ -2,9 +2,9 @@
 //! `a-free-model-that-is-down-is-passed-over`, `a-free-model-that-answered-comes-first` and
 //! `a-retired-free-model-is-not-offered` (status.ts `freeStartModel`, `freeModelsBestFirst`), with Electron's values.
 //! Rust has `connectors_off::free_start_model` and `free_models_best_first`; it has no `nextFreeModel`,
-//! `downFreeModels`, `freeModelsThatAnswered`, `retiredFreeModels` or Compare's `defaultComparePicks`, so where a case
+//! `downFreeModels`, `retiredFreeModels` or Compare's `defaultComparePicks`, so where a case
 //! feeds one of those into `freeStartModel`, the set or list it gives is written in (each test says so).
-use crate::connectors_off::{FREE_MODELS_BEST_FIRST, free_models_best_first, free_start_model};
+use crate::connectors_off::{FREE_MODELS_BEST_FIRST, RunSeen, free_models_best_first, free_models_that_answered, free_start_model};
 use crate::engine::Model;
 use std::collections::HashSet;
 
@@ -70,11 +70,33 @@ fn use_a_free_model_starts_on_one_that_is_up_even_one_that_answered_before() {
 // a-free-model-that-answered-comes-first.test.ts
 const LISTED: [&str; 4] = ["opencode/paid-thing", "opencode/ling-3.0-flash-fin-free", "opencode/muse-spark-1.3-contributor-free", "opencode/mimo-v2.6-flash-free"];
 
-/// `answered` is what `freeModelsThatAnswered` gives for the case's three runs, written in.
+fn run<'a>(model: &'a str, phase: &'a str, at: &'a str) -> RunSeen<'a> {
+    RunSeen { runtime: "opencode", model, phase, at }
+}
+
 #[test]
 fn takes_the_newest_free_model_that_finished_a_run_when_the_catalogue_still_lists_it() {
-    let answered = ["opencode/mimo-v2.6-flash-free", "opencode/muse-spark-1.3-contributor-free"];
+    let answered = free_models_that_answered(&[
+        run("opencode/muse-spark-1.3-contributor-free", "completed", "2026-09-29T10:00:00Z"),
+        run("opencode/mimo-v2.6-flash-free", "completed", "2026-09-30T10:00:00Z"),
+        run("opencode/ling-3.0-flash-fin-free", "failed", "2026-09-30T12:00:00Z"),
+    ]);
+    assert_eq!(answered, vec!["opencode/mimo-v2.6-flash-free".to_owned(), "opencode/muse-spark-1.3-contributor-free".to_owned()]);
+    let answered: Vec<&str> = answered.iter().map(String::as_str).collect();
     assert_eq!(start(&models(&LISTED), &answered, &[]).as_deref(), Some("opencode/mimo-v2.6-flash-free"));
+}
+
+#[test]
+fn a_run_that_failed_was_stopped_or_was_on_a_paid_or_other_model_does_not_count() {
+    assert!(free_models_that_answered(&[
+        run("opencode/ling-3.0-flash-fin-free", "failed", "2026-09-30T12:00:00Z"),
+        run("opencode/mimo-v2.6-flash-free", "cancelled", "2026-09-30T12:00:00Z"),
+        run("opencode/paid-thing", "completed", "2026-09-30T12:00:00Z"),
+        RunSeen { runtime: "cursor", model: "cursor/grok-free", phase: "completed", at: "2026-09-30T12:00:00Z" },
+        // Another agent on an OpenCode-named free model is still another agent's run (Electron's `runtime === 'opencode'`).
+        RunSeen { runtime: "kilo", model: "opencode/mimo-v2.6-flash-free", phase: "completed", at: "2026-09-30T12:00:00Z" },
+    ])
+    .is_empty());
 }
 
 #[test]

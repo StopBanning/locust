@@ -77,6 +77,8 @@ pub struct Summary {
     pub created_at: String,
     pub running: bool,
     pub failed: bool,
+    /// Its last end was a stop (`run.cancelled`): not failed, and not a run that finished either.
+    pub cancelled: bool,
     pub updated: String,
     pub started_by_kind: Option<String>,
     pub started_by_hop: Option<usize>,
@@ -1537,11 +1539,13 @@ pub fn try_list_recent(dir: &Path, limit: usize) -> io::Result<Vec<Summary>> {
         );
         let mut running = true;
         let mut failed = false;
+        let mut cancelled = false;
         for event in events.values() {
             match event.get("type").and_then(Value::as_str) {
                 Some("run.started") => {
                     running = true;
                     failed = false;
+                    cancelled = false;
                 }
                 Some("route.limit_detected") => {
                     running = false;
@@ -1549,10 +1553,12 @@ pub fn try_list_recent(dir: &Path, limit: usize) -> io::Result<Vec<Summary>> {
                 Some("run.failed") => {
                     running = false;
                     failed = true;
+                    cancelled = false;
                 }
-                Some("run.completed" | "run.cancelled") => {
+                Some(kind @ ("run.completed" | "run.cancelled")) => {
                     running = false;
                     failed = false;
+                    cancelled = kind == "run.cancelled";
                 }
                 _ => {}
             }
@@ -1585,6 +1591,7 @@ pub fn try_list_recent(dir: &Path, limit: usize) -> io::Result<Vec<Summary>> {
             created_at: m.created_at,
             running: running && fresh(Some(modified), SystemTime::now()),
             failed,
+            cancelled,
             updated,
             started_by_kind: m.started_by_kind,
             started_by_hop: m.started_by_hop,

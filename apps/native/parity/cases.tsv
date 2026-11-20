@@ -2546,7 +2546,7 @@ apps/desktop/src/renderer/src/a-folded-row-says-it-in-words.test.ts	a tool with 
 apps/desktop/src/renderer/src/a-forgotten-memory-shows-with-restore.test.tsx	lists what was forgotten, by whom and when, with Restore	yes
 apps/desktop/src/renderer/src/a-forgotten-memory-shows-with-restore.test.tsx	is not drawn when nothing was forgotten	yes
 apps/desktop/src/renderer/src/a-free-model-that-answered-comes-first.test.ts	takes the newest free model that finished a run, when the catalogue still lists it	yes
-apps/desktop/src/renderer/src/a-free-model-that-answered-comes-first.test.ts	a run that failed, was stopped, or was on a paid or other model does not count	no
+apps/desktop/src/renderer/src/a-free-model-that-answered-comes-first.test.ts	a run that failed, was stopped, or was on a paid or other model does not count	yes
 apps/desktop/src/renderer/src/a-free-model-that-answered-comes-first.test.ts	one no longer listed is passed over for the next that is	yes
 apps/desktop/src/renderer/src/a-free-model-that-answered-comes-first.test.ts	with nothing answered yet, the steadiest listed free model (it was the catalogue's first)	yes
 apps/desktop/src/renderer/src/a-free-model-that-answered-comes-first.test.ts	never a model of the person's own, even one named -free	yes
