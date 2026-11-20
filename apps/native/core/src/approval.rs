@@ -621,18 +621,57 @@ pub fn protocol_answer_for(answer: &Answer) -> Value {
             }
             json!({"answers": map})
         }
-        Answer::Decision {
-            decision, reason, ..
-        } => {
-            let mut result = json!({"decision": protocol_decision_for(decision)});
-            if let (Decision::Deny, Some(why)) = (decision, reason)
-                && !why.is_empty()
-            {
-                result["reason"] = json!(why);
-            }
-            result
-        }
+        // Exactly what Codex's app-server expects: no field it does not know. A denial's reason reaches the run another
+        // way (`take_denied_saying`), or rides OpenCode's reject (`ask_codex_with_changes`).
+        Answer::Decision { decision, .. } => json!({"decision": protocol_decision_for(decision)}),
     }
+}
+
+/// The most of a denial's reason that is passed on: a sentence or two, not a document (approval-channel.ts).
+pub const MAX_DENY_REASON: usize = 500;
+
+/// What a runtime is told alongside a denial the person explained (approval-channel.ts `deniedSaying`, 0.374).
+pub fn denied_saying(reason: &str) -> String {
+    format!("The person declined this, and said: {reason}")
+}
+
+/// A denial's reason as it is passed on: one line, bounded, and nothing when there is none.
+fn deny_reason(raw: Option<&str>) -> Option<String> {
+    let line = raw.unwrap_or("").split_whitespace().collect::<Vec<_>>().join(" ");
+    let bounded = utf16_bounded(&line, MAX_DENY_REASON);
+    (!bounded.is_empty()).then_some(bounded)
+}
+
+/// The window's answer, as the channel takes it (approval-channel.ts `approvalAnswerFrom`). Anything but a recognized
+/// answer is refused or read as a denial: a malformed message must never be able to approve an action.
+pub fn approval_answer_from(raw: &Value) -> Option<Answer> {
+    let approval_id = raw["approvalId"].as_str()?.to_owned();
+    if let Some(answers) = raw.get("answers") {
+        let mut clean = Vec::new();
+        for (question_id, given) in answers.as_object()? {
+            // Bounded: an answer is words a person typed, not a file.
+            let given = given.as_array()?.iter().map(|g| g.as_str().map(str::to_owned)).collect::<Option<Vec<_>>>()?;
+            clean.push((question_id.clone(), given.into_iter().take(64).map(|g| utf16_bounded(&g, 4_000)).collect()));
+        }
+        return Some(Answer::Answers { approval_id, answers: clean });
+    }
+    let decision = match raw["decision"].as_str() {
+        Some("approve-once") => return Some(Answer::Decision { approval_id, decision: Decision::ApproveOnce, reason: None }),
+        Some("approve-always") => return Some(Answer::Decision { approval_id, decision: Decision::ApproveAlways, reason: None }),
+        _ => Decision::Deny,
+    };
+    // A denial may say why (0.374): the person's words, bounded, and nothing when there are none.
+    Some(Answer::Decision { approval_id, decision, reason: deny_reason(raw["reason"].as_str()) })
+}
+
+/// A denial the person explained, on a runtime whose reply cannot carry it (Codex's app-server): the run is shown the
+/// reason as its next input instead (approval-channel.ts `onDeniedSaying`). OpenCode's reply carries it and never comes
+/// here.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DeniedSaying {
+    pub run_id: String,
+    pub mission_id: String,
+    pub reason: String,
 }
 
 /// Claude control_response body for one answer.
@@ -748,6 +787,8 @@ struct Pending {
     /// The run that asked, and the item it asked about when it named one: a denial is remembered under them.
     run_id: String,
     item_id: Option<String>,
+    /// A denial's reason goes to the run as its next input (Codex, ACP), not in the reply.
+    steers_reason: bool,
 }
 
 /// In-process approval channel: raise a card, wait for decide(), release on turn end.
@@ -766,6 +807,8 @@ struct Inner {
     /// The items the person declined, by run id, with the mission the run belongs to (approval-channel.ts
     /// `declinedByRun`): kept only while the run lasts.
     declined: HashMap<String, (String, HashSet<String>)>,
+    /// Denials the person explained, waiting for their run to be shown them (`take_denied_saying`).
+    denied_saying: Vec<DeniedSaying>,
 }
 
 impl Channel {
@@ -778,6 +821,7 @@ impl Channel {
                 always: HashMap::new(),
                 teammates: HashMap::new(),
                 declined: HashMap::new(),
+                denied_saying: Vec::new(),
             }),
         })
     }
@@ -960,7 +1004,8 @@ impl Channel {
         };
         let remembered_here = codex && request.always_key.is_some();
         let item = item_id.map(str::to_owned);
-        self.ask_by_run(request, run_id, item, cancel).map(|(answer, _)| {
+        let opencode = runtime == "opencode";
+        self.ask_by_run(request, run_id, item, !opencode, cancel).map(|(answer, _)| {
             // Never "acceptForSession" to Codex for an action Locust remembers itself: told that, Codex stops asking
             // and a saved rule never sees the next one (approval-channel.ts, codexAlways).
             let answer = match answer {
@@ -969,7 +1014,16 @@ impl Channel {
                 }
                 other => other,
             };
-            protocol_answer_for(&answer)
+            let mut result = protocol_answer_for(&answer);
+            // OpenCode's reject carries a message the model reads, so a reason rides the denial itself; read by
+            // `open_code_reply_for`, it never reaches Codex.
+            if opencode
+                && let Answer::Decision { decision: Decision::Deny, reason: Some(why), .. } = &answer
+                && !why.is_empty()
+            {
+                result["reason"] = json!(why);
+            }
+            result
         })
     }
 
@@ -1051,7 +1105,7 @@ impl Channel {
     /// The answer, and whose it is: the person's own (`person`, a card or a rule they saved) or Locust's (`locust`: the
     /// command guard, an earlier Always, a turn that ended first).
     fn ask_by(&self, request: Request, cancel: &dyn Fn() -> bool) -> Result<(Answer, &'static str), String> {
-        self.ask_by_run(request, "", None, cancel)
+        self.ask_by_run(request, "", None, false, cancel)
     }
 
     /// `ask_by`, for a run that names the item it asks about, so the person's denial of it is remembered.
@@ -1060,6 +1114,7 @@ impl Channel {
         request: Request,
         run_id: &str,
         item_id: Option<String>,
+        steers_reason: bool,
         cancel: &dyn Fn() -> bool,
     ) -> Result<(Answer, &'static str), String> {
         let (tx, rx) = mpsc::sync_channel(1);
@@ -1118,7 +1173,7 @@ impl Channel {
             if guard.pending.len() >= MAX_PENDING {
                 return Err(format!("Locust denied an action because {MAX_PENDING} approvals are already waiting on you. Answer some of them and ask again."));
             }
-            guard.pending.insert(id.clone(), Pending { request, tx, run_id: run_id.to_owned(), item_id });
+            guard.pending.insert(id.clone(), Pending { request, tx, run_id: run_id.to_owned(), item_id, steers_reason });
         }
         let answer = wait_answer(&rx, cancel);
         // If wait ended without decide(), drop the pending entry.
@@ -1173,6 +1228,14 @@ impl Channel {
             }
             .into());
         }
+        // A reason is the person's words on a denial, one line and bounded; it never rides an approval.
+        let answer = match answer {
+            Answer::Decision { approval_id, decision: Decision::Deny, reason } => {
+                Answer::Decision { approval_id, decision: Decision::Deny, reason: deny_reason(reason.as_deref()) }
+            }
+            Answer::Decision { approval_id, decision, .. } => Answer::Decision { approval_id, decision, reason: None },
+            other => other,
+        };
         let answer = match &answer {
             Answer::Decision {
                 approval_id,
@@ -1229,6 +1292,10 @@ impl Channel {
         let recorded = record_of(&pending.request, &answer);
         guard.recorded.push(recorded.clone());
         let denied = matches!(&answer, Answer::Decision { decision: Decision::Deny, .. });
+        let steered = match &answer {
+            Answer::Decision { decision: Decision::Deny, reason: Some(why), .. } if pending.steers_reason => Some(why.clone()),
+            _ => None,
+        };
         if pending.tx.try_send(answer).is_err() {
             if let Some(key) = &pending.request.always_key {
                 guard
@@ -1247,6 +1314,13 @@ impl Channel {
                 .1
                 .insert(item.clone());
         }
+        if let Some(reason) = steered {
+            guard.denied_saying.push(DeniedSaying {
+                run_id: pending.run_id.clone(),
+                mission_id: pending.request.mission_id.clone(),
+                reason,
+            });
+        }
         Ok(recorded)
     }
 
@@ -1259,6 +1333,14 @@ impl Channel {
             .unwrap_or_default()
     }
 
+    /// The denials the person explained in a run, each once, for the run to be shown as its next input.
+    pub fn take_denied_saying(&self, run_id: &str) -> Vec<DeniedSaying> {
+        let mut guard = crate::invariants::lock(&self.inner);
+        let (mine, others) = std::mem::take(&mut guard.denied_saying).into_iter().partition(|d| d.run_id == run_id);
+        guard.denied_saying = others;
+        mine
+    }
+
     /// The run is over: refuse whatever it was still asking.
     pub fn release(&self, mission_id: &str) {
         let mut guard = crate::invariants::lock(&self.inner);
@@ -1266,6 +1348,7 @@ impl Channel {
         guard.always.retain(|(mission, _), _| mission != mission_id);
         guard.teammates.remove(mission_id);
         guard.declined.retain(|_, (mission, _)| mission != mission_id);
+        guard.denied_saying.retain(|d| d.mission_id != mission_id);
         let ids: Vec<_> = guard
             .pending
             .iter()
@@ -1620,7 +1703,7 @@ pub fn open_code_reply_for(result: &Value) -> Value {
         _ => match result["reason"].as_str().filter(|r| !r.is_empty()) {
             Some(reason) => json!({
                 "reply": "reject",
-                "message": format!("The person declined this, and said: {reason}"),
+                "message": denied_saying(reason),
             }),
             None => json!("reject"),
         },
@@ -2561,3 +2644,7 @@ mod opencode_card_tests;
 #[cfg(test)]
 #[path = "approval_declined_tests.rs"]
 mod approval_declined_tests;
+
+#[cfg(test)]
+#[path = "approval_denial_reason_tests.rs"]
+mod approval_denial_reason_tests;

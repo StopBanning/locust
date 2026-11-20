@@ -45,6 +45,11 @@ pub struct Codex {
     /// The items the person declined in this run, copied from the channel as each answer comes back: the reader thread
     /// releases the channel on `turn/completed` before the item's own `item/completed` is read here.
     declined: HashSet<String>,
+    /// Reasons the person gave for a denial, owed to the run as its next input once the reply has gone (index.ts
+    /// `onDeniedSaying`): Codex's reject has no room for them.
+    owed_reasons: Vec<String>,
+    /// Our `turn/steer` requests still unanswered: a refusal of one is said, so the reason does not vanish.
+    steer_ids: HashSet<u64>,
 }
 
 fn err(message: impl ToString) -> io::Error {
@@ -156,6 +161,8 @@ impl Codex {
             slash: None,
             sealed: false,
             declined: HashSet::new(),
+            owed_reasons: Vec::new(),
+            steer_ids: HashSet::new(),
         })
     }
     pub fn with_thread_config(mut self, config: Option<Value>) -> Self {
@@ -218,6 +225,13 @@ impl Codex {
     }
     fn notification(&mut self, v: Value) -> io::Result<()> {
         let Some(method) = v["method"].as_str() else {
+            // The answer to a reason we steered in: refused, the person is told it was not passed on.
+            if let Some(id) = v["id"].as_u64()
+                && self.steer_ids.remove(&id)
+                && !v["error"].is_null()
+            {
+                self.reason_not_passed_on();
+            }
             return Ok(());
         };
         if !v["id"].is_null() {
@@ -241,6 +255,9 @@ impl Codex {
                 }
             };
             self.send(json!({"jsonrpc":"2.0","id":wire_id,"result":result}))?;
+            for reason in std::mem::take(&mut self.owed_reasons) {
+                self.steer_reason(&reason)?;
+            }
         } else {
             // A call the person declined reads as declined, however Codex put it (0.374).
             let events = self.normal.accept(method, &v["params"]);
@@ -328,6 +345,7 @@ impl Codex {
         ) {
             Ok(result) => {
                 self.declined = channel.declined(&run);
+                self.owed_reasons.extend(channel.take_denied_saying(&run).into_iter().map(|d| d.reason));
                 Ok(result)
             }
             Err(message) => {
@@ -336,6 +354,28 @@ impl Codex {
                 Ok(json!({"decision":"reject"}))
             }
         }
+    }
+    /// A denial the person explained, shown to the running turn as its next input (`turn/steer`, which Codex's
+    /// app-server takes at the turn's next step). A run that can no longer take one is said so.
+    fn steer_reason(&mut self, reason: &str) -> io::Result<()> {
+        let (Some(thread), Some(turn)) = (self.normal.thread.clone(), self.normal.turn.clone()) else {
+            self.reason_not_passed_on();
+            return Ok(());
+        };
+        if self.normal.ended || reason.trim().is_empty() {
+            self.reason_not_passed_on();
+            return Ok(());
+        }
+        self.request_id += 1;
+        let id = self.request_id;
+        self.steer_ids.insert(id);
+        self.send(json!({"jsonrpc":"2.0","id":id,"method":"turn/steer","params":{"threadId":thread,"expectedTurnId":turn,"input":[{"type":"text","text":format!("I declined that. {reason}")}]}}))
+    }
+    fn reason_not_passed_on(&mut self) {
+        self.queued.push_back(self.normal.diagnostic(
+            "turn/steer",
+            "Your reason was not passed on: the run could not take a message just then. Say it in your next message.",
+        ));
     }
     fn request(&mut self, method: &str, params: Value) -> io::Result<Value> {
         self.request_id += 1;
@@ -751,3 +791,7 @@ mod tests {
 #[cfg(test)]
 #[path = "codex_declined_tests.rs"]
 mod codex_declined_tests;
+
+#[cfg(test)]
+#[path = "codex_denial_reason_tests.rs"]
+mod codex_denial_reason_tests;
