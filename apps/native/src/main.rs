@@ -112,6 +112,9 @@ mod markdown_prep;
 mod routines_panel;
 #[path = "ui/scenes.rs"]
 mod scenes;
+#[cfg(test)]
+#[path = "ui/keychain_note_tests.rs"]
+mod keychain_note_tests;
 #[path = "ui/scout_cards.rs"]
 mod scout_cards;
 #[path = "ui/scout_setting.rs"]
@@ -2718,10 +2721,14 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
             .h_full()
             .child(
                 row()
+                    .key("keychain-note")
                     .w_full()
                     .gap(8.0)
                     .padding(10.0)
                     .fill(p.amber.alpha(0.2))
+                    // KeychainNote.tsx's role="alert": a reader says it the moment macOS may be asking.
+                    .role("alert")
+                    .label(crate::keychain_note::KEYCHAIN_NOTE)
                     .child(
                         text(crate::keychain_note::KEYCHAIN_NOTE.to_owned())
                             .font(type_::LABEL)

@@ -4993,6 +4993,8 @@ apps/desktop/src/renderer/src/the-thinking-dots-never-jump.test.ts	hold still wh
 apps/desktop/src/renderer/src/the-way-down-says-a-run-is-still-working.test.tsx	wears the thinking dots while the run works, and says so to a screen reader	yes
 apps/desktop/src/renderer/src/the-way-down-says-a-run-is-still-working.test.tsx	is the plain chevron when nothing is running, and absent at the bottom	yes
 apps/desktop/src/renderer/src/the-way-down-says-a-run-is-still-working.test.tsx	brings the chevron back on hover and keyboard focus, where it is about to be pressed	yes
+apps/desktop/src/renderer/src/the-window-says-when-macos-may-ask.test.tsx	is drawn only while macOS may be asking, and names the box and the answer	yes
+apps/desktop/src/renderer/src/the-window-says-when-macos-may-ask.test.tsx	the window takes the host’s word, and asks for it only once its listener is in place	yes
 apps/desktop/src/renderer/src/thinking-is-not-using-a-tool.test.ts	reads thinking for a reasoning item	yes
 apps/desktop/src/renderer/src/thinking-is-not-using-a-tool.test.ts	still reads writing for a message item, and a tool for other work	yes
 apps/desktop/src/renderer/src/thought-folds-to-one-line.test.ts	carries how long it took, from the step that opened it	yes
