@@ -3392,3 +3392,34 @@ fn a_run_started_for_a_message_is_sent_that_message_whatever_waits_before_it() {
     assert!(first.contains("Claude, what does the lint step run?"), "{first}");
     assert!(!first.contains("Note 6"), "the five quoted are the question and the four oldest: {first}");
 }
+
+/// a-reference-is-briefed-on-every-turn.test.ts: a reference attached to a conversation is briefed on its later turns,
+/// never on another conversation's, and a conversation whose references were taken off is told so. (Electron's Auto
+/// turn on Codex, the sandbox argument, is Codex's own and not checked here: this is a Claude Code stand-in.)
+// case: briefs the same reference on later turns and never adds it to another conversation
+#[test]
+fn a_reference_is_briefed_on_every_turn_of_its_conversation_and_no_other() {
+    let t = Temp::new();
+    let store = t.store();
+    let fake = commands_claude(&t);
+    let _g = hooks::install(store.clone(), Some((PathBuf::from("python3"), vec![fake.to_string_lossy().into_owned()])));
+    let reference = t.0.join("reference");
+    fs::create_dir_all(&reference).unwrap();
+    let item = crate::references::add_folder(&store, &reference).unwrap();
+    let quoted = Value::from(item.path.clone()).to_string();
+    let turn = |conversation: Option<&str>, ids: Option<Vec<String>>| {
+        let run = send_from(claude_job(&t, conversation, "Read the reference."), Origin { reference_ids: ids, ..Default::default() }).unwrap();
+        finished(&run.conversation_id);
+        let sent = sent_log(&t, "claude-sent.jsonl");
+        (run.conversation_id, sent.last().map(Value::to_string).unwrap_or_default())
+    };
+    let (first, said) = turn(None, Some(vec![item.id.clone()]));
+    assert!(said.contains("for reading, not changing") && said.contains(&quoted.replace('"', "\\\"")), "{said}");
+    let (second, said) = turn(Some(&first), None);
+    assert!(said.contains(&quoted.replace('"', "\\\"")), "a later turn is briefed it too: {said}");
+    let (_, said) = turn(None, None);
+    assert!(!said.contains(&quoted.replace('"', "\\\"")), "another conversation never is: {said}");
+    crate::references::set(&store, &first, &[]).unwrap();
+    let (_, said) = turn(Some(&second), None);
+    assert!(said.contains("earlier references are not attached now"), "{said}");
+}
