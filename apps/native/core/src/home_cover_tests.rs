@@ -176,3 +176,74 @@ fn starts_at_the_narrowest_column_before_it_has_been_measured() {
     assert_eq!(cover_scale(0.0), 0.792);
     assert_eq!(cover_scale(f64::NAN), 0.792);
 }
+
+// --- The cast and where it is placed (HomeCover.tsx's COVER_CAST, COVER_MACHINE, `drawn`, `originX`). The drawn Home
+// is checked against these in src/ui/home_cover_tests.rs.
+
+#[test]
+fn the_cast_stands_on_the_bezel_in_the_cover_order() {
+    for mate in &COVER_CAST {
+        assert!((mate.y + COVER_FACE - COVER_MACHINE.y).abs() <= 18.0, "{} at {}", mate.key, mate.y);
+    }
+    assert_eq!(COVER_CAST.map(|m| m.key), ["wren", "atlas", "sable"]);
+    assert_eq!(COVER_CAST.map(|m| m.bot), ["ghost", "prompt", "critter"]);
+    assert_eq!(COVER_CAST.map(|m| m.state), ["default", "default", "sleeping"]);
+    let ghost = COVER_CAST.iter().find(|m| m.bot == "ghost").unwrap();
+    assert_eq!((ghost.hue, ghost.floats), (None, true));
+    let sleeper = COVER_CAST.iter().find(|m| m.part == CoverPart::Sleeper).unwrap();
+    assert_eq!((sleeper.bot, sleeper.hue), ("critter", Some("clay")));
+}
+
+#[test]
+fn at_the_narrowest_column_the_ghost_is_68_across_at_213_by_minus_7() {
+    let at = cover_place(760.0, 1.0);
+    assert_eq!(at.drawn, 0.713);
+    assert_eq!((at.faces[0].x, at.faces[0].y, at.faces[0].width), (213.0, -7.0, 68.0));
+}
+
+#[test]
+fn the_machine_is_centred_on_its_card_at_every_growth_and_never_under_the_floor() {
+    for grow in [1.0, 1.2, COVER_MAX_GROW] {
+        let m = cover_place(760.0, grow).machine;
+        assert!((m.x - (760.0 - m.width) / 2.0).abs() <= 1.0, "grow {grow}: {m:?}");
+    }
+    let own = cover_place(760.0, 1.0).machine;
+    let short = cover_place(760.0, 0.5).machine;
+    assert_eq!(short.width, (own.width * COVER_MIN_GROW).round());
+    let big = cover_place(760.0, COVER_MAX_GROW).machine;
+    assert!(big.x > 0.0 && big.x + big.width < 760.0, "{big:?}");
+    assert!(big.width > COVER_MACHINE.width * (760.0 / COVER_WIDTH));
+}
+
+#[test]
+fn the_claim_is_13px_at_the_covers_own_size_and_never_under_10_5() {
+    assert_eq!(claim_size(1.0), 13.0);
+    assert_eq!(claim_size(0.713), 10.5);
+}
+
+/// One measure as Home runs it, at 1209x782's numbers: the sections shrink 14px when tight.
+fn fit_steps(pane: f64, loose: f64, tight_off: f64, steps: usize) -> Vec<HomeFit> {
+    let (mut seen, mut tight, mut out) = (HomeSpacingSeen::default(), false, Vec::new());
+    for _ in 0..steps {
+        let sections = if tight { loose - tight_off } else { loose };
+        let (next, fit) = home_fit(seen, 5, sections, tight, 816.0, pane);
+        seen = next;
+        tight = fit.tight;
+        out.push(fit);
+    }
+    out
+}
+
+#[test]
+fn a_measure_that_tightens_holds_and_shrinks_the_cover_to_fit() {
+    let steps = fit_steps(PANE_782, SECTIONS, 14.0, 12);
+    assert!(steps.iter().all(|f| f.tight), "{steps:?}");
+    assert!(steps.iter().all(|f| f.grow < 1.0 && f.grow >= cover_floor(footprint_816())), "{steps:?}");
+    assert!(steps.windows(2).skip(1).all(|w| w[0] == w[1]), "it moved: {steps:?}");
+}
+
+#[test]
+fn a_measure_with_room_to_spare_stays_loose_and_grows() {
+    let steps = fit_steps(1100.0, SECTIONS, 14.0, 6);
+    assert!(steps.iter().all(|f| !f.tight && f.grow > 1.0), "{steps:?}");
+}
