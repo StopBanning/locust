@@ -68,7 +68,7 @@ fn cursor_plan(states: &[&str]) -> Vec<crate::ledger::PlanStep> {
     crate::ledger::read_plan(&serde_json::json!({ "plan": rows }))
 }
 fn plan_item(states: &[&str]) -> Item {
-    Item::Plan { id: "p".into(), steps: cursor_plan(states), finished: true }
+    Item::Plan { id: "p".into(), steps: cursor_plan(states), finished: true, stopped: false }
 }
 
 // case: a turn that only planned is marked as having touched nothing

@@ -1083,7 +1083,7 @@ mod tests {
 
     fn plan_of(count: usize, state: &str) -> ledger::Item {
         let steps = (0..count).map(|i| ledger::PlanStep { text: format!("step {}", i + 1), state: state.into() }).collect();
-        ledger::Item::Plan { id: "plan".into(), steps, finished: true }
+        ledger::Item::Plan { id: "plan".into(), steps, finished: true, stopped: false }
     }
     /// The thread's texts and keys for these items.
     fn thread_drawn(items: &[ledger::Item]) -> (Vec<String>, Vec<String>) {

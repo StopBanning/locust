@@ -109,7 +109,7 @@ mod tests {
         Item::Tool { name: "Bash".into(), status, summary: summary.into(), detail: Box::new(ToolDetail::default()) }
     }
     fn plan(states: &[&str]) -> Item {
-        Item::Plan { id: "p".into(), steps: states.iter().map(|s| PlanStep { text: "step".into(), state: (*s).into() }).collect(), finished: false }
+        Item::Plan { id: "p".into(), steps: states.iter().map(|s| PlanStep { text: "step".into(), state: (*s).into() }).collect(), finished: false, stopped: false }
     }
 
     // Electron's a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx.

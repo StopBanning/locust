@@ -123,6 +123,8 @@ pub enum Item {
         id: String,
         steps: Vec<PlanStep>,
         finished: bool,
+        /// Its run failed or was cancelled (missionView.ts `stopped`): the card's unticked count is amber.
+        stopped: bool,
     },
     Thought {
         id: String,
@@ -1154,14 +1156,14 @@ impl Transcript {
                         items.push(Item::Plan {
                             id: key.clone(),
                             steps: Vec::new(),
-                            finished: false,
+                            finished: false, stopped: false,
                         });
                         items.len() - 1
                     });
                     items[at] = Item::Plan {
                         id: key,
                         steps: read_plan(&p["plan"]),
-                        finished: false,
+                        finished: false, stopped: false,
                     };
                 }
                 "adapter.diagnostic" => {
@@ -1299,7 +1301,7 @@ impl Transcript {
                 .unwrap_or(items.len());
             items.insert(before_work, plan);
         }
-        fn qualify(item: &mut Item, mission: &str, finished: bool) {
+        fn qualify(item: &mut Item, mission: &str, finished: bool, stopped: bool) {
             match item {
                 Item::Tool { detail, .. } => {
                     detail.finished = finished;
@@ -1307,15 +1309,17 @@ impl Transcript {
                         detail.id = format!("{mission}:{}", detail.id);
                     }
                     for child in &mut detail.children {
-                        qualify(child, mission, finished);
+                        qualify(child, mission, finished, stopped);
                     }
                 }
                 Item::Plan {
                     id,
                     finished: ended,
+                    stopped: short,
                     ..
                 } => {
                     *ended = finished;
+                    *short = finished && stopped;
                     if !mission.is_empty() {
                         *id = format!("{mission}:{id}");
                     }
@@ -1348,9 +1352,6 @@ impl Transcript {
             .as_ref()
             .map(|m| m.mission_id.as_str())
             .unwrap_or("");
-        for item in &mut items {
-            qualify(item, mission, !self.running);
-        }
         let phase = if self.running {
             "interrupted"
         } else if self.failed {
@@ -1371,6 +1372,11 @@ impl Transcript {
         } else {
             "completed"
         };
+        // A plan left unticked says so in amber only when its run stopped short (ThreadItems.tsx, 0.368).
+        let stopped = matches!(phase, "failed" | "cancelled");
+        for item in &mut items {
+            qualify(item, mission, !self.running, stopped);
+        }
         if !self.running && self.events.values().any(|e| e["type"] == "run.completed")
             && !items.iter().any(|i| matches!(i, Item::Assistant { text, .. } if !crate::peer_share::strip_share_blocks(text).trim().is_empty()) || matches!(i, Item::Tool { .. } | Item::Plan { .. } | Item::Thought { .. }))
             && !self.peer_links.iter().any(|p| p.direction == "posted")
@@ -2132,6 +2138,10 @@ impl Session {
         Ok(result)
     }
 }
+
+#[cfg(test)]
+#[path = "a_step_that_never_ran_tests.rs"]
+mod a_step_that_never_ran_tests;
 
 #[cfg(test)]
 mod tests {

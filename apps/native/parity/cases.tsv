@@ -2652,6 +2652,9 @@ apps/desktop/src/renderer/src/a-change-can-be-copied.test.tsx	gives the code as 
 apps/desktop/src/renderer/src/a-change-can-be-copied.test.tsx	gives a new file whole, and nothing for a deleted one	no
 apps/desktop/src/renderer/src/a-change-can-be-copied.test.tsx	offers Copy at the foot of an opened change	no
 apps/desktop/src/renderer/src/a-change-can-be-copied.test.tsx	offers Copy on a changed file's row, beside Open and Show	no
+apps/desktop/src/renderer/src/a-checklist-left-unticked-is-not-a-fault.test.tsx	says what was left unticked, in its own voice, after a run that completed	yes
+apps/desktop/src/renderer/src/a-checklist-left-unticked-is-not-a-fault.test.tsx	keeps amber for a run that failed or was stopped	yes
+apps/desktop/src/renderer/src/a-checklist-left-unticked-is-not-a-fault.test.tsx	says nothing of the kind while the run goes on	yes
 apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	spells family and version the way Anthropic writes them	yes
 apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	guesses at nothing it does not recognise	yes
 apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	carries Claude Code's own alias table (2.1.293: Haiku 5.5)	no
@@ -3292,6 +3295,11 @@ apps/desktop/src/renderer/src/a-start-time-is-kept-not-shown.test.ts	takes nothi
 apps/desktop/src/renderer/src/a-start-time-is-kept-not-shown.test.ts	keeps a usage window out of the thread, as before	yes
 apps/desktop/src/renderer/src/a-step-keeps-its-own-change.test.ts	keep each step its own diff, after the turn has ended too	yes
 apps/desktop/src/renderer/src/a-step-keeps-its-own-change.test.ts	list each file once in the turn's files, as its net change	yes
+apps/desktop/src/renderer/src/a-step-that-never-ran-is-not-still-to-come.test.ts	still shows the plan, with the step it did not reach	yes
+apps/desktop/src/renderer/src/a-step-that-never-ran-is-not-still-to-come.test.ts	tells the card the run has ended	yes
+apps/desktop/src/renderer/src/a-step-that-never-ran-is-not-still-to-come.test.ts	says nothing of the sort while the run is still going	yes
+apps/desktop/src/renderer/src/a-step-that-never-ran-is-not-still-to-come.test.ts	says the run stopped short only when it failed or was stopped (0.368)	yes
+apps/desktop/src/renderer/src/a-step-that-never-ran-is-not-still-to-come.test.ts	has nothing to report when the runtime closed its own plan	yes
 apps/desktop/src/renderer/src/a-stop-on-a-finished-run-changes-nothing.test.ts	marks a running run cancelling, clearing its error	no
 apps/desktop/src/renderer/src/a-stop-on-a-finished-run-changes-nothing.test.ts	leaves a run that has already finished exactly as it was	yes
 apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx	counts plan states even when unrelated tools and disk observations settled	yes

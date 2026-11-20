@@ -378,16 +378,30 @@ pub(super) fn plan_answer(steps: &[ledger::PlanStep], scope: &str, p: &Palette) 
 
 /// ThreadItems.tsx PlanCard (`.lc-plancard`): a card with a head ("PLAN", how many are done) over the steps, each with
 /// its marker: green once done, a pulsing dot on the step underway, faded when the run ended without reaching it.
-fn plan_card(steps: &[ledger::PlanStep], finished: bool, p: &Palette) -> El {
+/// The unticked count's words on hover (ThreadItems.tsx PlanSteps): the checklist is the runtime's bookkeeping, not a
+/// check of the work.
+pub(super) const UNTICKED_STOPPED: &str = "The run stopped before checking these off its list: see what it ran below.";
+pub(super) const UNTICKED_ENDED: &str =
+    "The run ended without checking these off its list. That is the runtime's checklist, not a check of the work: see what it ran below.";
+
+fn plan_card(s: &State, id: &str, steps: &[ledger::PlanStep], finished: bool, stopped: bool, p: &Palette) -> El {
     let l = crate::look::controls::Look::new(p.dark);
     let done = steps.iter().filter(|r| r.state == "done").count();
     let unreached = steps.len() - done;
     let mono = |size: f32| rune::TextStyle::new(size, 400.0).mono();
     let mut counts = row().gap(6.0).center_y().child(text(format!("{done} of {} done", steps.len())).font(mono(11.5)).color(l.c("text-muted")));
+    // AMBER ONLY WHEN THE RUN STOPPED SHORT (0.368): after a run that completed, the count is said in the header's own
+    // voice; amber says interrupted.
     if finished && unreached > 0 {
+        let (ink, why, key) = if stopped {
+            (l.c("amber-text"), UNTICKED_STOPPED, format!("{id}/plan-unreached/is-stopped"))
+        } else {
+            (l.c("text-muted"), UNTICKED_ENDED, format!("{id}/plan-unreached"))
+        };
+        let count = el().key(key.clone()).label(why).child(text(format!("{unreached} not checked off")).font(mono(11.5)).color(ink));
         counts = counts
             .child(text("·").font(mono(11.5)).color(l.c("text-muted")))
-            .child(text(format!("{unreached} not checked off")).font(mono(11.5)).color(l.c("amber-text")));
+            .child(super::hover::tip(s, &l, &key, why, count));
     }
     let head = row()
         .w_full()
@@ -470,10 +484,10 @@ pub(super) fn activity_item(item: &ledger::Item, p: &Palette, s: &State, scope: 
 }
 fn activity_item_with_files(item: &ledger::Item, p: &Palette, s: &State, scope: &str, files: Vec<locust_core::activity_entries::FileEntry>) -> El {
     let finished = s.ledger.as_ref().is_some_and(|pane| !pane.snapshot.running);
-    if let ledger::Item::Plan { steps, finished: ended, .. } = item
+    if let ledger::Item::Plan { id, steps, finished: ended, stopped } = item
         && !steps.is_empty()
     {
-        return plan_card(steps, finished || *ended, p);
+        return plan_card(s, id, steps, finished || *ended, *stopped, p);
     }
     if files.is_empty() && !locust_core::activity_entries::files(item).is_empty() {
         let key = format!("{scope}/step/{}", activity_id(item));
@@ -825,6 +839,10 @@ pub(super) fn activity_group(items: &[ledger::Item], p: &Palette, s: &State, sco
     }
     group
 }
+
+#[cfg(test)]
+#[path = "plan_unticked_tests.rs"]
+mod plan_unticked_tests;
 
 #[cfg(test)]
 #[path = "nothing_still_running_tests.rs"]

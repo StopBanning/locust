@@ -222,7 +222,7 @@ fn plan_drawer_keys_do_not_collide_with_tool_item_ids() {
     let plan = ledger::Item::Plan {
         id: "plan".into(),
         steps: vec![],
-        finished: false,
+        finished: false, stopped: false,
     };
     let tool = ledger::Item::Tool {
         name: "Bash".into(),

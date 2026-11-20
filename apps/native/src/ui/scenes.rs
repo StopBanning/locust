@@ -547,7 +547,7 @@ pub(super) fn ledger_scene(s: &mut State, live: bool, light: bool) {
             steps: ledger::read_plan(&serde_json::json!([
                 {"step":"Read the input","status":"completed"}, {"step":"Summarize the result","status":"in_progress"}
             ])),
-            finished: !live,
+            finished: !live, stopped: false,
         },
         ledger::Item::Tool {
             name: "inspect".into(),

@@ -36,7 +36,7 @@ fn the_persons_words_or_a_note_between_them_start_a_new_run() {
 
 #[test]
 fn a_plan_is_speech_and_an_empty_reply_is_not() {
-    let plan = Item::Plan { id: "p".into(), steps: Vec::new(), finished: true };
+    let plan = Item::Plan { id: "p".into(), steps: Vec::new(), finished: true, stopped: false };
     let items = [plan, say("Done.")];
     assert!(continues_speech(&items, 1, shown(&items)));
     let items = [Item::User("Go.".into()), say("  "), say("Done.")];
