@@ -317,3 +317,7 @@ pub fn assemble_held(
 #[cfg(test)]
 #[path = "briefing_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "memory_list_replaces_tests.rs"]
+mod memory_list_replaces_tests;
