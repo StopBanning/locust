@@ -2952,6 +2952,9 @@ apps/desktop/src/renderer/src/a-long-conversation-opens-on-its-newest-turns.test
 apps/desktop/src/renderer/src/a-long-conversation-opens-on-its-newest-turns.test.tsx	each "show earlier" adds a budget	yes
 apps/desktop/src/renderer/src/a-long-conversation-opens-on-its-newest-turns.test.tsx	a long one opens on its newest turns, with the older ones a press (or a scroll) away	yes
 apps/desktop/src/renderer/src/a-long-conversation-opens-on-its-newest-turns.test.tsx	a short one is whole, with nothing to press	yes
+apps/desktop/src/renderer/src/a-long-fold-keeps-the-answer-near.test.tsx	shows its first rows once finished, and says how many more	yes
+apps/desktop/src/renderer/src/a-long-fold-keeps-the-answer-near.test.tsx	shows every row while the run is going	yes
+apps/desktop/src/renderer/src/a-long-fold-keeps-the-answer-near.test.tsx	leaves a fold that is only a row or two over alone	yes
 apps/desktop/src/renderer/src/a-long-silent-stretch-reads-as-its-moves.test.ts	starts a new line each time the model thinks, led by what it thought about	yes
 apps/desktop/src/renderer/src/a-long-silent-stretch-reads-as-its-moves.test.ts	leaves a turn with no thinking reported as one line between what was said (Claude Code without thinking)	yes
 apps/desktop/src/renderer/src/a-long-silent-stretch-reads-as-its-moves.test.ts	reads a headline only where the summary leads with one	yes

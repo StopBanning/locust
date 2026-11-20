@@ -723,6 +723,9 @@ fn page_preview(s: &State, key: &str, entry: &locust_core::activity_entries::Fil
         .child(row().w_full().gap(8.0).center_y().child(super::reply_page_ui::page_control(format!("{key}/run"), entry.file.path.clone(), p)).child(switch))
 }
 
+/// How many of a finished turn's changed files show before "Show N more" (ActivityCard.tsx `FILE_ROWS_SHOWN`).
+pub(super) const FILE_ROWS_SHOWN: usize = 5;
+
 /// Thread.tsx `TurnFoot`'s files card: the turn's files one row each, headed by `files_heading`, open until closed.
 /// `turn` is the finished turn's items; `scope` keys the card's open state; `mission` is the turn's own id, whose
 /// Undo (TurnUndo) sits under the card and, once it has put files back, adds "undone" to the heading (0.840).
@@ -738,7 +741,12 @@ pub(super) fn turn_foot_card(turn: &[ledger::Item], p: &Palette, s: &State, scop
         // ActivityCard.tsx's files variant (0.580): only a new web page opens, wherever it is in the list.
         let entries: Vec<_> = foot.rows.iter().filter_map(|r| match r { locust_core::turn_foot::Row::File { entry, .. } => Some(entry.clone()), _ => None }).collect();
         let page = locust_core::activity_entries::new_page_entry(&entries).map(str::to_owned);
-        for row in &foot.rows {
+        // A finished turn's files show their first five, as Claude Code's list does (ActivityCard 0.835): the rest are
+        // a press away, unless only a row or two would hide behind it. Verbose shows them all.
+        let all_key = format!("{scope}/files/all");
+        let capped = !verbose(s) && !s.activity_open.get(&all_key).copied().unwrap_or(false) && foot.rows.len() > FILE_ROWS_SHOWN + 2;
+        let shown = if capped { &foot.rows[..FILE_ROWS_SHOWN] } else { &foot.rows[..] };
+        for row in shown {
             card = card.child(match row {
                 locust_core::turn_foot::Row::File { entry, .. } => file_rows(std::slice::from_ref(entry), page.as_deref(), p, s, scope),
                 locust_core::turn_foot::Row::Unreported { at, path, .. } => {
@@ -754,6 +762,16 @@ pub(super) fn turn_foot_card(turn: &[ledger::Item], p: &Palette, s: &State, scop
                     .wrap_anywhere()
                 }
             });
+        }
+        if capped {
+            let l = crate::look::controls::Look::new(p.dark);
+            card = card.child(
+                crate::look::controls::ghost_button(&l, &format!("Show {} more", foot.rows.len() - FILE_ROWS_SHOWN))
+                    .key(format!("{scope}/files/more"))
+                    .on_press(move |s: &mut State| {
+                        s.activity_open.insert(all_key.clone(), true);
+                    }),
+            );
         }
     }
     if let Some(undo) = mission.and_then(|m| crate::turn_undo::view(s, m, scope, p)) {
