@@ -135,6 +135,8 @@ pub(super) struct State {
     /// What each finished turn's foot may offer to put back (TurnUndo), read off the window's thread.
     pub(super) turn_undo: crate::turn_undo::Panel,
     pub(super) turn_undo_job: Latest<crate::turn_undo::Answer>,
+    /// The tagged teammates' runs, started off the window's thread (`tag_send`).
+    pub(super) tag_job: Latest<locust_core::tagging::Tagged>,
     pub(super) commit: crate::commit_panel::Panel,
     pub(super) commit_read_job: Latest<crate::commit_panel::ReadAnswer>,
     pub(super) commit_job: Latest<crate::commit_panel::CommitAnswer>,
@@ -463,6 +465,7 @@ impl Default for State {
             undo_job: Latest::default(),
             turn_undo: crate::turn_undo::Panel::default(),
             turn_undo_job: Latest::default(),
+            tag_job: Latest::default(),
             commit: crate::commit_panel::Panel::default(),
             commit_read_job: Latest::default(),
             commit_job: Latest::default(),

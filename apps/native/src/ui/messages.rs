@@ -21,6 +21,11 @@ fn thread_face(s: &State, key: &str, size: f32, p: &Palette) -> El {
         .key(format!("thread-face-{key}-{shape}-{hue}"))
 }
 
+/// Where the ui-th bubble's turn is among the conversation's turns: every turn but the fixes Locust sent back.
+fn person_turn_at(metas: &[ledger::Metadata], ui: usize) -> Option<usize> {
+    metas.iter().enumerate().filter(|(_, m)| locust_core::conversation_turns::fix_of_turn(m).is_none()).nth(ui).map(|(i, _)| i)
+}
+
 pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s: &State) -> El {
     let mut messages = col().w_full().max_w(super::thread_view::THREAD_MAX).gap(24.0).padding(24.0);
     if let Some(label) = s.ledger.as_ref().and_then(|pane| pane.snapshot.started_label.as_ref()) {
@@ -226,17 +231,25 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                     messages = emit_turn_peers(messages, ui - 1, false);
                     messages = emit_turn_peers(messages, ui, true);
                 }
-                if let Some(pane) = s.ledger.as_ref()
-                    && let Some(to_meta) = pane.snapshot.turn_metas.get(ui)
+                // The ui-th bubble's own turn: a fix turn Locust sent draws a line, not a bubble, so it is passed over.
+                let at = s.ledger.as_ref().and_then(|pane| person_turn_at(&pane.snapshot.turn_metas, ui));
+                let this_meta = at.and_then(|i| s.ledger.as_ref()?.snapshot.turn_metas.get(i));
+                let before_meta = at.and_then(|i| i.checked_sub(1)).and_then(|i| s.ledger.as_ref()?.snapshot.turn_metas.get(i));
+                if let Some(to_meta) = this_meta
+                    && let Some(div) = handoff_divider::view(before_meta, to_meta, p)
                 {
-                    let from_meta = ui.checked_sub(1).and_then(|i| pane.snapshot.turn_metas.get(i));
-                    if let Some(div) = handoff_divider::view(from_meta, to_meta, p) {
-                        messages = messages.child(div.key(format!("{key}-handoff")));
-                    }
+                    messages = messages.child(div.key(format!("{key}-handoff")));
+                }
+                // Into the runtime's own terminal before its first turn there; back in Locust before the next of its own.
+                if let Some(seam) = locust_core::conversation_turns::terminal_seam_before(
+                    before_meta.and_then(locust_core::conversation_turns::in_terminal),
+                    this_meta.and_then(locust_core::conversation_turns::in_terminal),
+                ) {
+                    messages = messages.child(crate::terminal_divider::view(&seam, p).key(format!("{key}-terminal-seam")));
                 }
                 // An edit this turn began, or one that touched it, says so above it (0.498).
                 if let Some(pane) = s.ledger.as_ref()
-                    && let Some(meta) = pane.snapshot.turn_metas.iter().filter(|m| m.check_fix.is_none()).nth(ui)
+                    && let Some(meta) = person_turn_at(&pane.snapshot.turn_metas, ui).and_then(|i| pane.snapshot.turn_metas.get(i))
                     && let Some(note) = crate::edit_message::note_above(s, meta, p)
                 {
                     messages = messages.child(note);
@@ -250,21 +263,15 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                     p,
                     s,
                 );
-                if s.ledger.as_ref().and_then(|p| p.snapshot.turn_metas.get(ui))
-                    .is_some_and(|m| !locust_core::thread_view::person_prompt(m.started_by_kind.as_deref())) { continue; }
+                if this_meta.is_some_and(|m| locust_core::conversation_turns::turn_line(m).is_none()) { continue; }
                 let hit = s.prompt_rail.hit_key.as_deref() == Some(key.as_str());
                 // Notes on a diff came as one block after the person's words: the bubble shows the words, the notes go under it.
-                let kind = s.ledger.as_ref().and_then(|p| p.snapshot.turn_metas.get(ui)).and_then(|m| m.started_by_kind.as_deref());
+                let kind = this_meta.and_then(|m| m.started_by_kind.as_deref());
                 let body = if kind.is_none() { locust_core::conversation_turns::tagged_words(body) } else { body };
                 let (own_words, sent_notes) = locust_core::diff_notes::split_diff_notes(body);
                 let edit = crate::edit_message::edit_control(s, ui, &own_words, !sent_notes.is_empty(), p);
                 let turn_edited: Option<&[locust_core::changes::File]> = s.ledger.as_ref().and_then(|pane| {
-                    let meta = pane
-                        .snapshot
-                        .turn_metas
-                        .iter()
-                        .filter(|m| m.check_fix.is_none())
-                        .nth(ui)?;
+                    let meta = pane.snapshot.turn_metas.get(person_turn_at(&pane.snapshot.turn_metas, ui)?)?;
                     pane.snapshot.turn_edits.get(&meta.mission_id)?.as_deref()
                 });
                 let layout_track = move |s: &mut State, r: [f32; 4], tx: &mut Tx| {
