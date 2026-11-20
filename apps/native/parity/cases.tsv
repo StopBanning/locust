@@ -83,6 +83,16 @@ apps/desktop/src/main/a-changed-memory-list-replaces-the-old-one.test.ts	says so
 apps/desktop/src/main/a-changed-memory-list-replaces-the-old-one.test.ts	is not said on a first brief, or when the list did not change	yes
 apps/desktop/src/main/a-check-command-is-one-line.test.ts	is kept as the person typed it, trimmed	no
 apps/desktop/src/main/a-check-command-is-one-line.test.ts	is nothing when empty, too long, not text, or more than one line	no
+apps/desktop/src/main/a-claim-arrives-beside-what-the-host-saw.test.ts	keeps what the host saw, across a reread from disk	yes
+apps/desktop/src/main/a-claim-arrives-beside-what-the-host-saw.test.ts	lists at most the cap, and counts the rest	yes
+apps/desktop/src/main/a-claim-arrives-beside-what-the-host-saw.test.ts	drops a record whose observation was edited into something that is not a list of paths	yes
+apps/desktop/src/main/a-claim-arrives-beside-what-the-host-saw.test.ts	puts what the host saw right under the claim it goes with	yes
+apps/desktop/src/main/a-claim-arrives-beside-what-the-host-saw.test.ts	and says nothing of the kind for a message the host did not look behind	yes
+apps/desktop/src/main/a-claim-arrives-beside-what-the-host-saw.test.ts	says what the host saw beside the claim	yes
+apps/desktop/src/main/a-claim-arrives-beside-what-the-host-saw.test.ts	says so when the host looked and nothing changed	yes
+apps/desktop/src/main/a-claim-arrives-beside-what-the-host-saw.test.ts	says nothing at all when the host did not look	yes
+apps/desktop/src/main/a-claim-arrives-beside-what-the-host-saw.test.ts	names twelve and counts the rest, the store’s count included	yes
+apps/desktop/src/main/a-claim-arrives-beside-what-the-host-saw.test.ts	defangs a path that looks like a protocol block	yes
 apps/desktop/src/main/a-claude-teammate-gets-its-skills.test.ts	the folder's skills always, as the plugin `project`, named the way a run calls them	yes
 apps/desktop/src/main/a-claude-teammate-gets-its-skills.test.ts	the person's own only when Settings lends them, as the plugin `personal`	yes
 apps/desktop/src/main/a-claude-teammate-gets-its-skills.test.ts	only folders holding a SKILL.md, with a name a skill can have, and never a link	yes
