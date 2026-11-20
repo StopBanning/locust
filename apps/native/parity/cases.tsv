@@ -1721,6 +1721,9 @@ apps/desktop/src/main/popular-skill-packs-fit-and-agent-copies-are-chosen.test.t
 apps/desktop/src/main/popular-skill-packs-fit-and-agent-copies-are-chosen.test.ts	a popular pack is only previewed on the first click and all offered skills are ready for the second	yes
 apps/desktop/src/main/popular-skill-packs-fit-and-agent-copies-are-chosen.test.ts	the five popular packs have dated stars and licenses and Claude Mem names its separate install	yes
 apps/desktop/src/main/popular-skill-packs-fit-and-agent-copies-are-chosen.test.ts	the new-this-week packs are dated, licensed, younger than the snapshot and can be opened	yes
+apps/desktop/src/main/qa-0365-fresh.test.ts	is not reported to the window as signed in	yes
+apps/desktop/src/main/qa-0365-fresh.test.ts	still reports a runtime whose readiness DOES mean an account	yes
+apps/desktop/src/main/qa-0365-fresh.test.ts	still reports a signed-out runtime as signed out	no
 apps/desktop/src/main/qa-0365-rooms.test.ts	room-store.ts	no
 apps/desktop/src/main/qa-0365-rooms.test.ts	the placeholders are not read as operations	yes
 apps/desktop/src/main/qa-0365-rooms.test.ts	does not put the placeholders on the board	yes

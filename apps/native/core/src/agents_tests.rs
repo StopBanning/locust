@@ -357,3 +357,28 @@ fn a_supported_opencode_is_left_as_it_was() {
     assert_eq!((probe_word(shown.status), shown.ready), ("ready", true), "{shown:?}");
     assert_eq!(shown.unsupported_note, None);
 }
+
+// ---- qa-0365-fresh.test.ts ----
+// case: is not reported to the window as signed in
+// case: still reports a runtime whose readiness DOES mean an account
+#[test]
+fn a_ready_opencode_is_not_said_to_be_signed_in_and_a_ready_codex_is() {
+    // OpenCode answers its model list with no account at all: ready says the CLI works, not that anyone signed in.
+    let opencode = opencode_at("1.19.5");
+    assert!(opencode.ready);
+    assert_eq!(auth_word(opencode.auth), "not-applicable");
+    // The control: Codex's readiness is its sign-in.
+    let g: Value = serde_json::from_str(include_str!("../../parity/discovery.json")).unwrap();
+    let well = g["well"]["codex"].clone();
+    let help = std::fs::read_to_string(format!("{}/../parity/agents/codex-help.txt", env!("CARGO_MANIFEST_DIR"))).unwrap_or_default();
+    let find = |c: &str| (c == "codex").then(|| std::path::PathBuf::from("/usr/local/bin/codex"));
+    let run = |_: &std::path::Path, args: &[&str]| -> Option<Answer> {
+        let joined = args.join(" ");
+        Some(if joined == "--version" { ok(well["version"].as_str().unwrap()) } else if joined.ends_with("--help") { ok(&help) } else { ok(well["ready"].as_str().unwrap()) })
+    };
+    let exists = |_: &std::path::Path| true;
+    let seams = Seams { find: &find, run: &run, exists: &exists, home: Some("/home/someone".into()), xdg_config_home: None };
+    let codex = discover_one("codex", &seams).unwrap();
+    assert!(codex.ready, "{codex:?}");
+    assert_eq!(auth_word(codex.auth), "authenticated");
+}
