@@ -545,6 +545,10 @@ pub fn build_conversation_reports(
 }
 
 #[cfg(test)]
+#[path = "may_do_given_tests.rs"]
+mod may_do_given_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;

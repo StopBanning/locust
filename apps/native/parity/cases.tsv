@@ -2424,6 +2424,17 @@ apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	never take
 apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	waits while the newest turn is still running, even when an older one is named	no
 apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	does not bring back a terminal turn the person deleted	no
 apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	is found from any turn of it, the latest-made where it branches	no
+apps/desktop/src/main/what-it-may-do-is-what-it-was-given.test.ts	OpenCode: the web, commands and the folder, from the config the run is given	yes
+apps/desktop/src/main/what-it-may-do-is-what-it-was-given.test.ts	OpenCode, Approve each: what its server asks for is what the panel says it asks for	yes
+apps/desktop/src/main/what-it-may-do-is-what-it-was-given.test.ts	Claude Code: commands only when its tool list has Bash; the web in every mode, asked about outside Auto	yes
+apps/desktop/src/main/what-it-may-do-is-what-it-was-given.test.ts	Copilot CLI: commands refused only where its deny list says so, and paths held unless Auto	yes
+apps/desktop/src/main/what-it-may-do-is-what-it-was-given.test.ts	Muse Code: its sandbox stays on, its web tools stay on, its shell is off when read-only	yes
+apps/desktop/src/main/what-it-may-do-is-what-it-was-given.test.ts	Codex: its own sandbox in every mode, and Approve each asks	yes
+apps/desktop/src/main/what-it-may-do-is-what-it-was-given.test.ts	Codex: its own web search is left on in every mode, and Approve each says it does not ask	yes
+apps/desktop/src/main/what-it-may-do-is-what-it-was-given.test.ts	Cursor Agent: says nothing about commands it was not given a rule for	yes
+apps/desktop/src/main/what-it-may-do-is-what-it-was-given.test.ts	the web, runtime by runtime, as measured on 2026-10-09 (probe-web-search-each-runtime)	yes
+apps/desktop/src/main/what-it-may-do-is-what-it-was-given.test.ts	leaves what it was not given to the runtime, by name	yes
+apps/desktop/src/main/what-it-may-do-is-what-it-was-given.test.ts	never denies anything in Auto, on any runtime that offers it	yes
 apps/desktop/src/main/what-locust-can-stop-is-what-it-asks.test.ts	lists each runtime with a mode, once, and none without one	yes
 apps/desktop/src/main/what-locust-can-stop-is-what-it-asks.test.ts	says "each action" exactly where Approve each action is offered and Locust sets what is asked	yes
 apps/desktop/src/main/what-locust-can-stop-is-what-it-asks.test.ts	Codex: asks in Approve each action, and never in the other modes	yes
