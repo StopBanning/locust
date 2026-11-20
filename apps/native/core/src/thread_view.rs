@@ -526,6 +526,7 @@ pub fn ended_question(items: &[Item], running: bool, latest_turn: bool) -> Optio
     crate::protocol_tags::parse_decision(last_final)
 }
 #[cfg(test)] #[path="ended_question_tests.rs"] mod ended_question_tests;
+#[cfg(test)] #[path="spawning_word_tests.rs"] mod spawning_word_tests;
 
 
 /// Earlier turns are drawn whole; always retain the newest earlier turn,

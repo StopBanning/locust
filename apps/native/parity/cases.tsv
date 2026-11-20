@@ -4543,6 +4543,10 @@ apps/desktop/src/renderer/src/slashCommands.test.ts	sit under the runtime, after
 apps/desktop/src/renderer/src/slashCommands.test.ts	are not offered while a run is going, since one is sent as a message	no
 apps/desktop/src/renderer/src/slashCommands.test.ts	are found by what is typed, names with marks included	yes
 apps/desktop/src/renderer/src/slashCommands.test.ts	is offered in a teammate’s conversation, while it runs too, and not elsewhere	yes
+apps/desktop/src/renderer/src/spawning-is-not-working.test.ts	says Starting while the app has only recorded launching it	yes
+apps/desktop/src/renderer/src/spawning-is-not-working.test.ts	says Starting before even that	yes
+apps/desktop/src/renderer/src/spawning-is-not-working.test.ts	says Working once the runtime itself has said something	yes
+apps/desktop/src/renderer/src/spawning-is-not-working.test.ts	draws its word and its quiet sentence from one fact	yes
 apps/desktop/src/renderer/src/status.test.ts	lifts the recently used routes into a group of their own, newest first	no
 apps/desktop/src/renderer/src/status.test.ts	withholds the group for a single recent route, which is the one you are on	no
 apps/desktop/src/renderer/src/status.test.ts	withholds the group when the whole list is short enough to take in at once	no
