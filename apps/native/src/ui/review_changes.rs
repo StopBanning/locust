@@ -619,6 +619,10 @@ pub(super) fn panel(s: &State, p: &Palette) -> Option<El> {
 }
 
 #[cfg(test)]
+#[path = "land_block_words_tests.rs"]
+mod land_block_words_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
 

@@ -2929,6 +2929,8 @@ apps/desktop/src/renderer/src/a-key-is-asked-for-on-a-card.test.tsx	lists a team
 apps/desktop/src/renderer/src/a-kilo-model-has-one-name.test.ts	says the name Kilo lists it by, as the picker does	no
 apps/desktop/src/renderer/src/a-kilo-model-has-one-name.test.ts	leaves every other runtime to spell its ids	no
 apps/desktop/src/renderer/src/a-kilo-model-has-one-name.test.ts	spells the id while Kilo has not listed its models yet	yes
+apps/desktop/src/renderer/src/a-landing-says-why-it-cannot.test.ts	is a sentence for every reason, naming the teammate or the files	yes
+apps/desktop/src/renderer/src/a-landing-says-why-it-cannot.test.ts	says what would change it, where the person can act	yes
 apps/desktop/src/renderer/src/a-large-diff-says-the-right-counts.test.tsx	never says +0 with a deletion count when lines were added in a recorded LARGE rewrite	yes
 apps/desktop/src/renderer/src/a-large-diff-says-the-right-counts.test.tsx	shows no counts and lets LARGE say it when true counts cannot be known	yes
 apps/desktop/src/renderer/src/a-large-diff-says-the-right-counts.test.tsx	leaves a small diff's counts unchanged	yes
