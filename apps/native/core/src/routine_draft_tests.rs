@@ -135,3 +135,75 @@ fn a_turn_carried_to_another_agent_gives_the_words_the_person_typed_not_the_brie
     assert_eq!(draft.steps.last().map(String::as_str), Some("List every file."));
     assert!(!draft.steps.iter().any(|s| s.contains("You are continuing")));
 }
+
+// ---- the shelf's finished conversations (savableConversations.ts) -------------------------------------------------
+
+fn row(id: &str, state: &str, updated: &str) -> crate::engine::ConversationRow {
+    crate::engine::ConversationRow {
+        id: id.into(),
+        teammate: "Wren".into(),
+        title: id.into(),
+        started_by: "the person".into(),
+        state: state.into(),
+        updated: updated.into(),
+    }
+}
+
+#[test]
+fn the_shelf_offers_finished_conversations_only_newest_first_and_four_at_most() {
+    let rows = [
+        row("old", "completed", "2026-09-10T01:00:00.000Z"),
+        row("running", "running", "2026-09-10T09:00:00.000Z"),
+        row("stopped", "cancelled", "2026-09-10T08:00:00.000Z"),
+        row("failed", "failed", "2026-09-10T07:00:00.000Z"),
+        row("new", "completed", "2026-09-10T06:00:00.000Z"),
+        row("no-time", "completed", ""),
+        row("mid", "completed", "2026-09-10T03:00:00.000Z"),
+        row("mid2", "completed", "2026-09-10T02:00:00.000Z"),
+    ];
+    let ids: Vec<_> = savable_conversations(&rows, SAVABLE_SHOWN).iter().map(|r| r.id.as_str()).collect();
+    assert_eq!(ids, ["new", "mid", "mid2", "old"]);
+    // A row with no time sorts last rather than going missing.
+    let all: Vec<_> = savable_conversations(&rows, 10).iter().map(|r| r.id.as_str()).collect();
+    assert_eq!(all, ["new", "mid", "mid2", "old", "no-time"]);
+    assert!(savable_conversations(&rows, 0).is_empty());
+}
+
+#[test]
+fn turns_are_counted_in_words_a_person_says() {
+    assert_eq!(turns_label(4), "4 turns");
+    assert_eq!(turns_label(1), "1 turn");
+    assert_eq!(turns_label(0), "1 turn");
+}
+
+#[test]
+fn a_conversation_is_read_back_from_its_newest_turn_through_each_parent() {
+    let missions = [
+        turn("m1", "Read status.ts.", None, None),
+        turn("m2", "Delete dist.", Some("m1"), None),
+        turn("m3", "List every file.", Some("m2"), None),
+    ];
+    let reads = std::cell::RefCell::new(Vec::new());
+    let saved = saved_from("m3", |id| {
+        reads.borrow_mut().push(id.to_owned());
+        let phase = if id == "m2" { "cancelled" } else { "completed" };
+        missions.iter().find(|m| m.mission_id == id).map(|m| (m.clone(), phase.to_owned()))
+    })
+    .unwrap();
+    assert_eq!(saved.turns, 3);
+    assert_eq!(saved.chain, ["m3", "m2", "m1"]);
+    assert_eq!(saved.draft.unwrap().steps, ["Read status.ts.", "List every file."]);
+    assert_eq!(*reads.borrow(), ["m3", "m2", "m1"]);
+}
+
+#[test]
+fn a_parent_that_loops_back_or_cannot_be_read_ends_the_walk() {
+    let looped = [turn("m1", "One.", Some("m2"), None), turn("m2", "Two.", Some("m1"), None)];
+    let saved = saved_from("m2", |id| looped.iter().find(|m| m.mission_id == id).map(|m| (m.clone(), "completed".to_owned()))).unwrap();
+    assert!(saved.draft.is_some());
+    // A missing parent: what was read still counts.
+    let orphan = turn("m5", "Five.", Some("gone"), None);
+    let saved = saved_from("m5", |id| (id == "m5").then(|| (orphan.clone(), "completed".to_owned()))).unwrap();
+    assert_eq!(saved.draft.unwrap().steps, ["Five."]);
+    assert_eq!(saved_from("nothing", |_| None), None);
+}
