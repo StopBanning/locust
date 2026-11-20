@@ -2015,6 +2015,12 @@ apps/desktop/src/main/settings-read-like-claudes.test.ts	draws the group label a
 apps/desktop/src/main/settings-read-like-claudes.test.ts	puts no card around a setting: rows sit on the pane with a hairline between	yes
 apps/desktop/src/main/settings-read-like-claudes.test.ts	draws a setting that is one control as one line: name and description left, the control right (0.393, Appearance 0.394)	yes
 apps/desktop/src/main/settings-read-like-claudes.test.ts	says "How it works" in sentence case	yes
+apps/desktop/src/main/share-addressed-home.test.ts	is the sender itself when it used its own role	yes
+apps/desktop/src/main/share-addressed-home.test.ts	is a teammate named, however it was cased	yes
+apps/desktop/src/main/share-addressed-home.test.ts	is a teammate found by their role, when exactly one answers to it	yes
+apps/desktop/src/main/share-addressed-home.test.ts	is nobody when a role is shared, rather than whoever came first	yes
+apps/desktop/src/main/share-addressed-home.test.ts	is nobody for a name nothing on the roster answers to	yes
+apps/desktop/src/main/share-addressed-home.test.ts	prefers a real teammate over the sender, when a name is worn twice	yes
 apps/desktop/src/main/skills-kept-from-github.test.ts	reads owner/repo, a github.com link, and a link to a folder on a branch	yes
 apps/desktop/src/main/skills-kept-from-github.test.ts	refuses what is not one	yes
 apps/desktop/src/main/skills-kept-from-github.test.ts	reads a SKILL.md's description, quoted or not	yes

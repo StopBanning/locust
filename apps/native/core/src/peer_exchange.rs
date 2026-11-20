@@ -210,3 +210,7 @@ mod tests {
 #[cfg(test)]
 #[path = "a_message_is_delivered_once_tests.rs"]
 mod a_message_is_delivered_once_tests;
+
+#[cfg(test)]
+#[path = "share_addressed_home_tests.rs"]
+mod share_addressed_home_tests;
