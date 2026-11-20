@@ -10,7 +10,7 @@
 //!
 //! The native app keeps its own connection file in its own data folder, so it and Electron can both run.
 
-use crate::door_tools::{Begun, Locust, StartRequest, Tools, Turn};
+use crate::door_tools::{Begun, Locust, Route, StartRequest, Tools, Turn};
 use crate::engine::Teammate;
 use crate::store::Store;
 use serde_json::{Value, json};
@@ -18,6 +18,7 @@ use std::io::{BufRead, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -526,6 +527,71 @@ impl Engine {
     }
 }
 
+/// The routes of turns the door started, newest last (index.ts `routeOfTurn`): a turn's effort is held nowhere else.
+static ROUTE_OF_TURN: Mutex<VecDeque<(String, Route)>> = Mutex::new(VecDeque::new());
+
+/// index.ts `rememberRouteOfTurn`: at most 500, the oldest going first.
+fn remember_route(mission: &str, route: Route) {
+    let mut held = ROUTE_OF_TURN.lock().unwrap_or_else(|e| e.into_inner());
+    held.retain(|(id, _)| id != mission);
+    held.push_back((mission.to_owned(), route));
+    while held.len() > 500 {
+        held.pop_front();
+    }
+}
+
+/// A turn the door started is running: its route is held for the follow-up that continues it.
+fn begun(mission_id: String, mode: String, route: Route) -> Begun {
+    let (runtime, model) = (Some(route.runtime.clone()).filter(|r| !r.is_empty()), route.model.clone());
+    remember_route(&mission_id, route);
+    Begun { mission_id, mode, runtime, model }
+}
+
+/// index.ts `routeOfTurnOrRecord`, for a turn not held: its record's agent, model and account; a record keeps no effort.
+fn recorded_route(turn: Turn) -> Option<Route> {
+    Some(Route { runtime: turn.runtime?, model: turn.model, effort: None, account: turn.account })
+}
+
+fn held_route(mission: &str) -> Option<Route> {
+    ROUTE_OF_TURN.lock().unwrap_or_else(|e| e.into_inner()).iter().find(|(id, _)| id == mission).map(|(_, r)| r.clone())
+}
+
+/// What the engine is asked to send for a door's turn, and the route the turn runs on. A follow-up's account goes as
+/// an explicit pick (`routeOverrideFor`): the conversation's own, never the teammate's saved one.
+/// The route held is what the turn runs at: with no effort named, on the teammate's own agent, `native::send_from` runs
+/// it at the teammate's saved effort (`saved_effort`), as index.ts holds the effort `routeAtStart` resolved.
+fn job_of(request: StartRequest, saved_effort: Option<String>) -> (crate::native::Send, crate::native::Origin, Route) {
+    let mut started_by = json!({"kind": "mcp"});
+    if let Some(f) = &request.folder {
+        started_by["folder"] = json!(f.to_string_lossy());
+    }
+    let route = Route {
+        runtime: request.runtime.clone().or_else(|| request.teammate.runtime.clone()).unwrap_or_default(),
+        model: request.model.clone().or_else(|| request.teammate.model.clone()),
+        effort: request.effort.clone().or_else(|| {
+            let own_agent = request.runtime.is_none() || request.runtime == request.teammate.runtime;
+            saved_effort.filter(|_| own_agent)
+        }),
+        account: request.account.clone().unwrap_or_else(|| request.teammate.account.clone()),
+    };
+    let job = crate::native::Send {
+        teammate: request.teammate,
+        conversation: request.follow_up_of,
+        prompt: request.prompt,
+        model: request.model,
+        effort: request.effort,
+    };
+    let origin = crate::native::Origin {
+        mode: Some(request.mode),
+        folder: request.folder,
+        started_by: Some(started_by),
+        runtime: request.runtime,
+        account: request.account,
+        ..Default::default()
+    };
+    (job, origin, route)
+}
+
 impl Locust for Engine {
     fn teammates(&self) -> Result<Vec<(Teammate, Option<String>)>, String> {
         let efforts = self.efforts();
@@ -543,33 +609,20 @@ impl Locust for Engine {
     }
 
     fn start(&self, request: StartRequest) -> Result<Begun, String> {
-        let mut started_by = json!({"kind": "mcp"});
-        if let Some(f) = &request.folder {
-            started_by["folder"] = json!(f.to_string_lossy());
-        }
-        let runtime = request.runtime.clone().or_else(|| request.teammate.runtime.clone());
-        let model = request.model.clone().or_else(|| request.teammate.model.clone());
-        let job = crate::native::Send {
-            teammate: request.teammate,
-            conversation: request.follow_up_of.clone(),
-            prompt: request.prompt,
-            model: request.model,
-            effort: request.effort,
-        };
-        let origin = crate::native::Origin {
-            mode: Some(request.mode),
-            folder: request.folder,
-            started_by: Some(started_by),
-            runtime: request.runtime,
-            ..Default::default()
-        };
+        let follow_up = request.follow_up_of.clone();
+        let saved = self.efforts().get(&request.teammate.id).cloned();
+        let (job, origin, route) = job_of(request, saved);
         let started = crate::engine_api::api().send(job, origin)?;
         // The new turn's own id: for a follow-up, the conversation's newest turn now.
-        let mission_id = match &request.follow_up_of {
+        let mission_id = match &follow_up {
             Some(_) => crate::native::real_tip(&started.conversation_id)?,
             None => started.conversation_id,
         };
-        Ok(Begun { mission_id, mode: started.mode, runtime, model })
+        Ok(begun(mission_id, started.mode, route))
+    }
+
+    fn follow_up_route(&self, mission: &str) -> Option<Route> {
+        held_route(mission).filter(|r| !r.runtime.is_empty()).or_else(|| self.read(mission).and_then(recorded_route))
     }
 
     fn read(&self, mission: &str) -> Option<Turn> {
@@ -833,3 +886,7 @@ mod tests;
 #[cfg(test)]
 #[path = "an_app_names_a_folder_tests.rs"]
 mod an_app_names_a_folder_tests;
+
+#[cfg(test)]
+#[path = "a_carried_conversation_tests.rs"]
+mod a_carried_conversation_tests;
