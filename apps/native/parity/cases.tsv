@@ -1153,6 +1153,10 @@ apps/desktop/src/main/attach-outside.test.ts	refuses a name that would land on t
 apps/desktop/src/main/attach-outside.test.ts	refuses an alternate data stream	no
 apps/desktop/src/main/attach-outside.test.ts	still takes every ordinary name, including awkward ones	no
 apps/desktop/src/main/attach-outside.test.ts	a traversal INSIDE the source path is harmless, because only the name is used	no
+apps/desktop/src/main/block-placement.test.ts	finds the briefings, so a pass means something	yes
+apps/desktop/src/main/block-placement.test.ts	never says a block must be the last thing in the reply	yes
+apps/desktop/src/main/block-placement.test.ts	says instead that several blocks may follow one another	yes
+apps/desktop/src/main/block-placement.test.ts	is used by every briefing that asks for a block	yes
 apps/desktop/src/main/changelog.test.ts	finds every entry, newest first, in the order the file writes them	no
 apps/desktop/src/main/changelog.test.ts	gives an entry its body and not its heading	no
 apps/desktop/src/main/changelog.test.ts	keeps a multi-line entry whole	no

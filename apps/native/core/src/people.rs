@@ -769,7 +769,8 @@ pub(crate) fn memory_age(at: &str, now: chrono::DateTime<chrono::Utc>) -> Option
         Some("over a year ago".into())
     }
 }
-const BLOCK_PLACEMENT: &str = "put it at the end of your reply; if more than one of these blocks applies, put them one after another, in any order";
+/// One wording for where a block goes, shared by every briefing that asks for one (shared/trailer.ts).
+use crate::briefing::BLOCK_PLACEMENT;
 const ABOUT_YOU_OP: &str = "about you :: one sentence for the person's own About-you note (how they like to work), which they decide whether to add";
 /// How the memory section's paragraphs open (Electron `MEMORY_HEADING`, `MEMORY_RULES`, `MEMORY_WRITE`): the listing,
 /// the rules for reading notes, and -- with nothing remembered -- the rules for writing the first one (0.810).

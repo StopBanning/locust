@@ -329,3 +329,7 @@ mod workroom_briefing_electron_tests;
 #[cfg(test)]
 #[path = "host_saw_electron_tests.rs"]
 mod host_saw_electron_tests;
+
+#[cfg(test)]
+#[path = "block_placement_tests.rs"]
+mod block_placement_tests;
