@@ -154,3 +154,7 @@ mod tests {
 #[cfg(test)]
 #[path = "peer_share_electron_tests.rs"]
 mod peer_share_electron_tests;
+
+#[cfg(test)]
+#[path = "brief_arrives_whole_tests.rs"]
+mod brief_arrives_whole_tests;

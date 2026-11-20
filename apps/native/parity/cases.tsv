@@ -48,6 +48,9 @@ apps/desktop/src/main/a-branch-lands-as-one-commit.test.ts	puts the checkout bac
 apps/desktop/src/main/a-branch-lands-as-one-commit.test.ts	refuses work no turn saved, and a checkout on no branch	yes
 apps/desktop/src/main/a-branch-lands-as-one-commit.test.ts	needs git 2.38 to check conflicts without touching anything	yes
 apps/desktop/src/main/a-branch-lands-as-one-commit.test.ts	drafts one ask plainly, and several as a list	yes
+apps/desktop/src/main/a-brief-between-teammates-arrives-whole.test.ts	of a real brief's length is delivered as written	yes
+apps/desktop/src/main/a-brief-between-teammates-arrives-whole.test.ts	is cut only past 6,000 characters, and says so with a mark	yes
+apps/desktop/src/main/a-brief-between-teammates-arrives-whole.test.ts	fits what the store keeps and what a teammate is sent	yes
 apps/desktop/src/main/a-built-in-tool-is-not-a-connector.test.ts	is a command card when it is Bash	yes
 apps/desktop/src/main/a-built-in-tool-is-not-a-connector.test.ts	is a file card, named inside the folder, when it edits a file	yes
 apps/desktop/src/main/a-built-in-tool-is-not-a-connector.test.ts	is still a connector when it is one	no
@@ -879,6 +882,9 @@ apps/desktop/src/main/a-turn-on-its-own-branch-leaves-a-receipt.test.ts	makes a 
 apps/desktop/src/main/a-turn-on-its-own-branch-leaves-a-receipt.test.ts	names what was left out for being too big	yes
 apps/desktop/src/main/a-usage-reading-outlives-the-newest-twenty.test.ts	is still shown, and kept	no
 apps/desktop/src/main/a-usage-reading-outlives-the-newest-twenty.test.ts	gives way to a newer reading	yes
+apps/desktop/src/main/a-web-search-asks-in-its-own-words.test.ts	a search names its words, and says nothing changes	yes
+apps/desktop/src/main/a-web-search-asks-in-its-own-words.test.ts	a page names its site, and shows the whole address to be read	yes
+apps/desktop/src/main/a-web-search-asks-in-its-own-words.test.ts	an address that does not parse still asks, without a site	yes
 apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	has its sheets, by name, in order	no
 apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	reads text, numbers in their formats, a percent and a date	no
 apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	shows a formula with no stored result AS the formula, never a number it did not hold	no

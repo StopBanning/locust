@@ -397,15 +397,11 @@ pub fn describe_claude_tool(
     input: &Value,
     cwd: &str,
 ) -> (Kind, String, String, Option<String>, Option<String>) {
+    // permission-host.ts `text`: every run of whitespace one space (a search typed with two spaces or a line break
+    // reads as its words), trimmed, at most 600.
     let text = |v: &Value| -> String {
         v.as_str()
-            .map(|s| {
-                s.replace(['\n', '\r'], " ")
-                    .trim()
-                    .chars()
-                    .take(600)
-                    .collect()
-            })
+            .map(|s| s.split_whitespace().collect::<Vec<_>>().join(" ").chars().take(600).collect())
             .unwrap_or_default()
     };
     if tool_name == "WebSearch" {
@@ -2463,3 +2459,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "web_search_asks_tests.rs"]
+mod web_search_asks_tests;
