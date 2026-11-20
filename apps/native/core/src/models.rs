@@ -754,3 +754,7 @@ pub fn local() -> Vec<Value> {
 #[cfg(test)]
 #[path = "models_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "muse_models_tests.rs"]
+mod muse_models_tests;

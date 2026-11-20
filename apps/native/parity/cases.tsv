@@ -1581,6 +1581,8 @@ apps/desktop/src/main/model-catalog.test.ts	gives each runtime its own row, in f
 apps/desktop/src/main/model-catalog.test.ts	carries each runtime’s own intersection, not a shared one	yes
 apps/desktop/src/main/model-catalog.test.ts	adds nothing for a runtime that listed nothing	no
 apps/desktop/src/main/model-catalog.test.ts	never stacks a second default on a list that already has one	no
+apps/desktop/src/main/muse-wonder-is-offered.test.ts	are Muse Wonder 1.0 first, then Muse Spark 1.3, each with Muse Code's own eight efforts at its default	yes
+apps/desktop/src/main/muse-wonder-is-offered.test.ts	are offered only when Muse Code is ready here	yes
 apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	is stopped as round 4 ran it, and in every spelling of the same thing	no
 apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	says what it would have ended, to leave it running, and never to go and find its ids	no
 apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	is stopped when the id is the person’s Chrome, as it was ended on 2026-10-10	no
