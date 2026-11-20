@@ -207,7 +207,7 @@ pub(super) fn rail(s: &State, p: &Palette) -> El {
         .child(place(&l, &crate::look::icons::INBOX, "All conversations", home_panel::open_board))
         .child(place(&l, &crate::look::icons::MESSAGE, "Rooms", crate::room_screen::open_list).key("rail-rooms"))
         .child(place(&l, &crate::look::icons::USERS, "Teammates & Memory", crate::people_panel::open))
-        .child(place(&l, &crate::look::icons::CLOCK, "Automations", crate::routines_panel::open));
+        .child(place(&l, &crate::look::icons::CLOCK, "Routines", crate::routines_panel::open));
 
     let selected_id = s
         .ledger

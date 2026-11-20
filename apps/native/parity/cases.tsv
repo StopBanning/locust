@@ -3927,6 +3927,13 @@ apps/desktop/src/renderer/src/routine-recovery.test.tsx	names when Keep runs it 
 apps/desktop/src/renderer/src/routine-recovery.test.tsx	says why Continue is off, and offers to keep the schedule (0.390 beta pass)	yes
 apps/desktop/src/renderer/src/routine-recovery.test.tsx	says a refused start would be refused again, not that the step before it never finished (0.818)	yes
 apps/desktop/src/renderer/src/routine-recovery.test.tsx	an unresolved dispatch has the same visible protection; no optimistic next-run promise	no
+apps/desktop/src/renderer/src/routines-shelf.test.tsx	is called Routines, in its heading and to a screen reader	yes
+apps/desktop/src/renderer/src/routines-shelf.test.tsx	no longer holds the things a person cannot run	yes
+apps/desktop/src/renderer/src/routines-shelf.test.tsx	offers finished conversations instead of describing a right-click	yes
+apps/desktop/src/renderer/src/routines-shelf.test.tsx	says the honest sentence when a workspace has finished nothing at all	yes
+apps/desktop/src/renderer/src/routines-shelf.test.tsx	offers New routine, written from nothing, where the screen is given one (0.530, Sol's 0.528 pass)	yes
+apps/desktop/src/renderer/src/routines-shelf.test.tsx	is listed as a fact about that runtime, with no apology needed	no
+apps/desktop/src/renderer/src/routines-shelf.test.tsx	draws nothing at all for a runtime that has none	no
 apps/desktop/src/renderer/src/routines.test.ts	is named after what the person typed, not the attachment line	yes
 apps/desktop/src/renderer/src/routines.test.ts	takes the words a person typed on each turn, in order, with where each came from	yes
 apps/desktop/src/renderer/src/routines.test.ts	drops turns the HOST wrote, whatever started them	yes

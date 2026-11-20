@@ -187,7 +187,15 @@ pub fn save(store: &Store, mut r: Value) -> Result<(), String> {
         ));
         r["createdAt"] = json!(now());
         r["runs"] = json!(0);
-        r["learnedFrom"] = json!([]);
+        // Where a routine saved from a conversation came from (routine-store.ts validLearnedFrom): at most 64 safe ids.
+        let learned = match r.get("learnedFrom").filter(|v| !v.is_null()) {
+            None => json!([]),
+            Some(v) => match v.as_array() {
+                Some(ids) if ids.len() <= 64 && ids.iter().all(|id| id.as_str().is_some_and(crate::ledger::safe_id)) => v.clone(),
+                _ => return Err("Routine provenance is invalid".into()),
+            },
+        };
+        r["learnedFrom"] = learned;
         let o = r.as_object_mut().ok_or(UNREADABLE)?;
         match o.remove("handOffs").filter(|h| !h.is_null()).and_then(|h| progress::kept_hand_offs(&h, teammate.id.as_str())) {
             Some(h) => { o.insert("handOffs".into(), h); }

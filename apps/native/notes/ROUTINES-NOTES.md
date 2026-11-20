@@ -219,3 +219,35 @@ Three rows carried (`src/ui/routine_card_and_editor_tests.rs`, 12 tests; core `r
   - the person's words on a carried turn.
 - **Left: routines-shelf.** It needs the shelf named Routines, the finished conversations with Save as routine
   (opening the editor on this draft), the empty-shelf sentence, and the CLI agents list.
+
+## Routines round 6 (19 Nov): the shelf
+
+- **routines-shelf.test.tsx: partial, 5 of 7.** The whole first describe ("the routines shelf") is carried in
+  `src/ui/routines_shelf_tests.rs`. The second describe (CliArtifacts: what a runtime set up in its own config) has
+  no screen here: the window does not read a runtime's own agents and commands yet.
+- The shelf is called **Routines**: in its heading, in the name a screen reader is given, and on the sidebar's and
+  the narrow rail's doors (Electron's sidebar says Routines; native still said Automations). The heading carries
+  Electron's count: "none saved", or "N saved · M on a schedule · P paused".
+- **An empty shelf contains the entrance.** It shows what a routine is, then the four newest finished conversations
+  (completed only, newest first, a row with no time last: `routine_draft::savable_conversations`). Each row has its
+  title (opens the conversation), "N turns", how long ago, and **Save as routine**.
+  - With none, it shows `NOTHING_TO_SAVE_YET`, unless starter templates are offered, which Electron puts in its place
+    ("Start from a template, or press New routine to write your own.").
+- **Save as routine** opens the editor on the conversation's draft (round 5's `routine_draft`), read back from the
+  ledger by `routine_draft::read_saved`.
+  - The read starts at the newest turn and walks each parent; a loop or a missing parent ends the walk.
+  - Each turn's phase is the run's terminal event (`door_tools::Turn::phase`).
+  - The owner is found as Electron's `conversationOwnerOf` does: the first turn back with a recorded owner, then the
+    name on its row; with neither, the editor asks who runs it.
+  - A draft cut at 12 says so in the editor.
+  - Where it came from (`learnedFrom`) now reaches the store. `routines::save` had always written `[]`; it now keeps
+    up to 64 safe ids and refuses anything else ("Routine provenance is invalid"), as routine-store.ts does.
+  - A conversation with nothing typed in it offers Save switched off, with "Nothing here was typed by you" (Electron's
+    menu words) on hover; Electron offers a button that does nothing.
+- Conversations are read back only while the shelf is empty, on open and after each save, at most four of them.
+- **Breaks: 31 of 31 caught by name** (`~/work/scratch/routines1/r7core.txt`, `r7ui.txt`, `r7b.txt`). Three survived
+  until tests were made stronger:
+  - the shelf's own screen-reader name: the sidebar's door also carries "Routines", so the test now reads the shelf's
+    element by key;
+  - the narrow rail's door: it is drawn only at 1,199px or less, so the test now draws a narrow window too;
+  - the template line under finished conversations ("Or start from a template.").
