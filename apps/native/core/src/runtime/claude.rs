@@ -793,3 +793,7 @@ time.sleep(.3)
         }
     }
 }
+
+#[cfg(test)]
+#[path = "references_never_widen_tests.rs"]
+mod references_never_widen_tests;

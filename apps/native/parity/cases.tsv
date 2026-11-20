@@ -6247,6 +6247,11 @@ packages/runtime-adapters/test/provider-error.test.ts	formats a failed turn's ow
 packages/runtime-adapters/test/provider-error.test.ts	formats the app-server error without losing the original notification	no
 packages/runtime-adapters/test/provider-error.test.ts	formats Claude and Cursor result errors	no
 packages/runtime-adapters/test/provider-error.test.ts	formats Antigravity CLI's result error before adding a runtime prefix	no
+packages/runtime-adapters/test/references-never-widen-a-mode.test.ts	Codex never receives add-dir, including in full access	yes
+packages/runtime-adapters/test/references-never-widen-a-mode.test.ts	Claude adds references without changing its tools, with scoped Edit protection	yes
+packages/runtime-adapters/test/references-never-widen-a-mode.test.ts	OpenCode adds only named reference reads while every write denial and bash rule stays intact	yes
+packages/runtime-adapters/test/references-never-widen-a-mode.test.ts	OpenCode Edit and Auto permissions are unchanged, not silently narrowed	yes
+packages/runtime-adapters/test/references-never-widen-a-mode.test.ts	Copilot and Antigravity keep their read-only posture when adding a directory	yes
 packages/runtime-adapters/test/refusal-is-readable.test.ts	keeps the first line and stops there	no
 packages/runtime-adapters/test/refusal-is-readable.test.ts	leaves an ordinary command exactly as it was	no
 packages/runtime-adapters/test/refusal-is-readable.test.ts	never cuts a token in half when it can avoid it	no
