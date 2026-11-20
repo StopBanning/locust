@@ -2048,6 +2048,8 @@ apps/desktop/src/main/the-effort-thumb-is-claude-codes-shape.test.ts	sits on a f
 apps/desktop/src/main/the-effort-track-takes-the-pointer.test.ts	lets the pointer through the input to the track	no
 apps/desktop/src/main/the-effort-track-takes-the-pointer.test.ts	does not start a scroll or a selection with a drag	yes
 apps/desktop/src/main/the-effort-track-takes-the-pointer.test.ts	keeps the fill under a held thumb	yes
+apps/desktop/src/main/the-first-screen-line-is-centred.test.ts	is centred in the column, as the machine is, box and words both	yes
+apps/desktop/src/main/the-first-screen-line-is-centred.test.ts	under a machine that is centred in the same column	yes
 apps/desktop/src/main/the-folder-commits-as-you.test.ts	lists what a commit would take, never .locust/	yes
 apps/desktop/src/main/the-folder-commits-as-you.test.ts	commits everything as you, with your hooks, and says what it did	yes
 apps/desktop/src/main/the-folder-commits-as-you.test.ts	a hook that refuses leaves what you had staged exactly as it was	yes
@@ -3560,6 +3562,19 @@ apps/desktop/src/renderer/src/home-names-the-model-it-runs.test.tsx	says no leve
 apps/desktop/src/renderer/src/home-names-the-model-it-runs.test.tsx	shows no maker's mark for a model of the person's own	no
 apps/desktop/src/renderer/src/home-names-the-model-it-runs.test.tsx	shows the runtime as its mark and the model in words, the whole route on hover and for a screen reader	no
 apps/desktop/src/renderer/src/home-names-the-model-it-runs.test.tsx	with no model of its own, draws no route line and no mark	no
+apps/desktop/src/renderer/src/homeCoverStatus.test.ts	names who is working and who waits on you, waiting first	yes
+apps/desktop/src/renderer/src/homeCoverStatus.test.ts	counts past two, so it fits the glass	yes
+apps/desktop/src/renderer/src/homeCoverStatus.test.ts	says nothing when nothing runs or waits: the glass keeps its claim	yes
+apps/desktop/src/renderer/src/homeTeamState.test.ts	says the live word while the teammate works	yes
+apps/desktop/src/renderer/src/homeTeamState.test.ts	says "waiting on you" in amber when a card asks	yes
+apps/desktop/src/renderer/src/homeTeamState.test.ts	says what blocks the teammate, in red -- and nothing while the agent is still being checked	yes
+apps/desktop/src/renderer/src/homeTeamState.test.ts	says nothing beside the name of an idle teammate (0.609): the card is calm when they are	yes
+apps/desktop/src/renderer/src/homeTeamState.test.ts	keeps what they last did for the hover, in whole words	yes
+apps/desktop/src/renderer/src/homeTeamState.test.ts	says nothing for a teammate the app has no view of	yes
+apps/desktop/src/renderer/src/homeTeamState.test.ts	says the command it wants to run	yes
+apps/desktop/src/renderer/src/homeTeamState.test.ts	says the question it asks, as asked	yes
+apps/desktop/src/renderer/src/homeTeamState.test.ts	says an approval that is not a command plainly	yes
+apps/desktop/src/renderer/src/homeTeamState.test.ts	says nothing for memory suggestions, a Scout card, or a routine waiting for Keep	yes
 apps/desktop/src/renderer/src/its-own-settings-file.test.ts	says whose file it was, because that is the part that is misread	no
 apps/desktop/src/renderer/src/its-own-settings-file.test.ts	says the workspace was not what it was denied	no
 apps/desktop/src/renderer/src/its-own-settings-file.test.ts	claims nothing about what the run did before it died	no
@@ -4556,6 +4571,10 @@ apps/desktop/src/renderer/src/whats-new-reads-like-claude-codes.test.tsx	written
 apps/desktop/src/renderer/src/whats-new-reads-like-claude-codes.test.tsx	draws the newest builds first, and offers the older ones rather than drawing all of them at once	no
 apps/desktop/src/renderer/src/whats-new-reads-like-claude-codes.test.tsx	says so when the build shipped without its changelog, and while it is being read	no
 apps/desktop/src/renderer/src/whats-new-reads-like-claude-codes.test.tsx	shows the big builds, and the way to every other one	no
+apps/desktop/src/renderer/src/with-nothing-installed-install-comes-first.test.tsx	puts the Install row before the team templates and the folder card	yes
+apps/desktop/src/renderer/src/with-nothing-installed-install-comes-first.test.tsx	still offers the teams and the folder, after it	yes
+apps/desktop/src/renderer/src/with-nothing-installed-install-comes-first.test.tsx	leads with the team templates again	yes
+apps/desktop/src/renderer/src/with-nothing-installed-install-comes-first.test.tsx	does not reorder while an installed agent is still being checked	yes
 apps/desktop/src/renderer/src/your-github-shows-on-connectors.test.tsx	wears GitHub’s mark and names who it is signed in as	yes
 apps/desktop/src/renderer/src/your-github-shows-on-connectors.test.tsx	offers a sign-in when nobody is signed in, and the CLI when it is missing	yes
 apps/desktop/src/renderer/src/your-github-shows-on-connectors.test.tsx	says when GitHub has a newer GitHub CLI, with the update a press away (0.726)	yes
