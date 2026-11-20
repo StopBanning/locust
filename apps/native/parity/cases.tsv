@@ -2397,6 +2397,9 @@ apps/desktop/src/main/usage-is-counted.test.ts	streaks run back from today, or f
 apps/desktop/src/main/usage-is-counted.test.ts	a model each, most turns first, and how each was paid for	no
 apps/desktop/src/main/usage-is-counted.test.ts	a cache share is over the turns whose runtime counts a cache, not a 0% for one that says nothing	no
 apps/desktop/src/main/usage-is-counted.test.ts	active days, the busiest day, and nothing counted twice	no
+apps/desktop/src/main/what-a-teammate-spent-this-month.test.ts	counts every priced run of the month, not only the newest twenty, and nothing a plan paid for	yes
+apps/desktop/src/main/what-a-teammate-spent-this-month.test.ts	counts a run in the month it ended	yes
+apps/desktop/src/main/what-a-teammate-spent-this-month.test.ts	sends every row its money, including the ones sent without their events	no
 apps/desktop/src/main/what-a-teammate-wrote-is-quoted-dead.test.ts	carries no live tag, of any kind	yes
 apps/desktop/src/main/what-a-teammate-wrote-is-quoted-dead.test.ts	carries no live tag in the memory file the teammate reads either	yes
 apps/desktop/src/main/what-a-teammate-wrote-is-quoted-dead.test.ts	carries no live tag	yes

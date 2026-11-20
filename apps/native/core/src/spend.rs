@@ -299,3 +299,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "spent_this_month_tests.rs"]
+mod spent_this_month_tests;
