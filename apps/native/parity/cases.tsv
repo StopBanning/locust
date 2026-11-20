@@ -5271,6 +5271,13 @@ apps/desktop/src/shared/which-notes-bear-on-a-question.test.ts	a word few notes 
 apps/desktop/src/shared/which-notes-bear-on-a-question.test.ts	the rarer of two shared words counts for more than the newer note	yes
 apps/desktop/src/shared/which-notes-bear-on-a-question.test.ts	plain English words do not count	yes
 apps/desktop/src/shared/which-notes-bear-on-a-question.test.ts	the brief keeps the newest when the allowance runs out	yes
+apps/desktop/test/avatar.test.ts	is a pure function of the id, so a rename never changes a face	yes
+apps/desktop/test/avatar.test.ts	gives two teammates with different ids different faces, whatever their names	yes
+apps/desktop/test/avatar.test.ts	stays within every part table	yes
+apps/desktop/test/avatar.test.ts	refuses an override outside the tables	yes
+apps/desktop/test/avatar.test.ts	shuffles to a different look every time, cycling through all of them	yes
+apps/desktop/test/avatar.test.ts	sizes pixels and corners as the spec states, floored so small chips still draw	no
+apps/desktop/test/avatar.test.ts	draws a layer as one base pixel plus shadow offsets from it	no
 apps/desktop/test/decision.test.ts	reads the question and both options	yes
 apps/desktop/test/decision.test.ts	drops the template brackets a model kept, and leaves arrows and comparisons alone	yes
 apps/desktop/test/decision.test.ts	accepts an option that states no cost	yes

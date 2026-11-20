@@ -2675,3 +2675,7 @@ mod tests {
         assert_eq!(bot_size::MEMORY_AUTHOR, 18.0);
     }
 }
+
+#[cfg(test)]
+#[path = "avatar_seed_tests.rs"]
+mod avatar_seed_tests;
