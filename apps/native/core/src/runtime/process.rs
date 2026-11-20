@@ -219,10 +219,43 @@ pub fn read_line(reader: &mut impl BufRead, line: &mut Vec<u8>) -> io::Result<us
     reader.take(8 * 1024 * 1024 + 1).read_until(b'\n', line)
 }
 /// Read the same 16 KiB display tail used by ACP and OpenCode, with bounded chunks.
-pub fn stderr_tail(mut pipe: impl Read + Send + 'static) -> Arc<Mutex<String>> {
+pub fn stderr_tail(pipe: impl Read + Send + 'static) -> Arc<Mutex<String>> {
+    drain(pipe, |held| super::events::text(held, 16384)).0
+}
+
+/// How much of a Codex app server's stderr is kept (app-server-process.ts STDERR_TAIL_CHARS): its last lines, never the
+/// stream.
+pub const STDERR_TAIL_CHARS: usize = 4_096;
+
+/// app-server-process.ts: the server's stderr is ALWAYS drained (a full pipe nobody drains stalls a chatty CLI), and only
+/// its last `STDERR_TAIL_CHARS` UTF-16 units are kept, as `slice(-STDERR_TAIL_CHARS)` keeps them. The thread's handle
+/// says when the pipe is done, so a dying server's last words can be waited for.
+pub fn stderr_end(pipe: impl Read + Send + 'static) -> (Arc<Mutex<String>>, std::thread::JoinHandle<()>) {
+    drain(pipe, |held| last_units(held, STDERR_TAIL_CHARS))
+}
+
+/// The end of `text`, at most `limit` UTF-16 units, never half a character.
+fn last_units(text: &str, limit: usize) -> String {
+    let mut used = 0;
+    let start = text
+        .char_indices()
+        .rev()
+        .take_while(|(_, c)| {
+            used += c.len_utf16();
+            used <= limit
+        })
+        .last()
+        .map_or(text.len(), |(i, _)| i);
+    text[start..].to_owned()
+}
+
+fn drain(
+    mut pipe: impl Read + Send + 'static,
+    keep: fn(&str) -> String,
+) -> (Arc<Mutex<String>>, std::thread::JoinHandle<()>) {
     let tail = Arc::new(Mutex::new(String::new()));
     let output = tail.clone();
-    std::thread::spawn(move || {
+    let reader = std::thread::spawn(move || {
         let mut bytes = [0u8; 8192];
         // A character split across two reads is held until its rest arrives, not decoded as two halves.
         let mut pending: Vec<u8> = Vec::new();
@@ -233,15 +266,15 @@ pub fn stderr_tail(mut pipe: impl Read + Send + 'static) -> Arc<Mutex<String>> {
             pending.extend_from_slice(&bytes[..n]);
             let mut held = crate::invariants::lock(&output);
             held.push_str(&take_whole_characters(&mut pending));
-            *held = super::events::text(&held, 16384);
+            *held = keep(&held);
         }
         if !pending.is_empty() {
             let mut held = crate::invariants::lock(&output);
             held.push_str(&String::from_utf8_lossy(&pending));
-            *held = super::events::text(&held, 16384);
+            *held = keep(&held);
         }
     });
-    tail
+    (tail, reader)
 }
 
 /// The text of `pending` up to a character its last read split, leaving that character's first bytes behind. Bytes

@@ -267,6 +267,8 @@ apps/desktop/src/main/a-diagram-in-a-reply-is-drawn.test.ts	draws a burst in one
 apps/desktop/src/main/a-diagram-in-a-reply-is-drawn.test.ts	draws again in a fresh view when one stalls, and gives up when that one stalls too	no
 apps/desktop/src/main/a-diagram-in-a-reply-is-drawn.test.ts	opens a view afresh, once, when its page did not load	no
 apps/desktop/src/main/a-diagram-in-a-reply-is-drawn.test.ts	passes on Mermaid's reason for text it cannot read, keeping the view	no
+apps/desktop/src/main/a-dying-server-says-why.test.ts	is drained, and its end kept	yes
+apps/desktop/src/main/a-dying-server-says-why.test.ts	is empty, not missing, for a child that has none	yes
 apps/desktop/src/main/a-failing-check-goes-back-to-fix.test.ts	sends what the turn broke back to the same conversation, as fix 1 of the most, recorded as Locust's	yes
 apps/desktop/src/main/a-failing-check-goes-back-to-fix.test.ts	reads the setting of the folder the turn ran in, not the folder now on screen (0.813, Sol's review)	yes
 apps/desktop/src/main/a-failing-check-goes-back-to-fix.test.ts	does nothing while the folder is set to show the failure, or for a check that did not fail	yes
