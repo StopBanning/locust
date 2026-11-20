@@ -23,6 +23,21 @@ for line in sys.stdin:
             open(flag, 'w').close()
             sys.exit(0)
         answer(v, dict(protocolVersion=1, agentCapabilities=dict(loadSession=True)))
+    elif scenario == 'sessions' and method in ('session/new', 'session/load', 'session/prompt'):
+        # Kilo as a conversation's turns meet it: its sessions are kept in its data folder (kilo.db), a session/load of
+        # one that folder never held fails as Kilo does, and every message is logged there for the test to read.
+        home = __import__('os').environ['XDG_DATA_HOME']
+        kept = __import__('os').path.join(home, 'kilo-session')
+        with open(__import__('os').path.join(home, 'kilo-sent.jsonl'), 'a') as log:
+            log.write(json.dumps(dict(pid=__import__('os').getpid(), method=method, params=v.get('params'), env=dict((k, __import__('os').environ.get(k)) for k in ('KILO_CONFIG_DIR', 'XDG_CONFIG_HOME', 'XDG_DATA_HOME')))) + '\n')
+        if method == 'session/load' and not __import__('os').path.exists(kept):
+            send(dict(id=v['id'], error=dict(code=-32603, message='Internal error: OpenCode service failure')))
+        elif method == 'session/prompt':
+            update(sessionUpdate='agent_message_chunk', content=dict(type='text', text='Kilo answered.'))
+            answer(v, dict(stopReason='end_turn'))
+        else:
+            open(kept, 'w').write('s1')
+            answer(v, dict(sessionId='s1', configOptions=list(options)))
     elif method in ('session/new', 'session/load'):
         update(sessionUpdate='agent_message_chunk', content=dict(type='text', text='REPLAY_MUST_NOT_SURVIVE'))
         answer(v, dict(sessionId='s1', configOptions=list(options)))

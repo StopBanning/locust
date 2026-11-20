@@ -178,7 +178,8 @@ pub fn run(args: &[String]) -> Result<i32, Box<dyn std::error::Error>> {
             drive(&mut runtime, &mut writer, &turn)
         }
         "kilo" => {
-            let mut command = crate::runtime::kilo::command(&turn.folder, &store)?;
+            let (home, _) = crate::runtime::kilo::conversation_home(&store, &id)?;
+            let mut command = crate::runtime::kilo::command(&turn.folder, &store, &home)?;
             let args: Vec<String> = command
                 .get_args()
                 .map(|a| a.to_string_lossy().into_owned())

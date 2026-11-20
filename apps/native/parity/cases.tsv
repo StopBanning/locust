@@ -374,6 +374,10 @@ apps/desktop/src/main/a-kept-page-forgets-its-removed-copy.test.ts	does not mist
 apps/desktop/src/main/a-kept-page-forgets-its-removed-copy.test.ts	serves the kept page from the folder when the recorded tool path names a removed copy	no
 apps/desktop/src/main/a-kept-setup-is-not-proof-its-edit-helped.test.ts	judges each edit from the runs, never from which setup the person kept	yes
 apps/desktop/src/main/a-kept-setup-is-not-proof-its-edit-helped.test.ts	writes a lesson only when it would change work on a different ask, and no lesson is a normal outcome	yes
+apps/desktop/src/main/a-kilo-follow-up-finds-its-session.test.ts	runs every turn of a conversation in its first turn's Kilo folder, and the follow-ups load its session	yes
+apps/desktop/src/main/a-kilo-follow-up-finds-its-session.test.ts	finds the first turn after Locust was reopened, from the record	yes
+apps/desktop/src/main/a-kilo-follow-up-finds-its-session.test.ts	gives two conversations two folders	yes
+apps/desktop/src/main/a-kilo-follow-up-finds-its-session.test.ts	starts a conversation whose folder is gone in a new session, told what was said before	yes
 apps/desktop/src/main/a-large-file-in-a-plain-folder-shows-its-change.test.ts	reads as one line changed when the checkpoint has it from before	yes
 apps/desktop/src/main/a-large-file-in-a-plain-folder-shows-its-change.test.ts	is read back from a real checkpoint as it was, after the file changed	yes
 apps/desktop/src/main/a-launch-from-an-agents-settings-folder-is-not-a-workspace.test.ts	%s falls back to the folder chosen last time	no

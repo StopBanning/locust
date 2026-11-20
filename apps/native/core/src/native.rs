@@ -209,6 +209,7 @@ fn command_for_turn(
     references: &[&str],
     skills: Option<&str>,
     sealed: bool,
+    kilo_home: Option<&Path>,
 ) -> io::Result<Command> {
     #[cfg(any(test, feature = "test-hooks"))]
     if let Some((program, args)) = crate::invariants::lock(&hooks::STATE).1.clone() {
@@ -254,7 +255,18 @@ fn command_for_turn(
         "kilo" => {
             let store = store()
                 .ok_or_else(|| io::Error::other("Native data folder could not be determined"))?;
-            crate::runtime::kilo::command(folder, &store)
+            // A run that is no conversation's turn (a panel's) has a Kilo folder of its own, as Electron gives it one in
+            // the temp folder.
+            let own;
+            let home = match kilo_home {
+                Some(home) => home,
+                None => {
+                    own = std::env::temp_dir().join(format!("locust-kilo-{}", new_id()));
+                    std::fs::create_dir_all(&own)?;
+                    &own
+                }
+            };
+            crate::runtime::kilo::command(folder, &store, home)
         }
         _ => crate::runtime::codex::command(),
     }
@@ -1366,6 +1378,18 @@ pub fn turns_through(mission: &str) -> Vec<crate::carry_on::EarlierTurn> {
 
 /// What a reply that cannot resume is told (codex-mission.ts `coldEarlier`): the conversation through its newest turn,
 /// except that newest turn when it went unanswered and this reply is the same words again (Send again, 0.496).
+/// The first turn of the conversation `mission` is in, walked back through each turn's `continuesFrom` (codex-mission.ts
+/// `firstTurnOf`): a link to a turn not in the ledger ends the walk there.
+fn first_turn_of(mission: &str) -> String {
+    let mut first = mission.to_owned();
+    let mut seen = HashSet::new();
+    while seen.insert(first.clone()) {
+        let Some(earlier) = turn_records(&first).and_then(|t| t.metadata["continuesFrom"]["missionId"].as_str().map(str::to_owned)) else { break };
+        first = earlier;
+    }
+    first
+}
+
 fn cold_earlier(tip: &str, prompt: &str) -> Vec<crate::carry_on::EarlierTurn> {
     let Some(turn) = turn_records(tip) else { return Vec::new() };
     let mut turns = earlier_turns(&turn.metadata);
@@ -2231,7 +2255,7 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
     let mut rewind_link: Option<Value> = None;
     // A2.5: whether the session a reply resumes compacted during its last turn.
     let mut resumed_compacted = false;
-    let (continues, resume, continues_folder_mission) = if let Some(side) = &side_req {
+    let (mut continues, mut resume, continues_folder_mission) = if let Some(side) = &side_req {
         let prepared = crate::side_question::prepare(&side.of, runtime_name, mode, &job.prompt)?;
         side_prompt = Some(prepared.runtime_prompt);
         (None, Some(prepared.resume_thread), Some(side.of.clone()))
@@ -2345,6 +2369,29 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
         .map(|c| c.mission_id.clone())
         .or_else(|| switched.as_ref().and_then(|s| s.link["missionId"].as_str().map(str::to_owned)))
         .or_else(|| rewind_link.as_ref().and_then(|l| l["missionId"].as_str().map(str::to_owned)));
+    // A CONVERSATION WITH A KILO TEAMMATE KEEPS ONE KILO FOLDER (codex-mission.ts, 0.845). Kilo keeps its sessions in its
+    // data folder, and every turn had the one folder, so a follow-up's session/load could not tell one conversation's
+    // sessions from another's -- and a folder that never held the session answered "Internal error: OpenCode service
+    // failure". A conversation's turns now share a folder in the profile, named for its first turn. One whose folder was
+    // not there (begun before this, or on another computer) starts afresh, told what was said before. A first turn's
+    // folder is named for it once it has its id, below.
+    let mut kilo_home: Option<PathBuf> = None;
+    if runtime_name == "kilo"
+        && let Some(earlier) = previous.as_deref()
+    {
+        let (home, made) = crate::runtime::kilo::conversation_home(&store, &first_turn_of(earlier)).map_err(|e| e.to_string())?;
+        if made && resume.is_some() {
+            if origin.rewind.is_none() {
+                cold = Some((cold_earlier(earlier, &job.prompt), false));
+            }
+            resume = None;
+            // The record says this followed that, without claiming a resume that did not happen.
+            if let Some(continuation) = continues.as_mut() {
+                continuation.thread = None;
+            }
+        }
+        kilo_home = Some(home);
+    }
     let attached = crate::references::select(&store, previous.as_deref(), origin.reference_ids.as_deref())?;
     let shared: Vec<String> = attached
         .iter()
@@ -2551,6 +2598,10 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
         _ => None,
     };
     let skill_copies: Vec<PathBuf> = crate::skills::copies_of(&claude_plugins, run_skills.as_ref());
+    let kilo_home = match kilo_home {
+        None if runtime_name == "kilo" => Some(crate::runtime::kilo::conversation_home(&store, &id).map_err(|e| e.to_string())?.0),
+        held => held,
+    };
     let mut command = command_for_turn(
         runtime_name,
         &folder,
@@ -2563,8 +2614,15 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
         &references,
         agent_skills.as_deref(),
         sealed,
+        kilo_home.as_deref(),
     )
     .map_err(|e| e.to_string())?;
+    // Kilo's own config and data are the conversation's folder, never the person's, whatever built the command.
+    if let Some(home) = &kilo_home {
+        for (key, value) in crate::runtime::kilo::isolation_env(home) {
+            command.env(key, value);
+        }
+    }
     // openCodeModeEnv: a worktree run reaches its parent repository's `.git`; a run with no shell gets Locust's git tool.
     if runtime_name == "opencode" {
         let git_reads = std::env::current_exe().ok().map(|exe| vec![exe.to_string_lossy().into_owned(), "--git-reads".to_owned()]);
@@ -3163,7 +3221,7 @@ pub fn run_once(teammate: &Teammate, folder: &Path, prompt: &str) -> Result<Stri
     let launch_env = account_launch_env(&store, runtime_name, teammate.account.as_deref())?;
     let model = teammate.model.clone().filter(|m| !m.is_empty() && m != "account-default");
     let session = if runtime_name == "copilot" { Some(uuid_v4().map_err(|e| e.to_string())?) } else { None };
-    let mut command = command_for_turn(runtime_name, folder, model.as_deref(), Mode::Ask, None, prompt, None, session.as_deref(), &[], None, false)
+    let mut command = command_for_turn(runtime_name, folder, model.as_deref(), Mode::Ask, None, prompt, None, session.as_deref(), &[], None, false, None)
         .map_err(|e| e.to_string())?;
     command.current_dir(folder);
     for (key, value) in &launch_env {
