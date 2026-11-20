@@ -319,3 +319,41 @@ fn antigravity_timeout_is_probe_failed_not_auth_required_and_pending_models_not_
     assert_eq!(found_out.status, Probe::AuthRequired);
     assert_eq!(found_out.auth, Auth::Unauthenticated);
 }
+
+// ---- an-unsupported-opencode-version-reaches-the-window.test.ts ----
+fn opencode_at(version: &str) -> Found {
+    let g: Value = serde_json::from_str(include_str!("../../parity/discovery.json")).unwrap();
+    let well = g["well"]["opencode"].clone();
+    let help = std::fs::read_to_string(format!("{}/../parity/agents/opencode-help.txt", env!("CARGO_MANIFEST_DIR"))).unwrap();
+    let version = version.to_owned();
+    let find = |c: &str| (c == "opencode").then(|| std::path::PathBuf::from("/usr/local/bin/opencode"));
+    let run = |_: &std::path::Path, args: &[&str]| -> Option<Answer> {
+        Some(match args.join(" ").as_str() {
+            "--version" => ok(&version),
+            "run --help" => ok(&help),
+            "models --verbose" => ok(well["models"].as_str().unwrap()),
+            _ => ok(well["ready"].as_str().unwrap()),
+        })
+    };
+    let exists = |_: &std::path::Path| true;
+    let seams = Seams { find: &find, run: &run, exists: &exists, home: Some("/home/someone".into()), xdg_config_home: None };
+    discover_one("opencode", &seams).unwrap()
+}
+
+// case: reaches the window as unsupported, with why and what to do
+#[test]
+fn an_opencode_locust_does_not_run_yet_reaches_the_window_as_unsupported_with_why_and_what_to_do() {
+    let shown = opencode_at("opencode v3.0.0");
+    assert_eq!((probe_word(shown.status), shown.ready), ("unsupported", false), "{shown:?}");
+    let note = shown.unsupported_note.unwrap();
+    assert!(note.contains("OpenCode 3.0.0 is installed; this Locust supports OpenCode 1 and OpenCode 2."), "{note}");
+    assert!(note.contains("OpenCode 1 or OpenCode 2"));
+}
+
+// case: leaves every other runtime as it was (control)
+#[test]
+fn a_supported_opencode_is_left_as_it_was() {
+    let shown = opencode_at("1.19.5");
+    assert_eq!((probe_word(shown.status), shown.ready), ("ready", true), "{shown:?}");
+    assert_eq!(shown.unsupported_note, None);
+}
