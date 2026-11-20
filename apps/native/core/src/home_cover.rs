@@ -140,6 +140,130 @@ pub fn glass_status(working: &[&str], waiting: &[&str]) -> Option<String> {
     Some(parts.join(" · "))
 }
 
+// --- The machine and its cast, on the cover's grid (HomeCover.tsx `COVER_MACHINE`, `COVER_CAST`, `FACE`) ---
+
+/// A box on the cover's grid, or in pixels once placed: left, top, width, height.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CoverBox {
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+}
+
+/// The machine: the boot screen's bezel and glass, centred on the cover. The lockup and the claim are on its glass.
+pub const COVER_MACHINE: CoverBox = CoverBox { x: 200.0, y: 86.0, width: COVER_MACHINE_WIDTH, height: 162.0 };
+/// How big each bot is on the cover's grid.
+pub const COVER_FACE: f64 = 96.0;
+
+/// Each bot's part on the title screen (`cover_script`): Prompt works, the ghost thinks, the locust sleeps.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CoverPart {
+    Worker,
+    Thinker,
+    Sleeper,
+}
+
+/// One of the three on the machine.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CoverBot {
+    pub key: &'static str,
+    /// The bot's shape (`bot_spec`'s names).
+    pub bot: &'static str,
+    /// A teammate hue, or none for the shape's own colour (the ghost's white).
+    pub hue: Option<&'static str>,
+    /// The rig's state once the cover is on (`BotAvatarState`'s names).
+    pub state: &'static str,
+    /// Floats on a slow bob instead of hopping.
+    pub floats: bool,
+    pub part: CoverPart,
+    /// Top-left on the cover's grid.
+    pub x: f64,
+    pub y: f64,
+}
+
+/// The cast, in the cover's order: a white ghost that floats and thinks; Prompt, the Codex nod, in the teammate blue,
+/// working; and Claw'd's critter in clay, asleep (0.583: the Hopper's thin legs stepped at this size, jagged in Plush).
+/// Each box sits so its body stands on the bezel's top edge (Prompt's body fills its box, so it sits 4 higher).
+pub const COVER_CAST: [CoverBot; 3] = [
+    CoverBot { key: "wren", bot: "ghost", hue: None, state: "default", floats: true, part: CoverPart::Thinker, x: 245.0, y: -10.0 },
+    CoverBot { key: "atlas", bot: "prompt", hue: Some("blue"), state: "default", floats: false, part: CoverPart::Worker, x: 432.0, y: -4.0 },
+    CoverBot { key: "sable", bot: "critter", hue: Some("clay"), state: "sleeping", floats: false, part: CoverPart::Sleeper, x: 619.0, y: -2.0 },
+];
+
+/// The cover placed on a card: everything in whole pixels from the card's top-left, except the card's own height and
+/// the reach kept above it, which scale as the stylesheet's `calc(254px * k)` and `calc(48px * k)` do.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CoverPlace {
+    /// The card's width's scale (`cover_scale`).
+    pub scale: f64,
+    /// What everything is drawn at (`cover_drawn`).
+    pub drawn: f64,
+    /// Half of what the canvas outgrew (or gave back), so the drawing grows about the card's centre.
+    pub origin_x: f64,
+    pub machine: CoverBox,
+    /// Each of `COVER_CAST`'s boxes, in its order; width and height are the bot's size.
+    pub faces: [CoverBox; 3],
+    pub height: f64,
+    pub reach: f64,
+}
+
+/// The cover on a card this wide, grown by `grow` (`cover_grow_for`): HomeCover.tsx's `drawn`, `originX`, `at`, `atX`.
+pub fn cover_place(card_width: f64, grow: f64) -> CoverPlace {
+    let scale = cover_scale(card_width);
+    let drawn = cover_drawn(scale, grow);
+    let origin_x = ((scale - drawn) * COVER_WIDTH / 2.0).round();
+    let at = |v: f64| (v * drawn).round();
+    let machine = CoverBox { x: origin_x + at(COVER_MACHINE.x), y: at(COVER_MACHINE.y), width: at(COVER_MACHINE.width), height: at(COVER_MACHINE.height) };
+    let face = |bot: &CoverBot| CoverBox { x: origin_x + at(bot.x), y: at(bot.y), width: at(COVER_FACE), height: at(COVER_FACE) };
+    CoverPlace {
+        scale,
+        drawn,
+        origin_x,
+        machine,
+        faces: [face(&COVER_CAST[0]), face(&COVER_CAST[1]), face(&COVER_CAST[2])],
+        height: COVER_HEIGHT * drawn,
+        reach: COVER_REACH * drawn,
+    }
+}
+
+/// The claim's type size on the glass: 13px at the cover's own size, never under 10.5px (`.lc-cover__claim`).
+pub fn claim_size(drawn: f64) -> f64 {
+    (13.0 * drawn).max(10.5)
+}
+
+// --- One measure of Home, as FirstLaunch.tsx runs it on every resize ---
+
+/// What one measure decides: whether Home's spacing is tight, and how much the cover grows.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct HomeFit {
+    pub tight: bool,
+    pub grow: f64,
+}
+
+/// Home's padding and gap at a spacing.
+pub fn home_spacing(tight: bool) -> (f64, f64) {
+    if tight { (HOME_TIGHT_PAD, HOME_TIGHT_GAP) } else { (HOME_PAD, HOME_GAP) }
+}
+
+/// FirstLaunch.tsx's measure step. `sections` is everything in the column but the cover, each with its margins, as
+/// drawn now; `count` the column's children, the cover among them; `card_width` the cover's card; `pane_height` the
+/// pane Home scrolls in. Tight or not is decided at the normal spacing (`sections_at_normal_spacing`, `home_is_short`)
+/// so it never argues itself back off; the room is measured from what does not move with the cover, so the two never
+/// chase each other.
+///
+/// The cover's footprint here is at its width's scale, without Home's `COVER_HOME_SCALE` (as Electron's): the cover is
+/// drawn 10% smaller than this counts it, so Home tightens and gives back a little early and keeps that as air.
+pub fn home_fit(seen: HomeSpacingSeen, count: usize, sections: f64, tight_now: bool, card_width: f64, pane_height: f64) -> (HomeSpacingSeen, HomeFit) {
+    let (pad, gap) = home_spacing(tight_now);
+    let usable = pane_height - pad * 2.0;
+    let base = (COVER_HEIGHT + COVER_REACH) * cover_scale(card_width);
+    let others = sections + gap * count.saturating_sub(1) as f64;
+    let (seen, normal) = sections_at_normal_spacing(seen, count, sections, tight_now);
+    let tight = home_is_short(normal, count, base, pane_height);
+    (seen, HomeFit { tight, grow: cover_grow_for(cover_room_for(usable, others, base), base) })
+}
+
 #[cfg(test)]
 #[path = "home_cover_tests.rs"]
 mod tests;

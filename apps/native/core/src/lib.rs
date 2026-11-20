@@ -106,6 +106,7 @@ pub mod folders;
 pub mod github_account;
 pub mod github_issues;
 pub mod home_cover;
+pub mod cover_script;
 pub mod home_team_state;
 pub mod home_order;
 pub mod groups;
