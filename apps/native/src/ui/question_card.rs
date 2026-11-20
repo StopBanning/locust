@@ -17,7 +17,8 @@ pub(super) struct Answers {
 /// A number key on the card (questionKeys.ts, 0.801): 1 to 9 choose that option of the question the focus is in, else
 /// of the first still without a choice. Not while a field takes the typing, nor with Ctrl, Alt or Cmd held.
 pub(super) fn handle_key(s: &mut State, event: &KeyEvent) -> bool {
-    let Some(card) = s.pending_approval.as_ref().filter(|card| !card.questions.is_empty()) else { return false };
+    // Not on a card answered elsewhere: it has nothing to choose.
+    let Some(card) = s.pending_approval.as_ref().filter(|card| !card.questions.is_empty() && card.answer_in.is_none()) else { return false };
     let Key::Text(ref key) = event.key else { return false };
     let modified = event.mods.cmd || event.mods.ctrl || event.mods.alt;
     let typing = s.draft.focused || s.approval_reason.focused || s.question_answers.typed.values().any(|field| field.focused);
@@ -51,6 +52,17 @@ fn send(s: &mut State) {
         return;
     }
     let answers: Vec<(String, Vec<String>)> = card.questions.iter().map(|q| (q.id.clone(), answers_for(s, q))).collect();
+    answer(s, &card, answers);
+}
+
+/// Skip, where the runtime takes one: every question left alone, and the runtime is told it was skipped.
+fn skip(s: &mut State) {
+    let Some(card) = s.pending_approval.clone().filter(|card| card.skippable) else { return };
+    let answers = card.questions.iter().map(|q| (q.id.clone(), Vec::new())).collect();
+    answer(s, &card, answers);
+}
+
+fn answer(s: &mut State, card: &approval::Request, answers: Vec<(String, Vec<String>)>) {
     match locust_core::engine_api::api().answer(&card.approval_id, answers) {
         Ok(()) => {
             s.pending_approval = None;
@@ -70,6 +82,9 @@ fn send(s: &mut State) {
 
 /// The card's questions and Send, in place of Approve and Deny.
 pub(super) fn questions(s: &State, card: &approval::Request, p: &Palette) -> El {
+    if let Some(place) = &card.answer_in {
+        return answered_elsewhere(card, place, p);
+    }
     let l = crate::look::controls::Look::new(p.dark);
     let mut out = col().w_full().gap(10.0).key("questions");
     for question in &card.questions {
@@ -134,9 +149,38 @@ pub(super) fn questions(s: &State, card: &approval::Request, p: &Palette) -> El 
     }
     let ready = card.questions.iter().all(|q| !answers_for(s, q).is_empty());
     let label = if card.questions.len() > 1 { "Send answers" } else { "Send answer" };
-    out = out.child(row().gap(8.0).child(crate::look::controls::primary_button(&l, label, !ready).key("send-answers").on_press(send)));
+    let mut buttons = row().gap(8.0).child(crate::look::controls::primary_button(&l, label, !ready).key("send-answers").on_press(send));
+    if card.skippable {
+        buttons = buttons.child(crate::look::controls::ghost_button(&l, "Skip").key("skip-answers").role("button").on_press(skip));
+    }
+    out = out.child(buttons);
     out.child(
-        text("This goes back to the runtime as your answer. Stop the run below if you would rather not answer.")
+        text(if card.skippable {
+            "This goes back to the runtime as your answer. Skip tells it you would rather not say."
+        } else {
+            "This goes back to the runtime as your answer. Stop the run below if you would rather not answer."
+        })
+            .font(type_::LABEL)
+            .color(p.muted)
+            .w_full()
+            .wrap(),
+    )
+}
+
+/// A question Locust can show but not answer (QuestionElsewhere): the runtime takes the answer in its own window. No
+/// buttons -- a button here would claim an answer can go somewhere it cannot.
+fn answered_elsewhere(card: &approval::Request, place: &str, p: &Palette) -> El {
+    let mut out = col().w_full().gap(10.0).key("questions-elsewhere");
+    for question in &card.questions {
+        let mut block = col().w_full().gap(4.0).child(text(question.question.clone()).font(type_::BODY).color(p.text).w_full().wrap());
+        for option in &question.options {
+            block = block.child(text(format!("\u{2022} {}", option.label)).font(type_::LABEL).color(p.secondary).w_full().wrap());
+        }
+        out = out.child(block);
+    }
+    out.child(
+        text(format!("Answer it in {place}\u{2019}s own window. Locust carries on as soon as {place} has your answer."))
+            .key("questions-answer-in")
             .font(type_::LABEL)
             .color(p.muted)
             .w_full()
@@ -147,3 +191,7 @@ pub(super) fn questions(s: &State, card: &approval::Request, p: &Palette) -> El 
 #[cfg(test)]
 #[path = "question_card_keys_tests.rs"]
 mod keys_tests;
+
+#[cfg(test)]
+#[path = "question_card_antigravity_tests.rs"]
+mod antigravity_tests;

@@ -267,7 +267,7 @@ fn card_from(v: &Value) -> Result<Request, String> {
         data_sent_says: text(v, "dataSentSays"),
         reversible_says: text(v, "reversibleSays"),
         patch: v.get("patch").and_then(crate::approval_patch::ToolPatch::from_json),
-        claude_input: Some(v["claudeInput"].clone()).filter(|i| !i.is_null()),
+        skippable: false, answer_in: None, claude_input: Some(v["claudeInput"].clone()).filter(|i| !i.is_null()),
         questions: crate::approval::questions_of(&json!({"questions": v["questions"]})),
     })
 }

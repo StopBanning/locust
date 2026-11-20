@@ -29,7 +29,7 @@ fn card() -> Request {
         data_sent_says: None,
         reversible_says: None,
         patch: None,
-        claude_input: None,
+        skippable: false, answer_in: None, claude_input: None,
         questions: vec![question("q1", &["Postgres", "SQLite", "Keep the JSON file"], true), question("q2", &["Yes", "No"], false)],
     }
 }
