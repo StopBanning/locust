@@ -1,4 +1,4 @@
-//! Electron's `a-finished-message-stops-typing.test.ts` (cases 1-3), with Electron's values and words.
+//! Electron's `a-finished-message-stops-typing.test.ts` (all four cases), with Electron's values and words.
 use crate::ledger::{Item, Transcript};
 use crate::thread_view::streaming;
 use serde_json::{Value, json};
@@ -91,4 +91,18 @@ fn types_again_if_its_own_text_resumes_after_a_call() {
         streaming_of(events),
         vec![("Reading. Still reading.".into(), true)]
     );
+}
+
+/// Case 4: a check-back timer (Claude Code's `schedule`) is a wait in the steps line, never "used schedule".
+#[test]
+fn says_its_check_back_timer_as_a_wait_not_used_schedule() {
+    let timer = Item::Tool {
+        name: "schedule".into(),
+        status: crate::ledger::Status::Done,
+        summary: "schedule".into(),
+        detail: Box::new(crate::ledger::ToolDetail { arguments: "schedule".into(), ..Default::default() }),
+    };
+    let line = crate::steps_line::steps_line(&[timer], true, None, false).text();
+    assert!(!line.to_lowercase().contains("used schedule"), "{line}");
+    assert!(line.to_lowercase().contains("waited"), "{line}");
 }

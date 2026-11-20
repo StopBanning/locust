@@ -2534,7 +2534,7 @@ apps/desktop/src/renderer/src/a-file-row-says-a-word.test.ts	keeps a word with n
 apps/desktop/src/renderer/src/a-finished-message-stops-typing.test.ts	stops typing once a call starts after it	yes
 apps/desktop/src/renderer/src/a-finished-message-stops-typing.test.ts	stops typing once another message begins, and the newest still types	yes
 apps/desktop/src/renderer/src/a-finished-message-stops-typing.test.ts	types again if its own text resumes after a call	yes
-apps/desktop/src/renderer/src/a-finished-message-stops-typing.test.ts	says its check-back timer as a wait, not "used schedule"	no
+apps/desktop/src/renderer/src/a-finished-message-stops-typing.test.ts	says its check-back timer as a wait, not "used schedule"	yes
 apps/desktop/src/renderer/src/a-first-hour-starts-plainly.test.ts	Home's free sentence has a button that puts the chat box on the free model	no
 apps/desktop/src/renderer/src/a-first-hour-starts-plainly.test.ts	a new teammate's model is chosen right under its name, before how it looks	no
 apps/desktop/src/renderer/src/a-first-hour-starts-plainly.test.ts	a connector is named for a person, its id kept for hover	yes
