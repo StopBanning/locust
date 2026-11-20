@@ -295,6 +295,8 @@ apps/desktop/src/main/a-folder-is-one-folder-however-spelled.test.ts	is the know
 apps/desktop/src/main/a-folder-is-one-folder-however-spelled.test.ts	and at start, before the registry is open	no
 apps/desktop/src/main/a-folder-is-one-folder-however-spelled.test.ts	a different folder stays itself	no
 apps/desktop/src/main/a-folder-is-one-folder-however-spelled.test.ts	a folder that is not there, or no registry yet, is left as written	no
+apps/desktop/src/main/a-folder-too-big-to-keep-is-not-relisted-every-turn.test.ts	is listed once, believed for ten minutes, then listed again	yes
+apps/desktop/src/main/a-folder-too-big-to-keep-is-not-relisted-every-turn.test.ts	is remembered for that folder only	yes
 apps/desktop/src/main/a-folder-with-only-dot-files-holds-nothing-yet.test.ts	is one with nothing, or nothing but dot files, in it	yes
 apps/desktop/src/main/a-folder-with-only-dot-files-holds-nothing-yet.test.ts	is never a folder that cannot be read	yes
 apps/desktop/src/main/a-forget-with-nothing-remembered-says-nothing.test.ts	is answered as nothing remembered, by the store	yes

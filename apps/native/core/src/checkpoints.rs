@@ -160,8 +160,34 @@ pub fn take(store: &Store, workspace: &Path) -> io::Result<Snapshot> {
         changes::git(workspace, &["--version"]).is_ok(),
     )
 }
+/// How long a folder found too big to keep is believed, before it is listed again (TOO_BIG_REMEMBERED_MS): finding
+/// it out lists and stats every file, 0.35 s a turn in a 300 MB folder, to say the same thing every turn.
+const TOO_MANY_FILES: &str = "This folder has more than 20,000 files, too many to keep a copy of before each turn.";
+pub const TOO_BIG_REMEMBERED: std::time::Duration = std::time::Duration::from_secs(10 * 60);
+static TOO_BIG: OnceLock<Mutex<std::collections::HashMap<PathBuf, (std::time::Instant, String)>>> = OnceLock::new();
+
+/// Refuse a folder for being too big, and remember it for that folder alone.
+fn too_big(dir: &Path, why: String, now: std::time::Instant) -> io::Error {
+    if let Ok(mut known) = TOO_BIG.get_or_init(Mutex::default).lock() {
+        known.insert(dir.to_path_buf(), (now + TOO_BIG_REMEMBERED, why.clone()));
+    }
+    io::Error::other(why)
+}
+
 fn take_with_git(store: &Store, workspace: &Path, git_here: bool) -> io::Result<Snapshot> {
+    take_with_git_at(store, workspace, git_here, std::time::Instant::now())
+}
+
+fn take_with_git_at(store: &Store, workspace: &Path, git_here: bool, now: std::time::Instant) -> io::Result<Snapshot> {
     let dir = base(store, workspace)?;
+    let believed = TOO_BIG
+        .get_or_init(Mutex::default)
+        .lock()
+        .ok()
+        .and_then(|known| known.get(&dir).filter(|(until, _)| now < *until).map(|(_, why)| why.clone()));
+    if let Some(why) = believed {
+        return Err(io::Error::other(why));
+    }
     if dir.starts_with(workspace) {
         return Err(io::Error::other(
             "Checkpoint data cannot be inside the folder being kept.",
@@ -197,13 +223,12 @@ fn take_with_git(store: &Store, workspace: &Path, git_here: bool) -> io::Result<
                 .filter(|s| !s.is_empty())
                 .map(str::to_owned),
         );
-    } else {
-        walk(workspace, workspace, 0, &mut listed)?
+    } else if let Err(e) = walk(workspace, workspace, 0, &mut listed) {
+        let why = e.to_string();
+        return Err(if why.contains("too many to keep") { too_big(&dir, why, now) } else { e });
     }
     if listed.len() > 20_000 {
-        return Err(io::Error::other(
-            "This folder has more than 20,000 files, too many to keep a copy of before each turn.",
-        ));
+        return Err(too_big(&dir, TOO_MANY_FILES.into(), now));
     }
     let mut files = Files::new();
     let mut not_kept = vec![];
@@ -227,8 +252,10 @@ fn take_with_git(store: &Store, workspace: &Path, git_here: bool) -> io::Result<
         }
         total += info.len();
         if total > 300 * 1024 * 1024 {
-            return Err(io::Error::other(
-                "This folder holds more than 300 MB of files, too much to keep a copy of before each turn.",
+            return Err(too_big(
+                &dir,
+                "This folder holds more than 300 MB of files, too much to keep a copy of before each turn.".into(),
+                now,
             ));
         }
         let content = match bytes(&full) {
@@ -888,7 +915,7 @@ mod putting_back_tests;
 #[cfg(test)]
 mod tests {
     use super::*;
-    struct Temp(PathBuf);
+    pub(super) struct Temp(pub(super) PathBuf);
     impl Temp {
         fn new() -> Self {
             static N: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
@@ -906,7 +933,7 @@ mod tests {
             let _ = fs::remove_dir_all(&self.0);
         }
     }
-    fn setup() -> (Temp, Store, PathBuf) {
+    pub(super) fn setup() -> (Temp, Store, PathBuf) {
         let t = Temp::new();
         let store = Store::with_codex(t.0.join("native"), t.0.join("electron"), vec![]).unwrap();
         let ws = t.0.join("workspace");
@@ -1290,3 +1317,7 @@ fn restore(
         "Safe Undo is unavailable on this platform.",
     ))
 }
+
+#[cfg(test)]
+#[path = "too_big_remembered_tests.rs"]
+mod too_big_remembered_tests;
