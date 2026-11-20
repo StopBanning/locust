@@ -2561,11 +2561,24 @@ except Exception:
         folder: Some(t.0.join("work").to_string_lossy().into()),
     };
     fs::create_dir_all(t.0.join("work")).unwrap();
-    let run = send(Send { teammate: mate, ..job(&t, None, "Say the key") }).unwrap();
+    let run = send(Send { teammate: mate.clone(), ..job(&t, None, "Say the key") }).unwrap();
     wait("the keyed turn finishes", || !owns(&run.conversation_id));
     let ledger = fs::read_to_string(path_of(&t, &run.conversation_id)).unwrap();
     assert!(ledger.contains("The key is [key STRIPE_KEY]"), "the run had the key, and the record has its name: {ledger}");
     assert!(!ledger.contains(VALUE) && !ledger.contains("missing"), "never the value");
+    // a-teammates-key-reaches-only-its-runs.test.ts, case 3: in no other run. Another teammate's run on the same agent,
+    // and a sealed run of the keyed teammate itself, are both given nothing (Codex is in reaches()'s own test).
+    let other = Teammate { id: "tm_ada".into(), name: "Ada".into(), ..mate.clone() };
+    let sealed_slot = Origin { slot: Some(SlotOrigin { key: "slot:cmp_k:a".into(), cwd: None, instructions: None, skill: None, sealed: true }), ..Default::default() };
+    for (what, job_of, origin) in [("another teammate's run", other, Origin::default()), ("a sealed run", mate.clone(), sealed_slot)] {
+        let run = send_from(Send { teammate: job_of, ..job(&t, None, "Say the key") }, origin).unwrap();
+        wait(what, || !owns(&run.conversation_id));
+        let ledger = fs::read_to_string(path_of(&t, &run.conversation_id)).unwrap();
+        assert!(ledger.contains("The key is missing"), "{what} has no key: {ledger}");
+    }
+    // case: is in its own teammate’s run, under its name, beside what the launch had
+    // case: is never in what Locust keeps of the run, whatever printed it
+    // case: is in no other run: another teammate’s, one with no teammate, a sealed one, or one on Codex
     // A removed teammate's keys go with it.
     crate::people::remove_teammate(&store, "tm_claude").unwrap();
     assert!(crate::teammate_keys::for_store(&store).run_keys("tm_claude").is_empty());
