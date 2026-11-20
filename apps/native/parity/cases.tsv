@@ -77,6 +77,12 @@ apps/desktop/src/main/a-card-answer-is-recorded-past-64-open-cards.test.ts	forge
 apps/desktop/src/main/a-card-answer-is-recorded-past-64-open-cards.test.ts	the answer funnel forgets the card right after recording it (source guard)	no
 apps/desktop/src/main/a-check-command-is-one-line.test.ts	is kept as the person typed it, trimmed	no
 apps/desktop/src/main/a-check-command-is-one-line.test.ts	is nothing when empty, too long, not text, or more than one line	no
+apps/desktop/src/main/a-claude-teammate-gets-its-skills.test.ts	the folder's skills always, as the plugin `project`, named the way a run calls them	yes
+apps/desktop/src/main/a-claude-teammate-gets-its-skills.test.ts	the person's own only when Settings lends them, as the plugin `personal`	yes
+apps/desktop/src/main/a-claude-teammate-gets-its-skills.test.ts	only folders holding a SKILL.md, with a name a skill can have, and never a link	yes
+apps/desktop/src/main/a-claude-teammate-gets-its-skills.test.ts	a link inside a skill is not copied, so removing the copy cannot reach past it	yes
+apps/desktop/src/main/a-claude-teammate-gets-its-skills.test.ts	a folder with no skills hands over nothing and leaves nothing behind	yes
+apps/desktop/src/main/a-claude-teammate-gets-its-skills.test.ts	a skill folder past the size bound is left out	yes
 apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	names the guard on Windows the way Codex runs a hook there: in PowerShell, on Locust’s own binary run as node	no
 apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	names it elsewhere exactly as Claude Code’s is named	no
 apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	is written only when LOCUST_GUARD_LOG names a file, one per question, with what was decided	no
@@ -940,6 +946,10 @@ apps/desktop/src/main/an-office-file-reads-in-any-mode.test.ts	keeps each docume
 apps/desktop/src/main/an-office-file-reads-in-any-mode.test.ts	refreshes a copy only when its document changed	no
 apps/desktop/src/main/an-office-file-reads-in-any-mode.test.ts	leaves out a damaged file, Word's lock files, and anything past the limit	no
 apps/desktop/src/main/an-office-file-reads-in-any-mode.test.ts	writes a table cell's pipe so it cannot split the row	no
+apps/desktop/src/main/an-opencode-run-keeps-the-persons-skill-paths.test.ts	keeps the last config that names them, in OpenCode’s own order, without changing any file	yes
+apps/desktop/src/main/an-opencode-run-keeps-the-persons-skill-paths.test.ts	reads the global folder once and first, honors XDG and the config directories, and stops at the worktree	yes
+apps/desktop/src/main/an-opencode-run-keeps-the-persons-skill-paths.test.ts	does not load disabled project config, and names a file it cannot read	yes
+apps/desktop/src/main/an-opencode-run-keeps-the-persons-skill-paths.test.ts	keeps an empty configuration empty and returns only string paths	yes
 apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	uses the machine-wide path on each platform and ignores the test override in a packaged app	yes
 apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	leaves a missing file unrestricted and never creates it	yes
 apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	uses the Windows known folder even if the process changes ProgramData	no
@@ -1495,6 +1505,11 @@ apps/desktop/src/main/permission-host.test.ts	refuses a question's answer aimed 
 apps/desktop/src/main/permission-host.test.ts	is an mcp.json that names the bridge, the loopback URL and the token, under the name the tool flag expects	yes
 apps/desktop/src/main/permission-host.test.ts	names a connector the way the activity rows do	yes
 apps/desktop/src/main/permission-host.test.ts	share one listener, and both are answered on it	no
+apps/desktop/src/main/popular-skill-packs-fit-and-agent-copies-are-chosen.test.ts	a font-bearing skill above five MB is kept and handed to Claude Code but ten MB remains the ceiling	yes
+apps/desktop/src/main/popular-skill-packs-fit-and-agent-copies-are-chosen.test.ts	agent copies choose skills then Claude then agents then any without hiding real name clashes	yes
+apps/desktop/src/main/popular-skill-packs-fit-and-agent-copies-are-chosen.test.ts	a popular pack is only previewed on the first click and all offered skills are ready for the second	yes
+apps/desktop/src/main/popular-skill-packs-fit-and-agent-copies-are-chosen.test.ts	the five popular packs have dated stars and licenses and Claude Mem names its separate install	yes
+apps/desktop/src/main/popular-skill-packs-fit-and-agent-copies-are-chosen.test.ts	the new-this-week packs are dated, licensed, younger than the snapshot and can be opened	yes
 apps/desktop/src/main/qa-0365-rooms.test.ts	room-store.ts	no
 apps/desktop/src/main/qa-0365-rooms.test.ts	the placeholders are not read as operations	yes
 apps/desktop/src/main/qa-0365-rooms.test.ts	does not put the placeholders on the board	yes
@@ -1879,6 +1894,20 @@ apps/desktop/src/main/settings-read-like-claudes.test.ts	draws the group label a
 apps/desktop/src/main/settings-read-like-claudes.test.ts	puts no card around a setting: rows sit on the pane with a hairline between	yes
 apps/desktop/src/main/settings-read-like-claudes.test.ts	draws a setting that is one control as one line: name and description left, the control right (0.393, Appearance 0.394)	yes
 apps/desktop/src/main/settings-read-like-claudes.test.ts	says "How it works" in sentence case	yes
+apps/desktop/src/main/skills-kept-from-github.test.ts	reads owner/repo, a github.com link, and a link to a folder on a branch	yes
+apps/desktop/src/main/skills-kept-from-github.test.ts	refuses what is not one	yes
+apps/desktop/src/main/skills-kept-from-github.test.ts	reads a SKILL.md's description, quoted or not	yes
+apps/desktop/src/main/skills-kept-from-github.test.ts	lists each skill with its files, the ones that run marked, and keeps nothing yet	yes
+apps/desktop/src/main/skills-kept-from-github.test.ts	keeps the picked skills at the commit that was looked at, byte for byte	yes
+apps/desktop/src/main/skills-kept-from-github.test.ts	keeps the folder the link named, not a same-named one elsewhere, nor nothing for a root skill (2026-10-10 sweep)	yes
+apps/desktop/src/main/skills-kept-from-github.test.ts	looking again shows what is kept, and keeping again replaces it with the new commit	yes
+apps/desktop/src/main/skills-kept-from-github.test.ts	a file that does not arrive as GitHub lists it keeps nothing at all	yes
+apps/desktop/src/main/skills-kept-from-github.test.ts	and leaves no staging folder when the other files are still arriving as it refuses	yes
+apps/desktop/src/main/skills-kept-from-github.test.ts	a name kept from one repository is held in another, and refused if asked anyway	yes
+apps/desktop/src/main/skills-kept-from-github.test.ts	says plainly what GitHub would not give	yes
+apps/desktop/src/main/skills-kept-from-github.test.ts	follows a redirect only to GitHub's own hosts	yes
+apps/desktop/src/main/skills-kept-from-github.test.ts	refuses a keep it was not shown: a name not in that commit, or no commit	yes
+apps/desktop/src/main/skills-kept-from-github.test.ts	outside Auto beside the folder's own; in Auto, the kept ones alone	yes
 apps/desktop/src/main/teammate-store.test.ts	keeps the bot the person picked, and only the fields it knows	no
 apps/desktop/src/main/teammate-store.test.ts	refuses a shape there is no bot for	no
 apps/desktop/src/main/teammate-store.test.ts	takes every one of the nine colours	no
@@ -2897,6 +2926,11 @@ apps/desktop/src/renderer/src/a-signed-out-teammate-is-not-idle.test.ts	keeps a 
 apps/desktop/src/renderer/src/a-signed-out-teammate-is-not-idle.test.ts	is blocked when nothing at all is signed in, whatever it is set to	yes
 apps/desktop/src/renderer/src/a-signed-out-teammate-is-not-idle.test.ts	is not told to sign in	yes
 apps/desktop/src/renderer/src/a-signed-out-teammate-is-not-idle.test.ts	still is, when the runtime says it is signed out	yes
+apps/desktop/src/renderer/src/a-skill-row-names-its-skill.test.ts	reads as the skill used, without the prefix Locust added	yes
+apps/desktop/src/renderer/src/a-skill-row-names-its-skill.test.ts	one with no name still reads as a skill, never as the tool id	yes
+apps/desktop/src/renderer/src/a-skill-row-names-its-skill.test.ts	the steps' line says which skill, and its short form says a skill, never a tool	yes
+apps/desktop/src/renderer/src/a-skill-row-names-its-skill.test.ts	a skill's own file reads as the file it is a copy of, not the run's copy	yes
+apps/desktop/src/renderer/src/a-skill-row-names-its-skill.test.ts	the live line and the rail say the same	yes
 apps/desktop/src/renderer/src/a-spreadsheet-opens-as-a-grid.test.tsx	is the grid a spreadsheet person reads: letters across, numbers down	no
 apps/desktop/src/renderer/src/a-spreadsheet-opens-as-a-grid.test.tsx	shows a formula with no result as written, and says why once	no
 apps/desktop/src/renderer/src/a-spreadsheet-opens-as-a-grid.test.tsx	has a tab per sheet, below the grid as Excel keeps them	no
@@ -3875,6 +3909,10 @@ apps/desktop/src/renderer/src/plan-answer.test.tsx	widens the gutter past nine s
 apps/desktop/src/renderer/src/plan-answer.test.tsx	renders nothing at all when the turn produced no steps	yes
 apps/desktop/src/renderer/src/plan-answer.test.tsx	keeps its markers, its counter and its label	yes
 apps/desktop/src/renderer/src/plan-answer.test.tsx	also renders nothing when there are no steps	yes
+apps/desktop/src/renderer/src/popular-skills-wait-for-keep.test.tsx	a kept pack says how many of its files run, in a sentence that agrees	yes
+apps/desktop/src/renderer/src/popular-skills-wait-for-keep.test.tsx	the popular shelf shows five packs and opens the existing Look before any Keep	yes
+apps/desktop/src/renderer/src/popular-skills-wait-for-keep.test.tsx	the new-this-week row uses the same tile and says how long each pack has been climbing	yes
+apps/desktop/src/renderer/src/popular-skills-wait-for-keep.test.tsx	every file that runs is named before keeping even when a skill has more than four scripts	yes
 apps/desktop/src/renderer/src/post-headline.test.ts	says so when everyone answered	yes
 apps/desktop/src/renderer/src/post-headline.test.ts	names one or two, and counts more	yes
 apps/desktop/src/renderer/src/post-headline.test.ts	counts a queue separately from what was asked	yes
@@ -5117,6 +5155,15 @@ packages/runtime-adapters/test/a-real-muse-wonder-run-reads-whole.test.ts	reads 
 packages/runtime-adapters/test/a-real-muse-wonder-run-reads-whole.test.ts	says once that Meta's model is being tried again, and nothing for its first try	no
 packages/runtime-adapters/test/a-real-muse-wonder-run-reads-whole.test.ts	lets the session's bookkeeping go quietly, the branch it saw in a git folder among it	no
 packages/runtime-adapters/test/a-real-muse-wonder-run-reads-whole.test.ts	fails a tool it would not run on that tool's row, and lets its own reminder go quietly	no
+packages/runtime-adapters/test/a-run-is-handed-its-own-skills.test.ts	names the run's skill folder after the handshake and before the thread starts	yes
+packages/runtime-adapters/test/a-run-is-handed-its-own-skills.test.ts	runs the turn without them when the server does not know the request	yes
+packages/runtime-adapters/test/a-run-is-handed-its-own-skills.test.ts	says nothing about skills to a run that has none	yes
+packages/runtime-adapters/test/a-run-is-handed-its-own-skills.test.ts	in its per-run config's skills.paths, in every mode and on both routes, beside the rest of that config	yes
+packages/runtime-adapters/test/a-run-is-handed-its-own-skills.test.ts	never as a config folder: OpenCode would install its plugin package into it before every run	yes
+packages/runtime-adapters/test/a-run-is-handed-its-own-skills.test.ts	adds to configured paths on both routes and preserves the skill URLs	yes
+packages/runtime-adapters/test/a-run-is-handed-its-own-skills.test.ts	allows only the run's skills subtree and leaves every other mode rule in place	yes
+packages/runtime-adapters/test/a-run-is-handed-its-own-skills.test.ts	names the run's plugin on the print route and the ACP route, beside the command guard, and nowhere when there is none	yes
+packages/runtime-adapters/test/a-run-is-handed-its-own-skills.test.ts	adds the run's folder on every mode, as an absolute --add-dir, and still only lends a reference folder to a read-only run	yes
 packages/runtime-adapters/test/a-run-without-connectors-leaves-them-out.test.ts	stay out when the run is told so, on every model and in every mode, and Locust's own servers stay in	yes
 packages/runtime-adapters/test/a-run-without-connectors-leaves-them-out.test.ts	come along for a teammate that has them on, and where nothing was said	no
 packages/runtime-adapters/test/a-running-codex-turn-can-be-steered.test.ts	sends turn/steer on the thread, with the running turn's id, and says it was taken	no

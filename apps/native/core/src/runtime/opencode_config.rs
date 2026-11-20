@@ -163,13 +163,18 @@ pub fn rewrite_config(command: &mut Command, change: impl FnOnce(Value) -> Value
     }
 }
 
-/// withOpenCodeSkills: the run's skills folder in `skills.paths` (after any the config had), and that folder readable
-/// outside the workspace unless every folder already is.
-pub fn with_skills(mut config: Value, dir: Option<&str>) -> Value {
+/// withOpenCodeSkills: `skills.paths` is the person's own paths (`opencode_skill_paths`: OpenCode keeps only the last
+/// config's list, and this run's config is last), then any the config had, then the run's skills folder, each once and
+/// strings only; the rest of `skills` (its `urls`) kept. The folder is readable outside the workspace unless every
+/// folder already is. No folder, the config as it was: the person's paths are only carried beside one.
+pub fn with_skills(mut config: Value, dir: Option<&str>, person: &[String]) -> Value {
     let Some(dir) = dir.filter(|d| !d.is_empty()) else { return config };
-    let mut paths: Vec<Value> = config["skills"]["paths"].as_array().cloned().unwrap_or_default();
-    if !paths.iter().any(|p| p == dir) {
-        paths.push(json!(dir));
+    let old = config["skills"]["paths"].as_array().cloned().unwrap_or_default();
+    let mut paths: Vec<Value> = Vec::new();
+    for path in person.iter().map(String::as_str).chain(old.iter().filter_map(Value::as_str)).chain([dir]) {
+        if !paths.iter().any(|p| p == path) {
+            paths.push(json!(path));
+        }
     }
     if !config["skills"].is_object() {
         config["skills"] = json!({});

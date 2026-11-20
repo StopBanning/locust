@@ -13,6 +13,27 @@ fn label(s: &str, limit: usize) -> String {
         format!("{}…", flat.chars().take(limit - 1).collect::<String>())
     }
 }
+/// skillCalled (missionView.ts, 0.679): the skill a Skill call ran, as the person would name it, or None for any other
+/// tool ("" when it named none). Locust hands a folder's skills over as the plugin `project` and the person's own as
+/// `personal` (skills.rs), so that prefix is Locust's and goes; anyone else's plugin keeps its name.
+pub fn skill_called(tool: &str, target: &str) -> Option<String> {
+    if !tool.trim().eq_ignore_ascii_case("skill") {
+        return None;
+    }
+    let target = target.trim();
+    Some(target.strip_prefix("project:").or_else(|| target.strip_prefix("personal:")).unwrap_or(target).to_owned())
+}
+
+/// skillWords: "Used the review skill", or the live line's "Using the review skill"; "Used a skill" when none named.
+pub fn skill_words(skill: &str, live: bool) -> String {
+    let verb = if live { "Using" } else { "Used" };
+    if skill.is_empty() {
+        format!("{verb} a skill")
+    } else {
+        format!("{verb} the {} skill", label(skill, 40))
+    }
+}
+
 pub fn tool_name(p: &Value) -> String {
     let name = p["name"].as_str().unwrap_or("");
     let kind = p["toolKind"].as_str().unwrap_or("");
@@ -43,16 +64,8 @@ pub fn tool_name(p: &Value) -> String {
         } else {
             "Ran a command".into()
         }
-    } else if name.trim().eq_ignore_ascii_case("skill") {
-        let skill = target
-            .strip_prefix("project:")
-            .or_else(|| target.strip_prefix("personal:"))
-            .unwrap_or(&target);
-        if skill.is_empty() {
-            "Used a skill".into()
-        } else {
-            format!("Used the {} skill", label(skill, 40))
-        }
+    } else if let Some(skill) = skill_called(name, if target == name { "" } else { &target }) {
+        skill_words(&skill, false)
     } else if name == "file_change" || crate::mission_export::edit_tool_name(name) {
         if shown {
             format!("Changed {file}")

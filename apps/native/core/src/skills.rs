@@ -145,6 +145,19 @@ fn build_plugin(base: &Path, name: &'static str, from: Option<&Path>, only: Opti
     (!copied.is_empty()).then_some(Plugin { name, dir, skills: copied })
 }
 
+/// The folders a run's skill copies live in, Claude Code's plugins' and the one run folder: what goes when it ends.
+pub fn copies_of(claude: &[Plugin], run: Option<&RunSkills>) -> Vec<PathBuf> {
+    claude.first().and_then(|p| p.dir.parent().map(Path::to_path_buf)).into_iter().chain(run.map(|r| r.dir.clone())).collect()
+}
+
+/// dispose: the run's copies removed, never what a link inside them names (`remove_dir_all` does not follow links,
+/// and no link was copied). Safe to call again.
+pub fn remove_copies(copies: &[PathBuf]) {
+    for copy in copies {
+        let _ = std::fs::remove_dir_all(copy);
+    }
+}
+
 /// Where a run's skills come from.
 #[derive(Debug, Clone, Default)]
 pub struct Sources {
@@ -341,6 +354,10 @@ pub fn forget_roots(mission: &str) {
         m.remove(mission);
     }
 }
+
+#[cfg(test)]
+#[path = "skills_claude_tests.rs"]
+mod claude_tests;
 
 #[cfg(test)]
 mod tests {

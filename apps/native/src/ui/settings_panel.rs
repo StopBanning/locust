@@ -144,6 +144,7 @@ fn reload(s: &mut State) {
     }
     crate::agents_section::request(s);
     crate::github_section::request(s);
+    crate::skills_from_github::reload(s);
     crate::chat_apps_section::reload(s);
     crate::claude_app_card::request(s);
     crate::agent_accounts_card::reload(s);
@@ -1067,6 +1068,7 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                             }));
                     }
                     "Auto mode" => body = body.child(auto_mode_section(s, p)),
+                    crate::skills_from_github::HEADING => body = body.child(crate::skills_from_github::section(s, p)),
                     _ => body = body.child(deferred(heading, p)),
                 }
             }

@@ -403,3 +403,93 @@ Branch `exec/native-memory-1`, tests in `core/src/memory_round_tests.rs` (new), 
   - w3, w4 and w5 survived until those tests were written.
 - The host's own `.locust/memory.md` write is not a change the turn made. It is written before the turn's checkpoint
   begins. The plain walk skips `.locust/`, and in a repository `.locust/` is in `.git/info/exclude`.
+
+## Skills round 1 (19 Nov, skills a teammate is given and kept from GitHub)
+
+Seven Electron files, 47 cases, each with a Rust test by its own words. Breaks are in `~/work/scratch/skills1/`, run
+through `breaks_core.run` with a filter (`skill`, `skill_library`, `skills_from_github`); every one listed was caught
+by the named test.
+
+- **A run is handed its own skills** (`runtime/run_skills_tests.rs`, 9 cases), carried. Codex: the fake app-server
+  logs what it is asked, and answers `skills/extraRoots/set` slowly, so a thread that did not wait would show first.
+  Native's OpenCode 1 always runs `opencode serve`, so Electron's run and serve routes are one config per mode, with
+  Approve each among them. Every native Copilot run gets the command guard's `--plugin-dir` after its argv is built.
+  So "nowhere when there is none" reads: no skills plugin, only the guard's. The ACP route needs the `copilot` binary
+  to build its command, and the test checks it only where one is installed (it is on this Mac). Fixed: Antigravity
+  took a relative skills folder; `antigravity::command` now refuses one before looking for `agy`.
+  Breaks: extraRoots not sent -> `names_the_runs_skill_folder_after_the_handshake_and_before_the_thread_starts`; a
+  refusal made fatal -> `runs_the_turn_without_them_when_the_server_does_not_know_the_request`; `/**` for `/*` ->
+  `allows_only_the_runs_skills_subtree_and_leaves_every_other_mode_rule_in_place`; relative accepted ->
+  `adds_the_runs_folder_on_every_mode_as_an_absolute_add_dir_and_still_only_lends_a_reference_folder_to_a_read_only_run`.
+- **An OpenCode run keeps the person's skill paths** (`core/src/opencode_skill_paths.rs`, 4 cases), carried. This
+  was a real gap: the run's config named only Locust's folder, and OpenCode keeps only the last config's
+  `skills.paths`, so the person's own paths were dropped. The reader follows OpenCode's order: global, then
+  `OPENCODE_CONFIG`, then each folder from the repository root down, then `.opencode` and `OPENCODE_CONFIG_DIR`, then
+  `OPENCODE_CONFIG_CONTENT`. A small JSONC reader handles comments outside strings and trailing commas (no crate).
+  `with_skills` now takes the person's paths and puts them first, then the config's, then the run's folder, keeping
+  `urls`. Native reads Locust's own HOME and environment, not the child `Command`'s, because `configure` points the
+  child's `XDG_CONFIG_HOME` at Locust's OpenCode home. A settings file that is not JSON refuses the run before it
+  starts, in Electron's sentence. One difference: native canonicalizes the work folder (`skill_project_folders`)
+  where Electron uses `resolve`.
+  Breaks: person's paths dropped -> `adds_to_configured_paths_on_both_routes_and_preserves_the_skill_urls`; folders
+  read root-last, a later list appended, `OPENCODE_CONFIG` ignored ->
+  `keeps_the_last_config_that_names_them_in_opencodes_own_order_without_changing_any_file`; `true` not honored ->
+  `does_not_load_disabled_project_config_and_names_a_file_it_cannot_read`; empty strings kept ->
+  `keeps_an_empty_configuration_empty_and_returns_only_string_paths`.
+- **A Claude teammate gets its skills** (`core/src/skills_claude_tests.rs`, 6 cases), carried. `skills::copies_of`
+  and `remove_copies` are what `native.rs` now calls when a run ends. Breaks: copies left ->
+  `the_folders_skills_always_as_the_plugin_project_named_the_way_a_run_calls_them`; an empty base made ->
+  `a_folder_with_no_skills_hands_over_nothing_and_leaves_nothing_behind`. Not built: Electron also clears every
+  copy folder when the app starts (`clearClaudeSkillCopies`), so a crashed run's copies are left behind in native
+  until that is added.
+- **A skill row names its skill** (`core/src/skill_row_tests.rs`, 5 cases), carried. `signal_rail::skill_called`
+  and `skill_words` are now the one place for this, used by the rail, by `tool_fold::shown_name` (the row) and by
+  `thread_view::live_action` ("Using the review skill", which the live line did not say before). Bug fixed:
+  `path_words` mapped a run's copy back to `.claude/skills/...` only for Electron's uuid folder. Native names its
+  copies `<pid>-<nanos>` (`skills::fresh`), so its own copies were shown by their profile path. The regex now
+  takes both; it was fixed there rather than in `fresh`, because one profile can hold either.
+  Breaks: uuid only -> `a_skills_own_file_reads_as_the_file_it_is_a_copy_of_not_the_runs_copy`; prefix kept ->
+  `reads_as_the_skill_used_without_the_prefix_locust_added`; live line says Used ->
+  `the_live_line_and_the_rail_say_the_same`; tool id read as a skill name ->
+  `one_with_no_name_still_reads_as_a_skill_never_as_the_tool_id`.
+- **Skills kept from GitHub and popular packs** (`core/src/skill_library.rs`, 19 + 1 cases). Preview, a verified
+  keep, look again, remove, redirects only to GitHub's two hosts, the rate-limit and offline sentences, and the
+  popular and trending snapshots. The kept skills go to the native profile's `skill-library/skills`, which
+  `sources_for_store` already hands every run, with `library.json` in Electron's own shape. The HTTP client is
+  passed in (`chat_http::HttpClient`), so the tests answer for GitHub. The git blob id is a hand-written SHA-1,
+  checked against `git hash-object` (`hello\n` and the empty file), because no new crate was allowed.
+  Done differently: files are fetched one at a time. Electron's six lanes let a refused keep's cleanup race a file
+  still being written (0.711). With one request at a time, nothing is writing when the staging folder goes.
+  Breaks: SHA-1 round -> `git_blob_ids_are_gits_own`; blob not checked or staging kept ->
+  `a_file_that_does_not_arrive_as_github_lists_it_keeps_nothing_at_all`; any redirect followed ->
+  `follows_a_redirect_only_to_githubs_own_hosts`; links carried or mode 100755 ignored ->
+  `lists_each_skill_with_its_files_the_ones_that_run_marked_and_keeps_nothing_yet`; 20 MB ceiling ->
+  `a_font_bearing_skill_above_five_mb_is_kept_and_handed_to_claude_code_but_ten_mb_remains_the_ceiling`; copy rank
+  inverted -> `agent_copies_choose_skills_then_claude_then_agents_then_any_without_hiding_real_name_clashes`; name
+  clash across repositories -> `a_name_kept_from_one_repository_is_held_in_another_and_refused_if_asked_anyway`;
+  link folder ignored -> `keeps_the_folder_the_link_named_not_a_same_named_one_elsewhere_nor_nothing_for_a_root_skill`;
+  keptAt lost or the old keep not replaced -> `looking_again_shows_what_is_kept_and_keeping_again_replaces_it_with_the_new_commit`;
+  rate limit unread -> `says_plainly_what_github_would_not_give`. The private check survived, because the fake answers
+  a private repository with 404 as GitHub does. `a_repository_github_calls_private_is_refused_even_when_it_answers`
+  holds it now, and catches the break. A link with another word where `tree` goes ->
+  `refuses_what_is_not_one`. A first weak break of that check (`blob` refused alone) survived and was replaced.
+  `skills-kept-from-github` stays partial, for two reasons:
+  - The real client is `MacUrlSessionClient`, and NSURLSession follows a redirect itself before Locust sees it. So
+    the GitHub-hosts-only rule holds for any client that hands Locust the 3xx, but not for the real one yet. It needs
+    a session delegate that refuses redirects.
+  - The screen has no box to paste a repository of your own.
+- **The screen** (`src/ui/skills_from_github.rs`, Settings › Teammates › Skills from GitHub, 4 cases), carried. It
+  draws both rows of tiles, which look and never keep (a shelf look picks every offered skill), and each tile's
+  Repository link. The preview lists each skill's files that run, what is held and why, Pick by pressing, Cancel and
+  Keep. Each kept pack has a row with Look for changes and a two-press Remove. Electron's cases also grep its `.tsx`
+  source for strings (`look(pack.source, true)`, no `installSkillLibrary` in the tile). A Rust source has nothing to
+  grep, so the test presses a tile and checks nothing is kept until Keep. The look runs off the window's thread. Tests
+  never reach GitHub: without a fake, nothing is asked. Breaks: "1 file that run" ->
+  `a_kept_pack_says_how_many_of_its_files_run_in_a_sentence_that_agrees`; a shelf look picking nothing, Runs line
+  dropped, Repository link to the wrong page ->
+  `the_popular_shelf_shows_five_packs_and_opens_the_existing_look_before_any_keep`; trending meta as popular ->
+  `the_new_this_week_row_uses_the_same_tile_and_says_how_long_each_pack_has_been_climbing`; a look that also keeps ->
+  `the_popular_shelf_shows_five_packs_and_opens_the_existing_look_before_any_keep`. A first try (Keep pressed from
+  the tile) survived because Keep is refused while a look is out; it was replaced by that one.
+- **Left:** a session delegate so the real client refuses redirects; the paste box; the startup sweep of stale skill
+  copies.
