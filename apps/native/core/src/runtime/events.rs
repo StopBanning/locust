@@ -612,3 +612,7 @@ impl Normalizer {
         vec![event]
     }
 }
+
+#[cfg(test)]
+#[path = "a_long_json_key_tests.rs"]
+mod a_long_json_key_tests;
