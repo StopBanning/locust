@@ -1350,6 +1350,7 @@ fn scout_brief_lists_comments_asking_locust_when_quiet() {
         .contains("comments asking Locust"));
 }
 
+// case: are read every minute while Scout is on, apart from its looks
 #[test]
 fn minute_timer_reads_comments_every_minute() {
     let tmp = TempDir::new();
@@ -1369,6 +1370,7 @@ fn minute_timer_reads_comments_every_minute() {
     assert_eq!(deps.comment_reads.lock().unwrap().len(), 2);
 }
 
+// case: become a card within the minute, not at the next look
 #[test]
 fn minute_timer_raises_comment_card_within_the_minute() {
     let tmp = TempDir::new();
@@ -1393,6 +1395,7 @@ fn minute_timer_raises_comment_card_within_the_minute() {
     assert_eq!(cards[0].fact.key, "comment:acme/app:51");
 }
 
+// case: cost one read and no model in a minute with nothing new
 #[test]
 fn minute_timer_with_no_new_comments_costs_one_read_and_no_model_or_look() {
     let tmp = TempDir::new();
@@ -1410,6 +1413,7 @@ fn minute_timer_with_no_new_comments_costs_one_read_and_no_model_or_look() {
     assert!(scout.state().last_look_at.is_none());
 }
 
+// case: are raised once, by the minute or by a look, never both
 #[test]
 fn minute_timer_and_look_raise_same_comment_only_once() {
     let tmp = TempDir::new();
@@ -1439,6 +1443,7 @@ fn minute_timer_and_look_raise_same_comment_only_once() {
     assert_eq!(after_look.cards[0].fact.key, "comment:acme/app:52");
 }
 
+// case: are not read with Scout off or its comment watch off
 #[test]
 fn minute_timer_does_not_read_with_scout_off_or_comments_watch_off() {
     let tmp = TempDir::new();

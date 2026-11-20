@@ -312,6 +312,11 @@ apps/desktop/src/main/a-link-opens-locust-with-a-message-ready.test.ts	is never 
 apps/desktop/src/main/a-locked-file-is-not-a-permission-problem.test.ts	names a locked file as a lock, with no prefix to move	yes
 apps/desktop/src/main/a-locked-file-is-not-a-permission-problem.test.ts	still names an unwritable folder as one	yes
 apps/desktop/src/main/a-locked-file-is-not-a-permission-problem.test.ts	reads the same EPERM as a folder problem off Windows, where a lock does not look like this	yes
+apps/desktop/src/main/a-locust-comment-is-read-within-a-minute.test.ts	are read every minute while Scout is on, apart from its looks	yes
+apps/desktop/src/main/a-locust-comment-is-read-within-a-minute.test.ts	become a card within the minute, not at the next look	yes
+apps/desktop/src/main/a-locust-comment-is-read-within-a-minute.test.ts	cost one read and no model in a minute with nothing new	yes
+apps/desktop/src/main/a-locust-comment-is-read-within-a-minute.test.ts	are raised once, by the minute or by a look, never both	yes
+apps/desktop/src/main/a-locust-comment-is-read-within-a-minute.test.ts	are not read with Scout off or its comment watch off	yes
 apps/desktop/src/main/a-login-item-registers-only-the-packaged-app.test.ts	sets --background on the packaged executable and reads back what the host holds	yes
 apps/desktop/src/main/a-login-item-registers-only-the-packaged-app.test.ts	does not register electron.exe from a development build, or off Windows	no
 apps/desktop/src/main/a-login-item-registers-only-the-packaged-app.test.ts	registers the app itself on a Mac, and reads back when macOS waits for the person to allow it	no
