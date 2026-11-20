@@ -134,7 +134,7 @@ fn rust_command(case: &Value) -> Result<(Vec<String>, Env), String> {
     }
     if runtime == "opencode" && skills.is_some() {
         let op: Value = serde_json::from_str(&env["OPENCODE_CONFIG_CONTENT"]).unwrap();
-        env.insert("OPENCODE_CONFIG_CONTENT".into(), super::opencode_config::with_skills(op, skills).to_string());
+        env.insert("OPENCODE_CONFIG_CONTENT".into(), super::opencode_config::with_skills(op, skills, &[]).to_string());
     }
     Ok((args, env))
 }

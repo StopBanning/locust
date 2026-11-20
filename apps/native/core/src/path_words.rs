@@ -47,7 +47,9 @@ pub fn relative_path(path: &str, workspace: Option<&str>) -> String {
     if let Some(inside) = cloud_relative(&full) {
         return inside;
     }
-    if let Some(c) = regex(r"(?i)(?:^|/)claude-skills/[0-9a-f-]{36}/(project|personal)/skills/(.+)$").captures(&full) {
+    // A run's copy of a skill reads as the file it copies: Electron names the run's folder by a uuid, native by
+    // `<pid>-<nanos>` (skills::fresh), and one profile can hold either.
+    if let Some(c) = regex(r"(?i)(?:^|/)claude-skills/(?:[0-9a-f-]{36}|[0-9]+-[0-9]+)/(project|personal)/skills/(.+)$").captures(&full) {
         return format!("{}.claude/skills/{}", if c[1].eq_ignore_ascii_case("personal") { "~/" } else { "" }, &c[2]);
     }
     if regex(r"(?i)(?:^|/)\.cursor/projects/[^/]+/agent-tools/[^/]+$").is_match(&full) {

@@ -29,6 +29,10 @@ fn is_image_path(path: &str) -> bool {
 /// What the row shows as the call's name: its target when the runtime gave one, else the tool's own name.
 pub fn shown_name(name: &str, summary: &str, arguments: &str) -> String {
     let raw = [summary, arguments, name].into_iter().map(str::trim).find(|s| !s.is_empty()).unwrap_or_default();
+    // A skill reads as the skill used, never as the tool id (activityEntries, 0.679).
+    if let Some(skill) = crate::signal_rail::skill_called(name, if raw == name.trim() { "" } else { raw }) {
+        return crate::signal_rail::skill_words(&skill, false);
+    }
     if raw == "manage_task" {
         "Checked on a command".to_owned()
     } else {

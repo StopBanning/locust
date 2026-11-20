@@ -114,6 +114,8 @@ mod opencode_2_step_tests;
 mod opencode_parent_git_tests;
 #[cfg(test)]
 mod acp_rename_tests;
+#[cfg(test)]
+mod run_skills_tests;
 
 pub mod permission_bridge;
 
