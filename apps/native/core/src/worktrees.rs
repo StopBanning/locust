@@ -1004,3 +1004,7 @@ mod tests;
 #[cfg(test)]
 #[path = "a_folder_cannot_make_locust_run_its_program_tests.rs"]
 mod a_folder_cannot_make_locust_run_its_program_tests;
+
+#[cfg(test)]
+#[path = "worktrees_markers_tests.rs"]
+mod worktrees_markers_tests;
