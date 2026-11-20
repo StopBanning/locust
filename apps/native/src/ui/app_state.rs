@@ -428,6 +428,10 @@ pub(super) struct State {
     pub(super) relay_live: native::RelayLiveState,
     pub(super) relay_hop_cap: u32,
     pub(super) left_out_by_you: Vec<String>,
+    /// The handoff preview under the box, as the send would compose it, and what it was composed for (the
+    /// conversation, the runtime the reply goes to, the leave-outs, the draft's size), so it is read again only when
+    /// one of those changes (handoff_divider::refresh_preview).
+    pub(super) handoff_preview: Option<(String, Option<String>)>,
     pub(super) edit: crate::edit_message::Panel,
     pub(super) exchange_open: Option<String>,
     pub(super) exchange_stopping: bool,
@@ -679,6 +683,7 @@ impl Default for State {
             relay_live: native::RelayLiveState::default(),
             relay_hop_cap: locust_core::workspace_settings::DEFAULT_RELAY_HOP_CAP,
             left_out_by_you: Vec::new(),
+            handoff_preview: None,
             edit: crate::edit_message::Panel::default(),
             exchange_open: None,
             exchange_stopping: false,

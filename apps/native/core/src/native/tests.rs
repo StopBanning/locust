@@ -3507,3 +3507,25 @@ fn a_stop_on_a_finished_turn_changes_nothing() {
     assert_eq!(owned_key(Some(&run.conversation_id), Some(&run.conversation_id)), None, "no Stop is offered");
     assert_eq!(fs::read_to_string(&path).unwrap(), before, "nothing written");
 }
+
+/// a-handoff-says-what-it-carries.test.ts, through the engine: the preview is composed as the send would compose it,
+/// reads only, and says nothing for a reply on the same runtime.
+#[test]
+fn a_handoff_preview_is_the_send_composed_and_nothing_on_the_same_runtime() {
+    use crate::carry_on::{HandoffPreview, handoff_preview_line};
+    let t = Temp::new();
+    let _g = hooks::install(t.store(), fake("success"));
+    let first = send(job(&t, None, "Synthetic prompt")).unwrap();
+    finished(&first.conversation_id);
+    let made = ledgers(&t).len();
+    assert_eq!(handoff_preview(&first.conversation_id, "codex", "Continue", &[]), HandoffPreview::Same);
+    let preview = handoff_preview(&first.conversation_id, "claude", "Continue", &[]);
+    let HandoffPreview::Switch { kept, .. } = &preview else { panic!("{preview:?}") };
+    assert_eq!(kept.first().map(String::as_str), Some("task"));
+    let said = handoff_preview_line(Some(&preview)).unwrap();
+    assert!(said.starts_with("It carries the task"), "{said}");
+    let without = handoff_preview(&first.conversation_id, "claude", "Continue", &["summary".to_owned()]);
+    let HandoffPreview::Switch { kept, .. } = &without else { panic!("{without:?}") };
+    assert!(!kept.iter().any(|k| k == "summary"), "{kept:?}");
+    assert_eq!(ledgers(&t).len(), made, "a preview writes nothing");
+}

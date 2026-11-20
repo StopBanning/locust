@@ -1321,6 +1321,10 @@ struct RouteSwitch {
     prompt: String,
     link: Value,
     checkpoint: Value,
+    /// What the composed handoff carries, for the preview under the box (`handoff_preview`).
+    kept: Vec<String>,
+    omitted: Vec<String>,
+    task_clipped: bool,
     /// The stopped turn's ledger, when it is the native engine's own (the checkpoint is appended there).
     native_prior: Option<PathBuf>,
 }
@@ -1424,7 +1428,29 @@ fn route_switch(store: &Store, tip: &str, reply: &str, left_out_by_you: &[String
         link["leftOutByYou"] = json!(briefing.left_out_by_you);
     }
     let native_prior = store.ledger_dir().ok().filter(|dir| prior.path.starts_with(dir)).map(|_| prior.path.clone());
-    Ok(RouteSwitch { prompt: briefing.prompt, link, checkpoint, native_prior })
+    Ok(RouteSwitch { prompt: briefing.prompt, link, checkpoint, native_prior, kept: briefing.kept, omitted: briefing.omitted, task_clipped: briefing.task_clipped })
+}
+
+/// What a reply on `runtime` in this conversation would carry, composed as the send composes it (Electron's
+/// HANDOFF_PREVIEW_CHANNEL). Reads only: nothing is written or started.
+pub fn handoff_preview(conversation: &str, runtime: &str, reply: &str, left_out_by_you: &[String]) -> crate::carry_on::HandoffPreview {
+    use crate::carry_on::HandoffPreview;
+    let Some(store) = store() else { return HandoffPreview::Same };
+    let Ok(tip) = real_tip(conversation) else { return HandoffPreview::Same };
+    let Some(prior) = turn_records(&tip) else { return HandoffPreview::Same };
+    if prior.metadata["runtime"].as_str().unwrap_or_default() == runtime {
+        return HandoffPreview::Same;
+    }
+    match route_switch(&store, &tip, reply, left_out_by_you) {
+        Ok(sw) => HandoffPreview::Switch {
+            unsettled_count: sw.checkpoint["unsettledActions"].as_array().map_or(0, Vec::len),
+            kept: sw.kept,
+            omitted: sw.omitted,
+            task_by_file: false,
+            task_clipped: sw.task_clipped,
+        },
+        Err(message) => HandoffPreview::Refused(message),
+    }
 }
 
 /// Turns already carried on, so a second press while the first is starting is refused rather than run twice.

@@ -126,6 +126,40 @@ pub(super) fn view(
     Some(body)
 }
 
+/// What the next reply would go to and carry: the key the cached preview was composed for.
+fn preview_key(s: &State) -> Option<(String, String, String)> {
+    let pane = s.ledger.as_ref()?;
+    let conversation = pane.conversation.conversation_id.clone()?;
+    let teammate = &pane.header;
+    let runtime = s.picks.get(&teammate.id).and_then(|pk| pk.runtime.clone()).or_else(|| teammate.runtime.clone()).unwrap_or_else(|| "codex".into());
+    // Only a reply on another runtime has a handoff to preview: the same runtime reads nothing.
+    if pane.snapshot.turn_metas.last().is_none_or(|meta| meta.runtime == runtime) {
+        return None;
+    }
+    // The draft matters only by its size (a long reply can push a section out), so it is read again per 2,000 characters.
+    let key = format!("{conversation}|{runtime}|{}|{}", s.left_out_by_you.join(","), s.draft.text.len() / 2000);
+    Some((key, conversation, runtime))
+}
+
+/// Compose the handoff preview again when what it is for has changed (HANDOFF_PREVIEW_CHANNEL); otherwise keep it.
+pub(super) fn refresh_preview(s: &mut State) {
+    let Some((key, conversation, runtime)) = preview_key(s) else {
+        s.handoff_preview = None;
+        return;
+    };
+    if s.handoff_preview.as_ref().is_some_and(|(k, _)| *k == key) {
+        return;
+    }
+    let preview = native::handoff_preview(&conversation, &runtime, &s.draft.text, &s.left_out_by_you);
+    s.handoff_preview = Some((key, locust_core::carry_on::handoff_preview_line(Some(&preview))));
+}
+
+/// The cached preview line, when it was composed for what is on screen now.
+fn preview_line(s: &State) -> Option<String> {
+    let (key, _, _) = preview_key(s)?;
+    s.handoff_preview.as_ref().filter(|(k, _)| *k == key).and_then(|(_, line)| line.clone())
+}
+
 pub(super) fn composer_omissions(s: &State, teammate: &Teammate, p: &Palette) -> Option<El> {
     let tip_meta = s.ledger.as_ref()?.snapshot.turn_metas.last()?;
     let pick = s.picks.get(&teammate.id);
@@ -155,7 +189,7 @@ pub(super) fn composer_omissions(s: &State, teammate: &Teammate, p: &Palette) ->
         format!("{} and {}", kept[..kept.len() - 1].join(", "), kept.last().unwrap())
     };
     let mut parts_row = row().w_full().wrap().center_y().gap(6.0).child(
-        text(format!("It carries {carried_line}."))
+        text(preview_line(s).unwrap_or_else(|| format!("It carries {carried_line}.")))
             .font(l.ty.label)
             .color(l.c("text-muted")),
     );

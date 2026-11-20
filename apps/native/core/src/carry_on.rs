@@ -690,3 +690,54 @@ mod tests;
 #[cfg(test)]
 #[path = "handoff_electron_tests.rs"]
 mod handoff_electron_tests;
+
+/// What a reply on another runtime would carry, as the send would compose it (Electron's HANDOFF_PREVIEW_CHANNEL).
+#[derive(Clone, Debug, PartialEq)]
+pub enum HandoffPreview {
+    /// The reply goes to the same runtime: nothing to say.
+    Same,
+    /// The handoff as composed: its sections carried, in reading order, and those left out to fit, in the order dropped.
+    Switch { kept: Vec<String>, omitted: Vec<String>, unsettled_count: usize, task_by_file: bool, task_clipped: bool },
+    /// It would not be sent as it is, in the send's own words.
+    Refused(String),
+}
+
+/// handoffPreviewLine: the preview under the box, in words, or None for a reply on the same runtime.
+pub fn handoff_preview_line(preview: Option<&HandoffPreview>) -> Option<String> {
+    let (kept, omitted, unsettled, by_file, clipped) = match preview? {
+        HandoffPreview::Same => return None,
+        HandoffPreview::Refused(message) => return Some(format!("Not sent as it is: {message}")),
+        HandoffPreview::Switch { kept, omitted, unsettled_count, task_by_file, task_clipped } => (kept, omitted, *unsettled_count, *task_by_file, *task_clipped),
+    };
+    let words = |part: &str| -> Option<String> {
+        Some(match part {
+            "task" if by_file => "the task, as a file".into(),
+            "task" if clipped => "the start of the task".into(),
+            "task" => "the task".into(),
+            "earlier" => "the earlier messages".into(),
+            "settled" => "the steps it finished".into(),
+            "summary" => "its last reply".into(),
+            "unsettled" if unsettled == 0 => return None,
+            "unsettled" => format!("{unsettled} step{} that never reported back", if unsettled == 1 { "" } else { "s" }),
+            _ => return None,
+        })
+    };
+    let listed = |parts: &[String]| -> String {
+        let named: Vec<String> = parts.iter().filter_map(|p| words(p)).collect();
+        match named.len() {
+            0 => String::new(),
+            1 => named[0].clone(),
+            n => format!("{} and {}", named[..n - 1].join(", "), named[n - 1]),
+        }
+    };
+    let mut line = format!("It carries {}.", listed(kept));
+    let left = listed(omitted);
+    if !left.is_empty() {
+        line.push_str(&format!(" Left out to fit: {left}."));
+    }
+    Some(line)
+}
+
+#[cfg(test)]
+#[path = "handoff_preview_tests.rs"]
+mod handoff_preview_tests;

@@ -2826,6 +2826,11 @@ apps/desktop/src/renderer/src/a-handoff-keeps-the-route-handed-to.test.ts	does n
 apps/desktop/src/renderer/src/a-handoff-names-the-models-either-side.test.tsx	draws each side’s mark beside the model it ran, the receiving side in its brand	no
 apps/desktop/src/renderer/src/a-handoff-names-the-models-either-side.test.tsx	says it whole to a screen reader: the model, and the runtime it ran on	no
 apps/desktop/src/renderer/src/a-handoff-names-the-models-either-side.test.tsx	a side with no model recorded, or on the account default, is the runtime’s name, as before	no
+apps/desktop/src/renderer/src/a-handoff-says-what-it-carries.test.ts	names each part carried, in the order it is read	yes
+apps/desktop/src/renderer/src/a-handoff-says-what-it-carries.test.ts	says what was left out to fit	yes
+apps/desktop/src/renderer/src/a-handoff-says-what-it-carries.test.ts	counts the steps that never reported back, and leaves them out of the words when there are none	yes
+apps/desktop/src/renderer/src/a-handoff-says-what-it-carries.test.ts	says when the task goes as a file, or only its start fits	yes
+apps/desktop/src/renderer/src/a-handoff-says-what-it-carries.test.ts	says a refusal before the send, and nothing for a reply on the same runtime	yes
 apps/desktop/src/renderer/src/a-helpers-calls-fold-under-its-row.test.tsx	are kept under the helper's row, as the rows the teammate's calls use	yes
 apps/desktop/src/renderer/src/a-helpers-calls-fold-under-its-row.test.tsx	leave the teammate's own rows as they read without the helper's calls	yes
 apps/desktop/src/renderer/src/a-helpers-calls-fold-under-its-row.test.tsx	count on the helper row and stay folded until it is pressed	no

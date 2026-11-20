@@ -506,3 +506,27 @@ fn a_queued_follow_up_waits_while_the_last_turn_winds_down_then_goes() {
     });
     assert!(s.queue_rows.is_empty());
 }
+
+/// a-handoff-says-what-it-carries.test.ts in the window: with the next reply picked for another runtime, the line under
+/// the box is the handoff as the send would compose it, read once for what is on screen.
+#[test]
+fn the_box_says_what_a_reply_on_another_runtime_carries() {
+    let (_dirs, store, mut s) = setup();
+    s.data = Some(store.clone());
+    let _g = native::hooks::install(store.clone(), fake("success"));
+    s.draft.replace_text("Synthetic prompt");
+    send(&mut s, &mut Tx::default());
+    pump(&mut s, "the answer", |s| idle(s) && answers(s) >= 1);
+    let teammate = s.ledger.as_ref().unwrap().header.id.clone();
+    handoff_divider::refresh_preview(&mut s);
+    assert!(s.handoff_preview.is_none(), "the same runtime has nothing to preview");
+    s.picks.insert(teammate, TurnPick { model: "sonnet".into(), effort: None, runtime: Some("claude".into()), account: None });
+    handoff_divider::refresh_preview(&mut s);
+    let line = s.handoff_preview.as_ref().and_then(|(_, line)| line.clone()).expect("a preview");
+    assert!(line.starts_with("It carries the task"), "{line}");
+    // The box draws that line, not a fixed list of every part.
+    let mut rt = rune::Runtime::new(s, |s, _| handoff_divider::composer_omissions(s, &s.ledger.as_ref().unwrap().header, &Palette::new(true)).unwrap(), (600.0, 200.0), rune::Env::new(true, 1.0));
+    rt.frame(0.0);
+    let drawn: Vec<String> = rt.elements().into_iter().filter_map(|e| e.text).collect();
+    assert!(drawn.iter().any(|t| *t == line), "{drawn:?}");
+}

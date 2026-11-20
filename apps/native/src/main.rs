@@ -2447,6 +2447,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     cover_watch::observe(s, now, rune::last_input());
     changed |= settings_panel::tick_face_legend(s, now, tx);
     drain_queue_after_turn(s, tx);
+    handoff_divider::refresh_preview(s);
     changed |= s
         .bot_stage
         .poll(now, s.reduced_motion.get(), s.window_focused, tx);
