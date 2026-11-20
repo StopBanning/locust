@@ -395,6 +395,9 @@ apps/desktop/src/main/a-long-judge-reads-files.test.ts	three long answers quoted
 apps/desktop/src/main/a-long-judge-reads-files.test.ts	named as files, they do, and the judge is told to read each one	no
 apps/desktop/src/main/a-long-judge-reads-files.test.ts	the host switches to files only when the quoted message is too long	no
 apps/desktop/src/main/a-mac-opens-its-own-terminal.test.ts	goes to the folder, removes itself, and becomes the resume -- every word quoted	no
+apps/desktop/src/main/a-mac-window-has-its-own-traffic-lights.test.ts	on a Mac keeps its frame, with the title bar hidden and inset and the lights in its left column	yes
+apps/desktop/src/main/a-mac-window-has-its-own-traffic-lights.test.ts	on Windows and Linux stays frameless, its own controls drawn by the title bar (control)	no
+apps/desktop/src/main/a-mac-window-has-its-own-traffic-lights.test.ts	is what the main window is made with	yes
 apps/desktop/src/main/a-managed-turn-is-refused-before-an-agent-starts.test.ts	refuses agents, models, modes, cloud turns and broken policies before discovery or recording	no
 apps/desktop/src/main/a-managed-turn-is-refused-before-an-agent-starts.test.ts	gates Antigravity before probing its app	no
 apps/desktop/src/main/a-managed-turn-is-refused-before-an-agent-starts.test.ts	checks the monthly cap even when a turn has no teammate owner	no
@@ -5007,6 +5010,8 @@ apps/desktop/src/renderer/src/the-theme-control-says-what-it-chose.test.tsx	says
 apps/desktop/src/renderer/src/the-thinking-dots-never-jump.test.ts	end each loop where the next begins: no wrap to jump across	yes
 apps/desktop/src/renderer/src/the-thinking-dots-never-jump.test.ts	never move farther in one frame than the bounce does, at the face's 30 frames a second	yes
 apps/desktop/src/renderer/src/the-thinking-dots-never-jump.test.ts	hold still while the face looks about, then bounce in turn: the loop itself is kept	yes
+apps/desktop/src/renderer/src/the-title-bar-is-a-macs-on-a-mac.test.tsx	draws no window controls of its own, and nothing in its left column	yes
+apps/desktop/src/renderer/src/the-title-bar-is-a-macs-on-a-mac.test.tsx	still draws its own on Windows and Linux (control)	no
 apps/desktop/src/renderer/src/the-way-down-says-a-run-is-still-working.test.tsx	wears the thinking dots while the run works, and says so to a screen reader	yes
 apps/desktop/src/renderer/src/the-way-down-says-a-run-is-still-working.test.tsx	is the plain chevron when nothing is running, and absent at the bottom	yes
 apps/desktop/src/renderer/src/the-way-down-says-a-run-is-still-working.test.tsx	brings the chevron back on hover and keyboard focus, where it is about to be pressed	yes

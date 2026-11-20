@@ -115,6 +115,9 @@ mod scenes;
 #[cfg(test)]
 #[path = "ui/keychain_note_tests.rs"]
 mod keychain_note_tests;
+#[cfg(test)]
+#[path = "ui/mac_frame_tests.rs"]
+mod mac_frame_tests;
 #[path = "ui/scout_cards.rs"]
 mod scout_cards;
 #[path = "ui/scout_setting.rs"]
@@ -873,6 +876,11 @@ fn setup(s: &mut State, waker: Waker) {
             keychain_note::should_show_note(keychain_note::may_ask_on_this_os(), false, false);
     }
 }
+
+/// window-chrome.ts `windowChrome('darwin')`: the frame kept, the title bar hidden and inset, the lights in the title
+/// bar's left column at (14, 13), and only `.window_drag()` regions moving the window. Windows and Linux keep their
+/// native frame and its controls (rune's Chrome is macOS-only), where Electron draws its own.
+pub(crate) const WINDOW_CHROME: Chrome = Chrome { full_size_content: true, traffic_lights: Some((14.0, 13.0)), drag_regions: true };
 
 fn selected_conversation(s: &State) -> Option<(&Teammate, &Conversation)> {
     if let Some(pane) = &s.ledger {
@@ -2984,11 +2992,7 @@ fn run_bench(args: &[String], process_start: std::time::Instant) {
         click_through: true,
         ..Default::default()
     })
-    .chrome(Chrome {
-        full_size_content: true,
-        traffic_lights: Some((14.0, 13.0)),
-        drag_regions: true,
-    });
+    .chrome(WINDOW_CHROME);
     let handle = app.handle();
     let mut recorded = false;
     app.on_frame_drawn(move |_| {
@@ -3385,11 +3389,7 @@ fn main() {
         ..AppSpec::new("Locust", (placement.width as f32, placement.height as f32), State::default, view)
     })
     .maximized(placement.maximized)
-    .chrome(Chrome {
-        full_size_content: true,
-        traffic_lights: Some((14.0, 13.0)),
-        drag_regions: true,
-    })
+    .chrome(WINDOW_CHROME)
     .on_close(on_close)
     .on_open_url(link_open::opened)
     .on_quit(on_quit)
