@@ -208,9 +208,42 @@ pub(super) fn code_row(
     line: &str,
     offset: usize,
     highlights: &[rune_kit::syntax::Highlight],
+    marks: Option<&[changes::Span]>,
     p: &Palette,
 ) -> El {
     use rune_kit::syntax::{Paint, Syntax};
+    // diff.ts `pairedSpans`: the bytes of `line` that changed from the line it replaced, drawn on Electron's word
+    // background (`--lc-diff-add-word`, `--lc-diff-del-word`).
+    let marked = marks.map_or((0, 0), |spans| {
+        let mut at = 0;
+        let mut range = (0, 0);
+        for span in spans {
+            if span.changed {
+                range = (at, at + span.text.len())
+            }
+            at += span.text.len();
+        }
+        range
+    });
+    let word = match (r.kind, p.dark) {
+        ('+', true) => color("#1f4029"),
+        ('+', false) => color("#c5e5cb"),
+        (_, true) => color("#4a2429"),
+        (_, false) => color("#f2c9c4"),
+    };
+    let piece = |spans: El, a: usize, b: usize, c: Color| -> El {
+        let mut spans = spans;
+        let cuts = [a, marked.0.clamp(a, b), marked.1.clamp(a, b), b];
+        for w in 0..3 {
+            let (x, y) = (cuts[w], cuts[w + 1]);
+            if x >= y || !line.is_char_boundary(x) || !line.is_char_boundary(y) {
+                continue;
+            }
+            let t = text(line[x..y].to_owned()).color(c);
+            spans = spans.child(if w == 1 { t.fill(word).radius(2.0) } else { t });
+        }
+        spans
+    };
     let row_fill = if r.kind == '+' {
         p.green
     } else if r.kind == '-' {
@@ -241,7 +274,7 @@ pub(super) fn code_row(
             continue;
         }
         if cursor < a {
-            spans = spans.child(text(line[cursor..a].to_owned()).color(p.text))
+            spans = piece(spans, cursor, a, p.text)
         }
         let c = match paint {
             Paint::Color(c) => *c,
@@ -257,11 +290,11 @@ pub(super) fn code_row(
             }
             _ => p.text,
         };
-        spans = spans.child(text(line[a..b].to_owned()).color(c));
+        spans = piece(spans, a, b, c);
         cursor = b;
     }
     if cursor < line.len() {
-        spans = spans.child(text(line[cursor..].to_owned()).color(p.text))
+        spans = piece(spans, cursor, line.len(), p.text)
     }
     row()
         .w_full()
@@ -583,6 +616,7 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                         let mut offsets = (0, 0);
                         let mut hidden = 0;
                         let keep_mask = changes::kept_context(&h.rows);
+                        let marks = changes::paired_spans(&h.rows);
                         for (k, r) in h.rows.iter().enumerate() {
                             let offset = if r.kind == '-' { offsets.0 } else { offsets.1 };
                             if r.kind != '+' {
@@ -616,7 +650,7 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                                     }));
                                 hidden = 0;
                             }
-                            let line = code_row(r, &r.text, offset, if r.kind == '-' { &bh } else { &ah }, p);
+                            let line = code_row(r, &r.text, offset, if r.kind == '-' { &bh } else { &ah }, marks[k].as_deref(), p);
                             file = crate::diff_notes_ui::append_noted_row(
                                 file,
                                 s,
@@ -874,3 +908,7 @@ new file mode 100644
         );
     }
 }
+
+#[cfg(test)]
+#[path = "changes_panel_diff_tests.rs"]
+mod changes_panel_diff_tests;
