@@ -100,6 +100,8 @@ pub mod diff_notes;
 pub mod folders;
 pub mod github_account;
 pub mod github_issues;
+pub mod home_cover;
+pub mod home_team_state;
 pub mod groups;
 pub mod hand_off;
 pub mod history_cache;
