@@ -2,32 +2,100 @@
 //! modeUnavailableReason). Which agent can run which mode is Electron's measured table, and the command grid holds
 //! this one to it: every grid case records whether Electron offers its mode.
 
-/// One mode as the menu shows it.
+/// One mode, its facts written once (status.ts `ModeFacts`). The registers differ on purpose -- a picker row, a receipt
+/// line, a summary card and a second-person sentence are not the same writing; the facts they say are these.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ModeFact {
     pub mode: &'static str,
+    /// Title case, the way a control names it.
     pub name: &'static str,
+    /// The chip's word: the slash command's own name for the mode.
     pub chip: &'static str,
+    /// The clause a receipt appends to say what it may touch, where one adds anything.
+    pub scope: Option<&'static str>,
+    /// A short lowercase clause, for a summary card that leads with the name.
+    pub short: &'static str,
+    /// One full third-person sentence, for a picker row that has the room.
     pub consequence: &'static str,
+    /// Said to the person, second person, where they are about to choose.
+    pub sentence: &'static str,
 }
 
 /// In the order the composer offers them.
 pub const MODE_FACTS: [ModeFact; 5] = [
-    ModeFact { mode: "ask", name: "Ask", chip: "Ask", consequence: "Reads and explains. It cannot change any file." },
-    ModeFact { mode: "accept-edits", name: "Edit", chip: "Edit", consequence: "May edit files inside this workspace folder, and nowhere else." },
-    ModeFact { mode: "plan", name: "Plan", chip: "Plan", consequence: "Answers with the steps it would take, and changes nothing." },
-    ModeFact { mode: "approve-each", name: "Approve each action", chip: "Approve", consequence: "Stops and asks before every command or file change." },
+    ModeFact {
+        mode: "ask",
+        name: "Ask",
+        chip: "Ask",
+        scope: Some("read-only"),
+        short: "reads and explains, every write refused",
+        consequence: "Reads and explains. It cannot change any file.",
+        sentence: "In Ask mode nothing is changed: every write is refused.",
+    },
+    ModeFact {
+        mode: "accept-edits",
+        name: "Edit",
+        chip: "Edit",
+        scope: None,
+        short: "may change files in this workspace",
+        consequence: "May edit files inside this workspace folder, and nowhere else.",
+        sentence: "Edit is on, so it may change files here; switch to Ask below to keep it read-only.",
+    },
+    ModeFact {
+        mode: "plan",
+        name: "Plan",
+        chip: "Plan",
+        scope: Some("read-only"),
+        short: "answers with the steps it would take, changes nothing",
+        consequence: "Answers with the steps it would take, and changes nothing.",
+        sentence: "In Plan mode it answers with the steps it would take and changes nothing.",
+    },
+    ModeFact {
+        mode: "approve-each",
+        name: "Approve each action",
+        chip: "Approve",
+        scope: None,
+        short: "asks before every command or change",
+        consequence: "Stops and asks before every command or file change.",
+        sentence: "Every change waits for your approval before it lands.",
+    },
     ModeFact {
         mode: "auto",
         name: "Auto",
         chip: "Auto",
+        scope: Some("whole machine"),
+        short: "may edit anything on this machine",
         consequence: "Runs without asking and may change files anywhere on this machine, not only this folder.",
+        sentence: "Auto is on: it runs without asking and may change files anywhere on this machine, not only in this folder.",
     },
 ];
 
 /// modeFacts: the row for a mode; Ask's for anything unknown, so a surface always says something.
 pub fn fact(mode: &str) -> ModeFact {
     MODE_FACTS.iter().copied().find(|f| f.mode == mode).unwrap_or(MODE_FACTS[0])
+}
+
+/// modeLabel: the mode in a receipt's words, lowercase mid-sentence, the scope clause after it where it adds anything;
+/// "not set yet" for a teammate with none.
+pub fn mode_label(mode: Option<&str>) -> String {
+    let Some(mode) = mode else { return "not set yet".into() };
+    let f = fact(mode);
+    let name = f.name.to_lowercase();
+    match f.scope {
+        Some(scope) => format!("{name} \u{b7} {scope}"),
+        None => name,
+    }
+}
+
+/// modeSummary: the summary card's line, the name, then what it does.
+pub fn mode_summary(mode: &str) -> String {
+    let f = fact(mode);
+    format!("{} \u{b7} {}", f.name, f.short)
+}
+
+/// modeSentence: said to the person on the surface where they are about to choose.
+pub fn mode_sentence(mode: &str) -> &'static str {
+    fact(mode).sentence
 }
 
 /// RUNTIME_CAPABILITIES: the modes each agent was measured running (Plan follows Ask).
@@ -202,3 +270,7 @@ mod tests {
         assert!(connectors_note("claude", "auto", true).unwrap().contains("work here"));
     }
 }
+
+#[cfg(test)]
+#[path = "mode_says_one_thing_tests.rs"]
+mod mode_says_one_thing_tests;

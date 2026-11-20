@@ -2630,6 +2630,9 @@ apps/desktop/src/renderer/src/a-busy-free-model-offers-the-next.test.tsx	skips a
 apps/desktop/src/renderer/src/a-busy-free-model-offers-the-next.test.tsx	is nothing for a paid route, a model of their own, another runtime, or a lone free model	yes
 apps/desktop/src/renderer/src/a-busy-free-model-offers-the-next.test.tsx	is marked busy only for a provider that is turning requests away	no
 apps/desktop/src/renderer/src/a-busy-free-model-offers-the-next.test.tsx	carries the offer as a button under its words, and only the busy one does	yes
+apps/desktop/src/renderer/src/a-busy-provider-offers-continue.test.ts	knows the provider was busy from what the runtime said	yes
+apps/desktop/src/renderer/src/a-busy-provider-offers-continue.test.ts	and not a limit of the person's own, a sign-in, or anything else	yes
+apps/desktop/src/renderer/src/a-busy-provider-offers-continue.test.ts	the card says it is the provider, and Continue sends into the same conversation	yes
 apps/desktop/src/renderer/src/a-button-turn-says-what-was-asked.test.ts	a tidy pass: what the person asked for, not the brief	yes
 apps/desktop/src/renderer/src/a-button-turn-says-what-was-asked.test.ts	a tidy pass sent with the brief before 0.372, its example in a code fence: the same	yes
 apps/desktop/src/renderer/src/a-button-turn-says-what-was-asked.test.ts	a review: whose work, not the review material	yes
@@ -4232,6 +4235,10 @@ apps/desktop/src/renderer/src/missions-lists-conversations.test.tsx	names it by 
 apps/desktop/src/renderer/src/missions-lists-conversations.test.tsx	ends a hand-edited cycle instead of spinning	no
 apps/desktop/src/renderer/src/missions-lists-conversations.test.tsx	lists conversations, and deletes a conversation with every turn	no
 apps/desktop/src/renderer/src/missions-lists-conversations.test.tsx	says when, and how many turns	no
+apps/desktop/src/renderer/src/mode-says-one-thing.test.ts	covers the whole union exactly once	yes
+apps/desktop/src/renderer/src/mode-says-one-thing.test.ts	names each mode the same way everywhere it is named	yes
+apps/desktop/src/renderer/src/mode-says-one-thing.test.ts	says read-only for every mode that is read-only, on every surface	yes
+apps/desktop/src/renderer/src/mode-says-one-thing.test.ts	says of Auto, on every surface, that it reaches past this folder	yes
 apps/desktop/src/renderer/src/nested-lists.test.ts	reads two-space indents as depth	yes
 apps/desktop/src/renderer/src/nested-lists.test.ts	reads four-space indents as the SAME depth as two-space	yes
 apps/desktop/src/renderer/src/nested-lists.test.ts	comes back OUT of a nesting	yes

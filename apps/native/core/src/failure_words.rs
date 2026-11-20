@@ -30,6 +30,54 @@ fn is_exhaustion(text: &str) -> bool {
     EXHAUSTION.iter().any(|p| regex(p).is_match(text))
 }
 
+/// The provider's own trouble, which waiting out does help (missionView.ts `PROVIDER_BUSY_PATTERNS`, 0.511). Narrower
+/// than carry-on's list ([`crate::carry_on::provider_failed_first`]): no sign-in, no network, no throttle.
+const PROVIDER_BUSY: &[&str] = &[
+    r"(?i)\bat capacity\b",
+    r"(?i)\boverloaded\b",
+    r"(?i)\btemporarily unavailable\b",
+    r"(?i)\bservice unavailable\b",
+    r"(?i)\bhttp\s*(?:502|503|504|529)\b",
+    r"(?i)\binternal server error\b",
+    r"(?i)\bstream disconnected before completion\b",
+];
+
+/// The card's words over Continue (Thread.tsx `onContinueAfterBusy`).
+pub const BUSY_CONTINUE_SENTENCE: &str =
+    "The model's servers were busy: not your account, and nothing you did. What it finished is kept; Continue picks up where it stopped.";
+
+/// What Continue sends into the same conversation (App.tsx `continueOffer`).
+pub const CONTINUE_PROMPT: &str = "Continue from where you stopped.";
+
+/// failedOnProviderSide: a run the provider dropped (busy, overloaded, disconnected, a 5xx), read from the host's
+/// message and the runtime's last stderr line; never a limit of the person's own, a sign-in, or anything else.
+pub fn failed_on_provider_side(message: Option<&str>, stderr: Option<&str>) -> bool {
+    let said = [message.unwrap_or("").to_owned(), message_of_log_line(&last_stderr_line(stderr).unwrap_or_default())];
+    if said.iter().any(|text| is_exhaustion(text)) {
+        return false;
+    }
+    said.iter().any(|text| PROVIDER_BUSY.iter().any(|p| regex(p).is_match(text)))
+}
+
+/// The run.failed payload form of [`failed_on_provider_side`].
+pub fn payload_failed_on_provider_side(payload: &serde_json::Value) -> bool {
+    failed_on_provider_side(payload["message"].as_str(), payload["process"]["stderr"].as_str())
+}
+
+/// continueOffer: the turn's record ended failed, and its last failure was the provider's side. Not while it runs.
+pub fn offers_continue<'a>(events: impl IntoIterator<Item = &'a serde_json::Value>, running: bool) -> bool {
+    if running {
+        return false;
+    }
+    let mut last: Option<&serde_json::Value> = None;
+    for e in events {
+        if matches!(e["type"].as_str(), Some("run.failed" | "run.completed" | "run.cancelled" | "run.started")) {
+            last = Some(e);
+        }
+    }
+    last.is_some_and(|e| e["type"] == "run.failed" && payload_failed_on_provider_side(&e["payload"]))
+}
+
 /// A runtime that could not rename over its OWN settings file (on Windows, while another run of it had it open).
 fn is_locked_runtime_config(said: &str) -> bool {
     said.to_lowercase().contains("rename")
@@ -187,3 +235,7 @@ pub fn failure_message_in_cwd(
 #[cfg(test)]
 #[path = "failure_words_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "busy_continue_tests.rs"]
+mod busy_continue_tests;
