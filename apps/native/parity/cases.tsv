@@ -566,6 +566,9 @@ apps/desktop/src/main/a-queued-message-survives-closing-locust.test.ts	Invalid i
 apps/desktop/src/main/a-queued-message-survives-closing-locust.test.ts	An unknown schema stays on disk for recovery.	yes
 apps/desktop/src/main/a-queued-message-survives-closing-locust.test.ts	Read and write project only message fields and never runtime authority.	yes
 apps/desktop/src/main/a-queued-message-survives-closing-locust.test.ts	A message queued before the start receipt can be saved and then rekeyed.	yes
+apps/desktop/src/main/a-quiet-runtime-is-asked-to-say-what-it-does.test.ts	goes to Antigravity, and not to runtimes that narrate on their own	yes
+apps/desktop/src/main/a-quiet-runtime-is-asked-to-say-what-it-does.test.ts	is in a run nobody owns when asked for, and not when not	yes
+apps/desktop/src/main/a-quiet-runtime-is-asked-to-say-what-it-does.test.ts	is in a teammate run when asked for	yes
 apps/desktop/src/main/a-refusal-in-ask-says-the-mode.test.ts	names the mode and says nobody was asked	yes
 apps/desktop/src/main/a-refusal-in-ask-says-the-mode.test.ts	is what a served Ask or Plan run is given, and only one nobody answers for	yes
 apps/desktop/src/main/a-relayed-conversation-sits-under-its-origin.test.ts	sits under the conversation any turn of which sent it	yes

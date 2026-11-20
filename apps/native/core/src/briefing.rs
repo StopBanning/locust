@@ -337,3 +337,7 @@ mod block_placement_tests;
 #[cfg(test)]
 #[path = "old_message_tests.rs"]
 mod old_message_tests;
+
+#[cfg(test)]
+#[path = "quiet_runtime_tests.rs"]
+mod quiet_runtime_tests;
