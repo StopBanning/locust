@@ -121,6 +121,18 @@ apps/desktop/src/main/a-compaction-summary-is-not-the-reply.test.ts	never makes 
 apps/desktop/src/main/a-compare-column-works-outside-the-folder.test.ts	is made outside the project folder, and is still one of its worktrees	no
 apps/desktop/src/main/a-compare-root-follows-the-environment.test.ts	is LOCUST_COMPARE_ROOT when set, and ~/.locust/compare when not	no
 apps/desktop/src/main/a-compare-root-follows-the-environment.test.ts	makes, reads, keeps and removes under a set root and never touches the home one	no
+apps/desktop/src/main/a-comparison-is-remembered.test.ts	is recorded with a column per model, each turn added as it starts, and one kept	yes
+apps/desktop/src/main/a-comparison-is-remembered.test.ts	says why a column could not start, and cannot keep a column that has nothing	yes
+apps/desktop/src/main/a-comparison-is-remembered.test.ts	is two or three models, never one or four	yes
+apps/desktop/src/main/a-comparison-is-remembered.test.ts	treats a file it cannot read as unreadable, never as empty	yes
+apps/desktop/src/main/a-comparison-is-remembered.test.ts	may belong to nobody: no teammate is needed to compare	yes
+apps/desktop/src/main/a-comparison-is-remembered.test.ts	remembers that it edits, and which files the kept one brought into the folder (0.445)	yes
+apps/desktop/src/main/a-comparison-is-remembered.test.ts	keeps a column on Auto only in a comparison that edits (0.451)	yes
+apps/desktop/src/main/a-comparison-is-remembered.test.ts	remembers that its names are hidden (0.449)	yes
+apps/desktop/src/main/a-comparison-is-remembered.test.ts	gives each column a run slot of its own	yes
+apps/desktop/src/main/a-comparison-is-remembered.test.ts	in copies, or in the folder itself, survives a restart	yes
+apps/desktop/src/main/a-comparison-is-remembered.test.ts	is its copy while it edits, and the folder once one is kept -- and it is never stored	yes
+apps/desktop/src/main/a-comparison-is-remembered.test.ts	is the folder itself for one that answers, or one too big to copy	yes
 apps/desktop/src/main/a-comparison-keeps-each-columns-instructions.test.ts	asks for two distinct angles grounded in a moment, not task facts or instructions found in the conversation	no
 apps/desktop/src/main/a-comparison-keeps-each-columns-instructions.test.ts	asks for the first wrong turn, knowledge as checks, no invented sources, and a line cut for a line added (0.809)	no
 apps/desktop/src/main/a-comparison-keeps-each-columns-instructions.test.ts	shuffles Current with the other candidates rather than always making it A	no
@@ -1462,7 +1474,7 @@ apps/desktop/src/main/groups-hold-conversations.test.ts	lets them fall back to u
 apps/desktop/src/main/groups-hold-conversations.test.ts	removing one that is not there is not an error	no
 apps/desktop/src/main/groups-hold-conversations.test.ts	drops a membership pointing at a group that is gone	no
 apps/desktop/src/main/groups-hold-conversations.test.ts	drops a group with no usable name and keeps the rest	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	treats a file it cannot read as unreadable, never as empty	no
+apps/desktop/src/main/groups-hold-conversations.test.ts	treats a file it cannot read as unreadable, never as empty	yes
 apps/desktop/src/main/groups-hold-conversations.test.ts	treats a file that does not parse as unreadable too, and refuses to write over it	no
 apps/desktop/src/main/groups-hold-conversations.test.ts	is genuinely empty when there is simply no file yet	no
 apps/desktop/src/main/groups-hold-conversations.test.ts	takes a default route, refuses one a mission could not start on, and clears it	no

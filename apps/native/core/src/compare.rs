@@ -1682,3 +1682,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
+
+#[cfg(test)]
+#[path = "compare_remembered_tests.rs"]
+mod compare_remembered_tests;
