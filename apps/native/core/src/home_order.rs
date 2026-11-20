@@ -39,6 +39,26 @@ pub fn free_start_still_free<'a>(opencode_ready: bool, listed: impl IntoIterator
     if any { FreeStart::No } else { FreeStart::Unknown }
 }
 
+/// An agent as Home's accounts line reads it: whether it is on this machine, whether it is ready, and whether its check
+/// is still out.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct AgentRow {
+    pub installed: bool,
+    pub ready: bool,
+    pub checking: bool,
+}
+
+/// FirstLaunch.tsx's `folded`: whether Home's accounts fold to one line ("Connected accounts · N ready", their marks,
+/// Show all). Only once at least one is ready, every installed one is ready, and nothing is still being checked --
+/// except that with a team, an agent still being checked does not hold the fold open (the team is what Home is for
+/// then); before a team, every agent must be ready, since the list is how a person meets them. `open` is Show all.
+pub fn agents_fold(rows: &[AgentRow], team: usize, open: bool) -> bool {
+    // Electron's formula also tests "nothing still being checked" and lets a checking agent pass only with a team; both
+    // follow from the two rules below (without a team every agent must be ready, so none can still be checking).
+    let settled = if team > 0 { rows.iter().all(|r| !r.installed || r.ready || r.checking) } else { rows.iter().all(|r| r.ready) };
+    !open && rows.iter().any(|r| r.ready) && settled
+}
+
 #[cfg(test)]
 #[path = "home_order_tests.rs"]
 mod tests;

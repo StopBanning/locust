@@ -43,6 +43,8 @@ pub(super) struct Panel {
     pub cover_clock: locust_core::cover_script::CoverClock,
     /// What Home last measured of itself, and what that decided (FirstLaunch.tsx's measure step).
     pub fit: HomeMeasure,
+    /// Show all, pressed on the folded accounts line: the whole list stays open (FirstLaunch.tsx `agentsOpen`).
+    pub agents_open: bool,
 }
 
 /// Home's own measure: the pane it scrolls in, the cover's card, the column as drawn, and what they decided.
@@ -831,6 +833,49 @@ fn last_worked_at(s: &State, teammate: &str) -> Option<String> {
     s.recent.iter().filter(|r| owners[r.id.as_str()].as_str() == Some(teammate)).map(|r| r.updated.clone()).max()
 }
 
+/// Home's AI agents: the whole list, or, once they are all ready (`agents_fold`), one line -- "Connected accounts",
+/// how many are ready, their marks and Show all -- so a returning Home fits its team on one screen (FirstLaunch.tsx).
+fn home_agents(s: &State, p: &Palette) -> El {
+    let l = crate::look::controls::Look::new(p.dark);
+    let found = s.settings_panel.agents.as_deref().unwrap_or_default();
+    let rows: Vec<locust_core::home_order::AgentRow> = found.iter().map(|f| locust_core::home_order::AgentRow { installed: f.installed, ready: f.ready, checking: f.checking }).collect();
+    if s.settings_panel.agents.is_none() || !locust_core::home_order::agents_fold(&rows, s.teammates.len(), s.home.agents_open) {
+        return crate::agents_section::section(s, p).key("home-agents");
+    }
+    let ready: Vec<&locust_core::agents::Found> = found.iter().filter(|f| f.ready).collect();
+    let checking: Vec<&locust_core::agents::Found> = found.iter().filter(|f| f.installed && f.checking && !f.ready).collect();
+    let mut line = row()
+        .key("home-agents")
+        .w_full()
+        .gap(8.0)
+        .center_y()
+        .child(text("Connected accounts").font(l.ty.control).color(l.c("text-primary")))
+        .child(text(format!("{} ready", ready.len())).font(l.ty.label).color(l.c("green-text")).key("home-agents-ready"));
+    match checking.as_slice() {
+        [] => {}
+        [one] => line = line.child(text(format!("· checking {}", one.display_name)).font(l.ty.label).color(l.c("text-muted"))),
+        many => line = line.child(text(format!("· checking {} more", many.len())).font(l.ty.label).color(l.c("text-muted"))),
+    }
+    let mut marks = row().gap(6.0).center_y();
+    for f in &ready {
+        if let Some(mark) = crate::look::controls::agent_mark(&l, &f.id, 13.0, l.c("text-secondary")) {
+            marks = marks.child(el().child(mark).role("img").label(f.display_name.clone()).help(f.display_name.clone()));
+        }
+    }
+    line.child(marks).child(rune::spacer()).child(
+        text("Show all")
+            .font(l.ty.label)
+            .color(l.c("text-secondary"))
+            .px(6.0)
+            .py(2.0)
+            .radius(4.0)
+            .hover(l.c("hover-surface"))
+            .role("button")
+            .key("home-agents-show-all")
+            .on_press(|s: &mut State| s.home.agents_open = true),
+    )
+}
+
 pub(super) fn home_view(s: &State, p: &Palette) -> El {
     let l = crate::look::controls::Look::new(p.dark);
     // Home's spacing: normal, or tight when even the smallest cover does not fit (FirstLaunch.tsx `homeIsShort`).
@@ -861,7 +906,7 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
     // after it, so a returning Home reads cover, accounts, team, what to start.
     let accounts_above = accounts_lead || !s.teammates.is_empty();
     if accounts_above {
-        body = body.child(crate::agents_section::section(s, p).key("home-agents"));
+        body = body.child(home_agents(s, p));
     }
 
     // Folder strip
@@ -1146,7 +1191,7 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
     }
 
     if !accounts_above {
-        body = body.child(crate::agents_section::section(s, p).key("home-agents"));
+        body = body.child(home_agents(s, p));
     }
 
     // Starters
@@ -2222,3 +2267,7 @@ mod home_team_cards_tests;
 #[cfg(test)]
 #[path = "home_cover_tests.rs"]
 mod home_cover_tests;
+
+#[cfg(test)]
+#[path = "home_agents_fold_tests.rs"]
+mod home_agents_fold_tests;

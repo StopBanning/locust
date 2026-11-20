@@ -39,3 +39,36 @@ fn not_installed_or_not_yet_read_never_weakens_the_promise() {
     assert_eq!(free_start_still_free(false, ["opencode/big-pickle"]), FreeStart::Unknown);
     assert_eq!(free_start_still_free(true, std::iter::empty()), FreeStart::Unknown);
 }
+
+// FirstLaunch.tsx `folded`: when Home's accounts fold to one line.
+use super::{AgentRow, agents_fold};
+
+fn row(installed: bool, ready: bool, checking: bool) -> AgentRow {
+    AgentRow { installed, ready, checking }
+}
+
+#[test]
+fn with_a_team_the_accounts_fold_once_every_installed_agent_is_ready() {
+    assert!(agents_fold(&[row(true, true, false), row(false, false, false)], 2, false));
+    assert!(!agents_fold(&[row(true, true, false), row(true, false, false)], 2, false), "an installed one not ready holds it open");
+}
+
+#[test]
+fn with_a_team_one_still_being_checked_does_not_hold_the_fold_open() {
+    assert!(agents_fold(&[row(true, true, false), row(true, false, true)], 2, false));
+}
+
+#[test]
+fn before_a_team_every_agent_must_be_ready_and_nothing_still_checking() {
+    assert!(!agents_fold(&[row(true, true, false), row(false, false, false)], 0, false), "one missing keeps the list");
+    assert!(!agents_fold(&[row(true, true, false), row(true, false, true)], 0, false));
+    assert!(agents_fold(&[row(true, true, false), row(true, true, false)], 0, false));
+}
+
+#[test]
+fn nothing_ready_never_folds_and_show_all_opens_it() {
+    assert!(!agents_fold(&[row(true, false, false)], 2, false));
+    // A team whose agents are all missing or still being checked: nothing is ready, so nothing folds.
+    assert!(!agents_fold(&[row(false, false, false), row(true, false, true)], 2, false));
+    assert!(!agents_fold(&[row(true, true, false)], 2, true));
+}
