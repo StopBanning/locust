@@ -213,16 +213,43 @@ pub fn acp_sealed_config(plugin: &Path) -> Value {
 }
 
 fn acp_config_with_seal(mode: Mode, plugin: &Path, sealed: bool) -> Value {
-    let old = legacy_config_with_seal(mode, None, sealed);
-    let readonly = matches!(mode, Mode::Ask | Mode::Plan);
+    acp_from_legacy(&legacy_config_with_seal(mode, None, sealed), mode == Mode::ApproveEach, matches!(mode, Mode::Ask | Mode::Plan), sealed, plugin)
+}
+
+/// The key a V2 run's config carries while it is still in V1's shape: what the last step needs to write V2's.
+const V2_PENDING: &str = "locust_opencode_2";
+
+/// opencode-2-launch.ts: V2's config is written from V1's WHOLE config for the run, after everything a run adds to it
+/// (references, the parent `.git` of a worktree, skills, a model of your own). So a V2 run's command carries V1's shape
+/// with `V2_PENDING` until `finish_v2`, at spawn, writes V2's from it.
+fn pending_v2(mut legacy: Value, mode: Mode, plugin: &Path, sealed: bool) -> Value {
+    legacy[V2_PENDING] = json!({"plugin": plugin.to_string_lossy(), "approveEach": mode == Mode::ApproveEach,
+        "readOnly": matches!(mode, Mode::Ask | Mode::Plan), "sealed": sealed});
+    legacy
+}
+
+/// The last step before an OpenCode 2 process starts: its config, still in V1's shape, written as V2's.
+pub fn finish_v2(command: &mut Command) {
+    let config = command
+        .get_envs()
+        .find(|(k, _)| *k == "OPENCODE_CONFIG_CONTENT")
+        .and_then(|(_, v)| v.and_then(|v| v.to_str()).and_then(|v| serde_json::from_str::<Value>(v).ok()));
+    let Some(config) = config else { return };
+    let Some(pending) = config.get(V2_PENDING).cloned() else { return };
+    let flag = |k: &str| pending[k].as_bool().unwrap_or(false);
+    let plugin = PathBuf::from(pending["plugin"].as_str().unwrap_or_default());
+    let native = acp_from_legacy(&config, flag("approveEach"), flag("readOnly"), flag("sealed"), &plugin);
+    command.env("OPENCODE_CONFIG_CONTENT", native.to_string());
+}
+
+/// `openCode2Launch`: V1's permissions as V2's ordered rules (renamed actions, each path's default first: V2's last
+/// match wins), V2's own catch-all first and never V1's (0.821), no question, no subagent in Ask, and everything
+/// refused last for a chat-only model of your own (V1's `tools: {"*": false}`). Its providers and skills folder carried.
+fn acp_from_legacy(old: &Value, approve_each: bool, readonly: bool, sealed: bool, plugin: &Path) -> Value {
     let mut permissions = vec![
-        json!({"action":"*","resource":"*","effect":if mode == Mode::ApproveEach || (sealed && readonly) {"ask"} else {"allow"}}),
+        json!({"action":"*","resource":"*","effect":if approve_each || (sealed && readonly) {"ask"} else {"allow"}}),
     ];
-    for (k, v) in old["permission"]
-        .as_object()
-        // Invariant: legacy_config constructs permission as an object.
-        .expect("legacy_config constructs permission as an object")
-    {
+    for (k, v) in old["permission"].as_object().into_iter().flatten() {
         if k == "*" {
             continue;
         }
@@ -245,11 +272,21 @@ fn acp_config_with_seal(mode: Mode, plugin: &Path, sealed: bool) -> Value {
         }
     }
     permissions.push(json!({"action":"question","resource":"*","effect":"deny"}));
-    let readonly = matches!(mode, Mode::Ask | Mode::Plan);
     if readonly {
         permissions.push(json!({"action":"subagent","resource":"*","effect":"deny"}));
     }
+    if old["tools"]["*"] == json!(false) {
+        permissions.push(json!({"action":"*","resource":"*","effect":"deny"}));
+    }
     let mut config = json!({"default_agent":"locust","agents":{"locust":{"mode":"primary","description":"The current Locust turn","permissions":permissions}},"plugins":[file_url(plugin)]});
+    // The run's own skills folder, the last of V1's paths (with_skills puts it there).
+    if let Some(dir) = old["skills"]["paths"].as_array().and_then(|p| p.last()) {
+        config["skills"] = json!([dir]);
+    }
+    // OpenCode's V2 normalizer takes V1's provider declarations; the run's own stays per-run.
+    if !old["provider"].is_null() {
+        config["provider"] = old["provider"].clone();
+    }
     if readonly {
         config["policies"] = json!([{"action":"integration.use","resource":"plugin:*","effect":"deny"},{"action":"integration.use","resource":format!("plugin:{}",plugin.display()),"effect":"allow"}]);
     }
@@ -347,7 +384,7 @@ pub fn configure_with_seal(
     if v2 {
         c.env(
             "OPENCODE_CONFIG_CONTENT",
-            acp_config_with_seal(mode, &plugin, sealed).to_string(),
+            pending_v2(legacy_config_with_seal(mode, None, sealed), mode, &plugin, sealed).to_string(),
         );
         if matches!(mode, Mode::Ask | Mode::Plan) {
             c.env("OPENCODE_CONFIG_PROJECT_DISABLE", "1")
@@ -370,3 +407,7 @@ pub fn configure_with_seal(
 #[cfg(test)]
 #[path = "opencode_guard_tests.rs"]
 mod opencode_guard_tests;
+
+#[cfg(test)]
+#[path = "opencode_2_rules_tests.rs"]
+mod opencode_2_rules_tests;

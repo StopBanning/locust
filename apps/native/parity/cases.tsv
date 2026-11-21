@@ -1163,6 +1163,12 @@ apps/desktop/src/main/an-office-file-reads-in-any-mode.test.ts	writes a table ce
 apps/desktop/src/main/an-old-message-says-it-is-old.test.ts	is said once it is half an hour old, in the unit that reads	yes
 apps/desktop/src/main/an-old-message-says-it-is-old.test.ts	goes beside the message it describes, with what to do about it	yes
 apps/desktop/src/main/an-old-message-says-it-is-old.test.ts	is read against the time now when the host prepares a run	yes
+apps/desktop/src/main/an-opencode-2-mode-has-native-permission-rules.test.ts	uses an owned ACP mode and a directory plugin, without unsupported V1 flags	yes
+apps/desktop/src/main/an-opencode-2-mode-has-native-permission-rules.test.ts	denies edits and subagents in Ask, and lets no shell command through	yes
+apps/desktop/src/main/an-opencode-2-mode-has-native-permission-rules.test.ts	keeps its own catch-all, never V1's (0.821)	yes
+apps/desktop/src/main/an-opencode-2-mode-has-native-permission-rules.test.ts	keeps Approve each asking and makes Auto explicit without silently widening Accept edits	yes
+apps/desktop/src/main/an-opencode-2-mode-has-native-permission-rules.test.ts	grants references and worktree git metadata after the default denial, without granting the shared root	yes
+apps/desktop/src/main/an-opencode-2-mode-has-native-permission-rules.test.ts	does not enable a chat-only own model to call tools and keeps its provider declaration per-run	yes
 apps/desktop/src/main/an-opencode-2-teammate-keeps-the-command-guard.test.ts	writes a separate V2 entrypoint while leaving the V1 plugin unchanged	yes
 apps/desktop/src/main/an-opencode-2-teammate-keeps-the-command-guard.test.ts	denies a browser termination before either a bash tool or a shell starts and permits harmless commands	no
 apps/desktop/src/main/an-opencode-2-teammate-keeps-the-command-guard.test.ts	passes the hook envelope and Locust parent to the same guard without running the requested command	no

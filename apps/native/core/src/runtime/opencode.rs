@@ -103,6 +103,10 @@ impl OpenCode {
     pub fn spawn(c: &mut Command) -> io::Result<Self> {
         let v2 = uses_acp(c);
         c.env_remove("LOCUST_NATIVE_OPENCODE_PROTOCOL");
+        // V2's config is written last, from everything the run added to it in V1's shape (opencode-2-launch.ts).
+        if v2 {
+            super::opencode_config::finish_v2(c);
+        }
         Ok(Self {
             command: copy_command(c),
             driver: None,
