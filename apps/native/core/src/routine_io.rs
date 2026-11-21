@@ -365,7 +365,7 @@ mod tests {
     use super::*;
     use crate::routine_file::routine_file_text;
 
-    fn test_store() -> (Store, std::path::PathBuf) {
+    pub(super) fn test_store() -> (Store, std::path::PathBuf) {
         let dir = std::env::temp_dir().join(format!(
             "locust-rio-{}-{}",
             std::process::id(),
@@ -518,3 +518,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
+
+#[cfg(test)]
+#[path = "routine_ok_tests.rs"]
+mod routine_ok_tests;

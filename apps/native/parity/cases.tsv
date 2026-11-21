@@ -825,9 +825,9 @@ apps/desktop/src/main/a-routine-step-waits-for-your-ok.test.ts	holds before the 
 apps/desktop/src/main/a-routine-step-waits-for-your-ok.test.ts	Stop here ends the run and keeps the routine as it was	yes
 apps/desktop/src/main/a-routine-step-waits-for-your-ok.test.ts	does not wait when no step asks, or when the step that asks is not the next one	yes
 apps/desktop/src/main/a-routine-step-waits-for-your-ok.test.ts	is kept by the store for one teammate too, from step 2 on: step 1 never waits	yes
-apps/desktop/src/main/a-routine-step-waits-for-your-ok.test.ts	travels in the routine file, as Markdown, and step 1 asking is refused on the way in	no
-apps/desktop/src/main/a-routine-step-waits-for-your-ok.test.ts	still waits after an import, a starter, a team card, and is listed to other apps	no
-apps/desktop/src/main/a-routine-step-waits-for-your-ok.test.ts	buzzes the phone as pressing, naming who but never the routine or the step's words	no
+apps/desktop/src/main/a-routine-step-waits-for-your-ok.test.ts	travels in the routine file, as Markdown, and step 1 asking is refused on the way in	yes
+apps/desktop/src/main/a-routine-step-waits-for-your-ok.test.ts	still waits after an import, a starter, a team card, and is listed to other apps	yes
+apps/desktop/src/main/a-routine-step-waits-for-your-ok.test.ts	buzzes the phone as pressing, naming who but never the routine or the step's words	yes
 apps/desktop/src/main/a-routine-works-in-a-copy.test.ts	is the folder as it is; Keep writes its changes in, and remembers where from after a restart	yes
 apps/desktop/src/main/a-routine-works-in-a-copy.test.ts	refuses to Keep over a file the person changed since, and Discard leaves no copy behind	yes
 apps/desktop/src/main/a-routine-works-in-a-copy.test.ts	links the folder's dependencies, so a check can run in it, and discarding never reaches through the link (0.534)	yes
