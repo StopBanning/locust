@@ -552,6 +552,11 @@ fn recorded_route(turn: Turn) -> Option<Route> {
     Some(Route { runtime: turn.runtime?, model: turn.model, effort: None, account: turn.account })
 }
 
+/// `routeOfTurnOrRecord`: the route held for the turn first (only it knows the effort), else what its record says.
+fn route_for(mission: &str, read: impl FnOnce() -> Option<Turn>) -> Option<Route> {
+    held_route(mission).filter(|r| !r.runtime.is_empty()).or_else(|| read().and_then(recorded_route))
+}
+
 fn held_route(mission: &str) -> Option<Route> {
     ROUTE_OF_TURN.lock().unwrap_or_else(|e| e.into_inner()).iter().find(|(id, _)| id == mission).map(|(_, r)| r.clone())
 }
@@ -622,7 +627,7 @@ impl Locust for Engine {
     }
 
     fn follow_up_route(&self, mission: &str) -> Option<Route> {
-        held_route(mission).filter(|r| !r.runtime.is_empty()).or_else(|| self.read(mission).and_then(recorded_route))
+        route_for(mission, || self.read(mission))
     }
 
     fn read(&self, mission: &str) -> Option<Turn> {

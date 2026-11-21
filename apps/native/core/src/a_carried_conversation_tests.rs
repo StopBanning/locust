@@ -183,7 +183,11 @@ fn a_follow_up_of_a_turn_no_route_is_held_for_keeps_its_recorded_agent_model_and
     // A held route wins over the record, its effort with it.
     let _held = holding();
     remember_route("held-turn", Route { runtime: "claude".into(), model: Some("opus".into()), effort: Some("max".into()), account: None });
-    assert_eq!(held_route("held-turn").and_then(|r| r.effort), Some("max".into()));
+    let record = || Turn::from_records(&records);
+    assert_eq!(route_for("held-turn", record).and_then(|r| r.effort), Some("max".into()), "held wins over the record");
+    assert_eq!(route_for("held-turn", record).map(|r| r.runtime), Some("claude".into()));
+    let unheld = route_for("never-held-turn", record).unwrap();
+    assert_eq!((unheld.runtime.as_str(), unheld.model.as_deref(), unheld.effort), ("codex", Some("gpt-5.5"), None), "else its record");
 }
 
 // door::Engine sends a follow-up's account as an explicit pick and its effort as the turn's, and holds what it ran on.
@@ -298,4 +302,18 @@ fn offers_a_process_crash_after_tools_ran_through_the_same_card_and_door_reason_
         ];
         assert_eq!(stopped_for(Some("failed"), &events), None, "{kind}");
     }
+}
+
+// The engine itself asks for the held route first: the effort a turn ran at lives nowhere else.
+#[test]
+fn the_engine_answers_a_follow_up_with_the_route_it_holds() {
+    let root = std::env::temp_dir().join(format!("locust-door-route-{}-{}", std::process::id(), crate::invariants::unique_nanos()));
+    let store = Store::with_codex(root.join("native"), root.join("electron"), vec![]).unwrap();
+    let engine = Engine { store, settings: Arc::new(Mutex::new(Settings::default())) };
+    let _held = holding();
+    let route = Route { runtime: "claude".into(), model: Some("opus".into()), effort: Some("high".into()), account: Some("work".into()) };
+    remember_route("engine-asked-turn", route.clone());
+    assert_eq!(engine.follow_up_route("engine-asked-turn"), Some(route));
+    assert_eq!(engine.follow_up_route("engine-unknown-turn"), None, "neither held nor recorded");
+    let _ = std::fs::remove_dir_all(&root);
 }
