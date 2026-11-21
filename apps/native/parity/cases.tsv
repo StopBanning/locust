@@ -1549,6 +1549,8 @@ apps/desktop/src/main/codex-mission.test.ts	reads no folder for a read-only star
 apps/desktop/src/main/codex-mission.test.ts	replays the same paced answer with fewer durable appends and sends while keeping every fragment	no
 apps/desktop/src/main/codex-mission.test.ts	reads and normalizes while an append is on the disk, and writes what arrived in one append when it lands	no
 apps/desktop/src/main/codex-mission.test.ts	stops reading at the bound and lets a flood back up into the runner, as it always did	no
+apps/desktop/src/main/codex-usage-is-read-with-the-models.test.ts	comes back as a reading beside the models, in the words a turn’s reading uses	yes
+apps/desktop/src/main/codex-usage-is-read-with-the-models.test.ts	leaves the reading out -- and keeps the models -- when Codex cannot say	yes
 apps/desktop/src/main/combining-a-tunes-two-edits.test.ts	asks for one set with both edits, every part of Current neither changed, and nothing new, all as quoted data	no
 apps/desktop/src/main/command-record.test.ts	keeps the flags, which is the whole point	yes
 apps/desktop/src/main/command-record.test.ts	never records the prompt, whatever flag introduced it	yes

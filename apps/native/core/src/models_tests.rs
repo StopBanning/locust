@@ -30,6 +30,7 @@ fn the_catalog_matches_electrons_model_for_model() {
     for machine in g["machines"].as_array().unwrap() {
         let listed = Listed {
             codex: (machine["codex"] == true).then(|| codex.clone()),
+            codex_usage: None,
             claude: Some(g["hints"]["claude"].clone()).filter(|v| !v.is_null()),
             cursor: Some(g["hints"]["cursor"].clone()).filter(|v| !v.is_null()),
             opencode: Some(g["hints"]["opencode"].clone()).filter(|v| !v.is_null()),
