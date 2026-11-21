@@ -1901,6 +1901,11 @@ apps/desktop/src/main/reveal-file.test.ts	refuses a relative path rather than tr
 apps/desktop/src/main/reveal-file.test.ts	refuses anything that is not a string, and an empty one	no
 apps/desktop/src/main/reveal-file.test.ts	honours a file under any one of several workspaces	no
 apps/desktop/src/main/reveal-file.test.ts	refuses a link that leads out; keeps the folder’s own files, and a project reached through a junction	no
+apps/desktop/src/main/role-brief.test.ts	every preset has a brief, and so does Custom	yes
+apps/desktop/src/main/role-brief.test.ts	builds a Custom brief around the title the person typed	yes
+apps/desktop/src/main/role-brief.test.ts	the chief of staff is told to route, to say what was delegated, and to report back in one message	yes
+apps/desktop/src/main/role-brief.test.ts	goes into the prompt ahead of the roster line it refers to, in the stable prefix	yes
+apps/desktop/src/main/role-brief.test.ts	puts the Custom title into the prompt, and says nothing when the preset is unknown	yes
 apps/desktop/src/main/room-and-mission-caps-agree.test.ts	are both real numbers, not a shape this test can read past	no
 apps/desktop/src/main/room-and-mission-caps-agree.test.ts	agree, so a full room can always answer a post	no
 apps/desktop/src/main/room-answer-is-whole.test.ts	has no clamp on it	no

@@ -1197,6 +1197,12 @@ pub fn turn_brief_held(
     let roster: Vec<crate::briefing::PeerEntry> = file["teammates"].as_array().into_iter().flatten().filter_map(peer_entry).collect();
     let mut standing = Vec::new();
     if let Some(me) = roster.iter().find(|e| e.teammate_id == who) {
+        // The role first (role-brief): the most stable thing about a teammate, and what the roster line after it
+        // refers to. Written from the preset on the record, never from the label a missing role defaults to.
+        let kind = file["teammates"].as_array().into_iter().flatten().find(|t| t["teammateId"] == who).and_then(|t| t["role"].as_str());
+        if let Some(role) = kind.and_then(|kind| crate::briefing::role_brief(kind, Some(&me.role))) {
+            standing.push(role);
+        }
         let others: Vec<crate::briefing::PeerEntry> = roster.iter().filter(|e| e.teammate_id != who).cloned().collect();
         if !others.is_empty() {
             standing.push(crate::briefing::roster_section(me, &others));
