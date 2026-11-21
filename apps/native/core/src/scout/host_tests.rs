@@ -467,6 +467,9 @@ for line in sys.stdin:
     assert!(!brief.trim().is_empty());
     assert_eq!(asking.instructions.as_deref(), Some(brief.as_str()));
     assert!(asking.sealed && asking.key == format!("scout-chat:{teammate}"));
+    // An app's own work sent through the door is not asking Scout, even while Scout runs (asks_scout); a voice call is.
+    assert!(super::host::asking_scout_slot(&t.store, &teammate, Some(&serde_json::json!({"kind": "mcp"}))).is_none());
+    assert!(super::host::asking_scout_slot(&t.store, &teammate, Some(&serde_json::json!({"kind": "mcp", "via": "voice"}))).is_some());
 
     // 1. Sealed turn never wrote developerInstructions and applied sealed Codex thread config.
     let rpc_lines: Vec<Value> = fs::read_to_string(&inspect_log)

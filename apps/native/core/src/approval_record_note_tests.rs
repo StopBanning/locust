@@ -180,3 +180,19 @@ fn the_turns_own_ledger_file_takes_an_answer_and_a_note_as_mission_store_does() 
     assert_eq!((rows[3]["recordType"].as_str(), rows[3]["ledgerSequence"].as_u64()), (Some("mission.approval"), Some(4)));
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn keeps_at_most_fifty_answers_a_mission_and_two_hundred_missions() {
+    let mut unwritten = UnwrittenAnswers::new();
+    for n in 0..60 {
+        unwritten.remember("mission_many", json!({"n": n}), "EBUSY");
+    }
+    assert_eq!(unwritten.pending("mission_many"), 50, "a ledger that refuses everything cannot grow memory without end");
+    for m in 0..205 {
+        unwritten.remember(&format!("mission_{m}"), json!({}), "EBUSY");
+    }
+    assert_eq!(unwritten.pending("mission_many"), 0, "the oldest mission goes first");
+    assert_eq!(unwritten.pending("mission_204"), 1);
+    assert_eq!(unwritten.pending("mission_5"), 1);
+    assert_eq!(unwritten.pending("mission_4"), 0);
+}
