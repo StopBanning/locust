@@ -37,6 +37,22 @@ struct CachedFile {
     event_count: usize,
     waiting_question: Option<String>,
     events: Option<Vec<Value>>,
+    /// What the strict reader found wrong with the file (`ledger::recover`).
+    issues: Vec<ledger::Issue>,
+    /// No conversation could be read from it at all (mission-store's `unreadableCount` counts these).
+    unreadable: bool,
+}
+
+/// What a folder's records say about their own damage, counted over every file in it, not only the listed ones.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Damage {
+    /// Files no conversation could be read from (a bad header, too large to read, a file that could not be opened).
+    pub unreadable: usize,
+    /// Conversations kept up to a bad record: listed, with a gap at their end (mission-store counts each one).
+    pub incomplete: HashSet<String>,
+    /// Those of them whose one fault is a last line with no end, which is also how a turn being written looks for
+    /// the moment of a write: `native::list_recent` leaves out the ones this window is writing right now.
+    pub cut_tail_only: HashSet<String>,
 }
 
 /// Process-wide cache shared by `native::list_recent`.
@@ -75,19 +91,24 @@ impl HistoryCache {
     }
 
     pub fn list_recent_summaries(&self, dir: &Path, limit: usize) -> io::Result<Vec<Summary>> {
-        let (rows, _) = self.read_history_tracked(dir, limit)?;
-        Ok(rows.into_iter().map(|r| r.summary).collect())
+        self.list_recent_with_damage(dir, limit).map(|(summaries, _)| summaries)
+    }
+
+    /// `list_recent_summaries`, and the folder's `Damage` over every file in it.
+    pub fn list_recent_with_damage(&self, dir: &Path, limit: usize) -> io::Result<(Vec<Summary>, Damage)> {
+        let (rows, _, damage) = self.read_history_at(dir, limit, SystemTime::now())?;
+        Ok((rows.into_iter().map(|r| r.summary).collect(), damage))
     }
 
     /// Reads mission history from `dir` with `(size, mtime)` caching, keeping full events only
     /// on the newest `MAX_FULL_MISSIONS` rows and preserving `event_count` and `waiting_question`
     /// on light rows. Returns `(rows, mission_ids_read_from_disk)`.
     pub fn read_history_tracked(&self, dir: &Path, limit: usize) -> io::Result<(Vec<HistoryRow>, Vec<String>)> {
-        self.read_history_at(dir, limit, SystemTime::now())
+        self.read_history_at(dir, limit, SystemTime::now()).map(|(rows, read, _)| (rows, read))
     }
 
     /// `read_history_tracked` as of `now`, which decides whether a running mission still counts as running.
-    fn read_history_at(&self, dir: &Path, limit: usize, now: SystemTime) -> io::Result<(Vec<HistoryRow>, Vec<String>)> {
+    fn read_history_at(&self, dir: &Path, limit: usize, now: SystemTime) -> io::Result<(Vec<HistoryRow>, Vec<String>, Damage)> {
         let mut files = Vec::new();
         let mut present = HashSet::new();
         for entry in fs::read_dir(dir)? {
@@ -124,10 +145,11 @@ impl HistoryCache {
         files.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
         let mut read_ids = Vec::new();
         let mut all_rows: Vec<(HistoryRow, PathBuf)> = Vec::new();
+        let mut damage = Damage::default();
+        // Every file is counted, past the list's end too: an older file that recovered is never "could not be read",
+        // and one that did not is said however old it is. Each is read once, then only when its size or time moves.
         for (modified, path, id, stamp) in files {
-            if all_rows.len() == limit {
-                break;
-            }
+            let listing = all_rows.len() < limit;
             let cached = {
                 let cache = lock(&self.entries);
                 cache.get(&path).filter(|c| c.stamp == stamp).cloned()
@@ -136,11 +158,27 @@ impl HistoryCache {
                 Some(hit) => hit,
                 None => {
                     read_ids.push(id);
-                    let parsed = parse_file(&path, modified, stamp);
+                    let mut parsed = parse_file(&path, modified, stamp);
+                    if !listing {
+                        parsed.events = None;
+                    }
                     lock(&self.entries).insert(path.clone(), parsed.clone());
                     parsed
                 }
             };
+            if entry.unreadable {
+                damage.unreadable += 1;
+            } else if let Some(summary) = &entry.summary
+                && !entry.issues.is_empty()
+            {
+                damage.incomplete.insert(summary.mission_id.clone());
+                if entry.issues == [ledger::Issue::TruncatedTail] {
+                    damage.cut_tail_only.insert(summary.mission_id.clone());
+                }
+            }
+            if !listing {
+                continue;
+            }
             if let Some(mut summary) = entry.summary {
                 summary.running = entry.running && fresh(entry.modified, now);
                 all_rows.push((
@@ -175,7 +213,7 @@ impl HistoryCache {
             }
             out.push(row);
         }
-        Ok((out, read_ids))
+        Ok((out, read_ids, damage))
     }
 }
 
@@ -212,42 +250,32 @@ fn peer_link(record: &Value) -> Option<PeerLink> {
 }
 
 fn parse_file(path: &Path, modified: SystemTime, stamp: (u64, u128)) -> CachedFile {
-    let Ok(text) = fs::read_to_string(path) else {
-        return CachedFile {
-            stamp,
-            running: false,
-            modified,
-            summary: None,
-            event_count: 0,
-            waiting_question: None,
-            events: None,
-        };
+    let nothing = |issues: Vec<ledger::Issue>, unreadable: bool| CachedFile {
+        stamp,
+        running: false,
+        modified,
+        summary: None,
+        event_count: 0,
+        waiting_question: None,
+        events: None,
+        issues,
+        unreadable,
     };
-    let records: Vec<Value> = text
-        .lines()
-        .filter_map(|l| serde_json::from_str::<Value>(l).ok())
-        .collect();
-    let Some(m) = records.iter().find_map(ledger::metadata) else {
-        return CachedFile {
-            stamp,
-            running: false,
-            modified,
-            summary: None,
-            event_count: 0,
-            waiting_question: None,
-            events: None,
-        };
+    // A file gone between listing and reading is simply not there; one that could not be opened is unreadable.
+    let read = match ledger::read_ledger(path) {
+        Ok(read) => read,
+        Err(error) => return nothing(Vec::new(), error.kind() != io::ErrorKind::NotFound),
+    };
+    if read.unreadable {
+        return nothing(read.issues, true);
+    }
+    let issues = read.issues;
+    let records = read.records;
+    let Some(m) = records.first().and_then(ledger::metadata) else {
+        return nothing(issues, true);
     };
     if m.side || m.started_by_kind.as_deref() == Some("scout") {
-        return CachedFile {
-            stamp,
-            running: false,
-            modified,
-            summary: None,
-            event_count: 0,
-            waiting_question: None,
-            events: None,
-        };
+        return nothing(Vec::new(), false);
     }
 
     let mut events_map: BTreeMap<u64, Value> = BTreeMap::new();
@@ -371,6 +399,8 @@ fn parse_file(path: &Path, modified: SystemTime, stamp: (u64, u128)) -> CachedFi
         event_count,
         waiting_question,
         events: Some(ordered_events),
+        issues,
+        unreadable: false,
     }
 }
 
@@ -545,9 +575,9 @@ mod tests {
         let cache = HistoryCache::new();
         let now = SystemTime::now();
         let running_of = |rows: &[HistoryRow]| rows.iter().find(|r| r.summary.mission_id == "mission_004").map(|r| r.summary.running);
-        let (first, _) = cache.read_history_at(&dir.0, 100, now).unwrap();
+        let (first, _, _) = cache.read_history_at(&dir.0, 100, now).unwrap();
         assert_eq!(running_of(&first), Some(true));
-        let (later, reads) = cache.read_history_at(&dir.0, 100, now + ledger::ACTIVE_WINDOW + std::time::Duration::from_secs(60)).unwrap();
+        let (later, reads, _) = cache.read_history_at(&dir.0, 100, now + ledger::ACTIVE_WINDOW + std::time::Duration::from_secs(60)).unwrap();
         assert!(reads.is_empty(), "nothing changed on disk: {reads:?}");
         assert_eq!(running_of(&later), Some(false));
     }
@@ -617,3 +647,7 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "torn_listing_tests.rs"]
+mod torn_listing_tests;

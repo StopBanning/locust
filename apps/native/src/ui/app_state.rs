@@ -432,6 +432,8 @@ pub(super) struct State {
     pub(super) relay_hop_cap: u32,
     /// How many conversations the records keep, when more than the list shows (native::MAX_LISTED_MISSIONS).
     pub(super) recent_total: Option<usize>,
+    /// What the records say about their own damage, under the list (native::ListDamage).
+    pub(super) recent_damage: native::ListDamage,
     pub(super) left_out_by_you: Vec<String>,
     /// The handoff preview under the box, as the send would compose it, and what it was composed for (the
     /// conversation, the runtime the reply goes to, the leave-outs, the draft's size), so it is read again only when
@@ -690,6 +692,7 @@ impl Default for State {
             relay_live: native::RelayLiveState::default(),
             relay_hop_cap: locust_core::workspace_settings::DEFAULT_RELAY_HOP_CAP,
             recent_total: None,
+            recent_damage: native::ListDamage::default(),
             left_out_by_you: Vec::new(),
             handoff_preview: None,
             edit: crate::edit_message::Panel::default(),

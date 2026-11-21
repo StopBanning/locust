@@ -2568,6 +2568,13 @@ apps/desktop/src/main/tool-rows-say-what-they-did.test.ts	takes the model’s ow
 apps/desktop/src/main/tool-rows-say-what-they-did.test.ts	has nothing to say when the model wrote nothing	yes
 apps/desktop/src/main/tool-rows-say-what-they-did.test.ts	is only for commands	yes
 apps/desktop/src/main/tool-rows-say-what-they-did.test.ts	reaches OpenCode too, which is the runtime anyone can actually run	yes
+apps/desktop/src/main/torn-ledger.test.ts	clean control: all records survive with zero snapshot AND mission issues	yes
+apps/desktop/src/main/torn-ledger.test.ts	$name: exact prefix and exact issue codes, including rejected tail	yes
+apps/desktop/src/main/torn-ledger.test.ts	invalid header beside a clean ledger: clean receipt survives and unreadable file is visible	yes
+apps/desktop/src/main/torn-ledger.test.ts	clean control: zero issues across the boundary, and nothing said about the records on screen	yes
+apps/desktop/src/main/torn-ledger.test.ts	directory failure: real file at mission-ledger path renders unavailable, not verified	yes
+apps/desktop/src/main/torn-ledger.test.ts	mixed damage: two recovered incomplete receipts and one unreadable file remain separate	yes
+apps/desktop/src/main/torn-ledger.test.ts	does not call an older recoverable receipt unreadable when it falls off the page	yes
 apps/desktop/src/main/two-teammates-may-not-share-a-name.test.ts	cannot be given to a second teammate, whatever its case or spaces	no
 apps/desktop/src/main/two-teammates-may-not-share-a-name.test.ts	cannot be taken by a rename, but a teammate keeps its own	no
 apps/desktop/src/main/unreadable-is-not-empty.test.ts	never reports that a room does not exist	yes

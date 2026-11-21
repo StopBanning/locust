@@ -885,6 +885,20 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
         );
     }
 
+    // Records that are not whole say so, in Screens.tsx's words: a conversation kept up to a bad record, a file that
+    // could not be read at all, a folder that could not be listed.
+    if let Some(words) = s.recent_damage.words() {
+        recent = recent.child(
+            text(words)
+                .font(type_::LABEL)
+                .color(p.amber)
+                .w_full()
+                .px(12.0)
+                .wrap()
+                .key("sidebar-records-damage"),
+        );
+    }
+
     // A history longer than the list says how much of it is listed (Screens.tsx).
     if let Some(words) = locust_core::native::listed_words(s.recent.len(), s.recent_total) {
         recent = recent.child(
@@ -1407,6 +1421,10 @@ mod long_history_line_tests;
 #[cfg(test)]
 #[path = "sidebar_search_words_tests.rs"]
 mod sidebar_search_words_tests;
+
+#[cfg(test)]
+#[path = "torn_ledger_line_tests.rs"]
+mod torn_ledger_line_tests;
 
 #[cfg(test)]
 mod review_tests {
