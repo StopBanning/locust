@@ -1652,7 +1652,7 @@ fn plus_menu(s: &State, l: &crate::look::controls::Look, teammate: &Teammate) ->
         }))
         .child(item("plus-folder", &crate::look::icons::FOLDER, "Choose a folder", folder_said).on_press_tx(|s: &mut State, tx| {
             s.plus_menu = false;
-            crate::home_panel::choose_folder(tx);
+            crate::restored_folders_card::choose_workspace(s, tx);
         }))
 }
 

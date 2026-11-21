@@ -134,7 +134,7 @@ pub(super) fn view(s: &State, p: &Palette) -> Option<El> {
         .child(row().gap(12.0)
             .child(text("Choose another folder").key("folder-question-choose").font(type_::LABEL).color(p.text).role("button").on_press_tx(|s: &mut State, tx| {
                 s.folder_question = None;
-                crate::home_panel::choose_folder(tx);
+                crate::restored_folders_card::choose_workspace(s, tx);
             }))
             .child(text("Start here").key("folder-question-start").font(type_::LABEL).color(p.text).role("button").on_press_tx(|s: &mut State, tx| {
                 if keep_answer(s) { crate::composer_wiring::submit_composer(s, tx, false); }

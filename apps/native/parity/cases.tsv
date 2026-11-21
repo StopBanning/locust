@@ -2008,6 +2008,11 @@ apps/desktop/src/main/report-problem.test.ts	keeps a long conversation's END, an
 apps/desktop/src/main/report-problem.test.ts	names Windows 11 by its build, since both say 10.0	no
 apps/desktop/src/main/report-problem.test.ts	hands over the words, never a URL	no
 apps/desktop/src/main/report-problem.test.ts	is macOS on a Mac, and Windows as before	no
+apps/desktop/src/main/restored-folders-can-be-found-on-another-computer.test.ts	keeps Windows and Mac paths and their names on either computer	yes
+apps/desktop/src/main/restored-folders-can-be-found-on-another-computer.test.ts	offers a Windows folder on a Mac and a Mac folder on Windows without changing it first	yes
+apps/desktop/src/main/restored-folders-can-be-found-on-another-computer.test.ts	keeps the old conversation id after a chosen move and remembers the move after reopening	yes
+apps/desktop/src/main/restored-folders-can-be-found-on-another-computer.test.ts	leaves ambiguous folder names for the picker and uses a saved remote to distinguish them	yes
+apps/desktop/src/main/restored-folders-can-be-found-on-another-computer.test.ts	starts a fresh agent session after a recorded folder move	yes
 apps/desktop/src/main/retention.test.ts	is computed from the host clock, not from anything the window sent	no
 apps/desktop/src/main/retention.test.ts	refuses an age that is not a finite number of days	no
 apps/desktop/src/main/retention.test.ts	refuses an age outside its bounds, in either direction	no

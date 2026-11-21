@@ -37,6 +37,7 @@ mod stores_fail_closed_tests;
 pub mod claude_app;
 pub mod locust_link;
 pub mod reply_page;
+pub mod restored_folders;
 pub mod runtime_artifacts;
 pub mod remote_control;
 pub mod remote_mcp;

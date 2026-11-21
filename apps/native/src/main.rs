@@ -66,6 +66,8 @@ mod save_record;
 mod agents_section;
 #[path = "ui/backup_section.rs"]
 mod backup_section;
+#[path = "ui/restored_folders_card.rs"]
+mod restored_folders_card;
 #[path = "ui/own_copies.rs"]
 mod own_copies;
 #[path = "ui/import_dialog.rs"]
@@ -852,6 +854,7 @@ fn setup(s: &mut State, waker: Waker) {
     if !s.demo {
         s.connector_names = read_claude_connector_names();
     }
+    let mut look_for_folders = false;
     if !s.demo
         && let Some(store) = &s.data
     {
@@ -860,8 +863,13 @@ fn setup(s: &mut State, waker: Waker) {
         }
         if s.last_restore.is_none() {
             s.last_restore = locust_core::profile_backup::take_last_restore(store.root());
+            // After a restore, the folders it named that are not on this computer are looked for (App.tsx).
+            look_for_folders = s.last_restore.is_some();
         }
         locust_core::cursor_config::recover_on_startup(store.root());
+    }
+    if look_for_folders {
+        restored_folders_card::show(s);
     }
     load_team(s);
     sync_draft_key(s);
@@ -2729,6 +2737,7 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
         .h_full()
         .fill(p.bg)
         .child(rail::title_bar(s, &p, !thread_shown, running))
+        .children(restored_folders_card::card(s, &p))
         .children(backup_section::restore_notice_banner(s, &p))
         .children(remote_mcp_card::card(s, &p))
         .child(body)

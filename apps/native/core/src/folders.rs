@@ -126,6 +126,13 @@ fn identity_of(path: &Path) -> Option<String> {
     }
 }
 
+/// `isAbsolute || win32.isAbsolute || posix.isAbsolute` (folders.ts): a folder restored from another computer's backup
+/// is kept whichever computer named it -- `C:\\work\\demo` on this Mac, `/Users/old/work/demo` on Windows.
+pub fn absolute_anywhere(path: &str) -> bool {
+    let b = path.as_bytes();
+    path.starts_with(['/', '\\']) || (b.len() >= 3 && b[0].is_ascii_alphabetic() && b[1] == b':' && (b[2] == b'\\' || b[2] == b'/'))
+}
+
 fn parse_folders(value: &Value) -> Vec<KnownFolder> {
     value
         .get("folders")
@@ -135,7 +142,7 @@ fn parse_folders(value: &Value) -> Vec<KnownFolder> {
         .filter_map(|entry| {
             let id = entry.get("id")?.as_str()?.to_owned();
             let path = entry.get("path")?.as_str()?.to_owned();
-            if !Path::new(&path).is_absolute() {
+            if !absolute_anywhere(&path) {
                 return None;
             }
             Some(KnownFolder {
