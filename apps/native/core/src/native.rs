@@ -3360,6 +3360,20 @@ fn flush_approvals(writer: &mut LedgerWriter, channel: &Channel, mission_id: &st
     }
 }
 
+/// index.ts `onDeniedSaying`: a denial the person explained reaches the run as its next input, in their words; a run
+/// that cannot take one just then is said so. Codex's app-server steers its own (runtime::codex).
+fn pass_on_denials(runtime: &mut dyn Runtime, channel: &Channel, mission_id: &str) {
+    for denied in channel.take_denied_saying_for_mission(mission_id) {
+        if !runtime.steer(&format!("I declined that. {}", denied.reason)) {
+            push_relay_notice(
+                mission_id,
+                "Your reason was not passed on: the run could not take a message just then. Say it in your next message.",
+                "warning",
+            );
+        }
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn run_turn(
     mut writer: LedgerWriter,
@@ -3685,6 +3699,7 @@ fn drive_runtime(
     let mut stopped = false;
     loop {
         flush_approvals(writer, channel, mission_id);
+        pass_on_denials(runtime, channel, mission_id);
         if !stopped && flag.load(Ordering::Relaxed) {
             stopped = true;
             let _ = runtime.stop();
@@ -3716,6 +3731,7 @@ fn drive_runtime(
                     || done
                 {
                     flush_approvals(writer, channel, mission_id);
+                    pass_on_denials(runtime, channel, mission_id);
                     finish_steer();
                     channel.release(mission_id);
                     drop(registered.take());
@@ -3726,6 +3742,7 @@ fn drive_runtime(
             Err(e) => {
                 record_failure(writer, stopped, &e);
                 flush_approvals(writer, channel, mission_id);
+                pass_on_denials(runtime, channel, mission_id);
                 finish_steer();
                 channel.release(mission_id);
                 drop(registered.take());

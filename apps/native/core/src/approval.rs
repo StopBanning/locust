@@ -1341,6 +1341,16 @@ impl Channel {
         mine
     }
 
+    /// The denials the person explained in a mission, each once: for the host to steer to a run that takes its next
+    /// input itself (index.ts `onDeniedSaying`), an ACP agent's.
+    pub fn take_denied_saying_for_mission(&self, mission_id: &str) -> Vec<DeniedSaying> {
+        let mut guard = crate::invariants::lock(&self.inner);
+        let (mine, others) =
+            std::mem::take(&mut guard.denied_saying).into_iter().partition(|d| d.mission_id == mission_id);
+        guard.denied_saying = others;
+        mine
+    }
+
     /// The run is over: refuse whatever it was still asking.
     pub fn release(&self, mission_id: &str) {
         let mut guard = crate::invariants::lock(&self.inner);

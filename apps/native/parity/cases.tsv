@@ -1277,6 +1277,17 @@ apps/desktop/src/main/approval-patch.test.ts	paths under the folder are shown re
 apps/desktop/src/main/approval-patch.test.ts	counts the lines and bounds the text like the ledger does; no changes is no patch	yes
 apps/desktop/src/main/approvals-come-only-from-the-window.test.ts	is only the approval holders and the window handler	no
 apps/desktop/src/main/approvals-come-only-from-the-window.test.ts	is dropped when its run ends: App applies approvalsOfLiveRuns on every change of runs	no
+apps/desktop/src/main/approve-each-reaches-every-start.test.ts	the mode map names it, so it can never land on read-only again	yes
+apps/desktop/src/main/approve-each-reaches-every-start.test.ts	the policy asks the server to stop, which is what makes a card appear	yes
+apps/desktop/src/main/approve-each-reaches-every-start.test.ts	no start path refuses it any more	yes
+apps/desktop/src/main/approve-each-reaches-every-start.test.ts	a run that stops to ask is answered by the channel, and released when it ends	yes
+apps/desktop/src/main/approve-each-reaches-every-start.test.ts	one host answers a card, whichever asked for it	yes
+apps/desktop/src/main/approve-each-reaches-every-start.test.ts	both transports carry the same bound	yes
+apps/desktop/src/main/approve-each-reaches-every-start.test.ts	each one counts the other before admitting a start	yes
+apps/desktop/src/main/approve-each-reaches-every-start.test.ts	the host wires each service to the other	yes
+apps/desktop/src/main/approve-each-reaches-every-start.test.ts	rides ACP in Approve-each only, with Agent mode and allow-all off	yes
+apps/desktop/src/main/approve-each-reaches-every-start.test.ts	what it asks is the card every runtime uses, named as Copilot, and a reason reaches it as its next prompt	yes
+apps/desktop/src/main/approve-each-reaches-every-start.test.ts	the host starts the agent IN its folder, and admits the mode for Copilot	yes
 apps/desktop/src/main/ask-asks-before-a-connector.test.ts	are none in Ask or Plan: every call goes to the card	yes
 apps/desktop/src/main/ask-asks-before-a-connector.test.ts	are the named ones in Edit, as before	yes
 apps/desktop/src/main/ask-asks-before-a-connector.test.ts	are none when the person asked to be asked about every one, or none are named	yes

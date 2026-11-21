@@ -3390,6 +3390,8 @@ mod plan_carry_on;
 mod nobody;
 #[path = "todo_setting_tests.rs"]
 mod todo_setting;
+#[path = "approve_each_reaches_every_start_tests.rs"]
+mod approve_each_reaches_every_start;
 
 /// a-reply-is-shown-the-message-it-answers.test.ts, case 2 through the engine: a run the relay starts to answer a
 /// message (Origin.include_messages, from the relay's `answering`) is sent that message, though six older ones wait
