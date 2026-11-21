@@ -66,6 +66,18 @@ pub struct StartRequest {
     pub runtime: Option<String>,
     pub model: Option<String>,
     pub effort: Option<String>,
+    /// A follow-up's account, kept from its conversation (`routeOverrideFor`): `Some(None)` is the machine's own
+    /// sign-in. `None`, for a new conversation, follows the teammate's saved route.
+    pub account: Option<Option<String>>,
+}
+
+/// The route a turn ran on, as the host holds it (index.ts `TurnRoute`): what a follow-up of it keeps.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Route {
+    pub runtime: String,
+    pub model: Option<String>,
+    pub effort: Option<String>,
+    pub account: Option<String>,
 }
 
 /// What the engine reports once a turn is running: its id and the mode it really runs in.
@@ -88,6 +100,8 @@ pub struct Turn {
     pub sandbox: Option<String>,
     pub started_by: Value,
     pub cwd: Option<String>,
+    /// The account its route recorded (`resolvedRouteId`), None for the machine's own sign-in.
+    pub account: Option<String>,
     pub events: Vec<Value>,
     pub updated: String,
 }
@@ -114,6 +128,7 @@ impl Turn {
             sandbox: text(&meta["sandbox"]),
             started_by: meta["startedBy"].clone(),
             cwd: text(&meta["command"]["cwd"]),
+            account: meta["resolvedRouteId"].as_str().and_then(crate::agent_accounts::account_from_route).map(str::to_owned),
             events: events.into_iter().map(|(_, e)| e).collect(),
             updated,
         })
@@ -175,6 +190,11 @@ pub trait Locust: Send + Sync {
     fn models(&self) -> Vec<Value>;
     /// Locust's own carry-on (main/carry-on.ts): the new turn's id and the folder it works in.
     fn carry_on(&self, mission: &str, runtime: &str, model: Option<&str>) -> Result<(String, Option<String>), String>;
+    /// `followUpRoute`: the route a turn ran on, as the host holds it, else as its record says (runtime, model and
+    /// account); None when neither knows.
+    fn follow_up_route(&self, _mission: &str) -> Option<Route> {
+        None
+    }
     /// How a waiting read_reply sleeps between looks.
     fn pause(&self, ms: u64) {
         std::thread::sleep(Duration::from_millis(ms));
@@ -495,15 +515,22 @@ impl<L: Locust> Tools<L> {
         };
         // With no teammate the turn always names its agent; left alone, the account's default model.
         let alone = (previous.is_none() && crate::native::is_nobody(&teammate)).then(|| teammate.runtime.clone()).flatten();
+        // A follow-up keeps the conversation's own route -- its agent, model, account and effort -- not the teammate's
+        // saved one; a model or effort the app names for this turn goes over it.
+        let kept = previous.and_then(|p| {
+            let runtime = p.runtime.clone()?;
+            Some(self.locust.follow_up_route(&p.mission_id).unwrap_or(Route { runtime, model: p.model.clone(), ..Default::default() }))
+        });
         let request = StartRequest {
             teammate,
             prompt: prompt.to_owned(),
             follow_up_of: previous.map(|p| p.mission_id.clone()),
             mode,
             folder: folder.clone(),
-            runtime: choice.as_ref().map(|c| c.runtime.clone()).or_else(|| previous.and_then(|p| p.runtime.clone())).or(alone),
-            model: choice.as_ref().map(|c| c.model.clone()).or_else(|| previous.and_then(|p| p.model.clone())),
-            effort: choice.as_ref().and_then(|c| c.effort.clone()),
+            runtime: choice.as_ref().map(|c| c.runtime.clone()).or_else(|| kept.as_ref().map(|k| k.runtime.clone())).or(alone),
+            model: choice.as_ref().map(|c| c.model.clone()).or_else(|| kept.as_ref().and_then(|k| k.model.clone())),
+            effort: choice.as_ref().and_then(|c| c.effort.clone()).or_else(|| kept.as_ref().and_then(|k| k.effort.clone())),
+            account: kept.as_ref().map(|k| k.account.clone()),
         };
         let begun = match self.locust.start(request) {
             Ok(b) => b,

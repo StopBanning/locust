@@ -15,8 +15,13 @@ use std::{
     time::{Duration, Instant},
 };
 const MAX_LINE: u64 = 8 * 1024 * 1024;
+/// The words for a line past the size limit: Locust saw that cause itself, so the server's stderr is not added to it.
+const LINE_TOO_LONG: &str = "Codex JSON-RPC line exceeds 8 MiB";
 pub struct Codex {
     child: Child,
+    /// The end of the server's stderr (app-server-process.ts, N10): always drained, its last 4,096 characters kept.
+    stderr: Arc<Mutex<String>>,
+    stderr_reader: Option<std::thread::JoinHandle<()>>,
     input: SyncSender<Vec<u8>>,
     control: Arc<Control>,
     lines: Receiver<io::Result<Value>>,
@@ -57,7 +62,14 @@ fn err(message: impl ToString) -> io::Error {
 }
 impl Codex {
     pub fn spawn(command: &mut Command) -> io::Result<Self> {
-        let mut child = super::process::spawn(command, Stdio::piped(), Stdio::null())?;
+        let mut child = super::process::spawn(command, Stdio::piped(), Stdio::piped())?;
+        let (stderr, stderr_reader) = super::process::stderr_end(
+            child
+                .stderr
+                .take()
+                // Invariant: spawn configured this pipe and it has not been taken.
+                .expect("spawn configured this pipe and it has not been taken"),
+        );
         // spawn configured a piped stdin; no prior take occurs.
         let mut stdin = child
             .stdin
@@ -98,7 +110,7 @@ impl Codex {
                 let value = match result {
                     Ok(0) => Err(err("Codex stdout closed before the turn completed")),
                     Ok(_) if line.len() as u64 > MAX_LINE => {
-                        Err(err("Codex JSON-RPC line exceeds 8 MiB"))
+                        Err(err(LINE_TOO_LONG))
                     }
                     Ok(_) => serde_json::from_slice::<Value>(&line)
                         .map_err(|_| err("Codex sent malformed JSON-RPC")),
@@ -141,6 +153,8 @@ impl Codex {
         });
         Ok(Self {
             child,
+            stderr,
+            stderr_reader: Some(stderr_reader),
             input,
             control,
             lines,
@@ -219,9 +233,34 @@ impl Codex {
     fn transport_failure(&mut self, message: &str) -> Event {
         self.queued.clear();
         let diagnostic = self.normal.diagnostic("native.transport", message);
-        let terminal = self.normal.finish(self.stopping.is_some(), message);
+        let cancelled = self.stopping.is_some();
+        let mut terminal = self.normal.finish(cancelled, message);
+        if !cancelled {
+            // codex-app-server-run.ts `lose`: the server's own last words after ours, so the card's "last word" is its
+            // (N10). A cause Locust saw itself is said alone.
+            let said = if message == LINE_TOO_LONG { message.to_owned() } else { self.last_words(message) };
+            terminal.payload["process"]["stderr"] = json!(super::events::text(&said, 16384));
+        }
         self.queued.push_back(terminal);
         diagnostic
+    }
+    /// The end of the server's stderr as it stands now (`stderrTail`): empty, not missing, for a server that said nothing.
+    pub fn stderr_tail(&self) -> String {
+        crate::invariants::lock(&self.stderr).clone()
+    }
+    /// `why`, then on the next line what the server last wrote to stderr, its terminal colour codes taken out; `why`
+    /// alone when it wrote nothing. A server that has just died may still be draining, so its pipe is given a moment.
+    fn last_words(&mut self, why: &str) -> String {
+        if let Some(reader) = &self.stderr_reader {
+            let until = Instant::now() + Duration::from_millis(500);
+            while !reader.is_finished() && Instant::now() < until {
+                std::thread::sleep(Duration::from_millis(10));
+            }
+        }
+        let tail = self.stderr_tail();
+        let said = crate::invariants::regex("\x1b\\[[0-9;?]*[ -/]*[@-~]").replace_all(&tail, "");
+        let said = said.trim();
+        if said.is_empty() { why.to_owned() } else { format!("{why}\n{said}") }
     }
     fn notification(&mut self, v: Value) -> io::Result<()> {
         let Some(method) = v["method"].as_str() else {
@@ -795,3 +834,7 @@ mod codex_declined_tests;
 #[cfg(test)]
 #[path = "codex_denial_reason_tests.rs"]
 mod codex_denial_reason_tests;
+
+#[cfg(test)]
+#[path = "a_dying_server_says_why_tests.rs"]
+mod a_dying_server_says_why_tests;
