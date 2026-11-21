@@ -409,6 +409,17 @@ impl Copilot {
     }
 }
 impl Runtime for Copilot {
+    /// Over ACP (Approve each) a message reaches it as its next prompt (codex-mission.ts `steer = acp.steer`): a
+    /// denial's reason, or a message to the busy teammate. Print mode takes none.
+    fn can_steer(&self) -> bool {
+        matches!(self, Self::Acp(_))
+    }
+    fn steer(&mut self, text: &str) -> bool {
+        match self {
+            Self::Print(_) => false,
+            Self::Acp(a) => a.steer(text),
+        }
+    }
     fn start(&mut self, t: &Turn) -> io::Result<()> {
         match self {
             Self::Print(p) => p.start(t),
