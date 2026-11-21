@@ -2524,8 +2524,8 @@ apps/desktop/src/main/what-a-teammate-wrote-is-quoted-dead.test.ts	carries no li
 apps/desktop/src/main/what-a-teammate-wrote-is-quoted-dead.test.ts	carries no live tag	yes
 apps/desktop/src/main/what-an-acp-agent-can-do-is-kept.test.ts	keeps what the agent said, and reads it back after a relaunch	yes
 apps/desktop/src/main/what-an-acp-agent-can-do-is-kept.test.ts	reads a file of the wrong shape as nothing, entry by entry	yes
-apps/desktop/src/main/what-an-acp-agent-can-do-is-kept.test.ts	reaches Settings on the runtime it was said by, and no other	no
-apps/desktop/src/main/what-an-acp-agent-can-do-is-kept.test.ts	reaches an answer discovery already cached, without probing a CLI again (measured on 0.566)	no
+apps/desktop/src/main/what-an-acp-agent-can-do-is-kept.test.ts	reaches Settings on the runtime it was said by, and no other	yes
+apps/desktop/src/main/what-an-acp-agent-can-do-is-kept.test.ts	reaches an answer discovery already cached, without probing a CLI again (measured on 0.566)	yes
 apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	are the prompts typed in the terminal after the turn, each with its last words in answer	no
 apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	never take Locust's own print-mode turn, or its answer, for the terminal's	no
 apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	hold back an exchange still going, so no answer comes back half-written	no
@@ -3730,6 +3730,8 @@ apps/desktop/src/renderer/src/an-account-shows-how-full-it-is.test.tsx	draws no 
 apps/desktop/src/renderer/src/an-account-shows-how-full-it-is.test.tsx	draws a window reset since the reading as reset, without its old bar, and says when the reading was taken	yes
 apps/desktop/src/renderer/src/an-account-shows-how-full-it-is.test.tsx	is the marks alone, each carrying its card; no rings	no
 apps/desktop/src/renderer/src/an-account-shows-how-full-it-is.test.tsx	is quiet with room left, and wears its amber dot from 80% -- as before the rings	no
+apps/desktop/src/renderer/src/an-acp-agent-says-what-it-can-do.test.ts	says each thing as a plain yes or no	yes
+apps/desktop/src/renderer/src/an-acp-agent-says-what-it-can-do.test.ts	says it is the agent’s own word, and when it said it	yes
 apps/desktop/src/renderer/src/an-added-account-is-named-in-the-picker.test.tsx	names both accounts alongside the machine sign-in and separates their limit status	no
 apps/desktop/src/renderer/src/an-added-account-is-named-in-the-picker.test.tsx	hides added routes under organization policy while saying why Add is unavailable	no
 apps/desktop/src/renderer/src/an-added-account-is-named-in-the-picker.test.tsx	shows the agent-owned sign-in card without starting a login on render	no
