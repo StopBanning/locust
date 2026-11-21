@@ -12,13 +12,10 @@ pub(super) fn poll(s: &mut State) -> bool {
         return false;
     }
     let tell = attention::should_notify(s.window_focused, crate::notify::supported());
+    let mut show = |title: &str, body: &str, opens: Option<&str>| crate::notify::show(title, body, opens);
     // A card raised since the last look.
     for card in locust_core::engine_api::api().waiting() {
-        if !s.told_cards.insert(card.approval_id.clone()) || !tell {
-            continue;
-        }
-        let notice = card_notice(s, &card);
-        crate::notify::show(&notice.title, &notice.body, notice.opens.as_deref());
+        say_card(s, &card, tell, &mut show);
     }
     // A turn this process ran that has ended since the last look.
     let now: std::collections::HashSet<String> = locust_core::engine_api::api().running().into_iter().collect();
@@ -34,13 +31,8 @@ pub(super) fn poll(s: &mut State) -> bool {
         let kind = end.and_then(|e| e["type"].as_str()).unwrap_or("");
         // attention-reader.ts: a run that ended waiting for the person -- at its account limit, or with a card asking
         // them something -- says so. A limit is said instead of the finish.
-        if let Some(notice) = ended_turn_notice(s, &id, &turn) {
-            if tell {
-                crate::notify::show(&notice.title, &notice.body, notice.opens.as_deref());
-            }
-            if notice.limit {
-                continue;
-            }
+        if say_ended(s, &id, &turn, tell, &mut show) {
+            continue;
         }
         let started = turn.metadata["createdAt"].as_str().and_then(|t| chrono::DateTime::parse_from_rfc3339(t).ok());
         let took = started.map(|t| (chrono::Utc::now() - t.with_timezone(&chrono::Utc)).num_milliseconds().max(0) as u64).unwrap_or(0);
@@ -61,18 +53,44 @@ pub(super) fn poll(s: &mut State) -> bool {
             s.finish_ids.push(id.clone());
         }
     }
-    // Finishes gathered for four seconds, said as one, and only if the window is still elsewhere.
-    if s.finishes_due.is_some_and(|due| std::time::Instant::now() >= due) {
-        let said = std::mem::take(&mut s.finishes);
-        let ids = std::mem::take(&mut s.finish_ids);
-        s.finishes_due = None;
-        if tell && !said.is_empty() {
-            let (title, body) = attention::finished_text(&said);
-            // Several finishes said as one open the newest of them.
-            crate::notify::show(&title, &body, ids.last().map(String::as_str));
-        }
-    }
+    say_finishes(s, std::time::Instant::now(), tell, &mut show);
     false
+}
+
+/// approvalArrived: a card raised since the last look is said once, and only while the window is elsewhere; a click
+/// brings Locust forward (the system does) and opens the card's conversation.
+pub(super) fn say_card(s: &mut State, card: &locust_core::approval::Request, tell: bool, show: &mut impl FnMut(&str, &str, Option<&str>)) {
+    if !s.told_cards.insert(card.approval_id.clone()) || !tell {
+        return;
+    }
+    let notice = card_notice(s, card);
+    show(&notice.title, &notice.body, notice.opens.as_deref());
+}
+
+/// attention-reader.ts: a turn that ended waiting for the person, with a card asking them something or at its account
+/// limit, is said at once while the window is elsewhere, and not at all while it is in front. True for a limit, which
+/// is said instead of the finish.
+pub(super) fn say_ended(s: &State, id: &str, turn: &native::TurnRecords, tell: bool, show: &mut impl FnMut(&str, &str, Option<&str>)) -> bool {
+    let Some(notice) = ended_turn_notice(s, id, turn) else { return false };
+    if tell {
+        show(&notice.title, &notice.body, notice.opens.as_deref());
+    }
+    notice.limit
+}
+
+/// Finishes gathered for four seconds, said as one, and only if the window is still elsewhere when they are due.
+pub(super) fn say_finishes(s: &mut State, now: std::time::Instant, tell: bool, show: &mut impl FnMut(&str, &str, Option<&str>)) {
+    if !s.finishes_due.is_some_and(|due| now >= due) {
+        return;
+    }
+    let said = std::mem::take(&mut s.finishes);
+    let ids = std::mem::take(&mut s.finish_ids);
+    s.finishes_due = None;
+    if tell && !said.is_empty() {
+        let (title, body) = attention::finished_text(&said);
+        // Several finishes said as one open the newest of them.
+        show(&title, &body, ids.last().map(String::as_str));
+    }
 }
 
 /// The teammate a turn is the work of, by its name in the window's roster; None is said as "A teammate".

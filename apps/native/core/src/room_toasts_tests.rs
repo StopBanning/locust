@@ -165,3 +165,19 @@ fn one_finish_is_said_as_itself() {
     let one = vec![("Wren finished".to_owned(), "Done. · took 3 min".to_owned())];
     assert_eq!(finished_text(&one), one[0]);
 }
+
+// case: a finished run, told once > believes only a bounded title and body from the renderer
+#[test]
+fn believes_only_a_bounded_title_and_body() {
+    // There is no renderer here: the toast is built from the record in one process. Its bounds are finishFrom's: a title
+    // of one line and 120 characters at most, whatever the teammate is called, and a body well inside 400.
+    let name = format!("Wren\n{}", "t".repeat(500));
+    let (title, body) = finished_toast(true, false, true, 120_000, Some(&name), Some(&"b".repeat(900)), None).unwrap();
+    assert_eq!(title.chars().count(), 120);
+    assert!(title.starts_with("Wren t") && !title.contains('\n'), "{title}");
+    assert!(body.chars().count() <= 400, "{}", body.chars().count());
+    let (title, body) = finished_toast(false, true, true, 120_000, Some(&name), None, Some(&"e".repeat(900))).unwrap();
+    assert_eq!(title.chars().count(), 120);
+    assert!(body.chars().count() <= 400);
+    assert_eq!(finished_toast(true, false, true, 120_000, Some("Wren"), Some("Done."), None).unwrap().0, "Wren finished");
+}

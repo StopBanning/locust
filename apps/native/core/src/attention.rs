@@ -169,14 +169,16 @@ pub fn finished_toast(completed: bool, failed: bool, started_by_person: bool, to
     if !started_by_person || (!completed && !failed) || took_ms < FINISH_WORTH_TELLING_MS {
         return None;
     }
+    // finishFrom: a title is one line of at most 120 characters, whatever the teammate is named.
+    let one_line = |t: String| t.split_whitespace().collect::<Vec<_>>().join(" ").chars().take(120).collect::<String>();
     let who = teammate.unwrap_or("A teammate");
     if failed {
         let why = error.and_then(|e| e.lines().next()).map(str::trim).unwrap_or("");
         let said = if why.is_empty() { "The run did not finish.".to_owned() } else { clip(why, 140) };
-        return Some((format!("{who} stopped"), format!("{said} · after {}", took_text(took_ms))));
+        return Some((one_line(format!("{who} stopped")), format!("{said} · after {}", took_text(took_ms))));
     }
     let line = last_said.and_then(|t| t.lines().map(str::trim).find(|l| !l.is_empty())).map(|l| clip(l, 140));
-    Some((format!("{who} finished"), format!("{} · took {}", line.unwrap_or_else(|| "Done.".into()), took_text(took_ms))))
+    Some((one_line(format!("{who} finished")), format!("{} · took {}", line.unwrap_or_else(|| "Done.".into()), took_text(took_ms))))
 }
 
 /// What a turn that ended says to a person who stepped away (attention-reader.ts): the two ways a run ends WAITING FOR
