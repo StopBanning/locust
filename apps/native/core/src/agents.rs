@@ -1101,6 +1101,91 @@ pub fn apple_found(probe: &crate::runtime::apple::Probe) -> Option<Found> {
     }
 }
 
+/// How long a runtime that was READY is trusted when the only question is whether a turn may start on it
+/// (READY_TO_START_TTL_MS): the run itself is the real check, and a CLI signed out since fails at launch, fast.
+pub const READY_TO_START_TTL_MS: u64 = 5 * 60_000;
+
+/// The last full answer and when that sweep ran (start-readiness.ts `held`).
+#[derive(Clone, Debug, PartialEq)]
+pub struct HeldAnswer {
+    pub at: u64,
+    pub value: Vec<Found>,
+}
+
+/// What a start's readiness is asked through (StartReadinessOptions).
+pub struct StartReadinessOptions {
+    pub ttl_ms: u64,
+    pub now: Box<dyn Fn() -> u64 + Send + Sync>,
+    /// The last full answer and when that sweep ran, if there is one.
+    pub held: Box<dyn Fn() -> Option<HeldAnswer> + Send + Sync>,
+    /// Replace the held answer; its `at` stays the sweep's own clock.
+    pub store: Box<dyn Fn(Vec<Found>) + Send + Sync>,
+    /// A full sweep, as every other caller gets.
+    pub sweep: Box<dyn Fn() -> Vec<Found> + Send + Sync>,
+    /// Ask one runtime alone.
+    pub ask_one: Box<dyn Fn(&str) -> Result<Option<Found>, String> + Send + Sync>,
+    /// Runtimes that are not a CLI to ask alone (Antigravity: the app itself).
+    pub sweep_only: std::collections::HashSet<String>,
+}
+
+/// start-readiness.ts: whether the runtime a turn is about to start on is still ready, asked as cheaply as the answer
+/// allows. A stale answer is refreshed for that runtime alone, never by a sweep of every runtime.
+pub struct StartReadiness {
+    options: StartReadinessOptions,
+    /// When each runtime was last ASKED, by a sweep or on its own.
+    asked_at: std::sync::Mutex<std::collections::HashMap<String, u64>>,
+}
+
+/// `usable`: available, ready and with a program to run. `Found` holds the first and last as `installed`.
+fn usable_to_start(entry: Option<&Found>) -> bool {
+    entry.is_some_and(|e| e.installed && e.ready)
+}
+
+impl StartReadiness {
+    pub fn new(options: StartReadinessOptions) -> Self {
+        Self { options, asked_at: std::sync::Mutex::new(std::collections::HashMap::new()) }
+    }
+
+    /// A full sweep answered every runtime at this moment.
+    pub fn swept(&self, value: &[Found], at: u64) {
+        let mut asked = crate::invariants::lock(&self.asked_at);
+        for runtime in value {
+            asked.insert(runtime.id.clone(), at);
+        }
+    }
+
+    pub fn for_start(&self, runtime_id: Option<&str>) -> Vec<Found> {
+        let o = &self.options;
+        let held = (o.held)();
+        let (Some(runtime_id), Some(held)) = (runtime_id, held) else { return (o.sweep)() };
+        let chosen = held.value.iter().find(|e| e.id == runtime_id);
+        let asked = crate::invariants::lock(&self.asked_at).get(runtime_id).copied().unwrap_or(held.at);
+        if usable_to_start(chosen) && (o.now)().saturating_sub(asked) < o.ttl_ms {
+            return held.value;
+        }
+        // Not ready last time, or not a CLI: the full path, as before. Only a runtime that WAS ready and has merely
+        // gone stale is asked alone.
+        if !usable_to_start(chosen) || o.sweep_only.contains(runtime_id) {
+            return (o.sweep)();
+        }
+        match (o.ask_one)(runtime_id) {
+            Ok(Some(fresh)) => {
+                let current = (o.held)().unwrap_or(held);
+                let merged: Vec<Found> =
+                    current.value.into_iter().map(|e| if e.id == runtime_id { fresh.clone() } else { e }).collect();
+                (o.store)(merged.clone());
+                crate::invariants::lock(&self.asked_at).insert(runtime_id.to_owned(), (o.now)());
+                merged
+            }
+            _ => (o.sweep)(),
+        }
+    }
+}
+
 #[cfg(test)]
 #[path = "agents_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "a_start_asks_only_its_runtime_tests.rs"]
+mod a_start_asks_only_its_runtime_tests;
