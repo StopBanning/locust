@@ -21,7 +21,7 @@
 use std::collections::HashSet;
 use std::path::{Component, Path, PathBuf};
 
-use crate::attachments::{ATTACHMENT_DIR, split_attachments, with_attachments};
+use crate::attachments::{ATTACHMENT_DIR, attachment_destination, exclude_with, split_attachments, with_attachments};
 
 /// The prompt to send a run in `run_cwd`, its files placed there from `workspace` (above). A message without
 /// attachments, or a run in the project folder itself, comes back exactly as given.
@@ -62,13 +62,16 @@ fn placed_for_run(attachments: &[String], workspace: &Path, run_cwd: &Path) -> V
             placed.push(path.clone());
             continue;
         }
-        let base = Path::new(path).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| path.clone());
-        let name = distinct_name(&base, &taken);
-        taken.insert(name.clone());
-        let destination = run_cwd.join(ATTACHMENT_DIR).join(&name);
-        if copy_to(&source, &destination) {
+        // A name that is no file name stays as the person named it, like a file that could not be copied.
+        let Ok(relative) = attachment_destination(path, &taken) else {
+            placed.push(path.clone());
+            continue;
+        };
+        let name = relative[ATTACHMENT_DIR.len() + 1..].to_owned();
+        taken.insert(name);
+        if copy_to(&source, &run_cwd.join(&relative)) {
             copied = true;
-            placed.push(format!("{ATTACHMENT_DIR}/{name}"));
+            placed.push(relative);
         } else {
             placed.push(path.clone());
         }
@@ -109,17 +112,6 @@ fn inside(root: &Path, path: &Path) -> bool {
 }
 
 /// `name`, or `name-2`, `name-3`, ... before its extension, whichever is not taken yet.
-fn distinct_name(name: &str, taken: &HashSet<String>) -> String {
-    if !taken.contains(name) {
-        return name.to_owned();
-    }
-    let (stem, extension) = match name.rfind('.') {
-        Some(dot) if dot > 0 => (&name[..dot], &name[dot..]),
-        _ => (name, ""),
-    };
-    (2..).map(|suffix| format!("{stem}-{suffix}{extension}")).find(|candidate| !taken.contains(candidate)).unwrap_or_default()
-}
-
 /// `.locust/` out of the run folder's commits, the way the project's copies are kept out: `.git/info/exclude`, never
 /// the owner's `.gitignore`. A worktree's `.git` is a file and its exclude is the project's, which already has the line;
 /// a folder that is not a repository has nothing to do. Not writable: the copy still reaches the run.
@@ -133,15 +125,6 @@ fn keep_out_of_git(folder: &Path) {
         let _ = exclude.parent().map(std::fs::create_dir_all);
         let _ = std::fs::write(&exclude, next);
     }
-}
-
-/// `excludeWith` (attach-outside.ts): the exclude file with `.locust/` added, or None when it already keeps it out.
-fn exclude_with(current: &str) -> Option<String> {
-    if current.split('\n').map(str::trim).any(|line| matches!(line, ".locust/" | ".locust" | "/.locust/")) {
-        return None;
-    }
-    let body = if current.is_empty() || current.ends_with('\n') { current.to_owned() } else { format!("{current}\n") };
-    Some(format!("{body}.locust/\n"))
 }
 
 #[cfg(test)]

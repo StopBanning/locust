@@ -1302,17 +1302,17 @@ apps/desktop/src/main/ask-starts-none-of-your-codex-programs.test.ts	starts noth
 apps/desktop/src/main/ask-starts-none-of-your-codex-programs.test.ts	tells a person whose Codex is too old for the read to update it, and anyone else to send again	yes
 apps/desktop/src/main/ask-starts-none-of-your-codex-programs.test.ts	adds no shell, no web search and no ChatGPT apps, and switches off every server, connectors too	yes
 apps/desktop/src/main/ask-starts-none-of-your-codex-programs.test.ts	refuses as Ask does when it cannot read the settings	yes
-apps/desktop/src/main/attach-outside.test.ts	keeps the name it had	no
-apps/desktop/src/main/attach-outside.test.ts	never overwrites a file already there	no
-apps/desktop/src/main/attach-outside.test.ts	handles a name with no extension, and one with several dots	no
-apps/desktop/src/main/attach-outside.test.ts	adds the line to an exclude file that lacks it	no
-apps/desktop/src/main/attach-outside.test.ts	adds a newline first when the file does not end with one	no
-apps/desktop/src/main/attach-outside.test.ts	does nothing when the folder is already excluded	no
-apps/desktop/src/main/attach-outside.test.ts	refuses a name that would climb out of the folder	no
-apps/desktop/src/main/attach-outside.test.ts	refuses a name that would land on the folder itself	no
-apps/desktop/src/main/attach-outside.test.ts	refuses an alternate data stream	no
-apps/desktop/src/main/attach-outside.test.ts	still takes every ordinary name, including awkward ones	no
-apps/desktop/src/main/attach-outside.test.ts	a traversal INSIDE the source path is harmless, because only the name is used	no
+apps/desktop/src/main/attach-outside.test.ts	keeps the name it had	yes
+apps/desktop/src/main/attach-outside.test.ts	never overwrites a file already there	yes
+apps/desktop/src/main/attach-outside.test.ts	handles a name with no extension, and one with several dots	yes
+apps/desktop/src/main/attach-outside.test.ts	adds the line to an exclude file that lacks it	yes
+apps/desktop/src/main/attach-outside.test.ts	adds a newline first when the file does not end with one	yes
+apps/desktop/src/main/attach-outside.test.ts	does nothing when the folder is already excluded	yes
+apps/desktop/src/main/attach-outside.test.ts	refuses a name that would climb out of the folder	yes
+apps/desktop/src/main/attach-outside.test.ts	refuses a name that would land on the folder itself	yes
+apps/desktop/src/main/attach-outside.test.ts	refuses an alternate data stream	yes
+apps/desktop/src/main/attach-outside.test.ts	still takes every ordinary name, including awkward ones	yes
+apps/desktop/src/main/attach-outside.test.ts	a traversal INSIDE the source path is harmless, because only the name is used	yes
 apps/desktop/src/main/attachments-for-run.test.ts	changes nothing for a run in the project folder	yes
 apps/desktop/src/main/attachments-for-run.test.ts	copies a pasted file into a worktree at the same path	yes
 apps/desktop/src/main/attachments-for-run.test.ts	leaves a project file the worktree has alone: its own branch’s copy	yes
@@ -1823,6 +1823,10 @@ apps/desktop/src/main/only-the-face-you-talk-to-hops.test.ts	is a small lift and
 apps/desktop/src/main/only-the-face-you-talk-to-hops.test.ts	stops for a person who asked for less motion	no
 apps/desktop/src/main/palette-has-no-inner-ring.test.ts	turns the global focus ring off at a specificity that beats it	no
 apps/desktop/src/main/palette-has-no-inner-ring.test.ts	keeps the head’s lit edge as the focus it shows	no
+apps/desktop/src/main/pasted-attachment.test.ts	lands inside the one folder Locust owns	yes
+apps/desktop/src/main/pasted-attachment.test.ts	cannot climb out of it, however it is spelled	yes
+apps/desktop/src/main/pasted-attachment.test.ts	never overwrites something already attached	yes
+apps/desktop/src/main/pasted-attachment.test.ts	keeps the extension where there is one, and copes where there is not	yes
 apps/desktop/src/main/permission-host.test.ts	refuses a Claude approval when its pending text cannot be written	no
 apps/desktop/src/main/permission-host.test.ts	waits for pending text before raising a Claude approval and refuses one whose run ended while waiting	no
 apps/desktop/src/main/permission-host.test.ts	takes a card down when the bridge stops waiting for it, so the question asked again is the one card (0.837)	yes

@@ -15,6 +15,59 @@ pub const MAX_PASTED_BYTES: usize = 24 * 1024 * 1024;
 /// Where a file copied in from outside the workspace lives, workspace-relative.
 pub const ATTACHMENT_DIR: &str = ".locust/attachments";
 
+/// Node's `path.basename` for the platform: the last segment once trailing separators are gone (`/` everywhere, a backslash
+/// too on Windows). Unlike `Path::file_name`, a last segment of `.` or `..` is returned as written.
+fn basename(source: &str) -> &str {
+    let separator = |c: char| c == '/' || (cfg!(windows) && c == '\\');
+    let trimmed = source.trim_end_matches(separator);
+    if trimmed.is_empty() {
+        return "";
+    }
+    trimmed.rsplit(separator).next().unwrap_or(trimmed)
+}
+
+/// Node's `path.extname`: from the last dot of the name, unless that dot is its first character.
+fn extname(name: &str) -> &str {
+    match name.rfind('.') {
+        Some(dot) if dot > 0 => &name[dot..],
+        _ => "",
+    }
+}
+
+/// `attachmentDestination` (attach-outside.ts): a workspace-relative destination for a file copied in from outside the
+/// workspace, or pasted, that collides with nothing in `taken`. The name has to be a NAME, not a way out of the folder:
+/// empty, `.`, `..`, or anything holding a slash, a backslash or a colon (a Windows alternate data stream) is refused,
+/// whoever the caller is. A taken name gets `-2`, `-3` before its extension.
+pub fn attachment_destination(source: &str, taken: &std::collections::HashSet<String>) -> Result<String, String> {
+    let name = basename(source);
+    if name.is_empty() || name == "." || name == ".." || name.contains(['\\', '/', ':']) {
+        return Err(format!("That file cannot be attached: \"{name}\" is not a file name."));
+    }
+    if !taken.contains(name) {
+        return Ok(format!("{ATTACHMENT_DIR}/{name}"));
+    }
+    let extension = extname(name);
+    let stem = &name[..name.len() - extension.len()];
+    // Starts at 2, because the file it is avoiding is the first one.
+    (2..1_000)
+        .map(|suffix| format!("{stem}-{suffix}{extension}"))
+        .find(|candidate| !taken.contains(candidate))
+        .map(|candidate| format!("{ATTACHMENT_DIR}/{candidate}"))
+        .ok_or_else(|| format!("Too many files named {name} are already attached."))
+}
+
+/// What `.git/info/exclude` needs so the folder never reaches a commit (`GIT_EXCLUDE_LINE`).
+pub const GIT_EXCLUDE_LINE: &str = ".locust/";
+
+/// `excludeWith` (attach-outside.ts): the exclude file with `.locust/` added, or None when it already keeps it out.
+pub fn exclude_with(current: &str) -> Option<String> {
+    if current.split('\n').map(str::trim).any(|line| matches!(line, ".locust/" | ".locust" | "/.locust/")) {
+        return None;
+    }
+    let body = if current.is_empty() || current.ends_with('\n') { current.to_owned() } else { format!("{current}\n") };
+    Some(format!("{body}{GIT_EXCLUDE_LINE}\n"))
+}
+
 /// The line that goes above the person's own words, or None for no attachments, so a caller cannot prepend an empty
 /// instruction. A name holding a control character (legal on macOS and Linux) is quoted with its breaks escaped, so it
 /// stays one item and says exactly what the file is called.
@@ -94,3 +147,11 @@ pub fn split_attachments(prompt: &str) -> (String, Vec<String>) {
 #[cfg(test)]
 #[path = "attachments_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "pasted_attachment_tests.rs"]
+mod pasted_attachment_tests;
+
+#[cfg(test)]
+#[path = "attach_outside_tests.rs"]
+mod attach_outside_tests;
