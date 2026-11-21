@@ -1288,6 +1288,10 @@ apps/desktop/src/main/attachments-for-run.test.ts	leaves a project file the work
 apps/desktop/src/main/attachments-for-run.test.ts	copies a project file a folder of its own lacks, and names the copy	yes
 apps/desktop/src/main/attachments-for-run.test.ts	never reads outside the project for a path that climbs out of it	yes
 apps/desktop/src/main/attachments-for-run.test.ts	leaves a message without attachments exactly as typed	yes
+apps/desktop/src/main/attention-reader.test.ts	a decision card in a completed reply is a question from the teammate	yes
+apps/desktop/src/main/attention-reader.test.ts	a run stopped at its account limit says so, with the runtime and its own words	yes
+apps/desktop/src/main/attention-reader.test.ts	a limit the run went on to complete past is not a limit; a plain completion says nothing	yes
+apps/desktop/src/main/attention-reader.test.ts	a decision in a run that did not complete is not asked; nobody's conversation is unnamed	yes
 apps/desktop/src/main/block-placement.test.ts	finds the briefings, so a pass means something	yes
 apps/desktop/src/main/block-placement.test.ts	never says a block must be the last thing in the reply	yes
 apps/desktop/src/main/block-placement.test.ts	says instead that several blocks may follow one another	yes

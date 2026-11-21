@@ -85,6 +85,74 @@ pub fn finished_toast(completed: bool, failed: bool, started_by_person: bool, to
     Some((format!("{who} finished"), format!("{} · took {}", line.unwrap_or_else(|| "Done.".into()), took_text(took_ms))))
 }
 
+/// What a turn that ended says to a person who stepped away (attention-reader.ts): the two ways a run ends WAITING FOR
+/// THE PERSON that no other notification covers. Decided from the record; nothing for a run that ended any other way.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RunEnded {
+    /// decisionAsked: the completed reply ends with a decision card, and this is its question.
+    Decision { question: String },
+    /// limitHit: the run stopped at its account limit; the runtime that recorded it, and its own words.
+    Limit { runtime: String, message: Option<String> },
+}
+
+/// onRunEnded: the newest quota-exhausted limit the run did not go on to complete past, whatever its phase; else, for a
+/// completed run only, the decision card in its last final reply.
+pub fn run_ended(events: &[serde_json::Value], completed: bool) -> Option<RunEnded> {
+    let mut limit = None;
+    for event in events {
+        if event["type"] == "route.limit_detected" && event["payload"]["kind"] == "quota-exhausted" {
+            limit = Some(RunEnded::Limit {
+                runtime: event["sourceAdapter"].as_str().unwrap_or_default().to_owned(),
+                message: event["payload"]["message"].as_str().map(str::to_owned),
+            });
+        } else if event["type"] == "run.completed" {
+            limit = None;
+        }
+    }
+    if limit.is_some() {
+        return limit;
+    }
+    if !completed {
+        return None;
+    }
+    let text = crate::carry_on::latest_final(events)?;
+    crate::protocol_tags::parse_decision(&text).map(|decision| RunEnded::Decision { question: decision.question })
+}
+
+/// A system notification: what it says, and the conversation a click opens.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Notice {
+    pub title: String,
+    pub body: String,
+    pub opens: Option<String>,
+    /// A run stopped at its limit: said instead of its finish.
+    pub limit: bool,
+}
+
+/// What a turn of the native engine that ended raises (attention_watch::poll): `run_ended` on its record, where the
+/// turn's own agent names a limit event that does not say whose it was. A failure at the limit with no limit event of
+/// its own is a limit too (Rust's own events end such a turn `run.failed`, kind `quota-exhausted`).
+pub fn ended_notice(mission_id: &str, events: &[serde_json::Value], runtime: &str, teammate: Option<&str>) -> Option<Notice> {
+    let end = events.iter().rev().find(|e| matches!(e["type"].as_str(), Some("run.completed" | "run.failed" | "run.cancelled")));
+    let kind = end.and_then(|e| e["type"].as_str()).unwrap_or("");
+    let says = run_ended(events, kind == "run.completed");
+    let limit = match &says {
+        Some(RunEnded::Limit { runtime, message }) => Some((runtime.clone(), message.clone())),
+        _ if kind == "run.failed" && end.is_some_and(|e| e["payload"]["kind"] == "quota-exhausted") => {
+            Some((String::new(), end.and_then(|e| e["payload"]["message"].as_str()).map(str::to_owned)))
+        }
+        _ => None,
+    };
+    if let Some((by, message)) = limit {
+        let by = if by.is_empty() { runtime.to_owned() } else { by };
+        let (title, body) = limit_text(teammate, crate::carry_on::display_name(&by), message.as_deref());
+        return Some(Notice { title, body, opens: Some(mission_id.to_owned()), limit: true });
+    }
+    let Some(RunEnded::Decision { question }) = says else { return None };
+    let (title, body) = decision_text(teammate, &question);
+    Some(Notice { title, body, opens: Some(mission_id.to_owned()), limit: false })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -114,3 +182,7 @@ mod tests {
         assert_eq!(finished_text(&many), ("5 teammates are done".into(), "… and 2 more\nT3: ok\nT4: ok\nT5: ok".into()));
     }
 }
+
+#[cfg(test)]
+#[path = "attention_reader_tests.rs"]
+mod attention_reader_tests;

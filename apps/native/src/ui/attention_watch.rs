@@ -34,13 +34,15 @@ pub(super) fn poll(s: &mut State) -> bool {
         let who = s.data.as_ref().and_then(|store| locust_core::people::owner_of(store, &id)).and_then(|t| s.teammates.iter().find(|m| m.id == t).map(|m| m.name.clone()));
         let end = turn.events.iter().rev().find(|e| matches!(e["type"].as_str(), Some("run.completed" | "run.failed" | "run.cancelled")));
         let kind = end.and_then(|e| e["type"].as_str()).unwrap_or("");
-        if kind == "run.failed" && end.is_some_and(|e| e["payload"]["kind"] == "quota-exhausted") {
+        // attention-reader.ts: a run that ended waiting for the person -- at its account limit, or with a card asking
+        // them something -- says so. A limit is said instead of the finish.
+        if let Some(notice) = attention::ended_notice(&id, &turn.events, turn.metadata["runtime"].as_str().unwrap_or(""), who.as_deref()) {
             if tell {
-                let runtime = locust_core::carry_on::display_name(turn.metadata["runtime"].as_str().unwrap_or(""));
-                let (title, body) = attention::limit_text(who.as_deref(), runtime, end.and_then(|e| e["payload"]["message"].as_str()));
-                crate::notify::show(&title, &body, Some(&id));
+                crate::notify::show(&notice.title, &notice.body, notice.opens.as_deref());
             }
-            continue;
+            if notice.limit {
+                continue;
+            }
         }
         let started = turn.metadata["createdAt"].as_str().and_then(|t| chrono::DateTime::parse_from_rfc3339(t).ok());
         let took = started.map(|t| (chrono::Utc::now() - t.with_timezone(&chrono::Utc)).num_milliseconds().max(0) as u64).unwrap_or(0);
