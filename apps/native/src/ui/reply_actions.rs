@@ -605,17 +605,14 @@ pub(super) fn viewer(s: &State, p: &Palette) -> Option<El> {
     let folder = selected_conversation(s)
         .and_then(|(t, _)| t.folder.clone());
     let absolute = crate::file_menu::rooted_path(&target.path, folder.as_deref());
+    // installed-editors.ts: only the editors whose command is on PATH are offered.
+    let editors = locust_core::installed_editors::installed_editors();
+    let editor_ids: Vec<&str> = editors.iter().map(|e| e.id.as_str()).collect();
     let menu = crate::file_menu::file_menu_choices(
         &absolute,
         folder.as_deref(),
-        if cfg!(target_os = "macos") {
-            "darwin"
-        } else if cfg!(target_os = "linux") {
-            "linux"
-        } else {
-            "win32"
-        },
-        &["vscode", "cursor"],
+        locust_core::installed_editors::this_platform(),
+        &editor_ids,
         false,
     );
     let mut menu_row = row().w_full().gap(6.0);
@@ -631,13 +628,13 @@ pub(super) fn viewer(s: &State, p: &Palette) -> Option<El> {
                 .child(text(label).font(type_::LABEL).color(p.secondary))
                 .on_press_tx(move |s: &mut State, tx| match id {
                     crate::file_menu::FileMenuId::CopyPath => {
-                        request_copy(tx, crate::file_menu::system_path(&absolute, "darwin"));
+                        request_copy(tx, crate::file_menu::system_path(&absolute, locust_core::installed_editors::this_platform()));
                     }
                     crate::file_menu::FileMenuId::CopyRelative => {
                         let rel = crate::file_menu::relative_to_folder(
                             &absolute,
                             folder.as_deref(),
-                            "darwin",
+                            locust_core::installed_editors::this_platform(),
                         );
                         request_copy(tx, rel);
                     }
@@ -656,6 +653,15 @@ pub(super) fn viewer(s: &State, p: &Palette) -> Option<El> {
                             let _ = crate::file_menu::reveal_path(&path);
                         }
                         let _ = s;
+                    }
+                    crate::file_menu::FileMenuId::Vscode | crate::file_menu::FileMenuId::Cursor => {
+                        let want = if id == crate::file_menu::FileMenuId::Vscode { "vscode" } else { "cursor" };
+                        if let Some(editor) = locust_core::installed_editors::installed_editors()
+                            .iter()
+                            .find(|e| e.id.as_str() == want)
+                        {
+                            let _ = locust_core::installed_editors::launch_editor(&editor.command, &absolute);
+                        }
                     }
                     crate::file_menu::FileMenuId::Attach
                         if !s.attached.iter().any(|a| a == &absolute) =>

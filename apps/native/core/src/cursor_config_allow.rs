@@ -663,6 +663,13 @@ impl CursorConnectorCache {
             .collect()
     }
 
+    /// cursor-connector-notice.ts `cursorConnectorsNeedingLogin`: the sentence naming connectors the CLI has no
+    /// credential for. A reading that failed says nothing and is not kept, so the next run asks again.
+    pub fn connectors_needing_login(&self) -> Option<String> {
+        let text = self.cached_list()?;
+        cursor_connector_sentence(&parse_cursor_mcp_list(&text))
+    }
+
     pub fn ready_connectors(&self) -> Option<String> {
         let text = self.cached_list()?;
         cursor_ready_connector_line(&parse_cursor_mcp_list(&text))

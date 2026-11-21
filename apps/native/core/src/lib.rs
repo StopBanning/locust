@@ -119,6 +119,7 @@ pub mod hand_off;
 pub mod history_cache;
 pub mod image_files;
 pub mod inspector;
+pub mod installed_editors;
 pub mod interview;
 pub mod invariants;
 pub mod keep_awake;

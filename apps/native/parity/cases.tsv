@@ -269,6 +269,7 @@ apps/desktop/src/main/a-diagram-in-a-reply-is-drawn.test.ts	opens a view afresh,
 apps/desktop/src/main/a-diagram-in-a-reply-is-drawn.test.ts	passes on Mermaid's reason for text it cannot read, keeping the view	no
 apps/desktop/src/main/a-dying-server-says-why.test.ts	is drained, and its end kept	yes
 apps/desktop/src/main/a-dying-server-says-why.test.ts	is empty, not missing, for a child that has none	yes
+apps/desktop/src/main/a-failed-connector-reading-is-not-kept.test.ts	is not kept: the next run asks again	yes
 apps/desktop/src/main/a-failing-check-goes-back-to-fix.test.ts	sends what the turn broke back to the same conversation, as fix 1 of the most, recorded as Locust's	yes
 apps/desktop/src/main/a-failing-check-goes-back-to-fix.test.ts	reads the setting of the folder the turn ran in, not the folder now on screen (0.813, Sol's review)	yes
 apps/desktop/src/main/a-failing-check-goes-back-to-fix.test.ts	does nothing while the folder is set to show the failure, or for a check that did not fail	yes
@@ -1518,6 +1519,12 @@ apps/desktop/src/main/cursor-connector-allow.test.ts	leaves a file it cannot rea
 apps/desktop/src/main/cursor-connector-allow.test.ts	adds the rules under the workspace and says which were added	yes
 apps/desktop/src/main/cursor-connector-allow.test.ts	does nothing with no servers, and does not write when nothing is new	yes
 apps/desktop/src/main/cursor-connector-allow.test.ts	does not write over a file it could not read, and does not throw	yes
+apps/desktop/src/main/cursor-rules-left-by-a-quit-are-taken-back.test.ts	names the file, how it looked before, and the rules this Locust added; given back, nothing	yes
+apps/desktop/src/main/cursor-rules-left-by-a-quit-are-taken-back.test.ts	writes nothing down for rules it did not add (control)	yes
+apps/desktop/src/main/cursor-rules-left-by-a-quit-are-taken-back.test.ts	takes back the rules the store names, and the file and folder the run made	yes
+apps/desktop/src/main/cursor-rules-left-by-a-quit-are-taken-back.test.ts	leaves what the person had in the file, and what they added meanwhile	yes
+apps/desktop/src/main/cursor-rules-left-by-a-quit-are-taken-back.test.ts	does nothing with no store, an empty store, a store it cannot read, or a file already gone (controls)	yes
+apps/desktop/src/main/cursor-rules-left-by-a-quit-are-taken-back.test.ts	never writes over a file that no longer reads as the config (control)	yes
 apps/desktop/src/main/cursor-visibility.test.ts	names the rule, so the person can go and change it	yes
 apps/desktop/src/main/cursor-visibility.test.ts	reads the home file when the workspace has none	yes
 apps/desktop/src/main/cursor-visibility.test.ts	prefers the workspace file, which is nearer to the work	yes
@@ -1648,6 +1655,8 @@ apps/desktop/src/main/handoff.test.ts	keeps the newest finished steps that fit, 
 apps/desktop/src/main/handoff.test.ts	names the sections it carried, in reading order, and only those	yes
 apps/desktop/src/main/handoff.test.ts	after a clean finish and a reply, says the conversation was taken over, not stopped partway	yes
 apps/desktop/src/main/handoff.test.ts	after a stop with work in flight, still says it stopped partway	yes
+apps/desktop/src/main/installed-editors.test.ts	lists one that is on PATH and skips one that is not, without guessing an install folder	yes
+apps/desktop/src/main/installed-editors.test.ts	keeps a file as an argument, and runs a Windows command shim through System32 cmd.exe, verbatim	yes
 apps/desktop/src/main/judges-see-the-check.test.ts	reads each copy's result under its letter, with the end of a failure	no
 apps/desktop/src/main/judges-see-the-check.test.ts	says when a column was not checked, and when a check outlasted the wait	no
 apps/desktop/src/main/judges-see-the-check.test.ts	tells the judges a failure shared by every copy tells the answers apart on nothing	no

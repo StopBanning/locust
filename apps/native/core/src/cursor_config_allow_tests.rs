@@ -3,6 +3,8 @@
 //! - `main/a-cursor-run-takes-back-the-rules-it-added.test.ts`
 //! - `main/a-cursor-mission-gives-its-connector-rules-back-when-it-ends.test.ts`
 //! - `main/a-cursor-turn-does-not-wait-for-its-connector-list.test.ts`
+//! - `main/cursor-rules-left-by-a-quit-are-taken-back.test.ts`
+//! - `main/a-failed-connector-reading-is-not-kept.test.ts`
 
 use super::*;
 use serde_json::json;
@@ -402,6 +404,126 @@ fn recovers_connector_rules_left_behind_when_an_earlier_locust_quit() {
     assert!(!fs.made.lock().unwrap().contains(DIR));
 }
 
+// --- cursor-rules-left-by-a-quit-are-taken-back.test.ts ---
+
+fn stored(store: &MemHoldStore) -> Value {
+    serde_json::from_str(store.read().as_deref().expect("a store was written")).unwrap()
+}
+
+// case: what the keeper writes down > names the file, how it looked before, and the rules this Locust added; given back, nothing
+#[test]
+fn names_the_file_how_it_looked_before_and_the_rules_this_locust_added_given_back_nothing() {
+    let fs = MemIo::new(&[], &[]);
+    let store = MemHoldStore::new(None);
+    let keeper = CursorConnectorKeeper::new(fs.clone(), Some(store.clone()));
+    let grant = keeper.allow(Path::new("C:/work"), &["robinhood-local"]);
+    assert_eq!(grant.added, vec!["Mcp(robinhood-local:*)"]);
+    assert_eq!(
+        stored(&store),
+        json!({
+            "version": 1,
+            "folders": { FILE: {
+                "original": { "createdFile": true, "createdDir": true, "hadPermissions": false, "hadAllow": false, "hadDeny": false },
+                "rules": ["Mcp(robinhood-local:*)"]
+            } }
+        })
+    );
+    grant.release();
+    assert_eq!(stored(&store), json!({ "version": 1, "folders": {} }));
+    assert!(!fs.held.lock().unwrap().contains_key(FILE));
+}
+
+// case: what the keeper writes down > writes nothing down for rules it did not add (control)
+#[test]
+fn writes_nothing_down_for_rules_it_did_not_add() {
+    let fs = MemIo::new(&[(FILE, r#"{"permissions":{"allow":["Mcp(robinhood-local:*)"]}}"#)], &[DIR]);
+    let store = MemHoldStore::new(None);
+    let keeper = CursorConnectorKeeper::new(fs.clone(), Some(store.clone()));
+    let grant = keeper.allow(Path::new("C:/work"), &["robinhood-local"]);
+    assert!(grant.added.is_empty());
+    assert_eq!(store.read(), None);
+}
+
+// case: the next Locust, started after a quit mid-run > takes back the rules the store names, and the file and folder the run made
+#[test]
+fn takes_back_the_rules_the_store_names_and_the_file_and_folder_the_run_made() {
+    let fs = MemIo::new(&[], &[]);
+    let store = MemHoldStore::new(None);
+    // The first Locust: a run takes rules, then the process is gone before release.
+    let earlier = CursorConnectorKeeper::new(fs.clone(), Some(store.clone()));
+    std::mem::forget(earlier.allow(Path::new("C:/work"), &["robinhood-local"]));
+    assert!(fs.held.lock().unwrap().contains_key(FILE));
+    // The next Locust: same disk, same store, a new keeper that holds nothing.
+    let next = CursorConnectorKeeper::new(fs.clone(), Some(store.clone()));
+    assert_eq!(next.recover(), vec![PathBuf::from(FILE)]);
+    assert!(!fs.held.lock().unwrap().contains_key(FILE));
+    assert!(!fs.made.lock().unwrap().contains(DIR));
+    assert_eq!(stored(&store), json!({ "version": 1, "folders": {} }));
+    // Recovering again finds nothing to do.
+    assert!(next.recover().is_empty());
+}
+
+// case: the next Locust, started after a quit mid-run > leaves what the person had in the file, and what they added meanwhile
+#[test]
+fn leaves_what_the_person_had_in_the_file_and_what_they_added_meanwhile() {
+    let before = json!({ "version": 1, "permissions": { "allow": ["Shell(ls)"], "deny": ["Shell(rm)"] } });
+    let fs = MemIo::new(&[], &[DIR]);
+    fs.write_json(FILE, &before);
+    let store = MemHoldStore::new(None);
+    let earlier = CursorConnectorKeeper::new(fs.clone(), Some(store.clone()));
+    std::mem::forget(earlier.allow(Path::new("C:/work"), &["robinhood-local"]));
+    // The person edits the file while the run is live.
+    let mut during = fs.read_json(FILE).unwrap();
+    during["permissions"]["allow"].as_array_mut().unwrap().push(json!("Shell(git status)"));
+    fs.write_json(FILE, &during);
+    let next = CursorConnectorKeeper::new(fs.clone(), Some(store));
+    assert_eq!(next.recover(), vec![PathBuf::from(FILE)]);
+    assert_eq!(
+        fs.read_json(FILE).unwrap(),
+        json!({ "version": 1, "permissions": { "allow": ["Shell(ls)", "Shell(git status)"], "deny": ["Shell(rm)"] } })
+    );
+}
+
+// case: the next Locust, started after a quit mid-run > does nothing with no store, an empty store, a store it cannot read, or a file already gone (controls)
+#[test]
+fn does_nothing_with_no_store_an_empty_store_a_store_it_cannot_read_or_a_file_already_gone() {
+    assert!(CursorConnectorKeeper::new(MemIo::new(&[], &[]), None).recover().is_empty());
+    assert!(CursorConnectorKeeper::new(MemIo::new(&[], &[]), Some(MemHoldStore::new(None))).recover().is_empty());
+    let a_rule = r#"{"permissions":{"allow":["Mcp(a:*)"]}}"#;
+    let broken = MemIo::new(&[(FILE, a_rule)], &[DIR]);
+    let broken_store = MemHoldStore::new(Some("{ not json"));
+    assert!(CursorConnectorKeeper::new(broken.clone(), Some(broken_store.clone())).recover().is_empty());
+    assert_eq!(broken.read_json(FILE).unwrap()["permissions"]["allow"], json!(["Mcp(a:*)"]));
+    assert_eq!(broken_store.read().as_deref(), Some("{ not json"));
+    let gone_store = MemHoldStore::new(Some(
+        &json!({ "version": 1, "folders": { FILE: { "original": { "createdFile": true }, "rules": ["Mcp(a:*)"] } } }).to_string(),
+    ));
+    assert!(CursorConnectorKeeper::new(MemIo::new(&[], &[]), Some(gone_store.clone())).recover().is_empty());
+    assert_eq!(stored(&gone_store), json!({ "version": 1, "folders": {} }));
+}
+
+#[test]
+fn leaves_a_store_written_by_another_version_alone() {
+    let fs = MemIo::new(&[(FILE, r#"{"permissions":{"allow":["Mcp(a:*)"]}}"#)], &[DIR]);
+    let text = json!({ "version": 2, "folders": { FILE: { "original": { "createdFile": true }, "rules": ["Mcp(a:*)"] } } }).to_string();
+    let store = MemHoldStore::new(Some(&text));
+    assert!(CursorConnectorKeeper::new(fs.clone(), Some(store.clone())).recover().is_empty());
+    assert_eq!(fs.read_json(FILE).unwrap()["permissions"]["allow"], json!(["Mcp(a:*)"]));
+    assert_eq!(store.read(), Some(text));
+}
+
+// case: the next Locust, started after a quit mid-run > never writes over a file that no longer reads as the config (control)
+#[test]
+fn never_writes_over_a_file_that_no_longer_reads_as_the_config() {
+    let odd = MemIo::new(&[(FILE, "{ broken")], &[DIR]);
+    let store = MemHoldStore::new(Some(
+        &json!({ "version": 1, "folders": { FILE: { "original": { "createdFile": false }, "rules": ["Mcp(a:*)"] } } }).to_string(),
+    ));
+    assert!(CursorConnectorKeeper::new(odd.clone(), Some(store)).recover().is_empty());
+    assert_eq!(odd.held.lock().unwrap().get(FILE).map(String::as_str), Some("{ broken"));
+    assert!(odd.writes.lock().unwrap().is_empty());
+}
+
 // --- a-cursor-mission-gives-its-connector-rules-back-when-it-ends.test.ts ---
 
 fn run_mission_harness(
@@ -508,6 +630,38 @@ impl SlowLister {
     fn calls(&self) -> u64 {
         self.calls.load(Ordering::SeqCst)
     }
+}
+
+// --- a-failed-connector-reading-is-not-kept.test.ts ---
+
+// case: a Cursor connector reading that failed > is not kept: the next run asks again
+#[test]
+fn a_failed_reading_is_not_kept_the_next_run_asks_again() {
+    let calls = Arc::new(AtomicU64::new(0));
+    let lister: McpLister = {
+        let calls = Arc::clone(&calls);
+        Arc::new(move || {
+            let n = calls.fetch_add(1, Ordering::SeqCst) + 1;
+            // Electron's test says "notion: needs login", which its own pattern does not read as needing a credential
+            // either; the CLI's real token is used here so the sentence can be checked too.
+            if n == 1 { None } else { Some("notion: requires_authentication\n".to_owned()) }
+        })
+    };
+    let clock = Arc::new(AtomicU64::new(1_000));
+    let clock_fn: Clock = {
+        let c = Arc::clone(&clock);
+        Arc::new(move || c.load(Ordering::SeqCst))
+    };
+    let cache = CursorConnectorCache::new(lister, clock_fn);
+    assert_eq!(cache.connectors_needing_login(), None);
+    clock.store(2_000, Ordering::SeqCst);
+    let said = cache.connectors_needing_login();
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
+    assert!(said.as_deref().is_some_and(|s| s.contains("no credential for notion")), "{said:?}");
+    // That answer IS kept: a third run inside five minutes does not ask.
+    clock.store(3_000, Ordering::SeqCst);
+    assert!(cache.connectors_needing_login().is_some());
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
 }
 
 #[test]
