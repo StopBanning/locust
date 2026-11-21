@@ -385,6 +385,86 @@ fn the_row_keeps_its_width() {
     assert!(element(&rt, "missions-title-c1").rect[2] > 100.0, "the title keeps room to be read");
 }
 
+// ---- unreadable-ledger-is-said.test.tsx ----
+
+fn header(rows: usize, damage: native::ListDamage, total: Option<usize>) -> String {
+    let mut s = State::default();
+    for i in 0..rows {
+        turn(&mut s, &format!("m_{i}"), None, "do the thing", i as i64 + 1, i as i64 + 1);
+    }
+    s.recent_damage = damage;
+    s.recent_total = total;
+    let mut rt = Runtime::new(s, |s, _| missions_screen::view(s, &Palette::new(true), false), (1400.0, 800.0), Env::new(true, 1.0));
+    rt.frame(0.0);
+    said(&rt, "missions-meta")
+}
+
+fn damage(incomplete: usize, unreadable: usize, folder_unreadable: bool) -> native::ListDamage {
+    native::ListDamage { incomplete, unreadable, folder_unreadable }
+}
+
+// case: says verified only when there is genuinely nothing wrong
+#[test]
+fn a_healthy_list_says_its_count_alone() {
+    assert_eq!(header(1, damage(0, 0, false), None), "1 conversation");
+}
+
+// case: never claims verification while a file could not be read
+#[test]
+fn an_unreadable_file_is_said_with_nothing_listed() {
+    let said = header(0, damage(0, 1, false), None);
+    assert!(!said.to_lowercase().contains("verified"), "{said}");
+    assert_eq!(said, "0 conversations · 1 file could not be read");
+}
+
+// case: warns even when a clean mission sits beside the unreadable file
+#[test]
+fn an_unreadable_file_is_said_beside_a_clean_one() {
+    let said = header(1, damage(0, 1, false), None);
+    assert!(!said.to_lowercase().contains("verified"), "{said}");
+    assert_eq!(said, "1 conversation · 1 file could not be read");
+}
+
+// case: keeps the two kinds of damage apart rather than summing them
+#[test]
+fn the_two_kinds_of_damage_are_kept_apart() {
+    let said = header(2, damage(1, 1, false), None);
+    assert!(said.contains("1 with an incomplete receipt"), "{said}");
+    assert!(said.contains("1 file could not be read"), "{said}");
+    assert!(!said.contains("2 with an incomplete receipt"), "{said}");
+    assert_eq!(said, "2 conversations · 1 with an incomplete receipt · 1 file could not be read");
+}
+
+// case: never claims verification when the ledger could not be read at all
+#[test]
+fn records_that_would_not_open_are_said() {
+    let said = header(0, damage(0, 0, true), None);
+    assert!(!said.to_lowercase().contains("verified"), "{said}");
+    assert_eq!(said, "0 conversations · the records could not be read");
+}
+
+// case: still counts body damage on its own, as it always did
+#[test]
+fn body_damage_is_counted_on_its_own() {
+    let said = header(1, damage(1, 0, false), None);
+    assert_eq!(said, "1 conversation · 1 with an incomplete receipt");
+    assert!(!said.contains("could not be read"));
+}
+
+// case: names how many are listed of how many are kept
+#[test]
+fn a_list_cut_short_says_how_much_is_listed() {
+    let said = header(3, damage(0, 0, false), Some(2_412));
+    assert!(said.ends_with(" · only the newest 3 of 2,412 turns are listed"), "{said}");
+}
+
+// case: says nothing of it when everything is listed
+#[test]
+fn a_whole_list_says_nothing_of_it() {
+    assert!(!header(3, damage(0, 0, false), None).contains("newest"));
+    assert!(!header(3, damage(0, 0, false), Some(3)).contains("newest"));
+}
+
 // ---- how the screen is reached ----
 
 #[test]
