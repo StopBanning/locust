@@ -467,6 +467,13 @@ apps/desktop/src/main/a-message-waits-until-its-runtime-starts.test.ts	leaves a 
 apps/desktop/src/main/a-message-waits-until-its-runtime-starts.test.ts	marks a hub message on its first step and keeps it delivered when stopped	no
 apps/desktop/src/main/a-model-list-missing-one-is-asked-again.test.ts	names the case	no
 apps/desktop/src/main/a-model-list-missing-one-is-asked-again.test.ts	reads again instead of keeping the incomplete answer	no
+apps/desktop/src/main/a-model-of-your-own-is-priced-as-listed.test.ts	is its provider's listed one, at the provider's own address, tiers and all	yes
+apps/desktop/src/main/a-model-of-your-own-is-priced-as-listed.test.ts	is nothing anywhere less than an exact match	yes
+apps/desktop/src/main/a-model-of-your-own-is-priced-as-listed.test.ts	tells a plan and an account at one host apart by their paths, and prices neither when it cannot	yes
+apps/desktop/src/main/a-model-of-your-own-is-priced-as-listed.test.ts	drops what is not a price rather than passing it to OpenCode	yes
+apps/desktop/src/main/a-model-of-your-own-is-priced-as-listed.test.ts	is read from OpenCode's cache folder, once while the file is unchanged	yes
+apps/desktop/src/main/a-model-of-your-own-is-priced-as-listed.test.ts	carries the listed price into OpenCode's config, where OpenCode prices each step with it	yes
+apps/desktop/src/main/a-model-of-your-own-is-priced-as-listed.test.ts	carries none for a model its provider does not list, and its config is as it was	yes
 apps/desktop/src/main/a-model-of-your-own-is-unpriced-not-free.test.ts	is one the person added, which OpenCode runs -- and an old record without a model is not	yes
 apps/desktop/src/main/a-model-of-your-own-is-unpriced-not-free.test.ts	counts a run with tokens and no price as unpriced, never as dollars; a free catalog model stays nothing	yes
 apps/desktop/src/main/a-model-of-your-own-is-unpriced-not-free.test.ts	never moves the limit: it is said on the card instead (a-teammates-month-and-limit)	no

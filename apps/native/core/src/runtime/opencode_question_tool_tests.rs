@@ -45,7 +45,7 @@ fn in_a_worktree_beside_the_repository() {
 // case: keeps a chat-only model's tools off, every one of them
 #[test]
 fn keeps_a_chat_only_models_tools_off_every_one() {
-    let chat = crate::own_models::Provider { name: "Local".into(), base_url: "http://localhost:1234/v1".into(), models: vec!["m".into()], api_key: None, tool_calls: false };
+    let chat = crate::own_models::Provider { name: "Local".into(), base_url: "http://localhost:1234/v1".into(), models: vec!["m".into()], api_key: None, tool_calls: false, prices: None };
     let config = crate::own_models::with_opencode_providers(legacy_config(Mode::Auto, None), &[("own-local".into(), chat)]).unwrap();
     assert_eq!(tools(&config), json!({"*": false, "question": false}));
 }

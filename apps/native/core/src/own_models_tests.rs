@@ -63,7 +63,7 @@ fn gives_a_run_the_provider_it_needs_key_opened_and_nothing_for_one_no_longer_ke
     assert!(is_own_route_model(&route));
     assert_eq!(
         models.provider_for(&route).unwrap(),
-        Some(("own-a1b2c3d0".into(), Provider { name: "Acme Chat".into(), base_url: "https://llm.acme.example/v1".into(), models: vec!["acme-70b".into()], api_key: Some("acme-made-up-key".into()), tool_calls: true }))
+        Some(("own-a1b2c3d0".into(), Provider { name: "Acme Chat".into(), base_url: "https://llm.acme.example/v1".into(), models: vec!["acme-70b".into()], api_key: Some("acme-made-up-key".into()), tool_calls: true, prices: None }))
     );
     models.remove(&added.own_id).unwrap();
     assert_eq!(models.provider_for(&route).unwrap(), None);
@@ -115,7 +115,7 @@ fn refuses_what_is_not_a_name_an_address_or_a_model_id_in_words() {
 // ---- the OpenCode config (your-own-model-is-a-provider.test.ts) ----
 
 fn acme_provider() -> Provider {
-    Provider { name: "Acme Chat".into(), base_url: "https://llm.acme.example/v1".into(), models: vec!["acme-70b".into()], api_key: Some("acme-made-up-key".into()), tool_calls: true }
+    Provider { name: "Acme Chat".into(), base_url: "https://llm.acme.example/v1".into(), models: vec!["acme-70b".into()], api_key: Some("acme-made-up-key".into()), tool_calls: true, prices: None }
 }
 
 #[test]
@@ -130,7 +130,7 @@ fn is_declared_as_an_openai_compatible_provider_beside_the_runs_own_permissions(
 
 #[test]
 fn sends_a_placeholder_to_an_endpoint_that_asks_for_no_key() {
-    let local = Provider { name: "Local".into(), base_url: "http://127.0.0.1:11434/v1".into(), models: vec!["llama3".into()], api_key: None, tool_calls: true };
+    let local = Provider { name: "Local".into(), base_url: "http://127.0.0.1:11434/v1".into(), models: vec!["llama3".into()], api_key: None, tool_calls: true, prices: None };
     assert_eq!(with_opencode_providers(json!({}), &[("own-local".into(), local)]).unwrap()["provider"]["own-local"]["options"]["apiKey"], "not-needed");
 }
 
