@@ -1197,6 +1197,12 @@ pub fn turn_brief_held(
     let roster: Vec<crate::briefing::PeerEntry> = file["teammates"].as_array().into_iter().flatten().filter_map(peer_entry).collect();
     let mut standing = Vec::new();
     if let Some(me) = roster.iter().find(|e| e.teammate_id == who) {
+        // The role first (role-brief): the most stable thing about a teammate, and what the roster line after it
+        // refers to. Written from the preset on the record, never from the label a missing role defaults to.
+        let kind = file["teammates"].as_array().into_iter().flatten().find(|t| t["teammateId"] == who).and_then(|t| t["role"].as_str());
+        if let Some(role) = kind.and_then(|kind| crate::briefing::role_brief(kind, Some(&me.role))) {
+            standing.push(role);
+        }
         let others: Vec<crate::briefing::PeerEntry> = roster.iter().filter(|e| e.teammate_id != who).cloned().collect();
         if !others.is_empty() {
             standing.push(crate::briefing::roster_section(me, &others));
@@ -1212,6 +1218,11 @@ pub fn turn_brief_held(
         Some(prompt),
         own_folder,
     )?);
+    // Which connectors it can call, by NAME (teammate-knows-its-connectors): Cursor only, standing beside memory, so it
+    // sits in the cached prefix rather than ahead of the ask.
+    if let Some(connectors) = crate::briefing::connectors_section(runtime, crate::cursor_config::ready_connectors) {
+        standing.push(connectors);
+    }
     // The person's "keep a todo list" switch (todo-list-is-opt-in): a setting that cannot be read reads as off.
     let todos = crate::workspace_settings::load(store).is_ok_and(|s| s.keep_a_todo_list);
     standing.extend(crate::briefing::standing_formats(runtime, todos));

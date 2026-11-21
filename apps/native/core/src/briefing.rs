@@ -58,6 +58,36 @@ pub fn describe_peer(entry: &PeerEntry) -> String {
     }
 }
 
+/// The roles a teammate can have (teammate-store.ts TEAMMATE_ROLES).
+pub const TEAMMATE_ROLES: [&str; 7] = ["Code & Migrations", "Research & Briefs", "Ops & Scheduling", "Docs & QA", "Data & Reporting", "Chief of Staff", "Custom"];
+
+/// What a role MEANS, said to the teammate that has it (workroom-briefing.ts `roleBrief`, role-brief, 2026-09-17): each
+/// preset says what good work in it looks like, Chief of Staff routes the person's asks to the teammate whose role fits
+/// and reports back as one message, and a Custom teammate's own title is its brief. None for a kind that is no preset.
+pub fn role_brief(kind: &str, label: Option<&str>) -> Option<String> {
+    let said = match kind {
+        "Code & Migrations" => "Your role is code: read before you change, keep the change to what was asked, run what proves it, and report what you verified and what you did not.".to_owned(),
+        "Research & Briefs" => "Your role is research: read the sources and name them, keep what they say apart from what you conclude, and write the brief so it stands on its own.".to_owned(),
+        "Ops & Scheduling" => "Your role is operations, the work that repeats: say what runs, when, and what would fail with nobody noticing, and keep every change reversible.".to_owned(),
+        "Docs & QA" => "Your role is writing and checking: match the words to the code, say what is untested, and never call a thing done that you did not see work.".to_owned(),
+        "Data & Reporting" => "Your role is figures: every number you report names where it came from, the arithmetic comes from the data and not from memory, and the summary is one a person can act on.".to_owned(),
+        "Chief of Staff" => "Your role is to run the team, not to do all of the work yourself. When the person asks for something a teammate's role fits, brief that teammate through the share block the way you would brief a senior colleague: what is needed and why, what you already know, the end state and what done looks like. Tell the person what you delegated and to whom. When a reply comes back, report the result to the person as one message that stands on its own: the answer, what is still open, and what you would do next. Do the work yourself only when no teammate's role fits or the brief would take longer than the task.".to_owned(),
+        // The person's own title is the role, in the presets' shape; with no title yet, the shared part alone.
+        "Custom" => match label {
+            Some(title) if !title.trim().is_empty() && title != "Custom" => format!("Your role is {}, in the person's own words: do the work that title describes the way a capable colleague with it would, bring what someone in that role would know, and say plainly when an ask falls outside it rather than stretching to cover it. When asked who you are or what your role is, answer with that title, not with the name of the program you run in.", title.trim()),
+            _ => "Your role is the one the person set you up for: do what is asked the way a capable colleague would, and say plainly when an ask falls outside what you can do here rather than stretching to cover it.".to_owned(),
+        },
+        _ => return None,
+    };
+    Some(said)
+}
+
+/// The connectors a teammate can call, by name (peer-exchange.ts `prepare`): asked of the machine only for a Cursor run,
+/// since the others have no connector story here or read their own. None means the brief does not mention any.
+pub fn connectors_section(runtime: Option<&str>, ready: impl FnOnce() -> Option<String>) -> Option<String> {
+    if runtime == Some("cursor") { ready() } else { None }
+}
+
 /// Who else is on the team, and the only way to reach them.
 pub fn roster_section(me: &PeerEntry, others: &[PeerEntry]) -> String {
     let listed = others.iter().map(describe_peer).collect::<Vec<_>>().join(", ");
@@ -341,3 +371,11 @@ mod old_message_tests;
 #[cfg(test)]
 #[path = "quiet_runtime_tests.rs"]
 mod quiet_runtime_tests;
+
+#[cfg(test)]
+#[path = "role_brief_tests.rs"]
+mod role_brief_tests;
+
+#[cfg(test)]
+#[path = "teammate_knows_its_connectors_tests.rs"]
+mod teammate_knows_its_connectors_tests;
