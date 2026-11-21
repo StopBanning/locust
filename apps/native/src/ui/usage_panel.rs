@@ -50,7 +50,7 @@ fn refresh(s: &mut State) {
             s.usage_panel.summary = Some(Err(USAGE_READ_FAIL.into()));
             s.usage_panel.loading = false;
         }
-        Some(store) => match usage_ledger::usage_turns(store) {
+        Some(store) => match usage_ledger::usage_turns_with_carried(store) {
             Ok(turns) => {
                 let summary = usage_summary(&turns, range, chrono::Local::now());
                 let mut windows = Vec::new();

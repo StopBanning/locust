@@ -191,6 +191,85 @@ pub fn usage_turns(store: &Store) -> Result<Vec<UsageTurn>, String> {
     Ok(resolve_conversations(reads))
 }
 
+/// USAGE CARRIED FROM ANOTHER COMPUTER (usage-carried.ts, 0.849): a numbers-only file in Locust's data folder, one turn
+/// per line, added to the turns the ledger holds wherever Usage is read. Nothing in it is words, a teammate or a path.
+pub const USAGE_CARRIED_FILE: &str = "usage-carried.jsonl";
+
+/// `short`: a string of 1 to `most` characters, counted as JavaScript counts them.
+fn short(value: &Value, most: usize) -> Option<&str> {
+    value.as_str().filter(|s| !s.is_empty() && s.encode_utf16().count() <= most)
+}
+
+/// `Date.parse` of a carried turn's time: an ISO date or date-time.
+fn a_time(at: &str) -> bool {
+    chrono::DateTime::parse_from_rfc3339(at).is_ok()
+        || chrono::NaiveDateTime::parse_from_str(at, "%Y-%m-%dT%H:%M:%S%.f").is_ok()
+        || chrono::NaiveDate::parse_from_str(at, "%Y-%m-%d").is_ok()
+}
+
+/// `carriedTurn`: one carried turn, checked field by field, or None; what it does not name is not kept.
+pub fn carried_turn(value: &Value) -> Option<UsageTurn> {
+    let row = value.as_object()?;
+    let field = |key: &str| row.get(key).unwrap_or(&Value::Null);
+    let at = short(field("at"), 40).filter(|at| a_time(at))?;
+    let runtime = short(field("runtime"), 40)
+        .filter(|r| r.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-'))?;
+    let model = short(field("model"), 200)?;
+    let conversation = short(field("conversation"), 200)?;
+    // A number the line names must be a count: finite and not below zero. One it does not name is left out.
+    let mut counts = [None::<f64>; 6];
+    for (i, key) in ["inputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens", "usd", "premiumRequests"].iter().enumerate() {
+        match row.get(*key) {
+            None => {}
+            Some(v) => counts[i] = Some(v.as_f64().filter(|n| n.is_finite() && *n >= 0.0)?),
+        }
+    }
+    let plan = match row.get("plan") {
+        None => false,
+        Some(Value::Bool(true)) => true,
+        Some(_) => return None,
+    };
+    let tokens = |n: Option<f64>| n.map(|n| n as u64);
+    Some(UsageTurn {
+        at: at.to_owned(),
+        runtime: runtime.to_owned(),
+        model: model.to_owned(),
+        conversation: conversation.to_owned(),
+        input_tokens: tokens(counts[0]),
+        output_tokens: tokens(counts[1]),
+        cache_read_tokens: tokens(counts[2]),
+        cache_write_tokens: tokens(counts[3]),
+        usd: counts[4],
+        premium_requests: counts[5],
+        plan,
+    })
+}
+
+/// `carriedUsage`: every carried turn in the file at `path`; none when there is no file, and a line that is not a turn
+/// is left out.
+pub fn carried_usage(path: &Path) -> Vec<UsageTurn> {
+    let Ok(text) = fs::read_to_string(path) else { return Vec::new() };
+    text.split('\n')
+        .filter(|line| !line.trim().is_empty())
+        .filter_map(|line| serde_json::from_str::<Value>(line).ok())
+        .filter_map(|row| carried_turn(&row))
+        .collect()
+}
+
+/// The turns Usage adds up (index.ts USAGE_READ_CHANNEL): the ledgers' turns and what another computer carried here,
+/// from Locust's data folder (Electron's, which the PC's numbers were carried into, and this app's own when it has one).
+pub fn usage_turns_with_carried(store: &Store) -> Result<Vec<UsageTurn>, String> {
+    let mut turns = usage_turns(store)?;
+    let mut folders = vec![store.electron().to_path_buf()];
+    if store.root() != store.electron() {
+        folders.push(store.root().to_path_buf());
+    }
+    for folder in folders {
+        turns.extend(carried_usage(&folder.join(USAGE_CARRIED_FILE)));
+    }
+    Ok(turns)
+}
+
 pub(crate) fn collect_dir_records(dir: &Path) -> Result<Vec<(String, Vec<Value>)>, String> {
     if !dir.exists() {
         return Ok(Vec::new());
@@ -492,3 +571,7 @@ mod tests {
         assert_eq!(windows.get("codex").map(String::as_str), Some("5-hour window 15% used · from a run at 2026-11-10T10:30:00Z"));
     }
 }
+
+#[cfg(test)]
+#[path = "usage_carried_tests.rs"]
+mod usage_carried_tests;
