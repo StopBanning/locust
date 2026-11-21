@@ -17,6 +17,7 @@ fn names_the_teammate_and_conversation_and_opens_exactly_the_card_that_raised_it
     // The conversation's name is cut at 100 characters.
     let long = "x".repeat(130);
     assert_eq!(decision_text(Some("Wren"), "Which database?", Some(&long)).0, format!("Wren is asking you something · {}", "x".repeat(100)));
+    assert_eq!(approval_notice("a", false, "Run a command", Some("Sage"), Some(&long)).title, format!("Sage needs your approval · {}", "x".repeat(100)));
 }
 
 fn ask_reply(question: &str) -> Value {
