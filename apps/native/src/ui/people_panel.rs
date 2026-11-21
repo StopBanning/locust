@@ -952,7 +952,7 @@ pub(super) fn edit_form(s: &State, p: &Palette) -> El {
                         .gap(8.0)
                         .center_y()
                         .child(
-                            text(format!("[{}] {}", lesson.verdict, lesson.lesson))
+                            text(locust_core::tune::tune_lesson_line(&lesson.when, &lesson.r#do))
                                 .font(type_::LABEL)
                                 .color(p.secondary)
                                 .grow(1.0)

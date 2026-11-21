@@ -2716,9 +2716,12 @@ mod tests {
             crate::tune_lesson_store::NewTuneLesson {
                 teammate_id: &id,
                 compare_id: "cmp_1",
-                verdict: "helped",
-                lesson: "When auditing diffs, verify edge cases.",
-                ask: "Check diff",
+                lesson: &crate::tune::TuneLessonDraft {
+                    when: "auditing diffs".into(),
+                    r#do: "verify edge cases".into(),
+                    because: "How it works helped".into(),
+                    confidence: crate::tune::TuneLessonConfidence::Low,
+                },
             },
         )
         .unwrap();
@@ -2736,7 +2739,7 @@ mod tests {
 
         let ordinary = brief(&store, &id, &t.0, "Look over this module").unwrap();
         assert!(ordinary.contains("Saved standing rule."));
-        assert!(!ordinary.contains("When auditing diffs, verify edge cases."));
+        assert!(!ordinary.contains("verify edge cases"));
 
         let replaced = brief_with_instructions(&store, &id, &t.0, "Look", Some("Column B rule.")).unwrap();
         assert!(replaced.contains("Column B rule."));
