@@ -264,6 +264,29 @@ pub fn waiting_blurb(waiting: usize) -> Option<String> {
     }
 }
 
+
+/// finishedToast.ts MAX_LINE: a row's line is at most this many characters, cut with an ellipsis.
+pub const SAID_MAX: usize = 140;
+
+fn first_line_bounded(text: &str) -> Option<String> {
+    let line = text.split('\n').map(str::trim).find(|part| !part.is_empty())?;
+    Some(if line.chars().count() > SAID_MAX {
+        format!("{}…", line.chars().take(SAID_MAX - 1).collect::<String>().trim_end())
+    } else {
+        line.to_owned()
+    })
+}
+
+/// lastSaid: the first line of the run's last final reply, or nothing.
+pub fn last_said(events: &[Value]) -> Option<String> {
+    events.iter().rev().filter(|e| e["type"] == "message.delta" && e["payload"]["final"] == true).find_map(|e| first_line_bounded(e["payload"]["text"].as_str()?))
+}
+
+/// awaySaid: what a run that ended while the person was away came to: why it failed, else the answer's first line.
+pub fn said_of(events: &[Value]) -> Option<String> {
+    let failed = events.iter().rev().find(|e| e["type"] == "run.failed");
+    failed.and_then(|e| first_line_bounded(e["payload"]["message"].as_str()?)).or_else(|| last_said(events))
+}
 pub fn when_label(iso: &str, now_ms: i64) -> String {
     let Some(at) = chrono::DateTime::parse_from_rfc3339(iso).ok() else {
         return String::new();
@@ -581,3 +604,7 @@ mod tests {
 #[cfg(test)]
 #[path = "attention_mark_tests.rs"]
 mod attention_mark_tests;
+
+#[cfg(test)]
+#[path = "away_said_tests.rs"]
+mod away_said_tests;

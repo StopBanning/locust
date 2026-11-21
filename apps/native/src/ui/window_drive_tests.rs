@@ -6699,3 +6699,67 @@ fn the_message_box_makes_one_line_as_tall_as_send() {
     let plus = rect_of(&rt, "plus");
     assert!(((plus[1] + plus[3] / 2.0) - (send[1] + send[3] / 2.0)).abs() <= 0.5, "the + too: {plus:?}");
 }
+
+fn away_home(said: bool) -> Runtime<State> {
+    let (_dirs, _store, mut rt) = window();
+    rt.update(move |s, _| {
+        s.home.home_open = true;
+        s.home.away = Some(locust_core::away::AwaySummary {
+            since: "2026-10-12T03:00:00.000Z".into(),
+            ran: vec![locust_core::away::AwayItem { mission_id: "m_polish".into(), title: "Polish overnight".into(), at: "2026-10-12T06:12:00.000Z".into(), owner_id: None, routine_id: None }],
+            failed: vec![locust_core::away::AwayItem { mission_id: "m_tests".into(), title: "Run the nightly tests".into(), at: "2026-10-12T04:00:00.000Z".into(), owner_id: None, routine_id: None }],
+            missed: vec![],
+            waiting: 0,
+        });
+        if said {
+            s.home.away_said = std::collections::HashMap::from([
+                ("m_polish".to_owned(), "Fixed 6 checks that had gone stale and found one real bug; the fixes wait in a copy for you to keep.".to_owned()),
+                ("m_tests".to_owned(), "OpenCode's service refused the free model, so OpenCode stopped.".to_owned()),
+            ]);
+        }
+    });
+    settle(&mut rt);
+    rt
+}
+
+// case: says what the run came to under its title: what it did, or why it failed
+#[test]
+fn an_away_row_says_what_the_run_came_to_under_its_title() {
+    let rt = away_home(true);
+    for (id, said) in [
+        ("m_polish", "Fixed 6 checks that had gone stale and found one real bug; the fixes wait in a copy for you to keep."),
+        ("m_tests", "OpenCode's service refused the free model, so OpenCode stopped."),
+    ] {
+        let row = text_in(&rt, &format!("away-row-{id}"));
+        assert_eq!(row.len(), 2, "{row:?}");
+        assert!(row[0].starts_with(if id == "m_polish" { "Polish overnight" } else { "Run the nightly tests" }), "the title first: {row:?}");
+        assert_eq!(row[1], said);
+        let (title, line) = (rect_of(&rt, &format!("away-row-{id}")), rect_of(&rt, &format!("away-said-{id}")));
+        assert!(line[1] > title[1], "under the title");
+    }
+}
+
+// case: and says nothing more when there is nothing to say
+#[test]
+fn an_away_row_says_nothing_more_when_there_is_nothing_to_say() {
+    let rt = away_home(false);
+    assert!(rt.find("away-row-m_polish").is_some());
+    assert!(rt.find("away-said-m_polish").is_none() && rt.find("away-said-m_tests").is_none());
+}
+
+/// The lines come from each row's own record: the failed row's failure, the finished row's answer, and nothing for a
+/// row whose record is missing or said nothing.
+#[test]
+fn an_away_rows_line_is_read_from_its_own_record() {
+    let rt = away_home(false);
+    let summary = rt.state.home.away.clone().unwrap();
+    let said = crate::home_panel::away_said_for(&summary, |id| match id {
+        "m_polish" => Some(vec![json!({"type": "message.delta", "payload": {"text": "Fixed 6 checks.", "final": true}})]),
+        "m_tests" => Some(vec![json!({"type": "run.failed", "payload": {"message": "The tests could not start."}})]),
+        _ => None,
+    });
+    assert_eq!(said.get("m_polish").map(String::as_str), Some("Fixed 6 checks."));
+    assert_eq!(said.get("m_tests").map(String::as_str), Some("The tests could not start."));
+    assert!(crate::home_panel::away_said_for(&summary, |_| None).is_empty());
+    assert!(crate::home_panel::away_said_for(&summary, |_| Some(vec![])).is_empty());
+}

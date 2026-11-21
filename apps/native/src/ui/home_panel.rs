@@ -30,6 +30,8 @@ pub(super) struct Panel {
     pub boot: BootState,
     pub boot_view: Option<BootView>,
     pub away: Option<AwaySummary>,
+    /// What each away row's run came to, read once when the summary is (AwayList's saidOf).
+    pub away_said: HashMap<String, String>,
     pub to_look_at: HashSet<String>,
     pub asks: HashMap<String, BoardAsk>,
     pub waiting_for: HashMap<String, String>,
@@ -203,6 +205,22 @@ fn refresh_away(s: &mut State) {
         .collect::<Vec<_>>();
     let needs = s.home.asks.keys().cloned().collect();
     s.home.away = away::since_you_were_away(&mark, &rows, &[], &needs);
+    s.home.away_said = s
+        .home
+        .away
+        .as_ref()
+        .map(|summary| away_said_for(summary, |id| locust_core::native::turn_records(id).map(|turn| turn.events)))
+        .unwrap_or_default();
+}
+
+/// What each finished or failed row's run came to, from its record's events.
+pub(super) fn away_said_for(summary: &AwaySummary, events_of: impl Fn(&str) -> Option<Vec<serde_json::Value>>) -> HashMap<String, String> {
+    summary
+        .ran
+        .iter()
+        .chain(summary.failed.iter())
+        .filter_map(|item| Some((item.mission_id.clone(), away::said_of(&events_of(&item.mission_id)?)?)))
+        .collect()
 }
 
 pub(super) fn sync_board_asks(s: &mut State) -> bool {
@@ -1003,16 +1021,19 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
                         };
                         let when =
                             away::when_label(&item.at, chrono::Utc::now().timestamp_millis());
-                        list = list.child(
-                            text(format!("{title} · {kind} {when}"))
-                                .font(type_::LABEL)
-                                .color(p.secondary)
-                                .wrap()
-                                .on_press(move |s: &mut State| {
-                                    s.opening_conversation = Some(mission_id.clone());
-                                    s.home.home_open = false;
-                                }),
-                        );
+                        // Under the title, what the run came to: what it did, or why it failed (AwayList).
+                        let mut entry = col()
+                            .w_full()
+                            .gap(2.0)
+                            .key(format!("away-row-{mission_id}"))
+                            .child(text(format!("{title} · {kind} {when}")).font(type_::LABEL).color(p.secondary).wrap());
+                        if let Some(said) = s.home.away_said.get(&item.mission_id) {
+                            entry = entry.child(text(said.clone()).key(format!("away-said-{mission_id}")).font(type_::LABEL).color(p.muted).wrap());
+                        }
+                        list = list.child(entry.on_press(move |s: &mut State| {
+                            s.opening_conversation = Some(mission_id.clone());
+                            s.home.home_open = false;
+                        }));
                     }
                     list
                 }),
@@ -1916,6 +1937,10 @@ pub(super) fn away_scene(s: &mut State) {
         missed: vec![],
         waiting: 1,
     });
+    s.home.away_said = HashMap::from([
+        ("m1".to_owned(), "Fixed 6 checks that had gone stale and found one real bug; the fixes wait in a copy for you to keep.".to_owned()),
+        ("m2".to_owned(), "OpenCode's service refused the free model, so OpenCode stopped.".to_owned()),
+    ]);
 }
 
 pub(super) fn away_light_scene(s: &mut State) {
