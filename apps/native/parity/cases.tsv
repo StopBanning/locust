@@ -3368,6 +3368,8 @@ apps/desktop/src/renderer/src/a-pet-plays-what-its-teammate-is-doing.test.ts	kee
 apps/desktop/src/renderer/src/a-pet-plays-what-its-teammate-is-doing.test.ts	melts each drawing into the next over about half a frame, never longer than PET_FADE_MAX_MS	no
 apps/desktop/src/renderer/src/a-pet-plays-what-its-teammate-is-doing.test.ts	fades nothing at rest or when still: nothing moves there	yes
 apps/desktop/src/renderer/src/a-pet-plays-what-its-teammate-is-doing.test.ts	measures how dark a pet is from its opaque pixels only	yes
+apps/desktop/src/renderer/src/a-picker-row-is-named-not-an-id.test.tsx	named by its id without the provider is spelled out	yes
+apps/desktop/src/renderer/src/a-picker-row-is-named-not-an-id.test.tsx	with a name of its own keeps that name exactly	yes
 apps/desktop/src/renderer/src/a-plain-conversation-wears-the-ghost.test.tsx	beside a reply: the ghost when the conversation is nobody's, the teammate's own bot when it has one	yes
 apps/desktop/src/renderer/src/a-plain-conversation-wears-the-ghost.test.tsx	wears the ghost's own white, as the cover's ghost does (0.624), on the reply and the live row alike	no
 apps/desktop/src/renderer/src/a-plain-conversation-wears-the-ghost.test.tsx	on the live row: the same ghost while nobody's conversation thinks	yes

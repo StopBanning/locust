@@ -532,3 +532,25 @@ fn the_conversations_header_names_the_model_and_says_the_phase_only_when_it_is_n
     rt.frame(0.016);
     assert_eq!(text_in(&rt, "thread-header-route").join(" "), "Claude Code · Sonnet 5.5 · failed");
 }
+
+// Electron's `a-picker-row-is-named-not-an-id.test.tsx`: OpenCode's catalogue names a model by its id without the
+// provider, and the picker drew that raw while the chip spelled it.
+
+// case: named by its id without the provider is spelled out
+#[test]
+fn an_opencode_model_named_by_its_bare_id_is_spelled_out() {
+    let rt = picker(vec![agent("opencode", vec![m("opencode/ling-3.0-flash-fin-free", "ling-3.0-flash-fin-free", &[])])], None);
+    let row = text_in(&rt, "model-opencode-opencode/ling-3.0-flash-fin-free");
+    assert!(!row.iter().any(|t| t == "ling-3.0-flash-fin-free"), "{row:?}");
+    assert!(row.iter().any(|t| t.starts_with("Ling 3.0 Flash Fin")), "{row:?}");
+}
+
+// case: with a name of its own keeps that name exactly
+#[test]
+fn an_opencode_model_with_a_name_of_its_own_keeps_it_exactly() {
+    let rt = picker(vec![agent("opencode", vec![m("opencode/big-pickle", "Big Pickle", &[])])], None);
+    assert!(text_in(&rt, "model-opencode-opencode/big-pickle").iter().any(|t| t == "Big Pickle"));
+    // A name the runtime gave, however it is cased, is never restyled.
+    let rt = picker(vec![agent("opencode", vec![m("opencode/qwen-x", "qwen x (beta)", &[])])], None);
+    assert!(text_in(&rt, "model-opencode-opencode/qwen-x").iter().any(|t| t == "qwen x (beta)"));
+}

@@ -143,6 +143,17 @@ fn efforts_said(efforts: &[String]) -> String {
     format!("{} effort level{} · {}", efforts.len(), if efforts.len() == 1 { "" } else { "s" }, efforts.join(", "))
 }
 
+/// RoutePicker's row label: a name the runtime gave is drawn exactly as it wrote it; only a label that IS the id (or
+/// the id without its provider, as OpenCode's catalogue names `opencode/ling-3.0-flash-fin-free`), or the account's
+/// own default, is spelled out as the chip spells it.
+pub fn picker_label(runtime: &str, id: &str, name: &str) -> String {
+    if name.is_empty() || name == id || id.ends_with(&format!("/{name}")) || id == crate::models::ACCOUNT_DEFAULT {
+        crate::teammate_tooltip::model_display_name(runtime, id)
+    } else {
+        name.to_owned()
+    }
+}
+
 /// RoutePicker's row hover: everything known about it, effort levels included ("label · fullDetail").
 pub fn row_title(label: &str, description: Option<&str>, resolved: Option<&str>, efforts: &[String]) -> String {
     let efforts = efforts_said(efforts);

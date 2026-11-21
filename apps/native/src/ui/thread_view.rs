@@ -1261,6 +1261,9 @@ pub(super) fn model_picker(
         let is_active_group = active_runtime == agent.runtime && active_account == acc_id;
         let active_at = matched.iter().position(|m| is_active_group && (for_team || picked.is_some() || active_account.is_some()) && m.id == model);
         let (shown, hidden) = cap_rows(matched.len(), active_at, if searching { ROUTE_GROUP_LIMIT * 2 } else { ROUTE_GROUP_LIMIT });
+        // A row says the model's name, spelled out when the catalogue's name is only its id (RoutePicker).
+        let runtime_now = agent.runtime.clone();
+        let label_of = move |m: &locust_core::engine::Model| locust_core::route_rows::picker_label(&runtime_now, &m.id, &m.name);
         let mut group = row().gap(6.0).px(9.0).pt(12.0).pb(4.0).center_y();
         if let Some(mark) = crate::look::controls::agent_mark(l, &agent.runtime, 12.0, l.c("text-muted")) {
             group = group.child(mark.key(format!("picker-group-mark-{}", agent.runtime)));
@@ -1299,8 +1302,8 @@ pub(super) fn model_picker(
             let runtime = (teammate.runtime.as_deref() != Some(agent.runtime.as_str())).then(|| agent.runtime.clone());
             let account_pick = Some(acc.map(|a| a.id.clone()));
             let (row_label, row_key) = match acc {
-                Some(a) => (format!("{} · {}", m.name, a.name), format!("model-{}-{}:{}", agent.runtime, m.id, a.id)),
-                None => (m.name.clone(), format!("model-{}-{}", agent.runtime, m.id)),
+                Some(a) => (format!("{} · {}", label_of(m), a.name), format!("model-{}-{}:{}", agent.runtime, m.id, a.id)),
+                None => (label_of(m), format!("model-{}-{}", agent.runtime, m.id)),
             };
             let tip_key = format!("{row_key}-tip");
             let drawn = row_of(row_label, detail, active).key(row_key).on_press(move |s: &mut State| {
@@ -1338,7 +1341,7 @@ pub(super) fn model_picker(
                     let (levels, keep) = (m.efforts.clone(), effort.map(str::to_owned));
                     let description = locust_core::models::catalogue_description(&agent.runtime, &m.id);
                     let detail = locust_core::route_rows::row_detail(description.as_deref(), None, &m.efforts);
-                    list = list.child(row_of(m.name.clone(), detail, false).key(format!("model-{}-{}{suffix}", agent.runtime, m.id)).on_press(move |s: &mut State| {
+                    list = list.child(row_of(label_of(m), detail, false).key(format!("model-{}-{}{suffix}", agent.runtime, m.id)).on_press(move |s: &mut State| {
                         let effort = keep.clone().filter(|e| levels.contains(e));
                         apply_model_pick(s, &key, TurnPick { model: choice.clone(), effort, runtime: runtime.clone(), account: account_pick.clone() }, for_team);
                         s.model_menu = None;
