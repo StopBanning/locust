@@ -10,6 +10,8 @@ pub(super) struct Card {
     pub connectors: Option<Vec<Connector>>,
     pub reading: bool,
     pub notice: Option<String>,
+    /// "Add a connector": the form, what each agent said, and Undo.
+    pub add: crate::add_connector::Form,
 }
 
 #[cfg(test)]
@@ -36,6 +38,7 @@ fn now_ms() -> i64 {
 
 /// Read the connectors off the window's thread. `fresh` counts the held reading as stale (Check again).
 pub(super) fn request(s: &mut State, fresh: bool) {
+    crate::add_connector::request_installed(s);
     if s.connectors_job.is_pending() || !may_read() {
         return;
     }
@@ -50,7 +53,8 @@ pub(super) fn request(s: &mut State, fresh: bool) {
 }
 
 pub(super) fn poll(s: &mut State) -> bool {
-    match s.connectors_job.take() {
+    let added = crate::add_connector::poll(s);
+    added | match s.connectors_job.take() {
         Some(found) => {
             s.connectors.connectors = Some(found);
             s.connectors.reading = false;

@@ -92,6 +92,7 @@ pub mod compare_judge;
 pub mod compare_reruns;
 pub mod compare_score;
 pub mod compact_now;
+pub mod connector_add;
 pub mod connector_reader;
 pub mod connectors_off;
 #[cfg(test)]

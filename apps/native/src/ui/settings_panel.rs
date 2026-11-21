@@ -1036,6 +1036,8 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                     body = body.child(section_heading(heading, p)).child(crate::github_section::section(s, p)).child(more(s, p, "github"));
                 } else if heading == "Connectors" {
                     body = body.child(section_heading(heading, p)).child(crate::connectors_section::section(s, p));
+                } else if heading == "Add a connector" {
+                    body = body.child(section_heading(heading, p)).child(crate::add_connector::section(s, p));
                 } else {
                     body = body.child(deferred(heading, p));
                 }

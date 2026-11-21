@@ -235,6 +235,8 @@ mod issue_list;
 mod diff_notes_ui;
 #[path = "ui/connectors_section.rs"]
 mod connectors_section;
+#[path = "ui/add_connector.rs"]
+mod add_connector;
 #[path = "ui/chat_apps_section.rs"]
 mod chat_apps_section;
 #[path = "ui/github_section.rs"]
@@ -816,6 +818,7 @@ fn setup(s: &mut State, waker: Waker) {
     s.review_job.set_waker(waker.clone());
     s.github_job.set_waker(waker.clone());
     s.connectors_job.set_waker(waker.clone());
+    s.connectors.add.set_waker(&waker);
     s.issues_job.set_waker(waker.clone());
     s.commit_read_job.set_waker(waker.clone());
     s.commit_job.set_waker(waker.clone());
@@ -3335,6 +3338,8 @@ fn main() {
             ("settings", settings_panel::scene),
             ("chat-apps", chat_apps_section::scene),
             ("settings-door", settings_panel::door_scene),
+            ("settings-connectors", add_connector::scene),
+            ("settings-connectors-added", add_connector::added_scene),
             ("settings-carry", settings_panel::carry_settings_scene),
             ("settings-carry-light", settings_panel::carry_settings_light_scene),
             ("references", references_scene),
