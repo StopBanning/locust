@@ -6581,3 +6581,23 @@ fn command_o_switches_normal_and_verbose_steps_and_remembers_the_choice() {
     assert!(!rt.state.settings_panel.settings.verbose());
     assert_eq!(locust_core::workspace_settings::startup_transcript_view(Some(&store)), "normal");
 }
+
+// case: a cancelled picker creates no reference
+#[test]
+fn a_cancelled_reference_picker_creates_no_reference_and_a_picked_folder_one() {
+    let (dirs, _store, mut rt) = window();
+    rt.update(|s, _| s.reference_picker = true);
+    click(&mut rt, "reference-add-folder");
+    let (kind, _) = rt.file_dialog().expect("the folder picker is asked for");
+    assert_eq!(kind, rune::FileDialogKind::Folder);
+    rt.resolve_file_dialog(None).unwrap();
+    settle(&mut rt);
+    assert!(rt.state.reference_items.is_empty());
+    assert!(!dirs.0.join("native").join(locust_core::references::FILE).exists(), "nothing was saved");
+    // The same picker answered with a folder adds it, so the cancel above is what made none.
+    click(&mut rt, "reference-add-folder");
+    rt.resolve_file_dialog(Some(dirs.0.join("work"))).unwrap();
+    settle(&mut rt);
+    assert_eq!(rt.state.reference_items.iter().map(|i| i.name.as_str()).collect::<Vec<_>>(), ["work"], "{:?}", rt.state.reference_note);
+    assert!(dirs.0.join("native").join(locust_core::references::FILE).exists(), "the pick is saved where the cancel saved nothing");
+}

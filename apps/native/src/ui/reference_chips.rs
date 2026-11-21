@@ -146,6 +146,7 @@ pub(super) fn view(s: &State, l: &crate::look::controls::Look, teammate: &Teamma
             picker.child(
                 row().child(
                     crate::look::controls::button(l, "Folder on this computer", crate::look::controls::Tone::Neutral, false)
+                        .key("reference-add-folder")
                         .on_press_tx(|s: &mut State, tx: &mut Tx| add_folder(s, tx)),
                 ),
             )

@@ -647,6 +647,24 @@ apps/desktop/src/main/a-quiet-runtime-is-asked-to-say-what-it-does.test.ts	goes 
 apps/desktop/src/main/a-quiet-runtime-is-asked-to-say-what-it-does.test.ts	is in a run nobody owns when asked for, and not when not	yes
 apps/desktop/src/main/a-quiet-runtime-is-asked-to-say-what-it-does.test.ts	is in a teammate run when asked for	yes
 apps/desktop/src/main/a-reference-is-briefed-on-every-turn.test.ts	briefs the same reference on later turns and never adds it to another conversation	yes
+apps/desktop/src/main/a-reference-stays-with-its-conversation.test.ts	survives a restart and later turns, but not another conversation of the same teammate	yes
+apps/desktop/src/main/a-reference-stays-with-its-conversation.test.ts	removal affects the conversation, not the chosen folder or another conversation	yes
+apps/desktop/src/main/a-reference-stays-with-its-conversation.test.ts	refuses paths or invented identities from the window, duplicate IDs, and a sixth reference	yes
+apps/desktop/src/main/a-reference-stays-with-its-conversation.test.ts	a cancelled picker creates no reference	yes
+apps/desktop/src/main/a-reference-stays-with-its-conversation.test.ts	accepts only repository identities, not arbitrary git URLs, paths, options or shell fragments	no
+apps/desktop/src/main/a-reference-stays-with-its-conversation.test.ts	uses gh first, shallow-clones into its cache, refreshes after an hour, and keeps the old copy in trash	no
+apps/desktop/src/main/a-reference-stays-with-its-conversation.test.ts	falls back to an HTTPS public clone without shell interpretation	no
+apps/desktop/src/main/a-reference-stays-with-its-conversation.test.ts	refuses an oversized clone and recycles it, never the local folder	no
+apps/desktop/src/main/a-reference-stays-with-its-conversation.test.ts	only recycles a clone when its last conversation and live run release it	no
+apps/desktop/src/main/a-reference-stays-with-its-conversation.test.ts	keeps an unsent reference after a failed start releases its lease, until the person removes it	no
+apps/desktop/src/main/a-reference-stays-with-its-conversation.test.ts	does not follow a repository junction while counting bytes	no
+apps/desktop/src/main/a-reference-stays-with-its-conversation.test.ts	full-access modes keep the reference with a plain write warning	yes
+apps/desktop/src/main/a-reference-stays-with-its-conversation.test.ts	Codex reads outside its workspace without granting add-dir write access	yes
+apps/desktop/src/main/a-reference-stays-with-its-conversation.test.ts	names references without changing an unextended runtime or inventing a write-access reason to omit them	yes
+apps/desktop/src/main/a-reference-stays-with-its-conversation.test.ts	a restricted runtime omits a grant that would make the reference writable and says why	yes
+apps/desktop/src/main/a-reference-stays-with-its-conversation.test.ts	does not pretend a folder already writable in the workspace is read-only	yes
+apps/desktop/src/main/a-reference-stays-with-its-conversation.test.ts	Claude Edit and Approve each keep references with their scoped read-only promise, but Auto keeps its warning	yes
+apps/desktop/src/main/a-reference-stays-with-its-conversation.test.ts	the every-turn brief names only attached folders and explicitly withdraws old references	yes
 apps/desktop/src/main/a-refusal-in-ask-says-the-mode.test.ts	names the mode and says nobody was asked	yes
 apps/desktop/src/main/a-refusal-in-ask-says-the-mode.test.ts	is what a served Ask or Plan run is given, and only one nobody answers for	yes
 apps/desktop/src/main/a-refusal-keeps-the-reason-it-was-refused-for.test.ts	records the runtime’s own words when the dispatch is refused	yes

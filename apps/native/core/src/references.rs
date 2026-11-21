@@ -299,3 +299,7 @@ mod store_tests {
         assert!(select(&store, Some("turn_1"), None).unwrap().is_empty());
     }
 }
+
+#[cfg(test)]
+#[path = "references_tests.rs"]
+mod references_tests;
