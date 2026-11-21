@@ -308,7 +308,7 @@ fn control(c: char) -> bool {
     matches!(c, '\u{0}'..='\u{1f}' | '\u{7f}')
 }
 /// teammate-store.ts: safeId
-fn safe_id(v: &Value) -> Option<&str> {
+pub(crate) fn safe_id(v: &Value) -> Option<&str> {
     let s = v.as_str()?;
     (!s.is_empty()
         && s.len() <= 64

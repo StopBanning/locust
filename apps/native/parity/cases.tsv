@@ -916,6 +916,12 @@ apps/desktop/src/main/a-teammate-hears-its-turn-was-undone.test.ts	names a long 
 apps/desktop/src/main/a-teammate-hears-its-turn-was-undone.test.ts	starts with what Undo put back, and still ends with what the person said	no
 apps/desktop/src/main/a-teammate-hears-its-turn-was-undone.test.ts	says nothing of Undo when the turn it follows was not undone	no
 apps/desktop/src/main/a-teammate-hears-its-turn-was-undone.test.ts	says nothing of Undo on a first turn	no
+apps/desktop/src/main/a-teammate-keeps-the-hub-their-replies-live-in.test.ts	records the newest turn, and reads it back after a relaunch	yes
+apps/desktop/src/main/a-teammate-keeps-the-hub-their-replies-live-in.test.ts	survives a rename and a new face, the way the route does	yes
+apps/desktop/src/main/a-teammate-keeps-the-hub-their-replies-live-in.test.ts	ignores an unknown teammate and a bad id rather than throwing at the relay	yes
+apps/desktop/src/main/a-teammate-keeps-the-hub-their-replies-live-in.test.ts	reads a hub that is not a mission id as no hub	yes
+apps/desktop/src/main/a-teammate-keeps-the-hub-their-replies-live-in.test.ts	goes with the teammate when they are removed	yes
+apps/desktop/src/main/a-teammate-keeps-the-hub-their-replies-live-in.test.ts	is untouched by an edit of the file that drops it	yes
 apps/desktop/src/main/a-teammates-key-reaches-only-its-runs.test.ts	is in its own teammate’s run, under its name, beside what the launch had	yes
 apps/desktop/src/main/a-teammates-key-reaches-only-its-runs.test.ts	is never in what Locust keeps of the run, whatever printed it	yes
 apps/desktop/src/main/a-teammates-key-reaches-only-its-runs.test.ts	is in no other run: another teammate’s, one with no teammate, a sealed one, or one on Codex	yes

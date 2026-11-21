@@ -230,6 +230,21 @@ pub fn save_teammate_id(store: &Store, mut entry: Value) -> Result<String, Strin
         return Err("Teammate route is invalid".into());
     }
     let teammate_id = entry["teammateId"].as_str().unwrap_or("").to_owned();
+    // The hub (teammate-store.ts update): carried like the route, never taken from the request, so renaming a teammate
+    // cannot lose the conversation their replies live in; one that is not a mission id is no hub. A new one has none.
+    let held_hub = rows
+        .iter()
+        .find(|r| !creating && r["teammateId"] == entry["teammateId"])
+        .and_then(|r| crate::native::safe_id(&r["hubMissionId"]).map(str::to_owned));
+    match (entry.as_object_mut(), held_hub) {
+        (Some(fields), Some(hub)) => {
+            fields.insert("hubMissionId".into(), json!(hub));
+        }
+        (Some(fields), None) => {
+            fields.remove("hubMissionId");
+        }
+        (None, _) => {}
+    }
     if creating {
         rows.push(entry);
     } else {
@@ -294,13 +309,20 @@ pub fn set_mission_title(store: &Store, mission: &str, title: &str) -> Result<()
     store.save_json("teammates.json", &file)
 }
 
-/// Record a teammate's newest hub turn (`hubMissionId` on their teammate record).
+/// Record a teammate's newest hub turn (`hubMissionId` on their teammate record). An unknown teammate, or an id that is
+/// not one (teammate-store.ts `safeId`), is ignored rather than refused at the relay.
 pub fn remember_hub(store: &Store, teammate_id: &str, mission: &str) -> Result<(), String> {
+    if crate::native::safe_id(&json!(teammate_id)).is_none() || crate::native::safe_id(&json!(mission)).is_none() {
+        return Ok(());
+    }
     let _lock = WRITES.lock().map_err(|e| e.to_string())?;
     let mut file = team(store)?;
     let Some(list) = file["teammates"].as_array_mut() else {
         return Ok(());
     };
+    if !list.iter().any(|t| t["teammateId"].as_str() == Some(teammate_id)) {
+        return Ok(());
+    }
     for t in list.iter_mut() {
         if t["teammateId"].as_str() == Some(teammate_id) {
             t["hubMissionId"] = json!(mission);
@@ -316,7 +338,7 @@ pub fn hub_of(store: &Store, teammate_id: &str) -> Option<String> {
         .as_array()?
         .iter()
         .find(|t| t["teammateId"].as_str() == Some(teammate_id))
-        .and_then(|t| t["hubMissionId"].as_str())
+        .and_then(|t| crate::native::safe_id(&t["hubMissionId"]))
         .map(str::to_owned)?;
     let has_native = store.write_path(&hub).ok().is_some_and(|p| p.is_file());
     let has_electron = store
@@ -2823,3 +2845,7 @@ mod renderer_defaults_tests {
 #[cfg(test)]
 #[path = "quoted_dead_tests.rs"]
 mod quoted_dead_tests;
+
+#[cfg(test)]
+#[path = "a_teammate_keeps_the_hub_tests.rs"]
+mod a_teammate_keeps_the_hub_tests;
