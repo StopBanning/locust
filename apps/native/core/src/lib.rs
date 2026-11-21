@@ -133,6 +133,7 @@ pub mod mission_export;
 pub mod models;
 pub mod named_files;
 pub mod named_folder;
+pub mod npm_check;
 pub mod native;
 pub mod org_policy;
 pub mod office;
