@@ -15,6 +15,10 @@ for line in sys.stdin:
         assert v['params'] == dict(protocolVersion=1, clientCapabilities=dict(fs=dict(readTextFile=False,writeTextFile=False),terminal=False))
         if scenario == 'version':
             answer(v, dict(protocolVersion=99))
+        elif scenario == 'capabilities':
+            answer(v, dict(protocolVersion=1,agentCapabilities=dict(loadSession=True,promptCapabilities=dict(image=True,audio=False,embeddedContext=True),mcpCapabilities=dict(http=True,sse=False))))
+        elif scenario == 'capabilities-garbage':
+            answer(v, dict(protocolVersion=1,agentCapabilities='everything'))
         else:
             answer(v, dict(protocolVersion=1,agentCapabilities=dict(loadSession=scenario != 'no-resume')))
     elif method in ('session/new','session/load'):
