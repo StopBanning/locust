@@ -1209,6 +1209,13 @@ apps/desktop/src/main/an-other-app-origin-survives-a-restart.test.ts	makes the e
 apps/desktop/src/main/an-other-app-origin-survives-a-restart.test.ts	classifies the token file and opt-in as excluded from every profile backup	no
 apps/desktop/src/main/an-unsupported-opencode-version-reaches-the-window.test.ts	reaches the window as unsupported, with why and what to do	yes
 apps/desktop/src/main/an-unsupported-opencode-version-reaches-the-window.test.ts	leaves every other runtime as it was (control)	yes
+apps/desktop/src/main/an-unwritten-card-answer-is-said-in-the-record.test.ts	names the card, the answer and the ledger's reason, one past the last sequence	yes
+apps/desktop/src/main/an-unwritten-card-answer-is-said-in-the-record.test.ts	leaves nothing on a turn too old to hold cards (control), and starts at 1 on an empty mission	yes
+apps/desktop/src/main/an-unwritten-card-answer-is-said-in-the-record.test.ts	is written after all when the ledger takes it the second time, and no note is left	yes
+apps/desktop/src/main/an-unwritten-card-answer-is-said-in-the-record.test.ts	still refused, leaves the note one past the run's last event, with the ledger's latest words	yes
+apps/desktop/src/main/an-unwritten-card-answer-is-said-in-the-record.test.ts	reads the tail again when another writer took the sequence first	yes
+apps/desktop/src/main/an-unwritten-card-answer-is-said-in-the-record.test.ts	remembers nothing for a turn too old to hold cards, and touches a run with nothing remembered not at all (controls)	yes
+apps/desktop/src/main/an-unwritten-card-answer-is-said-in-the-record.test.ts	remembers a refused answer where every answer is written, and writes it when the run ends	yes
 apps/desktop/src/main/antigravity-is-found-on-a-mac.test.ts	is not found where there is none, and a relative PATH entry is not searched (control)	yes
 apps/desktop/src/main/antigravity-is-found-on-a-mac.test.ts	on Windows, still looks only where install.ps1 puts it, not in ~/.local/bin (control)	yes
 apps/desktop/src/main/antigravity-runs-through-its-cli.test.ts	is a runtime whose events the host reads	no

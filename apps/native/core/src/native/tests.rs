@@ -3621,3 +3621,6 @@ fn only_a_beginning_delivers_never_a_diagnostic() {
 
 #[path = "an_app_started_turn_tests.rs"]
 mod an_app_started_turn;
+
+#[path = "unwritten_answer_tests.rs"]
+mod unwritten_answer;

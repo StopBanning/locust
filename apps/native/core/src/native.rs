@@ -3134,6 +3134,8 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
                 });
                 crate::rooms::on_run_ended(&memory_store, &memory_id);
             }
+            // After the relay's and rooms' own endings, before Scout's (main/index.ts run-end steps).
+            crate::approval_record_note::on_run_ended(&memory_store, &memory_id);
             crate::scout::host::on_run_ended(&memory_store, &memory_id);
             crate::chat_host::on_run_ended(&memory_id);
             if person_sent {
@@ -3355,9 +3357,18 @@ fn record_failure(writer: &mut LedgerWriter, cancelled: bool, error: &io::Error)
     let _ = writer.append(&event.kind, json!(event.payload), event.thread.as_deref());
 }
 
+/// Every card answered is written to the turn's ledger; an answer the ledger refused is remembered, to be written (or
+/// said) when the run ends (approval-record-note.ts, `unwrittenAnswers.remember` in main/index.ts recordAnswer).
 fn flush_approvals(writer: &mut LedgerWriter, channel: &Channel, mission_id: &str) {
     for recorded in channel.take_recorded_for(mission_id) {
-        let _ = writer.append_approval(&recorded.to_json());
+        let approval = recorded.to_json();
+        let written = match crate::approval_record_note::refused_for_test() {
+            Some(why) => Err(why),
+            None => writer.append_approval(&approval).map_err(|e| e.to_string()),
+        };
+        if let Err(why) = written {
+            crate::invariants::lock(&crate::approval_record_note::UNWRITTEN).remember(mission_id, approval, &why);
+        }
     }
 }
 
