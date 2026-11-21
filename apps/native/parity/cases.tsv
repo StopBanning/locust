@@ -1842,6 +1842,16 @@ apps/desktop/src/main/mission-history.test.ts	ignores a temporary rate limit -- 
 apps/desktop/src/main/mission-history.test.ts	rides on the history response	yes
 apps/desktop/src/main/mission-history.test.ts	keeps the newest reading per runtime and ignores everything else	yes
 apps/desktop/src/main/mission-history.test.ts	reads a newer usage warning back as the reading	yes
+apps/desktop/src/main/missions-can-be-deleted-together.test.ts	will not offer a running mission	yes
+apps/desktop/src/main/missions-can-be-deleted-together.test.ts	says why the box is disabled rather than leaving it dead	yes
+apps/desktop/src/main/missions-can-be-deleted-together.test.ts	re-filters at the moment of deleting, not only at the moment of picking	yes
+apps/desktop/src/main/missions-can-be-deleted-together.test.ts	appears only once something is selected	yes
+apps/desktop/src/main/missions-can-be-deleted-together.test.ts	is absent entirely when the screen has no way to delete	yes
+apps/desktop/src/main/missions-can-be-deleted-together.test.ts	confirms in two steps, the shape the row menu already uses	yes
+apps/desktop/src/main/missions-can-be-deleted-together.test.ts	offers select-all over what is actually deletable, not what is listed	yes
+apps/desktop/src/main/missions-can-be-deleted-together.test.ts	keeps the destructive control away from the harmless ones	yes
+apps/desktop/src/main/missions-can-be-deleted-together.test.ts	puts the checkbox beside the row, never inside it	yes
+apps/desktop/src/main/missions-can-be-deleted-together.test.ts	lets the row keep the width it had	yes
 apps/desktop/src/main/model-catalog.test.ts	reads real models and their own supported efforts	yes
 apps/desktop/src/main/model-catalog.test.ts	drops a model with no id, and a hidden one	yes
 apps/desktop/src/main/model-catalog.test.ts	reports unreadable efforts as NONE rather than as all	yes
