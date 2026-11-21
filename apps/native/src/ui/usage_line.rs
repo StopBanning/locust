@@ -12,7 +12,7 @@ pub(super) fn request(s: &mut State) {
         return;
     }
     s.usage_line_job.request(store, |store| {
-        locust_core::usage_ledger::usage_turns(&store).ok().map(|turns| usage_summary(&turns, UsageRange::Days30, chrono::Local::now()))
+        locust_core::usage_ledger::usage_turns_with_carried(&store).ok().map(|turns| usage_summary(&turns, UsageRange::Days30, chrono::Local::now()))
     });
 }
 

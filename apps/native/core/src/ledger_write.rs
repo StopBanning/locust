@@ -9,16 +9,86 @@ use std::{
 pub fn now() -> String {
     chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
 }
+
+/// one-at-a-time.ts `oneAtATime`: calls of `run` go one after another, never overlapping, in the order they were made.
+/// A failed call does not stop the ones behind it -- an `Err` or a panic in one still lets the next one in.
+///
+/// For writers that read the tail of a record and append after it: two of them at once read the same tail and write
+/// the same `ledgerSequence`, which the reader takes for a torn file (the relay's notes were one, the code review's B4).
+pub struct OneAtATime {
+    turns: std::sync::Mutex<(u64, u64)>,
+    next: std::sync::Condvar,
+}
+
+impl Default for OneAtATime {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl OneAtATime {
+    pub const fn new() -> Self {
+        Self { turns: std::sync::Mutex::new((0, 0)), next: std::sync::Condvar::new() }
+    }
+
+    fn turns(&self) -> std::sync::MutexGuard<'_, (u64, u64)> {
+        self.turns.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
+    /// Calls taken and not yet finished, the running one included.
+    pub fn waiting(&self) -> u64 {
+        let turns = self.turns();
+        turns.0 - turns.1
+    }
+
+    pub fn run<T>(&self, work: impl FnOnce() -> T) -> T {
+        struct Done<'a>(&'a OneAtATime);
+        impl Drop for Done<'_> {
+            fn drop(&mut self) {
+                self.0.turns().1 += 1;
+                self.0.next.notify_all();
+            }
+        }
+        let mut turns = self.turns();
+        let ticket = turns.0;
+        turns.0 += 1;
+        while turns.1 != ticket {
+            turns = self.next.wait(turns).unwrap_or_else(std::sync::PoisonError::into_inner);
+        }
+        drop(turns);
+        let _done = Done(self);
+        work()
+    }
+}
+
+/// The one gate every writer below passes that reads a ledger's tail and appends after it.
+static LEDGER_TAIL: OneAtATime = OneAtATime::new();
+
+#[cfg(test)]
+thread_local! {
+    /// A test's pause between reading the tail and appending, so two writers that were not one at a time would collide.
+    static PAUSE_AFTER_TAIL: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+}
+
+fn after_tail() {
+    #[cfg(test)]
+    std::thread::sleep(std::time::Duration::from_millis(PAUSE_AFTER_TAIL.with(std::cell::Cell::get)));
+}
 /// `continuesFrom` of a follow-up turn, as `codex-mission.ts` writes it: checkpointEpoch 1 (a follow-up reconciles
 /// nothing, so epoch 1 is the only one a reader could mean), reason `follow-up`, the resumed thread when there is one.
 /// A stopped turn's checkpoint, appended to its own (native) ledger as mission-store's `createCheckpoint` appends it:
 /// the next ledger sequence, the ledger's schema version, fsynced. The turn is not running, so no writer holds the file.
 pub fn append_checkpoint(path: &std::path::Path, checkpoint: &Value) -> io::Result<()> {
+    LEDGER_TAIL.run(|| append_checkpoint_after_tail(path, checkpoint))
+}
+
+fn append_checkpoint_after_tail(path: &std::path::Path, checkpoint: &Value) -> io::Result<()> {
     use std::io::Write;
     let text = std::fs::read_to_string(path)?;
     let records: Vec<Value> = text.lines().filter_map(|l| serde_json::from_str(l).ok()).collect();
     let schema = records.first().and_then(|r| r["schemaVersion"].as_u64()).ok_or_else(|| io::Error::other("Ledger has no first record"))?;
     let next = records.iter().filter_map(|r| r["ledgerSequence"].as_u64()).max().unwrap_or(0) + 1;
+    after_tail();
     let record = json!({"schemaVersion": schema, "recordType": "mission.checkpoint", "ledgerSequence": next, "occurredAt": checkpoint["createdAt"], "checkpoint": checkpoint});
     let mut line = serde_json::to_vec(&record)?;
     line.push(b'\n');
@@ -36,6 +106,13 @@ pub fn append_events<F>(path: &std::path::Path, make_events: F) -> io::Result<()
 where
     F: FnOnce(&str, &str, &str, u64, &str) -> Vec<Value>,
 {
+    LEDGER_TAIL.run(|| append_events_after_tail(path, make_events))
+}
+
+fn append_events_after_tail<F>(path: &std::path::Path, make_events: F) -> io::Result<()>
+where
+    F: FnOnce(&str, &str, &str, u64, &str) -> Vec<Value>,
+{
     use std::io::Write;
     let text = std::fs::read_to_string(path)?;
     if !text.is_empty() && !text.ends_with('\n') {
@@ -47,6 +124,7 @@ where
     let last = records.iter().rev().find_map(|r| r.get("event"));
     let next_seq = last.and_then(|e| e["sequence"].as_u64()).unwrap_or(0) + 1;
     let mut ledger_seq = records.iter().filter_map(|r| r["ledgerSequence"].as_u64()).max().unwrap_or(0) + 1;
+    after_tail();
     let at = now();
     let run = meta["runId"].as_str().unwrap_or_default();
     let mission = meta["missionId"].as_str().unwrap_or_default();
@@ -86,6 +164,10 @@ pub fn append_note(path: &std::path::Path, code: &str, message: &str) -> io::Res
 }
 
 pub fn append_note_with_level(path: &std::path::Path, level: &str, code: &str, message: &str) -> io::Result<()> {
+    LEDGER_TAIL.run(|| append_note_with_level_after_tail(path, level, code, message))
+}
+
+fn append_note_with_level_after_tail(path: &std::path::Path, level: &str, code: &str, message: &str) -> io::Result<()> {
     use std::io::Write;
     let text = std::fs::read_to_string(path)?;
     if !text.is_empty() && !text.ends_with('\n') {
@@ -97,6 +179,7 @@ pub fn append_note_with_level(path: &std::path::Path, level: &str, code: &str, m
     let last = records.iter().rev().find_map(|r| r.get("event"));
     let sequence = last.and_then(|e| e["sequence"].as_u64()).unwrap_or(0) + 1;
     let ledger = records.iter().filter_map(|r| r["ledgerSequence"].as_u64()).max().unwrap_or(0) + 1;
+    after_tail();
     let at = now();
     let run = meta["runId"].as_str().unwrap_or_default();
     let kind_tag = match code {
@@ -200,6 +283,10 @@ pub fn validate_approval(approval: &Value) -> io::Result<()> {
 
 /// A post-edit check result, appended to its turn's native ledger as `mission-store`'s `appendEditCheck` appends it.
 pub fn append_edit_check(path: &std::path::Path, check: &Value) -> io::Result<()> {
+    LEDGER_TAIL.run(|| append_edit_check_after_tail(path, check))
+}
+
+fn append_edit_check_after_tail(path: &std::path::Path, check: &Value) -> io::Result<()> {
     use std::io::Write;
     validate_edit_check(check)?;
     let text = std::fs::read_to_string(path)?;
@@ -213,6 +300,7 @@ pub fn append_edit_check(path: &std::path::Path, check: &Value) -> io::Result<()
         return Err(io::Error::other("Mission ledger version cannot hold check results"));
     }
     let next = records.iter().filter_map(|r| r["ledgerSequence"].as_u64()).max().unwrap_or(0) + 1;
+    after_tail();
     let record = json!({
         "schemaVersion": schema,
         "recordType": "mission.edit_check",
@@ -558,6 +646,10 @@ impl LedgerWriter {
 
 /// Append `mission.peer` link records to a finished turn's ledger (`peer-exchange.ts` / `mission-store`).
 pub fn append_peer_links(path: &std::path::Path, links: &[(&str, &str, &str, &str)]) -> io::Result<()> {
+    LEDGER_TAIL.run(|| append_peer_links_after_tail(path, links))
+}
+
+fn append_peer_links_after_tail(path: &std::path::Path, links: &[(&str, &str, &str, &str)]) -> io::Result<()> {
     if links.is_empty() {
         return Ok(());
     }
@@ -587,6 +679,7 @@ pub fn append_peer_links(path: &std::path::Path, links: &[(&str, &str, &str, &st
         return Err(io::Error::other("Mission ledger version cannot hold peer links"));
     }
     let mut ledger_seq = records.iter().filter_map(|r| r["ledgerSequence"].as_u64()).max().unwrap_or(0);
+    after_tail();
     let mut file = std::fs::OpenOptions::new().append(true).open(path)?;
     for (direction, message_id, peer_teammate_id, occurred_at) in links {
         ledger_seq += 1;
@@ -719,3 +812,7 @@ mod long_answer_tests;
 #[cfg(test)]
 #[path = "command_record_tests.rs"]
 mod command_record_tests;
+
+#[cfg(test)]
+#[path = "one_at_a_time_tests.rs"]
+mod one_at_a_time_tests;

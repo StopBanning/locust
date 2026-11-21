@@ -1773,6 +1773,8 @@ apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	reads this machine�
 apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	is given the guard in every mode, Auto included	no
 apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	names the guard as a hook its shell can start, on Locust’s own binary run as node, with Locust’s own id	no
 apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	is read from the guard’s own words, so the two cannot drift apart	no
+apps/desktop/src/main/one-at-a-time.test.ts	run one at a time, in order, so no two read the same tail	yes
+apps/desktop/src/main/one-at-a-time.test.ts	keeps going after one fails	yes
 apps/desktop/src/main/one-path-decides-every-request.test.ts	denies by a saved rule, whatever Always was given earlier in the run	no
 apps/desktop/src/main/one-path-decides-every-request.test.ts	asks again about a command that reaches other programs, though Always was given, and says why	no
 apps/desktop/src/main/one-path-decides-every-request.test.ts	allows by an earlier Always what it covers, and says so	no
@@ -2506,6 +2508,10 @@ apps/desktop/src/main/unreadable-is-not-empty.test.ts	never reports that a room 
 apps/desktop/src/main/unreadable-is-not-empty.test.ts	says every room is as it was, because nothing was established	yes
 apps/desktop/src/main/unreadable-is-not-empty.test.ts	still treats a file that is simply not there as empty	yes
 apps/desktop/src/main/unreadable-is-not-empty.test.ts	still reports a genuinely missing room as missing	yes
+apps/desktop/src/main/usage-carried-from-another-computer.test.ts	keeps a turn of numbers, and nothing it does not name	yes
+apps/desktop/src/main/usage-carried-from-another-computer.test.ts	leaves out a line that is not a turn	yes
+apps/desktop/src/main/usage-carried-from-another-computer.test.ts	reads every good line of the file, and no file as none	yes
+apps/desktop/src/main/usage-carried-from-another-computer.test.ts	is added to the ledger where Usage is read	yes
 apps/desktop/src/main/usage-is-counted.test.ts	names the model the run reported, and keeps a plan’s dollars out of the money	no
 apps/desktop/src/main/usage-is-counted.test.ts	an API key’s turn is money; a turn with no receipt still counts, at its last moment	no
 apps/desktop/src/main/usage-is-counted.test.ts	every turn the ledger holds, each named by its conversation’s first turn	no

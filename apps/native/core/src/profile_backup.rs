@@ -50,6 +50,9 @@ pub const BACKED_UP_FILES: &[&str] = &[
     "calls.json",
     "scout.json",
     "scout-looks.json",
+    // Usage carried from another computer (usage-carried.ts, 0.849): numbers only, and carrying them is its purpose.
+    // Electron backs it up nowhere and lists it nowhere; here every kept file is one or the other.
+    "usage-carried.jsonl",
     "issue-origins.json",
     "panel-runs.json",
     "appearance.json",
