@@ -227,10 +227,10 @@ apps/desktop/src/main/a-copy-column-brings-its-changes-in.test.ts	refuses, chang
 apps/desktop/src/main/a-copy-column-brings-its-changes-in.test.ts	refuses when the person made a file of the same name meanwhile	no
 apps/desktop/src/main/a-copy-column-brings-its-changes-in.test.ts	says so when a column changed nothing	no
 apps/desktop/src/main/a-copy-column-brings-its-changes-in.test.ts	is told up front, with the reason; one that fits is not; what is left out does not count	no
-apps/desktop/src/main/a-credential-file-is-never-shown.test.ts	refuses the ones from that run, and their kind	no
-apps/desktop/src/main/a-credential-file-is-never-shown.test.ts	lets an ordinary project file through	no
-apps/desktop/src/main/a-credential-file-is-never-shown.test.ts	never opens a credential file, and scrubs a token anywhere else	no
-apps/desktop/src/main/a-credential-file-is-never-shown.test.ts	scrubs a key in JSON's own shape, quote before the colon	no
+apps/desktop/src/main/a-credential-file-is-never-shown.test.ts	refuses the ones from that run, and their kind	yes
+apps/desktop/src/main/a-credential-file-is-never-shown.test.ts	lets an ordinary project file through	yes
+apps/desktop/src/main/a-credential-file-is-never-shown.test.ts	never opens a credential file, and scrubs a token anywhere else	yes
+apps/desktop/src/main/a-credential-file-is-never-shown.test.ts	scrubs a key in JSON's own shape, quote before the colon	yes
 apps/desktop/src/main/a-cursor-level-becomes-its-id-at-the-start.test.ts	Argon Low at High starts as gemini-4-argon-high, with no level beside it	yes
 apps/desktop/src/main/a-cursor-level-becomes-its-id-at-the-start.test.ts	an id already on its level is left as it is	yes
 apps/desktop/src/main/a-cursor-level-becomes-its-id-at-the-start.test.ts	a level the family does not list, or a model not listed, is left as it came for the builder to refuse	yes

@@ -774,3 +774,7 @@ pub fn observed_edit_events(
     }
     events
 }
+
+#[cfg(test)]
+#[path = "credential_file_tests.rs"]
+mod credential_file_tests;
