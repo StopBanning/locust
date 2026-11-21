@@ -2141,6 +2141,16 @@ apps/desktop/src/main/routine-store.test.ts	keeps a schedule, corrects it, clear
 apps/desktop/src/main/routine-store.test.ts	refuses a schedule it cannot keep, and drops a malformed one from disk without dropping the routine	no
 apps/desktop/src/main/routine-store.test.ts	round-trips it through the store	no
 apps/desktop/src/main/routine-store.test.ts	leaves a route without one alone	no
+apps/desktop/src/main/runtime-artifacts.test.ts	reads Claude's YAML fences	yes
+apps/desktop/src/main/runtime-artifacts.test.ts	reads Codex's TOML, single-quoted or double	yes
+apps/desktop/src/main/runtime-artifacts.test.ts	falls back to the filename, because the file existing is the point	yes
+apps/desktop/src/main/runtime-artifacts.test.ts	takes a description without a name, which is how commands are written	yes
+apps/desktop/src/main/runtime-artifacts.test.ts	never reads past the front matter into the instructions	yes
+apps/desktop/src/main/runtime-artifacts.test.ts	lists agents and commands for the runtimes that are installed	yes
+apps/desktop/src/main/runtime-artifacts.test.ts	says nothing about a runtime that is not on this machine	yes
+apps/desktop/src/main/runtime-artifacts.test.ts	is empty, not an error, when nobody has set any up	yes
+apps/desktop/src/main/runtime-artifacts.test.ts	ignores files of the wrong kind	yes
+apps/desktop/src/main/runtime-artifacts.test.ts	carries the path, so the app can say where to go and change it	yes
 apps/desktop/src/main/runtime-commands.test.ts	is the word after a leading slash	yes
 apps/desktop/src/main/runtime-commands.test.ts	is nothing when the slash is not at the start, or is not followed by a name	no
 apps/desktop/src/main/runtime-commands.test.ts	are offered without the ones that would change the person's own setup	yes
