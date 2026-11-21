@@ -55,6 +55,7 @@ fn window(folder: &Path, mission: &str, items: Vec<ledger::Item>) -> rune::Runti
     s.teammates.push(header.clone());
     s.conversations.insert("tm".into(), Default::default());
     s.ledger = Some(LedgerPane {
+        cold_tip: None,
         header,
         conversation: Conversation { conversation_id: Some(mission.into()), turns: Vec::new() },
         items,

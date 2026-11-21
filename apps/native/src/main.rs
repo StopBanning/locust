@@ -336,6 +336,8 @@ struct LedgerPane {
     dir: std::path::PathBuf,
     worker: Option<ledger::Session>,
     snapshot: ledger::Snapshot,
+    /// The tip the thread shows, and whether that turn started cold (read once per tip, off the window's thread).
+    cold_tip: Option<(String, bool)>,
     due: f64,
     loading: bool,
     // MCP returns the old root ID on follow-up; wait for its new child.
@@ -352,7 +354,7 @@ fn wake_ledger_pane(s: &mut State, now: f64, tx: &mut Tx) {
 }
 
 // Return the Session on both Ok and Err so transient errors never rebuild the Session.
-type LedgerAnswer = Result<(ledger::Session, ledger::Snapshot), Box<(ledger::Session, String)>>;
+type LedgerAnswer = Result<(ledger::Session, ledger::Snapshot, bool), Box<(ledger::Session, String)>>;
 
 // Electron's ledger folder (read-only); native's own folder when there is no Electron one. A Session also reads
 // native's folder (`native::session`), so a conversation continues across both.
@@ -398,18 +400,19 @@ fn begin_ledger(
     }
     let folder = header.folder.clone();
     // Preserve existing Session and transcript items when continuing the same ledger conversation.
-    let (mut items, worker, snapshot) = match s.ledger.take() {
+    let (mut items, worker, snapshot, cold_tip) = match s.ledger.take() {
         Some(mut prev) if prev.conversation.conversation_id.as_deref() == Some(id.as_str()) => {
             let worker = prev
                 .worker
                 .take()
                 .unwrap_or_else(|| native::session_for(dir.clone(), id.clone(), folder.as_deref()));
-            (prev.items, worker, prev.snapshot)
+            (prev.items, worker, prev.snapshot, prev.cold_tip)
         }
         _ => (
             Vec::new(),
             native::session_for(dir.clone(), id.clone(), folder.as_deref()),
             ledger::Snapshot::default(),
+            None,
         ),
     };
     if after_tip.is_some() {
@@ -426,6 +429,7 @@ fn begin_ledger(
         worker: Some(worker),
         dir,
         snapshot,
+        cold_tip,
         due: 0.0,
         loading,
         after_tip,
@@ -533,7 +537,7 @@ fn ledger_tick(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     }
     if let Some(result) = s.ledger_job.take() {
         match result {
-            Ok((worker, mut snapshot)) => {
+            Ok((worker, mut snapshot, cold)) => {
                 // The ledger terminal event precedes native checkpoint/memory persistence.
                 if s.engine == Some(Kind::Native) && locust_core::engine_api::api().owns(worker.anchor()) {
                     snapshot.running = true;
@@ -619,6 +623,7 @@ fn ledger_tick(s: &mut State, now: f64, tx: &mut Tx) -> bool {
                     };
                     pane.worker = Some(worker);
                     pane.snapshot = snapshot;
+                    pane.cold_tip = Some((pane.snapshot.tip.clone(), cold));
                     if pane.snapshot.started_label.is_some() {
                         tx.wake_after(Duration::from_secs(60));
                     }
@@ -745,8 +750,16 @@ fn ledger_tick(s: &mut State, now: f64, tx: &mut Tx) -> bool {
             if now >= pane.due {
                 if let Some(mut worker) = pane.worker.take() {
                     pane.due = f64::INFINITY;
+                    // Whether the tip started cold is read once per tip: its first record says.
+                    let known = pane.cold_tip.clone();
                     s.ledger_job.request((), move |()| match worker.poll() {
-                        Ok(snapshot) => Ok((worker, snapshot)),
+                        Ok(snapshot) => {
+                            let cold = match known {
+                                Some((tip, cold)) if tip == snapshot.tip => cold,
+                                _ => !snapshot.tip.is_empty() && native::turn_started_cold(&snapshot.tip),
+                            };
+                            Ok((worker, snapshot, cold))
+                        }
                         Err(_) => Err(Box::new((
                             worker,
                             "Local conversation could not be read.".to_owned(),

@@ -192,6 +192,7 @@ fn stop_never_latches_onto_external_turn_after_fast_completion_or_detach() {
         before: Some("root".into()),
     });
     s.ledger = Some(LedgerPane {
+        cold_tip: None,
         header,
         conversation: Conversation {
             conversation_id: Some("root".into()),

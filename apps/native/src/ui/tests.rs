@@ -611,6 +611,7 @@ fn idle_ledger_stops_polling_errors_back_off_without_rebuilding_and_after_tip_ti
     s.demo = false;
     let header = s.teammates[0].clone();
     s.ledger = Some(LedgerPane {
+        cold_tip: None,
         header,
         conversation: Conversation {
             conversation_id: Some("done".into()),

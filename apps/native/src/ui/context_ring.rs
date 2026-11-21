@@ -55,6 +55,7 @@ mod renderer_tests {
     fn the_drawn_ring_uses_the_conversations_cost_and_hides_subscription_only_cost() {
         let mut s = State::default();
         s.ledger = Some(LedgerPane {
+            cold_tip: None,
             header: Teammate { id: "tm_wren".into(), name: "Wren".into(), role: String::new(),
                 runtime: Some("claude".into()), model: None, account: None, busy: false,
                 runs_in: "ask".into(), folder: None },

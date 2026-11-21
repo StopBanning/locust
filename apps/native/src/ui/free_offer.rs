@@ -270,6 +270,7 @@ mod tests {
             ..Default::default()
         });
         s.ledger = Some(LedgerPane {
+            cold_tip: None,
             header: Teammate {
                 id: "tm_1".into(),
                 name: "Wren".into(),

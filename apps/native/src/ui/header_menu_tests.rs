@@ -16,6 +16,7 @@ fn window(running: bool) -> Runtime<State> {
         ledger::Item::Assistant { item_id: "a1".into(), text: "The migration is fine.".into(), r#final: true },
     ];
     s.ledger = Some(LedgerPane {
+        cold_tip: None,
         header,
         conversation: Conversation { conversation_id: Some("mission_1".into()), turns: Vec::new() },
         items,

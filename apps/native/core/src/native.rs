@@ -949,6 +949,35 @@ pub fn session_for(dir: PathBuf, id: String, folder: Option<&str>) -> ledger::Se
 }
 
 // ---- resume point: which Codex thread a follow-up reopens ---------------------------------------------------------
+/// App.tsx coldStart (0.496): whether a turn started cold is the host's to say. It did when it is the person's reply on
+/// the same agent and its follow-up names no session to resume (`followsUp.runtimeThreadId` absent): the turn before
+/// failed before its runtime started, the mode changed since, or its session was not there. An edit starts cold too
+/// but says its own note; a switch to another agent or account draws its divider; a turn Locust or a teammate started
+/// (carry-on, a fix, a relay's hop, a side question, a comparison's column) is not the person's reply.
+pub fn started_cold(metadata: &Value) -> bool {
+    let link = &metadata["continuesFrom"];
+    link["missionId"].as_str().is_some_and(|m| !m.is_empty())
+        && link["reason"] == "follow-up"
+        && link["runtimeThreadId"].as_str().is_none_or(str::is_empty)
+        && link["edited"] != true
+        && metadata["startedBy"].is_null()
+        && metadata["relay"].is_null()
+}
+
+/// [`started_cold`] of a turn, from its first record alone (`mission.created`), so the window can ask it once per tip.
+pub fn turn_started_cold(mission: &str) -> bool {
+    use std::io::{BufRead, Read};
+    let Some(file) = find_ledger(mission).and_then(|path| std::fs::File::open(path).ok()) else { return false };
+    let mut first = String::new();
+    if std::io::BufReader::new(file.take(1 << 20)).read_line(&mut first).is_err() {
+        return false;
+    }
+    serde_json::from_str::<Value>(&first)
+        .ok()
+        .filter(|record| record["recordType"] == "mission.created")
+        .is_some_and(|record| started_cold(&record["metadata"]))
+}
+
 pub fn find_ledger(id: &str) -> Option<PathBuf> {
     if !ledger::safe_id(id) {
         return None;
@@ -3951,3 +3980,7 @@ mod long_history_tests;
 #[cfg(test)]
 #[path = "torn_words_tests.rs"]
 mod torn_words_tests;
+
+#[cfg(test)]
+#[path = "cold_start_tests.rs"]
+mod cold_start_tests;

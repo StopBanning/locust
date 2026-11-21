@@ -26,6 +26,29 @@ fn person_turn_at(metas: &[ledger::Metadata], ui: usize) -> Option<usize> {
     metas.iter().enumerate().filter(|(_, m)| locust_core::conversation_turns::fix_of_turn(m).is_none()).nth(ui).map(|(i, _)| i)
 }
 
+/// Thread.tsx, 0.495: said as what happens. "Started without the earlier messages" read as the history gone.
+pub(super) const COLD_START_NOTE: &str =
+    "A fresh session: the turn before could not be picked up again, so the teammate was given the conversation so far";
+
+/// The conversation's newest turn, when it is a reply that started cold (the host's say, `followsUp.runtimeThreadId`
+/// absent) and a turn before it is in the thread: the note under its opening. An edit says its own note instead.
+pub(super) fn cold_start_note(s: &State, meta: &ledger::Metadata, at: Option<usize>, p: &Palette) -> Option<El> {
+    let pane = s.ledger.as_ref()?;
+    let newest = pane.snapshot.turn_metas.len().checked_sub(1)?;
+    let cold = pane.cold_tip.as_ref().is_some_and(|(tip, cold)| *cold && *tip == meta.mission_id);
+    if !cold || meta.edited || at != Some(newest) || newest == 0 || pane.snapshot.tip != meta.mission_id {
+        return None;
+    }
+    let l = crate::look::controls::Look::new(p.dark);
+    Some(
+        row()
+            .w_full()
+            .wrap()
+            .child(text(COLD_START_NOTE).font(l.ty.label).color(l.c("text-muted")).wrap())
+            .key(format!("cold-start-note-{}", meta.mission_id)),
+    )
+}
+
 pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s: &State) -> El {
     let mut messages = col().w_full().max_w(super::thread_view::THREAD_MAX).gap(24.0).padding(24.0);
     if let Some(label) = s.ledger.as_ref().and_then(|pane| pane.snapshot.started_label.as_ref()) {
@@ -268,6 +291,11 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                     p,
                     s,
                 );
+                // Where this turn began, said where it begins (Thread.tsx): beside the time marker that opens it, above
+                // the work it explains, in the note register -- never at the end, where live and pending things are.
+                if let Some(note) = this_meta.and_then(|meta| cold_start_note(s, meta, at, p)) {
+                    messages = messages.child(note);
+                }
                 if this_meta.is_some_and(|m| locust_core::conversation_turns::turn_line(m).is_none()) { continue; }
                 let hit = s.prompt_rail.hit_key.as_deref() == Some(key.as_str());
                 // Notes on a diff came as one block after the person's words: the bubble shows the words, the notes go under it.
@@ -1149,6 +1177,7 @@ mod tests {
     fn composition_state(kind: Option<&str>, running: bool) -> State {
         let mut s = State::default();
         s.ledger = Some(LedgerPane {
+            cold_tip: None,
             header: Teammate { id: "tm_codec".into(), name: "Codec".into(), role: "Engineer".into(), runtime: None, model: None, account: None, busy: false, runs_in: "local".into(), folder: None },
             conversation: Conversation { conversation_id: Some("m_1".into()), turns: Vec::new() },
             items: Vec::new(), dir: std::path::PathBuf::new(), worker: None,
@@ -1357,6 +1386,7 @@ mod tests {
             folder: None,
         };
         let pane = LedgerPane {
+            cold_tip: None,
             header: header.clone(),
             conversation: Conversation {
                 conversation_id: Some("m_1".into()),
@@ -1536,3 +1566,7 @@ mod a_page_runs_tests;
 #[cfg(test)]
 #[path = "terminal_thread_tests.rs"]
 mod terminal_thread_tests;
+
+#[cfg(test)]
+#[path = "cold_start_note_tests.rs"]
+mod cold_start_note_tests;

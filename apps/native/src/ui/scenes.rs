@@ -414,6 +414,7 @@ pub(super) fn approval_scene(s: &mut State, light: bool) {
         return;
     };
     s.ledger = Some(LedgerPane {
+        cold_tip: None,
         header: header.clone(),
         conversation: Conversation {
             conversation_id: Some("synthetic-approval".into()),
@@ -573,6 +574,7 @@ pub(super) fn ledger_scene(s: &mut State, live: bool, light: bool) {
         },
     ];
     s.ledger = Some(LedgerPane {
+        cold_tip: None,
         header: header.clone(),
         conversation: Conversation {
             conversation_id: Some("synthetic-ledger".into()),
