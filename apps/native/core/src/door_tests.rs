@@ -155,3 +155,62 @@ fn the_openclaw_line_adds_the_door_by_command_and_one_arg_each() {
         "openclaw mcp add locust-native --command '/Apps/Locust Native/locust-native' --arg '--door-bridge' --arg '/Users/x/it'\\''s here/connection.json'"
     );
 }
+
+/// every-turn-start-crosses-the-organization-policy.test.ts: "checks voice, phone, MCP and CLI access in the main process,
+/// including saved opt-ins". The door asks the organization's `otherApps` at load and at every turn-on: refused, it stays
+/// shut, writes nothing, keeps the person's saved switch, and says why.
+// case: every way a turn starts crosses the organization policy > checks voice, phone, MCP and CLI access in the main process, including saved opt-ins
+#[test]
+fn the_organization_keeps_the_door_shut_even_when_the_person_saved_it_open() {
+    let dir = temp("policy");
+    let first = echo_door(&dir);
+    first.load();
+    first.set_enabled(true);
+    first.set_own_mode(true);
+    first.dispose();
+    drop(first);
+    let said = "Access from other AI apps, the locust command and editors is off. Set by your organization (otherApps in /etc/locust/policy.json). Nothing was started.";
+    let refused = Arc::new(std::sync::atomic::AtomicBool::new(true));
+    let gate = refused.clone();
+    let managed = echo_door(&dir).with_refusal(Arc::new(move || gate.load(Ordering::Relaxed).then(|| said.to_owned())));
+    let state = managed.load();
+    assert!(!state.settings.enabled, "a saved opt-in does not open it");
+    assert!(!state.settings.own_mode, "nothing saved is read while refused (locust-mcp-host.ts load)");
+    assert_eq!(state.message.as_deref(), Some(said));
+    assert!(state.claude_command.is_none() && !managed.connection_path().exists());
+    // Turning it on is refused before anything opens or is saved.
+    let saved = std::fs::read_to_string(dir.join(SETTINGS_FILE)).unwrap();
+    let state = managed.set_enabled(true);
+    assert!(!state.settings.enabled && state.message.as_deref() == Some(said));
+    assert!(!managed.connection_path().exists());
+    assert_eq!(std::fs::read_to_string(dir.join(SETTINGS_FILE)).unwrap(), saved, "the person's saved switch is kept");
+    // Lifted: the next load opens it as the person left it.
+    refused.store(false, Ordering::Relaxed);
+    let state = managed.load();
+    assert!(state.settings.enabled && state.settings.own_mode && state.message.is_none());
+    assert!(managed.connection_path().exists());
+    // Set again while open: the door's own start refuses too.
+    refused.store(true, Ordering::Relaxed);
+    managed.dispose();
+    assert_eq!(managed.start().unwrap_err(), said);
+}
+
+#[test]
+fn the_door_reads_the_organizations_other_apps_setting() {
+    let dir = temp("policy-real");
+    let mut policy = serde_json::Map::new();
+    policy.insert("otherApps".into(), json!(false));
+    policy.insert("phone".into(), json!(true));
+    crate::org_policy::use_policy_on_this_thread(Some(crate::org_policy::PolicyState { path: "/etc/locust/policy.json".into(), present: true, policy, error: None }));
+    let door = echo_door(&dir);
+    let state = door.set_enabled(true);
+    crate::org_policy::use_policy_on_this_thread(None);
+    assert!(!state.settings.enabled);
+    assert_eq!(
+        state.message.as_deref(),
+        Some("Access from other AI apps, the locust command and editors is off. Set by your organization (otherApps in /etc/locust/policy.json). Nothing was started.")
+    );
+    // No policy, no refusal.
+    assert!(door.set_enabled(true).settings.enabled);
+    door.dispose();
+}

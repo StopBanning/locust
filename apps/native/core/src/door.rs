@@ -255,6 +255,9 @@ pub struct Door {
     token: Arc<Mutex<Option<String>>>,
     listening: Mutex<Option<Listening>>,
     call: Caller,
+    /// The organization's word on access from other apps (`policyFeatureRefusal(organizationPolicy, 'otherApps')`):
+    /// while it refuses, the door stays shut and says why.
+    refusal: Arc<dyn Fn() -> Option<String> + Send + Sync>,
 }
 
 impl Door {
@@ -300,7 +303,21 @@ impl Door {
         settings: Arc<Mutex<Settings>>,
         call: Caller,
     ) -> Self {
-        Self { dir, exe: exe.to_owned(), settings, token: Arc::new(Mutex::new(None)), listening: Mutex::new(None), call }
+        Self {
+            dir,
+            exe: exe.to_owned(),
+            settings,
+            token: Arc::new(Mutex::new(None)),
+            listening: Mutex::new(None),
+            call,
+            refusal: Arc::new(|| crate::org_policy::feature_refusal(Some(&crate::org_policy::current()), "otherApps")),
+        }
+    }
+
+    /// The same door, with the organization's refusal given (the tests use their own).
+    pub fn with_refusal(mut self, refusal: Arc<dyn Fn() -> Option<String> + Send + Sync>) -> Self {
+        self.refusal = refusal;
+        self
     }
 
     pub fn connection_path(&self) -> PathBuf {
@@ -320,7 +337,8 @@ impl Door {
             claude_command: on.then_some(claude),
             codex_config: on.then_some(codex),
             openclaw_command: on.then_some(openclaw),
-            message,
+            // No message of its own: the organization's refusal, while there is one (locust-mcp-host.ts `state`).
+            message: message.or_else(|| (self.refusal)()),
         }
     }
 
@@ -344,6 +362,9 @@ impl Door {
     }
 
     fn start(&self) -> Result<(), String> {
+        if let Some(refused) = (self.refusal)() {
+            return Err(refused);
+        }
         if self.listening.lock().unwrap_or_else(|e| e.into_inner()).is_some() {
             return Ok(());
         }
@@ -387,6 +408,10 @@ impl Door {
     /// and the door opens if it was on.
     pub fn load(&self) -> State {
         let _ = std::fs::remove_file(self.connection_path());
+        // Turned off by the organization: nothing is read or opened; the screen says why.
+        if (self.refusal)().is_some() {
+            return self.state(None);
+        }
         let saved = std::fs::read_to_string(self.dir.join(SETTINGS_FILE))
             .ok()
             .and_then(|t| serde_json::from_str::<Value>(&t).ok())
@@ -401,6 +426,10 @@ impl Door {
     }
 
     pub fn set_enabled(&self, enabled: bool) -> State {
+        // Refused by the organization: nothing is opened or saved, and the switch the person saved stays as it was.
+        if enabled && (self.refusal)().is_some() {
+            return self.state(None);
+        }
         let result = if enabled {
             self.start()
         } else {
