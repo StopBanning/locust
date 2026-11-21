@@ -82,6 +82,8 @@ mod keychain_note;
 mod home_panel;
 #[path = "ui/people_panel.rs"]
 mod people_panel;
+#[path = "ui/missions_screen.rs"]
+mod missions_screen;
 #[path = "ui/memory_card.rs"]
 mod memory_card;
 #[path = "ui/hover.rs"]
@@ -485,6 +487,7 @@ fn select_teammate(s: &mut State, id: &str, tx: &mut Tx) {
     s.settings_panel.open = false;
     s.people_panel.open = false;
     s.routines.open = false;
+    missions_screen::close(s);
     // Cancel any in-flight request from the previous conversation when switching teammates.
     if s.selected != index || s.flight.is_some() || s.opening_teammate.is_some() {
         detach(s);
@@ -1529,6 +1532,7 @@ fn apply_team(s: &mut State, team: Vec<Teammate>) {
 
 fn open_recent(s: &mut State, mut row: ConversationRow, tx: &mut Tx) {
     room_screen::close(s);
+    missions_screen::close(s);
     home_panel::opened(s, &row.id);
     if let Some(title) =
         crate::conversation_list::conversation_title_for(&recent_as_missions(s), Some(&row.id))
@@ -1675,6 +1679,10 @@ fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
         }
         if s.home.board_open {
             s.home.board_open = false;
+            return true;
+        }
+        if s.missions.open {
+            missions_screen::close(s);
             return true;
         }
         if s.home.home_open {
@@ -1835,7 +1843,12 @@ fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
         tx.scroll_to_bottom("messages");
         return true;
     }
-    for digit in '1'..='9' {
+    // Ctrl 1 is the Conversations screen, as in Electron (App.tsx `setScreen('missions')`).
+    if event.is_command('1') {
+        missions_screen::open(s);
+        return true;
+    }
+    for digit in '2'..='9' {
         if event.is_command(digit) {
             if let Some(id) = s
                 .teammates
@@ -2418,6 +2431,9 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
                 s.recent_total = batch.total;
                 s.recent_damage = batch.damage;
                 s.recent_error = None;
+                if s.missions.open {
+                    missions_screen::refresh_running(s);
+                }
                 if let Some(id) = s.import_dialog.open_after_import.take()
                     && let Some(row) = s.recent.iter().find(|r| r.id == id).cloned()
                 {
@@ -2670,6 +2686,11 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
         people_panel::view(s, &p)
     } else if s.benchmarks_open {
         benchmarks_panel::view(s, &p)
+    } else if s.missions.open {
+        let narrow = cx
+            .layout_with("missions-rows", |r| if r[2] < missions_screen::NARROW_BELOW { 1.0 } else { 0.0 })
+            .is_some_and(|n| n > 0.5);
+        missions_screen::view(s, &p, narrow)
     } else if s.compare.active_id.is_some() {
         compare_view::view(s, &p)
     } else if s.rooms.active != room_screen::RoomView::None {
@@ -2720,7 +2741,8 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
         || s.home.board_open
         || s.home.home_open
         || s.settings_panel.open
-        || s.people_panel.open);
+        || s.people_panel.open
+        || s.missions.open);
     let running = sidebar_missions_now(s).iter().filter(|m| m.phase == "running").count();
     let mut body = row()
         .key("app-body")
@@ -3403,6 +3425,7 @@ fn main() {
             ("settings-agents-light", agents_section::light_scene),
             ("home-light", home_panel::home_light_scene),
             ("board", home_panel::board_scene),
+            ("missions", missions_scene),
             ("board-light", home_panel::board_light_scene),
             ("boot", home_panel::boot_scene),
             ("boot-light", home_panel::boot_light_scene),

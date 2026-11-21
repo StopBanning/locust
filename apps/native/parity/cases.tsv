@@ -4632,11 +4632,11 @@ apps/desktop/src/renderer/src/missionView.test.ts	says Codex's image tool in wor
 apps/desktop/src/renderer/src/missionView.test.ts	reads as what it did, not the program name	no
 apps/desktop/src/renderer/src/missionView.test.ts	says the git a run with no shell ran, as a shell’s git reads	no
 apps/desktop/src/renderer/src/missionView.test.ts	says a tool call OpenCode could not run, never "used invalid"	no
-apps/desktop/src/renderer/src/missions-lists-conversations.test.tsx	is one row per conversation, where its newest turn stood	no
-apps/desktop/src/renderer/src/missions-lists-conversations.test.tsx	names it by its first turn, stands it on its newest, and holds every turn oldest first	no
-apps/desktop/src/renderer/src/missions-lists-conversations.test.tsx	ends a hand-edited cycle instead of spinning	no
-apps/desktop/src/renderer/src/missions-lists-conversations.test.tsx	lists conversations, and deletes a conversation with every turn	no
-apps/desktop/src/renderer/src/missions-lists-conversations.test.tsx	says when, and how many turns	no
+apps/desktop/src/renderer/src/missions-lists-conversations.test.tsx	is one row per conversation, where its newest turn stood	yes
+apps/desktop/src/renderer/src/missions-lists-conversations.test.tsx	names it by its first turn, stands it on its newest, and holds every turn oldest first	yes
+apps/desktop/src/renderer/src/missions-lists-conversations.test.tsx	ends a hand-edited cycle instead of spinning	yes
+apps/desktop/src/renderer/src/missions-lists-conversations.test.tsx	lists conversations, and deletes a conversation with every turn	yes
+apps/desktop/src/renderer/src/missions-lists-conversations.test.tsx	says when, and how many turns	yes
 apps/desktop/src/renderer/src/mode-says-one-thing.test.ts	covers the whole union exactly once	yes
 apps/desktop/src/renderer/src/mode-says-one-thing.test.ts	names each mode the same way everywhere it is named	yes
 apps/desktop/src/renderer/src/mode-says-one-thing.test.ts	says read-only for every mode that is read-only, on every surface	yes

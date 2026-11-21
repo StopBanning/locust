@@ -97,6 +97,13 @@ pub fn default_palette_actions(
         when_typed: false,
     });
     actions.push(PaletteAction {
+        id: "go-missions".into(),
+        group: "Go to".into(),
+        label: "Conversations".into(),
+        keywords: None,
+        when_typed: false,
+    });
+    actions.push(PaletteAction {
         id: "board".into(),
         group: "Go to".into(),
         label: "Board".into(),
@@ -245,6 +252,7 @@ pub(super) fn run_palette_action(s: &mut State, id: &str, tx: &mut Tx) {
         "stop" => stop(s),
         "home" => crate::home_panel::open_home(s),
         "board" => crate::home_panel::open_board(s),
+        "go-missions" => crate::missions_screen::open(s),
         "settings" => crate::settings_panel::open(s),
         "usage" => crate::usage_panel::open(s),
         "keyboard" => crate::keyboard_sheet::open(s),

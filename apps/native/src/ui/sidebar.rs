@@ -441,29 +441,11 @@ pub(super) fn apply_org_action(s: &mut State, mission_id: &str, action: &str) {
             // Every turn of the conversation goes, as Electron's App deletes each of the row's `memberIds`: an earlier
             // turn left behind would bring the conversation back as that turn.
             let keys = row.as_ref().map(conversation_keys).unwrap_or_else(|| vec![mission_id.into()]);
-            let running = locust_core::engine_api::api().running();
-            store.ledger_dir().map_err(|e| e.to_string()).and_then(|dir| {
-                if keys.iter().any(|k| running.contains(k)) {
-                    return Err(locust_core::trash::STILL_RUNNING.to_owned());
-                }
-                let mut deleted = 0;
-                for key in &keys {
-                    if locust_core::trash::delete_mission(&dir, key, &running)? {
-                        deleted += 1;
-                    }
-                }
-                if deleted == 0 {
-                    // Not in this app's record: Electron's conversations are read here, never changed.
-                    return Err(locust_core::trash::ELECTRON_ONLY.to_owned());
-                }
-                let shown = s.ledger.as_ref().and_then(|pane| pane.conversation.conversation_id.clone());
-                if shown.is_some_and(|id| keys.contains(&id)) {
-                    s.ledger = None;
-                }
-                crate::backup_section::reload(s);
-                load_team(s);
-                Ok(())
-            })
+            let deleted = delete_conversation(s, &store, &keys);
+            if deleted.is_ok() {
+                after_deleting(s);
+            }
+            deleted
         }
         action if action.starts_with("snooze:") => org::settle_mission(
             &store,
@@ -509,6 +491,37 @@ pub(super) fn apply_org_action(s: &mut State, mission_id: &str, action: &str) {
         s.status_tone = StatusTone::Amber;
     }
     s.org_menu_id = None;
+}
+
+/// Delete one conversation, every turn of it (`keys`): the one path the row menu's Delete and the Conversations
+/// screen's bar both take. Refused whole while any turn runs; a conversation only in Electron's record is said so.
+pub(super) fn delete_conversation(s: &mut State, store: &crate::store::Store, keys: &[String]) -> Result<(), String> {
+    let running = locust_core::engine_api::api().running();
+    let dir = store.ledger_dir().map_err(|e| e.to_string())?;
+    if keys.iter().any(|k| running.contains(k)) {
+        return Err(locust_core::trash::STILL_RUNNING.to_owned());
+    }
+    let mut deleted = 0;
+    for key in keys {
+        if locust_core::trash::delete_mission(&dir, key, &running)? {
+            deleted += 1;
+        }
+    }
+    if deleted == 0 {
+        // Not in this app's record: Electron's conversations are read here, never changed.
+        return Err(locust_core::trash::ELECTRON_ONLY.to_owned());
+    }
+    let shown = s.ledger.as_ref().and_then(|pane| pane.conversation.conversation_id.clone());
+    if shown.is_some_and(|id| keys.contains(&id)) {
+        s.ledger = None;
+    }
+    Ok(())
+}
+
+/// What follows a delete, once however many conversations went: the trash and storage lines, and the list read again.
+pub(super) fn after_deleting(s: &mut State) {
+    crate::backup_section::reload(s);
+    load_team(s);
 }
 
 /// The runtime a roster face wears the mark of: its teammate's, unless the teammate runs on a model of the person's own
