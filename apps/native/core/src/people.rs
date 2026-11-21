@@ -287,6 +287,67 @@ pub fn set_plan_runs_out(store: &Store, plan: Option<&crate::carry_on::PlanRunsO
     store.save_json("teammates.json", &file)
 }
 
+/// teammate-store.ts isTeammateRoute: a runtime Locust runs, a model of 1-200 characters, one of the five modes, an
+/// added account's id, and an effort of 1-40 characters, when they are there.
+pub fn is_teammate_route(route: &Value) -> bool {
+    let Some(fields) = route.as_object() else { return false };
+    let short = |value: &Value, most: usize| value.as_str().is_some_and(|v| !v.is_empty() && v.encode_utf16().count() <= most);
+    matches!(
+        fields.get("runtime").and_then(Value::as_str),
+        Some("codex" | "claude" | "cursor" | "gemini" | "opencode" | "copilot" | "antigravity" | "muse" | "kilo" | "acp" | "apple")
+    ) && fields.get("model").is_some_and(|m| short(m, 200))
+        && matches!(fields.get("mode").and_then(Value::as_str), Some("ask" | "accept-edits" | "approve-each" | "plan" | "auto"))
+        && fields.get("account").is_none_or(|a| a.as_str().is_some_and(crate::agent_accounts::is_account_id))
+        && fields.get("effort").is_none_or(|e| short(e, 40))
+}
+
+/// teammate-store.ts rememberRoute: the route a teammate is remembered on, named field by field -- the effort among
+/// them, so a level chosen reaches the file, and a route with none clears the old one. Not a route, or no such teammate:
+/// nothing changes. One the organization's policy refuses is refused in its words.
+pub fn remember_route(store: &Store, teammate_id: &str, route: &Value) -> Result<(), String> {
+    if crate::native::safe_id(&json!(teammate_id)).is_none() || !is_teammate_route(route) {
+        return Ok(());
+    }
+    let text = |key: &str| route.get(key).and_then(Value::as_str);
+    let policy = crate::org_policy::current();
+    if let Some(why) = crate::org_policy::turn_refusal(
+        Some(&policy),
+        text("runtime").unwrap_or(""),
+        text("model"),
+        text("mode").unwrap_or(""),
+        false,
+        text("account").is_some(),
+    ) {
+        return Err(why);
+    }
+    let _lock = WRITES.lock().map_err(|e| e.to_string())?;
+    let mut file = team(store)?;
+    let Some(held) = file["teammates"].as_array_mut().and_then(|rows| rows.iter_mut().find(|r| r["teammateId"] == teammate_id)) else {
+        return Ok(());
+    };
+    let mut kept = json!({"runtime": text("runtime"), "model": text("model"), "mode": text("mode")});
+    for key in ["account", "effort"] {
+        if let Some(value) = text(key) {
+            kept[key] = json!(value);
+        }
+    }
+    held["route"] = kept;
+    store.save_json("teammates.json", &file)
+}
+
+/// index.ts rememberRoute, for a start: a teammate that has no route yet is remembered on the one it started with. One
+/// that has a route keeps it: a conversation keeps its own model, and the default changes only where it is set.
+pub fn remember_route_of_start(store: &Store, teammate_id: &str, route: &Value) -> Result<(), String> {
+    let has_route = team(store)?["teammates"]
+        .as_array()
+        .and_then(|rows| rows.iter().find(|r| r["teammateId"] == teammate_id))
+        .map(|own| own.get("route").is_some_and(|r| !r.is_null()));
+    match has_route {
+        Some(false) => remember_route(store, teammate_id, route),
+        _ => Ok(()),
+    }
+}
+
 /// The teammate a conversation's turn belongs to (`missionOwners`), as Electron's host records it when a turn starts.
 pub fn record_owner(store: &Store, mission: &str, who: &str) -> Result<(), String> {
     let _lock = WRITES.lock().map_err(|e| e.to_string())?;
@@ -3020,3 +3081,7 @@ mod quoted_dead_tests;
 #[cfg(test)]
 #[path = "a_teammate_keeps_the_hub_tests.rs"]
 mod a_teammate_keeps_the_hub_tests;
+
+#[cfg(test)]
+#[path = "route_remembers_effort_tests.rs"]
+mod route_remembers_effort_tests;

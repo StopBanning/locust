@@ -2117,6 +2117,7 @@ apps/desktop/src/main/route-at-start.test.ts	a conversation shows what it ran on
 apps/desktop/src/main/route-at-start.test.ts	a pick for a new chat with one teammate is not for another	no
 apps/desktop/src/main/route-at-start.test.ts	home does not inherit a teammate override	no
 apps/desktop/src/main/route-at-start.test.ts	shows a Kilo teammate saved on the account default as Auto Free	no
+apps/desktop/src/main/route-remembers-effort.test.ts	keeps the effort it was started with, and clears it when the next start has none	yes
 apps/desktop/src/main/routine-recovery.test.ts	restart proof: step 2 survives a fresh store and runner without replaying step 1	yes
 apps/desktop/src/main/routine-recovery.test.ts	completion accounting proof: step 1 start does not stamp lastRunAt or consume the six-hour interval	yes
 apps/desktop/src/main/routine-recovery.test.ts	records dispatch intent before spawn; a thrown start is uncertain after restart	yes

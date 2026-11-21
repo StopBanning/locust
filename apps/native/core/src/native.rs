@@ -2423,6 +2423,22 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
     if let Some(why) = start_readiness_refusal(runtime_name, effective_account.as_deref()) {
         return Err(why);
     }
+    // The route as the person asked for it (index.ts rememberRoute): the model and level before Cursor folds the level
+    // into its model's id.
+    let asked_route = {
+        let mut route = json!({
+            "runtime": runtime_name,
+            "model": job.model.as_deref().or(job.teammate.model.as_deref()).filter(|m| !m.is_empty()).unwrap_or("account-default"),
+            "mode": mode.as_str(),
+        });
+        if let Some(effort) = &job.effort {
+            route["effort"] = json!(effort);
+        }
+        if let Some(account) = &effective_account {
+            route["account"] = json!(account);
+        }
+        route
+    };
     let launch_env = account_launch_env(&store, runtime_name, effective_account.as_deref())?;
     let electron = store.electron().to_path_buf();
     // A reply on ANOTHER agent or account (codex-mission.ts, the route switch): the conversation is reconciled, and a
@@ -3033,6 +3049,14 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
         channel.register_teammate(&id, &job.teammate.id);
         if let Err(error) = crate::people::record_owner(&store, &id, &job.teammate.id) {
             eprintln!("The conversation's teammate was not recorded: {error}");
+        }
+        // A start remembers the route it used, for a teammate that has none yet (index.ts startMission): a relay's
+        // hop, a comparison's column and a side question are not starts of the teammate's own.
+        let own_start = origin.relay.is_none() && origin.slot.is_none() && !is_side;
+        if own_start
+            && let Err(error) = crate::people::remember_route_of_start(&store, &job.teammate.id, &asked_route)
+        {
+            eprintln!("The route this turn started on was not remembered: {error}");
         }
     }
     // The conversation keeps these references for its next turns (bind), with the folder this turn stood in.
