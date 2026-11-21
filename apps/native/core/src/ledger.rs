@@ -249,6 +249,36 @@ fn display_value(value: &Value) -> String {
     }
 }
 
+/// planKey: a step's words, spaced and cased alike, so the same step said again is the same step.
+fn plan_key(text: &str) -> String {
+    text.split_whitespace().collect::<Vec<_>>().join(" ").to_lowercase()
+}
+
+/// lastPlanOf: the plan a turn ended with, or none. What the next turn's card starts from.
+pub fn last_plan_of<'a>(events: impl DoubleEndedIterator<Item = &'a Value>) -> Vec<PlanStep> {
+    events.rev().find(|e| e["type"] == "plan.updated").map(|e| read_plan(&e["payload"]["plan"])).unwrap_or_default()
+}
+
+/// The steps a turn worked on: any it showed as not yet done.
+fn worked_steps<'a>(events: impl Iterator<Item = &'a Value>) -> std::collections::HashSet<String> {
+    events
+        .filter(|e| e["type"] == "plan.updated")
+        .flat_map(|e| read_plan(&e["payload"]["plan"]))
+        .filter(|step| step.state != "done")
+        .map(|step| plan_key(&step.text))
+        .collect()
+}
+
+/// thisTurnsSteps: the steps that belong to this turn: all of them, less those the turn before had already finished
+/// and this one did not touch again. OpenCode sends its whole session's to-do list on every turn.
+pub fn this_turns_steps(plan: &[PlanStep], carried: &[PlanStep], worked: &std::collections::HashSet<String>) -> Vec<PlanStep> {
+    let finished_before: std::collections::HashSet<String> = carried.iter().filter(|s| s.state == "done").map(|s| plan_key(&s.text)).collect();
+    if finished_before.is_empty() {
+        return plan.to_vec();
+    }
+    plan.iter().filter(|s| !finished_before.contains(&plan_key(&s.text)) || worked.contains(&plan_key(&s.text))).cloned().collect()
+}
+
 pub fn read_plan(value: &Value) -> Vec<PlanStep> {
     value
         .as_array()
@@ -1980,6 +2010,8 @@ impl Session {
         let mut snapshot = Snapshot::default();
         let count = self.readers.len();
         let mut by_id = HashMap::new();
+        // The plan the turn before ended with: a turn's card shows its own steps (Thread.tsx carriedPlan).
+        let mut carried: Vec<PlanStep> = Vec::new();
         for (index, reader) in self.readers.iter_mut().enumerate() {
             let is_tip = index + 1 == count;
             if is_tip {
@@ -2050,13 +2082,21 @@ impl Session {
                 first_at,
                 last_at,
             });
+            let before = std::mem::replace(&mut carried, last_plan_of(reader.transcript.events.values()));
+            let worked = worked_steps(reader.transcript.events.values());
             snapshot.items.extend(
                 reader
                     .transcript
                     .items
                     .iter()
                     .filter(|item| (is_tip || !matches!(item, Item::CarryOn { .. })) && (!stitched || !matches!(item, Item::User(_))))
-                    .cloned(),
+                    .filter_map(|item| match item {
+                        Item::Plan { id, steps, finished, stopped } => {
+                            let own = this_turns_steps(steps, &before, &worked);
+                            (!own.is_empty()).then(|| Item::Plan { id: id.clone(), steps: own, finished: *finished, stopped: *stopped })
+                        }
+                        other => Some(other.clone()),
+                    }),
             );
             if reader
                 .transcript
@@ -2320,6 +2360,7 @@ mod tests {
     }
 
     mod reopened_handoff_tests { include!("reopened_handoff_tests.rs"); }
+    mod plan_card_turns_tests { include!("plan_card_turns_tests.rs"); }
 
     fn synthetic_transcript(rows: Vec<Value>) -> Transcript {
         // Exercise the JSONL boundary, including raw-evidence removal.

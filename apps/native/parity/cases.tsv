@@ -3373,6 +3373,10 @@ apps/desktop/src/renderer/src/a-picker-row-is-named-not-an-id.test.tsx	with a na
 apps/desktop/src/renderer/src/a-plain-conversation-wears-the-ghost.test.tsx	beside a reply: the ghost when the conversation is nobody's, the teammate's own bot when it has one	yes
 apps/desktop/src/renderer/src/a-plain-conversation-wears-the-ghost.test.tsx	wears the ghost's own white, as the cover's ghost does (0.624), on the reply and the live row alike	no
 apps/desktop/src/renderer/src/a-plain-conversation-wears-the-ghost.test.tsx	on the live row: the same ghost while nobody's conversation thinks	yes
+apps/desktop/src/renderer/src/a-plan-card-is-its-own-turns.test.ts	leaves out the steps earlier turns finished	yes
+apps/desktop/src/renderer/src/a-plan-card-is-its-own-turns.test.ts	keeps a step this turn worked on, even one an earlier turn had finished	yes
+apps/desktop/src/renderer/src/a-plan-card-is-its-own-turns.test.ts	draws no card for a turn that only repeated a finished list	yes
+apps/desktop/src/renderer/src/a-plan-card-is-its-own-turns.test.ts	is untouched on the first turn, and where the runtime starts a fresh plan each turn	yes
 apps/desktop/src/renderer/src/a-plan-shows-what-happened-to-it.test.ts	is marked as having touched nothing, so it draws as an answer	no
 apps/desktop/src/renderer/src/a-plan-shows-what-happened-to-it.test.ts	is NOT marked as having touched nothing, so its outcomes are drawn	no
 apps/desktop/src/renderer/src/a-plan-shows-what-happened-to-it.test.ts	counts the steps that finished	yes
