@@ -574,6 +574,8 @@ impl Acp {
         if init["protocolVersion"] != 1 {
             return Err(err("The agent does not speak ACP version 1"));
         }
+        // What it can do is shown in Settings > AI agents; keeping it never stops the turn (acp-run.ts).
+        crate::acp_capabilities::record_said(&self.profile.runtime, &init["agentCapabilities"]);
         let mut params = json!({"cwd":t.folder,"mcpServers":[]});
         if let Some(browser) = crate::browser_tools::config(&t.mission_id) {
             params["mcpServers"] = json!([{"name":"locust_browser","command":browser["command"],"args":browser["args"],"env":[]}]);

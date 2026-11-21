@@ -22,6 +22,39 @@ const LEDE: &str = "Each AI agent starts with this Mac's sign-in.";
 const NONE_INSTALLED: &str = "None of these are on this machine yet. The quickest start is OpenCode: press its Install, no account, and its free model runs as soon as it is there. The others below are worth adding when you want a stronger model, and each needs its own sign-in.";
 const CHECKING: &str = "Checking each AI agent on this Mac…";
 
+/// What an Agent Client Protocol agent said it can do, in Electron's words (`agentCapabilities.ts` `LINES`).
+const ABILITY_LINES: [(&str, &str); 6] = [
+    ("continuesSessions", "Can continue an earlier session"),
+    ("images", "Takes pictures in a message"),
+    ("audio", "Takes sound in a message"),
+    ("embeddedContext", "Takes a file\u{2019}s contents in a message"),
+    ("mcpOverHttp", "Connects to connectors over the web (HTTP)"),
+    ("mcpOverSse", "Connects to connectors over SSE"),
+];
+
+/// `agentCapabilityLines`: each thing the agent said, as a plain yes or no.
+pub(super) fn ability_lines(said: &serde_json::Value) -> Vec<String> {
+    ABILITY_LINES.iter().map(|(key, label)| format!("{label}: {}", if said[*key] == true { "yes" } else { "no" })).collect()
+}
+
+/// `agentCapabilityHeading`: the agent's own word, and when it said it, in whole days since (`Date.parse` reads an
+/// ISO time or a bare date, which is midnight UTC).
+pub(super) fn ability_heading(name: &str, said: &serde_json::Value, now: chrono::DateTime<chrono::Utc>) -> String {
+    let told = said["toldAt"].as_str().and_then(|t| {
+        chrono::DateTime::parse_from_rfc3339(t)
+            .map(|at| at.with_timezone(&chrono::Utc))
+            .ok()
+            .or_else(|| chrono::NaiveDate::parse_from_str(t, "%Y-%m-%d").ok().and_then(|d| d.and_hms_opt(0, 0, 0)).map(|at| at.and_utc()))
+    });
+    let when = match told.map(|at| (now - at).num_milliseconds().div_euclid(86_400_000)) {
+        None => "at its last run".to_owned(),
+        Some(..=0) => "today".to_owned(),
+        Some(1) => "yesterday".to_owned(),
+        Some(days) => format!("{days} days ago"),
+    };
+    format!("What {name} said it can do ({when}):")
+}
+
 /// Ask every agent again, in the background. Tests never run real agents: they set the results themselves.
 pub(super) fn request(s: &mut State) {
     if let Some(store) = &s.data {
@@ -504,6 +537,18 @@ pub(super) fn section(s: &State, p: &Palette) -> El {
             let id = f.id.clone();
             words = words.child(crate::look::controls::button(&l, "Update", crate::look::controls::Tone::Neutral, s.agent_updates_job.is_pending()).key(format!("agents-update-{}", f.id)).label(format!("Update {}", f.display_name)).self_start().on_press(move |s: &mut State| press_update(s, id.clone())));
         }
+        // What an Agent Client Protocol agent told Locust it can do, at its last run (W12): read as the row is drawn,
+        // never by asking the CLI again.
+        if let Some(said) = locust_core::acp_capabilities::said_by(&f.id) {
+            let mut abilities = col()
+                .gap(2.0)
+                .key(format!("agents-abilities-{}", f.id))
+                .child(text(ability_heading(&f.display_name, &said, chrono::Utc::now())).font(l.ty.body).color(l.c("text-secondary")).wrap());
+            for line in ability_lines(&said) {
+                abilities = abilities.child(text(line).font(l.ty.body).color(l.c("text-secondary")).wrap().pl(12.0));
+            }
+            words = words.child(abilities);
+        }
         if status.tag == "NOT INSTALLED"
             && let Some(command) = agents::install_command(&f.id)
         {
@@ -596,6 +641,10 @@ pub(super) fn light_scene(s: &mut State) {
 #[cfg(test)]
 #[path = "agents_recheck_tests.rs"]
 mod agents_recheck_tests;
+
+#[cfg(test)]
+#[path = "agents_abilities_tests.rs"]
+mod agents_abilities_tests;
 
 #[cfg(test)]
 mod tests {
