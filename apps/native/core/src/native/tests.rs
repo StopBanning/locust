@@ -2562,7 +2562,7 @@ fn relay_route_switch_records_left_out_by_you_and_decodes_in_snapshot() {
     let first = send(job(&t, None, "Clean the Linux cache too: Do the same for the AppImage cache.")).unwrap();
     finished(&first.conversation_id);
 
-    let sw = route_switch(&store, &first.conversation_id, "Continue", &[String::from("summary")]).unwrap();
+    let sw = route_switch(&store, &first.conversation_id, "Continue", &[String::from("summary")], true).unwrap();
     assert_eq!(sw.link["leftOutByYou"], json!(["summary"]));
     let mut writer = LedgerWriter::create_runtime_with(
         &store,
@@ -2593,12 +2593,44 @@ fn a_route_switch_records_what_its_brief_left_out_not_what_was_sent() {
     let first = send(job(&t, None, "Clean the Linux cache too: Do the same for the AppImage cache.")).unwrap();
     finished(&first.conversation_id);
     let sent = [String::from("task"), String::from("summary"), String::from("unsettled")];
-    let sw = route_switch(&t.store(), &first.conversation_id, "Continue", &sent).unwrap();
+    let sw = route_switch(&t.store(), &first.conversation_id, "Continue", &sent, true).unwrap();
     assert_eq!(sw.link["leftOutByYou"], json!(["summary"]));
     assert!(sw.prompt.ends_with("(The person chose to leave out its last reply.)"), "{}", sw.prompt);
     // Nothing there to leave out: no list on the link at all.
-    let none = route_switch(&t.store(), &first.conversation_id, "Continue", &[String::from("earlier")]).unwrap();
+    let none = route_switch(&t.store(), &first.conversation_id, "Continue", &[String::from("earlier")], true).unwrap();
     assert!(none.link.get("leftOutByYou").is_none(), "{}", none.link);
+}
+
+/// a-long-conversation-goes-by-file (0.513), through the engine: a switch whose task is too long for the brief writes
+/// it whole into the project's .locust/attachments and hands it over as a file; a preview only names it.
+#[test]
+fn a_route_switch_hands_a_long_task_over_by_file_and_a_preview_writes_nothing() {
+    let t = Temp::new();
+    let _g = hooks::install(t.store(), fake("cards-next"));
+    let work = t.0.join("work");
+    fs::create_dir_all(work.join(".git").join("info")).unwrap();
+    fs::write(t.electron().join("workspace.json"), json!({"schemaVersion": 1, "path": work}).to_string()).unwrap();
+    // A first message holds 8,000 characters; past 2,500 a task goes by file.
+    let task = format!("{}THE LAST LINE MATTERS.", "Build the habit tracker exactly as described. ".repeat(140));
+    let first = send(job(&t, None, &task)).unwrap();
+    finished(&first.conversation_id);
+    let file = format!(".locust/attachments/conversation-{}.md", first.conversation_id);
+    let preview = route_switch(&t.store(), &first.conversation_id, "Continue", &[], false).unwrap();
+    assert!(preview.task_by_file && !preview.task_clipped);
+    // The preview under the box says so (handoff_preview's task_by_file).
+    match handoff_preview(&first.conversation_id, "claude", "Continue", &[]) {
+        crate::carry_on::HandoffPreview::Switch { task_by_file, .. } => assert!(task_by_file),
+        other => panic!("a switch was expected: {other:?}"),
+    }
+    assert!(!work.join(&file).exists(), "a preview writes nothing");
+    let sw = route_switch(&t.store(), &first.conversation_id, "Continue", &[], true).unwrap();
+    assert!(sw.task_by_file);
+    assert_eq!(fs::read_to_string(work.join(&file)).unwrap(), format!("{task}\n"));
+    assert!(fs::read_to_string(work.join(".git").join("info").join("exclude")).unwrap().contains(".locust/"));
+    let (said, attached) = crate::attachments::split_attachments(&sw.prompt);
+    assert_eq!(attached, vec![file.clone()]);
+    assert!(said.contains(&format!("The whole of it, as written, is in the file `{file}`")), "{said}");
+    assert!(!said.contains("THE LAST LINE MATTERS.") && !said.contains("did not fit here"));
 }
 
 /// teammate-keys.ts in a run: a teammate's key reaches its Claude Code run as an environment variable, and what the run

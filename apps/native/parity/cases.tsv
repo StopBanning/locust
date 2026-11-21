@@ -424,6 +424,12 @@ apps/desktop/src/main/a-long-answer-is-not-too-much-to-record.test.ts	writes the
 apps/desktop/src/main/a-long-answer-is-not-too-much-to-record.test.ts	splits on total size too, not only on count	yes
 apps/desktop/src/main/a-long-answer-is-not-too-much-to-record.test.ts	still refuses an event it could not read back, before writing any of them	yes
 apps/desktop/src/main/a-long-command-does-not-stop-the-run.test.ts	is recorded, cut to fit with both ends kept, and the run goes on	yes
+apps/desktop/src/main/a-long-conversation-goes-by-file.test.ts	a stopped run with a long task: refused before, handed over now	yes
+apps/desktop/src/main/a-long-conversation-goes-by-file.test.ts	beside a reply, the task is not clipped, and the reply is whole	yes
+apps/desktop/src/main/a-long-conversation-goes-by-file.test.ts	the brief and the line that hands over the file fit what a run will start with	yes
+apps/desktop/src/main/a-long-conversation-goes-by-file.test.ts	a short task stays inline, as it always was	yes
+apps/desktop/src/main/a-long-conversation-goes-by-file.test.ts	a long task is written whole into .locust/attachments, kept out of git	yes
+apps/desktop/src/main/a-long-conversation-goes-by-file.test.ts	never writes outside .locust/attachments for an id that is not one	yes
 apps/desktop/src/main/a-long-history-says-what-it-lists.test.ts	lists far past the old 300, and says nothing more when everything is listed	yes
 apps/desktop/src/main/a-long-history-says-what-it-lists.test.ts	past 2,000, says how many the ledger keeps and how many are listed	yes
 apps/desktop/src/main/a-long-json-key-does-not-stop-a-run.test.ts	is recorded, not a reason to stop the run	yes

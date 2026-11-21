@@ -111,11 +111,10 @@ fn inside(root: &Path, path: &Path) -> bool {
     path != root && path.starts_with(&root)
 }
 
-/// `name`, or `name-2`, `name-3`, ... before its extension, whichever is not taken yet.
 /// `.locust/` out of the run folder's commits, the way the project's copies are kept out: `.git/info/exclude`, never
 /// the owner's `.gitignore`. A worktree's `.git` is a file and its exclude is the project's, which already has the line;
 /// a folder that is not a repository has nothing to do. Not writable: the copy still reaches the run.
-fn keep_out_of_git(folder: &Path) {
+pub(crate) fn keep_out_of_git(folder: &Path) {
     if !folder.join(".git").is_dir() {
         return;
     }

@@ -524,10 +524,48 @@ fn settled_text(shown: &[String], dropped: usize, unnamed: usize, capped: bool) 
     format!("These actions reported finishing before the stop:\n{}", parts.join("\n"))
 }
 
-fn sections_for(original: &str, checkpoint: &Value, from: &str, next: Option<&str>, earlier: &[EarlierTurn], ended: Option<&str>) -> Vec<Section> {
+/// A LONG CONVERSATION GOES TO ANOTHER MODEL BY FILE, NOT BY REFUSAL (Electron's `long-task-file.ts`, 0.513). Past
+/// this a task is written whole to `.locust/attachments/`, quoted from in the brief, and handed over as a file.
+pub const TASK_INLINE_LIMIT: usize = 2_500;
+/// How much of a long task the brief quotes before naming its file.
+const TASK_QUOTED_CHARS: usize = 1_200;
+
+/// Where a long task would go, without writing it: for a preview of the brief (`longTaskFilePath`).
+pub fn long_task_file_path(task: &str, mission: &str) -> Option<String> {
+    if task.encode_utf16().count() <= TASK_INLINE_LIMIT {
+        return None;
+    }
+    let id_ok = (1..=128).contains(&mission.len()) && mission.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-');
+    id_ok.then(|| format!("{}/conversation-{mission}.md", crate::attachments::ATTACHMENT_DIR))
+}
+
+/// Write a long task whole into the project's `.locust/attachments/`, kept out of git (`longTaskFile`). Answers its
+/// project-relative path, or None when it fits inline or could not be written: the brief is then made as before.
+pub fn long_task_file(task: &str, project: &std::path::Path, mission: &str) -> Option<String> {
+    let path = long_task_file_path(task, mission)?;
+    std::fs::create_dir_all(project.join(crate::attachments::ATTACHMENT_DIR)).ok()?;
+    std::fs::write(project.join(&path), format!("{task}\n")).ok()?;
+    crate::attachments_for_run::keep_out_of_git(project);
+    Some(path)
+}
+
+fn sections_for(original: &str, checkpoint: &Value, from: &str, next: Option<&str>, earlier: &[EarlierTurn], ended: Option<&str>, task_file: Option<&str>) -> Vec<Section> {
     let unsettled = checkpoint["unsettledActions"].as_array().cloned().unwrap_or_default();
     let next = next.map(str::trim).filter(|n| !n.is_empty());
     let clean = next.is_some() && unsettled.is_empty();
+    // A long task by file: its start here, the whole of it in the file the brief is handed, so nothing is cut or refused.
+    let quoted;
+    let original = match task_file {
+        None => original,
+        Some(file) => {
+            let units: Vec<u16> = original.encode_utf16().take(TASK_QUOTED_CHARS).collect();
+            quoted = format!(
+                "{}\u{2026}\n\n[That is only its start. The whole of it, as written, is in the file `{file}` you were handed above. Read that file before you do anything else.]",
+                String::from_utf16_lossy(&units).trim_end()
+            );
+            quoted.as_str()
+        }
+    };
     let task = if clean {
         match ended {
             None => format!("You are taking over this conversation from another agent ({from}), which finished its last turn. The last thing it was asked was:\n\n{original}"),
@@ -608,7 +646,23 @@ pub fn compose_handoff_prompt_with(
     ended: Option<&str>,
     left_out_by_you: &[String],
 ) -> Option<Briefing> {
-    let mut sections = sections_for(original, checkpoint, from, next, earlier, ended);
+    compose_handoff_brief(original, checkpoint, from, next, earlier, ended, left_out_by_you, None)
+}
+
+/// The whole composer (`composeHandoffPrompt`): `task_file`, a long task's project-relative file, is quoted from and
+/// never clipped, and room is kept for the line that hands it over, which the caller puts in front.
+#[allow(clippy::too_many_arguments)]
+pub fn compose_handoff_brief(
+    original: &str,
+    checkpoint: &Value,
+    from: &str,
+    next: Option<&str>,
+    earlier: &[EarlierTurn],
+    ended: Option<&str>,
+    left_out_by_you: &[String],
+    task_file: Option<&str>,
+) -> Option<Briefing> {
+    let mut sections = sections_for(original, checkpoint, from, next, earlier, ended, task_file);
     let chosen: Vec<String> = sections
         .iter()
         .filter(|s| DROPPABLE_SECTION_NAMES.contains(&s.name) && left_out_by_you.iter().any(|l| l == s.name))
@@ -617,7 +671,8 @@ pub fn compose_handoff_prompt_with(
     sections.retain(|s| !chosen.iter().any(|c| c == s.name));
     // Said in the brief, as a gap that did not fit is: the new runtime is told it has less than the whole story.
     let chosen_notice = if chosen.is_empty() { String::new() } else { format!("\n\n{}", choice_notice(&chosen)) };
-    let budget = MAX_HANDOFF_PROMPT_LENGTH - if sections.len() > 1 { NOTICE_BUDGET } else { 0 } - len(&chosen_notice);
+    let file_line = task_file.map_or(0, |file| len(&crate::attachments::with_attachments("x", &[file.to_owned()])));
+    let budget = MAX_HANDOFF_PROMPT_LENGTH - if sections.len() > 1 { NOTICE_BUDGET } else { 0 } - file_line - len(&chosen_notice);
     let mandatory_cost = |sections: &[Section]| -> usize {
         sections
             .iter()
@@ -741,3 +796,7 @@ pub fn handoff_preview_line(preview: Option<&HandoffPreview>) -> Option<String> 
 #[cfg(test)]
 #[path = "handoff_preview_tests.rs"]
 mod handoff_preview_tests;
+
+#[cfg(test)]
+#[path = "long_task_file_tests.rs"]
+mod long_task_file_tests;

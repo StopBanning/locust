@@ -1373,6 +1373,8 @@ struct RouteSwitch {
     kept: Vec<String>,
     omitted: Vec<String>,
     task_clipped: bool,
+    /// A long task handed over by file (`.locust/attachments/conversation-<id>.md`).
+    task_by_file: bool,
     /// The stopped turn's ledger, when it is the native engine's own (the checkpoint is appended there).
     native_prior: Option<PathBuf>,
 }
@@ -1459,7 +1461,8 @@ fn earlier_turns(metadata: &Value) -> Vec<crate::carry_on::EarlierTurn> {
     turns
 }
 
-fn route_switch(store: &Store, tip: &str, reply: &str, left_out_by_you: &[String]) -> Result<RouteSwitch, String> {
+/// `write`: a send writes a long task's file; a preview only names where it would go (`longTaskFilePath`).
+fn route_switch(store: &Store, tip: &str, reply: &str, left_out_by_you: &[String], write: bool) -> Result<RouteSwitch, String> {
     let prior = turn_records(tip).ok_or("That conversation cannot be continued: its earlier mission is not in the ledger.")?;
     let epoch = prior.checkpoints as u64 + 1;
     let checkpoint = crate::carry_on::reconcile(&prior.metadata, &prior.events, prior.incomplete, "route-switch", epoch, &crate::ledger_write::now());
@@ -1470,16 +1473,32 @@ fn route_switch(store: &Store, tip: &str, reply: &str, left_out_by_you: &[String
         ));
     }
     let from = prior.metadata["runtime"].as_str().unwrap_or_default();
-    let briefing = crate::carry_on::compose_handoff_prompt_with(
-        prior.metadata["prompt"].as_str().unwrap_or_default(),
+    let original = prior.metadata["prompt"].as_str().unwrap_or_default();
+    // A long task goes by file (long-task-file.ts, 0.513), into the project the conversation worked in.
+    let task_file = if write {
+        crate::door_tools::conversation_folder(&prior.metadata["startedBy"])
+            .map(PathBuf::from)
+            .or_else(|| workspace_folder(store.electron()))
+            .and_then(|project| crate::carry_on::long_task_file(original, &project, tip))
+    } else {
+        crate::carry_on::long_task_file_path(original, tip)
+    };
+    let briefing = crate::carry_on::compose_handoff_brief(
+        original,
         &checkpoint,
         crate::carry_on::display_name(from),
         Some(reply),
         &earlier_turns(&prior.metadata),
         crate::carry_on::how_turn_ended(&prior.events),
         left_out_by_you,
+        task_file.as_deref(),
     )
     .ok_or("That conversation is too long to carry to another runtime with this reply.")?;
+    // The file rides as an attachment, in front of the brief, like any other file the run is handed.
+    let prompt = match &task_file {
+        Some(file) => crate::attachments::with_attachments(&briefing.prompt, std::slice::from_ref(file)),
+        None => briefing.prompt,
+    };
     let mut link = json!({"missionId": tip, "checkpointEpoch": epoch, "reason": "route-switch"});
     if !briefing.omitted.is_empty() {
         link["leftOut"] = json!(briefing.omitted);
@@ -1488,7 +1507,7 @@ fn route_switch(store: &Store, tip: &str, reply: &str, left_out_by_you: &[String
         link["leftOutByYou"] = json!(briefing.left_out_by_you);
     }
     let native_prior = store.ledger_dir().ok().filter(|dir| prior.path.starts_with(dir)).map(|_| prior.path.clone());
-    Ok(RouteSwitch { prompt: briefing.prompt, link, checkpoint, native_prior, kept: briefing.kept, omitted: briefing.omitted, task_clipped: briefing.task_clipped })
+    Ok(RouteSwitch { prompt, link, checkpoint, native_prior, kept: briefing.kept, omitted: briefing.omitted, task_clipped: briefing.task_clipped, task_by_file: task_file.is_some() })
 }
 
 /// What a reply on `runtime` in this conversation would carry, composed as the send composes it (Electron's
@@ -1501,12 +1520,12 @@ pub fn handoff_preview(conversation: &str, runtime: &str, reply: &str, left_out_
     if prior.metadata["runtime"].as_str().unwrap_or_default() == runtime {
         return HandoffPreview::Same;
     }
-    match route_switch(&store, &tip, reply, left_out_by_you) {
+    match route_switch(&store, &tip, reply, left_out_by_you, false) {
         Ok(sw) => HandoffPreview::Switch {
             unsettled_count: sw.checkpoint["unsettledActions"].as_array().map_or(0, Vec::len),
             kept: sw.kept,
             omitted: sw.omitted,
-            task_by_file: false,
+            task_by_file: sw.task_by_file,
             task_clipped: sw.task_clipped,
         },
         Err(message) => HandoffPreview::Refused(message),
@@ -2329,7 +2348,7 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
                 );
             }
             if prior.runtime != runtime_name || prior.account != effective_account {
-                switched = Some(route_switch(&store, tip, &job.prompt, &origin.left_out_by_you)?);
+                switched = Some(route_switch(&store, tip, &job.prompt, &origin.left_out_by_you, true)?);
                 (None, None, Some(tip_owned))
             } else {
                 // codex-mission.ts: a reply on the same agent resumes its session, unless the mode changed since (a
