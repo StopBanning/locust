@@ -34,23 +34,34 @@ pub fn find_named(name: &str) -> io::Result<PathBuf> {
     {
         return Err(io::Error::other("Invalid executable command name"));
     }
-    find_in(name, &std::env::var_os("PATH").unwrap_or_default())
+    find_beyond_path(name, &std::env::var_os("PATH").unwrap_or_default(), crate::shell_path::npm_bin_directory)
+}
+
+/// PATH first, then npm's own bin directory (path-locator.ts: `npmBinDirectory`, read only when PATH has missed), so a
+/// CLI installed under a moved npm prefix is found. The error is PATH's.
+pub(crate) fn find_beyond_path(name: &str, paths: &std::ffi::OsStr, npm_bin: impl FnOnce() -> Option<String>) -> io::Result<PathBuf> {
+    let missed = match find_in(name, paths) {
+        Ok(path) => return Ok(path),
+        Err(missed) => missed,
+    };
+    npm_bin().and_then(|dir| within(name, Path::new(&dir))).ok_or(missed)
+}
+
+fn file_name(name: &str) -> String {
+    if cfg!(windows) { format!("{name}.exe") } else { name.to_owned() }
+}
+
+/// `name` in one directory, when that directory is absolute and holds it as an executable file.
+fn within(name: &str, dir: &Path) -> Option<PathBuf> {
+    let path = dir.join(file_name(name));
+    (dir.is_absolute() && executable(&path)).then_some(path)
 }
 
 /// `find_named` over a given PATH (its name already checked), for a test to hand it one: the first absolute entry holding `name` as an
 /// executable file; relative and empty entries are never searched.
 pub(crate) fn find_in(name: &str, paths: &std::ffi::OsStr) -> io::Result<PathBuf> {
-    let file = if cfg!(windows) {
-        format!("{name}.exe")
-    } else {
-        name.to_owned()
-    };
     for dir in std::env::split_paths(paths) {
-        if !dir.is_absolute() {
-            continue;
-        }
-        let path = dir.join(&file);
-        if executable(&path) {
+        if let Some(path) = within(name, &dir) {
             return Ok(path);
         }
     }

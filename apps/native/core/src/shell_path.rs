@@ -131,6 +131,122 @@ pub fn adopt_terminal_path() {
         // concurrently.
         unsafe { std::env::set_var("PATH", path) };
     }
+    // npm's own prefix, asked now and awaited only by a lookup PATH has missed (index.ts: not awaited at launch).
+    start_npm_bin_directory();
+}
+
+/// Long enough for a cold npm on Windows, short enough not to hold up a launch (npm-prefix.ts NPM_PREFIX_TIMEOUT_MS).
+pub const NPM_PREFIX_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// `posix.join(prefix, "bin")`: the segments joined by one `/`, `.` dropped and `..` taking the one before it.
+fn posix_join_bin(prefix: &str) -> String {
+    let absolute = prefix.starts_with('/');
+    let mut parts: Vec<&str> = Vec::new();
+    for part in prefix.split('/').chain(std::iter::once("bin")) {
+        match part {
+            "" | "." => {}
+            ".." if parts.last().is_some_and(|last| *last != "..") => {
+                parts.pop();
+            }
+            ".." if absolute => {}
+            other => parts.push(other),
+        }
+    }
+    let joined = parts.join("/");
+    if absolute { format!("/{joined}") } else { joined }
+}
+
+/// The bin directory for an npm prefix (npmBinDirectoryFor): the prefix itself on Windows, where npm puts its shims
+/// beside node_modules, and `<prefix>/bin` everywhere else. None for an empty prefix: `bin` alone is a RELATIVE path.
+pub fn npm_bin_directory_for(prefix: &str, os: &str) -> Option<String> {
+    let trimmed = prefix.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    Some(if os == "windows" { trimmed.to_owned() } else { posix_join_bin(trimmed) })
+}
+
+/// What npm said its prefix is, as the bin directory to search (readNpmBinDirectory). None for every failure -- npm
+/// absent, a non-zero exit, a timeout -- and for an answer that is no path: the first line is the answer, and `null`
+/// or `undefined` is what npm prints for a config it does not have.
+pub fn read_npm_bin_directory(os: &str, run: &dyn Fn() -> Result<String, String>) -> Option<String> {
+    let said = run().ok()?;
+    let first = said.split('\n').next().unwrap_or("").trim();
+    if first.is_empty() || first == "null" || first == "undefined" {
+        return None;
+    }
+    npm_bin_directory_for(first, os)
+}
+
+/// Run `npm config get prefix` through the shell, as Electron does (Windows will not start `npm.cmd` without one),
+/// within `budget`, killing the whole tree it started when it does not answer: stdout only, its exit must be 0.
+/// `path` is the PATH it runs with, None for this process's own.
+pub fn ask_npm_prefix_within(path: Option<&std::ffi::OsStr>, budget: Duration) -> Result<String, String> {
+    let mut command = if cfg!(windows) {
+        let mut c = Command::new("cmd");
+        c.args(["/d", "/s", "/c", "npm config get prefix"]);
+        c
+    } else {
+        let mut c = Command::new("/bin/sh");
+        c.args(["-c", "npm config get prefix"]);
+        c
+    };
+    command.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::null());
+    if let Some(path) = path {
+        command.env("PATH", path);
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        command.process_group(0);
+    }
+    let mut child = command.spawn().map_err(|e| e.to_string())?;
+    let mut stdout = child.stdout.take().ok_or("npm gave no output")?;
+    let reader = std::thread::spawn(move || {
+        let mut said = String::new();
+        let _ = (&mut stdout).take(1024 * 1024).read_to_string(&mut said);
+        said
+    });
+    let start = Instant::now();
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(status)) => break status,
+            Ok(None) if start.elapsed() < budget => std::thread::sleep(Duration::from_millis(10)),
+            _ => {
+                // A TREE kill: killing the shell alone left a hung npm shim and its sleep running (npm-prefix.ts).
+                #[cfg(unix)]
+                if let Ok(pid) = i32::try_from(child.id()) {
+                    // SAFETY: the group was made for this child alone by process_group(0) above.
+                    unsafe { libc::killpg(pid, libc::SIGKILL) };
+                }
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err("npm did not answer".into());
+            }
+        }
+    };
+    let said = reader.join().map_err(|_| "npm's output could not be read")?;
+    if status.success() { Ok(said) } else { Err(format!("npm exited {:?}", status.code())) }
+}
+
+static NPM_BIN_DIRECTORY: std::sync::OnceLock<Option<String>> = std::sync::OnceLock::new();
+static NPM_BIN_ASKED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Ask npm for its prefix once, on its own thread, so a launch never waits on it.
+pub fn start_npm_bin_directory() {
+    NPM_BIN_ASKED.store(true, std::sync::atomic::Ordering::SeqCst);
+    std::thread::spawn(npm_bin_directory);
+}
+
+/// npm's bin directory on this computer, waiting for the answer if it is still coming. None when the app never asked
+/// (a test, or a command run without adopting the terminal's PATH), so nothing but the app's own launch runs npm.
+pub fn npm_bin_directory() -> Option<String> {
+    if !NPM_BIN_ASKED.load(std::sync::atomic::Ordering::SeqCst) {
+        return None;
+    }
+    NPM_BIN_DIRECTORY
+        .get_or_init(|| read_npm_bin_directory(std::env::consts::OS, &|| ask_npm_prefix_within(None, NPM_PREFIX_TIMEOUT)))
+        .clone()
 }
 
 #[cfg(test)]
@@ -223,3 +339,7 @@ mod tests {
 #[cfg(test)]
 #[path = "agy_on_a_mac_tests.rs"]
 mod agy_on_a_mac_tests;
+
+#[cfg(test)]
+#[path = "npm_prefix_tests.rs"]
+mod npm_prefix_tests;
