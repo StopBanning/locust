@@ -1259,13 +1259,28 @@ impl ScoutDeps for ScoutHostDeps {
     }
 }
 
+/// asking-scout.ts `asksScout`: whether a turn with this teammate is a question to Scout. The person's own turn and a
+/// voice call are; a turn another app started through Locust's MCP door with its own work is not, and runs as any
+/// teammate's turn does, in the mode and folder it was sent with (found 9 Nov 2026: a review handed to Scout's
+/// OpenCode teammate ran sealed in Ask with every tool refused, while the door replied it ran in Auto).
+pub fn asks_scout(teammate_id: &str, scout_teammate_id: Option<&str>, started_by: Option<&Value>) -> bool {
+    if scout_teammate_id != Some(teammate_id) {
+        return false;
+    }
+    !started_by.is_some_and(|by| by["kind"] == "mcp" && by["via"] != "voice")
+}
+
 /// When a person sends a turn to Scout's teammate (`askingScout` in `main/index.ts`), it runs
 /// sealed in Ask on its own `scout-chat:<teammateId>` slot with `why_brief()` instructions.
-pub fn asking_scout_slot(store: &Store, teammate_id: &str) -> Option<SlotOrigin> {
+/// A turn that is not a question to Scout (`asks_scout`) has none.
+pub fn asking_scout_slot(store: &Store, teammate_id: &str, started_by: Option<&Value>) -> Option<SlotOrigin> {
     if let Some(scout) = active_hosts(store)
         .into_iter()
         .find(|s| s.teammate_id().as_deref() == Some(teammate_id))
     {
+        if !asks_scout(teammate_id, Some(teammate_id), started_by) {
+            return None;
+        }
         return Some(SlotOrigin {
             key: format!("scout-chat:{teammate_id}"),
             instructions: Some(scout.why_brief()),
@@ -1281,7 +1296,7 @@ pub fn asking_scout_slot(store: &Store, teammate_id: &str) -> Option<SlotOrigin>
         |p| std::fs::read_to_string(p),
         |d| std::thread::sleep(d),
     );
-    if loaded.kept.settings.teammate_id.as_deref() != Some(teammate_id) {
+    if !asks_scout(teammate_id, loaded.kept.settings.teammate_id.as_deref(), started_by) {
         return None;
     }
     let (entries, _) = load_log_with(&files, |p| std::fs::read_to_string(p));

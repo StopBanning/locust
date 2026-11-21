@@ -28,6 +28,8 @@ struct Fake {
     owner_id: Option<&'static str>,
     /// Each carry-on Locust was asked for: the conversation, the agent and the model.
     carried: Mutex<Vec<(String, String, Option<String>)>>,
+    /// The folder Locust's carry-on stood the carried turn in, recorded on it as a carried turn records it.
+    carried_folder: Option<&'static str>,
 }
 
 fn mate(id: &str, name: &str, mode: &str) -> Teammate {
@@ -144,8 +146,12 @@ impl Locust for Fake {
         }
         self.carried.lock().unwrap().push((mission.to_owned(), runtime.to_owned(), model.map(str::to_owned)));
         let id = format!("{mission}-carried");
-        self.turns.lock().unwrap().insert(id.clone(), turn(&id, false, vec![]));
-        Ok((id, None))
+        let mut carried = turn(&id, false, vec![]);
+        if let Some(f) = self.carried_folder {
+            carried.started_by = json!({"kind": "carry-on", "from": ran.unwrap_or_default(), "folder": f});
+        }
+        self.turns.lock().unwrap().insert(id.clone(), carried);
+        Ok((id, self.carried_folder.map(str::to_owned)))
     }
     fn pause(&self, _: u64) {
         // A waiting read finds the turn finished at its first look, unless told how many pauses it takes.
@@ -705,3 +711,7 @@ mod an_app_picks_a_model_tests;
 #[cfg(test)]
 #[path = "an_app_carries_on_tests.rs"]
 mod an_app_carries_on_tests;
+
+#[cfg(test)]
+#[path = "an_app_started_turn_tests.rs"]
+mod an_app_started_turn_tests;

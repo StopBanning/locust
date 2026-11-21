@@ -2205,9 +2205,10 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
         None => None,
     };
     // Asking Scout always runs in Ask mode (read-only) and sealed against tools/connectors,
-    // with its 14-day look log brief passed via slot.instructions, before policy evaluation.
+    // with its 14-day look log brief passed via slot.instructions, before policy evaluation. An app's own work sent
+    // through the door is not asking Scout (asks_scout).
     if origin.slot.is_none()
-        && let Some(slot) = crate::scout::host::asking_scout_slot(&store, &job.teammate.id)
+        && let Some(slot) = crate::scout::host::asking_scout_slot(&store, &job.teammate.id, origin.started_by.as_ref())
     {
         origin.mode = Some(Mode::Ask);
         origin.slot = Some(slot);

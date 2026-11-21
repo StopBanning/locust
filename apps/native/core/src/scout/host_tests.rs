@@ -462,7 +462,7 @@ for line in sys.stdin:
 
     // Asking Scout while it runs: its slot carries What Scout saw from the running Scout (index.ts scout.whyBrief()).
     let teammate = host.scout.teammate_id().expect("Scout is on the team");
-    let asking = super::host::asking_scout_slot(&t.store, &teammate).expect("a turn with Scout's teammate is asking Scout");
+    let asking = super::host::asking_scout_slot(&t.store, &teammate, None).expect("a turn with Scout's teammate is asking Scout");
     let brief = host.scout.why_brief();
     assert!(!brief.trim().is_empty());
     assert_eq!(asking.instructions.as_deref(), Some(brief.as_str()));
