@@ -297,8 +297,12 @@ pub fn with_opencode_providers(mut config: Value, providers: &[(String, Provider
     let mut merged = provider;
     merged.extend(declared);
     config["provider"] = Value::Object(merged);
+    // A chat-only model gets no tool at all; whatever else `tools` said stays (OpenCode's own question tool stays off).
     if providers.iter().any(|(_, p)| !p.tool_calls) {
-        config["tools"] = json!({"*": false});
+        if !config["tools"].is_object() {
+            config["tools"] = json!({});
+        }
+        config["tools"]["*"] = json!(false);
     }
     Ok(config)
 }

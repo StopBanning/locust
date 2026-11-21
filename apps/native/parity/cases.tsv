@@ -6482,6 +6482,12 @@ packages/runtime-adapters/test/opencode-acp-profile.test.ts	stops on record over
 packages/runtime-adapters/test/opencode-acp-profile.test.ts	settles a failed permission reply without an unhandled rejection or a second write	no
 packages/runtime-adapters/test/opencode-acp-profile.test.ts	refuses an unadvertised model instead of silently changing the requested route	no
 packages/runtime-adapters/test/opencode-acp-profile.test.ts	bounds staged pre-prompt permission receipts even when the inner queue keeps draining	no
+packages/runtime-adapters/test/opencode-asks-with-the-question-card.test.ts	on the server, ${sandbox}	no
+packages/runtime-adapters/test/opencode-asks-with-the-question-card.test.ts	on run, ${sandbox}	no
+packages/runtime-adapters/test/opencode-asks-with-the-question-card.test.ts	in Approve each, which asks for everything else	yes
+packages/runtime-adapters/test/opencode-asks-with-the-question-card.test.ts	in a worktree, beside the repository it may reach	yes
+packages/runtime-adapters/test/opencode-asks-with-the-question-card.test.ts	keeps a chat-only model's tools off, every one of them	yes
+packages/runtime-adapters/test/opencode-asks-with-the-question-card.test.ts	starts a config when there was none	no
 packages/runtime-adapters/test/opencode-commands.test.ts	never starts the V1 command server when OpenCode 2 is installed	no
 packages/runtime-adapters/test/opencode-commands.test.ts	are read from a server started in the folder, with a password and no plugins, which is then stopped	no
 packages/runtime-adapters/test/opencode-commands.test.ts	is a refusal, not an empty menu, when the server will not say, and the server is still stopped	no

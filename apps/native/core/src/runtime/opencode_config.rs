@@ -411,3 +411,7 @@ mod opencode_guard_tests;
 #[cfg(test)]
 #[path = "opencode_2_rules_tests.rs"]
 mod opencode_2_rules_tests;
+
+#[cfg(test)]
+#[path = "opencode_question_tool_tests.rs"]
+mod opencode_question_tool_tests;
