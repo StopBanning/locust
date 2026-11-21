@@ -501,7 +501,56 @@ pub fn add_memory(
     by: Value,
     status: &str,
 ) -> Result<(), String> {
-    add_memory_for(store, text, name, scope, workspace, by, status, None)
+    add_memory_for(store, text, name, scope, workspace, by, status, None).map(|_| ())
+}
+
+/// What one `remember` did to memory, for the memory-changed notice (memory-reader.ts).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Added {
+    /// Already there in those words: nothing changed.
+    Nothing,
+    Kept,
+    Proposed,
+    /// A named memory rewritten at once (Keep and tell me).
+    Rewritten,
+    /// A named rewrite waiting for the person (Ask me first), new or updating the one already waiting.
+    ProposedChange,
+}
+
+/// What a finished reply did to memory, as Electron's `memory-changed` update says it: each list in the reply's order.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct MemoryChanged {
+    pub by: String,
+    pub kept: Vec<String>,
+    pub proposed: Vec<String>,
+    pub forgotten: Vec<String>,
+    pub rewritten: Vec<String>,
+    pub proposed_changes: Vec<String>,
+    pub proposed_forgets: Vec<String>,
+    pub proposed_tidy: usize,
+    pub tidy_refused: Vec<String>,
+    pub about_you_suggested: Vec<String>,
+}
+
+impl MemoryChanged {
+    /// Whether there is anything to say (memory-reader.ts sends no update when every list is empty).
+    pub fn is_empty(&self) -> bool {
+        self.kept.is_empty()
+            && self.proposed.is_empty()
+            && self.forgotten.is_empty()
+            && self.rewritten.is_empty()
+            && self.proposed_changes.is_empty()
+            && self.proposed_forgets.is_empty()
+            && self.proposed_tidy == 0
+            && self.tidy_refused.is_empty()
+            && self.about_you_suggested.is_empty()
+    }
+}
+
+fn push_once(list: &mut Vec<String>, text: &str) {
+    if !list.iter().any(|t| t == text) {
+        list.push(text.to_owned());
+    }
 }
 
 /// `add_memory` from a run: `mission` goes on what it writes, and on a kept memory a proposal is kept into.
@@ -515,7 +564,7 @@ pub fn add_memory_for(
     by: Value,
     status: &str,
     mission: Option<&str>,
-) -> Result<(), String> {
+) -> Result<Added, String> {
     let _lock = WRITES.lock().map_err(|e| e.to_string())?;
     let text = memory_text(text);
     if text.is_empty() {
@@ -542,14 +591,14 @@ pub fn add_memory_for(
     });
     if let Some(at) = at {
         if rows[at]["text"] == text || name.is_none() {
-            return Ok(());
+            return Ok(Added::Nothing);
         }
         if status == "kept" {
             rows[at]["previousText"] = rows[at]["text"].clone();
             rows[at]["text"] = json!(text);
             rows[at]["updatedAt"] = json!(now());
             rows[at]["updatedBy"] = by;
-            return store.save_json("memories.json", &file);
+            return store.save_json("memories.json", &file).map(|_| Added::Rewritten);
         }
         // Ask me first (0.315): a second rewrite before the person answers updates the proposal already waiting.
         let kept_id = rows[at]["memoryId"].clone();
@@ -559,7 +608,7 @@ pub fn add_memory_for(
             if let Some(mission) = mission {
                 waiting["missionId"] = json!(mission);
             }
-            return store.save_json("memories.json", &file);
+            return store.save_json("memories.json", &file).map(|_| Added::ProposedChange);
         }
     }
     if rows.len() >= 400 {
@@ -577,8 +626,13 @@ pub fn add_memory_for(
         // The hash gate covers an "Ask me first" rewrite too: kept after the person changed the words, it is refused.
         row["basis"] = json!(fingerprint(std::slice::from_ref(&rows[at])));
     }
+    let added = match (at.is_some(), status == "kept") {
+        (true, _) => Added::ProposedChange,
+        (false, true) => Added::Kept,
+        (false, false) => Added::Proposed,
+    };
     rows.push(row);
-    store.save_json("memories.json", &file)
+    store.save_json("memories.json", &file).map(|_| added)
 }
 pub fn change_memory(
     store: &Store,
@@ -1540,7 +1594,20 @@ fn workspace_sections(
 }
 
 /// Read protocol only outside fenced examples, at most four operations per reply.
+/// A reply acts on at most this many memory lines (memory.ts MAX_MEMORY_OPS_PER_REPLY).
+pub const MAX_MEMORY_OPS_PER_REPLY: usize = 4;
+
+/// Every well-formed memory line in every block, in transcript order, capped (memory.ts `parseMemoryBlocks`).
 pub fn memory_ops(reply: &str) -> Vec<(String, Option<String>, String)> {
+    every_memory_op(reply).into_iter().take(MAX_MEMORY_OPS_PER_REPLY).collect()
+}
+
+/// The well-formed lines past the cap, not acted on (memory.ts `memoryOpsPastTheCap`): said, never dropped in silence.
+pub fn memory_ops_past_the_cap(reply: &str) -> usize {
+    every_memory_op(reply).len().saturating_sub(MAX_MEMORY_OPS_PER_REPLY)
+}
+
+fn every_memory_op(reply: &str) -> Vec<(String, Option<String>, String)> {
     let mut plain = String::new();
     let mut fenced = false;
     for line in reply.lines() {
@@ -1572,7 +1639,6 @@ pub fn memory_ops(reply: &str) -> Vec<(String, Option<String>, String)> {
                 })
                 .collect::<Vec<_>>()
         })
-        .take(4)
         .collect()
 }
 /// Why a `forget` found nothing to forget (Electron `memory-store.forget`'s refusal).
@@ -1632,6 +1698,19 @@ pub fn record_reply_for(
     mission: Option<&str>,
     prompt: Option<&str>,
 ) -> Result<Vec<(String, &'static str)>, String> {
+    record_reply_changes(store, who, folder, reply, mission, prompt).map(|(said, _)| said)
+}
+
+/// `record_reply_for`, and what the reply did to memory for the Memory screen's notice (memory-reader.ts's
+/// `memory-changed`): what was kept, proposed, forgotten or rewritten, each named for what it is.
+pub fn record_reply_changes(
+    store: &Store,
+    who: &str,
+    folder: &Path,
+    reply: &str,
+    mission: Option<&str>,
+    prompt: Option<&str>,
+) -> Result<(Vec<(String, &'static str)>, MemoryChanged), String> {
     let file = team(store)?;
     let by = file["teammates"]
         .as_array()
@@ -1640,6 +1719,8 @@ pub fn record_reply_for(
         .unwrap_or_else(|| json!({"name":"a conversation"}));
     let mode = file["settings"]["memoryMode"].as_str().unwrap_or("auto");
     let mut missed: Vec<String> = Vec::new();
+    let mut changed = MemoryChanged { by: by["name"].as_str().unwrap_or("a conversation").to_owned(), ..MemoryChanged::default() };
+    let mut refused: Vec<String> = Vec::new();
     for (verb, name, text) in memory_ops(reply) {
         if verb == "about you" {
             let mut current = team(store)?;
@@ -1649,6 +1730,7 @@ pub fn record_reply_for(
                 .unwrap_or_default();
             if !secret(&text) && !suggestions.iter().any(|s| s["text"] == text) {
                 suggestions.push(json!({"id":id("ays")?,"text":text,"by":by["name"],"at":now()}));
+                push_once(&mut changed.about_you_suggested, &text);
             }
             if suggestions.len() > 10 {
                 suggestions.remove(0);
@@ -1659,20 +1741,37 @@ pub fn record_reply_for(
             current["settings"]["aboutYouSuggestions"] = json!(suggestions);
             store.save_json("teammates.json", &current)?;
         } else if mode != "off" && verb.starts_with("remember") {
-            add_memory_for(
+            let everywhere = verb.contains("everywhere");
+            // EVERYWHERE WAITS FOR THE PERSON (memory-reader.ts, R3): every teammate in every folder reads it, and one
+            // run that read a hostile page could plant an instruction there on its own. A folder's memory still keeps
+            // itself in auto mode.
+            let added = add_memory_for(
                 store,
                 &text,
                 name.as_deref(),
-                if verb.contains("everywhere") {
-                    "global"
-                } else {
-                    "workspace"
-                },
+                if everywhere { "global" } else { "workspace" },
                 &workspace_id(folder),
                 by.clone(),
-                if mode == "ask" { "proposed" } else { "kept" },
+                if mode == "ask" || everywhere { "proposed" } else { "kept" },
                 mission,
-            )?;
+            );
+            // A memory the store refused (full, a secret, unreadable) is said once, with its reason, and the lines
+            // after it are still read (memory-reader.ts `refused`).
+            let added = match added {
+                Ok(added) => added,
+                Err(reason) => {
+                    push_once(&mut refused, &reason);
+                    continue;
+                }
+            };
+            let said = memory_text(&text);
+            match added {
+                Added::Nothing => {}
+                Added::Kept => push_once(&mut changed.kept, &said),
+                Added::Proposed => push_once(&mut changed.proposed, &said),
+                Added::Rewritten => push_once(&mut changed.rewritten, &said),
+                Added::ProposedChange => push_once(&mut changed.proposed_changes, &said),
+            }
         } else if mode != "off" && verb == "forget" {
             let memories = memories(store)?;
             let rows = memories["memories"].as_array().map(Vec::as_slice).unwrap_or_default();
@@ -1692,7 +1791,11 @@ pub fn record_reply_for(
                 }
             };
             // A memory nobody kept yet simply goes: there is nothing of the person's to protect (0.315).
+            let target_text = target["text"].as_str().unwrap_or("").to_owned();
             if mode == "ask" && target["status"] == "kept" {
+                // Waiting for the person, new or already asked: named for what it is either way.
+                // memory-reader.ts pushes what is waiting each time, as asked.
+                changed.proposed_forgets.push(target_text.clone());
                 let mut file = self::memories(store)?;
                 if let Some(rows) = file["memories"].as_array_mut()
                     // Asked twice, still one proposal.
@@ -1722,6 +1825,7 @@ pub fn record_reply_for(
                     "remove",
                     None,
                 )?;
+                push_once(&mut changed.forgotten, &target_text);
             }
         }
     }
@@ -1733,12 +1837,10 @@ pub fn record_reply_for(
         // tidy suggestion waits for the person.
         let (suggestions, unread) = crate::memory_tidy::read_tidy_blocks(reply);
         if !suggestions.is_empty() {
-            let (_, refused) = propose_tidy_from(store, &workspace_id(folder), by.clone(), mission, &suggestions)?;
-            // Electron says these on the Memory screen's notice; nothing carries that notice here yet, so the
-            // conversation says them instead of nobody.
-            if !refused.is_empty() {
-                said.push((format!("{} of {name}'s suggestions could not be made: {}", refused.len(), refused.join(" ")), "warning"));
-            }
+            let (proposed, refused) = propose_tidy_from(store, &workspace_id(folder), by.clone(), mission, &suggestions)?;
+            // Said on the Memory screen's notice (memory-changed's proposedTidy and tidyRefused), as Electron says them.
+            changed.proposed_tidy = proposed;
+            changed.tidy_refused = refused;
         }
         if unread > 0 {
             // 0.372: said where the person is reading "Here are my suggestions:", not dropped in silence.
@@ -1757,11 +1859,25 @@ pub fn record_reply_for(
             said.push(("Nothing from this tidy pass waits on the Memory screen.".to_owned(), "info"));
         }
     }
+    if !refused.is_empty() {
+        // Amber, like a forget that failed: the person may need to act -- make room, or read what the store said.
+        said.push((format!("{} tried to remember something and it was not kept. {}", opening(&name), refused.join(" ")), "warning"));
+    }
+    let past_the_cap = if mode == "off" { 0 } else { memory_ops_past_the_cap(reply) };
+    if past_the_cap > 0 {
+        // Said, not dropped in silence (R6); nothing for the person to do, so not amber.
+        let total = memory_ops(reply).len() + past_the_cap;
+        let last = if past_the_cap == 1 { "one was".to_owned() } else { format!("{past_the_cap} were") };
+        said.push((
+            format!("{} wrote {total} memory lines, and a reply keeps at most {MAX_MEMORY_OPS_PER_REPLY}, so the last {last} not kept.", opening(&name)),
+            "info",
+        ));
+    }
     if !missed.is_empty() {
         // Amber: the memory meant to go is still there, and only the person can settle what it should say.
         said.insert(0, (format!("{} tried to forget something and could not. {} It is still remembered.", opening(&name), missed.join(" ")), "warning"));
     }
-    Ok(said)
+    Ok((said, changed))
 }
 
 fn fingerprint(rows: &[Value]) -> String {
@@ -2259,8 +2375,9 @@ mod tests {
         add_memory(&store, "kept one", None, "workspace", &ws, json!({"name":"Codec"}), "kept").unwrap();
         let kept = memories(&store).unwrap()["memories"][0]["memoryId"].as_str().unwrap().to_owned();
         let reply = format!("Done.\n<locust-tidy>\nretire mem_gone :: stale\nretire {kept} :: superseded\n</locust-tidy>");
-        let said = record_reply(&store, "unknown", Path::new("/tmp"), &reply).unwrap();
-        assert!(said.iter().any(|(line, _)| line.contains("could not be made: A suggestion to forget a memory named one this folder does not keep.")), "the refusal is still said: {said:?}");
+        let (_, changed) = record_reply_changes(&store, "unknown", Path::new("/tmp"), &reply, None, None).unwrap();
+        assert_eq!(changed.tidy_refused, vec!["A suggestion to forget a memory named one this folder does not keep.".to_owned()], "the refusal is still said");
+        assert_eq!(changed.proposed_tidy, 1);
         let file = memories(&store).unwrap();
         let proposed: Vec<_> = file["memories"].as_array().unwrap().iter().filter(|m| m["status"] == "proposed" && m["forgets"] == kept.as_str()).collect();
         assert_eq!(proposed.len(), 1, "the second suggestion was proposed: {file}");

@@ -1778,6 +1778,25 @@ pub(crate) fn push_room_notice(notice: crate::room_tasks::RoomNotice) {
     list.push(notice);
 }
 
+/// What finished replies did to memory, for the Memory screen's notice (memory-reader.ts `memory-changed`), oldest
+/// first, until the window takes them.
+static MEMORY_CHANGES: Mutex<Vec<crate::people::MemoryChanged>> = Mutex::new(Vec::new());
+
+pub fn push_memory_changed(update: crate::people::MemoryChanged) {
+    if update.is_empty() {
+        return;
+    }
+    let mut list = crate::invariants::lock(&MEMORY_CHANGES);
+    if list.len() >= 32 {
+        list.remove(0);
+    }
+    list.push(update);
+}
+
+pub fn take_memory_changes() -> Vec<crate::people::MemoryChanged> {
+    std::mem::take(&mut *crate::invariants::lock(&MEMORY_CHANGES))
+}
+
 pub fn take_room_notices() -> Vec<crate::room_tasks::RoomNotice> {
     std::mem::take(&mut *crate::invariants::lock(&ROOM_NOTICES))
 }
@@ -3041,11 +3060,12 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
                         .next_back()
                         .unwrap_or("")
                         .to_owned();
-                    match crate::people::record_reply_for(&memory_store, &memory_who, &memory_folder, &reply, Some(&memory_id), Some(&memory_prompt)) {
-                        Ok(said) => {
+                    match crate::people::record_reply_changes(&memory_store, &memory_who, &memory_folder, &reply, Some(&memory_id), Some(&memory_prompt)) {
+                        Ok((said, changed)) => {
                             for (line, level) in said {
                                 push_relay_notice(&memory_id, &line, level);
                             }
+                            push_memory_changed(changed);
                         }
                         Err(error) => eprintln!("Memory was not recorded: {error}"),
                     }

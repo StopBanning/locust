@@ -69,6 +69,11 @@ pub(super) fn open_edit(s: &mut State, id: &str) {
 }
 pub(super) fn poll(s: &mut State) -> bool {
     let mut changed = false;
+    // What a finished reply did to memory (memory-reader.ts `memory-changed`): the newest says the Memory screen's notice.
+    for update in locust_core::native::take_memory_changes() {
+        heard_memory_changed(s, &update);
+        changed = true;
+    }
     if let Some(result) = s.people_panel.month_job.take() {
         match result {
             Ok(turns) => { s.people_panel.month_turns = turns; s.people_panel.month_error = None; }
@@ -80,6 +85,33 @@ pub(super) fn poll(s: &mut State) -> bool {
         request_month(s);
     }
     changed
+}
+/// The Memory screen's notice for one memory-changed update, and whether it points at something waiting.
+pub(super) fn heard_memory_changed(s: &mut State, changed: &locust_core::people::MemoryChanged) {
+    fn strs(list: &[String]) -> Vec<&str> {
+        list.iter().map(String::as_str).collect()
+    }
+    let (kept, proposed, forgotten, rewritten) = (strs(&changed.kept), strs(&changed.proposed), strs(&changed.forgotten), strs(&changed.rewritten));
+    let (changes, forgets, refused, about) =
+        (strs(&changed.proposed_changes), strs(&changed.proposed_forgets), strs(&changed.tidy_refused), strs(&changed.about_you_suggested));
+    let update = crate::memory_card::MemoryChangedUpdate {
+        by: &changed.by,
+        kept: &kept,
+        proposed: &proposed,
+        forgotten: &forgotten,
+        rewritten: &rewritten,
+        proposed_changes: &changes,
+        proposed_forgets: &forgets,
+        proposed_tidy: changed.proposed_tidy,
+        tidy_refused: &refused,
+        about_you_suggested: &about,
+    };
+    s.people_panel.memory_notice = crate::memory_card::memory_changed_notice(&update);
+    s.people_panel.memory_notice_waits = crate::memory_card::notice_waits(&update);
+    // The screen reads memory again, so what changed is drawn with the notice.
+    if s.people_panel.open {
+        reload(s);
+    }
 }
 fn request_month(s: &mut State) {
     if s.people_panel.month_job.is_pending() { return; }

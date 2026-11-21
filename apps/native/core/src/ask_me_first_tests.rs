@@ -1,7 +1,7 @@
 //! Electron's `main/ask-me-first-covers-changes.test.ts` (0.315): in "Ask me first", a named rewrite of a kept memory
 //! and a forget wait beside it as proposals, and the kept memory stays as it was, and briefed, until the person
 //! answers. One Rust test per case, with its values.
-use crate::people::{add_memory, add_memory_for, change_memory, memories, record_reply_for, workspace_id};
+use crate::people::{MemoryChanged, add_memory, add_memory_for, change_memory, memories, record_reply_changes, record_reply_for, workspace_id};
 use crate::store::Store;
 use serde_json::{Value, json};
 use std::path::PathBuf;
@@ -256,7 +256,7 @@ fn the_reader_proposes_the_rewrite_and_the_forget_and_changes_nothing_kept() {
     let s = shop("ask");
     kept(&s, "Deploys go out on Fridays.", Some("deploy-day"));
     kept(&s, "The API is on port 3000.", None);
-    let said = record_reply_for(
+    let (said, changed) = record_reply_changes(
         &s.store,
         "tm_yurt",
         &s.folder,
@@ -265,6 +265,16 @@ fn the_reader_proposes_the_rewrite_and_the_forget_and_changes_nothing_kept() {
         None,
     )
     .unwrap();
+    // Named for what each is: a change and a forget, both waiting; nothing kept, proposed new, or forgotten.
+    assert_eq!(
+        changed,
+        MemoryChanged {
+            by: "Yurt".into(),
+            proposed_changes: vec!["Deploys go out on Thursdays.".into()],
+            proposed_forgets: vec!["The API is on port 3000.".into()],
+            ..MemoryChanged::default()
+        }
+    );
     assert_eq!(briefed_in(&s.store, &s.folder), vec!["Deploys go out on Fridays.", "The API is on port 3000."]);
     let waiting = proposals(&s.store);
     assert_eq!(waiting.len(), 2);
@@ -272,4 +282,21 @@ fn the_reader_proposes_the_rewrite_and_the_forget_and_changes_nothing_kept() {
     assert!(waiting.iter().any(|m| m["text"] == "The API is on port 3000." && m.get("forgets").is_some() && m["missionId"] == "mission_9"));
     // Proposed is not missed: nothing amber, nothing for the person to fix.
     assert!(said.is_empty(), "{said:?}");
+}
+
+#[test]
+fn a_rewrite_asked_twice_in_one_reply_is_named_once_and_waits_once() {
+    let s = shop("ask");
+    kept(&s, "Deploys go out on Fridays.", Some("deploy-day"));
+    let (_, changed) = record_reply_changes(
+        &s.store,
+        "tm_yurt",
+        &s.folder,
+        "<locust-memory>\nremember as deploy-day :: Deploys go out on Thursdays.\nremember as deploy-day :: Deploys go out on Thursdays.\n</locust-memory>",
+        None,
+        None,
+    )
+    .unwrap();
+    assert_eq!(changed.proposed_changes, vec!["Deploys go out on Thursdays.".to_owned()]);
+    assert_eq!(proposals(&s.store).len(), 1);
 }

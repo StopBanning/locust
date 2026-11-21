@@ -1711,12 +1711,12 @@ apps/desktop/src/main/memory-file.test.ts	writes under .locust in the folder and
 apps/desktop/src/main/memory-file.test.ts	does not rewrite a file that already says the same	no
 apps/desktop/src/main/memory-file.test.ts	keeps .locust out of git where there is a repository, and only there	no
 apps/desktop/src/main/memory-file.test.ts	returns nothing when the folder cannot be written, so the brief pastes as before	no
-apps/desktop/src/main/memory-reader.test.ts	keeps what a completed run said to remember, attributed to the teammate, folder and conversation, and says so twice	no
-apps/desktop/src/main/memory-reader.test.ts	in ask mode a memory is proposed, not kept, and the notice says where to answer	no
-apps/desktop/src/main/memory-reader.test.ts	off means nothing is read; a run that did not complete, or a reply with no block, writes nothing	no
-apps/desktop/src/main/memory-reader.test.ts	a conversation nobody owns is attributed as one; a store that refuses is not a crash, and the person is told why	no
-apps/desktop/src/main/memory-reader.test.ts	puts an everywhere memory to the person, in auto mode, while a folder one keeps itself	no
-apps/desktop/src/main/memory-reader.test.ts	says how many memory lines past the cap were not kept	no
+apps/desktop/src/main/memory-reader.test.ts	keeps what a completed run said to remember, attributed to the teammate, folder and conversation, and says so twice	yes
+apps/desktop/src/main/memory-reader.test.ts	in ask mode a memory is proposed, not kept, and the notice says where to answer	yes
+apps/desktop/src/main/memory-reader.test.ts	off means nothing is read; a run that did not complete, or a reply with no block, writes nothing	yes
+apps/desktop/src/main/memory-reader.test.ts	a conversation nobody owns is attributed as one; a store that refuses is not a crash, and the person is told why	yes
+apps/desktop/src/main/memory-reader.test.ts	puts an everywhere memory to the person, in auto mode, while a folder one keeps itself	yes
+apps/desktop/src/main/memory-reader.test.ts	says how many memory lines past the cap were not kept	yes
 apps/desktop/src/main/memory-recall.test.ts	lower-cases, strips accents, splits punctuation and spells a word in the longest pieces it has	no
 apps/desktop/src/main/memory-recall.test.ts	stops at the model's 256 tokens, and still ends the sentence	no
 apps/desktop/src/main/memory-recall.test.ts	scores each note by how close it is to what was asked, in the notes' order	no

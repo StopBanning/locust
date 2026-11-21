@@ -510,8 +510,25 @@ fn makes_a_tidy_reply_proposals_even_in_keep_and_tell_me_and_says_what_it_could_
     let held = waiting(&store);
     assert_eq!(held.len(), 1);
     assert_eq!((held[0]["by"]["name"].as_str(), held[0]["missionId"].as_str()), (Some("Wren"), Some("mission_tidy")));
-    assert_eq!(said, [("1 of Wren's suggestions could not be made: A suggestion to forget a memory named one this folder does not keep.".to_owned(), "warning")]);
+    // What it could not make is said on the Memory screen's notice, not in the thread (memory-changed's tidyRefused).
+    assert!(said.is_empty(), "{said:?}");
     assert_eq!(kept_texts(&store), SEED);
+}
+
+#[test]
+fn says_what_a_tidy_reply_proposed_and_could_not_make_on_the_memory_screens_notice() {
+    let (_t, store, folder) = fixture();
+    std::fs::write(
+        store.electron().join("teammates.json"),
+        json!({"schemaVersion":1,"teammates":[{"teammateId":"tm_wren","name":"Wren"}],"missionOwners":{},"settings":{"memoryMode":"auto"}}).to_string(),
+    )
+    .unwrap();
+    let ids = seeded(&store, &workspace_id(&folder));
+    let reply = format!("<locust-tidy>\nmerge {} {} :: Deploys go out every Thursday.\nretire mem_gone :: stale\n</locust-tidy>", ids[0], ids[1]);
+    let (_, changed) = crate::people::record_reply_changes(&store, "tm_wren", &folder, &reply, Some("mission_tidy"), None).unwrap();
+    assert_eq!(changed.proposed_tidy, 1);
+    assert_eq!(changed.tidy_refused, vec!["A suggestion to forget a memory named one this folder does not keep.".to_owned()]);
+    assert_eq!(changed.by, "Wren");
 }
 
 #[test]

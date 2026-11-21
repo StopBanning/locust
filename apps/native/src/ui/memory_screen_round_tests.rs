@@ -190,3 +190,26 @@ fn the_screen_reads_what_changed_when_it_loads() {
     let _ = std::fs::remove_dir_all(&root);
     assert_eq!(found, Some(vec!["src/net.ts".to_owned()]));
 }
+
+/// memory-reader.ts's `memory-changed`, through the engine: what a finished reply did to memory reaches the Memory
+/// screen as its notice, the newest one saying it, and whether it points at something waiting.
+#[test]
+fn a_finished_replys_memory_change_becomes_the_memory_screens_notice() {
+    let mut s = State::default();
+    locust_core::native::take_memory_changes();
+    locust_core::native::push_memory_changed(locust_core::people::MemoryChanged { by: "Wren".into(), kept: vec!["Old news.".into()], ..Default::default() });
+    locust_core::native::push_memory_changed(locust_core::people::MemoryChanged {
+        by: "Yurt".into(),
+        proposed_changes: vec!["Deploys go out on Thursdays.".into()],
+        proposed_forgets: vec!["The API is on port 3000.".into()],
+        ..Default::default()
+    });
+    // Nothing to say is never queued.
+    locust_core::native::push_memory_changed(locust_core::people::MemoryChanged { by: "Nobody".into(), ..Default::default() });
+    assert!(crate::people_panel::poll(&mut s));
+    let notice = s.people_panel.memory_notice.clone().unwrap();
+    assert!(notice.starts_with("Yurt wants to change a memory to \"Deploys go out on Thursdays.\""), "{notice}");
+    assert!(notice.contains("Yurt wants to forget \"The API is on port 3000.\""), "{notice}");
+    assert!(s.people_panel.memory_notice_waits);
+    assert!(locust_core::native::take_memory_changes().is_empty(), "the window took them all");
+}

@@ -393,6 +393,8 @@ mod memory_round_tests;
 #[cfg(test)]
 mod ask_me_first_tests;
 #[cfg(test)]
+mod memory_reader_tests;
+#[cfg(test)]
 mod brief_sessions_tests;
 #[cfg(test)]
 mod approval_data_tests;
