@@ -1750,6 +1750,13 @@ apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	reads this machine�
 apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	is given the guard in every mode, Auto included	no
 apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	names the guard as a hook its shell can start, on Locust’s own binary run as node, with Locust’s own id	no
 apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	is read from the guard’s own words, so the two cannot drift apart	no
+apps/desktop/src/main/npm-prefix.test.ts	is the prefix itself on Windows	yes
+apps/desktop/src/main/npm-prefix.test.ts	is <prefix>/bin everywhere else	yes
+apps/desktop/src/main/npm-prefix.test.ts	refuses an empty prefix rather than returning a bare bin path	yes
+apps/desktop/src/main/npm-prefix.test.ts	reads the path npm printed	yes
+apps/desktop/src/main/npm-prefix.test.ts	takes the first line and trims it	yes
+apps/desktop/src/main/npm-prefix.test.ts	answers undefined when npm says null	yes
+apps/desktop/src/main/npm-prefix.test.ts	answers undefined when npm cannot be asked at all	yes
 apps/desktop/src/main/one-path-decides-every-request.test.ts	denies by a saved rule, whatever Always was given earlier in the run	no
 apps/desktop/src/main/one-path-decides-every-request.test.ts	asks again about a command that reaches other programs, though Always was given, and says why	no
 apps/desktop/src/main/one-path-decides-every-request.test.ts	allows by an earlier Always what it covers, and says so	no
