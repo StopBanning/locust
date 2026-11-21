@@ -2194,6 +2194,9 @@ apps/desktop/src/main/stores-fail-closed.test.ts	workspace settings reject rathe
 apps/desktop/src/main/stores-fail-closed.test.ts	a routine rejects rather than pretending to save	yes
 apps/desktop/src/main/stores-fail-closed.test.ts	a room rejects rather than pretending to save	yes
 apps/desktop/src/main/stores-fail-closed.test.ts	a memory rejects rather than pretending to save	yes
+apps/desktop/src/main/teammate-knows-its-connectors.test.ts	names them when the machine has any	yes
+apps/desktop/src/main/teammate-knows-its-connectors.test.ts	says nothing when there are none, rather than an empty heading	yes
+apps/desktop/src/main/teammate-knows-its-connectors.test.ts	keeps the person words last, so the ask still reads closest to the asking	yes
 apps/desktop/src/main/teammate-store.test.ts	keeps the bot the person picked, and only the fields it knows	no
 apps/desktop/src/main/teammate-store.test.ts	refuses a shape there is no bot for	no
 apps/desktop/src/main/teammate-store.test.ts	takes every one of the nine colours	no

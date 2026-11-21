@@ -82,6 +82,12 @@ pub fn role_brief(kind: &str, label: Option<&str>) -> Option<String> {
     Some(said)
 }
 
+/// The connectors a teammate can call, by name (peer-exchange.ts `prepare`): asked of the machine only for a Cursor run,
+/// since the others have no connector story here or read their own. None means the brief does not mention any.
+pub fn connectors_section(runtime: Option<&str>, ready: impl FnOnce() -> Option<String>) -> Option<String> {
+    if runtime == Some("cursor") { ready() } else { None }
+}
+
 /// Who else is on the team, and the only way to reach them.
 pub fn roster_section(me: &PeerEntry, others: &[PeerEntry]) -> String {
     let listed = others.iter().map(describe_peer).collect::<Vec<_>>().join(", ");
@@ -369,3 +375,7 @@ mod quiet_runtime_tests;
 #[cfg(test)]
 #[path = "role_brief_tests.rs"]
 mod role_brief_tests;
+
+#[cfg(test)]
+#[path = "teammate_knows_its_connectors_tests.rs"]
+mod teammate_knows_its_connectors_tests;

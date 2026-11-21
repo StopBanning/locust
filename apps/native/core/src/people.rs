@@ -1218,6 +1218,11 @@ pub fn turn_brief_held(
         Some(prompt),
         own_folder,
     )?);
+    // Which connectors it can call, by NAME (teammate-knows-its-connectors): Cursor only, standing beside memory, so it
+    // sits in the cached prefix rather than ahead of the ask.
+    if let Some(connectors) = crate::briefing::connectors_section(runtime, crate::cursor_config::ready_connectors) {
+        standing.push(connectors);
+    }
     // The person's "keep a todo list" switch (todo-list-is-opt-in): a setting that cannot be read reads as off.
     let todos = crate::workspace_settings::load(store).is_ok_and(|s| s.keep_a_todo_list);
     standing.extend(crate::briefing::standing_formats(runtime, todos));

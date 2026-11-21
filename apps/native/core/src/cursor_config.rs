@@ -234,6 +234,28 @@ fn shared_connector_cache() -> &'static crate::cursor_config_allow::CursorConnec
     })
 }
 
+/// The connectors this machine's Cursor CLI can call, named for a Cursor teammate's brief (peer-exchange.ts
+/// `readyConnectors`, `cursorReadyConnectors`): the same held reading as the connector rules, so a run pays for one
+/// `mcp list` at most every five minutes. None when there are none or the CLI cannot say. A test build never runs the
+/// CLI: it answers what the test set on its own thread.
+pub fn ready_connectors() -> Option<String> {
+    #[cfg(test)]
+    return READY_FOR_TEST.with(|held| held.borrow().clone());
+    #[cfg(not(test))]
+    {
+        if cfg!(feature = "test-hooks") {
+            return None;
+        }
+        shared_connector_cache().ready_connectors()
+    }
+}
+
+#[cfg(test)]
+thread_local! {
+    /// What `ready_connectors` answers on this test's thread.
+    pub static READY_FOR_TEST: std::cell::RefCell<Option<String>> = const { std::cell::RefCell::new(None) };
+}
+
 /// Recover any Cursor default-model or connector-rule state left behind by an earlier Locust that quit mid-run,
 /// and warm Cursor's connector list in the background so the first turn does not wait.
 /// codex-mission.ts: Cursor's connector rules are added only for an edit run (`effectiveSandbox === 'workspace-write'`):
