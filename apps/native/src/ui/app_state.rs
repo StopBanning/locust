@@ -254,6 +254,8 @@ pub(super) struct State {
     pub(super) reference_menu: bool,
     pub(super) reference_picker: bool,
     pub(super) reference_note: Option<String>,
+    /// The picker's GitHub box and the downloads it starts (reference_chips::Work).
+    pub(super) reference_work: crate::reference_chips::Work,
     /// Whether Locust's window is the one in front; the turns and cards already told; finishes gathering.
     pub(super) window_focused: bool,
     /// When motion rests (useCoverActivity's rule): made at the first poll, fed by `cover_watch::observe`.
@@ -558,6 +560,7 @@ impl Default for State {
             reference_menu: false,
             reference_picker: false,
             reference_note: None,
+            reference_work: Default::default(),
             window_focused: true,
             cover: None,
             cover_input_seen: None,

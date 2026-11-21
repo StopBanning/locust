@@ -457,7 +457,7 @@ fn quiet(command: &mut std::process::Command) -> &mut std::process::Command {
     command.env("GH_PROMPT_DISABLED", "1").env("GH_NO_UPDATE_NOTIFIER", "1").env("NO_COLOR", "1")
 }
 
-fn real_gh_command() -> String {
+pub(crate) fn real_gh_command() -> String {
     let path = std::env::var("PATH").unwrap_or_default();
     gh_command(RealGh.platform(), &path, std::env::var("ProgramFiles").ok().as_deref(), std::env::var("LOCALAPPDATA").ok().as_deref(), &|p| Path::new(p).exists())
 }

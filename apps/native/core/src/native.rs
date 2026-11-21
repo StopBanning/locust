@@ -2986,6 +2986,8 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
     if let Err(error) = crate::references::bind(&store, &id, previous.as_deref(), &attached_ids, Some(&folder_text)) {
         eprintln!("The conversation's references were not kept: {error}");
     }
+    // Its GitHub copies are not refreshed or collected under it until the run ends (or its start fails).
+    let reference_lease = crate::references::lease(&store, &id, &attached_ids);
     let turn = Turn {
         prompt: runtime_prompt,
         folder,
@@ -3051,6 +3053,7 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
             let _counted = counted;
             // Keep ownership through the final memory write so shutdown/continuation cannot race it.
             let memory_completion = registered;
+            let _reference_lease = reference_lease;
             let _browser_registration = browser_registration;
             let checkpoint = crate::checkpoints::Turn::begin(&memory_store, &memory_folder);
             let cursor_guard = crate::cursor_config::CursorRunGuard::begin(memory_store.root(), &runtime_owned, &memory_folder, check_mode, check_model.as_deref());

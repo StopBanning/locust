@@ -6601,3 +6601,57 @@ fn a_cancelled_reference_picker_creates_no_reference_and_a_picked_folder_one() {
     assert_eq!(rt.state.reference_items.iter().map(|i| i.name.as_str()).collect::<Vec<_>>(), ["work"], "{:?}", rt.state.reference_note);
     assert!(dirs.0.join("native").join(locust_core::references::FILE).exists(), "the pick is saved where the cancel saved nothing");
 }
+
+/// Electron's picker has a GitHub repository box beside the folder: a name it cannot take is refused in its words
+/// before anything is downloaded, an empty box adds nothing, and the box says what the copy is.
+#[test]
+fn the_reference_picker_takes_a_github_repository_and_refuses_one_it_cannot_name() {
+    let (_dirs, _store, mut rt) = window();
+    pump(&mut rt, "the chips' key", |s| !s.references_key.is_empty());
+    rt.update(|s, _| s.reference_picker = true);
+    assert!(rt.find("reference-repository").is_none(), "the box waits for its button");
+    click(&mut rt, "reference-github");
+    assert!(rt.find("reference-repository").is_some());
+    assert!(rt.elements().into_iter().filter_map(|e| e.text).any(|t| t.starts_with("A shallow copy, up to 500 MB")));
+    click(&mut rt, "reference-add-repository");
+    assert!(!rt.state.reference_work.busy && rt.state.reference_note.is_none(), "an empty box adds nothing");
+    click(&mut rt, "reference-repository");
+    rt.paste("owner/repo;evil");
+    rt.frame(0.016);
+    rt.key(Key::Enter.into());
+    rt.frame(0.016);
+    assert!(rt.state.reference_work.busy, "Return adds it, as the button does");
+    assert!(rt.elements().into_iter().filter_map(|e| e.text).any(|t| t == "Adding reference…"));
+    pump(&mut rt, "the refusal", |s| s.reference_note.is_some());
+    assert_eq!(rt.state.reference_note.as_deref(), Some("Enter a GitHub repository as owner/repo or its github.com URL. Nothing was downloaded."));
+    assert!(!rt.state.reference_work.busy && rt.state.reference_items.is_empty());
+}
+
+/// A chip's note is worked out against the folder its conversation's turns stood in, and a copy that could not be
+/// refreshed says so after its note.
+#[test]
+fn a_reference_chip_reads_its_conversations_folder_and_says_a_failed_refresh() {
+    let (_dirs, _store, mut rt) = window_in("accept-edits");
+    settle(&mut rt);
+    rt.update(|s, _| {
+        s.reference_work.cwd = Some("/conversation".into());
+        s.reference_items = vec![
+            locust_core::references::Item { id: "r1".into(), name: "docs".into(), path: "/conversation/docs".into(), ..Default::default() },
+            locust_core::references::Item {
+                id: "r2".into(),
+                name: "owner/repo".into(),
+                path: "/elsewhere/copy".into(),
+                repository: Some("owner/repo".into()),
+                problem: Some("Could not refresh from GitHub. The previous copy is still here.".into()),
+                ..Default::default()
+            },
+        ];
+    });
+    settle(&mut rt);
+    let texts: Vec<String> = rt.elements().into_iter().filter_map(|e| e.text).collect();
+    assert!(texts.iter().any(|t| t == "This reference is inside the working folder. This mode can change it."), "{texts:?}");
+    assert!(
+        texts.iter().any(|t| t == "For reading, not changing. No extra writable folder is granted. Could not refresh from GitHub. The previous copy is still here."),
+        "{texts:?}"
+    );
+}

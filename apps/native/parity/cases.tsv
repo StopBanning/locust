@@ -651,13 +651,13 @@ apps/desktop/src/main/a-reference-stays-with-its-conversation.test.ts	survives a
 apps/desktop/src/main/a-reference-stays-with-its-conversation.test.ts	removal affects the conversation, not the chosen folder or another conversation	yes
 apps/desktop/src/main/a-reference-stays-with-its-conversation.test.ts	refuses paths or invented identities from the window, duplicate IDs, and a sixth reference	yes
 apps/desktop/src/main/a-reference-stays-with-its-conversation.test.ts	a cancelled picker creates no reference	yes
-apps/desktop/src/main/a-reference-stays-with-its-conversation.test.ts	accepts only repository identities, not arbitrary git URLs, paths, options or shell fragments	no
-apps/desktop/src/main/a-reference-stays-with-its-conversation.test.ts	uses gh first, shallow-clones into its cache, refreshes after an hour, and keeps the old copy in trash	no
-apps/desktop/src/main/a-reference-stays-with-its-conversation.test.ts	falls back to an HTTPS public clone without shell interpretation	no
-apps/desktop/src/main/a-reference-stays-with-its-conversation.test.ts	refuses an oversized clone and recycles it, never the local folder	no
-apps/desktop/src/main/a-reference-stays-with-its-conversation.test.ts	only recycles a clone when its last conversation and live run release it	no
-apps/desktop/src/main/a-reference-stays-with-its-conversation.test.ts	keeps an unsent reference after a failed start releases its lease, until the person removes it	no
-apps/desktop/src/main/a-reference-stays-with-its-conversation.test.ts	does not follow a repository junction while counting bytes	no
+apps/desktop/src/main/a-reference-stays-with-its-conversation.test.ts	accepts only repository identities, not arbitrary git URLs, paths, options or shell fragments	yes
+apps/desktop/src/main/a-reference-stays-with-its-conversation.test.ts	uses gh first, shallow-clones into its cache, refreshes after an hour, and keeps the old copy in trash	yes
+apps/desktop/src/main/a-reference-stays-with-its-conversation.test.ts	falls back to an HTTPS public clone without shell interpretation	yes
+apps/desktop/src/main/a-reference-stays-with-its-conversation.test.ts	refuses an oversized clone and recycles it, never the local folder	yes
+apps/desktop/src/main/a-reference-stays-with-its-conversation.test.ts	only recycles a clone when its last conversation and live run release it	yes
+apps/desktop/src/main/a-reference-stays-with-its-conversation.test.ts	keeps an unsent reference after a failed start releases its lease, until the person removes it	yes
+apps/desktop/src/main/a-reference-stays-with-its-conversation.test.ts	does not follow a repository junction while counting bytes	yes
 apps/desktop/src/main/a-reference-stays-with-its-conversation.test.ts	full-access modes keep the reference with a plain write warning	yes
 apps/desktop/src/main/a-reference-stays-with-its-conversation.test.ts	Codex reads outside its workspace without granting add-dir write access	yes
 apps/desktop/src/main/a-reference-stays-with-its-conversation.test.ts	names references without changing an unextended runtime or inventing a write-access reason to omit them	yes
