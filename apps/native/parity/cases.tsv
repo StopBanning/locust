@@ -2286,6 +2286,9 @@ apps/desktop/src/main/share-addressed-home.test.ts	is a teammate found by their 
 apps/desktop/src/main/share-addressed-home.test.ts	is nobody when a role is shared, rather than whoever came first	yes
 apps/desktop/src/main/share-addressed-home.test.ts	is nobody for a name nothing on the roster answers to	yes
 apps/desktop/src/main/share-addressed-home.test.ts	prefers a real teammate over the sender, when a name is worn twice	yes
+apps/desktop/src/main/signing-in-is-a-button.test.ts	runs the words the install facts name, and nothing for OpenCode	yes
+apps/desktop/src/main/signing-in-is-a-button.test.ts	signs in again with each CLI’s own command, read from its --help (Colin, 2026-10-02: change accounts)	yes
+apps/desktop/src/main/signing-in-is-a-button.test.ts	refuses a runtime discovery did not find, rather than guessing a path	yes
 apps/desktop/src/main/skills-kept-from-github.test.ts	reads owner/repo, a github.com link, and a link to a folder on a branch	yes
 apps/desktop/src/main/skills-kept-from-github.test.ts	refuses what is not one	yes
 apps/desktop/src/main/skills-kept-from-github.test.ts	reads a SKILL.md's description, quoted or not	yes

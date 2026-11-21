@@ -476,25 +476,105 @@ fn copy_line(l: &crate::look::controls::Look, key: String, line: String) -> El {
         )
 }
 
+/// Where a row's sign-in button stands (SignInButton). Idle is no entry at all.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) enum SignInRow {
+    /// Sign in again was pressed: the row says it can leave the agent signed out, with Open it and Cancel.
+    Confirm,
+    /// The window is open: the row says to finish there, until Locust's window is back in front.
+    Opened { again: bool, at: std::time::Instant },
+}
+
 /// Sign in from a button (runtime-sign-in.ts): a Terminal window in the home folder running the agent's own sign-in
-/// command, against the program discovery found. Only the command its facts name is ever run. Check again reads it
-/// back once the person has signed in there.
-fn sign_in(s: &mut State, id: &str) {
-    let Some(line) = agents::sign_in_command(id, false) else { return };
-    let words: Vec<String> = line.strip_prefix("run ").unwrap_or(&line).split(',').next().unwrap_or("").split_whitespace().map(str::to_owned).collect();
-    let Some((program, args)) = words.split_first() else { return };
+/// command, against the program discovery found. Only the command its facts name is ever run. Signing in again runs
+/// the CLI's own command for changing accounts (`claude auth login`, `codex login`).
+fn sign_in(s: &mut State, id: &str, again: bool) {
+    let Some(line) = agents::sign_in_command(id, again) else { return };
+    let Some(args) = agents::sign_in_args(id, again) else { return };
+    let Some(program) = line.strip_prefix("run ").unwrap_or(&line).split([',', ' ']).next().map(str::to_owned) else { return };
     if cfg!(test) {
         s.agents_signed_in.push(format!("{program} {}", args.join(" ")).trim().to_owned());
+        s.agents_sign_in_said = None;
+        s.agents_sign_in_rows.insert(id.to_owned(), SignInRow::Opened { again, at: std::time::Instant::now() });
         return;
     }
-    let said = (|| {
-        let path = crate::runtime::find_executable(program).map_err(|_| "Locust could not find this agent on the machine. Install it first, then sign in.".to_owned())?;
-        let store = s.data.clone().ok_or("Locust could not open its data folder.")?;
+    let store = s.data.clone();
+    let said = open_sign_in(&program, |p| crate::runtime::find_executable(p).ok(), |path| {
+        let store = store.ok_or("Locust could not open its data folder.")?;
         let home = std::env::var_os("HOME").map(std::path::PathBuf::from).ok_or("Locust could not find your home folder.")?;
         let script = store.attachments_dir().map_err(|e| e.to_string())?.join(format!("sign-in-{}.command", locust_core::invariants::unique_nanos()));
-        locust_core::runtime_terminal::open(&path, args, &home, &script, &store).map_err(|_| "Terminal could not be opened for the sign-in. Run the command shown in a terminal.".to_owned())
-    })();
-    s.agents_sign_in_said = said.err();
+        locust_core::runtime_terminal::open(path, &args, &home, &script, &store).map_err(|_| "Terminal could not be opened for the sign-in. Run the command shown in a terminal.".to_owned())
+    });
+    match said {
+        Ok(_) => {
+            s.agents_sign_in_said = None;
+            s.agents_sign_in_rows.insert(id.to_owned(), SignInRow::Opened { again, at: std::time::Instant::now() });
+        }
+        Err(why) => {
+            s.agents_sign_in_rows.remove(id);
+            s.agents_sign_in_said = Some(why);
+        }
+    }
+}
+
+/// openSignIn's refusal: a program discovery did not find is never guessed at a path; the window opens only against
+/// the one found.
+fn open_sign_in(program: &str, find: impl Fn(&str) -> Option<std::path::PathBuf>, open: impl FnOnce(&std::path::Path) -> Result<(), String>) -> Result<(), String> {
+    let path = find(program).ok_or_else(|| "Locust could not find this agent on the machine. Install it first, then sign in.".to_owned())?;
+    open(&path)
+}
+
+/// Locust's window is back in front (SignInButton's focus listener, armed a second after the window opened): the
+/// sign-in window was dealt with one way or the other, so each opened row offers its button again and every agent is
+/// asked again, which turns a row that signed in ready by itself (App.tsx's SIGN_IN_OPENED_EVENT).
+pub(super) fn window_focused(s: &mut State, now: std::time::Instant) {
+    let before = s.agents_sign_in_rows.len();
+    s.agents_sign_in_rows.retain(|_, row| !matches!(row, SignInRow::Opened { at, .. } if now.saturating_duration_since(*at) >= std::time::Duration::from_secs(1)));
+    if s.agents_sign_in_rows.len() < before {
+        check_again(s);
+    }
+}
+
+/// A row's Sign in or Sign in again, as SignInButton draws it: the button, the warning with Open it and Cancel, or the
+/// line saying to finish in the window that opened.
+fn sign_in_part(s: &State, l: &crate::look::controls::Look, f: &Found, again: bool) -> El {
+    use crate::look::controls::{Tone, button};
+    let id = f.id.clone();
+    match s.agents_sign_in_rows.get(&f.id) {
+        Some(SignInRow::Opened { again: opened_again, .. }) if *opened_again == again => text(agents::sign_in_opened_line(&f.id, again))
+            .font(l.ty.body)
+            .color(l.c("text-secondary"))
+            .wrap()
+            .key(format!("agents-sign-in-opened-{}", f.id)),
+        Some(SignInRow::Confirm) if again => {
+            let open = id.clone();
+            col()
+                .gap(6.0)
+                .key(format!("agents-sign-in-again-confirm-{}", f.id))
+                .role("group")
+                .label(format!("Sign in to {} again", f.display_name))
+                .child(text(agents::sign_in_again_warning(&f.id, &f.display_name)).font(l.ty.body).color(l.c("text-secondary")).wrap())
+                .child(
+                    row()
+                        .gap(8.0)
+                        .child(button(l, "Open it", Tone::Neutral, false).key(format!("agents-sign-in-again-open-{}", f.id)).on_press(move |s: &mut State| sign_in(s, &open, true)))
+                        .child(button(l, "Cancel", Tone::Neutral, false).key(format!("agents-sign-in-again-cancel-{}", f.id)).on_press(move |s: &mut State| {
+                            s.agents_sign_in_rows.remove(&id);
+                        })),
+                )
+        }
+        _ if again => {
+            let command = agents::sign_in_command(&f.id, true).unwrap_or_default();
+            button(l, "Sign in again", Tone::Neutral, false)
+                .key(format!("agents-sign-in-again-{}", f.id))
+                .label(format!("Sign in to {} again. Opens a window that runs: {}. Sign in there as this account or another; the agent uses whichever signed in last.", f.display_name, command.strip_prefix("run ").unwrap_or(&command)))
+                .self_start()
+                .on_press(move |s: &mut State| {
+                    s.agents_sign_in_rows.insert(id.clone(), SignInRow::Confirm);
+                })
+        }
+        _ => button(l, "Sign in", Tone::Neutral, false).key(format!("agents-sign-in-{}", f.id)).self_start().on_press(move |s: &mut State| sign_in(s, &id, false)),
+    }
 }
 
 pub(super) fn section(s: &State, p: &Palette) -> El {
@@ -558,10 +638,11 @@ pub(super) fn section(s: &State, p: &Palette) -> El {
             && let Some(line) = agents::sign_in_command(&f.id, false)
         {
             let command = line.strip_prefix("run ").unwrap_or(&line).to_owned();
-            let id = f.id.clone();
-            words = words
-                .child(copy_line(&l, format!("agents-copy-sign-in-{}", f.id), command))
-                .child(crate::look::controls::button(&l, "Sign in", crate::look::controls::Tone::Neutral, false).key(format!("agents-sign-in-{}", f.id)).self_start().on_press(move |s: &mut State| sign_in(s, &id)));
+            words = words.child(copy_line(&l, format!("agents-copy-sign-in-{}", f.id), command)).child(sign_in_part(s, &l, &f, false));
+        }
+        // Signed in: Sign in again, to change accounts with the CLI's own command (Colin, 2026-10-02).
+        if matches!(status.tag, "READY" | "ACTIVE") && f.auth == agents::Auth::Authenticated && agents::sign_in_command(&f.id, true).is_some() {
+            words = words.child(sign_in_part(s, &l, &f, true));
         }
         let tag = text(status.tag.to_owned())
             .font(l.ty.label)
@@ -645,6 +726,10 @@ mod agents_recheck_tests;
 #[cfg(test)]
 #[path = "agents_abilities_tests.rs"]
 mod agents_abilities_tests;
+
+#[cfg(test)]
+#[path = "signing_in_is_a_button_tests.rs"]
+mod signing_in_is_a_button_tests;
 
 #[cfg(test)]
 mod tests {
@@ -858,8 +943,9 @@ mod tests {
         ]);
         recheck(&mut rt, vec![agents::pending_found("claude", "Claude Code"), agent("codex", "Codex CLI", None, Auth::Authenticated, Probe::Ready)]);
         let claude = row_words(&rt, "claude");
-        assert_eq!(claude, "Claude Code | 2.1.270 | READY");
-        assert_eq!(row_words(&rt, "codex"), "Codex CLI | 0.153.0 | READY");
+        // A signed-in row carries Sign in again, to change accounts (SignInButton `again`).
+        assert_eq!(claude, "Claude Code | 2.1.270 | Sign in again | READY");
+        assert_eq!(row_words(&rt, "codex"), "Codex CLI | 0.153.0 | Sign in again | READY");
     }
 
     // case: takes every DEFINITE answer at once, including the unwelcome ones
@@ -882,6 +968,6 @@ mod tests {
         assert!(row_words(&rt, "cursor").ends_with("NOT INSTALLED"), "{}", row_words(&rt, "cursor"));
         assert!(!row_words(&rt, "cursor").contains("1.0"), "{}", row_words(&rt, "cursor"));
         assert_eq!(row_words(&rt, "opencode"), "OpenCode | 1.18.27 | READY");
-        assert_eq!(row_words(&rt, "codex"), "Codex CLI | 0.58.0 | READY");
+        assert_eq!(row_words(&rt, "codex"), "Codex CLI | 0.58.0 | Sign in again | READY");
     }
 }

@@ -2729,7 +2729,13 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
         .children(remote_mcp_card::card(s, &p))
         .child(body)
         // Locust taps you on the shoulder only while its window is elsewhere (attention.ts shouldNotify).
-        .on_window_focus(|s: &mut State, focused: bool, _tx: &mut Tx| s.window_focused = focused);
+        .on_window_focus(|s: &mut State, focused: bool, _tx: &mut Tx| {
+            s.window_focused = focused;
+            // Back from a sign-in window: its row offers the button again and the agents are asked again.
+            if focused {
+                agents_section::window_focused(s, std::time::Instant::now());
+            }
+        });
     if s.keychain_asking {
         app = col()
             .w_full()

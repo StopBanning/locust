@@ -182,6 +182,8 @@ pub(super) struct State {
     pub(super) agents_sign_in_said: Option<String>,
     /// Sign-ins a test pressed, kept instead of opened.
     pub(super) agents_signed_in: Vec<String>,
+    /// Where each row's sign-in button stands (SignInButton): asking before signing in again, or its window open.
+    pub(super) agents_sign_in_rows: HashMap<String, crate::agents_section::SignInRow>,
     /// The agent being installed from its row, npm's latest line, and how the last install ended.
     pub(super) agents_install: crate::agents_section::Installing,
     pub(super) agents_install_job: Latest<crate::agents_section::InstallAnswer>,
@@ -514,6 +516,7 @@ impl Default for State {
             own_models_job: Latest::default(),
             agents_sign_in_said: None,
             agents_signed_in: Vec::new(),
+            agents_sign_in_rows: HashMap::new(),
             agents_install: Default::default(),
             agents_install_job: Latest::default(),
             keys: Default::default(),

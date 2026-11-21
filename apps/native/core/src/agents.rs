@@ -251,6 +251,28 @@ pub fn sign_in_command(id: &str, again: bool) -> Option<String> {
     })
 }
 
+/// signInArgs: the words run after the agent's own program to sign in (or sign in again), or `None` for a runtime with
+/// no account. Claude Code and Codex sign in from their own first screen, so theirs is no words at all.
+pub fn sign_in_args(id: &str, again: bool) -> Option<Vec<String>> {
+    let facts = runtime_install_facts(id)?;
+    let line = if again { facts.sign_in_again } else { facts.sign_in }?;
+    Some(line.split_whitespace().skip(1).map(str::to_owned).collect())
+}
+
+/// SignInButton's `SIGNS_OUT_AT_START`: runtimes whose sign-in command removes the current sign-in the moment it starts
+/// (measured on Codex, 10/02, on a throwaway CODEX_HOME).
+const SIGNS_OUT_AT_START: [&str; 1] = ["codex"];
+
+/// What the row says before signing in again opens a window (SignInButton, 0.545): closing that window unanswered
+/// can leave the agent signed out, and for Codex it does.
+pub fn sign_in_again_warning(id: &str, display_name: &str) -> String {
+    if SIGNS_OUT_AT_START.contains(&id) {
+        format!("{display_name} signs out as soon as this opens, and stays signed out until you finish there.")
+    } else {
+        format!("Until you finish signing in there, {display_name} may stay signed out.")
+    }
+}
+
 /// signInOpenedLine: what the UI shows after opening the sign-in command in a terminal.
 pub fn sign_in_opened_line(id: &str, again: bool) -> String {
     let note = if again {

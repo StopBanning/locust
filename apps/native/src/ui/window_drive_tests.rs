@@ -1243,6 +1243,14 @@ fn the_ai_agents_page_lists_each_agent_usable_first_with_what_to_do() {
     // And Sign in, which opens a Terminal running the agent's own sign-in (recorded here, never opened).
     click(&mut rt, "agents-sign-in-claude");
     assert_eq!(rt.state.agents_signed_in, vec!["claude".to_owned()]);
+    // The row says to finish in the window that opened, until Locust's own window is back in front (SignInButton):
+    // then it offers Sign in again and the agents are asked again.
+    assert!(rt.find("agents-sign-in-opened-claude").is_some());
+    std::thread::sleep(std::time::Duration::from_millis(1_050));
+    rt.window_focus(false);
+    rt.window_focus(true);
+    settle(&mut rt);
+    assert!(rt.find("agents-sign-in-opened-claude").is_none() && rt.find("agents-sign-in-claude").is_some());
     assert!(words.contains("npm install -g opencode-ai") && rt.find("agents-copy-install-opencode").is_some(), "the install line, with Copy");
     // Install is on the row, so the sentence says to press it, as Electron's does.
     assert!(words.contains("OpenCode was not found on this machine. Press Install.") && rt.find("agents-install-opencode").is_some(), "{words}");
