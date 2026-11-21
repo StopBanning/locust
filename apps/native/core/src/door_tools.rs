@@ -7,8 +7,9 @@
 //! answer one. A question card (a finished turn asking the person to choose) is another thing: read_reply gives it,
 //! and answer_question sends what pressing an option sends (0.878). Every refusal says that nothing was started, sent or stopped, so an app never retries blind.
 //!
-//! The rules and words follow Electron's; what the native engine cannot do yet is said the way Electron's tools say it
-//! for a server that does not offer it: routines.
+//! The rules and words follow Electron's. Routines run through the routine card's own path (0.704), only where the
+//! window offered its runner; elsewhere they are said the way Electron's tools say it for a server that does not offer
+//! them.
 
 use crate::approval::Mode;
 use crate::engine::Teammate;
@@ -23,6 +24,20 @@ pub const WAIT_LIMIT_S: u64 = 20;
 
 /// The words Locust's own mode control uses (MODE_NAME), and the modes an app may name.
 const MODES: [&str; 5] = ["ask", "plan", "accept-edits", "approve-each", "auto"];
+/// Modes that change nothing: a routine made only of these may run from outside with the switch off.
+const READ_ONLY: [&str; 2] = ["ask", "plan"];
+
+/// MODE_NAME: the words Locust's own mode control uses, for a sentence a person may read.
+fn mode_name(mode: &str) -> &str {
+    match mode {
+        "ask" => "Ask",
+        "plan" => "Plan",
+        "accept-edits" => "Edit",
+        "approve-each" => "Approve each action",
+        "auto" => "Auto",
+        other => other,
+    }
+}
 
 /// One tool's answer, as MCP carries it: text, whether it is a refusal, and a status an app can read without parsing.
 #[derive(Debug, Clone, PartialEq)]
@@ -195,6 +210,23 @@ pub trait Locust: Send + Sync {
     fn follow_up_route(&self, _mission: &str) -> Option<Route> {
         None
     }
+    /// The saved routines, as the routine card reads them; None when this Locust does not offer routines to other apps.
+    fn routines(&self) -> Option<Vec<Value>> {
+        None
+    }
+    /// The routine card's own Run, with the values the app gave: the first step's conversation, or the runner's own
+    /// refusal, word for word.
+    fn run_routine(&self, _routine_id: &str, _values: Option<&Value>) -> Result<String, String> {
+        Err("This Locust does not offer routines to other apps. Nothing was started.".into())
+    }
+    /// The routine steps in flight: routine id, step, of, and the step's conversation.
+    fn routine_steps(&self) -> Vec<(String, u64, u64, String)> {
+        Vec::new()
+    }
+    /// The newest step a routine started, kept as each one starts.
+    fn routine_last_step(&self, _routine_id: &str) -> Option<String> {
+        None
+    }
     /// How a waiting read_reply sleeps between looks.
     fn pause(&self, ms: u64) {
         std::thread::sleep(Duration::from_millis(ms));
@@ -318,11 +350,13 @@ pub struct Tools<L: Locust> {
     pub locust: L,
     /// Conversations a send_message is starting the next turn of, claimed before the first read.
     starting: Mutex<HashSet<String>>,
+    /// The routines this server started: their status is readable here; a person's own runs are not.
+    routines_started: Mutex<HashSet<String>>,
 }
 
 impl<L: Locust> Tools<L> {
     pub fn new(locust: L) -> Self {
-        Self { locust, starting: Mutex::new(HashSet::new()) }
+        Self { locust, starting: Mutex::new(HashSet::new()), routines_started: Mutex::new(HashSet::new()) }
     }
 
     /// A conversation this app may read: one an app started, or any while the person lets apps see theirs. Then its
@@ -687,8 +721,9 @@ impl<L: Locust> Tools<L> {
                 }
             }
             "carry_on" => self.carry_on(args),
-            "list_routines" | "routine_status" => ToolResult::refused("This Locust does not offer routines to other apps."),
-            "run_routine" => ToolResult::refused("This Locust does not offer routines to other apps. Nothing was started."),
+            "list_routines" => self.list_routines(),
+            "run_routine" => self.run_routine(args),
+            "routine_status" => self.routine_status(args),
             "list_conversations" => {
                 if !self.locust.see_all() {
                     return ToolResult::ok(
@@ -763,6 +798,191 @@ impl<L: Locust> Tools<L> {
     }
 
     /// carry_on: a conversation whose turn stopped on its plan, provider or process, on to another agent.
+    /// stepModes: the mode each step runs in, as the runner decides it: the routine's saved mode for its own teammate's
+    /// steps, and a step handed to another teammate runs on THAT teammate's route (routine-runner.ts, 0.435).
+    fn step_modes(routine: &Value, team: &[(Teammate, Option<String>)]) -> Vec<String> {
+        let own = routine["teammateId"].as_str().unwrap_or_default();
+        let saved = routine["route"]["mode"].as_str().unwrap_or("ask");
+        (0..routine["steps"].as_array().map_or(0, Vec::len))
+            .map(|index| {
+                let owner = routine["handOffs"][index]["teammateId"].as_str().unwrap_or(own);
+                if owner == own {
+                    return saved.to_owned();
+                }
+                team.iter().find(|(t, _)| t.id == owner).map(|(t, _)| t.runs_in.clone()).filter(|m| !m.is_empty()).unwrap_or_else(|| "ask".into())
+            })
+            .collect()
+    }
+
+    /// findRoutine: one routine by its id, or its name in any case; else why not.
+    fn find_routine(&self, given: &Value) -> Result<Value, String> {
+        let Some(all) = self.locust.routines() else { return Err("This Locust does not offer routines to other apps.".into()) };
+        let Some(given) = text_arg(given, 200) else { return Err("Name a routine by its id or name from list_routines.".into()) };
+        let matches: Vec<&Value> = all
+            .iter()
+            .filter(|r| r["routineId"] == given || r["name"].as_str().is_some_and(|n| n.to_lowercase() == given.to_lowercase()))
+            .collect();
+        match matches.as_slice() {
+            [one] => Ok((*one).clone()),
+            _ => Err("That routine could not be identified. Use its id from list_routines.".into()),
+        }
+    }
+
+    fn list_routines(&self) -> ToolResult {
+        let Some(all) = self.locust.routines() else { return ToolResult::refused("This Locust does not offer routines to other apps.") };
+        let team = self.locust.teammates().unwrap_or_default();
+        let own = self.locust.own_mode();
+        let name_of = |id: &str| team.iter().find(|(t, _)| t.id == id).map(|(t, _)| t.name.clone()).unwrap_or_else(|| "a teammate no longer here".into());
+        let rows: Vec<Value> = all
+            .iter()
+            .map(|routine| {
+                let modes = Self::step_modes(routine, &team);
+                let writes = modes.iter().any(|m| !READ_ONLY.contains(&m.as_str()));
+                let inputs = routine["inputs"].as_array().cloned().unwrap_or_default();
+                let folder = inputs.iter().any(|i| i["kind"] == "folder");
+                let paused = routine["paused"] == true;
+                let own_teammate = routine["teammateId"].as_str().unwrap_or_default();
+                let steps: Vec<Value> = modes
+                    .iter()
+                    .enumerate()
+                    .map(|(index, mode)| {
+                        let hand = &routine["handOffs"][index];
+                        let mut step = json!({"teammate": name_of(hand["teammateId"].as_str().unwrap_or(own_teammate)), "mode": mode});
+                        if hand["check"] == true {
+                            step["checks_the_work"] = json!(true);
+                        }
+                        if hand["askFirst"] == true {
+                            step["waits_for_your_ok"] = json!(true);
+                        }
+                        step
+                    })
+                    .collect();
+                let inputs: Vec<Value> = inputs
+                    .iter()
+                    .map(|i| {
+                        let mut row = json!({"key": i["key"], "label": i["label"], "kind": i["kind"], "required": i["required"]});
+                        for extra in ["default", "choices"] {
+                            if !i[extra].is_null() {
+                                row[extra] = i[extra].clone();
+                            }
+                        }
+                        row
+                    })
+                    .collect();
+                let mut row = json!({"id": routine["routineId"], "name": routine["name"], "steps": steps, "inputs": inputs, "changes_files": writes});
+                if paused {
+                    row["paused"] = json!(true);
+                }
+                // Whether run_routine would start it now, and why not.
+                row["runs_from_here"] = json!(!paused && !folder && (!writes || own));
+                let why = if paused {
+                    Some("It is paused in Locust.")
+                } else if folder {
+                    Some("It asks for a folder, which is chosen in Locust's own picker.")
+                } else if writes && !own {
+                    Some("It changes files, and \"Use each teammate's own mode\" is off in Locust.")
+                } else {
+                    None
+                };
+                if let Some(why) = why {
+                    row["why_not"] = json!(why);
+                }
+                row
+            })
+            .collect();
+        ToolResult::ok(Value::Array(rows).to_string())
+    }
+
+    fn run_routine(&self, args: &Value) -> ToolResult {
+        let routine = match self.find_routine(&args["routine"]) {
+            Ok(r) => r,
+            Err(why) => return ToolResult::refused(format!("{why} Nothing was started.")),
+        };
+        let name = routine["name"].as_str().unwrap_or_default();
+        // Paused (0.705) is the person's word that it should not go on its own; another app's request is not theirs.
+        if routine["paused"] == true {
+            return ToolResult::refused(format!("\"{name}\" is paused in Locust. Resume it there, or run it from Locust. Nothing was started."));
+        }
+        if routine["inputs"].as_array().into_iter().flatten().any(|i| i["kind"] == "folder") {
+            return ToolResult::refused(format!("\"{name}\" asks for a folder, which is chosen in Locust's own picker. Run it from Locust. Nothing was started."));
+        }
+        let team = self.locust.teammates().unwrap_or_default();
+        let modes = Self::step_modes(&routine, &team);
+        if let Some(writing) = modes.iter().position(|m| !READ_ONLY.contains(&m.as_str()))
+            && !self.locust.own_mode()
+        {
+            return ToolResult::refused(format!(
+                "\"{name}\" changes files (step {} runs in {}). Turn on \"Use each teammate's own mode\" in Locust's Settings to let other apps run it. Nothing was started.",
+                writing + 1,
+                mode_name(&modes[writing])
+            ));
+        }
+        // Strings only; the runner's own reader checks each against the routine's inputs.
+        let values = &args["values"];
+        if !values.is_null() {
+            let Some(entries) = values.as_object() else {
+                return ToolResult::refused("values must be an object of input keys to text. Nothing was started.");
+            };
+            if entries.len() > 12 || entries.iter().any(|(key, value)| text_arg(&json!(key), 80).is_none() || value.as_str().is_none_or(|v| v.encode_utf16().count() > 4_000)) {
+                return ToolResult::refused("values must be at most 12 input keys, each to text of up to 4,000 characters. Nothing was started.");
+            }
+        }
+        let id = routine["routineId"].as_str().unwrap_or_default();
+        match self.locust.run_routine(id, (!values.is_null()).then_some(values)) {
+            Ok(first) => {
+                crate::invariants::lock(&self.routines_started).insert(id.to_owned());
+                ToolResult::ok(json!({"routine_id": id, "steps": modes.len(), "first_conversation_id": first}).to_string())
+            }
+            Err(why) => ToolResult::refused(why),
+        }
+    }
+
+    fn routine_status(&self, args: &Value) -> ToolResult {
+        let routine = match self.find_routine(&args["routine"]) {
+            Ok(r) => r,
+            Err(why) => return ToolResult::refused(why),
+        };
+        let id = routine["routineId"].as_str().unwrap_or_default();
+        if !crate::invariants::lock(&self.routines_started).contains(id) {
+            return ToolResult::refused("This server has not started that routine since Locust opened. Its runs are in Locust.");
+        }
+        if let Some((_, step, of, mission)) = self.locust.routine_steps().into_iter().find(|s| s.0 == id) {
+            // This app cannot answer a card: there is no tool for it, by design.
+            if self.locust.waiting(&mission) {
+                return ToolResult::ok(format!(
+                    "Waiting for the person to approve or deny an action in Locust's window (step {step} of {of}). This app cannot answer it; routine_status again later."
+                ));
+            }
+            return ToolResult::ok(format!("Still working: step {step} of {of}."));
+        }
+        let execution = &routine["execution"];
+        if execution["status"] == "held" {
+            let reason = execution["reason"].as_str().map_or_else(|| ".".to_owned(), |r| format!(": {r}"));
+            return ToolResult::refused(format!("Stopped at step {} of {} and waiting for the person in Locust{reason}", execution["step"], execution["of"]));
+        }
+        if execution.is_object() && execution["status"] != "abandoned" {
+            return ToolResult::ok(format!("Still working: step {} of {}.", execution["step"], execution["of"]));
+        }
+        if let Some(failed) = routine["lastFailed"].as_str() {
+            return ToolResult::refused(format!("The run ended with its check still failing: {failed}"));
+        }
+        let Some(last) = self.locust.routine_last_step(id) else {
+            return ToolResult::refused("The run ended, and Locust has no answer from it to give.");
+        };
+        let newest = self.locust.newest(&last).unwrap_or(last);
+        let Some(turn) = self.locust.read(&newest) else {
+            return ToolResult::refused("The run ended, but its last answer could not be read from the local ledger.");
+        };
+        let answer = answer_of(&turn);
+        if answer.is_error || routine.get("staged").is_none() {
+            return answer;
+        }
+        ToolResult::ok(format!(
+            "Its changes are waiting in Locust under Routines for the person to Keep or Discard; nothing has reached the folder yet.\n\n{}",
+            answer.text
+        ))
+    }
+
     fn carry_on(&self, args: &Value) -> ToolResult {
         let Some(id) = text_arg(&args["conversation_id"], 200) else {
             return ToolResult::refused("Give a conversation id from start_conversation or list_conversations.");
@@ -975,3 +1195,7 @@ impl<L: Locust> Tools<L> {
 #[cfg(test)]
 #[path = "door_tools_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "door_routines_tests.rs"]
+mod door_routines_tests;

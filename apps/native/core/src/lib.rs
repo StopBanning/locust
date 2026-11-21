@@ -101,6 +101,7 @@ pub mod desk;
 pub mod disk_observation;
 pub mod door;
 pub mod door_tools;
+pub mod door_routines;
 pub mod edit_check;
 pub mod engine;
 pub mod engine_api;

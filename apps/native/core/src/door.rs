@@ -507,6 +507,25 @@ pub fn list_models_here(teammate: Option<&str>) -> Result<String, String> {
     if said.is_error { Err(said.text) } else { Ok(said.text) }
 }
 
+/// The saved routines, only when the window offered its runner: the door with no window offers none.
+fn routines_if_offered(store: &Store, offered: bool) -> Option<Vec<Value>> {
+    if !offered {
+        return None;
+    }
+    crate::routines::progress::all(store).ok()
+}
+
+/// The live engine over `store`, for a test that drives the door's tools against the real routine runner.
+#[cfg(test)]
+pub(crate) fn routines_if_offered_for_test(store: &Store, offered: bool) -> Option<Vec<Value>> {
+    routines_if_offered(store, offered)
+}
+
+#[cfg(test)]
+pub(crate) fn tools_over(store: Store, own_mode: bool) -> Tools<Engine> {
+    Tools::new(Engine { store, settings: Arc::new(Mutex::new(Settings { own_mode, ..Settings::default() })) })
+}
+
 // ---- the live engine ------------------------------------------------------------------------------------------------
 
 /// The door's view of this machine's native engine.
@@ -691,6 +710,28 @@ impl Locust for Engine {
 
     fn see_all(&self) -> bool {
         self.settings.lock().unwrap_or_else(|e| e.into_inner()).conversations
+    }
+
+    /// The routines, only where the window offered its runner (door_routines): the door with no window has none.
+    fn routines(&self) -> Option<Vec<Value>> {
+        routines_if_offered(&self.store, crate::door_routines::runner().is_some())
+    }
+
+    /// The routine card's own Run (index.ts `runRoutine`): the runner checks the values against the routine's inputs,
+    /// and its refusal is passed on word for word.
+    fn run_routine(&self, routine_id: &str, values: Option<&Value>) -> Result<String, String> {
+        let runner = crate::door_routines::runner().ok_or("This Locust does not offer routines to other apps. Nothing was started.")?;
+        runner.run_with_inputs(routine_id, None, values, None)?.map(|begun| begun.mission_id)
+    }
+
+    fn routine_steps(&self) -> Vec<(String, u64, u64, String)> {
+        crate::door_routines::runner()
+            .map(|runner| runner.running().into_iter().map(|p| (p.routine_id, p.step, p.of, p.mission_id)).collect())
+            .unwrap_or_default()
+    }
+
+    fn routine_last_step(&self, routine_id: &str) -> Option<String> {
+        crate::door_routines::last_step(routine_id)
     }
 }
 

@@ -1341,8 +1341,12 @@ fn engine(s: &mut State) -> Option<&mut Engine> {
     Some(s.routines.engine.get_or_insert_with(|| {
         let host = std::sync::Arc::new(locust_core::routine_host::LiveHost::new(store.clone(), opened_at));
         let routines = std::sync::Arc::new(locust_core::routines::progress::StoreRoutines(store));
+        let runner = std::sync::Arc::new(locust_core::routine_runner::RoutineRunner::new(routines, host.clone()));
+        // Other apps run routines through this same runner, the routine card's own path (locust-mcp-tools.ts, 0.704).
+        #[cfg(not(test))]
+        locust_core::door_routines::offer(runner.clone());
         Engine {
-            runner: std::sync::Arc::new(locust_core::routine_runner::RoutineRunner::new(routines, host.clone())),
+            runner,
             host,
             busy: Default::default(),
             answers: Default::default(),

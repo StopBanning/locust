@@ -171,6 +171,7 @@ impl Host for LiveHost {
             return Err(StartError::Refused { code: "POLICY_REFUSED".into(), message: "That teammate no longer exists.".into() });
         };
         teammate.runs_in = request.mode.clone();
+        let routine = request.started_by["routineId"].as_str().map(str::to_owned);
         let folder = request.cwd.clone().or_else(|| self.folder(&request.home));
         let follow_up = request.follow_up_of.clone();
         let job = Send { teammate, conversation: follow_up.clone(), prompt: request.prompt, model: request.model, effort: request.effort };
@@ -188,6 +189,10 @@ impl Host for LiveHost {
                     Some(_) => crate::native::real_tip(&started.conversation_id).map_err(StartError::Threw)?,
                     None => started.conversation_id,
                 };
+                // The door's routine_status reads the newest step each routine started (index.ts routineLastStep).
+                if let Some(routine) = &routine {
+                    crate::door_routines::step_started(routine, &mission);
+                }
                 Ok(Begun { run_id: format!("run_{mission}"), mission_id: mission })
             }
             Err(message) => Err(StartError::Refused { code: refusal_code(&message).into(), message }),
@@ -369,6 +374,44 @@ mod tests {
         assert_eq!(said.last().unwrap(), "Routine \"Two steps\" finished: 2 steps completed.");
         assert_eq!(host.reply_of(&second).as_deref(), Some("Unknown cards scenario"));
         assert_eq!(host.asked_a_question(&second), Ok(false));
+        drop(_hook);
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    /// The door (another app) runs a routine through the window's own runner, and reads its status: the step it is on,
+    /// then the last step's answer (locust-mcp-tools.ts, 0.704).
+    #[test]
+    fn another_app_runs_a_routine_through_the_windows_runner_and_reads_its_answer() {
+        let (root, store) = fixture();
+        let _hook = crate::native::hooks::install(
+            store.clone(),
+            Some(("python3".into(), vec![concat!(env!("CARGO_MANIFEST_DIR"), "/../scripts/fixtures/m1-app-server.py").into(), "cards-routine".into()])),
+        );
+        crate::routines::save(&store, json!({"name": "Door steps", "teammateId": "codec", "steps": ["First.", "Second."]})).unwrap();
+        let id = crate::routines::progress::all(&store).unwrap()[0]["routineId"].as_str().unwrap().to_owned();
+        let host = Arc::new(LiveHost::new(store.clone(), Utc::now()));
+        let runner = Arc::new(RoutineRunner::new(Arc::new(StoreRoutines(store.clone())), host.clone()));
+        crate::door_routines::offer(runner.clone());
+        assert_eq!(crate::door::routines_if_offered_for_test(&store, false), None, "no runner offered: no routines");
+        let tools = crate::door::tools_over(store.clone(), false);
+        let listed: serde_json::Value = serde_json::from_str(&tools.call("list_routines", &json!({})).text).unwrap();
+        let row = listed.as_array().unwrap().iter().find(|r| r["id"] == id.as_str()).unwrap().clone();
+        assert_eq!(row["steps"], json!([{"teammate": "Codec", "mode": "ask"}, {"teammate": "Codec", "mode": "ask"}]));
+        assert_eq!(row["runs_from_here"], true);
+        let ran = tools.call("run_routine", &json!({"routine": "door STEPS"}));
+        assert!(!ran.is_error, "{}", ran.text);
+        let ran: serde_json::Value = serde_json::from_str(&ran.text).unwrap();
+        assert_eq!((ran["routine_id"].as_str(), ran["steps"].as_u64()), (Some(id.as_str()), Some(2)));
+        let first = ran["first_conversation_id"].as_str().unwrap().to_owned();
+        assert_eq!(read_turn(&first).unwrap().started_by, json!({"kind": "routine", "routineId": id, "step": 1}));
+        assert_eq!(crate::door_routines::last_step(&id).as_deref(), Some(first.as_str()), "kept as the step starts");
+        wait("the run to finish", || {
+            runner.ended().unwrap();
+            crate::routines::progress::get(&store, &id).unwrap().unwrap()["runs"] == 1
+        });
+        let second = crate::door_routines::last_step(&id).unwrap();
+        assert_ne!(second, first, "step 2 started and was kept");
+        assert_eq!(tools.call("routine_status", &json!({"routine": id})).text, "Unknown cards scenario");
         drop(_hook);
         let _ = std::fs::remove_dir_all(root);
     }
