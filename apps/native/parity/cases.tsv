@@ -2785,6 +2785,11 @@ apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	takes Cl
 apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	names the version on the controls that pick a route, and nothing else changes	no
 apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	labels the row with the version	no
 apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	believes a finished run over the table	no
+apps/desktop/src/renderer/src/a-codex-sandbox-that-did-not-start-says-why.test.tsx	is known by what Codex said, and nothing else is	yes
+apps/desktop/src/renderer/src/a-codex-sandbox-that-did-not-start-says-why.test.tsx	says why on its row, and what to do	yes
+apps/desktop/src/renderer/src/a-codex-sandbox-that-did-not-start-says-why.test.tsx	says nothing of the sort for a command that ran and failed (control)	yes
+apps/desktop/src/renderer/src/a-codex-sandbox-that-did-not-start-says-why.test.tsx	says the sandbox did not start, where it read only "1 failed"	yes
+apps/desktop/src/renderer/src/a-codex-sandbox-that-did-not-start-says-why.test.tsx	does not, when another failure is among them (control)	yes
 apps/desktop/src/renderer/src/a-colour-code-shows-its-colour.test.tsx	shows its colour beside it	yes
 apps/desktop/src/renderer/src/a-colour-code-shows-its-colour.test.tsx	shows it for a table cell or a list item that is nothing but a colour (0.362)	yes
 apps/desktop/src/renderer/src/a-colour-code-shows-its-colour.test.tsx	shows it inside bold and italic, with no backticks left showing (0.362)	yes
