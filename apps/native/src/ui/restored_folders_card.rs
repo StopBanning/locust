@@ -50,15 +50,17 @@ pub(super) fn show_in(s: &mut State, home: &Path) -> bool {
     !s.restore_folders.matches.is_empty()
 }
 
-/// Choose folder (App.tsx `chooseWorkspace`): the restored folders first when any are missing, the picker otherwise.
+/// Choose folder (App.tsx `chooseWorkspace`): the folder chooser always opens, and the restored folders that are not on
+/// this computer are listed on the card beside it, so a person can pick any folder or apply the ones found.
 pub(super) fn choose_workspace(s: &mut State, tx: &mut Tx) {
     choose_workspace_in(s, tx, home().as_deref());
 }
 
 pub(super) fn choose_workspace_in(s: &mut State, tx: &mut Tx, home: Option<&Path>) {
-    if !home.is_some_and(|home| show_in(s, home)) {
-        crate::home_panel::choose_folder(tx);
+    if let Some(home) = home {
+        show_in(s, home);
     }
+    crate::home_panel::choose_folder(tx);
 }
 
 fn toggle(s: &mut State, id: &str) {
@@ -136,6 +138,12 @@ pub(super) fn apply(s: &mut State, running: bool) {
     }
 }
 
+/// Whether any conversation is running (engine_api, as Settings' backup does). Never in a test: the engine's turns there
+/// are other tests', so the wait is tested through `apply` itself.
+fn conversations_running() -> bool {
+    !cfg!(test) && !locust_core::engine_api::api().running().is_empty()
+}
+
 pub(super) fn card(s: &State, p: &Palette) -> Option<El> {
     let finding = &s.restore_folders;
     if finding.matches.is_empty() {
@@ -189,7 +197,7 @@ pub(super) fn card(s: &State, p: &Palette) -> Option<El> {
                         .key("restore-folders-apply")
                         .on_press(move |s: &mut State| {
                             if !none_chosen {
-                                apply(s, !native::running_ids().is_empty());
+                                apply(s, conversations_running());
                             }
                         }),
                 )

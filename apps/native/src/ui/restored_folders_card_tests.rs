@@ -219,7 +219,7 @@ fn nothing_missing_shows_no_card() {
 }
 
 #[test]
-fn choose_folder_shows_the_missing_folders_first_and_the_picker_when_none_are_missing() {
+fn choose_folder_always_opens_the_chooser_with_the_missing_folders_beside_it() {
     let mut t = setup(None);
     let home = t.home.clone();
     t.rt.update(move |s, tx| {
@@ -227,9 +227,9 @@ fn choose_folder_shows_the_missing_folders_first_and_the_picker_when_none_are_mi
         choose_workspace_in(s, tx, Some(&home));
     });
     t.rt.frame(0.016);
-    assert!(t.rt.find("restore-folders").is_some());
-    assert!(t.rt.file_dialog().is_none(), "no picker while the card has rows");
-    // Nothing missing: Choose folder is the system's folder dialog, as it always was.
+    assert!(t.rt.find("restore-folders").is_some(), "the missing folder is listed");
+    assert_eq!(t.rt.file_dialog().expect("the chooser opens beside the card").1.title, "Choose a project folder");
+    // Nothing missing: the chooser alone, and no card.
     let (_dir, store) = crate::org::tests::temp_store();
     let mut s = State::default();
     s.data = Some(store);
@@ -239,4 +239,5 @@ fn choose_folder_shows_the_missing_folders_first_and_the_picker_when_none_are_mi
     rt.update(move |s, tx| choose_workspace_in(s, tx, Some(&top)));
     rt.frame(0.016);
     assert_eq!(rt.file_dialog().expect("the folder dialog opens").1.title, "Choose a project folder");
+    assert!(rt.state.restore_folders.matches.is_empty());
 }
