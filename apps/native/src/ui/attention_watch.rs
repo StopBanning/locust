@@ -17,10 +17,8 @@ pub(super) fn poll(s: &mut State) -> bool {
         if !s.told_cards.insert(card.approval_id.clone()) || !tell {
             continue;
         }
-        let who = s.data.as_ref().and_then(|store| locust_core::people::owner_of(store, &card.mission_id)).and_then(|id| s.teammates.iter().find(|t| t.id == id).map(|t| t.name.clone()));
-        let question = card.kind == locust_core::approval::Kind::Question;
-        let (title, body) = attention::approval_text(question, &card.summary, who.as_deref(), None);
-        crate::notify::show(&title, &body, Some(&card.mission_id));
+        let notice = card_notice(s, &card);
+        crate::notify::show(&notice.title, &notice.body, notice.opens.as_deref());
     }
     // A turn this process ran that has ended since the last look.
     let now: std::collections::HashSet<String> = locust_core::engine_api::api().running().into_iter().collect();
@@ -31,12 +29,12 @@ pub(super) fn poll(s: &mut State) -> bool {
         if turn.metadata["missionId"].as_str() != Some(id.as_str()) {
             continue;
         }
-        let who = s.data.as_ref().and_then(|store| locust_core::people::owner_of(store, &id)).and_then(|t| s.teammates.iter().find(|m| m.id == t).map(|m| m.name.clone()));
+        let who = owner_name(s, &id);
         let end = turn.events.iter().rev().find(|e| matches!(e["type"].as_str(), Some("run.completed" | "run.failed" | "run.cancelled")));
         let kind = end.and_then(|e| e["type"].as_str()).unwrap_or("");
         // attention-reader.ts: a run that ended waiting for the person -- at its account limit, or with a card asking
         // them something -- says so. A limit is said instead of the finish.
-        if let Some(notice) = attention::ended_notice(&id, &turn.events, turn.metadata["runtime"].as_str().unwrap_or(""), who.as_deref()) {
+        if let Some(notice) = ended_turn_notice(s, &id, &turn) {
             if tell {
                 crate::notify::show(&notice.title, &notice.body, notice.opens.as_deref());
             }
@@ -76,3 +74,30 @@ pub(super) fn poll(s: &mut State) -> bool {
     }
     false
 }
+
+/// The teammate a turn is the work of, by its name in the window's roster; None is said as "A teammate".
+fn owner_name(s: &State, mission: &str) -> Option<String> {
+    let id = locust_core::people::owner_of(s.data.as_ref()?, mission)?;
+    s.teammates.iter().find(|t| t.id == id).map(|t| t.name.clone())
+}
+
+/// conversationAttentionTitle: the conversation a notification names, from the sidebar's titles and the records.
+fn title_of(s: &State, mission: &str) -> String {
+    let titles = s.data.as_ref().and_then(|store| locust_core::people::team(store).ok()).map(|file| file["missionTitles"].clone()).unwrap_or_default();
+    attention::conversation_title(mission, &titles, |id| native::turn_records(id).map(|turn| turn.metadata))
+}
+
+/// approvalArrived: a card waiting for the person, its teammate and conversation named; a click opens its turn.
+pub(super) fn card_notice(s: &State, card: &locust_core::approval::Request) -> attention::Notice {
+    let question = card.kind == locust_core::approval::Kind::Question;
+    attention::approval_notice(&card.mission_id, question, &card.summary, owner_name(s, &card.mission_id).as_deref(), Some(&title_of(s, &card.mission_id)))
+}
+
+/// attention-reader.ts onRunEnded: what a turn that ended waiting for the person raises, if anything.
+pub(super) fn ended_turn_notice(s: &State, id: &str, turn: &native::TurnRecords) -> Option<attention::Notice> {
+    attention::ended_notice(id, &turn.events, turn.metadata["runtime"].as_str().unwrap_or(""), owner_name(s, id).as_deref(), || title_of(s, id))
+}
+
+#[cfg(test)]
+#[path = "attention_watch_tests.rs"]
+mod attention_watch_tests;
