@@ -215,7 +215,7 @@ apps/desktop/src/main/a-copilot-permission-is-a-card.test.ts	a shell call that d
 apps/desktop/src/main/a-copilot-permission-is-a-card.test.ts	an edit shows its change, by its file relative to the folder	yes
 apps/desktop/src/main/a-copilot-permission-is-a-card.test.ts	anything else is said in the agent's own words, with what it names	yes
 apps/desktop/src/main/a-copilot-permission-is-a-card.test.ts	reads "for the rest of the run" as always -- which the run keeps for itself -- and anything unclear as a refusal	yes
-apps/desktop/src/main/a-copilot-permission-is-a-card.test.ts	a denial's reason goes on as the next thing the run is told -- ACP's answer has no room for it	no
+apps/desktop/src/main/a-copilot-permission-is-a-card.test.ts	a denial's reason goes on as the next thing the run is told -- ACP's answer has no room for it	yes
 apps/desktop/src/main/a-copilot-teammate-is-guarded-too.test.ts	names the guard on Windows as Codex’s is named, inside a try that always ends 0	no
 apps/desktop/src/main/a-copilot-teammate-is-guarded-too.test.ts	names it elsewhere as Claude Code’s is named, and never fails	no
 apps/desktop/src/main/a-copilot-teammate-is-guarded-too.test.ts	is written where Copilot reads a Claude-format plugin: its manifest, and hooks/hooks.json beside it	no

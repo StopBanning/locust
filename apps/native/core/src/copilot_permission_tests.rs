@@ -129,3 +129,29 @@ fn reads_for_the_rest_of_the_run_as_always_and_anything_unclear_as_a_refusal() {
     assert_eq!(acp_answer_for(&json!({"decision": "approve"})), "reject_once");
     assert_eq!(acp_answer_for(&Value::Null), "reject_once");
 }
+
+// case: a denial's reason goes on as the next thing the run is told -- ACP's answer has no room for it
+#[test]
+fn a_denials_reason_goes_on_as_the_next_thing_the_run_is_told_acps_answer_has_no_room_for_it() {
+    let host = host();
+    let channel = host.channel.clone();
+    let asking = std::thread::spawn(move || channel.ask_acp_runtime("copilot", "6", "m_6", &measured(), "C:\\work", &|| false));
+    let deadline = Instant::now() + crate::load_waits::UNDER_LOAD;
+    let card = loop {
+        if let Some(card) = host.channel.waiting().into_iter().next() {
+            break card;
+        }
+        assert!(Instant::now() < deadline, "no card was raised");
+        std::thread::sleep(Duration::from_millis(5));
+    };
+    host.channel
+        .decide(Answer::Decision { approval_id: card.approval_id.clone(), decision: Decision::Deny, reason: Some("Use npm test instead.".into()) })
+        .unwrap();
+    // The answer itself is only the option's kind: reject_once.
+    assert!(!asking.join().unwrap().unwrap());
+    // The reason waits for the run, to be shown it as its next input (native.rs pass_on_denials: "I declined that. ...").
+    let said: Vec<(String, String, String)> = host.channel.take_denied_saying("6").into_iter().map(|d| (d.run_id, d.mission_id, d.reason)).collect();
+    assert_eq!(said, vec![("6".to_owned(), "m_6".to_owned(), "Use npm test instead.".to_owned())]);
+    // And the tool call it was about is remembered as declined, so its failure reads as the person's no.
+    assert!(host.channel.declined("6").contains("call_utkWEwr3SiwPun0Iym7cESBP"));
+}
