@@ -227,6 +227,37 @@ pub fn append_edit_check(path: &std::path::Path, check: &Value) -> io::Result<()
     file.sync_all()
 }
 
+/// The longest argument the record keeps whole, in UTF-16 units (command-record.ts `MAX_ARGUMENT_LENGTH`).
+pub const MAX_ARGUMENT_LENGTH: usize = 512;
+/// The most arguments the record keeps (`MAX_ARGUMENTS`); the rest are counted.
+pub const MAX_ARGUMENTS: usize = 64;
+
+/// The command's arguments as the record keeps them (command-record.ts `recordableCommand`): the flags, which are the
+/// point; never the prompt, whatever flag introduced it (compared whole after trimming, so a flag that merely contains
+/// it stays); an overlong argument shortened with an ellipsis rather than dropped; and at most 64, the rest counted.
+pub fn recordable_args(args: &[String], prompt: &str) -> Vec<String> {
+    let trimmed = prompt.trim();
+    let mut kept: Vec<String> = args
+        .iter()
+        .take(MAX_ARGUMENTS)
+        .map(|argument| {
+            if !trimmed.is_empty() && argument.trim() == trimmed {
+                return "<prompt>".to_owned();
+            }
+            let units: Vec<u16> = argument.encode_utf16().collect();
+            if units.len() <= MAX_ARGUMENT_LENGTH {
+                argument.clone()
+            } else {
+                format!("{}…", String::from_utf16_lossy(&units[..MAX_ARGUMENT_LENGTH - 1]))
+            }
+        })
+        .collect();
+    if args.len() > MAX_ARGUMENTS {
+        kept.push(format!("… {} more", args.len() - MAX_ARGUMENTS));
+    }
+    kept
+}
+
 pub struct Continuation {
     pub mission_id: String,
     pub thread: Option<String>,
@@ -399,7 +430,7 @@ impl LedgerWriter {
             "missionId":id,"runId":writer.run,"prompt":prompt,"runtime":runtime,"model":model,
             "requestedRouteId":writer.route,"resolvedRouteId":writer.resolved_route,"cliVersion":null,"workspaceId":"native",
             "sandbox":"read-only","mode":"ask","executionPolicyVersion":1,"createdAt":at,
-            "command":{"executablePath":executable,"args":args}
+            "command":{"executablePath":executable,"args":recordable_args(args, prompt)}
         }});
         if let Some(link) = continuation {
             record["metadata"]["continuesFrom"] = link;
@@ -682,3 +713,7 @@ mod tests {
 #[cfg(test)]
 #[path = "long_answer_tests.rs"]
 mod long_answer_tests;
+
+#[cfg(test)]
+#[path = "command_record_tests.rs"]
+mod command_record_tests;

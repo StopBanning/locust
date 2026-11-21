@@ -1445,6 +1445,13 @@ apps/desktop/src/main/codex-mission.test.ts	replays the same paced answer with f
 apps/desktop/src/main/codex-mission.test.ts	reads and normalizes while an append is on the disk, and writes what arrived in one append when it lands	no
 apps/desktop/src/main/codex-mission.test.ts	stops reading at the bound and lets a flood back up into the runner, as it always did	no
 apps/desktop/src/main/combining-a-tunes-two-edits.test.ts	asks for one set with both edits, every part of Current neither changed, and nothing new, all as quoted data	no
+apps/desktop/src/main/command-record.test.ts	keeps the flags, which is the whole point	yes
+apps/desktop/src/main/command-record.test.ts	never records the prompt, whatever flag introduced it	yes
+apps/desktop/src/main/command-record.test.ts	matches the prompt after trimming, the way a builder may have passed it	yes
+apps/desktop/src/main/command-record.test.ts	leaves a flag alone that merely contains the prompt as a substring	yes
+apps/desktop/src/main/command-record.test.ts	records nothing as the prompt when there is no prompt	yes
+apps/desktop/src/main/command-record.test.ts	truncates an overlong argument rather than dropping it	yes
+apps/desktop/src/main/command-record.test.ts	bounds how many arguments it will keep, and says how many it dropped	yes
 apps/desktop/src/main/connector-reader.test.ts	are empty until the first reading, rather than blocking for one	yes
 apps/desktop/src/main/connector-reader.test.ts	are there once a reading lands	yes
 apps/desktop/src/main/connector-reader.test.ts	are read once and held, not re-read on every start	yes
