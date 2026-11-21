@@ -159,7 +159,7 @@ fn the_openclaw_line_adds_the_door_by_command_and_one_arg_each() {
 /// every-turn-start-crosses-the-organization-policy.test.ts: "checks voice, phone, MCP and CLI access in the main process,
 /// including saved opt-ins". The door asks the organization's `otherApps` at load and at every turn-on: refused, it stays
 /// shut, writes nothing, keeps the person's saved switch, and says why.
-// case: every way a turn starts crosses the organization policy > checks voice, phone, MCP and CLI access in the main process, including saved opt-ins
+// case: checks voice, phone, MCP and CLI access in the main process, including saved opt-ins
 #[test]
 fn the_organization_keeps_the_door_shut_even_when_the_person_saved_it_open() {
     let dir = temp("policy");

@@ -1639,7 +1639,7 @@ apps/desktop/src/main/every-settings-switch-says-what-it-is.test.ts	and the two 
 apps/desktop/src/main/every-turn-start-crosses-the-organization-policy.test.ts	keeps window, routine, relay, compare, voice handoff, CLI and MCP starts on the guarded mission service	no
 apps/desktop/src/main/every-turn-start-crosses-the-organization-policy.test.ts	checks a handoff target before stopping the existing run and sends resumes through start	no
 apps/desktop/src/main/every-turn-start-crosses-the-organization-policy.test.ts	gates every separate background and cloud launch before calling its service	no
-apps/desktop/src/main/every-turn-start-crosses-the-organization-policy.test.ts	checks voice, phone, MCP and CLI access in the main process, including saved opt-ins	no
+apps/desktop/src/main/every-turn-start-crosses-the-organization-policy.test.ts	checks voice, phone, MCP and CLI access in the main process, including saved opt-ins	yes
 apps/desktop/src/main/every-turn-start-crosses-the-organization-policy.test.ts	loads once at launch, keeps the test seam out of packaged builds and exposes errors in the window	no
 apps/desktop/src/main/forget-hits-one-memory.test.ts	hits the memory it quotes exactly	no
 apps/desktop/src/main/forget-hits-one-memory.test.ts	still hits it when the quote is punctuated or cased differently	no
