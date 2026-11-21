@@ -333,7 +333,13 @@ pub fn post_to_room(
 
     let mut refused_parts: Vec<(String, String)> = Vec::new();
     for teammate_id in asked {
+        // A run that ended meanwhile may be draining this post's queue on its own thread: claim the member, then
+        // start it only if it is still waiting.
+        let Some(_claim) = crate::room_tasks::claim_queued(&store.root().display().to_string(), &added.post_id, &teammate_id) else { continue };
         let fresh_room = room_store::get(store, room_id)?.unwrap_or_else(|| room.clone());
+        if !crate::room_tasks::still_queued(std::slice::from_ref(&fresh_room), room_id, &added.post_id, &teammate_id) {
+            continue;
+        }
         let (outcome, name) = start_room_member(store, &fresh_room, &teammate_id, &added);
         match outcome {
             StartMemberOutcome::NoSlot | StartMemberOutcome::Busy => {}
@@ -423,6 +429,9 @@ struct NativeRoomHost<'a> {
 }
 
 impl RoomTasksHost for NativeRoomHost<'_> {
+    fn claim_scope(&self) -> String {
+        self.store.root().display().to_string()
+    }
     fn list_rooms(&self) -> Result<Vec<PublicRoom>, String> {
         room_store::list(self.store)
     }

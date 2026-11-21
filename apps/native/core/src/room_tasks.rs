@@ -13,6 +13,36 @@ use crate::room_task::{
 /// Never start more than this many waiting room members on one run ending (`MAX_DRAIN_PER_RUN`).
 pub const MAX_DRAIN_PER_RUN: usize = 8;
 
+/// The waiting members a start is being made for right now, by (scope, post, member). A post starts its members on the
+/// window's job while a run ending drains the queue on that run's own thread; Electron's single JS thread never ran the
+/// two at once, but here the second could read a member still queued and start it again (an irreversible act, twice).
+static STARTING: std::sync::Mutex<std::collections::BTreeSet<(String, String, String)>> = std::sync::Mutex::new(std::collections::BTreeSet::new());
+
+/// One start of one waiting member, held until it is marked started (or refused, or left queued).
+pub struct QueuedClaim((String, String, String));
+
+impl Drop for QueuedClaim {
+    fn drop(&mut self) {
+        crate::invariants::lock(&STARTING).remove(&self.0);
+    }
+}
+
+/// claim_queued: the right to start this member for this post, or None while another path is starting it. `scope` is
+/// the data folder (or a test host's own id), so two folders never wait on each other.
+pub fn claim_queued(scope: &str, post_id: &str, teammate_id: &str) -> Option<QueuedClaim> {
+    let key = (scope.to_owned(), post_id.to_owned(), teammate_id.to_owned());
+    crate::invariants::lock(&STARTING).insert(key.clone()).then(|| QueuedClaim(key))
+}
+
+/// Read again under the claim: a member another path already started (or refused) is not started twice.
+pub fn still_queued(rooms: &[PublicRoom], room_id: &str, post_id: &str, teammate_id: &str) -> bool {
+    rooms
+        .iter()
+        .find(|room| room.room_id == room_id)
+        .and_then(|room| room.posts.iter().find(|post| post.post_id == post_id))
+        .is_some_and(|post| post.queued.iter().any(|id| id == teammate_id))
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RoomMissionLocation {
     pub room: PublicRoom,
@@ -47,6 +77,8 @@ pub enum StartMemberOutcome {
 }
 
 pub trait RoomTasksHost {
+    /// Whose rooms these are, for `claim_queued`: the data folder.
+    fn claim_scope(&self) -> String;
     fn list_rooms(&self) -> Result<Vec<PublicRoom>, String>;
     fn list_teammates(&self) -> Result<Vec<RoomMemberInfo>, String>;
     fn start_queued_member(
@@ -161,6 +193,11 @@ pub fn on_run_ended<H: RoomTasksHost>(host: &H, ended_mission_id: &str) {
                 for teammate_id in &post.queued {
                     if started >= MAX_DRAIN_PER_RUN {
                         break 'drain;
+                    }
+                    // The list above may be stale: claim the member, then check it is still waiting.
+                    let Some(_claim) = claim_queued(&host.claim_scope(), &post.post_id, teammate_id) else { continue };
+                    if !host.list_rooms().is_ok_and(|now| still_queued(&now, &room.room_id, &post.post_id, teammate_id)) {
+                        continue;
                     }
                     let outcome = host.start_queued_member(room, teammate_id, post);
                     match outcome {
@@ -331,6 +368,9 @@ mod tests {
     use std::collections::BTreeMap;
 
     struct FakeHost {
+        scope: String,
+        /// A member whose start ends another run at once (its end drains the queue before this start is marked).
+        reenter_on: RefCell<Option<String>>,
         rooms: RefCell<Vec<PublicRoom>>,
         teammates: Vec<RoomMemberInfo>,
         missions: RefCell<BTreeMap<String, Option<MissionOutcomeRecord>>>,
@@ -343,7 +383,10 @@ mod tests {
 
     impl FakeHost {
         fn new(rooms: Vec<PublicRoom>) -> Self {
+            static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
             Self {
+                scope: format!("fake-{}", NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)),
+                reenter_on: RefCell::new(None),
                 rooms: RefCell::new(rooms),
                 teammates: vec![
                     RoomMemberInfo {
@@ -374,6 +417,9 @@ mod tests {
     }
 
     impl RoomTasksHost for FakeHost {
+        fn claim_scope(&self) -> String {
+            self.scope.clone()
+        }
         fn list_rooms(&self) -> Result<Vec<PublicRoom>, String> {
             Ok(self.rooms.borrow().clone())
         }
@@ -387,6 +433,11 @@ mod tests {
             _post: &RoomPost,
         ) -> StartMemberOutcome {
             self.started.borrow_mut().push(teammate_id.to_owned());
+            let reenter = self.reenter_on.borrow().as_deref() == Some(teammate_id);
+            if reenter {
+                self.reenter_on.borrow_mut().take();
+                on_run_ended(self, "m_finished_at_once");
+            }
             self.start_outcomes
                 .borrow()
                 .get(teammate_id)
@@ -811,5 +862,32 @@ mod tests {
         on_run_ended(&host, "m_outside");
         assert_eq!(host.started.borrow().len(), MAX_DRAIN_PER_RUN);
         assert_eq!(host.rooms.borrow()[0].posts[0].queued, vec!["tm_8", "tm_9"]);
+    }
+
+    /// 21 Nov (found by a release run): a waiting member is started once, even when a run that ends while the queue is
+    /// being drained drains it too. Here Wren's start ends another run at once, before Wren is marked started; that
+    /// run's drain must leave Wren (being started) alone, and the first drain must not start Booty again.
+    #[test]
+    fn a_waiting_member_is_started_once_when_two_drains_overlap() {
+        let room = make_room(&["tm_wren", "tm_booty"], vec![make_post("post_1", &[], &["tm_wren", "tm_booty"])]);
+        let host = FakeHost::new(vec![room]);
+        *host.reenter_on.borrow_mut() = Some("tm_wren".into());
+        on_run_ended(&host, "m_outside");
+        assert_eq!(host.started.borrow().as_slice(), &["tm_wren", "tm_booty"], "each member once");
+        let post = &host.rooms.borrow()[0].posts[0];
+        assert!(post.queued.is_empty());
+        assert_eq!(post.missions.get("tm_wren").map(String::as_str), Some("m_tm_wren"));
+        assert_eq!(post.missions.get("tm_booty").map(String::as_str), Some("m_tm_booty"));
+    }
+
+    /// A claim is held while a start is made and let go after, whatever the start came to; another folder never waits.
+    #[test]
+    fn a_claim_is_one_at_a_time_per_member_and_folder() {
+        let first = claim_queued("scope_a", "post_claim", "tm_wren").expect("free");
+        assert!(claim_queued("scope_a", "post_claim", "tm_wren").is_none(), "taken while held");
+        assert!(claim_queued("scope_b", "post_claim", "tm_wren").is_some(), "another folder is apart");
+        assert!(claim_queued("scope_a", "post_claim", "tm_booty").is_some(), "another member is apart");
+        drop(first);
+        assert!(claim_queued("scope_a", "post_claim", "tm_wren").is_some(), "free again once let go");
     }
 }

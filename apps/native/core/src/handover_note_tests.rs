@@ -30,6 +30,9 @@ fn roster() -> Vec<RoomMemberInfo> {
 }
 
 impl RoomTasksHost for Host {
+    fn claim_scope(&self) -> String {
+        self.store.root().display().to_string()
+    }
     fn list_rooms(&self) -> Result<Vec<PublicRoom>, String> {
         room_store::list(&self.store)
     }
