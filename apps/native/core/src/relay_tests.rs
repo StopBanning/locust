@@ -1429,3 +1429,95 @@ fn deliver_deferred_requeues_restores_exchange_releases_budget_and_notifies_also
     assert!(st.posted_returns.iter().any(|(_, _, _, to, _, txt)| to == "tm_wren" && txt.contains("All fixed.")));
     assert!(st.posted_returns.iter().any(|(_, _, _, to, _, txt)| to == "tm_pip" && txt.contains("All fixed.")));
 }
+
+// ---- a-reply-outside-an-exchange-lands-in-the-hub.test.ts ----
+// Colin, 2026-09-21: "its kind of messy that each time a teammate messages another that it spawns a new chat in
+// ungrouped ... each teammate has their own isolated chat where the replies go to on the sidebar."
+fn hub_started(st: &MockState) -> Option<Option<String>> {
+    st.updates.iter().find_map(|u| match u {
+        RelayUpdate::MissionStarted { hub_mission_id, .. } => Some(hub_mission_id.clone()),
+        _ => None,
+    })
+}
+fn ask_juno(text: &str, from_mission: &str) -> RelayedMessage {
+    msg("wm_juno", ("tm_wren", "Wren", from_mission), ("tm_juno", "Juno"), text, false, false, true)
+}
+
+// case: continues the hub when the recipient has no turn in this exchange
+#[test]
+fn continues_the_hub_when_the_recipient_has_no_turn_in_this_exchange() {
+    let relay = Relay::new(MockHost::new());
+    relay.host().st.lock().unwrap().hubs.insert("tm_juno".into(), "m_hub_latest".into());
+    relay.on_shared(&sharing_wren("m_wren1", None), &[ask_juno("What is the build command?", "m_wren1")]);
+    let st = relay.host().st.lock().unwrap();
+    assert_eq!(st.starts.len(), 1);
+    assert_eq!(st.starts[0].follow_up_of.as_deref(), Some("m_hub_latest"));
+    assert_eq!(st.starts[0].peer.teammate_id, "tm_juno");
+    // The run is the hub's newest turn now, and the window is told which.
+    assert_eq!(st.remembered_hubs, vec![("tm_juno".into(), "m_1".into(), false)]);
+    assert_eq!(hub_started(&st), Some(Some("m_1".into())));
+}
+
+// case: begins a hub for a teammate who has none, and says it began
+#[test]
+fn begins_a_hub_for_a_teammate_who_has_none_and_says_it_began() {
+    let relay = Relay::new(MockHost::new());
+    relay.on_shared(&sharing_wren("m_wren1", None), &[ask_juno("What is the build command?", "m_wren1")]);
+    let st = relay.host().st.lock().unwrap();
+    assert_eq!(st.starts[0].follow_up_of, None);
+    assert_eq!(st.remembered_hubs, vec![("tm_juno".into(), "m_1".into(), true)]);
+}
+
+// case: a turn inside an exchange still continues the exchange, and leaves the hub alone
+#[test]
+fn a_turn_inside_an_exchange_still_continues_the_exchange_and_leaves_the_hub_alone() {
+    // Juno already spoke in this exchange: the reply chains onto THAT turn. The hub is for replies with nowhere else to
+    // go, not a magnet for every reply.
+    let relay = Relay::new(MockHost::new());
+    relay.host().st.lock().unwrap().hubs.insert("tm_juno".into(), "m_hub_latest".into());
+    let origin = RelayOrigin {
+        hop: 2,
+        root_mission_id: Some("m_wren1".into()),
+        last_mission_of: vec![("tm_wren".into(), "m_wren1".into()), ("tm_juno".into(), "m_juno".into())],
+        relayed_to: Vec::new(),
+        answering: Vec::new(),
+    };
+    relay.on_shared(&sharing_wren("m_wren2", Some(origin)), &[ask_juno("One more thing.", "m_wren2")]);
+    let st = relay.host().st.lock().unwrap();
+    assert_eq!(st.starts[0].follow_up_of.as_deref(), Some("m_juno"));
+    assert!(st.remembered_hubs.is_empty());
+    assert_eq!(hub_started(&st), Some(None), "started, and not as the hub's");
+}
+
+/// A host with no hub reader: every hub method left as the trait has it.
+struct NoHub(MockHost);
+impl RelayHost for NoHub {
+    fn enabled(&self) -> bool {
+        self.0.enabled()
+    }
+    fn peer_context_for(&self, teammate_id: &str) -> Option<PeerRosterEntry> {
+        self.0.peer_context_for(teammate_id)
+    }
+    fn start(&self, req: StartRequest) -> Result<StartResult, String> {
+        self.0.start(req)
+    }
+    fn assign_owner(&self, teammate_id: &str, mission_id: &str) {
+        self.0.assign_owner(teammate_id, mission_id)
+    }
+    fn notify(&self, update: RelayUpdate) {
+        self.0.notify(update)
+    }
+}
+
+// case: without a hub reader, behaves exactly as before: every such reply is a new root
+#[test]
+fn without_a_hub_reader_behaves_exactly_as_before_every_such_reply_is_a_new_root() {
+    let relay = Relay::new(NoHub(MockHost::new()));
+    relay.host().0.st.lock().unwrap().hubs.insert("tm_juno".into(), "m_hub_latest".into());
+    relay.on_shared(&sharing_wren("m_wren1", None), &[ask_juno("What is the build command?", "m_wren1")]);
+    relay.on_shared(&sharing_wren("m_wren9", None), &[ask_juno("And the test command?", "m_wren9")]);
+    let st = relay.host().0.st.lock().unwrap();
+    assert_eq!(st.starts.len(), 2);
+    assert!(st.starts.iter().all(|s| s.follow_up_of.is_none()), "{:?}", st.starts.iter().map(|s| &s.follow_up_of).collect::<Vec<_>>());
+    assert!(st.remembered_hubs.is_empty());
+}

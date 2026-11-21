@@ -723,10 +723,10 @@ apps/desktop/src/main/a-reopened-conversation-keeps-its-check.test.ts	reads back
 apps/desktop/src/main/a-reopened-conversation-keeps-its-check.test.ts	has no check when none ran	yes
 apps/desktop/src/main/a-reply-is-shown-the-message-it-answers.test.ts	are the oldest, after the ones it was started for	yes
 apps/desktop/src/main/a-reply-is-shown-the-message-it-answers.test.ts	reach the runtime: the relay names the message, and the run quotes it	yes
-apps/desktop/src/main/a-reply-outside-an-exchange-lands-in-the-hub.test.ts	continues the hub when the recipient has no turn in this exchange	no
-apps/desktop/src/main/a-reply-outside-an-exchange-lands-in-the-hub.test.ts	begins a hub for a teammate who has none, and says it began	no
-apps/desktop/src/main/a-reply-outside-an-exchange-lands-in-the-hub.test.ts	a turn inside an exchange still continues the exchange, and leaves the hub alone	no
-apps/desktop/src/main/a-reply-outside-an-exchange-lands-in-the-hub.test.ts	without a hub reader, behaves exactly as before: every such reply is a new root	no
+apps/desktop/src/main/a-reply-outside-an-exchange-lands-in-the-hub.test.ts	continues the hub when the recipient has no turn in this exchange	yes
+apps/desktop/src/main/a-reply-outside-an-exchange-lands-in-the-hub.test.ts	begins a hub for a teammate who has none, and says it began	yes
+apps/desktop/src/main/a-reply-outside-an-exchange-lands-in-the-hub.test.ts	a turn inside an exchange still continues the exchange, and leaves the hub alone	yes
+apps/desktop/src/main/a-reply-outside-an-exchange-lands-in-the-hub.test.ts	without a hub reader, behaves exactly as before: every such reply is a new root	yes
 apps/desktop/src/main/a-reply-waits-for-a-plan-that-is-out.test.ts	is out from the limit the agent named until the reset it named, said with that day and time	yes
 apps/desktop/src/main/a-reply-waits-for-a-plan-that-is-out.test.ts	is not out once the reset has passed, so the next run finds out	yes
 apps/desktop/src/main/a-reply-waits-for-a-plan-that-is-out.test.ts	is not out once a later run on that plan finished	yes
