@@ -442,19 +442,25 @@ impl Codex {
     }
 }
 pub fn read_only_config(settings: &Value) -> io::Result<Value> {
-    thread_config(settings, false)
+    thread_config(settings, None, false)
 }
 
 /// Sealed run's thread config (`codexSealedThreadConfig`, Scout's look): no shell, no web search, no ChatGPT apps, and all MCP servers (connectors included) disabled.
 pub fn sealed_config(settings: &Value) -> io::Result<Value> {
-    thread_config(settings, true)
+    thread_config(settings, None, true)
 }
 
-fn thread_config(settings: &Value, sealed: bool) -> io::Result<Value> {
+/// codex-read-only.ts `UNREAD`: the settings did not read as settings, so the turn is not started.
+pub const SETTINGS_UNREAD: &str = "Locust could not read your Codex settings, so it did not start this turn. In Ask and Plan it switches off the MCP servers your Codex runs as programs on this computer, and it could not tell which those are. Send it again.";
+/// codex-read-only.ts `UPDATE` (0.825): a Codex too old to have `config/read`, where sending again changes nothing.
+pub const CODEX_TOO_OLD: &str = "Your Codex is too old to tell Locust its settings, so Locust did not start this turn. In Ask and Plan it switches off the MCP servers your Codex runs as programs on this computer, and it could not tell which those are. Update Codex, then send it again.";
+
+/// `threadConfig`: `read_failure` is Codex's own words when it refused the read, which say whether updating it helps
+/// (`unknown variant \`config/read\``, MEASURED on Codex 0.163.0 for a request it does not know).
+pub fn thread_config(settings: &Value, read_failure: Option<&str>, sealed: bool) -> io::Result<Value> {
     if !settings.is_object() {
-        return Err(err(
-            "Could not read Codex settings; refusing to start Ask with unknown MCP programs",
-        ));
+        let too_old = read_failure.is_some_and(|f| f.contains("unknown variant `config/read`"));
+        return Err(err(if too_old { CODEX_TOO_OLD } else { SETTINGS_UNREAD }));
     }
     let mut config = json!({"features.plugins":false,"features.browser_use":false,"features.browser_use_external":false,"features.in_app_browser":false,"features.computer_use":false});
     if sealed {
@@ -463,22 +469,17 @@ fn thread_config(settings: &Value, sealed: bool) -> io::Result<Value> {
         config["web_search"] = json!("disabled");
     }
     if !settings["mcp_servers"].is_null() {
-        let servers = settings["mcp_servers"]
-            .as_object()
-            .ok_or_else(|| err("Invalid Codex MCP settings"))?;
+        let servers = settings["mcp_servers"].as_object().ok_or_else(|| err(SETTINGS_UNREAD))?;
         for (name, fields) in servers {
+            // A sealed thread keeps no connector either.
             if !sealed && fields["url"].is_string() && fields.get("command").is_none() {
                 continue;
             }
-            if name.is_empty()
-                || name.len() > 128
-                || !name
-                    .bytes()
-                    .all(|b| b.is_ascii_alphanumeric() || b"@_-".contains(&b))
-            {
-                return Err(err(
-                    "Cannot safely disable a Codex MCP program with an invalid name",
-                ));
+            if name.is_empty() || name.len() > 128 || !name.bytes().all(|b| b.is_ascii_alphanumeric() || b"@_-".contains(&b)) {
+                let shown = String::from_utf16_lossy(&name.encode_utf16().take(60).collect::<Vec<u16>>());
+                return Err(err(format!(
+                    "Locust could not switch off your Codex MCP server \"{shown}\" for this turn, so it did not start it. In Ask and Plan it starts none of the servers your Codex runs as programs on this computer."
+                )));
             }
             config[format!("mcp_servers.{name}.enabled")] = json!(false);
         }
@@ -512,12 +513,13 @@ impl Runtime for Codex {
         // Ask and Plan start none of the MCP servers the person's Codex runs as programs (codex-read-only.ts, 0.824):
         // read-only is Codex's sandbox, and a program outside it may write. The other modes keep their Codex as it is.
         let mut config = if policy.sandbox == "read-only" {
-            let settings = self.request("config/read", json!({"cwd":turn.folder}))?;
-            if self.sealed {
-                sealed_config(&settings["config"])?
-            } else {
-                read_only_config(&settings["config"])?
-            }
+            // A refused read is said in Codex's own words, which tell whether updating it would help; a stop is a stop.
+            let (settings, failure) = match self.request("config/read", json!({"cwd":turn.folder})) {
+                Ok(read) => (read["config"].clone(), None),
+                Err(_) if self.cancelled() => return Err(err("Interrupted before the turn started")),
+                Err(refused) => (Value::Null, Some(refused.to_string())),
+            };
+            thread_config(&settings, failure.as_deref(), self.sealed)?
         } else {
             json!({})
         };
@@ -838,3 +840,7 @@ mod codex_denial_reason_tests;
 #[cfg(test)]
 #[path = "a_dying_server_says_why_tests.rs"]
 mod a_dying_server_says_why_tests;
+
+#[cfg(test)]
+#[path = "codex_read_only_tests.rs"]
+mod codex_read_only_tests;

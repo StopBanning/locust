@@ -62,7 +62,13 @@ for line in sys.stdin:
     elif method == 'initialized':
         pass
     elif method == 'config/read':
-        send(dict(id=msg['id'], result={'config': {'mcp_servers': {'local': {'command':'node'}, 'remote': {'url':'https://example.invalid'}}}}))
+        # `config-too-old`: a Codex older than config/read, in Codex 0.163.0's words for a request it does not know.
+        if scenario == 'config-too-old':
+            send(dict(id=msg['id'], error={'code': -32600, 'message': 'Invalid request: unknown variant `config/read`, expected one of `initialize`, `thread/start`'}))
+        elif scenario == 'config-refused':
+            send(dict(id=msg['id'], error={'code': -32603, 'message': 'The runtime connection ended.'}))
+        else:
+            send(dict(id=msg['id'], result={'config': {'mcp_servers': {'local': {'command':'node'}, 'remote': {'url':'https://example.invalid'}}}}))
     elif method == 'thread/resume':
         assert resuming or cards_mode or relay_mode, 'thread/resume outside a resume scenario'
         is_resumed_turn = True

@@ -1271,6 +1271,14 @@ apps/desktop/src/main/ask-asks-before-a-connector.test.ts	are none in Ask or Pla
 apps/desktop/src/main/ask-asks-before-a-connector.test.ts	are the named ones in Edit, as before	yes
 apps/desktop/src/main/ask-asks-before-a-connector.test.ts	are none when the person asked to be asked about every one, or none are named	yes
 apps/desktop/src/main/ask-asks-before-a-connector.test.ts	runs without the person’s connectors, and with them once one is ticked	no
+apps/desktop/src/main/ask-starts-none-of-your-codex-programs.test.ts	switches off each server that runs as a program, by name, every plugin, and its own browser and computer use	yes
+apps/desktop/src/main/ask-starts-none-of-your-codex-programs.test.ts	leaves a server reached at an address as the person has it: Codex still refuses its tools that do more than read	yes
+apps/desktop/src/main/ask-starts-none-of-your-codex-programs.test.ts	switches off a server that names both a program and an address, and one it cannot read the shape of	yes
+apps/desktop/src/main/ask-starts-none-of-your-codex-programs.test.ts	with no servers of the person’s own, still takes every plugin’s, and the browser and computer use	yes
+apps/desktop/src/main/ask-starts-none-of-your-codex-programs.test.ts	starts nothing, and says why, rather than start with something left on	yes
+apps/desktop/src/main/ask-starts-none-of-your-codex-programs.test.ts	tells a person whose Codex is too old for the read to update it, and anyone else to send again	yes
+apps/desktop/src/main/ask-starts-none-of-your-codex-programs.test.ts	adds no shell, no web search and no ChatGPT apps, and switches off every server, connectors too	yes
+apps/desktop/src/main/ask-starts-none-of-your-codex-programs.test.ts	refuses as Ask does when it cannot read the settings	yes
 apps/desktop/src/main/attach-outside.test.ts	keeps the name it had	no
 apps/desktop/src/main/attach-outside.test.ts	never overwrites a file already there	no
 apps/desktop/src/main/attach-outside.test.ts	handles a name with no extension, and one with several dots	no
