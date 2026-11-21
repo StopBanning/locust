@@ -203,6 +203,8 @@ mod beside;
 use beside::*;
 #[path = "ui/sidebar.rs"]
 mod sidebar;
+#[path = "ui/working_shimmer.rs"]
+mod working_shimmer;
 #[path = "ui/context_menu.rs"]
 mod context_menu;
 use sidebar::*;
@@ -2482,6 +2484,11 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
         && (!s.seen_live.is_empty() || s.flight.is_some())
     {
         tx.wake_after(Duration::from_millis(33));
+    }
+    // A working row's band moves while the window is in front and motion is wanted; it stands still otherwise.
+    if s.window_focused && !s.reduced_motion.get() && sidebar::shimmering(s) {
+        tx.wake_after(Duration::from_millis(working_shimmer::FRAME_MS));
+        changed = true;
     }
     changed
 }

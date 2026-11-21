@@ -1064,6 +1064,9 @@ apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	becomes a one-she
 apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	reads a TSV the same way	no
 apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	names columns the way a spreadsheet does	no
 apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	knows a number when it sees one written	no
+apps/desktop/src/main/a-working-row-shimmers-like-claude-codes.test.ts	is the grey title with one white band passing through it, from the theme’s own tokens	yes
+apps/desktop/src/main/a-working-row-shimmers-like-claude-codes.test.ts	passes slowly, left to right, and stands still for a person who asked for less motion	yes
+apps/desktop/src/main/a-working-row-shimmers-like-claude-codes.test.ts	is worn by a running conversation and a running room only, and keeps the dot’s footprint empty	yes
 apps/desktop/src/main/a-worktree-branch-is-named-after-the-issue.test.ts	checks out a branch named after the issue in the teammate's copy	yes
 apps/desktop/src/main/a-worktree-branch-is-named-after-the-issue.test.ts	uses the branch when it already exists, and leaves a checkout git refuses	yes
 apps/desktop/src/main/a-worktree-survives-only-a-finished-checkout.test.ts	accepts and uses the real worktree, keeping full hook stderr in the diagnostic callback	yes

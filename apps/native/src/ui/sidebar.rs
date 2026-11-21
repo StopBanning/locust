@@ -172,21 +172,25 @@ fn mission_row(s: &State, p: &Palette, item: &SidebarMission, picked: bool) -> E
             .border(1.0, l.c("border-hairline")).a11y_hidden()
             .key(format!("conversation-nobody-{}", item.mission_id))));
     }
+    // A working row's title shimmers instead of wearing a dot (Sidebar.tsx `lc-conv__title is-working`).
+    let working = item.phase == "running";
+    let name = if working {
+        crate::working_shimmer::title(&item.title, l.c("text-primary"), s.reduced_motion.get())
+    } else {
+        text(item.title.clone()).color(l.c("text-name"))
+    };
     title = title.child(
-        text(item.title.clone())
-            .font(rune::TextStyle::new(13.5, 500.0))
-            .color(l.c("text-name"))
+        name.font(rune::TextStyle::new(13.5, 500.0))
             .grow(1.0)
             .shrink()
-            .truncate(),
+            .truncate()
+            .key(format!("conversation-title-{}", item.mission_id)),
     );
-    let dot = match item.phase.as_str() {
-        "running" => Some(p.green),
-        "failed" => Some(p.red),
-        _ => None,
-    };
-    if let Some(ink) = dot {
-        title = title.child(el().size(5.0, 5.0).radius(2.5).fill(ink));
+    if working {
+        // The dot's footprint, kept empty, so a run starting never moves the row (`.lc-conv__working`, 6 by 6).
+        title = title.child(el().size(6.0, 6.0).a11y_hidden().key(format!("conversation-working-{}", item.mission_id)));
+    } else if item.phase == "failed" {
+        title = title.child(el().size(5.0, 5.0).radius(2.5).fill(p.red));
     }
     let id = item.mission_id.clone();
     let subtitle = recent
@@ -547,6 +551,24 @@ pub(super) fn roster_face(
 }
 
 /// `.lc-sectionlabel`: mono capitals, tracked wide, muted.
+/// A room is working while a conversation one of its posts started is running.
+pub(super) fn room_working(room: &locust_core::room_store::PublicRoom, running: &[String]) -> bool {
+    room.posts.iter().any(|post| post.missions.values().any(|mission| running.contains(mission)))
+}
+
+/// Whether a drawn row shimmers, so the window keeps moving the band (and stops asking for frames once none does).
+pub(super) fn shimmering(s: &State) -> bool {
+    // The narrow rail draws no titles.
+    if s.layout_compact.get() {
+        return false;
+    }
+    if drawn_missions(s).iter().any(|item| item.phase == "running") {
+        return true;
+    }
+    let running = locust_core::engine_api::api().running();
+    !running.is_empty() && s.rooms.rooms.iter().any(|room| room_working(room, &running))
+}
+
 fn section_label(p: &Palette, words: &str) -> El {
     let l = crate::look::controls::Look::new(p.dark);
     crate::look::controls::label(&l, words).w_full().px(10.0).pt(16.0).pb(6.0)
@@ -730,6 +752,7 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
                         .on_press(|s: &mut State| crate::room_screen::open_new(s)),
                 ),
         );
+    let running = locust_core::engine_api::api().running();
     for room in &s.rooms.rooms {
         let rid = room.room_id.clone();
         let active = matches!(&s.rooms.active, crate::room_screen::RoomView::Room(id) if id == &rid);
@@ -746,13 +769,18 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
                 .hover(l.c("hover-surface"))
                 .role("button")
                 .label(room.name.clone())
-                .child(
-                    text(room.name.clone())
-                        .font(rune::TextStyle::new(13.0, 500.0).lh(16.0))
-                        .color(l.c("text-primary"))
+                .child({
+                    // A room shimmers while any conversation its posts started is working (Sidebar.tsx `roomRow`).
+                    let name = if room_working(room, &running) {
+                        crate::working_shimmer::title(&room.name, l.c("text-primary"), s.reduced_motion.get())
+                    } else {
+                        text(room.name.clone()).color(l.c("text-primary"))
+                    };
+                    name.font(rune::TextStyle::new(13.0, 500.0).lh(16.0))
                         .w_full()
-                        .truncate(),
-                )
+                        .truncate()
+                        .key(format!("sidebar-room-title-{rid}"))
+                })
                 .child(
                     text(meta)
                         .font(rune::TextStyle::new(11.5, 400.0).lh(15.0))
