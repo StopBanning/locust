@@ -2398,7 +2398,12 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
     }
     // M16 (attachments-for-run.ts): the files the message attached, placed where this run reads them when it runs
     // anywhere but the project folder. Only what is sent changes; the record keeps the project's paths.
-    let project_folder = repository_root.clone().or_else(|| origin.slot.as_ref().and_then(|s| s.cwd.as_ref()).and_then(|_| origin.folder.clone().or_else(|| folder_for(&job.teammate, &electron).ok())));
+    // The project is the folder the person has open (codex-mission.ts runFolder): a teammate's own copy reads from its
+    // repository, a column's copy from the folder it copied, and a teammate with a folder of its own from the open one.
+    let project_folder = repository_root
+        .clone()
+        .or_else(|| origin.slot.as_ref().and_then(|s| s.cwd.as_ref()).and_then(|_| origin.folder.clone()))
+        .or_else(|| workspace_folder(&electron));
     let sent_words = crate::attachments_for_run::attachments_for_run(&job.prompt, project_folder.as_deref().unwrap_or(&folder), &folder);
     // The references this turn may read without its mode changing (referenceAccess), named in its prompt and handed
     // to the agents that take a folder.

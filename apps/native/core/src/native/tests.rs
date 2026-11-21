@@ -1750,6 +1750,34 @@ fn a_teammate_on_its_own_branch_is_sent_the_files_attached_where_it_runs() {
 }
 
 #[test]
+fn a_teammate_with_a_folder_of_its_own_is_sent_the_files_attached_in_the_open_folder() {
+    // attachments-for-run.ts: a run anywhere but the open project folder is given the message's files where it runs.
+    let t = Temp::new();
+    let store = t.store();
+    let work = t.0.join("work");
+    let own = t.0.join("own");
+    fs::create_dir_all(&own).unwrap();
+    fs::write(work.join("NOTES.md"), "notes").unwrap();
+    crate::native::set_open_folder(&store, &work).unwrap();
+    store
+        .save_json("teammates.json", &json!({"schemaVersion": 1, "teammates": [{"teammateId": "tm_codec", "name": "Codec"}], "missionOwners": {}, "settings": {}}))
+        .unwrap();
+    let _hook = hooks::install(store.clone(), fake("cards-attached"));
+    let mate = Teammate { runs_in: "accept-edits".into(), folder: Some(own.to_string_lossy().into()), ..codex(&t) };
+    let typed = crate::attachments::with_attachments("Read this.", &["NOTES.md".into()]);
+    let started = send(Send { teammate: mate, conversation: None, prompt: typed, model: None, effort: None }).unwrap();
+    let path = path_of(&t, &started.conversation_id);
+    let deadline = Instant::now() + Duration::from_secs(20);
+    while !kinds(&path).iter().any(|k| k == "run.completed") {
+        assert!(Instant::now() < deadline, "the turn did not end: {:?}", kinds(&path));
+        std::thread::sleep(Duration::from_millis(25));
+    }
+    let sent = fs::read_to_string(own.join("sent.txt")).unwrap();
+    assert!(sent.contains(".locust/attachments/NOTES.md"), "{sent}");
+    assert_eq!(fs::read_to_string(own.join(".locust/attachments/NOTES.md")).unwrap(), "notes");
+}
+
+#[test]
 fn a_teammate_on_its_own_branch_in_a_folder_that_is_no_repository_is_refused_saying_why() {
     // Electron's worktreeRefused: never run in the person's checkout instead.
     let t = Temp::new();
