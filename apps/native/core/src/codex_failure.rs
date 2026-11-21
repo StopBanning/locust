@@ -55,6 +55,17 @@ pub fn app_server_failure_kind(info: &str, message: &str) -> &'static str {
     }
 }
 
+/// Codex's Windows sandbox could not set itself up, so the command never started (Electron `shared/codex-sandbox.ts`,
+/// 0.736): `Failed to create unified exec process: helper_unknown_error: setup refresh had errors` is the command's whole
+/// output. Another process held one of the sandbox's files, usually a Codex app process still running in the
+/// background; Auto skips the sandbox. The row said only "failed".
+pub fn sandbox_did_not_start(output: Option<&str>) -> bool {
+    output.is_some_and(|output| regex(r"(?i)helper_unknown_error|setup refresh had errors").is_match(output))
+}
+
+/// What the row says when `sandbox_did_not_start` (`CODEX_SANDBOX_DID_NOT_START`).
+pub const SANDBOX_DID_NOT_START: &str = "Codex\u{2019}s Windows sandbox could not set itself up, so this command never started. That happens when another program holds one of the sandbox\u{2019}s files, usually a Codex app process still running in the background (codex.exe or codex-computer-use-swift.exe in Task Manager). Once it has ended, ask again; or switch this teammate to Auto, which runs without the sandbox.";
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -126,3 +137,7 @@ mod app_server_tests {
         assert_eq!(out.iter().find(|e| e.kind == "run.failed").unwrap().payload["kind"], "unknown", "a quota mentioned is not used up");
     }
 }
+
+#[cfg(test)]
+#[path = "codex_sandbox_tests.rs"]
+mod codex_sandbox_tests;

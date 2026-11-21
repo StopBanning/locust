@@ -248,10 +248,9 @@ fn skill_called(tool: &str, target: &str) -> Option<String> {
     (tool.trim().eq_ignore_ascii_case("skill")).then(|| re(&R, r"^(project|personal):").replace(target.trim(), "").into_owned())
 }
 
-/// Codex's Windows sandbox never started the command (shared/codex-sandbox.ts).
+/// Codex's Windows sandbox never started the command (shared/codex-sandbox.ts): the one check the row uses too.
 fn sandbox_did_not_start(output: &str) -> bool {
-    static R: OnceLock<Regex> = OnceLock::new();
-    re(&R, r"(?i)helper_unknown_error|setup refresh had errors").is_match(output)
+    crate::codex_failure::sandbox_did_not_start(Some(output))
 }
 
 #[derive(PartialEq)]

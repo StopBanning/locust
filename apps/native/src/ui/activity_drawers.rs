@@ -132,7 +132,7 @@ pub(super) fn shell_command_folded(summary: &str, arguments: &str) -> bool {
 
 /// `.lc-filerow.is-shell`: the command first, then its verdict in a green, red, amber or quiet badge, then the
 /// quiet words after it ("no output", the time it took). A chevron only when something is behind it (`is-static`).
-fn shell_heading(key: String, label: String, result: &str, badge: ShellBadge, reach: Option<El>, expandable: bool, open: bool, p: &Palette) -> El {
+fn shell_heading(key: String, label: String, result: &str, badge: ShellBadge, badges: Vec<El>, expandable: bool, open: bool, p: &Palette) -> El {
     let l = crate::look::controls::Look::new(p.dark);
     let marker = format!(" · {result}");
     let (title, rest) = match label.rfind(&marker) {
@@ -159,8 +159,8 @@ fn shell_heading(key: String, label: String, result: &str, badge: ShellBadge, re
             el().key(format!("{key}/badge")).px(6.0).radius(5.0).fill(bg)
                 .child(text(result.to_owned()).font(type_::LABEL.mono()).color(fg)),
         );
-    if let Some(reach) = reach {
-        line = line.child(reach);
+    for said in badges {
+        line = line.child(said);
     }
     if !rest.is_empty() {
         line = line.child(text(rest).font(type_::LABEL).color(l.c("text-muted")).shrink().wrap_anywhere());
@@ -193,6 +193,29 @@ fn reach_badge(s: &State, key: &str, d: &ledger::ToolDetail, p: &Palette) -> Opt
         .fill(l.c("amber-tint"))
         .child(text(reach.short.clone()).font(type_::LABEL.mono()).color(l.c("amber-text")));
     Some(super::hover::tip(s, &l, &badge_key, &reach.said, badge))
+}
+
+/// Codex's Windows sandbox never started this command (0.736, core `codex_failure`): the row says so in a few words,
+/// the whole sentence on hover, where it said only "failed" (ActivityCard.tsx `SandboxBadge`).
+fn sandbox_never_started(status: ledger::Status, d: &ledger::ToolDetail) -> bool {
+    status == ledger::Status::Failed && locust_core::codex_failure::sandbox_did_not_start(Some(&d.output))
+}
+
+fn sandbox_badge(s: &State, key: &str, status: ledger::Status, d: &ledger::ToolDetail, p: &Palette) -> Option<El> {
+    if !sandbox_never_started(status, d) {
+        return None;
+    }
+    let l = crate::look::controls::Look::new(p.dark);
+    let said = locust_core::codex_failure::SANDBOX_DID_NOT_START;
+    let badge_key = format!("{key}/sandbox");
+    let badge = el()
+        .key(badge_key.clone())
+        .label(said)
+        .px(6.0)
+        .radius(5.0)
+        .fill(l.c("amber-tint"))
+        .child(text("sandbox did not start").font(type_::LABEL.mono()).color(l.c("amber-text")));
+    Some(super::hover::tip(s, &l, &badge_key, said, badge))
 }
 
 pub(super) fn is_shell_tool(name: &str) -> bool {
@@ -568,12 +591,13 @@ fn activity_item_with_files(item: &ledger::Item, p: &Palette, s: &State, scope: 
     };
     let shell = match item {
         ledger::Item::Tool { name, status, detail, .. } if is_shell_tool(name) && !detail.helper => {
-            Some((tool_result(*status, detail, finished), shell_badge(*status, detail, finished), reach_badge(s, &key, detail, p)))
+            let badges = [reach_badge(s, &key, detail, p), sandbox_badge(s, &key, *status, detail, p)].into_iter().flatten().collect();
+            Some((tool_result(*status, detail, finished), shell_badge(*status, detail, finished), badges))
         }
         _ => None,
     };
-    let heading = if let Some((result, badge, reach)) = shell {
-        shell_heading(key.clone(), label, &result, badge, reach, expandable, open, p)
+    let heading = if let Some((result, badge, badges)) = shell {
+        shell_heading(key.clone(), label, &result, badge, badges, expandable, open, p)
     } else if expandable {
         disclosure(key.clone(), label, open, p)
     } else {
@@ -597,7 +621,7 @@ fn activity_item_with_files(item: &ledger::Item, p: &Palette, s: &State, scope: 
         let code = rune::TextStyle::new(11.5, 400.0).mono().lh(17.0);
         let mut body = col().w_full().pl(20.0).pr(4.0).pb(6.0).gap(8.0);
         match item {
-            ledger::Item::Tool { name, summary, detail: d, .. } => {
+            ledger::Item::Tool { name, summary, detail: d, status, .. } => {
                 // A shell row already shows its command; the fold repeats it only when the row led with a
                 // description, or showed just the first of its lines (ActivityCard.tsx: `entry.title !== undefined`).
                 let command_shown = is_shell_tool(name) && !d.helper && !shell_command_folded(summary, &d.arguments);
@@ -605,6 +629,10 @@ fn activity_item_with_files(item: &ledger::Item, p: &Palette, s: &State, scope: 
                     body = body.child(
                         el().w_full().padding(10.0).radius(8.0).fill(l.c("hover-surface")).child(text(d.arguments.clone()).font(code).color(l.c("text-secondary")).w_full().wrap_anywhere().selectable(true)),
                     );
+                }
+                // Opened, the sandbox's sentence is said above what Codex printed (`lc-shellwhy`).
+                if is_shell_tool(name) && !d.helper && sandbox_never_started(*status, d) {
+                    body = body.child(text(locust_core::codex_failure::SANDBOX_DID_NOT_START).font(type_::LABEL).color(l.c("amber-text")).w_full().wrap().key(format!("{key}/sandbox-why")));
                 }
                 if !d.output.trim().is_empty() {
                     let all_key = format!("{key}/output");
@@ -1486,3 +1514,7 @@ mod tests {
 #[cfg(test)]
 #[path = "thought_folds_to_one_line_tests.rs"]
 mod thought_folds_to_one_line_tests;
+
+#[cfg(test)]
+#[path = "codex_sandbox_row_tests.rs"]
+mod codex_sandbox_row_tests;
