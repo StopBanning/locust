@@ -485,6 +485,12 @@ pub fn memory_text(text: &str) -> String {
         clean
     }
 }
+/// Electron `memory.memoryName`: a memory's name is a slug -- lower case, digits and hyphens, up to 64, not starting with
+/// a hyphen. Anything else is refused, and the memory is kept without it.
+pub fn memory_name(raw: &str) -> Option<String> {
+    let slug = raw.trim().to_lowercase();
+    crate::invariants::regex(r"^[a-z0-9][a-z0-9-]{0,63}$").is_match(&slug).then_some(slug)
+}
 pub fn key(text: &str) -> String {
     text.to_lowercase()
         .split(|c: char| !c.is_alphanumeric())
@@ -578,38 +584,53 @@ pub fn add_memory_for(
     }
     let mut file = memories(store)?;
     let rows = file["memories"].as_array_mut().ok_or(MEMORY_UNREADABLE)?;
-    let name = name
-        .map(str::to_lowercase)
-        .filter(|s| crate::invariants::regex(r"^[a-z0-9][a-z0-9-]{0,63}$").is_match(s));
-    let at = rows.iter().position(|r| {
-        r["scope"] == scope
-            && (scope == "global" || r["workspaceId"] == workspace)
-            && match &name {
-                Some(n) => r["name"] == *n && r["status"] == "kept",
-                None => key(r["text"].as_str().unwrap_or("")) == key(&text),
-            }
-    });
-    if let Some(at) = at {
-        if rows[at]["text"] == text || name.is_none() {
+    let name = name.and_then(memory_name);
+    let here = |r: &Value| r["scope"] == scope && (scope == "global" || r["workspaceId"] == workspace);
+    // A NAME REPLACES; text only ever de-duplicates (memory-store.ts add). Same name, same place, whatever its status:
+    // the current value of a fact the teammate is restating, rewritten in place, keeping its id, author and birthday.
+    let named_at = name.as_ref().and_then(|n| rows.iter().position(|r| here(r) && r["name"] == n.as_str()));
+    let mut at = None;
+    if let Some(held) = named_at {
+        // Nothing actually changed: the file is not churned, and the real `updatedAt` stays.
+        if key(rows[held]["text"].as_str().unwrap_or("")) == key(&text) {
             return Ok(Added::Nothing);
         }
-        if status == "kept" {
-            rows[at]["previousText"] = rows[at]["text"].clone();
-            rows[at]["text"] = json!(text);
-            rows[at]["updatedAt"] = json!(now());
-            rows[at]["updatedBy"] = by;
+        if rows[held]["status"] == "kept" && status == "proposed" {
+            // Ask me first (0.315): the kept memory stays as it is; the new wording waits beside it as a proposal, and a
+            // second rewrite before the person answers updates the proposal already waiting.
+            let kept_id = rows[held]["memoryId"].clone();
+            let basis = json!(fingerprint(std::slice::from_ref(&rows[held])));
+            if let Some(waiting) = rows.iter_mut().find(|r| r["replaces"] == kept_id && r["status"] == "proposed") {
+                if key(waiting["text"].as_str().unwrap_or("")) == key(&text) {
+                    return Ok(Added::Nothing);
+                }
+                waiting["text"] = json!(text);
+                waiting["by"] = by;
+                waiting["basis"] = basis;
+                waiting["updatedAt"] = json!(now());
+                if let Some(mission) = mission {
+                    waiting["missionId"] = json!(mission);
+                }
+                return store.save_json("memories.json", &file).map(|_| Added::ProposedChange);
+            }
+            at = Some(held);
+        } else {
+            // A rewrite of a kept memory stays kept; one the person has not seen yet stays proposed: the name does not
+            // smuggle a proposed memory past the person.
+            let row = &mut rows[held];
+            row["previousText"] = row["text"].clone();
+            row["text"] = json!(text);
+            row["updatedAt"] = json!(now());
+            // Credit where the words came from (A1.6); `by` stays who first kept it.
+            row["updatedBy"] = by;
+            // The turn that CHANGED it, not the turn that first wrote it.
+            if let Some(mission) = mission {
+                row["missionId"] = json!(mission);
+            }
             return store.save_json("memories.json", &file).map(|_| Added::Rewritten);
         }
-        // Ask me first (0.315): a second rewrite before the person answers updates the proposal already waiting.
-        let kept_id = rows[at]["memoryId"].clone();
-        if let Some(waiting) = rows.iter_mut().find(|r| r["replaces"] == kept_id && r["status"] == "proposed") {
-            waiting["text"] = json!(text);
-            waiting["by"] = by;
-            if let Some(mission) = mission {
-                waiting["missionId"] = json!(mission);
-            }
-            return store.save_json("memories.json", &file).map(|_| Added::ProposedChange);
-        }
+    } else if rows.iter().any(|r| here(r) && key(r["text"].as_str().unwrap_or("")) == key(&text)) {
+        return Ok(Added::Nothing);
     }
     if rows.len() >= 400 {
         return Err("Too many memories".into());
@@ -1631,11 +1652,15 @@ fn every_memory_op(reply: &str) -> Vec<(String, Option<String>, String)> {
                 .lines()
                 .filter_map(|raw| {
                     let c = line.captures(raw)?;
-                    Some((
-                        c[1].to_lowercase(),
-                        c.get(2).map(|m| m.as_str().to_lowercase()),
-                        memory_text(&c[3]),
-                    ))
+                    let verb = c[1].split_whitespace().collect::<Vec<_>>().join(" ").to_lowercase();
+                    let text = memory_text(&c[3]);
+                    if text.is_empty() {
+                        return None;
+                    }
+                    // `forget` names a QUOTE, not a slug: a name there is a misunderstanding of the form, and dropping it
+                    // is kinder than filing the quote under it.
+                    let name = if verb.starts_with("remember") { c.get(2).and_then(|m| memory_name(m.as_str())) } else { None };
+                    Some((verb, name, text))
                 })
                 .collect::<Vec<_>>()
         })

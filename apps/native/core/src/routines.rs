@@ -279,6 +279,9 @@ pub fn record_hook_loss(store: &Store, id: &str, count: u64, at: &str) -> Result
 }
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+#[path = "routines/removing_and_long_steps_tests.rs"]
+mod removing_and_long_steps_tests;
 /// Abandon a held attempt and remove its schedule. Never retries work.
 pub fn acknowledge(store: &Store, id: &str, attempt: &str) -> Result<(), String> {
     mutate(store, id, |r| {

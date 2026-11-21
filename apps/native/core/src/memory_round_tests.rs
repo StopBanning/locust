@@ -619,3 +619,265 @@ fn is_exactly_the_keyword_brief_when_recall_did_not_answer() {
     // The keyword brief leads with the note that says "website".
     assert_eq!(briefed_memories(&notes, Some(RECALL_QUERY), None)[0]["text"], notes[3]["text"]);
 }
+
+// ---- a-memory-nobody-is-given-says-so.test.ts (A1.4) ----
+// The brief pastes a few memories; the rest sit in the file. One that has gone a month without being in anyone's brief
+// -- and without being written -- is marked, for the person and for a tidy pass. Never deleted for it.
+use crate::people::{UNUSED_AFTER_DAYS, briefed_memories, days_unused, note_briefed};
+
+const DAY_MS: i64 = 24 * 60 * 60 * 1000;
+fn memories_bytes(store: &Store) -> Vec<u8> {
+    std::fs::read(store.root().join("memories.json")).expect("memories.json is written")
+}
+fn ms_ago(at: &str) -> i64 {
+    chrono::Utc::now().timestamp_millis() - chrono::DateTime::parse_from_rfc3339(at).unwrap().timestamp_millis()
+}
+/// Lay `lastBriefedAt` on the first memory, as a brief `hours` ago would have left it.
+fn briefed_hours_ago(store: &Store, hours: i64) {
+    let mut file = memories(store).unwrap();
+    let at = chrono::Utc::now() - chrono::Duration::hours(hours);
+    file["memories"][0]["lastBriefedAt"] = json!(at.to_rfc3339_opts(chrono::SecondsFormat::Millis, true));
+    store.save_json("memories.json", &file).unwrap();
+}
+
+// case: records it, and when counting began; at most once a day, so a day of runs is one write
+#[test]
+fn records_it_and_when_counting_began_at_most_once_a_day_so_a_day_of_runs_is_one_write() {
+    let (_t, store, folder) = fixture();
+    add_memory(&store, "Deploys go out on Thursdays.", None, "workspace", &workspace_id(&folder), json!({"name":"you"}), "kept").unwrap();
+    assert!(memories(&store).unwrap().get("briefTrackingSince").is_none());
+    let id = rows(&store)[0]["memoryId"].as_str().unwrap().to_owned();
+    note_briefed(&store, std::slice::from_ref(&id)).unwrap();
+    let file = memories(&store).unwrap();
+    let since = file["briefTrackingSince"].as_str().unwrap().to_owned();
+    assert!(ms_ago(&since) < 60_000, "counting began now: {since}");
+    assert_eq!(rows(&store)[0]["lastBriefedAt"].as_str(), Some(since.as_str()));
+    // Three hours later (a brief that recent), another run is no write at all.
+    briefed_hours_ago(&store, 3);
+    let written = memories_bytes(&store);
+    note_briefed(&store, std::slice::from_ref(&id)).unwrap();
+    assert_eq!(memories_bytes(&store), written);
+    // A day on, it is noted again; when counting began stays.
+    briefed_hours_ago(&store, 25);
+    note_briefed(&store, std::slice::from_ref(&id)).unwrap();
+    assert!(ms_ago(rows(&store)[0]["lastBriefedAt"].as_str().unwrap()) < 60_000);
+    assert_eq!(memories(&store).unwrap()["briefTrackingSince"].as_str(), Some(since.as_str()));
+}
+
+// case: a proposal, or an id it does not keep, is not noted
+#[test]
+fn a_proposal_or_an_id_it_does_not_keep_is_not_noted() {
+    let (_t, store, folder) = fixture();
+    add_memory(&store, "Only proposed.", None, "workspace", &workspace_id(&folder), json!({"name":"Wren"}), "proposed").unwrap();
+    let id = rows(&store)[0]["memoryId"].as_str().unwrap().to_owned();
+    note_briefed(&store, &[id, "mem_nothing".into()]).unwrap();
+    assert!(rows(&store)[0].get("lastBriefedAt").is_none());
+}
+
+// case: is counted from the last brief, the last write, or when counting began -- whichever is latest -- past ${String(UNUSED_AFTER_DAYS)} days
+#[test]
+fn is_counted_from_the_last_brief_the_last_write_or_when_counting_began_whichever_is_latest_past_30_days() {
+    assert_eq!(UNUSED_AFTER_DAYS, 30);
+    let now = at("2026-09-24T12:00:00.000Z");
+    let ago = |days: i64| (now - chrono::Duration::milliseconds(days * DAY_MS)).to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+    assert_eq!(days_unused(&json!({"createdAt": ago(90)}), Some(&ago(40)), now), Some(40));
+    assert_eq!(days_unused(&json!({"createdAt": ago(90), "lastBriefedAt": ago(45)}), Some(&ago(60)), now), Some(45));
+    assert_eq!(days_unused(&json!({"createdAt": ago(90), "lastBriefedAt": ago(10)}), Some(&ago(60)), now), None);
+    assert_eq!(days_unused(&json!({"createdAt": ago(90), "updatedAt": ago(5)}), Some(&ago(60)), now), None);
+    // The first month after counting began marks nothing it could not have seen.
+    assert_eq!(days_unused(&json!({"createdAt": ago(90)}), Some(&ago(10)), now), None);
+    assert_eq!(days_unused(&json!({"createdAt": ago(90)}), None, now), None);
+    // Exactly at the line is not past it.
+    assert_eq!(days_unused(&json!({"createdAt": ago(90)}), Some(&ago(30)), now), None);
+    assert_eq!(days_unused(&json!({"createdAt": ago(90)}), Some(&ago(31)), now), Some(31));
+}
+
+// case: says so in the file every teammate reads, so a tidy pass can see it
+#[test]
+fn says_so_in_the_file_every_teammate_reads_so_a_tidy_pass_can_see_it() {
+    let now = at("2026-09-24T12:00:00.000Z");
+    let row = json!({"memoryId": "mem_x", "text": "Old note.", "scope": "workspace", "by": {"name": "you"},
+        "createdAt": "2026-06-26T12:00:00.000Z", "status": "kept", "unusedDays": 40});
+    let text = crate::memory_file::memory_file_text(&[row], now);
+    assert!(text.contains("-- not given to a teammate in 40 days) [mem_x]"), "{text}");
+}
+
+// case: the same choice, made by the same function
+#[test]
+fn the_same_choice_made_by_the_same_function() {
+    let (_t, store, folder) = fixture();
+    let ws = workspace_id(&folder);
+    for index in 0..12 {
+        add_memory(&store, &format!("Note number {index} about the build."), None, "workspace", &ws, json!({"name":"you"}), "kept").unwrap();
+    }
+    let lines = rows(&store);
+    let file = Some(".locust/memory.md");
+    let given = briefed_memories(&lines, None, file);
+    let section = crate::people::memory_section(None, Some("shop"), &lines, false, false, at("2026-09-24T12:00:00.000Z"), file, None);
+    assert!(!given.is_empty());
+    assert!(given.len() < lines.len(), "{} of {}", given.len(), lines.len());
+    for line in &lines {
+        let text = line["text"].as_str().unwrap();
+        assert_eq!(section.contains(text), given.iter().any(|g| g["memoryId"] == line["memoryId"]), "{text}");
+    }
+}
+
+// ---- a-named-memory-replaces-the-one-before-it.test.ts ----
+// Measured on Colin's own store, 2026-09-21: 89 memories, 26 of them in a near-duplicate pair, the worst one teammate
+// writing "orb round N, unit tests 31/31" once per test round. The fix is NOT similarity matching: identity is asserted
+// by the writer, and a memory given a name replaces the one before it under that name.
+use crate::people::{Added, add_memory_for, memory_name, memory_ops};
+
+fn op(kind: &str, name: Option<&str>, text: &str) -> (String, Option<String>, String) {
+    (kind.into(), name.map(str::to_owned), text.into())
+}
+fn yurt() -> Value {
+    json!({"name": "Yurt"})
+}
+/// One `remember` into the folder `ws_one` (or everywhere), as a run writes it.
+fn named(store: &Store, text: &str, scope: &str, name: Option<&str>, status: &str) -> Added {
+    add_memory_for(store, text, name, scope, "ws_one", yurt(), status, Some("mission_7")).unwrap()
+}
+
+// case: reads `remember as <name> ::`
+#[test]
+fn reads_remember_as_name() {
+    assert_eq!(memory_ops("<locust-memory>\nremember as orb-suite-status :: round 10, 38/38\n</locust-memory>"), vec![op("remember", Some("orb-suite-status"), "round 10, 38/38")]);
+}
+
+// case: reads the everywhere form, and still reads the unnamed ones exactly as before
+#[test]
+fn reads_the_everywhere_form_and_still_reads_the_unnamed_ones_exactly_as_before() {
+    let ops = memory_ops("<locust-memory>\nremember everywhere as house-style :: diffs, not prose\nremember :: tests run with pnpm\nforget :: the API is on port 3000\n</locust-memory>");
+    assert_eq!(ops, vec![
+        op("remember everywhere", Some("house-style"), "diffs, not prose"),
+        op("remember", None, "tests run with pnpm"),
+        op("forget", None, "the API is on port 3000"),
+    ]);
+    // However the verb is spaced, it is one verb.
+    assert_eq!(memory_ops("<locust-memory>\nremember   everywhere :: x\nabout  you :: short answers\n</locust-memory>")[1].0, "about you");
+}
+
+// case: refuses a name that is not a slug, keeping the memory rather than the name
+#[test]
+fn refuses_a_name_that_is_not_a_slug_keeping_the_memory_rather_than_the_name() {
+    assert_eq!(memory_name("Orb Suite Status"), None);
+    assert_eq!(memory_name("orb-suite-status").as_deref(), Some("orb-suite-status"));
+    assert_eq!(memory_name("ORB-Suite").as_deref(), Some("orb-suite"));
+    assert_eq!(memory_name("-leading"), None);
+    assert_eq!(memory_name(&"a".repeat(65)), None);
+    assert_eq!(memory_name(&"a".repeat(64)).map(|n| n.len()), Some(64));
+    // Kept, without the name.
+    let (_t, store, _) = fixture();
+    named(&store, "kept anyway", "workspace", Some("Not A Slug"), "kept");
+    let row = &rows(&store)[0];
+    assert_eq!(row["text"], "kept anyway");
+    assert!(row.get("name").is_none());
+}
+
+// case: does not let `forget` take a name: it quotes, it does not file
+#[test]
+fn does_not_let_forget_take_a_name_it_quotes_it_does_not_file() {
+    assert_eq!(memory_ops("<locust-memory>\nforget as thing :: the API is on port 3000\n</locust-memory>"), vec![op("forget", None, "the API is on port 3000")]);
+}
+
+// case: rewrites in place: one row, the new words, the old ones kept
+#[test]
+fn rewrites_in_place_one_row_the_new_words_the_old_ones_kept() {
+    let (_t, store, _) = fixture();
+    assert_eq!(add_memory_for(&store, "orb round 4, tests 31/31", Some("orb-suite-status"), "workspace", "ws_one", yurt(), "kept", Some("mission_1")).unwrap(), Added::Kept);
+    let first = rows(&store)[0].clone();
+    assert_eq!(add_memory_for(&store, "orb round 10, tests 38/38", Some("orb-suite-status"), "workspace", "ws_one", json!({"name": "Wren"}), "kept", Some("mission_2")).unwrap(), Added::Rewritten);
+    let listed = rows(&store);
+    assert_eq!(listed.len(), 1);
+    let second = &listed[0];
+    // The same row: the id, the author and the birthday survive a rewrite.
+    assert_eq!(second["memoryId"], first["memoryId"]);
+    assert_eq!(second["createdAt"], first["createdAt"]);
+    assert_eq!(second["by"], first["by"]);
+    assert_eq!(second["text"], "orb round 10, tests 38/38");
+    assert_eq!(second["previousText"], "orb round 4, tests 31/31");
+    // Credit for the words, and the turn that changed it.
+    assert_eq!(second["updatedBy"]["name"], "Wren");
+    assert_eq!(second["missionId"], "mission_2");
+}
+
+// case: is what stops the store growing: nine rounds, one memory
+#[test]
+fn is_what_stops_the_store_growing_nine_rounds_one_memory() {
+    let (_t, store, _) = fixture();
+    for round in 4..=12 {
+        named(&store, &format!("orb round {round}, tests 38/38"), "workspace", Some("orb-suite-status"), "kept");
+    }
+    let listed = rows(&store);
+    assert_eq!(listed.len(), 1);
+    assert_eq!(listed[0]["text"], "orb round 12, tests 38/38");
+}
+
+// case: leaves an unnamed memory behaving exactly as it always did
+#[test]
+fn leaves_an_unnamed_memory_behaving_exactly_as_it_always_did() {
+    let (_t, store, _) = fixture();
+    assert_eq!(named(&store, "tests run with pnpm", "workspace", None, "kept"), Added::Kept);
+    // Same text, punctuation-blind: de-duplicated, not rewritten.
+    assert_eq!(named(&store, "Tests run with pnpm.", "workspace", None, "kept"), Added::Nothing);
+    assert_eq!(rows(&store).len(), 1);
+    assert_eq!(rows(&store)[0]["text"], "tests run with pnpm");
+    // A name given to words already kept without one files nothing new beside them.
+    assert_eq!(named(&store, "Tests run with pnpm", "workspace", Some("test-runner"), "kept"), Added::Nothing);
+    assert_eq!(rows(&store).len(), 1);
+}
+
+// case: does not churn the file when the same name is given the same words
+#[test]
+fn does_not_churn_the_file_when_the_same_name_is_given_the_same_words() {
+    let (_t, store, _) = fixture();
+    named(&store, "round 10, 38/38", "workspace", Some("orb-suite-status"), "kept");
+    let written = memories_bytes(&store);
+    assert_eq!(named(&store, "round 10, 38/38", "workspace", Some("orb-suite-status"), "kept"), Added::Nothing);
+    // The same words however punctuated or cased are the same words.
+    assert_eq!(named(&store, "Round 10 -- 38/38.", "workspace", Some("orb-suite-status"), "kept"), Added::Nothing);
+    assert_eq!(memories_bytes(&store), written);
+    let row = &rows(&store)[0];
+    assert!(row.get("previousText").is_none());
+    assert!(row.get("updatedAt").is_none());
+}
+
+// case: keeps a name to its own place: this folder and everywhere are different memories
+#[test]
+fn keeps_a_name_to_its_own_place_this_folder_and_everywhere_are_different_memories() {
+    let (_t, store, _) = fixture();
+    named(&store, "here", "workspace", Some("status"), "kept");
+    named(&store, "anywhere", "global", Some("status"), "kept");
+    let mut texts: Vec<String> = rows(&store).iter().map(|m| m["text"].as_str().unwrap().to_owned()).collect();
+    texts.sort();
+    assert_eq!(texts, ["anywhere", "here"]);
+}
+
+// case: does not promote a proposed memory by rewriting it
+#[test]
+fn does_not_promote_a_proposed_memory_by_rewriting_it() {
+    // Ask me first exists so a person sees a memory before it counts. A name must not be a way around that.
+    let (_t, store, _) = fixture();
+    named(&store, "first", "workspace", Some("thing"), "proposed");
+    assert_eq!(named(&store, "second", "workspace", Some("thing"), "kept"), Added::Rewritten);
+    let listed = rows(&store);
+    assert_eq!(listed.len(), 1, "{listed:?}");
+    assert_eq!(listed[0]["status"], "proposed");
+    assert_eq!(listed[0]["text"], "second");
+}
+
+// case: survives a reload, name and history intact
+#[test]
+fn survives_a_reload_name_and_history_intact() {
+    let (t, store, _) = fixture();
+    named(&store, "one", "workspace", Some("thing"), "kept");
+    named(&store, "two", "workspace", Some("thing"), "kept");
+    drop(store);
+    let reopened = Store::new(t.0.join("native"), t.0.join("electron")).unwrap();
+    let listed = rows(&reopened);
+    assert_eq!(listed.len(), 1);
+    assert_eq!(listed[0]["name"], "thing");
+    assert_eq!(listed[0]["text"], "two");
+    assert_eq!(listed[0]["previousText"], "one");
+}

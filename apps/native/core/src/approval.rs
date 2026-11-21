@@ -331,7 +331,20 @@ fn whole_input(input: &Value) -> String {
     serde_json::to_string_pretty(input).map(|text| whole_detail(&text)).unwrap_or_default()
 }
 
-fn whole_detail(value: &str) -> String {
+/// approval-detail.ts `programAsRun` (0.837): Codex on Windows sends a command with its program's path escaped, every
+/// backslash doubled. When every backslash in the leading quoted path is half of a pair, each pair is read as one;
+/// anything else, and the rest of the command, is shown exactly as sent.
+pub fn program_as_run(command: &str) -> String {
+    let Some(rest) = command.strip_prefix('"') else { return command.to_owned() };
+    let Some(end) = rest.find('"') else { return command.to_owned() };
+    let path = &rest[..end];
+    if !path.contains("\\\\") || path.replace("\\\\", "").contains('\\') {
+        return command.to_owned();
+    }
+    format!("\"{}\"{}", path.replace("\\\\", "\\"), &rest[end + 1..])
+}
+
+pub(crate) fn whole_detail(value: &str) -> String {
     let normalized = value.replace("\r\n", "\n").replace('\r', "\n");
     let text = normalized.trim();
     let length = text.encode_utf16().count();
@@ -380,7 +393,7 @@ pub fn describe_codex(
     let cwd = params["cwd"].as_str().map(str::to_owned);
     match kind {
         Kind::Command => {
-            let command = whole_detail(params["command"].as_str().unwrap_or(""));
+            let command = program_as_run(&whole_detail(params["command"].as_str().unwrap_or("")));
             let summary = if command.is_empty() {
                 "Run a command it did not describe".into()
             } else {
@@ -1906,6 +1919,10 @@ pub fn needs_you_status(count: usize) -> String {
         n => format!("{n} need you"),
     }
 }
+
+#[cfg(test)]
+#[path = "approval_whole_action_tests.rs"]
+mod whole_action_tests;
 
 #[cfg(test)]
 #[path = "approval_codex_always_tests.rs"]

@@ -1343,3 +1343,7 @@ mod recovery;
 #[cfg(test)]
 #[path = "refusal_reason_tests.rs"]
 mod refusal_reason;
+
+#[cfg(test)]
+#[path = "routine_runner_long_step_tests.rs"]
+mod long_step;

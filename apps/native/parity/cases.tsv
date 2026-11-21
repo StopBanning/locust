@@ -335,10 +335,10 @@ apps/desktop/src/main/a-file-written-elsewhere-opens.test.ts	copies it when the 
 apps/desktop/src/main/a-file-written-elsewhere-opens.test.ts	resolves it against that folder only, never another one it knows	yes
 apps/desktop/src/main/a-folder-cannot-make-locust-run-its-program.test.ts	is looked at by Locust without running it	yes
 apps/desktop/src/main/a-folder-cannot-make-locust-run-its-program.test.ts	has a teammate's worktree checked without running it	yes
-apps/desktop/src/main/a-folder-is-one-folder-however-spelled.test.ts	is the known folder, spelled as it was first known	no
-apps/desktop/src/main/a-folder-is-one-folder-however-spelled.test.ts	and at start, before the registry is open	no
-apps/desktop/src/main/a-folder-is-one-folder-however-spelled.test.ts	a different folder stays itself	no
-apps/desktop/src/main/a-folder-is-one-folder-however-spelled.test.ts	a folder that is not there, or no registry yet, is left as written	no
+apps/desktop/src/main/a-folder-is-one-folder-however-spelled.test.ts	is the known folder, spelled as it was first known	yes
+apps/desktop/src/main/a-folder-is-one-folder-however-spelled.test.ts	and at start, before the registry is open	yes
+apps/desktop/src/main/a-folder-is-one-folder-however-spelled.test.ts	a different folder stays itself	yes
+apps/desktop/src/main/a-folder-is-one-folder-however-spelled.test.ts	a folder that is not there, or no registry yet, is left as written	yes
 apps/desktop/src/main/a-folder-too-big-to-keep-is-not-relisted-every-turn.test.ts	is listed once, believed for ten minutes, then listed again	yes
 apps/desktop/src/main/a-folder-too-big-to-keep-is-not-relisted-every-turn.test.ts	is remembered for that folder only	yes
 apps/desktop/src/main/a-folder-with-only-dot-files-holds-nothing-yet.test.ts	is one with nothing, or nothing but dot files, in it	yes
@@ -463,11 +463,11 @@ apps/desktop/src/main/a-managed-turn-is-refused-before-an-agent-starts.test.ts	g
 apps/desktop/src/main/a-managed-turn-is-refused-before-an-agent-starts.test.ts	cancels a voice start still waiting for its policy check	no
 apps/desktop/src/main/a-managed-turn-is-refused-before-an-agent-starts.test.ts	ignores a saved MCP opt-in, removes the old connection, and refuses forged enabling	no
 apps/desktop/src/main/a-managed-turn-is-refused-before-an-agent-starts.test.ts	ignores a saved phone opt-in and refuses forged pairing without a listener or key	yes
-apps/desktop/src/main/a-memory-nobody-is-given-says-so.test.ts	records it, and when counting began; at most once a day, so a day of runs is one write	no
-apps/desktop/src/main/a-memory-nobody-is-given-says-so.test.ts	a proposal, or an id it does not keep, is not noted	no
-apps/desktop/src/main/a-memory-nobody-is-given-says-so.test.ts	is counted from the last brief, the last write, or when counting began -- whichever is latest -- past ${String(UNUSED_AFTER_DAYS)} days	no
-apps/desktop/src/main/a-memory-nobody-is-given-says-so.test.ts	says so in the file every teammate reads, so a tidy pass can see it	no
-apps/desktop/src/main/a-memory-nobody-is-given-says-so.test.ts	the same choice, made by the same function	no
+apps/desktop/src/main/a-memory-nobody-is-given-says-so.test.ts	records it, and when counting began; at most once a day, so a day of runs is one write	yes
+apps/desktop/src/main/a-memory-nobody-is-given-says-so.test.ts	a proposal, or an id it does not keep, is not noted	yes
+apps/desktop/src/main/a-memory-nobody-is-given-says-so.test.ts	is counted from the last brief, the last write, or when counting began -- whichever is latest -- past ${String(UNUSED_AFTER_DAYS)} days	yes
+apps/desktop/src/main/a-memory-nobody-is-given-says-so.test.ts	says so in the file every teammate reads, so a tidy pass can see it	yes
+apps/desktop/src/main/a-memory-nobody-is-given-says-so.test.ts	the same choice, made by the same function	yes
 apps/desktop/src/main/a-memory-whose-file-changed-may-be-out-of-date.test.ts	takes paths and project file names; not URLs, versions or abbreviations	yes
 apps/desktop/src/main/a-memory-whose-file-changed-may-be-out-of-date.test.ts	names them in a sentence	yes
 apps/desktop/src/main/a-memory-whose-file-changed-may-be-out-of-date.test.ts	a named file saved after the memory is listed; one saved before, missing, or outside the folder is not	yes
@@ -486,17 +486,17 @@ apps/desktop/src/main/a-model-list-missing-one-is-asked-again.test.ts	reads agai
 apps/desktop/src/main/a-model-of-your-own-is-unpriced-not-free.test.ts	is one the person added, which OpenCode runs -- and an old record without a model is not	yes
 apps/desktop/src/main/a-model-of-your-own-is-unpriced-not-free.test.ts	counts a run with tokens and no price as unpriced, never as dollars; a free catalog model stays nothing	yes
 apps/desktop/src/main/a-model-of-your-own-is-unpriced-not-free.test.ts	never moves the limit: it is said on the card instead (a-teammates-month-and-limit)	no
-apps/desktop/src/main/a-named-memory-replaces-the-one-before-it.test.ts	reads `remember as <name> ::`	no
-apps/desktop/src/main/a-named-memory-replaces-the-one-before-it.test.ts	reads the everywhere form, and still reads the unnamed ones exactly as before	no
-apps/desktop/src/main/a-named-memory-replaces-the-one-before-it.test.ts	refuses a name that is not a slug, keeping the memory rather than the name	no
-apps/desktop/src/main/a-named-memory-replaces-the-one-before-it.test.ts	does not let `forget` take a name: it quotes, it does not file	no
-apps/desktop/src/main/a-named-memory-replaces-the-one-before-it.test.ts	rewrites in place: one row, the new words, the old ones kept	no
-apps/desktop/src/main/a-named-memory-replaces-the-one-before-it.test.ts	is what stops the store growing: nine rounds, one memory	no
-apps/desktop/src/main/a-named-memory-replaces-the-one-before-it.test.ts	leaves an unnamed memory behaving exactly as it always did	no
-apps/desktop/src/main/a-named-memory-replaces-the-one-before-it.test.ts	does not churn the file when the same name is given the same words	no
-apps/desktop/src/main/a-named-memory-replaces-the-one-before-it.test.ts	keeps a name to its own place: this folder and everywhere are different memories	no
-apps/desktop/src/main/a-named-memory-replaces-the-one-before-it.test.ts	does not promote a proposed memory by rewriting it	no
-apps/desktop/src/main/a-named-memory-replaces-the-one-before-it.test.ts	survives a reload, name and history intact	no
+apps/desktop/src/main/a-named-memory-replaces-the-one-before-it.test.ts	reads `remember as <name> ::`	yes
+apps/desktop/src/main/a-named-memory-replaces-the-one-before-it.test.ts	reads the everywhere form, and still reads the unnamed ones exactly as before	yes
+apps/desktop/src/main/a-named-memory-replaces-the-one-before-it.test.ts	refuses a name that is not a slug, keeping the memory rather than the name	yes
+apps/desktop/src/main/a-named-memory-replaces-the-one-before-it.test.ts	does not let `forget` take a name: it quotes, it does not file	yes
+apps/desktop/src/main/a-named-memory-replaces-the-one-before-it.test.ts	rewrites in place: one row, the new words, the old ones kept	yes
+apps/desktop/src/main/a-named-memory-replaces-the-one-before-it.test.ts	is what stops the store growing: nine rounds, one memory	yes
+apps/desktop/src/main/a-named-memory-replaces-the-one-before-it.test.ts	leaves an unnamed memory behaving exactly as it always did	yes
+apps/desktop/src/main/a-named-memory-replaces-the-one-before-it.test.ts	does not churn the file when the same name is given the same words	yes
+apps/desktop/src/main/a-named-memory-replaces-the-one-before-it.test.ts	keeps a name to its own place: this folder and everywhere are different memories	yes
+apps/desktop/src/main/a-named-memory-replaces-the-one-before-it.test.ts	does not promote a proposed memory by rewriting it	yes
+apps/desktop/src/main/a-named-memory-replaces-the-one-before-it.test.ts	survives a reload, name and history intact	yes
 apps/desktop/src/main/a-new-project-is-told-how-to-write-its-first-memory.test.ts	says nothing is remembered and how to write the first memory, block and all	yes
 apps/desktop/src/main/a-new-project-is-told-how-to-write-its-first-memory.test.ts	leaves out how to read memories until there is one, and brings it back with the first	yes
 apps/desktop/src/main/a-new-project-is-told-how-to-write-its-first-memory.test.ts	still gives the memory paragraphs up first when a run that belongs to nobody is over the cap (A5.3)	yes
@@ -783,8 +783,8 @@ apps/desktop/src/main/a-routine-asks-for-inputs-and-travels-as-a-file.test.ts	re
 apps/desktop/src/main/a-routine-asks-for-inputs-and-travels-as-a-file.test.ts	flags paths before opening a save dialog, then writes only the converted export	no
 apps/desktop/src/main/a-routine-asks-for-inputs-and-travels-as-a-file.test.ts	previews connector presence without creating or running; imports only once, unscheduled and read-only	no
 apps/desktop/src/main/a-routine-asks-for-inputs-and-travels-as-a-file.test.ts	refuses a preview from a different folder, removed teammates and fabricated tokens	no
-apps/desktop/src/main/a-routine-awaiting-review-is-not-removed.test.ts	is refused while its last attempt is ${status}, and the routine stays	no
-apps/desktop/src/main/a-routine-awaiting-review-is-not-removed.test.ts	goes once the attempt is abandoned, or when there never was one	no
+apps/desktop/src/main/a-routine-awaiting-review-is-not-removed.test.ts	is refused while its last attempt is ${status}, and the routine stays	yes
+apps/desktop/src/main/a-routine-awaiting-review-is-not-removed.test.ts	goes once the attempt is abandoned, or when there never was one	yes
 apps/desktop/src/main/a-routine-hands-off-to-the-next-teammate.test.ts	refuses before any step runs when a later step's teammate was removed, naming the step	yes
 apps/desktop/src/main/a-routine-hands-off-to-the-next-teammate.test.ts	gives each step to its teammate, on that teammate's route, with the answer of the step before	yes
 apps/desktop/src/main/a-routine-hands-off-to-the-next-teammate.test.ts	does not count a run the checker did not approve, and a restart does not count it either	yes
@@ -817,10 +817,10 @@ apps/desktop/src/main/a-routine-keeps-going-until-its-check-passes.test.ts	a run
 apps/desktop/src/main/a-routine-keeps-going-until-its-check-passes.test.ts	a last failure reads back from the file, and one that does not read is dropped (0.536)	no
 apps/desktop/src/main/a-routine-keeps-going-until-its-check-passes.test.ts	finishes at once when the check passes the first time, and says so	yes
 apps/desktop/src/main/a-routine-keeps-going-until-its-check-passes.test.ts	keeps 1 to 5 fixes, and drops a goal that does not read rather than the routine	no
-apps/desktop/src/main/a-routine-step-too-long-is-refused-before-it-starts.test.ts	refuses a step longer than a run can send, naming the step and the room	no
-apps/desktop/src/main/a-routine-step-too-long-is-refused-before-it-starts.test.ts	still reads a routine saved before, with a step up to 20,000	no
-apps/desktop/src/main/a-routine-step-too-long-is-refused-before-it-starts.test.ts	step 1: refused with the reason, nothing started, nothing recorded	no
-apps/desktop/src/main/a-routine-step-too-long-is-refused-before-it-starts.test.ts	step 2: held for what it is -- too long, nothing started -- not as an uncertain dispatch	no
+apps/desktop/src/main/a-routine-step-too-long-is-refused-before-it-starts.test.ts	refuses a step longer than a run can send, naming the step and the room	yes
+apps/desktop/src/main/a-routine-step-too-long-is-refused-before-it-starts.test.ts	still reads a routine saved before, with a step up to 20,000	yes
+apps/desktop/src/main/a-routine-step-too-long-is-refused-before-it-starts.test.ts	step 1: refused with the reason, nothing started, nothing recorded	yes
+apps/desktop/src/main/a-routine-step-too-long-is-refused-before-it-starts.test.ts	step 2: held for what it is -- too long, nothing started -- not as an uncertain dispatch	yes
 apps/desktop/src/main/a-routine-step-waits-for-your-ok.test.ts	holds before the step, tells the person, and Go ahead starts it with the answer of the step before	yes
 apps/desktop/src/main/a-routine-step-waits-for-your-ok.test.ts	Stop here ends the run and keeps the routine as it was	yes
 apps/desktop/src/main/a-routine-step-waits-for-your-ok.test.ts	does not wait when no step asks, or when the step that asks is not the next one	yes
@@ -1165,11 +1165,11 @@ apps/desktop/src/main/an-approval-says-what-it-allows.test.ts	carries OpenCode's
 apps/desktop/src/main/an-approval-says-what-it-allows.test.ts	says when a subagent the teammate started is the one asking (R36)	yes
 apps/desktop/src/main/an-approval-says-what-it-allows.test.ts	says a Claude write outside the folder is outside it, and not undoable from here	yes
 apps/desktop/src/main/an-approval-says-what-it-allows.test.ts	draws a Codex file change whose approval arrived before its item was read	yes
-apps/desktop/src/main/an-approval-shows-the-whole-action.test.ts	shows a connector call whole, down to a recipient written last	no
-apps/desktop/src/main/an-approval-shows-the-whole-action.test.ts	keeps a command's line breaks, as the command will run	no
-apps/desktop/src/main/an-approval-shows-the-whole-action.test.ts	shows the path of a Codex command on Windows as the shell gets it	no
-apps/desktop/src/main/an-approval-shows-the-whole-action.test.ts	leaves a command as sent when its path was not escaped as a whole, and leaves the rest alone	no
-apps/desktop/src/main/an-approval-shows-the-whole-action.test.ts	counts what it cannot show, and never cuts it silently	no
+apps/desktop/src/main/an-approval-shows-the-whole-action.test.ts	shows a connector call whole, down to a recipient written last	yes
+apps/desktop/src/main/an-approval-shows-the-whole-action.test.ts	keeps a command's line breaks, as the command will run	yes
+apps/desktop/src/main/an-approval-shows-the-whole-action.test.ts	shows the path of a Codex command on Windows as the shell gets it	yes
+apps/desktop/src/main/an-approval-shows-the-whole-action.test.ts	leaves a command as sent when its path was not escaped as a whole, and leaves the rest alone	yes
+apps/desktop/src/main/an-approval-shows-the-whole-action.test.ts	counts what it cannot show, and never cuts it silently	yes
 apps/desktop/src/main/an-attention-mark-says-when-you-were-last-here.test.ts	reads back what was written, making the folder on the way, and leaves no half-written file	yes
 apps/desktop/src/main/an-attention-mark-says-when-you-were-last-here.test.ts	treats a file it cannot read as no mark (control)	yes
 apps/desktop/src/main/an-automatic-reply-stays-on-the-model-picked-in-its-conversation.test.ts	the answer brought back starts the asker on the model picked there, not the one on their profile	no

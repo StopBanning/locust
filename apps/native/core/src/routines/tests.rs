@@ -220,7 +220,7 @@ fn slot_passed_during_a_long_run_is_missed() {
         schedule::slot_passed_during(&json!({"kind":"every","hours":1}), started, ended).is_none()
     );
 }
-fn fixture() -> (std::path::PathBuf, Store) {
+pub(super) fn fixture() -> (std::path::PathBuf, Store) {
     let root = std::env::temp_dir().join(format!(
         "routines-{}",
         crate::native::uuid_v4().unwrap()

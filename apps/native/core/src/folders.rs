@@ -437,3 +437,7 @@ mod review_tests {
 #[cfg(test)]
 #[path = "folders_nothing_yet_tests.rs"]
 mod folders_nothing_yet_tests;
+
+#[cfg(test)]
+#[path = "folders_same_folder_tests.rs"]
+mod same_folder_tests;
