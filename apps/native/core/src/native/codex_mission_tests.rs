@@ -1058,6 +1058,8 @@ fn a_copilot_teammate_is_sent_the_effort_it_was_given() {
     assert_eq!(args[at..at + 2], ["--effort", "high"]);
 }
 
+// case: is given on the print route and the Approve-each route alike, and only when there is one
+// (Here the plugin is added for every Copilot start before its route is chosen; this runs the print route.)
 #[test]
 fn every_copilot_run_gets_locusts_command_guard_as_a_plugin_and_no_other_runtime_that_plugin() {
     let t = Temp::new();

@@ -786,8 +786,14 @@ pub fn codex_config_for(folder: &std::path::Path) -> Option<serde_json::Value> {
 /// command-guard.ts copilotCommandGuardHooks. Unlike Claude Code and Codex, Copilot refuses the command when a hook
 /// fails (measured on 1.0.95), so a guard that could not start would stop every command: the line cannot fail.
 pub fn copilot_hooks(executable: &std::path::Path) -> String {
-    let command = hook_command(executable);
-    let line = if cfg!(windows) { format!("try {{ {command} }} catch {{}}; exit 0") } else { format!("{command} || true") };
+    copilot_hooks_for(executable, guard_log().as_deref(), cfg!(windows))
+}
+
+/// `copilot_hooks` for a platform: Codex's line, inside a try that always ends 0 on Windows, `|| true` elsewhere, so
+/// a guard that fails never blocks Copilot's command.
+pub fn copilot_hooks_for(executable: &std::path::Path, log: Option<&str>, windows: bool) -> String {
+    let command = hook_command_logged(executable, log, windows);
+    let line = if windows { format!("try {{ {command} }} catch {{}}; exit 0") } else { format!("{command} || true") };
     serde_json::to_string_pretty(&serde_json::json!({
         "hooks": {"PreToolUse": [{"matcher": "Bash|PowerShell", "hooks": [{"type": "command", "command": line, "timeout": 15}]}]}
     }))
@@ -1048,6 +1054,7 @@ mod tests {
         );
     }
 
+    // case: is written where Copilot reads a Claude-format plugin: its manifest, and hooks/hooks.json beside it
     #[test]
     fn copilot_guard_writes_manifest_and_hooks_beside_it() {
         let root = std::env::temp_dir().join(format!("lcp-b19-{}-{}", std::process::id(), crate::invariants::unique_nanos()));

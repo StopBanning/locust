@@ -107,7 +107,7 @@ apps/desktop/src/main/a-claude-teammate-gets-its-skills.test.ts	a link inside a 
 apps/desktop/src/main/a-claude-teammate-gets-its-skills.test.ts	a folder with no skills hands over nothing and leaves nothing behind	yes
 apps/desktop/src/main/a-claude-teammate-gets-its-skills.test.ts	a skill folder past the size bound is left out	yes
 apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	names the guard on Windows the way Codex runs a hook there: in PowerShell, on Locust’s own binary run as node	yes
-apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	names it elsewhere exactly as Claude Code’s is named	no
+apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	names it elsewhere exactly as Claude Code’s is named	yes
 apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	is written only when LOCUST_GUARD_LOG names a file, one per question, with what was decided	yes
 apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	finds none where there are none, and none in what Codex ships itself or never installed	no
 apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	finds the person’s own, a plugin’s, and a project’s, in the folder or above it	yes
@@ -216,10 +216,10 @@ apps/desktop/src/main/a-copilot-permission-is-a-card.test.ts	an edit shows its c
 apps/desktop/src/main/a-copilot-permission-is-a-card.test.ts	anything else is said in the agent's own words, with what it names	yes
 apps/desktop/src/main/a-copilot-permission-is-a-card.test.ts	reads "for the rest of the run" as always -- which the run keeps for itself -- and anything unclear as a refusal	yes
 apps/desktop/src/main/a-copilot-permission-is-a-card.test.ts	a denial's reason goes on as the next thing the run is told -- ACP's answer has no room for it	yes
-apps/desktop/src/main/a-copilot-teammate-is-guarded-too.test.ts	names the guard on Windows as Codex’s is named, inside a try that always ends 0	no
-apps/desktop/src/main/a-copilot-teammate-is-guarded-too.test.ts	names it elsewhere as Claude Code’s is named, and never fails	no
-apps/desktop/src/main/a-copilot-teammate-is-guarded-too.test.ts	is written where Copilot reads a Claude-format plugin: its manifest, and hooks/hooks.json beside it	no
-apps/desktop/src/main/a-copilot-teammate-is-guarded-too.test.ts	is given on the print route and the Approve-each route alike, and only when there is one	no
+apps/desktop/src/main/a-copilot-teammate-is-guarded-too.test.ts	names the guard on Windows as Codex’s is named, inside a try that always ends 0	yes
+apps/desktop/src/main/a-copilot-teammate-is-guarded-too.test.ts	names it elsewhere as Claude Code’s is named, and never fails	yes
+apps/desktop/src/main/a-copilot-teammate-is-guarded-too.test.ts	is written where Copilot reads a Claude-format plugin: its manifest, and hooks/hooks.json beside it	yes
+apps/desktop/src/main/a-copilot-teammate-is-guarded-too.test.ts	is given on the print route and the Approve-each route alike, and only when there is one	yes
 apps/desktop/src/main/a-copy-column-brings-its-changes-in.test.ts	knows what it changed and what it deleted, and nothing else	no
 apps/desktop/src/main/a-copy-column-brings-its-changes-in.test.ts	counts its lines the way git does	no
 apps/desktop/src/main/a-copy-column-brings-its-changes-in.test.ts	keeps: writes what it changed into the folder, removes what it deleted, and leaves the rest	no

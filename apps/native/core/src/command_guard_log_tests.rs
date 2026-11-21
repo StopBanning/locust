@@ -46,3 +46,28 @@ fn is_written_only_when_locust_guard_log_names_a_file_one_per_question_with_what
     );
     let _ = std::fs::remove_dir_all(&folder);
 }
+
+// ---- a-copilot-teammate-is-guarded-too.test.ts ----
+fn copilot_line(windows: bool) -> String {
+    let exe = std::path::Path::new(if windows { "C:\\Users\\Jane O'Neil\\AppData\\Local\\Programs\\Locust\\Locust.exe" } else { "/Applications/Locust.app/Contents/MacOS/Locust" });
+    let hooks: serde_json::Value = serde_json::from_str(&copilot_hooks_for(exe, None, windows)).unwrap();
+    assert_eq!(hooks["hooks"]["PreToolUse"][0]["matcher"], "Bash|PowerShell");
+    assert_eq!(hooks["hooks"]["PreToolUse"][0]["hooks"][0]["timeout"], 15);
+    hooks["hooks"]["PreToolUse"][0]["hooks"][0]["command"].as_str().unwrap().to_owned()
+}
+
+// case: names the guard on Windows as Codex’s is named, inside a try that always ends 0
+#[test]
+fn names_the_guard_on_windows_as_codexs_is_named_inside_a_try_that_always_ends_0() {
+    let exe = std::path::Path::new("C:\\Users\\Jane O'Neil\\AppData\\Local\\Programs\\Locust\\Locust.exe");
+    assert_eq!(copilot_line(true), "try { & 'C:/Users/Jane O''Neil/AppData/Local/Programs/Locust/Locust.exe' '--command-guard' } catch {}; exit 0");
+    assert_eq!(copilot_line(true), format!("try {{ {} }} catch {{}}; exit 0", hook_command_logged(exe, None, true)));
+}
+
+// case: names it elsewhere as Claude Code’s is named, and never fails
+#[test]
+fn names_it_elsewhere_as_claude_codes_is_named_and_never_fails() {
+    let exe = std::path::Path::new("/Applications/Locust.app/Contents/MacOS/Locust");
+    let claude: serde_json::Value = serde_json::from_str(&claude_settings(exe)).unwrap();
+    assert_eq!(copilot_line(false), format!("{} || true", claude["hooks"]["PreToolUse"][0]["hooks"][0]["command"].as_str().unwrap()));
+}
