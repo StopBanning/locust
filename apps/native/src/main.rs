@@ -817,6 +817,7 @@ fn setup(s: &mut State, waker: Waker) {
     s.commit_read_job.set_waker(waker.clone());
     s.commit_job.set_waker(waker.clone());
     s.commit_draft_job.set_waker(waker.clone());
+    s.walk_job.set_waker(waker.clone());
     s.changes_repo_job.set_waker(waker.clone());
     s.team.set_waker(waker.clone());
     s.live_faces.job.set_waker(waker.clone());

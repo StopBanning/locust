@@ -78,6 +78,10 @@ apps/desktop/src/main/a-card-answer-is-recorded-past-64-open-cards.test.ts	still
 apps/desktop/src/main/a-card-answer-is-recorded-past-64-open-cards.test.ts	keeps at most 64 cards still waiting, the newest; the oldest waiting one goes	no
 apps/desktop/src/main/a-card-answer-is-recorded-past-64-open-cards.test.ts	forgets an answered card, keeps who it was raised for until then, and an unknown id is nothing	no
 apps/desktop/src/main/a-card-answer-is-recorded-past-64-open-cards.test.ts	the answer funnel forgets the card right after recording it (source guard)	no
+apps/desktop/src/main/a-change-is-walked-through.test.ts	is the files, the change, what was asked and what it said, with the shape to answer in	yes
+apps/desktop/src/main/a-change-is-walked-through.test.ts	is the summary and a note on each file the change has, in the order given	yes
+apps/desktop/src/main/a-change-is-walked-through.test.ts	finds a file by its end or its name, and leaves out one the change does not have	yes
+apps/desktop/src/main/a-change-is-walked-through.test.ts	is nothing without a summary	yes
 apps/desktop/src/main/a-changed-memory-list-replaces-the-old-one.test.ts	says it replaces the earlier list, and the old line is not in it	yes
 apps/desktop/src/main/a-changed-memory-list-replaces-the-old-one.test.ts	says so when everything was forgotten, too	yes
 apps/desktop/src/main/a-changed-memory-list-replaces-the-old-one.test.ts	is not said on a first brief, or when the list did not change	yes
@@ -1295,6 +1299,20 @@ apps/desktop/src/main/ask-asks-before-a-connector.test.ts	are none in Ask or Pla
 apps/desktop/src/main/ask-asks-before-a-connector.test.ts	are the named ones in Edit, as before	yes
 apps/desktop/src/main/ask-asks-before-a-connector.test.ts	are none when the person asked to be asked about every one, or none are named	yes
 apps/desktop/src/main/ask-asks-before-a-connector.test.ts	runs without the person’s connectors, and with them once one is ticked	no
+apps/desktop/src/main/ask-me-first-covers-changes.test.ts	waits beside the kept memory, which stays as it was and briefed	yes
+apps/desktop/src/main/ask-me-first-covers-changes.test.ts	a second rewrite before the person answers updates the same proposal	yes
+apps/desktop/src/main/ask-me-first-covers-changes.test.ts	Keep the change rewrites the kept memory, one step back kept, and the proposal goes	yes
+apps/desktop/src/main/ask-me-first-covers-changes.test.ts	Keep the old one drops only the proposal	yes
+apps/desktop/src/main/ask-me-first-covers-changes.test.ts	auto mode still rewrites at once, as it always did	yes
+apps/desktop/src/main/ask-me-first-covers-changes.test.ts	waits beside the kept memory, which stays briefed	yes
+apps/desktop/src/main/ask-me-first-covers-changes.test.ts	asked twice, still one proposal -- and the proposal itself never makes the quote ambiguous	yes
+apps/desktop/src/main/ask-me-first-covers-changes.test.ts	Forget it removes the kept memory and the proposal	yes
+apps/desktop/src/main/ask-me-first-covers-changes.test.ts	Keep it drops only the proposal	yes
+apps/desktop/src/main/ask-me-first-covers-changes.test.ts	a memory nobody kept yet simply goes: there is nothing of the person’s to protect	yes
+apps/desktop/src/main/ask-me-first-covers-changes.test.ts	without ask, a forget applies at once, as it always did	yes
+apps/desktop/src/main/ask-me-first-covers-changes.test.ts	goes with it, whichever way the memory went	yes
+apps/desktop/src/main/ask-me-first-covers-changes.test.ts	are not asked a second time by a plain remember	yes
+apps/desktop/src/main/ask-me-first-covers-changes.test.ts	proposes the rewrite and the forget, changes nothing kept, and names each for what it is	yes
 apps/desktop/src/main/ask-starts-none-of-your-codex-programs.test.ts	switches off each server that runs as a program, by name, every plugin, and its own browser and computer use	yes
 apps/desktop/src/main/ask-starts-none-of-your-codex-programs.test.ts	leaves a server reached at an address as the person has it: Codex still refuses its tools that do more than read	yes
 apps/desktop/src/main/ask-starts-none-of-your-codex-programs.test.ts	switches off a server that names both a program and an address, and one it cannot read the shape of	yes

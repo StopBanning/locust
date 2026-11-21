@@ -18,6 +18,41 @@ pub(super) struct Panel {
     pub result: Option<String>,
     /// The header's More menu.
     pub menu: bool,
+    /// Walk me through it (ChangesPanel.tsx, 0.771): asked, shown, or why not. Ended by closing it, another commit
+    /// picked, the change read again, or a turn that may change it.
+    pub walk: Option<Walk>,
+}
+
+pub(super) enum Walk {
+    Asking,
+    Shown(locust_core::walkthrough::Walkthrough),
+    Failed(String),
+}
+
+/// The walk's answer: the folder it was asked in, and the walkthrough or why not.
+pub(super) type WalkAnswer = (PathBuf, Result<locust_core::walkthrough::Walkthrough, String>);
+
+/// The conversation on screen's teammate goes through the change shown, read-only, off the window's thread.
+fn walk_through(s: &mut State) {
+    let Some((teammate, _)) = selected_conversation(s) else { return };
+    let teammate = teammate.clone();
+    let items = s.ledger.as_ref().map(|pane| pane.items.as_slice()).unwrap_or(&[]);
+    let asks = crate::commit_panel::draft_asks_from(items);
+    // What it said when it finished: the conversation's latest final answer.
+    let said = items.iter().rev().find_map(|item| match item {
+        ledger::Item::Assistant { text, r#final: true, .. } => Some(text.clone()),
+        _ => None,
+    });
+    let folder = s.changes.folder.clone();
+    let sha = match &s.changes.diff {
+        Some(Ok(diff)) if diff.showing != "all" => Some(diff.showing.clone()),
+        _ => None,
+    };
+    s.changes.walk = Some(Walk::Asking);
+    s.walk_job.request((folder, sha, asks, said, teammate), |(folder, sha, asks, said, teammate)| {
+        let answer = locust_core::walkthrough::walk(&folder, sha.as_deref(), &asks, said.as_deref(), &teammate);
+        (folder, answer)
+    });
 }
 fn button(label: impl Into<String>, p: &Palette) -> El {
     text(label.into())
@@ -83,6 +118,7 @@ fn refresh(s: &mut State, sha: Option<&str>) {
     s.changes.contexts.clear();
     s.changes.closed_folders.clear();
     s.changes.asking = None;
+    s.changes.walk = None;
 }
 /// Undo's answer: the folder, the turn, and the receipt or why it could not.
 pub(super) type UndoAnswer = (PathBuf, String, Result<serde_json::Value, String>);
@@ -177,7 +213,20 @@ pub(super) fn poll(s: &mut State) -> bool {
         }
         changed = true;
     }
+    if let Some((folder, answer)) = s.walk_job.take() {
+        // A walk ended meanwhile (closed, another commit, read again) is not brought back.
+        if s.changes.folder == folder && matches!(s.changes.walk, Some(Walk::Asking)) {
+            s.changes.walk = Some(match answer {
+                Ok(walk) => Walk::Shown(walk),
+                Err(why) => Walk::Failed(why),
+            });
+        }
+        changed = true;
+    }
     let running = turn_running(s);
+    if running && !s.changes.was_running && !matches!(s.changes.walk, Some(Walk::Asking)) {
+        s.changes.walk = None;
+    }
     if s.changes.open && s.changes.was_running && !running {
         refresh(s, None);
         changed = true;
@@ -345,7 +394,32 @@ fn head(s: &State, p: &Palette) -> El {
         let (a, d) = diff.files.iter().map(|f| f.counts()).fold((0, 0), |(x, y), (a, d)| (x + a, y + d));
         row_ = row_.child(line_count_marks(a, d, p));
     }
-    row_.child(rune::spacer())
+    // Walk me through it: for the conversation on screen, when there is a change, and no walk shown or under way.
+    if let Some((teammate, _)) = selected_conversation(s)
+        && matches!(&panel.diff, Some(Ok(diff)) if !diff.files.is_empty())
+        && matches!(panel.walk, None | Some(Walk::Failed(_)))
+    {
+        let tip = format!("{} goes through the change as its author would in a review", teammate.name);
+        row_ = row_.child(rune::spacer()).child(
+            row()
+                .gap(5.0)
+                .center_y()
+                .py(4.0)
+                .px(8.0)
+                .radius(7.0)
+                .hover(l.c("bg-selected"))
+                .child(crate::look::controls::glyph(&l, &crate::look::icons::MESSAGE, 12.0, Some(l.c("text-secondary"))))
+                .child(text("Walk me through it").font(l.ty.control).color(l.c("text-secondary")))
+                .key("changes-walk")
+                .role("button")
+                .label("Walk me through it")
+                .description(tip)
+                .on_press(walk_through),
+        );
+    } else {
+        row_ = row_.child(rune::spacer());
+    }
+    row_
         .child(
             crate::look::controls::head_icon(&crate::look::icons::DOTS, "More", "More")
                 .on_press(|s: &mut State| s.changes.menu = !s.changes.menu)
@@ -545,6 +619,45 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                     )
                 }
             }
+            let teammate = selected_conversation(s).map_or_else(|| "Your teammate".to_owned(), |(t, _)| t.name.clone());
+            match &panel.walk {
+                None => {}
+                Some(Walk::Asking) => {
+                    body = body.child(text(format!("{teammate} is walking through the change\u{2026}")).color(p.muted).wrap().key("changes-walkthrough").role("status"));
+                }
+                Some(Walk::Failed(why)) => {
+                    body = body.child(text(why.clone()).color(p.muted).wrap().key("changes-walkthrough").role("status"));
+                }
+                Some(Walk::Shown(walk)) => {
+                    let l = crate::look::controls::Look::new(p.dark);
+                    body = body.child(
+                        col()
+                            .w_full()
+                            .gap(6.0)
+                            .padding(10.0)
+                            .radius(8.0)
+                            .fill(l.c("hover-surface"))
+                            .key("changes-walkthrough")
+                            .role("status")
+                            .label("Walkthrough")
+                            .child(
+                                row()
+                                    .w_full()
+                                    .center_y()
+                                    .child(text(format!("{teammate}\u{2019}s walkthrough")).font(l.ty.control).color(l.c("text-secondary")))
+                                    .child(rune::spacer())
+                                    .child(
+                                        crate::look::controls::head_icon(&crate::look::icons::CLOSE, "Close the walkthrough", "Close the walkthrough")
+                                            .control_size(rune_kit::ControlSize::Small)
+                                            .on_press(|s: &mut State| s.changes.walk = None)
+                                            .build(l.k)
+                                            .key("changes-walk-close"),
+                                    ),
+                            )
+                            .child(text(walk.summary.clone()).color(l.c("text-primary")).wrap()),
+                    );
+                }
+            }
             if panel.files {
                 let tree = changes::tree_of(&diff.files);
                 let mut rows = Vec::new();
@@ -553,7 +666,13 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                     body = body.child(item);
                 }
             }
-            for (i, f) in diff.files.iter().enumerate() {
+            let shown = match &panel.walk {
+                Some(Walk::Shown(walk)) => Some(walk),
+                _ => None,
+            };
+            let paths: Vec<&str> = diff.files.iter().map(|f| f.path.as_str()).collect();
+            for i in locust_core::walkthrough::reading_order(&paths, shown) {
+                let f = &diff.files[i];
                 let (a, d) = f.counts();
                 let open = !panel.folded.contains(&i);
                 // The file's head (`.lc-changes__file`): a chevron that folds it, its path in the code face, how it
@@ -598,6 +717,35 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                     );
                 }
                 let mut file = col().w_full().gap(4.0).child(file_head);
+                // Walked through: its place in the reading and its note, with what to check there.
+                if let Some(walk) = shown
+                    && let Some((order, note)) = locust_core::walkthrough::note_on(walk, &f.path)
+                {
+                    let l = crate::look::controls::Look::new(p.dark);
+                    let mut words = col().gap(3.0).shrink().child(text(note.why.clone()).color(l.c("text-primary")).wrap());
+                    if let Some(check) = &note.check {
+                        words = words.child(
+                            row()
+                                .gap(6.0)
+                                .child(text("Check").font(l.ty.control).color(l.c("text-secondary")))
+                                .child(text(check.clone()).color(l.c("text-secondary")).wrap().shrink()),
+                        );
+                    }
+                    file = file.child(
+                        row()
+                            .w_full()
+                            .gap(8.0)
+                            .px(8.0)
+                            .key(format!("changes-why-{i}"))
+                            .child(
+                                text(order.to_string())
+                                    .font(rune::TextStyle::new(11.0, 500.0).mono())
+                                    .color(l.c("text-muted"))
+                                    .label(format!("Read it {order} of {}", walk.files.len())),
+                            )
+                            .child(words),
+                    );
+                }
                 if open {
                     let shown = if panel.expanded.contains(&i) {
                         f.hunks.len()
@@ -912,3 +1060,6 @@ new file mode 100644
 #[cfg(test)]
 #[path = "changes_panel_diff_tests.rs"]
 mod changes_panel_diff_tests;
+#[cfg(test)]
+#[path = "changes_walkthrough_tests.rs"]
+mod changes_walkthrough_tests;

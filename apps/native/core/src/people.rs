@@ -501,6 +501,21 @@ pub fn add_memory(
     by: Value,
     status: &str,
 ) -> Result<(), String> {
+    add_memory_for(store, text, name, scope, workspace, by, status, None)
+}
+
+/// `add_memory` from a run: `mission` goes on what it writes, and on a kept memory a proposal is kept into.
+#[allow(clippy::too_many_arguments)]
+pub fn add_memory_for(
+    store: &Store,
+    text: &str,
+    name: Option<&str>,
+    scope: &str,
+    workspace: &str,
+    by: Value,
+    status: &str,
+    mission: Option<&str>,
+) -> Result<(), String> {
     let _lock = WRITES.lock().map_err(|e| e.to_string())?;
     let text = memory_text(text);
     if text.is_empty() {
@@ -536,6 +551,16 @@ pub fn add_memory(
             rows[at]["updatedBy"] = by;
             return store.save_json("memories.json", &file);
         }
+        // Ask me first (0.315): a second rewrite before the person answers updates the proposal already waiting.
+        let kept_id = rows[at]["memoryId"].clone();
+        if let Some(waiting) = rows.iter_mut().find(|r| r["replaces"] == kept_id && r["status"] == "proposed") {
+            waiting["text"] = json!(text);
+            waiting["by"] = by;
+            if let Some(mission) = mission {
+                waiting["missionId"] = json!(mission);
+            }
+            return store.save_json("memories.json", &file);
+        }
     }
     if rows.len() >= 400 {
         return Err("Too many memories".into());
@@ -543,6 +568,9 @@ pub fn add_memory(
     let mut row = json!({"memoryId":id("mem")?,"text":text,"scope":scope,"workspaceId":workspace,"workspaceName":Path::new(workspace).file_name().and_then(|n|n.to_str()).unwrap_or(workspace),"by":by,"createdAt":now(),"status":status,"enabled":true});
     if let Some(name) = name {
         row["name"] = json!(name);
+    }
+    if let Some(mission) = mission {
+        row["missionId"] = json!(mission);
     }
     if let Some(at) = at {
         row["replaces"] = rows[at]["memoryId"].clone();
@@ -1312,7 +1340,7 @@ pub const MEMORY_NOT_READ: &str =
 /// The memories a brief in `folder` stands on -- kept, switched on, this folder's and everywhere's -- each marked with
 /// the files it names that changed since it was written, checked where the run stands. `None` when the memory file
 /// cannot be read.
-fn briefed_rows(store: &Store, folder: &Path, stands_in: Option<&Path>) -> Option<Vec<Value>> {
+pub(crate) fn briefed_rows(store: &Store, folder: &Path, stands_in: Option<&Path>) -> Option<Vec<Value>> {
     let held = memories(store).ok()?;
     let here = workspace_id(folder);
     let looked_in = stands_in.unwrap_or(folder);
@@ -1631,7 +1659,7 @@ pub fn record_reply_for(
             current["settings"]["aboutYouSuggestions"] = json!(suggestions);
             store.save_json("teammates.json", &current)?;
         } else if mode != "off" && verb.starts_with("remember") {
-            add_memory(
+            add_memory_for(
                 store,
                 &text,
                 name.as_deref(),
@@ -1643,6 +1671,7 @@ pub fn record_reply_for(
                 &workspace_id(folder),
                 by.clone(),
                 if mode == "ask" { "proposed" } else { "kept" },
+                mission,
             )?;
         } else if mode != "off" && verb == "forget" {
             let memories = memories(store)?;
@@ -1662,16 +1691,30 @@ pub fn record_reply_for(
                     continue;
                 }
             };
-            if mode == "ask" {
+            // A memory nobody kept yet simply goes: there is nothing of the person's to protect (0.315).
+            if mode == "ask" && target["status"] == "kept" {
                 let mut file = self::memories(store)?;
-                let mut proposal = target.clone();
-                proposal["memoryId"] = json!(id("mem")?);
-                proposal["status"] = json!("proposed");
-                proposal["forgets"] = target["memoryId"].clone();
-                if let Some(rows) = file["memories"].as_array_mut() {
+                if let Some(rows) = file["memories"].as_array_mut()
+                    // Asked twice, still one proposal.
+                    && !rows.iter().any(|r| r["forgets"] == target["memoryId"] && r["status"] == "proposed")
+                {
+                    let mut proposal = target.clone();
+                    proposal["memoryId"] = json!(id("mem")?);
+                    proposal["status"] = json!("proposed");
+                    proposal["forgets"] = target["memoryId"].clone();
+                    proposal["by"] = by.clone();
+                    proposal["createdAt"] = json!(now());
+                    match mission {
+                        Some(mission) => proposal["missionId"] = json!(mission),
+                        None => {
+                            if let Some(row) = proposal.as_object_mut() {
+                                row.remove("missionId");
+                            }
+                        }
+                    }
                     rows.push(proposal);
+                    store.save_json("memories.json", &file)?;
                 }
-                store.save_json("memories.json", &file)?;
             } else {
                 change_memory(
                     store,
