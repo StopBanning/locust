@@ -4007,3 +4007,7 @@ mod compared_effort_tests;
 #[cfg(test)]
 #[path = "judges_see_the_check_tests.rs"]
 mod judges_see_the_check_tests;
+
+#[cfg(test)]
+#[path = "edit_check_judge_tests.rs"]
+mod edit_check_judge_tests;

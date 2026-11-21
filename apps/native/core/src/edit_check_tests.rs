@@ -34,6 +34,7 @@ fn scripted(runs: Vec<CheckRun>) -> impl FnMut(&str, &Path) -> CheckRun {
     }
 }
 
+// case: reads the command of the conversation's own folder (0.813): the window may be on another folder by then
 #[test]
 fn edit_check_reads_command_of_conversations_own_folder() {
     let ec = EditCheck::new();
@@ -58,6 +59,7 @@ fn edit_check_reads_command_of_conversations_own_folder() {
     assert_eq!(asked, vec![Some("ws_folder_a".to_owned())]);
 }
 
+// case: says nothing at all when no command is set for the folder
 #[test]
 fn edit_check_says_nothing_when_no_command_is_set() {
     let ec = EditCheck::new();
@@ -72,6 +74,7 @@ fn edit_check_says_nothing_when_no_command_is_set() {
     assert!(res.is_none());
 }
 
+// case: names only what is new since the last check, and says when a failure is the same one
 #[test]
 fn edit_check_names_only_what_is_new_and_says_when_same_failure() {
     let ec = EditCheck::new();
@@ -121,6 +124,7 @@ fn edit_check_names_only_what_is_new_and_says_when_same_failure() {
     assert_eq!(r4.outcome, EditCheckOutcome::Passed);
 }
 
+// case: keeps the whole of a failure, and the check before it, for a fix that follows (0.812)
 #[test]
 fn edit_check_keeps_whole_failure_and_before_for_fix() {
     let ec = EditCheck::new();
@@ -145,6 +149,7 @@ fn edit_check_keeps_whole_failure_and_before_for_fix() {
     assert_eq!(before, vec!["FAIL a.test.ts", "FAIL b.test.ts"]);
 }
 
+// case: keeps each folder to itself
 #[test]
 fn edit_check_keeps_each_folder_to_itself() {
     let ec = EditCheck::new();
@@ -155,6 +160,7 @@ fn edit_check_keeps_each_folder_to_itself() {
     assert_eq!(b.new_lines, vec!["broken"]);
 }
 
+// case: says its command as it starts, before it has run, and only when it runs (0.811)
 #[test]
 fn edit_check_says_command_as_it_starts_and_skips_if_busy_in_same_folder() {
     let ec = Arc::new(EditCheck::new());
@@ -211,6 +217,7 @@ fn edit_check_says_command_as_it_starts_and_skips_if_busy_in_same_folder() {
     assert_eq!(loud.unwrap().outcome, EditCheckOutcome::Passed);
 }
 
+// case: reads the folder's own path as ".", however the check spelled it, so each copy fails in the same words (0.810)
 #[test]
 fn without_folder_normalizes_all_path_spellings() {
     let copy = r"C:\Users\someone\.locust\compare\cmp_1a2b\a";
@@ -249,36 +256,74 @@ fn without_folder_normalizes_all_path_spellings() {
     assert_eq!(without_folder("/t.mjs", "/", false), "/t.mjs");
 }
 
+// case: drops colour codes and timings from what it compares
 #[test]
 fn comparable_lines_drops_ansi_timings_and_keeps_test_names() {
     assert_eq!(
         comparable_lines("\x1b[31mFAIL\x1b[39m x\n  Duration 3.21s\nTime: 12ms\n12 ms\nok\nok\n"),
         vec!["FAIL x", "ok"]
     );
+}
+
+// case: keeps the name of a test that ends in its time, and drops Node's total (0.810)
+#[test]
+fn keeps_the_name_of_a_test_that_ends_in_its_time_and_drops_nodes_total() {
     assert_eq!(
         comparable_lines("✖ adds two numbers (1.6709ms)\nℹ tests 1\nℹ duration_ms 76.857\n# duration_ms 12.5\n✓ src/a.test.ts (3 tests) 12ms\n"),
         vec!["✖ adds two numbers", "ℹ tests 1", "✓ src/a.test.ts (3 tests)"]
     );
 }
 
+// case: says it could not run, rather than throwing
 #[test]
-fn run_check_command_handles_nul_and_runs_in_temp_folder() {
-    let dir = TempDir::new("edit-check");
+fn says_it_could_not_run_rather_than_throwing() {
+    let dir = TempDir::new("edit-check-nul");
     let nul = run_check_command("true\0", &dir.0, 5_000);
     assert!(nul.exit_code.is_none());
     assert!(nul.error.is_some());
+    assert!(!nul.timed_out);
+}
 
+// case: runs it in the folder, through the shell, and reports its exit and output
+#[test]
+fn runs_it_in_the_folder_through_the_shell_and_reports_its_exit_and_output() {
+    let dir = TempDir::new("edit-check");
     let passed = run_check_command("pwd", &dir.0, 10_000);
     assert_eq!(passed.exit_code, Some(0));
     let folder_name = dir.0.file_name().unwrap().to_string_lossy().to_lowercase();
     assert!(passed.output.to_lowercase().contains(&folder_name));
-
+    // Through the shell: a redirect and an exit are the shell's own.
     let failed = run_check_command("echo BAD >&2; exit 3", &dir.0, 10_000);
     assert_eq!(failed.exit_code, Some(3));
     assert!(failed.output.contains("BAD"));
+    assert!(!failed.timed_out);
+}
 
+// case: stops a check that runs past its time
+#[test]
+fn stops_a_check_that_runs_past_its_time() {
+    let dir = TempDir::new("edit-check-slow");
+    let start = std::time::Instant::now();
     let timed = run_check_command("sleep 10", &dir.0, 300);
     assert!(timed.timed_out);
+    assert!(start.elapsed() < std::time::Duration::from_secs(8), "{:?}", start.elapsed());
+}
+
+/// The same failure in two copies of one folder reads the same once each copy's own path is ".", so a comparison sees
+/// one failure, not two (edit-check.test.ts, the end of the 0.810 case).
+#[test]
+fn two_copies_fail_in_the_same_words() {
+    let ec = EditCheck::new();
+    let failing = |cwd: &Path| CheckRun {
+        exit_code: Some(1),
+        timed_out: false,
+        error: None,
+        output: format!("not ok 1\n  location: 'file://{}/sum.test.mjs:3:1'", cwd.display()),
+    };
+    let a = ec.after(Path::new("/tmp/copies/a"), None, None, |_| Some("node --test".into()), |_| {}, |_, cwd| failing(cwd)).unwrap();
+    let b = ec.after(Path::new("/tmp/copies/b"), None, None, |_| Some("node --test".into()), |_| {}, |_, cwd| failing(cwd)).unwrap();
+    assert_eq!(a.new_lines, vec!["not ok 1", "location: './sum.test.mjs:3:1'"]);
+    assert_eq!(b.new_lines, a.new_lines);
 }
 
 #[test]

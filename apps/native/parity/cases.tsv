@@ -1550,6 +1550,21 @@ apps/desktop/src/main/earlier-tunes-reach-only-the-next-tune.test.ts	does not sa
 apps/desktop/src/main/earlier-tunes-reach-only-the-next-tune.test.ts	writes at most one lesson per tune	no
 apps/desktop/src/main/earlier-tunes-reach-only-the-next-tune.test.ts	keeps at most 20 lessons per teammate, newest last, each with its compare id and date, and removes them with the teammate	no
 apps/desktop/src/main/earlier-tunes-reach-only-the-next-tune.test.ts	carries a teammate’s lessons into the next tune’s draft prompt as quoted data, newest last, and never into an ordinary turn’s brief	no
+apps/desktop/src/main/edit-check.test.ts	reads the command of the conversation's own folder (0.813): the window may be on another folder by then	yes
+apps/desktop/src/main/edit-check.test.ts	says nothing at all when no command is set for the folder	yes
+apps/desktop/src/main/edit-check.test.ts	names only what is new since the last check, and says when a failure is the same one	yes
+apps/desktop/src/main/edit-check.test.ts	keeps the whole of a failure, and the check before it, for a fix that follows (0.812)	yes
+apps/desktop/src/main/edit-check.test.ts	keeps each folder to itself	yes
+apps/desktop/src/main/edit-check.test.ts	lets a judge wait for the check after one turn, and says when none ran after it	yes
+apps/desktop/src/main/edit-check.test.ts	says a check still running at the end of the wait is running, not passed	yes
+apps/desktop/src/main/edit-check.test.ts	says its command as it starts, before it has run, and only when it runs (0.811)	yes
+apps/desktop/src/main/edit-check.test.ts	is found by a judge even when no command is set, as no check at all	yes
+apps/desktop/src/main/edit-check.test.ts	reads the folder's own path as ".", however the check spelled it, so each copy fails in the same words (0.810)	yes
+apps/desktop/src/main/edit-check.test.ts	drops colour codes and timings from what it compares	yes
+apps/desktop/src/main/edit-check.test.ts	keeps the name of a test that ends in its time, and drops Node's total (0.810)	yes
+apps/desktop/src/main/edit-check.test.ts	says it could not run, rather than throwing	yes
+apps/desktop/src/main/edit-check.test.ts	runs it in the folder, through the shell, and reports its exit and output	yes
+apps/desktop/src/main/edit-check.test.ts	stops a check that runs past its time	yes
 apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	is found from a file path its conversation named, JSON-escaped, deep inside it	no
 apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	is found from forward slashes too, as some runtimes write Windows paths	no
 apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	is never guessed: no path that hashes to it, no answer	no
