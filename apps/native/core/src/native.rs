@@ -789,6 +789,36 @@ pub struct Listed {
     pub native: HashSet<String>,
     /// How many conversations the records keep, said only when that is more than are listed (`totalMissions`).
     pub total: Option<usize>,
+    /// What the records say about their own damage (mission-history's `unreadableCount`, the listed ones' issues).
+    pub damage: ListDamage,
+}
+
+/// The records' damage under the list (Screens.tsx `ledgerDamageWords`): two facts, never merged into one number.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct ListDamage {
+    /// Listed conversations kept up to a bad record.
+    pub incomplete: usize,
+    /// Files no conversation could be read from, counted over every file, not only the listed ones.
+    pub unreadable: usize,
+    /// A records folder that is there but could not be listed (`HISTORY_UNAVAILABLE`).
+    pub folder_unreadable: bool,
+}
+
+impl ListDamage {
+    /// Screens.tsx's words for it, or nothing when the records are whole.
+    pub fn words(&self) -> Option<String> {
+        if self.folder_unreadable {
+            return Some("the records could not be read".into());
+        }
+        let mut parts = Vec::new();
+        if self.incomplete > 0 {
+            parts.push(format!("{} with an incomplete receipt", self.incomplete));
+        }
+        if self.unreadable > 0 {
+            parts.push(format!("{} {} could not be read", self.unreadable, if self.unreadable == 1 { "file" } else { "files" }));
+        }
+        (!parts.is_empty()).then(|| parts.join(" · "))
+    }
 }
 
 /// The most conversations the window lists, newest first (mission-history.ts `MAX_LISTED_MISSIONS`): far past the old
@@ -825,18 +855,33 @@ pub(crate) fn capped(mut all: Vec<ledger::Summary>, limit: usize, whole: impl Fn
 /// Electron's read-only list merged with the native one, newest first. None when neither folder could be listed.
 pub fn list_recent(limit: usize, native_engine: bool) -> Option<Listed> {
     let native_dir = store().and_then(|s| s.ledger_dir().ok());
-    let theirs = electron_ledger_dir().and_then(|d| crate::history_cache::global().list_recent_summaries(&d, limit).ok());
+    let mut damage = ListDamage::default();
+    let mut incomplete = HashSet::new();
+    let mut cut_tail_only = HashSet::new();
+    // A folder not there is empty; one there that cannot be listed is said, not taken for empty.
+    let mut read = |dir: &Path| match crate::history_cache::global().list_recent_with_damage(dir, limit) {
+        Ok((summaries, found)) => {
+            damage.unreadable += found.unreadable;
+            incomplete.extend(found.incomplete);
+            cut_tail_only.extend(found.cut_tail_only);
+            Some(summaries)
+        }
+        Err(error) => {
+            damage.folder_unreadable |= error.kind() != std::io::ErrorKind::NotFound;
+            None
+        }
+    };
+    let theirs = electron_ledger_dir().and_then(|d| read(&d));
     // A run whose answer belongs to an Electron panel (a commit message, a walkthrough) is never a conversation.
     let panel_runs = electron_dir().map(|d| crate::panel_runs::PanelRuns::of_electron(&d).ids()).unwrap_or_default();
     let theirs = theirs.map(|t| t.into_iter().filter(|s| !panel_runs.contains(&s.mission_id)).collect::<Vec<_>>());
-    let mut ours = native_dir
-        .as_ref()
-        .and_then(|d| crate::history_cache::global().list_recent_summaries(d, limit).ok());
+    let mut ours = native_dir.as_ref().and_then(|d| read(d));
     // A native folder not made yet is simply empty; only the native engine reads that as "nothing to show".
     if ours.is_none() && native_engine && native_dir.as_ref().is_some_and(|d| !d.exists()) {
         ours = Some(Vec::new());
     }
-    if theirs.is_none() && ours.is_none() {
+    // A records folder there that could not be listed is said ("the records could not be read"), never None's fallback.
+    if theirs.is_none() && ours.is_none() && !damage.folder_unreadable {
         return None;
     }
     let native: HashSet<String> = ours
@@ -864,10 +909,16 @@ pub fn list_recent(limit: usize, native_engine: bool) -> Option<Listed> {
             summary.running = false;
         }
     }
+    // A turn this window is writing has a last line with no end only for the moment of a write: the record arriving.
+    damage.incomplete = all
+        .iter()
+        .filter(|s| incomplete.contains(&s.mission_id) && !(cut_tail_only.contains(&s.mission_id) && owns(&s.mission_id)))
+        .count();
     Some(Listed {
         summaries: all,
         native,
         total,
+        damage,
     })
 }
 
@@ -3762,3 +3813,7 @@ mod tests;
 #[cfg(test)]
 #[path = "long_history_tests.rs"]
 mod long_history_tests;
+
+#[cfg(test)]
+#[path = "torn_words_tests.rs"]
+mod torn_words_tests;

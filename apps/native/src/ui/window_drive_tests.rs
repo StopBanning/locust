@@ -6359,6 +6359,25 @@ fn recent_routes_reach_the_picker_in_history_order_and_choose_their_runtime() {
     assert_eq!(rt.state.picks["tm_codec"].model,"fable");
 }
 
+// main/torn-ledger.test.ts: the records' damage, read with the list, reaches the window and is said under it.
+#[test]
+fn a_history_read_with_damage_says_it_under_the_list() {
+    let (_dirs, store, mut rt) = window();
+    let _engine = native::hooks::install(store, None);
+    rt.update(|s, _| s.layout_pref = "wide".into());
+    let damage = native::ListDamage { incomplete: 2, unreadable: 1, folder_unreadable: false };
+    let sent = damage.clone();
+    rt.update(|s, _| {
+        s.recents.request((), move |()| Ok(RecentBatch {
+            rows: Vec::new(), summaries: HashMap::new(), workroom_messages: HashMap::new(), mission_owners: HashMap::new(),
+            relay_hop_cap: 3, local: true, total: None, damage: sent,
+        }));
+    });
+    pump(&mut rt, "the damage", |s| s.recent_damage == damage);
+    settle(&mut rt);
+    assert_eq!(text_in(&rt, "sidebar-records-damage"), ["2 with an incomplete receipt · 1 file could not be read"]);
+}
+
 #[test]
 fn a_relay_history_refresh_names_the_received_message_in_the_sidebar() {
     let (_dirs, store, mut rt) = window();
@@ -6374,7 +6393,7 @@ fn a_relay_history_refresh_names_the_received_message_in_the_sidebar() {
     rt.update(|s, _| {
         s.recents.request((), move |()| Ok(RecentBatch {
             rows: vec![ConversationRow { id: "m_relay".into(), teammate: "Booty".into(), title: summary.title.clone(), started_by: "native".into(), state: "completed".into(), updated: message.posted_at.clone() }],
-            summaries: HashMap::from([("m_relay".into(), summary)]), workroom_messages: HashMap::from([("msg_1".into(), message)]), mission_owners: HashMap::new(), relay_hop_cap: 3, local: true, total: None,
+            summaries: HashMap::from([("m_relay".into(), summary)]), workroom_messages: HashMap::from([("msg_1".into(), message)]), mission_owners: HashMap::new(), relay_hop_cap: 3, local: true, total: None, damage: Default::default(),
         }));
     });
     pump(&mut rt, "the relay's received title", |s| s.recent.iter().any(|r| r.title == "Wren asked: Please reply with the passphrase PEBBLE-9993."));
@@ -6445,6 +6464,7 @@ fn a_live_run_the_list_was_read_too_early_to_know_is_read_again_until_it_is_ther
                 relay_hop_cap: 3,
                 local: true,
                 total: None,
+                damage: Default::default(),
             })
         });
     });

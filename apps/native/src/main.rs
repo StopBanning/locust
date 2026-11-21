@@ -326,6 +326,7 @@ struct RecentBatch {
     local: bool,
     /// The records' whole count, when more than are listed.
     total: Option<usize>,
+    damage: native::ListDamage,
 }
 
 struct LedgerPane {
@@ -1333,6 +1334,7 @@ fn refresh_recent(s: &mut State) {
                 relay_hop_cap,
                 local: true,
                 total: listed.total,
+                damage: listed.damage,
             });
         }
         if on_native {
@@ -1347,6 +1349,7 @@ fn refresh_recent(s: &mut State) {
             relay_hop_cap: locust_core::workspace_settings::DEFAULT_RELAY_HOP_CAP,
             local: false,
             total: None,
+            damage: native::ListDamage::default(),
         })
     });
 }
@@ -2407,6 +2410,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
                 s.relay_hop_cap = batch.relay_hop_cap;
                 s.ledger_available = batch.local;
                 s.recent_total = batch.total;
+                s.recent_damage = batch.damage;
                 s.recent_error = None;
                 if let Some(id) = s.import_dialog.open_after_import.take()
                     && let Some(row) = s.recent.iter().find(|r| r.id == id).cloned()

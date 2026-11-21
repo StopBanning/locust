@@ -488,7 +488,10 @@ fn one_line(text: &str) -> String {
 }
 
 fn decode(line: &[u8]) -> Option<Record> {
-    let mut value: Value = serde_json::from_slice(line).ok()?;
+    decode_value(serde_json::from_slice(line).ok()?)
+}
+
+fn decode_value(mut value: Value) -> Option<Record> {
     let version = value.get("schemaVersion")?.as_u64()?;
     if !(1..=27).contains(&version) {
         return None;
@@ -743,6 +746,8 @@ pub struct Transcript {
     pub running: bool,
     pub failed: bool,
     pub error: Option<io::ErrorKind>,
+    /// What `read_transcript` found wrong with the file (`recover`); a Session's live reading never fills it.
+    pub issues: Vec<Issue>,
     // Sequence keys make out-of-order batches and duplicate records replay correctly.
     events: BTreeMap<u64, Value>,
     /// Set once an event was actually dropped from the window; a window that is merely full is not trimmed.
@@ -1447,13 +1452,116 @@ fn carry_on_failure(payload: &Value) -> bool {
 }
 
 // Standalone snapshot API; the window uses Session to keep its byte offsets.
+// A turn read whole keeps what mission-store's reader keeps: the records before the first bad one (`read_ledger`).
+// The live `Tail` a Session follows is not this reader: there a half-written last line is the record still arriving.
 pub fn read_transcript(path: impl AsRef<Path>) -> Transcript {
-    let mut tail = Tail::new(path.as_ref(), 0);
-    let records = tail.poll();
     let mut transcript = Transcript::default();
-    transcript.apply(records);
-    transcript.error = tail.error;
+    match read_ledger(path.as_ref()) {
+        Ok(read) => {
+            transcript.apply(read.records.into_iter().filter_map(decode_value).collect());
+            transcript.issues = read.issues;
+        }
+        Err(error) => transcript.error = Some(error.kind()),
+    }
     transcript
+}
+
+/// mission-store's `MAX_LEDGER_BYTES`: a ledger longer than this is not read at all (`file-too-large`).
+pub const MAX_LEDGER_BYTES: u64 = 64 * 1024 * 1024;
+/// mission-store's `MAX_RECORD_BYTES`: a longer record is not kept, and nothing after it is.
+pub const MAX_RECORD_BYTES: usize = 512 * 1024;
+/// Every record a mission ledger may hold after its header (mission-store's reader); any other type is a bad record.
+const BODY_RECORDS: [&str; 6] =
+    ["mission.event", "mission.host_failure", "mission.checkpoint", "mission.peer", "mission.edit_check", "mission.approval"];
+
+/// What was wrong with a ledger read whole (mission-store's `MissionLedgerIssueCode`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Issue {
+    /// The last line had no end: it was being written, or the write was cut off.
+    TruncatedTail,
+    /// A header or record that is not a ledger's, and everything after it.
+    InvalidRecord,
+    /// Past `MAX_LEDGER_BYTES`, so not read.
+    FileTooLarge,
+}
+
+impl Issue {
+    pub fn code(self) -> &'static str {
+        match self {
+            Issue::TruncatedTail => "truncated-tail",
+            Issue::InvalidRecord => "invalid-record",
+            Issue::FileTooLarge => "file-too-large",
+        }
+    }
+}
+
+/// A ledger read whole, as mission-store's reader recovers it.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Recovered {
+    /// The header and every record up to the first bad one, as written; empty when `unreadable`.
+    pub records: Vec<Record>,
+    pub issues: Vec<Issue>,
+    /// No conversation at all: the header could not be read, or the file is too large to read.
+    pub unreadable: bool,
+}
+
+/// Reads a whole ledger file, keeping exactly the prefix before its first bad record (`recover`).
+pub fn read_ledger(path: &Path) -> io::Result<Recovered> {
+    let file = OpenOptions::new().read(true).open(path)?;
+    if file.metadata()?.len() > MAX_LEDGER_BYTES {
+        return Ok(Recovered { records: Vec::new(), issues: vec![Issue::FileTooLarge], unreadable: true });
+    }
+    let mut bytes = Vec::new();
+    file.take(MAX_LEDGER_BYTES + 1).read_to_end(&mut bytes)?;
+    if bytes.len() as u64 > MAX_LEDGER_BYTES {
+        return Ok(Recovered { records: Vec::new(), issues: vec![Issue::FileTooLarge], unreadable: true });
+    }
+    Ok(recover(&bytes))
+}
+
+/// mission-store's `readLedgerFile`: a last line with no end is dropped (`truncated-tail`); the header must be the
+/// first line, a `mission.created` at `ledgerSequence` 1 (or with no numbering at all); after it each record must parse, share the header's schema
+/// version, be a ledger record type and carry the next `ledgerSequence`. The first that does not is `invalid-record`,
+/// and it and every line after it are not kept, however good they look.
+pub fn recover(bytes: &[u8]) -> Recovered {
+    let mut issues = Vec::new();
+    let mut lines: Vec<&[u8]> = bytes.split(|b| *b == b'\n').collect();
+    // Split leaves what follows the last newline: empty for a whole file, the unfinished record otherwise.
+    if lines.pop().is_some_and(|last| !last.is_empty()) {
+        issues.push(Issue::TruncatedTail);
+    }
+    let unreadable = |mut issues: Vec<Issue>| {
+        issues.push(Issue::InvalidRecord);
+        Recovered { records: Vec::new(), issues, unreadable: true }
+    };
+    let Some((first, body)) = lines.split_first() else { return unreadable(issues) };
+    // Every ledger a writer made numbers its records; one with no number at all was made by hand (a test's), and is
+    // held to every rule but the numbering.
+    let Some(header) = serde_json::from_slice::<Value>(first).ok().filter(|h| {
+        (h.get("ledgerSequence").is_none() || h["ledgerSequence"].as_u64() == Some(1))
+            && decode_value(h.clone()).is_some_and(|r| metadata(&r).is_some())
+    }) else {
+        return unreadable(issues);
+    };
+    let version = header["schemaVersion"].clone();
+    let numbered = header.get("ledgerSequence").is_some();
+    let mut records = vec![header];
+    let mut expected = 2u64;
+    for line in body {
+        let record = (line.len() <= MAX_RECORD_BYTES).then(|| serde_json::from_slice::<Value>(line).ok()).flatten().filter(|r| {
+            r.is_object()
+                && r["schemaVersion"] == version
+                && (!numbered || r["ledgerSequence"].as_u64() == Some(expected))
+                && r["recordType"].as_str().is_some_and(|t| BODY_RECORDS.contains(&t))
+        });
+        let Some(record) = record else {
+            issues.push(Issue::InvalidRecord);
+            break;
+        };
+        records.push(record);
+        expected += 1;
+    }
+    Recovered { records, issues, unreadable: false }
 }
 
 fn head_with_offset(path: &Path) -> io::Result<(Vec<Record>, u64, Lines)> {
@@ -2673,22 +2781,26 @@ mod tests {
     }
 
     #[test]
-    fn bad_lines_and_two_megabyte_lines_are_skipped() {
+    fn a_turn_read_whole_stops_at_a_bad_line_or_a_two_megabyte_line() {
+        // mission-store's reader (torn-ledger.test.ts): what follows a bad record is not kept, however good it looks.
         let temp = Temp::new();
-        let path = temp.path("bad");
-        write(&path, &[created("bad", "Synthetic prompt")]);
-        let mut file = OpenOptions::new().append(true).open(&path).unwrap();
-        file.write_all(b"not json\n").unwrap();
-        file.write_all(&vec![b'x'; 2 * MAX_LINE]).unwrap();
-        file.write_all(b"\n").unwrap();
-        writeln!(file, "{}", delta(1, "kept", "append", true)).unwrap();
+        let bad: [&[u8]; 2] = [b"not json", &vec![b'x'; 2 * MAX_LINE]];
+        for (i, line) in bad.into_iter().enumerate() {
+            let path = temp.path(&format!("bad{i}"));
+            write(&path, &[created(&format!("bad{i}"), "Synthetic prompt"), delta(1, "kept", "append", true)]);
+            let mut file = OpenOptions::new().append(true).open(&path).unwrap();
+            file.write_all(line).unwrap();
+            file.write_all(b"\n").unwrap();
+            writeln!(file, "{}", delta(2, " and not this", "append", true)).unwrap();
 
-        let transcript = read_transcript(&path);
-        assert_eq!(transcript.items.len(), 2);
-        assert!(matches!(
-            transcript.items.last(),
-            Some(Item::Assistant { text, .. }) if text == "kept"
-        ));
+            let transcript = read_transcript(&path);
+            assert_eq!(transcript.issues, [Issue::InvalidRecord]);
+            assert_eq!(transcript.items.len(), 2);
+            assert!(matches!(
+                transcript.items.last(),
+                Some(Item::Assistant { text, .. }) if text == "kept"
+            ));
+        }
     }
 
     #[test]
@@ -3373,3 +3485,7 @@ mod a_turn_that_answered_in_a_block_is_not_silent_tests;
 #[cfg(test)]
 #[path = "fall_off_tests.rs"]
 mod fall_off_tests;
+
+#[cfg(test)]
+#[path = "torn_ledger_tests.rs"]
+pub(crate) mod torn_ledger_tests;
