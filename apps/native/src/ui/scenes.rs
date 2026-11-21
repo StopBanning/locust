@@ -1032,7 +1032,15 @@ pub(super) fn memory_scene(s: &mut State) {
         .note
         .replace_text("Lead with the result. Read before changing code.");
     s.people_panel.team = serde_json::json!({"settings":{"aboutYouSuggestions":[{"id":"ays_demo","text":"Keep verification explicit.","by":"Codec","at":"2026-11-10T12:00:00Z"}]}});
-    s.people_panel.memories = serde_json::json!({"schemaVersion":1,"memories":[{"memoryId":"mem_example","text":"The native suite passes 338 tests.","name":"native-suite","previousText":"The native suite passes 324 tests.","by":{"name":"Codec"},"scope":"workspace","status":"kept","enabled":true}],"forgotten":[{"memory":{"memoryId":"mem_old","text":"Use the previous build folder."}}]});
+    s.people_panel.memories = serde_json::json!({"schemaVersion":1,"memories":[{"memoryId":"mem_example","text":"The native suite passes 338 tests.","name":"native-suite","previousText":"The native suite passes 324 tests.","by":{"name":"Codec"},"scope":"workspace","status":"kept","enabled":true}],"forgotten":[{"memory":{"memoryId":"mem_old","text":"Use the previous build folder.","scope":"workspace","workspaceName":"locust","status":"kept"},"forgottenAt":"2026-11-20T15:00:00.000Z","forgottenBy":{"name":"Codec","teammateId":"codec"}}]});
+}
+/// The bottom of the Memory screen: Recently forgotten with who, when and where, and the Forget card (A1.8).
+pub(super) fn memory_forget_scene(s: &mut State) {
+    memory_scene(s);
+    s.people_panel.team = serde_json::json!({"settings":{}});
+    s.home.folder_path = Some("/Users/you/work/locust".into());
+    s.people_panel.memories["memories"] = serde_json::json!([{"memoryId":"mem_example","text":"The native suite passes 338 tests.","by":{"name":"Codec"},"scope":"global","status":"kept","enabled":true}]);
+    s.people_panel.confirming_clear = Some("workspace");
 }
 pub(super) fn memory_light_scene(s: &mut State) {
     memory_scene(s);

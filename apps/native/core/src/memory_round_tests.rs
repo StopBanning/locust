@@ -881,3 +881,222 @@ fn survives_a_reload_name_and_history_intact() {
     assert_eq!(listed[0]["text"], "two");
     assert_eq!(listed[0]["previousText"], "one");
 }
+
+// ---- a-forgotten-memory-can-come-back.test.ts (A1.8) ----
+// A forget -- the person's Remove, a teammate's forget in "Keep and tell me", a forget the person agreed to, Forget
+// everything -- was final the moment it landed. Every KEPT memory that leaves is held in Recently forgotten for 7 days,
+// with Restore. A proposal nobody kept is not held: it was never the person's.
+use crate::people::{FORGOTTEN_DAYS, MAX_MEMORIES, MEMORY_UNREADABLE, clear_memories};
+
+fn booty_team(store: &Store, mode: &str) {
+    std::fs::write(
+        store.electron().join("teammates.json"),
+        json!({"schemaVersion":1,"teammates":[{"teammateId":"tm_booty","name":"Booty"}],"missionOwners":{},"settings":{"memoryMode":mode}}).to_string(),
+    )
+    .unwrap();
+}
+fn kept(store: &Store, folder: &Path, text: &str) -> String {
+    add_memory(store, text, None, "workspace", &workspace_id(folder), json!({"teammateId":"tm_yurt","name":"Yurt"}), "kept").unwrap();
+    rows(store).iter().find(|m| m["text"] == text).unwrap()["memoryId"].as_str().unwrap().to_owned()
+}
+fn held(store: &Store) -> Vec<Value> {
+    memories(store).unwrap()["forgotten"].as_array().cloned().unwrap_or_default()
+}
+fn held_as(store: &Store) -> Vec<(String, String)> {
+    held(store).iter().map(|e| (e["memory"]["text"].as_str().unwrap().to_owned(), e["forgottenBy"]["name"].as_str().unwrap().to_owned())).collect()
+}
+fn recent(at: &Value) -> bool {
+    chrono::DateTime::parse_from_rfc3339(at.as_str().unwrap()).is_ok_and(|at| (chrono::Utc::now() - at.with_timezone(&chrono::Utc)).num_seconds().abs() < 60)
+}
+const FORGET_PORT: &str = "Done.\n<locust-memory>\nforget :: The API is on port 3000\n</locust-memory>";
+
+// case: a person’s Remove: held, by you -- and Restore puts it back exactly as it was, briefed again
+#[test]
+fn a_persons_remove_held_by_you_and_restore_puts_it_back_exactly_as_it_was_briefed_again() {
+    let (_t, store, folder) = fixture();
+    add_memory_for(&store, "Deploys go out on Fridays.", Some("deploy-day"), "workspace", &workspace_id(&folder), json!({"teammateId":"tm_yurt","name":"Yurt"}), "kept", Some("mission_1")).unwrap();
+    let id = rows(&store)[0]["memoryId"].as_str().unwrap().to_owned();
+    change_memory(&store, &id, "toggle", None).unwrap();
+    let before = rows(&store)[0].clone();
+    assert_eq!(before["enabled"], false);
+    change_memory(&store, &id, "remove", None).unwrap();
+    assert!(rows(&store).is_empty());
+    let bin = held(&store);
+    assert_eq!(bin.len(), 1);
+    assert_eq!(bin[0]["memory"], before);
+    assert_eq!(bin[0]["forgottenBy"], json!({"name": "you"}));
+    assert!(recent(&bin[0]["forgottenAt"]));
+    change_memory(&store, &id, "restore", None).unwrap();
+    assert_eq!(rows(&store), vec![before]);
+    assert!(held(&store).is_empty());
+}
+
+// case: a teammate’s forget in "Keep and tell me": held, by that teammate
+#[test]
+fn a_teammates_forget_in_keep_and_tell_me_held_by_that_teammate() {
+    let (_t, store, folder) = fixture();
+    booty_team(&store, "auto");
+    kept(&store, &folder, "The API is on port 3000.");
+    record_reply(&store, "tm_booty", &folder, FORGET_PORT).unwrap();
+    assert!(rows(&store).is_empty());
+    assert_eq!(held_as(&store), vec![("The API is on port 3000.".into(), "Booty".into())]);
+    assert_eq!(held(&store)[0]["forgottenBy"]["teammateId"], "tm_booty");
+}
+
+// case: a forget the person agreed to ("Forget it"): held, by the teammate who asked
+#[test]
+fn a_forget_the_person_agreed_to_forget_it_held_by_the_teammate_who_asked() {
+    let (_t, store, folder) = fixture();
+    booty_team(&store, "ask");
+    kept(&store, &folder, "The API is on port 3000.");
+    record_reply(&store, "tm_booty", &folder, FORGET_PORT).unwrap();
+    let proposal = rows(&store).into_iter().find(|m| m["status"] == "proposed").expect("the forget waits for the person");
+    change_memory(&store, proposal["memoryId"].as_str().unwrap(), "keep", None).unwrap();
+    assert!(rows(&store).is_empty());
+    assert_eq!(held_as(&store), vec![("The API is on port 3000.".into(), "Booty".into())]);
+}
+
+// case: Forget everything for a folder: every kept one held, by you; the proposals are not
+#[test]
+fn forget_everything_for_a_folder_every_kept_one_held_by_you_the_proposals_are_not() {
+    let (_t, store, folder) = fixture();
+    let ws = workspace_id(&folder);
+    kept(&store, &folder, "One.");
+    kept(&store, &folder, "Two.");
+    add_memory(&store, "Three, only proposed.", None, "workspace", &ws, json!({"name":"Yurt"}), "proposed").unwrap();
+    add_memory(&store, "Everywhere.", None, "global", &ws, json!({"name":"Yurt"}), "kept").unwrap();
+    add_memory(&store, "Another folder's.", None, "workspace", "ws_other", json!({"name":"Yurt"}), "kept").unwrap();
+    assert_eq!(clear_memories(&store, Some(&ws)).unwrap(), 3);
+    let mut left: Vec<String> = rows(&store).iter().map(|m| m["text"].as_str().unwrap().to_owned()).collect();
+    left.sort();
+    assert_eq!(left, ["Another folder's.", "Everywhere."]);
+    let mut gone = held_as(&store);
+    gone.sort();
+    assert_eq!(gone, vec![("One.".into(), "you".into()), ("Two.".into(), "you".into())]);
+    // And Forget everything, every folder and everywhere.
+    assert_eq!(clear_memories(&store, None).unwrap(), 2);
+    assert!(rows(&store).is_empty());
+    assert_eq!(held(&store).len(), 4);
+    // Nothing left: nothing written, nothing counted.
+    assert_eq!(clear_memories(&store, None).unwrap(), 0);
+}
+
+// case: a proposal dropped -- Keep the old one, or a new one forgotten -- holds nothing
+#[test]
+fn a_proposal_dropped_keep_the_old_one_or_a_new_one_forgotten_holds_nothing() {
+    let (_t, store, folder) = fixture();
+    add_memory(&store, "Only proposed.", None, "workspace", &workspace_id(&folder), json!({"name":"Yurt"}), "proposed").unwrap();
+    let id = rows(&store)[0]["memoryId"].as_str().unwrap().to_owned();
+    change_memory(&store, &id, "remove", None).unwrap();
+    assert!(rows(&store).is_empty());
+    assert!(held(&store).is_empty());
+}
+
+/// The first held entry, laid `ms` before now.
+fn forgotten_ms_ago(store: &Store, ms: i64) {
+    let mut file = memories(store).unwrap();
+    let at = chrono::Utc::now() - chrono::Duration::milliseconds(ms);
+    file["forgotten"][0]["forgottenAt"] = json!(at.to_rfc3339_opts(chrono::SecondsFormat::Millis, true));
+    store.save_json("memories.json", &file).unwrap();
+}
+
+// case: is held ${String(FORGOTTEN_DAYS)} days, then shown no more and dropped at the next write
+#[test]
+fn is_held_7_days_then_shown_no_more_and_dropped_at_the_next_write() {
+    assert_eq!(FORGOTTEN_DAYS, 7);
+    let (_t, store, folder) = fixture();
+    let id = kept(&store, &folder, "Old news.");
+    change_memory(&store, &id, "remove", None).unwrap();
+    forgotten_ms_ago(&store, FORGOTTEN_DAYS * DAY_MS - 60_000);
+    assert_eq!(held(&store).len(), 1);
+    forgotten_ms_ago(&store, FORGOTTEN_DAYS * DAY_MS + 1_000);
+    assert!(held(&store).is_empty());
+    assert_eq!(change_memory(&store, &id, "restore", None).unwrap_err(), "That memory is no longer in Recently forgotten.");
+    kept(&store, &folder, "Something new.");
+    let on_disk: Value = serde_json::from_slice(&memories_bytes(&store)).unwrap();
+    assert_eq!(on_disk["forgotten"], json!([]));
+}
+
+// case: does not come back twice: the same words remembered again mean nothing to put back
+#[test]
+fn does_not_come_back_twice_the_same_words_remembered_again_mean_nothing_to_put_back() {
+    let (_t, store, folder) = fixture();
+    let id = kept(&store, &folder, "Tests run with pnpm test.");
+    change_memory(&store, &id, "remove", None).unwrap();
+    kept(&store, &folder, "Tests run with pnpm test.");
+    change_memory(&store, &id, "restore", None).unwrap();
+    let texts: Vec<Value> = rows(&store).iter().map(|m| m["text"].clone()).collect();
+    assert_eq!(texts, vec![json!("Tests run with pnpm test.")]);
+    assert!(held(&store).is_empty());
+}
+
+// case: comes back without its name when a newer memory has taken it
+#[test]
+fn comes_back_without_its_name_when_a_newer_memory_has_taken_it() {
+    let (_t, store, folder) = fixture();
+    let ws = workspace_id(&folder);
+    add_memory(&store, "Deploys go out on Fridays.", Some("deploy-day"), "workspace", &ws, json!({"name":"Yurt"}), "kept").unwrap();
+    let id = rows(&store)[0]["memoryId"].as_str().unwrap().to_owned();
+    change_memory(&store, &id, "remove", None).unwrap();
+    add_memory(&store, "Deploys go out on Thursdays.", Some("deploy-day"), "workspace", &ws, json!({"name":"Yurt"}), "kept").unwrap();
+    change_memory(&store, &id, "restore", None).unwrap();
+    let back = rows(&store).into_iter().find(|m| m["memoryId"] == id.as_str()).expect("restored");
+    assert!(back.get("name").is_none(), "{back}");
+    let named: Vec<Value> = rows(&store).iter().filter(|m| m["name"] == "deploy-day").map(|m| m["text"].clone()).collect();
+    assert_eq!(named, vec![json!("Deploys go out on Thursdays.")]);
+}
+
+// case: is refused, and stays held, when memory is full
+#[test]
+fn is_refused_and_stays_held_when_memory_is_full() {
+    let (_t, store, folder) = fixture();
+    let id = kept(&store, &folder, "The one to restore.");
+    change_memory(&store, &id, "remove", None).unwrap();
+    let mut file = memories(&store).unwrap();
+    file["memories"] = (0..MAX_MEMORIES)
+        .map(|i| json!({"memoryId": format!("mem_filler{i}"), "text": format!("Filler number {i}."), "scope": "workspace", "workspaceId": workspace_id(&folder), "by": {"name": "you"}, "createdAt": "2026-09-24T12:00:00.000Z", "status": "kept", "enabled": true}))
+        .collect();
+    store.save_json("memories.json", &file).unwrap();
+    assert!(change_memory(&store, &id, "restore", None).unwrap_err().contains("at most 400"));
+    assert_eq!(held(&store).len(), 1);
+    assert_eq!(rows(&store).len(), MAX_MEMORIES);
+}
+
+// case: from before 0.316 reads as nothing forgotten; a torn entry is dropped; one holding a proposal is dropped
+#[test]
+fn from_before_0316_reads_as_nothing_forgotten_a_torn_entry_is_dropped_one_holding_a_proposal_is_dropped() {
+    let (_t, store, _) = fixture();
+    let now = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+    let memory = json!({"memoryId": "mem_a", "text": "Kept.", "scope": "workspace", "workspaceId": "ws_shop", "workspaceName": "shop", "by": {"name": "you"}, "createdAt": now, "status": "kept", "enabled": true});
+    store.save_json("memories.json", &json!({"schemaVersion": 1, "memories": [memory]})).unwrap();
+    assert!(held(&store).is_empty());
+    let with = |id: &str, status: &str| {
+        let mut m = memory.clone();
+        m["memoryId"] = json!(id);
+        m["status"] = json!(status);
+        m
+    };
+    store
+        .save_json("memories.json", &json!({"schemaVersion": 1, "memories": [], "forgotten": [
+            {"memory": memory, "forgottenAt": now, "forgottenBy": {"name": "you"}},
+            {"memory": with("mem_b", "proposed"), "forgottenAt": now, "forgottenBy": {"name": "you"}},
+            {"memory": with("mem_c", "kept"), "forgottenAt": "not a date", "forgottenBy": {"name": "you"}},
+            {"memory": with("mem_d", "kept"), "forgottenAt": now, "forgottenBy": {"name": "  "}},
+            "torn"
+        ]}))
+        .unwrap();
+    let ids: Vec<Value> = held(&store).iter().map(|e| e["memory"]["memoryId"].clone()).collect();
+    assert_eq!(ids, vec![json!("mem_a")]);
+}
+
+// case: with Recently forgotten that is not a list is unreadable, and nothing is written over it
+#[test]
+fn with_recently_forgotten_that_is_not_a_list_is_unreadable_and_nothing_is_written_over_it() {
+    let (_t, store, folder) = fixture();
+    let text = json!({"schemaVersion": 1, "memories": [], "forgotten": "everything"}).to_string();
+    kept(&store, &folder, "First.");
+    std::fs::write(store.root().join("memories.json"), &text).unwrap();
+    assert_eq!(memories(&store).unwrap_err(), MEMORY_UNREADABLE);
+    assert_eq!(add_memory(&store, "New.", None, "workspace", &workspace_id(&folder), json!({"name":"you"}), "kept").unwrap_err(), MEMORY_UNREADABLE);
+    assert_eq!(std::fs::read_to_string(store.root().join("memories.json")).unwrap(), text);
+}

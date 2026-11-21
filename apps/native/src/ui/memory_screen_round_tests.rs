@@ -213,3 +213,100 @@ fn a_finished_replys_memory_change_becomes_the_memory_screens_notice() {
     assert!(s.people_panel.memory_notice_waits);
     assert!(locust_core::native::take_memory_changes().is_empty(), "the window took them all");
 }
+
+// ---- MemoryScreen.tsx "Forget" and "Recently forgotten" (A1.8): Forget everything asks once, and what it forgot is held
+// for 7 days, each with who forgot it, the day, and where it applied ----
+struct GoneRoot(std::path::PathBuf);
+impl Drop for GoneRoot {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+fn settle(rt: &mut Runtime<State>) {
+    for _ in 0..20 {
+        rt.frame(0.05);
+    }
+}
+
+fn press(rt: &mut Runtime<State>, key: &str) {
+    settle(rt);
+    let (x, y) = rt.find(key).unwrap_or_else(|| panic!("no {key} on screen"));
+    rt.pointer_down(x, y);
+    rt.pointer_up(x, y);
+    settle(rt);
+}
+
+fn screen_texts(rt: &Runtime<State>) -> Vec<String> {
+    rt.elements().into_iter().filter_map(|e| e.text).collect()
+}
+
+#[test]
+fn forget_everything_for_this_folder_asks_first_then_holds_what_it_forgot() {
+    let root = std::env::temp_dir().join(format!("locust-memory-forget-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    let folder = root.join("shop");
+    std::fs::create_dir_all(&folder).unwrap();
+    std::fs::create_dir_all(root.join("electron")).unwrap();
+    let _gone = GoneRoot(root.clone());
+    let store = locust_core::store::Store::new(root.join("native"), root.join("electron")).unwrap();
+    let ws = people::workspace_id(&folder);
+    people::add_memory(&store, "Deploys go out on Thursdays.", None, "workspace", &ws, json!({"name": "you"}), "kept").unwrap();
+    people::add_memory(&store, "Diffs, not prose.", None, "global", &ws, json!({"name": "you"}), "kept").unwrap();
+    let mut s = State::default();
+    s.people_panel.open = true;
+    s.people_panel.tab = 1;
+    s.people_panel.memory_tab = true;
+    s.people_panel.memory_mode = "auto".into();
+    s.home.folder_path = Some(folder.to_string_lossy().into_owned());
+    s.people_panel.memories = people::memories(&store).unwrap();
+    s.data = Some(store.clone());
+    let mut rt = Runtime::new(s, |s, _| memory_screen(s, &Palette::new(true)), (900.0, 3000.0), Env::new(true, 1.0));
+    press(&mut rt, "memory-forget-folder");
+    // Asked first, and honest that it can come back.
+    assert!(has(&screen_texts(&rt), "Everything remembered for shop, forgotten. You can restore them from Recently forgotten for 7 days."), "{:?}", screen_texts(&rt));
+    assert_eq!(people::memories(&store).unwrap()["memories"].as_array().unwrap().len(), 2, "nothing forgotten on the first press");
+    press(&mut rt, "memory-forget-cancel");
+    assert!(rt.find("memory-forget-confirm").is_none());
+    press(&mut rt, "memory-forget-folder");
+    press(&mut rt, "memory-forget-yes");
+    let file = people::memories(&store).unwrap();
+    let left: Vec<&str> = file["memories"].as_array().unwrap().iter().map(|m| m["text"].as_str().unwrap()).collect();
+    assert_eq!(left, ["Diffs, not prose."], "everywhere's stays");
+    let shown = screen_texts(&rt);
+    assert!(has(&shown, "Recently forgotten"), "{shown:?}");
+    assert!(has(&shown, "Deploys go out on Thursdays."), "{shown:?}");
+    let today = chrono::Local::now().format("%b %-d").to_string();
+    assert!(has(&shown, &format!("forgotten by you · {today} · ")), "{shown:?}");
+    assert!(has(&shown, "Kept for 7 days, then gone for good. Teammates do not read these."), "{shown:?}");
+    // And it comes back.
+    let id = file["forgotten"][0]["memory"]["memoryId"].as_str().unwrap().to_owned();
+    press(&mut rt, &format!("memory-restore-{id}"));
+    assert_eq!(people::memories(&store).unwrap()["memories"].as_array().unwrap().len(), 2);
+}
+
+#[test]
+fn forget_everything_says_every_folder_and_offers_no_folder_button_without_a_folder() {
+    let shown = draw(|s| {
+        s.home.folder_path = None;
+        s.people_panel.memories = json!({"memories": [kept("mem_a", "One.")]});
+    });
+    assert!(has(&shown, "Forget everything"), "{shown:?}");
+    assert!(!has(&shown, "Forget everything for this folder"), "{shown:?}");
+    let asked = draw(|s| {
+        s.people_panel.memories = json!({"memories": [kept("mem_a", "One.")]});
+        s.people_panel.confirming_clear = Some("all");
+    });
+    assert!(has(&asked, "Every memory, every folder, forgotten. You can restore them from Recently forgotten for 7 days."), "{asked:?}");
+    // Nothing remembered: nothing to forget, and no card for it.
+    let empty = draw(|s| s.people_panel.memories = json!({"memories": []}));
+    assert!(!has(&empty, "Forget everything"), "{empty:?}");
+}
+
+#[test]
+fn a_forgotten_memory_says_who_forgot_it_when_and_where() {
+    let held = |scope: &str| json!({"memory": {"memoryId": "mem_x", "text": "Old.", "scope": scope, "workspaceName": "shop", "status": "kept"}, "forgottenAt": "2026-11-03T15:00:00.000Z", "forgottenBy": {"name": "Booty", "teammateId": "tm_booty"}});
+    let day = chrono::DateTime::parse_from_rfc3339("2026-11-03T15:00:00.000Z").unwrap().with_timezone(&chrono::Local).format("%b %-d").to_string();
+    assert_eq!(forgotten_meta(&held("workspace")), format!("forgotten by Booty · {day} · shop"));
+    assert_eq!(forgotten_meta(&held("global")), format!("forgotten by Booty · {day} · everywhere"));
+}

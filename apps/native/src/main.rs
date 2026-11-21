@@ -3315,6 +3315,7 @@ fn main() {
             ("team-look-light", team_look_light_scene),
             ("memory", memory_scene),
             ("memory-light", memory_light_scene),
+            ("memory-forget", memory_forget_scene),
             ("team", team_scene),
             ("empty", empty_scene),
             ("replay", replay_scene),

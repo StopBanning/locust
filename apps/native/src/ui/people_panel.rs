@@ -22,6 +22,9 @@ pub(super) struct Panel {
     pub memories: Value,
     pub rules: Vec<crate::approval_rules::ApprovalRule>,
     pub confirming_remove_all: bool,
+    /// Forget everything, pressed once: `Some("workspace")` for this folder, `Some("all")` for every memory (MemoryScreen
+    /// confirmClear), asking before it forgets.
+    pub confirming_clear: Option<&'static str>,
     pub error: String,
     /// The edit form is open (a teammate's pencil, or New teammate); closed, the Team screen is the cards alone.
     pub form_open: bool,
@@ -1669,7 +1672,10 @@ fn memory_screen(s: &State, p: &Palette) -> El {
     // Recently forgotten, newest first, with the way back.
     let forgotten: Vec<&Value> = panel.memories["forgotten"].as_array().into_iter().flatten().rev().collect();
     if !forgotten.is_empty() {
-        let mut held_card = card().key("memory-forgotten").child(heading("Recently forgotten".into()));
+        let mut held_card = card()
+            .key("memory-forgotten")
+            .child(heading("Recently forgotten".into()))
+            .child(note("Kept for 7 days, then gone for good. Teammates do not read these."));
         for held in forgotten {
             let id = held["memory"]["memoryId"].as_str().unwrap_or("").to_owned();
             held_card = held_card.child(
@@ -1679,13 +1685,69 @@ fn memory_screen(s: &State, p: &Palette) -> El {
                     .center_y()
                     .py(4.0)
                     .border_sides([1.0, 0.0, 0.0, 0.0], l.c("border-hairline"))
-                    .child(text(held["memory"]["text"].as_str().unwrap_or("").to_owned()).font(l.ty.control).color(l.c("text-muted")).grow(1.0).shrink().wrap())
-                    .child(button("Restore", p).on_press(move |s: &mut State| action(s, &id, "restore"))),
+                    .child(
+                        col()
+                            .grow(1.0)
+                            .shrink()
+                            .gap(2.0)
+                            .child(text(held["memory"]["text"].as_str().unwrap_or("").to_owned()).font(l.ty.control).color(l.c("text-muted")).w_full().wrap())
+                            .child(text(forgotten_meta(held)).font(l.ty.mono).color(l.c("text-muted")).w_full().wrap()),
+                    )
+                    .child(button("Restore", p).key(format!("memory-restore-{id}")).on_press(move |s: &mut State| action(s, &id, "restore"))),
             );
         }
         out = out.child(held_card);
     }
+
+    // Forget: everything for this folder, or everything. Held in Recently forgotten, so the confirm says so (A1.8).
+    if kept + waiting_count > about_you_waiting {
+        let folder = current_workspace_id(s);
+        let folder_name = s.home.folder_path.as_deref().and_then(|f| std::path::Path::new(f).file_name()).map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+        let mut forget_card = card().key("memory-forget").child(heading("Forget".into()));
+        match panel.confirming_clear {
+            None => {
+                let mut buttons = row().gap(6.0);
+                if folder.is_some() {
+                    buttons = buttons.child(button("Forget everything for this folder", p).key("memory-forget-folder").on_press(|s: &mut State| s.people_panel.confirming_clear = Some("workspace")));
+                }
+                forget_card = forget_card.child(buttons.child(button("Forget everything", p).key("memory-forget-all").on_press(|s: &mut State| s.people_panel.confirming_clear = Some("all"))));
+            }
+            Some(scope) => {
+                let what = if scope == "all" { "Every memory, every folder, forgotten. ".to_owned() } else { format!("Everything remembered for {folder_name}, forgotten. ") };
+                forget_card = forget_card.child(
+                    row()
+                        .w_full()
+                        .gap(8.0)
+                        .center_y()
+                        .child(text(format!("{what}You can restore them from Recently forgotten for 7 days.")).key("memory-forget-confirm").font(l.ty.body).color(l.c("text-secondary")).grow(1.0).shrink().wrap())
+                        .child(button("Yes, forget", p).key("memory-forget-yes").on_press(move |s: &mut State| {
+                            s.people_panel.confirming_clear = None;
+                            let folder = if scope == "all" { None } else { current_workspace_id(s) };
+                            if scope != "all" && folder.is_none() {
+                                return;
+                            }
+                            let result = s.data.as_ref().ok_or("No native data folder".into()).and_then(|store| people::clear_memories(store, folder.as_deref()).map(|_| ()));
+                            done(s, result);
+                        }))
+                        .child(button("Cancel", p).key("memory-forget-cancel").on_press(|s: &mut State| s.people_panel.confirming_clear = None)),
+                );
+            }
+        }
+        out = out.child(forget_card);
+    }
     out
+}
+
+/// MemoryScreen's line under a forgotten memory: who forgot it, the day, and where it applied.
+fn forgotten_meta(held: &Value) -> String {
+    let by = held["forgottenBy"]["name"].as_str().unwrap_or("you");
+    let day = held["forgottenAt"]
+        .as_str()
+        .and_then(|at| chrono::DateTime::parse_from_rfc3339(at).ok())
+        .map(|at| format!(" · {}", at.with_timezone(&chrono::Local).format("%b %-d")))
+        .unwrap_or_default();
+    let place = if held["memory"]["scope"] == "global" { "everywhere".to_owned() } else { held["memory"]["workspaceName"].as_str().unwrap_or("").to_owned() };
+    format!("forgotten by {by}{day}{}", if place.is_empty() { String::new() } else { format!(" · {place}") })
 }
 
 fn current_workspace_id(s: &State) -> Option<String> {

@@ -62,12 +62,119 @@ pub fn memories(store: &Store) -> Result<Value, String> {
         }
     }
     if let Some(bin) = file.get_mut("forgotten").and_then(Value::as_array_mut) {
-        bin.retain(|m| {
-            chrono::DateTime::parse_from_rfc3339(m["forgottenAt"].as_str().unwrap_or(""))
-                .is_ok_and(|at| chrono::Utc::now().signed_duration_since(at).num_days() < 7)
-        });
+        let since = chrono::Utc::now().timestamp_millis() - FORGOTTEN_DAYS * 24 * 60 * 60 * 1000;
+        bin.retain(|entry| held_reads(entry, since));
+        let extra = bin.len().saturating_sub(MAX_FORGOTTEN);
+        bin.drain(..extra);
     }
     Ok(file)
+}
+
+/// How long a kept memory that leaves is held in Recently forgotten, and how many are (memory-store.ts A1.8).
+pub const FORGOTTEN_DAYS: i64 = 7;
+pub const MAX_FORGOTTEN: usize = 400;
+/// The most memories Locust keeps, and what it says past that (memory-store.ts MAX_MEMORIES).
+pub const MAX_MEMORIES: usize = 400;
+pub const MEMORIES_FULL: &str = "Locust keeps at most 400 memories. Forget some first.";
+
+/// One Recently-forgotten entry, as untrusted as any memory (memory-store.ts `parsedForgotten`): a kept memory, a date
+/// that reads, and who forgot it. Anything else -- a torn entry, a proposal, a date that is not one -- is dropped. So is
+/// one forgotten before `since`.
+fn held_reads(entry: &Value, since: i64) -> bool {
+    let memory = &entry["memory"];
+    let memory_reads = memory["memoryId"].as_str().is_some_and(|id| !id.is_empty()) && memory["text"].as_str().is_some() && memory["status"] == "kept";
+    let at = entry["forgottenAt"].as_str().and_then(|at| chrono::DateTime::parse_from_rfc3339(at).ok());
+    entry.is_object() && memory_reads && at.is_some_and(|at| at.timestamp_millis() >= since) && actor_reads(&entry["forgottenBy"])
+}
+
+/// Hold the KEPT memories among `gone` in Recently forgotten, forgotten now by `by`. A proposal nobody kept is not held:
+/// it was never the person's.
+fn hold(file: &mut Value, gone: Vec<Value>, by: &Value) {
+    if !file["forgotten"].is_array() {
+        file["forgotten"] = json!([]);
+    }
+    let by = match by["teammateId"].as_str() {
+        Some(id) => json!({"name": by["name"], "teammateId": id}),
+        None => json!({"name": by["name"]}),
+    };
+    if let Some(bin) = file["forgotten"].as_array_mut() {
+        for memory in gone.into_iter().filter(|m| m["status"] == "kept") {
+            bin.push(json!({"memory": memory, "forgottenAt": now(), "forgottenBy": by}));
+        }
+        let extra = bin.len().saturating_sub(MAX_FORGOTTEN);
+        bin.drain(..extra);
+    }
+}
+
+/// A memory removed, held in Recently forgotten as forgotten by `by` when it was kept (memory-store.ts `remove`):
+/// the person's Remove (`you`), or a teammate's forget in "Keep and tell me" (that teammate).
+pub fn remove_memory(store: &Store, id: &str, by: &Value) -> Result<(), String> {
+    let _lock = WRITES.lock().map_err(|e| e.to_string())?;
+    let mut file = memories(store)?;
+    remove_from(&mut file, id, by)?;
+    store.save_json("memories.json", &file)
+}
+
+fn remove_from(file: &mut Value, id: &str, by: &Value) -> Result<(), String> {
+    let rows = file["memories"].as_array_mut().ok_or(MEMORY_UNREADABLE)?;
+    let at = rows.iter().position(|m| m["memoryId"] == id).ok_or("That memory no longer exists.")?;
+    let gone = rows.remove(at);
+    rows.retain(|m| m["replaces"] != id && m["forgets"] != id);
+    hold(file, vec![gone], by);
+    Ok(())
+}
+
+/// Forget everything (memory-store.ts `clear`): this folder's memories, or with no folder every memory everywhere. The
+/// kept ones are held in Recently forgotten, by you; proposals simply go. Answers how many went.
+pub fn clear_memories(store: &Store, workspace: Option<&str>) -> Result<usize, String> {
+    let _lock = WRITES.lock().map_err(|e| e.to_string())?;
+    let mut file = memories(store)?;
+    let rows = file["memories"].as_array_mut().ok_or(MEMORY_UNREADABLE)?;
+    let (gone, kept): (Vec<Value>, Vec<Value>) = std::mem::take(rows)
+        .into_iter()
+        .partition(|m| workspace.is_none_or(|ws| m["scope"] != "global" && m["workspaceId"] == ws));
+    let removed = gone.len();
+    *rows = kept;
+    if removed > 0 {
+        hold(&mut file, gone, &json!({"name": "you"}));
+        store.save_json("memories.json", &file)?;
+    }
+    Ok(removed)
+}
+
+/// Restore (memory-store.ts `restore`): a held memory put back exactly as it was, and briefed again. The same words
+/// already kept in its place mean nothing to put back (and the entry goes); its name, given to a newer memory meanwhile,
+/// stays with that one; a full memory refuses it, and it stays held.
+fn restore_in(file: &mut Value, memory_id: &str) -> Result<(), String> {
+    let gone_by = "That memory is no longer in Recently forgotten.";
+    let bin = file["forgotten"].as_array_mut().ok_or(gone_by)?;
+    let at = bin.iter().position(|m| m["memory"]["memoryId"] == memory_id).ok_or(gone_by)?;
+    let mut back = bin[at]["memory"].clone();
+    let rows = file["memories"].as_array().ok_or(MEMORY_UNREADABLE)?;
+    let (scope, workspace) = (back["scope"].clone(), back["workspaceId"].clone());
+    let here = |r: &Value| r["scope"] == scope && (scope == "global" || r["workspaceId"] == workspace);
+    let same = rows.iter().any(|r| here(r) && key(r["text"].as_str().unwrap_or("")) == key(back["text"].as_str().unwrap_or("")));
+    if !same {
+        if rows.len() >= MAX_MEMORIES {
+            return Err(MEMORIES_FULL.into());
+        }
+        if back.get("name").is_some() && rows.iter().any(|r| here(r) && r["name"] == back["name"])
+            && let Some(o) = back.as_object_mut()
+        {
+            o.remove("name");
+        }
+        if rows.iter().any(|r| r["memoryId"] == back["memoryId"]) {
+            back["memoryId"] = json!(id("mem")?);
+        }
+        back["status"] = json!("kept");
+    }
+    if let Some(bin) = file["forgotten"].as_array_mut() {
+        bin.remove(at);
+    }
+    if !same {
+        file["memories"].as_array_mut().ok_or(MEMORY_UNREADABLE)?.push(back);
+    }
+    Ok(())
 }
 /// Electron `memory-store.parsedActor`: a name of 1-80 characters that is not blank, and a safe teammate id if any.
 fn actor_reads(actor: &Value) -> bool {
@@ -664,19 +771,9 @@ pub fn change_memory(
     let _lock = WRITES.lock().map_err(|e| e.to_string())?;
     let mut file = memories(store)?;
     if action == "restore" {
-        let bin = file["forgotten"]
-            .as_array_mut()
-            .ok_or("That memory no longer exists.")?;
-        let at = bin
-            .iter()
-            .position(|m| m["memory"]["memoryId"] == who)
-            .ok_or("That memory no longer exists.")?;
-        let row = bin.remove(at)["memory"].clone();
-        let rows = file["memories"].as_array_mut().ok_or(MEMORY_UNREADABLE)?;
-        if rows.len() >= 400 {
-            return Err("Too many memories".into());
-        }
-        rows.push(row);
+        restore_in(&mut file, who)?;
+    } else if action == "remove" {
+        remove_from(&mut file, who, &json!({"name": "you"}))?;
     } else {
         let rows = file["memories"].as_array_mut().ok_or(MEMORY_UNREADABLE)?;
         let at = rows
@@ -684,23 +781,6 @@ pub fn change_memory(
             .position(|m| m["memoryId"] == who)
             .ok_or("That memory no longer exists.")?;
         match action {
-            "remove" => {
-                let gone = rows.remove(at);
-                rows.retain(|m| m["replaces"] != who && m["forgets"] != who);
-                if gone["status"] == "kept" {
-                    if !file["forgotten"].is_array() {
-                        file["forgotten"] = json!([]);
-                    }
-                    if let Some(bin) = file["forgotten"].as_array_mut() {
-                        bin.push(
-                            json!({"memory":gone,"forgottenAt":now(),"forgottenBy":{"name":"you"}}),
-                        );
-                        if bin.len() > 400 {
-                            bin.remove(0);
-                        }
-                    }
-                }
-            }
             "toggle" => {
                 rows[at]["enabled"] = json!(!rows[at]["enabled"].as_bool().unwrap_or(false))
             }
@@ -766,14 +846,7 @@ pub fn change_memory(
                     rows.push(kept);
                 }
                 if !gone.is_empty() {
-                    if !file["forgotten"].is_array() {
-                        file["forgotten"] = json!([]);
-                    }
-                    if let Some(bin) = file["forgotten"].as_array_mut() {
-                        for memory in gone {
-                            bin.push(json!({"memory":memory,"forgottenAt":now(),"forgottenBy":proposal["by"]}));
-                        }
-                    }
+                    hold(&mut file, gone, &proposal["by"]);
                 }
             }
             "edit" => {
@@ -1844,12 +1917,7 @@ pub fn record_reply_changes(
                     store.save_json("memories.json", &file)?;
                 }
             } else {
-                change_memory(
-                    store,
-                    target["memoryId"].as_str().unwrap_or(""),
-                    "remove",
-                    None,
-                )?;
+                remove_memory(store, target["memoryId"].as_str().unwrap_or(""), &by)?;
                 push_once(&mut changed.forgotten, &target_text);
             }
         }

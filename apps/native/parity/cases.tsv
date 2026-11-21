@@ -346,17 +346,17 @@ apps/desktop/src/main/a-folder-with-only-dot-files-holds-nothing-yet.test.ts	is 
 apps/desktop/src/main/a-forget-with-nothing-remembered-says-nothing.test.ts	is answered as nothing remembered, by the store	yes
 apps/desktop/src/main/a-forget-with-nothing-remembered-says-nothing.test.ts	says nothing in the thread	yes
 apps/desktop/src/main/a-forget-with-nothing-remembered-says-nothing.test.ts	still says a miss when something is remembered, opening with a capital	yes
-apps/desktop/src/main/a-forgotten-memory-can-come-back.test.ts	a person’s Remove: held, by you -- and Restore puts it back exactly as it was, briefed again	no
-apps/desktop/src/main/a-forgotten-memory-can-come-back.test.ts	a teammate’s forget in "Keep and tell me": held, by that teammate	no
-apps/desktop/src/main/a-forgotten-memory-can-come-back.test.ts	a forget the person agreed to ("Forget it"): held, by the teammate who asked	no
-apps/desktop/src/main/a-forgotten-memory-can-come-back.test.ts	Forget everything for a folder: every kept one held, by you; the proposals are not	no
-apps/desktop/src/main/a-forgotten-memory-can-come-back.test.ts	a proposal dropped -- Keep the old one, or a new one forgotten -- holds nothing	no
-apps/desktop/src/main/a-forgotten-memory-can-come-back.test.ts	is held ${String(FORGOTTEN_DAYS)} days, then shown no more and dropped at the next write	no
-apps/desktop/src/main/a-forgotten-memory-can-come-back.test.ts	does not come back twice: the same words remembered again mean nothing to put back	no
-apps/desktop/src/main/a-forgotten-memory-can-come-back.test.ts	comes back without its name when a newer memory has taken it	no
-apps/desktop/src/main/a-forgotten-memory-can-come-back.test.ts	is refused, and stays held, when memory is full	no
-apps/desktop/src/main/a-forgotten-memory-can-come-back.test.ts	from before 0.316 reads as nothing forgotten; a torn entry is dropped; one holding a proposal is dropped	no
-apps/desktop/src/main/a-forgotten-memory-can-come-back.test.ts	with Recently forgotten that is not a list is unreadable, and nothing is written over it	no
+apps/desktop/src/main/a-forgotten-memory-can-come-back.test.ts	a person’s Remove: held, by you -- and Restore puts it back exactly as it was, briefed again	yes
+apps/desktop/src/main/a-forgotten-memory-can-come-back.test.ts	a teammate’s forget in "Keep and tell me": held, by that teammate	yes
+apps/desktop/src/main/a-forgotten-memory-can-come-back.test.ts	a forget the person agreed to ("Forget it"): held, by the teammate who asked	yes
+apps/desktop/src/main/a-forgotten-memory-can-come-back.test.ts	Forget everything for a folder: every kept one held, by you; the proposals are not	yes
+apps/desktop/src/main/a-forgotten-memory-can-come-back.test.ts	a proposal dropped -- Keep the old one, or a new one forgotten -- holds nothing	yes
+apps/desktop/src/main/a-forgotten-memory-can-come-back.test.ts	is held ${String(FORGOTTEN_DAYS)} days, then shown no more and dropped at the next write	yes
+apps/desktop/src/main/a-forgotten-memory-can-come-back.test.ts	does not come back twice: the same words remembered again mean nothing to put back	yes
+apps/desktop/src/main/a-forgotten-memory-can-come-back.test.ts	comes back without its name when a newer memory has taken it	yes
+apps/desktop/src/main/a-forgotten-memory-can-come-back.test.ts	is refused, and stays held, when memory is full	yes
+apps/desktop/src/main/a-forgotten-memory-can-come-back.test.ts	from before 0.316 reads as nothing forgotten; a torn entry is dropped; one holding a proposal is dropped	yes
+apps/desktop/src/main/a-forgotten-memory-can-come-back.test.ts	with Recently forgotten that is not a list is unreadable, and nothing is written over it	yes
 apps/desktop/src/main/a-half-made-worktree-is-finished-not-trusted.test.ts	is finished, keeping what is in it, rather than handed out half-made	yes
 apps/desktop/src/main/a-half-made-worktree-is-finished-not-trusted.test.ts	leaves a finished tree exactly as it is	no
 apps/desktop/src/main/a-half-made-worktree-is-finished-not-trusted.test.ts	does nothing to a .git file that points outside the repository	yes
