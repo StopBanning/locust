@@ -106,9 +106,9 @@ apps/desktop/src/main/a-claude-teammate-gets-its-skills.test.ts	only folders hol
 apps/desktop/src/main/a-claude-teammate-gets-its-skills.test.ts	a link inside a skill is not copied, so removing the copy cannot reach past it	yes
 apps/desktop/src/main/a-claude-teammate-gets-its-skills.test.ts	a folder with no skills hands over nothing and leaves nothing behind	yes
 apps/desktop/src/main/a-claude-teammate-gets-its-skills.test.ts	a skill folder past the size bound is left out	yes
-apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	names the guard on Windows the way Codex runs a hook there: in PowerShell, on Locust’s own binary run as node	no
+apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	names the guard on Windows the way Codex runs a hook there: in PowerShell, on Locust’s own binary run as node	yes
 apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	names it elsewhere exactly as Claude Code’s is named	no
-apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	is written only when LOCUST_GUARD_LOG names a file, one per question, with what was decided	no
+apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	is written only when LOCUST_GUARD_LOG names a file, one per question, with what was decided	yes
 apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	finds none where there are none, and none in what Codex ships itself or never installed	no
 apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	finds the person’s own, a plugin’s, and a project’s, in the folder or above it	yes
 apps/desktop/src/main/a-codex-turn-on-its-branch-is-completed.test.ts	finds a completion written before the process ended	yes

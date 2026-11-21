@@ -575,9 +575,40 @@ pub fn hook_main() {
     let mut input = String::new();
     let _ = std::io::stdin().take(1 << 20).read_to_string(&mut input);
     let here = std::env::current_dir().map(|d| d.to_string_lossy().into_owned()).unwrap_or_default();
-    if let Some(reply) = hook_reply(&input, &here) {
+    let log = guard_log();
+    if let Some(reply) = answer_and_log(&input, &here, log.as_deref().map(std::path::Path::new)) {
         let _ = std::io::stdout().write_all(reply.as_bytes());
     }
+}
+
+/// A drive's `LOCUST_GUARD_LOG` (0.720), when it names a file.
+fn guard_log() -> Option<String> {
+    std::env::var("LOCUST_GUARD_LOG").ok().filter(|log| !log.is_empty())
+}
+
+/// The hook's answer, and for a drive only a line per question in `log` (0.720), so a live run can show the guard was
+/// asked at all: Codex reports its hooks in no record Locust keeps. A log that cannot be written is let go.
+pub fn answer_and_log(input: &str, here: &str, log: Option<&std::path::Path>) -> Option<String> {
+    let reply = hook_reply(input, here);
+    if let Some(log) = log {
+        use std::io::Write;
+        let line = guard_log_line(input, reply.is_some());
+        let _ = std::fs::OpenOptions::new().create(true).append(true).open(log).and_then(|mut f| f.write_all(format!("{line}\n").as_bytes()));
+    }
+    reply
+}
+
+/// One question as the log keeps it: the tool, the command's first 200 characters, and whether it was refused.
+pub fn guard_log_line(input: &str, refused: bool) -> String {
+    let event: serde_json::Value = serde_json::from_str(input).unwrap_or_default();
+    let mut line = serde_json::Map::new();
+    if let Some(tool) = event["tool_name"].as_str() {
+        line.insert("tool".into(), tool.into());
+    }
+    let command = event["tool_input"]["command"].as_str().unwrap_or("");
+    line.insert("command".into(), command.chars().take(200).collect::<String>().into());
+    line.insert("refused".into(), refused.into());
+    serde_json::Value::Object(line).to_string()
 }
 
 /// command-guard.ts commandGuardSettings: the `--settings` every Claude Code turn gets, naming this binary as a
@@ -603,18 +634,31 @@ pub fn claude_settings(executable: &std::path::Path) -> String {
 /// command-guard.ts guardCommand: the hook's command line. Codex runs it with PowerShell on Windows (measured on
 /// 0.162.1) and a POSIX shell elsewhere.
 pub fn hook_command(executable: &std::path::Path) -> String {
+    hook_command_logged(executable, guard_log().as_deref(), cfg!(windows))
+}
+
+/// `hook_command`, with a drive's `LOCUST_GUARD_LOG` named in the command line itself: a runtime started by the
+/// process runner inherits only its allowlist (command-guard.ts guardCommand).
+pub fn hook_command_logged(executable: &std::path::Path, log: Option<&str>, windows: bool) -> String {
     let path = executable.to_string_lossy().replace('\\', "/");
-    if cfg!(windows) {
-        format!("& '{}' '--command-guard'", path.replace('\'', "''"))
-    } else {
+    let posix = |text: &str| {
         let mut quoted = String::from("\"");
-        for c in path.chars() {
+        for c in text.chars() {
             if matches!(c, '"' | '$' | '`') {
                 quoted.push('\\');
             }
             quoted.push(c);
         }
-        format!("{quoted}\" --command-guard")
+        quoted.push('"');
+        quoted
+    };
+    let log = log.filter(|l| !l.is_empty()).map(|l| l.replace('\\', "/"));
+    if windows {
+        let named = log.map(|l| format!("$env:LOCUST_GUARD_LOG='{}'; ", l.replace('\'', "''"))).unwrap_or_default();
+        format!("{named}& '{}' '--command-guard'", path.replace('\'', "''"))
+    } else {
+        let named = log.map(|l| format!("LOCUST_GUARD_LOG={} ", posix(&l))).unwrap_or_default();
+        format!("{named}{} --command-guard", posix(&path))
     }
 }
 
@@ -1020,3 +1064,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&root);
     }
 }
+
+#[cfg(test)]
+#[path = "command_guard_log_tests.rs"]
+mod log_tests;
