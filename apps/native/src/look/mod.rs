@@ -427,3 +427,7 @@ mod face_motion_sites_tests;
 #[cfg(test)]
 #[path = "light_colours_tests.rs"]
 mod light_colours_tests;
+
+#[cfg(test)]
+#[path = "message_box_tests.rs"]
+mod message_box_tests;

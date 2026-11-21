@@ -6655,3 +6655,47 @@ fn a_reference_chip_reads_its_conversations_folder_and_says_a_failed_refresh() {
         "{texts:?}"
     );
 }
+
+fn rect_of(rt: &Runtime<State>, key: &str) -> [f32; 4] {
+    rt.presented(key).unwrap_or_else(|| panic!("no element {key} on screen")).0
+}
+
+// case: lays the +, the field and the buttons out on one row
+#[test]
+fn the_message_box_lays_the_plus_the_field_and_send_on_one_row() {
+    let (_dirs, _store, mut rt) = window();
+    settle(&mut rt);
+    let (plus, field, send) = (rect_of(&rt, "plus"), rect_of(&rt, "composer"), rect_of(&rt, "send"));
+    assert!(plus[0] + plus[2] <= field[0] && field[0] + field[2] <= send[0], "left to right: {plus:?} {field:?} {send:?}");
+    for r in [plus, send] {
+        assert!(r[1] < field[1] + field[3] && field[1] < r[1] + r[3], "one row: {r:?} beside {field:?}");
+    }
+}
+
+// case: keeps the buttons on the last line as the field grows
+#[test]
+fn the_message_box_keeps_its_buttons_on_the_last_line_as_the_field_grows() {
+    let (_dirs, _store, mut rt) = window();
+    settle(&mut rt);
+    let one = rect_of(&rt, "composer");
+    rt.update(|s, _| s.draft = TextEdit::new("one\ntwo\nthree\nfour"));
+    settle(&mut rt);
+    let (field, send, plus) = (rect_of(&rt, "composer"), rect_of(&rt, "send"), rect_of(&rt, "plus"));
+    assert!(field[3] > one[3] + 20.0, "the field grew: {one:?} -> {field:?}");
+    let bottom = field[1] + field[3];
+    assert!((send[1] + send[3] - bottom).abs() <= 1.0, "send on the last line: {send:?} with the field ending at {bottom}");
+    let centre = |r: [f32; 4]| r[1] + r[3] / 2.0;
+    assert!((centre(plus) - centre(send)).abs() <= 1.0, "the + shares the last line's centre: {plus:?} {send:?}");
+}
+
+// case: makes one line of text as tall as the send, so they share a centre
+#[test]
+fn the_message_box_makes_one_line_as_tall_as_send() {
+    let (_dirs, _store, mut rt) = window();
+    settle(&mut rt);
+    let (field, send) = (rect_of(&rt, "composer"), rect_of(&rt, "send"));
+    assert!((field[3] - send[3]).abs() <= 0.5, "one line {field:?}, send {send:?}");
+    assert!(((field[1] + field[3] / 2.0) - (send[1] + send[3] / 2.0)).abs() <= 0.5);
+    let plus = rect_of(&rt, "plus");
+    assert!(((plus[1] + plus[3] / 2.0) - (send[1] + send[3] / 2.0)).abs() <= 0.5, "the + too: {plus:?}");
+}

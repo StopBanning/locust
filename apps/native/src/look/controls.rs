@@ -344,6 +344,9 @@ pub enum SendState {
 
 /// The composer's round send button: 36 across, the circle's fill and border; ivory with an arrow once there is
 /// something to send, as Electron's metal composer draws it.
+/// The send circle's size; a one-line message field is as tall, so they share a centre.
+pub const SEND_SIZE: f32 = 36.0;
+
 pub fn send_circle(l: &Look, state: SendState, label: &str) -> El {
     let (fill, ink) = match state {
         SendState::Ready => (l.c("primary-bg"), l.c("primary-fg")),
@@ -354,16 +357,27 @@ pub fn send_circle(l: &Look, state: SendState, label: &str) -> El {
         SendState::Stop => row().w(11.0).h(11.0).radius(2.5).fill(ink),
         _ => glyph(l, &super::icons::ARROW_UP, 17.0, Some(ink)),
     };
-    let mut e = row().w(36.0).h(36.0).center().radius(18.0).fill(fill).border(1.0, l.c("circle-border")).child(inner);
+    let mut e = row().w(SEND_SIZE).h(SEND_SIZE).center().radius(SEND_SIZE / 2.0).fill(fill).border(1.0, l.c("circle-border")).child(inner);
     if state != SendState::Idle {
         e = e.hover(l.c("hover-surface")).press_scale(0.96);
     }
     focusable(l, e, label, state == SendState::Idle)
 }
 
-/// `.lc-composer__box`: the rounded box a message is written in, radius 20 on the chat fill.
+/// `.lc-composer__box`: the rounded box a message is written in, radius 20 on the chat fill. One row, as Claude Code's:
+/// the + and the buttons sit on the field's last line as it grows (`align-items: end`), and while the box has focus its
+/// edge is `--lc-focus-edge-box`, 1 point outside (`box-shadow: 0 0 0 1px`), which meets 3:1 against the page and the box.
 pub fn composer_box(l: &Look) -> El {
-    row().w_full().center_y().gap(10.0).pl(16.0).pr(10.0).py(10.0).radius(20.0).fill(l.c("chat-bg"))
+    row()
+        .w_full()
+        .items_end()
+        .gap(10.0)
+        .pl(16.0)
+        .pr(10.0)
+        .py(10.0)
+        .radius(20.0)
+        .fill(l.c("chat-bg"))
+        .focus_within_ring(1.0, 0.0, l.c("focus-edge-box"))
 }
 
 /// `.lc-ghostbutton`: an outlined choice beside the primary one, 32 high, the strong border, secondary words at 14.

@@ -210,7 +210,8 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
             .placeholder(placeholder, p.muted)
             .color(p.text)
             .w_full()
-            .py(7.0)
+            // One line is as tall as the send circle (Electron: a 16-point line and 12 above and below, the send's 40).
+            .py((crate::look::controls::SEND_SIZE - composer_line_height()) / 2.0)
             .on_edit(|s: &mut State| &mut s.draft)
             .on_submit(|s: &mut State, tx: &mut Tx| submit_composer(s, tx, false))
             .on_input_key(composer_input_key)
@@ -965,7 +966,13 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
         composer_stack = composer_stack
             .children(crate::handoff_divider::composer_omissions(s, teammate, p))
             .children(crate::edit_message::line(s, p))
-            .child(crate::look::controls::composer_box(&l).child(plus_button(s, &l)).child(composer).child(button))
+            .child(
+                crate::look::controls::composer_box(&l)
+                    // The + in a slot as tall as the send, so on the last line both share the line's centre.
+                    .child(row().h(crate::look::controls::SEND_SIZE).center_y().child(plus_button(s, &l)))
+                    .child(composer)
+                    .child(button),
+            )
             .child(footer);
         // The footer's menus open above the box, where the model picker does, taking their room from the thread: the
         // box never moves (Electron's menus open upward from their chip).
@@ -1811,3 +1818,8 @@ mod free_answered_tests {
 #[cfg(test)]
 #[path = "plus_menu_words_tests.rs"]
 mod plus_menu_words_tests;
+
+/// The message field's line: its own line height, or 1.25 times its size when it names none (Rune's rule).
+fn composer_line_height() -> f32 {
+    if type_::BODY.line_height > 0.0 { type_::BODY.line_height } else { type_::BODY.size * 1.25 }
+}
