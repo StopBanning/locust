@@ -61,6 +61,12 @@ export const RUNTIME_INTEGRATION: Readonly<Record<string, IntegrationLevel>> = {
    * and wrote no file. Paid models and sign-in were not measured.
    */
   kilo: 'preview',
+  /*
+   * LIVE SINCE 0.878 (2026-11-17): Apple's on-device model through the Mac app's own helper, measured whole there. It
+   * shipped without a row here, so every screen read it as planned: the model picker showed Apple Intelligence's
+   * On-device model as PLANNED and would not pick it (found 2026-11-20).
+   */
+  apple: 'live',
   gemini: 'planned',
   omniroute: 'planned'
 }
