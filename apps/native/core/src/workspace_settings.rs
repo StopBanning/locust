@@ -246,6 +246,27 @@ pub fn load(store: &Store) -> Result<WorkspaceSettings, String> {
     Ok(parse_settings(&file["settings"]))
 }
 
+/// The sizes a person's own message and a teammate's question card are set in, at one reply size (tokens.css
+/// `--lc-text-said`, `--lc-text-ask`, `--lc-text-ask-foot` and its `data-replysize` rules). They grow with the reply; the
+/// rest of the app's chrome does not. Anything but `large` or `largest` is the standard size.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct AskSizes {
+    /// The person's message and an option's label.
+    pub said: f32,
+    /// The question and an option's note.
+    pub ask: f32,
+    /// "Or reply below" under the options.
+    pub ask_foot: f32,
+}
+
+pub fn ask_sizes(reply_size: &str) -> AskSizes {
+    match reply_size {
+        "large" => AskSizes { said: 15.0, ask: 13.5, ask_foot: 11.5 },
+        "largest" => AskSizes { said: 17.0, ask: 15.0, ask_foot: 12.5 },
+        _ => AskSizes { said: 14.5, ask: 12.0, ask_foot: 10.5 },
+    }
+}
+
 /// The code font to start with: the saved one, or Geist Mono when there is no store or the file does not read.
 pub fn startup_code_font(store: Option<&Store>) -> String {
     store
@@ -806,3 +827,7 @@ mod tests {
         assert_eq!(load_appearance(&store), prefs);
     }
 }
+
+#[cfg(test)]
+#[path = "workspace_settings_reply_size_tests.rs"]
+mod workspace_settings_reply_size_tests;

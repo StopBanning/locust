@@ -288,8 +288,10 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                 let bubble_row = if own_words.trim().is_empty() && !sent_notes.is_empty() {
                     None
                 } else {
+                    // `.lc-bubble` is set in `--lc-text-said`, which grows with the reply size.
+                    let said = locust_core::workspace_settings::ask_sizes(&s.settings_panel.settings.reply_size).said;
                     let mut bubble = text(own_words)
-                        .font(rune::TextStyle::new(14.5, 400.0).lh(21.0))
+                        .font(rune::TextStyle::new(said, 400.0).lh(said * 21.0 / 14.5))
                         .color(p.text)
                         .shrink()
                         .wrap_anywhere()
