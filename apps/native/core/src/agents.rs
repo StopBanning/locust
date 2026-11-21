@@ -1096,7 +1096,84 @@ pub fn discover_with_deadline(deadline: std::time::Duration) -> Vec<Found> {
         }),
     });
 
-    settle_within(checks, deadline, |_, _| {}).answers
+    let answers = settle_within(checks, deadline, |_, _| {}).answers;
+    held_a_sweep(&answers);
+    answers
+}
+
+/// One agent asked alone, for real: the same lookups and bounded checks a sweep gives it (discoverInstalledRuntimes
+/// with `only`).
+pub fn discover_one_now(id: &str) -> Option<Found> {
+    let find = |c: &str| crate::runtime::discovery::find_named(c).ok();
+    let run = |p: &std::path::Path, a: &[&str]| run_bounded(p, a, PROBE_TIMEOUT);
+    let exists = |p: &std::path::Path| p.exists();
+    let home = std::env::var_os("HOME").map(std::path::PathBuf::from);
+    let xdg_config_home = std::env::var("XDG_CONFIG_HOME").ok();
+    discover_one(id, &Seams { find: &find, run: &run, exists: &exists, home, xdg_config_home })
+}
+
+/// The last full sweep's answer, as Electron's `discoveryCache` holds it: what a start reads first.
+static HELD_DISCOVERY: std::sync::Mutex<Option<HeldAnswer>> = std::sync::Mutex::new(None);
+
+fn now_ms() -> u64 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_millis() as u64)
+}
+
+/// Every full sweep is held, and tells a start's readiness it asked every agent it answered (index.ts: an agent that
+/// is still being checked has not been asked yet, as far as a start can tell).
+pub(crate) fn held_a_sweep(answers: &[Found]) {
+    hold_sweep(&HELD_DISCOVERY, start_readiness(), answers, now_ms());
+}
+
+/// A full sweep's answer, held at `at`, and every agent it answered marked asked then.
+pub fn hold_sweep(held: &std::sync::Mutex<Option<HeldAnswer>>, readiness: &StartReadiness, answers: &[Found], at: u64) {
+    *crate::invariants::lock(held) = Some(HeldAnswer { at, value: answers.to_vec() });
+    let asked: Vec<Found> = answers.iter().filter(|entry| !entry.checking).cloned().collect();
+    readiness.swept(&asked, at);
+}
+
+/// The agents a start never asks alone: Antigravity's readiness is whether its app is open, and Apple's is the Mac's.
+pub fn sweep_only_at_start() -> std::collections::HashSet<String> {
+    ["antigravity", crate::runtime::apple::APPLE_RUNTIME].into_iter().map(str::to_owned).collect()
+}
+
+/// index.ts `startReadiness`: the one a start asks through, held for the whole process.
+fn start_readiness() -> &'static StartReadiness {
+    static READINESS: std::sync::OnceLock<StartReadiness> = std::sync::OnceLock::new();
+    READINESS.get_or_init(|| {
+        StartReadiness::new(StartReadinessOptions {
+            ttl_ms: READY_TO_START_TTL_MS,
+            now: Box::new(now_ms),
+            held: Box::new(|| crate::invariants::lock(&HELD_DISCOVERY).clone()),
+            // The sweep's own clock is left alone: the other runtimes were not asked.
+            store: Box::new(|value| {
+                let mut held = crate::invariants::lock(&HELD_DISCOVERY);
+                let at = held.as_ref().map_or_else(now_ms, |h| h.at);
+                *held = Some(HeldAnswer { at, value });
+            }),
+            sweep: Box::new(discover),
+            ask_one: Box::new(|id| Ok(discover_one_now(id))),
+            sweep_only: sweep_only_at_start(),
+        })
+    })
+}
+
+/// index.ts `discoverForStart`: a stale answer is refreshed for the starting runtime alone. A start ON an agent the
+/// sweep went on without waits for THAT agent's own check, asked alone; a start on any other agent never does.
+pub fn discover_for_start(runtime_id: Option<&str>) -> Vec<Found> {
+    let found = start_readiness().for_start(runtime_id);
+    waits_for_its_own_check(runtime_id, found, discover_one_now)
+}
+
+/// The start's own agent, when the answer still has it being checked: its own check, asked alone (sweep-settle.ts
+/// `forStart`). Anything else is the answer as it stands.
+pub fn waits_for_its_own_check(runtime_id: Option<&str>, found: Vec<Found>, ask_one: impl Fn(&str) -> Option<Found>) -> Vec<Found> {
+    let Some(id) = runtime_id else { return found };
+    if !found.iter().any(|entry| entry.id == id && entry.checking) || sweep_only_at_start().contains(id) {
+        return found;
+    }
+    let Some(answer) = ask_one(id) else { return found };
+    found.into_iter().map(|entry| if entry.id == id { answer.clone() } else { entry }).collect()
 }
 
 /// Apple Intelligence's row, from what its helper's probe said: ready when the model answers; when the Mac says why it

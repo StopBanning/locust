@@ -110,6 +110,9 @@ pub mod hooks {
     /// While set, a turn whose end is recorded is held before the engine lets go of it, as its disk observation and
     /// share can hold it (the-next-turn-is-not-refused-while-the-last-winds-down).
     pub static HOLD_WIND_DOWN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+    /// What a start's readiness is asked through while a test holds the engine. None: the fake stands in for the
+    /// runtime, and nothing is asked.
+    pub static READINESS: Mutex<Option<Arc<crate::agents::StartReadiness>>> = Mutex::new(None);
     /// Serialises tests that point the engine at a temporary store and a fake `codex`.
     pub struct Guard {
         _lock: std::sync::MutexGuard<'static, ()>,
@@ -123,6 +126,7 @@ pub mod hooks {
         clear_poison();
         super::reset_relay_state();
         *crate::invariants::lock(&STATE) = (Some(store), command);
+        *crate::invariants::lock(&READINESS) = None;
         guard
     }
     impl Drop for Guard {
@@ -141,6 +145,7 @@ pub mod hooks {
             clear_poison();
             super::reset_relay_state();
             *crate::invariants::lock(&STATE) = (None, None);
+            *crate::invariants::lock(&READINESS) = None;
         }
     }
     /// Every turn thread, its ending included, is gone: turns still running are told to stop, again each time, since an
@@ -174,6 +179,7 @@ pub mod hooks {
         super::RELAY_STARTING.clear_poison();
         super::ROOM_NOTICES.clear_poison();
         STATE.clear_poison();
+        READINESS.clear_poison();
     }
 }
 
@@ -2256,6 +2262,49 @@ fn valid_prompt(prompt: &str) -> bool {
     !prompt.trim().is_empty() && prompt.encode_utf16().count() <= MAX_PROMPT_LENGTH && !prompt.contains('\0')
 }
 
+/// codex-mission.ts notReadyRefusal: which kind of not ready, as discovery found it.
+pub fn not_ready_refusal(runtime: &str, found: Option<&crate::agents::Found>) -> String {
+    let name = crate::failure_words::runtime_display_name(runtime);
+    let Some(found) = found.filter(|f| f.installed) else {
+        return format!("{name} is not installed on this machine. Install it, then retry discovery.");
+    };
+    match found.status {
+        crate::agents::Probe::AuthRequired => format!("{name} is signed out. Sign in to it, then retry discovery."),
+        crate::agents::Probe::Offline => format!("{name} could not be reached just now: it did not answer when Locust checked on it, which usually means its own service is down. Try again in a minute, or pick another model."),
+        _ => format!("{name} is not ready. Install or sign in to it, then retry discovery."),
+    }
+}
+
+/// What discovery says of the runtime a turn is about to start on (index.ts discoverForStart): the held answer while
+/// it is fresh, that runtime asked alone once it is stale. None when nothing is asked: a test's fake runtime.
+fn found_for_start(runtime: &str) -> Option<Vec<crate::agents::Found>> {
+    #[cfg(any(test, feature = "test-hooks"))]
+    {
+        if let Some(readiness) = crate::invariants::lock(&hooks::READINESS).clone() {
+            return Some(crate::agents::waits_for_its_own_check(Some(runtime), readiness.for_start(Some(runtime)), |_| None));
+        }
+        if crate::invariants::lock(&hooks::STATE).0.is_some() {
+            return None;
+        }
+    }
+    Some(crate::agents::discover_for_start(Some(runtime)))
+}
+
+/// codex-mission.ts start: a runtime that is not available, ready and with a program to run is refused in words before
+/// anything is recorded. Your own agent is found by its command line, never by discovery; an added account's sign-in is
+/// its own folder's, which this does not ask.
+pub(crate) fn start_readiness_refusal(runtime: &str, account: Option<&str>) -> Option<String> {
+    if runtime == "acp" || account.is_some() {
+        return None;
+    }
+    let found = found_for_start(runtime)?;
+    let chosen = found.iter().find(|entry| entry.id == runtime);
+    if chosen.is_some_and(|c| c.installed && c.ready) {
+        return None;
+    }
+    Some(not_ready_refusal(runtime, chosen))
+}
+
 /// Start (or continue) a turn the person asked for in the window.
 pub fn send(job: Send) -> Result<Started, String> {
     send_from(job, Origin::default())
@@ -2368,6 +2417,11 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
     // codex-mission.ts AUTO_OFF_REFUSAL: Auto runs only where the person turned it on in Settings.
     if mode == Mode::Auto && !crate::workspace_settings::load(&store).map(|s| s.auto_mode).unwrap_or(false) {
         return Err(AUTO_OFF_REFUSAL.into());
+    }
+    // codex-mission.ts: whether the runtime is ready is asked before anything is recorded or started, and a start on
+    // one that is not says which kind of not ready.
+    if let Some(why) = start_readiness_refusal(runtime_name, effective_account.as_deref()) {
+        return Err(why);
     }
     let launch_env = account_launch_env(&store, runtime_name, effective_account.as_deref())?;
     let electron = store.electron().to_path_buf();
