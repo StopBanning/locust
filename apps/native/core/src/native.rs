@@ -308,7 +308,7 @@ fn control(c: char) -> bool {
     matches!(c, '\u{0}'..='\u{1f}' | '\u{7f}')
 }
 /// teammate-store.ts: safeId
-fn safe_id(v: &Value) -> Option<&str> {
+pub(crate) fn safe_id(v: &Value) -> Option<&str> {
     let s = v.as_str()?;
     (!s.is_empty()
         && s.len() <= 64
@@ -2205,9 +2205,10 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
         None => None,
     };
     // Asking Scout always runs in Ask mode (read-only) and sealed against tools/connectors,
-    // with its 14-day look log brief passed via slot.instructions, before policy evaluation.
+    // with its 14-day look log brief passed via slot.instructions, before policy evaluation. An app's own work sent
+    // through the door is not asking Scout (asks_scout).
     if origin.slot.is_none()
-        && let Some(slot) = crate::scout::host::asking_scout_slot(&store, &job.teammate.id)
+        && let Some(slot) = crate::scout::host::asking_scout_slot(&store, &job.teammate.id, origin.started_by.as_ref())
     {
         origin.mode = Some(Mode::Ask);
         origin.slot = Some(slot);
@@ -3133,6 +3134,8 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
                 });
                 crate::rooms::on_run_ended(&memory_store, &memory_id);
             }
+            // After the relay's and rooms' own endings, before Scout's (main/index.ts run-end steps).
+            crate::approval_record_note::on_run_ended(&memory_store, &memory_id);
             crate::scout::host::on_run_ended(&memory_store, &memory_id);
             crate::chat_host::on_run_ended(&memory_id);
             if person_sent {
@@ -3354,9 +3357,18 @@ fn record_failure(writer: &mut LedgerWriter, cancelled: bool, error: &io::Error)
     let _ = writer.append(&event.kind, json!(event.payload), event.thread.as_deref());
 }
 
+/// Every card answered is written to the turn's ledger; an answer the ledger refused is remembered, to be written (or
+/// said) when the run ends (approval-record-note.ts, `unwrittenAnswers.remember` in main/index.ts recordAnswer).
 fn flush_approvals(writer: &mut LedgerWriter, channel: &Channel, mission_id: &str) {
     for recorded in channel.take_recorded_for(mission_id) {
-        let _ = writer.append_approval(&recorded.to_json());
+        let approval = recorded.to_json();
+        let written = match crate::approval_record_note::refused_for_test() {
+            Some(why) => Err(why),
+            None => writer.append_approval(&approval).map_err(|e| e.to_string()),
+        };
+        if let Err(why) = written {
+            crate::invariants::lock(&crate::approval_record_note::UNWRITTEN).remember(mission_id, approval, &why);
+        }
     }
 }
 

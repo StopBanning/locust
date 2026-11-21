@@ -3181,7 +3181,7 @@ fn asking_scout_forces_ask_mode_sealed_and_injects_why_brief_even_when_teammate_
         !transcript.running && !transcript.failed,
         "asking Scout must force Ask + sealed even when teammate/origin requested Edit: {transcript:?}"
     );
-    let slot = crate::scout::host::asking_scout_slot(&t.store(), "tm_scout")
+    let slot = crate::scout::host::asking_scout_slot(&t.store(), "tm_scout", None)
         .expect("asking scout slot");
     assert_eq!(slot.key, "scout-chat:tm_scout");
     assert!(slot.sealed);
@@ -3618,3 +3618,9 @@ fn only_a_beginning_delivers_never_a_diagnostic() {
     assert!(began("run.started") && began("step.started") && began("tool.started"));
     assert!(!began("adapter.diagnostic") && !began("run.failed") && !began("host.failure"));
 }
+
+#[path = "an_app_started_turn_tests.rs"]
+mod an_app_started_turn;
+
+#[path = "unwritten_answer_tests.rs"]
+mod unwritten_answer;

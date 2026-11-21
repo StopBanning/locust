@@ -7,6 +7,7 @@ pub mod antigravity_cascade;
 pub mod antigravity_usage;
 pub mod approval;
 pub mod approval_patch;
+pub mod approval_record_note;
 pub mod mode_facts;
 pub mod approval_rule_store;
 pub mod approval_rules;
