@@ -12,6 +12,7 @@ pub mod mode_facts;
 pub mod approval_rule_store;
 pub mod approval_rules;
 pub mod attachments;
+pub mod attachments_for_run;
 pub mod attention;
 pub mod away;
 pub mod benchmark;

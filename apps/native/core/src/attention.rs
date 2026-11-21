@@ -27,12 +27,42 @@ pub fn approval_text(question: bool, summary: &str, teammate: Option<&str>, conv
     (title, format!("{summary} · the run is paused until you answer."))
 }
 
-/// decisionNotificationText.
-pub fn decision_text(teammate: Option<&str>, question: &str) -> (String, String) {
-    (
-        format!("{} is asking you something", teammate.unwrap_or("A teammate")),
-        format!("{} · the run waits for your answer.", clip(question, 140)),
-    )
+/// decisionNotificationText, with the conversation's title after it when there is one.
+pub fn decision_text(teammate: Option<&str>, question: &str, conversation: Option<&str>) -> (String, String) {
+    let mut title = format!("{} is asking you something", teammate.unwrap_or("A teammate"));
+    if let Some(c) = conversation {
+        title = format!("{title} · {}", c.chars().take(100).collect::<String>());
+    }
+    (title, format!("{} · the run waits for your answer.", clip(question, 140)))
+}
+
+/// conversationAttentionTitle (index.ts): the conversation's name as the sidebar's titles keep it, the turn's own or,
+/// walking back through what each turn continued (500 at most, a loop stopped), the oldest one titled; else the first
+/// turn's words; else "Conversation". One line, 100 characters at most. `metadata_of` reads a turn's record.
+pub fn conversation_title(mission_id: &str, titles: &serde_json::Value, metadata_of: impl Fn(&str) -> Option<serde_json::Value>) -> String {
+    let mut record = metadata_of(mission_id);
+    let mut title = titles[mission_id].as_str().map(str::to_owned);
+    let mut seen = std::collections::HashSet::new();
+    while let Some(parent) = record.as_ref().and_then(|m| m["continuesFrom"]["missionId"].as_str().map(str::to_owned)) {
+        if seen.len() >= 500 || !seen.insert(parent.clone()) {
+            break;
+        }
+        if let Some(named) = titles[parent.as_str()].as_str() {
+            title = Some(named.to_owned());
+        }
+        match metadata_of(&parent) {
+            Some(older) => record = Some(older),
+            None => break,
+        }
+    }
+    let said = title.or_else(|| record.as_ref().and_then(|m| m["prompt"].as_str().map(str::to_owned))).unwrap_or_else(|| "Conversation".into());
+    said.split_whitespace().collect::<Vec<_>>().join(" ").chars().take(100).collect()
+}
+
+/// approvalArrived: a card waiting for the person, named for its conversation, and a click opens the turn that raised it.
+pub fn approval_notice(mission_id: &str, question: bool, summary: &str, teammate: Option<&str>, conversation: Option<&str>) -> Notice {
+    let (title, body) = approval_text(question, summary, teammate, conversation);
+    Notice { title, body, opens: Some(mission_id.to_owned()), limit: false }
 }
 
 /// limitNotificationText.
@@ -85,6 +115,75 @@ pub fn finished_toast(completed: bool, failed: bool, started_by_person: bool, to
     Some((format!("{who} finished"), format!("{} · took {}", line.unwrap_or_else(|| "Done.".into()), took_text(took_ms))))
 }
 
+/// What a turn that ended says to a person who stepped away (attention-reader.ts): the two ways a run ends WAITING FOR
+/// THE PERSON that no other notification covers. Decided from the record; nothing for a run that ended any other way.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RunEnded {
+    /// decisionAsked: the completed reply ends with a decision card, and this is its question.
+    Decision { question: String },
+    /// limitHit: the run stopped at its account limit; the runtime that recorded it, and its own words.
+    Limit { runtime: String, message: Option<String> },
+}
+
+/// onRunEnded: the newest quota-exhausted limit the run did not go on to complete past, whatever its phase; else, for a
+/// completed run only, the decision card in its last final reply.
+pub fn run_ended(events: &[serde_json::Value], completed: bool) -> Option<RunEnded> {
+    let mut limit = None;
+    for event in events {
+        if event["type"] == "route.limit_detected" && event["payload"]["kind"] == "quota-exhausted" {
+            limit = Some(RunEnded::Limit {
+                runtime: event["sourceAdapter"].as_str().unwrap_or_default().to_owned(),
+                message: event["payload"]["message"].as_str().map(str::to_owned),
+            });
+        } else if event["type"] == "run.completed" {
+            limit = None;
+        }
+    }
+    if limit.is_some() {
+        return limit;
+    }
+    if !completed {
+        return None;
+    }
+    let text = crate::carry_on::latest_final(events)?;
+    crate::protocol_tags::parse_decision(&text).map(|decision| RunEnded::Decision { question: decision.question })
+}
+
+/// A system notification: what it says, and the conversation a click opens.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Notice {
+    pub title: String,
+    pub body: String,
+    pub opens: Option<String>,
+    /// A run stopped at its limit: said instead of its finish.
+    pub limit: bool,
+}
+
+/// What a turn of the native engine that ended raises (attention_watch::poll): `run_ended` on its record, a decision
+/// named for its conversation (`conversation`, asked only then), where the
+/// turn's own agent names a limit event that does not say whose it was. A failure at the limit with no limit event of
+/// its own is a limit too (Rust's own events end such a turn `run.failed`, kind `quota-exhausted`).
+pub fn ended_notice(mission_id: &str, events: &[serde_json::Value], runtime: &str, teammate: Option<&str>, conversation: impl FnOnce() -> String) -> Option<Notice> {
+    let end = events.iter().rev().find(|e| matches!(e["type"].as_str(), Some("run.completed" | "run.failed" | "run.cancelled")));
+    let kind = end.and_then(|e| e["type"].as_str()).unwrap_or("");
+    let says = run_ended(events, kind == "run.completed");
+    let limit = match &says {
+        Some(RunEnded::Limit { runtime, message }) => Some((runtime.clone(), message.clone())),
+        _ if kind == "run.failed" && end.is_some_and(|e| e["payload"]["kind"] == "quota-exhausted") => {
+            Some((String::new(), end.and_then(|e| e["payload"]["message"].as_str()).map(str::to_owned)))
+        }
+        _ => None,
+    };
+    if let Some((by, message)) = limit {
+        let by = if by.is_empty() { runtime.to_owned() } else { by };
+        let (title, body) = limit_text(teammate, crate::carry_on::display_name(&by), message.as_deref());
+        return Some(Notice { title, body, opens: Some(mission_id.to_owned()), limit: true });
+    }
+    let Some(RunEnded::Decision { question }) = says else { return None };
+    let (title, body) = decision_text(teammate, &question, Some(&conversation()));
+    Some(Notice { title, body, opens: Some(mission_id.to_owned()), limit: false })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -98,7 +197,7 @@ mod tests {
         );
         assert_eq!(approval_text(true, "Which one?", None, None).0, "A teammate has a question");
         assert_eq!(limit_text(Some("Scout"), "OpenCode", None).1, "The run stopped at a checkpoint · pick where it continues.");
-        assert_eq!(decision_text(None, "Ship  it?\nnow").1, "Ship it? now · the run waits for your answer.");
+        assert_eq!(decision_text(None, "Ship  it?\nnow", None).1, "Ship it? now · the run waits for your answer.");
     }
 
     #[test]
@@ -114,3 +213,11 @@ mod tests {
         assert_eq!(finished_text(&many), ("5 teammates are done".into(), "… and 2 more\nT3: ok\nT4: ok\nT5: ok".into()));
     }
 }
+
+#[cfg(test)]
+#[path = "attention_reader_tests.rs"]
+mod attention_reader_tests;
+
+#[cfg(test)]
+#[path = "a_waiting_notification_opens_its_conversation_tests.rs"]
+mod a_waiting_notification_opens_its_conversation_tests;
