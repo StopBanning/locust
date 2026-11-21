@@ -76,3 +76,28 @@ fn is_refused_when_a_path_climbs_out_of_a_known_folder() {
     let p = place();
     assert!(check(&p, &p.project.join("..").join("someone-else")).is_err());
 }
+
+/// From `an-app-started-opencode-turn-works-where-it-was-sent.test.ts`: the host is handed the turn as an app's own
+/// work, `{kind: "mcp", folder}`, which is what keeps a turn to Scout's teammate from being sealed as a question to
+/// Scout (`scout::host::asks_scout`).
+// case: hands the host the mode and folder the app named, and replies with them when they ran
+#[test]
+fn the_host_is_handed_an_apps_turn_as_the_apps_own_work_with_its_folder() {
+    let scout = Teammate { id: "tm_scout".into(), name: "Scout".into(), role: "Custom".into(), runtime: Some("opencode".into()), model: None, account: None, busy: false, runs_in: "ask".into(), folder: None };
+    let request = |folder: Option<&str>| StartRequest {
+        teammate: scout.clone(),
+        prompt: "Review M1.".into(),
+        follow_up_of: None,
+        mode: crate::approval::Mode::Auto,
+        folder: folder.map(PathBuf::from),
+        runtime: None,
+        model: None,
+        effort: None,
+        account: None,
+    };
+    let (_, origin, _) = job_of(request(Some("/work/review")), None);
+    assert_eq!(origin.started_by, Some(json!({"kind": "mcp", "folder": "/work/review"})));
+    assert_eq!((origin.mode, origin.folder), (Some(crate::approval::Mode::Auto), Some(PathBuf::from("/work/review"))));
+    let (_, origin, _) = job_of(request(None), None);
+    assert_eq!(origin.started_by, Some(json!({"kind": "mcp"})));
+}
