@@ -263,6 +263,8 @@ pub(super) struct State {
     pub(super) told_cards: std::collections::HashSet<String>,
     pub(super) live_turns: std::collections::HashSet<String>,
     pub(super) finishes: Vec<(String, String)>,
+    /// Each room's changes, held two minutes from its first and then said as one toast (attention.ts `roomChanged`).
+    pub(super) room_toasts: locust_core::attention::RoomToasts,
     pub(super) finish_ids: Vec<String>,
     /// A conversation to open once the recent list has it (a pressed notification's), and until when to keep looking.
     pub(super) open_when_listed: Option<(String, std::time::Instant)>,
@@ -562,6 +564,7 @@ impl Default for State {
             told_cards: std::collections::HashSet::new(),
             live_turns: std::collections::HashSet::new(),
             finishes: Vec::new(),
+            room_toasts: Default::default(),
             finish_ids: Vec::new(),
             open_when_listed: None,
             finishes_due: None,

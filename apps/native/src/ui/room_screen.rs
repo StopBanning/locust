@@ -636,6 +636,26 @@ fn apply_snapshot(s: &mut State, snap: RoomsSnapshot) {
     }
 }
 
+/// Room notices from the engine: said on the room screen at once, and gathered per room for the desk (index.ts's
+/// notify). A notice with no words only asks the screen to read the rooms again.
+pub(super) fn heard_room_notices(s: &mut State, notices: Vec<locust_core::room_tasks::RoomNotice>, now: std::time::Instant) {
+    let mut msgs = Vec::new();
+    for n in notices.into_iter().filter(|n| !n.message.trim().is_empty()) {
+        s.room_toasts.changed(&n.room_id, &n.room_name, &n.message, now);
+        msgs.push(n.message);
+    }
+    if !msgs.is_empty() {
+        s.rooms.notice = Some(msgs.join(" · "));
+    }
+}
+
+/// The room toasts whose two minutes ended by `now`, kept only if the window is elsewhere then: a person looking at the
+/// window already has the room screen saying it. Either way, a toast said or not is let go.
+pub(super) fn room_toasts_due(s: &mut State, now: std::time::Instant, supported: bool) -> Vec<(String, String)> {
+    let due = s.room_toasts.due(now);
+    if locust_core::attention::should_notify(s.window_focused, supported) { due } else { Vec::new() }
+}
+
 /// Sync background loads, actions, engine room notices, and elapsed timers for active runs.
 pub(super) fn poll(s: &mut State, tx: &mut Tx) -> bool {
     let mut changed = false;
@@ -643,15 +663,13 @@ pub(super) fn poll(s: &mut State, tx: &mut Tx) -> bool {
 
     let notices = locust_core::engine_api::api().room_notices();
     if !notices.is_empty() {
-        let msgs: Vec<String> = notices
-            .into_iter()
-            .filter_map(|n| (!n.message.trim().is_empty()).then_some(n.message))
-            .collect();
-        if !msgs.is_empty() {
-            s.rooms.notice = Some(msgs.join(" · "));
-        }
+        heard_room_notices(s, notices, std::time::Instant::now());
         need_refresh = true;
         changed = true;
+    }
+    for (title, body) in room_toasts_due(s, std::time::Instant::now(), crate::notify::supported()) {
+        // A room's toast brings the window forward and opens nothing in particular (attention.ts flush).
+        crate::notify::show(&title, &body, None);
     }
 
     if let Some(res) = s.rooms.load_job.take() {
@@ -2559,3 +2577,7 @@ mod room_blocked_tests;
 #[cfg(test)]
 #[path = "post_headline_tests.rs"]
 mod post_headline_tests;
+
+#[cfg(test)]
+#[path = "room_toast_tests.rs"]
+mod room_toast_tests;

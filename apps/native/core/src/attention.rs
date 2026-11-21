@@ -94,6 +94,70 @@ pub fn finished_text(finishes: &[(String, String)]) -> (String, String) {
     (format!("{} teammates are done", finishes.len()), lines.join("\n"))
 }
 
+/// ROOM_TOAST_WINDOW_MS: a room's changes are gathered this long, then said as one. Twenty seconds was the first cut,
+/// and three teammates ending runs thirty seconds apart still made one toast per change; two minutes made a set.
+pub const ROOM_TOAST_WINDOW_MS: u64 = 120_000;
+/// ROOM_TOAST_LINES: the newest lines a room's toast shows; the rest are counted.
+pub const ROOM_TOAST_LINES: usize = 3;
+
+/// roomNotificationText: one change titled with the room's name, several as "Room · N changes" with the newest three
+/// and a count of the rest.
+pub fn room_text(room_name: &str, messages: &[String]) -> (String, String) {
+    let shown = &messages[messages.len().saturating_sub(ROOM_TOAST_LINES)..];
+    let hidden = messages.len() - shown.len();
+    let title = if messages.len() == 1 { room_name.to_owned() } else { format!("{room_name} · {} changes", messages.len()) };
+    let mut lines = Vec::new();
+    if hidden > 0 {
+        lines.push(format!("… and {hidden} more"));
+    }
+    lines.extend(shown.iter().cloned());
+    (title, lines.join("\n"))
+}
+
+/// createAttention's `roomChanged` and its flush: each room's changes are held from its first change for
+/// `ROOM_TOAST_WINDOW_MS`, then given back as one toast and forgotten. Whether the toast is shown is asked at that
+/// moment (`should_notify`), not when the change came: the room screen already says it to a person looking.
+#[derive(Debug, Default)]
+pub struct RoomToasts {
+    held: Vec<HeldRoom>,
+}
+
+#[derive(Debug)]
+struct HeldRoom {
+    room_id: String,
+    room_name: String,
+    messages: Vec<String>,
+    due: std::time::Instant,
+}
+
+impl RoomToasts {
+    /// A room changed: added to its held toast, or the start of one.
+    pub fn changed(&mut self, room_id: &str, room_name: &str, message: &str, now: std::time::Instant) {
+        if let Some(held) = self.held.iter_mut().find(|h| h.room_id == room_id) {
+            held.messages.push(message.to_owned());
+            return;
+        }
+        self.held.push(HeldRoom {
+            room_id: room_id.to_owned(),
+            room_name: room_name.to_owned(),
+            messages: vec![message.to_owned()],
+            due: now + std::time::Duration::from_millis(ROOM_TOAST_WINDOW_MS),
+        });
+    }
+
+    /// The toasts whose window ended by `now`, as (title, body), each room's said once and let go.
+    pub fn due(&mut self, now: std::time::Instant) -> Vec<(String, String)> {
+        let (said, kept): (Vec<HeldRoom>, Vec<HeldRoom>) = std::mem::take(&mut self.held).into_iter().partition(|h| now >= h.due);
+        self.held = kept;
+        said.into_iter().map(|h| room_text(&h.room_name, &h.messages)).collect()
+    }
+
+    /// `pending`: what each room still holds, by room id.
+    pub fn pending(&self) -> Vec<(String, Vec<String>)> {
+        self.held.iter().map(|h| (h.room_id.clone(), h.messages.clone())).collect()
+    }
+}
+
 fn took_text(ms: u64) -> String {
     let minutes = ((ms as f64 / 60_000.0).round() as u64).max(1);
     if minutes < 60 { format!("{minutes} min") } else { format!("{} h {} min", minutes / 60, minutes % 60) }
@@ -221,3 +285,7 @@ mod attention_reader_tests;
 #[cfg(test)]
 #[path = "a_waiting_notification_opens_its_conversation_tests.rs"]
 mod a_waiting_notification_opens_its_conversation_tests;
+
+#[cfg(test)]
+#[path = "room_toasts_tests.rs"]
+mod room_toasts_tests;

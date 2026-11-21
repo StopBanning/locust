@@ -1348,6 +1348,23 @@ apps/desktop/src/main/attention-reader.test.ts	a decision card in a completed re
 apps/desktop/src/main/attention-reader.test.ts	a run stopped at its account limit says so, with the runtime and its own words	yes
 apps/desktop/src/main/attention-reader.test.ts	a limit the run went on to complete past is not a limit; a plain completion says nothing	yes
 apps/desktop/src/main/attention-reader.test.ts	a decision in a run that did not complete is not asked; nobody's conversation is unnamed	yes
+apps/desktop/src/main/attention.test.ts	only when the window is not in front, and only where the OS can show one	yes
+apps/desktop/src/main/attention.test.ts	names the teammate and the action, never the exact command	yes
+apps/desktop/src/main/attention.test.ts	shows the notification and brings the window forward on click	no
+apps/desktop/src/main/attention.test.ts	stays quiet while the window has attention	no
+apps/desktop/src/main/attention.test.ts	says one change by the room’s name, after the window, not before	yes
+apps/desktop/src/main/attention.test.ts	gathers a burst into ONE toast: three teammates finishing together are one thing to read	yes
+apps/desktop/src/main/attention.test.ts	keeps a long burst readable: the newest lines and a count of the rest	yes
+apps/desktop/src/main/attention.test.ts	MEASURED: three teammates unattended for ten minutes are a readable set of toasts, not a storm	yes
+apps/desktop/src/main/attention.test.ts	says nothing while the window has attention -- the room screen already does	yes
+apps/desktop/src/main/attention.test.ts	keeps rooms apart	yes
+apps/desktop/src/main/attention.test.ts	a question card is said as the teammate asking, with the question and that the run waits	yes
+apps/desktop/src/main/attention.test.ts	a limit is said with the runtime and its own words, or a plain line when it had none	yes
+apps/desktop/src/main/attention.test.ts	both are shown at once when the window is elsewhere, and not at all when it has attention	no
+apps/desktop/src/main/attention.test.ts	gathers finishes that land together into one toast, and a click opens the newest	yes
+apps/desktop/src/main/attention.test.ts	one finish is said as itself	yes
+apps/desktop/src/main/attention.test.ts	says nothing while the person is looking at the window	no
+apps/desktop/src/main/attention.test.ts	believes only a bounded title and body from the renderer	no
 apps/desktop/src/main/block-placement.test.ts	finds the briefings, so a pass means something	yes
 apps/desktop/src/main/block-placement.test.ts	never says a block must be the last thing in the reply	yes
 apps/desktop/src/main/block-placement.test.ts	says instead that several blocks may follow one another	yes
