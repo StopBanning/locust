@@ -864,6 +864,10 @@ apps/desktop/src/main/a-slow-antigravity-holds-nothing-up.test.ts	treats a model
 apps/desktop/src/main/a-slow-antigravity-holds-nothing-up.test.ts	runs one check at a time: a second ask while one is going is given that one, and starts no second `agy`	no
 apps/desktop/src/main/a-slow-antigravity-holds-nothing-up.test.ts	has a pending answer that is installed and not answered, and claims nothing about signing in	no
 apps/desktop/src/main/a-slow-antigravity-holds-nothing-up.test.ts	is not kept as the list: asked again, because it was built without Antigravity	no
+apps/desktop/src/main/a-start-asks-only-its-runtime.test.ts	asks nothing while the last answer is fresh	yes
+apps/desktop/src/main/a-start-asks-only-its-runtime.test.ts	asks the starting runtime ALONE once the answer is stale	yes
+apps/desktop/src/main/a-start-asks-only-its-runtime.test.ts	still sweeps for a runtime that was not ready, and for Antigravity	yes
+apps/desktop/src/main/a-start-asks-only-its-runtime.test.ts	falls back to the full sweep when asking alone fails	yes
 apps/desktop/src/main/a-streamed-batch-is-written-before-it-is-shown.test.ts	starts a new text deadline after an approval flush waited on an in-flight write	no
 apps/desktop/src/main/a-streamed-batch-is-written-before-it-is-shown.test.ts	measures frame to fifty millisecond windows on the same paced answer and keeps its first-fragment deadline	no
 apps/desktop/src/main/a-streamed-batch-is-written-before-it-is-shown.test.ts	reads the entire batch from disk at send time and recovers it after a crash before send	no
