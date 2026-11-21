@@ -2396,6 +2396,10 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
     if let Some(switch) = &switched {
         job.prompt = switch.prompt.clone();
     }
+    // M16 (attachments-for-run.ts): the files the message attached, placed where this run reads them when it runs
+    // anywhere but the project folder. Only what is sent changes; the record keeps the project's paths.
+    let project_folder = repository_root.clone().or_else(|| origin.slot.as_ref().and_then(|s| s.cwd.as_ref()).and_then(|_| origin.folder.clone().or_else(|| folder_for(&job.teammate, &electron).ok())));
+    let sent_words = crate::attachments_for_run::attachments_for_run(&job.prompt, project_folder.as_deref().unwrap_or(&folder), &folder);
     // The references this turn may read without its mode changing (referenceAccess), named in its prompt and handed
     // to the agents that take a folder.
     let folder_text = folder.to_string_lossy().into_owned();
@@ -2477,8 +2481,8 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
         // Apple's on-device model gets a brief of its own, short and without the tag rules (runtime::apple::brief); a
         // cold follow-up is still told what was said.
         let words = match &cold {
-            Some((earlier, edited)) => crate::carry_on::compose_cold_follow_up(earlier, &job.prompt, *edited),
-            None => job.prompt.clone(),
+            Some((earlier, edited)) => crate::carry_on::compose_cold_follow_up(earlier, &sent_words, *edited),
+            None => sent_words.clone(),
         };
         let own = origin.slot.as_ref().and_then(|s| s.instructions.clone()).or_else(|| {
             crate::people::team(&store).ok().and_then(|file| {
@@ -2497,8 +2501,8 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
             .map(str::trim)
             .filter(|s| !s.is_empty())
         {
-            Some(inst) => format!("{inst}\n\n{}", job.prompt),
-            None => job.prompt.clone(),
+            Some(inst) => format!("{inst}\n\n{sent_words}"),
+            None => sent_words.clone(),
         };
         if !refs.is_empty() {
             out = format!("{out}\n\n{refs}");
@@ -2514,8 +2518,8 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
             .unwrap_or_default();
         // A cold start is told what was said before (an edit: before the point it went back to).
         let words = match &cold {
-            Some((earlier, edited)) => crate::carry_on::compose_cold_follow_up(earlier, &job.prompt, *edited),
-            None => job.prompt.clone(),
+            Some((earlier, edited)) => crate::carry_on::compose_cold_follow_up(earlier, &sent_words, *edited),
+            None => sent_words.clone(),
         };
         // A conversation's group briefs every turn after the folder's own and before the teammate's.
         let group_brief = crate::groups::group_brief_for_tip(&store, previous.as_deref());

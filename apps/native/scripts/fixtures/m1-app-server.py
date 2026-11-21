@@ -26,7 +26,7 @@ sealed_mode = scenario in ('sealed', 'sealed-asking')
 no_model = scenario == 'no-model'
 if approving or scenario == 'resume-undone' or rewinding or sealed_mode or no_model or scenario == 'auto':
     base = 'success'
-SANDBOX = 'workspace-write' if (approving or scenario in ('cards-edit-check', 'cards-review-notes')) else 'read-only'
+SANDBOX = 'workspace-write' if (approving or scenario in ('cards-edit-check', 'cards-review-notes', 'cards-attached')) else 'read-only'
 # `auto`: Auto mode, once the workspace allows it, runs on the widest sandbox.
 if scenario == 'auto':
     SANDBOX = 'danger-full-access'
@@ -182,6 +182,11 @@ for line in sys.stdin:
                 else:
                     time.sleep(0.35)
                 reply = 'Thinking...\n<locust-ask>\nWhich?\n- A :: one\n- B :: two\n</locust-ask>'
+            elif scenario == 'cards-attached':
+                # attachments-for-run.ts: what this run was sent, kept where it runs, so the test can read both.
+                with open('sent.txt', 'w') as f:
+                    f.write(words)
+                reply = 'Read them.'
             elif scenario == 'cards-edit-check':
                 if is_resumed_turn:
                     assert 'fix 1 of 2' in words, words

@@ -1282,6 +1282,12 @@ apps/desktop/src/main/attach-outside.test.ts	refuses a name that would land on t
 apps/desktop/src/main/attach-outside.test.ts	refuses an alternate data stream	no
 apps/desktop/src/main/attach-outside.test.ts	still takes every ordinary name, including awkward ones	no
 apps/desktop/src/main/attach-outside.test.ts	a traversal INSIDE the source path is harmless, because only the name is used	no
+apps/desktop/src/main/attachments-for-run.test.ts	changes nothing for a run in the project folder	yes
+apps/desktop/src/main/attachments-for-run.test.ts	copies a pasted file into a worktree at the same path	yes
+apps/desktop/src/main/attachments-for-run.test.ts	leaves a project file the worktree has alone: its own branch’s copy	yes
+apps/desktop/src/main/attachments-for-run.test.ts	copies a project file a folder of its own lacks, and names the copy	yes
+apps/desktop/src/main/attachments-for-run.test.ts	never reads outside the project for a path that climbs out of it	yes
+apps/desktop/src/main/attachments-for-run.test.ts	leaves a message without attachments exactly as typed	yes
 apps/desktop/src/main/block-placement.test.ts	finds the briefings, so a pass means something	yes
 apps/desktop/src/main/block-placement.test.ts	never says a block must be the last thing in the reply	yes
 apps/desktop/src/main/block-placement.test.ts	says instead that several blocks may follow one another	yes

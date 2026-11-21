@@ -1705,6 +1705,51 @@ fn a_teammate_on_its_own_branch_works_in_its_copy_and_each_turn_is_committed_the
 }
 
 #[test]
+fn a_teammate_on_its_own_branch_is_sent_the_files_attached_where_it_runs() {
+    // attachments-for-run.ts (M16): the message names its files relative to the project folder; a run in the
+    // teammate's own copy is given them there, and only what is sent changes, never the recorded prompt.
+    let t = Temp::new();
+    let store = t.store();
+    let work = t.0.join("work");
+    let git = |args: &[&str]| {
+        let out = Command::new("git").args(args).current_dir(&work).output().unwrap();
+        assert!(out.status.success(), "git {args:?}: {}", String::from_utf8_lossy(&out.stderr));
+    };
+    git(&["init", "-q", "-b", "main"]);
+    git(&["config", "user.email", "person@locust.test"]); // made-up person; public-guard: allow
+    git(&["config", "user.name", "The person"]);
+    fs::write(work.join("README.md"), "the project\n").unwrap();
+    git(&["add", "."]);
+    git(&["commit", "-q", "-m", "first"]);
+    // Not committed, so the teammate's copy does not have them.
+    fs::write(work.join("NOTES.md"), "notes").unwrap();
+    fs::create_dir_all(work.join(".locust/attachments")).unwrap();
+    fs::write(work.join(".locust/attachments/shot.png"), "PNG").unwrap();
+    store
+        .save_json("teammates.json", &json!({"schemaVersion": 1, "teammates": [{"teammateId": "tm_codec", "name": "Codec", "worktree": true}], "missionOwners": {}, "settings": {}}))
+        .unwrap();
+    let _hook = hooks::install(store.clone(), fake("cards-attached"));
+    let mate = Teammate { runs_in: "accept-edits".into(), ..codex(&t) };
+    let typed = crate::attachments::with_attachments("Read these.", &["NOTES.md".into(), ".locust/attachments/shot.png".into()]);
+    let started = send(Send { teammate: mate, conversation: None, prompt: typed.clone(), model: None, effort: None }).unwrap();
+    let path = path_of(&t, &started.conversation_id);
+    let tree = work.join(".locust/worktrees/tm_codec");
+    let deadline = Instant::now() + Duration::from_secs(20);
+    while !kinds(&path).iter().any(|k| k == "run.completed") {
+        assert!(Instant::now() < deadline, "the turn did not end: {:?}", kinds(&path));
+        std::thread::sleep(Duration::from_millis(25));
+    }
+    let sent = fs::read_to_string(tree.join("sent.txt")).unwrap();
+    assert!(
+        sent.contains(&crate::attachments::with_attachments("Read these.", &[".locust/attachments/NOTES.md".into(), ".locust/attachments/shot.png".into()])),
+        "{sent}"
+    );
+    assert_eq!(fs::read_to_string(tree.join(".locust/attachments/NOTES.md")).unwrap(), "notes");
+    assert_eq!(fs::read_to_string(tree.join(".locust/attachments/shot.png")).unwrap(), "PNG");
+    assert_eq!(records(&path).iter().find_map(|r| r["metadata"]["prompt"].as_str().map(str::to_owned)).as_deref(), Some(typed.as_str()), "the record keeps the project's paths");
+}
+
+#[test]
 fn a_teammate_on_its_own_branch_in_a_folder_that_is_no_repository_is_refused_saying_why() {
     // Electron's worktreeRefused: never run in the person's checkout instead.
     let t = Temp::new();
