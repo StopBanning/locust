@@ -156,6 +156,8 @@ fn hands_over_a_late_answer_once_when_it_lands() {
     let real = record("opencode", Probe::Ready);
     opencode.release(Some(real.clone()));
     assert_eq!(settled.left.get("opencode").unwrap().wait(), Some(real.clone()));
+    // Waited for, not slept on: the hand-over runs on its own thread, and 20 ms lost the race under a full gate (20 Nov).
+    crate::load_waits::wait_for("the late answer to be handed over", || !heard.lock().unwrap().is_empty());
     std::thread::sleep(Duration::from_millis(20));
     let logged = heard.lock().unwrap();
     assert_eq!(logged.len(), 1);

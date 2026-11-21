@@ -2308,14 +2308,32 @@ fn relay_prose_return_posts_unanswered_prose_back_to_asker() {
         // Read under each lock into a value first: a panic while a lock guard is alive poisons it for the engine.
         let active = crate::invariants::lock(&ACTIVE_TEAMMATES).clone();
         let notices = crate::invariants::lock(&RELAY_NOTICES).clone();
+        // Where it stopped: what the tip's record holds, and what Codec still has waiting.
+        let tip_records: Vec<String> = real_tip(&first.conversation_id)
+            .ok()
+            .and_then(|tip| store.write_path(&tip).ok())
+            .and_then(|path| fs::read_to_string(path).ok())
+            .map(|text| {
+                text.lines()
+                    .filter_map(|l| serde_json::from_str::<Value>(l).ok())
+                    .map(|r| format!("{}:{}", r["recordType"].as_str().unwrap_or("?"), r["event"]["type"].as_str().unwrap_or("")))
+                    .collect()
+            })
+            .unwrap_or_default();
+        let room = crate::workroom::Workroom::for_store(&store);
+        let codec_unread = room.unread("tm_codec", 5, &[]).map(|u| u.messages.len());
+        let deliveries = room.read().deliveries.len();
         panic!(
-            "prose return stuck: owns={} active={:?} hub={:?} tip={:?} notices={:?} prompts={:?}",
+            "prose return stuck: owns={} active={:?} hub={:?} tip={:?} tip_records={:?} codec_unread={:?} deliveries={} notices={:?} prompt_count={:?}",
             owns(&first.conversation_id),
             active,
             crate::people::hub_of(&store, "tm_pip"),
             real_tip(&first.conversation_id),
+            tip_records,
+            codec_unread,
+            deliveries,
             notices,
-            fs::read_to_string(t.0.join("relay-prompts.jsonl")),
+            fs::read_to_string(t.0.join("relay-prompts.jsonl")).map(|p| p.lines().count()),
         );
     }
 

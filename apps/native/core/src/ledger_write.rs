@@ -502,6 +502,8 @@ impl LedgerWriter {
         }
         event["type"] = json!(kind);
         event["payload"] = payload;
+        // Kept shortened rather than a record too large to write (mission-store fitEventToLedger).
+        let event = crate::ledger_fit::fit_event(event);
         self.line(json!({"schemaVersion":27,"recordType":"mission.event","ledgerSequence":ledger,"occurredAt":at,"event":event}))?;
         self.sequence = seq;
         self.ledger_seq = ledger + 1;

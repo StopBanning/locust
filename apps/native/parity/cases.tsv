@@ -1083,6 +1083,8 @@ apps/desktop/src/main/an-app-picks-a-model-for-one-turn.test.ts	is refused by a 
 apps/desktop/src/main/an-app-picks-a-model-for-one-turn.test.ts	steps a turn down to Ask when the app asks for read only, and never up	yes
 apps/desktop/src/main/an-app-picks-a-model-for-one-turn.test.ts	says which folder its turns work in, by name only	yes
 apps/desktop/src/main/an-app-picks-a-model-for-one-turn.test.ts	takes the same choice when a conversation goes on	yes
+apps/desktop/src/main/an-app-reads-a-long-answer-whole.test.ts	gets a 60,000 character report back whole, every section in order	yes
+apps/desktop/src/main/an-app-reads-a-long-answer-whole.test.ts	still keeps both ends of an answer past the limit, and says where it was shortened	yes
 apps/desktop/src/main/an-app-server-that-cannot-start-says-so.test.ts	reports the failure as its exit, and throws nothing	yes
 apps/desktop/src/main/an-app-stops-a-turn-it-started.test.ts	stops the running turn by its own run id, and says what is kept	yes
 apps/desktop/src/main/an-app-stops-a-turn-it-started.test.ts	never stops a turn the person started, even in a conversation the app began	yes
@@ -5640,6 +5642,10 @@ packages/mission-store/test/a-check-result-is-kept-with-its-turn.test.ts	bounds 
 packages/mission-store/test/a-helpers-calls-are-kept-as-its-own.test.ts	reads a ledger written before the bump whole, with no child rows and no error	yes
 packages/mission-store/test/a-helpers-calls-are-kept-as-its-own.test.ts	writes a helper's calls at v22 and reads them back under the helper's row	no
 packages/mission-store/test/a-helpers-calls-are-kept-as-its-own.test.ts	refuses a parent that names nothing, so a reader never has to guess at one	no
+packages/mission-store/test/a-long-field-is-kept-shortened.test.ts	is kept shortened in every event type, and read back	yes
+packages/mission-store/test/a-long-field-is-kept-shortened.test.ts	keeps a long answer whole up to its own limit, and shortens one past it (0.869)	yes
+packages/mission-store/test/a-long-field-is-kept-shortened.test.ts	is refused as before when it is not long but wrong	no
+packages/mission-store/test/a-long-field-is-kept-shortened.test.ts	costs nothing when it already fits	yes
 packages/mission-store/test/checkpoint.test.ts	reports a settled mission as safe to resume elsewhere	yes
 packages/mission-store/test/checkpoint.test.ts	refuses to call a mission safe while an action never reported an outcome	yes
 packages/mission-store/test/checkpoint.test.ts	is durable: a checkpoint survives a fresh reader and keeps its epoch order	yes

@@ -121,6 +121,7 @@ pub mod invariants;
 pub mod keep_awake;
 pub mod kilo_models;
 pub mod ledger;
+pub mod ledger_fit;
 pub mod ledger_write;
 pub mod limits;
 pub mod login_item;
