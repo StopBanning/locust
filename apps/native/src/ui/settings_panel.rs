@@ -326,6 +326,13 @@ fn toggle_own_mode(s: &mut State) {
     }
 }
 
+fn toggle_editor_answers(s: &mut State) {
+    let on = s.settings_panel.door.as_ref().is_some_and(|d| d.settings.editor_answers);
+    if let Some(state) = crate::door_now(locust_core::engine_api::DoorChange::EditorAnswers(!on)) {
+        s.settings_panel.door = Some(state);
+    }
+}
+
 fn toggle_conversations(s: &mut State) {
     let on = s.settings_panel.door.as_ref().is_some_and(|d| d.settings.conversations);
     if let Some(state) = crate::door_now(locust_core::engine_api::DoorChange::Conversations(!on)) {
@@ -432,15 +439,39 @@ fn door_section(s: &State, p: &Palette) -> El {
             .child(setting_line(
                 &l,
                 "Use each teammate's own mode",
-                if set.own_mode {
-                    "On. A turn another app starts runs in the mode the teammate is set to here, or the mode and folder the app asks for, so it can edit files. A folder must be one Locust knows or a worktree of one. Approval cards appear in this window and only you can answer them. Auto runs only if Auto is on in Settings."
+                &if set.own_mode {
+                    format!(
+                        "On. A turn another app starts runs in the mode the teammate is set to here, or the mode and folder the app asks for, so it can edit files. A folder must be one Locust knows or a worktree of one. {} Auto runs only if Auto is on in Settings.",
+                        if set.editor_answers {
+                            "Approval cards appear in this window, and an editor can answer the ones for turns it started."
+                        } else {
+                            "Approval cards appear in this window and only you can answer them."
+                        }
+                    )
                 } else {
-                    "Off. Every turn another app starts is Ask mode (read only), whatever mode the teammate is set to."
+                    "Off. Every turn another app starts is Ask mode (read only), whatever mode the teammate is set to.".to_owned()
                 },
                 set.own_mode,
                 true,
                 toggle_own_mode,
-            ))
+            ));
+        // EDITORS ANSWER ONLY WHEN YOU SAY SO (0.790): shown once an editor has connected, so nobody who has never
+        // used one reads about it.
+        if set.editor_seen || set.editor_answers {
+            section = section.child(setting_line(
+                &l,
+                "Let editors answer cards for their own turns",
+                if set.editor_answers {
+                    "On. An editor that starts a turn can approve or deny that turn’s cards there. Questions are still answered here, and no app can answer a card for a turn it did not start."
+                } else {
+                    "Off. Cards for a turn an editor starts wait in this window, and only you answer them."
+                },
+                set.editor_answers,
+                true,
+                toggle_editor_answers,
+            ));
+        }
+        section = section
             .child(setting_line(
                 &l,
                 "Let apps see your conversations",
@@ -1618,7 +1649,7 @@ pub(super) fn door_scene(s: &mut State) {
         "/Users/locust/Library/Application Support/@teammate/desktop-native/locust-mcp-connection.json",
     );
     s.settings_panel.door = Some(locust_core::door::State {
-        settings: locust_core::door::Settings { enabled: true, own_mode: true, conversations: false },
+        settings: locust_core::door::Settings { enabled: true, own_mode: true, conversations: false, ..Default::default() },
         claude_command: Some(claude),
         codex_config: Some(codex),
         openclaw_command: Some(openclaw),

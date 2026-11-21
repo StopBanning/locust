@@ -3284,7 +3284,7 @@ fn the_claude_app_is_added_in_one_press_and_removed_again() {
         Connector { file: Some(file.clone()), entry: entry.clone(), marks_file: scratch.join("claude-app.json"), started_at: Box::new(|| None), relaunch: None, now: Box::new(|| 1_000) },
         Arc::new(move || {
             on.store(true, Ordering::SeqCst);
-            Some(locust_core::door::State { settings: locust_core::door::Settings { enabled: true, own_mode: false, conversations: false }, ..Default::default() })
+            Some(locust_core::door::State { settings: locust_core::door::Settings { enabled: true, own_mode: false, conversations: false, ..Default::default() }, ..Default::default() })
         }),
     );
     let (_dirs, _store, mut rt) = window();

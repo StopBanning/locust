@@ -106,6 +106,25 @@ apps/desktop/src/main/a-claude-teammate-gets-its-skills.test.ts	only folders hol
 apps/desktop/src/main/a-claude-teammate-gets-its-skills.test.ts	a link inside a skill is not copied, so removing the copy cannot reach past it	yes
 apps/desktop/src/main/a-claude-teammate-gets-its-skills.test.ts	a folder with no skills hands over nothing and leaves nothing behind	yes
 apps/desktop/src/main/a-claude-teammate-gets-its-skills.test.ts	a skill folder past the size bound is left out	yes
+apps/desktop/src/main/a-cli-session-controls-only-its-own-turn.test.ts	opens without starting a turn and ignores client route or mode overrides	yes
+apps/desktop/src/main/a-cli-session-controls-only-its-own-turn.test.ts	claims before asynchronous lookup and does not replay a duplicate request	yes
+apps/desktop/src/main/a-cli-session-controls-only-its-own-turn.test.ts	rejects a wrong capability for reading, cancellation and decisions	yes
+apps/desktop/src/main/a-cli-session-controls-only-its-own-turn.test.ts	leaves every card in Locust until the person lets editors answer	yes
+apps/desktop/src/main/a-cli-session-controls-only-its-own-turn.test.ts	answers only its own current action, never another run or a question	yes
+apps/desktop/src/main/a-cli-session-controls-only-its-own-turn.test.ts	cancels a late start using its returned run id, not a client-supplied one	yes
+apps/desktop/src/main/a-cli-session-controls-only-its-own-turn.test.ts	does not start when a cancellation arrives before its prompt request	yes
+apps/desktop/src/main/a-cli-session-controls-only-its-own-turn.test.ts	does not replay an older request id after another turn completed	yes
+apps/desktop/src/main/a-cli-session-controls-only-its-own-turn.test.ts	fails a hung startup and cancels its late result without replaying it	yes
+apps/desktop/src/main/a-cli-session-controls-only-its-own-turn.test.ts	does not start after close while the roster lookup is pending	yes
+apps/desktop/src/main/a-cli-session-controls-only-its-own-turn.test.ts	stops abandoned work when its client lease expires	yes
+apps/desktop/src/main/a-cli-session-controls-only-its-own-turn.test.ts	continues only its own previous mission after completion	yes
+apps/desktop/src/main/a-cli-session-controls-only-its-own-turn.test.ts	holds the next turn until a cancelled runtime actually reports its end	yes
+apps/desktop/src/main/a-cli-session-controls-only-its-own-turn.test.ts	streams only message text and frees acknowledged output	yes
+apps/desktop/src/main/a-cli-session-controls-only-its-own-turn.test.ts	reports a startup refusal and permits a later explicit attempt	yes
+apps/desktop/src/main/a-cli-session-controls-only-its-own-turn.test.ts	does not silently use another folder or an ambiguous teammate	yes
+apps/desktop/src/main/a-cli-session-controls-only-its-own-turn.test.ts	rechecks the chosen folder before starting a later prompt	yes
+apps/desktop/src/main/a-cli-session-controls-only-its-own-turn.test.ts	stops rather than silently dropping a slow editor’s output	yes
+apps/desktop/src/main/a-cli-session-controls-only-its-own-turn.test.ts	cancels only owned work on app shutdown, including a late start	yes
 apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	names the guard on Windows the way Codex runs a hook there: in PowerShell, on Locust’s own binary run as node	no
 apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	names it elsewhere exactly as Claude Code’s is named	no
 apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	is written only when LOCUST_GUARD_LOG names a file, one per question, with what was decided	no

@@ -3079,6 +3079,7 @@ pub(crate) fn door_now(change: locust_core::engine_api::DoorChange) -> Option<lo
         DoorChange::Enabled(on) => door.set_enabled(on),
         DoorChange::OwnMode(on) => door.set_own_mode(on),
         DoorChange::Conversations(on) => door.set_conversations(on),
+        DoorChange::EditorAnswers(on) => door.set_editor_answers(on),
     })
 }
 

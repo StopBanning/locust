@@ -28,7 +28,7 @@ fn drawn(door_state: door::State) -> (String, Vec<(String, bool)>) {
 }
 fn enabled_door() -> door::State {
     door::State {
-        settings: door::Settings { enabled: true, own_mode: false, conversations: false },
+        settings: door::Settings { enabled: true, own_mode: false, conversations: false, ..Default::default() },
         claude_command: Some("claude mcp add example".into()),
         codex_config: Some("[mcp_servers.locust]\ncommand = \"example\"".into()),
         openclaw_command: Some("openclaw mcp add locust --command example".into()),
