@@ -125,6 +125,12 @@ apps/desktop/src/main/a-cli-session-controls-only-its-own-turn.test.ts	does not 
 apps/desktop/src/main/a-cli-session-controls-only-its-own-turn.test.ts	rechecks the chosen folder before starting a later prompt	yes
 apps/desktop/src/main/a-cli-session-controls-only-its-own-turn.test.ts	stops rather than silently dropping a slow editor’s output	yes
 apps/desktop/src/main/a-cli-session-controls-only-its-own-turn.test.ts	cancels only owned work on app shutdown, including a late start	yes
+apps/desktop/src/main/a-cloud-send-is-confirmed-by-json.test.ts	A cloud send requests JSON and accepts the final success on %s.	yes
+apps/desktop/src/main/a-cloud-send-is-confirmed-by-json.test.ts	A success receipt is trusted whatever form its session id takes, so a sent message is never offered again.	yes
+apps/desktop/src/main/a-cloud-send-is-confirmed-by-json.test.ts	A failed JSON send displays %s verbatim.	yes
+apps/desktop/src/main/a-cloud-send-is-confirmed-by-json.test.ts	A cloud send uses the last JSON answer and never accepts terminal success words.	yes
+apps/desktop/src/main/a-cloud-send-is-confirmed-by-json.test.ts	A send nobody confirmed is said to be unconfirmed, never "not sent", so it is not sent twice (0.568).	yes
+apps/desktop/src/main/a-cloud-send-is-confirmed-by-json.test.ts	A configuration failure keeps the Error fallback and stderr cannot forge success.	yes
 apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	names the guard on Windows the way Codex runs a hook there: in PowerShell, on Locust’s own binary run as node	yes
 apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	names it elsewhere exactly as Claude Code’s is named	yes
 apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	is written only when LOCUST_GUARD_LOG names a file, one per question, with what was decided	yes

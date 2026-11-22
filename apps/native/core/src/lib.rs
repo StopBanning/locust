@@ -37,6 +37,7 @@ mod chat_link_tests;
 #[cfg(test)]
 mod stores_fail_closed_tests;
 pub mod claude_app;
+pub mod claude_cloud;
 pub mod cloud_tasks;
 pub mod cloud_task_service;
 pub mod locust_link;
