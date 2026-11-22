@@ -828,6 +828,30 @@ impl Locust for Engine {
     fn routine_last_step(&self, routine_id: &str) -> Option<String> {
         crate::door_routines::last_step(routine_id)
     }
+
+    fn usage(&self) -> Result<(std::collections::HashMap<String, String>, std::collections::HashMap<String, String>), String> {
+        Ok((
+            crate::usage_ledger::usage_windows(&self.store),
+            crate::limits::limited_runtimes(&self.store),
+        ))
+    }
+
+    fn save_model(&self, teammate_id: &str, route: &Value) -> Result<(), String> {
+        let text = |key: &str| route.get(key).and_then(Value::as_str);
+        let policy = crate::org_policy::current();
+        if let Some(why) = crate::org_policy::turn_refusal(
+            Some(&policy),
+            text("runtime").unwrap_or(""),
+            text("model"),
+            text("mode").unwrap_or(""),
+            false,
+            text("account").is_some(),
+        ) {
+            return Err(why);
+        }
+        crate::people::remember_route(&self.store, teammate_id, route)
+            .map_err(|_| "Locust could not save that model for the teammate.".to_owned())
+    }
 }
 
 // ---- the editors' sessions over the live engine ---------------------------------------------------------------------
@@ -1005,6 +1029,8 @@ pub fn tool_list() -> Value {
         ("stop_turn", "Stop a turn started from here that is still working, by its conversation id. What it already changed stays, and the person can undo it in Locust. Never stops a turn the person started, unless they let apps see their conversations.", schema(json!({"conversation_id": string}), &["conversation_id"]), false),
         ("list_conversations", "List the recent conversations in the folder Locust has open, the person's own too, newest first: id, teammate, title, who started it, AI agent, model, and state, including a turn stopped because its plan ran out or because Locust closed while it worked, which carry_on can pick up. Only while the person has turned on \"Let apps see your conversations\" in Locust. Read only.", schema(json!({}), &[]), true),
         ("carry_on", "Carry a conversation whose turn stopped because its plan ran out, or its provider failed first, on to another AI agent and model from list_models, as that turn's card in Locust does: the new turn is told what was already done. A turn Locust closed under while it worked is carried on too, on its own agent or another. A finished turn moves to another agent with a message for its next turn; a message also follows the carry-on words of a stopped turn. It runs in the stopped turn's own mode, and only an Ask turn unless the person has turned on \"Use each teammate's own mode\" in Locust.", schema(json!({"conversation_id": string, "runtime": string, "model": string, "message": message}), &["conversation_id", "runtime"]), false),
+        ("read_usage", "What Locust last read of each AI agent's usage: how much of each window is used and when it resets, from that agent's newest run here and dated by it, and which agents are at their limit now. Read only.", schema(json!({}), &[]), true),
+        ("set_teammate_model", "Set the model, and optionally the effort, a teammate runs on from now on, from list_models: its agent, account and mode stay. Only while the person has turned on both \"Let apps see your conversations\" and \"Use each teammate's own mode\" in Locust.", schema(json!({"teammate": string, "model": string, "effort": effort}), &["teammate", "model"]), false),
         ("list_models", "List the models a teammate's AI agent offers in this Locust, with the efforts each takes, and the model and effort it runs on now. With no teammate, every AI agent this Locust can run and its models, for carry_on. Read only.", schema(json!({"teammate": string}), &[]), true),
         ("list_background_runs", "List Claude turns running in the background. Read only; never starts or stops them.", schema(json!({}), &[]), true),
         ("list_routines", "List Locust routines (saved multi-step workflows). Read only.", schema(json!({}), &[]), true),

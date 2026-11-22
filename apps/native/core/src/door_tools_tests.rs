@@ -733,3 +733,7 @@ mod an_app_reads_both_parts_tests;
 #[cfg(test)]
 #[path = "an_app_picks_up_cut_off_door_tests.rs"]
 mod an_app_picks_up_cut_off_door_tests;
+
+#[cfg(test)]
+#[path = "an_app_reads_usage_and_sets_model_tests.rs"]
+mod an_app_reads_usage_and_sets_model_tests;

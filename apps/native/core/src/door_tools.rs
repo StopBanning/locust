@@ -245,6 +245,14 @@ pub trait Locust: Send + Sync {
     fn pause(&self, ms: u64) {
         std::thread::sleep(Duration::from_millis(ms));
     }
+    /// What Locust last read of each agent's usage: window readings and agents at their limit (0.882).
+    fn usage(&self) -> Result<(std::collections::HashMap<String, String>, std::collections::HashMap<String, String>), String> {
+        Ok((std::collections::HashMap::new(), std::collections::HashMap::new()))
+    }
+    /// Save a teammate's route through the host's own policy check and route store (0.882).
+    fn save_model(&self, _teammate_id: &str, _route: &Value) -> Result<(), String> {
+        Err("This Locust does not change teammate models from other apps.".into())
+    }
 }
 
 /// `text(value, max)`: a short string with something in it and no NUL.
@@ -392,14 +400,44 @@ impl<L: Locust> Tools<L> {
         Self { locust, starting: Mutex::new(HashSet::new()), routines_started: Mutex::new(HashSet::new()) }
     }
 
+    /// A short conversation id (0.882): the first eight or more characters of an id list_conversations gave, with or
+    /// without "mission_", matching exactly one conversation.
+    fn whole_id(&self, id: &str) -> String {
+        let bare = id.strip_prefix("mission_").unwrap_or(id);
+        let ok = (8..=35).contains(&bare.len())
+            && bare.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b) || b == b'-');
+        if !ok {
+            return id.to_owned();
+        }
+        let prefix = format!("mission_{bare}");
+        let matches: Vec<String> = self
+            .locust
+            .conversations()
+            .into_iter()
+            .map(|t| t.mission_id)
+            .filter(|m| m.starts_with(&prefix))
+            .collect();
+        if matches.len() == 1 { matches.into_iter().next().unwrap() } else { id.to_owned() }
+    }
+
     /// A conversation this app may read: one an app started, or any while the person lets apps see theirs. Then its
-    /// newest turn.
-    fn lookup(&self, id: &str) -> Option<Turn> {
-        let root = self.locust.read(id)?;
+    /// newest turn. Accepts a short id (eight or more characters, with or without `mission_`) matching one conversation.
+    fn lookup(&self, asked: &str) -> Option<Turn> {
+        let (id, root) = match self.locust.read(asked) {
+            Some(t) => (asked.to_owned(), t),
+            None => {
+                let expanded = self.whole_id(asked);
+                if expanded == asked {
+                    return None;
+                }
+                let t = self.locust.read(&expanded)?;
+                (expanded, t)
+            }
+        };
         if !root.from_app() && !self.locust.see_all() {
             return None;
         }
-        let newest = self.locust.newest(id).unwrap_or_else(|| id.to_owned());
+        let newest = self.locust.newest(&id).unwrap_or_else(|| id.clone());
         if newest == root.mission_id { Some(root) } else { self.locust.read(&newest) }
     }
 
@@ -757,6 +795,11 @@ impl<L: Locust> Tools<L> {
                 }
             }
             "carry_on" => self.carry_on(args),
+            "read_usage" => match self.locust.usage() {
+                Ok((windows, at_limit)) => ToolResult::ok(json!({"usage": windows, "at_limit": at_limit}).to_string()),
+                Err(_) => ToolResult::refused("Locust could not read its usage records just now. Try again shortly."),
+            },
+            "set_teammate_model" => self.set_teammate_model(args),
             "list_routines" => self.list_routines(),
             "run_routine" => self.run_routine(args),
             "routine_status" => self.routine_status(args),
@@ -1018,6 +1061,84 @@ impl<L: Locust> Tools<L> {
             "Its changes are waiting in Locust under Routines for the person to Keep or Discard; nothing has reached the folder yet.\n\n{}",
             answer.text
         ))
+    }
+
+    fn set_teammate_model(&self, args: &Value) -> ToolResult {
+        if !self.locust.see_all() || !self.locust.own_mode() {
+            return ToolResult::refused(
+                "Off: an app sets a teammate's model only while the person has turned on both \"Let apps see your conversations\" and \"Use each teammate's own mode\" in Locust's Settings. Nothing was changed.",
+            );
+        }
+        let (Some(who), Some(asked_model)) = (text_arg(&args["teammate"], 200), text_arg(&args["model"], 200)) else {
+            return ToolResult::refused(
+                "Give a teammate by name or id and a model from list_models, and optionally an effort. Nothing was changed.",
+            );
+        };
+        let asked_effort = if args["effort"].is_null() {
+            None
+        } else {
+            let Some(e) = text_arg(&args["effort"], 40) else {
+                return ToolResult::refused(
+                    "Give a teammate by name or id and a model from list_models, and optionally an effort. Nothing was changed.",
+                );
+            };
+            Some(e.trim().to_lowercase())
+        };
+        let list = match self.locust.teammates() {
+            Ok(l) => l,
+            Err(why) => return ToolResult::refused(why),
+        };
+        let wanted = who.trim().to_lowercase();
+        let Some((teammate, saved_effort)) = list.into_iter().find(|(t, _)| t.id == who || t.name.to_lowercase() == wanted) else {
+            return ToolResult::refused("No teammate has that name or id. Nothing was changed.");
+        };
+        let Some(runtime) = teammate.runtime.clone() else {
+            return ToolResult::refused(format!(
+                "{} has no AI agent set up yet. Choose one in Locust first. Nothing was changed.",
+                teammate.name
+            ));
+        };
+        let offered = self.models_for(&runtime);
+        let asked = asked_model.trim().to_lowercase();
+        let Some(model) = offered.iter().find(|m| {
+            m["id"].as_str().is_some_and(|id| id.to_lowercase() == asked)
+                || m["displayName"].as_str().is_some_and(|n| n.to_lowercase() == asked)
+        }) else {
+            return ToolResult::refused(format!(
+                "That model is not one {runtime} offers in this Locust. Ask list_models for {}'s choices. Nothing was changed.",
+                teammate.name
+            ));
+        };
+        let levels = efforts(model);
+        let display = model["displayName"].as_str().unwrap_or_default();
+        if let Some(e) = &asked_effort
+            && !levels.contains(e)
+        {
+            return ToolResult::refused(if levels.is_empty() {
+                format!("{display} takes no effort level here: leave effort out. Nothing was changed.")
+            } else {
+                format!("{display} takes these efforts here: {}. Nothing was changed.", levels.join(", "))
+            });
+        }
+        // Its agent, account and mode stay; the saved effort stays when the new model takes it.
+        let kept = asked_effort.or_else(|| saved_effort.filter(|e| levels.contains(e)));
+        let model_id = model["id"].as_str().unwrap_or_default().to_owned();
+        let mode = if teammate.runs_in.is_empty() { "ask".to_owned() } else { teammate.runs_in.clone() };
+        let mut route = json!({"runtime": runtime, "model": model_id, "mode": mode});
+        if let Some(account) = &teammate.account {
+            route["account"] = json!(account);
+        }
+        if let Some(effort) = &kept {
+            route["effort"] = json!(effort);
+        }
+        if let Err(refused) = self.locust.save_model(&teammate.id, &route) {
+            return ToolResult::refused(format!("{refused} Nothing was changed."));
+        }
+        let mut out = json!({"teammate": teammate.name, "runtime": runtime, "model": model_id});
+        if let Some(effort) = kept {
+            out["effort"] = json!(effort);
+        }
+        ToolResult::ok(out.to_string())
     }
 
     fn carry_on(&self, args: &Value) -> ToolResult {
