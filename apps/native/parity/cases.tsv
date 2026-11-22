@@ -1574,6 +1574,11 @@ apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	a tu
 apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	lists the run’s folder in its own config’s skills, and nothing when there is none	no
 apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	allows the copied skill subtree through native rules without changing edit or shell denials	no
 apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	hands the folder to Codex on its app-server, OpenCode, Copilot and Antigravity, never on a cloud computer, and removes it after	no
+apps/desktop/src/main/codex-cloud-leaves-no-log.test.ts	a log the call made is gone afterwards, and the answer is unchanged	yes
+apps/desktop/src/main/codex-cloud-leaves-no-log.test.ts	the person's own error.log keeps its lines; only Codex's are taken off	yes
+apps/desktop/src/main/codex-cloud-leaves-no-log.test.ts	what does not read like Codex is never removed	yes
+apps/desktop/src/main/codex-cloud-leaves-no-log.test.ts	also when the call fails, and with two calls on one folder at once	yes
+apps/desktop/src/main/codex-cloud-leaves-no-log.test.ts	recognises Codex's lines and nothing else	yes
 apps/desktop/src/main/codex-mission.test.ts	says nothing when nothing was refused	no
 apps/desktop/src/main/codex-mission.test.ts	explains a refusal when one actually happens	no
 apps/desktop/src/main/codex-mission.test.ts	explains it once, however many reads are refused	no

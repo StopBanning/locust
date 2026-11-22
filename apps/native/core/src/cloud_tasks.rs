@@ -2,8 +2,11 @@
 //! `codex cloud` and `git` say about a folder, its environment, a started task,
 //! and a task's status.
 
-use std::path::Path;
-use std::sync::OnceLock;
+use std::collections::HashMap;
+use std::fs::{self, OpenOptions};
+use std::io::{Read, Seek, SeekFrom};
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, OnceLock};
 
 use regex::Regex;
 
@@ -303,6 +306,139 @@ pub fn refusal_for(problem: &CloudStartProblem) -> String {
     }
 }
 
+fn codex_log_line_re() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| {
+        Regex::new(r"^\[\d{4}-\d{2}-\d{2}T[\d:.]+(?:Z|[+-]\d{2}:\d{2})\] [a-z_]+: ")
+            .expect("codex log line regex")
+    })
+}
+
+/// More than this was added: not a few Codex lines, and left alone rather than read in part.
+const MOST_CHECKED_BYTES: u64 = 1024 * 1024;
+
+/// For a test: the log check, alone.
+pub fn reads_like_codex_log(text: &str) -> bool {
+    text.lines()
+        .filter(|line| !line.is_empty())
+        .all(|line| codex_log_line_re().is_match(line))
+}
+
+fn folder_lock(cwd: &Path) -> Arc<Mutex<()>> {
+    static LOCKS: OnceLock<Mutex<HashMap<PathBuf, Arc<Mutex<()>>>>> = OnceLock::new();
+    let map = LOCKS.get_or_init(|| Mutex::new(HashMap::new()));
+    let mut guard = map.lock().unwrap_or_else(|e| e.into_inner());
+    guard
+        .entry(cwd.to_path_buf())
+        .or_insert_with(|| Arc::new(Mutex::new(())))
+        .clone()
+}
+
+fn same_inode(a: &fs::Metadata, b: &fs::Metadata) -> bool {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        a.ino() == b.ino()
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = (a, b);
+        true
+    }
+}
+
+fn take_back_codex_lines(path: &Path, before: Option<u64>) {
+    let Ok(link) = fs::symlink_metadata(path) else {
+        return;
+    };
+    if !link.is_file() {
+        return;
+    }
+    let from = before.unwrap_or(0);
+    if link.len() <= from {
+        return;
+    }
+    let added = link.len() - from;
+    if added > MOST_CHECKED_BYTES {
+        return;
+    }
+    let Ok(mut file) = OpenOptions::new().read(true).write(true).open(path) else {
+        return;
+    };
+    let mut empty_now = false;
+    {
+        let Ok(opened) = file.metadata() else {
+            return;
+        };
+        if !same_inode(&opened, &link) || opened.len() != link.len() {
+            return;
+        }
+        if file.seek(SeekFrom::Start(from)).is_err() {
+            return;
+        }
+        let mut buf = vec![0u8; added as usize];
+        if file.read_exact(&mut buf).is_err() {
+            return;
+        }
+        let Ok(text) = std::str::from_utf8(&buf) else {
+            return;
+        };
+        let lines: Vec<&str> = text.lines().filter(|line| !line.is_empty()).collect();
+        if lines.is_empty() || !lines.iter().all(|line| codex_log_line_re().is_match(line)) {
+            return;
+        }
+        let Ok(after_read) = file.metadata() else {
+            return;
+        };
+        if after_read.len() != link.len() {
+            return;
+        }
+        if file.set_len(from).is_ok() {
+            empty_now = before.is_none();
+        }
+    }
+    drop(file);
+    if empty_now {
+        if let Ok(left) = fs::symlink_metadata(path)
+            && left.is_file()
+            && same_inode(&left, &link)
+            && left.len() == 0
+        {
+            let _ = fs::remove_file(path);
+        }
+    }
+}
+
+/// Runs `codex cloud` in `cwd` serialized per folder, removing any Codex debug lines
+/// added to `error.log` while never touching lines that do not read like Codex's.
+pub fn run_leaving_no_log<F>(args: &[&str], cwd: &Path, run: F) -> Result<Ran, String>
+where
+    F: FnOnce(&[&str], &Path) -> Result<Ran, String>,
+{
+    let lock = folder_lock(cwd);
+    let _guard = lock.lock().unwrap_or_else(|e| e.into_inner());
+    let path = cwd.join("error.log");
+    let before = fs::symlink_metadata(&path)
+        .ok()
+        .filter(|m| m.is_file())
+        .map(|m| m.len());
+    let result = run(args, cwd);
+    take_back_codex_lines(&path, before);
+    result
+}
+
+/// Wraps a `Runner` so every call leaves `error.log` in its `cwd` as it found it.
+pub fn leaving_no_log<'a, F>(run: F) -> impl Fn(&[&str], &Path) -> Result<Ran, String> + 'a
+where
+    F: Fn(&[&str], &Path) -> Result<Ran, String> + 'a,
+{
+    move |args: &[&str], cwd: &Path| run_leaving_no_log(args, cwd, |a, c| run(a, c))
+}
+
 #[cfg(test)]
 #[path = "cloud_tasks_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "cloud_tasks_log_tests.rs"]
+mod log_tests;
