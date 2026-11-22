@@ -70,6 +70,7 @@ pub mod peer_share;
 pub mod briefing;
 pub mod peer_exchange;
 pub mod acp_agent;
+pub mod acp_agents;
 pub mod acp_capabilities;
 pub mod cancellation;
 pub mod cursor_config;

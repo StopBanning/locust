@@ -1152,6 +1152,16 @@ apps/desktop/src/main/an-added-account-has-only-its-own-home.test.ts	keeps usage
 apps/desktop/src/main/an-added-account-has-only-its-own-home.test.ts	keeps account homes out of backups and refuses removal while that account is in use	no
 apps/desktop/src/main/an-added-account-has-only-its-own-home.test.ts	starts, watches and stops background work on the same account	no
 apps/desktop/src/main/an-added-account-has-only-its-own-home.test.ts	opens an existing conversation in a terminal with the recorded account home	yes
+apps/desktop/src/main/an-agent-of-your-own-is-added-by-its-command.test.ts	is a program and its arguments, never a shell line	yes
+apps/desktop/src/main/an-agent-of-your-own-is-added-by-its-command.test.ts	is named on a route with the model picked on it	yes
+apps/desktop/src/main/an-agent-of-your-own-is-added-by-its-command.test.ts	reads the models an agent offers from its session, grouped or not	yes
+apps/desktop/src/main/an-agent-of-your-own-is-added-by-its-command.test.ts	lists one row per model in the picker, or its own default when it offers none	yes
+apps/desktop/src/main/an-agent-of-your-own-is-added-by-its-command.test.ts	keeps only well-formed agents from a file someone edited by hand	yes
+apps/desktop/src/main/an-agent-of-your-own-is-added-by-its-command.test.ts	is tested by opening a session and closing it: its name, version and models, no prompt	yes
+apps/desktop/src/main/an-agent-of-your-own-is-added-by-its-command.test.ts	says how to sign in when the agent will not open a session	yes
+apps/desktop/src/main/an-agent-of-your-own-is-added-by-its-command.test.ts	says so when the program is not an agent at all	yes
+apps/desktop/src/main/an-agent-of-your-own-is-added-by-its-command.test.ts	is kept only when it answered, under a name of its own, and found again for a run	yes
+apps/desktop/src/main/an-agent-of-your-own-is-added-by-its-command.test.ts	may do only what it asks and the person approves, and costs something unless it is OpenCode’s own free model	yes
 apps/desktop/src/main/an-answer-not-written-back-is-brought-back.test.ts	ending in a question, or saying wants="answer", wants one; an FYI does not	no
 apps/desktop/src/main/an-answer-not-written-back-is-brought-back.test.ts	the answer is brought back: posted as theirs, labelled, and the asker started to take it	no
 apps/desktop/src/main/an-answer-not-written-back-is-brought-back.test.ts	once: the same run ending again brings nothing more	no

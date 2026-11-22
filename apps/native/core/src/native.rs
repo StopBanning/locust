@@ -246,11 +246,14 @@ fn command_for_turn(
         "antigravity" => crate::runtime::antigravity::command(folder, mode, model, effort, resume, references, skills),
         "muse" => crate::runtime::muse::command(folder, mode, model, effort, resume),
         "apple" => crate::runtime::apple::command(mode),
-        "acp" => crate::runtime::acp::command(
-            &electron_dir().ok_or_else(|| io::Error::other("Locust profile not found"))?,
-            folder,
-            model,
-        ),
+        "acp" => {
+            let profile = store()
+                .filter(|s| s.root().join(crate::acp_agents::ACP_AGENTS_FILE).is_file())
+                .map(|s| s.root().to_path_buf())
+                .or_else(electron_dir)
+                .ok_or_else(|| io::Error::other("Locust profile not found"))?;
+            crate::runtime::acp::command(&profile, folder, model)
+        }
         "opencode" => {
             let store = store()
                 .ok_or_else(|| io::Error::other("Native data folder could not be determined"))?;

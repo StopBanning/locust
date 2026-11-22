@@ -952,9 +952,10 @@ pub fn local() -> Vec<Value> {
     use std::sync::Mutex;
     static CACHE: Mutex<Option<(Instant, Vec<Value>)>> = Mutex::new(None);
     let mut models = kept_catalog(&CACHE, read_listed_checked);
-    // Your own models under OpenCode, by their own names, read fresh: one added a moment ago is offered at once.
+    // Your own models under OpenCode and your own ACP agents, read fresh: one added a moment ago is offered at once.
     if let Ok(store) = crate::store::Store::local() {
         models.extend(crate::own_models::for_store(&store).catalog().unwrap_or_default());
+        models.extend(crate::acp_agents::acp_catalog(&crate::acp_agents::agents_for_store(&store)));
     }
     models
 }
