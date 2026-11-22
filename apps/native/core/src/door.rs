@@ -1180,3 +1180,7 @@ mod a_carried_conversation_tests;
 #[cfg(test)]
 #[path = "door_stdio_tests.rs"]
 mod door_stdio_tests;
+
+#[cfg(test)]
+#[path = "an_app_turn_after_carry_on_tests.rs"]
+mod an_app_turn_after_carry_on_tests;
