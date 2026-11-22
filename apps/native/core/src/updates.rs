@@ -10,7 +10,11 @@
 //! - The Rust app has no release feed of its own yet, so its default updater (`NoFeedUpdater`) never reaches the
 //!   network and says `"This copy has no updates to look for yet"`.
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
+
+pub const UPDATE_CHECK_EVERY_MS: u64 = 60 * 60 * 1000;
+pub const UPDATE_RETRY_AFTER_RUN_MS: u64 = 15 * 60 * 1000;
 
 pub const DOWNLOAD_FAILED_MESSAGE: &str =
     "The update could not be downloaded. Locust will try again at its next check.";
@@ -310,6 +314,116 @@ impl UpdaterLike for NoFeedUpdater {
     fn on(&mut self, _event: &str, _listener: EventListener) {}
 }
 
+/// Whether a periodic look should happen now (`periodicCheckDue` in `main/updates.ts`): never while a teammate is
+/// working, and never while a check is under way or a version is found or coming down.
+pub fn periodic_check_due(state: &AppUpdateState, live_missions: usize) -> bool {
+    if live_missions > 0 {
+        return false;
+    }
+    matches!(
+        state.phase,
+        AppUpdatePhase::Idle
+            | AppUpdatePhase::Current
+            | AppUpdatePhase::Failed
+            | AppUpdatePhase::Ready
+    )
+}
+
+struct ScheduledTimer {
+    id: u64,
+    due_ms: u64,
+    task: Box<dyn FnOnce() + Send>,
+}
+
+#[derive(Default)]
+struct ClockInner {
+    now_ms: u64,
+    next_id: u64,
+    timers: Vec<ScheduledTimer>,
+}
+
+/// Deterministic timer queue for periodic update checks and delayed feed downloads.
+#[derive(Clone, Default)]
+pub struct UpdateClock {
+    inner: Arc<Mutex<ClockInner>>,
+}
+
+impl UpdateClock {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn schedule_after<F>(&self, after_ms: u64, task: F) -> u64
+    where
+        F: FnOnce() + Send + 'static,
+    {
+        let mut guard = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        guard.next_id += 1;
+        let id = guard.next_id;
+        let due_ms = guard.now_ms.saturating_add(after_ms);
+        guard.timers.push(ScheduledTimer {
+            id,
+            due_ms,
+            task: Box::new(task),
+        });
+        id
+    }
+
+    pub fn cancel(&self, id: u64) {
+        let mut guard = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        guard.timers.retain(|t| t.id != id);
+    }
+
+    pub fn advance_by(&self, delta_ms: u64) {
+        let target_ms = {
+            let guard = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+            guard.now_ms.saturating_add(delta_ms)
+        };
+        loop {
+            let next_timer = {
+                let mut guard = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+                let best_idx = guard
+                    .timers
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, t)| t.due_ms <= target_ms)
+                    .min_by_key(|(_, t)| (t.due_ms, t.id))
+                    .map(|(idx, _)| idx);
+                match best_idx {
+                    Some(idx) => {
+                        let timer = guard.timers.remove(idx);
+                        guard.now_ms = timer.due_ms;
+                        Some(timer)
+                    }
+                    None => {
+                        guard.now_ms = target_ms;
+                        None
+                    }
+                }
+            };
+            match next_timer {
+                Some(timer) => (timer.task)(),
+                None => break,
+            }
+        }
+    }
+}
+
+pub struct PeriodicChecks {
+    stopped: Arc<AtomicBool>,
+    timer_id: Arc<Mutex<Option<u64>>>,
+    clock: UpdateClock,
+}
+
+impl PeriodicChecks {
+    pub fn stop(&self) {
+        self.stopped.store(true, Ordering::SeqCst);
+        if let Some(id) = self.timer_id.lock().unwrap_or_else(|e| e.into_inner()).take() {
+            self.clock.cancel(id);
+        }
+    }
+}
+
 fn parse_semver_prefix(text: &str) -> Option<[u64; 3]> {
     let trimmed = text.trim();
     let rest = trimmed.strip_prefix('v').unwrap_or(trimmed);
@@ -362,7 +476,6 @@ struct ServiceInner {
     downloaded_version: Option<String>,
 }
 
-#[derive(Clone)]
 pub struct UpdateService<U: UpdaterLike> {
     updater: Arc<Mutex<U>>,
     current_version: String,
@@ -373,6 +486,24 @@ pub struct UpdateService<U: UpdaterLike> {
     request_quit: RequestQuitFn,
     on_state_change: Option<OnStateChangeFn>,
     inner: Arc<Mutex<ServiceInner>>,
+    clock: UpdateClock,
+}
+
+impl<U: UpdaterLike> Clone for UpdateService<U> {
+    fn clone(&self) -> Self {
+        Self {
+            updater: Arc::clone(&self.updater),
+            current_version: self.current_version.clone(),
+            supported: self.supported,
+            held_back: self.held_back,
+            package_url: self.package_url.clone(),
+            live_mission_count: Arc::clone(&self.live_mission_count),
+            request_quit: Arc::clone(&self.request_quit),
+            on_state_change: self.on_state_change.clone(),
+            inner: Arc::clone(&self.inner),
+            clock: self.clock.clone(),
+        }
+    }
 }
 
 pub fn create_update_service<U: UpdaterLike + 'static>(
@@ -549,6 +680,7 @@ pub fn create_update_service<U: UpdaterLike + 'static>(
         request_quit: options.request_quit,
         on_state_change: options.on_state_change,
         inner,
+        clock: UpdateClock::new(),
     }
 }
 
@@ -705,6 +837,57 @@ impl<U: UpdaterLike + 'static> UpdateService<U> {
 
     pub fn check(&self) -> AppUpdateResponse {
         self.look(false)
+    }
+
+    pub fn clock(&self) -> &UpdateClock {
+        &self.clock
+    }
+
+    pub fn advance_timers_by_ms(&self, delta_ms: u64) {
+        self.clock.advance_by(delta_ms);
+    }
+
+    fn schedule_tick(
+        service: &UpdateService<U>,
+        stopped: &Arc<AtomicBool>,
+        timer_id: &Arc<Mutex<Option<u64>>>,
+        every_ms: u64,
+        retry_ms: u64,
+        after_ms: u64,
+    ) {
+        let svc = service.clone();
+        let stopped_flag = Arc::clone(stopped);
+        let timer_slot = Arc::clone(timer_id);
+        let id = service.clock.schedule_after(after_ms, move || {
+            if stopped_flag.load(Ordering::SeqCst) || !svc.supported {
+                return;
+            }
+            let live = (svc.live_mission_count)();
+            if live > 0 {
+                Self::schedule_tick(&svc, &stopped_flag, &timer_slot, every_ms, retry_ms, retry_ms);
+                return;
+            }
+            if periodic_check_due(&svc.state(), live) {
+                svc.look(true);
+            }
+            Self::schedule_tick(&svc, &stopped_flag, &timer_slot, every_ms, retry_ms, every_ms);
+        });
+        *timer_id.lock().unwrap_or_else(|e| e.into_inner()) = Some(id);
+    }
+
+    pub fn start_periodic_checks(&self) -> PeriodicChecks {
+        self.start_periodic_checks_with(UPDATE_CHECK_EVERY_MS, UPDATE_RETRY_AFTER_RUN_MS)
+    }
+
+    pub fn start_periodic_checks_with(&self, every_ms: u64, retry_ms: u64) -> PeriodicChecks {
+        let stopped = Arc::new(AtomicBool::new(false));
+        let timer_id = Arc::new(Mutex::new(None));
+        Self::schedule_tick(self, &stopped, &timer_id, every_ms, retry_ms, every_ms);
+        PeriodicChecks {
+            stopped,
+            timer_id,
+            clock: self.clock.clone(),
+        }
     }
 
     pub fn hold_install_for_relaunch(&self) {
@@ -930,7 +1113,6 @@ pub(crate) mod test_support {
 mod tests {
     use super::test_support::*;
     use super::*;
-    use std::sync::atomic::{AtomicBool, Ordering};
 
     // case: downloads on its own, and installs only on a quit the app itself makes
     #[test]
@@ -1345,5 +1527,209 @@ mod ready_means_this_version_is_on_disk_tests {
         let after = service.check();
         let data = after.data().expect("check succeeded");
         assert_eq!(data.phase, AppUpdatePhase::Ready);
+    }
+}
+
+#[cfg(test)]
+mod an_open_locust_keeps_looking_for_updates_tests {
+    use super::test_support::*;
+    use super::*;
+    use std::sync::atomic::AtomicUsize;
+
+    const DOWNLOAD_MS: u64 = 1_000;
+
+    fn feed(latest: Arc<Mutex<String>>, clock: UpdateClock) -> FakeUpdater {
+        let holder: Arc<Mutex<Option<FakeUpdater>>> = Arc::new(Mutex::new(None));
+        let holder_in = Arc::clone(&holder);
+        let updater = FakeUpdater::with_check(move || {
+            let version = latest.lock().unwrap().clone();
+            if let Some(u) = holder_in.lock().unwrap().clone() {
+                let v = version.clone();
+                clock.schedule_after(DOWNLOAD_MS, move || {
+                    u.emit("update-downloaded", Some(EventPayload::version(v)));
+                });
+            }
+            Ok(Some(CheckForUpdatesResult {
+                update_info: UpdateInfo {
+                    version,
+                    files: None,
+                },
+                is_update_available: Some(true),
+                download_result: None,
+            }))
+        });
+        *holder.lock().unwrap() = Some(updater.clone());
+        updater
+    }
+
+    fn bare_state(phase: AppUpdatePhase) -> AppUpdateState {
+        AppUpdateState {
+            phase,
+            current_version: "0.366.0".into(),
+            every_build: false,
+            available_version: None,
+            download_url: None,
+            percent: None,
+            message: None,
+            held_back: None,
+        }
+    }
+
+    // case: looks again every hour
+    #[test]
+    fn looks_again_every_hour() {
+        assert_eq!(UPDATE_CHECK_EVERY_MS, 60 * 60 * 1000);
+        let updater = FakeUpdater::new();
+        let service = create_update_service(default_options(updater.clone(), "0.366.0", true));
+        let stop = service.start_periodic_checks();
+        service.advance_timers_by_ms(UPDATE_CHECK_EVERY_MS - 1);
+        assert_eq!(updater.check_calls(), 0);
+        service.advance_timers_by_ms(1);
+        assert_eq!(updater.check_calls(), 1);
+        service.advance_timers_by_ms(UPDATE_CHECK_EVERY_MS);
+        assert_eq!(updater.check_calls(), 2);
+        stop.stop();
+        service.advance_timers_by_ms(UPDATE_CHECK_EVERY_MS * 3);
+        assert_eq!(updater.check_calls(), 2);
+    }
+
+    // case: waits while a teammate is working, and tries again soon rather than an hour later
+    #[test]
+    fn waits_while_a_teammate_is_working_and_tries_again_soon_rather_than_an_hour_later() {
+        let updater = FakeUpdater::new();
+        let live = Arc::new(AtomicUsize::new(1));
+        let live_read = Arc::clone(&live);
+        let mut opts = default_options(updater.clone(), "0.366.0", true);
+        opts.live_mission_count = Arc::new(move || live_read.load(Ordering::SeqCst));
+        let service = create_update_service(opts);
+        let _stop = service.start_periodic_checks();
+        service.advance_timers_by_ms(UPDATE_CHECK_EVERY_MS);
+        assert_eq!(updater.check_calls(), 0);
+        live.store(0, Ordering::SeqCst);
+        service.advance_timers_by_ms(UPDATE_RETRY_AFTER_RUN_MS);
+        assert_eq!(updater.check_calls(), 1);
+    }
+
+    // case: never looks in a build that cannot update itself
+    #[test]
+    fn never_looks_in_a_build_that_cannot_update_itself() {
+        let updater = FakeUpdater::new();
+        let live_polls = Arc::new(AtomicUsize::new(0));
+        let live_polls_in = Arc::clone(&live_polls);
+        let mut opts = default_options(updater.clone(), "0.366.0", false);
+        opts.live_mission_count = Arc::new(move || {
+            live_polls_in.fetch_add(1, Ordering::SeqCst);
+            0
+        });
+        let service = create_update_service(opts);
+        let _stop = service.start_periodic_checks();
+        service.advance_timers_by_ms(UPDATE_CHECK_EVERY_MS * 2);
+        assert_eq!(updater.check_calls(), 0);
+        assert_eq!(live_polls.load(Ordering::SeqCst), 0);
+    }
+
+    // case: keeps looking while a downloaded version waits, and a newer one takes its place
+    #[test]
+    fn keeps_looking_while_a_downloaded_version_waits_and_a_newer_one_takes_its_place() {
+        let latest = Arc::new(Mutex::new("0.817.0".to_owned()));
+        let said: Arc<Mutex<Vec<(AppUpdatePhase, Option<String>)>>> =
+            Arc::new(Mutex::new(Vec::new()));
+        let said_cb = Arc::clone(&said);
+        let probe = create_update_service(default_options(FakeUpdater::new(), "0.814.0", true));
+        let clock = probe.clock().clone();
+        let updater = feed(Arc::clone(&latest), clock.clone());
+        let mut opts = default_options(updater, "0.814.0", true);
+        opts.on_state_change = Some(Arc::new(move |state| {
+            said_cb
+                .lock()
+                .unwrap()
+                .push((state.phase, state.available_version.clone()));
+        }));
+        let mut service = create_update_service(opts);
+        service.clock = clock;
+
+        service.check();
+        service.advance_timers_by_ms(DOWNLOAD_MS);
+        assert_eq!(service.state().phase, AppUpdatePhase::Ready);
+        assert_eq!(service.state().available_version.as_deref(), Some("0.817.0"));
+
+        let _stop = service.start_periodic_checks();
+        said.lock().unwrap().clear();
+
+        service.advance_timers_by_ms(UPDATE_CHECK_EVERY_MS);
+        assert_eq!(service.state().phase, AppUpdatePhase::Ready);
+        assert_eq!(service.state().available_version.as_deref(), Some("0.817.0"));
+        service.advance_timers_by_ms(DOWNLOAD_MS);
+        assert_eq!(service.state().phase, AppUpdatePhase::Ready);
+        assert_eq!(service.state().available_version.as_deref(), Some("0.817.0"));
+        assert!(
+            said.lock()
+                .unwrap()
+                .iter()
+                .all(|(phase, ver)| *phase == AppUpdatePhase::Ready
+                    && ver.as_deref() == Some("0.817.0"))
+        );
+
+        *latest.lock().unwrap() = "0.819.0".to_owned();
+        said.lock().unwrap().clear();
+        service.advance_timers_by_ms(UPDATE_CHECK_EVERY_MS - DOWNLOAD_MS);
+        assert_eq!(service.state().phase, AppUpdatePhase::Available);
+        assert_eq!(service.state().available_version.as_deref(), Some("0.819.0"));
+        service.advance_timers_by_ms(DOWNLOAD_MS);
+        assert_eq!(service.state().phase, AppUpdatePhase::Ready);
+        assert_eq!(service.state().available_version.as_deref(), Some("0.819.0"));
+        assert_eq!(
+            *said.lock().unwrap(),
+            vec![
+                (AppUpdatePhase::Available, Some("0.819.0".to_owned())),
+                (AppUpdatePhase::Ready, Some("0.819.0".to_owned())),
+            ]
+        );
+    }
+
+    // case: still says Checking when the person presses Check now
+    #[test]
+    fn still_says_checking_when_the_person_presses_check_now() {
+        let said: Arc<Mutex<Vec<AppUpdatePhase>>> = Arc::new(Mutex::new(Vec::new()));
+        let said_cb = Arc::clone(&said);
+        let updater = feed(
+            Arc::new(Mutex::new("0.817.0".to_owned())),
+            UpdateClock::new(),
+        );
+        let mut opts = default_options(updater, "0.814.0", true);
+        opts.on_state_change = Some(Arc::new(move |state| {
+            said_cb.lock().unwrap().push(state.phase);
+        }));
+        let service = create_update_service(opts);
+        service.check();
+        assert_eq!(said.lock().unwrap().first().copied(), Some(AppUpdatePhase::Checking));
+    }
+
+    // case: is, when nothing is found yet, the last look could not complete, or a downloaded version waits
+    #[test]
+    fn is_when_nothing_is_found_yet_the_last_look_could_not_complete_or_a_downloaded_version_waits() {
+        for phase in [
+            AppUpdatePhase::Idle,
+            AppUpdatePhase::Current,
+            AppUpdatePhase::Failed,
+            AppUpdatePhase::Ready,
+        ] {
+            assert!(periodic_check_due(&bare_state(phase), 0));
+        }
+    }
+
+    // case: is not while a check runs or a version is found or coming down -- or while a teammate works
+    #[test]
+    fn is_not_while_a_check_runs_or_a_version_is_found_or_coming_down_or_while_a_teammate_works() {
+        for phase in [
+            AppUpdatePhase::Checking,
+            AppUpdatePhase::Available,
+            AppUpdatePhase::Downloading,
+            AppUpdatePhase::Unsupported,
+        ] {
+            assert!(!periodic_check_due(&bare_state(phase), 0));
+        }
+        assert!(!periodic_check_due(&bare_state(AppUpdatePhase::Current), 2));
+        assert!(!periodic_check_due(&bare_state(AppUpdatePhase::Ready), 1));
     }
 }

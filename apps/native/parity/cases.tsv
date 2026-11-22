@@ -1264,6 +1264,13 @@ apps/desktop/src/main/an-office-file-reads-in-any-mode.test.ts	writes a table ce
 apps/desktop/src/main/an-old-message-says-it-is-old.test.ts	is said once it is half an hour old, in the unit that reads	yes
 apps/desktop/src/main/an-old-message-says-it-is-old.test.ts	goes beside the message it describes, with what to do about it	yes
 apps/desktop/src/main/an-old-message-says-it-is-old.test.ts	is read against the time now when the host prepares a run	yes
+apps/desktop/src/main/an-open-locust-keeps-looking-for-updates.test.ts	looks again every hour	yes
+apps/desktop/src/main/an-open-locust-keeps-looking-for-updates.test.ts	waits while a teammate is working, and tries again soon rather than an hour later	yes
+apps/desktop/src/main/an-open-locust-keeps-looking-for-updates.test.ts	never looks in a build that cannot update itself	yes
+apps/desktop/src/main/an-open-locust-keeps-looking-for-updates.test.ts	keeps looking while a downloaded version waits, and a newer one takes its place	yes
+apps/desktop/src/main/an-open-locust-keeps-looking-for-updates.test.ts	still says Checking when the person presses Check now	yes
+apps/desktop/src/main/an-open-locust-keeps-looking-for-updates.test.ts	is, when nothing is found yet, the last look could not complete, or a downloaded version waits	yes
+apps/desktop/src/main/an-open-locust-keeps-looking-for-updates.test.ts	is not while a check runs or a version is found or coming down -- or while a teammate works	yes
 apps/desktop/src/main/an-opencode-2-mode-has-native-permission-rules.test.ts	uses an owned ACP mode and a directory plugin, without unsupported V1 flags	yes
 apps/desktop/src/main/an-opencode-2-mode-has-native-permission-rules.test.ts	denies edits and subagents in Ask, and lets no shell command through	yes
 apps/desktop/src/main/an-opencode-2-mode-has-native-permission-rules.test.ts	keeps its own catch-all, never V1's (0.821)	yes
