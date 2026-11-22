@@ -123,6 +123,13 @@ pub(crate) const FOLDS: &[(&str, &str, &[&str])] = &[
             "Nothing here is ever deleted on a timer. Turns go when you ask, after you have been shown exactly what would go, and a turn an ongoing conversation continues from is kept even when it is old.",
         ],
     ),
+    (
+        "updates",
+        "Updates",
+        &[
+            "It never installs one while a teammate is working: restarting then would cut the run off and leave its record without a receipt.",
+        ],
+    ),
 ];
 
 /// The words of the fold `key` (nothing for a key that has none).

@@ -2679,6 +2679,12 @@ apps/desktop/src/main/teammates-answer-their-person-in-telegram.test.ts	answers 
 apps/desktop/src/main/teammates-answer-their-person-in-telegram.test.ts	starts nothing from a message that waited while Locust was closed, and acts on each message once	no
 apps/desktop/src/main/teammates-answer-their-person-in-telegram.test.ts	stops at the organization’s word, and forgets the token and the chat on Remove	no
 apps/desktop/src/main/teammates-answer-their-person-in-telegram.test.ts	sends only markup Telegram takes, and the plain words when it refuses some	no
+apps/desktop/src/main/testers-get-one-build-a-day.test.ts	is the tester lane unless every build was chosen, whatever the file says	yes
+apps/desktop/src/main/testers-get-one-build-a-day.test.ts	takes no prerelease by default -- even from an updater that would	yes
+apps/desktop/src/main/testers-get-one-build-a-day.test.ts	takes every build once chosen, and says so in every state after	yes
+apps/desktop/src/main/testers-get-one-build-a-day.test.ts	calls an older latest up to date, not an update	yes
+apps/desktop/src/main/testers-get-one-build-a-day.test.ts	reads its own feed file, and never steps back for it	yes
+apps/desktop/src/main/testers-get-one-build-a-day.test.ts	starts on the saved lane	yes
 apps/desktop/src/main/the-chain-templates-hand-work-on.test.ts	are three, each a routine of three steps that asks one question its steps use	no
 apps/desktop/src/main/the-chain-templates-hand-work-on.test.ts	give every step a role the roster can have, and make the last step -- and only the last -- the checker	no
 apps/desktop/src/main/the-chain-templates-hand-work-on.test.ts	are written short and plain: a few sentences a step, no persona, nothing that says who the reader is	no

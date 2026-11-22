@@ -207,6 +207,7 @@ const FOLDED: &[(&str, SettingsPageId)] = &[
     ("memory", SettingsPageId::Memory),
     ("chat-apps", SettingsPageId::App),
     ("privacy", SettingsPageId::Privacy),
+    ("updates", SettingsPageId::App),
 ];
 
 // Not an Electron case of its own: the fold the sentence-case case holds on Auto mode, held wherever it is used.

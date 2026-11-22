@@ -25,6 +25,88 @@ pub const NOT_READY_MESSAGE: &str = "There is no downloaded update to install ye
 pub const BUSY_MESSAGE: &str =
     "A mission is still running. Stop it first, then install — restarting now would cut it off mid-run.";
 pub const NO_FEED_MESSAGE: &str = "This copy has no updates to look for yet";
+pub const INSTALL_TAKES: &str =
+    "Locust closes while it installs and opens again by itself in a minute or two.";
+
+/// Which builds an installed Locust takes (`UpdateLane` in `main/update-lane.ts`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct UpdateLane {
+    pub every_build: bool,
+}
+
+pub const TESTER_LANE: UpdateLane = UpdateLane { every_build: false };
+
+/// A saved lane, read defensively: anything unreadable is the tester lane (`updateLaneFrom` in `main/update-lane.ts`).
+pub fn update_lane_from(value: Option<&serde_json::Value>) -> UpdateLane {
+    let Some(every_build) = value
+        .and_then(serde_json::Value::as_object)
+        .and_then(|obj| obj.get("everyBuild"))
+        .and_then(serde_json::Value::as_bool)
+    else {
+        return TESTER_LANE;
+    };
+    UpdateLane { every_build }
+}
+
+pub fn installing_line(version: Option<&str>) -> String {
+    match version.filter(|v| !v.is_empty()) {
+        Some(v) => format!(
+            "Installing Locust {v}. It opens again by itself in a minute or two; there is no need to open it."
+        ),
+        None => "Installing Locust. It opens again by itself in a minute or two; there is no need to open it.".to_owned(),
+    }
+}
+
+pub fn held_back_line(held_back: Option<HeldBack>) -> &'static str {
+    match held_back {
+        Some(HeldBack::Development) => {
+            "This copy of Locust doesn't update itself. The installed Locust does. A development build never updates."
+        }
+        Some(HeldBack::NoFeed) => NO_FEED_MESSAGE,
+        Some(HeldBack::Driven | HeldBack::Copy) | None => {
+            "This copy of Locust doesn't update itself. The installed Locust does."
+        }
+    }
+}
+
+pub fn update_control_line(update: Option<&AppUpdateState>, installing: bool) -> String {
+    let Some(update) = update else {
+        return "Not checked yet.".to_owned();
+    };
+    match update.phase {
+        AppUpdatePhase::Unsupported => held_back_line(update.held_back).to_owned(),
+        AppUpdatePhase::Checking => "Checking…".to_owned(),
+        AppUpdatePhase::Current => "Up to date.".to_owned(),
+        AppUpdatePhase::Available => {
+            let ver = update.available_version.as_deref().unwrap_or("");
+            if update.download_url.is_some() {
+                format!("Version {ver} is out. Download it, then open the file to install it.")
+            } else {
+                format!("Version {ver} is available. Downloading it now.")
+            }
+        }
+        AppUpdatePhase::Downloading => {
+            let ver = update.available_version.as_deref().unwrap_or("");
+            match update.percent {
+                Some(pct) => format!("Downloading {ver} · {pct}%"),
+                None => format!("Downloading {ver}"),
+            }
+        }
+        AppUpdatePhase::Ready => {
+            if installing {
+                installing_line(update.available_version.as_deref())
+            } else {
+                let ver = update.available_version.as_deref().unwrap_or("");
+                format!("Version {ver} is downloaded and ready to install. {INSTALL_TAKES}")
+            }
+        }
+        AppUpdatePhase::Failed => update
+            .message
+            .clone()
+            .unwrap_or_else(|| CHECK_FAILED_MESSAGE.to_owned()),
+        AppUpdatePhase::Idle => "Not checked yet.".to_owned(),
+    }
+}
 
 /// Where an update stands (`shared/ipc.ts` `AppUpdatePhase`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -84,6 +166,21 @@ pub struct AppUpdateState {
     pub percent: Option<u8>,
     pub message: Option<String>,
     pub held_back: Option<HeldBack>,
+}
+
+impl Default for AppUpdateState {
+    fn default() -> Self {
+        Self {
+            phase: AppUpdatePhase::Unsupported,
+            current_version: "0.1.0".into(),
+            every_build: false,
+            available_version: None,
+            download_url: None,
+            percent: None,
+            message: None,
+            held_back: Some(HeldBack::NoFeed),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -216,6 +313,51 @@ pub trait UpdaterLike: Send + Sync {
     fn download_update(&mut self) -> Result<(), String>;
     fn quit_and_install(&mut self, is_silent: Option<bool>, is_force_run_after: Option<bool>);
     fn on(&mut self, event: &str, listener: EventListener);
+}
+
+impl<U: UpdaterLike + ?Sized> UpdaterLike for Box<U> {
+    fn auto_download(&self) -> bool {
+        (**self).auto_download()
+    }
+    fn set_auto_download(&mut self, value: bool) {
+        (**self).set_auto_download(value);
+    }
+    fn allow_prerelease(&self) -> bool {
+        (**self).allow_prerelease()
+    }
+    fn set_allow_prerelease(&mut self, value: bool) {
+        (**self).set_allow_prerelease(value);
+    }
+    fn channel(&self) -> Option<String> {
+        (**self).channel()
+    }
+    fn set_channel(&mut self, value: Option<&str>) {
+        (**self).set_channel(value);
+    }
+    fn allow_downgrade(&self) -> Option<bool> {
+        (**self).allow_downgrade()
+    }
+    fn set_allow_downgrade(&mut self, value: bool) {
+        (**self).set_allow_downgrade(value);
+    }
+    fn auto_install_on_app_quit(&self) -> bool {
+        (**self).auto_install_on_app_quit()
+    }
+    fn set_auto_install_on_app_quit(&mut self, value: bool) {
+        (**self).set_auto_install_on_app_quit(value);
+    }
+    fn check_for_updates(&mut self) -> Result<Option<CheckForUpdatesResult>, String> {
+        (**self).check_for_updates()
+    }
+    fn download_update(&mut self) -> Result<(), String> {
+        (**self).download_update()
+    }
+    fn quit_and_install(&mut self, is_silent: Option<bool>, is_force_run_after: Option<bool>) {
+        (**self).quit_and_install(is_silent, is_force_run_after);
+    }
+    fn on(&mut self, event: &str, listener: EventListener) {
+        (**self).on(event, listener);
+    }
 }
 
 impl<U: UpdaterLike + ?Sized> UpdaterLike for Arc<Mutex<U>> {
@@ -1951,5 +2093,149 @@ mod a_mac_says_when_a_new_locust_is_out_tests {
             ),
             None
         );
+    }
+}
+
+#[cfg(test)]
+mod testers_get_one_build_a_day_tests {
+    use super::test_support::*;
+    use super::*;
+    use serde_json::json;
+
+    fn updater() -> FakeUpdater {
+        let mut u = FakeUpdater::new();
+        u.set_auto_download(false);
+        u.set_allow_prerelease(true);
+        u.set_auto_install_on_app_quit(false);
+        u
+    }
+
+    fn service(fake: FakeUpdater, every_build: Option<bool>) -> UpdateService<FakeUpdater> {
+        let mut opts = default_options(fake, "0.307.0", true);
+        if let Some(eb) = every_build {
+            opts.every_build = eb;
+        }
+        create_update_service(opts)
+    }
+
+    // case: is the tester lane unless every build was chosen, whatever the file says
+    #[test]
+    fn is_the_tester_lane_unless_every_build_was_chosen_whatever_the_file_says() {
+        assert_eq!(update_lane_from(None), TESTER_LANE);
+        assert_eq!(
+            update_lane_from(Some(&json!({ "everyBuild": "yes" }))),
+            TESTER_LANE
+        );
+        assert_eq!(
+            update_lane_from(Some(&json!({ "everyBuild": true }))),
+            UpdateLane { every_build: true }
+        );
+        assert!(!TESTER_LANE.every_build);
+    }
+
+    // case: takes no prerelease by default -- even from an updater that would
+    #[test]
+    fn takes_no_prerelease_by_default_even_from_an_updater_that_would() {
+        let fake = updater();
+        let updates = service(fake.clone(), None);
+        assert!(!fake.allow_prerelease());
+        assert!(!updates.state().every_build);
+    }
+
+    // case: takes every build once chosen, and says so in every state after
+    #[test]
+    fn takes_every_build_once_chosen_and_says_so_in_every_state_after() {
+        let fake = updater();
+        let updates = service(fake.clone(), None);
+        assert!(updates.set_every_build(true).every_build);
+        assert!(fake.allow_prerelease());
+        let checked = updates.check();
+        assert_eq!(checked.data().map(|d| d.every_build), Some(true));
+        updates.set_every_build(false);
+        assert!(!fake.allow_prerelease());
+    }
+
+    // case: calls an older latest up to date, not an update
+    #[test]
+    fn calls_an_older_latest_up_to_date_not_an_update() {
+        let fake = FakeUpdater::with_check(|| {
+            Ok(Some(CheckForUpdatesResult {
+                update_info: UpdateInfo {
+                    version: "0.306.0".into(),
+                    files: None,
+                },
+                is_update_available: Some(false),
+                download_result: None,
+            }))
+        });
+        let updates = service(fake, None);
+        let checked = updates.check();
+        assert_eq!(checked.data().map(|d| d.phase), Some(AppUpdatePhase::Current));
+
+        let plain = service(
+            FakeUpdater::with_check(|| {
+                Ok(Some(CheckForUpdatesResult {
+                    update_info: UpdateInfo {
+                        version: "0.306.0".into(),
+                        files: None,
+                    },
+                    is_update_available: None,
+                    download_result: None,
+                }))
+            }),
+            None,
+        );
+        let again = plain.check();
+        assert_eq!(again.data().map(|d| d.phase), Some(AppUpdatePhase::Current));
+
+        let newer = service(
+            FakeUpdater::with_check(|| {
+                Ok(Some(CheckForUpdatesResult {
+                    update_info: UpdateInfo {
+                        version: "0.308.0".into(),
+                        files: None,
+                    },
+                    is_update_available: None,
+                    download_result: None,
+                }))
+            }),
+            None,
+        );
+        let found = newer.check();
+        assert_eq!(
+            found.data().map(|d| d.phase),
+            Some(AppUpdatePhase::Available)
+        );
+    }
+
+    // case: reads its own feed file, and never steps back for it
+    #[test]
+    fn reads_its_own_feed_file_and_never_steps_back_for_it() {
+        let fake = updater();
+        fake.set_channel_allows_downgrade(true);
+        let updates = service(fake.clone(), None);
+        assert_eq!(
+            (fake.channel().as_deref(), fake.allow_downgrade()),
+            (Some("latest"), Some(false))
+        );
+        updates.set_every_build(true);
+        assert_eq!(
+            (fake.channel().as_deref(), fake.allow_downgrade()),
+            (Some("beta"), Some(false))
+        );
+        updates.set_every_build(false);
+        assert_eq!(
+            (fake.channel().as_deref(), fake.allow_downgrade()),
+            (Some("latest"), Some(false))
+        );
+    }
+
+    // case: starts on the saved lane
+    #[test]
+    fn starts_on_the_saved_lane() {
+        let fake = updater();
+        let _updates = service(fake.clone(), Some(true));
+        assert!(fake.allow_prerelease());
+        assert_eq!(fake.channel().as_deref(), Some("beta"));
     }
 }
