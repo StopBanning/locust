@@ -973,6 +973,10 @@ fn forget_everything_for_a_folder_every_kept_one_held_by_you_the_proposals_are_n
     let mut gone = held_as(&store);
     gone.sort();
     assert_eq!(gone, vec![("One.".into(), "you".into()), ("Two.".into(), "you".into())]);
+    // The proposal is not written into the file either, where it would take a kept memory's place.
+    // Read raw: the loader drops a held proposal, but only at the next write, after it took a place in this one.
+    let raw = store.seeded_json("memories.json", json!({})).unwrap();
+    assert_eq!(raw["forgotten"].as_array().map_or(0, Vec::len), 2, "{}", raw["forgotten"]);
     // And Forget everything, every folder and everywhere.
     assert_eq!(clear_memories(&store, None).unwrap(), 2);
     assert!(rows(&store).is_empty());
@@ -990,6 +994,9 @@ fn a_proposal_dropped_keep_the_old_one_or_a_new_one_forgotten_holds_nothing() {
     change_memory(&store, &id, "remove", None).unwrap();
     assert!(rows(&store).is_empty());
     assert!(held(&store).is_empty());
+    // Nor is it written into the file, where it would take one of Recently forgotten's places from a kept memory.
+    let file = store.seeded_json("memories.json", json!({})).unwrap();
+    assert!(file["forgotten"].as_array().is_none_or(|bin| bin.is_empty()), "{}", file["forgotten"]);
 }
 
 /// The first held entry, laid `ms` before now.
