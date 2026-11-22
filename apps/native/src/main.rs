@@ -178,6 +178,8 @@ mod teammate_faces;
 mod edit_message;
 #[path = "ui/peer_thread.rs"]
 mod peer_thread;
+#[path = "ui/handed_out.rs"]
+mod handed_out;
 #[path = "ui/exchange_strip.rs"]
 mod exchange_strip;
 #[path = "ui/prompt_rail.rs"]
@@ -2527,7 +2529,8 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
         tx.wake_after(Duration::from_millis(33));
     }
     // A working row's band moves while the window is in front and motion is wanted; it stands still otherwise.
-    if s.window_focused && !s.reduced_motion.get() && sidebar::shimmering(s) {
+    // The live word's sweep too (`.lc-sweep`), on the same clock and under the same rule.
+    if s.window_focused && !s.reduced_motion.get() && (sidebar::shimmering(s) || messages::live_sweeping(s)) {
         tx.wake_after(Duration::from_millis(working_shimmer::FRAME_MS));
         changed = true;
     }
@@ -3354,6 +3357,9 @@ fn main() {
             ("commit-done", commit_panel::done_scene),
             ("changes", changes_panel::scene),
             ("changes-light", changes_panel::light_scene),
+            ("reviews-handed", reviews_handed_scene),
+            ("reviews-save", reviews_save_scene),
+            ("reviews-live", reviews_live_scene),
             ("thread-rich", thread_rich_scene),
             ("thread-pictures", thread_pictures_scene),
             ("thread-rich-open", thread_rich_open_scene),

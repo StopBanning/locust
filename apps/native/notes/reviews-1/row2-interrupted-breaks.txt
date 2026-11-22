@@ -1,0 +1,1 @@
+src/ui/header_menu.rs|||} else if pane.snapshot.interrupted { ==> } else if false {

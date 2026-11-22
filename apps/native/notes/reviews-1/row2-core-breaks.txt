@@ -1,0 +1,9 @@
+core/src/routine_draft.rs|||row.state == "completed" ==> row.state != "running"
+core/src/routine_draft.rs|||std::cmp::Reverse(at(row)) ==> at(row)
+core/src/routine_draft.rs|||kept.truncate(limit); ==> kept.truncate(limit + 1);
+core/src/routine_draft.rs|||map_or(i64::MIN, |d| d.timestamp_millis()) ==> map_or(i64::MAX, |d| d.timestamp_millis())
+core/src/routine_draft.rs|||let count = turns.max(1); ==> let count = turns;
+core/src/routine_draft.rs|||!id.starts_with("pending:") ==> !id.starts_with("absent:")
+core/src/routine_draft.rs|||!running && phase == Some("completed") && has_draft ==> phase == Some("completed") && has_draft
+core/src/routine_draft.rs|||phase == Some("completed") && has_draft ==> phase.is_some() && has_draft
+core/src/routine_draft.rs|||&& has_draft) ==> )

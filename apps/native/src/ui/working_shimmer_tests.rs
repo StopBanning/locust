@@ -118,3 +118,107 @@ fn is_worn_by_a_running_conversation_and_a_running_room_only_and_keeps_the_dots_
     assert!(!crate::sidebar::room_working(&room(&["mission_z"]), &running));
     assert!(!crate::sidebar::room_working(&room(&[]), &running));
 }
+
+// ---- Electron's `main/the-live-word-is-visibly-live.test.ts`. Electron reads shell.css; Rust paints the sweep itself,
+// so these read what each character of the live word is painted, and the live line the thread draws.
+
+fn muted() -> Color {
+    Color { r: 0.5, g: 0.5, b: 0.5, a: 1.0 }
+}
+fn name_ink() -> Color {
+    Color { r: 1.0, g: 1.0, b: 1.0, a: 1.0 }
+}
+fn highlight_of(spans: &[Span]) -> Vec<f32> {
+    // How far each character is from the word's grey toward the highlight.
+    spans.iter().map(|span| (span.color.expect("each character is painted").r - 0.5) / 0.5).collect()
+}
+
+// case: sweeps with the library own shape: a solid word, a highlight over it
+#[test]
+fn sweeps_with_the_library_own_shape_a_solid_word_a_highlight_over_it() {
+    let words = "Running the whole test suite now";
+    let n = words.chars().count();
+    // The overlay is four widths of the word (400%): for a third of the pass the band is over it, a narrow peak.
+    let mid = highlight_of(&sweep_spans(words, SWEEP_SECONDS * 0.5, muted(), name_ink(), false));
+    assert_eq!(mid.len(), n);
+    let peak = mid.iter().cloned().fold(0.0_f32, f32::max);
+    assert!(peak > 0.9, "the highlight reaches the name's ink at its centre: {mid:?}");
+    let lit = mid.iter().filter(|v| **v > 0.0).count();
+    // 40%..60% of a 400% image is 80% of the word wide; at its centre the band lights the word's middle, not its ends.
+    assert!(lit < n && lit > n / 2, "{lit} of {n} lit: {mid:?}");
+    assert_eq!(mid[0], 0.0);
+    assert_eq!(mid[n - 1], 0.0);
+    // It enters on the left and leaves on the right (100% -> 0%).
+    let at = |t: f64| {
+        let v = highlight_of(&sweep_spans(words, SWEEP_SECONDS * t, muted(), name_ink(), false));
+        v.iter().enumerate().max_by(|a, b| a.1.total_cmp(b.1)).map(|(i, _)| i).unwrap()
+    };
+    assert!(at(0.40) < at(0.5) && at(0.5) < at(0.60), "{} {} {}", at(0.40), at(0.5), at(0.60));
+    // Before a third of the pass and after two thirds, nothing is over the word.
+    for t in [0.0, 0.2, 0.8, 0.99] {
+        assert!(highlight_of(&sweep_spans(words, SWEEP_SECONDS * t, muted(), name_ink(), false)).iter().all(|v| *v == 0.0), "t={t}");
+    }
+    assert_eq!(SWEEP_IMAGE, 4.0);
+    assert_eq!(SWEEP_SECONDS, 2.0);
+}
+
+// case: leaves the word itself painted
+#[test]
+fn leaves_the_word_itself_painted() {
+    // The base is the word in the muted grey; only the overlay comes and goes. No character is ever transparent.
+    for t in [0.0, 0.3, 0.5, 0.7] {
+        for span in sweep_spans("Thinking", SWEEP_SECONDS * t, muted(), name_ink(), false) {
+            let c = span.color.unwrap();
+            assert!(c.a >= 1.0 - 1e-6, "t={t}: {c:?}");
+            assert!(c.r >= 0.5 - 1e-6, "never darker than the word's own grey: {c:?}");
+        }
+    }
+    // And the element's own colour, which paints the "…" and anything the spans miss, is the muted word.
+    let mut s = crate::messages::tests_live_state();
+    let drawn = crate::messages::tests_live_label(&mut s);
+    assert_eq!(drawn.text_color, Some(crate::Palette::new(true).muted));
+}
+
+// case: drops only the highlight when motion is off
+#[test]
+fn drops_only_the_highlight_when_motion_is_off() {
+    assert!(sweep_spans("Thinking", SWEEP_SECONDS * 0.5, muted(), name_ink(), true).is_empty());
+    // The word stays, in its grey.
+    let mut s = crate::messages::tests_live_state();
+    s.reduced_motion.set(true);
+    let drawn = crate::messages::tests_live_label(&mut s);
+    assert_eq!(drawn.text.as_deref(), Some("Starting\u{2026}"));
+    assert_eq!(drawn.text_color, Some(crate::Palette::new(true).muted));
+}
+
+// case: sets the live word as a label rather than a machine string
+#[test]
+fn sets_the_live_word_as_a_label_rather_than_a_machine_string() {
+    assert_eq!(LIVE_WORD.size, 14.0);
+    assert_eq!(LIVE_WORD.weight, 500.0);
+    // The UI face, as the thread's body is set, not the mono a machine string wears.
+    assert!(LIVE_WORD.family == type_::BODY.family);
+    assert!(LIVE_WORD.family != type_::BODY.mono().family);
+    // And drawn at that size: taller than the 12px label it replaced.
+    let mut s = crate::messages::tests_live_state();
+    let drawn = crate::messages::tests_live_label(&mut s);
+    assert!(drawn.rect[3] >= 14.0 * 1.2, "{:?}", drawn.rect);
+}
+
+// case: scales no orb at all
+#[test]
+fn scales_no_orb_at_all() {
+    // The face beside the live word is the thread's own face size, unscaled (no `transform: scale(1.3)`).
+    let mut s = crate::messages::tests_live_state();
+    let face = crate::messages::tests_live_face(&mut s);
+    assert!((face.rect[2] - 34.0).abs() < 0.5, "{:?}", face.rect);
+    assert!((face.scale - 1.0).abs() < 1e-6);
+}
+
+#[test]
+fn the_window_wakes_for_the_sweep_only_while_the_live_line_is_drawn() {
+    let mut s = crate::messages::tests_live_state();
+    assert!(crate::messages::live_sweeping(&s));
+    s.ledger.as_mut().unwrap().snapshot.live = None;
+    assert!(!crate::messages::live_sweeping(&s));
+}

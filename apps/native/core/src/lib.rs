@@ -174,6 +174,8 @@ pub mod routine_file;
 pub mod routine_files;
 pub mod routine_hooks;
 pub mod routine_host;
+pub mod review_brief;
+pub mod call_todos;
 pub mod routine_draft;
 pub mod routine_inputs;
 pub mod routine_io;

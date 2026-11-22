@@ -1847,6 +1847,8 @@ pub struct Snapshot {
     pub tip: String,
     pub running: bool,
     pub failed: bool,
+    /// The tip went quiet or lost its engine before recording an ending.
+    pub interrupted: bool,
     /// The tip's record holds only its failure and the host's notes (`thread_view::runtime_never_started`).
     pub never_started: bool,
     /// The tip failed on its provider's side (`failure_words::offers_continue`): its card offers Continue.
@@ -2175,6 +2177,7 @@ impl Session {
             snapshot.running = reader.transcript.running
                 && fresh(reader.tail.modified, SystemTime::now())
                 && !crate::native::orphaned(&reader.id);
+            snapshot.interrupted = !snapshot.running && reader.transcript.running;
             let turn_edits = if is_tip && snapshot.running {
                 reader.edits = None;
                 None
@@ -3290,6 +3293,7 @@ mod tests {
         let snapshot = session.poll().unwrap();
         // Snapshot::running goes false after the 15-minute window; the run has not ended.
         assert!(!snapshot.running && !snapshot.failed);
+        assert!(snapshot.interrupted);
         assert!(!session.tip_ended());
         assert!(session.tip_quiet(SystemTime::now()).unwrap() >= ACTIVE_WINDOW);
 

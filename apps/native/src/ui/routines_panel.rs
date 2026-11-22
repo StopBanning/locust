@@ -205,12 +205,28 @@ pub(super) fn open(s: &mut State) {
 fn save_from_conversation(s: &mut State, at: usize) {
     let Some(shelf) = s.routines.savable.get(at).cloned() else { return };
     let Some(saved) = shelf.saved else { return };
+    save_saved(s, saved, &shelf.row.teammate);
+}
+
+/// Save conversation as routine, from the conversation header (App.tsx `openSaveRoutine`): the Routines screen opens
+/// with its editor on the conversation whose latest turn is `tip`, read back as the shelf reads one.
+pub(super) fn save_conversation(s: &mut State, tip: &str) {
+    let teammate = selected_conversation(s).map(|(t, _)| t.name.clone()).unwrap_or_default();
+    let Some(saved) = (s.routines.read_saved)(tip) else { return };
+    if saved.draft.is_none() {
+        return;
+    }
+    open(s);
+    save_saved(s, saved, &teammate);
+}
+
+fn save_saved(s: &mut State, saved: locust_core::routine_draft::Saved, row_teammate: &str) {
     let Some(draft) = saved.draft else { return };
     // The conversation's owner, walked back (conversationOwnerOf): a follow-up typed after it was assigned records no
     // owner of its own. Then the name its row shows; else nobody, and the editor asks who runs it.
     let known = |id: &str| s.teammates.iter().any(|t| t.id == id);
     let owner = saved.chain.iter().find_map(|m| s.mission_owners.get(m).filter(|id| known(id)).cloned())
-        .or_else(|| s.teammates.iter().find(|t| t.name == shelf.row.teammate).map(|t| t.id.clone()))
+        .or_else(|| s.teammates.iter().find(|t| t.name == row_teammate).map(|t| t.id.clone()))
         .unwrap_or_default();
     edit(s, json!({"name": draft.name, "steps": draft.steps, "teammateId": owner, "learnedFrom": draft.learned_from}));
     s.routines.truncated = draft.truncated;

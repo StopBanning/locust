@@ -1,0 +1,7 @@
+src/ui/header_menu.rs|||if save_as_routine_id(s).is_some() { ==> if false {
+src/ui/header_menu.rs|||} else if pane.snapshot.failed { ==> } else if false {
+src/ui/header_menu.rs|||sum.is_some_and(|sum| sum.cancelled) ==> sum.is_some_and(|sum| sum.cancelled && false)
+src/ui/header_menu.rs|||crate::routines_panel::save_conversation(s, &tip); ==> let _ = tip;
+src/ui/routines_panel.rs|||open(s);
+    save_saved(s, saved, &teammate); ==> open(s);
+    let _ = (saved, teammate);

@@ -1,0 +1,5 @@
+core/src/call_todos.rs|||*direction == "posted" ==> *direction == "received"
+core/src/call_todos.rs|||received_in(message_id), ==> None,
+core/src/call_todos.rs|||(!handed.is_empty()).then ==> true.then
+core/src/call_todos.rs|||Self::Done => ("Done", Tone::Green) ==> Self::Done => ("Working", Tone::Blue)
+core/src/call_todos.rs|||crate::thread_view::received_message(message_id, links).is_some() ==> !links.is_empty()

@@ -2680,6 +2680,11 @@ apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.t
 apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	a window that never listens is not waited on forever: the keys are opened anyway, for the readers that need them	no
 apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	a read before the step leaves nothing to say	no
 apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	is one step however often it is begun, and settled once it is over	no
+apps/desktop/src/main/the-live-word-is-visibly-live.test.ts	sweeps with the library own shape: a solid word, a highlight over it	yes
+apps/desktop/src/main/the-live-word-is-visibly-live.test.ts	leaves the word itself painted	yes
+apps/desktop/src/main/the-live-word-is-visibly-live.test.ts	drops only the highlight when motion is off	yes
+apps/desktop/src/main/the-live-word-is-visibly-live.test.ts	sets the live word as a label rather than a machine string	yes
+apps/desktop/src/main/the-live-word-is-visibly-live.test.ts	scales no orb at all	yes
 apps/desktop/src/main/the-message-box-focus-meets-3-to-1.test.ts	draws its edge in the box token	yes
 apps/desktop/src/main/the-message-box-focus-meets-3-to-1.test.ts	is at least 3:1 against the page and against the box	yes
 apps/desktop/src/main/the-message-box-is-one-row.test.ts	lays the +, the field and the buttons out on one row	yes
@@ -3325,6 +3330,13 @@ apps/desktop/src/renderer/src/a-landing-says-why-it-cannot.test.ts	says what wou
 apps/desktop/src/renderer/src/a-large-diff-says-the-right-counts.test.tsx	never says +0 with a deletion count when lines were added in a recorded LARGE rewrite	yes
 apps/desktop/src/renderer/src/a-large-diff-says-the-right-counts.test.tsx	shows no counts and lets LARGE say it when true counts cannot be known	yes
 apps/desktop/src/renderer/src/a-large-diff-says-the-right-counts.test.tsx	leaves a small diff's counts unchanged	yes
+apps/desktop/src/renderer/src/a-lead-shows-what-it-handed-out.test.tsx	lists two delegations with their live states and Open, retaining the full exchange	yes
+apps/desktop/src/renderer/src/a-lead-shows-what-it-handed-out.test.tsx	adds no card when the turn handed nothing out, including an incoming message	yes
+apps/desktop/src/renderer/src/a-lead-shows-what-it-handed-out.test.tsx	reads Done when the receiving turn is completed, from the same state as a call	yes
+apps/desktop/src/renderer/src/a-lead-shows-what-it-handed-out.test.tsx	keeps an earlier turn’s card under that turn, without repeating it under the newest	yes
+apps/desktop/src/renderer/src/a-lead-shows-what-it-handed-out.test.tsx	shows an undelivered share as Starting without an Open button	yes
+apps/desktop/src/renderer/src/a-lead-shows-what-it-handed-out.test.tsx	keeps separate asks delivered to the same turn, rather than losing one row	yes
+apps/desktop/src/renderer/src/a-lead-shows-what-it-handed-out.test.tsx	uses the receiving live mission before a history refresh, never the sender	yes
 apps/desktop/src/renderer/src/a-limit-note-leaves-when-it-stops-being-true.test.ts	shows while the run waits on the provider	yes
 apps/desktop/src/renderer/src/a-limit-note-leaves-when-it-stops-being-true.test.ts	goes once the model answers after all	yes
 apps/desktop/src/renderer/src/a-limit-note-leaves-when-it-stops-being-true.test.ts	goes once the run has ended	yes
@@ -4852,6 +4864,11 @@ apps/desktop/src/renderer/src/review-notes-survive-a-revision.test.tsx	leave a m
 apps/desktop/src/renderer/src/review-notes-survive-a-revision.test.tsx	says the line changed, only the file changed, nothing changed, or the file went	yes
 apps/desktop/src/renderer/src/review-notes-survive-a-revision.test.tsx	finds the file however the runtime wrote its path	yes
 apps/desktop/src/renderer/src/review-notes-survive-a-revision.test.tsx	are drawn under the bubble, each with where it was and what became of it once the turn is over	yes
+apps/desktop/src/renderer/src/review-sees-the-conversation.test.ts	names this turn as this turn, and earlier work as earlier	yes
+apps/desktop/src/renderer/src/review-sees-the-conversation.test.ts	does not repeat a path this turn touched again	yes
+apps/desktop/src/renderer/src/review-sees-the-conversation.test.ts	says nothing about earlier work when there was none	yes
+apps/desktop/src/renderer/src/review-sees-the-conversation.test.ts	carries earlier work into a turn that only answered -- where it matters most	yes
+apps/desktop/src/renderer/src/review-sees-the-conversation.test.ts	still makes no claim about whether the work is good	yes
 apps/desktop/src/renderer/src/room-absent-is-a-line.test.tsx	renders at all, with a card for everyone who did answer	no
 apps/desktop/src/renderer/src/room-absent-is-a-line.test.tsx	gets no answer card, because there is no answer in it	no
 apps/desktop/src/renderer/src/room-absent-is-a-line.test.tsx	is one line naming everyone it missed	no
@@ -4936,6 +4953,17 @@ apps/desktop/src/renderer/src/run-it-again-repeats-nothing.test.ts	H4: a run tha
 apps/desktop/src/renderer/src/run-it-again-repeats-nothing.test.ts	is still true for a run that never reached its runtime: its failure and the host’s notes	yes
 apps/desktop/src/renderer/src/run-it-again-repeats-nothing.test.ts	counts a runtime thread on any event as a start	yes
 apps/desktop/src/renderer/src/run-it-again-repeats-nothing.test.ts	H4: keeps its first event past the cap, so a failed turn still reads as started	yes
+apps/desktop/src/renderer/src/savable-conversations.test.ts	are the finished ones, newest first	yes
+apps/desktop/src/renderer/src/savable-conversations.test.ts	are never a run that failed, was cancelled, was interrupted or is still going	yes
+apps/desktop/src/renderer/src/savable-conversations.test.ts	are capped, so the empty state does not become a mission list	yes
+apps/desktop/src/renderer/src/savable-conversations.test.ts	keep a conversation whose time is missing or unreadable, at the end	yes
+apps/desktop/src/renderer/src/savable-conversations.test.ts	are empty when nothing has finished, so the screen can say so honestly	yes
+apps/desktop/src/renderer/src/savable-conversations.test.ts	count their turns in words that agree with themselves	yes
+apps/desktop/src/renderer/src/savable-conversations.test.ts	is there on a finished conversation with turns of yours in it	yes
+apps/desktop/src/renderer/src/savable-conversations.test.ts	is absent while the run is going	yes
+apps/desktop/src/renderer/src/savable-conversations.test.ts	is absent on a run that failed, was cancelled or was interrupted	yes
+apps/desktop/src/renderer/src/savable-conversations.test.ts	is absent when nothing in the conversation was typed by the person	yes
+apps/desktop/src/renderer/src/savable-conversations.test.ts	is absent on a conversation whose first receipt has not landed	yes
 apps/desktop/src/renderer/src/scout-says-what-needs-you.test.tsx	lead with Locust’s sentence, say who noticed it and when, and open what it is about	no
 apps/desktop/src/renderer/src/scout-says-what-needs-you.test.tsx	raise what needs the person now, first, whenever it was found	no
 apps/desktop/src/renderer/src/scout-says-what-needs-you.test.tsx	show Scout’s take and draft as Scout’s, with Send and Change it first, and say while it is still reading	no

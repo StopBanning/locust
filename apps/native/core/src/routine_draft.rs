@@ -152,3 +152,12 @@ pub fn read_saved(tip: &str) -> Option<Saved> {
 #[cfg(test)]
 #[path = "routine_draft_tests.rs"]
 mod tests;
+
+/// Whether the finished conversation on screen has the person's steps to replay.
+pub fn savable_mission_id<'a>(id: Option<&'a str>, phase: Option<&str>, running: bool, has_draft: bool) -> Option<&'a str> {
+    id.filter(|id| !id.starts_with("pending:") && !running && phase == Some("completed") && has_draft)
+}
+
+#[cfg(test)]
+#[path = "savable_conversations_tests.rs"]
+mod savable_conversations_tests;

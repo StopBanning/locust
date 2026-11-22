@@ -1195,3 +1195,33 @@ pub(super) fn picker_names_scene(s: &mut State) {
         engine::Model{id:"account-default".into(),name:"Account default".into(),efforts:vec![]}
     ]}]);
 }
+
+/// The finished conversation's Save entrance and the asks it handed out, without reading a real ledger.
+pub(super) fn reviews_handed_scene(s: &mut State) {
+    ledger_scene(s, false, false);
+    let mission = "synthetic-ledger";
+    let pane = s.ledger.as_mut().unwrap();
+    pane.items = vec![ledger::Item::User("Check the release and review the migration.".into()), ledger::Item::Assistant { item_id: "reply".into(), text: "I handed out the checks. Their conversations are below.".into(), r#final: true }];
+    pane.snapshot.turn_metas = vec![ledger::Metadata { mission_id: mission.into(), prompt: "Check the release and review the migration.".into(), ..Default::default() }];
+    for (id, who, task, running) in [("check", "Codec", "Check the release tests.", true), ("review", "Argon", "Review the migration.", false)] {
+        let target = format!("synthetic-{id}");
+        let message_id = format!("msg-{id}");
+        pane.snapshot.peer_links.push((mission.into(), ledger::PeerLink { direction: "posted".into(), message_id: message_id.clone(), peer_teammate_id: id.into(), occurred_at: String::new() }));
+        s.workroom_messages.insert(message_id.clone(), locust_core::workroom::Message {
+            message_id: message_id.clone(), sequence: 0,
+            from: locust_core::workroom::Party { teammate_id: pane.header.id.clone(), name: pane.header.name.clone() }, from_mission: mission.into(),
+            to: locust_core::workroom::Party { teammate_id: id.into(), name: who.into() }, text: task.into(), posted_at: "2026-11-21T12:00:00Z".into(), observed: None,
+        });
+        s.ledger_summaries.insert(target.clone(), ledger::Summary { mission_id: target, running, peer_links: vec![ledger::PeerLink { direction: "received".into(), message_id, peer_teammate_id: pane.header.id.clone(), occurred_at: String::new() }], ..Default::default() });
+    }
+}
+
+pub(super) fn reviews_save_scene(s: &mut State) {
+    reviews_handed_scene(s);
+    s.row_menu = Some(crate::context_menu::MenuState { x: 850.0, y: 100.0, title: "Conversation actions".into(), target: "synthetic-ledger".into(), items: crate::header_menu::items(s), armed: None, open_sub: None });
+}
+
+pub(super) fn reviews_live_scene(s: &mut State) {
+    ledger_scene(s, true, false);
+    s.ledger.as_mut().unwrap().snapshot.live = locust_core::thread_view::live_line(&[], true, &chrono::Utc::now().to_rfc3339(), false);
+}

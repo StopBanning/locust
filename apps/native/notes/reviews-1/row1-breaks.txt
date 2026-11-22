@@ -1,0 +1,27 @@
+core/src/review_brief.rs|||filter(|p| !material.changed.contains(p)).collect(); ==> filter(|_p| true).collect();
+core/src/review_brief.rs|||    if earlier.is_empty() {
+        return Vec::new(); ==>     if earlier.is_empty() && false {
+        return Vec::new();
+core/src/review_brief.rs|||        // Even here -- especially here: a turn that only answered, after earlier turns built something.
+        lines.extend(earlier_work_lines(material)); ==>         // dropped
+core/src/review_brief.rs|||    lines.extend(earlier_work_lines(material));
+
+    lines.push("WHERE IT RAN".into());
+    lines.push(material.ran_on.clone());
+    lines.push(String::new());
+
+    lines.extend(job_lines().iter().map(|l| (*l).to_owned()));
+    lines.join("\n")
+} ==>     lines.push("WHERE IT RAN".into());
+    lines.push(material.ran_on.clone());
+    lines.push(String::new());
+
+    lines.extend(job_lines().iter().map(|l| (*l).to_owned()));
+    lines.join("\n")
+}
+core/src/review_brief.rs|||"CHANGED EARLIER IN THIS CONVERSATION (already done, not this turn)".to_owned() ==> "CHANGED EARLIER IN THIS CONVERSATION (looks done)".to_owned()
+core/src/review_brief.rs|||    if material.changed.is_empty() && material.commands.is_empty() { ==>     if material.changed.is_empty() && material.commands.is_empty() && false {
+core/src/review_brief.rs|||let head = room * 4 / 10; ==> let head = room;
+core/src/review_brief.rs|||    let said = crate::protocol_tags::defang_protocol_blocks(&material.said); ==>     let said = material.said.clone();
+core/src/review_brief.rs|||lines.extend(material.changed.iter().take(MAX_PATHS).map(|p| format!("- {p}"))); ==> lines.extend(material.changed.iter().map(|p| format!("- {p}")));
+core/src/review_brief.rs|||let room = 400.max(MAX_BRIEF.saturating_sub(len16(&brief) - len16(SAID))); ==> let room = 400.max(STEP_BUDGET);
