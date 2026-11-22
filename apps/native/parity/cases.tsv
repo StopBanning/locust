@@ -128,6 +128,42 @@ apps/desktop/src/main/a-cli-session-controls-only-its-own-turn.test.ts	does not 
 apps/desktop/src/main/a-cli-session-controls-only-its-own-turn.test.ts	rechecks the chosen folder before starting a later prompt	yes
 apps/desktop/src/main/a-cli-session-controls-only-its-own-turn.test.ts	stops rather than silently dropping a slow editor’s output	yes
 apps/desktop/src/main/a-cli-session-controls-only-its-own-turn.test.ts	cancels only owned work on app shutdown, including a late start	yes
+apps/desktop/src/main/a-cloud-send-is-confirmed-by-json.test.ts	A cloud send requests JSON and accepts the final success on %s.	yes
+apps/desktop/src/main/a-cloud-send-is-confirmed-by-json.test.ts	A success receipt is trusted whatever form its session id takes, so a sent message is never offered again.	yes
+apps/desktop/src/main/a-cloud-send-is-confirmed-by-json.test.ts	A failed JSON send displays %s verbatim.	yes
+apps/desktop/src/main/a-cloud-send-is-confirmed-by-json.test.ts	A cloud send uses the last JSON answer and never accepts terminal success words.	yes
+apps/desktop/src/main/a-cloud-send-is-confirmed-by-json.test.ts	A send nobody confirmed is said to be unconfirmed, never "not sent", so it is not sent twice (0.568).	yes
+apps/desktop/src/main/a-cloud-send-is-confirmed-by-json.test.ts	A configuration failure keeps the Error fallback and stderr cannot forge success.	yes
+apps/desktop/src/main/a-cloud-task-uses-the-organizations-environment.test.ts	A task carries an optional organization environment alongside the selected model and effort.	yes
+apps/desktop/src/main/a-cloud-task-uses-the-organizations-environment.test.ts	A folder remembers its environment across reloads while other folders keep their own choices.	yes
+apps/desktop/src/main/a-cloud-task-uses-the-organizations-environment.test.ts	A task without an environment keeps the default cloud arguments and opens no window.	yes
+apps/desktop/src/main/a-cloud-task-uses-the-organizations-environment.test.ts	An invalid saved environment is ignored instead of becoming a command argument.	yes
+apps/desktop/src/main/a-cloud-turn-keeps-its-change-there-until-applied.test.ts	is refused in words for a folder that is not on GitHub	yes
+apps/desktop/src/main/a-cloud-turn-keeps-its-change-there-until-applied.test.ts	asks first when the repository has no cloud computer, and makes nothing until it is told to	yes
+apps/desktop/src/main/a-cloud-turn-keeps-its-change-there-until-applied.test.ts	makes one when told to, says each step as it begins, and starts the turn in a copy of its own	yes
+apps/desktop/src/main/a-cloud-turn-keeps-its-change-there-until-applied.test.ts	carries on in the conversation's own copy on the next turn, without bringing the folder again	yes
+apps/desktop/src/main/a-cloud-turn-keeps-its-change-there-until-applied.test.ts	wakes a stopped one first, and says so	yes
+apps/desktop/src/main/a-cloud-turn-keeps-its-change-there-until-applied.test.ts	keeps its change there once it ends, and only the newest turn offers it	yes
+apps/desktop/src/main/a-cloud-turn-keeps-its-change-there-until-applied.test.ts	brings it home on Apply, and the copy starts again from what was brought	yes
+apps/desktop/src/main/a-cloud-turn-keeps-its-change-there-until-applied.test.ts	puts the copy back on Discard	yes
+apps/desktop/src/main/a-cloud-turn-keeps-its-change-there-until-applied.test.ts	sends the change to a new pull request, named from the message, and the copy moves on	yes
+apps/desktop/src/main/a-cloud-turn-keeps-its-change-there-until-applied.test.ts	adds the next change to the conversation's pull request while it is open	yes
+apps/desktop/src/main/a-cloud-turn-keeps-its-change-there-until-applied.test.ts	opens a new one when the last was merged or closed	yes
+apps/desktop/src/main/a-cloud-turn-keeps-its-change-there-until-applied.test.ts	takes its branch away again when GitHub will not open the pull request, and keeps the change waiting	yes
+apps/desktop/src/main/a-cloud-turn-keeps-its-change-there-until-applied.test.ts	needs a title, the first line of its message	yes
+apps/desktop/src/main/a-cloud-turn-keeps-its-change-there-until-applied.test.ts	says where the earlier turns a change held went, once it goes somewhere	yes
+apps/desktop/src/main/a-cloud-turn-keeps-its-change-there-until-applied.test.ts	sends a message's own files to the copy there, and nothing outside .locust/attachments	yes
+apps/desktop/src/main/a-cloud-turn-keeps-its-change-there-until-applied.test.ts	cannot put a different OpenCode there than the one it reads here	yes
+apps/desktop/src/main/a-cloud-turn-runs-on-the-cloud-computer.test.ts	is refused in words on a runtime it does not run there, before anything	yes
+apps/desktop/src/main/a-cloud-turn-runs-on-the-cloud-computer.test.ts	runs a Claude Code turn there: its own copy, in the copy there, with nothing of this computer's	yes
+apps/desktop/src/main/a-cloud-turn-runs-on-the-cloud-computer.test.ts	runs a Codex turn there on its app server, over the connection, never the one here	yes
+apps/desktop/src/main/a-cloud-turn-runs-on-the-cloud-computer.test.ts	hands the words back and offers the sign-in when the agent is not signed in there	yes
+apps/desktop/src/main/a-cloud-turn-runs-on-the-cloud-computer.test.ts	runs OpenCode's server on the cloud computer, readied first and said on the live line	yes
+apps/desktop/src/main/a-cloud-turn-runs-on-the-cloud-computer.test.ts	tells the brief the turn stands in its own copy there, never this folder	yes
+apps/desktop/src/main/a-cloud-turn-runs-on-the-cloud-computer.test.ts	sends the message's own files to the copy there before the agent starts	yes
+apps/desktop/src/main/a-cloud-turn-runs-on-the-cloud-computer.test.ts	sends nothing over for a message with no files of its own	yes
+apps/desktop/src/main/a-cloud-turn-runs-on-the-cloud-computer.test.ts	hands the words back and asks first when the repository has no cloud computer, recording nothing	yes
+apps/desktop/src/main/a-cloud-turn-runs-on-the-cloud-computer.test.ts	is refused for a model of the person's own, which answers from this computer	yes
 apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	names the guard on Windows the way Codex runs a hook there: in PowerShell, on Locust’s own binary run as node	yes
 apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	names it elsewhere exactly as Claude Code’s is named	yes
 apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	is written only when LOCUST_GUARD_LOG names a file, one per question, with what was decided	yes
@@ -1587,6 +1623,23 @@ apps/desktop/src/main/changelog.test.ts	reads an entry with no date	no
 apps/desktop/src/main/changelog.test.ts	says nothing for a version the file does not carry	no
 apps/desktop/src/main/changelog.test.ts	reads an empty or headingless file as no entries at all	no
 apps/desktop/src/main/changelog.test.ts	is not fooled by a version-looking line inside an entry	no
+apps/desktop/src/main/cloud-task-service.test.ts	starts on the folder's own repository and branch, and is kept	yes
+apps/desktop/src/main/cloud-task-service.test.ts	says, before it runs, what the cloud will not see	yes
+apps/desktop/src/main/cloud-task-service.test.ts	refuses a folder with no GitHub repository, and starts nothing	yes
+apps/desktop/src/main/cloud-task-service.test.ts	is followed to READY, its change fetched, and applied only when asked	yes
+apps/desktop/src/main/cloud-task-service.test.ts	never applies a task it did not start	yes
+apps/desktop/src/main/cloud-tasks.test.ts	is named owner/repo from its remote, https or ssh	yes
+apps/desktop/src/main/cloud-tasks.test.ts	says its branch, what GitHub does not have yet, and uncommitted work	yes
+apps/desktop/src/main/cloud-tasks.test.ts	has no upstream, or no remote, said as unknown rather than guessed	yes
+apps/desktop/src/main/cloud-tasks.test.ts	finds the task in what Codex printed	yes
+apps/desktop/src/main/cloud-tasks.test.ts	says a missing environment in terms of what to do about it	yes
+apps/desktop/src/main/cloud-tasks.test.ts	passes on anything else in Codex's own last words, never its config warnings	yes
+apps/desktop/src/main/cloud-tasks.test.ts	reads what `codex cloud list --env` answered on 2026-09-30	yes
+apps/desktop/src/main/cloud-tasks.test.ts	says unknown, not missing, for anything else -- a network failure is not a missing environment	yes
+apps/desktop/src/main/cloud-tasks.test.ts	reads a finished task as Codex prints it, on three lines, with its change counted	yes
+apps/desktop/src/main/cloud-tasks.test.ts	reads the same on one line	yes
+apps/desktop/src/main/cloud-tasks.test.ts	reads one still going, with nothing to count yet	yes
+apps/desktop/src/main/cloud-tasks.test.ts	reads anything it does not know as unknown	yes
 apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	holds the teammate’s listed skills, the kept ones and a tune column’s one, the most particular winning a name	no
 apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	is nothing at all when there is nothing to hand over, and leaves no folder behind	no
 apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	copies no link, so removing the copy can never reach past it	no
@@ -1600,6 +1653,11 @@ apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	a tu
 apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	lists the run’s folder in its own config’s skills, and nothing when there is none	no
 apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	allows the copied skill subtree through native rules without changing edit or shell denials	no
 apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	hands the folder to Codex on its app-server, OpenCode, Copilot and Antigravity, never on a cloud computer, and removes it after	no
+apps/desktop/src/main/codex-cloud-leaves-no-log.test.ts	a log the call made is gone afterwards, and the answer is unchanged	yes
+apps/desktop/src/main/codex-cloud-leaves-no-log.test.ts	the person's own error.log keeps its lines; only Codex's are taken off	yes
+apps/desktop/src/main/codex-cloud-leaves-no-log.test.ts	what does not read like Codex is never removed	yes
+apps/desktop/src/main/codex-cloud-leaves-no-log.test.ts	also when the call fails, and with two calls on one folder at once	yes
+apps/desktop/src/main/codex-cloud-leaves-no-log.test.ts	recognises Codex's lines and nothing else	yes
 apps/desktop/src/main/codex-mission.test.ts	says nothing when nothing was refused	no
 apps/desktop/src/main/codex-mission.test.ts	explains a refusal when one actually happens	no
 apps/desktop/src/main/codex-mission.test.ts	explains it once, however many reads are refused	no
