@@ -719,3 +719,7 @@ mod an_app_started_turn_tests;
 #[cfg(test)]
 #[path = "other_apps_ask_teammates_tests.rs"]
 mod other_apps_ask_teammates_tests;
+
+#[cfg(test)]
+#[path = "an_app_reads_both_parts_tests.rs"]
+mod an_app_reads_both_parts_tests;

@@ -270,7 +270,7 @@ fn keeps_readable_text_beside_machine_status_for_working_approval_done_failed_an
         assert!(!result.text.is_empty(), "{status}");
         assert_eq!(
             result.structured,
-            Some(json!({"status": status, "runtime": "cursor", "model": "grok", "folder": "/work/conversation", "can_carry_on": carry})),
+            Some(json!({"status": status, "message": result.text, "runtime": "cursor", "model": "grok", "folder": "/work/conversation", "can_carry_on": carry})),
             "{status}"
         );
     }

@@ -118,6 +118,7 @@ pub struct Turn {
     /// The account its route recorded (`resolvedRouteId`), None for the machine's own sign-in.
     pub account: Option<String>,
     pub events: Vec<Value>,
+    pub host_failure_message: Option<String>,
     pub updated: String,
 }
 
@@ -133,6 +134,11 @@ impl Turn {
             .collect();
         events.sort_by_key(|(s, _)| *s);
         events.dedup_by_key(|(s, _)| *s);
+        let host_failure_message = records
+            .iter()
+            .rev()
+            .find(|r| r["recordType"] == "mission.host_failure")
+            .and_then(|r| text(&r["failure"]["message"]));
         let updated = records.iter().rev().find_map(|r| r["occurredAt"].as_str().map(str::to_owned)).unwrap_or_default();
         Some(Self {
             mission_id: text(&meta["missionId"])?,
@@ -145,6 +151,7 @@ impl Turn {
             cwd: text(&meta["command"]["cwd"]),
             account: meta["resolvedRouteId"].as_str().and_then(crate::agent_accounts::account_from_route).map(str::to_owned),
             events: events.into_iter().map(|(_, e)| e).collect(),
+            host_failure_message,
             updated,
         })
     }
@@ -155,6 +162,7 @@ impl Turn {
             Some("run.completed") => "completed",
             Some("run.failed") => "failed",
             Some("run.cancelled") => "cancelled",
+            _ if self.host_failure_message.is_some() => "failed",
             _ => "interrupted",
         }
     }
@@ -289,11 +297,15 @@ pub fn answer_of(turn: &Turn) -> ToolResult {
     match turn.phase() {
         "failed" => {
             let said = turn
-                .events
-                .iter()
-                .rev()
-                .find(|e| e["type"] == "run.failed")
-                .and_then(|e| e["payload"]["message"].as_str())
+                .host_failure_message
+                .as_deref()
+                .or_else(|| {
+                    turn.events
+                        .iter()
+                        .rev()
+                        .find(|e| e["type"] == "run.failed")
+                        .and_then(|e| e["payload"]["message"].as_str())
+                })
                 .unwrap_or("The AI agent ended without an answer.");
             return ToolResult::refused(said);
         }
@@ -608,7 +620,10 @@ impl<L: Locust> Tools<L> {
                 _ => "stopped",
             }
         };
+        // The words in both parts (0.882): a client that reads structuredContent shows it in place of the text, so the
+        // same words ride in `message`.
         result.structured = Some(json!({
+            "message": result.text,
             "status": status,
             "runtime": turn.runtime,
             "model": turn.model,
@@ -1116,7 +1131,7 @@ impl<L: Locust> Tools<L> {
             let mut starting = self.starting.lock().unwrap_or_else(|e| e.into_inner());
             if starting.contains(id) {
                 let mut r = ToolResult::ok("Still working: starting the next turn.");
-                r.structured = Some(json!({"status": "working", "runtime": null, "model": null, "folder": null, "can_carry_on": false}));
+                r.structured = Some(json!({"message": r.text, "status": "working", "runtime": null, "model": null, "folder": null, "can_carry_on": false}));
                 return r;
             }
             // Claim before the first read: two sends must not both continue the same old turn.
