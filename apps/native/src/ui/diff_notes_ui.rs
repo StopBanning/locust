@@ -539,6 +539,7 @@ deleted file mode 100644
             });
             snap.turn_edits.insert("m1".into(), turn_edit);
             s.ledger = Some(LedgerPane {
+                cold_tip: None,
                 header: s.teammates[0].clone(),
                 conversation: Conversation {
                     conversation_id: Some("m1".into()),

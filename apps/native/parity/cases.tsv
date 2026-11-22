@@ -1579,6 +1579,12 @@ apps/desktop/src/main/codex-mission.test.ts	reads no folder for a read-only star
 apps/desktop/src/main/codex-mission.test.ts	replays the same paced answer with fewer durable appends and sends while keeping every fragment	no
 apps/desktop/src/main/codex-mission.test.ts	reads and normalizes while an append is on the disk, and writes what arrived in one append when it lands	no
 apps/desktop/src/main/codex-mission.test.ts	stops reading at the bound and lets a flood back up into the runner, as it always did	no
+apps/desktop/src/main/cold-start-is-not-an-alert.test.ts	sits above the work it describes, not below it	yes
+apps/desktop/src/main/cold-start-is-not-an-alert.test.ts	is nowhere near the approvals, which are what the run is waiting on	yes
+apps/desktop/src/main/cold-start-is-not-an-alert.test.ts	follows the time marker, adjacent to it, opening the turn	yes
+apps/desktop/src/main/cold-start-is-not-an-alert.test.ts	is a NOTE, not a marker: the two registers must not be confused	yes
+apps/desktop/src/main/cold-start-is-not-an-alert.test.ts	still says the thing worth saying	yes
+apps/desktop/src/main/cold-start-is-not-an-alert.test.ts	is a real control: it catches the placement that shipped	yes
 apps/desktop/src/main/combining-a-tunes-two-edits.test.ts	asks for one set with both edits, every part of Current neither changed, and nothing new, all as quoted data	no
 apps/desktop/src/main/command-record.test.ts	keeps the flags, which is the whole point	yes
 apps/desktop/src/main/command-record.test.ts	never records the prompt, whatever flag introduced it	yes
@@ -2191,6 +2197,7 @@ apps/desktop/src/main/route-at-start.test.ts	a conversation shows what it ran on
 apps/desktop/src/main/route-at-start.test.ts	a pick for a new chat with one teammate is not for another	no
 apps/desktop/src/main/route-at-start.test.ts	home does not inherit a teammate override	no
 apps/desktop/src/main/route-at-start.test.ts	shows a Kilo teammate saved on the account default as Auto Free	no
+apps/desktop/src/main/route-remembers-effort.test.ts	keeps the effort it was started with, and clears it when the next start has none	yes
 apps/desktop/src/main/routine-recovery.test.ts	restart proof: step 2 survives a fresh store and runner without replaying step 1	yes
 apps/desktop/src/main/routine-recovery.test.ts	completion accounting proof: step 1 start does not stamp lastRunAt or consume the six-hour interval	yes
 apps/desktop/src/main/routine-recovery.test.ts	records dispatch intent before spawn; a thrown start is uncertain after restart	yes

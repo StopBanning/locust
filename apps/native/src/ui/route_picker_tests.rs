@@ -358,6 +358,7 @@ fn what_the_conversations_header_says_a_run_cost_is_money_or_nothing() {
     let mut snap = ledger::Snapshot::default();
     snap.cost = Some(locust_core::benchmark::RunCost { input_tokens: Some(9000), output_tokens: Some(240), usd: Some(0.12), ..Default::default() });
     s.ledger = Some(LedgerPane {
+        cold_tip: None,
         header: s.teammates[0].clone(),
         conversation: Conversation::default(),
         items: vec![],
@@ -505,6 +506,7 @@ fn the_conversations_header_names_the_model_and_says_the_phase_only_when_it_is_n
     let mut snap = ledger::Snapshot::default();
     snap.running = true;
     s.ledger = Some(LedgerPane {
+        cold_tip: None,
         header: s.teammates[0].clone(),
         conversation: Conversation::default(),
         items: vec![],

@@ -30,7 +30,7 @@ fn fresh(id: &str) -> Found {
 }
 
 struct Harness {
-    readiness: StartReadiness,
+    readiness: Arc<StartReadiness>,
     held: Arc<Mutex<Option<HeldAnswer>>>,
     sweeps: Arc<AtomicUsize>,
     asked: Arc<Mutex<Vec<String>>>,
@@ -46,7 +46,7 @@ fn harness(clock: u64) -> Harness {
     let asked = Arc::new(Mutex::new(Vec::new()));
     let fail_next = Arc::new(AtomicUsize::new(0));
     let now = Arc::new(AtomicU64::new(clock));
-    let readiness = StartReadiness::new(StartReadinessOptions {
+    let readiness = Arc::new(StartReadiness::new(StartReadinessOptions {
         ttl_ms: TTL,
         now: Box::new(move || now.load(Ordering::SeqCst)),
         held: Box::new({
@@ -79,7 +79,7 @@ fn harness(clock: u64) -> Harness {
             }
         }),
         sweep_only: ["antigravity".to_owned()].into_iter().collect(),
-    });
+    }));
     let first = held.lock().unwrap().clone().unwrap();
     readiness.swept(&first.value, 0);
     Harness { readiness, held, sweeps, asked, fail_next }
@@ -188,4 +188,218 @@ fn a_runtime_a_sweep_answered_later_is_fresh_from_that_answer_not_from_the_held_
     // Another runtime, not stamped, is still stale.
     h.readiness.for_start(Some("codex"));
     assert_eq!(h.asked(), vec!["codex".to_owned()]);
+}
+
+// ---- a real start goes through it (index.ts discoverForStart, codex-mission.ts start) ----
+
+use crate::native::{Send, hooks, not_ready_refusal, send_from};
+
+struct Temp(std::path::PathBuf);
+impl Temp {
+    fn new(tag: &str) -> Self {
+        let p = std::env::temp_dir().join(format!(
+            "locust-start-ready-{tag}-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+        ));
+        std::fs::create_dir_all(p.join("electron/mission-ledger")).unwrap();
+        std::fs::create_dir_all(p.join("work")).unwrap();
+        Self(p)
+    }
+    fn store(&self) -> crate::store::Store {
+        crate::store::Store::new(self.0.join("native"), self.0.join("electron")).unwrap()
+    }
+    /// The turns this store holds, as mission files.
+    fn missions(&self) -> usize {
+        std::fs::read_dir(self.0.join("native/mission-ledger")).map_or(0, |d| d.count())
+    }
+}
+impl Drop for Temp {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+fn fake_codex() -> Option<(std::path::PathBuf, Vec<String>)> {
+    Some(("python3".into(), vec![concat!(env!("CARGO_MANIFEST_DIR"), "/../scripts/fixtures/m1-app-server.py").into(), "success".into()]))
+}
+
+fn send_to_codex(t: &Temp) -> Result<crate::engine::Started, String> {
+    send_from(
+        Send {
+            teammate: crate::engine::Teammate {
+                id: "tm_codec".into(),
+                name: "Codec".into(),
+                role: "Code & Migrations".into(),
+                runtime: Some("codex".into()),
+                model: Some("synthetic-model".into()),
+                account: None,
+                busy: false,
+                runs_in: "ask".into(),
+                folder: Some(t.0.join("work").to_string_lossy().into()),
+            },
+            conversation: None,
+            prompt: "Say hello.".into(),
+            model: Some("synthetic-model".into()),
+            effort: None,
+        },
+        crate::native::Origin::default(),
+    )
+}
+
+/// The engine asks through `h`'s readiness, the clock where `h` left it.
+fn install(h: Harness) -> Harness {
+    *crate::invariants::lock(&hooks::READINESS) = Some(h.readiness.clone());
+    h
+}
+
+// case: asks the starting runtime ALONE once the answer is stale
+#[test]
+fn a_real_start_on_a_stale_ready_runtime_asks_it_alone_and_goes_through() {
+    let t = Temp::new("stale");
+    let _g = hooks::install(t.store(), fake_codex());
+    let h = install(harness(TTL + 1));
+    let started = send_to_codex(&t);
+    assert!(started.is_ok(), "{started:?}");
+    assert_eq!(h.asked(), vec!["codex".to_owned()]);
+    assert_eq!(h.sweeps(), 0);
+    assert_eq!(t.missions(), 1);
+}
+
+// case: asks nothing while the last answer is fresh
+#[test]
+fn a_real_start_on_a_fresh_ready_runtime_asks_nothing() {
+    let t = Temp::new("fresh");
+    let _g = hooks::install(t.store(), fake_codex());
+    let h = install(harness(60_000));
+    assert!(send_to_codex(&t).is_ok());
+    assert_eq!((h.sweeps(), h.asked().len()), (0, 0));
+}
+
+// case: still sweeps for a runtime that was not ready, and for Antigravity
+#[test]
+fn a_real_start_on_a_signed_out_runtime_sweeps_and_is_refused_in_electrons_words_before_anything_is_recorded() {
+    let t = Temp::new("signed-out");
+    let _g = hooks::install(t.store(), fake_codex());
+    let h = install(harness(60_000));
+    h.set_held(vec![runtime("codex", Probe::AuthRequired), runtime("claude", Probe::Ready)]);
+    let refused = send_to_codex(&t).unwrap_err();
+    assert_eq!(refused, "Codex CLI is signed out. Sign in to it, then retry discovery.");
+    assert_eq!(h.sweeps(), 1);
+    assert!(h.asked().is_empty());
+    assert_eq!(t.missions(), 0, "a refused start leaves no record");
+}
+
+#[test]
+fn a_real_start_on_a_runtime_discovery_does_not_find_is_refused_as_not_installed() {
+    let t = Temp::new("missing");
+    let _g = hooks::install(t.store(), fake_codex());
+    let h = install(harness(60_000));
+    h.set_held(vec![runtime("claude", Probe::Ready)]);
+    assert_eq!(send_to_codex(&t).unwrap_err(), "Codex CLI is not installed on this machine. Install it, then retry discovery.");
+    assert_eq!(t.missions(), 0);
+}
+
+#[test]
+fn your_own_agent_and_an_added_account_are_not_asked_the_default_sign_in() {
+    let t = Temp::new("skip");
+    let _g = hooks::install(t.store(), fake_codex());
+    let h = install(harness(60_000));
+    h.set_held(Vec::new());
+    assert_eq!(crate::native::start_readiness_refusal("acp", None), None);
+    assert_eq!(crate::native::start_readiness_refusal("codex", Some("work")), None);
+    assert_eq!((h.sweeps(), h.asked().len()), (0, 0));
+    assert!(crate::native::start_readiness_refusal("codex", None).is_some());
+}
+
+#[test]
+fn which_kind_of_not_ready_is_said_as_electron_says_it() {
+    let found = |status: Probe, installed: bool| Found { installed, ..runtime("claude", status) };
+    assert_eq!(not_ready_refusal("claude", None), "Claude Code is not installed on this machine. Install it, then retry discovery.");
+    assert_eq!(
+        not_ready_refusal("claude", Some(&found(Probe::Missing, false))),
+        "Claude Code is not installed on this machine. Install it, then retry discovery."
+    );
+    assert_eq!(not_ready_refusal("claude", Some(&found(Probe::AuthRequired, true))), "Claude Code is signed out. Sign in to it, then retry discovery.");
+    assert_eq!(
+        not_ready_refusal("cursor", Some(&found(Probe::Offline, true))),
+        "Cursor Agent could not be reached just now: it did not answer when Locust checked on it, which usually means its own service is down. Try again in a minute, or pick another model."
+    );
+    assert_eq!(not_ready_refusal("opencode", Some(&found(Probe::ProbeFailed, true))), "OpenCode is not ready. Install or sign in to it, then retry discovery.");
+}
+
+#[test]
+fn a_sweep_stamps_an_answered_agent_fresh_and_leaves_one_still_being_checked_stale() {
+    let clock = Arc::new(AtomicU64::new(TTL + 1));
+    let held: Arc<Mutex<Option<HeldAnswer>>> =
+        Arc::new(Mutex::new(Some(HeldAnswer { at: 0, value: vec![runtime("claude", Probe::Ready), runtime("codex", Probe::Ready)] })));
+    let asked = Arc::new(Mutex::new(Vec::<String>::new()));
+    let readiness = StartReadiness::new(StartReadinessOptions {
+        ttl_ms: TTL,
+        now: Box::new({
+            let c = clock.clone();
+            move || c.load(Ordering::SeqCst)
+        }),
+        held: Box::new({
+            let h = held.clone();
+            move || h.lock().unwrap().clone()
+        }),
+        store: Box::new({
+            let h = held.clone();
+            move |value| {
+                let mut h = h.lock().unwrap();
+                let at = h.as_ref().map_or(0, |a| a.at);
+                *h = Some(HeldAnswer { at, value });
+            }
+        }),
+        sweep: Box::new(Vec::new),
+        ask_one: Box::new({
+            let a = asked.clone();
+            move |id| {
+                a.lock().unwrap().push(id.to_owned());
+                Ok(Some(runtime(id, Probe::Ready)))
+            }
+        }),
+        sweep_only: Default::default(),
+    });
+    // Both asked alone at TTL + 1.
+    readiness.for_start(Some("claude"));
+    readiness.for_start(Some("codex"));
+    assert_eq!(asked.lock().unwrap().len(), 2);
+    // A sweep at 2 TTL + 1 answers claude, and has codex still being checked.
+    let still_checking = Found { checking: true, ..runtime("codex", Probe::Ready) };
+    crate::agents::hold_sweep(&held, &readiness, &[runtime("claude", Probe::Ready), still_checking], 2 * TTL + 1);
+    clock.store(2 * TTL + 2, Ordering::SeqCst);
+    readiness.for_start(Some("claude"));
+    assert_eq!(asked.lock().unwrap().len(), 2, "the sweep's answer is fresh: claude is not asked again");
+    readiness.for_start(Some("codex"));
+    assert_eq!(asked.lock().unwrap().len(), 3, "a check still running has not been asked: codex is asked again");
+    assert_eq!(asked.lock().unwrap().last().map(String::as_str), Some("codex"));
+}
+
+#[test]
+fn a_start_on_an_agent_still_being_checked_waits_for_that_agents_own_check_alone() {
+    let checking = |id: &str| Found { checking: true, ready: false, ..runtime(id, Probe::Unknown) };
+    let asked = Mutex::new(Vec::<String>::new());
+    let ask = |id: &str| {
+        asked.lock().unwrap().push(id.to_owned());
+        Some(fresh(id))
+    };
+    let found = crate::agents::waits_for_its_own_check(Some("claude"), vec![checking("claude"), checking("codex")], ask);
+    assert_eq!(found, vec![fresh("claude"), checking("codex")]);
+    assert_eq!(*asked.lock().unwrap(), vec!["claude".to_owned()]);
+    // One already answered, Antigravity, and no runtime at all are never asked.
+    let ready = vec![runtime("claude", Probe::Ready), checking("antigravity")];
+    assert_eq!(crate::agents::waits_for_its_own_check(Some("claude"), ready.clone(), ask), ready);
+    assert_eq!(crate::agents::waits_for_its_own_check(Some("antigravity"), ready.clone(), ask), ready);
+    assert_eq!(crate::agents::waits_for_its_own_check(None, ready.clone(), ask), ready);
+    assert_eq!(asked.lock().unwrap().len(), 1);
+}
+
+#[test]
+fn the_engines_own_start_reads_the_last_full_sweep_and_asks_nothing_while_it_is_fresh() {
+    // The process's own readiness: what a sweep held is what a start on a ready agent gets, with no probe run.
+    let answer = vec![runtime("codex", Probe::Ready), runtime("claude", Probe::AuthRequired)];
+    crate::agents::held_a_sweep(&answer);
+    assert_eq!(crate::agents::discover_for_start(Some("codex")), answer);
 }

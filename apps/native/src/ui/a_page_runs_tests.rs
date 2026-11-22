@@ -61,6 +61,7 @@ fn thread(folder: &Path, items: Vec<ledger::Item>) -> rune::Runtime<State> {
     let mut s = state(folder);
     let header = s.teammates[0].clone();
     s.ledger = Some(LedgerPane {
+        cold_tip: None,
         header,
         conversation: Conversation { conversation_id: Some("mission_page".into()), turns: Vec::new() },
         items,

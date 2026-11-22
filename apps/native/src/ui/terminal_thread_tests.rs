@@ -23,6 +23,7 @@ fn thread(newest_in_terminal: bool) -> String {
     }
     let mut s = State::default();
     s.ledger = Some(LedgerPane {
+        cold_tip: None,
         header: Teammate { id: "tm_wren".into(), name: "Wren".into(), role: "Engineer".into(), runtime: None, model: None, account: None, busy: false, runs_in: "local".into(), folder: None },
         conversation: Conversation { conversation_id: Some("mission_4".into()), turns: Vec::new() },
         items: Vec::new(), dir: std::path::PathBuf::new(), worker: None,

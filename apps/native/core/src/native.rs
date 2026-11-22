@@ -110,6 +110,9 @@ pub mod hooks {
     /// While set, a turn whose end is recorded is held before the engine lets go of it, as its disk observation and
     /// share can hold it (the-next-turn-is-not-refused-while-the-last-winds-down).
     pub static HOLD_WIND_DOWN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+    /// What a start's readiness is asked through while a test holds the engine. None: the fake stands in for the
+    /// runtime, and nothing is asked.
+    pub static READINESS: Mutex<Option<Arc<crate::agents::StartReadiness>>> = Mutex::new(None);
     /// Serialises tests that point the engine at a temporary store and a fake `codex`.
     pub struct Guard {
         _lock: std::sync::MutexGuard<'static, ()>,
@@ -123,6 +126,7 @@ pub mod hooks {
         clear_poison();
         super::reset_relay_state();
         *crate::invariants::lock(&STATE) = (Some(store), command);
+        *crate::invariants::lock(&READINESS) = None;
         guard
     }
     impl Drop for Guard {
@@ -141,6 +145,7 @@ pub mod hooks {
             clear_poison();
             super::reset_relay_state();
             *crate::invariants::lock(&STATE) = (None, None);
+            *crate::invariants::lock(&READINESS) = None;
         }
     }
     /// Every turn thread, its ending included, is gone: turns still running are told to stop, again each time, since an
@@ -174,6 +179,7 @@ pub mod hooks {
         super::RELAY_STARTING.clear_poison();
         super::ROOM_NOTICES.clear_poison();
         STATE.clear_poison();
+        READINESS.clear_poison();
     }
 }
 
@@ -943,6 +949,35 @@ pub fn session_for(dir: PathBuf, id: String, folder: Option<&str>) -> ledger::Se
 }
 
 // ---- resume point: which Codex thread a follow-up reopens ---------------------------------------------------------
+/// App.tsx coldStart (0.496): whether a turn started cold is the host's to say. It did when it is the person's reply on
+/// the same agent and its follow-up names no session to resume (`followsUp.runtimeThreadId` absent): the turn before
+/// failed before its runtime started, the mode changed since, or its session was not there. An edit starts cold too
+/// but says its own note; a switch to another agent or account draws its divider; a turn Locust or a teammate started
+/// (carry-on, a fix, a relay's hop, a side question, a comparison's column) is not the person's reply.
+pub fn started_cold(metadata: &Value) -> bool {
+    let link = &metadata["continuesFrom"];
+    link["missionId"].as_str().is_some_and(|m| !m.is_empty())
+        && link["reason"] == "follow-up"
+        && link["runtimeThreadId"].as_str().is_none_or(str::is_empty)
+        && link["edited"] != true
+        && metadata["startedBy"].is_null()
+        && metadata["relay"].is_null()
+}
+
+/// [`started_cold`] of a turn, from its first record alone (`mission.created`), so the window can ask it once per tip.
+pub fn turn_started_cold(mission: &str) -> bool {
+    use std::io::{BufRead, Read};
+    let Some(file) = find_ledger(mission).and_then(|path| std::fs::File::open(path).ok()) else { return false };
+    let mut first = String::new();
+    if std::io::BufReader::new(file.take(1 << 20)).read_line(&mut first).is_err() {
+        return false;
+    }
+    serde_json::from_str::<Value>(&first)
+        .ok()
+        .filter(|record| record["recordType"] == "mission.created")
+        .is_some_and(|record| started_cold(&record["metadata"]))
+}
+
 pub fn find_ledger(id: &str) -> Option<PathBuf> {
     if !ledger::safe_id(id) {
         return None;
@@ -2256,6 +2291,49 @@ fn valid_prompt(prompt: &str) -> bool {
     !prompt.trim().is_empty() && prompt.encode_utf16().count() <= MAX_PROMPT_LENGTH && !prompt.contains('\0')
 }
 
+/// codex-mission.ts notReadyRefusal: which kind of not ready, as discovery found it.
+pub fn not_ready_refusal(runtime: &str, found: Option<&crate::agents::Found>) -> String {
+    let name = crate::failure_words::runtime_display_name(runtime);
+    let Some(found) = found.filter(|f| f.installed) else {
+        return format!("{name} is not installed on this machine. Install it, then retry discovery.");
+    };
+    match found.status {
+        crate::agents::Probe::AuthRequired => format!("{name} is signed out. Sign in to it, then retry discovery."),
+        crate::agents::Probe::Offline => format!("{name} could not be reached just now: it did not answer when Locust checked on it, which usually means its own service is down. Try again in a minute, or pick another model."),
+        _ => format!("{name} is not ready. Install or sign in to it, then retry discovery."),
+    }
+}
+
+/// What discovery says of the runtime a turn is about to start on (index.ts discoverForStart): the held answer while
+/// it is fresh, that runtime asked alone once it is stale. None when nothing is asked: a test's fake runtime.
+fn found_for_start(runtime: &str) -> Option<Vec<crate::agents::Found>> {
+    #[cfg(any(test, feature = "test-hooks"))]
+    {
+        if let Some(readiness) = crate::invariants::lock(&hooks::READINESS).clone() {
+            return Some(crate::agents::waits_for_its_own_check(Some(runtime), readiness.for_start(Some(runtime)), |_| None));
+        }
+        if crate::invariants::lock(&hooks::STATE).0.is_some() {
+            return None;
+        }
+    }
+    Some(crate::agents::discover_for_start(Some(runtime)))
+}
+
+/// codex-mission.ts start: a runtime that is not available, ready and with a program to run is refused in words before
+/// anything is recorded. Your own agent is found by its command line, never by discovery; an added account's sign-in is
+/// its own folder's, which this does not ask.
+pub(crate) fn start_readiness_refusal(runtime: &str, account: Option<&str>) -> Option<String> {
+    if runtime == "acp" || account.is_some() {
+        return None;
+    }
+    let found = found_for_start(runtime)?;
+    let chosen = found.iter().find(|entry| entry.id == runtime);
+    if chosen.is_some_and(|c| c.installed && c.ready) {
+        return None;
+    }
+    Some(not_ready_refusal(runtime, chosen))
+}
+
 /// Start (or continue) a turn the person asked for in the window.
 pub fn send(job: Send) -> Result<Started, String> {
     send_from(job, Origin::default())
@@ -2369,6 +2447,27 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
     if mode == Mode::Auto && !crate::workspace_settings::load(&store).map(|s| s.auto_mode).unwrap_or(false) {
         return Err(AUTO_OFF_REFUSAL.into());
     }
+    // codex-mission.ts: whether the runtime is ready is asked before anything is recorded or started, and a start on
+    // one that is not says which kind of not ready.
+    if let Some(why) = start_readiness_refusal(runtime_name, effective_account.as_deref()) {
+        return Err(why);
+    }
+    // The route as the person asked for it (index.ts rememberRoute): the model and level before Cursor folds the level
+    // into its model's id.
+    let asked_route = {
+        let mut route = json!({
+            "runtime": runtime_name,
+            "model": job.model.as_deref().or(job.teammate.model.as_deref()).filter(|m| !m.is_empty()).unwrap_or("account-default"),
+            "mode": mode.as_str(),
+        });
+        if let Some(effort) = &job.effort {
+            route["effort"] = json!(effort);
+        }
+        if let Some(account) = &effective_account {
+            route["account"] = json!(account);
+        }
+        route
+    };
     let launch_env = account_launch_env(&store, runtime_name, effective_account.as_deref())?;
     let electron = store.electron().to_path_buf();
     // A reply on ANOTHER agent or account (codex-mission.ts, the route switch): the conversation is reconciled, and a
@@ -2979,6 +3078,14 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
         channel.register_teammate(&id, &job.teammate.id);
         if let Err(error) = crate::people::record_owner(&store, &id, &job.teammate.id) {
             eprintln!("The conversation's teammate was not recorded: {error}");
+        }
+        // A start remembers the route it used, for a teammate that has none yet (index.ts startMission): a relay's
+        // hop, a comparison's column and a side question are not starts of the teammate's own.
+        let own_start = origin.relay.is_none() && origin.slot.is_none() && !is_side;
+        if own_start
+            && let Err(error) = crate::people::remember_route_of_start(&store, &job.teammate.id, &asked_route)
+        {
+            eprintln!("The route this turn started on was not remembered: {error}");
         }
     }
     // The conversation keeps these references for its next turns (bind), with the folder this turn stood in.
@@ -3876,3 +3983,7 @@ mod long_history_tests;
 #[cfg(test)]
 #[path = "torn_words_tests.rs"]
 mod torn_words_tests;
+
+#[cfg(test)]
+#[path = "cold_start_tests.rs"]
+mod cold_start_tests;
