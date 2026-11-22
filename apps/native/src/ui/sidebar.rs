@@ -71,10 +71,18 @@ pub(super) fn recent_as_missions(s: &State) -> Vec<SidebarMission> {
             nested_under: None,
             integrity_issue_count: 0,
             needs_you: false,
+            app_started: false,
         };
         if let Some(title) = held_for(&mission, &s.org.titles) {
             mission.title = title.clone();
         }
+        // Who started its first turn: the root's record, else the earliest turn listed, else this one.
+        let kind = |id: &str| s.ledger_summaries.get(id).map(|m| m.started_by_kind.as_deref());
+        mission.app_started = crate::conversation_list::app_started_conversation(
+            kind(&leaf.id).flatten(),
+            members.first().and_then(|m| kind(&m.id)),
+            mission.root_id.as_deref().and_then(kind),
+        );
         rows.push(mission);
     }
     let mut list = crate::conversation_list::conversation_rows(&rows);
@@ -137,6 +145,8 @@ pub(super) fn sidebar_missions_now(s: &State) -> Vec<SidebarMission> {
                     .is_some_and(|id| conversation_keys(m).iter().any(|k| k == id))
         })
         .collect();
+    let visible: Vec<SidebarMission> =
+        visible.into_iter().filter(|m| crate::conversation_list::conversation_source_matches(m, s.sidebar_source)).collect();
     let matched: Vec<SidebarMission> = missions_matching(
         &visible,
         &query,
@@ -175,6 +185,15 @@ fn mission_row(s: &State, p: &Palette, item: &SidebarMission, picked: bool) -> E
         title = title.child(mark.unwrap_or_else(|| el().size(18.0, 18.0).radius(4.0)
             .border(1.0, l.c("border-hairline")).a11y_hidden()
             .key(format!("conversation-nobody-{}", item.mission_id))));
+    }
+    // Another app started it: a plug before the title, as a routine wears its clock, said to a screen reader and on
+    // hover, and no words after the title (Sidebar.tsx `lc-conv__routine lc-conv__app`, 0.872).
+    if item.app_started {
+        let key = format!("conversation-app-{}", item.mission_id);
+        let plug = row().size(14.0, 18.0).center()
+            .child(crate::look::controls::glyph(&l, &crate::look::icons::PLUG, 11.0, Some(l.c("text-muted"))))
+            .role("img").label(APP_STARTED).key(key.clone());
+        title = title.child(crate::hover::tip(s, &l, &key, APP_STARTED, plug));
     }
     // A working row's title shimmers instead of wearing a dot (Sidebar.tsx `lc-conv__title is-working`).
     let working = item.phase == "running";
@@ -272,6 +291,47 @@ fn mission_row(s: &State, p: &Palette, item: &SidebarMission, picked: bool) -> E
         row_el = row_el.child(org_menu(s, p, &item.mission_id));
     }
     row_el
+}
+
+/// What the plug on an app-started row says (Sidebar.tsx's aria-label and title).
+const APP_STARTED: &str = "Started by another app through Locust";
+
+/// Sidebar.tsx's Conversation source menu: offered once any conversation came from another app, or while it narrows.
+fn source_menu_shown(s: &State) -> bool {
+    s.sidebar_source != crate::conversation_list::ConversationSource::All || recent_as_missions(s).iter().any(|m| m.app_started)
+}
+
+fn source_select(s: &State) -> rune_kit::Select {
+    use crate::conversation_list::ConversationSource;
+    let words: Vec<&str> = ConversationSource::ALL.iter().map(|(_, w)| *w).collect();
+    rune_kit::Select::new("sidebar-source", &words)
+        .label("Conversation source")
+        .current(Some(s.sidebar_source.words()))
+        .open(s.sidebar_source_open)
+        .on_toggle(|s: &mut State| s.sidebar_source_open = !s.sidebar_source_open)
+        .on_close(|s: &mut State| s.sidebar_source_open = false)
+        .on_choose(|s: &mut State, words: &str, _tx: &mut Tx| {
+            if let Some(source) = ConversationSource::from_words(words) {
+                s.sidebar_source = source;
+            }
+            s.sidebar_source_open = false;
+        })
+}
+
+/// The source menu's field, in the sidebar under the search.
+fn source_menu(s: &State, l: &crate::look::controls::Look) -> Option<El> {
+    source_menu_shown(s).then(|| col().w_full().pt(6.0).child(source_select(s).build(&l.k, &mut Vec::new())))
+}
+
+/// Its open listbox, over the whole window as the right-click menu is (main.rs `view`): drawn inside the sidebar it
+/// would be clipped by the list's scroll and could not be pressed.
+pub(super) fn source_menu_layer(s: &State, p: &Palette) -> Vec<El> {
+    let mut layer = Vec::new();
+    if s.sidebar_source_open && source_menu_shown(s) {
+        let l = crate::look::controls::Look::new(p.dark);
+        source_select(s).build(&l.k, &mut layer);
+    }
+    layer
 }
 
 fn org_menu(s: &State, p: &Palette, mission_id: &str) -> El {
@@ -901,7 +961,21 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
             ),
     );
 
-    if let Some(line) = narrowing_line(None, &s.sidebar_query.text, missions.len(), missions.len(), all_count) {
+    if let Some(menu) = source_menu(s, &l) {
+        recent = recent.child(menu);
+    }
+
+    // A source narrowing says which, before the rest of the line or the count (Sidebar.tsx `narrowing`).
+    let query_line = narrowing_line(None, &s.sidebar_query.text, missions.len(), missions.len(), all_count);
+    let narrowing = match s.sidebar_source {
+        crate::conversation_list::ConversationSource::All => query_line,
+        source => Some(format!(
+            "{} · {}",
+            if source == crate::conversation_list::ConversationSource::App { "Via apps" } else { "Started here" },
+            query_line.unwrap_or_else(|| format!("{} of {} conversations", missions.len(), all_count)),
+        )),
+    };
+    if let Some(line) = narrowing {
         recent = recent.child(
             text(line)
                 .font(type_::LABEL)
@@ -1912,3 +1986,7 @@ mod renderer_step_wiring_tests {
 #[cfg(test)]
 #[path = "sidebar_needs_you_tests.rs"]
 mod sidebar_needs_you_tests;
+
+#[cfg(test)]
+#[path = "sidebar_app_started_tests.rs"]
+mod sidebar_app_started_tests;

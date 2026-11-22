@@ -22,6 +22,45 @@ pub struct SidebarMission {
     /// Something in it waits on the person (App.tsx `needsYou: needsYouMissionIds.has(...)`): it stands first in the
     /// list, under Needs you, and wears the amber mark and words.
     pub needs_you: bool,
+    /// Its first turn came in through Locust's door from another app (`appStarted`, conversationList.ts
+    /// `appStartedConversation`): the row wears a plug before its title.
+    pub app_started: bool,
+}
+
+/// Which conversations the sidebar lists (conversationList.ts `ConversationSource`): every one, the ones started here,
+/// or the ones another app started.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ConversationSource {
+    #[default]
+    All,
+    Person,
+    App,
+}
+
+impl ConversationSource {
+    /// The words the source menu shows (Sidebar.tsx's Select options), in its order.
+    pub const ALL: [(ConversationSource, &'static str); 3] =
+        [(Self::All, "All conversations"), (Self::Person, "Started here"), (Self::App, "Via apps")];
+
+    pub fn words(self) -> &'static str {
+        Self::ALL.iter().find(|(source, _)| *source == self).map(|(_, words)| *words).unwrap_or("All conversations")
+    }
+
+    pub fn from_words(words: &str) -> Option<Self> {
+        Self::ALL.iter().find(|(_, w)| *w == words).map(|(source, _)| *source)
+    }
+}
+
+/// conversationList.ts `conversationSourceMatches`.
+pub fn conversation_source_matches(mission: &SidebarMission, source: ConversationSource) -> bool {
+    source == ConversationSource::All || mission.app_started == (source == ConversationSource::App)
+}
+
+/// conversationList.ts `appStartedConversation`: the conversation's first turn says who started it, whichever turn
+/// is the latest -- the root's record when there is one, else the first earlier turn, else this run. Each is the
+/// turn's `startedBy.kind`; an outer `None` is a record not there, an inner `None` a record with no `startedBy`.
+pub fn app_started_conversation(run: Option<&str>, earlier_first: Option<Option<&str>>, root: Option<Option<&str>>) -> bool {
+    root.or(earlier_first).unwrap_or(run) == Some("mcp")
 }
 
 /// Every id this row has ever been keyed by, newest identity first (root preferred).
@@ -235,6 +274,7 @@ mod tests {
             nested_under: None,
             integrity_issue_count: 0,
             needs_you: false,
+            app_started: false,
         }
     }
 

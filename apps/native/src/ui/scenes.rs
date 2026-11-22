@@ -1110,7 +1110,19 @@ pub(super) fn plus_menu_light_scene(s: &mut State) {
     s.appearance = Some(false);
 }
 
+/// The sidebar with one conversation another app started (a plug before its title, the Conversation source menu) and
+/// one waiting on the person (first, under Needs you, amber).
 pub(super) fn sidebar_sources_scene(s: &mut State) {
     team_scene(s);
+    s.ledger_summaries.insert("sample-1".into(), ledger::Summary {
+        mission_id: "sample-1".into(), title: "A real Markdown answer".into(), started_by_kind: Some("mcp".into()),
+        created_at: "2026-11-08T21:23:37.380Z".into(), updated: "2026-11-08T21:23:37.380Z".into(), ..Default::default()
+    });
     s.home.waiting_for.insert("sample-4".into(), "A decision".into());
+}
+
+/// The same, its source list open over the window.
+pub(super) fn sidebar_sources_open_scene(s: &mut State) {
+    sidebar_sources_scene(s);
+    s.sidebar_source_open = true;
 }

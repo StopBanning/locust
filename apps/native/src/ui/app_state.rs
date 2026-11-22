@@ -364,6 +364,9 @@ pub(super) struct State {
     // --- P4 conversation organization ---
     pub(super) org: org::OrgState,
     pub(super) sidebar_query: TextEdit,
+    /// Which conversations the sidebar lists, and whether its menu is open (Sidebar.tsx `sourceFilter`).
+    pub(super) sidebar_source: crate::conversation_list::ConversationSource,
+    pub(super) sidebar_source_open: bool,
     pub(super) find_open: bool,
     pub(super) find_query: TextEdit,
     pub(super) prompt_rail: prompt_rail::PromptRailState,
@@ -645,6 +648,8 @@ impl Default for State {
             scene_popup: ComposerScenePopup::None,
             org: org::OrgState::default(),
             sidebar_query: TextEdit::new(""),
+            sidebar_source: Default::default(),
+            sidebar_source_open: false,
             find_open: false,
             find_query: TextEdit::new(""),
             prompt_rail: prompt_rail::PromptRailState::default(),
