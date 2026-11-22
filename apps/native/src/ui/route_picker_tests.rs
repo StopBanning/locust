@@ -581,3 +581,24 @@ fn reads_account_default_in_every_group_as_claude_codes_row_does() {
     assert!(texts(&rt).iter().any(|t| t == "Account Default"));
     assert!(!texts(&rt).iter().any(|t| t == "Account default"));
 }
+fn qa_models() -> Runtime<State> {
+    picker(vec![agent("opencode",vec![
+        m("opencode/muse-spark-1.2-contributor-free","Muse Spark 1.2 (contributor, free)",&[]),
+        m("opencode/big-pickle","Big Pickle",&[]),
+    ])],None)
+}
+// case: says which OpenCode model is free
+#[test]
+fn says_which_opencode_model_is_free() {
+    let mut rt = qa_models(); rt.frame(0.016);
+    let line = text_in(&rt,"model-opencode-opencode/muse-spark-1.2-contributor-free").join(" ");
+    assert!(line.contains("Free") || line.contains("no sign-in"),"{line}");
+}
+// case: draws the rows it was given
+#[test]
+fn draws_the_rows_it_was_given() {
+    let mut rt = qa_models(); rt.frame(0.016);
+    let words = texts(&rt);
+    assert!(words.iter().any(|s| s=="Muse Spark 1.2 (contributor, free)"),"{words:?}");
+    assert!(words.iter().any(|s| s=="Big Pickle"),"{words:?}");
+}

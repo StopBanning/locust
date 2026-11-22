@@ -55,7 +55,7 @@ pub(super) struct PrState {
     pub link_rx: Receiver<(PullLinkAddress, Option<LinkedPullRequest>)>,
     pub issue_tx: Sender<(PullLinkAddress, Option<LinkedIssue>)>,
     pub issue_rx: Receiver<(PullLinkAddress, Option<LinkedIssue>)>,
-    pub last_link_tick_at: u64,
+    pub next_link_tick_at: Option<u64>,
     pub record_opened_urls: bool,
     pub opened_urls: Vec<String>,
 }
@@ -86,7 +86,7 @@ impl Default for PrState {
             link_rx,
             issue_tx,
             issue_rx,
-            last_link_tick_at: now_ms(),
+            next_link_tick_at: None,
             record_opened_urls: false,
             opened_urls: Vec::new(),
         }
@@ -375,18 +375,13 @@ pub(super) fn poll(s: &mut State, tx: &mut Tx) -> bool {
         changed = true;
     }
 
+    // Each link drawn now holds one listener; a link that left the screen lets its listener go.
     let (pulls, issues) = collect_conversation_links(s);
-    for addr in pulls {
-        let (_, should_read) = s.pr.link_watch.watch(&addr, now_epoch, is_pull_link_moving);
-        if should_read {
-            spawn_pull_link_read(s, addr);
-        }
+    for addr in s.pr.link_watch.show(&pulls, now_epoch, is_pull_link_moving) {
+        spawn_pull_link_read(s, addr);
     }
-    for addr in issues {
-        let (_, should_read) = s.pr.issue_watch.watch(&addr, now_epoch, |_| false);
-        if should_read {
-            spawn_issue_link_read(s, addr);
-        }
+    for addr in s.pr.issue_watch.show(&issues, now_epoch, |_| false) {
+        spawn_issue_link_read(s, addr);
     }
 
     if focus_regained {
@@ -398,22 +393,48 @@ pub(super) fn poll(s: &mut State, tx: &mut Tx) -> bool {
         }
     }
 
-    if s.pr.link_watch.timer_armed() {
-        let elapsed = now_epoch.saturating_sub(s.pr.last_link_tick_at);
-        if elapsed >= pull_requests::PULL_LINK_AGAIN_MS {
-            s.pr.last_link_tick_at = now_epoch;
+    let period = s.pr.link_watch.again_ms();
+    let armed = s.pr.link_watch.timer_armed();
+    if let Some((read, wait)) = link_tick(&mut s.pr.next_link_tick_at, armed, now_epoch, period) {
+        if read {
             for addr in s.pr.link_watch.on_tick(is_pull_link_moving) {
                 spawn_pull_link_read(s, addr);
             }
-            tx.wake_after(Duration::from_millis(pull_requests::PULL_LINK_AGAIN_MS));
-        } else {
-            tx.wake_after(Duration::from_millis(
-                pull_requests::PULL_LINK_AGAIN_MS - elapsed,
-            ));
         }
+        tx.wake_after(Duration::from_millis(wait));
     }
 
     changed
+}
+
+/// Wait a full period from arming, even if the window has been open for hours.
+fn link_tick(next: &mut Option<u64>, armed: bool, now: u64, period: u64) -> Option<(bool, u64)> {
+    if !armed {
+        *next = None;
+        return None;
+    }
+    let due = *next.get_or_insert_with(|| now.saturating_add(period));
+    if now >= due {
+        *next = Some(now.saturating_add(period));
+        Some((true, period))
+    } else {
+        Some((false, due - now))
+    }
+}
+
+#[cfg(test)]
+mod link_tick_tests {
+    use super::link_tick;
+
+    #[test]
+    fn a_new_timer_waits_a_full_interval_each_time_it_is_armed() {
+        let mut next = None;
+        assert_eq!(link_tick(&mut next, true, 600_000, 180_000), Some((false, 180_000)));
+        assert_eq!(link_tick(&mut next, true, 779_999, 180_000), Some((false, 1)));
+        assert_eq!(link_tick(&mut next, true, 780_000, 180_000), Some((true, 180_000)));
+        assert_eq!(link_tick(&mut next, false, 800_000, 180_000), None);
+        assert_eq!(link_tick(&mut next, true, 810_000, 180_000), Some((false, 180_000)));
+    }
 }
 
 fn pr_tone_name(pr: &FolderPullRequest) -> &'static str {

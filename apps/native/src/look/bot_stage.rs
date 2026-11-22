@@ -329,21 +329,7 @@ fn build_bot_frame(
         }
     });
 
-    let active_eyes = change
-        .eyes
-        .or_else(|| slot.changes.shown().pair.clone())
-        .map(|[a, b]| {
-            if desired.screen && a == "•" && b == "•" {
-                let shut = (sample_s * 1.4).sin() > 0.94;
-                if shut {
-                    ["─".to_owned(), "─".to_owned()]
-                } else {
-                    [a, b]
-                }
-            } else {
-                [a, b]
-            }
-        });
+    let active_eyes = change.eyes.or_else(|| slot.changes.shown().pair.clone());
 
     slot.settled =
         reduced_motion || (still && !hover_notice && held.is_none() && !follows && frame.settled && power_on.is_none());
@@ -425,16 +411,9 @@ fn build_buddy_snapshot(
         } else {
             Phosphor::Cyan
         },
-        flash: desired
-            .screen
-            .then(|| flash_for(desired.activity))
-            .flatten()
-            .map(|c| (c, rel_s)),
-        flash_progress: if desired.activity == FaceActivity::Done {
-            0.5
-        } else {
-            1.0
-        },
+        flash: slot.conductor.active_flash(),
+        flash_progress: slot.conductor.active_flash()
+            .map_or(1.0, |(_, at)| flash_fade((rel_s - at).max(0.0))),
         power_on: frame.booting.map(power_on_light),
         shut: frame.squash,
         glass: frame.glass,

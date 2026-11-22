@@ -241,6 +241,10 @@ pub fn claude_older_offered(now: &[String]) -> Vec<(String, String, Vec<String>)
 /// Opus", a fixed older version "This version, always", the account's default what it is. None where this build's
 /// window has no catalogue words for the model (the picker then shows its levels).
 pub fn catalogue_description(runtime: &str, id: &str) -> Option<String> {
+    // Engine Model carries the name and efforts; retain the catalogue's free-model detail in the picker too.
+    if runtime == "opencode" && id.ends_with("-free") {
+        return Some("Free · no sign-in".to_owned());
+    }
     if id == ACCOUNT_DEFAULT {
         return Some("The model your account picks for you".to_owned());
     }

@@ -1908,6 +1908,8 @@ pub fn flash_fade(seconds: f64) -> f64 {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PowerOnLight {
+    /// Eyes open only after the flash settles, independently of its height.
+    pub eyes: f64,
     pub width: f64,
     pub height: f64,
     pub alpha: f64,
@@ -1918,6 +1920,7 @@ pub fn power_on_light(phase: f64) -> PowerOnLight {
     let across = ease_out_quint(p / POWER_LINE);
     let open = ease_out_quint((p - POWER_LINE) / (POWER_FLASH - POWER_LINE));
     PowerOnLight {
+        eyes: power_on_eyes(phase),
         width: across,
         height: open,
         alpha: if p < POWER_LINE { 1.0 } else { 0.85 * (1.0 - open) },
@@ -2831,3 +2834,7 @@ mod glance_tests {
         assert_eq!(hold.aim(12.2), None);
     }
 }
+
+#[cfg(test)]
+#[path = "screen_switches_tests.rs"]
+mod screen_switches_tests;

@@ -135,3 +135,6 @@ fn discovery_cannot_say_and_the_window_keeps_its_answer() {
     s.picks.insert("codec".into(), TurnPick { model: "account-default".into(), effort: None, runtime: None, account: Some(Some("work".into())) });
     assert_eq!(discovered_ready(&s), None, "an account route is the account's to answer");
 }
+
+#[path = "qa_0365_tests.rs"]
+mod qa_0365_tests;

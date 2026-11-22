@@ -2696,3 +2696,7 @@ mod memory_screen_round_tests;
 #[cfg(test)]
 #[path = "mode_registers_tests.rs"]
 mod mode_registers_tests;
+
+#[cfg(test)]
+#[path = "titles_as_drawn_tests.rs"]
+mod titles_as_drawn_tests;

@@ -431,3 +431,7 @@ mod light_colours_tests;
 #[cfg(test)]
 #[path = "message_box_tests.rs"]
 mod message_box_tests;
+
+#[cfg(test)]
+#[path = "ui_face_tests.rs"]
+mod ui_face_tests;

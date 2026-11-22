@@ -2459,6 +2459,26 @@ apps/desktop/src/main/scout-says-what-it-saw.test.ts	says why GitHub was not rea
 apps/desktop/src/main/scout-says-what-it-saw.test.ts	says a card that was raised but kept off the phone, and why	yes
 apps/desktop/src/main/scout-says-what-it-saw.test.ts	keeps looks that found the same as one, and nothing older than fourteen days	no
 apps/desktop/src/main/scout-says-what-it-saw.test.ts	gives a question to Scout the record, newest first, each look by the name its answer must use	no
+apps/desktop/src/main/scout-turns-your-comments-into-asks.test.ts	reads the signed-in login once and a single since-bounded comments page per look	yes
+apps/desktop/src/main/scout-turns-your-comments-into-asks.test.ts	ignores another author, an old comment edited today, and an inline trigger	yes
+apps/desktop/src/main/scout-turns-your-comments-into-asks.test.ts	routes a named teammate without changing the task and marks all issue context as other authors words	yes
+apps/desktop/src/main/scout-turns-your-comments-into-asks.test.ts	leaves an unknown name in the ask, retains following lines, and accepts issue links too	yes
+apps/desktop/src/main/scout-turns-your-comments-into-asks.test.ts	does not read old asks on the first look or repeat an edited ask after restart	yes
+apps/desktop/src/main/scout-turns-your-comments-into-asks.test.ts	does not turn a previously read ordinary comment into a new ask after an edit	yes
+apps/desktop/src/main/scout-turns-your-comments-into-asks.test.ts	treats a missing CLI, signed-out user, or non-GitHub folder as no news	yes
+apps/desktop/src/main/scout-turns-your-comments-into-asks.test.ts	pages a full response on the next look with no second list call in either look	yes
+apps/desktop/src/main/scout-turns-your-comments-into-asks.test.ts	drafts a named ask without a model and remembers its id across looks and restarts	yes
+apps/desktop/src/main/scout-turns-your-comments-into-asks.test.ts	does not read while Scout or the comment watch is off	yes
+apps/desktop/src/main/scout-turns-your-comments-into-asks.test.ts	starts the watermark when enabled even before any GitHub response	yes
+apps/desktop/src/main/scout-turns-your-comments-into-asks.test.ts	offers an unnamed ask to the last teammate, then preserves its own draft when the model routes it	yes
+apps/desktop/src/main/scout-turns-your-comments-into-asks.test.ts	raises the full answer only for the started ask, including a turn completed before binding	yes
+apps/desktop/src/main/scout-turns-your-comments-into-asks.test.ts	recovers a tracked terminal answer after restart	yes
+apps/desktop/src/main/scout-turns-your-comments-into-asks.test.ts	raises a failed turn with its reason and Open it, with no Post	yes
+apps/desktop/src/main/scout-turns-your-comments-into-asks.test.ts	does not post until pressed and sends edited text through fake gh stdin to the right endpoint	yes
+apps/desktop/src/main/scout-turns-your-comments-into-asks.test.ts	records an attempt before gh runs and refuses simultaneous presses or edits	yes
+apps/desktop/src/main/scout-turns-your-comments-into-asks.test.ts	says why a post failed and never retries after looks or restart	yes
+apps/desktop/src/main/scout-turns-your-comments-into-asks.test.ts	does not call gh when the attempt marker cannot be saved	yes
+apps/desktop/src/main/scout-turns-your-comments-into-asks.test.ts	refuses malformed targets before calling gh	yes
 apps/desktop/src/main/scouts-cards-are-on-your-phone.test.ts	in Locust’s words, newest first, with a GitHub link only, and nothing the window keeps	yes
 apps/desktop/src/main/scouts-cards-are-on-your-phone.test.ts	dismisses a card the phone names, and nothing that is not a card’s id	yes
 apps/desktop/src/main/scouts-cards-are-on-your-phone.test.ts	has the page show them, and what the away looks found with the computer off	no
@@ -2795,6 +2815,13 @@ apps/desktop/src/main/two-teammates-hear-about-each-others-edits.test.ts	names e
 apps/desktop/src/main/two-teammates-hear-about-each-others-edits.test.ts	goes right before the personu2019s words, with what arrived this turn	yes
 apps/desktop/src/main/two-teammates-may-not-share-a-name.test.ts	cannot be given to a second teammate, whatever its case or spaces	no
 apps/desktop/src/main/two-teammates-may-not-share-a-name.test.ts	cannot be taken by a rename, but a teammate keeps its own	no
+apps/desktop/src/main/ui-face-is-bundled.test.ts	is Figtree, with Geist behind it for what Figtree does not draw	yes
+apps/desktop/src/main/ui-face-is-bundled.test.ts	is a real woff2 on disk for both styles, covering the title weight	yes
+apps/desktop/src/main/ui-face-is-bundled.test.ts	carries its licence beside it	yes
+apps/desktop/src/main/ui-face-is-bundled.test.ts	a screen's title takes the title tokens, in capitals	yes
+apps/desktop/src/main/ui-face-is-bundled.test.ts	a section inside a screen is a sentence, one step above its text (Colin, 0.356)	yes
+apps/desktop/src/main/ui-face-is-bundled.test.ts	a section label below a title stays a label, not a second title	yes
+apps/desktop/src/main/ui-face-is-bundled.test.ts	a name inside a title keeps its own spelling	yes
 apps/desktop/src/main/unreadable-is-not-empty.test.ts	never reports that a room does not exist	yes
 apps/desktop/src/main/unreadable-is-not-empty.test.ts	says every room is as it was, because nothing was established	yes
 apps/desktop/src/main/unreadable-is-not-empty.test.ts	still treats a file that is simply not there as empty	yes
@@ -3539,6 +3566,10 @@ apps/desktop/src/renderer/src/a-provider-error-is-readable-and-said-once.test.ts
 apps/desktop/src/renderer/src/a-provider-error-is-readable-and-said-once.test.tsx	formats restored errors for each runtime without inventing its upstream provider	no
 apps/desktop/src/renderer/src/a-provider-error-is-readable-and-said-once.test.tsx	reads a JSON stderr cause without appending the raw body to a readable error	yes
 apps/desktop/src/renderer/src/a-provider-error-is-readable-and-said-once.test.tsx	keeps a distinct failure card and does not let a warning hide the failure	no
+apps/desktop/src/renderer/src/a-pull-link-is-read-once.test.ts	reads once for many links, and again when the window comes back after a minute	yes
+apps/desktop/src/renderer/src/a-pull-link-is-read-once.test.ts	does not keep a timer once the checks have settled	yes
+apps/desktop/src/renderer/src/a-pull-link-is-read-once.test.ts	reads every few minutes only while checks are running, and stops when the link is gone	yes
+apps/desktop/src/renderer/src/a-pull-link-is-read-once.test.ts	reads nothing when gh cannot	yes
 apps/desktop/src/renderer/src/a-pull-request-chip-says-its-state.test.tsx	names the pull request by number and state, with GitHub’s mark, and the whole line on hover	yes
 apps/desktop/src/renderer/src/a-pull-request-chip-says-its-state.test.tsx	wears its checks’ tone while open, and merged’s own once merged	yes
 apps/desktop/src/renderer/src/a-pull-request-link-wears-its-state.test.tsx	wears the state in words, and the checks as one mark	no
@@ -3714,6 +3745,15 @@ apps/desktop/src/renderer/src/a-screen-keeps-its-face-to-you.test.ts	without a h
 apps/desktop/src/renderer/src/a-screen-keeps-its-face-to-you.test.ts	never laughs or whirls, and keeps a little under half of the squash	yes
 apps/desktop/src/renderer/src/a-screen-keeps-its-face-to-you.test.ts	copies the rig's pose and never changes it, so the rig eases from its own last frame	no
 apps/desktop/src/renderer/src/a-screen-keeps-its-face-to-you.test.ts	reads the real rig: through ten seconds of work, a screen never faces away	yes
+apps/desktop/src/renderer/src/a-screen-switches-on-and-its-dots-blink.test.ts	is the dot open and the screen's own dash shut	yes
+apps/desktop/src/renderer/src/a-screen-switches-on-and-its-dots-blink.test.ts	draws out and lightens steadily as it shuts, never thinner than the dash	yes
+apps/desktop/src/renderer/src/a-screen-switches-on-and-its-dots-blink.test.ts	draws a line across the glass first, then opens it into a flash that settles to dark	yes
+apps/desktop/src/renderer/src/a-screen-switches-on-and-its-dots-blink.test.ts	keeps the eyes shut until the flash has settled, then blinks them open	yes
+apps/desktop/src/renderer/src/a-screen-switches-on-and-its-dots-blink.test.ts	is dark while it switches on: the light first, the eyes only once it has settled	yes
+apps/desktop/src/renderer/src/a-screen-switches-on-and-its-dots-blink.test.ts	is simply on once it has switched on, when it never had to, and on a still bot (reduced motion)	yes
+apps/desktop/src/renderer/src/a-screen-switches-on-and-its-dots-blink.test.ts	flashes green as it finishes and settles back to its own light	yes
+apps/desktop/src/renderer/src/a-screen-switches-on-and-its-dots-blink.test.ts	is its own light on a still bot (reduced motion), and the flash fades smoothly to nothing	yes
+apps/desktop/src/renderer/src/a-screen-switches-on-and-its-dots-blink.test.ts	winces with its shudder as `> <`, and stays within the reach a screen leaves it	yes
 apps/desktop/src/renderer/src/a-screens-eyes-have-weight.test.ts	trail a hop: they sink as the body takes off, float while it is in the air, and sink again as it lands	yes
 apps/desktop/src/renderer/src/a-screens-eyes-have-weight.test.ts	settle within half a second of the body coming to rest	yes
 apps/desktop/src/renderer/src/a-screens-eyes-have-weight.test.ts	never trail by more than three units, however hard the body moves	yes
@@ -4874,6 +4914,14 @@ apps/desktop/src/renderer/src/putting-a-file-back.test.ts	is left alone when som
 apps/desktop/src/renderer/src/putting-a-file-back.test.ts	created and then changed by the next turn, is removed	yes
 apps/desktop/src/renderer/src/putting-a-file-back.test.ts	is brought back from a record of the whole file	yes
 apps/desktop/src/renderer/src/putting-a-file-back.test.ts	is left alone when something is there again	yes
+apps/desktop/src/renderer/src/qa-0365-composer.test.tsx	does not tell a person who just installed OpenCode to install an AI agent	yes
+apps/desktop/src/renderer/src/qa-0365-composer.test.tsx	invites a message, since one runtime can run it	yes
+apps/desktop/src/renderer/src/qa-0365-composer.test.tsx	still says to install one when nothing is installed	yes
+apps/desktop/src/renderer/src/qa-0365-composer.test.tsx	invites a message when the route itself is the ready runtime	yes
+apps/desktop/src/renderer/src/qa-0365-composer.test.tsx	says which OpenCode model is free	yes
+apps/desktop/src/renderer/src/qa-0365-composer.test.tsx	draws the rows it was given	yes
+apps/desktop/src/renderer/src/qa-0365-composer.test.tsx	does not tell the person to sign in, because there is nothing to sign in to	yes
+apps/desktop/src/renderer/src/qa-0365-composer.test.tsx	still says sign in when a runtime is installed but not usable	yes
 apps/desktop/src/renderer/src/railFlyout.test.ts	puts the live one first, then newest first	yes
 apps/desktop/src/renderer/src/railFlyout.test.ts	never lets an unknown age outrank a known recent one	yes
 apps/desktop/src/renderer/src/railFlyout.test.ts	shows at most six and says how many there are	yes
