@@ -4510,6 +4510,14 @@ apps/desktop/src/renderer/src/layout.test.ts	follows the width when nobody has c
 apps/desktop/src/renderer/src/layout.test.ts	covers the smallest window the app will open	yes
 apps/desktop/src/renderer/src/layout.test.ts	lets a choice win at every width, in both directions	yes
 apps/desktop/src/renderer/src/layout.test.ts	recognises only the three preferences it can honour	yes
+apps/desktop/src/renderer/src/ledgerFailure.test.ts	never says a run was held, because it was stopped	yes
+apps/desktop/src/renderer/src/ledgerFailure.test.ts	quotes the host rather than guessing at a cause	yes
+apps/desktop/src/renderer/src/ledgerFailure.test.ts	states the safe half without inventing a checkpoint number	yes
+apps/desktop/src/renderer/src/ledgerFailure.test.ts	uses the checkpoint count when it genuinely has one	yes
+apps/desktop/src/renderer/src/ledgerFailure.test.ts	says plainly that stopping did not undo the files already changed	yes
+apps/desktop/src/renderer/src/ledgerFailure.test.ts	does not offer to reopen a mission that was never written	yes
+apps/desktop/src/renderer/src/ledgerFailure.test.ts	still offers the mid-run copy when something WAS written	yes
+apps/desktop/src/renderer/src/ledgerFailure.test.ts	admits the app cannot say what was lost	yes
 apps/desktop/src/renderer/src/links-go-somewhere.test.ts	is a link, not four asterisks and a URL	yes
 apps/desktop/src/renderer/src/links-go-somewhere.test.ts	works for bold as well as italic	yes
 apps/desktop/src/renderer/src/links-go-somewhere.test.ts	leaves a plain link and plain emphasis exactly as they were	yes

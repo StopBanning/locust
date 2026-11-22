@@ -3054,7 +3054,9 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
         continues.as_ref(),
         &extra,
     )
-    .map_err(|e| e.to_string())?;
+    // The record is made before the runtime starts, so nothing ran: said as ledgerFailure.ts says it, the host's own
+    // reason quoted and Locust named as the one that would not start work it could not record.
+    .map_err(|e| crate::ledger_failure::sentence(Some(&format!("{e}."))))?;
     // Whatever the run says or does that holds a key's value has it taken out before it is written.
     writer.take_out(run_keys);
     // An edit partway through sets turns aside: what they posted to a teammate and nobody read is never delivered
@@ -3984,11 +3986,15 @@ fn drive_runtime(
                     crate::scout::host::on_diagnostic(store, mission_id, &event.payload);
                 }
                 let done = terminal(&event.kind);
-                if writer
-                    .append(&event.kind, event.payload, event.thread.as_deref())
-                    .is_err()
-                    || done
-                {
+                let written = writer.append(&event.kind, event.payload, event.thread.as_deref());
+                // A record that cannot be written stops the run (returning drops the runtime, which ends its process),
+                // and the thread says so in ledgerFailure.ts's words: the run was stopped, never held.
+                if let Err(error) = &written {
+                    for line in crate::ledger_failure::lines(Some(&format!("{error}.")), None, false) {
+                        push_relay_notice(mission_id, &line, "warning");
+                    }
+                }
+                if written.is_err() || done {
                     flush_approvals(writer, channel, mission_id);
                     pass_on_denials(runtime, channel, mission_id);
                     finish_steer();
