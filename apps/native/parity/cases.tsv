@@ -483,6 +483,10 @@ apps/desktop/src/main/a-long-judge-reads-files.test.ts	three long answers quoted
 apps/desktop/src/main/a-long-judge-reads-files.test.ts	named as files, they do, and the judge is told to read each one	no
 apps/desktop/src/main/a-long-judge-reads-files.test.ts	the host switches to files only when the quoted message is too long	no
 apps/desktop/src/main/a-mac-opens-its-own-terminal.test.ts	goes to the folder, removes itself, and becomes the resume -- every word quoted	no
+apps/desktop/src/main/a-mac-says-when-a-new-locust-is-out.test.ts	offers the newest release that has this chip's disk image	yes
+apps/desktop/src/main/a-mac-says-when-a-new-locust-is-out.test.ts	offers nothing when this copy is already that version or newer	yes
+apps/desktop/src/main/a-mac-says-when-a-new-locust-is-out.test.ts	skips drafts and pre-releases, and never offers a link off Locust's own downloads	yes
+apps/desktop/src/main/a-mac-says-when-a-new-locust-is-out.test.ts	answers nothing for an answer that is not a list of releases	yes
 apps/desktop/src/main/a-mac-window-has-its-own-traffic-lights.test.ts	on a Mac keeps its frame, with the title bar hidden and inset and the lights in its left column	yes
 apps/desktop/src/main/a-mac-window-has-its-own-traffic-lights.test.ts	on Windows and Linux stays frameless, its own controls drawn by the title bar (control)	no
 apps/desktop/src/main/a-mac-window-has-its-own-traffic-lights.test.ts	is what the main window is made with	yes

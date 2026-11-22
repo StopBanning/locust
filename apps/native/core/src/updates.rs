@@ -15,6 +15,8 @@ use std::sync::{Arc, Mutex};
 
 pub const UPDATE_CHECK_EVERY_MS: u64 = 60 * 60 * 1000;
 pub const UPDATE_RETRY_AFTER_RUN_MS: u64 = 15 * 60 * 1000;
+pub const DOWNLOADS: &str = "https://dl.locust.lol/";
+pub const MAC_RELEASES_API: &str = "https://dl.locust.lol/mac-releases.json";
 
 pub const DOWNLOAD_FAILED_MESSAGE: &str =
     "The update could not be downloaded. Locust will try again at its next check.";
@@ -450,6 +452,111 @@ pub fn is_newer(a: &str, b: &str) -> bool {
         }
     }
     false
+}
+
+/// A Mac release with this chip's disk image (`MacRelease` in `main/mac-release.ts`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MacRelease {
+    pub version: String,
+    pub url: String,
+    pub size: Option<u64>,
+    pub sha256: Option<String>,
+}
+
+fn parse_exact_semver(text: &str) -> Option<[u64; 3]> {
+    let trimmed = text.trim();
+    let rest = trimmed.strip_prefix('v').unwrap_or(trimmed);
+    let mut parts = rest.split('.');
+    let major: u64 = parts.next()?.parse().ok()?;
+    let minor: u64 = parts.next()?.parse().ok()?;
+    let patch_str = parts.next()?;
+    if parts.next().is_some() || patch_str.is_empty() || !patch_str.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    let patch: u64 = patch_str.parse().ok()?;
+    Some([major, minor, patch])
+}
+
+fn mac_release_is_newer(candidate: &str, current: &str) -> bool {
+    let current_base = current.split('-').next().unwrap_or(current);
+    let (Some(a), Some(b)) = (parse_exact_semver(candidate), parse_exact_semver(current_base)) else {
+        return false;
+    };
+    for i in 0..3 {
+        if a[i] != b[i] {
+            return a[i] > b[i];
+        }
+    }
+    false
+}
+
+/// The newest published release with this chip's disk image, when it is newer than `current`
+/// (`newerMacRelease` in `main/mac-release.ts`).
+pub fn newer_mac_release(
+    releases: &serde_json::Value,
+    current: &str,
+    arch: &str,
+) -> Option<MacRelease> {
+    let entries = releases.as_array()?;
+    let suffix = if arch == "arm64" {
+        "-mac-arm64.dmg"
+    } else {
+        "-mac-x64.dmg"
+    };
+    for entry in entries {
+        let Some(release) = entry.as_object() else {
+            continue;
+        };
+        if release.get("draft").and_then(serde_json::Value::as_bool) == Some(true)
+            || release.get("prerelease").and_then(serde_json::Value::as_bool) == Some(true)
+        {
+            continue;
+        };
+        let Some(tag_name) = release.get("tag_name").and_then(serde_json::Value::as_str) else {
+            continue;
+        };
+        let assets = release
+            .get("assets")
+            .and_then(serde_json::Value::as_array);
+        let image = assets.and_then(|list| {
+            list.iter().find_map(|asset| {
+                let obj = asset.as_object()?;
+                let name = obj.get("name")?.as_str()?;
+                let url = obj.get("browser_download_url")?.as_str()?;
+                if name.ends_with(suffix) {
+                    Some((obj, url))
+                } else {
+                    None
+                }
+            })
+        });
+        let Some((image_obj, url)) = image else {
+            continue;
+        };
+        if !url.starts_with(DOWNLOADS) || !url.ends_with(".dmg") {
+            continue;
+        }
+        let version = tag_name.strip_prefix('v').unwrap_or(tag_name);
+        if !mac_release_is_newer(version, current) {
+            return None;
+        }
+        let size = image_obj.get("size").and_then(serde_json::Value::as_u64);
+        let sha256 = image_obj
+            .get("digest")
+            .and_then(serde_json::Value::as_str)
+            .and_then(|d| d.strip_prefix("sha256:"))
+            .filter(|hex| {
+                hex.len() == 64 && hex.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+            })
+            .map(str::to_owned);
+        return Some(MacRelease {
+            version: version.to_owned(),
+            url: url.to_owned(),
+            size,
+            sha256,
+        });
+    }
+    None
 }
 
 pub type PackageUrlFn = Arc<dyn Fn(Option<&[UpdateFile]>) -> Option<String> + Send + Sync>;
@@ -1731,5 +1838,118 @@ mod an_open_locust_keeps_looking_for_updates_tests {
         }
         assert!(!periodic_check_due(&bare_state(AppUpdatePhase::Current), 2));
         assert!(!periodic_check_due(&bare_state(AppUpdatePhase::Ready), 1));
+    }
+}
+
+#[cfg(test)]
+mod a_mac_says_when_a_new_locust_is_out_tests {
+    use super::*;
+    use serde_json::{Value, json};
+
+    const BASE: &str = "https://dl.locust.lol";
+
+    fn release(tag: &str, assets: &[&str], draft: bool, prerelease: bool) -> Value {
+        let asset_list: Vec<Value> = assets
+            .iter()
+            .map(|name| {
+                json!({
+                    "name": name,
+                    "browser_download_url": format!("{BASE}/{name}"),
+                })
+            })
+            .collect();
+        json!({
+            "tag_name": tag,
+            "draft": draft,
+            "prerelease": prerelease,
+            "assets": asset_list,
+        })
+    }
+
+    // case: offers the newest release that has this chip's disk image
+    #[test]
+    fn offers_the_newest_release_that_has_this_chips_disk_image() {
+        let releases = json!([
+            release("0.515.0", &["Locust-0.515.0-setup.exe"], false, false),
+            release(
+                "0.514.0",
+                &[
+                    "Locust-0.514.0-setup.exe",
+                    "Locust-0.514.0-mac-arm64.dmg",
+                    "Locust-0.514.0-mac-x64.dmg"
+                ],
+                false,
+                false
+            ),
+        ]);
+        assert_eq!(
+            newer_mac_release(&releases, "0.512.0", "arm64"),
+            Some(MacRelease {
+                version: "0.514.0".into(),
+                url: format!("{BASE}/Locust-0.514.0-mac-arm64.dmg"),
+                size: None,
+                sha256: None,
+            })
+        );
+        assert_eq!(
+            newer_mac_release(&releases, "0.512.0", "x64").map(|r| r.url),
+            Some(format!("{BASE}/Locust-0.514.0-mac-x64.dmg"))
+        );
+    }
+
+    // case: offers nothing when this copy is already that version or newer
+    #[test]
+    fn offers_nothing_when_this_copy_is_already_that_version_or_newer() {
+        let releases = json!([release(
+            "0.514.0",
+            &["Locust-0.514.0-mac-arm64.dmg"],
+            false,
+            false
+        )]);
+        assert_eq!(newer_mac_release(&releases, "0.514.0", "arm64"), None);
+        assert_eq!(newer_mac_release(&releases, "0.515.0", "arm64"), None);
+    }
+
+    // case: skips drafts and pre-releases, and never offers a link off Locust's own downloads
+    #[test]
+    fn skips_drafts_and_pre_releases_and_never_offers_a_link_off_locusts_own_downloads() {
+        let draft = json!([release(
+            "0.520.0",
+            &["Locust-0.520.0-mac-arm64.dmg"],
+            true,
+            false
+        )]);
+        assert_eq!(newer_mac_release(&draft, "0.514.0", "arm64"), None);
+
+        let pre = json!([release(
+            "0.520.0",
+            &["Locust-0.520.0-mac-arm64.dmg"],
+            false,
+            true
+        )]);
+        assert_eq!(newer_mac_release(&pre, "0.514.0", "arm64"), None);
+
+        let elsewhere = json!([{
+            "tag_name": "0.520.0",
+            "assets": [{
+                "name": "Locust-0.520.0-mac-arm64.dmg",
+                "browser_download_url": "https://example.com/Locust.dmg"
+            }]
+        }]);
+        assert_eq!(newer_mac_release(&elsewhere, "0.514.0", "arm64"), None);
+    }
+
+    // case: answers nothing for an answer that is not a list of releases
+    #[test]
+    fn answers_nothing_for_an_answer_that_is_not_a_list_of_releases() {
+        assert_eq!(newer_mac_release(&Value::Null, "0.514.0", "arm64"), None);
+        assert_eq!(
+            newer_mac_release(
+                &json!({ "message": "API rate limit exceeded" }),
+                "0.514.0",
+                "arm64"
+            ),
+            None
+        );
     }
 }
