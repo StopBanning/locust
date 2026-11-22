@@ -831,4 +831,21 @@ mod tests {
             }]
         );
     }
+
+    #[test]
+    fn planner_texts_in_reads_modified_and_raw_planner_responses_only() {
+        let steps = json!({
+            "steps": [
+                {
+                    "type": "CORTEX_STEP_TYPE_PLANNER_RESPONSE",
+                    "plannerResponse": { "modifiedResponse": "mod", "response": "raw" }
+                },
+                {
+                    "type": "CORTEX_STEP_TYPE_GENERIC",
+                    "plannerResponse": { "response": "ignored" }
+                }
+            ]
+        });
+        assert_eq!(planner_texts_in(&steps), vec!["mod", "raw"]);
+    }
 }

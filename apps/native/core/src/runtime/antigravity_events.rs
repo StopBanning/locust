@@ -491,10 +491,10 @@ impl TranscriptNormalizer {
         vec![self.diagnostic("info", "antigravity.unknown_step", &message, evidence)]
     }
 
-    fn process(&self, cancelled: bool, exit_code: Option<i32>) -> Value {
+    fn process(&self, cancelled: bool, exit_code: Option<i32>, stderr: &str) -> Value {
         json!({
             "exitCode": exit_code.map(Value::from).unwrap_or(Value::Null),
-            "signal": null, "stderr": "", "stderrTruncated": false,
+            "signal": null, "stderr": stderr, "stderrTruncated": false,
             "recordCount": self.records, "inputDeliveryFailed": false, "outputLimitExceeded": false,
             "oversizedRecordsDropped": 0, "forcedTerminationAttempted": cancelled,
             "terminationUnconfirmed": false,
@@ -505,11 +505,16 @@ impl TranscriptNormalizer {
     /// The run's end: held results nothing claimed are said, then cancelled, failed (a host driver that died, or a
     /// transcript that never ended on an answer) or completed.
     pub fn finish(&mut self, cancelled: bool, exit_code: Option<i32>) -> Vec<Event> {
+        self.finish_with_stderr(cancelled, exit_code, "")
+    }
+
+    /// Same as `finish`, carrying a host-supplied `stderr` note (e.g. idle timeout or watch cancelled).
+    pub fn finish_with_stderr(&mut self, cancelled: bool, exit_code: Option<i32>, stderr: &str) -> Vec<Event> {
         if self.ended {
             return vec![];
         }
         self.ended = true;
-        let process = self.process(cancelled, exit_code);
+        let process = self.process(cancelled, exit_code, stderr);
         let held: Vec<Value> = std::mem::take(&mut self.early).into_values().map(|(_, e)| e).collect();
         let mut events: Vec<Event> = held.into_iter().map(|e| self.unattached(e)).collect();
         let mut p = json!({"process": process});
@@ -539,6 +544,86 @@ impl TranscriptNormalizer {
         events.push(self.event("run.completed", p));
         events
     }
+}
+
+fn gap_regex() -> &'static regex::Regex {
+    static GAP: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
+    GAP.get_or_init(|| crate::invariants::regex(r"\n?<truncated \d+ bytes>\n?"))
+}
+
+/// Restores a transcript message containing `<truncated N bytes>` from one of the language server's whole
+/// `PLANNER_RESPONSE` texts (`packages/runtime-adapters/src/antigravity-events.ts:restoreTruncated`).
+pub fn restore_truncated(truncated: &str, candidates: &[String]) -> Option<String> {
+    let gap = gap_regex();
+    let pieces: Vec<&str> = gap.split(truncated).collect();
+    if pieces.len() < 2 {
+        return None;
+    }
+    let first = pieces[0];
+    let last = pieces[pieces.len() - 1];
+    for full in candidates {
+        if gap.is_match(full) || full.len() <= first.len() + last.len() {
+            continue;
+        }
+        if !full.starts_with(first) || !full.ends_with(last) {
+            continue;
+        }
+        let mut at = first.len();
+        let mut whole = true;
+        for piece in &pieces[1..pieces.len() - 1] {
+            if let Some(rel) = full[at..].find(piece) {
+                at += rel + piece.len();
+            } else {
+                whole = false;
+                break;
+            }
+        }
+        if whole && at <= full.len() - last.len() {
+            return Some(full.clone());
+        }
+    }
+    None
+}
+
+/// The step a message item came from: `msg_12` is step 12.
+pub fn antigravity_message_step(item_id: &str) -> Option<usize> {
+    let digits = item_id.strip_prefix("msg_")?;
+    if digits.is_empty() || !digits.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    digits.parse().ok()
+}
+
+/// Whether an event is a message with one of Antigravity's `<truncated N bytes>` gaps in it.
+pub fn has_antigravity_gap(event: &Event) -> bool {
+    event.kind == "message.delta"
+        && event.payload["text"]
+            .as_str()
+            .is_some_and(|t| gap_regex().is_match(t))
+}
+
+/// `events`, with every gapped message whole again where one of `candidates` restores it — bounded and scrubbed
+/// identically to every text the adapter records.
+pub fn with_restored_gaps(events: Vec<Event>, candidates: &[String]) -> Vec<Event> {
+    let scrubbed: Vec<String> = candidates.iter().map(|c| redact_text(c)).collect();
+    events
+        .into_iter()
+        .map(|mut event| {
+            if event.kind != "message.delta" {
+                return event;
+            }
+            let Some(current) = event.payload["text"].as_str() else {
+                return event;
+            };
+            if !gap_regex().is_match(current) {
+                return event;
+            }
+            if let Some(full) = restore_truncated(current, &scrubbed) {
+                event.payload["text"] = json!(text(&full, 131072));
+            }
+            event
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -597,5 +682,29 @@ mod tests {
         assert_eq!(events[0].payload["command"], "Which? — A / B");
         assert_eq!(events[0].payload["question"]["askedAtStep"], 2);
         assert_eq!(n.pending_tool_name(), Some("ask_question"));
+    }
+
+    #[test]
+    fn gap_restoration_helpers_fill_truncated_answers() {
+        assert_eq!(antigravity_message_step("msg_12"), Some(12));
+        assert_eq!(antigravity_message_step("other"), None);
+        let whole = "Hello world from the full answer.";
+        let gapped = "Hello \n<truncated 12 bytes>\nfull answer.";
+        assert_eq!(restore_truncated(gapped, &[whole.into()]).as_deref(), Some(whole));
+        let gap_ev = Event {
+            kind: "message.delta".into(),
+            payload: json!({"itemId": "msg_12", "text": gapped}),
+            thread: None,
+        };
+        let plain_ev = Event {
+            kind: "message.delta".into(),
+            payload: json!({"itemId": "msg_12", "text": "short"}),
+            thread: None,
+        };
+        assert!(has_antigravity_gap(&gap_ev));
+        assert!(!has_antigravity_gap(&plain_ev));
+        let restored = with_restored_gaps(vec![gap_ev, plain_ev], &[whole.into()]);
+        assert_eq!(restored[0].payload["text"], whole);
+        assert_eq!(restored[1].payload["text"], "short");
     }
 }

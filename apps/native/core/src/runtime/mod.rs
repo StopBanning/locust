@@ -4,11 +4,7 @@ pub mod acp_events;
 pub mod agy_events;
 pub mod antigravity;
 pub mod apple;
-#[cfg(test)]
-#[cfg(test)]
 pub mod antigravity_events;
-#[cfg(test)]
-#[cfg(test)]
 pub mod antigravity_projects;
 pub mod claude;
 pub mod claude_events;
