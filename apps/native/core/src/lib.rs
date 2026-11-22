@@ -46,6 +46,7 @@ pub mod agent_install;
 pub mod teammate_keys;
 pub mod text_files;
 pub mod undone_note;
+pub mod updates;
 pub mod tool_fold;
 pub mod turn_foot;
 pub mod step_pictures;

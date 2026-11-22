@@ -2826,6 +2826,20 @@ apps/desktop/src/main/unreadable-is-not-empty.test.ts	never reports that a room 
 apps/desktop/src/main/unreadable-is-not-empty.test.ts	says every room is as it was, because nothing was established	yes
 apps/desktop/src/main/unreadable-is-not-empty.test.ts	still treats a file that is simply not there as empty	yes
 apps/desktop/src/main/unreadable-is-not-empty.test.ts	still reports a genuinely missing room as missing	yes
+apps/desktop/src/main/updates.test.ts	downloads on its own, and installs only on a quit the app itself makes	yes
+apps/desktop/src/main/updates.test.ts	keeps a downloaded update installable when a later check fails	yes
+apps/desktop/src/main/updates.test.ts	does not install on a quit that is a relaunch (M19)	yes
+apps/desktop/src/main/updates.test.ts	refuses to install while a mission is running, and says why	yes
+apps/desktop/src/main/updates.test.ts	installs by asking the app to quit, so the shutdown flush runs first and the updater installs on the real quit	yes
+apps/desktop/src/main/updates.test.ts	refuses to install what it has not downloaded	yes
+apps/desktop/src/main/updates.test.ts	says up to date only after a check that finished	yes
+apps/desktop/src/main/updates.test.ts	names the version it found, and calls a matching one current	yes
+apps/desktop/src/main/updates.test.ts	says a build that cannot update itself cannot, rather than that it is current	yes
+apps/desktop/src/main/updates.test.ts	never installs anything at quit from a copy that is not the installed one (0.507)	yes
+apps/desktop/src/main/updates.test.ts	a copy that only asks reads the feed and still never downloads or installs (0.507)	yes
+apps/desktop/src/main/updates.test.ts	never shows the provider its own error text	yes
+apps/desktop/src/main/updates.test.ts	is said as a download that failed, and nothing is left unhandled	yes
+apps/desktop/src/main/updates.test.ts	keeps the check's own sentence for a check that failed	yes
 apps/desktop/src/main/usage-carried-from-another-computer.test.ts	keeps a turn of numbers, and nothing it does not name	yes
 apps/desktop/src/main/usage-carried-from-another-computer.test.ts	leaves out a line that is not a turn	yes
 apps/desktop/src/main/usage-carried-from-another-computer.test.ts	reads every good line of the file, and no file as none	yes
