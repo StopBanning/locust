@@ -109,6 +109,9 @@ pub mod desk;
 pub mod desk_host;
 #[cfg(test)]
 mod desk_host_tests;
+pub mod desk_page;
+#[cfg(test)]
+mod desk_page_tests;
 pub mod disk_observation;
 pub mod cli_sessions;
 pub mod door;

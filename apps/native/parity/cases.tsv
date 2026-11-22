@@ -51,6 +51,9 @@ apps/desktop/src/main/a-branch-lands-as-one-commit.test.ts	drafts one ask plainl
 apps/desktop/src/main/a-brief-between-teammates-arrives-whole.test.ts	of a real brief's length is delivered as written	yes
 apps/desktop/src/main/a-brief-between-teammates-arrives-whole.test.ts	is cut only past 6,000 characters, and says so with a mark	yes
 apps/desktop/src/main/a-brief-between-teammates-arrives-whole.test.ts	fits what the store keeps and what a teammate is sent	yes
+apps/desktop/src/main/a-browser-opens-locust-without-a-code-to-carry.test.ts	reads a GitHub ticket, Open in your browser’s code and a plain code, and keeps none in the address	yes
+apps/desktop/src/main/a-browser-opens-locust-without-a-code-to-carry.test.ts	opens with every way in: GitHub where the relay offers it, a code, and where to get Locust	yes
+apps/desktop/src/main/a-browser-opens-locust-without-a-code-to-carry.test.ts	says what GitHub’s sign-in ended in on a page with no script, every word escaped	yes
 apps/desktop/src/main/a-built-in-tool-is-not-a-connector.test.ts	is a command card when it is Bash	yes
 apps/desktop/src/main/a-built-in-tool-is-not-a-connector.test.ts	is a file card, named inside the folder, when it edits a file	yes
 apps/desktop/src/main/a-built-in-tool-is-not-a-connector.test.ts	is still a connector when it is one	no
