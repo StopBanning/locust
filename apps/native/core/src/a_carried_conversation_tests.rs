@@ -120,7 +120,7 @@ impl Locust for Fake {
     fn models(&self) -> Vec<Value> {
         vec![json!({"id": "grok", "runtime": "cursor", "displayName": "Grok", "description": "", "supportedEfforts": ["low", "high"]})]
     }
-    fn carry_on(&self, _: &str, _: &str, _: Option<&str>) -> Result<(String, Option<String>), String> {
+    fn carry_on(&self, _: &str, _: &str, _: Option<&str>, _: &crate::carry_on::CarryOnAlso) -> Result<(String, Option<String>), String> {
         Err("not here".into())
     }
     // index.ts `followUpRoute`: the route the carried turn ran on, as the host holds it.
@@ -270,7 +270,7 @@ fn keeps_readable_text_beside_machine_status_for_working_approval_done_failed_an
         assert!(!result.text.is_empty(), "{status}");
         assert_eq!(
             result.structured,
-            Some(json!({"status": status, "runtime": "cursor", "model": "grok", "folder": "/work/conversation", "can_carry_on": carry})),
+            Some(json!({"status": status, "message": result.text, "runtime": "cursor", "model": "grok", "folder": "/work/conversation", "can_carry_on": carry})),
             "{status}"
         );
     }

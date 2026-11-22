@@ -1673,29 +1673,35 @@ static CARRIED: Mutex<Vec<String>> = Mutex::new(Vec::new());
 /// The new turn continues the conversation in the stopped turn's mode (and an app's folder), told what was done.
 /// Returns the new turn's id, the folder it works in and the mode it runs in.
 pub fn carry(mission: &str, runtime: &str, model: Option<&str>) -> Result<(String, Option<String>, String), String> {
+    carry_with(mission, runtime, model, &crate::carry_on::CarryOnAlso::default())
+}
+
+/// main/carry-on.ts `carry` with an app's extras (0.882): picking up a turn Locust closed under (on its own agent too),
+/// or moving a finished conversation to another agent with a message (or appending a message to a stopped carry-on).
+pub fn carry_with(
+    mission: &str,
+    runtime: &str,
+    model: Option<&str>,
+    also: &crate::carry_on::CarryOnAlso,
+) -> Result<(String, Option<String>, String), String> {
     if crate::invariants::lock(&CARRIED).iter().any(|m| m == mission) {
         return Err("This turn was already carried on.".into());
     }
     let store = store().ok_or("Native data folder could not be determined.")?;
     let prior = turn_records(mission).ok_or("This conversation is not in the record any more, so it cannot be carried on.")?;
-    let reason = crate::carry_on::stopped_for(crate::carry_on::phase_of(&prior.events), &prior.events)
-        .ok_or("This turn did not stop on its plan running out or its provider or process failing, so there is nothing to carry on.")?;
     let from = prior.metadata["runtime"].as_str().unwrap_or_default().to_owned();
-    if runtime == from {
-        let name = crate::carry_on::display_name(&from);
-        return Err(if reason == crate::carry_on::Reason::Plan {
-            format!("{name} is the agent whose plan ran out.")
-        } else {
-            format!("{name} is the agent that just failed.")
-        });
-    }
     let mode = prior.metadata["mode"]
         .as_str()
         .map(str::to_owned)
         .unwrap_or_else(|| if prior.metadata["sandbox"] == "read-only" { "ask".into() } else { "accept-edits".into() });
-    if let Some(refused) = crate::carry_on::carry_on_refusal(&mode, runtime) {
-        return Err(refused);
-    }
+    let decision = crate::carry_on::carry_decision(
+        crate::carry_on::phase_of(&prior.events),
+        &prior.events,
+        &from,
+        runtime,
+        &mode,
+        also,
+    )?;
     let owner = crate::people::owner_of(&store, mission).ok_or("This conversation no longer has a teammate, so it cannot be carried on.")?;
     let mut teammate = roster_in(&store)?
         .into_iter()
@@ -1716,7 +1722,7 @@ pub fn carry(mission: &str, runtime: &str, model: Option<&str>) -> Result<(Strin
     let job = Send {
         teammate,
         conversation: Some(mission.to_owned()),
-        prompt: crate::carry_on::carry_on_prompt(&from, reason),
+        prompt: decision.prompt,
         model: model.map(str::to_owned),
         effort: None,
     };
@@ -1726,6 +1732,7 @@ pub fn carry(mission: &str, runtime: &str, model: Option<&str>) -> Result<(Strin
         started_by: Some(started_by),
         runtime: Some(runtime.to_owned()),
         account: Some(None),
+        allow_cut_off: decision.cut_off,
         ..Default::default()
     };
     let started = send_from(job, origin).and_then(|s| real_tip(&s.conversation_id));
@@ -1869,6 +1876,8 @@ pub struct Origin {
     pub left_out_by_you: Vec<String>,
     /// Earlier posts and finished answers in a room, for a turn posted to a room.
     pub room_history: Option<crate::room_history::RoomHistory>,
+    /// Picking up a turn Locust closed under (0.882): not live in this process, so its fresh ledger mtime does not block.
+    pub allow_cut_off: bool,
     /// The turn is an edited earlier message, started again from the turn before it.
     pub rewind: Option<Rewind>,
 }
@@ -2561,7 +2570,7 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
                 );
             }
             let prior = prior_of(tip)?;
-            if prior.running {
+            if prior.running && !origin.allow_cut_off {
                 return Err(
                     "A turn is still running in that conversation. Wait for it or stop it first."
                         .into(),

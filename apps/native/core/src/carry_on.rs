@@ -176,6 +176,87 @@ pub fn carry_on_prompt(from: &str, reason: Reason) -> String {
     }
 }
 
+/// A TURN CUT OFF WHEN LOCUST CLOSED (0.882): it started, recorded no ending, and nothing runs it now.
+/// The caller says the turn is not running: a live turn looks the same in the record.
+pub fn cut_off_mid_turn(phase: Option<&str>, events: &[Value]) -> bool {
+    matches!(phase, None | Some("interrupted"))
+        && events.iter().any(|e| e["type"] == "run.started")
+        && !events.iter().any(|e| matches!(e["type"].as_str(), Some("run.completed" | "run.failed" | "run.cancelled")))
+}
+
+/// What a turn carried on after Locust closed under it is told: the process-failed words, for the same reason.
+pub fn cut_off_prompt(from: &str) -> String {
+    format!(
+        "{} stopped when Locust closed while it was working. Carry on from the recorded work. Reconcile any action without a confirmed result using receipts and idempotency keys before proceeding; never retry an irreversible action with an uncertain result.",
+        display_name(from)
+    )
+}
+
+/// What an app's carry-on may add to the card's press (0.882).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct CarryOnAlso {
+    pub cut_off: bool,
+    pub message: Option<String>,
+}
+
+/// The prompt and cut-off flag decided for a carry-on (main/carry-on.ts `carry`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CarryDecision {
+    pub prompt: String,
+    pub cut_off: bool,
+}
+
+/// Decide whether a turn may be carried on to `to_runtime` in `mode`, and what prompt it gets (main/carry-on.ts).
+pub fn carry_decision(
+    phase: Option<&str>,
+    events: &[Value],
+    from: &str,
+    to_runtime: &str,
+    mode: &str,
+    also: &CarryOnAlso,
+) -> Result<CarryDecision, String> {
+    let reason = stopped_for(phase, events);
+    let cut_off = reason.is_none() && also.cut_off && cut_off_mid_turn(phase, events);
+    let finished = reason.is_none()
+        && !cut_off
+        && also.message.is_some()
+        && matches!(phase, Some("completed" | "cancelled"));
+    if reason.is_none() && !cut_off && !finished {
+        return Err(if matches!(phase, Some("completed" | "cancelled")) {
+            "This turn finished, so there is nothing to carry on. To move the conversation to another agent, give a message for its next turn too.".into()
+        } else {
+            "This turn did not stop on its plan running out or its provider or process failing, so there is nothing to carry on.".into()
+        });
+    }
+    if to_runtime == from && !cut_off {
+        let name = display_name(from);
+        return Err(if finished {
+            format!("{name} already runs this conversation: send it the message instead.")
+        } else if reason == Some(Reason::Plan) {
+            format!("{name} is the agent whose plan ran out.")
+        } else {
+            format!("{name} is the agent that just failed.")
+        });
+    }
+    if let Some(refused) = carry_on_refusal(mode, to_runtime) {
+        return Err(refused);
+    }
+    let said = if finished {
+        None
+    } else if let Some(r) = reason {
+        Some(carry_on_prompt(from, r))
+    } else {
+        Some(cut_off_prompt(from))
+    };
+    let prompt = match (said, also.message.as_deref()) {
+        (None, Some(msg)) => msg.to_owned(),
+        (Some(s), None) => s,
+        (Some(s), Some(msg)) => format!("{s}\n\n{msg}"),
+        (None, None) => unreachable!("finished requires a message"),
+    };
+    Ok(CarryDecision { prompt, cut_off })
+}
+
 /// howTurnEnded: how a turn that did not finish ended, in the brief's words.
 pub fn how_turn_ended(events: &[Value]) -> Option<&'static str> {
     let end = events

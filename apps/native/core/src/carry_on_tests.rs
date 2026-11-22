@@ -99,3 +99,29 @@ fn a_cold_follow_up_quotes_the_conversation_oldest_first_and_alone_says_nothing_
     assert!(compose_cold_follow_up(&turns, "Why?", true).starts_with("The person went back to an earlier point in this conversation and changed their message there."));
     assert_eq!(compose_cold_follow_up(&[], "Why?", false), "Why?");
 }
+
+// case: reads a turn that started and never ended as cut off, and never a finished, failed or unstarted one
+#[test]
+fn reads_a_turn_that_started_and_never_ended_as_cut_off_and_never_a_finished_failed_or_unstarted_one() {
+    let started = json!({"type": "run.started", "payload": {}});
+    assert!(cut_off_mid_turn(Some("interrupted"), &[started.clone(), json!({"type": "message.delta"})]));
+    assert!(cut_off_mid_turn(None, &[started.clone(), json!({"type": "message.delta"})]));
+    assert!(!cut_off_mid_turn(Some("interrupted"), &[]));
+    assert!(!cut_off_mid_turn(Some("interrupted"), &[started.clone(), json!({"type": "run.cancelled"})]));
+    assert!(!cut_off_mid_turn(Some("failed"), &[started.clone()]));
+    assert!(!cut_off_mid_turn(Some("completed"), &[started.clone(), json!({"type": "run.completed"})]));
+
+    // Direct carry_decision coverage for cut-off, finished-with-message, same-agent, and appended-message rules.
+    let cut_only = CarryOnAlso { cut_off: true, message: None };
+    let picked = carry_decision(None, &[started.clone()], "codex", "codex", "ask", &cut_only).unwrap();
+    assert!(picked.cut_off && picked.prompt == cut_off_prompt("codex"));
+    assert!(carry_decision(None, &[started.clone()], "codex", "claude", "ask", &CarryOnAlso::default()).is_err());
+    let done = vec![started.clone(), json!({"type": "run.completed"})];
+    let with_msg = CarryOnAlso { cut_off: false, message: Some("Review it.".into()) };
+    assert_eq!(carry_decision(Some("completed"), &done, "codex", "claude", "ask", &with_msg).unwrap().prompt, "Review it.");
+    assert!(carry_decision(Some("completed"), &done, "codex", "claude", "ask", &CarryOnAlso::default()).is_err());
+    assert!(carry_decision(Some("completed"), &done, "codex", "codex", "ask", &with_msg).is_err());
+    let ran_out = vec![started, json!({"type": "route.limit_detected", "payload": {"kind": "quota-exhausted"}})];
+    let appended = carry_decision(Some("failed"), &ran_out, "codex", "claude", "ask", &CarryOnAlso { cut_off: false, message: Some("Then push it.".into()) }).unwrap();
+    assert!(appended.prompt.ends_with("\n\nThen push it."), "{}", appended.prompt);
+}

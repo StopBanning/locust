@@ -118,6 +118,7 @@ pub struct Turn {
     /// The account its route recorded (`resolvedRouteId`), None for the machine's own sign-in.
     pub account: Option<String>,
     pub events: Vec<Value>,
+    pub host_failure_message: Option<String>,
     pub updated: String,
 }
 
@@ -133,6 +134,11 @@ impl Turn {
             .collect();
         events.sort_by_key(|(s, _)| *s);
         events.dedup_by_key(|(s, _)| *s);
+        let host_failure_message = records
+            .iter()
+            .rev()
+            .find(|r| r["recordType"] == "mission.host_failure")
+            .and_then(|r| text(&r["failure"]["message"]));
         let updated = records.iter().rev().find_map(|r| r["occurredAt"].as_str().map(str::to_owned)).unwrap_or_default();
         Some(Self {
             mission_id: text(&meta["missionId"])?,
@@ -145,6 +151,7 @@ impl Turn {
             cwd: text(&meta["command"]["cwd"]),
             account: meta["resolvedRouteId"].as_str().and_then(crate::agent_accounts::account_from_route).map(str::to_owned),
             events: events.into_iter().map(|(_, e)| e).collect(),
+            host_failure_message,
             updated,
         })
     }
@@ -155,6 +162,7 @@ impl Turn {
             Some("run.completed") => "completed",
             Some("run.failed") => "failed",
             Some("run.cancelled") => "cancelled",
+            _ if self.host_failure_message.is_some() => "failed",
             _ => "interrupted",
         }
     }
@@ -204,7 +212,13 @@ pub trait Locust: Send + Sync {
     /// The model list (models.rs, Electron's PublicModel shape): what each agent offers on this computer.
     fn models(&self) -> Vec<Value>;
     /// Locust's own carry-on (main/carry-on.ts): the new turn's id and the folder it works in.
-    fn carry_on(&self, mission: &str, runtime: &str, model: Option<&str>) -> Result<(String, Option<String>), String>;
+    fn carry_on(
+        &self,
+        mission: &str,
+        runtime: &str,
+        model: Option<&str>,
+        also: &crate::carry_on::CarryOnAlso,
+    ) -> Result<(String, Option<String>), String>;
     /// `followUpRoute`: the route a turn ran on, as the host holds it, else as its record says (runtime, model and
     /// account); None when neither knows.
     fn follow_up_route(&self, _mission: &str) -> Option<Route> {
@@ -230,6 +244,14 @@ pub trait Locust: Send + Sync {
     /// How a waiting read_reply sleeps between looks.
     fn pause(&self, ms: u64) {
         std::thread::sleep(Duration::from_millis(ms));
+    }
+    /// What Locust last read of each agent's usage: window readings and agents at their limit (0.882).
+    fn usage(&self) -> Result<(std::collections::HashMap<String, String>, std::collections::HashMap<String, String>), String> {
+        Ok((std::collections::HashMap::new(), std::collections::HashMap::new()))
+    }
+    /// Save a teammate's route through the host's own policy check and route store (0.882).
+    fn save_model(&self, _teammate_id: &str, _route: &Value) -> Result<(), String> {
+        Err("This Locust does not change teammate models from other apps.".into())
     }
 }
 
@@ -289,16 +311,27 @@ pub fn answer_of(turn: &Turn) -> ToolResult {
     match turn.phase() {
         "failed" => {
             let said = turn
-                .events
-                .iter()
-                .rev()
-                .find(|e| e["type"] == "run.failed")
-                .and_then(|e| e["payload"]["message"].as_str())
+                .host_failure_message
+                .as_deref()
+                .or_else(|| {
+                    turn.events
+                        .iter()
+                        .rev()
+                        .find(|e| e["type"] == "run.failed")
+                        .and_then(|e| e["payload"]["message"].as_str())
+                })
                 .unwrap_or("The AI agent ended without an answer.");
             return ToolResult::refused(said);
         }
         "completed" => {}
-        _ => return ToolResult::refused("The run was interrupted or stopped before it finished."),
+        _ => {
+            if crate::carry_on::cut_off_mid_turn(Some(turn.phase()), &turn.events) {
+                return ToolResult::refused(
+                    "Locust closed while this turn was working, so it never finished. carry_on picks it up again from the recorded work, on this agent or another.",
+                );
+            }
+            return ToolResult::refused("The run was interrupted or stopped before it finished.");
+        }
     }
     let joined = messages(&turn.events);
     let Some((_, said, _, last)) = joined.iter().rev().find(|m| m.2) else {
@@ -319,11 +352,19 @@ pub fn answer_of(turn: &Turn) -> ToolResult {
     ToolResult::ok(if warned.is_empty() { answer } else { format!("{answer}\n\nLocust: {}", warned.join(" ")) })
 }
 
-/// Why a turn that ended can be carried on (main/carry-on.ts stoppedFor).
-fn stopped_reason(turn: &Turn) -> Option<crate::carry_on::Reason> {
+/// Why a turn that ended (and is not live) can be carried on: its card reason, or that Locust closed under it (0.882).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum StoppedReason {
+    Carry(crate::carry_on::Reason),
+    CutOff,
+}
+
+fn stopped_reason(turn: &Turn) -> Option<StoppedReason> {
     match turn.phase() {
         "completed" | "cancelled" => None,
-        _ => crate::carry_on::carry_on_reason(&turn.events),
+        phase => crate::carry_on::carry_on_reason(&turn.events)
+            .map(StoppedReason::Carry)
+            .or_else(|| crate::carry_on::cut_off_mid_turn(Some(phase), &turn.events).then_some(StoppedReason::CutOff)),
     }
 }
 
@@ -359,14 +400,44 @@ impl<L: Locust> Tools<L> {
         Self { locust, starting: Mutex::new(HashSet::new()), routines_started: Mutex::new(HashSet::new()) }
     }
 
+    /// A short conversation id (0.882): the first eight or more characters of an id list_conversations gave, with or
+    /// without "mission_", matching exactly one conversation.
+    fn whole_id(&self, id: &str) -> String {
+        let bare = id.strip_prefix("mission_").unwrap_or(id);
+        let ok = (8..=35).contains(&bare.len())
+            && bare.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b) || b == b'-');
+        if !ok {
+            return id.to_owned();
+        }
+        let prefix = format!("mission_{bare}");
+        let matches: Vec<String> = self
+            .locust
+            .conversations()
+            .into_iter()
+            .map(|t| t.mission_id)
+            .filter(|m| m.starts_with(&prefix))
+            .collect();
+        if matches.len() == 1 { matches.into_iter().next().unwrap() } else { id.to_owned() }
+    }
+
     /// A conversation this app may read: one an app started, or any while the person lets apps see theirs. Then its
-    /// newest turn.
-    fn lookup(&self, id: &str) -> Option<Turn> {
-        let root = self.locust.read(id)?;
+    /// newest turn. Accepts a short id (eight or more characters, with or without `mission_`) matching one conversation.
+    fn lookup(&self, asked: &str) -> Option<Turn> {
+        let (id, root) = match self.locust.read(asked) {
+            Some(t) => (asked.to_owned(), t),
+            None => {
+                let expanded = self.whole_id(asked);
+                if expanded == asked {
+                    return None;
+                }
+                let t = self.locust.read(&expanded)?;
+                (expanded, t)
+            }
+        };
         if !root.from_app() && !self.locust.see_all() {
             return None;
         }
-        let newest = self.locust.newest(id).unwrap_or_else(|| id.to_owned());
+        let newest = self.locust.newest(&id).unwrap_or_else(|| id.clone());
         if newest == root.mission_id { Some(root) } else { self.locust.read(&newest) }
     }
 
@@ -608,7 +679,10 @@ impl<L: Locust> Tools<L> {
                 _ => "stopped",
             }
         };
+        // The words in both parts (0.882): a client that reads structuredContent shows it in place of the text, so the
+        // same words ride in `message`.
         result.structured = Some(json!({
+            "message": result.text,
             "status": status,
             "runtime": turn.runtime,
             "model": turn.model,
@@ -721,6 +795,11 @@ impl<L: Locust> Tools<L> {
                 }
             }
             "carry_on" => self.carry_on(args),
+            "read_usage" => match self.locust.usage() {
+                Ok((windows, at_limit)) => ToolResult::ok(json!({"usage": windows, "at_limit": at_limit}).to_string()),
+                Err(_) => ToolResult::refused("Locust could not read its usage records just now. Try again shortly."),
+            },
+            "set_teammate_model" => self.set_teammate_model(args),
             "list_routines" => self.list_routines(),
             "run_routine" => self.run_routine(args),
             "routine_status" => self.routine_status(args),
@@ -744,9 +823,10 @@ impl<L: Locust> Tools<L> {
                             if self.locust.waiting(&turn.mission_id) { "waiting for the person in Locust" } else { "working" }
                         } else {
                             match stopped {
-                                Some(crate::carry_on::Reason::Plan) => "stopped: its plan ran out",
-                                Some(crate::carry_on::Reason::Provider) => "stopped: its provider failed",
-                                Some(crate::carry_on::Reason::Process) => "stopped: its process failed",
+                                Some(StoppedReason::Carry(crate::carry_on::Reason::Plan)) => "stopped: its plan ran out",
+                                Some(StoppedReason::Carry(crate::carry_on::Reason::Provider)) => "stopped: its provider failed",
+                                Some(StoppedReason::Carry(crate::carry_on::Reason::Process)) => "stopped: its process failed",
+                                Some(StoppedReason::CutOff) => "stopped: Locust closed while it was working",
                                 None => turn.phase(),
                             }
                         };
@@ -983,6 +1063,84 @@ impl<L: Locust> Tools<L> {
         ))
     }
 
+    fn set_teammate_model(&self, args: &Value) -> ToolResult {
+        if !self.locust.see_all() || !self.locust.own_mode() {
+            return ToolResult::refused(
+                "Off: an app sets a teammate's model only while the person has turned on both \"Let apps see your conversations\" and \"Use each teammate's own mode\" in Locust's Settings. Nothing was changed.",
+            );
+        }
+        let (Some(who), Some(asked_model)) = (text_arg(&args["teammate"], 200), text_arg(&args["model"], 200)) else {
+            return ToolResult::refused(
+                "Give a teammate by name or id and a model from list_models, and optionally an effort. Nothing was changed.",
+            );
+        };
+        let asked_effort = if args["effort"].is_null() {
+            None
+        } else {
+            let Some(e) = text_arg(&args["effort"], 40) else {
+                return ToolResult::refused(
+                    "Give a teammate by name or id and a model from list_models, and optionally an effort. Nothing was changed.",
+                );
+            };
+            Some(e.trim().to_lowercase())
+        };
+        let list = match self.locust.teammates() {
+            Ok(l) => l,
+            Err(why) => return ToolResult::refused(why),
+        };
+        let wanted = who.trim().to_lowercase();
+        let Some((teammate, saved_effort)) = list.into_iter().find(|(t, _)| t.id == who || t.name.to_lowercase() == wanted) else {
+            return ToolResult::refused("No teammate has that name or id. Nothing was changed.");
+        };
+        let Some(runtime) = teammate.runtime.clone() else {
+            return ToolResult::refused(format!(
+                "{} has no AI agent set up yet. Choose one in Locust first. Nothing was changed.",
+                teammate.name
+            ));
+        };
+        let offered = self.models_for(&runtime);
+        let asked = asked_model.trim().to_lowercase();
+        let Some(model) = offered.iter().find(|m| {
+            m["id"].as_str().is_some_and(|id| id.to_lowercase() == asked)
+                || m["displayName"].as_str().is_some_and(|n| n.to_lowercase() == asked)
+        }) else {
+            return ToolResult::refused(format!(
+                "That model is not one {runtime} offers in this Locust. Ask list_models for {}'s choices. Nothing was changed.",
+                teammate.name
+            ));
+        };
+        let levels = efforts(model);
+        let display = model["displayName"].as_str().unwrap_or_default();
+        if let Some(e) = &asked_effort
+            && !levels.contains(e)
+        {
+            return ToolResult::refused(if levels.is_empty() {
+                format!("{display} takes no effort level here: leave effort out. Nothing was changed.")
+            } else {
+                format!("{display} takes these efforts here: {}. Nothing was changed.", levels.join(", "))
+            });
+        }
+        // Its agent, account and mode stay; the saved effort stays when the new model takes it.
+        let kept = asked_effort.or_else(|| saved_effort.filter(|e| levels.contains(e)));
+        let model_id = model["id"].as_str().unwrap_or_default().to_owned();
+        let mode = if teammate.runs_in.is_empty() { "ask".to_owned() } else { teammate.runs_in.clone() };
+        let mut route = json!({"runtime": runtime, "model": model_id, "mode": mode});
+        if let Some(account) = &teammate.account {
+            route["account"] = json!(account);
+        }
+        if let Some(effort) = &kept {
+            route["effort"] = json!(effort);
+        }
+        if let Err(refused) = self.locust.save_model(&teammate.id, &route) {
+            return ToolResult::refused(format!("{refused} Nothing was changed."));
+        }
+        let mut out = json!({"teammate": teammate.name, "runtime": runtime, "model": model_id});
+        if let Some(effort) = kept {
+            out["effort"] = json!(effort);
+        }
+        ToolResult::ok(out.to_string())
+    }
+
     fn carry_on(&self, args: &Value) -> ToolResult {
         let Some(id) = text_arg(&args["conversation_id"], 200) else {
             return ToolResult::refused("Give a conversation id from start_conversation or list_conversations.");
@@ -1028,8 +1186,20 @@ impl<L: Locust> Tools<L> {
         if asked.is_some() && found.is_none() {
             return ToolResult::refused(format!("{runtime} does not offer that model here. Use one from list_models. Nothing was started."));
         }
+        let message = if args["message"].is_null() {
+            None
+        } else {
+            let Some(m) = text_arg(&args["message"], 8_000) else {
+                return ToolResult::refused("message is up to 8,000 characters. Nothing was started.");
+            };
+            Some(m.to_owned())
+        };
+        let also = crate::carry_on::CarryOnAlso {
+            cut_off: stopped_reason(&turn) == Some(StoppedReason::CutOff),
+            message,
+        };
         let model = found;
-        match self.locust.carry_on(&turn.mission_id, runtime, model) {
+        match self.locust.carry_on(&turn.mission_id, runtime, model, &also) {
             Err(why) => ToolResult::refused(format!("{why} Nothing was started.")),
             Ok((carried, folder)) => {
                 let mut reply = json!({"conversation_id": carried, "runtime": runtime});
@@ -1116,7 +1286,7 @@ impl<L: Locust> Tools<L> {
             let mut starting = self.starting.lock().unwrap_or_else(|e| e.into_inner());
             if starting.contains(id) {
                 let mut r = ToolResult::ok("Still working: starting the next turn.");
-                r.structured = Some(json!({"status": "working", "runtime": null, "model": null, "folder": null, "can_carry_on": false}));
+                r.structured = Some(json!({"message": r.text, "status": "working", "runtime": null, "model": null, "folder": null, "can_carry_on": false}));
                 return r;
             }
             // Claim before the first read: two sends must not both continue the same old turn.

@@ -290,6 +290,7 @@ pub fn start_room_member(
         left_out_by_you: Vec::new(),
         room_history,
         rewind: None,
+        allow_cut_off: false,
     };
     match api().send(job, origin) {
         Ok(started) => (

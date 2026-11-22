@@ -48,6 +48,17 @@ pub trait EngineApi: std::marker::Send + Sync {
     fn save_rule_and_decide(&self, card: &Request, effect: RuleEffect) -> Result<(), String>;
     /// Carry a stopped turn on with another agent: the new conversation, its folder and the mode it runs in.
     fn carry(&self, mission: &str, runtime: &str, model: Option<&str>) -> Result<(String, Option<String>, String), String>;
+    /// Carry a turn on with an app's extras (0.882): picking up a cut-off turn or moving a finished one with a message.
+    fn carry_with(
+        &self,
+        mission: &str,
+        runtime: &str,
+        model: Option<&str>,
+        also: &crate::carry_on::CarryOnAlso,
+    ) -> Result<(String, Option<String>, String), String> {
+        let _ = also;
+        self.carry(mission, runtime, model)
+    }
     /// Ask every running turn to stop and record its ending, without waiting.
     fn shut_down(&self);
     /// Wait until the endings asked for by [`EngineApi::shut_down`] are written.
@@ -120,6 +131,15 @@ impl EngineApi for InProcess {
     }
     fn carry(&self, mission: &str, runtime: &str, model: Option<&str>) -> Result<(String, Option<String>, String), String> {
         native::carry(mission, runtime, model)
+    }
+    fn carry_with(
+        &self,
+        mission: &str,
+        runtime: &str,
+        model: Option<&str>,
+        also: &crate::carry_on::CarryOnAlso,
+    ) -> Result<(String, Option<String>, String), String> {
+        native::carry_with(mission, runtime, model, also)
     }
     fn shut_down(&self) {
         native::shutdown_in_background();

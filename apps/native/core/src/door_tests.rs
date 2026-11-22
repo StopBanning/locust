@@ -128,14 +128,14 @@ fn an_app_may_name_a_known_folder_one_inside_it_or_a_worktree_of_its_repository(
 fn the_bridge_lists_the_tools_and_marks_those_that_only_read() {
     let tools = tool_list();
     let names: Vec<&str> = tools.as_array().unwrap().iter().map(|t| t["name"].as_str().unwrap()).collect();
-    // Electron's bridge order: answer_question after read_reply, carry_on after list_conversations (0.878).
+    // Electron's bridge order: answer_question after read_reply, carry_on, read_usage, set_teammate_model after list_conversations (0.882).
     assert_eq!(
         names,
-        ["list_teammates", "start_conversation", "send_message", "read_reply", "answer_question", "stop_turn", "list_conversations", "carry_on", "list_models", "list_background_runs", "list_routines", "run_routine", "routine_status"]
+        ["list_teammates", "start_conversation", "send_message", "read_reply", "answer_question", "stop_turn", "list_conversations", "carry_on", "read_usage", "set_teammate_model", "list_models", "list_background_runs", "list_routines", "run_routine", "routine_status"]
     );
     for t in tools.as_array().unwrap() {
         let reads = t["annotations"]["readOnlyHint"] == true;
-        let writes = ["start_conversation", "send_message", "answer_question", "stop_turn", "carry_on", "run_routine"].contains(&t["name"].as_str().unwrap());
+        let writes = ["start_conversation", "send_message", "answer_question", "stop_turn", "carry_on", "set_teammate_model", "run_routine"].contains(&t["name"].as_str().unwrap());
         assert_eq!(reads, !writes, "{}", t["name"]);
     }
     // Electron 0.879: start_conversation needs only a message; with no teammate it takes the agent as runtime.
@@ -254,4 +254,51 @@ fn an_editors_names_are_answered_by_its_sessions_and_close_with_the_door() {
     door.dispose();
     let closed = (door.call)("cli/status", &json!({}));
     assert!(closed["content"][0]["text"].as_str().unwrap().contains("Locust is closing"), "{closed}");
+}
+
+#[test]
+fn engine_reads_usage_and_saves_teammate_model_under_org_policy() {
+    let dir = temp("engine-usage-model");
+    let store = Store::new(dir.join("native"), dir.join("electron")).unwrap();
+    store
+        .save_json(
+            "usage-readings.json",
+            &json!({"codex": "5-hour window 78% used · from a run at 2026-11-22T05:13:36.175Z"}),
+        )
+        .unwrap();
+    std::fs::create_dir_all(dir.join("native/mission-ledger")).unwrap();
+    std::fs::write(
+        dir.join("native/mission-ledger/m_lim.jsonl"),
+        format!(
+            "{}\n{}\n",
+            json!({"recordType": "mission.created", "metadata": {"missionId": "m_lim", "runtime": "codex", "resolvedRouteId": "codex:gpt-5-account:default"}}),
+            json!({"recordType": "mission.event", "event": {"type": "route.limit_detected", "occurredAt": "2026-11-22T05:14:00.000Z", "sourceAdapter": "codex", "payload": {"kind": "quota-exhausted", "message": "Codex is at its limit."}}}),
+        ),
+    )
+    .unwrap();
+    store
+        .save_json(
+            "teammates.json",
+            &json!({"schemaVersion": 1, "teammates": [{"teammateId": "tm_codec", "name": "Codec", "role": "Custom", "hue": "lime", "createdAt": "2026-11-22T00:00:00.000Z",
+                "route": {"runtime": "codex", "model": "gpt-6.1-sol", "mode": "auto", "effort": "high"}}], "missionOwners": {}}),
+        )
+        .unwrap();
+    let engine = Engine { store: store.clone(), settings: Arc::new(Mutex::new(Settings { own_mode: true, conversations: true, ..Default::default() })) };
+    let (windows, at_limit) = engine.usage().unwrap();
+    assert_eq!(windows.get("codex").map(String::as_str), Some("5-hour window 78% used · from a run at 2026-11-22T05:13:36.175Z"));
+    assert_eq!(at_limit.get("codex").map(String::as_str), Some("Codex is at its limit."));
+
+    // Organization policy refuses a disallowed model before touching teammates.json.
+    let mut policy = serde_json::Map::new();
+    policy.insert("allowedModels".into(), json!({"codex": ["gpt-6.1-*"]}));
+    crate::org_policy::use_policy_on_this_thread(Some(crate::org_policy::PolicyState { path: "/etc/locust/policy.json".into(), present: true, policy, error: None }));
+    let denied = engine.save_model("tm_codec", &json!({"runtime": "codex", "model": "gpt-6.2-sol", "mode": "auto", "effort": "high"})).unwrap_err();
+    crate::org_policy::use_policy_on_this_thread(None);
+    assert!(denied.contains("gpt-6.2-sol") && denied.contains("not allowed"), "{denied}");
+
+    // Without policy refusal, the new model is saved to teammates.json.
+    engine.save_model("tm_codec", &json!({"runtime": "codex", "model": "gpt-6.2-sol", "mode": "auto", "effort": "high"})).unwrap();
+    let team = crate::people::team(&store).unwrap();
+    assert_eq!(team["teammates"][0]["route"]["model"], "gpt-6.2-sol");
+    let _ = std::fs::remove_dir_all(&dir);
 }

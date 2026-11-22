@@ -91,7 +91,7 @@ impl Locust for Routined {
     fn models(&self) -> Vec<Value> {
         Vec::new()
     }
-    fn carry_on(&self, _: &str, _: &str, _: Option<&str>) -> Result<(String, Option<String>), String> {
+    fn carry_on(&self, _: &str, _: &str, _: Option<&str>, _: &crate::carry_on::CarryOnAlso) -> Result<(String, Option<String>), String> {
         Err("no".into())
     }
     fn routines(&self) -> Option<Vec<Value>> {
@@ -323,7 +323,7 @@ fn a_locust_that_offers_no_routines_says_so_for_each_tool() {
         fn own_mode(&self) -> bool { true }
         fn see_all(&self) -> bool { false }
         fn models(&self) -> Vec<Value> { Vec::new() }
-        fn carry_on(&self, m: &str, r: &str, model: Option<&str>) -> Result<(String, Option<String>), String> { self.0.carry_on(m, r, model) }
+        fn carry_on(&self, m: &str, r: &str, model: Option<&str>, also: &crate::carry_on::CarryOnAlso) -> Result<(String, Option<String>), String> { self.0.carry_on(m, r, model, also) }
     }
     let t = Tools::new(Bare(fake));
     assert_eq!(t.call("list_routines", &json!({})), ToolResult::refused("This Locust does not offer routines to other apps."));
