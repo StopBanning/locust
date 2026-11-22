@@ -646,3 +646,7 @@ mod tests {
 #[cfg(test)]
 #[path = "torn_listing_tests.rs"]
 mod torn_listing_tests;
+
+#[cfg(test)]
+#[path = "unreadable_count_tests.rs"]
+mod unreadable_count_tests;

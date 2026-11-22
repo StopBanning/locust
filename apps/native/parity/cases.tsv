@@ -6110,6 +6110,11 @@ packages/mission-store/src/deleting-is-reversible.test.ts	reports nothing to res
 packages/mission-store/src/deleting-is-reversible.test.ts	empties for good, and only then	yes
 packages/mission-store/src/deleting-is-reversible.test.ts	survives being deleted, restored and deleted again	yes
 packages/mission-store/src/deleting-is-reversible.test.ts	keeps what a bulk prune takes, the same way	no
+packages/mission-store/src/unreadable-count.test.ts	is zero when every file recovered, however many are on the page	yes
+packages/mission-store/src/unreadable-count.test.ts	does not call a DAMAGED but recovered mission unreadable when it falls off the page	yes
+packages/mission-store/src/unreadable-count.test.ts	counts a file whose header is unreadable, and only that file	yes
+packages/mission-store/src/unreadable-count.test.ts	counts one file, not one per issue it raised	yes
+packages/mission-store/src/unreadable-count.test.ts	is zero when the ledger directory itself cannot be read	yes
 packages/mission-store/test/a-card-answered-is-kept-with-its-turn.test.ts	comes back from the file exactly as written, in order, with the schema version that holds it	yes
 packages/mission-store/test/a-card-answered-is-kept-with-its-turn.test.ts	sits between a run's events without disturbing their numbering	yes
 packages/mission-store/test/a-card-answered-is-kept-with-its-turn.test.ts	is refused on a mission written before version 20, which its own readers would stop at	no
