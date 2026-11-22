@@ -1534,6 +1534,18 @@ apps/desktop/src/main/changelog.test.ts	reads an entry with no date	no
 apps/desktop/src/main/changelog.test.ts	says nothing for a version the file does not carry	no
 apps/desktop/src/main/changelog.test.ts	reads an empty or headingless file as no entries at all	no
 apps/desktop/src/main/changelog.test.ts	is not fooled by a version-looking line inside an entry	no
+apps/desktop/src/main/cloud-tasks.test.ts	is named owner/repo from its remote, https or ssh	yes
+apps/desktop/src/main/cloud-tasks.test.ts	says its branch, what GitHub does not have yet, and uncommitted work	yes
+apps/desktop/src/main/cloud-tasks.test.ts	has no upstream, or no remote, said as unknown rather than guessed	yes
+apps/desktop/src/main/cloud-tasks.test.ts	finds the task in what Codex printed	yes
+apps/desktop/src/main/cloud-tasks.test.ts	says a missing environment in terms of what to do about it	yes
+apps/desktop/src/main/cloud-tasks.test.ts	passes on anything else in Codex's own last words, never its config warnings	yes
+apps/desktop/src/main/cloud-tasks.test.ts	reads what `codex cloud list --env` answered on 2026-09-30	yes
+apps/desktop/src/main/cloud-tasks.test.ts	says unknown, not missing, for anything else -- a network failure is not a missing environment	yes
+apps/desktop/src/main/cloud-tasks.test.ts	reads a finished task as Codex prints it, on three lines, with its change counted	yes
+apps/desktop/src/main/cloud-tasks.test.ts	reads the same on one line	yes
+apps/desktop/src/main/cloud-tasks.test.ts	reads one still going, with nothing to count yet	yes
+apps/desktop/src/main/cloud-tasks.test.ts	reads anything it does not know as unknown	yes
 apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	holds the teammate’s listed skills, the kept ones and a tune column’s one, the most particular winning a name	no
 apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	is nothing at all when there is nothing to hand over, and leaves no folder behind	no
 apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	copies no link, so removing the copy can never reach past it	no
