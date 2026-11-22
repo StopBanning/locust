@@ -13,9 +13,35 @@ pub enum Phase {
     Briefing,
     ReadingFolder,
     StartingRuntime,
+    /// OpenCode's first start on a clean machine installs its plugin package first (0.780).
+    RuntimeFirstSetup,
 }
 
 const ORDER: [Phase; 4] = [Phase::Looking, Phase::Briefing, Phase::ReadingFolder, Phase::StartingRuntime];
+
+/// `shared/start-phase.ts` `startPhaseLabel`: what the live line says while a teammate's turn is starting.
+pub fn start_phase_label(phase: Option<Phase>, runtime_name: &str) -> String {
+    match phase {
+        Some(Phase::Looking) => format!("Looking for {runtime_name}"),
+        Some(Phase::Briefing) => "Briefing".into(),
+        Some(Phase::ReadingFolder) => "Reading the folder".into(),
+        Some(Phase::StartingRuntime) => format!("Starting {runtime_name}"),
+        Some(Phase::RuntimeFirstSetup) => {
+            format!("Setting up {runtime_name} for its first start, about a minute and a half")
+        }
+        None => "Starting".into(),
+    }
+}
+
+/// `codex-mission.ts`: when a runtime still has to set itself up on first start, Looking / StartingRuntime
+/// are shown to the person as `RuntimeFirstSetup` while timing still records the real phase.
+pub fn shown_start_phase(phase: Phase, sets_itself_up: bool) -> Phase {
+    if sets_itself_up && matches!(phase, Phase::Looking | Phase::StartingRuntime) {
+        Phase::RuntimeFirstSetup
+    } else {
+        phase
+    }
+}
 
 #[derive(Clone, Debug, Default)]
 pub struct StartTiming {
@@ -50,7 +76,7 @@ pub fn sentence(timing: &StartTiming, runtime_name: &str) -> Option<String> {
             Phase::Looking => parts.push(format!("looked for {runtime_name} {took}")),
             Phase::Briefing => parts.push(format!("briefed {took}")),
             Phase::ReadingFolder => parts.push(format!("read the folder {took}")),
-            Phase::StartingRuntime => {}
+            Phase::StartingRuntime | Phase::RuntimeFirstSetup => {}
         }
     }
     let boot = timing.at(Phase::StartingRuntime).map(|spawn| format!("{runtime_name} took {} to say it had started", seconds(first - spawn)));

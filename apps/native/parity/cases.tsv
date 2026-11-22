@@ -2020,6 +2020,13 @@ apps/desktop/src/main/opencode-2-runs-over-acp-with-its-permissions.test.ts	refu
 apps/desktop/src/main/opencode-2-runs-over-acp-with-its-permissions.test.ts	refuses V2 without its command guard instead of starting an unguarded process	yes
 apps/desktop/src/main/opencode-2-runs-over-acp-with-its-permissions.test.ts	retains the V1 run route and its original hook when no serve bridge is available	yes
 apps/desktop/src/main/opencode-2-runs-over-acp-with-its-permissions.test.ts	retains the V1 serve route and its original hook when the serve bridge is available	yes
+apps/desktop/src/main/opencode-sets-itself-up-before-the-first-message.test.ts	runs debug config once, naming the guard plugin, through the launch it was found with	yes
+apps/desktop/src/main/opencode-sets-itself-up-before-the-first-message.test.ts	does nothing where OpenCode is already set up	yes
+apps/desktop/src/main/opencode-sets-itself-up-before-the-first-message.test.ts	shares one run between calls made while it is going	yes
+apps/desktop/src/main/opencode-sets-itself-up-before-the-first-message.test.ts	tries once a launch when the install does not land	yes
+apps/desktop/src/main/opencode-sets-itself-up-before-the-first-message.test.ts	runs nothing when OpenCode is not found	yes
+apps/desktop/src/main/opencode-sets-itself-up-before-the-first-message.test.ts	is XDG_CONFIG_HOME when set, else .config under home	yes
+apps/desktop/src/main/opencode-sets-itself-up-before-the-first-message.test.ts	says the agent is setting itself up, and roughly how long	yes
 apps/desktop/src/main/other-apps-can-only-ask-locust-teammates.test.ts	starts a writing teammate in Ask, ignores a caller route, and keeps the saved route	yes
 apps/desktop/src/main/other-apps-can-only-ask-locust-teammates.test.ts	refuses a mode or folder in words while the switch is off, and starts nothing (0.869)	yes
 apps/desktop/src/main/other-apps-can-only-ask-locust-teammates.test.ts	uses an exact teammate id and reports the host monthly-limit sentence verbatim	yes

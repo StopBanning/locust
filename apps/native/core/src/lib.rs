@@ -77,6 +77,7 @@ pub mod cursor_config_allow;
 pub mod cursor_ignore;
 pub mod own_models;
 pub mod opencode_acp_models;
+pub mod opencode_first_start;
 pub mod opencode_skill_paths;
 pub mod skill_library;
 #[cfg(test)]
