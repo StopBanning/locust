@@ -161,6 +161,14 @@ fn clock(at: u64) -> std::sync::Arc<std::sync::atomic::AtomicU64> {
     std::sync::Arc::new(std::sync::atomic::AtomicU64::new(at))
 }
 
+/// Where a fake clone writes: `gh repo clone <repo> <dir>` names it fourth; `git ... clone ... -- <url> <dir>` last,
+/// after Locust's own `-c` settings. Never a relative path, which would land in whatever folder the tests run from.
+fn clone_target<'a>(program: &str, args: &'a [String]) -> &'a str {
+    let target = if program == "git" { args.last().unwrap() } else { &args[3] };
+    assert!(std::path::Path::new(target).is_absolute(), "{program} {args:?}");
+    target
+}
+
 fn write_copy(path: &str, file: &str, text: &str) -> Result<(), String> {
     std::fs::create_dir_all(path).map_err(|e| e.to_string())?;
     std::fs::write(std::path::Path::new(path).join(file), text).map_err(|e| e.to_string())
@@ -185,7 +193,7 @@ fn accepts_only_repository_identities() {
 fn uses_gh_first_shallow_clones_into_its_cache_refreshes_after_an_hour_and_keeps_the_old_copy_in_trash() {
     let (_dir, store, _) = fixture();
     let time = clock(1000);
-    let (copies, calls) = copies(|_, args, n| write_copy(&args[3], "source.txt", &format!("copy {n}")), time.clone());
+    let (copies, calls) = copies(|program, args, n| write_copy(&clone_target(program, args), "source.txt", &format!("copy {n}")), time.clone());
     let item = github(&store, &copies, "owner/private").unwrap();
     {
         let c = calls.lock().unwrap();
@@ -233,7 +241,7 @@ fn falls_back_to_an_https_public_clone_without_shell_interpretation() {
 #[test]
 fn refuses_an_oversized_clone_and_recycles_it_never_the_local_folder() {
     let (_dir, store, picked) = fixture();
-    let (mut copies, _) = copies(|_, args, _| write_copy(&args[3], "large", "too large"), clock(0));
+    let (mut copies, _) = copies(|program, args, _| write_copy(&clone_target(program, args), "large", "too large"), clock(0));
     copies.max_bytes = 5;
     assert!(github(&store, &copies, "owner/large").unwrap_err().contains("larger than 500 MB"));
     assert_eq!(entries(store.root().join("reference-repositories")), 0);
@@ -245,7 +253,7 @@ fn refuses_an_oversized_clone_and_recycles_it_never_the_local_folder() {
 #[test]
 fn only_recycles_a_clone_when_its_last_conversation_and_live_run_release_it() {
     let (_dir, store, _) = fixture();
-    let (copies, _) = copies(|_, args, _| write_copy(&args[3], "README.md", "reference"), clock(0));
+    let (copies, _) = copies(|program, args, _| write_copy(&clone_target(program, args), "README.md", "reference"), clock(0));
     let item = github(&store, &copies, "owner/shared").unwrap();
     bind(&store, "mission_first", None, std::slice::from_ref(&item.id), None).unwrap();
     bind(&store, "mission_other", None, std::slice::from_ref(&item.id), None).unwrap();
@@ -263,7 +271,7 @@ fn only_recycles_a_clone_when_its_last_conversation_and_live_run_release_it() {
 #[test]
 fn keeps_an_unsent_reference_after_a_failed_start_releases_its_lease() {
     let (_dir, store, _) = fixture();
-    let (copies, _) = copies(|_, args, _| write_copy(&args[3], "README.md", "reference"), clock(0));
+    let (copies, _) = copies(|program, args, _| write_copy(&clone_target(program, args), "README.md", "reference"), clock(0));
     let item = github(&store, &copies, "owner/draft").unwrap();
     drop(lease(&store, "run_failed_before_binding", std::slice::from_ref(&item.id)));
     assert_eq!(select(&store, None, Some(std::slice::from_ref(&item.id))).unwrap(), vec![item.clone()]);
@@ -303,7 +311,7 @@ fn a_clone_stopped_for_its_size_is_not_tried_again() {
     let seen = calls.clone();
     let run = move |program: &str, args: &[String], _: &std::path::Path, check: &dyn Fn() -> Result<(), String>| {
         seen.lock().unwrap().push((program.to_owned(), args.to_vec()));
-        write_copy(&args[3], "large", "too large")?;
+        write_copy(&clone_target(program, args), "large", "too large")?;
         check()
     };
     let copies = Copies { run: Box::new(run), now: Box::new(|| 0), max_bytes: 5 };
