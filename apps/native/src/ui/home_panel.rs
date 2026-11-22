@@ -949,8 +949,8 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
                     .child(text(folder_line).font(l.ty.control).color(l.c("text-primary")).wrap()),
             )
             .child(text(FOLDER_LEDE.to_owned()).font(l.ty.body).color(l.c("text-secondary")).wrap())
-            .child(row().pt(4.0).child(crate::look::controls::ghost_button(&l, CHOOSE_FOLDER).on_press_tx(|_s: &mut State, tx: &mut Tx| {
-                choose_folder(tx);
+            .child(row().pt(4.0).child(crate::look::controls::ghost_button(&l, CHOOSE_FOLDER).on_press_tx(|s: &mut State, tx: &mut Tx| {
+                crate::restored_folders_card::choose_workspace(s, tx);
             }))),
     );
     if s.home.folder_invented {

@@ -104,6 +104,7 @@ fn draws_the_group_label_above_its_first_page_and_the_icon_beside_each_name() {
 /// The one-line settings Rust draws, on the page each lives on: the line's key, and the key or words of its control.
 const LINES: &[(SettingsPageId, &str, &str, &str)] = &[
     (SettingsPageId::Teammates, "Auto mode", "settings-line-auto-mode", "settings-auto-mode"),
+    (SettingsPageId::Appearance, "Reply text size", "settings-line-reply-size", "settings-reply-size-largest"),
     (SettingsPageId::Appearance, "Code font", "settings-line-code-font", "settings-code-font-paper"),
     (SettingsPageId::Appearance, "Terminal faces", "settings-line-terminal-faces", "settings-terminal-faces"),
     (SettingsPageId::Appearance, "What a face says", "settings-face-legend-row", "settings-face-legend"),
@@ -141,8 +142,8 @@ fn puts_no_card_around_a_setting_rows_sit_on_the_pane_with_a_hairline_between() 
     }
 }
 
-// Plans, Your skills, Reply text size, Boot screen and Voice typing are not drawn in Rust ("runs in Locust for now");
-// the five that are drawn are held here.
+// Plans, Your skills, Boot screen and Voice typing are not drawn in Rust ("runs in Locust for now"); the six that are
+// drawn are held here.
 #[test]
 fn draws_a_setting_that_is_one_control_as_one_line_name_and_description_left_the_control_right() {
     for (page, name, key, control) in LINES {

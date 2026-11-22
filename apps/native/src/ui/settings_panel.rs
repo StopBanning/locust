@@ -248,6 +248,37 @@ fn sidebar_line(s: &State, p: &Palette) -> El {
 /// The heading Electron's General page gives the door.
 const DOOR_HEADING: &str = "Let your other AI apps use Locust";
 
+/// Reply text size (Screens.tsx, Appearance): how big a teammate's reply is set, with the person's own messages and the
+/// question cards growing with it. Saved at once; the words below the name say what the choice is.
+fn reply_size_line(s: &State, p: &Palette, l: &crate::look::controls::Look) -> El {
+    let chosen = s.settings_panel.settings.reply_size.as_str();
+    let lede = match chosen {
+        "largest" => "Largest. For reading at a distance, or a long reply you want to sit with.",
+        "large" => "Large. A step up without turning the thread into a slide.",
+        _ => "Standard. The size a reply has always been set at.",
+    };
+    let mut choices = row().gap(6.0).role("radiogroup").label("How big to set a reply");
+    for (option, label) in [("standard", "Standard"), ("large", "Large"), ("largest", "Largest")] {
+        let on = chosen == option || (option == "standard" && !matches!(chosen, "large" | "largest"));
+        choices = choices.child(
+            active_button(label, p, on).key(format!("settings-reply-size-{option}")).role("radio").on_press(move |s: &mut State| {
+                s.settings_panel.settings.reply_size = option.into();
+                persist(s);
+            }),
+        );
+    }
+    line(
+        l,
+        "settings-line-reply-size",
+        10.0,
+        col()
+            .gap(6.0)
+            .child(text("Reply text size".to_owned()).role("heading").level(2).font(type_::TITLE).color(p.text))
+            .child(text(lede.to_owned()).font(type_::LABEL).color(p.secondary).wrap()),
+        choices,
+    )
+}
+
 /// A setting that is one control, drawn as one line (`.lc-settings__section--line` > `.lc-settingline`): a hairline
 /// above it, no card and no fill, the name and description on the left (`words`) and the control on the right. The
 /// line is `key`; its hairline is `<key>-hairline` and the row under it `<key>-row`.
@@ -899,6 +930,8 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
             for heading in headings {
                 if heading == "Sidebar" {
                     body = body.child(sidebar_line(s, p));
+                } else if heading == "Reply text size" {
+                    body = body.child(reply_size_line(s, p, &l));
                 } else if heading == "Code font" {
                     let paper = s.settings_panel.settings.code_font == "paper";
                     body = body.child(line(

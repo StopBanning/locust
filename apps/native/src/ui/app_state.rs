@@ -412,6 +412,8 @@ pub(super) struct State {
     /// Expanded "What Locust sent" disclosures on `CheckFixLine` items.
     pub(super) open_check_fix_prompts: std::collections::HashSet<String>,
     pub(super) last_restore: Option<locust_core::profile_backup::RestoreOutcome>,
+    /// "Find your folders on this computer": the restored folders missing here, and what was chosen for each.
+    pub(super) restore_folders: crate::restored_folders_card::Finding,
     pub(super) inspector_open: bool,
     pub(super) inspector_tab: crate::inspector_panel::Tab,
     pub(super) inspector_turn: Option<usize>,
@@ -678,6 +680,7 @@ impl Default for State {
             running_checks: HashMap::new(),
             open_check_fix_prompts: std::collections::HashSet::new(),
             last_restore: None,
+            restore_folders: Default::default(),
             inspector_open: false,
             inspector_tab: crate::inspector_panel::Tab::Activity,
             inspector_turn: None,

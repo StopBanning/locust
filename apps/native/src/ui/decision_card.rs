@@ -138,6 +138,9 @@ pub(super) fn handle_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
 pub(super) fn card(s: &State, p: &Palette) -> Option<El> {
     let (teammate_name, standing, request) = active_decision(s)?;
     let l = crate::look::controls::Look::new(p.dark);
+    // The card grows with the reply (shell.css `.lc-decision__*`): the question and notes at `--lc-text-ask`, the labels
+    // at `--lc-text-said`, the foot at `--lc-text-ask-foot`.
+    let sizes = locust_core::workspace_settings::ask_sizes(&s.settings_panel.settings.reply_size);
     let title = decision_title(teammate_name.as_deref());
 
     let head = row()
@@ -173,11 +176,11 @@ pub(super) fn card(s: &State, p: &Palette) -> Option<El> {
         let mut body = col()
             .grow(1.0)
             .gap(2.0)
-            .child(text(option.label.clone()).font(l.ty.body).color(l.c("text-primary")).wrap());
+            .child(text(option.label.clone()).font(sized(l.ty.body, sizes.said)).color(l.c("text-primary")).wrap());
         if let Some(note) = &option.note {
             body = body.child(
                 text(note.clone())
-                    .font(l.ty.label)
+                    .font(sized(l.ty.label, sizes.ask))
                     .color(l.c("text-secondary"))
                     .wrap(),
             );
@@ -220,7 +223,7 @@ pub(super) fn card(s: &State, p: &Palette) -> Option<El> {
             .child(head)
             .child(
                 text(request.question)
-                    .font(l.ty.body)
+                    .font(sized(l.ty.body, sizes.ask))
                     .color(l.c("text-primary"))
                     .w_full()
                     .wrap(),
@@ -228,10 +231,16 @@ pub(super) fn card(s: &State, p: &Palette) -> Option<El> {
             .child(options_col)
             .child(
                 text("Or reply below — you are not limited to these")
-                    .font(rune::TextStyle::new(11.0, 400.0).mono())
+                    .font(sized(rune::TextStyle::new(11.0, 400.0).mono(), sizes.ask_foot))
                     .color(l.c("text-muted")),
             ),
     )
+}
+
+/// A style at another size, its line height kept in proportion.
+pub(super) fn sized(style: rune::TextStyle, size: f32) -> rune::TextStyle {
+    let line_height = if style.line_height > 0.0 { style.line_height * size / style.size } else { 0.0 };
+    rune::TextStyle { size, line_height, ..style }
 }
 
 fn decision_title(teammate_name: Option<&str>) -> String {
@@ -244,6 +253,10 @@ fn decision_title(teammate_name: Option<&str>) -> String {
 #[cfg(test)]
 #[path = "decision_number_tests.rs"]
 mod decision_number_tests;
+
+#[cfg(test)]
+#[path = "decision_card_reply_size_tests.rs"]
+mod decision_card_reply_size_tests;
 
 #[cfg(test)]
 mod renderer_tests {

@@ -650,6 +650,8 @@ apps/desktop/src/main/a-pull-request-shows-in-the-header.test.ts	says it in a li
 apps/desktop/src/main/a-pull-request-shows-in-the-header.test.ts	is the one for the branch the folder is on, asked of gh from that branch (0.731: a fork’s too)	yes
 apps/desktop/src/main/a-pull-request-shows-in-the-header.test.ts	is nothing on the default branch, on a branch with none, or when gh is signed out -- and gh is not asked on main	yes
 apps/desktop/src/main/a-pull-request-shows-in-the-header.test.ts	is kept a minute, asked again for another branch, and asked again after a sign-in	yes
+apps/desktop/src/main/a-question-card-grows-with-the-reply.test.ts	grows the card and the person's message at each step	yes
+apps/desktop/src/main/a-question-card-grows-with-the-reply.test.ts	is what the card and the bubble are set in	yes
 apps/desktop/src/main/a-queued-message-survives-closing-locust.test.ts	A fresh reader recovers exact words, attachments and their conversation.	yes
 apps/desktop/src/main/a-queued-message-survives-closing-locust.test.ts	A profile that has never queued anything starts empty.	yes
 apps/desktop/src/main/a-queued-message-survives-closing-locust.test.ts	Removing one conversation leaves the other queued after reopening.	yes
@@ -2116,6 +2118,11 @@ apps/desktop/src/main/report-problem.test.ts	keeps a long conversation's END, an
 apps/desktop/src/main/report-problem.test.ts	names Windows 11 by its build, since both say 10.0	no
 apps/desktop/src/main/report-problem.test.ts	hands over the words, never a URL	no
 apps/desktop/src/main/report-problem.test.ts	is macOS on a Mac, and Windows as before	no
+apps/desktop/src/main/restored-folders-can-be-found-on-another-computer.test.ts	keeps Windows and Mac paths and their names on either computer	yes
+apps/desktop/src/main/restored-folders-can-be-found-on-another-computer.test.ts	offers a Windows folder on a Mac and a Mac folder on Windows without changing it first	yes
+apps/desktop/src/main/restored-folders-can-be-found-on-another-computer.test.ts	keeps the old conversation id after a chosen move and remembers the move after reopening	yes
+apps/desktop/src/main/restored-folders-can-be-found-on-another-computer.test.ts	leaves ambiguous folder names for the picker and uses a saved remote to distinguish them	yes
+apps/desktop/src/main/restored-folders-can-be-found-on-another-computer.test.ts	starts a fresh agent session after a recorded folder move	yes
 apps/desktop/src/main/retention.test.ts	is computed from the host clock, not from anything the window sent	no
 apps/desktop/src/main/retention.test.ts	refuses an age that is not a finite number of days	no
 apps/desktop/src/main/retention.test.ts	refuses an age outside its bounds, in either direction	no
@@ -2250,6 +2257,16 @@ apps/desktop/src/main/routine-store.test.ts	keeps a schedule, corrects it, clear
 apps/desktop/src/main/routine-store.test.ts	refuses a schedule it cannot keep, and drops a malformed one from disk without dropping the routine	no
 apps/desktop/src/main/routine-store.test.ts	round-trips it through the store	no
 apps/desktop/src/main/routine-store.test.ts	leaves a route without one alone	no
+apps/desktop/src/main/runtime-artifacts.test.ts	reads Claude's YAML fences	yes
+apps/desktop/src/main/runtime-artifacts.test.ts	reads Codex's TOML, single-quoted or double	yes
+apps/desktop/src/main/runtime-artifacts.test.ts	falls back to the filename, because the file existing is the point	yes
+apps/desktop/src/main/runtime-artifacts.test.ts	takes a description without a name, which is how commands are written	yes
+apps/desktop/src/main/runtime-artifacts.test.ts	never reads past the front matter into the instructions	yes
+apps/desktop/src/main/runtime-artifacts.test.ts	lists agents and commands for the runtimes that are installed	yes
+apps/desktop/src/main/runtime-artifacts.test.ts	says nothing about a runtime that is not on this machine	yes
+apps/desktop/src/main/runtime-artifacts.test.ts	is empty, not an error, when nobody has set any up	yes
+apps/desktop/src/main/runtime-artifacts.test.ts	ignores files of the wrong kind	yes
+apps/desktop/src/main/runtime-artifacts.test.ts	carries the path, so the app can say where to go and change it	yes
 apps/desktop/src/main/runtime-commands.test.ts	is the word after a leading slash	yes
 apps/desktop/src/main/runtime-commands.test.ts	is nothing when the slash is not at the start, or is not followed by a name	no
 apps/desktop/src/main/runtime-commands.test.ts	are offered without the ones that would change the person's own setup	yes
