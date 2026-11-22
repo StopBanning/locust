@@ -438,7 +438,7 @@ mod tests {
         let id = format!("mission_{index:03}");
         let mut f = fs::File::create(dir.join(format!("{id}.jsonl"))).unwrap();
         let meta = json!({
-            "schemaVersion": 1,
+            "schemaVersion": 27,
             "recordType": "mission.created",
             "metadata": {
                 "missionId": id,
@@ -458,7 +458,7 @@ mod tests {
         writeln!(f, "{meta}").unwrap();
         for seq in 1..=2 {
             let ev = json!({
-                "schemaVersion": 1,
+                "schemaVersion": 27,
                 "recordType": "mission.event",
                 "event": {
                     "id": format!("event_{index}_{seq}"),
@@ -488,7 +488,7 @@ mod tests {
         // A conversation that messaged a teammate carries the link, as the relay writes it.
         let mut f = fs::OpenOptions::new().append(true).open(dir.0.join("mission_002.jsonl")).unwrap();
         let link = json!({
-            "schemaVersion": 1,
+            "schemaVersion": 27,
             "recordType": "mission.peer",
             "occurredAt": at(2),
             "link": { "direction": "posted", "messageId": "wm_1", "peerTeammateId": "tm_pip" }
@@ -504,7 +504,7 @@ mod tests {
             .open(dir.join(format!("{id}.jsonl")))
             .unwrap();
         let ev = json!({
-            "schemaVersion": 1,
+            "schemaVersion": 27,
             "recordType": "mission.event",
             "event": {
                 "id": format!("event_{index}_{seq}"),

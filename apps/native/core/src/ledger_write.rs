@@ -376,7 +376,18 @@ pub fn began(kind: &str) -> bool {
     kind == "run.started" || kind.starts_with("step.") || kind.starts_with("tool.")
 }
 
+/// Electron's `schemaVersionWritten(runtime)`.
+pub fn schema_written(runtime: &str) -> u64 {
+    if runtime == "apple" { 28 } else { 27 }
+}
+
 impl LedgerWriter {
+    /// The record version this run writes, as Electron's `schemaVersionWritten`: 28 for an Apple Intelligence run,
+    /// whose records a reader before 28 cannot know, and 27 for every other run, so older readers keep reading them.
+    fn schema(&self) -> u64 {
+        schema_written(&self.runtime)
+    }
+
     /// Run `then` once, when this run's runtime first begins; never when it is refused before it does.
     pub fn when_began(&mut self, then: Box<dyn FnOnce() + Send>) {
         self.on_began = Some(then);
@@ -514,7 +525,7 @@ impl LedgerWriter {
             }
             link
         });
-        let mut record = json!({"schemaVersion":27,"recordType":"mission.created","ledgerSequence":1,"occurredAt":at,"metadata":{
+        let mut record = json!({"schemaVersion":writer.schema(),"recordType":"mission.created","ledgerSequence":1,"occurredAt":at,"metadata":{
             "missionId":id,"runId":writer.run,"prompt":prompt,"runtime":runtime,"model":model,
             "requestedRouteId":writer.route,"resolvedRouteId":writer.resolved_route,"cliVersion":null,"workspaceId":"native",
             "sandbox":"read-only","mode":"ask","executionPolicyVersion":1,"createdAt":at,
@@ -592,7 +603,7 @@ impl LedgerWriter {
         event["payload"] = payload;
         // Kept shortened rather than a record too large to write (mission-store fitEventToLedger).
         let event = crate::ledger_fit::fit_event(event);
-        self.line(json!({"schemaVersion":27,"recordType":"mission.event","ledgerSequence":ledger,"occurredAt":at,"event":event}))?;
+        self.line(json!({"schemaVersion":self.schema(),"recordType":"mission.event","ledgerSequence":ledger,"occurredAt":at,"event":event}))?;
         self.sequence = seq;
         self.ledger_seq = ledger + 1;
         if began(kind) && let Some(then) = self.on_began.take() {
@@ -609,7 +620,7 @@ impl LedgerWriter {
             .map(str::to_owned)
             .unwrap_or_else(now);
         self.line(json!({
-            "schemaVersion": 27,
+            "schemaVersion": self.schema(),
             "recordType": "mission.approval",
             "ledgerSequence": ledger,
             "occurredAt": at,
@@ -628,7 +639,7 @@ impl LedgerWriter {
     ) -> io::Result<()> {
         let ledger = self.ledger_seq;
         self.line(json!({
-            "schemaVersion": 27,
+            "schemaVersion": self.schema(),
             "recordType": "mission.peer",
             "ledgerSequence": ledger,
             "occurredAt": occurred_at,

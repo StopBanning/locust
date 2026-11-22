@@ -517,18 +517,51 @@ fn one_line(text: &str) -> String {
         .collect()
 }
 
+/// mission-store `parsedMetadata`'s version gates: a record claiming what no writer of its version could write was
+/// hand-edited, and is refused rather than believed -- a v23 file saying Locust carried a turn on (v24), a v12 one naming
+/// a routine (v13), an agent a version did not know. Each gate refuses only what the record actually claims.
+fn written_by_its_version(version: u64, m: &Value) -> bool {
+    let has = |key: &str| m.get(key).is_some_and(|v| !v.is_null());
+    let kind = m["startedBy"]["kind"].as_str();
+    let runtime = m["runtime"].as_str();
+    let refused = (version == 1 && (runtime != Some("codex") || m["model"] != "account-default"))
+        || (version < 3 && m["sandbox"] != "read-only")
+        || (version < 4 && has("continuesFrom"))
+        || (version < 6 && m["continuesFrom"]["reason"] == "follow-up")
+        || (version < 10 && has("startedBy"))
+        || (version < 11 && has("startedBy") && kind != Some("relay"))
+        || (version < 12 && has("command"))
+        || (version < 13 && kind == Some("routine"))
+        || (version < 14 && m["sandbox"] == "full-access")
+        || (version < 15 && has("mode"))
+        || (version < 18 && kind == Some("terminal"))
+        || (version < 19 && kind == Some("side"))
+        || (version < 23 && kind == Some("mcp"))
+        || (version < 24 && kind == Some("carry-on"))
+        || (version < 26 && kind == Some("check-fix"))
+        || (version < 25 && runtime == Some("acp"))
+        || (version < 7 && runtime.is_some_and(|r| r != "codex" && r != "claude"))
+        || (version < 16 && runtime == Some("muse"))
+        || (version < 27 && runtime == Some("kilo"))
+        || (version < 28 && runtime == Some("apple"));
+    !refused
+}
+
 fn decode(line: &[u8]) -> Option<Record> {
     decode_value(serde_json::from_slice(line).ok()?)
 }
 
 fn decode_value(mut value: Value) -> Option<Record> {
     let version = value.get("schemaVersion")?.as_u64()?;
-    if !(1..=27).contains(&version) {
+    if !(1..=28).contains(&version) {
         return None;
     }
     match value.get("recordType")?.as_str()? {
         "mission.created" => {
             metadata(&value)?;
+            if !written_by_its_version(version, &value["metadata"]) {
+                return None;
+            }
         }
         "mission.event" => {
             let event = value.get_mut("event")?;
