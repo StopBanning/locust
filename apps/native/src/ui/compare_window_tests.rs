@@ -1159,3 +1159,193 @@ fn compare_view_an_empty_column_stays_under_the_heads() {
     // case: never sits lower than under the heads, however short
     assert_eq!(compare_view::column_stick_at(46.0, 513.0, 0.0), 54.0);
 }
+
+fn compare_column_ids(s: &State) -> Vec<String> {
+    s.compare.compares[0].slots.iter().filter_map(|slot| slot.mission_ids.last().cloned()).collect()
+}
+
+fn age_compare_ledger(file: &Path) {
+    std::fs::File::options().write(true).open(file).unwrap().set_times(
+        std::fs::FileTimes::new().set_modified(std::time::SystemTime::now() - ledger::ACTIVE_WINDOW - Duration::from_secs(1))
+    ).unwrap();
+}
+
+fn column_ledger_records(id: &str, event: &str) -> bool {
+    let kind = format!("\"type\":\"{event}\"");
+    native::find_ledger(id).and_then(|path| std::fs::read_to_string(path).ok())
+        .is_some_and(|records| records.contains(&kind))
+}
+
+fn launch_fixture_comparison(rt: &mut Runtime<State>) {
+    click(rt, "compare-mode-chip");
+    click(rt, "compare-mode-compare");
+    type_and_send(rt, "Synthetic prompt");
+}
+
+#[test]
+fn compare_view_restores_both_silent_native_columns_as_running() {
+    // case: restores both silent host-owned columns as running without an interrupted error
+    let (_dirs, store, mut rt) = window();
+    let _hooks = native::hooks::install(store, fake("m1-app-server.py", "interrupt"));
+    launch_fixture_comparison(&mut rt);
+    pump(&mut rt, "two live comparison column records", |s| {
+        let Some(cmp) = s.compare.compares.first() else { return false };
+        let running = locust_core::engine_api::api().running();
+        cmp.slots.len() == 2 && cmp.slots.iter().all(|slot| slot.mission_ids.last().is_some_and(|id|
+            running.contains(id) && column_ledger_records(id, "run.started")))
+    });
+    let ids = compare_column_ids(&rt.state);
+    for id in &ids {
+        age_compare_ledger(&native::find_ledger(id).unwrap());
+    }
+    rt.update(|s, _| {
+        s.compare.snapshots.clear();
+        compare_view::reload_compares(s);
+        compare_view::poll(s);
+    });
+    settle(&mut rt);
+    assert_eq!(compare_column_ids(&rt.state), ids);
+    for (id, letter) in ids.iter().zip(["a", "b"]) {
+        let snap = &rt.state.compare.snapshots[id];
+        assert!(snap.running && !snap.interrupted);
+        assert!(snap.recovery.is_none());
+        assert!(text_in(&rt, &format!("compare-head-{letter}")).contains(&"working".to_owned()));
+    }
+}
+
+fn compare_ledger(store: &Store, id: &str) -> PathBuf {
+    let dir = store.ledger_dir().unwrap();
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join(format!("{id}.jsonl"));
+    let created = json!({"schemaVersion":27,"recordType":"mission.created","metadata":{
+        "missionId":id,"runtime":"opencode","model":"opencode/nemotron-3-ultra-free",
+        "prompt":"Add a discount code field.","createdAt":"2026-10-05T17:22:29.756Z"
+    }});
+    std::fs::write(&file, format!("{created}\n")).unwrap();
+    file
+}
+
+fn append_compare_event(file: &Path, event: serde_json::Value) {
+    use std::io::Write;
+    let record = json!({"schemaVersion":27,"recordType":"mission.event","event":event});
+    writeln!(std::fs::OpenOptions::new().append(true).open(file).unwrap(), "{record}").unwrap();
+}
+
+fn recorded_completion(id: &str) -> serde_json::Value {
+    let mut event: serde_json::Value = serde_json::from_str(
+        include_str!("../../../desktop/test/fixtures/compare-column-completed.json")
+    ).unwrap();
+    event["missionId"] = json!(id);
+    event
+}
+
+fn reopen_recorded_compare(rt: &mut Runtime<State>, id: String) {
+    rt.update(move |s, _| {
+        s.compare.active_id = Some(id.clone());
+        s.compare.loaded = false;
+        compare_view::poll(s);
+    });
+    settle(rt);
+}
+
+#[test]
+fn compare_view_leaves_unowned_interruption_as_an_interruption() {
+    // case: leaves a genuinely interrupted record alone when the host owns no process
+    let (_dirs, store, mut rt) = window();
+    let cmp = recorded_comparison(&store);
+    let file = compare_ledger(&store, "m_a1");
+    age_compare_ledger(&file);
+    reopen_recorded_compare(&mut rt, cmp.compare_id);
+    let snap = &rt.state.compare.snapshots["m_a1"];
+    assert!(!snap.running && snap.interrupted);
+    assert!(text_in(&rt, "compare-head-a").contains(&"interrupted".to_owned()));
+}
+
+#[test]
+fn compare_view_terminal_receipt_beats_the_engines_still_live_answer() {
+    // case: keeps an already-held terminal receipt ahead of an older live history answer
+    let (_dirs, store, mut rt) = window();
+    let _hooks = native::hooks::install(store, fake("m1-app-server.py", "success"));
+    struct Release;
+    impl Drop for Release {
+        fn drop(&mut self) {
+            native::hooks::HOLD_WIND_DOWN.store(false, std::sync::atomic::Ordering::Relaxed);
+        }
+    }
+    let _release = Release;
+    native::hooks::HOLD_WIND_DOWN.store(true, std::sync::atomic::Ordering::Relaxed);
+    launch_fixture_comparison(&mut rt);
+    pump(&mut rt, "both completed receipts", |s| {
+        let Some(cmp) = s.compare.compares.first() else { return false };
+        cmp.slots.len() == 2 && cmp.slots.iter().all(|slot| slot.mission_ids.last()
+            .is_some_and(|id| column_ledger_records(id, "run.completed")))
+    });
+    let ids = compare_column_ids(&rt.state);
+    assert!(ids.iter().all(|id| locust_core::engine_api::api().owns(id)));
+    let id = rt.state.compare.active_id.clone().unwrap();
+    reopen_recorded_compare(&mut rt, id.clone());
+    let before = rt.state.compare.snapshots.clone();
+    assert!(ids.iter().all(|id| !before[id].running));
+    reopen_recorded_compare(&mut rt, id);
+    for id in ids {
+        let after = &rt.state.compare.snapshots[&id];
+        assert_eq!(after.items, before[&id].items);
+        assert!(!after.running && !after.interrupted && !after.failed);
+    }
+}
+
+#[test]
+fn compare_view_recovers_a_completion_recorded_before_the_column_is_opened() {
+    // case: replays the recorded completion that arrived before history named its run
+    let (_dirs, store, mut rt) = window();
+    let file = compare_ledger(&store, "m_a1");
+    let history = recorded_completion("m_a1");
+    assert_eq!(history["payload"]["process"]["exitCode"], 0);
+    append_compare_event(&file, history);
+    let cmp = recorded_comparison(&store);
+    reopen_recorded_compare(&mut rt, cmp.compare_id.clone());
+    let receipt = rt.state.compare.snapshots["m_a1"].clone();
+    assert!(!receipt.running && !receipt.interrupted && !receipt.failed);
+    reopen_recorded_compare(&mut rt, cmp.compare_id);
+    let after = &rt.state.compare.snapshots["m_a1"];
+    assert_eq!(after.items, receipt.items);
+    assert!(!after.running && !after.interrupted && !after.failed);
+}
+
+#[test]
+fn compare_view_reads_the_ledger_in_order_through_completion() {
+    // case: replays every queued update in order without replacing a completed ledger phase with running
+    let (_dirs, store, mut rt) = window();
+    let cmp = recorded_comparison(&store);
+    let file = compare_ledger(&store, "m_a1");
+    reopen_recorded_compare(&mut rt, cmp.compare_id.clone());
+    assert!(rt.state.compare.snapshots["m_a1"].running);
+    for (sequence, words) in [(1, "Ordered"), (2, " reply.")] {
+        append_compare_event(&file, json!({"sequence":sequence,"occurredAt":"2026-10-05T17:22:31.000Z",
+            "type":"message.delta","payload":{"itemId":"reply","operation":"append","text":words,"final":sequence == 2}}));
+    }
+    append_compare_event(&file, recorded_completion("m_a1"));
+    reopen_recorded_compare(&mut rt, cmp.compare_id);
+    assert!(text_in(&rt, "compare-body-a").contains(&"Ordered reply.".to_owned()));
+    let snap = &rt.state.compare.snapshots["m_a1"];
+    assert!(!snap.running && !snap.interrupted);
+}
+
+#[test]
+fn compare_view_keeps_tail_updates_wired_after_each_comparison_reload() {
+    // case: connects every history read and late known-run update to reload recovery
+    let (_dirs, store, mut rt) = window();
+    let cmp = recorded_comparison(&store);
+    let a = compare_ledger(&store, "m_a1");
+    let b = compare_ledger(&store, "m_b1");
+    reopen_recorded_compare(&mut rt, cmp.compare_id.clone());
+    assert_eq!(compare_column_ids(&rt.state), ["m_a1", "m_b1"]);
+    assert!(rt.state.compare.snapshots["m_a1"].running && rt.state.compare.snapshots["m_b1"].running);
+    append_compare_event(&b, recorded_completion("m_b1"));
+    rt.update(|s, _| { compare_view::poll(s); });
+    assert!(rt.state.compare.snapshots["m_a1"].running && !rt.state.compare.snapshots["m_b1"].running);
+    reopen_recorded_compare(&mut rt, cmp.compare_id);
+    append_compare_event(&a, recorded_completion("m_a1"));
+    rt.update(|s, _| { compare_view::poll(s); });
+    assert!(!rt.state.compare.snapshots["m_a1"].running && !rt.state.compare.snapshots["m_b1"].running);
+}

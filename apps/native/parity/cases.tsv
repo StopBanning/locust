@@ -3683,6 +3683,12 @@ apps/desktop/src/renderer/src/a-read-row-names-the-file.test.ts	leave a name tha
 apps/desktop/src/renderer/src/a-refused-command-never-ran.test.ts	is counted as refused, not as run or as exiting non-zero	yes
 apps/desktop/src/renderer/src/a-refused-command-never-ran.test.ts	keeps its row, with the reason the runtime gave	yes
 apps/desktop/src/renderer/src/a-refused-command-never-ran.test.ts	says declined in its row and in the summary, never failed or refused	yes
+apps/desktop/src/renderer/src/a-reload-keeps-every-comparison-column-live.test.ts	restores both silent host-owned columns as running without an interrupted error	yes
+apps/desktop/src/renderer/src/a-reload-keeps-every-comparison-column-live.test.ts	leaves a genuinely interrupted record alone when the host owns no process	yes
+apps/desktop/src/renderer/src/a-reload-keeps-every-comparison-column-live.test.ts	keeps an already-held terminal receipt ahead of an older live history answer	yes
+apps/desktop/src/renderer/src/a-reload-keeps-every-comparison-column-live.test.ts	replays the recorded completion that arrived before history named its run	yes
+apps/desktop/src/renderer/src/a-reload-keeps-every-comparison-column-live.test.ts	replays every queued update in order without replacing a completed ledger phase with running	yes
+apps/desktop/src/renderer/src/a-reload-keeps-every-comparison-column-live.test.ts	connects every history read and late known-run update to reload recovery	yes
 apps/desktop/src/renderer/src/a-remote-control-switch-shows-claudes-own-words.test.tsx	The off switch explains its lifetime and account requirements.	yes
 apps/desktop/src/renderer/src/a-remote-control-switch-shows-claudes-own-words.test.tsx	Off, it reads as one switch: its state opens its own line, and nothing sits under it.	yes
 apps/desktop/src/renderer/src/a-remote-control-switch-shows-claudes-own-words.test.tsx	A running switch shows Claude output and errors without summarizing or trimming them.	yes

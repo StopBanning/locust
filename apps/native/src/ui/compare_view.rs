@@ -1931,11 +1931,18 @@ pub(super) fn poll(s: &mut State) -> bool {
             collect_cmp(rc);
         }
     }
+    let owned: HashSet<_> = locust_core::engine_api::api().running().into_iter().collect();
     let mut ended = false;
     for id in ids {
-        if let Some(snap) = load_mission(&id)
-            && s.compare.snapshots.get(&id) != Some(&snap)
-        {
+        let Some(mut snap) = load_mission(&id) else { continue };
+        // A quiet ledger can look interrupted while its engine still owns the turn. A terminal
+        // receipt takes precedence even while the engine is finishing its bookkeeping.
+        if snap.interrupted && (owned.contains(&id) || owned.contains(&snap.tip)) {
+            snap.running = true;
+            snap.interrupted = false;
+            snap.recovery = None;
+        }
+        if s.compare.snapshots.get(&id) != Some(&snap) {
             ended |= !snap.running && s.compare.snapshots.get(&id).is_none_or(|was| was.running);
             s.compare.snapshots.insert(id, snap);
             changed = true;
@@ -2346,6 +2353,7 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
     let mut col_checks: Vec<Option<ColumnCheck>> = Vec::new();
     let mut col_running: Vec<bool> = Vec::new();
     let mut col_failed: Vec<bool> = Vec::new();
+    let mut col_interrupted: Vec<bool> = Vec::new();
     let mut col_keepable: Vec<bool> = Vec::new();
     let mut col_pages: Vec<Vec<String>> = Vec::new();
 
@@ -2362,11 +2370,12 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
         let newest = slot.mission_ids.last().and_then(|id| s.compare.snapshots.get(id));
         let running = newest.is_some_and(|snap| snap.running);
         let failed = newest.is_some_and(|snap| snap.failed);
+        let interrupted = newest.is_some_and(|snap| snap.interrupted);
         let ans = newest.map(snapshot_final_text).unwrap_or_default();
         let span = newest.and_then(format_span);
         let cost = if veiled { None } else { newest.and_then(format_cost) };
         let check = newest.and_then(|snap| snapshot_check(snap, &s.running_checks));
-        let keepable = !running && !failed && !ans.is_empty();
+        let keepable = !running && !failed && !interrupted && !ans.is_empty();
         let pages = newest.map(column_html_pages).unwrap_or_default();
 
         col_names.push(name);
@@ -2376,6 +2385,7 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
         col_checks.push(check);
         col_running.push(running);
         col_failed.push(failed);
+        col_interrupted.push(interrupted);
         col_keepable.push(keepable);
         col_pages.push(pages);
     }
@@ -2516,6 +2526,7 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
         let ans = &col_answers[idx];
         let running = col_running[idx];
         let failed = col_failed[idx];
+        let interrupted = col_interrupted[idx];
         let keepable = col_keepable[idx];
         let pages = &col_pages[idx];
         let span = col_spans[idx].as_deref();
@@ -2583,6 +2594,8 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
             "working"
         } else if failed {
             "failed"
+        } else if interrupted {
+            "interrupted"
         } else if !ans.is_empty() {
             "done"
         } else {
@@ -2595,6 +2608,8 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
         } else if ans.is_empty() {
             if running {
                 "Working…".to_owned()
+            } else if interrupted {
+                "No terminal receipt was recorded.".to_owned()
             } else {
                 "No answer yet.".to_owned()
             }
