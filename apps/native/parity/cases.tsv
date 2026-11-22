@@ -114,6 +114,12 @@ apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	finds the personâ€
 apps/desktop/src/main/a-codex-turn-on-its-branch-is-completed.test.ts	finds a completion written before the process ended	yes
 apps/desktop/src/main/a-codex-turn-on-its-branch-is-completed.test.ts	says stopped for a run the person stopped, and failed for one that failed	yes
 apps/desktop/src/main/a-codex-turn-on-its-branch-is-completed.test.ts	takes the newest ending, and says failed when there is none	yes
+apps/desktop/src/main/a-column-answers-in-a-copy.test.ts	holds the folder as it is, without what is rebuilt or fetched, and is reused for follow-ups	yes
+apps/desktop/src/main/a-column-answers-in-a-copy.test.ts	says so, and makes nothing, when the folder is too big to copy	yes
+apps/desktop/src/main/a-column-answers-in-a-copy.test.ts	leaves a file too big to copy out, and copies the rest	yes
+apps/desktop/src/main/a-column-answers-in-a-copy.test.ts	removes the comparison's copies and nothing else	yes
+apps/desktop/src/main/a-column-answers-in-a-copy.test.ts	refuses an id that could name a path outside its root	yes
+apps/desktop/src/main/a-column-answers-in-a-copy.test.ts	is nobody now; Antigravity cannot join at all; everyone else answers in the folder	yes
 apps/desktop/src/main/a-column-can-be-tried-again.test.ts	puts the new answer in the failed one's place, turn for turn, and keeps the failed one folded in	no
 apps/desktop/src/main/a-column-can-be-tried-again.test.ts	gives a column that could not start its first turn, and drops the refusal	no
 apps/desktop/src/main/a-column-can-be-tried-again.test.ts	goes, copies and all, only when every answer it held is gone for good (0.445)	no

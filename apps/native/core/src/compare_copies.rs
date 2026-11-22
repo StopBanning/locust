@@ -1137,3 +1137,7 @@ mod worktree_keep_tests {
         let _ = fs::remove_dir_all(&line_root);
     }
 }
+
+#[cfg(test)]
+#[path = "compare_copies_column_tests.rs"]
+mod compare_copies_column_tests;
