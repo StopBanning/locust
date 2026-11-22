@@ -1,3 +1,9 @@
+- **Apps that use Locust can do more.** An app connected to Locust (Claude Code, Codex, any MCP client) can now read
+  your usage windows, change which model a teammate runs on (only with both "Let apps see your conversations" and
+  "Use each teammate's own mode" on in Settings), and name a conversation by the first few characters of its id. A
+  turn Locust closed in the middle of, after a crash or a quit, shows as stopped and can be carried on, on the same
+  agent too, and a finished conversation can be moved to another agent with a message for its next turn.
+
 # Changelog
 
 What changed in each build, written for someone using Locust rather than
@@ -10,6 +16,27 @@ Settings shows this file as What's new. An entry may group its changes under
 `### New`, `### Improved` and `### Fixed`, and a build a person should be told
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
+
+## 0.881.0 - 2026-11-22
+
+### New
+
+- **Apps that use Locust can do more.** An app connected to Locust (Claude Code, Codex, any MCP client) can now read
+  your usage windows, change which model a teammate runs on (only with both "Let apps see your conversations" and "Use each
+  teammate's own mode" on in Settings), and name a
+  conversation by the first few characters of its id. A turn Locust closed in the middle of, after a crash or a quit,
+  shows as stopped and can be carried on, on the same agent too, and a finished conversation can be moved to another
+  agent with a message for its next turn.
+
+### Fixed
+
+- **Antigravity's Orchestrator runs.** Picking Orchestrator (Neon) or Orchestrator (Argon) failed with "--effort is
+  not supported", because Locust sent an effort as it does for every Gemini model. It now sends none. The planner is
+  the one you pick; the executor and both efforts are the ones you set in Antigravity's own `/model`.
+- **An app's turn after a carry-on stays in its folder.** It had moved back to the open folder.
+- **An app reads the whole answer.** The reply's structured part now carries the answer's words too, for apps that
+  read only that part.
+- **Apple Intelligence can be picked.** The model picker drew On-device model as planned and would not pick it.
 
 ## 0.880.0 - 2026-11-20
 
