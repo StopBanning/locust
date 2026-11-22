@@ -1534,6 +1534,11 @@ apps/desktop/src/main/changelog.test.ts	reads an entry with no date	no
 apps/desktop/src/main/changelog.test.ts	says nothing for a version the file does not carry	no
 apps/desktop/src/main/changelog.test.ts	reads an empty or headingless file as no entries at all	no
 apps/desktop/src/main/changelog.test.ts	is not fooled by a version-looking line inside an entry	no
+apps/desktop/src/main/cloud-task-service.test.ts	starts on the folder's own repository and branch, and is kept	yes
+apps/desktop/src/main/cloud-task-service.test.ts	says, before it runs, what the cloud will not see	yes
+apps/desktop/src/main/cloud-task-service.test.ts	refuses a folder with no GitHub repository, and starts nothing	yes
+apps/desktop/src/main/cloud-task-service.test.ts	is followed to READY, its change fetched, and applied only when asked	yes
+apps/desktop/src/main/cloud-task-service.test.ts	never applies a task it did not start	yes
 apps/desktop/src/main/cloud-tasks.test.ts	is named owner/repo from its remote, https or ssh	yes
 apps/desktop/src/main/cloud-tasks.test.ts	says its branch, what GitHub does not have yet, and uncommitted work	yes
 apps/desktop/src/main/cloud-tasks.test.ts	has no upstream, or no remote, said as unknown rather than guessed	yes
