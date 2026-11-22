@@ -2720,6 +2720,13 @@ apps/desktop/src/main/torn-ledger.test.ts	mixed damage: two recovered incomplete
 apps/desktop/src/main/torn-ledger.test.ts	does not call an older recoverable receipt unreadable when it falls off the page	yes
 apps/desktop/src/main/two-teammates-may-not-share-a-name.test.ts	cannot be given to a second teammate, whatever its case or spaces	no
 apps/desktop/src/main/two-teammates-may-not-share-a-name.test.ts	cannot be taken by a rename, but a teammate keeps its own	no
+apps/desktop/src/main/ui-face-is-bundled.test.ts	is Figtree, with Geist behind it for what Figtree does not draw	yes
+apps/desktop/src/main/ui-face-is-bundled.test.ts	is a real woff2 on disk for both styles, covering the title weight	yes
+apps/desktop/src/main/ui-face-is-bundled.test.ts	carries its licence beside it	yes
+apps/desktop/src/main/ui-face-is-bundled.test.ts	a screen's title takes the title tokens, in capitals	yes
+apps/desktop/src/main/ui-face-is-bundled.test.ts	a section inside a screen is a sentence, one step above its text (Colin, 0.356)	yes
+apps/desktop/src/main/ui-face-is-bundled.test.ts	a section label below a title stays a label, not a second title	yes
+apps/desktop/src/main/ui-face-is-bundled.test.ts	a name inside a title keeps its own spelling	yes
 apps/desktop/src/main/unreadable-is-not-empty.test.ts	never reports that a room does not exist	yes
 apps/desktop/src/main/unreadable-is-not-empty.test.ts	says every room is as it was, because nothing was established	yes
 apps/desktop/src/main/unreadable-is-not-empty.test.ts	still treats a file that is simply not there as empty	yes
