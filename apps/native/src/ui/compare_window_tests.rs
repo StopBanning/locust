@@ -692,3 +692,130 @@ fn a_comparison_shows_its_models_on_hover() {
         Some("Model A vs Model B vs Model C")
     );
 }
+
+fn recorded_comparison(store: &Store) -> locust_core::compare::Compare {
+    use locust_core::compare::{CompareRoute, CompareSlotId, CompareStore, CreateCompareInput};
+    let compares = CompareStore::from_store(store).unwrap();
+    let compare = compares.create(CreateCompareInput {
+        teammate_id: Some("tm_codec".into()),
+        prompt: "Add a discount code field.".into(),
+        routes: vec![CompareRoute::new("claude", "fable"), CompareRoute::new("codex", "gpt-6-astra")],
+        changes: false,
+        changes_in: None,
+        blind: false,
+        base: None,
+        rerun_of: None,
+    }).unwrap();
+    compares.add_turn(&compare.compare_id, CompareSlotId::A, "m_a1").unwrap();
+    compares.add_turn(&compare.compare_id, CompareSlotId::B, "m_b1").unwrap()
+}
+
+fn recorded_sidebar_turn(s: &mut State, id: &str, parent: Option<&str>, minute: u8) {
+    let at = format!("2026-09-28T12:{minute:02}:00.000Z");
+    let title = if id == "m_other" { "Fix the cart total" } else { "Add a discount code field." };
+    s.recent.push(ConversationRow {
+        id: id.into(), title: title.into(), teammate: "Codec".into(),
+        started_by: "native".into(), state: "completed".into(), updated: at.clone(),
+    });
+    s.ledger_summaries.insert(id.into(), ledger::Summary {
+        mission_id: id.into(), title: title.into(), parent: parent.map(Into::into),
+        created_at: at.clone(), updated: at, ..Default::default()
+    });
+}
+
+fn sidebar_ids(s: &State) -> Vec<String> {
+    sidebar::sidebar_missions_now(s).into_iter().map(|row| row.mission_id).collect()
+}
+
+#[test]
+fn comparison_sidebar_opens_undecided_once() {
+    // case: lists an undecided comparison once, as the row that opens it
+    let (_dirs, store, mut rt) = window();
+    let _hooks = native::hooks::install(store.clone(), None);
+    let compare = recorded_comparison(&store);
+    let id = compare.compare_id.clone();
+    rt.update(move |s, _| {
+        s.compare.compares = vec![compare];
+        recorded_sidebar_turn(s, "m_a1", None, 2);
+        recorded_sidebar_turn(s, "m_b1", None, 1);
+        recorded_sidebar_turn(s, "m_other", None, 0);
+    });
+    settle(&mut rt);
+    assert_eq!(sidebar_ids(&rt.state), ["m_a1", "m_other"]);
+    assert!(rt.find("recent-m_a1").is_none());
+    assert!(rt.find("recent-m_b1").is_none());
+    assert!(rt.find("recent-m_other").is_some());
+    let compare_key = format!("sidebar-compare-{id}");
+    let count = rt.elements().into_iter().filter(|e| !e.exiting && e.key.as_deref() == Some(compare_key.as_str())).count();
+    assert_eq!(count, 1);
+    click(&mut rt, &compare_key);
+    assert_eq!(rt.state.compare.active_id.as_deref(), Some(id.as_str()));
+    assert!(rt.find("compare-bar").is_some());
+}
+
+#[test]
+fn comparison_sidebar_kept_column_is_a_conversation() {
+    // case: lists a kept one as the kept column, an ordinary conversation, with its later turns
+    use locust_core::compare::{CompareKept, CompareSlotId};
+    let (_dirs, store, mut rt) = window();
+    let _hooks = native::hooks::install(store.clone(), None);
+    let mut compare = recorded_comparison(&store);
+    let id = compare.compare_id.clone();
+    compare.kept = Some(CompareKept { slot: CompareSlotId::B, at: "2026-09-28T12:05:00Z".into(), brought: None });
+    rt.update(move |s, _| {
+        s.compare.compares = vec![compare];
+        recorded_sidebar_turn(s, "m_b2", Some("m_b1"), 3);
+        recorded_sidebar_turn(s, "m_b1", None, 2);
+        recorded_sidebar_turn(s, "m_a1", None, 1);
+        recorded_sidebar_turn(s, "m_other", None, 0);
+    });
+    settle(&mut rt);
+    assert_eq!(sidebar_ids(&rt.state), ["m_b2", "m_other"]);
+    assert!(rt.find(&format!("sidebar-compare-{id}")).is_none());
+    let rows = sidebar::sidebar_missions_now(&rt.state);
+    assert_eq!(rows[0].member_ids, ["m_b1", "m_b2"]);
+    assert_eq!(sidebar::comparison_of(&rt.state, &rows[0].member_ids).unwrap().compare_id, id);
+    assert!(sidebar::comparison_of(&rt.state, &rows[1].member_ids).is_none());
+    click(&mut rt, "recent-m_b2");
+    assert!(rt.state.compare.active_id.is_none());
+    assert_eq!(rt.state.ledger.as_ref().unwrap().conversation.conversation_id.as_deref(), Some("m_b2"));
+
+    rt.update(|s, _| {
+        let pane = s.ledger.as_mut().unwrap();
+        pane.loading = false;
+        pane.items = vec![ledger::Item::User("Add a discount code field.".into())];
+        pane.snapshot.turn_metas = vec![
+            ledger::Metadata { mission_id: "m_b1".into(), ..Default::default() },
+            ledger::Metadata { mission_id: "m_b2".into(), ..Default::default() },
+        ];
+    });
+    click(&mut rt, "open-thread-comparison");
+    assert_eq!(rt.state.compare.active_id.as_deref(), Some(id.as_str()));
+}
+
+#[test]
+fn comparison_sidebar_retries_only_show_current_answer() {
+    // case: still lists it once after columns were tried again, as a row holding a current answer (0.444)
+    let (_dirs, store, mut rt) = window();
+    let _hooks = native::hooks::install(store.clone(), None);
+    let mut compare = recorded_comparison(&store);
+    let id = compare.compare_id.clone();
+    for slot in &mut compare.slots {
+        slot.retried = std::mem::take(&mut slot.mission_ids);
+        slot.mission_ids = vec![format!("{}_again", slot.retried[0])];
+    }
+    rt.update(move |s, _| {
+        s.compare.compares = vec![compare];
+        for (minute, mission) in ["m_b1_again", "m_a1_again", "m_other", "m_b1", "m_a1"].into_iter().enumerate() {
+            recorded_sidebar_turn(s, mission, None, minute as u8);
+        }
+    });
+    settle(&mut rt);
+    assert_eq!(sidebar_ids(&rt.state), ["m_other", "m_a1_again"]);
+    assert!(rt.find("recent-m_a1").is_none());
+    assert!(rt.find("recent-m_b1").is_none());
+    assert!(rt.find("recent-m_b1_again").is_none());
+    assert_eq!(sidebar::comparison_of(&rt.state, &["m_b1".into()]).unwrap().compare_id, id);
+    click(&mut rt, &format!("sidebar-compare-{id}"));
+    assert_eq!(rt.state.compare.active_id.as_deref(), Some(id.as_str()));
+}

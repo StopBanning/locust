@@ -3206,6 +3206,9 @@ apps/desktop/src/renderer/src/a-compaction-is-a-line-not-a-reply.test.ts	is draw
 apps/desktop/src/renderer/src/a-compare-record-is-a-table.test.ts	counts only decided comparisons, the most kept first	no
 apps/desktop/src/renderer/src/a-compare-record-is-a-table.test.ts	gives each model the middle of its answers' times and costs	no
 apps/desktop/src/renderer/src/a-compare-record-is-a-table.test.ts	a column that never answered counts for nothing, and a model with no reported cost has none	no
+apps/desktop/src/renderer/src/a-comparison-is-one-row.test.ts	lists an undecided comparison once, as the row that opens it	yes
+apps/desktop/src/renderer/src/a-comparison-is-one-row.test.ts	lists a kept one as the kept column, an ordinary conversation, with its later turns	yes
+apps/desktop/src/renderer/src/a-comparison-is-one-row.test.ts	still lists it once after columns were tried again, as a row holding a current answer (0.444)	yes
 apps/desktop/src/renderer/src/a-comparison-shows-its-models-on-hover.test.tsx	uses the full visible comparison label for the route chip hover, including blind labels	no
 apps/desktop/src/renderer/src/a-comparison-shows-its-models-on-hover.test.tsx	draws the judge as a styled select with a decorative standard chevron and all model options	no
 apps/desktop/src/renderer/src/a-comparison-that-edits-says-what-each-changed.test.tsx	says each model changes its own copy, and only the kept one comes into the folder	no
