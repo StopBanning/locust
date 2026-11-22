@@ -1109,3 +1109,50 @@ pub(super) fn plus_menu_light_scene(s: &mut State) {
     plus_menu_scene(s);
     s.appearance = Some(false);
 }
+
+/// The Conversations screen (Ctrl 1): a three-turn conversation, one running, one failed, two picked for deleting.
+pub(super) fn missions_scene(s: &mut State) {
+    team_scene(s);
+    s.home.home_open = false;
+    let at = |minutes: i64| (chrono::Utc::now() - chrono::Duration::minutes(minutes)).to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+    let turns: [(&str, Option<&str>, &str, &str, &str, &str, &str, i64, i64); 7] = [
+        ("m_ship", Some("m_signup"), "Good, ship it", "codec", "codex", "account-default", "completed", 41, 40),
+        ("m_live", None, "Review the native preview", "argon", "antigravity", "Gemini 3.8 Flash", "running", 9, 2),
+        ("m_signup", Some("m_login"), "Now the signup page", "codec", "codex", "account-default", "completed", 52, 50),
+        ("m_login", None, "Fix the login redirect on the dashboard", "codec", "codex", "account-default", "completed", 64, 61),
+        ("m_crm", None, "Tidy the CRM export", "scout", "opencode", "deepseek-v4.1-flash-free", "completed", 300, 296),
+        ("m_fail", None, "Check the conversation sidebar", "codec", "codex", "account-default", "failed", 1_500, 1_499),
+        ("m_old", None, "A longer conversation title that should end in an ellipsis before the columns", "scout", "opencode", "deepseek-v4.1-flash-free", "completed", 9_000, 8_990),
+    ];
+    s.recent.clear();
+    s.ledger_summaries.clear();
+    for (id, parent, words, owner, runtime, model, state, created, updated) in turns {
+        s.recent.push(ConversationRow {
+            id: id.into(),
+            teammate: owner.into(),
+            title: words.into(),
+            started_by: "the person".into(),
+            state: state.into(),
+            updated: at(updated),
+        });
+        s.ledger_summaries.insert(
+            id.into(),
+            ledger::Summary {
+                mission_id: id.into(),
+                title: words.into(),
+                words: words.into(),
+                parent: parent.map(str::to_owned),
+                runtime: runtime.into(),
+                model: model.into(),
+                created_at: at(created),
+                updated: at(updated),
+                failed: state == "failed",
+                ..Default::default()
+            },
+        );
+        s.mission_owners.insert(id.into(), owner.into());
+    }
+    crate::missions_screen::open(s);
+    s.missions.running.insert("m_live".into());
+    s.missions.picked = ["m_crm".to_owned(), "m_fail".to_owned()].into_iter().collect();
+}

@@ -1859,6 +1859,16 @@ apps/desktop/src/main/mission-history.test.ts	ignores a temporary rate limit -- 
 apps/desktop/src/main/mission-history.test.ts	rides on the history response	yes
 apps/desktop/src/main/mission-history.test.ts	keeps the newest reading per runtime and ignores everything else	yes
 apps/desktop/src/main/mission-history.test.ts	reads a newer usage warning back as the reading	yes
+apps/desktop/src/main/missions-can-be-deleted-together.test.ts	will not offer a running mission	yes
+apps/desktop/src/main/missions-can-be-deleted-together.test.ts	says why the box is disabled rather than leaving it dead	yes
+apps/desktop/src/main/missions-can-be-deleted-together.test.ts	re-filters at the moment of deleting, not only at the moment of picking	yes
+apps/desktop/src/main/missions-can-be-deleted-together.test.ts	appears only once something is selected	yes
+apps/desktop/src/main/missions-can-be-deleted-together.test.ts	is absent entirely when the screen has no way to delete	yes
+apps/desktop/src/main/missions-can-be-deleted-together.test.ts	confirms in two steps, the shape the row menu already uses	yes
+apps/desktop/src/main/missions-can-be-deleted-together.test.ts	offers select-all over what is actually deletable, not what is listed	yes
+apps/desktop/src/main/missions-can-be-deleted-together.test.ts	keeps the destructive control away from the harmless ones	yes
+apps/desktop/src/main/missions-can-be-deleted-together.test.ts	puts the checkbox beside the row, never inside it	yes
+apps/desktop/src/main/missions-can-be-deleted-together.test.ts	lets the row keep the width it had	yes
 apps/desktop/src/main/model-catalog.test.ts	reads real models and their own supported efforts	yes
 apps/desktop/src/main/model-catalog.test.ts	drops a model with no id, and a hidden one	yes
 apps/desktop/src/main/model-catalog.test.ts	reports unreadable efforts as NONE rather than as all	yes
@@ -4668,11 +4678,11 @@ apps/desktop/src/renderer/src/missionView.test.ts	says Codex's image tool in wor
 apps/desktop/src/renderer/src/missionView.test.ts	reads as what it did, not the program name	no
 apps/desktop/src/renderer/src/missionView.test.ts	says the git a run with no shell ran, as a shell’s git reads	no
 apps/desktop/src/renderer/src/missionView.test.ts	says a tool call OpenCode could not run, never "used invalid"	no
-apps/desktop/src/renderer/src/missions-lists-conversations.test.tsx	is one row per conversation, where its newest turn stood	no
-apps/desktop/src/renderer/src/missions-lists-conversations.test.tsx	names it by its first turn, stands it on its newest, and holds every turn oldest first	no
-apps/desktop/src/renderer/src/missions-lists-conversations.test.tsx	ends a hand-edited cycle instead of spinning	no
-apps/desktop/src/renderer/src/missions-lists-conversations.test.tsx	lists conversations, and deletes a conversation with every turn	no
-apps/desktop/src/renderer/src/missions-lists-conversations.test.tsx	says when, and how many turns	no
+apps/desktop/src/renderer/src/missions-lists-conversations.test.tsx	is one row per conversation, where its newest turn stood	yes
+apps/desktop/src/renderer/src/missions-lists-conversations.test.tsx	names it by its first turn, stands it on its newest, and holds every turn oldest first	yes
+apps/desktop/src/renderer/src/missions-lists-conversations.test.tsx	ends a hand-edited cycle instead of spinning	yes
+apps/desktop/src/renderer/src/missions-lists-conversations.test.tsx	lists conversations, and deletes a conversation with every turn	yes
+apps/desktop/src/renderer/src/missions-lists-conversations.test.tsx	says when, and how many turns	yes
 apps/desktop/src/renderer/src/mode-says-one-thing.test.ts	covers the whole union exactly once	yes
 apps/desktop/src/renderer/src/mode-says-one-thing.test.ts	names each mode the same way everywhere it is named	yes
 apps/desktop/src/renderer/src/mode-says-one-thing.test.ts	says read-only for every mode that is read-only, on every surface	yes
@@ -5432,6 +5442,14 @@ apps/desktop/src/renderer/src/two-teammates-look-at-each-other.test.ts	when the 
 apps/desktop/src/renderer/src/two-teammates-look-at-each-other.test.ts	for a message to oneself	yes
 apps/desktop/src/renderer/src/two-teammates-look-at-each-other.test.ts	with nothing handed over	yes
 apps/desktop/src/renderer/src/two-teammates-look-at-each-other.test.ts	a face in two handoffs at once looks toward the latest	yes
+apps/desktop/src/renderer/src/unreadable-ledger-is-said.test.tsx	says verified only when there is genuinely nothing wrong	yes
+apps/desktop/src/renderer/src/unreadable-ledger-is-said.test.tsx	never claims verification while a file could not be read	yes
+apps/desktop/src/renderer/src/unreadable-ledger-is-said.test.tsx	warns even when a clean mission sits beside the unreadable file	yes
+apps/desktop/src/renderer/src/unreadable-ledger-is-said.test.tsx	keeps the two kinds of damage apart rather than summing them	yes
+apps/desktop/src/renderer/src/unreadable-ledger-is-said.test.tsx	never claims verification when the ledger could not be read at all	yes
+apps/desktop/src/renderer/src/unreadable-ledger-is-said.test.tsx	still counts body damage on its own, as it always did	yes
+apps/desktop/src/renderer/src/unreadable-ledger-is-said.test.tsx	names how many are listed of how many are kept	yes
+apps/desktop/src/renderer/src/unreadable-ledger-is-said.test.tsx	says nothing of it when everything is listed	yes
 apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	says the month in one line: turns, tokens, and money only when something was priced	yes
 apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	a bar a day, the busiest full height, a quiet day flat, today marked	yes
 apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	is not drawn before there is anything to count: a new person’s Home is unchanged	yes

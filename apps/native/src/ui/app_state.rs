@@ -210,6 +210,8 @@ pub(super) struct State {
     pub(super) selection_ask: Option<crate::side_chat::SelectionAskState>,
     pub(super) recent_hover: Option<String>,
     pub(super) people_panel: crate::people_panel::Panel,
+    /// The Conversations screen (Ctrl 1).
+    pub(super) missions: crate::missions_screen::Screen,
     /// The Pets row of the look picker (PetPicks.tsx).
     pub(super) pet_picks: crate::pet_picks::PetPicks,
     /// Worn pets drawn as faces: their sheets, cut into cells (PetSprite.tsx).
@@ -469,6 +471,7 @@ impl Default for State {
             recent_hover: None,
             routines: crate::routines_panel::Panel::default(),
             people_panel: crate::people_panel::Panel::default(),
+            missions: crate::missions_screen::Screen::default(),
             pet_picks: crate::pet_picks::PetPicks::default(),
             pet_faces: crate::pet_faces::PetFaces::default(),
             browser: crate::browser_panel::Panel::default(),
