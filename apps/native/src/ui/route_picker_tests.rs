@@ -556,3 +556,25 @@ fn an_opencode_model_with_a_name_of_its_own_keeps_it_exactly() {
     let rt = picker(vec![agent("opencode", vec![m("opencode/qwen-x", "qwen x (beta)", &[])])], None);
     assert!(text_in(&rt, "model-opencode-opencode/qwen-x").iter().any(|t| t == "qwen x (beta)"));
 }
+
+fn qa_models() -> Runtime<State> {
+    picker(vec![agent("opencode",vec![
+        m("opencode/muse-spark-1.2-contributor-free","Muse Spark 1.2 (contributor, free)",&[]),
+        m("opencode/big-pickle","Big Pickle",&[]),
+    ])],None)
+}
+// case: says which OpenCode model is free
+#[test]
+fn says_which_opencode_model_is_free() {
+    let mut rt = qa_models(); rt.frame(0.016);
+    let line = text_in(&rt,"model-opencode-opencode/muse-spark-1.2-contributor-free").join(" ");
+    assert!(line.contains("Free") || line.contains("no sign-in"),"{line}");
+}
+// case: draws the rows it was given
+#[test]
+fn draws_the_rows_it_was_given() {
+    let mut rt = qa_models(); rt.frame(0.016);
+    let words = texts(&rt);
+    assert!(words.iter().any(|s| s=="Muse Spark 1.2 (contributor, free)"),"{words:?}");
+    assert!(words.iter().any(|s| s=="Big Pickle"),"{words:?}");
+}

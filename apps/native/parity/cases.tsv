@@ -4802,6 +4802,14 @@ apps/desktop/src/renderer/src/putting-a-file-back.test.ts	is left alone when som
 apps/desktop/src/renderer/src/putting-a-file-back.test.ts	created and then changed by the next turn, is removed	yes
 apps/desktop/src/renderer/src/putting-a-file-back.test.ts	is brought back from a record of the whole file	yes
 apps/desktop/src/renderer/src/putting-a-file-back.test.ts	is left alone when something is there again	yes
+apps/desktop/src/renderer/src/qa-0365-composer.test.tsx	does not tell a person who just installed OpenCode to install an AI agent	yes
+apps/desktop/src/renderer/src/qa-0365-composer.test.tsx	invites a message, since one runtime can run it	yes
+apps/desktop/src/renderer/src/qa-0365-composer.test.tsx	still says to install one when nothing is installed	yes
+apps/desktop/src/renderer/src/qa-0365-composer.test.tsx	invites a message when the route itself is the ready runtime	yes
+apps/desktop/src/renderer/src/qa-0365-composer.test.tsx	says which OpenCode model is free	yes
+apps/desktop/src/renderer/src/qa-0365-composer.test.tsx	draws the rows it was given	yes
+apps/desktop/src/renderer/src/qa-0365-composer.test.tsx	does not tell the person to sign in, because there is nothing to sign in to	yes
+apps/desktop/src/renderer/src/qa-0365-composer.test.tsx	still says sign in when a runtime is installed but not usable	yes
 apps/desktop/src/renderer/src/railFlyout.test.ts	puts the live one first, then newest first	yes
 apps/desktop/src/renderer/src/railFlyout.test.ts	never lets an unknown age outrank a known recent one	yes
 apps/desktop/src/renderer/src/railFlyout.test.ts	shows at most six and says how many there are	yes
