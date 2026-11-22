@@ -8,6 +8,8 @@ import { adoptAccounts, chipAccountName } from './agentAccounts.js'
 import type { AgentAccount } from '../../shared/agent-accounts.js'
 import { machineWords } from '../../shared/machine-words.js'
 import { routeModelName } from './routeName.js'
+import { setAccountOnChip } from './accountOnChip.js'
+import { AgentAccountsSettings } from './components/AgentAccountsSettings.js'
 
 /**
  * THE CHIP NAMES AN ADDED ACCOUNT, AND ONLY THAT (0.877.1).
@@ -36,7 +38,7 @@ const props: ComposerProps = {
 
 const max: AgentAccount = { id: `account_${'a'.repeat(32)}`, runtime: 'claude', name: 'max', state: 'ready' }
 const here = `This ${machineWords(undefined).computer}`
-afterEach(() => adoptAccounts([]))
+afterEach(() => { adoptAccounts([]); setAccountOnChip(false) })
 
 it("names nothing extra while the computer's own sign-in is the only account", () => {
   adoptAccounts([])
@@ -58,7 +60,31 @@ it("names nothing for the computer's own sign-in, even beside an added account",
   expect(chipAccountName(undefined, [max])).toBeUndefined()
 })
 
-it('names the added account when the conversation is on it, or when it is set for new conversations', () => {
+// case: Colin, 22 Nov, of "Opus 5.5 · freev2 · Medium": "have account name as a togglable setting. Otherwise it's just
+// bloat, adds too much on the screen."
+it('names no account on the chip unless the person turned it on, even on an added account', () => {
+  adoptAccounts([{ ...max, forNew: true }])
+  const opus = renderToStaticMarkup(<Composer {...props} route={{ runtime: 'claude', model: 'claude-opus-5-5', account: max.id }} />)
+  expect(opus).toContain(routeModelName('claude', 'claude-opus-5-5'))
+  expect(opus).not.toContain(' · max')
+  const picked = renderToStaticMarkup(<Composer {...props} route={{ runtime: 'claude', model: 'account-default', account: max.id }} />)
+  expect(picked).not.toContain(' · max')
+  expect(renderToStaticMarkup(<Composer {...props} />)).not.toContain(' · max')
+})
+
+// case: "just have it in a place where people would find it if they were adding another account."
+it('offers the switch in the agent\'s accounts list once it has an added account, and not before', () => {
+  adoptAccounts([])
+  expect(renderToStaticMarkup(<AgentAccountsSettings runtime="claude" />)).not.toContain('Show the account on the model chip')
+  adoptAccounts([max])
+  const offered = renderToStaticMarkup(<AgentAccountsSettings runtime="claude" />)
+  expect(offered).toMatch(/role="switch" aria-checked="false" aria-label="Show the account on the model chip"/)
+  setAccountOnChip(true)
+  expect(renderToStaticMarkup(<AgentAccountsSettings runtime="claude" />)).toMatch(/aria-checked="true" aria-label="Show the account on the model chip"/)
+})
+
+it('names the added account when the conversation is on it, or when it is set for new conversations, once turned on', () => {
+  setAccountOnChip(true)
   adoptAccounts([max])
   const picked = renderToStaticMarkup(<Composer {...props} route={{ runtime: 'claude', model: 'account-default', account: max.id }} />)
   expect(picked).toContain(' · max')

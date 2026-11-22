@@ -173,7 +173,7 @@ interface StoredFile {
 
 // Relay is ON unless switched off: teammates talking to each other is the
 // point of having more than one, and the hop cap is what bounds the spend.
-const DEFAULT_SETTINGS: WorkspaceSettings = { relay: true, relayHopCap: DEFAULT_RELAY_HOP_CAP, interrupt: false, memoryMode: DEFAULT_MEMORY_MODE, autoMode: false, askConnectors: false, keepATodoList: true, layout: 'auto', tube: 'full', replySize: 'standard', codeFont: 'geist', metal: 'silver', metalStrength: 'standard', metalMotion: 'hover', metalBend: false, terminalFaces: true, plush: false, claudeOwnSkills: false }
+const DEFAULT_SETTINGS: WorkspaceSettings = { relay: true, relayHopCap: DEFAULT_RELAY_HOP_CAP, interrupt: false, memoryMode: DEFAULT_MEMORY_MODE, autoMode: false, askConnectors: false, keepATodoList: true, layout: 'auto', tube: 'full', replySize: 'standard', codeFont: 'geist', metal: 'silver', metalStrength: 'standard', metalMotion: 'hover', metalBend: false, terminalFaces: true, plush: false, accountOnChip: false, claudeOwnSkills: false }
 
 /** A layout this build can draw, or the default. Never trusts the file. */
 function parsedLayout(value: unknown): LayoutPreference {
@@ -595,6 +595,7 @@ function parsedFile(text: string): StoredFile {
     ...parsedMetal(rawSettings),
     terminalFaces: parsedTerminalFaces(rawSettings),
     plush: typeof rawSettings === 'object' && rawSettings !== null && (rawSettings as Record<string, unknown>).plush === true,
+    accountOnChip: typeof rawSettings === 'object' && rawSettings !== null && (rawSettings as Record<string, unknown>).accountOnChip === true,
     claudeOwnSkills: typeof rawSettings === 'object' && rawSettings !== null && (rawSettings as Record<string, unknown>).claudeOwnSkills === true,
     replySize: typeof rawSettings === 'object' && rawSettings !== null
       ? parsedReplySize((rawSettings as Record<string, unknown>).replySize)
@@ -1132,6 +1133,8 @@ export function createTeammateStore(options: { readonly rootDirectory: string; r
           terminalFaces: parsedTerminalFaces(settings),
           // Only a literal true: plush is a choice, never a default.
           plush: (settings as Record<string, unknown>).plush === true,
+          // Only a literal true: the account on the chip is a choice (0.882).
+          accountOnChip: (settings as Record<string, unknown>).accountOnChip === true,
           // Only a literal true: the person's own skills are lent, never assumed.
           claudeOwnSkills: (settings as Record<string, unknown>).claudeOwnSkills === true,
           replySize: typeof settings === 'object' && settings !== null

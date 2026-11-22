@@ -8,7 +8,8 @@ describe('a message you sent', () => {
   // asks_a_side_question_in_a_freshly_briefed_acp_session_without_appending_to_the_parent: the name ran past the
   // bubble's right edge and was cut off ("Bug.").
   it('breaks a word longer than its bubble inside the bubble', () => {
-    const bubble = /\n\.lc-bubble \{([^}]*)\}/.exec(css)?.[1] ?? ''
+    const start = css.indexOf('\n.lc-bubble ' + String.fromCharCode(123))
+    const bubble = start < 0 ? '' : css.slice(start, css.indexOf(String.fromCharCode(125), start))
     expect(bubble).toMatch(/max-width: 78%/)
     expect(bubble).toMatch(/overflow-wrap: anywhere;/)
   })

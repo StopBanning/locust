@@ -1,4 +1,5 @@
 import { accountUsageKey } from '../../../shared/agent-accounts.js'
+import { useAccountOnChip } from '../accountOnChip.js'
 import { chipAccountName, routeAccount, useAgentAccounts } from '../agentAccounts.js'
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { usagePercent, usageWindowSentence } from '../missionView.js'
@@ -1030,6 +1031,7 @@ export function Composer({
     }
   }
   const accounts = useAgentAccounts()
+  const accountShown = useAccountOnChip()
   const selected = runtimes.find((runtime) => runtime.id === route.runtime)
   // The account's window, from the latest reading (SURFACES-0.22 §3): a
   // sentence in the tooltip always; a dot on the chip only from 80%, when a
@@ -3011,7 +3013,7 @@ export function Composer({
                     // has said (0.797, above). That reading is the machine's own sign-in's, so never beside another account.
                     (() => {
                       const account = running ? routeAccount(activeRoute ?? {}) : routeAccountNow
-                      if (account !== undefined) return <>{runtimeLabel}{` · ${chipAccountName(account, accounts)}`}</>
+                      if (account !== undefined) return accountShown ? <>{runtimeLabel}{` · ${chipAccountName(account, accounts)}`}</> : <>{runtimeLabel}</>
                       return defaultModelName === undefined ? <>{runtimeLabel}</> : (
                         <>
                           <span className="lc-control__runtime">{runtimeLabel}</span>
@@ -3022,7 +3024,7 @@ export function Composer({
                     })()
                   ) : (
                     <>
-                      <span className="lc-control__mono lc-control__model">{modelName}{(() => { const named = chipAccountName(running ? routeAccount(activeRoute ?? {}) : routeAccountNow, accounts); return named === undefined ? '' : ` \u00b7 ${named}` })()}</span>
+                      <span className="lc-control__mono lc-control__model">{modelName}{accountShown && (() => { const named = chipAccountName(running ? routeAccount(activeRoute ?? {}) : routeAccountNow, accounts); return named === undefined ? '' : ` \u00b7 ${named}` })()}</span>
                       {freeModel && <span className="lc-control__free">Free</span>}
                     </>
                   )}

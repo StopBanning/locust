@@ -24690,6 +24690,15 @@ button.lc-switch:hover:not(:disabled):not(.is-on) {
   border-top: 1px solid var(--lc-border-hairline);
 }
 
+/* The account on the model chip (0.882): a row like an account's, its switch at the end. */
+.lc-agentaccounts__chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--lc-space-4);
+  padding-block: var(--lc-space-4);
+}
+
 .lc-agentaccounts__account {
   display: flex;
   flex-wrap: wrap;

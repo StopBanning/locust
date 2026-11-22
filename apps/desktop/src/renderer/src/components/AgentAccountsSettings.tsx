@@ -6,6 +6,7 @@ import { accountAction, refreshAccounts, useAgentAccounts } from '../agentAccoun
 import { windowWords } from '../machineWords.js'
 import { useOrganizationPolicy, ManagedPolicyNote } from '../organizationPolicy.js'
 import { Icon } from './Icon.js'
+import { chooseAccountOnChip, useAccountOnChip } from '../accountOnChip.js'
 import { UsageMeters } from './UsageMeters.js'
 
 /** What an added account's row says about its sign-in. */
@@ -37,6 +38,7 @@ export function AgentAccountsSettings({ runtime, usage }: { readonly runtime: st
   const [message, setMessage] = useState<string>()
   const [busy, setBusy] = useState(false)
   const own = accounts.filter(a => a.runtime === runtime)
+  const accountShown = useAccountOnChip()
   // New conversations run on the added account that has them, signed in; else on this machine's own sign-in (0.876).
   const onMac = !own.some(a => a.forNew === true && a.state === 'ready')
   const waiting = own.some(a => a.state === 'waiting')
@@ -95,6 +97,15 @@ export function AgentAccountsSettings({ runtime, usage }: { readonly runtime: st
       <Icon name="plus" size={13} />
       Add another account
     </button>}
+    {own.length > 0 && <div className="lc-agentaccounts__chip">
+      <span className="lc-agentaccounts__who">
+        <span className="lc-agentaccounts__name">Show the account on the model chip</span>
+        <span className="lc-agentaccounts__state">Adds its name beside the model, for every agent. The model menu names it either way.</span>
+      </span>
+      <button type="button" className={`lc-switch${accountShown ? ' is-on' : ''}`} role="switch" aria-checked={accountShown} aria-label="Show the account on the model chip" onClick={() => void chooseAccountOnChip(!accountShown)}>
+        <span className="lc-switch__knob" />
+      </button>
+    </div>}
     {stays !== undefined ? <p className="lc-settings__note lc-oncomputer__said">{stays}</p> : blocked && <ManagedPolicyNote />}
     {message !== undefined && <p className="lc-settings__note" role="alert">{message}</p>}
     {removing !== undefined && <div className="lc-agentaccounts__confirm" role="alertdialog" aria-label={`Remove ${removing.name}?`}>

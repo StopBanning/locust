@@ -284,6 +284,7 @@ import { FeedbackDialog } from './components/FeedbackDialog.js'
 import { conversationText } from './feedback.js'
 import { withLiveEvents } from './liveEvents.js'
 import { setPlush, setTerminalFaces } from './botLook.js'
+import { setAccountOnChip } from './accountOnChip.js'
 import { DONE_HOP_MS, RECEIVED_GLANCE_MS, liveActivityOf } from './faceState.js'
 import type { Handoff } from './glances.js'
 import type { LiveActivity } from './faceState.js'
@@ -1848,6 +1849,7 @@ export default function App(): ReactElement {
         setAboutYouSuggestions(settings.aboutYouSuggestions ?? [])
         setTerminalFacesShown(settings.terminalFaces !== false)
         setPlushShown(settings.plush === true)
+        setAccountOnChip(settings.accountOnChip === true)
         if (settings.metal !== undefined) setMetal(settings.metal)
         if (settings.metalStrength !== undefined) setMetalStrength(settings.metalStrength)
         if (settings.metalMotion !== undefined) setMetalMotion(settings.metalMotion)
@@ -3885,6 +3887,7 @@ export default function App(): ReactElement {
       if (settings.metalBend !== undefined) setMetalBend(settings.metalBend)
       setTerminalFacesShown(settings.terminalFaces !== false)
       setPlushShown(settings.plush === true)
+      setAccountOnChip(settings.accountOnChip === true)
         }
       })
       .catch(() => undefined)

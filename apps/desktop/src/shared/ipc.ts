@@ -883,7 +883,7 @@ export const WORKSPACE_SETTINGS_WRITE_CHANNEL = 'workspace-settings:write'
  * a browser already starts a run on any model.
  */
 export const WORKSPACE_SETTINGS_CHANGE_CHANNEL = 'workspace-settings:change'
-export const SETTINGS_A_BROWSER_MAY_CHANGE = ['keepATodoList', 'replySize', 'codeFont', 'layout', 'tube', 'terminalFaces', 'plush', 'metal', 'metalStrength', 'metalMotion', 'metalBend', 'aboutYou', 'aboutYouSuggestions', 'memoryMode', 'newChatRoute'] as const
+export const SETTINGS_A_BROWSER_MAY_CHANGE = ['keepATodoList', 'replySize', 'codeFont', 'layout', 'tube', 'terminalFaces', 'plush', 'accountOnChip', 'metal', 'metalStrength', 'metalMotion', 'metalBend', 'aboutYou', 'aboutYouSuggestions', 'memoryMode', 'newChatRoute'] as const
 export const WORKSPACE_CHOOSE_CHANNEL = 'workspace:choose'
 /** Start here, on the window's question about a folder like home or `.claude` (0.790): the current folder is kept. */
 export const WORKSPACE_CONFIRM_CHANNEL = 'workspace:confirm'
@@ -2779,6 +2779,8 @@ export interface WorkspaceSettings {
   readonly terminalFaces?: boolean
   /** Every one of our bots is plush faux fur instead of plastic (0.577). Off unless chosen. */
   readonly plush?: boolean
+  /** The model chip names the account a conversation runs on (0.882). Off unless chosen: renderer/src/accountOnChip.ts. */
+  readonly accountOnChip?: boolean
   /**
    * A Claude Code teammate may use the person's own skills, from
    * ~/.claude/skills, as well as the folder's (0.679). Off unless chosen:
