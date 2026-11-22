@@ -71,6 +71,56 @@ pub(super) struct ModelChoice {
     pub(super) is_free: bool,
 }
 
+const COLUMN_PADDING: f32 = 12.0;
+const COLUMN_HEAD_HEIGHT: f32 = 32.0;
+const COLUMN_GAP: f32 = 10.0;
+
+pub(super) fn column_stick_at(head: f32, port: f32, body: f32) -> f32 {
+    (head + 8.0).min(port - body - 8.0).round()
+}
+
+struct ColumnLayout {
+    cell_y: f32,
+    body: [f32; 4],
+    foot_y: f32,
+    head_shift: rune::Live<[f32; 2]>,
+    body_shift: rune::Live<[f32; 2]>,
+}
+
+impl Default for ColumnLayout {
+    fn default() -> Self {
+        Self {
+            cell_y: 0.0,
+            body: [0.0; 4],
+            foot_y: 0.0,
+            head_shift: rune::Live::new([0.0; 2]),
+            body_shift: rune::Live::new([0.0; 2]),
+        }
+    }
+}
+
+impl ColumnLayout {
+    fn place(&self, port: [f32; 4]) {
+        let head_y = self.cell_y + COLUMN_PADDING;
+        let boundary = self.foot_y - COLUMN_GAP;
+        let offset = |natural: f32, sticky: f32, height: f32| {
+            (sticky.min(boundary - height) - natural).max(0.0)
+        };
+        self.head_shift.set([0.0, offset(head_y, port[1], COLUMN_HEAD_HEIGHT)]);
+        self.body_shift.set([0.0, offset(
+            self.body[1],
+            port[1] + column_stick_at(COLUMN_HEAD_HEIGHT, port[3], self.body[3]),
+            self.body[3],
+        )]);
+    }
+}
+
+#[derive(Default)]
+struct CompareScroll {
+    port: [f32; 4],
+    columns: [ColumnLayout; MAX_COMPARE_SLOTS],
+}
+
 #[derive(Default)]
 pub(super) struct CompareState {
     pub(super) composer_mode: CompareComposerMode,
@@ -82,6 +132,7 @@ pub(super) struct CompareState {
     pub(super) compares: Vec<Compare>,
     pub(super) loaded: bool,
     pub(super) active_id: Option<String>,
+    scroll: CompareScroll,
     pub(super) problem: Option<String>,
     pub(super) snapshots: HashMap<String, ledger::Snapshot>,
     pub(super) criteria: TextEdit,
@@ -1929,8 +1980,8 @@ fn format_span(snap: &ledger::Snapshot) -> Option<String> {
     snapshot_span_ms(snap).map(ledger::duration_text)
 }
 
-fn snapshot_cost(_snap: &ledger::Snapshot) -> Option<RunCost> {
-    None
+fn snapshot_cost(snap: &ledger::Snapshot) -> Option<RunCost> {
+    snap.cost.clone()
 }
 
 fn format_cost(snap: &ledger::Snapshot) -> Option<String> {
@@ -2459,7 +2510,7 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
     );
 
     // Side-by-side columns
-    let mut cols_row = row().w_full().gap(12.0);
+    let mut cols_row = row().w_full().gap(12.0).items_stretch();
     for (idx, slot) in cmp.slots.iter().enumerate() {
         let name = &col_names[idx];
         let ans = &col_answers[idx];
@@ -2473,20 +2524,41 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
         let is_kept = kept_slot == Some(slot.slot);
         let is_pick = judge_view.as_ref().and_then(|jv| jv.3) == Some(slot.slot);
 
+        let layout = &s.compare.scroll.columns[idx];
+        let letter = slot.slot.as_str();
+        let answer_label = format!("{name}'s answer");
+        let name_hover = if veiled { name.clone() } else { format!("{name} · {}", runtime_display_name(&slot.route.runtime)) };
+        let name_text = text(name.clone())
+            .key(format!("compare-name-text-{letter}"))
+            .font(rune::TextStyle::new(13.5, 600.0))
+            .description(name_hover.clone())
+            .color(p.text)
+            .grow(1.0)
+            .truncate();
+        let hover_key = format!("compare-name-{letter}");
+        let mut tooltip = Vec::new();
+        let anchor = rune_kit::Tooltip::new(&hover_key)
+            .trigger(name_text)
+            .text(&l.k, name_hover)
+            .open(s.hover.is_open(&hover_key))
+            .build(&l.k, &mut tooltip);
+        // Keep the hover target in place when its tooltip opens inside the scrolling header.
+        let name = row().grow(1.0).shrink()
+            .hover_delays(crate::hover::HOVER_DELAY, Duration::ZERO)
+            .on_hover_change(move |s: &mut State, over, _| s.hover.set(&hover_key, over))
+            .child(anchor.grow(1.0).shrink())
+            .children(tooltip);
         let mut head = row()
-            .key(format!("compare-head-{}", slot.slot.as_str()))
-            .w_full()
+            .key(format!("compare-head-{letter}"))
+            .pin(Some(COLUMN_PADDING), Some(COLUMN_PADDING), Some(COLUMN_PADDING), None)
+            .h(COLUMN_HEAD_HEIGHT)
+            .live_offset(&layout.head_shift)
+            .fill(p.raised)
             .gap(8.0)
             .center_y()
             .pb(8.0)
             .border_sides([0.0, 0.0, 1.0, 0.0], p.hairline)
-            .child(
-                text(name.clone())
-                    .font(rune::TextStyle::new(13.5, 600.0))
-                    .color(p.text)
-                    .grow(1.0)
-                    .truncate(),
-            );
+            .child(name);
         if is_kept {
             head = head.child(crate::look::controls::chip(&l, "Kept", true));
         }
@@ -2530,31 +2602,48 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
             ans.clone()
         };
 
-        let mut cell = col()
-            .key(format!("compare-cell-{}", slot.slot.as_str()))
-            .key(format!("compare-col-{}", slot.slot.as_str()))
+        let cell = col()
+            .key(format!("compare-col-{letter}"))
+            .role("group")
+            .label(answer_label)
+            .w(0.0)
             .grow(1.0)
             .shrink()
-            .padding(12.0)
-            .gap(10.0)
+            .padding(COLUMN_PADDING)
             .radius(8.0)
             .fill(p.raised)
             .border(1.0, if is_kept { l.c("lime-border") } else { p.hairline })
-            .child(head)
+            .on_layout_tx(move |s: &mut State, rect, tx| {
+                let scroll = &mut s.compare.scroll;
+                scroll.columns[idx].cell_y = rect[1];
+                scroll.columns[idx].place(scroll.port);
+                tx.live_only();
+            });
+        let mut body = col()
+            .key(format!("compare-body-{letter}"))
+            .w_full()
+            .gap(COLUMN_GAP)
+            .live_offset(&layout.body_shift)
+            .on_layout_tx(move |s: &mut State, rect, tx| {
+                let scroll = &mut s.compare.scroll;
+                scroll.columns[idx].body = rect;
+                scroll.columns[idx].place(scroll.port);
+                tx.live_only();
+            })
             .child(text(body_text).font(l.ty.body).color(p.text).w_full().wrap());
 
         // What your check said in its copy after that turn (0.810): its judges read the same.
         if let Some(chk) = check
             && !running
         {
-            cell = cell.child(column_check_card(slot.slot, chk, p, s));
+            body = body.child(column_check_card(slot.slot, chk, p, s));
         }
 
         for page in pages {
             let slot_id = slot.slot;
             let req = page.clone();
             let short = page.rsplit(['/', '\\']).next().unwrap_or(page.as_str()).to_owned();
-            cell = cell.child(
+            body = body.child(
                 crate::look::controls::button(
                     &l,
                     &format!("Preview {short}"),
@@ -2580,19 +2669,34 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
             parts.push(cs.to_owned());
         }
 
-        let mut foot = row()
-            .key(format!("compare-foot-{}", slot.slot.as_str()))
+        let count = parts.len();
+        let numbers = row().w_full().gap(6.0).flex_wrap().children(parts.into_iter().enumerate().map(|(index, number)| {
+            let separator = if index + 1 < count { "\u{a0}·" } else { "" };
+            text(format!("{number}{separator}"))
+                .key(format!("compare-number-{letter}-{index}"))
+                .font(l.ty.mono)
+                .color(p.muted)
+        }));
+        let mut foot = col()
+            .key(format!("compare-foot-{letter}"))
             .w_full()
+            .mt(COLUMN_GAP)
             .pt(8.0)
             .gap(8.0)
-            .center_y()
             .border_sides([1.0, 0.0, 0.0, 0.0], p.hairline)
-            .child(text(parts.join(" · ")).font(l.ty.label).color(p.muted).grow(1.0).wrap());
+            .on_layout_tx(move |s: &mut State, rect, tx| {
+                let scroll = &mut s.compare.scroll;
+                scroll.columns[idx].foot_y = rect[1];
+                scroll.columns[idx].place(scroll.port);
+                tx.live_only();
+            })
+            .child(numbers);
 
         if cmp.kept.is_none() && cmp.rerun_of.is_none() {
             let slot_id = slot.slot;
+            let mut actions = row().w_full().gap(8.0).flex_wrap();
             if !keepable && !running {
-                foot = foot.child(
+                actions = actions.child(
                     crate::look::controls::button(
                         &l,
                         "Try again",
@@ -2613,10 +2717,15 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
             if keepable {
                 keep_btn = keep_btn.on_press(move |s: &mut State| keep_column(s, slot_id));
             }
-            foot = foot.child(keep_btn);
+            foot = foot.child(actions.child(keep_btn));
         }
-        cell = cell.child(foot);
-        cols_row = cols_row.child(cell);
+        cols_row = cols_row.child(cell
+            .child(el().h(COLUMN_HEAD_HEIGHT + COLUMN_GAP))
+            .child(body)
+            .child(el().grow(1.0))
+            .child(foot)
+            .child(head));
+
     }
     scroll_body = scroll_body.child(cols_row);
 
@@ -2880,9 +2989,19 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
 
     root_col.child(
         col()
+            .key("compare-scroll")
             .grow(1.0)
+            .min_h(0.0)
             .w_full()
             .scroll(ScrollSpec { stick_bottom: false })
+            .on_layout_tx(|s: &mut State, rect, tx| {
+                let scroll = &mut s.compare.scroll;
+                scroll.port = rect;
+                for column in &scroll.columns {
+                    column.place(rect);
+                }
+                tx.live_only();
+            })
             .child(scroll_body),
     )
 }

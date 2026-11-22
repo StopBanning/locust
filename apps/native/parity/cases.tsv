@@ -3205,6 +3205,13 @@ apps/desktop/src/renderer/src/a-commands-card-says-what-it-is-for.test.tsx	goes 
 apps/desktop/src/renderer/src/a-compaction-is-a-line-not-a-reply.test.ts	is drawn as a line saying so, not as the summary or the note to the model	yes
 apps/desktop/src/renderer/src/a-compare-column-is-named-by-its-family.test.ts	Cursor’s Argon on its Low id is "Gemini 4 Argon", the level being its own control	yes
 apps/desktop/src/renderer/src/a-compare-column-is-named-by-its-family.test.ts	before the catalogue answers, the route is named as before	yes
+apps/desktop/src/renderer/src/a-compare-column-reads-whole.test.tsx	keeps each of its foot's numbers whole, as parts the foot can wrap between	yes
+apps/desktop/src/renderer/src/a-compare-column-reads-whole.test.tsx	holds everything it says in one body, the part that stays in view	yes
+apps/desktop/src/renderer/src/a-compare-column-reads-whole.test.tsx	says its runtime in the name's hover, for the head too narrow to show it	yes
+apps/desktop/src/renderer/src/a-compare-column-reads-whole.test.tsx	names no runtime in a blind head, hover or not	yes
+apps/desktop/src/renderer/src/a-compare-column-reads-whole.test.tsx	waits under the heads when it fits	yes
+apps/desktop/src/renderer/src/a-compare-column-reads-whole.test.tsx	stops with its end at the bottom edge when it is longer than the view	yes
+apps/desktop/src/renderer/src/a-compare-column-reads-whole.test.tsx	never sits lower than under the heads, however short	yes
 apps/desktop/src/renderer/src/a-compare-record-is-a-table.test.ts	counts only decided comparisons, the most kept first	no
 apps/desktop/src/renderer/src/a-compare-record-is-a-table.test.ts	gives each model the middle of its answers' times and costs	no
 apps/desktop/src/renderer/src/a-compare-record-is-a-table.test.ts	a column that never answered counts for nothing, and a model with no reported cost has none	no

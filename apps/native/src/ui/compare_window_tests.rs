@@ -1043,3 +1043,119 @@ fn compare_view_cursor_route_without_catalog_keeps_its_previous_name() {
     settle(&mut rt);
     assert!(text_in(&rt, "compare-head-a").contains(&"Gemini 4 Argon Low".to_owned()));
 }
+
+fn whole_compare_window(blind: bool, long_answer: bool) -> (Dirs, Runtime<State>) {
+    use locust_core::compare::{CompareRoute, CompareSlotId};
+    let (dirs, store, mut rt) = window();
+    let mut compare = recorded_comparison(&store);
+    compare.blind = blind;
+    compare.changes = true;
+    for (slot, (model, label)) in compare.slots.iter_mut().zip([
+        ("opencode/mimo-v2.6-flash-free", "Mimo V2.6 Flash"),
+        ("opencode/ling-3.0-flash-fin-free", "Ling 3.0 Flash"),
+    ]) {
+        slot.route = CompareRoute { label: Some(label.into()), ..CompareRoute::new("opencode", model) };
+    }
+    rt.update(move |s, _| {
+        s.compare.active_id = Some(compare.compare_id.clone());
+        s.compare.changes_lines.insert((compare.compare_id.clone(), CompareSlotId::A), "+1273 -0 in 1 file".into());
+        s.compare.compares = vec![compare];
+        for (id, text) in [
+            ("m_a1", "Done.".to_owned()),
+            ("m_b1", if long_answer { "A line from the long answer.\n".repeat(140) } else { "Done.".to_owned() }),
+        ] {
+            s.compare.snapshots.insert(id.into(), ledger::Snapshot {
+                items: vec![ledger::Item::Assistant { item_id: "reply".into(), text, r#final: true }],
+                timings: vec![locust_core::time_marker::TurnTiming {
+                    before_item: 0, first_at: Some("2026-10-05T00:00:00Z".into()),
+                    last_at: Some("2026-10-05T01:18:00Z".into()),
+                }],
+                cost: Some(locust_core::benchmark::RunCost { usd: Some(2.18), ..Default::default() }),
+                ..Default::default()
+            });
+        }
+    });
+    settle(&mut rt);
+    (dirs, rt)
+}
+
+#[test]
+fn compare_view_footer_wraps_between_whole_parts() {
+    // case: keeps each of its foot's numbers whole, as parts the foot can wrap between
+    let (_dirs, mut rt) = whole_compare_window(false, false);
+    rt.set_viewport((600.0, 850.0), 1.0);
+    rt.update(|s, _| s.layout_pref = "wide".into());
+    settle(&mut rt);
+    let parts: Vec<_> = (0..3).map(|index| {
+        let key = format!("compare-number-a-{index}");
+        rt.elements().into_iter().find(|e| e.key.as_deref() == Some(key.as_str())).expect("a whole footer part")
+    }).collect();
+    assert_eq!(parts.iter().map(|part| part.text.as_deref().unwrap().trim_end_matches("\u{a0}·")).collect::<Vec<_>>(),
+        ["+1273 -0 in 1 file", "1h 18m", "$2.18"]);
+    assert!(parts[0].rect[1] < parts[2].rect[1], "the whole parts wrap between words: {:?}", parts.iter().map(|part| part.rect).collect::<Vec<_>>());
+    let (foot, _) = rt.presented("compare-foot-a").unwrap();
+    for part in parts {
+        assert!(part.rect[0] + part.rect[2] <= foot[0] + foot[2] + 0.5, "{:?} overflows {foot:?}", part.rect);
+    }
+}
+
+#[test]
+fn compare_view_keeps_the_body_in_view_beside_a_longer_answer() {
+    // case: holds everything it says in one body, the part that stays in view
+    let (_dirs, mut rt) = whole_compare_window(false, true);
+    assert_eq!(text_in(&rt, "compare-body-a"), ["Done."]);
+    assert!(rt.find("compare-body-b").is_some());
+    rt.update(|_, tx| tx.scroll_to_instant("compare-scroll", 0.0, 610.0));
+    settle(&mut rt);
+    let (port, _) = rt.presented("compare-scroll").unwrap();
+    let (head, _) = rt.presented("compare-head-a").unwrap();
+    let (body, _) = rt.presented("compare-body-a").unwrap();
+    assert!(body[1] >= head[1] + head[3] && body[1] + body[3] < port[1] + port[3], "port {port:?}, head {head:?}, body {body:?}");
+    assert_eq!(text_in(&rt, "compare-body-a"), ["Done."]);
+}
+
+fn column_name_hover(rt: &mut Runtime<State>) -> String {
+    let (x, y) = rt.find("compare-name-text-a").unwrap();
+    rt.pointer_move(x, y);
+    rt.frame(0.016);
+    rt.frame(0.6);
+    rt.elements().into_iter()
+        .find(|e| !e.exiting && e.key.as_deref() == Some("compare-name-a-tooltip"))
+        .and_then(|e| e.label)
+        .unwrap_or_else(|| panic!("the name's hover at ({x}, {y}), pointer over it: {}", rt.state.hover.is_open("compare-name-a")))
+}
+
+#[test]
+fn compare_view_column_hover_names_the_runtime() {
+    // case: says its runtime in the name's hover, for the head too narrow to show it
+    let (_dirs, mut rt) = whole_compare_window(false, false);
+    assert_eq!(column_name_hover(&mut rt), "Mimo V2.6 Flash · OpenCode");
+}
+
+#[test]
+fn compare_view_blind_column_hover_names_only_the_model() {
+    // case: names no runtime in a blind head, hover or not
+    let (_dirs, mut rt) = whole_compare_window(true, false);
+    assert_eq!(column_name_hover(&mut rt), "Model A");
+    assert!(!text_in(&rt, "compare-head-a").contains(&"OpenCode".to_owned()));
+}
+
+#[test]
+fn compare_view_a_short_column_stays_under_the_heads() {
+    // case: waits under the heads when it fits
+    assert_eq!(compare_view::column_stick_at(46.0, 513.0, 200.0), 54.0);
+}
+
+#[test]
+fn compare_view_a_long_column_keeps_its_end_at_the_bottom() {
+    // case: stops with its end at the bottom edge when it is longer than the view
+    let top = compare_view::column_stick_at(46.0, 513.0, 1400.0);
+    assert!(top < 0.0);
+    assert_eq!(top + 1400.0, 505.0);
+}
+
+#[test]
+fn compare_view_an_empty_column_stays_under_the_heads() {
+    // case: never sits lower than under the heads, however short
+    assert_eq!(compare_view::column_stick_at(46.0, 513.0, 0.0), 54.0);
+}
