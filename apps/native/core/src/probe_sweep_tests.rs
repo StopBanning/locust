@@ -440,6 +440,12 @@ fn an_agent_still_called_checking_whose_check_finished_is_named() {
 fn one_still_being_checked_and_one_already_ready_are_left_alone() {
     assert!(stale_checking(&[checking("opencode", true)], &set(&[])).is_empty());
     assert!(stale_checking(&[checking("opencode", false)], &set(&["opencode"])).is_empty());
+    // Nor one that answered, not ready: only a row still drawn as being checked is stale.
+    let signed_out = Found { checking: false, status: Probe::AuthRequired, ..pending_found("codex", "Codex CLI") };
+    assert!(stale_checking(&[signed_out], &set(&["codex"])).is_empty());
+    // And one already ready, even while still marked as being checked (status.ts reads both).
+    let ready_marked = Found { checking: true, ..checking("opencode", false) };
+    assert!(stale_checking(&[ready_marked], &set(&["opencode"])).is_empty());
 }
 
 /// answeredLate's patch: the late answer takes its agent's place in what is held, and nothing else moves.
