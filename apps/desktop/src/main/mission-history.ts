@@ -366,7 +366,9 @@ export function publicRecoveredMission(
             : mission.metadata.startedBy.kind === 'side'
               ? { startedBy: { kind: 'side' as const, of: mission.metadata.startedBy.of, question: mission.metadata.startedBy.question } }
               : mission.metadata.startedBy.kind === 'carry-on'
-                ? { startedBy: { kind: 'carry-on' as const, from: mission.metadata.startedBy.from } }
+                // With the folder an app named (0.872): dropped here until 0.882, so an app's next turn after a
+                // carry-on ran in whatever folder Locust had open (found 22 Nov: three lanes in ~/Documents/Locust).
+                ? { startedBy: { kind: 'carry-on' as const, from: mission.metadata.startedBy.from, ...(mission.metadata.startedBy.folder === undefined ? {} : { folder: mission.metadata.startedBy.folder }) } }
                 : mission.metadata.startedBy.kind === 'check-fix'
                   ? { startedBy: { kind: 'check-fix' as const, fix: mission.metadata.startedBy.fix, of: mission.metadata.startedBy.of, command: mission.metadata.startedBy.command } }
                   : { startedBy: { kind: 'resume' as const, epoch: mission.metadata.startedBy.epoch } })

@@ -240,9 +240,15 @@ export function createLocustMcpTools(options: {
     const final = joined.findLast(e => e.type === 'message.delta' && e.payload.final)
     return final?.type === 'message.delta' ? parseDecision(final.payload.text) : undefined
   }
+  /*
+   * THE WORDS IN BOTH PARTS (0.882). A client that reads structuredContent shows it in place of the text: Claude Code
+   * read every finished answer as {"status":"done",...} and nothing else (found 22 Nov driving lanes, a whole night of
+   * answers read from the ledger files instead). The same words ride in `message`.
+   */
   const withStatus = async (result: McpToolResult, mission: PublicRecoveredMission): Promise<McpToolResult> => ({
     ...result,
     structuredContent: {
+      message: result.content.map(part => part.text).join('\n'),
       status: options.live(mission.missionId) ? (options.waiting?.(mission.missionId) === true ? 'waiting_for_person' : 'working')
         : mission.phase === 'completed' ? 'done' : mission.phase === 'failed' ? 'failed' : 'stopped',
       runtime: mission.runtime ?? null, model: mission.model ?? null,
