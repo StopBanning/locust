@@ -4283,6 +4283,19 @@ apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	draws nothing whe
 apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	lands each conversation in the column the sidebar mark already gives that row	no
 apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	puts a conversation waiting on you first, even while its run is live, and a finish not looked at since in Ready to look at	no
 apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	a finish to look at keeps the board up on its own; one looked at since does not (control)	no
+apps/desktop/src/renderer/src/cost.test.ts	adds every turn that reported a number, including the one still running	yes
+apps/desktop/src/renderer/src/cost.test.ts	counts the earlier turns while the current one has reported nothing yet	yes
+apps/desktop/src/renderer/src/cost.test.ts	says nothing when no turn reported anything, rather than zero	yes
+apps/desktop/src/renderer/src/cost.test.ts	reads token counts in either spelling	yes
+apps/desktop/src/renderer/src/cost.test.ts	reads Claude Code's dollars and Copilot's premium requests as their own units	yes
+apps/desktop/src/renderer/src/cost.test.ts	says nothing when the receipt carries nothing, rather than zero	yes
+apps/desktop/src/renderer/src/cost.test.ts	never reads a negative or non-numeric count	yes
+apps/desktop/src/renderer/src/cost.test.ts	prefers dollars, then premium requests, then tokens	yes
+apps/desktop/src/renderer/src/cost.test.ts	sums each unit it saw and ignores runs that reported nothing	yes
+apps/desktop/src/renderer/src/cost.test.ts	counts what the conversation held after its last call against the reported window	yes
+apps/desktop/src/renderer/src/cost.test.ts	says nothing at all when the runtime did not report a window	yes
+apps/desktop/src/renderer/src/cost.test.ts	takes the newest turn that reported one, never the sum of the turns	yes
+apps/desktop/src/renderer/src/cost.test.ts	says it in the words the tooltip uses	yes
 apps/desktop/src/renderer/src/diff.test.ts	reads an added file the way Cursor writes one	yes
 apps/desktop/src/renderer/src/diff.test.ts	reads a modified file with two hunks and their headings	yes
 apps/desktop/src/renderer/src/diff.test.ts	numbers lines from the hunk start, on each side	yes

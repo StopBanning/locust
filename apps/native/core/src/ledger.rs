@@ -2161,22 +2161,8 @@ impl Session {
                     .peer_links
                     .push((reader.id.clone(), link.clone()));
             }
-            if let Some(c) = &reader.transcript.cost {
-                let slot = snapshot.cost.get_or_insert_with(Default::default);
-                if let Some(u) = c.usd {
-                    slot.usd = Some(slot.usd.unwrap_or(0.0) + u);
-                }
-                if let Some(pr) = c.premium_requests {
-                    slot.premium_requests = Some(slot.premium_requests.unwrap_or(0.0) + pr);
-                }
-                if let Some(it) = c.input_tokens {
-                    slot.input_tokens = Some(slot.input_tokens.unwrap_or(0) + it);
-                }
-                if let Some(ot) = c.output_tokens {
-                    slot.output_tokens = Some(slot.output_tokens.unwrap_or(0) + ot);
-                }
-                slot.plan |= c.plan;
-            }
+            // What the conversation has cost so far: the turns before this one, and this one's receipt.
+            snapshot.cost = crate::relay::conversation_cost([snapshot.cost.take()], reader.transcript.cost.clone());
             snapshot.tip = reader.id.clone();
             // Not running once its engine is gone (E5): a turn whose process died has no ending, and its ledger may
             // have been written a moment ago, so the quiet window alone would show it running for fifteen minutes.
@@ -2403,6 +2389,7 @@ mod tests {
 
     mod reopened_handoff_tests { include!("reopened_handoff_tests.rs"); }
     mod plan_card_turns_tests { include!("plan_card_turns_tests.rs"); }
+    mod conversation_cost_tests { include!("conversation_cost_tests.rs"); }
 
     fn synthetic_transcript(rows: Vec<Value>) -> Transcript {
         // Exercise the JSONL boundary, including raw-evidence removal.
