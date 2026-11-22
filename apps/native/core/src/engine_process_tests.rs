@@ -342,3 +342,18 @@ fn a_client_starts_the_engine_again_once_when_it_finds_it_gone_and_says_so() {
     assert_eq!(window.stop("mission_none").unwrap_err(), "Locust's engine is not running.");
     assert_eq!(starts.load(Ordering::Relaxed), 1);
 }
+
+/// The editors' switch and whether an editor was seen cross the socket, both ways.
+#[test]
+fn the_door_s_editor_switches_cross_the_socket() {
+    let state = crate::door::State {
+        settings: crate::door::Settings { enabled: true, editor_answers: true, editor_seen: true, ..Default::default() },
+        ..Default::default()
+    };
+    assert_eq!(door_state_from(&door_state_json(&state)), state);
+    let seen_only = crate::door::State { settings: crate::door::Settings { editor_seen: true, ..Default::default() }, ..Default::default() };
+    assert_eq!(door_state_from(&door_state_json(&seen_only)), seen_only);
+    for change in [DoorChange::EditorAnswers(true), DoorChange::EditorAnswers(false)] {
+        assert_eq!(door_change_from(&door_change_json(change)), Ok(change));
+    }
+}

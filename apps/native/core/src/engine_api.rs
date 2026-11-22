@@ -84,6 +84,7 @@ pub enum DoorChange {
     Enabled(bool),
     OwnMode(bool),
     Conversations(bool),
+    EditorAnswers(bool),
 }
 
 /// The engine in this process: what every caller reached directly before E1.

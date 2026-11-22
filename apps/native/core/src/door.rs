@@ -43,6 +43,10 @@ pub struct Settings {
     pub own_mode: bool,
     /// "Let apps see your conversations".
     pub conversations: bool,
+    /// "Let editors answer cards for their own turns" (0.790): an editor's session may answer its own turn's cards.
+    pub editor_answers: bool,
+    /// An editor has opened a session here: Settings shows that switch from now on.
+    pub editor_seen: bool,
 }
 
 impl Settings {
@@ -52,10 +56,18 @@ impl Settings {
             enabled: value["enabled"] == true,
             own_mode: value["ownMode"] == true,
             conversations: value["conversations"] == true,
+            editor_answers: value["editorAnswers"] == true,
+            editor_seen: value["editorSeen"] == true,
         }
     }
     fn to_json(&self) -> Value {
         let mut out = json!({"enabled": self.enabled, "ownMode": self.own_mode});
+        if self.editor_answers {
+            out["editorAnswers"] = json!(true);
+        }
+        if self.editor_seen {
+            out["editorSeen"] = json!(true);
+        }
         if self.conversations {
             out["conversations"] = json!(true);
         }
@@ -93,11 +105,11 @@ pub fn setup(exe: &str, connection: &str) -> (String, String, String) {
 }
 
 /// Bearer tokens compared in constant time.
-fn same(a: &str, b: &str) -> bool {
+pub(crate) fn same(a: &str, b: &str) -> bool {
     a.len() == b.len() && a.bytes().zip(b.bytes()).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
 }
 
-fn random_hex(bytes: usize) -> std::io::Result<String> {
+pub(crate) fn random_hex(bytes: usize) -> std::io::Result<String> {
     let mut b = vec![0u8; bytes];
     std::fs::File::open("/dev/urandom")?.read_exact(&mut b)?;
     Ok(b.iter().map(|x| format!("{x:02x}")).collect())
@@ -258,6 +270,29 @@ pub struct Door {
     /// The organization's word on access from other apps (`policyFeatureRefusal(organizationPolicy, 'otherApps')`):
     /// while it refuses, the door stays shut and says why.
     refusal: Arc<dyn Fn() -> Option<String> + Send + Sync>,
+    /// The editors' sessions on this door, closed with it.
+    editors: Option<Arc<crate::cli_sessions::CliSessions>>,
+}
+
+/// The switches saved beside the connection file, through a temporary file moved into place.
+fn save_settings(dir: &Path, settings: &Settings) -> Result<(), String> {
+    std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    let path = dir.join(SETTINGS_FILE);
+    let temp = path.with_extension("json.tmp");
+    std::fs::write(&temp, settings.to_json().to_string()).map_err(|e| e.to_string())?;
+    std::fs::rename(&temp, &path).map_err(|e| e.to_string())
+}
+
+/// noteEditor: an editor opened a session, kept so Settings shows its switch from now on. Not saved means not kept.
+fn note_editor(dir: &Path, settings: &Mutex<Settings>) {
+    let mut held = settings.lock().unwrap_or_else(|e| e.into_inner());
+    if held.editor_seen {
+        return;
+    }
+    held.editor_seen = true;
+    if save_settings(dir, &held).is_err() {
+        held.editor_seen = false;
+    }
 }
 
 impl Door {
@@ -270,7 +305,17 @@ impl Door {
     pub fn for_store(store: Store, exe: &str) -> Self {
         let settings = Arc::new(Mutex::new(Settings::default()));
         let tools = Arc::new(Tools::new(Engine { store: store.clone(), settings: settings.clone() }));
-        Self::with(store.root().to_path_buf(), exe, settings, Arc::new(move |name: &str, args: &Value| tools.call(name, args).to_json()))
+        let dir = store.root().to_path_buf();
+        let host = Editors { engine: Engine { store, settings: settings.clone() }, dir: dir.clone() };
+        let editors = Arc::new(crate::cli_sessions::CliSessions::live(Arc::new(host)));
+        let sessions = editors.clone();
+        // The editors' `cli/*` names are answered in front of the tools (index.ts), never listed in the bridge.
+        let call: Caller = Arc::new(move |name: &str, args: &Value| {
+            if name.starts_with("cli/") { sessions.call(name, args).to_json() } else { tools.call(name, args).to_json() }
+        });
+        let mut door = Self::with(dir, exe, settings, call);
+        door.editors = Some(editors);
+        door
     }
 
     /// The native engine's tools, answered in this process, under the person's saved door switches (their own mode,
@@ -311,6 +356,7 @@ impl Door {
             listening: Mutex::new(None),
             call,
             refusal: Arc::new(|| crate::org_policy::feature_refusal(Some(&crate::org_policy::current()), "otherApps")),
+            editors: None,
         }
     }
 
@@ -343,11 +389,7 @@ impl Door {
     }
 
     fn save(&self) -> Result<(), String> {
-        std::fs::create_dir_all(&self.dir).map_err(|e| e.to_string())?;
-        let path = self.dir.join(SETTINGS_FILE);
-        let temp = path.with_extension("json.tmp");
-        std::fs::write(&temp, self.settings().to_json().to_string()).map_err(|e| e.to_string())?;
-        std::fs::rename(&temp, &path).map_err(|e| e.to_string())
+        save_settings(&self.dir, &self.settings())
     }
 
     fn stop(&self) {
@@ -467,13 +509,31 @@ impl Door {
         self.set_flag(|s, v| s.conversations = v, next, "The setting could not be saved. It is unchanged.")
     }
 
+    /// "Let editors answer cards for their own turns".
+    pub fn set_editor_answers(&self, next: bool) -> State {
+        self.set_flag(|s, v| s.editor_answers = v, next, "The setting could not be saved. It is unchanged.")
+    }
+
+    /// An editor opened a session here (`noteEditor`).
+    pub fn note_editor(&self) -> State {
+        note_editor(&self.dir, &self.settings);
+        self.state(None)
+    }
+
+    /// Locust is closing: the editors' sessions close, stopping only their own work, then the listener.
     pub fn dispose(&self) {
+        if let Some(editors) = &self.editors {
+            editors.dispose();
+        }
         self.stop();
     }
 }
 
 impl Drop for Door {
     fn drop(&mut self) {
+        if let Some(editors) = &self.editors {
+            editors.dispose();
+        }
         self.stop();
     }
 }
@@ -761,6 +821,154 @@ impl Locust for Engine {
 
     fn routine_last_step(&self, routine_id: &str) -> Option<String> {
         crate::door_routines::last_step(routine_id)
+    }
+}
+
+// ---- the editors' sessions over the live engine ---------------------------------------------------------------------
+
+/// What an editor's session needs of this machine's native engine (index.ts's `createLocustCliSessions` options). A
+/// turn's run id is the engine's own (`run_<turn>`), and its cards are those of that turn.
+struct Editors {
+    engine: Engine,
+    dir: PathBuf,
+}
+
+/// The turn a run id names.
+fn turn_of_run(run_id: &str) -> &str {
+    run_id.strip_prefix("run_").unwrap_or(run_id)
+}
+
+/// Follows a started turn's ledger, feeding its events in once each, until it ends or nobody listens.
+fn follow(mission: String, update: crate::cli_sessions::CliSink) {
+    let mut seen = std::collections::HashSet::new();
+    let mut tail: Option<crate::ledger::Tail> = None;
+    loop {
+        if tail.is_none() {
+            tail = crate::native::find_ledger(&mission).map(|path| crate::ledger::Tail::new(path, 0));
+        }
+        for record in tail.as_mut().map(|t| t.poll()).unwrap_or_default() {
+            let Some(event) = record.get("event") else { continue };
+            if !seen.insert(event["sequence"].as_u64().unwrap_or(u64::MAX - seen.len() as u64)) {
+                continue;
+            }
+            if !update(crate::cli_sessions::CliUpdate::Event(event.clone())) {
+                return;
+            }
+        }
+        if !update(crate::cli_sessions::CliUpdate::Ping) {
+            return;
+        }
+        std::thread::sleep(Duration::from_millis(200));
+    }
+}
+
+impl crate::cli_sessions::CliHost for Editors {
+    fn teammates(&self) -> Result<Vec<crate::cli_sessions::CliTeammate>, String> {
+        let own = self.engine.own_mode();
+        Ok(Locust::teammates(&self.engine)?
+            .into_iter()
+            .map(|(t, _)| crate::cli_sessions::CliTeammate {
+                runs_in: if own && !t.runs_in.is_empty() { t.runs_in.clone() } else { "ask".into() },
+                id: t.id,
+                name: t.name,
+                runtime: t.runtime,
+                model: t.model,
+            })
+            .collect())
+    }
+
+    fn workspace(&self) -> Option<String> {
+        self.engine.folder()
+    }
+
+    /// The door's own start path (`Engine::start`), on the teammate's saved route, in the mode the session was given.
+    fn start(&self, request: crate::cli_sessions::CliStart, update: crate::cli_sessions::CliSink) -> Result<crate::cli_sessions::CliBegun, String> {
+        let teammate = Locust::teammates(&self.engine)?
+            .into_iter()
+            .map(|(t, _)| t)
+            .find(|t| t.id == request.teammate_id)
+            .ok_or("This teammate is no longer in Locust. Run locust teammates and choose another.")?;
+        let begun = Locust::start(
+            &self.engine,
+            StartRequest {
+                teammate,
+                prompt: request.prompt,
+                follow_up_of: request.follow_up_of,
+                mode: crate::approval::Mode::parse(&request.mode).unwrap_or(crate::approval::Mode::Ask),
+                folder: None,
+                runtime: None,
+                model: None,
+                effort: None,
+                account: None,
+            },
+        )?;
+        let run_id = format!("run_{}", begun.mission_id);
+        update(crate::cli_sessions::CliUpdate::Run { mission_id: begun.mission_id.clone(), run_id: run_id.clone() });
+        let mission = begun.mission_id.clone();
+        let _ = std::thread::Builder::new().name("locust-editor-turn".into()).spawn(move || follow(mission, update));
+        Ok(crate::cli_sessions::CliBegun { mission_id: begun.mission_id, run_id })
+    }
+
+    /// The window's own Stop.
+    fn cancel(&self, run_id: &str) {
+        let _ = crate::engine_api::api().stop(turn_of_run(run_id));
+    }
+
+    fn approvals(&self) -> Vec<crate::cli_sessions::CliCard> {
+        crate::engine_api::api()
+            .waiting()
+            .into_iter()
+            .map(|r| crate::cli_sessions::CliCard {
+                run_id: format!("run_{}", r.mission_id),
+                approval_id: r.approval_id,
+                mission_id: r.mission_id,
+                kind: r.kind.as_str().to_owned(),
+                summary: r.summary,
+                detail: r.detail,
+                cwd: r.cwd,
+                answer_in: r.answer_in,
+            })
+            .collect()
+    }
+
+    /// The window's own decision: approve once, or deny.
+    fn answer(&self, approval_id: &str, approve: bool) -> bool {
+        let decision = if approve { crate::approval::Decision::ApproveOnce } else { crate::approval::Decision::Deny };
+        crate::engine_api::api().decide(approval_id, decision, None).is_ok()
+    }
+
+    fn editor_answers(&self) -> bool {
+        self.engine.settings.lock().unwrap_or_else(|e| e.into_inner()).editor_answers
+    }
+
+    fn opened(&self) {
+        note_editor(&self.dir, &self.engine.settings);
+    }
+
+    /// `locust status`: the newest turns in the open folder's records, each with its teammate and whether it runs or
+    /// waits on the person.
+    fn status(&self) -> Result<Value, String> {
+        let team = Locust::teammates(&self.engine)?;
+        let listed = crate::native::list_recent(50, true).map(|l| l.summaries).unwrap_or_default();
+        let turns: Vec<Value> = listed
+            .iter()
+            .take(50)
+            .map(|s| {
+                let id = &s.mission_id;
+                let teammate = Locust::owner(&self.engine, id)
+                    .and_then(|owner| team.iter().find(|(t, _)| t.id == owner).map(|(t, _)| t.name.clone()))
+                    .unwrap_or_else(|| "A teammate no longer here".into());
+                let state = if Locust::waiting(&self.engine, id) {
+                    "waiting"
+                } else if Locust::live(&self.engine, id) {
+                    "running"
+                } else {
+                    Locust::read(&self.engine, id).map(|t| t.phase()).unwrap_or("interrupted")
+                };
+                json!({"missionId": id, "teammate": teammate, "state": state})
+            })
+            .collect();
+        Ok(json!({"workspace": self.engine.folder().unwrap_or_default(), "turns": turns}))
     }
 }
 

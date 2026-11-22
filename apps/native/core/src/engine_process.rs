@@ -273,7 +273,8 @@ fn card_from(v: &Value) -> Result<Request, String> {
 }
 
 fn door_state_json(d: &crate::door::State) -> Value {
-    json!({"settings": {"enabled": d.settings.enabled, "ownMode": d.settings.own_mode, "conversations": d.settings.conversations},
+    json!({"settings": {"enabled": d.settings.enabled, "ownMode": d.settings.own_mode, "conversations": d.settings.conversations,
+        "editorAnswers": d.settings.editor_answers, "editorSeen": d.settings.editor_seen},
         "claudeCommand": d.claude_command, "codexConfig": d.codex_config, "openclawCommand": d.openclaw_command, "message": d.message})
 }
 
@@ -283,6 +284,8 @@ fn door_state_from(v: &Value) -> crate::door::State {
             enabled: v["settings"]["enabled"].as_bool().unwrap_or(false),
             own_mode: v["settings"]["ownMode"].as_bool().unwrap_or(false),
             conversations: v["settings"]["conversations"].as_bool().unwrap_or(false),
+            editor_answers: v["settings"]["editorAnswers"].as_bool().unwrap_or(false),
+            editor_seen: v["settings"]["editorSeen"].as_bool().unwrap_or(false),
         },
         claude_command: text(v, "claudeCommand"),
         codex_config: text(v, "codexConfig"),
@@ -298,6 +301,7 @@ fn door_change_json(c: DoorChange) -> Value {
         DoorChange::Enabled(on) => json!({"change": "enabled", "on": on}),
         DoorChange::OwnMode(on) => json!({"change": "own-mode", "on": on}),
         DoorChange::Conversations(on) => json!({"change": "conversations", "on": on}),
+        DoorChange::EditorAnswers(on) => json!({"change": "editor-answers", "on": on}),
     }
 }
 
@@ -309,6 +313,7 @@ fn door_change_from(v: &Value) -> Result<DoorChange, String> {
         "enabled" => Ok(DoorChange::Enabled(on)),
         "own-mode" => Ok(DoorChange::OwnMode(on)),
         "conversations" => Ok(DoorChange::Conversations(on)),
+        "editor-answers" => Ok(DoorChange::EditorAnswers(on)),
         other => Err(format!("The engine does not know the door change {other}.")),
     }
 }
@@ -335,6 +340,7 @@ fn change_door(change: DoorChange) -> Result<crate::door::State, String> {
         DoorChange::Enabled(on) => door.set_enabled(on),
         DoorChange::OwnMode(on) => door.set_own_mode(on),
         DoorChange::Conversations(on) => door.set_conversations(on),
+        DoorChange::EditorAnswers(on) => door.set_editor_answers(on),
     })
 }
 

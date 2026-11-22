@@ -102,6 +102,7 @@ mod free_start_tests;
 pub mod context_usage;
 pub mod desk;
 pub mod disk_observation;
+pub mod cli_sessions;
 pub mod door;
 pub mod door_tools;
 pub mod door_routines;

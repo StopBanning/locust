@@ -214,3 +214,44 @@ fn the_door_reads_the_organizations_other_apps_setting() {
     assert!(door.set_enabled(true).settings.enabled);
     door.dispose();
 }
+
+// case: lets an editor answer cards only once the person turns it on, and keeps that and the editor across a restart
+#[test]
+fn an_editor_answers_cards_only_once_turned_on_and_both_switches_survive_a_restart() {
+    let dir = temp("editors-switch");
+    // Only a literal true turns it on.
+    for odd in [json!("true"), json!(1), Value::Null] {
+        std::fs::write(dir.join(SETTINGS_FILE), json!({"enabled": false, "ownMode": false, "editorAnswers": odd, "editorSeen": odd}).to_string()).unwrap();
+        let door = echo_door(&dir);
+        let state = door.load();
+        assert!(!state.settings.editor_answers && !state.settings.editor_seen, "{odd}");
+    }
+    std::fs::remove_file(dir.join(SETTINGS_FILE)).unwrap();
+    let door = echo_door(&dir);
+    assert!(!door.load().settings.editor_answers);
+    assert!(door.note_editor().settings.editor_seen);
+    assert!(door.set_editor_answers(true).settings.editor_answers);
+    let saved: Value = serde_json::from_str(&std::fs::read_to_string(dir.join(SETTINGS_FILE)).unwrap()).unwrap();
+    assert_eq!(saved, json!({"enabled": false, "ownMode": false, "editorAnswers": true, "editorSeen": true}));
+    let again = echo_door(&dir);
+    let state = again.load();
+    assert!(state.settings.editor_answers && state.settings.editor_seen);
+    assert!(!again.set_editor_answers(false).settings.editor_answers);
+    let saved: Value = serde_json::from_str(&std::fs::read_to_string(dir.join(SETTINGS_FILE)).unwrap()).unwrap();
+    assert_eq!(saved, json!({"enabled": false, "ownMode": false, "editorSeen": true}));
+}
+
+/// index.ts: `cli/*` names go to the editors' sessions in front of the tools, and close with the door.
+#[test]
+fn an_editors_names_are_answered_by_its_sessions_and_close_with_the_door() {
+    let dir = temp("editors-route");
+    let store = Store::new(dir.join("native"), dir.join("electron")).unwrap();
+    let door = Door::for_store(store, "/x");
+    let answer = (door.call)("cli/keepalive", &json!({"sessionId": "x", "key": "a".repeat(64)}));
+    assert!(answer["content"][0]["text"].as_str().unwrap().contains("no longer connected"), "{answer}");
+    let tool = (door.call)("keepalive", &json!({}));
+    assert_eq!(tool["content"][0]["text"], "That tool is not offered by Locust.");
+    door.dispose();
+    let closed = (door.call)("cli/status", &json!({}));
+    assert!(closed["content"][0]["text"].as_str().unwrap().contains("Locust is closing"), "{closed}");
+}
