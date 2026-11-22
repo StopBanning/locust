@@ -692,6 +692,24 @@ apps/desktop/src/main/a-pull-request-shows-in-the-header.test.ts	says it in a li
 apps/desktop/src/main/a-pull-request-shows-in-the-header.test.ts	is the one for the branch the folder is on, asked of gh from that branch (0.731: a fork’s too)	yes
 apps/desktop/src/main/a-pull-request-shows-in-the-header.test.ts	is nothing on the default branch, on a branch with none, or when gh is signed out -- and gh is not asked on main	yes
 apps/desktop/src/main/a-pull-request-shows-in-the-header.test.ts	is kept a minute, asked again for another branch, and asked again after a sign-in	yes
+apps/desktop/src/main/a-question-antigravity-asks.test.ts	is the step holding for an answer, with the ids an answer has to name	yes
+apps/desktop/src/main/a-question-antigravity-asks.test.ts	is nothing once answered	yes
+apps/desktop/src/main/a-question-antigravity-asks.test.ts	is exactly the one Antigravity's own window sent for the same choice	yes
+apps/desktop/src/main/a-question-antigravity-asks.test.ts	carries words written in, and a skip, the way the card offers them	yes
+apps/desktop/src/main/a-question-antigravity-asks.test.ts	uses the plain-HTTP port, passing over the TLS one's refusal, and sends the CLI's token	yes
+apps/desktop/src/main/a-question-antigravity-asks.test.ts	says why when Antigravity refuses the answer, in the server's own words	yes
+apps/desktop/src/main/a-question-antigravity-asks.test.ts	raises Locust's question card: the question in words, its options, a skip, and who is asking	yes
+apps/desktop/src/main/a-question-antigravity-asks.test.ts	answers it through Antigravity: the option picked, by its id	yes
+apps/desktop/src/main/a-question-antigravity-asks.test.ts	sends words written in, and Skip as a skip	yes
+apps/desktop/src/main/a-question-antigravity-asks.test.ts	takes the card down when it was answered in Antigravity's own window	yes
+apps/desktop/src/main/a-question-antigravity-asks.test.ts	never takes a run that is waiting on the person for one that went quiet	yes
+apps/desktop/src/main/a-question-antigravity-asks.test.ts	still shows the question when the waiting step cannot be found -- and says to answer it in Antigravity	yes
+apps/desktop/src/main/a-question-antigravity-asks.test.ts	takes the card down when the run ends with it still up	yes
+apps/desktop/src/main/a-question-antigravity-asks.test.ts	says so in the thread when Antigravity would not take the answer, and keeps the card	yes
+apps/desktop/src/main/a-question-antigravity-asks.test.ts	forwards a question's answers, which used to be dropped as a denial	yes
+apps/desktop/src/main/a-question-antigravity-asks.test.ts	refuses answers that are not lists of words, and a message with no id	yes
+apps/desktop/src/main/a-question-antigravity-asks.test.ts	is what the decide handler reads, and Antigravity is asked too	yes
+apps/desktop/src/main/a-question-antigravity-asks.test.ts	still reads anything but a recognized decision as a denial	yes
 apps/desktop/src/main/a-question-card-grows-with-the-reply.test.ts	grows the card and the person's message at each step	yes
 apps/desktop/src/main/a-question-card-grows-with-the-reply.test.ts	is what the card and the bubble are set in	yes
 apps/desktop/src/main/a-queued-message-survives-closing-locust.test.ts	A fresh reader recovers exact words, attachments and their conversation.	yes

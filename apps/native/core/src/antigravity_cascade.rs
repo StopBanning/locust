@@ -637,6 +637,14 @@ mod tests {
         let mut done_no_interactions = waiting();
         done_no_interactions["steps"][1]["status"] = json!("CORTEX_STEP_STATUS_DONE");
         assert_eq!(pending_question_in(&done_no_interactions, 7), None);
+        let mut running_with_interactions = waiting();
+        running_with_interactions["steps"][1]["completedInteractions"] = json!([{
+            "response": ide_answer(),
+        }]);
+        assert_eq!(pending_question_in(&running_with_interactions, 7), None);
+        let mut wrong_type = waiting();
+        wrong_type["steps"][1]["type"] = json!("CORTEX_STEP_TYPE_GENERIC");
+        assert_eq!(pending_question_in(&wrong_type, 7), None);
         assert_eq!(pending_question_in(&json!({ "steps": [] }), 7), None);
         assert_eq!(pending_question_in(&json!("not a response"), 7), None);
     }

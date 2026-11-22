@@ -1330,3 +1330,7 @@ impl Drop for AntigravityMissionService {
 #[cfg(test)]
 #[path = "a_long_antigravity_answer_tests.rs"]
 mod a_long_antigravity_answer_tests;
+
+#[cfg(test)]
+#[path = "a_question_antigravity_asks_tests.rs"]
+mod a_question_antigravity_asks_tests;
