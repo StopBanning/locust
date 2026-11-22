@@ -36,8 +36,8 @@ describe('a missed routine', () => {
   })
 
   it('says Missed, 08:00 today, and the row offers Run now', () => {
-    expect(missedLine(missedAt, now)).toBe('Missed, 08:00 today')
-    expect(routineScheduleSummary(routine, now)).toBe('Missed, 08:00 today')
+    expect(missedLine(missedAt, now)).toBe('Missed, 8:00 AM today')
+    expect(routineScheduleSummary(routine, now)).toBe('Missed, 8:00 AM today')
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(now)
     const html = renderToStaticMarkup(
@@ -54,7 +54,7 @@ describe('a missed routine', () => {
         onOpenSignIn={() => undefined}
       />
     )
-    expect(html).toContain('Missed, 08:00 today')
+    expect(html).toContain('Missed, 8:00 AM today')
     expect(html).toContain('Run now')
     expect(html).toContain('Routines run while Locust is open. Start Locust when you sign in:')
     expect(html).toContain('Off')

@@ -54,7 +54,7 @@ export function RoutineRecovery({ routine, recover, onOpenMission, now = new Dat
    */
   const nextRun = nextAfterKeep === undefined
     ? (routine.schedule === undefined ? 'when you press Run' : routine.schedule.kind === 'files' ? 'when the next new file arrives' : 'when you press Run, since its one scheduled time has passed')
-    : `at ${nextAfterKeep.toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' })}, not straight away`
+    : `at ${nextAfterKeep.toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit', hour12: true })}, not straight away`
   /*
    * WAITING FOR YOUR OK (0.840). The routine was set to wait before this step, so the card is a question, not a
    * recovery: what the next step will do, the conversation to read first, and two answers. Stop here is Keep: this

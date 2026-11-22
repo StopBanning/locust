@@ -20,6 +20,7 @@ import { QUIET_SECONDS_BEFORE_SAYING_SO } from '../quiet.js'
 import { JumpToBottom } from './JumpToBottom.js'
 import type { RoomExchange } from '../roomExchange.js'
 import { mentionAt, mentionChoices, mentionCompleted, namesSaid, withoutMention } from '../roomMentions.js'
+import { clock } from '../../../shared/clock.js'
 
 /**
  * A room: a named set of teammates and the thread of what a person said to
@@ -1009,7 +1010,7 @@ export function RoomScreen({
                       To {namesSaid(entry.to.map((id) => teammates.find((candidate) => candidate.teammateId === id)?.name ?? id))} ·{' '}
                     </span>
                   )}
-                  {new Date(entry.at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                  {clock(new Date(entry.at))}
                 </span>
               </div>
               {/*
@@ -1132,7 +1133,7 @@ export function RoomScreen({
                             {item.startsSpeaker && item.showTime && item.at !== undefined && (
                               <span className="lc-roomsaid__who">
                                 <span className="lc-roomsaid__at lc-mono">
-                                  {new Date(item.at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                                  {clock(new Date(item.at))}
                                 </span>
                               </span>
                             )}

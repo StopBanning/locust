@@ -265,7 +265,7 @@ export function createSkillLibrary(options: { readonly root: string; readonly fe
     if ((answer.status === 403 || answer.status === 429) && answer.headers.get('x-ratelimit-remaining') === '0') {
       const reset = Number(answer.headers.get('x-ratelimit-reset'))
       const until = Number.isFinite(reset) && reset > 0
-        ? ` until ${new Date(reset * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+        ? ` until ${new Date(reset * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })}`
         : ' for now'
       throw new SkillLibraryError(`GitHub's limit for looking without signing in is used up${until}. Try again then.`)
     }

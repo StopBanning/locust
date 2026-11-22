@@ -30,6 +30,7 @@ import type { DecisionRequest } from '../../shared/decision.js'
 import { isTidyPrompt } from '../../shared/memory-tidy.js'
 import { stepWordsOf } from '../../shared/hand-off.js'
 import { taggedWordsOf } from '../../shared/tagging.js'
+import { clock } from '../../shared/clock.js'
 
 /**
  * Turns the normalized event stream into the thread the workroom renders.
@@ -890,7 +891,7 @@ export function usageWindowsOf(said: string, now: Date = new Date()): readonly U
 export function clockTime(iso: string): string {
   const at = new Date(iso)
   if (Number.isNaN(at.getTime())) return '--:--'
-  return `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`
+  return clock(at)
 }
 
 /**
@@ -904,7 +905,7 @@ export function clockTime(iso: string): string {
 export function startedLabel(iso: string, now: Date = new Date()): string | undefined {
   const at = new Date(iso)
   if (Number.isNaN(at.getTime())) return undefined
-  const time = at.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+  const time = clock(at)
   const sameDay =
     at.getFullYear() === now.getFullYear()
     && at.getMonth() === now.getMonth()
@@ -4644,7 +4645,7 @@ export function railLabel(value: string, limit = 72): string {
  * event on every render while it is open: 34 ms a render at the 500-event
  * cap (renderer audit, 2026-09-22). Same options, so the same string.
  */
-const RAIL_CLOCK = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+const RAIL_CLOCK = { format: (at: Date): string => clock(at, true) }
 
 export function clockOf(occurredAt: string): string {
   const parsed = new Date(occurredAt)
@@ -5067,7 +5068,7 @@ export function stitchedHandoff(
     to: mission.runtime,
     fromModel: prior.model,
     toModel: mission.model,
-    at: new Date(mission.createdAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }),
+    at: clock(new Date(mission.createdAt)),
     unsettledCount: checkpoint?.unsettledActions.length ?? 0,
     // Recorded since 0.519; an older switch recorded nothing, and nothing is guessed.
     omittedBriefing: link.leftOut ?? [],
@@ -5284,7 +5285,7 @@ export function switchOf(
     to: mission.runtime,
     fromModel: prior.model,
     toModel: mission.model,
-    at: new Date(mission.createdAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }),
+    at: clock(new Date(mission.createdAt)),
     unsettledCount: checkpoint?.unsettledActions.length ?? 0,
     // Recorded since 0.519; an older switch recorded nothing, and nothing is guessed.
     omittedBriefing: link.leftOut ?? [],

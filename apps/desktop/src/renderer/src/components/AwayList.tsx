@@ -4,6 +4,7 @@ import type { PublicTeammate } from '../../../shared/ipc.js'
 import { awayCounts, awayLine } from '../../../shared/away.js'
 import type { AwayItem, AwayMissed, AwaySummary } from '../../../shared/away.js'
 import { Icon } from './Icon.js'
+import { clock } from '../../../shared/clock.js'
 
 /**
  * SINCE YOU WERE AWAY, on Home (0.590, PRD R17).
@@ -23,7 +24,7 @@ function when(iso: string, now: Date): string {
   const at = new Date(iso)
   if (!Number.isFinite(at.getTime())) return ''
   const sameDay = at.toDateString() === now.toDateString()
-  const time = at.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+  const time = clock(at)
   if (sameDay) return time
   const yesterday = new Date(now)
   yesterday.setDate(now.getDate() - 1)

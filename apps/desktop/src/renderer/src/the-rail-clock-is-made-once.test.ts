@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { clockOf } from './missionView.js'
+import { clock } from '../../shared/clock.js'
 
 /**
  * The Signal Rail's clock, formatted by one kept formatter instead of a new
@@ -9,9 +10,11 @@ import { clockOf } from './missionView.js'
  * replaced.
  */
 describe('the rail clock is made once', () => {
-  it('says exactly what toLocaleTimeString said', () => {
+  // case: Colin, 22 Nov: "I think we should just stop using military time, honestly."
+  it('says the time 12-hour, with its seconds, whatever the computer\'s own clock setting', () => {
     for (const iso of ['2026-09-22T00:00:00.000Z', '2026-09-22T12:34:56.000Z', '2026-12-31T23:59:59.999Z']) {
-      expect(clockOf(iso)).toBe(new Date(iso).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' }))
+      expect(clockOf(iso)).toBe(clock(new Date(iso), true))
+      expect(clockOf(iso)).toMatch(/^\d{1,2}:\d{2}:\d{2} [AP]M$/)
     }
   })
 

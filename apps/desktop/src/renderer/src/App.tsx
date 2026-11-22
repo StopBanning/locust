@@ -300,6 +300,7 @@ import { ScoutCards, ScoutInvite, ScoutLooked, ScoutWatching } from './component
 import type { ScoutDraft, ScoutOpen } from '../../shared/scout.js'
 import type { TalkShortcutPress } from '../../shared/talk-shortcut.js'
 import type { SavedCall } from '../../shared/calls.js'
+import { clock } from '../../shared/clock.js'
 
 /** Home's Not now on Meet Scout (0.756): this window's, and Settings can still turn Scout on. */
 const SCOUT_NOT_NOW = 'locust.scout.not-now'
@@ -3523,7 +3524,7 @@ export default function App(): ReactElement {
                     to: update.data.runtime,
                     ...(switched.model === undefined ? {} : { fromModel: switched.model }),
                     toModel: update.data.model,
-                    at: new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }),
+                    at: clock(new Date()),
                     unsettledCount: switched.unsettledCount,
                     omittedBriefing: switched.omittedBriefing,
                     ...(update.startedBy?.kind === 'carry-on' ? { carriedOn: true as const } : {}),
@@ -6092,7 +6093,7 @@ export default function App(): ReactElement {
                   to: response.data.runtime,
                   ...(switched.model === undefined ? {} : { fromModel: switched.model }),
                   toModel: response.data.model,
-                  at: new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }),
+                  at: clock(new Date()),
                   unsettledCount: switched.unsettledCount,
                   omittedBriefing: switched.omittedBriefing,
                   ...(switched.leftOutByYou === undefined ? {} : { leftOutByYou: switched.leftOutByYou })
@@ -6297,7 +6298,7 @@ export default function App(): ReactElement {
             to: response.data.runtime,
             ...(fromModel === undefined ? {} : { fromModel }),
             toModel: response.data.model,
-            at: new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }),
+            at: clock(new Date()),
             unsettledCount: response.data.unsettledCount,
             omittedBriefing: response.data.omittedBriefing,
             priorEvents

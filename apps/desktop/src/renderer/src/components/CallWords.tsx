@@ -27,7 +27,7 @@ export interface CallPieceShown extends CallPiece {
   readonly asks?: readonly LiveCallAsk[]
 }
 
-const at = (time: number): string => new Date(time).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+const at = (time: number): string => new Date(time).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })
 
 function SaidMark(): ReactElement {
   return <span className="lc-callsaid__mark"><Icon name="mic" size={11} />Said</span>

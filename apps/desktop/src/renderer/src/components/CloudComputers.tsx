@@ -158,7 +158,7 @@ export function CloudComputers(): ReactElement {
               Allow it in GitHub
             </button>
           )}
-          <button type="button" className="lc-button" disabled={managedMessage !== undefined} onClick={() => { setCheckedAt(new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })); setListing({ phase: 'loading' }); load() }}>Check again</button>
+          <button type="button" className="lc-button" disabled={managedMessage !== undefined} onClick={() => { setCheckedAt(new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })); setListing({ phase: 'loading' }); load() }}>Check again</button>
         </div>
         {listing.permission && allowStays !== undefined && <p className="lc-settings__note lc-oncomputer__said">{allowStays}</p>}
         {said !== undefined && <p className="lc-cloudcomputers__said" role="alert">{said}</p>}

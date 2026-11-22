@@ -7,6 +7,7 @@ import { nextRunAfter, scheduleBase, scheduleLabel } from '../../shared/routine-
 import { conversationTurns, typedPrompt } from './missionView.js'
 import { routeModelName } from './routeName.js'
 import { runtimeDisplayName } from '../../shared/runtimes.js'
+import { clock } from '../../shared/clock.js'
 
 /**
  * Turning a finished conversation into a routine a teammate can replay.
@@ -200,8 +201,6 @@ export function routineWaitsForYou(routine: Pick<PublicRoutine, 'route' | 'sched
   return 'Runs in Approve each: fired while you are away, it waits for you on its first card. Ask or Accept edits runs through.'
 }
 
-const pad = (value: number): string => String(value).padStart(2, '0')
-const clock = (at: Date): string => `${pad(at.getHours())}:${pad(at.getMinutes())}`
 const sameDay = (a: Date, b: Date): boolean =>
   a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const

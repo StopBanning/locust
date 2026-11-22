@@ -902,7 +902,7 @@ const UI = `
   }
   function clock(at) {
     var then = new Date(at), now = new Date();
-    var time = then.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    var time = then.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
     return then.toDateString() === now.toDateString() ? time : then.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' }) + ', ' + time;
   }
   // Kept, a conversation's state is as it was then: no "working" it may no longer be doing.

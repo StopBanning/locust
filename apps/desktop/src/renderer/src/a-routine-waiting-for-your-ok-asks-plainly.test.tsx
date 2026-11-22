@@ -50,7 +50,7 @@ describe('a routine waiting for your OK', () => {
 
   it('says waiting for your OK on the routine row', () => {
     expect(routineRunSummary(waiting)).toBe('2 steps · waiting for your OK · 3 completed runs')
-    expect(routineScheduleSummary({ ...waiting, schedule: { kind: 'daily', at: '09:00' } }, new Date('2026-10-28T10:00:00'))).toBe('daily at 09:00 · waiting for your OK')
+    expect(routineScheduleSummary({ ...waiting, schedule: { kind: 'daily', at: '09:00' } }, new Date('2026-10-28T10:00:00'))).toBe('daily at 9:00 AM · waiting for your OK')
   })
 
   it('is set per step from step 2 on in the routine editor, for one teammate too', () => {

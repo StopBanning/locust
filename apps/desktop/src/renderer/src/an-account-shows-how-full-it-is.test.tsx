@@ -26,7 +26,7 @@ describe('a usage reading', () => {
   it('reads as windows, fullest first, each with its reset', () => {
     const windows = usageWindowsOf(`5-hour window 35% used · resets ${RESETS} · 7-day window 12% used`)
     expect(windows.map((window) => [window.name, window.percent])).toEqual([['5-hour window', 35], ['7-day window', 12]])
-    expect(windows[0]?.resets).toMatch(/^\d{2}:\d{2}$|^\w{3} \d{2}:\d{2}$/)
+    expect(windows[0]?.resets).toMatch(/^\d{1,2}:\d{2} [AP]M$|^\w{3} \d{1,2}:\d{2} [AP]M$/)
     expect(windows[1]?.resets).toBeUndefined()
   })
 })

@@ -19,6 +19,6 @@ describe('a paused routine says so', () => {
   })
   it('and counts its next time from a resume', () => {
     const resumedAt = new Date(2026, 9, 3, 8, 30).toISOString()
-    expect(routineScheduleSummary(saved({ resumedAt }), now)).toBe('every hour · next 09:30')
+    expect(routineScheduleSummary(saved({ resumedAt }), now)).toBe('every hour · next 9:30 AM')
   })
 })

@@ -205,7 +205,7 @@ describe('when a mission says it began', () => {
     // The locale decides 24-hour or AM/PM; what matters is that no date rides
     // along on a mission from today.
     const label = startedLabel('2026-09-03T09:15:00', now)
-    expect(label).toContain('09:15')
+    expect(label).toContain('9:15 AM')
     expect(label).not.toMatch(/Sep|\d{4}/)
   })
 

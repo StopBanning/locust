@@ -158,16 +158,16 @@ describe('what a card says about a schedule', () => {
   })
 
   it('names the rule and the next run in local clock words: today, tomorrow, a weekday, or due now', () => {
-    expect(routineScheduleSummary({ ...base, schedule: { kind: 'daily', at: '09:30' } }, now)).toBe('daily at 09:30 · next 09:30')
+    expect(routineScheduleSummary({ ...base, schedule: { kind: 'daily', at: '09:30' } }, now)).toBe('daily at 9:30 AM · next 9:30 AM')
     expect(
       routineScheduleSummary({ ...base, schedule: { kind: 'daily', at: '07:00' }, lastRunAt: new Date(2026, 8, 5, 7, 1).toISOString() }, now)
-    ).toBe('daily at 07:00 · next tomorrow 07:00')
+    ).toBe('daily at 7:00 AM · next tomorrow 7:00 AM')
     expect(
       routineScheduleSummary({ ...base, schedule: { kind: 'every', hours: 4 }, lastRunAt: new Date(2026, 8, 5, 6, 0).toISOString() }, now)
-    ).toBe('every 4 hours · next 10:00')
+    ).toBe('every 4 hours · next 10:00 AM')
     expect(
       routineScheduleSummary({ ...base, schedule: { kind: 'every', hours: 168 }, lastRunAt: new Date(2026, 8, 5, 6, 0).toISOString() }, now)
-    ).toBe('every 168 hours · next Sat 06:00')
+    ).toBe('every 168 hours · next Sat 6:00 AM')
     expect(routineScheduleSummary({ ...base, schedule: { kind: 'every', hours: 1 } }, now)).toBe('every hour · due now')
   })
 })

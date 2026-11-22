@@ -709,7 +709,7 @@ export function createChatLink(app: ChatApp, options: ChatLinkOptions): ChatLink
       return
     }
     const stale = now() - incoming.sentAt > CHAT_STALE_MS
-    const staleSaid = (): Promise<string | undefined> => say(`This came while Locust was closed (sent ${new Date(incoming.sentAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}), so nothing was started. Send it again to start it now.`, { reply: true })
+    const staleSaid = (): Promise<string | undefined> => say(`This came while Locust was closed (sent ${new Date(incoming.sentAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })}), so nothing was started. Send it again to start it now.`, { reply: true })
     const origin = { id: incoming.id, ...(incoming.answerTo === undefined ? {} : { answerTo: incoming.answerTo }) }
     if (command?.command === 'new') {
       const current = teammateNamed(team, saved.current)

@@ -63,7 +63,7 @@ export async function openSnapshot(key: CryptoKey, sealed: { readonly iv: Uint8A
 
 /** How long ago, as the line over the window says it. */
 export function snapshotWhen(at: number, now: number): string {
-  const time = new Date(at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+  const time = new Date(at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })
   const day = new Date(at).toDateString() === new Date(now).toDateString() ? '' : ` on ${new Date(at).toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' })}`
   return `${time}${day}`
 }

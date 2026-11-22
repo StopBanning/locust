@@ -33,7 +33,7 @@ function when(at: string, now: Date): string {
   const then = new Date(at)
   if (Number.isNaN(then.getTime())) return ''
   return then.toDateString() === now.toDateString()
-    ? `at ${then.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`
+    ? `at ${then.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', hour12: true })}`
     : `on ${then.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
 }
 

@@ -104,15 +104,15 @@ describe('when a routine is next due', () => {
   })
 
   it('reads on a card', () => {
-    expect(scheduleLabel({ kind: 'weekly', days: [1, 2, 3, 4, 5], at: '09:00' })).toBe('weekdays at 09:00')
-    expect(scheduleLabel({ kind: 'weekly', days: [0, 6], at: '10:30' })).toBe('weekends at 10:30')
-    expect(scheduleLabel({ kind: 'weekly', days: [0, 1, 3], at: '08:00' })).toBe('Mon, Wed, Sun at 08:00')
-    expect(scheduleLabel({ kind: 'weekly', days: [0, 1, 2, 3, 4, 5, 6], at: '08:00' })).toBe('every day at 08:00')
-    expect(scheduleLabel({ kind: 'once', on: '2026-10-07T15:00' })).toBe('once, Wed Oct 7 at 15:00')
+    expect(scheduleLabel({ kind: 'weekly', days: [1, 2, 3, 4, 5], at: '09:00' })).toBe('weekdays at 9:00 AM')
+    expect(scheduleLabel({ kind: 'weekly', days: [0, 6], at: '10:30' })).toBe('weekends at 10:30 AM')
+    expect(scheduleLabel({ kind: 'weekly', days: [0, 1, 3], at: '08:00' })).toBe('Mon, Wed, Sun at 8:00 AM')
+    expect(scheduleLabel({ kind: 'weekly', days: [0, 1, 2, 3, 4, 5, 6], at: '08:00' })).toBe('every day at 8:00 AM')
+    expect(scheduleLabel({ kind: 'once', on: '2026-10-07T15:00' })).toBe('once, Wed Oct 7 at 3:00 PM')
     expect(scheduleLabel(undefined)).toBe('when you press Run')
     expect(scheduleLabel({ kind: 'every', hours: 1 })).toBe('every hour')
     expect(scheduleLabel({ kind: 'every', hours: 8 })).toBe('every 8 hours')
-    expect(scheduleLabel({ kind: 'daily', at: '07:45' })).toBe('daily at 07:45')
+    expect(scheduleLabel({ kind: 'daily', at: '07:45' })).toBe('daily at 7:45 AM')
   })
 })
 

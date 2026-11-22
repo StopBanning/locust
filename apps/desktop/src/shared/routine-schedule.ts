@@ -1,3 +1,4 @@
+import { clock } from './clock.js'
 /**
  * When a routine runs on its own.
  *
@@ -192,7 +193,6 @@ export function slotPassedDuring(schedule: RoutineSchedule, startedAt: string, e
   return next
 }
 
-const pad2 = (value: number): string => String(value).padStart(2, '0')
 
 /**
  * Where a routine's clock counts from: its last run (or its making), or the
@@ -221,7 +221,7 @@ export function nextRoutineDueLine(
     if (best === undefined || next.getTime() < best.at.getTime()) best = { name: routine.name, at: next }
   }
   if (best === undefined) return 'No routine due'
-  return `Next: ${best.name} at ${pad2(best.at.getHours())}:${pad2(best.at.getMinutes())}`
+  return `Next: ${best.name} at ${clock(best.at)}`
 }
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
@@ -236,17 +236,25 @@ export function daysLabel(days: readonly number[]): string {
   return [...days].sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7)).map((day) => DAY_NAMES[day] ?? '').join(', ')
 }
 
+/** "09:30", as a schedule keeps it, read as "9:30 AM" (0.882: no 24-hour times on screen). */
+const saidAt = (at: string): string => {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(at)
+  if (match === null) return at
+  const day = new Date(2000, 0, 1, Number(match[1]), Number(match[2]))
+  return clock(day)
+}
+
 /** How the schedule reads on a card. */
 export function scheduleLabel(schedule: RoutineSchedule | undefined): string {
   if (schedule?.kind === 'hook') return 'when a link is called'
   if (schedule === undefined) return 'when you press Run'
   if (schedule.kind === 'every') return schedule.hours === 1 ? 'every hour' : `every ${String(schedule.hours)} hours`
-  if (schedule.kind === 'weekly') return `${daysLabel(schedule.days)} at ${schedule.at}`
+  if (schedule.kind === 'weekly') return `${daysLabel(schedule.days)} at ${saidAt(schedule.at)}`
   if (schedule.kind === 'files') return `when a new file arrives in ${schedule.folder.replace(/\\/g, '/')}`
   if (schedule.kind === 'once') {
     const moment = onceMoment(schedule.on)
     if (moment === undefined) return 'once'
-    return `once, ${DAY_NAMES[moment.getDay()] ?? ''} ${MONTH_NAMES[moment.getMonth()] ?? ''} ${String(moment.getDate())} at ${schedule.on.slice(11)}`
+    return `once, ${DAY_NAMES[moment.getDay()] ?? ''} ${MONTH_NAMES[moment.getMonth()] ?? ''} ${String(moment.getDate())} at ${saidAt(schedule.on.slice(11, 16))}`
   }
-  return `daily at ${schedule.at}`
+  return `daily at ${saidAt(schedule.at)}`
 }

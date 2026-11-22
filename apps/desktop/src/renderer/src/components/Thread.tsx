@@ -78,6 +78,7 @@ import type { LiveCallAsk } from '../liveCall.js'
 import { WORKSPACE_REVEAL_CHANNEL, WORKSPACE_SAVE_COPY_CHANNEL } from '../../../shared/ipc.js'
 import { failureSaid, onTheComputer } from '../onTheComputer.js'
 import { downloadCopy } from '../saveHere.js'
+import { clock } from '../../../shared/clock.js'
 
 /**
  * The files a teammate handed over, and what the host said when a press
@@ -1611,10 +1612,7 @@ onResume,
     .at(-1) ?? 0
   const stopped = cancelled ? cancellationSummary(events, plannedSteps, workspacePath) : undefined
   const stoppedAt = cancelled
-    ? new Date(events.at(-1)?.occurredAt ?? Date.now()).toLocaleTimeString(undefined, {
-        hour: '2-digit',
-        minute: '2-digit'
-      })
+    ? clock(new Date(events.at(-1)?.occurredAt ?? Date.now()))
     : undefined
   // Follow the newest line while the person is at the bottom, and stop the
   // moment they scroll up to read something. See `stickToBottom.ts` for why
