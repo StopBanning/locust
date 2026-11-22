@@ -3726,6 +3726,8 @@ apps/desktop/src/renderer/src/a-runtime-gap-is-not-the-teammate.test.tsx	keeps e
 apps/desktop/src/renderer/src/a-runtime-gap-is-not-the-teammate.test.tsx	leaves a sentence that merely mentions truncation alone	yes
 apps/desktop/src/renderer/src/a-runtime-switch-shows-where-it-happened.test.tsx	names every runtime by its name	no
 apps/desktop/src/renderer/src/a-runtime-switch-shows-where-it-happened.test.tsx	takes the words typed on each side of the switch, never the host’s briefing	no
+apps/desktop/src/renderer/src/a-saved-turn-is-said-after-its-work.test.ts	is the last line of its turn, after the work and the answer	yes
+apps/desktop/src/renderer/src/a-saved-turn-is-said-after-its-work.test.ts	is still said when the turn drew no work of its own, never folded away	yes
 apps/desktop/src/renderer/src/a-scout-card-that-needs-you-is-on-the-board.test.tsx	sits above the conversation that is waiting, with Scout’s face and the actions Home gives a draft	no
 apps/desktop/src/renderer/src/a-scout-card-that-needs-you-is-on-the-board.test.tsx	offers Dismiss alone when the card has no draft, which is what Home does	no
 apps/desktop/src/renderer/src/a-scout-card-that-needs-you-is-on-the-board.test.tsx	is a Needs you column of its own when no conversation is waiting, and the board is not quiet	no

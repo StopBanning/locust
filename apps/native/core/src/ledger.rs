@@ -1044,6 +1044,7 @@ impl Transcript {
         // missionView's workBegan: until the turn says or does anything, only trouble with the run itself reaches the
         // thread. OpenCode's "Aborted" when the person presses Stop is not that.
         let mut work_began = false;
+        let mut receipts: Vec<Item> = Vec::new();
         let message_end = &self.message_end;
         let last_piece = |id: &str| message_end.get(id).copied().unwrap_or(0);
         for (sequence, event) in &self.events {
@@ -1308,10 +1309,14 @@ impl Transcript {
                             level: String::new(),
                             text: scrub(&string(p, "message")),
                         });
-                    } else if code == "host.check_fix"
-                        || code == "host.relay_ended"
-                        || code == crate::worktrees::CHECKPOINT_CODE
-                    {
+                    } else if code == crate::worktrees::CHECKPOINT_CODE {
+                        // What the host saved on the teammate's branch is said when the turn is over: after its work
+                        // and its answer, never above them (missionView's receipts, 0.439).
+                        receipts.push(Item::Note {
+                            level: if level == "info" { String::new() } else { level },
+                            text: scrub(&string(p, "message")),
+                        });
+                    } else if code == "host.check_fix" || code == "host.relay_ended" {
                         items.push(Item::Note {
                             level: if level == "info" { String::new() } else { level },
                             text: scrub(&string(p, "message")),
@@ -1553,6 +1558,7 @@ impl Transcript {
             trace.notices.retain(|n| !items.iter().any(|i| matches!(i, Item::Note { text, .. } if crate::failure_words::same_sentence(text, &n.message))));
             items.push(Item::Trace(trace));
         }
+        items.extend(receipts);
         self.items = items;
     }
 }
@@ -3603,6 +3609,10 @@ mod fall_off_tests;
 #[cfg(test)]
 #[path = "torn_ledger_tests.rs"]
 pub(crate) mod torn_ledger_tests;
+
+#[cfg(test)]
+#[path = "saved_turn_last_tests.rs"]
+mod saved_turn_last_tests;
 
 #[cfg(test)]
 #[path = "restated_reply_tests.rs"]
