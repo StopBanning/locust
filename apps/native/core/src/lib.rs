@@ -164,6 +164,8 @@ pub mod scout_away;
 #[cfg(test)]
 mod scout_away_tests;
 pub mod web_push;
+#[cfg(test)]
+mod web_push_tests;
 pub mod png_text;
 pub mod profile_backup;
 pub mod profile_sync;

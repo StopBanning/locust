@@ -1200,6 +1200,9 @@ apps/desktop/src/main/an-agent-of-your-own-is-added-by-its-command.test.ts	says 
 apps/desktop/src/main/an-agent-of-your-own-is-added-by-its-command.test.ts	says so when the program is not an agent at all	yes
 apps/desktop/src/main/an-agent-of-your-own-is-added-by-its-command.test.ts	is kept only when it answered, under a name of its own, and found again for a run	yes
 apps/desktop/src/main/an-agent-of-your-own-is-added-by-its-command.test.ts	may do only what it asks and the person approves, and costs something unless it is OpenCode’s own free model	yes
+apps/desktop/src/main/an-alert-is-locked-for-its-phone-alone.test.ts	makes the RFC's own example body from its keys and salt	yes
+apps/desktop/src/main/an-alert-is-locked-for-its-phone-alone.test.ts	uses a fresh salt and key for every alert	yes
+apps/desktop/src/main/an-alert-is-locked-for-its-phone-alone.test.ts	refuses keys that are not a browser's push keys	yes
 apps/desktop/src/main/an-answer-not-written-back-is-brought-back.test.ts	ending in a question, or saying wants="answer", wants one; an FYI does not	no
 apps/desktop/src/main/an-answer-not-written-back-is-brought-back.test.ts	the answer is brought back: posted as theirs, labelled, and the asker started to take it	no
 apps/desktop/src/main/an-answer-not-written-back-is-brought-back.test.ts	once: the same run ending again brings nothing more	no
