@@ -1908,6 +1908,14 @@ apps/desktop/src/main/locust-goes-into-the-claude-app-in-one-press.test.ts	#9: R
 apps/desktop/src/main/locust-goes-into-the-claude-app-in-one-press.test.ts	#10: settings with a number JavaScript cannot keep exactly are left alone	yes
 apps/desktop/src/main/locust-goes-into-the-claude-app-in-one-press.test.ts	takes out Locust’s entry and leaves the rest	yes
 apps/desktop/src/main/locust-goes-into-the-claude-app-in-one-press.test.ts	drops an emptied list rather than leave {} behind	no
+apps/desktop/src/main/locust-in-a-browser-answers-as-the-window.test.ts	says what the computer is, and who has the window	yes
+apps/desktop/src/main/locust-in-a-browser-answers-as-the-window.test.ts	answers a call with the window’s own handler, made as from the window, once it has the window	yes
+apps/desktop/src/main/locust-in-a-browser-answers-as-the-window.test.ts	refuses in words what stays on this computer, a call it does not know, and says a handler’s own failure	yes
+apps/desktop/src/main/locust-in-a-browser-answers-as-the-window.test.ts	tells the browser that has the window what the window is told, and nothing it may not hear	yes
+apps/desktop/src/main/locust-in-a-browser-answers-as-the-window.test.ts	lets one window act at a time: another browser takes it, this computer takes it back, each is told	yes
+apps/desktop/src/main/locust-in-a-browser-answers-as-the-window.test.ts	lets the window go when the browser that has it may no longer have it	yes
+apps/desktop/src/main/locust-in-a-browser-answers-as-the-window.test.ts	gives a window just opened the approval cards already waiting	yes
+apps/desktop/src/main/locust-in-a-browser-answers-as-the-window.test.ts	keeps every handler ipcMain is given, as it is given them	yes
 apps/desktop/src/main/memory-file.test.ts	lists this folder and everywhere, newest last, with who and when, and says it is read-only	no
 apps/desktop/src/main/memory-file.test.ts	writes under .locust in the folder and returns the path the brief names	no
 apps/desktop/src/main/memory-file.test.ts	does not rewrite a file that already says the same	no
