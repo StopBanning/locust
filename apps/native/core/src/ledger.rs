@@ -811,6 +811,48 @@ fn run_trouble(code: &str) -> bool {
     code.ends_with(".runtime_error") || code.ends_with(".notification") || code.ends_with(".context_compacted")
 }
 
+/// A notice's words, however its spacing and case came out (missionView's `noticeKey`).
+pub fn notice_key(message: &str) -> String {
+    message.split_whitespace().collect::<Vec<_>>().join(" ").to_lowercase()
+}
+
+/// A usage-window reading ("You've used 56% of your 7-day window"): not a limit reached, so said once a conversation.
+pub fn is_usage_warning(message: &str) -> bool {
+    crate::invariants::regex(r"^You've used \d{1,3}% of your .+ window|^Your .+ window is running low").is_match(message.trim())
+}
+
+/// The key a turn's usage warning is remembered by: one for every reading (Colin, 2026-09-23: "Once per convo").
+const USAGE_WARNING_KEY: &str = "usage-window-warning";
+
+/// What a turn said that a later turn must not say again (missionView's `foldNoticeKeys`).
+fn said_keys(items: &[Item]) -> Vec<String> {
+    let mut keys: Vec<String> = items
+        .iter()
+        .filter_map(|i| match i {
+            Item::Trace(trace) => Some(trace.notices.iter().map(|n| notice_key(&n.message))),
+            _ => None,
+        })
+        .flatten()
+        .collect();
+    if items.iter().any(|i| matches!(i, Item::Limit { kind, text } if kind == "temporary-rate-limit" && is_usage_warning(text))) {
+        keys.push(USAGE_WARNING_KEY.to_owned());
+    }
+    keys
+}
+
+/// A turn's item with what an earlier turn of the conversation already said taken out: a runtime's remark at its
+/// fold's foot, and a usage warning. A limit actually reached is never taken out.
+fn not_said_before(item: Item, said: &HashSet<String>) -> Option<Item> {
+    match item {
+        Item::Trace(mut trace) => {
+            trace.notices.retain(|n| !said.contains(&notice_key(&n.message)));
+            Some(Item::Trace(trace))
+        }
+        Item::Limit { kind, text } if kind == "temporary-rate-limit" && is_usage_warning(&text) && said.contains(USAGE_WARNING_KEY) => None,
+        other => Some(other),
+    }
+}
+
 /// One message as a reply's fragments make it: where it is held, its text, whether it ended, how many pieces it took.
 struct Message {
     at: u64,
@@ -1294,6 +1336,10 @@ impl Transcript {
                 "adapter.diagnostic" => {
                     let level = string(p, "level");
                     let code = string(p, "code");
+                    // About the CLI's own setup: its row in Settings says it (`setup_notes`), not the conversation.
+                    if crate::setup_notes::is_setup_note(&string(p, "message")) {
+                        continue;
+                    }
                     if let Some(shown) = retrying_note(&self.events, *sequence, &code, &string(p, "message")) {
                         if let Some(text) = shown {
                             items.push(Item::Note { level, text: scrub(&text) });
@@ -1336,8 +1382,18 @@ impl Transcript {
                         self.running = false;
                     }
                     let text = scrub(&string(p, "message"));
-                    if !text.is_empty() {
-                        items.push(Item::Limit { kind: string(p, "kind"), text });
+                    let kind = string(p, "kind");
+                    // One usage warning a run: the newest figure, where the first one stood (missionView, 2026-09-23).
+                    let earlier = (kind == "temporary-rate-limit").then(|| items.iter_mut().find_map(|i| match i {
+                        Item::Limit { kind, text } if kind == "temporary-rate-limit" => Some(text),
+                        _ => None,
+                    })).flatten();
+                    if let Some(held) = earlier {
+                        if !text.is_empty() {
+                            *held = text;
+                        }
+                    } else if !text.is_empty() {
+                        items.push(Item::Limit { kind, text });
                     }
                 }
                 "run.failed" => {
@@ -1470,7 +1526,7 @@ impl Transcript {
                     continue;
                 }
                 if code.starts_with("host.") || code.ends_with(".usage_window") || text.is_empty()
-                    || crate::invariants::regex(r"(?i)^(Codex is ignoring \d+ unrecognized configuration settings?\b|Skill descriptions were shortened to fit\b)").is_match(text.trim()) { continue; }
+                    || crate::setup_notes::is_setup_note(&text) { continue; }
                 if !items.iter().any(|i| matches!(i, Item::Note { text: held, .. } | Item::Limit { text: held, .. } if crate::failure_words::same_sentence(held, &text))) {
                     items.push(Item::Note { level: string(&e["payload"], "level"), text });
                 }
@@ -2102,6 +2158,8 @@ impl Session {
         let mut by_id = HashMap::new();
         // The plan the turn before ended with: a turn's card shows its own steps (Thread.tsx carriedPlan).
         let mut carried: Vec<PlanStep> = Vec::new();
+        // What an earlier turn already said, which a later one does not say again (Thread.tsx `saidBefore`).
+        let mut said: HashSet<String> = HashSet::new();
         for (index, reader) in self.readers.iter_mut().enumerate() {
             let is_tip = index + 1 == count;
             if is_tip {
@@ -2174,7 +2232,7 @@ impl Session {
             });
             let before = std::mem::replace(&mut carried, last_plan_of(reader.transcript.events.values()));
             let worked = worked_steps(reader.transcript.events.values());
-            snapshot.items.extend(
+            let turn_items: Vec<Item> =
                 reader
                     .transcript
                     .items
@@ -2186,8 +2244,11 @@ impl Session {
                             (!own.is_empty()).then(|| Item::Plan { id: id.clone(), steps: own, finished: *finished, stopped: *stopped })
                         }
                         other => Some(other.clone()),
-                    }),
-            );
+                    })
+                    .filter_map(|item| not_said_before(item, &said))
+                    .collect();
+            said.extend(said_keys(&turn_items));
+            snapshot.items.extend(turn_items);
             if reader
                 .transcript
                 .events
@@ -2439,6 +2500,7 @@ mod tests {
     mod reopened_handoff_tests { include!("reopened_handoff_tests.rs"); }
     mod plan_card_turns_tests { include!("plan_card_turns_tests.rs"); }
     mod conversation_cost_tests { include!("conversation_cost_tests.rs"); }
+    mod notice_once_tests { include!("notice_once_tests.rs"); }
 
     fn synthetic_transcript(rows: Vec<Value>) -> Transcript {
         // Exercise the JSONL boundary, including raw-evidence removal.

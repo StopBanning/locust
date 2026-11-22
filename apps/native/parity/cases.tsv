@@ -3501,6 +3501,14 @@ apps/desktop/src/renderer/src/a-note-between-steps-renders-its-code.test.tsx	is 
 apps/desktop/src/renderer/src/a-note-between-steps-renders-its-code.test.tsx	which turns a fenced block into code, with no fences left as text	yes
 apps/desktop/src/renderer/src/a-note-can-be-left-in-the-changes-panel.test.ts	can be left in the Changes panel: it sits inside the notes of the conversation on screen	yes
 apps/desktop/src/renderer/src/a-note-can-be-left-in-the-changes-panel.test.ts	can be left in Review changes only for the teammate whose conversation is on screen	yes
+apps/desktop/src/renderer/src/a-notice-is-said-once.test.ts	is carried by the first turn that heard it	yes
+apps/desktop/src/renderer/src/a-notice-is-said-once.test.ts	is not said again by a later turn, while a new remark still is	yes
+apps/desktop/src/renderer/src/a-notice-is-said-once.test.ts	is one line a run, the newest figure, where the first one stood	yes
+apps/desktop/src/renderer/src/a-notice-is-said-once.test.ts	is said once a conversation -- Colin: "Once per convo"	yes
+apps/desktop/src/renderer/src/a-notice-is-said-once.test.ts	never hides a limit actually reached	yes
+apps/desktop/src/renderer/src/a-notice-is-said-once.test.ts	is known for what it is, and nothing else is	yes
+apps/desktop/src/renderer/src/a-notice-is-said-once.test.ts	never reaches a turn, not even the first	yes
+apps/desktop/src/renderer/src/a-notice-is-said-once.test.ts	is what its runtime's row in Settings shows, from its newest run	yes
 apps/desktop/src/renderer/src/a-page-a-teammate-made-runs-in-its-turn.test.tsx	opens a new web page, so it runs	yes
 apps/desktop/src/renderer/src/a-page-a-teammate-made-runs-in-its-turn.test.tsx	opens the page even when another file came first, and only the page	yes
 apps/desktop/src/renderer/src/a-page-a-teammate-made-runs-in-its-turn.test.tsx	stays folded in a comparison's cell, whose page runs above it	no

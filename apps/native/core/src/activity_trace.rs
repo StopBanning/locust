@@ -59,7 +59,7 @@ pub fn activity_trace_of(items:&[Item],events:&[Value],outcome:&str,may_edit:Opt
         push("files","no files changed".into(),false);
     }
     for state in ["refused","declined"] {let count=items.iter().filter(|i|matches!(i,Item::Tool{detail,..} if detail.runtime_status==state)).count();if count>0 {push(state,format!("{count} {state}"),true);}}
-    out.notices=events.iter().filter(|e|e["type"]=="adapter.diagnostic" && !e["payload"]["code"].as_str().unwrap_or("").starts_with("host.") && !e["payload"]["code"].as_str().unwrap_or("").ends_with(".context_compacted")).filter_map(|e| {let p=&e["payload"];let message=p["message"].as_str()?;(!message.is_empty()).then(||Notice{level:p["level"].as_str().unwrap_or("info").into(),message:crate::ledger::scrub(message),source:e["sourceAdapter"].as_str().unwrap_or("").into()})}).collect();
+    out.notices=events.iter().filter(|e|e["type"]=="adapter.diagnostic" && !e["payload"]["code"].as_str().unwrap_or("").starts_with("host.") && !e["payload"]["code"].as_str().unwrap_or("").ends_with(".context_compacted")).filter_map(|e| {let p=&e["payload"];let message=p["message"].as_str()?;(!message.is_empty() && !crate::setup_notes::is_setup_note(message)).then(||Notice{level:p["level"].as_str().unwrap_or("info").into(),message:crate::ledger::scrub(message),source:e["sourceAdapter"].as_str().unwrap_or("").into()})}).collect();
     out
 }
 #[cfg(test)] #[path="activity_trace_tests.rs"] mod tests;

@@ -27,6 +27,7 @@ pub mod chat_host;
 pub mod chat_http;
 pub mod chat_link;
 pub mod ledger_failure;
+pub mod setup_notes;
 pub mod chat_slack;
 pub mod chat_slack_fmt;
 pub mod chat_telegram;
