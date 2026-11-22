@@ -154,6 +154,7 @@ pub(super) fn open_comparison(s: &mut State, id: &str) {
     crate::room_screen::close(s);
     crate::missions_screen::close(s);
     s.compare.active_id = Some(id.to_owned());
+    crate::compare_view::read_catalog_if_needed(s);
     s.benchmarks_open = false;
     s.home.home_open = false;
     s.home.board_open = false;

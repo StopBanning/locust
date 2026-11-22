@@ -189,26 +189,56 @@ fn effort_title(effort: &str) -> String {
     }
 }
 
-/// Effective effort for a pick against the model catalog (`each-compared-model-has-its-own-effort`).
-pub(super) fn effective_effort(pick: &ComparePick, models: &[locust_core::engine::Models]) -> Option<String> {
-    let agent = models.iter().find(|m| m.runtime == pick.runtime);
-    let entry = agent.and_then(|m| m.models.iter().find(|model| model.id == pick.model));
-    let supported = entry.map(|m| m.efforts.as_slice()).unwrap_or(&[]);
-    if supported.is_empty() && pick.effort.is_none() {
-        if pick.runtime == "cursor" {
-            for level in ["low", "medium", "high", "xhigh", "max"] {
-                if pick.model.ends_with(&format!("-{level}")) {
-                    return Some(level.to_owned());
-                }
-            }
+fn catalog_model<'a>(agent: &'a engine::Models, id: &str) -> Option<&'a engine::Model> {
+    agent.models.iter().find(|model| model.id == id).or_else(|| {
+        if agent.runtime != "cursor" {
+            return None;
         }
+        let (family, level) = locust_core::models::split_cursor_model_id(id);
+        agent.models.iter().find(|model| {
+            let (listed, _) = locust_core::models::split_cursor_model_id(&model.id);
+            listed == family && level.as_ref().is_none_or(|effort| model.efforts.contains(effort))
+        })
+    })
+}
+
+/// Cursor routes can carry an effort's id while the catalog names the family once.
+fn cursor_family_label(
+    s: &State, runtime: &str, model: &str, account: Option<&str>, previous: Option<&str>,
+) -> Option<String> {
+    if runtime != "cursor" {
         return None;
     }
-    if let Some(e) = &pick.effort {
-        return Some(e.clone());
+    let family = s.models.values().flatten().filter(|agent| agent.runtime == runtime)
+        .find_map(|agent| catalog_model(agent, model).filter(|entry| !entry.efforts.is_empty() && !entry.name.is_empty()))?;
+    let name = locust_core::teammate_tooltip::route_model_name(runtime, &family.name);
+    let account_name = account.and_then(|id| s.agent_accounts.accounts.iter().find(|account| account.id == id))
+        .map(|account| account.name.as_str())
+        .or_else(|| account.and(previous).and_then(|label| label.split_once(" · ").map(|(_, name)| name)));
+    Some(account_name.map_or_else(|| name.clone(), |account| format!("{name} · {account}")))
+}
+
+fn picker_name(s: &State, pick: &ComparePick) -> String {
+    cursor_family_label(s, &pick.runtime, &pick.model, pick.account.as_deref(), pick.label.as_deref())
+        .or_else(|| pick.label.clone())
+        .unwrap_or_else(|| pick.model.clone())
+}
+
+/// Effective effort for a pick against the model catalog (`each-compared-model-has-its-own-effort`).
+pub(super) fn effective_effort(pick: &ComparePick, models: &[locust_core::engine::Models]) -> Option<String> {
+    let agent = models.iter().find(|agent| agent.runtime == pick.runtime);
+    let entry = agent.and_then(|agent| catalog_model(agent, &pick.model));
+    let supported = entry.map(|model| model.efforts.as_slice()).unwrap_or(&[]);
+    if let Some(effort) = &pick.effort {
+        return Some(effort.clone());
     }
-    // status.ts defaultEffort, as the composer's own effort shows it: the runtime's default, else medium, else the middle.
-    locust_core::effort_levels::default_effort(supported, agent.and_then(|a| a.effort.as_deref()))
+    if pick.runtime == "cursor" {
+        let (_, level) = locust_core::models::split_cursor_model_id(&pick.model);
+        if let Some(level) = level.filter(|level| supported.is_empty() || supported.contains(level)) {
+            return Some(level);
+        }
+    }
+    locust_core::effort_levels::default_effort(supported, agent.and_then(|agent| agent.effort.as_deref()))
 }
 
 pub(super) fn effort_aria_label(
@@ -334,7 +364,7 @@ fn default_compare_picks(s: &State) -> Vec<ComparePick> {
         let effort = route.effort.as_ref()
             .or_else(|| catalog.filter(|_| pick.is_none()).and_then(|agent| agent.effort.as_ref()))
             .filter(|effort| catalogs.iter().filter(|agent| agent.runtime == route.runtime)
-                .any(|agent| agent.models.iter().any(|entry| entry.id == model && entry.efforts.contains(effort))))
+                .any(|agent| catalog_model(agent, model).is_some_and(|entry| entry.efforts.contains(effort))))
             .cloned();
         add(&route.runtime, model, account, effort);
     }
@@ -447,7 +477,8 @@ pub(super) fn start_comparison(s: &mut State) {
             model: p.model.clone(),
             account: p.account.clone(),
             effort: p.effort.clone(),
-            label: p.label.clone(),
+            label: cursor_family_label(s, &p.runtime, &p.model, p.account.as_deref(), p.label.as_deref())
+                .or_else(|| p.label.clone()),
             mode: if changes && mode_auto {
                 Some("auto".into())
             } else {
@@ -2070,12 +2101,8 @@ pub(super) fn asking_label(s: &State) -> Option<String> {
         let refs: Vec<&str> = names.iter().map(String::as_str).collect();
         Some(locust_core::compare::versus_label(&refs))
     } else {
-        let refs: Vec<&str> = s
-            .compare
-            .picks
-            .iter()
-            .map(|p| p.label.as_deref().unwrap_or(p.model.as_str()))
-            .collect();
+        let names: Vec<_> = s.compare.picks.iter().map(|pick| picker_name(s, pick)).collect();
+        let refs: Vec<_> = names.iter().map(String::as_str).collect();
         Some(locust_core::compare::versus_label(&refs))
     }
 }
@@ -2092,6 +2119,15 @@ pub(super) fn composer_mode_chip(s: &State, l: &crate::look::controls::Look) -> 
             s.reference_menu = false;
             agent_accounts_card::reload(s);
         })
+}
+
+pub(super) fn read_catalog_if_needed(s: &mut State) {
+    if cfg!(test) || s.demo || s.model_job.is_pending() || s.models.values().any(|catalog| !catalog.is_empty()) {
+        return;
+    }
+    let id = selected_conversation(s).map(|(teammate, _)| teammate.id.clone())
+        .unwrap_or_else(|| LEDGER_TARGET.to_owned());
+    request_models(s, id);
 }
 
 pub(super) fn composer_mode_menu(s: &State, l: &crate::look::controls::Look) -> Option<El> {
@@ -2146,11 +2182,7 @@ pub(super) fn composer_mode_menu(s: &State, l: &crate::look::controls::Look) -> 
                         ensure_default_picks(s);
                         if s.compare.picks.is_empty() {
                             s.compare.model_menu = Some(0);
-                            if !cfg!(test) && !s.demo && s.models.values().all(Vec::is_empty) {
-                                let id = selected_conversation(s).map(|(teammate, _)| teammate.id.clone())
-                                    .unwrap_or_else(|| LEDGER_TARGET.to_owned());
-                                request_models(s, id);
-                            }
+                            read_catalog_if_needed(s);
                         }
                     }
                 }),
@@ -2166,7 +2198,7 @@ pub(super) fn composer_picks_row(s: &State, l: &crate::look::controls::Look) -> 
     let models: Vec<locust_core::engine::Models> = s.models.values().flatten().cloned().collect();
     let mut r = row().w_full().gap(8.0).px(6.0).center_y().wrap();
     for (idx, pick) in s.compare.picks.iter().enumerate() {
-        let name = pick.label.clone().unwrap_or_else(|| pick.model.clone());
+        let name = picker_name(s, pick);
         let mut slot_row = row().gap(4.0).center_y().child(
             crate::look::controls::composer_chip(l, None, &name, false)
                 .key(format!("compare-pick-{idx}"))
@@ -2269,8 +2301,12 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
     for slot in &cmp.slots {
         let name = if veiled {
             blind_name(slot.slot, setups)
-        } else {
+        } else if setups {
             compare_route_name(&slot.route)
+        } else {
+            let route = &slot.route;
+            cursor_family_label(s, &route.runtime, &route.model, route.account.as_deref(), route.label.as_deref())
+                .unwrap_or_else(|| compare_route_name(route))
         };
         let newest = slot.mission_ids.last().and_then(|id| s.compare.snapshots.get(id));
         let running = newest.is_some_and(|snap| snap.running);

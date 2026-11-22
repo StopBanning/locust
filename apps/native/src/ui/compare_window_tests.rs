@@ -977,3 +977,69 @@ fn compare_view_keeps_the_composer_effort_only_on_column_a() {
     assert_eq!(s.compare.picks[0].effort.as_deref(), Some("low"));
     assert_eq!(s.compare.picks[1].effort, None);
 }
+
+fn argon_catalog() -> Vec<engine::Models> {
+    vec![engine::Models {
+        teammate: None,
+        runtime: "cursor".into(),
+        model: None,
+        effort: None,
+        models: vec![engine::Model {
+            id: "gemini-4-argon-low".into(),
+            name: "Gemini 4 Argon".into(),
+            efforts: vec!["low".into(), "medium".into(), "high".into()],
+        }],
+    }]
+}
+
+#[test]
+fn compare_view_cursor_header_and_picker_name_the_same_family() {
+    // case: Cursor’s Argon on its Low id is "Gemini 4 Argon", the level being its own control
+    let (_dirs, store, mut rt) = window();
+    let mut compare = recorded_comparison(&store);
+    let id = compare.compare_id.clone();
+    compare.slots[0].route = locust_core::compare::CompareRoute::new("cursor", "gemini-4-argon-low");
+    compare.slots[0].route.label = Some("Gemini 4 Argon Low".into());
+    rt.update(move |s, _| {
+        s.models.insert("tm_codec".into(), argon_catalog());
+        s.resolved_model_names.insert("cursor:gemini-4-argon-low".into(), "Gemini 4 Argon Low".into());
+        s.compare.composer_mode = compare_view::CompareComposerMode::Compare;
+        s.compare.picks[0] = compare_view::ComparePick {
+            runtime: "cursor".into(), model: "gemini-4-argon-low".into(), account: None,
+            effort: Some("high".into()), label: Some("Gemini 4 Argon Low".into()),
+        };
+        s.compare.compares = vec![compare];
+    });
+    settle(&mut rt);
+    assert_eq!(text_in(&rt, "compare-pick-0"), ["Gemini 4 Argon"]);
+    assert!(rt.elements().iter().any(|e| e.key.as_deref() == Some("compare-effort-0") &&
+        e.label.as_deref() == Some("Effort for model A: High")));
+    rt.update(move |s, _| s.compare.active_id = Some(id.clone()));
+    settle(&mut rt);
+    assert!(text_in(&rt, "compare-head-a").contains(&"Gemini 4 Argon".to_owned()));
+    assert!(!text_in(&rt, "compare-head-a").contains(&"Gemini 4 Argon Low".to_owned()));
+
+    rt.update(|s, _| {
+        s.resolved_model_names.clear();
+        let route = &mut s.compare.compares[0].slots[0].route;
+        route.model = "gemini-4-argon-high".into();
+        route.label = None;
+    });
+    settle(&mut rt);
+    assert!(text_in(&rt, "compare-head-a").contains(&"Gemini 4 Argon".to_owned()));
+}
+
+#[test]
+fn compare_view_cursor_route_without_catalog_keeps_its_previous_name() {
+    // case: before the catalogue answers, the route is named as before
+    let (_dirs, store, mut rt) = window();
+    let mut compare = recorded_comparison(&store);
+    compare.slots[0].route = locust_core::compare::CompareRoute::new("cursor", "gemini-4-argon-low");
+    compare.slots[0].route.label = Some("Gemini 4 Argon Low".into());
+    rt.update(move |s, _| {
+        s.compare.active_id = Some(compare.compare_id.clone());
+        s.compare.compares = vec![compare];
+    });
+    settle(&mut rt);
+    assert!(text_in(&rt, "compare-head-a").contains(&"Gemini 4 Argon Low".to_owned()));
+}

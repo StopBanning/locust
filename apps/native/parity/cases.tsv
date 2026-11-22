@@ -3203,6 +3203,8 @@ apps/desktop/src/renderer/src/a-commands-card-says-what-it-is-for.test.tsx	has n
 apps/desktop/src/renderer/src/a-commands-card-says-what-it-is-for.test.tsx	is amber on the card as a reach is	no
 apps/desktop/src/renderer/src/a-commands-card-says-what-it-is-for.test.tsx	goes to the phone with the command itself	no
 apps/desktop/src/renderer/src/a-compaction-is-a-line-not-a-reply.test.ts	is drawn as a line saying so, not as the summary or the note to the model	yes
+apps/desktop/src/renderer/src/a-compare-column-is-named-by-its-family.test.ts	Cursor’s Argon on its Low id is "Gemini 4 Argon", the level being its own control	yes
+apps/desktop/src/renderer/src/a-compare-column-is-named-by-its-family.test.ts	before the catalogue answers, the route is named as before	yes
 apps/desktop/src/renderer/src/a-compare-record-is-a-table.test.ts	counts only decided comparisons, the most kept first	no
 apps/desktop/src/renderer/src/a-compare-record-is-a-table.test.ts	gives each model the middle of its answers' times and costs	no
 apps/desktop/src/renderer/src/a-compare-record-is-a-table.test.ts	a column that never answered counts for nothing, and a model with no reported cost has none	no
