@@ -1254,3 +1254,96 @@ mod tests {
         assert_eq!(unfed.download_update(), Err(NO_FEED_MESSAGE.to_owned()));
     }
 }
+
+#[cfg(test)]
+mod ready_means_this_version_is_on_disk_tests {
+    use super::test_support::*;
+    use super::*;
+
+    fn fake_versions(versions: &[&str]) -> FakeUpdater {
+        let list: Vec<String> = versions.iter().map(|s| (*s).to_owned()).collect();
+        let mut at = 0usize;
+        FakeUpdater::with_check(move || {
+            let idx = at.min(list.len().saturating_sub(1));
+            let version = list.get(idx).cloned().unwrap_or_else(|| "0.0.0".into());
+            at += 1;
+            Ok(Some(CheckForUpdatesResult {
+                update_info: UpdateInfo {
+                    version,
+                    files: None,
+                },
+                is_update_available: None,
+                download_result: None,
+            }))
+        })
+    }
+
+    fn service_on(updater: FakeUpdater) -> UpdateService<FakeUpdater> {
+        let mut opts = default_options(updater, "0.225.0", true);
+        opts.request_quit = Arc::new(|finalise| {
+            if let Some(f) = finalise {
+                f();
+            }
+        });
+        create_update_service(opts)
+    }
+
+    // case: stops calling a newer version downloaded when an older one was
+    #[test]
+    fn stops_calling_a_newer_version_downloaded_when_an_older_one_was() {
+        let updater = fake_versions(&["0.226.0", "0.228.0"]);
+        let service = service_on(updater.clone());
+
+        service.check();
+        updater.emit("update-downloaded", Some(EventPayload::version("0.226.0")));
+        assert_eq!(service.state().phase, AppUpdatePhase::Ready);
+        assert_eq!(service.state().available_version.as_deref(), Some("0.226.0"));
+
+        let after = service.check();
+        let data = after.data().expect("check succeeded");
+        assert_eq!(data.phase, AppUpdatePhase::Available);
+        assert_eq!(data.available_version.as_deref(), Some("0.228.0"));
+    }
+
+    // case: stays ready when the check finds the version that is on disk
+    #[test]
+    fn stays_ready_when_the_check_finds_the_version_that_is_on_disk() {
+        let updater = fake_versions(&["0.226.0", "0.226.0"]);
+        let service = service_on(updater.clone());
+        service.check();
+        updater.emit("update-downloaded", Some(EventPayload::version("0.226.0")));
+        let after = service.check();
+        let data = after.data().expect("check succeeded");
+        assert_eq!(data.phase, AppUpdatePhase::Ready);
+    }
+
+    // case: refuses to install once the downloaded one is superseded
+    #[test]
+    fn refuses_to_install_once_the_downloaded_one_is_superseded() {
+        let updater = fake_versions(&["0.226.0", "0.228.0"]);
+        let service = service_on(updater.clone());
+        service.check();
+        updater.emit("update-downloaded", Some(EventPayload::version("0.226.0")));
+        service.check();
+        let result = service.install();
+        assert!(!result.is_ok());
+        assert!(updater.installs().is_empty());
+        // And an error after the newer check does not revive the superseded 0.226.0 as ready.
+        updater.emit("error", None);
+        assert_eq!(service.state().phase, AppUpdatePhase::Failed);
+        assert!(!service.install().is_ok());
+    }
+
+    // case: falls back to the version it was looking for when the event carries none
+    #[test]
+    fn falls_back_to_the_version_it_was_looking_for_when_the_event_carries_none() {
+        let updater = fake_versions(&["0.226.0", "0.226.0"]);
+        let service = service_on(updater.clone());
+        service.check();
+        updater.emit("update-downloaded", None);
+        assert_eq!(service.state().available_version.as_deref(), Some("0.226.0"));
+        let after = service.check();
+        let data = after.data().expect("check succeeded");
+        assert_eq!(data.phase, AppUpdatePhase::Ready);
+    }
+}
