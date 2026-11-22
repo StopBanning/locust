@@ -282,51 +282,98 @@ fn available_choices(s: &State) -> Vec<ModelChoice> {
     out
 }
 
-pub(super) fn ensure_default_picks(s: &mut State) {
-    if s.compare.picks.len() >= MIN_COMPARE_SLOTS {
-        return;
-    }
-    let choices = available_choices(s);
-    for c in choices {
-        if s.compare.picks.len() >= MIN_COMPARE_SLOTS {
-            break;
-        }
-        if !s
-            .compare
-            .picks
-            .iter()
-            .any(|p| p.runtime == c.runtime && p.model == c.model && p.account == c.account)
+fn default_compare_picks(s: &State) -> Vec<ComparePick> {
+    let composer = crate::group_settings_dialog::current_composer_route(s);
+    let target = selected_conversation(s).map(|(teammate, _)| teammate.id.as_str());
+    let mut catalogs: Vec<_> = s.models.iter().collect();
+    catalogs.sort_by(|(left, _), (right, _)| {
+        (Some(left.as_str()) != target, left.as_str()).cmp(&(Some(right.as_str()) != target, right.as_str()))
+    });
+    let catalogs: Vec<_> = catalogs.into_iter().flat_map(|(_, models)| models).collect();
+    let policy = locust_core::org_policy::current();
+    let mut options = Vec::<ComparePick>::new();
+    let mut add = |runtime: &str, model: &str, account: Option<String>, effort: Option<String>| {
+        if model.is_empty() || model == locust_core::models::ACCOUNT_DEFAULT
+            || options.iter().any(|one| one.runtime == runtime && one.model == model)
+            || !locust_core::org_policy::model_allowed(Some(&policy), runtime, Some(model))
         {
-            s.compare.picks.push(ComparePick {
-                runtime: c.runtime,
-                model: c.model,
-                account: c.account,
-                effort: None,
-                label: Some(c.label),
-            });
+            return;
+        }
+        let discovered = s.settings_panel.agents.as_ref()
+            .and_then(|agents| agents.iter().find(|agent| agent.id == runtime));
+        let known = catalogs.iter().any(|agent| agent.runtime == runtime && !agent.models.is_empty());
+        let ready = match &s.settings_panel.agents {
+            Some(_) => discovered.is_some_and(|agent| agent.ready),
+            None => known || (s.selected_ready && composer.as_ref().is_some_and(|route| route.runtime == runtime)),
+        };
+        let mode = if s.compare.changes { "accept-edits" } else { "ask" };
+        if !ready || compare_refusal_of(runtime, discovered.is_none_or(|agent| agent.through_cli)).is_some()
+            || !(locust_core::mode_facts::runs_on(mode, runtime)
+                || !s.compare.changes && locust_core::compare::compare_needs_copy(runtime))
+        {
+            return;
+        }
+        let key = format!("{runtime}:{model}");
+        let name = s.resolved_model_names.get(&key)
+            .or_else(|| catalogs.iter().filter(|agent| agent.runtime == runtime)
+                .find_map(|agent| agent.models.iter().find(|row| row.id == model).map(|row| &row.name)))
+            .filter(|name| !name.is_empty()).cloned()
+            .unwrap_or_else(|| locust_core::teammate_tooltip::route_model_name(runtime, model));
+        options.push(ComparePick { runtime: runtime.into(), model: model.into(), account, effort, label: Some(name) });
+    };
+    if let Some(route) = &composer {
+        let pick = target.and_then(|id| s.picks.get(id));
+        let catalog = target.and_then(|id| s.models.get(id))
+            .and_then(|agents| agents.iter().find(|agent| agent.runtime == route.runtime));
+        let model = if pick.is_none() && target != Some(LEDGER_TARGET) {
+            catalog.and_then(|agent| agent.model.as_deref()).unwrap_or(&route.model)
+        } else {
+            &route.model
+        };
+        let account = pick.and_then(|pick| pick.account.clone()).unwrap_or_else(|| route.account.clone());
+        let effort = route.effort.as_ref()
+            .or_else(|| catalog.filter(|_| pick.is_none()).and_then(|agent| agent.effort.as_ref()))
+            .filter(|effort| catalogs.iter().filter(|agent| agent.runtime == route.runtime)
+                .any(|agent| agent.models.iter().any(|entry| entry.id == model && entry.efforts.contains(effort))))
+            .cloned();
+        add(&route.runtime, model, account, effort);
+    }
+    for key in &s.recent_route_keys {
+        if let Some((runtime, model)) = key.split_once(':') {
+            add(runtime, model, None, None);
         }
     }
-    while s.compare.picks.len() < MIN_COMPARE_SLOTS {
-        let rt = selected_conversation(s)
-            .and_then(|(t, _)| t.runtime.clone())
-            .unwrap_or_else(|| "codex".into());
-        let model = if s.compare.picks.is_empty() {
-            "gpt-6".to_owned()
-        } else {
-            "sonnet".to_owned()
-        };
-        let rt_pick = if s.compare.picks.is_empty() {
-            rt
-        } else {
-            "claude".to_owned()
-        };
-        s.compare.picks.push(ComparePick {
-            runtime: rt_pick,
-            model,
-            account: None,
-            effort: None,
-            label: None,
-        });
+    let older_claude = locust_core::models::claude_older_models();
+    for agent in &catalogs {
+        for model in &agent.models {
+            if !locust_core::own_models::is_own_route_model(&model.id)
+                && !(agent.runtime == "claude" && older_claude.iter().any(|(id, _)| *id == model.id))
+            {
+                add(&agent.runtime, &model.id, None, None);
+            }
+        }
+    }
+    let Some((first, others)) = options.split_first() else { return Vec::new() };
+    let free = |pick: &ComparePick| pick.runtime == "opencode" && pick.model.ends_with("-free");
+    let other_free = if free(first) {
+        let answered = crate::thread_view::free_models_answered_here(s);
+        let best = locust_core::connectors_off::FREE_MODELS_BEST_FIRST;
+        others.iter().filter(|pick| free(pick)).min_by_key(|pick| {
+            let was_recent = s.recent_route_keys.iter().any(|key| key.strip_prefix("opencode:") == Some(pick.model.as_str()));
+            let rank = best.iter().position(|id| *id == pick.model).unwrap_or(best.len());
+            (!answered.contains(&pick.model), !was_recent, if was_recent { 0 } else { rank })
+        })
+    } else {
+        None
+    };
+    other_free.or_else(|| others.iter().find(|pick| pick.runtime != first.runtime))
+        .or_else(|| others.first())
+        .map_or_else(Vec::new, |second| vec![first.clone(), second.clone()])
+}
+
+pub(super) fn ensure_default_picks(s: &mut State) {
+    if s.compare.picks.is_empty() {
+        s.compare.picks = default_compare_picks(s);
     }
 }
 
@@ -2091,8 +2138,20 @@ pub(super) fn composer_mode_menu(s: &State, l: &crate::look::controls::Look) -> 
                 .on_press(move |s: &mut State| {
                     s.compare.composer_mode = mode;
                     s.compare.mode_menu = false;
-                    if mode != CompareComposerMode::Direct {
+                    if mode == CompareComposerMode::Direct {
+                        s.compare.picks.clear();
+                        s.compare.changes = false;
+                        s.compare.model_menu = None;
+                    } else {
                         ensure_default_picks(s);
+                        if s.compare.picks.is_empty() {
+                            s.compare.model_menu = Some(0);
+                            if !cfg!(test) && !s.demo && s.models.values().all(Vec::is_empty) {
+                                let id = selected_conversation(s).map(|(teammate, _)| teammate.id.clone())
+                                    .unwrap_or_else(|| LEDGER_TARGET.to_owned());
+                                request_models(s, id);
+                            }
+                        }
                     }
                 }),
         );
@@ -2149,22 +2208,33 @@ pub(super) fn composer_picks_row(s: &State, l: &crate::look::controls::Look) -> 
     if let Some(slot_idx) = s.compare.model_menu {
         let mut menu = row().key("compare-slot-model-menu").w_full().gap(6.0).px(6.0).wrap();
         for ch in available_choices(s) {
+            if ch.model == locust_core::models::ACCOUNT_DEFAULT || s.compare.picks.iter().enumerate().any(|(other, pick)|
+                other != slot_idx && pick.runtime == ch.runtime && pick.model == ch.model && pick.account == ch.account)
+            {
+                continue;
+            }
             let label = ch.label.clone();
             let key = format!("compare-slot-choice-{}", ch.key);
             menu = menu.child(
                 crate::look::controls::button(l, &label, crate::look::controls::Tone::Neutral, false)
                     .key(key)
                     .on_press(move |s: &mut State| {
+                        let chosen = ComparePick {
+                            runtime: ch.runtime.clone(), model: ch.model.clone(), account: ch.account.clone(),
+                            effort: None, label: Some(ch.label.clone()),
+                        };
                         if let Some(pick) = s.compare.picks.get_mut(slot_idx) {
-                            pick.runtime = ch.runtime.clone();
-                            pick.model = ch.model.clone();
-                            pick.account = ch.account.clone();
-                            pick.effort = None;
-                            pick.label = Some(ch.label.clone());
+                            *pick = chosen;
+                        } else if slot_idx == s.compare.picks.len() && slot_idx < MIN_COMPARE_SLOTS {
+                            s.compare.picks.push(chosen);
                         }
-                        s.compare.model_menu = None;
+                        s.compare.model_menu = (s.compare.picks.len() < MIN_COMPARE_SLOTS).then_some(s.compare.picks.len());
                     }),
             );
+        }
+        if s.compare.picks.len() < MIN_COMPARE_SLOTS {
+            let words = if s.model_job.is_pending() { "Reading the models…" } else { "Pick two models to compare." };
+            menu = menu.child(text(words).font(l.ty.label).color(l.c("text-muted")));
         }
         return Some(col().w_full().gap(6.0).child(r).child(menu));
     }

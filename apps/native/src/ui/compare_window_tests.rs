@@ -819,3 +819,161 @@ fn comparison_sidebar_retries_only_show_current_answer() {
     click(&mut rt, &format!("sidebar-compare-{id}"));
     assert_eq!(rt.state.compare.active_id.as_deref(), Some(id.as_str()));
 }
+
+fn default_catalog(models: &[(&str, &[&str])]) -> Vec<engine::Models> {
+    models.iter().map(|(runtime, ids)| engine::Models {
+        teammate: None, runtime: (*runtime).into(), model: None, effort: None,
+        models: ids.iter().map(|id| engine::Model {
+            id: (*id).into(), name: (*id).into(), efforts: vec!["low".into(), "medium".into()],
+        }).collect(),
+    }).collect()
+}
+
+fn default_pick_state(models: &[(&str, &[&str])]) -> State {
+    let mut s = State::default();
+    s.models.insert("tm_codec".into(), default_catalog(models));
+    s
+}
+
+fn composer_model(s: &mut State, runtime: &str, model: &str, effort: Option<&str>) {
+    let mut mate = teammate(Path::new("."));
+    mate.runtime = Some(runtime.into());
+    apply_team(s, vec![mate]);
+    s.picks.insert("tm_codec".into(), TurnPick {
+        model: model.into(), runtime: Some(runtime.into()), effort: effort.map(Into::into), account: None,
+    });
+}
+
+fn default_routes(s: &State) -> Vec<String> {
+    s.compare.picks.iter().map(|pick| format!("{}:{}", pick.runtime, pick.model)).collect()
+}
+
+const DEFAULT_CATALOG: &[(&str, &[&str])] = &[
+    ("claude", &["opus", "sonnet"]),
+    ("codex", &["gpt-6-sol"]),
+    ("opencode", &["opencode/nemotron-3-ultra-free"]),
+];
+
+#[test]
+fn compare_view_starts_with_the_composer_and_a_recent_other_maker() {
+    // case: are what is in the box, then another maker this person has run
+    let (_dirs, store, mut rt) = window();
+    let _hooks = native::hooks::install(store, None);
+    rt.update(|s, _| {
+        s.compare.picks.clear();
+        composer_model(s, "claude", "opus", None);
+        s.models.insert("tm_codec".into(), default_catalog(&[
+            ("claude", &["sonnet", "opus"]),
+            ("opencode", &["opencode/nemotron-3-ultra-free"]),
+            ("codex", &["gpt-6-sol"]),
+        ]));
+        s.recent_route_keys = vec!["claude:sonnet".into(), "codex:gpt-6-sol".into()];
+    });
+    click(&mut rt, "compare-mode-chip");
+    click(&mut rt, "compare-mode-compare");
+    assert_eq!(default_routes(&rt.state), ["claude:opus", "codex:gpt-6-sol"]);
+    assert_eq!(rt.state.compare.picks[0].label.as_deref(), Some("opus"));
+    for index in 0..2 {
+        click(&mut rt, &format!("compare-pick-{index}"));
+        assert_eq!(rt.state.compare.model_menu, Some(index));
+        click(&mut rt, &format!("compare-pick-{index}"));
+    }
+}
+
+#[test]
+fn compare_view_does_not_default_to_account_default() {
+    // case: never start on "Account default", which names no model
+    let mut s = default_pick_state(DEFAULT_CATALOG);
+    composer_model(&mut s, "claude", "account-default", None);
+    s.recent_route_keys = vec!["claude:account-default".into(), "claude:sonnet".into()];
+    compare_view::ensure_default_picks(&mut s);
+    assert_eq!(default_routes(&s), ["claude:sonnet", "codex:gpt-6-sol"]);
+}
+
+#[test]
+fn compare_view_skips_refused_and_not_ready_agents() {
+    // case: skip a model that cannot join, or whose runtime is not ready
+    use locust_core::agents::{Auth, Found, Probe};
+    let mut s = default_pick_state(&[("apple", &["on-device"]), ("codex", &["gpt-6-sol"]), ("claude", &["sonnet"]), ("opencode", &["free"])]);
+    composer_model(&mut s, "apple", "on-device", None);
+    s.compare.changes = true;
+    s.recent_route_keys = vec!["codex:gpt-6-sol".into()];
+    s.settings_panel.agents = Some(["apple", "codex", "claude", "opencode"].into_iter().map(|id| Found {
+        id: id.into(), display_name: id.into(), installed: true, version: None,
+        auth: Auth::Unknown, ready: id != "codex", status: if id == "codex" { Probe::Offline } else { Probe::Ready },
+        unsupported_note: None, through_cli: false, checking: false,
+    }).collect());
+    compare_view::ensure_default_picks(&mut s);
+    assert_eq!(default_routes(&s), ["claude:sonnet", "opencode:free"]);
+}
+
+#[test]
+fn compare_view_uses_two_from_one_agent_or_none_when_only_one_can_join() {
+    // case: are two of one maker when only one is ready, and none when fewer than two can join
+    let mut s = default_pick_state(&[("claude", &["opus", "sonnet"])]);
+    compare_view::ensure_default_picks(&mut s);
+    assert_eq!(default_routes(&s), ["claude:opus", "claude:sonnet"]);
+    let mut s = default_pick_state(&[("claude", &["opus"])]);
+    compare_view::ensure_default_picks(&mut s);
+    assert!(s.compare.picks.is_empty());
+}
+
+#[test]
+fn compare_view_stays_free_when_first_is_free() {
+    // case: stay free when the first is free (0.515): a free teammate is not compared against a paid model nobody chose
+    let mimo = "opencode/mimo-v2.6-flash-free";
+    let longcat = "opencode/longcat-2.5-preview-free";
+    for (catalog, second) in [(&[mimo, longcat][..], "opencode:opencode/longcat-2.5-preview-free"), (&[mimo][..], "codex:gpt-6.1-sol")] {
+        let mut s = default_pick_state(&[("opencode", catalog), ("codex", &["gpt-6.1-sol"])]);
+        composer_model(&mut s, "opencode", mimo, None);
+        compare_view::ensure_default_picks(&mut s);
+        assert_eq!(default_routes(&s), ["opencode:opencode/mimo-v2.6-flash-free", second]);
+    }
+}
+
+#[test]
+fn compare_view_prioritizes_answered_free_models_then_steady_ones() {
+    // case: take, as the second free one, a free model that has answered here over the first listed (0.517)
+    let mimo = "opencode/mimo-v2.6-flash-free";
+    let ling = "opencode/ling-3.0-flash-fin-free";
+    let glm = "opencode/glm-5.3-flash-free";
+    for (answered, recent, second) in [(Some(glm), Some(ling), glm), (None, None, glm), (Some(ling), None, ling)] {
+        let mut s = default_pick_state(&[("opencode", &[mimo, ling, glm])]);
+        composer_model(&mut s, "opencode", mimo, None);
+        if let Some(answered) = answered {
+            s.ledger_summaries.insert("answer".into(), ledger::Summary {
+                runtime: "opencode".into(), model: answered.into(), updated: "2026-09-28T12:00:00.000Z".into(),
+                ..Default::default()
+            });
+        }
+        if let Some(recent) = recent {
+            s.recent_route_keys.push(format!("opencode:{recent}"));
+        }
+        compare_view::ensure_default_picks(&mut s);
+        assert_eq!(s.compare.picks.iter().map(|pick| pick.model.as_str()).collect::<Vec<_>>(), [mimo, second]);
+    }
+}
+
+#[test]
+fn compare_view_catalog_does_not_suggest_older_or_own_routes() {
+    // case: leave out older models and the person's own
+    let mut s = default_pick_state(&[
+        ("claude", &["claude-haiku-4-5-20251001", "opus"]),
+        ("opencode", &["own-7bb317a3/mine"]),
+        ("codex", &["gpt-6-sol"]),
+    ]);
+    compare_view::ensure_default_picks(&mut s);
+    assert_eq!(default_routes(&s), ["claude:opus", "codex:gpt-6-sol"]);
+}
+
+#[test]
+fn compare_view_keeps_the_composer_effort_only_on_column_a() {
+    // case: keeps the box's effort on the first column (0.545, Sol: Flash Low opened Compare on Medium)
+    let mut s = default_pick_state(DEFAULT_CATALOG);
+    composer_model(&mut s, "claude", "opus", Some("low"));
+    s.recent_route_keys.push("codex:gpt-6-sol".into());
+    compare_view::ensure_default_picks(&mut s);
+    assert_eq!(default_routes(&s), ["claude:opus", "codex:gpt-6-sol"]);
+    assert_eq!(s.compare.picks[0].effort.as_deref(), Some("low"));
+    assert_eq!(s.compare.picks[1].effort, None);
+}

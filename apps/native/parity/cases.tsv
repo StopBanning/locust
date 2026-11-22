@@ -3211,6 +3211,14 @@ apps/desktop/src/renderer/src/a-comparison-is-one-row.test.ts	lists a kept one a
 apps/desktop/src/renderer/src/a-comparison-is-one-row.test.ts	still lists it once after columns were tried again, as a row holding a current answer (0.444)	yes
 apps/desktop/src/renderer/src/a-comparison-shows-its-models-on-hover.test.tsx	uses the full visible comparison label for the route chip hover, including blind labels	no
 apps/desktop/src/renderer/src/a-comparison-shows-its-models-on-hover.test.tsx	draws the judge as a styled select with a decorative standard chevron and all model options	no
+apps/desktop/src/renderer/src/a-comparison-starts-on-two-models.test.ts	are what is in the box, then another maker this person has run	yes
+apps/desktop/src/renderer/src/a-comparison-starts-on-two-models.test.ts	never start on "Account default", which names no model	yes
+apps/desktop/src/renderer/src/a-comparison-starts-on-two-models.test.ts	skip a model that cannot join, or whose runtime is not ready	yes
+apps/desktop/src/renderer/src/a-comparison-starts-on-two-models.test.ts	are two of one maker when only one is ready, and none when fewer than two can join	yes
+apps/desktop/src/renderer/src/a-comparison-starts-on-two-models.test.ts	stay free when the first is free (0.515): a free teammate is not compared against a paid model nobody chose	yes
+apps/desktop/src/renderer/src/a-comparison-starts-on-two-models.test.ts	take, as the second free one, a free model that has answered here over the first listed (0.517)	yes
+apps/desktop/src/renderer/src/a-comparison-starts-on-two-models.test.ts	leave out older models and the person's own	yes
+apps/desktop/src/renderer/src/a-comparison-starts-on-two-models.test.ts	keeps the box's effort on the first column (0.545, Sol: Flash Low opened Compare on Medium)	yes
 apps/desktop/src/renderer/src/a-comparison-that-edits-says-what-each-changed.test.tsx	says each model changes its own copy, and only the kept one comes into the folder	no
 apps/desktop/src/renderer/src/a-comparison-that-edits-says-what-each-changed.test.tsx	on Auto, says a model can still change files outside its copy	no
 apps/desktop/src/renderer/src/a-comparison-that-edits-says-what-each-changed.test.tsx	in a folder too big to copy, says they all work in the folder itself, and Keep brings nothing in	no
