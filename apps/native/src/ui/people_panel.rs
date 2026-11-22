@@ -112,8 +112,18 @@ pub(super) fn heard_memory_changed(s: &mut State, changed: &locust_core::people:
     s.people_panel.memory_notice = crate::memory_card::memory_changed_notice(&update);
     s.people_panel.memory_notice_waits = crate::memory_card::notice_waits(&update);
     // The screen reads memory again, so what changed is drawn with the notice.
+    refresh_memories(s);
     if s.people_panel.open {
         reload(s);
+    }
+}
+/// The thread reads saved memories even when the Memory screen has never been opened.
+pub(super) fn refresh_memories(s: &mut State) {
+    if let Some(store) = &s.data {
+        match people::memories(store) {
+            Ok(memories) => s.people_panel.memories = memories,
+            Err(_) => s.people_panel.memories = Value::Null,
+        }
     }
 }
 fn request_month(s: &mut State) {

@@ -400,6 +400,7 @@ fn begin_ledger(
         s.status_tone = StatusTone::Red;
         return;
     };
+    people_panel::refresh_memories(s);
     s.ledger_job.cancel();
     if s.ledger.as_ref().and_then(|pane| pane.conversation.conversation_id.as_deref()) != Some(id.as_str()) {
         s.earlier_turn_budgets.clear();
@@ -3414,6 +3415,7 @@ fn main() {
             ("recovery-light", recovery_light_scene),
             ("org-sidebar", org_sidebar_scene),
             ("sidebar-sources", sidebar_sources_scene),
+            ("thread-memories", thread_memories_scene),
             ("sidebar-sources-open", sidebar_sources_open_scene),
             ("org-sidebar-light", org_sidebar_light_scene),
             ("org-search", org_search_scene),

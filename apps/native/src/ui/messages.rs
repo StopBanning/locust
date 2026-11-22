@@ -257,6 +257,7 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                 user_index += 1;
                 if ui > 0 {
                     messages = emit_turn_peers(messages, ui - 1, false);
+                    messages = messages.children(crate::memory_card::view(s, s.ledger.as_ref().and_then(|pane| person_turn_at(&pane.snapshot.turn_metas, ui - 1).and_then(|i| pane.snapshot.turn_metas.get(i))).map(|m| m.mission_id.as_str()), p));
                     messages = emit_turn_peers(messages, ui, true);
                 }
                 // The ui-th bubble's own turn: a fix turn Locust sent draws a line, not a bubble, so it is passed over.
@@ -526,6 +527,7 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
         messages = messages.child(content.key(key));
     }
     messages = emit_turn_peers(messages, user_index.saturating_sub(1), false);
+    messages = messages.children(crate::memory_card::view(s, s.ledger.as_ref().and_then(|pane| pane.snapshot.turn_metas.last()).map(|m| m.mission_id.as_str()), p));
     messages = emit_group_lines_at(
         messages,
         &group_joins,

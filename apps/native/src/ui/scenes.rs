@@ -1126,3 +1126,16 @@ pub(super) fn sidebar_sources_open_scene(s: &mut State) {
     sidebar_sources_scene(s);
     s.sidebar_source_open = true;
 }
+
+/// Memories learned on the first and newest turns, with the first disclosure open.
+pub(super) fn thread_memories_scene(s: &mut State) {
+    team_scene(s);
+    s.people_panel.memories = serde_json::json!({"memories":[
+        {"missionId":"memory-first","by":{"name":"Wren"},"text":"Tests run before a commit.","status":"kept"},
+        {"missionId":"memory-last","by":{"name":"Wren"},"text":"Uses tabs.","status":"kept"}
+    ]});
+    let header=s.teammates[0].clone();
+    let items=vec![ledger::Item::User("Remember the test command.".into()),ledger::Item::Assistant{item_id:"memory-a".into(),text:"Remembered for this project.".into(),r#final:true},ledger::Item::User("What else should stay?".into()),ledger::Item::Assistant{item_id:"memory-b".into(),text:"Your indentation preference.".into(),r#final:true}];
+    s.ledger=Some(LedgerPane{cold_tip:None,header,conversation:Conversation{conversation_id:Some("memory-first".into()),turns:vec![]},items,dir:Default::default(),worker:None,snapshot:ledger::Snapshot{turn_metas:["memory-first","memory-last"].into_iter().map(|id|ledger::Metadata{mission_id:id.into(),..Default::default()}).collect(),tip:"memory-last".into(),..Default::default()},due:0.0,loading:false,after_tip:None,after_tip_deadline:None,backoff:0.0});
+    s.activity_open.insert("turn-memory-memory-first".into(),true);
+}
