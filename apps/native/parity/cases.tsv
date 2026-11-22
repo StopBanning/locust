@@ -2151,6 +2151,15 @@ apps/desktop/src/main/other-apps-can-only-ask-locust-teammates.test.ts	never run
 apps/desktop/src/main/other-apps-can-only-ask-locust-teammates.test.ts	passes the runner's own refusal through, unchanged	yes
 apps/desktop/src/main/other-apps-can-only-ask-locust-teammates.test.ts	reads status only for routines this server started: the step, a waiting card, then the last step's answer	yes
 apps/desktop/src/main/other-apps-can-only-ask-locust-teammates.test.ts	says a held run, a failing check and changes still waiting for Keep or Discard, in Locust's words	yes
+apps/desktop/src/main/other-apps-need-a-current-local-token.test.ts	keeps each teammate's own mode off by default, saves the switch, and keeps it across a restart and the server switch	yes
+apps/desktop/src/main/other-apps-need-a-current-local-token.test.ts	lets an editor answer cards only once the person turns it on, and keeps that and the editor across a restart	yes
+apps/desktop/src/main/other-apps-need-a-current-local-token.test.ts	is off by default, with no connection file or listening socket	yes
+apps/desktop/src/main/other-apps-need-a-current-local-token.test.ts	binds only loopback, rejects no/wrong/stale tokens before an unfinished body, and closes while off	yes
+apps/desktop/src/main/other-apps-need-a-current-local-token.test.ts	writes no bearer bytes until account-only file permissions succeed, and fails closed if they cannot	yes
+apps/desktop/src/main/other-apps-need-a-current-local-token.test.ts	revokes a valid request while its body is still arriving	yes
+apps/desktop/src/main/other-apps-need-a-current-local-token.test.ts	refuses browser origins and non-tool routes before reading their bodies	yes
+apps/desktop/src/main/other-apps-need-a-current-local-token.test.ts	keeps setup text token-free and safely quotes spaces, backslashes and PowerShell expansion	yes
+apps/desktop/src/main/other-apps-need-a-current-local-token.test.ts	remembers enabling across app restarts but never reuses the old token, and disposes without reopening	yes
 apps/desktop/src/main/other-apps-reach-locust-through-stdio.test.ts	advertises exactly the twelve tools, with Ask mode and spend made explicit	yes
 apps/desktop/src/main/other-apps-reach-locust-through-stdio.test.ts	answers every tool call with the required plain sentence when Locust is not running	yes
 apps/desktop/src/main/other-apps-reach-locust-through-stdio.test.ts	also runs through Electron in Node mode, without launching the desktop app	no
