@@ -58,7 +58,7 @@ import { createLocustMcpTools } from './locust-mcp-tools.js'
 import { checkAppFolder } from './app-folder.js'
 import { createLocustCliSessions } from './locust-cli-sessions.js'
 import { REMOTE_MCP_CHANGED, REMOTE_MCP_DECIDE, REMOTE_MCP_GET, REMOTE_MCP_REMOVE, REMOTE_MCP_SET } from '../shared/remote-mcp.js'
-import { createRemoteMcp, REMOTE_MCP_FILE } from './remote-mcp.js'
+import { computerLabel, createRemoteMcp, REMOTE_MCP_FILE } from './remote-mcp.js'
 import { LOCUST_MCP_CLAUDE_APP, LOCUST_MCP_CLAUDE_APP_RESTART, LOCUST_MCP_CLAUDE_APP_SET, LOCUST_MCP_GET, LOCUST_MCP_SET, LOCUST_MCP_SET_CONVERSATIONS, LOCUST_MCP_SET_EDITOR_ANSWERS, LOCUST_MCP_SET_OWN_MODE } from '../shared/locust-mcp.js'
 import { createPageServer, fromPagePreview, pageMayReach, PAGE_SCHEME } from './page-preview.js'
 import { CANCEL_SCRIPT, captureRectOf, pageFrameOf, pickInFrame } from './page-pick.js'
@@ -10696,6 +10696,7 @@ if (!ownsSingleInstanceLock) {
       call: (name, args) => mcpTools(name, args),
       address: () => phoneAnywhere.mcpAddress(),
       open: (on) => phoneAnywhere.mcpOpen(on),
+      computer: () => computerLabel(hostname(), process.platform),
       refusal: () => policyFeatureRefusal(organizationPolicy, 'otherApps') ?? policyFeatureRefusal(organizationPolicy, 'phone'),
       changed: (state) => { if (approvalWindow !== undefined && !approvalWindow.isDestroyed() && !approvalWindow.webContents.isDestroyed()) approvalWindow.webContents.send(REMOTE_MCP_CHANGED, state) },
       asked: (name) => { attention.connectAsked(name) },

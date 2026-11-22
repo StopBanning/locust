@@ -9,7 +9,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { roomCore, type Attachment, type Peer, type RoomHost } from '../../../relay/src/room-core.js'
 import type { RelayFrame } from '../../../relay/src/protocol.js'
 import { mcpText } from './locust-mcp-host.js'
-import { createRemoteMcp, REMOTE_MCP_TOOLS } from './remote-mcp.js'
+import { computerLabel, createRemoteMcp, REMOTE_MCP_TOOLS } from './remote-mcp.js'
 
 /**
  * AN APP USES THE TEAM FROM ANYWHERE (0.841). Claude on the web connects to Locust through the relay the way MCP signs
@@ -22,7 +22,7 @@ const hash = (text: string): string => createHash('sha256').update(text).digest(
 const folders: string[] = []
 afterEach(async () => { await Promise.all(folders.splice(0).map((folder) => rm(folder, { recursive: true, force: true }))) })
 
-async function world() {
+async function world(computer?: string) {
   const folder = await mkdtemp(join(tmpdir(), 'locust-remote-mcp-'))
   folders.push(folder)
   let now = 1_800_000_000_000
@@ -53,7 +53,8 @@ async function world() {
     call: async (name, args) => { calls.push([name, args]); return { ...mcpText(JSON.stringify([{ id: 'tm_wren', name: 'Wren' }])), structuredContent: { status: 'working', runtime: 'cursor', model: 'grok', folder: '/work/conversation', can_carry_on: false } } },
     address: () => 'https://app.locust.lol/v1/room/r/mcp',
     open: async (on) => { await core.message(pc, JSON.stringify({ t: on ? 'mcp-open' : 'mcp-close', id: 'o' })); return true },
-    now: () => now
+    now: () => now,
+    ...(computer === undefined ? {} : { computer: () => computer })
   })
   await core.message(pc, JSON.stringify({ t: 'auth', as: 'pc', token: randomBytes(32).toString('base64url') }))
   /** room.ts's held request: registered under its name, sent, and its answer waited for. */
@@ -101,6 +102,32 @@ async function connected(room: Awaited<ReturnType<typeof world>>) {
 }
 
 describe('an app from anywhere', () => {
+  // case: "having both of my locust accounts connected to Claude ... sometimes it won't recognize the windows one even
+  // if it's on" (a person with Locust on a Mac and a Windows PC, 22 Nov). Both said they were "locust" with the same
+  // tools word for word, so Claude could not tell which computer each connector reached.
+  it('says which computer it is, in its name, its instructions and every tool, so two computers can be told apart', async () => {
+    const room = await world('DESKTOP-7Q2 (Windows)')
+    await room.remote.setEnabled(true)
+    const { keys } = await connected(room)
+    const init = await room.rpc(keys.access_token!, 'initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'claude' } })
+    expect(init.json?.result.serverInfo).toMatchObject({ name: 'locust', title: 'Locust on DESKTOP-7Q2 (Windows)' })
+    expect(init.json?.result.instructions).toMatch(/^This is Locust on DESKTOP-7Q2 \(Windows\)\..*each is a connector of its own/)
+    const tools = (await room.rpc(keys.access_token!, 'tools/list')).json?.result.tools as { name: string; description: string }[]
+    expect(tools.map((tool) => tool.name)).toEqual(REMOTE_MCP_TOOLS.map((tool) => tool.name))
+    for (const tool of tools) {
+      const own = REMOTE_MCP_TOOLS.find((one) => one.name === tool.name)!
+      expect(tool.description).toBe(`${own.description} (Locust on DESKTOP-7Q2 (Windows).)`)
+    }
+  })
+
+  it('names a computer the way its owner knows it', () => {
+    expect(computerLabel('Colins-Mac-mini.local', 'darwin')).toBe('Colins-Mac-mini (Mac)')
+    expect(computerLabel('DESKTOP-7Q2', 'win32')).toBe('DESKTOP-7Q2 (Windows)')
+    expect(computerLabel('box.lan', 'linux')).toBe('box (Linux)')
+    expect(computerLabel('', 'win32')).toBe('this Windows')
+    expect(computerLabel('a<b>"c', 'freebsd')).toBe('abc')
+  })
+
   it('signs in only when the person allows its card, which shows the six digits its page does', async () => {
     const room = await world()
     expect((await room.signIn()).page).toEqual({ page: 'off' })

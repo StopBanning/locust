@@ -99,6 +99,19 @@ export function hostOf(redirect: string): string {
   } catch { return 'an address it did not make clear' }
 }
 
+/** What an app is told of the computer it reached: the person's name for it, and which kind it is. */
+const onComputer = (computer: string): string =>
+  `This is Locust on ${computer}. Its teammates work in folders on that computer only. When the person has Locust on more ` +
+  'than one computer, each is a connector of its own: use the one on the computer they name, and say which one you used.'
+
+/** The computer's name as its owner knows it: the host name without its network domain, and Mac, Windows or Linux. */
+export function computerLabel(host: string, platform: string): string {
+  const name = host.replace(/\.(local|lan|home|localdomain)$/i, '').replace(/[^A-Za-z0-9 ._'-]/g, '').trim().slice(0, 60)
+  const kind = platform === 'darwin' ? 'Mac' : platform === 'win32' ? 'Windows' : platform === 'linux' ? 'Linux' : undefined
+  if (name.length === 0) return kind === undefined ? 'this computer' : `this ${kind}`
+  return kind === undefined ? name : `${name} (${kind})`
+}
+
 export function createRemoteMcp(options: {
   readonly file: string
   /** Locust's tool calls, as an app on this computer makes them. */
@@ -114,6 +127,8 @@ export function createRemoteMcp(options: {
   readonly asked?: (name: string) => void
   readonly now?: () => number
   readonly version?: string
+  /** Which computer this is, as an app is told it (computerLabel): with Locust on two computers, each is a connector of its own. */
+  readonly computer?: () => string | undefined
 }) {
   const now = options.now ?? Date.now
   let saved: Saved = { v: 1, enabled: false, grants: [] }
@@ -250,10 +265,21 @@ export function createRemoteMcp(options: {
     const params = typeof request.params === 'object' && request.params !== null ? request.params as Record<string, unknown> : {}
     if (method === 'initialize') {
       const asked = PROTOCOLS.find((one) => one === params.protocolVersion)
-      return rpc(request.id, { protocolVersion: asked ?? PROTOCOLS[0], capabilities: { tools: {} }, serverInfo: { name: 'locust', version: options.version ?? '1' } })
+      const computer = options.computer?.()
+      return rpc(request.id, {
+        protocolVersion: asked ?? PROTOCOLS[0],
+        capabilities: { tools: {} },
+        serverInfo: { name: 'locust', version: options.version ?? '1', ...(computer === undefined ? {} : { title: `Locust on ${computer}` }) },
+        ...(computer === undefined ? {} : { instructions: onComputer(computer) })
+      })
     }
     if (method === 'ping') return rpc(request.id, {})
-    if (method === 'tools/list') return rpc(request.id, { tools: REMOTE_MCP_TOOLS })
+    if (method === 'tools/list') {
+      // Every Locust's tools have one name and one description: an app with two connected (a Mac and a Windows PC)
+      // could not tell them apart, and called the one it met first (22 Nov, a person with both). Each tool says its computer.
+      const computer = options.computer?.()
+      return rpc(request.id, { tools: computer === undefined ? REMOTE_MCP_TOOLS : REMOTE_MCP_TOOLS.map((tool) => ({ ...tool, description: `${tool.description} (Locust on ${computer}.)` })) })
+    }
     if (method === 'tools/call') {
       const tool = REMOTE_MCP_TOOLS.find((one) => one.name === params.name)
       if (tool === undefined) return rpcError(request.id, -32602, 'Unknown Locust tool.')
