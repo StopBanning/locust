@@ -2404,6 +2404,26 @@ apps/desktop/src/main/scout-says-what-it-saw.test.ts	says why GitHub was not rea
 apps/desktop/src/main/scout-says-what-it-saw.test.ts	says a card that was raised but kept off the phone, and why	yes
 apps/desktop/src/main/scout-says-what-it-saw.test.ts	keeps looks that found the same as one, and nothing older than fourteen days	no
 apps/desktop/src/main/scout-says-what-it-saw.test.ts	gives a question to Scout the record, newest first, each look by the name its answer must use	no
+apps/desktop/src/main/scout-turns-your-comments-into-asks.test.ts	reads the signed-in login once and a single since-bounded comments page per look	yes
+apps/desktop/src/main/scout-turns-your-comments-into-asks.test.ts	ignores another author, an old comment edited today, and an inline trigger	yes
+apps/desktop/src/main/scout-turns-your-comments-into-asks.test.ts	routes a named teammate without changing the task and marks all issue context as other authors words	yes
+apps/desktop/src/main/scout-turns-your-comments-into-asks.test.ts	leaves an unknown name in the ask, retains following lines, and accepts issue links too	yes
+apps/desktop/src/main/scout-turns-your-comments-into-asks.test.ts	does not read old asks on the first look or repeat an edited ask after restart	yes
+apps/desktop/src/main/scout-turns-your-comments-into-asks.test.ts	does not turn a previously read ordinary comment into a new ask after an edit	yes
+apps/desktop/src/main/scout-turns-your-comments-into-asks.test.ts	treats a missing CLI, signed-out user, or non-GitHub folder as no news	yes
+apps/desktop/src/main/scout-turns-your-comments-into-asks.test.ts	pages a full response on the next look with no second list call in either look	yes
+apps/desktop/src/main/scout-turns-your-comments-into-asks.test.ts	drafts a named ask without a model and remembers its id across looks and restarts	yes
+apps/desktop/src/main/scout-turns-your-comments-into-asks.test.ts	does not read while Scout or the comment watch is off	yes
+apps/desktop/src/main/scout-turns-your-comments-into-asks.test.ts	starts the watermark when enabled even before any GitHub response	yes
+apps/desktop/src/main/scout-turns-your-comments-into-asks.test.ts	offers an unnamed ask to the last teammate, then preserves its own draft when the model routes it	yes
+apps/desktop/src/main/scout-turns-your-comments-into-asks.test.ts	raises the full answer only for the started ask, including a turn completed before binding	yes
+apps/desktop/src/main/scout-turns-your-comments-into-asks.test.ts	recovers a tracked terminal answer after restart	yes
+apps/desktop/src/main/scout-turns-your-comments-into-asks.test.ts	raises a failed turn with its reason and Open it, with no Post	yes
+apps/desktop/src/main/scout-turns-your-comments-into-asks.test.ts	does not post until pressed and sends edited text through fake gh stdin to the right endpoint	yes
+apps/desktop/src/main/scout-turns-your-comments-into-asks.test.ts	records an attempt before gh runs and refuses simultaneous presses or edits	yes
+apps/desktop/src/main/scout-turns-your-comments-into-asks.test.ts	says why a post failed and never retries after looks or restart	yes
+apps/desktop/src/main/scout-turns-your-comments-into-asks.test.ts	does not call gh when the attempt marker cannot be saved	yes
+apps/desktop/src/main/scout-turns-your-comments-into-asks.test.ts	refuses malformed targets before calling gh	yes
 apps/desktop/src/main/scouts-cards-are-on-your-phone.test.ts	in Locust’s words, newest first, with a GitHub link only, and nothing the window keeps	yes
 apps/desktop/src/main/scouts-cards-are-on-your-phone.test.ts	dismisses a card the phone names, and nothing that is not a card’s id	yes
 apps/desktop/src/main/scouts-cards-are-on-your-phone.test.ts	has the page show them, and what the away looks found with the computer off	no
