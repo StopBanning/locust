@@ -4891,6 +4891,17 @@ apps/desktop/src/renderer/src/run-it-again-repeats-nothing.test.ts	H4: a run tha
 apps/desktop/src/renderer/src/run-it-again-repeats-nothing.test.ts	is still true for a run that never reached its runtime: its failure and the host’s notes	yes
 apps/desktop/src/renderer/src/run-it-again-repeats-nothing.test.ts	counts a runtime thread on any event as a start	yes
 apps/desktop/src/renderer/src/run-it-again-repeats-nothing.test.ts	H4: keeps its first event past the cap, so a failed turn still reads as started	yes
+apps/desktop/src/renderer/src/savable-conversations.test.ts	are the finished ones, newest first	yes
+apps/desktop/src/renderer/src/savable-conversations.test.ts	are never a run that failed, was cancelled, was interrupted or is still going	yes
+apps/desktop/src/renderer/src/savable-conversations.test.ts	are capped, so the empty state does not become a mission list	yes
+apps/desktop/src/renderer/src/savable-conversations.test.ts	keep a conversation whose time is missing or unreadable, at the end	yes
+apps/desktop/src/renderer/src/savable-conversations.test.ts	are empty when nothing has finished, so the screen can say so honestly	yes
+apps/desktop/src/renderer/src/savable-conversations.test.ts	count their turns in words that agree with themselves	yes
+apps/desktop/src/renderer/src/savable-conversations.test.ts	is there on a finished conversation with turns of yours in it	yes
+apps/desktop/src/renderer/src/savable-conversations.test.ts	is absent while the run is going	yes
+apps/desktop/src/renderer/src/savable-conversations.test.ts	is absent on a run that failed, was cancelled or was interrupted	yes
+apps/desktop/src/renderer/src/savable-conversations.test.ts	is absent when nothing in the conversation was typed by the person	yes
+apps/desktop/src/renderer/src/savable-conversations.test.ts	is absent on a conversation whose first receipt has not landed	yes
 apps/desktop/src/renderer/src/scout-says-what-needs-you.test.tsx	lead with Locust’s sentence, say who noticed it and when, and open what it is about	no
 apps/desktop/src/renderer/src/scout-says-what-needs-you.test.tsx	raise what needs the person now, first, whenever it was found	no
 apps/desktop/src/renderer/src/scout-says-what-needs-you.test.tsx	show Scout’s take and draft as Scout’s, with Send and Change it first, and say while it is still reading	no

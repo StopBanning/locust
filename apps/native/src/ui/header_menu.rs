@@ -12,6 +12,10 @@ fn latest_turn(s: &State) -> Option<String> {
 /// The entries, in Electron's order, for the conversation on screen.
 pub(super) fn items(s: &State) -> Vec<Item> {
     let mut items = vec![Item::new(if verbose(s) { "Normal" } else { "Verbose" }, "header:verbose")];
+    // Present only where there is something to save (savableMissionId): absent, never disabled.
+    if save_as_routine_id(s).is_some() {
+        items.push(Item::new("Save conversation as routine", "header:save-routine"));
+    }
     if s.ledger.is_some() {
         items.push(Item::new("Send feedback", "header:feedback"));
     }
@@ -19,6 +23,37 @@ pub(super) fn items(s: &State) -> Vec<Item> {
         items.push(Item::new("Delete conversation", "delete").danger("Delete for good?"));
     }
     items
+}
+
+/// How the turn `mission_id` ended, as the window holds it: the open snapshot for its tip, the summaries for the rest.
+fn phase_of(s: &State, mission_id: &str) -> Option<&'static str> {
+    let pane = s.ledger.as_ref()?;
+    let sum = s.ledger_summaries.get(mission_id);
+    if pane.snapshot.tip == mission_id || pane.snapshot.turn_metas.last().is_some_and(|m| m.mission_id == mission_id) {
+        return Some(if pane.snapshot.running {
+            "running"
+        } else if pane.snapshot.failed {
+            "failed"
+        } else if sum.is_some_and(|sum| sum.cancelled) {
+            "cancelled"
+        } else {
+            "completed"
+        });
+    }
+    sum.map(|sum| if sum.running { "running" } else if sum.failed { "failed" } else if sum.cancelled { "cancelled" } else { "completed" })
+}
+
+/// The conversation on screen, when it can be saved as a routine right now (App.tsx `saveAsRoutineId`): its latest
+/// turn finished, nothing runs, and the person typed something in it. The draft is read from the turns the window
+/// already holds, the same check the shelf's Save makes, so the two entrances cannot disagree.
+pub(super) fn save_as_routine_id(s: &State) -> Option<String> {
+    let pane = s.ledger.as_ref()?;
+    let latest = pane.snapshot.turn_metas.last()?;
+    let by_id: std::collections::HashMap<String, ledger::Metadata> =
+        pane.snapshot.turn_metas.iter().map(|m| (m.mission_id.clone(), m.clone())).collect();
+    let has_draft = locust_core::routine_draft::routine_draft(latest, &by_id, |id| phase_of(s, id).map(str::to_owned)).is_some();
+    locust_core::routine_draft::savable_mission_id(Some(&latest.mission_id), phase_of(s, &latest.mission_id), turn_running(s), has_draft)
+        .map(str::to_owned)
 }
 
 /// The turns on screen as a report reads them (feedback.ts `conversationText`): what was typed, what was said, and a
@@ -59,6 +94,11 @@ pub(super) fn conversation_for_report(s: &State) -> Option<String> {
 pub(super) fn run(s: &mut State, action: &str) -> bool {
     match action {
         "header:verbose" => settings_panel::toggle_transcript_view(s),
+        "header:save-routine" => {
+            if let Some(tip) = save_as_routine_id(s) {
+                crate::routines_panel::save_conversation(s, &tip);
+            }
+        }
         "header:feedback" => {
             let conversation = conversation_for_report(s);
             crate::feedback_dialog::open(s, conversation);
