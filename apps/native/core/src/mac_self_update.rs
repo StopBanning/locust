@@ -949,3 +949,152 @@ mod tests {
         let _ = std::fs::remove_dir_all(&root);
     }
 }
+
+#[cfg(test)]
+mod discard_installed_images_tests {
+    use super::*;
+    use std::sync::atomic::AtomicUsize;
+
+    fn setup_cache() -> (PathBuf, PathBuf) {
+        let root = unique_temp_path("locust-image-cleanup-", "");
+        let cache = root.join("cache");
+        std::fs::create_dir_all(&cache).unwrap();
+        (root, cache)
+    }
+
+    // case: removes installed images at startup and preserves newer images and everything outside its exact file names
+    #[test]
+    fn removes_installed_images_at_startup_and_preserves_newer_images_and_everything_outside_its_exact_file_names()
+    {
+        let (root, cache_folder) = setup_cache();
+        let removed = [
+            "Locust-0.842.0-mac-arm64.dmg",
+            "Locust-0.843.0-mac-arm64.dmg",
+            "Locust-0.9.0-mac-x64.dmg",
+        ];
+        let kept = [
+            "Locust-0.844.0-mac-arm64.dmg",
+            "Locust-1.0.0-mac-x64.dmg",
+            "Other-0.842.0-mac-arm64.dmg",
+            "Locust-0.842.0-mac-arm64.dmg.part",
+            "Locust-0.842.0-beta-mac-arm64.dmg",
+            "Locust-0.842.0-mac-unknown.dmg",
+        ];
+        for name in removed.iter().chain(kept.iter()) {
+            std::fs::write(cache_folder.join(name), "image").unwrap();
+        }
+        let directory = "Locust-0.840.0-mac-arm64.dmg";
+        std::fs::create_dir(cache_folder.join(directory)).unwrap();
+        let outside = root.join(removed[0]);
+        std::fs::write(&outside, "outside").unwrap();
+        let link = "Locust-0.841.0-mac-arm64.dmg";
+        let mut linked = false;
+        #[cfg(unix)]
+        {
+            if std::os::unix::fs::symlink(&outside, cache_folder.join(link)).is_ok() {
+                linked = true;
+            }
+        }
+        let run_calls = Arc::new(AtomicUsize::new(0));
+        let run_calls_in = Arc::clone(&run_calls);
+        let mut updater = create_mac_updater(MacUpdaterOptions {
+            current_version: "0.843.0".into(),
+            arch: "arm64".into(),
+            bundle: root.join("Locust.app"),
+            cache_folder: cache_folder.clone(),
+            quit: Arc::new(|| {}),
+            pid: None,
+            fetch_releases: Some(Arc::new(|| Ok(serde_json::json!([])))),
+            download: None,
+            run: Some(Arc::new(move |_, _| {
+                run_calls_in.fetch_add(1, Ordering::SeqCst);
+                CommandOutput {
+                    code: Some(0),
+                    output: String::new(),
+                }
+            })),
+            start_swap: None,
+            test_image: None,
+            relaunch: Vec::new(),
+        });
+
+        let mut remaining: Vec<String> = std::fs::read_dir(&cache_folder)
+            .unwrap()
+            .flatten()
+            .filter_map(|e| e.file_name().into_string().ok())
+            .collect();
+        remaining.sort();
+        let mut expected: Vec<String> = kept
+            .iter()
+            .map(|s| (*s).to_owned())
+            .chain(std::iter::once(directory.to_owned()))
+            .collect();
+        if linked {
+            expected.push(link.to_owned());
+        }
+        expected.sort();
+        assert_eq!(remaining, expected);
+        assert!(outside.exists());
+
+        std::fs::write(cache_folder.join(removed[0]), "later").unwrap();
+        let _ = updater.check_for_updates();
+        updater.quit_and_install(None, None);
+        assert!(cache_folder.join(removed[0]).exists());
+        assert_eq!(run_calls.load(Ordering::SeqCst), 0);
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    // case: leaves ambiguous running versions alone and tolerates a cache that cannot be listed
+    #[test]
+    fn leaves_ambiguous_running_versions_alone_and_tolerates_a_cache_that_cannot_be_listed() {
+        let (root, cache_folder) = setup_cache();
+        let image = cache_folder.join("Locust-0.843.0-mac-arm64.dmg");
+        std::fs::write(&image, "image").unwrap();
+        for current_version in ["0.843.0-beta", "invalid"] {
+            let _ = create_mac_updater(MacUpdaterOptions {
+                current_version: current_version.into(),
+                arch: "arm64".into(),
+                bundle: root.join("Locust.app"),
+                cache_folder: cache_folder.clone(),
+                quit: Arc::new(|| {}),
+                pid: None,
+                fetch_releases: None,
+                download: None,
+                run: None,
+                start_swap: None,
+                test_image: None,
+                relaunch: Vec::new(),
+            });
+            assert!(image.exists());
+        }
+        let _ = create_mac_updater(MacUpdaterOptions {
+            current_version: "0.843.0".into(),
+            arch: "arm64".into(),
+            bundle: root.join("Locust.app"),
+            cache_folder: image.clone(),
+            quit: Arc::new(|| {}),
+            pid: None,
+            fetch_releases: None,
+            download: None,
+            run: None,
+            start_swap: None,
+            test_image: None,
+            relaunch: Vec::new(),
+        });
+        let _ = create_mac_updater(MacUpdaterOptions {
+            current_version: "0.843.0".into(),
+            arch: "arm64".into(),
+            bundle: root.join("Locust.app"),
+            cache_folder: root.join("missing"),
+            quit: Arc::new(|| {}),
+            pid: None,
+            fetch_releases: None,
+            download: None,
+            run: None,
+            start_swap: None,
+            test_image: None,
+            relaunch: Vec::new(),
+        });
+        let _ = std::fs::remove_dir_all(&root);
+    }
+}

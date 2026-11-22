@@ -482,6 +482,8 @@ apps/desktop/src/main/a-long-json-key-does-not-stop-a-run.test.ts	is recorded, n
 apps/desktop/src/main/a-long-judge-reads-files.test.ts	three long answers quoted do not fit one message	no
 apps/desktop/src/main/a-long-judge-reads-files.test.ts	named as files, they do, and the judge is told to read each one	no
 apps/desktop/src/main/a-long-judge-reads-files.test.ts	the host switches to files only when the quoted message is too long	no
+apps/desktop/src/main/a-mac-discards-installed-update-images.test.ts	removes installed images at startup and preserves newer images and everything outside its exact file names	yes
+apps/desktop/src/main/a-mac-discards-installed-update-images.test.ts	leaves ambiguous running versions alone and tolerates a cache that cannot be listed	yes
 apps/desktop/src/main/a-mac-opens-its-own-terminal.test.ts	goes to the folder, removes itself, and becomes the resume -- every word quoted	no
 apps/desktop/src/main/a-mac-says-when-a-new-locust-is-out.test.ts	offers the newest release that has this chip's disk image	yes
 apps/desktop/src/main/a-mac-says-when-a-new-locust-is-out.test.ts	offers nothing when this copy is already that version or newer	yes
