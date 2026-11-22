@@ -5351,6 +5351,9 @@ apps/desktop/src/renderer/src/the-picker-opens-on-what-works.test.ts	takes a gro
 apps/desktop/src/renderer/src/the-picker-opens-on-what-works.test.ts	sorts alphabetically inside a band, the way Settings already does	yes
 apps/desktop/src/renderer/src/the-picker-opens-on-what-works.test.ts	does not move a group out of its band to satisfy the alphabet	yes
 apps/desktop/src/renderer/src/the-picker-opens-on-what-works.test.ts	still sorts the active row to the top of its own group	yes
+apps/desktop/src/renderer/src/the-picker-reads-as-names.test.tsx	reads as a name rather than an identifier	yes
+apps/desktop/src/renderer/src/the-picker-reads-as-names.test.tsx	leaves a name the runtime really gave exactly as it wrote it	yes
+apps/desktop/src/renderer/src/the-picker-reads-as-names.test.tsx	reads "Account Default" in every group, as Claude Code's row does	yes
 apps/desktop/src/renderer/src/the-plus-menu-says-what-each-droplet-does.test.tsx	names each droplet in words, after the liquid and outside it	yes
 apps/desktop/src/renderer/src/the-plus-menu-says-what-each-droplet-does.test.tsx	shows the words only while the menu is open, and lets a press through only then	yes
 apps/desktop/src/renderer/src/the-plus-menu-says-what-each-droplet-does.test.tsx	draws the words on the liquid’s own surface, in both themes	yes

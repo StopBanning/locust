@@ -1139,3 +1139,12 @@ pub(super) fn thread_memories_scene(s: &mut State) {
     s.ledger=Some(LedgerPane{cold_tip:None,header,conversation:Conversation{conversation_id:Some("memory-first".into()),turns:vec![]},items,dir:Default::default(),worker:None,snapshot:ledger::Snapshot{turn_metas:["memory-first","memory-last"].into_iter().map(|id|ledger::Metadata{mission_id:id.into(),..Default::default()}).collect(),tip:"memory-last".into(),..Default::default()},due:0.0,loading:false,after_tip:None,after_tip_deadline:None,backoff:0.0});
     s.activity_open.insert("turn-memory-memory-first".into(),true);
 }
+
+pub(super) fn picker_names_scene(s: &mut State) {
+    models_scene(s);
+    s.models.insert("codec".into(), vec![engine::Models {runtime:"opencode".into(),teammate:None,model:None,effort:None,models:vec![
+        engine::Model{id:"muse-spark-1.3-contributor-free".into(),name:"muse-spark-1.3-contributor-free".into(),efforts:vec![]},
+        engine::Model{id:"cursor-grok-4.6-high".into(),name:"Cursor Grok 4.6".into(),efforts:vec![]},
+        engine::Model{id:"account-default".into(),name:"Account default".into(),efforts:vec![]}
+    ]}]);
+}
