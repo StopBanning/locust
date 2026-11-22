@@ -5602,6 +5602,11 @@ apps/desktop/src/renderer/src/the-picker-opens-on-what-works.test.ts	still sorts
 apps/desktop/src/renderer/src/the-picker-reads-as-names.test.tsx	reads as a name rather than an identifier	yes
 apps/desktop/src/renderer/src/the-picker-reads-as-names.test.tsx	leaves a name the runtime really gave exactly as it wrote it	yes
 apps/desktop/src/renderer/src/the-picker-reads-as-names.test.tsx	reads "Account Default" in every group, as Claude Code's row does	yes
+apps/desktop/src/renderer/src/the-plan-marks-the-step-underway.test.tsx	draws the orb on the running step when a turn is still going	yes
+apps/desktop/src/renderer/src/the-plan-marks-the-step-underway.test.tsx	replaces the pulsing pip rather than joining it	yes
+apps/desktop/src/renderer/src/the-plan-marks-the-step-underway.test.tsx	keeps the pip when no turn is running	yes
+apps/desktop/src/renderer/src/the-plan-marks-the-step-underway.test.tsx	never marks a done step as underway	yes
+apps/desktop/src/renderer/src/the-plan-marks-the-step-underway.test.tsx	is not told which orb to draw	yes
 apps/desktop/src/renderer/src/the-plus-menu-says-what-each-droplet-does.test.tsx	names each droplet in words, after the liquid and outside it	yes
 apps/desktop/src/renderer/src/the-plus-menu-says-what-each-droplet-does.test.tsx	shows the words only while the menu is open, and lets a press through only then	yes
 apps/desktop/src/renderer/src/the-plus-menu-says-what-each-droplet-does.test.tsx	draws the words on the liquid’s own surface, in both themes	yes
