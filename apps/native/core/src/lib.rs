@@ -160,6 +160,9 @@ pub mod phone_host;
 pub mod phone_page;
 pub mod phone_server;
 pub mod relay_crypto;
+pub mod scout_away;
+#[cfg(test)]
+mod scout_away_tests;
 pub mod web_push;
 pub mod png_text;
 pub mod profile_backup;

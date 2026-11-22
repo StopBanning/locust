@@ -1661,6 +1661,130 @@ impl Scout {
         self.load().state(self.deps.now())
     }
 
+    /// Absorbs away looks' letters once the PC is back (`scout.ts` `absorb`, 0.829 / 0.838):
+    /// `/locust` asks passed to the phone (`AWAY_ASK_KEY`) never become cards here because the
+    /// comment itself becomes the card on the PC.
+    pub fn absorb(&self, letters: &[crate::scout_away::AwayLetter]) -> ScoutState {
+        use crate::scout_away::{AWAY_ASK_KEY, AwayLetterKind, fact_of};
+        let mut looks: Vec<&crate::scout_away::AwayLetter> = letters
+            .iter()
+            .filter(|l| l.kind == AwayLetterKind::Look)
+            .collect();
+        looks.sort_by(|a, b| a.at.cmp(&b.at));
+        if looks.is_empty() {
+            return self.state();
+        }
+        for letter in &looks {
+            let at = chrono::DateTime::parse_from_rfc3339(&letter.at)
+                .unwrap_or_else(|_| self.deps.now());
+            let raised: Vec<ScoutLogItem> = letter
+                .found
+                .iter()
+                .map(|f| ScoutLogItem {
+                    key: f.key.clone(),
+                    said: f.said.clone(),
+                })
+                .collect();
+            self.log_look(look_entry(&LookEntryInput {
+                at,
+                raised: &raised,
+                aside: &[],
+                off: &[],
+                github_unread: !letter.read,
+                github: None,
+                skipped_quiet_hours: false,
+                away: true,
+            }));
+        }
+        let mut newest: Vec<(String, crate::scout_away::AwayFinding, String)> = Vec::new();
+        for letter in &looks {
+            for finding in &letter.found {
+                if finding.key.starts_with(AWAY_ASK_KEY) {
+                    continue;
+                }
+                if let Some(pos) = newest.iter().position(|(k, _, _)| k == &finding.key) {
+                    newest[pos] = (finding.key.clone(), finding.clone(), letter.at.clone());
+                } else {
+                    newest.push((finding.key.clone(), finding.clone(), letter.at.clone()));
+                }
+            }
+        }
+        let read_prs = looks
+            .iter()
+            .rev()
+            .find(|l| l.read)
+            .map(|l| l.prs.clone());
+        let brief_day = looks
+            .iter()
+            .filter_map(|l| l.brief_day.as_ref())
+            .max()
+            .cloned();
+        self.mutate(|latest| {
+            let seen: HashSet<&str> = latest.seen.iter().map(String::as_str).collect();
+            let fresh: Vec<&(String, crate::scout_away::AwayFinding, String)> = newest
+                .iter()
+                .filter(|(k, _, _)| !seen.contains(k.as_str()))
+                .collect();
+            let last_brief_key = fresh
+                .iter()
+                .rev()
+                .find(|(k, _, _)| k.starts_with("brief:"))
+                .map(|(k, _, _)| k.as_str());
+            let mut cards = Vec::new();
+            for (idx, (k, finding, at_str)) in fresh.iter().enumerate() {
+                if k.starts_with("brief:") && Some(k.as_str()) != last_brief_key {
+                    continue;
+                }
+                let mut fact = fact_of(finding);
+                let mut chips = fact.chips.unwrap_or_default();
+                chips.push(crate::scout::types::ScoutChip::new(
+                    "while your PC was off",
+                    crate::scout::types::ScoutTone::Quiet,
+                ));
+                fact.chips = Some(chips);
+                let at = chrono::DateTime::parse_from_rfc3339(at_str)
+                    .unwrap_or_else(|_| self.deps.now());
+                cards.push(card_of(fact, format!("card_away_{idx}"), at, false));
+            }
+            let new_brief = cards.iter().any(|c| c.fact.key.starts_with("brief:"));
+            let mut next = latest.clone();
+            let existing: Vec<ScoutCard> = if new_brief {
+                next.cards
+                    .into_iter()
+                    .filter(|c| !c.fact.key.starts_with("brief:"))
+                    .collect()
+            } else {
+                next.cards
+            };
+            next.cards = with_new_cards(&existing, &cards);
+            for letter in &looks {
+                for key in &letter.told {
+                    if !next.seen.iter().any(|s| s == key) {
+                        next.seen.push(key.clone());
+                    }
+                }
+            }
+            for card in &cards {
+                if !next.seen.iter().any(|s| s == &card.fact.key) {
+                    next.seen.push(card.fact.key.clone());
+                }
+            }
+            if next.seen.len() > MAX_SCOUT_SEEN {
+                let start = next.seen.len() - MAX_SCOUT_SEEN;
+                next.seen.drain(..start);
+            }
+            if let Some(prs) = &read_prs {
+                next.prs = prs.clone();
+            }
+            if let Some(day) = &brief_day
+                && next.last_brief_day.as_deref().is_none_or(|d| day.as_str() > d)
+            {
+                next.last_brief_day = Some(day.clone());
+            }
+            next
+        })
+    }
+
     pub fn log(&self) -> ScoutLogSnapshot {
         ScoutLogSnapshot {
             entries: self.load_log(),

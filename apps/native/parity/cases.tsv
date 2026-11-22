@@ -3093,6 +3093,15 @@ apps/desktop/src/main/your-github-is-connected-through-gh.test.ts	shows the code
 apps/desktop/src/main/your-github-is-connected-through-gh.test.ts	runs one sign-in at a time, and Stop ends it	yes
 apps/desktop/src/main/your-github-is-connected-through-gh.test.ts	stops waiting when the code runs out	yes
 apps/desktop/src/main/your-github-is-connected-through-gh.test.ts	says what gh said when GitHub refused	yes
+apps/desktop/src/main/your-locust-ask-reaches-your-phone-while-the-pc-is-off.test.ts	goes to your phone at once, sealed, ringing it	yes
+apps/desktop/src/main/your-locust-ask-reaches-your-phone-while-the-pc-is-off.test.ts	does nothing for anyone else’s comment, or one that asks Locust nothing	yes
+apps/desktop/src/main/your-locust-ask-reaches-your-phone-while-the-pc-is-off.test.ts	leaves it to Locust when your computer is on	yes
+apps/desktop/src/main/your-locust-ask-reaches-your-phone-while-the-pc-is-off.test.ts	is passed on once, and rings no phone in quiet hours	yes
+apps/desktop/src/main/your-locust-ask-reaches-your-phone-while-the-pc-is-off.test.ts	is read from the event GitHub gives the run, only when the comment was written	yes
+apps/desktop/src/main/your-locust-ask-reaches-your-phone-while-the-pc-is-off.test.ts	runs the workflow for a comment, one run each, and ends anyone else’s at the job	yes
+apps/desktop/src/main/your-locust-ask-reaches-your-phone-while-the-pc-is-off.test.ts	makes no card from the phone’s line: the comment itself becomes the ask	yes
+apps/desktop/src/main/your-locust-ask-reaches-your-phone-while-the-pc-is-off.test.ts	is offered the newer one by a pull request, and is on it once that is merged	yes
+apps/desktop/src/main/your-locust-ask-reaches-your-phone-while-the-pc-is-off.test.ts	goes on as it was when the update is closed without merging, and can be offered again	yes
 apps/desktop/src/main/your-own-model.test.ts	is kept with its key encrypted, and the window is told only that a key is kept	yes
 apps/desktop/src/main/your-own-model.test.ts	gives a run the provider it needs, key decrypted, and nothing for one no longer kept	yes
 apps/desktop/src/main/your-own-model.test.ts	is in the model list under OpenCode, by its own name, marked as yours	yes
