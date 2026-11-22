@@ -627,25 +627,26 @@ fn own_branch_folder(store: &Store, teammate: &Teammate, runtime: &str, folder: 
 }
 
 /// Snapshots the folder after a write-capable turn and records `observed_edit` events (or a shared-folder notice).
+/// Answers the paths the turn changed, nothing when it changed none or the folder could not be read.
 fn record_disk_observation(
     store: &Store,
     mission_id: &str,
     folder: &Path,
     disk_before: Option<crate::disk_observation::WorkspaceSnapshot>,
     checkpoint: &crate::checkpoints::Turn,
-) {
-    let Some(before) = disk_before else { return };
+) -> Vec<String> {
+    let Some(before) = disk_before else { return Vec::new() };
     let before_lookup = |rel: &str| checkpoint.before_text(store, rel);
     let host = crate::disk_observation::DefaultDiskHost::with_before_text(&before_lookup);
     let Some(after) = crate::disk_observation::snapshot_workspace(folder, &host) else {
-        return;
+        return Vec::new();
     };
     let changed = crate::disk_observation::changed_paths(&before, &after);
     if changed.is_empty() {
-        return;
+        return Vec::new();
     }
     let Ok(path) = store.write_path(mission_id) else {
-        return;
+        return Vec::new();
     };
     let existing_events: Vec<Value> = turn_records(mission_id).map(|t| t.events).unwrap_or_default();
     let shared = checkpoint.is_shared();
@@ -676,6 +677,7 @@ fn record_disk_observation(
             )
         }
     });
+    changed
 }
 
 /// Commit a turn in a teammate's own copy on its branch, and record the receipt in the turn's stream: what was saved,
@@ -3118,6 +3120,7 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
     let person_sent = origin.started_by.is_none();
     let memory_store = store.clone();
     let memory_who = job.teammate.id.clone();
+    let memory_name = job.teammate.name.clone();
     let memory_folder = turn.folder.clone();
     let memory_id = id.clone();
     let memory_prompt = job.prompt.clone();
@@ -3191,7 +3194,11 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
             // The run's skill copies go with it.
             crate::skills::remove_copies(&skill_copies);
             crate::skills::forget_roots(&memory_id);
-            record_disk_observation(&memory_store, &memory_id, &memory_folder, disk_before, &checkpoint);
+            let changed = record_disk_observation(&memory_store, &memory_id, &memory_folder, disk_before, &checkpoint);
+            // A2.9: kept for the overlap note in another teammate's next brief here (recent_edits).
+            if !memory_who.is_empty() {
+                crate::recent_edits::record(&memory_folder.to_string_lossy(), &memory_who, &memory_name, &changed);
+            }
             let (edited, seen_changes) = match checkpoint.finish_reporting_changes(&memory_store, &memory_id) {
                 Ok((edited, seen)) => (Some(edited), seen),
                 Err(error) => {

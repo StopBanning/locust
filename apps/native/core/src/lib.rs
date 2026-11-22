@@ -345,6 +345,7 @@ mod reply_session_tests;
 #[cfg(test)]
 mod turn_words_tests;
 
+pub mod recent_edits;
 pub mod recent_routes;
 
 #[cfg(test)]

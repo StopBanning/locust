@@ -1308,6 +1308,13 @@ fn a_write_capable_turn_records_observed_edit_for_a_file_modified_on_disk_withou
     assert_eq!(observed[0]["payload"]["command"], "unreported.txt");
     assert_eq!(observed[0]["payload"]["status"], "observed on disk");
     assert_eq!(observed[0]["payload"]["patch"]["added"], 1);
+    // two-teammates-hear-about-each-others-edits: what the run changed is kept for another teammate's next brief here.
+    let who = codex(&t).id;
+    assert!(!who.is_empty());
+    let folder = t.0.join("work").to_string_lossy().into_owned();
+    crate::recent_edits::record(&folder, "tm_other_hand", "Other Hand", &["unreported.txt".to_owned()]);
+    let note = crate::recent_edits::overlap_for(&folder, &who).unwrap_or_default();
+    assert!(note.contains("- Other Hand changed unreported.txt (last"), "{note}");
 }
 
 // ---- a-resumed-session-is-told-only-what-changed.test.ts: through the mission service (A2.5) ----

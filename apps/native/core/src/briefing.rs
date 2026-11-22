@@ -266,7 +266,7 @@ pub fn assemble_with_room_history(
     prompt: &str,
     room_history: Option<(&crate::room_history::RoomHistory, &str)>,
 ) -> (String, usize) {
-    let (composed, count, _) = assemble_held(standing, inbound, remaining, roster, now, prompt, room_history, None, None);
+    let (composed, count, _) = assemble_held(standing, inbound, remaining, roster, now, prompt, room_history, None, None, None);
     (composed, count)
 }
 
@@ -285,6 +285,7 @@ pub fn assemble_held(
     room_history: Option<(&crate::room_history::RoomHistory, &str)>,
     already_given: Option<&std::collections::HashSet<String>>,
     identity: Option<(&PeerEntry, &[PeerEntry])>,
+    overlap: Option<&str>,
 ) -> (String, usize, Vec<String>) {
     let (sent, mut given) = crate::brief_sessions::standing_for(standing, already_given, identity);
     let mut standing: Vec<String> = sent;
@@ -292,6 +293,10 @@ pub fn assemble_held(
         let mut sections: Vec<String> = standing.to_vec();
         if count > 0 {
             sections.push(inbound_section(&inbound[..count], remaining + inbound.len() - count, roster, now));
+        }
+        // A2.9: the files another teammate changed that this one changed too (recent_edits), with what arrived.
+        if let Some(note) = overlap {
+            sections.push(note.to_owned());
         }
         if let Some(h) = history {
             sections.push(h.to_owned());

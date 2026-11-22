@@ -192,7 +192,7 @@ fn a_brief_shed_for_length_is_recorded_as_told_only_what_went() {
     let listing = format!("{MEMORY_HEADING} What is remembered:\n- a note");
     let rules = format!("{MEMORY_RULES} each with when it was written.");
     let standing = vec![format!("The folder has a LOCUST.md.\n\n{listing}\n\n{rules}")];
-    let (prompt, _, given) = assemble_held(&standing, &[], 0, &[], None, &"x".repeat(MAX_RUNTIME_PROMPT_LENGTH - 60), None, None, None);
+    let (prompt, _, given) = assemble_held(&standing, &[], 0, &[], None, &"x".repeat(MAX_RUNTIME_PROMPT_LENGTH - 60), None, None, None, None);
     assert!(!prompt.contains(MEMORY_HEADING));
     assert_eq!(given, [paragraph_key("The folder has a LOCUST.md.")]);
 }

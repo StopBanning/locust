@@ -1497,6 +1497,7 @@ pub fn turn_brief_held(
         room_history.map(|h| (h, who)),
         already_given,
         me.map(|me| (me, others.as_slice())),
+        crate::recent_edits::overlap_for(&folder.to_string_lossy(), who).as_deref(),
     );
     Ok((composed, inbound[..kept].to_vec(), given))
 }
