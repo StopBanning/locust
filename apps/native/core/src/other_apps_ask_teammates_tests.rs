@@ -102,8 +102,8 @@ impl Locust for Gated {
     fn models(&self) -> Vec<Value> {
         self.fake.models()
     }
-    fn carry_on(&self, mission: &str, runtime: &str, model: Option<&str>) -> Result<(String, Option<String>), String> {
-        self.fake.carry_on(mission, runtime, model)
+    fn carry_on(&self, mission: &str, runtime: &str, model: Option<&str>, also: &crate::carry_on::CarryOnAlso) -> Result<(String, Option<String>), String> {
+        self.fake.carry_on(mission, runtime, model, also)
     }
     fn pause(&self, ms: u64) {
         self.fake.pause(ms)

@@ -91,7 +91,7 @@ impl Locust for Fake {
     fn models(&self) -> Vec<Value> {
         vec![]
     }
-    fn carry_on(&self, _: &str, _: &str, _: Option<&str>) -> Result<(String, Option<String>), String> {
+    fn carry_on(&self, _: &str, _: &str, _: Option<&str>, _: &crate::carry_on::CarryOnAlso) -> Result<(String, Option<String>), String> {
         Err("not here".into())
     }
 }

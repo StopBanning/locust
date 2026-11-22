@@ -212,7 +212,13 @@ pub trait Locust: Send + Sync {
     /// The model list (models.rs, Electron's PublicModel shape): what each agent offers on this computer.
     fn models(&self) -> Vec<Value>;
     /// Locust's own carry-on (main/carry-on.ts): the new turn's id and the folder it works in.
-    fn carry_on(&self, mission: &str, runtime: &str, model: Option<&str>) -> Result<(String, Option<String>), String>;
+    fn carry_on(
+        &self,
+        mission: &str,
+        runtime: &str,
+        model: Option<&str>,
+        also: &crate::carry_on::CarryOnAlso,
+    ) -> Result<(String, Option<String>), String>;
     /// `followUpRoute`: the route a turn ran on, as the host holds it, else as its record says (runtime, model and
     /// account); None when neither knows.
     fn follow_up_route(&self, _mission: &str) -> Option<Route> {
@@ -310,7 +316,14 @@ pub fn answer_of(turn: &Turn) -> ToolResult {
             return ToolResult::refused(said);
         }
         "completed" => {}
-        _ => return ToolResult::refused("The run was interrupted or stopped before it finished."),
+        _ => {
+            if crate::carry_on::cut_off_mid_turn(Some(turn.phase()), &turn.events) {
+                return ToolResult::refused(
+                    "Locust closed while this turn was working, so it never finished. carry_on picks it up again from the recorded work, on this agent or another.",
+                );
+            }
+            return ToolResult::refused("The run was interrupted or stopped before it finished.");
+        }
     }
     let joined = messages(&turn.events);
     let Some((_, said, _, last)) = joined.iter().rev().find(|m| m.2) else {
@@ -331,11 +344,19 @@ pub fn answer_of(turn: &Turn) -> ToolResult {
     ToolResult::ok(if warned.is_empty() { answer } else { format!("{answer}\n\nLocust: {}", warned.join(" ")) })
 }
 
-/// Why a turn that ended can be carried on (main/carry-on.ts stoppedFor).
-fn stopped_reason(turn: &Turn) -> Option<crate::carry_on::Reason> {
+/// Why a turn that ended (and is not live) can be carried on: its card reason, or that Locust closed under it (0.882).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum StoppedReason {
+    Carry(crate::carry_on::Reason),
+    CutOff,
+}
+
+fn stopped_reason(turn: &Turn) -> Option<StoppedReason> {
     match turn.phase() {
         "completed" | "cancelled" => None,
-        _ => crate::carry_on::carry_on_reason(&turn.events),
+        phase => crate::carry_on::carry_on_reason(&turn.events)
+            .map(StoppedReason::Carry)
+            .or_else(|| crate::carry_on::cut_off_mid_turn(Some(phase), &turn.events).then_some(StoppedReason::CutOff)),
     }
 }
 
@@ -759,9 +780,10 @@ impl<L: Locust> Tools<L> {
                             if self.locust.waiting(&turn.mission_id) { "waiting for the person in Locust" } else { "working" }
                         } else {
                             match stopped {
-                                Some(crate::carry_on::Reason::Plan) => "stopped: its plan ran out",
-                                Some(crate::carry_on::Reason::Provider) => "stopped: its provider failed",
-                                Some(crate::carry_on::Reason::Process) => "stopped: its process failed",
+                                Some(StoppedReason::Carry(crate::carry_on::Reason::Plan)) => "stopped: its plan ran out",
+                                Some(StoppedReason::Carry(crate::carry_on::Reason::Provider)) => "stopped: its provider failed",
+                                Some(StoppedReason::Carry(crate::carry_on::Reason::Process)) => "stopped: its process failed",
+                                Some(StoppedReason::CutOff) => "stopped: Locust closed while it was working",
                                 None => turn.phase(),
                             }
                         };
@@ -1043,8 +1065,20 @@ impl<L: Locust> Tools<L> {
         if asked.is_some() && found.is_none() {
             return ToolResult::refused(format!("{runtime} does not offer that model here. Use one from list_models. Nothing was started."));
         }
+        let message = if args["message"].is_null() {
+            None
+        } else {
+            let Some(m) = text_arg(&args["message"], 8_000) else {
+                return ToolResult::refused("message is up to 8,000 characters. Nothing was started.");
+            };
+            Some(m.to_owned())
+        };
+        let also = crate::carry_on::CarryOnAlso {
+            cut_off: stopped_reason(&turn) == Some(StoppedReason::CutOff),
+            message,
+        };
         let model = found;
-        match self.locust.carry_on(&turn.mission_id, runtime, model) {
+        match self.locust.carry_on(&turn.mission_id, runtime, model, &also) {
             Err(why) => ToolResult::refused(format!("{why} Nothing was started.")),
             Ok((carried, folder)) => {
                 let mut reply = json!({"conversation_id": carried, "runtime": runtime});

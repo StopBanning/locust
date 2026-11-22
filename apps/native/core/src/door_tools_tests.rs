@@ -26,8 +26,8 @@ struct Fake {
     model_list: Option<Vec<Value>>,
     /// Whose conversations are, when not Scout's.
     owner_id: Option<&'static str>,
-    /// Each carry-on Locust was asked for: the conversation, the agent and the model.
-    carried: Mutex<Vec<(String, String, Option<String>)>>,
+    /// Each carry-on Locust was asked for: the conversation, the agent, the model, and extras.
+    carried: Mutex<Vec<(String, String, Option<String>, crate::carry_on::CarryOnAlso)>>,
     /// The folder Locust's carry-on stood the carried turn in, recorded on it as a carried turn records it.
     carried_folder: Option<&'static str>,
 }
@@ -138,13 +138,19 @@ impl Locust for Fake {
             json!({"id": "own_local", "runtime": "claude", "displayName": "My local model", "description": "", "supportedEfforts": [], "own": true}),
         ]
     }
-    fn carry_on(&self, mission: &str, runtime: &str, model: Option<&str>) -> Result<(String, Option<String>), String> {
-        // The agent whose plan ran out cannot carry its own turn on (Locust's own carry-on refuses it).
+    fn carry_on(
+        &self,
+        mission: &str,
+        runtime: &str,
+        model: Option<&str>,
+        also: &crate::carry_on::CarryOnAlso,
+    ) -> Result<(String, Option<String>), String> {
+        // The agent whose plan ran out cannot carry its own turn on (Locust's own carry-on refuses it), unless cut off.
         let ran = self.turns.lock().unwrap().get(mission).and_then(|t| t.runtime.clone());
-        if ran.as_deref() == Some(runtime) {
+        if ran.as_deref() == Some(runtime) && !also.cut_off {
             return Err(format!("{} is the agent whose plan ran out.", if runtime == "codex" { "Codex CLI" } else { runtime }));
         }
-        self.carried.lock().unwrap().push((mission.to_owned(), runtime.to_owned(), model.map(str::to_owned)));
+        self.carried.lock().unwrap().push((mission.to_owned(), runtime.to_owned(), model.map(str::to_owned), also.clone()));
         let id = format!("{mission}-carried");
         let mut carried = turn(&id, false, vec![]);
         if let Some(f) = self.carried_folder {
@@ -723,3 +729,7 @@ mod other_apps_ask_teammates_tests;
 #[cfg(test)]
 #[path = "an_app_reads_both_parts_tests.rs"]
 mod an_app_reads_both_parts_tests;
+
+#[cfg(test)]
+#[path = "an_app_picks_up_cut_off_door_tests.rs"]
+mod an_app_picks_up_cut_off_door_tests;

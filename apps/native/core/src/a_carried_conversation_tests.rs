@@ -120,7 +120,7 @@ impl Locust for Fake {
     fn models(&self) -> Vec<Value> {
         vec![json!({"id": "grok", "runtime": "cursor", "displayName": "Grok", "description": "", "supportedEfforts": ["low", "high"]})]
     }
-    fn carry_on(&self, _: &str, _: &str, _: Option<&str>) -> Result<(String, Option<String>), String> {
+    fn carry_on(&self, _: &str, _: &str, _: Option<&str>, _: &crate::carry_on::CarryOnAlso) -> Result<(String, Option<String>), String> {
         Err("not here".into())
     }
     // index.ts `followUpRoute`: the route the carried turn ran on, as the host holds it.

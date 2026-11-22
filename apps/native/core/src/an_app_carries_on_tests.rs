@@ -59,7 +59,10 @@ fn carries_one_on_to_another_agent_and_model_through_locusts_own_carry_on() {
     let tools = fixture(true, false, both());
     let r = tools.call("carry_on", &json!({"conversation_id": "mission_person", "runtime": "codex", "model": "GPT-6.1-SOL"}));
     assert!(!r.is_error, "{}", r.text);
-    assert_eq!(tools.locust.carried.lock().unwrap().as_slice(), [("mission_person".to_owned(), "codex".to_owned(), Some("gpt-6.1-sol".to_owned()))]);
+    assert_eq!(
+        tools.locust.carried.lock().unwrap().as_slice(),
+        [("mission_person".to_owned(), "codex".to_owned(), Some("gpt-6.1-sol".to_owned()), crate::carry_on::CarryOnAlso::default())]
+    );
     let said = reply(&r);
     assert_eq!((said["runtime"].clone(), said["model"].clone(), said["mode"].clone()), (json!("codex"), json!("gpt-6.1-sol"), json!("ask")));
 }
@@ -113,6 +116,6 @@ fn starts_nothing_for_an_agent_or_model_this_locust_cannot_run_or_an_own_model()
 #[test]
 fn is_wired_to_the_persons_switch_and_locusts_own_carry_on() {
     let door = std::fs::read_to_string(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/door.rs")).unwrap();
-    assert!(door.contains("fn carry_on(&self, mission: &str, runtime: &str, model: Option<&str>)"), "the door passes carry_on to Locust");
+    assert!(door.contains("crate::engine_api::api().carry_with(mission, runtime, model, also)"), "the door passes carry_on to Locust");
     assert!(door.contains("fn see_all(&self) -> bool"), "and asks the person's switch");
 }

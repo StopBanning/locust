@@ -201,6 +201,7 @@ pub(crate) fn origin_from(v: &Value) -> Result<Origin, String> {
         left_out_by_you,
         room_history: v.get("roomHistory").and_then(room_history_from),
         rewind,
+        allow_cut_off: v["allowCutOff"] == true,
     })
 }
 
@@ -383,10 +384,15 @@ fn answer(engine: &dyn EngineApi, request: &Value) -> Value {
             .save_rule_and_decide(&card_from(&request["card"])?, effect_from(&needed(request, "effect")?)?)
             .map(|()| Value::Null),
         "carry" => {
-            let (conversation, folder, mode) = engine.carry(
+            let also = crate::carry_on::CarryOnAlso {
+                cut_off: request["cutOff"] == true,
+                message: text(request, "message"),
+            };
+            let (conversation, folder, mode) = engine.carry_with(
                 &needed(request, "mission")?,
                 &needed(request, "runtime")?,
                 text(request, "model").as_deref(),
+                &also,
             )?;
             Ok(json!({"conversation": conversation, "folder": folder, "mode": mode}))
         }
@@ -647,7 +653,23 @@ impl EngineApi for Client {
             .map(|_| ())
     }
     fn carry(&self, mission: &str, runtime: &str, model: Option<&str>) -> Result<(String, Option<String>, String), String> {
-        let v = self.call(json!({"op": "carry", "mission": mission, "runtime": runtime, "model": model}))?;
+        self.carry_with(mission, runtime, model, &crate::carry_on::CarryOnAlso::default())
+    }
+    fn carry_with(
+        &self,
+        mission: &str,
+        runtime: &str,
+        model: Option<&str>,
+        also: &crate::carry_on::CarryOnAlso,
+    ) -> Result<(String, Option<String>, String), String> {
+        let mut req = json!({"op": "carry", "mission": mission, "runtime": runtime, "model": model});
+        if also.cut_off {
+            req["cutOff"] = json!(true);
+        }
+        if let Some(m) = &also.message {
+            req["message"] = json!(m);
+        }
+        let v = self.call(req)?;
         Ok((needed(&v, "conversation")?, text(&v, "folder"), text(&v, "mode").unwrap_or_default()))
     }
     fn shut_down(&self) {
