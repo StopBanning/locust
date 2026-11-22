@@ -784,8 +784,8 @@ pub fn tool_list() -> Value {
     let turn = json!({"conversation_id": string, "message": message, "model": string, "effort": effort, "read_only": flag, "mode": mode, "folder": folder});
     let tools = [
         ("list_teammates", "List Locust teammates: id, name, role, the folder Locust has open (every turn works there; the person changes it in Locust), runtime, model, whether busy, and runs_in: the mode a turn started from here would use. Read only.", schema(json!({}), &[]), true),
-        ("start_conversation", "Ask a Locust teammate by name or id, or start a conversation with no teammate on an AI agent you name as runtime, from list_models with no teammate, as the person can in Locust's window. Ask mode (read only), unless the person has turned on \"Use each teammate's own mode\" in Locust; then the mode the teammate is set to there, or the mode you name: ask, plan, accept-edits, approve-each or auto (Auto only if Locust's Settings allow it). With that switch on you may also name a folder, a full path: one Locust knows, a folder inside one, or a worktree of one of their repositories; the turn works there instead of the open folder, and the conversation stays there. Any approval is answered by the person in Locust's window, never from here. read_only true runs it in Ask whatever else is named. The reply says the mode and folder used. Returns a conversation id; use read_reply to poll.", schema(json!({"teammate": string, "runtime": effort, "message": message, "model": string, "effort": effort, "read_only": flag, "mode": mode, "folder": folder}), &["message"]), false),
-        ("send_message", "Continue a conversation started by this server: in the conversation's own mode and folder, unless you name others as start_conversation takes them. No message is queued while it is working; poll read_reply before sending.", schema(turn, &["conversation_id", "message"]), false),
+        ("start_conversation", "Ask a Locust teammate by name or id, or start a conversation with no teammate on an AI agent you name as runtime, from list_models with no teammate, as the person can in Locust's window. Ask mode (read only), unless the person has turned on \"Use each teammate's own mode\" in Locust; then the mode the teammate is set to there, or the mode you name: ask, plan, accept-edits, approve-each or auto (Auto only if Locust's Settings allow it). With that switch on you may also name a folder, a full path: one Locust knows, a folder inside one, or a worktree of one of their repositories; the turn works there instead of the open folder, and the conversation stays there. Any approval is answered by the person in Locust's window, never from here. read_only true runs it in Ask whatever else is named. The reply says the mode and folder used. No automatic teammate handoffs. Shares remain visible in Locust. API/account usage and Locust monthly limits apply. Returns a conversation id; use read_reply to poll.", schema(json!({"teammate": string, "runtime": effort, "message": message, "model": string, "effort": effort, "read_only": flag, "mode": mode, "folder": folder}), &["message"]), false),
+        ("send_message", "Continue a conversation started by this server: in the conversation's own mode and folder, unless you name others as start_conversation takes them. No automatic teammate handoffs. No message is queued while it is working; poll read_reply before sending.", schema(turn, &["conversation_id", "message"]), false),
         ("read_reply", "Read the newest finished answer, current activity while still working (including a wait for the person to approve an action in Locust), or Locust's own failure words. An answer that asks the person to choose also gives the question and its numbered options, for answer_question. Optionally wait_seconds, up to 20, to wait for the turn to finish first. Read only.", schema(json!({"conversation_id": string, "wait_seconds": {"type": "integer", "minimum": 0, "maximum": 20}}), &["conversation_id"]), true),
         ("answer_question", "Answer the question a finished turn asked with choices (its card in Locust), by the option's number or label from read_reply: the next turn is sent exactly what pressing that option in Locust sends, in the conversation's own mode and folder. Approvals of an action are never answered from here.", schema(json!({"conversation_id": string, "choice": {"oneOf": [{"type": "integer", "minimum": 1, "maximum": 4}, {"type": "string", "minLength": 1, "maxLength": 90}]}}), &["conversation_id", "choice"]), false),
         ("stop_turn", "Stop a turn started from here that is still working, by its conversation id. What it already changed stays, and the person can undo it in Locust. Never stops a turn the person started, unless they let apps see their conversations.", schema(json!({"conversation_id": string}), &["conversation_id"]), false),
@@ -876,8 +876,12 @@ pub fn bridge_call(connection: &Path, name: &str, arguments: &Value) -> Value {
 /// The stdio MCP server another app spawns: JSON-RPC lines in, lines out. It never launches Locust, writes another
 /// app's config or follows a redirect.
 pub fn bridge_main(connection: &Path) {
-    let out = Arc::new(Mutex::new(std::io::stdout()));
-    let send = |out: &Arc<Mutex<std::io::Stdout>>, line: Value| {
+    bridge_io(connection, std::io::stdin().lock(), std::io::stdout());
+}
+
+fn bridge_io<W: Write + Send + 'static>(connection: &Path, input: impl BufRead, output: W) {
+    let out = Arc::new(Mutex::new(output));
+    let send = |out: &Arc<Mutex<W>>, line: Value| {
         let mut o = out.lock().unwrap_or_else(|e| e.into_inner());
         let _ = writeln!(o, "{line}");
         let _ = o.flush();
@@ -885,9 +889,8 @@ pub fn bridge_main(connection: &Path) {
     let error = |id: Value, code: i64, message: &str| json!({"jsonrpc": "2.0", "id": id, "error": {"code": code, "message": message}});
     let tools = tool_list();
     let names: Vec<String> = tools.as_array().into_iter().flatten().filter_map(|t| t["name"].as_str().map(str::to_owned)).collect();
-    let stdin = std::io::stdin();
     let mut calls = Vec::new();
-    for line in stdin.lock().lines() {
+    for line in input.lines() {
         let Ok(line) = line else { break };
         if line.len() > BODY_LIMIT {
             send(&out, error(Value::Null, -32600, "MCP request is too large. Nothing was started."));
@@ -965,3 +968,7 @@ mod an_app_names_a_folder_tests;
 #[cfg(test)]
 #[path = "a_carried_conversation_tests.rs"]
 mod a_carried_conversation_tests;
+
+#[cfg(test)]
+#[path = "door_stdio_tests.rs"]
+mod door_stdio_tests;

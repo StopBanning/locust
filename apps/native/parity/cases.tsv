@@ -1991,6 +1991,15 @@ apps/desktop/src/main/other-apps-can-only-ask-locust-teammates.test.ts	never run
 apps/desktop/src/main/other-apps-can-only-ask-locust-teammates.test.ts	passes the runner's own refusal through, unchanged	yes
 apps/desktop/src/main/other-apps-can-only-ask-locust-teammates.test.ts	reads status only for routines this server started: the step, a waiting card, then the last step's answer	yes
 apps/desktop/src/main/other-apps-can-only-ask-locust-teammates.test.ts	says a held run, a failing check and changes still waiting for Keep or Discard, in Locust's words	yes
+apps/desktop/src/main/other-apps-reach-locust-through-stdio.test.ts	advertises exactly the twelve tools, with Ask mode and spend made explicit	yes
+apps/desktop/src/main/other-apps-reach-locust-through-stdio.test.ts	answers every tool call with the required plain sentence when Locust is not running	yes
+apps/desktop/src/main/other-apps-reach-locust-through-stdio.test.ts	also runs through Electron in Node mode, without launching the desktop app	no
+apps/desktop/src/main/other-apps-reach-locust-through-stdio.test.ts	gives the required not-running sentence for a stale file whose listener has closed	yes
+apps/desktop/src/main/other-apps-reach-locust-through-stdio.test.ts	does not retry or claim nothing ran when a connection drops after the app received the request	yes
+apps/desktop/src/main/other-apps-reach-locust-through-stdio.test.ts	forwards an authenticated tool call, and sees a rotated connection without restarting the bridge	yes
+apps/desktop/src/main/other-apps-reach-locust-through-stdio.test.ts	never sends a token to a non-loopback address from a modified profile file	yes
+apps/desktop/src/main/other-apps-reach-locust-through-stdio.test.ts	refuses unknown tools and methods without forwarding them	yes
+apps/desktop/src/main/other-apps-reach-locust-through-stdio.test.ts	does not return a bearer token or connection metadata in the window settings	yes
 apps/desktop/src/main/palette-has-no-inner-ring.test.ts	turns the global focus ring off at a specificity that beats it	no
 apps/desktop/src/main/palette-has-no-inner-ring.test.ts	keeps the head’s lit edge as the focus it shows	no
 apps/desktop/src/main/pasted-attachment.test.ts	lands inside the one folder Locust owns	yes
