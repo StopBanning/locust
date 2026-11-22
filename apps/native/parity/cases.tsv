@@ -856,6 +856,10 @@ apps/desktop/src/main/a-routine-works-in-a-copy.test.ts	runs its step in the cop
 apps/desktop/src/main/a-routine-works-in-a-copy.test.ts	will not run again while those changes wait, on Run or on its own	yes
 apps/desktop/src/main/a-routine-works-in-a-copy.test.ts	a run that changed nothing leaves nothing waiting, and no copy	yes
 apps/desktop/src/main/a-routine-works-in-a-copy.test.ts	keeps what waits when the routine is read back, and drops it if it does not read	no
+apps/desktop/src/main/a-run-end-remembers-first-and-keeps-going.test.ts	remembers before the relay starts anyone, from a share	yes
+apps/desktop/src/main/a-run-end-remembers-first-and-keeps-going.test.ts	remembers once, whether the share or the end came first	yes
+apps/desktop/src/main/a-run-end-remembers-first-and-keeps-going.test.ts	runs every step when one throws, and says which failed	yes
+apps/desktop/src/main/a-run-end-remembers-first-and-keeps-going.test.ts	still starts the recipient when remembering fails	yes
 apps/desktop/src/main/a-run-in-its-own-copy-is-not-told-the-project-folder.test.ts	names the project folder to a run that stands in it	yes
 apps/desktop/src/main/a-run-in-its-own-copy-is-not-told-the-project-folder.test.ts	tells a run in its own copy that it has one, and never the folder's name	yes
 apps/desktop/src/main/a-run-in-its-own-copy-is-not-told-the-project-folder.test.ts	hands the run's own folder to the brief, for a teammate's run and for nobody's	yes
