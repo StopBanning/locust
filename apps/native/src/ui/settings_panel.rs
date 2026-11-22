@@ -49,6 +49,11 @@ pub(super) struct Panel {
     pub privacy: crate::backup_section::PrivacyPanelState,
     /// "Your phone": the phone host's switch and link (None when this window has no phone host).
     pub phone: Option<locust_core::phone_host::PhoneSettings>,
+    /// "Updates": current update state, any install refusal, whether an install was started, and an optional service.
+    pub update: locust_core::updates::AppUpdateState,
+    pub update_refusal: Option<String>,
+    pub update_installing: bool,
+    pub update_service: Option<locust_core::updates::UpdateService<Box<dyn locust_core::updates::UpdaterLike>>>,
 }
 
 fn button(label: impl Into<String>, p: &Palette) -> El {
@@ -683,6 +688,173 @@ fn org_policy_section(p: &Palette) -> Option<El> {
     Some(box_el)
 }
 
+/// Screens.tsx "Updates" on the General (`app`) page.
+fn updates_section(s: &State, p: &Palette) -> El {
+    use crate::look::controls::{self, Look, Tone};
+    use locust_core::updates::{AppUpdatePhase, update_control_line};
+    let l = Look::new(p.dark);
+    let update = &s.settings_panel.update;
+    let phase = update.phase;
+    let line_text = update_control_line(Some(update), s.settings_panel.update_installing);
+    let check_disabled = phase == AppUpdatePhase::Unsupported || phase == AppUpdatePhase::Checking;
+
+    let mut check_btn = controls::button(&l, "Check now", Tone::Neutral, check_disabled)
+        .key("settings-update-check")
+        .role("button");
+    if phase == AppUpdatePhase::Unsupported {
+        check_btn = check_btn.help(line_text.clone());
+    } else if phase == AppUpdatePhase::Checking {
+        check_btn = check_btn.help("Checking now.");
+    }
+    check_btn = check_btn.on_press(|s: &mut State| {
+        let p = s.settings_panel.update.phase;
+        if p == AppUpdatePhase::Unsupported || p == AppUpdatePhase::Checking {
+            return;
+        }
+        s.settings_panel.update_refusal = None;
+        if let Some(svc) = s.settings_panel.update_service.clone() {
+            let resp = svc.check();
+            if let Some(next) = resp.data() {
+                s.settings_panel.update = next.clone();
+            }
+        }
+    });
+
+    let mut row_el = row()
+        .w_full()
+        .gap(10.0)
+        .center_y()
+        .flex_wrap()
+        .child(
+            text(line_text)
+                .key("settings-update-line")
+                .font(type_::LABEL)
+                .color(if phase == AppUpdatePhase::Failed { p.red } else { p.secondary })
+                .grow(1.0)
+                .wrap(),
+        )
+        .child(check_btn);
+
+    if phase == AppUpdatePhase::Available
+        && let Some(url) = update.download_url.clone()
+    {
+        row_el = row_el.child(
+            controls::button(&l, "Download", Tone::Neutral, false)
+                .key("settings-update-download")
+                .role("button")
+                .on_press(move |s: &mut State| {
+                    s.settings_panel.update_refusal = None;
+                    s.opened_links.push(url.clone());
+                }),
+        );
+    }
+
+    if phase == AppUpdatePhase::Ready {
+        row_el = row_el.child(
+            controls::button(&l, "Install and restart", Tone::Neutral, false)
+                .key("settings-update-install")
+                .role("button")
+                .on_press(|s: &mut State| {
+                    s.settings_panel.update_refusal = None;
+                    if let Some(svc) = s.settings_panel.update_service.clone() {
+                        match svc.install() {
+                            locust_core::updates::AppUpdateResponse::Ok(next) => {
+                                s.settings_panel.update = next;
+                                s.settings_panel.update_installing = true;
+                            }
+                            locust_core::updates::AppUpdateResponse::Err(err) => {
+                                s.settings_panel.update_refusal = Some(err.message);
+                            }
+                        }
+                    } else if !locust_core::engine_api::api().running().is_empty() {
+                        s.settings_panel.update_refusal =
+                            Some(locust_core::updates::BUSY_MESSAGE.to_owned());
+                    } else {
+                        s.settings_panel.update_installing = true;
+                    }
+                }),
+        );
+    }
+
+    let mut section = col()
+        .w_full()
+        .gap(8.0)
+        .padding(10.0)
+        .child(text("Updates".to_owned()).role("heading").level(2).font(type_::TITLE).color(p.text))
+        .child(
+            text("Locust checks for a new version on its own and downloads it quietly.".to_owned())
+                .font(type_::LABEL)
+                .color(p.secondary)
+                .wrap(),
+        )
+        .child(more(s, p, "updates"))
+        .child(row_el);
+
+    if let Some(refusal) = &s.settings_panel.update_refusal {
+        section = section.child(
+            text(refusal.clone())
+                .key("settings-update-refusal")
+                .font(type_::LABEL)
+                .color(p.red)
+                .wrap(),
+        );
+    }
+
+    if phase != AppUpdatePhase::Unsupported {
+        let every_build = update.every_build;
+        section = section.child(
+            row()
+                .w_full()
+                .gap(16.0)
+                .center_y()
+                .child(text("Beta builds".to_owned()).font(type_::LABEL).color(p.secondary).grow(1.0))
+                .child(
+                    controls::switch(&l, every_build, "Beta builds", false)
+                        .key("settings-update-beta-builds")
+                        .on_press(|s: &mut State| {
+                            let next = !s.settings_panel.update.every_build;
+                            if let Some(svc) = s.settings_panel.update_service.clone() {
+                                s.settings_panel.update = svc.set_every_build(next);
+                            } else {
+                                s.settings_panel.update.every_build = next;
+                            }
+                        }),
+                ),
+        );
+    }
+
+    let version = if !s.home.current_version.is_empty() {
+        s.home.current_version.as_str()
+    } else if !update.current_version.is_empty() {
+        update.current_version.as_str()
+    } else {
+        "this version"
+    };
+    section.child(
+        row()
+            .w_full()
+            .gap(4.0)
+            .center_y()
+            .flex_wrap()
+            .child(
+                text(format!("This is {version}. Every version, and what it changed, is in"))
+                    .font(type_::LABEL)
+                    .color(p.secondary),
+            )
+            .child(
+                text("What\u{2019}s new".to_owned())
+                    .key("settings-update-whats-new")
+                    .role("button")
+                    .label("What\u{2019}s new")
+                    .font(type_::LABEL)
+                    .color(p.text)
+                    .on_press(|s: &mut State| {
+                        s.settings_panel.page = Some(SettingsPageId::WhatsNew);
+                    }),
+            ),
+    )
+}
+
 fn deferred(heading: &str, p: &Palette) -> El {
     col()
         .w_full()
@@ -1063,6 +1235,8 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                     }
                 } else if heading == "Startup" {
                     body = body.child(crate::quit_guard_dialog::startup_section(s, p));
+                } else if heading == "Updates" {
+                    body = body.child(updates_section(s, p));
                 } else if heading == "Report a problem" {
                     body = body.child(crate::feedback_dialog::settings_section(s, p)).child(more(s, p, "report-a-problem"));
                 } else if heading == locust_core::scout::view::SCOUT_SETTING_HEADING {
@@ -1966,6 +2140,275 @@ mod tests {
         assert_eq!(saved.relay_hop_cap, 24);
         let _ = view(&s, &Palette::new(false));
         let _ = std::fs::remove_dir_all(root);
+    }
+
+    mod updates_settings_tests {
+        use super::*;
+        use locust_core::updates::{
+            AppUpdatePhase, BUSY_MESSAGE, CheckForUpdatesResult, EventListener, EventPayload,
+            NO_FEED_MESSAGE, UpdateFile, UpdateInfo, UpdateServiceOptions, UpdaterLike,
+            create_update_service,
+        };
+        use std::sync::{Arc, Mutex};
+
+        struct WindowFakeUpdater {
+            allow_prerelease: bool,
+            channel: Option<String>,
+            allow_downgrade: Option<bool>,
+            auto_download: bool,
+            auto_install_on_app_quit: bool,
+            version: String,
+            files: Option<Vec<UpdateFile>>,
+            downloaded_listener: Option<EventListener>,
+        }
+
+        #[derive(Clone)]
+        struct SharedWindowUpdater(Arc<Mutex<WindowFakeUpdater>>);
+
+        impl SharedWindowUpdater {
+            fn new(version: &str, files: Option<Vec<UpdateFile>>) -> Self {
+                Self(Arc::new(Mutex::new(WindowFakeUpdater {
+                    allow_prerelease: false,
+                    channel: None,
+                    allow_downgrade: None,
+                    auto_download: false,
+                    auto_install_on_app_quit: false,
+                    version: version.to_owned(),
+                    files,
+                    downloaded_listener: None,
+                })))
+            }
+
+            fn emit_downloaded(&self, version: &str) {
+                let listener = self
+                    .0
+                    .lock()
+                    .unwrap()
+                    .downloaded_listener
+                    .as_ref()
+                    .map(Arc::clone);
+                if let Some(cb) = listener {
+                    cb(Some(EventPayload::version(version)));
+                }
+            }
+        }
+
+        impl UpdaterLike for SharedWindowUpdater {
+            fn auto_download(&self) -> bool {
+                self.0.lock().unwrap().auto_download
+            }
+            fn set_auto_download(&mut self, value: bool) {
+                self.0.lock().unwrap().auto_download = value;
+            }
+            fn allow_prerelease(&self) -> bool {
+                self.0.lock().unwrap().allow_prerelease
+            }
+            fn set_allow_prerelease(&mut self, value: bool) {
+                self.0.lock().unwrap().allow_prerelease = value;
+            }
+            fn channel(&self) -> Option<String> {
+                self.0.lock().unwrap().channel.clone()
+            }
+            fn set_channel(&mut self, value: Option<&str>) {
+                self.0.lock().unwrap().channel = value.map(str::to_owned);
+            }
+            fn allow_downgrade(&self) -> Option<bool> {
+                self.0.lock().unwrap().allow_downgrade
+            }
+            fn set_allow_downgrade(&mut self, value: bool) {
+                self.0.lock().unwrap().allow_downgrade = Some(value);
+            }
+            fn auto_install_on_app_quit(&self) -> bool {
+                self.0.lock().unwrap().auto_install_on_app_quit
+            }
+            fn set_auto_install_on_app_quit(&mut self, value: bool) {
+                self.0.lock().unwrap().auto_install_on_app_quit = value;
+            }
+            fn check_for_updates(&mut self) -> Result<Option<CheckForUpdatesResult>, String> {
+                let guard = self.0.lock().unwrap();
+                Ok(Some(CheckForUpdatesResult {
+                    update_info: UpdateInfo {
+                        version: guard.version.clone(),
+                        files: guard.files.clone(),
+                    },
+                    is_update_available: Some(true),
+                    download_result: None,
+                }))
+            }
+            fn download_update(&mut self) -> Result<(), String> {
+                Ok(())
+            }
+            fn quit_and_install(&mut self, _is_silent: Option<bool>, _is_force_run_after: Option<bool>) {}
+            fn on(&mut self, event: &str, listener: EventListener) {
+                if event == "update-downloaded" {
+                    self.0.lock().unwrap().downloaded_listener = Some(listener);
+                }
+            }
+        }
+
+        fn general_window(s: State) -> rune::Runtime<State> {
+            let mut rt = rune::Runtime::new(
+                s,
+                |s, _| view(s, &Palette::new(true)),
+                (1200.0, 5000.0),
+                rune::Env::new(true, 1.0),
+            );
+            rt.frame(0.0);
+            rt
+        }
+
+        fn press(rt: &mut rune::Runtime<State>, key: &str) {
+            let (x, y) = rt.find(key).unwrap_or_else(|| panic!("missing {key}"));
+            rt.pointer_down(x, y);
+            rt.pointer_up(x, y);
+            rt.frame(0.016);
+            rt.frame(0.5);
+        }
+
+        fn text_of(rt: &rune::Runtime<State>, key: &str) -> Option<String> {
+            rt.elements()
+                .into_iter()
+                .find(|e| e.key.as_deref() == Some(key) && !e.exiting)
+                .and_then(|e| e.text)
+        }
+
+        #[test]
+        fn default_updates_section_says_no_updates_to_look_for_yet_and_disables_check_now() {
+            let mut s = State::default();
+            scene(&mut s);
+            s.settings_panel.page = Some(SettingsPageId::App);
+            let mut rt = general_window(s);
+            assert_eq!(
+                text_of(&rt, "settings-update-line").as_deref(),
+                Some(NO_FEED_MESSAGE)
+            );
+            let check_el = rt
+                .elements()
+                .into_iter()
+                .find(|e| e.key.as_deref() == Some("settings-update-check"))
+                .expect("Check now button");
+            assert!(!check_el.focusable, "Check now is disabled with no feed");
+            assert!(
+                !rt.elements()
+                    .iter()
+                    .any(|e| e.key.as_deref() == Some("settings-update-beta-builds")),
+                "Beta builds switch is hidden when unsupported"
+            );
+            press(&mut rt, "settings-update-check");
+            assert_eq!(
+                text_of(&rt, "settings-update-line").as_deref(),
+                Some(NO_FEED_MESSAGE)
+            );
+        }
+
+        #[test]
+        fn beta_builds_switch_check_now_download_install_and_whats_new_in_settings_window() {
+            let fake = SharedWindowUpdater::new(
+                "0.790.0",
+                Some(vec![UpdateFile {
+                    url: Some("Locust-0.790.0-linux-amd64.deb".into()),
+                }]),
+            );
+            let live = Arc::new( std::sync::atomic::AtomicUsize::new(1));
+            let live_in = Arc::clone(&live);
+            let svc = create_update_service(UpdateServiceOptions {
+                updater: Box::new(fake.clone()) as Box<dyn UpdaterLike>,
+                current_version: "0.789.0".into(),
+                supported: true,
+                held_back: None,
+                check_only: false,
+                package_url: Some(Arc::new(|files| {
+                    locust_core::linux_install::linux_package_url(
+                        locust_core::linux_install::LinuxInstall::Deb,
+                        files,
+                        "https://dl.locust.lol/",
+                    )
+                })),
+                live_mission_count: Arc::new(move || live_in.load(std::sync::atomic::Ordering::SeqCst)),
+                request_quit: Arc::new(|_| {}),
+                on_state_change: None,
+                every_build: false,
+            });
+            let mut s = State::default();
+            scene(&mut s);
+            s.settings_panel.page = Some(SettingsPageId::App);
+            s.settings_panel.update = svc.state();
+            s.settings_panel.update_service = Some(svc);
+            let mut rt = general_window(s);
+
+            assert_eq!(
+                text_of(&rt, "settings-update-line").as_deref(),
+                Some("Not checked yet.")
+            );
+
+            press(&mut rt, "settings-update-beta-builds");
+            assert!(rt.state.settings_panel.update.every_build);
+            assert!(fake.allow_prerelease());
+            assert_eq!(fake.channel().as_deref(), Some("beta"));
+
+            press(&mut rt, "settings-update-check");
+            assert_eq!(
+                text_of(&rt, "settings-update-line").as_deref(),
+                Some("Version 0.790.0 is out. Download it, then open the file to install it.")
+            );
+
+            press(&mut rt, "settings-update-download");
+            assert_eq!(
+                rt.state.opened_links,
+                vec!["https://dl.locust.lol/Locust-0.790.0-linux-amd64.deb".to_owned()]
+            );
+
+            let ready_fake = SharedWindowUpdater::new("0.790.0", None);
+            let live_ready = Arc::clone(&live);
+            let ready_svc = create_update_service(UpdateServiceOptions {
+                updater: Box::new(ready_fake.clone()) as Box<dyn UpdaterLike>,
+                current_version: "0.789.0".into(),
+                supported: true,
+                held_back: None,
+                check_only: false,
+                package_url: None,
+                live_mission_count: Arc::new(move || {
+                    live_ready.load(std::sync::atomic::Ordering::SeqCst)
+                }),
+                request_quit: Arc::new(|_| {}),
+                on_state_change: None,
+                every_build: true,
+            });
+            let _ = ready_svc.check();
+            ready_fake.emit_downloaded("0.790.0");
+            assert_eq!(ready_svc.state().phase, AppUpdatePhase::Ready);
+
+            rt.update(|s, _| {
+                s.settings_panel.update = ready_svc.state();
+                s.settings_panel.update_service = Some(ready_svc);
+            });
+            rt.frame(0.016);
+            assert_eq!(
+                text_of(&rt, "settings-update-line").as_deref(),
+                Some("Version 0.790.0 is downloaded and ready to install. Locust closes while it installs and opens again by itself in a minute or two.")
+            );
+
+            // With live == 1, pressing Install and restart refuses with BUSY_MESSAGE:
+            press(&mut rt, "settings-update-install");
+            assert!(!rt.state.settings_panel.update_installing);
+            assert_eq!(
+                text_of(&rt, "settings-update-refusal").as_deref(),
+                Some(BUSY_MESSAGE)
+            );
+
+            // Once the running mission finishes (live == 0), pressing Install and restart begins installing:
+            live.store(0, std::sync::atomic::Ordering::SeqCst);
+            press(&mut rt, "settings-update-install");
+            assert!(rt.state.settings_panel.update_installing);
+            assert_eq!(text_of(&rt, "settings-update-refusal"), None);
+            assert_eq!(
+                text_of(&rt, "settings-update-line").as_deref(),
+                Some("Installing Locust 0.790.0. It opens again by itself in a minute or two; there is no need to open it.")
+            );
+
+            press(&mut rt, "settings-update-whats-new");
+            assert_eq!(rt.state.settings_panel.page, Some(SettingsPageId::WhatsNew));
+        }
     }
 }
 

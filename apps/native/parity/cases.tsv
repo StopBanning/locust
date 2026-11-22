@@ -454,6 +454,14 @@ apps/desktop/src/main/a-link-opens-locust-with-a-message-ready.test.ts	is found 
 apps/desktop/src/main/a-link-opens-locust-with-a-message-ready.test.ts	is taken once, and let go after a minute nobody took it	no
 apps/desktop/src/main/a-link-opens-locust-with-a-message-ready.test.ts	is the installed copy, started by a person	no
 apps/desktop/src/main/a-link-opens-locust-with-a-message-ready.test.ts	is never a test's copy, a development build, or another system	no
+apps/desktop/src/main/a-linux-copy-updates-the-way-it-was-installed.test.ts	is an AppImage when the AppImage runtime names its file	yes
+apps/desktop/src/main/a-linux-copy-updates-the-way-it-was-installed.test.ts	is a .deb or an .rpm by the package-type file electron-builder leaves beside the app's archive	yes
+apps/desktop/src/main/a-linux-copy-updates-the-way-it-was-installed.test.ts	is not installed at all when neither says so, or the file names something else	yes
+apps/desktop/src/main/a-linux-copy-updates-the-way-it-was-installed.test.ts	hands a .deb copy the feed's .deb, and an .rpm copy its .rpm, as full addresses	yes
+apps/desktop/src/main/a-linux-copy-updates-the-way-it-was-installed.test.ts	leaves the Linux update test seam off by default, and activates it only on an AppImage copy	yes
+apps/desktop/src/main/a-linux-copy-updates-the-way-it-was-installed.test.ts	reads a test feed only from this machine, never from anywhere else	yes
+apps/desktop/src/main/a-linux-copy-updates-the-way-it-was-installed.test.ts	never downloads or installs, and says the new version is out with its package	yes
+apps/desktop/src/main/a-linux-copy-updates-the-way-it-was-installed.test.ts	says nothing to download when it is up to date	yes
 apps/desktop/src/main/a-locked-file-is-not-a-permission-problem.test.ts	names a locked file as a lock, with no prefix to move	yes
 apps/desktop/src/main/a-locked-file-is-not-a-permission-problem.test.ts	still names an unwritable folder as one	yes
 apps/desktop/src/main/a-locked-file-is-not-a-permission-problem.test.ts	reads the same EPERM as a folder problem off Windows, where a lock does not look like this	yes
@@ -487,7 +495,24 @@ apps/desktop/src/main/a-long-json-key-does-not-stop-a-run.test.ts	is recorded, n
 apps/desktop/src/main/a-long-judge-reads-files.test.ts	three long answers quoted do not fit one message	no
 apps/desktop/src/main/a-long-judge-reads-files.test.ts	named as files, they do, and the judge is told to read each one	no
 apps/desktop/src/main/a-long-judge-reads-files.test.ts	the host switches to files only when the quoted message is too long	no
+apps/desktop/src/main/a-mac-discards-installed-update-images.test.ts	removes installed images at startup and preserves newer images and everything outside its exact file names	yes
+apps/desktop/src/main/a-mac-discards-installed-update-images.test.ts	leaves ambiguous running versions alone and tolerates a cache that cannot be listed	yes
 apps/desktop/src/main/a-mac-opens-its-own-terminal.test.ts	goes to the folder, removes itself, and becomes the resume -- every word quoted	no
+apps/desktop/src/main/a-mac-says-when-a-new-locust-is-out.test.ts	offers the newest release that has this chip's disk image	yes
+apps/desktop/src/main/a-mac-says-when-a-new-locust-is-out.test.ts	offers nothing when this copy is already that version or newer	yes
+apps/desktop/src/main/a-mac-says-when-a-new-locust-is-out.test.ts	skips drafts and pre-releases, and never offers a link off Locust's own downloads	yes
+apps/desktop/src/main/a-mac-says-when-a-new-locust-is-out.test.ts	answers nothing for an answer that is not a list of releases	yes
+apps/desktop/src/main/a-mac-updates-itself.test.ts	a Locust.app in a folder it can write	yes
+apps/desktop/src/main/a-mac-updates-itself.test.ts	not from the disk image, nor macOS's translocated copy of a download, nor a bare binary	yes
+apps/desktop/src/main/a-mac-updates-itself.test.ts	finds the newer release, downloads it, checks it, and stages its app beside the running one	yes
+apps/desktop/src/main/a-mac-updates-itself.test.ts	refuses a download that does not match the release, and installs nothing	yes
+apps/desktop/src/main/a-mac-updates-itself.test.ts	on Restart and install, hands the swap to the shell and quits	yes
+apps/desktop/src/main/a-mac-updates-itself.test.ts	a person's update reopens Locust as it always has: the check's relaunch arguments are never passed	yes
+apps/desktop/src/main/a-mac-updates-itself.test.ts	the Mac CI's check reopens its copy on its own profile, so on Colin's Mac it never opens his	yes
+apps/desktop/src/main/a-mac-updates-itself.test.ts	offers nothing when this is already the newest	yes
+apps/desktop/src/main/a-mac-updates-itself.test.ts	puts the new app in the old one's place and leaves nothing behind	yes
+apps/desktop/src/main/a-mac-updates-itself.test.ts	opens the app as a person expects, and only with more arguments, behind the windows in front, with them	yes
+apps/desktop/src/main/a-mac-updates-itself.test.ts	and when the new one cannot be moved in, puts the old one back	yes
 apps/desktop/src/main/a-mac-window-has-its-own-traffic-lights.test.ts	on a Mac keeps its frame, with the title bar hidden and inset and the lights in its left column	yes
 apps/desktop/src/main/a-mac-window-has-its-own-traffic-lights.test.ts	on Windows and Linux stays frameless, its own controls drawn by the title bar (control)	no
 apps/desktop/src/main/a-mac-window-has-its-own-traffic-lights.test.ts	is what the main window is made with	yes
@@ -1297,6 +1322,13 @@ apps/desktop/src/main/an-office-file-reads-in-any-mode.test.ts	writes a table ce
 apps/desktop/src/main/an-old-message-says-it-is-old.test.ts	is said once it is half an hour old, in the unit that reads	yes
 apps/desktop/src/main/an-old-message-says-it-is-old.test.ts	goes beside the message it describes, with what to do about it	yes
 apps/desktop/src/main/an-old-message-says-it-is-old.test.ts	is read against the time now when the host prepares a run	yes
+apps/desktop/src/main/an-open-locust-keeps-looking-for-updates.test.ts	looks again every hour	yes
+apps/desktop/src/main/an-open-locust-keeps-looking-for-updates.test.ts	waits while a teammate is working, and tries again soon rather than an hour later	yes
+apps/desktop/src/main/an-open-locust-keeps-looking-for-updates.test.ts	never looks in a build that cannot update itself	yes
+apps/desktop/src/main/an-open-locust-keeps-looking-for-updates.test.ts	keeps looking while a downloaded version waits, and a newer one takes its place	yes
+apps/desktop/src/main/an-open-locust-keeps-looking-for-updates.test.ts	still says Checking when the person presses Check now	yes
+apps/desktop/src/main/an-open-locust-keeps-looking-for-updates.test.ts	is, when nothing is found yet, the last look could not complete, or a downloaded version waits	yes
+apps/desktop/src/main/an-open-locust-keeps-looking-for-updates.test.ts	is not while a check runs or a version is found or coming down -- or while a teammate works	yes
 apps/desktop/src/main/an-opencode-2-mode-has-native-permission-rules.test.ts	uses an owned ACP mode and a directory plugin, without unsupported V1 flags	yes
 apps/desktop/src/main/an-opencode-2-mode-has-native-permission-rules.test.ts	denies edits and subagents in Ask, and lets no shell command through	yes
 apps/desktop/src/main/an-opencode-2-mode-has-native-permission-rules.test.ts	keeps its own catch-all, never V1's (0.821)	yes
@@ -2186,6 +2218,10 @@ apps/desktop/src/main/quit-guard.test.ts	names who is working, and says what eac
 apps/desktop/src/main/quit-guard.test.ts	keeping the work going is the first button and the default; Cancel leaves the window open (0.397)	no
 apps/desktop/src/main/quit-guard.test.ts	a window set to keep running hides to the tray without asking, and the menu names the next routine	no
 apps/desktop/src/main/quit-guard.test.ts	the tray says who is working while the window is closed, and when nobody is	no
+apps/desktop/src/main/ready-means-this-version-is-on-disk.test.ts	stops calling a newer version downloaded when an older one was	yes
+apps/desktop/src/main/ready-means-this-version-is-on-disk.test.ts	stays ready when the check finds the version that is on disk	yes
+apps/desktop/src/main/ready-means-this-version-is-on-disk.test.ts	refuses to install once the downloaded one is superseded	yes
+apps/desktop/src/main/ready-means-this-version-is-on-disk.test.ts	falls back to the version it was looking for when the event carries none	yes
 apps/desktop/src/main/relay-note-is-writable.test.ts	is accepted by the ledger, not silently dropped	no
 apps/desktop/src/main/relay-note-is-writable.test.ts	reads back with the sentence a person needs	no
 apps/desktop/src/main/relay-note-is-writable.test.ts	LEAVES A COMPLETED MISSION COMPLETED	no
@@ -2745,6 +2781,12 @@ apps/desktop/src/main/teammates-answer-their-person-in-telegram.test.ts	answers 
 apps/desktop/src/main/teammates-answer-their-person-in-telegram.test.ts	starts nothing from a message that waited while Locust was closed, and acts on each message once	no
 apps/desktop/src/main/teammates-answer-their-person-in-telegram.test.ts	stops at the organization’s word, and forgets the token and the chat on Remove	no
 apps/desktop/src/main/teammates-answer-their-person-in-telegram.test.ts	sends only markup Telegram takes, and the plain words when it refuses some	no
+apps/desktop/src/main/testers-get-one-build-a-day.test.ts	is the tester lane unless every build was chosen, whatever the file says	yes
+apps/desktop/src/main/testers-get-one-build-a-day.test.ts	takes no prerelease by default -- even from an updater that would	yes
+apps/desktop/src/main/testers-get-one-build-a-day.test.ts	takes every build once chosen, and says so in every state after	yes
+apps/desktop/src/main/testers-get-one-build-a-day.test.ts	calls an older latest up to date, not an update	yes
+apps/desktop/src/main/testers-get-one-build-a-day.test.ts	reads its own feed file, and never steps back for it	yes
+apps/desktop/src/main/testers-get-one-build-a-day.test.ts	starts on the saved lane	yes
 apps/desktop/src/main/the-chain-templates-hand-work-on.test.ts	are three, each a routine of three steps that asks one question its steps use	no
 apps/desktop/src/main/the-chain-templates-hand-work-on.test.ts	give every step a role the roster can have, and make the last step -- and only the last -- the checker	no
 apps/desktop/src/main/the-chain-templates-hand-work-on.test.ts	are written short and plain: a few sentences a step, no persona, nothing that says who the reader is	no
@@ -2928,6 +2970,20 @@ apps/desktop/src/main/unreadable-is-not-empty.test.ts	never reports that a room 
 apps/desktop/src/main/unreadable-is-not-empty.test.ts	says every room is as it was, because nothing was established	yes
 apps/desktop/src/main/unreadable-is-not-empty.test.ts	still treats a file that is simply not there as empty	yes
 apps/desktop/src/main/unreadable-is-not-empty.test.ts	still reports a genuinely missing room as missing	yes
+apps/desktop/src/main/updates.test.ts	downloads on its own, and installs only on a quit the app itself makes	yes
+apps/desktop/src/main/updates.test.ts	keeps a downloaded update installable when a later check fails	yes
+apps/desktop/src/main/updates.test.ts	does not install on a quit that is a relaunch (M19)	yes
+apps/desktop/src/main/updates.test.ts	refuses to install while a mission is running, and says why	yes
+apps/desktop/src/main/updates.test.ts	installs by asking the app to quit, so the shutdown flush runs first and the updater installs on the real quit	yes
+apps/desktop/src/main/updates.test.ts	refuses to install what it has not downloaded	yes
+apps/desktop/src/main/updates.test.ts	says up to date only after a check that finished	yes
+apps/desktop/src/main/updates.test.ts	names the version it found, and calls a matching one current	yes
+apps/desktop/src/main/updates.test.ts	says a build that cannot update itself cannot, rather than that it is current	yes
+apps/desktop/src/main/updates.test.ts	never installs anything at quit from a copy that is not the installed one (0.507)	yes
+apps/desktop/src/main/updates.test.ts	a copy that only asks reads the feed and still never downloads or installs (0.507)	yes
+apps/desktop/src/main/updates.test.ts	never shows the provider its own error text	yes
+apps/desktop/src/main/updates.test.ts	is said as a download that failed, and nothing is left unhandled	yes
+apps/desktop/src/main/updates.test.ts	keeps the check's own sentence for a check that failed	yes
 apps/desktop/src/main/usage-carried-from-another-computer.test.ts	keeps a turn of numbers, and nothing it does not name	yes
 apps/desktop/src/main/usage-carried-from-another-computer.test.ts	leaves out a line that is not a turn	yes
 apps/desktop/src/main/usage-carried-from-another-computer.test.ts	reads every good line of the file, and no file as none	yes
