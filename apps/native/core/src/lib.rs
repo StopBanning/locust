@@ -166,6 +166,9 @@ mod scout_away_tests;
 pub mod web_push;
 pub mod png_text;
 pub mod profile_backup;
+pub mod profile_sync;
+#[cfg(test)]
+mod profile_sync_tests;
 pub mod protocol_tags;
 pub mod pull_requests;
 pub mod qr;

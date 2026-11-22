@@ -3102,6 +3102,15 @@ apps/desktop/src/main/your-locust-ask-reaches-your-phone-while-the-pc-is-off.tes
 apps/desktop/src/main/your-locust-ask-reaches-your-phone-while-the-pc-is-off.test.ts	makes no card from the phone’s line: the comment itself becomes the ask	yes
 apps/desktop/src/main/your-locust-ask-reaches-your-phone-while-the-pc-is-off.test.ts	is offered the newer one by a pull request, and is on it once that is merged	yes
 apps/desktop/src/main/your-locust-ask-reaches-your-phone-while-the-pc-is-off.test.ts	goes on as it was when the update is closed without merging, and can be offered again	yes
+apps/desktop/src/main/your-locust-is-kept-current-at-the-relay.test.ts	sends the backup set sealed, and nothing a backup leaves out	yes
+apps/desktop/src/main/your-locust-is-kept-current-at-the-relay.test.ts	sends only what changed: a new turn sends its conversation’s last piece and the manifest	yes
+apps/desktop/src/main/your-locust-is-kept-current-at-the-relay.test.ts	removes the pieces of a conversation deleted since, once the manifest no longer names them	yes
+apps/desktop/src/main/your-locust-is-kept-current-at-the-relay.test.ts	cuts a big conversation into pieces, and sends again only the piece that grew	yes
+apps/desktop/src/main/your-locust-is-kept-current-at-the-relay.test.ts	sends everything again for another account or a new room, and says so plainly when the relay refuses	yes
+apps/desktop/src/main/your-locust-is-kept-current-at-the-relay.test.ts	opens another computer’s copy as a backup the existing restore reads	yes
+apps/desktop/src/main/your-locust-is-kept-current-at-the-relay.test.ts	does not open with another key, and refuses a copy caught halfway through a sync	yes
+apps/desktop/src/main/your-locust-is-kept-current-at-the-relay.test.ts	are called with this computer’s token, and their refusals said in words	yes
+apps/desktop/src/main/your-locust-is-kept-current-at-the-relay.test.ts	a quiet minute after the last change, never during a run, and once more for a change made while it ran	yes
 apps/desktop/src/main/your-own-model.test.ts	is kept with its key encrypted, and the window is told only that a key is kept	yes
 apps/desktop/src/main/your-own-model.test.ts	gives a run the provider it needs, key decrypted, and nothing for one no longer kept	yes
 apps/desktop/src/main/your-own-model.test.ts	is in the model list under OpenCode, by its own name, marked as yours	yes
