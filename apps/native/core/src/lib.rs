@@ -134,6 +134,7 @@ pub mod ledger;
 pub mod ledger_fit;
 pub mod ledger_write;
 pub mod limits;
+pub mod linux_install;
 pub mod login_item;
 pub mod mac_self_update;
 pub mod mission_export;
