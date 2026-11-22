@@ -288,3 +288,42 @@ pub fn parse_agent_api_output(stdout: &str, stderr: &str) -> Result<Value, Strin
     }
     Ok(parsed)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const SERVER_CMD: &str = "C:\\Users\\dev\\AppData\\Local\\Programs\\antigravity\\resources\\bin\\language_server.exe --standalone --override_ide_name antigravity --subclient_type hub --override_ide_version 2.11.0 --https_server_port 0 --csrf_token 60843f52-6d41-4d97-9b31-53157a780b5e --app_data_dir antigravity";
+
+    #[test]
+    fn host_probe_parses_antigravity_only_and_reports_unavailable_when_missing() {
+        assert_eq!(
+            parse_server_command_line(SERVER_CMD),
+            Some(ParsedServerCommandLine {
+                csrf_token: "60843f52-6d41-4d97-9b31-53157a780b5e".into(),
+                version: Some("2.11.0".into()),
+            })
+        );
+        assert_eq!(
+            parse_server_command_line(&SERVER_CMD.replace("--override_ide_name antigravity", "--override_ide_name windsurf")),
+            None
+        );
+        let probe = AntigravityHostProbe::new(AntigravityProbeOptions {
+            platform: "win32".into(),
+            local_app_data: "C:\\lad".into(),
+            home: "C:\\Users\\dev".into(),
+            list_processes: Arc::new(Vec::new),
+            listening_ports: Arc::new(|_| Vec::new()),
+            run: Arc::new(|_, _, _| CliRunResult {
+                stdout: String::new(),
+                stderr: String::new(),
+                code: Some(0),
+            }),
+            exists: Some(Arc::new(|_| false)),
+            read_bytes: None,
+        });
+        let record = probe.discovery_record();
+        assert_eq!(record.id, "antigravity");
+        assert_eq!(record.availability, "unavailable");
+    }
+}

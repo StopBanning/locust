@@ -1348,6 +1348,36 @@ apps/desktop/src/main/an-unwritten-card-answer-is-said-in-the-record.test.ts	rem
 apps/desktop/src/main/an-unwritten-card-answer-is-said-in-the-record.test.ts	remembers a refused answer where every answer is written, and writes it when the run ends	yes
 apps/desktop/src/main/antigravity-is-found-on-a-mac.test.ts	is not found where there is none, and a relative PATH entry is not searched (control)	yes
 apps/desktop/src/main/antigravity-is-found-on-a-mac.test.ts	on Windows, still looks only where install.ps1 puts it, not in ~/.local/bin (control)	yes
+apps/desktop/src/main/antigravity-mission.test.ts	says the agent may already be working, and not to send it again	yes
+apps/desktop/src/main/antigravity-mission.test.ts	reads the token and version off the server's own command line, and only Antigravity's	yes
+apps/desktop/src/main/antigravity-mission.test.ts	picks the listening port that speaks the RPC, not the one that drops the connection	yes
+apps/desktop/src/main/antigravity-mission.test.ts	maps any model to a tier, defaulting to flash	yes
+apps/desktop/src/main/antigravity-mission.test.ts	refuses, recording nothing, when Antigravity is not open	yes
+apps/desktop/src/main/antigravity-mission.test.ts	refuses, naming the folder, when Antigravity has not opened the workspace	yes
+apps/desktop/src/main/antigravity-mission.test.ts	opens the conversation with the project id, records the mission, and follows the transcript to the final answer	yes
+apps/desktop/src/main/antigravity-mission.test.ts	a follow-up sends into the same conversation and reads only the lines after the earlier turns	yes
+apps/desktop/src/main/antigravity-mission.test.ts	says the agent may be asking, long before the timeout and without ending the run	yes
+apps/desktop/src/main/antigravity-mission.test.ts	says a turn Antigravity took has not started, once, without ending the run	yes
+apps/desktop/src/main/antigravity-mission.test.ts	says nothing of the kind once the turn has written a line	yes
+apps/desktop/src/main/antigravity-mission.test.ts	says it once, not on every tick	yes
+apps/desktop/src/main/antigravity-mission.test.ts	never lets the notice sit at or past the ending, where it would be dead code	yes
+apps/desktop/src/main/antigravity-mission.test.ts	says nothing while the agent is still writing	yes
+apps/desktop/src/main/antigravity-mission.test.ts	gives up when the agent writes nothing for too long, as a failure and not a completion	yes
+apps/desktop/src/main/antigravity-mission.test.ts	stopping stops the watch and says the agent may still be working	yes
+apps/desktop/src/main/antigravity-mission.test.ts	one live mission per teammate	yes
+apps/desktop/src/main/antigravity-mission.test.ts	says a busy teammate is busy, so a relayed reply is held and not dropped (A2.19)	yes
+apps/desktop/src/main/antigravity-mission.test.ts	says every slot being taken is busy too, and which kind	yes
+apps/desktop/src/main/antigravity-mission.test.ts	refuses a teammate at their monthly limit before Antigravity is even asked, and it is not 'busy'	yes
+apps/desktop/src/main/antigravity-mission.test.ts	ends the run and says so, instead of polling on with nobody recording	yes
+apps/desktop/src/main/antigravity-mission.test.ts	says the run ended, as every other end does	yes
+apps/desktop/src/main/antigravity-mission.test.ts	does NOT advance past events it failed to write	yes
+apps/desktop/src/main/antigravity-mission.test.ts	leaves a healthy run completely alone	yes
+apps/desktop/src/main/antigravity-mission.test.ts	reads the change behind a file the agent named and puts it after its own events, in sequence	yes
+apps/desktop/src/main/antigravity-mission.test.ts	says nothing when nothing changed, and nothing when it could not look first	yes
+apps/desktop/src/main/antigravity-mission.test.ts	from a folder two Antigravity runs shared, says the reading names nobody rather than counting it	yes
+apps/desktop/src/main/antigravity-mission.test.ts	polls four times a second by default	yes
+apps/desktop/src/main/antigravity-mission.test.ts	reads the transcript only when its size or time has moved	yes
+apps/desktop/src/main/antigravity-mission.test.ts	reads every time when the file cannot be stated, as before	yes
 apps/desktop/src/main/antigravity-runs-through-its-cli.test.ts	is a runtime whose events the host reads	no
 apps/desktop/src/main/antigravity-runs-through-its-cli.test.ts	carries an app tier, or an id with its effort on the end, to a model and an effort; the effort chosen in the box wins	no
 apps/desktop/src/main/antigravity-runs-through-its-cli.test.ts	starts the CLI fresh after a turn the app ran	no

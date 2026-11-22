@@ -1334,3 +1334,7 @@ mod a_long_antigravity_answer_tests;
 #[cfg(test)]
 #[path = "a_question_antigravity_asks_tests.rs"]
 mod a_question_antigravity_asks_tests;
+
+#[cfg(test)]
+#[path = "antigravity_mission_tests.rs"]
+mod antigravity_mission_tests;
