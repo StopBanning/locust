@@ -487,6 +487,17 @@ apps/desktop/src/main/a-mac-says-when-a-new-locust-is-out.test.ts	offers the new
 apps/desktop/src/main/a-mac-says-when-a-new-locust-is-out.test.ts	offers nothing when this copy is already that version or newer	yes
 apps/desktop/src/main/a-mac-says-when-a-new-locust-is-out.test.ts	skips drafts and pre-releases, and never offers a link off Locust's own downloads	yes
 apps/desktop/src/main/a-mac-says-when-a-new-locust-is-out.test.ts	answers nothing for an answer that is not a list of releases	yes
+apps/desktop/src/main/a-mac-updates-itself.test.ts	a Locust.app in a folder it can write	yes
+apps/desktop/src/main/a-mac-updates-itself.test.ts	not from the disk image, nor macOS's translocated copy of a download, nor a bare binary	yes
+apps/desktop/src/main/a-mac-updates-itself.test.ts	finds the newer release, downloads it, checks it, and stages its app beside the running one	yes
+apps/desktop/src/main/a-mac-updates-itself.test.ts	refuses a download that does not match the release, and installs nothing	yes
+apps/desktop/src/main/a-mac-updates-itself.test.ts	on Restart and install, hands the swap to the shell and quits	yes
+apps/desktop/src/main/a-mac-updates-itself.test.ts	a person's update reopens Locust as it always has: the check's relaunch arguments are never passed	yes
+apps/desktop/src/main/a-mac-updates-itself.test.ts	the Mac CI's check reopens its copy on its own profile, so on Colin's Mac it never opens his	yes
+apps/desktop/src/main/a-mac-updates-itself.test.ts	offers nothing when this is already the newest	yes
+apps/desktop/src/main/a-mac-updates-itself.test.ts	puts the new app in the old one's place and leaves nothing behind	yes
+apps/desktop/src/main/a-mac-updates-itself.test.ts	opens the app as a person expects, and only with more arguments, behind the windows in front, with them	yes
+apps/desktop/src/main/a-mac-updates-itself.test.ts	and when the new one cannot be moved in, puts the old one back	yes
 apps/desktop/src/main/a-mac-window-has-its-own-traffic-lights.test.ts	on a Mac keeps its frame, with the title bar hidden and inset and the lights in its left column	yes
 apps/desktop/src/main/a-mac-window-has-its-own-traffic-lights.test.ts	on Windows and Linux stays frameless, its own controls drawn by the title bar (control)	no
 apps/desktop/src/main/a-mac-window-has-its-own-traffic-lights.test.ts	is what the main window is made with	yes
