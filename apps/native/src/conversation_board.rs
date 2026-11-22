@@ -261,6 +261,8 @@ mod tests {
             said: String::new(),
             nested_under: None,
             integrity_issue_count: 0,
+            needs_you: false,
+            app_started: false,
         }
     }
 
@@ -550,6 +552,8 @@ mod review_parity_tests {
                 said: String::new(),
                 nested_under: None,
                 integrity_issue_count: 0,
+                needs_you: false,
+                app_started: false,
             })
             .collect();
         let facts = ConversationBoardFacts {

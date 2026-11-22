@@ -556,3 +556,28 @@ fn an_opencode_model_with_a_name_of_its_own_keeps_it_exactly() {
     let rt = picker(vec![agent("opencode", vec![m("opencode/qwen-x", "qwen x (beta)", &[])])], None);
     assert!(text_in(&rt, "model-opencode-opencode/qwen-x").iter().any(|t| t == "qwen x (beta)"));
 }
+
+#[test]
+fn reads_as_a_name_rather_than_an_identifier() {
+    // case: reads as a name rather than an identifier
+    let mut rt = picker(vec![agent("opencode", vec![m("muse-spark-1.3-contributor-free", "muse-spark-1.3-contributor-free", &[])])], None);
+    rt.frame(0.016);
+    let words = texts(&rt);
+    assert!(words.iter().any(|t| t == "Muse Spark 1.3 Contributor Free"), "{words:?}");
+    assert!(!words.iter().any(|t| t == "muse-spark-1.3-contributor-free"));
+}
+#[test]
+fn leaves_a_name_the_runtime_really_gave_exactly_as_it_wrote_it() {
+    // case: leaves a name the runtime really gave exactly as it wrote it
+    let mut rt = picker(vec![agent("opencode", vec![m("cursor-grok-4.6-high", "Cursor Grok 4.6", &[])])], None);
+    rt.frame(0.016);
+    assert!(texts(&rt).iter().any(|t| t == "Cursor Grok 4.6"));
+}
+#[test]
+fn reads_account_default_in_every_group_as_claude_codes_row_does() {
+    // case: reads "Account Default" in every group, as Claude Code's row does
+    let mut rt = picker(vec![agent("opencode", vec![m("account-default", "Account default", &[])])], None);
+    rt.frame(0.016);
+    assert!(texts(&rt).iter().any(|t| t == "Account Default"));
+    assert!(!texts(&rt).iter().any(|t| t == "Account default"));
+}

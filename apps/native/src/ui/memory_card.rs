@@ -21,6 +21,38 @@ pub(crate) struct MemoryCardLine {
     pub change: Option<MemoryChange>,
 }
 
+/// The sidebar's conversation membership, with the shown turn as the honest fallback.
+pub(crate) fn turns_of_conversation(shown: Option<&str>, rows: &[crate::conversation_list::SidebarMission]) -> HashSet<String> {
+    let Some(shown) = shown else { return HashSet::new() };
+    rows.iter().find(|r| crate::conversation_list::conversation_keys(r).iter().any(|k| k == shown))
+        .map(crate::conversation_list::conversation_keys).unwrap_or_else(|| vec![shown.to_owned()]).into_iter().collect()
+}
+
+pub(crate) fn memories_of_turn(lines: &[MemoryCardLine], mission: Option<&str>) -> Vec<MemoryCardLine> {
+    lines.iter().filter(|line| Some(line.mission_id.as_str()) == mission).cloned().collect()
+}
+
+pub(crate) fn view(s: &crate::State, mission: Option<&str>, p: &crate::Palette) -> Option<rune::El> {
+    use crate::*;
+    let rows = sidebar::recent_as_missions(s);
+    let turns = turns_of_conversation(mission, &rows);
+    let memories = s.people_panel.memories["memories"].as_array().cloned().unwrap_or_default();
+    let lines = memories_of_turn(&memories_of_conversation(&memories, &turns), mission);
+    if lines.is_empty() { return None; }
+    let key = format!("turn-memory-{}", mission?);
+    let open = s.activity_open.get(&key).copied().unwrap_or(false);
+    let mut card = col().w_full().gap(6.0).key(key.clone())
+        .child(disclosure(key, memory_card_summary(&lines), open, p));
+    if open {
+        for line in lines {
+            let prefix = match line.change { Some(MemoryChange::Forget) => "Forget: ", Some(MemoryChange::Rewrite) => "Change to: ", Some(MemoryChange::Merge) => "Merge into: ", None => "" };
+            let waiting = if line.status == "proposed" { " · waiting for you on the Memory screen" } else { "" };
+            card = card.child(text(format!("{prefix}{}{waiting}", line.text)).font(type_::LABEL).color(p.muted).w_full().wrap());
+        }
+    }
+    Some(card)
+}
+
 pub(crate) fn memories_of_conversation(memories: &[Value], turns: &HashSet<String>) -> Vec<MemoryCardLine> {
     if turns.is_empty() {
         return Vec::new();
@@ -357,3 +389,7 @@ mod tests {
         assert_eq!(keep_every(&["mem_m".to_owned()], |_| None), None);
     }
 }
+
+#[cfg(test)]
+#[path = "memory_survives_reply_tests.rs"]
+mod memory_survives_reply_tests;

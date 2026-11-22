@@ -1156,3 +1156,42 @@ pub(super) fn missions_scene(s: &mut State) {
     s.missions.running.insert("m_live".into());
     s.missions.picked = ["m_crm".to_owned(), "m_fail".to_owned()].into_iter().collect();
 }
+
+/// The sidebar with one conversation another app started (a plug before its title, the Conversation source menu) and
+/// one waiting on the person (first, under Needs you, amber).
+pub(super) fn sidebar_sources_scene(s: &mut State) {
+    team_scene(s);
+    s.ledger_summaries.insert("sample-1".into(), ledger::Summary {
+        mission_id: "sample-1".into(), title: "A real Markdown answer".into(), started_by_kind: Some("mcp".into()),
+        created_at: "2026-11-08T21:23:37.380Z".into(), updated: "2026-11-08T21:23:37.380Z".into(), ..Default::default()
+    });
+    s.home.waiting_for.insert("sample-4".into(), "A decision".into());
+}
+
+/// The same, its source list open over the window.
+pub(super) fn sidebar_sources_open_scene(s: &mut State) {
+    sidebar_sources_scene(s);
+    s.sidebar_source_open = true;
+}
+
+/// Memories learned on the first and newest turns, with the first disclosure open.
+pub(super) fn thread_memories_scene(s: &mut State) {
+    team_scene(s);
+    s.people_panel.memories = serde_json::json!({"memories":[
+        {"missionId":"memory-first","by":{"name":"Wren"},"text":"Tests run before a commit.","status":"kept"},
+        {"missionId":"memory-last","by":{"name":"Wren"},"text":"Uses tabs.","status":"kept"}
+    ]});
+    let header=s.teammates[0].clone();
+    let items=vec![ledger::Item::User("Remember the test command.".into()),ledger::Item::Assistant{item_id:"memory-a".into(),text:"Remembered for this project.".into(),r#final:true},ledger::Item::User("What else should stay?".into()),ledger::Item::Assistant{item_id:"memory-b".into(),text:"Your indentation preference.".into(),r#final:true}];
+    s.ledger=Some(LedgerPane{cold_tip:None,header,conversation:Conversation{conversation_id:Some("memory-first".into()),turns:vec![]},items,dir:Default::default(),worker:None,snapshot:ledger::Snapshot{turn_metas:["memory-first","memory-last"].into_iter().map(|id|ledger::Metadata{mission_id:id.into(),..Default::default()}).collect(),tip:"memory-last".into(),..Default::default()},due:0.0,loading:false,after_tip:None,after_tip_deadline:None,backoff:0.0});
+    s.activity_open.insert("turn-memory-memory-first".into(),true);
+}
+
+pub(super) fn picker_names_scene(s: &mut State) {
+    models_scene(s);
+    s.models.insert("codec".into(), vec![engine::Models {runtime:"opencode".into(),teammate:None,model:None,effort:None,models:vec![
+        engine::Model{id:"muse-spark-1.3-contributor-free".into(),name:"muse-spark-1.3-contributor-free".into(),efforts:vec![]},
+        engine::Model{id:"cursor-grok-4.6-high".into(),name:"Cursor Grok 4.6".into(),efforts:vec![]},
+        engine::Model{id:"account-default".into(),name:"Account default".into(),efforts:vec![]}
+    ]}]);
+}

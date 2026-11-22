@@ -402,6 +402,7 @@ fn begin_ledger(
         s.status_tone = StatusTone::Red;
         return;
     };
+    people_panel::refresh_memories(s);
     s.ledger_job.cancel();
     if s.ledger.as_ref().and_then(|pane| pane.conversation.conversation_id.as_deref()) != Some(id.as_str()) {
         s.earlier_turn_budgets.clear();
@@ -2818,6 +2819,10 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
             )
             .child(app);
     }
+    if !compact {
+        // The sidebar's Conversation source list, open (sidebar.rs `source_menu_layer`).
+        app = app.children(sidebar::source_menu_layer(s, &p));
+    }
     if s.row_menu.is_some() {
         // The right-click menu over everything, kept inside the window (context_menu.rs, ContextMenu.tsx placeMenu).
         let win = cx.layout("app-body").map(|r| (r[0] + r[2], r[1] + r[3])).unwrap_or((f32::MAX, f32::MAX));
@@ -3395,6 +3400,7 @@ fn main() {
             ("mode-menu-light", mode_menu_light_scene),
             ("references-light", references_light_scene),
             ("models", models_scene),
+            ("picker-names", picker_names_scene),
             ("models-light", models_light_scene),
         ("models-apple", models_apple_scene),
             ("carry-on", carry_on_scene),
@@ -3432,6 +3438,9 @@ fn main() {
             ("recovery", recovery_scene),
             ("recovery-light", recovery_light_scene),
             ("org-sidebar", org_sidebar_scene),
+            ("sidebar-sources", sidebar_sources_scene),
+            ("thread-memories", thread_memories_scene),
+            ("sidebar-sources-open", sidebar_sources_open_scene),
             ("org-sidebar-light", org_sidebar_light_scene),
             ("org-search", org_search_scene),
             ("org-search-light", org_search_light_scene),

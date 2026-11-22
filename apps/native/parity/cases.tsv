@@ -4444,6 +4444,16 @@ apps/desktop/src/renderer/src/mcp-tool-rows.test.ts	drops the transport, keeps t
 apps/desktop/src/renderer/src/mcp-tool-rows.test.ts	keeps a tool name that has underscores of its own	yes
 apps/desktop/src/renderer/src/mcp-tool-rows.test.ts	reads Codex’s own join too	yes
 apps/desktop/src/renderer/src/mcp-tool-rows.test.ts	leaves every ordinary tool alone	yes
+apps/desktop/src/renderer/src/memory-card-survives-a-reply.test.ts	are every turn of it, whichever turn is on screen	yes
+apps/desktop/src/renderer/src/memory-card-survives-a-reply.test.ts	never leak in from another conversation	yes
+apps/desktop/src/renderer/src/memory-card-survives-a-reply.test.ts	are the shown turn alone when the sidebar has not caught up yet	yes
+apps/desktop/src/renderer/src/memory-card-survives-a-reply.test.ts	are none at all when nothing is shown	yes
+apps/desktop/src/renderer/src/memory-card-survives-a-reply.test.ts	ignore a memory that names no conversation	yes
+apps/desktop/src/renderer/src/memory-card-survives-a-reply.test.ts	keep the order they were learned in	yes
+apps/desktop/src/renderer/src/memory-card-survives-a-reply.test.ts	keeps the turn on the line, so the thread can place it	yes
+apps/desktop/src/renderer/src/memory-card-survives-a-reply.test.ts	gives each turn only its own	yes
+apps/desktop/src/renderer/src/memory-card-survives-a-reply.test.ts	gives a turn that taught nothing an empty card rather than a neighbour list	yes
+apps/desktop/src/renderer/src/memory-card-survives-a-reply.test.ts	draws nothing at all when there is no turn to draw under	yes
 apps/desktop/src/renderer/src/missionView.test.ts	rebuilds an appended stream instead of keeping the last fragment	yes
 apps/desktop/src/renderer/src/missionView.test.ts	honors a replace as a replace	yes
 apps/desktop/src/renderer/src/missionView.test.ts	keeps separate messages separate and in order	yes
@@ -5381,6 +5391,9 @@ apps/desktop/src/renderer/src/the-picker-opens-on-what-works.test.ts	takes a gro
 apps/desktop/src/renderer/src/the-picker-opens-on-what-works.test.ts	sorts alphabetically inside a band, the way Settings already does	yes
 apps/desktop/src/renderer/src/the-picker-opens-on-what-works.test.ts	does not move a group out of its band to satisfy the alphabet	yes
 apps/desktop/src/renderer/src/the-picker-opens-on-what-works.test.ts	still sorts the active row to the top of its own group	yes
+apps/desktop/src/renderer/src/the-picker-reads-as-names.test.tsx	reads as a name rather than an identifier	yes
+apps/desktop/src/renderer/src/the-picker-reads-as-names.test.tsx	leaves a name the runtime really gave exactly as it wrote it	yes
+apps/desktop/src/renderer/src/the-picker-reads-as-names.test.tsx	reads "Account Default" in every group, as Claude Code's row does	yes
 apps/desktop/src/renderer/src/the-plus-menu-says-what-each-droplet-does.test.tsx	names each droplet in words, after the liquid and outside it	yes
 apps/desktop/src/renderer/src/the-plus-menu-says-what-each-droplet-does.test.tsx	shows the words only while the menu is open, and lets a press through only then	yes
 apps/desktop/src/renderer/src/the-plus-menu-says-what-each-droplet-does.test.tsx	draws the words on the liquid’s own surface, in both themes	yes
