@@ -621,6 +621,21 @@ apps/desktop/src/main/a-phone-is-paired-by-its-code.test.ts	answers a key of the
 apps/desktop/src/main/a-phone-is-paired-by-its-code.test.ts	keeps its key across a restart, so a paired phone stays paired	yes
 apps/desktop/src/main/a-phone-is-paired-by-its-code.test.ts	off unpairs every phone, and a new code does it while staying on	yes
 apps/desktop/src/main/a-phone-is-paired-by-its-code.test.ts	offers home-network addresses, never a virtual switch a phone cannot reach	yes
+apps/desktop/src/main/a-phone-pairs-and-asks-through-the-relay.test.ts	registers a hook by hash, hears its live notice, collects offline calls and retires the old password	yes
+apps/desktop/src/main/a-phone-pairs-and-asks-through-the-relay.test.ts	pairs a phone by its code, then answers what the page asks and does what it may	yes
+apps/desktop/src/main/a-phone-pairs-and-asks-through-the-relay.test.ts	sends an alert, sealed for that phone's browser alone, only to a phone that turned alerts on and is not open	yes
+apps/desktop/src/main/a-phone-pairs-and-asks-through-the-relay.test.ts	does a copied request once, and never again	yes
+apps/desktop/src/main/a-phone-pairs-and-asks-through-the-relay.test.ts	pairs one phone per code, and none that cannot prove it saw the code	yes
+apps/desktop/src/main/a-phone-pairs-and-asks-through-the-relay.test.ts	closes a removed phone, and forgets every phone and the room when it is turned off	yes
+apps/desktop/src/main/a-phone-pairs-and-asks-through-the-relay.test.ts	connects again after the line drops, and keeps its phones and their numbers across a restart	yes
+apps/desktop/src/main/a-phone-pairs-and-asks-through-the-relay.test.ts	forgets a called link when the phone relay is turned off while it is disconnected	yes
+apps/desktop/src/main/a-phone-pairs-and-asks-through-the-relay.test.ts	says it is turning off until the relay confirms, and finishes after a restart	yes
+apps/desktop/src/main/a-phone-pairs-and-asks-through-the-relay.test.ts	gives a phone the away key, keeps its alerts at the relay to ring with the PC off, and hands the PC the letters	yes
+apps/desktop/src/main/a-phone-pairs-and-asks-through-the-relay.test.ts	takes a browser’s frames only once Full window is on, in order, once each, and in parts when long	yes
+apps/desktop/src/main/a-phone-pairs-and-asks-through-the-relay.test.ts	sends a message left while the PC was off once it is back, through the phone's own path	yes
+apps/desktop/src/main/a-phone-pairs-and-asks-through-the-relay.test.ts	never sends one twice, even when the relay hands the same note back again	yes
+apps/desktop/src/main/a-phone-pairs-and-asks-through-the-relay.test.ts	holds one written more than twelve hours ago for the phone to decide, and sends it never by itself	yes
+apps/desktop/src/main/a-phone-pairs-and-asks-through-the-relay.test.ts	holds with why one whose conversation is gone, or that does not open, and leaves a busy one waiting	yes
 apps/desktop/src/main/a-phone-shows-an-answer-as-the-window-does.test.ts	draws the bullets Kit sent the phone as a list with bold names	yes
 apps/desktop/src/main/a-phone-shows-an-answer-as-the-window-does.test.ts	draws paragraphs, a heading, a numbered list, code and emphasis	yes
 apps/desktop/src/main/a-phone-shows-an-answer-as-the-window-does.test.ts	carries an item on over a line indented under it, and shows an unclosed fence as code	yes

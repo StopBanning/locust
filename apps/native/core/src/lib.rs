@@ -152,10 +152,15 @@ pub mod page_preview;
 pub mod pdf;
 pub mod people;
 pub mod phone_alerts;
+pub mod phone_anywhere;
+#[cfg(test)]
+mod phone_anywhere_tests;
 pub mod phone_calls;
 pub mod phone_host;
 pub mod phone_page;
 pub mod phone_server;
+pub mod relay_crypto;
+pub mod web_push;
 pub mod png_text;
 pub mod profile_backup;
 pub mod protocol_tags;
