@@ -3464,6 +3464,10 @@ apps/desktop/src/renderer/src/a-provider-error-is-readable-and-said-once.test.ts
 apps/desktop/src/renderer/src/a-provider-error-is-readable-and-said-once.test.tsx	formats restored errors for each runtime without inventing its upstream provider	no
 apps/desktop/src/renderer/src/a-provider-error-is-readable-and-said-once.test.tsx	reads a JSON stderr cause without appending the raw body to a readable error	yes
 apps/desktop/src/renderer/src/a-provider-error-is-readable-and-said-once.test.tsx	keeps a distinct failure card and does not let a warning hide the failure	no
+apps/desktop/src/renderer/src/a-pull-link-is-read-once.test.ts	reads once for many links, and again when the window comes back after a minute	yes
+apps/desktop/src/renderer/src/a-pull-link-is-read-once.test.ts	does not keep a timer once the checks have settled	yes
+apps/desktop/src/renderer/src/a-pull-link-is-read-once.test.ts	reads every few minutes only while checks are running, and stops when the link is gone	yes
+apps/desktop/src/renderer/src/a-pull-link-is-read-once.test.ts	reads nothing when gh cannot	yes
 apps/desktop/src/renderer/src/a-pull-request-chip-says-its-state.test.tsx	names the pull request by number and state, with GitHub’s mark, and the whole line on hover	yes
 apps/desktop/src/renderer/src/a-pull-request-chip-says-its-state.test.tsx	wears its checks’ tone while open, and merged’s own once merged	yes
 apps/desktop/src/renderer/src/a-pull-request-link-wears-its-state.test.tsx	wears the state in words, and the checks as one mark	no

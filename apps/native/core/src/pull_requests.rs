@@ -1139,11 +1139,14 @@ impl PullRequestWatch {
 ///   and read again when the window comes back after that (`on_focus`).
 /// - A pull request is also read every few minutes (`again_ms = 180_000`) while its checks are still running.
 /// - A link with no active listeners has no timer and is not read.
+/// - A read already on its way is not started again: every caller that asks while it is out shares it.
 pub struct LinkSlot<T> {
     pub address: PullLinkAddress,
     pub value: Option<T>,
     pub at: u64,
     pub listeners: HashSet<u64>,
+    /// A read is out and has not finished (`pending` in pullLinkWatch.ts).
+    pub pending: bool,
 }
 
 pub struct LinkWatch<T> {
@@ -1153,6 +1156,8 @@ pub struct LinkWatch<T> {
     again_ms: u64,
     timer_armed: bool,
     focus_armed: bool,
+    /// The window's own listener for each link it draws (`show`), by key.
+    shown: HashMap<String, u64>,
 }
 
 impl<T> Default for LinkWatch<T> {
@@ -1170,6 +1175,7 @@ impl<T> LinkWatch<T> {
             again_ms,
             timer_armed: false,
             focus_armed: false,
+            shown: HashMap::new(),
         }
     }
 
@@ -1203,7 +1209,7 @@ impl<T> LinkWatch<T> {
 
     fn prune(&mut self, now: u64) {
         self.slots.retain(|_, slot| {
-            !(slot.listeners.is_empty() && slot.at > 0 && now.saturating_sub(slot.at) >= self.minute_ms)
+            !(slot.listeners.is_empty() && !slot.pending && slot.at > 0 && now.saturating_sub(slot.at) >= self.minute_ms)
         });
     }
 
@@ -1214,20 +1220,47 @@ impl<T> LinkWatch<T> {
         });
     }
 
-    /// Registers a listener and returns `(listener_id, should_read_now)`.
+    /// Marks the slot's read as out when it is to be read: no read is out and it was never read or is a minute old
+    /// (`force` skips the minute, as the timer's read does). Whether the caller is to start that read.
+    fn begin(&mut self, key: &str, now: u64, force: bool) -> bool {
+        let minute_ms = self.minute_ms;
+        let Some(slot) = self.slots.get_mut(key) else { return false };
+        if slot.pending || (!force && slot.at > 0 && now.saturating_sub(slot.at) < minute_ms) {
+            return false;
+        }
+        slot.pending = true;
+        true
+    }
+
+    /// `begin` for each key; the addresses whose read the caller is to start.
+    fn begin_all(&mut self, keys: Vec<String>, now: u64, force: bool) -> Vec<PullLinkAddress> {
+        let mut out = Vec::new();
+        for key in keys {
+            if self.begin(&key, now, force)
+                && let Some(slot) = self.slots.get(&key)
+            {
+                out.push(slot.address.clone());
+            }
+        }
+        out
+    }
+
+    /// Registers a listener and returns `(listener_id, should_read_now)`: true only for the call that starts the read,
+    /// never while one is already out.
     pub fn watch(&mut self, address: &PullLinkAddress, now: u64, is_moving: impl Fn(&T) -> bool) -> (u64, bool) {
         self.prune(now);
         let id = self.next_id;
         self.next_id += 1;
         let key = Self::key_of(address);
-        let slot = self.slots.entry(key).or_insert_with(|| LinkSlot {
+        let slot = self.slots.entry(key.clone()).or_insert_with(|| LinkSlot {
             address: address.clone(),
             value: None,
             at: 0,
             listeners: HashSet::new(),
+            pending: false,
         });
         slot.listeners.insert(id);
-        let should_read = slot.at == 0 || now.saturating_sub(slot.at) >= self.minute_ms;
+        let should_read = self.begin(&key, now, false);
         self.sync_arms(&is_moving);
         (id, should_read)
     }
@@ -1236,6 +1269,7 @@ impl<T> LinkWatch<T> {
         if let Some(slot) = self.slots.get_mut(&Self::key_of(address)) {
             slot.value = value;
             slot.at = now;
+            slot.pending = false;
         }
         self.sync_arms(&is_moving);
     }
@@ -1247,28 +1281,56 @@ impl<T> LinkWatch<T> {
         self.sync_arms(&is_moving);
     }
 
-    /// Returns addresses that should be re-read on window focus.
-    pub fn on_focus(&self, now: u64) -> Vec<PullLinkAddress> {
+    /// Holds one listener per link the window draws now: a link newly drawn is watched, a link no longer drawn is let
+    /// go (so it has no timer and is not read). Returns the links whose read the caller is to start.
+    pub fn show(&mut self, drawn: &[PullLinkAddress], now: u64, is_moving: impl Fn(&T) -> bool) -> Vec<PullLinkAddress> {
+        let keys: HashSet<String> = drawn.iter().map(Self::key_of).collect();
+        let gone: Vec<(String, u64)> = self.shown.iter().filter(|(k, _)| !keys.contains(*k)).map(|(k, id)| (k.clone(), *id)).collect();
+        for (key, id) in gone {
+            self.shown.remove(&key);
+            if let Some(slot) = self.slots.get_mut(&key) {
+                slot.listeners.remove(&id);
+            }
+        }
+        let mut reads = Vec::new();
+        for address in drawn {
+            let key = Self::key_of(address);
+            if self.shown.contains_key(&key) {
+                continue;
+            }
+            let (id, read) = self.watch(address, now, &is_moving);
+            self.shown.insert(key, id);
+            if read {
+                reads.push(address.clone());
+            }
+        }
+        self.sync_arms(&is_moving);
+        reads
+    }
+
+    /// The links to read again as the window comes back: each one watched, with no read out, a minute or more old.
+    /// Marks those reads as out.
+    pub fn on_focus(&mut self, now: u64) -> Vec<PullLinkAddress> {
         if !self.focus_armed {
             return Vec::new();
         }
-        self.slots
-            .values()
-            .filter(|slot| !slot.listeners.is_empty() && (slot.at == 0 || now.saturating_sub(slot.at) >= self.minute_ms))
-            .map(|slot| slot.address.clone())
-            .collect()
+        let keys: Vec<String> = self.slots.iter().filter(|(_, slot)| !slot.listeners.is_empty()).map(|(k, _)| k.clone()).collect();
+        self.begin_all(keys, now, false)
     }
 
-    /// Returns addresses that should be re-read on a periodic tick.
-    pub fn on_tick(&self, is_moving: impl Fn(&T) -> bool) -> Vec<PullLinkAddress> {
+    /// The links to read on the timer's tick: each one watched whose checks are still running, read whatever its age.
+    /// Marks those reads as out.
+    pub fn on_tick(&mut self, is_moving: impl Fn(&T) -> bool) -> Vec<PullLinkAddress> {
         if !self.timer_armed {
             return Vec::new();
         }
-        self.slots
-            .values()
-            .filter(|slot| !slot.listeners.is_empty() && slot.value.as_ref().is_some_and(&is_moving))
-            .map(|slot| slot.address.clone())
-            .collect()
+        let keys: Vec<String> = self
+            .slots
+            .iter()
+            .filter(|(_, slot)| !slot.listeners.is_empty() && slot.value.as_ref().is_some_and(&is_moving))
+            .map(|(k, _)| k.clone())
+            .collect();
+        self.begin_all(keys, 0, true)
     }
 }
 
@@ -1284,3 +1346,7 @@ mod tests;
 #[cfg(test)]
 #[path = "pull_links_tests.rs"]
 mod link_tests;
+
+#[cfg(test)]
+#[path = "pull_link_read_once_tests.rs"]
+mod read_once_tests;
