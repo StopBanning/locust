@@ -316,6 +316,17 @@ pub fn read_plan(value: &Value) -> Vec<PlanStep> {
         .unwrap_or_default()
 }
 
+/// When a conversation last did something (missionView's `lastActivityAt`), the list's sort key: its newest event's
+/// time, or when it was made for a run that has said nothing. Never earlier than when it was made: a runtime clock
+/// behind the host's would otherwise sort a live run below where it was a moment ago.
+pub fn last_activity_at<'a>(created_at: &str, events: impl DoubleEndedIterator<Item = &'a Value>) -> String {
+    let last = events.rev().find_map(|e| e.get("occurredAt").and_then(Value::as_str));
+    match last {
+        Some(last) if last > created_at => last.to_owned(),
+        _ => created_at.to_owned(),
+    }
+}
+
 pub fn duration_text(ms: u64) -> String {
     let seconds = (ms + 500) / 1000;
     if seconds < 60 {
@@ -1780,12 +1791,7 @@ pub fn try_list_recent(dir: &Path, limit: usize) -> io::Result<Vec<Summary>> {
                 _ => {}
             }
         }
-        let updated = events
-            .values()
-            .rev()
-            .find_map(|e| e.get("occurredAt").and_then(Value::as_str))
-            .unwrap_or(&m.created_at)
-            .to_owned();
+        let updated = last_activity_at(&m.created_at, events.values().copied());
         let first = m.prompt.lines().next().unwrap_or_default().trim();
         let title: String = crate::path_title::path_only_title(first)
             .as_deref()

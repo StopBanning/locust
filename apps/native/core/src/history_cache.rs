@@ -352,12 +352,7 @@ fn parse_file(path: &Path, modified: SystemTime, stamp: (u64, u128)) -> CachedFi
         None
     };
 
-    let updated = ordered_events
-        .iter()
-        .rev()
-        .find_map(|e| e.get("occurredAt").and_then(Value::as_str))
-        .unwrap_or(&m.created_at)
-        .to_owned();
+    let updated = ledger::last_activity_at(&m.created_at, ordered_events.iter());
     let first = m.prompt.lines().next().unwrap_or_default().trim();
     let title: String = crate::path_title::path_only_title(first)
         .as_deref()

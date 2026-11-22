@@ -4023,5 +4023,9 @@ mod long_history_tests;
 mod torn_words_tests;
 
 #[cfg(test)]
+#[path = "last_activity_tests.rs"]
+mod last_activity_tests;
+
+#[cfg(test)]
 #[path = "cold_start_tests.rs"]
 mod cold_start_tests;

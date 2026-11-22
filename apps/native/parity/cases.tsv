@@ -4489,6 +4489,10 @@ apps/desktop/src/renderer/src/judges-see-the-check.test.tsx	joins a label moved 
 apps/desktop/src/renderer/src/judges-see-the-check.test.tsx	moves a label that would run into another from the other side, though their points are far apart (0.811)	no
 apps/desktop/src/renderer/src/judges-see-the-check.test.tsx	reads a model added under its own id by its name, and leaves a name the person wrote alone	yes
 apps/desktop/src/renderer/src/keyboardShortcuts.test.ts	groups them for a person, and every row is a key the code actually handles	no
+apps/desktop/src/renderer/src/last-activity.test.ts	is the last event, when there is one	yes
+apps/desktop/src/renderer/src/last-activity.test.ts	falls back to when it was made, for a run that has said nothing	yes
+apps/desktop/src/renderer/src/last-activity.test.ts	never goes BACKWARDS from the creation time	yes
+apps/desktop/src/renderer/src/last-activity.test.ts	puts a long working conversation above a newer idle one	yes
 apps/desktop/src/renderer/src/layout.test.ts	follows the width when nobody has chosen	yes
 apps/desktop/src/renderer/src/layout.test.ts	covers the smallest window the app will open	yes
 apps/desktop/src/renderer/src/layout.test.ts	lets a choice win at every width, in both directions	yes
