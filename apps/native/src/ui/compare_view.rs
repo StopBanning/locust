@@ -99,7 +99,7 @@ pub(super) struct CompareState {
     pub(super) changes_lines: HashMap<(String, CompareSlotId), String>,
     pub(super) tune_note_mission_id: Option<String>,
     pub(super) tune_note_compare_id: Option<String>,
-    pub(super) tune_note_draft: Option<locust_core::tune::TuneLessonDraft>,
+    pub(super) tune_note_edits: Vec<locust_core::tune::TuneEditOutcome>,
     pub(super) tune_note_saved: Option<locust_core::tune::PublicTuneLesson>,
     pub(super) tune_note_status: Option<String>,
     pub(super) tune_note_error: Option<String>,
@@ -1743,66 +1743,41 @@ pub(super) fn poll(s: &mut State) -> bool {
             .as_deref()
             .and_then(|cid| s.compare.compares.iter().find(|c| c.compare_id == cid))
             .cloned();
-        let valid_cols: Vec<String> = cmp_opt
-            .as_ref()
-            .map(|c| c.slots.iter().map(|s| s.slot.upper().to_owned()).collect())
-            .unwrap_or_else(|| vec!["A".to_owned(), "B".to_owned(), "C".to_owned()]);
-        if snap.failed {
-            s.compare.tune_note_draft = None;
-            s.compare.tune_note_saved = None;
-            s.compare.tune_note_status = Some(locust_core::tune::TUNE_LESSON_FALLBACK.to_owned());
+        s.compare.tune_note_edits.clear();
+        s.compare.tune_note_saved = None;
+        // Electron's TUNE_LESSON_NOTE_CHANNEL: a reply that will not read saves nothing and says so; one that reads
+        // saves its one lesson, or says in one line why there is none.
+        let parsed = if snap.failed {
+            None
         } else {
-            let text = snapshot_final_text(&snap);
-            match locust_core::tune::parse_tune_lesson(&text, &valid_cols) {
-                locust_core::tune::ParsedTuneLesson::Ok(draft) => {
-                    s.compare.tune_note_draft = Some(draft.clone());
-                    let saved = if let Some(lesson) = draft.lesson.as_deref()
-                        && let Some(ref cmp) = cmp_opt
-                        && let Some(ref store) = s.data
-                        && let Some(tm_id) = cmp.teammate_id.as_deref()
-                    {
-                        let verdict = draft
-                            .outcomes
-                            .iter()
-                            .find(|o| o.column == draft.kept)
-                            .map(|o| o.verdict.as_str())
-                            .unwrap_or_else(|| draft.confidence.as_str());
-                        locust_core::tune_lesson_store::add(
-                            store,
-                            locust_core::tune_lesson_store::NewTuneLesson {
-                                teammate_id: tm_id,
-                                compare_id: &cmp.compare_id,
-                                verdict,
-                                lesson,
-                                ask: &cmp.prompt,
-                            },
-                        )
-                        .ok()
-                    } else {
-                        None
-                    };
-                    s.compare.tune_note_saved = saved;
-                    s.compare.tune_note_status = if s.compare.tune_note_saved.is_none() {
-                        Some(if draft.summary.is_empty() {
-                            locust_core::tune::TUNE_LESSON_NONE.to_owned()
-                        } else {
-                            draft.summary
-                        })
-                    } else {
-                        None
-                    };
-                }
-                locust_core::tune::ParsedTuneLesson::CannotTell { summary } => {
-                    s.compare.tune_note_draft = None;
-                    s.compare.tune_note_saved = None;
-                    s.compare.tune_note_status =
-                        Some(summary.unwrap_or_else(|| locust_core::tune::TUNE_LESSON_CANNOT_TELL.to_owned()));
-                }
-                locust_core::tune::ParsedTuneLesson::Invalid => {
-                    s.compare.tune_note_draft = None;
-                    s.compare.tune_note_saved = None;
-                    s.compare.tune_note_status = Some(locust_core::tune::TUNE_LESSON_FALLBACK.to_owned());
-                }
+            Some(locust_core::tune::parse_tune_lesson(&snapshot_final_text(&snap)))
+        };
+        match parsed {
+            Some(parsed) if parsed.ok => {
+                s.compare.tune_note_edits = parsed.edits;
+                let saved = if let Some(lesson) = parsed.lesson.as_ref()
+                    && let Some(ref cmp) = cmp_opt
+                    && let Some(ref store) = s.data
+                    && let Some(tm_id) = cmp.teammate_id.as_deref()
+                {
+                    locust_core::tune_lesson_store::add(
+                        store,
+                        locust_core::tune_lesson_store::NewTuneLesson {
+                            teammate_id: tm_id,
+                            compare_id: &cmp.compare_id,
+                            lesson,
+                        },
+                    )
+                    .map_err(|why| s.compare.tune_note_error = Some(why))
+                    .ok()
+                } else {
+                    None
+                };
+                s.compare.tune_note_status = if saved.is_none() { parsed.message.map(str::to_owned) } else { None };
+                s.compare.tune_note_saved = saved;
+            }
+            _ => {
+                s.compare.tune_note_status = Some(locust_core::tune::TUNE_LESSON_FALLBACK.to_owned());
             }
         }
         changed = true;
@@ -3477,40 +3452,54 @@ pub(super) fn start_tune_note(s: &mut State, cmp: &Compare) {
         s.compare.tune_note_error = Some(why);
         return;
     }
-    let entries: Vec<locust_core::tune::TuneLessonColumnEntry> = cmp
-        .slots
-        .iter()
-        .map(|slot| {
-            let ans = slot
-                .mission_ids
-                .last()
-                .and_then(|id| s.compare.snapshots.get(id))
-                .map(snapshot_final_text)
-                .unwrap_or_default();
-            let ch = s
-                .compare
-                .changes_lines
-                .get(&(cmp.compare_id.clone(), slot.slot))
-                .cloned();
-            locust_core::tune::TuneLessonColumnEntry {
-                slot: slot.slot,
-                label: locust_core::compare::setup_name(slot),
-                instructions: slot.route.instructions.clone(),
-                why: slot.route.why.clone(),
-                skill: slot.route.skill.clone(),
-                answer: ans,
-                changes: ch,
-            }
-        })
-        .collect();
+    // A TUNE, MEASURED (0.811): each setup's record over every run, as its benchmark shows it, when it was run again.
     let runs_input = benchmark_runs_for(s, cmp);
     let measured = if runs_input.len() > 1 {
-        let rows = benchmark_rows(&runs_input);
-        locust_core::tune::tune_measured_of(cmp, &rows, runs_input.len())
+        locust_core::tune::tune_measured_of(cmp, &benchmark_rows(&runs_input))
     } else {
         Vec::new()
     };
-    let prompt = locust_core::tune::tune_lesson_prompt(&cmp.prompt, kept, &entries, &measured);
+    let setups: Vec<locust_core::tune::TuneLessonSetup> = cmp
+        .slots
+        .iter()
+        .map(|slot| {
+            let answer = slot
+                .mission_ids
+                .last()
+                .and_then(|id| s.compare.snapshots.get(id))
+                .map(|snap| snapshot_final_text(snap).trim().to_owned())
+                .unwrap_or_default();
+            let changes = cmp.changes.then(|| {
+                s.compare
+                    .changes_lines
+                    .get(&(cmp.compare_id.clone(), slot.slot))
+                    .cloned()
+                    .unwrap_or_else(|| "no file changes".to_owned())
+            });
+            locust_core::tune::TuneLessonSetup {
+                setup: locust_core::compare::setup_name(slot),
+                instructions: slot.route.instructions.clone().unwrap_or_default(),
+                why: slot.route.why.clone(),
+                skill: slot.route.skill.clone(),
+                answer,
+                changes,
+                measured: measured.iter().find(|m| m.slot == slot.slot).cloned(),
+            }
+        })
+        .collect();
+    let kept_column = cmp.slots.iter().find(|c| c.slot == kept);
+    let kept_name = kept_column.map(locust_core::compare::setup_name).unwrap_or_else(|| format!("Column {}", kept.upper()));
+    // Electron: the kept setup's words are the teammate's already (Use these instructions was pressed), Current aside.
+    let saved_instructions = crate::tune_teammate::read_teammate_saved(&store, tm_id).map(|t| t.1).unwrap_or_default();
+    let used_instructions = kept_name != "Current"
+        && kept_column.and_then(|c| c.route.instructions.as_deref()) == Some(saved_instructions.as_str());
+    let prompt = locust_core::tune::tune_lesson_prompt(&locust_core::tune::TuneLessonPromptInput {
+        ask: cmp.prompt.clone(),
+        setups,
+        kept: kept_name,
+        used_instructions,
+        changed_files: cmp.changes,
+    });
     let kept_slot = cmp
         .slots
         .iter()
@@ -3755,11 +3744,16 @@ fn render_kept_tune_strip(
         if let Some(status) = &s.compare.tune_note_status {
             strip = strip.child(text(status.clone()).key("tune-note-status").font(l.ty.label).color(p.secondary).wrap());
         }
-        if let Some(draft) = &s.compare.tune_note_draft {
-            for o in &draft.outcomes {
-                let lbl = o.label.as_deref().unwrap_or(&o.column);
+        for o in &s.compare.tune_note_edits {
+            {
+                let lbl = match o.draft.as_deref() {
+                    Some("how") => "How it works",
+                    Some("knows") => "What it knows",
+                    Some(other) => other,
+                    None => "Edit",
+                };
                 strip = strip.child(
-                    text(format!("{lbl}: {} — {}", o.verdict.as_str(), o.reason))
+                    text(format!("{lbl}: {} — {}", o.verdict.as_str(), o.did))
                         .font(l.ty.label)
                         .color(p.muted)
                         .wrap(),
@@ -3774,7 +3768,7 @@ fn render_kept_tune_strip(
                     .gap(8.0)
                     .center_y()
                     .child(
-                        text(format!("Lesson kept: {}", saved.lesson))
+                        text(format!("Lesson kept: {}", locust_core::tune::tune_lesson_line(&saved.when, &saved.r#do)))
                             .key("tune-saved-lesson")
                             .font(l.ty.label)
                             .color(p.green)

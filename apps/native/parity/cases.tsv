@@ -1047,14 +1047,14 @@ apps/desktop/src/main/a-tune-can-give-a-claude-teammate-a-skill.test.ts	refuse w
 apps/desktop/src/main/a-tune-can-give-a-claude-teammate-a-skill.test.ts	is handed the skills its record lists, as the plugin `teammate`, Auto included	no
 apps/desktop/src/main/a-tune-can-give-a-claude-teammate-a-skill.test.ts	in a tune’s column is handed that column’s skill, standing in for a kept one of its name	no
 apps/desktop/src/main/a-tune-can-give-a-claude-teammate-a-skill.test.ts	is handed none when the teammate keeps none	no
-apps/desktop/src/main/a-tune-can-give-a-claude-teammate-a-skill.test.ts	is told which setup added a skill, and what it said	no
-apps/desktop/src/main/a-tune-is-measured-before-one-is-kept.test.ts	may be: its benchmark names its setups by their columns, never the model they share	no
-apps/desktop/src/main/a-tune-is-measured-before-one-is-kept.test.ts	still needs its judge first, and a comparison of models still waits for Keep	no
+apps/desktop/src/main/a-tune-can-give-a-claude-teammate-a-skill.test.ts	is told which setup added a skill, and what it said	yes
+apps/desktop/src/main/a-tune-is-measured-before-one-is-kept.test.ts	may be: its benchmark names its setups by their columns, never the model they share	yes
+apps/desktop/src/main/a-tune-is-measured-before-one-is-kept.test.ts	still needs its judge first, and a comparison of models still waits for Keep	yes
 apps/desktop/src/main/a-tune-is-measured-before-one-is-kept.test.ts	is read whole: whole counts that add up, one a column	no
 apps/desktop/src/main/a-tune-is-measured-before-one-is-kept.test.ts	is none at all when any of it does not add up	no
-apps/desktop/src/main/a-tune-is-measured-before-one-is-kept.test.ts	reads each setup's record over every run, and how to weigh it	no
-apps/desktop/src/main/a-tune-is-measured-before-one-is-kept.test.ts	is as it was for a tune run once	no
-apps/desktop/src/main/a-tune-is-measured-before-one-is-kept.test.ts	is told it reads one model's setups, not different models	no
+apps/desktop/src/main/a-tune-is-measured-before-one-is-kept.test.ts	reads each setup's record over every run, and how to weigh it	yes
+apps/desktop/src/main/a-tune-is-measured-before-one-is-kept.test.ts	is as it was for a tune run once	yes
+apps/desktop/src/main/a-tune-is-measured-before-one-is-kept.test.ts	is told it reads one model's setups, not different models	yes
 apps/desktop/src/main/a-turn-is-committed-on-its-own-branch.test.ts	commits nothing when the turn changed nothing	yes
 apps/desktop/src/main/a-turn-is-committed-on-its-own-branch.test.ts	commits every change, new files too, as the teammate, past a hook that would refuse, and leaves the person's branch alone	yes
 apps/desktop/src/main/a-turn-is-committed-on-its-own-branch.test.ts	refuses a teammate with no tree of its own	yes
@@ -1657,12 +1657,12 @@ apps/desktop/src/main/disk-observation.test.ts	diffs the earlier text against th
 apps/desktop/src/main/disk-observation.test.ts	never reads a file past the cap, and still sees it change	yes
 apps/desktop/src/main/disk-observation.test.ts	carries the text of only so many files, and a size for the rest	yes
 apps/desktop/src/main/disk-observation.test.ts	draws no patch for a file it saw only by size, rather than calling it new	no
-apps/desktop/src/main/earlier-tunes-reach-only-the-next-tune.test.ts	asks one reflection turn with the three setups, their reasons, their answers, their file changes and what was kept as quoted data	no
-apps/desktop/src/main/earlier-tunes-reach-only-the-next-tune.test.ts	saves nothing when a reply will not parse, and says so in one line	no
-apps/desktop/src/main/earlier-tunes-reach-only-the-next-tune.test.ts	does not save a lesson that rests only on cannot tell rows	no
-apps/desktop/src/main/earlier-tunes-reach-only-the-next-tune.test.ts	writes at most one lesson per tune	no
-apps/desktop/src/main/earlier-tunes-reach-only-the-next-tune.test.ts	keeps at most 20 lessons per teammate, newest last, each with its compare id and date, and removes them with the teammate	no
-apps/desktop/src/main/earlier-tunes-reach-only-the-next-tune.test.ts	carries a teammate’s lessons into the next tune’s draft prompt as quoted data, newest last, and never into an ordinary turn’s brief	no
+apps/desktop/src/main/earlier-tunes-reach-only-the-next-tune.test.ts	asks one reflection turn with the three setups, their reasons, their answers, their file changes and what was kept as quoted data	yes
+apps/desktop/src/main/earlier-tunes-reach-only-the-next-tune.test.ts	saves nothing when a reply will not parse, and says so in one line	yes
+apps/desktop/src/main/earlier-tunes-reach-only-the-next-tune.test.ts	does not save a lesson that rests only on cannot tell rows	yes
+apps/desktop/src/main/earlier-tunes-reach-only-the-next-tune.test.ts	writes at most one lesson per tune	yes
+apps/desktop/src/main/earlier-tunes-reach-only-the-next-tune.test.ts	keeps at most 20 lessons per teammate, newest last, each with its compare id and date, and removes them with the teammate	yes
+apps/desktop/src/main/earlier-tunes-reach-only-the-next-tune.test.ts	carries a teammate’s lessons into the next tune’s draft prompt as quoted data, newest last, and never into an ordinary turn’s brief	yes
 apps/desktop/src/main/edit-check.test.ts	reads the command of the conversation's own folder (0.813): the window may be on another folder by then	yes
 apps/desktop/src/main/edit-check.test.ts	says nothing at all when no command is set for the folder	yes
 apps/desktop/src/main/edit-check.test.ts	names only what is new since the last check, and says when a failure is the same one	yes
@@ -5520,6 +5520,8 @@ apps/desktop/src/shared/a-judge-scores-each-answer.test.ts	takes the judge's own
 apps/desktop/src/shared/a-judge-scores-each-answer.test.ts	is nothing when the judge gave none to read: its view still stands on its own	no
 apps/desktop/src/shared/a-judge-scores-each-answer.test.ts	counts what each column met, of every point	no
 apps/desktop/src/shared/a-judge-scores-each-answer.test.ts	is drawn without its scorecard, which the table says -- and without a line of it still being written	no
+apps/desktop/src/shared/a-lesson-reads-as-one-sentence.test.ts	joins the two fields as one sentence, lower-casing a capitalised first word	yes
+apps/desktop/src/shared/a-lesson-reads-as-one-sentence.test.ts	keeps an acronym or a name as written	yes
 apps/desktop/src/shared/a-long-room-post-still-starts.test.ts	is the whole board when it fits	no
 apps/desktop/src/shared/a-long-room-post-still-starts.test.ts	fits under the limit beside a long post, done rows going first, and says how many it left out	no
 apps/desktop/src/shared/a-long-room-post-still-starts.test.ts	says so, briefly, when even the board’s instructions do not fit	no

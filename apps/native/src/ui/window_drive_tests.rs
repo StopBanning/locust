@@ -3549,18 +3549,13 @@ for line in sys.stdin:
                 'instructions': 'Check tests first and quote file paths.',
                 'note': 'Merged workflow and knowledge.'
             })
-        elif 'evaluating a side-by-side tune' in prompt:
-            import re
-            m = re.search(r'### Column ([ABC]) \(How it works\)', prompt)
-            kept_col = m.group(1) if m else 'A'
+        elif 'Note what this tune of a teammate' in prompt:
             reply = json.dumps({
-                'confidence': 'certain',
-                'summary': 'Checking tests early helped.',
-                'kept': kept_col,
-                'outcomes': [
-                    {'column': kept_col, 'kind': 'instructions', 'label': 'How it works', 'verdict': 'helped', 'reason': 'Caught missing edge case'}
+                'edits': [
+                    {'draft': 'how', 'changed': 'Check tests first', 'did': 'Caught a missing edge case', 'verdict': 'helped'},
+                    {'draft': 'knows', 'changed': 'Quote file paths', 'did': 'Same answer as Current', 'verdict': 'no clear effect'}
                 ],
-                'lesson': 'When editing core modules, check tests before replying.'
+                'lesson': {'when': 'editing core modules', 'do': 'check tests before replying', 'because': 'How it works helped: it caught a missing edge case', 'confidence': 'medium'}
             })
         else:
             reply = 'Done.'
@@ -3742,9 +3737,10 @@ fn tune_note_lesson_stores_lesson_and_next_tune_draft_prompt_includes_it() {
     let lessons = locust_core::tune_lesson_store::list(&store, Some("tm_codec"));
     assert_eq!(lessons.len(), 1);
     assert_eq!(
-        lessons[0].lesson,
+        locust_core::tune::tune_lesson_line(&lessons[0].when, &lessons[0].r#do),
         "When editing core modules, check tests before replying."
     );
+    assert_eq!(lessons[0].confidence, locust_core::tune::TuneLessonConfidence::Medium);
     let saved_banner = text_in(&rt, "tune-saved-lesson").join(" ");
     assert!(
         saved_banner.contains("When editing core modules, check tests before replying."),
@@ -3758,7 +3754,7 @@ fn tune_note_lesson_stores_lesson_and_next_tune_draft_prompt_includes_it() {
     pump(&mut rt, "ordinary turn done", |s| s.flight.is_none());
     let ordinary_logged = std::fs::read_to_string(&log_path).unwrap();
     assert!(
-        !ordinary_logged.contains("When editing core modules, check tests before replying."),
+        !ordinary_logged.contains("check tests before replying"),
         "ordinary turn must not receive tune lesson: {ordinary_logged}"
     );
 
@@ -3769,9 +3765,18 @@ fn tune_note_lesson_stores_lesson_and_next_tune_draft_prompt_includes_it() {
     });
     let logged = std::fs::read_to_string(&log_path).unwrap();
     assert!(
-        logged.contains("When editing core modules, check tests before replying."),
+        logged.contains("What earlier tunes of this teammate found:") && logged.contains("check tests before replying"),
         "next /tune draft prompt missing saved lesson: {logged}"
     );
+
+    // Edit teammate says the lesson as one sentence, as the kept strip does (Electron's tuneLessonLine).
+    rt.update(|s, _| crate::people_panel::open(s));
+    settle(&mut rt);
+    click(&mut rt, "team-edit-tm_codec");
+    rt.update(|_, tx| tx.scroll_key_to("team-tune-lessons", 0.0));
+    settle(&mut rt);
+    let listed = text_in(&rt, "team-tune-lessons").join(" ");
+    assert!(listed.contains("When editing core modules, check tests before replying."), "{listed}");
     on_quit(&mut rt.state, &mut Tx::default());
 }
 

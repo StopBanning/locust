@@ -3,25 +3,26 @@
 use super::*;
 
 fn prompt() -> String {
-    let column = |slot, label: &str, instructions: &str, why: Option<&str>, answer: &str| TuneLessonColumnEntry {
-        slot,
-        label: label.into(),
-        instructions: Some(instructions.into()),
+    let setup = |name: &str, instructions: &str, why: Option<&str>, answer: &str| TuneLessonSetup {
+        setup: name.into(),
+        instructions: instructions.into(),
         why: why.map(Into::into),
         skill: None,
         answer: answer.into(),
         changes: None,
+        measured: None,
     };
-    tune_lesson_prompt(
-        "Explain the cause.",
-        CompareSlotId::B,
-        &[
-            column(CompareSlotId::A, "Current", "Be concise.", None, "A."),
-            column(CompareSlotId::B, "How it works", "Check your work.", Some("It stopped before checking."), "B."),
-            column(CompareSlotId::C, "What it knows", "Name your assumptions.", Some("It guessed."), "C."),
+    tune_lesson_prompt(&TuneLessonPromptInput {
+        ask: "Explain the cause.".into(),
+        setups: vec![
+            setup("Current", "Be concise.", None, "A."),
+            setup("How it works", "Check your work.", Some("It stopped before checking."), "B."),
+            setup("What it knows", "Name your assumptions.", Some("It guessed."), "C."),
         ],
-        &[],
-    )
+        kept: "How it works".into(),
+        used_instructions: true,
+        changed_files: false,
+    })
 }
 
 // case: judges each edit from the runs, never from which setup the person kept
