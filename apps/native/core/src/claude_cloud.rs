@@ -820,3 +820,7 @@ fn session_from_json(value: &Value) -> Option<ClaudeCloudSession> {
 #[cfg(test)]
 #[path = "claude_cloud_send_tests.rs"]
 mod send_tests;
+
+#[cfg(test)]
+#[path = "claude_cloud_env_tests.rs"]
+mod env_tests;

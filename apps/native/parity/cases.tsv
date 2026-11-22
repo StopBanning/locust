@@ -131,6 +131,10 @@ apps/desktop/src/main/a-cloud-send-is-confirmed-by-json.test.ts	A failed JSON se
 apps/desktop/src/main/a-cloud-send-is-confirmed-by-json.test.ts	A cloud send uses the last JSON answer and never accepts terminal success words.	yes
 apps/desktop/src/main/a-cloud-send-is-confirmed-by-json.test.ts	A send nobody confirmed is said to be unconfirmed, never "not sent", so it is not sent twice (0.568).	yes
 apps/desktop/src/main/a-cloud-send-is-confirmed-by-json.test.ts	A configuration failure keeps the Error fallback and stderr cannot forge success.	yes
+apps/desktop/src/main/a-cloud-task-uses-the-organizations-environment.test.ts	A task carries an optional organization environment alongside the selected model and effort.	yes
+apps/desktop/src/main/a-cloud-task-uses-the-organizations-environment.test.ts	A folder remembers its environment across reloads while other folders keep their own choices.	yes
+apps/desktop/src/main/a-cloud-task-uses-the-organizations-environment.test.ts	A task without an environment keeps the default cloud arguments and opens no window.	yes
+apps/desktop/src/main/a-cloud-task-uses-the-organizations-environment.test.ts	An invalid saved environment is ignored instead of becoming a command argument.	yes
 apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	names the guard on Windows the way Codex runs a hook there: in PowerShell, on Locust’s own binary run as node	yes
 apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	names it elsewhere exactly as Claude Code’s is named	yes
 apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	is written only when LOCUST_GUARD_LOG names a file, one per question, with what was decided	yes
