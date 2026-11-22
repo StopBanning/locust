@@ -10440,7 +10440,24 @@ if (!ownsSingleInstanceLock) {
       // The person's own conversations too, only while their switch is on (0.842).
       seeAll: () => mcpHost.conversations(),
       conversations: () => appConversations(),
-      carryOn: (missionId, route) => carryOn?.carry(missionId, route) ?? Promise.resolve({ ok: false, message: 'Locust is still starting.' })
+      carryOn: (missionId, route, also) => carryOn?.carry(missionId, route, also) ?? Promise.resolve({ ok: false, message: 'Locust is still starting.' }),
+      // The window's own usage readings (0.882), the ones its usage row shows.
+      usage: async () => {
+        const history = await readMissionHistory(missionLedger, undefined, workspacePath, undefined, join(app.getPath('userData'), 'usage-readings.json'))
+        if (!history.ok) throw new Error(history.error.message)
+        return { windows: history.data.usageWindows, atLimit: history.data.limitedRuntimes }
+      },
+      // A teammate's model from an app (0.882): the window's own policy check and route store.
+      saveModel: async (teammateId, route) => {
+        const managed = policyTurnRefusal(organizationPolicy, route)
+        if (managed !== undefined) return managed
+        try {
+          await teammates.rememberRoute(teammateId, route)
+          return undefined
+        } catch {
+          return 'Locust could not save that model for the teammate.'
+        }
+      }
     })
     const cliSessions = createLocustCliSessions({
       teammates: async () => {

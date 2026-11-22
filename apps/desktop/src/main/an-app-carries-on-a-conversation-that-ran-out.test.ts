@@ -80,6 +80,6 @@ describe('an app carries on a conversation that ran out', () => {
   it('is wired to the person’s switch and Locust’s own carry-on', () => {
     const main = readFileSync(fileURLToPath(new URL('./index.ts', import.meta.url)), 'utf8')
     expect(main).toContain('seeAll: () => mcpHost.conversations(),')
-    expect(main).toContain('carryOn: (missionId, route) => carryOn?.carry(missionId, route)')
+    expect(main).toContain('carryOn: (missionId, route, also) => carryOn?.carry(missionId, route, also)')
   })
 })

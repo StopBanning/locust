@@ -2,7 +2,7 @@ import type { MissionStarter } from '@teammate/mission-store'
 import type { CodexMissionStartRequest, CodexMissionStartResponse, MissionMode, MissionReadResponse, PublicModel, PublicRecoveredMission, PublicRoutine, RoutineRunResponse, TeammateListResponse, TeammateRoute } from '../shared/ipc.js'
 import type { PublicBackgroundRun } from '../shared/background.js'
 import type { MissionRuntimeId } from '@teammate/runtime-adapters'
-import { carryOnReason, type CarryOnReason, type CarryOnResponse, type CarryOnRoute } from '../shared/carry-on.js'
+import { carryOnReason, cutOffMidTurn, type CarryOnReason, type CarryOnResponse, type CarryOnRoute } from '../shared/carry-on.js'
 import { joinMessageFragments } from '../shared/messageFragments.js'
 import { unwrapProtocolTags } from '../shared/protocolTags.js'
 import { decisionReply, parseDecision, type DecisionRequest } from '../shared/decision.js'
@@ -25,8 +25,9 @@ const MODE_NAME: Readonly<Record<MissionMode, string>> = { ask: 'Ask', plan: 'Pl
 
 /** Only adapters to the window's existing roster, start and ledger readers. */
 /** Why a turn that ended can be carried on to another agent, as its card says it (main/carry-on.ts, stoppedFor). */
-const stoppedReason = (turn: PublicRecoveredMission): CarryOnReason | undefined =>
-  turn.phase === 'completed' || turn.phase === 'cancelled' ? undefined : carryOnReason(turn.events)
+/** Or, for a turn the caller knows is not running, that Locust closed under it (0.882). */
+const stoppedReason = (turn: PublicRecoveredMission): CarryOnReason | 'cut-off' | undefined =>
+  turn.phase === 'completed' || turn.phase === 'cancelled' ? undefined : carryOnReason(turn.events) ?? (cutOffMidTurn(turn) ? 'cut-off' : undefined)
 
 /** The longest read_reply waits for an answer when asked to. */
 export const MCP_WAIT_LIMIT_S = 20
@@ -108,7 +109,19 @@ export function createLocustMcpTools(options: {
   /** The newest turn of each recent conversation in the open folder, newest first. */
   readonly conversations?: () => Promise<readonly PublicRecoveredMission[]>
   /** Locust's own carry-on, the stopped turn's card press (main/carry-on.ts): it re-checks why the turn stopped. */
-  readonly carryOn?: (missionId: string, route: CarryOnRoute) => Promise<CarryOnResponse>
+  readonly carryOn?: (missionId: string, route: CarryOnRoute, also?: { readonly cutOff?: boolean; readonly message?: string }) => Promise<CarryOnResponse>
+  /**
+   * WHAT LOCUST LAST READ OF EACH AGENT'S USAGE (0.882): the window's own readings, each with the run it came from, and
+   * the agents at their limit now. An app driving several turns moves work before an account runs out, not after.
+   */
+  readonly usage?: () => Promise<{ readonly windows: Readonly<Record<string, string>>; readonly atLimit: Readonly<Record<string, string>> }>
+  /**
+   * A TEAMMATE'S OWN MODEL, SET FROM AN APP (0.882; Colin, 22 Nov, of the MCP list: "I don't see why we can't do all of
+   * those"). Only while the person has turned on both "Let apps see your conversations" and "Use each teammate's own
+   * mode", only a model the teammate's agent offers here, and through the window's own route store and policy check:
+   * the reason or undefined when saved. Before this, a saved route was never changed from here.
+   */
+  readonly saveModel?: (teammateId: string, route: TeammateRoute) => Promise<string | undefined>
   /** How a read_reply that was asked to wait sleeps between looks; tests pass one that does not. */
   readonly pause?: (ms: number) => Promise<void>
 }) {
@@ -117,8 +130,20 @@ export function createLocustMcpTools(options: {
   // The routines this server started. Their status is readable here; a person's own runs are not.
   const routinesStartedHere = new Set<string>()
   const text = (value: unknown, max = 200): value is string => typeof value === 'string' && value.trim().length > 0 && value.length <= max && !value.includes('\0')
-  const lookup = async (id: string) => {
-    const root = await options.read(id)
+  /*
+   * A SHORT ID (0.882): the first eight or more characters of an id list_conversations gave, with or without "mission_",
+   * as people and apps copy them. Only one conversation may match; the access rules below apply as to the whole id.
+   */
+  const whole = async (id: string): Promise<string> => {
+    const short = /^(?:mission_)?([0-9a-f-]{8,35})$/.exec(id)?.[1]
+    if (short === undefined || options.conversations === undefined) return id
+    const matches = (await options.conversations().catch(() => [] as readonly PublicRecoveredMission[])).filter(turn => turn.missionId.startsWith(`mission_${short}`))
+    return matches.length === 1 ? matches[0]!.missionId : id
+  }
+  const lookup = async (asked: string) => {
+    let root = await options.read(asked)
+    const id = root.ok ? asked : await whole(asked)
+    if (!root.ok && id !== asked) root = await options.read(id)
     if (!root.ok) return undefined
     if (root.data.mission.startedBy?.kind !== 'mcp' && options.seeAll?.() !== true && (options.here?.() === undefined || options.here() !== id)) return undefined
     const newest = await options.newest(id)
@@ -264,7 +289,11 @@ export function createLocustMcpTools(options: {
   const answerOf = (mission: PublicRecoveredMission): McpToolResult => {
     const failed = mission.events.findLast(e => e.type === 'run.failed')
     if (mission.phase === 'failed') return mcpText(mission.hostFailureMessage ?? (failed?.type === 'run.failed' ? failed.payload.message : 'The AI agent ended without an answer.'), true)
-    if (mission.phase !== 'completed') return mcpText('The run was interrupted or stopped before it finished.', true)
+    if (mission.phase !== 'completed') {
+      return mcpText(cutOffMidTurn(mission) && !options.live(mission.missionId)
+        ? 'Locust closed while this turn was working, so it never finished. carry_on picks it up again from the recorded work, on this agent or another.'
+        : 'The run was interrupted or stopped before it finished.', true)
+    }
     const joined = joinMessageFragments(mission.events)
     const finalAt = joined.findLastIndex(e => e.type === 'message.delta' && e.payload.final)
     const final = finalAt < 0 ? undefined : joined[finalAt]
@@ -441,11 +470,39 @@ export function createLocustMcpTools(options: {
           title: (list.ok ? list.data.missionTitles[turn.missionId] : undefined) ?? turn.prompt.slice(0, 80),
           started_by: turn.startedBy?.kind === 'mcp' ? 'an app' : 'the person', runtime: turn.runtime, model: turn.model,
           state: options.live(turn.missionId) ? (options.waiting?.(turn.missionId) === true ? 'waiting for the person in Locust' : 'working')
-            : stopped === 'plan' ? 'stopped: its plan ran out' : stopped === 'provider' ? 'stopped: its provider failed' : stopped === 'process' ? 'stopped: its process failed' : turn.phase,
+            : stopped === 'plan' ? 'stopped: its plan ran out' : stopped === 'provider' ? 'stopped: its provider failed' : stopped === 'process' ? 'stopped: its process failed' : stopped === 'cut-off' ? 'stopped: Locust closed while it was working' : turn.phase,
           folder: await options.turnFolder?.(turn.missionId) ?? conversationFolder(turn.startedBy) ?? null,
           ...(stopped === undefined ? {} : { can_carry_on: true }), updated: turn.lastUpdatedAt })
       }
       return mcpText(JSON.stringify(rows))
+    }
+    if (name === 'read_usage' && options.usage !== undefined) {
+      const read = await options.usage().catch(() => undefined)
+      if (read === undefined) return mcpText('Locust could not read its usage records just now. Try again shortly.', true)
+      return mcpText(JSON.stringify({ usage: read.windows, at_limit: read.atLimit }))
+    }
+    if (name === 'set_teammate_model' && options.saveModel !== undefined) {
+      if (options.seeAll?.() !== true || options.ownMode?.() !== true) return mcpText('Off: an app sets a teammate\'s model only while the person has turned on both "Let apps see your conversations" and "Use each teammate\'s own mode" in Locust\'s Settings. Nothing was changed.', true)
+      if (!text(args.teammate) || !text(args.model) || (args.effort !== undefined && !text(args.effort, 40))) return mcpText('Give a teammate by name or id and a model from list_models, and optionally an effort. Nothing was changed.', true)
+      const list = await options.teammates()
+      if (!list.ok) return mcpText(list.error.message, true)
+      const wanted = (args.teammate as string).trim().toLowerCase()
+      const teammate = list.data.teammates.find(t => t.teammateId === args.teammate || t.name.toLowerCase() === wanted)
+      if (teammate === undefined) return mcpText('No teammate has that name or id. Nothing was changed.', true)
+      if (teammate.route === undefined) return mcpText(`${teammate.name} has no AI agent set up yet. Choose one in Locust first. Nothing was changed.`, true)
+      const offered = await modelsFor(teammate.route)
+      const asked = (args.model as string).trim().toLowerCase()
+      const model = offered.find(one => one.id.toLowerCase() === asked || one.displayName.toLowerCase() === asked)
+      if (model === undefined) return mcpText(`That model is not one ${teammate.route.runtime} offers in this Locust. Ask list_models for ${teammate.name}'s choices. Nothing was changed.`, true)
+      const effort = typeof args.effort === 'string' ? args.effort.trim().toLowerCase() : undefined
+      if (effort !== undefined && !efforts(model).includes(effort)) return mcpText(efforts(model).length === 0 ? `${model.displayName} takes no effort level here: leave effort out. Nothing was changed.` : `${model.displayName} takes these efforts here: ${efforts(model).join(', ')}. Nothing was changed.`, true)
+      // Its agent, account and mode stay; the saved effort stays when the new model takes it.
+      const kept = effort ?? (teammate.route.effort !== undefined && efforts(model).includes(teammate.route.effort) ? teammate.route.effort : undefined)
+      const { effort: _was, ...rest } = teammate.route
+      const route: TeammateRoute = { ...rest, model: model.id, ...(kept === undefined ? {} : { effort: kept }) }
+      const refused = await options.saveModel(teammate.teammateId, route)
+      if (refused !== undefined) return mcpText(`${refused} Nothing was changed.`, true)
+      return mcpText(JSON.stringify({ teammate: teammate.name, runtime: route.runtime, model: route.model, ...(kept === undefined ? {} : { effort: kept }) }))
     }
     if (name === 'carry_on' && options.carryOn !== undefined) {
       if (!text(args.conversation_id)) return mcpText('Give a conversation id from start_conversation or list_conversations.', true)
@@ -460,7 +517,13 @@ export function createLocustMcpTools(options: {
       if (!text(args.runtime, 40) || offered.length === 0) return mcpText(`Name an AI agent this Locust can run, as list_models with no teammate lists them: ${[...new Set(all.map(one => one.runtime))].join(', ') || 'none'}. Nothing was started.`, true)
       const asked = text(args.model) ? offered.find(one => one.id === args.model || one.displayName.toLowerCase() === (args.model as string).toLowerCase()) : undefined
       if (text(args.model) && asked === undefined) return mcpText(`${args.runtime} does not offer that model here. Use one from list_models. Nothing was started.`, true)
-      const carried = await options.carryOn(mission.missionId, { runtime: args.runtime as MissionRuntimeId, ...(asked === undefined ? {} : { model: asked.id }) })
+      if (args.message !== undefined && !text(args.message, 8_000)) return mcpText('message is up to 8,000 characters. Nothing was started.', true)
+      const message = typeof args.message === 'string' ? args.message : undefined
+      const stopped = stoppedReason(mission)
+      const route = { runtime: args.runtime as MissionRuntimeId, ...(asked === undefined ? {} : { model: asked.id }) }
+      // The card's own press when nothing is added to it.
+      const also = { ...(stopped === 'cut-off' ? { cutOff: true } : {}), ...(message === undefined ? {} : { message }) }
+      const carried = await (Object.keys(also).length === 0 ? options.carryOn(mission.missionId, route) : options.carryOn(mission.missionId, route, also))
       if (!carried.ok) return mcpText(`${carried.message} Nothing was started.`, true)
       const folder = await options.turnFolder?.(carried.missionId) ?? carried.folder
       return mcpText(JSON.stringify({ conversation_id: carried.missionId, runtime: args.runtime, ...(asked === undefined ? {} : { model: asked.id }), mode, ...(folder === undefined ? {} : { folder }) }))

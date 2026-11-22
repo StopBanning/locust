@@ -40,7 +40,8 @@ describe('a carried conversation keeps its route and reports its status', () => 
       Object.assign(f.mission, { phase }); f.live(live); f.waiting(waiting)
       const result = await f.call('read_reply', { conversation_id: 'root' })
       expect(result.content[0]!.text.length).toBeGreaterThan(0)
-      expect(result.structuredContent).toEqual({ status, runtime: 'cursor', model: 'grok', folder: '/work/conversation', can_carry_on: carry })
+      // The same words as the text, for a client that shows only this part (0.882).
+      expect(result.structuredContent).toEqual({ status, message: result.content[0]!.text, runtime: 'cursor', model: 'grok', folder: '/work/conversation', can_carry_on: carry })
     }
   })
   it('offers a process crash after tools ran through the same card and door reason, without replaying uncertain actions', async () => {

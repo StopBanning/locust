@@ -174,6 +174,21 @@ export function carryOnRefusal(mode: MissionMode, to: MissionRuntimeId): string 
 }
 
 /** The carried-on turn's instruction, under the summary of what was done. Locust's words, never shown as the person's. */
+/**
+ * A TURN CUT OFF WHEN LOCUST CLOSED (0.882): it started, recorded no ending, and nothing runs it now. Found 22 Nov: Locust
+ * quit at 00:14 with five turns working, and each read "interrupted" with nothing an app could do but send it again.
+ * The caller says the turn is not running: a live turn looks the same in the record.
+ */
+export function cutOffMidTurn(mission: { readonly phase: string; readonly events: readonly { readonly type: string }[] }): boolean {
+  return mission.phase === 'interrupted' && mission.events.some((event) => event.type === 'run.started')
+    && !mission.events.some((event) => event.type === 'run.completed' || event.type === 'run.failed' || event.type === 'run.cancelled')
+}
+
+/** What a turn carried on after Locust closed under it is told: the process-failed words, for the same reason. */
+export function cutOffPrompt(from: MissionRuntimeId): string {
+  return `${runtimeDisplayName(from)} stopped when Locust closed while it was working. Carry on from the recorded work. Reconcile any action without a confirmed result using receipts and idempotency keys before proceeding; never retry an irreversible action with an uncertain result.`
+}
+
 export function carryOnPrompt(from: MissionRuntimeId, reason: CarryOnReason = 'plan'): string {
   if (reason === 'process') return `${runtimeDisplayName(from)} stopped because its process failed. Carry on from the recorded work. Reconcile any action without a confirmed result using receipts and idempotency keys before proceeding; never retry an irreversible action with an uncertain result.`
   if (reason === 'provider') {

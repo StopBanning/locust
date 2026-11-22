@@ -1,7 +1,7 @@
 import type { MissionLedger, RecoveredMission } from '@teammate/mission-store'
 import type { MissionRuntimeId } from '@teammate/runtime-adapters'
 
-import { carryOnPrompt, carryOnReason, carryOnRefusal } from '../shared/carry-on.js'
+import { carryOnPrompt, carryOnReason, carryOnRefusal, cutOffMidTurn, cutOffPrompt } from '../shared/carry-on.js'
 import type { MissionMode } from '../shared/ipc.js'
 import type { CarryOnReason, CarryOnResponse, CarryOnRoute, PlanRunsOut } from '../shared/carry-on.js'
 import { runtimeDisplayName } from '../shared/runtimes.js'
@@ -53,8 +53,12 @@ export interface CarryOnOptions {
 
 export interface CarryOn {
   onRunEnded(mission: { readonly missionId: string }): Promise<void>
-  /** The card's press: carry the turn that ran out on with `route`. */
-  carry(missionId: string, route: CarryOnRoute): Promise<CarryOnResponse>
+  /**
+   * The card's press: carry the turn that ran out on with `route`. An app (0.882) may also carry on a turn Locust closed
+   * under (`cutOff`, said only for a turn it knows is not running), on its own agent too, and move a finished turn to
+   * another agent with a `message` for its next turn; a message also follows the carry-on words of a stopped turn.
+   */
+  carry(missionId: string, route: CarryOnRoute, also?: CarryOnAlso): Promise<CarryOnResponse>
   /** Whether this turn was carried on, so nothing else says it is stopped and waiting. */
   carried(missionId: string): boolean
 }
@@ -78,6 +82,12 @@ function modeOf(mission: RecoveredMission): MissionMode {
   return mission.metadata.mode ?? (mission.metadata.sandbox === 'read-only' ? 'ask' : 'accept-edits')
 }
 
+/** What an app's carry-on may add to the card's press (0.882). */
+export interface CarryOnAlso {
+  readonly cutOff?: boolean
+  readonly message?: string
+}
+
 /** Turns remembered as carried on; the oldest go first. */
 const REMEMBERED = 500
 
@@ -92,7 +102,7 @@ export function createCarryOn(options: CarryOnOptions): CarryOn {
     }
   }
 
-  const carry = async (missionId: string, route: CarryOnRoute): Promise<CarryOnResponse> => {
+  const carry = async (missionId: string, route: CarryOnRoute, also: CarryOnAlso = {}): Promise<CarryOnResponse> => {
     if (carriedIds.has(missionId)) return { ok: false, message: 'This turn was already carried on.' }
     let recovered: RecoveredMission | undefined
     try {
@@ -102,11 +112,20 @@ export function createCarryOn(options: CarryOnOptions): CarryOn {
     }
     if (recovered === undefined) return { ok: false, message: 'This conversation is not in the record any more, so it cannot be carried on.' }
     const reason = stoppedFor(recovered)
-    if (reason === undefined) return { ok: false, message: 'This turn did not stop on its plan running out or its provider or process failing, so there is nothing to carry on.' }
+    const cutOff = reason === undefined && also.cutOff === true && cutOffMidTurn(recovered)
+    const finished = reason === undefined && !cutOff && also.message !== undefined && (recovered.phase === 'completed' || recovered.phase === 'cancelled')
+    if (reason === undefined && !cutOff && !finished) {
+      return { ok: false, message: recovered.phase === 'completed' || recovered.phase === 'cancelled'
+        ? 'This turn finished, so there is nothing to carry on. To move the conversation to another agent, give a message for its next turn too.'
+        : 'This turn did not stop on its plan running out or its provider or process failing, so there is nothing to carry on.' }
+    }
     const from = recovered.metadata.runtime
-    // The same agent only on another account than the one whose plan ran out (0.876).
+    // The same agent only on another account than the one whose plan ran out (0.876); a turn Locust closed under may
+    // go on where it was, and a finished turn on its own agent is simply its next message.
     const sameAccount = route.account === undefined || route.account === accountFromRoute(recovered.metadata.resolvedRouteId)
-    if (route.runtime === from && sameAccount) return { ok: false, message: reason === 'plan' ? `${runtimeDisplayName(from)} is the agent whose plan ran out.` : `${runtimeDisplayName(from)} is the agent that just failed.` }
+    if (route.runtime === from && sameAccount && !cutOff) {
+      return { ok: false, message: finished ? `${runtimeDisplayName(from)} already runs this conversation: send it the message instead.` : reason === 'plan' ? `${runtimeDisplayName(from)} is the agent whose plan ran out.` : `${runtimeDisplayName(from)} is the agent that just failed.` }
+    }
     const mode = modeOf(recovered)
     const refusal = carryOnRefusal(mode, route.runtime)
     if (refusal !== undefined) return { ok: false, message: refusal }
@@ -115,7 +134,9 @@ export function createCarryOn(options: CarryOnOptions): CarryOn {
     let response: CarryOnResponse
     try {
       const folder = conversationFolder(recovered.metadata.startedBy)
-      response = await options.start({ prompt: carryOnPrompt(from, reason), runtime: route.runtime, model: route.model, mode, followUpOf: missionId, from, ...(folder === undefined ? {} : { folder }), ...(route.account === undefined ? {} : { account: route.account }) })
+      const said = finished ? undefined : reason === undefined ? cutOffPrompt(from) : carryOnPrompt(from, reason)
+      const prompt = said === undefined ? also.message! : also.message === undefined ? said : `${said}\n\n${also.message}`
+      response = await options.start({ prompt, runtime: route.runtime, model: route.model, mode, followUpOf: missionId, from, ...(folder === undefined ? {} : { folder }), ...(route.account === undefined ? {} : { account: route.account }) })
     } catch {
       response = { ok: false, message: 'The turn could not be started. The work stays where it stopped.' }
     }
