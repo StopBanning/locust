@@ -3,7 +3,8 @@
 //! the places that call it to: the channel itself (`approval.rs`), the window's two funnels in `native.rs`
 //! (`decide_approval`, `answer_approval`), the engine wire the window drives (`engine_process.rs`, `engine_api.rs`),
 //! and the window's own presses (`src/ui`, `src/quick.rs`). A new caller (a relay path, a block parser) fails here and
-//! has to say why it may. The phone on the home Wi-Fi (`phone_calls.rs`) says why below; Electron's chat-app callers
+//! has to say why it may. The phone on the home Wi-Fi (`phone_calls.rs`) and the opted-in editor's own turn
+//! (`door.rs`, only `Editors::answer`) say why below; Electron's chat-app callers
 //! are a networked feature native does not have.
 
 use std::path::{Path, PathBuf};
@@ -37,7 +38,9 @@ fn only_the_channel_the_windows_funnels_and_a_persons_press_answer_an_approval()
         let rel = path.strip_prefix(&root).unwrap().to_string_lossy().replace('\\', "/");
         // phone_calls.rs: a phone paired by its code is the person, answering a card as the window's press does
         // (Electron's phoneCalls.decide); a page or a teammate's words never reach it (PHONE-NOTES.md).
-        matches!(rel.as_str(), "core/src/approval.rs" | "core/src/native.rs" | "core/src/engine_process.rs" | "core/src/engine_api.rs" | "src/quick.rs" | "core/src/phone_calls.rs")
+        // door.rs: an editor's session answering its own current turn's card, once, only while the person has turned on
+        // "Let editors answer cards for their own turns" (locust-cli-sessions.ts `answer`); held below to that one place.
+        matches!(rel.as_str(), "core/src/approval.rs" | "core/src/native.rs" | "core/src/engine_process.rs" | "core/src/engine_api.rs" | "src/quick.rs" | "core/src/phone_calls.rs" | "core/src/door.rs")
             || rel.starts_with("src/ui/")
     };
     let callers: Vec<String> = all
@@ -47,6 +50,17 @@ fn only_the_channel_the_windows_funnels_and_a_persons_press_answer_an_approval()
         .map(|(path, _)| path.display().to_string())
         .collect();
     assert_eq!(callers, Vec::<String>::new(), "a new caller of decide has to say why it may");
+
+    // In door.rs, the editors' own answer and nothing else: none of the door's tools for other apps answers a card.
+    let door = &all.iter().find(|(p, _)| p.ends_with("core/src/door.rs")).unwrap().1;
+    let lines: Vec<&str> = door.lines().collect();
+    let in_door: Vec<&str> = lines
+        .iter()
+        .enumerate()
+        .filter(|(_, line)| line.contains(".decide("))
+        .map(|(at, _)| lines[..=at].iter().rev().find_map(|l| l.trim_start().strip_prefix("fn ").and_then(|f| f.split('(').next())).unwrap_or(""))
+        .collect();
+    assert_eq!(in_door, vec!["answer"], "in door.rs only an editor's session answers its own card");
 
     // In native.rs, the window's two funnels and nothing else.
     let native = &all.iter().find(|(p, _)| p.ends_with("core/src/native.rs")).unwrap().1;

@@ -313,7 +313,7 @@ impl CliSessions {
                     }
                     "cli/keepalive" => ToolResult::ok("{\"ok\":true}"),
                     "cli/cancel" => self.cancel(&session, args),
-                    "cli/decide" => self.decide(&session, args),
+                    "cli/decide" => self.decide_own_card(&session, args),
                     "cli/prompt" => self.prompt(&session, args),
                     "cli/poll" => self.poll(&session, args),
                     _ => ToolResult::refused("That command is not offered by Locust. Update the locust command and the app together."),
@@ -448,7 +448,7 @@ impl CliSessions {
             .collect()
     }
 
-    fn decide(&self, session: &Arc<Session>, args: &Value) -> ToolResult {
+    fn decide_own_card(&self, session: &Arc<Session>, args: &Value) -> ToolResult {
         if !self.shared.host.editor_answers() {
             return ToolResult::refused(
                 "Answering cards from the editor is off, so this one waits in Locust. To answer them in the editor, turn on Let editors answer cards for their own turns in Locust’s Settings.",

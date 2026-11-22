@@ -602,6 +602,8 @@ fn an_earlier_turns_late_updates_are_ignored() {
     let listening = old(CliUpdate::Event(json!({"type": "message.delta", "payload": {"itemId": "a", "operation": "append", "text": "late"}})));
     assert!(!listening);
     assert_eq!(f.poll(&session, 0)["events"], json!([]));
+    assert!(!old(CliUpdate::Error("A late transport error".into())));
+    assert!(f.cancels().is_empty(), "a finished turn's late error must not issue another Stop");
     let now = lock(&f.fake.sink).clone().unwrap();
     assert!(now(CliUpdate::Ping), "the current turn is listened to");
     f.emit("run.completed", json!({}));
