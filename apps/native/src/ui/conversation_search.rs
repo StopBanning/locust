@@ -44,6 +44,7 @@ mod tests {
             said: said.into(),
             nested_under: None,
             integrity_issue_count: 0,
+            needs_you: false,
         }
     }
 

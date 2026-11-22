@@ -1109,3 +1109,8 @@ pub(super) fn plus_menu_light_scene(s: &mut State) {
     plus_menu_scene(s);
     s.appearance = Some(false);
 }
+
+pub(super) fn sidebar_sources_scene(s: &mut State) {
+    team_scene(s);
+    s.home.waiting_for.insert("sample-4".into(), "A decision".into());
+}

@@ -1,6 +1,6 @@
 use super::*;
 use crate::conversation_list::{
-    SidebarMission, conversation_keys, held_for, narrowing_line, pinned_and_recent,
+    SidebarMission, conversation_keys, held_for, narrowing_line, needs_you_pinned_and_recent, rows_with_children,
 };
 use crate::conversation_search::missions_matching;
 use crate::settled::is_put_away;
@@ -70,6 +70,7 @@ pub(super) fn recent_as_missions(s: &State) -> Vec<SidebarMission> {
                 .join(" · "),
             nested_under: None,
             integrity_issue_count: 0,
+            needs_you: false,
         };
         if let Some(title) = held_for(&mission, &s.org.titles) {
             mission.title = title.clone();
@@ -106,6 +107,8 @@ pub(super) fn recent_as_missions(s: &State) -> Vec<SidebarMission> {
         if let Some(parent) = parents.get(&m.mission_id) {
             m.nested_under = Some(parent.clone());
         }
+        // Any turn of it with a question, an approval or a decision open (`home.waiting_for`, the Board's asks).
+        m.needs_you = conversation_keys(m).iter().any(|key| s.home.waiting_for.contains_key(key));
     }
     list
 }
@@ -123,7 +126,8 @@ pub(super) fn sidebar_missions_now(s: &State) -> Vec<SidebarMission> {
         .filter(|m| {
             let entry = held_for(m, &s.org.settled);
             let put_away = is_put_away(m.last_at.as_deref(), entry, now_ms);
-            if !put_away {
+            // A settled conversation that waits on the person is still listed (Sidebar.tsx `mission.needsYou ||`).
+            if !put_away || m.needs_you {
                 return true;
             }
             // Settled rows hide unless selected or searching (Electron Sidebar).
@@ -186,7 +190,13 @@ fn mission_row(s: &State, p: &Palette, item: &SidebarMission, picked: bool) -> E
             .truncate()
             .key(format!("conversation-title-{}", item.mission_id)),
     );
-    if working {
+    if item.needs_you {
+        // Waiting on the person: amber words where the age goes and the amber dot, in place of the shimmer or the
+        // failed mark (Sidebar.tsx `lc-conv__age lc-tone-amber` "needs you", `lc-dot lc-tone-amber`).
+        title = title
+            .child(text("needs you").font(rune::TextStyle::new(11.5, 400.0)).color(p.amber).key(format!("conversation-needs-you-{}", item.mission_id)))
+            .child(el().size(6.0, 6.0).radius(3.0).fill(p.amber).a11y_hidden().key(format!("conversation-needs-you-dot-{}", item.mission_id)));
+    } else if working {
         // The dot's footprint, kept empty, so a run starting never moves the row (`.lc-conv__working`, 6 by 6).
         title = title.child(el().size(6.0, 6.0).a11y_hidden().key(format!("conversation-working-{}", item.mission_id)));
     } else if item.phase == "failed" {
@@ -575,33 +585,27 @@ fn section_label(p: &Palette, words: &str) -> El {
 }
 
 /// Same nesting order for drawing and keyboard navigation; folded groups never enter it.
-fn nested_order(list: &[SidebarMission]) -> Vec<&SidebarMission> {
-    let shown: std::collections::HashSet<_> = list.iter().map(|m| m.mission_id.as_str()).collect();
-    let mut out = Vec::new();
-    for item in list {
-        if item.nested_under.as_deref().is_some_and(|p| shown.contains(p)) { continue; }
-        out.push(item);
-        out.extend(list.iter().filter(|m| m.nested_under.as_deref() == Some(item.mission_id.as_str())));
-    }
-    out
+fn nested_order<'a>(list: &'a [SidebarMission], all: &'a [SidebarMission]) -> Vec<&'a SidebarMission> {
+    rows_with_children(list, all).into_iter().map(|(m, _)| m).collect()
 }
 
 fn drawn_missions(s: &State) -> Vec<SidebarMission> {
     // An error replaces the rows on screen too.
     if s.recent_error.is_some() { return Vec::new(); }
     let missions = sidebar_missions_now(s);
-    let (pinned, recent) = pinned_and_recent(&missions, &s.org.pins);
-    let mut out: Vec<_> = nested_order(&pinned).into_iter().cloned().collect();
+    let (waiting, pinned, recent) = needs_you_pinned_and_recent(&missions, &s.org.pins);
+    let mut out: Vec<_> = nested_order(&waiting, &missions).into_iter().cloned().collect();
+    out.extend(nested_order(&pinned, &missions).into_iter().cloned());
     let groups_shown = !s.org.groups.is_empty() && !s.org.groups_unreadable;
     if groups_shown {
         for group in &s.org.groups {
             if s.folded_groups.contains(&group.group_id) { continue; }
             let members: Vec<_> = recent.iter().filter(|m| held_for(m, &s.org.members).is_some_and(|mem| mem.group_id == group.group_id)).cloned().collect();
-            out.extend(nested_order(&members).into_iter().cloned());
+            out.extend(nested_order(&members, &missions).into_iter().cloned());
         }
     }
     let rest: Vec<_> = recent.into_iter().filter(|m| !groups_shown || held_for(m, &s.org.members).is_none()).collect();
-    out.extend(nested_order(&rest).into_iter().cloned());
+    out.extend(nested_order(&rest, &missions).into_iter().cloned());
     out
 }
 
@@ -853,7 +857,7 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
     }
     let missions = sidebar_missions_now(s);
     let all_count = recent_as_missions(s).len();
-    let (pinned, recent_rows) = pinned_and_recent(&missions, &s.org.pins);
+    let (waiting, pinned, recent_rows) = needs_you_pinned_and_recent(&missions, &s.org.pins);
     let show_sections = !s.org.pins.is_empty();
     let groups_shown = !s.org.groups.is_empty() && !s.org.groups_unreadable;
 
@@ -897,13 +901,7 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
             ),
     );
 
-    if let Some(line) = narrowing_line(
-        None,
-        &s.sidebar_query.text,
-        missions.len(),
-        missions.len(),
-        all_count,
-    ) {
+    if let Some(line) = narrowing_line(None, &s.sidebar_query.text, missions.len(), missions.len(), all_count) {
         recent = recent.child(
             text(line)
                 .font(type_::LABEL)
@@ -1010,9 +1008,8 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
                 })
         };
         let append_rows = |mut container: El, list: &[SidebarMission]| -> El {
-            let shown_ids: std::collections::HashSet<&str> = list.iter().map(|m| m.mission_id.as_str()).collect();
-            for item in nested_order(list) {
-                if item.nested_under.as_deref().is_some_and(|p| shown_ids.contains(p)) {
+            for (item, nested) in rows_with_children(list, &missions) {
+                if nested {
                     container = container.child(col().key(format!("nested-{}", item.mission_id)).w_full().pl(16.0).child(mission_row(s, p, item, is_picked(item))));
                     continue;
                 }
@@ -1020,6 +1017,11 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
             }
             container
         };
+        // NEEDS YOU, above the pins (Sidebar.tsx `lc-project__name lc-tone-amber`), whenever anything waits.
+        if !waiting.is_empty() {
+            recent = recent.child(section_label(p, "Needs you").color(p.amber).key("sidebar-needs-you"));
+            recent = append_rows(recent, &waiting);
+        }
         if show_sections && !pinned.is_empty() {
             recent = recent.child(section_label(p, "Pinned"));
             recent = append_rows(recent, &pinned);
@@ -1906,3 +1908,7 @@ mod renderer_step_wiring_tests {
         assert!(!on_key(s,&KeyEvent { key:Key::Down,mods:rune::Mods {alt:true,cmd:cfg!(target_os="macos"),ctrl:!cfg!(target_os="macos"),..Default::default()} },&mut tx));
     }
 }
+
+#[cfg(test)]
+#[path = "sidebar_needs_you_tests.rs"]
+mod sidebar_needs_you_tests;

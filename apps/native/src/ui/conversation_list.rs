@@ -19,6 +19,9 @@ pub struct SidebarMission {
     pub nested_under: Option<String>,
     /// Integrity issues on the row; board running mark uses phase, not this count.
     pub integrity_issue_count: u32,
+    /// Something in it waits on the person (App.tsx `needsYou: needsYouMissionIds.has(...)`): it stands first in the
+    /// list, under Needs you, and wears the amber mark and words.
+    pub needs_you: bool,
 }
 
 /// Every id this row has ever been keyed by, newest identity first (root preferred).
@@ -176,6 +179,45 @@ pub fn pinned_and_recent(
     (pinned, recent)
 }
 
+/// Sidebar.tsx `conversationList`: what waits on the person first (Needs you), then the pins, then the rest. A
+/// waiting conversation stands in Needs you even when it was started from another, so it is never only a nested child;
+/// a waiting one is never pinned or listed again below.
+pub fn needs_you_pinned_and_recent(
+    missions: &[SidebarMission],
+    pinned_keys: &[String],
+) -> (Vec<SidebarMission>, Vec<SidebarMission>, Vec<SidebarMission>) {
+    let waiting = conversation_rows(missions).into_iter().filter(|m| m.needs_you).collect();
+    let rest: Vec<_> = missions.iter().filter(|m| !m.needs_you).cloned().collect();
+    let (pinned, recent) = pinned_and_recent(&rest, pinned_keys);
+    (waiting, pinned, recent)
+}
+
+/// Sidebar.tsx `isNestedChild`: drawn under the conversation it came from, while that one is listed anywhere -- unless
+/// it waits on the person, which stands it in Needs you instead.
+pub fn is_nested_child(mission: &SidebarMission, shown: &HashSet<&str>) -> bool {
+    !mission.needs_you && mission.nested_under.as_deref().is_some_and(|parent| shown.contains(parent))
+}
+
+/// Sidebar.tsx `rowAndChildren` over one section: each row that is not a nested child, then the conversations nested
+/// under it, wherever in the list (`all`) they would otherwise have stood. The bool says the row is drawn nested.
+pub fn rows_with_children<'a>(
+    section: &'a [SidebarMission],
+    all: &'a [SidebarMission],
+) -> Vec<(&'a SidebarMission, bool)> {
+    let shown: HashSet<&str> = all.iter().map(|m| m.mission_id.as_str()).collect();
+    let mut out = Vec::new();
+    for item in section {
+        if is_nested_child(item, &shown) {
+            continue;
+        }
+        out.push((item, false));
+        for child in all.iter().filter(|m| is_nested_child(m, &shown) && m.nested_under.as_deref() == Some(item.mission_id.as_str())) {
+            out.push((child, true));
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -192,6 +234,7 @@ mod tests {
             said: String::new(),
             nested_under: None,
             integrity_issue_count: 0,
+            needs_you: false,
         }
     }
 

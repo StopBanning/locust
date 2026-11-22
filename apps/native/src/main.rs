@@ -3409,6 +3409,7 @@ fn main() {
             ("recovery", recovery_scene),
             ("recovery-light", recovery_light_scene),
             ("org-sidebar", org_sidebar_scene),
+            ("sidebar-sources", sidebar_sources_scene),
             ("org-sidebar-light", org_sidebar_light_scene),
             ("org-search", org_search_scene),
             ("org-search-light", org_search_light_scene),

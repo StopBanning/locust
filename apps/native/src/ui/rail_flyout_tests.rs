@@ -8,7 +8,7 @@ fn now_ms() -> i64 {
 }
 fn row(id: &str, phase: &str, last_at: Option<&str>) -> SidebarMission {
     SidebarMission { mission_id: id.into(), title: id.into(), phase: phase.into(), last_at: last_at.map(Into::into),
-        root_id: None, member_ids: vec![], owner_id: None, said: String::new(), nested_under: None, integrity_issue_count: 0 }
+        root_id: None, member_ids: vec![], owner_id: None, said: String::new(), nested_under: None, integrity_issue_count: 0, needs_you: false }
 }
 fn ids(rows: &[SidebarMission]) -> Vec<&str> {
     rows.iter().map(|r| r.mission_id.as_str()).collect()
