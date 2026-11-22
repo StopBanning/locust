@@ -2006,6 +2006,8 @@ apps/desktop/src/main/pasted-attachment.test.ts	lands inside the one folder Locu
 apps/desktop/src/main/pasted-attachment.test.ts	cannot climb out of it, however it is spelled	yes
 apps/desktop/src/main/pasted-attachment.test.ts	never overwrites something already attached	yes
 apps/desktop/src/main/pasted-attachment.test.ts	keeps the extension where there is one, and copes where there is not	yes
+apps/desktop/src/main/peer-exchange-conversation.test.ts	passes the previous turn through to memory.section, and its words into the prompt	yes
+apps/desktop/src/main/peer-exchange-conversation.test.ts	never refuses a run over a brief it could do without	yes
 apps/desktop/src/main/permission-host.test.ts	refuses a Claude approval when its pending text cannot be written	no
 apps/desktop/src/main/permission-host.test.ts	waits for pending text before raising a Claude approval and refuses one whose run ended while waiting	no
 apps/desktop/src/main/permission-host.test.ts	takes a card down when the bridge stops waiting for it, so the question asked again is the one card (0.837)	yes
