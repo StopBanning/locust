@@ -33,6 +33,8 @@ pub(super) struct Panel {
     /// What each away row's run came to, read once when the summary is (AwayList's saidOf).
     pub away_said: HashMap<String, String>,
     pub to_look_at: HashSet<String>,
+    /// Team roster finishes are cleared by looking at any conversation of that teammate (App.tsx finishedUnseen).
+    pub teammates_unseen: HashSet<String>,
     pub asks: HashMap<String, BoardAsk>,
     pub waiting_for: HashMap<String, String>,
     pub changelog: Vec<ChangelogEntry>,
@@ -300,25 +302,41 @@ fn answer_board(s: &mut State, approval_id: &str, approve: bool) {
     }
 }
 
+fn workroom_visible(s: &State) -> bool {
+    !(s.home.home_open || s.home.board_open || s.home.boot_open
+        || s.people_panel.open || s.settings_panel.open || s.routines.open || s.changes.open
+        || s.compare.active_id.is_some() || s.benchmarks_open || s.rooms.active != crate::room_screen::RoomView::None)
+}
+
+/// Like App.tsx's screen effect: returning to the workroom clears that teammate's roster mark.
+pub(super) fn mark_seen_if_looking(s: &mut State) -> bool {
+    if !workroom_visible(s) { return false; }
+    let owner = selected_conversation(s).map(|(mate, _)| mate.id.clone());
+    owner.is_some_and(|id| s.home.teammates_unseen.remove(&id))
+}
+
 pub(super) fn record_finishes(s: &mut State, next: &[ConversationRow]) {
-    let looking = if s.home.home_open || s.home.board_open || s.home.boot_open {
-        None
-    } else {
-        selected_conversation(s).and_then(|(_, c)| c.conversation_id.clone())
-    };
+    let in_workroom = workroom_visible(s);
+    let looking = if in_workroom { selected_conversation(s).and_then(|(_, c)| c.conversation_id.clone()) } else { None };
+    let looking_owner = if in_workroom { selected_conversation(s).map(|(mate, _)| mate.id.clone()) } else { None };
     for row in next {
         if matches!(row.state.as_str(), "completed" | "failed")
-            && s.recent
-                .iter()
-                .any(|old| old.id == row.id && old.state == "running")
-            && looking.as_deref() != Some(row.id.as_str())
+            && s.recent.iter().any(|old| old.id == row.id && old.state == "running")
         {
-            s.home.to_look_at.insert(row.id.clone());
+            if looking.as_deref() != Some(row.id.as_str()) {
+                s.home.to_look_at.insert(row.id.clone());
+            }
+            if let Some(owner) = s.people_panel.team["missionOwners"][&row.id].as_str()
+                && looking_owner.as_deref() != Some(owner)
+            {
+                s.home.teammates_unseen.insert(owner.to_owned());
+            }
         }
     }
 }
 
 pub(super) fn opened(s: &mut State, id: &str) {
+    if let Some(owner) = s.people_panel.team["missionOwners"][id].as_str() { s.home.teammates_unseen.remove(owner); }
     let keys = recent_as_missions(s)
         .iter()
         .find(|row| {
@@ -812,7 +830,7 @@ pub(super) fn teammate_section(s: &State, id: &str, busy: bool, runtime: Option<
     use crate::team_board::{Status, board_section_of};
     let view = teammate_status(s, id, busy, runtime, "");
     board_section_of(Some(match view.status { "approval-needed" => Status::ApprovalNeeded, "blocked" => Status::Blocked,
-        "working" => Status::Working, _ => Status::Idle }), s.home.to_look_at.iter().any(|key| s.people_panel.team["missionOwners"][key].as_str() == Some(id)))
+        "working" => Status::Working, _ => Status::Idle }), s.home.teammates_unseen.contains(id))
 }
 
 /// FirstLaunch.tsx's `lc-intro`: one line under the machine, centred on it (Colin, 2026-09-24: "text is way off

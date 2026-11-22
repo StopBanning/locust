@@ -507,6 +507,8 @@ fn select_teammate(s: &mut State, id: &str, tx: &mut Tx) {
         s.diff_notes.put(key);
     }
     s.selected = index;
+    // Looking at a teammate clears their unseen finishes (App.tsx finishedUnseen).
+    s.home.teammates_unseen.remove(id);
     let fill = s.drafts.switch(conversation_draft_key(s), "");
     s.draft.replace_text(fill);
     s.tagged.clear();
@@ -2081,10 +2083,11 @@ fn open_pressed_notification(s: &mut State, tx: &mut Tx) -> bool {
 
 fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     s.prompt_rail.tick(std::time::Instant::now());
+    let seen = home_panel::mark_seen_if_looking(s);
     if s.demo {
-        return false;
+        return seen;
     }
-    let mut changed = routines_panel::poll(s);
+    let mut changed = routines_panel::poll(s) | seen;
     // The shared engine had stopped and was started again (E5): said once, where the window says what it is doing.
     if let Some(words) = locust_core::engine_api::api().notice() {
         s.status = words;

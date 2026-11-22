@@ -2,13 +2,13 @@
 use super::*;
 use std::io::{Read, Write};
 
-fn temp(name: &str) -> PathBuf {
+pub(super) fn temp(name: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("locust-door-{name}-{}-{}", std::process::id(), crate::invariants::unique_nanos()));
     std::fs::create_dir_all(&dir).unwrap();
     dir
 }
 
-fn echo_door(dir: &Path) -> Door {
+pub(super) fn echo_door(dir: &Path) -> Door {
     let call: Caller = Arc::new(|name: &str, args: &Value| crate::door_tools::ToolResult::ok(format!("{name} {args}")).to_json());
     Door::with(dir.to_path_buf(), "/Applications/Locust Native.app/x", Arc::new(Mutex::new(Settings::default())), call)
 }

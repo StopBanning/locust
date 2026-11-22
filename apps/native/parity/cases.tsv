@@ -133,6 +133,12 @@ apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	finds the person�
 apps/desktop/src/main/a-codex-turn-on-its-branch-is-completed.test.ts	finds a completion written before the process ended	yes
 apps/desktop/src/main/a-codex-turn-on-its-branch-is-completed.test.ts	says stopped for a run the person stopped, and failed for one that failed	yes
 apps/desktop/src/main/a-codex-turn-on-its-branch-is-completed.test.ts	takes the newest ending, and says failed when there is none	yes
+apps/desktop/src/main/a-column-answers-in-a-copy.test.ts	holds the folder as it is, without what is rebuilt or fetched, and is reused for follow-ups	yes
+apps/desktop/src/main/a-column-answers-in-a-copy.test.ts	says so, and makes nothing, when the folder is too big to copy	yes
+apps/desktop/src/main/a-column-answers-in-a-copy.test.ts	leaves a file too big to copy out, and copies the rest	yes
+apps/desktop/src/main/a-column-answers-in-a-copy.test.ts	removes the comparison's copies and nothing else	yes
+apps/desktop/src/main/a-column-answers-in-a-copy.test.ts	refuses an id that could name a path outside its root	yes
+apps/desktop/src/main/a-column-answers-in-a-copy.test.ts	is nobody now; Antigravity cannot join at all; everyone else answers in the folder	yes
 apps/desktop/src/main/a-column-can-be-tried-again.test.ts	puts the new answer in the failed one's place, turn for turn, and keeps the failed one folded in	no
 apps/desktop/src/main/a-column-can-be-tried-again.test.ts	gives a column that could not start its first turn, and drops the refusal	no
 apps/desktop/src/main/a-column-can-be-tried-again.test.ts	goes, copies and all, only when every answer it held is gone for good (0.445)	no
@@ -181,6 +187,11 @@ apps/desktop/src/main/a-comparison-runs-again.test.ts	goes on when a run cannot 
 apps/desktop/src/main/a-comparison-runs-again.test.ts	refuses in words what cannot be run again as it is	no
 apps/desktop/src/main/a-comparison-runs-again.test.ts	settles at a start a run Locust closed on, but not one whose turn is still going	no
 apps/desktop/src/main/a-comparison-runs-again.test.ts	keeps its runs again out of the conversation list, and a settled one claims no copies	no
+apps/desktop/src/main/a-comparison-runs-one-teammate-on-two-models.test.ts	runs one teammate on two models at once, a column each	yes
+apps/desktop/src/main/a-comparison-runs-one-teammate-on-two-models.test.ts	passes each column’s own instructions to its brief, including empty, without changing an ordinary turn	yes
+apps/desktop/src/main/a-comparison-runs-one-teammate-on-two-models.test.ts	starts a second conversation with the same teammate while one is going (0.551)	yes
+apps/desktop/src/main/a-comparison-runs-one-teammate-on-two-models.test.ts	runs on two models with no teammate at all -- none is needed to compare	yes
+apps/desktop/src/main/a-comparison-runs-one-teammate-on-two-models.test.ts	refuses a second run in the same column while its first is going	yes
 apps/desktop/src/main/a-connector-check-says-how-it-went.test.ts	keeps how long the check took and when each was last seen connected	yes
 apps/desktop/src/main/a-connector-check-says-how-it-went.test.ts	a check that timed out says so for every connector, and the rules keep the last good reading	yes
 apps/desktop/src/main/a-connector-goes-to-every-agent.test.ts	a command, after `--` wherever the agent takes one, so the server keeps its own flags	yes
@@ -864,6 +875,10 @@ apps/desktop/src/main/a-routine-works-in-a-copy.test.ts	runs its step in the cop
 apps/desktop/src/main/a-routine-works-in-a-copy.test.ts	will not run again while those changes wait, on Run or on its own	yes
 apps/desktop/src/main/a-routine-works-in-a-copy.test.ts	a run that changed nothing leaves nothing waiting, and no copy	yes
 apps/desktop/src/main/a-routine-works-in-a-copy.test.ts	keeps what waits when the routine is read back, and drops it if it does not read	no
+apps/desktop/src/main/a-run-end-remembers-first-and-keeps-going.test.ts	remembers before the relay starts anyone, from a share	yes
+apps/desktop/src/main/a-run-end-remembers-first-and-keeps-going.test.ts	remembers once, whether the share or the end came first	yes
+apps/desktop/src/main/a-run-end-remembers-first-and-keeps-going.test.ts	runs every step when one throws, and says which failed	yes
+apps/desktop/src/main/a-run-end-remembers-first-and-keeps-going.test.ts	still starts the recipient when remembering fails	yes
 apps/desktop/src/main/a-run-in-its-own-copy-is-not-told-the-project-folder.test.ts	names the project folder to a run that stands in it	yes
 apps/desktop/src/main/a-run-in-its-own-copy-is-not-told-the-project-folder.test.ts	tells a run in its own copy that it has one, and never the folder's name	yes
 apps/desktop/src/main/a-run-in-its-own-copy-is-not-told-the-project-folder.test.ts	hands the run's own folder to the brief, for a teammate's run and for nobody's	yes
@@ -2005,12 +2020,23 @@ apps/desktop/src/main/other-apps-can-only-ask-locust-teammates.test.ts	never run
 apps/desktop/src/main/other-apps-can-only-ask-locust-teammates.test.ts	passes the runner's own refusal through, unchanged	yes
 apps/desktop/src/main/other-apps-can-only-ask-locust-teammates.test.ts	reads status only for routines this server started: the step, a waiting card, then the last step's answer	yes
 apps/desktop/src/main/other-apps-can-only-ask-locust-teammates.test.ts	says a held run, a failing check and changes still waiting for Keep or Discard, in Locust's words	yes
+apps/desktop/src/main/other-apps-reach-locust-through-stdio.test.ts	advertises exactly the twelve tools, with Ask mode and spend made explicit	yes
+apps/desktop/src/main/other-apps-reach-locust-through-stdio.test.ts	answers every tool call with the required plain sentence when Locust is not running	yes
+apps/desktop/src/main/other-apps-reach-locust-through-stdio.test.ts	also runs through Electron in Node mode, without launching the desktop app	no
+apps/desktop/src/main/other-apps-reach-locust-through-stdio.test.ts	gives the required not-running sentence for a stale file whose listener has closed	yes
+apps/desktop/src/main/other-apps-reach-locust-through-stdio.test.ts	does not retry or claim nothing ran when a connection drops after the app received the request	yes
+apps/desktop/src/main/other-apps-reach-locust-through-stdio.test.ts	forwards an authenticated tool call, and sees a rotated connection without restarting the bridge	yes
+apps/desktop/src/main/other-apps-reach-locust-through-stdio.test.ts	never sends a token to a non-loopback address from a modified profile file	yes
+apps/desktop/src/main/other-apps-reach-locust-through-stdio.test.ts	refuses unknown tools and methods without forwarding them	yes
+apps/desktop/src/main/other-apps-reach-locust-through-stdio.test.ts	does not return a bearer token or connection metadata in the window settings	yes
 apps/desktop/src/main/palette-has-no-inner-ring.test.ts	turns the global focus ring off at a specificity that beats it	no
 apps/desktop/src/main/palette-has-no-inner-ring.test.ts	keeps the head’s lit edge as the focus it shows	no
 apps/desktop/src/main/pasted-attachment.test.ts	lands inside the one folder Locust owns	yes
 apps/desktop/src/main/pasted-attachment.test.ts	cannot climb out of it, however it is spelled	yes
 apps/desktop/src/main/pasted-attachment.test.ts	never overwrites something already attached	yes
 apps/desktop/src/main/pasted-attachment.test.ts	keeps the extension where there is one, and copes where there is not	yes
+apps/desktop/src/main/peer-exchange-conversation.test.ts	passes the previous turn through to memory.section, and its words into the prompt	yes
+apps/desktop/src/main/peer-exchange-conversation.test.ts	never refuses a run over a brief it could do without	yes
 apps/desktop/src/main/permission-host.test.ts	refuses a Claude approval when its pending text cannot be written	no
 apps/desktop/src/main/permission-host.test.ts	waits for pending text before raising a Claude approval and refuses one whose run ended while waiting	no
 apps/desktop/src/main/permission-host.test.ts	takes a card down when the bridge stops waiting for it, so the question asked again is the one card (0.837)	yes
@@ -2723,6 +2749,10 @@ apps/desktop/src/main/the-starter-routines-are-routines.test.ts	reads one by its
 apps/desktop/src/main/the-starter-routines-are-routines.test.ts	leaves out, and names, a file in the folder that is not a routine	no
 apps/desktop/src/main/the-starter-routines-are-routines.test.ts	previews by id, then adds it once: Ask, no schedule, in this folder, run by nobody	no
 apps/desktop/src/main/the-starter-routines-are-routines.test.ts	asks for a folder first in its own words, not the words for a file	no
+apps/desktop/src/main/the-team-is-a-board.test.ts	has a class of its own: `.lc-board` is the room task board, a flex COLUMN	yes
+apps/desktop/src/main/the-team-is-a-board.test.ts	tints only where a person should look: amber waiting, green unseen	yes
+apps/desktop/src/main/the-team-is-a-board.test.ts	a finish is unseen only when nobody was looking, and looking clears it	yes
+apps/desktop/src/main/the-team-is-a-board.test.ts	a live mission is running on its card, never the record's "interrupted"	yes
 apps/desktop/src/main/the-thread-beside-the-browser-keeps-its-parts-whole.test.ts	keeps the plan pill of the running line whole, so the thread never scrolls sideways under it	yes
 apps/desktop/src/main/the-thread-beside-the-browser-keeps-its-parts-whole.test.ts	wraps a turn's closing line by whole parts instead of cutting it at the Copy button	yes
 apps/desktop/src/main/the-thread-beside-the-browser-keeps-its-parts-whole.test.ts	fits a handed file's pill to the reply, the note giving way before the path	yes

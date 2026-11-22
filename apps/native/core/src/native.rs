@@ -3227,6 +3227,8 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
             let observed = if check_mode.sandbox() == "read-only" { None } else { seen_changes };
             let mut completed = false;
             let mut posted_relayed = Vec::new();
+            // The run's end in order, each step on its own (run-end.ts): memory first and once, then the relay.
+            let mut run_end = crate::run_end::RunEnd::new(memory_id.clone(), |line| eprintln!("{line}"));
             if let Ok(path) = memory_store.write_path(&memory_id) {
                 let transcript = ledger::read_transcript(&path);
                 completed = !transcript.failed
@@ -3245,15 +3247,14 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
                         .next_back()
                         .unwrap_or("")
                         .to_owned();
-                    match crate::people::record_reply_changes(&memory_store, &memory_who, &memory_folder, &reply, Some(&memory_id), Some(&memory_prompt)) {
-                        Ok((said, changed)) => {
-                            for (line, level) in said {
-                                push_relay_notice(&memory_id, &line, level);
-                            }
-                            push_memory_changed(changed);
+                    run_end.remember(|| {
+                        let (said, changed) = crate::people::record_reply_changes(&memory_store, &memory_who, &memory_folder, &reply, Some(&memory_id), Some(&memory_prompt))?;
+                        for (line, level) in said {
+                            push_relay_notice(&memory_id, &line, level);
                         }
-                        Err(error) => eprintln!("Memory was not recorded: {error}"),
-                    }
+                        push_memory_changed(changed);
+                        Ok(())
+                    });
                     // What the reply shares with a teammate goes to the workroom, to wait for that teammate's next run,
                     // and may automatically start or steer the recipient through the relay.
                     let (posted, relayed, notices) = crate::people::share_reply_for_relay(
@@ -3357,15 +3358,28 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
                     relay: relay_origin.clone(),
                     started_by: relay_started_by.clone(),
                 };
-                relay().on_shared(&sharing, &posted_relayed);
+                // Memory was applied where the reply was read, before the turn's slot was released.
+                run_end.shared(|| Ok(()), || {
+                    relay().on_shared(&sharing, &posted_relayed);
+                    Ok(())
+                });
             }
             if !is_side {
-                relay().on_run_ended(&crate::relay::EndedMission {
-                    mission_id: memory_id.clone(),
-                    peer: relay_teammate,
-                    relay: relay_origin,
-                });
-                crate::rooms::on_run_ended(&memory_store, &memory_id);
+                let ended = crate::relay::EndedMission { mission_id: memory_id.clone(), peer: relay_teammate, relay: relay_origin };
+                run_end.ended(
+                    || Ok(()),
+                    || {
+                        relay().on_run_ended(&ended);
+                        Ok(())
+                    },
+                    vec![(
+                        "room tasks",
+                        Box::new(|| {
+                            crate::rooms::on_run_ended(&memory_store, &memory_id);
+                            Ok(())
+                        }),
+                    )],
+                );
             }
             // After the relay's and rooms' own endings, before Scout's (main/index.ts run-end steps).
             crate::approval_record_note::on_run_ended(&memory_store, &memory_id);

@@ -184,6 +184,7 @@ pub mod routine_runner;
 pub mod routine_templates;
 pub mod routines;
 pub mod run_cli;
+pub mod run_end;
 pub mod runtime;
 pub mod runtime_commands;
 pub mod runtime_terminal;
