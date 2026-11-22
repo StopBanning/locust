@@ -302,3 +302,258 @@ fn engine_reads_usage_and_saves_teammate_model_under_org_policy() {
     assert_eq!(team["teammates"][0]["route"]["model"], "gpt-6.2-sol");
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+// ---- other-apps-need-a-current-local-token.test.ts (all remaining cases) --------------------------------------------
+
+/// Sends headers only with an unfinished body (`content-length: 9999`), asserting a rejection arrives before any body.
+fn headers_only(url: &str, method: &str, token: Option<&str>, extra: &str) -> String {
+    let address = url.trim_start_matches("http://").split('/').next().unwrap().to_owned();
+    let mut s = TcpStream::connect(address).unwrap();
+    s.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+    let auth = token.map(|t| format!("authorization: Bearer {t}\r\n")).unwrap_or_default();
+    write!(
+        s,
+        "{method} /tools/call HTTP/1.1\r\nhost: 127.0.0.1\r\ncontent-type: application/json\r\ncontent-length: 9999\r\n{auth}{extra}\r\n"
+    )
+    .unwrap();
+    s.flush().unwrap();
+    let mut out = String::new();
+    let _ = s.read_to_string(&mut out);
+    out
+}
+
+// case: keeps each teammate's own mode off by default, saves the switch, and keeps it across a restart and the server switch
+#[test]
+fn keeps_each_teammates_own_mode_off_by_default_saves_the_switch_and_keeps_it_across_a_restart_and_the_server_switch()
+{
+    let dir = temp("own-mode");
+    // Only a literal true enables ownMode.
+    for odd in [json!("true"), json!(1), Value::Null] {
+        std::fs::write(dir.join(SETTINGS_FILE), json!({"enabled": false, "ownMode": odd}).to_string()).unwrap();
+        let door = echo_door(&dir);
+        assert!(!door.load().settings.own_mode, "{odd}");
+    }
+    std::fs::remove_file(dir.join(SETTINGS_FILE)).unwrap();
+    let door = echo_door(&dir);
+    assert!(!door.load().settings.own_mode);
+    assert!(door.set_own_mode(true).settings.own_mode);
+    door.set_enabled(true);
+    door.set_enabled(false);
+    let saved: Value = serde_json::from_str(&std::fs::read_to_string(dir.join(SETTINGS_FILE)).unwrap()).unwrap();
+    assert_eq!(saved, json!({"enabled": false, "ownMode": true}));
+    let again = echo_door(&dir);
+    assert!(again.load().settings.own_mode);
+    assert!(!again.set_own_mode(false).settings.own_mode);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+// case: is off by default, with no connection file or listening socket
+#[test]
+fn is_off_by_default_with_no_connection_file_or_listening_socket() {
+    let dir = temp("default-off");
+    let called = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let c = called.clone();
+    let door = Door::with(
+        dir.clone(),
+        "/Applications/Locust.app/x",
+        Arc::new(Mutex::new(Settings::default())),
+        Arc::new(move |_, _| {
+            c.fetch_add(1, Ordering::SeqCst);
+            json!({})
+        }),
+    );
+    let state = door.load();
+    assert!(!state.settings.enabled);
+    assert!(!state.settings.own_mode);
+    assert!(!door.connection_path().exists());
+    assert_eq!(called.load(Ordering::SeqCst), 0);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+// case: binds only loopback, rejects no/wrong/stale tokens before an unfinished body, and closes while off
+#[test]
+fn binds_only_loopback_rejects_no_wrong_stale_tokens_before_an_unfinished_body_and_closes_while_off()
+{
+    let dir = temp("loopback-headers-only");
+    let called = Arc::new(Mutex::new(Vec::<(String, Value)>::new()));
+    let c = called.clone();
+    let door = Door::with(
+        dir.clone(),
+        "/Applications/Locust.app/x",
+        Arc::new(Mutex::new(Settings::default())),
+        Arc::new(move |name, args| {
+            c.lock().unwrap().push((name.to_owned(), args.clone()));
+            crate::door_tools::ToolResult::ok("hello").to_json()
+        }),
+    );
+    assert!(door.set_enabled(true).settings.enabled);
+    let first: Value = serde_json::from_str(&std::fs::read_to_string(door.connection_path()).unwrap()).unwrap();
+    let first_url = first["url"].as_str().unwrap().to_owned();
+    let first_tok = first["token"].as_str().unwrap().to_owned();
+    assert!(first_url.starts_with("http://127.0.0.1:"));
+
+    // Rejects missing and wrong tokens BEFORE an unfinished 9999-byte body.
+    assert!(headers_only(&first_url, "POST", None, "").starts_with("HTTP/1.1 401"));
+    assert!(headers_only(&first_url, "POST", Some(&"f".repeat(64)), "").starts_with("HTTP/1.1 401"));
+    assert!(headers_only(&first_url, "POST", Some("old-token"), "").starts_with("HTTP/1.1 401"));
+    assert!(called.lock().unwrap().is_empty());
+
+    // Closes while off: connection refused and connection file removed.
+    let off = door.set_enabled(false);
+    assert!(!off.settings.enabled && !off.settings.own_mode);
+    let addr = first_url.trim_start_matches("http://").split('/').next().unwrap();
+    assert!(TcpStream::connect(addr).is_err());
+    assert!(!door.connection_path().exists());
+
+    // Re-enabled: fresh token, stale token rejected before unfinished body, valid request succeeds.
+    assert!(door.set_enabled(true).settings.enabled);
+    let second: Value = serde_json::from_str(&std::fs::read_to_string(door.connection_path()).unwrap()).unwrap();
+    let second_url = second["url"].as_str().unwrap().to_owned();
+    let second_tok = second["token"].as_str().unwrap().to_owned();
+    assert_ne!(second_tok, first_tok);
+    assert!(headers_only(&second_url, "POST", Some(&first_tok), "").starts_with("HTTP/1.1 401"));
+    assert!(called.lock().unwrap().is_empty());
+
+    let ok = post(&second_url, Some(&second_tok), "", r#"{"name":"list_teammates","arguments":{}}"#);
+    assert!(ok.starts_with("HTTP/1.1 200"), "{ok}");
+    assert!(ok.contains("hello"));
+    assert_eq!(*called.lock().unwrap(), vec![("list_teammates".to_owned(), json!({}))]);
+    door.dispose();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+// case: writes no bearer bytes until account-only file permissions succeed, and fails closed if they cannot
+#[test]
+fn writes_no_bearer_bytes_until_account_only_file_permissions_succeed_and_fails_closed_if_they_cannot()
+{
+    let dir = temp("protect-fail");
+    let protect_calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let pc = protect_calls.clone();
+    let door = echo_door(&dir).with_protect_file(Arc::new(move |path| {
+        pc.fetch_add(1, Ordering::SeqCst);
+        let content = std::fs::read_to_string(path).unwrap();
+        assert_eq!(content, "", "no bearer bytes may be written before permissions succeed");
+        Err("ACL refused".into())
+    }));
+    let state = door.set_enabled(true);
+    assert!(!state.settings.enabled);
+    assert_eq!(protect_calls.load(Ordering::SeqCst), 1);
+    assert!(!door.connection_path().exists());
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+// case: revokes a valid request while its body is still arriving
+#[test]
+fn revokes_a_valid_request_while_its_body_is_still_arriving() {
+    let dir = temp("revoke-mid-body");
+    let called = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let c = called.clone();
+    let door = Door::with(
+        dir.clone(),
+        "/Applications/Locust.app/x",
+        Arc::new(Mutex::new(Settings::default())),
+        Arc::new(move |_, _| {
+            c.fetch_add(1, Ordering::SeqCst);
+            json!({})
+        }),
+    );
+    assert!(door.set_enabled(true).settings.enabled);
+    let conn: Value = serde_json::from_str(&std::fs::read_to_string(door.connection_path()).unwrap()).unwrap();
+    let url = conn["url"].as_str().unwrap();
+    let tok = conn["token"].as_str().unwrap();
+    let addr = url.trim_start_matches("http://").split('/').next().unwrap();
+
+    let body = r#"{"name":"start_conversation","arguments":{}}"#;
+    let mut s = TcpStream::connect(addr).unwrap();
+    s.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+    write!(
+        s,
+        "POST /tools/call HTTP/1.1\r\nhost: 127.0.0.1\r\nauthorization: Bearer {tok}\r\ncontent-length: {}\r\n\r\n{}",
+        body.len(),
+        &body[..5]
+    )
+    .unwrap();
+    s.flush().unwrap();
+    // Give the handler thread time to read headers and block waiting for the rest of the body.
+    std::thread::sleep(Duration::from_millis(60));
+    // Revoke the token while the body is still arriving.
+    *door.token.lock().unwrap() = None;
+    write!(s, "{}", &body[5..]).unwrap();
+    s.flush().unwrap();
+    let mut out = String::new();
+    let _ = s.read_to_string(&mut out);
+    assert!(out.starts_with("HTTP/1.1 401"), "{out}");
+    assert_eq!(called.load(Ordering::SeqCst), 0);
+    door.dispose();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+// case: refuses browser origins and non-tool routes before reading their bodies
+#[test]
+fn refuses_browser_origins_and_non_tool_routes_before_reading_their_bodies() {
+    let dir = temp("origin-route");
+    let called = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let c = called.clone();
+    let door = Door::with(
+        dir.clone(),
+        "/Applications/Locust.app/x",
+        Arc::new(Mutex::new(Settings::default())),
+        Arc::new(move |_, _| {
+            c.fetch_add(1, Ordering::SeqCst);
+            json!({})
+        }),
+    );
+    assert!(door.set_enabled(true).settings.enabled);
+    let conn: Value = serde_json::from_str(&std::fs::read_to_string(door.connection_path()).unwrap()).unwrap();
+    let url = conn["url"].as_str().unwrap();
+    let tok = conn["token"].as_str().unwrap();
+
+    assert!(headers_only(url, "POST", Some(tok), "origin: https://example.test\r\n").starts_with("HTTP/1.1 403"));
+    assert!(headers_only(url, "GET", Some(tok), "").starts_with("HTTP/1.1 403"));
+    assert_eq!(called.load(Ordering::SeqCst), 0);
+    door.dispose();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+// case: keeps setup text token-free and safely quotes spaces, backslashes and PowerShell expansion
+#[test]
+fn keeps_setup_text_token_free_and_safely_quotes_spaces_backslashes_and_powershell_expansion() {
+    let (claude, codex, openclaw) = super::setup(
+        "/Applications/Locust.app/Contents/MacOS/Locust",
+        "/Users/ian/Library/Application Support/Locust/it's $HOME`x`\\conn.json",
+    );
+    assert_eq!(
+        claude,
+        "claude mcp add --transport stdio --scope user locust-native -- '/Applications/Locust.app/Contents/MacOS/Locust' --door-bridge '/Users/ian/Library/Application Support/Locust/it'\\''s $HOME`x`\\conn.json'"
+    );
+    assert!(codex.contains("[mcp_servers.locust_native]"));
+    assert!(codex.contains("\\\\conn.json"));
+    assert_eq!(
+        openclaw,
+        "openclaw mcp add locust-native --command '/Applications/Locust.app/Contents/MacOS/Locust' --arg '--door-bridge' --arg '/Users/ian/Library/Application Support/Locust/it'\\''s $HOME`x`\\conn.json'"
+    );
+    for line in [&claude, &codex, &openclaw] {
+        assert!(!line.contains("token"));
+    }
+}
+
+// case: remembers enabling across app restarts but never reuses the old token, and disposes without reopening
+#[test]
+fn remembers_enabling_across_app_restarts_but_never_reuses_the_old_token_and_disposes_without_reopening()
+{
+    let dir = temp("restart-dispose");
+    let first = echo_door(&dir);
+    assert!(first.set_enabled(true).settings.enabled);
+    let old: Value = serde_json::from_str(&std::fs::read_to_string(first.connection_path()).unwrap()).unwrap();
+    first.dispose();
+
+    let next = echo_door(&dir);
+    assert!(next.load().settings.enabled);
+    let fresh: Value = serde_json::from_str(&std::fs::read_to_string(next.connection_path()).unwrap()).unwrap();
+    assert_ne!(fresh["token"], old["token"]);
+
+    next.dispose();
+    assert!(!next.set_enabled(true).settings.enabled);
+    assert!(!next.connection_path().exists());
+    let _ = std::fs::remove_dir_all(&dir);
+}

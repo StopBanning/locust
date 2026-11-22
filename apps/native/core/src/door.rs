@@ -116,8 +116,13 @@ pub(crate) fn random_hex(bytes: usize) -> std::io::Result<String> {
 }
 
 /// Writes `text` to `path` through an owner-only temporary file made fresh, then moved into place: no bearer bytes
-/// exist anywhere a second account could read them.
-fn write_private(path: &Path, text: &str) -> std::io::Result<()> {
+/// exist anywhere a second account could read them. If `protect` is given, it runs on the empty file before any
+/// bearer bytes are written, failing closed if it errors.
+fn write_private_with(
+    path: &Path,
+    text: &str,
+    protect: Option<&(dyn Fn(&Path) -> Result<(), String> + Send + Sync)>,
+) -> std::io::Result<()> {
     let temp = path.with_extension("json.tmp");
     let _ = std::fs::remove_file(&temp);
     let mut options = std::fs::OpenOptions::new();
@@ -128,6 +133,13 @@ fn write_private(path: &Path, text: &str) -> std::io::Result<()> {
         options.mode(0o600);
     }
     let mut file = options.open(&temp)?;
+    if let Some(check) = protect
+        && let Err(msg) = check(&temp)
+    {
+        drop(file);
+        let _ = std::fs::remove_file(&temp);
+        return Err(std::io::Error::new(std::io::ErrorKind::PermissionDenied, msg));
+    }
     file.write_all(text.as_bytes())?;
     file.sync_all()?;
     std::fs::rename(&temp, path)
@@ -270,6 +282,10 @@ pub struct Door {
     /// The organization's word on access from other apps (`policyFeatureRefusal(organizationPolicy, 'otherApps')`):
     /// while it refuses, the door stays shut and says why.
     refusal: Arc<dyn Fn() -> Option<String> + Send + Sync>,
+    /// Optional account-only file permission check run on the empty connection file before bearer bytes are written.
+    protect_file: Option<Arc<dyn Fn(&Path) -> Result<(), String> + Send + Sync>>,
+    /// Once disposed, the door never reopens.
+    disposed: AtomicBool,
     /// The editors' sessions on this door, closed with it.
     editors: Option<Arc<crate::cli_sessions::CliSessions>>,
 }
@@ -356,6 +372,8 @@ impl Door {
             listening: Mutex::new(None),
             call,
             refusal: Arc::new(|| crate::org_policy::feature_refusal(Some(&crate::org_policy::current()), "otherApps")),
+            protect_file: None,
+            disposed: AtomicBool::new(false),
             editors: None,
         }
     }
@@ -363,6 +381,12 @@ impl Door {
     /// The same door, with the organization's refusal given (the tests use their own).
     pub fn with_refusal(mut self, refusal: Arc<dyn Fn() -> Option<String> + Send + Sync>) -> Self {
         self.refusal = refusal;
+        self
+    }
+
+    /// The same door, with a custom file-protection hook run on the empty connection file before bearer bytes are written.
+    pub fn with_protect_file(mut self, protect: Arc<dyn Fn(&Path) -> Result<(), String> + Send + Sync>) -> Self {
+        self.protect_file = Some(protect);
         self
     }
 
@@ -407,6 +431,9 @@ impl Door {
         if let Some(refused) = (self.refusal)() {
             return Err(refused);
         }
+        if self.disposed.load(Ordering::SeqCst) {
+            return Err("The local server is closed.".into());
+        }
         if self.listening.lock().unwrap_or_else(|e| e.into_inner()).is_some() {
             return Ok(());
         }
@@ -417,7 +444,7 @@ impl Door {
         listener.set_nonblocking(true).map_err(|_| failed())?;
         let next = random_hex(32).map_err(|_| failed())?;
         let connection = json!({"url": format!("http://127.0.0.1:{port}/tools/call"), "token": next});
-        if write_private(&self.connection_path(), &connection.to_string()).is_err() {
+        if write_private_with(&self.connection_path(), &connection.to_string(), self.protect_file.as_deref()).is_err() {
             let _ = std::fs::remove_file(self.connection_path());
             return Err(failed());
         }
@@ -468,6 +495,9 @@ impl Door {
     }
 
     pub fn set_enabled(&self, enabled: bool) -> State {
+        if self.disposed.load(Ordering::SeqCst) {
+            return self.state(None);
+        }
         // Refused by the organization: nothing is opened or saved, and the switch the person saved stays as it was.
         if enabled && (self.refusal)().is_some() {
             return self.state(None);
@@ -522,6 +552,7 @@ impl Door {
 
     /// Locust is closing: the editors' sessions close, stopping only their own work, then the listener.
     pub fn dispose(&self) {
+        self.disposed.store(true, Ordering::SeqCst);
         if let Some(editors) = &self.editors {
             editors.dispose();
         }

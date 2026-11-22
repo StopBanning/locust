@@ -51,6 +51,9 @@ apps/desktop/src/main/a-branch-lands-as-one-commit.test.ts	drafts one ask plainl
 apps/desktop/src/main/a-brief-between-teammates-arrives-whole.test.ts	of a real brief's length is delivered as written	yes
 apps/desktop/src/main/a-brief-between-teammates-arrives-whole.test.ts	is cut only past 6,000 characters, and says so with a mark	yes
 apps/desktop/src/main/a-brief-between-teammates-arrives-whole.test.ts	fits what the store keeps and what a teammate is sent	yes
+apps/desktop/src/main/a-browser-opens-locust-without-a-code-to-carry.test.ts	reads a GitHub ticket, Open in your browser’s code and a plain code, and keeps none in the address	yes
+apps/desktop/src/main/a-browser-opens-locust-without-a-code-to-carry.test.ts	opens with every way in: GitHub where the relay offers it, a code, and where to get Locust	yes
+apps/desktop/src/main/a-browser-opens-locust-without-a-code-to-carry.test.ts	says what GitHub’s sign-in ended in on a page with no script, every word escaped	yes
 apps/desktop/src/main/a-built-in-tool-is-not-a-connector.test.ts	is a command card when it is Bash	yes
 apps/desktop/src/main/a-built-in-tool-is-not-a-connector.test.ts	is a file card, named inside the folder, when it edits a file	yes
 apps/desktop/src/main/a-built-in-tool-is-not-a-connector.test.ts	is still a connector when it is one	no
@@ -646,6 +649,21 @@ apps/desktop/src/main/a-phone-is-paired-by-its-code.test.ts	answers a key of the
 apps/desktop/src/main/a-phone-is-paired-by-its-code.test.ts	keeps its key across a restart, so a paired phone stays paired	yes
 apps/desktop/src/main/a-phone-is-paired-by-its-code.test.ts	off unpairs every phone, and a new code does it while staying on	yes
 apps/desktop/src/main/a-phone-is-paired-by-its-code.test.ts	offers home-network addresses, never a virtual switch a phone cannot reach	yes
+apps/desktop/src/main/a-phone-pairs-and-asks-through-the-relay.test.ts	registers a hook by hash, hears its live notice, collects offline calls and retires the old password	yes
+apps/desktop/src/main/a-phone-pairs-and-asks-through-the-relay.test.ts	pairs a phone by its code, then answers what the page asks and does what it may	yes
+apps/desktop/src/main/a-phone-pairs-and-asks-through-the-relay.test.ts	sends an alert, sealed for that phone's browser alone, only to a phone that turned alerts on and is not open	yes
+apps/desktop/src/main/a-phone-pairs-and-asks-through-the-relay.test.ts	does a copied request once, and never again	yes
+apps/desktop/src/main/a-phone-pairs-and-asks-through-the-relay.test.ts	pairs one phone per code, and none that cannot prove it saw the code	yes
+apps/desktop/src/main/a-phone-pairs-and-asks-through-the-relay.test.ts	closes a removed phone, and forgets every phone and the room when it is turned off	yes
+apps/desktop/src/main/a-phone-pairs-and-asks-through-the-relay.test.ts	connects again after the line drops, and keeps its phones and their numbers across a restart	yes
+apps/desktop/src/main/a-phone-pairs-and-asks-through-the-relay.test.ts	forgets a called link when the phone relay is turned off while it is disconnected	yes
+apps/desktop/src/main/a-phone-pairs-and-asks-through-the-relay.test.ts	says it is turning off until the relay confirms, and finishes after a restart	yes
+apps/desktop/src/main/a-phone-pairs-and-asks-through-the-relay.test.ts	gives a phone the away key, keeps its alerts at the relay to ring with the PC off, and hands the PC the letters	yes
+apps/desktop/src/main/a-phone-pairs-and-asks-through-the-relay.test.ts	takes a browser’s frames only once Full window is on, in order, once each, and in parts when long	yes
+apps/desktop/src/main/a-phone-pairs-and-asks-through-the-relay.test.ts	sends a message left while the PC was off once it is back, through the phone's own path	yes
+apps/desktop/src/main/a-phone-pairs-and-asks-through-the-relay.test.ts	never sends one twice, even when the relay hands the same note back again	yes
+apps/desktop/src/main/a-phone-pairs-and-asks-through-the-relay.test.ts	holds one written more than twelve hours ago for the phone to decide, and sends it never by itself	yes
+apps/desktop/src/main/a-phone-pairs-and-asks-through-the-relay.test.ts	holds with why one whose conversation is gone, or that does not open, and leaves a busy one waiting	yes
 apps/desktop/src/main/a-phone-shows-an-answer-as-the-window-does.test.ts	draws the bullets Kit sent the phone as a list with bold names	yes
 apps/desktop/src/main/a-phone-shows-an-answer-as-the-window-does.test.ts	draws paragraphs, a heading, a numbered list, code and emphasis	yes
 apps/desktop/src/main/a-phone-shows-an-answer-as-the-window-does.test.ts	carries an item on over a line indented under it, and shows an unclosed fence as code	yes
@@ -1210,6 +1228,9 @@ apps/desktop/src/main/an-agent-of-your-own-is-added-by-its-command.test.ts	says 
 apps/desktop/src/main/an-agent-of-your-own-is-added-by-its-command.test.ts	says so when the program is not an agent at all	yes
 apps/desktop/src/main/an-agent-of-your-own-is-added-by-its-command.test.ts	is kept only when it answered, under a name of its own, and found again for a run	yes
 apps/desktop/src/main/an-agent-of-your-own-is-added-by-its-command.test.ts	may do only what it asks and the person approves, and costs something unless it is OpenCode’s own free model	yes
+apps/desktop/src/main/an-alert-is-locked-for-its-phone-alone.test.ts	makes the RFC's own example body from its keys and salt	yes
+apps/desktop/src/main/an-alert-is-locked-for-its-phone-alone.test.ts	uses a fresh salt and key for every alert	yes
+apps/desktop/src/main/an-alert-is-locked-for-its-phone-alone.test.ts	refuses keys that are not a browser's push keys	yes
 apps/desktop/src/main/an-answer-not-written-back-is-brought-back.test.ts	ending in a question, or saying wants="answer", wants one; an FYI does not	no
 apps/desktop/src/main/an-answer-not-written-back-is-brought-back.test.ts	the answer is brought back: posted as theirs, labelled, and the asker started to take it	no
 apps/desktop/src/main/an-answer-not-written-back-is-brought-back.test.ts	once: the same run ending again brings nothing more	no
@@ -1922,6 +1943,14 @@ apps/desktop/src/main/locust-goes-into-the-claude-app-in-one-press.test.ts	#9: R
 apps/desktop/src/main/locust-goes-into-the-claude-app-in-one-press.test.ts	#10: settings with a number JavaScript cannot keep exactly are left alone	yes
 apps/desktop/src/main/locust-goes-into-the-claude-app-in-one-press.test.ts	takes out Locust’s entry and leaves the rest	yes
 apps/desktop/src/main/locust-goes-into-the-claude-app-in-one-press.test.ts	drops an emptied list rather than leave {} behind	no
+apps/desktop/src/main/locust-in-a-browser-answers-as-the-window.test.ts	says what the computer is, and who has the window	yes
+apps/desktop/src/main/locust-in-a-browser-answers-as-the-window.test.ts	answers a call with the window’s own handler, made as from the window, once it has the window	yes
+apps/desktop/src/main/locust-in-a-browser-answers-as-the-window.test.ts	refuses in words what stays on this computer, a call it does not know, and says a handler’s own failure	yes
+apps/desktop/src/main/locust-in-a-browser-answers-as-the-window.test.ts	tells the browser that has the window what the window is told, and nothing it may not hear	yes
+apps/desktop/src/main/locust-in-a-browser-answers-as-the-window.test.ts	lets one window act at a time: another browser takes it, this computer takes it back, each is told	yes
+apps/desktop/src/main/locust-in-a-browser-answers-as-the-window.test.ts	lets the window go when the browser that has it may no longer have it	yes
+apps/desktop/src/main/locust-in-a-browser-answers-as-the-window.test.ts	gives a window just opened the approval cards already waiting	yes
+apps/desktop/src/main/locust-in-a-browser-answers-as-the-window.test.ts	keeps every handler ipcMain is given, as it is given them	yes
 apps/desktop/src/main/memory-file.test.ts	lists this folder and everywhere, newest last, with who and when, and says it is read-only	no
 apps/desktop/src/main/memory-file.test.ts	writes under .locust in the folder and returns the path the brief names	no
 apps/desktop/src/main/memory-file.test.ts	does not rewrite a file that already says the same	no
@@ -2154,6 +2183,15 @@ apps/desktop/src/main/other-apps-can-only-ask-locust-teammates.test.ts	never run
 apps/desktop/src/main/other-apps-can-only-ask-locust-teammates.test.ts	passes the runner's own refusal through, unchanged	yes
 apps/desktop/src/main/other-apps-can-only-ask-locust-teammates.test.ts	reads status only for routines this server started: the step, a waiting card, then the last step's answer	yes
 apps/desktop/src/main/other-apps-can-only-ask-locust-teammates.test.ts	says a held run, a failing check and changes still waiting for Keep or Discard, in Locust's words	yes
+apps/desktop/src/main/other-apps-need-a-current-local-token.test.ts	keeps each teammate's own mode off by default, saves the switch, and keeps it across a restart and the server switch	yes
+apps/desktop/src/main/other-apps-need-a-current-local-token.test.ts	lets an editor answer cards only once the person turns it on, and keeps that and the editor across a restart	yes
+apps/desktop/src/main/other-apps-need-a-current-local-token.test.ts	is off by default, with no connection file or listening socket	yes
+apps/desktop/src/main/other-apps-need-a-current-local-token.test.ts	binds only loopback, rejects no/wrong/stale tokens before an unfinished body, and closes while off	yes
+apps/desktop/src/main/other-apps-need-a-current-local-token.test.ts	writes no bearer bytes until account-only file permissions succeed, and fails closed if they cannot	yes
+apps/desktop/src/main/other-apps-need-a-current-local-token.test.ts	revokes a valid request while its body is still arriving	yes
+apps/desktop/src/main/other-apps-need-a-current-local-token.test.ts	refuses browser origins and non-tool routes before reading their bodies	yes
+apps/desktop/src/main/other-apps-need-a-current-local-token.test.ts	keeps setup text token-free and safely quotes spaces, backslashes and PowerShell expansion	yes
+apps/desktop/src/main/other-apps-need-a-current-local-token.test.ts	remembers enabling across app restarts but never reuses the old token, and disposes without reopening	yes
 apps/desktop/src/main/other-apps-reach-locust-through-stdio.test.ts	advertises exactly the twelve tools, with Ask mode and spend made explicit	yes
 apps/desktop/src/main/other-apps-reach-locust-through-stdio.test.ts	answers every tool call with the required plain sentence when Locust is not running	yes
 apps/desktop/src/main/other-apps-reach-locust-through-stdio.test.ts	also runs through Electron in Node mode, without launching the desktop app	no
@@ -3134,6 +3172,24 @@ apps/desktop/src/main/your-github-is-connected-through-gh.test.ts	shows the code
 apps/desktop/src/main/your-github-is-connected-through-gh.test.ts	runs one sign-in at a time, and Stop ends it	yes
 apps/desktop/src/main/your-github-is-connected-through-gh.test.ts	stops waiting when the code runs out	yes
 apps/desktop/src/main/your-github-is-connected-through-gh.test.ts	says what gh said when GitHub refused	yes
+apps/desktop/src/main/your-locust-ask-reaches-your-phone-while-the-pc-is-off.test.ts	goes to your phone at once, sealed, ringing it	yes
+apps/desktop/src/main/your-locust-ask-reaches-your-phone-while-the-pc-is-off.test.ts	does nothing for anyone else’s comment, or one that asks Locust nothing	yes
+apps/desktop/src/main/your-locust-ask-reaches-your-phone-while-the-pc-is-off.test.ts	leaves it to Locust when your computer is on	yes
+apps/desktop/src/main/your-locust-ask-reaches-your-phone-while-the-pc-is-off.test.ts	is passed on once, and rings no phone in quiet hours	yes
+apps/desktop/src/main/your-locust-ask-reaches-your-phone-while-the-pc-is-off.test.ts	is read from the event GitHub gives the run, only when the comment was written	yes
+apps/desktop/src/main/your-locust-ask-reaches-your-phone-while-the-pc-is-off.test.ts	runs the workflow for a comment, one run each, and ends anyone else’s at the job	yes
+apps/desktop/src/main/your-locust-ask-reaches-your-phone-while-the-pc-is-off.test.ts	makes no card from the phone’s line: the comment itself becomes the ask	yes
+apps/desktop/src/main/your-locust-ask-reaches-your-phone-while-the-pc-is-off.test.ts	is offered the newer one by a pull request, and is on it once that is merged	yes
+apps/desktop/src/main/your-locust-ask-reaches-your-phone-while-the-pc-is-off.test.ts	goes on as it was when the update is closed without merging, and can be offered again	yes
+apps/desktop/src/main/your-locust-is-kept-current-at-the-relay.test.ts	sends the backup set sealed, and nothing a backup leaves out	yes
+apps/desktop/src/main/your-locust-is-kept-current-at-the-relay.test.ts	sends only what changed: a new turn sends its conversation’s last piece and the manifest	yes
+apps/desktop/src/main/your-locust-is-kept-current-at-the-relay.test.ts	removes the pieces of a conversation deleted since, once the manifest no longer names them	yes
+apps/desktop/src/main/your-locust-is-kept-current-at-the-relay.test.ts	cuts a big conversation into pieces, and sends again only the piece that grew	yes
+apps/desktop/src/main/your-locust-is-kept-current-at-the-relay.test.ts	sends everything again for another account or a new room, and says so plainly when the relay refuses	yes
+apps/desktop/src/main/your-locust-is-kept-current-at-the-relay.test.ts	opens another computer’s copy as a backup the existing restore reads	yes
+apps/desktop/src/main/your-locust-is-kept-current-at-the-relay.test.ts	does not open with another key, and refuses a copy caught halfway through a sync	yes
+apps/desktop/src/main/your-locust-is-kept-current-at-the-relay.test.ts	are called with this computer’s token, and their refusals said in words	yes
+apps/desktop/src/main/your-locust-is-kept-current-at-the-relay.test.ts	a quiet minute after the last change, never during a run, and once more for a change made while it ran	yes
 apps/desktop/src/main/your-own-model.test.ts	is kept with its key encrypted, and the window is told only that a key is kept	yes
 apps/desktop/src/main/your-own-model.test.ts	gives a run the provider it needs, key decrypted, and nothing for one no longer kept	yes
 apps/desktop/src/main/your-own-model.test.ts	is in the model list under OpenCode, by its own name, marked as yours	yes

@@ -107,6 +107,12 @@ pub mod connectors_off;
 mod free_start_tests;
 pub mod context_usage;
 pub mod desk;
+pub mod desk_host;
+#[cfg(test)]
+mod desk_host_tests;
+pub mod desk_page;
+#[cfg(test)]
+mod desk_page_tests;
 pub mod disk_observation;
 pub mod cli_sessions;
 pub mod door;
@@ -155,12 +161,25 @@ pub mod page_preview;
 pub mod pdf;
 pub mod people;
 pub mod phone_alerts;
+pub mod phone_anywhere;
+#[cfg(test)]
+mod phone_anywhere_tests;
 pub mod phone_calls;
 pub mod phone_host;
 pub mod phone_page;
 pub mod phone_server;
+pub mod relay_crypto;
+pub mod scout_away;
+#[cfg(test)]
+mod scout_away_tests;
+pub mod web_push;
+#[cfg(test)]
+mod web_push_tests;
 pub mod png_text;
 pub mod profile_backup;
+pub mod profile_sync;
+#[cfg(test)]
+mod profile_sync_tests;
 pub mod protocol_tags;
 pub mod pull_requests;
 pub mod qr;
