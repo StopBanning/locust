@@ -5919,6 +5919,18 @@ apps/desktop/src/shared/memory.test.ts	pastes fewer and names the file for the r
 apps/desktop/src/shared/memory.test.ts	says nothing about dropping when nothing was dropped	no
 apps/desktop/src/shared/memory.test.ts	keeps this folder ahead of everywhere	no
 apps/desktop/src/shared/memory.test.ts	keeps the newest of a long list, not the oldest	no
+apps/desktop/src/shared/messageFragments.test.ts	stops the reply saying itself twice	yes
+apps/desktop/src/shared/messageFragments.test.ts	gives the answer back its own message instead of welding it on	yes
+apps/desktop/src/shared/messageFragments.test.ts	keeps the first message under the id every other surface knows	yes
+apps/desktop/src/shared/messageFragments.test.ts	closes the recovered message, which is what the rest of the host reads	yes
+apps/desktop/src/shared/messageFragments.test.ts	leaves a conversation the fixed adapter recorded exactly as it is	yes
+apps/desktop/src/shared/messageFragments.test.ts	does not eat a short repeat that is genuinely the text	yes
+apps/desktop/src/shared/messageFragments.test.ts	keeps the front of a reply longer than the live window, as it arrives	yes
+apps/desktop/src/shared/messageFragments.test.ts	folds a fragment into its own message even when a tool ran between them	yes
+apps/desktop/src/shared/messageFragments.test.ts	starts a new event for a new message, and keeps them in order	yes
+apps/desktop/src/shared/messageFragments.test.ts	honours a replace, and carries the latest final	yes
+apps/desktop/src/shared/messageFragments.test.ts	passes anything that is not a fragment straight through	yes
+apps/desktop/src/shared/messageFragments.test.ts	agrees with the whole-record form, which is the point of them sharing a file	yes
 apps/desktop/src/shared/peer-share.test.ts	reads the ordinary, correctly written one	no
 apps/desktop/src/shared/peer-share.test.ts	accepts single quotes	no
 apps/desktop/src/shared/peer-share.test.ts	accepts the roster line as it is printed, role and all	no

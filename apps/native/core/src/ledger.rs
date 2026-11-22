@@ -811,6 +811,49 @@ fn run_trouble(code: &str) -> bool {
     code.ends_with(".runtime_error") || code.ends_with(".notification") || code.ends_with(".context_compacted")
 }
 
+/// One message as a reply's fragments make it: where it is held, its text, whether it ended, how many pieces it took.
+struct Message {
+    at: u64,
+    last: u64,
+    text: String,
+    r#final: Value,
+    pieces: usize,
+}
+
+/// messageFragments.ts `joinMessageFragments`: a reply's fragments, in order, joined into its messages. THE REPAIR for
+/// records already on disk: an old Cursor appended its closing message, the one carrying the WHOLE text, like any
+/// other fragment, so the reply said itself twice and the next reply was welded onto its end. A fragment that restates
+/// exactly what its message has said so far (more than one character, over more than one piece: a long message can
+/// arrive as two identical halves) is that message ENDING, and what follows starts a new one.
+fn split_restated(parts: &BTreeMap<u64, Value>) -> Vec<Message> {
+    let mut out: Vec<Message> = Vec::new();
+    let mut open = false;
+    for (&sequence, event) in parts {
+        let payload = event.get("payload").unwrap_or(&Value::Null);
+        let text = payload.get("text").and_then(Value::as_str).unwrap_or("");
+        let r#final = payload.get("final").cloned().unwrap_or(Value::Bool(false));
+        let held = out.last_mut().filter(|_| open);
+        let Some(held) = held else {
+            out.push(Message { at: sequence, last: sequence, text: text.to_owned(), r#final, pieces: 1 });
+            open = true;
+            continue;
+        };
+        held.last = sequence;
+        if payload.get("operation").and_then(Value::as_str) == Some("replace") {
+            held.text = text.to_owned();
+        } else if text.encode_utf16().count() > 1 && held.pieces > 1 && text == held.text {
+            held.r#final = Value::Bool(true);
+            open = false;
+            continue;
+        } else {
+            held.text.push_str(text);
+        }
+        held.r#final = r#final;
+        held.pieces += 1;
+    }
+    out
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct Transcript {
     pub signal_rail: Vec<crate::inspector::SignalRow>,
@@ -826,10 +869,13 @@ pub struct Transcript {
     events: BTreeMap<u64, Value>,
     /// Set once an event was actually dropped from the window; a window that is merely full is not trimmed.
     pub trimmed: bool,
-    /// A held reply's fragments by sequence, so a replayed or late fragment folds in once and in order.
+    /// A held reply's fragments (whole events) by sequence, so a replayed or late fragment folds in once and in order.
     fragments: HashMap<String, BTreeMap<u64, Value>>,
-    /// Which held event carries each reply (its first fragment's sequence).
-    message_at: HashMap<String, u64>,
+    /// Which held events carry each reply (each message's first fragment's sequence): more than one when an old record
+    /// restated the reply and welded the next one on (`split_restated`).
+    message_at: HashMap<String, Vec<u64>>,
+    /// Each message's last fragment's sequence, by the id the thread draws it under ("msg_0", "msg_0#2").
+    message_end: HashMap<String, u64>,
     checkpoints: Vec<Value>,
     pub peer_links: Vec<PeerLink>,
     pub cost: Option<crate::benchmark::RunCost>,
@@ -890,45 +936,42 @@ impl Transcript {
             Some(id) => {
                 let id = id.to_owned();
                 let parts = self.fragments.entry(id.clone()).or_default();
-                if parts.insert(sequence, payload.clone()).is_some() {
+                if parts.insert(sequence, event.clone()).is_some() {
                     return; // the same fragment again
                 }
-                let first = *parts.keys().next().expect("just inserted");
-                let held_at = self.message_at.insert(id.clone(), first);
-                if parts.len() == 1 {
-                    // A reply that arrived whole is held as it came.
-                    self.events.insert(sequence, event.clone());
-                } else {
-                    let mut text = String::new();
-                    for part in parts.values() {
-                        let piece = part.get("text").and_then(Value::as_str).unwrap_or("");
-                        if part.get("operation").and_then(Value::as_str) == Some("replace") {
-                            text = piece.to_owned();
-                        } else {
-                            text.push_str(piece);
-                        }
-                    }
-                    let last_final = parts.values().next_back().and_then(|p| p.get("final")).cloned().unwrap_or(Value::Bool(false));
-                    let mut joined = match held_at.and_then(|at| self.events.remove(&at)) {
-                        Some(held) if held_at == Some(first) => held,
-                        _ => event.clone(), // this fragment is now the reply's first
-                    };
-                    joined["payload"]["operation"] = Value::from("replace");
-                    joined["payload"]["text"] = Value::from(text);
-                    joined["payload"]["final"] = last_final;
-                    self.events.insert(first, joined);
+                for at in self.message_at.remove(&id).unwrap_or_default() {
+                    self.events.remove(&at);
                 }
+                let mut starts = Vec::new();
+                for (n, message) in split_restated(parts).into_iter().enumerate() {
+                    // The first keeps the id every other surface knows; one after a restatement is numbered.
+                    let key = if n == 0 { id.clone() } else { format!("{id}#{}", n + 1) };
+                    let first = &parts[&message.at];
+                    let held = if n == 0 && message.pieces == 1 {
+                        first.clone() // a reply that arrived whole is held as it came
+                    } else {
+                        let mut joined = first.clone();
+                        joined["payload"]["itemId"] = Value::from(key.as_str());
+                        joined["payload"]["operation"] = Value::from("replace");
+                        joined["payload"]["text"] = Value::from(message.text);
+                        joined["payload"]["final"] = message.r#final;
+                        joined
+                    };
+                    self.events.insert(message.at, held);
+                    self.message_end.insert(key, message.last);
+                    starts.push(message.at);
+                }
+                self.message_at.insert(id, starts);
             }
         }
         while self.events.len() > EVENT_WINDOW {
             let Some(at) = self.events.keys().nth(OPENING_EVENTS).copied() else { break };
-            if let Some(gone) = self.events.remove(&at)
-                && let Some(id) = gone["payload"].get("itemId").and_then(Value::as_str)
-                && self.message_at.get(id) == Some(&at)
+            if self.events.remove(&at).is_some()
+                && let Some(id) = self.message_at.iter().find(|(_, starts)| starts.contains(&at)).map(|(id, _)| id.clone())
             {
                 // A reply out of view that speaks again starts a new event.
-                self.message_at.remove(id);
-                self.fragments.remove(id);
+                self.message_at.remove(&id);
+                self.fragments.remove(&id);
             }
             self.trimmed = true;
         }
@@ -1001,8 +1044,8 @@ impl Transcript {
         // missionView's workBegan: until the turn says or does anything, only trouble with the run itself reaches the
         // thread. OpenCode's "Aborted" when the person presses Stop is not that.
         let mut work_began = false;
-        let fragments = &self.fragments;
-        let last_piece = |id: &str| fragments.get(id).and_then(|f| f.keys().next_back().copied()).unwrap_or(0);
+        let message_end = &self.message_end;
+        let last_piece = |id: &str| message_end.get(id).copied().unwrap_or(0);
         for (sequence, event) in &self.events {
             let kind = string(event, "type");
             let p = event.get("payload").unwrap_or(&Value::Null);
@@ -3560,3 +3603,7 @@ mod fall_off_tests;
 #[cfg(test)]
 #[path = "torn_ledger_tests.rs"]
 pub(crate) mod torn_ledger_tests;
+
+#[cfg(test)]
+#[path = "restated_reply_tests.rs"]
+mod restated_reply_tests;
