@@ -133,6 +133,12 @@ export function agyRoute(model: string | undefined, effort: string | undefined):
     flash_lite: { model: 'gemini-3.8-flash', effort: 'low' }
   }
   if (model === undefined) return effort === undefined ? {} : { effort }
+  /*
+   * AN ORCHESTRATOR TAKES NO EFFORT (agy 1.5, 22 Nov). Its planner is in the id (Neon, Argon); its executor and
+   * both efforts are agy's own settings, chosen in agy's /model. agy refuses any --effort for it: "--effort is
+   * not supported for model gemini-pro-orchestrator-neon". So none goes, even one left from another model.
+   */
+  if (/^gemini-pro-orchestrator-/.test(model)) return { model }
   const tier = Object.hasOwn(tiers, model) ? tiers[model] : undefined
   const variant = /^(.*)-(low|medium|high|max)$/.exec(model)
   const base = tier?.model ?? (variant === null ? model : variant[1]!)

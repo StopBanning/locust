@@ -28,6 +28,13 @@ describe('Antigravity through its CLI', () => {
     expect(agyRoute('gemini-3.8-flash', 'low')).toEqual({ model: 'gemini-3.8-flash', effort: 'low' })
     expect(agyRoute(undefined, undefined)).toEqual({})
   })
+
+  it('sends an Orchestrator model with no effort at all, even one left over from another model', () => {
+    // agy 1.5: "--effort is not supported for model gemini-pro-orchestrator-neon". Its planner and executor
+    // efforts are agy's own settings, chosen in agy's /model; measured 22 Nov, the bare model runs.
+    expect(agyRoute('gemini-pro-orchestrator-neon', undefined)).toEqual({ model: 'gemini-pro-orchestrator-neon' })
+    expect(agyRoute('gemini-pro-orchestrator-g1-pro', 'medium')).toEqual({ model: 'gemini-pro-orchestrator-g1-pro' })
+  })
 })
 
 describe('a reply to a conversation Antigravity began elsewhere (0.541, Colin: "trajectory not found")', () => {
