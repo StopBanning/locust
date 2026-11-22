@@ -1130,7 +1130,10 @@ export function Sidebar({
       </div>
 
       {!compact && (sourceFilter !== 'all' || missions.some((mission) => mission.appStarted)) && (
-        <div className="lc-faces__clear">
+        /* Its own quiet row, lined up with the search above (22 Nov: inside
+           the faces' narrowing slab it was a grey band out of line with
+           everything around it, Colin: "kind of messy"). */
+        <div className="lc-sidebar__source">
           <Select className="lc-control" aria-label="Conversation source" value={sourceFilter} onChange={(value) => setSourceFilter(value as ConversationSource)} options={[
             { value: 'all', label: 'All conversations' },
             { value: 'person', label: 'Started here' },

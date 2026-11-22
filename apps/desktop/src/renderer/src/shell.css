@@ -20170,6 +20170,22 @@ button.lc-switch:hover:not(:disabled):not(.is-on) {
   color: var(--lc-text-primary);
 }
 
+/* The conversation-source picker under the search: no slab, its words on the
+   search box's left edge (14px less the control's own 6px padding). */
+.lc-sidebar__source {
+  display: flex;
+  margin: var(--lc-space-2) 14px 0 8px;
+}
+
+.lc-sidebar__source .lc-control {
+  color: var(--lc-text-muted);
+  font-size: var(--lc-text-description);
+}
+
+.lc-sidebar__source .lc-control:hover:not(:disabled) {
+  color: var(--lc-text-primary);
+}
+
 /* One line, the sentence on the left and the way out on the right. */
 .lc-faces__clear {
   display: flex;
