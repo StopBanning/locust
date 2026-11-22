@@ -69,6 +69,58 @@ pub(crate) fn title_spans(words: &str, ink: Color, reduced: bool, seconds: f64) 
     if reduced { Vec::new() } else { spans(words, seconds, ink) }
 }
 
+// ---- THE LIVE WORD'S SWEEP (Electron shell.css `.lc-sweep`, ported from libraries.dev's `.t-shimmer`) -------------
+//
+// A solid word with a highlight passing over it: the word is painted in the muted grey and stays painted, and only an
+// overlay drawn from its own text is clipped to a moving gradient (`content: attr(data-text)`). Anything that stops the
+// overlay leaves the word, never a blank. Rune has no text clip, so each character takes the overlay's value at its
+// place, mixed over the word's grey.
+
+/// The overlay image is four widths of the word (`background-size: 400% 100%`).
+pub(crate) const SWEEP_IMAGE: f64 = 4.0;
+/// One pass (`animation: lc-sweep 2s linear infinite`).
+pub(crate) const SWEEP_SECONDS: f64 = 2.0;
+
+/// The overlay's gradient at `u` across its image (`transparent 0%, transparent 40%, name 50%, transparent 60%,
+/// transparent 100%`): 0 is none of the highlight, 1 all of it.
+fn sweep_gradient(u: f64) -> f32 {
+    let off = (u - 0.5).abs();
+    if off >= 0.1 { 0.0 } else { (1.0 - off / 0.1) as f32 }
+}
+
+/// How much highlight is over the word at `x` (0 its left edge, 1 its right) `seconds` in. The position runs from 100%
+/// to 0% (`@keyframes lc-sweep`), so the band enters on the left and leaves on the right.
+pub(crate) fn sweep_at(x: f64, seconds: f64) -> f32 {
+    let position = 1.0 - (seconds / SWEEP_SECONDS).rem_euclid(1.0);
+    sweep_gradient((x + (SWEEP_IMAGE - 1.0) * position) / SWEEP_IMAGE)
+}
+
+/// The live word's characters: the muted word with the highlight (`--lc-text-name`) over it where the band stands.
+/// Under less motion only the highlight goes (`.lc-sweep::before { display: none }`): no spans, the plain word.
+pub(crate) fn sweep_spans(words: &str, seconds: f64, word: Color, highlight: Color, reduced: bool) -> Vec<Span> {
+    if reduced {
+        return Vec::new();
+    }
+    let count = words.chars().count().max(1) as f64;
+    words
+        .char_indices()
+        .enumerate()
+        .map(|(i, (at, ch))| {
+            let x = (i as f64 + 0.5) / count;
+            Span::new(at, at + ch.len_utf8()).color(word.mix(highlight, sweep_at(x, seconds)))
+        })
+        .collect()
+}
+
+/// The live word as a label rather than a machine string (`.lc-livestep__register`): 14px in the UI face at 500.
+pub(crate) const LIVE_WORD: rune::TextStyle = rune::TextStyle::new(14.0, 500.0);
+
+/// The live word, drawn: the word's own colour is the muted grey whatever the band does, so the "…" a long word is cut
+/// with, and every character once the band has passed, are the word itself.
+pub(crate) fn live_word(words: &str, word: Color, highlight: Color, reduced: bool) -> rune::El {
+    rune::text(words.to_owned()).font(LIVE_WORD).color(word).spans(sweep_spans(words, clock(), word, highlight, reduced))
+}
+
 #[cfg(test)]
 #[path = "working_shimmer_tests.rs"]
 mod working_shimmer_tests;

@@ -1134,3 +1134,8 @@ pub(super) fn reviews_save_scene(s: &mut State) {
     reviews_handed_scene(s);
     s.row_menu = Some(crate::context_menu::MenuState { x: 850.0, y: 100.0, title: "Conversation actions".into(), target: "synthetic-ledger".into(), items: crate::header_menu::items(s), armed: None, open_sub: None });
 }
+
+pub(super) fn reviews_live_scene(s: &mut State) {
+    ledger_scene(s, true, false);
+    s.ledger.as_mut().unwrap().snapshot.live = locust_core::thread_view::live_line(&[], true, &chrono::Utc::now().to_rfc3339(), false);
+}

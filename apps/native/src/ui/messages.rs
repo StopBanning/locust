@@ -560,7 +560,7 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
     if let Some(card) = crate::key_card::card(s, p) {
         messages = messages.child(card);
     }
-    if locust_core::thread_view::live_visible(turn_running(s), s.pending_approval.is_some())
+    if live_sweeping(s)
         && let Some(live) = s.ledger.as_ref().and_then(|pane| pane.snapshot.live.as_ref())
     {
         let elapsed = chrono::DateTime::parse_from_rfc3339(&live.started_at).ok()
@@ -581,7 +581,9 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
             .child(thread_face(s, "live", 34.0, p))
             .child(el().w(8.0))
             // The headline is the label's hover title too, for a row that ellipsizes (lc-livestep__label's `title`).
-            .child(text(words).key("live-step-label").font(type_::LABEL).color(p.muted).shrink().truncate().help(headline));
+            // The word sweeps (`.lc-sweep`): a painted word with a highlight passing over it, so it is never stale text.
+            .child(crate::working_shimmer::live_word(&words, p.muted, crate::look::controls::Look::new(p.dark).c("text-name"), s.reduced_motion.get())
+                .key("live-step-label").shrink().truncate().help(headline));
         if let Some(step) = &live.detail {
             line = line.child(text(format!(" · {step}")).key("live-step-peek").font(type_::LABEL).color(p.muted));
         }
@@ -606,6 +608,12 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                 tx.live_only();
             }
         })
+}
+
+/// Whether the live line is on screen, and so its word sweeping: the window wakes for the band while it is.
+pub(super) fn live_sweeping(s: &State) -> bool {
+    locust_core::thread_view::live_visible(turn_running(s), s.pending_approval.is_some())
+        && s.ledger.as_ref().is_some_and(|pane| pane.snapshot.live.is_some())
 }
 
 /// Thread.tsx under the current turn: a never-started run of the person's own words offers Run it again
@@ -1578,3 +1586,46 @@ mod terminal_thread_tests;
 #[cfg(test)]
 #[path = "cold_start_note_tests.rs"]
 mod cold_start_note_tests;
+
+/// A running turn's thread with its live line, for the sweep's tests (working_shimmer_tests.rs).
+#[cfg(test)]
+pub(crate) fn tests_live_state() -> State {
+    let mut s = State::default();
+    s.ledger = Some(LedgerPane {
+        cold_tip: None,
+        header: Teammate { id: "tm_codec".into(), name: "Codec".into(), role: "Engineer".into(), runtime: None, model: None, account: None, busy: false, runs_in: "local".into(), folder: None },
+        conversation: Conversation { conversation_id: Some("m_1".into()), turns: Vec::new() },
+        items: Vec::new(), dir: std::path::PathBuf::new(), worker: None,
+        snapshot: ledger::Snapshot {
+            running: true,
+            live: locust_core::thread_view::live_line(&[], true, "2026-09-04T21:47:00.000Z", false),
+            turn_metas: vec![ledger::Metadata { mission_id: "m_1".into(), ..Default::default() }],
+            ..Default::default()
+        },
+        due: 0.0, loading: false, after_tip: None, after_tip_deadline: None, backoff: 0.0,
+    });
+    s
+}
+
+/// The live line drawn, and the element whose key starts with `prefix`.
+#[cfg(test)]
+fn tests_live_element(s: &mut State, prefix: &str) -> rune::ElementInfo {
+    let taken = std::mem::take(s);
+    let items = vec![ledger::Item::User("run the tests".into())];
+    let mut rt = rune::Runtime::new((taken, items), |(s, items), _| message_column(items, "Codec", &Palette::new(true), s), (800.0, 800.0), rune::Env::new(true, 1.0));
+    rt.frame(0.0);
+    let found = rt.elements().into_iter().find(|e| e.key.as_deref().is_some_and(|k| k.starts_with(prefix)))
+        .unwrap_or_else(|| panic!("no {prefix}: {:?}", rt.elements().into_iter().filter_map(|e| e.key).collect::<Vec<_>>()));
+    *s = std::mem::take(&mut rt.state.0);
+    found
+}
+
+#[cfg(test)]
+pub(crate) fn tests_live_label(s: &mut State) -> rune::ElementInfo {
+    tests_live_element(s, "live-step-label")
+}
+
+#[cfg(test)]
+pub(crate) fn tests_live_face(s: &mut State) -> rune::ElementInfo {
+    tests_live_element(s, "thread-face-live-")
+}

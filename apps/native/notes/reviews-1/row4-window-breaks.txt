@@ -1,0 +1,10 @@
+src/ui/working_shimmer.rs|||const SWEEP_IMAGE: f64 = 4.0 ==> const SWEEP_IMAGE: f64 = 2.5
+src/ui/working_shimmer.rs|||const SWEEP_SECONDS: f64 = 2.0 ==> const SWEEP_SECONDS: f64 = 3.0
+src/ui/working_shimmer.rs|||if off >= 0.1 { 0.0 } ==> if off >= 0.4 { 0.0 }
+src/ui/working_shimmer.rs|||word.mix(highlight, sweep_at(x, seconds)) ==> word.mix(highlight, sweep_at(x, seconds)).alpha(0.5)
+src/ui/working_shimmer.rs|||if reduced {
+        return Vec::new(); ==> if reduced && false {
+        return Vec::new();
+src/ui/working_shimmer.rs|||TextStyle::new(14.0, 500.0) ==> TextStyle::new(12.0, 400.0)
+src/ui/messages.rs|||&& s.ledger.as_ref().is_some_and(|pane| pane.snapshot.live.is_some()) ==> && s.ledger.as_ref().is_some_and(|pane| pane.snapshot.live.is_none())
+src/ui/messages.rs|||thread_face(s, "live", 34.0, p) ==> thread_face(s, "live", 44.0, p)

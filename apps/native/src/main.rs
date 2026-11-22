@@ -2512,7 +2512,8 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
         tx.wake_after(Duration::from_millis(33));
     }
     // A working row's band moves while the window is in front and motion is wanted; it stands still otherwise.
-    if s.window_focused && !s.reduced_motion.get() && sidebar::shimmering(s) {
+    // The live word's sweep too (`.lc-sweep`), on the same clock and under the same rule.
+    if s.window_focused && !s.reduced_motion.get() && (sidebar::shimmering(s) || messages::live_sweeping(s)) {
         tx.wake_after(Duration::from_millis(working_shimmer::FRAME_MS));
         changed = true;
     }
@@ -3330,6 +3331,7 @@ fn main() {
             ("changes-light", changes_panel::light_scene),
             ("reviews-handed", reviews_handed_scene),
             ("reviews-save", reviews_save_scene),
+            ("reviews-live", reviews_live_scene),
             ("thread-rich", thread_rich_scene),
             ("thread-pictures", thread_pictures_scene),
             ("thread-rich-open", thread_rich_open_scene),
