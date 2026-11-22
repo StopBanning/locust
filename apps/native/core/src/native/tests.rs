@@ -98,6 +98,8 @@ fn kinds(path: &Path) -> Vec<String> {
     records(path)
         .iter()
         .filter(|r| r["event"]["payload"]["toolKind"] != "observed_edit")
+        // The host's note on where the start's seconds went follows every run's own events (start_timing).
+        .filter(|r| r["event"]["payload"]["code"] != "host.start-timing")
         .filter_map(|r| r["event"]["type"].as_str().map(str::to_owned))
         .collect()
 }

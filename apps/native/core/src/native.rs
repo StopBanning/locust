@@ -2349,6 +2349,8 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
     if !valid_prompt(&job.prompt) {
         return Err(INVALID_PROMPT.into());
     }
+    // Where the seconds before "started" go (start_timing): the send reached the host now.
+    let clock = crate::start_timing::Clock::sent();
     let own_agent = origin.runtime.is_none() || origin.runtime == job.teammate.runtime;
     if let Some(runtime) = &origin.runtime {
         job.teammate.runtime = Some(runtime.clone());
@@ -2451,6 +2453,7 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
     }
     // codex-mission.ts: whether the runtime is ready is asked before anything is recorded or started, and a start on
     // one that is not says which kind of not ready.
+    clock.mark(crate::start_timing::Phase::Looking);
     if let Some(why) = start_readiness_refusal(runtime_name, effective_account.as_deref()) {
         return Err(why);
     }
@@ -2735,6 +2738,7 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
             .filter(|_| !resumed_compacted)
             .and_then(|c| crate::brief_sessions::BriefSessions::for_store(&store).after(&c.mission_id));
         let plan = crate::brief_sessions::brief_plan(resumed.is_some(), resumed_compacted, earlier_brief.as_ref());
+        clock.mark(crate::start_timing::Phase::Briefing);
         let (brief, quoted, given) = crate::people::turn_brief_held(
             &store,
             &job.teammate.id,
@@ -3075,6 +3079,9 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
             }
         }));
     }
+    // The first word from the runtime dates the end of the start.
+    let began_clock = clock.clone();
+    writer.when_began(Box::new(move || began_clock.began()));
     // A turn for nobody stays nobody's: no owner, and no teammate a card's allow rule could be saved for.
     if !is_nobody(&job.teammate) {
         channel.register_teammate(&id, &job.teammate.id);
@@ -3170,11 +3177,14 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
             let disk_before = if check_mode.sandbox() == "read-only" {
                 None
             } else {
+                clock.mark(crate::start_timing::Phase::ReadingFolder);
                 crate::disk_observation::snapshot_workspace(
                     &memory_folder,
                     &crate::disk_observation::DefaultDiskHost::new(),
                 )
             };
+            clock.mark(crate::start_timing::Phase::StartingRuntime);
+            let timing_runtime = crate::engine::runtime_name(&runtime_owned).to_owned();
             run_turn(
                 writer,
                 command,
@@ -3195,6 +3205,13 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
             crate::skills::remove_copies(&skill_copies);
             crate::skills::forget_roots(&memory_id);
             let changed = record_disk_observation(&memory_store, &memory_id, &memory_folder, disk_before, &checkpoint);
+            // Where the seconds before "started" went: one host note after the run's own events.
+            if let Ok(path) = memory_store.write_path(&memory_id) {
+                let timing = clock.timing();
+                let _ = crate::ledger_write::append_events(&path, |run, mission, adapter, next_seq, at| {
+                    crate::start_timing::note(run, mission, adapter, next_seq, at, &timing_runtime, &timing).into_iter().collect()
+                });
+            }
             // A2.9: kept for the overlap note in another teammate's next brief here (recent_edits).
             if !memory_who.is_empty() {
                 crate::recent_edits::record(&memory_folder.to_string_lossy(), &memory_who, &memory_name, &changed);

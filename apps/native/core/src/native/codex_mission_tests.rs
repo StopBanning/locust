@@ -1046,7 +1046,10 @@ fn a_cursor_mission_is_read_by_cursors_own_normalizer_and_recorded_read_only() {
     assert_eq!((&head["runtime"], &head["sandbox"]), (&json!("cursor"), &json!("read-only")));
     let events: Vec<Value> = records(&path).into_iter().filter(|r| r["recordType"] == "mission.event").map(|r| r["event"].clone()).collect();
     let kinds: Vec<&str> = events.iter().map(|e| e["type"].as_str().unwrap()).collect();
-    assert_eq!(kinds, ["run.started", "message.delta", "run.completed"], "{events:?}");
+    // The host's start-timing note follows the run's own events, as Cursor's too.
+    assert_eq!(kinds, ["run.started", "message.delta", "run.completed", "adapter.diagnostic"], "{events:?}");
+    assert_eq!(events[3]["payload"]["code"], "host.start-timing");
+    assert!(events[3]["payload"]["message"].as_str().unwrap().contains("; Cursor took "), "{events:?}");
     assert!(events.iter().all(|e| e["sourceAdapter"] == "cursor"), "{events:?}");
     assert_eq!(events[0]["runtimeThreadId"], "cursor-session-1");
 }
@@ -1315,6 +1318,52 @@ fn a_write_capable_turn_records_observed_edit_for_a_file_modified_on_disk_withou
     crate::recent_edits::record(&folder, "tm_other_hand", "Other Hand", &["unreported.txt".to_owned()]);
     let note = crate::recent_edits::overlap_for(&folder, &who).unwrap_or_default();
     assert!(note.contains("- Other Hand changed unreported.txt (last"), "{note}");
+}
+
+// ---- start-timing.test.ts: through the mission service. The run's end writes where its start's seconds went. ----
+fn start_timing_note(recs: &[Value]) -> (usize, Value) {
+    let events: Vec<&Value> = recs.iter().filter_map(|r| r.get("event")).collect();
+    let at = events.iter().position(|e| e["payload"]["code"] == "host.start-timing").unwrap_or_else(|| panic!("no start-timing note: {recs:?}"));
+    assert_eq!(events.iter().filter(|e| e["payload"]["code"] == "host.start-timing").count(), 1, "one note per run");
+    (events.len() - 1 - at, events[at].clone())
+}
+
+#[test]
+fn a_writing_run_ends_with_a_note_naming_each_phase_of_its_start() {
+    let t = Temp::new();
+    fs::write(t.0.join("work/commands-reply.json"), json!({"text": "Tidied.", "status": "completed"}).to_string()).unwrap();
+    let _hook = hooks::install(t.store(), codex_commands_hook(&t));
+    let mut mine = job(&t, None, "Tidy it.");
+    mine.teammate.runs_in = "approve-each".into();
+    let started = send(mine).unwrap();
+    finished(&started.conversation_id);
+    let recs = records(&path_of(&t, &started.conversation_id));
+    let (after, note) = start_timing_note(&recs);
+    assert_eq!(after, 0, "written after the run's own events");
+    assert_eq!(note["type"], "adapter.diagnostic");
+    assert_eq!(note["payload"]["level"], "info");
+    assert_eq!(note["sourceAdapter"], "codex");
+    let last_seq = recs.iter().filter_map(|r| r.get("event")).filter(|e| e["payload"]["code"] != "host.start-timing").filter_map(|e| e["sequence"].as_u64()).max().unwrap();
+    assert_eq!(note["sequence"].as_u64(), Some(last_seq + 1));
+    let said = note["payload"]["message"].as_str().unwrap();
+    assert!(said.starts_with("Started in "), "{said}");
+    for phase in ["looked for Codex ", "briefed ", "read the folder ", "; Codex took "] {
+        assert!(said.contains(phase), "{phase:?} in {said}");
+    }
+    assert!(said.find("looked for").unwrap() < said.find("briefed").unwrap() && said.find("briefed").unwrap() < said.find("read the folder").unwrap());
+}
+
+#[test]
+fn a_read_only_runs_note_reads_no_folder() {
+    let t = Temp::new();
+    fs::write(t.0.join("work/commands-reply.json"), json!({"text": "A readme.", "status": "completed"}).to_string()).unwrap();
+    let _hook = hooks::install(t.store(), codex_commands_hook(&t));
+    let started = send(job(&t, None, "What is in here?")).unwrap();
+    finished(&started.conversation_id);
+    let (_, note) = start_timing_note(&records(&path_of(&t, &started.conversation_id)));
+    let said = note["payload"]["message"].as_str().unwrap();
+    assert!(said.contains("briefed ") && said.contains("Codex took "), "{said}");
+    assert!(!said.contains("read the folder"), "{said}");
 }
 
 // ---- a-resumed-session-is-told-only-what-changed.test.ts: through the mission service (A2.5) ----

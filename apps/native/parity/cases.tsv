@@ -2461,6 +2461,10 @@ apps/desktop/src/main/sols-review-is-answered.test.ts	8. a checkout hook that fa
 apps/desktop/src/main/sols-review-is-answered.test.ts	9. a marker check that fails is not "no markers", and the thread does not say it can land	yes
 apps/desktop/src/main/sols-review-is-answered.test.ts	10. a URL that only mentions github.com is not GitHub	yes
 apps/desktop/src/main/sols-review-is-answered.test.ts	the log a cleanup leaves for a call that made it is gone, as before	no
+apps/desktop/src/main/start-timing.test.ts	names every phase that ran, in order, and the runtime boot last	yes
+apps/desktop/src/main/start-timing.test.ts	leaves out a phase that did not run (a read-only run reads no folder)	yes
+apps/desktop/src/main/start-timing.test.ts	says nothing before the runtime has said anything, and dates a start that marked no phase by its total	yes
+apps/desktop/src/main/start-timing.test.ts	is written as an info note from the host, after the run, with the next sequence	yes
 apps/desktop/src/main/stopping-app-server-holds-nothing.test.ts	walks the tree once however many times it is stopped	yes
 apps/desktop/src/main/stopping-app-server-holds-nothing.test.ts	returns before the walk finishes -- the walk never has to finish for kill() to return	no
 apps/desktop/src/main/stopping-app-server-holds-nothing.test.ts	kills the process itself when taskkill could not	no

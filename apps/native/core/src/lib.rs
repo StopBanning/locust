@@ -347,6 +347,7 @@ mod turn_words_tests;
 
 pub mod recent_edits;
 pub mod recent_routes;
+pub mod start_timing;
 
 #[cfg(test)]
 mod thread_marker_case_tests;

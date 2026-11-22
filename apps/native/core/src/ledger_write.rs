@@ -367,7 +367,7 @@ pub struct LedgerWriter {
     /// A teammate's keys given to this run: their values are taken out of every record before it is written.
     keys: Vec<crate::teammate_keys::RunKey>,
     /// Called once, the first time the runtime is seen to begin (`began`): what waits on the run being live.
-    on_began: Option<Box<dyn FnOnce() + Send>>,
+    on_began: Vec<Box<dyn FnOnce() + Send>>,
 }
 
 /// An event that says the runtime really began, not one that only reports why it could not (codex-mission.ts marks a
@@ -390,7 +390,7 @@ impl LedgerWriter {
 
     /// Run `then` once, when this run's runtime first begins; never when it is refused before it does.
     pub fn when_began(&mut self, then: Box<dyn FnOnce() + Send>) {
-        self.on_began = Some(then);
+        self.on_began.push(then);
     }
     /// Take these keys' values out of everything this writer writes from now on (teammate_keys, scrubKeyValues).
     pub fn take_out(&mut self, keys: Vec<crate::teammate_keys::RunKey>) {
@@ -514,7 +514,7 @@ impl LedgerWriter {
             poisoned: false,
             bytes: 0,
             keys: Vec::new(),
-            on_began: None,
+            on_began: Vec::new(),
         };
         let at = now();
         let continuation = continues.map(|c| {
@@ -606,8 +606,10 @@ impl LedgerWriter {
         self.line(json!({"schemaVersion":self.schema(),"recordType":"mission.event","ledgerSequence":ledger,"occurredAt":at,"event":event}))?;
         self.sequence = seq;
         self.ledger_seq = ledger + 1;
-        if began(kind) && let Some(then) = self.on_began.take() {
-            then();
+        if began(kind) {
+            for then in std::mem::take(&mut self.on_began) {
+                then();
+            }
         }
         Ok(event)
     }
