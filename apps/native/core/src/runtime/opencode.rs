@@ -30,11 +30,18 @@ pub fn version_major(version: &str) -> Option<u32> {
         .collect();
     major.parse().ok()
 }
-#[cfg(any(test, feature = "test-hooks"))]
-#[cfg(any(test, feature = "test-hooks"))]
 pub fn version_uses_acp(version: &str) -> bool {
     version_major(version) == Some(2)
 }
+
+/// Whether the installed `opencode` binary on this computer is OpenCode 2 (ACP).
+pub fn is_installed_v2() -> bool {
+    super::discovery::find_named("opencode")
+        .ok()
+        .and_then(|path| super::version::probe(&path, "OpenCode").ok())
+        .is_some_and(|v| version_uses_acp(&v))
+}
+
 pub fn command(folder: &std::path::Path, mode: Mode, store: &Store) -> io::Result<Command> {
     command_with_seal(folder, mode, store, false)
 }
@@ -47,7 +54,18 @@ pub fn command_with_seal(
 ) -> io::Result<Command> {
     let path = super::discovery::find_named("opencode")?;
     let output = super::version::probe(&path, "OpenCode")?;
-    let version = output.trim();
+    command_for_version(path, output.trim(), folder, mode, store, sealed)
+}
+
+pub fn command_for_version(
+    path: std::path::PathBuf,
+    version: &str,
+    folder: &std::path::Path,
+    mode: Mode,
+    store: &Store,
+    sealed: bool,
+) -> io::Result<Command> {
+    let version = version.trim();
     let major =
         version_major(version).ok_or_else(|| err("OpenCode's version could not be identified"))?;
     let v2 = match major {
@@ -71,6 +89,10 @@ pub fn command_with_seal(
         "LOCUST_NATIVE_OPENCODE_PROTOCOL",
         if v2 { "acp" } else { "serve" },
     );
+    let parsed_version = super::version::parse(version)
+        .map(|v| v.version)
+        .unwrap_or_else(|| version.to_owned());
+    c.env("LOCUST_NATIVE_OPENCODE_VERSION", parsed_version);
     Ok(c)
 }
 enum Driver {
@@ -89,6 +111,8 @@ pub struct OpenCode {
     slash: Option<String>,
     #[cfg(test)]
     begin_check: Option<Duration>,
+    #[cfg(test)]
+    cancel_grace: Option<Duration>,
 }
 /// Whether this OpenCode command runs OpenCode 2 over ACP (its `acp` argument, or the tests' protocol switch).
 pub fn uses_acp(c: &Command) -> bool {
@@ -103,6 +127,7 @@ impl OpenCode {
     pub fn spawn(c: &mut Command) -> io::Result<Self> {
         let v2 = uses_acp(c);
         c.env_remove("LOCUST_NATIVE_OPENCODE_PROTOCOL");
+        c.env_remove("LOCUST_NATIVE_OPENCODE_VERSION");
         // V2's config is written last, from everything the run added to it in V1's shape (opencode-2-launch.ts).
         if v2 {
             super::opencode_config::finish_v2(c);
@@ -118,6 +143,8 @@ impl OpenCode {
             slash: None,
             #[cfg(test)]
             begin_check: None,
+            #[cfg(test)]
+            cancel_grace: None,
         })
     }
     pub fn with_fork(mut self, fork: bool) -> Self {
@@ -135,6 +162,11 @@ impl OpenCode {
     #[cfg(test)]
     pub fn with_begin_check(mut self, d: Duration) -> Self {
         self.begin_check = Some(d);
+        self
+    }
+    #[cfg(test)]
+    pub fn with_cancel_grace(mut self, d: Duration) -> Self {
+        self.cancel_grace = Some(d);
         self
     }
     fn cancelled(&self) -> bool {
@@ -209,7 +241,15 @@ impl Runtime for OpenCode {
             }
             attempts += 1;
             let mut rt = match Acp::spawn(&mut copy_command(&self.command)) {
-                Ok(rt) => rt.with_cancel(self.cancel.clone()),
+                Ok(rt) => {
+                    let rt = rt.with_cancel(self.cancel.clone());
+                    #[cfg(test)]
+                    let rt = match self.cancel_grace {
+                        Some(grace) => rt.with_cancel_grace(grace),
+                        None => rt,
+                    };
+                    rt
+                }
                 Err(_) => {
                     self.failure("OpenCode's ACP process could not start. Check its installed command; no prompt was sent.","process-start-failed",attempts,"startup");
                     break;
@@ -326,3 +366,7 @@ impl Runtime for OpenCode {
 #[cfg(test)]
 #[path = "opencode_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "opencode_2_acp_tests.rs"]
+mod opencode_2_acp_tests;

@@ -11,7 +11,7 @@
 //!
 //! Codex's session asks `account/rateLimits/read` too, once its models are in, so its usage is read with them.
 //!
-//! Not ported: OpenCode 2's and Kilo's models (read from an ACP session), and the models Claude Code's handshake lists.
+//! Not ported: the models Claude Code's handshake lists.
 
 use serde_json::{Value, json};
 use std::io::{BufRead, BufReader, Write};
@@ -475,6 +475,14 @@ pub fn opencode_models_from(hints: Option<&Value>) -> Vec<Value> {
         .collect()
 }
 
+/// `opencodeModelsFrom` with OpenCode's version check: V1 keeps its CLI list, V2 never offers stale CLI hints.
+pub fn opencode_models_for_version(major: Option<u32>, hints: Option<&Value>) -> Vec<Value> {
+    if major == Some(2) {
+        return Vec::new();
+    }
+    opencode_models_from(hints)
+}
+
 /// copilotModelsFrom: Copilot lists no models without a paid run, so Auto, which is real.
 pub fn copilot_models() -> Vec<Value> {
     vec![json!({"id": "auto", "runtime": "copilot", "displayName": "Auto", "description": "Copilot picks the model your plan allows", "supportedEfforts": []})]
@@ -553,6 +561,8 @@ pub struct Listed {
     pub claude: Option<Value>,
     pub cursor: Option<Value>,
     pub opencode: Option<Value>,
+    /// OpenCode 2's models read from its ACP `session/new` advertisement.
+    pub opencode_acp: Vec<Value>,
     pub antigravity: Option<Value>,
     pub copilot: bool,
     pub muse: bool,
@@ -567,6 +577,7 @@ pub fn catalog(listed: &Listed) -> Vec<Value> {
     models.extend(claude_models_from(listed.claude.as_ref()));
     models.extend(cursor_models_from(listed.cursor.as_ref()));
     models.extend(opencode_models_from(listed.opencode.as_ref()));
+    models.extend(listed.opencode_acp.iter().cloned());
     if listed.copilot {
         models.extend(copilot_models());
     }
@@ -751,23 +762,45 @@ pub fn antigravity_model_list_is_pending(installed: bool, status: crate::agents:
 }
 
 /// `read_listed`, and whether a ready runtime listed nothing, so the answer is not kept. OpenCode 2 lists its models in
-/// an ACP session this does not read, so it is not counted as having listed none.
+/// an ACP session started in parallel with the other probes; a failed V2 advertisement marks the catalog incomplete.
 pub fn read_listed_checked() -> (Listed, bool) {
     let limit = Duration::from_secs(20);
     let codex = std::thread::spawn(move || codex_model_list(limit));
     let claude = std::thread::spawn(move || output_of("claude", &["--help"], limit).as_deref().and_then(parse_claude_model_hints));
     let cursor = std::thread::spawn(move || output_of("cursor-agent", &["--list-models"], limit).as_deref().and_then(parse_cursor_model_list));
-    // OpenCode 2 lists its models in an ACP session, which is not read here.
-    // (whether OpenCode answered as a 1.x, and what it listed)
+    // (whether OpenCode answered as 1.x, whether OpenCode answered as 2.x, V1 hints, V2 ACP models)
     let opencode = std::thread::spawn(move || {
-        let Some(version) = output_of("opencode", &["--version"], limit) else { return (false, None) };
-        if crate::runtime::version::parse(&version).is_some_and(|v| v.major >= 2) {
-            return (false, None);
+        let Ok(path) = crate::runtime::discovery::find_named("opencode") else {
+            return (false, false, None, Vec::new());
+        };
+        let Some(version) = output_of("opencode", &["--version"], limit) else {
+            return (false, false, None, Vec::new());
+        };
+        if let Some(parsed) = crate::runtime::version::parse(&version) {
+            if parsed.major == 2 {
+                let rt = crate::opencode_acp_models::ProbeRuntime::for_path(
+                    "opencode",
+                    path.to_string_lossy().into_owned(),
+                    Some(2),
+                );
+                let models = crate::opencode_acp_models::read_opencode_acp_models_default(&rt, limit);
+                return (false, true, None, models);
+            }
+            if parsed.major >= 3 {
+                return (false, false, None, Vec::new());
+            }
         }
-        (true, output_of("opencode", &["models", "--verbose"], limit).as_deref().and_then(parse_opencode_model_list))
+        (
+            true,
+            false,
+            output_of("opencode", &["models", "--verbose"], limit)
+                .as_deref()
+                .and_then(parse_opencode_model_list),
+            Vec::new(),
+        )
     });
     let agy = std::thread::spawn(move || output_of("agy", &["models"], limit).as_deref().and_then(parse_agy_model_list));
-    let (opencode_one, opencode) = opencode.join().unwrap_or((false, None));
+    let (opencode_one, opencode_two, opencode, opencode_acp) = opencode.join().unwrap_or((false, false, None, Vec::new()));
     let (codex, codex_usage) = codex.join().ok().flatten().map_or((None, None), |(models, usage)| (Some(models), usage));
     let listed = Listed {
         codex,
@@ -775,6 +808,7 @@ pub fn read_listed_checked() -> (Listed, bool) {
         claude: claude.join().ok().flatten(),
         cursor: cursor.join().ok().flatten(),
         opencode,
+        opencode_acp,
         antigravity: agy.join().ok().flatten(),
         copilot: crate::runtime::discovery::find_named("copilot").is_ok(),
         muse: crate::runtime::discovery::find_named("muse").is_ok(),
@@ -791,8 +825,109 @@ pub fn read_listed_checked() -> (Listed, bool) {
     if installed("claude") {
         ready.push(("claude", listed.claude.as_ref()));
     }
-    let incomplete = lists_its_models_but_listed_none(&ready);
+    let incomplete = lists_its_models_but_listed_none(&ready)
+        || (opencode_two && listed.opencode_acp.is_empty());
     (listed, incomplete)
+}
+
+/// Probes a discovered runtime set in parallel (Codex `app-server` and OpenCode 2 ACP concurrently),
+/// keeping V1 discovery-only and marking a failed OpenCode 2 ACP read incomplete so `kept_catalog` retries it.
+pub fn read_discovered_checked(
+    runtimes: &[crate::opencode_acp_models::ProbeRuntime],
+    spawn: crate::opencode_acp_models::ProbeSpawn<'_>,
+    scratch: Option<crate::opencode_acp_models::ScratchFactory>,
+    deadline: Duration,
+) -> (Listed, bool) {
+    let opencode = runtimes.iter().find(|r| r.id == "opencode");
+    let codex = runtimes.iter().find(|r| r.id == "codex");
+    let opencode_v2 = opencode.is_some_and(|r| r.ready && r.major == Some(2));
+
+    let (opencode_acp, codex_result) = std::thread::scope(|scope| {
+        let oc_handle = if opencode_v2 {
+            let rt = opencode.unwrap();
+            Some(scope.spawn(move || {
+                crate::opencode_acp_models::read_opencode_acp_models(
+                    rt,
+                    crate::opencode_acp_models::OpenCodeAcpModelsOptions {
+                        spawn,
+                        scratch,
+                        runtime: "opencode",
+                        deadline,
+                    },
+                )
+            }))
+        } else {
+            None
+        };
+        let cx_handle = if let Some(rt) = codex.filter(|r| r.ready && r.executable.is_some()) {
+            Some(scope.spawn(move || probe_codex_models_with(rt, spawn, deadline)))
+        } else {
+            None
+        };
+        let oc = oc_handle.and_then(|h| h.join().ok()).unwrap_or_default();
+        let cx = cx_handle.and_then(|h| h.join().ok()).flatten();
+        (oc, cx)
+    });
+
+    let opencode_v1_hints = opencode
+        .filter(|r| r.ready && r.major != Some(2))
+        .and_then(|r| r.hints.clone());
+
+    let listed = Listed {
+        codex: codex_result,
+        opencode: opencode_v1_hints,
+        opencode_acp,
+        ..Default::default()
+    };
+
+    let mut ready: Vec<(&str, Option<&Value>)> = Vec::new();
+    if let Some(oc) = opencode.filter(|r| r.ready && r.major != Some(2)) {
+        ready.push(("opencode", oc.hints.as_ref()));
+    }
+    let incomplete = lists_its_models_but_listed_none(&ready)
+        || (opencode_v2 && listed.opencode_acp.is_empty());
+    (listed, incomplete)
+}
+
+fn probe_codex_models_with(
+    runtime: &crate::opencode_acp_models::ProbeRuntime,
+    spawn: crate::opencode_acp_models::ProbeSpawn<'_>,
+    limit: Duration,
+) -> Option<Value> {
+    let launch = runtime.executable.as_ref()?;
+    let mut args = launch.prefix_args.clone();
+    args.push("app-server".to_owned());
+    let (mut child, rx) = spawn(&launch.executable_path, &args, &launch.env, std::path::Path::new("."))
+        .ok()?;
+    let deadline = Instant::now() + limit;
+    let mut buffer: Vec<u8> = Vec::new();
+    let mut wait_for = |id: u64| -> Option<Value> {
+        loop {
+            while let Some(pos) = buffer.iter().position(|&b| b == b'\n') {
+                let raw: Vec<u8> = buffer.drain(..=pos).collect();
+                if let Ok(v) = serde_json::from_slice::<Value>(&raw)
+                    && v["id"] == id
+                {
+                    return Some(v);
+                }
+            }
+            let remaining = deadline.checked_duration_since(Instant::now())?;
+            match rx.recv_timeout(remaining).ok()? {
+                crate::opencode_acp_models::ProbeEvent::Data(chunk) => buffer.extend_from_slice(&chunk),
+                crate::opencode_acp_models::ProbeEvent::StdoutClosed
+                | crate::opencode_acp_models::ProbeEvent::Exited => return None,
+            }
+        }
+    };
+    let result = (|| {
+        child.write_line(&format!("{}\n", json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"clientInfo": {"name": "locust", "version": "0.1.0"}}}))).ok()?;
+        wait_for(1)?;
+        child.write_line(&format!("{}\n", json!({"jsonrpc": "2.0", "method": "initialized"}))).ok()?;
+        child.write_line(&format!("{}\n", json!({"jsonrpc": "2.0", "id": 2, "method": "model/list", "params": {}}))).ok()?;
+        Some(wait_for(2)?["result"].clone())
+    })();
+    let _ = child.kill();
+    result
 }
 
 /// A catalog kept for CACHE_MS (ten minutes) once it is whole; one missing a ready runtime's models is read again on
@@ -817,9 +952,10 @@ pub fn local() -> Vec<Value> {
     use std::sync::Mutex;
     static CACHE: Mutex<Option<(Instant, Vec<Value>)>> = Mutex::new(None);
     let mut models = kept_catalog(&CACHE, read_listed_checked);
-    // Your own models under OpenCode, by their own names, read fresh: one added a moment ago is offered at once.
+    // Your own models under OpenCode and your own ACP agents, read fresh: one added a moment ago is offered at once.
     if let Ok(store) = crate::store::Store::local() {
         models.extend(crate::own_models::for_store(&store).catalog().unwrap_or_default());
+        models.extend(crate::acp_agents::acp_catalog(&crate::acp_agents::agents_for_store(&store)));
     }
     models
 }

@@ -34,6 +34,7 @@ fn the_catalog_matches_electrons_model_for_model() {
             claude: Some(g["hints"]["claude"].clone()).filter(|v| !v.is_null()),
             cursor: Some(g["hints"]["cursor"].clone()).filter(|v| !v.is_null()),
             opencode: Some(g["hints"]["opencode"].clone()).filter(|v| !v.is_null()),
+            opencode_acp: Vec::new(),
             antigravity: Some(g["hints"]["antigravity"].clone()).filter(|v| !v.is_null()),
             copilot: true,
             muse: machine["muse"] == true,
