@@ -1988,6 +1988,26 @@ apps/desktop/src/main/only-the-face-you-talk-to-hops.test.ts	is never computed, 
 apps/desktop/src/main/only-the-face-you-talk-to-hops.test.ts	leaves the header and the sidebar subtle	no
 apps/desktop/src/main/only-the-face-you-talk-to-hops.test.ts	is a small lift and a longer rest	no
 apps/desktop/src/main/only-the-face-you-talk-to-hops.test.ts	stops for a person who asked for less motion	no
+apps/desktop/src/main/opencode-2-models-come-from-its-acp-session.test.ts	opens an empty no-prompt session and lists only its advertised models, including free grouped rows	yes
+apps/desktop/src/main/opencode-2-models-come-from-its-acp-session.test.ts	does not turn the current session effort menu into a promise about every model	yes
+apps/desktop/src/main/opencode-2-models-come-from-its-acp-session.test.ts	rejects unexpected client operations without reading files or approving permission	yes
+apps/desktop/src/main/opencode-2-models-come-from-its-acp-session.test.ts	keeps the V1 CLI list unchanged and never offers its stale hints for V2	yes
+apps/desktop/src/main/opencode-2-models-come-from-its-acp-session.test.ts	makes the catalog select ACP for V2 and caches a complete advertisement	yes
+apps/desktop/src/main/opencode-2-models-come-from-its-acp-session.test.ts	starts independent catalog probes together instead of serialising their deadlines	yes
+apps/desktop/src/main/opencode-2-models-come-from-its-acp-session.test.ts	keeps V1 discovery-only without opening any ACP process	yes
+apps/desktop/src/main/opencode-2-models-come-from-its-acp-session.test.ts	retries a failed ACP catalog rather than caching a partial list or falling back to stale hints	yes
+apps/desktop/src/main/opencode-2-models-come-from-its-acp-session.test.ts	stops immediately when %s arrives while a request is pending	yes
+apps/desktop/src/main/opencode-2-models-come-from-its-acp-session.test.ts	accepts a complete session reply in the final output chunk before stdout closes	yes
+apps/desktop/src/main/opencode-2-models-come-from-its-acp-session.test.ts	bounds the entire handshake and session read with one deadline	yes
+apps/desktop/src/main/opencode-2-models-come-from-its-acp-session.test.ts	refuses an unbounded output stream and stops its process	yes
+apps/desktop/src/main/opencode-2-models-come-from-its-acp-session.test.ts	ignores malformed JSON and accepts split frames without corrupting the catalog	yes
+apps/desktop/src/main/opencode-2-models-come-from-its-acp-session.test.ts	cleans up its scratch directory when process launch fails	yes
+apps/desktop/src/main/opencode-2-models-come-from-its-acp-session.test.ts	does not open a session on a different ACP protocol version	yes
+apps/desktop/src/main/opencode-2-models-come-from-its-acp-session.test.ts	contains failed writes without leaving a pending catalog read	yes
+apps/desktop/src/main/opencode-2-models-come-from-its-acp-session.test.ts	does not invent models when a session has no model option	yes
+apps/desktop/src/main/opencode-2-models-come-from-its-acp-session.test.ts	cannot launch late when scratch creation outlives the total deadline	yes
+apps/desktop/src/main/opencode-2-models-come-from-its-acp-session.test.ts	contains a failed permission-refusal write and stops the process	yes
+apps/desktop/src/main/opencode-2-models-come-from-its-acp-session.test.ts	keeps a valid advertisement even when terminating its process throws	yes
 apps/desktop/src/main/other-apps-can-only-ask-locust-teammates.test.ts	starts a writing teammate in Ask, ignores a caller route, and keeps the saved route	yes
 apps/desktop/src/main/other-apps-can-only-ask-locust-teammates.test.ts	refuses a mode or folder in words while the switch is off, and starts nothing (0.869)	yes
 apps/desktop/src/main/other-apps-can-only-ask-locust-teammates.test.ts	uses an exact teammate id and reports the host monthly-limit sentence verbatim	yes
