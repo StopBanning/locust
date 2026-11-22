@@ -3285,6 +3285,13 @@ apps/desktop/src/renderer/src/a-landing-says-why-it-cannot.test.ts	says what wou
 apps/desktop/src/renderer/src/a-large-diff-says-the-right-counts.test.tsx	never says +0 with a deletion count when lines were added in a recorded LARGE rewrite	yes
 apps/desktop/src/renderer/src/a-large-diff-says-the-right-counts.test.tsx	shows no counts and lets LARGE say it when true counts cannot be known	yes
 apps/desktop/src/renderer/src/a-large-diff-says-the-right-counts.test.tsx	leaves a small diff's counts unchanged	yes
+apps/desktop/src/renderer/src/a-lead-shows-what-it-handed-out.test.tsx	lists two delegations with their live states and Open, retaining the full exchange	yes
+apps/desktop/src/renderer/src/a-lead-shows-what-it-handed-out.test.tsx	adds no card when the turn handed nothing out, including an incoming message	yes
+apps/desktop/src/renderer/src/a-lead-shows-what-it-handed-out.test.tsx	reads Done when the receiving turn is completed, from the same state as a call	yes
+apps/desktop/src/renderer/src/a-lead-shows-what-it-handed-out.test.tsx	keeps an earlier turn’s card under that turn, without repeating it under the newest	yes
+apps/desktop/src/renderer/src/a-lead-shows-what-it-handed-out.test.tsx	shows an undelivered share as Starting without an Open button	yes
+apps/desktop/src/renderer/src/a-lead-shows-what-it-handed-out.test.tsx	keeps separate asks delivered to the same turn, rather than losing one row	yes
+apps/desktop/src/renderer/src/a-lead-shows-what-it-handed-out.test.tsx	uses the receiving live mission before a history refresh, never the sender	yes
 apps/desktop/src/renderer/src/a-limit-note-leaves-when-it-stops-being-true.test.ts	shows while the run waits on the provider	yes
 apps/desktop/src/renderer/src/a-limit-note-leaves-when-it-stops-being-true.test.ts	goes once the model answers after all	yes
 apps/desktop/src/renderer/src/a-limit-note-leaves-when-it-stops-being-true.test.ts	goes once the run has ended	yes

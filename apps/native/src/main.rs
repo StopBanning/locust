@@ -176,6 +176,8 @@ mod teammate_faces;
 mod edit_message;
 #[path = "ui/peer_thread.rs"]
 mod peer_thread;
+#[path = "ui/handed_out.rs"]
+mod handed_out;
 #[path = "ui/exchange_strip.rs"]
 mod exchange_strip;
 #[path = "ui/prompt_rail.rs"]
@@ -3326,6 +3328,8 @@ fn main() {
             ("commit-done", commit_panel::done_scene),
             ("changes", changes_panel::scene),
             ("changes-light", changes_panel::light_scene),
+            ("reviews-handed", reviews_handed_scene),
+            ("reviews-save", reviews_save_scene),
             ("thread-rich", thread_rich_scene),
             ("thread-pictures", thread_pictures_scene),
             ("thread-rich-open", thread_rich_open_scene),

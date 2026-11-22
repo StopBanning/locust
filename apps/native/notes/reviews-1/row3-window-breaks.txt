@@ -1,0 +1,12 @@
+src/ui/handed_out.rs|||call_todos::todo_state(live, phase, needs_you) ==> call_todos::todo_state(live, phase, false)
+src/ui/handed_out.rs|||if sum.running { ==> if false {
+src/ui/handed_out.rs|||if sum.failed { ==> if false {
+src/ui/handed_out.rs|||if sum.cancelled { ==> if false {
+src/ui/handed_out.rs|||held.chain(summaries) ==> held.chain(summaries.take(0))
+src/ui/handed_out.rs|||if let Some(target) = todo.mission_id.clone() { ==> if let Some(target) = todo.mission_id.clone().filter(|_| false) {
+src/ui/handed_out.rs|||peer_thread::open_mission_by_id(s, target.clone(), tx) ==> { let _ = (s, tx, &target); }
+src/ui/handed_out.rs|||s.seen_live.iter().any(|id| id == mission_id) ==> s.seen_live.iter().any(|id| id == mission_id && false)
+src/ui/messages.rs|||if !before_work
+            && let Some(card) ==> if before_work
+            && let Some(card)
+src/ui/handed_out.rs|||.truncate().help(todo.task.clone()) ==> .truncate()

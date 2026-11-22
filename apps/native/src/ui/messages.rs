@@ -90,6 +90,12 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
     let peer_cards = locust_core::peer_thread::thread_peer_cards(&peer_turns);
     let emit_turn_peers = |mut messages: El, turn_idx: usize, before_work: bool| -> El {
         let Some(mission_id) = s.ledger.as_ref().and_then(|pane| pane.snapshot.turn_metas.get(turn_idx)).map(|m| m.mission_id.as_str()) else { return messages; };
+        // What the turn handed out, under it and above the exchanges after its work (Thread.tsx `HandedOut`).
+        if !before_work
+            && let Some(card) = peer_turns.get(turn_idx).and_then(|msgs| crate::handed_out::card(s, mission_id, msgs, p))
+        {
+            messages = messages.child(card);
+        }
         for card in peer_cards.iter().filter(|c| c.turn_index == turn_idx && c.before_work == before_work) {
             for view in peer_thread::cards_for_mission(s, self_teammate_id, mission_id, &card.messages, p) {
                 messages = messages.child(view.key(card.key.clone()));
