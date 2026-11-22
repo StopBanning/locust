@@ -12,6 +12,14 @@ pub fn outcome(events: &[Value], running: bool) -> &'static str {
     if events.iter().any(|e|e["type"]=="run.failed") {"failed"} else if events.iter().any(|e|e["type"]=="run.cancelled") {"cancelled"} else if running {"running"} else {"completed"}
 }
 fn stamp(e:&Value)->Option<i64> { chrono::DateTime::parse_from_rfc3339(e["occurredAt"].as_str()?).ok().map(|t|t.timestamp_millis()) }
+/// A run's duration (missionView's `runSpanMs`): its earliest event to its latest, or None with fewer than two times
+/// to read. One clock for a run: the closing line says this, never the time from the record's creation to its last
+/// write (Yurt's beta report, 2026-09-23, #14: 37s on the fold and 43s on the row for one mission).
+pub fn run_span_ms(events:&[Value])->Option<u64> {
+    let times=events.iter().filter_map(stamp).collect::<Vec<_>>();
+    if times.len()<2 {return None;}
+    Some((times.iter().max()?-times.iter().min()?).max(0) as u64)
+}
 pub fn activity_trace(items:&[Item],events:&[Value],outcome:&str)->Trace {
     activity_trace_in(items, events, outcome, None, None)
 }
@@ -24,8 +32,7 @@ pub fn activity_trace_in(items:&[Item],events:&[Value],outcome:&str,may_edit:Opt
 pub fn activity_trace_of(items:&[Item],events:&[Value],outcome:&str,may_edit:Option<bool>,workspace:Option<&str>,trimmed:bool)->Trace {
     let mut out=Trace { changed_paths: crate::activity_entries::changed_paths(items), ..Default::default() };
     let mut push=|key:&str,text:String,amber:bool| out.segments.push(Segment{key:key.into(),text,tone:amber.then(||"amber".into())});
-    let times=events.iter().filter_map(stamp).collect::<Vec<_>>();
-    let ms=times.iter().max().zip(times.iter().min()).map_or(0,|(a,b)|(a-b).max(0) as u64);
+    let ms=run_span_ms(events).unwrap_or(0);
     let stopped=matches!(outcome,"failed"|"cancelled");
     push("duration",format!("{}{}",if stopped{"stopped at "}else{""},crate::ledger::duration_text(ms)),false);
     let edits=crate::activity_entries::file_count(&out.changed_paths, workspace);
@@ -56,6 +63,7 @@ pub fn activity_trace_of(items:&[Item],events:&[Value],outcome:&str,may_edit:Opt
     out
 }
 #[cfg(test)] #[path="activity_trace_tests.rs"] mod tests;
+#[cfg(test)] #[path="one_clock_tests.rs"] mod one_clock_tests;
 
 #[cfg(test)] #[path="path_claim_tests.rs"] mod path_claim_tests;
 

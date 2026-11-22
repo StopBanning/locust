@@ -4840,6 +4840,9 @@ apps/desktop/src/renderer/src/older-claude-versions-are-folded.test.tsx	never fo
 apps/desktop/src/renderer/src/older-claude-versions-are-folded.test.tsx	lets a search reach into it without opening it	yes
 apps/desktop/src/renderer/src/older-claude-versions-are-folded.test.tsx	is Claude Code's own registry, newest first, with no retired generation	yes
 apps/desktop/src/renderer/src/older-claude-versions-are-folded.test.tsx	offers each version only the effort levels its registry entry lists	yes
+apps/desktop/src/renderer/src/one-clock-for-a-run.test.ts	is its first event to its last	yes
+apps/desktop/src/renderer/src/one-clock-for-a-run.test.ts	is unknown with fewer than two events	yes
+apps/desktop/src/renderer/src/one-clock-for-a-run.test.ts	is what the fold line says	yes
 apps/desktop/src/renderer/src/one-fact-one-surface.test.ts	a 41-second run is 41s, not 0m	yes
 apps/desktop/src/renderer/src/one-fact-one-surface.test.ts	and a long one still reads in minutes	yes
 apps/desktop/src/renderer/src/one-fact-one-surface.test.ts	a completed run whose record is incomplete is amber, wherever it is drawn	no
