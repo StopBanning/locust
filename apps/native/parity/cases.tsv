@@ -135,6 +135,22 @@ apps/desktop/src/main/a-cloud-task-uses-the-organizations-environment.test.ts	A 
 apps/desktop/src/main/a-cloud-task-uses-the-organizations-environment.test.ts	A folder remembers its environment across reloads while other folders keep their own choices.	yes
 apps/desktop/src/main/a-cloud-task-uses-the-organizations-environment.test.ts	A task without an environment keeps the default cloud arguments and opens no window.	yes
 apps/desktop/src/main/a-cloud-task-uses-the-organizations-environment.test.ts	An invalid saved environment is ignored instead of becoming a command argument.	yes
+apps/desktop/src/main/a-cloud-turn-keeps-its-change-there-until-applied.test.ts	is refused in words for a folder that is not on GitHub	yes
+apps/desktop/src/main/a-cloud-turn-keeps-its-change-there-until-applied.test.ts	asks first when the repository has no cloud computer, and makes nothing until it is told to	yes
+apps/desktop/src/main/a-cloud-turn-keeps-its-change-there-until-applied.test.ts	makes one when told to, says each step as it begins, and starts the turn in a copy of its own	yes
+apps/desktop/src/main/a-cloud-turn-keeps-its-change-there-until-applied.test.ts	carries on in the conversation's own copy on the next turn, without bringing the folder again	yes
+apps/desktop/src/main/a-cloud-turn-keeps-its-change-there-until-applied.test.ts	wakes a stopped one first, and says so	yes
+apps/desktop/src/main/a-cloud-turn-keeps-its-change-there-until-applied.test.ts	keeps its change there once it ends, and only the newest turn offers it	yes
+apps/desktop/src/main/a-cloud-turn-keeps-its-change-there-until-applied.test.ts	brings it home on Apply, and the copy starts again from what was brought	yes
+apps/desktop/src/main/a-cloud-turn-keeps-its-change-there-until-applied.test.ts	puts the copy back on Discard	yes
+apps/desktop/src/main/a-cloud-turn-keeps-its-change-there-until-applied.test.ts	sends the change to a new pull request, named from the message, and the copy moves on	yes
+apps/desktop/src/main/a-cloud-turn-keeps-its-change-there-until-applied.test.ts	adds the next change to the conversation's pull request while it is open	yes
+apps/desktop/src/main/a-cloud-turn-keeps-its-change-there-until-applied.test.ts	opens a new one when the last was merged or closed	yes
+apps/desktop/src/main/a-cloud-turn-keeps-its-change-there-until-applied.test.ts	takes its branch away again when GitHub will not open the pull request, and keeps the change waiting	yes
+apps/desktop/src/main/a-cloud-turn-keeps-its-change-there-until-applied.test.ts	needs a title, the first line of its message	yes
+apps/desktop/src/main/a-cloud-turn-keeps-its-change-there-until-applied.test.ts	says where the earlier turns a change held went, once it goes somewhere	yes
+apps/desktop/src/main/a-cloud-turn-keeps-its-change-there-until-applied.test.ts	sends a message's own files to the copy there, and nothing outside .locust/attachments	yes
+apps/desktop/src/main/a-cloud-turn-keeps-its-change-there-until-applied.test.ts	cannot put a different OpenCode there than the one it reads here	yes
 apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	names the guard on Windows the way Codex runs a hook there: in PowerShell, on Locust’s own binary run as node	yes
 apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	names it elsewhere exactly as Claude Code’s is named	yes
 apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	is written only when LOCUST_GUARD_LOG names a file, one per question, with what was decided	yes
