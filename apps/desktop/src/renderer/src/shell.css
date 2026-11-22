@@ -957,6 +957,9 @@ textarea {
   /* Your line breaks, as you typed them -- a room's post has kept them since
      it existed; this bubble ran a list of notes into one paragraph (0.376). */
   white-space: pre-line;
+  /* A word longer than the bubble -- a test name, a path, a link -- breaks
+     inside it rather than running off its right edge (22 Nov). */
+  overflow-wrap: anywhere;
   /* The Edit beside it hangs off this box (0.498). */
   position: relative;
 }
