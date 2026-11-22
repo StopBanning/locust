@@ -13,6 +13,7 @@
 use super::*;
 use locust_core::agent_updates as updates;
 use locust_core::agents::{self, Found, RowStatus};
+use locust_core::discovery_service;
 use locust_core::runtime_order::{RuntimeEntry, keep_what_was_known, runtime_list_order};
 
 pub(super) const HEADING: &str = "AI agents & accounts";
@@ -70,14 +71,68 @@ pub(super) fn request(s: &mut State) {
     s.limited_runtimes.retain(|_, said| {
         !locust_core::limits::limit_has_reset(said, chrono::Utc::now().timestamp_millis())
     });
-    #[cfg(not(test))]
+    let Some(service) = discovery() else { return };
     if !s.settings_panel.agents_job.is_pending() {
-        s.settings_panel.agents_job.request((), |()| {
+        // A sweep that could not run leaves the list as it was (the service's generic DISCOVERY_FAILED).
+        let held = s.settings_panel.agents.clone().unwrap_or_default();
+        s.settings_panel.agents_job.request((service, held), |(service, held)| {
             // Whether npm can run is asked with the agents, off the window's thread, and remembered (npm_check).
+            #[cfg(not(test))]
             locust_core::npm_check::this_machine().present();
-            agents::discover()
+            service.get().unwrap_or(held)
         });
     }
+}
+
+#[cfg(test)]
+thread_local! {
+    static DISCOVERY_STAND_IN: std::cell::Cell<Option<&'static discovery_service::DiscoveryService>> = const { std::cell::Cell::new(None) };
+}
+
+/// A window test's own discovery, on fakes, for this test's thread only. With none, a test asks no agent at all.
+#[cfg(test)]
+pub(super) fn use_discovery(service: discovery_service::DiscoveryService) -> &'static discovery_service::DiscoveryService {
+    let service: &'static discovery_service::DiscoveryService = Box::leak(Box::new(service));
+    DISCOVERY_STAND_IN.with(|c| c.set(Some(service)));
+    service
+}
+
+/// The agents' answer as the window asks for it (runtime-discovery.ts): shared while a sweep runs, reused briefly.
+#[cfg(test)]
+fn discovery() -> Option<&'static discovery_service::DiscoveryService> {
+    DISCOVERY_STAND_IN.with(|c| c.get())
+}
+
+#[cfg(not(test))]
+fn discovery() -> Option<&'static discovery_service::DiscoveryService> {
+    Some(discovery_service::shared())
+}
+
+/// Something changed on the machine: the next ask is a new sweep, not the short-lived answer.
+fn invalidate() {
+    if let Some(service) = discovery() {
+        service.invalidate();
+    }
+}
+
+/// App.tsx `readAgainIfStale` and the late watch: an agent whose late check finished, still drawn as being checked,
+/// is read back from the held answer -- once per finish, with no new check, and past giving up, since this answer is
+/// exactly the end of that wait.
+fn read_late_answers(s: &mut State) -> bool {
+    let Some(service) = discovery() else { return false };
+    s.settings_panel.agents_finished.extend(service.take_finished());
+    let Some(list) = s.settings_panel.agents.as_deref() else { return false };
+    let stale = agents::stale_checking(list, &s.settings_panel.agents_finished);
+    if stale.is_empty() {
+        return false;
+    }
+    for id in &stale {
+        s.settings_panel.agents_finished.remove(id);
+    }
+    let Some(held) = service.held() else { return false };
+    let kept = keep_known(list, held);
+    s.settings_panel.agents = Some(kept);
+    true
 }
 
 /// How long the window waits before asking agents again (App.tsx `RUNTIME_RECHECK_MS`).
@@ -89,12 +144,14 @@ pub(super) const SWEEPS_BEFORE_GIVING_UP: u8 = 4;
 fn check_again(s: &mut State) {
     s.settings_panel.agent_sweeps = 0;
     s.settings_panel.agents_gave_up = false;
+    invalidate();
     request(s);
 }
 
-/// An installed agent that has not answered ready-or-not yet: still being asked, or its check did not come back.
+/// An installed agent whose check came back without an answer. One whose check is still RUNNING is not that (App.tsx,
+/// 0.639): its own finish brings the answer, and counting it spent the give-up budget on a check that was only slow.
 fn still_checking(agents: &[Found]) -> bool {
-    agents.iter().any(|f| f.installed && (f.checking || matches!(f.status, agents::Probe::ProbeFailed | agents::Probe::Offline)))
+    agents.iter().any(|f| f.installed && !f.checking && matches!(f.status, agents::Probe::ProbeFailed | agents::Probe::Offline))
 }
 
 /// One sweep answered: ask again in a while while an agent is still unanswered, and stop after the budget, so the
@@ -128,6 +185,7 @@ pub(super) fn poll(s: &mut State) -> bool {
         }
         None => false,
     };
+    changed |= read_late_answers(s);
     let latest = s.agents_install.line.lock().unwrap_or_else(|e| e.into_inner()).clone();
     if latest != s.agents_install.shown {
         s.agents_install.shown = latest;
@@ -141,6 +199,7 @@ pub(super) fn poll(s: &mut State) -> bool {
         s.agents_install.outcome = Some((id, outcome));
         // Installed: discovery looks again, and the row moves on to Sign in or ready.
         if installed {
+            invalidate();
             request(s);
         }
         changed = true;
@@ -262,6 +321,7 @@ fn poll_updates(s: &mut State) -> bool {
         word_lines(&mut s.agent_updates);
         // An agent was updated: the machine is asked again, so the row's version and the models move on.
         if service.take_updated() {
+            invalidate();
             request(s);
         }
         changed = true;
@@ -611,6 +671,27 @@ fn sign_in_part(s: &State, l: &crate::look::controls::Look, f: &Found, again: bo
     }
 }
 
+/// What a row discovery gave up on says (FirstLaunch.tsx's `need.detail`).
+const STUCK: &str = "did not answer its version check";
+
+/// The title on that row's Check again, Electron's word for word: its "5 seconds" is Electron's own text (both apps
+/// give a check ten, `PROBE_TIMEOUT`), kept so the two say the same.
+fn stuck_title(name: &str) -> String {
+    format!("{name} is on this machine but did not answer its version check in 5 seconds, four times. Check again asks once more.")
+}
+
+/// FirstLaunch.tsx's head note, for the two states an agent not answering is in: being asked, said once with a count
+/// of what is on this machine; and given up on, with none of them answering.
+fn head_note(checking_any: bool, none_answering: bool, on_this_machine: usize) -> Option<String> {
+    if checking_any {
+        Some(format!("checking {on_this_machine} on this machine"))
+    } else if none_answering {
+        Some(format!("{on_this_machine} on this machine \u{b7} none answering"))
+    } else {
+        None
+    }
+}
+
 pub(super) fn section(s: &State, p: &Palette) -> El {
     let l = crate::look::controls::Look::new(p.dark);
     let mut body = col()
@@ -624,12 +705,24 @@ pub(super) fn section(s: &State, p: &Palette) -> El {
     if !found.is_empty() && !found.iter().any(|f| f.installed) {
         body = body.child(text(NONE_INSTALLED.to_owned()).font(l.ty.body).color(l.c("text-secondary")).wrap());
     }
+    let rows = ordered(found, &s.limited_runtimes);
+    let gave_up = s.settings_panel.agents_gave_up;
+    // FirstLaunch.tsx: while discovery is still asking, an installed agent not answering is a moment -- the head says it
+    // once, with a count -- and after it has given up, a verdict, said on the row with the one repair the app can do.
+    let waiting = |f: &Found, status: &RowStatus| f.installed && status.tag == "CHECKING";
+    let checking_any = !gave_up && rows.iter().any(|(f, st)| waiting(f, st));
+    let stuck_any = gave_up && rows.iter().any(|(f, st)| waiting(f, st));
+    let ready_any = rows.iter().any(|(_, st)| st.selectable);
+    if let Some(note) = head_note(checking_any, stuck_any && !ready_any, rows.iter().filter(|(f, _)| f.installed).count()) {
+        body = body.child(text(note).font(l.ty.label).color(l.c("text-muted")).key("agents-head-note"));
+    }
     let mut list = col()
         .gap(0.0)
         .radius(l.t.px("radius-card"))
         .fill(l.c("bg-raised"))
         .border(1.0, l.c("border-card"));
-    for (f, status) in ordered(found, &s.limited_runtimes) {
+    for (f, status) in rows {
+        let stuck = gave_up && waiting(&f, &status);
         let mut name = row()
             .gap(8.0)
             .center_y()
@@ -639,7 +732,19 @@ pub(super) fn section(s: &State, p: &Palette) -> El {
         }
         let mut words = col().gap(4.0).grow(1.0).shrink().child(name);
         // "Signed in on this machine" is said once, in the lede: a row speaks only when its state is not the ordinary one.
-        if status.tag != "READY" {
+        // Words are for results: a row still being asked says nothing of its own; one discovery gave up on says what
+        // was tried, and offers Check again -- not Install, for what is already there.
+        if stuck {
+            let name = f.display_name.clone();
+            words = words.child(text(STUCK.to_owned()).font(l.ty.body).color(l.c("text-secondary")).wrap()).child(
+                crate::look::controls::button(&l, "Check again", crate::look::controls::Tone::Neutral, false)
+                    .key(format!("agents-row-check-again-{}", f.id))
+                    .label(stuck_title(&name))
+                    .help(stuck_title(&name))
+                    .self_start()
+                    .on_press(check_again),
+            );
+        } else if status.tag != "READY" && !waiting(&f, &status) {
             words = words.child(text(shown_detail(&f, &status)).font(l.ty.body).color(l.c("text-secondary")).wrap());
         }
         // Kept current (runtime-updates.ts): a newer version, an update under way, one that landed.
@@ -756,6 +861,10 @@ pub(super) fn light_scene(s: &mut State) {
 #[cfg(test)]
 #[path = "agents_recheck_tests.rs"]
 mod agents_recheck_tests;
+
+#[cfg(test)]
+#[path = "agents_probe_tests.rs"]
+mod agents_probe_tests;
 
 #[cfg(test)]
 #[path = "agents_abilities_tests.rs"]

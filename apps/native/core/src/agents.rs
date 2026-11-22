@@ -311,16 +311,83 @@ fn succeeded(a: &Option<Answer>) -> bool {
     a.as_ref().is_some_and(|a| a.exit == Some(0) && !a.timed_out)
 }
 
-/// What discovery may touch, passed in so a test never runs a real agent or reads a real home folder.
+/// What discovery may touch, passed in so a test never runs a real agent or reads a real home folder. Each may be
+/// asked from several threads at once: one agent's checks run together.
 pub struct Seams<'a> {
     /// Where a command is, if it is installed.
-    pub find: &'a dyn Fn(&str) -> Option<std::path::PathBuf>,
+    pub find: &'a (dyn Fn(&str) -> Option<std::path::PathBuf> + Sync),
     /// Run it with these arguments (bounded by the caller).
-    pub run: &'a dyn Fn(&std::path::Path, &[&str]) -> Option<Answer>,
+    pub run: &'a (dyn Fn(&std::path::Path, &[&str]) -> Option<Answer> + Sync),
     /// Whether a file exists. Only ever asked about a credentials file's presence, never its contents.
-    pub exists: &'a dyn Fn(&std::path::Path) -> bool,
+    pub exists: &'a (dyn Fn(&std::path::Path) -> bool + Sync),
     pub home: Option<std::path::PathBuf>,
     pub xdg_config_home: Option<String>,
+    /// What unchanged binaries said before. None asks everything, which is what every caller but the app wants.
+    pub recall: Option<Recall<'a>>,
+}
+
+/// What a binary said about itself (RuntimeBinaryFacts): its `--version` and its help, each as printed.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BinaryFacts {
+    pub version_text: String,
+    pub capability_text: String,
+}
+
+/// Where facts about unchanged binaries are kept (RuntimeFactsCache), by fingerprint.
+pub trait FactsCache: Send + Sync {
+    fn get(&self, fingerprint: &str) -> Option<BinaryFacts>;
+    fn set(&self, fingerprint: &str, facts: BinaryFacts);
+}
+
+/// A file's size and modification time: the two things a fingerprint is made of.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Stamp {
+    pub size: u64,
+    pub modified_ns: u128,
+}
+
+/// The recall seam: the cache, how a file is stamped (following links, as `stat` does), and where a launcher really
+/// points.
+#[derive(Clone, Copy)]
+pub struct Recall<'a> {
+    pub facts: &'a dyn FactsCache,
+    pub stat: &'a (dyn Fn(&std::path::Path) -> Option<Stamp> + Sync),
+    pub canonical: &'a (dyn Fn(&std::path::Path) -> Option<std::path::PathBuf> + Sync),
+}
+
+/// This Mac's files, for [`Recall`]: `stat` follows a link, as Node's does.
+pub fn stamp_of(path: &std::path::Path) -> Option<Stamp> {
+    let meta = std::fs::metadata(path).ok()?;
+    let modified_ns = meta.modified().ok()?.duration_since(std::time::UNIX_EPOCH).ok()?.as_nanos();
+    Some(Stamp { size: meta.len(), modified_ns })
+}
+
+/// Every file a launch depends on, in a stable order (fingerprintPaths): the launcher found on PATH, and the file it
+/// really is -- an npm bin on a Mac is a link to the CLI's own script, which is the file an update rewrites. A script
+/// launcher (`.cmd`, `.bat`, `.ps1`: a Windows shape) also brings its folder, a `versions` folder in it and Muse's
+/// version file, since the CLI behind it updates itself while the launcher stays put.
+fn fingerprint_paths(found: &std::path::Path, recall: &Recall) -> Vec<std::path::PathBuf> {
+    let mut paths = vec![found.to_path_buf()];
+    if let Some(real) = (recall.canonical)(found) {
+        paths.push(real);
+    }
+    let script = found.extension().and_then(|e| e.to_str()).is_some_and(|e| matches!(e.to_ascii_lowercase().as_str(), "cmd" | "bat" | "ps1"));
+    if script && let Some(folder) = found.parent() {
+        paths.extend([folder.to_path_buf(), folder.join("versions"), folder.join(".muse-version")]);
+    }
+    let mut seen = std::collections::HashSet::new();
+    paths.retain(|p| !p.as_os_str().is_empty() && seen.insert(p.clone()));
+    paths
+}
+
+/// fingerprintOf: each file's path, size and time. A file that cannot be stamped is skipped; when none can be, there
+/// is no fingerprint at all -- the absence of a fact is never taken as the fact being unchanged.
+pub fn fingerprint_of(found: &std::path::Path, recall: &Recall) -> Option<String> {
+    let parts: Vec<String> = fingerprint_paths(found, recall)
+        .iter()
+        .filter_map(|p| (recall.stat)(p).map(|s| format!("{}:{}:{}", p.display(), s.size, s.modified_ns)))
+        .collect();
+    (!parts.is_empty()).then(|| parts.join("|"))
 }
 
 /// One agent's discovery definition (IntegrationDefinition).
@@ -509,37 +576,85 @@ pub fn command_of(id: &str) -> Option<&'static str> {
     DEFINITIONS.iter().find(|d| d.id == id).map(|d| d.command)
 }
 
+/// An agent that is not on this machine, as publicStatus says it.
+fn not_installed(d: &Definition) -> Found {
+    Found {
+        id: d.id.into(),
+        display_name: d.name.into(),
+        installed: false,
+        version: None,
+        auth: if matches!(d.id, "opencode" | "kilo") { Auth::NotApplicable } else { Auth::Unknown },
+        ready: false,
+        status: Probe::Missing,
+        unsupported_note: None,
+        through_cli: false,
+        checking: false,
+    }
+}
+
 /// One agent, found or not, as main's publicStatus says it.
 pub fn discover_one(id: &str, seams: &Seams) -> Option<Found> {
     let d = DEFINITIONS.iter().find(|d| d.id == id)?;
     let not_applicable = matches!(d.id, "opencode" | "kilo");
     let Some(path) = (seams.find)(d.command) else {
-        return Some(Found {
-            id: d.id.into(),
-            display_name: d.name.into(),
-            installed: false,
-            version: None,
-            auth: if not_applicable { Auth::NotApplicable } else { Auth::Unknown },
-            ready: false,
-            status: Probe::Missing,
-            unsupported_note: None,
-            through_cli: false,
-            checking: false,
-        });
+        return Some(not_installed(d));
     };
     let run = |args: &[&str]| (seams.run)(&path, args);
-    let version_answer = run(d.version);
-    let capability_answer = run(d.capability);
+    // What this binary already said, if it is the same binary: only version and help, the two answers that are a
+    // function of the file. Readiness is always asked, because signing in changes nothing on disk.
+    let fingerprint = seams.recall.as_ref().and_then(|r| fingerprint_of(&path, r));
+    let remembered = seams.recall.as_ref().zip(fingerprint.as_ref()).and_then(|(r, fp)| r.facts.get(fp));
+    let said = |text: &str| Some(Answer { exit: Some(0), stdout: text.to_owned(), stderr: String::new(), timed_out: false });
     let same_command = d.models == Some(d.readiness);
-    let listed = d.models.filter(|_| !same_command).map(run);
     let readiness_is_version = readiness_from_version(d.id) || d.readiness == d.version;
-    let readiness_answer = if readiness_is_version {
-        version_answer.clone()
-    } else if d.list_answers_readiness && let Some(list) = &listed {
-        if succeeded(list) && list.as_ref().is_some_and(|a| (d.ready_when)(&a.text())) { list.clone() } else { run(d.readiness) }
-    } else {
-        run(d.readiness)
-    };
+    // All of one agent's checks at once (discoverOne's Promise.all): none needs another's output, so together they cost
+    // the slowest, not the sum. A list that is also the readiness answer is asked first on its own thread, and the
+    // plain readiness command only when the list did not answer.
+    let (version_answer, capability_answer, _listed, readiness_answer) = std::thread::scope(|s| {
+        let version = s.spawn(|| match &remembered {
+            Some(f) => said(&f.version_text),
+            None => run(d.version),
+        });
+        let capability = s.spawn(|| match &remembered {
+            Some(f) => said(&f.capability_text),
+            None => run(d.capability),
+        });
+        let list_then_ready = d.models.filter(|_| !same_command).map(|models| {
+            let reads_ready = d.list_answers_readiness && !readiness_is_version;
+            s.spawn(move || {
+                let list = run(models);
+                let ready = reads_ready.then(|| {
+                    if succeeded(&list) && list.as_ref().is_some_and(|a| (d.ready_when)(&a.text())) { list.clone() } else { run(d.readiness) }
+                });
+                (list, ready)
+            })
+        });
+        let reads_from_list = d.list_answers_readiness && list_then_ready.is_some();
+        let readiness = (!readiness_is_version && !reads_from_list).then(|| s.spawn(|| run(d.readiness)));
+        let version_answer = version.join().ok().flatten();
+        let capability_answer = capability.join().ok().flatten();
+        let (listed, from_list) = match list_then_ready.map(|h| h.join()) {
+            Some(Ok((list, ready))) => (Some(list), ready),
+            _ => (None, None),
+        };
+        let readiness_answer = if readiness_is_version {
+            version_answer.clone()
+        } else if let Some(h) = readiness {
+            h.join().ok().flatten()
+        } else {
+            from_list.flatten()
+        };
+        (version_answer, capability_answer, listed, readiness_answer)
+    });
+    // Kept only when BOTH answered, and only from a real check: a CLI that timed out once is not versionless for good.
+    if remembered.is_none()
+        && let (Some(r), Some(fp)) = (seams.recall.as_ref(), fingerprint.as_ref())
+        && succeeded(&version_answer)
+        && succeeded(&capability_answer)
+    {
+        let text = |a: &Option<Answer>| a.as_ref().map(Answer::text).unwrap_or_default();
+        r.facts.set(fp, BinaryFacts { version_text: text(&version_answer), capability_text: text(&capability_answer) });
+    }
     let version = succeeded(&version_answer)
         .then(|| crate::runtime::version::parse(&version_answer.as_ref().map(Answer::text).unwrap_or_default()))
         .flatten();
@@ -1020,100 +1135,348 @@ fn run_bounded(path: &std::path::Path, args: &[&str], limit: std::time::Duration
     }
 }
 
-/// Every agent, checked for real and all at once: each one found on PATH (the window adopts the terminal's PATH at
-/// launch) is asked its version, its help and its sign-in check, bounded by `FIRST_SCREEN_DEADLINE` so one slow agent
-/// never stalls the first screen.
+/// One sweep's watcher (RuntimeProbeWatcher), told as each agent's check begins and ends so a screen can show the
+/// wait. `started` comes BEFORE the agent is looked for or any CLI is started: told both at once, a screen has nothing
+/// to draw during the wait. `bin` is the command, which is not always the id (Cursor's is `cursor-agent`).
+pub trait Watch: Send + Sync {
+    fn started(&self, id: &str, display_name: &str, bin: &str);
+    fn finished(&self, id: &str, found: &Found);
+}
+
+/// What a sweep's checks may touch, shared by every check's own thread: this Mac ([`Machine::this_mac`]) or a test's.
+#[derive(Clone)]
+pub struct Machine {
+    pub find: std::sync::Arc<dyn Fn(&str) -> Option<std::path::PathBuf> + Send + Sync>,
+    pub run: std::sync::Arc<dyn Fn(&std::path::Path, &[&str]) -> Option<Answer> + Send + Sync>,
+    pub exists: std::sync::Arc<dyn Fn(&std::path::Path) -> bool + Send + Sync>,
+    pub home: Option<std::path::PathBuf>,
+    pub xdg_config_home: Option<String>,
+    /// What unchanged binaries said before; None asks every binary everything.
+    pub facts: Option<std::sync::Arc<dyn FactsCache>>,
+    pub stat: std::sync::Arc<dyn Fn(&std::path::Path) -> Option<Stamp> + Send + Sync>,
+    pub canonical: std::sync::Arc<dyn Fn(&std::path::Path) -> Option<std::path::PathBuf> + Send + Sync>,
+}
+
+impl<T: FactsCache + ?Sized> FactsCache for &T {
+    fn get(&self, fingerprint: &str) -> Option<BinaryFacts> {
+        (**self).get(fingerprint)
+    }
+    fn set(&self, fingerprint: &str, facts: BinaryFacts) {
+        (**self).set(fingerprint, facts)
+    }
+}
+
+impl Machine {
+    /// This Mac: PATH as the window adopted it, every check bounded by PROBE_TIMEOUT, and what the CLIs said kept in
+    /// `runtime-facts.json`.
+    pub fn this_mac() -> Self {
+        Machine {
+            find: std::sync::Arc::new(|c: &str| crate::runtime::discovery::find_named(c).ok()),
+            run: std::sync::Arc::new(|p: &std::path::Path, a: &[&str]| run_bounded(p, a, PROBE_TIMEOUT)),
+            exists: std::sync::Arc::new(|p: &std::path::Path| p.exists()),
+            home: std::env::var_os("HOME").map(std::path::PathBuf::from),
+            xdg_config_home: std::env::var("XDG_CONFIG_HOME").ok(),
+            facts: crate::runtime_facts::shared().map(|s| std::sync::Arc::new(s) as std::sync::Arc<dyn FactsCache>),
+            stat: std::sync::Arc::new(stamp_of),
+            canonical: std::sync::Arc::new(|p: &std::path::Path| std::fs::canonicalize(p).ok()),
+        }
+    }
+
+    fn seams<'a>(&'a self, find: &'a (dyn Fn(&str) -> Option<std::path::PathBuf> + Sync)) -> Seams<'a> {
+        Seams {
+            find,
+            run: &*self.run,
+            exists: &*self.exists,
+            home: self.home.clone(),
+            xdg_config_home: self.xdg_config_home.clone(),
+            recall: self.facts.as_deref().map(|facts| Recall { facts, stat: &*self.stat, canonical: &*self.canonical }),
+        }
+    }
+}
+
+/// How a sweep asks (DiscoverInstalledRuntimesOptions): the beat between starts, who is told, and which agents.
+#[derive(Clone, Default)]
+pub struct EachOptions {
+    /// Between one check STARTING and the next: each waits for the one before it to finish OR for this, whichever comes
+    /// first, so slow agents still begin a readable beat apart and instant ones chain straight through. Zero starts
+    /// them all at once.
+    pub stagger: std::time::Duration,
+    pub watch: Option<std::sync::Arc<dyn Watch>>,
+    /// Ask only these.
+    pub only: Option<std::collections::HashSet<String>>,
+    /// Do not ask these: a check for them is already going, and a second beside it would start the same CLI twice.
+    pub skip: std::collections::HashSet<String>,
+}
+
+/// A gate a check waits on, opened by the check before it.
+struct Gate {
+    open: std::sync::Mutex<bool>,
+    cv: std::sync::Condvar,
+}
+
+impl Gate {
+    fn new(open: bool) -> std::sync::Arc<Self> {
+        std::sync::Arc::new(Gate { open: std::sync::Mutex::new(open), cv: std::sync::Condvar::new() })
+    }
+    fn open(&self) {
+        *crate::invariants::lock(&self.open) = true;
+        self.cv.notify_all();
+    }
+    fn wait(&self) {
+        let mut open = crate::invariants::lock(&self.open);
+        while !*open {
+            open = self.cv.wait(open).unwrap_or_else(|e| e.into_inner());
+        }
+    }
+}
+
+/// Opens the next check's gate however this one ends, a panic included: no check is ever left waiting on another.
+struct OpensOnDrop(std::sync::Arc<Gate>);
+
+impl Drop for OpensOnDrop {
+    fn drop(&mut self) {
+        self.0.open();
+    }
+}
+
+/// discoverInstalledRuntimesEach: each agent's check on its own, for [`settle_within`], in Electron's order. A check
+/// that has not answered can still be SHOWN -- installed, being checked -- because the one cheap step, finding the
+/// file, is done first; one that is not installed says so at once.
+pub fn discover_each(machine: &Machine, options: &EachOptions) -> Vec<SweepCheck> {
+    use std::sync::{Arc, Mutex};
+    let mut gate = Gate::new(true);
+    let mut checks = Vec::new();
+    for d in DEFINITIONS
+        .iter()
+        .filter(|d| options.only.as_ref().is_none_or(|only| only.contains(d.id)))
+        .filter(|d| !options.skip.contains(d.id))
+    {
+        let mine = gate.clone();
+        let next = Gate::new(false);
+        gate = next.clone();
+        // What the PATH search found, kept so a check still going is shown as installed, and one not found as not.
+        let seen: Arc<Mutex<Option<bool>>> = Arc::new(Mutex::new(None));
+        let shown = seen.clone();
+        let (machine, watch, stagger) = (machine.clone(), options.watch.clone(), options.stagger);
+        checks.push(SweepCheck {
+            id: d.id.into(),
+            run: Box::new(move |located| {
+                let opens = OpensOnDrop(next.clone());
+                mine.wait();
+                if let Some(w) = &watch {
+                    w.started(d.id, d.name, d.command);
+                }
+                if stagger.is_zero() {
+                    next.open();
+                } else {
+                    let beat = next.clone();
+                    std::thread::spawn(move || {
+                        std::thread::sleep(stagger);
+                        beat.open();
+                    });
+                }
+                let located = Mutex::new(Some(located));
+                let find = |c: &str| {
+                    let found = (machine.find)(c);
+                    *crate::invariants::lock(&seen) = Some(found.is_some());
+                    if let Some(cb) = crate::invariants::lock(&located).take() {
+                        cb();
+                    }
+                    found
+                };
+                let found = discover_one(d.id, &machine.seams(&find));
+                drop(opens);
+                if let (Some(w), Some(f)) = (&watch, &found) {
+                    w.finished(d.id, f);
+                }
+                found
+            }),
+            pending: Box::new(move || {
+                if *crate::invariants::lock(&shown) == Some(false) { not_installed(d) } else { pending_found(d.id, d.name) }
+            }),
+        });
+    }
+    checks
+}
+
+/// discoverInstalledRuntimes: every check to its end, answered exactly as [`discover_each`]'s checks answer.
+pub fn discover_installed(machine: &Machine, options: &EachOptions) -> Vec<Found> {
+    let checks = discover_each(machine, options);
+    std::thread::scope(|s| {
+        let running: Vec<_> = checks.into_iter().map(|c| s.spawn(move || (c.run)(Box::new(|| {})))).collect();
+        running.into_iter().filter_map(|h| h.join().ok().flatten()).collect()
+    })
+}
+
+/// The name a row carries while its check is still going, for any agent a sweep asks.
+fn display_name_of(id: &str) -> &'static str {
+    match id {
+        "antigravity" => "Antigravity",
+        _ if id == crate::runtime::apple::APPLE_RUNTIME => crate::runtime::apple::APPLE_DISPLAY_NAME,
+        _ => DEFINITIONS.iter().find(|d| d.id == id).map_or("", |d| d.name),
+    }
+}
+
+/// Where an agent sits in the list: Electron's order, Antigravity after Copilot, Apple's model last.
+fn list_rank(id: &str) -> usize {
+    let mut order: Vec<&str> = DEFINITIONS.iter().map(|d| d.id).collect();
+    let agy = order.iter().position(|i| *i == "copilot").map_or(order.len(), |i| i + 1);
+    order.insert(agy, "antigravity");
+    order.push(crate::runtime::apple::APPLE_RUNTIME);
+    order.iter().position(|i| *i == id).unwrap_or(usize::MAX)
+}
+
+/// How one sweep is asked (index.ts `askRuntimes`).
+pub struct SweepPlan {
+    pub deadline: std::time::Duration,
+    pub each: EachOptions,
+    /// Checks a sweep went on without, still going: the next sweep joins them rather than starting the CLI again.
+    pub outstanding: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, CheckHandle>>>,
+    /// A check that answered after its sweep had gone on (index.ts `answeredLate`).
+    pub late: std::sync::Arc<dyn Fn(&str, Option<&Found>) + Send + Sync>,
+}
+
+/// One sweep: the checks still going joined, every other agent asked (`extra` are the ones not on PATH's list), each
+/// given until `deadline`, and those that run past it held in `outstanding` so their answers are not lost.
+pub fn sweep(machine: &Machine, extra: Vec<SweepCheck>, plan: &SweepPlan) -> Settled {
+    let going: Vec<CheckHandle> = crate::invariants::lock(&plan.outstanding).values().cloned().collect();
+    let going_ids: std::collections::HashSet<String> = going.iter().map(|h| h.id.clone()).collect();
+    let mut checks: Vec<SweepCheck> = going
+        .into_iter()
+        .map(|handle| {
+            let id = handle.id.clone();
+            SweepCheck {
+                id: id.clone(),
+                run: Box::new(move |located| {
+                    located();
+                    handle.wait()
+                }),
+                pending: Box::new(move || pending_found(&id, display_name_of(&id))),
+            }
+        })
+        .collect();
+    let each = EachOptions { skip: plan.each.skip.union(&going_ids).cloned().collect(), ..plan.each.clone() };
+    checks.extend(discover_each(machine, &each));
+    checks.extend(extra.into_iter().filter(|c| !going_ids.contains(&c.id)));
+    let outstanding = plan.outstanding.clone();
+    let late = plan.late.clone();
+    let mut settled = settle_within(checks, plan.deadline, move |id, found| {
+        // Only one check per agent is ever outstanding, so this is that one.
+        crate::invariants::lock(&outstanding).remove(id);
+        late(id, found);
+    });
+    {
+        let mut held = crate::invariants::lock(&plan.outstanding);
+        for (id, handle) in &settled.left {
+            held.insert(id.clone(), handle.clone());
+        }
+    }
+    settled.answers.sort_by_key(|f| list_rank(&f.id));
+    settled
+}
+
+/// The held answer with one agent's late answer in it, in its place (answeredLate's patch of `discoveryCache`).
+pub fn patch_held(held: &std::sync::Mutex<Option<HeldAnswer>>, found: &Found) {
+    let mut held = crate::invariants::lock(held);
+    if let Some(h) = held.as_mut() {
+        match h.value.iter_mut().find(|e| e.id == found.id) {
+            Some(entry) => *entry = found.clone(),
+            None => h.value.push(found.clone()),
+        }
+    }
+}
+
+/// Checks this process's sweeps went on without.
+fn outstanding() -> std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, CheckHandle>>> {
+    static HELD: std::sync::OnceLock<std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, CheckHandle>>>> = std::sync::OnceLock::new();
+    HELD.get_or_init(Default::default).clone()
+}
+
+/// The beat between one agent's check starting and the next (index.ts `staggerMs: 70`).
+pub const SWEEP_STAGGER: std::time::Duration = std::time::Duration::from_millis(70);
+
+/// Every agent, checked for real: each one found on PATH (the window adopts the terminal's PATH at launch) is asked
+/// its version, its help and its sign-in check, a beat apart and overlapping, bounded by `FIRST_SCREEN_DEADLINE` so
+/// one slow agent never stalls the first screen. One that answers later is patched into the held answer, and the
+/// window told (`discovery_service`).
 pub fn discover() -> Vec<Found> {
     discover_with_deadline(FIRST_SCREEN_DEADLINE)
 }
 
 /// Like [`discover`], with an explicit first-screen deadline.
 pub fn discover_with_deadline(deadline: std::time::Duration) -> Vec<Found> {
-    let home = std::env::var_os("HOME").map(std::path::PathBuf::from);
-    let xdg = std::env::var("XDG_CONFIG_HOME").ok();
-
-    let mut checks: Vec<SweepCheck> = Vec::with_capacity(DEFINITIONS.len() + 2);
-    for d in DEFINITIONS {
-        let (home, xdg) = (home.clone(), xdg.clone());
-        let id = d.id;
-        let name = d.name;
-        checks.push(SweepCheck {
-            id: id.into(),
-            run: Box::new(move |located| {
-                let located = std::sync::Mutex::new(Some(located));
-                let find = |c: &str| {
-                    let found = crate::runtime::discovery::find_named(c).ok();
-                    if let Some(cb) = located.lock().unwrap_or_else(|e| e.into_inner()).take() {
-                        cb();
-                    }
-                    found
-                };
-                let run = |p: &std::path::Path, a: &[&str]| run_bounded(p, a, PROBE_TIMEOUT);
-                let exists = |p: &std::path::Path| p.exists();
-                discover_one(id, &Seams { find: &find, run: &run, exists: &exists, home, xdg_config_home: xdg })
-            }),
-            pending: Box::new(move || pending_found(id, name)),
-        });
-    }
-
-    // Electron lists Antigravity after Copilot.
-    let agy_at = checks.iter().position(|c| c.id == "copilot").map_or(checks.len(), |i| i + 1);
-    let (agy_home, agy_xdg) = (home.clone(), xdg.clone());
-    checks.insert(
-        agy_at,
-        SweepCheck {
-            id: "antigravity".into(),
-            run: Box::new(move |located| {
-                let located = std::sync::Mutex::new(Some(located));
-                let find = |c: &str| {
-                    let found = crate::runtime::discovery::find_named(c).ok();
-                    if let Some(cb) = located.lock().unwrap_or_else(|e| e.into_inner()).take() {
-                        cb();
-                    }
-                    found
-                };
-                let run = |p: &std::path::Path, a: &[&str]| run_bounded(p, a, PROBE_TIMEOUT);
-                let exists = |p: &std::path::Path| p.exists();
-                {
-                    // agy's two questions at once (exec/native-agy), inside the sweep's first-screen deadline (exec/native-startup).
-                    let _ = (&exists, &agy_home, &agy_xdg);
-                    Some(discover_antigravity_concurrent(&find, &run))
+    let machine = Machine::this_mac();
+    let mut extra: Vec<SweepCheck> = Vec::with_capacity(2);
+    let agy = machine.clone();
+    extra.push(SweepCheck {
+        id: "antigravity".into(),
+        run: Box::new(move |located| {
+            let located = std::sync::Mutex::new(Some(located));
+            let find = |c: &str| {
+                let found = (agy.find)(c);
+                if let Some(cb) = crate::invariants::lock(&located).take() {
+                    cb();
                 }
-            }),
-            pending: Box::new(|| pending_found("antigravity", "Antigravity")),
-        },
-    );
-
+                found
+            };
+            // agy's two questions at once (exec/native-agy), inside the sweep's first-screen deadline.
+            Some(discover_antigravity_concurrent(&find, &*agy.run))
+        }),
+        pending: Box::new(|| pending_found("antigravity", "Antigravity")),
+    });
     // Apple's on-device model, last: nothing to install or sign in to, it is part of the Mac.
-    checks.push(SweepCheck {
+    extra.push(SweepCheck {
         id: crate::runtime::apple::APPLE_RUNTIME.into(),
         run: Box::new(|located| {
             located();
             apple_found(&crate::runtime::apple::probe())
         }),
-        pending: Box::new(|| {
-            pending_found(crate::runtime::apple::APPLE_RUNTIME, crate::runtime::apple::APPLE_DISPLAY_NAME)
-        }),
+        pending: Box::new(|| pending_found(crate::runtime::apple::APPLE_RUNTIME, crate::runtime::apple::APPLE_DISPLAY_NAME)),
     });
-
-    let answers = settle_within(checks, deadline, |_, _| {}).answers;
+    let plan = SweepPlan {
+        deadline,
+        each: EachOptions { stagger: SWEEP_STAGGER, ..Default::default() },
+        outstanding: outstanding(),
+        late: std::sync::Arc::new(answered_late),
+    };
+    let before = crate::invariants::lock(&HELD_DISCOVERY).as_ref().map(|h| h.value.clone()).unwrap_or_default();
+    let settled = sweep(&machine, extra, &plan);
+    // An agent the sweep went on without keeps its last definite answer (keepWhatWasAnswered).
+    let answers = keep_what_was_answered(&settled, &before);
     held_a_sweep(&answers);
     answers
+}
+
+/// index.ts `answeredLate`: the held answer gets the late one, a start reads it as asked now, and the window is told
+/// so it reads the held answer again -- with no new check of the agent that just answered.
+fn answered_late(id: &str, found: Option<&Found>) {
+    let Some(found) = found else { return };
+    patch_held(&HELD_DISCOVERY, found);
+    start_readiness().swept(std::slice::from_ref(found), now_ms());
+    crate::discovery_service::shared().answered_late(id);
 }
 
 /// One agent asked alone, for real: the same lookups and bounded checks a sweep gives it (discoverInstalledRuntimes
 /// with `only`).
 pub fn discover_one_now(id: &str) -> Option<Found> {
-    let find = |c: &str| crate::runtime::discovery::find_named(c).ok();
-    let run = |p: &std::path::Path, a: &[&str]| run_bounded(p, a, PROBE_TIMEOUT);
-    let exists = |p: &std::path::Path| p.exists();
-    let home = std::env::var_os("HOME").map(std::path::PathBuf::from);
-    let xdg_config_home = std::env::var("XDG_CONFIG_HOME").ok();
-    discover_one(id, &Seams { find: &find, run: &run, exists: &exists, home, xdg_config_home })
+    let machine = Machine::this_mac();
+    let find = |c: &str| (machine.find)(c);
+    discover_one(id, &machine.seams(&find))
 }
 
 /// The last full sweep's answer, as Electron's `discoveryCache` holds it: what a start reads first.
 static HELD_DISCOVERY: std::sync::Mutex<Option<HeldAnswer>> = std::sync::Mutex::new(None);
+
+/// The held answer as it stands, late answers patched in: a plain read, which asks no agent anything.
+pub fn held_answer() -> Option<Vec<Found>> {
+    crate::invariants::lock(&HELD_DISCOVERY).as_ref().map(|h| h.value.clone())
+}
+
+/// staleChecking: the agents an answer still calls "being checked" whose checks have in fact finished -- the answer
+/// crossed that finish, and the held one is read once more.
+pub fn stale_checking(runtimes: &[Found], finished: &std::collections::HashSet<String>) -> Vec<String> {
+    runtimes.iter().filter(|e| e.checking && e.status != Probe::Ready && finished.contains(&e.id)).map(|e| e.id.clone()).collect()
+}
 
 fn now_ms() -> u64 {
     std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_millis() as u64)
@@ -1288,3 +1651,7 @@ mod tests;
 #[cfg(test)]
 #[path = "a_start_asks_only_its_runtime_tests.rs"]
 mod a_start_asks_only_its_runtime_tests;
+
+#[cfg(test)]
+#[path = "probe_sweep_tests.rs"]
+mod probe_sweep_tests;

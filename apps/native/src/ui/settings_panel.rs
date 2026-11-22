@@ -42,6 +42,8 @@ pub(super) struct Panel {
     pub agent_sweeps: u8,
     pub agents_gave_up: bool,
     pub agents_recheck: Latest<()>,
+    /// Agents whose late check has finished, by the host's word, not yet read back (App.tsx `finishedChecks`).
+    pub agents_finished: std::collections::HashSet<String>,
     /// "OWN COPIES": the project folder's teammate copies, and what a Remove came back with.
     pub own_copies: Option<crate::own_copies::OwnCopies>,
     pub check_command: TextEdit,
