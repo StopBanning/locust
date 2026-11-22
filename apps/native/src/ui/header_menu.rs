@@ -32,6 +32,8 @@ fn phase_of(s: &State, mission_id: &str) -> Option<&'static str> {
     if pane.snapshot.tip == mission_id || pane.snapshot.turn_metas.last().is_some_and(|m| m.mission_id == mission_id) {
         return Some(if pane.snapshot.running {
             "running"
+        } else if pane.snapshot.interrupted {
+            "interrupted"
         } else if pane.snapshot.failed {
             "failed"
         } else if sum.is_some_and(|sum| sum.cancelled) {

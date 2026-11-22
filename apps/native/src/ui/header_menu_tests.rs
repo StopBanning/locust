@@ -97,6 +97,7 @@ fn finished(phase: &str, typed: &str) -> Runtime<State> {
         pane.snapshot.turn_metas[0].prompt = typed.into();
         pane.snapshot.tip = "mission_1".into();
         pane.snapshot.failed = phase == "failed";
+        pane.snapshot.interrupted = phase == "interrupted";
         pane.snapshot.running = phase == "running";
         s.ledger_summaries.insert("mission_1".into(), ledger::Summary { mission_id: "mission_1".into(), cancelled: phase == "cancelled", failed: phase == "failed", ..Default::default() });
     }
@@ -144,7 +145,7 @@ fn save_as_routine_is_absent_while_the_run_is_going() {
 #[test]
 fn save_as_routine_is_absent_on_a_run_that_failed_or_was_cancelled() {
     // case: is absent on a run that failed, was cancelled or was interrupted
-    for phase in ["failed", "cancelled", "running"] {
+    for phase in ["failed", "cancelled", "interrupted", "running"] {
         let mut rt = finished(phase, "Check the migration.");
         press(&mut rt, "thread-header-more");
         assert!(!labels(&rt).contains(&"Save conversation as routine".to_owned()), "{phase}: {:?}", labels(&rt));
