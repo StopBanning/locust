@@ -1882,7 +1882,7 @@ fn privacy_page_trash_lists_restores_and_keeps_owner() {
     std::fs::create_dir_all(&ledger).unwrap();
 
     let created = serde_json::json!({
-        "schemaVersion": 1,
+        "schemaVersion": 27,
         "recordType": "mission.created",
         "occurredAt": "2026-11-12T10:00:00.000Z",
         "metadata": {
@@ -1964,7 +1964,7 @@ fn privacy_page_empties_trash_and_drops_owner_from_teammates_json() {
     std::fs::create_dir_all(&ledger).unwrap();
 
     let created = serde_json::json!({
-        "schemaVersion": 1,
+        "schemaVersion": 27,
         "recordType": "mission.created",
         "occurredAt": "2026-11-12T10:00:00.000Z",
         "metadata": {
@@ -2225,7 +2225,7 @@ fn deleting_a_conversation_moves_every_turn_to_the_trash_and_an_electron_one_say
         if let Some(parent) = parent {
             metadata["continuesFrom"] = serde_json::json!({"missionId": parent, "checkpointEpoch": 1, "reason": "follow-up"});
         }
-        serde_json::json!({"schemaVersion": 1, "recordType": "mission.created", "occurredAt": at, "metadata": metadata}).to_string() + "\n"
+        serde_json::json!({"schemaVersion": 27, "recordType": "mission.created", "occurredAt": at, "metadata": metadata}).to_string() + "\n"
     };
     std::fs::write(ledger.join("mission_first.jsonl"), turn("mission_first", "2026-11-12T10:00:00.000Z", "Fix the cart", None)).unwrap();
     std::fs::write(ledger.join("mission_second.jsonl"), turn("mission_second", "2026-11-12T10:05:00.000Z", "And the tax", Some("mission_first"))).unwrap();

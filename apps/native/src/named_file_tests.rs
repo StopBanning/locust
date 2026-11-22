@@ -22,7 +22,7 @@ impl Ledger {
     fn new(workspace_id: &str, events: &[Value]) -> Self {
         let dir = std::env::temp_dir().join(format!("locust-named-host-{}-{}", std::process::id(), NEXT.fetch_add(1, Ordering::Relaxed)));
         std::fs::create_dir_all(&dir).unwrap();
-        let head = json!({"schemaVersion": 1, "recordType": "mission.created", "metadata": {
+        let head = json!({"schemaVersion": 27, "recordType": "mission.created", "metadata": {
             "missionId": "mission_review", "runId": "run_review", "prompt": "Review the Toaster changes and write a report",
             "runtime": "codex", "model": "gpt-6.1-sol", "requestedRouteId": "codex:gpt-6.1-sol", "resolvedRouteId": "codex:gpt-6.1-sol",
             "cliVersion": "0.160.0", "workspaceId": workspace_id, "createdAt": "2026-10-18T20:00:00.000Z",
@@ -30,7 +30,7 @@ impl Ledger {
         let mut f = std::fs::File::create(dir.join("mission_review.jsonl")).unwrap();
         writeln!(f, "{head}").unwrap();
         for e in events {
-            writeln!(f, "{}", json!({"schemaVersion": 1, "recordType": "mission.event", "event": e})).unwrap();
+            writeln!(f, "{}", json!({"schemaVersion": 27, "recordType": "mission.event", "event": e})).unwrap();
         }
         Self(dir)
     }

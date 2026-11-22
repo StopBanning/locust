@@ -237,7 +237,7 @@ fn three_judges_score_the_answers_and_their_pick_is_marked() {
         let dir = store.ledger_dir().unwrap();
         let path = dir.join(format!("{jid}.jsonl"));
         let line1 = json!({
-            "schemaVersion": 1,
+            "schemaVersion": 27,
             "recordType": "mission.created",
             "metadata": {
                 "missionId": jid,
@@ -249,7 +249,7 @@ fn three_judges_score_the_answers_and_their_pick_is_marked() {
             }
         });
         let line2 = json!({
-            "schemaVersion": 1,
+            "schemaVersion": 27,
             "recordType": "mission.event",
             "event": {
                 "sequence": 1,
@@ -258,7 +258,7 @@ fn three_judges_score_the_answers_and_their_pick_is_marked() {
             }
         });
         let line3 = json!({
-            "schemaVersion": 1,
+            "schemaVersion": 27,
             "recordType": "mission.event",
             "event": {
                 "sequence": 2,
