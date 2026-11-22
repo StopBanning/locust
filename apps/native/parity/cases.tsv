@@ -151,6 +151,16 @@ apps/desktop/src/main/a-cloud-turn-keeps-its-change-there-until-applied.test.ts	
 apps/desktop/src/main/a-cloud-turn-keeps-its-change-there-until-applied.test.ts	says where the earlier turns a change held went, once it goes somewhere	yes
 apps/desktop/src/main/a-cloud-turn-keeps-its-change-there-until-applied.test.ts	sends a message's own files to the copy there, and nothing outside .locust/attachments	yes
 apps/desktop/src/main/a-cloud-turn-keeps-its-change-there-until-applied.test.ts	cannot put a different OpenCode there than the one it reads here	yes
+apps/desktop/src/main/a-cloud-turn-runs-on-the-cloud-computer.test.ts	is refused in words on a runtime it does not run there, before anything	yes
+apps/desktop/src/main/a-cloud-turn-runs-on-the-cloud-computer.test.ts	runs a Claude Code turn there: its own copy, in the copy there, with nothing of this computer's	yes
+apps/desktop/src/main/a-cloud-turn-runs-on-the-cloud-computer.test.ts	runs a Codex turn there on its app server, over the connection, never the one here	yes
+apps/desktop/src/main/a-cloud-turn-runs-on-the-cloud-computer.test.ts	hands the words back and offers the sign-in when the agent is not signed in there	yes
+apps/desktop/src/main/a-cloud-turn-runs-on-the-cloud-computer.test.ts	runs OpenCode's server on the cloud computer, readied first and said on the live line	yes
+apps/desktop/src/main/a-cloud-turn-runs-on-the-cloud-computer.test.ts	tells the brief the turn stands in its own copy there, never this folder	yes
+apps/desktop/src/main/a-cloud-turn-runs-on-the-cloud-computer.test.ts	sends the message's own files to the copy there before the agent starts	yes
+apps/desktop/src/main/a-cloud-turn-runs-on-the-cloud-computer.test.ts	sends nothing over for a message with no files of its own	yes
+apps/desktop/src/main/a-cloud-turn-runs-on-the-cloud-computer.test.ts	hands the words back and asks first when the repository has no cloud computer, recording nothing	yes
+apps/desktop/src/main/a-cloud-turn-runs-on-the-cloud-computer.test.ts	is refused for a model of the person's own, which answers from this computer	yes
 apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	names the guard on Windows the way Codex runs a hook there: in PowerShell, on Locust’s own binary run as node	yes
 apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	names it elsewhere exactly as Claude Code’s is named	yes
 apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts	is written only when LOCUST_GUARD_LOG names a file, one per question, with what was decided	yes
