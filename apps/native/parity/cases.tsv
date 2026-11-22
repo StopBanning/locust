@@ -168,6 +168,11 @@ apps/desktop/src/main/a-comparison-runs-again.test.ts	goes on when a run cannot 
 apps/desktop/src/main/a-comparison-runs-again.test.ts	refuses in words what cannot be run again as it is	no
 apps/desktop/src/main/a-comparison-runs-again.test.ts	settles at a start a run Locust closed on, but not one whose turn is still going	no
 apps/desktop/src/main/a-comparison-runs-again.test.ts	keeps its runs again out of the conversation list, and a settled one claims no copies	no
+apps/desktop/src/main/a-comparison-runs-one-teammate-on-two-models.test.ts	runs one teammate on two models at once, a column each	yes
+apps/desktop/src/main/a-comparison-runs-one-teammate-on-two-models.test.ts	passes each column’s own instructions to its brief, including empty, without changing an ordinary turn	yes
+apps/desktop/src/main/a-comparison-runs-one-teammate-on-two-models.test.ts	starts a second conversation with the same teammate while one is going (0.551)	yes
+apps/desktop/src/main/a-comparison-runs-one-teammate-on-two-models.test.ts	runs on two models with no teammate at all -- none is needed to compare	yes
+apps/desktop/src/main/a-comparison-runs-one-teammate-on-two-models.test.ts	refuses a second run in the same column while its first is going	yes
 apps/desktop/src/main/a-connector-check-says-how-it-went.test.ts	keeps how long the check took and when each was last seen connected	yes
 apps/desktop/src/main/a-connector-check-says-how-it-went.test.ts	a check that timed out says so for every connector, and the rules keep the last good reading	yes
 apps/desktop/src/main/a-connector-goes-to-every-agent.test.ts	a command, after `--` wherever the agent takes one, so the server keeps its own flags	yes
