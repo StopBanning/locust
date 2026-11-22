@@ -1447,6 +1447,11 @@ impl PetScreenConductor {
         }
     }
 
+    /// The flash and its start time on the conductor's clock.
+    pub fn active_flash(&self) -> Option<(Phosphor, f64)> {
+        self.changes.flash()
+    }
+
     pub fn boot(&mut self, at: f64) {
         self.boot_at = Some(at);
         self.boot_span = POWER_ON_S;

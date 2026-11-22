@@ -10,7 +10,7 @@
 
 use crate::look::bot_stage::{BotSnapshot, BuddySnapshot, PresenceDot};
 use locust_core::bot_rig::{
-    eye_openness, glyph_motion, power_on_eyes, BotAvatarPose, PowerOnLight, SCREEN_RESTING_EYES,
+    eye_openness, glyph_motion, BotAvatarPose, PowerOnLight, SCREEN_RESTING_EYES,
 };
 use locust_core::bot_spec::{
     anchors_of, auto_ink, body_color_of, draw_size_for, glyph_shape, hue_hex, is_locust_bot,
@@ -454,6 +454,14 @@ fn paint_glyph_at(
     let Some(gs) = glyph_shape(glyph) else {
         return s;
     };
+    if glyph == "•" {
+        let (line, weight) = locust_core::bot_spec::blinking_dot(1.0 - open_y);
+        let points = vec![map_pt([cx + line[0] * eye_scale, cy + line[1] * eye_scale]),
+            map_pt([cx + line[2] * eye_scale, cy + line[3] * eye_scale])];
+        let w = (weight as f32 * eye_scale as f32 * stroke_scale * 0.65).max(0.6);
+        return s.stroke_with(points.clone(), false, w * 1.85, LineCap::Round, glow)
+            .stroke_with(points, false, w, LineCap::Round, lit);
+    }
     let w = ((gs.weight as f32) * (eye_scale as f32) * stroke_scale * 0.65).max(0.6);
     for seg in gs.lines {
         let mut pts = Vec::with_capacity(seg.len() / 2);
@@ -562,25 +570,26 @@ fn draw_screen_light(
     s_seconds: f64,
     shut: f64,
 ) -> Shape {
-    let [r, g, b] = phosphor_rgb(tone);
-    if let Some((flash_tone, _)) = flash {
-        let fade = (1.0 - flash_progress).clamp(0.0, 1.0) as f32;
-        if fade > 0.01 {
-            let [fr, fg, fb] = phosphor_rgb(flash_tone);
-            s = s.fill(
-                poly.to_vec(),
-                color_from_rgb_f64([fr as f64, fg as f64, fb as f64], fade * 0.42),
-            );
-        }
-    }
+    let own = phosphor_rgb(tone).map(f64::from);
+    let rgb = if let Some((colour, _)) = flash.filter(|_| s_seconds > 0.0) {
+        let from = phosphor_rgb(colour).map(f64::from);
+        let k = flash_progress.clamp(0.0, 1.0);
+        std::array::from_fn(|i| from[i] + (own[i] - from[i]) * k)
+    } else {
+        own
+    };
+    let lit_col = color_from_rgb_f64(rgb, 0.96);
+    let glow_col = color_from_rgb_f64(rgb, 0.28);
 
-    let lit_col = color_from_rgb_f64([r as f64, g as f64, b as f64], 0.96);
-    let glow_col = color_from_rgb_f64([r as f64, g as f64, b as f64], 0.28);
-
-    if let Some(p_light) = power_on {
+    if let Some(p_light) = power_on.filter(|_| s_seconds > 0.0) {
         let line_k = p_light.width.clamp(0.0, 1.0);
-        let phase_eyes = power_on_eyes(p_light.height);
-        if line_k > 0.02 {
+        let phase_eyes = p_light.eyes;
+        if p_light.height > 0.0 && p_light.alpha > 0.0 && !poly.is_empty() {
+            let mid = poly.iter().map(|p| p[1]).sum::<f32>() / poly.len() as f32;
+            let glass: Vec<[f32; 2]> = poly.iter().map(|p| [p[0], mid + (p[1] - mid) * p_light.height as f32]).collect();
+            s = s.fill(glass, lit_col.alpha(p_light.alpha as f32));
+        }
+        if line_k > 0.02 && p_light.alpha > 0.0 {
             let mid_y = (left_eye[1] + right_eye[1]) * 0.5;
             let span = ((right_eye[0] - left_eye[0]).abs() * 0.72).max(eye_scale * 8.0) * line_k;
             let cx = (left_eye[0] + right_eye[0]) * 0.5;
@@ -1418,3 +1427,7 @@ mod presence_tests {
 #[cfg(test)]
 #[path = "glyph_eyes_tests.rs"]
 mod glyph_eyes_tests;
+
+#[cfg(test)]
+#[path = "screen_switches_tests.rs"]
+mod screen_switches_tests;

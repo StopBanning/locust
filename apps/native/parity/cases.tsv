@@ -3643,6 +3643,15 @@ apps/desktop/src/renderer/src/a-screen-keeps-its-face-to-you.test.ts	without a h
 apps/desktop/src/renderer/src/a-screen-keeps-its-face-to-you.test.ts	never laughs or whirls, and keeps a little under half of the squash	yes
 apps/desktop/src/renderer/src/a-screen-keeps-its-face-to-you.test.ts	copies the rig's pose and never changes it, so the rig eases from its own last frame	no
 apps/desktop/src/renderer/src/a-screen-keeps-its-face-to-you.test.ts	reads the real rig: through ten seconds of work, a screen never faces away	yes
+apps/desktop/src/renderer/src/a-screen-switches-on-and-its-dots-blink.test.ts	is the dot open and the screen's own dash shut	yes
+apps/desktop/src/renderer/src/a-screen-switches-on-and-its-dots-blink.test.ts	draws out and lightens steadily as it shuts, never thinner than the dash	yes
+apps/desktop/src/renderer/src/a-screen-switches-on-and-its-dots-blink.test.ts	draws a line across the glass first, then opens it into a flash that settles to dark	yes
+apps/desktop/src/renderer/src/a-screen-switches-on-and-its-dots-blink.test.ts	keeps the eyes shut until the flash has settled, then blinks them open	yes
+apps/desktop/src/renderer/src/a-screen-switches-on-and-its-dots-blink.test.ts	is dark while it switches on: the light first, the eyes only once it has settled	yes
+apps/desktop/src/renderer/src/a-screen-switches-on-and-its-dots-blink.test.ts	is simply on once it has switched on, when it never had to, and on a still bot (reduced motion)	yes
+apps/desktop/src/renderer/src/a-screen-switches-on-and-its-dots-blink.test.ts	flashes green as it finishes and settles back to its own light	yes
+apps/desktop/src/renderer/src/a-screen-switches-on-and-its-dots-blink.test.ts	is its own light on a still bot (reduced motion), and the flash fades smoothly to nothing	yes
+apps/desktop/src/renderer/src/a-screen-switches-on-and-its-dots-blink.test.ts	winces with its shudder as `> <`, and stays within the reach a screen leaves it	yes
 apps/desktop/src/renderer/src/a-screens-eyes-have-weight.test.ts	trail a hop: they sink as the body takes off, float while it is in the air, and sink again as it lands	yes
 apps/desktop/src/renderer/src/a-screens-eyes-have-weight.test.ts	settle within half a second of the body coming to rest	yes
 apps/desktop/src/renderer/src/a-screens-eyes-have-weight.test.ts	never trail by more than three units, however hard the body moves	yes
