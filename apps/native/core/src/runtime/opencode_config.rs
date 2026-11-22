@@ -303,8 +303,17 @@ pub fn file_url(p: &Path) -> String {
     }
     s
 }
+#[cfg(any(test, feature = "test-hooks"))]
+thread_local! {
+    pub static FAIL_V2_GUARD: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
 /// Run-owned directory, created only through Store's descriptor-based no-follow writer.
 pub fn write_guard(store: &Store, v2: bool) -> io::Result<PathBuf> {
+    #[cfg(any(test, feature = "test-hooks"))]
+    if v2 && FAIL_V2_GUARD.with(std::cell::Cell::get) {
+        return Err(io::Error::other("guard directory unavailable"));
+    }
     let root = store
         .ledger_dir()?
         .parent()
@@ -379,7 +388,13 @@ pub fn configure_with_seal(
     ] {
         c.env(key, &home);
     }
-    let plugin = write_guard(store, v2)?;
+    let plugin = write_guard(store, v2).map_err(|e| {
+        if v2 {
+            io::Error::other(format!("OpenCode 2 could not prepare the command guard: {e}"))
+        } else {
+            e
+        }
+    })?;
     c.env("LOCUST_GUARD_PARENT", std::process::id().to_string());
     if v2 {
         c.env(

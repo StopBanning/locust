@@ -125,6 +125,7 @@ pub mod hooks {
         settle_turn_threads();
         clear_poison();
         super::reset_relay_state();
+        crate::runtime::opencode_config::FAIL_V2_GUARD.with(|f| f.set(false));
         *crate::invariants::lock(&STATE) = (Some(store), command);
         *crate::invariants::lock(&READINESS) = None;
         guard
@@ -144,6 +145,7 @@ pub mod hooks {
             settle_turn_threads();
             clear_poison();
             super::reset_relay_state();
+            crate::runtime::opencode_config::FAIL_V2_GUARD.with(|f| f.set(false));
             *crate::invariants::lock(&STATE) = (None, None);
             *crate::invariants::lock(&READINESS) = None;
         }
@@ -218,10 +220,22 @@ fn command_for_turn(
     kilo_home: Option<&Path>,
 ) -> io::Result<Command> {
     #[cfg(any(test, feature = "test-hooks"))]
-    if let Some((program, args)) = crate::invariants::lock(&hooks::STATE).1.clone() {
-        let mut c = Command::new(program);
-        c.args(args);
-        return Ok(c);
+    {
+        let hooked = crate::invariants::lock(&hooks::STATE).1.clone();
+        if let Some((program, args)) = hooked {
+            if runtime == "opencode"
+                && args.iter().any(|a| a == "acp")
+                && crate::runtime::opencode_config::FAIL_V2_GUARD.with(std::cell::Cell::get)
+            {
+                let store = store()
+                    .ok_or_else(|| io::Error::other("Native data folder could not be determined"))?;
+                let mut probe_cmd = Command::new(&program);
+                crate::runtime::opencode_config::configure_with_seal(&mut probe_cmd, mode, &store, true, sealed)?;
+            }
+            let mut c = Command::new(program);
+            c.args(args);
+            return Ok(c);
+        }
     }
     match runtime {
         "claude" => crate::runtime::claude::bare_command(folder),
@@ -1012,8 +1026,29 @@ pub struct Prior {
     pub thread: Option<String>,
     /// The mode its header recorded; None for a header that names none (never read as a change of mode).
     pub mode: Option<String>,
+    /// The CLI version its header recorded (`cliVersion`).
+    pub cli_version: Option<String>,
+    /// The command arguments its header recorded (`command.args`).
+    pub command_args: Option<Vec<String>>,
     /// Its session compacted during the turn (brief_sessions::compacted_during): it holds a summary, not the brief.
     pub compacted: bool,
+}
+
+/// codex-mission.ts: OpenCode follow-up guard against loading a foreign permission history across a V1/V2
+/// protocol switch or from an imported/non-ACP session.
+pub fn opencode_follow_up_needs_fresh_session(
+    prior_mode: Option<&str>,
+    prior_cli_version: Option<&str>,
+    prior_command_args: Option<&[String]>,
+    current_is_acp: bool,
+) -> bool {
+    let prior_is_acp = prior_cli_version.is_some_and(crate::runtime::opencode::version_uses_acp);
+    let protocol_changed = prior_is_acp != current_is_acp;
+    let unverified_acp_session = current_is_acp
+        && (prior_mode.is_none()
+            || prior_command_args
+                .is_none_or(|args| args.last().map(String::as_str) != Some("acp")));
+    protocol_changed || unverified_acp_session
 }
 /// Ports codex-mission.ts `runtimeThreadIdOf` and `resumableThreadOf`: the last runtimeThreadId in the mission's events;
 /// nothing after a failure that ended the session or a moved folder; else the one its own `continuesFrom` carried.
@@ -1079,12 +1114,20 @@ pub fn prior_from_records(records: &[Value], fresh: bool) -> Result<Prior, Strin
     };
     let mut transcript = ledger::Transcript::default();
     transcript.apply(records.to_vec());
+    let cli_version = meta["cliVersion"].as_str().map(str::to_owned);
+    let command_args = meta["command"]["args"].as_array().map(|arr| {
+        arr.iter()
+            .filter_map(|v| v.as_str().map(str::to_owned))
+            .collect::<Vec<_>>()
+    });
     Ok(Prior {
         runtime,
         account,
         running: transcript.running && fresh,
         thread,
         mode: meta["mode"].as_str().map(str::to_owned),
+        cli_version,
+        command_args,
         compacted: crate::brief_sessions::compacted_during(&records.iter().filter_map(|r| r.get("event").cloned()).collect::<Vec<_>>()),
     })
 }
@@ -2527,10 +2570,35 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
             } else {
                 // codex-mission.ts: a reply on the same agent resumes its session, unless the mode changed since (a
                 // resumed session keeps the tools it was built with, so the mode on screen would not be the one that
-                // runs) or there is no session to resume (a turn that failed before its runtime started). Then it
-                // starts cold, still in this conversation, told what was said so far.
+                // runs), OpenCode switched protocols or the prior ACP session was imported/unverified, or there is no
+                // session to resume (a turn that failed before its runtime started). Then it starts cold, still in
+                // this conversation, told what was said so far.
                 let mode_changed = prior.mode.as_deref().is_some_and(|m| m != mode.as_str());
-                let thread = if mode_changed { None } else { prior.thread };
+                let opencode_fresh = if runtime_name == "opencode" && !mode_changed && prior.thread.is_some() {
+                    let current_is_acp = {
+                        #[cfg(any(test, feature = "test-hooks"))]
+                        {
+                            if let Some((_, args)) = crate::invariants::lock(&hooks::STATE).1.as_ref() {
+                                args.iter().any(|a| a == "acp")
+                            } else {
+                                crate::runtime::opencode::is_installed_v2()
+                            }
+                        }
+                        #[cfg(not(any(test, feature = "test-hooks")))]
+                        {
+                            crate::runtime::opencode::is_installed_v2()
+                        }
+                    };
+                    opencode_follow_up_needs_fresh_session(
+                        prior.mode.as_deref(),
+                        prior.cli_version.as_deref(),
+                        prior.command_args.as_deref(),
+                        current_is_acp,
+                    )
+                } else {
+                    false
+                };
+                let thread = if mode_changed || opencode_fresh { None } else { prior.thread };
                 resumed_compacted = prior.compacted;
                 if thread.is_none() {
                     cold = Some((cold_earlier(tip, &job.prompt), false));
@@ -3022,6 +3090,16 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
         "workspaceId": turn_workspace_id,
         "resolvedRouteId": resolved_route_id,
     });
+    if runtime_name == "opencode" {
+        let cli_version = command
+            .get_envs()
+            .find(|(k, _)| *k == "LOCUST_NATIVE_OPENCODE_VERSION")
+            .and_then(|(_, v)| v.map(|v| v.to_string_lossy().into_owned()))
+            .or_else(|| crate::runtime::opencode::uses_acp(&command).then(|| "2.0.0".to_owned()));
+        if let Some(version) = cli_version {
+            extra["cliVersion"] = json!(version);
+        }
+    }
     if let Some(acc) = &effective_account {
         extra["account"] = json!(acc);
     }

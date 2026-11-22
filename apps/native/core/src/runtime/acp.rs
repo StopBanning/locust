@@ -161,6 +161,8 @@ impl Default for Profile {
         }
     }
 }
+pub const CANCEL_GRACE: Duration = Duration::from_secs(3);
+
 pub struct Acp {
     child: Child,
     profile: Profile,
@@ -179,6 +181,7 @@ pub struct Acp {
     queued: VecDeque<Event>,
     id: u64,
     stopping: Option<Instant>,
+    cancel_grace: Duration,
     model_config: Option<(String, String)>,
     turn: Option<Turn>,
     declined: bool,
@@ -307,6 +310,7 @@ impl Acp {
             queued: VecDeque::new(),
             id: 0,
             stopping: None,
+            cancel_grace: CANCEL_GRACE,
             model_config: option.zip(value),
             turn: None,
             declined: false,
@@ -336,6 +340,10 @@ impl Acp {
 
     pub fn with_cancel(mut self, flag: Arc<AtomicBool>) -> Self {
         self.cancel = Some(flag);
+        self
+    }
+    pub fn with_cancel_grace(mut self, grace: Duration) -> Self {
+        self.cancel_grace = grace;
         self
     }
     fn cancelled(&self) -> bool {
@@ -702,7 +710,7 @@ impl Runtime for Acp {
         }
         if self
             .stopping
-            .is_some_and(|t| t.elapsed() >= Duration::from_secs(3))
+            .is_some_and(|t| t.elapsed() >= self.cancel_grace)
         {
             self.finish("cancelled", Value::Null, None);
             return Ok(self.queued.pop_front());
@@ -747,7 +755,7 @@ impl Runtime for Acp {
             self.child.id(),
             self.closed.clone(),
             self.reap_lock.clone(),
-            Duration::from_secs(3),
+            self.cancel_grace,
         );
         Ok(())
     }

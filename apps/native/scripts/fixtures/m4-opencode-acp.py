@@ -17,9 +17,9 @@ options = [
 for line in sys.stdin:
     v = json.loads(line)
     method = v.get('method')
-    if scenario == 'logged' and method:
+    if scenario in ('logged', 'stop-hang'):
         with open('acp-methods.log', 'a') as log:
-            log.write(json.dumps(dict(method=method, params=v.get('params'))) + '\n')
+            log.write(json.dumps(dict(id=v.get('id'), method=method, params=v.get('params'), result=v.get('result'))) + '\n')
     if method == 'initialize':
         flag = __import__('os').environ.get('LOCUST_OPENCODE_CRASH_FLAG', '')
         if scenario == 'crash-once' and flag and not __import__('os').path.exists(flag):
@@ -41,7 +41,7 @@ for line in sys.stdin:
         prompt = v
         if scenario == 'lost':
             sys.exit(0)
-        if scenario == 'stop':
+        if scenario in ('stop', 'stop-hang'):
             continue
         send(dict(method='session/update', params=dict(sessionId='other', update=dict(sessionUpdate='agent_message_chunk', content=dict(type='text', text='FOREIGN_MUST_NOT_SURVIVE')))))
         update(sessionUpdate='agent_thought_chunk', content=dict(type='text', text='RAW_REASONING_MUST_NOT_SURVIVE'))
@@ -55,4 +55,6 @@ for line in sys.stdin:
         update(sessionUpdate='agent_message_chunk', content=dict(type='text', text='Done.'))
         answer(prompt, dict(stopReason='end_turn', usage=dict(inputTokens=4, outputTokens=2)))
     elif method == 'session/cancel':
+        if scenario == 'stop-hang':
+            continue
         answer(prompt, dict(stopReason='cancelled'))
