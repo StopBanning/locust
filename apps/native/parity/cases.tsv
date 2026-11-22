@@ -2711,6 +2711,10 @@ apps/desktop/src/main/the-starter-routines-are-routines.test.ts	reads one by its
 apps/desktop/src/main/the-starter-routines-are-routines.test.ts	leaves out, and names, a file in the folder that is not a routine	no
 apps/desktop/src/main/the-starter-routines-are-routines.test.ts	previews by id, then adds it once: Ask, no schedule, in this folder, run by nobody	no
 apps/desktop/src/main/the-starter-routines-are-routines.test.ts	asks for a folder first in its own words, not the words for a file	no
+apps/desktop/src/main/the-team-is-a-board.test.ts	has a class of its own: `.lc-board` is the room task board, a flex COLUMN	yes
+apps/desktop/src/main/the-team-is-a-board.test.ts	tints only where a person should look: amber waiting, green unseen	yes
+apps/desktop/src/main/the-team-is-a-board.test.ts	a finish is unseen only when nobody was looking, and looking clears it	yes
+apps/desktop/src/main/the-team-is-a-board.test.ts	a live mission is running on its card, never the record's "interrupted"	yes
 apps/desktop/src/main/the-thread-beside-the-browser-keeps-its-parts-whole.test.ts	keeps the plan pill of the running line whole, so the thread never scrolls sideways under it	yes
 apps/desktop/src/main/the-thread-beside-the-browser-keeps-its-parts-whole.test.ts	wraps a turn's closing line by whole parts instead of cutting it at the Copy button	yes
 apps/desktop/src/main/the-thread-beside-the-browser-keeps-its-parts-whole.test.ts	fits a handed file's pill to the reply, the note giving way before the path	yes

@@ -1155,8 +1155,8 @@ fn team_grid(s: &State, p: &Palette) -> El {
             .gap(14.0)
             .padding(16.0)
             .radius(10.0)
-            .border(1.0, l.c("border-hairline"))
-            .fill(l.c("bg-raised"))
+            .border(1.0, match section { crate::team_board::Section::NeedsYou => l.c("amber-border"), crate::team_board::Section::Finished => l.c("green-border"), _ => l.c("border-hairline") })
+            .fill(match section { crate::team_board::Section::NeedsYou => l.c("amber-tint"), crate::team_board::Section::Finished => l.c("green-tint"), _ => l.c("bg-raised") })
             .child(head)
             .child(col().w_full().gap(6.0).child(route).child(mode_chip))
             .child(stats);
@@ -1189,7 +1189,9 @@ fn team_grid(s: &State, p: &Palette) -> El {
                     .w_full()
                     .gap(8.0)
                     .center_y()
-                    .child(el().size(5.0, 5.0).radius(2.5).fill(l.c("text-faint")))
+                    .child(el().key(format!("team-recent-{}", r.mission.mission_id)).size(5.0, 5.0).radius(2.5)
+                        .fill(if s.live_turns.contains(&r.mission.mission_id) || r.mission.running { p.green } else { l.c("text-faint") })
+                        .label(if s.live_turns.contains(&r.mission.mission_id) || r.mission.running { "Running" } else { if r.mission.failed { "Failed" } else if r.mission.cancelled { "Interrupted" } else { "Completed" } }))
                     .child(text(r.title.clone()).font(rune::TextStyle::new(13.0, 400.0)).color(l.c("text-secondary")).grow(1.0).shrink().truncate());
                 if let Some(age) = ago_label(&r.mission.updated) {
                     line = line.child(text(age).font(mono(11.0)).color(l.c("text-muted")));
