@@ -53,9 +53,16 @@ def check_config(config, sandbox=SANDBOX, sealed=sealed_mode):
         assert 'mcp_servers.remote.enabled' not in config, config
     else:
         assert not any(k.startswith('mcp_servers.') or k.startswith('features.') for k in config), config
+# `models-usage` / `models-usage-refused` / `models-usage-silent`: the model catalog's session, model/list and then
+# account/rateLimits/read (answered, refused as an older Codex would, or with no window in it). M1_ASKED_FILE, when
+# set, is told each request's method in the order it came.
+models_listed = False
 for line in sys.stdin:
     msg = json.loads(line)
     method, p = msg.get('method'), msg.get('params', {})
+    if os.environ.get('M1_ASKED_FILE') and method and 'id' in msg:
+        with open(os.environ['M1_ASKED_FILE'], 'a') as f:
+            f.write(method + '\n')
     if method == 'initialize':
         assert p['clientInfo']['name'] == 'locust'
         send(dict(id=msg['id'], result={}))
@@ -308,6 +315,22 @@ for line in sys.stdin:
         notify('warning', message='Synthetic warning')
         notify('thread/tokenUsage/updated', tokenUsage={'total':{'inputTokens':12,'outputTokens':4},'last':{'inputTokens':12,'outputTokens':4}})
         notify('turn/completed', turn={'id':'turn_fake','status':'completed'})
+    elif method == 'model/list':
+        send(dict(id=msg['id'], result={'data': [{'id': 'gpt-6-luna', 'displayName': 'GPT-6-Luna', 'supportedReasoningEfforts': [{'reasoningEffort': 'low'}]}]}))
+        models_listed = True
+    elif method == 'account/rateLimits/read':
+        assert models_listed, 'account/rateLimits/read was asked before model/list was answered'
+        if scenario == 'models-usage-refused':
+            send(dict(id=msg['id'], error={'code': -32601, 'message': 'method not found'}))
+        elif scenario == 'models-usage-silent':
+            send(dict(id=msg['id'], result={'rateLimits': {'credits': {'hasCredits': False, 'unlimited': False}}}))
+        else:
+            send(dict(id=msg['id'], result={'rateLimits': {
+                'limitId': 'codex',
+                'primary': {'usedPercent': 34, 'windowDurationMins': 300, 'resetsAt': 1790363478},
+                'secondary': {'usedPercent': 71, 'windowDurationMins': 10080, 'resetsAt': 1790363478 + 86400},
+                'credits': {'hasCredits': False, 'unlimited': False, 'balance': '0'},
+                'planType': 'plus'}}))
     elif method == 'turn/interrupt':
         assert p == {'threadId':'thread_fake','turnId':'turn_fake'}
         send(dict(id=msg['id'],result={}))

@@ -113,7 +113,7 @@ fn grants_references_and_worktree_git_after_the_default_denial() {
 // case: does not enable a chat-only own model to call tools and keeps its provider declaration per-run
 #[test]
 fn a_chat_only_model_of_your_own_calls_no_tool_and_its_provider_stays_per_run() {
-    let local = crate::own_models::Provider { name: "Local".into(), base_url: "http://localhost:1234/v1".into(), models: vec!["model".into()], api_key: None, tool_calls: false };
+    let local = crate::own_models::Provider { name: "Local".into(), base_url: "http://localhost:1234/v1".into(), models: vec!["model".into()], api_key: None, tool_calls: false, prices: None };
     let run = launch(Mode::Auto, |c| crate::own_models::with_opencode_providers(c, &[("own-local".into(), local)]).unwrap());
     let found = config(&run);
     assert!(found["provider"]["own-local"].is_object());

@@ -9,8 +9,9 @@
 //! `PublicModel` shape (id, runtime, displayName, description, supportedEfforts, and older, variants or
 //! defaultEffort where they apply), so the door can hand it on as Electron's does.
 //!
-//! Not ported: OpenCode 2's and Kilo's models (read from an ACP session), the models Claude Code's handshake lists,
-//! and account usage readings.
+//! Codex's session asks `account/rateLimits/read` too, once its models are in, so its usage is read with them.
+//!
+//! Not ported: OpenCode 2's and Kilo's models (read from an ACP session), and the models Claude Code's handshake lists.
 
 use serde_json::{Value, json};
 use std::io::{BufRead, BufReader, Write};
@@ -543,6 +544,8 @@ pub fn with_account_defaults(models: Vec<Value>) -> Vec<Value> {
 #[derive(Debug, Default, Clone)]
 pub struct Listed {
     pub codex: Option<Value>,
+    /// What Codex's account has used, read in the same session as its models (Electron 0.390), in a turn's words.
+    pub codex_usage: Option<String>,
     pub claude: Option<Value>,
     pub cursor: Option<Value>,
     pub opencode: Option<Value>,
@@ -619,9 +622,64 @@ fn output_of(program: &str, args: &[&str], limit: Duration) -> Option<String> {
 }
 
 /// Codex's `model/list`, from an app-server started for it and stopped after (no turn is started).
-fn codex_model_list(limit: Duration) -> Option<Value> {
+/// windowName (app-server-events.ts): a window by its length, else by the label Codex gave it.
+fn window_name(minutes: Option<f64>, label: &str) -> String {
+    match minutes {
+        None => label.to_owned(),
+        Some(n) if n >= 10_080. => "weekly".into(),
+        Some(n) if n >= 1_440. => format!("{}-day", (n / 1_440.).round()),
+        Some(n) if n >= 60. && n % 60. == 0. => format!("{}-hour", n / 60.),
+        Some(n) => format!("{n}-minute"),
+    }
+}
+
+/// usageWindowFromSnapshot (app-server-events.ts): a rate-limit snapshot in the words a turn's reading uses, the
+/// fullest window first; None when it names no window.
+pub fn codex_usage_from_snapshot(snapshot: &Value) -> Option<String> {
+    let mut parts: Vec<(String, f64, Option<String>)> = Vec::new();
+    for (label, value) in snapshot.as_object()? {
+        if !value.is_object() {
+            continue;
+        }
+        let Some(used) = value["usedPercent"].as_f64().or(value["used_percent"].as_f64()).or(value["utilization"].as_f64().map(|n| n * 100.)) else {
+            continue;
+        };
+        let minutes = value["windowDurationMins"].as_f64().or(value["windowMinutes"].as_f64()).or(value["window_minutes"].as_f64());
+        // Epoch seconds: a value this small would be 1970.
+        let resets = value["resetsAt"]
+            .as_f64()
+            .or(value["resets_at"].as_f64())
+            .filter(|seconds| *seconds >= 1_000_000_000.)
+            .and_then(|seconds| chrono::DateTime::from_timestamp_millis((seconds * 1000.) as i64))
+            .map(|at| at.to_rfc3339_opts(chrono::SecondsFormat::Millis, true));
+        // `+ 0.` so a rounded -0 reads as 0, as JavaScript's does.
+        parts.push((format!("{} window", window_name(minutes, label)), used.round().clamp(0., 100.) + 0., resets));
+    }
+    if parts.is_empty() {
+        return None;
+    }
+    parts.sort_by(|a, b| b.1.total_cmp(&a.1));
+    let words: Vec<String> = parts.iter().map(|(label, used, resets)| format!("{label} {used}% used{}", resets.as_ref().map(|at| format!(" \u{b7} resets {at}")).unwrap_or_default())).collect();
+    Some(words.join(" \u{b7} "))
+}
+
+/// The usage readings the catalog read with its models, by account (model-catalog.ts `usageWindows`): Codex's, when
+/// its account said.
+pub fn usage_windows(listed: &Listed) -> std::collections::HashMap<String, String> {
+    listed.codex_usage.iter().map(|reading| ("codex".to_owned(), reading.clone())).collect()
+}
+
+fn codex_model_list(limit: Duration) -> Option<(Value, Option<String>)> {
     let path = crate::runtime::discovery::find_named("codex").ok()?;
-    let mut child = Command::new(path).arg("app-server").stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn().ok()?;
+    let mut command = Command::new(path);
+    command.arg("app-server");
+    codex_session(command, limit)
+}
+
+/// One Codex app-server session: its `model/list` result, and what the account has used. None when the models could
+/// not be read.
+fn codex_session(mut command: Command, limit: Duration) -> Option<(Value, Option<String>)> {
+    let mut child = command.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn().ok()?;
     let mut stdin = child.stdin.take()?;
     let stdout = child.stdout.take()?;
     let (tx, rx) = mpsc::channel();
@@ -650,7 +708,16 @@ fn codex_model_list(limit: Duration) -> Option<Value> {
         wait_for(1)?;
         send(json!({"jsonrpc": "2.0", "method": "initialized"}))?;
         send(json!({"jsonrpc": "2.0", "id": 2, "method": "model/list", "params": {}}))?;
-        wait_for(2).map(|v| v["result"].clone())
+        let models = wait_for(2)?["result"].clone();
+        // AND WHAT THE ACCOUNT HAS USED (Electron 0.390), in the same session: no turn spent. A reading otherwise only
+        // ever came from a run. `account/rateLimits/read` returns the snapshot a turn would push; an older Codex without
+        // the method, or an account that will not say, just leaves the reading out. It is read from the account itself,
+        // so it counts use outside Locust too, and says when (0.406).
+        let reading = send(json!({"jsonrpc": "2.0", "id": 3, "method": "account/rateLimits/read", "params": {}}))
+            .and_then(|_| wait_for(3))
+            .and_then(|v| codex_usage_from_snapshot(&v["result"]["rateLimits"]))
+            .map(|reading| format!("{reading} \u{b7} as of {}", chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true)));
+        Some((models, reading))
     })();
     let _ = child.kill();
     let _ = child.wait();
@@ -697,8 +764,10 @@ pub fn read_listed_checked() -> (Listed, bool) {
     });
     let agy = std::thread::spawn(move || output_of("agy", &["models"], limit).as_deref().and_then(parse_agy_model_list));
     let (opencode_one, opencode) = opencode.join().unwrap_or((false, None));
+    let (codex, codex_usage) = codex.join().ok().flatten().map_or((None, None), |(models, usage)| (Some(models), usage));
     let listed = Listed {
-        codex: codex.join().ok().flatten(),
+        codex,
+        codex_usage,
         claude: claude.join().ok().flatten(),
         cursor: cursor.join().ok().flatten(),
         opencode,
@@ -758,3 +827,7 @@ mod tests;
 #[cfg(test)]
 #[path = "muse_models_tests.rs"]
 mod muse_models_tests;
+
+#[cfg(test)]
+#[path = "codex_usage_is_read_with_the_models_tests.rs"]
+mod codex_usage_is_read_with_the_models_tests;

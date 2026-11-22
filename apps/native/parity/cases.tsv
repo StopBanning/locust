@@ -483,6 +483,13 @@ apps/desktop/src/main/a-message-waits-until-its-runtime-starts.test.ts	leaves a 
 apps/desktop/src/main/a-message-waits-until-its-runtime-starts.test.ts	marks a hub message on its first step and keeps it delivered when stopped	no
 apps/desktop/src/main/a-model-list-missing-one-is-asked-again.test.ts	names the case	no
 apps/desktop/src/main/a-model-list-missing-one-is-asked-again.test.ts	reads again instead of keeping the incomplete answer	no
+apps/desktop/src/main/a-model-of-your-own-is-priced-as-listed.test.ts	is its provider's listed one, at the provider's own address, tiers and all	yes
+apps/desktop/src/main/a-model-of-your-own-is-priced-as-listed.test.ts	is nothing anywhere less than an exact match	yes
+apps/desktop/src/main/a-model-of-your-own-is-priced-as-listed.test.ts	tells a plan and an account at one host apart by their paths, and prices neither when it cannot	yes
+apps/desktop/src/main/a-model-of-your-own-is-priced-as-listed.test.ts	drops what is not a price rather than passing it to OpenCode	yes
+apps/desktop/src/main/a-model-of-your-own-is-priced-as-listed.test.ts	is read from OpenCode's cache folder, once while the file is unchanged	yes
+apps/desktop/src/main/a-model-of-your-own-is-priced-as-listed.test.ts	carries the listed price into OpenCode's config, where OpenCode prices each step with it	yes
+apps/desktop/src/main/a-model-of-your-own-is-priced-as-listed.test.ts	carries none for a model its provider does not list, and its config is as it was	yes
 apps/desktop/src/main/a-model-of-your-own-is-unpriced-not-free.test.ts	is one the person added, which OpenCode runs -- and an old record without a model is not	yes
 apps/desktop/src/main/a-model-of-your-own-is-unpriced-not-free.test.ts	counts a run with tokens and no price as unpriced, never as dollars; a free catalog model stays nothing	yes
 apps/desktop/src/main/a-model-of-your-own-is-unpriced-not-free.test.ts	never moves the limit: it is said on the card instead (a-teammates-month-and-limit)	no
@@ -1581,6 +1588,8 @@ apps/desktop/src/main/codex-mission.test.ts	reads no folder for a read-only star
 apps/desktop/src/main/codex-mission.test.ts	replays the same paced answer with fewer durable appends and sends while keeping every fragment	no
 apps/desktop/src/main/codex-mission.test.ts	reads and normalizes while an append is on the disk, and writes what arrived in one append when it lands	no
 apps/desktop/src/main/codex-mission.test.ts	stops reading at the bound and lets a flood back up into the runner, as it always did	no
+apps/desktop/src/main/codex-usage-is-read-with-the-models.test.ts	comes back as a reading beside the models, in the words a turn’s reading uses	yes
+apps/desktop/src/main/codex-usage-is-read-with-the-models.test.ts	leaves the reading out -- and keeps the models -- when Codex cannot say	yes
 apps/desktop/src/main/cold-start-is-not-an-alert.test.ts	sits above the work it describes, not below it	yes
 apps/desktop/src/main/cold-start-is-not-an-alert.test.ts	is nowhere near the approvals, which are what the run is waiting on	yes
 apps/desktop/src/main/cold-start-is-not-an-alert.test.ts	follows the time marker, adjacent to it, opening the turn	yes
@@ -1903,6 +1912,9 @@ apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	reads this machine�
 apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	is given the guard in every mode, Auto included	no
 apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	names the guard as a hook its shell can start, on Locust’s own binary run as node, with Locust’s own id	no
 apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	is read from the guard’s own words, so the two cannot drift apart	no
+apps/desktop/src/main/npm-precondition.test.ts	says so when npm is not there	yes
+apps/desktop/src/main/npm-precondition.test.ts	says so when it is	yes
+apps/desktop/src/main/npm-precondition.test.ts	assumes it is there when nobody asked	yes
 apps/desktop/src/main/npm-prefix.test.ts	is the prefix itself on Windows	yes
 apps/desktop/src/main/npm-prefix.test.ts	is <prefix>/bin everywhere else	yes
 apps/desktop/src/main/npm-prefix.test.ts	refuses an empty prefix rather than returning a bare bin path	yes

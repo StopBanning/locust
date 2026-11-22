@@ -72,7 +72,11 @@ pub(super) fn request(s: &mut State) {
     });
     #[cfg(not(test))]
     if !s.settings_panel.agents_job.is_pending() {
-        s.settings_panel.agents_job.request((), |()| agents::discover());
+        s.settings_panel.agents_job.request((), |()| {
+            // Whether npm can run is asked with the agents, off the window's thread, and remembered (npm_check).
+            locust_core::npm_check::this_machine().present();
+            agents::discover()
+        });
     }
 }
 
@@ -131,6 +135,8 @@ pub(super) fn poll(s: &mut State) -> bool {
     }
     changed |= poll_updates(s);
     if let Some((id, outcome)) = s.agents_install_job.take() {
+        // An install finishing is the one moment npm's answer can have changed: the next sweep asks it again.
+        forget_npm();
         let installed = outcome.is_ok();
         s.agents_install.outcome = Some((id, outcome));
         // Installed: discovery looks again, and the row moves on to Sign in or ready.
@@ -339,7 +345,8 @@ pub(super) fn use_installer(installer: &'static locust_core::agent_install::Inst
 /// Install from the row (runtime-installer.ts): the row's own line, off the window's thread, one at a time. The window's
 /// tests never run npm: without a stand-in of their own, nothing is installed.
 fn install(s: &mut State, id: String, name: String) {
-    if s.agents_install_job.is_pending() {
+    // A greyed button still takes a press: while npm cannot be run, Install starts nothing.
+    if s.agents_install_job.is_pending() || npm_missing() {
         return;
     }
     let stand_in = *STAND_IN.lock().unwrap_or_else(|e| e.into_inner());
@@ -359,14 +366,41 @@ fn install(s: &mut State, id: String, name: String) {
     });
 }
 
-/// What a NOT INSTALLED row npm installs offers: Install, npm's latest line while it runs, and how it ended.
+#[cfg(test)]
+thread_local! {
+    /// A window test's answer for npm, in place of this machine's: the tests never ask npm.
+    static NPM_STAND_IN: std::cell::Cell<Option<bool>> = const { std::cell::Cell::new(None) };
+}
+
+/// Whether npm was asked and cannot be run (Electron's `npmMissing`). Never asked counts as there.
+fn npm_missing() -> bool {
+    #[cfg(test)]
+    if let Some(present) = NPM_STAND_IN.with(|c| c.get()) {
+        return !present;
+    }
+    locust_core::npm_check::this_machine().seen() == Some(false)
+}
+
+/// Drop npm's remembered answer (index.ts `npmSeen = undefined`).
+fn forget_npm() {
+    #[cfg(test)]
+    NPM_STAND_IN.with(|c| c.set(None));
+    locust_core::npm_check::this_machine().forget();
+}
+
+/// What a NOT INSTALLED row npm installs offers: Install, npm's latest line while it runs, and how it ended. While npm
+/// cannot be run, Install is off and the row says why; its line stays there to run by hand.
 fn install_part(s: &State, l: &crate::look::controls::Look, f: &Found, command: String) -> El {
     let mine = s.agents_install.id.as_deref() == Some(f.id.as_str());
     let running = s.agents_install_job.is_pending();
+    let npm_missing = npm_missing();
     let mut part = col().gap(6.0);
     let (id, name) = (f.id.clone(), f.display_name.clone());
     let label = if running && mine { "Installing\u{2026}" } else { "Install" };
-    part = part.child(crate::look::controls::button(l, label, crate::look::controls::Tone::Neutral, running).key(format!("agents-install-{}", f.id)).label(format!("Install {}", f.display_name)).self_start().on_press(move |s: &mut State| install(s, id.clone(), name.clone())));
+    part = part.child(crate::look::controls::button(l, label, crate::look::controls::Tone::Neutral, running || npm_missing).key(format!("agents-install-{}", f.id)).label(format!("Install {}", f.display_name)).self_start().on_press(move |s: &mut State| install(s, id.clone(), name.clone())));
+    if npm_missing {
+        part = part.child(text(locust_core::npm_check::NPM_MISSING.to_owned()).font(l.ty.body).color(l.c("amber-text")).wrap().key(format!("agents-install-npm-{}", f.id)));
+    }
     if mine && running && !s.agents_install.shown.is_empty() {
         part = part.child(text(s.agents_install.shown.clone()).font(l.ty.mono).color(l.c("text-muted")).wrap_anywhere().key(format!("agents-install-line-{}", f.id)));
     }
@@ -730,6 +764,10 @@ mod agents_abilities_tests;
 #[cfg(test)]
 #[path = "signing_in_is_a_button_tests.rs"]
 mod signing_in_is_a_button_tests;
+
+#[cfg(test)]
+#[path = "npm_missing_install_tests.rs"]
+mod npm_missing_install_tests;
 
 #[cfg(test)]
 mod tests {

@@ -57,6 +57,8 @@ pub struct Provider {
     pub api_key: Option<String>,
     /// false: a model that only chats, so the run gets no tools.
     pub tool_calls: bool,
+    /// Each model's listed price, in the shape OpenCode's config takes (0.810); None when none is listed.
+    pub prices: Option<Map<String, Value>>,
 }
 
 /// The address as it is kept: http(s), no trailing slash, no spaces.
@@ -137,6 +139,7 @@ pub struct OwnModels {
     now: Box<dyn Fn() -> String + Send + Sync>,
     create_id: Box<dyn Fn() -> String + Send + Sync>,
     serial: Mutex<()>,
+    prices: Option<Arc<PriceList>>,
 }
 
 impl OwnModels {
@@ -150,7 +153,13 @@ impl OwnModels {
     }
 
     pub fn with(root: &Path, secrets: Arc<dyn SecretBox>, now: Box<dyn Fn() -> String + Send + Sync>, create_id: Box<dyn Fn() -> String + Send + Sync>) -> Self {
-        Self { path: root.join(FILE), secrets, now, create_id, serial: Mutex::new(()) }
+        Self { path: root.join(FILE), secrets, now, create_id, serial: Mutex::new(()), prices: None }
+    }
+
+    /// The list a model's listed price is read from when a run of it starts.
+    pub fn with_prices(mut self, prices: Arc<PriceList>) -> Self {
+        self.prices = Some(prices);
+        self
     }
 
     fn read(&self) -> Result<Vec<OwnModel>, String> {
@@ -244,7 +253,8 @@ impl OwnModels {
             Some(sealed) => Some(self.secrets.open(sealed).map_err(|_| format!("The key kept for {} could not be opened, so nothing was started.", kept.name))?),
             None => None,
         };
-        Ok(Some((format!("{OWN_PREFIX}{}", kept.own_id), Provider { name: kept.name, base_url: kept.base_url, models: vec![kept.model], api_key, tool_calls: !kept.chat_only })))
+        let prices = self.prices.as_ref().and_then(|list| list.price_at(&kept.base_url, &kept.model)).map(|price| Map::from_iter([(kept.model.clone(), price)]));
+        Ok(Some((format!("{OWN_PREFIX}{}", kept.own_id), Provider { name: kept.name, base_url: kept.base_url, models: vec![kept.model], api_key, tool_calls: !kept.chat_only, prices })))
     }
 
     /// The models the picker offers under OpenCode, each by its own name, marked as yours.
@@ -287,7 +297,17 @@ pub fn with_opencode_providers(mut config: Value, providers: &[(String, Provider
         if !(lower.starts_with("http://") || lower.starts_with("https://")) || p.base_url.contains(char::is_whitespace) {
             return Err(format!("{}'s address is not an http(s) address", p.name));
         }
-        let models: Map<String, Value> = p.models.iter().map(|m| (m.clone(), json!({"name": m}))).collect();
+        let models: Map<String, Value> = p
+            .models
+            .iter()
+            .map(|m| {
+                let mut declared = json!({"name": m});
+                if let Some(price) = p.prices.as_ref().and_then(|prices| prices.get(m)) {
+                    declared["cost"] = price.clone();
+                }
+                (m.clone(), declared)
+            })
+            .collect();
         declared.insert(id.clone(), json!({"npm": "@ai-sdk/openai-compatible", "name": p.name, "options": {"baseURL": p.base_url, "apiKey": p.api_key.clone().unwrap_or_else(|| "not-needed".into())}, "models": models}));
     }
     if !config.is_object() {
@@ -391,9 +411,170 @@ pub fn use_secrets(secrets: Arc<dyn SecretBox>) {
     *SECRETS.lock().unwrap_or_else(|e| e.into_inner()) = Some(secrets);
 }
 
-/// The models of your own kept in a native data folder.
+/// The models of your own kept in a native data folder, priced from OpenCode's list on this computer.
 pub fn for_store(store: &crate::store::Store) -> OwnModels {
-    OwnModels::new(store.root(), secrets())
+    OwnModels::new(store.root(), secrets()).with_prices(opencode_prices())
+}
+
+// A MODEL OF YOUR OWN, PRICED AS ITS PROVIDER LISTS IT (Electron `main/listed-prices.ts`, 0.810).
+//
+// OpenCode prices the models it knows from models.dev's list, which it keeps on this computer and refreshes as it runs;
+// a model of your own at that provider's own address, under the id that provider lists, is the same model at the same
+// price. So OpenCode is told that price, and reports dollars for it as it does for its own.
+//
+// Only an exact match is priced: the provider whose own address the model is served from, and the id it lists there. A
+// gateway, a reseller's copy or a server of your own is not, and two providers at one address that price a model
+// differently (a plan beside a pay-as-you-go account) price it not at all.
+
+/// Providers OpenCode reaches through an SDK of their own, so the list gives no address for them: each one's
+/// OpenAI-compatible address, by host.
+const OWN_ADDRESS: &[(&str, &str)] = &[
+    ("api.anthropic.com", "anthropic"),
+    ("api.openai.com", "openai"),
+    ("generativelanguage.googleapis.com", "google"),
+    ("api.x.ai", "xai"),
+    ("api.mistral.ai", "mistral"),
+    ("api.groq.com", "groq"),
+    ("api.together.xyz", "togetherai"),
+    ("api.cerebras.ai", "cerebras"),
+];
+
+/// Where OpenCode keeps the list: its cache folder, which it finds as XDG says.
+pub fn opencode_price_list_path(xdg_cache_home: Option<&str>, home: &Path) -> PathBuf {
+    match xdg_cache_home.filter(|c| !c.is_empty()) {
+        Some(cache) => Path::new(cache).join("opencode").join("models.json"),
+        None => home.join(".cache").join("opencode").join("models.json"),
+    }
+}
+
+/// A price figure: a number (JSON's are finite) of no less than nothing, kept as the list wrote it.
+fn price_figure(value: &Value) -> Option<Value> {
+    value.as_f64().filter(|n| *n >= 0.0).map(|_| value.clone())
+}
+
+/// The cache prices beside a whole price's input and output.
+fn price_parts(from: &Value, into: &mut Map<String, Value>) {
+    for part in ["cache_read", "cache_write"] {
+        if let Some(n) = price_figure(&from[part]) {
+            into.insert(part.into(), n);
+        }
+    }
+}
+
+/// The input and output a price must have, or None.
+fn price_base(value: &Value) -> Option<Map<String, Value>> {
+    let (input, output) = (price_figure(&value["input"])?, price_figure(&value["output"])?);
+    let mut price = Map::from_iter([("input".to_owned(), input), ("output".to_owned(), output)]);
+    price_parts(value, &mut price);
+    Some(price)
+}
+
+/// A price in the shape OpenCode's config takes, or None for one that is not a whole price.
+fn price_of(value: &Value) -> Option<Value> {
+    let mut price = price_base(value)?;
+    let tiers: Vec<Value> = value["tiers"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|tier| {
+            let size = price_figure(&tier["tier"]["size"]).filter(|_| tier["tier"]["type"] == "context")?;
+            let mut kept = price_base(tier)?;
+            kept.insert("tier".into(), json!({"type": "context", "size": size}));
+            Some(Value::Object(kept))
+        })
+        .collect();
+    if !tiers.is_empty() {
+        price.insert("tiers".into(), Value::Array(tiers));
+    }
+    if let Some(over) = price_base(&value["context_over_200k"]) {
+        price.insert("context_over_200k".into(), Value::Object(over));
+    }
+    Some(Value::Object(price))
+}
+
+/// An address as it is compared: host in lower case (its port with it), path without its last slash.
+fn address_of(value: &str) -> Option<(String, String)> {
+    let url = url::Url::parse(value).ok()?;
+    // The url crate keeps a host in lower case already, and a port only when it is not the scheme's own.
+    let host = match url.port() {
+        Some(port) => format!("{}:{port}", url.host_str()?),
+        None => url.host_str()?.to_owned(),
+    };
+    let whole = format!("{host}{}", url.path().trim_end_matches('/'));
+    Some((host, whole))
+}
+
+/// The listed price of `model` at `base_url`, from OpenCode's copy of the list; None unless exactly one price is listed
+/// for it there. A provider whose own address is `base_url` itself is asked first, so a plan and an account that share
+/// a host are told apart by their paths.
+pub fn listed_price(list: &Value, base_url: &str, model: &str) -> Option<Value> {
+    let (asked_host, asked_whole) = address_of(base_url)?;
+    let providers = list.as_object()?;
+    let mut exact = vec![];
+    let mut same_host = vec![];
+    for (id, provider) in providers {
+        let listed = provider["api"].as_str().and_then(address_of);
+        if listed.as_ref().is_some_and(|(_, whole)| *whole == asked_whole) {
+            exact.push(provider);
+        } else if listed.as_ref().is_some_and(|(host, _)| *host == asked_host) || OWN_ADDRESS.iter().any(|(host, own)| *host == asked_host && own == id) {
+            same_host.push(provider);
+        }
+    }
+    let prices_at = |at: &[&Value]| -> Vec<Value> { at.iter().filter_map(|provider| price_of(&provider["models"][model]["cost"])).collect() };
+    let exact_prices = prices_at(&exact);
+    let found = if exact_prices.is_empty() { prices_at(&same_host) } else { exact_prices };
+    let first = found.first()?;
+    found.iter().all(|price| price == first).then(|| first.clone())
+}
+
+/// OpenCode's list, read when a run of your own model starts and kept while the file is unchanged: it is some
+/// megabytes, and OpenCode rewrites it when it refreshes. No list (OpenCode never run, or run offline) is no price, and
+/// the run reports tokens as it did before.
+pub struct PriceList {
+    path: PathBuf,
+    read_text: Box<dyn Fn(&Path) -> Result<String, String> + Send + Sync>,
+    modified_at: Box<dyn Fn(&Path) -> Result<u128, String> + Send + Sync>,
+    held: Mutex<Option<(u128, Value)>>,
+}
+
+impl PriceList {
+    pub fn new(path: PathBuf) -> Self {
+        Self::with(
+            path,
+            Box::new(|path| std::fs::read_to_string(path).map_err(|e| e.to_string())),
+            Box::new(|path| {
+                let at = std::fs::metadata(path).and_then(|m| m.modified()).map_err(|e| e.to_string())?;
+                Ok(at.duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0))
+            }),
+        )
+    }
+
+    pub fn with(path: PathBuf, read_text: Box<dyn Fn(&Path) -> Result<String, String> + Send + Sync>, modified_at: Box<dyn Fn(&Path) -> Result<u128, String> + Send + Sync>) -> Self {
+        Self { path, read_text, modified_at, held: Mutex::new(None) }
+    }
+
+    /// The listed price of a model at an address; None when it is not listed, or the list cannot be read.
+    pub fn price_at(&self, base_url: &str, model: &str) -> Option<Value> {
+        let at = (self.modified_at)(&self.path).ok()?;
+        let mut held = self.held.lock().unwrap_or_else(|e| e.into_inner());
+        if held.as_ref().map(|(seen, _)| *seen) != Some(at) {
+            let list = serde_json::from_str::<Value>(&(self.read_text)(&self.path).ok()?).ok()?;
+            *held = Some((at, list));
+        }
+        listed_price(&held.as_ref()?.1, base_url, model)
+    }
+}
+
+static PRICES: std::sync::OnceLock<Arc<PriceList>> = std::sync::OnceLock::new();
+
+/// The one copy of OpenCode's list this process keeps.
+pub fn opencode_prices() -> Arc<PriceList> {
+    PRICES
+        .get_or_init(|| {
+            let home = std::env::var_os("HOME").map(PathBuf::from).unwrap_or_default();
+            Arc::new(PriceList::new(opencode_price_list_path(std::env::var("XDG_CACHE_HOME").ok().as_deref(), &home)))
+        })
+        .clone()
 }
 
 /// A run's OpenCode config with the provider its own model needs, in the command's environment (never its arguments).
@@ -415,3 +596,7 @@ pub fn add_provider_env(command: &mut std::process::Command, store: &crate::stor
 #[cfg(test)]
 #[path = "own_models_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "a_model_of_your_own_is_priced_as_listed_tests.rs"]
+mod a_model_of_your_own_is_priced_as_listed_tests;
