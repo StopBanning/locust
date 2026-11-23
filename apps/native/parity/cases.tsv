@@ -1195,7 +1195,7 @@ apps/desktop/src/main/a-voice-call-reads-the-folder-itself.test.ts	lists the han
 apps/desktop/src/main/a-voice-call-reads-the-folder-itself.test.ts	leaves another app’s list as it was: no folder tools there	yes
 apps/desktop/src/main/a-voice-call-reads-the-folder-itself.test.ts	stay on, with plugins, hooks and notify still off, and a clash with the call’s own name still refused	yes
 apps/desktop/src/main/a-voice-call-reads-the-folder-itself.test.ts	leave Locust's own call tools unasked, and every other server asking as before (0.747)	yes
-apps/desktop/src/main/a-voice-call-reads-the-folder-itself.test.ts	say in the strip what they would do, from the question Codex asks	no
+apps/desktop/src/main/a-voice-call-reads-the-folder-itself.test.ts	say in the strip what they would do, from the question Codex asks	yes
 apps/desktop/src/main/a-voice-call-reads-the-folder-itself.test.ts	are told to the voice only when they are the call’s, and the folder is read with tools, never commands	yes
 apps/desktop/src/main/a-voice-call-talks-as-the-teammate.test.ts	takes a teammate id and, when there is one, the conversation on screen; nothing else	yes
 apps/desktop/src/main/a-voice-call-talks-as-the-teammate.test.ts	tells the voice to speak as the teammate, and where its asks go	yes

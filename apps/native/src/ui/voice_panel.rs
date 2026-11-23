@@ -48,7 +48,7 @@ pub(super) struct Panel {
     capture: Option<Capture>,
     call: Option<Talk>,
     note: Option<String>,
-    questions: Vec<(String, String, Vec<(String, String)>)>,
+    questions: Vec<(String, locust_core::runtime::codex_voice::ConnectorQuestion)>,
 }
 
 impl Drop for Panel {
@@ -376,12 +376,8 @@ fn poll_call(s: &mut State, now: f64, tx: &mut Tx) -> bool {
             }
             while let Ok(event) = window.events.try_recv() {
                 match event {
-                    CallEvent::Asks { id, what, fields } => {
-                        s.voice.questions.push((id, what, fields))
-                    }
-                    CallEvent::Asked { id, .. } => {
-                        s.voice.questions.retain(|(key, _, _)| *key != id)
-                    }
+                    CallEvent::Asks { id, question } => s.voice.questions.push((id, question)),
+                    CallEvent::Asked { id, .. } => s.voice.questions.retain(|(key, _)| *key != id),
                     CallEvent::Ended(why) => {
                         if why.is_some() {
                             s.voice.note = why;
@@ -477,7 +473,7 @@ pub(super) fn notices(s: &State, p: &Palette) -> Vec<El> {
                 .wrap(),
         );
     }
-    for (id, what, fields) in &s.voice.questions {
+    for (id, question) in &s.voice.questions {
         let mut card = col()
             .key(format!("voice-question-{id}"))
             .gap(6.0)
@@ -489,20 +485,34 @@ pub(super) fn notices(s: &State, p: &Palette) -> Vec<El> {
                     .font(type_::LABEL)
                     .color(p.amber),
             )
-            .child(text(what.clone()).font(type_::LABEL).color(p.text))
+            .child(text(question.what.clone()).font(type_::LABEL).color(p.text))
             .child(
                 text("A connector needs your approval. This action cannot be undone in Locust.")
                     .font(type_::LABEL)
                     .color(p.muted)
                     .wrap(),
             );
-        for (name, value) in fields {
+        if s.voice
+            .call
+            .as_ref()
+            .is_some_and(|call| call.conversation.is_none())
+            && !question.detail.is_empty()
+        {
             card = card.child(
-                text(format!("{name}: {value}"))
+                text(question.detail.clone())
                     .font(type_::LABEL)
                     .color(p.text)
                     .wrap(),
             );
+        } else {
+            for (name, value) in &question.fields {
+                card = card.child(
+                    text(format!("{name}: {value}"))
+                        .font(type_::LABEL)
+                        .color(p.text)
+                        .wrap(),
+                );
+            }
         }
         let allow = id.clone();
         let deny = id.clone();

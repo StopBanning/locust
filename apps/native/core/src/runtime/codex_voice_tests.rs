@@ -588,10 +588,10 @@ fn connector_mode_keeps_only_remote_servers_and_uses_low_effort() {
 }
 
 fn question(window: &CallWindow) -> (String, String, Vec<(String, String)>) {
-    let CallEvent::Asks { id, what, fields } = event(window) else {
+    let CallEvent::Asks { id, question } = event(window) else {
         panic!("expected a connector question");
     };
-    (id, what, fields)
+    (id, question.what, question.fields)
 }
 
 // case: asks the person before a connector changes anything, and does it only on Allow
@@ -830,4 +830,78 @@ fn the_teammate_voice_has_its_own_prompt_and_followup() {
     stop(&voice, &window, &fake);
     assert!(fake.0.join("addon-scope-closed").exists());
     assert!(fake.0.join("addon-closed").exists());
+}
+
+// case: say in the strip what they would do, from the question Codex asks
+#[test]
+fn connector_question_names_the_action_and_bounds_the_fields() {
+    let mut asked = json!({
+        "serverName":"codex_apps",
+        "mode":"form",
+        "message":"Allow the codex_apps MCP server to run tool \"gmail_send_email\"?",
+        "_meta":{
+            "codex_approval_kind":"mcp_tool_call",
+            "tool_params_display":[
+                {"display_name":"to","value":"a@example.com"}, // public-guard: allow (placeholder address in a test)
+                {"display_name":"subject","value":"Hi\nthere"}
+            ]
+        }
+    });
+    let question = connector_question(&asked).unwrap();
+    assert_eq!(question.what, "ChatGPT: gmail send email");
+    assert_eq!(question.detail, "to: a@example.com · subject: Hi there"); // public-guard: allow (placeholder address in a test)
+    assert_eq!(
+        question.fields,
+        [
+            ("to".into(), "a@example.com".into()),
+            ("subject".into(), "Hi there".into())
+        ] // public-guard: allow (placeholder address in a test)
+    );
+    let mut many = vec![
+        json!({"display_name":"quantity","value":1}),
+        json!({"value":"nameless"}),
+    ];
+    many.extend((0..9).map(|index| {
+        json!({
+            "display_name":format!("note {index}"),
+            "value":"x".repeat(700),
+        })
+    }));
+    asked["_meta"]["tool_params_display"] = json!(many);
+    let question = connector_question(&asked).unwrap();
+    assert_eq!(question.fields[0], ("quantity".into(), "1".into()));
+    assert_eq!(question.fields[1].0, "note 0");
+    assert_eq!(question.fields.len(), 8);
+    assert_eq!(
+        question.fields.iter().map(|(_, value)| value.len()).max(),
+        Some(600)
+    );
+    assert_eq!(question.detail.chars().count(), 400);
+    assert!(
+        question
+            .detail
+            .contains(&format!("{} · note 1: ", "x".repeat(160)))
+    );
+
+    for (server, tool, expected) in [
+        ("codex_apps", "gmail.send_email", "Gmail: send email"),
+        (
+            "codex_apps",
+            "google_calendar.create_event",
+            "Google calendar: create event",
+        ),
+        ("probe", "notes.send", "probe: notes.send"),
+    ] {
+        asked["serverName"] = json!(server);
+        asked["message"] = json!(format!(
+            "Allow the {server} MCP server to run tool \"{tool}\"?"
+        ));
+        assert_eq!(connector_question(&asked).unwrap().what, expected);
+    }
+    let mut wrong_mode = asked.clone();
+    wrong_mode["mode"] = json!("url");
+    assert!(connector_question(&wrong_mode).is_none());
+    asked["_meta"] = json!({});
+    assert!(connector_question(&asked).is_none());
+    assert!(connector_question(&json!("nothing")).is_none());
 }

@@ -43,8 +43,7 @@ pub enum CallEvent {
     },
     Asks {
         id: String,
-        what: String,
-        fields: Vec<(String, String)>,
+        question: ConnectorQuestion,
     },
     Asked {
         id: String,
@@ -631,12 +630,11 @@ impl Session<'_> {
                 return self.result(wire["id"].clone(), json!({"action":"accept","content":{}}));
             }
             if own_thread
-                && is_tool
                 && self.live
                 && self.connectors
                 && params["serverName"] != rules::ADD_ON_NAME
                 && self.pending.len() < 32
-                && let Some((what, fields)) = connector_question(params)
+                && let Some(question) = connector_question(params)
             {
                 let id = format!("call_{}", crate::invariants::unique_nanos());
                 self.pending.push(Pending {
@@ -644,7 +642,7 @@ impl Session<'_> {
                     wire_id: wire["id"].clone(),
                     deadline: Instant::now() + self.times.ask,
                 });
-                self.signals.event(CallEvent::Asks { id, what, fields });
+                self.signals.event(CallEvent::Asks { id, question });
                 return Ok(());
             }
             return self.result(wire["id"].clone(), json!({"action":"decline"}));
@@ -747,8 +745,16 @@ fn clean_words(value: &str, limit: usize) -> String {
         .collect()
 }
 
-fn connector_question(params: &Value) -> Option<(String, Vec<(String, String)>)> {
-    if params["mode"] != "form" {
+#[derive(Debug, PartialEq, Eq)]
+pub struct ConnectorQuestion {
+    pub what: String,
+    pub detail: String,
+    pub fields: Vec<(String, String)>,
+}
+
+fn connector_question(params: &Value) -> Option<ConnectorQuestion> {
+    let meta = &params["_meta"];
+    if params["mode"] != "form" || meta["codex_approval_kind"] != "mcp_tool_call" {
         return None;
     }
     let server = params["serverName"].as_str()?;
@@ -757,7 +763,16 @@ fn connector_question(params: &Value) -> Option<(String, Vec<(String, String)>)>
         .and_then(|matched| matched.get(1))
         .map(|name| name.as_str());
     let words = |text: &str| clean_words(&text.replace(['_', '-'], " "), 140);
-    let app_tool = tool.and_then(|tool| tool.split_once('.'));
+    let app_tool = tool
+        .and_then(|tool| tool.split_once('.'))
+        .filter(|(app, action)| {
+            !app.is_empty()
+                && app.len() <= 40
+                && app
+                    .bytes()
+                    .all(|c| c.is_ascii_alphanumeric() || c == b'_' || c == b'-')
+                && !action.is_empty()
+        });
     let (server, tool) = match (server, app_tool) {
         ("codex_apps", Some((app, action))) => {
             let app = words(app);
@@ -769,9 +784,17 @@ fn connector_question(params: &Value) -> Option<(String, Vec<(String, String)>)>
             (name, words(action))
         }
         ("codex_apps", None) => ("ChatGPT".into(), words(tool.unwrap_or("a tool"))),
-        (server, _) => (words(server), words(tool.unwrap_or("a tool"))),
+        (server, _) => {
+            let name = words(server);
+            let name = if name.is_empty() {
+                "A connector".into()
+            } else {
+                name
+            };
+            (name, words(tool.unwrap_or("a tool")))
+        }
     };
-    let fields = params["_meta"]["tool_params_display"]
+    let fields: Vec<_> = meta["tool_params_display"]
         .as_array()
         .into_iter()
         .flatten()
@@ -780,15 +803,28 @@ fn connector_question(params: &Value) -> Option<(String, Vec<(String, String)>)>
             if name.is_empty() {
                 return None;
             }
-            let value = &field["value"];
-            let value = value
-                .as_str()
-                .map_or_else(|| value.to_string(), str::to_owned);
+            let value = field.get("value").map_or_else(String::new, |value| {
+                value
+                    .as_str()
+                    .map_or_else(|| value.to_string(), str::to_owned)
+            });
             Some((name, clean_words(&value, 600)))
         })
         .take(8)
         .collect();
-    Some((clean_words(&format!("{server}: {tool}"), 140), fields))
+    let detail = fields
+        .iter()
+        .map(|(name, value)| format!("{name}: {}", value.chars().take(160).collect::<String>()))
+        .collect::<Vec<_>>()
+        .join(" · ")
+        .chars()
+        .take(400)
+        .collect();
+    Some(ConnectorQuestion {
+        what: clean_words(&format!("{server}: {tool}"), 140),
+        detail,
+        fields,
+    })
 }
 
 #[cfg(all(test, unix))]
