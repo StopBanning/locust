@@ -339,6 +339,51 @@ fn opencode_serve_streams_authenticated_sse() {
     reader_check(&store, "opencode_serve", "completed");
 }
 
+/// LIVE2 #12 (23 Nov): a thousand server events arriving while the engine is busy wait in the queue (Electron holds
+/// 20,000); the run completes instead of ending with "OpenCode sent output faster than Locust could record it".
+#[test]
+fn opencode_serve_waits_out_a_burst_while_the_engine_is_busy() {
+    let temp = Temp::new();
+    let store = Store::new(temp.0.join("native"), temp.0.join("electron")).unwrap();
+    std::fs::create_dir_all(store.electron()).unwrap();
+    let mut command = Command::new("python3");
+    command
+        .arg(fixture("m4-opencode-serve.py"))
+        .arg("serve")
+        .arg("flood")
+        .current_dir(&temp.0);
+    command.env("LOCUST_NATIVE_OPENCODE_PROTOCOL", "serve");
+    let mut rt = OpenCode::spawn(&mut command).unwrap();
+    let turn = Turn {
+        prompt: "Serve me".into(),
+        folder: temp.0.clone(),
+        model: Some("opencode/beam-free".into()),
+        effort: None,
+        resume: None,
+        mode: Mode::Ask,
+        approvals: None,
+        mission_id: "opencode_flood".into(),
+        run_id: "run_opencode_flood".into(),
+    };
+    let mut writer = LedgerWriter::create_runtime(
+        &store,
+        "opencode_flood",
+        &turn.prompt,
+        "opencode/beam-free",
+        "fake-opencode",
+        "opencode",
+        &[],
+        None,
+    )
+    .unwrap();
+    rt.start(&turn).unwrap();
+    // The engine is busy: nothing reads while the server sends its burst.
+    std::thread::sleep(Duration::from_millis(1500));
+    let events = drive(&mut rt, &mut writer, &Channel::new(), "opencode_flood");
+    let last = events.last().unwrap();
+    assert_eq!(last.kind, "run.completed", "{:?}", last.payload);
+}
+
 #[test]
 fn opencode_serve_permission_asked_raises_card_with_always_key_and_reply() {
     let temp = Temp::new();

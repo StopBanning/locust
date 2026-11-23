@@ -22,6 +22,8 @@ pub mod opencode;
 pub mod opencode_config;
 pub mod opencode_events;
 pub mod opencode_serve;
+#[cfg(test)]
+mod opencode_serve_queue_tests;
 pub mod process;
 pub mod version;
 use crate::approval::{Channel, Mode};

@@ -380,60 +380,14 @@ impl Serve {
             .set("authorization", &api.auth)
             .call()
             .map_err(err)?;
-        let (tx, rx) = mpsc::sync_channel(256);
+        let (tx, rx) = event_channel();
         self.rx = Some(rx);
         let gone = self.stream_ended.clone();
         let end = self.own_end.clone();
         let sid = self.session_shared.clone();
         let overflow = self.overflow.clone();
         std::thread::spawn(move || {
-            let mut r = BufReader::new(response.into_reader());
-            let mut data = String::new();
-            loop {
-                let mut line = vec![];
-                match (&mut r)
-                    .take(8 * 1024 * 1024 + 1)
-                    .read_until(b'\n', &mut line)
-                {
-                    Ok(0) => break,
-                    Err(_) => break,
-                    Ok(_) if line.len() > 8 * 1024 * 1024 => {
-                        overflow.store(true, Ordering::Relaxed);
-                        break;
-                    }
-                    _ => {}
-                }
-                let line = String::from_utf8_lossy(&line);
-                if line.trim().is_empty() {
-                    if data.is_empty() {
-                        continue;
-                    }
-                    let parsed = serde_json::from_str::<Value>(&data);
-                    data.clear();
-                    if let Ok(v) = parsed {
-                        if v["type"] == "session.idle"
-                            && crate::invariants::lock(&sid).as_deref()
-                                == v["properties"]["sessionID"].as_str()
-                        {
-                            end.store(true, Ordering::Relaxed);
-                        }
-                        match tx.try_send(Ok(v)) {
-                            Ok(()) => {}
-                            Err(mpsc::TrySendError::Full(_)) => {
-                                overflow.store(true, Ordering::Relaxed);
-                                break;
-                            }
-                            Err(_) => break,
-                        }
-                    }
-                } else if let Some(s) = line.strip_prefix("data:") {
-                    if data.len() + s.len() > 8 * 1024 * 1024 {
-                        overflow.store(true, Ordering::Relaxed);
-                        break;
-                    }
-                    data.push_str(s.trim());
-                }
-            }
+            read_events(BufReader::new(response.into_reader()), &tx, &end, &sid, &overflow);
             gone.store(true, Ordering::Relaxed);
         });
         self.session = if let Some(id) = &t.resume {
@@ -1005,3 +959,67 @@ pub fn rejection_message(mode: Mode, a_person_was_asked: bool) -> String {
 #[cfg(test)]
 #[path = "opencode_refusal_tests.rs"]
 mod refusal_tests;
+
+/// opencode-serve-run.ts `NotificationQueue(20_000)`: how many server events may wait for the engine before the run
+/// ends rather than leave a gap in its record. 256 ended long runs whenever the machine was busy (LIVE2 #12, 23 Nov).
+pub(crate) const MAX_QUEUED_EVENTS: usize = 20_000;
+
+pub(crate) fn event_channel() -> (mpsc::SyncSender<io::Result<Value>>, Receiver<io::Result<Value>>) {
+    mpsc::sync_channel(MAX_QUEUED_EVENTS)
+}
+
+/// Reads the server's event stream into the queue until it ends, overflows or nobody is listening.
+pub(crate) fn read_events(
+    mut r: impl BufRead,
+    tx: &mpsc::SyncSender<io::Result<Value>>,
+    end: &AtomicBool,
+    sid: &Mutex<Option<String>>,
+    overflow: &AtomicBool,
+) {
+    let mut data = String::new();
+    loop {
+        let mut line = vec![];
+        match (&mut r)
+            .take(8 * 1024 * 1024 + 1)
+            .read_until(b'\n', &mut line)
+        {
+            Ok(0) => break,
+            Err(_) => break,
+            Ok(_) if line.len() > 8 * 1024 * 1024 => {
+                overflow.store(true, Ordering::Relaxed);
+                break;
+            }
+            _ => {}
+        }
+        let line = String::from_utf8_lossy(&line);
+        if line.trim().is_empty() {
+            if data.is_empty() {
+                continue;
+            }
+            let parsed = serde_json::from_str::<Value>(&data);
+            data.clear();
+            if let Ok(v) = parsed {
+                if v["type"] == "session.idle"
+                    && crate::invariants::lock(sid).as_deref()
+                        == v["properties"]["sessionID"].as_str()
+                {
+                    end.store(true, Ordering::Relaxed);
+                }
+                match tx.try_send(Ok(v)) {
+                    Ok(()) => {}
+                    Err(mpsc::TrySendError::Full(_)) => {
+                        overflow.store(true, Ordering::Relaxed);
+                        break;
+                    }
+                    Err(_) => break,
+                }
+            }
+        } else if let Some(s) = line.strip_prefix("data:") {
+            if data.len() + s.len() > 8 * 1024 * 1024 {
+                overflow.store(true, Ordering::Relaxed);
+                break;
+            }
+            data.push_str(s.trim());
+        }
+    }
+}
