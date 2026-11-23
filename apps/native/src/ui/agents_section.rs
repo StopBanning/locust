@@ -75,11 +75,17 @@ pub(super) fn request(s: &mut State) {
     if !s.settings_panel.agents_job.is_pending() {
         // A sweep that could not run leaves the list as it was (the service's generic DISCOVERY_FAILED).
         let held = s.settings_panel.agents.clone().unwrap_or_default();
-        s.settings_panel.agents_job.request((service, held), |(service, held)| {
+        let first_start = opencode_first_start();
+        s.settings_panel.agents_job.request((service, held, first_start), |(service, held, first_start)| {
             // Whether npm can run is asked with the agents, off the window's thread, and remembered (npm_check).
             #[cfg(not(test))]
             locust_core::npm_check::this_machine().present();
-            service.get().unwrap_or(held)
+            let answer = service.get().unwrap_or(held);
+            // OpenCode's first-start set-up, as the window finds it ready, not when a turn starts (index.ts:4771).
+            if let Some(first_start) = &first_start {
+                locust_core::opencode_first_start::after_discovery(&answer, first_start);
+            }
+            answer
         });
     }
 }
@@ -95,6 +101,28 @@ pub(super) fn use_discovery(service: discovery_service::DiscoveryService) -> &'s
     let service: &'static discovery_service::DiscoveryService = Box::leak(Box::new(service));
     DISCOVERY_STAND_IN.with(|c| c.set(Some(service)));
     service
+}
+
+#[cfg(test)]
+thread_local! {
+    static FIRST_START_STAND_IN: std::cell::RefCell<Option<std::sync::Arc<locust_core::opencode_first_start::OpenCodeFirstStart>>> = const { std::cell::RefCell::new(None) };
+}
+
+/// A window test's own OpenCode set-up, on fakes, for this test's thread only. With none, a test sets nothing up.
+#[cfg(test)]
+pub(super) fn use_opencode_first_start(first_start: locust_core::opencode_first_start::OpenCodeFirstStart) {
+    FIRST_START_STAND_IN.with(|c| *c.borrow_mut() = Some(std::sync::Arc::new(first_start)));
+}
+
+/// OpenCode's first-start set-up (opencode-first-start.ts), which a discovery answer may start.
+#[cfg(test)]
+fn opencode_first_start() -> Option<std::sync::Arc<locust_core::opencode_first_start::OpenCodeFirstStart>> {
+    FIRST_START_STAND_IN.with(|c| c.borrow().clone())
+}
+
+#[cfg(not(test))]
+fn opencode_first_start() -> Option<std::sync::Arc<locust_core::opencode_first_start::OpenCodeFirstStart>> {
+    Some(locust_core::opencode_first_start::shared())
 }
 
 /// The agents' answer as the window asks for it (runtime-discovery.ts): shared while a sweep runs, reused briefly.
@@ -869,6 +897,10 @@ mod agents_probe_tests;
 #[cfg(test)]
 #[path = "agents_abilities_tests.rs"]
 mod agents_abilities_tests;
+
+#[cfg(test)]
+#[path = "agents_opencode_first_start_tests.rs"]
+mod agents_opencode_first_start_tests;
 
 #[cfg(test)]
 #[path = "signing_in_is_a_button_tests.rs"]

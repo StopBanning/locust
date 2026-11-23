@@ -506,6 +506,37 @@ impl UpdaterLike for MacUpdater {
     }
 }
 
+/// The self-updater for this copy, reading `feed`, when it runs from a `Locust.app` it can replace; None otherwise.
+/// Only `updates::app_updater` asks for it, and only once the self-update switch is on with a feed set. It reads the
+/// releases list and nothing more: download, disk-image and swap seams stay unset, so it never downloads or replaces
+/// anything (each refuses with `NO_FEED_MESSAGE`).
+pub fn this_mac(feed: &str, current_version: &str) -> Option<MacUpdater> {
+    let exec = std::env::current_exe().ok()?;
+    let bundle = mac_self_update_target(&exec.to_string_lossy(), |folder| {
+        std::fs::metadata(folder).is_ok_and(|facts| !facts.permissions().readonly())
+    })?;
+    let cache_folder = crate::store::Store::local().ok()?.root().join("mac-updates");
+    let feed = feed.to_owned();
+    let fetch: FetchReleasesFn = Arc::new(move || {
+        let agent = ureq::AgentBuilder::new().timeout(std::time::Duration::from_secs(30)).build();
+        agent.get(&feed).call().map_err(|e| e.to_string())?.into_json::<serde_json::Value>().map_err(|e| e.to_string())
+    });
+    Some(create_mac_updater(MacUpdaterOptions {
+        current_version: current_version.to_owned(),
+        arch: if cfg!(target_arch = "aarch64") { "arm64" } else { "x64" }.to_owned(),
+        bundle: PathBuf::from(bundle),
+        cache_folder,
+        quit: Arc::new(|| {}),
+        pid: Some(std::process::id()),
+        fetch_releases: Some(fetch),
+        download: None,
+        run: None,
+        start_swap: None,
+        test_image: None,
+        relaunch: Vec::new(),
+    }))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

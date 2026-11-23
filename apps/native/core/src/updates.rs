@@ -458,6 +458,69 @@ impl UpdaterLike for NoFeedUpdater {
     fn on(&mut self, _event: &str, _listener: EventListener) {}
 }
 
+/// The switch that puts the Mac self-updater (`mac_self_update.rs`) in `NoFeedUpdater`'s place. OFF unless this is
+/// `1` AND [`SELF_UPDATE_FEED`] names a feed: with no feed set nothing is fetched, downloaded or replaced.
+pub const SELF_UPDATE_SWITCH: &str = "LOCUST_NATIVE_SELF_UPDATE";
+/// The releases list the switched-on updater reads (the shape of `MAC_RELEASES_API`).
+pub const SELF_UPDATE_FEED: &str = "LOCUST_NATIVE_UPDATE_FEED";
+
+/// The feed this copy may update itself from: only when the switch is on and a feed is set, else None.
+pub fn self_update_feed(get: impl Fn(&str) -> Option<String>) -> Option<String> {
+    if get(SELF_UPDATE_SWITCH).as_deref() != Some("1") {
+        return None;
+    }
+    get(SELF_UPDATE_FEED).map(|feed| feed.trim().to_owned()).filter(|feed| !feed.is_empty())
+}
+
+/// The updater the app's service runs (Electron's `updater:` in main/index.ts): the Mac self-updater when there is a
+/// feed and `mac` can make one for this copy, else `NoFeedUpdater`. `mac` is never asked without a feed.
+pub fn app_updater<M: UpdaterLike + 'static>(feed: Option<&str>, mac: impl FnOnce(&str) -> Option<M>) -> Option<Box<dyn UpdaterLike>> {
+    let feed = feed?;
+    mac(feed).map(|updater| Box::new(updater) as Box<dyn UpdaterLike>)
+}
+
+/// The app's update service: switched off (the default) it is `NoFeedUpdater`, held back as `NoFeed`, and never asks
+/// any updater anything; switched on with a feed, the Mac self-updater runs in its place.
+pub fn app_update_service<M: UpdaterLike + 'static>(
+    feed: Option<&str>,
+    mac: impl FnOnce(&str) -> Option<M>,
+    current_version: &str,
+    live_mission_count: LiveMissionCountFn,
+    request_quit: RequestQuitFn,
+) -> UpdateService<Box<dyn UpdaterLike>> {
+    let chosen = app_updater(feed, mac);
+    let supported = chosen.is_some();
+    create_update_service(UpdateServiceOptions {
+        updater: chosen.unwrap_or_else(|| Box::new(NoFeedUpdater::default())),
+        current_version: current_version.to_owned(),
+        supported,
+        held_back: (!supported).then_some(HeldBack::NoFeed),
+        check_only: false,
+        package_url: None,
+        live_mission_count,
+        request_quit,
+        on_state_change: None,
+        every_build: false,
+    })
+}
+
+/// This copy's update service, on this Mac: the switch and feed read from the environment, the self-updater made by
+/// `mac_self_update::this_mac` only when both are set.
+pub fn this_copys_update_service(
+    current_version: &str,
+    live_mission_count: LiveMissionCountFn,
+    request_quit: RequestQuitFn,
+) -> UpdateService<Box<dyn UpdaterLike>> {
+    let feed = self_update_feed(|name| std::env::var(name).ok());
+    app_update_service(
+        feed.as_deref(),
+        |feed| crate::mac_self_update::this_mac(feed, current_version),
+        current_version,
+        live_mission_count,
+        request_quit,
+    )
+}
+
 /// Whether a periodic look should happen now (`periodicCheckDue` in `main/updates.ts`): never while a teammate is
 /// working, and never while a check is under way or a version is found or coming down.
 pub fn periodic_check_due(state: &AppUpdateState, live_missions: usize) -> bool {
@@ -2239,3 +2302,7 @@ mod testers_get_one_build_a_day_tests {
         assert_eq!(fake.channel().as_deref(), Some("beta"));
     }
 }
+
+#[cfg(test)]
+#[path = "updates_self_update_switch_tests.rs"]
+mod self_update_switch_tests;
