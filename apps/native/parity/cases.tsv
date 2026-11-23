@@ -6952,6 +6952,15 @@ packages/runtime-adapters/test/copilot-events.test.ts	is still closed by its com
 packages/runtime-adapters/test/copilots-new-records-are-not-news.test.ts	say nothing: a model call that succeeded, a command's output as it ran, and an empty background notice	no
 packages/runtime-adapters/test/copilots-new-records-are-not-news.test.ts	still say so when a model call did not succeed, or a background notice carries something	yes
 packages/runtime-adapters/test/copilots-search-index-record-is-not-news.test.ts	says nothing and keeps nothing	no
+packages/runtime-adapters/test/cursor-connectors.test.ts	reads a server and its status	yes
+packages/runtime-adapters/test/cursor-connectors.test.ts	keeps a working server, and does not call it unauthenticated	yes
+packages/runtime-adapters/test/cursor-connectors.test.ts	ignores blank lines and prose	yes
+packages/runtime-adapters/test/cursor-connectors.test.ts	says nothing when every connector is fine	yes
+packages/runtime-adapters/test/cursor-connectors.test.ts	names the server and stops short of prescribing a fix	yes
+packages/runtime-adapters/test/cursor-connectors.test.ts	names every waiting server when there are several	yes
+packages/runtime-adapters/test/cursor-connectors.test.ts	names the ready ones, so nobody has to know a config file	yes
+packages/runtime-adapters/test/cursor-connectors.test.ts	never names one that cannot be called	yes
+packages/runtime-adapters/test/cursor-connectors.test.ts	says nothing at all when nothing is ready	yes
 packages/runtime-adapters/test/cursor-events.test.ts	keeps input, output, cache read and cache write counts from the result line	no
 packages/runtime-adapters/test/cursor-events.test.ts	does not invent token counts when result usage is omitted	no
 packages/runtime-adapters/test/cursor-events.test.ts	preserves explicit zero counts and drops nonnumeric values	no

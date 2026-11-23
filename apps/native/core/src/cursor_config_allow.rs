@@ -721,3 +721,7 @@ pub fn run_cursor_mcp_list() -> Option<String> {
 #[cfg(test)]
 #[path = "cursor_config_allow_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "cursor_connectors_tests.rs"]
+mod cursor_connectors_tests;
