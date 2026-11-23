@@ -4049,6 +4049,13 @@ apps/desktop/src/renderer/src/a-row-repeats-nothing-its-heading-says.test.tsx	dr
 apps/desktop/src/renderer/src/a-row-repeats-nothing-its-heading-says.test.tsx	treats a repeated runtime name as the heading, and a limit or an endpoint as news	yes
 apps/desktop/src/renderer/src/a-run-a-teammate-stopped-does-not-say-you.test.tsx	says "You" for a Stop the person pressed	no
 apps/desktop/src/renderer/src/a-run-a-teammate-stopped-does-not-say-you.test.tsx	does not, for a run stopped by anything else	no
+apps/desktop/src/renderer/src/a-runtime-declares-what-it-can-do.test.ts	answers exactly as the if-chain did, except where a claim was corrected on purpose	yes
+apps/desktop/src/renderer/src/a-runtime-declares-what-it-can-do.test.ts	claims nothing for a runtime no mission can run under	yes
+apps/desktop/src/renderer/src/a-runtime-declares-what-it-can-do.test.ts	offers a runtime only the modes someone has actually run under it	yes
+apps/desktop/src/renderer/src/a-runtime-declares-what-it-can-do.test.ts	keeps plan available exactly where ask is, and never apart from it	yes
+apps/desktop/src/renderer/src/a-runtime-declares-what-it-can-do.test.ts	says how it knows, for every runtime	yes
+apps/desktop/src/renderer/src/a-runtime-declares-what-it-can-do.test.ts	names the runtime the person chose when it refuses a mode	yes
+apps/desktop/src/renderer/src/a-runtime-declares-what-it-can-do.test.ts	bars nothing by platform now: Cursor answers read-only everywhere (0.485)	yes
 apps/desktop/src/renderer/src/a-runtime-gap-is-not-the-teammate.test.tsx	draws the marker as a note	yes
 apps/desktop/src/renderer/src/a-runtime-gap-is-not-the-teammate.test.tsx	keeps every other word of the reply	yes
 apps/desktop/src/renderer/src/a-runtime-gap-is-not-the-teammate.test.tsx	leaves a sentence that merely mentions truncation alone	yes

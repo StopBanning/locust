@@ -98,29 +98,126 @@ pub fn mode_sentence(mode: &str) -> &'static str {
     fact(mode).sentence
 }
 
+/// How a runtime's declared capability row is backed (`status.ts` `RuntimeCapabilities.evidence`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CapabilityEvidence {
+    Measured,
+    Unproven,
+}
+
+/// One runtime's declared capabilities (`status.ts` `RuntimeCapabilities`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RuntimeCapabilities {
+    pub runtime: &'static str,
+    pub modes: &'static [&'static str],
+    pub evidence: CapabilityEvidence,
+    /// Platform-specific mode bars: `(platform, barred_modes)`.
+    pub not_on: &'static [(&'static str, &'static [&'static str])],
+}
+
 /// RUNTIME_CAPABILITIES: the modes each agent was measured running (Plan follows Ask).
-fn modes_of(runtime: &str) -> &'static [&'static str] {
-    match runtime {
-        "codex" | "claude" | "opencode" | "copilot" => &["ask", "accept-edits", "auto", "approve-each"],
-        "cursor" | "antigravity" | "muse" | "kilo" => &["ask", "accept-edits", "auto"],
-        "acp" => &["approve-each"],
-        // It only talks (runtime::apple).
-        "apple" => &["ask"],
-        _ => &[],
+pub const RUNTIME_CAPABILITIES: &[RuntimeCapabilities] = &[
+    RuntimeCapabilities {
+        runtime: "codex",
+        modes: &["ask", "accept-edits", "auto", "approve-each"],
+        evidence: CapabilityEvidence::Measured,
+        not_on: &[],
+    },
+    RuntimeCapabilities {
+        runtime: "claude",
+        modes: &["ask", "accept-edits", "auto", "approve-each"],
+        evidence: CapabilityEvidence::Measured,
+        not_on: &[],
+    },
+    RuntimeCapabilities {
+        runtime: "cursor",
+        modes: &["ask", "accept-edits", "auto"],
+        evidence: CapabilityEvidence::Measured,
+        not_on: &[],
+    },
+    RuntimeCapabilities {
+        runtime: "gemini",
+        modes: &[],
+        evidence: CapabilityEvidence::Unproven,
+        not_on: &[],
+    },
+    RuntimeCapabilities {
+        runtime: "opencode",
+        modes: &["ask", "accept-edits", "auto", "approve-each"],
+        evidence: CapabilityEvidence::Measured,
+        not_on: &[],
+    },
+    RuntimeCapabilities {
+        runtime: "copilot",
+        modes: &["ask", "accept-edits", "auto", "approve-each"],
+        evidence: CapabilityEvidence::Measured,
+        not_on: &[],
+    },
+    RuntimeCapabilities {
+        runtime: "antigravity",
+        modes: &["ask", "accept-edits", "auto"],
+        evidence: CapabilityEvidence::Measured,
+        not_on: &[],
+    },
+    RuntimeCapabilities {
+        runtime: "muse",
+        modes: &["ask", "accept-edits", "auto"],
+        evidence: CapabilityEvidence::Measured,
+        not_on: &[],
+    },
+    RuntimeCapabilities {
+        runtime: "kilo",
+        modes: &["ask", "accept-edits", "auto"],
+        evidence: CapabilityEvidence::Unproven,
+        not_on: &[],
+    },
+    RuntimeCapabilities {
+        runtime: "acp",
+        modes: &["approve-each"],
+        evidence: CapabilityEvidence::Measured,
+        not_on: &[],
+    },
+    // It only talks (runtime::apple).
+    RuntimeCapabilities {
+        runtime: "apple",
+        modes: &["ask"],
+        evidence: CapabilityEvidence::Measured,
+        not_on: &[],
+    },
+];
+
+/// Look up a runtime's declared capability row.
+pub fn runtime_capabilities(runtime: &str) -> Option<&'static RuntimeCapabilities> {
+    RUNTIME_CAPABILITIES.iter().find(|entry| entry.runtime == runtime)
+}
+
+/// modeRunsOn with an explicit platform (`status.ts` `modeRunsOn`): Plan runs exactly where Ask runs.
+pub fn runs_on_platform(mode: &str, runtime: &str, platform: Option<&str>) -> bool {
+    if mode == "plan" {
+        return runs_on_platform("ask", runtime, platform);
     }
+    let Some(facts) = runtime_capabilities(runtime) else {
+        return false;
+    };
+    if !facts.modes.contains(&mode) {
+        return false;
+    }
+    if let Some(p) = platform {
+        if facts.not_on.iter().any(|(plat, barred)| *plat == p && barred.contains(&mode)) {
+            return false;
+        }
+    }
+    true
 }
 
 /// modeRunsOn: Plan exactly where read-only containment is real (where Ask runs).
 pub fn runs_on(mode: &str, runtime: &str) -> bool {
-    if mode == "plan" {
-        return runs_on("ask", runtime);
-    }
-    modes_of(runtime).contains(&mode)
+    runs_on_platform(mode, runtime, None)
 }
 
-/// modeUnavailableReason: why the menu greys a mode out for this agent, or None when it runs.
-pub fn unavailable_reason(mode: &str, runtime: &str) -> Option<String> {
-    if runs_on(mode, runtime) {
+/// modeUnavailableReason with an explicit platform (`status.ts` `modeUnavailableReason`).
+pub fn unavailable_reason_on(mode: &str, runtime: &str, platform: Option<&str>) -> Option<String> {
+    if runs_on_platform(mode, runtime, platform) {
         return None;
     }
     let label = crate::carry_on::display_name(runtime);
@@ -130,6 +227,11 @@ pub fn unavailable_reason(mode: &str, runtime: &str) -> Option<String> {
         _ if runtime == "antigravity" => "Antigravity CLI runs this mode; without it, Antigravity runs only in Edit.".into(),
         _ => "Cursor Agent cannot be kept read-only on Windows: that needs macOS or Linux, and its plan mode alone does not stop it editing files.".into(),
     })
+}
+
+/// modeUnavailableReason: why the menu greys a mode out for this agent, or None when it runs.
+pub fn unavailable_reason(mode: &str, runtime: &str) -> Option<String> {
+    unavailable_reason_on(mode, runtime, None)
 }
 
 /// `Composer.tsx` `connectorsNote`: what the chosen mode does to connectors, per runtime.
@@ -268,6 +370,118 @@ mod tests {
     fn leaves_the_claude_sentence_exactly_as_it_was() {
         assert_eq!(connectors_note("claude", "auto", true), connectors_note("claude", "auto", false));
         assert!(connectors_note("claude", "auto", true).unwrap().contains("work here"));
+    }
+
+    // --- a-runtime-declares-what-it-can-do.test.ts
+
+    // case: answers exactly as the if-chain did, except where a claim was corrected on purpose
+    #[test]
+    fn answers_exactly_as_the_if_chain_did_except_where_a_claim_was_corrected_on_purpose() {
+        let expected_by_runtime: &[(&str, &[&str])] = &[
+            ("codex", &["ask", "accept-edits", "approve-each", "plan", "auto"]),
+            ("claude", &["ask", "accept-edits", "approve-each", "plan", "auto"]),
+            ("cursor", &["ask", "accept-edits", "plan", "auto"]),
+            ("gemini", &[]),
+            ("opencode", &["ask", "accept-edits", "approve-each", "plan", "auto"]),
+            ("copilot", &["ask", "accept-edits", "approve-each", "plan", "auto"]),
+            ("antigravity", &["ask", "plan", "accept-edits", "auto"]),
+        ];
+        for platform in ["win32", "darwin"] {
+            for (runtime, want) in expected_by_runtime {
+                let mut actual: Vec<&str> = EVERY_MODE
+                    .iter()
+                    .copied()
+                    .filter(|mode| runs_on_platform(mode, runtime, Some(platform)))
+                    .collect();
+                let mut want_sorted = want.to_vec();
+                actual.sort_unstable();
+                want_sorted.sort_unstable();
+                assert_eq!(actual, want_sorted, "{runtime} on {platform}");
+            }
+        }
+    }
+
+    // case: claims nothing for a runtime no mission can run under
+    #[test]
+    fn claims_nothing_for_a_runtime_no_mission_can_run_under() {
+        assert_eq!(runtime_capabilities("gemini").unwrap().modes, &[] as &[&str]);
+        for mode in EVERY_MODE {
+            assert!(!runs_on_platform(mode, "gemini", Some("win32")), "gemini must not claim {mode}");
+        }
+    }
+
+    // case: offers a runtime only the modes someone has actually run under it
+    #[test]
+    fn offers_a_runtime_only_the_modes_someone_has_actually_run_under_it() {
+        let muse = runtime_capabilities("muse").unwrap();
+        assert_eq!(muse.modes, &["ask", "accept-edits", "auto"]);
+        assert_eq!(muse.evidence, CapabilityEvidence::Measured);
+        assert!(runs_on_platform("plan", "muse", Some("win32")));
+        assert!(runs_on_platform("auto", "muse", Some("win32")));
+        assert!(!runs_on_platform("approve-each", "muse", Some("win32")));
+    }
+
+    // case: keeps plan available exactly where ask is, and never apart from it
+    #[test]
+    fn keeps_plan_available_exactly_where_ask_is_and_never_apart_from_it() {
+        for platform in [Some("win32"), Some("darwin"), None] {
+            for entry in RUNTIME_CAPABILITIES {
+                assert_eq!(
+                    runs_on_platform("plan", entry.runtime, platform),
+                    runs_on_platform("ask", entry.runtime, platform),
+                    "{} on {:?}",
+                    entry.runtime,
+                    platform
+                );
+            }
+        }
+    }
+
+    // case: says how it knows, for every runtime
+    #[test]
+    fn says_how_it_knows_for_every_runtime() {
+        for entry in RUNTIME_CAPABILITIES {
+            assert!(
+                matches!(entry.evidence, CapabilityEvidence::Measured | CapabilityEvidence::Unproven),
+                "{} has no evidence",
+                entry.runtime
+            );
+        }
+        assert_eq!(runtime_capabilities("gemini").unwrap().evidence, CapabilityEvidence::Unproven);
+    }
+
+    // case: names the runtime the person chose when it refuses a mode
+    #[test]
+    fn names_the_runtime_the_person_chose_when_it_refuses_a_mode() {
+        for entry in RUNTIME_CAPABILITIES {
+            for mode in EVERY_MODE {
+                let Some(reason) = unavailable_reason_on(mode, entry.runtime, Some("win32")) else {
+                    continue;
+                };
+                if entry.runtime == "codex" {
+                    continue;
+                }
+                let about_this_runtime = if mode == "approve-each" {
+                    reason.replace("Claude Code, Codex CLI, OpenCode and Copilot CLI only.", "")
+                } else {
+                    reason.clone()
+                };
+                assert!(!about_this_runtime.contains("Codex CLI"), "{} / {mode}: {reason}", entry.runtime);
+            }
+        }
+        assert!(
+            unavailable_reason_on("approve-each", "muse", Some("win32"))
+                .unwrap()
+                .contains("Muse Code cannot stop and ask")
+        );
+    }
+
+    // case: bars nothing by platform now: Cursor answers read-only everywhere (0.485)
+    #[test]
+    fn bars_nothing_by_platform_now_cursor_answers_read_only_everywhere_0_485() {
+        for platform in [Some("win32"), Some("darwin"), Some("linux"), None] {
+            assert!(runs_on_platform("ask", "cursor", platform));
+        }
     }
 }
 
