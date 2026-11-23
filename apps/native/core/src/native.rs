@@ -2403,11 +2403,24 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
     if !supported(&job.teammate) {
         return Err(format!("{} runs in Locust for now.", job.teammate.name));
     }
-    let effective_account = match &origin.account {
+    let mut effective_account = match &origin.account {
         Some(explicit) => explicit.clone(),
         None if own_agent => job.teammate.account.clone(),
         None => None,
     };
+    // A NEW conversation that names no account runs on the agent's `forNew` account (Electron 0.876), before the
+    // policy gate so it judges the real account. Never a reply, rewind or side question.
+    let is_new_conversation = job.conversation.is_none()
+        && origin.rewind.is_none()
+        && crate::side_question::parse_started_by(origin.started_by.as_ref()).is_none();
+    if is_new_conversation && origin.account.is_none() && effective_account.is_none() {
+        let runtime = job.teammate.runtime.as_deref().unwrap_or("codex");
+        if crate::agent_accounts::Agent::parse(runtime).is_some()
+            && let Ok(Some(for_new)) = accounts_for(&store).for_new(runtime)
+        {
+            effective_account = Some(for_new);
+        }
+    }
     // Asking Scout always runs in Ask mode (read-only) and sealed against tools/connectors,
     // with its 14-day look log brief passed via slot.instructions, before policy evaluation. An app's own work sent
     // through the door is not asking Scout (asks_scout).

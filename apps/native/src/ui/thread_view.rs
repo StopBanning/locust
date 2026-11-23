@@ -186,15 +186,7 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
                 .wrap_anywhere()
                 .selectable(true),
         );
-        // Which engine this window is on, always visible (AGENTS.md: a switch is never silent).
-        if let Some(kind) = s.engine {
-            status = status.child(
-                text(kind.label())
-                    .key("engine-label")
-                    .font(type_::LABEL)
-                    .color(p.muted),
-            );
-        }
+        // Electron shows no engine builder's label on conversation screens (LIVE2 #6); Kind::label() stays off-screen.
 
         if let Some(context) = context_ring::control(s, p) {
             status = status.child(context);
@@ -1822,6 +1814,10 @@ mod free_answered_tests {
 #[cfg(test)]
 #[path = "plus_menu_words_tests.rs"]
 mod plus_menu_words_tests;
+
+#[cfg(test)]
+#[path = "live2_engine_label_tests.rs"]
+mod live2_engine_label_tests;
 
 /// The message field's line: its own line height, or 1.25 times its size when it names none (Rune's rule).
 fn composer_line_height() -> f32 {

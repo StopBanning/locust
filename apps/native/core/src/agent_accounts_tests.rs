@@ -250,3 +250,47 @@ fn runs_each_documented_login_hidden_with_its_home_and_reports_only_whether_it_w
         assert_eq!(fields[3], home.to_string_lossy());
     }
 }
+
+#[test]
+fn for_new_moves_on_first_sign_in_and_respects_use_for_new_and_ready_state() {
+    let s = scratch();
+    let (accounts, sign) = accounts(&s.0);
+    let max = accounts.add("claude", "max").unwrap();
+    assert_eq!(accounts.for_new("claude").unwrap(), None);
+    // Failed sign-in leaves for_new unset.
+    accounts.login(&max.id).unwrap();
+    (sign.dones.lock().unwrap().remove(0))(false);
+    assert_eq!(accounts.for_new("claude").unwrap(), None);
+    // First successful sign-in claims for_new.
+    accounts.login(&max.id).unwrap();
+    (sign.dones.lock().unwrap().remove(0))(true);
+    assert_eq!(accounts.for_new("claude").unwrap().as_deref(), Some(max.id.as_str()));
+    // Second signed-in account does not steal for_new.
+    let personal = accounts.add("claude", "Personal").unwrap();
+    accounts.login(&personal.id).unwrap();
+    (sign.dones.lock().unwrap().remove(0))(true);
+    assert_eq!(accounts.for_new("claude").unwrap().as_deref(), Some(max.id.as_str()));
+    // use_for_new switches to Personal, or back to None (This Mac's sign-in).
+    accounts.use_for_new("claude", Some(&personal.id)).unwrap();
+    assert_eq!(accounts.for_new("claude").unwrap().as_deref(), Some(personal.id.as_str()));
+    // Unrelated agent choice stays independent; wrong agent or unsigned account refused.
+    let codex = accounts.add("codex", "Plus").unwrap();
+    accounts.login(&codex.id).unwrap();
+    (sign.dones.lock().unwrap().remove(0))(true);
+    let fresh = accounts.add("claude", "Fresh").unwrap();
+    assert_eq!(
+        accounts.use_for_new("claude", Some(&fresh.id)).unwrap_err(),
+        "Sign in to Fresh first. New conversations are unchanged."
+    );
+    assert_eq!(accounts.use_for_new("claude", Some(&codex.id)).unwrap_err(), OTHER_AGENT_FOR_NEW);
+    assert_eq!(accounts.use_for_new("cursor", None).unwrap_err(), NOT_SUPPORTED);
+    // Re-signing in makes it Waiting, so for_new returns None until ready again.
+    accounts.login(&personal.id).unwrap();
+    assert_eq!(accounts.for_new("claude").unwrap(), None);
+    (sign.dones.lock().unwrap().remove(0))(true);
+    assert_eq!(accounts.for_new("claude").unwrap().as_deref(), Some(personal.id.as_str()));
+    // Clearing claude leaves codex untouched.
+    accounts.use_for_new("claude", None).unwrap();
+    assert_eq!(accounts.for_new("claude").unwrap(), None);
+    assert_eq!(accounts.for_new("codex").unwrap().as_deref(), Some(codex.id.as_str()));
+}

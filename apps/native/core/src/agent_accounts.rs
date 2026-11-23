@@ -23,6 +23,7 @@ pub const BUSY_REMOVE: &str = "This agent is busy. Stop its runs and sign-in bef
 pub const BUSY_LOGIN: &str = "This agent is busy. Finish its runs before signing in again.";
 pub const NO_SIGN_IN: &str = "The agent could not open its sign-in. Your other accounts are unchanged.";
 pub const OTHER_AGENT: &str = "That account belongs to another agent. Nothing was started.";
+pub const OTHER_AGENT_FOR_NEW: &str = "That account belongs to another agent. New conversations are unchanged.";
 pub const IN_PROGRESS: &str = "This account is being removed or signed in. Finish that first. Nothing was started.";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -165,6 +166,12 @@ pub struct Accounts {
     serial: Arc<Mutex<()>>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct Record {
+    account: Account,
+    for_new: bool,
+}
+
 impl Accounts {
     pub fn new(
         data: &Path,
@@ -183,7 +190,7 @@ impl Accounts {
         self.root.join(id)
     }
 
-    fn load_from(root: &Path, live: &Live) -> Result<Vec<Account>, String> {
+    fn load_records_from(root: &Path, live: &Live) -> Result<Vec<Record>, String> {
         let text = match std::fs::read_to_string(root.join(LIST)) {
             Ok(t) => t,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(vec![]),
@@ -197,34 +204,70 @@ impl Accounts {
                 let agent = a["runtime"].as_str().and_then(Agent::parse).ok_or(UNREADABLE)?;
                 let name = a["name"].as_str().ok_or(UNREADABLE)?;
                 let mut state = a["state"].as_str().and_then(AccountState::parse).ok_or(UNREADABLE)?;
+                let for_new = match &a["forNew"] {
+                    Value::Null => false,
+                    Value::Bool(true) => true,
+                    _ => return Err(UNREADABLE.into()),
+                };
                 // A sign-in this process is not running was interrupted.
                 if state == AccountState::Waiting && !live.pending.contains_key(id) {
                     state = AccountState::Failed;
                 }
-                Ok(Account { id: id.to_owned(), agent, name: name.to_owned(), state })
+                Ok(Record {
+                    account: Account { id: id.to_owned(), agent, name: name.to_owned(), state },
+                    for_new,
+                })
             })
             .collect()
     }
 
-    fn load(&self) -> Result<Vec<Account>, String> {
+    fn load_records(&self) -> Result<Vec<Record>, String> {
         let live = self.live.lock().unwrap_or_else(|e| e.into_inner());
-        Self::load_from(&self.root, &live)
+        Self::load_records_from(&self.root, &live)
     }
 
-    fn save_to(root: &Path, accounts: &[Account]) -> Result<(), String> {
+    fn load(&self) -> Result<Vec<Account>, String> {
+        Ok(self.load_records()?.into_iter().map(|r| r.account).collect())
+    }
+
+    fn save_records_to(root: &Path, records: &[Record]) -> Result<(), String> {
         std::fs::create_dir_all(root).map_err(|e| e.to_string())?;
-        let list: Vec<Value> = accounts.iter().map(|a| json!({"id": a.id, "runtime": a.agent.as_str(), "name": a.name, "state": a.state.as_str()})).collect();
+        let list: Vec<Value> = records
+            .iter()
+            .map(|r| {
+                let mut obj = json!({
+                    "id": r.account.id,
+                    "runtime": r.account.agent.as_str(),
+                    "name": r.account.name,
+                    "state": r.account.state.as_str(),
+                });
+                if r.for_new {
+                    obj["forNew"] = json!(true);
+                }
+                obj
+            })
+            .collect();
         let temp = root.join(format!("{LIST}.tmp"));
         write_private(&temp, Value::Array(list).to_string().as_bytes()).map_err(|e| e.to_string())?;
         std::fs::rename(&temp, root.join(LIST)).map_err(|e| e.to_string())
     }
 
-    fn set_state(root: &Path, live: &Live, id: &str, state: AccountState, only_if: Option<AccountState>) {
-        if let Ok(mut accounts) = Self::load_from(root, live) {
-            for a in accounts.iter_mut().filter(|a| a.id == id && only_if.is_none_or(|s| a.state == s)) {
-                a.state = state;
+    /// The list with new conversations of `agent` on `id` alone, or on none (This Mac's sign-in).
+    fn with_for_new(mut records: Vec<Record>, agent: Agent, id: Option<&str>) -> Vec<Record> {
+        for r in &mut records {
+            if r.account.agent == agent {
+                r.for_new = id == Some(r.account.id.as_str());
             }
-            let _ = Self::save_to(root, &accounts);
+        }
+        records
+    }
+
+    fn set_state(root: &Path, live: &Live, id: &str, state: AccountState, only_if: Option<AccountState>) {
+        if let Ok(mut records) = Self::load_records_from(root, live) {
+            for r in records.iter_mut().filter(|r| r.account.id == id && only_if.is_none_or(|s| r.account.state == s)) {
+                r.account.state = state;
+            }
+            let _ = Self::save_records_to(root, &records);
         }
     }
 
@@ -263,7 +306,7 @@ impl Accounts {
         let _one = self.serial.lock().unwrap_or_else(|e| e.into_inner());
         self.allowed()?;
         let agent = Agent::parse(runtime).ok_or(NOT_SUPPORTED)?;
-        let mut accounts = self.load()?;
+        let mut records = self.load_records()?;
         let id = format!("account_{}", crate::native::uuid_v4().map_err(|e| e.to_string())?.replace('-', ""));
         let account = Account { id, agent, name: name_of(name)?, state: AccountState::New };
         std::fs::create_dir_all(&self.root).map_err(|e| e.to_string())?;
@@ -277,8 +320,8 @@ impl Accounts {
             use std::os::unix::fs::PermissionsExt;
             std::fs::set_permissions(&home, std::fs::Permissions::from_mode(0o700)).map_err(|e| e.to_string())?;
         }
-        accounts.push(account.clone());
-        Self::save_to(&self.root, &accounts)?;
+        records.push(Record { account: account.clone(), for_new: false });
+        Self::save_records_to(&self.root, &records)?;
         Ok(account)
     }
 
@@ -287,11 +330,11 @@ impl Accounts {
         self.allowed()?;
         let account = self.get(id)?;
         let next = name_of(name)?;
-        let mut accounts = self.load()?;
-        for a in accounts.iter_mut().filter(|a| a.id == account.id) {
-            a.name = next.clone();
+        let mut records = self.load_records()?;
+        for r in records.iter_mut().filter(|r| r.account.id == account.id) {
+            r.account.name = next.clone();
         }
-        Self::save_to(&self.root, &accounts)
+        Self::save_records_to(&self.root, &records)
     }
 
     /// Removal is allowed whatever the policy says: it only takes something away.
@@ -306,8 +349,8 @@ impl Accounts {
             }
             let home = self.owned_home(&account.id)?;
             // The removal is saved before the folder goes: a failed delete leaves an orphan, never a dangling account.
-            let accounts: Vec<Account> = self.load()?.into_iter().filter(|a| a.id != account.id).collect();
-            Self::save_to(&self.root, &accounts)?;
+            let records: Vec<Record> = self.load_records()?.into_iter().filter(|r| r.account.id != account.id).collect();
+            Self::save_records_to(&self.root, &records)?;
             let _ = std::fs::remove_dir_all(home);
             Ok(())
         })();
@@ -334,14 +377,23 @@ impl Accounts {
             Self::set_state(&self.root, &live, &account.id, AccountState::Waiting, None);
             job
         };
-        let (live, root, account_id) = (self.live.clone(), self.root.clone(), account.id.clone());
+        let (live, root, account_id, agent) = (self.live.clone(), self.root.clone(), account.id.clone(), account.agent);
         let done: Box<dyn FnOnce(bool) + Send> = Box::new(move |ok| {
             let mut live = live.lock().unwrap_or_else(|e| e.into_inner());
             if live.pending.get(&account_id).map(|(j, _)| *j) != Some(job) {
                 return;
             }
             live.pending.remove(&account_id);
-            Self::set_state(&root, &live, &account_id, if ok { AccountState::Ready } else { AccountState::Failed }, None);
+            if let Ok(mut records) = Self::load_records_from(&root, &live) {
+                for r in records.iter_mut().filter(|r| r.account.id == account_id) {
+                    r.account.state = if ok { AccountState::Ready } else { AccountState::Failed };
+                }
+                // Just signed in, and no other account has new conversations: they move to it (Electron 0.876).
+                if ok && !records.iter().any(|r| r.account.agent == agent && r.for_new) {
+                    records = Self::with_for_new(records, agent, Some(&account_id));
+                }
+                let _ = Self::save_records_to(&root, &records);
+            }
         });
         match (self.login)(account.agent, &home, &env_for(account.agent, &home), done) {
             Ok(cancel) => {
@@ -375,6 +427,42 @@ impl Accounts {
             cancel();
         }
         Ok(())
+    }
+
+    /// Puts new conversations of `runtime` on an added, signed-in account, or back on This Mac's sign-in.
+    pub fn use_for_new(&self, runtime: &str, id: Option<&str>) -> Result<(), String> {
+        let _one = self.serial.lock().unwrap_or_else(|e| e.into_inner());
+        self.allowed()?;
+        let agent = Agent::parse(runtime).ok_or(NOT_SUPPORTED)?;
+        let records = self.load_records()?;
+        let next = match id {
+            None => Self::with_for_new(records, agent, None),
+            Some(id) => {
+                if !is_account_id(id) {
+                    return Err(CHOOSE_ONE.into());
+                }
+                let found = records.iter().find(|r| r.account.id == id).ok_or_else(|| REMOVED.to_owned())?;
+                if found.account.agent != agent {
+                    return Err(OTHER_AGENT_FOR_NEW.into());
+                }
+                if found.account.state != AccountState::Ready {
+                    return Err(format!("Sign in to {} first. New conversations are unchanged.", found.account.name));
+                }
+                Self::with_for_new(records, agent, Some(id))
+            }
+        };
+        Self::save_records_to(&self.root, &next)
+    }
+
+    /// The account new conversations of `runtime` run on: an added one that is signed in, else none (This Mac's sign-in).
+    pub fn for_new(&self, runtime: &str) -> Result<Option<String>, String> {
+        let _one = self.serial.lock().unwrap_or_else(|e| e.into_inner());
+        let Some(agent) = Agent::parse(runtime) else { return Ok(None) };
+        Ok(self
+            .load_records()?
+            .into_iter()
+            .find(|r| r.account.agent == agent && r.for_new && r.account.state == AccountState::Ready)
+            .map(|r| r.account.id))
     }
 
     /// The environment a run on `account` adds to its launch: nothing without an account, so the launch stays
