@@ -79,15 +79,49 @@ pub(crate) fn phase(s: &State, mission_id: &str, running: &HashSet<String>) -> &
     }
 }
 
+/// `MissionPhaseView` (status.ts): the label, receipt tone, and uppercase tag for one turn's phase.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct MissionPhaseView {
+    pub(crate) label: &'static str,
+    pub(crate) tone: &'static str,
+    pub(crate) tag: &'static str,
+}
+
+/// `missionPhaseView` (status.ts): a single turn's receipt still says Completed in blue unless its record is incomplete.
+pub(crate) fn mission_phase_view(phase: &str, has_integrity_issues: bool) -> MissionPhaseView {
+    match phase {
+        "running" => MissionPhaseView { label: "Running", tone: "live", tag: "RUNNING" },
+        "interrupted" => MissionPhaseView { label: "Interrupted", tone: "red", tag: "INTERRUPTED" },
+        "failed" => MissionPhaseView { label: "Failed", tone: "red", tag: "FAILED" },
+        "cancelled" => MissionPhaseView { label: "Cancelled", tone: "muted", tag: "CANCELLED" },
+        _ if has_integrity_issues => MissionPhaseView {
+            label: "Completed · receipt incomplete",
+            tone: "amber",
+            tag: "COMPLETED",
+        },
+        _ => MissionPhaseView { label: "Completed", tone: "blue", tag: "COMPLETED" },
+    }
+}
+
+/// `listTone` (status.ts): a finished turn is muted in a list; the ones that need a look keep their colour.
+pub(crate) fn list_tone(view: MissionPhaseView) -> &'static str {
+    if view.tone == "blue" && view.label == "Completed" {
+        "muted"
+    } else {
+        view.tone
+    }
+}
+
 /// `missionPhaseView` + `listTone`: the tag's word and its colour token (a settled Completed is quiet in a list).
 pub(crate) fn tag(phase: &str) -> (&'static str, &'static str) {
-    match phase {
-        "running" => ("Running", "text-primary"),
-        "interrupted" => ("Interrupted", "red-text"),
-        "failed" => ("Failed", "red-text"),
-        "cancelled" => ("Cancelled", "text-muted"),
-        _ => ("Completed", "text-muted"),
-    }
+    let view = mission_phase_view(phase, false);
+    let color = match list_tone(view) {
+        "live" => "text-primary",
+        "red" => "red-text",
+        "amber" => "amber",
+        _ => "text-muted",
+    };
+    (view.label, color)
 }
 
 /// `matchesFilter`.
@@ -577,3 +611,7 @@ fn mission_row(
 #[cfg(test)]
 #[path = "missions_screen_tests.rs"]
 mod missions_screen_tests;
+
+#[cfg(test)]
+#[path = "design_pass_holds_tests.rs"]
+mod design_pass_holds_tests;

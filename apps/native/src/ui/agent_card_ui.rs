@@ -93,3 +93,78 @@ pub(crate) fn bar_colour(l: &crate::look::controls::Look, tone: Tone) -> Color {
         Tone::Calm => l.c("text-secondary"),
     }
 }
+
+/// UsageMeters.tsx: an agent's limits drawn as one meter per window, toned one by one (amber only on the pressing
+/// window), with the whole reading sentence as the tooltip and an "as of" timestamp when present.
+pub(crate) fn usage_meters(l: &crate::look::controls::Look, said: &str, now: chrono::DateTime<chrono::Utc>) -> El {
+    use locust_core::usage_words::{ReadOf, usage_read_of, usage_window_label, usage_window_sentence, usage_windows_of};
+    let windows = usage_windows_of(said, now);
+    let read = usage_read_of(said);
+    let mut meters = row()
+        .key("usage-meters")
+        .flex_wrap()
+        .gap(10.0)
+        .center_y()
+        .help(usage_window_sentence(said, now));
+    for (i, w) in windows.iter().enumerate() {
+        let stripped = w.name.strip_suffix(" window").unwrap_or(&w.name);
+        let mut chars = stripped.chars();
+        let label = match chars.next() {
+            Some(c) => format!("{}{}", c.to_uppercase(), chars.as_str()),
+            None => String::new(),
+        };
+        if w.expired {
+            meters = meters.child(
+                row()
+                    .key(format!("usage-meter-{i}"))
+                    .gap(6.0)
+                    .center_y()
+                    .child(text(label).font(l.ty.body).color(l.c("text-secondary")))
+                    .child(text("reset since").font(l.ty.body).color(l.c("text-muted"))),
+            );
+            continue;
+        }
+        let tone = if w.percent >= 100 {
+            Tone::Spent
+        } else if w.percent >= 80 {
+            Tone::Pressing
+        } else {
+            Tone::Calm
+        };
+        let colour = bar_colour(l, tone);
+        let rem = w.remaining.unwrap_or_else(|| 100u32.saturating_sub(w.percent));
+        meters = meters.child(
+            row()
+                .key(format!("usage-meter-{i}"))
+                .gap(6.0)
+                .center_y()
+                .child(text(label).key(format!("usage-meter-{i}-name")).font(l.ty.body).color(l.c("text-secondary")))
+                .child(
+                    el().w(48.0)
+                        .h(4.0)
+                        .radius(2.0)
+                        .fill(l.c("border-hairline"))
+                        .a11y_hidden()
+                        .child(el().w(48.0 * (w.percent.min(100) as f32 / 100.0)).h(4.0).radius(2.0).fill(colour)),
+                )
+                .child(
+                    text(format!("{rem}% left"))
+                        .key(format!("usage-meter-{i}-figure"))
+                        .font(l.ty.body)
+                        .color(colour),
+                ),
+        );
+    }
+    if let Some(read) = read {
+        let at = match read {
+            ReadOf::Run(at) | ReadOf::Account(at) => at,
+        };
+        meters = meters.child(
+            text(format!("as of {}", usage_window_label(&at, now)))
+                .key("usage-meters-read")
+                .font(l.ty.body)
+                .color(l.c("text-muted")),
+        );
+    }
+    meters
+}
