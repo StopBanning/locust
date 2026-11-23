@@ -692,3 +692,34 @@ fn a_comparison_shows_its_models_on_hover() {
         Some("Model A vs Model B vs Model C")
     );
 }
+
+#[test]
+fn a_judge_is_asked_on_the_model_its_choices_offer_first() {
+    // your-own-models-can-judge (0.810): the judge Ask a judge starts is the first of judge_choices_for's order, a free
+    // model ahead of the catalogue's paid one, not the first the comparison happens to list.
+    let (_dirs, store, mut rt) = window();
+    let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "success"));
+    let model = |id: &str, name: &str| locust_core::engine::Model { id: id.into(), name: name.into(), efforts: Vec::new() };
+    rt.state.models.insert(
+        "codex".into(),
+        vec![locust_core::engine::Models {
+            teammate: None,
+            runtime: "codex".into(),
+            model: None,
+            effort: None,
+            models: vec![model("paid-judge", "Paid Judge"), model("judge-free", "Judge Free")],
+        }],
+    );
+
+    click(&mut rt, "compare-mode-chip");
+    click(&mut rt, "compare-mode-compare");
+    type_and_send(&mut rt, "Synthetic prompt");
+    pump(&mut rt, "both columns to answer", all_slots_answered);
+    click(&mut rt, "compare-ask-judge");
+
+    let cid = rt.state.compare.active_id.clone().unwrap();
+    let cmp = locust_core::compare::CompareStore::from_store(&store).unwrap().get(&cid).unwrap().unwrap();
+    let judge = cmp.judge.expect("a judge was asked");
+    assert_eq!((judge.route.runtime.as_str(), judge.route.model.as_str()), ("codex", "judge-free"));
+    assert_eq!(judge.route.label.as_deref(), Some("Judge Free"));
+}

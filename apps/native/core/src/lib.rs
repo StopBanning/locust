@@ -133,6 +133,7 @@ pub mod inspector;
 pub mod installed_editors;
 pub mod interview;
 pub mod invariants;
+pub mod judge_choices;
 pub mod keep_awake;
 pub mod kilo_models;
 pub mod ledger;
