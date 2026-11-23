@@ -102,6 +102,18 @@ fn browser_tools_passes_copilots_browser_over_acp_and_keeps_the_print_flag() {
                 run_id: method.into(),
             })
             .unwrap();
+        // The fake asserts on the session request and dies when it is wrong; only a completed run proves it saw the
+        // browser (the merge check's break that dropped mcpServers got past a test that stopped at start()).
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(15);
+        let last = loop {
+            assert!(std::time::Instant::now() < deadline, "{method}: the fake never finished");
+            if let Some(e) = runtime.next_event().unwrap() {
+                if matches!(e.kind.as_str(), "run.completed" | "run.failed" | "run.cancelled") {
+                    break e;
+                }
+            }
+        };
+        assert_eq!(last.kind, "run.completed", "{method}: {:?}", last.payload);
     }
 
     let mut print = Command::new("copilot");
