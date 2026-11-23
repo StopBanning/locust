@@ -105,8 +105,8 @@ pub(crate) fn usage_meters<'a>(
     for (i, window) in card.windows.iter().enumerate() {
         let meter_key = format!("usage-meter-{i}");
         let label = window.label();
-        let label = if inline { label.strip_suffix(" window").unwrap_or(label) } else { label };
-        let name = text(label.to_owned())
+        let label = if inline { label.strip_suffix(" window").unwrap_or(label).to_owned() } else { card_label(label) };
+        let name = text(label)
             .key(format!("{meter_key}-name")).font(l.ty.body).color(l.c("text-secondary"));
         let mut meter = if inline { row().gap(6.0).center_y() } else { col().w_full().gap(3.0) };
         meter = meter.key(&meter_key);
@@ -153,6 +153,14 @@ pub(crate) fn usage_meters<'a>(
     meters.children(read.map(|read| {
         text(read).key("usage-meters-read").font(l.ty.body).color(l.c("text-muted")).wrap()
     }))
+}
+
+/// AgentMark.tsx's `cardLabel`: a window on the card is named without a trailing " window", first letter capital, so
+/// "5-hour window" reads "5-hour" and "weekly window" reads "Weekly".
+pub(crate) fn card_label(name: &str) -> String {
+    let short = name.strip_suffix(" window").unwrap_or(name);
+    let mut chars = short.chars();
+    chars.next().map(|c| c.to_uppercase().chain(chars).collect()).unwrap_or_default()
 }
 
 #[cfg(test)]

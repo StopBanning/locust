@@ -59,3 +59,42 @@ fn hovering_the_model_chip_draws_the_usage_meters_with_their_own_tones_and_readi
             .starts_with("Read from your account at ")
     );
 }
+
+// an-account-shows-how-full-it-is, the-model-chip-shows-usage-on-hover, antigravity-shows-remaining-not-used (Electron
+// b7bb4e53): the card names each window without a trailing " window", first letter capital.
+#[test]
+fn the_chip_card_names_each_window_without_a_trailing_window() {
+    let mut s = State::default();
+    s.chip_hover = true;
+    s.usage_readings.insert("codex".into(), READING.into());
+    let mut rt = Runtime::new(
+        s,
+        |s, _| {
+            let l = crate::look::controls::Look::new(true);
+            col()
+                .child(el().key("model-chip").absolute(300.0, 260.0).size(40.0, 20.0))
+                .children(chip_card(s, &l, "codex", None))
+        },
+        (400.0, 300.0),
+        Env::new(true, 1.0),
+    );
+    for _ in 0..8 {
+        rt.frame(0.05);
+    }
+    let elements = rt.elements();
+    let name = |key: &str| {
+        elements
+            .iter()
+            .find(|el| el.key.as_deref() == Some(key))
+            .unwrap_or_else(|| panic!("missing {key}"))
+            .text
+            .clone()
+    };
+    assert_eq!(name("usage-meter-0-name").as_deref(), Some("Weekly"));
+    assert_eq!(name("usage-meter-1-name").as_deref(), Some("5-hour"));
+
+    assert_eq!(card_label("weekly window"), "Weekly");
+    assert_eq!(card_label("5-hour window"), "5-hour");
+    assert_eq!(card_label("Gemini: weekly window"), "Gemini: weekly");
+    assert_eq!(card_label("window"), "Window", "only a trailing \" window\" goes");
+}
