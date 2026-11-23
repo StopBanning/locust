@@ -3863,6 +3863,11 @@ apps/desktop/src/renderer/src/a-screens-eyes-have-weight.test.ts	at the side, dr
 apps/desktop/src/renderer/src/a-screens-eyes-have-weight.test.ts	at the side, never pinned at the end of their room after the body is still	yes
 apps/desktop/src/renderer/src/a-screens-eyes-have-weight.test.ts	drawn 30 or 60 times a second, take the same path as before: one step each	yes
 apps/desktop/src/renderer/src/a-screens-eyes-have-weight.test.ts	sit where they are put while the body moves at a steady speed	yes
+apps/desktop/src/renderer/src/a-select-moves-and-chooses-by-the-keyboard.test.tsx	opens on the chosen row, and arrows move without choosing	yes
+apps/desktop/src/renderer/src/a-select-moves-and-chooses-by-the-keyboard.test.tsx	chooses the highlight with Enter or Space, and Escape leaves the value	yes
+apps/desktop/src/renderer/src/a-select-moves-and-chooses-by-the-keyboard.test.tsx	skips a disabled row, and a letter jumps, then the same letter walks	yes
+apps/desktop/src/renderer/src/a-select-moves-and-chooses-by-the-keyboard.test.tsx	is a combobox whose list names the chosen row, a description, and a disabled row	yes
+apps/desktop/src/renderer/src/a-select-moves-and-chooses-by-the-keyboard.test.tsx	draws a disabled control as a disabled combobox	yes
 apps/desktop/src/renderer/src/a-side-question-can-be-approved-and-stopped.test.tsx	shows the approval its run is waiting on, with its buttons	no
 apps/desktop/src/renderer/src/a-side-question-can-be-approved-and-stopped.test.tsx	offers Stop while it answers, and Ask when it is done	yes
 apps/desktop/src/renderer/src/a-signed-out-teammate-is-not-idle.test.ts	is judged by the route it is set to use	yes

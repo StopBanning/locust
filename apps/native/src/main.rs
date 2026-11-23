@@ -3483,6 +3483,9 @@ mod window_drive_tests;
 #[path = "ui/modal_keyboard_tests.rs"]
 mod modal_keyboard_tests;
 #[cfg(test)]
+#[path = "ui/select_keys_tests.rs"]
+mod select_keys_tests;
+#[cfg(test)]
 #[path = "ui/compare_window_tests.rs"]
 mod compare_window_tests;
 

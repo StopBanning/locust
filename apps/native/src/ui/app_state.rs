@@ -369,6 +369,9 @@ pub(super) struct State {
     /// Which conversations the sidebar lists, and whether its menu is open (Sidebar.tsx `sourceFilter`).
     pub(super) sidebar_source: crate::conversation_list::ConversationSource,
     pub(super) sidebar_source_open: bool,
+    /// The source select's highlight while open (Select.tsx `highlighted`), and the letters typed into it with when.
+    pub(super) sidebar_source_active: i64,
+    pub(super) sidebar_source_typed: (String, Option<std::time::Instant>),
     pub(super) find_open: bool,
     pub(super) find_query: TextEdit,
     pub(super) prompt_rail: prompt_rail::PromptRailState,
@@ -653,6 +656,8 @@ impl Default for State {
             sidebar_query: TextEdit::new(""),
             sidebar_source: Default::default(),
             sidebar_source_open: false,
+            sidebar_source_active: -1,
+            sidebar_source_typed: (String::new(), None),
             find_open: false,
             find_query: TextEdit::new(""),
             prompt_rail: prompt_rail::PromptRailState::default(),
