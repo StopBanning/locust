@@ -14,6 +14,8 @@ use std::{
     },
     time::{Duration, Instant},
 };
+const DEFAULT_MAX_QUEUED_RECORDS: usize = 20_000;
+
 fn err(s: impl ToString) -> io::Error {
     io::Error::other(s.to_string())
 }
@@ -243,7 +245,7 @@ impl Acp {
             .take()
             // Invariant: spawn configured this pipe and it has not been taken.
             .expect("spawn configured this pipe and it has not been taken");
-        let (tx, lines) = mpsc::sync_channel(256);
+        let (tx, lines) = mpsc::sync_channel(DEFAULT_MAX_QUEUED_RECORDS);
         let fail = failure.clone();
         let dead = gone.clone();
         std::thread::spawn(move || {
@@ -779,3 +781,7 @@ impl Drop for Acp {
 #[cfg(test)]
 #[path = "acp_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "acp_queue_tests.rs"]
+mod queue_tests;
