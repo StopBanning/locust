@@ -4598,6 +4598,15 @@ apps/desktop/src/renderer/src/judges-see-the-check.test.tsx	says a run again by 
 apps/desktop/src/renderer/src/judges-see-the-check.test.tsx	joins a label moved off its point's line to its point	no
 apps/desktop/src/renderer/src/judges-see-the-check.test.tsx	moves a label that would run into another from the other side, though their points are far apart (0.811)	no
 apps/desktop/src/renderer/src/judges-see-the-check.test.tsx	reads a model added under its own id by its name, and leaves a name the person wrote alone	yes
+apps/desktop/src/renderer/src/keep-carries-the-whole-choice.test.tsx	sets the effort the kept column ran at	yes
+apps/desktop/src/renderer/src/keep-carries-the-whole-choice.test.tsx	lands on the model's own default when the column ran at a level it does not offer	yes
+apps/desktop/src/renderer/src/keep-carries-the-whole-choice.test.tsx	leaves the effort unset for a model with no levels	yes
+apps/desktop/src/renderer/src/keep-carries-the-whole-choice.test.tsx	has no mode in what it carries	yes
+apps/desktop/src/renderer/src/keep-carries-the-whole-choice.test.tsx	puts the mode the person had back after opening the kept conversation	yes
+apps/desktop/src/renderer/src/keep-carries-the-whole-choice.test.tsx	names the mode the conversation is in	yes
+apps/desktop/src/renderer/src/keep-carries-the-whole-choice.test.tsx	says so when the comparison ran in Auto and the conversation does not	yes
+apps/desktop/src/renderer/src/keep-carries-the-whole-choice.test.tsx	does not apologise when the modes agree, and promises nothing when the mode is not known	yes
+apps/desktop/src/renderer/src/keep-carries-the-whole-choice.test.tsx	is what the comparison view draws	yes
 apps/desktop/src/renderer/src/keyboardShortcuts.test.ts	groups them for a person, and every row is a key the code actually handles	no
 apps/desktop/src/renderer/src/layout.test.ts	follows the width when nobody has chosen	yes
 apps/desktop/src/renderer/src/layout.test.ts	covers the smallest window the app will open	yes
