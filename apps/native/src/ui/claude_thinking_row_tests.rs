@@ -18,16 +18,26 @@ fn renders_the_shown_thinking_from_the_adapter_in_one_expandable_row() {
     .flat_map(|v| claude.accept(v))
     .collect();
     // Through the ledger, as a run's events are kept and read back.
-    let rows: String = events
-        .iter()
-        .enumerate()
-        .map(|(i, e)| {
-            format!(
-                "{}\n",
-                json!({"schemaVersion":27,"recordType":"mission.event","event":{"sequence":i + 1,"occurredAt":"2026-11-10T12:00:00Z","type":e.kind,"payload":e.payload}})
-            )
-        })
-        .collect();
+    let header = json!({
+        "schemaVersion": 27,
+        "recordType": "mission.created",
+        "ledgerSequence": 1,
+        "occurredAt": "2026-11-10T12:00:00Z",
+        "metadata": {
+            "missionId": "m_claude_thought",
+            "prompt": "Check the port.",
+            "runtime": "claude",
+            "model": "claude-opus-4-6",
+            "createdAt": "2026-11-10T12:00:00Z"
+        }
+    });
+    let mut rows = format!("{header}\n");
+    for (i, e) in events.iter().enumerate() {
+        rows.push_str(&format!(
+            "{}\n",
+            json!({"schemaVersion":27,"recordType":"mission.event","ledgerSequence":i + 2,"occurredAt":"2026-11-10T12:00:00Z","event":{"sequence":i + 1,"occurredAt":"2026-11-10T12:00:00Z","type":e.kind,"payload":e.payload}})
+        ));
+    }
     let dir = std::env::temp_dir().join(format!("locust-claude-thought-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("ledger.jsonl");

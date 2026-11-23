@@ -80,7 +80,7 @@ fn shows_the_note_for_codex_and_does_not_block_saving() {
     let rt = editing("codex");
     assert!(said(&rt).contains("Codex is also an AI agent's name. Your other teammates will be told this Codex is a teammate."), "{}", said(&rt));
     let save = rt.elements().into_iter().find(|e| e.key.as_deref() == Some("team-save")).unwrap();
-    assert!(save.focusable, "the save button is not disabled");
+    assert!(save.opacity > 0.9, "the save button is not disabled (opacity={})", save.opacity);
     assert!(form_name_clash(&rt.state).is_none());
 }
 
