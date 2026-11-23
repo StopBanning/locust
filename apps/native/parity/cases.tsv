@@ -4437,6 +4437,9 @@ apps/desktop/src/renderer/src/every-face-draws-on-one-beat.test.ts	lets two cloc
 apps/desktop/src/renderer/src/every-face-draws-on-one-beat.test.ts	draws at most 30 frames a second on a 144 Hz screen too	yes
 apps/desktop/src/renderer/src/every-face-draws-on-one-beat.test.ts	starts again for a clock whose time went backwards	yes
 apps/desktop/src/renderer/src/every-limit-says-what-is-left.test.tsx	say what is left, when the runtime reported what it used	no
+apps/desktop/src/renderer/src/every-modal-dialog-holds-the-keyboard.test.tsx	is found where this test looks	yes
+apps/desktop/src/renderer/src/every-modal-dialog-holds-the-keyboard.test.tsx	in Your cloud computer, Escape does what the x does: stops a sign-in, and waits out the work	no
+apps/desktop/src/renderer/src/every-modal-dialog-holds-the-keyboard.test.tsx	Save the record has an x	yes
 apps/desktop/src/renderer/src/every-saved-rule-can-go-at-once.test.tsx	offers to start over, and nothing more, until pressed	yes
 apps/desktop/src/renderer/src/every-saved-rule-can-go-at-once.test.tsx	then says how many go and that every card asks again, with a way back	yes
 apps/desktop/src/renderer/src/every-teammate-is-a-bot.test.tsx	are the library's eighteen, then Locust's own two, then the three that nod to the agents	yes

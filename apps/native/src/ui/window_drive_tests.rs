@@ -3769,7 +3769,12 @@ fn tune_note_lesson_stores_lesson_and_next_tune_draft_prompt_includes_it() {
         "next /tune draft prompt missing saved lesson: {logged}"
     );
 
-    // Edit teammate says the lesson as one sentence, as the kept strip does (Electron's tuneLessonLine).
+    // Edit teammate says the lesson as one sentence, as the kept strip does (Electron's tuneLessonLine). The tune card
+    // holds the keyboard and the pointer while open (`useModal`), so it is put away first, as a person would.
+    settle(&mut rt);
+    rt.key(Key::Escape.into());
+    settle(&mut rt);
+    assert!(rt.state.tune_card.is_none(), "Escape puts the tune card away");
     rt.update(|s, _| crate::people_panel::open(s));
     settle(&mut rt);
     click(&mut rt, "team-edit-tm_codec");

@@ -519,11 +519,14 @@ fn action(s: &mut State, id: &str, action: &str) {
         });
     done(s, result);
 }
+/// A button of the team screen: one the keyboard reaches (Tab, then Space), so a dialog it opens can give focus back.
 fn button(label: &str, p: &Palette) -> El {
     text(label.to_owned())
         .font(type_::BODY)
         .color(p.secondary)
         .padding(6.0)
+        .role("button")
+        .focusable(true)
 }
 pub(super) fn view(s: &State, p: &Palette) -> El {
     let panel = &s.people_panel;
@@ -725,9 +728,6 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                     s.people_panel.share_card_open = true;
                 })),
         );
-        if panel.share_card_open {
-            body = body.child(share_card_view(s, p));
-        }
         if panel.form_open {
             body = body.child(edit_form(s, p));
         }
@@ -1768,6 +1768,14 @@ fn current_workspace_id(s: &State) -> Option<String> {
         .as_deref()
         .map(std::path::Path::new)
         .map(people::workspace_id)
+}
+
+/// Share your team (`TeamCard.tsx`): a dialog over the window that holds the keyboard (`useModal(box, onClose)`), drawn by
+/// `view` above everything else as the other dialogs are.
+pub(super) fn share_card_dialog(s: &State, p: &Palette) -> El {
+    el().w(480.0).key("team-card-dialog").child(share_card_view(s, p)).modal(true, |s: &mut State| {
+        s.people_panel.share_card_open = false;
+    })
 }
 
 fn share_card_view(s: &State, p: &Palette) -> El {

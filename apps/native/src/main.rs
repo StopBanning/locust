@@ -2837,135 +2837,96 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
     }
     if s.home.splash_open {
         app = app.child(
-            el().absolute(0.0, 0.0)
-                .w_full()
-                .h_full()
-                .fill(Color::BLACK.alpha(0.55))
-                .center()
-                .child(home_panel::splash_view(s, &p).modal(true, |s: &mut State| {
-                    s.home.splash_open = false;
-                    s.home.seen_version = Some(s.home.current_version.clone());
-                })),
+            dialog_scrim("splash").child(home_panel::splash_view(s, &p).modal(true, |s: &mut State| {
+                s.home.splash_open = false;
+                s.home.seen_version = Some(s.home.current_version.clone());
+            })),
         );
     }
     if s.usage_panel.open {
         app = app.child(
-            el().absolute(0.0, 0.0)
-                .w_full()
-                .h_full()
-                .fill(Color::BLACK.alpha(0.55))
-                .center()
-                .child(
-                    usage_panel::view(s, &p)
-                        .modal(true, |s: &mut State| s.usage_panel.open = false),
-                ),
+            dialog_scrim("usage").child(
+                usage_panel::view(s, &p)
+                    .modal(true, |s: &mut State| s.usage_panel.open = false),
+            ),
         );
     }
     if s.keyboard_sheet.open {
         app = app.child(
-            el().absolute(0.0, 0.0)
-                .w_full()
-                .h_full()
-                .fill(Color::BLACK.alpha(0.55))
-                .center()
-                .child(
-                    keyboard_sheet::view(s, &p)
-                        .modal(true, |s: &mut State| s.keyboard_sheet.open = false),
-                ),
+            dialog_scrim("keyboard-sheet").child(
+                keyboard_sheet::view(s, &p)
+                    .modal(true, |s: &mut State| s.keyboard_sheet.open = false),
+            ),
+        );
+    }
+    if s.people_panel.share_card_open {
+        app = app.child(
+            dialog_scrim("team-card").child(people_panel::share_card_dialog(s, &p)),
         );
     }
     if s.save_record.open {
         app = app.child(
-            el().absolute(0.0, 0.0)
-                .w_full()
-                .h_full()
-                .fill(Color::BLACK.alpha(0.55))
-                .center()
-                .child(
-                    save_record::view(s, &p)
-                        .modal(true, |s: &mut State| s.save_record.open = false),
-                ),
+            dialog_scrim("save-record").child(
+                save_record::view(s, &p)
+                    .modal(true, |s: &mut State| s.save_record.open = false),
+            ),
         );
     }
     if s.import_dialog.open {
         app = app.child(
-            el().absolute(0.0, 0.0)
-                .w_full()
-                .h_full()
-                .fill(Color::BLACK.alpha(0.55))
-                .center()
-                .child(
-                    import_dialog::view(s, &p)
-                        .modal(true, crate::import_dialog::close),
-                ),
+            dialog_scrim("import").child(
+                import_dialog::view(s, &p)
+                    .modal(true, crate::import_dialog::close),
+            ),
         );
     }
     if s.scout.invite_open {
         app = app.child(
-            el().absolute(0.0, 0.0)
-                .w_full()
-                .h_full()
-                .fill(Color::BLACK.alpha(0.55))
-                .center()
-                .child(
-                    scout_cards::invite_dialog(s, &p).modal(true, |s: &mut State| {
-                        s.scout.invite_open = false;
-                        s.scout.invite_message = None;
-                    }),
-                ),
+            dialog_scrim("scout-invite").child(
+                scout_cards::invite_dialog(s, &p).modal(true, |s: &mut State| {
+                    s.scout.invite_open = false;
+                    s.scout.invite_message = None;
+                }),
+            ),
         );
     }
     if s.feedback_dialog.open {
         app = app.child(
-            el().absolute(0.0, 0.0)
-                .w_full()
-                .h_full()
-                .fill(Color::BLACK.alpha(0.55))
-                .center()
-                .child(
-                    feedback_dialog::view(s, &p)
-                        .modal(true, crate::feedback_dialog::close),
-                ),
+            dialog_scrim("feedback").child(
+                feedback_dialog::view(s, &p)
+                    .modal(true, crate::feedback_dialog::close),
+            ),
         );
     }
     if s.group_settings.open {
         app = app.child(
-            el().absolute(0.0, 0.0)
-                .w_full()
-                .h_full()
-                .fill(Color::BLACK.alpha(0.55))
-                .center()
-                .child(
-                    group_settings_dialog::view(s, &p)
-                        .modal(true, crate::group_settings_dialog::close),
-                ),
+            dialog_scrim("group-settings").child(
+                group_settings_dialog::view(s, &p)
+                    .modal(true, crate::group_settings_dialog::close),
+            ),
         );
     }
     if s.quit_guard.open {
         app = app.child(
-            el().absolute(0.0, 0.0)
-                .w_full()
-                .h_full()
-                .fill(Color::BLACK.alpha(0.55))
-                .center()
-                .child(
-                    quit_guard_dialog::view(s, &p)
-                        .modal(true, |s: &mut State| s.quit_guard.open = false),
-                ),
+            dialog_scrim("quit-guard").child(
+                quit_guard_dialog::view(s, &p)
+                    .modal(true, |s: &mut State| s.quit_guard.open = false),
+            ),
         );
     }
     if s.palette_open {
         app.child(
-            el().absolute(0.0, 0.0)
-                .w_full()
-                .h_full()
-                .fill(Color::BLACK.alpha(0.55))
-                .center()
-                .child(command_palette(s, &p).modal(true, |s: &mut State| s.palette_open = false)),
+            dialog_scrim("palette").child(command_palette(s, &p).modal(true, |s: &mut State| s.palette_open = false)),
         )
     } else {
         app
     }
+}
+
+/// The dim over the whole window that a dialog sits on, keyed `dialog-scrim-<name>` so a test can tell the dialog's
+/// inside from the window behind it. The dialog itself holds the keyboard (`.modal`, Electron's `useModal`).
+fn dialog_scrim(name: &str) -> El {
+    el().key(format!("dialog-scrim-{name}")).absolute(0.0, 0.0).w_full().h_full().fill(Color::BLACK.alpha(0.55)).center()
 }
 
 // Only the selected runtime may supply a display name: IDs can overlap across agents.
@@ -3518,6 +3479,9 @@ mod native_window_tests;
 #[cfg(test)]
 #[path = "ui/window_drive_tests.rs"]
 mod window_drive_tests;
+#[cfg(test)]
+#[path = "ui/modal_keyboard_tests.rs"]
+mod modal_keyboard_tests;
 #[cfg(test)]
 #[path = "ui/compare_window_tests.rs"]
 mod compare_window_tests;
