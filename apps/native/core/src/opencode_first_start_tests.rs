@@ -208,3 +208,54 @@ fn says_the_agent_is_setting_itself_up_and_roughly_how_long() {
         Phase::StartingRuntime
     );
 }
+
+fn found(id: &str, version: &str, ready: bool) -> crate::agents::Found {
+    crate::agents::Found {
+        id: id.into(),
+        display_name: id.into(),
+        installed: true,
+        version: Some(version.into()),
+        auth: crate::agents::Auth::NotApplicable,
+        ready,
+        status: if ready { crate::agents::Probe::Ready } else { crate::agents::Probe::ProbeFailed },
+        unsupported_note: None,
+        through_cli: false,
+        checking: false,
+    }
+}
+
+#[test]
+fn a_discovery_answer_sets_up_only_a_ready_opencode_1_when_agents_are_shown() {
+    assert!(wants_set_up(&[found("codex", "0.5.0", true), found("opencode", "1.19.2", true)], false));
+    assert!(!wants_set_up(&[found("opencode", "1.19.2", true)], true), "hidden agents set nothing up");
+    assert!(!wants_set_up(&[found("opencode", "2.0.1", true)], false), "OpenCode 2 has no plugin install");
+    assert!(!wants_set_up(&[found("opencode", "1.19.2", false)], false), "not ready");
+    assert!(!wants_set_up(&[found("cursor", "1.0.0", true)], false), "another agent");
+}
+
+#[test]
+fn after_discovery_runs_the_set_up_in_the_background() {
+    let ran = Arc::new(Mutex::new(Vec::<SetupCommand>::new()));
+    let kept = ran.clone();
+    let first_start = Arc::new(OpenCodeFirstStart::new(
+        launch_some,
+        || Some("file:///guard.js".into()),
+        move |command| {
+            kept.lock().unwrap().push(command);
+            None
+        },
+        folder_path,
+        |_| false,
+    ));
+    assert!(!after_discovery(&[found("opencode", "2.0.1", true)], &first_start));
+    assert!(after_discovery(&[found("opencode", "1.19.2", true)], &first_start));
+    let until = std::time::Instant::now() + Duration::from_secs(10);
+    while ran.lock().unwrap().is_empty() && std::time::Instant::now() < until {
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    assert_eq!(ran.lock().unwrap().len(), 1);
+}
+
+fn launch_some() -> Option<SetupLaunch> {
+    Some(launch())
+}

@@ -171,6 +171,88 @@ impl OpenCodeFirstStart {
     }
 }
 
+/// Whether a discovery answer starts the set-up (index.ts:4771): OpenCode found ready at version 1, agents not hidden.
+pub fn wants_set_up(found: &[crate::agents::Found], hidden: bool) -> bool {
+    !hidden
+        && found.iter().any(|entry| {
+            entry.id == "opencode" && entry.ready && entry.version.as_deref().is_some_and(|v| v.starts_with("1."))
+        })
+}
+
+static SHARED: std::sync::OnceLock<Arc<OpenCodeFirstStart>> = std::sync::OnceLock::new();
+
+/// This process's set-up, on this Mac: the OpenCode on PATH, the command guard a run names, its real config folder.
+pub fn shared() -> Arc<OpenCodeFirstStart> {
+    SHARED.get_or_init(|| Arc::new(this_mac())).clone()
+}
+
+fn this_mac() -> OpenCodeFirstStart {
+    OpenCodeFirstStart::new(
+        || {
+            crate::runtime::discovery::find_named("opencode").ok().map(|path| SetupLaunch {
+                executable_path: path.to_string_lossy().into_owned(),
+                prefix_args: Vec::new(),
+                env: BTreeMap::new(),
+            })
+        },
+        || {
+            let store = crate::store::Store::local().ok()?;
+            let guard = crate::runtime::opencode_config::write_guard(&store, false).ok()?;
+            Some(crate::runtime::opencode_config::file_url(&guard))
+        },
+        run_bounded,
+        || {
+            let home = std::env::var_os("HOME").map(PathBuf::from).unwrap_or_default();
+            opencode_config_folder(std::env::var("XDG_CONFIG_HOME").ok().as_deref(), &home)
+        },
+        |path| path.exists(),
+    )
+}
+
+/// Runs the set-up command with no shell, its env merged over this process's, ended once `timeout` passes.
+fn run_bounded(command: SetupCommand) -> Option<SetupResult> {
+    use std::io::Read;
+    use std::process::{Command, Stdio};
+    let mut child = Command::new(&command.executable_path)
+        .args(&command.args)
+        .envs(&command.env)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .ok()?;
+    let (mut out, mut err) = (child.stdout.take()?, child.stderr.take()?);
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let (mut o, mut e) = (String::new(), String::new());
+        let _ = out.read_to_string(&mut o);
+        let _ = err.read_to_string(&mut e);
+        let _ = tx.send((o, e));
+    });
+    match rx.recv_timeout(command.timeout) {
+        Ok((stdout, stderr)) => {
+            let exit_code = child.wait().ok().and_then(|s| s.code());
+            Some(SetupResult { exit_code, timed_out: false, stdout, stderr })
+        }
+        Err(_) => {
+            let _ = child.kill();
+            let _ = child.wait();
+            Some(SetupResult { exit_code: None, timed_out: true, stdout: String::new(), stderr: String::new() })
+        }
+    }
+}
+
+/// What the window does with each discovery answer (index.ts:4771): when OpenCode 1 is found ready, its first-start
+/// set-up runs in the background, once a launch, while the person is still reading the screen. True when it was asked.
+pub fn after_discovery(found: &[crate::agents::Found], first_start: &Arc<OpenCodeFirstStart>) -> bool {
+    if !wants_set_up(found, std::env::var("LOCUST_HIDE_RUNTIMES").as_deref() == Ok("1")) {
+        return false;
+    }
+    let first_start = first_start.clone();
+    std::thread::spawn(move || first_start.ensure());
+    true
+}
+
 #[cfg(test)]
 #[path = "opencode_first_start_tests.rs"]
 mod tests;
