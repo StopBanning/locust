@@ -3380,6 +3380,22 @@ apps/desktop/src/renderer/src/a-change-can-be-copied.test.tsx	gives the code as 
 apps/desktop/src/renderer/src/a-change-can-be-copied.test.tsx	gives a new file whole, and nothing for a deleted one	no
 apps/desktop/src/renderer/src/a-change-can-be-copied.test.tsx	offers Copy at the foot of an opened change	no
 apps/desktop/src/renderer/src/a-change-can-be-copied.test.tsx	offers Copy on a changed file's row, beside Open and Show	no
+apps/desktop/src/renderer/src/a-change-is-performed-in-order.test.ts	is one blink: the eyes shut, the new ones come in under the shut lids, they open, and only then does its state begin	yes
+apps/desktop/src/renderer/src/a-change-is-performed-in-order.test.ts	blinks once for a change of what it is doing, its eyes and their colour the same; and not at all with no change	yes
+apps/desktop/src/renderer/src/a-change-is-performed-in-order.test.ts	asked for again mid-change, goes on from where its lids are: never springing open to shut again	yes
+apps/desktop/src/renderer/src/a-change-is-performed-in-order.test.ts	brings its flash in with its new eyes, never on the old ones as they shut, and fades from there	yes
+apps/desktop/src/renderer/src/a-change-is-performed-in-order.test.ts	starts its state's loops as the eyes open on it, on its own clock: the eyes are the loop's, from its start	yes
+apps/desktop/src/renderer/src/a-change-is-performed-in-order.test.ts	performs nothing on a still bot (reduced motion): the eyes asked for, at once, open	yes
+apps/desktop/src/renderer/src/a-change-is-performed-in-order.test.ts	blinks a face of plastic once a change, as the change begins; never a screen, whose swap is its blink	yes
+apps/desktop/src/renderer/src/a-change-is-performed-in-order.test.ts	counts a change's blink as the rig's own: the rig's next blink waits as after any of its blinks, so a change never blinks twice	yes
+apps/desktop/src/renderer/src/a-change-is-performed-in-order.test.ts	wears a new mood only once its eyes are open: through the blink its head holds, then it tips	yes
+apps/desktop/src/renderer/src/a-change-is-performed-in-order.test.ts	hops once its eyes are open on the change that asked for it, and not before	yes
+apps/desktop/src/renderer/src/a-change-is-performed-in-order.test.ts	begins its thinking look as its dots open, from where the rig has the head, on the thinking's own clock	yes
+apps/desktop/src/renderer/src/a-change-is-performed-in-order.test.ts	gives its head to a handoff glance: the thinking look fades while the glance holds, and comes back after it	yes
+apps/desktop/src/renderer/src/a-change-is-performed-in-order.test.ts	settles to rest once its eyes are open on the change, facing you, and only then may rest	yes
+apps/desktop/src/renderer/src/a-change-is-performed-in-order.test.ts	wakes on the same rig: its eyes perform the change while it rests, then its body eases back out	yes
+apps/desktop/src/renderer/src/a-change-is-performed-in-order.test.ts	is never settled mid-blink, so it never rests with its eyes half shut	yes
+apps/desktop/src/renderer/src/a-change-is-performed-in-order.test.ts	draws its eyes' loops at their rest: a resting face never freezes mid-wince	yes
 apps/desktop/src/renderer/src/a-checklist-left-unticked-is-not-a-fault.test.tsx	says what was left unticked, in its own voice, after a run that completed	yes
 apps/desktop/src/renderer/src/a-checklist-left-unticked-is-not-a-fault.test.tsx	keeps amber for a run that failed or was stopped	yes
 apps/desktop/src/renderer/src/a-checklist-left-unticked-is-not-a-fault.test.tsx	says nothing of the kind while the run goes on	yes
