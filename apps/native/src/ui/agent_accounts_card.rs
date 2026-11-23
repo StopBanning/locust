@@ -17,6 +17,8 @@ pub(super) struct Card {
     pub removing: Option<Account>,
     pub message: Option<String>,
     pub read_at: Option<Instant>,
+    /// The added accounts new conversations run on, one per agent at most (`Accounts::for_new`, Electron `forNew`).
+    pub for_new: Vec<String>,
 }
 
 static ACCOUNTS: Mutex<Option<Arc<Accounts>>> = Mutex::new(None);
@@ -94,6 +96,10 @@ pub(super) fn reload(s: &mut State) {
         Ok(list) => s.agent_accounts.accounts = list,
         Err(why) => s.agent_accounts.message = Some(why),
     }
+    s.agent_accounts.for_new = [Agent::Claude, Agent::Codex]
+        .into_iter()
+        .filter_map(|agent| accounts.for_new(agent.as_str()).ok().flatten())
+        .collect();
     s.agent_accounts.read_at = Some(Instant::now());
 }
 
@@ -180,7 +186,18 @@ fn agent_block(s: &State, l: &crate::look::controls::Look, agent: Agent, label: 
     let card = &s.agent_accounts;
     let mut block = col().w_full().gap(6.0).padding(10.0).key(format!("accounts-{}", agent.as_str())).label(format!("{} accounts", agent.as_str()));
     block = block.child(text(label.to_owned()).font(l.ty.control).color(l.c("text-primary")));
-    block = block.child(row().w_full().child(who(l, "This computer's sign-in", "Used when a teammate has no account picked.")));
+    let on_mac = !card.accounts.iter().any(|a| a.agent == agent && card.for_new.contains(&a.id));
+    let mut mac = row().w_full().gap(12.0).center_y().key(format!("account-this-computer-{}", agent.as_str()));
+    mac = mac.child(who(l, "This computer's sign-in", "Used when a teammate has no account picked."));
+    if !on_mac {
+        // New conversations go back to this computer's own sign-in (Electron `for-new` with no id).
+        mac = mac.child(button(l, "Use for new conversations", format!("account-for-new-this-computer-{}", agent.as_str())).on_press(move |s: &mut State| {
+            if !blocked() {
+                act(s, |a| a.use_for_new(agent.as_str(), None));
+            }
+        }));
+    }
+    block = block.child(mac);
     for account in card.accounts.iter().filter(|a| a.agent == agent) {
         let id = account.id.clone();
         if card.editing.as_deref() == Some(&account.id) {
@@ -211,6 +228,15 @@ fn agent_block(s: &State, l: &crate::look::controls::Look, agent: Agent, label: 
                 }
             }));
         }
+        let for_new = account.state == AccountState::Ready && card.for_new.contains(&account.id);
+        if account.state == AccountState::Ready && !for_new {
+            let id = id.clone();
+            actions = actions.child(button(l, "Use for new conversations", format!("account-for-new-{short}")).on_press(move |s: &mut State| {
+                if !blocked() {
+                    act(s, |a| a.use_for_new(agent.as_str(), Some(&id)));
+                }
+            }));
+        }
         {
             let (id, name) = (id.clone(), account.name.clone());
             actions = actions.child(button(l, "Rename", format!("account-rename-{short}")).on_press(move |s: &mut State| {
@@ -226,7 +252,7 @@ fn agent_block(s: &State, l: &crate::look::controls::Look, agent: Agent, label: 
             let account = account.clone();
             actions = actions.child(button(l, "Remove", format!("account-remove-{short}")).on_press(move |s: &mut State| s.agent_accounts.removing = Some(account.clone())));
         }
-        block = block.child(row().w_full().gap(12.0).center_y().key(format!("account-{short}")).child(who(l, &account.name, state_sentence(account.state))).child(actions));
+        block = block.child(row().w_full().gap(12.0).center_y().key(format!("account-{short}")).child(who(l, &account.name, if for_new { "Signed in. New conversations use this account." } else { state_sentence(account.state) })).child(actions));
     }
     if card.adding == Some(agent) {
         block = block.child(
@@ -304,3 +330,7 @@ pub(super) fn section(s: &State, p: &Palette) -> Option<El> {
     }
     Some(out)
 }
+
+#[cfg(test)]
+#[path = "agent_accounts_card_tests.rs"]
+mod agent_accounts_card_tests;
