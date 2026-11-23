@@ -149,8 +149,13 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                 // not say how many files again. A turn still going has no foot.
                 let start = items[..index].iter().rposition(|i| matches!(i, ledger::Item::User(_))).map_or(0, |at| at + 1);
                 let finished = !(turn_running(s) && items[index + 1..].iter().all(|i| !matches!(i, ledger::Item::User(_))));
+                // Thread.tsx `if (!item.finished) return null`: the foot is what the turn came to; a turn still going
+                // has not come to it, so nothing of it is drawn and nothing moves in when it ends.
+                if !finished {
+                    continue;
+                }
                 let mission = s.ledger.as_ref().and_then(|pane| pane.snapshot.turn_metas.get(user_index.saturating_sub(1))).map(|m| m.mission_id.as_str());
-                let foot = if finished { turn_foot_card(&items[start..index], p, s, &format!("{conversation}/foot/{index}"), mission) } else { None };
+                let foot = turn_foot_card(&items[start..index], p, s, &format!("{conversation}/foot/{index}"), mission);
                 // Beside the browser (~418px, the-thread-beside-the-browser-keeps-its-parts-whole, 0.867) the line wraps
                 // by whole parts, each with the "·" before it, and a part longer than the line gives way to its own
                 // ellipsis rather than being cut mid-word at the column's edge.
