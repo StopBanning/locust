@@ -4646,6 +4646,8 @@ apps/desktop/src/renderer/src/memory-card-survives-a-reply.test.ts	keeps the tur
 apps/desktop/src/renderer/src/memory-card-survives-a-reply.test.ts	gives each turn only its own	yes
 apps/desktop/src/renderer/src/memory-card-survives-a-reply.test.ts	gives a turn that taught nothing an empty card rather than a neighbour list	yes
 apps/desktop/src/renderer/src/memory-card-survives-a-reply.test.ts	draws nothing at all when there is no turn to draw under	yes
+apps/desktop/src/renderer/src/menuDigit.test.ts	counts from the top, 1 through 9	yes
+apps/desktop/src/renderer/src/menuDigit.test.ts	leaves a digit alone in a search box, and leaves chords alone	yes
 apps/desktop/src/renderer/src/missionView.test.ts	rebuilds an appended stream instead of keeping the last fragment	yes
 apps/desktop/src/renderer/src/missionView.test.ts	honors a replace as a replace	yes
 apps/desktop/src/renderer/src/missionView.test.ts	keeps separate messages separate and in order	yes

@@ -203,3 +203,60 @@ fn draws_a_disabled_control_as_a_disabled_combobox() {
     assert!(combo.inert || !combo.focusable);
     assert!(all.iter().any(|e| e.text.as_deref() == Some("4 hours")), "it still says its value");
 }
+
+// ---- 1-9 in an open menu (menuDigit.test.ts), on the Permission mode menu ---------------------------------------
+
+fn mode_menu_open(rt: &mut Runtime<State>) {
+    rt.update(|s, _| {
+        s.draft.focused = false;
+        s.mode_menu = true;
+    });
+    settle(rt);
+    assert!(rt.find("mode-menu").is_some(), "the mode menu is open");
+}
+
+#[test]
+fn thread_view_mode_menu_counts_from_the_top_1_through_9() {
+    // case: counts from the top, 1 through 9
+    let mut rt = window();
+    mode_menu_open(&mut rt);
+    typed(&mut rt, "3");
+    assert_eq!(rt.state.composer_mode.as_deref(), Some("plan"), "3 is the third row: Plan");
+    assert!(!rt.state.mode_menu, "choosing closes the menu");
+    mode_menu_open(&mut rt);
+    typed(&mut rt, "1");
+    assert_eq!(rt.state.composer_mode.as_deref(), Some("ask"), "1 is the top row");
+    mode_menu_open(&mut rt);
+    typed(&mut rt, "0");
+    typed(&mut rt, "9");
+    assert_eq!(rt.state.composer_mode.as_deref(), Some("ask"), "0, and a row past the end, choose nothing");
+    assert!(rt.state.mode_menu, "and leave the menu open");
+}
+
+#[test]
+fn thread_view_mode_menu_leaves_a_digit_alone_in_a_search_box_and_leaves_chords_alone() {
+    // case: leaves a digit alone in a search box, and leaves chords alone
+    let mut rt = window();
+    mode_menu_open(&mut rt);
+    for mods in [Mods { ctrl: true, ..Default::default() }, Mods { shift: true, ..Default::default() }, Mods { alt: true, ..Default::default() }] {
+        press_with(&mut rt, Key::Text("2".into()), mods);
+        assert_eq!(rt.state.composer_mode, None, "{mods:?}: a chord picks nothing");
+        assert!(rt.state.mode_menu, "{mods:?}: and the menu stays");
+    }
+    // The message box has the keyboard: the digit is typed there, and the mode stays.
+    rt.update(|s, _| s.draft.focused = true);
+    settle(&mut rt);
+    typed(&mut rt, "2");
+    assert_eq!(rt.state.composer_mode, None, "a digit typed into the box picks nothing");
+    assert!(rt.state.draft.text.contains('2'), "it is typed: {:?}", rt.state.draft.text);
+}
+
+#[test]
+fn thread_view_mode_menu_digit_counts_only_the_rows_that_can_be_chosen() {
+    // Cursor Agent cannot stop and ask, so Approve each is greyed: 4 is Auto, the fourth row that can be chosen.
+    let mut rt = window();
+    rt.update(|s, _| s.teammates[0].runtime = Some("cursor".into()));
+    mode_menu_open(&mut rt);
+    typed(&mut rt, "4");
+    assert_eq!(rt.state.composer_mode.as_deref(), Some("auto"));
+}

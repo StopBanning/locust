@@ -1680,6 +1680,9 @@ fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
     if page_points_ui::key(s, event) {
         return true;
     }
+    if thread_view::mode_menu_digit(s, event) {
+        return true;
+    }
     if s.changes.open && event.mods.shift && !event.mods.alt && event.is_command('y') {
         s.changes.files = !s.changes.files;
         return true;
