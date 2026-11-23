@@ -1,14 +1,4 @@
 # Command grid cases where Rust does not yet build what Electron 2378138f builds.
 # Written by LOCUST_WRITE_NOT_YET=1 cargo test -p locust-core command_grid; may only shrink.
-claude/accept-edits/everything	Rust lacks ["--fork-session"]; Rust adds []
-claude/accept-edits/fork	Rust lacks ["--fork-session"]; Rust adds []
-claude/approve-each/everything	Rust lacks ["--fork-session"]; Rust adds []
-claude/approve-each/fork	Rust lacks ["--fork-session"]; Rust adds []
-claude/ask/everything	Rust lacks ["--fork-session"]; Rust adds []
-claude/ask/fork	Rust lacks ["--fork-session"]; Rust adds []
-claude/auto/everything	Rust lacks ["--fork-session"]; Rust adds []
-claude/auto/fork	Rust lacks ["--fork-session"]; Rust adds []
-claude/plan/everything	Rust lacks ["--fork-session"]; Rust adds []
-claude/plan/fork	Rust lacks ["--fork-session"]; Rust adds []
 copilot/approve-each/browser	Rust lacks []; Rust adds ["--additional-mcp-config", "@/locust/browser/copilot-mcp.json"]
 copilot/approve-each/everything	Rust lacks []; Rust adds ["--additional-mcp-config", "@/locust/browser/copilot-mcp.json"]

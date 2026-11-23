@@ -62,8 +62,16 @@ impl Host {
         )
     }
 
-    fn turn(&self, teammate: &str, mode: &str, origin: Origin) -> (String, Vec<String>) {
+    fn turn(
+        &self,
+        teammate: &str,
+        mode: &str,
+        conversation: Option<&str>,
+        origin: Origin,
+    ) -> (String, Vec<String>) {
         let folder = self.root.join("work");
+        let argv_log = folder.join("claude-argv.jsonl");
+        fs::write(&argv_log, "").unwrap();
         let started = native::send_from(
             Send {
                 teammate: Teammate {
@@ -77,7 +85,7 @@ impl Host {
                     runs_in: mode.into(),
                     folder: Some(folder.to_string_lossy().into_owned()),
                 },
-                conversation: None,
+                conversation: conversation.map(str::to_owned),
                 prompt: "Answer OK.".into(),
                 model: None,
                 effort: None,
@@ -93,11 +101,8 @@ impl Host {
             );
             std::thread::sleep(Duration::from_millis(10));
         }
-        let log = fs::read_to_string(folder.join("claude-argv.jsonl")).unwrap();
-        (
-            started.conversation_id,
-            serde_json::from_str(log.lines().last().unwrap()).unwrap(),
-        )
+        let log = fs::read_to_string(argv_log).unwrap();
+        (started.conversation_id, serde_json::from_str(&log).unwrap())
     }
 }
 
@@ -130,7 +135,7 @@ fn native_claude_loads_only_ticked_connectors_and_honors_approval_mode() {
         ("accept-edits", true, None),
     ] {
         host.settings(ask_connectors);
-        let (_, args) = host.turn("tm_ticked", mode, Origin::default());
+        let (_, args) = host.turn("tm_ticked", mode, None, Origin::default());
         assert!(
             !args.iter().any(|arg| arg == "--strict-mcp-config"),
             "{mode}: {args:?}"
@@ -155,11 +160,49 @@ fn native_claude_loads_only_ticked_connectors_and_honors_approval_mode() {
             },
         ),
     ] {
-        let (_, args) = host.turn(teammate, "ask", origin);
+        let (_, args) = host.turn(teammate, "ask", None, origin);
         assert!(
             args.iter().any(|arg| arg == "--strict-mcp-config"),
             "{args:?}"
         );
         assert_eq!(value_after(&args, "--allowedTools"), None, "{args:?}");
     }
+}
+
+#[test]
+fn native_claude_forks_a_side_question_and_only_resumes_an_ordinary_reply() {
+    let host = Host::new();
+    let _hook = host.install();
+    let (parent, fresh) = host.turn("tm_other", "ask", None, Origin::default());
+    assert!(
+        !fresh
+            .iter()
+            .any(|arg| matches!(arg.as_str(), "--resume" | "--fork-session"))
+    );
+
+    let (side, forked) = host.turn(
+        "tm_other",
+        "ask",
+        None,
+        Origin {
+            started_by: Some(json!({"kind": "side", "of": parent, "question": 1})),
+            ..Default::default()
+        },
+    );
+    assert_ne!(side, parent);
+    let session = "33b21513-a4fb-478d-ad84-21cb7ef30571";
+    assert!(
+        forked
+            .windows(3)
+            .any(|args| args == ["--resume", session, "--fork-session"]),
+        "{forked:?}"
+    );
+
+    let (reply, resumed) = host.turn("tm_other", "ask", Some(&parent), Origin::default());
+    assert_eq!(reply, parent);
+    assert_eq!(value_after(&resumed, "--resume"), Some(session));
+    assert!(
+        !resumed.iter().any(|arg| arg == "--fork-session"),
+        "{resumed:?}"
+    );
 }

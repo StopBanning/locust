@@ -77,6 +77,7 @@ fn rust_command(case: &Value) -> Result<(Vec<String>, Env), String> {
                     model,
                     effort,
                     resume,
+                    fork: case["fork"].as_bool().unwrap(),
                     references: &references,
                     skills: skills.as_slice(),
                     connectors: &connectors,
@@ -261,6 +262,23 @@ fn check_guard_difference(case: &Value, rust: Result<(Vec<String>, Env), String>
     }
     let other = difference(case, Ok((args, env)));
     assert!(other.is_none(), "{id} differs beyond the command guard: {other:?}");
+}
+
+#[test]
+fn the_claude_command_grid_distinguishes_forks_from_ordinary_resumes() {
+    let grid: Value = serde_json::from_str(include_str!("../../../parity/commands.json")).unwrap();
+    for case in grid["cases"].as_array().unwrap() {
+        if text(case, "runtime") == Some("claude") {
+            let (args, _) = rust_command(case).unwrap();
+            let expected = case["fork"] == true && text(case, "resume").is_some();
+            assert_eq!(
+                args.iter().any(|arg| arg == "--fork-session"),
+                expected,
+                "{}",
+                case["id"]
+            );
+        }
+    }
 }
 
 #[test]
