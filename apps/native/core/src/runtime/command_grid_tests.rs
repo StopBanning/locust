@@ -2,8 +2,9 @@
 //!
 //! `parity/commands.json` is written by `scripts/command-grid.mjs` from Electron's TypeScript (it names the Electron
 //! commit). For each case this test builds what the Rust engine would send, the way `native.rs` puts a turn's command
-//! together, and compares. Cases that differ are listed in `parity/commands-not-yet.txt`. The list may only shrink:
-//! a new difference fails, and so does a listed case that now matches until it is taken off the list.
+//! together, and compares. The ten guard differences are checked separately. Other differences are listed in
+//! `parity/commands-not-yet.txt`. The list may only shrink: a new difference fails, and so does a listed case that
+//! now matches until it is taken off the list.
 //!
 //! `LOCUST_WRITE_NOT_YET=1 cargo test -p locust-core command_grid` rewrites the list, with each case's first
 //! difference beside it.
@@ -30,6 +31,21 @@ const COPILOT_SESSION: &str = "00000000-0000-4000-8000-000000000000";
 /// Both placeholders are replaced by the prompt file's path before Muse starts.
 const TS_PROMPT_FILE: &str = "<locust:prompt-file>";
 
+const CLAUDE_GUARD_REASON: &str = "Native always passes the command guard settings. Electron's host never omits them.";
+const OPENCODE_GUARD_REASON: &str = "Native always loads the command guard plugin. Electron's host never omits it.";
+const DIFFERS_ON_PURPOSE: &[(&str, &str)] = &[
+    ("claude/accept-edits/no-guard", CLAUDE_GUARD_REASON),
+    ("claude/approve-each/no-guard", CLAUDE_GUARD_REASON),
+    ("claude/ask/no-guard", CLAUDE_GUARD_REASON),
+    ("claude/auto/no-guard", CLAUDE_GUARD_REASON),
+    ("claude/plan/no-guard", CLAUDE_GUARD_REASON),
+    ("opencode/accept-edits/no-guard", OPENCODE_GUARD_REASON),
+    ("opencode/approve-each/no-guard", OPENCODE_GUARD_REASON),
+    ("opencode/ask/no-guard", OPENCODE_GUARD_REASON),
+    ("opencode/auto/no-guard", OPENCODE_GUARD_REASON),
+    ("opencode/plan/no-guard", OPENCODE_GUARD_REASON),
+];
+
 type Env = BTreeMap<String, String>;
 
 fn text<'a>(case: &'a Value, key: &str) -> Option<&'a str> {
@@ -49,19 +65,27 @@ fn rust_command(case: &Value) -> Result<(Vec<String>, Env), String> {
     let skills: Option<&str> = (case["skills"] == true).then_some(SKILLS);
     let mut env = Env::new();
     let mut args: Vec<String> = match runtime {
-        // native.rs claude_args. Skills, forks and ticked connectors are not wired in the Rust engine yet, so those
-        // cases stay listed; a case without the guard is one Electron's host never builds.
-        "claude" => crate::native::claude_args(
-            mode,
-            Some(BRIDGE),
-            browser.then_some(BROWSER),
-            GUARD_SETTINGS,
-            model,
-            effort,
-            resume,
-            &references,
-            skills.as_slice(),
-        )?,
+        "claude" => {
+            let connectors: Vec<&str> = case["connectors"]
+                .as_array().unwrap().iter().map(|name| name.as_str().unwrap()).collect();
+            crate::native::claude_args_for_turn(
+                super::claude::PrintOptions {
+                    mode,
+                    bridge: Some(BRIDGE),
+                    browser: browser.then_some(BROWSER),
+                    guard_settings: Some(GUARD_SETTINGS),
+                    model,
+                    effort,
+                    resume,
+                    fork: case["fork"].as_bool().unwrap(),
+                    references: &references,
+                    skills: skills.as_slice(),
+                    connectors: &connectors,
+                    ..Default::default()
+                },
+                false,
+            )?
+        }
         "codex" => super::codex::app_server_args(Some("0.160.0")),
         "cursor" => {
             if let Some(why) = super::cursor::refusal(mode, effort) {
@@ -140,9 +164,8 @@ fn rust_command(case: &Value) -> Result<(Vec<String>, Env), String> {
 }
 
 /// The first way the two commands differ, in a line; None when they are the same.
-fn difference(case: &Value) -> Option<String> {
+fn difference(case: &Value, rust: Result<(Vec<String>, Env), String>) -> Option<String> {
     let electron = &case["electron"];
-    let rust = rust_command(case);
     // A mode Electron's app never offers this agent: no person can reach it there, so Rust refusing it is a match.
     if case["offered"] == false {
         return match rust {
@@ -215,17 +238,89 @@ fn json_difference(electron: &Value, rust: &Value, at: &str) -> String {
     }
 }
 
+/// Verify the guard is present in Rust, then compare everything else to Electron.
+fn check_guard_difference(case: &Value, rust: Result<(Vec<String>, Env), String>, reason: &str) {
+    let id = text(case, "id").unwrap();
+    assert_eq!(case["guard"], false, "{id} must be an Electron fixture without the guard");
+    let (mut args, mut env) = rust.unwrap_or_else(|err| panic!("{id}: {err}"));
+    match text(case, "runtime").unwrap() {
+        "claude" => {
+            let guard = args
+                .windows(2)
+                .position(|pair| pair == ["--settings", GUARD_SETTINGS])
+                .unwrap_or_else(|| panic!("{id}: {reason} Guard settings are missing."));
+            args.drain(guard..guard + 2);
+        }
+        "opencode" => {
+            let config = env.get_mut("OPENCODE_CONFIG_CONTENT").unwrap();
+            let mut parsed: Value = serde_json::from_str(config).unwrap();
+            let plugin = parsed.as_object_mut().unwrap().remove("plugin");
+            assert_eq!(plugin, Some(serde_json::json!([OPENCODE_GUARD])), "{id}: {reason}");
+            *config = parsed.to_string();
+        }
+        runtime => panic!("{id}: no guard comparison for {runtime}"),
+    }
+    let other = difference(case, Ok((args, env)));
+    assert!(other.is_none(), "{id} differs beyond the command guard: {other:?}");
+}
+
+#[test]
+fn the_claude_command_grid_distinguishes_forks_from_ordinary_resumes() {
+    let grid: Value = serde_json::from_str(include_str!("../../../parity/commands.json")).unwrap();
+    for case in grid["cases"].as_array().unwrap() {
+        if text(case, "runtime") == Some("claude") {
+            let (args, _) = rust_command(case).unwrap();
+            let expected = case["fork"] == true && text(case, "resume").is_some();
+            assert_eq!(
+                args.iter().any(|arg| arg == "--fork-session"),
+                expected,
+                "{}",
+                case["id"]
+            );
+        }
+    }
+}
+
 #[test]
 fn rust_builds_what_electron_builds_or_the_case_is_listed() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity");
     let grid: Value = serde_json::from_str(&std::fs::read_to_string(root.join("commands.json")).unwrap()).unwrap();
     let cases = grid["cases"].as_array().unwrap();
     assert!(cases.len() >= 300, "the grid has {} cases; it should have at least 300", cases.len());
+    let mut intentional: BTreeMap<_, _> = DIFFERS_ON_PURPOSE.iter().copied().collect();
+    assert_eq!(DIFFERS_ON_PURPOSE.len(), 10, "review any change to the intentional differences");
+    assert_eq!(intentional.len(), DIFFERS_ON_PURPOSE.len(), "duplicate intentional difference");
     let differs: BTreeMap<String, String> = cases
         .iter()
-        .filter_map(|c| difference(c).map(|d| (c["id"].as_str().unwrap().to_owned(), d)))
+        .filter_map(|case| {
+            let id = text(case, "id").unwrap();
+            let rust = rust_command(case);
+            if let Some(reason) = intentional.remove(id) {
+                check_guard_difference(case, rust, reason);
+                return None;
+            }
+            difference(case, rust).map(|why| (id.to_owned(), why))
+        })
         .collect();
+    assert!(intentional.is_empty(), "intentional differences missing from the grid: {intentional:?}");
     let list_path = root.join("commands-not-yet.txt");
+    let listed: BTreeSet<String> = std::fs::read_to_string(&list_path)
+        .unwrap_or_default()
+        .lines()
+        .filter(|l| !l.starts_with('#') && !l.trim().is_empty())
+        .map(|l| l.split('\t').next().unwrap().to_owned())
+        .collect();
+    let new: Vec<String> =
+        differs.iter().filter(|(id, _)| !listed.contains(*id)).map(|(id, why)| format!("{id}: {why}")).collect();
+    assert!(new.is_empty(), "Rust now differs from Electron in cases not on the list:\n{}", new.join("\n"));
+    eprintln!(
+        "command grid: {} of {} cases match Electron {}, {} differ on purpose, {} still differ",
+        cases.len() - DIFFERS_ON_PURPOSE.len() - differs.len(),
+        cases.len(),
+        grid["electronCommit"].as_str().unwrap_or("?"),
+        DIFFERS_ON_PURPOSE.len(),
+        differs.len()
+    );
     if std::env::var_os("LOCUST_WRITE_NOT_YET").is_some() {
         let mut out = format!(
             "# Command grid cases where Rust does not yet build what Electron {} builds.\n\
@@ -236,27 +331,12 @@ fn rust_builds_what_electron_builds_or_the_case_is_listed() {
             out.push_str(&format!("{id}\t{why}\n"));
         }
         std::fs::write(&list_path, out).unwrap();
+    } else {
+        let fixed: Vec<_> = listed.iter().filter(|id| !differs.contains_key(*id)).map(String::as_str).collect();
+        assert!(
+            fixed.is_empty(),
+            "these cases match or differ on purpose; take them off parity/commands-not-yet.txt:\n{}",
+            fixed.join("\n")
+        );
     }
-    let listed: BTreeSet<String> = std::fs::read_to_string(&list_path)
-        .unwrap_or_default()
-        .lines()
-        .filter(|l| !l.starts_with('#') && !l.trim().is_empty())
-        .map(|l| l.split('\t').next().unwrap().to_owned())
-        .collect();
-    let new: Vec<String> =
-        differs.iter().filter(|(id, _)| !listed.contains(*id)).map(|(id, why)| format!("{id}: {why}")).collect();
-    let fixed: Vec<&String> = listed.iter().filter(|id| !differs.contains_key(*id)).collect();
-    eprintln!(
-        "command grid: {} of {} cases match Electron {}; {} listed as not yet",
-        cases.len() - differs.len(),
-        cases.len(),
-        grid["electronCommit"].as_str().unwrap_or("?"),
-        listed.len()
-    );
-    assert!(new.is_empty(), "Rust now differs from Electron in cases not on the list:\n{}", new.join("\n"));
-    assert!(
-        fixed.is_empty(),
-        "these cases match Electron now; take them off parity/commands-not-yet.txt:\n{}",
-        fixed.iter().map(|s| s.as_str()).collect::<Vec<_>>().join("\n")
-    );
 }

@@ -1439,10 +1439,7 @@ fn new_id() -> String {
     )
 }
 
-/// What a Claude Code turn's command line carries in this engine: the bridge outside Auto, the browser when the run
-/// has it, the command guard in every mode, and no account connectors (none can be ticked here yet, and leaving them
-/// out keeps about 170,000 tokens of their tool lists out of each turn). Skills, reference folders and forks are not
-/// wired yet. `command_grid_tests` compares the same composition with Electron's.
+/// A Claude Code command with the command guard and without any ticked connectors or session fork.
 pub fn claude_args(
     mode: Mode,
     bridge: Option<&str>,
@@ -1454,48 +1451,29 @@ pub fn claude_args(
     references: &[&str],
     skills: &[&str],
 ) -> Result<Vec<String>, String> {
-    claude_args_with_fork(
+    claude_args_for_turn(crate::runtime::claude::PrintOptions {
         mode,
         bridge,
-        browser,
-        guard_settings,
-        model,
-        effort,
-        resume,
-        false,
-        references,
-        skills,
-    )
-}
-
-#[allow(clippy::too_many_arguments)]
-fn claude_args_with_fork(
-    mode: Mode,
-    bridge: Option<&str>,
-    browser: Option<&str>,
-    guard_settings: &str,
-    model: Option<&str>,
-    effort: Option<&str>,
-    resume: Option<&str>,
-    fork: bool,
-    references: &[&str],
-    skills: &[&str],
-) -> Result<Vec<String>, String> {
-    crate::runtime::claude::print_args(&crate::runtime::claude::PrintOptions {
-        mode,
-        bridge: if mode == Mode::Auto { None } else { bridge },
         browser,
         guard_settings: Some(guard_settings),
         model,
         effort,
         resume,
-        fork,
         references,
         skills,
-        // No connector can be ticked in this engine yet; whatever is, passes the mode's gate first.
-        connectors: crate::runtime::claude::claude_connector_rules(mode, false, &[]),
         ..Default::default()
-    })
+    }, false)
+}
+
+/// Load account connectors when the teammate has a tick, then apply the turn's approval policy to their allow rules.
+pub(crate) fn claude_args_for_turn(
+    mut options: crate::runtime::claude::PrintOptions<'_>,
+    ask_every_connector: bool,
+) -> Result<Vec<String>, String> {
+    options.account_connectors = !options.connectors.is_empty();
+    options.connectors =
+        crate::runtime::claude::claude_connector_rules(options.mode, ask_every_connector, options.connectors);
+    crate::runtime::claude::print_args(&options)
 }
 
 /// A reply on another agent: the brief that starts it, the link it records, and the stopped turn's checkpoint.
@@ -3071,17 +3049,31 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
         let guard = crate::runtime::permission_bridge::bridge_executable()
             .and_then(|exe| crate::command_guard::write_claude_settings(&store.root().join("guard"), &exe))
             .map_err(|e| format!("Locust's command guard could not be set up: {e}"))?;
-        command.args(claude_args_with_fork(
-            mode,
-            bridge.as_ref().map(|b| b.config()),
-            browser_registration.as_ref().and_then(|r| r.claude_config()),
-            &guard,
-            model.as_deref(),
-            job.effort.as_deref(),
-            resume.as_deref(),
-            is_side,
-            &references,
-            &claude_skills,
+        let connectors: Vec<&str> = in_roster
+            .filter(|_| !sealed)
+            .and_then(|entry| entry["connectors"].as_array())
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+            .collect();
+        let ask_every_connector = std::env::var("LOCUST_ASK_CONNECTORS").as_deref() == Ok("1")
+            || crate::workspace_settings::parse_settings(&saved["settings"]).ask_connectors;
+        command.args(claude_args_for_turn(
+            crate::runtime::claude::PrintOptions {
+                mode,
+                bridge: bridge.as_ref().map(|b| b.config()),
+                browser: browser_registration.as_ref().and_then(|r| r.claude_config()),
+                guard_settings: Some(&guard),
+                model: model.as_deref(),
+                effort: job.effort.as_deref(),
+                resume: resume.as_deref(),
+                fork: is_side,
+                references: &references,
+                skills: &claude_skills,
+                connectors: &connectors,
+                ..Default::default()
+            },
+            ask_every_connector,
         )?);
     }
     let args: Vec<String> = command
