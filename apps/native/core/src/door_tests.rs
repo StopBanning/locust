@@ -283,7 +283,7 @@ fn engine_reads_usage_and_saves_teammate_model_under_org_policy() {
                 "route": {"runtime": "codex", "model": "gpt-6.1-sol", "mode": "auto", "effort": "high"}}], "missionOwners": {}}),
         )
         .unwrap();
-    let engine = Engine { store: store.clone(), settings: Arc::new(Mutex::new(Settings { own_mode: true, conversations: true, ..Default::default() })) };
+    let engine = Engine { store: store.clone(), settings: Arc::new(Mutex::new(Settings { own_mode: true, conversations: true, ..Default::default() })), voice: false };
     let (windows, at_limit) = engine.usage().unwrap();
     assert_eq!(windows.get("codex").map(String::as_str), Some("5-hour window 78% used · from a run at 2026-11-22T05:13:36.175Z"));
     assert_eq!(at_limit.get("codex").map(String::as_str), Some("Codex is at its limit."));

@@ -9,6 +9,7 @@ pub mod antigravity_projects;
 pub mod claude;
 pub mod claude_events;
 pub mod codex;
+pub mod codex_voice;
 pub mod copilot;
 pub mod copilot_events;
 pub mod cursor;

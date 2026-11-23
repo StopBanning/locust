@@ -208,7 +208,7 @@ impl Codex {
                 .as_ref()
                 .is_some_and(|f| f.load(Ordering::Relaxed))
     }
-    fn send(&mut self, v: Value) -> io::Result<()> {
+    pub(super) fn send(&mut self, v: Value) -> io::Result<()> {
         let mut bytes = serde_json::to_vec(&v)?;
         bytes.push(b'\n');
         match self.input.try_send(bytes) {
@@ -220,7 +220,7 @@ impl Codex {
             }
         }
     }
-    fn receive(&self) -> io::Result<Option<Value>> {
+    pub(super) fn receive(&self) -> io::Result<Option<Value>> {
         if let Some(message) = self.control.failure() {
             return Err(err(message));
         }
@@ -228,6 +228,16 @@ impl Codex {
             Ok(v) => v.map(Some),
             Err(RecvTimeoutError::Timeout) => Ok(None),
             Err(_) => Err(err("Codex transport disconnected")),
+        }
+    }
+    pub(super) fn try_receive(&self) -> io::Result<Option<Value>> {
+        if let Some(message) = self.control.failure() {
+            return Err(err(message));
+        }
+        match self.lines.try_recv() {
+            Ok(value) => value.map(Some),
+            Err(mpsc::TryRecvError::Empty) => Ok(None),
+            Err(mpsc::TryRecvError::Disconnected) => Err(err("Codex transport disconnected")),
         }
     }
     fn transport_failure(&mut self, message: &str) -> Event {
@@ -416,10 +426,14 @@ impl Codex {
             "Your reason was not passed on: the run could not take a message just then. Say it in your next message.",
         ));
     }
-    fn request(&mut self, method: &str, params: Value) -> io::Result<Value> {
+    pub(super) fn begin_request(&mut self, method: &str, params: Value) -> io::Result<u64> {
         self.request_id += 1;
         let id = self.request_id;
         self.send(json!({"jsonrpc":"2.0","id":id,"method":method,"params":params}))?;
+        Ok(id)
+    }
+    fn request(&mut self, method: &str, params: Value) -> io::Result<Value> {
+        let id = self.begin_request(method, params)?;
         let deadline = Instant::now() + Duration::from_secs(60);
         loop {
             if Instant::now() >= deadline {

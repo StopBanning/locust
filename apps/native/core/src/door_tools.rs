@@ -386,9 +386,35 @@ struct Choice {
     effort: Option<String>,
 }
 
+pub(crate) struct VoiceScope {
+    folder: PathBuf,
+    conversations: Mutex<HashSet<String>>,
+    handoffs: Mutex<Vec<crate::voice_transcript::Handoff>>,
+    active: std::sync::atomic::AtomicBool,
+}
+
+impl VoiceScope {
+    pub(crate) fn new(folder: PathBuf, here: Option<&str>) -> Self {
+        Self {
+            folder, conversations: Mutex::new(here.map(str::to_owned).into_iter().collect()),
+            handoffs: Mutex::new(Vec::new()),
+            active: std::sync::atomic::AtomicBool::new(true),
+        }
+    }
+
+    pub(crate) fn close(&self) {
+        self.active.store(false, std::sync::atomic::Ordering::Release);
+    }
+
+    pub(crate) fn take_handoffs(&self) -> Vec<crate::voice_transcript::Handoff> {
+        std::mem::take(&mut *crate::invariants::lock(&self.handoffs))
+    }
+}
+
 /// The door's tools, over a `Locust`.
 pub struct Tools<L: Locust> {
     pub locust: L,
+    voice: Option<std::sync::Arc<VoiceScope>>,
     /// Conversations a send_message is starting the next turn of, claimed before the first read.
     starting: Mutex<HashSet<String>>,
     /// The routines this server started: their status is readable here; a person's own runs are not.
@@ -397,7 +423,12 @@ pub struct Tools<L: Locust> {
 
 impl<L: Locust> Tools<L> {
     pub fn new(locust: L) -> Self {
-        Self { locust, starting: Mutex::new(HashSet::new()), routines_started: Mutex::new(HashSet::new()) }
+        Self { locust, voice: None, starting: Mutex::new(HashSet::new()), routines_started: Mutex::new(HashSet::new()) }
+    }
+
+    pub(crate) fn with_voice(mut self, voice: std::sync::Arc<VoiceScope>) -> Self {
+        self.voice = Some(voice);
+        self
     }
 
     /// A short conversation id (0.882): the first eight or more characters of an id list_conversations gave, with or
@@ -423,6 +454,12 @@ impl<L: Locust> Tools<L> {
     /// A conversation this app may read: one an app started, or any while the person lets apps see theirs. Then its
     /// newest turn. Accepts a short id (eight or more characters, with or without `mission_`) matching one conversation.
     fn lookup(&self, asked: &str) -> Option<Turn> {
+        if let Some(voice) = &self.voice
+            && (!voice.active.load(std::sync::atomic::Ordering::Acquire)
+                || !crate::invariants::lock(&voice.conversations).contains(asked))
+        {
+            return None;
+        }
         let (id, root) = match self.locust.read(asked) {
             Some(t) => (asked.to_owned(), t),
             None => {
@@ -434,7 +471,7 @@ impl<L: Locust> Tools<L> {
                 (expanded, t)
             }
         };
-        if !root.from_app() && !self.locust.see_all() {
+        if self.voice.is_none() && !root.from_app() && !self.locust.see_all() {
             return None;
         }
         let newest = self.locust.newest(&id).unwrap_or_else(|| id.clone());
@@ -599,6 +636,9 @@ impl<L: Locust> Tools<L> {
                 Ok(path) => folder = Some(path),
                 Err(why) => return ToolResult::refused(format!("{why} Nothing was started.")),
             }
+        } else if let Some(voice) = &self.voice {
+            folder = previous.and_then(|turn| self.turn_folder(turn)).map(PathBuf::from)
+                .or_else(|| Some(voice.folder.clone()));
         } else if let Some(was) = previous.and_then(|p| conversation_folder(&p.started_by)) {
             // A follow-up stays in the folder its conversation was started in, checked again: it may be gone.
             match self.locust.check_folder(&was) {
@@ -626,6 +666,7 @@ impl<L: Locust> Tools<L> {
             let runtime = p.runtime.clone()?;
             Some(self.locust.follow_up_route(&p.mission_id).unwrap_or(Route { runtime, model: p.model.clone(), ..Default::default() }))
         });
+        let voice_teammate = self.voice.as_ref().map(|_| (teammate.id.clone(), teammate.name.clone()));
         let request = StartRequest {
             teammate,
             prompt: prompt.to_owned(),
@@ -641,6 +682,13 @@ impl<L: Locust> Tools<L> {
             Ok(b) => b,
             Err(why) => return ToolResult::refused(why),
         };
+        if let (Some(voice), Some((id, name))) = (&self.voice, voice_teammate) {
+            crate::invariants::lock(&voice.conversations).insert(conversation.unwrap_or(&begun.mission_id).to_owned());
+            crate::invariants::lock(&voice.handoffs).push(crate::voice_transcript::Handoff {
+                mission_id: begun.mission_id.clone(), teammate_id: id, name, task: prompt.to_owned(),
+                at: chrono::Utc::now().timestamp_millis().max(1) as u64,
+            });
+        }
         let shown = self
             .locust
             .read(&begun.mission_id)
@@ -725,6 +773,25 @@ impl<L: Locust> Tools<L> {
     pub fn call(&self, name: &str, arguments: &Value) -> ToolResult {
         let empty = json!({});
         let args = if arguments.is_object() { arguments } else { &empty };
+        if let Some(voice) = &self.voice {
+            if !voice.active.load(std::sync::atomic::Ordering::Acquire) {
+                return ToolResult::refused("The call has ended.");
+            }
+            if !crate::voice_call_rules::TOOLS.contains(&name) {
+                return ToolResult::refused("A voice call cannot do that.");
+            }
+            if crate::voice_call_folder::TOOLS.contains(&name) {
+                return crate::voice_call_folder::call(Some(&voice.folder), name, args);
+            }
+            if matches!(name, "send_message" | "start_conversation")
+                && ["mode", "folder", "model", "effort", "runtime", "read_only"].iter().any(|key| args.get(key).is_some())
+            {
+                return ToolResult::refused("The call uses the teammate’s own agent, model, mode and folder. Nothing was started.");
+            }
+            if name == "start_conversation" && args["teammate"].as_str().is_none() {
+                return ToolResult::refused("Name a teammate returned by list_teammates. Nothing was started.");
+            }
+        }
         match name {
             "list_teammates" => {
                 let list = match self.locust.teammates() {

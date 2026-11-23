@@ -3179,6 +3179,12 @@ fn main() {
         std::process::exit(locust_core::git_reads::serve_stdio());
     }
     // Another app's stdio connection to Locust's door: it only reads the connection file and posts to the door.
+    if std::env::args().nth(1).as_deref() == Some("--voice-call-bridge") {
+        if let Some(connection) = std::env::args_os().nth(2) {
+            locust_core::door::voice_bridge_main(std::path::Path::new(&connection));
+        }
+        return;
+    }
     if std::env::args().nth(1).as_deref() == Some("--door-bridge") {
         let connection = std::env::args().nth(2).unwrap_or_default();
         locust_core::door::bridge_main(std::path::Path::new(&connection));

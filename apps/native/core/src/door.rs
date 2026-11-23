@@ -274,6 +274,49 @@ pub struct Door {
     editors: Option<Arc<crate::cli_sessions::CliSessions>>,
 }
 
+pub(crate) struct VoiceDoor {
+    door: Door,
+    scope: Arc<crate::door_tools::VoiceScope>,
+    config: crate::voice_call_rules::AddOn,
+}
+
+impl crate::runtime::codex_voice::CallAddOn for VoiceDoor {
+    fn configuration(&self) -> &crate::voice_call_rules::AddOn { &self.config }
+
+    fn take_handoffs(&self) -> Vec<crate::voice_transcript::Handoff> {
+        self.scope.take_handoffs()
+    }
+
+    fn close_scope(&self) {
+        self.scope.close();
+    }
+}
+
+impl Drop for VoiceDoor {
+    fn drop(&mut self) {
+        self.scope.close();
+        self.door.stop();
+        let _ = std::fs::remove_dir(&self.door.dir);
+    }
+}
+
+pub(crate) fn open_voice_door(store: Store, exe: &Path, folder: PathBuf, here: Option<&str>) -> Option<VoiceDoor> {
+    let scope = Arc::new(crate::door_tools::VoiceScope::new(folder, here));
+    let dir = store.check(&store.root().join("voice-call-mcp").join(format!("call-{}", crate::invariants::unique_nanos()))).ok()?;
+    let settings = Arc::new(Mutex::new(Settings { own_mode: true, ..Settings::default() }));
+    let tools = Tools::new(Engine { store, settings: settings.clone(), voice: true }).with_voice(scope.clone());
+    let exe = exe.to_str()?;
+    let door = Door::with(dir, exe, settings, Arc::new(move |name, args| tools.call(name, args).to_json()))
+        .with_refusal(Arc::new(|| None));
+    door.start().ok()?;
+    let config = crate::voice_call_rules::AddOn {
+        command: exe.into(),
+        args: vec!["--voice-call-bridge".into(), door.connection_path().to_str()?.into()],
+        env: Default::default(),
+    };
+    Some(VoiceDoor { door, scope, config })
+}
+
 /// The switches saved beside the connection file, through a temporary file moved into place.
 fn save_settings(dir: &Path, settings: &Settings) -> Result<(), String> {
     std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
@@ -304,9 +347,9 @@ impl Door {
     /// The live door over the native engine whose data is in `store` (the engine process's own, E4).
     pub fn for_store(store: Store, exe: &str) -> Self {
         let settings = Arc::new(Mutex::new(Settings::default()));
-        let tools = Arc::new(Tools::new(Engine { store: store.clone(), settings: settings.clone() }));
+        let tools = Arc::new(Tools::new(Engine { store: store.clone(), settings: settings.clone(), voice: false }));
         let dir = store.root().to_path_buf();
-        let host = Editors { engine: Engine { store, settings: settings.clone() }, dir: dir.clone() };
+        let host = Editors { engine: Engine { store, settings: settings.clone(), voice: false }, dir: dir.clone() };
         let editors = Arc::new(crate::cli_sessions::CliSessions::live(Arc::new(host)));
         let sessions = editors.clone();
         // The editors' `cli/*` names are answered in front of the tools (index.ts), never listed in the bridge.
@@ -332,7 +375,7 @@ impl Door {
             saved.own_mode = false;
         }
         let settings = Arc::new(Mutex::new(saved));
-        let tools = Arc::new(Tools::new(Engine { store, settings }));
+        let tools = Arc::new(Tools::new(Engine { store, settings, voice: false }));
         Ok(Arc::new(move |name: &str, args: &Value| tools.call(name, args).to_json()))
     }
 
@@ -591,7 +634,7 @@ pub fn check_folder(store: &Store, path: &str) -> Result<PathBuf, String> {
 /// The door's `list_models` answer for this computer, for the window's own model picker on the native engine.
 pub fn list_models_here(teammate: Option<&str>) -> Result<String, String> {
     let store = Store::local().map_err(|e| e.to_string())?;
-    let tools = Tools::new(Engine { store, settings: Arc::new(Mutex::new(Settings::default())) });
+    let tools = Tools::new(Engine { store, settings: Arc::new(Mutex::new(Settings::default())), voice: false });
     let said = tools.list_models(teammate);
     if said.is_error { Err(said.text) } else { Ok(said.text) }
 }
@@ -612,7 +655,7 @@ pub(crate) fn routines_if_offered_for_test(store: &Store, offered: bool) -> Opti
 
 #[cfg(test)]
 pub(crate) fn tools_over(store: Store, own_mode: bool) -> Tools<Engine> {
-    Tools::new(Engine { store, settings: Arc::new(Mutex::new(Settings { own_mode, ..Settings::default() })) })
+    Tools::new(Engine { store, settings: Arc::new(Mutex::new(Settings { own_mode, ..Settings::default() })), voice: false })
 }
 
 // ---- the live engine ------------------------------------------------------------------------------------------------
@@ -621,6 +664,7 @@ pub(crate) fn tools_over(store: Store, own_mode: bool) -> Tools<Engine> {
 pub struct Engine {
     store: Store,
     settings: Arc<Mutex<Settings>>,
+    voice: bool,
 }
 
 impl Engine {
@@ -724,7 +768,10 @@ impl Locust for Engine {
     fn start(&self, request: StartRequest) -> Result<Begun, String> {
         let follow_up = request.follow_up_of.clone();
         let saved = self.efforts().get(&request.teammate.id).cloned();
-        let (job, origin, route) = job_of(request, saved);
+        let (job, mut origin, route) = job_of(request, saved);
+        if self.voice && let Some(started_by) = &mut origin.started_by {
+            started_by["via"] = json!("voice");
+        }
         let started = crate::engine_api::api().send(job, origin)?;
         // The new turn's own id: for a follow-up, the conversation's newest turn now.
         let mission_id = match &follow_up {
@@ -1051,6 +1098,39 @@ pub fn tool_list() -> Value {
     )
 }
 
+pub(crate) fn voice_tool_list() -> Value {
+    let mut tools: Vec<_> = tool_list().as_array().into_iter().flatten()
+        .filter(|tool| tool["name"].as_str().is_some_and(|name| crate::voice_call_rules::TOOLS.contains(&name)))
+        .cloned().collect();
+    for tool in &mut tools {
+        let args = match tool["name"].as_str() {
+            Some("start_conversation") => Some(("teammate", "Ask a named teammate on its own agent, model, mode and folder. Wait for the person's yes before handing over.")),
+            Some("send_message") => Some(("conversation_id", "Send the person's words into a conversation this call can continue.")),
+            _ => None,
+        };
+        if let Some((who, description)) = args {
+            let previous = &tool["inputSchema"]["properties"];
+            let schema = json!({"type":"object","properties":{(who):previous[who],"message":previous["message"]},
+                "required":[who,"message"],"additionalProperties":false});
+            tool["description"] = json!(description);
+            tool["inputSchema"] = schema;
+        }
+    }
+    for (name, field, description) in [
+        ("find_files","query","Find files by relative path inside the call's folder."),
+        ("read_file","path","Read part of a text file by its relative path in the call's folder."),
+        ("search_files","text","Search text files inside the call's folder for words."),
+    ] {
+        let mut input = json!({"type":"object","properties":{(field):{"type":"string","maxLength":1000}},
+            "required":if name == "find_files" { vec![] } else { vec![field] },"additionalProperties":false});
+        if name == "read_file" {
+            input["properties"]["from_line"] = json!({"type":"integer","minimum":1});
+        }
+        tools.push(json!({"name":name,"description":description,"inputSchema":input,"annotations":{"readOnlyHint":true}}));
+    }
+    json!(tools)
+}
+
 /// A connection file that could only point at this machine's door: a profile file can never redirect the bearer token.
 fn read_connection(path: &Path) -> Option<(String, String)> {
     let value: Value = serde_json::from_str(&std::fs::read_to_string(path).ok()?).ok()?;
@@ -1119,7 +1199,15 @@ pub fn bridge_main(connection: &Path) {
     bridge_io(connection, std::io::stdin().lock(), std::io::stdout());
 }
 
+pub fn voice_bridge_main(connection: &Path) {
+    bridge_with_tools(connection, std::io::stdin().lock(), std::io::stdout(), voice_tool_list());
+}
+
 fn bridge_io<W: Write + Send + 'static>(connection: &Path, input: impl BufRead, output: W) {
+    bridge_with_tools(connection, input, output, tool_list());
+}
+
+fn bridge_with_tools<W: Write + Send + 'static>(connection: &Path, input: impl BufRead, output: W, tools: Value) {
     let out = Arc::new(Mutex::new(output));
     let send = |out: &Arc<Mutex<W>>, line: Value| {
         let mut o = out.lock().unwrap_or_else(|e| e.into_inner());
@@ -1127,7 +1215,6 @@ fn bridge_io<W: Write + Send + 'static>(connection: &Path, input: impl BufRead, 
         let _ = o.flush();
     };
     let error = |id: Value, code: i64, message: &str| json!({"jsonrpc": "2.0", "id": id, "error": {"code": code, "message": message}});
-    let tools = tool_list();
     let names: Vec<String> = tools.as_array().into_iter().flatten().filter_map(|t| t["name"].as_str().map(str::to_owned)).collect();
     let mut calls = Vec::new();
     for line in input.lines() {
