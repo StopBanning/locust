@@ -135,6 +135,43 @@ pub fn read_runtime_artifacts(installed: &[&str], home: &Path) -> Vec<RuntimeArt
         .collect()
 }
 
+/// Which agents' lists are read, from discovery's answer (index.ts's RUNTIME_ARTIFACTS_CHANNEL): ready or signed out.
+pub fn listed_runtimes(found: &[crate::agents::Found]) -> Vec<String> {
+    use crate::agents::Probe;
+    found.iter().filter(|f| matches!(f.status, Probe::Ready | Probe::AuthRequired)).map(|f| f.id.clone()).collect()
+}
+
+/// CliArtifacts.tsx `inventorySummary`: `3 agents · 1 command`, in the order the kinds first appear.
+pub fn inventory_summary(artifacts: &[&RuntimeArtifact]) -> String {
+    let mut counts: Vec<(&str, usize)> = Vec::new();
+    for entry in artifacts {
+        match counts.iter_mut().find(|(kind, _)| *kind == entry.kind) {
+            Some((_, count)) => *count += 1,
+            None => counts.push((entry.kind, 1)),
+        }
+    }
+    counts.iter().map(|(kind, count)| if *count == 1 { format!("1 {kind}") } else { format!("{count} {kind}s") }).collect::<Vec<_>>().join(" \u{b7} ")
+}
+
+/// The fold's words under one agent (CliArtifacts.tsx's summary): `3 agents · 1 command of its own`.
+pub fn fold_line(artifacts: &[&RuntimeArtifact]) -> String {
+    format!("{} of its own", inventory_summary(artifacts))
+}
+
+/// The note inside the fold, Electron's word for word.
+pub const LISTS_NOT_RUNS: &str = "Locust lists these, it does not run them";
+
+/// The last two segments of where it lives (`agents/gig-scout.md`): the whole path runs off the row's edge.
+pub fn path_tail(path: &Path) -> String {
+    let whole = path.to_string_lossy();
+    let parts: Vec<&str> = whole.split(['/', '\\']).collect();
+    parts[parts.len().saturating_sub(2)..].join("/")
+}
+
 #[cfg(test)]
 #[path = "runtime_artifacts_tests.rs"]
 mod runtime_artifacts_tests;
+
+#[cfg(test)]
+#[path = "runtime_artifacts_fold_tests.rs"]
+mod runtime_artifacts_fold_tests;

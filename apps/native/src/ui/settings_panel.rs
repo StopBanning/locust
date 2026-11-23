@@ -44,6 +44,12 @@ pub(super) struct Panel {
     pub agents_recheck: Latest<()>,
     /// Agents whose late check has finished, by the host's word, not yet read back (App.tsx `finishedChecks`).
     pub agents_finished: std::collections::HashSet<String>,
+    /// What each agent has of its own (runtime_artifacts.rs, CliArtifacts.tsx): the list, which agents it was read for,
+    /// the read itself, and which agents' folds are open.
+    pub artifacts: Vec<locust_core::runtime_artifacts::RuntimeArtifact>,
+    pub artifacts_for: Option<Vec<String>>,
+    pub artifacts_job: Latest<Vec<locust_core::runtime_artifacts::RuntimeArtifact>>,
+    pub artifacts_open: std::collections::HashSet<String>,
     /// "OWN COPIES": the project folder's teammate copies, and what a Remove came back with.
     pub own_copies: Option<crate::own_copies::OwnCopies>,
     pub check_command: TextEdit,

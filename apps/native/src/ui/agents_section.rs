@@ -214,6 +214,11 @@ pub(super) fn poll(s: &mut State) -> bool {
         None => false,
     };
     changed |= read_late_answers(s);
+    read_artifacts(s);
+    if let Some(found) = s.settings_panel.artifacts_job.take() {
+        s.settings_panel.artifacts = found;
+        changed = true;
+    }
     let latest = s.agents_install.line.lock().unwrap_or_else(|e| e.into_inner()).clone();
     if latest != s.agents_install.shown {
         s.agents_install.shown = latest;
@@ -233,6 +238,83 @@ pub(super) fn poll(s: &mut State) -> bool {
         changed = true;
     }
     changed
+}
+
+#[cfg(test)]
+thread_local! {
+    static HOME_STAND_IN: std::cell::RefCell<Option<std::path::PathBuf>> = const { std::cell::RefCell::new(None) };
+}
+
+/// A window test's own home folder, for this test's thread only. With none, a test reads no one's CLI folders.
+#[cfg(test)]
+pub(super) fn use_home(home: std::path::PathBuf) {
+    HOME_STAND_IN.with(|c| *c.borrow_mut() = Some(home));
+}
+
+#[cfg(test)]
+fn home() -> Option<std::path::PathBuf> {
+    HOME_STAND_IN.with(|c| c.borrow().clone())
+}
+
+#[cfg(not(test))]
+fn home() -> Option<std::path::PathBuf> {
+    std::env::var_os("HOME").map(std::path::PathBuf::from)
+}
+
+/// What the agents have of their own (App.tsx's `listRuntimeArtifacts`), read again whenever which agents are ready or
+/// signed out changes -- not on every sweep -- off the window's thread.
+fn read_artifacts(s: &mut State) {
+    let Some(found) = s.settings_panel.agents.as_deref() else { return };
+    let listed = locust_core::runtime_artifacts::listed_runtimes(found);
+    if s.settings_panel.artifacts_for.as_ref() == Some(&listed) || s.settings_panel.artifacts_job.is_pending() {
+        return;
+    }
+    let Some(home) = home() else { return };
+    s.settings_panel.artifacts_for = Some(listed.clone());
+    s.settings_panel.artifacts_job.request((listed, home), |(listed, home)| {
+        let installed: Vec<&str> = listed.iter().map(String::as_str).collect();
+        locust_core::runtime_artifacts::read_runtime_artifacts(&installed, &home)
+    });
+}
+
+/// CliArtifacts.tsx under one agent: folded, with what is inside counted on the fold; open, the note and each one with
+/// the tail of where it lives. Nothing when the agent has none.
+fn artifacts_part(s: &State, l: &crate::look::controls::Look, f: &Found) -> Option<El> {
+    use locust_core::runtime_artifacts::{LISTS_NOT_RUNS, fold_line, path_tail};
+    let mine: Vec<&locust_core::runtime_artifacts::RuntimeArtifact> = s.settings_panel.artifacts.iter().filter(|a| a.runtime == f.id).collect();
+    if mine.is_empty() {
+        return None;
+    }
+    let open = s.settings_panel.artifacts_open.contains(&f.id);
+    let id = f.id.clone();
+    let mut part = col().gap(4.0).key(format!("agents-artifacts-{}", f.id)).child(
+        text(fold_line(&mine))
+            .font(l.ty.mono)
+            .color(l.c("text-secondary"))
+            .key(format!("agents-artifacts-fold-{}", f.id))
+            .role("button")
+            .label(format!("{}, {}", fold_line(&mine), if open { "open" } else { "folded" }))
+            .self_start()
+            .on_press(move |s: &mut State| {
+                if !s.settings_panel.artifacts_open.remove(&id) {
+                    s.settings_panel.artifacts_open.insert(id.clone());
+                }
+            }),
+    );
+    if !open {
+        return Some(part);
+    }
+    part = part.child(text(LISTS_NOT_RUNS.to_owned()).font(l.ty.mono).color(l.c("text-muted")));
+    for entry in mine {
+        let mut line = row().gap(8.0).center_y().flex_wrap()
+            .child(text(entry.kind.to_owned()).font(l.ty.mono).color(l.c("text-muted")))
+            .child(text(entry.name.clone()).font(l.ty.body).color(l.c("text-primary")));
+        if let Some(description) = &entry.description {
+            line = line.child(text(description.clone()).font(l.ty.body).color(l.c("text-secondary")).wrap().shrink());
+        }
+        part = part.child(line.child(text(path_tail(&entry.path)).font(l.ty.mono).color(l.c("text-muted")).help(entry.path.display().to_string())));
+    }
+    Some(part)
 }
 
 /// What the keeping-current service is doing, as the window last saw it.
@@ -811,6 +893,10 @@ pub(super) fn section(s: &State, p: &Palette) -> El {
         if matches!(status.tag, "READY" | "ACTIVE") && f.auth == agents::Auth::Authenticated && agents::sign_in_command(&f.id, true).is_some() {
             words = words.child(sign_in_part(s, &l, &f, true));
         }
+        // What the person set up inside this CLI, folded under it, last on the row (Screens.tsx's CliArtifacts).
+        if let Some(own) = artifacts_part(s, &l, &f) {
+            words = words.child(own);
+        }
         let tag = text(status.tag.to_owned())
             .font(l.ty.label)
             .color(if status.selectable { l.c("text-primary") } else { l.c("text-secondary") })
@@ -901,6 +987,10 @@ mod agents_abilities_tests;
 #[cfg(test)]
 #[path = "agents_opencode_first_start_tests.rs"]
 mod agents_opencode_first_start_tests;
+
+#[cfg(test)]
+#[path = "agents_artifacts_fold_tests.rs"]
+mod agents_artifacts_fold_tests;
 
 #[cfg(test)]
 #[path = "signing_in_is_a_button_tests.rs"]
