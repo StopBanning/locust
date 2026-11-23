@@ -154,57 +154,91 @@ fn inspect_ledger_file(path: &Path) -> ParsedHeader {
     }
 }
 
-/// Measure native mission history size, count, and oldest record date.
+/// Measure native mission history size, count, and oldest record date, reading every file (a fresh reader).
 pub fn read_storage_report(ledger_dir: &Path) -> Result<StorageReport, String> {
-    let entries = match fs::read_dir(ledger_dir) {
-        Ok(e) => e,
-        Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(StorageReport::default()),
-        Err(_) => return Err("The local mission history could not be measured.".into()),
-    };
+    StorageReader::default().report(ledger_dir)
+}
 
-    let mut report = StorageReport::default();
-    let mut oldest: Option<DateTime<Utc>> = None;
+/// THE STORAGE REPORT READS ONLY WHAT CHANGED (mission-store storageReport): Settings asks every time it opens, and
+/// parsing every ledger for one date took half a second on a real history (measured 2026-09-22, 138 missions,
+/// 47.8 MB). Each file's date is kept by its size and modified time, and a file is read again only when either moved;
+/// one that is gone is forgotten. A fresh reader reads everything, so nothing stale outlives the app.
+#[derive(Debug, Default)]
+pub struct StorageReader {
+    dates: HashMap<PathBuf, (u64, Option<std::time::SystemTime>, Option<DateTime<Utc>>)>,
+}
 
-    for entry in entries.flatten() {
-        let Ok(ft) = entry.file_type() else {
-            continue;
-        };
-        if !ft.is_file() {
-            continue;
-        }
-        let Some(name) = entry.file_name().to_str().map(str::to_owned) else {
-            continue;
-        };
-        let Some(id) = name.strip_suffix(".jsonl") else {
-            continue;
-        };
-        if !ledger::safe_id(id) {
-            continue;
-        }
-        let path = entry.path();
-        let Ok(meta) = fs::metadata(&path) else {
-            continue;
-        };
-        report.byte_total += meta.len();
-        report.mission_count += 1;
-
-        let parsed = inspect_ledger_file(&path);
-        match parsed.last_updated_at {
-            Some(ts) => {
-                oldest = Some(match oldest {
-                    Some(prev) if prev <= ts => prev,
-                    _ => ts,
-                });
+impl StorageReader {
+    pub fn report(&mut self, ledger_dir: &Path) -> Result<StorageReport, String> {
+        let entries = match fs::read_dir(ledger_dir) {
+            Ok(e) => e,
+            Err(e) if e.kind() == io::ErrorKind::NotFound => {
+                self.dates.clear();
+                return Ok(StorageReport::default());
             }
-            None => {
-                report.unreadable_count += 1;
+            Err(_) => return Err("The local mission history could not be measured.".into()),
+        };
+
+        let mut report = StorageReport::default();
+        let mut oldest: Option<DateTime<Utc>> = None;
+        let mut seen: HashSet<PathBuf> = HashSet::new();
+
+        for entry in entries.flatten() {
+            let Ok(ft) = entry.file_type() else {
+                continue;
+            };
+            if !ft.is_file() {
+                continue;
+            }
+            let Some(name) = entry.file_name().to_str().map(str::to_owned) else {
+                continue;
+            };
+            let Some(id) = name.strip_suffix(".jsonl") else {
+                continue;
+            };
+            if !ledger::safe_id(id) {
+                continue;
+            }
+            let path = entry.path();
+            let Ok(meta) = fs::metadata(&path) else {
+                continue;
+            };
+            report.byte_total += meta.len();
+            report.mission_count += 1;
+            let stamp = (meta.len(), meta.modified().ok());
+            let updated = match self.dates.get(&path) {
+                Some((len, modified, date)) if (*len, *modified) == stamp && stamp.1.is_some() => *date,
+                _ => {
+                    let date = inspect_ledger_file(&path).last_updated_at;
+                    self.dates.insert(path.clone(), (stamp.0, stamp.1, date));
+                    date
+                }
+            };
+            seen.insert(path);
+            match updated {
+                Some(ts) => {
+                    oldest = Some(match oldest {
+                        Some(prev) if prev <= ts => prev,
+                        _ => ts,
+                    });
+                }
+                None => {
+                    report.unreadable_count += 1;
+                }
             }
         }
+        self.dates.retain(|path, _| seen.contains(path));
+
+        report.oldest_updated_at =
+            oldest.map(|dt| dt.to_rfc3339_opts(chrono::SecondsFormat::Millis, true));
+        Ok(report)
     }
+}
 
-    report.oldest_updated_at =
-        oldest.map(|dt| dt.to_rfc3339_opts(chrono::SecondsFormat::Millis, true));
-    Ok(report)
+/// The app's one reader, so Settings reads only what changed since it last opened.
+pub fn read_storage_report_kept(ledger_dir: &Path) -> Result<StorageReport, String> {
+    static READER: std::sync::OnceLock<std::sync::Mutex<StorageReader>> = std::sync::OnceLock::new();
+    crate::invariants::lock(READER.get_or_init(Default::default)).report(ledger_dir)
 }
 
 fn move_to_trash(ledger_dir: &Path, mission_id: &str) -> io::Result<bool> {
@@ -718,3 +752,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "the_storage_report_reads_only_what_changed_tests.rs"]
+mod the_storage_report_reads_only_what_changed_tests;
