@@ -4588,6 +4588,25 @@ apps/desktop/src/renderer/src/homeTeamState.test.ts	says the command it wants to
 apps/desktop/src/renderer/src/homeTeamState.test.ts	says the question it asks, as asked	yes
 apps/desktop/src/renderer/src/homeTeamState.test.ts	says an approval that is not a command plainly	yes
 apps/desktop/src/renderer/src/homeTeamState.test.ts	says nothing for memory suggestions, a Scout card, or a routine waiting for Keep	yes
+apps/desktop/src/renderer/src/install-buttons-say-why.test.tsx	renders the panel at all	yes
+apps/desktop/src/renderer/src/install-buttons-say-why.test.tsx	says so even after a runtime has connected	yes
+apps/desktop/src/renderer/src/install-buttons-say-why.test.tsx	still says so when nothing at all has connected	yes
+apps/desktop/src/renderer/src/install-buttons-say-why.test.tsx	says nothing about Node when npm is there	yes
+apps/desktop/src/renderer/src/install-buttons-say-why.test.tsx	offers a way to get Node that this app can actually open	yes
+apps/desktop/src/renderer/src/install-buttons-say-why.test.tsx	does not disable a single Install button	no
+apps/desktop/src/renderer/src/install-buttons-say-why.test.tsx	does not tell the person the buttons cannot run	no
+apps/desktop/src/renderer/src/install-buttons-say-why.test.tsx	says where the install came from, since the buttons working is the surprise	no
+apps/desktop/src/renderer/src/install-buttons-say-why.test.tsx	says the part that is still true: their own terminal is unchanged	no
+apps/desktop/src/renderer/src/install-buttons-say-why.test.tsx	says none of it on a machine that has its own Node	no
+apps/desktop/src/renderer/src/install-buttons-say-why.test.tsx	keeps the Node.js explanation until the person has pressed something	no
+apps/desktop/src/renderer/src/install-buttons-say-why.test.tsx	still says it once anything is connected, which is when a terminal comes up	no
+apps/desktop/src/renderer/src/install-buttons-say-why.test.tsx	stops explaining the missing Node once the install has finished	no
+apps/desktop/src/renderer/src/install-buttons-say-why.test.tsx	offers the other agents behind a press while none of them can help	yes
+apps/desktop/src/renderer/src/install-buttons-say-why.test.tsx	offers an agent nobody has added yet as ready to install, never as "not installed"	yes
+apps/desktop/src/renderer/src/install-buttons-say-why.test.tsx	shows every agent again the moment one of them works	yes
+apps/desktop/src/renderer/src/install-buttons-say-why.test.tsx	draws the installed one even while nothing is connected	yes
+apps/desktop/src/renderer/src/install-buttons-say-why.test.tsx	still defers the ones that are only products you could buy	yes
+apps/desktop/src/renderer/src/install-buttons-say-why.test.tsx	counts only what it actually deferred	yes
 apps/desktop/src/renderer/src/its-own-settings-file.test.ts	says whose file it was, because that is the part that is misread	no
 apps/desktop/src/renderer/src/its-own-settings-file.test.ts	says the workspace was not what it was denied	no
 apps/desktop/src/renderer/src/its-own-settings-file.test.ts	claims nothing about what the run did before it died	no
