@@ -82,6 +82,15 @@ export function AgentAccountsSettings({ runtime, usage }: { readonly runtime: st
           <button type="button" className="lc-button" disabled={busy || blocked} onClick={() => { setEditing(a.id); setName(a.name) }}>Rename</button>
           <button type="button" className="lc-button" disabled={busy || a.state === 'waiting' || stays !== undefined} onClick={() => setRemoving(a)}>Remove</button>
         </span>
+        {removing?.id === a.id && <div className="lc-agentaccounts__confirm" role="alertdialog" aria-label={`Remove ${removing.name}?`}>
+          <strong>Remove {removing.name}?</strong>
+          <p>This deletes only {removing.name}&apos;s agent home that Locust created: its sign-in, settings, session history and plugins. {`This ${windowWords().computer}'s sign-in and your project files stay where they are.`} Teammates using this account will need another account selected.</p>
+          {removing.home !== undefined && <p className="lc-settings__note lc-mono">{removing.home}</p>}
+          <span className="lc-agentaccounts__actions">
+            <button type="button" className="lc-button lc-button--danger" disabled={busy} onClick={() => void act({ kind: 'remove', id: removing.id }).then(ok => { if (ok) setRemoving(undefined) })}>Delete this account</button>
+            <button type="button" className="lc-button" onClick={() => setRemoving(undefined)}>Keep account</button>
+          </span>
+        </div>}
         {usage?.get(accountUsageKey(runtime, a.id)) !== undefined && <div className="lc-agentaccounts__usage"><UsageMeters said={usage.get(accountUsageKey(runtime, a.id))!} /></div>}
       </>}
     </div>)}
@@ -108,14 +117,5 @@ export function AgentAccountsSettings({ runtime, usage }: { readonly runtime: st
     </div>}
     {stays !== undefined ? <p className="lc-settings__note lc-oncomputer__said">{stays}</p> : blocked && <ManagedPolicyNote />}
     {message !== undefined && <p className="lc-settings__note" role="alert">{message}</p>}
-    {removing !== undefined && <div className="lc-agentaccounts__confirm" role="alertdialog" aria-label={`Remove ${removing.name}?`}>
-      <strong>Remove {removing.name}?</strong>
-      <p>This deletes only {removing.name}&apos;s agent home that Locust created: its sign-in, settings, session history and plugins. {`This ${windowWords().computer}'s sign-in and your project files stay where they are.`} Teammates using this account will need another account selected.</p>
-      {removing.home !== undefined && <p className="lc-settings__note lc-mono">{removing.home}</p>}
-      <span className="lc-agentaccounts__actions">
-        <button type="button" className="lc-button lc-button--danger" disabled={busy} onClick={() => void act({ kind: 'remove', id: removing.id }).then(ok => { if (ok) setRemoving(undefined) })}>Delete this account</button>
-        <button type="button" className="lc-button" onClick={() => setRemoving(undefined)}>Keep account</button>
-      </span>
-    </div>}
   </div>
 }
