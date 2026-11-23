@@ -198,6 +198,7 @@ pub mod recovery;
 pub mod references;
 pub mod relay;
 pub mod report_problem;
+pub mod room_exchange;
 pub mod room_history;
 pub mod room_store;
 pub mod room_task;

@@ -5341,6 +5341,25 @@ apps/desktop/src/renderer/src/room-absent-is-a-line.test.tsx	offers its actions 
 apps/desktop/src/renderer/src/room-card-names-who.test.tsx	names the members, counts the posts, and says how long since the last	no
 apps/desktop/src/renderer/src/room-card-names-who.test.tsx	says nothing has been posted, and dates a new room by its making	no
 apps/desktop/src/renderer/src/room-card-names-who.test.tsx	names two and counts the rest past three	no
+apps/desktop/src/renderer/src/room-exchange.test.ts	is not, when every member answered once and nobody replied	yes
+apps/desktop/src/renderer/src/room-exchange.test.ts	is, the moment one more run exists than the post started	yes
+apps/desktop/src/renderer/src/room-exchange.test.ts	is every turn in the order it was said, first answers included	yes
+apps/desktop/src/renderer/src/room-exchange.test.ts	groups consecutive turns by one speaker under a single face	yes
+apps/desktop/src/renderer/src/room-exchange.test.ts	draws a finished turn that said nothing, because absence is information	yes
+apps/desktop/src/renderer/src/room-exchange.test.ts	draws a run that is still going as the turn it is, never as a silence	yes
+apps/desktop/src/renderer/src/room-exchange.test.ts	carries what a live turn is doing, so a room can draw the thread’s line	yes
+apps/desktop/src/renderer/src/room-exchange.test.ts	has nothing to say a hop is doing before its run exists	yes
+apps/desktop/src/renderer/src/room-exchange.test.ts	lists a member waiting for a slot, so the room does not look finished	yes
+apps/desktop/src/renderer/src/room-exchange.test.ts	is a turn in the sequence, with no mission of its own yet	yes
+apps/desktop/src/renderer/src/room-exchange.test.ts	makes a post a conversation on its own, before the second run exists	yes
+apps/desktop/src/renderer/src/room-exchange.test.ts	belongs to the post whose conversation it answers, and no other	yes
+apps/desktop/src/renderer/src/room-exchange.test.ts	is not drawn twice when the run it becomes has already been announced	yes
+apps/desktop/src/renderer/src/room-exchange.test.ts	is not an ending, even with the budget spent	yes
+apps/desktop/src/renderer/src/room-exchange.test.ts	shows its time, because otherwise it reads as inserted into the past	yes
+apps/desktop/src/renderer/src/room-exchange.test.ts	shows no time at all when this is the newest post	yes
+apps/desktop/src/renderer/src/room-exchange.test.ts	reads as a runway while the argument is still going	yes
+apps/desktop/src/renderer/src/room-exchange.test.ts	names the cause and points at the composer once the budget is spent	yes
+apps/desktop/src/renderer/src/room-exchange.test.ts	says the budget even where nothing reported a cost	yes
 apps/desktop/src/renderer/src/room-round-two.test.tsx	offers Build on and Merge on each	no
 apps/desktop/src/renderer/src/room-round-two.test.tsx	opens one under another, with the side-by-side switch off	no
 apps/desktop/src/renderer/src/room-round-two.test.tsx	offers Build on only on the finished one, and no Merge -- there is one answer to merge	no
