@@ -372,6 +372,8 @@ pub(super) struct State {
     /// The source select's highlight while open (Select.tsx `highlighted`), and the letters typed into it with when.
     pub(super) sidebar_source_active: i64,
     pub(super) sidebar_source_typed: (String, Option<std::time::Instant>),
+    /// How many rows of the long ungrouped conversation list are drawn (ListWindow.tsx `listBudget`).
+    pub(super) sidebar_list_budget: usize,
     pub(super) find_open: bool,
     pub(super) find_query: TextEdit,
     pub(super) prompt_rail: prompt_rail::PromptRailState,
@@ -658,6 +660,7 @@ impl Default for State {
             sidebar_source_open: false,
             sidebar_source_active: -1,
             sidebar_source_typed: (String::new(), None),
+            sidebar_list_budget: crate::sidebar::LIST_PAGE,
             find_open: false,
             find_query: TextEdit::new(""),
             prompt_rail: prompt_rail::PromptRailState::default(),

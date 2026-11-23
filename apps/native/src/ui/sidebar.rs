@@ -742,6 +742,25 @@ pub(super) fn step_from_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> boo
     true
 }
 
+/// How many rows a page of the sidebar's long conversation list draws (ListWindow.tsx `LIST_PAGE`).
+pub(super) const LIST_PAGE: usize = 80;
+
+/// How many ungrouped rows to draw: at least `budget` (one page at a time), and always far enough to hold the one open
+/// (`Sidebar.tsx`: `Math.max(listBudget, openAt + 1)`), capped at `total`.
+pub(super) fn list_window_count(total: usize, budget: usize, open_at: Option<usize>) -> usize {
+    let want = budget.max(open_at.map_or(0, |i| i + 1));
+    total.min(want)
+}
+
+/// The footer button's words for the rows not drawn yet (ListWindow.tsx `ListMore`).
+pub(super) fn list_more_label(remaining: usize) -> String {
+    if remaining == 1 {
+        "1 more conversation".to_owned()
+    } else {
+        format!("{remaining} more conversations")
+    }
+}
+
 /// Sidebar.tsx: a search that matches nothing says so, rather than emptying into what reads as "you have none". The
 /// noun is the list's own: it holds conversations, which the Missions screen does not filter.
 const NO_MATCH: &str = "No conversations match that.";
@@ -1388,7 +1407,31 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
                 if groups_shown { "Ungrouped" } else { "Recents" },
             ));
         }
-        recent = append_rows(recent, &rest);
+        let open_at = rest.iter().position(|item| is_picked(item));
+        let budget = s.sidebar_list_budget.max(LIST_PAGE);
+        let drawn = list_window_count(rest.len(), budget, open_at);
+        let not_drawn = rest.len().saturating_sub(drawn);
+        recent = append_rows(recent, &rest[..drawn]);
+        if not_drawn > 0 {
+            recent = recent.child(
+                row()
+                    .key("sidebar-list-more")
+                    .role("button")
+                    .w_full()
+                    .py(8.0)
+                    .px(10.0)
+                    .radius(8.0)
+                    .hover(l.c("hover-surface"))
+                    .child(
+                        text(list_more_label(not_drawn))
+                            .font(rune::TextStyle::new(11.5, 400.0).lh(15.0))
+                            .color(l.c("text-muted")),
+                    )
+                    .on_press(|s: &mut State| {
+                        s.sidebar_list_budget = s.sidebar_list_budget.max(LIST_PAGE) + LIST_PAGE;
+                    }),
+            );
+        }
     }
 
     if let Some(id) = &s.rename_id {
@@ -2048,3 +2091,7 @@ mod sidebar_needs_you_tests;
 #[cfg(test)]
 #[path = "sidebar_app_started_tests.rs"]
 mod sidebar_app_started_tests;
+
+#[cfg(test)]
+#[path = "sidebar_list_window_tests.rs"]
+mod sidebar_list_window_tests;

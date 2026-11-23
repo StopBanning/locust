@@ -3528,6 +3528,9 @@ apps/desktop/src/renderer/src/a-long-conversation-opens-on-its-newest-turns.test
 apps/desktop/src/renderer/src/a-long-fold-keeps-the-answer-near.test.tsx	shows its first rows once finished, and says how many more	yes
 apps/desktop/src/renderer/src/a-long-fold-keeps-the-answer-near.test.tsx	shows every row while the run is going	yes
 apps/desktop/src/renderer/src/a-long-fold-keeps-the-answer-near.test.tsx	leaves a fold that is only a row or two over alone	yes
+apps/desktop/src/renderer/src/a-long-list-is-drawn-as-far-as-it-is-read.test.tsx	draws one page, newest first, and says how many more there are	yes
+apps/desktop/src/renderer/src/a-long-list-is-drawn-as-far-as-it-is-read.test.tsx	always draws far enough to hold the one open	yes
+apps/desktop/src/renderer/src/a-long-list-is-drawn-as-far-as-it-is-read.test.tsx	is drawn whole when it fits in a page, with nothing more to say	yes
 apps/desktop/src/renderer/src/a-long-silent-stretch-reads-as-its-moves.test.ts	starts a new line each time the model thinks, led by what it thought about	yes
 apps/desktop/src/renderer/src/a-long-silent-stretch-reads-as-its-moves.test.ts	leaves a turn with no thinking reported as one line between what was said (Claude Code without thinking)	yes
 apps/desktop/src/renderer/src/a-long-silent-stretch-reads-as-its-moves.test.ts	reads a headline only where the summary leads with one	yes
