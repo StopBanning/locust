@@ -214,3 +214,7 @@ fn job_lines() -> [&'static str; 8] {
 #[cfg(test)]
 #[path = "review_brief_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "review_brief_cases_tests.rs"]
+mod cases_tests;
