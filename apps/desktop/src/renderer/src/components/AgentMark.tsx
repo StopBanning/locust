@@ -33,6 +33,13 @@ export interface AgentMarkProps {
   readonly now?: Date
 }
 
+/** A window's name on the card, without the trailing "window" every name carries, as the usage meters show it: the
+ * card is narrow and "Claude and GPT: weekly window" otherwise wraps its last word under the figure. */
+function cardLabel(name: string): string {
+  const short = name.replace(/ window$/, '')
+  return short.charAt(0).toUpperCase() + short.slice(1)
+}
+
 export function AgentMark({ runtime, name, state, usage, now = new Date() }: AgentMarkProps): ReactElement {
   const windows = usage === undefined ? [] : usageWindowsOf(usage, now)
   const said = [name, state, ...(usage === undefined || windows.length === 0 ? [] : [usageWindowSentence(usage, now)])].join('. ')
@@ -67,7 +74,7 @@ export function AgentCard({ runtime, name, state, usage, now = new Date(), class
         if (window.expired === true) {
           return (
             <span className="lc-agentcard__window is-reset" key={window.name}>
-              <span className="lc-agentcard__label">{window.name.charAt(0).toUpperCase() + window.name.slice(1)}</span>
+              <span className="lc-agentcard__label">{cardLabel(window.name)}</span>
               <span className="lc-agentcard__resets">reset since{window.resets === undefined ? '' : ` (${window.resets})`}</span>
             </span>
           )
@@ -75,7 +82,7 @@ export function AgentCard({ runtime, name, state, usage, now = new Date(), class
         const tone = window.percent >= 100 ? ' is-spent' : window.percent >= 80 ? ' is-pressing' : ''
         return (
           <span className={`lc-agentcard__window${tone}`} key={window.name}>
-            <span className="lc-agentcard__label">{window.name.charAt(0).toUpperCase() + window.name.slice(1)}</span>
+            <span className="lc-agentcard__label">{cardLabel(window.name)}</span>
             <span className="lc-agentcard__percent">{window.remaining ?? window.percent}%{window.remaining === undefined ? '' : ' left'}</span>
             <span className="lc-agentcard__bar">
               <span className="lc-agentcard__fill" style={{ width: `${String(window.percent)}%` }} />

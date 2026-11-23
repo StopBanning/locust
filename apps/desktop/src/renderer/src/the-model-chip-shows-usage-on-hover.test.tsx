@@ -20,8 +20,8 @@ describe('the model chip', () => {
   it("opens the agent's card, with a bar for each window, placed for the chip", () => {
     const html = renderToStaticMarkup(<AgentCard className="lc-agentcard--chip" runtime="codex" name="Codex CLI" state="Ready · 0.166.0" usage={reading} now={new Date('2026-10-31T03:20:00Z')} />)
     expect(html).toContain('<span class="lc-agentcard lc-agentcard--chip" aria-hidden="true">')
-    expect(html).toContain('<span class="lc-agentcard__label">Weekly window</span><span class="lc-agentcard__percent">64%</span>')
-    expect(html).toContain('<span class="lc-agentcard__label">5-hour window</span><span class="lc-agentcard__percent">12%</span>')
+    expect(html).toContain('<span class="lc-agentcard__label">Weekly</span><span class="lc-agentcard__percent">64%</span>')
+    expect(html).toContain('<span class="lc-agentcard__label">5-hour</span><span class="lc-agentcard__percent">12%</span>')
   })
 
   it('draws it on hover or focus, above and to the right, rather than leaving it to the system tooltip', () => {

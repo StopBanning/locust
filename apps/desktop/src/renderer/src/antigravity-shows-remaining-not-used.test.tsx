@@ -18,6 +18,9 @@ describe('Antigravity remaining quota on Home', () => {
     expect(html).toContain('style="width:5%"')
     expect(html).toContain('class="lc-agentcard__window is-pressing"')
     expect(html).toContain('20% left</span>')
+    // The card is narrow: its labels drop the trailing "window" so "Claude and GPT: weekly" does not wrap a lone word.
+    expect(html).toContain('<span class="lc-agentcard__label">Claude and GPT: weekly</span>')
+    expect(html).not.toContain('weekly window</span>')
     expect(html).toContain('Read from your account at')
     expect(usageWindowSentence(reading)).toContain('95% of the Gemini: 5-hour window left')
     expect(usageWindowSentence(reading)).toContain('20% of the Claude and GPT: weekly window left')
