@@ -5131,6 +5131,9 @@ apps/desktop/src/renderer/src/review-notes-survive-a-revision.test.tsx	leave a m
 apps/desktop/src/renderer/src/review-notes-survive-a-revision.test.tsx	says the line changed, only the file changed, nothing changed, or the file went	yes
 apps/desktop/src/renderer/src/review-notes-survive-a-revision.test.tsx	finds the file however the runtime wrote its path	yes
 apps/desktop/src/renderer/src/review-notes-survive-a-revision.test.tsx	are drawn under the bubble, each with where it was and what became of it once the turn is over	yes
+apps/desktop/src/renderer/src/review-pair.test.ts	picks two agents that differ from each other and from the author	yes
+apps/desktop/src/renderer/src/review-pair.test.ts	uses the author's agent for one of them when the team has nothing else	yes
+apps/desktop/src/renderer/src/review-pair.test.ts	offers no pair when every reviewer is on the same agent	yes
 apps/desktop/src/renderer/src/review-sees-the-conversation.test.ts	names this turn as this turn, and earlier work as earlier	yes
 apps/desktop/src/renderer/src/review-sees-the-conversation.test.ts	does not repeat a path this turn touched again	yes
 apps/desktop/src/renderer/src/review-sees-the-conversation.test.ts	says nothing about earlier work when there was none	yes
