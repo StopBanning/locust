@@ -389,6 +389,33 @@ pub(super) fn reply_markdown_for_tests(s: &State, body: &str, p: &Palette) -> El
     reply_markdown(s, body, false, true, true, p)
 }
 
+/// Sizes a rasterised math PNG (drawn at 2x in `math_tex::render_png`) to its point dimensions so
+/// `Markdown`'s layout does not measure the image at full column width and push the reply off-screen (LIVE2 #1).
+pub(super) fn math_image_size(px: [u32; 2], max_w: f32) -> Option<(f32, f32)> {
+    let [pw, ph] = px;
+    if pw == 0 || ph == 0 {
+        return None;
+    }
+    let scale = 2.0_f32;
+    let mut w = pw as f32 / scale;
+    let mut h = ph as f32 / scale;
+    if w > max_w {
+        h *= max_w / w;
+        w = max_w;
+    }
+    Some((w, h))
+}
+
+fn math_image_el(image: &rune::Image, alt: &str) -> Option<El> {
+    let (w, h) = math_image_size(image.size()?, super::thread_view::THREAD_MAX)?;
+    Some(
+        el().role("image")
+            .label(if alt.is_empty() { "Math" } else { alt })
+            .size(w, h)
+            .pixels(image.pixels()),
+    )
+}
+
 fn reply_markdown(s: &State, body: &str, live: bool, copy: bool, can_draft: bool, p: &Palette) -> El {
     let chip_reply = body_key(body);
     let frame_palette = Palette::new(p.dark);
@@ -424,6 +451,9 @@ fn reply_markdown(s: &State, body: &str, live: bool, copy: bool, can_draft: bool
                 move |url| crate::markdown_prep::reply_link_look(url, dark)
             })
             .image_frame(move |shown, frame| {
+                if frame.src.starts_with(crate::math_tex::MATH_SRC_PREFIX) {
+                    return math_image_el(frame.image, frame.alt).unwrap_or(shown);
+                }
                 // A picture from the conversation's folder is a rounded card with its caption; math stays inline.
                 if !framed.contains(frame.src) {
                     return shown;
@@ -821,3 +851,7 @@ mod tests {
 #[cfg(test)]
 #[path = "status_chip_tests.rs"]
 mod status_chip_tests;
+
+#[cfg(test)]
+#[path = "live2_math_scene_tests.rs"]
+mod live2_math_scene_tests;
