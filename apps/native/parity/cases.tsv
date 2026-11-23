@@ -6034,7 +6034,7 @@ apps/desktop/src/shared/a-voice-call-switches-every-add-on-off.test.ts	places no
 apps/desktop/src/shared/a-voice-call-switches-every-add-on-off.test.ts	carries only the hand-off tools, and three that read the folder (0.742)	yes
 apps/desktop/src/shared/a-voice-call-switches-every-add-on-off.test.ts	tells the call’s Codex to read a task back and wait for a yes before handing it over	yes
 apps/desktop/src/shared/a-voice-call-switches-every-add-on-off.test.ts	puts what was handed over in the chat box with the call	yes
-apps/desktop/src/shared/a-voice-call-switches-every-add-on-off.test.ts	in docs/NETWORK.md and in Settings	no
+apps/desktop/src/shared/a-voice-call-switches-every-add-on-off.test.ts	in docs/NETWORK.md and in Settings	yes
 apps/desktop/src/shared/an-answer-reads-right-in-discord.test.ts	turns every answer into messages under Discord’s limit, each block of code closed where it opens	yes
 apps/desktop/src/shared/an-answer-reads-right-in-discord.test.ts	keeps what Discord reads, and makes the rest into what it does	yes
 apps/desktop/src/shared/an-answer-reads-right-in-discord.test.ts	splits a long answer between blocks, and says where the rest is past four messages	yes
