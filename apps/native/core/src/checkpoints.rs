@@ -302,6 +302,20 @@ impl Turn {
         self.shared.load(Ordering::SeqCst)
     }
 
+    /// Removes this turn from `ACTIVE` once its runtime process has exited, so a run started while the
+    /// after-snapshot is still being taken (or started by the relay afterwards) is not marked as sharing the folder
+    /// with a finished run (`qa-0365-concurrency.test.ts`).
+    pub fn leave_active(&self) {
+        if let Ok(mut a) = ACTIVE.get_or_init(Mutex::default).lock()
+            && let Some(v) = a.get_mut(&self.workspace)
+        {
+            v.retain(|e| !Arc::ptr_eq(e, &self.shared));
+            if v.is_empty() {
+                a.remove(&self.workspace);
+            }
+        }
+    }
+
     /// Reads the pre-turn UTF-8 text of `rel` from this turn's checkpoint, bounded to `MAX_COMPARED_FILE_BYTES`.
     pub fn before_text(&self, store: &Store, rel: &str) -> Option<String> {
         safe(&self.workspace, rel).ok()?;
@@ -321,6 +335,7 @@ impl Turn {
     /// As `finish_reporting_edits`, with the paths the host itself saw change (A2.17): None when another run shared
     /// the folder, since then the host cannot say whose change a path was.
     pub fn finish_reporting_changes(self, store: &Store, id: &str) -> io::Result<(bool, Option<Vec<String>>)> {
+        self.leave_active();
         let after = take(store, &self.workspace);
         let before = self
             .before
@@ -345,14 +360,7 @@ impl Turn {
 }
 impl Drop for Turn {
     fn drop(&mut self) {
-        if let Ok(mut a) = ACTIVE.get_or_init(Mutex::default).lock()
-            && let Some(v) = a.get_mut(&self.workspace)
-        {
-            v.retain(|e| !Arc::ptr_eq(e, &self.shared));
-            if v.is_empty() {
-                a.remove(&self.workspace);
-            }
-        }
+        self.leave_active();
     }
 }
 fn valid_id(id: &str) -> io::Result<&str> {
@@ -997,6 +1005,17 @@ mod tests {
             assert_eq!(r["shared"], true)
         }
         assert!(undo(&s, &w, "run_a").is_err());
+    }
+    #[test]
+    fn a_turn_that_left_active_does_not_mark_the_next_turn_as_shared() {
+        let (_t, s, w) = setup();
+        let a = Turn::begin(&s, &w);
+        a.leave_active();
+        let b = Turn::begin(&s, &w);
+        assert!(!a.is_shared());
+        assert!(!b.is_shared());
+        a.finish(&s, "run_a").unwrap();
+        b.finish(&s, "run_b").unwrap();
     }
     // TurnUndo's states (checkpoints.ts `state`): nothing without a record or a change, nothing for a shared folder,
     // Undo for so many files, then what Undo did, which stays said.
