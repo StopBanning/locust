@@ -5743,6 +5743,14 @@ apps/desktop/src/renderer/src/what-a-teammate-published-is-a-card.test.tsx	takes
 apps/desktop/src/renderer/src/what-a-teammate-published-is-a-card.test.tsx	finds them as links and as bare addresses, in order, each once, and none inside code	yes
 apps/desktop/src/renderer/src/what-a-teammate-published-is-a-card.test.tsx	draws a card each, with Open, and nothing for a reply that names none	no
 apps/desktop/src/renderer/src/what-a-teammate-published-is-a-card.test.tsx	is still a card, named as written, and drawing it throws nothing	no
+apps/desktop/src/renderer/src/what-waits-on-you-is-in-one-place.test.ts	is its last final message’s question, once the run has completed	yes
+apps/desktop/src/renderer/src/what-waits-on-you-is-in-one-place.test.ts	is read the same the second time	yes
+apps/desktop/src/renderer/src/what-waits-on-you-is-in-one-place.test.ts	is nothing when nothing does	yes
+apps/desktop/src/renderer/src/what-waits-on-you-is-in-one-place.test.ts	is a paused run first, then a question, then memory -- each named by its teammate	yes
+apps/desktop/src/renderer/src/what-waits-on-you-is-in-one-place.test.ts	says each thing in one line, short enough to be a menu row	yes
+apps/desktop/src/renderer/src/what-waits-on-you-is-in-one-place.test.ts	counts a card that needs you now, and a copy waiting for Keep or Discard, after a question and before memory	yes
+apps/desktop/src/renderer/src/what-waits-on-you-is-in-one-place.test.ts	says Scout when the card has no name of its own, and leaves soon and later off the list	yes
+apps/desktop/src/renderer/src/what-waits-on-you-is-in-one-place.test.ts	reads as a sentence	yes
 apps/desktop/src/renderer/src/what-was-said-while-working-stays-where-it-was-said.test.ts	reads in the order it happened: each thing said, then the steps before the next	yes
 apps/desktop/src/renderer/src/what-was-said-while-working-stays-where-it-was-said.test.ts	places a message where it BEGAN, so a full record restated after the next step leaves it before it (gap 9)	yes
 apps/desktop/src/renderer/src/what-was-said-while-working-stays-where-it-was-said.test.ts	draws a stopped turn’s last words where they were said, never below its steps as an answer	yes
