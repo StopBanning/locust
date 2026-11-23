@@ -3072,7 +3072,7 @@ apps/desktop/src/main/voice-model-choices-stay-private.test.ts	returns only save
 apps/desktop/src/main/voice-model-choices-stay-private.test.ts	refuses plaintext storage when OS encryption is unavailable	yes
 apps/desktop/src/main/voice-model-choices-stay-private.test.ts	key removal clears consent and never echoes an invalid input	yes
 apps/desktop/src/main/voice-model-choices-stay-private.test.ts	cannot consent without the selected OpenAI mode and saved key	yes
-apps/desktop/src/main/voice-model-choices-stay-private.test.ts	Accurate uses the pinned base model and refuses a wrong cached/downloaded file	no
+apps/desktop/src/main/voice-model-choices-stay-private.test.ts	Accurate uses the pinned base model and refuses a wrong cached/downloaded file	yes
 apps/desktop/src/main/voice-model-choices-stay-private.test.ts	main refuses upload before consent, and stale local capture cannot switch to cloud	yes
 apps/desktop/src/main/voice-model-choices-stay-private.test.ts	sends a multipart WAV and model, with the key only in Authorization	yes
 apps/desktop/src/main/voice-model-choices-stay-private.test.ts	missing key makes no request	yes
