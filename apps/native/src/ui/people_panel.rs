@@ -59,6 +59,17 @@ pub(super) fn open(s: &mut State) {
     s.people_panel.form_open = false;
     s.people_panel.removing = None;
 }
+pub(super) fn open_new(s: &mut State) {
+    crate::room_screen::close(s);
+    s.home.home_open = false;
+    s.home.board_open = false;
+    s.settings_panel.open = false;
+    s.routines.open = false;
+    s.people_panel.open = true;
+    reload(s);
+    edit(s, None);
+    s.people_panel.removing = None;
+}
 pub(super) fn open_edit(s: &mut State, id: &str) {
     crate::room_screen::close(s);
     s.home.home_open = false;

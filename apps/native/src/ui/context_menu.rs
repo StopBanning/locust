@@ -79,6 +79,8 @@ pub(super) struct MenuState {
     pub(super) title: String,
     /// The conversation it acts on.
     pub(super) target: String,
+    /// The button it hangs from, when opened by a toolbar/rail button rather than a right-click.
+    pub(super) anchor: Option<String>,
     pub(super) items: Vec<Item>,
     pub(super) armed: Option<String>,
     pub(super) open_sub: Option<String>,
@@ -166,7 +168,39 @@ pub(super) fn conversation_menu(s: &State, mission_id: &str, title: &str, at: (f
             .danger("Delete for good?")
             .refused(live.then_some("This is still running. Stop it first.")),
     );
-    MenuState { x: at.0, y: at.1, title: title.to_owned(), target: mission_id.to_owned(), items, armed: None, open_sub: None }
+    MenuState { x: at.0, y: at.1, title: title.to_owned(), target: mission_id.to_owned(), anchor: None, items, armed: None, open_sub: None }
+}
+
+/// Whether the window's menu is currently hung from `anchor`.
+pub(super) fn is_anchored_to(s: &State, anchor: &str) -> bool {
+    s.row_menu.as_ref().and_then(|m| m.anchor.as_deref()) == Some(anchor)
+}
+
+/// The sidebar/rail `+` menu, drawn as the right-click menu is (App.tsx `openAddMenu`):
+/// pressing the same `+` button while it is open closes it instead of reopening it.
+pub(super) fn toggle_add_menu(s: &mut State, anchor: &str, box_rect: [f32; 4]) {
+    if is_anchored_to(s, anchor) {
+        s.row_menu = None;
+        return;
+    }
+    let mut items = vec![
+        Item::new("New teammate", "add:new-teammate").key('t'),
+        Item::new("New room", "add:new-room").key('r'),
+        Item::new("Import a conversation…", "add:import-conversation").key('i'),
+    ];
+    if !s.layout_compact.get() {
+        items.push(Item::new("New project", "add:new-project").key('p'));
+    }
+    s.row_menu = Some(MenuState {
+        x: box_rect[0],
+        y: box_rect[1] + box_rect[3] + 4.0,
+        title: "Add".into(),
+        target: String::new(),
+        anchor: Some(anchor.to_owned()),
+        items,
+        armed: None,
+        open_sub: None,
+    });
 }
 
 /// Does what `item` says (ContextMenu.tsx `choose`): a refused row or a list does nothing; a destructive row arms
@@ -198,6 +232,14 @@ fn run(s: &mut State, target: &str, action: &str, tx: &mut Tx) {
         "" => {}
         "open" => peer_thread::open_mission_by_id(s, target.to_owned(), tx),
         "copy-id" => tx.copy(target.to_owned()),
+        "add:new-teammate" => crate::people_panel::open_new(s),
+        "add:new-room" => crate::room_screen::open_new(s),
+        "add:import-conversation" => crate::import_dialog::open(s),
+        "add:new-project" => {
+            s.rename_id = Some("@new-project:".into());
+            s.rename_draft.clear();
+            s.rename_draft.focused = true;
+        }
         other => sidebar::apply_org_action(s, target, other),
     }
 }

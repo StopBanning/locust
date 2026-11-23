@@ -1158,7 +1158,7 @@ fn import_dialog_lists_synthetic_session_imports_it_and_opens_the_conversation()
     settle(&mut rt);
 
     click(&mut rt, "sidebar-add-button");
-    click(&mut rt, "add-menu-import-conversation");
+    click(&mut rt, "row-menu-item-import-a-conversation");
     assert!(rt.state.import_dialog.open);
 
     pump(&mut rt, "import list loaded", |s| {

@@ -225,7 +225,8 @@ pub(super) struct State {
     pub(super) import_dialog: crate::import_dialog::Panel,
     pub(super) feedback_dialog: crate::feedback_dialog::Panel,
     pub(super) quit_guard: crate::quit_guard_dialog::Panel,
-    pub(super) add_menu_open: bool,
+    /// Where the sidebar/rail `+` button was laid out, so the add menu hangs from it.
+    pub(super) add_menu_at: [f32; 4],
     pub(super) session_places: Option<locust_core::session_import::SessionPlaces>,
     pub(super) home: crate::home_panel::Panel,
     /// Amber macOS keychain note — never reads the keychain itself.
@@ -489,7 +490,7 @@ impl Default for State {
             import_dialog: crate::import_dialog::Panel::default(),
             feedback_dialog: crate::feedback_dialog::Panel::default(),
             quit_guard: crate::quit_guard_dialog::Panel::default(),
-            add_menu_open: false,
+            add_menu_at: [0.0; 4],
             session_places: None,
             home: crate::home_panel::Panel::default(),
             keychain_asking: false,

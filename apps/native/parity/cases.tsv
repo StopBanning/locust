@@ -2986,6 +2986,12 @@ apps/desktop/src/main/the-pages-a-browser-runs-are-whole.test.ts	names a compute
 apps/desktop/src/main/the-permission-bridge-keeps-its-characters.test.ts	keeps a character split across two reads whole	yes
 apps/desktop/src/main/the-phone-reads-history-once-per-change.test.ts	counts a write once it is asked for and again once it has landed, and never a read	no
 apps/desktop/src/main/the-phone-reads-history-once-per-change.test.ts	builds once per key, shares a build in flight, and tries again after a failure	yes
+apps/desktop/src/main/the-rail-can-be-used.test.ts	is the right-click menu, hung from the +	yes
+apps/desktop/src/main/the-rail-can-be-used.test.ts	offers what the + adds, each with its key -- and no New group since folders sort (0.460)	yes
+apps/desktop/src/main/the-rail-can-be-used.test.ts	leaves its own button alone, so a second press closes it instead of reopening it	yes
+apps/desktop/src/main/the-rail-can-be-used.test.ts	may still hang out of the rail, as the railu2019s flyouts do	no
+apps/desktop/src/main/the-rail-can-be-used.test.ts	is the mark, and it is a button	yes
+apps/desktop/src/main/the-rail-can-be-used.test.ts	keeps a real size in the rail, where the wordmark collapses to nothing	yes
 apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	lets only one of two replies decided at the same moment through the last slot	no
 apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	gives the count back when no run comes of the decision	no
 apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	is found from the room store: every mission of one post, one key	no
