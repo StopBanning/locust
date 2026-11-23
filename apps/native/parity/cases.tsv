@@ -3048,6 +3048,33 @@ apps/desktop/src/main/usage-is-counted.test.ts	streaks run back from today, or f
 apps/desktop/src/main/usage-is-counted.test.ts	a model each, most turns first, and how each was paid for	no
 apps/desktop/src/main/usage-is-counted.test.ts	a cache share is over the turns whose runtime counts a cache, not a 0% for one that says nothing	no
 apps/desktop/src/main/usage-is-counted.test.ts	active days, the busiest day, and nothing counted twice	no
+apps/desktop/src/main/voice-model-choices-stay-private.test.ts	defaults existing profiles to Fast, without creating anything	yes
+apps/desktop/src/main/voice-model-choices-stay-private.test.ts	opens a Mac on your OpenAI account, where Fast and Accurate cannot run, and reads a stored local choice so	yes
+apps/desktop/src/main/voice-model-choices-stay-private.test.ts	round trips all three choices through a reopened store	yes
+apps/desktop/src/main/voice-model-choices-stay-private.test.ts	returns only saved status, never the key or ciphertext, even on consent/save	yes
+apps/desktop/src/main/voice-model-choices-stay-private.test.ts	refuses plaintext storage when OS encryption is unavailable	yes
+apps/desktop/src/main/voice-model-choices-stay-private.test.ts	key removal clears consent and never echoes an invalid input	yes
+apps/desktop/src/main/voice-model-choices-stay-private.test.ts	cannot consent without the selected OpenAI mode and saved key	yes
+apps/desktop/src/main/voice-model-choices-stay-private.test.ts	Accurate uses the pinned base model and refuses a wrong cached/downloaded file	no
+apps/desktop/src/main/voice-model-choices-stay-private.test.ts	main refuses upload before consent, and stale local capture cannot switch to cloud	yes
+apps/desktop/src/main/voice-model-choices-stay-private.test.ts	sends a multipart WAV and model, with the key only in Authorization	yes
+apps/desktop/src/main/voice-model-choices-stay-private.test.ts	missing key makes no request	yes
+apps/desktop/src/main/voice-model-choices-stay-private.test.ts	status %s returns no text and never leaks the raw body	yes
+apps/desktop/src/main/voice-model-choices-stay-private.test.ts	does not echo fetch exceptions or a key reflected as transcript	yes
+apps/desktop/src/main/voice-model-choices-stay-private.test.ts	cancellation discards a late fake response	yes
+apps/desktop/src/main/voice-typing-on-a-mac-goes-through-openai.test.ts	types through the OpenAI route once allowed, as on Windows	yes
+apps/desktop/src/main/voice-typing-on-a-mac-goes-through-openai.test.ts	says Fast and Accurate run on Windows, and names the Mac’s own dictation, downloading nothing	no
+apps/desktop/src/main/voice-typing-refuses-unchecked-files.test.ts	refuses and deletes a SHA-256 mismatch, including stale cached files	no
+apps/desktop/src/main/voice-typing-refuses-unchecked-files.test.ts	promotes only the checked file and reuses it without a connection	no
+apps/desktop/src/main/voice-typing-refuses-unchecked-files.test.ts	restarts an interrupted partial file cleanly	no
+apps/desktop/src/main/voice-typing-refuses-unchecked-files.test.ts	refuses an oversized response and removes it	no
+apps/desktop/src/main/voice-typing-refuses-unchecked-files.test.ts	runs a stand-in executable and returns its text	no
+apps/desktop/src/main/voice-typing-refuses-unchecked-files.test.ts	stops a hung executable at its time limit and waits for termination	no
+apps/desktop/src/main/voice-typing-refuses-unchecked-files.test.ts	cancels a running executable without returning text	no
+apps/desktop/src/main/voice-typing-refuses-unchecked-files.test.ts	accepts only bounded canonical 16-kHz mono PCM	yes
+apps/desktop/src/main/voice-typing-refuses-unchecked-files.test.ts	constructs and disposes without creating a voice directory	no
+apps/desktop/src/main/voice-typing-refuses-unchecked-files.test.ts	allows audio only from the owned main frame	yes
+apps/desktop/src/main/voice-typing-refuses-unchecked-files.test.ts	refuses another sender, subframe, camera, unknown media, or permission (%s %s %s %s)	no
 apps/desktop/src/main/what-a-teammate-spent-this-month.test.ts	counts every priced run of the month, not only the newest twenty, and nothing a plan paid for	yes
 apps/desktop/src/main/what-a-teammate-spent-this-month.test.ts	counts a run in the month it ended	yes
 apps/desktop/src/main/what-a-teammate-spent-this-month.test.ts	sends every row its money, including the ones sent without their events	no
