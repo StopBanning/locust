@@ -3709,6 +3709,8 @@ apps/desktop/src/renderer/src/a-quoted-equation-is-drawn.test.tsx	an equation wr
 apps/desktop/src/renderer/src/a-quoted-equation-is-drawn.test.tsx	money and an escaped bracket in prose are still prose	yes
 apps/desktop/src/renderer/src/a-read-row-names-the-file.test.ts	fold under names relative to the folder	yes
 apps/desktop/src/renderer/src/a-read-row-names-the-file.test.ts	leave a name that is not a path as it was	yes
+apps/desktop/src/renderer/src/a-refusal-offers-the-mode-that-works.test.ts	reads a mode refusal as a refusal	yes
+apps/desktop/src/renderer/src/a-refusal-offers-the-mode-that-works.test.ts	reads everything else as something that actually went wrong	yes
 apps/desktop/src/renderer/src/a-refused-command-never-ran.test.ts	is counted as refused, not as run or as exiting non-zero	yes
 apps/desktop/src/renderer/src/a-refused-command-never-ran.test.ts	keeps its row, with the reason the runtime gave	yes
 apps/desktop/src/renderer/src/a-refused-command-never-ran.test.ts	says declined in its row and in the summary, never failed or refused	yes

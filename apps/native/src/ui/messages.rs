@@ -667,6 +667,25 @@ fn send_again_row(words: String, tools_reported_when_done: bool, p: &Palette) ->
     )
 }
 
+/// Run again with edits allowed: the mode switched to Accept edits on the message box, and the same words sent in it
+/// (App.tsx `onRunWithEdits`: `setMode('accept-edits')`, `startMission(prompt, 'accept-edits')`). What is in the box stays.
+fn run_with_edits_row(prompt: String, p: &Palette) -> El {
+    let l = crate::look::controls::Look::new(p.dark);
+    row().key("run-with-edits").w_full().gap(10.0).center_y()
+        .child(text(locust_core::thread_view::MODE_REFUSED_SENTENCE).font(type_::LABEL).color(p.muted).grow(1.0).shrink().wrap())
+        .child(
+            crate::look::controls::button(&l, "Run again with edits allowed", crate::look::controls::Tone::Neutral, false)
+                .key("run-with-edits-button")
+                .on_press_tx(move |s: &mut State, tx: &mut Tx| {
+                    s.composer_mode = Some("accept-edits".to_owned());
+                    let kept = s.draft.text.clone();
+                    s.draft.replace_text(prompt.clone());
+                    submit_composer(s, tx, false);
+                    s.draft.replace_text(kept);
+                }),
+        )
+}
+
 /// Whether the live line is on screen, and so its word sweeping: the window wakes for the band while it is.
 pub(super) fn live_sweeping(s: &State) -> bool {
     locust_core::thread_view::live_visible(turn_running(s), s.pending_approval.is_some())
@@ -689,7 +708,18 @@ fn failed_turn_rows(mut messages: El, items: &[ledger::Item], s: &State, p: &Pal
             continues_reason: meta.continues_reason.as_deref(),
         };
         let phase = if snap.failed { "failed" } else if snap.running { "running" } else { "completed" };
-        match tv::run_again_offer(&turn, phase, snap.never_started, snap.running || turn_running(s)) {
+        // A run its mode refused did what the mode allows: Run it again would refuse again for ever, so the offer is the
+        // mode that works (Thread.tsx `refusedByMode`, Sol's beta finding 3).
+        let refused = snap.failed
+            && !(snap.running || turn_running(s))
+            && tv::mode_refused_a_tool(items[from..].iter().rev().find_map(|i| match i {
+                ledger::Item::Note { level, text } if level == "error" => Some(text.as_str()),
+                _ => None,
+            }));
+        if refused && !meta.prompt.trim().is_empty() {
+            messages = messages.child(run_with_edits_row(meta.prompt.clone(), p));
+        }
+        match tv::run_again_offer(&turn, phase, snap.never_started, snap.running || turn_running(s)).filter(|o| !(refused && matches!(o, RunAgainOffer::RunAgain))) {
             Some(RunAgainOffer::Note(note)) => {
                 messages = messages.child(text(note).key("run-again-note").font(type_::LABEL).color(p.muted).w_full().wrap());
             }
@@ -911,6 +941,9 @@ mod thread_order_tests;
 #[cfg(test)]
 #[path = "sent_again_tests.rs"]
 mod sent_again_tests;
+#[cfg(test)]
+#[path = "mode_refusal_tests.rs"]
+mod mode_refusal_tests;
 
 #[cfg(test)]
 mod tests {

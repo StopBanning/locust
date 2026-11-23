@@ -487,9 +487,26 @@ pub fn run_again_offer(turn: &RunAgainTurn<'_>, phase: &str, never_started: bool
     })
 }
 
+/// missionView.ts `modeRefusedATool`: a run its MODE stopped (the OpenCode reader's sentence,
+/// `runtime/opencode_events.rs`) is not a run that went wrong. Run it again would hit the same boundary for ever; the
+/// offer that belongs there is the mode that works.
+pub fn mode_refused_a_tool(error: Option<&str>) -> bool {
+    let Some(rest) = error.and_then(|e| e.trim().strip_prefix("The mode this run is in does not allow ")) else { return false };
+    ["bash", "edit", "write", "patch"].iter().any(|tool| {
+        rest.strip_prefix(tool).is_some_and(|after| !after.starts_with(|c: char| c.is_alphanumeric() || c == '_'))
+    })
+}
+
+/// Beside "Run again with edits allowed" when the mode refused the run (Thread.tsx `refusedByMode`).
+pub const MODE_REFUSED_SENTENCE: &str =
+    "Ask mode does not change files, so this run stopped rather than write one. Nothing in the workspace has changed.";
+
 #[cfg(test)]
 #[path = "run_again_tests.rs"]
 mod run_again_tests;
+#[cfg(test)]
+#[path = "mode_refusal_tests.rs"]
+mod mode_refusal_tests;
 
 pub fn received_message<'a>(message_id: &str, links: &'a [PeerLink]) -> Option<&'a PeerLink> {
     if message_id.is_empty() {
