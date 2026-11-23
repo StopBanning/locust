@@ -15,6 +15,8 @@ cards_mode = scenario.startswith('cards-')
 relay_mode = scenario.startswith('relay-')
 room_mode = scenario.startswith('room-')
 approving = scenario.startswith('approve-')
+# `qa0365-*` (qa-0365-concurrency.test.ts): Accept-edits runs that write in the shared folder.
+qa_mode = scenario.startswith('qa0365-')
 is_resumed_turn = False
 is_forked_turn = False
 base = scenario[len('resume-'):] if scenario.startswith('resume-') else ('success' if scenario == 'resume' else scenario)
@@ -26,7 +28,7 @@ sealed_mode = scenario in ('sealed', 'sealed-asking')
 no_model = scenario == 'no-model'
 if approving or scenario == 'resume-undone' or rewinding or sealed_mode or no_model or scenario == 'auto':
     base = 'success'
-SANDBOX = 'workspace-write' if (approving or scenario in ('cards-edit-check', 'cards-review-notes', 'cards-attached')) else 'read-only'
+SANDBOX = 'workspace-write' if (approving or qa_mode or scenario in ('cards-edit-check', 'cards-review-notes', 'cards-attached')) else 'read-only'
 # `auto`: Auto mode, once the workspace allows it, runs on the widest sandbox.
 if scenario == 'auto':
     SANDBOX = 'danger-full-access'
@@ -77,7 +79,7 @@ for line in sys.stdin:
         else:
             send(dict(id=msg['id'], result={'config': {'mcp_servers': {'local': {'command':'node'}, 'remote': {'url':'https://example.invalid'}}}}))
     elif method == 'thread/resume':
-        assert resuming or cards_mode or relay_mode, 'thread/resume outside a resume scenario'
+        assert resuming or cards_mode or relay_mode or qa_mode, 'thread/resume outside a resume scenario'
         is_resumed_turn = True
         # codex-app-server-run.ts: reopen by the stored id, without the whole history, under the same policy.
         assert p['threadId'] == 'thread_fake' and p['excludeTurns'] is True, p
@@ -118,7 +120,7 @@ for line in sys.stdin:
             item(True, id='answer', type='agentMessage', text=reply)
             notify('turn/completed', turn={'id':'turn_fake','status':'completed'})
             continue
-        if not cards_mode and not relay_mode and not room_mode:
+        if not cards_mode and not relay_mode and not room_mode and not qa_mode:
             assert words == PROMPT or words.endswith('\n\n' + PROMPT), text
         # A follow-up to an undone turn starts with what Undo put back (undone-note.ts); any other follow-up says nothing of it.
         if scenario == 'resume-undone':
@@ -232,6 +234,42 @@ for line in sys.stdin:
                     reply = 'Hello world'
             else:
                 reply = 'Unknown cards scenario'
+            notify('item/agentMessage/delta', itemId='answer', operation='replace', delta=reply)
+            item(True, id='answer', type='agentMessage', text=reply)
+            notify('turn/completed', turn={'id':'turn_fake','status':'completed'})
+            continue
+        if scenario.startswith('qa0365-'):
+            if scenario == 'qa0365-relay':
+                if 'Here is what I found.' in text:
+                    with open('qa0365-gem.txt', 'w') as f:
+                        f.write('gem edit\n')
+                    reply = 'Received and edited.'
+                else:
+                    with open('qa0365-wren.txt', 'w') as f:
+                        f.write('wren edit\n')
+                    reply = '<locust-share to="Gem">Here is what I found.</locust-share>'
+            elif scenario == 'qa0365-edit':
+                with open(f'qa0365-edit-{os.getpid()}.txt', 'w') as f:
+                    f.write(text + '\n')
+                reply = 'Edited the file.'
+            elif scenario == 'qa0365-overlap':
+                if words.split('\n\n')[-1] == 'one':
+                    with open('qa0365-first-live.gate', 'w') as f:
+                        f.write('live\n')
+                    deadline = time.time() + 10.0
+                    while not os.path.exists('qa0365-second-live.gate') and time.time() < deadline:
+                        time.sleep(0.02)
+                    with open('qa0365-first.txt', 'w') as f:
+                        f.write('first edit\n')
+                    reply = 'First done.'
+                else:
+                    with open('qa0365-second-live.gate', 'w') as f:
+                        f.write('live\n')
+                    with open('qa0365-second.txt', 'w') as f:
+                        f.write('second edit\n')
+                    reply = 'Second done.'
+            else:
+                reply = 'Unknown qa0365 scenario'
             notify('item/agentMessage/delta', itemId='answer', operation='replace', delta=reply)
             item(True, id='answer', type='agentMessage', text=reply)
             notify('turn/completed', turn={'id':'turn_fake','status':'completed'})

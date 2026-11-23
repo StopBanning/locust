@@ -211,6 +211,38 @@ fn job_lines() -> [&'static str; 8] {
     ]
 }
 
+/// Someone who could review (`ReviewCandidate`): a teammate and the coding agent it runs on.
+pub trait ReviewCandidate {
+    fn runtime(&self) -> &str;
+}
+
+/// Two reviewers on DIFFERENT coding agents (Electron `review-pair.ts`, A3.1). The same change read by a Claude teammate
+/// and a Codex one is two independent readings, where two teammates on one agent tend to agree for the same reasons. So
+/// the pair is chosen for difference: from each other always, and from the author's agent when the team allows it. No
+/// pair where the team cannot give one: two reviewers on the same agent is not what this offers.
+pub fn review_pair_of<'a, T: ReviewCandidate>(reviewers: &'a [T], author_runtime: Option<&str>) -> Option<(&'a T, &'a T)> {
+    let mut pairs: Vec<(&T, &T)> = Vec::new();
+    for (first, a) in reviewers.iter().enumerate() {
+        for b in &reviewers[first + 1..] {
+            if a.runtime() != b.runtime() {
+                pairs.push((a, b));
+            }
+        }
+    }
+    // Fewest reviewers on the author's own agent first; the team's order breaks ties (a stable sort keeps it).
+    let on_authors = |pair: &(&T, &T)| [pair.0, pair.1].iter().filter(|one| author_runtime == Some(one.runtime())).count();
+    pairs.sort_by_key(on_authors);
+    pairs.into_iter().next()
+}
+
 #[cfg(test)]
 #[path = "review_brief_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "review_brief_cases_tests.rs"]
+mod cases_tests;
+
+#[cfg(test)]
+#[path = "review_pair_tests.rs"]
+mod review_pair_tests;

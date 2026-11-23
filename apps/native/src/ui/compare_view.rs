@@ -364,6 +364,41 @@ fn available_choices(s: &State) -> Vec<ModelChoice> {
     out
 }
 
+/// The models a judge can be (Electron `judgeChoicesFor`, 0.810), out of the comparison's own choices: free ones first,
+/// then the catalogue, and the person's own models last, by the names they gave them. One of their own that only chats
+/// is left out: its runs get no tools, and a long brief reaches a judge as files to read.
+pub(super) fn judge_choices(s: &State) -> Vec<ModelChoice> {
+    use locust_core::judge_choices::{JudgeModel, judge_choices_for};
+    use locust_core::own_models::{NoBox, OwnModels, is_own_route_model, own_route_model};
+    // Read for Chat only alone: a list asks the keychain for nothing.
+    let kept = s.data.as_ref().and_then(|data| OwnModels::new(data.root(), std::sync::Arc::new(NoBox)).list().ok()).unwrap_or_default();
+    let chat_only: Vec<String> = kept.iter().filter(|one| one.chat_only).map(|one| own_route_model(&one.own_id, &one.model)).collect();
+    let listed = available_choices(s);
+    let models: Vec<JudgeModel> = listed
+        .iter()
+        .map(|c| JudgeModel {
+            runtime: c.runtime.clone(),
+            id: c.model.clone(),
+            display_name: c.label.clone(),
+            own: is_own_route_model(&c.model),
+            chat_only: chat_only.contains(&c.model),
+            older: false,
+            account: c.account.clone(),
+        })
+        .collect();
+    judge_choices_for(&[], None, &models, |_| true, |runtime| runtime_display_name(runtime).to_owned())
+        .into_iter()
+        .map(|one| ModelChoice {
+            is_free: listed.iter().any(|c| c.key == one.key && c.is_free),
+            key: one.key,
+            runtime: one.runtime,
+            model: one.model,
+            account: one.account,
+            label: one.short,
+        })
+        .collect()
+}
+
 fn default_compare_picks(s: &State) -> Vec<ComparePick> {
     let composer = crate::group_settings_dialog::current_composer_route(s);
     let target = selected_conversation(s).map(|(teammate, _)| teammate.id.as_str());
@@ -912,7 +947,7 @@ pub(super) fn ask_judge(s: &mut State) {
     let Some(cmp_id) = s.compare.active_id.clone() else { return };
     let Ok(cmp_store) = locust_core::compare::CompareStore::from_store(&store) else { return };
     let Ok(Some(cmp)) = cmp_store.get(&cmp_id) else { return };
-    let choices = available_choices(s);
+    let choices: Vec<ModelChoice> = judge_choices(s);
     if choices.is_empty() {
         s.compare.problem = Some("Pick a model to judge.".into());
         return;
@@ -1123,7 +1158,7 @@ pub(super) fn draft_points(s: &mut State) {
     let Some(cmp_id) = s.compare.active_id.clone() else { return };
     let Ok(cmp_store) = locust_core::compare::CompareStore::from_store(&store) else { return };
     let Ok(Some(cmp)) = cmp_store.get(&cmp_id) else { return };
-    let choices = available_choices(s);
+    let choices = judge_choices(s);
     let key = s.compare.judge_picks[0].clone().or_else(|| choices.first().map(|c| c.key.clone()));
     let Some(choice) = key.and_then(|k| choices.into_iter().find(|c| c.key == k)) else {
         return;

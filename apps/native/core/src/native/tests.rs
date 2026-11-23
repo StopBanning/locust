@@ -3778,3 +3778,6 @@ mod peer_exchange_conversation;
 
 #[path = "an_app_picks_up_cut_off_tests.rs"]
 mod an_app_picks_up_cut_off;
+
+#[path = "qa_0365_concurrency_tests.rs"]
+mod qa_0365_concurrency;

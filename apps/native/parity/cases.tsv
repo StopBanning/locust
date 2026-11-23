@@ -2288,6 +2288,9 @@ apps/desktop/src/main/popular-skill-packs-fit-and-agent-copies-are-chosen.test.t
 apps/desktop/src/main/popular-skill-packs-fit-and-agent-copies-are-chosen.test.ts	a popular pack is only previewed on the first click and all offered skills are ready for the second	yes
 apps/desktop/src/main/popular-skill-packs-fit-and-agent-copies-are-chosen.test.ts	the five popular packs have dated stars and licenses and Claude Mem names its separate install	yes
 apps/desktop/src/main/popular-skill-packs-fit-and-agent-copies-are-chosen.test.ts	the new-this-week packs are dated, licensed, younger than the snapshot and can be opened	yes
+apps/desktop/src/main/qa-0365-concurrency.test.ts	a relayed reply is not marked as sharing the folder with the sender whose run already ended	yes
+apps/desktop/src/main/qa-0365-concurrency.test.ts	a run started while a finished run is still reading the disk does not lose its attribution	yes
+apps/desktop/src/main/qa-0365-concurrency.test.ts	two runs that really do overlap are still marked	yes
 apps/desktop/src/main/qa-0365-fresh.test.ts	is not reported to the window as signed in	yes
 apps/desktop/src/main/qa-0365-fresh.test.ts	still reports a runtime whose readiness DOES mean an account	yes
 apps/desktop/src/main/qa-0365-fresh.test.ts	still reports a signed-out runtime as signed out	no
@@ -3018,6 +3021,10 @@ apps/desktop/src/main/the-starter-routines-are-routines.test.ts	reads one by its
 apps/desktop/src/main/the-starter-routines-are-routines.test.ts	leaves out, and names, a file in the folder that is not a routine	no
 apps/desktop/src/main/the-starter-routines-are-routines.test.ts	previews by id, then adds it once: Ask, no schedule, in this folder, run by nobody	no
 apps/desktop/src/main/the-starter-routines-are-routines.test.ts	asks for a folder first in its own words, not the words for a file	no
+apps/desktop/src/main/the-stop-button-is-round-and-centred.test.ts	is a disc with no border, its ring and glow drawn inside the edge	yes
+apps/desktop/src/main/the-stop-button-is-round-and-centred.test.ts	holds libraries.dev's square, scaled to the send's seat -- 12 of 36 is about 14 of 40	yes
+apps/desktop/src/main/the-stop-button-is-round-and-centred.test.ts	wears a beam lifted past the package mono, by its own per-layer hooks	no
+apps/desktop/src/main/the-stop-button-is-round-and-centred.test.ts	is even in an even box, so it lands on whole pixels wherever the row does	yes
 apps/desktop/src/main/the-team-is-a-board.test.ts	has a class of its own: `.lc-board` is the room task board, a flex COLUMN	yes
 apps/desktop/src/main/the-team-is-a-board.test.ts	tints only where a person should look: amber waiting, green unseen	yes
 apps/desktop/src/main/the-team-is-a-board.test.ts	a finish is unseen only when nobody was looking, and looking clears it	yes
@@ -4011,6 +4018,10 @@ apps/desktop/src/renderer/src/a-retired-free-model-is-not-offered.test.ts	Exo Fr
 apps/desktop/src/renderer/src/a-retired-free-model-is-not-offered.test.ts	a model whose run ended "has been deprecated" is left out from then on	no
 apps/desktop/src/renderer/src/a-retired-free-model-is-not-offered.test.ts	one that answered again afterwards is back; another failure is not a retirement	no
 apps/desktop/src/renderer/src/a-retired-free-model-is-not-offered.test.ts	Compare on a free model puts another WORKING free model beside it	no
+apps/desktop/src/renderer/src/a-review-brief-fits-and-asks-for-a-verdict.test.ts	fits in a mission prompt however long the turn was	yes
+apps/desktop/src/renderer/src/a-review-brief-fits-and-asks-for-a-verdict.test.ts	leaves a reply that fits exactly as it was	yes
+apps/desktop/src/renderer/src/a-review-brief-fits-and-asks-for-a-verdict.test.ts	cuts from the middle, and counts what it cut	yes
+apps/desktop/src/renderer/src/a-review-brief-fits-and-asks-for-a-verdict.test.ts	asks for a verdict first, and for no edits, and does not take the author at their word	yes
 apps/desktop/src/renderer/src/a-rewrite-shows-its-writer.test.tsx	names the writer of the words shown, not who first kept it	yes
 apps/desktop/src/renderer/src/a-rewrite-shows-its-writer.test.tsx	credits the rewrite to its writer	yes
 apps/desktop/src/renderer/src/a-rewrite-shows-its-writer.test.tsx	names every writer when the lines are more than one person’s	yes
@@ -4516,6 +4527,8 @@ apps/desktop/src/renderer/src/antigravity-shows-remaining-not-used.test.tsx	does
 apps/desktop/src/renderer/src/antigravity-shows-remaining-not-used.test.tsx	leaves existing used readings unchanged	yes
 apps/desktop/src/renderer/src/approval-patch.test.ts	the live add (content, not a hunk; absolute path) becomes one ADDED file with one hunk	yes
 apps/desktop/src/renderer/src/approval-patch.test.ts	update, add, delete and move each keep their status and path	yes
+apps/desktop/src/renderer/src/ask-for-a-review-is-one-row.test.ts	folds several reviewers and the pair into one row that opens beside it	yes
+apps/desktop/src/renderer/src/ask-for-a-review-is-one-row.test.ts	keeps a lone reviewer one row that says who, and offers nothing with nobody to ask	yes
 apps/desktop/src/renderer/src/at-picks-a-file-of-the-project.test.ts	is the @word at the end of the message, a bare @ included	yes
 apps/desktop/src/renderer/src/at-picks-a-file-of-the-project.test.ts	is nothing for an @ inside a sentence, or a word that carries one	yes
 apps/desktop/src/renderer/src/at-picks-a-file-of-the-project.test.ts	leaves the rest of the message when a file is picked	yes
@@ -5347,11 +5360,34 @@ apps/desktop/src/renderer/src/reasoning-is-kept.test.ts	still reports how long i
 apps/desktop/src/renderer/src/reasoning-is-kept.test.ts	does not count thinking among the tool calls	yes
 apps/desktop/src/renderer/src/reasoning-is-kept.test.ts	says nothing about tool calls when a turn only thought	yes
 apps/desktop/src/renderer/src/reasoning-is-kept.test.ts	gives thinking its own row rather than folding it in with tools	yes
+apps/desktop/src/renderer/src/review-brief.test.ts	carries the request in the words the person used	yes
+apps/desktop/src/renderer/src/review-brief.test.ts	carries what changed, what ran with its exit code, and where	yes
+apps/desktop/src/renderer/src/review-brief.test.ts	names who did the work, and that the reviewer did not	yes
+apps/desktop/src/renderer/src/review-brief.test.ts	MAKES NO CLAIM THAT THE WORK IS DONE OR CORRECT	yes
+apps/desktop/src/renderer/src/review-brief.test.ts	tells it to report rather than fix	yes
+apps/desktop/src/renderer/src/review-brief.test.ts	says a short answer is right when the work is fine	yes
+apps/desktop/src/renderer/src/review-brief.test.ts	says plainly when a run changed nothing, rather than leaving a blank	yes
+apps/desktop/src/renderer/src/review-brief.test.ts	says plainly when nothing was run	yes
+apps/desktop/src/renderer/src/review-brief.test.ts	marks a command whose exit code was never recorded	yes
+apps/desktop/src/renderer/src/review-brief.test.ts	bounds a long list rather than truncating it silently	yes
+apps/desktop/src/renderer/src/review-brief.test.ts	carries what the teammate said	yes
+apps/desktop/src/renderer/src/review-brief.test.ts	never presents it as the two bare absences	yes
+apps/desktop/src/renderer/src/review-brief.test.ts	tells the reviewer that answering IS the work	yes
+apps/desktop/src/renderer/src/review-brief.test.ts	asks about the work rather than about the change	yes
+apps/desktop/src/renderer/src/review-brief.test.ts	still leads a real code change with what changed	yes
+apps/desktop/src/renderer/src/review-brief.test.ts	says out loud when the reply was cut, rather than ending mid-sentence	yes
+apps/desktop/src/renderer/src/review-brief.test.ts	bounds a very long request, with a mark	yes
+apps/desktop/src/renderer/src/review-brief.test.ts	asks about THIS turn, not the one the conversation opened with	yes
+apps/desktop/src/renderer/src/review-brief.test.ts	keeps the opening ask, labelled as context rather than as the request	yes
+apps/desktop/src/renderer/src/review-brief.test.ts	says nothing extra when the conversation has not moved on	yes
 apps/desktop/src/renderer/src/review-notes-survive-a-revision.test.tsx	are read back out of it, the person's own words apart	yes
 apps/desktop/src/renderer/src/review-notes-survive-a-revision.test.tsx	leave a message with no notes exactly as it was	yes
 apps/desktop/src/renderer/src/review-notes-survive-a-revision.test.tsx	says the line changed, only the file changed, nothing changed, or the file went	yes
 apps/desktop/src/renderer/src/review-notes-survive-a-revision.test.tsx	finds the file however the runtime wrote its path	yes
 apps/desktop/src/renderer/src/review-notes-survive-a-revision.test.tsx	are drawn under the bubble, each with where it was and what became of it once the turn is over	yes
+apps/desktop/src/renderer/src/review-pair.test.ts	picks two agents that differ from each other and from the author	yes
+apps/desktop/src/renderer/src/review-pair.test.ts	uses the author's agent for one of them when the team has nothing else	yes
+apps/desktop/src/renderer/src/review-pair.test.ts	offers no pair when every reviewer is on the same agent	yes
 apps/desktop/src/renderer/src/review-sees-the-conversation.test.ts	names this turn as this turn, and earlier work as earlier	yes
 apps/desktop/src/renderer/src/review-sees-the-conversation.test.ts	does not repeat a path this turn touched again	yes
 apps/desktop/src/renderer/src/review-sees-the-conversation.test.ts	says nothing about earlier work when there was none	yes
@@ -6076,6 +6112,8 @@ apps/desktop/src/renderer/src/your-github-shows-on-connectors.test.tsx	is found 
 apps/desktop/src/renderer/src/your-own-model-is-named-as-yours.test.tsx	is known by its route	yes
 apps/desktop/src/renderer/src/your-own-model-is-named-as-yours.test.tsx	is named by its own name on every surface that names a route	no
 apps/desktop/src/renderer/src/your-own-model-is-named-as-yours.test.tsx	reads as itself in the chat bar, with the exact route one hover away	no
+apps/desktop/src/renderer/src/your-own-models-can-judge.test.ts	offers the person’s own models that take tools, under Your models and by their own names	yes
+apps/desktop/src/renderer/src/your-own-models-can-judge.test.ts	still offers a free model first, and the catalogue before any model of the person’s own	yes
 apps/desktop/src/shared/a-block-in-code-is-an-example.test.ts	sends no message	no
 apps/desktop/src/shared/a-block-in-code-is-an-example.test.ts	keeps no memory	yes
 apps/desktop/src/shared/a-block-in-code-is-an-example.test.ts	moves no task, asks nothing, hands no file	yes

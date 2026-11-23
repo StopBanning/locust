@@ -110,6 +110,8 @@ pub mod hooks {
     /// While set, a turn whose end is recorded is held before the engine lets go of it, as its disk observation and
     /// share can hold it (the-next-turn-is-not-refused-while-the-last-winds-down).
     pub static HOLD_WIND_DOWN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+    /// Fired once when `record_disk_observation` is about to take the after-snapshot (`qa-0365-concurrency.test.ts`).
+    pub static ON_AFTER_DISK: Mutex<Option<Box<dyn FnOnce() + std::marker::Send>>> = Mutex::new(None);
     /// What a start's readiness is asked through while a test holds the engine. None: the fake stands in for the
     /// runtime, and nothing is asked.
     pub static READINESS: Mutex<Option<Arc<crate::agents::StartReadiness>>> = Mutex::new(None);
@@ -128,6 +130,7 @@ pub mod hooks {
         crate::runtime::opencode_config::FAIL_V2_GUARD.with(|f| f.set(false));
         *crate::invariants::lock(&STATE) = (Some(store), command);
         *crate::invariants::lock(&READINESS) = None;
+        *crate::invariants::lock(&ON_AFTER_DISK) = None;
         guard
     }
     impl Drop for Guard {
@@ -148,6 +151,7 @@ pub mod hooks {
             crate::runtime::opencode_config::FAIL_V2_GUARD.with(|f| f.set(false));
             *crate::invariants::lock(&STATE) = (None, None);
             *crate::invariants::lock(&READINESS) = None;
+            *crate::invariants::lock(&ON_AFTER_DISK) = None;
         }
     }
     /// Every turn thread, its ending included, is gone: turns still running are told to stop, again each time, since an
@@ -653,6 +657,13 @@ fn record_disk_observation(
     checkpoint: &crate::checkpoints::Turn,
 ) -> Vec<String> {
     let Some(before) = disk_before else { return Vec::new() };
+    #[cfg(any(test, feature = "test-hooks"))]
+    {
+        let hook = crate::invariants::lock(&hooks::ON_AFTER_DISK).take();
+        if let Some(hook) = hook {
+            hook();
+        }
+    }
     let before_lookup = |rel: &str| checkpoint.before_text(store, rel);
     let host = crate::disk_observation::DefaultDiskHost::with_before_text(&before_lookup);
     let Some(after) = crate::disk_observation::snapshot_workspace(folder, &host) else {
@@ -3298,6 +3309,9 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
                 slash_command,
             );
             cursor_guard.end();
+            // The run's process has exited: leave ACTIVE before taking the after-snapshot or firing the relay,
+            // so a relayed reply or a run started while the disk is still being read is not marked as sharing the folder.
+            checkpoint.leave_active();
             // The run's skill copies go with it.
             crate::skills::remove_copies(&skill_copies);
             crate::skills::forget_roots(&memory_id);

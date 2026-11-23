@@ -316,7 +316,8 @@ mod tests {
             "switch-on", "switch-knob", "switch-knob-on", "green", "green-text", "green-tint", "green-border",
             "amber", "amber-text", "amber-tint", "amber-border", "red", "red-text", "red-tint", "red-border", "blue",
             "blue-text", "blue-tint", "blue-border", "dialog-edge", "dialog-highlight", "segment-track",
-            "segment-thumb", "chip-bg", "chip-bg-hover", "chip-text",
+            "segment-thumb", "chip-bg", "chip-bg-hover", "chip-text", "circle-bg", "circle-border", "circle-fg",
+            "stop-glow",
         ];
         for dark in [true, false] {
             let t = tokens(dark);
@@ -435,3 +436,7 @@ mod message_box_tests;
 #[cfg(test)]
 #[path = "ui_face_tests.rs"]
 mod ui_face_tests;
+
+#[cfg(test)]
+#[path = "stop_button_tests.rs"]
+mod controls_stop_button_tests;

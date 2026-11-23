@@ -1371,3 +1371,59 @@ fn compare_view_keeps_tail_updates_wired_after_each_comparison_reload() {
     rt.update(|s, _| { compare_view::poll(s); });
     assert!(!rt.state.compare.snapshots["m_a1"].running && !rt.state.compare.snapshots["m_b1"].running);
 }
+
+#[test]
+fn a_judge_is_asked_on_the_model_its_choices_offer_first() {
+    // your-own-models-can-judge (0.810): the judge Ask a judge starts is the first of judge_choices_for's order, a free
+    // model ahead of the catalogue's paid one, not the first the comparison happens to list.
+    let (_dirs, store, mut rt) = window();
+    let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "success"));
+    let model = |id: &str, name: &str| locust_core::engine::Model { id: id.into(), name: name.into(), efforts: Vec::new() };
+    rt.state.models.insert(
+        "codex".into(),
+        vec![locust_core::engine::Models {
+            teammate: None,
+            runtime: "codex".into(),
+            model: None,
+            effort: None,
+            models: vec![model("paid-judge", "Paid Judge"), model("judge-free", "Judge Free")],
+        }],
+    );
+
+    click(&mut rt, "compare-mode-chip");
+    click(&mut rt, "compare-mode-compare");
+    type_and_send(&mut rt, "Synthetic prompt");
+    pump(&mut rt, "both columns to answer", all_slots_answered);
+    click(&mut rt, "compare-ask-judge");
+
+    let cid = rt.state.compare.active_id.clone().unwrap();
+    let cmp = locust_core::compare::CompareStore::from_store(&store).unwrap().get(&cid).unwrap().unwrap();
+    let judge = cmp.judge.expect("a judge was asked");
+    assert_eq!((judge.route.runtime.as_str(), judge.route.model.as_str()), ("codex", "judge-free"));
+    assert_eq!(judge.route.label.as_deref(), Some("Judge Free"));
+}
+
+#[test]
+fn a_model_of_your_own_that_only_chats_is_never_offered_as_a_judge() {
+    // 23 Nov merge check: a break making the window pass every own model as able to use tools survived. A chat-only
+    // model of your own gets no tools, and a long brief reaches a judge as files to read, so it is left out (0.810).
+    let (_dirs, store, mut rt) = window();
+    let owned = locust_core::own_models::OwnModels::new(store.root(), std::sync::Arc::new(locust_core::own_models::NoBox));
+    let talker = owned.add("Talker", "http://127.0.0.1:9/v1", "talk-1", None, true).unwrap();
+    let worker = owned.add("Worker", "http://127.0.0.1:9/v1", "work-1", None, false).unwrap();
+    let route = |one: &locust_core::own_models::PublicOwnModel| locust_core::own_models::own_route_model(&one.own_id, &one.model);
+    let model = |id: String, name: &str| locust_core::engine::Model { id, name: name.into(), efforts: Vec::new() };
+    rt.state.models.insert(
+        "opencode".into(),
+        vec![locust_core::engine::Models {
+            teammate: None,
+            runtime: "opencode".into(),
+            model: None,
+            effort: None,
+            models: vec![model(route(&talker), "Talker"), model(route(&worker), "Worker")],
+        }],
+    );
+    let offered: Vec<String> = crate::compare_view::judge_choices(&rt.state).into_iter().map(|c| c.model).collect();
+    assert!(offered.contains(&route(&worker)), "a model of your own that uses tools can judge: {offered:?}");
+    assert!(!offered.contains(&route(&talker)), "a chat-only model of your own is left out: {offered:?}");
+}

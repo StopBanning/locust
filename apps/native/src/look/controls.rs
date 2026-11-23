@@ -343,24 +343,41 @@ pub enum SendState {
     Stop,
 }
 
-/// The composer's round send button: 36 across, the circle's fill and border; ivory with an arrow once there is
-/// something to send, as Electron's metal composer draws it.
+/// The composer's round send button: 40 across, the circle's fill and border; ivory with a 16-point arrow once there is
+/// something to send, or a borderless disc with a card-border inner ring, stop-glow and 14-point square while a reply
+/// runs, as Electron's metal composer draws it (`.lc-composer__controls .lc-send`, `.is-stop`).
 /// The send circle's size; a one-line message field is as tall, so they share a centre.
-pub const SEND_SIZE: f32 = 36.0;
+pub const SEND_SIZE: f32 = 40.0;
+pub const SEND_BORDER: f32 = 1.0;
+pub const SEND_ARROW_SIZE: f32 = 16.0;
+pub const STOP_SQUARE_SIZE: f32 = 14.0;
+pub const STOP_SQUARE_RADIUS: f32 = 3.0;
+pub const STOP_GLOW_BLUR: f32 = 50.0;
 
 pub fn send_circle(l: &Look, state: SendState, label: &str) -> El {
     let (fill, ink) = match state {
         SendState::Ready => (l.c("primary-bg"), l.c("primary-fg")),
-        SendState::Stop => (l.c("circle-bg"), l.c("circle-fg")),
+        SendState::Stop => (l.c("circle-bg"), l.c("text-secondary")),
         SendState::Idle => (l.c("circle-bg"), l.c("circle-fg").alpha(0.35)),
     };
     let inner = match state {
-        SendState::Stop => row().w(11.0).h(11.0).radius(2.5).fill(ink),
-        _ => glyph(l, &super::icons::ARROW_UP, 17.0, Some(ink)),
+        SendState::Stop => row().key("stop-square").w(STOP_SQUARE_SIZE).h(STOP_SQUARE_SIZE).radius(STOP_SQUARE_RADIUS).fill(ink),
+        _ => glyph(l, &super::icons::ARROW_UP, SEND_ARROW_SIZE, Some(ink)).key("send-arrow"),
     };
-    let mut e = row().w(SEND_SIZE).h(SEND_SIZE).center().radius(SEND_SIZE / 2.0).fill(fill).border(1.0, l.c("circle-border")).child(inner);
+    let mut e = row().w(SEND_SIZE).h(SEND_SIZE).center().fill(fill).child(inner);
+    e = match state {
+        SendState::Stop => e
+            .radius(999.0)
+            .box_shadow(ring(1.0, l.c("border-card")))
+            .box_shadow(Shadow { blur: STOP_GLOW_BLUR, color: l.c("stop-glow"), inset: true, ..Shadow::default() })
+            .hover(l.c("red-tint")),
+        _ => e.radius(SEND_SIZE / 2.0).border(SEND_BORDER, l.c("circle-border")),
+    };
+    if state == SendState::Ready {
+        e = e.hover(l.c("hover-surface"));
+    }
     if state != SendState::Idle {
-        e = e.hover(l.c("hover-surface")).press_scale(0.96);
+        e = e.press_scale(0.96);
     }
     focusable(l, e, label, state == SendState::Idle)
 }
