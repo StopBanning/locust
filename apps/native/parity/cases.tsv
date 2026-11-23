@@ -3765,6 +3765,11 @@ apps/desktop/src/renderer/src/a-model-has-one-name.test.ts	leaves Locust's own "
 apps/desktop/src/renderer/src/a-model-has-one-name.test.ts	never takes a different name, and keeps runtimes apart	no
 apps/desktop/src/renderer/src/a-model-is-one-line.test.tsx	keeps what the catalogue says, and leaves the effort levels to the hover	yes
 apps/desktop/src/renderer/src/a-model-is-one-line.test.tsx	a model the catalogue says nothing about keeps its levels as its line, in words	yes
+apps/desktop/src/renderer/src/a-model-opencode-cannot-find-is-retired.test.tsx	reads "Model not found" as retired, and only that	yes
+apps/desktop/src/renderer/src/a-model-opencode-cannot-find-is-retired.test.tsx	a new person never starts on Fledge Alpha: left out before anyone here has run it	yes
+apps/desktop/src/renderer/src/a-model-opencode-cannot-find-is-retired.test.tsx	the next model OpenCode drops is learned from its first failure, and is back once it answers	yes
+apps/desktop/src/renderer/src/a-model-opencode-cannot-find-is-retired.test.tsx	a retired model is not "at its limit"	yes
+apps/desktop/src/renderer/src/a-model-opencode-cannot-find-is-retired.test.tsx	a provider that is down says so; a limit, or no reason given, stays a limit	yes
 apps/desktop/src/renderer/src/a-morning-row-says-what-the-run-came-to.test.tsx	says what the run came to under its title: what it did, or why it failed	yes
 apps/desktop/src/renderer/src/a-morning-row-says-what-the-run-came-to.test.tsx	and says nothing more when there is nothing to say	yes
 apps/desktop/src/renderer/src/a-morning-row-says-what-the-run-came-to.test.tsx	takes the answer's first line from the run's final reply	yes

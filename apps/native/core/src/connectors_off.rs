@@ -5,7 +5,8 @@
 
 use crate::engine::Model;
 use regex::Regex;
-use std::collections::HashSet;
+use serde_json::Value;
+use std::collections::{HashMap, HashSet};
 
 pub use crate::agents::FREE_START_RUNTIME;
 
@@ -165,6 +166,94 @@ pub fn opencode_model_display_name(model_id: &str) -> String {
         .join(" ")
 }
 
+/// Retired before anyone here ran it (`missionView.ts` `KNOWN_RETIRED_MODELS`): a new person's first press must not
+/// find out the hard way.
+pub const KNOWN_RETIRED_MODELS: &[&str] = &["opencode/exo-free", "opencode/fledge-alpha-free"];
+
+/// `missionView.ts` `modelRetired`: OpenCode's "has been deprecated" or "Model not found: <id>".
+pub fn model_retired(message: &str) -> bool {
+    crate::invariants::regex(r"(?i)\bmodel \S+ has been deprecated\b|\bmodel not found: \S+").is_match(message)
+}
+
+/// `missionView.ts` `modelUnavailable`: provider endpoint/model unavailable or free model refused.
+pub fn model_unavailable(message: &str) -> bool {
+    crate::invariants::regex(r"(?i)\b(?:model|endpoint) is unavailable\b|\brefused the free model\b").is_match(message)
+}
+
+/// One mission as `retired_free_models` reads it (`missionView.ts` `retiredFreeModels`).
+#[derive(Clone, Copy, Debug)]
+pub struct RetiredMission<'a> {
+    pub runtime: &'a str,
+    pub model: &'a str,
+    pub phase: &'a str,
+    pub last_updated_at: &'a str,
+    pub events: &'a [Value],
+}
+
+/// The OpenCode models to leave out of the window's list (`missionView.ts` `retiredFreeModels`): the known ones,
+/// and any whose latest run here ended on OpenCode's retired/not-found error -- unless a run on it finished after
+/// that, which says it is back.
+pub fn retired_free_models(missions: &[RetiredMission<'_>]) -> HashSet<String> {
+    let mut retired_at: HashMap<String, i64> = KNOWN_RETIRED_MODELS
+        .iter()
+        .map(|&m| (m.to_owned(), 0))
+        .collect();
+    let mut answered_at: HashMap<String, i64> = HashMap::new();
+    for mission in missions {
+        if mission.runtime != FREE_START_RUNTIME {
+            continue;
+        }
+        let stamp = chrono::DateTime::parse_from_rfc3339(mission.last_updated_at)
+            .map(|dt| dt.timestamp_millis())
+            .unwrap_or(0);
+        if mission.phase == "completed" {
+            let prev = answered_at.get(mission.model).copied().unwrap_or(-1);
+            answered_at.insert(mission.model.to_owned(), prev.max(stamp));
+            continue;
+        }
+        if mission.phase != "failed" {
+            continue;
+        }
+        let Some(failed) = mission.events.iter().rev().find(|e| e["type"] == "run.failed") else {
+            continue;
+        };
+        let msg = failed["payload"]["message"].as_str().unwrap_or("");
+        if !model_retired(msg) {
+            continue;
+        }
+        let prev = retired_at.get(mission.model).copied().unwrap_or(-1);
+        retired_at.insert(mission.model.to_owned(), prev.max(stamp));
+    }
+    retired_at
+        .into_iter()
+        .filter(|(model, at)| answered_at.get(model).copied().unwrap_or(-1) <= *at)
+        .map(|(model, _)| model)
+        .collect()
+}
+
+/// Why a failed free-model offer is shown under a thread (`Thread.tsx` `limitModel.why`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LimitModelWhy {
+    Retired,
+    Down,
+    Limit,
+}
+
+/// The sentence shown under a failed free model (`Thread.tsx` `limitModel` offer).
+pub fn limit_model_offer_sentence(why: Option<LimitModelWhy>) -> &'static str {
+    match why {
+        Some(LimitModelWhy::Retired) => {
+            "OpenCode no longer offers this model. Switching puts your message back in the chat box, to send there."
+        }
+        Some(LimitModelWhy::Down) => {
+            "This model\u{2019}s provider is down for now. Switching puts your message back in the chat box, to send there."
+        }
+        Some(LimitModelWhy::Limit) | None => {
+            "This model is at its limit. Switching puts your message back in the chat box, to send there."
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -260,5 +349,97 @@ mod tests {
             opencode_model_display_name("opencode/deepseek-v4.1-flash-free"),
             "Deepseek V4.1 Flash Free"
         );
+    }
+
+    // --- a-model-opencode-cannot-find-is-retired.test.tsx
+
+    const SAID: &str = "OpenCode stopped: Model not found: opencode/fledge-alpha-free. Did you mean: exo-free, ling-3.0-flash-fin-free, ling-3.1-flash-free?";
+
+    fn catalog() -> Vec<Model> {
+        [
+            "opencode/exo-free",
+            "opencode/fledge-alpha-free",
+            "opencode/ling-3.0-flash-fin-free",
+            "opencode/beam-free",
+        ]
+        .into_iter()
+        .map(m)
+        .collect()
+    }
+
+    fn shown(retired: &HashSet<String>) -> Vec<Model> {
+        catalog().into_iter().filter(|entry| !retired.contains(&entry.id)).collect()
+    }
+
+    // case: reads "Model not found" as retired, and only that
+    #[test]
+    fn reads_model_not_found_as_retired_and_only_that() {
+        assert!(model_retired(SAID));
+        assert!(!model_unavailable(SAID));
+        assert!(!model_retired("Error: ENOENT: file not found: notes.md"));
+        assert!(!model_retired("OpenCode stopped: Upstream request failed: Model is unavailable."));
+        assert!(model_unavailable("OpenCode stopped: Upstream request failed: Model is unavailable."));
+    }
+
+    // case: a new person never starts on Fledge Alpha: left out before anyone here has run it
+    #[test]
+    fn a_new_person_never_starts_on_fledge_alpha_left_out_before_anyone_here_has_run_it() {
+        let retired = retired_free_models(&[]);
+        assert!(retired.contains("opencode/fledge-alpha-free"));
+        let visible = shown(&retired);
+        assert!(!visible.iter().any(|entry| entry.id == "opencode/fledge-alpha-free"));
+        assert_eq!(
+            free_start_model("opencode", &visible, &[], &HashSet::new()).as_deref(),
+            Some("opencode/beam-free")
+        );
+        let without_beam: Vec<Model> = visible
+            .into_iter()
+            .filter(|entry| !entry.id.starts_with("opencode/beam"))
+            .collect();
+        assert_eq!(
+            free_start_model("opencode", &without_beam, &[], &HashSet::new()).as_deref(),
+            Some("opencode/ling-3.0-flash-fin-free")
+        );
+    }
+
+    // case: the next model OpenCode drops is learned from its first failure, and is back once it answers
+    #[test]
+    fn the_next_model_opencode_drops_is_learned_from_its_first_failure_and_is_back_once_it_answers() {
+        let lost = "OpenCode stopped: Model not found: opencode/beam-free. Did you mean: ling-3.1-flash-free?";
+        let failed_events = vec![serde_json::json!({"type": "run.failed", "payload": {"message": lost}})];
+        let failed = RetiredMission {
+            runtime: "opencode",
+            model: "opencode/beam-free",
+            phase: "failed",
+            last_updated_at: "2026-10-10T01:00:00Z",
+            events: &failed_events,
+        };
+        assert!(retired_free_models(&[failed]).contains("opencode/beam-free"));
+        let completed = RetiredMission {
+            runtime: "opencode",
+            model: "opencode/beam-free",
+            phase: "completed",
+            last_updated_at: "2026-10-11T01:00:00Z",
+            events: &[],
+        };
+        assert!(!retired_free_models(&[failed, completed]).contains("opencode/beam-free"));
+    }
+
+    // case: a retired model is not "at its limit"
+    #[test]
+    fn a_retired_model_is_not_at_its_limit() {
+        let sentence = limit_model_offer_sentence(Some(LimitModelWhy::Retired));
+        assert!(sentence.contains("OpenCode no longer offers this model."));
+        assert!(!sentence.contains("at its limit"));
+        let label = format!("Switch to {}", opencode_model_display_name("opencode/ling-3.0-flash-fin-free"));
+        assert_eq!(label, "Switch to Ling 3.0 Flash Fin Free");
+    }
+
+    // case: a provider that is down says so; a limit, or no reason given, stays a limit
+    #[test]
+    fn a_provider_that_is_down_says_so_a_limit_or_no_reason_given_stays_a_limit() {
+        assert!(limit_model_offer_sentence(Some(LimitModelWhy::Down)).contains("provider is down for now."));
+        assert!(limit_model_offer_sentence(Some(LimitModelWhy::Limit)).contains("This model is at its limit."));
+        assert!(limit_model_offer_sentence(None).contains("This model is at its limit."));
     }
 }
