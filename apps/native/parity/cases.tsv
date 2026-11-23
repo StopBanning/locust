@@ -1202,7 +1202,7 @@ apps/desktop/src/main/a-voice-call-talks-as-the-teammate.test.ts	tells the voice
 apps/desktop/src/main/a-voice-call-talks-as-the-teammate.test.ts	cannot be talked out of its quotes by a teammate named to do it	yes
 apps/desktop/src/main/a-voice-call-talks-as-the-teammate.test.ts	sends the ask into the conversation Talk was pressed in, in the teammate's own mode	yes
 apps/desktop/src/main/a-voice-call-talks-as-the-teammate.test.ts	refuses any other conversation of the person's, and every one once the call has ended	yes
-apps/desktop/src/main/a-voice-call-talks-as-the-teammate.test.ts	is one of ChatGPT's nine, kept, carried by an edit that does not mention it, and removed by null	no
+apps/desktop/src/main/a-voice-call-talks-as-the-teammate.test.ts	is one of ChatGPT's nine, kept, carried by an edit that does not mention it, and removed by null	yes
 apps/desktop/src/main/a-voice-call-talks-as-the-teammate.test.ts	speak as the teammate, and never guess what anything says before the work reports it	yes
 apps/desktop/src/main/a-web-search-asks-in-its-own-words.test.ts	a search names its words, and says nothing changes	yes
 apps/desktop/src/main/a-web-search-asks-in-its-own-words.test.ts	a page names its site, and shows the whole address to be read	yes
