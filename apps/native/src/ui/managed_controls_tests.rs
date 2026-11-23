@@ -160,3 +160,39 @@ fn filters_the_picker_and_mode_menu_and_shows_monthly_limit_under_policy() {
     assert!(pwords.contains("Set by your organization"), "got: {pwords}");
     assert!(pwords.contains("Maximum 10.00 USD. You can set a lower amount."), "got: {pwords}");
 }
+
+// The mode menu greys out a mode the agent cannot run, says why, and does not take it (Electron's ModeMenu,
+// modeUnavailableReason). Antigravity cannot stop and ask, so Approve each is greyed with that sentence.
+#[test]
+fn the_mode_menu_greys_a_mode_the_agent_cannot_run_and_says_why() {
+    let _lock = POLICY_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    locust_core::org_policy::use_policy(None);
+    let _guard = PolicyGuard;
+    let mut s = State::default();
+    s.teammates.push(Teammate {
+        id: "tm_1".into(),
+        name: "Wren".into(),
+        role: "Code".into(),
+        runtime: Some("antigravity".into()),
+        model: None,
+        account: None,
+        busy: false,
+        runs_in: "ask".into(),
+        folder: None,
+    });
+    s.selected = 0;
+    s.conversations.insert("tm_1".into(), Conversation::default());
+    s.mode_menu = true;
+    fn view_thread(s: &State, _cx: &mut Cx<State>) -> El {
+        crate::thread_view(s, &Palette::new(true))
+    }
+    let mut rt = Runtime::new(s, view_thread, (1000.0, 900.0), Env::new(true, 1.0));
+    rt.frame(0.0);
+    let words = texts(&rt).join(" | ");
+    assert!(words.contains("Antigravity cannot stop and ask yet."), "got: {words}");
+    let (x, y) = rt.find("mode-approve-each").expect("approve-each is listed");
+    rt.pointer_down(x, y);
+    rt.pointer_up(x, y);
+    rt.frame(0.05);
+    assert_ne!(rt.state.composer_mode.as_deref(), Some("approve-each"), "a greyed mode is not taken");
+}
