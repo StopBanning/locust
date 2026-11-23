@@ -2838,3 +2838,7 @@ mod glance_tests {
 #[cfg(test)]
 #[path = "screen_switches_tests.rs"]
 mod screen_switches_tests;
+
+#[cfg(test)]
+#[path = "bot_rig_change_order_tests.rs"]
+mod change_order_tests;

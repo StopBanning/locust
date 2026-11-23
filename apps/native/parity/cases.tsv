@@ -3380,6 +3380,22 @@ apps/desktop/src/renderer/src/a-change-can-be-copied.test.tsx	gives the code as 
 apps/desktop/src/renderer/src/a-change-can-be-copied.test.tsx	gives a new file whole, and nothing for a deleted one	no
 apps/desktop/src/renderer/src/a-change-can-be-copied.test.tsx	offers Copy at the foot of an opened change	no
 apps/desktop/src/renderer/src/a-change-can-be-copied.test.tsx	offers Copy on a changed file's row, beside Open and Show	no
+apps/desktop/src/renderer/src/a-change-is-performed-in-order.test.ts	is one blink: the eyes shut, the new ones come in under the shut lids, they open, and only then does its state begin	yes
+apps/desktop/src/renderer/src/a-change-is-performed-in-order.test.ts	blinks once for a change of what it is doing, its eyes and their colour the same; and not at all with no change	yes
+apps/desktop/src/renderer/src/a-change-is-performed-in-order.test.ts	asked for again mid-change, goes on from where its lids are: never springing open to shut again	yes
+apps/desktop/src/renderer/src/a-change-is-performed-in-order.test.ts	brings its flash in with its new eyes, never on the old ones as they shut, and fades from there	yes
+apps/desktop/src/renderer/src/a-change-is-performed-in-order.test.ts	starts its state's loops as the eyes open on it, on its own clock: the eyes are the loop's, from its start	yes
+apps/desktop/src/renderer/src/a-change-is-performed-in-order.test.ts	performs nothing on a still bot (reduced motion): the eyes asked for, at once, open	yes
+apps/desktop/src/renderer/src/a-change-is-performed-in-order.test.ts	blinks a face of plastic once a change, as the change begins; never a screen, whose swap is its blink	yes
+apps/desktop/src/renderer/src/a-change-is-performed-in-order.test.ts	counts a change's blink as the rig's own: the rig's next blink waits as after any of its blinks, so a change never blinks twice	yes
+apps/desktop/src/renderer/src/a-change-is-performed-in-order.test.ts	wears a new mood only once its eyes are open: through the blink its head holds, then it tips	yes
+apps/desktop/src/renderer/src/a-change-is-performed-in-order.test.ts	hops once its eyes are open on the change that asked for it, and not before	yes
+apps/desktop/src/renderer/src/a-change-is-performed-in-order.test.ts	begins its thinking look as its dots open, from where the rig has the head, on the thinking's own clock	yes
+apps/desktop/src/renderer/src/a-change-is-performed-in-order.test.ts	gives its head to a handoff glance: the thinking look fades while the glance holds, and comes back after it	yes
+apps/desktop/src/renderer/src/a-change-is-performed-in-order.test.ts	settles to rest once its eyes are open on the change, facing you, and only then may rest	yes
+apps/desktop/src/renderer/src/a-change-is-performed-in-order.test.ts	wakes on the same rig: its eyes perform the change while it rests, then its body eases back out	yes
+apps/desktop/src/renderer/src/a-change-is-performed-in-order.test.ts	is never settled mid-blink, so it never rests with its eyes half shut	yes
+apps/desktop/src/renderer/src/a-change-is-performed-in-order.test.ts	draws its eyes' loops at their rest: a resting face never freezes mid-wince	yes
 apps/desktop/src/renderer/src/a-checklist-left-unticked-is-not-a-fault.test.tsx	says what was left unticked, in its own voice, after a run that completed	yes
 apps/desktop/src/renderer/src/a-checklist-left-unticked-is-not-a-fault.test.tsx	keeps amber for a run that failed or was stopped	yes
 apps/desktop/src/renderer/src/a-checklist-left-unticked-is-not-a-fault.test.tsx	says nothing of the kind while the run goes on	yes
@@ -3765,6 +3781,11 @@ apps/desktop/src/renderer/src/a-model-has-one-name.test.ts	leaves Locust's own "
 apps/desktop/src/renderer/src/a-model-has-one-name.test.ts	never takes a different name, and keeps runtimes apart	no
 apps/desktop/src/renderer/src/a-model-is-one-line.test.tsx	keeps what the catalogue says, and leaves the effort levels to the hover	yes
 apps/desktop/src/renderer/src/a-model-is-one-line.test.tsx	a model the catalogue says nothing about keeps its levels as its line, in words	yes
+apps/desktop/src/renderer/src/a-model-opencode-cannot-find-is-retired.test.tsx	reads "Model not found" as retired, and only that	yes
+apps/desktop/src/renderer/src/a-model-opencode-cannot-find-is-retired.test.tsx	a new person never starts on Fledge Alpha: left out before anyone here has run it	yes
+apps/desktop/src/renderer/src/a-model-opencode-cannot-find-is-retired.test.tsx	the next model OpenCode drops is learned from its first failure, and is back once it answers	yes
+apps/desktop/src/renderer/src/a-model-opencode-cannot-find-is-retired.test.tsx	a retired model is not "at its limit"	yes
+apps/desktop/src/renderer/src/a-model-opencode-cannot-find-is-retired.test.tsx	a provider that is down says so; a limit, or no reason given, stays a limit	yes
 apps/desktop/src/renderer/src/a-morning-row-says-what-the-run-came-to.test.tsx	says what the run came to under its title: what it did, or why it failed	yes
 apps/desktop/src/renderer/src/a-morning-row-says-what-the-run-came-to.test.tsx	and says nothing more when there is nothing to say	yes
 apps/desktop/src/renderer/src/a-morning-row-says-what-the-run-came-to.test.tsx	takes the answer's first line from the run's final reply	yes
@@ -4044,6 +4065,13 @@ apps/desktop/src/renderer/src/a-row-repeats-nothing-its-heading-says.test.tsx	dr
 apps/desktop/src/renderer/src/a-row-repeats-nothing-its-heading-says.test.tsx	treats a repeated runtime name as the heading, and a limit or an endpoint as news	yes
 apps/desktop/src/renderer/src/a-run-a-teammate-stopped-does-not-say-you.test.tsx	says "You" for a Stop the person pressed	no
 apps/desktop/src/renderer/src/a-run-a-teammate-stopped-does-not-say-you.test.tsx	does not, for a run stopped by anything else	no
+apps/desktop/src/renderer/src/a-runtime-declares-what-it-can-do.test.ts	answers exactly as the if-chain did, except where a claim was corrected on purpose	yes
+apps/desktop/src/renderer/src/a-runtime-declares-what-it-can-do.test.ts	claims nothing for a runtime no mission can run under	yes
+apps/desktop/src/renderer/src/a-runtime-declares-what-it-can-do.test.ts	offers a runtime only the modes someone has actually run under it	yes
+apps/desktop/src/renderer/src/a-runtime-declares-what-it-can-do.test.ts	keeps plan available exactly where ask is, and never apart from it	yes
+apps/desktop/src/renderer/src/a-runtime-declares-what-it-can-do.test.ts	says how it knows, for every runtime	yes
+apps/desktop/src/renderer/src/a-runtime-declares-what-it-can-do.test.ts	names the runtime the person chose when it refuses a mode	yes
+apps/desktop/src/renderer/src/a-runtime-declares-what-it-can-do.test.ts	bars nothing by platform now: Cursor answers read-only everywhere (0.485)	yes
 apps/desktop/src/renderer/src/a-runtime-gap-is-not-the-teammate.test.tsx	draws the marker as a note	yes
 apps/desktop/src/renderer/src/a-runtime-gap-is-not-the-teammate.test.tsx	keeps every other word of the reply	yes
 apps/desktop/src/renderer/src/a-runtime-gap-is-not-the-teammate.test.tsx	leaves a sentence that merely mentions truncation alone	yes
@@ -4656,6 +4684,19 @@ apps/desktop/src/renderer/src/effortLevels.test.ts	talks about time and cost, no
 apps/desktop/src/renderer/src/effortLevels.test.ts	is not case sensitive, because runtimes are not consistent	yes
 apps/desktop/src/renderer/src/effortLevels.test.ts	says how Cursor actually takes an effort	yes
 apps/desktop/src/renderer/src/effortLevels.test.ts	draws no note for a runtime it has nothing true to say about	yes
+apps/desktop/src/renderer/src/effortScale.test.ts	turns Cursor eight levels into four and a switch	yes
+apps/desktop/src/renderer/src/effortScale.test.ts	draws no switch for a runtime with no fast variants	yes
+apps/desktop/src/renderer/src/effortScale.test.ts	keeps the runtime own order, because right means more	yes
+apps/desktop/src/renderer/src/effortScale.test.ts	is not fooled by a level that merely ends in the word fast	yes
+apps/desktop/src/renderer/src/effortScale.test.ts	gives the fast variant when one exists	yes
+apps/desktop/src/renderer/src/effortScale.test.ts	NEVER invents a level the runtime did not list	yes
+apps/desktop/src/renderer/src/effortScale.test.ts	round-trips every level a runtime actually offers	yes
+apps/desktop/src/renderer/src/effortScale.test.ts	sorts a list the runtime did not sort	yes
+apps/desktop/src/renderer/src/effortScale.test.ts	puts high above medium, which is the whole bug	yes
+apps/desktop/src/renderer/src/effortScale.test.ts	leaves an already-sorted list alone	yes
+apps/desktop/src/renderer/src/effortScale.test.ts	keeps a word it has never seen after the ones it knows, in the runtime order	yes
+apps/desktop/src/renderer/src/effortScale.test.ts	still finds the fast variants wherever they were listed	yes
+apps/desktop/src/renderer/src/effortScale.test.ts	a level the scale holds can always be found on it	yes
 apps/desktop/src/renderer/src/every-benchmark-is-listed-in-one-place.test.tsx	names the leader, and says a tie as a tie	no
 apps/desktop/src/renderer/src/every-benchmark-is-listed-in-one-place.test.tsx	puts the running ones first, then the newest	no
 apps/desktop/src/renderer/src/every-benchmark-is-listed-in-one-place.test.tsx	draws a row a benchmark, with what it is, who leads it, and where it is while it runs	no
@@ -5282,6 +5323,12 @@ apps/desktop/src/renderer/src/railFlyout.test.ts	is drawn only past one conversa
 apps/desktop/src/renderer/src/railFlyout.test.ts	reads now, minutes, hours, days, weeks	yes
 apps/desktop/src/renderer/src/railFlyout.test.ts	says nothing for a missing or unreadable time rather than a wrong one	yes
 apps/desktop/src/renderer/src/railFlyout.test.ts	names the teammate and points at the composer	yes
+apps/desktop/src/renderer/src/ran-on.test.ts	names a platform the way a person does	yes
+apps/desktop/src/renderer/src/ran-on.test.ts	passes through a platform it does not know, rather than guessing	yes
+apps/desktop/src/renderer/src/ran-on.test.ts	says something true even knowing nothing	yes
+apps/desktop/src/renderer/src/ran-on.test.ts	names the folder only when it was given one	yes
+apps/desktop/src/renderer/src/ran-on.test.ts	says nothing about what was NOT covered	yes
+apps/desktop/src/renderer/src/ran-on.test.ts	reads a folder off either separator, and off a trailing slash	yes
 apps/desktop/src/renderer/src/reasoning-is-kept.test.ts	keeps the text the runtime sent	yes
 apps/desktop/src/renderer/src/reasoning-is-kept.test.ts	draws "thought for" with no text when the runtime sent none	yes
 apps/desktop/src/renderer/src/reasoning-is-kept.test.ts	and none for a thought under a second, or whitespace that never had a length	yes
@@ -5323,6 +5370,25 @@ apps/desktop/src/renderer/src/room-absent-is-a-line.test.tsx	offers its actions 
 apps/desktop/src/renderer/src/room-card-names-who.test.tsx	names the members, counts the posts, and says how long since the last	no
 apps/desktop/src/renderer/src/room-card-names-who.test.tsx	says nothing has been posted, and dates a new room by its making	no
 apps/desktop/src/renderer/src/room-card-names-who.test.tsx	names two and counts the rest past three	no
+apps/desktop/src/renderer/src/room-exchange.test.ts	is not, when every member answered once and nobody replied	yes
+apps/desktop/src/renderer/src/room-exchange.test.ts	is, the moment one more run exists than the post started	yes
+apps/desktop/src/renderer/src/room-exchange.test.ts	is every turn in the order it was said, first answers included	yes
+apps/desktop/src/renderer/src/room-exchange.test.ts	groups consecutive turns by one speaker under a single face	yes
+apps/desktop/src/renderer/src/room-exchange.test.ts	draws a finished turn that said nothing, because absence is information	yes
+apps/desktop/src/renderer/src/room-exchange.test.ts	draws a run that is still going as the turn it is, never as a silence	yes
+apps/desktop/src/renderer/src/room-exchange.test.ts	carries what a live turn is doing, so a room can draw the thread’s line	yes
+apps/desktop/src/renderer/src/room-exchange.test.ts	has nothing to say a hop is doing before its run exists	yes
+apps/desktop/src/renderer/src/room-exchange.test.ts	lists a member waiting for a slot, so the room does not look finished	yes
+apps/desktop/src/renderer/src/room-exchange.test.ts	is a turn in the sequence, with no mission of its own yet	yes
+apps/desktop/src/renderer/src/room-exchange.test.ts	makes a post a conversation on its own, before the second run exists	yes
+apps/desktop/src/renderer/src/room-exchange.test.ts	belongs to the post whose conversation it answers, and no other	yes
+apps/desktop/src/renderer/src/room-exchange.test.ts	is not drawn twice when the run it becomes has already been announced	yes
+apps/desktop/src/renderer/src/room-exchange.test.ts	is not an ending, even with the budget spent	yes
+apps/desktop/src/renderer/src/room-exchange.test.ts	shows its time, because otherwise it reads as inserted into the past	yes
+apps/desktop/src/renderer/src/room-exchange.test.ts	shows no time at all when this is the newest post	yes
+apps/desktop/src/renderer/src/room-exchange.test.ts	reads as a runway while the argument is still going	yes
+apps/desktop/src/renderer/src/room-exchange.test.ts	names the cause and points at the composer once the budget is spent	yes
+apps/desktop/src/renderer/src/room-exchange.test.ts	says the budget even where nothing reported a cost	yes
 apps/desktop/src/renderer/src/room-round-two.test.tsx	offers Build on and Merge on each	no
 apps/desktop/src/renderer/src/room-round-two.test.tsx	opens one under another, with the side-by-side switch off	no
 apps/desktop/src/renderer/src/room-round-two.test.tsx	offers Build on only on the finished one, and no Merge -- there is one answer to merge	no
