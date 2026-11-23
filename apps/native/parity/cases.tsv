@@ -54,6 +54,13 @@ apps/desktop/src/main/a-brief-between-teammates-arrives-whole.test.ts	fits what 
 apps/desktop/src/main/a-built-in-tool-is-not-a-connector.test.ts	is a command card when it is Bash	yes
 apps/desktop/src/main/a-built-in-tool-is-not-a-connector.test.ts	is a file card, named inside the folder, when it edits a file	yes
 apps/desktop/src/main/a-built-in-tool-is-not-a-connector.test.ts	is still a connector when it is one	no
+apps/desktop/src/main/a-call-is-kept-with-its-conversation.test.ts	puts what asked for a turn above it, and what came after under it	yes
+apps/desktop/src/main/a-call-is-kept-with-its-conversation.test.ts	puts a call that started nothing under the turn that was on screen, else at the end	yes
+apps/desktop/src/main/a-call-is-kept-with-its-conversation.test.ts	splits the words between two turns at the second one	yes
+apps/desktop/src/main/a-call-is-kept-with-its-conversation.test.ts	is kept only when it reads as one	yes
+apps/desktop/src/main/a-call-is-kept-with-its-conversation.test.ts	keeps a call, gives it back for any of its turns, and replaces it when it is sent again	yes
+apps/desktop/src/main/a-call-is-kept-with-its-conversation.test.ts	refuses what is not a call, and keeps only the newest	yes
+apps/desktop/src/main/a-call-is-kept-with-its-conversation.test.ts	writes nothing over a calls.json that does not read, and lists none from it	yes
 apps/desktop/src/main/a-called-link-is-closed-when-its-record-cannot-be-used.test.ts	closes the relay link when the kept record cannot be read	yes
 apps/desktop/src/main/a-called-link-is-closed-when-its-record-cannot-be-used.test.ts	closes the relay link when this computer cannot encrypt	yes
 apps/desktop/src/main/a-called-link-review.test.ts	hashes a well-formed wrong password for an unknown room the same as for a room that has a link	no

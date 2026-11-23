@@ -21,6 +21,7 @@ pub mod benchmark;
 pub mod browser;
 pub mod browser_point;
 pub mod browser_tools;
+pub mod call_log;
 pub mod carry_on;
 pub mod chat_apps;
 pub mod chat_discord;
