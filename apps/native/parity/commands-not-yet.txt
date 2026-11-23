@@ -1,4 +1,2 @@
 # Command grid cases where Rust does not yet build what Electron 2378138f builds.
 # Written by LOCUST_WRITE_NOT_YET=1 cargo test -p locust-core command_grid; may only shrink.
-copilot/approve-each/browser	Rust lacks []; Rust adds ["--additional-mcp-config", "@/locust/browser/copilot-mcp.json"]
-copilot/approve-each/everything	Rust lacks []; Rust adds ["--additional-mcp-config", "@/locust/browser/copilot-mcp.json"]

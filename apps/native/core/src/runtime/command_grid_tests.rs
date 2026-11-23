@@ -146,7 +146,12 @@ fn rust_command(case: &Value) -> Result<(Vec<String>, Env), String> {
     if browser {
         match runtime {
             // Claude's browser file is in print_args' one --mcp-config.
-            "copilot" => args.extend(["--additional-mcp-config".into(), format!("@{BROWSER_COPILOT}")]),
+            "copilot" => {
+                let mut command = std::process::Command::new("copilot");
+                command.args(args);
+                super::copilot::add_browser_config(&mut command, Path::new(BROWSER_COPILOT));
+                args = command.get_args().map(|arg| arg.to_str().unwrap().to_owned()).collect();
+            }
             "opencode" => {
                 let mut op: Value = serde_json::from_str(&env["OPENCODE_CONFIG_CONTENT"]).unwrap();
                 op["mcp"]["locust_browser"] = serde_json::json!({"type":"local","command":["/locust/locust-native","--browser-bridge","/locust/browser/host"],"environment":{},"enabled":true});
