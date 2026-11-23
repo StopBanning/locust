@@ -108,6 +108,7 @@ pub(super) fn run(s: &mut State, action: &str) -> bool {
             let conversation = conversation_for_report(s);
             crate::feedback_dialog::open(s, conversation);
         }
+        other if crate::review_action::run_action(s, other) => {}
         _ => return false,
     }
     true
