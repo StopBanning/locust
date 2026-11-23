@@ -264,6 +264,81 @@ pub fn home_fit(seen: HomeSpacingSeen, count: usize, sections: f64, tight_now: b
     (seen, HomeFit { tight, grow: cover_grow_for(cover_room_for(usable, others, base), base) })
 }
 
+// --- The cover notices you (HomeCover.tsx `hopperWakes`, `widthsFrom`; PoweredLockup.tsx `replaysOnAsk`) ---
+
+/// How near a pointer wakes the Hopper, in its own widths from the middle of it.
+pub const WAKE_WITHIN: f64 = 1.6;
+/// How long the pointer has to have been gone before it dozes off again.
+pub const DOZE_AFTER_MS: u64 = 4_000;
+
+/// The sleeping Hopper's state: awake while a pointer is near or recently left, asleep otherwise.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Wakefulness {
+    pub awake: bool,
+    /// When the pointer went, while it is still awake; `None` while the pointer is near.
+    pub away_since: Option<u64>,
+}
+
+pub const ASLEEP: Wakefulness = Wakefulness { awake: false, away_since: None };
+
+/// The Hopper, one reading of the pointer later: awake while it is near, awake still for `DOZE_AFTER_MS` after it
+/// goes, then asleep. `distance` is in the Hopper's widths, `None` when there is no pointer.
+pub fn hopper_wakes(held: Wakefulness, distance: Option<f64>, now_ms: u64) -> Wakefulness {
+    if distance.is_some_and(|d| d <= WAKE_WITHIN) {
+        return if held.awake && held.away_since.is_none() {
+            held
+        } else {
+            Wakefulness { awake: true, away_since: None }
+        };
+    }
+    if !held.awake {
+        return held;
+    }
+    let since = held.away_since.unwrap_or(now_ms);
+    if now_ms.saturating_sub(since) >= DOZE_AFTER_MS {
+        return ASLEEP;
+    }
+    if held.away_since == Some(since) {
+        held
+    } else {
+        Wakefulness { awake: true, away_since: Some(since) }
+    }
+}
+
+/// How far a point is from the middle of a box, in the box's widths.
+pub fn widths_from(box_: CoverBox, x: f64, y: f64) -> f64 {
+    let denom = if box_.width == 0.0 { 1.0 } else { box_.width };
+    (x - (box_.x + box_.width / 2.0)).hypot(y - (box_.y + box_.height / 2.0)) / denom
+}
+
+/// How the tube lights (PoweredLockup.tsx `lightingPlan`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LightingPlan {
+    None,
+    Once,
+    Repeat,
+}
+
+pub fn lighting_plan(tube: &str, reduced_motion: bool) -> LightingPlan {
+    if reduced_motion || tube == "off" {
+        LightingPlan::None
+    } else if tube == "full" {
+        LightingPlan::Repeat
+    } else {
+        LightingPlan::Once
+    }
+}
+
+/// Whether a click on the glass lights it again: once it has lit on its own, and as the tube allows -- Off and
+/// reduced motion never light, so a click does not either.
+pub fn replays_on_ask(plan: LightingPlan, lit_so_far: u32) -> bool {
+    plan != LightingPlan::None && lit_so_far > 0
+}
+
 #[cfg(test)]
 #[path = "home_cover_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "cover_notices_you_tests.rs"]
+mod cover_notices_you_tests;

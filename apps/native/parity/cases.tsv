@@ -5703,6 +5703,16 @@ apps/desktop/src/renderer/src/the-cover-grows-into-spare-height.test.tsx	stays c
 apps/desktop/src/renderer/src/the-cover-grows-into-spare-height.test.tsx	draws smaller when the page gives less than it needs, and no smaller than the floor	yes
 apps/desktop/src/renderer/src/the-cover-grows-into-spare-height.test.tsx	keeps clear of the card edges at its largest	yes
 apps/desktop/src/renderer/src/the-cover-grows-into-spare-height.test.tsx	is the narrowest column's floor at every width, and never more than 0.85x	yes
+apps/desktop/src/renderer/src/the-cover-notices-you.test.ts	sleeps through a pointer far away, costing nothing: the same value back	yes
+apps/desktop/src/renderer/src/the-cover-notices-you.test.ts	wakes when a pointer comes near	yes
+apps/desktop/src/renderer/src/the-cover-notices-you.test.ts	stays awake a while after the pointer goes, then dozes off	yes
+apps/desktop/src/renderer/src/the-cover-notices-you.test.ts	stays awake for a pointer that comes back before it dozes	yes
+apps/desktop/src/renderer/src/the-cover-notices-you.test.ts	measures from the middle of its box, in its own widths	yes
+apps/desktop/src/renderer/src/the-cover-notices-you.test.ts	lights it again once it has lit, as the tube allows	yes
+apps/desktop/src/renderer/src/the-cover-notices-you.test.ts	never where the tube never lights -- Off, or reduced motion -- nor before its first lighting	yes
+apps/desktop/src/renderer/src/the-cover-notices-you.test.ts	climbs: every flight goes up and to the right, leaning into it, as the swarm bot is drawn head up	no
+apps/desktop/src/renderer/src/the-cover-notices-you.test.ts	is a moment: all of it over in under four seconds	no
+apps/desktop/src/renderer/src/the-cover-notices-you.test.ts	fades in as each one leaves and out as it goes, from its start to its end, at the cover scale	no
 apps/desktop/src/renderer/src/the-effort-control-is-claude-codes.test.tsx	is named in words, as Claude Code names it	yes
 apps/desktop/src/renderer/src/the-effort-control-is-claude-codes.test.tsx	this build does not know keeps the runtime’s own word, capitalised, never renamed	yes
 apps/desktop/src/renderer/src/the-effort-control-is-claude-codes.test.tsx	reads "Effort Max", with a ? that says what the level costs	yes
