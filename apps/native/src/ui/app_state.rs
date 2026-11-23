@@ -430,6 +430,11 @@ pub(super) struct State {
     /// Which conversations the sidebar lists, and whether its menu is open (Sidebar.tsx `sourceFilter`).
     pub(super) sidebar_source: crate::conversation_list::ConversationSource,
     pub(super) sidebar_source_open: bool,
+    /// The source select's highlight while open (Select.tsx `highlighted`), and the letters typed into it with when.
+    pub(super) sidebar_source_active: i64,
+    pub(super) sidebar_source_typed: (String, Option<std::time::Instant>),
+    /// How many rows of the long ungrouped conversation list are drawn (ListWindow.tsx `listBudget`).
+    pub(super) sidebar_list_budget: usize,
     pub(super) find_open: bool,
     pub(super) find_query: TextEdit,
     pub(super) prompt_rail: prompt_rail::PromptRailState,
@@ -457,6 +462,8 @@ pub(super) struct State {
     pub(super) folded_groups: std::collections::HashSet<String>,
     pub(super) group_settings: crate::group_settings_dialog::Panel,
     pub(super) file_view: Option<(reply_actions::FileTarget, Result<String, String>)>,
+    /// Current zoom and pan of a picture open in the file viewer (ZoomableImage.tsx `view`).
+    pub(super) viewer_image_view: Option<crate::step_pictures::ImageView>,
     /// Last Copy press feedback (`Copied` / `Not copied`), keyed by body.
     pub(super) copy_feedback: Option<reply_actions::CopyFeedback>,
     /// ReplyDiagram Code tab is selected when true; keyed by fence source hash.
@@ -714,6 +721,9 @@ impl Default for State {
             sidebar_query: TextEdit::new(""),
             sidebar_source: Default::default(),
             sidebar_source_open: false,
+            sidebar_source_active: -1,
+            sidebar_source_typed: (String::new(), None),
+            sidebar_list_budget: crate::sidebar::LIST_PAGE,
             find_open: false,
             find_query: TextEdit::new(""),
             prompt_rail: prompt_rail::PromptRailState::default(),
@@ -739,6 +749,7 @@ impl Default for State {
             folded_groups: std::collections::HashSet::new(),
             group_settings: crate::group_settings_dialog::Panel::default(),
             file_view: None,
+            viewer_image_view: None,
             copy_feedback: None,
             diagram_code_tab: HashMap::new(),
             image_cache: None,

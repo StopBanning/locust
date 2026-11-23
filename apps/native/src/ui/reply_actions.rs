@@ -197,6 +197,7 @@ pub(super) fn open_file(s: &mut State, target: FileTarget) {
         // A picture is drawn by the viewer itself (step_pictures::thread_picture), never read as text.
         .and_then(|root| if locust_core::image_files::is_image_path(&target.path) { Ok(String::new()) } else { read_document(&root, &target) });
     s.file_view = Some((target, body));
+    s.viewer_image_view = None;
 }
 
 /// UTF-8 text, or extracted PDF/office/sheet words when the path is one of those.
@@ -718,7 +719,10 @@ pub(super) fn viewer(s: &State, p: &Palette) -> Option<El> {
         .child(menu_row)
         .child(
             el().child(text("Close").color(p.secondary))
-                .on_press(|s: &mut State| s.file_view = None),
+                .on_press(|s: &mut State| {
+                    s.file_view = None;
+                    s.viewer_image_view = None;
+                }),
         );
     // FileViewer.tsx (0.425): a web page runs, its source a tab away. Electron frames it in the viewer; here its Page
     // runs it at its own address in the browser beside the conversation, and the viewer stays its Source. Any other
@@ -736,8 +740,8 @@ pub(super) fn viewer(s: &State, p: &Palette) -> Option<El> {
     }
     match body {
         Ok(_) if picture => {
-            // ThreadImage's press: the picture at the pane's width, its own shape, never enlarged.
-            pane = match crate::step_pictures::thread_picture(s, &target.path).and_then(|image| crate::step_pictures::viewer_picture(&image, &target.path, p)) {
+            // ThreadImage's press: the picture at the pane's width, with zoom and pan controls (ZoomableImage.tsx).
+            pane = match crate::step_pictures::thread_picture(s, &target.path).and_then(|image| crate::step_pictures::viewer_picture(s, &image, &target.path, p)) {
                 Some(shown) => pane.child(shown),
                 None => pane.child(text("This picture cannot be shown here.").color(p.muted).wrap_anywhere()),
             };

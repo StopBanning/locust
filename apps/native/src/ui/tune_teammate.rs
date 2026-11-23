@@ -787,42 +787,44 @@ pub(super) fn view(s: &State, p: &Palette) -> Option<El> {
             .pin(Some(0.0), Some(0.0), Some(0.0), Some(0.0))
             .center()
             .fill(p.bg.alpha(0.7))
-            .child(modal),
+            // `useModal(box, onCancel)`: focus held inside, Escape cancels as Cancel does, focus goes back after.
+            .child(modal.modal(true, |s: &mut State| s.tune_card = None)),
     )
+}
+
+#[cfg(test)]
+pub(super) fn sample_card(runtime: &str) -> TuneCardState {
+    TuneCardState {
+        teammate_id: "tm_1".into(),
+        teammate_name: "Codec".into(),
+        runtime: runtime.into(),
+        model: "sonnet".into(),
+        account: None,
+        effort: None,
+        mode: "ask".into(),
+        current_instructions: "Be concise.".into(),
+        takes_skills: takes_skills(Some(runtime)),
+        ask: text_edit("Check this patch."),
+        summary: String::new(),
+        work_inst: text_edit("Step 1: check tests."),
+        work_why: "process".into(),
+        know_inst: text_edit("Remember edge cases."),
+        know_why: "domain".into(),
+        know_skill_mode: false,
+        skill_name: text_edit(""),
+        skill_desc: text_edit(""),
+        skill_body: text_edit(""),
+        skill_aside: None,
+        drafting: false,
+        draft_mission_id: None,
+        draft_note: None,
+        problem: None,
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn sample_card(runtime: &str) -> TuneCardState {
-        TuneCardState {
-            teammate_id: "tm_1".into(),
-            teammate_name: "Codec".into(),
-            runtime: runtime.into(),
-            model: "sonnet".into(),
-            account: None,
-            effort: None,
-            mode: "ask".into(),
-            current_instructions: "Be concise.".into(),
-            takes_skills: takes_skills(Some(runtime)),
-            ask: text_edit("Check this patch."),
-            summary: String::new(),
-            work_inst: text_edit("Step 1: check tests."),
-            work_why: "process".into(),
-            know_inst: text_edit("Remember edge cases."),
-            know_why: "domain".into(),
-            know_skill_mode: false,
-            skill_name: text_edit(""),
-            skill_desc: text_edit(""),
-            skill_body: text_edit(""),
-            skill_aside: None,
-            drafting: false,
-            draft_mission_id: None,
-            draft_note: None,
-            problem: None,
-        }
-    }
 
     #[test]
     fn a_tune_says_when_a_setup_repeats() {

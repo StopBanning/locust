@@ -6,7 +6,7 @@ use locust_core::mission_export;
 use rune::{El, FileDialogOptions, Tx, col, el, row, text};
 use rune_kit::Checkbox;
 
-use crate::look::controls::{Look, ghost_button, glyph, primary_button};
+use crate::look::controls::{Look, ghost_button, primary_button};
 use crate::look::icons;
 use crate::{Palette, State, type_};
 
@@ -149,12 +149,12 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                         .color(p.text)
                         .grow(1.0),
                 )
+                // The x (`lc-dialog__close`, aria-label Close): a button the keyboard reaches, named Close.
                 .child(
-                    glyph(&l, &icons::CLOSE, 18.0, Some(p.muted))
-                        .padding(4.0)
-                        .radius(6.0)
-                        .key("save-record-x")
-                        .on_press(|s: &mut State| close(s)),
+                    crate::look::controls::head_icon(&icons::CLOSE, "Close", "Close")
+                        .on_press(|s: &mut State| close(s))
+                        .build(l.k)
+                        .key("save-record-x"),
                 ),
         )
         .child(

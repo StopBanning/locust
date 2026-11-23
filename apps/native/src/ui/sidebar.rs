@@ -367,11 +367,16 @@ fn source_menu_shown(s: &State) -> bool {
 fn source_select(s: &State) -> rune_kit::Select {
     use crate::conversation_list::ConversationSource;
     let words: Vec<&str> = ConversationSource::ALL.iter().map(|(_, w)| *w).collect();
+    let highlighted = usize::try_from(s.sidebar_source_active).ok().and_then(|i| words.get(i).copied());
     rune_kit::Select::new("sidebar-source", &words)
         .label("Conversation source")
         .current(Some(s.sidebar_source.words()))
+        .highlighted(if s.sidebar_source_open { highlighted } else { None })
         .open(s.sidebar_source_open)
-        .on_toggle(|s: &mut State| s.sidebar_source_open = !s.sidebar_source_open)
+        .on_toggle(|s: &mut State| {
+            s.sidebar_source_open = !s.sidebar_source_open;
+            s.sidebar_source_active = source_index(s.sidebar_source);
+        })
         .on_close(|s: &mut State| s.sidebar_source_open = false)
         .on_choose(|s: &mut State, words: &str, _tx: &mut Tx| {
             if let Some(source) = ConversationSource::from_words(words) {
@@ -381,9 +386,49 @@ fn source_select(s: &State) -> rune_kit::Select {
         })
 }
 
+fn source_index(source: crate::conversation_list::ConversationSource) -> i64 {
+    crate::conversation_list::ConversationSource::ALL.iter().position(|(s, _)| *s == source).map_or(-1, |i| i as i64)
+}
+
+/// The source select's keyboard, open or closed (Select.tsx `onKeyDown` over `applySelectKey`): arrows, Home, End and a
+/// typed letter move the highlight, Enter and Space choose it, 1-9 choose a row, Escape and Tab close and keep the value.
+pub(super) fn source_key(s: &mut State, event: &KeyEvent, _tx: &mut Tx) -> bool {
+    use crate::conversation_list::ConversationSource;
+    use crate::look::select_keys::{SelectKeyInput, TYPEAHEAD_SECONDS, apply_select_key, dom_key};
+    let Some(key) = dom_key(&event.key) else { return false };
+    let labels: Vec<&str> = ConversationSource::ALL.iter().map(|(_, w)| *w).collect();
+    let enabled: Vec<i64> = (0..labels.len() as i64).collect();
+    let now = std::time::Instant::now();
+    let live = s.sidebar_source_typed.1.is_some_and(|at| now.duration_since(at).as_secs_f64() < TYPEAHEAD_SECONDS);
+    let result = apply_select_key(&SelectKeyInput {
+        open: s.sidebar_source_open,
+        active: s.sidebar_source_active,
+        selected: source_index(s.sidebar_source),
+        enabled: &enabled,
+        labels: &labels,
+        key: &key,
+        alt: event.mods.alt,
+        ctrl: event.mods.ctrl,
+        meta: event.mods.cmd,
+        query: &s.sidebar_source_typed.0,
+        query_live: live,
+    });
+    if !result.prevent && result.open == s.sidebar_source_open {
+        return false;
+    }
+    s.sidebar_source_typed = (result.query, Some(now));
+    s.sidebar_source_active = result.active;
+    // A choice closes it: `apply_select_key` answers closed whenever it chooses.
+    s.sidebar_source_open = result.open;
+    if result.choose && let Some((source, _)) = usize::try_from(result.active).ok().and_then(|i| ConversationSource::ALL.get(i)) {
+        s.sidebar_source = *source;
+    }
+    result.prevent
+}
+
 /// The source menu's field, in the sidebar under the search.
 fn source_menu(s: &State, l: &crate::look::controls::Look) -> Option<El> {
-    source_menu_shown(s).then(|| col().w_full().pt(6.0).child(source_select(s).build(&l.k, &mut Vec::new())))
+    source_menu_shown(s).then(|| col().w_full().pt(6.0).child(source_select(s).build(&l.k, &mut Vec::new()).on_key(source_key)))
 }
 
 /// Its open listbox, over the whole window as the right-click menu is (main.rs `view`): drawn inside the sidebar it
@@ -394,7 +439,7 @@ pub(super) fn source_menu_layer(s: &State, p: &Palette) -> Vec<El> {
         let l = crate::look::controls::Look::new(p.dark);
         source_select(s).build(&l.k, &mut layer);
     }
-    layer
+    layer.into_iter().map(|e| e.on_key(source_key)).collect()
 }
 
 fn org_menu(s: &State, p: &Palette, mission_id: &str) -> El {
@@ -766,6 +811,25 @@ pub(super) fn step_from_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> boo
         open_sidebar_mission(s, row, tx);
     }
     true
+}
+
+/// How many rows a page of the sidebar's long conversation list draws (ListWindow.tsx `LIST_PAGE`).
+pub(super) const LIST_PAGE: usize = 80;
+
+/// How many ungrouped rows to draw: at least `budget` (one page at a time), and always far enough to hold the one open
+/// (`Sidebar.tsx`: `Math.max(listBudget, openAt + 1)`), capped at `total`.
+pub(super) fn list_window_count(total: usize, budget: usize, open_at: Option<usize>) -> usize {
+    let want = budget.max(open_at.map_or(0, |i| i + 1));
+    total.min(want)
+}
+
+/// The footer button's words for the rows not drawn yet (ListWindow.tsx `ListMore`).
+pub(super) fn list_more_label(remaining: usize) -> String {
+    if remaining == 1 {
+        "1 more conversation".to_owned()
+    } else {
+        format!("{remaining} more conversations")
+    }
 }
 
 /// Sidebar.tsx: a search that matches nothing says so, rather than emptying into what reads as "you have none". The
@@ -1357,7 +1421,31 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
                 if groups_shown { "Ungrouped" } else { "Recents" },
             ));
         }
-        recent = append_rows(recent, &rest);
+        let open_at = rest.iter().position(|item| is_picked(item));
+        let budget = s.sidebar_list_budget.max(LIST_PAGE);
+        let drawn = list_window_count(rest.len(), budget, open_at);
+        let not_drawn = rest.len().saturating_sub(drawn);
+        recent = append_rows(recent, &rest[..drawn]);
+        if not_drawn > 0 {
+            recent = recent.child(
+                row()
+                    .key("sidebar-list-more")
+                    .role("button")
+                    .w_full()
+                    .py(8.0)
+                    .px(10.0)
+                    .radius(8.0)
+                    .hover(l.c("hover-surface"))
+                    .child(
+                        text(list_more_label(not_drawn))
+                            .font(rune::TextStyle::new(11.5, 400.0).lh(15.0))
+                            .color(l.c("text-muted")),
+                    )
+                    .on_press(|s: &mut State| {
+                        s.sidebar_list_budget = s.sidebar_list_budget.max(LIST_PAGE) + LIST_PAGE;
+                    }),
+            );
+        }
     }
 
     if let Some(id) = &s.rename_id {
@@ -1999,3 +2087,7 @@ mod sidebar_needs_you_tests;
 #[cfg(test)]
 #[path = "sidebar_app_started_tests.rs"]
 mod sidebar_app_started_tests;
+
+#[cfg(test)]
+#[path = "sidebar_list_window_tests.rs"]
+mod sidebar_list_window_tests;

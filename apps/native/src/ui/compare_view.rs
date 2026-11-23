@@ -823,6 +823,7 @@ pub(super) fn keep_column(s: &mut State, slot: CompareSlotId) {
         s.compare.problem = Some(e);
         return;
     }
+    carry_kept_route(s, &cmp, slot);
     if cmp.changes && cmp.changes_in.is_none()
         && let Some(ref f) = folder
     {
@@ -832,6 +833,63 @@ pub(super) fn keep_column(s: &mut State, slot: CompareSlotId) {
     let _ = remove_compare_copies(&cmp.compare_id, &copy_root);
     s.compare.problem = None;
     reload_compares(s);
+}
+
+/// What the chat box carries on with once a column is kept (status.ts `routeAfterKeep`, KEEP CARRIES THE WHOLE CHOICE,
+/// 0.622): the column's runtime and model, and the effort it ran at by the rule a model change follows -- the model's
+/// own default where it does not offer that level, none where it offers no levels. The mode is not in it: that stays
+/// the chat box's own.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) struct KeptRoute {
+    pub(super) runtime: String,
+    pub(super) model: String,
+    pub(super) effort: Option<String>,
+}
+
+pub(super) fn route_after_keep(runtime: &str, model: &str, effort: Option<&str>, agents: &[&engine::Models]) -> KeptRoute {
+    let agent = agents.iter().find(|a| a.runtime == runtime && a.models.iter().any(|m| m.id == model));
+    let supported = agent.and_then(|a| a.models.iter().find(|m| m.id == model)).map(|m| m.efforts.clone()).unwrap_or_default();
+    let effort = match effort {
+        Some(e) if supported.iter().any(|s| s == e) => Some(e.to_owned()),
+        _ => locust_core::effort_levels::default_effort(&supported, agent.and_then(|a| a.effort.as_deref())),
+    };
+    KeptRoute { runtime: runtime.to_owned(), model: model.to_owned(), effort }
+}
+
+/// The bar's sentence once a column is kept (status.ts `keptSentence`): which model the conversation carries on with,
+/// and the mode it carries on in -- the chat box's own, not the comparison's, saying so where the comparison ran in
+/// another (Auto, in copies of the folder).
+pub(super) fn kept_sentence(kept_name: Option<&str>, conversation_mode: Option<&str>, comparison_mode: Option<&str>) -> String {
+    let head = format!("You kept {}; the conversation carries on with it", kept_name.unwrap_or("one"));
+    let Some(mode) = conversation_mode else { return format!("{head}.") };
+    let name = locust_core::mode_facts::fact(mode).name;
+    let elsewhere = match comparison_mode {
+        Some(ran) if ran != mode => {
+            format!(", not in {} as the comparison did, in copies of your folder", locust_core::mode_facts::fact(ran).name)
+        }
+        _ => String::new(),
+    };
+    format!("{head} in {name}{elsewhere}.")
+}
+
+/// The mode the chat box is in for this comparison's conversation: the one picked, else its teammate's own.
+fn conversation_mode(s: &State, cmp: &Compare) -> Option<String> {
+    s.composer_mode.clone().or_else(|| {
+        let id = cmp.teammate_id.as_deref()?;
+        s.teammates.iter().find(|t| t.id == id).map(|t| t.runs_in.clone())
+    })
+}
+
+/// Keep carries the column's model and the effort it ran at into the teammate's chat box (App.tsx `keepCompareColumn`:
+/// `changeRoute` then `setEffort`). The mode is left as the person had it (`setMode(modeBeforeKeep)`).
+fn carry_kept_route(s: &mut State, cmp: &Compare, slot: CompareSlotId) {
+    let Some(column) = cmp.slots.iter().find(|c| c.slot == slot) else { return };
+    let Some(teammate_id) = cmp.teammate_id.clone() else { return };
+    let agents: Vec<&engine::Models> = s.models.values().flatten().collect();
+    let carried = route_after_keep(&column.route.runtime, &column.route.model, column.route.effort.as_deref(), &agents);
+    let own = s.teammates.iter().find(|t| t.id == teammate_id).and_then(|t| t.runtime.clone());
+    let runtime = (own.as_deref() != Some(carried.runtime.as_str())).then_some(carried.runtime);
+    s.picks.insert(teammate_id, TurnPick { model: carried.model, effort: carried.effort, runtime, account: None });
 }
 
 fn snapshot_final_text(snap: &ledger::Snapshot) -> String {
@@ -2506,7 +2564,8 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
     let bar_sentence = if let Some(ks) = kept_slot {
         let kept_idx = cmp.slots.iter().position(|c| c.slot == ks).unwrap_or(0);
         let kept_name = &col_names[kept_idx];
-        format!("You kept {kept_name}.")
+        let ran_in = cmp.slots.get(kept_idx).and_then(|c| c.route.mode.as_deref());
+        kept_sentence(Some(kept_name), conversation_mode(s, cmp).as_deref(), ran_in)
     } else {
         let names = joined_names(&col_names);
         let hidden = if veiled {
@@ -4301,6 +4360,10 @@ mod tests {
 #[cfg(test)]
 #[path = "compared_effort_tests.rs"]
 mod compared_effort_tests;
+
+#[cfg(test)]
+#[path = "keep_carries_tests.rs"]
+mod keep_carries_tests;
 
 #[cfg(test)]
 #[path = "judges_see_the_check_tests.rs"]

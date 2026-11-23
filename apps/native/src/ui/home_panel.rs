@@ -59,6 +59,8 @@ pub(super) struct Panel {
     /// How many times the cover glass has lit, and how many times a click asked to replay it (PoweredLockup.tsx).
     pub cover_lit_count: u32,
     pub cover_replays: u32,
+    /// The deferred-agents button pressed while nothing is connected (FirstLaunch.tsx `othersOpen`).
+    pub others_open: bool,
 }
 
 /// Home's own measure: the pane it scrolls in, the cover's card, the column as drawn, and what they decided.
@@ -994,7 +996,7 @@ fn home_agents(s: &State, p: &Palette) -> El {
     let found = s.settings_panel.agents.as_deref().unwrap_or_default();
     let rows: Vec<locust_core::home_order::AgentRow> = found.iter().map(|f| locust_core::home_order::AgentRow { installed: f.installed, ready: f.ready, checking: f.checking }).collect();
     if s.settings_panel.agents.is_none() || !locust_core::home_order::agents_fold(&rows, s.teammates.len(), s.home.agents_open) {
-        return crate::agents_section::section(s, p).key("home-agents");
+        return crate::agents_section::home_section(s, p).key("home-agents");
     }
     let ready: Vec<&locust_core::agents::Found> = found.iter().filter(|f| f.ready).collect();
     let checking: Vec<&locust_core::agents::Found> = found.iter().filter(|f| f.installed && f.checking && !f.ready).collect();

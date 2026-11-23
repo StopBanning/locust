@@ -542,13 +542,89 @@ thread_local! {
     static NPM_STAND_IN: std::cell::Cell<Option<bool>> = const { std::cell::Cell::new(None) };
 }
 
+#[cfg(test)]
+pub(super) fn set_npm_stand_in(present: Option<bool>) {
+    NPM_STAND_IN.with(|c| c.set(present));
+}
+
 /// Whether npm was asked and cannot be run (Electron's `npmMissing`). Never asked counts as there.
-fn npm_missing() -> bool {
+pub(super) fn npm_missing() -> bool {
     #[cfg(test)]
     if let Some(present) = NPM_STAND_IN.with(|c| c.get()) {
         return !present;
     }
     locust_core::npm_check::this_machine().seen() == Some(false)
+}
+
+/// Opens a link in the person's browser; never from a test.
+fn open_link(url: &'static str) {
+    #[cfg(not(test))]
+    {
+        #[cfg(target_os = "macos")]
+        let _ = std::process::Command::new("open").arg(url).spawn();
+        #[cfg(target_os = "windows")]
+        let _ = std::process::Command::new("cmd").args(["/c", "start", "", url]).spawn();
+        #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+        let _ = std::process::Command::new("xdg-open").arg(url).spawn();
+    }
+    #[cfg(test)]
+    let _ = url;
+}
+
+/// Whether Home defers agents that are not installed and not the free-start runtime (FirstLaunch.tsx `deferOthers`).
+pub(super) fn home_should_defer(found: &[Found], installing: bool, others_open: bool) -> bool {
+    let connected = found.iter().filter(|f| f.ready && agents::integration_of(&f.id) != agents::Integration::Planned).count();
+    let checking_any = found.iter().any(|f| f.installed && f.checking);
+    connected == 0 && !checking_any && !installing && !others_open
+}
+
+/// Whether a row stays visible when Home defers the rest: the free-start runtime or anything already on this machine.
+fn home_kept_when_deferred(f: &Found) -> bool {
+    f.id == agents::FREE_START_RUNTIME || f.installed
+}
+
+/// The short account/free-start note shown on a not-installed Home row (FirstLaunch.tsx `need.detail`).
+fn home_need_detail(f: &Found) -> Option<String> {
+    if f.installed {
+        return None;
+    }
+    let facts = agents::runtime_install_facts(&f.id)?;
+    if let Some(account) = facts.account {
+        return Some(format!("needs {account}"));
+    }
+    match facts.install {
+        agents::RuntimeInstall::Npm(_) => Some("no account needed".to_owned()),
+        agents::RuntimeInstall::Vendor(url) => Some(format!("from {url}")),
+    }
+}
+
+/// Panel-level explanation when Node.js is missing, shown regardless of whether another runtime is connected
+/// (FirstLaunch.tsx `lc-installnote`: "Node.js is not on this machine, so the Install buttons cannot run." + Get Node.js).
+fn nodejs_missing_note(l: &crate::look::controls::Look) -> El {
+    row()
+        .key("agents-nodejs-missing")
+        .gap(8.0)
+        .center_y()
+        .flex_wrap()
+        .child(
+            text("Node.js is not on this machine, so the Install buttons cannot run.")
+                .font(l.ty.body)
+                .color(l.c("amber-text"))
+                .wrap(),
+        )
+        .child(
+            text("Get Node.js \u{2197}")
+                .font(l.ty.label)
+                .color(l.c("text-primary"))
+                .px(6.0)
+                .py(2.0)
+                .radius(4.0)
+                .hover(l.c("hover-surface"))
+                .key("agents-get-nodejs")
+                .role("button")
+                .label("Get Node.js")
+                .on_press(|_: &mut State| open_link("https://nodejs.org")),
+        )
 }
 
 /// Drop npm's remembered answer (index.ts `npmSeen = undefined`).
@@ -803,6 +879,16 @@ fn head_note(checking_any: bool, none_answering: bool, on_this_machine: usize) -
 }
 
 pub(super) fn section(s: &State, p: &Palette) -> El {
+    section_inner(s, p, false)
+}
+
+/// Home's expanded agents panel (FirstLaunch.tsx): defers unowned, uninstalled agents behind a press while nothing is
+/// connected, uses "ready to install" instead of "NOT INSTALLED", and explains missing Node.js under the list.
+pub(super) fn home_section(s: &State, p: &Palette) -> El {
+    section_inner(s, p, true)
+}
+
+fn section_inner(s: &State, p: &Palette, for_home: bool) -> El {
     let l = crate::look::controls::Look::new(p.dark);
     let mut body = col()
         .key("agents-section")
@@ -826,12 +912,18 @@ pub(super) fn section(s: &State, p: &Palette) -> El {
     if let Some(note) = head_note(checking_any, stuck_any && !ready_any, rows.iter().filter(|(f, _)| f.installed).count()) {
         body = body.child(text(note).font(l.ty.label).color(l.c("text-muted")).key("agents-head-note"));
     }
+    let defer = for_home && home_should_defer(found, s.agents_install_job.is_pending(), s.home.others_open);
+    let (drawn, deferred): (Vec<_>, Vec<_>) = if defer {
+        rows.into_iter().partition(|(f, _)| home_kept_when_deferred(f))
+    } else {
+        (rows, Vec::new())
+    };
     let mut list = col()
         .gap(0.0)
         .radius(l.t.px("radius-card"))
         .fill(l.c("bg-raised"))
         .border(1.0, l.c("border-card"));
-    for (f, status) in rows {
+    for (f, status) in drawn {
         let stuck = gave_up && waiting(&f, &status);
         let mut name = row()
             .gap(8.0)
@@ -841,6 +933,11 @@ pub(super) fn section(s: &State, p: &Palette) -> El {
             name = name.child(text(v.clone()).font(l.ty.mono).color(l.c("text-muted")));
         }
         let mut words = col().gap(4.0).grow(1.0).shrink().child(name);
+        if for_home
+            && let Some(need) = home_need_detail(&f)
+        {
+            words = words.child(text(need).font(l.ty.label).color(l.c("text-secondary")).wrap());
+        }
         // "Signed in on this machine" is said once, in the lede: a row speaks only when its state is not the ordinary one.
         // Words are for results: a row still being asked says nothing of its own; one discovery gave up on says what
         // was tried, and offers Check again -- not Install, for what is already there.
@@ -897,7 +994,8 @@ pub(super) fn section(s: &State, p: &Palette) -> El {
         if let Some(own) = artifacts_part(s, &l, &f) {
             words = words.child(own);
         }
-        let tag = text(status.tag.to_owned())
+        let tag_words = if for_home && status.tag == "NOT INSTALLED" { crate::boot_view::READY_TO_INSTALL } else { status.tag };
+        let tag = text(tag_words.to_owned())
             .font(l.ty.label)
             .color(if status.selectable { l.c("text-primary") } else { l.c("text-secondary") })
             .px(8.0)
@@ -920,6 +1018,25 @@ pub(super) fn section(s: &State, p: &Palette) -> El {
         body = body.child(text(said.clone()).font(l.ty.body).color(l.c("amber-text")).wrap());
     }
     body = body.child(list);
+    if !deferred.is_empty() {
+        let flags: Vec<bool> = deferred.iter().map(|(f, _)| agents::install_command(&f.id).is_some()).collect();
+        let sentence = crate::boot_view::deferred_others_sentence(&flags);
+        body = body.child(
+            text(sentence)
+                .font(l.ty.label)
+                .color(l.c("text-secondary"))
+                .px(8.0)
+                .py(4.0)
+                .radius(6.0)
+                .hover(l.c("hover-surface"))
+                .key("home-agents-others")
+                .role("button")
+                .on_press(|s: &mut State| s.home.others_open = true),
+        );
+    }
+    if npm_missing() {
+        body = body.child(nodejs_missing_note(&l));
+    }
     if let Some(keep) = keep_current(s, &l) {
         body = body.child(keep);
     }
@@ -999,6 +1116,10 @@ mod signing_in_is_a_button_tests;
 #[cfg(test)]
 #[path = "npm_missing_install_tests.rs"]
 mod npm_missing_install_tests;
+
+#[cfg(test)]
+#[path = "install_buttons_say_why_tests.rs"]
+mod install_buttons_say_why_tests;
 
 #[cfg(test)]
 mod tests {

@@ -1514,12 +1514,7 @@ mod picker_tests {
 /// Electron's mode menu ("Permission mode"): the five modes, each with what it does; one the agent cannot run is
 /// greyed with why. Choosing Auto is what turns Auto on, as in Electron, rather than a trip to Settings first.
 fn mode_menu(s: &State, l: &crate::look::controls::Look, teammate: &Teammate, current: &str) -> El {
-    let runtime = s
-        .picks
-        .get(&teammate.id)
-        .and_then(|p| p.runtime.clone())
-        .or_else(|| teammate.runtime.clone())
-        .unwrap_or_else(|| "codex".into());
+    let runtime = mode_menu_runtime(s, teammate);
     let mut menu = col()
         .key("mode-menu")
         .w(320.0)
@@ -1558,17 +1553,55 @@ fn mode_menu(s: &State, l: &crate::look::controls::Look, teammate: &Teammate, cu
             .label(fact.name);
         if unavailable.is_none() {
             let mode = fact.mode;
-            item = item.hover(l.c("bg-selected")).on_press(move |s: &mut State| {
-                if mode == "auto" {
-                    enable_auto_mode(s);
-                }
-                s.composer_mode = Some(mode.to_owned());
-                s.mode_menu = false;
-            });
+            item = item.hover(l.c("bg-selected")).on_press(move |s: &mut State| choose_mode(s, mode));
         }
         menu = menu.child(item);
     }
     menu
+}
+
+/// The agent the mode menu reads its modes for: the one picked for this turn, else the teammate's.
+fn mode_menu_runtime(s: &State, teammate: &Teammate) -> String {
+    s.picks
+        .get(&teammate.id)
+        .and_then(|p| p.runtime.clone())
+        .or_else(|| teammate.runtime.clone())
+        .unwrap_or_else(|| "codex".into())
+}
+
+/// A mode chosen in the menu, by a press or by its digit.
+fn choose_mode(s: &mut State, mode: &str) {
+    if mode == "auto" {
+        enable_auto_mode(s);
+    }
+    s.composer_mode = Some(mode.to_owned());
+    s.mode_menu = false;
+}
+
+/// 1-9 in the open mode menu (Composer.tsx over `menuRowFromDigit`): the nth row that can be chosen, counting from the
+/// top, as the menu draws them. The window only hears a digit no text field took, so the message box keeps its own.
+pub(super) fn mode_menu_digit(s: &mut State, event: &KeyEvent) -> bool {
+    use crate::look::select_keys::{Held, menu_row_from_digit};
+    if !s.mode_menu {
+        return false;
+    }
+    let Key::Text(typed) = &event.key else { return false };
+    let held = Held { ctrl: event.mods.ctrl, meta: event.mods.cmd, alt: event.mods.alt, shift: event.mods.shift };
+    let Some(nth) = menu_row_from_digit(typed, held, false) else { return false };
+    let Some(teammate) = selected_conversation(s).map(|(t, _)| t.clone()) else { return false };
+    let runtime = mode_menu_runtime(s, &teammate);
+    let policy = locust_core::org_policy::current();
+    let Some(mode) = locust_core::mode_facts::MODE_FACTS
+        .iter()
+        .filter(|fact| locust_core::org_policy::mode_allowed(Some(&policy), fact.mode))
+        .filter(|fact| locust_core::mode_facts::unavailable_reason(fact.mode, &runtime).is_none())
+        .nth(nth)
+        .map(|fact| fact.mode)
+    else {
+        return false;
+    };
+    choose_mode(s, mode);
+    true
 }
 
 /// Settings' Auto switch, turned on where the person chose Auto (Electron's onEnableAutoMode).

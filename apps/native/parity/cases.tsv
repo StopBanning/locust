@@ -3771,6 +3771,9 @@ apps/desktop/src/renderer/src/a-long-conversation-opens-on-its-newest-turns.test
 apps/desktop/src/renderer/src/a-long-fold-keeps-the-answer-near.test.tsx	shows its first rows once finished, and says how many more	yes
 apps/desktop/src/renderer/src/a-long-fold-keeps-the-answer-near.test.tsx	shows every row while the run is going	yes
 apps/desktop/src/renderer/src/a-long-fold-keeps-the-answer-near.test.tsx	leaves a fold that is only a row or two over alone	yes
+apps/desktop/src/renderer/src/a-long-list-is-drawn-as-far-as-it-is-read.test.tsx	draws one page, newest first, and says how many more there are	yes
+apps/desktop/src/renderer/src/a-long-list-is-drawn-as-far-as-it-is-read.test.tsx	always draws far enough to hold the one open	yes
+apps/desktop/src/renderer/src/a-long-list-is-drawn-as-far-as-it-is-read.test.tsx	is drawn whole when it fits in a page, with nothing more to say	yes
 apps/desktop/src/renderer/src/a-long-silent-stretch-reads-as-its-moves.test.ts	starts a new line each time the model thinks, led by what it thought about	yes
 apps/desktop/src/renderer/src/a-long-silent-stretch-reads-as-its-moves.test.ts	leaves a turn with no thinking reported as one line between what was said (Claude Code without thinking)	yes
 apps/desktop/src/renderer/src/a-long-silent-stretch-reads-as-its-moves.test.ts	reads a headline only where the summary leads with one	yes
@@ -4140,6 +4143,11 @@ apps/desktop/src/renderer/src/a-screens-eyes-have-weight.test.ts	at the side, dr
 apps/desktop/src/renderer/src/a-screens-eyes-have-weight.test.ts	at the side, never pinned at the end of their room after the body is still	yes
 apps/desktop/src/renderer/src/a-screens-eyes-have-weight.test.ts	drawn 30 or 60 times a second, take the same path as before: one step each	yes
 apps/desktop/src/renderer/src/a-screens-eyes-have-weight.test.ts	sit where they are put while the body moves at a steady speed	yes
+apps/desktop/src/renderer/src/a-select-moves-and-chooses-by-the-keyboard.test.tsx	opens on the chosen row, and arrows move without choosing	yes
+apps/desktop/src/renderer/src/a-select-moves-and-chooses-by-the-keyboard.test.tsx	chooses the highlight with Enter or Space, and Escape leaves the value	yes
+apps/desktop/src/renderer/src/a-select-moves-and-chooses-by-the-keyboard.test.tsx	skips a disabled row, and a letter jumps, then the same letter walks	yes
+apps/desktop/src/renderer/src/a-select-moves-and-chooses-by-the-keyboard.test.tsx	is a combobox whose list names the chosen row, a description, and a disabled row	yes
+apps/desktop/src/renderer/src/a-select-moves-and-chooses-by-the-keyboard.test.tsx	draws a disabled control as a disabled combobox	yes
 apps/desktop/src/renderer/src/a-side-question-can-be-approved-and-stopped.test.tsx	shows the approval its run is waiting on, with its buttons	no
 apps/desktop/src/renderer/src/a-side-question-can-be-approved-and-stopped.test.tsx	offers Stop while it answers, and Ask when it is done	yes
 apps/desktop/src/renderer/src/a-signed-out-teammate-is-not-idle.test.ts	is judged by the route it is set to use	yes
@@ -4519,6 +4527,13 @@ apps/desktop/src/renderer/src/an-idle-teammate-offers-its-own-world.test.tsx	nev
 apps/desktop/src/renderer/src/an-idle-teammate-offers-its-own-world.test.tsx	never asks a non-coder for a page the app would only show as code	yes
 apps/desktop/src/renderer/src/an-idle-teammate-offers-its-own-world.test.tsx	says what the role is for, not that every role reads the workspace	yes
 apps/desktop/src/renderer/src/an-idle-teammate-offers-its-own-world.test.tsx	offers a hand-made teammate its role's, and speaks of code only for the roles that are code	yes
+apps/desktop/src/renderer/src/an-image-can-be-zoomed-and-panned.test.ts	opens at the pane width, as it always did, and never larger than its own pixels	yes
+apps/desktop/src/renderer/src/an-image-can-be-zoomed-and-panned.test.ts	zooms out as far as the whole picture in the pane	yes
+apps/desktop/src/renderer/src/an-image-can-be-zoomed-and-panned.test.ts	opens a tall picture at its top, and a small one in the middle	yes
+apps/desktop/src/renderer/src/an-image-can-be-zoomed-and-panned.test.ts	zooms around the point under the pointer, which stays where it was	yes
+apps/desktop/src/renderer/src/an-image-can-be-zoomed-and-panned.test.ts	stops at the fitted size going down and at eight times its pixels going up	yes
+apps/desktop/src/renderer/src/an-image-can-be-zoomed-and-panned.test.ts	stays centred where it is smaller than the pane, and keeps its edges at the pane where it is larger	yes
+apps/desktop/src/renderer/src/an-image-can-be-zoomed-and-panned.test.ts	is what the file viewer draws for a picture, with the zoom controls beside it	yes
 apps/desktop/src/renderer/src/an-issue-link-wears-its-state.test.tsx	wears open, closed and not planned, its standing and title on hover	no
 apps/desktop/src/renderer/src/an-issue-link-wears-its-state.test.tsx	makes a bare issue in the person's message a link, as a pull request is	no
 apps/desktop/src/renderer/src/an-issue-link-wears-its-state.test.tsx	reads on show, again on focus after a minute, and never on a timer	no
@@ -4758,6 +4773,9 @@ apps/desktop/src/renderer/src/every-face-draws-on-one-beat.test.ts	lets two cloc
 apps/desktop/src/renderer/src/every-face-draws-on-one-beat.test.ts	draws at most 30 frames a second on a 144 Hz screen too	yes
 apps/desktop/src/renderer/src/every-face-draws-on-one-beat.test.ts	starts again for a clock whose time went backwards	yes
 apps/desktop/src/renderer/src/every-limit-says-what-is-left.test.tsx	say what is left, when the runtime reported what it used	no
+apps/desktop/src/renderer/src/every-modal-dialog-holds-the-keyboard.test.tsx	is found where this test looks	yes
+apps/desktop/src/renderer/src/every-modal-dialog-holds-the-keyboard.test.tsx	in Your cloud computer, Escape does what the x does: stops a sign-in, and waits out the work	no
+apps/desktop/src/renderer/src/every-modal-dialog-holds-the-keyboard.test.tsx	Save the record has an x	yes
 apps/desktop/src/renderer/src/every-saved-rule-can-go-at-once.test.tsx	offers to start over, and nothing more, until pressed	yes
 apps/desktop/src/renderer/src/every-saved-rule-can-go-at-once.test.tsx	then says how many go and that every card asks again, with a way back	yes
 apps/desktop/src/renderer/src/every-teammate-is-a-bot.test.tsx	are the library's eighteen, then Locust's own two, then the three that nod to the agents	yes
@@ -4891,6 +4909,25 @@ apps/desktop/src/renderer/src/homeTeamState.test.ts	says the command it wants to
 apps/desktop/src/renderer/src/homeTeamState.test.ts	says the question it asks, as asked	yes
 apps/desktop/src/renderer/src/homeTeamState.test.ts	says an approval that is not a command plainly	yes
 apps/desktop/src/renderer/src/homeTeamState.test.ts	says nothing for memory suggestions, a Scout card, or a routine waiting for Keep	yes
+apps/desktop/src/renderer/src/install-buttons-say-why.test.tsx	renders the panel at all	yes
+apps/desktop/src/renderer/src/install-buttons-say-why.test.tsx	says so even after a runtime has connected	yes
+apps/desktop/src/renderer/src/install-buttons-say-why.test.tsx	still says so when nothing at all has connected	yes
+apps/desktop/src/renderer/src/install-buttons-say-why.test.tsx	says nothing about Node when npm is there	yes
+apps/desktop/src/renderer/src/install-buttons-say-why.test.tsx	offers a way to get Node that this app can actually open	yes
+apps/desktop/src/renderer/src/install-buttons-say-why.test.tsx	does not disable a single Install button	no
+apps/desktop/src/renderer/src/install-buttons-say-why.test.tsx	does not tell the person the buttons cannot run	no
+apps/desktop/src/renderer/src/install-buttons-say-why.test.tsx	says where the install came from, since the buttons working is the surprise	no
+apps/desktop/src/renderer/src/install-buttons-say-why.test.tsx	says the part that is still true: their own terminal is unchanged	no
+apps/desktop/src/renderer/src/install-buttons-say-why.test.tsx	says none of it on a machine that has its own Node	no
+apps/desktop/src/renderer/src/install-buttons-say-why.test.tsx	keeps the Node.js explanation until the person has pressed something	no
+apps/desktop/src/renderer/src/install-buttons-say-why.test.tsx	still says it once anything is connected, which is when a terminal comes up	no
+apps/desktop/src/renderer/src/install-buttons-say-why.test.tsx	stops explaining the missing Node once the install has finished	no
+apps/desktop/src/renderer/src/install-buttons-say-why.test.tsx	offers the other agents behind a press while none of them can help	yes
+apps/desktop/src/renderer/src/install-buttons-say-why.test.tsx	offers an agent nobody has added yet as ready to install, never as "not installed"	yes
+apps/desktop/src/renderer/src/install-buttons-say-why.test.tsx	shows every agent again the moment one of them works	yes
+apps/desktop/src/renderer/src/install-buttons-say-why.test.tsx	draws the installed one even while nothing is connected	yes
+apps/desktop/src/renderer/src/install-buttons-say-why.test.tsx	still defers the ones that are only products you could buy	yes
+apps/desktop/src/renderer/src/install-buttons-say-why.test.tsx	counts only what it actually deferred	yes
 apps/desktop/src/renderer/src/its-own-settings-file.test.ts	says whose file it was, because that is the part that is misread	no
 apps/desktop/src/renderer/src/its-own-settings-file.test.ts	says the workspace was not what it was denied	no
 apps/desktop/src/renderer/src/its-own-settings-file.test.ts	claims nothing about what the run did before it died	no
@@ -4911,6 +4948,15 @@ apps/desktop/src/renderer/src/judges-see-the-check.test.tsx	says a run again by 
 apps/desktop/src/renderer/src/judges-see-the-check.test.tsx	joins a label moved off its point's line to its point	no
 apps/desktop/src/renderer/src/judges-see-the-check.test.tsx	moves a label that would run into another from the other side, though their points are far apart (0.811)	no
 apps/desktop/src/renderer/src/judges-see-the-check.test.tsx	reads a model added under its own id by its name, and leaves a name the person wrote alone	yes
+apps/desktop/src/renderer/src/keep-carries-the-whole-choice.test.tsx	sets the effort the kept column ran at	yes
+apps/desktop/src/renderer/src/keep-carries-the-whole-choice.test.tsx	lands on the model's own default when the column ran at a level it does not offer	yes
+apps/desktop/src/renderer/src/keep-carries-the-whole-choice.test.tsx	leaves the effort unset for a model with no levels	yes
+apps/desktop/src/renderer/src/keep-carries-the-whole-choice.test.tsx	has no mode in what it carries	yes
+apps/desktop/src/renderer/src/keep-carries-the-whole-choice.test.tsx	puts the mode the person had back after opening the kept conversation	yes
+apps/desktop/src/renderer/src/keep-carries-the-whole-choice.test.tsx	names the mode the conversation is in	yes
+apps/desktop/src/renderer/src/keep-carries-the-whole-choice.test.tsx	says so when the comparison ran in Auto and the conversation does not	yes
+apps/desktop/src/renderer/src/keep-carries-the-whole-choice.test.tsx	does not apologise when the modes agree, and promises nothing when the mode is not known	yes
+apps/desktop/src/renderer/src/keep-carries-the-whole-choice.test.tsx	is what the comparison view draws	yes
 apps/desktop/src/renderer/src/keyboardShortcuts.test.ts	groups them for a person, and every row is a key the code actually handles	no
 apps/desktop/src/renderer/src/last-activity.test.ts	is the last event, when there is one	yes
 apps/desktop/src/renderer/src/last-activity.test.ts	falls back to when it was made, for a run that has said nothing	yes
@@ -4971,6 +5017,8 @@ apps/desktop/src/renderer/src/memory-card-survives-a-reply.test.ts	keeps the tur
 apps/desktop/src/renderer/src/memory-card-survives-a-reply.test.ts	gives each turn only its own	yes
 apps/desktop/src/renderer/src/memory-card-survives-a-reply.test.ts	gives a turn that taught nothing an empty card rather than a neighbour list	yes
 apps/desktop/src/renderer/src/memory-card-survives-a-reply.test.ts	draws nothing at all when there is no turn to draw under	yes
+apps/desktop/src/renderer/src/menuDigit.test.ts	counts from the top, 1 through 9	yes
+apps/desktop/src/renderer/src/menuDigit.test.ts	leaves a digit alone in a search box, and leaves chords alone	yes
 apps/desktop/src/renderer/src/missionView.test.ts	rebuilds an appended stream instead of keeping the last fragment	yes
 apps/desktop/src/renderer/src/missionView.test.ts	honors a replace as a replace	yes
 apps/desktop/src/renderer/src/missionView.test.ts	keeps separate messages separate and in order	yes

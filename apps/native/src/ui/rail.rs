@@ -611,6 +611,7 @@ pub(super) fn open_needs_you_menu(s: &mut State) {
         y: TITLEBAR_HEIGHT + 4.0,
         title: "Waiting for you".to_owned(),
         target: String::new(),
+        anchor: None,
         items,
         armed: None,
         open_sub: None,
