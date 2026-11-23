@@ -78,8 +78,55 @@ impl ErrorFacts {
 }
 /// The line the thread draws for a compaction (OPENCODE_COMPACTED): never the summary or the note to the model.
 pub const COMPACTED: &str = "The conversation outgrew the model's context, so OpenCode summarized it and carried on from the summary.";
+/// One step's counts, as `step_finish` reports them.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct StepTokens {
+    pub input: f64,
+    pub output: f64,
+    pub reasoning: f64,
+    pub cache_read: f64,
+    pub cache_write: f64,
+}
+
+/// opencode-events.ts listedStepCost (0.810): one step at its listed price, by OpenCode's own sum for its models --
+/// input, output and reasoning at the input and output prices, each cache at its own, at the dearest tier whose size
+/// the step's context (its input with both caches) passed, else the older over-200k price where a list gives that.
+/// Locust adds it up because OpenCode, told a price in a provider's config, keeps the base and drops the tiers.
+pub fn listed_step_cost(price: &Value, tokens: StepTokens) -> f64 {
+    let context = tokens.input + tokens.cache_read + tokens.cache_write;
+    let tier = price["tiers"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|one| one["tier"]["type"] == "context" && one["tier"]["size"].as_f64().is_some_and(|size| context > size))
+        .max_by(|a, b| a["tier"]["size"].as_f64().unwrap_or(0.0).total_cmp(&b["tier"]["size"].as_f64().unwrap_or(0.0)));
+    let rate = tier.unwrap_or(if price["context_over_200k"].is_object() && context > 200_000.0 {
+        &price["context_over_200k"]
+    } else {
+        price
+    });
+    let at = |key: &str| rate[key].as_f64().unwrap_or(0.0);
+    (tokens.input * at("input")
+        + tokens.output * at("output")
+        + tokens.reasoning * at("output")
+        + tokens.cache_read * at("cache_read")
+        + tokens.cache_write * at("cache_write"))
+        / 1_000_000.0
+}
+
+/// The listed price a run's OpenCode config gives `model` (`provider/model`): what Your own models declared for it
+/// (own_models::with_opencode_providers). None for any model it does not price.
+pub fn listed_price(config: &Value, model: &str) -> Option<Value> {
+    let (provider, id) = model.split_once('/')?;
+    let cost = &config["provider"][provider]["models"][id]["cost"];
+    (cost["input"].is_number() && cost["output"].is_number()).then(|| cost.clone())
+}
+
 pub struct Normalizer {
     pub base: AcpNormalizer,
+    /// The model's listed price, for a model of the person's own that its provider lists: each step is priced from it.
+    /// None: OpenCode's own figure.
+    price: Option<Value>,
     /// The record being read: its type and its sanitized copy, for each event's evidence (opencode-events.ts passes
     /// `evidenceFor(record, parsed, type)`); cleared at finish.
     current: Option<(String, (Value, bool))>,
@@ -100,9 +147,14 @@ pub struct Normalizer {
     unknown: HashSet<String>,
 }
 impl Normalizer {
+    pub fn with_price(mut self, price: Option<Value>) -> Self {
+        self.price = price;
+        self
+    }
     pub fn new(model: Option<&str>) -> Self {
         Self {
             base: AcpNormalizer::default(),
+            price: None,
             current: None,
             free: model.is_some_and(|s| {
                 s.to_lowercase().ends_with("-free") || s.to_lowercase().ends_with("/free")
@@ -183,6 +235,20 @@ impl Normalizer {
                     t["cache"]["write"].as_f64(),
                     p["cost"].as_f64(),
                 ];
+                let mut values = values;
+                if let Some(price) = &self.price {
+                    let counted = |n: Option<f64>| n.filter(|n| n.is_finite() && *n >= 0.).unwrap_or(0.);
+                    values[5] = Some(listed_step_cost(
+                        price,
+                        StepTokens {
+                            input: counted(values[0]),
+                            output: counted(values[1]),
+                            reasoning: counted(values[2]),
+                            cache_read: counted(values[3]),
+                            cache_write: counted(values[4]),
+                        },
+                    ));
+                }
                 for (i, n) in values.iter().enumerate() {
                     if let Some(n) = n.filter(|n| n.is_finite() && *n >= 0.) {
                         self.usage[i] += n;
@@ -541,3 +607,11 @@ mod a_refusal_is_not_a_crash_tests;
 #[cfg(test)]
 #[path = "opencode_not_rerun_tests.rs"]
 mod opencode_not_rerun_tests;
+
+#[cfg(test)]
+#[path = "a_model_of_your_own_is_priced_step_by_step_tests.rs"]
+mod a_model_of_your_own_is_priced_step_by_step_tests;
+
+#[cfg(test)]
+#[path = "qa_0365_opencode_worktree_tests.rs"]
+mod qa_0365_opencode_worktree_tests;

@@ -6488,6 +6488,11 @@ packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test
 packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	keeps distinct no-ID tool payloads beyond the old 80-character prefix and deduplicates equivalent payloads	no
 packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	rejects the unsupported working status instead of polling it as active	no
 packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	does not settle on an earlier stop while the latest matching message is unfinished	no
+packages/runtime-adapters/test/a-model-of-your-own-is-priced-step-by-step.test.ts	prices input, output, reasoning and both caches, each at its own rate	yes
+packages/runtime-adapters/test/a-model-of-your-own-is-priced-step-by-step.test.ts	takes the dearer tier once the step's context, caches included, passes its size	yes
+packages/runtime-adapters/test/a-model-of-your-own-is-priced-step-by-step.test.ts	takes the largest tier passed, and the older over-200k price where a list gives that	yes
+packages/runtime-adapters/test/a-model-of-your-own-is-priced-step-by-step.test.ts	adds up each step at its listed price, the step over the tier at the tier's	yes
+packages/runtime-adapters/test/a-model-of-your-own-is-priced-step-by-step.test.ts	reads OpenCode's own figure where no price is given, as before	yes
 packages/runtime-adapters/test/a-muse-plan-used-up-is-said-once.test.ts	is one limit with its reset instant, and a failure that says what to do	no
 packages/runtime-adapters/test/a-muse-plan-used-up-is-said-once.test.ts	leaves no Unhandled line: a saved output and the run's usage are not shown, a stopped tool fails on its row	no
 packages/runtime-adapters/test/a-muse-plan-used-up-is-said-once.test.ts	is still said once when only the run's own end says it	no
@@ -7217,6 +7222,8 @@ packages/runtime-adapters/test/provider-error.test.ts	formats a failed turn's ow
 packages/runtime-adapters/test/provider-error.test.ts	formats the app-server error without losing the original notification	no
 packages/runtime-adapters/test/provider-error.test.ts	formats Claude and Cursor result errors	no
 packages/runtime-adapters/test/provider-error.test.ts	formats Antigravity CLI's result error before adding a runtime prefix	no
+packages/runtime-adapters/test/qa-0365-opencode-worktree.test.ts	the failure names the directory boundary, not a missing stop	yes
+packages/runtime-adapters/test/qa-0365-opencode-worktree.test.ts	still reports an ordinary early exit as one	yes
 packages/runtime-adapters/test/references-never-widen-a-mode.test.ts	Codex never receives add-dir, including in full access	yes
 packages/runtime-adapters/test/references-never-widen-a-mode.test.ts	Claude adds references without changing its tools, with scoped Edit protection	yes
 packages/runtime-adapters/test/references-never-widen-a-mode.test.ts	OpenCode adds only named reference reads while every write denial and bash rule stays intact	yes

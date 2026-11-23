@@ -281,7 +281,13 @@ impl Serve {
             mission_id: t.mission_id.clone(),
             run_id: t.run_id.clone(),
         });
-        self.normal = Normalizer::new(t.model.as_deref());
+        // A model of the person's own is priced step by step from the price its config declares (0.810).
+        let price = t.model.as_deref().and_then(|model| {
+            let config = self.command.get_envs().find(|(k, _)| *k == "OPENCODE_CONFIG_CONTENT").and_then(|(_, v)| v)?;
+            let config: Value = serde_json::from_str(&config.to_string_lossy()).ok()?;
+            super::opencode_events::listed_price(&config, model)
+        });
+        self.normal = Normalizer::new(t.model.as_deref()).with_price(price);
         self.normal.base.started_at = crate::ledger_write::now();
         self.resumed = t.resume.is_some();
         let password = password()?;
@@ -1005,3 +1011,65 @@ pub fn rejection_message(mode: Mode, a_person_was_asked: bool) -> String {
 #[cfg(test)]
 #[path = "opencode_refusal_tests.rs"]
 mod refusal_tests;
+
+#[cfg(test)]
+mod own_price_wire_tests {
+    use super::*;
+
+    #[test]
+    fn serve_begin_loads_listed_price_from_opencode_config_content() {
+        let config = json!({
+            "provider": {
+                "own-0a1b2c3d": {
+                    "models": {
+                        "claude-haiku-5-5": {
+                            "cost": {
+                                "input": 0.1,
+                                "output": 0.5,
+                                "cache_read": 0.01,
+                                "cache_write": 0.125,
+                                "tiers": [{
+                                    "input": 0.5,
+                                    "output": 2.5,
+                                    "cache_read": 0.05,
+                                    "cache_write": 0.625,
+                                    "tier": { "type": "context", "size": 100_000 }
+                                }]
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        let mut command = Command::new("opencode");
+        command.env("OPENCODE_CONFIG_CONTENT", config.to_string());
+        let mut serve = Serve::new(command, Arc::new(AtomicBool::new(true)));
+        let turn = Turn {
+            prompt: "hi".into(),
+            folder: std::env::temp_dir(),
+            model: Some("own-0a1b2c3d/claude-haiku-5-5".into()),
+            effort: None,
+            resume: None,
+            mode: Mode::Ask,
+            approvals: None,
+            mission_id: "m1".into(),
+            run_id: "r1".into(),
+        };
+        // Cancelled before spawning anything, after self.normal is configured with the listed price.
+        assert!(serve.begin(&turn).is_err());
+        serve.normal.accept(&json!({"type": "step_start", "sessionID": "ses_1", "part": {"type": "step-start"}}));
+        serve.normal.accept(&json!({
+            "type": "step_finish",
+            "sessionID": "ses_1",
+            "part": {
+                "type": "step-finish",
+                "reason": "stop",
+                "cost": 0.012,
+                "tokens": {"input": 120_000, "output": 0, "reasoning": 0, "cache": {"read": 0, "write": 0}}
+            }
+        }));
+        let done = serve.normal.finish(false, Some(0), "", false);
+        let usd = done.last().unwrap().payload["usage"]["usd"].as_f64().unwrap();
+        assert!((usd - 0.06).abs() < 1e-9, "got {usd}, expected 0.06 (tiered price)");
+    }
+}
