@@ -516,6 +516,9 @@ pub mod effort_levels;
 pub mod route_rows;
 pub mod mission_strip;
 pub mod runtime_order;
+pub mod sent_again;
+#[cfg(test)]
+mod sent_again_tests;
 pub mod steps_fold;
 #[cfg(test)]
 mod steps_fold_tests;

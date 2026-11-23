@@ -49,6 +49,11 @@ pub const BUSY_CONTINUE_SENTENCE: &str =
 /// What Continue sends into the same conversation (App.tsx `continueOffer`).
 pub const CONTINUE_PROMPT: &str = "Continue from where you stopped.";
 
+/// failedOnItsLimit: the runtime's last word says the model gave up on its limit (a free model's rate limit, a quota).
+pub fn failed_on_its_limit(stderr: Option<&str>) -> bool {
+    last_stderr_line(stderr).is_some_and(|line| is_exhaustion(&message_of_log_line(&line)))
+}
+
 /// failedOnProviderSide: a run the provider dropped (busy, overloaded, disconnected, a 5xx), read from the host's
 /// message and the runtime's last stderr line; never a limit of the person's own, a sign-in, or anything else.
 pub fn failed_on_provider_side(message: Option<&str>, stderr: Option<&str>) -> bool {
@@ -64,10 +69,11 @@ pub fn payload_failed_on_provider_side(payload: &serde_json::Value) -> bool {
     failed_on_provider_side(payload["message"].as_str(), payload["process"]["stderr"].as_str())
 }
 
-/// continueOffer: the turn's record ended failed, and its last failure was the provider's side. Not while it runs.
-pub fn offers_continue<'a>(events: impl IntoIterator<Item = &'a serde_json::Value>, running: bool) -> bool {
+/// The turn's record ended failed: its last `run.failed`, when nothing started, completed or was cancelled after it.
+/// Never while it runs (App.tsx: `shown.phase !== 'failed'`).
+fn ended_failed<'a>(events: impl IntoIterator<Item = &'a serde_json::Value>, running: bool) -> Option<&'a serde_json::Value> {
     if running {
-        return false;
+        return None;
     }
     let mut last: Option<&serde_json::Value> = None;
     for e in events {
@@ -75,8 +81,32 @@ pub fn offers_continue<'a>(events: impl IntoIterator<Item = &'a serde_json::Valu
             last = Some(e);
         }
     }
-    last.is_some_and(|e| e["type"] == "run.failed" && payload_failed_on_provider_side(&e["payload"]))
+    last.filter(|e| e["type"] == "run.failed").map(|e| &e["payload"])
 }
+
+/// continueOffer: the turn's record ended failed, and its last failure was the provider's side. Not while it runs.
+pub fn offers_continue<'a>(events: impl IntoIterator<Item = &'a serde_json::Value>, running: bool) -> bool {
+    ended_failed(events, running).is_some_and(payload_failed_on_provider_side)
+}
+
+/// limitOffer's reading: the turn ended failed on its model's limit (the runtime's last word). Which model comes next
+/// is the window's to say, from the models it has listed (`route_rows::next_free_model`).
+pub fn offers_next_model<'a>(events: impl IntoIterator<Item = &'a serde_json::Value>, running: bool) -> bool {
+    ended_failed(events, running).is_some_and(|payload| failed_on_its_limit(payload["process"]["stderr"].as_str()))
+}
+
+/// signInOffer's reading: the turn ended failed because its runtime is signed out (`kind: authentication-failed`).
+pub fn offers_sign_in<'a>(events: impl IntoIterator<Item = &'a serde_json::Value>, running: bool) -> bool {
+    ended_failed(events, running).is_some_and(|payload| payload["kind"] == "authentication-failed")
+}
+
+/// The words over the failure card's Sign in (Thread.tsx `signInRuntime`).
+pub fn signed_out_sentence(runtime: &str) -> String {
+    format!("{} is signed out. Sign in again, then send your message.", crate::carry_on::display_name(runtime))
+}
+
+/// The words over the failure card's next model (Thread.tsx `limitModel`, why `limit`).
+pub const AT_ITS_LIMIT_SENTENCE: &str = "This model is at its limit. Switching puts your message back in the chat box, to send there.";
 
 /// A runtime that could not rename over its OWN settings file (on Windows, while another run of it had it open).
 fn is_locked_runtime_config(said: &str) -> bool {

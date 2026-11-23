@@ -1862,6 +1862,10 @@ pub struct Snapshot {
     pub never_started: bool,
     /// The tip failed on its provider's side (`failure_words::offers_continue`): its card offers Continue.
     pub busy_continue: bool,
+    /// The tip failed on its model's limit (`failure_words::offers_next_model`): its card offers the next free model.
+    pub next_model: bool,
+    /// The tip failed signed out (`failure_words::offers_sign_in`): its card offers its runtime's sign-in.
+    pub sign_in: bool,
     /// Part of the tip's record could not be read: the same fact the inspector counts as an integrity issue.
     pub damaged: bool,
 }
@@ -2222,6 +2226,8 @@ impl Session {
             snapshot.failed = reader.transcript.failed;
             snapshot.never_started = crate::thread_view::runtime_never_started(reader.transcript.events.values());
             snapshot.busy_continue = crate::failure_words::offers_continue(reader.transcript.events.values(), snapshot.running);
+            snapshot.next_model = crate::failure_words::offers_next_model(reader.transcript.events.values(), snapshot.running);
+            snapshot.sign_in = crate::failure_words::offers_sign_in(reader.transcript.events.values(), snapshot.running);
             snapshot.damaged = reader.transcript.error.is_some();
             snapshot.recovery = if snapshot.running {
                 None

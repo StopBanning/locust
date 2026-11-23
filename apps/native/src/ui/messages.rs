@@ -32,11 +32,12 @@ pub(super) const COLD_START_NOTE: &str =
 
 /// The conversation's newest turn, when it is a reply that started cold (the host's say, `followsUp.runtimeThreadId`
 /// absent) and a turn before it is in the thread: the note under its opening. An edit says its own note instead.
-pub(super) fn cold_start_note(s: &State, meta: &ledger::Metadata, at: Option<usize>, p: &Palette) -> Option<El> {
+pub(super) fn cold_start_note(s: &State, items: &[ledger::Item], meta: &ledger::Metadata, at: Option<usize>, p: &Palette) -> Option<El> {
     let pane = s.ledger.as_ref()?;
     let newest = pane.snapshot.turn_metas.len().checked_sub(1)?;
     let cold = pane.cold_tip.as_ref().is_some_and(|(tip, cold)| *cold && *tip == meta.mission_id);
-    if !cold || meta.edited || at != Some(newest) || newest == 0 || pane.snapshot.tip != meta.mission_id {
+    // Only when a turn before it is still on screen: one that gave way to this one, sent again, loses nothing (0.496).
+    if !cold || meta.edited || at != Some(newest) || newest == 0 || pane.snapshot.tip != meta.mission_id || !locust_core::sent_again::a_turn_before_is_shown(items) {
         return None;
     }
     let l = crate::look::controls::Look::new(p.dark);
@@ -116,9 +117,18 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
             steps_at.entry(*run).or_default().push(group.clone());
         }
     }
+    // A turn stopped before it said anything and then sent again with the same words gives way to the one sent again:
+    // one message, not two (Thread.tsx `sentAgainBy`, 0.496).
+    let given_way = locust_core::sent_again::given_way(items);
     for (index, item) in items.iter().enumerate().skip(first_item) {
         for marker in markers.iter().filter(|m| m.before_item == index) {
             messages = messages.child(time_marker::view(marker, p));
+        }
+        if let Some(&(at, _)) = given_way.iter().find(|(at, end)| (*at..*end).contains(&index)) {
+            if at == index {
+                user_index += 1;
+            }
+            continue;
         }
         let conversation = s
             .ledger
@@ -310,7 +320,7 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                 );
                 // Where this turn began, said where it begins (Thread.tsx): beside the time marker that opens it, above
                 // the work it explains, in the note register -- never at the end, where live and pending things are.
-                if let Some(note) = this_meta.and_then(|meta| cold_start_note(s, meta, at, p)) {
+                if let Some(note) = this_meta.and_then(|meta| cold_start_note(s, items, meta, at, p)) {
                     messages = messages.child(note);
                 }
                 if this_meta.is_some_and(|m| locust_core::conversation_turns::turn_line(m).is_none()) { continue; }
@@ -480,7 +490,21 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                 let summary = locust_core::cancellation::summary(&items[from..index], &runtime, folder.as_deref());
                 let last_stop = !items[index + 1..].iter().any(|i| matches!(i, ledger::Item::Note { text, .. } if text == "Stopped"));
                 let by_person = last_stop && s.stopped_by_you.as_deref().is_some_and(|c| Some(c) == s.ledger.as_ref().and_then(|p| p.conversation.conversation_id.as_deref()));
-                crate::cancellation_card::card(&summary, by_person, p)
+                let newest = !items[index + 1..].iter().any(|i| matches!(i, ledger::Item::User(_)));
+                if !newest && locust_core::sent_again::stopped_before_saying(&items[from..=index]) {
+                    // A kept turn stopped before it said anything had nothing under it, as if still waiting (Claude
+                    // Code: "Interrupted"); the receipt is the newest turn's.
+                    text(locust_core::sent_again::STOPPED_BEFORE_IT_REPLIED).key(format!("{key}-stopped-before-it-replied")).font(type_::LABEL).color(p.muted).w_full()
+                } else {
+                    let card = crate::cancellation_card::card(&summary, by_person, p);
+                    match (newest && !turn_running(s) && locust_core::cancellation::stopped_before_any_tool(&summary))
+                        .then(|| items[..from].iter().rev().find_map(|i| if let ledger::Item::User(words) = i { Some(words.clone()) } else { None }))
+                        .flatten()
+                    {
+                        Some(words) => col().w_full().gap(12.0).child(card).child(send_again_row(words, summary.tools_reported_when_done, p)),
+                        None => card,
+                    }
+                }
             }
             ledger::Item::Limit { text: body, .. } => text(body).font(type_::LABEL).color(p.muted).w_full().wrap_anywhere(),
             ledger::Item::Note { level, text: body } => text(if level.is_empty() {
@@ -620,6 +644,27 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                 tx.live_only();
             }
         })
+}
+
+/// Under a run stopped before any tool ran: Send again, the same words sent again (Thread.tsx `onSendAgain`). On OpenCode
+/// the card above already says to check the folder, so the line beside the press says nothing (0.696).
+fn send_again_row(words: String, tools_reported_when_done: bool, p: &Palette) -> El {
+    let l = crate::look::controls::Look::new(p.dark);
+    let mut line = row().key("send-again").w_full().gap(10.0).center_y();
+    if !tools_reported_when_done {
+        line = line.child(text(locust_core::sent_again::NOTHING_TO_REPEAT).font(type_::LABEL).color(p.muted).grow(1.0).shrink().wrap());
+    }
+    line.child(
+        crate::look::controls::button(&l, "Send again", crate::look::controls::Tone::Neutral, false)
+            .key("send-again-button")
+            .on_press_tx(move |s: &mut State, tx: &mut Tx| {
+                // The same words again; what is in the box stays.
+                let kept = s.draft.text.clone();
+                s.draft.replace_text(words.clone());
+                submit_composer(s, tx, false);
+                s.draft.replace_text(kept);
+            }),
+    )
 }
 
 /// Whether the live line is on screen, and so its word sweeping: the window wakes for the band while it is.
@@ -863,6 +908,9 @@ mod run_again_tests;
 #[cfg(test)]
 #[path = "thread_order_tests.rs"]
 mod thread_order_tests;
+#[cfg(test)]
+#[path = "sent_again_tests.rs"]
+mod sent_again_tests;
 
 #[cfg(test)]
 mod tests {

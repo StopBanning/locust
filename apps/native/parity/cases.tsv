@@ -4221,6 +4221,22 @@ apps/desktop/src/renderer/src/an-empty-home-offers-a-team.test.tsx	offers three 
 apps/desktop/src/renderer/src/an-empty-home-offers-a-team.test.tsx	keeps New teammate beside them, as the chat bar's own chip	no
 apps/desktop/src/renderer/src/an-empty-home-offers-a-team.test.tsx	is the team itself once there is one	no
 apps/desktop/src/renderer/src/an-empty-home-offers-a-team.test.tsx	says so, and offers no team to start over with	no
+apps/desktop/src/renderer/src/an-ended-run-offers-the-way-on.test.tsx	offers Send again	yes
+apps/desktop/src/renderer/src/an-ended-run-offers-the-way-on.test.tsx	on OpenCode, which reports a tool only once it finishes, does not promise nothing ran (Sol, 0.532)	yes
+apps/desktop/src/renderer/src/an-ended-run-offers-the-way-on.test.tsx	on OpenCode with something finished, never says no tool call was open (0.536 drive)	yes
+apps/desktop/src/renderer/src/an-ended-run-offers-the-way-on.test.tsx	does not, when a tool had run	yes
+apps/desktop/src/renderer/src/an-ended-run-offers-the-way-on.test.tsx	does not, when the run was not stopped	yes
+apps/desktop/src/renderer/src/an-ended-run-offers-the-way-on.test.tsx	says nothing of undoing changes that were never made (0.496)	yes
+apps/desktop/src/renderer/src/an-ended-run-offers-the-way-on.test.tsx	draws the message once: the stopped copy gives way to the one sent again	yes
+apps/desktop/src/renderer/src/an-ended-run-offers-the-way-on.test.tsx	and says no fresh session began when nothing before it is lost	yes
+apps/desktop/src/renderer/src/an-ended-run-offers-the-way-on.test.tsx	keeps a stopped turn that said something, or that was followed by other words	yes
+apps/desktop/src/renderer/src/an-ended-run-offers-the-way-on.test.tsx	says a kept turn that was stopped before it replied was stopped, and only that one	yes
+apps/desktop/src/renderer/src/an-ended-run-offers-the-way-on.test.tsx	offers that runtime's sign-in on the failure card	yes
+apps/desktop/src/renderer/src/an-ended-run-offers-the-way-on.test.tsx	offers nothing of the kind otherwise	yes
+apps/desktop/src/renderer/src/an-ended-run-offers-the-way-on.test.tsx	is read as its limit from the runtime's last word	yes
+apps/desktop/src/renderer/src/an-ended-run-offers-the-way-on.test.tsx	offers the next model on the failure card	yes
+apps/desktop/src/renderer/src/an-ended-run-offers-the-way-on.test.tsx	offers Continue on the failure card, saying it was the provider	yes
+apps/desktop/src/renderer/src/an-ended-run-offers-the-way-on.test.tsx	offers nothing of the kind without it	yes
 apps/desktop/src/renderer/src/an-idle-teammate-offers-its-own-world.test.tsx	offers a template teammate's own first messages	yes
 apps/desktop/src/renderer/src/an-idle-teammate-offers-its-own-world.test.tsx	never offers code to the money or the writing team	yes
 apps/desktop/src/renderer/src/an-idle-teammate-offers-its-own-world.test.tsx	never asks a non-coder for a page the app would only show as code	yes
