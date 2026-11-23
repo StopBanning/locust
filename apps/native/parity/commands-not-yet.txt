@@ -3,27 +3,17 @@
 claude/accept-edits/connectors	Rust lacks ["--allowedTools", "mcp__Robinhood__*"]; Rust adds ["--strict-mcp-config"]
 claude/accept-edits/everything	Rust lacks ["mcp__Robinhood__*,mcp__locust_browser__*", "--fork-session"]; Rust adds ["mcp__locust_browser__*", "--strict-mcp-config"]
 claude/accept-edits/fork	Rust lacks ["--fork-session"]; Rust adds []
-claude/accept-edits/no-guard	Rust lacks []; Rust adds ["--settings", "/locust/guard/settings.json"]
 claude/approve-each/connectors	Rust lacks []; Rust adds ["--strict-mcp-config"]
 claude/approve-each/everything	Rust lacks ["--fork-session"]; Rust adds ["--strict-mcp-config"]
 claude/approve-each/fork	Rust lacks ["--fork-session"]; Rust adds []
-claude/approve-each/no-guard	Rust lacks []; Rust adds ["--settings", "/locust/guard/settings.json"]
 claude/ask/connectors	Rust lacks []; Rust adds ["--strict-mcp-config"]
 claude/ask/everything	Rust lacks ["--fork-session"]; Rust adds ["--strict-mcp-config"]
 claude/ask/fork	Rust lacks ["--fork-session"]; Rust adds []
-claude/ask/no-guard	Rust lacks []; Rust adds ["--settings", "/locust/guard/settings.json"]
 claude/auto/connectors	Rust lacks []; Rust adds ["--strict-mcp-config"]
 claude/auto/everything	Rust lacks ["--fork-session"]; Rust adds ["--strict-mcp-config"]
 claude/auto/fork	Rust lacks ["--fork-session"]; Rust adds []
-claude/auto/no-guard	Rust lacks []; Rust adds ["--settings", "/locust/guard/settings.json"]
 claude/plan/connectors	Rust lacks []; Rust adds ["--strict-mcp-config"]
 claude/plan/everything	Rust lacks ["--fork-session"]; Rust adds ["--strict-mcp-config"]
 claude/plan/fork	Rust lacks ["--fork-session"]; Rust adds []
-claude/plan/no-guard	Rust lacks []; Rust adds ["--settings", "/locust/guard/settings.json"]
 copilot/approve-each/browser	Rust lacks []; Rust adds ["--additional-mcp-config", "@/locust/browser/copilot-mcp.json"]
 copilot/approve-each/everything	Rust lacks []; Rust adds ["--additional-mcp-config", "@/locust/browser/copilot-mcp.json"]
-opencode/accept-edits/no-guard	OPENCODE_CONFIG_CONTENT differs: Rust adds /plugin
-opencode/approve-each/no-guard	OPENCODE_CONFIG_CONTENT differs: Rust adds /plugin
-opencode/ask/no-guard	OPENCODE_CONFIG_CONTENT differs: Rust adds /plugin
-opencode/auto/no-guard	OPENCODE_CONFIG_CONTENT differs: Rust adds /plugin
-opencode/plan/no-guard	OPENCODE_CONFIG_CONTENT differs: Rust adds /plugin

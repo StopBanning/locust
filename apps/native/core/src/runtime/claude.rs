@@ -656,12 +656,9 @@ mod tests {
         assert!(!args.iter().any(|a| a.contains("bypassPermissions")));
     }
 
-    fn with(mode: Mode) -> Vec<String> {
-        print_args(&PrintOptions { mode, bridge: Some("/b/mcp.json"), ..Default::default() }).unwrap()
-    }
-
     #[test]
-    fn the_mode_decides_tools_and_permission_mode() {
+    fn the_mode_decides_tools_and_permissions_and_keeps_the_guard() {
+        let guard_settings = "/some folder/command-guard.json";
         let pair = |a: &[String], flag: &str| a[a.iter().position(|s| s == flag).unwrap() + 1].clone();
         for (mode, permission, tools) in [
             (Mode::Ask, "default", ASK_TOOLS),
@@ -670,9 +667,16 @@ mod tests {
             (Mode::ApproveEach, "default", EDIT_TOOLS),
             (Mode::Auto, "bypassPermissions", EDIT_TOOLS),
         ] {
-            let a = with(mode);
+            let a = print_args(&PrintOptions {
+                mode,
+                bridge: Some("/b/mcp.json"),
+                guard_settings: Some(guard_settings),
+                ..Default::default()
+            })
+            .unwrap();
             assert_eq!(pair(&a, "--permission-mode"), permission, "{mode:?}");
             assert_eq!(pair(&a, "--tools"), tools, "{mode:?}");
+            assert_eq!(pair(&a, "--settings"), guard_settings, "{mode:?}");
             // bypassPermissions cannot be combined with --restricted, and Auto asks nothing, so it has no bridge.
             assert_eq!(a.contains(&"--restricted".into()), mode != Mode::Auto, "{mode:?}");
             assert_eq!(a.contains(&"--permission-prompt-tool".into()), mode != Mode::Auto, "{mode:?}");
