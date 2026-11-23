@@ -1204,6 +1204,10 @@ apps/desktop/src/main/a-voice-call-talks-as-the-teammate.test.ts	sends the ask i
 apps/desktop/src/main/a-voice-call-talks-as-the-teammate.test.ts	refuses any other conversation of the person's, and every one once the call has ended	yes
 apps/desktop/src/main/a-voice-call-talks-as-the-teammate.test.ts	is one of ChatGPT's nine, kept, carried by an edit that does not mention it, and removed by null	yes
 apps/desktop/src/main/a-voice-call-talks-as-the-teammate.test.ts	speak as the teammate, and never guess what anything says before the work reports it	yes
+apps/desktop/src/main/a-voice-is-heard-before-it-is-chosen.test.ts	keeps a short recording for one of the nine and gives it back whole	yes
+apps/desktop/src/main/a-voice-is-heard-before-it-is-chosen.test.ts	refuses any other voice, and anything that is not a short WebM recording	yes
+apps/desktop/src/main/a-voice-is-heard-before-it-is-chosen.test.ts	makes the hello once, by one caller at a time, and again only after a failure	yes
+apps/desktop/src/main/a-voice-is-heard-before-it-is-chosen.test.ts	hands PowerShell its script encoded, so no quote in the path is ever parsed	yes
 apps/desktop/src/main/a-web-search-asks-in-its-own-words.test.ts	a search names its words, and says nothing changes	yes
 apps/desktop/src/main/a-web-search-asks-in-its-own-words.test.ts	a page names its site, and shows the whole address to be read	yes
 apps/desktop/src/main/a-web-search-asks-in-its-own-words.test.ts	an address that does not parse still asks, without a site	yes

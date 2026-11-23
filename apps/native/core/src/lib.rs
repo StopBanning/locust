@@ -510,6 +510,7 @@ pub mod voice_call_folder;
 pub mod voice_typing;
 pub mod voice_transcript;
 pub mod voice_audio;
+pub mod voice_preview;
 pub mod talk_shortcut;
 #[cfg(test)]
 mod window_bounds_tests;
