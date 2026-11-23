@@ -194,6 +194,9 @@ fn run(s: &mut State, target: &str, action: &str, tx: &mut Tx) {
     if crate::header_menu::run(s, action) {
         return;
     }
+    if crate::rail::run_needs_you_action(s, action, tx) {
+        return;
+    }
     match action {
         "" => {}
         "open" => peer_thread::open_mission_by_id(s, target.to_owned(), tx),

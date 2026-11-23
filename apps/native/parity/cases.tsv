@@ -5681,6 +5681,8 @@ apps/desktop/src/renderer/src/the-thinking-dots-never-jump.test.ts	never move fa
 apps/desktop/src/renderer/src/the-thinking-dots-never-jump.test.ts	hold still while the face looks about, then bounce in turn: the loop itself is kept	yes
 apps/desktop/src/renderer/src/the-title-bar-is-a-macs-on-a-mac.test.tsx	draws no window controls of its own, and nothing in its left column	yes
 apps/desktop/src/renderer/src/the-title-bar-is-a-macs-on-a-mac.test.tsx	still draws its own on Windows and Linux (control)	no
+apps/desktop/src/renderer/src/the-title-bar-says-what-needs-you.test.tsx	says how many things wait on you, as a button that opens their list, before what is running	yes
+apps/desktop/src/renderer/src/the-title-bar-says-what-needs-you.test.tsx	says nothing when nothing waits, or when there is no list to open	yes
 apps/desktop/src/renderer/src/the-way-down-says-a-run-is-still-working.test.tsx	wears the thinking dots while the run works, and says so to a screen reader	yes
 apps/desktop/src/renderer/src/the-way-down-says-a-run-is-still-working.test.tsx	is the plain chevron when nothing is running, and absent at the bottom	yes
 apps/desktop/src/renderer/src/the-way-down-says-a-run-is-still-working.test.tsx	brings the chevron back on hover and keyboard focus, where it is about to be pressed	yes
