@@ -1,5 +1,6 @@
 //! Busy and quiet free-model offers in the thread (`a-busy-free-model-offers-the-next`, `a-free-model-that-says-nothing-is-offered-another`).
 use super::*;
+use locust_core::connectors_off::{self, FREE_START_RUNTIME, LimitModelWhy, RetiredMission};
 
 fn is_busy_note(level: &str, text: &str) -> bool {
     level == "warning"
@@ -13,6 +14,7 @@ fn parse_rfc3339_ms(s: &str) -> Option<i64> {
 fn opencode_models(s: &State, teammate_id: &str) -> Vec<locust_core::engine::Model> {
     s.models
         .get(teammate_id)
+        .or_else(|| s.models.get(CARRY_TARGET))
         .into_iter()
         .flatten()
         .find(|a| a.runtime == "opencode")
@@ -60,6 +62,84 @@ fn offer_button(
         })
 }
 
+/// Which ended free run can offer to put its prompt back in the composer.
+pub(super) fn failed_free_model(s: &State) -> Option<(&ledger::Metadata, LimitModelWhy)> {
+    if turn_running(s) || s.sending.is_pending() {
+        return None;
+    }
+    let pane = s.ledger.as_ref()?;
+    let turn = pane.snapshot.turn_metas.last()?;
+    if turn.runtime != FREE_START_RUNTIME
+        || !turn.model.starts_with("opencode/")
+        || !turn.model.ends_with("-free")
+        || s.picks.get(&pane.header.id).is_some_and(|pick| pick.model != turn.model)
+    {
+        return None;
+    }
+    let ledger::RunEnd::Failed { message, at_limit } = pane.snapshot.run_end.as_ref()? else {
+        return None;
+    };
+    let why = if connectors_off::model_retired(message) {
+        LimitModelWhy::Retired
+    } else if connectors_off::model_unavailable(message) {
+        LimitModelWhy::Down
+    } else if *at_limit {
+        LimitModelWhy::Limit
+    } else {
+        return None;
+    };
+    Some((turn, why))
+}
+
+pub(super) fn limit_replacement(s: &State, now_ms: i64) -> Option<(LimitModelWhy, String)> {
+    let (turn, why) = failed_free_model(s)?;
+    let teammate = &s.ledger.as_ref()?.header.id;
+    let mut models = opencode_models(s, teammate);
+    let history: Vec<_> = s.ledger_summaries.values().filter_map(RetiredMission::from_summary).collect();
+    let down = connectors_off::down_free_models(&history, now_ms);
+    let next = if why == LimitModelWhy::Retired {
+        models.retain(|model| model.id != turn.model);
+        connectors_off::free_start_model(
+            &turn.runtime, &models, &crate::thread_view::free_models_answered_here(s), &down,
+        )?
+    } else {
+        let down: Vec<_> = down.into_iter().collect();
+        locust_core::route_rows::next_free_model(&turn.runtime, Some(&turn.model), &models, &down)?.id.clone()
+    };
+    Some((why, next))
+}
+
+fn limit_offer(s: &State, p: &Palette, now_ms: i64) -> Option<El> {
+    let (why, next) = limit_replacement(s, now_ms)?;
+    let pane = s.ledger.as_ref()?;
+    let turn = pane.snapshot.turn_metas.last()?;
+    let teammate = pane.header.id.clone();
+    let tip = turn.mission_id.clone();
+    let (prompt, attachments) = locust_core::attachments::split_attachments(&turn.prompt);
+    let label = format!("Switch to {}", connectors_off::opencode_model_display_name(&next));
+    let look = crate::look::controls::Look::new(p.dark);
+    Some(row().key("limit-model-offer").w_full().max_w(720.0).px(24.0).pb(12.0)
+        .gap(10.0).center_y()
+        .child(text(connectors_off::limit_model_offer_sentence(Some(why)))
+            .font(type_::LABEL).color(p.muted).grow(1.0).shrink().wrap())
+        .child(crate::look::controls::button(&look, &label, crate::look::controls::Tone::Neutral, false)
+            .key("limit-model-switch")
+            .on_press(move |s: &mut State| {
+                if !failed_free_model(s).is_some_and(|(turn, _)| turn.mission_id == tip) {
+                    return;
+                }
+                s.picks.insert(teammate.clone(), TurnPick {
+                    runtime: Some(FREE_START_RUNTIME.into()),
+                    model: next.clone(),
+                    effort: None,
+                    account: Some(None),
+                });
+                s.draft.replace_text(prompt.clone());
+                s.attached.clone_from(&attachments);
+                s.draft.focused = true;
+            })))
+}
+
 pub(super) fn view(s: &State, p: &Palette) -> Option<El> {
     view_at(s, p, chrono::Utc::now().timestamp_millis())
 }
@@ -67,7 +147,7 @@ pub(super) fn view(s: &State, p: &Palette) -> Option<El> {
 fn view_at(s: &State, p: &Palette, now_ms: i64) -> Option<El> {
     let pane = s.ledger.as_ref()?;
     if !turn_running(s) {
-        return None;
+        return limit_offer(s, p, now_ms);
     }
     let teammate_id = pane.header.id.clone();
     let last_meta = pane.snapshot.turn_metas.last();
@@ -417,3 +497,7 @@ mod tests {
         assert!(rt_tool.find("quiet-turn-row").is_none());
     }
 }
+
+#[cfg(test)]
+#[path = "free_offer_limit_tests.rs"]
+mod limit_tests;

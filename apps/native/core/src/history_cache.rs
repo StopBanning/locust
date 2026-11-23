@@ -375,6 +375,8 @@ fn parse_file(path: &Path, modified: SystemTime, stamp: (u64, u128)) -> CachedFi
         created_at: m.created_at,
         running,
         failed,
+        run_end: ledger::RunEnd::latest(ordered_events.iter()),
+        integrity_issues: !issues.is_empty(),
         cancelled,
         updated,
         started_by_kind: m.started_by_kind,
@@ -650,3 +652,7 @@ mod torn_listing_tests;
 #[cfg(test)]
 #[path = "unreadable_count_tests.rs"]
 mod unreadable_count_tests;
+
+#[cfg(test)]
+#[path = "shelf_reader_tests.rs"]
+mod shelf_reader_tests;

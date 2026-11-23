@@ -2,6 +2,7 @@
 //! (Electron `renderer/src/components/Inspector.tsx`, PARITY row 26).
 
 use super::*;
+use locust_core::ran_on::{folder_name, ran_on_line};
 use locust_core::inspector::{
     self, RunReport, SignalTone, build_conversation_reports, checkpoint_label, no_artifacts_line,
     short_mission_id,
@@ -381,6 +382,17 @@ pub(super) fn panel(s: &State, p: &Palette) -> Option<El> {
                             .wrap(),
                     );
                 } else {
+                    let cwd = s.ledger.as_ref().and_then(|pane| {
+                        pane.snapshot.turn_metas.iter()
+                            .find(|turn| turn.mission_id == report.mission_id)?
+                            .cwd.as_deref()
+                    });
+                    let folder = folder_name(cwd);
+                    let platform = match std::env::consts::OS {
+                        "macos" => "darwin",
+                        "windows" => "win32",
+                        other => other,
+                    };
                     let cp_line = if report.checkpoints_count == 0 {
                         "none written".to_owned()
                     } else if let Some(epoch) = report.last_checkpoint_epoch {
@@ -390,6 +402,7 @@ pub(super) fn panel(s: &State, p: &Palette) -> Option<El> {
                     };
                     body = body
                         .child(detail_row("Phase", report.phase.clone(), false, p))
+                        .child(detail_row("Ran on", ran_on_line(platform, folder.as_deref()), true, p))
                         .child(detail_row("Checkpoints", cp_line, false, p))
                         .child(detail_row("Events", report.event_count.to_string(), false, p))
                         .child(detail_row("Ledger", report.ledger_label.to_owned(), false, p));
@@ -410,3 +423,7 @@ pub(super) fn panel(s: &State, p: &Palette) -> Option<El> {
             .child(body),
     )
 }
+
+#[cfg(test)]
+#[path = "inspector_panel_receipt_tests.rs"]
+mod receipt_tests;

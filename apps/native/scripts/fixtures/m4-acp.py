@@ -36,9 +36,16 @@ for line in sys.stdin:
         if scenario == 'oversize':
             print('x' * (8*1024*1024+1),flush=True)
             continue
-        if scenario == 'flood':
-            for _ in range(10000):
-                update(sessionUpdate='agent_message_chunk',content=dict(type='text',text='x'))
+        if scenario in ('burst', 'flood'):
+            # Queue records for another session, then finish with one visible reply.
+            # Write the repeated frame in bulk so the reader can fill its queue.
+            count = 19000 if scenario == 'burst' else 25000
+            frame = dict(jsonrpc='2.0', method='session/update', params=dict(
+                sessionId='other', update=dict(
+                    sessionUpdate='agent_message_chunk', content=dict(type='text', text='x'))))
+            sys.stdout.write((json.dumps(frame) + '\n') * count)
+            update(sessionUpdate='agent_message_chunk', content=dict(type='text', text='Burst complete.'))
+            answer(v, dict(stopReason='end_turn'))
             continue
         if scenario == 'lost':
             sys.exit(0)

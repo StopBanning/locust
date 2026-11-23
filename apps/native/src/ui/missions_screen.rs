@@ -113,8 +113,8 @@ pub(crate) fn list_tone(view: MissionPhaseView) -> &'static str {
 }
 
 /// `missionPhaseView` + `listTone`: the tag's word and its colour token (a settled Completed is quiet in a list).
-pub(crate) fn tag(phase: &str) -> (&'static str, &'static str) {
-    let view = mission_phase_view(phase, false);
+fn phase_tag(phase: &str, integrity_issues: bool) -> (&'static str, &'static str) {
+    let view = mission_phase_view(phase, integrity_issues);
     let color = match list_tone(view) {
         "live" => "text-primary",
         "red" => "red-text",
@@ -122,6 +122,11 @@ pub(crate) fn tag(phase: &str) -> (&'static str, &'static str) {
         _ => "text-muted",
     };
     (view.label, color)
+}
+
+#[cfg(test)]
+pub(crate) fn tag(phase: &str) -> (&'static str, &'static str) {
+    phase_tag(phase, false)
 }
 
 /// `matchesFilter`.
@@ -498,7 +503,8 @@ fn mission_row(
     let key = entry.key.clone();
     let is_picked = s.missions.picked.contains(&key);
     let live = entry.members.iter().any(|id| running.contains(id));
-    let (word, ink) = tag(phase(s, &entry.leaf, running));
+    let integrity_issues = s.ledger_summaries.get(&entry.leaf).is_some_and(|mission| mission.integrity_issues);
+    let (word, ink) = phase_tag(phase(s, &entry.leaf, running), integrity_issues);
     let owner = owner_of(s, entry).and_then(|id| s.teammates.iter().find(|t| t.id == id)).map(|t| t.name.clone());
     let mut wrap = row()
         .key(format!("missions-row-{key}"))
@@ -615,3 +621,7 @@ mod missions_screen_tests;
 #[cfg(test)]
 #[path = "design_pass_holds_tests.rs"]
 mod design_pass_holds_tests;
+
+#[cfg(test)]
+#[path = "missions_screen_integrity_tests.rs"]
+mod integrity_tests;

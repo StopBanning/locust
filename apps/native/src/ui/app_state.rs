@@ -123,6 +123,66 @@ pub(super) struct OwnTurn {
     pub(super) before: Option<String>,
 }
 
+/// Runtime catalogues are kept as listed so a model can return after a later successful run.
+pub(super) struct ModelCatalogues {
+    listed: HashMap<String, Vec<engine::Models>>,
+    visible: HashMap<String, Vec<engine::Models>>,
+    retired: std::collections::HashSet<String>,
+}
+
+impl Default for ModelCatalogues {
+    fn default() -> Self {
+        Self {
+            listed: HashMap::new(),
+            visible: HashMap::new(),
+            retired: locust_core::connectors_off::retired_free_models(&[]),
+        }
+    }
+}
+
+impl std::ops::Deref for ModelCatalogues {
+    type Target = HashMap<String, Vec<engine::Models>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.visible
+    }
+}
+
+impl ModelCatalogues {
+    pub(super) fn insert(&mut self, id: String, models: Vec<engine::Models>) {
+        self.visible.insert(id.clone(), self.visible_models(models.clone()));
+        self.listed.insert(id, models);
+    }
+
+    pub(super) fn remove(&mut self, id: &str) {
+        self.visible.remove(id);
+        self.listed.remove(id);
+    }
+
+    pub(super) fn update_retired(&mut self, retired: std::collections::HashSet<String>) {
+        if self.retired != retired {
+            self.retired = retired;
+            self.visible = self.listed.iter().map(|(id, models)| {
+                (id.clone(), self.visible_models(models.clone()))
+            }).collect();
+        }
+    }
+
+    fn visible_models(&self, mut models: Vec<engine::Models>) -> Vec<engine::Models> {
+        for agent in &mut models {
+            if agent.runtime == locust_core::connectors_off::FREE_START_RUNTIME {
+                agent.models.retain(|model| !self.retired.contains(&model.id));
+            }
+        }
+        models
+    }
+
+    #[cfg(test)]
+    pub(super) fn get_mut(&mut self, id: &str) -> Option<&mut Vec<engine::Models>> {
+        self.visible.get_mut(id)
+    }
+}
+
 pub(super) struct State {
     pub(super) scout: crate::scout_cards::Panel,
     pub(super) routines: crate::routines_panel::Panel,
@@ -242,7 +302,7 @@ pub(super) struct State {
     /// A tracker status in a reply being changed: its strip of other statuses is open (reply_actions::StatusChange).
     pub(super) status_change: Option<crate::reply_actions::StatusChange>,
     pub(super) picks: HashMap<String, TurnPick>,
-    pub(super) models: HashMap<String, Vec<engine::Models>>,
+    pub(super) models: ModelCatalogues,
     pub(super) limited_runtimes: HashMap<String, String>,
     pub(super) model_menu: Option<String>,
     /// What the person typed in the model picker's search.
@@ -558,7 +618,7 @@ impl Default for State {
             draft: TextEdit::new(""),
             status_change: None,
             picks: HashMap::new(),
-            models: HashMap::new(),
+            models: ModelCatalogues::default(),
             limited_runtimes: HashMap::new(),
             model_menu: None,
             model_query: TextEdit::default(),
