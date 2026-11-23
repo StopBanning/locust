@@ -2088,7 +2088,7 @@ fn open_pressed_notification(s: &mut State, tx: &mut Tx) -> bool {
 
 fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     s.prompt_rail.tick(std::time::Instant::now());
-    let seen = home_panel::mark_seen_if_looking(s);
+    let seen = home_panel::mark_seen_if_looking(s) | home_panel::poll_cover(s, tx);
     if s.demo {
         return seen;
     }
