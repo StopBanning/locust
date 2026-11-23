@@ -188,11 +188,14 @@ pub(super) fn composer_omissions(s: &State, teammate: &Teammate, p: &Palette) ->
     } else {
         format!("{} and {}", kept[..kept.len() - 1].join(", "), kept.last().unwrap())
     };
-    let mut parts_row = row().w_full().wrap().center_y().gap(6.0).child(
-        text(preview_line(s).unwrap_or_else(|| format!("It carries {carried_line}.")))
-            .font(l.ty.label)
-            .color(l.c("text-muted")),
-    );
+    // LIVE2 #2 (23 Nov): on one row the long line pushed the buttons off the window's edge at 1200 wide. The line wraps
+    // on its own row; the buttons wrap on theirs.
+    let carried = text(preview_line(s).unwrap_or_else(|| format!("It carries {carried_line}.")))
+        .font(l.ty.label)
+        .color(l.c("text-muted"))
+        .wrap()
+        .w_full();
+    let mut parts_row = row().w_full().wrap().center_y().gap(6.0);
     for (name, words) in sections {
         let omitted = s.left_out_by_you.iter().any(|x| x == name);
         if omitted {
@@ -223,6 +226,7 @@ pub(super) fn composer_omissions(s: &State, teammate: &Teammate, p: &Palette) ->
         .py(6.0)
         .radius(6.0)
         .fill(l.c("bg-raised"))
+        .child(carried)
         .child(parts_row);
 
     if !s.left_out_by_you.is_empty() {
@@ -304,6 +308,25 @@ mod tests {
             let expected=if count==1 {"1 action had started and never reported back. Claude Code was told to check it before building on it."}else{"2 actions had started and never reported back. Claude Code was told to check them before building on them."};
             assert!(text.contains(expected),"{text}");
             assert!(!text.contains("Nothing was in flight"),"{text}");
+        }
+    }
+
+    /// LIVE2 #2 (23 Nov): at 1200 wide the "Leave out ..." buttons ran off the window's right edge behind the long
+    /// "It carries ..." line. Every button stays inside the window at the three drive sizes.
+    #[test]
+    fn the_leave_out_buttons_stay_inside_the_window() {
+        for (w, h) in [(1040.0, 700.0), (1200.0, 800.0), (1600.0, 1000.0)] {
+            let mut s = State::default();
+            crate::scenes::reviews_handed_scene(&mut s);
+            let mut rt = rune::Runtime::new(s, crate::view, (w, h), rune::Env::new(true, 1.0));
+            rt.frame(0.0);
+            let buttons: Vec<_> = rt.elements().into_iter()
+                .filter(|e| !e.exiting && e.key.as_deref().is_some_and(|k| k.starts_with("handoff-omit-")))
+                .collect();
+            assert!(!buttons.is_empty(), "the scene shows the leave-out buttons at {w}");
+            for b in buttons {
+                assert!(b.rect[0] + b.rect[2] <= w + 0.5, "{:?} ends at {} past {w}", b.key, b.rect[0] + b.rect[2]);
+            }
         }
     }
 

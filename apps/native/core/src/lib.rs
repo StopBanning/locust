@@ -19,6 +19,8 @@ pub mod attachments;
 pub mod attachments_for_run;
 pub mod attention;
 pub mod away;
+#[cfg(test)]
+mod away_when_tests;
 pub mod benchmark;
 pub mod browser;
 pub mod browser_point;
@@ -249,6 +251,8 @@ pub mod teammate_setup;
 pub mod teammate_skills;
 pub mod terminal;
 pub mod time_marker;
+#[cfg(test)]
+mod clock_tests;
 #[cfg(test)]
 mod rail_clock_tests;
 pub mod trash;

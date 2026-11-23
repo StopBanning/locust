@@ -9,9 +9,9 @@ fn iso(s: &str) -> Option<DateTime<Utc>> {
     DateTime::parse_from_rfc3339(s.trim()).ok().map(|t| t.with_timezone(&Utc))
 }
 
-/// `14:44`, in this computer's timezone (`clockTime`).
+/// `2:44 PM`, in this computer's timezone (`clockTime`, 12-hour since 0.882).
 pub fn clock_time(at: DateTime<Utc>) -> String {
-    at.with_timezone(&Local).format("%H:%M").to_string()
+    crate::time_marker::clock(&at.with_timezone(&Local), false)
 }
 
 fn label_at(at: DateTime<Utc>, now: DateTime<Utc>) -> String {

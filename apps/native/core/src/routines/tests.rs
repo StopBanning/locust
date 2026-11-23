@@ -161,27 +161,27 @@ fn exact_card_words_and_resumed_clock() {
         (Value::Null, "when you press Run"),
         (json!({"kind":"every","hours":1}), "every hour"),
         (json!({"kind":"every","hours":8}), "every 8 hours"),
-        (json!({"kind":"daily","at":"07:45"}), "daily at 07:45"),
+        (json!({"kind":"daily","at":"07:45"}), "daily at 7:45 AM"),
         (
             json!({"kind":"weekly","days":[1,2,3,4,5],"at":"09:00"}),
-            "weekdays at 09:00",
+            "weekdays at 9:00 AM",
         ),
         (
             json!({"kind":"weekly","days":[0,6],"at":"10:30"}),
-            "weekends at 10:30",
+            "weekends at 10:30 AM",
         ),
         (
             json!({"kind":"weekly","days":[0,1,3],"at":"08:00"}),
-            "Mon, Wed, Sun at 08:00",
+            "Mon, Wed, Sun at 8:00 AM",
         ),
         (
             json!({"kind":"once","on":"2026-10-07T15:00"}),
-            "once, Wed Oct 7 at 15:00",
+            "once, Wed Oct 7 at 3:00 PM",
         ),
         // Spring-forward gap: label keeps the picked 02:30, not the shifted wall clock.
         (
             json!({"kind":"once","on":"2026-03-08T02:30"}),
-            "once, Sun Mar 8 at 02:30",
+            "once, Sun Mar 8 at 2:30 AM",
         ),
     ] {
         assert_eq!(schedule::label(&s), expected);
@@ -523,10 +523,10 @@ fn names_the_rule_and_the_next_run_in_local_clock_words_today_tomorrow_a_weekday
         if let Some(l) = last { r["lastRunAt"] = serde_json::json!(l.to_rfc3339()); }
         schedule::summary(&r, now)
     };
-    assert_eq!(with(serde_json::json!({"kind": "daily", "at": "09:30"}), None).as_deref(), Some("daily at 09:30 · next 09:30"));
-    assert_eq!(with(serde_json::json!({"kind": "daily", "at": "07:00"}), Some(at(2026, 9, 5, 7, 1))).as_deref(), Some("daily at 07:00 · next tomorrow 07:00"));
-    assert_eq!(with(serde_json::json!({"kind": "every", "hours": 4}), Some(at(2026, 9, 5, 6, 0))).as_deref(), Some("every 4 hours · next 10:00"));
-    assert_eq!(with(serde_json::json!({"kind": "every", "hours": 168}), Some(at(2026, 9, 5, 6, 0))).as_deref(), Some("every 168 hours · next Sat 06:00"));
+    assert_eq!(with(serde_json::json!({"kind": "daily", "at": "09:30"}), None).as_deref(), Some("daily at 9:30 AM · next 9:30 AM"));
+    assert_eq!(with(serde_json::json!({"kind": "daily", "at": "07:00"}), Some(at(2026, 9, 5, 7, 1))).as_deref(), Some("daily at 7:00 AM · next tomorrow 7:00 AM"));
+    assert_eq!(with(serde_json::json!({"kind": "every", "hours": 4}), Some(at(2026, 9, 5, 6, 0))).as_deref(), Some("every 4 hours · next 10:00 AM"));
+    assert_eq!(with(serde_json::json!({"kind": "every", "hours": 168}), Some(at(2026, 9, 5, 6, 0))).as_deref(), Some("every 168 hours · next Sat 6:00 AM"));
     assert_eq!(with(serde_json::json!({"kind": "every", "hours": 1}), None).as_deref(), Some("every hour · due now"));
 }
 

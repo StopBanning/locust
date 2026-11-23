@@ -1282,7 +1282,7 @@ mod paused {
         let files = saved(json!({"name": "Watcher", "schedule": {"kind": "files", "folder": "inbox"}}));
         let paused = saved(json!({"name": "Asleep", "paused": true, "schedule": {"kind": "daily", "at": "07:30"}}));
         let routines = [daily("Later", "09:30"), files, paused, daily("Soonest", "08:00")];
-        assert_eq!(crate::routines::schedule::next_routine_due_line(&routines, now), "Next: Soonest at 08:00");
+        assert_eq!(crate::routines::schedule::next_routine_due_line(&routines, now), "Next: Soonest at 8:00 AM");
         assert_eq!(crate::routines::schedule::next_routine_due_line(&[], now), "No routine due");
     }
 

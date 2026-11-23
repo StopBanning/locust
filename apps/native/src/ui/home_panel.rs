@@ -1727,11 +1727,8 @@ pub(super) fn whats_new_settings(s: &State, p: &Palette) -> El {
                 );
             }
             body = body.child(
-                text(group.text.clone())
-                    .font(type_::LABEL)
-                    .color(p.muted)
-                    .wrap()
-                    .padding(2.0),
+                // WhatsNew.tsx draws each group through AgentText: its Markdown, never the raw `**`.
+                col().w_full().padding(2.0).child(rune_kit::Markdown::new(group.text.clone()).selectable(true).render(&markdown_style(p)).w_full()),
             );
         }
     }
@@ -1773,10 +1770,8 @@ pub(super) fn splash_view(s: &State, p: &Palette) -> El {
         );
         for group in &entry.groups {
             body = body.child(
-                text(group.text.clone())
-                    .font(type_::LABEL)
-                    .color(p.muted)
-                    .wrap(),
+                // WhatsNew.tsx draws each group through AgentText: its Markdown, never the raw `**`.
+                rune_kit::Markdown::new(group.text.clone()).selectable(true).render(&markdown_style(p)).w_full(),
             );
         }
     }

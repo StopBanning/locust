@@ -175,7 +175,7 @@ fn says_waiting_for_your_ok_on_the_routine_row() {
     daily["schedule"] = json!({"kind": "daily", "at": "09:00"});
     let all = draw(screen(vec![daily], None));
     assert!(shown(&all, "routine-chain-rt_ship").is_some_and(|t| t.ends_with(" · 2 steps · waiting for your OK · 3 completed runs")));
-    assert_eq!(shown(&all, "routine-when-rt_ship").as_deref(), Some("daily at 09:00 · waiting for your OK"));
+    assert_eq!(shown(&all, "routine-when-rt_ship").as_deref(), Some("daily at 9:00 AM · waiting for your OK"));
 }
 
 #[test]

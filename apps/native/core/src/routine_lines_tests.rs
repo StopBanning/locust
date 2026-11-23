@@ -34,18 +34,18 @@ fn a_paused_routine_says_so_on_its_schedule_chip_in_place_of_its_next_time() {
 #[test]
 fn a_paused_routine_counts_its_next_time_from_a_resume() {
     let resumed = saved(json!({"resumedAt": at(2026, 10, 3, 8, 30).to_rfc3339()}));
-    assert_eq!(summary(&resumed, at(2026, 10, 3, 9, 0)).as_deref(), Some("every hour · next 09:30"));
+    assert_eq!(summary(&resumed, at(2026, 10, 3, 9, 0)).as_deref(), Some("every hour · next 9:30 AM"));
 }
 
 #[test]
 fn a_missed_routine_says_missed_0800_today() {
     let now = at(2026, 10, 3, 9, 0);
     let missed = at(2026, 10, 3, 8, 0).to_rfc3339();
-    assert_eq!(missed_line(&missed, now).as_deref(), Some("Missed, 08:00 today"));
+    assert_eq!(missed_line(&missed, now).as_deref(), Some("Missed, 8:00 AM today"));
     let routine = saved(json!({"schedule": {"kind": "daily", "at": "08:00"}, "lastRunAt": missed, "missedAt": missed}));
-    assert_eq!(summary(&routine, now).as_deref(), Some("Missed, 08:00 today"));
-    assert_eq!(missed_line(&at(2026, 10, 2, 8, 0).to_rfc3339(), now).as_deref(), Some("Missed, 08:00 yesterday"));
-    assert_eq!(missed_line(&at(2026, 9, 29, 8, 0).to_rfc3339(), now).as_deref(), Some("Missed, Tue 08:00"));
+    assert_eq!(summary(&routine, now).as_deref(), Some("Missed, 8:00 AM today"));
+    assert_eq!(missed_line(&at(2026, 10, 2, 8, 0).to_rfc3339(), now).as_deref(), Some("Missed, 8:00 AM yesterday"));
+    assert_eq!(missed_line(&at(2026, 9, 29, 8, 0).to_rfc3339(), now).as_deref(), Some("Missed, Tue 8:00 AM"));
     assert_eq!(missed_line("not a time", now), None);
 }
 

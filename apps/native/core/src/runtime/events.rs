@@ -564,7 +564,7 @@ impl Normalizer {
                                 .map(|r| {
                                     format!(
                                         ", resets {}",
-                                        r.with_timezone(&chrono::Local).format("%H:%M")
+                                        crate::time_marker::clock(&r.with_timezone(&chrono::Local), false)
                                     )
                                 })
                                 .unwrap_or_default();

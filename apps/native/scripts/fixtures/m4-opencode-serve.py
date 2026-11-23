@@ -131,6 +131,10 @@ class Handler(BaseHTTPRequestHandler):
                     publish({'type': 'permission.asked', 'properties': {'sessionID': sid, 'id': 'perm1', 'permission': 'bash', 'patterns': ['echo hi'], 'metadata': {'command': 'echo hi'}}})
                     return
                 publish({'type': 'message.part.updated', 'properties': {'sessionID': sid, 'part': {'id': 'prt_1', 'type': 'step-start', 'messageID': 'msg_a', 'sessionID': sid}}})
+                if scenario == 'flood':
+                    # LIVE2 #12: a burst far past 256 while the engine is busy must wait, not end the run.
+                    for _ in range(1000):
+                        publish({'type': 'session.status', 'properties': {'sessionID': sid, 'status': {'type': 'busy'}}})
                 publish({'type': 'message.part.delta', 'properties': {'sessionID': sid, 'partID': 'prt_2', 'messageID': 'msg_a', 'field': 'text', 'delta': 'Served '}})
                 publish({'type': 'message.part.delta', 'properties': {'sessionID': sid, 'partID': 'prt_2', 'messageID': 'msg_a', 'field': 'text', 'delta': 'hello.'}})
                 publish({'type': 'message.part.updated', 'properties': {'sessionID': sid, 'part': {'id': 'prt_2', 'type': 'text', 'text': 'Served hello.', 'messageID': 'msg_a', 'sessionID': sid, 'time': {'end': 1}}}})

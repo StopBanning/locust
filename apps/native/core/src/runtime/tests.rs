@@ -202,6 +202,11 @@ fn snapshot_limits_are_deduplicated_and_raw_content_deltas_are_ignored() {
     assert_eq!(first.len(), 2);
     assert_eq!(first[1].kind, "route.limit_detected");
     assert_eq!(first[1].payload["kind"], "quota-exhausted");
+    // 24c94c0e: the reset time is said 12-hour, in this computer's clock ("resets 5:34 PM").
+    let at = chrono::DateTime::from_timestamp(1_800_000_000, 0).unwrap().with_timezone(&chrono::Local);
+    let message = first[1].payload["message"].as_str().unwrap();
+    assert!(message.ends_with(&format!(", resets {}", crate::time_marker::clock(&at, false))), "{message}");
+    assert!(message.ends_with(" AM") || message.ends_with(" PM"), "{message}");
     assert!(n.accept("account/rateLimits/updated", &params).is_empty());
     assert!(
         n.accept(
