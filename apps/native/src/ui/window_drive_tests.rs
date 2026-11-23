@@ -2976,9 +2976,22 @@ fn github_signs_in_from_the_connectors_card_with_the_code_gh_prints() {
 }
 
 #[test]
+fn settings_opens_on_general_like_electron() {
+    // LIVE2 #11: Electron's Settings lands on General (Screens.tsx 1943, `initialPage ?? 'app'`), not Appearance.
+    let (_dirs, _store, mut rt) = window();
+    rt.update(|s, tx| crate::command_palette::run_palette_action(s, "settings", tx));
+    settle(&mut rt);
+    assert!(rt.state.settings_panel.open);
+    assert_eq!(rt.state.settings_panel.page, Some(crate::settings_pages::SettingsPageId::App));
+}
+
+#[test]
 fn choosing_a_theme_is_kept_after_restart() {
     let (_dirs, store, mut rt) = window();
-    rt.update(|s, _| crate::settings_panel::open(s));
+    rt.update(|s, _| {
+        crate::settings_panel::open(s);
+        s.settings_panel.page = crate::settings_pages::SettingsPageId::from_str("appearance");
+    });
     settle(&mut rt);
 
     click(&mut rt, "settings-theme-light");
@@ -2998,7 +3011,10 @@ fn choosing_a_theme_is_kept_after_restart() {
     s2.settings_panel.theme = prefs.theme;
     let mut rt2 = Runtime::new(s2, view, (1100.0, 780.0), Env::new(true, 1.0));
     rt2.frame(0.0);
-    rt2.update(|s, _| crate::settings_panel::open(s));
+    rt2.update(|s, _| {
+        crate::settings_panel::open(s);
+        s.settings_panel.page = crate::settings_pages::SettingsPageId::from_str("appearance");
+    });
     settle(&mut rt2);
 
     assert_eq!(rt2.state.appearance, Some(false));
@@ -3012,7 +3028,10 @@ fn choosing_a_theme_is_kept_after_restart() {
 #[test]
 fn choosing_paper_mono_is_kept_for_the_next_start_and_geist_comes_back() {
     let (_dirs, store, mut rt) = window();
-    rt.update(|s, _| crate::settings_panel::open(s));
+    rt.update(|s, _| {
+        crate::settings_panel::open(s);
+        s.settings_panel.page = crate::settings_pages::SettingsPageId::from_str("appearance");
+    });
     settle(&mut rt);
     assert_eq!(crate::workspace_settings::load(&store).unwrap().code_font, "geist");
 

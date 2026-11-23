@@ -116,7 +116,8 @@ pub(super) fn read_login_item(s: &mut State) {
 pub(super) fn open(s: &mut State) {
     crate::room_screen::close(s);
     s.settings_panel.open = true;
-    s.settings_panel.page = SettingsPageId::from_str("appearance");
+    // Electron Screens.tsx 1943: Settings opens on General (`app`) unless a caller names another page.
+    s.settings_panel.page = SettingsPageId::from_str("app");
     reload(s);
     build_update_service(s);
     if s.home.changelog.is_empty() {
