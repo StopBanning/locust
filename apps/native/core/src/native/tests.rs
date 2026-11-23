@@ -1793,6 +1793,42 @@ fn a_teammate_on_its_own_branch_in_a_folder_that_is_no_repository_is_refused_say
     assert!(ledgers(&t).is_empty(), "nothing was started");
 }
 
+// case: ledgerFailure.test.ts, drawn: a turn whose record cannot be made is refused in the card's words, and nothing ran
+#[test]
+fn a_turn_whose_record_cannot_be_made_is_refused_saying_locust_stopped_it_and_nothing_ran() {
+    let t = Temp::new();
+    let store = t.store();
+    // A plain file where the records folder belongs (drive-ledger-failure's own way of breaking it).
+    fs::create_dir_all(store.root()).unwrap();
+    let _ = fs::remove_dir_all(store.root().join("mission-ledger"));
+    fs::write(store.root().join("mission-ledger"), "not a directory").unwrap();
+    let _hook = hooks::install(store.clone(), fake("success"));
+    let refused = send(job(&t, None, "Synthetic prompt")).unwrap_err();
+    assert!(refused.ends_with(" Locust stopped the run rather than continue without a durable record."), "{refused}");
+    assert!(!crate::invariants::regex(r"(?i)\bheld\b|\bpaused\b").is_match(&refused), "{refused}");
+    assert!(refused.len() > " Locust stopped the run rather than continue without a durable record.".len(), "the host's reason is quoted: {refused}");
+}
+
+// case: ledgerFailure.test.ts, drawn: a record that stops taking writes mid-run stops the run, and the thread says so
+#[test]
+fn a_record_that_cannot_be_written_mid_run_stops_the_run_and_says_what_is_safe() {
+    use std::io::Write as _;
+    let t = Temp::new();
+    let store = t.store();
+    let _hook = hooks::install(store.clone(), fake("success"));
+    let started = send(job(&t, None, "Synthetic prompt")).unwrap();
+    let path = path_of(&t, &started.conversation_id);
+    // The fake says "Hello ", waits, then goes on: the record is changed under the writer in that wait.
+    wait("the first words", || kinds(&path).iter().any(|k| k == "message.delta"));
+    fs::OpenOptions::new().append(true).open(&path).unwrap().write_all(b"{\"recordType\":\"written.elsewhere\"}\n").unwrap();
+    let said = || relay_live_state(&[started.conversation_id.clone()]).notices.into_iter().map(|n| n.message).collect::<Vec<_>>();
+    wait("the failure is said", || said().iter().any(|m| m == crate::ledger_failure::TITLE));
+    let said = said();
+    assert!(said.iter().any(|m| m.ends_with("Locust stopped the run rather than continue without a durable record.")), "{said:?}");
+    assert!(said.iter().any(|m| m.starts_with("Not undone: Files the run already changed are still changed.")), "{said:?}");
+    assert!(!kinds(&path).iter().any(|k| k == "run.completed"), "nothing more is written: {:?}", kinds(&path));
+}
+
 #[test]
 fn slot_busy_check_refuses_second_turn_in_same_slot() {
     let t = Temp::new();

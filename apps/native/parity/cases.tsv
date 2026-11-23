@@ -3793,6 +3793,14 @@ apps/desktop/src/renderer/src/a-note-between-steps-renders-its-code.test.tsx	is 
 apps/desktop/src/renderer/src/a-note-between-steps-renders-its-code.test.tsx	which turns a fenced block into code, with no fences left as text	yes
 apps/desktop/src/renderer/src/a-note-can-be-left-in-the-changes-panel.test.ts	can be left in the Changes panel: it sits inside the notes of the conversation on screen	yes
 apps/desktop/src/renderer/src/a-note-can-be-left-in-the-changes-panel.test.ts	can be left in Review changes only for the teammate whose conversation is on screen	yes
+apps/desktop/src/renderer/src/a-notice-is-said-once.test.ts	is carried by the first turn that heard it	yes
+apps/desktop/src/renderer/src/a-notice-is-said-once.test.ts	is not said again by a later turn, while a new remark still is	yes
+apps/desktop/src/renderer/src/a-notice-is-said-once.test.ts	is one line a run, the newest figure, where the first one stood	yes
+apps/desktop/src/renderer/src/a-notice-is-said-once.test.ts	is said once a conversation -- Colin: "Once per convo"	yes
+apps/desktop/src/renderer/src/a-notice-is-said-once.test.ts	never hides a limit actually reached	yes
+apps/desktop/src/renderer/src/a-notice-is-said-once.test.ts	is known for what it is, and nothing else is	yes
+apps/desktop/src/renderer/src/a-notice-is-said-once.test.ts	never reaches a turn, not even the first	yes
+apps/desktop/src/renderer/src/a-notice-is-said-once.test.ts	is what its runtime's row in Settings shows, from its newest run	yes
 apps/desktop/src/renderer/src/a-page-a-teammate-made-runs-in-its-turn.test.tsx	opens a new web page, so it runs	yes
 apps/desktop/src/renderer/src/a-page-a-teammate-made-runs-in-its-turn.test.tsx	opens the page even when another file came first, and only the page	yes
 apps/desktop/src/renderer/src/a-page-a-teammate-made-runs-in-its-turn.test.tsx	stays folded in a comparison's cell, whose page runs above it	no
@@ -4024,6 +4032,8 @@ apps/desktop/src/renderer/src/a-runtime-gap-is-not-the-teammate.test.tsx	keeps e
 apps/desktop/src/renderer/src/a-runtime-gap-is-not-the-teammate.test.tsx	leaves a sentence that merely mentions truncation alone	yes
 apps/desktop/src/renderer/src/a-runtime-switch-shows-where-it-happened.test.tsx	names every runtime by its name	no
 apps/desktop/src/renderer/src/a-runtime-switch-shows-where-it-happened.test.tsx	takes the words typed on each side of the switch, never the host’s briefing	no
+apps/desktop/src/renderer/src/a-saved-turn-is-said-after-its-work.test.ts	is the last line of its turn, after the work and the answer	yes
+apps/desktop/src/renderer/src/a-saved-turn-is-said-after-its-work.test.ts	is still said when the turn drew no work of its own, never folded away	yes
 apps/desktop/src/renderer/src/a-scout-card-that-needs-you-is-on-the-board.test.tsx	sits above the conversation that is waiting, with Scout’s face and the actions Home gives a draft	no
 apps/desktop/src/renderer/src/a-scout-card-that-needs-you-is-on-the-board.test.tsx	offers Dismiss alone when the card has no draft, which is what Home does	no
 apps/desktop/src/renderer/src/a-scout-card-that-needs-you-is-on-the-board.test.tsx	is a Needs you column of its own when no conversation is waiting, and the board is not quiet	no
@@ -4581,6 +4591,19 @@ apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	draws nothing whe
 apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	lands each conversation in the column the sidebar mark already gives that row	no
 apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	puts a conversation waiting on you first, even while its run is live, and a finish not looked at since in Ready to look at	no
 apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	a finish to look at keeps the board up on its own; one looked at since does not (control)	no
+apps/desktop/src/renderer/src/cost.test.ts	adds every turn that reported a number, including the one still running	yes
+apps/desktop/src/renderer/src/cost.test.ts	counts the earlier turns while the current one has reported nothing yet	yes
+apps/desktop/src/renderer/src/cost.test.ts	says nothing when no turn reported anything, rather than zero	yes
+apps/desktop/src/renderer/src/cost.test.ts	reads token counts in either spelling	yes
+apps/desktop/src/renderer/src/cost.test.ts	reads Claude Code's dollars and Copilot's premium requests as their own units	yes
+apps/desktop/src/renderer/src/cost.test.ts	says nothing when the receipt carries nothing, rather than zero	yes
+apps/desktop/src/renderer/src/cost.test.ts	never reads a negative or non-numeric count	yes
+apps/desktop/src/renderer/src/cost.test.ts	prefers dollars, then premium requests, then tokens	yes
+apps/desktop/src/renderer/src/cost.test.ts	sums each unit it saw and ignores runs that reported nothing	yes
+apps/desktop/src/renderer/src/cost.test.ts	counts what the conversation held after its last call against the reported window	yes
+apps/desktop/src/renderer/src/cost.test.ts	says nothing at all when the runtime did not report a window	yes
+apps/desktop/src/renderer/src/cost.test.ts	takes the newest turn that reported one, never the sum of the turns	yes
+apps/desktop/src/renderer/src/cost.test.ts	says it in the words the tooltip uses	yes
 apps/desktop/src/renderer/src/diff.test.ts	reads an added file the way Cursor writes one	yes
 apps/desktop/src/renderer/src/diff.test.ts	reads a modified file with two hunks and their headings	yes
 apps/desktop/src/renderer/src/diff.test.ts	numbers lines from the hunk start, on each side	yes
@@ -4787,10 +4810,22 @@ apps/desktop/src/renderer/src/judges-see-the-check.test.tsx	joins a label moved 
 apps/desktop/src/renderer/src/judges-see-the-check.test.tsx	moves a label that would run into another from the other side, though their points are far apart (0.811)	no
 apps/desktop/src/renderer/src/judges-see-the-check.test.tsx	reads a model added under its own id by its name, and leaves a name the person wrote alone	yes
 apps/desktop/src/renderer/src/keyboardShortcuts.test.ts	groups them for a person, and every row is a key the code actually handles	no
+apps/desktop/src/renderer/src/last-activity.test.ts	is the last event, when there is one	yes
+apps/desktop/src/renderer/src/last-activity.test.ts	falls back to when it was made, for a run that has said nothing	yes
+apps/desktop/src/renderer/src/last-activity.test.ts	never goes BACKWARDS from the creation time	yes
+apps/desktop/src/renderer/src/last-activity.test.ts	puts a long working conversation above a newer idle one	yes
 apps/desktop/src/renderer/src/layout.test.ts	follows the width when nobody has chosen	yes
 apps/desktop/src/renderer/src/layout.test.ts	covers the smallest window the app will open	yes
 apps/desktop/src/renderer/src/layout.test.ts	lets a choice win at every width, in both directions	yes
 apps/desktop/src/renderer/src/layout.test.ts	recognises only the three preferences it can honour	yes
+apps/desktop/src/renderer/src/ledgerFailure.test.ts	never says a run was held, because it was stopped	yes
+apps/desktop/src/renderer/src/ledgerFailure.test.ts	quotes the host rather than guessing at a cause	yes
+apps/desktop/src/renderer/src/ledgerFailure.test.ts	states the safe half without inventing a checkpoint number	yes
+apps/desktop/src/renderer/src/ledgerFailure.test.ts	uses the checkpoint count when it genuinely has one	yes
+apps/desktop/src/renderer/src/ledgerFailure.test.ts	says plainly that stopping did not undo the files already changed	yes
+apps/desktop/src/renderer/src/ledgerFailure.test.ts	does not offer to reopen a mission that was never written	yes
+apps/desktop/src/renderer/src/ledgerFailure.test.ts	still offers the mid-run copy when something WAS written	yes
+apps/desktop/src/renderer/src/ledgerFailure.test.ts	admits the app cannot say what was lost	yes
 apps/desktop/src/renderer/src/links-go-somewhere.test.ts	is a link, not four asterisks and a URL	yes
 apps/desktop/src/renderer/src/links-go-somewhere.test.ts	works for bold as well as italic	yes
 apps/desktop/src/renderer/src/links-go-somewhere.test.ts	leaves a plain link and plain emphasis exactly as they were	yes
@@ -5134,6 +5169,9 @@ apps/desktop/src/renderer/src/older-claude-versions-are-folded.test.tsx	never fo
 apps/desktop/src/renderer/src/older-claude-versions-are-folded.test.tsx	lets a search reach into it without opening it	yes
 apps/desktop/src/renderer/src/older-claude-versions-are-folded.test.tsx	is Claude Code's own registry, newest first, with no retired generation	yes
 apps/desktop/src/renderer/src/older-claude-versions-are-folded.test.tsx	offers each version only the effort levels its registry entry lists	yes
+apps/desktop/src/renderer/src/one-clock-for-a-run.test.ts	is its first event to its last	yes
+apps/desktop/src/renderer/src/one-clock-for-a-run.test.ts	is unknown with fewer than two events	yes
+apps/desktop/src/renderer/src/one-clock-for-a-run.test.ts	is what the fold line says	yes
 apps/desktop/src/renderer/src/one-fact-one-surface.test.ts	a 41-second run is 41s, not 0m	yes
 apps/desktop/src/renderer/src/one-fact-one-surface.test.ts	and a long one still reads in minutes	yes
 apps/desktop/src/renderer/src/one-fact-one-surface.test.ts	a completed run whose record is incomplete is amber, wherever it is drawn	no
@@ -6189,6 +6227,18 @@ apps/desktop/src/shared/memory.test.ts	pastes fewer and names the file for the r
 apps/desktop/src/shared/memory.test.ts	says nothing about dropping when nothing was dropped	no
 apps/desktop/src/shared/memory.test.ts	keeps this folder ahead of everywhere	no
 apps/desktop/src/shared/memory.test.ts	keeps the newest of a long list, not the oldest	no
+apps/desktop/src/shared/messageFragments.test.ts	stops the reply saying itself twice	yes
+apps/desktop/src/shared/messageFragments.test.ts	gives the answer back its own message instead of welding it on	yes
+apps/desktop/src/shared/messageFragments.test.ts	keeps the first message under the id every other surface knows	yes
+apps/desktop/src/shared/messageFragments.test.ts	closes the recovered message, which is what the rest of the host reads	yes
+apps/desktop/src/shared/messageFragments.test.ts	leaves a conversation the fixed adapter recorded exactly as it is	yes
+apps/desktop/src/shared/messageFragments.test.ts	does not eat a short repeat that is genuinely the text	yes
+apps/desktop/src/shared/messageFragments.test.ts	keeps the front of a reply longer than the live window, as it arrives	yes
+apps/desktop/src/shared/messageFragments.test.ts	folds a fragment into its own message even when a tool ran between them	yes
+apps/desktop/src/shared/messageFragments.test.ts	starts a new event for a new message, and keeps them in order	yes
+apps/desktop/src/shared/messageFragments.test.ts	honours a replace, and carries the latest final	yes
+apps/desktop/src/shared/messageFragments.test.ts	passes anything that is not a fragment straight through	yes
+apps/desktop/src/shared/messageFragments.test.ts	agrees with the whole-record form, which is the point of them sharing a file	yes
 apps/desktop/src/shared/peer-share.test.ts	reads the ordinary, correctly written one	no
 apps/desktop/src/shared/peer-share.test.ts	accepts single quotes	no
 apps/desktop/src/shared/peer-share.test.ts	accepts the roster line as it is printed, role and all	no
@@ -6380,6 +6430,11 @@ packages/mission-store/src/deleting-is-reversible.test.ts	reports nothing to res
 packages/mission-store/src/deleting-is-reversible.test.ts	empties for good, and only then	yes
 packages/mission-store/src/deleting-is-reversible.test.ts	survives being deleted, restored and deleted again	yes
 packages/mission-store/src/deleting-is-reversible.test.ts	keeps what a bulk prune takes, the same way	no
+packages/mission-store/src/unreadable-count.test.ts	is zero when every file recovered, however many are on the page	yes
+packages/mission-store/src/unreadable-count.test.ts	does not call a DAMAGED but recovered mission unreadable when it falls off the page	yes
+packages/mission-store/src/unreadable-count.test.ts	counts a file whose header is unreadable, and only that file	yes
+packages/mission-store/src/unreadable-count.test.ts	counts one file, not one per issue it raised	yes
+packages/mission-store/src/unreadable-count.test.ts	is zero when the ledger directory itself cannot be read	yes
 packages/mission-store/test/a-card-answered-is-kept-with-its-turn.test.ts	comes back from the file exactly as written, in order, with the schema version that holds it	yes
 packages/mission-store/test/a-card-answered-is-kept-with-its-turn.test.ts	sits between a run's events without disturbing their numbering	yes
 packages/mission-store/test/a-card-answered-is-kept-with-its-turn.test.ts	is refused on a mission written before version 20, which its own readers would stop at	no

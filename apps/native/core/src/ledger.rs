@@ -316,6 +316,17 @@ pub fn read_plan(value: &Value) -> Vec<PlanStep> {
         .unwrap_or_default()
 }
 
+/// When a conversation last did something (missionView's `lastActivityAt`), the list's sort key: its newest event's
+/// time, or when it was made for a run that has said nothing. Never earlier than when it was made: a runtime clock
+/// behind the host's would otherwise sort a live run below where it was a moment ago.
+pub fn last_activity_at<'a>(created_at: &str, events: impl DoubleEndedIterator<Item = &'a Value>) -> String {
+    let last = events.rev().find_map(|e| e.get("occurredAt").and_then(Value::as_str));
+    match last {
+        Some(last) if last > created_at => last.to_owned(),
+        _ => created_at.to_owned(),
+    }
+}
+
 pub fn duration_text(ms: u64) -> String {
     let seconds = (ms + 500) / 1000;
     if seconds < 60 {
@@ -800,6 +811,91 @@ fn run_trouble(code: &str) -> bool {
     code.ends_with(".runtime_error") || code.ends_with(".notification") || code.ends_with(".context_compacted")
 }
 
+/// A notice's words, however its spacing and case came out (missionView's `noticeKey`).
+pub fn notice_key(message: &str) -> String {
+    message.split_whitespace().collect::<Vec<_>>().join(" ").to_lowercase()
+}
+
+/// A usage-window reading ("You've used 56% of your 7-day window"): not a limit reached, so said once a conversation.
+pub fn is_usage_warning(message: &str) -> bool {
+    crate::invariants::regex(r"^You've used \d{1,3}% of your .+ window|^Your .+ window is running low").is_match(message.trim())
+}
+
+/// The key a turn's usage warning is remembered by: one for every reading (Colin, 2026-09-23: "Once per convo").
+const USAGE_WARNING_KEY: &str = "usage-window-warning";
+
+/// What a turn said that a later turn must not say again (missionView's `foldNoticeKeys`).
+fn said_keys(items: &[Item]) -> Vec<String> {
+    let mut keys: Vec<String> = items
+        .iter()
+        .filter_map(|i| match i {
+            Item::Trace(trace) => Some(trace.notices.iter().map(|n| notice_key(&n.message))),
+            _ => None,
+        })
+        .flatten()
+        .collect();
+    if items.iter().any(|i| matches!(i, Item::Limit { kind, text } if kind == "temporary-rate-limit" && is_usage_warning(text))) {
+        keys.push(USAGE_WARNING_KEY.to_owned());
+    }
+    keys
+}
+
+/// A turn's item with what an earlier turn of the conversation already said taken out: a runtime's remark at its
+/// fold's foot, and a usage warning. A limit actually reached is never taken out.
+fn not_said_before(item: Item, said: &HashSet<String>) -> Option<Item> {
+    match item {
+        Item::Trace(mut trace) => {
+            trace.notices.retain(|n| !said.contains(&notice_key(&n.message)));
+            Some(Item::Trace(trace))
+        }
+        Item::Limit { kind, text } if kind == "temporary-rate-limit" && is_usage_warning(&text) && said.contains(USAGE_WARNING_KEY) => None,
+        other => Some(other),
+    }
+}
+
+/// One message as a reply's fragments make it: where it is held, its text, whether it ended, how many pieces it took.
+struct Message {
+    at: u64,
+    last: u64,
+    text: String,
+    r#final: Value,
+    pieces: usize,
+}
+
+/// messageFragments.ts `joinMessageFragments`: a reply's fragments, in order, joined into its messages. THE REPAIR for
+/// records already on disk: an old Cursor appended its closing message, the one carrying the WHOLE text, like any
+/// other fragment, so the reply said itself twice and the next reply was welded onto its end. A fragment that restates
+/// exactly what its message has said so far (more than one character, over more than one piece: a long message can
+/// arrive as two identical halves) is that message ENDING, and what follows starts a new one.
+fn split_restated(parts: &BTreeMap<u64, Value>) -> Vec<Message> {
+    let mut out: Vec<Message> = Vec::new();
+    let mut open = false;
+    for (&sequence, event) in parts {
+        let payload = event.get("payload").unwrap_or(&Value::Null);
+        let text = payload.get("text").and_then(Value::as_str).unwrap_or("");
+        let r#final = payload.get("final").cloned().unwrap_or(Value::Bool(false));
+        let held = out.last_mut().filter(|_| open);
+        let Some(held) = held else {
+            out.push(Message { at: sequence, last: sequence, text: text.to_owned(), r#final, pieces: 1 });
+            open = true;
+            continue;
+        };
+        held.last = sequence;
+        if payload.get("operation").and_then(Value::as_str) == Some("replace") {
+            held.text = text.to_owned();
+        } else if text.encode_utf16().count() > 1 && held.pieces > 1 && text == held.text {
+            held.r#final = Value::Bool(true);
+            open = false;
+            continue;
+        } else {
+            held.text.push_str(text);
+        }
+        held.r#final = r#final;
+        held.pieces += 1;
+    }
+    out
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct Transcript {
     pub signal_rail: Vec<crate::inspector::SignalRow>,
@@ -815,10 +911,13 @@ pub struct Transcript {
     events: BTreeMap<u64, Value>,
     /// Set once an event was actually dropped from the window; a window that is merely full is not trimmed.
     pub trimmed: bool,
-    /// A held reply's fragments by sequence, so a replayed or late fragment folds in once and in order.
+    /// A held reply's fragments (whole events) by sequence, so a replayed or late fragment folds in once and in order.
     fragments: HashMap<String, BTreeMap<u64, Value>>,
-    /// Which held event carries each reply (its first fragment's sequence).
-    message_at: HashMap<String, u64>,
+    /// Which held events carry each reply (each message's first fragment's sequence): more than one when an old record
+    /// restated the reply and welded the next one on (`split_restated`).
+    message_at: HashMap<String, Vec<u64>>,
+    /// Each message's last fragment's sequence, by the id the thread draws it under ("msg_0", "msg_0#2").
+    message_end: HashMap<String, u64>,
     checkpoints: Vec<Value>,
     pub peer_links: Vec<PeerLink>,
     pub cost: Option<crate::benchmark::RunCost>,
@@ -879,45 +978,42 @@ impl Transcript {
             Some(id) => {
                 let id = id.to_owned();
                 let parts = self.fragments.entry(id.clone()).or_default();
-                if parts.insert(sequence, payload.clone()).is_some() {
+                if parts.insert(sequence, event.clone()).is_some() {
                     return; // the same fragment again
                 }
-                let first = *parts.keys().next().expect("just inserted");
-                let held_at = self.message_at.insert(id.clone(), first);
-                if parts.len() == 1 {
-                    // A reply that arrived whole is held as it came.
-                    self.events.insert(sequence, event.clone());
-                } else {
-                    let mut text = String::new();
-                    for part in parts.values() {
-                        let piece = part.get("text").and_then(Value::as_str).unwrap_or("");
-                        if part.get("operation").and_then(Value::as_str) == Some("replace") {
-                            text = piece.to_owned();
-                        } else {
-                            text.push_str(piece);
-                        }
-                    }
-                    let last_final = parts.values().next_back().and_then(|p| p.get("final")).cloned().unwrap_or(Value::Bool(false));
-                    let mut joined = match held_at.and_then(|at| self.events.remove(&at)) {
-                        Some(held) if held_at == Some(first) => held,
-                        _ => event.clone(), // this fragment is now the reply's first
-                    };
-                    joined["payload"]["operation"] = Value::from("replace");
-                    joined["payload"]["text"] = Value::from(text);
-                    joined["payload"]["final"] = last_final;
-                    self.events.insert(first, joined);
+                for at in self.message_at.remove(&id).unwrap_or_default() {
+                    self.events.remove(&at);
                 }
+                let mut starts = Vec::new();
+                for (n, message) in split_restated(parts).into_iter().enumerate() {
+                    // The first keeps the id every other surface knows; one after a restatement is numbered.
+                    let key = if n == 0 { id.clone() } else { format!("{id}#{}", n + 1) };
+                    let first = &parts[&message.at];
+                    let held = if n == 0 && message.pieces == 1 {
+                        first.clone() // a reply that arrived whole is held as it came
+                    } else {
+                        let mut joined = first.clone();
+                        joined["payload"]["itemId"] = Value::from(key.as_str());
+                        joined["payload"]["operation"] = Value::from("replace");
+                        joined["payload"]["text"] = Value::from(message.text);
+                        joined["payload"]["final"] = message.r#final;
+                        joined
+                    };
+                    self.events.insert(message.at, held);
+                    self.message_end.insert(key, message.last);
+                    starts.push(message.at);
+                }
+                self.message_at.insert(id, starts);
             }
         }
         while self.events.len() > EVENT_WINDOW {
             let Some(at) = self.events.keys().nth(OPENING_EVENTS).copied() else { break };
-            if let Some(gone) = self.events.remove(&at)
-                && let Some(id) = gone["payload"].get("itemId").and_then(Value::as_str)
-                && self.message_at.get(id) == Some(&at)
+            if self.events.remove(&at).is_some()
+                && let Some(id) = self.message_at.iter().find(|(_, starts)| starts.contains(&at)).map(|(id, _)| id.clone())
             {
                 // A reply out of view that speaks again starts a new event.
-                self.message_at.remove(id);
-                self.fragments.remove(id);
+                self.message_at.remove(&id);
+                self.fragments.remove(&id);
             }
             self.trimmed = true;
         }
@@ -990,8 +1086,9 @@ impl Transcript {
         // missionView's workBegan: until the turn says or does anything, only trouble with the run itself reaches the
         // thread. OpenCode's "Aborted" when the person presses Stop is not that.
         let mut work_began = false;
-        let fragments = &self.fragments;
-        let last_piece = |id: &str| fragments.get(id).and_then(|f| f.keys().next_back().copied()).unwrap_or(0);
+        let mut receipts: Vec<Item> = Vec::new();
+        let message_end = &self.message_end;
+        let last_piece = |id: &str| message_end.get(id).copied().unwrap_or(0);
         for (sequence, event) in &self.events {
             let kind = string(event, "type");
             let p = event.get("payload").unwrap_or(&Value::Null);
@@ -1239,6 +1336,10 @@ impl Transcript {
                 "adapter.diagnostic" => {
                     let level = string(p, "level");
                     let code = string(p, "code");
+                    // About the CLI's own setup: its row in Settings says it (`setup_notes`), not the conversation.
+                    if crate::setup_notes::is_setup_note(&string(p, "message")) {
+                        continue;
+                    }
                     if let Some(shown) = retrying_note(&self.events, *sequence, &code, &string(p, "message")) {
                         if let Some(text) = shown {
                             items.push(Item::Note { level, text: scrub(&text) });
@@ -1254,10 +1355,14 @@ impl Transcript {
                             level: String::new(),
                             text: scrub(&string(p, "message")),
                         });
-                    } else if code == "host.check_fix"
-                        || code == "host.relay_ended"
-                        || code == crate::worktrees::CHECKPOINT_CODE
-                    {
+                    } else if code == crate::worktrees::CHECKPOINT_CODE {
+                        // What the host saved on the teammate's branch is said when the turn is over: after its work
+                        // and its answer, never above them (missionView's receipts, 0.439).
+                        receipts.push(Item::Note {
+                            level: if level == "info" { String::new() } else { level },
+                            text: scrub(&string(p, "message")),
+                        });
+                    } else if code == "host.check_fix" || code == "host.relay_ended" {
                         items.push(Item::Note {
                             level: if level == "info" { String::new() } else { level },
                             text: scrub(&string(p, "message")),
@@ -1277,8 +1382,18 @@ impl Transcript {
                         self.running = false;
                     }
                     let text = scrub(&string(p, "message"));
-                    if !text.is_empty() {
-                        items.push(Item::Limit { kind: string(p, "kind"), text });
+                    let kind = string(p, "kind");
+                    // One usage warning a run: the newest figure, where the first one stood (missionView, 2026-09-23).
+                    let earlier = (kind == "temporary-rate-limit").then(|| items.iter_mut().find_map(|i| match i {
+                        Item::Limit { kind, text } if kind == "temporary-rate-limit" => Some(text),
+                        _ => None,
+                    })).flatten();
+                    if let Some(held) = earlier {
+                        if !text.is_empty() {
+                            *held = text;
+                        }
+                    } else if !text.is_empty() {
+                        items.push(Item::Limit { kind, text });
                     }
                 }
                 "run.failed" => {
@@ -1411,7 +1526,7 @@ impl Transcript {
                     continue;
                 }
                 if code.starts_with("host.") || code.ends_with(".usage_window") || text.is_empty()
-                    || crate::invariants::regex(r"(?i)^(Codex is ignoring \d+ unrecognized configuration settings?\b|Skill descriptions were shortened to fit\b)").is_match(text.trim()) { continue; }
+                    || crate::setup_notes::is_setup_note(&text) { continue; }
                 if !items.iter().any(|i| matches!(i, Item::Note { text: held, .. } | Item::Limit { text: held, .. } if crate::failure_words::same_sentence(held, &text))) {
                     items.push(Item::Note { level: string(&e["payload"], "level"), text });
                 }
@@ -1499,6 +1614,7 @@ impl Transcript {
             trace.notices.retain(|n| !items.iter().any(|i| matches!(i, Item::Note { text, .. } if crate::failure_words::same_sentence(text, &n.message))));
             items.push(Item::Trace(trace));
         }
+        items.extend(receipts);
         self.items = items;
     }
 }
@@ -1780,12 +1896,7 @@ pub fn try_list_recent(dir: &Path, limit: usize) -> io::Result<Vec<Summary>> {
                 _ => {}
             }
         }
-        let updated = events
-            .values()
-            .rev()
-            .find_map(|e| e.get("occurredAt").and_then(Value::as_str))
-            .unwrap_or(&m.created_at)
-            .to_owned();
+        let updated = last_activity_at(&m.created_at, events.values().copied());
         let first = m.prompt.lines().next().unwrap_or_default().trim();
         let title: String = crate::path_title::path_only_title(first)
             .as_deref()
@@ -2047,6 +2158,8 @@ impl Session {
         let mut by_id = HashMap::new();
         // The plan the turn before ended with: a turn's card shows its own steps (Thread.tsx carriedPlan).
         let mut carried: Vec<PlanStep> = Vec::new();
+        // What an earlier turn already said, which a later one does not say again (Thread.tsx `saidBefore`).
+        let mut said: HashSet<String> = HashSet::new();
         for (index, reader) in self.readers.iter_mut().enumerate() {
             let is_tip = index + 1 == count;
             if is_tip {
@@ -2119,7 +2232,7 @@ impl Session {
             });
             let before = std::mem::replace(&mut carried, last_plan_of(reader.transcript.events.values()));
             let worked = worked_steps(reader.transcript.events.values());
-            snapshot.items.extend(
+            let turn_items: Vec<Item> =
                 reader
                     .transcript
                     .items
@@ -2131,8 +2244,11 @@ impl Session {
                             (!own.is_empty()).then(|| Item::Plan { id: id.clone(), steps: own, finished: *finished, stopped: *stopped })
                         }
                         other => Some(other.clone()),
-                    }),
-            );
+                    })
+                    .filter_map(|item| not_said_before(item, &said))
+                    .collect();
+            said.extend(said_keys(&turn_items));
+            snapshot.items.extend(turn_items);
             if reader
                 .transcript
                 .events
@@ -2155,22 +2271,8 @@ impl Session {
                     .peer_links
                     .push((reader.id.clone(), link.clone()));
             }
-            if let Some(c) = &reader.transcript.cost {
-                let slot = snapshot.cost.get_or_insert_with(Default::default);
-                if let Some(u) = c.usd {
-                    slot.usd = Some(slot.usd.unwrap_or(0.0) + u);
-                }
-                if let Some(pr) = c.premium_requests {
-                    slot.premium_requests = Some(slot.premium_requests.unwrap_or(0.0) + pr);
-                }
-                if let Some(it) = c.input_tokens {
-                    slot.input_tokens = Some(slot.input_tokens.unwrap_or(0) + it);
-                }
-                if let Some(ot) = c.output_tokens {
-                    slot.output_tokens = Some(slot.output_tokens.unwrap_or(0) + ot);
-                }
-                slot.plan |= c.plan;
-            }
+            // What the conversation has cost so far: the turns before this one, and this one's receipt.
+            snapshot.cost = crate::relay::conversation_cost([snapshot.cost.take()], reader.transcript.cost.clone());
             snapshot.tip = reader.id.clone();
             // Not running once its engine is gone (E5): a turn whose process died has no ending, and its ledger may
             // have been written a moment ago, so the quiet window alone would show it running for fifteen minutes.
@@ -2397,6 +2499,8 @@ mod tests {
 
     mod reopened_handoff_tests { include!("reopened_handoff_tests.rs"); }
     mod plan_card_turns_tests { include!("plan_card_turns_tests.rs"); }
+    mod conversation_cost_tests { include!("conversation_cost_tests.rs"); }
+    mod notice_once_tests { include!("notice_once_tests.rs"); }
 
     fn synthetic_transcript(rows: Vec<Value>) -> Transcript {
         // Exercise the JSONL boundary, including raw-evidence removal.
@@ -3567,3 +3671,11 @@ mod fall_off_tests;
 #[cfg(test)]
 #[path = "torn_ledger_tests.rs"]
 pub(crate) mod torn_ledger_tests;
+
+#[cfg(test)]
+#[path = "saved_turn_last_tests.rs"]
+mod saved_turn_last_tests;
+
+#[cfg(test)]
+#[path = "restated_reply_tests.rs"]
+mod restated_reply_tests;

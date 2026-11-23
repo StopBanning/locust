@@ -1975,12 +1975,18 @@ pub(super) fn ask_waiting_judge(s: &mut State) -> bool {
     true
 }
 
+/// A column's time is each of its runs' own first event to last, added up (App.tsx's `runSpanMs` per cell): the wait
+/// between one turn and the next was nobody's work, so it is never counted.
 fn snapshot_span_ms(snap: &ledger::Snapshot) -> Option<u64> {
-    let first = snap.timings.first()?.first_at.as_deref()?;
-    let last = snap.timings.last()?.last_at.as_deref()?;
-    let t0 = chrono::DateTime::parse_from_rfc3339(first).ok()?;
-    let t1 = chrono::DateTime::parse_from_rfc3339(last).ok()?;
-    let ms = (t1 - t0).num_milliseconds();
+    let ms: i64 = snap
+        .timings
+        .iter()
+        .filter_map(|turn| {
+            let t0 = chrono::DateTime::parse_from_rfc3339(turn.first_at.as_deref()?).ok()?;
+            let t1 = chrono::DateTime::parse_from_rfc3339(turn.last_at.as_deref()?).ok()?;
+            Some((t1 - t0).num_milliseconds().max(0))
+        })
+        .sum();
     (ms > 0).then_some(ms as u64)
 }
 
@@ -4047,6 +4053,28 @@ mod tests {
     use super::*;
     use locust_core::compare::{CompareKept, CompareSlot};
     use locust_core::tune::TuneSkill;
+
+    // case: one clock for a run: a column adds up each run's own first event to last, never the wait between them
+    #[test]
+    fn a_columns_time_adds_up_each_runs_own_span_and_never_the_wait_between_turns() {
+        let turn = |first: &str, last: &str| locust_core::time_marker::TurnTiming {
+            before_item: 0,
+            first_at: Some(first.into()),
+            last_at: Some(last.into()),
+        };
+        let snap = ledger::Snapshot {
+            timings: vec![
+                turn("2026-09-23T12:00:03.000Z", "2026-09-23T12:00:40.000Z"),
+                turn("2026-09-23T12:10:00.000Z", "2026-09-23T12:00:00.000Z"),
+                turn("2026-09-23T12:30:00.000Z", "2026-09-23T12:30:05.000Z"),
+            ],
+            ..Default::default()
+        };
+        // 37s and 5s; the half hour between the turns, and a turn whose clock ran backwards, count nothing.
+        assert_eq!(snapshot_span_ms(&snap), Some(42_000));
+        assert_eq!(format_span(&snap).as_deref(), Some("42s"));
+        assert_eq!(snapshot_span_ms(&ledger::Snapshot::default()), None);
+    }
 
     fn sample_tune_compare(
         kept_slot: CompareSlotId,

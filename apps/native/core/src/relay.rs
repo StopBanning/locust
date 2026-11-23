@@ -1805,6 +1805,12 @@ pub struct ExchangeOverview {
     pub mission_ids: Vec<String>,
 }
 
+/// A receipt's count in either spelling, its own first (cost.ts `count(record.inputTokens ?? record.input_tokens)`): a
+/// whole number not below zero, never a negative or a word.
+fn token_count(usage: &Value, camel: &str, snake: &str) -> Option<u64> {
+    usage.get(camel).filter(|v| !v.is_null()).or_else(|| usage.get(snake)).and_then(Value::as_u64)
+}
+
 /// Extract a mission's RunCost from its normalized events (`missionCost`).
 pub fn mission_cost_from_events(events: &[Value]) -> Option<RunCost> {
     let mut cost: Option<RunCost> = None;
@@ -1816,8 +1822,8 @@ pub fn mission_cost_from_events(events: &[Value]) -> Option<RunCost> {
             continue;
         };
         let (spend, plan) = money_of_usage(usage);
-        let input_tokens = usage.get("inputTokens").and_then(Value::as_u64);
-        let output_tokens = usage.get("outputTokens").and_then(Value::as_u64);
+        let input_tokens = token_count(usage, "inputTokens", "input_tokens");
+        let output_tokens = token_count(usage, "outputTokens", "output_tokens");
         if spend.usd.is_none()
             && spend.premium_requests.is_none()
             && input_tokens.is_none()
@@ -1845,9 +1851,21 @@ pub fn mission_cost_from_events(events: &[Value]) -> Option<RunCost> {
 }
 
 pub(crate) fn sum_exchange_costs(costs: impl Iterator<Item = Option<RunCost>>) -> Option<RunCost> {
+    sum_costs(costs)
+}
+
+/// What a conversation has cost so far (cost.ts `conversationCost`): every earlier turn's receipt and the current
+/// turn's, the one still running included, or nothing when no turn reported anything, rather than zero.
+pub fn conversation_cost(earlier: impl IntoIterator<Item = Option<RunCost>>, current: Option<RunCost>) -> Option<RunCost> {
+    sum_costs(earlier.into_iter().chain(std::iter::once(current)))
+}
+
+/// Sum what can be summed (cost.ts `sumCosts`): each unit it saw, runs that reported nothing left out, and nothing at
+/// all when none reported anything.
+pub fn sum_costs(costs: impl IntoIterator<Item = Option<RunCost>>) -> Option<RunCost> {
     let mut out = RunCost::default();
     let mut any = false;
-    for c in costs.flatten() {
+    for c in costs.into_iter().flatten() {
         any = true;
         if let Some(u) = c.usd {
             out.usd = Some(out.usd.unwrap_or(0.0) + u);
@@ -1983,3 +2001,7 @@ pub fn exchange_across(roots: &[&str], missions: &[ExchangeMission]) -> Option<E
 #[cfg(test)]
 #[path = "relay_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "run_cost_tests.rs"]
+mod run_cost_tests;
