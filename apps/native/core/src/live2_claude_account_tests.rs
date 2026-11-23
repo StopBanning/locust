@@ -187,3 +187,47 @@ fn new_claude_turn_without_teammate_uses_the_for_new_signed_in_account() {
     assert_eq!(listed[0].state, AccountState::Ready);
     let _ = (Accounts::new, Mutex::new(()), Arc::new(()));
 }
+
+/// Electron 0.876.1 (`codex-mission.ts`): the for-new account is never used for a rewind. An edit of the first message
+/// starts afresh with no conversation, so only the rewind itself tells the engine it is the same conversation, which
+/// stays on the account it ran on (23 Nov merge check: a break removing the rewind guard survived).
+#[test]
+fn an_edited_first_message_stays_on_the_account_its_conversation_ran_on() {
+    let t = Temp::new();
+    let store = t.store();
+    let env_log = t.0.join("claude_env.jsonl");
+    let _guard = hooks::install(store.clone(), write_env_wrapper(&t.0, &env_log));
+    set_open_folder(&store, &t.0.join("work")).unwrap();
+    let account_id = format!("account_{}", "7".repeat(32));
+    let accounts_root = store.root().join(FOLDER);
+    fs::create_dir_all(accounts_root.join(&account_id)).unwrap();
+    fs::write(
+        accounts_root.join("accounts.json"),
+        json!([{"id": account_id, "runtime": "claude", "name": "work", "state": "ready", "forNew": true}]).to_string(),
+    )
+    .unwrap();
+
+    let first = send_from(
+        Send { teammate: nobody(Some("claude".into()), Some("opus".into())), conversation: None, prompt: "On this Mac".into(), model: Some("opus".into()), effort: None },
+        Origin { account: Some(None), ..Default::default() },
+    )
+    .unwrap();
+    wait_until("first turn finish", || !owns(&first.conversation_id));
+    assert_eq!(ledger_created(&store, &first.conversation_id)["metadata"]["resolvedRouteId"].as_str(), Some("claude:opus-account:default"));
+
+    let edited = send_from(
+        Send { teammate: nobody(Some("claude".into()), Some("opus".into())), conversation: None, prompt: "On this Mac, edited".into(), model: Some("opus".into()), effort: None },
+        Origin {
+            rewind: Some(crate::native::Rewind { tip: first.conversation_id.clone(), before: None, set_aside: vec![first.conversation_id.clone()] }),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    wait_until("edited turn finish", || !owns(&edited.conversation_id));
+    let tip = crate::native::real_tip(&edited.conversation_id).unwrap_or(edited.conversation_id.clone());
+    assert_ne!(
+        ledger_created(&store, &tip)["metadata"]["resolvedRouteId"].as_str(),
+        Some(format!("claude:opus-account:{account_id}").as_str()),
+        "an edit must not move the conversation onto the for-new account"
+    );
+}
