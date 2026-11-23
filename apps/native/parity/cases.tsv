@@ -6170,6 +6170,14 @@ apps/desktop/src/shared/which-notes-bear-on-a-question.test.ts	a word few notes 
 apps/desktop/src/shared/which-notes-bear-on-a-question.test.ts	the rarer of two shared words counts for more than the newer note	yes
 apps/desktop/src/shared/which-notes-bear-on-a-question.test.ts	plain English words do not count	yes
 apps/desktop/src/shared/which-notes-bear-on-a-question.test.ts	the brief keeps the newest when the allowance runs out	yes
+apps/desktop/test/a-teammate-named-like-an-agent-is-said-as-a-teammate.test.ts	matches exact name	yes
+apps/desktop/test/a-teammate-named-like-an-agent-is-said-as-a-teammate.test.ts	matches different case	yes
+apps/desktop/test/a-teammate-named-like-an-agent-is-said-as-a-teammate.test.ts	matches "claude code" vs "Claude Code"	yes
+apps/desktop/test/a-teammate-named-like-an-agent-is-said-as-a-teammate.test.ts	returns undefined for non-matches like "Codexa" and "Cody"	yes
+apps/desktop/test/a-teammate-named-like-an-agent-is-said-as-a-teammate.test.ts	lists a peer matching an agent name with words that settle it	yes
+apps/desktop/test/a-teammate-named-like-an-agent-is-said-as-a-teammate.test.ts	leaves a non-matching peer unchanged as the control	yes
+apps/desktop/test/a-teammate-named-like-an-agent-is-said-as-a-teammate.test.ts	shows the note for "codex" and does not block saving	yes
+apps/desktop/test/a-teammate-named-like-an-agent-is-said-as-a-teammate.test.ts	does not show the note for "Casper"	yes
 apps/desktop/test/avatar.test.ts	is a pure function of the id, so a rename never changes a face	yes
 apps/desktop/test/avatar.test.ts	gives two teammates with different ids different faces, whatever their names	yes
 apps/desktop/test/avatar.test.ts	stays within every part table	yes
