@@ -738,6 +738,7 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
                 Some(dropped_id),
                 oc_models,
             )
+            && crate::free_offer::limit_replacement(s, chrono::Utc::now().timestamp_millis()).is_none()
             && let Some(next_id) = locust_core::connectors_off::free_start_model(
                 effective_runtime,
                 oc_models,

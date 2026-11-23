@@ -2268,15 +2268,15 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     if !s.model_job.is_pending() && s.load_error.is_none() {
         let id =
             selected_conversation(s).and_then(|(t, _)| t.runtime.as_ref().map(|_| t.id.clone()));
-        if let Some(id) = id
-            && id != LEDGER_TARGET
-            && !s.models.contains_key(&id)
-            && s.engine != Some(Kind::Native)
-        {
-            s.model_job.request(id, |id| {
-                let result = Engine::local().and_then(|e| e.list_models(Some(&id)));
-                (id, result)
-            });
+        if let Some(id) = id && !s.models.contains_key(&id) {
+            if s.engine.is_some() && !s.demo && free_offer::failed_free_model(s).is_some() {
+                request_models(s, id);
+            } else if id != LEDGER_TARGET && s.engine != Some(Kind::Native) {
+                s.model_job.request(id, |id| {
+                    let result = Engine::local().and_then(|e| e.list_models(Some(&id)));
+                    (id, result)
+                });
+            }
         }
     }
 
@@ -2455,6 +2455,10 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
                 s.resolved_model_names = locust_core::model_alias::resolved_model_names(batch.summaries.values());
                 s.recent_route_keys = locust_core::recent_routes::recently_used_routes(&batch.summaries.values().cloned().collect::<Vec<_>>());
                 s.ledger_summaries = batch.summaries;
+                let model_runs: Vec<_> = s.ledger_summaries.values()
+                    .filter_map(locust_core::connectors_off::RetiredMission::from_summary)
+                    .collect();
+                s.models.update_retired(locust_core::connectors_off::retired_free_models(&model_runs));
                 s.workroom_messages = batch.workroom_messages;
                 s.handoff_glances.read(&s.workroom_messages, now);
                 for row in &mut s.recent {

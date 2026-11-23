@@ -187,7 +187,29 @@ pub struct RetiredMission<'a> {
     pub model: &'a str,
     pub phase: &'a str,
     pub last_updated_at: &'a str,
-    pub events: &'a [Value],
+    pub failed_message: Option<&'a str>,
+}
+
+impl<'a> RetiredMission<'a> {
+    pub fn from_summary(summary: &'a crate::ledger::Summary) -> Option<Self> {
+        use crate::ledger::RunEnd;
+
+        if summary.runtime != FREE_START_RUNTIME {
+            return None;
+        }
+        let (phase, failed_message) = match summary.run_end.as_ref()? {
+            RunEnd::Completed => ("completed", None),
+            RunEnd::Failed { message, .. } => ("failed", Some(message.as_str())),
+            RunEnd::Cancelled => return None,
+        };
+        Some(Self {
+            runtime: &summary.runtime,
+            model: &summary.model,
+            phase,
+            last_updated_at: &summary.updated,
+            failed_message,
+        })
+    }
 }
 
 /// The OpenCode models to leave out of the window's list (`missionView.ts` `retiredFreeModels`): the known ones,
@@ -214,11 +236,7 @@ pub fn retired_free_models(missions: &[RetiredMission<'_>]) -> HashSet<String> {
         if mission.phase != "failed" {
             continue;
         }
-        let Some(failed) = mission.events.iter().rev().find(|e| e["type"] == "run.failed") else {
-            continue;
-        };
-        let msg = failed["payload"]["message"].as_str().unwrap_or("");
-        if !model_retired(msg) {
+        if !mission.failed_message.is_some_and(model_retired) {
             continue;
         }
         let prev = retired_at.get(mission.model).copied().unwrap_or(-1);
@@ -229,6 +247,44 @@ pub fn retired_free_models(missions: &[RetiredMission<'_>]) -> HashSet<String> {
         .filter(|(model, at)| answered_at.get(model).copied().unwrap_or(-1) <= *at)
         .map(|(model, _)| model)
         .collect()
+}
+
+/// Pass over an unavailable free model for six hours, unless a later run has answered on it.
+pub fn down_free_models(missions: &[RetiredMission<'_>], now_ms: i64) -> HashSet<String> {
+    const DOWN_FOR_MS: i64 = 6 * 60 * 60 * 1_000;
+    let mut down_at: HashMap<&str, i64> = HashMap::new();
+    let mut answered_at: HashMap<&str, i64> = HashMap::new();
+    for mission in missions {
+        if mission.runtime != FREE_START_RUNTIME || !mission.model.ends_with("-free") {
+            continue;
+        }
+        let Ok(at) = chrono::DateTime::parse_from_rfc3339(mission.last_updated_at) else {
+            continue;
+        };
+        let latest = match mission.phase {
+            "completed" => &mut answered_at,
+            "failed" if mission.failed_message.is_some_and(model_unavailable) => &mut down_at,
+            _ => continue,
+        };
+        let stamp = at.timestamp_millis();
+        latest.entry(mission.model).and_modify(|at| *at = (*at).max(stamp)).or_insert(stamp);
+    }
+    down_at.into_iter().filter(|(model, at)| {
+        now_ms - at < DOWN_FOR_MS && answered_at.get(model).is_none_or(|answer| answer <= at)
+    }).map(|(model, _)| model.to_owned()).collect()
+}
+
+/// `failedOnItsLimit` uses the exhaustion patterns on the runtime's last stderr line.
+pub(crate) fn failed_on_its_limit(payload: &Value) -> bool {
+    if matches!(payload["kind"].as_str(), Some("quota-exhausted" | "temporary-rate-limit")) {
+        return true;
+    }
+    crate::failure_words::last_stderr_line(payload["process"]["stderr"].as_str()).is_some_and(|line| {
+        let message = crate::failure_words::message_of_log_line(&line);
+        crate::invariants::regex(
+            r"(?i)\b(?:resource_exhausted|insufficient_quota|quota (?:exceeded|exhausted)|rate[_ -]?limit(?:ed| exceeded)?|too many requests|http\s*429)\b",
+        ).is_match(&message)
+    })
 }
 
 /// Why a failed free-model offer is shown under a thread (`Thread.tsx` `limitModel.why`).
@@ -406,13 +462,12 @@ mod tests {
     #[test]
     fn the_next_model_opencode_drops_is_learned_from_its_first_failure_and_is_back_once_it_answers() {
         let lost = "OpenCode stopped: Model not found: opencode/beam-free. Did you mean: ling-3.1-flash-free?";
-        let failed_events = vec![serde_json::json!({"type": "run.failed", "payload": {"message": lost}})];
         let failed = RetiredMission {
             runtime: "opencode",
             model: "opencode/beam-free",
             phase: "failed",
             last_updated_at: "2026-10-10T01:00:00Z",
-            events: &failed_events,
+            failed_message: Some(lost),
         };
         assert!(retired_free_models(&[failed]).contains("opencode/beam-free"));
         let completed = RetiredMission {
@@ -420,7 +475,7 @@ mod tests {
             model: "opencode/beam-free",
             phase: "completed",
             last_updated_at: "2026-10-11T01:00:00Z",
-            events: &[],
+            failed_message: None,
         };
         assert!(!retired_free_models(&[failed, completed]).contains("opencode/beam-free"));
     }

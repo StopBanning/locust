@@ -375,6 +375,7 @@ fn parse_file(path: &Path, modified: SystemTime, stamp: (u64, u128)) -> CachedFi
         created_at: m.created_at,
         running,
         failed,
+        run_end: ledger::RunEnd::latest(ordered_events.iter()),
         cancelled,
         updated,
         started_by_kind: m.started_by_kind,

@@ -65,6 +65,34 @@ pub struct Metadata {
     pub cwd: Option<String>,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum RunEnd {
+    Completed,
+    Failed { message: String, at_limit: bool },
+    Cancelled,
+}
+
+impl RunEnd {
+    pub(crate) fn latest<'a>(events: impl DoubleEndedIterator<Item = &'a Value>) -> Option<Self> {
+        for event in events.rev() {
+            match event["type"].as_str() {
+                Some("run.started") => return None,
+                Some("run.completed") => return Some(Self::Completed),
+                Some("run.cancelled") => return Some(Self::Cancelled),
+                Some("run.failed") => {
+                    let payload = &event["payload"];
+                    return Some(Self::Failed {
+                        message: string(payload, "message"),
+                        at_limit: crate::connectors_off::failed_on_its_limit(payload),
+                    });
+                }
+                _ => {}
+            }
+        }
+        None
+    }
+}
+
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Summary {
     pub reported_model: Option<String>,
@@ -77,6 +105,7 @@ pub struct Summary {
     pub created_at: String,
     pub running: bool,
     pub failed: bool,
+    pub run_end: Option<RunEnd>,
     /// Its last end was a stop (`run.cancelled`): not failed, and not a run that finished either.
     pub cancelled: bool,
     pub updated: String,
@@ -1919,6 +1948,7 @@ pub fn try_list_recent(dir: &Path, limit: usize) -> io::Result<Vec<Summary>> {
             created_at: m.created_at,
             running: running && fresh(Some(modified), SystemTime::now()),
             failed,
+            run_end: RunEnd::latest(events.values().copied()),
             cancelled,
             updated,
             started_by_kind: m.started_by_kind,
@@ -1958,6 +1988,7 @@ pub struct Snapshot {
     pub tip: String,
     pub running: bool,
     pub failed: bool,
+    pub run_end: Option<RunEnd>,
     /// The tip went quiet or lost its engine before recording an ending.
     pub interrupted: bool,
     /// The tip's record holds only its failure and the host's notes (`thread_view::runtime_never_started`).
@@ -2313,6 +2344,9 @@ impl Session {
             }
             snapshot.live = if snapshot.running { reader.transcript.live.clone() } else { None };
             snapshot.failed = reader.transcript.failed;
+            if is_tip {
+                snapshot.run_end = RunEnd::latest(reader.transcript.events.values());
+            }
             snapshot.never_started = crate::thread_view::runtime_never_started(reader.transcript.events.values());
             snapshot.busy_continue = crate::failure_words::offers_continue(reader.transcript.events.values(), snapshot.running);
             snapshot.damaged = reader.transcript.error.is_some();
