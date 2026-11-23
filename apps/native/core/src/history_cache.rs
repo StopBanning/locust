@@ -652,3 +652,7 @@ mod torn_listing_tests;
 #[cfg(test)]
 #[path = "unreadable_count_tests.rs"]
 mod unreadable_count_tests;
+
+#[cfg(test)]
+#[path = "shelf_reader_tests.rs"]
+mod shelf_reader_tests;
