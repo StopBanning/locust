@@ -280,6 +280,7 @@ mod tests {
             continues_reason: None,
             edited: false,
             started_by_kind: None,
+            started_by_voice: false,
             started_by_hop: None,
             relay: None,
             omitted_briefing: vec![],

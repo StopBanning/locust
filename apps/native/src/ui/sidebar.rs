@@ -215,6 +215,9 @@ fn mission_row(s: &State, p: &Palette, item: &SidebarMission, picked: bool) -> E
         title = title
             .child(text("needs you").font(rune::TextStyle::new(11.5, 400.0)).color(p.amber).key(format!("conversation-needs-you-{}", item.mission_id)))
             .child(el().size(6.0, 6.0).radius(3.0).fill(p.amber).a11y_hidden().key(format!("conversation-needs-you-dot-{}", item.mission_id)));
+    } else if conversation_keys(item).iter().any(|id| crate::voice_panel::calling(s, id)) {
+        title = title.child(text("on a call").font(type_::LABEL).color(p.secondary)
+            .key(format!("conversation-on-call-{}", item.mission_id)));
     } else if working {
         // The dot's footprint, kept empty, so a run starting never moves the row (`.lc-conv__working`, 6 by 6).
         title = title.child(el().size(6.0, 6.0).a11y_hidden().key(format!("conversation-working-{}", item.mission_id)));

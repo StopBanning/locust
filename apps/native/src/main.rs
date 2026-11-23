@@ -159,6 +159,10 @@ mod activity_drawers;
 #[path = "ui/step_pictures.rs"]
 mod step_pictures;
 use activity_drawers::*;
+#[path = "ui/voice_panel.rs"]
+mod voice_panel;
+#[path = "ui/call_words.rs"]
+mod call_words;
 #[path = "ui/messages.rs"]
 mod messages;
 use messages::*;
@@ -364,7 +368,10 @@ fn wake_ledger_pane(s: &mut State, now: f64, tx: &mut Tx) {
 }
 
 // Return the Session on both Ok and Err so transient errors never rebuild the Session.
-type LedgerAnswer = Result<(ledger::Session, ledger::Snapshot, bool), Box<(ledger::Session, String)>>;
+type LedgerAnswer = Result<
+    (ledger::Session, ledger::Snapshot, bool, Vec<serde_json::Value>),
+    Box<(ledger::Session, String)>,
+>;
 
 // Electron's ledger folder (read-only); native's own folder when there is no Electron one. A Session also reads
 // native's folder (`native::session`), so a conversation continues across both.
@@ -408,6 +415,7 @@ fn begin_ledger(
     s.ledger_job.cancel();
     if s.ledger.as_ref().and_then(|pane| pane.conversation.conversation_id.as_deref()) != Some(id.as_str()) {
         s.earlier_turn_budgets.clear();
+        s.calls = call_words::ThreadCalls::default();
     }
     let folder = header.folder.clone();
     // Preserve existing Session and transcript items when continuing the same ledger conversation.
@@ -474,6 +482,7 @@ fn leave_ledger(s: &mut State) {
         detach(s);
     }
     s.ledger = None;
+    s.calls = call_words::ThreadCalls::default();
     s.thread_away = false;
     s.prompt_rail.reset();
 }
@@ -551,7 +560,7 @@ fn ledger_tick(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     }
     if let Some(result) = s.ledger_job.take() {
         match result {
-            Ok((worker, mut snapshot, cold)) => {
+            Ok((worker, mut snapshot, cold, calls)) => {
                 // The ledger terminal event precedes native checkpoint/memory persistence.
                 if s.engine == Some(Kind::Native) && locust_core::engine_api::api().owns(worker.anchor()) {
                     snapshot.running = true;
@@ -564,7 +573,8 @@ fn ledger_tick(s: &mut State, now: f64, tx: &mut Tx) -> bool {
                 if let Some(pane) = s.ledger.as_mut()
                     && pane.conversation.conversation_id.as_deref() == Some(worker.anchor())
                 {
-                    changed |= pane.loading || pane.snapshot != snapshot;
+                    changed |= pane.loading || pane.snapshot != snapshot || s.calls.saved != calls;
+                    s.calls.saved = calls;
                     let finished = pane.snapshot.running && !snapshot.running;
                     let new_tip = pane.snapshot.tip != snapshot.tip;
                     let waiting_for_child = pane.after_tip.is_some();
@@ -766,13 +776,17 @@ fn ledger_tick(s: &mut State, now: f64, tx: &mut Tx) -> bool {
                     pane.due = f64::INFINITY;
                     // Whether the tip started cold is read once per tip: its first record says.
                     let known = pane.cold_tip.clone();
+                    let call_store = s.data.clone();
                     s.ledger_job.request((), move |()| match worker.poll() {
                         Ok(snapshot) => {
                             let cold = match known {
                                 Some((tip, cold)) if tip == snapshot.tip => cold,
                                 _ => !snapshot.tip.is_empty() && native::turn_started_cold(&snapshot.tip),
                             };
-                            Ok((worker, snapshot, cold))
+                            let calls = call_store.as_ref().map_or_else(Vec::new, |store| {
+                                call_words::read(store, &snapshot.turn_metas)
+                            });
+                            Ok((worker, snapshot, cold, calls))
                         }
                         Err(_) => Err(Box::new((
                             worker,
@@ -1685,6 +1699,7 @@ fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
         return true;
     }
     if event.key == Key::Escape {
+        if voice_panel::cancel(s) { return true; }
         if s.rail_open.is_some() {
             s.rail_open = None;
             s.rail_pinned = false;
@@ -2513,6 +2528,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
         }
     }
 
+    changed |= voice_panel::tick(s, now, tx);
     changed |= ledger_tick(s, now, tx);
     changed |= s.handoff_glances.expire(now);
     changed |= teammate_faces::tick(s, now);

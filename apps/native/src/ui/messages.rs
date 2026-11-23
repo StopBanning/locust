@@ -54,6 +54,14 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
     if let Some(label) = s.ledger.as_ref().and_then(|pane| pane.snapshot.started_label.as_ref()) {
         messages = messages.child(text(format!("Started {label}")).key("mission-started").font(type_::LABEL).color(p.muted));
     }
+    if s.ledger.as_ref().and_then(|pane| pane.snapshot.turn_metas.first()).is_some_and(|turn| turn.started_by_voice) {
+        messages = messages.child(text("Started from a voice call").key("started-from-a-voice-call").font(type_::LABEL).color(p.muted));
+    }
+    use locust_core::call_log::Place;
+    let calls = crate::call_words::pieces(s);
+    let call_at = |place: Place<'_>| {
+        calls.get(&place).map_or_else(Vec::new, |pieces| crate::call_words::draw(s, p, &place, pieces))
+    };
     let markers = s
         .ledger
         .as_ref()
@@ -269,6 +277,17 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                 // The ui-th bubble's own turn: a fix turn Locust sent draws a line, not a bubble, so it is passed over.
                 let at = s.ledger.as_ref().and_then(|pane| person_turn_at(&pane.snapshot.turn_metas, ui));
                 let this_meta = at.and_then(|i| s.ledger.as_ref()?.snapshot.turn_metas.get(i));
+                if ui > hidden_turns {
+                    if let Some(previous) = s.ledger.as_ref().and_then(|pane| {
+                        person_turn_at(&pane.snapshot.turn_metas, ui - 1)
+                            .and_then(|at| pane.snapshot.turn_metas.get(at))
+                    }) {
+                        messages = messages.children(call_at(Place::After(&previous.mission_id)));
+                    }
+                }
+                if let Some(turn) = this_meta {
+                    messages = messages.children(call_at(Place::Before(&turn.mission_id)));
+                }
                 let before_meta = at.and_then(|i| i.checked_sub(1)).and_then(|i| s.ledger.as_ref()?.snapshot.turn_metas.get(i));
                 if let Some(to_meta) = this_meta
                     && let Some(div) = handoff_divider::view(before_meta, to_meta, p)
@@ -543,6 +562,10 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
         p,
         s,
     );
+    if let Some(turn) = s.ledger.as_ref().and_then(|pane| pane.snapshot.turn_metas.last()) {
+        messages = messages.children(call_at(Place::After(&turn.mission_id)));
+    }
+    messages = messages.children(call_at(Place::End));
     messages = messages.children(peer_thread::live_relay_rows(s, p));
     if let Some(pane) = &s.ledger
         && !pane.snapshot.tip.is_empty()
