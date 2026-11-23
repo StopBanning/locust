@@ -4322,6 +4322,8 @@ apps/desktop/src/renderer/src/antigravity-shows-remaining-not-used.test.tsx	does
 apps/desktop/src/renderer/src/antigravity-shows-remaining-not-used.test.tsx	leaves existing used readings unchanged	yes
 apps/desktop/src/renderer/src/approval-patch.test.ts	the live add (content, not a hunk; absolute path) becomes one ADDED file with one hunk	yes
 apps/desktop/src/renderer/src/approval-patch.test.ts	update, add, delete and move each keep their status and path	yes
+apps/desktop/src/renderer/src/ask-for-a-review-is-one-row.test.ts	folds several reviewers and the pair into one row that opens beside it	yes
+apps/desktop/src/renderer/src/ask-for-a-review-is-one-row.test.ts	keeps a lone reviewer one row that says who, and offers nothing with nobody to ask	yes
 apps/desktop/src/renderer/src/at-picks-a-file-of-the-project.test.ts	is the @word at the end of the message, a bare @ included	yes
 apps/desktop/src/renderer/src/at-picks-a-file-of-the-project.test.ts	is nothing for an @ inside a sentence, or a word that carries one	yes
 apps/desktop/src/renderer/src/at-picks-a-file-of-the-project.test.ts	leaves the rest of the message when a file is picked	yes
