@@ -65,19 +65,26 @@ fn rust_command(case: &Value) -> Result<(Vec<String>, Env), String> {
     let skills: Option<&str> = (case["skills"] == true).then_some(SKILLS);
     let mut env = Env::new();
     let mut args: Vec<String> = match runtime {
-        // native.rs claude_args. Skills, forks and ticked connectors are not wired in the Rust engine yet, so those
-        // cases stay listed; a case without the guard is one Electron's host never builds.
-        "claude" => crate::native::claude_args(
-            mode,
-            Some(BRIDGE),
-            browser.then_some(BROWSER),
-            GUARD_SETTINGS,
-            model,
-            effort,
-            resume,
-            &references,
-            skills.as_slice(),
-        )?,
+        "claude" => {
+            let connectors: Vec<&str> = case["connectors"]
+                .as_array().unwrap().iter().map(|name| name.as_str().unwrap()).collect();
+            crate::native::claude_args_for_turn(
+                super::claude::PrintOptions {
+                    mode,
+                    bridge: Some(BRIDGE),
+                    browser: browser.then_some(BROWSER),
+                    guard_settings: Some(GUARD_SETTINGS),
+                    model,
+                    effort,
+                    resume,
+                    references: &references,
+                    skills: skills.as_slice(),
+                    connectors: &connectors,
+                    ..Default::default()
+                },
+                false,
+            )?
+        }
         "codex" => super::codex::app_server_args(Some("0.160.0")),
         "cursor" => {
             if let Some(why) = super::cursor::refusal(mode, effort) {
