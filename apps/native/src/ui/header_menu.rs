@@ -12,6 +12,9 @@ fn latest_turn(s: &State) -> Option<String> {
 /// The entries, in Electron's order, for the conversation on screen.
 pub(super) fn items(s: &State) -> Vec<Item> {
     let mut items = vec![Item::new(if verbose(s) { "Normal" } else { "Verbose" }, "header:verbose")];
+    if let Some(review) = crate::review_action::menu_item(s) {
+        items.push(review);
+    }
     // Present only where there is something to save (savableMissionId): absent, never disabled.
     if save_as_routine_id(s).is_some() {
         items.push(Item::new("Save conversation as routine", "header:save-routine"));

@@ -233,6 +233,8 @@ mod changes_panel;
 mod turn_undo;
 #[path = "ui/header_menu.rs"]
 mod header_menu;
+#[path = "ui/review_action.rs"]
+mod review_action;
 #[path = "ui/what_locust_can_stop_ui.rs"]
 mod what_locust_can_stop_ui;
 #[path = "ui/commit_panel.rs"]
