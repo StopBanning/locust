@@ -1218,7 +1218,7 @@ pub(super) fn reviews_handed_scene(s: &mut State) {
 
 pub(super) fn reviews_save_scene(s: &mut State) {
     reviews_handed_scene(s);
-    s.row_menu = Some(crate::context_menu::MenuState { x: 850.0, y: 100.0, title: "Conversation actions".into(), target: "synthetic-ledger".into(), items: crate::header_menu::items(s), armed: None, open_sub: None });
+    s.row_menu = Some(crate::context_menu::MenuState { x: 850.0, y: 100.0, title: "Conversation actions".into(), target: "synthetic-ledger".into(), anchor: None, items: crate::header_menu::items(s), armed: None, open_sub: None });
 }
 
 pub(super) fn reviews_live_scene(s: &mut State) {

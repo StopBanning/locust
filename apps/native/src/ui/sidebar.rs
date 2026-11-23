@@ -1405,12 +1405,16 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
                                     id.strip_prefix("@new-project:")
                                 {
                                     org::create_group(&store, &mut s.org, &title).and_then(|gid| {
-                                        org::assign_to_group(
-                                            &store,
-                                            &mut s.org,
-                                            mission,
-                                            Some(&gid),
-                                        )
+                                        if mission.is_empty() {
+                                            Ok(())
+                                        } else {
+                                            org::assign_to_group(
+                                                &store,
+                                                &mut s.org,
+                                                mission,
+                                                Some(&gid),
+                                            )
+                                        }
                                     })
                                 } else {
                                     {
@@ -1455,6 +1459,7 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
                         .gap(12.0)
                         .child(
                             row()
+                                .key("sidebar-home-button")
                                 .grow(1.0)
                                 .child(crate::look::controls::brand_row(&l))
                                 .role("button")
@@ -1463,15 +1468,22 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
                                 .on_press(crate::rail::go_home),
                         )
                         .child(
-                            crate::look::controls::head_icon(&crate::look::icons::PLUS, "New conversation", "Add or import a conversation")
-                                .on_press(|s: &mut State| {
-                                    s.add_menu_open = !s.add_menu_open;
+                            el().key("sidebar-add-button")
+                                .on_layout(|s: &mut State, r| {
+                                    if s.add_menu_at != r {
+                                        s.add_menu_at = r;
+                                    }
                                 })
-                                .build(l.k)
-                                .key("sidebar-add-button"),
+                                .child(
+                                    crate::look::controls::head_icon(&crate::look::icons::PLUS, "Add", "Add")
+                                        .on_press(|s: &mut State| {
+                                            crate::context_menu::toggle_add_menu(s, "sidebar-add-button", s.add_menu_at);
+                                        })
+                                        .build(l.k)
+                                        .expanded(crate::context_menu::is_anchored_to(s, "sidebar-add-button")),
+                                ),
                         ),
-                )
-                .children(s.add_menu_open.then(|| add_menu(p))),
+                ),
         )
         .child(
             col()
@@ -1485,36 +1497,6 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
                 .child(col().w_full().child(rows).child(recent)),
         )
         .child(footer(&l))
-}
-
-fn add_menu(p: &Palette) -> El {
-    col()
-        .key("sidebar-add-menu")
-        .w_full()
-        .gap(4.0)
-        .pt(8.0)
-        .px(10.0)
-        .pb(8.0)
-        .fill(p.raised)
-        .border(1.0, p.hairline)
-        .radius(8.0)
-        .child(
-            text("New conversation")
-                .key("add-menu-new-conversation")
-                .font(type_::LABEL)
-                .color(p.secondary)
-                .on_press(|s: &mut State| {
-                    s.add_menu_open = false;
-                    crate::rail::new_conversation(s);
-                }),
-        )
-        .child(
-            text("Import a conversation…")
-                .key("add-menu-import-conversation")
-                .font(type_::LABEL)
-                .color(p.secondary)
-                .on_press(crate::import_dialog::open),
-        )
 }
 
 /// `.lc-sidebar__footer`: Settings and Board in equal cells under a hairline, as Electron's wide sidebar ends.

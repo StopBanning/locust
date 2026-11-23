@@ -47,7 +47,6 @@ impl OpenCodeRunner for NoOpOpenCodeRunner {
 }
 
 pub(super) fn open(s: &mut State) {
-    s.add_menu_open = false;
     s.import_dialog.open = true;
     s.import_dialog.sessions = None;
     s.import_dialog.problem = None;

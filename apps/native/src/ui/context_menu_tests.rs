@@ -25,6 +25,7 @@ fn drawn() -> Runtime<State> {
         y: 10.0,
         title: "Say hello to my friend Kevin".into(),
         target: "m_kevin".into(),
+        anchor: None,
         items: electron_items(),
         armed: None,
         open_sub: None,

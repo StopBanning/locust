@@ -173,6 +173,7 @@ pub(super) fn rail(s: &State, p: &Palette) -> El {
         .pb(10.0)
         .child(
             row()
+                .key("rail-home-button")
                 .w(40.0)
                 .h(24.0)
                 .center()
@@ -192,12 +193,21 @@ pub(super) fn rail(s: &State, p: &Palette) -> El {
                 }),
         )
         .child(
-            crate::look::controls::head_icon(&crate::look::icons::PLUS, "New conversation", "New conversation (⌘ N)")
-                .on_press(|s: &mut State| {
-                    close(s);
-                    new_conversation(s);
+            el().key("rail-add-button")
+                .on_layout(|s: &mut State, r| {
+                    if s.add_menu_at != r {
+                        s.add_menu_at = r;
+                    }
                 })
-                .build(l.k),
+                .child(
+                    crate::look::controls::head_icon(&crate::look::icons::PLUS, "Add", "Add")
+                        .on_press(|s: &mut State| {
+                            close(s);
+                            crate::context_menu::toggle_add_menu(s, "rail-add-button", s.add_menu_at);
+                        })
+                        .build(l.k)
+                        .expanded(crate::context_menu::is_anchored_to(s, "rail-add-button")),
+                ),
         );
     // The places, one to a row (`.lc-shell.is-compact .lc-sidebar__places`). The wide sidebar's list of conversations
     // is the Board here: the rail has no list of its own.
@@ -609,3 +619,7 @@ pub(super) fn sidebar_setting_scene(s: &mut State) {
     settings_panel::scene(s);
     s.layout_pref = "compact".into();
 }
+
+#[cfg(test)]
+#[path = "rail_can_be_used_tests.rs"]
+mod rail_can_be_used_tests;

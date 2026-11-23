@@ -123,6 +123,7 @@ pub(super) fn control(s: &State, p: &Palette) -> Option<El> {
             y: r[1] + r[3] + 4.0,
             title: "Conversation actions".into(),
             target,
+            anchor: None,
             items: items(s),
             armed: None,
             open_sub: None,

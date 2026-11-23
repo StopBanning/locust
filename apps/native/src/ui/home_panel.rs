@@ -49,6 +49,11 @@ pub(super) struct Panel {
     pub fit: HomeMeasure,
     /// Show all, pressed on the folded accounts line: the whole list stays open (FirstLaunch.tsx `agentsOpen`).
     pub agents_open: bool,
+    /// The cover's sleeping Hopper wakefulness (HomeCover.tsx `hopperWakes`).
+    pub cover_sleeper: locust_core::home_cover::Wakefulness,
+    /// How many times the cover glass has lit, and how many times a click asked to replay it (PoweredLockup.tsx).
+    pub cover_lit_count: u32,
+    pub cover_replays: u32,
 }
 
 /// Home's own measure: the pane it scrolls in, the cover's card, the column as drawn, and what they decided.
@@ -590,8 +595,8 @@ fn cover(s: &State, l: &crate::look::controls::Look, status: Option<String>) -> 
             CoverPart::Worker => worker,
             CoverPart::Thinker if still => script::STILL_THINKER,
             CoverPart::Thinker => thinker,
-            // Not carried: the sleeper waking for a pointer that comes near (`hopperWakes`); it sleeps.
-            CoverPart::Sleeper => script::SLEEPING,
+            // The sleeper wakes when a pointer comes near (`hopper_wakes`) and watches until it dozes off again.
+            CoverPart::Sleeper => if s.home.cover_sleeper.awake { script::WATCHING } else { script::SLEEPING },
         }
     };
 
@@ -648,6 +653,13 @@ fn cover(s: &State, l: &crate::look::controls::Look, status: Option<String>) -> 
         .border(1.0, l.c("boot-screen-cold"))
         .clip_rounded(10.0 * k)
         .key("home-cover-glass")
+        .on_press(|s: &mut State| {
+            let plan = locust_core::home_cover::lighting_plan(&s.settings_panel.settings.tube, s.reduced_motion.get());
+            if locust_core::home_cover::replays_on_ask(plan, s.home.cover_lit_count) {
+                s.home.cover_lit_count += 1;
+                s.home.cover_replays += 1;
+            }
+        })
         .child(screen)
         .child(scan);
     let machine = col()

@@ -2986,6 +2986,12 @@ apps/desktop/src/main/the-pages-a-browser-runs-are-whole.test.ts	names a compute
 apps/desktop/src/main/the-permission-bridge-keeps-its-characters.test.ts	keeps a character split across two reads whole	yes
 apps/desktop/src/main/the-phone-reads-history-once-per-change.test.ts	counts a write once it is asked for and again once it has landed, and never a read	no
 apps/desktop/src/main/the-phone-reads-history-once-per-change.test.ts	builds once per key, shares a build in flight, and tries again after a failure	yes
+apps/desktop/src/main/the-rail-can-be-used.test.ts	is the right-click menu, hung from the +	yes
+apps/desktop/src/main/the-rail-can-be-used.test.ts	offers what the + adds, each with its key -- and no New group since folders sort (0.460)	yes
+apps/desktop/src/main/the-rail-can-be-used.test.ts	leaves its own button alone, so a second press closes it instead of reopening it	yes
+apps/desktop/src/main/the-rail-can-be-used.test.ts	may still hang out of the rail, as the railu2019s flyouts do	no
+apps/desktop/src/main/the-rail-can-be-used.test.ts	is the mark, and it is a button	yes
+apps/desktop/src/main/the-rail-can-be-used.test.ts	keeps a real size in the rail, where the wordmark collapses to nothing	yes
 apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	lets only one of two replies decided at the same moment through the last slot	no
 apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	gives the count back when no run comes of the decision	no
 apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	is found from the room store: every mission of one post, one key	no
@@ -3547,6 +3553,10 @@ apps/desktop/src/renderer/src/a-decision-without-a-teammate-names-nobody.test.ts
 apps/desktop/src/renderer/src/a-default-route-names-its-model.test.tsx	names the model the default turned out to be, once a run has said	yes
 apps/desktop/src/renderer/src/a-default-route-names-its-model.test.tsx	reads as the runtime alone until then, and never as its id	yes
 apps/desktop/src/renderer/src/a-default-route-names-its-model.test.tsx	names the model of a run under way, from its start record	yes
+apps/desktop/src/renderer/src/a-design-pass-holds.test.tsx	a finished turn is muted in a list; the ones that need a look keep their colour	yes
+apps/desktop/src/renderer/src/a-design-pass-holds.test.tsx	connected a moment ago: no line under its name	yes
+apps/desktop/src/renderer/src/a-design-pass-holds.test.tsx	one to act on keeps what to do, and an old reading keeps its age	yes
+apps/desktop/src/renderer/src/a-design-pass-holds.test.tsx	a meter a window, the whole sentence its tooltip, only the pressing window amber	yes
 apps/desktop/src/renderer/src/a-diagram-in-a-reply-shows-as-one.test.tsx	is framed as a diagram once its block has closed, its text a tab away	no
 apps/desktop/src/renderer/src/a-diagram-in-a-reply-shows-as-one.test.tsx	is text while it is still being written	no
 apps/desktop/src/renderer/src/a-diagram-in-a-reply-shows-as-one.test.tsx	leaves every other block as the code it was	no
@@ -5759,6 +5769,16 @@ apps/desktop/src/renderer/src/the-cover-grows-into-spare-height.test.tsx	stays c
 apps/desktop/src/renderer/src/the-cover-grows-into-spare-height.test.tsx	draws smaller when the page gives less than it needs, and no smaller than the floor	yes
 apps/desktop/src/renderer/src/the-cover-grows-into-spare-height.test.tsx	keeps clear of the card edges at its largest	yes
 apps/desktop/src/renderer/src/the-cover-grows-into-spare-height.test.tsx	is the narrowest column's floor at every width, and never more than 0.85x	yes
+apps/desktop/src/renderer/src/the-cover-notices-you.test.ts	sleeps through a pointer far away, costing nothing: the same value back	yes
+apps/desktop/src/renderer/src/the-cover-notices-you.test.ts	wakes when a pointer comes near	yes
+apps/desktop/src/renderer/src/the-cover-notices-you.test.ts	stays awake a while after the pointer goes, then dozes off	yes
+apps/desktop/src/renderer/src/the-cover-notices-you.test.ts	stays awake for a pointer that comes back before it dozes	yes
+apps/desktop/src/renderer/src/the-cover-notices-you.test.ts	measures from the middle of its box, in its own widths	yes
+apps/desktop/src/renderer/src/the-cover-notices-you.test.ts	lights it again once it has lit, as the tube allows	yes
+apps/desktop/src/renderer/src/the-cover-notices-you.test.ts	never where the tube never lights -- Off, or reduced motion -- nor before its first lighting	yes
+apps/desktop/src/renderer/src/the-cover-notices-you.test.ts	climbs: every flight goes up and to the right, leaning into it, as the swarm bot is drawn head up	no
+apps/desktop/src/renderer/src/the-cover-notices-you.test.ts	is a moment: all of it over in under four seconds	no
+apps/desktop/src/renderer/src/the-cover-notices-you.test.ts	fades in as each one leaves and out as it goes, from its start to its end, at the cover scale	no
 apps/desktop/src/renderer/src/the-effort-control-is-claude-codes.test.tsx	is named in words, as Claude Code names it	yes
 apps/desktop/src/renderer/src/the-effort-control-is-claude-codes.test.tsx	this build does not know keeps the runtime’s own word, capitalised, never renamed	yes
 apps/desktop/src/renderer/src/the-effort-control-is-claude-codes.test.tsx	reads "Effort Max", with a ? that says what the level costs	yes
@@ -5975,6 +5995,10 @@ apps/desktop/src/renderer/src/the-title-bar-is-a-macs-on-a-mac.test.tsx	still dr
 apps/desktop/src/renderer/src/the-way-down-says-a-run-is-still-working.test.tsx	wears the thinking dots while the run works, and says so to a screen reader	yes
 apps/desktop/src/renderer/src/the-way-down-says-a-run-is-still-working.test.tsx	is the plain chevron when nothing is running, and absent at the bottom	yes
 apps/desktop/src/renderer/src/the-way-down-says-a-run-is-still-working.test.tsx	brings the chevron back on hover and keyboard focus, where it is about to be pressed	yes
+apps/desktop/src/renderer/src/the-way-in-stays-on-the-shelf.test.tsx	offers to save one even when routines already exist	yes
+apps/desktop/src/renderer/src/the-way-in-stays-on-the-shelf.test.tsx	offers nothing when there is nothing to save	yes
+apps/desktop/src/renderer/src/the-way-in-stays-on-the-shelf.test.tsx	offers nothing when the screen cannot open the dialog	yes
+apps/desktop/src/renderer/src/the-way-in-stays-on-the-shelf.test.tsx	still names the way in on an empty shelf	yes
 apps/desktop/src/renderer/src/the-window-says-when-macos-may-ask.test.tsx	is drawn only while macOS may be asking, and names the box and the answer	yes
 apps/desktop/src/renderer/src/the-window-says-when-macos-may-ask.test.tsx	the window takes the host’s word, and asks for it only once its listener is in place	yes
 apps/desktop/src/renderer/src/thinking-is-not-using-a-tool.test.ts	reads thinking for a reasoning item	yes
