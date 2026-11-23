@@ -307,3 +307,19 @@ fn names_a_connector_the_way_the_activity_rows_do() {
     assert_eq!(describe_claude_tool("mcp__claude_ai_Robinhood__get_watchlists", &json!({}), "").1, "Use get_watchlists on Robinhood");
     assert_eq!(describe_claude_tool("mcp__linear__create_issue", &json!({}), "").1, "Use create_issue on linear");
 }
+
+/// 23 Nov merge gate: the bridge's listener is non-blocking, and on macOS an accepted connection inherits that, so a
+/// request whose line came a moment after the connection was read as nothing and denied ("Locust could not ask you")
+/// with no card shown, the pipe closed before the ask was written. The person must still be asked.
+#[test]
+fn an_ask_whose_line_arrives_a_moment_after_the_connection_still_raises_a_card() {
+    let host = host();
+    let bridge = register(&host, "m1", "");
+    let mut stream = UnixStream::connect(socket_of(&bridge)).unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(300));
+    writeln!(stream, "{}", json!({"tool_name": "Bash", "input": {"command": "ls"}})).expect("the bridge kept the connection open");
+    let raised = card(&host.channel, &[]);
+    assert_eq!(raised.detail, "ls");
+    decide(&host.channel, &raised, Decision::Deny, None).unwrap();
+    assert_eq!(answer(stream)["behavior"], "deny");
+}

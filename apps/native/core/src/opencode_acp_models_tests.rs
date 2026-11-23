@@ -511,7 +511,7 @@ fn bounds_the_entire_handshake_and_session_read_with_one_deadline() {
             let tx = tx.clone();
             let id = req["id"].clone();
             std::thread::spawn(move || {
-                std::thread::sleep(Duration::from_millis(120));
+                std::thread::sleep(Duration::from_millis(600));
                 let reply = format!(
                     "{}\n",
                     json!({"jsonrpc": "2.0", "id": id, "result": {"protocolVersion": 1}})
@@ -534,7 +534,9 @@ fn bounds_the_entire_handshake_and_session_read_with_one_deadline() {
             spawn: &spawn,
             scratch: Some(Box::new(make_scratch)),
             runtime: "opencode",
-            deadline: Duration::from_millis(200),
+            // Scaled from 120/200 ms so a loaded machine still sends session/new inside the shared window; a fresh
+            // deadline per step would end near 1,600 ms, the shared one near 1,000.
+            deadline: Duration::from_millis(1_000),
         },
     );
     let elapsed = started.elapsed();
@@ -546,7 +548,7 @@ fn bounds_the_entire_handshake_and_session_read_with_one_deadline() {
         .filter_map(|m| m["method"].as_str().map(str::to_owned))
         .collect();
     assert_eq!(methods, vec!["initialize", "session/new"]);
-    assert!(elapsed < Duration::from_millis(310), "elapsed {elapsed:?} exceeded shared deadline");
+    assert!(elapsed < Duration::from_millis(1_400), "elapsed {elapsed:?} exceeded shared deadline");
     assert_eq!(kills.load(Ordering::SeqCst), 1);
 }
 

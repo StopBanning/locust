@@ -60,6 +60,9 @@ impl Bridge {
                         let end = end.clone();
                         let cancel = cancel.clone();
                         std::thread::spawn(move || {
+                            // macOS hands an accepted connection the listener's non-blocking flag: without this a
+                            // request whose line comes a moment late reads as nothing and is denied unasked.
+                            let _ = stream.set_nonblocking(false);
                             let _ = stream.set_read_timeout(Some(Duration::from_secs(5)));
                             let mut line = String::new();
                             let read = BufReader::new(&stream).take(262145).read_line(&mut line);
