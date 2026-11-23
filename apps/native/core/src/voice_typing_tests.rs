@@ -326,3 +326,25 @@ fn wav_must_be_short_mono_pcm() {
     assert!(!valid_wav(b"speech.wav"));
     assert!(!valid_wav(&vec![0; 2_000_000]));
 }
+
+
+// case: says Fast and Accurate run on Windows, and names the Mac’s own dictation, downloading nothing
+#[test]
+fn mac_refuses_both_local_modes_without_opening_or_downloading_anything() {
+    let profile = Profile::new();
+    for mode in [Mode::Fast, Mode::Accurate] {
+        profile
+            .voice("win32")
+            .save(&json!({"mode":mode.as_str()}))
+            .unwrap();
+        let mac = profile.voice("darwin");
+        assert!(!mac.ready(mode));
+        let refusal = mac
+            .transcribe(&sample(), mode, &AtomicBool::new(false), &Offline)
+            .unwrap_err();
+        assert!(refusal.starts_with(
+            "Fast and Accurate voice typing run on Windows for now. On a Mac, use its own dictation here"
+        ));
+        assert!(!profile.1.root().join("voice").exists());
+    }
+}

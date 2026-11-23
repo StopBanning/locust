@@ -3080,7 +3080,7 @@ apps/desktop/src/main/voice-model-choices-stay-private.test.ts	status %s returns
 apps/desktop/src/main/voice-model-choices-stay-private.test.ts	does not echo fetch exceptions or a key reflected as transcript	yes
 apps/desktop/src/main/voice-model-choices-stay-private.test.ts	cancellation discards a late fake response	yes
 apps/desktop/src/main/voice-typing-on-a-mac-goes-through-openai.test.ts	types through the OpenAI route once allowed, as on Windows	yes
-apps/desktop/src/main/voice-typing-on-a-mac-goes-through-openai.test.ts	says Fast and Accurate run on Windows, and names the Mac’s own dictation, downloading nothing	no
+apps/desktop/src/main/voice-typing-on-a-mac-goes-through-openai.test.ts	says Fast and Accurate run on Windows, and names the Mac’s own dictation, downloading nothing	yes
 apps/desktop/src/main/voice-typing-refuses-unchecked-files.test.ts	refuses and deletes a SHA-256 mismatch, including stale cached files	no
 apps/desktop/src/main/voice-typing-refuses-unchecked-files.test.ts	promotes only the checked file and reuses it without a connection	no
 apps/desktop/src/main/voice-typing-refuses-unchecked-files.test.ts	restarts an interrupted partial file cleanly	no
