@@ -5307,6 +5307,12 @@ apps/desktop/src/renderer/src/railFlyout.test.ts	is drawn only past one conversa
 apps/desktop/src/renderer/src/railFlyout.test.ts	reads now, minutes, hours, days, weeks	yes
 apps/desktop/src/renderer/src/railFlyout.test.ts	says nothing for a missing or unreadable time rather than a wrong one	yes
 apps/desktop/src/renderer/src/railFlyout.test.ts	names the teammate and points at the composer	yes
+apps/desktop/src/renderer/src/ran-on.test.ts	names a platform the way a person does	yes
+apps/desktop/src/renderer/src/ran-on.test.ts	passes through a platform it does not know, rather than guessing	yes
+apps/desktop/src/renderer/src/ran-on.test.ts	says something true even knowing nothing	yes
+apps/desktop/src/renderer/src/ran-on.test.ts	names the folder only when it was given one	yes
+apps/desktop/src/renderer/src/ran-on.test.ts	says nothing about what was NOT covered	yes
+apps/desktop/src/renderer/src/ran-on.test.ts	reads a folder off either separator, and off a trailing slash	yes
 apps/desktop/src/renderer/src/reasoning-is-kept.test.ts	keeps the text the runtime sent	yes
 apps/desktop/src/renderer/src/reasoning-is-kept.test.ts	draws "thought for" with no text when the runtime sent none	yes
 apps/desktop/src/renderer/src/reasoning-is-kept.test.ts	and none for a thought under a second, or whitespace that never had a length	yes
