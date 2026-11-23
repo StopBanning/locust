@@ -106,6 +106,8 @@ pub struct Summary {
     pub running: bool,
     pub failed: bool,
     pub run_end: Option<RunEnd>,
+    /// The strict history reader recovered the turn with an integrity issue.
+    pub integrity_issues: bool,
     /// Its last end was a stop (`run.cancelled`): not failed, and not a run that finished either.
     pub cancelled: bool,
     pub updated: String,
@@ -1949,6 +1951,7 @@ pub fn try_list_recent(dir: &Path, limit: usize) -> io::Result<Vec<Summary>> {
             running: running && fresh(Some(modified), SystemTime::now()),
             failed,
             run_end: RunEnd::latest(events.values().copied()),
+            integrity_issues: false,
             cancelled,
             updated,
             started_by_kind: m.started_by_kind,
