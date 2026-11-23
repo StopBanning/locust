@@ -2731,6 +2731,19 @@ apps/desktop/src/main/stores-fail-closed.test.ts	workspace settings reject rathe
 apps/desktop/src/main/stores-fail-closed.test.ts	a routine rejects rather than pretending to save	yes
 apps/desktop/src/main/stores-fail-closed.test.ts	a room rejects rather than pretending to save	yes
 apps/desktop/src/main/stores-fail-closed.test.ts	a memory rejects rather than pretending to save	yes
+apps/desktop/src/main/talk-runs-on-a-mac.test.ts	runs on Windows and a Mac, and not yet on Linux	yes
+apps/desktop/src/main/talk-runs-on-a-mac.test.ts	gives the window the microphone on a Mac, and still only Locust's own audio	yes
+apps/desktop/src/main/talk-runs-on-a-mac.test.ts	asks the Mac's own say for the preview's hello, and PowerShell on Windows	no
+apps/desktop/src/main/talk-runs-on-a-mac.test.ts	leaves no Windows-only gate on a call, a preview or the microphone; Talk's keys stay Windows' for now	no
+apps/desktop/src/main/talk-starts-from-any-app.test.ts	are Ctrl or Alt, Shift if wanted, then a letter, digit, F-key or Space	yes
+apps/desktop/src/main/talk-starts-from-any-app.test.ts	come from a key press in Ctrl, Alt, Shift order, and not while only modifiers are down	yes
+apps/desktop/src/main/talk-starts-from-any-app.test.ts	are Ctrl+Alt+Space until the person chooses others, taken once Talk could start	yes
+apps/desktop/src/main/talk-starts-from-any-app.test.ts	say so when another app holds them, and are tried again at the next check	yes
+apps/desktop/src/main/talk-starts-from-any-app.test.ts	change to the person’s own at once, the old ones given back, and stay off once turned off	yes
+apps/desktop/src/main/talk-starts-from-any-app.test.ts	read the kept keys, and the default for anything a person could not have chosen	yes
+apps/desktop/src/main/talk-starts-from-any-app.test.ts	press Talk through the window when Windows hears them	yes
+apps/desktop/src/main/talk-starts-from-any-app.test.ts	are given back when Locust quits	yes
+apps/desktop/src/main/talk-starts-from-any-app.test.ts	are none of the person’s in a test drive’s window, which takes only keys it names	yes
 apps/desktop/src/main/teammate-knows-its-connectors.test.ts	names them when the machine has any	yes
 apps/desktop/src/main/teammate-knows-its-connectors.test.ts	says nothing when there are none, rather than an empty heading	yes
 apps/desktop/src/main/teammate-knows-its-connectors.test.ts	keeps the person words last, so the ask still reads closest to the asking	yes

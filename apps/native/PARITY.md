@@ -179,7 +179,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 | Voice dictation in composer | `renderer/src/components/VoiceButton.tsx`, `main/voice-host.ts`, `renderer/src/voiceCapture.ts` | **partial** — Rune capture and cancellation with a fake microphone, consent-checked settings and the fixed transcription request with a fake transport. Production HTTPS, microphone capture, Windows checked files and browser setup remain. A cpal adapter is still needed for native microphone capture and playback, and webrtc for the call’s SDP and media peer. | yes | no | yes |
 | Realtime ChatGPT voice through Codex and teammate calls | `renderer/src/components/VoiceCall.tsx`, `main/voice-call.ts`, `main/voice-openai.ts` | **partial** — Realtime v3 through the existing Codex client, read-only with scoped private tools, explicit connector cards and a fake window media boundary. A cpal adapter is still needed for native microphone capture and playback, and webrtc for the call’s SDP and media peer. | yes | no | yes |
 | Saved call transcript, teammate handoffs and summary | `renderer/src/components/CallWords.tsx`, `main/call-log.ts`, `renderer/src/callTodos.ts` | **partial** — Native calls.json keeps bounded saved calls in Electron’s format and places the transcript among the mission ledgers. Live collection and window parity are tracked by their tests. | yes | no | yes |
-| Windows global Talk shortcut, voice settings and greeting preview | `renderer/src/components/TalkShortcutSetting.tsx`, `renderer/src/components/TalkVoice.tsx`, `renderer/src/components/VoicePlay.tsx`, `renderer/src/components/VoiceSettings.tsx`, `main/talk-shortcut.ts`, `main/voice-preview.ts` | **missing** | - | no | yes |
+| Windows global Talk shortcut, voice settings and greeting preview | `renderer/src/components/TalkShortcutSetting.tsx`, `renderer/src/components/TalkVoice.tsx`, `renderer/src/components/VoicePlay.tsx`, `renderer/src/components/VoiceSettings.tsx`, `main/talk-shortcut.ts`, `main/voice-preview.ts` | **partial** — Shortcut parsing, preferences, registration lifecycle with a fake, and isolated realtime greeting calls. Native hotkey registration, preferences UI, greeting cache and playback remain. | yes | no | yes |
 | Call folder and connector context | `main/voice-call-folder.ts`, `main/voice-call.ts` | **partial** — Call-scoped door exposes bounded read-only folder tools, threads can use opted-in remote connectors, and the window can answer a connector card. Windows anchored folder reads and detailed card parity remain. | yes | no | yes |
 
 ### Area 11: Settings, Usage, Privacy & Backup
@@ -287,13 +287,13 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 7 | Terminal & Own Commands | 0 | 3 | 0 | 3 | 3 | 0 |
 | 8 | Built-in Browser & Page Previews | 4 | 2 | 0 | 6 | 6 | 0 |
 | 9 | Routines, Compare & Benchmarks | 7 | 3 | 0 | 10 | 10 | 0 |
-| 10 | Calls & Voice Typing | 0 | 4 | 1 | 5 | 4 | 0 |
+| 10 | Calls & Voice Typing | 0 | 5 | 0 | 5 | 5 | 0 |
 | 11 | Settings, Usage, Privacy & Backup | 5 | 3 | 0 | 8 | 8 | 0 |
 | 12 | Cloud, Remote, Phone & Chat Apps | 0 | 6 | 3 | 9 | 6 | 0 |
 | 13 | Onboarding, Home, Updates & CLI | 7 | 6 | 0 | 13 | 13 | 2 |
 | 14 | Pets, Bots & Look / Window Chrome | 2 | 3 | 1 | 6 | 5 | 1 |
 | 15 | Documents, Diagrams & File Viewer | 1 | 6 | 0 | 7 | 7 | 0 |
-| | **TOTAL** | **71** | **77** | **5** | **153** | **148** | **15** |
+| | **TOTAL** | **71** | **78** | **4** | **153** | **149** | **15** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 
