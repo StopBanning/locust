@@ -4234,6 +4234,13 @@ apps/desktop/src/renderer/src/an-idle-teammate-offers-its-own-world.test.tsx	nev
 apps/desktop/src/renderer/src/an-idle-teammate-offers-its-own-world.test.tsx	never asks a non-coder for a page the app would only show as code	yes
 apps/desktop/src/renderer/src/an-idle-teammate-offers-its-own-world.test.tsx	says what the role is for, not that every role reads the workspace	yes
 apps/desktop/src/renderer/src/an-idle-teammate-offers-its-own-world.test.tsx	offers a hand-made teammate its role's, and speaks of code only for the roles that are code	yes
+apps/desktop/src/renderer/src/an-image-can-be-zoomed-and-panned.test.ts	opens at the pane width, as it always did, and never larger than its own pixels	yes
+apps/desktop/src/renderer/src/an-image-can-be-zoomed-and-panned.test.ts	zooms out as far as the whole picture in the pane	yes
+apps/desktop/src/renderer/src/an-image-can-be-zoomed-and-panned.test.ts	opens a tall picture at its top, and a small one in the middle	yes
+apps/desktop/src/renderer/src/an-image-can-be-zoomed-and-panned.test.ts	zooms around the point under the pointer, which stays where it was	yes
+apps/desktop/src/renderer/src/an-image-can-be-zoomed-and-panned.test.ts	stops at the fitted size going down and at eight times its pixels going up	yes
+apps/desktop/src/renderer/src/an-image-can-be-zoomed-and-panned.test.ts	stays centred where it is smaller than the pane, and keeps its edges at the pane where it is larger	yes
+apps/desktop/src/renderer/src/an-image-can-be-zoomed-and-panned.test.ts	is what the file viewer draws for a picture, with the zoom controls beside it	yes
 apps/desktop/src/renderer/src/an-issue-link-wears-its-state.test.tsx	wears open, closed and not planned, its standing and title on hover	no
 apps/desktop/src/renderer/src/an-issue-link-wears-its-state.test.tsx	makes a bare issue in the person's message a link, as a pull request is	no
 apps/desktop/src/renderer/src/an-issue-link-wears-its-state.test.tsx	reads on show, again on focus after a minute, and never on a timer	no

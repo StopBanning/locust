@@ -401,6 +401,8 @@ pub(super) struct State {
     pub(super) folded_groups: std::collections::HashSet<String>,
     pub(super) group_settings: crate::group_settings_dialog::Panel,
     pub(super) file_view: Option<(reply_actions::FileTarget, Result<String, String>)>,
+    /// Current zoom and pan of a picture open in the file viewer (ZoomableImage.tsx `view`).
+    pub(super) viewer_image_view: Option<crate::step_pictures::ImageView>,
     /// Last Copy press feedback (`Copied` / `Not copied`), keyed by body.
     pub(super) copy_feedback: Option<reply_actions::CopyFeedback>,
     /// ReplyDiagram Code tab is selected when true; keyed by fence source hash.
@@ -686,6 +688,7 @@ impl Default for State {
             folded_groups: std::collections::HashSet::new(),
             group_settings: crate::group_settings_dialog::Panel::default(),
             file_view: None,
+            viewer_image_view: None,
             copy_feedback: None,
             diagram_code_tab: HashMap::new(),
             image_cache: None,
