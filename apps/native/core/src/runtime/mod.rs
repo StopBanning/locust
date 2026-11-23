@@ -23,6 +23,7 @@ pub mod opencode_config;
 pub mod opencode_events;
 pub mod opencode_serve;
 pub mod process;
+pub mod records;
 pub mod version;
 use crate::approval::{Channel, Mode};
 use serde_json::Value;
@@ -92,6 +93,8 @@ mod denied_read_and_file_row_tests;
 mod message_tail_tests;
 #[cfg(test)]
 mod claude_background_calls_tests;
+#[cfg(test)]
+mod claude_thinking_tests;
 #[cfg(test)]
 mod claude_helper_children_tests;
 #[cfg(test)]

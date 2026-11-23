@@ -3819,10 +3819,10 @@ fn run_turn(
         return;
     }
     if runtime_name == "claude" {
-        let mut runtime = match Claude::spawn(&mut command) {
-            Ok(r) => r.with_cancel(flag.clone()),
+        let mut runtime = match Claude::launch(&mut command, &flag) {
+            Ok(r) => r,
             Err(e) => {
-                record_failure(&mut writer, false, &e);
+                record_failure(&mut writer, flag.load(Ordering::Relaxed), &e);
                 return finish(&mut writer, &mut registered, &channel, &mission_id);
             }
         };

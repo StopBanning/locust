@@ -301,7 +301,9 @@ fn run_claude(scenario: &str) {
         }
     }
     let contents = std::fs::read_to_string(&writer.path).unwrap();
-    assert!(!contents.contains("RAW_REASONING_MUST_NOT_SURVIVE"));
+    // Thinking Claude Code shows is kept for its thinking row (claude-thinking-is-kept-for-its-thinking-row.test.ts);
+    // every other scenario carries none.
+    assert_eq!(contents.contains("RAW_REASONING_MUST_NOT_SURVIVE"), scenario == "thinking");
     assert!(!contents.contains("Gmail"));
     assert!(!contents.contains("powershell"));
     let transcript = ledger::read_transcript(&writer.path);

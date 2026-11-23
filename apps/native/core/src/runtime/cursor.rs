@@ -419,7 +419,7 @@ impl Cursor {
             .take()
             // Invariant: spawn configured this pipe and it has not been taken.
             .expect("spawn configured this pipe and it has not been taken");
-        let (tx, lines) = mpsc::sync_channel(256);
+        let (tx, lines) = mpsc::sync_channel(super::records::MAX_QUEUED_RECORDS);
         let reader_control = control.clone();
         std::thread::spawn(move || {
             let mut reader = BufReader::new(ProjectedOutput::new(output));
@@ -460,7 +460,7 @@ impl Cursor {
                             Ok(()) => {}
                             Err(mpsc::TrySendError::Full(_)) => {
                                 reader_control.fail(
-                                    "Cursor notification queue overflow (256 records); terminating run",
+                                    "Cursor notification queue overflow (2048 records); terminating run",
                                 );
                                 break;
                             }

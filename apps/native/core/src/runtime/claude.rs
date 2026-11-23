@@ -1,23 +1,23 @@
 type ApprovalLifecycle = Arc<Mutex<Option<(Arc<Channel>, String)>>>;
 // Claude Code print/stream-json driver. Ports createClaudePrintCommand + process-runner stream-json path.
-use super::process::{Control, interrupt_process, kill_process};
+use super::process::{Control, interrupt_process};
+use super::records::{self, BoundedStderr, Limits, Lines, Piece, Stopping, Termination};
 use super::{Event, Runtime, Turn, claude_events::ClaudeNormalizer};
 use crate::approval::{Channel, Mode};
 use serde_json::{Value, json};
 use std::{
     collections::VecDeque,
-    io::{self, BufReader, Write},
+    io::{self, Read, Write},
     path::{Path, PathBuf},
     process::{Child, Command, Stdio},
     sync::{
         Arc, Mutex,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
         mpsc::{self, Receiver, RecvTimeoutError, SyncSender},
     },
     time::{Duration, Instant},
 };
 
-const MAX_LINE: u64 = 8 * 1024 * 1024;
 /// Ask-mode tools from createClaudePrintCommand when sandbox is read-only.
 const ASK_TOOLS: &str = "Read,Glob,Grep,Task,Skill,WebSearch,WebFetch,mcp__*";
 
@@ -33,8 +33,21 @@ pub struct Claude {
     lines: Receiver<io::Result<Value>>,
     normal: ClaudeNormalizer,
     queued: VecDeque<Event>,
-    stopping: Option<Instant>,
+    /// Ending the process: SIGINT, then SIGKILL past the grace period (process-runner.ts requestTermination).
+    stopping: Option<Stopping>,
+    /// The person stopped it (as against the host ending it after its result, or for input it could not take).
+    user_stopped: bool,
     cancel: Option<Arc<AtomicBool>>,
+    limits: Limits,
+    stderr: Arc<Mutex<BoundedStderr>>,
+    dropped: Arc<AtomicUsize>,
+    output_limit: Arc<AtomicBool>,
+    input_failed: Arc<AtomicBool>,
+    /// The prompt, kept only to redact it from stderr.
+    prompt: String,
+    /// When the turn's result closed input; past `linger_after_result` a run still alive is ended.
+    result_at: Option<Instant>,
+    ended_after_result: bool,
     /// stdin stays open until the turn's `result` (process-runner.ts A2.10).
     stdin_open: bool,
     /// Process exited; finish() still owes a terminal event.
@@ -256,6 +269,61 @@ pub fn print_args(o: &PrintOptions) -> Result<Vec<String>, String> {
     Ok(args)
 }
 
+/// commands.ts createClaudeContextCommand: Claude Code's free `/context` for a turn's session, on that turn's own
+/// command line, so the breakdown counts the tools, connectors, settings, plugins, references, model and approval bridge
+/// the turn had. Only the transport and session persistence differ; a launch that is lost, cut short, not Claude's, or
+/// has slash commands turned off is refused rather than guessed at.
+pub fn context_args(runtime: &str, turn_args: &[String], session_id: &str) -> Result<Vec<String>, String> {
+    if runtime != "claude"
+        || !turn_args.iter().any(|a| a == "--print")
+        || turn_args.iter().any(|a| a == "--disable-slash-commands")
+        || turn_args.iter().any(|a| a.contains('…'))
+    {
+        return Err("The Claude launch flags are unavailable.".into());
+    }
+    if !(1..=128).contains(&session_id.len())
+        || !session_id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
+    {
+        return Err("The Claude session is unavailable.".into());
+    }
+    let mut args = Vec::new();
+    let mut each = turn_args.iter();
+    while let Some(arg) = each.next() {
+        if matches!(arg.as_str(), "--input-format" | "--output-format" | "--resume") {
+            each.next();
+            continue;
+        }
+        if matches!(arg.as_str(), "--verbose" | "--include-partial-messages" | "--fork-session" | "--no-session-persistence") {
+            continue;
+        }
+        args.push(arg.clone());
+    }
+    args.extend(["--output-format", "json", "--no-session-persistence", "--resume", session_id, "--", "/context"].map(String::from));
+    Ok(args)
+}
+
+/// The `/context` run as a command: the turn's program, folder and variables, with `context_args`. It takes nothing on
+/// stdin (the spec's `stdin: "none"`); the caller spawns it with a closed input.
+pub fn context_command(turn: &Command, session_id: &str) -> Result<Command, String> {
+    let program = Path::new(turn.get_program());
+    let runtime = program.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+    let args: Vec<String> = turn.get_args().map(|a| a.to_string_lossy().into_owned()).collect();
+    let args = context_args(runtime, &args, session_id)?;
+    let mut out = Command::new(turn.get_program());
+    out.args(args);
+    if let Some(dir) = turn.get_current_dir() {
+        out.current_dir(dir);
+    }
+    for (k, v) in turn.get_envs() {
+        match v {
+            Some(v) => out.env(k, v),
+            None => out.env_remove(k),
+        };
+    }
+    out.stdin(Stdio::null());
+    Ok(out)
+}
+
 /// Ask's command line with nothing else: read only, no bridge, no guard. The context meter's probe and the few
 /// callers that start Claude outside a turn use it.
 pub fn ask_args(model: Option<&str>) -> Vec<String> {
@@ -286,24 +354,43 @@ pub fn command(folder: &Path, model: Option<&str>) -> io::Result<Command> {
 
 impl Claude {
     pub fn spawn(command: &mut Command) -> io::Result<Self> {
-        let mut child = super::process::spawn(command, Stdio::piped(), Stdio::null())?;
+        Self::spawn_with(command, Limits::default())
+    }
+
+    /// process-runner.ts start, for Claude Code's stream-json transport: the allowlisted environment with the
+    /// command's own variables on top, stderr captured and bounded, stdout read as records within their caps (a record
+    /// too large is skipped for a stand-in and the run carries on), and at most `max_queued_records` waiting unread.
+    pub fn spawn_with(command: &mut Command, limits: Limits) -> io::Result<Self> {
+        records::keep_allowlisted_environment(command);
+        let mut child = super::process::spawn(command, Stdio::piped(), Stdio::piped())
+            .map_err(|e| records::launch_error(&e))?;
         // spawn configured a piped stdin; no prior take occurs.
         let mut stdin = child
             .stdin
             .take()
             // Invariant: spawn configured this pipe and it has not been taken.
             .expect("spawn configured this pipe and it has not been taken");
+        let stderr = records::capture_stderr(
+            child
+                .stderr
+                .take()
+                // Invariant: spawn configured this pipe and it has not been taken.
+                .expect("spawn configured this pipe and it has not been taken"),
+            limits.max_stderr_bytes,
+        );
         let control = Arc::new(Control::default());
         let pid = child.id();
         control.watch(pid);
         let (input, writes) = mpsc::sync_channel::<StdinMsg>(256);
-        let writer_control = control.clone();
+        let input_failed = Arc::new(AtomicBool::new(false));
+        let writer_failed = input_failed.clone();
         std::thread::spawn(move || {
             for msg in writes {
                 match msg {
                     StdinMsg::Bytes(bytes) => {
-                        if let Err(e) = stdin.write_all(&bytes).and_then(|_| stdin.flush()) {
-                            writer_control.fail(format!("Claude stdin write failed: {e}"));
+                        // inputDeliveryFailed: the run is ended, and not as the person's cancellation.
+                        if stdin.write_all(&bytes).and_then(|_| stdin.flush()).is_err() {
+                            writer_failed.store(true, Ordering::Relaxed);
                             break;
                         }
                     }
@@ -315,55 +402,61 @@ impl Claude {
         let approval_lifecycle: ApprovalLifecycle = Arc::new(Mutex::new(None));
         let lifecycle = approval_lifecycle.clone();
         // spawn configured a piped stdout; no prior take occurs.
-        let output = child
+        let mut output = child
             .stdout
             .take()
             // Invariant: spawn configured this pipe and it has not been taken.
             .expect("spawn configured this pipe and it has not been taken");
-        let (tx, lines) = mpsc::sync_channel(256);
+        let (tx, lines) = mpsc::sync_channel(limits.max_queued_records);
         let reader_control = control.clone();
+        let dropped = Arc::new(AtomicUsize::new(0));
+        let output_limit = Arc::new(AtomicBool::new(false));
+        let (reader_dropped, reader_limit) = (dropped.clone(), output_limit.clone());
         std::thread::spawn(move || {
-            let mut reader = BufReader::new(output);
+            let mut split = Lines::new(&limits);
+            let mut bytes = vec![0u8; 64 * 1024];
             loop {
-                let mut line = Vec::new();
-                let result = super::process::read_line(&mut reader, &mut line);
-                let value = match result {
-                    Ok(0) => Err(err("Claude stdout closed before the turn completed")),
-                    Ok(_) if line.len() as u64 > MAX_LINE => {
-                        Err(err("Claude stream-json line exceeds 8 MiB"))
-                    }
-                    Ok(_) => {
-                        let trimmed = if line.last() == Some(&b'\n') {
-                            &line[..line.len() - 1]
-                        } else {
-                            &line[..]
-                        };
-                        if trimmed.is_empty() {
-                            continue;
-                        }
-                        serde_json::from_slice(trimmed)
-                            .map_err(|_| err("Claude sent malformed stream-json"))
-                    }
-                    Err(e) => Err(e),
-                };
-                let terminal = value.is_err();
-                if (terminal || value.as_ref().is_ok_and(|v: &Value| v["type"] == "result"))
-                    && let Some((channel, mission)) = crate::invariants::lock(&lifecycle).as_ref()
-                {
-                    channel.release(mission);
-                }
-                match tx.try_send(value) {
-                    Ok(()) => {}
-                    Err(mpsc::TrySendError::Full(_)) => {
-                        reader_control.fail(
-                            "Claude notification queue overflow (256 records); terminating run",
-                        );
+                let (pieces, ended) = match output.read(&mut bytes) {
+                    Ok(0) => (split.end(), true),
+                    Ok(n) => (split.feed(&bytes[..n]), false),
+                    Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
+                    Err(e) => {
+                        let _ = tx.try_send(Err(e));
                         break;
                     }
-                    Err(mpsc::TrySendError::Disconnected(_)) => break,
+                };
+                reader_dropped.store(split.dropped, Ordering::Relaxed);
+                let mut values: Vec<io::Result<Value>> = pieces
+                    .into_iter()
+                    .map(|piece| match piece {
+                        Piece::Record(raw) => serde_json::from_str(&raw).map_err(|_| err("Claude sent malformed stream-json")),
+                        // A stand-in in the dropped record's place: its size, type and calls, none of its content.
+                        Piece::Dropped { head, bytes, .. } => Ok(records::stand_in(&head, bytes)),
+                    })
+                    .collect();
+                if ended {
+                    values.push(Err(err("Claude stdout closed before the turn completed")));
                 }
-                if terminal {
-                    break;
+                for value in values {
+                    let terminal = value.is_err();
+                    if (terminal || value.as_ref().is_ok_and(ends_turn))
+                        && let Some((channel, mission)) = crate::invariants::lock(&lifecycle).as_ref()
+                    {
+                        channel.release(mission);
+                    }
+                    match tx.try_send(value) {
+                        Ok(()) => {}
+                        Err(mpsc::TrySendError::Full(_)) => {
+                            // exceedOutputLimit: an unknown number of records would be lost, so the run stops and says so.
+                            reader_limit.store(true, Ordering::Relaxed);
+                            reader_control.fail(records::OUTPUT_LIMIT_MESSAGE);
+                            return;
+                        }
+                        Err(mpsc::TrySendError::Disconnected(_)) => return,
+                    }
+                    if terminal {
+                        return;
+                    }
                 }
             }
         });
@@ -375,7 +468,16 @@ impl Claude {
             normal: ClaudeNormalizer::default(),
             queued: VecDeque::new(),
             stopping: None,
+            user_stopped: false,
             cancel: None,
+            limits,
+            stderr,
+            dropped,
+            output_limit,
+            input_failed,
+            prompt: String::new(),
+            result_at: None,
+            ended_after_result: false,
             stdin_open: true,
             exited: false,
             exit_code: None,
@@ -386,6 +488,15 @@ impl Claude {
             mode: Mode::Ask,
             approval_lifecycle,
         })
+    }
+
+    /// A turn's start: one already stopped is never launched (process-runner.ts abortBeforeLaunchError), and the
+    /// stop flag rides with the run.
+    pub fn launch(command: &mut Command, cancel: &Arc<AtomicBool>) -> io::Result<Self> {
+        if cancel.load(Ordering::Relaxed) {
+            return Err(io::Error::new(io::ErrorKind::Interrupted, "Runtime process was cancelled before launch"));
+        }
+        Ok(Self::spawn(command)?.with_cancel(cancel.clone()))
     }
 
     pub fn with_cancel(mut self, flag: Arc<AtomicBool>) -> Self {
@@ -437,11 +548,40 @@ impl Claude {
     fn transport_failure(&mut self, message: &str) -> Event {
         self.queued.clear();
         let diagnostic = self.normal.diagnostic("native.transport", message);
-        let terminal = self
-            .normal
-            .finish(self.stopping.is_some() || self.cancelled(), message);
+        let terminal = self.settle(message);
         self.queued.push_back(terminal);
         diagnostic
+    }
+
+    /// The run's terminal event, with what the process itself came to (RuntimeProcessCompletion).
+    fn settle(&mut self, message: &str) -> Event {
+        let (stderr, stderr_truncated) = crate::invariants::lock(&self.stderr).text(&self.prompt);
+        let e = &mut self.normal.evidence;
+        e.exit_code = self.exit_code;
+        e.stderr = stderr;
+        e.stderr_truncated = stderr_truncated;
+        e.oversized_records_dropped = self.dropped.load(Ordering::Relaxed);
+        e.output_limit_exceeded = self.output_limit.load(Ordering::Relaxed);
+        e.input_delivery_failed = self.input_failed.load(Ordering::Relaxed);
+        e.ended_after_result = self.ended_after_result;
+        e.forced_termination_attempted =
+            Some(self.stopping.is_some_and(|s| s.forced.is_some()) || (self.stopping.is_some() && self.control.forced()));
+        let cancelled = self.user_stopped || self.cancelled();
+        self.normal.finish(cancelled, message)
+    }
+
+    /// requestTermination: the group's SIGINT first, and the grace period for it; the person's stop is a cancellation,
+    /// the host's (after a result, or for input it could not deliver) is not.
+    fn terminate(&mut self, by_person: bool) {
+        self.user_stopped |= by_person;
+        if self.stopping.is_some() || self.exited {
+            return;
+        }
+        let now = Instant::now();
+        self.stopping = Some(Stopping::new(now));
+        self.control.cancel_at(now + self.limits.cancellation_grace);
+        interrupt_process(self.child.id());
+        self.close_stdin();
     }
 
     fn handle_record(&mut self, v: Value) -> io::Result<()> {
@@ -463,11 +603,13 @@ impl Claude {
             self.queued.extend(self.normal.accept(&v));
             return Ok(());
         }
-        let is_result = v["type"].as_str() == Some("result");
+        let is_result = ends_turn(&v);
         self.queued.extend(self.normal.accept(&v));
-        if is_result {
-            // process-runner.ts: close stdin on the turn result so Claude exits.
+        if is_result && self.stdin_open {
+            // process-runner.ts closeInputAfterResult: input closes on the turn's result (even one too large to carry)
+            // so Claude exits, and a run still alive `linger_after_result` later is ended.
             self.close_stdin();
+            self.result_at = Some(Instant::now());
         }
         Ok(())
     }
@@ -538,6 +680,11 @@ impl Claude {
     }
 }
 
+/// The turn's result, or the stand-in for one too large to carry: either ends the turn.
+fn ends_turn(v: &Value) -> bool {
+    v["type"] == "result" || (v["type"] == "locust.oversized" && v["recordType"] == "result")
+}
+
 impl Runtime for Claude {
     fn learned_commands(&mut self) -> Option<Vec<crate::runtime_commands::CommandInfo>> {
         self.normal.take_commands()
@@ -555,7 +702,18 @@ impl Runtime for Claude {
         self.run_id = turn.run_id.clone();
         self.folder = turn.folder.clone();
         self.mode = turn.mode;
+        self.prompt = turn.prompt.clone();
         self.send(user_line(&turn.prompt))
+    }
+
+    /// A stream-json run takes another user message while its turn runs (process-runner.ts `send`), until the turn's
+    /// result closes its input.
+    fn can_steer(&self) -> bool {
+        true
+    }
+
+    fn steer(&mut self, text: &str) -> bool {
+        self.stdin_open && self.stopping.is_none() && !text.trim().is_empty() && self.send(user_line(text)).is_ok()
     }
 
     fn next_event(&mut self) -> io::Result<Option<Event>> {
@@ -563,31 +721,61 @@ impl Runtime for Claude {
             return Ok(self.queued.pop_front());
         }
         if let Some(message) = self.control.failure() {
+            // The queue overflowed: what reached it before is still the run's, and is read before the run stops.
+            if self.output_limit.load(Ordering::Relaxed)
+                && let Ok(Ok(v)) = self.lines.try_recv()
+            {
+                if let Err(e) = self.handle_record(v) {
+                    return Ok(Some(self.transport_failure(&e.to_string())));
+                }
+                if let Some(e) = self.queued.pop_front() {
+                    return Ok(Some(e));
+                }
+                return Ok(None);
+            }
             return Ok(Some(self.transport_failure(&message)));
         }
-        if self
-            .stopping
-            .is_some_and(|t| t.elapsed() >= Duration::from_secs(5))
-        {
-            self.queued.clear();
-            kill_process(self.child.id());
-            return Ok(Some(
-                self.normal
-                    .finish(true, "Claude cancellation timed out; process killed"),
-            ));
+        self.poll_exit();
+        if !self.exited {
+            if self.input_failed.load(Ordering::Relaxed) {
+                self.terminate(false);
+            }
+            if self.stopping.is_none()
+                && self.result_at.is_some_and(|at| at.elapsed() >= self.limits.linger_after_result)
+            {
+                self.ended_after_result = true;
+                self.terminate(false);
+            }
+            let limits = self.limits;
+            match self.stopping.as_mut().map(|s| s.due(Instant::now(), &limits)) {
+                // Force needs nothing here: the watchdog `terminate` armed (`control.cancel_at`) ends the tree at that
+                // same moment, polled or not; `due` has marked it forced for the record.
+                Some(Termination::Unconfirmed) => {
+                    self.queued.clear();
+                    self.normal.evidence.termination_unconfirmed = true;
+                    return Ok(Some(self.settle("Claude Code did not confirm it had ended.")));
+                }
+                _ => {}
+            }
         }
         if let Some(e) = self.queued.pop_front() {
             return Ok(Some(e));
         }
-        self.poll_exit();
         if self.exited && self.queued.is_empty() && !self.normal.ended {
-            let cancelled = self.stopping.is_some() || self.cancelled();
+            // What the process wrote before it ended is read first; its pipe closing (or staying held by something it
+            // left behind, past a moment) is the end.
+            if let Ok(Ok(v)) = self.lines.recv_timeout(Duration::from_millis(200)) {
+                if let Err(e) = self.handle_record(v) {
+                    return Ok(Some(self.transport_failure(&e.to_string())));
+                }
+                return Ok(self.queued.pop_front());
+            }
             let message = match self.exit_code {
                 Some(0) => String::new(),
                 Some(code) => format!("Claude Code exited with code {code}."),
                 None => "Claude Code ended without an exit code.".into(),
             };
-            return Ok(Some(self.normal.finish(cancelled, &message)));
+            return Ok(Some(self.settle(&message)));
         }
         match self.receive() {
             Ok(Some(v)) => {
@@ -603,13 +791,12 @@ impl Runtime for Claude {
                 // to be seen so the run keeps its code.
                 let until = Instant::now() + Duration::from_secs(2);
                 self.poll_exit();
-                while self.normal.saw_result() && !self.exited && Instant::now() < until {
+                while !self.exited && Instant::now() < until {
                     std::thread::sleep(Duration::from_millis(10));
                     self.poll_exit();
                 }
                 if self.exited || self.normal.saw_result() {
-                    let cancelled = self.stopping.is_some() || self.cancelled();
-                    Ok(Some(self.normal.finish(cancelled, &e.to_string())))
+                    Ok(Some(self.settle(&e.to_string())))
                 } else {
                     Ok(Some(self.transport_failure(&e.to_string())))
                 }
@@ -618,15 +805,8 @@ impl Runtime for Claude {
     }
 
     fn stop(&mut self) -> io::Result<()> {
-        if self.stopping.is_some() {
-            return Ok(());
-        }
-        let now = Instant::now();
-        self.stopping = Some(now);
-        self.control.cancel_at(now + Duration::from_secs(5));
         // process-runner.ts:killProcessTree SIGINT, then SIGKILL after grace.
-        interrupt_process(self.child.id());
-        self.close_stdin();
+        self.terminate(true);
         Ok(())
     }
 }
@@ -797,3 +977,7 @@ time.sleep(.3)
 #[cfg(test)]
 #[path = "references_never_widen_tests.rs"]
 mod references_never_widen_tests;
+
+#[cfg(test)]
+#[path = "a_context_inspection_tests.rs"]
+mod a_context_inspection_tests;
