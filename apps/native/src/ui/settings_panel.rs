@@ -44,6 +44,12 @@ pub(super) struct Panel {
     pub agents_recheck: Latest<()>,
     /// Agents whose late check has finished, by the host's word, not yet read back (App.tsx `finishedChecks`).
     pub agents_finished: std::collections::HashSet<String>,
+    /// What each agent has of its own (runtime_artifacts.rs, CliArtifacts.tsx): the list, which agents it was read for,
+    /// the read itself, and which agents' folds are open.
+    pub artifacts: Vec<locust_core::runtime_artifacts::RuntimeArtifact>,
+    pub artifacts_for: Option<Vec<String>>,
+    pub artifacts_job: Latest<Vec<locust_core::runtime_artifacts::RuntimeArtifact>>,
+    pub artifacts_open: std::collections::HashSet<String>,
     /// "OWN COPIES": the project folder's teammate copies, and what a Remove came back with.
     pub own_copies: Option<crate::own_copies::OwnCopies>,
     pub check_command: TextEdit,
@@ -112,11 +118,35 @@ pub(super) fn open(s: &mut State) {
     s.settings_panel.open = true;
     s.settings_panel.page = SettingsPageId::from_str("appearance");
     reload(s);
+    build_update_service(s);
     if s.home.changelog.is_empty() {
         let text = crate::changelog::native_notes(None);
         s.home.changelog = crate::changelog::entries(&text);
         s.home.changelog_shown = crate::changelog::WHATS_NEW_PAGE;
     }
+}
+
+/// The app's update service (Electron builds its own at launch, main/index.ts), built once, the first time Settings
+/// opens: through updates.rs's `this_copys_update_service`, so the Mac self-updater is in `NoFeedUpdater`'s place only
+/// when LOCUST_NATIVE_SELF_UPDATE=1 and LOCUST_NATIVE_UPDATE_FEED is set. Off (the default) it is held back as no-feed
+/// and never fetches, downloads or replaces anything. A service already there is kept.
+fn build_update_service(s: &mut State) {
+    if s.settings_panel.update_service.is_some() {
+        return;
+    }
+    let version = if s.home.current_version.is_empty() { env!("CARGO_PKG_VERSION").to_owned() } else { s.home.current_version.clone() };
+    let svc = locust_core::updates::this_copys_update_service(
+        &version,
+        std::sync::Arc::new(|| locust_core::engine_api::api().running().len()),
+        // Install and restart: the installer's own step, which waits for this copy to quit before it swaps.
+        std::sync::Arc::new(|then| {
+            if let Some(then) = then {
+                then();
+            }
+        }),
+    );
+    s.settings_panel.update = svc.state();
+    s.settings_panel.update_service = Some(svc);
 }
 
 fn active_project_folder(s: &State) -> Option<String> {
@@ -1895,6 +1925,10 @@ pub(super) fn light_scene(s: &mut State) {
 #[cfg(test)]
 #[path = "settings_door_tests.rs"]
 mod settings_door_tests;
+
+#[cfg(test)]
+#[path = "settings_update_service_tests.rs"]
+mod settings_update_service_tests;
 
 #[cfg(test)]
 mod tests {

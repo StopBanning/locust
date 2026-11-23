@@ -5436,8 +5436,8 @@ apps/desktop/src/renderer/src/routines-shelf.test.tsx	no longer holds the things
 apps/desktop/src/renderer/src/routines-shelf.test.tsx	offers finished conversations instead of describing a right-click	yes
 apps/desktop/src/renderer/src/routines-shelf.test.tsx	says the honest sentence when a workspace has finished nothing at all	yes
 apps/desktop/src/renderer/src/routines-shelf.test.tsx	offers New routine, written from nothing, where the screen is given one (0.530, Sol's 0.528 pass)	yes
-apps/desktop/src/renderer/src/routines-shelf.test.tsx	is listed as a fact about that runtime, with no apology needed	no
-apps/desktop/src/renderer/src/routines-shelf.test.tsx	draws nothing at all for a runtime that has none	no
+apps/desktop/src/renderer/src/routines-shelf.test.tsx	is listed as a fact about that runtime, with no apology needed	yes
+apps/desktop/src/renderer/src/routines-shelf.test.tsx	draws nothing at all for a runtime that has none	yes
 apps/desktop/src/renderer/src/routines.test.ts	is named after what the person typed, not the attachment line	yes
 apps/desktop/src/renderer/src/routines.test.ts	takes the words a person typed on each turn, in order, with where each came from	yes
 apps/desktop/src/renderer/src/routines.test.ts	drops turns the HOST wrote, whatever started them	yes
