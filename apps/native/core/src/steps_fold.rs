@@ -47,6 +47,61 @@ pub fn fold_steps(items: &[Item], running: bool) -> Vec<StepsGroup> {
     out
 }
 
+/// What the thread draws for a turn, in the order it happened (missionView.ts `buildThread`, 0.491): each thing said,
+/// then the steps taken before the next thing said as lines, the way Claude Code draws a turn, while it runs and after.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Piece {
+    /// An item drawn as itself: a message, the person's words, a note, the turn's foot.
+    Item(usize),
+    /// A steps line; `run` is the index the run of steps it belongs to began at (its place, kept as it grows).
+    Steps { run: usize, group: StepsGroup },
+}
+
+/// A message with nothing on screen once its blocks are taken out, and nothing handed over or refused (`shownText`
+/// empty, no `handedNow`, no `refused`): it does not split the steps around it, and is not drawn.
+pub fn says_nothing_on_screen(item: &Item, running: bool) -> bool {
+    let Item::Assistant { text, r#final, .. } = item else { return false };
+    let settled = *r#final || !running;
+    crate::protocol_tags::shown_text(text).trim().is_empty()
+        && !(settled && !crate::protocol_tags::parse_file_blocks(text).is_empty())
+        && !(settled && !crate::protocol_tags::refused_file_lines(text).is_empty())
+}
+
+/// A row the host added after the run ended: in no steps line, only in the foot's files.
+fn after_end(item: &Item) -> bool {
+    matches!(item, Item::Tool { detail, .. } if detail.after_end)
+}
+
+/// The turn's items as the thread draws them. A message stands where it BEGAN (the ledger holds it at its first piece),
+/// so narration restated after the next call stays before it; a message with nothing on screen neither splits the steps
+/// nor draws; a row born after the run ended is left to the foot; and a call still going is the live line's.
+pub fn thread_pieces(items: &[Item], running: bool) -> Vec<Piece> {
+    let mut out = Vec::new();
+    let mut run: Vec<usize> = Vec::new();
+    let flush = |run: &mut Vec<usize>, out: &mut Vec<Piece>| {
+        if let Some(&start) = run.first() {
+            let held: Vec<Item> = run.iter().map(|&i| items[i].clone()).collect();
+            for group in fold_steps(&held, running) {
+                out.push(Piece::Steps { run: start, group: StepsGroup { items: group.items.iter().map(|&i| run[i]).collect() } });
+            }
+        }
+        run.clear();
+    };
+    for (index, item) in items.iter().enumerate() {
+        if after_end(item) || says_nothing_on_screen(item, running) {
+            continue;
+        }
+        if is_step(item) {
+            run.push(index);
+            continue;
+        }
+        flush(&mut run, &mut out);
+        out.push(Piece::Item(index));
+    }
+    flush(&mut run, &mut out);
+    out
+}
+
 /// The line's own words when one of its thoughts leads with a headline (`stepsLine`: `headline ??= thoughtHeadline(..)`,
 /// the first one wins, and it is the whole line, 0.610). None leaves the counts line to the caller.
 pub fn group_headline(items: &[Item], group: &StepsGroup) -> Option<String> {

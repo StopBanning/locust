@@ -855,12 +855,14 @@ pub(super) fn activity_group(items: &[ledger::Item], p: &Palette, s: &State, sco
     // thought draws nothing inside the step, and a step with nothing else inside is a line with no chevron.
     let headline_only = |item: &ledger::Item| matches!(item, ledger::Item::Thought { text, .. } if without_headline(text).trim().is_empty());
     let listed: Vec<&ledger::Item> = items.iter().filter(|item| !headline_only(item)).collect();
+    // The line's place in the thread, kept as it grows (missionView's steps key).
+    let group_key = key.clone();
     let heading = if listed.is_empty() {
         el().w_full().py(4.0).px(2.0).child(text(label).font(type_::LABEL).color(p.muted).w_full().shrink().wrap_anywhere())
     } else {
         disclosure(key, label, open, p)
     };
-    let mut group = col().w_full().gap(4.0).child(heading);
+    let mut group = col().w_full().gap(4.0).key(group_key).child(heading);
     if let Some((said, amber)) = &outcome {
         group = group.child(text(said).font(type_::LABEL).color(if *amber { p.amber } else { p.muted }).w_full());
     }
@@ -976,6 +978,7 @@ mod tests {
                 progress: String::new(),
                 background_ended: String::new(),
                 children: Vec::new(),
+                after_end: false,
             }),
             status: if running {
                 ledger::Status::Running

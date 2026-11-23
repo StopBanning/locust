@@ -107,6 +107,15 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
     // One face per run of speech, Copy once under the turn's last reply (Thread.tsx continuesSpeech, lastSpeech).
     let said = |i: usize| matches!(&items[i], ledger::Item::Assistant { text, .. } if !locust_core::protocol_tags::shown_text(text).is_empty());
     let last_speech = locust_core::speech_runs::last_speech(items, turn_running(s), said);
+    let pieces = locust_core::steps_fold::thread_pieces(items, turn_running(s));
+    let drawn_alone: std::collections::HashSet<usize> =
+        pieces.iter().filter_map(|piece| if let locust_core::steps_fold::Piece::Item(i) = piece { Some(*i) } else { None }).collect();
+    let mut steps_at: std::collections::HashMap<usize, Vec<locust_core::steps_fold::StepsGroup>> = std::collections::HashMap::new();
+    for piece in &pieces {
+        if let locust_core::steps_fold::Piece::Steps { run, group } = piece {
+            steps_at.entry(*run).or_default().push(group.clone());
+        }
+    }
     for (index, item) in items.iter().enumerate().skip(first_item) {
         for marker in markers.iter().filter(|m| m.before_item == index) {
             messages = messages.child(time_marker::view(marker, p));
@@ -120,21 +129,17 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
         if matches!(item,ledger::Item::Plan {steps,..} if steps.is_empty()) {
             continue;
         }
-        if is_activity(item) {
-            if index > 0 && is_activity(&items[index - 1]) {
-                continue;
-            }
-            let end = items[index..]
-                .iter()
-                .position(|i| !is_activity(i))
-                .map(|n| index + n)
-                .unwrap_or(items.len());
-            // The steps fold: a thought that says something starts a line, a wordless one folds into its line.
-            let run = &items[index..end];
-            for line in locust_core::steps_fold::fold_steps(run, turn_running(s)) {
-                let held: Vec<ledger::Item> = line.items.iter().map(|&i| run[i].clone()).collect();
+        // The turn in the order it happened: the steps lines of a run drawn where the run began (a message with nothing
+        // on screen does not split it), and an item no piece holds -- that message, a row the host added after the run
+        // ended (in the foot's files) -- not drawn on its own.
+        if let Some(lines) = steps_at.get(&index) {
+            for line in lines {
+                let held: Vec<ledger::Item> = line.items.iter().map(|&i| items[i].clone()).collect();
                 messages = messages.child(activity_group(&held, p, s, conversation));
             }
+            continue;
+        }
+        if !drawn_alone.contains(&index) {
             continue;
         }
         let content = match item {
@@ -850,6 +855,9 @@ mod speech_run_tests;
 #[cfg(test)]
 #[path = "run_again_tests.rs"]
 mod run_again_tests;
+#[cfg(test)]
+#[path = "thread_order_tests.rs"]
+mod thread_order_tests;
 
 #[cfg(test)]
 mod tests {
