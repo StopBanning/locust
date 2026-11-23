@@ -32,11 +32,12 @@ pub(super) const COLD_START_NOTE: &str =
 
 /// The conversation's newest turn, when it is a reply that started cold (the host's say, `followsUp.runtimeThreadId`
 /// absent) and a turn before it is in the thread: the note under its opening. An edit says its own note instead.
-pub(super) fn cold_start_note(s: &State, meta: &ledger::Metadata, at: Option<usize>, p: &Palette) -> Option<El> {
+pub(super) fn cold_start_note(s: &State, items: &[ledger::Item], meta: &ledger::Metadata, at: Option<usize>, p: &Palette) -> Option<El> {
     let pane = s.ledger.as_ref()?;
     let newest = pane.snapshot.turn_metas.len().checked_sub(1)?;
     let cold = pane.cold_tip.as_ref().is_some_and(|(tip, cold)| *cold && *tip == meta.mission_id);
-    if !cold || meta.edited || at != Some(newest) || newest == 0 || pane.snapshot.tip != meta.mission_id {
+    // Only when a turn before it is still on screen: one that gave way to this one, sent again, loses nothing (0.496).
+    if !cold || meta.edited || at != Some(newest) || newest == 0 || pane.snapshot.tip != meta.mission_id || !locust_core::sent_again::a_turn_before_is_shown(items) {
         return None;
     }
     let l = crate::look::controls::Look::new(p.dark);
@@ -119,9 +120,27 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
     // One face per run of speech, Copy once under the turn's last reply (Thread.tsx continuesSpeech, lastSpeech).
     let said = |i: usize| matches!(&items[i], ledger::Item::Assistant { text, .. } if !locust_core::protocol_tags::shown_text(text).is_empty());
     let last_speech = locust_core::speech_runs::last_speech(items, turn_running(s), said);
+    let pieces = locust_core::steps_fold::thread_pieces(items, turn_running(s));
+    let drawn_alone: std::collections::HashSet<usize> =
+        pieces.iter().filter_map(|piece| if let locust_core::steps_fold::Piece::Item(i) = piece { Some(*i) } else { None }).collect();
+    let mut steps_at: std::collections::HashMap<usize, Vec<locust_core::steps_fold::StepsGroup>> = std::collections::HashMap::new();
+    for piece in &pieces {
+        if let locust_core::steps_fold::Piece::Steps { run, group } = piece {
+            steps_at.entry(*run).or_default().push(group.clone());
+        }
+    }
+    // A turn stopped before it said anything and then sent again with the same words gives way to the one sent again:
+    // one message, not two (Thread.tsx `sentAgainBy`, 0.496).
+    let given_way = locust_core::sent_again::given_way(items);
     for (index, item) in items.iter().enumerate().skip(first_item) {
         for marker in markers.iter().filter(|m| m.before_item == index) {
             messages = messages.child(time_marker::view(marker, p));
+        }
+        if let Some(&(at, _)) = given_way.iter().find(|(at, end)| (*at..*end).contains(&index)) {
+            if at == index {
+                user_index += 1;
+            }
+            continue;
         }
         let conversation = s
             .ledger
@@ -132,21 +151,17 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
         if matches!(item,ledger::Item::Plan {steps,..} if steps.is_empty()) {
             continue;
         }
-        if is_activity(item) {
-            if index > 0 && is_activity(&items[index - 1]) {
-                continue;
-            }
-            let end = items[index..]
-                .iter()
-                .position(|i| !is_activity(i))
-                .map(|n| index + n)
-                .unwrap_or(items.len());
-            // The steps fold: a thought that says something starts a line, a wordless one folds into its line.
-            let run = &items[index..end];
-            for line in locust_core::steps_fold::fold_steps(run, turn_running(s)) {
-                let held: Vec<ledger::Item> = line.items.iter().map(|&i| run[i].clone()).collect();
+        // The turn in the order it happened: the steps lines of a run drawn where the run began (a message with nothing
+        // on screen does not split it), and an item no piece holds -- that message, a row the host added after the run
+        // ended (in the foot's files) -- not drawn on its own.
+        if let Some(lines) = steps_at.get(&index) {
+            for line in lines {
+                let held: Vec<ledger::Item> = line.items.iter().map(|&i| items[i].clone()).collect();
                 messages = messages.child(activity_group(&held, p, s, conversation));
             }
+            continue;
+        }
+        if !drawn_alone.contains(&index) {
             continue;
         }
         let content = match item {
@@ -156,8 +171,13 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                 // not say how many files again. A turn still going has no foot.
                 let start = items[..index].iter().rposition(|i| matches!(i, ledger::Item::User(_))).map_or(0, |at| at + 1);
                 let finished = !(turn_running(s) && items[index + 1..].iter().all(|i| !matches!(i, ledger::Item::User(_))));
+                // Thread.tsx `if (!item.finished) return null`: the foot is what the turn came to; a turn still going
+                // has not come to it, so nothing of it is drawn and nothing moves in when it ends.
+                if !finished {
+                    continue;
+                }
                 let mission = s.ledger.as_ref().and_then(|pane| pane.snapshot.turn_metas.get(user_index.saturating_sub(1))).map(|m| m.mission_id.as_str());
-                let foot = if finished { turn_foot_card(&items[start..index], p, s, &format!("{conversation}/foot/{index}"), mission) } else { None };
+                let foot = turn_foot_card(&items[start..index], p, s, &format!("{conversation}/foot/{index}"), mission);
                 // Beside the browser (~418px, the-thread-beside-the-browser-keeps-its-parts-whole, 0.867) the line wraps
                 // by whole parts, each with the "·" before it, and a part longer than the line gives way to its own
                 // ellipsis rather than being cut mid-word at the column's edge.
@@ -312,7 +332,7 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                 );
                 // Where this turn began, said where it begins (Thread.tsx): beside the time marker that opens it, above
                 // the work it explains, in the note register -- never at the end, where live and pending things are.
-                if let Some(note) = this_meta.and_then(|meta| cold_start_note(s, meta, at, p)) {
+                if let Some(note) = this_meta.and_then(|meta| cold_start_note(s, items, meta, at, p)) {
                     messages = messages.child(note);
                 }
                 if this_meta.is_some_and(|m| locust_core::conversation_turns::turn_line(m).is_none()) { continue; }
@@ -482,7 +502,21 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                 let summary = locust_core::cancellation::summary(&items[from..index], &runtime, folder.as_deref());
                 let last_stop = !items[index + 1..].iter().any(|i| matches!(i, ledger::Item::Note { text, .. } if text == "Stopped"));
                 let by_person = last_stop && s.stopped_by_you.as_deref().is_some_and(|c| Some(c) == s.ledger.as_ref().and_then(|p| p.conversation.conversation_id.as_deref()));
-                crate::cancellation_card::card(&summary, by_person, p)
+                let newest = !items[index + 1..].iter().any(|i| matches!(i, ledger::Item::User(_)));
+                if !newest && locust_core::sent_again::stopped_before_saying(&items[from..=index]) {
+                    // A kept turn stopped before it said anything had nothing under it, as if still waiting (Claude
+                    // Code: "Interrupted"); the receipt is the newest turn's.
+                    text(locust_core::sent_again::STOPPED_BEFORE_IT_REPLIED).key(format!("{key}-stopped-before-it-replied")).font(type_::LABEL).color(p.muted).w_full()
+                } else {
+                    let card = crate::cancellation_card::card(&summary, by_person, p);
+                    match (newest && !turn_running(s) && locust_core::cancellation::stopped_before_any_tool(&summary))
+                        .then(|| items[..from].iter().rev().find_map(|i| if let ledger::Item::User(words) = i { Some(words.clone()) } else { None }))
+                        .flatten()
+                    {
+                        Some(words) => col().w_full().gap(12.0).child(card).child(send_again_row(words, summary.tools_reported_when_done, p)),
+                        None => card,
+                    }
+                }
             }
             ledger::Item::Limit { text: body, .. } => text(body).font(type_::LABEL).color(p.muted).w_full().wrap_anywhere(),
             ledger::Item::Note { level, text: body } => text(if level.is_empty() {
@@ -624,6 +658,46 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
         })
 }
 
+/// Under a run stopped before any tool ran: Send again, the same words sent again (Thread.tsx `onSendAgain`). On OpenCode
+/// the card above already says to check the folder, so the line beside the press says nothing (0.696).
+fn send_again_row(words: String, tools_reported_when_done: bool, p: &Palette) -> El {
+    let l = crate::look::controls::Look::new(p.dark);
+    let mut line = row().key("send-again").w_full().gap(10.0).center_y();
+    if !tools_reported_when_done {
+        line = line.child(text(locust_core::sent_again::NOTHING_TO_REPEAT).font(type_::LABEL).color(p.muted).grow(1.0).shrink().wrap());
+    }
+    line.child(
+        crate::look::controls::button(&l, "Send again", crate::look::controls::Tone::Neutral, false)
+            .key("send-again-button")
+            .on_press_tx(move |s: &mut State, tx: &mut Tx| {
+                // The same words again; what is in the box stays.
+                let kept = s.draft.text.clone();
+                s.draft.replace_text(words.clone());
+                submit_composer(s, tx, false);
+                s.draft.replace_text(kept);
+            }),
+    )
+}
+
+/// Run again with edits allowed: the mode switched to Accept edits on the message box, and the same words sent in it
+/// (App.tsx `onRunWithEdits`: `setMode('accept-edits')`, `startMission(prompt, 'accept-edits')`). What is in the box stays.
+fn run_with_edits_row(prompt: String, p: &Palette) -> El {
+    let l = crate::look::controls::Look::new(p.dark);
+    row().key("run-with-edits").w_full().gap(10.0).center_y()
+        .child(text(locust_core::thread_view::MODE_REFUSED_SENTENCE).font(type_::LABEL).color(p.muted).grow(1.0).shrink().wrap())
+        .child(
+            crate::look::controls::button(&l, "Run again with edits allowed", crate::look::controls::Tone::Neutral, false)
+                .key("run-with-edits-button")
+                .on_press_tx(move |s: &mut State, tx: &mut Tx| {
+                    s.composer_mode = Some("accept-edits".to_owned());
+                    let kept = s.draft.text.clone();
+                    s.draft.replace_text(prompt.clone());
+                    submit_composer(s, tx, false);
+                    s.draft.replace_text(kept);
+                }),
+        )
+}
+
 /// Whether the live line is on screen, and so its word sweeping: the window wakes for the band while it is.
 pub(super) fn live_sweeping(s: &State) -> bool {
     locust_core::thread_view::live_visible(turn_running(s), s.pending_approval.is_some())
@@ -646,7 +720,18 @@ fn failed_turn_rows(mut messages: El, items: &[ledger::Item], s: &State, p: &Pal
             continues_reason: meta.continues_reason.as_deref(),
         };
         let phase = if snap.failed { "failed" } else if snap.running { "running" } else { "completed" };
-        match tv::run_again_offer(&turn, phase, snap.never_started, snap.running || turn_running(s)) {
+        // A run its mode refused did what the mode allows: Run it again would refuse again for ever, so the offer is the
+        // mode that works (Thread.tsx `refusedByMode`, Sol's beta finding 3).
+        let refused = snap.failed
+            && !(snap.running || turn_running(s))
+            && tv::mode_refused_a_tool(items[from..].iter().rev().find_map(|i| match i {
+                ledger::Item::Note { level, text } if level == "error" => Some(text.as_str()),
+                _ => None,
+            }));
+        if refused && !meta.prompt.trim().is_empty() {
+            messages = messages.child(run_with_edits_row(meta.prompt.clone(), p));
+        }
+        match tv::run_again_offer(&turn, phase, snap.never_started, snap.running || turn_running(s)).filter(|o| !(refused && matches!(o, RunAgainOffer::RunAgain))) {
             Some(RunAgainOffer::Note(note)) => {
                 messages = messages.child(text(note).key("run-again-note").font(type_::LABEL).color(p.muted).w_full().wrap());
             }
@@ -862,6 +947,15 @@ mod speech_run_tests;
 #[cfg(test)]
 #[path = "run_again_tests.rs"]
 mod run_again_tests;
+#[cfg(test)]
+#[path = "thread_order_tests.rs"]
+mod thread_order_tests;
+#[cfg(test)]
+#[path = "sent_again_tests.rs"]
+mod sent_again_tests;
+#[cfg(test)]
+#[path = "mode_refusal_tests.rs"]
+mod mode_refusal_tests;
 
 #[cfg(test)]
 mod tests {

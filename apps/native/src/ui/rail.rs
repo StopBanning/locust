@@ -477,9 +477,182 @@ pub(super) fn flyout(s: &State, p: &Palette, top: f32) -> Option<El> {
     Some(el().absolute(RAIL_WIDTH + 8.0, (top - 6.0).max(8.0)).child(card))
 }
 
+/// Everything waiting on the person in this window (`needsYou.ts::needsYou`), gathered from live approvals,
+/// ended turns' open decisions, urgent Scout cards, waiting routines, and proposed memory suggestions.
+pub(super) fn needs_you_items(s: &State) -> Vec<locust_core::needs_you::NeedsYouItem> {
+    use locust_core::needs_you::{ApprovalInput, ConversationInput, RoutineInput, ScoutCardInput, needs_you};
+    let approvals: Vec<ApprovalInput<'_>> = s
+        .pending_approval
+        .iter()
+        .map(|req| ApprovalInput {
+            approval_id: &req.approval_id,
+            run_id: &req.mission_id,
+            mission_id: &req.mission_id,
+            kind: req.kind.as_str(),
+            summary: &req.summary,
+            detail: &req.detail,
+        })
+        .collect();
+    let active_q = crate::decision_card::active_decision(s);
+    let active_mission = s
+        .ledger
+        .as_ref()
+        .map(|p| p.snapshot.tip.as_str())
+        .filter(|id| !id.is_empty());
+    let mut conversations: Vec<ConversationInput<'_>> = Vec::new();
+    if let (Some(mission_id), Some((_, _, req))) = (active_mission, active_q.as_ref()) {
+        conversations.push(ConversationInput {
+            mission_id,
+            phase: "completed",
+            waiting_question: Some(&req.question),
+        });
+    }
+    let scout_cards: Vec<ScoutCardInput<'_>> = s
+        .scout
+        .state
+        .as_ref()
+        .map(|st| {
+            st.cards
+                .iter()
+                .map(|c| ScoutCardInput {
+                    card_id: &c.card_id,
+                    urgency: c.fact.urgency.as_str(),
+                    said: &c.fact.said,
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let routines: Vec<RoutineInput<'_>> = s
+        .routines
+        .file
+        .get("routines")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|r| {
+                    let id = r.get("id").and_then(|v| v.as_str())?;
+                    let name = r.get("name").and_then(|v| v.as_str()).unwrap_or("Routine");
+                    let waiting = s.routines.notices.get(id).is_some_and(|(_, w)| *w);
+                    Some(RoutineInput { routine_id: id, name, files: waiting.then_some(0) })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let memory_waiting = s
+        .people_panel
+        .memories
+        .get("memories")
+        .and_then(|v| v.as_array())
+        .map(|arr| arr.iter().filter(|m| m.get("status").and_then(|v| v.as_str()) == Some("proposed")).count())
+        .unwrap_or(0);
+    let active_owner = s.ledger.as_ref().map(|p| p.header.id.as_str());
+    let owner_of = |mission_id: &str| -> Option<&str> {
+        if active_mission == Some(mission_id) {
+            return active_owner;
+        }
+        s.recent
+            .iter()
+            .find(|r| r.id == mission_id)
+            .map(|r| r.teammate.as_str())
+            .filter(|id| !id.is_empty())
+    };
+    let name_of = |teammate_id: &str| -> Option<&str> {
+        s.teammates
+            .iter()
+            .find(|t| t.id == teammate_id)
+            .map(|t| t.name.as_str())
+            .or_else(|| {
+                s.ledger
+                    .as_ref()
+                    .filter(|p| p.header.id == teammate_id)
+                    .map(|p| p.header.name.as_str())
+            })
+    };
+    needs_you(
+        &approvals,
+        owner_of,
+        &conversations,
+        owner_of,
+        |_| None,
+        name_of,
+        memory_waiting,
+        &scout_cards,
+        None,
+        &routines,
+    )
+}
+
+fn needs_you_action(item: &locust_core::needs_you::NeedsYouItem) -> String {
+    use locust_core::needs_you::{NeedsYouPlace, needs_you_place};
+    match needs_you_place(item) {
+        NeedsYouPlace::Memory => "needs-you:memory".to_owned(),
+        NeedsYouPlace::Home { card_id } => format!("needs-you:home:{card_id}"),
+        NeedsYouPlace::Routines { routine_id } => format!("needs-you:routines:{routine_id}"),
+        NeedsYouPlace::Conversation { mission_id } => format!("needs-you:conversation:{mission_id}"),
+    }
+}
+
+/// Open (or toggle closed) the title bar's "Waiting for you" list (`App.tsx::openNeedsYou`).
+pub(super) fn open_needs_you_menu(s: &mut State) {
+    if s.row_menu.as_ref().is_some_and(|m| m.title == "Waiting for you") {
+        s.row_menu = None;
+        return;
+    }
+    let items: Vec<crate::context_menu::Item> = needs_you_items(s)
+        .iter()
+        .map(|item| crate::context_menu::Item::new(&locust_core::needs_you::needs_you_label(item), &needs_you_action(item)))
+        .collect();
+    if items.is_empty() {
+        s.row_menu = None;
+        return;
+    }
+    s.row_menu = Some(crate::context_menu::MenuState {
+        x: 680.0,
+        y: TITLEBAR_HEIGHT + 4.0,
+        title: "Waiting for you".to_owned(),
+        target: String::new(),
+        items,
+        armed: None,
+        open_sub: None,
+    });
+}
+
+/// Open the place where a "Waiting for you" item is answered (`App.tsx::answerNeedsYou`).
+pub(super) fn run_needs_you_action(s: &mut State, action: &str, tx: &mut Tx) -> bool {
+    if action == "needs-you:memory" {
+        crate::people_panel::open(s);
+        return true;
+    }
+    if let Some(card_id) = action.strip_prefix("needs-you:home:") {
+        s.scout.focus_card_id = Some(card_id.to_owned());
+        go_home(s);
+        return true;
+    }
+    if let Some(_routine_id) = action.strip_prefix("needs-you:routines:") {
+        crate::routines_panel::open(s);
+        return true;
+    }
+    if let Some(mission_id) = action.strip_prefix("needs-you:conversation:") {
+        peer_thread::open_mission_by_id(s, mission_id.to_owned(), tx);
+        return true;
+    }
+    false
+}
+
 /// TitleBar.tsx: the folder's name (or `Locust` and the build with none), the toggles while no conversation is open,
-/// and how many turns are running.
+/// what needs you (before what is running), and how many turns are running.
 pub(super) fn title_bar(s: &State, p: &Palette, toggles: bool, running: usize) -> El {
+    title_bar_with_needs_you(s, p, toggles, running, needs_you_items(s).len(), true)
+}
+
+pub(super) fn title_bar_with_needs_you(
+    s: &State,
+    p: &Palette,
+    toggles: bool,
+    running: usize,
+    needs_you: usize,
+    has_list: bool,
+) -> El {
     let l = crate::look::controls::Look::new(p.dark);
     let name = s
         .home
@@ -493,6 +666,24 @@ pub(super) fn title_bar(s: &State, p: &Palette, toggles: bool, running: usize) -
     let mut right = row().gap(12.0).center_y();
     if toggles {
         right = right.child(browser_panel::toggle(s, p)).child(terminal_panel::toggle(s, p));
+    }
+    if needs_you > 0 && has_list {
+        let chip = locust_core::needs_you::needs_you_chip(needs_you);
+        right = right.child(
+            row()
+                .key("titlebar-needs-you")
+                .gap(6.0)
+                .px(8.0)
+                .py(3.0)
+                .radius(6.0)
+                .center_y()
+                .hover(l.c("hover-surface"))
+                .child(el().size(6.0, 6.0).radius(3.0).fill(p.amber))
+                .child(text(chip.clone()).font(rune::TextStyle::new(11.5, 500.0).mono()).color(l.c("text-primary")))
+                .role("button")
+                .label(chip)
+                .on_press(|s: &mut State| open_needs_you_menu(s)),
+        );
     }
     if running > 0 {
         right = right.child(
@@ -528,6 +719,10 @@ pub(super) fn title_bar(s: &State, p: &Palette, toggles: bool, running: usize) -
 #[cfg(test)]
 #[path = "rail_flyout_tests.rs"]
 mod rail_flyout_tests;
+
+#[cfg(test)]
+#[path = "title_bar_needs_you_tests.rs"]
+mod title_bar_needs_you_tests;
 
 #[cfg(test)]
 mod tests {

@@ -692,7 +692,7 @@ pub(crate) enum SignInRow {
 /// Sign in from a button (runtime-sign-in.ts): a Terminal window in the home folder running the agent's own sign-in
 /// command, against the program discovery found. Only the command its facts name is ever run. Signing in again runs
 /// the CLI's own command for changing accounts (`claude auth login`, `codex login`).
-fn sign_in(s: &mut State, id: &str, again: bool) {
+pub(crate) fn sign_in(s: &mut State, id: &str, again: bool) {
     let Some(line) = agents::sign_in_command(id, again) else { return };
     let Some(args) = agents::sign_in_args(id, again) else { return };
     let Some(program) = line.strip_prefix("run ").unwrap_or(&line).split([',', ' ']).next().map(str::to_owned) else { return };

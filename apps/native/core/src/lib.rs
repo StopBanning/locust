@@ -560,10 +560,16 @@ pub mod effort_levels;
 // The model picker's rows: order, fold, free tag, the free model to offer (exec/native-picker).
 pub mod route_rows;
 pub mod mission_strip;
+pub mod needs_you;
 pub mod runtime_order;
+pub mod sent_again;
+#[cfg(test)]
+mod sent_again_tests;
 pub mod steps_fold;
 #[cfg(test)]
 mod steps_fold_tests;
+#[cfg(test)]
+mod thread_order_tests;
 pub mod steps_line;
 #[cfg(test)]
 mod steps_line_tests;

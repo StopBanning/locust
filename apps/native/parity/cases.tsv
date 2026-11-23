@@ -3647,6 +3647,9 @@ apps/desktop/src/renderer/src/a-free-model-that-is-down-is-passed-over.test.ts	i
 apps/desktop/src/renderer/src/a-free-model-that-is-down-is-passed-over.test.ts	"Use a free model" starts on one that is up, even one that answered before	yes
 apps/desktop/src/renderer/src/a-free-model-that-is-down-is-passed-over.test.ts	the card after a failure offers the next one that is up	no
 apps/desktop/src/renderer/src/a-free-model-that-is-down-is-passed-over.test.ts	Compare's second column is not one that is down	no
+apps/desktop/src/renderer/src/a-free-model-that-is-down-offers-the-next.test.ts	reads OpenCode's words for a model or endpoint that is unavailable	yes
+apps/desktop/src/renderer/src/a-free-model-that-is-down-offers-the-next.test.ts	and a free model OpenCode’s service refused outright (2026-10-12, "Invalid credential" on every free model)	yes
+apps/desktop/src/renderer/src/a-free-model-that-is-down-offers-the-next.test.ts	and nothing else: a retirement, a busy server or a plain failure is not it	yes
 apps/desktop/src/renderer/src/a-free-model-that-says-nothing-is-offered-another.test.tsx	is quiet two minutes after its run began with nothing back, and not a moment before	yes
 apps/desktop/src/renderer/src/a-free-model-that-says-nothing-is-offered-another.test.tsx	is never quiet once anything came back: a word, a thought, a step or a tool	yes
 apps/desktop/src/renderer/src/a-free-model-that-says-nothing-is-offered-another.test.tsx	is only an OpenCode free model, and only once its run has begun	yes
@@ -3962,6 +3965,8 @@ apps/desktop/src/renderer/src/a-quoted-equation-is-drawn.test.tsx	an equation wr
 apps/desktop/src/renderer/src/a-quoted-equation-is-drawn.test.tsx	money and an escaped bracket in prose are still prose	yes
 apps/desktop/src/renderer/src/a-read-row-names-the-file.test.ts	fold under names relative to the folder	yes
 apps/desktop/src/renderer/src/a-read-row-names-the-file.test.ts	leave a name that is not a path as it was	yes
+apps/desktop/src/renderer/src/a-refusal-offers-the-mode-that-works.test.ts	reads a mode refusal as a refusal	yes
+apps/desktop/src/renderer/src/a-refusal-offers-the-mode-that-works.test.ts	reads everything else as something that actually went wrong	yes
 apps/desktop/src/renderer/src/a-refused-command-never-ran.test.ts	is counted as refused, not as run or as exiting non-zero	yes
 apps/desktop/src/renderer/src/a-refused-command-never-ran.test.ts	keeps its row, with the reason the runtime gave	yes
 apps/desktop/src/renderer/src/a-refused-command-never-ran.test.ts	says declined in its row and in the summary, never failed or refused	yes
@@ -4493,6 +4498,22 @@ apps/desktop/src/renderer/src/an-empty-home-offers-a-team.test.tsx	offers three 
 apps/desktop/src/renderer/src/an-empty-home-offers-a-team.test.tsx	keeps New teammate beside them, as the chat bar's own chip	no
 apps/desktop/src/renderer/src/an-empty-home-offers-a-team.test.tsx	is the team itself once there is one	no
 apps/desktop/src/renderer/src/an-empty-home-offers-a-team.test.tsx	says so, and offers no team to start over with	no
+apps/desktop/src/renderer/src/an-ended-run-offers-the-way-on.test.tsx	offers Send again	yes
+apps/desktop/src/renderer/src/an-ended-run-offers-the-way-on.test.tsx	on OpenCode, which reports a tool only once it finishes, does not promise nothing ran (Sol, 0.532)	yes
+apps/desktop/src/renderer/src/an-ended-run-offers-the-way-on.test.tsx	on OpenCode with something finished, never says no tool call was open (0.536 drive)	yes
+apps/desktop/src/renderer/src/an-ended-run-offers-the-way-on.test.tsx	does not, when a tool had run	yes
+apps/desktop/src/renderer/src/an-ended-run-offers-the-way-on.test.tsx	does not, when the run was not stopped	yes
+apps/desktop/src/renderer/src/an-ended-run-offers-the-way-on.test.tsx	says nothing of undoing changes that were never made (0.496)	yes
+apps/desktop/src/renderer/src/an-ended-run-offers-the-way-on.test.tsx	draws the message once: the stopped copy gives way to the one sent again	yes
+apps/desktop/src/renderer/src/an-ended-run-offers-the-way-on.test.tsx	and says no fresh session began when nothing before it is lost	yes
+apps/desktop/src/renderer/src/an-ended-run-offers-the-way-on.test.tsx	keeps a stopped turn that said something, or that was followed by other words	yes
+apps/desktop/src/renderer/src/an-ended-run-offers-the-way-on.test.tsx	says a kept turn that was stopped before it replied was stopped, and only that one	yes
+apps/desktop/src/renderer/src/an-ended-run-offers-the-way-on.test.tsx	offers that runtime's sign-in on the failure card	yes
+apps/desktop/src/renderer/src/an-ended-run-offers-the-way-on.test.tsx	offers nothing of the kind otherwise	yes
+apps/desktop/src/renderer/src/an-ended-run-offers-the-way-on.test.tsx	is read as its limit from the runtime's last word	yes
+apps/desktop/src/renderer/src/an-ended-run-offers-the-way-on.test.tsx	offers the next model on the failure card	yes
+apps/desktop/src/renderer/src/an-ended-run-offers-the-way-on.test.tsx	offers Continue on the failure card, saying it was the provider	yes
+apps/desktop/src/renderer/src/an-ended-run-offers-the-way-on.test.tsx	offers nothing of the kind without it	yes
 apps/desktop/src/renderer/src/an-idle-teammate-offers-its-own-world.test.tsx	offers a template teammate's own first messages	yes
 apps/desktop/src/renderer/src/an-idle-teammate-offers-its-own-world.test.tsx	never offers code to the money or the writing team	yes
 apps/desktop/src/renderer/src/an-idle-teammate-offers-its-own-world.test.tsx	never asks a non-coder for a page the app would only show as code	yes
@@ -5975,6 +5996,11 @@ apps/desktop/src/renderer/src/the-picker-opens-on-what-works.test.ts	still sorts
 apps/desktop/src/renderer/src/the-picker-reads-as-names.test.tsx	reads as a name rather than an identifier	yes
 apps/desktop/src/renderer/src/the-picker-reads-as-names.test.tsx	leaves a name the runtime really gave exactly as it wrote it	yes
 apps/desktop/src/renderer/src/the-picker-reads-as-names.test.tsx	reads "Account Default" in every group, as Claude Code's row does	yes
+apps/desktop/src/renderer/src/the-plan-marks-the-step-underway.test.tsx	draws the orb on the running step when a turn is still going	yes
+apps/desktop/src/renderer/src/the-plan-marks-the-step-underway.test.tsx	replaces the pulsing pip rather than joining it	yes
+apps/desktop/src/renderer/src/the-plan-marks-the-step-underway.test.tsx	keeps the pip when no turn is running	yes
+apps/desktop/src/renderer/src/the-plan-marks-the-step-underway.test.tsx	never marks a done step as underway	yes
+apps/desktop/src/renderer/src/the-plan-marks-the-step-underway.test.tsx	is not told which orb to draw	yes
 apps/desktop/src/renderer/src/the-plus-menu-says-what-each-droplet-does.test.tsx	names each droplet in words, after the liquid and outside it	yes
 apps/desktop/src/renderer/src/the-plus-menu-says-what-each-droplet-does.test.tsx	shows the words only while the menu is open, and lets a press through only then	yes
 apps/desktop/src/renderer/src/the-plus-menu-says-what-each-droplet-does.test.tsx	draws the words on the liquid’s own surface, in both themes	yes
@@ -6028,6 +6054,8 @@ apps/desktop/src/renderer/src/the-thinking-dots-never-jump.test.ts	never move fa
 apps/desktop/src/renderer/src/the-thinking-dots-never-jump.test.ts	hold still while the face looks about, then bounce in turn: the loop itself is kept	yes
 apps/desktop/src/renderer/src/the-title-bar-is-a-macs-on-a-mac.test.tsx	draws no window controls of its own, and nothing in its left column	yes
 apps/desktop/src/renderer/src/the-title-bar-is-a-macs-on-a-mac.test.tsx	still draws its own on Windows and Linux (control)	no
+apps/desktop/src/renderer/src/the-title-bar-says-what-needs-you.test.tsx	says how many things wait on you, as a button that opens their list, before what is running	yes
+apps/desktop/src/renderer/src/the-title-bar-says-what-needs-you.test.tsx	says nothing when nothing waits, or when there is no list to open	yes
 apps/desktop/src/renderer/src/the-way-down-says-a-run-is-still-working.test.tsx	wears the thinking dots while the run works, and says so to a screen reader	yes
 apps/desktop/src/renderer/src/the-way-down-says-a-run-is-still-working.test.tsx	is the plain chevron when nothing is running, and absent at the bottom	yes
 apps/desktop/src/renderer/src/the-way-down-says-a-run-is-still-working.test.tsx	brings the chevron back on hover and keyboard focus, where it is about to be pressed	yes
@@ -6094,6 +6122,23 @@ apps/desktop/src/renderer/src/what-a-teammate-published-is-a-card.test.tsx	takes
 apps/desktop/src/renderer/src/what-a-teammate-published-is-a-card.test.tsx	finds them as links and as bare addresses, in order, each once, and none inside code	yes
 apps/desktop/src/renderer/src/what-a-teammate-published-is-a-card.test.tsx	draws a card each, with Open, and nothing for a reply that names none	no
 apps/desktop/src/renderer/src/what-a-teammate-published-is-a-card.test.tsx	is still a card, named as written, and drawing it throws nothing	no
+apps/desktop/src/renderer/src/what-waits-on-you-is-in-one-place.test.ts	is its last final message’s question, once the run has completed	yes
+apps/desktop/src/renderer/src/what-waits-on-you-is-in-one-place.test.ts	is read the same the second time	yes
+apps/desktop/src/renderer/src/what-waits-on-you-is-in-one-place.test.ts	is nothing when nothing does	yes
+apps/desktop/src/renderer/src/what-waits-on-you-is-in-one-place.test.ts	is a paused run first, then a question, then memory -- each named by its teammate	yes
+apps/desktop/src/renderer/src/what-waits-on-you-is-in-one-place.test.ts	says each thing in one line, short enough to be a menu row	yes
+apps/desktop/src/renderer/src/what-waits-on-you-is-in-one-place.test.ts	counts a card that needs you now, and a copy waiting for Keep or Discard, after a question and before memory	yes
+apps/desktop/src/renderer/src/what-waits-on-you-is-in-one-place.test.ts	says Scout when the card has no name of its own, and leaves soon and later off the list	yes
+apps/desktop/src/renderer/src/what-waits-on-you-is-in-one-place.test.ts	reads as a sentence	yes
+apps/desktop/src/renderer/src/what-was-said-while-working-stays-where-it-was-said.test.ts	reads in the order it happened: each thing said, then the steps before the next	yes
+apps/desktop/src/renderer/src/what-was-said-while-working-stays-where-it-was-said.test.ts	places a message where it BEGAN, so a full record restated after the next step leaves it before it (gap 9)	yes
+apps/desktop/src/renderer/src/what-was-said-while-working-stays-where-it-was-said.test.ts	draws a stopped turn’s last words where they were said, never below its steps as an answer	yes
+apps/desktop/src/renderer/src/what-was-said-while-working-stays-where-it-was-said.test.ts	puts a row the host added after the run ended in no group: it is in the turn’s files at the foot	yes
+apps/desktop/src/renderer/src/what-was-said-while-working-stays-where-it-was-said.test.ts	does not split the steps on a message with nothing on screen	yes
+apps/desktop/src/renderer/src/what-was-said-while-working-stays-where-it-was-said.test.ts	counts nothing it said as a tool call	yes
+apps/desktop/src/renderer/src/what-was-said-while-working-stays-where-it-was-said.test.ts	leaves a turn that only talked exactly as it was	yes
+apps/desktop/src/renderer/src/what-was-said-while-working-stays-where-it-was-said.test.ts	draws the same order while it runs, so nothing moves when it ends	yes
+apps/desktop/src/renderer/src/what-was-said-while-working-stays-where-it-was-said.test.ts	leaves a step still going to the live line, and puts it in its group once it ends	yes
 apps/desktop/src/renderer/src/whats-new-reads-like-claude-codes.test.tsx	reads as words, from the digits -- never through a clock that shifts it a day	yes
 apps/desktop/src/renderer/src/whats-new-reads-like-claude-codes.test.tsx	says its date, wears its version as a badge, and groups its changes under their labels	no
 apps/desktop/src/renderer/src/whats-new-reads-like-claude-codes.test.tsx	written before the groups, carries no label	no

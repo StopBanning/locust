@@ -407,7 +407,23 @@ pub(super) const UNTICKED_STOPPED: &str = "The run stopped before checking these
 pub(super) const UNTICKED_ENDED: &str =
     "The run ended without checking these off its list. That is the runtime's checklist, not a check of the work: see what it ran below.";
 
-fn plan_card(s: &State, id: &str, steps: &[ledger::PlanStep], finished: bool, stopped: bool, p: &Palette) -> El {
+/// The plan's own orb on the step underway (ThreadItems.tsx `PLAN_ORB`, the "listening" rubik at its inline 20): told
+/// only WHETHER a turn is underway, never which orb the live line draws, so the step never borrows the live line's
+/// register. Four cells turning over in step, one solid thing in the marker's column.
+pub(super) const PLAN_ORB: &str = "listening";
+
+fn plan_orb(id: &str, ink: rune::Color) -> El {
+    let cell = |phase: f32| {
+        el().size(5.0, 5.0).radius(1.0).fill(ink).cycle(Cycle { period: 1.2, phase, stops: &[(0.0, 0.3), (0.5, 1.0), (1.0, 0.3)], still: 1.0, fps: 30.0 })
+    };
+    col()
+        .key(format!("{id}/plan-orb/{PLAN_ORB}"))
+        .gap(1.0)
+        .child(row().gap(1.0).child(cell(0.0)).child(cell(0.25)))
+        .child(row().gap(1.0).child(cell(0.75)).child(cell(0.5)))
+}
+
+fn plan_card(s: &State, id: &str, steps: &[ledger::PlanStep], finished: bool, stopped: bool, underway: bool, p: &Palette) -> El {
     let l = crate::look::controls::Look::new(p.dark);
     let done = steps.iter().filter(|r| r.state == "done").count();
     let unreached = steps.len() - done;
@@ -435,7 +451,7 @@ fn plan_card(s: &State, id: &str, steps: &[ledger::PlanStep], finished: bool, st
         .child(text("PLAN").font(mono(11.5).tracking(0.9)).color(l.c("text-muted")).grow(1.0))
         .child(counts);
     let mut list = col().w_full().gap(8.0).pt(12.0).px(12.0).pb(12.0);
-    for step in steps {
+    for (index, step) in steps.iter().enumerate() {
         let running = step.state == "running" && !finished;
         let is_done = step.state == "done";
         let (edge, fill, ink) = if is_done {
@@ -445,11 +461,18 @@ fn plan_card(s: &State, id: &str, steps: &[ledger::PlanStep], finished: bool, st
         } else {
             (l.c("border-card"), None, l.c("text-muted"))
         };
-        let mut dot = el().size(6.0, 6.0).radius(3.0).fill(ink);
-        if running {
-            dot = dot.cycle(Cycle { period: 1.6, phase: 0.0, stops: &[(0.0, 0.35), (0.5, 1.0), (1.0, 0.35)], still: 1.0, fps: 30.0 });
-        }
-        let mut marker = row().size(16.0, 16.0).mt(2.0).center().radius(8.0).border(1.0, edge).child(dot);
+        // The orb REPLACES the pulsing pip rather than joining it: two things pulsing on one row is the row saying
+        // "now" twice. Only while a turn is underway; nothing pulses once the run has stopped.
+        let mark = if step.state == "running" && underway {
+            plan_orb(id, ink)
+        } else {
+            let mut dot = el().size(6.0, 6.0).radius(3.0).fill(ink);
+            if running {
+                dot = dot.cycle(Cycle { period: 1.6, phase: 0.0, stops: &[(0.0, 0.35), (0.5, 1.0), (1.0, 0.35)], still: 1.0, fps: 30.0 }).key(format!("{id}/plan-dot/{index}/is-pulsing"));
+            }
+            dot
+        };
+        let mut marker = row().size(16.0, 16.0).mt(2.0).center().radius(8.0).border(1.0, edge).child(mark);
         if let Some(fill) = fill {
             marker = marker.fill(fill);
         }
@@ -510,7 +533,9 @@ fn activity_item_with_files(item: &ledger::Item, p: &Palette, s: &State, scope: 
     if let ledger::Item::Plan { id, steps, finished: ended, stopped } = item
         && !steps.is_empty()
     {
-        return plan_card(s, id, steps, finished || *ended, *stopped, p);
+        // Thread.tsx `underway={runningOrb !== undefined}`: whether the live line is up, and nothing about it.
+        let underway = super::messages::live_sweeping(s);
+        return plan_card(s, id, steps, finished || *ended, *stopped, underway, p);
     }
     if files.is_empty() && !locust_core::activity_entries::files(item).is_empty() {
         let key = format!("{scope}/step/{}", activity_id(item));
@@ -830,12 +855,14 @@ pub(super) fn activity_group(items: &[ledger::Item], p: &Palette, s: &State, sco
     // thought draws nothing inside the step, and a step with nothing else inside is a line with no chevron.
     let headline_only = |item: &ledger::Item| matches!(item, ledger::Item::Thought { text, .. } if without_headline(text).trim().is_empty());
     let listed: Vec<&ledger::Item> = items.iter().filter(|item| !headline_only(item)).collect();
+    // The line's place in the thread, kept as it grows (missionView's steps key).
+    let group_key = key.clone();
     let heading = if listed.is_empty() {
         el().w_full().py(4.0).px(2.0).child(text(label).font(type_::LABEL).color(p.muted).w_full().shrink().wrap_anywhere())
     } else {
         disclosure(key, label, open, p)
     };
-    let mut group = col().w_full().gap(4.0).child(heading);
+    let mut group = col().w_full().gap(4.0).key(group_key).child(heading);
     if let Some((said, amber)) = &outcome {
         group = group.child(text(said).font(type_::LABEL).color(if *amber { p.amber } else { p.muted }).w_full());
     }
@@ -912,6 +939,9 @@ mod background_helper_tests;
 #[cfg(test)]
 #[path = "plan_unticked_tests.rs"]
 mod plan_unticked_tests;
+#[cfg(test)]
+#[path = "plan_underway_tests.rs"]
+mod plan_underway_tests;
 
 #[cfg(test)]
 #[path = "nothing_still_running_tests.rs"]
@@ -948,6 +978,7 @@ mod tests {
                 progress: String::new(),
                 background_ended: String::new(),
                 children: Vec::new(),
+                after_end: false,
             }),
             status: if running {
                 ledger::Status::Running

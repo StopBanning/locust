@@ -123,7 +123,8 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
                             .items_center()
                             .child(message_column(items, &teammate.name, p, s))
                             .children(crate::free_offer::view(s, p))
-                            .children(crate::busy_continue::view(s, p)),
+                            .children(crate::busy_continue::view(s, p))
+                            .children(crate::failure_offers::view(s, p)),
                     ),
                 )
         };

@@ -41,6 +41,8 @@ mod folder_confirmation;
 mod free_offer;
 #[path = "ui/busy_continue.rs"]
 mod busy_continue;
+#[path = "ui/failure_offers.rs"]
+mod failure_offers;
 #[cfg(target_os = "macos")]
 mod browser_mac;
 #[path = "ui/browser_panel.rs"]

@@ -205,6 +205,9 @@ pub struct ToolDetail {
     pub progress: String,
     pub background_ended: String,
     pub children: Vec<Item>,
+    /// A row the host added after the run had ended (its look at the disk, missionView.ts `activityBorn >= endAt`):
+    /// no step the runtime took, so it is in no steps line, only in the turn's files at its foot.
+    pub after_end: bool,
 }
 #[derive(Clone, Debug, PartialEq)]
 pub struct PlanStep {
@@ -1114,6 +1117,8 @@ impl Transcript {
         self.context = None;
         let mut carry = false;
         let mut finished = false;
+        // The run has ended (completed, failed or cancelled) and not started again: a row born now is the host's.
+        let mut ended = false;
         // missionView's workBegan: until the turn says or does anything, only trouble with the run itself reaches the
         // thread. OpenCode's "Aborted" when the person presses Stop is not that.
         let mut work_began = false;
@@ -1256,6 +1261,7 @@ impl Transcript {
                             summary: String::new(),
                             detail: Box::new(ToolDetail {
                                 id: key.clone(),
+                                after_end: ended,
                                 ..ToolDetail::default()
                             }),
                         });
@@ -1428,6 +1434,7 @@ impl Transcript {
                     }
                 }
                 "run.failed" => {
+                    ended = true;
                     self.running = false;
                     self.failed = true;
                     finished = false;
@@ -1445,6 +1452,7 @@ impl Transcript {
                 }
                 // Fix 4: a later completion or restart clears an earlier completed/failed flag.
                 "run.completed" | "run.cancelled" => {
+                    ended = true;
                     carry = false;
                     finished = true;
                     if kind == "run.completed" {
@@ -1461,6 +1469,7 @@ impl Transcript {
                     self.failed = false;
                 }
                 "run.started" => {
+                    ended = false;
                     carry = false;
                     finished = false;
                     work_began = false;
@@ -1998,6 +2007,12 @@ pub struct Snapshot {
     pub never_started: bool,
     /// The tip failed on its provider's side (`failure_words::offers_continue`): its card offers Continue.
     pub busy_continue: bool,
+    /// The tip failed on its model's limit or on a down free model (`failure_words::offers_next_model`): its card offers the next free model.
+    pub next_model: bool,
+    /// The tip failed because its free model's provider is down (`failure_words::offers_next_model_down`).
+    pub next_model_down: bool,
+    /// The tip failed signed out (`failure_words::offers_sign_in`): its card offers its runtime's sign-in.
+    pub sign_in: bool,
     /// Part of the tip's record could not be read: the same fact the inspector counts as an integrity issue.
     pub damaged: bool,
 }
@@ -2352,6 +2367,9 @@ impl Session {
             }
             snapshot.never_started = crate::thread_view::runtime_never_started(reader.transcript.events.values());
             snapshot.busy_continue = crate::failure_words::offers_continue(reader.transcript.events.values(), snapshot.running);
+            snapshot.next_model = crate::failure_words::offers_next_model(reader.transcript.events.values(), snapshot.running);
+            snapshot.next_model_down = crate::failure_words::offers_next_model_down(reader.transcript.events.values(), snapshot.running);
+            snapshot.sign_in = crate::failure_words::offers_sign_in(reader.transcript.events.values(), snapshot.running);
             snapshot.damaged = reader.transcript.error.is_some();
             snapshot.recovery = if snapshot.running {
                 None
