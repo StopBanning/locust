@@ -23,6 +23,9 @@ pub mod benchmark;
 pub mod browser;
 pub mod browser_point;
 pub mod browser_tools;
+#[cfg(all(test, unix))]
+#[path = "runtime/copilot_browser_grid_tests.rs"]
+mod copilot_browser_grid_tests;
 pub mod carry_on;
 pub mod chat_apps;
 pub mod chat_discord;
