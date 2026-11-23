@@ -2576,6 +2576,9 @@ apps/desktop/src/main/runtime-commands.test.ts	are kept per runtime: OpenCode's 
 apps/desktop/src/main/runtime-commands.test.ts	are kept across a restart, and a list that did not change is not written again	yes
 apps/desktop/src/main/runtime-commands.test.ts	are nothing, not an error, before any run listed them or when the file is unreadable	yes
 apps/desktop/src/main/runtime-commands.test.ts	are the ones its terminal sends as requests, there whether or not Codex has run, and nothing else of Codex is a command	yes
+apps/desktop/src/main/runtime-discovery.test.ts	publishes only sanitized status fields	yes
+apps/desktop/src/main/runtime-discovery.test.ts	deduplicates in-flight probes and uses its short cache	yes
+apps/desktop/src/main/runtime-discovery.test.ts	returns a generic error and never leaks adapter failures	yes
 apps/desktop/src/main/runtime-installer.test.ts	off Windows, tries once more into the person's own folder, and says so	yes
 apps/desktop/src/main/runtime-installer.test.ts	not on Windows, where a permission failure is a lock or a policy, and not for any other failure	yes
 apps/desktop/src/main/runtime-installer.test.ts	and when the second try fails too, it says what the first said	yes
@@ -3149,6 +3152,13 @@ apps/desktop/src/main/what-running-it-again-does.test.ts	still says to answer th
 apps/desktop/src/main/what-running-it-again-does.test.ts	does not promise missions, which live on their own screen and do not filter	yes
 apps/desktop/src/main/what-running-it-again-does.test.ts	names what this list actually holds	yes
 apps/desktop/src/main/what-running-it-again-does.test.ts	agrees with itself when nothing matches	yes
+apps/desktop/src/main/what-the-clis-said-survives-a-relaunch.test.ts	reads back what it wrote	yes
+apps/desktop/src/main/what-the-clis-said-survives-a-relaunch.test.ts	starts empty when there is no file, and when the file is rubbish	yes
+apps/desktop/src/main/what-the-clis-said-survives-a-relaunch.test.ts	drops an entry whose shape is wrong rather than handing it to the parser	yes
+apps/desktop/src/main/what-the-clis-said-survives-a-relaunch.test.ts	ignores a file written by a schema it does not know	yes
+apps/desktop/src/main/what-the-clis-said-survives-a-relaunch.test.ts	keeps the newest when it is full, because those are the files on disk now	yes
+apps/desktop/src/main/what-the-clis-said-survives-a-relaunch.test.ts	does not rewrite the file when nothing changed	yes
+apps/desktop/src/main/what-the-clis-said-survives-a-relaunch.test.ts	never throws when the directory it writes to is not there	yes
 apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	keeps its groups -- New, Improved, Fixed -- as Claude Code's What's new does	yes
 apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	written before the groups, stays as it was written: one group, no label guessed for it	yes
 apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	marked big says so, and the mark itself is nowhere in what is shown	yes
@@ -3664,6 +3674,9 @@ apps/desktop/src/renderer/src/a-host-started-run-is-not-retried-as-your-message.
 apps/desktop/src/renderer/src/a-host-started-run-is-not-retried-as-your-message.test.tsx	keeps ordinary follow-ups and person-authored origins retryable	yes
 apps/desktop/src/renderer/src/a-host-started-run-is-not-retried-as-your-message.test.tsx	keeps the existing failed-only, nonempty and never-started boundaries	yes
 apps/desktop/src/renderer/src/a-host-started-run-is-not-retried-as-your-message.test.tsx	the app uses the origin-aware offer for the current run	no
+apps/desktop/src/renderer/src/a-hung-cli-gets-a-way-past.test.tsx	says checking once, in the head note, while discovery is still asking	yes
+apps/desktop/src/renderer/src/a-hung-cli-gets-a-way-past.test.tsx	says what was tried once discovery has given up, and offers Check again -- not Install, which it already is	yes
+apps/desktop/src/renderer/src/a-hung-cli-gets-a-way-past.test.tsx	says why, on the control itself	yes
 apps/desktop/src/renderer/src/a-judge-scorecard-sits-under-the-answers.test.tsx	scores every answer on every point under its own column, met or not and why, then score, time and what it spent	yes
 apps/desktop/src/renderer/src/a-judge-scorecard-sits-under-the-answers.test.tsx	in a blind comparison, scores Model A and Model B and keeps what they spent out until one is kept	yes
 apps/desktop/src/renderer/src/a-judge-scorecard-sits-under-the-answers.test.tsx	leaves out a row no answer has a figure for, rather than a line of dashes	yes
@@ -3679,6 +3692,10 @@ apps/desktop/src/renderer/src/a-landing-says-why-it-cannot.test.ts	says what wou
 apps/desktop/src/renderer/src/a-large-diff-says-the-right-counts.test.tsx	never says +0 with a deletion count when lines were added in a recorded LARGE rewrite	yes
 apps/desktop/src/renderer/src/a-large-diff-says-the-right-counts.test.tsx	shows no counts and lets LARGE say it when true counts cannot be known	yes
 apps/desktop/src/renderer/src/a-large-diff-says-the-right-counts.test.tsx	leaves a small diff's counts unchanged	yes
+apps/desktop/src/renderer/src/a-late-check-is-never-lost.test.ts	names an agent still called "being checked" whose check has finished	yes
+apps/desktop/src/renderer/src/a-late-check-is-never-lost.test.ts	leaves alone one still being checked, and one already ready	yes
+apps/desktop/src/renderer/src/a-late-check-is-never-lost.test.ts	never spends the give-up budget on a check that is still running	yes
+apps/desktop/src/renderer/src/a-late-check-is-never-lost.test.ts	reads the held answer back on a finish: no new check, and past giving up	yes
 apps/desktop/src/renderer/src/a-lead-shows-what-it-handed-out.test.tsx	lists two delegations with their live states and Open, retaining the full exchange	yes
 apps/desktop/src/renderer/src/a-lead-shows-what-it-handed-out.test.tsx	adds no card when the turn handed nothing out, including an incoming message	yes
 apps/desktop/src/renderer/src/a-lead-shows-what-it-handed-out.test.tsx	reads Done when the receiving turn is completed, from the same state as a call	yes
@@ -6569,10 +6586,29 @@ packages/mission-store/test/workroom.test.ts	refuses a delivery record for a mes
 packages/mission-store/test/workroom.test.ts	refuses a schema it does not know rather than guessing at it	yes
 packages/mission-store/test/workroom.test.ts	writes each record with a version, a sequence and an fsynced line	yes
 packages/mission-store/test/workroom.test.ts	reads as empty, not as broken, before anyone has posted	yes
+packages/runtime-adapters/src/a-binary-that-did-not-change-is-not-asked-twice.test.ts	asks everything the first time, and remembers what the files said	yes
+packages/runtime-adapters/src/a-binary-that-did-not-change-is-not-asked-twice.test.ts	skips version and help on the second sweep, and still asks readiness	yes
+packages/runtime-adapters/src/a-binary-that-did-not-change-is-not-asked-twice.test.ts	reports the same version from the remembered text as from the probe	yes
+packages/runtime-adapters/src/a-binary-that-did-not-change-is-not-asked-twice.test.ts	asks again when the file changed, which is what an update looks like	yes
+packages/runtime-adapters/src/a-binary-that-did-not-change-is-not-asked-twice.test.ts	asks again when the size changed but the time did not	yes
+packages/runtime-adapters/src/a-binary-that-did-not-change-is-not-asked-twice.test.ts	fingerprints the script a shim runs, not only the shim	yes
+packages/runtime-adapters/src/a-binary-that-did-not-change-is-not-asked-twice.test.ts	probes rather than guesses when nothing about the file can be read	yes
+packages/runtime-adapters/src/a-binary-that-did-not-change-is-not-asked-twice.test.ts	remembers nothing from a probe that failed	yes
+packages/runtime-adapters/src/a-binary-that-did-not-change-is-not-asked-twice.test.ts	asks everything when no cache is given at all	yes
 packages/runtime-adapters/src/a-refusal-is-not-a-crash.test.ts	names the tool the mode refused, not the missing stop step	yes
 packages/runtime-adapters/src/a-refusal-is-not-a-crash.test.ts	covers the other three tools a mode can deny	yes
 packages/runtime-adapters/src/a-refusal-is-not-a-crash.test.ts	leaves the folder refusal saying which folder	yes
 packages/runtime-adapters/src/a-refusal-is-not-a-crash.test.ts	still says the vague thing when there is nothing better to say	yes
+packages/runtime-adapters/src/one-runtimes-probes-run-at-once.test.ts	overlaps the probes of a single runtime rather than queueing them	yes
+packages/runtime-adapters/src/one-runtimes-probes-run-at-once.test.ts	spawns a command that is both readiness and model list ONCE	yes
+packages/runtime-adapters/src/one-runtimes-probes-run-at-once.test.ts	still asks a runtime with a separate list command for its list, once	yes
+packages/runtime-adapters/src/probes-report-as-they-run.test.ts	never reports a probe finished before it reported it started	yes
+packages/runtime-adapters/src/probes-report-as-they-run.test.ts	starts them one at a time, in order, however slow they are	yes
+packages/runtime-adapters/src/probes-report-as-they-run.test.ts	does not make the total the sum of every probe	yes
+packages/runtime-adapters/src/probes-report-as-they-run.test.ts	names the binary it is about to run, and its id, which are not the same	yes
+packages/runtime-adapters/src/probes-report-as-they-run.test.ts	still answers with every runtime when nobody is watching	yes
+packages/runtime-adapters/src/probes-report-as-they-run.test.ts	chains straight through when every probe is instant	yes
+packages/runtime-adapters/src/probes-report-as-they-run.test.ts	still spaces them out when the probes are slow	yes
 packages/runtime-adapters/src/the-prompt-muse-cannot-be-told.test.ts	names where the prompt file path goes, and never puts the prompt in argv	no
 packages/runtime-adapters/src/the-prompt-muse-cannot-be-told.test.ts	still refuses to build a run with nothing to say	no
 packages/runtime-adapters/src/the-prompt-muse-cannot-be-told.test.ts	holds a read-only run with the flags that actually hold it	no
@@ -6720,6 +6756,13 @@ packages/runtime-adapters/test/a-session-openCode-cannot-continue-is-not-resumed
 packages/runtime-adapters/test/a-side-question-forks-the-session.test.ts	forks a Claude Code session: --resume, then --fork-session	yes
 packages/runtime-adapters/test/a-side-question-forks-the-session.test.ts	forks an OpenCode session: -s, then --fork	no
 packages/runtime-adapters/test/a-side-question-forks-the-session.test.ts	adds no fork flag without a session, or to an ordinary follow-up	no
+packages/runtime-adapters/test/a-slow-runtime-is-shown-as-checking.test.ts	is shown as installed and being checked -- never as signed out or missing -- while its check goes on	yes
+packages/runtime-adapters/test/a-slow-runtime-is-shown-as-checking.test.ts	says a runtime that is not installed is not installed, at once	yes
+packages/runtime-adapters/test/a-slow-runtime-is-shown-as-checking.test.ts	answers exactly as the all-at-once call does	yes
+packages/runtime-adapters/test/a-slow-runtime-is-shown-as-checking.test.ts	is not asked a second time when the caller says a check for it is already going	yes
+packages/runtime-adapters/test/a-slow-runtime-is-shown-as-checking.test.ts	takes readiness and the models from the one list that carries both	yes
+packages/runtime-adapters/test/a-slow-runtime-is-shown-as-checking.test.ts	asks the plain list only when the richer one did not answer, and still reads ready from it	yes
+packages/runtime-adapters/test/a-slow-runtime-is-shown-as-checking.test.ts	is not ready when neither list can be read -- and says unhealthy, not signed out	yes
 packages/runtime-adapters/test/acp-events.test.ts	starts, thinks, asks to run a command, is refused, and ends -- as the product's events	no
 packages/runtime-adapters/test/acp-events.test.ts	records the refused call as declined, with its command -- not as a failure	no
 packages/runtime-adapters/test/acp-events.test.ts	keeps what was thought on the thinking step, as every runtime's is -- and nothing of the machine's own commands	no

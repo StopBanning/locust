@@ -65,13 +65,15 @@ fn after_four_sweeps_the_window_gives_up_and_the_box_counts() {
     assert!(said.contains("An AI agent is installed but not answering"), "{said}");
 }
 
+/// A check still running is not a CLI that will not answer (App.tsx, 0.639; flipped 22 Nov from "counts as
+/// unanswered", which was the bug Electron fixed): its own finish brings the answer, read back from the held one.
 #[test]
-fn an_agent_still_being_asked_counts_as_unanswered() {
+fn an_agent_still_being_asked_does_not_spend_the_budget() {
     let mut rt = window();
     for _ in 0..SWEEPS_BEFORE_GIVING_UP {
         lands(&mut rt, vec![codex(Probe::Unknown, true)]);
     }
-    assert!(rt.state.settings_panel.agents_gave_up);
+    assert!(!rt.state.settings_panel.agents_gave_up);
 }
 
 #[test]

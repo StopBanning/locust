@@ -133,7 +133,7 @@ fn discovery_decides_what_electrons_discovery_decides() {
             })
         };
         let exists = |_: &std::path::Path| s["credentials"] != false;
-        let seams = Seams { find: &find, run: &run, exists: &exists, home: Some("/home/someone".into()), xdg_config_home: None };
+        let seams = Seams { find: &find, run: &run, exists: &exists, home: Some("/home/someone".into()), xdg_config_home: None, recall: None };
         let got = discover_one(id, &seams).expect("a known agent");
         let want = &r["status"];
         let same = got.installed == (want["installed"] == true)
@@ -172,7 +172,7 @@ fn antigravity_is_ready_with_a_model_list_signed_out_without_one_and_unconfirmed
             if a == ["--version"] { Some(ok("1.2.14")) } else { models.clone() }
         };
         let exists = |_: &std::path::Path| true;
-        discover_antigravity(&Seams { find: &find, run: &run, exists: &exists, home: None, xdg_config_home: None })
+        discover_antigravity(&Seams { find: &find, run: &run, exists: &exists, home: None, xdg_config_home: None, recall: None })
     };
     let ready = check(Some(ok("Fetching available models...\ngemini-4-argon-high\tGemini 4 Argon (High)\n")));
     assert_eq!((ready.status, ready.auth, ready.through_cli, ready.version.as_deref()), (Probe::Ready, Auth::Authenticated, true, Some("1.2.14")));
@@ -336,7 +336,7 @@ fn opencode_at(version: &str) -> Found {
         })
     };
     let exists = |_: &std::path::Path| true;
-    let seams = Seams { find: &find, run: &run, exists: &exists, home: Some("/home/someone".into()), xdg_config_home: None };
+    let seams = Seams { find: &find, run: &run, exists: &exists, home: Some("/home/someone".into()), xdg_config_home: None, recall: None };
     discover_one("opencode", &seams).unwrap()
 }
 
@@ -377,7 +377,7 @@ fn a_ready_opencode_is_not_said_to_be_signed_in_and_a_ready_codex_is() {
         Some(if joined == "--version" { ok(well["version"].as_str().unwrap()) } else if joined.ends_with("--help") { ok(&help) } else { ok(well["ready"].as_str().unwrap()) })
     };
     let exists = |_: &std::path::Path| true;
-    let seams = Seams { find: &find, run: &run, exists: &exists, home: Some("/home/someone".into()), xdg_config_home: None };
+    let seams = Seams { find: &find, run: &run, exists: &exists, home: Some("/home/someone".into()), xdg_config_home: None, recall: None };
     let codex = discover_one("codex", &seams).unwrap();
     assert!(codex.ready, "{codex:?}");
     assert_eq!(auth_word(codex.auth), "authenticated");
