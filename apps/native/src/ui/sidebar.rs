@@ -121,6 +121,64 @@ pub(super) fn recent_as_missions(s: &State) -> Vec<SidebarMission> {
     list
 }
 
+/// Find the comparison through any turn, including an answer that was replaced by a retry.
+fn comparison_slot<'a>(
+    compares: &'a [locust_core::compare::Compare],
+    ids: &[String],
+) -> Option<(&'a locust_core::compare::Compare, &'a locust_core::compare::CompareSlot)> {
+    compares.iter().find_map(|compare| {
+        let slot = compare.slots.iter().find(|slot| {
+            slot.mission_ids.iter().chain(&slot.retried).any(|id| ids.contains(id))
+        })?;
+        Some((compare, slot))
+    })
+}
+
+pub(super) fn comparison_of<'a>(s: &'a State, ids: &[String]) -> Option<&'a locust_core::compare::Compare> {
+    comparison_slot(&s.compare.compares, ids).map(|(compare, _)| compare)
+}
+
+fn comparison_member_ids(row: &SidebarMission) -> &[String] {
+    if row.member_ids.is_empty() { std::slice::from_ref(&row.mission_id) } else { &row.member_ids }
+}
+
+pub(super) fn comparison_row_visible(s: &State, row: &SidebarMission) -> bool {
+    let ids = comparison_member_ids(row);
+    let Some((compare, slot)) = comparison_slot(&s.compare.compares, ids) else { return true };
+    let visible = compare.kept.as_ref().map(|kept| kept.slot)
+        .or_else(|| compare.slots.iter().find(|slot| !slot.mission_ids.is_empty()).map(|slot| slot.slot));
+    Some(slot.slot) == visible && slot.mission_ids.iter().any(|id| ids.contains(id))
+}
+
+pub(super) fn open_comparison(s: &mut State, id: &str) {
+    crate::room_screen::close(s);
+    crate::missions_screen::close(s);
+    s.compare.active_id = Some(id.to_owned());
+    crate::compare_view::read_catalog_if_needed(s);
+    s.benchmarks_open = false;
+    s.home.home_open = false;
+    s.home.board_open = false;
+    s.home.boot_open = false;
+    s.people_panel.open = false;
+    s.settings_panel.open = false;
+    s.routines.open = false;
+}
+
+fn undecided_comparison<'a>(s: &'a State, row: &SidebarMission) -> Option<&'a locust_core::compare::Compare> {
+    comparison_of(s, comparison_member_ids(row)).filter(|compare| compare.kept.is_none())
+}
+
+pub(super) fn open_sidebar_mission(s: &mut State, row: &SidebarMission, tx: &mut Tx) {
+    let compare_id = undecided_comparison(s, row).map(|compare| compare.compare_id.clone());
+    if let Some(item) = s.recent.iter().find(|item| item.id == row.mission_id).cloned() {
+        s.compare.active_id = None;
+        open_recent(s, item, tx);
+    }
+    if let Some(id) = compare_id {
+        open_comparison(s, &id);
+    }
+}
+
 pub(super) fn sidebar_missions_now(s: &State) -> Vec<SidebarMission> {
     let now_ms = chrono::Utc::now().timestamp_millis();
     let selected = selected_conversation(s)
@@ -131,6 +189,7 @@ pub(super) fn sidebar_missions_now(s: &State) -> Vec<SidebarMission> {
     let missions = recent_as_missions(s);
     let visible: Vec<SidebarMission> = missions
         .into_iter()
+        .filter(|m| comparison_row_visible(s, m))
         .filter(|m| {
             let entry = held_for(m, &s.org.settled);
             let put_away = is_put_away(m.last_at.as_deref(), entry, now_ms);
@@ -171,11 +230,14 @@ fn is_own_mark_model(model: &str) -> bool {
 }
 
 fn mission_row(s: &State, p: &Palette, item: &SidebarMission, picked: bool) -> El {
-    let recent = s.recent.iter().find(|r| r.id == item.mission_id);
     let l = crate::look::controls::Look::new(p.dark);
+    let compare = undecided_comparison(s, item);
+    let blind = compare.is_some_and(|compare| compare.blind);
+    let picked = compare.map_or(picked, |compare| s.compare.active_id.as_deref() == Some(&compare.compare_id));
+    let recent = s.recent.iter().find(|r| r.id == item.mission_id);
     let mut title = row().w_full().center_y().gap(6.0);
     let owner = item.owner_id.clone().or_else(|| s.data.as_ref().and_then(|store| people::owner_of(store, &item.mission_id)));
-    if !owner.as_deref().is_some_and(|id| s.teammates.iter().any(|mate| mate.id == id)) {
+    if !blind && !owner.as_deref().is_some_and(|id| s.teammates.iter().any(|mate| mate.id == id)) {
         let summary = s.ledger_summaries.get(&item.mission_id);
         let mark = summary.filter(|m| !m.runtime.is_empty() && !m.model.is_empty() && !is_own_mark_model(&m.model))
             .and_then(|m| crate::look::controls::agent_mark(&l, &m.runtime, 13.0, l.c("text-muted"))
@@ -209,6 +271,9 @@ fn mission_row(s: &State, p: &Palette, item: &SidebarMission, picked: bool) -> E
             .truncate()
             .key(format!("conversation-title-{}", item.mission_id)),
     );
+    if compare.is_some() {
+        title = title.child(text("vs").font(l.ty.mono).color(p.muted).label("A comparison"));
+    }
     if item.needs_you {
         // Waiting on the person: amber words where the age goes and the amber dot, in place of the shimmer or the
         // failed mark (Sidebar.tsx `lc-conv__age lc-tone-amber` "needs you", `lc-dot lc-tone-amber`).
@@ -222,7 +287,7 @@ fn mission_row(s: &State, p: &Palette, item: &SidebarMission, picked: bool) -> E
         title = title.child(el().size(5.0, 5.0).radius(2.5).fill(p.red));
     }
     let id = item.mission_id.clone();
-    let subtitle = recent
+    let subtitle = recent.filter(|_| !blind)
         .map(|item| {
             format!(
                 "{}{} · {}",
@@ -250,6 +315,8 @@ fn mission_row(s: &State, p: &Palette, item: &SidebarMission, picked: bool) -> E
         title = title.child(el().size(22.0, 22.0));
     }
     let hover_id = id.clone();
+    let mission = item.clone();
+    let row_key = compare.map_or_else(|| format!("recent-{id}"), |compare| format!("sidebar-compare-{}", compare.compare_id));
     let mut row_el = col()
         .on_hover_change(move |s: &mut State, over, _| {
             if over {
@@ -258,7 +325,7 @@ fn mission_row(s: &State, p: &Palette, item: &SidebarMission, picked: bool) -> E
                 s.recent_hover = None;
             }
         })
-        .key(format!("recent-{id}"))
+        .key(row_key)
         .w_full()
         .py(9.0)
         .px(10.0)
@@ -274,11 +341,7 @@ fn mission_row(s: &State, p: &Palette, item: &SidebarMission, picked: bool) -> E
                 .w_full()
                 .truncate(),
         )
-        .on_press_tx(move |s: &mut State, tx| {
-            if let Some(item) = s.recent.iter().find(|r| r.id == id).cloned() {
-                open_recent(s, item, tx);
-            }
-        })
+        .on_press_tx(move |s: &mut State, tx| open_sidebar_mission(s, &mission, tx))
         // Right-click: the conversation's menu at the pointer (Sidebar.tsx onContextMenu -> App.tsx openMissionMenu).
         .on_secondary_press({
             let (menu_id, menu_title) = (item.mission_id.clone(), item.title.clone());
@@ -688,12 +751,20 @@ pub(super) fn step_from_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> boo
     let rows = drawn_missions(s);
     let shown = selected_conversation(s).and_then(|(_, c)| c.conversation_id.clone())
         .or_else(|| s.ledger.as_ref().map(|p| p.snapshot.tip.clone()));
-    let shown = rows.iter().find(|r| shown.as_deref().is_some_and(|id| conversation_keys(r).iter().any(|key| key == id))).map(|r|r.mission_id.as_str());
+    let shown = rows.iter().find(|r| {
+        if let Some(active) = &s.compare.active_id {
+            undecided_comparison(s, r).is_some_and(|compare| &compare.compare_id == active)
+        } else {
+            shown.as_deref().is_some_and(|id| conversation_keys(r).iter().any(|key| key == id))
+        }
+    }).map(|r| r.mission_id.as_str());
     let ids: Vec<_> = rows.iter().map(|r|r.mission_id.clone()).collect();
     let next = crate::conversation_list::step_conversation(&ids, shown, event.key == Key::Down, |id| {
         !event.mods.shift || rows.iter().find(|r| r.mission_id == id).is_some_and(|r| conversation_keys(r).iter().any(|key| s.home.waiting_for.contains_key(key)))
     });
-    if let Some(row) = next.and_then(|id| s.recent.iter().find(|r|r.id == id)).cloned() { open_recent(s, row, tx); }
+    if let Some(row) = next.and_then(|id| rows.iter().find(|r| r.mission_id == id)) {
+        open_sidebar_mission(s, row, tx);
+    }
     true
 }
 
@@ -871,65 +942,8 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
         );
     }
     rows = rows.child(rooms_col);
-    if !s.compare.compares.is_empty() {
-        let mut cmp_col = col()
-            .w_full()
-            .px(10.0)
-            .pt(10.0)
-            .gap(2.0)
-            .child(
-                row()
-                    .w_full()
-                    .pl(10.0)
-                    .pb(2.0)
-                    .child(crate::look::controls::label(&l, "Comparisons")),
-            );
-        for c in s.compare.compares.iter().take(12) {
-            let cid = c.compare_id.clone();
-            let picked = s.compare.active_id.as_deref() == Some(cid.as_str());
-            let title_text = if c.blind && c.kept.is_none() {
-                format!("Blind: {}", c.prompt)
-            } else {
-                let names: Vec<&str> = c
-                    .slots
-                    .iter()
-                    .map(|slot| slot.route.label.as_deref().unwrap_or(slot.route.model.as_str()))
-                    .collect();
-                format!("{}: {}", locust_core::compare::versus_label(&names), c.prompt)
-            };
-            cmp_col = cmp_col.child(
-                row()
-                    .key(format!("sidebar-compare-{cid}"))
-                    .w_full()
-                    .py(7.0)
-                    .px(10.0)
-                    .radius(8.0)
-                    .fill(if picked { l.c("bg-selected") } else { p.sidebar })
-                    .hover(l.c("hover-surface"))
-                    .child(
-                        text(title_text)
-                            .font(rune::TextStyle::new(12.5, 500.0).lh(16.0))
-                            .color(l.c("text-primary"))
-                            .w_full()
-                            .truncate(),
-                    )
-                    .on_press(move |s: &mut State| {
-                        crate::room_screen::close(s);
-                        s.compare.active_id = Some(cid.clone());
-                        s.benchmarks_open = false;
-                        s.home.home_open = false;
-                        s.home.board_open = false;
-                        s.home.boot_open = false;
-                        s.people_panel.open = false;
-                        s.settings_panel.open = false;
-                        s.routines.open = false;
-                    }),
-            );
-        }
-        rows = rows.child(cmp_col);
-    }
     let missions = sidebar_missions_now(s);
-    let all_count = recent_as_missions(s).len();
+    let all_count = recent_as_missions(s).iter().filter(|m| comparison_row_visible(s, m)).count();
     let (waiting, pinned, recent_rows) = needs_you_pinned_and_recent(&missions, &s.org.pins);
     let show_sections = !s.org.pins.is_empty();
     let groups_shown = !s.org.groups.is_empty() && !s.org.groups_unreadable;

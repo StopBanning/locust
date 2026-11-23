@@ -54,6 +54,18 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
     if let Some(label) = s.ledger.as_ref().and_then(|pane| pane.snapshot.started_label.as_ref()) {
         messages = messages.child(text(format!("Started {label}")).key("mission-started").font(type_::LABEL).color(p.muted));
     }
+    if let Some(pane) = &s.ledger {
+        let mut ids: Vec<_> = pane.snapshot.turn_metas.iter().map(|meta| meta.mission_id.clone()).collect();
+        ids.extend(pane.conversation.conversation_id.iter().cloned());
+        ids.push(pane.snapshot.tip.clone());
+        if let Some(compare) = sidebar::comparison_of(s, &ids) {
+            let id = compare.compare_id.clone();
+            let l = crate::look::controls::Look::new(p.dark);
+            messages = messages.child(crate::look::controls::button(
+                &l, "Open the comparison", crate::look::controls::Tone::Neutral, false,
+            ).key("open-thread-comparison").on_press(move |s: &mut State| sidebar::open_comparison(s, &id)));
+        }
+    }
     let markers = s
         .ledger
         .as_ref()

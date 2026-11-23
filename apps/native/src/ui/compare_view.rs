@@ -71,6 +71,61 @@ pub(super) struct ModelChoice {
     pub(super) is_free: bool,
 }
 
+const COLUMN_PADDING: f32 = 12.0;
+const COLUMN_HEAD_HEIGHT: f32 = 32.0;
+const COLUMN_GAP: f32 = 10.0;
+
+pub(super) fn column_stick_at(head: f32, port: f32, body: f32) -> f32 {
+    (head + 8.0).min(port - body - 8.0).round()
+}
+
+struct ColumnLayout {
+    cell_y: f32,
+    body: [f32; 4],
+    foot_y: f32,
+    head_shift: rune::Live<[f32; 2]>,
+    body_shift: rune::Live<[f32; 2]>,
+}
+
+impl Default for ColumnLayout {
+    fn default() -> Self {
+        Self {
+            cell_y: 0.0,
+            body: [0.0; 4],
+            foot_y: 0.0,
+            head_shift: rune::Live::new([0.0; 2]),
+            body_shift: rune::Live::new([0.0; 2]),
+        }
+    }
+}
+
+impl ColumnLayout {
+    /// How far the head and the body slide down to stay in view, never past the gap above the column's foot.
+    fn offsets(&self, port: [f32; 4]) -> (f32, f32) {
+        let head_y = self.cell_y + COLUMN_PADDING;
+        let boundary = self.foot_y - COLUMN_GAP;
+        let offset = |natural: f32, sticky: f32, height: f32| {
+            (sticky.min(boundary - height) - natural).max(0.0)
+        };
+        (
+            offset(head_y, port[1], COLUMN_HEAD_HEIGHT),
+            offset(self.body[1], port[1] + column_stick_at(COLUMN_HEAD_HEIGHT, port[3], self.body[3]), self.body[3]),
+        )
+    }
+
+    fn place(&self, port: [f32; 4]) {
+        let (head, body) = self.offsets(port);
+        self.head_shift.set([0.0, head]);
+        self.body_shift.set([0.0, body]);
+    }
+}
+
+#[derive(Default)]
+struct CompareScroll {
+    port: [f32; 4],
+    columns: [ColumnLayout; MAX_COMPARE_SLOTS],
+}
+
 #[derive(Default)]
 pub(super) struct CompareState {
     pub(super) composer_mode: CompareComposerMode,
@@ -82,6 +137,7 @@ pub(super) struct CompareState {
     pub(super) compares: Vec<Compare>,
     pub(super) loaded: bool,
     pub(super) active_id: Option<String>,
+    scroll: CompareScroll,
     pub(super) problem: Option<String>,
     pub(super) snapshots: HashMap<String, ledger::Snapshot>,
     pub(super) criteria: TextEdit,
@@ -189,26 +245,52 @@ fn effort_title(effort: &str) -> String {
     }
 }
 
-/// Effective effort for a pick against the model catalog (`each-compared-model-has-its-own-effort`).
-pub(super) fn effective_effort(pick: &ComparePick, models: &[locust_core::engine::Models]) -> Option<String> {
-    let agent = models.iter().find(|m| m.runtime == pick.runtime);
-    let entry = agent.and_then(|m| m.models.iter().find(|model| model.id == pick.model));
-    let supported = entry.map(|m| m.efforts.as_slice()).unwrap_or(&[]);
-    if supported.is_empty() && pick.effort.is_none() {
-        if pick.runtime == "cursor" {
-            for level in ["low", "medium", "high", "xhigh", "max"] {
-                if pick.model.ends_with(&format!("-{level}")) {
-                    return Some(level.to_owned());
-                }
-            }
+fn catalog_model<'a>(agent: &'a engine::Models, id: &str) -> Option<&'a engine::Model> {
+    agent.models.iter().find(|model| model.id == id).or_else(|| {
+        if agent.runtime != "cursor" {
+            return None;
         }
+        let (family, level) = locust_core::models::split_cursor_model_id(id);
+        agent.models.iter().find(|model| {
+            let (listed, _) = locust_core::models::split_cursor_model_id(&model.id);
+            listed == family && level.as_ref().is_none_or(|effort| model.efforts.contains(effort))
+        })
+    })
+}
+
+/// Cursor routes can carry an effort's id while the catalog names the family once.
+fn cursor_family_label(s: &State, runtime: &str, model: &str) -> Option<String> {
+    if runtime != "cursor" {
         return None;
     }
-    if let Some(e) = &pick.effort {
-        return Some(e.clone());
+    // Electron's routeFamilyName names the family alone; Cursor routes carry no account (only Claude and Codex have
+    // accounts), so nothing is added after the name.
+    let family = s.models.values().flatten().filter(|agent| agent.runtime == runtime)
+        .find_map(|agent| catalog_model(agent, model).filter(|entry| !entry.efforts.is_empty() && !entry.name.is_empty()))?;
+    Some(locust_core::teammate_tooltip::route_model_name(runtime, &family.name))
+}
+
+fn picker_name(s: &State, pick: &ComparePick) -> String {
+    cursor_family_label(s, &pick.runtime, &pick.model)
+        .or_else(|| pick.label.clone())
+        .unwrap_or_else(|| pick.model.clone())
+}
+
+/// Effective effort for a pick against the model catalog (`each-compared-model-has-its-own-effort`).
+pub(super) fn effective_effort(pick: &ComparePick, models: &[locust_core::engine::Models]) -> Option<String> {
+    let agent = models.iter().find(|agent| agent.runtime == pick.runtime);
+    let entry = agent.and_then(|agent| catalog_model(agent, &pick.model));
+    let supported = entry.map(|model| model.efforts.as_slice()).unwrap_or(&[]);
+    if let Some(effort) = &pick.effort {
+        return Some(effort.clone());
     }
-    // status.ts defaultEffort, as the composer's own effort shows it: the runtime's default, else medium, else the middle.
-    locust_core::effort_levels::default_effort(supported, agent.and_then(|a| a.effort.as_deref()))
+    if pick.runtime == "cursor" {
+        let (_, level) = locust_core::models::split_cursor_model_id(&pick.model);
+        if let Some(level) = level.filter(|level| supported.is_empty() || supported.contains(level)) {
+            return Some(level);
+        }
+    }
+    locust_core::effort_levels::default_effort(supported, agent.and_then(|agent| agent.effort.as_deref()))
 }
 
 pub(super) fn effort_aria_label(
@@ -282,51 +364,98 @@ fn available_choices(s: &State) -> Vec<ModelChoice> {
     out
 }
 
-pub(super) fn ensure_default_picks(s: &mut State) {
-    if s.compare.picks.len() >= MIN_COMPARE_SLOTS {
-        return;
-    }
-    let choices = available_choices(s);
-    for c in choices {
-        if s.compare.picks.len() >= MIN_COMPARE_SLOTS {
-            break;
-        }
-        if !s
-            .compare
-            .picks
-            .iter()
-            .any(|p| p.runtime == c.runtime && p.model == c.model && p.account == c.account)
+fn default_compare_picks(s: &State) -> Vec<ComparePick> {
+    let composer = crate::group_settings_dialog::current_composer_route(s);
+    let target = selected_conversation(s).map(|(teammate, _)| teammate.id.as_str());
+    let mut catalogs: Vec<_> = s.models.iter().collect();
+    catalogs.sort_by(|(left, _), (right, _)| {
+        (Some(left.as_str()) != target, left.as_str()).cmp(&(Some(right.as_str()) != target, right.as_str()))
+    });
+    let catalogs: Vec<_> = catalogs.into_iter().flat_map(|(_, models)| models).collect();
+    let policy = locust_core::org_policy::current();
+    let mut options = Vec::<ComparePick>::new();
+    let mut add = |runtime: &str, model: &str, account: Option<String>, effort: Option<String>| {
+        if model.is_empty() || model == locust_core::models::ACCOUNT_DEFAULT
+            || options.iter().any(|one| one.runtime == runtime && one.model == model)
+            || !locust_core::org_policy::model_allowed(Some(&policy), runtime, Some(model))
         {
-            s.compare.picks.push(ComparePick {
-                runtime: c.runtime,
-                model: c.model,
-                account: c.account,
-                effort: None,
-                label: Some(c.label),
-            });
+            return;
+        }
+        let discovered = s.settings_panel.agents.as_ref()
+            .and_then(|agents| agents.iter().find(|agent| agent.id == runtime));
+        let known = catalogs.iter().any(|agent| agent.runtime == runtime && !agent.models.is_empty());
+        let ready = match &s.settings_panel.agents {
+            Some(_) => discovered.is_some_and(|agent| agent.ready),
+            None => known || (s.selected_ready && composer.as_ref().is_some_and(|route| route.runtime == runtime)),
+        };
+        let mode = if s.compare.changes { "accept-edits" } else { "ask" };
+        if !ready || compare_refusal_of(runtime, discovered.is_none_or(|agent| agent.through_cli)).is_some()
+            || !(locust_core::mode_facts::runs_on(mode, runtime)
+                || !s.compare.changes && locust_core::compare::compare_needs_copy(runtime))
+        {
+            return;
+        }
+        let key = format!("{runtime}:{model}");
+        let name = s.resolved_model_names.get(&key)
+            .or_else(|| catalogs.iter().filter(|agent| agent.runtime == runtime)
+                .find_map(|agent| agent.models.iter().find(|row| row.id == model).map(|row| &row.name)))
+            .filter(|name| !name.is_empty()).cloned()
+            .unwrap_or_else(|| locust_core::teammate_tooltip::route_model_name(runtime, model));
+        options.push(ComparePick { runtime: runtime.into(), model: model.into(), account, effort, label: Some(name) });
+    };
+    if let Some(route) = &composer {
+        let pick = target.and_then(|id| s.picks.get(id));
+        let catalog = target.and_then(|id| s.models.get(id))
+            .and_then(|agents| agents.iter().find(|agent| agent.runtime == route.runtime));
+        let model = if pick.is_none() && target != Some(LEDGER_TARGET) {
+            catalog.and_then(|agent| agent.model.as_deref()).unwrap_or(&route.model)
+        } else {
+            &route.model
+        };
+        let account = pick.and_then(|pick| pick.account.clone()).unwrap_or_else(|| route.account.clone());
+        let effort = route.effort.as_ref()
+            .or_else(|| catalog.filter(|_| pick.is_none()).and_then(|agent| agent.effort.as_ref()))
+            .filter(|effort| catalogs.iter().filter(|agent| agent.runtime == route.runtime)
+                .any(|agent| catalog_model(agent, model).is_some_and(|entry| entry.efforts.contains(effort))))
+            .cloned();
+        add(&route.runtime, model, account, effort);
+    }
+    for key in &s.recent_route_keys {
+        if let Some((runtime, model)) = key.split_once(':') {
+            add(runtime, model, None, None);
         }
     }
-    while s.compare.picks.len() < MIN_COMPARE_SLOTS {
-        let rt = selected_conversation(s)
-            .and_then(|(t, _)| t.runtime.clone())
-            .unwrap_or_else(|| "codex".into());
-        let model = if s.compare.picks.is_empty() {
-            "gpt-6".to_owned()
-        } else {
-            "sonnet".to_owned()
-        };
-        let rt_pick = if s.compare.picks.is_empty() {
-            rt
-        } else {
-            "claude".to_owned()
-        };
-        s.compare.picks.push(ComparePick {
-            runtime: rt_pick,
-            model,
-            account: None,
-            effort: None,
-            label: None,
-        });
+    let older_claude = locust_core::models::claude_older_models();
+    for agent in &catalogs {
+        for model in &agent.models {
+            if !locust_core::own_models::is_own_route_model(&model.id)
+                && !(agent.runtime == "claude" && older_claude.iter().any(|(id, _)| *id == model.id))
+            {
+                add(&agent.runtime, &model.id, None, None);
+            }
+        }
+    }
+    let Some((first, others)) = options.split_first() else { return Vec::new() };
+    let free = |pick: &ComparePick| pick.runtime == "opencode" && pick.model.ends_with("-free");
+    let other_free = if free(first) {
+        let answered = crate::thread_view::free_models_answered_here(s);
+        let best = locust_core::connectors_off::FREE_MODELS_BEST_FIRST;
+        others.iter().filter(|pick| free(pick)).min_by_key(|pick| {
+            let was_recent = s.recent_route_keys.iter().any(|key| key.strip_prefix("opencode:") == Some(pick.model.as_str()));
+            let rank = best.iter().position(|id| *id == pick.model).unwrap_or(best.len());
+            (!answered.contains(&pick.model), !was_recent, if was_recent { 0 } else { rank })
+        })
+    } else {
+        None
+    };
+    other_free.or_else(|| others.iter().find(|pick| pick.runtime != first.runtime))
+        .or_else(|| others.first())
+        .map_or_else(Vec::new, |second| vec![first.clone(), second.clone()])
+}
+
+pub(super) fn ensure_default_picks(s: &mut State) {
+    if s.compare.picks.is_empty() {
+        s.compare.picks = default_compare_picks(s);
     }
 }
 
@@ -400,7 +529,8 @@ pub(super) fn start_comparison(s: &mut State) {
             model: p.model.clone(),
             account: p.account.clone(),
             effort: p.effort.clone(),
-            label: p.label.clone(),
+            label: cursor_family_label(s, &p.runtime, &p.model)
+                .or_else(|| p.label.clone()),
             mode: if changes && mode_auto {
                 Some("auto".into())
             } else {
@@ -1802,11 +1932,18 @@ pub(super) fn poll(s: &mut State) -> bool {
             collect_cmp(rc);
         }
     }
+    let owned: HashSet<_> = locust_core::engine_api::api().running().into_iter().collect();
     let mut ended = false;
     for id in ids {
-        if let Some(snap) = load_mission(&id)
-            && s.compare.snapshots.get(&id) != Some(&snap)
-        {
+        let Some(mut snap) = load_mission(&id) else { continue };
+        // A quiet ledger can look interrupted while its engine still owns the turn. A terminal
+        // receipt takes precedence even while the engine is finishing its bookkeeping.
+        if snap.interrupted && (owned.contains(&id) || owned.contains(&snap.tip)) {
+            snap.running = true;
+            snap.interrupted = false;
+            snap.recovery = None;
+        }
+        if s.compare.snapshots.get(&id) != Some(&snap) {
             ended |= !snap.running && s.compare.snapshots.get(&id).is_none_or(|was| was.running);
             s.compare.snapshots.insert(id, snap);
             changed = true;
@@ -1851,8 +1988,8 @@ fn format_span(snap: &ledger::Snapshot) -> Option<String> {
     snapshot_span_ms(snap).map(ledger::duration_text)
 }
 
-fn snapshot_cost(_snap: &ledger::Snapshot) -> Option<RunCost> {
-    None
+fn snapshot_cost(snap: &ledger::Snapshot) -> Option<RunCost> {
+    snap.cost.clone()
 }
 
 fn format_cost(snap: &ledger::Snapshot) -> Option<String> {
@@ -2023,12 +2160,8 @@ pub(super) fn asking_label(s: &State) -> Option<String> {
         let refs: Vec<&str> = names.iter().map(String::as_str).collect();
         Some(locust_core::compare::versus_label(&refs))
     } else {
-        let refs: Vec<&str> = s
-            .compare
-            .picks
-            .iter()
-            .map(|p| p.label.as_deref().unwrap_or(p.model.as_str()))
-            .collect();
+        let names: Vec<_> = s.compare.picks.iter().map(|pick| picker_name(s, pick)).collect();
+        let refs: Vec<_> = names.iter().map(String::as_str).collect();
         Some(locust_core::compare::versus_label(&refs))
     }
 }
@@ -2045,6 +2178,15 @@ pub(super) fn composer_mode_chip(s: &State, l: &crate::look::controls::Look) -> 
             s.reference_menu = false;
             agent_accounts_card::reload(s);
         })
+}
+
+pub(super) fn read_catalog_if_needed(s: &mut State) {
+    if cfg!(test) || s.demo || s.model_job.is_pending() || s.models.values().any(|catalog| !catalog.is_empty()) {
+        return;
+    }
+    let id = selected_conversation(s).map(|(teammate, _)| teammate.id.clone())
+        .unwrap_or_else(|| LEDGER_TARGET.to_owned());
+    request_models(s, id);
 }
 
 pub(super) fn composer_mode_menu(s: &State, l: &crate::look::controls::Look) -> Option<El> {
@@ -2091,8 +2233,16 @@ pub(super) fn composer_mode_menu(s: &State, l: &crate::look::controls::Look) -> 
                 .on_press(move |s: &mut State| {
                     s.compare.composer_mode = mode;
                     s.compare.mode_menu = false;
-                    if mode != CompareComposerMode::Direct {
+                    if mode == CompareComposerMode::Direct {
+                        s.compare.picks.clear();
+                        s.compare.changes = false;
+                        s.compare.model_menu = None;
+                    } else {
                         ensure_default_picks(s);
+                        if s.compare.picks.is_empty() {
+                            s.compare.model_menu = Some(0);
+                            read_catalog_if_needed(s);
+                        }
                     }
                 }),
         );
@@ -2107,7 +2257,7 @@ pub(super) fn composer_picks_row(s: &State, l: &crate::look::controls::Look) -> 
     let models: Vec<locust_core::engine::Models> = s.models.values().flatten().cloned().collect();
     let mut r = row().w_full().gap(8.0).px(6.0).center_y().wrap();
     for (idx, pick) in s.compare.picks.iter().enumerate() {
-        let name = pick.label.clone().unwrap_or_else(|| pick.model.clone());
+        let name = picker_name(s, pick);
         let mut slot_row = row().gap(4.0).center_y().child(
             crate::look::controls::composer_chip(l, None, &name, false)
                 .key(format!("compare-pick-{idx}"))
@@ -2149,22 +2299,33 @@ pub(super) fn composer_picks_row(s: &State, l: &crate::look::controls::Look) -> 
     if let Some(slot_idx) = s.compare.model_menu {
         let mut menu = row().key("compare-slot-model-menu").w_full().gap(6.0).px(6.0).wrap();
         for ch in available_choices(s) {
+            if ch.model == locust_core::models::ACCOUNT_DEFAULT || s.compare.picks.iter().enumerate().any(|(other, pick)|
+                other != slot_idx && pick.runtime == ch.runtime && pick.model == ch.model && pick.account == ch.account)
+            {
+                continue;
+            }
             let label = ch.label.clone();
             let key = format!("compare-slot-choice-{}", ch.key);
             menu = menu.child(
                 crate::look::controls::button(l, &label, crate::look::controls::Tone::Neutral, false)
                     .key(key)
                     .on_press(move |s: &mut State| {
+                        let chosen = ComparePick {
+                            runtime: ch.runtime.clone(), model: ch.model.clone(), account: ch.account.clone(),
+                            effort: None, label: Some(ch.label.clone()),
+                        };
                         if let Some(pick) = s.compare.picks.get_mut(slot_idx) {
-                            pick.runtime = ch.runtime.clone();
-                            pick.model = ch.model.clone();
-                            pick.account = ch.account.clone();
-                            pick.effort = None;
-                            pick.label = Some(ch.label.clone());
+                            *pick = chosen;
+                        } else if slot_idx == s.compare.picks.len() && slot_idx < MIN_COMPARE_SLOTS {
+                            s.compare.picks.push(chosen);
                         }
-                        s.compare.model_menu = None;
+                        s.compare.model_menu = (s.compare.picks.len() < MIN_COMPARE_SLOTS).then_some(s.compare.picks.len());
                     }),
             );
+        }
+        if s.compare.picks.len() < MIN_COMPARE_SLOTS {
+            let words = if s.model_job.is_pending() { "Reading the models…" } else { "Pick two models to compare." };
+            menu = menu.child(text(words).font(l.ty.label).color(l.c("text-muted")));
         }
         return Some(col().w_full().gap(6.0).child(r).child(menu));
     }
@@ -2193,23 +2354,29 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
     let mut col_checks: Vec<Option<ColumnCheck>> = Vec::new();
     let mut col_running: Vec<bool> = Vec::new();
     let mut col_failed: Vec<bool> = Vec::new();
+    let mut col_interrupted: Vec<bool> = Vec::new();
     let mut col_keepable: Vec<bool> = Vec::new();
     let mut col_pages: Vec<Vec<String>> = Vec::new();
 
     for slot in &cmp.slots {
         let name = if veiled {
             blind_name(slot.slot, setups)
-        } else {
+        } else if setups {
             compare_route_name(&slot.route)
+        } else {
+            let route = &slot.route;
+            cursor_family_label(s, &route.runtime, &route.model)
+                .unwrap_or_else(|| compare_route_name(route))
         };
         let newest = slot.mission_ids.last().and_then(|id| s.compare.snapshots.get(id));
         let running = newest.is_some_and(|snap| snap.running);
         let failed = newest.is_some_and(|snap| snap.failed);
+        let interrupted = newest.is_some_and(|snap| snap.interrupted);
         let ans = newest.map(snapshot_final_text).unwrap_or_default();
         let span = newest.and_then(format_span);
         let cost = if veiled { None } else { newest.and_then(format_cost) };
         let check = newest.and_then(|snap| snapshot_check(snap, &s.running_checks));
-        let keepable = !running && !failed && !ans.is_empty();
+        let keepable = !running && !failed && !interrupted && !ans.is_empty();
         let pages = newest.map(column_html_pages).unwrap_or_default();
 
         col_names.push(name);
@@ -2219,6 +2386,7 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
         col_checks.push(check);
         col_running.push(running);
         col_failed.push(failed);
+        col_interrupted.push(interrupted);
         col_keepable.push(keepable);
         col_pages.push(pages);
     }
@@ -2353,12 +2521,13 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
     );
 
     // Side-by-side columns
-    let mut cols_row = row().w_full().gap(12.0);
+    let mut cols_row = row().w_full().gap(12.0).items_stretch();
     for (idx, slot) in cmp.slots.iter().enumerate() {
         let name = &col_names[idx];
         let ans = &col_answers[idx];
         let running = col_running[idx];
         let failed = col_failed[idx];
+        let interrupted = col_interrupted[idx];
         let keepable = col_keepable[idx];
         let pages = &col_pages[idx];
         let span = col_spans[idx].as_deref();
@@ -2367,20 +2536,41 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
         let is_kept = kept_slot == Some(slot.slot);
         let is_pick = judge_view.as_ref().and_then(|jv| jv.3) == Some(slot.slot);
 
+        let layout = &s.compare.scroll.columns[idx];
+        let letter = slot.slot.as_str();
+        let answer_label = format!("{name}'s answer");
+        let name_hover = if veiled { name.clone() } else { format!("{name} · {}", runtime_display_name(&slot.route.runtime)) };
+        let name_text = text(name.clone())
+            .key(format!("compare-name-text-{letter}"))
+            .font(rune::TextStyle::new(13.5, 600.0))
+            .description(name_hover.clone())
+            .color(p.text)
+            .grow(1.0)
+            .truncate();
+        let hover_key = format!("compare-name-{letter}");
+        let mut tooltip = Vec::new();
+        let anchor = rune_kit::Tooltip::new(&hover_key)
+            .trigger(name_text)
+            .text(&l.k, name_hover)
+            .open(s.hover.is_open(&hover_key))
+            .build(&l.k, &mut tooltip);
+        // Keep the hover target in place when its tooltip opens inside the scrolling header.
+        let name = row().grow(1.0).shrink()
+            .hover_delays(crate::hover::HOVER_DELAY, Duration::ZERO)
+            .on_hover_change(move |s: &mut State, over, _| s.hover.set(&hover_key, over))
+            .child(anchor.grow(1.0).shrink())
+            .children(tooltip);
         let mut head = row()
-            .key(format!("compare-head-{}", slot.slot.as_str()))
-            .w_full()
+            .key(format!("compare-head-{letter}"))
+            .pin(Some(COLUMN_PADDING), Some(COLUMN_PADDING), Some(COLUMN_PADDING), None)
+            .h(COLUMN_HEAD_HEIGHT)
+            .live_offset(&layout.head_shift)
+            .fill(p.raised)
             .gap(8.0)
             .center_y()
             .pb(8.0)
             .border_sides([0.0, 0.0, 1.0, 0.0], p.hairline)
-            .child(
-                text(name.clone())
-                    .font(rune::TextStyle::new(13.5, 600.0))
-                    .color(p.text)
-                    .grow(1.0)
-                    .truncate(),
-            );
+            .child(name);
         if is_kept {
             head = head.child(crate::look::controls::chip(&l, "Kept", true));
         }
@@ -2405,6 +2595,8 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
             "working"
         } else if failed {
             "failed"
+        } else if interrupted {
+            "interrupted"
         } else if !ans.is_empty() {
             "done"
         } else {
@@ -2417,6 +2609,8 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
         } else if ans.is_empty() {
             if running {
                 "Working…".to_owned()
+            } else if interrupted {
+                "No terminal receipt was recorded.".to_owned()
             } else {
                 "No answer yet.".to_owned()
             }
@@ -2424,31 +2618,48 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
             ans.clone()
         };
 
-        let mut cell = col()
-            .key(format!("compare-cell-{}", slot.slot.as_str()))
-            .key(format!("compare-col-{}", slot.slot.as_str()))
+        let cell = col()
+            .key(format!("compare-col-{letter}"))
+            .role("group")
+            .label(answer_label)
+            .w(0.0)
             .grow(1.0)
             .shrink()
-            .padding(12.0)
-            .gap(10.0)
+            .padding(COLUMN_PADDING)
             .radius(8.0)
             .fill(p.raised)
             .border(1.0, if is_kept { l.c("lime-border") } else { p.hairline })
-            .child(head)
+            .on_layout_tx(move |s: &mut State, rect, tx| {
+                let scroll = &mut s.compare.scroll;
+                scroll.columns[idx].cell_y = rect[1];
+                scroll.columns[idx].place(scroll.port);
+                tx.live_only();
+            });
+        let mut body = col()
+            .key(format!("compare-body-{letter}"))
+            .w_full()
+            .gap(COLUMN_GAP)
+            .live_offset(&layout.body_shift)
+            .on_layout_tx(move |s: &mut State, rect, tx| {
+                let scroll = &mut s.compare.scroll;
+                scroll.columns[idx].body = rect;
+                scroll.columns[idx].place(scroll.port);
+                tx.live_only();
+            })
             .child(text(body_text).font(l.ty.body).color(p.text).w_full().wrap());
 
         // What your check said in its copy after that turn (0.810): its judges read the same.
         if let Some(chk) = check
             && !running
         {
-            cell = cell.child(column_check_card(slot.slot, chk, p, s));
+            body = body.child(column_check_card(slot.slot, chk, p, s));
         }
 
         for page in pages {
             let slot_id = slot.slot;
             let req = page.clone();
             let short = page.rsplit(['/', '\\']).next().unwrap_or(page.as_str()).to_owned();
-            cell = cell.child(
+            body = body.child(
                 crate::look::controls::button(
                     &l,
                     &format!("Preview {short}"),
@@ -2474,19 +2685,34 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
             parts.push(cs.to_owned());
         }
 
-        let mut foot = row()
-            .key(format!("compare-foot-{}", slot.slot.as_str()))
+        let count = parts.len();
+        let numbers = row().w_full().gap(6.0).flex_wrap().children(parts.into_iter().enumerate().map(|(index, number)| {
+            let separator = if index + 1 < count { "\u{a0}·" } else { "" };
+            text(format!("{number}{separator}"))
+                .key(format!("compare-number-{letter}-{index}"))
+                .font(l.ty.mono)
+                .color(p.muted)
+        }));
+        let mut foot = col()
+            .key(format!("compare-foot-{letter}"))
             .w_full()
+            .mt(COLUMN_GAP)
             .pt(8.0)
             .gap(8.0)
-            .center_y()
             .border_sides([1.0, 0.0, 0.0, 0.0], p.hairline)
-            .child(text(parts.join(" · ")).font(l.ty.label).color(p.muted).grow(1.0).wrap());
+            .on_layout_tx(move |s: &mut State, rect, tx| {
+                let scroll = &mut s.compare.scroll;
+                scroll.columns[idx].foot_y = rect[1];
+                scroll.columns[idx].place(scroll.port);
+                tx.live_only();
+            })
+            .child(numbers);
 
         if cmp.kept.is_none() && cmp.rerun_of.is_none() {
             let slot_id = slot.slot;
+            let mut actions = row().w_full().gap(8.0).flex_wrap();
             if !keepable && !running {
-                foot = foot.child(
+                actions = actions.child(
                     crate::look::controls::button(
                         &l,
                         "Try again",
@@ -2507,10 +2733,15 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
             if keepable {
                 keep_btn = keep_btn.on_press(move |s: &mut State| keep_column(s, slot_id));
             }
-            foot = foot.child(keep_btn);
+            foot = foot.child(actions.child(keep_btn));
         }
-        cell = cell.child(foot);
-        cols_row = cols_row.child(cell);
+        cols_row = cols_row.child(cell
+            .child(el().h(COLUMN_HEAD_HEIGHT + COLUMN_GAP))
+            .child(body)
+            .child(el().grow(1.0))
+            .child(foot)
+            .child(head));
+
     }
     scroll_body = scroll_body.child(cols_row);
 
@@ -2774,9 +3005,19 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
 
     root_col.child(
         col()
+            .key("compare-scroll")
             .grow(1.0)
+            .min_h(0.0)
             .w_full()
             .scroll(ScrollSpec { stick_bottom: false })
+            .on_layout_tx(|s: &mut State, rect, tx| {
+                let scroll = &mut s.compare.scroll;
+                scroll.port = rect;
+                for column in &scroll.columns {
+                    column.place(rect);
+                }
+                tx.live_only();
+            })
             .child(scroll_body),
     )
 }
@@ -4005,3 +4246,23 @@ mod judges_see_the_check_tests;
 #[cfg(test)]
 #[path = "edit_check_judge_tests.rs"]
 mod edit_check_judge_tests;
+
+#[cfg(test)]
+mod column_layout_tests {
+    //! Electron's column head is CSS `position: sticky`, which never leaves its column; Rust places it by hand, so the
+    //! stop above the column's foot is tested here (no Electron case of its own: it is the browser's part there).
+    use super::*;
+
+    #[test]
+    fn a_sticky_head_stops_above_its_columns_foot() {
+        let layout = ColumnLayout { cell_y: 0.0, body: [0.0, 44.0, 300.0, 200.0], foot_y: 300.0, ..Default::default() };
+        // Scrolled far past the column: head and body stop a gap above the foot, never past it.
+        let (head, body) = layout.offsets([0.0, 1000.0, 600.0, 513.0]);
+        assert_eq!(head, 300.0 - COLUMN_GAP - COLUMN_HEAD_HEIGHT - COLUMN_PADDING);
+        assert_eq!(44.0 + body + 200.0, 300.0 - COLUMN_GAP);
+        // Not scrolled: both stay where they are.
+        assert_eq!(layout.offsets([0.0, 0.0, 600.0, 513.0]), (0.0, 0.0));
+        // Scrolled a little: the head follows the view's top.
+        assert_eq!(layout.offsets([0.0, 40.0, 600.0, 513.0]).0, 40.0 - COLUMN_PADDING);
+    }
+}

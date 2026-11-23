@@ -937,6 +937,7 @@ fn can_send(s: &State) -> bool {
             && s.flight.is_none()
             && s.data.is_some()
             && !s.nothing_installed
+            && s.compare.picks.len() >= locust_core::compare::MIN_COMPARE_SLOTS
             && !s.draft.text.trim().is_empty();
     }
     !s.demo
@@ -1132,8 +1133,6 @@ fn open_models(s: &mut State, id: String) {
     if s.demo {
         return;
     }
-    // On the native engine the list is this computer's own (models.rs), in the door's words, read off the UI thread.
-    let native_list = s.engine == Some(Kind::Native);
     if s.model_menu.as_ref() == Some(&id) {
         s.model_menu = None;
         return;
@@ -1147,6 +1146,12 @@ fn open_models(s: &mut State, id: String) {
     }
     s.model_menu = Some(id.clone());
     s.model_query = TextEdit::default();
+    request_models(s, id);
+}
+
+fn request_models(s: &mut State, id: String) {
+    // On the native engine the list is this computer's own (models.rs), in the door's words, read off the UI thread.
+    let native_list = s.engine == Some(Kind::Native);
     s.model_job.request(id, move |id| {
         let teammate = if id == LEDGER_TARGET || id == CARRY_TARGET { None } else { Some(id.as_str()) };
         let result = if native_list {
@@ -2214,6 +2219,12 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
         match result {
             Ok(models) => {
                 s.models.insert(id, models);
+                if s.compare.composer_mode != compare_view::CompareComposerMode::Direct && s.compare.picks.is_empty() {
+                    compare_view::ensure_default_picks(s);
+                    if !s.compare.picks.is_empty() {
+                        s.compare.model_menu = None;
+                    }
+                }
             }
             Err(error) => {
                 s.models.insert(id.clone(), Vec::new());

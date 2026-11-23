@@ -72,6 +72,7 @@ pub(super) fn empty_line(name: &str) -> String {
 fn owned_by(s: &State, teammate: &Teammate) -> Vec<SidebarMission> {
     sidebar::recent_as_missions(s)
         .into_iter()
+        .filter(|m| sidebar::comparison_row_visible(s, m))
         .filter(|m| {
             std::iter::once(&m.mission_id)
                 .chain(m.member_ids.iter())
@@ -416,12 +417,9 @@ pub(super) fn flyout(s: &State, p: &Palette, top: f32) -> Option<El> {
             if let Some(age) = short_ago(mission.last_at.as_deref(), now) {
                 line = line.child(text(age).font(rune::TextStyle::new(10.5, 400.0).mono()).color(l.c("text-muted")));
             }
-            let row_id = mission.mission_id.clone();
             list = list.child(line.role("button").label(mission.title.clone()).on_press_tx(move |s: &mut State, tx| {
                 close(s);
-                if let Some(item) = s.recent.iter().find(|r| r.id == row_id).cloned() {
-                    open_recent(s, item, tx);
-                }
+                sidebar::open_sidebar_mission(s, &mission, tx);
             }));
         }
         card = card.child(list);
