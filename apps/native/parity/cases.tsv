@@ -3414,6 +3414,9 @@ apps/desktop/src/renderer/src/a-free-model-that-is-down-is-passed-over.test.ts	i
 apps/desktop/src/renderer/src/a-free-model-that-is-down-is-passed-over.test.ts	"Use a free model" starts on one that is up, even one that answered before	yes
 apps/desktop/src/renderer/src/a-free-model-that-is-down-is-passed-over.test.ts	the card after a failure offers the next one that is up	no
 apps/desktop/src/renderer/src/a-free-model-that-is-down-is-passed-over.test.ts	Compare's second column is not one that is down	no
+apps/desktop/src/renderer/src/a-free-model-that-is-down-offers-the-next.test.ts	reads OpenCode's words for a model or endpoint that is unavailable	yes
+apps/desktop/src/renderer/src/a-free-model-that-is-down-offers-the-next.test.ts	and a free model OpenCode’s service refused outright (2026-10-12, "Invalid credential" on every free model)	yes
+apps/desktop/src/renderer/src/a-free-model-that-is-down-offers-the-next.test.ts	and nothing else: a retirement, a busy server or a plain failure is not it	yes
 apps/desktop/src/renderer/src/a-free-model-that-says-nothing-is-offered-another.test.tsx	is quiet two minutes after its run began with nothing back, and not a moment before	yes
 apps/desktop/src/renderer/src/a-free-model-that-says-nothing-is-offered-another.test.tsx	is never quiet once anything came back: a word, a thought, a step or a tool	yes
 apps/desktop/src/renderer/src/a-free-model-that-says-nothing-is-offered-another.test.tsx	is only an OpenCode free model, and only once its run has begun	yes

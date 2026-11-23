@@ -89,10 +89,27 @@ pub fn offers_continue<'a>(events: impl IntoIterator<Item = &'a serde_json::Valu
     ended_failed(events, running).is_some_and(payload_failed_on_provider_side)
 }
 
-/// limitOffer's reading: the turn ended failed on its model's limit (the runtime's last word). Which model comes next
-/// is the window's to say, from the models it has listed (`route_rows::next_free_model`).
+/// missionView.ts `UNAVAILABLE_PATTERN` (0.711): OpenCode's free-model provider is down, or OpenCode's own service
+/// refused the free model outright ("Invalid credential" on free models).
+const MODEL_UNAVAILABLE: &str = r"(?i)\b(?:model|endpoint) is unavailable\b|\brefused the free model\b";
+
+/// missionView.ts `modelUnavailable`: a free model whose provider is down or refused by OpenCode's own service.
+pub fn model_unavailable(message: Option<&str>) -> bool {
+    message.is_some_and(|m| regex(MODEL_UNAVAILABLE).is_match(m))
+}
+
+/// limitOffer's reading: the turn ended failed on its model's limit (the runtime's last word) or on a down free model
+/// (`model_unavailable`). Which model comes next is the window's to say (`route_rows::next_free_model`).
 pub fn offers_next_model<'a>(events: impl IntoIterator<Item = &'a serde_json::Value>, running: bool) -> bool {
-    ended_failed(events, running).is_some_and(|payload| failed_on_its_limit(payload["process"]["stderr"].as_str()))
+    ended_failed(events, running).is_some_and(|payload| {
+        failed_on_its_limit(payload["process"]["stderr"].as_str())
+            || model_unavailable(payload["message"].as_str())
+    })
+}
+
+/// Whether the next-model offer is because the model's provider is down (`why: 'down'` in Thread.tsx `limitModel`).
+pub fn offers_next_model_down<'a>(events: impl IntoIterator<Item = &'a serde_json::Value>, running: bool) -> bool {
+    ended_failed(events, running).is_some_and(|payload| model_unavailable(payload["message"].as_str()))
 }
 
 /// signInOffer's reading: the turn ended failed because its runtime is signed out (`kind: authentication-failed`).
@@ -107,6 +124,10 @@ pub fn signed_out_sentence(runtime: &str) -> String {
 
 /// The words over the failure card's next model (Thread.tsx `limitModel`, why `limit`).
 pub const AT_ITS_LIMIT_SENTENCE: &str = "This model is at its limit. Switching puts your message back in the chat box, to send there.";
+
+/// The words over the failure card's next model when its provider is down (Thread.tsx `limitModel`, why `down`).
+pub const MODEL_DOWN_SENTENCE: &str =
+    "This model\u{2019}s provider is down for now. Switching puts your message back in the chat box, to send there.";
 
 /// A runtime that could not rename over its OWN settings file (on Windows, while another run of it had it open).
 fn is_locked_runtime_config(said: &str) -> bool {
@@ -269,3 +290,7 @@ mod tests;
 #[cfg(test)]
 #[path = "busy_continue_tests.rs"]
 mod busy_continue_tests;
+
+#[cfg(test)]
+#[path = "model_unavailable_tests.rs"]
+mod model_unavailable_tests;

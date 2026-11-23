@@ -41,7 +41,12 @@ pub(super) fn view(s: &State, p: &Palette) -> Option<El> {
         let press = crate::look::controls::button(&l, &label, crate::look::controls::Tone::Neutral, false)
             .key("next-model-action")
             .on_press(move |s: &mut State| switch_model(s, &teammate, &runtime, &next_id, &prompt));
-        return Some(line("next-model", locust_core::failure_words::AT_ITS_LIMIT_SENTENCE.to_owned(), press));
+        let sentence = if pane.snapshot.next_model_down {
+            locust_core::failure_words::MODEL_DOWN_SENTENCE
+        } else {
+            locust_core::failure_words::AT_ITS_LIMIT_SENTENCE
+        };
+        return Some(line("next-model", sentence.to_owned(), press));
     }
     // signInCommand: a runtime with no sign-in of its own offers none.
     locust_core::agents::sign_in_command(&runtime, false)?;
@@ -68,3 +73,7 @@ fn switch_model(s: &mut State, teammate: &str, runtime: &str, model: &str, promp
         s.draft.focused = true;
     }
 }
+
+#[cfg(test)]
+#[path = "model_unavailable_tests.rs"]
+mod model_unavailable_tests;
