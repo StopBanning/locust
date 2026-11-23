@@ -157,3 +157,122 @@ fn leaves_the_name_alone_when_there_is_no_effort_to_state() {
     assert_eq!(route_chip_reading("Haiku 5.5", None), "Haiku 5.5");
     assert_eq!(route_chip_reading("Haiku 5.5", Some("  ")), "Haiku 5.5");
 }
+
+// --- effortScale.test.ts: reading a runtime list of efforts as a scale
+
+fn strings(items: &[&str]) -> Vec<String> {
+    items.iter().map(|s| (*s).to_owned()).collect()
+}
+
+const CURSOR_SORTED: &[&str] = &["low", "low-fast", "medium", "medium-fast", "high", "high-fast", "xhigh", "xhigh-fast"];
+const CLAUDE_LEVELS: &[&str] = &["low", "medium", "high", "xhigh", "max"];
+const CURSOR_UNSORTED: &[&str] = &["high-fast", "low", "low-fast", "medium", "medium-fast", "high", "xhigh", "xhigh-fast"];
+
+// case: turns Cursor eight levels into four and a switch
+#[test]
+fn turns_cursor_eight_levels_into_four_and_a_switch() {
+    let scale = effort_scale(&strings(CURSOR_SORTED));
+    assert_eq!(scale, EffortScale { bases: strings(&["low", "medium", "high", "xhigh"]), has_fast: true });
+}
+
+// case: draws no switch for a runtime with no fast variants
+#[test]
+fn draws_no_switch_for_a_runtime_with_no_fast_variants() {
+    let scale = effort_scale(&strings(CLAUDE_LEVELS));
+    assert_eq!(scale, EffortScale { bases: strings(CLAUDE_LEVELS), has_fast: false });
+}
+
+// case: keeps the runtime own order, because right means more
+#[test]
+fn keeps_the_runtime_own_order_because_right_means_more() {
+    assert_eq!(effort_scale(&strings(&["tiny", "enormous"])).bases, strings(&["tiny", "enormous"]));
+}
+
+// case: is not fooled by a level that merely ends in the word fast
+#[test]
+fn is_not_fooled_by_a_level_that_merely_ends_in_the_word_fast() {
+    assert_eq!(split_effort("fast"), ("fast", false));
+    assert_eq!(split_effort("-fast"), ("-fast", false));
+    assert_eq!(split_effort("high-fast"), ("high", true));
+}
+
+// --- effortScale.test.ts: turning the slider and the switch back into a real level
+
+// case: gives the fast variant when one exists
+#[test]
+fn gives_the_fast_variant_when_one_exists() {
+    let cursor = strings(CURSOR_SORTED);
+    assert_eq!(join_effort("high", true, &cursor).as_deref(), Some("high-fast"));
+    assert_eq!(join_effort("high", false, &cursor).as_deref(), Some("high"));
+}
+
+// case: NEVER invents a level the runtime did not list
+#[test]
+fn never_invents_a_level_the_runtime_did_not_list() {
+    let claude = strings(CLAUDE_LEVELS);
+    assert_eq!(join_effort("medium", true, &claude).as_deref(), Some("medium"));
+    assert_eq!(join_effort("nonsense", true, &claude), None);
+    assert_eq!(join_effort("nonsense", false, &claude), None);
+}
+
+// case: round-trips every level a runtime actually offers
+#[test]
+fn round_trips_every_level_a_runtime_actually_offers() {
+    for list in [strings(CURSOR_SORTED), strings(CLAUDE_LEVELS)] {
+        for level in &list {
+            let (base, fast) = split_effort(level);
+            assert_eq!(join_effort(base, fast, &list).as_deref(), Some(level.as_str()), "{level}");
+        }
+    }
+}
+
+// --- effortScale.test.ts: a scale where right is more
+
+// case: sorts a list the runtime did not sort
+#[test]
+fn sorts_a_list_the_runtime_did_not_sort() {
+    assert_eq!(effort_scale(&strings(CURSOR_UNSORTED)).bases, strings(&["low", "medium", "high", "xhigh"]));
+}
+
+// case: puts high above medium, which is the whole bug
+#[test]
+fn puts_high_above_medium_which_is_the_whole_bug() {
+    let bases = effort_scale(&strings(CURSOR_UNSORTED)).bases;
+    let high = bases.iter().position(|b| b == "high").unwrap();
+    let medium = bases.iter().position(|b| b == "medium").unwrap();
+    assert!(high > medium);
+    assert_ne!(high, 0);
+}
+
+// case: leaves an already-sorted list alone
+#[test]
+fn leaves_an_already_sorted_list_alone() {
+    assert_eq!(effort_scale(&strings(&["low", "medium", "high"])).bases, strings(&["low", "medium", "high"]));
+    assert_eq!(
+        effort_scale(&strings(&["none", "low", "medium", "high", "xhigh", "max"])).bases,
+        strings(&["none", "low", "medium", "high", "xhigh", "max"])
+    );
+}
+
+// case: keeps a word it has never seen after the ones it knows, in the runtime order
+#[test]
+fn keeps_a_word_it_has_never_seen_after_the_ones_it_knows_in_the_runtime_order() {
+    let bases = effort_scale(&strings(&["ludicrous", "high", "low", "brisk"])).bases;
+    assert_eq!(bases, strings(&["low", "high", "ludicrous", "brisk"]));
+}
+
+// case: still finds the fast variants wherever they were listed
+#[test]
+fn still_finds_the_fast_variants_wherever_they_were_listed() {
+    assert!(effort_scale(&strings(CURSOR_UNSORTED)).has_fast);
+    assert!(!effort_scale(&strings(&["low", "medium"])).has_fast);
+}
+
+// case: a level the scale holds can always be found on it
+#[test]
+fn a_level_the_scale_holds_can_always_be_found_on_it() {
+    let bases = effort_scale(&strings(CURSOR_UNSORTED)).bases;
+    for base in ["low", "medium", "high", "xhigh"] {
+        assert!(bases.iter().position(|b| b == base).is_some(), "{base}");
+    }
+}

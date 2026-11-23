@@ -4656,6 +4656,19 @@ apps/desktop/src/renderer/src/effortLevels.test.ts	talks about time and cost, no
 apps/desktop/src/renderer/src/effortLevels.test.ts	is not case sensitive, because runtimes are not consistent	yes
 apps/desktop/src/renderer/src/effortLevels.test.ts	says how Cursor actually takes an effort	yes
 apps/desktop/src/renderer/src/effortLevels.test.ts	draws no note for a runtime it has nothing true to say about	yes
+apps/desktop/src/renderer/src/effortScale.test.ts	turns Cursor eight levels into four and a switch	yes
+apps/desktop/src/renderer/src/effortScale.test.ts	draws no switch for a runtime with no fast variants	yes
+apps/desktop/src/renderer/src/effortScale.test.ts	keeps the runtime own order, because right means more	yes
+apps/desktop/src/renderer/src/effortScale.test.ts	is not fooled by a level that merely ends in the word fast	yes
+apps/desktop/src/renderer/src/effortScale.test.ts	gives the fast variant when one exists	yes
+apps/desktop/src/renderer/src/effortScale.test.ts	NEVER invents a level the runtime did not list	yes
+apps/desktop/src/renderer/src/effortScale.test.ts	round-trips every level a runtime actually offers	yes
+apps/desktop/src/renderer/src/effortScale.test.ts	sorts a list the runtime did not sort	yes
+apps/desktop/src/renderer/src/effortScale.test.ts	puts high above medium, which is the whole bug	yes
+apps/desktop/src/renderer/src/effortScale.test.ts	leaves an already-sorted list alone	yes
+apps/desktop/src/renderer/src/effortScale.test.ts	keeps a word it has never seen after the ones it knows, in the runtime order	yes
+apps/desktop/src/renderer/src/effortScale.test.ts	still finds the fast variants wherever they were listed	yes
+apps/desktop/src/renderer/src/effortScale.test.ts	a level the scale holds can always be found on it	yes
 apps/desktop/src/renderer/src/every-benchmark-is-listed-in-one-place.test.tsx	names the leader, and says a tie as a tie	no
 apps/desktop/src/renderer/src/every-benchmark-is-listed-in-one-place.test.tsx	puts the running ones first, then the newest	no
 apps/desktop/src/renderer/src/every-benchmark-is-listed-in-one-place.test.tsx	draws a row a benchmark, with what it is, who leads it, and where it is while it runs	no
