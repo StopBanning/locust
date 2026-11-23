@@ -97,9 +97,7 @@ impl Registration {
             if runtime == "claude" {
                 registration.claude_config = Some(path.to_str().ok_or("Browser config path is not UTF-8")?.to_owned());
             } else {
-                command
-                    .arg("--additional-mcp-config")
-                    .arg(format!("@{}", path.display()));
+                crate::runtime::copilot::add_browser_config(command, &path);
             }
         }
         if runtime == "opencode" {

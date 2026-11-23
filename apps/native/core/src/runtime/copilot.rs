@@ -380,6 +380,19 @@ mod unit_tests {
     }
 }
 
+fn uses_acp(command: &Command) -> bool {
+    command.get_args().any(|arg| arg == "--acp")
+}
+
+/// ACP receives the browser through the session request. Print receives its config path on argv.
+pub(crate) fn add_browser_config(command: &mut Command, config: &Path) {
+    if !uses_acp(command) {
+        command
+            .arg("--additional-mcp-config")
+            .arg(format!("@{}", config.display()));
+    }
+}
+
 /// Approve-each uses ACP; print's allow-all-tools can never implement a card.
 pub enum Copilot {
     Print(Box<PrintCopilot>),
@@ -387,7 +400,7 @@ pub enum Copilot {
 }
 impl Copilot {
     pub fn spawn(c: &mut Command) -> io::Result<Self> {
-        if c.get_args().any(|a| a == "--acp") {
+        if uses_acp(c) {
             let mut a = super::acp::Acp::spawn(c)?;
             a.set_profile(super::acp::Profile {
                 runtime: "copilot".into(),
