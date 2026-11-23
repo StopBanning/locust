@@ -88,6 +88,10 @@ impl CallAddOn for Lease {
     fn configuration(&self) -> &AddOn {
         &self.1
     }
+
+    fn close_scope(&self) {
+        fs::write(self.0.0.join("addon-scope-closed"), b"").unwrap();
+    }
 }
 impl Drop for Lease {
     fn drop(&mut self) {
@@ -784,4 +788,46 @@ fn cancellation_reaps_an_add_on_that_finishes_opening_late() {
     done(&window);
     assert!(fake.0.join("addon-closed").exists());
     fake.assert_gone();
+}
+
+// case: speaks as the teammate, in its voice, into its conversation, and lets go of it when the call ends
+#[test]
+fn the_teammate_voice_has_its_own_prompt_and_followup() {
+    let (fake, voice) = setup("", |host| host.add_on = true);
+    let mut opts = options(&fake.0);
+    opts.voice = Some("cove".into());
+    opts.teammate = Some(Teammate {
+        target: rules::Target {
+            teammate_id: "tm_wren".into(),
+            conversation_id: Some("mission_7".into()),
+        },
+        name: "Wren".into(),
+        role: Some("Code & Migrations".into()),
+        runtime: "Claude Code".into(),
+        voice: Some("sol".into()),
+    });
+    let window = voice.start(opts).unwrap();
+    ready(&window);
+    let started = fake.params("thread/realtime/start");
+    assert_eq!(started["voice"], "sol");
+    let prompt = started["realtimeStartInstructions"].as_str().unwrap();
+    assert!(prompt.contains("You are Wren's voice"));
+    assert!(prompt.contains("send_message, conversation_id \"mission_7\""));
+    let rules = started["initialItems"][0]["text"].as_str().unwrap();
+    assert!(rules.contains("You are the voice of Wren"));
+    assert!(rules.contains("Never guess"));
+    fake.send(json!({"method":"item/started","params":{"threadId":"thread_1","item":{
+        "type":"mcpToolCall","server":"locust_call","tool":"send_message","arguments":{"conversation_id":"mission_7","message":"Fix it and add a test."}
+    }}}));
+    assert_eq!(
+        event(&window),
+        CallEvent::Handed {
+            to: "Wren".into(),
+            task: "Fix it and add a test.".into()
+        }
+    );
+    assert!(!fake.0.join("addon-scope-closed").exists());
+    stop(&voice, &window, &fake);
+    assert!(fake.0.join("addon-scope-closed").exists());
+    assert!(fake.0.join("addon-closed").exists());
 }

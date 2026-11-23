@@ -1182,7 +1182,7 @@ apps/desktop/src/main/a-voice-call-is-placed-by-codex.test.ts	asks the person be
 apps/desktop/src/main/a-voice-call-is-placed-by-codex.test.ts	is a Deny on Deny, when nobody answers in time, and when the call ends	yes
 apps/desktop/src/main/a-voice-call-is-placed-by-codex.test.ts	declines unasked what is not a connector’s tool call, and every connector when they are off	yes
 apps/desktop/src/main/a-voice-call-is-placed-by-codex.test.ts	is the one chosen, and Codex’s own when none is or it cannot be read	yes
-apps/desktop/src/main/a-voice-call-is-placed-by-codex.test.ts	speaks as the teammate, in its voice, into its conversation, and lets go of it when the call ends	no
+apps/desktop/src/main/a-voice-call-is-placed-by-codex.test.ts	speaks as the teammate, in its voice, into its conversation, and lets go of it when the call ends	yes
 apps/desktop/src/main/a-voice-call-is-placed-by-codex.test.ts	is an ordinary call when the teammate cannot be found	yes
 apps/desktop/src/main/a-voice-call-is-placed-by-codex.test.ts	is a call with that voice alone, told only to greet	yes
 apps/desktop/src/main/a-voice-call-is-placed-by-codex.test.ts	never ends a call that is on, and one preview may take the place of another	yes
