@@ -104,14 +104,13 @@ describe('the marks', () => {
     expect(RUNTIME_MARKS.antigravity.viewBox).toBe('14 14.2 83.6 83.6')
     expect(RUNTIME_MARKS.antigravity.source).toContain("Antigravity's own")
     expect(RUNTIME_MARKS.muse.source).toContain('Meta')
-    // Every mark is its maker's; none is a glyph Locust drew -- except three that have no mark we may copy.
-    // Apple Intelligence (0.878) wears Locust's chip with a spark, never Apple's logo.
+    // Every mark is its maker's; none is a glyph Locust drew -- except two that have no mark we copy.
+    // Apple Intelligence wears Apple's logo (2026-11-22; 0.878 drew a chip of Locust's own).
     // An agent the person added (0.777) has no one maker, so Locust's own plug says "one you added".
     // Kilo's wordmark is not copied; the row wears a K drawn here, and the source says so.
     for (const [runtime, mark] of Object.entries(RUNTIME_MARKS)) {
       if (runtime === 'acp') expect(mark.source).toMatch(/^Locust: a plug/)
       else if (runtime === 'kilo') expect(mark.source).toMatch(/^Locust: a K/)
-      else if (runtime === 'apple') expect(mark.source).toMatch(/^Locust: a chip/)
       else expect(mark.source, runtime).not.toMatch(/^Locust/)
     }
   })
