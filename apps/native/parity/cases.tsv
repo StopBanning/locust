@@ -5915,6 +5915,10 @@ apps/desktop/src/renderer/src/the-title-bar-is-a-macs-on-a-mac.test.tsx	still dr
 apps/desktop/src/renderer/src/the-way-down-says-a-run-is-still-working.test.tsx	wears the thinking dots while the run works, and says so to a screen reader	yes
 apps/desktop/src/renderer/src/the-way-down-says-a-run-is-still-working.test.tsx	is the plain chevron when nothing is running, and absent at the bottom	yes
 apps/desktop/src/renderer/src/the-way-down-says-a-run-is-still-working.test.tsx	brings the chevron back on hover and keyboard focus, where it is about to be pressed	yes
+apps/desktop/src/renderer/src/the-way-in-stays-on-the-shelf.test.tsx	offers to save one even when routines already exist	yes
+apps/desktop/src/renderer/src/the-way-in-stays-on-the-shelf.test.tsx	offers nothing when there is nothing to save	yes
+apps/desktop/src/renderer/src/the-way-in-stays-on-the-shelf.test.tsx	offers nothing when the screen cannot open the dialog	yes
+apps/desktop/src/renderer/src/the-way-in-stays-on-the-shelf.test.tsx	still names the way in on an empty shelf	yes
 apps/desktop/src/renderer/src/the-window-says-when-macos-may-ask.test.tsx	is drawn only while macOS may be asking, and names the box and the answer	yes
 apps/desktop/src/renderer/src/the-window-says-when-macos-may-ask.test.tsx	the window takes the host’s word, and asks for it only once its listener is in place	yes
 apps/desktop/src/renderer/src/thinking-is-not-using-a-tool.test.ts	reads thinking for a reasoning item	yes

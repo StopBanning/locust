@@ -81,6 +81,8 @@ pub(super) struct Panel {
     pub savable: Vec<SavableRow>,
     /// How a finished conversation is read back from the ledger; tests hand it their own turns.
     pub read_saved: fn(&str) -> Option<locust_core::routine_draft::Saved>,
+    /// Opens the save-as-routine editor from the shelf's offer row; None when the screen cannot open the dialog.
+    pub save_from_shelf: Option<fn(&mut State, &str)>,
     /// The editor holds a draft from a conversation with more turns than a routine can hold.
     pub truncated: bool,
 }
@@ -153,6 +155,7 @@ impl Default for Panel {
             check_command: None,
             savable: Vec::new(),
             read_saved: locust_core::routine_draft::read_saved,
+            save_from_shelf: Some(save_conversation_from_shelf),
             truncated: false,
         }
     }
@@ -206,6 +209,19 @@ fn save_from_conversation(s: &mut State, at: usize) {
     let Some(shelf) = s.routines.savable.get(at).cloned() else { return };
     let Some(saved) = shelf.saved else { return };
     save_saved(s, saved, &shelf.row.teammate);
+}
+
+/// Save as routine from the non-empty shelf's add row (AutomationsScreen `lc-routineadd`): reads the newest
+/// finished conversation back and opens the editor on its draft.
+fn save_conversation_from_shelf(s: &mut State, mission_id: &str) {
+    let teammate = s
+        .recent
+        .iter()
+        .find(|r| r.id == mission_id)
+        .map(|r| r.teammate.clone())
+        .unwrap_or_default();
+    let Some(saved) = (s.routines.read_saved)(mission_id) else { return };
+    save_saved(s, saved, &teammate);
 }
 
 /// Save conversation as routine, from the conversation header (App.tsx `openSaveRoutine`): the Routines screen opens
@@ -870,6 +886,44 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
             card = recovery_card(s, r, card, p);
             card = changes_card(s, r, card, p);
             body = body.child(card.key(format!("routine-{id}")));
+        }
+        // The entrance stays once there are routines (AutomationsScreen `lc-routinerow lc-routineadd`),
+        // only when there is a finished conversation to save and the screen can open the save dialog.
+        if !rs.is_empty()
+            && let Some(on_save) = panel.save_from_shelf
+            && let Some(first) = locust_core::routine_draft::savable_conversations(&s.recent, 1).into_iter().next()
+        {
+            let first_id = first.id.clone();
+            body = body.child(
+                row()
+                    .key("routine-save-from-conversation-offer")
+                    .role("button")
+                    .label("Save a routine from a finished conversation")
+                    .w_full()
+                    .padding(12.0)
+                    .gap(10.0)
+                    .center_y()
+                    .fill(p.raised)
+                    .hover(p.selected)
+                    .child(text("+").font(type_::BODY).color(p.secondary).a11y_hidden())
+                    .child(
+                        col()
+                            .gap(2.0)
+                            .grow(1.0)
+                            .child(
+                                text("Save a routine from a finished conversation")
+                                    .key("routine-save-from-conversation-title")
+                                    .font(type_::BODY)
+                                    .color(p.text),
+                            )
+                            .child(
+                                text("Right-click any conversation, then Save as routine")
+                                    .font(type_::LABEL)
+                                    .color(p.muted),
+                            ),
+                    )
+                    .on_press(move |s: &mut State| on_save(s, &first_id)),
+            );
         }
         body = body.child(login_note(s, p));
     }
@@ -2469,3 +2523,7 @@ mod recovery_tests;
 #[cfg(test)]
 #[path = "routines_shelf_tests.rs"]
 mod shelf_tests;
+
+#[cfg(test)]
+#[path = "way_in_stays_on_shelf_tests.rs"]
+mod way_in_stays_on_shelf_tests;
