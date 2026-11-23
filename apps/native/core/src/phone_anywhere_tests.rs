@@ -1505,8 +1505,16 @@ fn pairs_one_phone_per_code_and_none_that_cannot_prove_it_saw_the_code() {
     assert_eq!(second_try.err().as_deref(), Some("refused: pairing-closed"));
     assert_eq!(pc.settings().devices.len(), 1);
 
-    let next = pc.new_code();
-    pair_phone(&relay, &next.code.unwrap().url, None).unwrap();
+    // A new code opens at the relay a moment after it is made (a person takes seconds to scan it); under a loaded
+    // machine the first try can land before that, so it is retried while the relay still says closed.
+    let next = pc.new_code().code.unwrap().url;
+    let started = std::time::Instant::now();
+    let mut paired = pair_phone(&relay, &next, None);
+    while paired.as_ref().err().map(String::as_str) == Some("refused: pairing-closed") && started.elapsed().as_millis() < 3_000 {
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        paired = pair_phone(&relay, &next, None);
+    }
+    paired.unwrap();
     until(3_000, || pc.settings().devices.len() == 2);
     pc.dispose();
 }
