@@ -180,7 +180,7 @@ mod tests {
             .collect();
         // Electron compares the lower-case names; the card capitalises the first letter, so "5-hour window" is unchanged.
         assert_eq!(names, vec![("5-hour window", 35), ("7-day window", 12)]);
-        assert!(matches(r"^resets (\d{2}:\d{2}|\w{3} \d{2}:\d{2})$", &clock(&card, 0).unwrap()), "{:?}", clock(&card, 0));
+        assert!(matches(r"^resets (\d{1,2}:\d{2} [AP]M|\w{3} \d{1,2}:\d{2} [AP]M)$", &clock(&card, 0).unwrap()), "{:?}", clock(&card, 0));
         assert_eq!(clock(&card, 1), None);
     }
 

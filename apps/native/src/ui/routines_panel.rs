@@ -2389,7 +2389,7 @@ mod routine_row_lines_tests {
     fn a_missed_routine_says_missed_and_the_row_offers_run_now() {
         let now = chrono::Local::now();
         let missed = (now - chrono::Duration::minutes(1)).to_rfc3339();
-        let clock = (now - chrono::Duration::minutes(1)).format("%H:%M").to_string();
+        let clock = locust_core::time_marker::clock(&(now - chrono::Duration::minutes(1)), false);
         let mut s = State::default();
         s.routines.file = json!({"routines":[{"routineId":"rt_1","name":"Morning digest","teammateId":"tm_wren","steps":["Say good morning."],"runs":0,
             "createdAt":"2026-10-02T08:00:00.000Z","lastRunAt":missed,"missedAt":missed,"schedule":{"kind":"daily","at":"08:00"}}]});

@@ -1,5 +1,5 @@
 //! Port of shared/routine-schedule.ts: wall-clock days, not 24-hour arithmetic.
-use chrono::{DateTime, Datelike, Duration, Local, NaiveDateTime, NaiveTime, TimeZone, Timelike};
+use chrono::{DateTime, Datelike, Duration, Local, NaiveDateTime, NaiveTime, TimeZone};
 use serde_json::Value;
 fn moment(s: &str) -> Option<DateTime<Local>> {
     if s.len() != 16 {
@@ -94,7 +94,7 @@ pub fn next_routine_due_line(routines: &[Value], now: DateTime<Local>) -> String
         }
     }
     match best {
-        Some((name, at)) => format!("Next: {name} at {:02}:{:02}", at.hour(), at.minute()),
+        Some((name, at)) => format!("Next: {name} at {}", clock(at)),
         None => "No routine due".into(),
     }
 }
@@ -173,7 +173,13 @@ const MONTH_NAMES: [&str; 12] = [
 const WEEKDAYS: [&str; 7] = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 fn clock(at: DateTime<Local>) -> String {
-    format!("{:02}:{:02}", at.hour(), at.minute())
+    crate::time_marker::clock(&at, false)
+}
+
+/// "09:30", as a schedule keeps it, said as "9:30 AM" (`saidAt`, 0.882: no 24-hour times on screen). A time that does
+/// not read is said as kept.
+fn said_at(at: &str) -> String {
+    NaiveTime::parse_from_str(at, "%H:%M").map_or_else(|_| at.to_owned(), |t| crate::time_marker::clock(&t, false))
 }
 
 /// "Missed, 08:00 today", "... yesterday", or "Missed, Tue 08:00" (`missedLine`). None for a time that does not read.
@@ -240,7 +246,7 @@ pub fn label(v: &Value) -> String {
                 format!("every {} hours", v["hours"])
             }
         }
-        "daily" => format!("daily at {at}"),
+        "daily" => format!("daily at {}", said_at(at)),
         "weekly" => {
             let days = v["days"].as_array().cloned().unwrap_or_default();
             let has = |n| days.iter().any(|d| d == n);
@@ -258,9 +264,9 @@ pub fn label(v: &Value) -> String {
                     .collect::<Vec<_>>()
                     .join(", ")
             };
-            format!("{words} at {at}")
+            format!("{words} at {}", said_at(at))
         }
-        // Electron uses the raw `on` time slice so a spring-forward gap keeps 02:30 in the card.
+        // Electron says the raw `on` time slice (11..16) so a spring-forward gap keeps 2:30 AM in the card.
         "once" => moment(v["on"].as_str().unwrap_or("")).map_or("once".into(), |d| {
             let on = v["on"].as_str().unwrap_or("");
             format!(
@@ -268,7 +274,7 @@ pub fn label(v: &Value) -> String {
                 DAY_NAMES[d.weekday().num_days_from_sunday() as usize],
                 MONTH_NAMES[d.month0() as usize],
                 d.day(),
-                on.get(11..).unwrap_or("")
+                said_at(on.get(11..16).unwrap_or(""))
             )
         }),
         "files" => format!(

@@ -34,78 +34,26 @@ pub struct ThreadMarker {
     pub day: Option<String>,
 }
 
-/// Which clock a person reads: the Mac's "24-hour time" switch, or its region's own habit when the
-/// switch was never touched.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum HourCycle {
-    /// `14:34:56`
-    H24,
-    /// `02:34:56 PM`
-    H12,
+/// A time of day on screen, 12-hour, whatever the computer's own clock setting (Electron `shared/clock.ts`, 0.882).
+/// Colin, 22 Nov: "I think we should just stop using military time, honestly." `5:34 PM`, `12:00 AM`, and with
+/// seconds `11:59:07 PM`. Stored schedules and file names keep their 24-hour form; only what a person reads changes.
+pub fn clock<T: Timelike>(at: &T, with_seconds: bool) -> String {
+    let (pm, hour) = at.hour12();
+    let seconds = if with_seconds { format!(":{:02}", at.second()) } else { String::new() };
+    format!("{hour}:{:02}{seconds} {}", at.minute(), if pm { "PM" } else { "AM" })
 }
 
-/// Reads a Unicode date pattern (what macOS answers for the "j" template, the hour the person's
-/// settings prefer): an `h` or `K` outside quotes is a 12-hour clock, anything else is 24-hour.
-pub fn hour_cycle_of_pattern(pattern: &str) -> HourCycle {
-    let mut quoted = false;
-    for c in pattern.chars() {
-        match c {
-            '\'' => quoted = !quoted,
-            'h' | 'K' if !quoted => return HourCycle::H12,
-            _ => {}
-        }
-    }
-    HourCycle::H24
-}
-
-/// The Mac's own hour setting, asked once per run like Electron's one kept rail formatter. Other
-/// systems, and a Mac that gives no answer, read a 24-hour clock.
-pub fn system_hour_cycle() -> HourCycle {
-    static CYCLE: std::sync::OnceLock<HourCycle> = std::sync::OnceLock::new();
-    *CYCLE.get_or_init(|| system_hour_pattern().map_or(HourCycle::H24, |p| hour_cycle_of_pattern(&p)))
-}
-
-#[cfg(target_os = "macos")]
-fn system_hour_pattern() -> Option<String> {
-    use objc2_foundation::{NSDateFormatter, NSLocale, NSString};
-    let locale = NSLocale::currentLocale();
-    NSDateFormatter::dateFormatFromTemplate_options_locale(&NSString::from_str("j"), 0, Some(&locale))
-        .map(|p| p.to_string())
-}
-
-#[cfg(not(target_os = "macos"))]
-fn system_hour_pattern() -> Option<String> {
-    None
-}
-
-/// The signal rail's clock, in the person's own hours, or empty string for an invalid timestamp.
+/// The signal rail's clock, 12-hour with its seconds, or empty string for an invalid timestamp.
 pub fn clock_of(iso: &str) -> String {
-    clock_of_in(iso, system_hour_cycle())
+    DateTime::parse_from_rfc3339(iso).map(|at| clock(&at.with_timezone(&Local), true)).unwrap_or_default()
 }
 
-/// The rail clock in a given cycle: `14:34:56`, or `02:34:56 PM` as Electron's two-digit
-/// `toLocaleTimeString` writes it on a 12-hour Mac.
-pub fn clock_of_in(iso: &str, cycle: HourCycle) -> String {
-    let Ok(at) = DateTime::parse_from_rfc3339(iso) else {
-        return String::new();
-    };
-    let local = at.with_timezone(&Local);
-    match cycle {
-        HourCycle::H24 => format!("{:02}:{:02}:{:02}", local.hour(), local.minute(), local.second()),
-        HourCycle::H12 => {
-            let (pm, hour) = local.hour12();
-            format!("{hour:02}:{:02}:{:02} {}", local.minute(), local.second(), if pm { "PM" } else { "AM" })
-        }
-    }
-}
-
-/// Local `HH:MM` clock for a time marker, or `--:--` for an invalid timestamp.
+/// Local 12-hour clock for a time marker (`5:34 PM`), or `--:--` for an invalid timestamp.
 pub fn clock_time(iso: &str) -> String {
     let Ok(at) = DateTime::parse_from_rfc3339(iso) else {
         return "--:--".to_owned();
     };
-    let local = at.with_timezone(&Local);
-    format!("{:02}:{:02}", local.hour(), local.minute())
+    clock(&at.with_timezone(&Local), false)
 }
 
 /// The mission's local start time: older days carry a date and older years a year.
@@ -113,7 +61,7 @@ pub fn clock_time(iso: &str) -> String {
 pub fn started_label(iso: &str, now: chrono::NaiveDateTime) -> Option<String> {
     let at = DateTime::parse_from_rfc3339(iso).ok().map(|at| at.with_timezone(&Local).naive_local())
         .or_else(|| chrono::NaiveDateTime::parse_from_str(iso, "%Y-%m-%dT%H:%M:%S").ok())?;
-    let time = at.format("%H:%M");
+    let time = clock(&at, false);
     if at.date() == now.date() {
         Some(time.to_string())
     } else if at.year() == now.year() {
@@ -132,15 +80,14 @@ mod mission_start_tests {
     #[test]
     fn shows_the_bare_time_for_a_mission_started_today() {
         let label = label("2026-09-03T09:15:00").unwrap();
-        assert!(label.contains("09:15"));
+        assert_eq!(label, "9:15 AM", "12-hour, no leading zero (Electron 0.882)");
         assert!(!label.contains("Sep"));
         assert!(!label.as_bytes().windows(4).any(|part| part.iter().all(u8::is_ascii_digit)));
     }
     #[test]
     fn carries_the_date_once_the_mission_is_not_from_today() {
         let label = label("2026-09-02T23:25:00").unwrap();
-        assert!(label.contains("Sep"));
-        assert!(label.contains('2'));
+        assert_eq!(label, "Sep 2, 11:25 PM");
     }
     #[test]
     fn adds_the_year_only_when_the_mission_is_from_another_one() {
@@ -323,8 +270,7 @@ mod tests {
             "2026-12-31T23:59:59.999Z",
         ] {
             let parsed = DateTime::parse_from_rfc3339(iso).unwrap().with_timezone(&Local);
-            let expected = format!("{:02}:{:02}:{:02}", parsed.hour(), parsed.minute(), parsed.second());
-            assert_eq!(clock_of_in(iso, HourCycle::H24), expected);
+            assert_eq!(clock_of(iso), clock(&parsed, true));
         }
         assert_eq!(clock_of("not a time"), "");
         assert_eq!(clock_time("not a time"), "--:--");

@@ -294,17 +294,17 @@ pub fn when_label(iso: &str, now_ms: i64) -> String {
     let Some(now) = chrono::DateTime::from_timestamp_millis(now_ms) else {
         return String::new();
     };
-    let at_utc = at.with_timezone(&chrono::Utc);
-    let time = at_utc.format("%H:%M").to_string();
-    if at_utc.date_naive() == now.date_naive() {
+    // AwayList's `when`: this computer's day and clock, 12-hour (0.882); an older day carries its time too.
+    let at = at.with_timezone(&chrono::Local);
+    let today = now.with_timezone(&chrono::Local).date_naive();
+    let time = crate::time_marker::clock(&at, false);
+    if at.date_naive() == today {
         return time;
     }
-    if let Some(yesterday) = now.date_naive().pred_opt()
-        && at_utc.date_naive() == yesterday
-    {
+    if today.pred_opt() == Some(at.date_naive()) {
         return format!("yesterday {time}");
     }
-    format!("{} {}", at_utc.format("%b"), at_utc.day())
+    format!("{} {} {time}", at.format("%b"), at.day())
 }
 
 /// Refuse writing the attention mark into Electron's folder (path check only).

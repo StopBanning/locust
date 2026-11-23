@@ -1266,7 +1266,7 @@ mod tests {
         let mut s = composition_state(None, false);
         let pane = s.ledger.as_mut().unwrap();
         pane.snapshot.started_at = "2000-01-01T09:15:00Z".into();
-        pane.snapshot.started_label = Some("09:15".into());
+        pane.snapshot.started_label = Some("9:15 AM".into());
         pane.snapshot.started_label_minute = 0;
         pane.due = f64::INFINITY;
         let mut tx = Tx::default();
@@ -1281,8 +1281,8 @@ mod tests {
     fn the_cached_mission_start_label_reaches_the_headless_thread() {
         let items = [ledger::Item::User("read status.ts".into())];
         let mut s = composition_state(None, false);
-        s.ledger.as_mut().unwrap().snapshot.started_label = Some("Sep 2, 23:25".into());
-        assert!(thread_text(&items, &mut s).contains("Started Sep 2, 23:25"));
+        s.ledger.as_mut().unwrap().snapshot.started_label = Some("Sep 2, 11:25 PM".into());
+        assert!(thread_text(&items, &mut s).contains("Started Sep 2, 11:25 PM"));
         s.ledger.as_mut().unwrap().snapshot.started_label = None;
         assert!(!thread_text(&items, &mut s).contains("Started "));
     }
