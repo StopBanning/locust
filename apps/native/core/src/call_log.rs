@@ -90,6 +90,7 @@ pub fn save(store: &Store, call: &Value) -> Result<(), String> {
         return Err("The transcript does not read as a saved call.".into());
     }
     let _write = lock(&WRITES);
+    // A missing file starts empty. An unreadable file must survive the save attempt.
     let mut calls = read(store)?;
     calls.retain(|old| old["callId"] != call["callId"]);
     calls.push(call.clone());

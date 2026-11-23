@@ -166,16 +166,22 @@ fn refuses_invalid_records_and_keeps_the_newest_calls() {
 #[test]
 fn unreadable_calls_survive_a_save_attempt() {
     let profile = Profile::new();
-    save(&profile.1, &call()).unwrap();
+    let mut old = call();
+    old["callId"] = json!("call_old");
+    save(&profile.1, &old).unwrap();
     let body = fs::read_to_string(profile.file()).unwrap();
     let cut_short = &body[..40];
-    for unreadable in [cut_short, "null"] {
+    let mut next = call();
+    next["callId"] = json!("call_next");
+
+    for unreadable in [cut_short, "null", r#"{"calls":{}}"#] {
         fs::write(profile.file(), unreadable).unwrap();
-        assert!(save(&profile.1, &call()).is_err());
+        assert!(save(&profile.1, &next).is_err());
         assert_eq!(fs::read_to_string(profile.file()).unwrap(), unreadable);
         assert!(list(&profile.1, &["m_asked"]).is_empty());
     }
+
     let fresh = Profile::new();
-    save(&fresh.1, &call()).unwrap();
-    assert_eq!(list(&fresh.1, &["m_asked"]), vec![call()]);
+    save(&fresh.1, &next).unwrap();
+    assert_eq!(list(&fresh.1, &["m_asked"]), vec![next]);
 }
