@@ -2513,23 +2513,23 @@ apps/desktop/src/main/room-tasks.test.ts	does not while another is still going, 
 apps/desktop/src/main/room-tasks.test.ts	does not call four of six everyone	yes
 apps/desktop/src/main/rooms-are-reachable.test.ts	is in the sidebar at all	yes
 apps/desktop/src/main/rooms-are-reachable.test.ts	is not hidden behind already having one	no
-apps/desktop/src/main/route-at-start.test.ts	honours an explicit picker override for this teammate	no
-apps/desktop/src/main/route-at-start.test.ts	uses the host saved route over discovery/default selections, including saved effort	no
-apps/desktop/src/main/route-at-start.test.ts	leaves nobody's mission on the composer route, regardless of old picker intent	no
-apps/desktop/src/main/route-at-start.test.ts	does not mistake another teammate's picker change for this teammate's choice	no
-apps/desktop/src/main/route-at-start.test.ts	preserves account-default as an intentional picker selection	no
-apps/desktop/src/main/route-at-start.test.ts	does not promote a seeded account-default to picker intent	no
-apps/desktop/src/main/route-at-start.test.ts	keeps existing defaults for a new teammate without a saved route	no
-apps/desktop/src/main/route-at-start.test.ts	keeps effort changes when the request is based on the saved picker identity	no
-apps/desktop/src/main/route-at-start.test.ts	preserves concrete effort variants without declaring them a new picker choice	no
-apps/desktop/src/main/route-at-start.test.ts	cannot carry a stale effort or model transform across a different saved route	no
-apps/desktop/src/main/route-at-start.test.ts	returns no permission mode for the caller to accidentally inherit	no
-apps/desktop/src/main/route-at-start.test.ts	a new chat with a teammate starts on their saved model	no
-apps/desktop/src/main/route-at-start.test.ts	a pick made in a conversation is shown there again	no
-apps/desktop/src/main/route-at-start.test.ts	a conversation shows what it ran on, not the saved model of its teammate	no
-apps/desktop/src/main/route-at-start.test.ts	a pick for a new chat with one teammate is not for another	no
-apps/desktop/src/main/route-at-start.test.ts	home does not inherit a teammate override	no
-apps/desktop/src/main/route-at-start.test.ts	shows a Kilo teammate saved on the account default as Auto Free	no
+apps/desktop/src/main/route-at-start.test.ts	honours an explicit picker override for this teammate	yes
+apps/desktop/src/main/route-at-start.test.ts	uses the host saved route over discovery/default selections, including saved effort	yes
+apps/desktop/src/main/route-at-start.test.ts	leaves nobody's mission on the composer route, regardless of old picker intent	yes
+apps/desktop/src/main/route-at-start.test.ts	does not mistake another teammate's picker change for this teammate's choice	yes
+apps/desktop/src/main/route-at-start.test.ts	preserves account-default as an intentional picker selection	yes
+apps/desktop/src/main/route-at-start.test.ts	does not promote a seeded account-default to picker intent	yes
+apps/desktop/src/main/route-at-start.test.ts	keeps existing defaults for a new teammate without a saved route	yes
+apps/desktop/src/main/route-at-start.test.ts	keeps effort changes when the request is based on the saved picker identity	yes
+apps/desktop/src/main/route-at-start.test.ts	preserves concrete effort variants without declaring them a new picker choice	yes
+apps/desktop/src/main/route-at-start.test.ts	cannot carry a stale effort or model transform across a different saved route	yes
+apps/desktop/src/main/route-at-start.test.ts	returns no permission mode for the caller to accidentally inherit	yes
+apps/desktop/src/main/route-at-start.test.ts	a new chat with a teammate starts on their saved model	yes
+apps/desktop/src/main/route-at-start.test.ts	a pick made in a conversation is shown there again	yes
+apps/desktop/src/main/route-at-start.test.ts	a conversation shows what it ran on, not the saved model of its teammate	yes
+apps/desktop/src/main/route-at-start.test.ts	a pick for a new chat with one teammate is not for another	yes
+apps/desktop/src/main/route-at-start.test.ts	home does not inherit a teammate override	yes
+apps/desktop/src/main/route-at-start.test.ts	shows a Kilo teammate saved on the account default as Auto Free	yes
 apps/desktop/src/main/route-remembers-effort.test.ts	keeps the effort it was started with, and clears it when the next start has none	yes
 apps/desktop/src/main/routine-recovery.test.ts	restart proof: step 2 survives a fresh store and runner without replaying step 1	yes
 apps/desktop/src/main/routine-recovery.test.ts	completion accounting proof: step 1 start does not stamp lastRunAt or consume the six-hour interval	yes

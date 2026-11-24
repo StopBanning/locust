@@ -131,6 +131,23 @@ pub fn route_at_start(input: &StartRouteInput, teammate: Option<(&str, Option<&T
     }
 }
 
+/// The route the host keeps for a teammate (`team.json` `teammates[].route`), as `routeAtStart` reads it.
+pub fn saved_route_in(team: &serde_json::Value, teammate_id: &str) -> Option<TeammateRoute> {
+    if teammate_id.is_empty() {
+        return None;
+    }
+    let entry = team["teammates"].as_array()?.iter().find(|row| row["teammateId"] == teammate_id)?;
+    let route = &entry["route"];
+    let text = |key: &str| route[key].as_str().map(str::to_owned);
+    Some(TeammateRoute {
+        runtime: text("runtime")?,
+        model: text("model").unwrap_or_default(),
+        mode: text("mode").unwrap_or_default(),
+        account: text("account"),
+        effort: text("effort"),
+    })
+}
+
 pub fn pick_key_for(conversation: Option<&str>, teammate_id: Option<&str>) -> String {
     if let Some(conv) = conversation {
         return conv.to_owned();
@@ -201,6 +218,10 @@ pub fn as_reviewer(mut start: StartAs, antigravity_cli: bool) -> StartAs {
     start.one_off = true;
     start
 }
+
+#[cfg(test)]
+#[path = "route_at_start_cases_tests.rs"]
+mod route_at_start_cases_tests;
 
 #[cfg(test)]
 mod tests {
