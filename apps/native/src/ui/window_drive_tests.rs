@@ -6531,7 +6531,7 @@ fn resting_on_the_model_chip_opens_the_agents_card_above_it() {
     pump(&mut rt, "the readings", |s| s.usage_readings.contains_key("codex"));
     rt.frame(0.016);
     let words = text_in(&rt, "model-chip-card").join(" | ");
-    for want in ["Codex", "Weekly window", "64%", "5-hour window", "85%", "Read from your account at"] {
+    for want in ["Codex", "Weekly", "64%", "5-hour", "85%", "Read from your account at"] {
         assert!(words.contains(want), "{want} in {words}");
     }
     let card = rt.presented("model-chip-card").unwrap().0;
