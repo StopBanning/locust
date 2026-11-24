@@ -747,6 +747,14 @@ apps/desktop/src/main/a-profile-backs-up-and-restores.test.ts	is written down wh
 apps/desktop/src/main/a-profile-backs-up-and-restores.test.ts	read again at the start: a backup changed since it was asked for is refused, and nothing here moves	no
 apps/desktop/src/main/a-profile-backs-up-and-restores.test.ts	that fails part-way puts everything back as it was	no
 apps/desktop/src/main/a-profile-backs-up-and-restores.test.ts	backed up, or left out with a reason	no
+apps/desktop/src/main/a-profile-copy-is-sealed-before-it-leaves.test.ts	opens with the same key, account and id, and holds what was sealed	yes
+apps/desktop/src/main/a-profile-copy-is-sealed-before-it-leaves.test.ts	holds none of the words it was given	yes
+apps/desktop/src/main/a-profile-copy-is-sealed-before-it-leaves.test.ts	does not open with another key, for another account, or under another id	yes
+apps/desktop/src/main/a-profile-copy-is-sealed-before-it-leaves.test.ts	is the same on every computer of the account, and differs by name and by key, but for the list	yes
+apps/desktop/src/main/a-profile-copy-is-sealed-before-it-leaves.test.ts	is a relay file id that says nothing of the name	yes
+apps/desktop/src/main/a-profile-copy-is-sealed-before-it-leaves.test.ts	fall at fixed offsets, so an appended file changes only its last piece	yes
+apps/desktop/src/main/a-profile-copy-is-sealed-before-it-leaves.test.ts	gives back the profile key, however it is typed	yes
+apps/desktop/src/main/a-profile-copy-is-sealed-before-it-leaves.test.ts	refuses a code copied wrong	yes
 apps/desktop/src/main/a-project-is-never-half-put-back.test.ts	the host writes nothing when any file cannot go back, and says which could have	yes
 apps/desktop/src/main/a-project-is-never-half-put-back.test.ts	a write that fails puts the ones already written back as they were	yes
 apps/desktop/src/main/a-project-is-never-half-put-back.test.ts	the window offers nothing to tick when it already knows some cannot go back, and says why	yes
@@ -3335,6 +3343,26 @@ apps/desktop/src/main/worktrees.test.ts	C1: removes it only for the exact change
 apps/desktop/src/main/worktrees.test.ts	C1: removes a clean copy at once, with git’s own unforced remove	yes
 apps/desktop/src/main/worktrees.test.ts	names changes the way git status does, a quoted path unquoted	yes
 apps/desktop/src/main/worktrees.test.ts	refuses an id that could name a path outside the folder	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	without a GitHub sign-in it says where to sign in and keeps nothing	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	turning sync on shows the recovery code once, locks the key, and sends the copy	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	off keeps the key, and on again shows no new code and seals with the same key	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	a computer that cannot lock a key keeps sync off and says why	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	a key made for another GitHub account is not used: a new sign-in starts over with its own code	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	Sync now says when the relay is full, and nothing on the computer changes	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	Delete my copy empties the relay, turns sync off and forgets what was sent	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	a new computer is told another computer keeps a copy	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	the code opens the newest copy, restores it at the next start, and keeps the key for sync	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	a code that does not open the copy changes nothing	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	a code copied wrong is caught before the relay is asked	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	with no other computer keeping a copy, it says to turn Keep a copy on there first	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	reads the relay’s own list into copies and usage, and refuses a room name it should not	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	the Mac asks, both screens show one code, the PC approves, and the Mac brings the copy in with no recovery code	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	the ask leaves no trace: the Mac takes it down, and the PC then removes its grant	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	a code that is not the one the PC was shown sends nothing	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	a key swapped at the relay after the PC showed the code is refused: the PC reads the ask again before it seals	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	Not mine puts the ask away on that computer and gives nothing	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	a computer without the key is never shown an ask to approve	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	after ten minutes with no approval the ask is given up and taken down	yes
 apps/desktop/src/main/your-github-is-connected-through-gh.test.ts	reads the active account, its scopes, and an account GitHub no longer takes	yes
 apps/desktop/src/main/your-github-is-connected-through-gh.test.ts	never names a login GitHub could not have issued	yes
 apps/desktop/src/main/your-github-is-connected-through-gh.test.ts	reads an older gh by its exit and first account line	yes
@@ -6386,6 +6414,14 @@ apps/desktop/src/renderer/src/with-nothing-installed-install-comes-first.test.ts
 apps/desktop/src/renderer/src/with-nothing-installed-install-comes-first.test.tsx	still offers the teams and the folder, after it	yes
 apps/desktop/src/renderer/src/with-nothing-installed-install-comes-first.test.tsx	leads with the team templates again	yes
 apps/desktop/src/renderer/src/with-nothing-installed-install-comes-first.test.tsx	does not reorder while an installed agent is still being checked	yes
+apps/desktop/src/renderer/src/your-account-card-says-where-the-copy-stands.test.tsx	signed out, the card says what an account does and where to sign in, with no switch	yes
+apps/desktop/src/renderer/src/your-account-card-says-where-the-copy-stands.test.tsx	signed in and off, it says the relay cannot read the copy before anything is sent	yes
+apps/desktop/src/renderer/src/your-account-card-says-where-the-copy-stands.test.tsx	on, it says when it last synced, how much, and the storage used, with Sync now and Delete my copy	yes
+apps/desktop/src/renderer/src/your-account-card-says-where-the-copy-stands.test.tsx	the recovery code is shown with what losing it costs, until it is put away	yes
+apps/desktop/src/renderer/src/your-account-card-says-where-the-copy-stands.test.tsx	sizes and times read as a person says them	yes
+apps/desktop/src/renderer/src/your-account-card-says-where-the-copy-stands.test.tsx	on a new computer it offers to bring the copy here with the code, and says what a restart does	yes
+apps/desktop/src/renderer/src/your-account-card-says-where-the-copy-stands.test.tsx	a new computer can ask the one that has your Locust, and shows the code to compare while it waits	yes
+apps/desktop/src/renderer/src/your-account-card-says-where-the-copy-stands.test.tsx	the computer that has your Locust shows each ask with its code, Approve (asked twice) and Not mine	yes
 apps/desktop/src/renderer/src/your-github-shows-on-connectors.test.tsx	wears GitHub’s mark and names who it is signed in as	yes
 apps/desktop/src/renderer/src/your-github-shows-on-connectors.test.tsx	offers a sign-in when nobody is signed in, and the CLI when it is missing	yes
 apps/desktop/src/renderer/src/your-github-shows-on-connectors.test.tsx	says when GitHub has a newer GitHub CLI, with the update a press away (0.726)	yes
