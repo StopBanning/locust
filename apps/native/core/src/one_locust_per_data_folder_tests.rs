@@ -26,6 +26,8 @@ fn a_second_launch_on_one_data_folder_finds_the_doors_engine_and_never_starts_it
     let dir = std::env::temp_dir().join(format!("l15-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     let store = Store::new(dir.join("native"), dir.join("electron")).unwrap();
+    // The engine's data folder is this one, as `--serve-door`'s is the app's (and no other test's engine runs meanwhile).
+    let _hook = crate::native::hooks::install(store.clone(), None);
     // `--serve-door`: its door is open and it is this folder's engine.
     let (engine, door) = serve_door_in(store.clone(), "/Applications/Locust Native.app/x").unwrap();
     let file = door.connection_path();
