@@ -3596,3 +3596,6 @@ mod renderer_address_tests {
 #[cfg(test)]
 #[path = "ui/markdown_reply_tests.rs"]
 mod markdown_reply_tests;
+#[cfg(test)]
+#[path = "ui/every_runtime_keeps_its_output_tests.rs"]
+mod every_runtime_keeps_its_output_tests;
