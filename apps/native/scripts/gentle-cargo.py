@@ -109,6 +109,16 @@ with _take_a_slot() as lock:
         print("gentle-cargo: another checkout built here last; rebuilding locust-core and locust-native from this one", file=sys.stderr, flush=True)
         profile = ["--release"] if "--release" in args else []
         subprocess.run(["nice", "-n", "10", "cargo", "clean", "-q", "-p", "locust-core", "-p", "locust-native", *profile])
+    # Test threads from the spare CPU, read now that the slot is ours (the wait can be minutes). An explicit value in the
+    # environment wins; `-j` on the command line wins over both. See .config/nextest.toml.
+    if args[:2] == ["nextest", "run"] or args[:1] == ["test"]:
+        sys.dont_write_bytecode = True  # no __pycache__ beside the scripts
+        from load_threads import here as spare_here
+        threads, cores, load1 = spare_here()
+        os.environ.setdefault("NEXTEST_TEST_THREADS", str(threads))
+        os.environ.setdefault("RUST_TEST_THREADS", str(threads))
+        print(f"gentle-cargo: {os.environ['NEXTEST_TEST_THREADS']} test threads (cores {cores}, load "
+              f"{load1 if load1 is not None else 'unknown'})", file=sys.stderr, flush=True)
     try:
         result = subprocess.run(["nice", "-n", "10", "cargo", *args], timeout=timeout)
         code = result.returncode
