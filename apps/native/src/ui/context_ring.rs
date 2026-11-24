@@ -46,6 +46,43 @@ pub(super) fn control(s: &State, p: &Palette) -> Option<El> {
     })
 }
 
+/// `ContextRingMenu`'s breakdown: Claude Code's estimate by category, said to be its estimate, each row with how much
+/// of the window it takes, free space last; then the advice, when one category the person can change matters.
+pub(super) fn breakdown(s: &State, l: &crate::look::controls::Look) -> Option<El> {
+    use locust_core::claude_context::{context_advice, context_categories, context_tokens};
+    let breakdown = s.runtime_commands.breakdown.as_ref()?;
+    let mut part = col()
+        .key("context-breakdown")
+        .role("group")
+        .label("Context by category")
+        .gap(4.0)
+        .px(8.0)
+        .child(text("Estimated by Claude Code").font(type_::LABEL).color(l.c("text-muted")));
+    for row_ in context_categories(breakdown) {
+        let free = row_.name.to_lowercase() == "free space";
+        let share = (row_.tokens as f64 / breakdown.window as f64).min(1.0) as f32;
+        let colour = if free { l.c("text-muted") } else { l.c("text-secondary") };
+        part = part.child(
+            col()
+                .gap(2.0)
+                .child(
+                    row()
+                        .justify_between()
+                        .child(text(row_.name.clone()).font(type_::LABEL).color(l.c("text-primary")))
+                        .child(text(context_tokens(row_.tokens)).font(type_::LABEL).color(l.c("text-secondary"))),
+                )
+                .child(el().h(3.0).radius(1.5).fill(l.c("border-hairline")).a11y_hidden().child(el().w_frac(share).h(3.0).radius(1.5).fill(colour))),
+        );
+    }
+    if let Some(advice) = context_advice(breakdown) {
+        part = part.child(text(advice).key("context-breakdown-advice").font(type_::LABEL).color(l.c("text-secondary")).wrap());
+    }
+    Some(part)
+}
+
+#[cfg(test)]
+#[path = "context_ring_breakdown_tests.rs"]
+mod breakdown_tests;
 
 #[cfg(test)]
 mod renderer_tests {

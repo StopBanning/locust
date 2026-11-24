@@ -208,12 +208,38 @@ impl Stop {
     }
 }
 
-/// The `/context` process to run: Claude Code with the turn's own flags.
+/// The `/context` process to run: Claude Code with the turn's own flags. Built only by Runtime's
+/// `claude::context_command` (`ContextCommand::for_launch`), and kept here as the data a run needs.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ContextCommand {
     pub program: String,
     pub args: Vec<String>,
     pub cwd: PathBuf,
+    /// Variables the run is given beyond the app's own (an added account's).
+    pub env: Vec<(String, String)>,
+}
+
+impl ContextCommand {
+    /// `createClaudeContextCommand`: the launch's program, folder and `args` (its host paths already replaced) turned
+    /// into the `/context` run by `claude::context_command`, which keeps the turn's tools and refuses a launch that is
+    /// not Claude's, has slash commands off, or was cut short.
+    pub fn for_launch(launch: &ClaudeContextLaunch, args: &[String], session_id: &str, env: &[(String, String)]) -> Result<Self, String> {
+        let mut turn = std::process::Command::new(&launch.executable_path);
+        turn.args(args).current_dir(&launch.cwd);
+        for (key, value) in env {
+            turn.env(key, value);
+        }
+        let built = crate::runtime::claude::context_command(&turn, session_id)?;
+        Ok(Self {
+            program: built.get_program().to_string_lossy().into_owned(),
+            args: built.get_args().map(|a| a.to_string_lossy().into_owned()).collect(),
+            cwd: built.get_current_dir().map(PathBuf::from).unwrap_or_else(|| PathBuf::from(&launch.cwd)),
+            env: built
+                .get_envs()
+                .filter_map(|(k, v)| Some((k.to_string_lossy().into_owned(), v?.to_string_lossy().into_owned())))
+                .collect(),
+        })
+    }
 }
 
 const MAX_REPLY_BYTES: usize = 1_048_576;
@@ -225,6 +251,7 @@ pub fn run_claude_context(command: &ContextCommand, stop: &Stop) -> Result<Strin
     let mut child = std::process::Command::new(&command.program)
         .args(&command.args)
         .current_dir(&command.cwd)
+        .envs(command.env.iter().map(|(k, v)| (k, v)))
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::null())
@@ -333,7 +360,57 @@ pub struct PreparedContext {
 
 type Resolve = dyn Fn(&str) -> Option<ClaudeContextTurn> + Send + Sync;
 type Prepare = dyn Fn(&ClaudeContextLaunch, &ClaudeContextTurn) -> Result<PreparedContext, String> + Send + Sync;
-type Run = dyn Fn(&ContextCommand, &Stop) -> Result<String, String> + Send + Sync;
+/// What runs `/context` and hands back its lines: `run_claude_context`, or a stand-in.
+pub type Run = dyn Fn(&ContextCommand, &Stop) -> Result<String, String> + Send + Sync;
+
+/// Something the host holds for one `/context` run (a permission bridge, a browser registration, skill copies) and lets
+/// go of when it is dropped.
+pub type Held = Box<dyn Send>;
+/// A host resource made again for one run: its new config path, and what to drop when the run is done.
+pub type MakeAgain<'a> = &'a (dyn Fn(&str, &str, &str) -> Result<(String, Held), String> + Sync);
+
+/// The host resources a `/context` run needs again (`prepareClaudeContextLaunch`'s `resources`).
+pub struct ContextResources<'a> {
+    /// The account's variables, as discovery would give the turn.
+    pub env: Vec<(String, String)>,
+    /// (run id, conversation, folder) to a fresh permission bridge config.
+    pub permission: MakeAgain<'a>,
+    /// (run id, conversation, folder) to a fresh browser config.
+    pub browser: MakeAgain<'a>,
+    /// (own skills, auto) to fresh copies of the turn's skill plugins, by name and folder.
+    pub skills: &'a (dyn Fn(bool, bool) -> Result<(Vec<(String, String)>, Held), String> + Sync),
+}
+
+/// `prepareClaudeContextLaunch`: recreate the host resources that have expired since the turn, never re-deciding its
+/// tools, connector choice or mode, and build the `/context` run from the launch with their new paths in place of the
+/// old. Whatever was made again is let go of by `dispose`, or at once when it fails.
+pub fn prepare_claude_context_launch(launch: &ClaudeContextLaunch, turn: &ClaudeContextTurn, resources: &ContextResources) -> Result<PreparedContext, String> {
+    let run_id = format!("context_{}", crate::invariants::unique_nanos());
+    let mut held: Vec<Held> = Vec::new();
+    let mut replacements: HashMap<String, String> = HashMap::new();
+    if let Some(old) = &launch.permission {
+        let (path, keep) = (resources.permission)(&run_id, &turn.mission_id, &launch.cwd)?;
+        held.push(keep);
+        replacements.insert(old.clone(), path);
+    }
+    if let Some(old) = &launch.browser {
+        let (path, keep) = (resources.browser)(&run_id, &turn.mission_id, &launch.cwd)?;
+        held.push(keep);
+        replacements.insert(old.clone(), path);
+    }
+    if !launch.plugins.is_empty() {
+        let own = launch.plugins.iter().any(|(name, _)| name == "personal");
+        let (copies, keep) = (resources.skills)(own, launch.sandbox == "full-access")?;
+        held.push(keep);
+        for (name, dir) in &launch.plugins {
+            let copy = copies.iter().find(|(candidate, _)| candidate == name).ok_or("The turn's skills are unavailable.")?;
+            replacements.insert(dir.clone(), copy.1.clone());
+        }
+    }
+    let args: Vec<String> = launch.args.iter().map(|arg| replacements.get(arg).cloned().unwrap_or_else(|| arg.clone())).collect();
+    let command = ContextCommand::for_launch(launch, &args, &turn.session_id, &resources.env)?;
+    Ok(PreparedContext { command, dispose: Box::new(move || drop(held)) })
+}
 
 /// What the reader is built from (`createClaudeContextReader`'s options).
 pub struct ReaderOptions {

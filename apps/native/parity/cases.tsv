@@ -5894,6 +5894,8 @@ apps/desktop/src/renderer/src/the-composer-counts-what-it-is-about.test.tsx	coun
 apps/desktop/src/renderer/src/the-composer-counts-what-it-is-about.test.tsx	counts only what is installed, not every runtime it knows about	yes
 apps/desktop/src/renderer/src/the-composer-counts-what-it-is-about.test.tsx	does not complain about hung agents when one of them works	yes
 apps/desktop/src/renderer/src/the-composer-counts-what-it-is-about.test.tsx	says nothing of the kind while discovery is still asking	yes
+apps/desktop/src/renderer/src/the-context-menu-shows-what-fills-it.test.tsx	lists Claude Code's estimate by category, said to be its estimate, above Compact now	yes
+apps/desktop/src/renderer/src/the-context-menu-shows-what-fills-it.test.tsx	is unchanged without one	yes
 apps/desktop/src/renderer/src/the-cover-counts-only-work.test.ts	is the same for a rebuilt map that holds the same runs	yes
 apps/desktop/src/renderer/src/the-cover-counts-only-work.test.ts	changes when a running run gets an event, starts or ends	yes
 apps/desktop/src/renderer/src/the-cover-counts-only-work.test.ts	is what the app hands the cover, never the map itself	no

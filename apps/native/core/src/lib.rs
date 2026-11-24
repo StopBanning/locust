@@ -582,3 +582,5 @@ mod thread_words_tests;
 mod runtime_order_tests;
 #[cfg(test)]
 mod live2_claude_account_tests;
+#[cfg(test)]
+mod claude_context_kept_tests;
