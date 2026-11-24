@@ -4,7 +4,9 @@
 //! `desk::desk_access` and `desk::is_desk_event`, keeps only one active window at a time, covers
 //! the local window while a browser has it, and replays waiting approval cards on request.
 
-use crate::desk::{DeskAccess, WINDOW_ONLY_SAYS, desk_access, is_desk_event};
+use crate::desk::{
+    DeskAccess, desk_access, is_desk_event, on_the_computer, render_settings_page,
+};
 use serde_json::{Map, Value, json};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -299,6 +301,11 @@ impl DeskHost {
         self.state.lock().unwrap().active.clone()
     }
 
+    /// Render a Settings page for a browser (`for_browser = true`) or for this computer (`false`).
+    pub fn settings_page(&self, page_id: &str, for_browser: bool) -> Option<String> {
+        render_settings_page(page_id, for_browser)
+    }
+
     pub fn flush(&self) {
         let batches: Vec<(String, Vec<DeskTell>)> = {
             let mut st = self.state.lock().unwrap();
@@ -325,10 +332,11 @@ impl DeskHost {
             self.refuse(device, id, "That call could not be read.", false);
             return;
         };
-        let Some(access) = desk_access(channel, arr) else {
-            self.refuse(device, id, WINDOW_ONLY_SAYS, true);
+        if let Some(refusal) = on_the_computer(true, channel, arr) {
+            self.refuse(device, id, refusal, true);
             return;
-        };
+        }
+        let access = desk_access(channel, arr).unwrap_or(DeskAccess::Read);
         if access == DeskAccess::Act && self.active().as_deref() != Some(device) {
             self.refuse(
                 device,

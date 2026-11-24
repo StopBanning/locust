@@ -5651,6 +5651,12 @@ apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	empties it, and l
 apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	every list the search narrows is narrowed by the teammate’s name too	no
 apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	lists conversations, found by every turn and the teammate -- the only search in the rail layout	no
 apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	shows only the five newest before anything is typed	no
+apps/desktop/src/renderer/src/settings-in-a-browser-say-what-stays.test.tsx	draws every page, and none of them starts by saying a setting could not be read or saved	yes
+apps/desktop/src/renderer/src/settings-in-a-browser-say-what-stays.test.tsx	says, in place of the sections whose every setting stays on the computer, that they work there	yes
+apps/desktop/src/renderer/src/settings-in-a-browser-say-what-stays.test.tsx	keeps the teammates' switches that grant something on the computer, and lets Plans change from here	yes
+apps/desktop/src/renderer/src/settings-in-a-browser-say-what-stays.test.tsx	lets the look change from here: no part of Appearance is held on the computer	yes
+apps/desktop/src/renderer/src/settings-in-a-browser-say-what-stays.test.tsx	keeps asking before connector calls on the computer: it is what teammates may reach	yes
+apps/desktop/src/renderer/src/settings-in-a-browser-say-what-stays.test.tsx	holds nothing back and says nothing about a browser, on any page	yes
 apps/desktop/src/renderer/src/settings-says-what-locust-can-stop.test.tsx	is one folded row per AI agent, named, with how much a card can stop	yes
 apps/desktop/src/renderer/src/settings-says-what-locust-can-stop.test.tsx	opens to the same sentences the document holds	yes
 apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	$typed finds the $page page	yes

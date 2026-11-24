@@ -130,6 +130,8 @@ pub mod desk;
 mod desk_access_tests;
 #[cfg(test)]
 mod desk_decided_tests;
+#[cfg(test)]
+mod desk_settings_tests;
 pub mod desk_host;
 #[cfg(test)]
 mod desk_host_tests;

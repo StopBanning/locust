@@ -486,6 +486,441 @@ pub fn is_desk_event(channel: &str) -> bool {
     DESK_EVENTS.contains(&channel)
 }
 
+/// The words a control says in place of working when a call stays on the computer (`onTheComputer.ts`).
+pub fn on_the_computer(in_browser: bool, channel: &str, args: &[Value]) -> Option<&'static str> {
+    if in_browser && desk_access(channel, args).is_none() {
+        Some(WINDOW_ONLY_SAYS)
+    } else {
+        None
+    }
+}
+
+/// How a settings section behaves when drawn in Locust-in-a-browser (`OnTheComputer.tsx`, `Screens.tsx`, 0.849).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BrowserSectionKind {
+    /// Every setting in this section stays on the computer: in a browser, draw only its heading, lede, and
+    /// `WINDOW_ONLY_SAYS`, without drawing its rows or reading its settings.
+    ComputerOnly {
+        channel: &'static str,
+        computer_rows_attr: Option<&'static str>,
+    },
+    /// Controls wrapped in `<fieldset class="lc-oncomputer" disabled="">` when any listed channel stays on the computer.
+    Guarded {
+        channels: &'static [&'static str],
+        control_label: &'static str,
+    },
+    /// Works in a browser too: never disabled or marked computer-only.
+    Open {
+        channel: &'static str,
+        control_label: &'static str,
+    },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct BrowserSettingsSection {
+    pub heading: &'static str,
+    pub lede: &'static str,
+    pub kind: BrowserSectionKind,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct BrowserSettingsPage {
+    pub id: &'static str,
+    pub label: &'static str,
+    pub sections: &'static [BrowserSettingsSection],
+}
+
+/// All 13 Settings pages (`settingsPages.ts` + `Screens.tsx` browser guards).
+pub const BROWSER_SETTINGS_PAGES: &[BrowserSettingsPage] = &[
+    BrowserSettingsPage {
+        id: "app",
+        label: "General",
+        sections: &[
+            BrowserSettingsSection {
+                heading: "Let your other AI apps use Locust",
+                lede: "Claude and your other AI apps can ask your teammates and read their replies, on this computer or from anywhere.",
+                kind: BrowserSectionKind::ComputerOnly {
+                    channel: "locust-mcp:set",
+                    computer_rows_attr: None,
+                },
+            },
+            BrowserSettingsSection {
+                heading: "Your account",
+                lede: "Sign in once, and your teammates, routines, memories and conversations follow you to any computer where you sign in.",
+                kind: BrowserSectionKind::ComputerOnly {
+                    channel: "account:status",
+                    computer_rows_attr: None,
+                },
+            },
+            BrowserSettingsSection {
+                heading: "Your phone",
+                lede: "Check on your teammates from your phone or a browser, answer approval cards and send the next message.",
+                kind: BrowserSectionKind::ComputerOnly {
+                    channel: "phone:settings",
+                    computer_rows_attr: None,
+                },
+            },
+            BrowserSettingsSection {
+                heading: "Chat apps",
+                lede: "Write to your teammates from Discord, Slack or Telegram, get their answers there, and answer their approval cards, while Locust is open on your computer.",
+                kind: BrowserSectionKind::ComputerOnly {
+                    channel: "discord:settings",
+                    computer_rows_attr: Some("data-chat-app=\"discord\""),
+                },
+            },
+            BrowserSettingsSection {
+                heading: "Startup",
+                lede: "Start Locust when you sign in and keep it running in the background.",
+                kind: BrowserSectionKind::Guarded {
+                    channels: &["login-item:set", "keep-running:set", "stay-awake:set"],
+                    control_label: "Startup",
+                },
+            },
+            BrowserSettingsSection {
+                heading: "Updates",
+                lede: "Choose how Locust checks for updates.",
+                kind: BrowserSectionKind::Guarded {
+                    channels: &["app-update:lane"],
+                    control_label: "Updates",
+                },
+            },
+        ],
+    },
+    BrowserSettingsPage {
+        id: "chat",
+        label: "Chat",
+        sections: &[BrowserSettingsSection {
+            heading: "Your commands",
+            lede: "Write markdown commands for your teammates.",
+            kind: BrowserSectionKind::Guarded {
+                channels: &["own-commands:open"],
+                control_label: "Your commands",
+            },
+        }],
+    },
+    BrowserSettingsPage {
+        id: "appearance",
+        label: "Appearance",
+        sections: &[
+            BrowserSettingsSection {
+                heading: "Reply text size",
+                lede: "Change the text size of replies.",
+                kind: BrowserSectionKind::Open {
+                    channel: "appearance:set",
+                    control_label: "Reply text size",
+                },
+            },
+            BrowserSettingsSection {
+                heading: "Terminal faces",
+                lede: "Choose how teammate faces look.",
+                kind: BrowserSectionKind::Open {
+                    channel: "appearance:set",
+                    control_label: "Terminal faces",
+                },
+            },
+            BrowserSettingsSection {
+                heading: "Sidebar",
+                lede: "Choose theme and sidebar width.",
+                kind: BrowserSectionKind::Open {
+                    channel: "appearance:set",
+                    control_label: "Sidebar",
+                },
+            },
+            BrowserSettingsSection {
+                heading: "Send button",
+                lede: "Choose the send button finish.",
+                kind: BrowserSectionKind::Open {
+                    channel: "appearance:set",
+                    control_label: "Send button",
+                },
+            },
+            BrowserSettingsSection {
+                heading: "Boot screen",
+                lede: "Choose whether to show the boot screen.",
+                kind: BrowserSectionKind::Open {
+                    channel: "appearance:set",
+                    control_label: "Boot screen",
+                },
+            },
+        ],
+    },
+    BrowserSettingsPage {
+        id: "privacy",
+        label: "Privacy & data",
+        sections: &[
+            BrowserSettingsSection {
+                heading: "Privacy & local data",
+                lede: "Your conversations stay on this computer.",
+                kind: BrowserSectionKind::Guarded {
+                    channels: &["mission:prune"],
+                    control_label: "Privacy & local data",
+                },
+            },
+            BrowserSettingsSection {
+                heading: "Back up and restore",
+                lede: "Save or restore a copy of your Locust data.",
+                kind: BrowserSectionKind::Guarded {
+                    channels: &[
+                        "profile:backup",
+                        "profile:restore",
+                        "profile:pick-folder",
+                        "profile:restore-preview",
+                    ],
+                    control_label: "Back up and restore",
+                },
+            },
+        ],
+    },
+    BrowserSettingsPage {
+        id: "teammates",
+        label: "Teammates",
+        sections: &[
+            BrowserSettingsSection {
+                heading: "Swarm",
+                lede: "Off. Each run uses the effort its model is set to.",
+                kind: BrowserSectionKind::Guarded {
+                    channels: &["workspace-settings:write"],
+                    control_label: "Swarm",
+                },
+            },
+            BrowserSettingsSection {
+                heading: "Auto mode",
+                lede: "Off. Teammates may change files inside the project folder and nowhere else.",
+                kind: BrowserSectionKind::Guarded {
+                    channels: &["workspace-settings:write"],
+                    control_label: "Auto mode",
+                },
+            },
+            BrowserSettingsSection {
+                heading: "Plans",
+                lede: "Keep a todo list while working.",
+                kind: BrowserSectionKind::Open {
+                    channel: "workspace-settings:change",
+                    control_label: "Plans",
+                },
+            },
+            BrowserSettingsSection {
+                heading: "Your skills",
+                lede: "Use your own skills from this computer.",
+                kind: BrowserSectionKind::Guarded {
+                    channels: &["workspace-settings:write"],
+                    control_label: "Your skills",
+                },
+            },
+            BrowserSettingsSection {
+                heading: "Saved approvals",
+                lede: "Rules you saved from approval cards.",
+                kind: BrowserSectionKind::Guarded {
+                    channels: &["approval-rules:remove", "approval-rules:remove-all"],
+                    control_label: "Saved approvals",
+                },
+            },
+        ],
+    },
+    BrowserSettingsPage {
+        id: "memory",
+        label: "Memory",
+        sections: &[BrowserSettingsSection {
+            heading: "What your team remembers",
+            lede: "Shared notes your teammates keep.",
+            kind: BrowserSectionKind::Open {
+                channel: "memory:update",
+                control_label: "What your team remembers",
+            },
+        }],
+    },
+    BrowserSettingsPage {
+        id: "relay",
+        label: "Between teammates",
+        sections: &[BrowserSettingsSection {
+            heading: "Between teammates",
+            lede: "How teammates hand work to each other.",
+            kind: BrowserSectionKind::Guarded {
+                channels: &["workspace-settings:write"],
+                control_label: "Between teammates",
+            },
+        }],
+    },
+    BrowserSettingsPage {
+        id: "runtimes",
+        label: "AI agents",
+        sections: &[
+            BrowserSettingsSection {
+                heading: "AI agents & accounts",
+                lede: "Installed agents and accounts on this computer.",
+                kind: BrowserSectionKind::Guarded {
+                    channels: &["runtime-updates:set"],
+                    control_label: "AI agents & accounts",
+                },
+            },
+            BrowserSettingsSection {
+                heading: "Your own agents",
+                lede: "Custom ACP agents on this computer.",
+                kind: BrowserSectionKind::Guarded {
+                    channels: &["acp-agents:save", "acp-agents:test", "acp-agents:remove"],
+                    control_label: "Your own agents",
+                },
+            },
+        ],
+    },
+    BrowserSettingsPage {
+        id: "models",
+        label: "Your own models",
+        sections: &[BrowserSettingsSection {
+            heading: "Your own models",
+            lede: "Add your own OpenAI-compatible endpoints.",
+            kind: BrowserSectionKind::Guarded {
+                channels: &[
+                    "ownModels:add",
+                    "ownModels:test",
+                    "ownModels:chatOnly",
+                    "ownModels:remove",
+                ],
+                control_label: "Your own models",
+            },
+        }],
+    },
+    BrowserSettingsPage {
+        id: "connectors",
+        label: "Connectors",
+        sections: &[
+            BrowserSettingsSection {
+                heading: "GitHub",
+                lede: "GitHub CLI account on this computer.",
+                kind: BrowserSectionKind::Guarded {
+                    channels: &[
+                        "locust:github-sign-in",
+                        "locust:github-install",
+                        "locust:github-update",
+                        "locust:github-sign-in-cancel",
+                    ],
+                    control_label: "GitHub",
+                },
+            },
+            BrowserSettingsSection {
+                heading: "Connectors",
+                lede: "Ask before every connector call.",
+                kind: BrowserSectionKind::Guarded {
+                    channels: &["workspace-settings:write"],
+                    control_label: "Ask before every connector call",
+                },
+            },
+            BrowserSettingsSection {
+                heading: "Add a connector",
+                lede: "Add an MCP server to every agent at once.",
+                kind: BrowserSectionKind::Guarded {
+                    channels: &["connectors:add", "connectors:remove"],
+                    control_label: "Add a connector",
+                },
+            },
+        ],
+    },
+    BrowserSettingsPage {
+        id: "cloud",
+        label: "Cloud computers",
+        sections: &[BrowserSettingsSection {
+            heading: "Cloud computers",
+            lede: "GitHub Codespaces for your teammates.",
+            kind: BrowserSectionKind::Guarded {
+                channels: &["cloud-computer:allow"],
+                control_label: "Cloud computers",
+            },
+        }],
+    },
+    BrowserSettingsPage {
+        id: "workspace",
+        label: "Project folder",
+        sections: &[BrowserSettingsSection {
+            heading: "Project folder",
+            lede: "Own branches and checks after edits.",
+            kind: BrowserSectionKind::Guarded {
+                channels: &["workspace-settings:write"],
+                control_label: "Project folder",
+            },
+        }],
+    },
+    BrowserSettingsPage {
+        id: "whatsnew",
+        label: "What's new",
+        sections: &[BrowserSettingsSection {
+            heading: "Changelog",
+            lede: "Recent releases of Locust.",
+            kind: BrowserSectionKind::Open {
+                channel: "app:changelog",
+                control_label: "Changelog",
+            },
+        }],
+    },
+];
+
+/// Render a Settings page as markup for either a browser (`in_browser = true`) or this computer (`false`),
+/// applying `on_the_computer` (`desk_access`) to every section.
+pub fn render_settings_page(page_id: &str, in_browser: bool) -> Option<String> {
+    let page = BROWSER_SETTINGS_PAGES.iter().find(|p| p.id == page_id)?;
+    let mut html = String::new();
+    for section in page.sections {
+        html.push_str("<section class=\"lc-settings__section\">");
+        match section.kind {
+            BrowserSectionKind::ComputerOnly {
+                channel,
+                computer_rows_attr,
+            } => {
+                if let Some(said) = on_the_computer(in_browser, channel, &[]) {
+                    html.push_str(&format!(
+                        "<div class=\"lc-settingline\" data-on-the-computer=\"\"><div class=\"lc-settingline__text\"><h2 class=\"lc-settings__heading\">{}</h2><p class=\"lc-settings__lede\">{}</p><p class=\"lc-settings__note lc-oncomputer__said\">{}</p></div></div>",
+                        section.heading, section.lede, said
+                    ));
+                } else {
+                    let rows = computer_rows_attr
+                        .map(|attr| format!("<div {attr}></div>"))
+                        .unwrap_or_default();
+                    html.push_str(&format!(
+                        "<div class=\"lc-settingline\"><div class=\"lc-settingline__text\"><h2 class=\"lc-settings__heading\">{}</h2><p class=\"lc-settings__lede\">{}</p></div>{rows}</div>",
+                        section.heading, section.lede
+                    ));
+                }
+            }
+            BrowserSectionKind::Guarded {
+                channels,
+                control_label,
+            } => {
+                let said = channels
+                    .iter()
+                    .find_map(|ch| on_the_computer(in_browser, ch, &[]));
+                let inner = format!(
+                    "<div class=\"lc-settingline\"><div class=\"lc-settingline__text\"><h2 class=\"lc-settings__heading\">{}</h2><p class=\"lc-settings__lede\">{}</p></div><button type=\"button\" role=\"switch\" aria-label=\"{}\"></button></div>",
+                    section.heading, section.lede, control_label
+                );
+                if let Some(said) = said {
+                    html.push_str(&format!(
+                        "<fieldset class=\"lc-oncomputer\" disabled=\"\">{inner}<p class=\"lc-settings__note lc-oncomputer__said\">{said}</p></fieldset>"
+                    ));
+                } else {
+                    html.push_str(&inner);
+                }
+            }
+            BrowserSectionKind::Open {
+                channel,
+                control_label,
+            } => {
+                let inner = format!(
+                    "<div class=\"lc-settingline\"><div class=\"lc-settingline__text\"><h2 class=\"lc-settings__heading\">{}</h2><p class=\"lc-settings__lede\">{}</p></div><button type=\"button\" role=\"switch\" aria-label=\"{}\"></button></div>",
+                    section.heading, section.lede, control_label
+                );
+                if let Some(said) = on_the_computer(in_browser, channel, &[]) {
+                    html.push_str(&format!(
+                        "<fieldset class=\"lc-oncomputer\" disabled=\"\">{inner}<p class=\"lc-settings__note lc-oncomputer__said\">{said}</p></fieldset>"
+                    ));
+                } else {
+                    html.push_str(&inner);
+                }
+            }
+        }
+        html.push_str("</section>");
+    }
+    Some(html)
+}
+
 /// How a browser may make this call with these arguments, or `None` when it stays in the window on this computer.
 pub fn desk_access(channel: &str, args: &[Value]) -> Option<DeskAccess> {
     if READ_CHANNELS.contains(&channel) {
