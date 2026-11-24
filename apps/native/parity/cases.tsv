@@ -5455,6 +5455,17 @@ apps/desktop/src/renderer/src/reasoning-is-kept.test.ts	still reports how long i
 apps/desktop/src/renderer/src/reasoning-is-kept.test.ts	does not count thinking among the tool calls	yes
 apps/desktop/src/renderer/src/reasoning-is-kept.test.ts	says nothing about tool calls when a turn only thought	yes
 apps/desktop/src/renderer/src/reasoning-is-kept.test.ts	gives thinking its own row rather than folding it in with tools	yes
+apps/desktop/src/renderer/src/resume.test.ts	takes the newest, not the first	yes
+apps/desktop/src/renderer/src/resume.test.ts	has nothing to offer when none were written	yes
+apps/desktop/src/renderer/src/resume.test.ts	offers a resume when the record is whole	yes
+apps/desktop/src/renderer/src/resume.test.ts	offers it WITH the doubt named when an action never reported back	yes
+apps/desktop/src/renderer/src/resume.test.ts	refuses when the ledger cannot be trusted to say what happened	yes
+apps/desktop/src/renderer/src/resume.test.ts	refuses when recovery reported an issue, whatever the checkpoint concluded	yes
+apps/desktop/src/renderer/src/resume.test.ts	says so plainly when nothing was written before the stop	yes
+apps/desktop/src/renderer/src/resume.test.ts	offers nothing for a %s mission	yes
+apps/desktop/src/renderer/src/resume.test.ts	offers a resume for a run the app closed underneath	yes
+apps/desktop/src/renderer/src/resume.test.ts	offers nothing to someone who pressed Stop	yes
+apps/desktop/src/renderer/src/resume.test.ts	offers nothing for a cancelled run that wrote no checkpoint at all	yes
 apps/desktop/src/renderer/src/review-brief.test.ts	carries the request in the words the person used	yes
 apps/desktop/src/renderer/src/review-brief.test.ts	carries what changed, what ran with its exit code, and where	yes
 apps/desktop/src/renderer/src/review-brief.test.ts	names who did the work, and that the reviewer did not	yes
