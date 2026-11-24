@@ -2186,6 +2186,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     changed |= attention_watch::poll(s);
     changed |= scout_cards::poll(s);
     changed |= background_runs::poll(s, now);
+    changed |= claude_cloud_panel::poll(s, now);
     changed |= tag_send::poll(s);
     changed |= rail::poll(s);
     changed |= open_pressed_notification(s, tx);
@@ -2851,6 +2852,9 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
     }
     if let Some(bg) = background_runs::view(s, &p) {
         right = right.child(bg);
+    }
+    if let Some(cloud) = claude_cloud_panel::beside(s, &p) {
+        right = right.child(cloud);
     }
     // The title bar above both columns; its toggles only while no conversation fills the window (TitleBar.tsx).
     let thread_shown = !(changes_open
