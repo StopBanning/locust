@@ -4589,7 +4589,9 @@ fn undo_puts_a_turns_files_back_off_the_windows_thread_and_says_so() {
 fn create_two_member_room(rt: &mut Runtime<State>, store: &Store, name: &str) {
     rt.update(|s, _| s.layout_pref = "wide".into());
     settle(rt);
-    click(rt, "sidebar-new-room");
+    // The wide sidebar's `+` offers New room (Sidebar.tsx: one `+` for New teammate, New room, New group).
+    click(rt, "sidebar-add-button");
+    click(rt, "row-menu-item-new-room");
     click(rt, "room-create-name");
     rt.paste(name);
     rt.frame(0.016);

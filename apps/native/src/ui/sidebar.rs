@@ -875,7 +875,6 @@ const NO_MATCH: &str = "No conversations match that.";
 
 pub(super) fn sidebar(s: &State, p: &Palette) -> El {
     let l = crate::look::controls::Look::new(p.dark);
-    let mut rows = col().w_full().gap(2.0).padding(10.0);
     // The sidebar's places, at the top, one to a line (`.lc-sidebar__places`): Conversations, Rooms and Routines are
     // reached here whatever else the sidebar draws; the roster is reached from the faces row's Team.
     let nav = |icon: &'static rune::Icon, words: &str| {
@@ -899,87 +898,6 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
     if s.compare.compares.iter().any(|c| !c.reruns.is_empty()) {
         places = places.child(nav(&crate::look::icons::TARGET, "Benchmarks").on_press(crate::benchmarks_panel::open));
     }
-    let now_ms = chrono::Utc::now().timestamp_millis();
-    let mut rooms_col = col()
-        .key("sidebar-rooms")
-        .w_full()
-        .px(10.0)
-        .pt(12.0)
-        .gap(2.0)
-        .child(
-            row()
-                .w_full()
-                .pl(10.0)
-                .pb(2.0)
-                .center_y()
-                .child(
-                    row()
-                        .key("sidebar-rooms-open")
-                        .grow(1.0)
-                        .role("button")
-                        .label("Rooms")
-                        .child(crate::look::controls::label(&l, "Rooms"))
-                        .on_press(|s: &mut State| crate::room_screen::open_list(s)),
-                )
-                .child(
-                    row()
-                        .key("sidebar-new-room")
-                        .px(8.0)
-                        .py(4.0)
-                        .radius(6.0)
-                        .hover(l.c("hover-surface"))
-                        .role("button")
-                        .label("New room")
-                        .child(
-                            text("+ New room")
-                                .font(rune::TextStyle::new(12.0, 500.0))
-                                .color(l.c("text-secondary")),
-                        )
-                        .on_press(|s: &mut State| crate::room_screen::open_new(s)),
-                ),
-        );
-    let running = locust_core::engine_api::api().running();
-    for room in &s.rooms.rooms {
-        let rid = room.room_id.clone();
-        let active = matches!(&s.rooms.active, crate::room_screen::RoomView::Room(id) if id == &rid);
-        let meta = crate::room_screen::room_card_meta(room, &s.teammates, now_ms);
-        rooms_col = rooms_col.child(
-            col()
-                .key(format!("sidebar-room-{rid}"))
-                .w_full()
-                .py(7.0)
-                .px(10.0)
-                .gap(2.0)
-                .radius(8.0)
-                .fill(if active { l.c("bg-selected") } else { crate::window_glass::sidebar_row_ground(s, p) })
-                .hover(l.c("hover-surface"))
-                .role("button")
-                .label(room.name.clone())
-                .child({
-                    // A room shimmers while any conversation its posts started is working (Sidebar.tsx `roomRow`).
-                    let name = if room_working(room, &running) {
-                        crate::working_shimmer::title(&room.name, l.c("text-primary"), s.reduced_motion.get())
-                    } else {
-                        text(room.name.clone()).color(l.c("text-primary"))
-                    };
-                    name.font(rune::TextStyle::new(13.0, 500.0).lh(16.0))
-                        .w_full()
-                        .truncate()
-                        .key(format!("sidebar-room-title-{rid}"))
-                })
-                .child(
-                    text(meta)
-                        .font(rune::TextStyle::new(11.5, 400.0).lh(15.0))
-                        .color(l.c("text-muted"))
-                        .w_full()
-                        .truncate(),
-                )
-                .on_press(move |s: &mut State| {
-                    crate::room_screen::open_room(s, rid.clone());
-                }),
-        );
-    }
-    rows = rows.child(rooms_col);
     let missions = sidebar_missions_now(s);
     let all_rows: Vec<SidebarMission> = recent_as_missions(s).into_iter().filter(|m| comparison_row_visible(s, m)).collect();
     let all_count = all_rows.len();
@@ -1375,17 +1293,27 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
         } else {
             recent_rows.clone()
         };
-        if !rest.is_empty() && (show_sections || groups_shown) {
+        // Each room is one row among them, where its newest answer was (conversationList.ts `withRoomsFolded`).
+        let entries = with_rooms_folded(&rest, &s.rooms.rooms);
+        if !entries.is_empty() && (show_sections || groups_shown) {
             recent = recent.child(section_label(
                 p,
                 if groups_shown { "Ungrouped" } else { "Recents" },
             ));
         }
-        let open_at = rest.iter().position(|item| is_picked(item));
+        let open_at = entries.iter().position(|entry| match entry {
+            ListEntry::Conversation(item) => is_picked(item),
+            ListEntry::Room { answers, .. } => answers.iter().any(|item| is_picked(item)),
+        });
         let budget = s.sidebar_list_budget.max(LIST_PAGE);
-        let drawn = list_window_count(rest.len(), budget, open_at);
-        let not_drawn = rest.len().saturating_sub(drawn);
-        recent = append_rows(recent, &rest[..drawn]);
+        let drawn = list_window_count(entries.len(), budget, open_at);
+        let not_drawn = entries.len().saturating_sub(drawn);
+        for entry in &entries[..drawn] {
+            recent = match entry {
+                ListEntry::Conversation(item) => append_rows(recent, std::slice::from_ref(*item)),
+                ListEntry::Room { room, answers } => recent.child(room_row(s, p, room, answers)),
+            };
+        }
         if not_drawn > 0 {
             recent = recent.child(
                 row()
@@ -1571,7 +1499,7 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
                 .scroll(ScrollSpec {
                     stick_bottom: false,
                 })
-                .child(col().w_full().child(rows).child(recent)),
+                .child(col().w_full().child(recent)),
         )
         .child(footer(&l))
 }
@@ -2170,3 +2098,7 @@ mod sidebar_list_window_tests;
 #[cfg(test)]
 #[path = "sidebar_flat_tests.rs"]
 mod sidebar_flat_tests;
+
+#[path = "sidebar_rooms.rs"]
+mod sidebar_rooms;
+use sidebar_rooms::{ListEntry, room_row, with_rooms_folded};

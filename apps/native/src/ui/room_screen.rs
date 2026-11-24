@@ -2140,6 +2140,7 @@ mod tests {
 
     const SOURCE: &str = include_str!("room_screen.rs");
     const SIDEBAR_SOURCE: &str = include_str!("sidebar.rs");
+    const CONTEXT_MENU_SOURCE: &str = include_str!("context_menu.rs");
 
     fn tm(id: &str, name: &str) -> Teammate {
         Teammate {
@@ -2262,9 +2263,18 @@ mod tests {
     // --- rooms-are-reachable.test.ts (2) ---
     #[test]
     fn sidebar_rooms_section_is_present_and_never_gated_behind_nonempty_rooms() {
+        // The wide sidebar is flat (a room is a row among the conversations), so New room is in its `+` menu, as
+        // Electron's is: the sidebar opens that menu, and the menu offers New room among the items it always has,
+        // not behind any condition (and nothing gates it on already having a room).
         let code = code_without_comments(SIDEBAR_SOURCE);
-        assert!(code.contains("New room"));
+        assert!(code.contains("crate::context_menu::toggle_add_menu(s, \"sidebar-add-button\""));
         assert!(!code.contains("!s.rooms.rooms.is_empty() &&"));
+        let menu = code_without_comments(CONTEXT_MENU_SOURCE);
+        let add = &menu[menu.find("fn toggle_add_menu").expect("the + menu")..];
+        let always = &add[add.find("let mut items = vec![").expect("the items it always has")..];
+        let always = &always[..always.find("];").expect("the end of those items")];
+        assert!(always.contains("Item::new(\"New room\""), "{always}");
+        assert!(!add[..add.find("s.row_menu = Some(").unwrap_or(add.len())].contains("rooms.is_empty()"));
     }
 
     // --- a-room-post-can-ask-one-teammate.test.ts (5) ---

@@ -4095,6 +4095,15 @@ apps/desktop/src/renderer/src/a-room-post-can-ask-one-teammate.test.ts	is every 
 apps/desktop/src/renderer/src/a-room-post-can-ask-one-teammate.test.ts	takes the @-word out, leaving one space and none at the start	no
 apps/desktop/src/renderer/src/a-room-post-can-ask-one-teammate.test.ts	happens by itself when a whole name is typed and then a space	no
 apps/desktop/src/renderer/src/a-room-post-can-ask-one-teammate.test.ts	reads as a person would write it	no
+apps/desktop/src/renderer/src/a-room-stays-in-the-sidebar.test.ts	is one row for its answers, where its newest answer was	yes
+apps/desktop/src/renderer/src/a-room-stays-in-the-sidebar.test.ts	finds a room answer that was replied to, by any turn of the conversation	yes
+apps/desktop/src/renderer/src/a-room-stays-in-the-sidebar.test.ts	keeps a room nobody has posted to yet, placed by when it was made	yes
+apps/desktop/src/renderer/src/a-room-stays-in-the-sidebar.test.ts	leaves every other conversation as it was	yes
+apps/desktop/src/renderer/src/a-room-stays-in-the-sidebar.test.ts	are newest first, like every other row	yes
+apps/desktop/src/renderer/src/a-room-stays-in-the-sidebar.test.ts	is its newest post when no answer has a time	yes
+apps/desktop/src/renderer/src/a-room-stays-in-the-sidebar.test.ts	is its newest answer when that came after the post	yes
+apps/desktop/src/renderer/src/a-room-stays-in-the-sidebar.test.ts	is its making only when nobody has posted to it	yes
+apps/desktop/src/renderer/src/a-room-stays-in-the-sidebar.test.ts	ignores a time that is not one	yes
 apps/desktop/src/renderer/src/a-routine-keeps-what-you-keep.test.tsx	offers the copy only to a routine that may change files	yes
 apps/desktop/src/renderer/src/a-routine-keeps-what-you-keep.test.tsx	in a copy, every sentence says nothing lands until you keep it	yes
 apps/desktop/src/renderer/src/a-routine-keeps-what-you-keep.test.tsx	in the folder, it says the change lands straight away	yes
