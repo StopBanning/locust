@@ -3043,6 +3043,11 @@ apps/desktop/src/main/the-live-word-is-visibly-live.test.ts	leaves the word itse
 apps/desktop/src/main/the-live-word-is-visibly-live.test.ts	drops only the highlight when motion is off	yes
 apps/desktop/src/main/the-live-word-is-visibly-live.test.ts	sets the live word as a label rather than a machine string	yes
 apps/desktop/src/main/the-live-word-is-visibly-live.test.ts	scales no orb at all	yes
+apps/desktop/src/main/the-lock-is-the-same-on-both-sides.test.ts	writes and reads bytes as the PC does	yes
+apps/desktop/src/main/the-lock-is-the-same-on-both-sides.test.ts	makes the same pairing token, proof and device id from the same code	yes
+apps/desktop/src/main/the-lock-is-the-same-on-both-sides.test.ts	opens on the PC what the page sealed, and in the page what the PC sealed	yes
+apps/desktop/src/main/the-lock-is-the-same-on-both-sides.test.ts	does not open a box sent back to the side that sealed it, or named for another device or room	yes
+apps/desktop/src/main/the-lock-is-the-same-on-both-sides.test.ts	never seals two boxes with the same nonce	yes
 apps/desktop/src/main/the-lockup-lighting-is-drawn.test.ts	is the cover drawn to scale: its 960x254 numbers times the measured k	yes
 apps/desktop/src/main/the-lockup-lighting-is-drawn.test.ts	centres the claim under the lockup, in mono capitals, never under the 10.5px floor	yes
 apps/desktop/src/main/the-lockup-lighting-is-drawn.test.ts	powers on from dark, lit lime, and ends in the app ink	yes
