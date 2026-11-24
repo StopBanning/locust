@@ -58,6 +58,9 @@ pub struct Metadata {
     pub edited: bool,
     pub started_by_kind: Option<String>,
     pub started_by_hop: Option<usize>,
+    /// The routine whose replay started it and which step (`startedBy.routineId`, `startedBy.step`).
+    pub started_by_routine: Option<String>,
+    pub started_by_step: Option<usize>,
     pub relay: Option<crate::relay::RelayOrigin>,
     pub omitted_briefing: Vec<String>,
     pub left_out_by_you: Vec<String>,
@@ -113,6 +116,9 @@ pub struct Summary {
     pub updated: String,
     pub started_by_kind: Option<String>,
     pub started_by_hop: Option<usize>,
+    /// The routine whose replay started it and which step (`startedBy.routineId`, `startedBy.step`).
+    pub started_by_routine: Option<String>,
+    pub started_by_step: Option<usize>,
     pub relay: Option<crate::relay::RelayOrigin>,
     pub cost: Option<crate::benchmark::RunCost>,
     pub peer_links: Vec<PeerLink>,
@@ -496,6 +502,18 @@ pub fn metadata(record: &Record) -> Option<Metadata> {
                     .flatten()
             })
             .map(|h| h as usize),
+        started_by_routine: m
+            .get("startedBy")
+            .filter(|v| v.get("kind").and_then(Value::as_str) == Some("routine"))
+            .and_then(|v| v.get("routineId"))
+            .and_then(Value::as_str)
+            .map(str::to_owned),
+        started_by_step: m
+            .get("startedBy")
+            .filter(|v| v.get("kind").and_then(Value::as_str) == Some("routine"))
+            .and_then(|v| v.get("step"))
+            .and_then(Value::as_u64)
+            .map(|n| n as usize),
         relay: m
             .get("relay")
             .and_then(crate::relay::RelayOrigin::from_json),
@@ -1968,6 +1986,8 @@ pub fn try_list_recent(dir: &Path, limit: usize) -> io::Result<Vec<Summary>> {
             updated,
             started_by_kind: m.started_by_kind,
             started_by_hop: m.started_by_hop,
+            started_by_routine: m.started_by_routine,
+            started_by_step: m.started_by_step,
             relay: m.relay,
             cost,
             peer_links,

@@ -4250,13 +4250,13 @@ apps/desktop/src/renderer/src/a-routine-previews-its-inputs-and-file.test.tsx	fi
 apps/desktop/src/renderer/src/a-routine-previews-its-inputs-and-file.test.tsx	the routine editor shows declarations and refuses a step with an undeclared input	yes
 apps/desktop/src/renderer/src/a-routine-previews-its-inputs-and-file.test.tsx	the import preview names steps, inputs, choices, source roles and present/missing connectors	yes
 apps/desktop/src/renderer/src/a-routine-previews-its-inputs-and-file.test.tsx	export paths are shown with a conversion offer, and the routines screen has file actions	yes
-apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	carries the Routines clock, and the conversation it came from does not	no
-apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	says whose each row is, and which routine, on hover	no
-apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	still marks a run whose routine was since deleted	no
-apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	says which step it is on while it runs, where its age would be	no
-apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	says a subagent is working on the conversation that sent it (Yurt's #17)	no
-apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	names the step in the header, in place of "running"	no
-apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	reads a routine from a live starter or a recorded one, and nothing else	no
+apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	carries the Routines clock, and the conversation it came from does not	yes
+apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	says whose each row is, and which routine, on hover	yes
+apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	still marks a run whose routine was since deleted	yes
+apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	says which step it is on while it runs, where its age would be	yes
+apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	says a subagent is working on the conversation that sent it (Yurt's #17)	yes
+apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	names the step in the header, in place of "running"	yes
+apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	reads a routine from a live starter or a recorded one, and nothing else	yes
 apps/desktop/src/renderer/src/a-routine-says-what-it-may-do.test.tsx	in Edit: "Change files" is chosen, and the file trigger says what lands in the folder	yes
 apps/desktop/src/renderer/src/a-routine-says-what-it-may-do.test.tsx	in Ask: "Only read" is chosen, and the trigger says it changes nothing	yes
 apps/desktop/src/renderer/src/a-routine-says-what-it-runs-on.test.tsx	names each teammate with the model their steps run on	yes

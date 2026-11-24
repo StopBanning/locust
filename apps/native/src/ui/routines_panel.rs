@@ -175,6 +175,10 @@ fn reload(s: &mut State) {
         Ok(v) => s.routines.file = v,
         Err(e) => s.routines.error = e,
     }
+    // The sidebar, the header and the Board name routines from the same file: keep them with it.
+    if let Some(store) = &s.data {
+        s.org.routines = crate::org::routine_names(store);
+    }
     offer_savable(s);
 }
 

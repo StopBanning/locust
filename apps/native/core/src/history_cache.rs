@@ -381,6 +381,8 @@ fn parse_file(path: &Path, modified: SystemTime, stamp: (u64, u128)) -> CachedFi
         updated,
         started_by_kind: m.started_by_kind,
         started_by_hop: m.started_by_hop,
+        started_by_routine: m.started_by_routine,
+        started_by_step: m.started_by_step,
         relay: m.relay,
         cost,
         peer_links,

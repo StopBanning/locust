@@ -1028,8 +1028,18 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
                                 );
                                 // The runtime, then the mission strip: the model by the chip's name and the phase only when it
                                 // is news; no id, no `Mission ·`, no permission prose (mission_strip.rs, THREE-PLACEMENTS).
+                                // A routine's step says which one it is on, in place of "running" (App.tsx
+                                // `routineStepPhrase(liveRun.startedBy, routines) ?? 'running'`).
+                                let step_phrase = s.ledger.as_ref().and_then(|ledger| ledger.snapshot.turn_metas.last()).and_then(|run| {
+                                    crate::conversation_list::routine_step_phrase(
+                                        run.started_by_kind.as_deref(),
+                                        run.started_by_routine.as_deref(),
+                                        run.started_by_step,
+                                        &s.org.routines,
+                                    )
+                                });
                                 let phase = if turn_running(s) {
-                                    "running"
+                                    step_phrase.as_deref().unwrap_or("running")
                                 } else if s.ledger.as_ref().is_some_and(|ledger| ledger.snapshot.failed) {
                                     "failed"
                                 } else {
