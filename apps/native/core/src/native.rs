@@ -2604,7 +2604,7 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
                 runtime: job.teammate.runtime.clone(),
                 model: job.model.clone().or_else(|| job.teammate.model.clone()),
                 effort: job.effort.clone(),
-                route_override_for: explicit.then(|| job.teammate.id.clone()),
+                // No picker override: the route is applied only when nothing was picked for this turn (below).
                 ..Default::default()
             },
             Some((job.teammate.id.as_str(), kept.as_ref())),
