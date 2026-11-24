@@ -32,8 +32,6 @@ impl Agents for Fake {
     }
 }
 
-static ONE_AT_A_TIME: Mutex<()> = Mutex::new(());
-
 fn drawn(installed: &[&str]) -> (Arc<Fake>, Runtime<State>) {
     drawn_with(installed, Vec::new())
 }
