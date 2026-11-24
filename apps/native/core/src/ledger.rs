@@ -945,6 +945,9 @@ pub struct Transcript {
     events: BTreeMap<u64, Value>,
     /// Set once an event was actually dropped from the window; a window that is merely full is not trimmed.
     pub trimmed: bool,
+    /// Every event sequence the record holds, so the count is the record's (mission-history.ts `eventCount`), not the
+    /// window's: a reply joined from 1200 fragments is one event drawn and 1200 recorded.
+    recorded: std::collections::BTreeSet<u64>,
     /// A held reply's fragments (whole events) by sequence, so a replayed or late fragment folds in once and in order.
     fragments: HashMap<String, BTreeMap<u64, Value>>,
     /// Which held events carry each reply (each message's first fragment's sequence): more than one when an old record
@@ -1053,6 +1056,11 @@ impl Transcript {
         }
     }
 
+    /// How many events the record holds, whatever the window draws (mission-history.ts `eventCount`).
+    pub fn event_count(&self) -> usize {
+        self.recorded.len()
+    }
+
     pub fn apply(&mut self, records: Vec<Record>) {
         if records.is_empty() {
             return;
@@ -1081,6 +1089,7 @@ impl Transcript {
             } else if let Some(event) = record.get("event")
                 && let Some(sequence) = event.get("sequence").and_then(Value::as_u64)
             {
+                self.recorded.insert(sequence);
                 self.hold(sequence, event);
             }
         }
@@ -2161,6 +2170,8 @@ impl Session {
                     phase: phase.to_owned(),
                     running: t.running,
                     events: t.events.values().cloned().collect(),
+                    event_count: t.event_count(),
+                    events_truncated: t.trimmed,
                     signal_rail: t.signal_rail.clone(),
                     checkpoints_count: t.checkpoints.len(),
                     last_checkpoint_epoch,

@@ -2070,12 +2070,12 @@ apps/desktop/src/main/memory-store.test.ts	is bounded	no
 apps/desktop/src/main/mission-history.test.ts	gives the same folder the same id every time, so a mission can be matched back to it	yes
 apps/desktop/src/main/mission-history.test.ts	does not put the path itself in the ledger	yes
 apps/desktop/src/main/mission-history.test.ts	keeps every character of a reply streamed across more fragments than the window holds	yes
-apps/desktop/src/main/mission-history.test.ts	reports the true event count, and does not call joining truncation	no
+apps/desktop/src/main/mission-history.test.ts	reports the true event count, and does not call joining truncation	yes
 apps/desktop/src/main/mission-history.test.ts	marks the message final from the LAST fragment, not the first	yes
 apps/desktop/src/main/mission-history.test.ts	honours a replace, which is how a runtime rewrites what it already said	yes
 apps/desktop/src/main/mission-history.test.ts	keeps two messages apart, and in the order they were said	yes
-apps/desktop/src/main/mission-history.test.ts	leaves a mission that never streamed exactly as it was	no
-apps/desktop/src/main/mission-history.test.ts	passes small missions through untruncated with truthful counts	no
+apps/desktop/src/main/mission-history.test.ts	leaves a mission that never streamed exactly as it was	yes
+apps/desktop/src/main/mission-history.test.ts	passes small missions through untruncated with truthful counts	yes
 apps/desktop/src/main/mission-history.test.ts	windows oversized missions to the first and latest events and says so	no
 apps/desktop/src/main/mission-history.test.ts	surfaces only the latest host failure and the mission-local issue count	no
 apps/desktop/src/main/mission-history.test.ts	joins a mission's links with the workroom text, keeping direction	no

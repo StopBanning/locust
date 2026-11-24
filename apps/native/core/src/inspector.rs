@@ -435,6 +435,10 @@ pub struct TurnInput {
     pub phase: String,
     pub running: bool,
     pub events: Vec<Value>,
+    /// How many events the turn's record holds; `events` is the window, a streamed reply joined into one.
+    pub event_count: usize,
+    /// Whether the window dropped any of them. Joining a reply's fragments drops nothing, so it is not truncation.
+    pub events_truncated: bool,
     /// Projected on ledger ingestion, so drawing never consults the timezone database.
     pub signal_rail: Vec<SignalRow>,
     pub checkpoints_count: usize,
@@ -457,6 +461,7 @@ pub struct RunReport {
     pub phase: String,
     pub running: bool,
     pub event_count: usize,
+    pub events_truncated: bool,
     pub checkpoints_count: usize,
     pub last_checkpoint_epoch: Option<u64>,
     pub integrity_issue_count: usize,
@@ -467,6 +472,11 @@ pub struct RunReport {
     pub signal_rail: Vec<SignalRow>,
     pub artifacts: Vec<ArtifactRow>,
     pub recovery_note: Option<String>,
+}
+
+/// The Details tab's Events line, in Thread.tsx's words: what the record holds, and whether the window left any out.
+pub fn events_line(report: &RunReport) -> String {
+    format!("{} recorded{}", report.event_count, if report.events_truncated { " \u{b7} window truncated for display" } else { "" })
 }
 
 pub fn build_run_report(
@@ -519,7 +529,8 @@ pub fn build_run_report(
         sandbox_label: sandbox_phrase(sandbox_opt),
         phase: input.phase.clone(),
         running: input.running,
-        event_count: input.events.len(),
+        event_count: input.event_count,
+        events_truncated: input.events_truncated,
         checkpoints_count: input.checkpoints_count,
         last_checkpoint_epoch: input.last_checkpoint_epoch,
         integrity_issue_count: input.integrity_issue_count,
@@ -706,6 +717,8 @@ mod tests {
                 json!({"id":"e1","type":"run.started","sourceAdapter":"codex","occurredAt":"2026-11-12T10:00:00.000Z","payload":{}}),
                 json!({"id":"e2","type":"run.failed","sourceAdapter":"codex","occurredAt":"2026-11-12T10:00:05.000Z","payload":{"message":"Quota reached"}}),
             ],
+            event_count: 2,
+            events_truncated: false,
             signal_rail: Vec::new(),
             checkpoints_count: 1,
             last_checkpoint_epoch: Some(1),
@@ -729,6 +742,8 @@ mod tests {
                 json!({"id":"e3","type":"run.started","sourceAdapter":"claude","occurredAt":"2026-11-12T10:01:00.000Z","payload":{}}),
                 json!({"id":"e4","type":"run.completed","sourceAdapter":"claude","occurredAt":"2026-11-12T10:01:10.000Z","payload":{"usage":{"costUsd":0.0125}}}),
             ],
+            event_count: 2,
+            events_truncated: false,
             signal_rail: Vec::new(),
             checkpoints_count: 1,
             last_checkpoint_epoch: Some(1),
