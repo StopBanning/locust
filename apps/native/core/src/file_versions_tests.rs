@@ -83,3 +83,32 @@ fn keeps_windows_line_endings() {
         Reversed::Ok(Some("# Plan\r\nShip on Tuesday\r\n".into()))
     );
 }
+
+fn edit(id: &str, diff: &str) -> Item {
+    Item::Tool {
+        name: "Edit".into(),
+        status: crate::ledger::Status::Done,
+        summary: "plan.md".into(),
+        detail: Box::new(crate::ledger::ToolDetail {
+            id: id.into(),
+            patch: Some(crate::activity_entries::Patch { text: diff.into(), added: 2, removed: 0, truncated: false }),
+            ..crate::ledger::ToolDetail::default()
+        }),
+    }
+}
+
+/// Electron keeps one turn per message sent (`missionView.ts::fileTurns` walks every turn), so a message that got no
+/// answer still counts: the edit after it belongs to the second turn, not the first.
+#[test]
+fn a_message_with_no_answer_still_counts_as_a_turn() {
+    let made = "diff --git a/plan.md b/plan.md\nnew file mode 100644\n--- /dev/null\n+++ b/plan.md\n@@ -0,0 +1,2 @@\n+# Plan\n+Ship on Monday\n";
+    let items = vec![
+        Item::User("Write the plan".into()),
+        Item::User("Actually, write it now".into()),
+        edit("t1", made),
+    ];
+    let turns = file_turns_from_items(&items, "plan.md", None);
+    assert_eq!(turns.len(), 1);
+    assert_eq!(turns[0].mission_id, "turn-2");
+    assert_eq!(turns[0].prompt, "Actually, write it now");
+}
