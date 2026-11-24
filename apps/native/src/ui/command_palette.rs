@@ -143,6 +143,21 @@ pub fn default_palette_actions(
     actions
 }
 
+/// App.tsx: a conversation in the palette is found by every turn's words and by its teammate's name too
+/// (`keywords: ${mission.said} ${owner}`), as the sidebar's search finds it.
+pub(super) fn with_owner_names(s: &mut State) {
+    let owners: std::collections::HashMap<&str, &str> = s.recent.iter().map(|r| (r.id.as_str(), r.teammate.as_str())).collect();
+    for action in &mut s.palette_actions {
+        if let Some(id) = action.id.strip_prefix("conv:")
+            && let Some(owner) = owners.get(id).filter(|o| !o.trim().is_empty())
+        {
+            let words = action.keywords.get_or_insert_with(String::new);
+            words.push(' ');
+            words.push_str(owner);
+        }
+    }
+}
+
 pub(super) fn command_palette(s: &State, p: &Palette) -> El {
     let actions = palette_matches(&s.palette_actions, &s.palette_query.text);
     let mut list = col().w_full().gap(2.0).padding(8.0);
@@ -266,6 +281,10 @@ pub(super) fn run_palette_action(s: &mut State, id: &str, tx: &mut Tx) {
         _ => {}
     }
 }
+
+#[cfg(test)]
+#[path = "search_every_turn_tests.rs"]
+mod search_every_turn_tests;
 
 #[cfg(test)]
 mod tests {

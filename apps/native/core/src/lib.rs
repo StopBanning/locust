@@ -213,6 +213,9 @@ pub mod profile_backup;
 pub mod profile_sync;
 #[cfg(test)]
 mod profile_sync_tests;
+pub mod your_account;
+#[cfg(test)]
+mod your_account_tests;
 pub mod protocol_tags;
 pub mod pull_requests;
 pub mod qr;

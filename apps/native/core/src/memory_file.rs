@@ -108,6 +108,18 @@ pub fn last_written(memory: &Value) -> Option<&str> {
     memory.get("updatedAt").and_then(Value::as_str).or_else(|| memory["createdAt"].as_str())
 }
 
+/// Oldest first by last write (`byLastWritten`), so "the end of the list is the newest" holds for a memory rewritten in
+/// place too. Stable: memories written at the same moment keep the store's own order. A date that does not read sorts
+/// as the oldest.
+pub fn by_last_written(mut rows: Vec<Value>) -> Vec<Value> {
+    rows.sort_by_key(|m| {
+        last_written(m)
+            .and_then(|at| chrono::DateTime::parse_from_rfc3339(at).ok())
+            .map_or(i64::MIN, |at| at.timestamp_millis())
+    });
+    rows
+}
+
 /// Who wrote the words a teammate will read (A1.6): the rewrite's writer, else who first kept it.
 pub fn writer(memory: &Value) -> &str {
     memory["updatedBy"]["name"]
@@ -203,3 +215,7 @@ pub fn retire_memory_file(folder: &Path) -> bool {
         _ => false,
     }
 }
+
+#[cfg(test)]
+#[path = "memory_rewritten_case_tests.rs"]
+mod memory_rewritten_case_tests;

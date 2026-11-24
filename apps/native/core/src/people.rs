@@ -1556,7 +1556,7 @@ pub(crate) fn briefed_rows(store: &Store, folder: &Path, stands_in: Option<&Path
     let looked_in = stands_in.unwrap_or(folder);
     let tracking = held["briefTrackingSince"].as_str();
     let now = chrono::Utc::now();
-    Some(
+    Some(crate::memory_file::by_last_written(
         held["memories"]
             .as_array()
             .into_iter()
@@ -1578,7 +1578,7 @@ pub(crate) fn briefed_rows(store: &Store, folder: &Path, stands_in: Option<&Path
                 row
             })
             .collect(),
-    )
+    ))
 }
 
 /// Before a run: the whole list written to `.locust/memory.md` where the run stands, so the brief can paste the newest

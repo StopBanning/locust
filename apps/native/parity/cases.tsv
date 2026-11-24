@@ -747,6 +747,14 @@ apps/desktop/src/main/a-profile-backs-up-and-restores.test.ts	is written down wh
 apps/desktop/src/main/a-profile-backs-up-and-restores.test.ts	read again at the start: a backup changed since it was asked for is refused, and nothing here moves	no
 apps/desktop/src/main/a-profile-backs-up-and-restores.test.ts	that fails part-way puts everything back as it was	no
 apps/desktop/src/main/a-profile-backs-up-and-restores.test.ts	backed up, or left out with a reason	no
+apps/desktop/src/main/a-profile-copy-is-sealed-before-it-leaves.test.ts	opens with the same key, account and id, and holds what was sealed	yes
+apps/desktop/src/main/a-profile-copy-is-sealed-before-it-leaves.test.ts	holds none of the words it was given	yes
+apps/desktop/src/main/a-profile-copy-is-sealed-before-it-leaves.test.ts	does not open with another key, for another account, or under another id	yes
+apps/desktop/src/main/a-profile-copy-is-sealed-before-it-leaves.test.ts	is the same on every computer of the account, and differs by name and by key, but for the list	yes
+apps/desktop/src/main/a-profile-copy-is-sealed-before-it-leaves.test.ts	is a relay file id that says nothing of the name	yes
+apps/desktop/src/main/a-profile-copy-is-sealed-before-it-leaves.test.ts	fall at fixed offsets, so an appended file changes only its last piece	yes
+apps/desktop/src/main/a-profile-copy-is-sealed-before-it-leaves.test.ts	gives back the profile key, however it is typed	yes
+apps/desktop/src/main/a-profile-copy-is-sealed-before-it-leaves.test.ts	refuses a code copied wrong	yes
 apps/desktop/src/main/a-project-is-never-half-put-back.test.ts	the host writes nothing when any file cannot go back, and says which could have	yes
 apps/desktop/src/main/a-project-is-never-half-put-back.test.ts	a write that fails puts the ones already written back as they were	yes
 apps/desktop/src/main/a-project-is-never-half-put-back.test.ts	the window offers nothing to tick when it already knows some cannot go back, and says why	yes
@@ -1624,13 +1632,13 @@ apps/desktop/src/main/bounded-shutdown.test.ts	leaves on its own when the work n
 apps/desktop/src/main/bounded-shutdown.test.ts	leaves as soon as the work is done, and not again at the deadline	yes
 apps/desktop/src/main/bounded-shutdown.test.ts	reports a failed flush as a failure rather than as a clean exit	no
 apps/desktop/src/main/bounded-shutdown.test.ts	does not leave twice when the work lands right after the deadline	no
-apps/desktop/src/main/changelog.test.ts	finds every entry, newest first, in the order the file writes them	no
-apps/desktop/src/main/changelog.test.ts	gives an entry its body and not its heading	no
-apps/desktop/src/main/changelog.test.ts	keeps a multi-line entry whole	no
-apps/desktop/src/main/changelog.test.ts	reads an entry with no date	no
-apps/desktop/src/main/changelog.test.ts	says nothing for a version the file does not carry	no
-apps/desktop/src/main/changelog.test.ts	reads an empty or headingless file as no entries at all	no
-apps/desktop/src/main/changelog.test.ts	is not fooled by a version-looking line inside an entry	no
+apps/desktop/src/main/changelog.test.ts	finds every entry, newest first, in the order the file writes them	yes
+apps/desktop/src/main/changelog.test.ts	gives an entry its body and not its heading	yes
+apps/desktop/src/main/changelog.test.ts	keeps a multi-line entry whole	yes
+apps/desktop/src/main/changelog.test.ts	reads an entry with no date	yes
+apps/desktop/src/main/changelog.test.ts	says nothing for a version the file does not carry	yes
+apps/desktop/src/main/changelog.test.ts	reads an empty or headingless file as no entries at all	yes
+apps/desktop/src/main/changelog.test.ts	is not fooled by a version-looking line inside an entry	yes
 apps/desktop/src/main/claude-background-is-watched-not-run.test.ts	reads only background sessions from claude agents --json, and nothing from a malformed answer	yes
 apps/desktop/src/main/claude-background-is-watched-not-run.test.ts	says a blocked session waits for the person, and that Locust does not answer for them	yes
 apps/desktop/src/main/claude-background-is-watched-not-run.test.ts	starts claude --bg on the conversation, the mode said as Claude Code's, the message never taken for a flag	yes
@@ -3335,6 +3343,26 @@ apps/desktop/src/main/worktrees.test.ts	C1: removes it only for the exact change
 apps/desktop/src/main/worktrees.test.ts	C1: removes a clean copy at once, with git’s own unforced remove	yes
 apps/desktop/src/main/worktrees.test.ts	names changes the way git status does, a quoted path unquoted	yes
 apps/desktop/src/main/worktrees.test.ts	refuses an id that could name a path outside the folder	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	without a GitHub sign-in it says where to sign in and keeps nothing	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	turning sync on shows the recovery code once, locks the key, and sends the copy	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	off keeps the key, and on again shows no new code and seals with the same key	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	a computer that cannot lock a key keeps sync off and says why	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	a key made for another GitHub account is not used: a new sign-in starts over with its own code	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	Sync now says when the relay is full, and nothing on the computer changes	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	Delete my copy empties the relay, turns sync off and forgets what was sent	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	a new computer is told another computer keeps a copy	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	the code opens the newest copy, restores it at the next start, and keeps the key for sync	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	a code that does not open the copy changes nothing	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	a code copied wrong is caught before the relay is asked	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	with no other computer keeping a copy, it says to turn Keep a copy on there first	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	reads the relay’s own list into copies and usage, and refuses a room name it should not	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	the Mac asks, both screens show one code, the PC approves, and the Mac brings the copy in with no recovery code	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	the ask leaves no trace: the Mac takes it down, and the PC then removes its grant	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	a code that is not the one the PC was shown sends nothing	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	a key swapped at the relay after the PC showed the code is refused: the PC reads the ask again before it seals	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	Not mine puts the ask away on that computer and gives nothing	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	a computer without the key is never shown an ask to approve	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	after ten minutes with no approval the ask is given up and taken down	yes
 apps/desktop/src/main/your-github-is-connected-through-gh.test.ts	reads the active account, its scopes, and an account GitHub no longer takes	yes
 apps/desktop/src/main/your-github-is-connected-through-gh.test.ts	never names a login GitHub could not have issued	yes
 apps/desktop/src/main/your-github-is-connected-through-gh.test.ts	reads an older gh by its exit and first account line	yes
@@ -3396,13 +3424,13 @@ apps/desktop/src/renderer/src/959-minutes-is-not-a-duration.test.ts	turns Colin'
 apps/desktop/src/renderer/src/959-minutes-is-not-a-duration.test.ts	counts days once it has been days	yes
 apps/desktop/src/renderer/src/959-minutes-is-not-a-duration.test.ts	names the day when a turn has crossed one, and not before	yes
 apps/desktop/src/renderer/src/959-minutes-is-not-a-duration.test.ts	still says how long the silence was, which was never the broken part	no
-apps/desktop/src/renderer/src/a-background-command-says-what-became-of-it.test.tsx	a Claude command row leads with what the model said it was doing	no
-apps/desktop/src/renderer/src/a-background-command-says-what-became-of-it.test.tsx	learns the work was stopped when the run ended, after the call had closed	no
-apps/desktop/src/renderer/src/a-background-command-says-what-became-of-it.test.tsx	work that finished, or failed, in the background says that	no
-apps/desktop/src/renderer/src/a-background-command-says-what-became-of-it.test.tsx	background work does not take the live line, or end it	no
-apps/desktop/src/renderer/src/a-background-command-says-what-became-of-it.test.tsx	stopped with the run: amber, and says why	no
-apps/desktop/src/renderer/src/a-background-command-says-what-became-of-it.test.tsx	still running while the run is live, and not claimed afterwards	no
-apps/desktop/src/renderer/src/a-background-command-says-what-became-of-it.test.tsx	a described row keeps the command one press away	no
+apps/desktop/src/renderer/src/a-background-command-says-what-became-of-it.test.tsx	a Claude command row leads with what the model said it was doing	yes
+apps/desktop/src/renderer/src/a-background-command-says-what-became-of-it.test.tsx	learns the work was stopped when the run ended, after the call had closed	yes
+apps/desktop/src/renderer/src/a-background-command-says-what-became-of-it.test.tsx	work that finished, or failed, in the background says that	yes
+apps/desktop/src/renderer/src/a-background-command-says-what-became-of-it.test.tsx	background work does not take the live line, or end it	yes
+apps/desktop/src/renderer/src/a-background-command-says-what-became-of-it.test.tsx	stopped with the run: amber, and says why	yes
+apps/desktop/src/renderer/src/a-background-command-says-what-became-of-it.test.tsx	still running while the run is live, and not claimed afterwards	yes
+apps/desktop/src/renderer/src/a-background-command-says-what-became-of-it.test.tsx	a described row keeps the command one press away	yes
 apps/desktop/src/renderer/src/a-background-helper-says-it-is-still-working.test.ts	works in the background, saying what it is doing, until it reports (${order})	yes
 apps/desktop/src/renderer/src/a-background-helper-says-it-is-still-working.test.ts	says it did not report when the turn ended with it still out	yes
 apps/desktop/src/renderer/src/a-bang-in-the-box-is-command-mode.test.tsx	shows command mode in the box, and Escape leaves it	yes
@@ -3429,26 +3457,26 @@ apps/desktop/src/renderer/src/a-blank-line-does-not-end-a-list.test.tsx	still st
 apps/desktop/src/renderer/src/a-blind-comparison-hides-the-names.test.tsx	names its columns Model A and Model B, and shows nothing that names the model	no
 apps/desktop/src/renderer/src/a-blind-comparison-hides-the-names.test.tsx	shows the names once one is kept	no
 apps/desktop/src/renderer/src/a-blind-comparison-hides-the-names.test.tsx	counts, per model, the decided comparisons it answered in and the ones you kept it	no
-apps/desktop/src/renderer/src/a-board-of-conversations.test.tsx	draws each column with its count, and each card with its face, title and state	no
-apps/desktop/src/renderer/src/a-board-of-conversations.test.tsx	says it is quiet, and lists what is done, when nothing needs the person (control)	no
+apps/desktop/src/renderer/src/a-board-of-conversations.test.tsx	draws each column with its count, and each card with its face, title and state	yes
+apps/desktop/src/renderer/src/a-board-of-conversations.test.tsx	says it is quiet, and lists what is done, when nothing needs the person (control)	yes
 apps/desktop/src/renderer/src/a-bots-dot-and-ring-sit-on-the-bot.test.ts	finds the painted pixels, right and bottom exclusive	yes
 apps/desktop/src/renderer/src/a-bots-dot-and-ring-sit-on-the-bot.test.ts	ignores an antialiased fringe and says nothing for an empty canvas	yes
 apps/desktop/src/renderer/src/a-bots-dot-and-ring-sit-on-the-bot.test.ts	centres the ring on the body, clear of it by RING_MARGIN on its longer side	yes
 apps/desktop/src/renderer/src/a-bots-dot-and-ring-sit-on-the-bot.test.ts	puts the dot on the lower-right edge, not off the corner and not at mid height	yes
 apps/desktop/src/renderer/src/a-bots-dot-and-ring-sit-on-the-bot.test.ts	hands them to the CSS as percentages of the box, the dot by its centre	yes
-apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx	marks the earlier messages, the finished steps and the last reply as droppable, and nothing else	no
-apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx	says what the person left out, in their words	no
-apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx	reads the same from an older host that sends no choice	no
-apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx	joins the parts as a sentence does	no
-apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx	puts a control on each part that may go, and a way to put them back	no
-apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx	sends the choice with the message only when it crosses runtimes	no
-apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx	says what the person left out, plainly, beside what did not fit	no
-apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx	says nothing more when nothing was left out	no
+apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx	marks the earlier messages, the finished steps and the last reply as droppable, and nothing else	yes
+apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx	says what the person left out, in their words	yes
+apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx	reads the same from an older host that sends no choice	yes
+apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx	joins the parts as a sentence does	yes
+apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx	puts a control on each part that may go, and a way to put them back	yes
+apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx	sends the choice with the message only when it crosses runtimes	yes
+apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx	says what the person left out, plainly, beside what did not fit	yes
+apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx	says nothing more when nothing was left out	yes
 apps/desktop/src/renderer/src/a-browser-opens-on-what-it-last-saw.test.ts	keeps each read by its call and its arguments	yes
 apps/desktop/src/renderer/src/a-browser-opens-on-what-it-last-saw.test.ts	keeps the newest when there is too much, and does not keep one too long	yes
 apps/desktop/src/renderer/src/a-browser-opens-on-what-it-last-saw.test.ts	is sealed: opened with its own key, and with no other	yes
 apps/desktop/src/renderer/src/a-browser-opens-on-what-it-last-saw.test.ts	says when it is from, with the day when it was not today	yes
-apps/desktop/src/renderer/src/a-build-starter-makes-one-page.test.ts	asks for one named .html file with everything inside it	no
+apps/desktop/src/renderer/src/a-build-starter-makes-one-page.test.ts	asks for one named .html file with everything inside it	yes
 apps/desktop/src/renderer/src/a-busy-free-model-offers-the-next.test.tsx	is the next of OpenCode's free models after the one the run is on	yes
 apps/desktop/src/renderer/src/a-busy-free-model-offers-the-next.test.tsx	skips a model of the person's own, and goes round after the last	yes
 apps/desktop/src/renderer/src/a-busy-free-model-offers-the-next.test.tsx	is nothing for a paid route, a model of their own, another runtime, or a lone free model	yes
@@ -3485,10 +3513,10 @@ apps/desktop/src/renderer/src/a-chain-template-opens-in-the-editor.test.tsx	open
 apps/desktop/src/renderer/src/a-chain-template-opens-in-the-editor.test.tsx	replays a teammate with no route of their own on the one the box shows, changing files when the chain does	yes
 apps/desktop/src/renderer/src/a-chain-template-opens-in-the-editor.test.tsx	has nobody to propose and no route when the roster is empty (the editor then says to add a teammate first)	yes
 apps/desktop/src/renderer/src/a-chain-template-opens-in-the-editor.test.tsx	gives a Council review step to a teammate on another agent, as its template says (0.837)	yes
-apps/desktop/src/renderer/src/a-change-can-be-copied.test.tsx	gives the code as it reads after an edit: no signs, no removed lines, parts apart	no
-apps/desktop/src/renderer/src/a-change-can-be-copied.test.tsx	gives a new file whole, and nothing for a deleted one	no
-apps/desktop/src/renderer/src/a-change-can-be-copied.test.tsx	offers Copy at the foot of an opened change	no
-apps/desktop/src/renderer/src/a-change-can-be-copied.test.tsx	offers Copy on a changed file's row, beside Open and Show	no
+apps/desktop/src/renderer/src/a-change-can-be-copied.test.tsx	gives the code as it reads after an edit: no signs, no removed lines, parts apart	yes
+apps/desktop/src/renderer/src/a-change-can-be-copied.test.tsx	gives a new file whole, and nothing for a deleted one	yes
+apps/desktop/src/renderer/src/a-change-can-be-copied.test.tsx	offers Copy at the foot of an opened change	yes
+apps/desktop/src/renderer/src/a-change-can-be-copied.test.tsx	offers Copy on a changed file's row, beside Open and Show	yes
 apps/desktop/src/renderer/src/a-change-is-performed-in-order.test.ts	is one blink: the eyes shut, the new ones come in under the shut lids, they open, and only then does its state begin	yes
 apps/desktop/src/renderer/src/a-change-is-performed-in-order.test.ts	blinks once for a change of what it is doing, its eyes and their colour the same; and not at all with no change	yes
 apps/desktop/src/renderer/src/a-change-is-performed-in-order.test.ts	asked for again mid-change, goes on from where its lids are: never springing open to shut again	yes
@@ -3533,9 +3561,9 @@ apps/desktop/src/renderer/src/a-command-reads-as-a-command.test.ts	does not stri
 apps/desktop/src/renderer/src/a-command-reads-as-a-command.test.ts	only matches at the start, so a command that mentions one is safe	yes
 apps/desktop/src/renderer/src/a-command-reads-as-a-command.test.ts	keeps the whole thing when there is nothing after the wrapper	yes
 apps/desktop/src/renderer/src/a-command-reads-as-a-command.test.ts	trims, so a row never starts with whitespace	yes
-apps/desktop/src/renderer/src/a-command-says-how-long-it-took.test.ts	says how long it ran, from its start to its end	no
-apps/desktop/src/renderer/src/a-command-says-how-long-it-took.test.ts	says nothing when there is nothing true to say: instant, backgrounded, or refused	no
-apps/desktop/src/renderer/src/a-command-says-how-long-it-took.test.ts	says nothing while it is still running	no
+apps/desktop/src/renderer/src/a-command-says-how-long-it-took.test.ts	says how long it ran, from its start to its end	yes
+apps/desktop/src/renderer/src/a-command-says-how-long-it-took.test.ts	says nothing when there is nothing true to say: instant, backgrounded, or refused	yes
+apps/desktop/src/renderer/src/a-command-says-how-long-it-took.test.ts	says nothing while it is still running	yes
 apps/desktop/src/renderer/src/a-command-that-reaches-other-programs-says-so.test.tsx	says what the command reaches before it runs	yes
 apps/desktop/src/renderer/src/a-command-that-reaches-other-programs-says-so.test.tsx	has no such row for a command that acts on its own work	yes
 apps/desktop/src/renderer/src/a-command-that-reaches-other-programs-says-so.test.tsx	offers neither Always nor a saved rule, and says why	yes
@@ -3545,10 +3573,10 @@ apps/desktop/src/renderer/src/a-command-that-reaches-other-programs-says-so.test
 apps/desktop/src/renderer/src/a-command-that-reaches-other-programs-says-so.test.tsx	says what the command reached after it ran	yes
 apps/desktop/src/renderer/src/a-command-that-reaches-other-programs-says-so.test.tsx	says nothing more about a command that acts on its own work	yes
 apps/desktop/src/renderer/src/a-command-that-reaches-other-programs-says-so.test.tsx	says nothing about a command that was refused, since it never ran	yes
-apps/desktop/src/renderer/src/a-command-wraps-at-its-spaces.test.tsx	holds each flag to its dash and changes no character	no
-apps/desktop/src/renderer/src/a-command-wraps-at-its-spaces.test.tsx	leaves a dash inside a word, a lone dash and a number alone	no
-apps/desktop/src/renderer/src/a-command-wraps-at-its-spaces.test.tsx	is drawn so on the approval card, and a connector call is not	no
-apps/desktop/src/renderer/src/a-command-wraps-at-its-spaces.test.tsx	is drawn so on the Board	no
+apps/desktop/src/renderer/src/a-command-wraps-at-its-spaces.test.tsx	holds each flag to its dash and changes no character	yes
+apps/desktop/src/renderer/src/a-command-wraps-at-its-spaces.test.tsx	leaves a dash inside a word, a lone dash and a number alone	yes
+apps/desktop/src/renderer/src/a-command-wraps-at-its-spaces.test.tsx	is drawn so on the approval card, and a connector call is not	yes
+apps/desktop/src/renderer/src/a-command-wraps-at-its-spaces.test.tsx	is drawn so on the Board	yes
 apps/desktop/src/renderer/src/a-commands-card-says-unknown-once.test.tsx	are one row when Locust can tell nothing about them	yes
 apps/desktop/src/renderer/src/a-commands-card-says-unknown-once.test.tsx	stay two rows whenever either row knows something	yes
 apps/desktop/src/renderer/src/a-commands-card-says-what-it-is-for.test.tsx	says what a forced push does, under the command, in amber	yes
@@ -3609,14 +3637,14 @@ apps/desktop/src/renderer/src/a-context-menu-stays-in-the-window.test.tsx	has no
 apps/desktop/src/renderer/src/a-context-menu-stays-in-the-window.test.tsx	shows each row’s key at its end	yes
 apps/desktop/src/renderer/src/a-context-menu-stays-in-the-window.test.tsx	draws a hairline between kinds of action, and red for the one that deletes	yes
 apps/desktop/src/renderer/src/a-context-menu-stays-in-the-window.test.tsx	puts a list behind one row, and says why when it cannot open	yes
-apps/desktop/src/renderer/src/a-conversation-can-be-pinned.test.tsx	puts the pinned ones on top, newest pin first, and the rest under Recents, each once	no
-apps/desktop/src/renderer/src/a-conversation-can-be-pinned.test.tsx	looks as it did with nothing pinned	no
-apps/desktop/src/renderer/src/a-conversation-can-be-put-away.test.tsx	is out of the list while settled, or until its snooze ends	no
-apps/desktop/src/renderer/src/a-conversation-can-be-put-away.test.tsx	comes back when something new happens in it	no
-apps/desktop/src/renderer/src/a-conversation-can-be-put-away.test.tsx	on a Friday morning: an hour, this evening, tomorrow, Monday	no
-apps/desktop/src/renderer/src/a-conversation-can-be-put-away.test.tsx	leaves out an evening already here, and a Monday that is tomorrow	no
-apps/desktop/src/renderer/src/a-conversation-can-be-put-away.test.tsx	leaves a settled conversation out	no
-apps/desktop/src/renderer/src/a-conversation-can-be-put-away.test.tsx	keeps it while it is the one open, so its menu can bring it back	no
+apps/desktop/src/renderer/src/a-conversation-can-be-pinned.test.tsx	puts the pinned ones on top, newest pin first, and the rest under Recents, each once	yes
+apps/desktop/src/renderer/src/a-conversation-can-be-pinned.test.tsx	looks as it did with nothing pinned	yes
+apps/desktop/src/renderer/src/a-conversation-can-be-put-away.test.tsx	is out of the list while settled, or until its snooze ends	yes
+apps/desktop/src/renderer/src/a-conversation-can-be-put-away.test.tsx	comes back when something new happens in it	yes
+apps/desktop/src/renderer/src/a-conversation-can-be-put-away.test.tsx	on a Friday morning: an hour, this evening, tomorrow, Monday	yes
+apps/desktop/src/renderer/src/a-conversation-can-be-put-away.test.tsx	leaves out an evening already here, and a Monday that is tomorrow	yes
+apps/desktop/src/renderer/src/a-conversation-can-be-put-away.test.tsx	leaves a settled conversation out	yes
+apps/desktop/src/renderer/src/a-conversation-can-be-put-away.test.tsx	keeps it while it is the one open, so its menu can bring it back	yes
 apps/desktop/src/renderer/src/a-conversation-can-be-searched.test.ts	finds every place the words are, whatever their case	yes
 apps/desktop/src/renderer/src/a-conversation-can-be-searched.test.ts	finds words that cross a bold word or a code span, and ends inside the piece that holds the last letter	yes
 apps/desktop/src/renderer/src/a-conversation-can-be-searched.test.ts	takes what is typed as words, never as a pattern	yes
@@ -3640,12 +3668,12 @@ apps/desktop/src/renderer/src/a-conversation-offers-its-terminal.test.tsx	is hel
 apps/desktop/src/renderer/src/a-conversation-offers-its-terminal.test.tsx	is not made where there is no terminal to open	yes
 apps/desktop/src/renderer/src/a-conversation-offers-its-terminal.test.tsx	is the code glyph, named and titled, and disabled with the reason as its title	no
 apps/desktop/src/renderer/src/a-conversation-offers-its-terminal.test.tsx	heads the ... menu, and is no longer a header button of its own (0.797: the header is a row of icons)	yes
-apps/desktop/src/renderer/src/a-conversation-opens-beside-another.test.tsx	names whose conversation it is, and offers to open it here or close it	no
-apps/desktop/src/renderer/src/a-conversation-opens-beside-another.test.tsx	draws the conversation itself -- what was asked and what has come back so far	no
-apps/desktop/src/renderer/src/a-conversation-opens-beside-another.test.tsx	has no chat box of its own: a message goes to the conversation in the middle	no
-apps/desktop/src/renderer/src/a-conversation-opens-beside-another.test.tsx	is offered on a conversation's right-click menu	no
-apps/desktop/src/renderer/src/a-conversation-opens-beside-another.test.tsx	shares the file panel: an open file wins, then the conversation beside, then Review changes (0.439), then the inspector	no
-apps/desktop/src/renderer/src/a-conversation-opens-beside-another.test.tsx	never draws the conversation already in the middle a second time	no
+apps/desktop/src/renderer/src/a-conversation-opens-beside-another.test.tsx	names whose conversation it is, and offers to open it here or close it	yes
+apps/desktop/src/renderer/src/a-conversation-opens-beside-another.test.tsx	draws the conversation itself -- what was asked and what has come back so far	yes
+apps/desktop/src/renderer/src/a-conversation-opens-beside-another.test.tsx	has no chat box of its own: a message goes to the conversation in the middle	yes
+apps/desktop/src/renderer/src/a-conversation-opens-beside-another.test.tsx	is offered on a conversation's right-click menu	yes
+apps/desktop/src/renderer/src/a-conversation-opens-beside-another.test.tsx	shares the file panel: an open file wins, then the conversation beside, then Review changes (0.439), then the inspector	yes
+apps/desktop/src/renderer/src/a-conversation-opens-beside-another.test.tsx	never draws the conversation already in the middle a second time	yes
 apps/desktop/src/renderer/src/a-conversation-with-nobody-wears-its-model.test.tsx	wears its model's mark where the face goes, named	yes
 apps/desktop/src/renderer/src/a-conversation-with-nobody-wears-its-model.test.tsx	keeps the empty place for a model of your own, or a runtime not yet known	yes
 apps/desktop/src/renderer/src/a-damaged-record-says-so-in-the-thread.test.tsx	says what is missing and that the file is kept	yes
@@ -3762,13 +3790,13 @@ apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx
 apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	is not offered where the runtime lists no /compact, or the message would go elsewhere	yes
 apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	waits in line behind a running turn, as a message sent then does (Orca does the same)	yes
 apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	says why it cannot, with a message already waiting or another model picked	yes
-apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	opens under the reading, the way the hover says it, with what it does	no
-apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	shows the reason in place of what it does when it waits	no
-apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	is a button that opens a menu when Compact now can be offered	no
-apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	is a button while a turn is still starting, before it has a route of its own	no
-apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	stays a picture where it cannot	no
-apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	the ring no longer reads the conversation as it was before	no
-apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	and reads again from the next turn that reports	no
+apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	opens under the reading, the way the hover says it, with what it does	yes
+apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	shows the reason in place of what it does when it waits	yes
+apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	is a button that opens a menu when Compact now can be offered	yes
+apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	is a button while a turn is still starting, before it has a route of its own	yes
+apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	stays a picture where it cannot	yes
+apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	the ring no longer reads the conversation as it was before	yes
+apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	and reads again from the next turn that reports	yes
 apps/desktop/src/renderer/src/a-growing-group-shows-its-rows.test.tsx	shows its rows under its line	no
 apps/desktop/src/renderer/src/a-growing-group-shows-its-rows.test.tsx	a group that is not growing starts folded, as before (control)	no
 apps/desktop/src/renderer/src/a-handed-file-is-a-control.test.tsx	names the file and says what it is	yes
@@ -3976,10 +4004,10 @@ apps/desktop/src/renderer/src/a-page-a-teammate-made-runs-in-its-turn.test.tsx	l
 apps/desktop/src/renderer/src/a-page-opens-running.test.tsx	runs a page in a sandboxed frame at its own address, with Page and Source	yes
 apps/desktop/src/renderer/src/a-page-opens-running.test.tsx	runs nothing without a page address -- the same file shows as its source	yes
 apps/desktop/src/renderer/src/a-page-opens-running.test.tsx	previews a new page, and only a new one	yes
-apps/desktop/src/renderer/src/a-part-of-a-reply-can-be-asked-about.test.tsx	is quoted line by line, blank lines kept as quote lines	no
-apps/desktop/src/renderer/src/a-part-of-a-reply-can-be-asked-about.test.tsx	is cut past its limit, and says so with an ellipsis	no
-apps/desktop/src/renderer/src/a-part-of-a-reply-can-be-asked-about.test.tsx	says it is looking before the list arrives, and names both runtimes	no
-apps/desktop/src/renderer/src/a-part-of-a-reply-can-be-asked-about.test.tsx	says ages the way the sidebar does	no
+apps/desktop/src/renderer/src/a-part-of-a-reply-can-be-asked-about.test.tsx	is quoted line by line, blank lines kept as quote lines	yes
+apps/desktop/src/renderer/src/a-part-of-a-reply-can-be-asked-about.test.tsx	is cut past its limit, and says so with an ellipsis	yes
+apps/desktop/src/renderer/src/a-part-of-a-reply-can-be-asked-about.test.tsx	says it is looking before the list arrives, and names both runtimes	yes
+apps/desktop/src/renderer/src/a-part-of-a-reply-can-be-asked-about.test.tsx	says ages the way the sidebar does	yes
 apps/desktop/src/renderer/src/a-path-only-message-is-titled-by-its-file.test.ts	is titled by the file it names	yes
 apps/desktop/src/renderer/src/a-path-only-message-is-titled-by-its-file.test.ts	leaves any other first line as it was typed	yes
 apps/desktop/src/renderer/src/a-path-only-message-is-titled-by-its-file.test.ts	is how a conversation is titled	no
@@ -4208,8 +4236,8 @@ apps/desktop/src/renderer/src/a-row-repeats-nothing-its-heading-says.test.tsx	ke
 apps/desktop/src/renderer/src/a-row-repeats-nothing-its-heading-says.test.tsx	keeps the record of a comparison, which the heading does not say	no
 apps/desktop/src/renderer/src/a-row-repeats-nothing-its-heading-says.test.tsx	draws a row with nothing extra at least 32px tall	no
 apps/desktop/src/renderer/src/a-row-repeats-nothing-its-heading-says.test.tsx	treats a repeated runtime name as the heading, and a limit or an endpoint as news	yes
-apps/desktop/src/renderer/src/a-run-a-teammate-stopped-does-not-say-you.test.tsx	says "You" for a Stop the person pressed	no
-apps/desktop/src/renderer/src/a-run-a-teammate-stopped-does-not-say-you.test.tsx	does not, for a run stopped by anything else	no
+apps/desktop/src/renderer/src/a-run-a-teammate-stopped-does-not-say-you.test.tsx	says "You" for a Stop the person pressed	yes
+apps/desktop/src/renderer/src/a-run-a-teammate-stopped-does-not-say-you.test.tsx	does not, for a run stopped by anything else	yes
 apps/desktop/src/renderer/src/a-runtime-declares-what-it-can-do.test.ts	answers exactly as the if-chain did, except where a claim was corrected on purpose	yes
 apps/desktop/src/renderer/src/a-runtime-declares-what-it-can-do.test.ts	claims nothing for a runtime no mission can run under	yes
 apps/desktop/src/renderer/src/a-runtime-declares-what-it-can-do.test.ts	offers a runtime only the modes someone has actually run under it	yes
@@ -4220,8 +4248,8 @@ apps/desktop/src/renderer/src/a-runtime-declares-what-it-can-do.test.ts	bars not
 apps/desktop/src/renderer/src/a-runtime-gap-is-not-the-teammate.test.tsx	draws the marker as a note	yes
 apps/desktop/src/renderer/src/a-runtime-gap-is-not-the-teammate.test.tsx	keeps every other word of the reply	yes
 apps/desktop/src/renderer/src/a-runtime-gap-is-not-the-teammate.test.tsx	leaves a sentence that merely mentions truncation alone	yes
-apps/desktop/src/renderer/src/a-runtime-switch-shows-where-it-happened.test.tsx	names every runtime by its name	no
-apps/desktop/src/renderer/src/a-runtime-switch-shows-where-it-happened.test.tsx	takes the words typed on each side of the switch, never the host’s briefing	no
+apps/desktop/src/renderer/src/a-runtime-switch-shows-where-it-happened.test.tsx	names every runtime by its name	yes
+apps/desktop/src/renderer/src/a-runtime-switch-shows-where-it-happened.test.tsx	takes the words typed on each side of the switch, never the host’s briefing	yes
 apps/desktop/src/renderer/src/a-saved-turn-is-said-after-its-work.test.ts	is the last line of its turn, after the work and the answer	yes
 apps/desktop/src/renderer/src/a-saved-turn-is-said-after-its-work.test.ts	is still said when the turn drew no work of its own, never folded away	yes
 apps/desktop/src/renderer/src/a-scout-card-that-needs-you-is-on-the-board.test.tsx	sits above the conversation that is waiting, with Scout’s face and the actions Home gives a draft	no
@@ -4309,14 +4337,14 @@ apps/desktop/src/renderer/src/a-step-that-never-ran-is-not-still-to-come.test.ts
 apps/desktop/src/renderer/src/a-stop-on-a-finished-run-changes-nothing.test.ts	marks a running run cancelling, clearing its error	no
 apps/desktop/src/renderer/src/a-stop-on-a-finished-run-changes-nothing.test.ts	leaves a run that has already finished exactly as it was	yes
 apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx	counts plan states even when unrelated tools and disk observations settled	yes
-apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx	uses the latest plan and never treats extra tool calls as completed plan steps	no
-apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx	shows a fully finished plan even without tool calls	no
-apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx	does not invent a plan for a stopped command without one	no
+apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx	uses the latest plan and never treats extra tool calls as completed plan steps	yes
+apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx	shows a fully finished plan even without tool calls	yes
+apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx	does not invent a plan for a stopped command without one	yes
 apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx	excludes the workspace root and its relative spellings without hiding a file with the same basename	yes
-apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx	offers an unreported OpenCode command under Cut off with its warning once	no
-apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx	shows the same uncertainty when OpenCode reported no completed tools	no
-apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx	keeps reported interrupted commands and states OpenCode uncertainty once	no
-apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx	keeps the ordinary runtime warning and never invents OpenCode uncertainty for it	no
+apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx	offers an unreported OpenCode command under Cut off with its warning once	yes
+apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx	shows the same uncertainty when OpenCode reported no completed tools	yes
+apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx	keeps reported interrupted commands and states OpenCode uncertainty once	yes
+apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx	keeps the ordinary runtime warning and never invents OpenCode uncertainty for it	yes
 apps/desktop/src/renderer/src/a-tables-status-is-a-chip.test.tsx	is found by its header, marks and all	yes
 apps/desktop/src/renderer/src/a-tables-status-is-a-chip.test.tsx	knows a value by its first words, and nothing it does not know	yes
 apps/desktop/src/renderer/src/a-tables-status-is-a-chip.test.tsx	draws as chips in a reply, and leaves other columns and unknown values alone	yes
@@ -4922,17 +4950,17 @@ apps/desktop/src/renderer/src/every-teammate-is-a-bot.test.tsx	answers to the na
 apps/desktop/src/renderer/src/every-teammate-is-a-bot.test.tsx	offers every shape to choose from, and the face	yes
 apps/desktop/src/renderer/src/every-teammate-is-a-bot.test.tsx	keeps Shuffle, once, with the look it shuffles	yes
 apps/desktop/src/renderer/src/every-teammate-is-a-bot.test.tsx	has eleven colours (Indigo and Coral, 0.660)	yes
-apps/desktop/src/renderer/src/exchange.test.ts	is nothing for a conversation that talked to nobody	no
-apps/desktop/src/renderer/src/exchange.test.ts	links two missions by the message one posted and the other received	no
-apps/desktop/src/renderer/src/exchange.test.ts	reaches a third teammate through the second, and takes the deepest hop	no
-apps/desktop/src/renderer/src/exchange.test.ts	adds up what every run in the exchange cost	no
-apps/desktop/src/renderer/src/exchange.test.ts	folds one teammate’s several turns into one participant, on their latest route	no
-apps/desktop/src/renderer/src/exchange.test.ts	names a conversation of nobody’s as such, rather than dropping it	no
-apps/desktop/src/renderer/src/exchange.test.ts	walking from one opening sees only that half	no
-apps/desktop/src/renderer/src/exchange.test.ts	walking from both openings is the whole argument	no
-apps/desktop/src/renderer/src/exchange.test.ts	takes the deepest hop of any half, so the budget is the argument’s	no
-apps/desktop/src/renderer/src/exchange.test.ts	is nothing when none of the openings exists	no
-apps/desktop/src/renderer/src/exchange.test.ts	is nothing when the openings talked to nobody	no
+apps/desktop/src/renderer/src/exchange.test.ts	is nothing for a conversation that talked to nobody	yes
+apps/desktop/src/renderer/src/exchange.test.ts	links two missions by the message one posted and the other received	yes
+apps/desktop/src/renderer/src/exchange.test.ts	reaches a third teammate through the second, and takes the deepest hop	yes
+apps/desktop/src/renderer/src/exchange.test.ts	adds up what every run in the exchange cost	yes
+apps/desktop/src/renderer/src/exchange.test.ts	folds one teammate’s several turns into one participant, on their latest route	yes
+apps/desktop/src/renderer/src/exchange.test.ts	names a conversation of nobody’s as such, rather than dropping it	yes
+apps/desktop/src/renderer/src/exchange.test.ts	walking from one opening sees only that half	yes
+apps/desktop/src/renderer/src/exchange.test.ts	walking from both openings is the whole argument	yes
+apps/desktop/src/renderer/src/exchange.test.ts	takes the deepest hop of any half, so the budget is the argument’s	yes
+apps/desktop/src/renderer/src/exchange.test.ts	is nothing when none of the openings exists	yes
+apps/desktop/src/renderer/src/exchange.test.ts	is nothing when the openings talked to nobody	yes
 apps/desktop/src/renderer/src/faceState.test.ts	idle and blocked are the only motionless states, and every other state moves	yes
 apps/desktop/src/renderer/src/faceState.test.ts	names every animation for the state it means, and retires the generic one	no
 apps/desktop/src/renderer/src/faceState.test.ts	done hops once; it is not a loop	no
@@ -5741,13 +5769,13 @@ apps/desktop/src/renderer/src/scout-settings-say-its-goal-hours-and-day.test.tsx
 apps/desktop/src/renderer/src/scout-settings-say-its-goal-hours-and-day.test.tsx	say what today’s looks used	yes
 apps/desktop/src/renderer/src/scout-settings-say-its-goal-hours-and-day.test.tsx	offers your own comment watch on by default and says how a named ask works	yes
 apps/desktop/src/renderer/src/scout-settings-show-what-it-saw.test.tsx	is offered once Scout is on, says what it holds, and reads nothing until it is opened	yes
-apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	keeps every turn’s words on the conversation’s one row	no
-apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	finds a conversation by a word only its second turn said, as one row under its own name	no
-apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	finds a teammate’s conversations by the teammate’s name	no
-apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	empties it, and lets Escape through when it is already empty	no
-apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	every list the search narrows is narrowed by the teammate’s name too	no
-apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	lists conversations, found by every turn and the teammate -- the only search in the rail layout	no
-apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	shows only the five newest before anything is typed	no
+apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	keeps every turn’s words on the conversation’s one row	yes
+apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	finds a conversation by a word only its second turn said, as one row under its own name	yes
+apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	finds a teammate’s conversations by the teammate’s name	yes
+apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	empties it, and lets Escape through when it is already empty	yes
+apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	every list the search narrows is narrowed by the teammate’s name too	yes
+apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	lists conversations, found by every turn and the teammate -- the only search in the rail layout	yes
+apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	shows only the five newest before anything is typed	yes
 apps/desktop/src/renderer/src/settings-in-a-browser-say-what-stays.test.tsx	draws every page, and none of them starts by saying a setting could not be read or saved	yes
 apps/desktop/src/renderer/src/settings-in-a-browser-say-what-stays.test.tsx	says, in place of the sections whose every setting stays on the computer, that they work there	yes
 apps/desktop/src/renderer/src/settings-in-a-browser-say-what-stays.test.tsx	keeps the teammates' switches that grant something on the computer, and lets Plans change from here	yes
@@ -6271,10 +6299,10 @@ apps/desktop/src/renderer/src/the-screens-say-less.test.ts	is the runtime’s na
 apps/desktop/src/renderer/src/the-screens-say-less.test.ts	keeps what follows the model’s name, and every other model as it was	yes
 apps/desktop/src/renderer/src/the-screens-say-less.test.ts	says what a person pays, or that a model is free, and nothing for counted tokens	no
 apps/desktop/src/renderer/src/the-screens-say-less.test.ts	lists conversations, each named by its first words, not each turn of one	yes
-apps/desktop/src/renderer/src/the-terminal-opens-before-the-first-message.test.tsx	offers an accessible toggle in the title bar before a conversation exists	no
-apps/desktop/src/renderer/src/the-terminal-opens-before-the-first-message.test.tsx	shows the organization restriction on the disabled terminal control	no
-apps/desktop/src/renderer/src/the-terminal-opens-before-the-first-message.test.tsx	recognizes Ctrl backtick on every platform and leaves unrelated keys alone	no
-apps/desktop/src/renderer/src/the-terminal-opens-before-the-first-message.test.tsx	keeps a pasted Unicode character whole at every IPC boundary	no
+apps/desktop/src/renderer/src/the-terminal-opens-before-the-first-message.test.tsx	offers an accessible toggle in the title bar before a conversation exists	yes
+apps/desktop/src/renderer/src/the-terminal-opens-before-the-first-message.test.tsx	shows the organization restriction on the disabled terminal control	yes
+apps/desktop/src/renderer/src/the-terminal-opens-before-the-first-message.test.tsx	recognizes Ctrl backtick on every platform and leaves unrelated keys alone	yes
+apps/desktop/src/renderer/src/the-terminal-opens-before-the-first-message.test.tsx	keeps a pasted Unicode character whole at every IPC boundary	yes
 apps/desktop/src/renderer/src/the-terminal-turns-are-drawn-as-yours.test.tsx	is the person's own words, with nothing attached	yes
 apps/desktop/src/renderer/src/the-terminal-turns-are-drawn-as-yours.test.tsx	carries its runtime through the conversation's turns, and Locust's own turns do not	yes
 apps/desktop/src/renderer/src/the-terminal-turns-are-drawn-as-yours.test.tsx	go into the terminal before its first turn, and back in Locust before the next of its own	yes
@@ -6386,6 +6414,14 @@ apps/desktop/src/renderer/src/with-nothing-installed-install-comes-first.test.ts
 apps/desktop/src/renderer/src/with-nothing-installed-install-comes-first.test.tsx	still offers the teams and the folder, after it	yes
 apps/desktop/src/renderer/src/with-nothing-installed-install-comes-first.test.tsx	leads with the team templates again	yes
 apps/desktop/src/renderer/src/with-nothing-installed-install-comes-first.test.tsx	does not reorder while an installed agent is still being checked	yes
+apps/desktop/src/renderer/src/your-account-card-says-where-the-copy-stands.test.tsx	signed out, the card says what an account does and where to sign in, with no switch	yes
+apps/desktop/src/renderer/src/your-account-card-says-where-the-copy-stands.test.tsx	signed in and off, it says the relay cannot read the copy before anything is sent	yes
+apps/desktop/src/renderer/src/your-account-card-says-where-the-copy-stands.test.tsx	on, it says when it last synced, how much, and the storage used, with Sync now and Delete my copy	yes
+apps/desktop/src/renderer/src/your-account-card-says-where-the-copy-stands.test.tsx	the recovery code is shown with what losing it costs, until it is put away	yes
+apps/desktop/src/renderer/src/your-account-card-says-where-the-copy-stands.test.tsx	sizes and times read as a person says them	yes
+apps/desktop/src/renderer/src/your-account-card-says-where-the-copy-stands.test.tsx	on a new computer it offers to bring the copy here with the code, and says what a restart does	yes
+apps/desktop/src/renderer/src/your-account-card-says-where-the-copy-stands.test.tsx	a new computer can ask the one that has your Locust, and shows the code to compare while it waits	yes
+apps/desktop/src/renderer/src/your-account-card-says-where-the-copy-stands.test.tsx	the computer that has your Locust shows each ask with its code, Approve (asked twice) and Not mine	yes
 apps/desktop/src/renderer/src/your-github-shows-on-connectors.test.tsx	wears GitHub’s mark and names who it is signed in as	yes
 apps/desktop/src/renderer/src/your-github-shows-on-connectors.test.tsx	offers a sign-in when nobody is signed in, and the CLI when it is missing	yes
 apps/desktop/src/renderer/src/your-github-shows-on-connectors.test.tsx	says when GitHub has a newer GitHub CLI, with the update a press away (0.726)	yes
@@ -6452,10 +6488,10 @@ apps/desktop/src/shared/a-judge-scores-each-answer.test.ts	counts what each colu
 apps/desktop/src/shared/a-judge-scores-each-answer.test.ts	is drawn without its scorecard, which the table says -- and without a line of it still being written	no
 apps/desktop/src/shared/a-lesson-reads-as-one-sentence.test.ts	joins the two fields as one sentence, lower-casing a capitalised first word	yes
 apps/desktop/src/shared/a-lesson-reads-as-one-sentence.test.ts	keeps an acronym or a name as written	yes
-apps/desktop/src/shared/a-long-room-post-still-starts.test.ts	is the whole board when it fits	no
-apps/desktop/src/shared/a-long-room-post-still-starts.test.ts	fits under the limit beside a long post, done rows going first, and says how many it left out	no
-apps/desktop/src/shared/a-long-room-post-still-starts.test.ts	says so, briefly, when even the board’s instructions do not fit	no
-apps/desktop/src/shared/a-long-room-post-still-starts.test.ts	is nothing at all when there is no room for even that	no
+apps/desktop/src/shared/a-long-room-post-still-starts.test.ts	is the whole board when it fits	yes
+apps/desktop/src/shared/a-long-room-post-still-starts.test.ts	fits under the limit beside a long post, done rows going first, and says how many it left out	yes
+apps/desktop/src/shared/a-long-room-post-still-starts.test.ts	says so, briefly, when even the board’s instructions do not fit	yes
+apps/desktop/src/shared/a-long-room-post-still-starts.test.ts	is nothing at all when there is no room for even that	yes
 apps/desktop/src/shared/a-point-can-count-twice.test.ts	reads its weight off the end of the line, and gives the judges the point without it	yes
 apps/desktop/src/shared/a-point-can-count-twice.test.ts	scores the points met by their weight	yes
 apps/desktop/src/shared/a-point-can-count-twice.test.ts	keeps a scorecard of points that all count once as it was, and its weights through a vote	yes
@@ -6468,10 +6504,10 @@ apps/desktop/src/shared/a-reply-page-is-a-whole-page.test.ts	a doctype or <html>
 apps/desktop/src/shared/a-reply-page-is-a-whole-page.test.ts	not a fragment, and not one cut off	yes
 apps/desktop/src/shared/a-reply-page-is-a-whole-page.test.ts	not another language that happens to hold markup	yes
 apps/desktop/src/shared/a-reply-page-is-a-whole-page.test.ts	not past the size a page in a reply may be	yes
-apps/desktop/src/shared/a-rewritten-memory-is-new.test.ts	is dated by its last write	no
-apps/desktop/src/shared/a-rewritten-memory-is-new.test.ts	sorts as the newest, whatever its first date	no
-apps/desktop/src/shared/a-rewritten-memory-is-new.test.ts	leads the brief as the newest, and says it is from today	no
-apps/desktop/src/shared/a-rewritten-memory-is-new.test.ts	keeps the store’s order for memories written at the same moment	no
+apps/desktop/src/shared/a-rewritten-memory-is-new.test.ts	is dated by its last write	yes
+apps/desktop/src/shared/a-rewritten-memory-is-new.test.ts	sorts as the newest, whatever its first date	yes
+apps/desktop/src/shared/a-rewritten-memory-is-new.test.ts	leads the brief as the newest, and says it is from today	yes
+apps/desktop/src/shared/a-rewritten-memory-is-new.test.ts	keeps the store’s order for memories written at the same moment	yes
 apps/desktop/src/shared/a-room-remembers-what-was-said.test.ts	is nothing in a room with no earlier post	no
 apps/desktop/src/shared/a-room-remembers-what-was-said.test.ts	names who said what, from the reader’s side, oldest first, and says where the new post begins	no
 apps/desktop/src/shared/a-room-remembers-what-was-said.test.ts	quotes no block that could act again, and leaves the board’s blocks to the board	no
@@ -6603,10 +6639,10 @@ apps/desktop/src/shared/decision.test.ts	still reads asterisks	no
 apps/desktop/src/shared/decision.test.ts	does not turn an ordinary numbered sentence into an option	no
 apps/desktop/src/shared/decision.test.ts	is named by what it says instead	no
 apps/desktop/src/shared/decision.test.ts	keeps a real name that happens to mention an option	no
-apps/desktop/src/shared/file-menu.test.ts	offers the editors that are installed, and the default app only for a file it shows rather than runs	no
-apps/desktop/src/shared/file-menu.test.ts	offers Copy only when the path is outside the conversation folder	no
-apps/desktop/src/shared/file-menu.test.ts	names the file manager for the system	no
-apps/desktop/src/shared/file-menu.test.ts	is written with the system separator, never a mix of both on Windows	no
+apps/desktop/src/shared/file-menu.test.ts	offers the editors that are installed, and the default app only for a file it shows rather than runs	yes
+apps/desktop/src/shared/file-menu.test.ts	offers Copy only when the path is outside the conversation folder	yes
+apps/desktop/src/shared/file-menu.test.ts	names the file manager for the system	yes
+apps/desktop/src/shared/file-menu.test.ts	is written with the system separator, never a mix of both on Windows	yes
 apps/desktop/src/shared/handover.test.ts	reads one file and its note	yes
 apps/desktop/src/shared/handover.test.ts	reads several, in the order they were written, and the note is optional	yes
 apps/desktop/src/shared/handover.test.ts	finds no files in a reply that has none	yes
@@ -6686,17 +6722,17 @@ apps/desktop/src/shared/protocol-tags.test.ts	a defanged share block sends nothi
 apps/desktop/src/shared/protocol-tags.test.ts	leaves ordinary prose and ordinary markup alone	yes
 apps/desktop/src/shared/protocol-tags.test.ts	is what sanitizeInbound does now, so the two cannot drift apart	yes
 apps/desktop/src/shared/protocol-tags.test.ts	catches odd casing and a tag carrying attributes	yes
-apps/desktop/src/shared/room-task.test.ts	reads one operation per line, in order, with the verb and the task text	no
-apps/desktop/src/shared/room-task.test.ts	drops lines it cannot read rather than refusing the block	no
-apps/desktop/src/shared/room-task.test.ts	is empty for a reply with no block, and caps a flood	no
-apps/desktop/src/shared/room-task.test.ts	bounds and cleans the task text	no
-apps/desktop/src/shared/room-task.test.ts	strips the block from what the reply shows, and defangs it when quoted	no
-apps/desktop/src/shared/room-task.test.ts	is blind to case, punctuation and spacing	no
-apps/desktop/src/shared/room-task.test.ts	names the room, the others, every task with its state and owner, and teaches the block	no
-apps/desktop/src/shared/room-task.test.ts	names another teammate's row as theirs, and says to leave it alone	no
-apps/desktop/src/shared/room-task.test.ts	says the board is empty and names nobody when alone	no
-apps/desktop/src/shared/room-task.test.ts	tells a teammate its own name	no
-apps/desktop/src/shared/room-task.test.ts	names a teammate who is alone in the room	no
+apps/desktop/src/shared/room-task.test.ts	reads one operation per line, in order, with the verb and the task text	yes
+apps/desktop/src/shared/room-task.test.ts	drops lines it cannot read rather than refusing the block	yes
+apps/desktop/src/shared/room-task.test.ts	is empty for a reply with no block, and caps a flood	yes
+apps/desktop/src/shared/room-task.test.ts	bounds and cleans the task text	yes
+apps/desktop/src/shared/room-task.test.ts	strips the block from what the reply shows, and defangs it when quoted	yes
+apps/desktop/src/shared/room-task.test.ts	is blind to case, punctuation and spacing	yes
+apps/desktop/src/shared/room-task.test.ts	names the room, the others, every task with its state and owner, and teaches the block	yes
+apps/desktop/src/shared/room-task.test.ts	names another teammate's row as theirs, and says to leave it alone	yes
+apps/desktop/src/shared/room-task.test.ts	says the board is empty and names nobody when alone	yes
+apps/desktop/src/shared/room-task.test.ts	tells a teammate its own name	yes
+apps/desktop/src/shared/room-task.test.ts	names a teammate who is alone in the room	yes
 apps/desktop/src/shared/routine-schedule.test.ts	is every N whole hours within a week, or daily at a wall-clock time	no
 apps/desktop/src/shared/routine-schedule.test.ts	every N hours counts from the last run	no
 apps/desktop/src/shared/routine-schedule.test.ts	a routine that missed several intervals while the app was closed is due once, now -- not once per miss	no
@@ -6735,22 +6771,22 @@ apps/desktop/src/shared/scout-notices-what-is-new.test.ts	take only what a perso
 apps/desktop/src/shared/settings-from-a-browser.test.ts	changes the look, groups, memories, and Scout’s notes and tune-up	yes
 apps/desktop/src/shared/settings-from-a-browser.test.ts	changes Scout’s settings, but never turns on its preparing fixes	yes
 apps/desktop/src/shared/settings-from-a-browser.test.ts	leaves forgetting everything, and the folder’s own settings, on the computer	yes
-apps/desktop/src/shared/since-you-were-away.test.ts	lists the runs that ended after you left, newest first, and leaves the earlier ones out	no
-apps/desktop/src/shared/since-you-were-away.test.ts	counts the conversations waiting on you now, by any of their turns, and the slots missed while you were gone	no
+apps/desktop/src/shared/since-you-were-away.test.ts	lists the runs that ended after you left, newest first, and leaves the earlier ones out	yes
+apps/desktop/src/shared/since-you-were-away.test.ts	counts the conversations waiting on you now, by any of their turns, and the slots missed while you were gone	yes
 apps/desktop/src/shared/since-you-were-away.test.ts	says nothing when nothing happened, and nothing for a since it cannot read (controls)	yes
-apps/desktop/src/shared/since-you-were-away.test.ts	words the counts, leaving out what is zero, and says nothing for all zeros	no
-apps/desktop/src/shared/since-you-were-away.test.ts	takes the counts off the wire only when they are four whole numbers with something to say (control)	no
-apps/desktop/src/shared/since-you-were-away.test.ts	counts twenty minutes or more as away, less as a break, and no mark as nothing	no
-apps/desktop/src/shared/spend.test.ts	is the dollars a runtime priced, with the moment it ended	no
-apps/desktop/src/shared/spend.test.ts	is nothing for a plan's run, whose dollar figure nobody paid	no
-apps/desktop/src/shared/spend.test.ts	is nothing for tokens alone, or a free model that priced nothing	no
-apps/desktop/src/shared/spend.test.ts	is Copilot's premium requests, as their own unit	no
-apps/desktop/src/shared/spend.test.ts	adds up by unit, and is nothing when nothing was money	no
-apps/desktop/src/shared/spend.test.ts	is the machine's own month, not UTC's	no
-apps/desktop/src/shared/spend.test.ts	starts again on the first of the next month, said as a person says it	no
-apps/desktop/src/shared/spend.test.ts	is a positive amount no larger than the cap	no
-apps/desktop/src/shared/spend.test.ts	is reached AT the amount as well as past it, and only by dollars	no
-apps/desktop/src/shared/spend.test.ts	says what was spent, against what, and the two ways on	no
+apps/desktop/src/shared/since-you-were-away.test.ts	words the counts, leaving out what is zero, and says nothing for all zeros	yes
+apps/desktop/src/shared/since-you-were-away.test.ts	takes the counts off the wire only when they are four whole numbers with something to say (control)	yes
+apps/desktop/src/shared/since-you-were-away.test.ts	counts twenty minutes or more as away, less as a break, and no mark as nothing	yes
+apps/desktop/src/shared/spend.test.ts	is the dollars a runtime priced, with the moment it ended	yes
+apps/desktop/src/shared/spend.test.ts	is nothing for a plan's run, whose dollar figure nobody paid	yes
+apps/desktop/src/shared/spend.test.ts	is nothing for tokens alone, or a free model that priced nothing	yes
+apps/desktop/src/shared/spend.test.ts	is Copilot's premium requests, as their own unit	yes
+apps/desktop/src/shared/spend.test.ts	adds up by unit, and is nothing when nothing was money	yes
+apps/desktop/src/shared/spend.test.ts	is the machine's own month, not UTC's	yes
+apps/desktop/src/shared/spend.test.ts	starts again on the first of the next month, said as a person says it	yes
+apps/desktop/src/shared/spend.test.ts	is a positive amount no larger than the cap	yes
+apps/desktop/src/shared/spend.test.ts	is reached AT the amount as well as past it, and only by dollars	yes
+apps/desktop/src/shared/spend.test.ts	says what was spent, against what, and the two ways on	yes
 apps/desktop/src/shared/step-budget.test.ts	says nothing about a step that fits	no
 apps/desktop/src/shared/step-budget.test.ts	speaks the moment the budget is passed	no
 apps/desktop/src/shared/step-budget.test.ts	says how much to cut, not merely that it is too long	yes
@@ -6897,24 +6933,24 @@ packages/mission-store/src/unreadable-count.test.ts	is zero when the ledger dire
 packages/mission-store/test/a-card-answered-is-kept-with-its-turn.test.ts	comes back from the file exactly as written, in order, with the schema version that holds it	yes
 packages/mission-store/test/a-card-answered-is-kept-with-its-turn.test.ts	sits between a run's events without disturbing their numbering	yes
 packages/mission-store/test/a-card-answered-is-kept-with-its-turn.test.ts	is refused on a mission written before version 20, which its own readers would stop at	no
-packages/mission-store/test/a-card-answered-is-kept-with-its-turn.test.ts	is read as damage in a file written before version 20	no
+packages/mission-store/test/a-card-answered-is-kept-with-its-turn.test.ts	is read as damage in a file written before version 20	yes
 packages/mission-store/test/a-card-answered-is-kept-with-its-turn.test.ts	refuses an answer or an answerer it does not know	no
 packages/mission-store/test/a-card-answered-is-kept-with-its-turn.test.ts	keeps an answer by an earlier Always on a v21 mission, beside the card that gave it	yes
 packages/mission-store/test/a-card-answered-is-kept-with-its-turn.test.ts	refuses an answer by an earlier Always on a v20 mission, whose readers would stop at it	no
 packages/mission-store/test/a-card-answered-is-kept-with-its-turn.test.ts	reads an answer by an earlier Always in a v20 file as damage, not as an answer	no
 packages/mission-store/test/a-card-answered-is-kept-with-its-turn.test.ts	is bounded by the host the way the reader accepts it	no
 packages/mission-store/test/a-check-result-is-kept-with-its-turn.test.ts	comes back from the file exactly as written	yes
-packages/mission-store/test/a-check-result-is-kept-with-its-turn.test.ts	keeps the file walkable after it: a later record still reads	no
-packages/mission-store/test/a-check-result-is-kept-with-its-turn.test.ts	is refused on a mission written before version 17, which its own readers would stop at	no
+packages/mission-store/test/a-check-result-is-kept-with-its-turn.test.ts	keeps the file walkable after it: a later record still reads	yes
+packages/mission-store/test/a-check-result-is-kept-with-its-turn.test.ts	is refused on a mission written before version 17, which its own readers would stop at	yes
 packages/mission-store/test/a-check-result-is-kept-with-its-turn.test.ts	is read as damage in a file written before version 17	yes
-packages/mission-store/test/a-check-result-is-kept-with-its-turn.test.ts	refuses an outcome it does not know, and an unbounded list of lines	no
-packages/mission-store/test/a-check-result-is-kept-with-its-turn.test.ts	bounds a big result to what the reader accepts, so the host never writes one it would refuse	no
+packages/mission-store/test/a-check-result-is-kept-with-its-turn.test.ts	refuses an outcome it does not know, and an unbounded list of lines	yes
+packages/mission-store/test/a-check-result-is-kept-with-its-turn.test.ts	bounds a big result to what the reader accepts, so the host never writes one it would refuse	yes
 packages/mission-store/test/a-helpers-calls-are-kept-as-its-own.test.ts	reads a ledger written before the bump whole, with no child rows and no error	yes
-packages/mission-store/test/a-helpers-calls-are-kept-as-its-own.test.ts	writes a helper's calls at v22 and reads them back under the helper's row	no
-packages/mission-store/test/a-helpers-calls-are-kept-as-its-own.test.ts	refuses a parent that names nothing, so a reader never has to guess at one	no
+packages/mission-store/test/a-helpers-calls-are-kept-as-its-own.test.ts	writes a helper's calls at v22 and reads them back under the helper's row	yes
+packages/mission-store/test/a-helpers-calls-are-kept-as-its-own.test.ts	refuses a parent that names nothing, so a reader never has to guess at one	yes
 packages/mission-store/test/a-long-field-is-kept-shortened.test.ts	is kept shortened in every event type, and read back	yes
 packages/mission-store/test/a-long-field-is-kept-shortened.test.ts	keeps a long answer whole up to its own limit, and shortens one past it (0.869)	yes
-packages/mission-store/test/a-long-field-is-kept-shortened.test.ts	is refused as before when it is not long but wrong	no
+packages/mission-store/test/a-long-field-is-kept-shortened.test.ts	is refused as before when it is not long but wrong	yes
 packages/mission-store/test/a-long-field-is-kept-shortened.test.ts	costs nothing when it already fits	yes
 packages/mission-store/test/checkpoint.test.ts	reports a settled mission as safe to resume elsewhere	yes
 packages/mission-store/test/checkpoint.test.ts	refuses to call a mission safe while an action never reported an outcome	yes
@@ -7173,15 +7209,15 @@ packages/runtime-adapters/test/a-muse-plan-used-up-is-said-once.test.ts	is one l
 packages/runtime-adapters/test/a-muse-plan-used-up-is-said-once.test.ts	leaves no Unhandled line: a saved output and the run's usage are not shown, a stopped tool fails on its row	yes
 packages/runtime-adapters/test/a-muse-plan-used-up-is-said-once.test.ts	is still said once when only the run's own end says it	yes
 packages/runtime-adapters/test/a-muse-plan-used-up-is-said-once.test.ts	names no reset it was not told	yes
-packages/runtime-adapters/test/a-real-codex-session-replays-through-the-adapter.test.ts	The recorded approval arrives with its command, is declined, and never becomes a successful tool receipt.	no
-packages/runtime-adapters/test/a-real-codex-session-replays-through-the-adapter.test.ts	The recorded file change preserves the patch and produces one matched apply_patch receipt.	no
-packages/runtime-adapters/test/a-real-codex-session-replays-through-the-adapter.test.ts	The recorded steer targets the live turn, is accepted without interrupting it, and changes the final answer.	no
-packages/runtime-adapters/test/a-real-codex-session-replays-through-the-adapter.test.ts	Scrubbing removes personal paths, account data and hidden reasoning while preserving public summaries and correlated ids.	no
-packages/runtime-adapters/test/a-real-codex-session-replays-through-the-adapter.test.ts	Every stored fixture is scrubbed and carries the requested model and low effort, with no reroute or invented limit.	no
 packages/runtime-adapters/test/a-real-muse-wonder-run-reads-whole.test.ts	reads whole: its tool by name, its answer, its end, and nothing left unread	yes
 packages/runtime-adapters/test/a-real-muse-wonder-run-reads-whole.test.ts	says once that Meta's model is being tried again, and nothing for its first try	yes
 packages/runtime-adapters/test/a-real-muse-wonder-run-reads-whole.test.ts	lets the session's bookkeeping go quietly, the branch it saw in a git folder among it	yes
 packages/runtime-adapters/test/a-real-muse-wonder-run-reads-whole.test.ts	fails a tool it would not run on that tool's row, and lets its own reminder go quietly	yes
+packages/runtime-adapters/test/a-real-codex-session-replays-through-the-adapter.test.ts	The recorded approval arrives with its command, is declined, and never becomes a successful tool receipt.	yes
+packages/runtime-adapters/test/a-real-codex-session-replays-through-the-adapter.test.ts	The recorded file change preserves the patch and produces one matched apply_patch receipt.	yes
+packages/runtime-adapters/test/a-real-codex-session-replays-through-the-adapter.test.ts	The recorded steer targets the live turn, is accepted without interrupting it, and changes the final answer.	yes
+packages/runtime-adapters/test/a-real-codex-session-replays-through-the-adapter.test.ts	Scrubbing removes personal paths, account data and hidden reasoning while preserving public summaries and correlated ids.	yes
+packages/runtime-adapters/test/a-real-codex-session-replays-through-the-adapter.test.ts	Every stored fixture is scrubbed and carries the requested model and low effort, with no reroute or invented limit.	yes
 packages/runtime-adapters/test/a-result-too-large-to-keep-still-answered.test.ts	hands nothing on from an oversized line the process ended in the middle of (2026-10-10 sweep)	yes
 packages/runtime-adapters/test/a-result-too-large-to-keep-still-answered.test.ts	leaves its size, its type and the call it answered -- and none of its content	yes
 packages/runtime-adapters/test/a-result-too-large-to-keep-still-answered.test.ts	leaves nothing for a runtime that did not ask	yes
@@ -7198,14 +7234,14 @@ packages/runtime-adapters/test/a-run-is-handed-its-own-skills.test.ts	names the 
 packages/runtime-adapters/test/a-run-is-handed-its-own-skills.test.ts	adds the run's folder on every mode, as an absolute --add-dir, and still only lends a reference folder to a read-only run	yes
 packages/runtime-adapters/test/a-run-without-connectors-leaves-them-out.test.ts	stay out when the run is told so, on every model and in every mode, and Locust's own servers stay in	yes
 packages/runtime-adapters/test/a-run-without-connectors-leaves-them-out.test.ts	come along for a teammate that has them on, and where nothing was said	no
-packages/runtime-adapters/test/a-running-codex-turn-can-be-steered.test.ts	sends turn/steer on the thread, with the running turn's id, and says it was taken	no
-packages/runtime-adapters/test/a-running-codex-turn-can-be-steered.test.ts	learns the turn from turn/started as well	no
-packages/runtime-adapters/test/a-running-codex-turn-can-be-steered.test.ts	says no, without asking, before a turn has started	no
-packages/runtime-adapters/test/a-running-codex-turn-can-be-steered.test.ts	says no when the server refuses it -- the turn has just ended, say	no
-packages/runtime-adapters/test/a-running-codex-turn-can-be-steered.test.ts	says no, without asking, once the turn is over	no
+packages/runtime-adapters/test/a-running-codex-turn-can-be-steered.test.ts	sends turn/steer on the thread, with the running turn's id, and says it was taken	yes
+packages/runtime-adapters/test/a-running-codex-turn-can-be-steered.test.ts	learns the turn from turn/started as well	yes
+packages/runtime-adapters/test/a-running-codex-turn-can-be-steered.test.ts	says no, without asking, before a turn has started	yes
+packages/runtime-adapters/test/a-running-codex-turn-can-be-steered.test.ts	says no when the server refuses it -- the turn has just ended, say	yes
+packages/runtime-adapters/test/a-running-codex-turn-can-be-steered.test.ts	says no, without asking, once the turn is over	yes
 packages/runtime-adapters/test/a-sealed-run-uses-no-tool.test.ts	asks for every tool, so a run with nobody to ask refuses each one, and reaches no folder outside its own	yes
-packages/runtime-adapters/test/a-sealed-run-uses-no-tool.test.ts	keeps every tool listed, the shell among them, because the free tier refuses a run whose tools are gone	no
-packages/runtime-adapters/test/a-sealed-run-uses-no-tool.test.ts	is what a served run is told, and seals only a read-only run	no
+packages/runtime-adapters/test/a-sealed-run-uses-no-tool.test.ts	keeps every tool listed, the shell among them, because the free tier refuses a run whose tools are gone	yes
+packages/runtime-adapters/test/a-sealed-run-uses-no-tool.test.ts	is what a served run is told, and seals only a read-only run	yes
 packages/runtime-adapters/test/a-server-whose-storage-is-busy-starts-again.test.ts	starts again when another OpenCode held its storage, and the turn goes on as usual	yes
 packages/runtime-adapters/test/a-server-whose-storage-is-busy-starts-again.test.ts	reads words that trail the exit before deciding	yes
 packages/runtime-adapters/test/a-server-whose-storage-is-busy-starts-again.test.ts	gives up after three restarts, saying the server exited and why	yes
@@ -7439,24 +7475,24 @@ packages/runtime-adapters/test/app-server-events.test.ts	says it was asked for w
 packages/runtime-adapters/test/app-server-events.test.ts	is a line for each compaction when there are two	yes
 packages/runtime-adapters/test/app-server-events.test.ts	opens no step for the compaction item	yes
 packages/runtime-adapters/test/app-server-events.test.ts	draws only the findings, once: the review-mode bookends are not steps	yes
-packages/runtime-adapters/test/app-server.test.ts	reassembles messages split across arbitrary chunks	no
-packages/runtime-adapters/test/app-server.test.ts	ignores blank lines and keeps a trailing partial buffered	no
-packages/runtime-adapters/test/app-server.test.ts	reports an unparsable line instead of throwing	no
-packages/runtime-adapters/test/app-server.test.ts	drops a buffer that grows without a newline rather than growing forever	no
-packages/runtime-adapters/test/app-server.test.ts	drops an oversized single line but keeps the connection usable	no
-packages/runtime-adapters/test/app-server.test.ts	resolves a request with its own response	no
-packages/runtime-adapters/test/app-server.test.ts	matches responses to the right request when they arrive out of order	no
-packages/runtime-adapters/test/app-server.test.ts	rejects with the server's message when the response is an error	no
-packages/runtime-adapters/test/app-server.test.ts	reports a response nobody asked for rather than dropping it silently	no
-packages/runtime-adapters/test/app-server.test.ts	times out a request the server never answers	no
-packages/runtime-adapters/test/app-server.test.ts	refuses to queue beyond its in-flight limit	no
-packages/runtime-adapters/test/app-server.test.ts	fails every in-flight request on dispose instead of hanging	no
-packages/runtime-adapters/test/app-server.test.ts	answers a server request with the handler's result	no
-packages/runtime-adapters/test/app-server.test.ts	still answers when the handler throws	no
-packages/runtime-adapters/test/app-server.test.ts	does not confuse a server request with a response	no
-packages/runtime-adapters/test/app-server.test.ts	writes newline-delimited JSON-RPC with an incrementing id	no
-packages/runtime-adapters/test/app-server.test.ts	sends notifications without an id	no
-packages/runtime-adapters/test/app-server.test.ts	goes quiet after dispose	no
+packages/runtime-adapters/test/app-server.test.ts	reassembles messages split across arbitrary chunks	yes
+packages/runtime-adapters/test/app-server.test.ts	ignores blank lines and keeps a trailing partial buffered	yes
+packages/runtime-adapters/test/app-server.test.ts	reports an unparsable line instead of throwing	yes
+packages/runtime-adapters/test/app-server.test.ts	drops a buffer that grows without a newline rather than growing forever	yes
+packages/runtime-adapters/test/app-server.test.ts	drops an oversized single line but keeps the connection usable	yes
+packages/runtime-adapters/test/app-server.test.ts	resolves a request with its own response	yes
+packages/runtime-adapters/test/app-server.test.ts	matches responses to the right request when they arrive out of order	yes
+packages/runtime-adapters/test/app-server.test.ts	rejects with the server's message when the response is an error	yes
+packages/runtime-adapters/test/app-server.test.ts	reports a response nobody asked for rather than dropping it silently	yes
+packages/runtime-adapters/test/app-server.test.ts	times out a request the server never answers	yes
+packages/runtime-adapters/test/app-server.test.ts	refuses to queue beyond its in-flight limit	yes
+packages/runtime-adapters/test/app-server.test.ts	fails every in-flight request on dispose instead of hanging	yes
+packages/runtime-adapters/test/app-server.test.ts	answers a server request with the handler's result	yes
+packages/runtime-adapters/test/app-server.test.ts	still answers when the handler throws	yes
+packages/runtime-adapters/test/app-server.test.ts	does not confuse a server request with a response	yes
+packages/runtime-adapters/test/app-server.test.ts	writes newline-delimited JSON-RPC with an incrementing id	yes
+packages/runtime-adapters/test/app-server.test.ts	sends notifications without an id	yes
+packages/runtime-adapters/test/app-server.test.ts	goes quiet after dispose	yes
 packages/runtime-adapters/test/background-work-ends-with-the-run.test.ts	is keyed by the call that started it, not filed as a subagent	yes
 packages/runtime-adapters/test/background-work-ends-with-the-run.test.ts	says it was stopped when the run ended, because that is when it came	no
 packages/runtime-adapters/test/background-work-ends-with-the-run.test.ts	the call itself carries the flag, its command and what it was for	yes
@@ -7531,50 +7567,50 @@ packages/runtime-adapters/test/claude-events.test.ts	says so once, as a line the
 packages/runtime-adapters/test/claude-events.test.ts	keeps the person's command list out of the run's record	yes
 packages/runtime-adapters/test/claude-events.test.ts	hands the command list to the host for the / menu, and still keeps it out of the record (0.426)	yes
 packages/runtime-adapters/test/claude-events.test.ts	bounds what a command list can put in the menu	yes
-packages/runtime-adapters/test/codex-app-server-run.test.ts	asks for danger-full-access only when the mission really has full access	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	never asks anything, because the exec transport it replaces never could	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	is `codex app-server`, with the prompt in neither argv nor stdin	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	switches the plan tool on from 0.153.0, where it was measured, and not below	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	hands the folder, the policy, the model and the prompt to the right calls	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	resumes a prior thread rather than starting one, which is what keeps a follow-up warm	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	reopens a thread on the turn's own model, so Codex does not warn it is resuming on another (0.864)	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	forks the thread for a question on the side, a copy the side can fork again (0.461)	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	lays the thread's own config over the person's, on a start, a resume and a fork alike (0.720)	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	reads the person's settings before the thread starts, and lays what it makes under Locust's own config (0.824)	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	starts no thread when the settings refuse it, and ends with the refusal's own words (0.824)	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	hands on Codex's own words when it refuses the read, so an old Codex can be told to update (0.825)	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	streams every notification as a record and ends when the turn does	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	reports a server that dies mid-turn as a lost transport, not a clean finish	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	keeps what a dying server wrote to stderr, as its last line	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	ends the run when the mission is cancelled	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	gives up rather than hanging when the server never answers the handshake	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	turns a record back into the notification it was written from	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	drops a line that is not a notification instead of guessing at it	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	reads a cancelled completion as cancelled and anything else as a lost transport	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	reports the tokens the thread counted, in the vocabulary every receipt uses	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	bills a resumed turn for itself, not the whole conversation	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	is not ended by a sub-agent's turn, and counts what the sub-agent spent	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	keeps the transport running through a sub-agent's turn ending	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	says nothing about cost when the thread never counted, rather than claiming zero	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	stops the run and says why, instead of dropping records quietly	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	reviews the uncommitted changes as its terminal does, on the thread's own route, and starts no ordinary turn	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	reviews what the person asked for, when they said	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	compacts the thread, and the run ends when that turn does	no
-packages/runtime-adapters/test/codex-events.test.ts	normalizes the official success shape and waits for a clean host exit	no
-packages/runtime-adapters/test/codex-events.test.ts	classifies and deduplicates the observed quota-exhaustion sequence	no
-packages/runtime-adapters/test/codex-events.test.ts	keeps an item error nonterminal when the turn later succeeds	no
-packages/runtime-adapters/test/codex-events.test.ts	preserves unknown/additive provider data after redaction and never stores reasoning text	no
-packages/runtime-adapters/test/codex-events.test.ts	turns malformed JSON into a redacted, nonterminal diagnostic	no
-packages/runtime-adapters/test/codex-events.test.ts	synthesizes cancellation only from host-owned completion correlation	no
-packages/runtime-adapters/test/codex-events.test.ts	says so when IT stopped the run for output volume	no
-packages/runtime-adapters/test/codex-events.test.ts	rejects both EOF/exit mismatches instead of claiming success	no
-packages/runtime-adapters/test/codex-events.test.ts	normalizes message append deltas and accumulated-text replacement	no
-packages/runtime-adapters/test/codex-events.test.ts	emits a tool failure without forcing the whole run to fail	no
-packages/runtime-adapters/test/codex-events.test.ts	does not mistake incidental usage-limit wording for confirmed quota exhaustion	no
-packages/runtime-adapters/test/codex-events.test.ts	clamps identity fields the mission ledger caps at 512 characters	no
-packages/runtime-adapters/test/codex-events.test.ts	strips NUL from every persisted string	no
-packages/runtime-adapters/test/codex-events.test.ts	carries every changed path on the tool event, one per line, since Codex sends no diff	no
-packages/runtime-adapters/test/codex-events.test.ts	draws spawn_agent as a tool call named by its tool, carrying the prompt, settled on completion	no
+packages/runtime-adapters/test/codex-app-server-run.test.ts	asks for danger-full-access only when the mission really has full access	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	never asks anything, because the exec transport it replaces never could	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	is `codex app-server`, with the prompt in neither argv nor stdin	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	switches the plan tool on from 0.153.0, where it was measured, and not below	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	hands the folder, the policy, the model and the prompt to the right calls	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	resumes a prior thread rather than starting one, which is what keeps a follow-up warm	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	reopens a thread on the turn's own model, so Codex does not warn it is resuming on another (0.864)	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	forks the thread for a question on the side, a copy the side can fork again (0.461)	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	lays the thread's own config over the person's, on a start, a resume and a fork alike (0.720)	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	reads the person's settings before the thread starts, and lays what it makes under Locust's own config (0.824)	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	starts no thread when the settings refuse it, and ends with the refusal's own words (0.824)	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	hands on Codex's own words when it refuses the read, so an old Codex can be told to update (0.825)	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	streams every notification as a record and ends when the turn does	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	reports a server that dies mid-turn as a lost transport, not a clean finish	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	keeps what a dying server wrote to stderr, as its last line	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	ends the run when the mission is cancelled	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	gives up rather than hanging when the server never answers the handshake	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	turns a record back into the notification it was written from	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	drops a line that is not a notification instead of guessing at it	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	reads a cancelled completion as cancelled and anything else as a lost transport	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	reports the tokens the thread counted, in the vocabulary every receipt uses	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	bills a resumed turn for itself, not the whole conversation	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	is not ended by a sub-agent's turn, and counts what the sub-agent spent	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	keeps the transport running through a sub-agent's turn ending	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	says nothing about cost when the thread never counted, rather than claiming zero	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	stops the run and says why, instead of dropping records quietly	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	reviews the uncommitted changes as its terminal does, on the thread's own route, and starts no ordinary turn	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	reviews what the person asked for, when they said	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	compacts the thread, and the run ends when that turn does	yes
+packages/runtime-adapters/test/codex-events.test.ts	normalizes the official success shape and waits for a clean host exit	yes
+packages/runtime-adapters/test/codex-events.test.ts	classifies and deduplicates the observed quota-exhaustion sequence	yes
+packages/runtime-adapters/test/codex-events.test.ts	keeps an item error nonterminal when the turn later succeeds	yes
+packages/runtime-adapters/test/codex-events.test.ts	preserves unknown/additive provider data after redaction and never stores reasoning text	yes
+packages/runtime-adapters/test/codex-events.test.ts	turns malformed JSON into a redacted, nonterminal diagnostic	yes
+packages/runtime-adapters/test/codex-events.test.ts	synthesizes cancellation only from host-owned completion correlation	yes
+packages/runtime-adapters/test/codex-events.test.ts	says so when IT stopped the run for output volume	yes
+packages/runtime-adapters/test/codex-events.test.ts	rejects both EOF/exit mismatches instead of claiming success	yes
+packages/runtime-adapters/test/codex-events.test.ts	normalizes message append deltas and accumulated-text replacement	yes
+packages/runtime-adapters/test/codex-events.test.ts	emits a tool failure without forcing the whole run to fail	yes
+packages/runtime-adapters/test/codex-events.test.ts	does not mistake incidental usage-limit wording for confirmed quota exhaustion	yes
+packages/runtime-adapters/test/codex-events.test.ts	clamps identity fields the mission ledger caps at 512 characters	yes
+packages/runtime-adapters/test/codex-events.test.ts	strips NUL from every persisted string	yes
+packages/runtime-adapters/test/codex-events.test.ts	carries every changed path on the tool event, one per line, since Codex sends no diff	yes
+packages/runtime-adapters/test/codex-events.test.ts	draws spawn_agent as a tool call named by its tool, carrying the prompt, settled on completion	yes
 packages/runtime-adapters/test/codex-long-answer-keeps-its-length.test.ts	is bounded once, at the message limit, and never at the evidence limit	no
 packages/runtime-adapters/test/codex-long-answer-keeps-its-length.test.ts	is still scrubbed of a key it repeats	no
 packages/runtime-adapters/test/codex-long-answer-keeps-its-length.test.ts	keeps the two jobs apart: secrets have no size, evidence has one	no
@@ -7622,9 +7658,9 @@ packages/runtime-adapters/test/copilot-events.test.ts	keeps only the four auto-m
 packages/runtime-adapters/test/copilot-events.test.ts	keeps only the two totals from a checkpoint that is mostly cache bookkeeping	no
 packages/runtime-adapters/test/copilot-events.test.ts	is a failure when the CLI exits clean without ever printing its result record	no
 packages/runtime-adapters/test/copilot-events.test.ts	is a failure when the result record itself reports a non-zero exit	no
-packages/runtime-adapters/test/copilot-events.test.ts	is cancelled when the host cancelled it	no
+packages/runtime-adapters/test/copilot-events.test.ts	is cancelled when the host cancelled it	yes
 packages/runtime-adapters/test/copilot-events.test.ts	still resumes from the host's id when the CLI never printed one	no
-packages/runtime-adapters/test/copilot-events.test.ts	reports a record it cannot parse as a diagnostic and keeps going	no
+packages/runtime-adapters/test/copilot-events.test.ts	reports a record it cannot parse as a diagnostic and keeps going	yes
 packages/runtime-adapters/test/copilot-events.test.ts	says so when it meets a record type this build has never seen	no
 packages/runtime-adapters/test/copilot-events.test.ts	attaches a patch to the edit alone; the view's diff-shaped listing carries none	no
 packages/runtime-adapters/test/copilot-events.test.ts	opens one reasoning step on the first delta, closes it on the block, and says nothing per delta	no
@@ -7644,56 +7680,56 @@ packages/runtime-adapters/test/cursor-connectors.test.ts	names every waiting ser
 packages/runtime-adapters/test/cursor-connectors.test.ts	names the ready ones, so nobody has to know a config file	yes
 packages/runtime-adapters/test/cursor-connectors.test.ts	never names one that cannot be called	yes
 packages/runtime-adapters/test/cursor-connectors.test.ts	says nothing at all when nothing is ready	yes
-packages/runtime-adapters/test/cursor-events.test.ts	keeps input, output, cache read and cache write counts from the result line	no
-packages/runtime-adapters/test/cursor-events.test.ts	does not invent token counts when result usage is omitted	no
-packages/runtime-adapters/test/cursor-events.test.ts	preserves explicit zero counts and drops nonnumeric values	no
-packages/runtime-adapters/test/cursor-events.test.ts	starts the run with the session id and only the allow-listed init fields	no
-packages/runtime-adapters/test/cursor-events.test.ts	rebuilds each message from its fragments and lets the complete message replace, not double, them	no
-packages/runtime-adapters/test/cursor-events.test.ts	keeps the two messages apart: the answer does not overwrite what was said before the tool ran	no
-packages/runtime-adapters/test/cursor-events.test.ts	records the read as one tool that started and completed under the clean call id	no
-packages/runtime-adapters/test/cursor-events.test.ts	shows reasoning as a step and KEEPS its text	no
-packages/runtime-adapters/test/cursor-events.test.ts	carries the reasoning on the step that closes, not on every fragment	no
-packages/runtime-adapters/test/cursor-events.test.ts	completes the run on exit 0 with a result record	no
-packages/runtime-adapters/test/cursor-events.test.ts	reports a rejected shell command as a tool that failed, never as one that completed	no
-packages/runtime-adapters/test/cursor-events.test.ts	names the commands it refused to run, which is the fact a rejection exists to record	no
-packages/runtime-adapters/test/cursor-events.test.ts	reports a command that RAN and FAILED as failed, with its exit code	no
-packages/runtime-adapters/test/cursor-events.test.ts	treats an outcome it has never seen as a failure, not as a success	no
-packages/runtime-adapters/test/cursor-events.test.ts	records what the run cost, the way the other adapters do	no
-packages/runtime-adapters/test/cursor-events.test.ts	reports the edit and the glob as completed tools with their targets	no
-packages/runtime-adapters/test/cursor-events.test.ts	carries the resolved model name out of init	no
-packages/runtime-adapters/test/cursor-events.test.ts	keeps the earlier session id and delivers the whole answer as one final message	no
-packages/runtime-adapters/test/cursor-events.test.ts	tells them apart the way the stream does	no
-packages/runtime-adapters/test/cursor-events.test.ts	names tool kinds from their wrapper keys	no
-packages/runtime-adapters/test/cursor-events.test.ts	summarizes init to five fields whatever else is there	no
-packages/runtime-adapters/test/cursor-events.test.ts	is a failure when the CLI exits clean without ever saying it finished	no
-packages/runtime-adapters/test/cursor-events.test.ts	is a failure, in the CLI's words, when the result says so	no
-packages/runtime-adapters/test/cursor-events.test.ts	is cancelled when the host cancelled it	no
-packages/runtime-adapters/test/cursor-events.test.ts	reports a record it cannot parse as a diagnostic and keeps going	no
-packages/runtime-adapters/test/cursor-events.test.ts	never takes back text the fragments already delivered	no
-packages/runtime-adapters/test/cursor-events.test.ts	still replaces when the complete message is no shorter	no
-packages/runtime-adapters/test/cursor-events.test.ts	also closes, so nothing is left looking unfinished	no
-packages/runtime-adapters/test/cursor-events.test.ts	says Cursor's reconnect and resume in words, as the records in a real run had them (0.575)	no
-packages/runtime-adapters/test/cursor-events.test.ts	says nothing at all about interaction_query, because the tool row already says it	no
-packages/runtime-adapters/test/cursor-events.test.ts	still draws the tool call itself, which is where a web search belongs	no
-packages/runtime-adapters/test/cursor-events.test.ts	says an unhandled type once a run, however many arrive	no
-packages/runtime-adapters/test/cursor-events.test.ts	still says each different type it meets	no
-packages/runtime-adapters/test/cursor-events.test.ts	does not let the reply say itself twice	no
-packages/runtime-adapters/test/cursor-events.test.ts	closes the message, which is what the rest of the host reads	no
-packages/runtime-adapters/test/cursor-events.test.ts	starts a new message after the complete one, rather than running two together	no
-packages/runtime-adapters/test/cursor-events.test.ts	still trusts the marker where a version sends one	no
-packages/runtime-adapters/test/cursor-events.test.ts	carries the edit's unified diff as its own field, with counts derived from it	no
-packages/runtime-adapters/test/cursor-events.test.ts	counts the whole change before bounding the text, and says when it bounded	no
-packages/runtime-adapters/test/cursor-events.test.ts	does not count the file headers as changed lines	no
-packages/runtime-adapters/test/cursor-events.test.ts	records no patch for an edit that reported none	no
-packages/runtime-adapters/test/cursor-events.test.ts	keeps the fragments rather than taking text back out of the ledger	no
-packages/runtime-adapters/test/cursor-events.test.ts	MARKS THE MESSAGE FINAL, so the host still reads what the reply said	no
-packages/runtime-adapters/test/cursor-events.test.ts	does not rewrite the text when it closes the item	no
-packages/runtime-adapters/test/cursor-events.test.ts	becomes a plan that never shrinks, not four tool rows	no
-packages/runtime-adapters/test/cursor-events.test.ts	advances the steps and finishes with all of them done	no
-packages/runtime-adapters/test/cursor-events.test.ts	invents no plan from a todo call that carries nothing	no
-packages/runtime-adapters/test/cursor-events.test.ts	closes all four, on the id the start opened, and says the result was too large	no
-packages/runtime-adapters/test/cursor-secrets-in-text.test.ts	is scrubbed from the reasoning the step carries	no
-packages/runtime-adapters/test/cursor-secrets-in-text.test.ts	is scrubbed from the answer, fragment and whole alike	no
+packages/runtime-adapters/test/cursor-events.test.ts	keeps input, output, cache read and cache write counts from the result line	yes
+packages/runtime-adapters/test/cursor-events.test.ts	does not invent token counts when result usage is omitted	yes
+packages/runtime-adapters/test/cursor-events.test.ts	preserves explicit zero counts and drops nonnumeric values	yes
+packages/runtime-adapters/test/cursor-events.test.ts	starts the run with the session id and only the allow-listed init fields	yes
+packages/runtime-adapters/test/cursor-events.test.ts	rebuilds each message from its fragments and lets the complete message replace, not double, them	yes
+packages/runtime-adapters/test/cursor-events.test.ts	keeps the two messages apart: the answer does not overwrite what was said before the tool ran	yes
+packages/runtime-adapters/test/cursor-events.test.ts	records the read as one tool that started and completed under the clean call id	yes
+packages/runtime-adapters/test/cursor-events.test.ts	shows reasoning as a step and KEEPS its text	yes
+packages/runtime-adapters/test/cursor-events.test.ts	carries the reasoning on the step that closes, not on every fragment	yes
+packages/runtime-adapters/test/cursor-events.test.ts	completes the run on exit 0 with a result record	yes
+packages/runtime-adapters/test/cursor-events.test.ts	reports a rejected shell command as a tool that failed, never as one that completed	yes
+packages/runtime-adapters/test/cursor-events.test.ts	names the commands it refused to run, which is the fact a rejection exists to record	yes
+packages/runtime-adapters/test/cursor-events.test.ts	reports a command that RAN and FAILED as failed, with its exit code	yes
+packages/runtime-adapters/test/cursor-events.test.ts	treats an outcome it has never seen as a failure, not as a success	yes
+packages/runtime-adapters/test/cursor-events.test.ts	records what the run cost, the way the other adapters do	yes
+packages/runtime-adapters/test/cursor-events.test.ts	reports the edit and the glob as completed tools with their targets	yes
+packages/runtime-adapters/test/cursor-events.test.ts	carries the resolved model name out of init	yes
+packages/runtime-adapters/test/cursor-events.test.ts	keeps the earlier session id and delivers the whole answer as one final message	yes
+packages/runtime-adapters/test/cursor-events.test.ts	tells them apart the way the stream does	yes
+packages/runtime-adapters/test/cursor-events.test.ts	names tool kinds from their wrapper keys	yes
+packages/runtime-adapters/test/cursor-events.test.ts	summarizes init to five fields whatever else is there	yes
+packages/runtime-adapters/test/cursor-events.test.ts	is a failure when the CLI exits clean without ever saying it finished	yes
+packages/runtime-adapters/test/cursor-events.test.ts	is a failure, in the CLI's words, when the result says so	yes
+packages/runtime-adapters/test/cursor-events.test.ts	is cancelled when the host cancelled it	yes
+packages/runtime-adapters/test/cursor-events.test.ts	reports a record it cannot parse as a diagnostic and keeps going	yes
+packages/runtime-adapters/test/cursor-events.test.ts	never takes back text the fragments already delivered	yes
+packages/runtime-adapters/test/cursor-events.test.ts	still replaces when the complete message is no shorter	yes
+packages/runtime-adapters/test/cursor-events.test.ts	also closes, so nothing is left looking unfinished	yes
+packages/runtime-adapters/test/cursor-events.test.ts	says Cursor's reconnect and resume in words, as the records in a real run had them (0.575)	yes
+packages/runtime-adapters/test/cursor-events.test.ts	says nothing at all about interaction_query, because the tool row already says it	yes
+packages/runtime-adapters/test/cursor-events.test.ts	still draws the tool call itself, which is where a web search belongs	yes
+packages/runtime-adapters/test/cursor-events.test.ts	says an unhandled type once a run, however many arrive	yes
+packages/runtime-adapters/test/cursor-events.test.ts	still says each different type it meets	yes
+packages/runtime-adapters/test/cursor-events.test.ts	does not let the reply say itself twice	yes
+packages/runtime-adapters/test/cursor-events.test.ts	closes the message, which is what the rest of the host reads	yes
+packages/runtime-adapters/test/cursor-events.test.ts	starts a new message after the complete one, rather than running two together	yes
+packages/runtime-adapters/test/cursor-events.test.ts	still trusts the marker where a version sends one	yes
+packages/runtime-adapters/test/cursor-events.test.ts	carries the edit's unified diff as its own field, with counts derived from it	yes
+packages/runtime-adapters/test/cursor-events.test.ts	counts the whole change before bounding the text, and says when it bounded	yes
+packages/runtime-adapters/test/cursor-events.test.ts	does not count the file headers as changed lines	yes
+packages/runtime-adapters/test/cursor-events.test.ts	records no patch for an edit that reported none	yes
+packages/runtime-adapters/test/cursor-events.test.ts	keeps the fragments rather than taking text back out of the ledger	yes
+packages/runtime-adapters/test/cursor-events.test.ts	MARKS THE MESSAGE FINAL, so the host still reads what the reply said	yes
+packages/runtime-adapters/test/cursor-events.test.ts	does not rewrite the text when it closes the item	yes
+packages/runtime-adapters/test/cursor-events.test.ts	becomes a plan that never shrinks, not four tool rows	yes
+packages/runtime-adapters/test/cursor-events.test.ts	advances the steps and finishes with all of them done	yes
+packages/runtime-adapters/test/cursor-events.test.ts	invents no plan from a todo call that carries nothing	yes
+packages/runtime-adapters/test/cursor-events.test.ts	closes all four, on the id the start opened, and says the result was too large	yes
+packages/runtime-adapters/test/cursor-secrets-in-text.test.ts	is scrubbed from the reasoning the step carries	yes
+packages/runtime-adapters/test/cursor-secrets-in-text.test.ts	is scrubbed from the answer, fragment and whole alike	yes
 packages/runtime-adapters/test/effort-choices.test.ts	reads Copilot's seven, through the quotes and the line wraps	yes
 packages/runtime-adapters/test/effort-choices.test.ts	still reads the bare, single-line form	yes
 packages/runtime-adapters/test/effort-choices.test.ts	invents nothing when a CLI names no levels	yes
@@ -7710,13 +7746,13 @@ packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.t
 packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	does not write a shim whose path could be read as a command	no
 packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	on another platform redirects stdin from /dev/null	no
 packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	does not write a blank line after the prompt	no
-packages/runtime-adapters/test/line-diff.test.ts	is nothing when nothing changed	no
-packages/runtime-adapters/test/line-diff.test.ts	writes one changed line with three lines of context either side	no
-packages/runtime-adapters/test/line-diff.test.ts	names an absolute path as it is, with no git prefix in front of a drive letter	no
-packages/runtime-adapters/test/line-diff.test.ts	a new file is all added, from /dev/null	no
-packages/runtime-adapters/test/line-diff.test.ts	keeps two distant changes as two hunks, and the counts are what the text says	no
-packages/runtime-adapters/test/line-diff.test.ts	finds the lines that stayed, not a rewrite of everything between	no
-packages/runtime-adapters/test/line-diff.test.ts	an insertion and a deletion count exactly	no
+packages/runtime-adapters/test/line-diff.test.ts	is nothing when nothing changed	yes
+packages/runtime-adapters/test/line-diff.test.ts	writes one changed line with three lines of context either side	yes
+packages/runtime-adapters/test/line-diff.test.ts	names an absolute path as it is, with no git prefix in front of a drive letter	yes
+packages/runtime-adapters/test/line-diff.test.ts	a new file is all added, from /dev/null	yes
+packages/runtime-adapters/test/line-diff.test.ts	keeps two distant changes as two hunks, and the counts are what the text says	yes
+packages/runtime-adapters/test/line-diff.test.ts	finds the lines that stayed, not a rewrite of everything between	yes
+packages/runtime-adapters/test/line-diff.test.ts	an insertion and a deletion count exactly	yes
 packages/runtime-adapters/test/message-tail.test.ts	leaves a message under the cap exactly as it is	yes
 packages/runtime-adapters/test/message-tail.test.ts	KEEPS a trailing protocol block on an answer far over the cap	yes
 packages/runtime-adapters/test/message-tail.test.ts	keeps the beginning too, so the answer still reads as an answer	no
@@ -7724,26 +7760,26 @@ packages/runtime-adapters/test/message-tail.test.ts	says where it cut, rather th
 packages/runtime-adapters/test/message-tail.test.ts	still respects the ledger cap it exists to enforce	yes
 packages/runtime-adapters/test/message-tail.test.ts	keeps a long ANSWER whole: 60,000 characters, no middle cut (0.869)	no
 packages/runtime-adapters/test/message-tail.test.ts	still bounds an answer past ITS limit, keeping the trailing block	yes
-packages/runtime-adapters/test/more-secrets-are-scrubbed.test.ts	${scrub.name} scrubs a private key, a bare JWT, a Google key and a Hugging Face token	no
-packages/runtime-adapters/test/more-secrets-are-scrubbed.test.ts	leaves ordinary words alone, including ones that merely start alike	no
-packages/runtime-adapters/test/muse-events.test.ts	resumes against the session, not the run or the task	no
-packages/runtime-adapters/test/muse-events.test.ts	reads the first record, byte-order mark and all	no
-packages/runtime-adapters/test/muse-events.test.ts	says the answer once	no
-packages/runtime-adapters/test/muse-events.test.ts	keeps Muse's own scaffolding off the transcript	no
-packages/runtime-adapters/test/muse-events.test.ts	understands every record it was sent	no
-packages/runtime-adapters/test/muse-events.test.ts	does not fail the run for a task that failed	no
-packages/runtime-adapters/test/muse-events.test.ts	draws one row, from start to finish, naming what it did	no
-packages/runtime-adapters/test/muse-events.test.ts	fails its own row and leaves the run alone	no
-packages/runtime-adapters/test/muse-events.test.ts	says once, in a sentence, that Muse's own sandbox is not set up (2026-10-13, the voxel round)	no
-packages/runtime-adapters/test/muse-events.test.ts	says nothing about the sandbox for a command that failed some other way	no
-packages/runtime-adapters/test/muse-events.test.ts	keeps a long failure reason within what the ledger keeps (2026-10-10 sweep)	no
-packages/runtime-adapters/test/muse-events.test.ts	says the stream stopped rather than guessing why	no
-packages/runtime-adapters/test/muse-events.test.ts	repeats the runtime's own terminal word and reason	no
-packages/runtime-adapters/test/muse-events.test.ts	says a billing refusal is the account's, not the app breaking	no
-packages/runtime-adapters/test/muse-events.test.ts	says so when Locust was the one that stopped it	no
-packages/runtime-adapters/test/muse-events.test.ts	reports a cancelled run as cancelled, not failed	no
-packages/runtime-adapters/test/muse-events.test.ts	takes a thread id from a session stream and from nothing else	no
-packages/runtime-adapters/test/muse-events.test.ts	knows which task kinds are Muse talking to itself	no
+packages/runtime-adapters/test/more-secrets-are-scrubbed.test.ts	${scrub.name} scrubs a private key, a bare JWT, a Google key and a Hugging Face token	yes
+packages/runtime-adapters/test/more-secrets-are-scrubbed.test.ts	leaves ordinary words alone, including ones that merely start alike	yes
+packages/runtime-adapters/test/muse-events.test.ts	resumes against the session, not the run or the task	yes
+packages/runtime-adapters/test/muse-events.test.ts	reads the first record, byte-order mark and all	yes
+packages/runtime-adapters/test/muse-events.test.ts	says the answer once	yes
+packages/runtime-adapters/test/muse-events.test.ts	keeps Muse's own scaffolding off the transcript	yes
+packages/runtime-adapters/test/muse-events.test.ts	understands every record it was sent	yes
+packages/runtime-adapters/test/muse-events.test.ts	does not fail the run for a task that failed	yes
+packages/runtime-adapters/test/muse-events.test.ts	draws one row, from start to finish, naming what it did	yes
+packages/runtime-adapters/test/muse-events.test.ts	fails its own row and leaves the run alone	yes
+packages/runtime-adapters/test/muse-events.test.ts	says once, in a sentence, that Muse's own sandbox is not set up (2026-10-13, the voxel round)	yes
+packages/runtime-adapters/test/muse-events.test.ts	says nothing about the sandbox for a command that failed some other way	yes
+packages/runtime-adapters/test/muse-events.test.ts	keeps a long failure reason within what the ledger keeps (2026-10-10 sweep)	yes
+packages/runtime-adapters/test/muse-events.test.ts	says the stream stopped rather than guessing why	yes
+packages/runtime-adapters/test/muse-events.test.ts	repeats the runtime's own terminal word and reason	yes
+packages/runtime-adapters/test/muse-events.test.ts	says a billing refusal is the account's, not the app breaking	yes
+packages/runtime-adapters/test/muse-events.test.ts	says so when Locust was the one that stopped it	yes
+packages/runtime-adapters/test/muse-events.test.ts	reports a cancelled run as cancelled, not failed	yes
+packages/runtime-adapters/test/muse-events.test.ts	takes a thread id from a session stream and from nothing else	yes
+packages/runtime-adapters/test/muse-events.test.ts	knows which task kinds are Muse talking to itself	yes
 packages/runtime-adapters/test/opencode-2-discovery-uses-its-acp-command.test.ts	checks V2 ACP help without launching V1 probes or spending a turn	no
 packages/runtime-adapters/test/opencode-2-discovery-uses-its-acp-command.test.ts	leaves V2 model choices to the ACP session instead of inventing CLI hints	no
 packages/runtime-adapters/test/opencode-2-discovery-uses-its-acp-command.test.ts	keeps the V1 help, model-list readiness and free-model parsing	no
@@ -7825,8 +7861,8 @@ packages/runtime-adapters/test/opencode-events.test.ts	says nothing was changed 
 packages/runtime-adapters/test/opencode-events.test.ts	is reported as failed, never as a tool that completed	no
 packages/runtime-adapters/test/opencode-events.test.ts	is a failure when the stream stops mid-tool-call, however cleanly the process exited	no
 packages/runtime-adapters/test/opencode-events.test.ts	is a failure when the process exited non-zero even after a step said stop	no
-packages/runtime-adapters/test/opencode-events.test.ts	is cancelled when the host cancelled it	no
-packages/runtime-adapters/test/opencode-events.test.ts	reports a record it cannot parse as a diagnostic and keeps going	no
+packages/runtime-adapters/test/opencode-events.test.ts	is cancelled when the host cancelled it	yes
+packages/runtime-adapters/test/opencode-events.test.ts	reports a record it cannot parse as a diagnostic and keeps going	yes
 packages/runtime-adapters/test/opencode-events.test.ts	says so when it meets a record type this build has never seen	no
 packages/runtime-adapters/test/opencode-events.test.ts	attaches the unified diff OpenCode reported for an edit, with counts from it	no
 packages/runtime-adapters/test/opencode-events.test.ts	says so instead of blaming a missing stop step	no
@@ -8040,10 +8076,10 @@ packages/runtime-adapters/test/the-steps-show-what-the-runtimes-show.test.ts	car
 packages/runtime-adapters/test/the-steps-show-what-the-runtimes-show.test.ts	closes a reasoning item, so 'Thinking' leaves the live line	no
 packages/runtime-adapters/test/the-steps-show-what-the-runtimes-show.test.ts	does not read the person's own message as the teammate writing	no
 packages/runtime-adapters/test/your-own-model-is-a-provider.test.ts	is declared as an openai-compatible provider, beside the run's own permissions	yes
-packages/runtime-adapters/test/your-own-model-is-a-provider.test.ts	puts the key in the environment only -- never in the arguments	no
-packages/runtime-adapters/test/your-own-model-is-a-provider.test.ts	works for a run that stops to ask, too	no
+packages/runtime-adapters/test/your-own-model-is-a-provider.test.ts	puts the key in the environment only -- never in the arguments	yes
+packages/runtime-adapters/test/your-own-model-is-a-provider.test.ts	works for a run that stops to ask, too	yes
 packages/runtime-adapters/test/your-own-model-is-a-provider.test.ts	sends a placeholder to an endpoint that asks for no key, which the SDK needs and the server ignores	yes
 packages/runtime-adapters/test/your-own-model-is-a-provider.test.ts	turns every tool off for a model that only chats, and only for it (0.358)	yes
-packages/runtime-adapters/test/your-own-model-is-a-provider.test.ts	declares a model's listed price, which OpenCode prices each step with, and none where none is given (0.810)	no
-packages/runtime-adapters/test/your-own-model-is-a-provider.test.ts	changes nothing when there is no model of your own	no
-packages/runtime-adapters/test/your-own-model-is-a-provider.test.ts	refuses an id OpenCode could not take, and an address that is not http(s)	no
+packages/runtime-adapters/test/your-own-model-is-a-provider.test.ts	declares a model's listed price, which OpenCode prices each step with, and none where none is given (0.810)	yes
+packages/runtime-adapters/test/your-own-model-is-a-provider.test.ts	changes nothing when there is no model of your own	yes
+packages/runtime-adapters/test/your-own-model-is-a-provider.test.ts	refuses an id OpenCode could not take, and an address that is not http(s)	yes

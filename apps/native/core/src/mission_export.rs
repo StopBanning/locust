@@ -1742,10 +1742,12 @@ pub fn recover_mission_from_path(path: &std::path::Path) -> Option<Value> {
                 }
             }
             Some("mission.edit_check") => {
+                // A check result in a file written before version 17 is damage, not a check (mission-store's reader:
+                // its own readers would stop at it).
                 if let Some(check) = rec
                     .get("check")
                     .or_else(|| rec.get("editCheck"))
-                    .filter(|v| v.is_object())
+                    .filter(|v| v.is_object() && schema_version >= 17)
                 {
                     if let Some(at) = check.get("occurredAt").and_then(Value::as_str) {
                         last_updated_at = at.to_owned();

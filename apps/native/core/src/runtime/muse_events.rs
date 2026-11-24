@@ -78,6 +78,10 @@ impl MuseNormalizer {
         self.output_limit_exceeded = v;
         self
     }
+    /// Locust stopped the run because Muse sent more than it takes in (a line past 8 MiB, or a full queue).
+    pub fn note_output_limit_exceeded(&mut self) {
+        self.output_limit_exceeded = true;
+    }
     fn event(&mut self, kind: &str, payload: Value) -> Event {
         self.count += 1;
         Event {

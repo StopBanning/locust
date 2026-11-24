@@ -452,10 +452,28 @@ pub(super) fn file_diff(
             );
         }
     }
-    out.child(text(changes::completeness(f, f.hunks.len(), truncated)).font(type_::LABEL).color(p.muted).wrap())
+    // DiffView.tsx's foot: Copy, as Claude Code offers it (0.649), the code as it reads after the change, then whether
+    // all of it is shown. A deleted file has no code after it, and no Copy.
+    let mut foot = row().w_full().gap(10.0).center_y();
+    if let Some(after) = f.after() {
+        foot = foot.child(
+            text("Copy")
+                .font(type_::LABEL)
+                .color(p.secondary)
+                .role("button")
+                .label(format!("Copy the new code in {}", f.path))
+                .key(format!("diff-copy/{}", f.path))
+                .on_press_tx(move |_: &mut State, tx: &mut Tx| crate::reply_actions::request_copy(tx, after.clone())),
+        );
+    }
+    out.child(foot.child(text(changes::completeness(f, f.hunks.len(), truncated)).font(type_::LABEL).color(p.muted).wrap().grow(1.0).shrink()))
 }
 
 pub(super) fn panel(s: &State, p: &Palette) -> Option<El> {
+    // The file panel holds one thing (App.tsx): an open file, then the conversation beside, come before Review changes.
+    if s.file_view.is_some() || crate::beside::beside_shown(s) {
+        return None;
+    }
     let r = s.review.as_ref()?;
     let l = crate::look::controls::Look::new(p.dark);
     let title = match &r.review {

@@ -1,8 +1,9 @@
 use crate::profile_backup::read_backup;
 use crate::profile_sync::{
-    CHUNK_BYTES, HttpSyncRemote, PROFILE_SYNC_FILE, PushOptions, SYNC_QUIET_MS, SyncHttpFetch,
-    SyncHttpReply, SyncRefused, SyncRemote, SyncSchedule, SyncPulled, SyncPushed, manifest_id,
-    new_profile_key, open_file, pull_profile, push_profile, sync_keys,
+    CHUNK_BYTES, HttpSyncRemote, PROFILE_SYNC_FILE, PushOptions, SEAL_OVERHEAD, SYNC_QUIET_MS,
+    SyncHttpFetch, SyncHttpReply, SyncPulled, SyncPushed, SyncRefused, SyncRemote, SyncSchedule,
+    chunk_id_of, chunks_of, file_id_of, manifest_id, new_profile_key, open_file,
+    profile_key_from_code, pull_profile, push_profile, recovery_code, seal_file, sync_keys,
 };
 use crate::relay_crypto::random_text;
 use chrono::{DateTime, Utc};
@@ -560,4 +561,130 @@ fn a_quiet_minute_after_the_last_change_never_during_a_run_and_once_more_for_a_c
     t += 120_000;
     assert!(!schedule.tick(t, false));
     assert_eq!(pushes, 2);
+}
+
+// ---- a-profile-copy-is-sealed-before-it-leaves.test.ts --------------------------------------------------------------
+
+fn is_b64url_43(s: &str) -> bool {
+    s.len() == 43
+        && s.bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
+}
+
+fn is_crockford_recovery_code(s: &str) -> bool {
+    let parts: Vec<&str> = s.split('-').collect();
+    parts.len() == 11
+        && parts.iter().all(|p| {
+            p.len() == 5
+                && p.bytes()
+                    .all(|b| b"0123456789ABCDEFGHJKMNPQRSTVWXYZ".contains(&b))
+        })
+}
+
+#[test]
+// case: opens with the same key, account and id, and holds what was sealed
+fn opens_with_the_same_key_account_and_id_and_holds_what_was_sealed() {
+    let keys = sync_keys(&new_profile_key(), 7).unwrap();
+    let id = file_id_of(&keys, "teammates.json");
+    let plain = br#"{"teammates":[]}"#;
+    let boxed = seal_file(&keys, &id, plain).unwrap();
+    let opened = open_file(&keys, &id, &boxed).unwrap();
+    assert_eq!(std::str::from_utf8(&opened).unwrap(), r#"{"teammates":[]}"#);
+    assert_eq!(boxed.len(), plain.len() + SEAL_OVERHEAD);
+}
+
+#[test]
+// case: holds none of the words it was given
+fn holds_none_of_the_words_it_was_given() {
+    let keys = sync_keys(&new_profile_key(), 7).unwrap();
+    let secret = "Colin asked Codex to refactor the billing page".repeat(4);
+    let id = file_id_of(&keys, "x");
+    let boxed = seal_file(&keys, &id, secret.as_bytes()).unwrap();
+    let latin1: String = boxed.iter().map(|&b| b as char).collect();
+    assert!(!latin1.contains("billing"));
+    // Sealed twice, the same words make two different boxes: a fresh nonce each time.
+    let again = seal_file(&keys, &id, secret.as_bytes()).unwrap();
+    assert_ne!(again, boxed);
+}
+
+#[test]
+// case: does not open with another key, for another account, or under another id
+fn does_not_open_with_another_key_for_another_account_or_under_another_id() {
+    let profile = new_profile_key();
+    let keys = sync_keys(&profile, 7).unwrap();
+    let id = file_id_of(&keys, "memories.json");
+    let boxed = seal_file(&keys, &id, b"remember this").unwrap();
+    assert!(open_file(&sync_keys(&new_profile_key(), 7).unwrap(), &id, &boxed).is_err());
+    assert!(open_file(&sync_keys(&profile, 8).unwrap(), &id, &boxed).is_err());
+    assert!(open_file(&keys, &file_id_of(&keys, "routines.json"), &boxed).is_err());
+    // Nor once a byte of it has changed.
+    let mut changed = boxed.clone();
+    *changed.last_mut().unwrap() ^= 1;
+    assert!(open_file(&keys, &id, &changed).is_err());
+}
+
+#[test]
+// case: is the same on every computer of the account, and differs by name and by key, but for the list
+fn is_the_same_on_every_computer_of_the_account_and_differs_by_name_and_by_key_but_for_the_list() {
+    let profile = new_profile_key();
+    let pc = sync_keys(&profile, 7).unwrap();
+    let mac = sync_keys(&profile, 7).unwrap();
+    assert_eq!(
+        chunk_id_of(&pc, "mission-ledger/mission_a.jsonl", 0),
+        chunk_id_of(&mac, "mission-ledger/mission_a.jsonl", 0)
+    );
+    assert_ne!(
+        chunk_id_of(&pc, "mission-ledger/mission_a.jsonl", 0),
+        chunk_id_of(&pc, "mission-ledger/mission_a.jsonl", 1)
+    );
+    // The list's id is the one id not cut with the key, so a wrong key finds the list and fails to open it.
+    let mid = manifest_id();
+    assert!(is_b64url_43(&mid));
+    assert_ne!(chunk_id_of(&pc, "manifest", 0), mid);
+}
+
+#[test]
+// case: is a relay file id that says nothing of the name
+fn is_a_relay_file_id_that_says_nothing_of_the_name() {
+    let keys = sync_keys(&new_profile_key(), 7).unwrap();
+    let id = chunk_id_of(&keys, "mission-ledger/mission_secret.jsonl", 0);
+    assert!(is_b64url_43(&id));
+    assert!(!id.contains("mission"));
+}
+
+#[test]
+// case: fall at fixed offsets, so an appended file changes only its last piece
+fn fall_at_fixed_offsets_so_an_appended_file_changes_only_its_last_piece() {
+    assert_eq!(chunks_of(0), vec![(0, 0)]);
+    assert_eq!(chunks_of(10), vec![(0, 10)]);
+    assert_eq!(chunks_of(CHUNK_BYTES), vec![(0, CHUNK_BYTES)]);
+    let before = chunks_of(CHUNK_BYTES * 2 + 5);
+    let after = chunks_of(CHUNK_BYTES * 2 + 900);
+    assert_eq!(&after[0..2], &before[0..2]);
+    assert_eq!(after[2], (CHUNK_BYTES * 2, CHUNK_BYTES * 2 + 900));
+}
+
+#[test]
+// case: gives back the profile key, however it is typed
+fn gives_back_the_profile_key_however_it_is_typed() {
+    let key = new_profile_key();
+    let code = recovery_code(&key).unwrap();
+    assert!(is_crockford_recovery_code(&code), "unexpected format: {code}");
+    assert_eq!(profile_key_from_code(&code), Some(key));
+    let typed = code.to_lowercase().replace('-', " ");
+    assert_eq!(profile_key_from_code(&typed), Some(key));
+    // Also check Crockford I/L -> 1 and O -> 0 normalization.
+    let with_confusables = code.replace('1', "l").replace('0', "o");
+    assert_eq!(profile_key_from_code(&with_confusables), Some(key));
+}
+
+#[test]
+// case: refuses a code copied wrong
+fn refuses_a_code_copied_wrong() {
+    let code = recovery_code(&new_profile_key()).unwrap();
+    let first = if code.starts_with('0') { '1' } else { '0' };
+    let swapped = format!("{first}{}", &code[1..]);
+    assert_eq!(profile_key_from_code(&swapped), None);
+    assert_eq!(profile_key_from_code(&code[..code.len() - 1]), None);
+    assert_eq!(profile_key_from_code(""), None);
 }

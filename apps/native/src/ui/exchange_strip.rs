@@ -231,3 +231,7 @@ pub(super) fn view(s: &State, p: &Palette) -> Option<El> {
 #[cfg(test)]
 #[path = "screens_say_less_tests.rs"]
 mod screens_say_less_tests;
+
+#[cfg(test)]
+#[path = "exchange_walk_tests.rs"]
+mod exchange_walk_tests;
