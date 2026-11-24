@@ -1400,7 +1400,7 @@ impl ClaudeNormalizer {
                 return vec![];
             }
             // Each refusal as said, and whether it was Locust's guard that stopped it: by its call, else its command.
-            let listed: Vec<(String, Option<String>)> = denials
+            let listed: Vec<(String, Option<String>, String)> = denials
                 .iter()
                 .filter(|d| obj(d))
                 .map(|d| {
@@ -1411,6 +1411,7 @@ impl ClaudeNormalizer {
                         .as_str()
                         .or(input["file_path"].as_str())
                         .or(input["description"].as_str());
+                    let raw_tool = tool.to_owned();
                     let call = identity(d, "tool_use_id");
                     let guarded = self
                         .guarded_calls
@@ -1418,29 +1419,32 @@ impl ClaudeNormalizer {
                         .filter(|_| !call.is_empty())
                         .or_else(|| detail.and_then(|d| self.guarded_commands.get(d)))
                         .cloned();
+                    let tool = named_tool(tool);
                     let said = match detail {
-                        Some(d) => format!("{tool} `{d}`"),
-                        None => tool.into(),
+                        Some(d) => format!("{tool} `{}`", briefly_put(d)),
+                        None => tool,
                     };
-                    (said, guarded)
+                    (said, guarded, raw_tool)
                 })
                 .collect();
             if listed.is_empty() {
                 return vec![];
             }
             // Locust's guard is not the mode: said apart, in what it stopped and why (0.717).
-            let (guarded, refused): (Vec<_>, Vec<_>) = listed.into_iter().partition(|(_, g)| g.is_some());
+            let (guarded, refused): (Vec<_>, Vec<_>) = listed.into_iter().partition(|(_, g, _)| g.is_some());
             let mut out = vec![];
             if !guarded.is_empty() {
+                let guarded: Vec<(String, Option<String>)> = guarded.into_iter().map(|(said, g, _)| (said, g)).collect();
                 let message = guarded_sentence(&guarded);
                 out.push(self.diagnostic("claude.permission_denied", &message));
             }
-            let refused: Vec<String> = refused.into_iter().map(|(said, _)| said).collect();
+            let why = why_refused(&refused.iter().map(|(_, _, tool)| tool.as_str()).collect::<Vec<_>>());
+            let refused: Vec<String> = refused.into_iter().map(|(said, _, _)| said).collect();
             if !refused.is_empty() {
                 let message = if refused.len() == 1 {
-                    format!("Claude Code was not permitted to use {}, so it did not.", refused[0])
+                    format!("Claude Code was not permitted to use {}, so it did not. {why}", refused[0])
                 } else {
-                    format!("Claude Code was not permitted to use {} tools, so it did not: {}.", refused.len(), refused.join("; "))
+                    format!("Claude Code was not permitted to use {} tools, so it did not: {}. {why}", refused.len(), refused.join("; "))
                 };
                 out.push(self.diagnostic("claude.permission_denied", &message));
             }
@@ -1452,6 +1456,46 @@ impl ClaudeNormalizer {
             &format!("Unhandled Claude record: {type_name}"),
         )]
     }
+}
+
+/// claude-events.ts REFUSAL_DETAIL_LIMIT: long enough for an ordinary command, short enough to stay one line.
+pub const REFUSAL_DETAIL_LIMIT: usize = 96;
+
+/// claude-events.ts brieflyPut: a refused command's first line, cut on a space near the end where there is one, so a
+/// refusal is a sentence a person can act on and never a whole program. The command itself stays on its row.
+pub fn briefly_put(detail: &str) -> String {
+    let first = detail.split('\n').next().unwrap_or("").trim_end_matches('\r').trim();
+    let said = if first.is_empty() { detail.trim() } else { first };
+    if said.chars().count() <= REFUSAL_DETAIL_LIMIT {
+        return said.to_owned();
+    }
+    let cut: String = said.chars().take(REFUSAL_DETAIL_LIMIT).collect();
+    let kept = match cut.rfind(' ') {
+        Some(space) if cut[..space].chars().count() > REFUSAL_DETAIL_LIMIT - 24 => &cut[..space],
+        _ => cut.as_str(),
+    };
+    format!("{}...", kept.trim_end())
+}
+
+/// claude-events.ts namedTool: a connector's tool as the activity rows name it, `get_accounts on Robinhood`.
+pub fn named_tool(name: &str) -> String {
+    let Some(m) = crate::invariants::regex(r"^mcp__([A-Za-z0-9_]+?)__(.+)$").captures(name) else {
+        return name.to_owned();
+    };
+    let server = m[1].strip_prefix("claude_ai_").unwrap_or(&m[1]).replace('_', " ");
+    format!("{} on {server}", &m[2])
+}
+
+/// claude-events.ts whyRefused: why a printed run was refused, which is not one reason -- a connector's (with what the
+/// person can do), a read reaching outside the folder (0.443), or a command's.
+pub fn why_refused(tools: &[&str]) -> &'static str {
+    if tools.iter().all(|t| t.starts_with("mcp__")) {
+        return "Claude Code asks before using a connector, and this one was not allowed: either you said no when it asked, or it is not one of this teammate's connectors. Give this teammate the connector in its card, or run it in Auto.";
+    }
+    if tools.iter().all(|t| matches!(*t, "Read" | "Glob" | "Grep")) {
+        return "Claude Code asks before reading outside this folder, and a printed run has no way to answer. Auto lets it read anywhere.";
+    }
+    "Claude Code asks for approval before running commands in this mode, and a printed run has no way to give it."
 }
 
 /// claude-events.ts guardedSentence (0.717, 0.718): what Locust's command guard stopped, said to the person as theirs --
@@ -1614,6 +1658,9 @@ mod a_long_command_tests;
 #[cfg(test)]
 #[path = "claude_events_case_tests.rs"]
 mod claude_events_case_tests;
+#[cfg(test)]
+#[path = "refusal_is_readable_tests.rs"]
+mod refusal_is_readable_tests;
 #[cfg(test)]
 #[path = "claude_edit_patch_tests.rs"]
 mod claude_edit_patch_tests;
