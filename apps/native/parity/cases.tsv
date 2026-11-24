@@ -5791,6 +5791,10 @@ apps/desktop/src/renderer/src/settings-in-a-browser-say-what-stays.test.tsx	keep
 apps/desktop/src/renderer/src/settings-in-a-browser-say-what-stays.test.tsx	lets the look change from here: no part of Appearance is held on the computer	yes
 apps/desktop/src/renderer/src/settings-in-a-browser-say-what-stays.test.tsx	keeps asking before connector calls on the computer: it is what teammates may reach	yes
 apps/desktop/src/renderer/src/settings-in-a-browser-say-what-stays.test.tsx	holds nothing back and says nothing about a browser, on any page	yes
+apps/desktop/src/renderer/src/settings-opens-locust-in-a-browser-without-a-code.test.tsx	offers Open in your browser with phones off, saying it turns From anywhere on	yes
+apps/desktop/src/renderer/src/settings-opens-locust-in-a-browser-without-a-code.test.tsx	shows Open in your browser’s code as a link, never as a code for a phone to scan	yes
+apps/desktop/src/renderer/src/settings-opens-locust-in-a-browser-without-a-code.test.tsx	offers Sign in with GitHub, saying what is checked and that GitHub is asked for nothing else	yes
+apps/desktop/src/renderer/src/settings-opens-locust-in-a-browser-without-a-code.test.tsx	once signed in, says whom it lets in, and marks the browsers that came in that way	yes
 apps/desktop/src/renderer/src/settings-says-what-locust-can-stop.test.tsx	is one folded row per AI agent, named, with how much a card can stop	yes
 apps/desktop/src/renderer/src/settings-says-what-locust-can-stop.test.tsx	opens to the same sentences the document holds	yes
 apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	$typed finds the $page page	yes

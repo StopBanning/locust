@@ -27,6 +27,12 @@ const CONNECTING_RELAY: &str = "Connecting to Locust\u{2019}s relay\u{2026}";
 const SCAN_ANYWHERE: &str = "Scan it with your phone\u{2019}s camera. It pairs one phone, once, within ten minutes, then a new one takes its place.";
 const ANOTHER_COMPUTER: &str = "On another computer, open this code as a link in its browser instead.";
 const LOST_PHONE: &str = "Lost a phone? Remove it below, and it stops at once.";
+const OPEN_BROWSER_OFF: &str = "Or open Locust\u{2019}s whole window in this computer\u{2019}s browser. It turns this on, from anywhere.";
+const OPEN_BROWSER_ON: &str = "Or open the whole window in this computer\u{2019}s browser, paired at once.";
+const OPENING_IN_BROWSER: &str = "Opening Locust in this computer\u{2019}s browser. If no tab opened, copy the link and open it in the browser.";
+const GITHUB_OFF_LEDE: &str = "Sign in with GitHub, and any browser where you sign in to GitHub opens Locust at app.locust.lol/desk, with no code.";
+const GITHUB_OFF_NOTE: &str = "Locust\u{2019}s relay checks who you are with GitHub, then this computer checks again with GitHub itself. Locust asks GitHub for no permissions, only who you are.";
+const GITHUB_ON_NOTE: &str = "Signing out stops new sign-ins. Browsers already in stay paired until you remove them above.";
 const NIGHT_APPROVALS_LEDE: &str = "Let approvals and questions buzz in quiet hours. Off, everything waits for the morning brief.";
 const NIGHT_APPROVALS_LABEL: &str = "Let approvals buzz in quiet hours";
 /// One square of the code, in points.
@@ -256,6 +262,21 @@ pub(crate) fn section(s: &State, p: &Palette) -> El {
         .child(row().w_full().gap(16.0).padding(10.0).center_y().child(words).child(switch))
         .child(ways);
 
+    if !on && !managed && shown == PhoneMode::Anywhere {
+        section = section.child(
+            row()
+                .w_full()
+                .gap(8.0)
+                .px(10.0)
+                .center_y()
+                .child(col().grow(1.0).child(text(OPEN_BROWSER_OFF).font(l.ty.body).color(l.c("text-secondary")).wrap()))
+                .child(
+                    crate::look::controls::button(&l, "Open in your browser", crate::look::controls::Tone::Neutral, false)
+                        .key("phone-open-browser"),
+                ),
+        );
+    }
+
     if on && mode == PhoneMode::Anywhere && let Some(anywhere) = anywhere {
         let status_line = anywhere
             .message
@@ -265,25 +286,45 @@ pub(crate) fn section(s: &State, p: &Palette) -> El {
             .grow(1.0)
             .gap(8.0)
             .child(text(status_line.to_owned()).key("phone-anywhere-status").role("status").font(l.ty.body).color(l.c("text-secondary")).wrap());
+        let is_desk_code = anywhere.code.as_ref().is_some_and(|c| c.desk);
         if let Some(code) = &anywhere.code {
             let link = code.url.clone();
-            side = side
-                .child(text(SCAN_ANYWHERE).font(l.ty.body).color(l.c("text-secondary")).wrap())
-                .child(text(ANOTHER_COMPUTER).font(l.ty.body).color(l.c("text-secondary")).wrap())
-                .child(
-                    row().child(
-                        text("Copy the link")
-                            .key("phone-copy")
-                            .font(l.ty.control)
-                            .color(l.c("text-primary"))
-                            .py(6.0)
-                            .px(10.0)
-                            .radius(l.t.px("radius-control"))
-                            .fill(l.c("bg-control"))
-                            .role("button")
-                            .on_press_tx(move |_s: &mut State, tx| crate::reply_actions::request_copy(tx, link.clone())),
-                    ),
-                );
+            if code.desk {
+                side = side
+                    .child(text(OPENING_IN_BROWSER).font(l.ty.body).color(l.c("text-secondary")).wrap())
+                    .child(
+                        row().child(
+                            text("Copy the link")
+                                .key("phone-copy")
+                                .font(l.ty.control)
+                                .color(l.c("text-primary"))
+                                .py(6.0)
+                                .px(10.0)
+                                .radius(l.t.px("radius-control"))
+                                .fill(l.c("bg-control"))
+                                .role("button")
+                                .on_press_tx(move |_s: &mut State, tx| crate::reply_actions::request_copy(tx, link.clone())),
+                        ),
+                    );
+            } else {
+                side = side
+                    .child(text(SCAN_ANYWHERE).font(l.ty.body).color(l.c("text-secondary")).wrap())
+                    .child(text(ANOTHER_COMPUTER).font(l.ty.body).color(l.c("text-secondary")).wrap())
+                    .child(
+                        row().child(
+                            text("Copy the link")
+                                .key("phone-copy")
+                                .font(l.ty.control)
+                                .color(l.c("text-primary"))
+                                .py(6.0)
+                                .px(10.0)
+                                .radius(l.t.px("radius-control"))
+                                .fill(l.c("bg-control"))
+                                .role("button")
+                                .on_press_tx(move |_s: &mut State, tx| crate::reply_actions::request_copy(tx, link.clone())),
+                        ),
+                    );
+            }
         } else {
             side = side.child(
                 row().child(
@@ -297,6 +338,19 @@ pub(crate) fn section(s: &State, p: &Palette) -> El {
                         .fill(l.c("bg-control"))
                         .role("button"),
                 ),
+            );
+        }
+        if !is_desk_code {
+            side = side.child(
+                row()
+                    .w_full()
+                    .gap(8.0)
+                    .center_y()
+                    .child(col().grow(1.0).child(text(OPEN_BROWSER_ON).font(l.ty.body).color(l.c("text-secondary")).wrap()))
+                    .child(
+                        crate::look::controls::button(&l, "Open in your browser", crate::look::controls::Tone::Neutral, false)
+                            .key("phone-open-browser"),
+                    ),
             );
         }
         if !anywhere.devices.is_empty() {
@@ -342,6 +396,35 @@ pub(crate) fn section(s: &State, p: &Palette) -> El {
             }
             section = section.child(list);
         }
+
+        let (github_lede, github_note, github_label) = if let Some(login) = &anywhere.github_login {
+            (
+                format!("Any browser where you sign in to GitHub as {login} opens Locust at app.locust.lol/desk, with no code."),
+                GITHUB_ON_NOTE,
+                "Sign out of GitHub",
+            )
+        } else {
+            (GITHUB_OFF_LEDE.to_owned(), GITHUB_OFF_NOTE, "Sign in with GitHub")
+        };
+        section = section.child(
+            row()
+                .w_full()
+                .gap(16.0)
+                .padding(10.0)
+                .center_y()
+                .key("phone-github")
+                .child(
+                    col()
+                        .grow(1.0)
+                        .gap(4.0)
+                        .child(text(github_lede).font(l.ty.body).color(l.c("text-primary")).wrap())
+                        .child(text(github_note).font(l.ty.body).color(l.c("text-secondary")).wrap()),
+                )
+                .child(
+                    crate::look::controls::button(&l, github_label, crate::look::controls::Tone::Neutral, !anywhere.connected)
+                        .key("phone-github-btn"),
+                ),
+        );
 
         if anywhere.devices.iter().any(|d| d.alerts) {
             let night_switch = crate::look::controls::switch(&l, anywhere.night_approvals, NIGHT_APPROVALS_LABEL, false)
@@ -701,5 +784,110 @@ mod tests {
         assert_eq!(qr.label.as_deref(), Some("A code for your phone\u{2019}s camera. It opens Locust on your phone."));
         assert!(text.contains("New code"), "{text}");
         assert!(by_key(&els, "phone-devices").is_none());
+    }
+
+    #[test]
+    // case: offers Open in your browser with phones off, saying it turns From anywhere on
+    fn offers_open_in_your_browser_with_phones_off_saying_it_turns_from_anywhere_on() {
+        let els = render(off_wifi(), off_anywhere());
+        let text = all_text(&els);
+        assert!(
+            text.contains("Or open Locust\u{2019}s whole window in this computer\u{2019}s browser. It turns this on, from anywhere."),
+            "{text}"
+        );
+        assert!(text.contains("Open in your browser"), "{text}");
+
+        // Not while phones reach Locust only on this Wi-Fi: that way would be turned off.
+        let wifi_only = all_text(&render(
+            PhoneSettings { enabled: true, url: Some("http://192.168.1.2:1234/#k".into()), addresses: Vec::new(), message: None },
+            off_anywhere(),
+        ));
+        assert!(!wifi_only.contains("Open in your browser"), "{wifi_only}");
+    }
+
+    #[test]
+    // case: shows Open in your browser’s code as a link, never as a code for a phone to scan
+    fn shows_open_in_your_browsers_code_as_a_link_never_as_a_code_for_a_phone_to_scan() {
+        let mut desk_code = sample_code();
+        desk_code.url.push_str(".d");
+        desk_code.desk = true;
+        let els = render(
+            off_wifi(),
+            PhoneAnywhereSettings { enabled: true, connected: true, code: Some(desk_code), ..off_anywhere() },
+        );
+        let text = all_text(&els);
+        assert!(text.contains("Opening Locust in this computer\u{2019}s browser."), "{text}");
+        assert!(text.contains("Copy the link"), "{text}");
+        assert!(by_key(&els, "phone-code").is_none());
+
+        let plain = render(
+            off_wifi(),
+            PhoneAnywhereSettings { enabled: true, connected: true, code: Some(sample_code()), ..off_anywhere() },
+        );
+        assert!(by_key(&plain, "phone-code").is_some());
+        let plain_text = all_text(&plain);
+        assert!(plain_text.contains("Or open the whole window in this computer\u{2019}s browser, paired at once."), "{plain_text}");
+    }
+
+    #[test]
+    // case: offers Sign in with GitHub, saying what is checked and that GitHub is asked for nothing else
+    fn offers_sign_in_with_github_saying_what_is_checked_and_that_github_is_asked_for_nothing_else() {
+        let els = render(
+            off_wifi(),
+            PhoneAnywhereSettings { enabled: true, connected: true, ..off_anywhere() },
+        );
+        let text = all_text(&els);
+        assert!(
+            text.contains("Sign in with GitHub, and any browser where you sign in to GitHub opens Locust at app.locust.lol/desk, with no code."),
+            "{text}"
+        );
+        assert!(
+            text.contains("then this computer checks again with GitHub itself. Locust asks GitHub for no permissions, only who you are."),
+            "{text}"
+        );
+        let btn = by_key(&els, "phone-github-btn").expect("Sign in with GitHub button");
+        assert!(btn.focusable, "Sign in with GitHub should be enabled when connected");
+
+        let disconnected = render(
+            off_wifi(),
+            PhoneAnywhereSettings { enabled: true, connected: false, ..off_anywhere() },
+        );
+        let disabled_btn = by_key(&disconnected, "phone-github-btn").expect("Sign in with GitHub button");
+        assert!(!disabled_btn.focusable, "Sign in with GitHub must be disabled before the relay answers");
+    }
+
+    #[test]
+    // case: once signed in, says whom it lets in, and marks the browsers that came in that way
+    fn once_signed_in_says_whom_it_lets_in_and_marks_the_browsers_that_came_in_that_way() {
+        let els = render(
+            off_wifi(),
+            PhoneAnywhereSettings {
+                enabled: true,
+                connected: true,
+                github_login: Some("octo".into()),
+                devices: vec![PairedDeviceView {
+                    id: "d1".into(),
+                    name: "Chrome on Windows".into(),
+                    added: "2026-10-28T00:00:00.000Z".into(),
+                    seen: None,
+                    online: true,
+                    alerts: false,
+                    desk: Some(true),
+                    github: true,
+                }],
+                ..off_anywhere()
+            },
+        );
+        let text = all_text(&els);
+        assert!(
+            text.contains("Any browser where you sign in to GitHub as octo opens Locust at app.locust.lol/desk, with no code."),
+            "{text}"
+        );
+        assert!(
+            text.contains("Signing out stops new sign-ins. Browsers already in stay paired until you remove them above."),
+            "{text}"
+        );
+        assert!(text.contains("Sign out of GitHub"), "{text}");
+        assert!(text.contains("Open now \u{b7} signed in with GitHub"), "{text}");
     }
 }
