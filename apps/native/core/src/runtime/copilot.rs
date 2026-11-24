@@ -2,7 +2,6 @@
 use super::process::{Control, interrupt_process, kill_process};
 use super::{Event, Runtime, Turn, copilot_events::CopilotNormalizer};
 use crate::approval::Mode;
-use serde_json::Value;
 use std::{
     collections::VecDeque,
     io::{self, BufReader},
@@ -22,8 +21,11 @@ pub const EXCLUDED_TOOLS: &str = "--excluded-tools=session_store_sql";
 pub struct PrintCopilot {
     child: Child,
     control: Arc<Control>,
-    lines: Receiver<io::Result<Value>>,
+    /// Each line the CLI printed, as text: the normalizer reads it, and says so when it cannot (copilot-events.ts).
+    lines: Receiver<io::Result<String>>,
     stderr_buf: Arc<Mutex<String>>,
+    /// Disconnects once stderr has been read to its end.
+    stderr_read: Receiver<()>,
     normal: CopilotNormalizer,
     queued: VecDeque<Event>,
     stopping: Option<Instant>,
@@ -116,6 +118,37 @@ pub fn prompt_args(
     args
 }
 
+/// Copilot over ACP, to ask (createCopilotAcpCommand): `--acp` and nothing that stops it asking -- no
+/// `--allow-all-tools`, no prompt and no session on the argv; the model and effort chosen ride along.
+pub fn acp_args(model: Option<&str>, effort: Option<&str>, skills: Option<&str>) -> Vec<String> {
+    let mut args = vec!["--acp".to_owned(), EXCLUDED_TOOLS.to_owned()];
+    if let Some(m) = model {
+        args.extend(["--model".into(), m.into()]);
+    }
+    if let Some(e) = effort {
+        args.extend(["--effort".into(), e.into()]);
+    }
+    if let Some(dir) = skills {
+        args.extend(["--plugin-dir".into(), dir.into()]);
+    }
+    args
+}
+
+/// Where `command` finds the CLI. A test hands in a fake path on its own thread, so the command the engine builds can be
+/// read without touching PATH, which every other test reads.
+fn launcher() -> io::Result<std::path::PathBuf> {
+    #[cfg(test)]
+    if let Some(fake) = FAKE_LAUNCHER.with(|f| f.borrow().clone()) {
+        return Ok(fake);
+    }
+    super::discovery::find_named("copilot")
+}
+
+#[cfg(test)]
+thread_local! {
+    pub(crate) static FAKE_LAUNCHER: std::cell::RefCell<Option<std::path::PathBuf>> = const { std::cell::RefCell::new(None) };
+}
+
 pub fn command(
     folder: &Path,
     prompt: &str,
@@ -127,18 +160,9 @@ pub fn command(
     references: &[&str],
     skills: Option<&str>,
 ) -> io::Result<Command> {
-    let mut c = Command::new(super::discovery::find_named("copilot")?);
+    let mut c = Command::new(launcher()?);
     if mode == Mode::ApproveEach {
-        c.args(["--acp", EXCLUDED_TOOLS]);
-        if let Some(m) = model {
-            c.args(["--model", m]);
-        }
-        if let Some(e) = effort {
-            c.args(["--effort", e]);
-        }
-        if let Some(dir) = skills {
-            c.args(["--plugin-dir", dir]);
-        }
+        c.args(acp_args(model, effort, skills));
     } else {
         c.args(prompt_args(prompt, mode, model, effort, resume, session_id, references, skills));
         if let Some(home) = std::env::var_os("HOME") {
@@ -157,7 +181,7 @@ impl PrintCopilot {
         control.watch(pid);
         // Capture stderr for policy/model refusals.
         // Successful spawn configured stderr and no previous take occurs.
-        let stderr_buf =
+        let (stderr_buf, stderr_read) =
             super::process::stderr_prefix(child.stderr.take().expect("configured stderr pipe"));
         let output = child
             .stdout
@@ -191,9 +215,8 @@ impl PrintCopilot {
                         if trimmed.is_empty() {
                             continue;
                         }
-                        let value = serde_json::from_slice::<Value>(trimmed)
-                            .map_err(|_| err("Copilot sent malformed json"));
-                        match tx.try_send(value) {
+                        // A line that is not a record is the normalizer's to report; the run goes on.
+                        match tx.try_send(Ok(String::from_utf8_lossy(trimmed).into_owned())) {
                             Ok(()) => {}
                             Err(mpsc::TrySendError::Full(_)) => {
                                 reader_control.fail("Copilot notification queue overflow (2048 records); terminating run");
@@ -214,6 +237,7 @@ impl PrintCopilot {
             control,
             lines,
             stderr_buf,
+            stderr_read,
             normal: CopilotNormalizer::default(),
             queued: VecDeque::new(),
             stopping: None,
@@ -234,7 +258,7 @@ impl PrintCopilot {
                 .as_ref()
                 .is_some_and(|f| f.load(Ordering::Relaxed))
     }
-    fn receive(&self) -> io::Result<Option<Value>> {
+    fn receive(&self) -> io::Result<Option<String>> {
         if let Some(message) = self.control.failure() {
             return Err(err(message));
         }
@@ -311,19 +335,21 @@ impl Runtime for PrintCopilot {
         }
         self.poll_exit();
         match self.receive() {
-            Ok(Some(v)) => {
-                self.queued.extend(self.normal.accept(&v));
+            Ok(Some(line)) => {
+                self.queued.extend(self.normal.accept_line(&line));
                 Ok(self.queued.pop_front())
             }
             Ok(None) => Ok(None),
             Err(_) => {
-                while let Ok(Ok(v)) = self.lines.try_recv() {
-                    self.queued.extend(self.normal.accept(&v));
+                while let Ok(Ok(line)) = self.lines.try_recv() {
+                    self.queued.extend(self.normal.accept_line(&line));
                 }
                 if let Some(e) = self.queued.pop_front() {
                     return Ok(Some(e));
                 }
                 self.await_exit(Duration::from_millis(500));
+                // Its last words on stderr say why it stopped (a policy, a model it cannot use): read them all first.
+                let _ = self.stderr_read.recv_timeout(Duration::from_millis(500));
                 let stderr = crate::invariants::lock(&self.stderr_buf).clone();
                 self.normal.set_stderr(&stderr);
                 let cancelled = self.stopping.is_some() || self.cancelled();
@@ -452,3 +478,7 @@ impl Runtime for Copilot {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "copilot_events_case_tests.rs"]
+mod copilot_events_case_tests;

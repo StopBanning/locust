@@ -7259,84 +7259,84 @@ packages/runtime-adapters/test/a-slow-runtime-is-shown-as-checking.test.ts	is no
 packages/runtime-adapters/test/a-slow-runtime-is-shown-as-checking.test.ts	takes readiness and the models from the one list that carries both	yes
 packages/runtime-adapters/test/a-slow-runtime-is-shown-as-checking.test.ts	asks the plain list only when the richer one did not answer, and still reads ready from it	yes
 packages/runtime-adapters/test/a-slow-runtime-is-shown-as-checking.test.ts	is not ready when neither list can be read -- and says unhealthy, not signed out	yes
-packages/runtime-adapters/test/acp-events.test.ts	starts, thinks, asks to run a command, is refused, and ends -- as the product's events	no
-packages/runtime-adapters/test/acp-events.test.ts	records the refused call as declined, with its command -- not as a failure	no
-packages/runtime-adapters/test/acp-events.test.ts	keeps what was thought on the thinking step, as every runtime's is -- and nothing of the machine's own commands	no
-packages/runtime-adapters/test/acp-events.test.ts	ends with the turn's usage	no
-packages/runtime-adapters/test/acp-events.test.ts	names the call by what the agent said it was for, and the command it asked to run	no
-packages/runtime-adapters/test/acp-events.test.ts	keeps none of the conversation the load replayed -- only the turn it was sent	no
-packages/runtime-adapters/test/acp-events.test.ts	runs the approved command, and keeps what it printed	no
-packages/runtime-adapters/test/acp-events.test.ts	names the session it loaded, and what the turn cost	no
-packages/runtime-adapters/test/acp-events.test.ts	sent whole rather than token by token, is bounded like every other message -- and keeps both ends (review 2026-10-15, C1)	no
-packages/runtime-adapters/test/acp-events.test.ts	streams as it is written, and is marked whole and final when the turn ends	no
-packages/runtime-adapters/test/acp-events.test.ts	what is said before a tool call and after it are two messages, each whole -- Copilot names neither	no
-packages/runtime-adapters/test/acp-events.test.ts	an agent that keeps one message id across a tool call gets one item per stretch, so neither replaces the other	no
-packages/runtime-adapters/test/acp-events.test.ts	the person's own words, replayed, are never taken for the agent's	no
-packages/runtime-adapters/test/acp-events.test.ts	an edit carries its change as a patch, worked out from before and after	no
-packages/runtime-adapters/test/acp-events.test.ts	a plan goes to the plan card as the agent wrote it	no
-packages/runtime-adapters/test/acp-events.test.ts	cancelled, by the person or by the agent's own answer	no
-packages/runtime-adapters/test/acp-events.test.ts	failed when the agent ended before its turn did, or refused it -- and a CLI that is signed out says so	no
-packages/runtime-adapters/test/acp-events.test.ts	cut off at a limit says so, beside the completion (2026-10-10 sweep)	no
-packages/runtime-adapters/test/acp-events.test.ts	a run lost during a later prompt did not finish, though an earlier one did	no
-packages/runtime-adapters/test/acp-events.test.ts	a second prompt -- a denial's reason, sent on -- is paid for as well as the first	no
-packages/runtime-adapters/test/acp-run.test.ts	offers the agent nothing, starts in the folder it names, and records the turn	no
-packages/runtime-adapters/test/acp-run.test.ts	never records the machine's own commands, or anything said for another session	no
-packages/runtime-adapters/test/acp-run.test.ts	continues a session by loading it, and keeps none of what the load replays	no
-packages/runtime-adapters/test/acp-run.test.ts	answers by the KIND of option, never says 'always' to the agent, and asks the host about every request	no
-packages/runtime-adapters/test/acp-run.test.ts	writes a refusal down BEFORE the answer goes back, so it comes before the failed call it explains	no
-packages/runtime-adapters/test/acp-run.test.ts	a turn the agent ends 'cancelled' on the host's own refusal finished, declined -- it was not stopped (OpenCode 2.1.0)	no
-packages/runtime-adapters/test/acp-run.test.ts	a turn the agent ends 'cancelled' with nothing refused still reads as stopped (control)	no
-packages/runtime-adapters/test/acp-run.test.ts	refuses anything else the agent asks -- files, a terminal -- as a method it was never offered	no
-packages/runtime-adapters/test/acp-run.test.ts	on Stop, cancels the turn the protocol's way and answers the open question 'cancelled'	no
-packages/runtime-adapters/test/acp-run.test.ts	ends a stopped turn anyway when the agent never says it stopped	no
-packages/runtime-adapters/test/acp-run.test.ts	puts a session back into the mode that asks, and will not run one that cannot be	no
-packages/runtime-adapters/test/acp-run.test.ts	turns allow-all off before the prompt, and will not run an agent that keeps it on	no
-packages/runtime-adapters/test/acp-run.test.ts	sends what it was handed during a turn as the next prompt, once that turn ends	no
-packages/runtime-adapters/test/acp-run.test.ts	still sends what it was handed when the turn stops at a limit (2026-10-10 sweep)	no
-packages/runtime-adapters/test/acp-run.test.ts	an agent that dies mid-turn leaves a run that did not finish, saying so	no
-packages/runtime-adapters/test/acp-run.test.ts	says so in words when the agent cannot continue an earlier session, rather than asking it anyway	no
-packages/runtime-adapters/test/acp-run.test.ts	will not speak to an agent on another version of the protocol	no
-packages/runtime-adapters/test/acp-run.test.ts	reads the protocol's own keys, and only true counts	no
-packages/runtime-adapters/test/acp-run.test.ts	reads what Copilot 1.0.88 really answered (fixtures/acp), its sessionCapabilities left out	no
-packages/runtime-adapters/test/acp-run.test.ts	leaves out keys it does not know, and reads nothing from a malformed answer	no
-packages/runtime-adapters/test/acp-run.test.ts	is handed over once the agent answers on this protocol's version	no
-packages/runtime-adapters/test/acp-run.test.ts	is not handed over from an agent on another version of the protocol	no
-packages/runtime-adapters/test/acp-run.test.ts	a listener that throws does not stop the turn	no
-packages/runtime-adapters/test/acp-run.test.ts	--acp and nothing that stops it asking: no --allow-all-tools, no prompt, no session on the argv	no
-packages/runtime-adapters/test/acp-run.test.ts	holds the session to the mode that asks, with allow-all off -- by Copilot's own ids	no
-packages/runtime-adapters/test/agy-events.test.ts	reads a file: one tool row, the answer whole, the conversation to carry on, and usage	no
-packages/runtime-adapters/test/agy-events.test.ts	the answer arrived whole, then the service was unavailable: finished, with a line saying so (0.657)	no
-packages/runtime-adapters/test/agy-events.test.ts	a sentence said before a step is not said again on top of the answer (0.668)	no
+packages/runtime-adapters/test/acp-events.test.ts	starts, thinks, asks to run a command, is refused, and ends -- as the product's events	yes
+packages/runtime-adapters/test/acp-events.test.ts	records the refused call as declined, with its command -- not as a failure	yes
+packages/runtime-adapters/test/acp-events.test.ts	keeps what was thought on the thinking step, as every runtime's is -- and nothing of the machine's own commands	yes
+packages/runtime-adapters/test/acp-events.test.ts	ends with the turn's usage	yes
+packages/runtime-adapters/test/acp-events.test.ts	names the call by what the agent said it was for, and the command it asked to run	yes
+packages/runtime-adapters/test/acp-events.test.ts	keeps none of the conversation the load replayed -- only the turn it was sent	yes
+packages/runtime-adapters/test/acp-events.test.ts	runs the approved command, and keeps what it printed	yes
+packages/runtime-adapters/test/acp-events.test.ts	names the session it loaded, and what the turn cost	yes
+packages/runtime-adapters/test/acp-events.test.ts	sent whole rather than token by token, is bounded like every other message -- and keeps both ends (review 2026-10-15, C1)	yes
+packages/runtime-adapters/test/acp-events.test.ts	streams as it is written, and is marked whole and final when the turn ends	yes
+packages/runtime-adapters/test/acp-events.test.ts	what is said before a tool call and after it are two messages, each whole -- Copilot names neither	yes
+packages/runtime-adapters/test/acp-events.test.ts	an agent that keeps one message id across a tool call gets one item per stretch, so neither replaces the other	yes
+packages/runtime-adapters/test/acp-events.test.ts	the person's own words, replayed, are never taken for the agent's	yes
+packages/runtime-adapters/test/acp-events.test.ts	an edit carries its change as a patch, worked out from before and after	yes
+packages/runtime-adapters/test/acp-events.test.ts	a plan goes to the plan card as the agent wrote it	yes
+packages/runtime-adapters/test/acp-events.test.ts	cancelled, by the person or by the agent's own answer	yes
+packages/runtime-adapters/test/acp-events.test.ts	failed when the agent ended before its turn did, or refused it -- and a CLI that is signed out says so	yes
+packages/runtime-adapters/test/acp-events.test.ts	cut off at a limit says so, beside the completion (2026-10-10 sweep)	yes
+packages/runtime-adapters/test/acp-events.test.ts	a run lost during a later prompt did not finish, though an earlier one did	yes
+packages/runtime-adapters/test/acp-events.test.ts	a second prompt -- a denial's reason, sent on -- is paid for as well as the first	yes
+packages/runtime-adapters/test/acp-run.test.ts	offers the agent nothing, starts in the folder it names, and records the turn	yes
+packages/runtime-adapters/test/acp-run.test.ts	never records the machine's own commands, or anything said for another session	yes
+packages/runtime-adapters/test/acp-run.test.ts	continues a session by loading it, and keeps none of what the load replays	yes
+packages/runtime-adapters/test/acp-run.test.ts	answers by the KIND of option, never says 'always' to the agent, and asks the host about every request	yes
+packages/runtime-adapters/test/acp-run.test.ts	writes a refusal down BEFORE the answer goes back, so it comes before the failed call it explains	yes
+packages/runtime-adapters/test/acp-run.test.ts	a turn the agent ends 'cancelled' on the host's own refusal finished, declined -- it was not stopped (OpenCode 2.1.0)	yes
+packages/runtime-adapters/test/acp-run.test.ts	a turn the agent ends 'cancelled' with nothing refused still reads as stopped (control)	yes
+packages/runtime-adapters/test/acp-run.test.ts	refuses anything else the agent asks -- files, a terminal -- as a method it was never offered	yes
+packages/runtime-adapters/test/acp-run.test.ts	on Stop, cancels the turn the protocol's way and answers the open question 'cancelled'	yes
+packages/runtime-adapters/test/acp-run.test.ts	ends a stopped turn anyway when the agent never says it stopped	yes
+packages/runtime-adapters/test/acp-run.test.ts	puts a session back into the mode that asks, and will not run one that cannot be	yes
+packages/runtime-adapters/test/acp-run.test.ts	turns allow-all off before the prompt, and will not run an agent that keeps it on	yes
+packages/runtime-adapters/test/acp-run.test.ts	sends what it was handed during a turn as the next prompt, once that turn ends	yes
+packages/runtime-adapters/test/acp-run.test.ts	still sends what it was handed when the turn stops at a limit (2026-10-10 sweep)	yes
+packages/runtime-adapters/test/acp-run.test.ts	an agent that dies mid-turn leaves a run that did not finish, saying so	yes
+packages/runtime-adapters/test/acp-run.test.ts	says so in words when the agent cannot continue an earlier session, rather than asking it anyway	yes
+packages/runtime-adapters/test/acp-run.test.ts	will not speak to an agent on another version of the protocol	yes
+packages/runtime-adapters/test/acp-run.test.ts	reads the protocol's own keys, and only true counts	yes
+packages/runtime-adapters/test/acp-run.test.ts	reads what Copilot 1.0.88 really answered (fixtures/acp), its sessionCapabilities left out	yes
+packages/runtime-adapters/test/acp-run.test.ts	leaves out keys it does not know, and reads nothing from a malformed answer	yes
+packages/runtime-adapters/test/acp-run.test.ts	is handed over once the agent answers on this protocol's version	yes
+packages/runtime-adapters/test/acp-run.test.ts	is not handed over from an agent on another version of the protocol	yes
+packages/runtime-adapters/test/acp-run.test.ts	a listener that throws does not stop the turn	yes
+packages/runtime-adapters/test/acp-run.test.ts	--acp and nothing that stops it asking: no --allow-all-tools, no prompt, no session on the argv	yes
+packages/runtime-adapters/test/acp-run.test.ts	holds the session to the mode that asks, with allow-all off -- by Copilot's own ids	yes
+packages/runtime-adapters/test/agy-events.test.ts	reads a file: one tool row, the answer whole, the conversation to carry on, and usage	yes
+packages/runtime-adapters/test/agy-events.test.ts	the answer arrived whole, then the service was unavailable: finished, with a line saying so (0.657)	yes
+packages/runtime-adapters/test/agy-events.test.ts	a sentence said before a step is not said again on top of the answer (0.668)	yes
 packages/runtime-adapters/test/agy-events.test.ts	the answer closed, then the stream was "interrupted": finished, with a line saying so (0.779)	yes
 packages/runtime-adapters/test/agy-events.test.ts	a stream interrupted while a tool was still going is still a failure	yes
-packages/runtime-adapters/test/agy-events.test.ts	a quota used up is the limit card, with the reset as the instant it names	no
-packages/runtime-adapters/test/agy-events.test.ts	a 503 with no answer is still a failure	no
-packages/runtime-adapters/test/agy-events.test.ts	a write in the default mode is refused, its row says so, and the person is told how to allow it	no
-packages/runtime-adapters/test/agy-events.test.ts	in Edit, the file is written and the command refused, said as such	no
-packages/runtime-adapters/test/agy-events.test.ts	a refusal agy reports as DONE is refused once the result names it (0.550, Sol on 0.546)	no
-packages/runtime-adapters/test/agy-events.test.ts	a write that ran with nothing to show is still done when the result refused something else	no
-packages/runtime-adapters/test/agy-events.test.ts	a refusal agy explains before it stops is still refused (0.551, Boss on 0.550)	no
-packages/runtime-adapters/test/agy-events.test.ts	plan mode: its own plan file is written, the change it went on to make is refused	no
-packages/runtime-adapters/test/agy-events.test.ts	in Edit an edit is never held: it is done as it ends	no
-packages/runtime-adapters/test/agy-events.test.ts	an allowed command carries its command line and its output	no
-packages/runtime-adapters/test/agy-events.test.ts	an unknown model fails the run with agy's own reason, first line only	no
-packages/runtime-adapters/test/agy-events.test.ts	never records reasoning text: agy only counts it	no
-packages/runtime-adapters/test/agy-events.test.ts	is print mode with the prompt on stdin, and each mode is the measured flag	no
-packages/runtime-adapters/test/agy-events.test.ts	allows everything only under full access, and the flag stays banned for every other runtime	no
-packages/runtime-adapters/test/agy-events.test.ts	sends the prompt in the one input shape agy accepted	no
-packages/runtime-adapters/test/agy-events.test.ts	reads agy models as printed	no
-packages/runtime-adapters/test/agy-events.test.ts	thinking reads as its time, only where thinking tokens were spent (0.542)	no
-packages/runtime-adapters/test/agy-events.test.ts	a conversation the CLI does not have ends the session and says why (0.541, a conversation the app began)	no
-packages/runtime-adapters/test/an-acp-output-stream-closing-ends-the-turn.test.ts	fails a live child once rather than waiting for the prompt timeout	no
-packages/runtime-adapters/test/an-acp-output-stream-closing-ends-the-turn.test.ts	reports an output error without needing a process exit	no
-packages/runtime-adapters/test/an-acp-output-stream-closing-ends-the-turn.test.ts	keeps the final prompt answer in the last chunk before EOF	no
+packages/runtime-adapters/test/agy-events.test.ts	a quota used up is the limit card, with the reset as the instant it names	yes
+packages/runtime-adapters/test/agy-events.test.ts	a 503 with no answer is still a failure	yes
+packages/runtime-adapters/test/agy-events.test.ts	a write in the default mode is refused, its row says so, and the person is told how to allow it	yes
+packages/runtime-adapters/test/agy-events.test.ts	in Edit, the file is written and the command refused, said as such	yes
+packages/runtime-adapters/test/agy-events.test.ts	a refusal agy reports as DONE is refused once the result names it (0.550, Sol on 0.546)	yes
+packages/runtime-adapters/test/agy-events.test.ts	a write that ran with nothing to show is still done when the result refused something else	yes
+packages/runtime-adapters/test/agy-events.test.ts	a refusal agy explains before it stops is still refused (0.551, Boss on 0.550)	yes
+packages/runtime-adapters/test/agy-events.test.ts	plan mode: its own plan file is written, the change it went on to make is refused	yes
+packages/runtime-adapters/test/agy-events.test.ts	in Edit an edit is never held: it is done as it ends	yes
+packages/runtime-adapters/test/agy-events.test.ts	an allowed command carries its command line and its output	yes
+packages/runtime-adapters/test/agy-events.test.ts	an unknown model fails the run with agy's own reason, first line only	yes
+packages/runtime-adapters/test/agy-events.test.ts	never records reasoning text: agy only counts it	yes
+packages/runtime-adapters/test/agy-events.test.ts	is print mode with the prompt on stdin, and each mode is the measured flag	yes
+packages/runtime-adapters/test/agy-events.test.ts	allows everything only under full access, and the flag stays banned for every other runtime	yes
+packages/runtime-adapters/test/agy-events.test.ts	sends the prompt in the one input shape agy accepted	yes
+packages/runtime-adapters/test/agy-events.test.ts	reads agy models as printed	yes
+packages/runtime-adapters/test/agy-events.test.ts	thinking reads as its time, only where thinking tokens were spent (0.542)	yes
+packages/runtime-adapters/test/agy-events.test.ts	a conversation the CLI does not have ends the session and says why (0.541, a conversation the app began)	yes
+packages/runtime-adapters/test/an-acp-output-stream-closing-ends-the-turn.test.ts	fails a live child once rather than waiting for the prompt timeout	yes
+packages/runtime-adapters/test/an-acp-output-stream-closing-ends-the-turn.test.ts	reports an output error without needing a process exit	yes
+packages/runtime-adapters/test/an-acp-output-stream-closing-ends-the-turn.test.ts	keeps the final prompt answer in the last chunk before EOF	yes
 packages/runtime-adapters/test/an-acp-output-stream-closing-ends-the-turn.test.ts	does not begin a session from an initialize answer followed by EOF	no
-packages/runtime-adapters/test/an-acp-output-stream-closing-ends-the-turn.test.ts	does not resurrect a handshake after cancellation or its late answer	no
-packages/runtime-adapters/test/an-acp-output-stream-closing-ends-the-turn.test.ts	does not send a prompt if cancellation races the session answer	no
-packages/runtime-adapters/test/an-acp-output-stream-closing-ends-the-turn.test.ts	does not begin a session after the capabilities callback cancels the run	no
-packages/runtime-adapters/test/an-acp-output-stream-closing-ends-the-turn.test.ts	does not start a session after timeout, exit, or an already aborted signal	no
-packages/runtime-adapters/test/an-acp-output-stream-closing-ends-the-turn.test.ts	releases queued permission waits when EOF ends the run	no
-packages/runtime-adapters/test/an-acp-output-stream-closing-ends-the-turn.test.ts	clears the cancellation grace timer when the prompt answers	no
+packages/runtime-adapters/test/an-acp-output-stream-closing-ends-the-turn.test.ts	does not resurrect a handshake after cancellation or its late answer	yes
+packages/runtime-adapters/test/an-acp-output-stream-closing-ends-the-turn.test.ts	does not send a prompt if cancellation races the session answer	yes
+packages/runtime-adapters/test/an-acp-output-stream-closing-ends-the-turn.test.ts	does not begin a session after the capabilities callback cancels the run	yes
+packages/runtime-adapters/test/an-acp-output-stream-closing-ends-the-turn.test.ts	does not start a session after timeout, exit, or an already aborted signal	yes
+packages/runtime-adapters/test/an-acp-output-stream-closing-ends-the-turn.test.ts	releases queued permission waits when EOF ends the run	yes
+packages/runtime-adapters/test/an-acp-output-stream-closing-ends-the-turn.test.ts	clears the cancellation grace timer when the prompt answers	yes
 packages/runtime-adapters/test/an-expired-sign-in-is-said.test.ts	read as a failed sign-in	yes
 packages/runtime-adapters/test/an-expired-sign-in-is-said.test.ts	and other failures do not	yes
 packages/runtime-adapters/test/an-opencode-2-step-says-what-it-did.test.ts	names a read reported as other by the tool word in its title, and the file, not a tool called other	yes
@@ -7345,11 +7345,11 @@ packages/runtime-adapters/test/an-opencode-2-step-says-what-it-did.test.ts	keeps
 packages/runtime-adapters/test/an-opencode-2-step-says-what-it-did.test.ts	a shell reported as other, titled shell, is that command and not the folder it was started in	yes
 packages/runtime-adapters/test/an-opencode-2-step-says-what-it-did.test.ts	leaves Copilot's existing rows unchanged: the command and its sentence, from the first report	yes
 packages/runtime-adapters/test/an-opencode-2-step-says-what-it-did.test.ts	does not invent a tool from a sentence, which is how Copilot describes a call whose kind is other	no
-packages/runtime-adapters/test/an-opencode-reply-streams.test.ts	grows one item as it is written, then is replaced by the finished text, exactly	no
-packages/runtime-adapters/test/an-opencode-reply-streams.test.ts	a part rewritten as it is written is replaced, not appended to	no
-packages/runtime-adapters/test/an-opencode-reply-streams.test.ts	two parts are two items, and a finished part with no partials before it is one, as through run	no
-packages/runtime-adapters/test/an-opencode-reply-streams.test.ts	OpenCode's own notes never stream	no
-packages/runtime-adapters/test/an-opencode-reply-streams.test.ts	is closed when the tool comes, and its finished form still replaces it exactly	no
+packages/runtime-adapters/test/an-opencode-reply-streams.test.ts	grows one item as it is written, then is replaced by the finished text, exactly	yes
+packages/runtime-adapters/test/an-opencode-reply-streams.test.ts	a part rewritten as it is written is replaced, not appended to	yes
+packages/runtime-adapters/test/an-opencode-reply-streams.test.ts	two parts are two items, and a finished part with no partials before it is one, as through run	yes
+packages/runtime-adapters/test/an-opencode-reply-streams.test.ts	OpenCode's own notes never stream	yes
+packages/runtime-adapters/test/an-opencode-reply-streams.test.ts	is closed when the tool comes, and its finished form still replaces it exactly	yes
 packages/runtime-adapters/test/an-oversized-cursor-edit-keeps-its-counts.test.ts	leaves its counts and its diff in the stand-in, and none of the file	yes
 packages/runtime-adapters/test/an-oversized-cursor-edit-keeps-its-counts.test.ts	closes as a change the files card can count: +1 -1, not 'too large to keep'	no
 packages/runtime-adapters/test/an-oversized-cursor-edit-keeps-its-counts.test.ts	without a diff, still closes with its counts, marked cut short	yes
@@ -7362,50 +7362,50 @@ packages/runtime-adapters/test/antigravity-background.test.ts	ignores a notice f
 packages/runtime-adapters/test/antigravity-background.test.ts	finds the task and what it is doing	no
 packages/runtime-adapters/test/antigravity-background.test.ts	names a command row by the command, with the model's phrase as its title	no
 packages/runtime-adapters/test/antigravity-background.test.ts	is an ordinary finished read, nothing waits on it, and the answer ends the turn	no
-packages/runtime-adapters/test/antigravity-events.test.ts	says nothing about the prompt it was handed or the checkpoint it was handed back	no
-packages/runtime-adapters/test/antigravity-events.test.ts	never lets Antigravity's checkpoint summary into the ledger	no
-packages/runtime-adapters/test/antigravity-events.test.ts	delivers the planner's answer whole, as its own final message	no
-packages/runtime-adapters/test/antigravity-events.test.ts	reports a final planner answer with no tool calls as the turn being over	no
-packages/runtime-adapters/test/antigravity-events.test.ts	carries the conversation id the host passed in, which the transcript never prints	no
-packages/runtime-adapters/test/antigravity-events.test.ts	turns seven transcript lines into the four things that actually happened	no
-packages/runtime-adapters/test/antigravity-events.test.ts	opens and closes the reasoning step in one go, so nothing is left unfinished	no
-packages/runtime-adapters/test/antigravity-events.test.ts	never stores the model's reasoning, and does not even record that a thinking field was there	no
-packages/runtime-adapters/test/antigravity-events.test.ts	names the write call from its position in the file, because the call carries no id	no
-packages/runtime-adapters/test/antigravity-events.test.ts	records an overwrite as a path and no diff, because there is no before-text to diff against	no
-packages/runtime-adapters/test/antigravity-events.test.ts	attaches the tool's result to the call it came from, which the result line does not name	no
-packages/runtime-adapters/test/antigravity-events.test.ts	recognises the follow-up `send-message` line and says nothing about it	no
-packages/runtime-adapters/test/antigravity-events.test.ts	reports the run complete when the last line was a planner answer with no tool calls	no
-packages/runtime-adapters/test/antigravity-events.test.ts	emits each step exactly once, however many times the file is polled	no
-packages/runtime-adapters/test/antigravity-events.test.ts	is the end of the turn, and the reasoning is still its own step	no
-packages/runtime-adapters/test/antigravity-events.test.ts	does not end the turn on reasoning with no answer	no
-packages/runtime-adapters/test/antigravity-events.test.ts	holds it: nothing is emitted, and nothing claims the turn is over	no
-packages/runtime-adapters/test/antigravity-events.test.ts	normalizes it once it settles, rather than treating it as already seen	no
-packages/runtime-adapters/test/antigravity-events.test.ts	reconstructs the added file from the content the call carried	no
-packages/runtime-adapters/test/antigravity-events.test.ts	still keeps the reasoning out of the patch's own event	no
-packages/runtime-adapters/test/antigravity-events.test.ts	says so, rather than inventing a tool call to hang it on	no
-packages/runtime-adapters/test/antigravity-events.test.ts	gives each call its own result in the order the file really wrote them	no
-packages/runtime-adapters/test/antigravity-events.test.ts	and in step order, where last-opened swapped them	no
-packages/runtime-adapters/test/antigravity-events.test.ts	fails with a reason a person can act on when no final answer ever arrived	no
-packages/runtime-adapters/test/antigravity-events.test.ts	reports a cancelled run as cancelled, not as a run that failed to answer	no
-packages/runtime-adapters/test/antigravity-events.test.ts	lets a non-zero exit from the host's own driver outrank a finished transcript	no
-packages/runtime-adapters/test/antigravity-events.test.ts	ends once: a second finish, and anything accepted after it, produce nothing	no
-packages/runtime-adapters/test/antigravity-events.test.ts	keeps the line as a diagnostic rather than dropping it	no
-packages/runtime-adapters/test/antigravity-events.test.ts	treats a line with no step_index as malformed, since there is nothing to deduplicate on	no
-packages/runtime-adapters/test/antigravity-events.test.ts	preserves a step type this build has never seen	no
-packages/runtime-adapters/test/antigravity-events.test.ts	decodes them, because every value is a JSON-encoded string and not the value	no
-packages/runtime-adapters/test/antigravity-events.test.ts	returns a value that is not JSON as it arrived, rather than discarding it	no
-packages/runtime-adapters/test/antigravity-events.test.ts	summarizes a call on one line, falling back to the model's own phrasing	no
-packages/runtime-adapters/test/antigravity-events.test.ts	builds no patch for an overwrite, whatever content the call carried	no
-packages/runtime-adapters/test/antigravity-events.test.ts	finds the workspace the IDE had open and the project it belongs to	no
-packages/runtime-adapters/test/antigravity-events.test.ts	collapses both encodings of the same workspace onto one key	no
-packages/runtime-adapters/test/antigravity-events.test.ts	answers for a path in the form a host would actually hold it	no
-packages/runtime-adapters/test/antigravity-events.test.ts	has no answer for a workspace the file never mentioned	no
-packages/runtime-adapters/test/antigravity-events.test.ts	returns nothing for bytes that are not this file, rather than a guess	no
-packages/runtime-adapters/test/antigravity-events.test.ts	normalizes a workspace to forward slashes, a lower-case drive and no trailing slash	no
-packages/runtime-adapters/test/antigravity-events.test.ts	says what is being asked, and every option	no
-packages/runtime-adapters/test/antigravity-events.test.ts	carries the question, structured, for the card that answers it	no
-packages/runtime-adapters/test/antigravity-events.test.ts	leaves every other tool's row exactly as it was	no
-packages/runtime-adapters/test/antigravity-events.test.ts	keeps the end, where the blocks the host acts on are	no
+packages/runtime-adapters/test/antigravity-events.test.ts	says nothing about the prompt it was handed or the checkpoint it was handed back	yes
+packages/runtime-adapters/test/antigravity-events.test.ts	never lets Antigravity's checkpoint summary into the ledger	yes
+packages/runtime-adapters/test/antigravity-events.test.ts	delivers the planner's answer whole, as its own final message	yes
+packages/runtime-adapters/test/antigravity-events.test.ts	reports a final planner answer with no tool calls as the turn being over	yes
+packages/runtime-adapters/test/antigravity-events.test.ts	carries the conversation id the host passed in, which the transcript never prints	yes
+packages/runtime-adapters/test/antigravity-events.test.ts	turns seven transcript lines into the four things that actually happened	yes
+packages/runtime-adapters/test/antigravity-events.test.ts	opens and closes the reasoning step in one go, so nothing is left unfinished	yes
+packages/runtime-adapters/test/antigravity-events.test.ts	never stores the model's reasoning, and does not even record that a thinking field was there	yes
+packages/runtime-adapters/test/antigravity-events.test.ts	names the write call from its position in the file, because the call carries no id	yes
+packages/runtime-adapters/test/antigravity-events.test.ts	records an overwrite as a path and no diff, because there is no before-text to diff against	yes
+packages/runtime-adapters/test/antigravity-events.test.ts	attaches the tool's result to the call it came from, which the result line does not name	yes
+packages/runtime-adapters/test/antigravity-events.test.ts	recognises the follow-up `send-message` line and says nothing about it	yes
+packages/runtime-adapters/test/antigravity-events.test.ts	reports the run complete when the last line was a planner answer with no tool calls	yes
+packages/runtime-adapters/test/antigravity-events.test.ts	emits each step exactly once, however many times the file is polled	yes
+packages/runtime-adapters/test/antigravity-events.test.ts	is the end of the turn, and the reasoning is still its own step	yes
+packages/runtime-adapters/test/antigravity-events.test.ts	does not end the turn on reasoning with no answer	yes
+packages/runtime-adapters/test/antigravity-events.test.ts	holds it: nothing is emitted, and nothing claims the turn is over	yes
+packages/runtime-adapters/test/antigravity-events.test.ts	normalizes it once it settles, rather than treating it as already seen	yes
+packages/runtime-adapters/test/antigravity-events.test.ts	reconstructs the added file from the content the call carried	yes
+packages/runtime-adapters/test/antigravity-events.test.ts	still keeps the reasoning out of the patch's own event	yes
+packages/runtime-adapters/test/antigravity-events.test.ts	says so, rather than inventing a tool call to hang it on	yes
+packages/runtime-adapters/test/antigravity-events.test.ts	gives each call its own result in the order the file really wrote them	yes
+packages/runtime-adapters/test/antigravity-events.test.ts	and in step order, where last-opened swapped them	yes
+packages/runtime-adapters/test/antigravity-events.test.ts	fails with a reason a person can act on when no final answer ever arrived	yes
+packages/runtime-adapters/test/antigravity-events.test.ts	reports a cancelled run as cancelled, not as a run that failed to answer	yes
+packages/runtime-adapters/test/antigravity-events.test.ts	lets a non-zero exit from the host's own driver outrank a finished transcript	yes
+packages/runtime-adapters/test/antigravity-events.test.ts	ends once: a second finish, and anything accepted after it, produce nothing	yes
+packages/runtime-adapters/test/antigravity-events.test.ts	keeps the line as a diagnostic rather than dropping it	yes
+packages/runtime-adapters/test/antigravity-events.test.ts	treats a line with no step_index as malformed, since there is nothing to deduplicate on	yes
+packages/runtime-adapters/test/antigravity-events.test.ts	preserves a step type this build has never seen	yes
+packages/runtime-adapters/test/antigravity-events.test.ts	decodes them, because every value is a JSON-encoded string and not the value	yes
+packages/runtime-adapters/test/antigravity-events.test.ts	returns a value that is not JSON as it arrived, rather than discarding it	yes
+packages/runtime-adapters/test/antigravity-events.test.ts	summarizes a call on one line, falling back to the model's own phrasing	yes
+packages/runtime-adapters/test/antigravity-events.test.ts	builds no patch for an overwrite, whatever content the call carried	yes
+packages/runtime-adapters/test/antigravity-events.test.ts	finds the workspace the IDE had open and the project it belongs to	yes
+packages/runtime-adapters/test/antigravity-events.test.ts	collapses both encodings of the same workspace onto one key	yes
+packages/runtime-adapters/test/antigravity-events.test.ts	answers for a path in the form a host would actually hold it	yes
+packages/runtime-adapters/test/antigravity-events.test.ts	has no answer for a workspace the file never mentioned	yes
+packages/runtime-adapters/test/antigravity-events.test.ts	returns nothing for bytes that are not this file, rather than a guess	yes
+packages/runtime-adapters/test/antigravity-events.test.ts	normalizes a workspace to forward slashes, a lower-case drive and no trailing slash	yes
+packages/runtime-adapters/test/antigravity-events.test.ts	says what is being asked, and every option	yes
+packages/runtime-adapters/test/antigravity-events.test.ts	carries the question, structured, for the card that answers it	yes
+packages/runtime-adapters/test/antigravity-events.test.ts	leaves every other tool's row exactly as it was	yes
+packages/runtime-adapters/test/antigravity-events.test.ts	keeps the end, where the blocks the host acts on are	yes
 packages/runtime-adapters/test/antigravity-gaps.test.ts	comes back whole from the step that holds it	no
 packages/runtime-adapters/test/antigravity-gaps.test.ts	is never filled from a different step: the words on both sides must be that step's	no
 packages/runtime-adapters/test/antigravity-gaps.test.ts	holds every piece between two gaps, in order	no
@@ -7420,13 +7420,13 @@ packages/runtime-adapters/test/antigravity-question.test.ts	sees through the dou
 packages/runtime-adapters/test/antigravity-question.test.ts	says nothing rather than something wrong for a tool that is not asking	no
 packages/runtime-adapters/test/antigravity-question.test.ts	keeps a question that carries no options	no
 packages/runtime-adapters/test/antigravity-question.test.ts	carries multi-select through, since it changes what an answer means	no
-packages/runtime-adapters/test/antigravity-waiting-is-said-as-waiting.test.ts	reads the helpers a list names	no
-packages/runtime-adapters/test/antigravity-waiting-is-said-as-waiting.test.ts	says each long wait after the list as a wait on that helper, at the length agy timed	no
-packages/runtime-adapters/test/antigravity-waiting-is-said-as-waiting.test.ts	says, once, at the third, that the whole conversation is being read again and what it has cost	no
-packages/runtime-adapters/test/antigravity-waiting-is-said-as-waiting.test.ts	says the timeout that ended it in words	no
-packages/runtime-adapters/test/antigravity-waiting-is-said-as-waiting.test.ts	says Google's refusal of a long turn in words, with what to do (0.842)	no
-packages/runtime-adapters/test/antigravity-waiting-is-said-as-waiting.test.ts	keeps the last list through a call that is not one, and lets it go once no helper is left	no
-packages/runtime-adapters/test/antigravity-waiting-is-said-as-waiting.test.ts	says nothing of the kind for a helper that finished, or for steps that reused the conversation	no
+packages/runtime-adapters/test/antigravity-waiting-is-said-as-waiting.test.ts	reads the helpers a list names	yes
+packages/runtime-adapters/test/antigravity-waiting-is-said-as-waiting.test.ts	says each long wait after the list as a wait on that helper, at the length agy timed	yes
+packages/runtime-adapters/test/antigravity-waiting-is-said-as-waiting.test.ts	says, once, at the third, that the whole conversation is being read again and what it has cost	yes
+packages/runtime-adapters/test/antigravity-waiting-is-said-as-waiting.test.ts	says the timeout that ended it in words	yes
+packages/runtime-adapters/test/antigravity-waiting-is-said-as-waiting.test.ts	says Google's refusal of a long turn in words, with what to do (0.842)	yes
+packages/runtime-adapters/test/antigravity-waiting-is-said-as-waiting.test.ts	keeps the last list through a call that is not one, and lets it go once no helper is left	yes
+packages/runtime-adapters/test/antigravity-waiting-is-said-as-waiting.test.ts	says nothing of the kind for a helper that finished, or for steps that reused the conversation	yes
 packages/runtime-adapters/test/app-server-events.test.ts	takes the runtime thread id from thread/started without emitting an event	yes
 packages/runtime-adapters/test/app-server-events.test.ts	starts on turn/started and completes on turn/completed	yes
 packages/runtime-adapters/test/app-server-events.test.ts	goes quiet once finalized	yes
@@ -7500,11 +7500,11 @@ packages/runtime-adapters/test/background-work-ends-with-the-run.test.ts	the res
 packages/runtime-adapters/test/background-work-ends-with-the-run.test.ts	work that finishes while the run is going says completed	yes
 packages/runtime-adapters/test/background-work-ends-with-the-run.test.ts	a helper that was not backgrounded is still a helper	yes
 packages/runtime-adapters/test/background-work-ends-with-the-run.test.ts	tells the run ending apart from a stop somebody chose	no
-packages/runtime-adapters/test/claude-commands.test.ts	are the last list it announces, read without ever sending it a message, and it is then stopped	no
-packages/runtime-adapters/test/claude-commands.test.ts	hears the answer to initialize, as 2.1.292 gives it: nothing until asked, then its whole list (0.694)	no
-packages/runtime-adapters/test/claude-commands.test.ts	passes on the models the same answer lists, as 2.1.293 gives them (0.697)	no
-packages/runtime-adapters/test/claude-commands.test.ts	is started as every run outside Auto is, restricted, and leaves no session behind	no
-packages/runtime-adapters/test/claude-commands.test.ts	is a refusal, not an empty menu, when no list comes, and Claude Code is still stopped	no
+packages/runtime-adapters/test/claude-commands.test.ts	are the last list it announces, read without ever sending it a message, and it is then stopped	yes
+packages/runtime-adapters/test/claude-commands.test.ts	hears the answer to initialize, as 2.1.292 gives it: nothing until asked, then its whole list (0.694)	yes
+packages/runtime-adapters/test/claude-commands.test.ts	passes on the models the same answer lists, as 2.1.293 gives them (0.697)	yes
+packages/runtime-adapters/test/claude-commands.test.ts	is started as every run outside Auto is, restricted, and leaves no session behind	yes
+packages/runtime-adapters/test/claude-commands.test.ts	is a refusal, not an empty menu, when no list comes, and Claude Code is still stopped	yes
 packages/runtime-adapters/test/claude-events.test.ts	keeps only allow-listed fields and replaces name lists with counts	yes
 packages/runtime-adapters/test/claude-events.test.ts	lets none of the machine description reach the event	yes
 packages/runtime-adapters/test/claude-events.test.ts	still reports the session id as the runtime thread	yes
@@ -7611,9 +7611,9 @@ packages/runtime-adapters/test/codex-events.test.ts	clamps identity fields the m
 packages/runtime-adapters/test/codex-events.test.ts	strips NUL from every persisted string	yes
 packages/runtime-adapters/test/codex-events.test.ts	carries every changed path on the tool event, one per line, since Codex sends no diff	yes
 packages/runtime-adapters/test/codex-events.test.ts	draws spawn_agent as a tool call named by its tool, carrying the prompt, settled on completion	yes
-packages/runtime-adapters/test/codex-long-answer-keeps-its-length.test.ts	is bounded once, at the message limit, and never at the evidence limit	no
-packages/runtime-adapters/test/codex-long-answer-keeps-its-length.test.ts	is still scrubbed of a key it repeats	no
-packages/runtime-adapters/test/codex-long-answer-keeps-its-length.test.ts	keeps the two jobs apart: secrets have no size, evidence has one	no
+packages/runtime-adapters/test/codex-long-answer-keeps-its-length.test.ts	is bounded once, at the message limit, and never at the evidence limit	yes
+packages/runtime-adapters/test/codex-long-answer-keeps-its-length.test.ts	is still scrubbed of a key it repeats	yes
+packages/runtime-adapters/test/codex-long-answer-keeps-its-length.test.ts	keeps the two jobs apart: secrets have no size, evidence has one	yes
 packages/runtime-adapters/test/connector-allow-rules.test.ts	become one named allow rule each	yes
 packages/runtime-adapters/test/connector-allow-rules.test.ts	are absent entirely when none were given	no
 packages/runtime-adapters/test/connector-allow-rules.test.ts	name one connector and not its neighbours	no
@@ -7629,45 +7629,45 @@ packages/runtime-adapters/test/connectors.test.ts	refuse to make a rule at all f
 packages/runtime-adapters/test/connectors.test.ts	keep a local server's hyphens and underscores, as Claude Code does	no
 packages/runtime-adapters/test/copilot-effort-levels.test.ts	are read from its 1.0.88 help	yes
 packages/runtime-adapters/test/copilot-effort-levels.test.ts	are still read from the older parenthesised shape	yes
-packages/runtime-adapters/test/copilot-events.test.ts	opens the run on the record that names the model it actually got	no
-packages/runtime-adapters/test/copilot-events.test.ts	prefers the session id the CLI printed over the one the host passed in	no
-packages/runtime-adapters/test/copilot-events.test.ts	opens and closes the turn, and lets the complete message replace its fragments	no
-packages/runtime-adapters/test/copilot-events.test.ts	records what the run cost from the checkpoint, and nothing else in that record	no
-packages/runtime-adapters/test/copilot-events.test.ts	never lets the CLI's system prompt into the ledger	no
-packages/runtime-adapters/test/copilot-events.test.ts	never carries the model's opaque reasoning or the account's request handles	no
-packages/runtime-adapters/test/copilot-events.test.ts	reports apply_patch as one tool that started and completed, with the patch it applied	no
-packages/runtime-adapters/test/copilot-events.test.ts	writes no message for the turn that only asked for a tool	no
-packages/runtime-adapters/test/copilot-events.test.ts	keeps the two turns apart, each opened and closed	no
-packages/runtime-adapters/test/copilot-events.test.ts	never lets the operator's own local skills into the ledger	no
-packages/runtime-adapters/test/copilot-events.test.ts	reports both refusals as tools that failed, never as tools that completed	no
-packages/runtime-adapters/test/copilot-events.test.ts	names what each refused tool wanted to do, in the two shapes the CLI uses	no
-packages/runtime-adapters/test/copilot-events.test.ts	carries the run's own account of what it could not do	no
-packages/runtime-adapters/test/copilot-events.test.ts	reports the same thread id on both turns, which is what --resume takes back	no
-packages/runtime-adapters/test/copilot-events.test.ts	shows the second turn recalling what the first was told	no
-packages/runtime-adapters/test/copilot-events.test.ts	shows that thinking happened without writing down what was thought	no
-packages/runtime-adapters/test/copilot-events.test.ts	fails with a reason a person can act on, not just 'the process exited 1'	no
-packages/runtime-adapters/test/copilot-events.test.ts	says nothing about the run beyond the session warning it printed	no
-packages/runtime-adapters/test/copilot-events.test.ts	fails in the CLI's own words, which name the model it was handed	no
-packages/runtime-adapters/test/copilot-events.test.ts	reads both refusals off stderr and nothing else off it	no
-packages/runtime-adapters/test/copilot-events.test.ts	keeps a long failure message within what the ledger keeps (2026-10-10 sweep)	no
-packages/runtime-adapters/test/copilot-events.test.ts	is a failure unless the CLI said success in so many words	no
-packages/runtime-adapters/test/copilot-events.test.ts	records no patch for a tool whose detail was prose rather than a diff	no
-packages/runtime-adapters/test/copilot-events.test.ts	names a tool call whichever way its arguments were spelled	no
-packages/runtime-adapters/test/copilot-events.test.ts	strips the opaque blobs wherever in a record they sit	no
-packages/runtime-adapters/test/copilot-events.test.ts	keeps only the four auto-mode fields that say which model ran	no
-packages/runtime-adapters/test/copilot-events.test.ts	keeps only the two totals from a checkpoint that is mostly cache bookkeeping	no
-packages/runtime-adapters/test/copilot-events.test.ts	is a failure when the CLI exits clean without ever printing its result record	no
-packages/runtime-adapters/test/copilot-events.test.ts	is a failure when the result record itself reports a non-zero exit	no
+packages/runtime-adapters/test/copilot-events.test.ts	opens the run on the record that names the model it actually got	yes
+packages/runtime-adapters/test/copilot-events.test.ts	prefers the session id the CLI printed over the one the host passed in	yes
+packages/runtime-adapters/test/copilot-events.test.ts	opens and closes the turn, and lets the complete message replace its fragments	yes
+packages/runtime-adapters/test/copilot-events.test.ts	records what the run cost from the checkpoint, and nothing else in that record	yes
+packages/runtime-adapters/test/copilot-events.test.ts	never lets the CLI's system prompt into the ledger	yes
+packages/runtime-adapters/test/copilot-events.test.ts	never carries the model's opaque reasoning or the account's request handles	yes
+packages/runtime-adapters/test/copilot-events.test.ts	reports apply_patch as one tool that started and completed, with the patch it applied	yes
+packages/runtime-adapters/test/copilot-events.test.ts	writes no message for the turn that only asked for a tool	yes
+packages/runtime-adapters/test/copilot-events.test.ts	keeps the two turns apart, each opened and closed	yes
+packages/runtime-adapters/test/copilot-events.test.ts	never lets the operator's own local skills into the ledger	yes
+packages/runtime-adapters/test/copilot-events.test.ts	reports both refusals as tools that failed, never as tools that completed	yes
+packages/runtime-adapters/test/copilot-events.test.ts	names what each refused tool wanted to do, in the two shapes the CLI uses	yes
+packages/runtime-adapters/test/copilot-events.test.ts	carries the run's own account of what it could not do	yes
+packages/runtime-adapters/test/copilot-events.test.ts	reports the same thread id on both turns, which is what --resume takes back	yes
+packages/runtime-adapters/test/copilot-events.test.ts	shows the second turn recalling what the first was told	yes
+packages/runtime-adapters/test/copilot-events.test.ts	shows that thinking happened without writing down what was thought	yes
+packages/runtime-adapters/test/copilot-events.test.ts	fails with a reason a person can act on, not just 'the process exited 1'	yes
+packages/runtime-adapters/test/copilot-events.test.ts	says nothing about the run beyond the session warning it printed	yes
+packages/runtime-adapters/test/copilot-events.test.ts	fails in the CLI's own words, which name the model it was handed	yes
+packages/runtime-adapters/test/copilot-events.test.ts	reads both refusals off stderr and nothing else off it	yes
+packages/runtime-adapters/test/copilot-events.test.ts	keeps a long failure message within what the ledger keeps (2026-10-10 sweep)	yes
+packages/runtime-adapters/test/copilot-events.test.ts	is a failure unless the CLI said success in so many words	yes
+packages/runtime-adapters/test/copilot-events.test.ts	records no patch for a tool whose detail was prose rather than a diff	yes
+packages/runtime-adapters/test/copilot-events.test.ts	names a tool call whichever way its arguments were spelled	yes
+packages/runtime-adapters/test/copilot-events.test.ts	strips the opaque blobs wherever in a record they sit	yes
+packages/runtime-adapters/test/copilot-events.test.ts	keeps only the four auto-mode fields that say which model ran	yes
+packages/runtime-adapters/test/copilot-events.test.ts	keeps only the two totals from a checkpoint that is mostly cache bookkeeping	yes
+packages/runtime-adapters/test/copilot-events.test.ts	is a failure when the CLI exits clean without ever printing its result record	yes
+packages/runtime-adapters/test/copilot-events.test.ts	is a failure when the result record itself reports a non-zero exit	yes
 packages/runtime-adapters/test/copilot-events.test.ts	is cancelled when the host cancelled it	yes
-packages/runtime-adapters/test/copilot-events.test.ts	still resumes from the host's id when the CLI never printed one	no
+packages/runtime-adapters/test/copilot-events.test.ts	still resumes from the host's id when the CLI never printed one	yes
 packages/runtime-adapters/test/copilot-events.test.ts	reports a record it cannot parse as a diagnostic and keeps going	yes
-packages/runtime-adapters/test/copilot-events.test.ts	says so when it meets a record type this build has never seen	no
-packages/runtime-adapters/test/copilot-events.test.ts	attaches a patch to the edit alone; the view's diff-shaped listing carries none	no
-packages/runtime-adapters/test/copilot-events.test.ts	opens one reasoning step on the first delta, closes it on the block, and says nothing per delta	no
-packages/runtime-adapters/test/copilot-events.test.ts	stays quiet on the stream's bookkeeping and says an unknown type once	no
-packages/runtime-adapters/test/copilot-events.test.ts	says nothing of the tools Locust itself turned off, and still says any other notice once (0.378)	no
-packages/runtime-adapters/test/copilot-events.test.ts	names what view, glob and grep acted on	no
-packages/runtime-adapters/test/copilot-events.test.ts	is still closed by its complete message, and the key stays redacted	no
+packages/runtime-adapters/test/copilot-events.test.ts	says so when it meets a record type this build has never seen	yes
+packages/runtime-adapters/test/copilot-events.test.ts	attaches a patch to the edit alone; the view's diff-shaped listing carries none	yes
+packages/runtime-adapters/test/copilot-events.test.ts	opens one reasoning step on the first delta, closes it on the block, and says nothing per delta	yes
+packages/runtime-adapters/test/copilot-events.test.ts	stays quiet on the stream's bookkeeping and says an unknown type once	yes
+packages/runtime-adapters/test/copilot-events.test.ts	says nothing of the tools Locust itself turned off, and still says any other notice once (0.378)	yes
+packages/runtime-adapters/test/copilot-events.test.ts	names what view, glob and grep acted on	yes
+packages/runtime-adapters/test/copilot-events.test.ts	is still closed by its complete message, and the key stays redacted	yes
 packages/runtime-adapters/test/copilots-new-records-are-not-news.test.ts	say nothing: a model call that succeeded, a command's output as it ran, and an empty background notice	no
 packages/runtime-adapters/test/copilots-new-records-are-not-news.test.ts	still say so when a model call did not succeed, or a background notice carries something	yes
 packages/runtime-adapters/test/copilots-search-index-record-is-not-news.test.ts	says nothing and keeps nothing	no
@@ -7863,7 +7863,7 @@ packages/runtime-adapters/test/opencode-events.test.ts	is a failure when the str
 packages/runtime-adapters/test/opencode-events.test.ts	is a failure when the process exited non-zero even after a step said stop	no
 packages/runtime-adapters/test/opencode-events.test.ts	is cancelled when the host cancelled it	yes
 packages/runtime-adapters/test/opencode-events.test.ts	reports a record it cannot parse as a diagnostic and keeps going	yes
-packages/runtime-adapters/test/opencode-events.test.ts	says so when it meets a record type this build has never seen	no
+packages/runtime-adapters/test/opencode-events.test.ts	says so when it meets a record type this build has never seen	yes
 packages/runtime-adapters/test/opencode-events.test.ts	attaches the unified diff OpenCode reported for an edit, with counts from it	no
 packages/runtime-adapters/test/opencode-events.test.ts	says so instead of blaming a missing stop step	no
 packages/runtime-adapters/test/opencode-events.test.ts	still puts the confined-workspace refusal first, which says more	no

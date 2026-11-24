@@ -175,7 +175,8 @@ fn agy_quota_used_up() {
     );
     assert_eq!(
         limit.as_deref(),
-        Some("Antigravity's quota is used up · resets 2026-10-24T02:58:08.000Z")
+        // Electron's own words (agy-events.test.ts): the instant to the second.
+        Some("Antigravity's quota is used up · resets 2026-10-24T02:58:08Z")
     );
     events.extend(normal.finish(false, Some(1)));
     assert!(events.iter().any(|e| e.kind == "route.limit_detected"));

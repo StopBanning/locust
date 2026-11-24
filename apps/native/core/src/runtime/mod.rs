@@ -7,6 +7,7 @@ pub mod apple;
 pub mod antigravity_events;
 pub mod antigravity_projects;
 pub mod claude;
+pub mod claude_commands;
 pub mod claude_events;
 pub mod codex;
 pub mod copilot;

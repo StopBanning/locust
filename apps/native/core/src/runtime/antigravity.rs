@@ -435,3 +435,11 @@ mod unit_tests {
         assert!(args.windows(2).any(|w| w == ["--conversation", "c1"]));
     }
 }
+
+#[cfg(test)]
+#[path = "agy_events_case_tests.rs"]
+mod agy_events_case_tests;
+
+#[cfg(test)]
+#[path = "agy_waiting_case_tests.rs"]
+mod agy_waiting_case_tests;

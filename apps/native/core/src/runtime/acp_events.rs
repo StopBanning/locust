@@ -17,6 +17,8 @@ pub struct AcpNormalizer {
     declined: HashSet<String>,
     unknown: HashSet<String>,
     thinking: bool,
+    /// What the open thought has said so far: its step's message once it closes (acp-events.ts `closeReasoning`).
+    thought: String,
 }
 fn string(v: &Value) -> Option<&str> {
     v.as_str().filter(|s| !s.is_empty())
@@ -146,10 +148,12 @@ impl AcpNormalizer {
     fn close_thought(&mut self, out: &mut Vec<Event>) {
         if self.thinking {
             self.thinking = false;
-            out.push(self.event(
-                "step.completed",
-                json!({"stepKind":"reasoning","itemId":format!("reasoning_{}",self.ordinal)}),
-            ));
+            let said = text(std::mem::take(&mut self.thought).trim(), 16384);
+            let mut p = json!({"stepKind":"reasoning","itemId":format!("reasoning_{}",self.ordinal)});
+            if !said.is_empty() {
+                p["message"] = json!(said);
+            }
+            out.push(self.event("step.completed", p));
         }
     }
     pub fn decline(&mut self, id: &str) {
@@ -176,6 +180,12 @@ impl AcpNormalizer {
         }
         let mut out = vec![];
         if kind == "agent_thought_chunk" {
+            // The words are the step's message; held bounded as they grow, as a message is.
+            self.thought.push_str(&content_text(&v["content"]).unwrap_or_default());
+            self.thought = text(&self.thought, 131072);
+            if self.thinking {
+                return out;
+            }
             self.start(&mut out);
             self.close_message(&mut out);
             if !self.thinking {
@@ -370,10 +380,7 @@ impl AcpNormalizer {
                 "quota-exhausted"
             } else if lower.contains("rate limit") || lower.contains("429") {
                 "temporary-rate-limit"
-            } else if lower.contains("authenticat")
-                || lower.contains("sign in")
-                || lower.contains("log in")
-            {
+            } else if signed_out(&lower) {
                 "authentication-failed"
             } else {
                 "process-failed"
@@ -410,6 +417,21 @@ impl AcpNormalizer {
         out.push(self.event(terminal, p));
         out
     }
+}
+/// A failure that says the CLI is not signed in (acp-events.ts `SIGNED_OUT`:
+/// `/authenticat|not (?:logged|signed) in|\blog ?in\b|\bsign ?in\b/i`), read from lowercased words.
+fn signed_out(lower: &str) -> bool {
+    let word = |w: &str| {
+        lower.match_indices(w).any(|(at, _)| {
+            let before = lower[..at].chars().next_back();
+            let after = lower[at + w.len()..].chars().next();
+            !before.is_some_and(|c| c.is_alphanumeric() || c == '_') && !after.is_some_and(|c| c.is_alphanumeric() || c == '_')
+        })
+    };
+    lower.contains("authenticat")
+        || lower.contains("not logged in")
+        || lower.contains("not signed in")
+        || ["log in", "login", "sign in", "signin"].into_iter().any(word)
 }
 /// line-diff.ts unifiedDiffOf: the diff's text alone, for readers that do not count lines.
 pub fn unified_diff_text(path: &str, old: Option<&str>, new: &str) -> Option<String> {
