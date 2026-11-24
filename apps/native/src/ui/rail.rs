@@ -246,7 +246,7 @@ pub(super) fn rail(s: &State, p: &Palette) -> El {
                     .h(48.0)
                     .center()
                     .radius(9.0)
-                    .fill(if open { l.c("bg-selected") } else { p.sidebar })
+                    .fill(if open { l.c("bg-selected") } else { crate::window_glass::sidebar_row_ground(s, p) })
                     .hover(l.c("hover-surface"))
                     .child(crate::sidebar::roster_face(s, "rail", teammate, views.get(&teammate.id), glances.get(&teammate.id).copied(), 32.0, &l)),
             );
@@ -314,7 +314,7 @@ pub(super) fn rail(s: &State, p: &Palette) -> El {
         .key("rail")
         .w(RAIL_WIDTH)
         .h_full()
-        .fill(p.sidebar)
+        .fill(crate::window_glass::sidebar_ground(s, p))
         .border_sides([0.0, 1.0, 0.0, 0.0], p.hairline)
         .child(brand)
         .child(places)
@@ -709,7 +709,7 @@ pub(super) fn title_bar_with_needs_you(
         .h(TITLEBAR_HEIGHT)
         .px(12.0)
         .center_y()
-        .fill(l.c("bg-chrome"))
+        .fill(crate::window_glass::title_bar_ground(s, p, &l))
         .border_sides([0.0, 0.0, 1.0, 0.0], l.c("border-hairline"))
         .window_drag()
         .child(el().w(0.0).grow(1.0))

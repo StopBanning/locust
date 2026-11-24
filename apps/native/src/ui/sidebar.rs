@@ -331,7 +331,7 @@ fn mission_row(s: &State, p: &Palette, item: &SidebarMission, picked: bool) -> E
         .px(10.0)
         .gap(3.0)
         .radius(9.0)
-        .fill(if picked { l.c("bg-selected") } else { p.sidebar })
+        .fill(if picked { l.c("bg-selected") } else { crate::window_glass::sidebar_row_ground(s, p) })
         .hover(l.c("hover-surface"))
         .child(title)
         .child(
@@ -887,7 +887,7 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
                 .px(10.0)
                 .gap(3.0)
                 .radius(9.0)
-                .fill(if selected { l.c("bg-selected") } else { p.sidebar })
+                .fill(if selected { l.c("bg-selected") } else { crate::window_glass::sidebar_row_ground(s, p) })
                 .hover(l.c("hover-surface"))
                 .child(title)
                 .child(
@@ -977,7 +977,7 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
                 .px(10.0)
                 .gap(2.0)
                 .radius(8.0)
-                .fill(if active { l.c("bg-selected") } else { p.sidebar })
+                .fill(if active { l.c("bg-selected") } else { crate::window_glass::sidebar_row_ground(s, p) })
                 .hover(l.c("hover-surface"))
                 .role("button")
                 .label(room.name.clone())
@@ -1528,9 +1528,10 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
     }
 
     col()
+        .key("sidebar")
         .w(248.0)
         .h_full()
-        .fill(p.sidebar)
+        .fill(crate::window_glass::sidebar_ground(s, p))
         .border_sides([0.0, 1.0, 0.0, 0.0], p.hairline)
         .child(
             // `.lc-sidebar__brand`: under the title bar now, which holds the window's lights.
