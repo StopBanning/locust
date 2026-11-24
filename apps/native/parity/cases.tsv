@@ -4637,6 +4637,9 @@ apps/desktop/src/renderer/src/an-antigravity-model-limit-is-its-own-bar.test.ts	
 apps/desktop/src/renderer/src/an-antigravity-question-is-answered-here.test.tsx	names Antigravity, offers every option and a written answer, and sends -- or skips	yes
 apps/desktop/src/renderer/src/an-antigravity-question-is-answered-here.test.tsx	offers no Skip where the runtime takes none	yes
 apps/desktop/src/renderer/src/an-antigravity-question-is-answered-here.test.tsx	shows the question and its options, says where to answer, and has no buttons	yes
+apps/desktop/src/renderer/src/an-app-from-anywhere-asks-on-a-card.test.tsx	asks on a card naming it, where it goes back to, and the digits its page shows	yes
+apps/desktop/src/renderer/src/an-app-from-anywhere-asks-on-a-card.test.tsx	is answered on every screen, and only from the window	yes
+apps/desktop/src/renderer/src/an-app-from-anywhere-asks-on-a-card.test.tsx	gives Settings the address for Claude, and each app with Remove	yes
 apps/desktop/src/renderer/src/an-approval-card-goes-with-its-run.test.ts	go when their run is stopped, fails or finishes	yes
 apps/desktop/src/renderer/src/an-approval-card-goes-with-its-run.test.ts	stay while their run is live, found by key or by its runId	yes
 apps/desktop/src/renderer/src/an-approval-card-goes-with-its-run.test.ts	stay when the window does not know the run yet	yes

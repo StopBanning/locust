@@ -325,4 +325,140 @@ mod tests {
         assert_eq!(app_line(&app(None)), "claude.ai \u{b7} connected Nov 18");
         assert_eq!(app_line(&app(Some("2026-11-20T12:00:00.000Z"))), "claude.ai \u{b7} connected Nov 18 \u{b7} last used Nov 20");
     }
+
+    #[test]
+    // case: asks on a card naming it, where it goes back to, and the digits its page shows
+    fn asks_on_a_card_naming_it_where_it_goes_back_to_and_the_digits_its_page_shows() {
+        use locust_core::remote_mcp::RemoteMcpAsking;
+
+        let mut s = State::default();
+        s.remote_mcp = Some(RemoteMcpState {
+            enabled: true,
+            address: Some("https://app.locust.lol/v1/room/abc/mcp".into()),
+            apps: Vec::new(),
+            asking: vec![RemoteMcpAsking {
+                request: "rq".into(),
+                name: "Claude".into(),
+                host: "claude.ai".into(),
+                match_digits: "482913".into(),
+                until: 0,
+            }],
+            message: None,
+        });
+        let mut rt = rune::Runtime::new(
+            s,
+            |s, _| col().w_full().children(card(s, &Palette::new(true))),
+            (1200.0, 400.0),
+            rune::Env::new(true, 1.0),
+        );
+        rt.frame(0.0);
+        let els = rt.elements();
+        let dialog = els.iter().find(|e| e.key.as_deref() == Some("remote-connect")).expect("remote-connect card");
+        assert_eq!(dialog.role, "alertdialog");
+        let text: String = els.iter().filter_map(|e| e.text.as_deref()).collect::<Vec<_>>().join("\n");
+        assert!(text.contains("Claude wants to use your Locust team"), "{text}");
+        assert!(text.contains("It sends you back to claude.ai."), "{text}");
+        assert!(text.contains("482 913"), "{text}");
+        let allow_pos = text.find("Allow").expect("Allow button");
+        let deny_pos = text.find("Deny").expect("Deny button");
+        assert!(allow_pos < deny_pos, "Allow should appear before Deny in {text}");
+
+        // Empty asking list renders no card at all.
+        let mut empty = State::default();
+        empty.remote_mcp = Some(RemoteMcpState {
+            enabled: true,
+            address: None,
+            apps: Vec::new(),
+            asking: Vec::new(),
+            message: None,
+        });
+        assert!(card(&empty, &Palette::new(true)).is_none());
+    }
+
+    #[test]
+    // case: is answered on every screen, and only from the window
+    fn is_answered_on_every_screen_and_only_from_the_window() {
+        use locust_core::remote_mcp::RemoteMcpAsking;
+
+        let asking = vec![RemoteMcpAsking {
+            request: "rq-screen".into(),
+            name: "Claude".into(),
+            host: "claude.ai".into(),
+            match_digits: "482913".into(),
+            until: 0,
+        }];
+        // Rendered through the real top-level window view (main.rs::view) on both Home and Settings screens.
+        for on_settings in [false, true] {
+            let mut s = State::default();
+            if on_settings {
+                s.settings_panel.page = Some(crate::settings_pages::SettingsPageId::App);
+            }
+            s.remote_mcp = Some(RemoteMcpState {
+                enabled: true,
+                address: Some("https://app.locust.lol/v1/room/abc/mcp".into()),
+                apps: Vec::new(),
+                asking: asking.clone(),
+                message: None,
+            });
+            let mut rt = rune::Runtime::new(s, crate::view, (1280.0, 900.0), rune::Env::new(true, 1.0));
+            rt.frame(0.0);
+            let els = rt.elements();
+            assert!(
+                els.iter().any(|e| e.key.as_deref() == Some("remote-connect")),
+                "remote-connect card must appear on screen (on_settings={on_settings})"
+            );
+            assert!(els.iter().any(|e| e.key.as_deref() == Some("remote-connect-allow")));
+            assert!(els.iter().any(|e| e.key.as_deref() == Some("remote-connect-deny")));
+        }
+    }
+
+    #[test]
+    // case: gives Settings the address for Claude, and each app with Remove
+    fn gives_settings_the_address_for_claude_and_each_app_with_remove() {
+        let mut s = State::default();
+        s.remote_mcp = Some(RemoteMcpState {
+            enabled: true,
+            address: Some("https://app.locust.lol/v1/room/abc/mcp".into()),
+            asking: Vec::new(),
+            apps: vec![RemoteMcpApp {
+                id: "g1".into(),
+                name: "Claude".into(),
+                host: "claude.ai".into(),
+                added: "2026-10-29T10:00:00.000Z".into(),
+                used: None,
+            }],
+            message: None,
+        });
+        let said = words(s);
+        assert!(said.contains("Use from anywhere"), "{said}");
+        assert!(
+            said.contains("In Claude, open Settings, then Connectors, choose Add custom connector, and paste this address:"),
+            "{said}"
+        );
+        assert!(said.contains("https://app.locust.lol/v1/room/abc/mcp"), "{said}");
+        assert!(said.contains("Claude"), "{said}");
+        assert!(said.contains("claude.ai \u{b7} connected Oct 29"), "{said}");
+        assert!(said.contains("Remove"), "{said}");
+
+        let mut off_state = State::default();
+        off_state.remote_mcp = Some(RemoteMcpState {
+            enabled: false,
+            address: None,
+            apps: Vec::new(),
+            asking: Vec::new(),
+            message: None,
+        });
+        let mut rt = rune::Runtime::new(
+            off_state,
+            |s, _| col().w_full().children(section(s, &Palette::new(true))),
+            (1200.0, 800.0),
+            rune::Env::new(true, 1.0),
+        );
+        rt.frame(0.0);
+        let els = rt.elements();
+        let sw = els.iter().find(|e| e.key.as_deref() == Some("remote-mcp-switch")).expect("switch");
+        assert_ne!(sw.fill, crate::look::controls::Look::new(true).c("switch-on"));
+        let off_text: String = els.iter().filter_map(|e| e.text.as_deref()).collect::<Vec<_>>().join("\n");
+        assert!(!off_text.contains("app.locust.lol"), "{off_text}");
+    }
 }
