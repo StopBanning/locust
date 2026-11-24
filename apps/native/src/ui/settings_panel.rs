@@ -1298,7 +1298,17 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
             for heading in headings {
                 match heading {
                     "Privacy & local data" => {
-                        body = body.child(crate::backup_section::storage_and_retention_section(s, p)).child(more(s, p, "privacy"));
+                        body = body
+                            .child(crate::backup_section::storage_and_retention_section(s, p))
+                            .child(
+                                text("A voice call you start with Talk, beside the microphone, connects this window to OpenAI's voice service. Codex places the call. Your microphone sends audio while the call is on.")
+                                    .key("settings-voice-call-disclosure")
+                                    .font(type_::LABEL)
+                                    .color(p.secondary)
+                                    .wrap()
+                                    .padding(10.0),
+                            )
+                            .child(more(s, p, "privacy"));
                     }
                     "Trash" => {
                         body = body.child(crate::trash_section::section(s, p));
@@ -2479,3 +2489,35 @@ mod settings_read_like_claudes_tests;
 #[cfg(test)]
 #[path = "check_fix_settings_tests.rs"]
 mod check_fix_settings_tests;
+
+#[cfg(test)]
+mod voice_call_disclosure_tests {
+    use super::*;
+    use rune::{Env, Runtime};
+
+    // case: in docs/NETWORK.md and in Settings
+    #[test]
+    fn the_network_sheet_and_the_privacy_page_disclose_voice_calls() {
+        let network = include_str!("../../../../docs/NETWORK.md");
+        assert!(network.contains("| A voice call (Talk, beside the microphone) |"));
+        assert!(network.contains("**A voice call.**"));
+
+        let mut rt = Runtime::new(
+            State::default(),
+            |s, _| page_body(s, &Palette::new(true), SettingsPageId::Privacy),
+            (960.0, 1600.0),
+            Env::new(true, 1.0),
+        );
+        for frame in 0..4 {
+            rt.frame(f64::from(frame) * 0.05);
+        }
+        let words = rt
+            .elements()
+            .into_iter()
+            .find(|item| item.key.as_deref() == Some("settings-voice-call-disclosure"))
+            .and_then(|item| item.text)
+            .unwrap();
+        assert!(words.contains("connects this window to OpenAI's voice service"));
+        assert!(words.contains("Your microphone sends audio while the call is on."));
+    }
+}

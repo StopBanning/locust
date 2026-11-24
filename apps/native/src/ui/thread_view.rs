@@ -408,6 +408,7 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
 
         let mut composer_stack = col().w_full().gap(8.0).px(24.0).pb(24.0);
 
+        composer_stack = composer_stack.children(crate::voice_panel::notices(s, p));
         if let Some(question) = crate::folder_confirmation::view(s, p) {
             composer_stack = composer_stack.child(question);
         }
@@ -970,6 +971,7 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
                     // The + in a slot as tall as the send, so on the last line both share the line's centre.
                     .child(row().h(crate::look::controls::SEND_SIZE).center_y().child(plus_button(s, &l)))
                     .child(composer)
+                    .children(crate::voice_panel::controls(s, p))
                     .child(button),
             )
             .child(footer);

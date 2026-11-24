@@ -309,7 +309,7 @@ fn offers_a_process_crash_after_tools_ran_through_the_same_card_and_door_reason_
 fn the_engine_answers_a_follow_up_with_the_route_it_holds() {
     let root = std::env::temp_dir().join(format!("locust-door-route-{}-{}", std::process::id(), crate::invariants::unique_nanos()));
     let store = Store::with_codex(root.join("native"), root.join("electron"), vec![]).unwrap();
-    let engine = Engine { store, settings: Arc::new(Mutex::new(Settings::default())) };
+    let engine = Engine { store, settings: Arc::new(Mutex::new(Settings::default())), voice: false };
     let _held = holding();
     let route = Route { runtime: "claude".into(), model: Some("opus".into()), effort: Some("high".into()), account: Some("work".into()) };
     remember_route("engine-asked-turn", route.clone());

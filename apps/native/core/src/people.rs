@@ -289,6 +289,17 @@ pub fn save_teammate_id(store: &Store, mut entry: Value) -> Result<String, Strin
             return Err("Teammate starters are invalid".into());
         }
     }
+    let voice_given = entry.get("voice").is_some();
+    if let Some(voice) = entry.get("voice")
+        && !voice.as_str().is_some_and(crate::voice_call_rules::is_voice)
+    {
+        if !creating && !voice.is_null() {
+            return Err("Teammate voice is invalid".into());
+        }
+        if let Some(fields) = entry.as_object_mut() {
+            fields.remove("voice");
+        }
+    }
     entry["name"] = json!(name);
     if creating {
         entry["teammateId"] = json!(id("tm")?);
@@ -375,6 +386,11 @@ pub fn save_teammate_id(store: &Store, mut entry: Value) -> Result<String, Strin
             && let Some(prev_starters) = held.get("starters").cloned()
         {
             entry["starters"] = prev_starters;
+        }
+        if !voice_given
+            && let Some(voice) = held["voice"].as_str().filter(|voice| crate::voice_call_rules::is_voice(voice))
+        {
+            entry["voice"] = json!(voice);
         }
         *held = entry;
     }
@@ -2328,6 +2344,34 @@ mod tests {
     fn person(name: &str) -> Value {
         json!({"teammateId":"","name":name,"role":"Custom","instructions":"Read first.","route":{"runtime":"codex","model":"account-default","mode":"ask","effort":"high"}})
     }
+
+    // case: is one of ChatGPT's nine, kept, carried by an edit that does not mention it, and removed by null
+    #[test]
+    fn a_saved_teammate_voice_survives_edits_and_can_be_cleared() {
+        let (_temp, store) = fixture();
+        let mut created = person("Wren");
+        created["voice"] = json!("sol");
+        let id = save_teammate_id(&store, created).unwrap();
+        let saved = || team(&store).unwrap()["teammates"][0].clone();
+        assert_eq!(saved()["voice"], "sol");
+
+        let mut renamed = person("Wren B");
+        renamed["teammateId"] = json!(id);
+        save_teammate(&store, renamed.clone()).unwrap();
+        assert_eq!(saved()["name"], "Wren B");
+        assert_eq!(saved()["voice"], "sol");
+
+        let mut removed = renamed.clone();
+        removed["voice"] = Value::Null;
+        save_teammate(&store, removed).unwrap();
+        assert!(saved().get("voice").is_none());
+
+        let mut wrong = renamed;
+        wrong["voice"] = json!("alloy");
+        assert_eq!(save_teammate(&store, wrong), Err("Teammate voice is invalid".into()));
+        assert!(saved().get("voice").is_none());
+    }
+
     fn add(store: &Store, text: &str, name: Option<&str>, status: &str) {
         add_memory(
             store,

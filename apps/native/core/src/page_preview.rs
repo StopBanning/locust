@@ -61,7 +61,7 @@ pub fn never_served(path: &Path) -> bool {
     })
 }
 #[cfg(unix)]
-fn open_beneath(dir: &File, path: &Path) -> std::io::Result<File> {
+pub(crate) fn open_beneath(dir: &File, path: &Path) -> std::io::Result<File> {
     use std::os::fd::{AsRawFd, FromRawFd};
     let mut held = dir.try_clone()?;
     let parts: Vec<_> = path.components().collect();
@@ -90,7 +90,7 @@ fn open_beneath(dir: &File, path: &Path) -> std::io::Result<File> {
     Ok(held)
 }
 #[cfg(not(unix))]
-fn open_beneath(_dir: &File, _path: &Path) -> std::io::Result<File> {
+pub(crate) fn open_beneath(_dir: &File, _path: &Path) -> std::io::Result<File> {
     Err(std::io::Error::other(
         "Page previews are unavailable on this platform.",
     ))
