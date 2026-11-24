@@ -1071,6 +1071,90 @@ pub fn opencode_follow_up_needs_fresh_session(
 /// the store, and a read is one lazy, silent `/context` run after the turn has ended.
 static CLAUDE_CONTEXT: Mutex<Option<(PathBuf, Arc<crate::claude_context::ClaudeContextReader>)>> = Mutex::new(None);
 
+/// Turns starting that continue a conversation, before they are running (codex-mission.ts `contextStarting`): each by
+/// the conversation it was sent on, the key `RUNNING` takes once it registers.
+static CONTEXT_STARTING: Mutex<Vec<(u64, String)>> = Mutex::new(Vec::new());
+
+/// One turn starting on a conversation, held until the start returns, by which time it is running or has failed.
+struct ContextStarting(u64);
+impl ContextStarting {
+    fn on(conversation: &str) -> Self {
+        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+        let key = NEXT.fetch_add(1, Ordering::SeqCst);
+        crate::invariants::lock(&CONTEXT_STARTING).push((key, conversation.to_owned()));
+        Self(key)
+    }
+}
+impl Drop for ContextStarting {
+    fn drop(&mut self) {
+        crate::invariants::lock(&CONTEXT_STARTING).retain(|(key, _)| *key != self.0);
+    }
+}
+
+/// A turn's `mission.created` metadata, read from the top of its ledger only.
+fn turn_header(id: &str) -> Option<Value> {
+    use std::io::BufRead;
+    let file = std::fs::File::open(find_ledger(id)?).ok()?;
+    std::io::BufReader::new(file)
+        .lines()
+        .take(64)
+        .map_while(Result::ok)
+        .filter_map(|line| serde_json::from_str::<Value>(&line).ok())
+        .find(|record| record["recordType"] == "mission.created")
+        .map(|record| record["metadata"].clone())
+}
+
+/// index.ts's ancestors: the newest turn and every turn it continues, newest first, at most 512.
+fn context_ancestors(tip: &str, header: &Value) -> Vec<String> {
+    let mut ancestors = vec![tip.to_owned()];
+    let mut prior = header["continuesFrom"]["missionId"].as_str().map(str::to_owned);
+    while let Some(id) = prior.take() {
+        if ancestors.contains(&id) || ancestors.len() >= 512 {
+            break;
+        }
+        prior = turn_header(&id).and_then(|h| h["continuesFrom"]["missionId"].as_str().map(str::to_owned));
+        ancestors.push(id);
+    }
+    ancestors
+}
+
+/// codex-mission.ts `contextBusy(ancestors)`: a turn running in this process, or starting before it has a ledger row,
+/// on the newest turn or any turn it continues. The ancestors are walked only while something runs or starts.
+fn context_busy(tip: &str, header: &Value) -> bool {
+    let mut live: Vec<String> = crate::invariants::lock(&CONTEXT_STARTING).iter().map(|(_, id)| id.clone()).collect();
+    live.extend(with_running(|m| m.keys().cloned().collect::<Vec<_>>()));
+    !live.is_empty() && context_ancestors(tip, header).iter().any(|id| live.contains(id))
+}
+
+/// A turn sent to the cloud computer (cloud-turns.ts `of`, 0.761): its session is on the codespace, not here.
+fn cloud_turn(mission: &str) -> bool {
+    let Some(store) = store() else { return false };
+    [store.root(), store.electron()]
+        .iter()
+        .any(|dir| crate::cloud_turns::recorded_of(&dir.join("cloud-turns.json"), mission).is_some())
+}
+
+/// index.ts's `resolve` for the `/context` reader: the conversation's newest turn and its Claude session; busy while it
+/// or any turn it continues is running or starting; and, for a turn whose launch was never kept, the launch its
+/// recorded command gives (`recordedClaudeContextLaunch`). Nothing for another agent or a cloud turn.
+fn claude_context_turn(conversation: &str) -> Option<crate::claude_context::ClaudeContextTurn> {
+    let tip = real_tip(conversation).ok()?;
+    let prior = prior_of(&tip).ok()?;
+    if prior.runtime != "claude" || cloud_turn(&tip) {
+        return None;
+    }
+    let session_id = prior.thread.clone()?;
+    let header = turn_header(&tip)?;
+    let busy = prior.running || context_busy(&tip, &header);
+    let command = &header["command"];
+    let args: Option<Vec<String>> = command["args"].as_array().map(|a| a.iter().filter_map(|v| v.as_str().map(str::to_owned)).collect());
+    let recorded = command["executablePath"].as_str().zip(args.as_deref());
+    let cwd = header["cwd"].as_str().or_else(|| command["cwd"].as_str()).filter(|c| !c.is_empty());
+    let sandbox = header["sandbox"].as_str().filter(|s| matches!(*s, "read-only" | "workspace-write" | "full-access"));
+    let fallback = sandbox.and_then(|sandbox| crate::claude_context::recorded_claude_context_launch(recorded, cwd, sandbox));
+    Some(crate::claude_context::ClaudeContextTurn { mission_id: tip, session_id, busy, account: prior.account, fallback })
+}
+
 fn claude_context_reader() -> Option<Arc<crate::claude_context::ClaudeContextReader>> {
     use crate::claude_context::{ClaudeContextReader, ClaudeContextTurn, ContextResources, ReaderOptions, prepare_claude_context_launch};
     let store = store()?;
@@ -1080,17 +1164,7 @@ fn claude_context_reader() -> Option<Arc<crate::claude_context::ClaudeContextRea
     {
         return Some(reader.clone());
     }
-    let resolve = |id: &str| -> Option<ClaudeContextTurn> {
-        // The conversation's newest turn, its Claude session, and whether a turn is running on it.
-        let tip = real_tip(id).ok()?;
-        let prior = prior_of(&tip).ok()?;
-        if prior.runtime != "claude" {
-            return None;
-        }
-        let session_id = prior.thread.clone()?;
-        let busy = prior.running || crate::invariants::lock(&RUNNING).as_ref().is_some_and(|r| r.contains_key(&tip));
-        Some(ClaudeContextTurn { mission_id: tip, session_id, busy, account: prior.account, fallback: None })
-    };
+    let resolve = claude_context_turn;
     let prepare_store = store.clone();
     let prepare = move |launch: &crate::claude_context::ClaudeContextLaunch, turn: &ClaudeContextTurn| {
         let store = &prepare_store;
@@ -3012,6 +3086,9 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
         None if runtime_name == "kilo" => Some(crate::runtime::kilo::conversation_home(&store, &id).map_err(|e| e.to_string())?.0),
         held => held,
     };
+    // The conversation counts as busy for `/context` from here until this start returns, running or refused
+    // (codex-mission.ts `contextStarting`): before the turn registers and writes its ledger row, no read starts.
+    let _context_starting = job.conversation.as_deref().map(ContextStarting::on);
     // A Claude turn starting stops any `/context` read first, and waits for it (codex-mission.ts `beforeStart`).
     if runtime_name == "claude"
         && let Some(reader) = claude_context_reader()

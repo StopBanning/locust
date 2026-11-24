@@ -7,8 +7,9 @@
 //! -- with connectors on, "MCP tools (deferred)" read 200.7k while the whole conversation was 24k. Those never become a
 //! bar or a sentence.
 //!
-//! This is the engine and the reader. Wiring it into a running window (remembering each turn's launch, building the
-//! `/context` command from it, and drawing the rows under the ring) is not here yet.
+//! This is the engine and the reader; `native.rs` feeds it each conversation's newest turn (its session, whether it or
+//! any turn it continues is running or starting, a cloud turn left out) and keeps each Claude turn's launch as it
+//! starts, and the window's ring menu draws what it reads.
 
 use serde_json::{Map, Value, json};
 use std::collections::{HashMap, VecDeque};
@@ -341,6 +342,64 @@ impl ClaudeContextLaunch {
                 .unwrap_or_default(),
         })
     }
+}
+
+/// `recordedClaudeContextLaunch`: a launch rebuilt from the turn's own recorded command (its program, flags, folder and
+/// sandbox), for a turn whose launch was never kept -- older ledgers already hold the actual argv. Only resources
+/// Locust itself made are recognized: a `--mcp-config` in a permission bridge's or browser's own folder (Electron's
+/// `locust-permission-`/`locust-browser-`, this engine's `lcp-`/`lcb-`), and `--plugin-dir` copies named project,
+/// personal or library. Anything else, or a missing command or folder, gives no launch.
+pub fn recorded_claude_context_launch(command: Option<(&str, &[String])>, cwd: Option<&str>, sandbox: &str) -> Option<ClaudeContextLaunch> {
+    let (executable_path, args) = command?;
+    let cwd = cwd?;
+    let name = |path: &Path| path.file_name().and_then(|n| n.to_str()).unwrap_or("").to_owned();
+    let parent = |path: &str| Path::new(path).parent().map(name).unwrap_or_default();
+    // invariants::socket_dir names this engine's folders `<prefix>-<pid>-<hex>`.
+    let own = |folder: &str, prefix: &str| {
+        folder.strip_prefix(prefix).and_then(|rest| rest.split_once('-')).is_some_and(|(pid, hex)| {
+            !pid.is_empty() && pid.bytes().all(|b| b.is_ascii_digit()) && !hex.is_empty() && hex.bytes().all(|b| b.is_ascii_hexdigit())
+        })
+    };
+    let (mut permission, mut browser) = (None, None);
+    let mut plugins = Vec::new();
+    let mut index = 0;
+    while index < args.len() {
+        match args[index].as_str() {
+            "--mcp-config" => {
+                while let Some(path) = args.get(index + 1).filter(|next| !next.starts_with("--")) {
+                    index += 1;
+                    let folder = parent(path);
+                    if folder.starts_with("locust-permission-") || own(&folder, "lcp-") {
+                        permission = Some(path.clone());
+                    } else if folder.starts_with("locust-browser-") || own(&folder, "lcb-") {
+                        browser = Some(path.clone());
+                    } else {
+                        return None;
+                    }
+                }
+            }
+            "--plugin-dir" => {
+                index += 1;
+                let dir = args.get(index)?;
+                let plugin = name(Path::new(dir));
+                if !["project", "personal", "library"].contains(&plugin.as_str()) {
+                    return None;
+                }
+                plugins.push((plugin, dir.clone()));
+            }
+            _ => {}
+        }
+        index += 1;
+    }
+    Some(ClaudeContextLaunch {
+        cwd: cwd.to_owned(),
+        executable_path: executable_path.to_owned(),
+        args: args.to_vec(),
+        sandbox: sandbox.to_owned(),
+        permission,
+        browser,
+        plugins,
+    })
 }
 
 /// `ClaudeContextTurn`: a conversation's latest turn, as the ledger knows it.

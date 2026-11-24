@@ -460,6 +460,25 @@ fn last_word(ran: &Ran) -> String {
         .collect()
 }
 
+fn read_store_at(file: &Path) -> CloudStore {
+    let Ok(text) = fs::read_to_string(file) else {
+        return CloudStore::default();
+    };
+    let Ok(val) = serde_json::from_str::<Value>(&text) else {
+        return CloudStore::default();
+    };
+    store_from_json(&val)
+}
+
+/// `of`, read from the store file alone, for a reader with no cloud computer at hand: the turn's task and codespace
+/// when it was sent to the cloud computer (the context menu leaves such a turn out, 0.761).
+pub fn recorded_of(file: &Path, mission_id: &str) -> Option<(String, String)> {
+    let store = read_store_at(file);
+    let turn = store.turns.get(mission_id)?;
+    let task = store.tasks.get(&turn.task_id)?;
+    Some((task.task_id.clone(), task.codespace.clone()))
+}
+
 pub struct CloudTurns<'a, C: CloudComputers> {
     file: PathBuf,
     computers: &'a C,
@@ -501,13 +520,7 @@ impl<'a, C: CloudComputers> CloudTurns<'a, C> {
     }
 
     fn read_store(&self) -> CloudStore {
-        let Ok(text) = fs::read_to_string(&self.file) else {
-            return CloudStore::default();
-        };
-        let Ok(val) = serde_json::from_str::<Value>(&text) else {
-            return CloudStore::default();
-        };
-        store_from_json(&val)
+        read_store_at(&self.file)
     }
 
     fn write_store(&self, store: &CloudStore) -> Result<(), String> {
@@ -557,10 +570,7 @@ impl<'a, C: CloudComputers> CloudTurns<'a, C> {
     }
 
     pub fn of(&self, mission_id: &str) -> Option<(String, String)> {
-        let store = self.read_store();
-        let turn = store.turns.get(mission_id)?;
-        let task = store.tasks.get(&turn.task_id)?;
-        Some((task.task_id.clone(), task.codespace.clone()))
+        recorded_of(&self.file, mission_id)
     }
 
     pub fn prepare(
