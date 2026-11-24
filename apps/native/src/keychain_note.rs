@@ -334,6 +334,8 @@ mod tests {
     struct MacFixture {
         opened_by: Option<String>,
         keeps_key: bool,
+        /// The store could not say whether a key is kept (Electron: unknown counts as kept).
+        keeps_key_unknown: bool,
         may_ask: bool,
         availability: Availability,
         listens: bool,
@@ -344,6 +346,7 @@ mod tests {
             Self {
                 opened_by: None,
                 keeps_key: true,
+                keeps_key_unknown: false,
                 may_ask: true,
                 availability: Availability::Bool(true),
                 listens: true,
@@ -363,6 +366,7 @@ mod tests {
         });
         let opened_by = input.opened_by;
         let keeps_key = input.keeps_key;
+        let keeps_key_unknown = input.keeps_key_unknown;
         let steps_remember = steps.clone();
         let steps_listen = steps.clone();
         let steps_say = steps.clone();
@@ -376,7 +380,7 @@ mod tests {
                 steps_remember.lock().unwrap().push(format!("remember {version}"));
                 Ok(())
             }),
-            keeps_key: Arc::new(move || Ok(keeps_key)),
+            keeps_key: Arc::new(move || if keeps_key_unknown { Err("unreadable".into()) } else { Ok(keeps_key) }),
             window_listening: Arc::new(move || {
                 steps_listen.lock().unwrap().push("waits for the window".into());
                 signal.clone()
@@ -391,6 +395,18 @@ mod tests {
             })),
         });
         (keychain, steps)
+    }
+
+    // Same case as saying it first, when the store cannot say whether a key is kept: unknown counts as kept, so the
+    // note still goes up before the keychain is opened (a note said for nothing beats a window frozen without one).
+    #[test]
+    fn an_unknown_key_still_says_it_in_the_window_first() {
+        let (keychain, steps) = mac(MacFixture { keeps_key_unknown: true, ..MacFixture::default() });
+        keychain.begin();
+        let steps = steps.lock().unwrap().clone();
+        let up = steps.iter().position(|s| s == "note up").expect("the note goes up");
+        let opened = steps.iter().position(|s| s == "keychain").expect("the keychain is opened");
+        assert!(up < opened, "{steps:?}");
     }
 
     #[test]

@@ -829,6 +829,11 @@ fn electron_telegram_pairing_and_encrypted_token_carry_over_to_rust() {
     wait_until(|| h.link.settings().connected, "carried-over Telegram connected");
     let settings = h.link.settings();
     assert_eq!(settings.bot.unwrap().username, "locust_test_bot");
+    // Electron 0.831 wrote the bot's id as a number; Rust keeps it (as text) when it writes the file back, so a token
+    // pasted again for the same bot keeps this pairing.
+    h.link.set_alerts(true);
+    let written: Value = serde_json::from_str(&std::fs::read_to_string(h.dir.join(TELEGRAM_FILE)).unwrap()).unwrap();
+    assert_eq!(written["bot"]["id"], "123456789", "{written}");
     assert_eq!(settings.chat.unwrap().name, "Sam");
     assert_eq!(settings.alerts, Some(true));
 
