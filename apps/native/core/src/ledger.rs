@@ -1773,19 +1773,30 @@ pub fn recover(bytes: &[u8]) -> Recovered {
     };
     let version = header["schemaVersion"].clone();
     let numbered = header.get("ledgerSequence").is_some();
+    let mission = header["metadata"].clone();
     let mut records = vec![header];
     let mut expected = 2u64;
+    // A checkpoint must be the reader's (parsedCheckpoint), the next epoch, and reconciled through no more events than
+    // came before it; one that is not stops recovery like any other bad record.
+    let (mut checkpoints, mut last_event) = (0u64, 0u64);
     for line in body {
         let record = (line.len() <= MAX_RECORD_BYTES).then(|| serde_json::from_slice::<Value>(line).ok()).flatten().filter(|r| {
             r.is_object()
                 && r["schemaVersion"] == version
                 && (!numbered || r["ledgerSequence"].as_u64() == Some(expected))
                 && r["recordType"].as_str().is_some_and(|t| BODY_RECORDS.contains(&t))
+                && (r["recordType"] != "mission.checkpoint"
+                    || crate::checkpoint_reader::checkpoint_record_fits(r, &mission, checkpoints, last_event))
         });
         let Some(record) = record else {
             issues.push(Issue::InvalidRecord);
             break;
         };
+        if record["recordType"] == "mission.checkpoint" {
+            checkpoints += 1;
+        } else if let Some(sequence) = record["event"]["sequence"].as_u64() {
+            last_event = last_event.max(sequence);
+        }
         records.push(record);
         expected += 1;
     }

@@ -6959,11 +6959,11 @@ packages/mission-store/test/checkpoint.test.ts	describes what survived on disk a
 packages/mission-store/test/checkpoint.test.ts	reports an unreadable ledger as unsafe, and refuses to write past the break	yes
 packages/mission-store/test/checkpoint.test.ts	rebuilds an appended message rather than keeping only its last fragment	yes
 packages/mission-store/test/checkpoint.test.ts	gives different transcripts different digests	yes
-packages/mission-store/test/checkpoint.test.ts	accepts a well-formed checkpoint	no
-packages/mission-store/test/checkpoint.test.ts	refuses a checkpoint that claims safety while listing an unknown action	no
-packages/mission-store/test/checkpoint.test.ts	refuses checkpoints belonging to another mission or run	no
-packages/mission-store/test/checkpoint.test.ts	refuses a malformed digest, epoch, reason, or safety value	no
-packages/mission-store/test/checkpoint.test.ts	stops recovery at a checkpoint whose epoch is out of order	no
+packages/mission-store/test/checkpoint.test.ts	accepts a well-formed checkpoint	yes
+packages/mission-store/test/checkpoint.test.ts	refuses a checkpoint that claims safety while listing an unknown action	yes
+packages/mission-store/test/checkpoint.test.ts	refuses checkpoints belonging to another mission or run	yes
+packages/mission-store/test/checkpoint.test.ts	refuses a malformed digest, epoch, reason, or safety value	yes
+packages/mission-store/test/checkpoint.test.ts	stops recovery at a checkpoint whose epoch is out of order	yes
 packages/mission-store/test/every-runtime-can-be-written-down.test.ts	can be recorded, read back, and listed	yes
 packages/mission-store/test/mission-store.test.ts	persists a versioned append-only mission and recovers its terminal phase	yes
 packages/mission-store/test/mission-store.test.ts	serializes concurrent appends without losing ledger or event order	no

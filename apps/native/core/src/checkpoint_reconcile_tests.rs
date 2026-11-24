@@ -184,3 +184,89 @@ fn an_unreadable_ledger_is_unsafe_and_its_checkpoint_is_not_written_past_the_bre
     assert!(crate::ledger_write::append_checkpoint(&path, &claimed).is_err());
     assert_eq!(std::fs::read(&path).unwrap(), before);
 }
+
+// ---- checkpoint reader parity: through the ledger reader (`ledger::read_ledger`, what the history and the checkpoint
+// writer read with), a checkpoint record written after the seeded mission's events ----
+
+/// Electron's `sample()`, for the seeded mission's own ids.
+fn sample(path: &std::path::Path) -> Value {
+    let header = crate::ledger::read_ledger(path).unwrap().records[0].clone();
+    json!({ "schemaVersion": 1, "missionId": header["metadata"]["missionId"], "runId": header["metadata"]["runId"], "epoch": 1,
+        "reason": "route-limit", "reconciledThroughSequence": 2, "settledActions": [], "unsettledActions": [], "resumeSafety": "safe",
+        "safetyReason": "Every recorded action reported an outcome.", "transcriptDigest": "a".repeat(64), "assistantSummary": "",
+        "createdAt": CHECKPOINT_AT })
+}
+
+/// Writes `checkpoint` as the ledger's next record, as a writer would, and says whether the reader keeps it.
+fn kept(path: &std::path::Path, checkpoint: &Value) -> bool {
+    let read = crate::ledger::read_ledger(path).unwrap();
+    let next = read.records.iter().filter_map(|r| r["ledgerSequence"].as_u64()).max().unwrap() + 1;
+    let record = json!({ "schemaVersion": read.records[0]["schemaVersion"], "recordType": "mission.checkpoint", "ledgerSequence": next,
+        "occurredAt": checkpoint["createdAt"], "checkpoint": checkpoint });
+    let before = std::fs::read_to_string(path).unwrap();
+    std::fs::write(path, format!("{before}{record}\n")).unwrap();
+    let after = crate::ledger::read_ledger(path).unwrap();
+    std::fs::write(path, before).unwrap();
+    let held = after.records.iter().any(|r| r["recordType"] == "mission.checkpoint");
+    assert_eq!(held, after.issues.is_empty(), "a refused checkpoint is an invalid record");
+    held
+}
+
+// case: accepts a well-formed checkpoint
+#[test]
+fn the_reader_keeps_a_well_formed_checkpoint() {
+    let (_t, path) = seeded();
+    assert!(kept(&path, &sample(&path)));
+}
+
+// case: refuses a checkpoint that claims safety while listing an unknown action
+#[test]
+fn the_reader_refuses_a_safe_checkpoint_that_lists_an_open_action() {
+    let (_t, path) = seeded();
+    let mut lying = sample(&path);
+    lying["unsettledActions"] = json!([{ "itemId": "call_1", "toolKind": "command_execution", "name": "shell", "startedAt": NOW, "startedAtSequence": 2 }]);
+    assert!(!kept(&path, &lying));
+    // CONTROL: the same open action under an honest verdict is kept.
+    lying["resumeSafety"] = json!("approval-required");
+    assert!(kept(&path, &lying));
+}
+
+// case: refuses checkpoints belonging to another mission or run
+#[test]
+fn the_reader_refuses_a_checkpoint_of_another_mission_or_run() {
+    let (_t, path) = seeded();
+    for (key, other) in [("missionId", "mission_2"), ("runId", "run_2")] {
+        let mut foreign = sample(&path);
+        foreign[key] = json!(other);
+        assert!(!kept(&path, &foreign), "{key}");
+    }
+}
+
+// case: refuses a malformed digest, epoch, reason, or safety value
+#[test]
+fn the_reader_refuses_a_bad_digest_epoch_reason_or_safety() {
+    let (_t, path) = seeded();
+    for (key, bad) in [("transcriptDigest", json!("nope")), ("epoch", json!(0)), ("reason", json!("whenever")), ("resumeSafety", json!("fine"))] {
+        let mut malformed = sample(&path);
+        malformed[key] = bad;
+        assert!(!kept(&path, &malformed), "{key}");
+    }
+}
+
+// case: stops recovery at a checkpoint whose epoch is out of order
+#[test]
+fn recovery_stops_at_a_checkpoint_whose_epoch_is_out_of_order() {
+    let (_t, path) = seeded();
+    crate::ledger_write::append_checkpoint(&path, &checkpoint_of(&path, "route-limit", 1, CHECKPOINT_AT)).unwrap();
+    let text = std::fs::read_to_string(&path).unwrap();
+    let mut lines: Vec<String> = text.lines().filter(|l| !l.is_empty()).map(str::to_owned).collect();
+    let mut last: Value = serde_json::from_str(lines.last().unwrap()).unwrap();
+    last["checkpoint"]["epoch"] = json!(7);
+    *lines.last_mut().unwrap() = last.to_string();
+    std::fs::write(&path, format!("{}\n", lines.join("\n"))).unwrap();
+    let read = crate::ledger::read_ledger(&path).unwrap();
+    assert!(!read.records.iter().any(|r| r["recordType"] == "mission.checkpoint"));
+    assert!(read.issues.iter().any(|i| i.code() == "invalid-record"), "{:?}", read.issues);
+    // And the transcript the window reads from that file says the record was damaged.
+    assert!(crate::ledger::read_transcript(&path).issues.iter().any(|i| i.code() == "invalid-record"));
+}
