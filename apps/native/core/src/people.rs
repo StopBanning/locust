@@ -1248,7 +1248,10 @@ pub(crate) fn memory_section(
                     by = "the person".into();
                 }
                 let place = if memory["scope"] == "global" {
-                    format!("everywhere, by {by}")
+                    match memory["where"].as_str() {
+                        Some(written_in) => format!("everywhere, by {by} in {written_in}"),
+                        None => format!("everywhere, by {by}"),
+                    }
                 } else {
                     format!("this folder, by {by}")
                 };
@@ -1606,6 +1609,13 @@ pub(crate) fn briefed_rows(store: &Store, folder: &Path, stands_in: Option<&Path
                 if let Some(days) = days_unused(m, tracking, now) {
                     row["unusedDays"] = json!(days);
                 }
+                // Where an everywhere memory was written, when that is another folder (index.ts `where`).
+                if m["scope"] == "global"
+                    && m["workspaceId"] != here.as_str()
+                    && let Some(name) = m["workspaceName"].as_str().filter(|n| !n.is_empty())
+                {
+                    row["where"] = json!(name);
+                }
                 row
             })
             .collect(),
@@ -1842,8 +1852,8 @@ pub enum ForgetRefusal {
     Ambiguous(Vec<String>),
 }
 
-/// The one memory a forget's quote names, among this folder's and everywhere's. A proposed change carries the words
-/// of the memory it points at and is not one itself, so it is never a candidate.
+/// The one memory a forget's quote names, among this folder's and everywhere's (`forget_match`). A proposed change
+/// carries the words of the memory it points at and is not one itself, so it is never a candidate.
 pub fn forget_target(rows: &[Value], workspace: &str, quote: &str) -> Result<Value, ForgetRefusal> {
     forget_targets(rows, workspace, quote).map(|mut all| all.remove(0))
 }
@@ -1861,38 +1871,64 @@ pub fn forget_targets(rows: &[Value], workspace: &str, quote: &str) -> Result<Ve
     if reachable.is_empty() {
         return Err(ForgetRefusal::NothingRemembered);
     }
-    let wanted = key(quote);
-    if wanted.is_empty() {
+    let text_key = |m: &Value| key(m["text"].as_str().unwrap_or(""));
+    let keys: Vec<String> = reachable.iter().map(|m| text_key(m)).collect();
+    match forget_match(quote, &keys) {
+        Err(ForgetRefusal::Ambiguous(_)) => {
+            // Named, not counted: what the quote could have meant, so the teammate can quote one of them.
+            let could = reachable
+                .iter()
+                .filter(|m| forget_match(quote, &[text_key(m)]).is_ok())
+                .map(|m| m["text"].as_str().unwrap_or("").to_owned())
+                .collect();
+            Err(ForgetRefusal::Ambiguous(could))
+        }
+        Err(refusal) => Err(refusal),
+        Ok(hit) => {
+            let found: Vec<Value> = reachable.iter().filter(|m| hit.contains(&text_key(m))).map(|m| (*m).clone()).collect();
+            if found.is_empty() { Err(ForgetRefusal::NothingMatched) } else { Ok(found) }
+        }
+    }
+}
+
+/// The words of a key that can identify a memory: longer than two letters (Electron `significantWords`).
+fn significant_words(key: &str) -> Vec<&str> {
+    key.split(' ').filter(|w| w.encode_utf16().count() > 2).collect()
+}
+
+/// Which stored keys a forget's quote points at (Electron `memory.forgetMatch`). An exact key is the answer even when
+/// other memories hold the same words; otherwise the quote must be contained in one memory, or that memory in the
+/// quote, by significant words -- what a teammate does is quote the part it remembers, or a little more. Several such
+/// memories identify none, and none is forgotten: guessing deletes something the person never agreed to lose.
+pub fn forget_match(quote: &str, stored_keys: &[String]) -> Result<Vec<String>, ForgetRefusal> {
+    let wanted_key = key(quote);
+    if wanted_key.is_empty() {
         return Err(ForgetRefusal::NothingMatched);
     }
-    let text_key = |m: &Value| key(m["text"].as_str().unwrap_or(""));
-    let exact: Vec<Value> = reachable.iter().filter(|m| text_key(m) == wanted).map(|m| (*m).clone()).collect();
+    let exact: Vec<String> = stored_keys.iter().filter(|k| **k == wanted_key).cloned().collect();
     if !exact.is_empty() {
         return Ok(exact);
     }
-    let significant = |k: &str| k.split(' ').filter(|w| w.chars().count() > 2).map(str::to_owned).collect::<Vec<_>>();
-    let words = significant(&wanted);
-    if words.is_empty() {
+    let wanted = significant_words(&wanted_key);
+    if wanted.is_empty() {
         return Err(ForgetRefusal::NothingMatched);
     }
-    let near: Vec<&Value> = reachable
+    let near: Vec<String> = stored_keys
         .iter()
-        .copied()
-        .filter(|m| {
-            let has = significant(&text_key(m));
-            let quote_in_memory = words.iter().all(|w| has.contains(w));
-            let memory_in_quote = !has.is_empty() && has.iter().all(|w| words.contains(w));
+        .filter(|stored| {
+            let has = significant_words(stored);
+            let quote_in_memory = wanted.iter().all(|w| has.contains(w));
+            let memory_in_quote = !has.is_empty() && has.iter().all(|w| wanted.contains(w));
             quote_in_memory || memory_in_quote
         })
+        .cloned()
         .collect();
-    if near.is_empty() {
-        return Err(ForgetRefusal::NothingMatched);
+    let distinct: std::collections::BTreeSet<&String> = near.iter().collect();
+    match distinct.len() {
+        0 => Err(ForgetRefusal::NothingMatched),
+        1 => Ok(near),
+        _ => Err(ForgetRefusal::Ambiguous(distinct.into_iter().cloned().collect())),
     }
-    let keys: std::collections::HashSet<String> = near.iter().map(|m| text_key(m)).collect();
-    if keys.len() > 1 {
-        return Err(ForgetRefusal::Ambiguous(near.iter().map(|m| m["text"].as_str().unwrap_or("").to_owned()).collect()));
-    }
-    Ok(near.into_iter().cloned().collect())
 }
 
 /// Who wrote it, opening a notice: "a conversation" there starts a sentence.
@@ -3250,6 +3286,18 @@ mod a_teammate_keeps_the_hub_tests;
 #[cfg(test)]
 #[path = "route_remembers_effort_tests.rs"]
 mod route_remembers_effort_tests;
+
+#[cfg(test)]
+#[path = "memory_says_how_old_case_tests.rs"]
+mod memory_says_how_old_case_tests;
+
+#[cfg(test)]
+#[path = "forget_hits_one_case_tests.rs"]
+mod forget_hits_one_case_tests;
+
+#[cfg(test)]
+#[path = "memory_block_and_brief_case_tests.rs"]
+mod memory_block_and_brief_case_tests;
 
 #[cfg(test)]
 #[path = "a_teammate_name_is_its_own_tests.rs"]

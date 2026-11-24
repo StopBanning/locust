@@ -129,7 +129,9 @@ fn kilo_acp_defaults_to_auto_free_and_rejects_without_host_cards() {
         "untouched"
     );
     let ledger = std::fs::read_to_string(&writer.path).unwrap();
-    assert!(!ledger.contains("RAW_REASONING_MUST_NOT_SURVIVE"));
+    // What was thought is the thinking step's own words (acp-events.test.ts), never a message.
+    assert!(events.iter().any(|e| e.kind == "step.completed" && e.payload["message"] == "RAW_REASONING_MUST_NOT_SURVIVE"));
+    assert!(!events.iter().any(|e| e.kind == "message.delta" && e.payload.to_string().contains("RAW_REASONING")));
     assert!(!ledger.contains("mission.approval"));
     reader_check(&store, "kilo_acp", "completed");
 }

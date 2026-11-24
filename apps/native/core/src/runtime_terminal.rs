@@ -650,3 +650,7 @@ mod import_tests {
         let _ = std::fs::remove_dir_all(&root);
     }
 }
+
+#[cfg(test)]
+#[path = "mac_terminal_script_case_tests.rs"]
+mod mac_terminal_script_case_tests;

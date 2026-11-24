@@ -230,10 +230,11 @@ fn opencode_acp_success_sets_locust_mode_and_records() {
     for secret in [
         "REPLAY_MUST_NOT_SURVIVE",
         "FOREIGN_MUST_NOT_SURVIVE",
-        "RAW_REASONING_MUST_NOT_SURVIVE",
     ] {
         assert!(!ledger.contains(secret));
     }
+    // What was thought is the thinking step's own words (acp-events.test.ts), never a message.
+    assert!(events.iter().any(|e| e.kind == "step.completed" && e.payload["message"] == "RAW_REASONING_MUST_NOT_SURVIVE"));
     reader_check(&store, "opencode_acp", "completed");
 }
 

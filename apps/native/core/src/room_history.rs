@@ -450,3 +450,7 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "room_remembers_case_tests.rs"]
+mod room_remembers_case_tests;

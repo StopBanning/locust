@@ -57,6 +57,8 @@ pub struct Codex {
     mode: Mode,
     approval_lifecycle: ApprovalLifecycle,
     changes_by_item: Arc<Mutex<HashMap<String, Vec<crate::approval_patch::FileChangeRecord>>>>,
+    /// Where the run works: a fileChange row's paths are said relative to it (codex-mission.ts `runCwd`).
+    folder: String,
     /// Config for this thread only, laid over the person's own (codex-app-server-run.ts `threadConfig`): Locust's
     /// command guard. Nothing is written to their config.toml.
     thread_config: Option<Value>,
@@ -192,6 +194,7 @@ impl Codex {
             mode: Mode::Ask,
             approval_lifecycle,
             changes_by_item,
+            folder: String::new(),
             thread_config: None,
             fork: false,
             slash: None,
@@ -338,8 +341,10 @@ impl Codex {
                 self.steer_reason(&reason)?;
             }
         } else {
-            // A call the person declined reads as declined, however Codex put it (0.374).
+            // A fileChange row carries its change (withFileChanges), and a call the person declined reads as
+            // declined, however Codex put it (0.374).
             let events = self.normal.accept(method, &v["params"]);
+            let events = crate::approval::with_file_changes(events, &crate::invariants::lock(&self.changes_by_item), &self.folder);
             self.queued.extend(crate::approval::with_declines(events, &self.declined));
         }
         Ok(())
@@ -539,6 +544,7 @@ impl Runtime for Codex {
         self.approvals = turn.approvals.clone();
         self.mission_id = turn.mission_id.clone();
         self.run_id = turn.run_id.clone();
+        self.folder = turn.folder.to_string_lossy().into_owned();
         self.mode = turn.mode;
         self.request(
             "initialize",
@@ -989,3 +995,7 @@ mod codex_events_case_tests;
 #[cfg(all(test, unix))]
 #[path = "codex_replay_case_tests.rs"]
 mod codex_replay_case_tests;
+
+#[cfg(test)]
+#[path = "codex_file_change_rows_tests.rs"]
+mod codex_file_change_rows_tests;

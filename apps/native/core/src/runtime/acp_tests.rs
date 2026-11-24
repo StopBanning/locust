@@ -172,10 +172,14 @@ fn run(scenario: &str) {
     for secret in [
         "REPLAY_MUST_NOT_SURVIVE",
         "FOREIGN_MUST_NOT_SURVIVE",
-        "RAW_REASONING_MUST_NOT_SURVIVE",
         "PRIVATE_COMMAND_MUST_NOT_SURVIVE",
     ] {
         assert!(!ledger.contains(secret));
+    }
+    // What was thought is the thinking step's own words, as every runtime's is (acp-events.test.ts), never a message.
+    if phase == "completed" && scenario != "terminal-pending" {
+        assert!(events.iter().any(|e| e.kind == "step.completed" && e.payload["message"] == "RAW_REASONING_MUST_NOT_SURVIVE"));
+        assert!(events.iter().all(|e| e.kind == "step.completed" || !e.payload.to_string().contains("RAW_REASONING")));
     }
     if phase == "completed" && scenario != "terminal-pending" {
         let messages: Vec<_> = events

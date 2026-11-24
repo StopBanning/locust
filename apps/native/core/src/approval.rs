@@ -1401,6 +1401,40 @@ impl Channel {
 /// `declined` status -- so the row read "failed" in red and the fold counted a command that "exited non-zero". Nothing
 /// failed: the person said no. Locust answered that approval itself, so a failure of an item the person declined is
 /// said as declined, and reads "refused" like every other runtime's.
+/// A fileChange item's tool rows carry the change itself (approval-channel.ts `withFileChanges`). The normaliser names
+/// the item's files as Codex wrote them and gives no patch, so after an approved edit the activity read as though Codex
+/// had not reported the change beside the card that had just shown its diff. The changes remembered by item id for the
+/// approval give the row its paths, relative to the folder, and its patch; a change that failed or was declined wrote
+/// nothing, so it names its files and carries no patch.
+pub fn with_file_changes(
+    events: Vec<crate::runtime::Event>,
+    changes_by_item: &std::collections::HashMap<String, Vec<crate::approval_patch::FileChangeRecord>>,
+    workspace_path: &str,
+) -> Vec<crate::runtime::Event> {
+    events
+        .into_iter()
+        .map(|mut event| {
+            if !matches!(event.kind.as_str(), "tool.started" | "tool.completed" | "tool.failed")
+                || event.payload["toolKind"] != "fileChange"
+            {
+                return event;
+            }
+            let Some(changes) = event.payload["itemId"].as_str().and_then(|id| changes_by_item.get(id)).filter(|c| !c.is_empty()) else {
+                return event;
+            };
+            let workspace = Some(workspace_path).filter(|w| !w.is_empty());
+            let paths: Vec<String> = changes.iter().map(|c| crate::approval_patch::relative_to_folder(&c.path, workspace)).collect();
+            event.payload["command"] = json!(paths.join("\n"));
+            if event.kind != "tool.failed"
+                && let Some(patch) = crate::approval_patch::approval_patch_from(Some(changes), workspace)
+            {
+                event.payload["patch"] = patch.to_json();
+            }
+            event
+        })
+        .collect()
+}
+
 pub fn with_declines(events: Vec<crate::runtime::Event>, declined: &HashSet<String>) -> Vec<crate::runtime::Event> {
     if declined.is_empty() {
         return events;
@@ -2690,3 +2724,7 @@ mod approval_declined_tests;
 #[cfg(test)]
 #[path = "approval_denial_reason_tests.rs"]
 mod approval_denial_reason_tests;
+
+#[cfg(test)]
+#[path = "always_refused_for_reach_case_tests.rs"]
+mod always_refused_for_reach_case_tests;
