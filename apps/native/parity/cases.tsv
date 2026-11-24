@@ -6412,10 +6412,10 @@ apps/desktop/src/renderer/src/the-screens-say-less.test.ts	is the runtime’s na
 apps/desktop/src/renderer/src/the-screens-say-less.test.ts	keeps what follows the model’s name, and every other model as it was	yes
 apps/desktop/src/renderer/src/the-screens-say-less.test.ts	says what a person pays, or that a model is free, and nothing for counted tokens	no
 apps/desktop/src/renderer/src/the-screens-say-less.test.ts	lists conversations, each named by its first words, not each turn of one	yes
-apps/desktop/src/renderer/src/the-talk-button-sits-beside-the-microphone.test.tsx	is a button named Talk, saying what the call can and cannot do	no
+apps/desktop/src/renderer/src/the-talk-button-sits-beside-the-microphone.test.tsx	is a button named Talk, saying what the call can and cannot do	yes
 apps/desktop/src/renderer/src/the-talk-button-sits-beside-the-microphone.test.tsx	is there on a Mac too, and so is Talk's voice in Settings (the first Mac run, 2026-10-30)	no
-apps/desktop/src/renderer/src/the-talk-button-sits-beside-the-microphone.test.tsx	is not there where no call can be placed	no
-apps/desktop/src/renderer/src/the-talk-button-sits-beside-the-microphone.test.tsx	sits right after voice typing in the chat box	no
+apps/desktop/src/renderer/src/the-talk-button-sits-beside-the-microphone.test.tsx	is not there where no call can be placed	yes
+apps/desktop/src/renderer/src/the-talk-button-sits-beside-the-microphone.test.tsx	sits right after voice typing in the chat box	yes
 apps/desktop/src/renderer/src/the-terminal-opens-before-the-first-message.test.tsx	offers an accessible toggle in the title bar before a conversation exists	yes
 apps/desktop/src/renderer/src/the-terminal-opens-before-the-first-message.test.tsx	shows the organization restriction on the disabled terminal control	yes
 apps/desktop/src/renderer/src/the-terminal-opens-before-the-first-message.test.tsx	recognizes Ctrl backtick on every platform and leaves unrelated keys alone	yes
@@ -6499,6 +6499,10 @@ apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	names a month over the wee
 apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	the grid: twelve weeks of cells, today ringed, the days to come left out	yes
 apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	writes a token count the way the app does everywhere	yes
 apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	writes a billion and more as B, never as a thousand of the unit below	yes
+apps/desktop/src/renderer/src/voice-capture-closes-every-track.test.ts	readies the graph before opening audio and stops tracks, context, and port	yes
+apps/desktop/src/renderer/src/voice-capture-closes-every-track.test.ts	closes the audio graph when microphone access is denied	yes
+apps/desktop/src/renderer/src/voice-capture-closes-every-track.test.ts	stops even a device granted after Escape while its prompt was pending	yes
+apps/desktop/src/renderer/src/voice-capture-closes-every-track.test.ts	cancel returns no WAV and clears RMS	yes
 apps/desktop/src/renderer/src/voice-typing-is-editable-and-cancellable.test.tsx	does not draw a microphone on %s	yes
 apps/desktop/src/renderer/src/voice-typing-is-editable-and-cancellable.test.tsx	draws it on a Mac too	yes
 apps/desktop/src/renderer/src/voice-typing-is-editable-and-cancellable.test.tsx	draws it on Windows and loads nothing on mount	yes
