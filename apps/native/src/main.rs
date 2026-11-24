@@ -868,6 +868,8 @@ fn setup(s: &mut State, waker: Waker) {
     s.opening.set_waker(waker.clone());
     s.model_job.set_waker(waker.clone());
     s.settings_panel.agents_job.set_waker(waker.clone());
+    s.runtime_commands_job.set_waker(waker.clone());
+    s.runtime_commands.breakdown_job.set_waker(waker.clone());
     s.settings_panel.agents_recheck.set_waker(waker.clone());
     s.files_job.set_waker(waker.clone());
     s.stopping.set_waker(waker.clone());
