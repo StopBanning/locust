@@ -67,10 +67,16 @@ impl Fake {
         std::fs::read_to_string(self.dir.join("helpers")).unwrap_or_default().lines().filter_map(|l| l.trim().parse().ok()).collect()
     }
 
-    /// One catalog read the way the app reads Codex's part of it: the probe's models in `Listed`, then the catalog.
-    fn read(&self) -> (Listed, bool) {
-        let (codex, codex_usage) = codex_session(self.command(), Duration::from_secs(20)).map_or((None, None), |(m, u)| (Some(m), u));
+    /// One catalog read the way the app reads Codex's part of it (`codex_model_list`, with the sweep it holds): the
+    /// probe's models in `Listed`, then the catalog.
+    fn read_after(&self, held: Option<&[crate::agents::Found]>) -> (Listed, bool) {
+        let (codex, codex_usage) =
+            codex_list_when_ready(held, Duration::from_secs(20), || Some(self.command())).map_or((None, None), |(m, u)| (Some(m), u));
         (Listed { codex, codex_usage, ..Default::default() }, false)
+    }
+
+    fn read(&self) -> (Listed, bool) {
+        self.read_after(None)
     }
 }
 
@@ -151,4 +157,26 @@ fn a_server_that_listed_nothing_is_asked_again_next_time() {
     assert_eq!(kept_catalog(&cache, || fake.read()), Vec::<Value>::new());
     assert_eq!(kept_catalog(&cache, || fake.read()), Vec::<Value>::new());
     assert_eq!(fake.starts(), 2);
+}
+
+fn swept_codex(ready: bool, status: crate::agents::Probe) -> Vec<crate::agents::Found> {
+    let mut codex = crate::agents::pending_found("codex", "Codex CLI");
+    codex.checking = false;
+    codex.ready = ready;
+    codex.status = status;
+    vec![codex]
+}
+
+// case: fails soft when the runtime is not ready, without spawning anything
+#[test]
+fn a_codex_the_sweep_found_signed_out_is_not_started_for_its_models() {
+    let fake = Fake::new(real_result());
+    let cache = Mutex::new(None);
+    let signed_out = swept_codex(false, crate::agents::Probe::AuthRequired);
+    assert_eq!(kept_catalog(&cache, || fake.read_after(Some(&signed_out))), Vec::<Value>::new());
+    assert_eq!(fake.starts(), 0);
+    // Not kept: once the sweep says it is ready, the next read asks it.
+    let ready = swept_codex(true, crate::agents::Probe::Ready);
+    assert_eq!(kept_catalog(&cache, || fake.read_after(Some(&ready))).len(), 3);
+    assert_eq!(fake.starts(), 1);
 }

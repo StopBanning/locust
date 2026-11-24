@@ -127,6 +127,7 @@ fn a_second_caller_is_answered_from_the_first_read_rather_than_starting_two() {
     assert_eq!(reads.load(Ordering::SeqCst), 1);
 }
 
+// case: expires the cache so a new release is eventually seen
 #[test]
 fn a_kept_catalog_is_read_again_after_ten_minutes() {
     let Some(eleven_minutes_ago) = Instant::now().checked_sub(Duration::from_secs(11 * 60)) else {
@@ -148,6 +149,7 @@ fn cursor_listed(models: &[(&str, &str)]) -> Value {
     json!({"aliases": [], "efforts": [], "models": models.iter().map(|(id, name)| json!({"id": id, "displayName": name})).collect::<Vec<_>>()})
 }
 
+// case: collapses the efforts Cursor lists as separate models into one model with efforts
 #[test]
 fn cursors_per_effort_listings_collapse_into_one_model_with_efforts() {
     let models = cursor_models_from(Some(&cursor_listed(&[
@@ -229,6 +231,7 @@ fn every_cursor_model_is_named_as_cursor_names_it_on_a_real_accounts_list() {
     assert_eq!(row("Grok 4.7")["id"], "grok-4.7-low");
 }
 
+// case: reads the name a family shares, never inventing a word
 #[test]
 fn a_cursor_familys_name_is_the_words_its_variants_share_and_never_an_invented_one() {
     let shared = |names: &[&str]| shared_cursor_name(&names.iter().map(|n| (*n).to_owned()).collect::<Vec<_>>());
@@ -273,6 +276,7 @@ fn haiku_the_help_leaves_out_is_offered_once_and_only_beside_advertised_aliases(
     assert_eq!(haiku["displayName"], "Haiku 5.5");
 }
 
+// case: names the version each alias runs, from Claude Code's own alias table
 #[test]
 fn each_claude_alias_is_named_for_the_version_it_runs() {
     let models = claude_models_from(Some(&claude_hints(&["fable", "opus", "sonnet"], &[])));
@@ -335,17 +339,20 @@ fn the_account_default_offers_only_the_levels_every_listed_model_agrees_on() {
     assert_eq!(row.unwrap()["supportedEfforts"], json!(["low", "high"]));
 }
 
+// case: reports none rather than guessing when the models share nothing
 #[test]
 fn the_account_default_offers_no_level_when_the_models_share_none() {
     let row = account_default_model(&[model("codex", "a", &["low"]), model("codex", "b", &["high"])], "codex");
     assert_eq!(row.unwrap()["supportedEfforts"], json!([]));
 }
 
+// case: stays quiet when nothing was listed: there is no honest claim to make
 #[test]
 fn there_is_no_account_default_when_nothing_was_listed() {
     assert_eq!(account_default_model(&[], "codex"), None);
 }
 
+// case: never counts a previous account-default row as evidence about itself
 #[test]
 fn an_earlier_account_default_row_is_not_evidence_for_another() {
     assert_eq!(account_default_model(&[model("codex", "account-default", &["low", "high"])], "codex"), None);
@@ -359,6 +366,7 @@ fn the_account_default_is_named_for_what_it_is_and_sits_under_its_runtime() {
 
 // ---- every runtime that lists models gets an Account default row ----
 
+// case: gives each runtime its own row, in front of that runtime’s models
 #[test]
 fn each_runtime_gets_its_own_account_default_row() {
     let rows = with_account_defaults(vec![
@@ -383,11 +391,13 @@ fn each_runtimes_account_default_carries_its_own_shared_levels() {
     assert_eq!(levels("claude"), json!(["xhigh"]));
 }
 
+// case: adds nothing for a runtime that listed nothing
 #[test]
 fn a_runtime_that_listed_nothing_gets_no_account_default() {
     assert!(with_account_defaults(vec![]).is_empty());
 }
 
+// case: never stacks a second default on a list that already has one
 #[test]
 fn a_list_that_has_its_account_default_is_not_given_a_second() {
     let once = with_account_defaults(vec![model("codex", "a", &["low"])]);
