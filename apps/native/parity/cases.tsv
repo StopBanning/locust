@@ -6420,6 +6420,8 @@ apps/desktop/src/shared/claim-what-you-start.test.ts	tells it to claim a row it 
 apps/desktop/src/shared/claim-what-you-start.test.ts	says WHY, because the reason is the part that generalises	no
 apps/desktop/src/shared/claim-what-you-start.test.ts	keeps the limit that stops it claiming what it is not doing	no
 apps/desktop/src/shared/claim-what-you-start.test.ts	still says to end with no block when it touched nothing	yes
+apps/desktop/src/shared/commit-and-land-from-a-browser.test.ts	drafts and makes a commit, and lands a teammate’s branch or begins its merge	yes
+apps/desktop/src/shared/commit-and-land-from-a-browser.test.ts	never pushes or opens a pull request, and never throws a branch away	yes
 apps/desktop/src/shared/cursorIgnore.test.ts	finds the bare directory rule, the shape all three incidents began as	yes
 apps/desktop/src/shared/cursorIgnore.test.ts	reads the `dir/*` shape, which is what every fix turns into	yes
 apps/desktop/src/shared/cursorIgnore.test.ts	honours the re-inclusion, or it would cry wolf about the fix itself	yes
@@ -6538,6 +6540,12 @@ apps/desktop/src/shared/routine-schedule.test.ts	on set days: a day missed while
 apps/desktop/src/shared/routine-schedule.test.ts	on set days: made after this week's slot, it waits for the next one	no
 apps/desktop/src/shared/routine-schedule.test.ts	once: due at its moment, then never again	no
 apps/desktop/src/shared/routine-schedule.test.ts	reads on a card	no
+apps/desktop/src/shared/routines-and-rooms-from-a-browser.test.ts	leaves a called link on this computer, and still saves the hook kind	yes
+apps/desktop/src/shared/routines-and-rooms-from-a-browser.test.ts	makes, changes, pauses, runs and removes a routine, and settles what it was asked to	yes
+apps/desktop/src/shared/routines-and-rooms-from-a-browser.test.ts	leaves on the computer what opens something there	yes
+apps/desktop/src/shared/routines-and-rooms-from-a-browser.test.ts	makes, changes and removes a teammate, but never what it may spend, its folder, connectors or skills	yes
+apps/desktop/src/shared/routines-and-rooms-from-a-browser.test.ts	starts, asks, judges, runs again and keeps a comparison (0.835)	yes
+apps/desktop/src/shared/routines-and-rooms-from-a-browser.test.ts	makes, renames, removes and posts to a room, and moves its board	yes
 apps/desktop/src/shared/runtime-install.test.ts	names the exact package for each of the four that install from npm	yes
 apps/desktop/src/shared/runtime-install.test.ts	offers no command for the ones that do not install from npm	yes
 apps/desktop/src/shared/runtime-install.test.ts	knows the one runtime that needs no account, and that the others do	yes
@@ -6558,6 +6566,9 @@ apps/desktop/src/shared/scout-notices-what-is-new.test.ts	is read loosely: bold 
 apps/desktop/src/shared/scout-notices-what-is-new.test.ts	is kept strictly: no item that was not asked, no teammate who is not on the team, no draft with nobody to send it to	yes
 apps/desktop/src/shared/scout-notices-what-is-new.test.ts	keep the newest, at most MAX_SCOUT_CARDS	yes
 apps/desktop/src/shared/scout-notices-what-is-new.test.ts	take only what a person could have set	yes
+apps/desktop/src/shared/settings-from-a-browser.test.ts	changes the look, groups, memories, and Scout’s notes and tune-up	yes
+apps/desktop/src/shared/settings-from-a-browser.test.ts	changes Scout’s settings, but never turns on its preparing fixes	yes
+apps/desktop/src/shared/settings-from-a-browser.test.ts	leaves forgetting everything, and the folder’s own settings, on the computer	yes
 apps/desktop/src/shared/since-you-were-away.test.ts	lists the runs that ended after you left, newest first, and leaves the earlier ones out	no
 apps/desktop/src/shared/since-you-were-away.test.ts	counts the conversations waiting on you now, by any of their turns, and the slots missed while you were gone	no
 apps/desktop/src/shared/since-you-were-away.test.ts	says nothing when nothing happened, and nothing for a since it cannot read (controls)	yes

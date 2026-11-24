@@ -124,6 +124,8 @@ pub mod connectors_off;
 mod free_start_tests;
 pub mod context_usage;
 pub mod desk;
+#[cfg(test)]
+mod desk_access_tests;
 pub mod desk_host;
 #[cfg(test)]
 mod desk_host_tests;
