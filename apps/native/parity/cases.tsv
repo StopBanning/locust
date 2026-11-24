@@ -2897,31 +2897,31 @@ apps/desktop/src/main/teammate-store.test.ts	is kept when set, and an edit that 
 apps/desktop/src/main/teammate-store.test.ts	is changed by an amount and lifted by null	no
 apps/desktop/src/main/teammate-store.test.ts	refuses an amount that is not one, rather than saving a limit nobody meant	no
 apps/desktop/src/main/teammate-store.test.ts	reads a limit that does not parse as NO limit -- never as zero, which would refuse every run	no
-apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	checks a token with Discord, keeps it encrypted, and reads only direct messages	no
-apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	pairs the one account that sends the code, once, and ignores everyone else	no
-apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	takes /ada from Discord’s list to Ada, answers as a reply, and carries the conversation on	no
-apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	makes a new code once too many wrong ones were sent to the bot, and the old one pairs nothing	no
-apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	answers someone else’s command with nothing of the person’s	no
-apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	asks who a message is for with buttons, when nobody is being written to	no
+apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	checks a token with Discord, keeps it encrypted, and reads only direct messages	yes
+apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	pairs the one account that sends the code, once, and ignores everyone else	yes
+apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	takes /ada from Discord’s list to Ada, answers as a reply, and carries the conversation on	yes
+apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	makes a new code once too many wrong ones were sent to the bot, and the old one pairs nothing	yes
+apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	answers someone else’s command with nothing of the person’s	yes
+apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	asks who a message is for with buttons, when nobody is being written to	yes
 apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	brings a card from its own turn with Allow once and Deny, and answers it by the window’s path	yes
-apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	says which file or command a card allows, and posts a card once when its turn and the alert rules both bring it (0.837)	no
-apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	tells the person here what needs them, from any run, only once they turn it on	no
+apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	says which file or command a card allows, and posts a card once when its turn and the alert rules both bring it (0.837)	yes
+apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	tells the person here what needs them, from any run, only once they turn it on	yes
 apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	takes anything shaped like a key out of an answer before Discord has it	yes
-apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	splits a long answer into messages Discord takes, and a table into a block of code	no
-apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	beats as Discord asks, and resumes the same session when the connection drops	no
-apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	stops when Discord refuses the token, and forgets the token and the commands on Remove	no
+apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	splits a long answer into messages Discord takes, and a table into a block of code	yes
+apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	beats as Discord asks, and resumes the same session when the connection drops	yes
+apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	stops when Discord refuses the token, and forgets the token and the commands on Remove	yes
 apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	stops at the organization’s word	yes
 apps/desktop/src/main/teammates-answer-their-person-in-slack.test.ts	checks both tokens with Slack, keeps them encrypted, and says which one is wrong	no
 apps/desktop/src/main/teammates-answer-their-person-in-slack.test.ts	pairs the one account that sends the code, names it, and ignores everyone else	no
 apps/desktop/src/main/teammates-answer-their-person-in-slack.test.ts	takes “Ada:” to Ada, answers in the chat, and carries a conversation on in its thread	no
 apps/desktop/src/main/teammates-answer-their-person-in-slack.test.ts	acknowledges every envelope at once, and acts once on a message Slack sends twice	no
-apps/desktop/src/main/teammates-answer-their-person-in-slack.test.ts	asks who a message is for with buttons, when nobody is being written to	no
+apps/desktop/src/main/teammates-answer-their-person-in-slack.test.ts	asks who a message is for with buttons, when nobody is being written to	yes
 apps/desktop/src/main/teammates-answer-their-person-in-slack.test.ts	brings a card from its own turn with Allow once and Deny, and answers it by the window’s path	yes
 apps/desktop/src/main/teammates-answer-their-person-in-slack.test.ts	tells the person here what needs them from any run, once they turn it on (0.837)	yes
 apps/desktop/src/main/teammates-answer-their-person-in-slack.test.ts	takes anything shaped like a key out of an answer before Slack has it	yes
 apps/desktop/src/main/teammates-answer-their-person-in-slack.test.ts	splits a long answer into messages Slack takes, all in the thread it was asked in	no
 apps/desktop/src/main/teammates-answer-their-person-in-slack.test.ts	moves to a new connection when Slack refreshes it, and stops when Socket Mode is turned off	no
-apps/desktop/src/main/teammates-answer-their-person-in-slack.test.ts	stops at the organization’s word, and forgets the tokens and the chat on Remove	no
+apps/desktop/src/main/teammates-answer-their-person-in-slack.test.ts	stops at the organization’s word, and forgets the tokens and the chat on Remove	yes
 apps/desktop/src/main/teammates-answer-their-person-in-telegram.test.ts	pairs nothing with a link past its ten minutes	yes
 apps/desktop/src/main/teammates-answer-their-person-in-telegram.test.ts	checks a token with Telegram, keeps it encrypted, and refuses one it does not know or another program reads	yes
 apps/desktop/src/main/teammates-answer-their-person-in-telegram.test.ts	pairs the one chat that opens the link, once, and ignores everyone else	yes

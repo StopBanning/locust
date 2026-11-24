@@ -874,6 +874,10 @@ pub fn create_discord_link(discord_options: DiscordOptions, link_options: ChatLi
 }
 
 #[cfg(test)]
+#[path = "chat_discord_tests.rs"]
+mod parity_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::chat_http::HttpResponse;
