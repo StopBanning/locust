@@ -3743,8 +3743,8 @@ apps/desktop/src/renderer/src/a-face-says-its-state-in-words.test.tsx	tells a sc
 apps/desktop/src/renderer/src/a-face-says-its-state-in-words.test.tsx	says the state its hidden row would have shown	no
 apps/desktop/src/renderer/src/a-failed-column-cannot-be-kept.test.tsx	shows its approval card in the column, answerable there	no
 apps/desktop/src/renderer/src/a-failed-column-cannot-be-kept.test.tsx	is offered on a finished answer and refused on a failed one, saying why	no
-apps/desktop/src/renderer/src/a-file-git-shows-without-lines-is-listed.test.ts	lists every one, with or without text lines, as git said it changed	no
-apps/desktop/src/renderer/src/a-file-git-shows-without-lines-is-listed.test.ts	still reads a file with lines after one without, and a diff of one header alone	no
+apps/desktop/src/renderer/src/a-file-git-shows-without-lines-is-listed.test.ts	lists every one, with or without text lines, as git said it changed	yes
+apps/desktop/src/renderer/src/a-file-git-shows-without-lines-is-listed.test.ts	still reads a file with lines after one without, and a diff of one header alone	yes
 apps/desktop/src/renderer/src/a-file-row-says-a-word.test.ts	says Codex's change as a word	yes
 apps/desktop/src/renderer/src/a-file-row-says-a-word.test.ts	says a read, a search, a listing and a fetch in Claude Code's words, whoever ran it (0.545)	yes
 apps/desktop/src/renderer/src/a-file-row-says-a-word.test.ts	says Antigravity's write and edit in Claude Code's words (0.596)	yes
