@@ -10,6 +10,8 @@ pub(super) struct Panel {
     pub expanded: HashSet<usize>,
     /// Open context folds keyed by (file, hunk, first-hidden-row index), matching Electron per-segment folds.
     pub contexts: HashSet<(usize, usize, usize)>,
+    /// Markdown files currently shown as line diffs instead of word passages (`FileViewer.tsx::asLines`).
+    pub as_lines: HashSet<usize>,
     pub files: bool,
     /// Collapsed folder paths in the file tree (`prefix/name/`).
     pub closed_folders: HashSet<String>,
@@ -116,6 +118,7 @@ fn refresh(s: &mut State, sha: Option<&str>) {
     s.changes.folded.clear();
     s.changes.expanded.clear();
     s.changes.contexts.clear();
+    s.changes.as_lines.clear();
     s.changes.closed_folders.clear();
     s.changes.asking = None;
     s.changes.walk = None;
@@ -477,6 +480,103 @@ fn more_menu(s: &State, p: &Palette) -> El {
     )
 }
 
+/// A Markdown document's change as passages: old words struck (del mark) and new words marked (add mark),
+/// matching Electron's `DocumentChange.tsx`.
+fn document_change_view(file_index: usize, f: &changes::File, p: &Palette) -> El {
+    let passages = locust_core::document_change::document_changes(f);
+    if passages.is_empty() {
+        return text("No words changed: only spacing or layout did.")
+            .color(p.muted)
+            .wrap()
+            .key(format!("changes-doc-{file_index}"));
+    }
+    let del_bg = if p.dark { color("#4a2429") } else { color("#f2c9c4") };
+    let add_bg = if p.dark { color("#1f4029") } else { color("#c5e5cb") };
+    let mut list = col()
+        .w_full()
+        .gap(6.0)
+        .px(8.0)
+        .py(4.0)
+        .key(format!("changes-doc-{file_index}"))
+        .label("What changed, in the document's words");
+    for (idx, passage) in passages.into_iter().enumerate() {
+        let (what, mut words) = match passage {
+            locust_core::document_change::ChangedPassage::Changed {
+                before,
+                removed,
+                added,
+                after,
+            } => {
+                let mut w = row().gap(0.0).shrink();
+                if !before.is_empty() {
+                    w = w.child(text(before).color(p.text));
+                }
+                if !removed.is_empty() {
+                    w = w.child(
+                        text(removed)
+                            .color(p.red)
+                            .fill(del_bg)
+                            .radius(2.0)
+                            .px(2.0)
+                            .key(format!("changes-doc-{file_index}-del-{idx}")),
+                    );
+                }
+                if !added.is_empty() {
+                    w = w.child(
+                        text(added)
+                            .color(p.green)
+                            .fill(add_bg)
+                            .radius(2.0)
+                            .px(2.0)
+                            .key(format!("changes-doc-{file_index}-add-{idx}")),
+                    );
+                }
+                if !after.is_empty() {
+                    w = w.child(text(after).color(p.text));
+                }
+                ("Changed", w)
+            }
+            locust_core::document_change::ChangedPassage::Added { text: body } => {
+                let w = row().gap(0.0).shrink().child(
+                    text(body)
+                        .color(p.green)
+                        .fill(add_bg)
+                        .radius(2.0)
+                        .px(2.0)
+                        .key(format!("changes-doc-{file_index}-add-{idx}")),
+                );
+                ("Added", w)
+            }
+            locust_core::document_change::ChangedPassage::Removed { text: body } => {
+                let w = row().gap(0.0).shrink().child(
+                    text(body)
+                        .color(p.red)
+                        .fill(del_bg)
+                        .radius(2.0)
+                        .px(2.0)
+                        .key(format!("changes-doc-{file_index}-del-{idx}")),
+                );
+                ("Removed", w)
+            }
+        };
+        words = words.center_y();
+        list = list.child(
+            row()
+                .w_full()
+                .gap(8.0)
+                .py(2.0)
+                .center_y()
+                .child(
+                    text(what)
+                        .font(rune::TextStyle::new(11.0, 500.0).mono())
+                        .color(p.muted),
+                )
+                .child(words),
+        );
+    }
+    list
+}
+
 /// Renders the Changes panel's file tree grouped by folder, folders first (`ChangesPanel.tsx::FileTree`).
 fn render_file_tree(
     folder: &changes::TreeFolder,
@@ -747,96 +847,119 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                     );
                 }
                 if open {
-                    let shown = if panel.expanded.contains(&i) {
-                        f.hunks.len()
+                    let is_doc = locust_core::text_files::viewer_mode(&f.path)
+                        == locust_core::text_files::ViewerMode::Markdown;
+                    let show_words = is_doc && !panel.as_lines.contains(&i);
+                    if show_words {
+                        file = file.child(document_change_view(i, f, p));
+                        file = file.child(
+                            button("Show the lines that changed", p)
+                                .key(format!("changes-doc-lines-{i}"))
+                                .on_press(move |s: &mut State| {
+                                    s.changes.as_lines.insert(i);
+                                }),
+                        );
                     } else {
-                        2.min(f.hunks.len())
-                    };
-                    for (j, h) in f.hunks.iter().take(shown).enumerate() {
-                        file =
-                            file.child(text(format!("{} {}", h.range(), h.heading)).color(p.muted));
-                        let (before, after) = h.sides();
-                        let lang = std::path::Path::new(&f.path)
-                            .extension()
-                            .and_then(|p| p.to_str());
-                        let bh = rune_kit::syntax::highlight(lang, &before);
-                        let ah = rune_kit::syntax::highlight(lang, &after);
-                        let mut offsets = (0, 0);
-                        let mut hidden = 0;
-                        let keep_mask = changes::kept_context(&h.rows);
-                        let marks = changes::paired_spans(&h.rows);
-                        for (k, r) in h.rows.iter().enumerate() {
-                            let offset = if r.kind == '-' { offsets.0 } else { offsets.1 };
-                            if r.kind != '+' {
-                                offsets.0 += r.text.len() + 1
-                            }
-                            if r.kind != '-' {
-                                offsets.1 += r.text.len() + 1
-                            }
-                            let run_start = {
-                                let mut start = k;
-                                while start > 0 && !keep_mask[start - 1] {
-                                    start -= 1;
+                        if is_doc {
+                            file = file.child(
+                                button("Show it as words", p)
+                                    .key(format!("changes-doc-words-{i}"))
+                                    .on_press(move |s: &mut State| {
+                                        s.changes.as_lines.remove(&i);
+                                    }),
+                            );
+                        }
+                        let shown = if panel.expanded.contains(&i) {
+                            f.hunks.len()
+                        } else {
+                            2.min(f.hunks.len())
+                        };
+                        for (j, h) in f.hunks.iter().take(shown).enumerate() {
+                            file =
+                                file.child(text(format!("{} {}", h.range(), h.heading)).color(p.muted));
+                            let (before, after) = h.sides();
+                            let lang = std::path::Path::new(&f.path)
+                                .extension()
+                                .and_then(|p| p.to_str());
+                            let bh = rune_kit::syntax::highlight(lang, &before);
+                            let ah = rune_kit::syntax::highlight(lang, &after);
+                            let mut offsets = (0, 0);
+                            let mut hidden = 0;
+                            let keep_mask = changes::kept_context(&h.rows);
+                            let marks = changes::paired_spans(&h.rows);
+                            for (k, r) in h.rows.iter().enumerate() {
+                                let offset = if r.kind == '-' { offsets.0 } else { offsets.1 };
+                                if r.kind != '+' {
+                                    offsets.0 += r.text.len() + 1
                                 }
-                                start
-                            };
-                            let keep = keep_mask[k] || panel.contexts.contains(&(i, j, run_start));
-                            if !keep {
-                                hidden += 1;
-                                continue;
+                                if r.kind != '-' {
+                                    offsets.1 += r.text.len() + 1
+                                }
+                                let run_start = {
+                                    let mut start = k;
+                                    while start > 0 && !keep_mask[start - 1] {
+                                        start -= 1;
+                                    }
+                                    start
+                                };
+                                let keep = keep_mask[k] || panel.contexts.contains(&(i, j, run_start));
+                                if !keep {
+                                    hidden += 1;
+                                    continue;
+                                }
+                                if hidden > 0 {
+                                    let start = k - hidden;
+                                    let label = if hidden == 1 {
+                                        "1 unchanged line".into()
+                                    } else {
+                                        format!("{hidden} unchanged lines")
+                                    };
+                                    file =
+                                        file.child(button(label, p).on_press(move |s: &mut State| {
+                                            s.changes.contexts.insert((i, j, start));
+                                        }));
+                                    hidden = 0;
+                                }
+                                let line = code_row(r, &r.text, offset, if r.kind == '-' { &bh } else { &ah }, marks[k].as_deref(), p);
+                                file = crate::diff_notes_ui::append_noted_row(
+                                    file,
+                                    s,
+                                    s.changes.folder.to_str(),
+                                    crate::diff_notes_ui::may_note(s),
+                                    &f.path,
+                                    r,
+                                    line,
+                                    p,
+                                );
                             }
                             if hidden > 0 {
-                                let start = k - hidden;
+                                let start = h.rows.len() - hidden;
                                 let label = if hidden == 1 {
                                     "1 unchanged line".into()
                                 } else {
                                     format!("{hidden} unchanged lines")
                                 };
-                                file =
-                                    file.child(button(label, p).on_press(move |s: &mut State| {
-                                        s.changes.contexts.insert((i, j, start));
-                                    }));
-                                hidden = 0;
+                                file = file.child(button(label, p).on_press(move |s: &mut State| {
+                                    s.changes.contexts.insert((i, j, start));
+                                }));
                             }
-                            let line = code_row(r, &r.text, offset, if r.kind == '-' { &bh } else { &ah }, marks[k].as_deref(), p);
-                            file = crate::diff_notes_ui::append_noted_row(
-                                file,
-                                s,
-                                s.changes.folder.to_str(),
-                                crate::diff_notes_ui::may_note(s),
-                                &f.path,
-                                r,
-                                line,
+                        }
+                        if let Some(after) = f.after() {
+                            file = file.child(reply_actions::copy_button(
+                                s.copy_feedback.as_ref(),
+                                after,
                                 p,
-                            );
+                            ));
                         }
-                        if hidden > 0 {
-                            let start = h.rows.len() - hidden;
-                            let label = if hidden == 1 {
-                                "1 unchanged line".into()
-                            } else {
-                                format!("{hidden} unchanged lines")
-                            };
-                            file = file.child(button(label, p).on_press(move |s: &mut State| {
-                                s.changes.contexts.insert((i, j, start));
+                        let statement =
+                            changes::completeness(f, shown, diff.truncated && shown >= f.hunks.len());
+                        if shown < f.hunks.len() {
+                            file = file.child(button(statement, p).on_press(move |s: &mut State| {
+                                s.changes.expanded.insert(i);
                             }));
+                        } else {
+                            file = file.child(text(statement).font(type_::LABEL).color(p.muted).wrap());
                         }
-                    }
-                    if let Some(after) = f.after() {
-                        file = file.child(reply_actions::copy_button(
-                            s.copy_feedback.as_ref(),
-                            after,
-                            p,
-                        ));
-                    }
-                    let statement =
-                        changes::completeness(f, shown, diff.truncated && shown >= f.hunks.len());
-                    if shown < f.hunks.len() {
-                        file = file.child(button(statement, p).on_press(move |s: &mut State| {
-                            s.changes.expanded.insert(i);
-                        }));
-                    } else {
-                        file = file.child(text(statement).font(type_::LABEL).color(p.muted).wrap());
                     }
                 }
                 body = body.child(file);
@@ -1063,3 +1186,6 @@ mod changes_panel_diff_tests;
 #[cfg(test)]
 #[path = "changes_walkthrough_tests.rs"]
 mod changes_walkthrough_tests;
+#[cfg(test)]
+#[path = "changes_document_tests.rs"]
+mod changes_document_tests;

@@ -105,6 +105,7 @@ pub mod skill_library;
 mod skill_row_tests;
 pub mod endpoint_test;
 pub mod changes;
+pub mod document_change;
 pub mod checkpoints;
 pub mod command_guard;
 pub mod command_plain;

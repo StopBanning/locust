@@ -3585,6 +3585,9 @@ apps/desktop/src/renderer/src/a-disabled-send-says-why.test.ts	names the install
 apps/desktop/src/renderer/src/a-disabled-send-says-why.test.ts	names an empty box only when that is the real reason	yes
 apps/desktop/src/renderer/src/a-disabled-send-says-why.test.ts	names the install first when everything is wrong at once	no
 apps/desktop/src/renderer/src/a-disabled-send-says-why.test.ts	separates a route that is not ready from a mode that cannot run on it	yes
+apps/desktop/src/renderer/src/a-document-change-reads-as-words.test.ts	names each changed passage with its old words and new words, Markdown marks taken off	yes
+apps/desktop/src/renderer/src/a-document-change-reads-as-words.test.ts	strikes and marks whole words, never the inside of one (drive: "~~Mon~~Tuesday")	yes
+apps/desktop/src/renderer/src/a-document-change-reads-as-words.test.ts	reads a heading, a bullet, a quote and a table row as a reader sees them	yes
 apps/desktop/src/renderer/src/a-draft-naming-an-off-connector-says-so.test.ts	finds a connector named in the draft, by the name a person reads	no
 apps/desktop/src/renderer/src/a-draft-naming-an-off-connector-says-so.test.ts	does not find one inside another word, or where none is named	no
 apps/desktop/src/renderer/src/a-draft-naming-an-off-connector-says-so.test.ts	says whose, which, and where to turn it on	no
