@@ -278,6 +278,10 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
                 button.on_press_tx(|s: &mut State, tx: &mut Tx| submit_composer(s, tx, false))
             };
         }
+        if stopping {
+            let mode = crate::look::stop_beam::mode(s.stopping.is_pending(), s.reduced_motion.get());
+            button = crate::look::stop_beam::wrap(button, mode, p.dark);
+        }
 
         let id = teammate.id.clone();
         let current = s.models.get(&id).and_then(|agents| {
@@ -1852,6 +1856,10 @@ mod plus_menu_words_tests;
 #[cfg(test)]
 #[path = "live2_engine_label_tests.rs"]
 mod live2_engine_label_tests;
+
+#[cfg(test)]
+#[path = "stop_beam_ui_tests.rs"]
+mod stop_beam_ui_tests;
 
 /// The message field's line: its own line height, or 1.25 times its size when it names none (Rune's rule).
 fn composer_line_height() -> f32 {

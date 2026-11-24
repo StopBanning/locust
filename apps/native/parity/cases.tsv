@@ -5904,9 +5904,9 @@ apps/desktop/src/renderer/src/the-bare-machine.test.ts	says what it is doing whe
 apps/desktop/src/renderer/src/the-bare-machine.test.ts	still counts once there is something to count	yes
 apps/desktop/src/renderer/src/the-beams-are-mono-and-quiet.test.tsx	wears a beam round the machine, and round nothing else	yes
 apps/desktop/src/renderer/src/the-beams-are-mono-and-quiet.test.tsx	travels while the runtimes are being found, and goes out when the lockup lights	yes
-apps/desktop/src/renderer/src/the-beams-are-mono-and-quiet.test.tsx	wears the beam while a run goes	no
-apps/desktop/src/renderer/src/the-beams-are-mono-and-quiet.test.tsx	has no beam when there is nothing to stop	no
-apps/desktop/src/renderer/src/the-beams-are-mono-and-quiet.test.tsx	travels at the faces' rate, not the screen's (0.698)	no
+apps/desktop/src/renderer/src/the-beams-are-mono-and-quiet.test.tsx	wears the beam while a run goes	yes
+apps/desktop/src/renderer/src/the-beams-are-mono-and-quiet.test.tsx	has no beam when there is nothing to stop	yes
+apps/desktop/src/renderer/src/the-beams-are-mono-and-quiet.test.tsx	travels at the faces' rate, not the screen's (0.698)	yes
 apps/desktop/src/renderer/src/the-boot-screen.test.ts	draws one row per runtime, from the moment its command is issued	no
 apps/desktop/src/renderer/src/the-boot-screen.test.ts	counts elapsed from the moment the command was issued	no
 apps/desktop/src/renderer/src/the-boot-screen.test.ts	stops counting and says so once a probe has taken too long	no
