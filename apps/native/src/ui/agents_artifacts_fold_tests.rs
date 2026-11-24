@@ -75,9 +75,19 @@ fn sweep(rt: &mut rune::Runtime<State>) {
         rt.update(|s, _| {
             poll(s);
         });
-        let p = &rt.state.settings_panel;
-        if !p.agents_job.is_pending() && !p.artifacts_job.is_pending() {
-            break;
+        // Done only when a poll after everything landed starts nothing new: a read that lands can make the next
+        // poll ask for another (the agents changed while the first was out), and stopping between the two missed it.
+        let idle = |s: &State| {
+            let p = &s.settings_panel;
+            !p.agents_job.is_pending() && !p.artifacts_job.is_pending() && !p.setup_job.is_pending()
+        };
+        if idle(&rt.state) {
+            rt.update(|s, _| {
+                poll(s);
+            });
+            if idle(&rt.state) {
+                break;
+            }
         }
         assert!(Instant::now() < until, "the sweep or the read never landed");
         std::thread::sleep(Duration::from_millis(5));
