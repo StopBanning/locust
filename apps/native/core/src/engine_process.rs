@@ -333,6 +333,12 @@ fn engine_door() -> Result<&'static crate::door::Door, String> {
     DOOR.get().ok_or_else(|| "The door could not be made.".to_string())
 }
 
+/// The door `--serve-door` opened is this engine's door (LIVE2 #15): a window that joins reads and switches that one,
+/// never a second door over the same connection file.
+pub(crate) fn adopt_door(door: crate::door::Door) -> &'static crate::door::Door {
+    DOOR.get_or_init(|| door)
+}
+
 fn change_door(change: DoorChange) -> Result<crate::door::State, String> {
     let door = engine_door()?;
     Ok(match change {

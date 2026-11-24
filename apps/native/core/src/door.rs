@@ -25,6 +25,8 @@ use std::time::{Duration, Instant};
 /// The connection file and the settings file, beside each other in the native data folder (MCP_CONNECTION_FILE and
 /// MCP_SETTINGS_FILE).
 pub const CONNECTION_FILE: &str = "locust-mcp-connection.json";
+/// LIVE2 #15: another Locust has this data folder's door open; this one leaves it to that one.
+pub const ANOTHER_DOOR: &str = "Another Locust already has the door open on this data folder. This one stays off; no conversation was started.";
 pub const SETTINGS_FILE: &str = "locust-mcp.json";
 /// The name this door registers under in another app. Electron's is `locust`; both can be added while both run.
 pub const SERVER_NAME: &str = "locust-native";
@@ -417,6 +419,8 @@ impl Door {
     }
 
     fn stop(&self) {
+        // Asked before this door lets go of its token: the file is this door's when it carries this door's token.
+        let theirs = self.another_door_owns_the_file();
         *self.token.lock().unwrap_or_else(|e| e.into_inner()) = None;
         if let Some(mut listening) = self.listening.lock().unwrap_or_else(|e| e.into_inner()).take() {
             listening.stop.store(true, Ordering::Relaxed);
@@ -424,7 +428,21 @@ impl Door {
                 let _ = thread.join();
             }
         }
-        let _ = std::fs::remove_file(self.connection_path());
+        if !theirs {
+            let _ = std::fs::remove_file(self.connection_path());
+        }
+    }
+
+    /// LIVE2 #15: the connection file names another door that still answers (another Locust on this data folder, with
+    /// another token). Electron keeps one instance per data folder and quitting never removes another process's door
+    /// file; here that file is never removed or replaced by this door.
+    fn another_door_owns_the_file(&self) -> bool {
+        let Some((url, token)) = read_connection(&self.connection_path()) else { return false };
+        if self.token.lock().unwrap_or_else(|e| e.into_inner()).as_deref().is_some_and(|mine| same(mine, &token)) {
+            return false;
+        }
+        let Some(port) = url::Url::parse(&url).ok().and_then(|u| u.port()) else { return false };
+        TcpStream::connect_timeout(&std::net::SocketAddr::from(([127, 0, 0, 1], port)), Duration::from_millis(500)).is_ok()
     }
 
     fn start(&self) -> Result<(), String> {
@@ -436,6 +454,9 @@ impl Door {
         }
         if self.listening.lock().unwrap_or_else(|e| e.into_inner()).is_some() {
             return Ok(());
+        }
+        if self.another_door_owns_the_file() {
+            return Err(ANOTHER_DOOR.into());
         }
         let failed = || "The local server could not be enabled. It is still off; no conversation was started.".to_string();
         std::fs::create_dir_all(&self.dir).map_err(|_| failed())?;
@@ -476,7 +497,12 @@ impl Door {
     /// At start: the old connection file goes (a crashed process's token is never reused), the saved switches are read,
     /// and the door opens if it was on.
     pub fn load(&self) -> State {
-        let _ = std::fs::remove_file(self.connection_path());
+        // An open door's file is its live one, not a crashed process's: a window joining the engine that serves it
+        // (`--serve-door`) loads it again, and that must not cut every app off (LIVE2 #15).
+        let open = self.listening.lock().unwrap_or_else(|e| e.into_inner()).is_some();
+        if !open && !self.another_door_owns_the_file() {
+            let _ = std::fs::remove_file(self.connection_path());
+        }
         // Turned off by the organization: nothing is read or opened; the screen says why.
         if (self.refusal)().is_some() {
             return self.state(None);
@@ -511,6 +537,7 @@ impl Door {
         self.settings.lock().unwrap_or_else(|e| e.into_inner()).enabled = enabled && result.is_ok();
         match result.and_then(|_| self.save()) {
             Ok(()) => self.state(None),
+            Err(why) if why == ANOTHER_DOOR => self.state(Some(why)),
             Err(_) => {
                 self.stop();
                 self.state(Some("The local server setting could not be saved. The server is off; no conversation was started.".into()))
@@ -1215,10 +1242,7 @@ fn bridge_io<W: Write + Send + 'static>(connection: &Path, input: impl BufRead, 
 /// `locust-native --serve-door`: the door on, with no window, until stdin closes or the process is stopped. For
 /// scripted checks and the daily driver's first runs.
 pub fn serve_main(exe: &str) -> Result<(), String> {
-    let door = Door::local(exe)?;
-    door.load();
-    // Open for this run only: the person's saved switch is left as it was.
-    door.start()?;
+    let (_engine, door) = serve_door_in(Store::local().map_err(|e| e.to_string())?, exe)?;
     eprintln!("Locust's door is open: {}", door.connection_path().display());
     let mut sink = String::new();
     while std::io::stdin().read_line(&mut sink).map(|n| n > 0).unwrap_or(false) {
@@ -1228,9 +1252,25 @@ pub fn serve_main(exe: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// `--serve-door` runs its turns in this process, so it is this data folder's engine (LIVE2 #15): it holds the engine
+/// lock and answers on `engine.sock`, and a window opened later joins it instead of starting a second engine over it.
+/// Refused while another engine runs on the folder. The door is open for this run only: the saved switch is left as it
+/// was.
+pub fn serve_door_in(store: Store, exe: &str) -> Result<(crate::engine_process::Server, &'static Door), String> {
+    let engine = crate::engine_process::Server::start(store.root())?;
+    let door = crate::engine_process::adopt_door(Door::for_store(store, exe));
+    door.load();
+    door.start()?;
+    Ok((engine, door))
+}
+
 #[cfg(test)]
 #[path = "door_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "one_locust_per_data_folder_tests.rs"]
+mod one_locust_per_data_folder_tests;
 
 #[cfg(test)]
 #[path = "an_app_names_a_folder_tests.rs"]

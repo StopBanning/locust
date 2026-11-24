@@ -490,6 +490,8 @@ pub fn parse_roster(text: &str) -> Result<Vec<Teammate>, String> {
             folder: teammate_folder(&entry["folder"]),
         });
     }
+    // Dropped, but never silently (LIVE2 #16).
+    crate::roster_dropped::say(file["teammates"].as_array().map_or(0, |a| a.len().min(MAX_TEAMMATES)), out.len());
     Ok(out)
 }
 
@@ -2511,6 +2513,12 @@ pub fn not_ready_refusal(runtime: &str, found: Option<&crate::agents::Found>) ->
     match found.status {
         crate::agents::Probe::AuthRequired => format!("{name} is signed out. Sign in to it, then retry discovery."),
         crate::agents::Probe::Offline => format!("{name} could not be reached just now: it did not answer when Locust checked on it, which usually means its own service is down. Try again in a minute, or pick another model."),
+        // codex-mission.ts readiness 'unknown' (Antigravity's silent `agy models`): not "install or sign in" (LIVE2 #19).
+        status @ (crate::agents::Probe::Unknown | crate::agents::Probe::ProbeFailed)
+            if status == crate::agents::Probe::Unknown || runtime == "antigravity" =>
+        {
+            format!("{name} did not answer in time when Locust checked whether it was ready, so nothing was sent. Try again in a moment.")
+        }
         _ => format!("{name} is not ready. Install or sign in to it, then retry discovery."),
     }
 }
