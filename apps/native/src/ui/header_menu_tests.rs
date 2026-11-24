@@ -303,3 +303,24 @@ fn lone_reviewer_is_one_row_same_agent_has_no_pair_and_running_offers_no_review(
     press(&mut rt, "thread-header-more");
     assert_eq!(labels(&rt), vec!["Verbose", "Send feedback"]);
 }
+
+// Lane check 23 Nov: the author's agent is the one the newest turn ran on (`run.data?.runtime ?? run.runtime`), not the
+// header's: a conversation moved from Codex to Claude Code pairs reviewers away from Claude Code.
+#[test]
+fn review_pair_avoids_the_agent_the_newest_turn_ran_on_not_the_headers() {
+    let mut rt = window_with_team(
+        "claude",
+        vec![teammate("ash", "Ash", "codex"), teammate("booty", "Booty", "claude"), teammate("vale", "Vale", "opencode")],
+        false,
+    );
+    if let Some(pane) = rt.state.ledger.as_mut() {
+        pane.header.runtime = Some("codex".into());
+    }
+    for _ in 0..3 {
+        rt.frame(0.05);
+    }
+    press(&mut rt, "thread-header-more");
+    let review = rt.state.row_menu.as_ref().unwrap().items[1].clone();
+    let pair = review.submenu.expect("submenu").into_iter().find(|i| i.divider_above).expect("a pair");
+    assert_eq!(pair.action, "header:review-pair:ash:vale", "{}", pair.label);
+}

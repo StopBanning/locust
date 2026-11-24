@@ -274,3 +274,31 @@ fn host_started_turn_uses_root_ask_as_request_and_answer_only_turn_carries_earli
     assert!(brief.contains("This turn answered in the conversation; it changed no files and ran no commands."), "{brief}");
     assert!(brief.contains("CHANGED EARLIER IN THIS CONVERSATION (already done, not this turn)\n- src/export.ts"), "{brief}");
 }
+
+// Lane check 23 Nov: the author is who started the conversation's newest turn (`missionOwners`), read before the pane's
+// header; a conversation shown under one teammate but started by another asks the header's teammate, not the author.
+#[test]
+fn the_author_is_who_started_the_newest_turn_not_the_teammate_the_pane_is_under() {
+    let _hook = capture_sends();
+    let items = vec![
+        ledger::Item::User("Tidy the README.".into()),
+        ledger::Item::Assistant { item_id: "a1".into(), text: "Tidied.".into(), r#final: true },
+    ];
+    let metas = vec![ledger::Metadata { mission_id: "m1".into(), prompt: "Tidy the README.".into(), runtime: "opencode".into(), cwd: Some("/tmp/shop".into()), ..Default::default() }];
+    let mut rt = review_window(vec![teammate("vale", "Vale", "opencode", Some("opencode/free"), "accept-edits")], items, metas);
+    rt.update(|s, _| {
+        s.mission_owners.insert("m1".into(), "vale".into());
+        if let Some(pane) = s.ledger.as_mut() {
+            pane.conversation.conversation_id = Some("c_root".into());
+        }
+    });
+    for _ in 0..5 {
+        rt.frame(0.05);
+    }
+    press(&mut rt, "thread-header-more");
+    press(&mut rt, "row-menu-item-ask-wren-for-a-review");
+    wait_for_sends(&mut rt, &_hook.sent, 1);
+    let calls = _hook.sent.lock().unwrap();
+    assert_eq!(calls[0].teammate_id, "wren", "Vale started the turn, so Wren is the one asked");
+    assert!(calls[0].prompt.starts_with("Vale finished a piece of work"), "{}", calls[0].prompt);
+}
