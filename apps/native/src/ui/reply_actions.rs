@@ -507,7 +507,7 @@ fn reply_markdown(s: &State, body: &str, live: bool, copy: bool, can_draft: bool
                         .on_press(move |s: &mut State| {
                             s.diagram_code_tab.insert(key, true);
                         });
-                    let mut bar = row()
+                    let bar = row()
                         .w_full()
                         .gap(8.0)
                         .child(
@@ -519,15 +519,9 @@ fn reply_markdown(s: &State, body: &str, live: bool, copy: bool, can_draft: bool
                                 .child(code_tab),
                         )
                         .child(text(kind).font(type_::LABEL).color(p.muted));
-                    if frame.open {
-                        // Electron shows this while its WebView draws; native shows it only
-                        // while the fence is still arriving.
-                        bar = bar.child(
-                            text(crate::diagram::WAITING)
-                                .font(type_::LABEL)
-                                .color(p.muted),
-                        );
-                    }
+                    // Electron says "Drawing the diagram…" while its web view draws. Here a fence is a diagram
+                    // only once it has closed (diagram::prepare_reply_markdown keeps an open one as code), and
+                    // rune-mermaid draws it in the same frame, so there is no wait to say.
                     let body = if code_on {
                         // Plain source — do not re-enter a ```mermaid fence.
                         col()

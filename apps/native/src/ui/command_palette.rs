@@ -143,7 +143,16 @@ pub fn default_palette_actions(
     actions
 }
 
-pub(super) fn command_palette(s: &State, p: &Palette) -> El {
+/// The palette. `focused` is whether its search field holds the keyboard: the head's bottom edge, a hairline, lights a
+/// step (border-hover, not ivory) while it does and dims when focus leaves (`.lc-palette__head:focus-within`). The
+/// field itself wears no ring (`.lc-palette__input:focus-visible { outline: none }`): the head's edge is its focus.
+pub(super) fn command_palette(s: &State, p: &Palette, focused: bool) -> El {
+    let l = crate::look::controls::Look::new(p.dark);
+    let head_edge = (1.0, l.c(if focused { "border-hover" } else { "border-hairline" }));
+    // The field's own ring: none (rune draws no default ring on a text field, and none is set here).
+    let field_ring: Option<(f32, f32, rune::Color)> = None;
+    #[cfg(test)]
+    PALETTE_DRAWN.with(|c| c.set(Some((head_edge, field_ring))));
     let actions = palette_matches(&s.palette_actions, &s.palette_query.text);
     let mut list = col().w_full().gap(2.0).padding(8.0);
     if actions.is_empty() {
@@ -203,16 +212,18 @@ pub(super) fn command_palette(s: &State, p: &Palette) -> El {
         .border(1.0, p.hairline)
         .child(
             col()
+                .key("palette-head")
                 .w_full()
                 .padding(12.0)
                 .gap(8.0)
+                .border_sides([0.0, 0.0, head_edge.0, 0.0], head_edge.1)
                 .child(
                     text("Command palette")
                         .font(type_::LABEL)
                         .color(p.secondary),
                 )
-                .child(
-                    text_input(&s.palette_query, type_::BODY)
+                .child({
+                    let field = text_input(&s.palette_query, type_::BODY)
                         .key("palette-query")
                         .on_input_key(on_key)
                         .w_full()
@@ -224,8 +235,12 @@ pub(super) fn command_palette(s: &State, p: &Palette) -> El {
                         .on_edit(|s: &mut State| {
                             s.palette_index = 0;
                             &mut s.palette_query
-                        }),
-                ),
+                        });
+                    match field_ring {
+                        Some((width, offset, color)) => field.focus_within_ring(width, offset, color),
+                        None => field,
+                    }
+                }),
         )
         .child(
             col()
@@ -238,6 +253,19 @@ pub(super) fn command_palette(s: &State, p: &Palette) -> El {
                 .child(list),
         )
 }
+
+/// The palette as last drawn: the head's bottom edge (width, colour) and the field's own ring (width, offset, colour),
+/// for the window's own tests (Rune does not list borders or rings).
+#[cfg(test)]
+type PaletteDrawn = ((f32, rune::Color), Option<(f32, f32, rune::Color)>);
+#[cfg(test)]
+thread_local! {
+    pub(super) static PALETTE_DRAWN: std::cell::Cell<Option<PaletteDrawn>> = const { std::cell::Cell::new(None) };
+}
+
+#[cfg(test)]
+#[path = "palette_has_no_inner_ring_tests.rs"]
+mod no_inner_ring_tests;
 
 pub(super) fn run_palette_action(s: &mut State, id: &str, tx: &mut Tx) {
     s.palette_open = false;

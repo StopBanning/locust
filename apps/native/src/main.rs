@@ -2981,7 +2981,7 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
     }
     if s.palette_open {
         app.child(
-            dialog_scrim("palette").child(command_palette(s, &p).modal(true, |s: &mut State| s.palette_open = false)),
+            dialog_scrim("palette").child(command_palette(s, &p, s.palette_query.focused).modal(true, |s: &mut State| s.palette_open = false)),
         )
     } else {
         app

@@ -100,12 +100,10 @@ pub fn prepare_reply_markdown(body: &str) -> String {
         }
         match find_fence_close(after_open, start.ticks) {
             None => {
-                // Still streaming: normalise language to mermaid so rune-kit can stream-draw.
+                // Still being written: its text, as code, until the fence closes (ThreadItems.tsx draws a
+                // diagram only once `block.closed`). A half-drawn diagram would redraw on every token and
+                // flicker, so the fence goes on with no language and rune-kit keeps it a code block.
                 out.push_str(&rest[start.byte..start.byte + start.ticks]);
-                out.push_str("mermaid");
-                if let Some(tail) = start.lang_tail.as_deref() {
-                    out.push_str(tail);
-                }
                 out.push('\n');
                 out.push_str(after_open);
                 return out;
@@ -388,3 +386,7 @@ mod caption_index_tests {
         assert_eq!(markers.keys().copied().collect::<Vec<_>>(), vec![1], "{markers:?}");
     }
 }
+
+#[cfg(test)]
+#[path = "diagram_shows_as_one_tests.rs"]
+mod shows_as_one_tests;

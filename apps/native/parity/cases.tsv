@@ -2263,8 +2263,8 @@ apps/desktop/src/main/other-apps-reach-locust-through-stdio.test.ts	forwards an 
 apps/desktop/src/main/other-apps-reach-locust-through-stdio.test.ts	never sends a token to a non-loopback address from a modified profile file	yes
 apps/desktop/src/main/other-apps-reach-locust-through-stdio.test.ts	refuses unknown tools and methods without forwarding them	yes
 apps/desktop/src/main/other-apps-reach-locust-through-stdio.test.ts	does not return a bearer token or connection metadata in the window settings	yes
-apps/desktop/src/main/palette-has-no-inner-ring.test.ts	turns the global focus ring off at a specificity that beats it	no
-apps/desktop/src/main/palette-has-no-inner-ring.test.ts	keeps the head’s lit edge as the focus it shows	no
+apps/desktop/src/main/palette-has-no-inner-ring.test.ts	turns the global focus ring off at a specificity that beats it	yes
+apps/desktop/src/main/palette-has-no-inner-ring.test.ts	keeps the head’s lit edge as the focus it shows	yes
 apps/desktop/src/main/pasted-attachment.test.ts	lands inside the one folder Locust owns	yes
 apps/desktop/src/main/pasted-attachment.test.ts	cannot climb out of it, however it is spelled	yes
 apps/desktop/src/main/pasted-attachment.test.ts	never overwrites something already attached	yes
@@ -3625,9 +3625,9 @@ apps/desktop/src/renderer/src/a-design-pass-holds.test.tsx	a finished turn is mu
 apps/desktop/src/renderer/src/a-design-pass-holds.test.tsx	connected a moment ago: no line under its name	yes
 apps/desktop/src/renderer/src/a-design-pass-holds.test.tsx	one to act on keeps what to do, and an old reading keeps its age	yes
 apps/desktop/src/renderer/src/a-design-pass-holds.test.tsx	a meter a window, the whole sentence its tooltip, only the pressing window amber	yes
-apps/desktop/src/renderer/src/a-diagram-in-a-reply-shows-as-one.test.tsx	is framed as a diagram once its block has closed, its text a tab away	no
-apps/desktop/src/renderer/src/a-diagram-in-a-reply-shows-as-one.test.tsx	is text while it is still being written	no
-apps/desktop/src/renderer/src/a-diagram-in-a-reply-shows-as-one.test.tsx	leaves every other block as the code it was	no
+apps/desktop/src/renderer/src/a-diagram-in-a-reply-shows-as-one.test.tsx	is framed as a diagram once its block has closed, its text a tab away	yes
+apps/desktop/src/renderer/src/a-diagram-in-a-reply-shows-as-one.test.tsx	is text while it is still being written	yes
+apps/desktop/src/renderer/src/a-diagram-in-a-reply-shows-as-one.test.tsx	leaves every other block as the code it was	yes
 apps/desktop/src/renderer/src/a-diff-is-not-read-out-of-a-files-content.test.ts	draws a new file as that file, whatever its content looks like	no
 apps/desktop/src/renderer/src/a-diff-is-not-read-out-of-a-files-content.test.ts	draws an edit that removes a -- comment line, with its file	no
 apps/desktop/src/renderer/src/a-diff-is-not-read-out-of-a-files-content.test.ts	counts a removed -- line and an added ++ line	no
