@@ -2981,6 +2981,7 @@ apps/desktop/src/main/the-live-word-is-visibly-live.test.ts	leaves the word itse
 apps/desktop/src/main/the-live-word-is-visibly-live.test.ts	drops only the highlight when motion is off	yes
 apps/desktop/src/main/the-live-word-is-visibly-live.test.ts	sets the live word as a label rather than a machine string	yes
 apps/desktop/src/main/the-live-word-is-visibly-live.test.ts	scales no orb at all	yes
+apps/desktop/src/main/the-menu-bar-uses-a-template.test.ts	on darwin the tray uses the template image marked as a template and elsewhere the old icons	yes
 apps/desktop/src/main/the-message-box-focus-meets-3-to-1.test.ts	draws its edge in the box token	yes
 apps/desktop/src/main/the-message-box-focus-meets-3-to-1.test.ts	is at least 3:1 against the page and against the box	yes
 apps/desktop/src/main/the-message-box-is-one-row.test.ts	lays the +, the field and the buttons out on one row	yes
