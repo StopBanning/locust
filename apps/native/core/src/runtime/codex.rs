@@ -22,6 +22,19 @@ pub const MAX_QUEUED_RECORDS: usize = 4_096;
 pub const OVERFLOW_MESSAGE: &str = "Codex sent output faster than Locust could record it, so the run was stopped rather than leave a gap in its record. Sending it again usually works.";
 /// The words for a line past the size limit: Locust saw that cause itself, so the server's stderr is not added to it.
 const LINE_TOO_LONG: &str = "Codex JSON-RPC line exceeds 8 MiB";
+/// app-server.ts `unknown-response`: an answer to no request Locust made is said, not dropped, since a stream that has
+/// lost its place would otherwise go unnoticed.
+pub const UNKNOWN_RESPONSE: &str = "A response arrived for an unknown request.";
+/// How long a request may go unanswered (app-server.ts `requestTimeoutMs`).
+const ANSWER_WITHIN: Duration = Duration::from_secs(60);
+/// How long a steer waits for the server to say whether it took it (a2.10 `steer`).
+const STEER_ANSWER_WITHIN: Duration = Duration::from_secs(10);
+/// One line off the server's stdout: a message, or a line that is not JSON (app-server.ts `unparsable-line`), which is
+/// said and skipped rather than ending the run.
+enum Wire {
+    Message(Value),
+    Malformed(String),
+}
 pub struct Codex {
     child: Child,
     /// The end of the server's stderr (app-server-process.ts, N10): always drained, its last 4,096 characters kept.
@@ -29,7 +42,7 @@ pub struct Codex {
     stderr_reader: Option<std::thread::JoinHandle<()>>,
     input: SyncSender<Vec<u8>>,
     control: Arc<Control>,
-    lines: Receiver<io::Result<Value>>,
+    lines: Receiver<io::Result<Wire>>,
     normal: Normalizer,
     queued: VecDeque<Event>,
     request_id: u64,
@@ -60,6 +73,10 @@ pub struct Codex {
     owed_reasons: Vec<String>,
     /// Our `turn/steer` requests still unanswered: a refusal of one is said, so the reason does not vanish.
     steer_ids: HashSet<u64>,
+    /// Requests sent without waiting (`turn/interrupt`): their answers are expected, not unknown.
+    fired: HashSet<u64>,
+    /// How long a request may go unanswered before the run gives up on it.
+    answer_within: Duration,
 }
 
 fn err(message: impl ToString) -> io::Error {
@@ -117,12 +134,16 @@ impl Codex {
                     Ok(_) if line.len() as u64 > MAX_LINE => {
                         Err(err(LINE_TOO_LONG))
                     }
-                    Ok(_) => serde_json::from_slice::<Value>(&line)
-                        .map_err(|_| err("Codex sent malformed JSON-RPC")),
+                    // app-server.ts: a blank line is nothing, and a line that is not JSON is said and skipped.
+                    Ok(_) if line.iter().all(u8::is_ascii_whitespace) => continue,
+                    Ok(_) => Ok(match serde_json::from_slice::<Value>(&line) {
+                        Ok(v) if v.is_object() => Wire::Message(v),
+                        _ => Wire::Malformed(String::from_utf8_lossy(&line).trim_end().to_owned()),
+                    }),
                     Err(e) => Err(e),
                 };
                 let terminal = value.is_err();
-                if let Ok(v) = &value
+                if let Ok(Wire::Message(v)) = &value
                     && let Some((id, item)) = crate::approval_patch::item_of(&v["params"])
                     && let Some(changes) = crate::approval_patch::file_changes_of(&item)
                 {
@@ -131,12 +152,10 @@ impl Codex {
                 if let Some((channel, mission, thread)) =
                     crate::invariants::lock(&lifecycle).as_ref()
                 {
-                    let own_end = value.as_ref().is_ok_and(|v: &Value| {
-                        v["method"] == "turn/completed"
+                    let own_end = matches!(&value, Ok(Wire::Message(v)) if v["method"] == "turn/completed"
                             && thread.as_ref().is_some_and(|id| {
                                 super::events::thread_id(&v["params"]).as_ref() == Some(id)
-                            })
-                    });
+                            }));
                     if terminal || own_end {
                         channel.release(mission);
                     }
@@ -180,6 +199,8 @@ impl Codex {
             declined: HashSet::new(),
             owed_reasons: Vec::new(),
             steer_ids: HashSet::new(),
+            fired: HashSet::new(),
+            answer_within: ANSWER_WITHIN,
         })
     }
     pub fn with_thread_config(mut self, config: Option<Value>) -> Self {
@@ -223,12 +244,18 @@ impl Codex {
             }
         }
     }
-    fn receive(&self) -> io::Result<Option<Value>> {
+    fn receive(&mut self) -> io::Result<Option<Value>> {
         if let Some(message) = self.control.failure() {
             return Err(err(message));
         }
         match self.lines.recv_timeout(Duration::from_millis(50)) {
-            Ok(v) => v.map(Some),
+            Ok(Ok(Wire::Message(v))) => Ok(Some(v)),
+            Ok(Ok(Wire::Malformed(line))) => {
+                let event = self.normal.malformed(&line);
+                self.queued.push_back(event);
+                Ok(None)
+            }
+            Ok(Err(e)) => Err(e),
             Err(RecvTimeoutError::Timeout) => Ok(None),
             Err(_) => Err(err("Codex transport disconnected")),
         }
@@ -243,6 +270,10 @@ impl Codex {
             // (N10). A cause Locust saw itself is said alone.
             let said = if message == LINE_TOO_LONG { message.to_owned() } else { self.last_words(message) };
             terminal.payload["process"]["stderr"] = json!(super::events::text(&said, 16384));
+            // Locust stopped it for the output's size or pace, and says so (codex-app-server-run.ts `lose(.., true)`).
+            if message == LINE_TOO_LONG || message == OVERFLOW_MESSAGE {
+                terminal.payload["process"]["outputLimitExceeded"] = json!(true);
+            }
         }
         self.queued.push_back(terminal);
         diagnostic
@@ -268,11 +299,17 @@ impl Codex {
     fn notification(&mut self, v: Value) -> io::Result<()> {
         let Some(method) = v["method"].as_str() else {
             // The answer to a reason we steered in: refused, the person is told it was not passed on.
-            if let Some(id) = v["id"].as_u64()
-                && self.steer_ids.remove(&id)
-                && !v["error"].is_null()
-            {
-                self.reason_not_passed_on();
+            match v["id"].as_u64() {
+                Some(id) if self.steer_ids.remove(&id) => {
+                    if !v["error"].is_null() {
+                        self.reason_not_passed_on();
+                    }
+                }
+                Some(id) if self.fired.remove(&id) => {}
+                _ => {
+                    let said = self.normal.diagnostic("jsonrpc.response", UNKNOWN_RESPONSE);
+                    self.queued.push_back(said);
+                }
             }
             return Ok(());
         };
@@ -420,13 +457,17 @@ impl Codex {
         ));
     }
     fn request(&mut self, method: &str, params: Value) -> io::Result<Value> {
+        let within = self.answer_within;
+        self.request_within(method, params, within)
+    }
+    fn request_within(&mut self, method: &str, params: Value, within: Duration) -> io::Result<Value> {
         self.request_id += 1;
         let id = self.request_id;
         self.send(json!({"jsonrpc":"2.0","id":id,"method":method,"params":params}))?;
-        let deadline = Instant::now() + Duration::from_secs(60);
+        let deadline = Instant::now() + within;
         loop {
             if Instant::now() >= deadline {
-                return Err(err(format!("Codex timed out answering {method}")));
+                return Err(err(format!("The app server did not answer {method} in time.")));
             }
             if self.cancelled() {
                 return Err(err("Interrupted before the turn started"));
@@ -547,16 +588,24 @@ impl Runtime for Codex {
         {
             config["model_reasoning_effort"] = json!(effort);
         }
+        // No config at all when there is nothing to lay over the person's (codex-app-server-run.ts).
+        let config = if config.as_object().is_some_and(|c| c.is_empty()) { None } else { Some(config) };
         let result = match &turn.resume {
             None => {
-                let mut params = json!({"cwd":turn.folder,"sandbox":policy.sandbox,"approvalPolicy":policy.approval_policy,"config":config});
+                let mut params = json!({"cwd":turn.folder,"sandbox":policy.sandbox,"approvalPolicy":policy.approval_policy});
+                if let Some(config) = &config {
+                    params["config"] = config.clone();
+                }
                 if let Some(model) = model_on_thread.filter(|_| self.slash.is_some()) {
                     params["model"] = json!(model);
                 }
                 self.request("thread/start", params)?
             }
             Some(prior) => {
-                let mut params = json!({"threadId":prior,"excludeTurns":true,"cwd":turn.folder,"sandbox":policy.sandbox,"approvalPolicy":policy.approval_policy,"config":config});
+                let mut params = json!({"threadId":prior,"excludeTurns":true,"cwd":turn.folder,"sandbox":policy.sandbox,"approvalPolicy":policy.approval_policy});
+                if let Some(config) = &config {
+                    params["config"] = config.clone();
+                }
                 // The model on the THREAD too (0.864): reopening on the turn's own model leaves nothing to warn about.
                 if let Some(model) = model_on_thread {
                     params["model"] = json!(model);
@@ -639,7 +688,7 @@ impl Runtime for Codex {
                 }
                 Ok(self.queued.pop_front())
             }
-            Ok(None) => Ok(None),
+            Ok(None) => Ok(self.queued.pop_front()),
             Err(e) => Ok(Some(self.transport_failure(&e.to_string()))),
         }
     }
@@ -654,6 +703,27 @@ impl Runtime for Codex {
         self.send_interrupt();
         Ok(())
     }
+    /// a-running-codex-turn-can-be-steered.test.ts (A2.10): a message that must not wait for the run's end is added to
+    /// the running turn (`turn/steer`, its id as the precondition) instead of stopping it.
+    fn can_steer(&self) -> bool {
+        true
+    }
+    /// Taken only when the server says so; before a turn has started, once it is over, or while stopping, no is said
+    /// without asking.
+    fn steer(&mut self, text: &str) -> bool {
+        let (Some(thread), Some(turn)) = (self.normal.thread.clone(), self.normal.turn.clone()) else {
+            return false;
+        };
+        if self.normal.ended || self.stopping.is_some() || text.trim().is_empty() {
+            return false;
+        }
+        self.request_within(
+            "turn/steer",
+            json!({"threadId":thread,"expectedTurnId":turn,"input":[{"type":"text","text":text}]}),
+            STEER_ANSWER_WITHIN,
+        )
+        .is_ok()
+    }
 }
 impl Codex {
     fn send_interrupt(&mut self) {
@@ -663,6 +733,7 @@ impl Codex {
         if let (Some(thread), Some(turn)) = (self.normal.thread.clone(), self.normal.turn.clone()) {
             self.interrupt_owed = false;
             self.request_id += 1;
+            self.fired.insert(self.request_id);
             // A queue failure is recorded by next_event; it must not bypass the terminal ledger event.
             let _ = self.send(json!({"jsonrpc":"2.0","id":self.request_id,"method":"turn/interrupt","params":{"threadId":thread,"turnId":turn}}));
         }
@@ -894,3 +965,27 @@ mod a_dying_server_says_why_tests;
 #[cfg(test)]
 #[path = "codex_read_only_tests.rs"]
 mod codex_read_only_tests;
+
+#[cfg(all(test, unix))]
+#[path = "codex_stand_in.rs"]
+mod codex_stand_in;
+
+#[cfg(all(test, unix))]
+#[path = "codex_app_server_run_case_tests.rs"]
+mod codex_app_server_run_case_tests;
+
+#[cfg(all(test, unix))]
+#[path = "codex_steer_case_tests.rs"]
+mod codex_steer_case_tests;
+
+#[cfg(all(test, unix))]
+#[path = "codex_app_server_case_tests.rs"]
+mod codex_app_server_case_tests;
+
+#[cfg(all(test, unix))]
+#[path = "codex_events_case_tests.rs"]
+mod codex_events_case_tests;
+
+#[cfg(all(test, unix))]
+#[path = "codex_replay_case_tests.rs"]
+mod codex_replay_case_tests;
