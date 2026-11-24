@@ -332,10 +332,14 @@ pub fn confirm_exit(child: &mut Child, timeout: Duration) -> bool {
 
 /// Copilot reports refusals from the beginning of stderr, unlike the other drivers.
 /// Keep its line-boundary prefix policy, but bound an unterminated line like stdout.
-pub fn stderr_prefix(pipe: impl Read + Send + 'static) -> Arc<Mutex<String>> {
+/// The first 64 KiB of a child's stderr, as it is read, and a receiver that disconnects once the pipe has been read to
+/// its end (so a reader of the text after the child exits can wait for its last line instead of racing it).
+pub fn stderr_prefix(pipe: impl Read + Send + 'static) -> (Arc<Mutex<String>>, std::sync::mpsc::Receiver<()>) {
     let output = Arc::new(Mutex::new(String::new()));
     let buffer = output.clone();
+    let (read_to_end, done) = std::sync::mpsc::channel::<()>();
     std::thread::spawn(move || {
+        let _read_to_end = read_to_end;
         let mut reader = BufReader::new(pipe);
         loop {
             let mut line = Vec::new();
@@ -354,7 +358,7 @@ pub fn stderr_prefix(pipe: impl Read + Send + 'static) -> Arc<Mutex<String>> {
             }
         }
     });
-    output
+    (output, done)
 }
 
 #[cfg(test)]

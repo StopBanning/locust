@@ -708,3 +708,7 @@ mod tests {
         assert_eq!(restored[1].payload["text"], "short");
     }
 }
+
+#[cfg(test)]
+#[path = "antigravity_events_case_tests.rs"]
+mod antigravity_events_case_tests;

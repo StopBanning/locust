@@ -615,3 +615,7 @@ mod a_model_of_your_own_is_priced_step_by_step_tests;
 #[cfg(test)]
 #[path = "qa_0365_opencode_worktree_tests.rs"]
 mod qa_0365_opencode_worktree_tests;
+
+#[cfg(test)]
+#[path = "opencode_reply_streams_tests.rs"]
+mod opencode_reply_streams_tests;

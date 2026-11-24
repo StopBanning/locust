@@ -167,6 +167,10 @@ pub fn text(value: &str, limit: usize) -> String {
                 })
                 .collect::<Vec<_>>()
         };
+        // A bound too small to keep both ends keeps the start alone (it once subtracted past zero and panicked).
+        if limit <= 4111 {
+            return take(chars, limit).into_iter().collect();
+        }
         let head = take(chars.clone(), limit - 4111)
             .into_iter()
             .collect::<String>();
@@ -616,3 +620,7 @@ impl Normalizer {
 #[cfg(test)]
 #[path = "a_long_json_key_tests.rs"]
 mod a_long_json_key_tests;
+
+#[cfg(test)]
+#[path = "codex_long_answer_tests.rs"]
+mod codex_long_answer_tests;

@@ -185,6 +185,20 @@ impl RuntimeCommands<'_> {
         Ok(true)
     }
 
+    /// Claude Code's commands before any run, read from Claude Code itself (`claude` as Locust starts it, in `folder`)
+    /// and kept as a run's list is; `on_models` is told the models its answer lists.
+    pub fn learn_claude(
+        &self,
+        claude: std::process::Command,
+        folder: &std::path::Path,
+        wait: crate::runtime::claude_commands::Wait,
+        on_models: &mut dyn FnMut(Vec<Value>),
+    ) -> Result<Vec<CommandInfo>, String> {
+        let listed = crate::runtime::claude_commands::read_commands(claude, folder, wait, on_models)?;
+        self.set("claude", &listed)?;
+        Ok(listed)
+    }
+
     /// Whether a message is one of this runtime's commands, and so is sent as it is.
     pub fn is_command(&self, runtime: Option<&str>, prompt: &str) -> bool {
         let Some(name) = command_named(prompt) else {

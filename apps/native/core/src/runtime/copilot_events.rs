@@ -284,8 +284,8 @@ impl CopilotNormalizer {
         }
         self.event("run.completed", p)
     }
-    #[cfg(any(test, feature = "test-hooks"))]
-    #[cfg(any(test, feature = "test-hooks"))]
+    /// One line as the CLI printed it (copilot.rs reads each through here): a line that is not a record is said, and
+    /// the run goes on.
     pub fn accept_line(&mut self, raw: &str) -> Vec<Event> {
         if self.ended {
             return vec![];
@@ -501,16 +501,15 @@ impl CopilotNormalizer {
             let status = if failed {
                 let code = s(error, "code");
                 let msg = s(error, "message");
-                Some(text(
-                    if !code.is_empty() {
-                        code
-                    } else if !msg.is_empty() {
-                        msg
-                    } else {
-                        "unknown"
-                    },
-                    512,
-                ))
+                let said = if !code.is_empty() {
+                    code
+                } else if !msg.is_empty() {
+                    msg
+                } else {
+                    "unknown"
+                };
+                // The ledger's bound (copilot-events.ts: `.slice(0, 512)`, 2026-10-10 sweep), scrubbed as every text is.
+                Some(crate::secrets::redact_secrets(&said.replace('\0', "")).chars().take(512).collect::<String>())
             } else {
                 None
             };
@@ -590,7 +589,7 @@ const OPAQUE_KEYS: [&str; 9] = [
 ];
 
 /// copilot-events.ts scrubCopilotRecord: the record with each opaque key's value replaced, eight levels down.
-fn scrub_copilot_record(value: &Value, depth: usize) -> Value {
+pub fn scrub_copilot_record(value: &Value, depth: usize) -> Value {
     if depth >= 8 {
         return value.clone();
     }
