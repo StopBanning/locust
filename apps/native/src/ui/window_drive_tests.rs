@@ -4290,6 +4290,13 @@ fn relay_stops_at_hop_cap_and_exchange_strip_stop_ends_live_run() {
                         && p.items.iter().any(|i| matches!(i, ledger::Item::Note { text, .. } if text.contains("Stopped after 2 automatic replies.")))
                 })
         });
+        // The strip's Stop reads the window's own live list, taken at each poll, and its last read of the runs
+        // (exchange_strip::compute), not the engine. The wait above can end after the engine finished but before the
+        // window polled again, and settle draws frames without polling, so the Stop stayed drawn (24 Nov: failed once on
+        // a busy Mac). Wait until the window itself has seen the runs end and read the list again.
+        pump(&mut rt, "the window has read the runs again since they ended", |s| {
+            s.seen_live.is_empty() && !s.recents.is_pending() && s.ledger_summaries.values().all(|m| !m.running)
+        });
         settle(&mut rt);
         assert!(rt.presented("exchange-strip").is_some(), "ExchangeStrip shown after cap stop");
         assert!(rt.presented("exchange-stop").is_none(), "Stop button disappears once no run is live");
