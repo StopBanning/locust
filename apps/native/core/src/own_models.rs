@@ -600,3 +600,7 @@ mod tests;
 #[cfg(test)]
 #[path = "a_model_of_your_own_is_priced_as_listed_tests.rs"]
 mod a_model_of_your_own_is_priced_as_listed_tests;
+
+#[cfg(test)]
+#[path = "own_model_provider_case_tests.rs"]
+mod own_model_provider_case_tests;
