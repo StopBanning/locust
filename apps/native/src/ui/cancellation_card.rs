@@ -1,15 +1,20 @@
 //! A stopped run's receipt (Electron `CancellationCard.tsx`): what reported finishing, what was open when it stopped,
 //! what of the plan never started, and the one thing a stop cannot promise. Standing, not amber: it reports a run that
-//! already stopped and asks for nothing. Only a Stop pressed in this window reads "You stopped this run".
+//! already stopped and asks for nothing. Only a Stop pressed in this window reads "You stopped this run"; the title ends
+//! with the time of the turn's last event when the record has one (CancellationCard.tsx `stoppedAt`).
 
 use super::*;
 use locust_core::cancellation::{self, Summary};
 
-pub(super) fn card(summary: &Summary, by_person: bool, p: &Palette) -> El {
+pub(super) fn card(summary: &Summary, by_person: bool, stopped_at: Option<&str>, p: &Palette) -> El {
     let l = crate::look::controls::Look::new(p.dark);
     let opencode = summary.tools_reported_when_done;
     let activity = !summary.settled.is_empty() || !summary.interrupted.is_empty();
-    let title = if by_person { "You stopped this run" } else { "This run was stopped" };
+    let who = if by_person { "You stopped this run" } else { "This run was stopped" };
+    let title = match stopped_at {
+        Some(at) => format!("{who} at {at}"),
+        None => who.to_owned(),
+    };
     let mut out = col()
         .w_full()
         .gap(8.0)
@@ -68,3 +73,7 @@ pub(super) fn card(summary: &Summary, by_person: bool, p: &Palette) -> El {
 #[cfg(test)]
 #[path = "stop_card_words_tests.rs"]
 mod stop_card_words_tests;
+
+#[cfg(test)]
+#[path = "stopped_card_tests.rs"]
+mod stopped_card_tests;

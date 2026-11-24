@@ -1093,6 +1093,7 @@ fn send(s: &mut State, _: &mut Tx) {
     s.draft.clear();
     set_status(s, &teammate_id, "Sending…", StatusTone::Muted);
 
+    let crosses_runtimes = handoff_divider::crosses_runtimes(s);
     let pick = take_turn_pick(s, &teammate_id);
     s.model_menu = None;
     // On the native engine the turn runs here, in this process, not through the Electron door.
@@ -1101,6 +1102,7 @@ fn send(s: &mut State, _: &mut Tx) {
     let mode = s.composer_mode.as_deref().and_then(locust_core::approval::Mode::parse);
     let references = reference_chips::ids(s);
     let left_out_by_you = std::mem::take(&mut s.left_out_by_you);
+    let left_out_by_you = if crosses_runtimes { left_out_by_you } else { Vec::new() };
     // An earlier message being edited: the turn starts again from the one before it, after the files the person asked to
     // have put back are (off the window's thread, in this same job).
     let edit = edit_message::for_send(s);
@@ -1745,6 +1747,10 @@ fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
         s.changes.files = !s.changes.files;
         return true;
     }
+    if terminal_panel::is_toggle_key(event) {
+        terminal_panel::toggle_open(s);
+        return true;
+    }
     if event.key == Key::Escape {
         if s.rail_open.is_some() {
             s.rail_open = None;
@@ -1913,6 +1919,7 @@ fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
         let missions = sidebar_missions_now(s);
         s.palette_actions =
             default_palette_actions(&missions, can_stop(s), active_record_mission_id(s).is_some());
+        command_palette::with_owner_names(s);
         s.palette_query.clear();
         s.draft.focused = false;
         s.find_query.focused = false;

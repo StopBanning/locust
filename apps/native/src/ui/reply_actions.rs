@@ -632,18 +632,24 @@ fn reply_markdown(s: &State, body: &str, live: bool, copy: bool, can_draft: bool
 }
 
 pub(super) fn viewer(s: &State, p: &Palette) -> Option<El> {
+    // installed-editors.ts: only the editors whose command is on PATH are offered.
+    let editors = locust_core::installed_editors::installed_editors();
+    let editor_ids: Vec<&str> = editors.iter().map(|e| e.id.as_str()).collect();
+    viewer_on(s, p, locust_core::installed_editors::this_platform(), &editor_ids)
+}
+
+/// The viewer on `platform` (Node's name) with `editor_ids` installed: its menu (file-menu.ts) and what each choice
+/// copies, in that system's words and separator.
+pub(super) fn viewer_on(s: &State, p: &Palette, platform: &'static str, editor_ids: &[&str]) -> Option<El> {
     let (target, body) = s.file_view.as_ref()?;
     let folder = selected_conversation(s)
         .and_then(|(t, _)| t.folder.clone());
     let absolute = crate::file_menu::rooted_path(&target.path, folder.as_deref());
-    // installed-editors.ts: only the editors whose command is on PATH are offered.
-    let editors = locust_core::installed_editors::installed_editors();
-    let editor_ids: Vec<&str> = editors.iter().map(|e| e.id.as_str()).collect();
     let menu = crate::file_menu::file_menu_choices(
         &absolute,
         folder.as_deref(),
-        locust_core::installed_editors::this_platform(),
-        &editor_ids,
+        platform,
+        editor_ids,
         false,
     );
     let mut menu_row = row().w_full().gap(6.0);
@@ -656,18 +662,22 @@ pub(super) fn viewer(s: &State, p: &Palette) -> Option<El> {
             el().padding(4.0)
                 .radius(4.0)
                 .fill(p.raised)
+                .key(format!("file-reader/menu/{id:?}"))
+                .role("button")
+                .label(label)
                 .child(text(label).font(type_::LABEL).color(p.secondary))
                 .on_press_tx(move |s: &mut State, tx| match id {
                     crate::file_menu::FileMenuId::CopyPath => {
-                        request_copy(tx, crate::file_menu::system_path(&absolute, locust_core::installed_editors::this_platform()));
+                        request_copy(tx, crate::file_menu::system_path(&absolute, platform));
                     }
                     crate::file_menu::FileMenuId::CopyRelative => {
                         let rel = crate::file_menu::relative_to_folder(
                             &absolute,
                             folder.as_deref(),
-                            locust_core::installed_editors::this_platform(),
+                            platform,
                         );
-                        request_copy(tx, rel);
+                        // Written with the system's separator, as Copy path is (file-menu.ts `systemPath`).
+                        request_copy(tx, crate::file_menu::system_path(&rel, platform));
                     }
                     crate::file_menu::FileMenuId::CopyName => {
                         request_copy(tx, crate::file_menu::file_base_name(&absolute));
@@ -851,6 +861,10 @@ mod tests {
         assert_eq!(copy_label(Some(&bad), "other", now), "Copy");
     }
 }
+
+#[cfg(test)]
+#[path = "file_menu_drawn_tests.rs"]
+mod file_menu_drawn_tests;
 
 #[cfg(test)]
 #[path = "status_chip_tests.rs"]

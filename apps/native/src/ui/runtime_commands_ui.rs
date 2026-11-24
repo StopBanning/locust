@@ -151,6 +151,7 @@ pub(super) fn menu(s: &State, p: &Palette) -> Option<El> {
         .radius(6.0)
         .role("button")
         .label(compact_now::item_name(&offer))
+        .disabled(refused)
         .child(text(compact_now::item_name(&offer)).font(l.ty.control).color(if refused { l.c("text-muted") } else { l.c("text-primary") }))
         .child(text(compact_now::item_detail(&offer, name)).font(type_::LABEL).color(l.c("text-secondary")).wrap());
     if !refused {
@@ -165,7 +166,14 @@ pub(super) fn menu(s: &State, p: &Palette) -> Option<El> {
             .radius(l.t.px("radius-card"))
             .fill(l.c("bg-raised"))
             .border(1.0, l.c("border-card"))
+            .role("menu")
+            .label("Context")
             .child(text(reading.sentence()).font(type_::LABEL).color(l.c("text-secondary")).wrap().px(8.0))
+            // ContextRingMenu's headnote: what the conversation has cost, where the turns reported one.
+            .children(
+                s.ledger.as_ref().and_then(|pane| locust_core::benchmark::cost_total(&[pane.snapshot.cost.clone()]))
+                    .map(|total| text(format!("This conversation: {}", total.line)).font(type_::LABEL).color(l.c("text-muted")).wrap().px(8.0)),
+            )
             .children(crate::context_ring::breakdown(s, &l))
             .child(item),
     )
