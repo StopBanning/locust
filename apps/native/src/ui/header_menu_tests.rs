@@ -173,3 +173,154 @@ fn is_absent_on_a_conversation_whose_first_receipt_has_not_landed() {
     assert!(!labels(&rt).contains(&"Save conversation as routine".to_owned()));
     assert!(locust_core::routine_draft::savable_mission_id(None, Some("completed"), false, true).is_none());
 }
+
+// ---- Ask for a review (Electron `ask-for-a-review-is-one-row.test.ts` & `review-pair.test.ts`, in the window) --------
+
+fn teammate(id: &str, name: &str, runtime: &str) -> Teammate {
+    Teammate {
+        id: id.into(),
+        name: name.into(),
+        role: "Custom".into(),
+        model: None,
+        runtime: Some(runtime.into()),
+        folder: None,
+        runs_in: "ask".into(),
+        account: None,
+        busy: false,
+    }
+}
+
+fn window_with_team(author_runtime: &str, others: Vec<Teammate>, running: bool) -> Runtime<State> {
+    let mut rt = window(running);
+    {
+        let s = &mut rt.state;
+        s.teammates[0].runtime = Some(author_runtime.into());
+        if let Some(pane) = s.ledger.as_mut() {
+            pane.header.runtime = Some(author_runtime.into());
+            pane.snapshot.turn_metas[0].runtime = author_runtime.into();
+        }
+        for mate in others {
+            s.conversations.insert(mate.id.clone(), Default::default());
+            s.teammates.push(mate);
+        }
+    }
+    for _ in 0..5 {
+        rt.frame(0.05);
+    }
+    rt
+}
+
+#[test]
+fn ask_for_a_review_folds_reviewers_and_pair_on_two_different_agents_into_one_row() {
+    // case: folds several reviewers and the pair into one row that opens beside it
+    // case: picks two agents that differ from each other and from the author
+    let mut rt = window_with_team(
+        "codex",
+        vec![
+            teammate("ash", "Ash", "codex"),
+            teammate("yurt", "Yurt", "codex"),
+            teammate("booty", "Booty", "claude"),
+            teammate("vale", "Vale", "opencode"),
+        ],
+        false,
+    );
+    press(&mut rt, "thread-header-more");
+    assert_eq!(labels(&rt), vec!["Verbose", "Ask for a review", "Send feedback", "Delete conversation"]);
+    let review = rt.state.row_menu.as_ref().unwrap().items[1].clone();
+    assert_eq!(review.label, "Ask for a review");
+    assert_eq!(review.action, "");
+    let sub = review.submenu.expect("submenu with reviewers and pair");
+    let sub_labels: Vec<&str> = sub.iter().map(|i| i.label.as_str()).collect();
+    assert_eq!(
+        sub_labels,
+        vec!["Ash", "Yurt", "Booty", "Vale", "Booty (Claude Code) and Vale (OpenCode)"]
+    );
+    assert!(!sub[0].divider_above);
+    assert!(sub[4].divider_above, "the pair sits below a hairline");
+    assert_eq!(sub[2].action, "header:review:booty");
+    assert_eq!(sub[4].action, "header:review-pair:booty:vale");
+    // Pressing the folded row opens its submenu beside it in the window.
+    press(&mut rt, "row-menu-item-ask-for-a-review");
+    assert!(rt.find("row-menu-sub-ask-for-a-review").is_some(), "the reviewers open beside the row");
+    assert!(rt.find("row-menu-sub-item-booty-claude-code-and-vale-opencode").is_some());
+}
+
+#[test]
+fn review_pair_uses_the_authors_agent_for_one_when_the_team_has_nothing_else() {
+    // case: uses the author's agent for one of them when the team has nothing else
+    let mut rt = window_with_team(
+        "codex",
+        vec![teammate("ash", "Ash", "codex"), teammate("booty", "Booty", "claude")],
+        false,
+    );
+    press(&mut rt, "thread-header-more");
+    let review = rt.state.row_menu.as_ref().unwrap().items[1].clone();
+    assert_eq!(review.label, "Ask for a review");
+    let sub = review.submenu.expect("submenu");
+    assert_eq!(
+        sub.iter().map(|i| i.label.as_str()).collect::<Vec<_>>(),
+        vec!["Ash", "Booty", "Ash (Codex) and Booty (Claude Code)"]
+    );
+    assert!(sub[2].divider_above);
+    assert_eq!(sub[2].action, "header:review-pair:ash:booty");
+}
+
+#[test]
+fn lone_reviewer_is_one_row_same_agent_has_no_pair_and_running_offers_no_review() {
+    // case: keeps a lone reviewer one row that says who, and offers nothing with nobody to ask
+    // case: offers no pair when every reviewer is on the same agent
+    let mut rt = window_with_team("codex", vec![teammate("casper", "Casper", "claude")], false);
+    press(&mut rt, "thread-header-more");
+    assert_eq!(labels(&rt), vec!["Verbose", "Ask Casper for a review", "Send feedback", "Delete conversation"]);
+    let lone = &rt.state.row_menu.as_ref().unwrap().items[1];
+    assert_eq!(lone.submenu, None);
+    assert_eq!(lone.action, "header:review:casper");
+
+    // Two reviewers on the same agent: folded row, no pair below a hairline.
+    let mut rt = window_with_team(
+        "codex",
+        vec![teammate("ash", "Ash", "claude"), teammate("booty", "Booty", "claude")],
+        false,
+    );
+    press(&mut rt, "thread-header-more");
+    let review = rt.state.row_menu.as_ref().unwrap().items[1].clone();
+    assert_eq!(review.label, "Ask for a review");
+    let sub = review.submenu.expect("submenu");
+    assert_eq!(sub.iter().map(|i| i.label.as_str()).collect::<Vec<_>>(), vec!["Ash", "Booty"]);
+    assert!(sub.iter().all(|i| !i.divider_above));
+
+    // Nobody to ask (only the author): absent.
+    let mut rt = window_with_team("codex", vec![], false);
+    press(&mut rt, "thread-header-more");
+    assert_eq!(labels(&rt), vec!["Verbose", "Send feedback", "Delete conversation"]);
+
+    // While the turn is running: absent even with reviewers on the team.
+    let mut rt = window_with_team(
+        "codex",
+        vec![teammate("booty", "Booty", "claude"), teammate("vale", "Vale", "opencode")],
+        true,
+    );
+    press(&mut rt, "thread-header-more");
+    assert_eq!(labels(&rt), vec!["Verbose", "Send feedback"]);
+}
+
+// Lane check 23 Nov: the author's agent is the one the newest turn ran on (`run.data?.runtime ?? run.runtime`), not the
+// header's: a conversation moved from Codex to Claude Code pairs reviewers away from Claude Code.
+#[test]
+fn review_pair_avoids_the_agent_the_newest_turn_ran_on_not_the_headers() {
+    let mut rt = window_with_team(
+        "claude",
+        vec![teammate("ash", "Ash", "codex"), teammate("booty", "Booty", "claude"), teammate("vale", "Vale", "opencode")],
+        false,
+    );
+    if let Some(pane) = rt.state.ledger.as_mut() {
+        pane.header.runtime = Some("codex".into());
+    }
+    for _ in 0..3 {
+        rt.frame(0.05);
+    }
+    press(&mut rt, "thread-header-more");
+    let review = rt.state.row_menu.as_ref().unwrap().items[1].clone();
+    let pair = review.submenu.expect("submenu").into_iter().find(|i| i.divider_above).expect("a pair");
+    assert_eq!(pair.action, "header:review-pair:ash:vale", "{}", pair.label);
+}
