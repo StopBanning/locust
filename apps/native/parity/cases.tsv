@@ -1632,19 +1632,6 @@ apps/desktop/src/main/bounded-shutdown.test.ts	leaves on its own when the work n
 apps/desktop/src/main/bounded-shutdown.test.ts	leaves as soon as the work is done, and not again at the deadline	yes
 apps/desktop/src/main/bounded-shutdown.test.ts	reports a failed flush as a failure rather than as a clean exit	no
 apps/desktop/src/main/bounded-shutdown.test.ts	does not leave twice when the work lands right after the deadline	no
-apps/desktop/src/main/changelog.test.ts	finds every entry, newest first, in the order the file writes them	no
-apps/desktop/src/main/changelog.test.ts	gives an entry its body and not its heading	no
-apps/desktop/src/main/changelog.test.ts	keeps a multi-line entry whole	no
-apps/desktop/src/main/changelog.test.ts	reads an entry with no date	no
-apps/desktop/src/main/changelog.test.ts	says nothing for a version the file does not carry	no
-apps/desktop/src/main/changelog.test.ts	reads an empty or headingless file as no entries at all	no
-apps/desktop/src/main/changelog.test.ts	is not fooled by a version-looking line inside an entry	no
-apps/desktop/src/main/claude-background-is-watched-not-run.test.ts	reads only background sessions from claude agents --json, and nothing from a malformed answer	yes
-apps/desktop/src/main/claude-background-is-watched-not-run.test.ts	says a blocked session waits for the person, and that Locust does not answer for them	yes
-apps/desktop/src/main/claude-background-is-watched-not-run.test.ts	starts claude --bg on the conversation, the mode said as Claude Code's, the message never taken for a flag	yes
-apps/desktop/src/main/claude-background-is-watched-not-run.test.ts	knows the folder must be trusted in Claude Code first	yes
-apps/desktop/src/main/claude-background-is-watched-not-run.test.ts	polls only while one of its own is live, and says one Claude Code no longer lists is over	yes
-apps/desktop/src/main/claude-background-is-watched-not-run.test.ts	keeps one poll loop when a second watch comes while a look is in flight (2026-10-10 sweep)	yes
 apps/desktop/src/main/changelog.test.ts	finds every entry, newest first, in the order the file writes them	yes
 apps/desktop/src/main/changelog.test.ts	gives an entry its body and not its heading	yes
 apps/desktop/src/main/changelog.test.ts	keeps a multi-line entry whole	yes
@@ -1652,6 +1639,12 @@ apps/desktop/src/main/changelog.test.ts	reads an entry with no date	yes
 apps/desktop/src/main/changelog.test.ts	says nothing for a version the file does not carry	yes
 apps/desktop/src/main/changelog.test.ts	reads an empty or headingless file as no entries at all	yes
 apps/desktop/src/main/changelog.test.ts	is not fooled by a version-looking line inside an entry	yes
+apps/desktop/src/main/claude-background-is-watched-not-run.test.ts	reads only background sessions from claude agents --json, and nothing from a malformed answer	yes
+apps/desktop/src/main/claude-background-is-watched-not-run.test.ts	says a blocked session waits for the person, and that Locust does not answer for them	yes
+apps/desktop/src/main/claude-background-is-watched-not-run.test.ts	starts claude --bg on the conversation, the mode said as Claude Code's, the message never taken for a flag	yes
+apps/desktop/src/main/claude-background-is-watched-not-run.test.ts	knows the folder must be trusted in Claude Code first	yes
+apps/desktop/src/main/claude-background-is-watched-not-run.test.ts	polls only while one of its own is live, and says one Claude Code no longer lists is over	yes
+apps/desktop/src/main/claude-background-is-watched-not-run.test.ts	keeps one poll loop when a second watch comes while a look is in flight (2026-10-10 sweep)	yes
 apps/desktop/src/main/cloud-task-service.test.ts	starts on the folder's own repository and branch, and is kept	yes
 apps/desktop/src/main/cloud-task-service.test.ts	says, before it runs, what the cloud will not see	yes
 apps/desktop/src/main/cloud-task-service.test.ts	refuses a folder with no GitHub repository, and starts nothing	yes
@@ -7216,11 +7209,6 @@ packages/runtime-adapters/test/a-muse-plan-used-up-is-said-once.test.ts	is one l
 packages/runtime-adapters/test/a-muse-plan-used-up-is-said-once.test.ts	leaves no Unhandled line: a saved output and the run's usage are not shown, a stopped tool fails on its row	no
 packages/runtime-adapters/test/a-muse-plan-used-up-is-said-once.test.ts	is still said once when only the run's own end says it	no
 packages/runtime-adapters/test/a-muse-plan-used-up-is-said-once.test.ts	names no reset it was not told	no
-packages/runtime-adapters/test/a-real-codex-session-replays-through-the-adapter.test.ts	The recorded approval arrives with its command, is declined, and never becomes a successful tool receipt.	no
-packages/runtime-adapters/test/a-real-codex-session-replays-through-the-adapter.test.ts	The recorded file change preserves the patch and produces one matched apply_patch receipt.	no
-packages/runtime-adapters/test/a-real-codex-session-replays-through-the-adapter.test.ts	The recorded steer targets the live turn, is accepted without interrupting it, and changes the final answer.	no
-packages/runtime-adapters/test/a-real-codex-session-replays-through-the-adapter.test.ts	Scrubbing removes personal paths, account data and hidden reasoning while preserving public summaries and correlated ids.	no
-packages/runtime-adapters/test/a-real-codex-session-replays-through-the-adapter.test.ts	Every stored fixture is scrubbed and carries the requested model and low effort, with no reroute or invented limit.	no
 packages/runtime-adapters/test/a-real-muse-wonder-run-reads-whole.test.ts	reads whole: its tool by name, its answer, its end, and nothing left unread	yes
 packages/runtime-adapters/test/a-real-muse-wonder-run-reads-whole.test.ts	says once that Meta's model is being tried again, and nothing for its first try	yes
 packages/runtime-adapters/test/a-real-muse-wonder-run-reads-whole.test.ts	lets the session's bookkeeping go quietly, the branch it saw in a git folder among it	yes
@@ -7230,10 +7218,6 @@ packages/runtime-adapters/test/a-real-codex-session-replays-through-the-adapter.
 packages/runtime-adapters/test/a-real-codex-session-replays-through-the-adapter.test.ts	The recorded steer targets the live turn, is accepted without interrupting it, and changes the final answer.	yes
 packages/runtime-adapters/test/a-real-codex-session-replays-through-the-adapter.test.ts	Scrubbing removes personal paths, account data and hidden reasoning while preserving public summaries and correlated ids.	yes
 packages/runtime-adapters/test/a-real-codex-session-replays-through-the-adapter.test.ts	Every stored fixture is scrubbed and carries the requested model and low effort, with no reroute or invented limit.	yes
-packages/runtime-adapters/test/a-real-muse-wonder-run-reads-whole.test.ts	reads whole: its tool by name, its answer, its end, and nothing left unread	no
-packages/runtime-adapters/test/a-real-muse-wonder-run-reads-whole.test.ts	says once that Meta's model is being tried again, and nothing for its first try	no
-packages/runtime-adapters/test/a-real-muse-wonder-run-reads-whole.test.ts	lets the session's bookkeeping go quietly, the branch it saw in a git folder among it	no
-packages/runtime-adapters/test/a-real-muse-wonder-run-reads-whole.test.ts	fails a tool it would not run on that tool's row, and lets its own reminder go quietly	no
 packages/runtime-adapters/test/a-result-too-large-to-keep-still-answered.test.ts	hands nothing on from an oversized line the process ended in the middle of (2026-10-10 sweep)	yes
 packages/runtime-adapters/test/a-result-too-large-to-keep-still-answered.test.ts	leaves its size, its type and the call it answered -- and none of its content	yes
 packages/runtime-adapters/test/a-result-too-large-to-keep-still-answered.test.ts	leaves nothing for a runtime that did not ask	yes
@@ -7256,8 +7240,8 @@ packages/runtime-adapters/test/a-running-codex-turn-can-be-steered.test.ts	says 
 packages/runtime-adapters/test/a-running-codex-turn-can-be-steered.test.ts	says no when the server refuses it -- the turn has just ended, say	yes
 packages/runtime-adapters/test/a-running-codex-turn-can-be-steered.test.ts	says no, without asking, once the turn is over	yes
 packages/runtime-adapters/test/a-sealed-run-uses-no-tool.test.ts	asks for every tool, so a run with nobody to ask refuses each one, and reaches no folder outside its own	yes
-packages/runtime-adapters/test/a-sealed-run-uses-no-tool.test.ts	keeps every tool listed, the shell among them, because the free tier refuses a run whose tools are gone	no
-packages/runtime-adapters/test/a-sealed-run-uses-no-tool.test.ts	is what a served run is told, and seals only a read-only run	no
+packages/runtime-adapters/test/a-sealed-run-uses-no-tool.test.ts	keeps every tool listed, the shell among them, because the free tier refuses a run whose tools are gone	yes
+packages/runtime-adapters/test/a-sealed-run-uses-no-tool.test.ts	is what a served run is told, and seals only a read-only run	yes
 packages/runtime-adapters/test/a-server-whose-storage-is-busy-starts-again.test.ts	starts again when another OpenCode held its storage, and the turn goes on as usual	yes
 packages/runtime-adapters/test/a-server-whose-storage-is-busy-starts-again.test.ts	reads words that trail the exit before deciding	yes
 packages/runtime-adapters/test/a-server-whose-storage-is-busy-starts-again.test.ts	gives up after three restarts, saying the server exited and why	yes
@@ -7265,15 +7249,6 @@ packages/runtime-adapters/test/a-server-whose-storage-is-busy-starts-again.test.
 packages/runtime-adapters/test/a-server-whose-storage-is-busy-starts-again.test.ts	starts nothing more once the person stops it	yes
 packages/runtime-adapters/test/a-session-openCode-cannot-continue-is-not-resumed.test.ts	is reported as ended, so the next message starts a fresh one	yes
 packages/runtime-adapters/test/a-session-openCode-cannot-continue-is-not-resumed.test.ts	is not claimed for any other failure	yes
-packages/runtime-adapters/test/a-sealed-run-uses-no-tool.test.ts	keeps every tool listed, the shell among them, because the free tier refuses a run whose tools are gone	yes
-packages/runtime-adapters/test/a-sealed-run-uses-no-tool.test.ts	is what a served run is told, and seals only a read-only run	yes
-packages/runtime-adapters/test/a-server-whose-storage-is-busy-starts-again.test.ts	starts again when another OpenCode held its storage, and the turn goes on as usual	no
-packages/runtime-adapters/test/a-server-whose-storage-is-busy-starts-again.test.ts	reads words that trail the exit before deciding	no
-packages/runtime-adapters/test/a-server-whose-storage-is-busy-starts-again.test.ts	gives up after three restarts, saying the server exited and why	no
-packages/runtime-adapters/test/a-server-whose-storage-is-busy-starts-again.test.ts	is not started again for any other reason	no
-packages/runtime-adapters/test/a-server-whose-storage-is-busy-starts-again.test.ts	starts nothing more once the person stops it	no
-packages/runtime-adapters/test/a-session-openCode-cannot-continue-is-not-resumed.test.ts	is reported as ended, so the next message starts a fresh one	no
-packages/runtime-adapters/test/a-session-openCode-cannot-continue-is-not-resumed.test.ts	is not claimed for any other failure	no
 packages/runtime-adapters/test/a-side-question-forks-the-session.test.ts	forks a Claude Code session: --resume, then --fork-session	yes
 packages/runtime-adapters/test/a-side-question-forks-the-session.test.ts	forks an OpenCode session: -s, then --fork	no
 packages/runtime-adapters/test/a-side-question-forks-the-session.test.ts	adds no fork flag without a session, or to an ordinary follow-up	no
@@ -7500,72 +7475,6 @@ packages/runtime-adapters/test/app-server-events.test.ts	says it was asked for w
 packages/runtime-adapters/test/app-server-events.test.ts	is a line for each compaction when there are two	yes
 packages/runtime-adapters/test/app-server-events.test.ts	opens no step for the compaction item	yes
 packages/runtime-adapters/test/app-server-events.test.ts	draws only the findings, once: the review-mode bookends are not steps	yes
-packages/runtime-adapters/test/app-server.test.ts	reassembles messages split across arbitrary chunks	no
-packages/runtime-adapters/test/app-server.test.ts	ignores blank lines and keeps a trailing partial buffered	no
-packages/runtime-adapters/test/app-server.test.ts	reports an unparsable line instead of throwing	no
-packages/runtime-adapters/test/app-server.test.ts	drops a buffer that grows without a newline rather than growing forever	no
-packages/runtime-adapters/test/app-server.test.ts	drops an oversized single line but keeps the connection usable	no
-packages/runtime-adapters/test/app-server.test.ts	resolves a request with its own response	no
-packages/runtime-adapters/test/app-server.test.ts	matches responses to the right request when they arrive out of order	no
-packages/runtime-adapters/test/app-server.test.ts	rejects with the server's message when the response is an error	no
-packages/runtime-adapters/test/app-server.test.ts	reports a response nobody asked for rather than dropping it silently	no
-packages/runtime-adapters/test/app-server.test.ts	times out a request the server never answers	no
-packages/runtime-adapters/test/app-server.test.ts	refuses to queue beyond its in-flight limit	no
-packages/runtime-adapters/test/app-server.test.ts	fails every in-flight request on dispose instead of hanging	no
-packages/runtime-adapters/test/app-server.test.ts	answers a server request with the handler's result	no
-packages/runtime-adapters/test/app-server.test.ts	still answers when the handler throws	no
-packages/runtime-adapters/test/app-server.test.ts	does not confuse a server request with a response	no
-packages/runtime-adapters/test/app-server.test.ts	writes newline-delimited JSON-RPC with an incrementing id	no
-packages/runtime-adapters/test/app-server.test.ts	sends notifications without an id	no
-packages/runtime-adapters/test/app-server.test.ts	goes quiet after dispose	no
-packages/runtime-adapters/test/app-server-events.test.ts	takes the runtime thread id from thread/started without emitting an event	no
-packages/runtime-adapters/test/app-server-events.test.ts	starts on turn/started and completes on turn/completed	no
-packages/runtime-adapters/test/app-server-events.test.ts	goes quiet once finalized	no
-packages/runtime-adapters/test/app-server-events.test.ts	reports a lost connection as failed rather than completed	no
-packages/runtime-adapters/test/app-server-events.test.ts	reports cancellation as cancelled	no
-packages/runtime-adapters/test/app-server-events.test.ts	appends deltas and replaces on the completed item	no
-packages/runtime-adapters/test/app-server-events.test.ts	ignores a delta with no text or no item	no
-packages/runtime-adapters/test/app-server-events.test.ts	opens and settles a command execution	no
-packages/runtime-adapters/test/app-server-events.test.ts	records a declined command or patch as failed, not completed	no
-packages/runtime-adapters/test/app-server-events.test.ts	treats a non-zero exit as a failure even when the status says otherwise	no
-packages/runtime-adapters/test/app-server-events.test.ts	names an MCP tool by server and tool	no
-packages/runtime-adapters/test/app-server-events.test.ts	describes a file change by its count rather than its diff	no
-packages/runtime-adapters/test/app-server-events.test.ts	treats an unknown non-tool item as a step, not a tool	no
-packages/runtime-adapters/test/app-server-events.test.ts	says nothing while usage is comfortable	no
-packages/runtime-adapters/test/app-server-events.test.ts	warns near the limit and reports exhaustion at it	no
-packages/runtime-adapters/test/app-server-events.test.ts	reports the worst window, not the first	no
-packages/runtime-adapters/test/app-server-events.test.ts	accepts a fractional utilization as well as a percent	no
-packages/runtime-adapters/test/app-server-events.test.ts	announces a limit once rather than on every push	no
-packages/runtime-adapters/test/app-server-events.test.ts	reads every window, fullest first, in the words Claude's reading uses	no
-packages/runtime-adapters/test/app-server-events.test.ts	reads nothing where there are no windows	no
-packages/runtime-adapters/test/app-server-events.test.ts	keeps a reading as a codex.usage_window diagnostic, once per change	no
-packages/runtime-adapters/test/app-server-events.test.ts	says an exhausted quota after a warning was already said	no
-packages/runtime-adapters/test/app-server-events.test.ts	classifies a usage-limit error from Codex's own error info, and names the limit	no
-packages/runtime-adapters/test/app-server-events.test.ts	classifies a signed-out account from Codex's own error info	no
-packages/runtime-adapters/test/app-server-events.test.ts	classifies the schema's other named errors	no
-packages/runtime-adapters/test/app-server-events.test.ts	names a window by the v2 field, windowDurationMins (read from the generated schema)	no
-packages/runtime-adapters/test/app-server-events.test.ts	falls back to the message when there is no error info	no
-packages/runtime-adapters/test/app-server-events.test.ts	says the reason the run knew, and classifies it	no
-packages/runtime-adapters/test/app-server-events.test.ts	says, in a sentence, that Codex has the conversation open elsewhere (0.835)	no
-packages/runtime-adapters/test/app-server-events.test.ts	still says something when it knew nothing	no
-packages/runtime-adapters/test/app-server-events.test.ts	does not end the run on an error the provider intends to retry	no
-packages/runtime-adapters/test/app-server-events.test.ts	ends the run on an error the provider will not retry	no
-packages/runtime-adapters/test/app-server-events.test.ts	keeps quiet about the trust bypass Locust's own command guard asks for, and passes every other warning on (0.720)	no
-packages/runtime-adapters/test/app-server-events.test.ts	stays silent on the protocol's many unrelated notifications	no
-packages/runtime-adapters/test/app-server-events.test.ts	stamps every event with the mission runtime	no
-packages/runtime-adapters/test/app-server-events.test.ts	names the window a person recognises, not the API's own key	no
-packages/runtime-adapters/test/app-server-events.test.ts	still reports the worst window, which is the one that stops you	no
-packages/runtime-adapters/test/app-server-events.test.ts	says when it lifts, because that is the decision	no
-packages/runtime-adapters/test/app-server-events.test.ts	reads the camelCase spelling the app-server sends	no
-packages/runtime-adapters/test/app-server-events.test.ts	calls the seven-day window weekly	no
-packages/runtime-adapters/test/app-server-events.test.ts	falls back to the raw key when no window is given	no
-packages/runtime-adapters/test/app-server-events.test.ts	says nothing about a reset it was not told	no
-packages/runtime-adapters/test/app-server-events.test.ts	stays quiet well below the ceiling	no
-packages/runtime-adapters/test/app-server-events.test.ts	is one line for one compaction, however it is reported	no
-packages/runtime-adapters/test/app-server-events.test.ts	says it was asked for when the turn was the compaction alone: /compact (0.428)	no
-packages/runtime-adapters/test/app-server-events.test.ts	is a line for each compaction when there are two	no
-packages/runtime-adapters/test/app-server-events.test.ts	opens no step for the compaction item	no
-packages/runtime-adapters/test/app-server-events.test.ts	draws only the findings, once: the review-mode bookends are not steps	no
 packages/runtime-adapters/test/app-server.test.ts	reassembles messages split across arbitrary chunks	yes
 packages/runtime-adapters/test/app-server.test.ts	ignores blank lines and keeps a trailing partial buffered	yes
 packages/runtime-adapters/test/app-server.test.ts	reports an unparsable line instead of throwing	yes
@@ -7658,112 +7567,6 @@ packages/runtime-adapters/test/claude-events.test.ts	says so once, as a line the
 packages/runtime-adapters/test/claude-events.test.ts	keeps the person's command list out of the run's record	yes
 packages/runtime-adapters/test/claude-events.test.ts	hands the command list to the host for the / menu, and still keeps it out of the record (0.426)	yes
 packages/runtime-adapters/test/claude-events.test.ts	bounds what a command list can put in the menu	yes
-packages/runtime-adapters/test/codex-app-server-run.test.ts	asks for danger-full-access only when the mission really has full access	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	never asks anything, because the exec transport it replaces never could	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	is `codex app-server`, with the prompt in neither argv nor stdin	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	switches the plan tool on from 0.153.0, where it was measured, and not below	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	hands the folder, the policy, the model and the prompt to the right calls	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	resumes a prior thread rather than starting one, which is what keeps a follow-up warm	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	reopens a thread on the turn's own model, so Codex does not warn it is resuming on another (0.864)	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	forks the thread for a question on the side, a copy the side can fork again (0.461)	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	lays the thread's own config over the person's, on a start, a resume and a fork alike (0.720)	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	reads the person's settings before the thread starts, and lays what it makes under Locust's own config (0.824)	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	starts no thread when the settings refuse it, and ends with the refusal's own words (0.824)	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	hands on Codex's own words when it refuses the read, so an old Codex can be told to update (0.825)	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	streams every notification as a record and ends when the turn does	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	reports a server that dies mid-turn as a lost transport, not a clean finish	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	keeps what a dying server wrote to stderr, as its last line	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	ends the run when the mission is cancelled	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	gives up rather than hanging when the server never answers the handshake	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	turns a record back into the notification it was written from	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	drops a line that is not a notification instead of guessing at it	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	reads a cancelled completion as cancelled and anything else as a lost transport	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	reports the tokens the thread counted, in the vocabulary every receipt uses	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	bills a resumed turn for itself, not the whole conversation	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	is not ended by a sub-agent's turn, and counts what the sub-agent spent	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	keeps the transport running through a sub-agent's turn ending	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	says nothing about cost when the thread never counted, rather than claiming zero	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	stops the run and says why, instead of dropping records quietly	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	reviews the uncommitted changes as its terminal does, on the thread's own route, and starts no ordinary turn	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	reviews what the person asked for, when they said	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	compacts the thread, and the run ends when that turn does	no
-packages/runtime-adapters/test/codex-events.test.ts	normalizes the official success shape and waits for a clean host exit	no
-packages/runtime-adapters/test/codex-events.test.ts	classifies and deduplicates the observed quota-exhaustion sequence	no
-packages/runtime-adapters/test/codex-events.test.ts	keeps an item error nonterminal when the turn later succeeds	no
-packages/runtime-adapters/test/codex-events.test.ts	preserves unknown/additive provider data after redaction and never stores reasoning text	no
-packages/runtime-adapters/test/codex-events.test.ts	turns malformed JSON into a redacted, nonterminal diagnostic	no
-packages/runtime-adapters/test/codex-events.test.ts	synthesizes cancellation only from host-owned completion correlation	no
-packages/runtime-adapters/test/codex-events.test.ts	says so when IT stopped the run for output volume	no
-packages/runtime-adapters/test/codex-events.test.ts	rejects both EOF/exit mismatches instead of claiming success	no
-packages/runtime-adapters/test/codex-events.test.ts	normalizes message append deltas and accumulated-text replacement	no
-packages/runtime-adapters/test/codex-events.test.ts	emits a tool failure without forcing the whole run to fail	no
-packages/runtime-adapters/test/codex-events.test.ts	does not mistake incidental usage-limit wording for confirmed quota exhaustion	no
-packages/runtime-adapters/test/codex-events.test.ts	clamps identity fields the mission ledger caps at 512 characters	no
-packages/runtime-adapters/test/codex-events.test.ts	strips NUL from every persisted string	no
-packages/runtime-adapters/test/codex-events.test.ts	carries every changed path on the tool event, one per line, since Codex sends no diff	no
-packages/runtime-adapters/test/codex-events.test.ts	draws spawn_agent as a tool call named by its tool, carrying the prompt, settled on completion	no
-packages/runtime-adapters/test/claude-events.test.ts	keeps only allow-listed fields and replaces name lists with counts	no
-packages/runtime-adapters/test/claude-events.test.ts	lets none of the machine description reach the event	no
-packages/runtime-adapters/test/claude-events.test.ts	still reports the session id as the runtime thread	no
-packages/runtime-adapters/test/claude-events.test.ts	appends deltas and REPLACES on the complete assistant message	no
-packages/runtime-adapters/test/claude-events.test.ts	replaces the block the text actually streamed into, not an assumed block_0	no
-packages/runtime-adapters/test/claude-events.test.ts	gives every message its own item, so a later one never replaces an earlier one	no
-packages/runtime-adapters/test/claude-events.test.ts	gives each message its own item when the run does not stream	no
-packages/runtime-adapters/test/claude-events.test.ts	never speaks a subagent's words as the teammate's	no
-packages/runtime-adapters/test/claude-events.test.ts	never ends a subagent's own tool as a nameless call of the teammate's (0.543, RUN-01)	no
-packages/runtime-adapters/test/claude-events.test.ts	carries the file a tool acted on, which only arrives once the block is complete	no
-packages/runtime-adapters/test/claude-events.test.ts	reads each tool's own idea of a target	no
-packages/runtime-adapters/test/claude-events.test.ts	maps allowed_warning to a temporary limit	no
-packages/runtime-adapters/test/claude-events.test.ts	reads resetsAt as epoch seconds, not milliseconds	no
-packages/runtime-adapters/test/claude-events.test.ts	emits a limit event carrying the window and status, in words	no
-packages/runtime-adapters/test/claude-events.test.ts	keeps a warning's figures as a usage reading too, beside the notice	no
-packages/runtime-adapters/test/claude-events.test.ts	prefers every window a warning carries over its own one	no
-packages/runtime-adapters/test/claude-events.test.ts	words a limit from the window's own reading when the record has no top-level figure, and a rejection without the warning	no
-packages/runtime-adapters/test/claude-events.test.ts	says nothing about a snapshot that reports the request was allowed	no
-packages/runtime-adapters/test/claude-events.test.ts	still reports an approaching limit and a rejection	no
-packages/runtime-adapters/test/claude-events.test.ts	strips NUL from provider text before it can reach the ledger	no
-packages/runtime-adapters/test/claude-events.test.ts	clamps an over-long tool identity	no
-packages/runtime-adapters/test/claude-events.test.ts	pairs a tool result to its start by block id	no
-packages/runtime-adapters/test/claude-events.test.ts	reports an errored tool result as failed	no
-packages/runtime-adapters/test/claude-events.test.ts	says a signed-out Claude Code once, in words a person can act on, as a sign-in failure	no
-packages/runtime-adapters/test/claude-events.test.ts	completes only when the provider actually said it finished	no
-packages/runtime-adapters/test/claude-events.test.ts	says what the run was refused permission to do, on an otherwise successful result	no
-packages/runtime-adapters/test/claude-events.test.ts	stays quiet when nothing was refused	no
-packages/runtime-adapters/test/claude-events.test.ts	refuses to call a clean exit a success when no result record arrived	no
-packages/runtime-adapters/test/claude-events.test.ts	reports a provider error result as a failure	no
-packages/runtime-adapters/test/claude-events.test.ts	reports cancellation as cancelled, not failed	no
-packages/runtime-adapters/test/claude-events.test.ts	stamps every event with the claude adapter	no
-packages/runtime-adapters/test/claude-events.test.ts	survives a malformed record without throwing	no
-packages/runtime-adapters/test/claude-events.test.ts	names the model an alias turned out to mean	no
-packages/runtime-adapters/test/claude-events.test.ts	names none when a run used more than one model	no
-packages/runtime-adapters/test/claude-events.test.ts	carries the model's own context window, so a reading has a real denominator	no
-packages/runtime-adapters/test/claude-events.test.ts	reports no window when the result names none	no
-packages/runtime-adapters/test/claude-events.test.ts	carries the dollar figure and the token counts from the result record onto the receipt	no
-packages/runtime-adapters/test/claude-events.test.ts	says nothing about cost when the result record carried none	no
-packages/runtime-adapters/test/claude-events.test.ts	reads the context off the last call, never off the run's sum	no
-packages/runtime-adapters/test/claude-events.test.ts	leaves a subagent's calls out: its context is its own	no
-packages/runtime-adapters/test/claude-events.test.ts	reads the complete message's usage when the run does not stream	no
-packages/runtime-adapters/test/claude-events.test.ts	says no context at all when no call stated one	no
-packages/runtime-adapters/test/claude-events.test.ts	marks a run a subscription's windows covered, and keeps Claude Code's dollar figure as it wrote it	no
-packages/runtime-adapters/test/claude-events.test.ts	does not, where any of the run spent paid extra usage, or where no window was reported	no
-packages/runtime-adapters/test/claude-events.test.ts	passes a notification through as a diagnostic, immediate ones as warnings, without the ctrl+o hint	no
-packages/runtime-adapters/test/claude-events.test.ts	follows a subagent's life as steps, and hands its type and summary to the Agent call that started it	no
-packages/runtime-adapters/test/claude-events.test.ts	marks a subagent that failed as a failed step, and the launcher's failure stays the runtime's word	no
-packages/runtime-adapters/test/claude-events.test.ts	is not a thread item, and never an unhandled record	no
-packages/runtime-adapters/test/claude-events.test.ts	words the windows, fullest first, with when they reset	no
-packages/runtime-adapters/test/claude-events.test.ts	becomes a usage_window diagnostic, not a limit, while the status is allowed	no
-packages/runtime-adapters/test/claude-events.test.ts	says so instead of reporting a missing result record	no
-packages/runtime-adapters/test/claude-events.test.ts	announces the call again once its command and description are known	no
-packages/runtime-adapters/test/claude-events.test.ts	is reported as refused, with the reason, not as failed	no
-packages/runtime-adapters/test/claude-events.test.ts	leaves an ordinary failure a failure	no
-packages/runtime-adapters/test/claude-events.test.ts	is refused when Locust's guard stopped it, and said as the guard's, not the mode's	no
-packages/runtime-adapters/test/claude-events.test.ts	says an id it stopped as the person's program, which the teammate did not start	no
-packages/runtime-adapters/test/claude-events.test.ts	says another teammate's agent, and the teammate's own agent, as theirs	no
-packages/runtime-adapters/test/claude-events.test.ts	says the guard's and the mode's apart when a run met both	no
-packages/runtime-adapters/test/claude-events.test.ts	says so once, as a line the host can read, and not as an empty step	no
-packages/runtime-adapters/test/claude-events.test.ts	keeps the person's command list out of the run's record	no
-packages/runtime-adapters/test/claude-events.test.ts	hands the command list to the host for the / menu, and still keeps it out of the record (0.426)	no
-packages/runtime-adapters/test/claude-events.test.ts	bounds what a command list can put in the menu	no
 packages/runtime-adapters/test/codex-app-server-run.test.ts	asks for danger-full-access only when the mission really has full access	yes
 packages/runtime-adapters/test/codex-app-server-run.test.ts	never asks anything, because the exec transport it replaces never could	yes
 packages/runtime-adapters/test/codex-app-server-run.test.ts	is `codex app-server`, with the prompt in neither argv nor stdin	yes
