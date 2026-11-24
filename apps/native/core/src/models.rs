@@ -272,6 +272,19 @@ pub fn claude_model_name(id: &str) -> Option<String> {
     Some(name)
 }
 
+/// claudeRouteModelName: what a Claude route runs -- a finished run's own report (`earned`), else Claude Code's own name
+/// for the alias (`listed`, from its handshake), else the version the copied alias table says it means.
+pub fn claude_route_model_name(model: &str, earned: Option<&str>, listed: Option<&str>) -> Option<String> {
+    if let Some(named) = earned.and_then(claude_model_name) {
+        return Some(named);
+    }
+    if let Some(listed) = listed.filter(|l| !l.is_empty()) {
+        return Some(listed.to_owned());
+    }
+    let meant = CLAUDE_ALIAS_DEFAULTS.iter().find(|(alias, _)| *alias == model).map_or(model, |(_, id)| *id);
+    claude_model_name(meant)
+}
+
 fn capitalised(word: &str) -> String {
     let mut c = word.chars();
     c.next().map(|f| f.to_uppercase().collect::<String>() + c.as_str()).unwrap_or_default()

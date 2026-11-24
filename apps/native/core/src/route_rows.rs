@@ -154,6 +154,15 @@ pub fn picker_label(runtime: &str, id: &str, name: &str) -> String {
     }
 }
 
+/// RoutePicker's row label with what a finished run reported: Claude's rows name the version their alias runs (a run's
+/// report, else Claude Code's own name, else its table), the same words as the chip; every other row as `picker_label`.
+pub fn picker_row_label(runtime: &str, id: &str, name: &str, earned: Option<&str>) -> String {
+    if runtime == "claude" {
+        return crate::teammate_tooltip::route_model_name_earned(runtime, id, earned);
+    }
+    picker_label(runtime, id, name)
+}
+
 /// RoutePicker's row hover: everything known about it, effort levels included ("label · fullDetail").
 pub fn row_title(label: &str, description: Option<&str>, resolved: Option<&str>, efforts: &[String]) -> String {
     let efforts = efforts_said(efforts);

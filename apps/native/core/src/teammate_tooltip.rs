@@ -38,10 +38,15 @@ pub fn short_runtime_name(runtime: &str) -> &str {
 /// A model as the chip and the routine line say it (`routeModelName`): Claude's own names, else the id spelt out with
 /// its runtime's own prefix taken off ("Grok 4.7 High", "Nemotron 3.5 Lightning Free"); `auto` is "Auto model".
 pub fn route_model_name(runtime: &str, model: &str) -> String {
+    route_model_name_earned(runtime, model, None)
+}
+
+/// `routeName.ts` `routeModelName(runtime, model, earned)`: for Claude, what a finished run on the route reported, else
+/// Claude Code's own name for the alias, else the copied table (`claudeRouteModelName`); every other runtime as above.
+pub fn route_model_name_earned(runtime: &str, model: &str, earned: Option<&str>) -> String {
     if runtime == "claude" {
-        // claudeRouteModelName: a bare alias by the version it means today (`opus` is "Opus 5.5").
-        let meant = crate::models::CLAUDE_ALIAS_DEFAULTS.iter().find(|(alias, _)| *alias == model).map_or(model, |(_, id)| *id);
-        if let Some(named) = crate::models::claude_model_name(meant) {
+        let listed = CATALOG.with(|c| c.borrow().claude_aliases.get(model).cloned());
+        if let Some(named) = crate::models::claude_route_model_name(model, earned, listed.as_deref()) {
             return named;
         }
     }
@@ -81,6 +86,40 @@ pub fn route_chrome(runtime: &str, model_id: &str, model: &str, separator: &str)
     format!("{short}{separator}{model}")
 }
 
+/// What the catalogues read last say (`routeName.ts` `rememberOwnModels`): each runtime's own spelling of a model, and
+/// the name Claude Code gives each alias. Kept per thread, as Electron keeps it per renderer: the window's thread reads
+/// the catalogues and draws the names.
+#[derive(Default)]
+struct Catalog {
+    spellings: std::collections::HashMap<String, String>,
+    claude_aliases: std::collections::HashMap<String, String>,
+}
+
+thread_local! {
+    static CATALOG: std::cell::RefCell<Catalog> = std::cell::RefCell::new(Catalog::default());
+}
+
+/// `rememberOwnModels`: every model the catalogues list, as (runtime, id, display name). A name that is the id, or the
+/// id without its provider (`nemotron-3-ultra-free`), is an identifier, not a spelling, and is never taken; nor is
+/// `account-default`'s label. A Claude alias's name is what Claude Code says it means today.
+pub fn remember_own_models<'a>(models: impl IntoIterator<Item = (&'a str, &'a str, &'a str)>) {
+    let mut fresh = Catalog::default();
+    for (runtime, id, name) in models {
+        if runtime == "claude" && !id.starts_with("claude-") && id != crate::models::ACCOUNT_DEFAULT {
+            fresh.claude_aliases.insert(id.to_owned(), name.to_owned());
+        }
+        if id != crate::models::ACCOUNT_DEFAULT && name != id && !id.ends_with(&format!("/{name}")) {
+            fresh.spellings.insert(format!("{runtime}:{id}"), name.to_owned());
+        }
+    }
+    CATALOG.with(|c| *c.borrow_mut() = fresh);
+}
+
+/// `sameName`: two spellings of one name differ only in case, hyphens and spaces.
+fn same_name(name: &str) -> String {
+    name.to_lowercase().split(|c: char| c.is_whitespace() || c == '-').filter(|w| !w.is_empty()).collect::<Vec<_>>().join(" ")
+}
+
 /// `routeName.ts` `modelDisplayName`: an id spelt out with no alias read (`claude`/`sonnet` is "Sonnet"); the chip's
 /// `route_model_name` and the hover both end here.
 pub fn model_display_name(runtime: &str, model: &str) -> String {
@@ -97,6 +136,13 @@ pub fn model_display_name(runtime: &str, model: &str) -> String {
     if bare.trim().eq_ignore_ascii_case("auto") {
         return "Auto model".into();
     }
+    let theirs = CATALOG.with(|c| c.borrow().spellings.get(&format!("{runtime}:{model}")).cloned());
+    // Kilo names every model it lists, and the names are names, not descriptions: the chip says what the picker says.
+    if runtime == "kilo"
+        && let Some(kilos) = theirs.clone()
+    {
+        return kilos;
+    }
     // modelDisplayName: an id with a provider is split at its FIRST slash only, each side spelt out.
     if let Some(at) = bare.find('/').filter(|at| *at > 0) {
         return format!("{}/{}", spell(&bare[..at]), spell(&bare[at + 1..]));
@@ -106,7 +152,12 @@ pub fn model_display_name(runtime: &str, model: &str) -> String {
         Some(head) if bare.len() > prefix.len() && head.eq_ignore_ascii_case(&prefix) => &bare[prefix.len()..],
         _ => bare,
     };
-    spell(bare)
+    let spelled = spell(bare);
+    // The runtime's own spelling of the SAME name is the maker's styling ("GPT-6-Luna"); a different name never is.
+    match theirs {
+        Some(theirs) if same_name(&theirs) == same_name(&spelled) => theirs,
+        _ => spelled,
+    }
 }
 
 pub fn teammate_tooltip(teammate: &Teammate) -> String {

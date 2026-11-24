@@ -3576,12 +3576,12 @@ apps/desktop/src/renderer/src/a-checklist-left-unticked-is-not-a-fault.test.tsx	
 apps/desktop/src/renderer/src/a-checklist-left-unticked-is-not-a-fault.test.tsx	says nothing of the kind while the run goes on	yes
 apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	spells family and version the way Anthropic writes them	yes
 apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	guesses at nothing it does not recognise	yes
-apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	carries Claude Code's own alias table (2.1.293: Haiku 5.5)	no
-apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	is the version the alias means, until a run on it says otherwise	no
-apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	takes Claude Code's own name for it over the copied table, and a run's report over both (0.697)	no
-apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	names the version on the controls that pick a route, and nothing else changes	no
-apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	labels the row with the version	no
-apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	believes a finished run over the table	no
+apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	carries Claude Code's own alias table (2.1.293: Haiku 5.5)	yes
+apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	is the version the alias means, until a run on it says otherwise	yes
+apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	takes Claude Code's own name for it over the copied table, and a run's report over both (0.697)	yes
+apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	names the version on the controls that pick a route, and nothing else changes	yes
+apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	labels the row with the version	yes
+apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	believes a finished run over the table	yes
 apps/desktop/src/renderer/src/a-cloud-environment-is-optional-and-validated.test.tsx	The cloud form names the optional environment and explains when it is saved.	yes
 apps/desktop/src/renderer/src/a-cloud-environment-is-optional-and-validated.test.tsx	The cloud form marks invalid environment ids and explains how to correct them.	yes
 apps/desktop/src/renderer/src/a-cloud-environment-is-optional-and-validated.test.tsx	Only a Claude cloud start form offers the organization environment field.	no
@@ -3898,8 +3898,8 @@ apps/desktop/src/renderer/src/a-judge-scorecard-sits-under-the-answers.test.tsx	
 apps/desktop/src/renderer/src/a-key-is-asked-for-on-a-card.test.tsx	offers a masked box and Keep for each key asked for	no
 apps/desktop/src/renderer/src/a-key-is-asked-for-on-a-card.test.tsx	says a key is kept, refuses a name no key may take, and says when the agent cannot use one	no
 apps/desktop/src/renderer/src/a-key-is-asked-for-on-a-card.test.tsx	lists a teammate’s keys by name in its settings, with Remove, and adds one masked	no
-apps/desktop/src/renderer/src/a-kilo-model-has-one-name.test.ts	says the name Kilo lists it by, as the picker does	no
-apps/desktop/src/renderer/src/a-kilo-model-has-one-name.test.ts	leaves every other runtime to spell its ids	no
+apps/desktop/src/renderer/src/a-kilo-model-has-one-name.test.ts	says the name Kilo lists it by, as the picker does	yes
+apps/desktop/src/renderer/src/a-kilo-model-has-one-name.test.ts	leaves every other runtime to spell its ids	yes
 apps/desktop/src/renderer/src/a-kilo-model-has-one-name.test.ts	spells the id while Kilo has not listed its models yet	yes
 apps/desktop/src/renderer/src/a-landing-says-why-it-cannot.test.ts	is a sentence for every reason, naming the teammate or the files	yes
 apps/desktop/src/renderer/src/a-landing-says-why-it-cannot.test.ts	says what would change it, where the person can act	yes
@@ -3981,10 +3981,10 @@ apps/desktop/src/renderer/src/a-memory-shows-what-it-said-before.test.tsx	shows 
 apps/desktop/src/renderer/src/a-memory-shows-what-it-said-before.test.tsx	shows nothing extra for a memory never changed	yes
 apps/desktop/src/renderer/src/a-missed-routine-says-missed-and-run-now.test.tsx	says Missed, 08:00 today, and the row offers Run now	no
 apps/desktop/src/renderer/src/a-model-has-one-name.test.ts	spells the id when no catalog has been read	yes
-apps/desktop/src/renderer/src/a-model-has-one-name.test.ts	takes the runtime's spelling of the same name	no
-apps/desktop/src/renderer/src/a-model-has-one-name.test.ts	never takes an identifier for a name (seen on the probe: "nemotron-3-ultra-free" in the chip)	no
-apps/desktop/src/renderer/src/a-model-has-one-name.test.ts	leaves Locust's own "Account Default" as it reads everywhere (seen on the screen tour)	no
-apps/desktop/src/renderer/src/a-model-has-one-name.test.ts	never takes a different name, and keeps runtimes apart	no
+apps/desktop/src/renderer/src/a-model-has-one-name.test.ts	takes the runtime's spelling of the same name	yes
+apps/desktop/src/renderer/src/a-model-has-one-name.test.ts	never takes an identifier for a name (seen on the probe: "nemotron-3-ultra-free" in the chip)	yes
+apps/desktop/src/renderer/src/a-model-has-one-name.test.ts	leaves Locust's own "Account Default" as it reads everywhere (seen on the screen tour)	yes
+apps/desktop/src/renderer/src/a-model-has-one-name.test.ts	never takes a different name, and keeps runtimes apart	yes
 apps/desktop/src/renderer/src/a-model-is-one-line.test.tsx	keeps what the catalogue says, and leaves the effort levels to the hover	yes
 apps/desktop/src/renderer/src/a-model-is-one-line.test.tsx	a model the catalogue says nothing about keeps its levels as its line, in words	yes
 apps/desktop/src/renderer/src/a-model-opencode-cannot-find-is-retired.test.tsx	reads "Model not found" as retired, and only that	yes

@@ -152,11 +152,20 @@ impl ModelCatalogues {
     pub(super) fn insert(&mut self, id: String, models: Vec<engine::Models>) {
         self.visible.insert(id.clone(), self.visible_models(models.clone()));
         self.listed.insert(id, models);
+        self.remember_names();
+    }
+
+    /// The chip and every row name a model as its runtime spells it (`rememberOwnModels` over every catalogue read).
+    fn remember_names(&self) {
+        locust_core::teammate_tooltip::remember_own_models(self.listed.values().flatten().flat_map(|a| {
+            a.models.iter().map(move |m| (a.runtime.as_str(), m.id.as_str(), m.name.as_str()))
+        }));
     }
 
     pub(super) fn remove(&mut self, id: &str) {
         self.visible.remove(id);
         self.listed.remove(id);
+        self.remember_names();
     }
 
     pub(super) fn update_retired(&mut self, retired: std::collections::HashSet<String>) {

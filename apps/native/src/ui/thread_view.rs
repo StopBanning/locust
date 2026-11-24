@@ -1262,7 +1262,11 @@ pub(super) fn model_picker(
         let (shown, hidden) = cap_rows(matched.len(), active_at, if searching { ROUTE_GROUP_LIMIT * 2 } else { ROUTE_GROUP_LIMIT });
         // A row says the model's name, spelled out when the catalogue's name is only its id (RoutePicker).
         let runtime_now = agent.runtime.clone();
-        let label_of = move |m: &locust_core::engine::Model| locust_core::route_rows::picker_label(&runtime_now, &m.id, &m.name);
+        let earned_names = s.resolved_model_names.clone();
+        let label_of = move |m: &locust_core::engine::Model| {
+            let earned = earned_names.get(&format!("{runtime_now}:{}", m.id)).map(String::as_str);
+            locust_core::route_rows::picker_row_label(&runtime_now, &m.id, &m.name, earned)
+        };
         let mut group = row().gap(6.0).px(9.0).pt(12.0).pb(4.0).center_y();
         if let Some(mark) = crate::look::controls::agent_mark(l, &agent.runtime, 12.0, l.c("text-muted")) {
             group = group.child(mark.key(format!("picker-group-mark-{}", agent.runtime)));
