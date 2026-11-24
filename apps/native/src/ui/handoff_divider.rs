@@ -7,6 +7,26 @@ fn side_name(_runtime: &str, model: Option<&str>, runtime_label: &str) -> String
     }
 }
 
+/// HandoffDivider.tsx `RUNTIME_LABEL`, then every other runtime by its display name: the divider says "Codex".
+fn divider_label(runtime: &str) -> &str {
+    match runtime {
+        "codex" => "Codex",
+        "omniroute" => "OmniRoute",
+        other => locust_core::carry_on::display_name(other),
+    }
+}
+
+/// A side as a screen reader says it: the runtime alone, or the model on its runtime.
+fn spoken(name: &str, label: &str) -> String {
+    if name == label { label.to_owned() } else { format!("{name} on {label}") }
+}
+
+/// Whether the next reply goes to another runtime than the conversation's last turn: only then is a choice of what to
+/// leave out of the brief sent with it (Composer.tsx: `continuation === undefined || leaveOut.length === 0`).
+pub(super) fn crosses_runtimes(s: &State) -> bool {
+    preview_key(s).is_some()
+}
+
 pub(super) fn view(
     from_meta: Option<&ledger::Metadata>,
     to_meta: &ledger::Metadata,
@@ -19,8 +39,8 @@ pub(super) fn view(
     let l = crate::look::controls::Look::new(p.dark);
     let from_rt = from_meta.map(|m| m.runtime.as_str()).unwrap_or("codex");
     let to_rt = to_meta.runtime.as_str();
-    let from_label = locust_core::carry_on::display_name(from_rt);
-    let to_label = locust_core::carry_on::display_name(to_rt);
+    let from_label = divider_label(from_rt);
+    let to_label = divider_label(to_rt);
     let from_name = side_name(
         from_rt,
         from_meta.and_then(|m| (!m.model.is_empty()).then_some(m.model.as_str())),
@@ -32,6 +52,7 @@ pub(super) fn view(
         to_label,
     );
 
+    let said = format!("Handed off from {} to {}", spoken(&from_name, from_label), spoken(&to_name, to_label));
     let mut header = row()
         .w_full()
         .center_y()
@@ -63,6 +84,9 @@ pub(super) fn view(
         .radius(8.0)
         .border(1.0, p.hairline)
         .fill(l.c("bg-raised"))
+        // HandoffDivider.tsx: a separator, said with every runtime by its name and a model by its runtime.
+        .role("separator")
+        .label(said)
         .child(header);
 
     if carried_on {
@@ -260,6 +284,10 @@ pub(super) fn composer_omissions(s: &State, teammate: &Teammate, p: &Palette) ->
 
     Some(box_el)
 }
+
+#[cfg(test)]
+#[path = "handoff_parts_tests.rs"]
+mod handoff_parts_tests;
 
 #[cfg(test)]
 mod tests {

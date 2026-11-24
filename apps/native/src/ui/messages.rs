@@ -508,7 +508,10 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                     // Code: "Interrupted"); the receipt is the newest turn's.
                     text(locust_core::sent_again::STOPPED_BEFORE_IT_REPLIED).key(format!("{key}-stopped-before-it-replied")).font(type_::LABEL).color(p.muted).w_full()
                 } else {
-                    let card = crate::cancellation_card::card(&summary, by_person, p);
+                    // The time of the turn's last event, as Electron's stoppedAt reads it from the record.
+                    let stopped_at = s.ledger.as_ref().and_then(|pane| pane.snapshot.timings.iter().rev().find(|t| t.before_item <= index))
+                        .and_then(|t| t.last_at.as_deref()).map(locust_core::time_marker::clock_time).filter(|at| at != "--:--");
+                    let card = crate::cancellation_card::card(&summary, by_person, stopped_at.as_deref(), p);
                     match (newest && !turn_running(s) && locust_core::cancellation::stopped_before_any_tool(&summary))
                         .then(|| items[..from].iter().rev().find_map(|i| if let ledger::Item::User(words) = i { Some(words.clone()) } else { None }))
                         .flatten()

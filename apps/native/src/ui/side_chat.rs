@@ -724,6 +724,10 @@ pub(crate) fn render_panel(side: &SideChatState, p: &Palette) -> El {
 }
 
 #[cfg(test)]
+#[path = "ask_about_a_part_tests.rs"]
+mod ask_about_a_part_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use rune::{Env, Runtime};

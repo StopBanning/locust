@@ -3436,14 +3436,14 @@ apps/desktop/src/renderer/src/a-bots-dot-and-ring-sit-on-the-bot.test.ts	ignores
 apps/desktop/src/renderer/src/a-bots-dot-and-ring-sit-on-the-bot.test.ts	centres the ring on the body, clear of it by RING_MARGIN on its longer side	yes
 apps/desktop/src/renderer/src/a-bots-dot-and-ring-sit-on-the-bot.test.ts	puts the dot on the lower-right edge, not off the corner and not at mid height	yes
 apps/desktop/src/renderer/src/a-bots-dot-and-ring-sit-on-the-bot.test.ts	hands them to the CSS as percentages of the box, the dot by its centre	yes
-apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx	marks the earlier messages, the finished steps and the last reply as droppable, and nothing else	no
-apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx	says what the person left out, in their words	no
-apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx	reads the same from an older host that sends no choice	no
-apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx	joins the parts as a sentence does	no
-apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx	puts a control on each part that may go, and a way to put them back	no
-apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx	sends the choice with the message only when it crosses runtimes	no
-apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx	says what the person left out, plainly, beside what did not fit	no
-apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx	says nothing more when nothing was left out	no
+apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx	marks the earlier messages, the finished steps and the last reply as droppable, and nothing else	yes
+apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx	says what the person left out, in their words	yes
+apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx	reads the same from an older host that sends no choice	yes
+apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx	joins the parts as a sentence does	yes
+apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx	puts a control on each part that may go, and a way to put them back	yes
+apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx	sends the choice with the message only when it crosses runtimes	yes
+apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx	says what the person left out, plainly, beside what did not fit	yes
+apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx	says nothing more when nothing was left out	yes
 apps/desktop/src/renderer/src/a-browser-opens-on-what-it-last-saw.test.ts	keeps each read by its call and its arguments	yes
 apps/desktop/src/renderer/src/a-browser-opens-on-what-it-last-saw.test.ts	keeps the newest when there is too much, and does not keep one too long	yes
 apps/desktop/src/renderer/src/a-browser-opens-on-what-it-last-saw.test.ts	is sealed: opened with its own key, and with no other	yes
@@ -3762,13 +3762,13 @@ apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx
 apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	is not offered where the runtime lists no /compact, or the message would go elsewhere	yes
 apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	waits in line behind a running turn, as a message sent then does (Orca does the same)	yes
 apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	says why it cannot, with a message already waiting or another model picked	yes
-apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	opens under the reading, the way the hover says it, with what it does	no
-apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	shows the reason in place of what it does when it waits	no
-apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	is a button that opens a menu when Compact now can be offered	no
-apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	is a button while a turn is still starting, before it has a route of its own	no
-apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	stays a picture where it cannot	no
-apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	the ring no longer reads the conversation as it was before	no
-apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	and reads again from the next turn that reports	no
+apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	opens under the reading, the way the hover says it, with what it does	yes
+apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	shows the reason in place of what it does when it waits	yes
+apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	is a button that opens a menu when Compact now can be offered	yes
+apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	is a button while a turn is still starting, before it has a route of its own	yes
+apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	stays a picture where it cannot	yes
+apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	the ring no longer reads the conversation as it was before	yes
+apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	and reads again from the next turn that reports	yes
 apps/desktop/src/renderer/src/a-growing-group-shows-its-rows.test.tsx	shows its rows under its line	yes
 apps/desktop/src/renderer/src/a-growing-group-shows-its-rows.test.tsx	a group that is not growing starts folded, as before (control)	yes
 apps/desktop/src/renderer/src/a-handed-file-is-a-control.test.tsx	names the file and says what it is	yes
@@ -3976,10 +3976,10 @@ apps/desktop/src/renderer/src/a-page-a-teammate-made-runs-in-its-turn.test.tsx	l
 apps/desktop/src/renderer/src/a-page-opens-running.test.tsx	runs a page in a sandboxed frame at its own address, with Page and Source	yes
 apps/desktop/src/renderer/src/a-page-opens-running.test.tsx	runs nothing without a page address -- the same file shows as its source	yes
 apps/desktop/src/renderer/src/a-page-opens-running.test.tsx	previews a new page, and only a new one	yes
-apps/desktop/src/renderer/src/a-part-of-a-reply-can-be-asked-about.test.tsx	is quoted line by line, blank lines kept as quote lines	no
-apps/desktop/src/renderer/src/a-part-of-a-reply-can-be-asked-about.test.tsx	is cut past its limit, and says so with an ellipsis	no
-apps/desktop/src/renderer/src/a-part-of-a-reply-can-be-asked-about.test.tsx	says it is looking before the list arrives, and names both runtimes	no
-apps/desktop/src/renderer/src/a-part-of-a-reply-can-be-asked-about.test.tsx	says ages the way the sidebar does	no
+apps/desktop/src/renderer/src/a-part-of-a-reply-can-be-asked-about.test.tsx	is quoted line by line, blank lines kept as quote lines	yes
+apps/desktop/src/renderer/src/a-part-of-a-reply-can-be-asked-about.test.tsx	is cut past its limit, and says so with an ellipsis	yes
+apps/desktop/src/renderer/src/a-part-of-a-reply-can-be-asked-about.test.tsx	says it is looking before the list arrives, and names both runtimes	yes
+apps/desktop/src/renderer/src/a-part-of-a-reply-can-be-asked-about.test.tsx	says ages the way the sidebar does	yes
 apps/desktop/src/renderer/src/a-path-only-message-is-titled-by-its-file.test.ts	is titled by the file it names	yes
 apps/desktop/src/renderer/src/a-path-only-message-is-titled-by-its-file.test.ts	leaves any other first line as it was typed	yes
 apps/desktop/src/renderer/src/a-path-only-message-is-titled-by-its-file.test.ts	is how a conversation is titled	no
@@ -4208,8 +4208,8 @@ apps/desktop/src/renderer/src/a-row-repeats-nothing-its-heading-says.test.tsx	ke
 apps/desktop/src/renderer/src/a-row-repeats-nothing-its-heading-says.test.tsx	keeps the record of a comparison, which the heading does not say	no
 apps/desktop/src/renderer/src/a-row-repeats-nothing-its-heading-says.test.tsx	draws a row with nothing extra at least 32px tall	no
 apps/desktop/src/renderer/src/a-row-repeats-nothing-its-heading-says.test.tsx	treats a repeated runtime name as the heading, and a limit or an endpoint as news	yes
-apps/desktop/src/renderer/src/a-run-a-teammate-stopped-does-not-say-you.test.tsx	says "You" for a Stop the person pressed	no
-apps/desktop/src/renderer/src/a-run-a-teammate-stopped-does-not-say-you.test.tsx	does not, for a run stopped by anything else	no
+apps/desktop/src/renderer/src/a-run-a-teammate-stopped-does-not-say-you.test.tsx	says "You" for a Stop the person pressed	yes
+apps/desktop/src/renderer/src/a-run-a-teammate-stopped-does-not-say-you.test.tsx	does not, for a run stopped by anything else	yes
 apps/desktop/src/renderer/src/a-runtime-declares-what-it-can-do.test.ts	answers exactly as the if-chain did, except where a claim was corrected on purpose	yes
 apps/desktop/src/renderer/src/a-runtime-declares-what-it-can-do.test.ts	claims nothing for a runtime no mission can run under	yes
 apps/desktop/src/renderer/src/a-runtime-declares-what-it-can-do.test.ts	offers a runtime only the modes someone has actually run under it	yes
@@ -4220,8 +4220,8 @@ apps/desktop/src/renderer/src/a-runtime-declares-what-it-can-do.test.ts	bars not
 apps/desktop/src/renderer/src/a-runtime-gap-is-not-the-teammate.test.tsx	draws the marker as a note	yes
 apps/desktop/src/renderer/src/a-runtime-gap-is-not-the-teammate.test.tsx	keeps every other word of the reply	yes
 apps/desktop/src/renderer/src/a-runtime-gap-is-not-the-teammate.test.tsx	leaves a sentence that merely mentions truncation alone	yes
-apps/desktop/src/renderer/src/a-runtime-switch-shows-where-it-happened.test.tsx	names every runtime by its name	no
-apps/desktop/src/renderer/src/a-runtime-switch-shows-where-it-happened.test.tsx	takes the words typed on each side of the switch, never the host’s briefing	no
+apps/desktop/src/renderer/src/a-runtime-switch-shows-where-it-happened.test.tsx	names every runtime by its name	yes
+apps/desktop/src/renderer/src/a-runtime-switch-shows-where-it-happened.test.tsx	takes the words typed on each side of the switch, never the host’s briefing	yes
 apps/desktop/src/renderer/src/a-saved-turn-is-said-after-its-work.test.ts	is the last line of its turn, after the work and the answer	yes
 apps/desktop/src/renderer/src/a-saved-turn-is-said-after-its-work.test.ts	is still said when the turn drew no work of its own, never folded away	yes
 apps/desktop/src/renderer/src/a-scout-card-that-needs-you-is-on-the-board.test.tsx	sits above the conversation that is waiting, with Scout’s face and the actions Home gives a draft	no
@@ -4309,14 +4309,14 @@ apps/desktop/src/renderer/src/a-step-that-never-ran-is-not-still-to-come.test.ts
 apps/desktop/src/renderer/src/a-stop-on-a-finished-run-changes-nothing.test.ts	marks a running run cancelling, clearing its error	no
 apps/desktop/src/renderer/src/a-stop-on-a-finished-run-changes-nothing.test.ts	leaves a run that has already finished exactly as it was	yes
 apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx	counts plan states even when unrelated tools and disk observations settled	yes
-apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx	uses the latest plan and never treats extra tool calls as completed plan steps	no
-apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx	shows a fully finished plan even without tool calls	no
-apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx	does not invent a plan for a stopped command without one	no
+apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx	uses the latest plan and never treats extra tool calls as completed plan steps	yes
+apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx	shows a fully finished plan even without tool calls	yes
+apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx	does not invent a plan for a stopped command without one	yes
 apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx	excludes the workspace root and its relative spellings without hiding a file with the same basename	yes
-apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx	offers an unreported OpenCode command under Cut off with its warning once	no
-apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx	shows the same uncertainty when OpenCode reported no completed tools	no
-apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx	keeps reported interrupted commands and states OpenCode uncertainty once	no
-apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx	keeps the ordinary runtime warning and never invents OpenCode uncertainty for it	no
+apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx	offers an unreported OpenCode command under Cut off with its warning once	yes
+apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx	shows the same uncertainty when OpenCode reported no completed tools	yes
+apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx	keeps reported interrupted commands and states OpenCode uncertainty once	yes
+apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx	keeps the ordinary runtime warning and never invents OpenCode uncertainty for it	yes
 apps/desktop/src/renderer/src/a-tables-status-is-a-chip.test.tsx	is found by its header, marks and all	yes
 apps/desktop/src/renderer/src/a-tables-status-is-a-chip.test.tsx	knows a value by its first words, and nothing it does not know	yes
 apps/desktop/src/renderer/src/a-tables-status-is-a-chip.test.tsx	draws as chips in a reply, and leaves other columns and unknown values alone	yes
@@ -4922,17 +4922,17 @@ apps/desktop/src/renderer/src/every-teammate-is-a-bot.test.tsx	answers to the na
 apps/desktop/src/renderer/src/every-teammate-is-a-bot.test.tsx	offers every shape to choose from, and the face	yes
 apps/desktop/src/renderer/src/every-teammate-is-a-bot.test.tsx	keeps Shuffle, once, with the look it shuffles	yes
 apps/desktop/src/renderer/src/every-teammate-is-a-bot.test.tsx	has eleven colours (Indigo and Coral, 0.660)	yes
-apps/desktop/src/renderer/src/exchange.test.ts	is nothing for a conversation that talked to nobody	no
-apps/desktop/src/renderer/src/exchange.test.ts	links two missions by the message one posted and the other received	no
-apps/desktop/src/renderer/src/exchange.test.ts	reaches a third teammate through the second, and takes the deepest hop	no
-apps/desktop/src/renderer/src/exchange.test.ts	adds up what every run in the exchange cost	no
-apps/desktop/src/renderer/src/exchange.test.ts	folds one teammate’s several turns into one participant, on their latest route	no
-apps/desktop/src/renderer/src/exchange.test.ts	names a conversation of nobody’s as such, rather than dropping it	no
-apps/desktop/src/renderer/src/exchange.test.ts	walking from one opening sees only that half	no
-apps/desktop/src/renderer/src/exchange.test.ts	walking from both openings is the whole argument	no
-apps/desktop/src/renderer/src/exchange.test.ts	takes the deepest hop of any half, so the budget is the argument’s	no
-apps/desktop/src/renderer/src/exchange.test.ts	is nothing when none of the openings exists	no
-apps/desktop/src/renderer/src/exchange.test.ts	is nothing when the openings talked to nobody	no
+apps/desktop/src/renderer/src/exchange.test.ts	is nothing for a conversation that talked to nobody	yes
+apps/desktop/src/renderer/src/exchange.test.ts	links two missions by the message one posted and the other received	yes
+apps/desktop/src/renderer/src/exchange.test.ts	reaches a third teammate through the second, and takes the deepest hop	yes
+apps/desktop/src/renderer/src/exchange.test.ts	adds up what every run in the exchange cost	yes
+apps/desktop/src/renderer/src/exchange.test.ts	folds one teammate’s several turns into one participant, on their latest route	yes
+apps/desktop/src/renderer/src/exchange.test.ts	names a conversation of nobody’s as such, rather than dropping it	yes
+apps/desktop/src/renderer/src/exchange.test.ts	walking from one opening sees only that half	yes
+apps/desktop/src/renderer/src/exchange.test.ts	walking from both openings is the whole argument	yes
+apps/desktop/src/renderer/src/exchange.test.ts	takes the deepest hop of any half, so the budget is the argument’s	yes
+apps/desktop/src/renderer/src/exchange.test.ts	is nothing when none of the openings exists	yes
+apps/desktop/src/renderer/src/exchange.test.ts	is nothing when the openings talked to nobody	yes
 apps/desktop/src/renderer/src/faceState.test.ts	idle and blocked are the only motionless states, and every other state moves	yes
 apps/desktop/src/renderer/src/faceState.test.ts	names every animation for the state it means, and retires the generic one	no
 apps/desktop/src/renderer/src/faceState.test.ts	done hops once; it is not a loop	no
@@ -5741,13 +5741,13 @@ apps/desktop/src/renderer/src/scout-settings-say-its-goal-hours-and-day.test.tsx
 apps/desktop/src/renderer/src/scout-settings-say-its-goal-hours-and-day.test.tsx	say what today’s looks used	yes
 apps/desktop/src/renderer/src/scout-settings-say-its-goal-hours-and-day.test.tsx	offers your own comment watch on by default and says how a named ask works	yes
 apps/desktop/src/renderer/src/scout-settings-show-what-it-saw.test.tsx	is offered once Scout is on, says what it holds, and reads nothing until it is opened	yes
-apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	keeps every turn’s words on the conversation’s one row	no
-apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	finds a conversation by a word only its second turn said, as one row under its own name	no
-apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	finds a teammate’s conversations by the teammate’s name	no
-apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	empties it, and lets Escape through when it is already empty	no
-apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	every list the search narrows is narrowed by the teammate’s name too	no
-apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	lists conversations, found by every turn and the teammate -- the only search in the rail layout	no
-apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	shows only the five newest before anything is typed	no
+apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	keeps every turn’s words on the conversation’s one row	yes
+apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	finds a conversation by a word only its second turn said, as one row under its own name	yes
+apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	finds a teammate’s conversations by the teammate’s name	yes
+apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	empties it, and lets Escape through when it is already empty	yes
+apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	every list the search narrows is narrowed by the teammate’s name too	yes
+apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	lists conversations, found by every turn and the teammate -- the only search in the rail layout	yes
+apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	shows only the five newest before anything is typed	yes
 apps/desktop/src/renderer/src/settings-in-a-browser-say-what-stays.test.tsx	draws every page, and none of them starts by saying a setting could not be read or saved	yes
 apps/desktop/src/renderer/src/settings-in-a-browser-say-what-stays.test.tsx	says, in place of the sections whose every setting stays on the computer, that they work there	yes
 apps/desktop/src/renderer/src/settings-in-a-browser-say-what-stays.test.tsx	keeps the teammates' switches that grant something on the computer, and lets Plans change from here	yes
@@ -6271,10 +6271,10 @@ apps/desktop/src/renderer/src/the-screens-say-less.test.ts	is the runtime’s na
 apps/desktop/src/renderer/src/the-screens-say-less.test.ts	keeps what follows the model’s name, and every other model as it was	yes
 apps/desktop/src/renderer/src/the-screens-say-less.test.ts	says what a person pays, or that a model is free, and nothing for counted tokens	no
 apps/desktop/src/renderer/src/the-screens-say-less.test.ts	lists conversations, each named by its first words, not each turn of one	yes
-apps/desktop/src/renderer/src/the-terminal-opens-before-the-first-message.test.tsx	offers an accessible toggle in the title bar before a conversation exists	no
-apps/desktop/src/renderer/src/the-terminal-opens-before-the-first-message.test.tsx	shows the organization restriction on the disabled terminal control	no
-apps/desktop/src/renderer/src/the-terminal-opens-before-the-first-message.test.tsx	recognizes Ctrl backtick on every platform and leaves unrelated keys alone	no
-apps/desktop/src/renderer/src/the-terminal-opens-before-the-first-message.test.tsx	keeps a pasted Unicode character whole at every IPC boundary	no
+apps/desktop/src/renderer/src/the-terminal-opens-before-the-first-message.test.tsx	offers an accessible toggle in the title bar before a conversation exists	yes
+apps/desktop/src/renderer/src/the-terminal-opens-before-the-first-message.test.tsx	shows the organization restriction on the disabled terminal control	yes
+apps/desktop/src/renderer/src/the-terminal-opens-before-the-first-message.test.tsx	recognizes Ctrl backtick on every platform and leaves unrelated keys alone	yes
+apps/desktop/src/renderer/src/the-terminal-opens-before-the-first-message.test.tsx	keeps a pasted Unicode character whole at every IPC boundary	yes
 apps/desktop/src/renderer/src/the-terminal-turns-are-drawn-as-yours.test.tsx	is the person's own words, with nothing attached	yes
 apps/desktop/src/renderer/src/the-terminal-turns-are-drawn-as-yours.test.tsx	carries its runtime through the conversation's turns, and Locust's own turns do not	yes
 apps/desktop/src/renderer/src/the-terminal-turns-are-drawn-as-yours.test.tsx	go into the terminal before its first turn, and back in Locust before the next of its own	yes
@@ -6603,10 +6603,10 @@ apps/desktop/src/shared/decision.test.ts	still reads asterisks	no
 apps/desktop/src/shared/decision.test.ts	does not turn an ordinary numbered sentence into an option	no
 apps/desktop/src/shared/decision.test.ts	is named by what it says instead	no
 apps/desktop/src/shared/decision.test.ts	keeps a real name that happens to mention an option	no
-apps/desktop/src/shared/file-menu.test.ts	offers the editors that are installed, and the default app only for a file it shows rather than runs	no
-apps/desktop/src/shared/file-menu.test.ts	offers Copy only when the path is outside the conversation folder	no
-apps/desktop/src/shared/file-menu.test.ts	names the file manager for the system	no
-apps/desktop/src/shared/file-menu.test.ts	is written with the system separator, never a mix of both on Windows	no
+apps/desktop/src/shared/file-menu.test.ts	offers the editors that are installed, and the default app only for a file it shows rather than runs	yes
+apps/desktop/src/shared/file-menu.test.ts	offers Copy only when the path is outside the conversation folder	yes
+apps/desktop/src/shared/file-menu.test.ts	names the file manager for the system	yes
+apps/desktop/src/shared/file-menu.test.ts	is written with the system separator, never a mix of both on Windows	yes
 apps/desktop/src/shared/handover.test.ts	reads one file and its note	yes
 apps/desktop/src/shared/handover.test.ts	reads several, in the order they were written, and the note is optional	yes
 apps/desktop/src/shared/handover.test.ts	finds no files in a reply that has none	yes

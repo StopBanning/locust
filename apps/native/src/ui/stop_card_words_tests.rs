@@ -6,7 +6,7 @@ use locust_core::cancellation::Summary;
 fn words(summary: &Summary) -> Vec<String> {
     let mut rt = rune::Runtime::new(
         summary.clone(),
-        |s, _| col().w_full().child(card(s, true, &Palette::new(true))),
+        |s, _| col().w_full().child(card(s, true, None, &Palette::new(true))),
         (600.0, 400.0),
         rune::Env::new(true, 1.0),
     );
