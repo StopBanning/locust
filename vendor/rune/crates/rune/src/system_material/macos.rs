@@ -333,10 +333,11 @@ fn make_view(material: SystemMaterial, host: &AnyObject) -> Option<Slot> {
             // NSGlassEffectViewStyleRegular.
             let _: () = msg_send![&*view, setStyle: 0isize];
         } else {
-            // NSVisualEffectMaterialPopover, behind window, always active.
-            let _: () = msg_send![&*view, setMaterial: 6isize];
+            // The material's NSVisualEffectMaterial and state (super::effect_view_settings), behind window.
+            let (effect, state) = super::effect_view_settings(material).unwrap_or((6, 1));
+            let _: () = msg_send![&*view, setMaterial: effect];
             let _: () = msg_send![&*view, setBlendingMode: 0isize];
-            let _: () = msg_send![&*view, setState: 1isize];
+            let _: () = msg_send![&*view, setState: state];
             let layer: *mut AnyObject = msg_send![&*view, layer];
             if let Some(layer) = layer.as_ref() { let _: () = msg_send![layer, setMasksToBounds: true]; }
         }

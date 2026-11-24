@@ -309,3 +309,26 @@ fn srgb_blend_frost_over_a_native_material_reads_as_core_animation() {
     near(read(true, 1, [0.0; 4]), [158, 158, 158, 158]);
     near(read(true, 0, [0.0; 4]), [0, 0, 0, 0]);
 }
+
+// Locust patch (RUNE.md in Locust's apps/native): the sidebar material, and the element info that shows a material.
+#[test]
+fn the_sidebar_material_is_the_sidebar_effect_following_its_window_and_popover_stays_always_active() {
+    assert_eq!(effect_view_settings(SystemMaterial::Sidebar), Some((7, 0)));
+    assert_eq!(effect_view_settings(SystemMaterial::Popover), Some((6, 1)));
+    assert_eq!(effect_view_settings(SystemMaterial::Glass), None);
+}
+
+fn sidebar_and_plain(_: &u8, _: &mut Cx<u8>) -> El {
+    el().size(200.0, 120.0)
+        .child(el().key("side").absolute(0.0, 0.0).size(60.0, 120.0).system_material(SystemMaterial::Sidebar))
+        .child(el().key("plain").absolute(60.0, 0.0).size(140.0, 120.0).fill(Color::WHITE))
+}
+
+#[test]
+fn element_info_names_each_elements_material_and_none_for_the_rest() {
+    let rt = runtime(sidebar_and_plain, false);
+    let info = |key: &str| rt.elements().into_iter().find(|e| e.key.as_deref() == Some(key)).unwrap_or_else(|| panic!("no {key}"));
+    assert_eq!(info("side").material, Some(SystemMaterial::Sidebar));
+    assert_eq!(info("plain").material, None);
+    assert_eq!(rt.materials.iter().map(|m| m.material).collect::<Vec<_>>(), vec![SystemMaterial::Sidebar]);
+}

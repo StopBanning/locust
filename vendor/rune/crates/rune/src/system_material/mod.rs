@@ -21,6 +21,22 @@ pub enum SystemMaterial {
     Glass,
     /// The popover vibrancy material (`NSVisualEffectView`, `.popover`, behind window).
     Popover,
+    /// The sidebar vibrancy material (`NSVisualEffectView`, `.sidebar`, behind window), active
+    /// while its window is, as Finder's, Notes' and Mail's sidebars are: it goes flat when the
+    /// window loses focus. Locust patch (RUNE.md in Locust's apps/native), not upstream Rune.
+    Sidebar,
+}
+
+/// The `NSVisualEffectView` material and state a non-glass material's view is made with:
+/// `.popover` (6) always active (1), or `.sidebar` (7) following its window (0). `None` for
+/// `Glass`, which is an `NSGlassEffectView`.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+pub(crate) fn effect_view_settings(material: SystemMaterial) -> Option<(isize, isize)> {
+    match material {
+        SystemMaterial::Glass => None,
+        SystemMaterial::Popover => Some((6, 1)),
+        SystemMaterial::Sidebar => Some((7, 0)),
+    }
 }
 
 /// Native material views per window. Elements past this many draw their fallback instead.
