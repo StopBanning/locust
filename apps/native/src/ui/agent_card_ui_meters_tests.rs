@@ -98,3 +98,26 @@ fn the_chip_card_names_each_window_without_a_trailing_window() {
     assert_eq!(card_label("Gemini: weekly window"), "Gemini: weekly");
     assert_eq!(card_label("window"), "Window", "only a trailing \" window\" goes");
 }
+
+// ---- every-limit-says-what-is-left.test.tsx ---------------------------------------------------------------------
+
+#[test]
+fn say_what_is_left_when_the_runtime_reported_what_it_used() {
+    // case: say what is left, when the runtime reported what it used
+    // Electron's reading, drawn as UsageMeters draws it (Settings > AI agents): Codex reports what it USED.
+    let mut rt = Runtime::new(
+        State::default(),
+        |_, _| {
+            let l = crate::look::controls::Look::new(true);
+            let now = chrono::DateTime::parse_from_rfc3339("2026-10-10T12:00:00.000Z").unwrap().with_timezone(&chrono::Utc);
+            usage_meters(&l, "weekly window 33% used · 5-hour window 0% used", now)
+        },
+        (900.0, 200.0),
+        Env::new(true, 1.0),
+    );
+    rt.frame(0.0);
+    let words: Vec<String> = rt.elements().into_iter().filter_map(|e| e.text).collect();
+    assert!(words.iter().any(|w| w == "67% left"), "{words:?}");
+    assert!(words.iter().any(|w| w == "100% left"), "{words:?}");
+    assert!(!words.iter().any(|w| w.contains("% used")), "the same bar in one language: {words:?}");
+}

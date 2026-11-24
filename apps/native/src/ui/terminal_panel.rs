@@ -188,7 +188,8 @@ pub(super) fn commands(s: &State, p: &Palette) -> El {
                 .font(type_::LABEL)
                 .color(p.amber)
                 .w_full()
-                .wrap(),
+                .wrap()
+                .role("status"),
         );
     }
     for (i, e) in s
@@ -235,6 +236,9 @@ pub(super) fn commands(s: &State, p: &Palette) -> El {
                 row().gap(8.).child(text("Running").color(p.amber)).child(
                     text("Stop")
                         .color(p.secondary)
+                        .key(format!("command-stop-{i}"))
+                        .role("button")
+                        .label("Stop this command")
                         .on_press(move |s: &mut State| {
                             if let Some(r) = s
                                 .terminal
@@ -568,15 +572,92 @@ pub(super) fn runtime_controls(s: &State, p: &Palette) -> El {
         return row();
     };
     let id = pane.snapshot.tip.clone();
-    let open_id = id.clone();
-    // OpenInTerminal.tsx's code glyph, and the catch-up beside it (TerminalDivider.tsx's clock), as icon buttons.
+    // TerminalDivider.tsx's clock, as an icon button. Open in terminal is the More actions menu's (0.797: the header is
+    // a row of icons), `header_menu::items`.
     let l = crate::look::controls::Look::new(p.dark);
-    let _ = p;
-    row().gap(2.).child(crate::look::controls::head_icon(&crate::look::icons::CODE, "Open in terminal", "Open this conversation in a terminal").on_press(move|s:&mut State|{
+    row().gap(2.).child(crate::look::controls::head_icon(&crate::look::icons::CLOCK, "Catch up terminal", "Catch up on what happened in the terminal").on_press(move|s:&mut State|{if !turn_running(s)&&!s.terminal.catchup.is_pending(){s.terminal.catchup.request(id.clone(),|id|runtime_terminal::catch_up(&id));}}).build(l.k))
+}
+
+/// What opening the conversation in a terminal offers (OpenInTerminal.tsx `TerminalOffer`): whose interface opens, the
+/// hover saying what it means, and why it cannot be pressed now, when it cannot.
+#[derive(Clone, Debug, PartialEq)]
+pub(super) struct TerminalOffer {
+    pub runtime_name: String,
+    pub label: String,
+    pub title: String,
+    pub disabled: Option<String>,
+    comes_back: bool,
+}
+
+impl TerminalOffer {
+    /// What is said once it opened in `place`: whether what happens there comes back.
+    pub(super) fn opened(&self, place: &str) -> String {
+        if self.comes_back {
+            format!("Opened in {place}. What you do there comes back here when you return.")
+        } else {
+            format!("Opened in {place}. Locust won't see what happens there.")
+        }
+    }
+}
+
+/// The offer for a conversation (OpenInTerminal.tsx `terminalOffer`): none where there is no terminal to open -- no
+/// turn yet, a runtime with no interface of its own to resume in (Antigravity only through its CLI), or a model of the
+/// person's own, which runs on settings only Locust hands OpenCode.
+pub(super) fn terminal_offer(
+    runtime: Option<&str>,
+    model: Option<&str>,
+    mission_id: Option<&str>,
+    running: bool,
+    teammate_name: Option<&str>,
+    antigravity_cli: bool,
+) -> Option<TerminalOffer> {
+    const RESUMABLE: &[&str] = &["codex", "claude", "copilot", "cursor", "opencode", "muse"];
+    const COMES_BACK: &[&str] = &["codex", "claude"];
+    mission_id?;
+    let runtime = runtime.filter(|r| locust_core::route_at_start::is_mission_runtime(r))?;
+    if !RESUMABLE.contains(&runtime) && !(runtime == "antigravity" && antigravity_cli) {
+        return None;
+    }
+    if model.is_some_and(locust_core::own_models::is_own_route_model) {
+        return None;
+    }
+    let runtime_name = locust_core::inspector::runtime_display_name(runtime).to_owned();
+    let whose = teammate_name.map_or_else(|| "this folder".to_owned(), |name| format!("{name}'s folder"));
+    let comes_back = COMES_BACK.contains(&runtime);
+    let afterwards = if comes_back { "What you do there comes back into this conversation" } else { "Locust won't see what you do there" };
+    Some(TerminalOffer {
+        label: format!("Open in {runtime_name}, in a terminal"),
+        title: format!(
+            "Open in {runtime_name}, in a terminal\nThe same session, in {whose}. {afterwards}, and it runs with {runtime_name}'s own permissions, not this conversation's mode."
+        ),
+        disabled: running.then(|| {
+            format!("Available when {} finishes: Locust's run and a terminal can't share one session at once.", teammate_name.unwrap_or("this run"))
+        }),
+        runtime_name,
+        comes_back,
+    })
+}
+
+/// The offer for the conversation on screen (App.tsx `shownTerminal`), from its latest turn.
+pub(super) fn shown_terminal(s: &State) -> Option<TerminalOffer> {
+    let pane = s.ledger.as_ref()?;
+    let latest = pane.snapshot.turn_metas.last();
+    let mission_id = latest.map(|m| m.mission_id.as_str()).filter(|id| !id.is_empty());
+    let runtime = latest.map(|m| m.runtime.as_str()).filter(|r| !r.is_empty());
+    let model = latest.map(|m| m.model.as_str()).filter(|m| !m.is_empty());
+    let name = selected_conversation(s).map(|(t, _)| t.name.clone());
+    terminal_offer(runtime, model, mission_id, turn_running(s), name.as_deref(), false)
+}
+
+/// Open in terminal, from the More actions menu: the conversation's session resumed in its runtime's own interface.
+pub(super) fn open_in_terminal(s: &mut State) {
+    let Some(open_id) = s.ledger.as_ref().map(|pane| pane.snapshot.tip.clone()) else { return };
+    let offer = shown_terminal(s);
+    let offer = offer.as_ref();
  if turn_running(s){s.composer_note=Some("This conversation is still running. Open it in a terminal once the run finishes: two programs on one session at once would talk over each other.".into());return;}
  let result=(||{let newest=native::real_tip(&open_id)?;let(m,rows)=runtime_terminal::mission(&newest)?;let runtime=m["runtime"].as_str().ok_or("That conversation is not in the ledger.")?;if m["model"].as_str().is_some_and(|m|m.starts_with("own-")){return Err("A model of your own runs on settings only Locust gives OpenCode, so a terminal could not run it. Keep this conversation here.".into());}let session=runtime_terminal::session(&rows).ok_or("This conversation has no session its runtime can resume in a terminal.")?;let args=runtime_terminal::resume_args(runtime,&session).ok_or("This conversation has no session its runtime can resume in a terminal.")?;let executable=crate::runtime::find_executable(match runtime {"cursor"=>"cursor-agent","antigravity"=>"agy",other=>other}).map_err(|e|e.to_string())?;let folder=folder(s).ok_or("Choose a folder first. Nothing was run.")?;let store=native::store().ok_or("Native data folder is unavailable.")?;let account=m["resolvedRouteId"].as_str().and_then(locust_core::agent_accounts::account_from_route);let env=native::account_launch_env(&store,runtime,account)?;let env_pairs:Vec<(&str,&str)>=env.iter().map(|(k,v)|(*k,v.as_str())).collect();let dir=store.attachments_dir().map_err(|e|e.to_string())?;let script=dir.join(format!("terminal-{}.command",native::uuid_v4().map_err(|e|e.to_string())?));runtime_terminal::open_with_env(&executable,&args,&folder,&script,&store,&env_pairs)?;Ok::<_,String>(matches!(runtime,"claude"|"codex"))})();
- s.composer_note=Some(match result{Ok(true)=>"Opened in Terminal. Use Catch up terminal when you return.".into(),Ok(false)=>"Opened in Terminal. Locust won't see what happens there.".into(),Err(e)=>e});
- }).build(l.k)).child(crate::look::controls::head_icon(&crate::look::icons::CLOCK, "Catch up terminal", "Catch up on what happened in the terminal").on_press(move|s:&mut State|{if !turn_running(s)&&!s.terminal.catchup.is_pending(){s.terminal.catchup.request(id.clone(),|id|runtime_terminal::catch_up(&id));}}).build(l.k))
+ s.composer_note=Some(match result{Ok(_)=>offer.map(|o|o.opened("Terminal")).unwrap_or_else(||"Opened in Terminal.".into()),Err(e)=>e});
+ 
 }
 
 #[cfg(test)]
@@ -625,3 +706,15 @@ mod tests {
 #[cfg(test)]
 #[path = "head_icons_tests.rs"]
 mod head_icons_tests;
+
+#[cfg(test)]
+#[path = "command_mode_tests.rs"]
+mod command_mode_tests;
+
+#[cfg(test)]
+#[path = "terminal_offer_tests.rs"]
+mod terminal_offer_tests;
+
+#[cfg(test)]
+#[path = "command_carry_tests.rs"]
+mod command_carry_tests;

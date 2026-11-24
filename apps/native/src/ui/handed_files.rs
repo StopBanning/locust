@@ -16,9 +16,16 @@ enum Asked {
 
 const OUTSIDE: &str = "That file is outside the folders your teammates work in, and no teammate wrote it or handed it over, so Locust will";
 
+const LINKED_OUT: &str = "That file is a link to somewhere outside the folder your teammates work in, so Locust will not open it.";
+
 /// The file on disk, inside this conversation's folders or named by a teammate's own record (`decideTeammateFile`, 0.787),
 /// or why not (said beside the files).
 fn resolved(s: &mut State, scope: &str, path: &str, asked: Asked) -> Option<PathBuf> {
+    resolved_with_roots(s, scope, path, asked).map(|(file, _)| file)
+}
+
+/// The file, as `resolved`, with the folders a read of it asks its link question of (`readRoots`).
+fn resolved_with_roots(s: &mut State, scope: &str, path: &str, asked: Asked) -> Option<(PathBuf, Vec<PathBuf>)> {
     let refuse = |s: &mut State, why: String| {
         s.handed_file_refusal = Some((scope.to_owned(), why));
         None
@@ -37,7 +44,10 @@ fn resolved(s: &mut State, scope: &str, path: &str, asked: Asked) -> Option<Path
     folders.extend(folder);
     let named = |file: &Path| locust_core::named_files::named_by_a_teammate(&locust_core::named_files::ledger_dirs(), &file.to_string_lossy(), &folders);
     match crate::file_menu::decide_teammate_file(&on_disk, &roots, named) {
-        crate::file_menu::RevealDecision::Ok { path, .. } => Some(path),
+        crate::file_menu::RevealDecision::Ok { path, named } => {
+            let read_roots = crate::file_menu::read_roots(&path, named, &roots);
+            Some((path, read_roots))
+        }
         refused => refuse(
             s,
             match (asked, refused) {
@@ -52,7 +62,12 @@ fn resolved(s: &mut State, scope: &str, path: &str, asked: Asked) -> Option<Path
 
 /// Copy a handed text file's words (Electron's CopyButton on the file): a spreadsheet or a Word file has none to copy.
 fn copy_handed_file(s: &mut State, tx: &mut Tx, scope: &str, path: &str) {
-    let Some(file) = resolved(s, scope, path, Asked::Copy) else { return };
+    let Some((file, read_roots)) = resolved_with_roots(s, scope, path, Asked::Copy) else { return };
+    // A link in the folder that leads out of it is not the folder's to read (Electron's text channel, SEC-01).
+    if !crate::file_menu::inside_on_disk(&file, &read_roots) {
+        s.handed_file_refusal = Some((scope.to_owned(), LINKED_OUT.into()));
+        return;
+    }
     // The same reading as the viewer's (Electron's CopyButton asks `readTextFile`): a spreadsheet or a Word file has no
     // text to copy as it is; a kind of file a teammate does not write to be read, a folder, a file not there and a file
     // past a quarter of a megabyte are each refused in the viewer's own words.
@@ -228,3 +243,7 @@ mod tests;
 #[cfg(test)]
 #[path = "handed_control_tests.rs"]
 mod handed_control_tests;
+
+#[cfg(test)]
+#[path = "reveal_file_tests.rs"]
+mod reveal_file_tests;

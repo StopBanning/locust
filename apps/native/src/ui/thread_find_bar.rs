@@ -10,7 +10,8 @@ pub(super) fn thread_find_bar(s: &State, p: &Palette) -> Option<El> {
     let current = find_pieces_now(s);
     let pieces: Vec<&str> = current.iter().map(String::as_str).collect();
     let hits = find_in(&pieces, &s.find_query.text, MAX_FIND_HITS);
-    let index = if hits.is_empty() {
+    // A query the index was not stepped for starts at its first hit (Electron resets the hit as the query changes).
+    let index = if hits.is_empty() || s.find_query.text != s.find_hits_query {
         0
     } else {
         s.find_index.min(hits.len() - 1)
@@ -36,10 +37,10 @@ pub(super) fn thread_find_bar(s: &State, p: &Palette) -> Option<El> {
                 .fill(p.field)
                 .padding(8.0)
                 .radius(6.0)
-                .on_edit(|s: &mut State| {
-                    s.find_index = 0;
-                    &mut s.find_query
-                }),
+                // Only the field: this runs on every touch of the field (a blur included), so resetting the hit
+                // here undid the press on Next match that took focus from it. refresh_find_hits resets it once
+                // the query has changed.
+                .on_edit(|s: &mut State| &mut s.find_query),
         );
     if !count_words.is_empty() {
         bar = bar.child(text(count_words).font(type_::LABEL).color(p.muted));
@@ -108,6 +109,10 @@ pub(super) fn refresh_find_hits(s: &mut State) {
     let current = find_pieces_now(s);
     let pieces: Vec<&str> = current.iter().map(String::as_str).collect();
     s.find_hits = find_in(&pieces, &s.find_query.text, MAX_FIND_HITS);
+    if s.find_query.text != s.find_hits_query {
+        s.find_hits_query = s.find_query.text.clone();
+        s.find_index = 0;
+    }
     if s.find_hits.is_empty() {
         s.find_index = 0;
     } else {
@@ -127,6 +132,7 @@ pub(super) fn close_find(s: &mut State) {
     s.find_open = false;
     s.find_query.clear();
     s.find_hits.clear();
+    s.find_hits_query.clear();
     s.find_index = 0;
 }
 
@@ -158,3 +164,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "thread_find_tests.rs"]
+mod thread_find_tests;

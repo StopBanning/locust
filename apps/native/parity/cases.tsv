@@ -345,12 +345,12 @@ apps/desktop/src/main/a-denial-can-say-why.test.ts	on Codex: the reply is the pl
 apps/desktop/src/main/a-denial-can-say-why.test.ts	on OpenCode: the reason rides the reject itself, and nothing is steered	yes
 apps/desktop/src/main/a-denial-can-say-why.test.ts	without a reason: a plain reject everywhere, and nothing steered	yes
 apps/desktop/src/main/a-denial-can-say-why.test.ts	reads, to the runtime, as the person’s words	yes
-apps/desktop/src/main/a-diagram-in-a-reply-is-drawn.test.ts	is a block the model named Mermaid, with something in it, of a size Locust draws	no
+apps/desktop/src/main/a-diagram-in-a-reply-is-drawn.test.ts	is a block the model named Mermaid, with something in it, of a size Locust draws	yes
 apps/desktop/src/main/a-diagram-in-a-reply-is-drawn.test.ts	is taken as a picture only when it is an SVG of a sensible size	no
-apps/desktop/src/main/a-diagram-in-a-reply-is-drawn.test.ts	says Mermaid's reason as one short line	no
-apps/desktop/src/main/a-diagram-in-a-reply-is-drawn.test.ts	names the kind as a person would, and shows the picture as data	no
+apps/desktop/src/main/a-diagram-in-a-reply-is-drawn.test.ts	says Mermaid's reason as one short line	yes
+apps/desktop/src/main/a-diagram-in-a-reply-is-drawn.test.ts	names the kind as a person would, and shows the picture as data	yes
 apps/desktop/src/main/a-diagram-in-a-reply-is-drawn.test.ts	is drawn once, and a view that failed is tried again later	no
-apps/desktop/src/main/a-diagram-in-a-reply-is-drawn.test.ts	keeps a mistake too, and draws nothing that is not a diagram	no
+apps/desktop/src/main/a-diagram-in-a-reply-is-drawn.test.ts	keeps a mistake too, and draws nothing that is not a diagram	yes
 apps/desktop/src/main/a-diagram-in-a-reply-is-drawn.test.ts	keeps only the most recently shown	no
 apps/desktop/src/main/a-diagram-in-a-reply-is-drawn.test.ts	draws a burst in one view, one at a time, and closes it once it has had nothing to draw	no
 apps/desktop/src/main/a-diagram-in-a-reply-is-drawn.test.ts	draws again in a fresh view when one stalls, and gives up when that one stalls too	no
@@ -2441,18 +2441,18 @@ apps/desktop/src/main/retention.test.ts	refuses an age it will not honour, witho
 apps/desktop/src/main/retention.test.ts	reports a failed prune as one, rather than as an empty success	no
 apps/desktop/src/main/retention.test.ts	passes the ledger report through	no
 apps/desktop/src/main/retention.test.ts	says it could not be measured rather than reporting an empty history	no
-apps/desktop/src/main/reveal-file.test.ts	says yes to a file in the folder and in a folder below it	no
-apps/desktop/src/main/reveal-file.test.ts	says yes to the folder itself	no
-apps/desktop/src/main/reveal-file.test.ts	is not fooled by a sibling whose name starts the same way	no
-apps/desktop/src/main/reveal-file.test.ts	refuses a walk back up and out	no
-apps/desktop/src/main/reveal-file.test.ts	refuses an unrelated folder	no
-apps/desktop/src/main/reveal-file.test.ts	honours a file in a workspace the host knows about	no
-apps/desktop/src/main/reveal-file.test.ts	refuses everything when no mission has run	no
-apps/desktop/src/main/reveal-file.test.ts	refuses a path outside every known workspace	no
-apps/desktop/src/main/reveal-file.test.ts	refuses a relative path rather than trying each root until one exists	no
-apps/desktop/src/main/reveal-file.test.ts	refuses anything that is not a string, and an empty one	no
-apps/desktop/src/main/reveal-file.test.ts	honours a file under any one of several workspaces	no
-apps/desktop/src/main/reveal-file.test.ts	refuses a link that leads out; keeps the folder’s own files, and a project reached through a junction	no
+apps/desktop/src/main/reveal-file.test.ts	says yes to a file in the folder and in a folder below it	yes
+apps/desktop/src/main/reveal-file.test.ts	says yes to the folder itself	yes
+apps/desktop/src/main/reveal-file.test.ts	is not fooled by a sibling whose name starts the same way	yes
+apps/desktop/src/main/reveal-file.test.ts	refuses a walk back up and out	yes
+apps/desktop/src/main/reveal-file.test.ts	refuses an unrelated folder	yes
+apps/desktop/src/main/reveal-file.test.ts	honours a file in a workspace the host knows about	yes
+apps/desktop/src/main/reveal-file.test.ts	refuses everything when no mission has run	yes
+apps/desktop/src/main/reveal-file.test.ts	refuses a path outside every known workspace	yes
+apps/desktop/src/main/reveal-file.test.ts	refuses a relative path rather than trying each root until one exists	yes
+apps/desktop/src/main/reveal-file.test.ts	refuses anything that is not a string, and an empty one	yes
+apps/desktop/src/main/reveal-file.test.ts	honours a file under any one of several workspaces	yes
+apps/desktop/src/main/reveal-file.test.ts	refuses a link that leads out; keeps the folder’s own files, and a project reached through a junction	yes
 apps/desktop/src/main/role-brief.test.ts	every preset has a brief, and so does Custom	yes
 apps/desktop/src/main/role-brief.test.ts	builds a Custom brief around the title the person typed	yes
 apps/desktop/src/main/role-brief.test.ts	the chief of staff is told to route, to say what was delegated, and to report back in one message	yes
@@ -3345,8 +3345,8 @@ apps/desktop/src/renderer/src/a-background-command-says-what-became-of-it.test.t
 apps/desktop/src/renderer/src/a-background-command-says-what-became-of-it.test.tsx	a described row keeps the command one press away	no
 apps/desktop/src/renderer/src/a-background-helper-says-it-is-still-working.test.ts	works in the background, saying what it is doing, until it reports (${order})	yes
 apps/desktop/src/renderer/src/a-background-helper-says-it-is-still-working.test.ts	says it did not report when the turn ended with it still out	yes
-apps/desktop/src/renderer/src/a-bang-in-the-box-is-command-mode.test.tsx	shows command mode in the box, and Escape leaves it	no
-apps/desktop/src/renderer/src/a-bang-in-the-box-is-command-mode.test.tsx	shows the person's command, its output and its exit code, and Stop only while it runs	no
+apps/desktop/src/renderer/src/a-bang-in-the-box-is-command-mode.test.tsx	shows command mode in the box, and Escape leaves it	yes
+apps/desktop/src/renderer/src/a-bang-in-the-box-is-command-mode.test.tsx	shows the person's command, its output and its exit code, and Stop only while it runs	yes
 apps/desktop/src/renderer/src/a-bang-in-the-box-is-command-mode.test.tsx	asks before a project command runs, and choosing one fills the box instead of sending	no
 apps/desktop/src/renderer/src/a-benchmark-reads-every-run.test.tsx	averages the points met over the runs the judge scored, and counts the runs that met every one	no
 apps/desktop/src/renderer/src/a-benchmark-reads-every-run.test.tsx	keeps each runtime in its own unit: dollars, premium requests, tokens, or in your plan	yes
@@ -3550,12 +3550,12 @@ apps/desktop/src/renderer/src/a-conversation-can-be-put-away.test.tsx	on a Frida
 apps/desktop/src/renderer/src/a-conversation-can-be-put-away.test.tsx	leaves out an evening already here, and a Monday that is tomorrow	no
 apps/desktop/src/renderer/src/a-conversation-can-be-put-away.test.tsx	leaves a settled conversation out	no
 apps/desktop/src/renderer/src/a-conversation-can-be-put-away.test.tsx	keeps it while it is the one open, so its menu can bring it back	no
-apps/desktop/src/renderer/src/a-conversation-can-be-searched.test.ts	finds every place the words are, whatever their case	no
-apps/desktop/src/renderer/src/a-conversation-can-be-searched.test.ts	finds words that cross a bold word or a code span, and ends inside the piece that holds the last letter	no
-apps/desktop/src/renderer/src/a-conversation-can-be-searched.test.ts	takes what is typed as words, never as a pattern	no
-apps/desktop/src/renderer/src/a-conversation-can-be-searched.test.ts	finds nothing for an empty or blank query, and stops at the most it looks for	no
-apps/desktop/src/renderer/src/a-conversation-can-be-searched.test.ts	counts the hit it is on, says when there are none, and says nothing before anything is typed	no
-apps/desktop/src/renderer/src/a-conversation-can-be-searched.test.ts	steps to the next hit and the one before, round the end and back to the start	no
+apps/desktop/src/renderer/src/a-conversation-can-be-searched.test.ts	finds every place the words are, whatever their case	yes
+apps/desktop/src/renderer/src/a-conversation-can-be-searched.test.ts	finds words that cross a bold word or a code span, and ends inside the piece that holds the last letter	yes
+apps/desktop/src/renderer/src/a-conversation-can-be-searched.test.ts	takes what is typed as words, never as a pattern	yes
+apps/desktop/src/renderer/src/a-conversation-can-be-searched.test.ts	finds nothing for an empty or blank query, and stops at the most it looks for	yes
+apps/desktop/src/renderer/src/a-conversation-can-be-searched.test.ts	counts the hit it is on, says when there are none, and says nothing before anything is typed	yes
+apps/desktop/src/renderer/src/a-conversation-can-be-searched.test.ts	steps to the next hit and the one before, round the end and back to the start	yes
 apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	includes the root, the row and every turn	no
 apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	lists each one once	no
 apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	prefers the root, which is the stable identity	no
@@ -3567,12 +3567,12 @@ apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	wo
 apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	finds the row by any turn the conversation has had	no
 apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	says nothing for a run no row holds, so the header falls back to the prompt	no
 apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	the header reads it before the prompt, after a teammate	no
-apps/desktop/src/renderer/src/a-conversation-offers-its-terminal.test.tsx	names the runtime whose interface opens, says what happens there comes back, and that its permissions are not this mode	no
-apps/desktop/src/renderer/src/a-conversation-offers-its-terminal.test.tsx	says Locust won't see it for a runtime whose sessions it does not read back (0.391)	no
-apps/desktop/src/renderer/src/a-conversation-offers-its-terminal.test.tsx	is held while the run is going, saying until when and why	no
-apps/desktop/src/renderer/src/a-conversation-offers-its-terminal.test.tsx	is not made where there is no terminal to open	no
+apps/desktop/src/renderer/src/a-conversation-offers-its-terminal.test.tsx	names the runtime whose interface opens, says what happens there comes back, and that its permissions are not this mode	yes
+apps/desktop/src/renderer/src/a-conversation-offers-its-terminal.test.tsx	says Locust won't see it for a runtime whose sessions it does not read back (0.391)	yes
+apps/desktop/src/renderer/src/a-conversation-offers-its-terminal.test.tsx	is held while the run is going, saying until when and why	yes
+apps/desktop/src/renderer/src/a-conversation-offers-its-terminal.test.tsx	is not made where there is no terminal to open	yes
 apps/desktop/src/renderer/src/a-conversation-offers-its-terminal.test.tsx	is the code glyph, named and titled, and disabled with the reason as its title	no
-apps/desktop/src/renderer/src/a-conversation-offers-its-terminal.test.tsx	heads the ... menu, and is no longer a header button of its own (0.797: the header is a row of icons)	no
+apps/desktop/src/renderer/src/a-conversation-offers-its-terminal.test.tsx	heads the ... menu, and is no longer a header button of its own (0.797: the header is a row of icons)	yes
 apps/desktop/src/renderer/src/a-conversation-opens-beside-another.test.tsx	names whose conversation it is, and offers to open it here or close it	no
 apps/desktop/src/renderer/src/a-conversation-opens-beside-another.test.tsx	draws the conversation itself -- what was asked and what has come back so far	no
 apps/desktop/src/renderer/src/a-conversation-opens-beside-another.test.tsx	has no chat box of its own: a message goes to the conversation in the middle	no
@@ -3821,10 +3821,10 @@ apps/desktop/src/renderer/src/a-long-turn-keeps-what-it-said.test.ts	counts "at 
 apps/desktop/src/renderer/src/a-long-turn-keeps-what-it-said.test.ts	keeps its opening messages and newest live step after repeated evictions	yes
 apps/desktop/src/renderer/src/a-long-turn-keeps-what-it-said.test.ts	joins continued opening prose and preserves its omission flag across batches	yes
 apps/desktop/src/renderer/src/a-long-turn-keeps-what-it-said.test.ts	does not call a full or fragment-joined window trimmed until an event is dropped	yes
-apps/desktop/src/renderer/src/a-mac-says-cmd.test.tsx	says Cmd for the chords that take it, and Option for Alt	no
-apps/desktop/src/renderer/src/a-mac-says-cmd.test.tsx	keeps Control where the handler listens for Control alone	no
-apps/desktop/src/renderer/src/a-mac-says-cmd.test.tsx	draws the shortcuts sheet in a Mac's marks, and a PC's in its own words, a key to a cap	no
-apps/desktop/src/renderer/src/a-mac-says-cmd.test.tsx	leaves no Ctrl written into a palette hint or a button title	no
+apps/desktop/src/renderer/src/a-mac-says-cmd.test.tsx	says Cmd for the chords that take it, and Option for Alt	yes
+apps/desktop/src/renderer/src/a-mac-says-cmd.test.tsx	keeps Control where the handler listens for Control alone	yes
+apps/desktop/src/renderer/src/a-mac-says-cmd.test.tsx	draws the shortcuts sheet in a Mac's marks, and a PC's in its own words, a key to a cap	yes
+apps/desktop/src/renderer/src/a-mac-says-cmd.test.tsx	leaves no Ctrl written into a palette hint or a button title	yes
 apps/desktop/src/renderer/src/a-mac-says-menu-bar-and-log-in.test.tsx	names each machine as its own settings do	yes
 apps/desktop/src/renderer/src/a-mac-says-menu-bar-and-log-in.test.tsx	offers to keep Locust running in the menu bar, and to start it when you log in, on a Mac	yes
 apps/desktop/src/renderer/src/a-mac-says-menu-bar-and-log-in.test.tsx	names the computer by the machine, never "this PC" in the words themselves	yes
@@ -4819,7 +4819,7 @@ apps/desktop/src/renderer/src/every-colour-has-a-light-one.test.ts	draws its rea
 apps/desktop/src/renderer/src/every-face-draws-on-one-beat.test.ts	lets two clocks that started on different frames draw in the same frames, 30 a second in all	yes
 apps/desktop/src/renderer/src/every-face-draws-on-one-beat.test.ts	draws at most 30 frames a second on a 144 Hz screen too	yes
 apps/desktop/src/renderer/src/every-face-draws-on-one-beat.test.ts	starts again for a clock whose time went backwards	yes
-apps/desktop/src/renderer/src/every-limit-says-what-is-left.test.tsx	say what is left, when the runtime reported what it used	no
+apps/desktop/src/renderer/src/every-limit-says-what-is-left.test.tsx	say what is left, when the runtime reported what it used	yes
 apps/desktop/src/renderer/src/every-modal-dialog-holds-the-keyboard.test.tsx	is found where this test looks	yes
 apps/desktop/src/renderer/src/every-modal-dialog-holds-the-keyboard.test.tsx	in Your cloud computer, Escape does what the x does: stops a sign-in, and waits out the work	no
 apps/desktop/src/renderer/src/every-modal-dialog-holds-the-keyboard.test.tsx	Save the record has an x	yes
@@ -5009,7 +5009,7 @@ apps/desktop/src/renderer/src/keep-carries-the-whole-choice.test.tsx	names the m
 apps/desktop/src/renderer/src/keep-carries-the-whole-choice.test.tsx	says so when the comparison ran in Auto and the conversation does not	yes
 apps/desktop/src/renderer/src/keep-carries-the-whole-choice.test.tsx	does not apologise when the modes agree, and promises nothing when the mode is not known	yes
 apps/desktop/src/renderer/src/keep-carries-the-whole-choice.test.tsx	is what the comparison view draws	yes
-apps/desktop/src/renderer/src/keyboardShortcuts.test.ts	groups them for a person, and every row is a key the code actually handles	no
+apps/desktop/src/renderer/src/keyboardShortcuts.test.ts	groups them for a person, and every row is a key the code actually handles	yes
 apps/desktop/src/renderer/src/last-activity.test.ts	is the last event, when there is one	yes
 apps/desktop/src/renderer/src/last-activity.test.ts	falls back to when it was made, for a run that has said nothing	yes
 apps/desktop/src/renderer/src/last-activity.test.ts	never goes BACKWARDS from the creation time	yes
@@ -5047,13 +5047,13 @@ apps/desktop/src/renderer/src/managed-controls-say-who-set-them.test.tsx	leaves 
 apps/desktop/src/renderer/src/managed-controls-say-who-set-them.test.tsx	filters the picker including account-default fallbacks	no
 apps/desktop/src/renderer/src/managed-controls-say-who-set-them.test.tsx	shows the maximum monthly limit while allowing a lower personal amount	no
 apps/desktop/src/renderer/src/managed-controls-say-who-set-them.test.tsx	applies the ceiling to the mode menu, slash commands and the keyboard cycle	no
-apps/desktop/src/renderer/src/math-in-a-reply-is-drawn.test.tsx	draws each $$...$$ as a displayed equation, and loses no line	no
-apps/desktop/src/renderer/src/math-in-a-reply-is-drawn.test.tsx	draws $...$ inside a sentence as inline math	no
-apps/desktop/src/renderer/src/math-in-a-reply-is-drawn.test.tsx	leaves money as money	no
-apps/desktop/src/renderer/src/math-in-a-reply-is-drawn.test.tsx	is drawn by KaTeX, and TeX it cannot read is shown as written	no
-apps/desktop/src/renderer/src/math-in-a-reply-is-drawn.test.tsx	never makes a link out of TeX	no
-apps/desktop/src/renderer/src/math-in-a-reply-is-drawn.test.tsx	is italic, like a longer one	no
-apps/desktop/src/renderer/src/math-in-a-reply-is-drawn.test.tsx	still leaves arithmetic alone	no
+apps/desktop/src/renderer/src/math-in-a-reply-is-drawn.test.tsx	draws each $$...$$ as a displayed equation, and loses no line	yes
+apps/desktop/src/renderer/src/math-in-a-reply-is-drawn.test.tsx	draws $...$ inside a sentence as inline math	yes
+apps/desktop/src/renderer/src/math-in-a-reply-is-drawn.test.tsx	leaves money as money	yes
+apps/desktop/src/renderer/src/math-in-a-reply-is-drawn.test.tsx	is drawn by KaTeX, and TeX it cannot read is shown as written	yes
+apps/desktop/src/renderer/src/math-in-a-reply-is-drawn.test.tsx	never makes a link out of TeX	yes
+apps/desktop/src/renderer/src/math-in-a-reply-is-drawn.test.tsx	is italic, like a longer one	yes
+apps/desktop/src/renderer/src/math-in-a-reply-is-drawn.test.tsx	still leaves arithmetic alone	yes
 apps/desktop/src/renderer/src/mcp-tool-rows.test.ts	splits into the server and the tool	yes
 apps/desktop/src/renderer/src/mcp-tool-rows.test.ts	drops the transport, keeps the product	yes
 apps/desktop/src/renderer/src/mcp-tool-rows.test.ts	keeps a tool name that has underscores of its own	yes
@@ -6316,9 +6316,9 @@ apps/desktop/src/shared/a-block-in-code-is-an-example.test.ts	acts after an exam
 apps/desktop/src/shared/a-command-output-keeps-its-tail.test.ts	keeps the last 200 lines and says how many were left out	yes
 apps/desktop/src/shared/a-command-output-keeps-its-tail.test.ts	keeps the last 32 KB when one line is longer than that	yes
 apps/desktop/src/shared/a-command-output-keeps-its-tail.test.ts	leaves a short command untouched	yes
-apps/desktop/src/shared/a-command-reaches-the-next-message-once.test.ts	carries a finished command into the next message, marked as the person's, and not again	no
-apps/desktop/src/shared/a-command-reaches-the-next-message-once.test.ts	waits out a command that is still running, and says when one was stopped	no
-apps/desktop/src/shared/a-command-reaches-the-next-message-once.test.ts	leaves a message alone when there is nothing to carry	no
+apps/desktop/src/shared/a-command-reaches-the-next-message-once.test.ts	carries a finished command into the next message, marked as the person's, and not again	yes
+apps/desktop/src/shared/a-command-reaches-the-next-message-once.test.ts	waits out a command that is still running, and says when one was stopped	yes
+apps/desktop/src/shared/a-command-reaches-the-next-message-once.test.ts	leaves a message alone when there is nothing to carry	yes
 apps/desktop/src/shared/a-command-says-what-it-does-in-plain-words.test.ts	says what a push does, and that a forced one loses commits on the other end	no
 apps/desktop/src/shared/a-command-says-what-it-does-in-plain-words.test.ts	reads a chain of steps, each in turn	no
 apps/desktop/src/shared/a-command-says-what-it-does-in-plain-words.test.ts	says when it only looks, once	no
