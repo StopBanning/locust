@@ -13,6 +13,29 @@ pub fn without_at_query(text: &str) -> String {
     re.replace(text, "$1").into_owned()
 }
 
+/// Test-only tallies of the work one `file_matches` call does on this thread: how many paths it looked at, how many
+/// it lowered and folded, and how many times it compared two of them. A speed claim is checked as work, not seconds.
+#[cfg(test)]
+pub(crate) mod work {
+    use std::cell::Cell;
+    thread_local! {
+        pub(crate) static LOOKED_AT: Cell<usize> = const { Cell::new(0) };
+        pub(crate) static LOWERED: Cell<usize> = const { Cell::new(0) };
+        pub(crate) static COMPARED: Cell<usize> = const { Cell::new(0) };
+    }
+    pub(crate) fn add(counter: &'static std::thread::LocalKey<Cell<usize>>) {
+        counter.with(|c| c.set(c.get() + 1));
+    }
+    /// Zeroes the tallies, then returns (looked at, lowered, compared) after `f` runs.
+    pub(crate) fn count<R>(f: impl FnOnce() -> R) -> (R, usize, usize, usize) {
+        for c in [&LOOKED_AT, &LOWERED, &COMPARED] {
+            c.with(|c| c.set(0));
+        }
+        let r = f();
+        (r, LOOKED_AT.with(Cell::get), LOWERED.with(Cell::get), COMPARED.with(Cell::get))
+    }
+}
+
 fn base_of(path: &str) -> &str {
     path.rsplit('/').next().unwrap_or(path)
 }
@@ -60,11 +83,15 @@ pub fn file_matches(paths: &[String], query: &str, max: usize) -> Vec<String> {
     let q = folded(&query.to_lowercase().replace('\\', "/"));
     let mut ranked: Vec<(String, i32, usize, usize)> = Vec::new();
     for path in paths {
+        #[cfg(test)]
+        work::add(&work::LOOKED_AT);
         // A bare `@` ranks every path first, so nothing needs lowering or folding (50,000 paths, R16).
         if q.is_empty() {
             ranked.push((path.clone(), 0, path.split('/').count(), path.encode_utf16().count()));
             continue;
         }
+        #[cfg(test)]
+        work::add(&work::LOWERED);
         let lower = folded(&path.to_lowercase());
         let base = base_of(&lower);
         let rank = if base == q {
@@ -90,6 +117,8 @@ pub fn file_matches(paths: &[String], query: &str, max: usize) -> Vec<String> {
         }
     }
     let order = |a: &(String, i32, usize, usize), b: &(String, i32, usize, usize)| {
+        #[cfg(test)]
+        work::add(&work::COMPARED);
         a.1.cmp(&b.1).then(a.2.cmp(&b.2)).then(a.3.cmp(&b.3)).then_with(|| utf16_order(&a.0, &b.0))
     };
     // Only the first `max` are shown: put them at the front, then sort just those.

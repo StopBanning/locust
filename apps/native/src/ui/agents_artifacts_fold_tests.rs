@@ -64,27 +64,35 @@ fn window(home: &Home, answer: Arc<Mutex<Vec<Found>>>) -> rune::Runtime<State> {
     rt
 }
 
-/// Ask, then poll until the sweep and the read it starts have both landed.
+/// Ask, then poll until the sweep and the read it starts have both landed and been taken.
+///
+/// `Latest::is_pending` turns false the moment an answer lands, before `poll` takes it. The old loop polled, then
+/// checked: an agents answer that landed between the two read as "done", the loop stopped, and the artifacts read that
+/// taking it would have started was asked for after the loop and never taken (4 runs in 30 failed under `stress-ng`).
+/// Now a poll counts as the last one only if nothing was pending before it (so it took every answer there was) and
+/// nothing is pending after it (so it started no new read). Same idea as duet/runtime-setup's 438ee5d7, which polls
+/// once more after everything lands. The limit is an outer one only: the loop goes on as soon as the reads land.
 fn sweep(rt: &mut rune::Runtime<State>) {
     rt.update(|s, _| {
         invalidate();
         request(s);
     });
-    let until = Instant::now() + Duration::from_secs(10);
+    let idle = |s: &State| {
+        let p = &s.settings_panel;
+        !p.agents_job.is_pending() && !p.artifacts_job.is_pending()
+    };
+    let until = Instant::now() + Duration::from_secs(60);
     loop {
+        let nothing_out = idle(&rt.state);
         rt.update(|s, _| {
             poll(s);
         });
-        let p = &rt.state.settings_panel;
-        if !p.agents_job.is_pending() && !p.artifacts_job.is_pending() {
+        if nothing_out && idle(&rt.state) {
             break;
         }
         assert!(Instant::now() < until, "the sweep or the read never landed");
         std::thread::sleep(Duration::from_millis(5));
     }
-    rt.update(|s, _| {
-        poll(s);
-    });
     settle(rt);
 }
 
@@ -120,6 +128,9 @@ fn row_words(rt: &rune::Runtime<State>, id: &str) -> String {
 
 // case: is listed as a fact about that runtime, with no apology needed
 // case: draws nothing at all for a runtime that has none
+/// Proves: once the sweep and the artifacts read it starts have both been taken, Codex's row counts its own 3 agents
+/// and 1 automation, Claude's (signed out) its 1 agent and 1 command, Cursor's (not installed) nothing; the names stay
+/// folded until the fold is pressed, open one row only, and fold again on a second press.
 #[test]
 fn each_agent_row_carries_its_own_list_folded_with_the_count_on_the_fold() {
     let home = home();
