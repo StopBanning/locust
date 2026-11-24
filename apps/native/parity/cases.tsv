@@ -3370,6 +3370,10 @@ apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx	puts a contr
 apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx	sends the choice with the message only when it crosses runtimes	no
 apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx	says what the person left out, plainly, beside what did not fit	no
 apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx	says nothing more when nothing was left out	no
+apps/desktop/src/renderer/src/a-browser-opens-on-what-it-last-saw.test.ts	keeps each read by its call and its arguments	yes
+apps/desktop/src/renderer/src/a-browser-opens-on-what-it-last-saw.test.ts	keeps the newest when there is too much, and does not keep one too long	yes
+apps/desktop/src/renderer/src/a-browser-opens-on-what-it-last-saw.test.ts	is sealed: opened with its own key, and with no other	yes
+apps/desktop/src/renderer/src/a-browser-opens-on-what-it-last-saw.test.ts	says when it is from, with the day when it was not today	yes
 apps/desktop/src/renderer/src/a-build-starter-makes-one-page.test.ts	asks for one named .html file with everything inside it	no
 apps/desktop/src/renderer/src/a-busy-free-model-offers-the-next.test.tsx	is the next of OpenCode's free models after the one the run is on	yes
 apps/desktop/src/renderer/src/a-busy-free-model-offers-the-next.test.tsx	skips a model of the person's own, and goes round after the last	yes
