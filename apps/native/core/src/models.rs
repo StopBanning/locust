@@ -694,6 +694,10 @@ fn codex_model_list(limit: Duration) -> Option<(Value, Option<String>)> {
 /// One Codex app-server session: its `model/list` result, and what the account has used. None when the models could
 /// not be read.
 fn codex_session(mut command: Command, limit: Duration) -> Option<(Value, Option<String>)> {
+    // In its own process group, so the server is shut down whole once it has answered (model-catalog.ts's probe kills
+    // the tree: "the process group elsewhere"). A `codex` that is a launcher for the real server would otherwise leave
+    // the server running after the launcher was killed: a background process nobody asked for.
+    crate::runtime::process::own_group(&mut command);
     let mut child = command.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn().ok()?;
     let mut stdin = child.stdin.take()?;
     let stdout = child.stdout.take()?;
@@ -734,6 +738,7 @@ fn codex_session(mut command: Command, limit: Duration) -> Option<(Value, Option
             .map(|reading| format!("{reading} \u{b7} as of {}", chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true)));
         Some((models, reading))
     })();
+    crate::runtime::process::kill(child.id());
     let _ = child.kill();
     let _ = child.wait();
     result
@@ -971,3 +976,7 @@ mod muse_models_tests;
 #[cfg(test)]
 #[path = "codex_usage_is_read_with_the_models_tests.rs"]
 mod codex_usage_is_read_with_the_models_tests;
+
+#[cfg(all(test, unix))]
+#[path = "model_catalog_probe_tests.rs"]
+mod model_catalog_probe_tests;

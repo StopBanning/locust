@@ -2110,10 +2110,10 @@ apps/desktop/src/main/missions-can-be-deleted-together.test.ts	lets the row keep
 apps/desktop/src/main/model-catalog.test.ts	reads real models and their own supported efforts	yes
 apps/desktop/src/main/model-catalog.test.ts	drops a model with no id, and a hidden one	yes
 apps/desktop/src/main/model-catalog.test.ts	reports unreadable efforts as NONE rather than as all	yes
-apps/desktop/src/main/model-catalog.test.ts	survives a shape it does not recognize	no
-apps/desktop/src/main/model-catalog.test.ts	reads the list and shuts the server down again	no
-apps/desktop/src/main/model-catalog.test.ts	caches a success instead of starting a server per call	no
-apps/desktop/src/main/model-catalog.test.ts	does not cache a failure	no
+apps/desktop/src/main/model-catalog.test.ts	survives a shape it does not recognize	yes
+apps/desktop/src/main/model-catalog.test.ts	reads the list and shuts the server down again	yes
+apps/desktop/src/main/model-catalog.test.ts	caches a success instead of starting a server per call	yes
+apps/desktop/src/main/model-catalog.test.ts	does not cache a failure	yes
 apps/desktop/src/main/model-catalog.test.ts	answers a second caller from the first probe rather than starting two	yes
 apps/desktop/src/main/model-catalog.test.ts	fails soft when the runtime is not ready, without spawning anything	no
 apps/desktop/src/main/model-catalog.test.ts	expires the cache so a new release is eventually seen	no
