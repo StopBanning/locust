@@ -1645,6 +1645,13 @@ apps/desktop/src/main/claude-background-is-watched-not-run.test.ts	starts claude
 apps/desktop/src/main/claude-background-is-watched-not-run.test.ts	knows the folder must be trusted in Claude Code first	yes
 apps/desktop/src/main/claude-background-is-watched-not-run.test.ts	polls only while one of its own is live, and says one Claude Code no longer lists is over	yes
 apps/desktop/src/main/claude-background-is-watched-not-run.test.ts	keeps one poll loop when a second watch comes while a look is in flight (2026-10-10 sweep)	yes
+apps/desktop/src/main/changelog.test.ts	finds every entry, newest first, in the order the file writes them	yes
+apps/desktop/src/main/changelog.test.ts	gives an entry its body and not its heading	yes
+apps/desktop/src/main/changelog.test.ts	keeps a multi-line entry whole	yes
+apps/desktop/src/main/changelog.test.ts	reads an entry with no date	yes
+apps/desktop/src/main/changelog.test.ts	says nothing for a version the file does not carry	yes
+apps/desktop/src/main/changelog.test.ts	reads an empty or headingless file as no entries at all	yes
+apps/desktop/src/main/changelog.test.ts	is not fooled by a version-looking line inside an entry	yes
 apps/desktop/src/main/cloud-task-service.test.ts	starts on the folder's own repository and branch, and is kept	yes
 apps/desktop/src/main/cloud-task-service.test.ts	says, before it runs, what the cloud will not see	yes
 apps/desktop/src/main/cloud-task-service.test.ts	refuses a folder with no GitHub repository, and starts nothing	yes
@@ -3424,13 +3431,13 @@ apps/desktop/src/renderer/src/959-minutes-is-not-a-duration.test.ts	turns Colin'
 apps/desktop/src/renderer/src/959-minutes-is-not-a-duration.test.ts	counts days once it has been days	yes
 apps/desktop/src/renderer/src/959-minutes-is-not-a-duration.test.ts	names the day when a turn has crossed one, and not before	yes
 apps/desktop/src/renderer/src/959-minutes-is-not-a-duration.test.ts	still says how long the silence was, which was never the broken part	no
-apps/desktop/src/renderer/src/a-background-command-says-what-became-of-it.test.tsx	a Claude command row leads with what the model said it was doing	no
-apps/desktop/src/renderer/src/a-background-command-says-what-became-of-it.test.tsx	learns the work was stopped when the run ended, after the call had closed	no
-apps/desktop/src/renderer/src/a-background-command-says-what-became-of-it.test.tsx	work that finished, or failed, in the background says that	no
-apps/desktop/src/renderer/src/a-background-command-says-what-became-of-it.test.tsx	background work does not take the live line, or end it	no
-apps/desktop/src/renderer/src/a-background-command-says-what-became-of-it.test.tsx	stopped with the run: amber, and says why	no
-apps/desktop/src/renderer/src/a-background-command-says-what-became-of-it.test.tsx	still running while the run is live, and not claimed afterwards	no
-apps/desktop/src/renderer/src/a-background-command-says-what-became-of-it.test.tsx	a described row keeps the command one press away	no
+apps/desktop/src/renderer/src/a-background-command-says-what-became-of-it.test.tsx	a Claude command row leads with what the model said it was doing	yes
+apps/desktop/src/renderer/src/a-background-command-says-what-became-of-it.test.tsx	learns the work was stopped when the run ended, after the call had closed	yes
+apps/desktop/src/renderer/src/a-background-command-says-what-became-of-it.test.tsx	work that finished, or failed, in the background says that	yes
+apps/desktop/src/renderer/src/a-background-command-says-what-became-of-it.test.tsx	background work does not take the live line, or end it	yes
+apps/desktop/src/renderer/src/a-background-command-says-what-became-of-it.test.tsx	stopped with the run: amber, and says why	yes
+apps/desktop/src/renderer/src/a-background-command-says-what-became-of-it.test.tsx	still running while the run is live, and not claimed afterwards	yes
+apps/desktop/src/renderer/src/a-background-command-says-what-became-of-it.test.tsx	a described row keeps the command one press away	yes
 apps/desktop/src/renderer/src/a-background-helper-says-it-is-still-working.test.ts	works in the background, saying what it is doing, until it reports (${order})	yes
 apps/desktop/src/renderer/src/a-background-helper-says-it-is-still-working.test.ts	says it did not report when the turn ended with it still out	yes
 apps/desktop/src/renderer/src/a-bang-in-the-box-is-command-mode.test.tsx	shows command mode in the box, and Escape leaves it	yes
@@ -3457,8 +3464,8 @@ apps/desktop/src/renderer/src/a-blank-line-does-not-end-a-list.test.tsx	still st
 apps/desktop/src/renderer/src/a-blind-comparison-hides-the-names.test.tsx	names its columns Model A and Model B, and shows nothing that names the model	no
 apps/desktop/src/renderer/src/a-blind-comparison-hides-the-names.test.tsx	shows the names once one is kept	no
 apps/desktop/src/renderer/src/a-blind-comparison-hides-the-names.test.tsx	counts, per model, the decided comparisons it answered in and the ones you kept it	no
-apps/desktop/src/renderer/src/a-board-of-conversations.test.tsx	draws each column with its count, and each card with its face, title and state	no
-apps/desktop/src/renderer/src/a-board-of-conversations.test.tsx	says it is quiet, and lists what is done, when nothing needs the person (control)	no
+apps/desktop/src/renderer/src/a-board-of-conversations.test.tsx	draws each column with its count, and each card with its face, title and state	yes
+apps/desktop/src/renderer/src/a-board-of-conversations.test.tsx	says it is quiet, and lists what is done, when nothing needs the person (control)	yes
 apps/desktop/src/renderer/src/a-bots-dot-and-ring-sit-on-the-bot.test.ts	finds the painted pixels, right and bottom exclusive	yes
 apps/desktop/src/renderer/src/a-bots-dot-and-ring-sit-on-the-bot.test.ts	ignores an antialiased fringe and says nothing for an empty canvas	yes
 apps/desktop/src/renderer/src/a-bots-dot-and-ring-sit-on-the-bot.test.ts	centres the ring on the body, clear of it by RING_MARGIN on its longer side	yes
@@ -3476,7 +3483,7 @@ apps/desktop/src/renderer/src/a-browser-opens-on-what-it-last-saw.test.ts	keeps 
 apps/desktop/src/renderer/src/a-browser-opens-on-what-it-last-saw.test.ts	keeps the newest when there is too much, and does not keep one too long	yes
 apps/desktop/src/renderer/src/a-browser-opens-on-what-it-last-saw.test.ts	is sealed: opened with its own key, and with no other	yes
 apps/desktop/src/renderer/src/a-browser-opens-on-what-it-last-saw.test.ts	says when it is from, with the day when it was not today	yes
-apps/desktop/src/renderer/src/a-build-starter-makes-one-page.test.ts	asks for one named .html file with everything inside it	no
+apps/desktop/src/renderer/src/a-build-starter-makes-one-page.test.ts	asks for one named .html file with everything inside it	yes
 apps/desktop/src/renderer/src/a-busy-free-model-offers-the-next.test.tsx	is the next of OpenCode's free models after the one the run is on	yes
 apps/desktop/src/renderer/src/a-busy-free-model-offers-the-next.test.tsx	skips a model of the person's own, and goes round after the last	yes
 apps/desktop/src/renderer/src/a-busy-free-model-offers-the-next.test.tsx	is nothing for a paid route, a model of their own, another runtime, or a lone free model	yes
@@ -3513,10 +3520,10 @@ apps/desktop/src/renderer/src/a-chain-template-opens-in-the-editor.test.tsx	open
 apps/desktop/src/renderer/src/a-chain-template-opens-in-the-editor.test.tsx	replays a teammate with no route of their own on the one the box shows, changing files when the chain does	yes
 apps/desktop/src/renderer/src/a-chain-template-opens-in-the-editor.test.tsx	has nobody to propose and no route when the roster is empty (the editor then says to add a teammate first)	yes
 apps/desktop/src/renderer/src/a-chain-template-opens-in-the-editor.test.tsx	gives a Council review step to a teammate on another agent, as its template says (0.837)	yes
-apps/desktop/src/renderer/src/a-change-can-be-copied.test.tsx	gives the code as it reads after an edit: no signs, no removed lines, parts apart	no
-apps/desktop/src/renderer/src/a-change-can-be-copied.test.tsx	gives a new file whole, and nothing for a deleted one	no
-apps/desktop/src/renderer/src/a-change-can-be-copied.test.tsx	offers Copy at the foot of an opened change	no
-apps/desktop/src/renderer/src/a-change-can-be-copied.test.tsx	offers Copy on a changed file's row, beside Open and Show	no
+apps/desktop/src/renderer/src/a-change-can-be-copied.test.tsx	gives the code as it reads after an edit: no signs, no removed lines, parts apart	yes
+apps/desktop/src/renderer/src/a-change-can-be-copied.test.tsx	gives a new file whole, and nothing for a deleted one	yes
+apps/desktop/src/renderer/src/a-change-can-be-copied.test.tsx	offers Copy at the foot of an opened change	yes
+apps/desktop/src/renderer/src/a-change-can-be-copied.test.tsx	offers Copy on a changed file's row, beside Open and Show	yes
 apps/desktop/src/renderer/src/a-change-is-performed-in-order.test.ts	is one blink: the eyes shut, the new ones come in under the shut lids, they open, and only then does its state begin	yes
 apps/desktop/src/renderer/src/a-change-is-performed-in-order.test.ts	blinks once for a change of what it is doing, its eyes and their colour the same; and not at all with no change	yes
 apps/desktop/src/renderer/src/a-change-is-performed-in-order.test.ts	asked for again mid-change, goes on from where its lids are: never springing open to shut again	yes
@@ -3561,9 +3568,9 @@ apps/desktop/src/renderer/src/a-command-reads-as-a-command.test.ts	does not stri
 apps/desktop/src/renderer/src/a-command-reads-as-a-command.test.ts	only matches at the start, so a command that mentions one is safe	yes
 apps/desktop/src/renderer/src/a-command-reads-as-a-command.test.ts	keeps the whole thing when there is nothing after the wrapper	yes
 apps/desktop/src/renderer/src/a-command-reads-as-a-command.test.ts	trims, so a row never starts with whitespace	yes
-apps/desktop/src/renderer/src/a-command-says-how-long-it-took.test.ts	says how long it ran, from its start to its end	no
-apps/desktop/src/renderer/src/a-command-says-how-long-it-took.test.ts	says nothing when there is nothing true to say: instant, backgrounded, or refused	no
-apps/desktop/src/renderer/src/a-command-says-how-long-it-took.test.ts	says nothing while it is still running	no
+apps/desktop/src/renderer/src/a-command-says-how-long-it-took.test.ts	says how long it ran, from its start to its end	yes
+apps/desktop/src/renderer/src/a-command-says-how-long-it-took.test.ts	says nothing when there is nothing true to say: instant, backgrounded, or refused	yes
+apps/desktop/src/renderer/src/a-command-says-how-long-it-took.test.ts	says nothing while it is still running	yes
 apps/desktop/src/renderer/src/a-command-that-reaches-other-programs-says-so.test.tsx	says what the command reaches before it runs	yes
 apps/desktop/src/renderer/src/a-command-that-reaches-other-programs-says-so.test.tsx	has no such row for a command that acts on its own work	yes
 apps/desktop/src/renderer/src/a-command-that-reaches-other-programs-says-so.test.tsx	offers neither Always nor a saved rule, and says why	yes
@@ -3573,10 +3580,10 @@ apps/desktop/src/renderer/src/a-command-that-reaches-other-programs-says-so.test
 apps/desktop/src/renderer/src/a-command-that-reaches-other-programs-says-so.test.tsx	says what the command reached after it ran	yes
 apps/desktop/src/renderer/src/a-command-that-reaches-other-programs-says-so.test.tsx	says nothing more about a command that acts on its own work	yes
 apps/desktop/src/renderer/src/a-command-that-reaches-other-programs-says-so.test.tsx	says nothing about a command that was refused, since it never ran	yes
-apps/desktop/src/renderer/src/a-command-wraps-at-its-spaces.test.tsx	holds each flag to its dash and changes no character	no
-apps/desktop/src/renderer/src/a-command-wraps-at-its-spaces.test.tsx	leaves a dash inside a word, a lone dash and a number alone	no
-apps/desktop/src/renderer/src/a-command-wraps-at-its-spaces.test.tsx	is drawn so on the approval card, and a connector call is not	no
-apps/desktop/src/renderer/src/a-command-wraps-at-its-spaces.test.tsx	is drawn so on the Board	no
+apps/desktop/src/renderer/src/a-command-wraps-at-its-spaces.test.tsx	holds each flag to its dash and changes no character	yes
+apps/desktop/src/renderer/src/a-command-wraps-at-its-spaces.test.tsx	leaves a dash inside a word, a lone dash and a number alone	yes
+apps/desktop/src/renderer/src/a-command-wraps-at-its-spaces.test.tsx	is drawn so on the approval card, and a connector call is not	yes
+apps/desktop/src/renderer/src/a-command-wraps-at-its-spaces.test.tsx	is drawn so on the Board	yes
 apps/desktop/src/renderer/src/a-commands-card-says-unknown-once.test.tsx	are one row when Locust can tell nothing about them	yes
 apps/desktop/src/renderer/src/a-commands-card-says-unknown-once.test.tsx	stay two rows whenever either row knows something	yes
 apps/desktop/src/renderer/src/a-commands-card-says-what-it-is-for.test.tsx	says what a forced push does, under the command, in amber	yes
@@ -3637,14 +3644,14 @@ apps/desktop/src/renderer/src/a-context-menu-stays-in-the-window.test.tsx	has no
 apps/desktop/src/renderer/src/a-context-menu-stays-in-the-window.test.tsx	shows each row’s key at its end	yes
 apps/desktop/src/renderer/src/a-context-menu-stays-in-the-window.test.tsx	draws a hairline between kinds of action, and red for the one that deletes	yes
 apps/desktop/src/renderer/src/a-context-menu-stays-in-the-window.test.tsx	puts a list behind one row, and says why when it cannot open	yes
-apps/desktop/src/renderer/src/a-conversation-can-be-pinned.test.tsx	puts the pinned ones on top, newest pin first, and the rest under Recents, each once	no
-apps/desktop/src/renderer/src/a-conversation-can-be-pinned.test.tsx	looks as it did with nothing pinned	no
-apps/desktop/src/renderer/src/a-conversation-can-be-put-away.test.tsx	is out of the list while settled, or until its snooze ends	no
-apps/desktop/src/renderer/src/a-conversation-can-be-put-away.test.tsx	comes back when something new happens in it	no
-apps/desktop/src/renderer/src/a-conversation-can-be-put-away.test.tsx	on a Friday morning: an hour, this evening, tomorrow, Monday	no
-apps/desktop/src/renderer/src/a-conversation-can-be-put-away.test.tsx	leaves out an evening already here, and a Monday that is tomorrow	no
-apps/desktop/src/renderer/src/a-conversation-can-be-put-away.test.tsx	leaves a settled conversation out	no
-apps/desktop/src/renderer/src/a-conversation-can-be-put-away.test.tsx	keeps it while it is the one open, so its menu can bring it back	no
+apps/desktop/src/renderer/src/a-conversation-can-be-pinned.test.tsx	puts the pinned ones on top, newest pin first, and the rest under Recents, each once	yes
+apps/desktop/src/renderer/src/a-conversation-can-be-pinned.test.tsx	looks as it did with nothing pinned	yes
+apps/desktop/src/renderer/src/a-conversation-can-be-put-away.test.tsx	is out of the list while settled, or until its snooze ends	yes
+apps/desktop/src/renderer/src/a-conversation-can-be-put-away.test.tsx	comes back when something new happens in it	yes
+apps/desktop/src/renderer/src/a-conversation-can-be-put-away.test.tsx	on a Friday morning: an hour, this evening, tomorrow, Monday	yes
+apps/desktop/src/renderer/src/a-conversation-can-be-put-away.test.tsx	leaves out an evening already here, and a Monday that is tomorrow	yes
+apps/desktop/src/renderer/src/a-conversation-can-be-put-away.test.tsx	leaves a settled conversation out	yes
+apps/desktop/src/renderer/src/a-conversation-can-be-put-away.test.tsx	keeps it while it is the one open, so its menu can bring it back	yes
 apps/desktop/src/renderer/src/a-conversation-can-be-searched.test.ts	finds every place the words are, whatever their case	yes
 apps/desktop/src/renderer/src/a-conversation-can-be-searched.test.ts	finds words that cross a bold word or a code span, and ends inside the piece that holds the last letter	yes
 apps/desktop/src/renderer/src/a-conversation-can-be-searched.test.ts	takes what is typed as words, never as a pattern	yes
@@ -3668,12 +3675,12 @@ apps/desktop/src/renderer/src/a-conversation-offers-its-terminal.test.tsx	is hel
 apps/desktop/src/renderer/src/a-conversation-offers-its-terminal.test.tsx	is not made where there is no terminal to open	yes
 apps/desktop/src/renderer/src/a-conversation-offers-its-terminal.test.tsx	is the code glyph, named and titled, and disabled with the reason as its title	no
 apps/desktop/src/renderer/src/a-conversation-offers-its-terminal.test.tsx	heads the ... menu, and is no longer a header button of its own (0.797: the header is a row of icons)	yes
-apps/desktop/src/renderer/src/a-conversation-opens-beside-another.test.tsx	names whose conversation it is, and offers to open it here or close it	no
-apps/desktop/src/renderer/src/a-conversation-opens-beside-another.test.tsx	draws the conversation itself -- what was asked and what has come back so far	no
-apps/desktop/src/renderer/src/a-conversation-opens-beside-another.test.tsx	has no chat box of its own: a message goes to the conversation in the middle	no
-apps/desktop/src/renderer/src/a-conversation-opens-beside-another.test.tsx	is offered on a conversation's right-click menu	no
-apps/desktop/src/renderer/src/a-conversation-opens-beside-another.test.tsx	shares the file panel: an open file wins, then the conversation beside, then Review changes (0.439), then the inspector	no
-apps/desktop/src/renderer/src/a-conversation-opens-beside-another.test.tsx	never draws the conversation already in the middle a second time	no
+apps/desktop/src/renderer/src/a-conversation-opens-beside-another.test.tsx	names whose conversation it is, and offers to open it here or close it	yes
+apps/desktop/src/renderer/src/a-conversation-opens-beside-another.test.tsx	draws the conversation itself -- what was asked and what has come back so far	yes
+apps/desktop/src/renderer/src/a-conversation-opens-beside-another.test.tsx	has no chat box of its own: a message goes to the conversation in the middle	yes
+apps/desktop/src/renderer/src/a-conversation-opens-beside-another.test.tsx	is offered on a conversation's right-click menu	yes
+apps/desktop/src/renderer/src/a-conversation-opens-beside-another.test.tsx	shares the file panel: an open file wins, then the conversation beside, then Review changes (0.439), then the inspector	yes
+apps/desktop/src/renderer/src/a-conversation-opens-beside-another.test.tsx	never draws the conversation already in the middle a second time	yes
 apps/desktop/src/renderer/src/a-conversation-with-nobody-wears-its-model.test.tsx	wears its model's mark where the face goes, named	yes
 apps/desktop/src/renderer/src/a-conversation-with-nobody-wears-its-model.test.tsx	keeps the empty place for a model of your own, or a runtime not yet known	yes
 apps/desktop/src/renderer/src/a-damaged-record-says-so-in-the-thread.test.tsx	says what is missing and that the file is kept	yes

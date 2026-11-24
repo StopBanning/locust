@@ -115,6 +115,10 @@ pub(super) fn panel(s: &State, p: &Palette) -> Option<El> {
     if !s.inspector_open {
         return None;
     }
+    // Last in the file panel's order (App.tsx): an open file, the conversation beside and Review changes each come first.
+    if s.file_view.is_some() || crate::beside::beside_shown(s) || s.review.is_some() {
+        return None;
+    }
     selected_conversation(s)?;
     let reports = reports_for_state(s);
 

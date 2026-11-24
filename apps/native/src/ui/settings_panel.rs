@@ -1725,17 +1725,9 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                     .wrap()
                     .px(10.0),
             );
-            if s.home.changelog.is_empty() {
-                body = body.child(
-                    text(crate::changelog::READING.to_owned())
-                        .font(type_::LABEL)
-                        .color(p.muted)
-                        .wrap()
-                        .padding(10.0),
-                );
-            } else {
-                body = body.child(crate::home_panel::whats_new_settings(s, p));
-            }
+            // The notes are read when Settings opens (`open`), never later: a file read with no entries in it is
+            // WhatsNew.tsx's "shipped without its changelog", not "Reading what changed…" for ever.
+            body = body.child(crate::home_panel::whats_new_settings(s, p));
         }
 
         SettingsPageId::Models => {
