@@ -6580,27 +6580,27 @@ apps/desktop/src/shared/approval-data.test.ts	finds the ordinary offenders	no
 apps/desktop/src/shared/approval-data.test.ts	finds a bare URL even with no tool it knows	no
 apps/desktop/src/shared/approval-data.test.ts	finds one after a pipe or a semicolon, not just at the start	no
 apps/desktop/src/shared/approval-data.test.ts	is not fooled by a word that merely contains a tool name	yes
-apps/desktop/src/shared/approval-rules.test.ts	is allowed by an exact rule or a whole-word prefix, and nothing else	no
-apps/desktop/src/shared/approval-rules.test.ts	is denied when any simple part of it matches a deny, and deny wins over allow	no
-apps/desktop/src/shared/approval-rules.test.ts	is matched case-blind only in a Windows folder (2026-10-10 sweep)	no
-apps/desktop/src/shared/approval-rules.test.ts	is allowed when every path is inside the folder and matches	no
-apps/desktop/src/shared/approval-rules.test.ts	is never allowed outside the folder, however the path is written	no
-apps/desktop/src/shared/approval-rules.test.ts	is denied when any path matches a deny, even beside allowed ones	no
-apps/desktop/src/shared/approval-rules.test.ts	reads the folder without case on Windows	no
-apps/desktop/src/shared/approval-rules.test.ts	a rule for one teammate or one folder does not speak for another	no
-apps/desktop/src/shared/approval-rules.test.ts	a connector rule names its server, and optionally one tool	no
-apps/desktop/src/shared/approval-rules.test.ts	a question to the person is never governed	no
-apps/desktop/src/shared/approval-rules.test.ts	reads the command inside a shell wrapper, only when the whole text is exactly one	no
-apps/desktop/src/shared/approval-rules.test.ts	reads a command only when it is one	no
-apps/desktop/src/shared/approval-rules.test.ts	reads a change's files from its diff, else as each runtime names them, else not at all	no
-apps/desktop/src/shared/approval-rules.test.ts	reads a connector by its tool and server, and a question never	no
-apps/desktop/src/shared/approval-rules.test.ts	is the exact command, the exact file inside the folder, or the one connector tool, scoped	no
-apps/desktop/src/shared/approval-rules.test.ts	is nothing for what a rule could not hold exactly	no
-apps/desktop/src/shared/approval-rules.test.ts	a saved candidate allows exactly what it was made from, and no more	no
-apps/desktop/src/shared/approval-rules.test.ts	reads as what the teammate may do	no
-apps/desktop/src/shared/approval-rules.test.ts	turns Always into this once for a command that reaches other programs, and says so	no
-apps/desktop/src/shared/approval-rules.test.ts	leaves an ordinary command, a denial and a question alone	no
-apps/desktop/src/shared/approval-rules.test.ts	refuses a rule for such a command with the card's own sentence, and none for an ordinary one	no
+apps/desktop/src/shared/approval-rules.test.ts	is allowed by an exact rule or a whole-word prefix, and nothing else	yes
+apps/desktop/src/shared/approval-rules.test.ts	is denied when any simple part of it matches a deny, and deny wins over allow	yes
+apps/desktop/src/shared/approval-rules.test.ts	is matched case-blind only in a Windows folder (2026-10-10 sweep)	yes
+apps/desktop/src/shared/approval-rules.test.ts	is allowed when every path is inside the folder and matches	yes
+apps/desktop/src/shared/approval-rules.test.ts	is never allowed outside the folder, however the path is written	yes
+apps/desktop/src/shared/approval-rules.test.ts	is denied when any path matches a deny, even beside allowed ones	yes
+apps/desktop/src/shared/approval-rules.test.ts	reads the folder without case on Windows	yes
+apps/desktop/src/shared/approval-rules.test.ts	a rule for one teammate or one folder does not speak for another	yes
+apps/desktop/src/shared/approval-rules.test.ts	a connector rule names its server, and optionally one tool	yes
+apps/desktop/src/shared/approval-rules.test.ts	a question to the person is never governed	yes
+apps/desktop/src/shared/approval-rules.test.ts	reads the command inside a shell wrapper, only when the whole text is exactly one	yes
+apps/desktop/src/shared/approval-rules.test.ts	reads a command only when it is one	yes
+apps/desktop/src/shared/approval-rules.test.ts	reads a change's files from its diff, else as each runtime names them, else not at all	yes
+apps/desktop/src/shared/approval-rules.test.ts	reads a connector by its tool and server, and a question never	yes
+apps/desktop/src/shared/approval-rules.test.ts	is the exact command, the exact file inside the folder, or the one connector tool, scoped	yes
+apps/desktop/src/shared/approval-rules.test.ts	is nothing for what a rule could not hold exactly	yes
+apps/desktop/src/shared/approval-rules.test.ts	a saved candidate allows exactly what it was made from, and no more	yes
+apps/desktop/src/shared/approval-rules.test.ts	reads as what the teammate may do	yes
+apps/desktop/src/shared/approval-rules.test.ts	turns Always into this once for a command that reaches other programs, and says so	yes
+apps/desktop/src/shared/approval-rules.test.ts	leaves an ordinary command, a denial and a question alone	yes
+apps/desktop/src/shared/approval-rules.test.ts	refuses a rule for such a command with the card's own sentence, and none for an ordinary one	yes
 apps/desktop/src/shared/attachments.test.ts	draws nothing at all when nothing is attached	yes
 apps/desktop/src/shared/attachments.test.ts	names one file, and asks for it to be read	yes
 apps/desktop/src/shared/attachments.test.ts	counts them when there are several	yes

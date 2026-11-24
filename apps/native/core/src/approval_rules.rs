@@ -74,6 +74,8 @@ pub struct ApprovalRule {
 pub enum RuledAction {
     Command { command: String },
     Edit { paths: Vec<String> },
+    /// A file read: held to a `read` rule as an edit is to an `edit` rule (approval-rules.ts `'edit' | 'read'`).
+    Read { paths: Vec<String> },
     Connector { server: String, tool: String },
     Other,
 }
@@ -268,6 +270,9 @@ fn matches(rule: &ApprovalRule, action: &RuledAction, context: &RuleContext) -> 
             }
         }
         RuledAction::Edit { paths } if rule.kind == RuleKind::Edit => {
+            path_rule_matches(rule, paths, context)
+        }
+        RuledAction::Read { paths } if rule.kind == RuleKind::Read => {
             path_rule_matches(rule, paths, context)
         }
         RuledAction::Connector { server, tool } if rule.kind == RuleKind::Connector => {
@@ -515,7 +520,8 @@ pub fn rule_candidate_of(action: &RuledAction, context: &RuleContext) -> Option<
                 folder,
             })
         }
-        RuledAction::Edit { paths } => {
+        RuledAction::Edit { paths } | RuledAction::Read { paths } => {
+            let kind = if matches!(action, RuledAction::Read { .. }) { RuleKind::Read } else { RuleKind::Edit };
             let folder_path = context.folder.as_ref()?;
             if paths.len() != 1 {
                 return None;
@@ -526,7 +532,7 @@ pub fn rule_candidate_of(action: &RuledAction, context: &RuleContext) -> Option<
             }
             Some(ApprovalRuleDraft {
                 effect: RuleEffect::Allow,
-                kind: RuleKind::Edit,
+                kind,
                 pattern: relative,
                 teammate_id,
                 folder,
