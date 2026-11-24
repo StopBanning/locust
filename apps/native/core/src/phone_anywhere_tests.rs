@@ -148,6 +148,10 @@ struct RoomState {
     next_peer: u64,
     pc_auths: usize,
     push_fn: Option<Arc<dyn Fn(&str, &str) -> u16 + Send + Sync>>,
+    github_forget: Option<Arc<dyn Fn(u64, &str) + Send + Sync>>,
+    github_link: Option<(String, i64, String, String)>,
+    github_account: Option<(u64, String, String, String, String)>,
+    github_tickets: Vec<(String, i64)>,
 }
 
 impl RoomState {
@@ -165,6 +169,10 @@ impl RoomState {
             next_peer: 1,
             pc_auths: 0,
             push_fn,
+            github_forget: None,
+            github_link: None,
+            github_account: None,
+            github_tickets: Vec::new(),
         }
     }
 
@@ -313,6 +321,35 @@ impl RoomState {
             "pair-close" if matches!(role, PeerRole::Pc) => {
                 self.pairing = None;
                 self.send_done(peer_id, "pair-close", cmd_id);
+            }
+            "github-open" if matches!(role, PeerRole::Pc) => {
+                if self.github_forget.is_none() {
+                    self.send_err(peer_id, "github-off", cmd_id);
+                    return;
+                }
+                if let (Some(hash), Some(key), Some(name)) = (
+                    frame.get("hash").and_then(Value::as_str),
+                    frame.get("key").and_then(Value::as_str),
+                    frame.get("name").and_then(Value::as_str),
+                ) {
+                    self.github_link = Some((
+                        hash.to_owned(),
+                        now_ms() + 10 * 60_000,
+                        key.to_owned(),
+                        name.to_owned(),
+                    ));
+                    self.send_done(peer_id, "github-open", cmd_id);
+                }
+            }
+            "github-close" if matches!(role, PeerRole::Pc) => {
+                if let (Some(forget), Some((user, _, _, _, room))) =
+                    (&self.github_forget, self.github_account.take())
+                {
+                    forget(user, &room);
+                }
+                self.github_link = None;
+                self.github_tickets.clear();
+                self.send_done(peer_id, "github-close", cmd_id);
             }
             "reset" if matches!(role, PeerRole::Pc) => {
                 self.owner = None;
@@ -691,6 +728,25 @@ impl RoomState {
                     return;
                 }
                 let now = now_ms();
+                // Tickets are checked first and spent once, without costing the code a try.
+                self.github_tickets.retain(|(_, until)| *until > now);
+                if let Some(pos) = self
+                    .github_tickets
+                    .iter()
+                    .position(|(thash, _)| same_text(thash, &hash))
+                {
+                    self.github_tickets.remove(pos);
+                    let tag = random_text(9);
+                    if let Some(p) = self.peers.get_mut(&peer_id) {
+                        p.role = PeerRole::Pairing { tag, sent: false };
+                    }
+                    let pc = self.pc_peer_id(Some(peer_id));
+                    self.send_to(
+                        peer_id,
+                        json!({ "t": "ok", "as": "pairing", "pc": pc.is_some() }),
+                    );
+                    return;
+                }
                 let open = match &mut self.pairing {
                     Some((phash, until, tries)) if *until > now && *tries < 10 => {
                         *tries += 1;
@@ -699,7 +755,12 @@ impl RoomState {
                     _ => None,
                 };
                 let Some(phash) = open else {
-                    self.send_to(peer_id, json!({ "t": "err", "code": "pairing-closed" }));
+                    let code = if self.github_forget.is_some() {
+                        "auth"
+                    } else {
+                        "pairing-closed"
+                    };
+                    self.send_to(peer_id, json!({ "t": "err", "code": code }));
                     return;
                 };
                 if !same_text(&phash, &hash) {
@@ -814,6 +875,51 @@ impl MemoryRelay {
         Self {
             room: Arc::new(Mutex::new(RoomState::new(push_fn))),
         }
+    }
+
+    fn with_github(forget: Arc<dyn Fn(u64, &str) + Send + Sync>) -> Self {
+        let mut state = RoomState::new(None);
+        state.github_forget = Some(forget);
+        Self {
+            room: Arc::new(Mutex::new(state)),
+        }
+    }
+
+    fn github_linked(&self, room: &str, link: &str, user: u64, login: &str) -> (u16, Value) {
+        let mut st = self.room.lock().unwrap();
+        if st.github_forget.is_none() {
+            return (404, json!({ "error": "room" }));
+        }
+        let Some((lhash, until, key, name)) = st.github_link.clone() else {
+            return (410, json!({ "error": "link-gone" }));
+        };
+        if until <= now_ms() || !same_text(&lhash, &sha256_b64url(link)) {
+            return (410, json!({ "error": "link-gone" }));
+        }
+        st.github_link = None;
+        st.github_tickets.clear();
+        st.github_account = Some((user, login.to_owned(), key.clone(), name.clone(), room.to_owned()));
+        if let Some(pc_id) = st.pc_peer_id(None) {
+            st.send_to(
+                pc_id,
+                json!({ "t": "github", "account": { "user": user, "login": login } }),
+            );
+        }
+        (200, json!({ "key": key, "name": name }))
+    }
+
+    fn github_ticket(&self, user: u64) -> (u16, Value) {
+        let mut st = self.room.lock().unwrap();
+        let Some((acc_user, _, key, name, _)) = st.github_account.clone() else {
+            return (404, json!({ "error": "room" }));
+        };
+        if acc_user != user || st.github_forget.is_none() {
+            return (404, json!({ "error": "room" }));
+        }
+        let ticket = random_text(32);
+        st.github_tickets
+            .push((sha256_b64url(&ticket), now_ms() + 120_000));
+        (200, json!({ "ticket": ticket, "key": key, "name": name }))
     }
 
     fn connect_line(&self) -> Arc<MemoryLine> {
@@ -1275,6 +1381,8 @@ fn make_pc(
         hooks,
         desk,
         notes,
+        github_user: None,
+        computer_name: None,
     })
 }
 
@@ -1616,6 +1724,8 @@ fn forgets_a_called_link_when_the_phone_relay_is_turned_off_while_it_is_disconne
         hooks: None,
         desk: None,
         notes: None,
+        github_user: None,
+        computer_name: None,
     });
     pc.set_enabled(true);
     until(3_000, || pc.connected());
@@ -1659,6 +1769,8 @@ fn says_it_is_turning_off_until_the_relay_confirms_and_finishes_after_a_restart(
             hooks: None,
             desk: None,
             notes: None,
+            github_user: None,
+            computer_name: None,
         })
     };
 
@@ -2178,5 +2290,309 @@ fn holds_with_why_one_whose_conversation_is_gone_or_that_does_not_open_and_leave
         .collect();
     called.sort();
     assert_eq!(called, vec!["busy", "gone"]);
+    pc.dispose();
+}
+
+// ---- Tests (5 cases from apps/desktop/src/main/a-browser-signs-in-with-github-and-opens-locust.test.ts) -------------
+
+enum ComeInWay<'a> {
+    Secret(&'a str),
+    Ticket { ticket: &'a str, github: &'a str },
+}
+
+enum ComeInResult {
+    Refused(String),
+    Answered { device: String, said: Value },
+}
+
+fn come_in(relay: &MemoryRelay, room: &str, pc_key: &str, way: ComeInWay<'_>) -> ComeInResult {
+    let phone = new_pc_keys();
+    let device = device_id_of(&phone.public_key);
+    let keys = link_keys(&phone.private_key, pc_key, room, LinkSide::Device).unwrap();
+    let line = relay.connect_line();
+    let (tx, rx) = std::sync::mpsc::channel::<Value>();
+    struct Recv(Mutex<std::sync::mpsc::Sender<Value>>);
+    impl RelaySocketCallbacks for Recv {
+        fn on_open(&self) {}
+        fn on_message(&self, text: String) {
+            if let Ok(v) = serde_json::from_str::<Value>(&text) {
+                let _ = self.0.lock().unwrap().send(v);
+            }
+        }
+        fn on_close(&self) {}
+    }
+    line.set_callbacks(Arc::new(Recv(Mutex::new(tx))));
+    let auth_token = match way {
+        ComeInWay::Secret(secret) => pairing_token(secret),
+        ComeInWay::Ticket { ticket, .. } => ticket.to_owned(),
+    };
+    let _ = line.send(json!({ "t": "auth", "as": "pairing", "token": auth_token }).to_string());
+    let ok = rx.recv_timeout(Duration::from_secs(3)).expect("auth reply");
+    if ok.get("t").and_then(Value::as_str) != Some("ok") {
+        line.close();
+        return ComeInResult::Refused(
+            ok.get("code")
+                .and_then(Value::as_str)
+                .unwrap_or("err")
+                .to_owned(),
+        );
+    }
+    let hello = match way {
+        ComeInWay::Secret(secret) => json!({
+            "v": 1,
+            "kind": "pair",
+            "proof": pairing_proof(secret),
+            "name": "Chrome on Windows",
+        }),
+        ComeInWay::Ticket { github, .. } => json!({
+            "v": 1,
+            "kind": "signin",
+            "github": github,
+            "name": "Chrome on Windows",
+        }),
+    };
+    let boxed = seal_json(
+        &keys.seal,
+        &hello,
+        &aad_of(room, &device, Direction::DeviceToPc),
+    )
+    .unwrap();
+    let _ = line.send(
+        json!({
+            "t": "send",
+            "to": "pc",
+            "n": boxed.n,
+            "c": boxed.c,
+            "k": phone.public_key,
+        })
+        .to_string(),
+    );
+    let msg = loop {
+        let f = rx.recv_timeout(Duration::from_secs(3)).expect("pc reply");
+        if f.get("t").and_then(Value::as_str) == Some("msg") {
+            break f;
+        }
+    };
+    let said = open_json(
+        &keys.open,
+        msg["n"].as_str().unwrap(),
+        msg["c"].as_str().unwrap(),
+        &aad_of(room, &device, Direction::PcToDevice),
+    )
+    .unwrap();
+    line.close();
+    ComeInResult::Answered { device, said }
+}
+
+fn github_pc(relay: &MemoryRelay) -> (TempDir, PhoneAnywhere, Arc<Mutex<Vec<String>>>) {
+    let dir = TempDir::new("locust-github");
+    let asked: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
+    let asked_c = asked.clone();
+    let good = format!("gho_{}", "a".repeat(36));
+    let other = format!("gho_{}", "b".repeat(36));
+    let pc = PhoneAnywhere::new(PhoneAnywhereOptions {
+        directory: dir.path().clone(),
+        calls: FakeCalls::new(),
+        relay: Arc::new(|| "https://relay.test".to_owned()),
+        refusal: None,
+        changed: None,
+        connect: relay.connector(),
+        now: None,
+        protect_file: Some(Arc::new(|_| Ok(()))),
+        retry_ms: Some(Arc::new(|_| 20)),
+        away: None,
+        hooks: None,
+        desk: None,
+        notes: None,
+        github_user: Some(Arc::new(move |token: &str| {
+            asked_c.lock().unwrap().push(token.to_owned());
+            if token == good {
+                Some(42)
+            } else if token == other {
+                Some(7)
+            } else {
+                None
+            }
+        })),
+        computer_name: Some(Arc::new(|| Some("DESKTOP-1<b>".to_owned()))),
+    });
+    pc.set_enabled(true);
+    until(3_000, || pc.connected());
+    (dir, pc, asked)
+}
+
+fn tie_github(relay: &MemoryRelay, pc: &PhoneAnywhere) -> (String, String) {
+    let start = pc.github_link().expect("github_link URL");
+    assert!(
+        start.starts_with("https://relay.test/v1/github/start?"),
+        "unexpected start URL: {start}"
+    );
+    let query = start.split_once('?').unwrap().1;
+    let mut room = String::new();
+    let mut link = String::new();
+    for pair in query.split('&') {
+        if let Some((k, v)) = pair.split_once('=') {
+            if k == "room" {
+                room = v.to_owned();
+            } else if k == "link" {
+                link = v.to_owned();
+            }
+        }
+    }
+    let (status, body) = relay.github_linked(&room, &link, 42, "octo");
+    assert_eq!(status, 200);
+    assert_eq!(body["name"], json!("DESKTOP-1b"));
+    until(3_000, || pc.settings().github_login.as_deref() == Some("octo"));
+    (room, body["key"].as_str().unwrap().to_owned())
+}
+
+#[test]
+// case: lets in a browser with a ticket and the account’s own token, with the full window
+fn lets_in_a_browser_with_a_ticket_and_the_accounts_own_token_with_the_full_window() {
+    let good = format!("gho_{}", "a".repeat(36));
+    let relay = MemoryRelay::with_github(Arc::new(|_, _| {}));
+    let (_dir, pc, asked) = github_pc(&relay);
+    let (room, key) = tie_github(&relay, &pc);
+    let (status, ticket_body) = relay.github_ticket(42);
+    assert_eq!(status, 200);
+    assert_eq!(ticket_body["key"].as_str(), Some(key.as_str()));
+    let ticket = ticket_body["ticket"].as_str().unwrap().to_owned();
+
+    match come_in(&relay, &room, &key, ComeInWay::Ticket { ticket: &ticket, github: &good }) {
+        ComeInResult::Answered { device, said } => {
+            assert_eq!(said["v"], json!(1));
+            assert_eq!(said["kind"], json!("paired"));
+            assert_eq!(said["device"], json!(device));
+        }
+        ComeInResult::Refused(code) => panic!("expected paired, got refused: {code}"),
+    }
+    assert_eq!(*asked.lock().unwrap(), vec![good.clone()]);
+    until(3_000, || pc.settings().devices.len() == 1);
+    let dev = &pc.settings().devices[0];
+    assert_eq!(dev.name, "Chrome on Windows");
+    assert_eq!(dev.desk, Some(true));
+    assert!(dev.github);
+
+    // The ticket was good once: after that it is only a wrong code.
+    match come_in(&relay, &room, &key, ComeInWay::Ticket { ticket: &ticket, github: &good }) {
+        ComeInResult::Refused(code) => assert_eq!(code, "auth"),
+        ComeInResult::Answered { said, .. } => panic!("expected auth refusal, got {said}"),
+    }
+    pc.dispose();
+}
+
+#[test]
+// case: refuses another account or a token GitHub does not know, and pairs nothing
+fn refuses_another_account_or_a_token_github_does_not_know_and_pairs_nothing() {
+    let good = format!("gho_{}", "a".repeat(36));
+    let other = format!("gho_{}", "b".repeat(36));
+    let unknown = format!("gho_{}", "c".repeat(36));
+    let relay = MemoryRelay::with_github(Arc::new(|_, _| {}));
+    let (_dir, pc, _) = github_pc(&relay);
+    let (room, key) = tie_github(&relay, &pc);
+
+    let t1 = relay.github_ticket(42).1["ticket"].as_str().unwrap().to_owned();
+    match come_in(&relay, &room, &key, ComeInWay::Ticket { ticket: &t1, github: &other }) {
+        ComeInResult::Answered { said, .. } => {
+            assert_eq!(said["kind"], json!("refused"));
+            assert!(said["message"].as_str().unwrap().contains("(octo)"), "{said}");
+        }
+        ComeInResult::Refused(c) => panic!("expected sealed refusal, got {c}"),
+    }
+
+    let t2 = relay.github_ticket(42).1["ticket"].as_str().unwrap().to_owned();
+    match come_in(&relay, &room, &key, ComeInWay::Ticket { ticket: &t2, github: &unknown }) {
+        ComeInResult::Answered { said, .. } => {
+            assert_eq!(said["kind"], json!("refused"));
+            assert!(
+                said["message"]
+                    .as_str()
+                    .unwrap()
+                    .contains("could not check your account with GitHub"),
+                "{said}"
+            );
+        }
+        ComeInResult::Refused(c) => panic!("expected sealed refusal, got {c}"),
+    }
+
+    assert_eq!(relay.github_ticket(7).0, 404);
+    let fake_ticket = random_text(32);
+    match come_in(&relay, &room, &key, ComeInWay::Ticket { ticket: &fake_ticket, github: &good }) {
+        ComeInResult::Refused(code) => assert_eq!(code, "auth"),
+        ComeInResult::Answered { said, .. } => panic!("expected auth refusal, got {said}"),
+    }
+    assert!(pc.settings().devices.is_empty());
+    pc.dispose();
+}
+
+#[test]
+// case: signing out lets the account go: the relay forgets it and gives no more tickets
+fn signing_out_lets_the_account_go_the_relay_forgets_it_and_gives_no_more_tickets() {
+    let good = format!("gho_{}", "a".repeat(36));
+    let forgotten: Arc<Mutex<Vec<(u64, String)>>> = Arc::new(Mutex::new(Vec::new()));
+    let forgotten_c = forgotten.clone();
+    let relay = MemoryRelay::with_github(Arc::new(move |user, room| {
+        forgotten_c.lock().unwrap().push((user, room.to_owned()));
+    }));
+    let (_dir, pc, _) = github_pc(&relay);
+    let (room, key) = tie_github(&relay, &pc);
+    let waiting = relay.github_ticket(42).1["ticket"].as_str().unwrap().to_owned();
+
+    assert!(pc.github_sign_out().github_login.is_none());
+    assert_eq!(*forgotten.lock().unwrap(), vec![(42, room.clone())]);
+    assert_eq!(relay.github_ticket(42).0, 404);
+
+    match come_in(&relay, &room, &key, ComeInWay::Ticket { ticket: &waiting, github: &good }) {
+        ComeInResult::Refused(code) => assert_eq!(code, "auth"),
+        ComeInResult::Answered { said, .. } => panic!("expected auth refusal, got {said}"),
+    }
+    pc.dispose();
+}
+
+#[test]
+// case: Open in your browser makes a code for the full window, which a phone is not shown
+fn open_in_your_browser_makes_a_code_for_the_full_window_which_a_phone_is_not_shown() {
+    let relay = MemoryRelay::new(None);
+    let (_dir, pc, _) = github_pc(&relay);
+    let url = pc.desk_code().expect("desk_code URL");
+    assert!(url.starts_with("https://relay.test/#p=") && url.ends_with(".d"), "{url}");
+    let code = pc.settings().code.expect("desk code in settings");
+    assert_eq!(code.url, url);
+    assert!(code.desk);
+
+    let parts: Vec<&str> = url.split("#p=").nth(1).unwrap().split('.').collect();
+    let (room, pc_key, secret) = (parts[0], parts[1], parts[2]);
+    match come_in(&relay, room, pc_key, ComeInWay::Secret(secret)) {
+        ComeInResult::Answered { said, .. } => assert_eq!(said["kind"], json!("paired")),
+        ComeInResult::Refused(c) => panic!("expected paired, got {c}"),
+    }
+    until(3_000, || pc.settings().devices.len() == 1);
+    assert_eq!(pc.settings().devices[0].desk, Some(true));
+    assert!(!pc.settings().devices[0].github);
+
+    // An ordinary code pairs without the full window, as before.
+    pc.new_code();
+    let plain = pc.settings().code.expect("plain code");
+    assert!(!plain.desk);
+    let parts2: Vec<&str> = plain.url.split("#p=").nth(1).unwrap().split('.').collect();
+    match come_in(&relay, room, pc_key, ComeInWay::Secret(parts2[2])) {
+        ComeInResult::Answered { said, .. } => assert_eq!(said["kind"], json!("paired")),
+        ComeInResult::Refused(c) => panic!("expected paired, got {c}"),
+    }
+    until(3_000, || pc.settings().devices.len() == 2);
+    assert_eq!(pc.settings().devices[1].desk, None);
+    pc.dispose();
+}
+
+#[test]
+// case: a relay that does not offer GitHub says so, and nothing is opened
+fn a_relay_that_does_not_offer_github_says_so_and_nothing_is_opened() {
+    let relay = MemoryRelay::new(None);
+    let (_dir, pc, _) = github_pc(&relay);
+    assert!(pc.github_link().is_none());
+    assert_eq!(
+        pc.settings().message.as_deref(),
+        Some("Locust\u{2019}s relay does not offer signing in with GitHub yet.")
+    );
     pc.dispose();
 }

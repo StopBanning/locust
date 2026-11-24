@@ -206,6 +206,8 @@ pub struct PhoneAnywhereOptions {
     pub hooks: Option<Arc<dyn HooksCallbacks>>,
     pub desk: Option<Arc<dyn DeskCallbacks>>,
     pub notes: Option<Arc<dyn NotesCallbacks>>,
+    pub github_user: Option<Arc<dyn Fn(&str) -> Option<u64> + Send + Sync>>,
+    pub computer_name: Option<Arc<dyn Fn() -> Option<String> + Send + Sync>>,
 }
 
 // ---- Persisted state ------------------------------------------------------------------------------------------------
@@ -954,6 +956,118 @@ impl PhoneAnywhere {
         self.inner.settings_snapshot()
     }
 
+    /// Open in your browser (0.838): makes a one-time code for the full window (`desk: true`), opened at the relay.
+    pub fn desk_code(&self) -> Option<String> {
+        let made = {
+            let _guard = self.inner.serial_lock.lock().unwrap();
+            let ok = {
+                let st = self.inner.state.lock().unwrap();
+                !st.disposed && st.saved.as_ref().is_some_and(|s| !s.closing)
+            };
+            if ok {
+                self.inner.new_code_inner(true);
+            }
+            self.inner.settings_snapshot()
+        };
+        let code = made.code?;
+        if !code.desk {
+            return None;
+        }
+        let (hash, until, connected) = {
+            let st = self.inner.state.lock().unwrap();
+            let p = st.pairing.as_ref()?;
+            (p.hash.clone(), p.until, st.connected)
+        };
+        if !connected {
+            return None;
+        }
+        if self.inner.command(json!({ "t": "pair-open", "hash": hash, "until": until })) {
+            Some(code.url)
+        } else {
+            None
+        }
+    }
+
+    /// Where to send the person to tie this computer to their GitHub account, or None with why in Settings' note.
+    pub fn github_link(&self) -> Option<String> {
+        let (relay, room, public_key) = {
+            let mut st = self.inner.state.lock().unwrap();
+            if !st.connected || st.saved.as_ref().is_none_or(|s| s.closing) {
+                st.message = Some("Locust is not connected to its relay yet. Try again in a moment.".into());
+                drop(st);
+                self.inner.tell();
+                return None;
+            }
+            let held = st.saved.as_ref()?;
+            (held.relay.clone(), held.room.clone(), held.public_key.clone())
+        };
+        let link = random_text(32);
+        let name = computer_name_of(
+            self.inner
+                .options
+                .computer_name
+                .as_ref()
+                .and_then(|f| f())
+                .as_deref(),
+        );
+        let answer = self.inner.answer_of(json!({
+            "t": "github-open",
+            "hash": sha256_b64url(&link),
+            "key": public_key,
+            "name": name,
+        }));
+        match answer {
+            CommandAnswer::Ok => {
+                self.inner.state.lock().unwrap().message = None;
+                self.inner.tell();
+                Some(format!("{relay}/v1/github/start?room={room}&link={link}"))
+            }
+            CommandAnswer::Err(c) if c == "github-off" => {
+                self.inner.state.lock().unwrap().message =
+                    Some("Locust\u{2019}s relay does not offer signing in with GitHub yet.".into());
+                self.inner.tell();
+                None
+            }
+            _ => {
+                self.inner.state.lock().unwrap().message = Some(
+                    "Locust\u{2019}s relay did not answer, or does not offer signing in with GitHub yet. Try again in a moment."
+                        .into(),
+                );
+                self.inner.tell();
+                None
+            }
+        }
+    }
+
+    /// No browser signs in with GitHub any more. Browsers already let in stay paired until removed.
+    pub fn github_sign_out(&self) -> PhoneAnywhereSettings {
+        let _guard = self.inner.serial_lock.lock().unwrap();
+        let has_github = {
+            let st = self.inner.state.lock().unwrap();
+            !st.disposed && st.saved.as_ref().is_some_and(|s| s.github.is_some())
+        };
+        if !has_github {
+            return self.inner.settings_snapshot();
+        }
+        if !self.inner.command(json!({ "t": "github-close" })) {
+            self.inner.state.lock().unwrap().message = Some(
+                "Locust\u{2019}s relay did not answer. Signing in with GitHub is still on; try again in a moment."
+                    .into(),
+            );
+            return self.inner.settings_snapshot();
+        }
+        {
+            let mut st = self.inner.state.lock().unwrap();
+            if let Some(held) = st.saved.as_mut() {
+                held.github = None;
+            }
+            st.message = None;
+        }
+        let _ = self.inner.persist();
+        self.inner.tell();
+        self.inner.settings_snapshot()
+    }
+
     pub fn set_desk(&self, device: &str, on: bool) -> PhoneAnywhereSettings {
         let _guard = self.inner.serial_lock.lock().unwrap();
         let found = {
@@ -1650,6 +1764,11 @@ impl PhoneAnywhereInner {
             "notes-changed" => {
                 self.trigger_collect_notes();
             }
+            "github" => {
+                if let Some(account) = frame.get("account") {
+                    self.sync_github(account);
+                }
+            }
             "notes" => {
                 if let (Some(id), Some(items)) = (
                     frame.get("id").and_then(Value::as_str),
@@ -1822,7 +1941,12 @@ impl PhoneAnywhereInner {
         if hello.get("v").and_then(Value::as_u64) != Some(1) {
             return;
         }
-        if hello.get("kind").and_then(Value::as_str) != Some("pair") {
+        let kind = hello.get("kind").and_then(Value::as_str);
+        if kind == Some("signin") {
+            self.signed_in(from, &device, key, link, hello);
+            return;
+        }
+        if kind != Some("pair") {
             return;
         }
         let Some(proof) = hello.get("proof").and_then(Value::as_str) else {
@@ -1897,6 +2021,137 @@ impl PhoneAnywhereInner {
                 Some("The new phone could not be saved. It works until Locust closes.".into());
         }
         self.tell();
+    }
+
+    fn signed_in(
+        &self,
+        from: &str,
+        device: &str,
+        key: &str,
+        link: LinkKeys,
+        hello: &Map<String, Value>,
+    ) {
+        let refuse = |words: &str| {
+            let room = {
+                let st = self.state.lock().unwrap();
+                st.saved.as_ref().map(|s| s.room.clone())
+            };
+            if let Some(room) = room
+                && let Ok(reply) = seal_json(
+                    &link.seal,
+                    &json!({ "v": 1, "kind": "refused", "message": words }),
+                    &aad_of(&room, device, Direction::PcToDevice),
+                )
+            {
+                self.send_frame(json!({ "t": "send", "to": from, "n": reply.n, "c": reply.c }));
+            }
+        };
+        let (room, account) = {
+            let st = self.state.lock().unwrap();
+            let Some(held) = st.saved.as_ref() else {
+                return;
+            };
+            if held.closing {
+                refuse("Locust on your computer is not signed in with GitHub any more. Pair this browser with a code instead.");
+                return;
+            }
+            (held.room.clone(), held.github.clone())
+        };
+        let Some((account_user, account_login)) = account else {
+            refuse("Locust on your computer is not signed in with GitHub any more. Pair this browser with a code instead.");
+            return;
+        };
+        let Some(gh_token) = hello.get("github").and_then(Value::as_str) else {
+            return;
+        };
+        if !is_github_token(gh_token) {
+            return;
+        }
+        let github_user = self
+            .options
+            .github_user
+            .as_ref()
+            .and_then(|f| f(gh_token));
+        let Some(user) = github_user else {
+            refuse("Locust on your computer could not check your account with GitHub. Sign in again in a moment.");
+            return;
+        };
+        if user != account_user {
+            refuse(&format!(
+                "Locust on your computer is signed in with a different GitHub account ({account_login}). Sign in as that account."
+            ));
+            return;
+        }
+        let name = clean_name(hello.get("name"));
+        let token = random_text(32);
+        let allowed = self.command(json!({
+            "t": "allow",
+            "device": device,
+            "hash": sha256_b64url(&token),
+        }));
+        if !allowed {
+            refuse("Locust\u{2019}s relay did not take this browser. Sign in with GitHub again.");
+            return;
+        }
+        let Ok(reply) = seal_json(
+            &link.seal,
+            &json!({ "v": 1, "kind": "paired", "device": device, "token": token }),
+            &aad_of(&room, device, Direction::PcToDevice),
+        ) else {
+            return;
+        };
+        self.send_frame(json!({ "t": "send", "to": from, "n": reply.n, "c": reply.c }));
+        {
+            let mut st = self.state.lock().unwrap();
+            let Some(held) = st.saved.as_mut() else {
+                return;
+            };
+            held.devices.retain(|d| d.id != device);
+            let now = self.now();
+            held.devices.push(SavedDevice {
+                id: device.to_owned(),
+                name,
+                key: key.to_owned(),
+                added: now,
+                seen: Some(now),
+                seq: 0,
+                push: None,
+                desk: true,
+                desk_seen: HashMap::new(),
+                via: Some("github".into()),
+            });
+            st.keys.insert(device.to_owned(), link);
+            st.message = None;
+        }
+        let _ = self.persist();
+        self.tell();
+    }
+
+    fn sync_github(&self, value: &Value) {
+        let next = if value.as_bool() == Some(false) {
+            None
+        } else {
+            let Some(parsed) = parse_github_account(value) else {
+                return;
+            };
+            Some(parsed)
+        };
+        let changed = {
+            let mut st = self.state.lock().unwrap();
+            let Some(held) = st.saved.as_mut() else {
+                return;
+            };
+            if held.closing || held.github == next {
+                false
+            } else {
+                held.github = next;
+                true
+            }
+        };
+        if changed {
+            let _ = self.persist();
+            self.tell();
+        }
     }
 
     fn handle_device_message(&self, device: &str, n: &str, c: &str) {
@@ -2365,4 +2620,47 @@ impl PhoneAnywhereInner {
             });
         }
     }
+}
+
+fn computer_name_of(value: Option<&str>) -> String {
+    let raw = value.unwrap_or("");
+    let filtered: String = raw
+        .chars()
+        .filter(|c| {
+            c.is_alphanumeric()
+                || matches!(c, ' ' | '\'' | '.' | ',' | '(' | ')' | '_' | '-')
+        })
+        .collect();
+    let collapsed: String = filtered.split_whitespace().collect::<Vec<_>>().join(" ");
+    let clipped: String = collapsed.chars().take(60).collect();
+    if clipped.is_empty() {
+        "Computer".to_owned()
+    } else {
+        clipped
+    }
+}
+
+fn is_github_token(text: &str) -> bool {
+    (20..=255).contains(&text.len())
+        && text
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'_')
+}
+
+fn parse_github_account(value: &Value) -> Option<(u64, String)> {
+    let obj = value.as_object()?;
+    let user = obj.get("user")?.as_u64()?;
+    if user == 0 {
+        return None;
+    }
+    let login = obj.get("login")?.as_str()?;
+    let bytes = login.as_bytes();
+    if bytes.is_empty()
+        || bytes.len() > 39
+        || !bytes[0].is_ascii_alphanumeric()
+        || !bytes.iter().all(|b| b.is_ascii_alphanumeric() || *b == b'-')
+    {
+        return None;
+    }
+    Some((user, login.to_owned()))
 }

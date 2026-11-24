@@ -58,6 +58,11 @@ apps/desktop/src/main/a-brief-between-teammates-arrives-whole.test.ts	fits what 
 apps/desktop/src/main/a-browser-opens-locust-without-a-code-to-carry.test.ts	reads a GitHub ticket, Open in your browser’s code and a plain code, and keeps none in the address	yes
 apps/desktop/src/main/a-browser-opens-locust-without-a-code-to-carry.test.ts	opens with every way in: GitHub where the relay offers it, a code, and where to get Locust	yes
 apps/desktop/src/main/a-browser-opens-locust-without-a-code-to-carry.test.ts	says what GitHub’s sign-in ended in on a page with no script, every word escaped	yes
+apps/desktop/src/main/a-browser-signs-in-with-github-and-opens-locust.test.ts	lets in a browser with a ticket and the account’s own token, with the full window	yes
+apps/desktop/src/main/a-browser-signs-in-with-github-and-opens-locust.test.ts	refuses another account or a token GitHub does not know, and pairs nothing	yes
+apps/desktop/src/main/a-browser-signs-in-with-github-and-opens-locust.test.ts	signing out lets the account go: the relay forgets it and gives no more tickets	yes
+apps/desktop/src/main/a-browser-signs-in-with-github-and-opens-locust.test.ts	Open in your browser makes a code for the full window, which a phone is not shown	yes
+apps/desktop/src/main/a-browser-signs-in-with-github-and-opens-locust.test.ts	a relay that does not offer GitHub says so, and nothing is opened	yes
 apps/desktop/src/main/a-built-in-tool-is-not-a-connector.test.ts	is a command card when it is Bash	yes
 apps/desktop/src/main/a-built-in-tool-is-not-a-connector.test.ts	is a file card, named inside the folder, when it edits a file	yes
 apps/desktop/src/main/a-built-in-tool-is-not-a-connector.test.ts	is still a connector when it is one	no
