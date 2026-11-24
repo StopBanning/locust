@@ -6441,6 +6441,11 @@ apps/desktop/src/renderer/src/your-own-model-is-named-as-yours.test.tsx	is named
 apps/desktop/src/renderer/src/your-own-model-is-named-as-yours.test.tsx	reads as itself in the chat bar, with the exact route one hover away	no
 apps/desktop/src/renderer/src/your-own-models-can-judge.test.ts	offers the person’s own models that take tools, under Your models and by their own names	yes
 apps/desktop/src/renderer/src/your-own-models-can-judge.test.ts	still offers a free model first, and the catalogue before any model of the person’s own	yes
+apps/desktop/src/renderer/src/your-phone-reaches-locust-from-anywhere.test.tsx	is off until turned on, with From anywhere chosen for when it is	yes
+apps/desktop/src/renderer/src/your-phone-reaches-locust-from-anywhere.test.tsx	shows the code to pair a phone with, and says whether this computer is connected to the relay	yes
+apps/desktop/src/renderer/src/your-phone-reaches-locust-from-anywhere.test.tsx	lists each paired phone, whether it is open now, and a Remove for it	yes
+apps/desktop/src/renderer/src/your-phone-reaches-locust-from-anywhere.test.tsx	says which phones get alerts, and offers approvals in quiet hours only once one does	yes
+apps/desktop/src/renderer/src/your-phone-reaches-locust-from-anywhere.test.tsx	keeps the home-network code as it was when Only on this Wi-Fi is on	yes
 apps/desktop/src/shared/a-block-in-code-is-an-example.test.ts	sends no message	no
 apps/desktop/src/shared/a-block-in-code-is-an-example.test.ts	keeps no memory	yes
 apps/desktop/src/shared/a-block-in-code-is-an-example.test.ts	moves no task, asks nothing, hands no file	yes

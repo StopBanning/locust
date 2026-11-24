@@ -533,6 +533,10 @@ pub(super) struct State {
     pub(super) elsewhere_cover: crate::elsewhere_cover::ElsewhereCover,
     /// The sidebar list narrowed to one teammate's conversations, from that face's card (Sidebar.tsx `faceFilter`).
     pub(super) sidebar_face_filter: Option<String>,
+    /// "Your phone" From anywhere settings (PhoneAnywhereSettings).
+    pub(super) phone_anywhere: Option<locust_core::phone_anywhere::PhoneAnywhereSettings>,
+    /// When phone is off, whether the person picked "Only on this Wi-Fi" instead of "From anywhere".
+    pub(super) phone_picked_wifi: bool,
 }
 
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
@@ -806,6 +810,8 @@ impl Default for State {
             elsewhere_cover: crate::elsewhere_cover::ElsewhereCover::default(),
             sidebar_face_filter: None,
             background_runs: crate::background_runs::Panel::default(),
+            phone_anywhere: None,
+            phone_picked_wifi: false,
         }
     }
 }
