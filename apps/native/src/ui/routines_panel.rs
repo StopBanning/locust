@@ -55,6 +55,8 @@ pub(super) struct Panel {
     pub said: String,
     /// The routine whose Discard was pressed once and now asks "Discard for good?".
     pub armed: Option<String>,
+    /// The routine the Board's card opened, marked so the list brings it into view (AutomationsScreen `focusRoutineId`).
+    pub focus: Option<String>,
     pub cadence: Cadence,
     pub io: locust_core::routine_io::RoutineIO,
     pub input_rows: Vec<InputDraft>,
@@ -138,6 +140,7 @@ impl Default for Panel {
             missions: Default::default(),
             said: String::new(),
             armed: None,
+            focus: None,
             cadence: Cadence::default(),
             io: locust_core::routine_io::RoutineIO::new(),
             input_rows: Vec::new(),
@@ -894,6 +897,10 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
             }
             card = recovery_card(s, r, card, p);
             card = changes_card(s, r, card, p);
+            // The row the Board opened carries the mark that brings it into view (`data-bring-into-view`).
+            if panel.focus.as_deref() == Some(id.as_str()) {
+                card = card.child(el().size(0.0, 0.0).a11y_hidden().key("routine-bring-into-view"));
+            }
             body = body.child(card.key(format!("routine-{id}")));
         }
         // The entrance stays once there are routines (AutomationsScreen `lc-routinerow lc-routineadd`),
@@ -1398,19 +1405,75 @@ fn changes_card(s: &State, r: &Value, card: El, p: &Palette) -> El {
                             s.routines.armed = Some(discard.clone());
                         }
                     }))
-                    .child(button("Open the copy", p).key(format!("routine-open-copy-{id}")).on_press(move |s: &mut State| {
-                        let Some(engine) = &s.routines.engine else { return };
-                        match engine.host.routine_copies().path(&open) {
-                            Ok(path) => {
-                                if let Err(e) = std::process::Command::new("open").arg(path).spawn() {
-                                    s.routines.error = format!("The copy could not be opened: {e}");
-                                }
-                            }
-                            Err(e) => s.routines.error = e,
-                        }
-                    })),
+                    .child(button("Open the copy", p).key(format!("routine-open-copy-{id}")).on_press(move |s: &mut State| open_copy(s, &open))),
             ),
     )
+}
+
+/// BoardScreen.tsx's routine wait: a routine whose copy waits for Keep or Discard sits in Needs you, above the
+/// conversations, with its teammate's face, Keep, Discard (asked first) and Open the copy -- the same settle the
+/// Routines screen uses. The rest of the card opens Routines with that routine in view.
+pub(super) fn board_wait_card(s: &State, id: &str, name: &str, l: &crate::look::controls::Look) -> El {
+    use crate::look::controls::{self, Tone};
+    let mate = s.org.routines.iter().find(|r| r.id == id).and_then(|r| r.teammate.as_deref())
+        .and_then(|tid| s.teammates.iter().find(|t| t.id == tid));
+    let mut meta = row().gap(6.0).center_y();
+    if let Some(mate) = mate {
+        meta = meta.child(text(mate.name.clone()).font(type_::LABEL).color(l.c("text-secondary")));
+    }
+    meta = meta.child(text("Waiting for you").font(type_::LABEL).color(l.c("amber-text")));
+    let armed = s.routines.armed.as_deref() == Some(id);
+    let (keep, discard, copy, open) = (id.to_owned(), id.to_owned(), id.to_owned(), id.to_owned());
+    let actions = row().w_full().gap(8.0).flex_wrap()
+        .child(controls::button(l, "Keep", Tone::Active, false).role("button").label("Keep").key(format!("board-routine-keep-{id}"))
+            .on_press(move |s: &mut State| settle(s, &keep, locust_core::routine_recovery::Settle::Keep)))
+        .child(controls::ghost_button(l, if armed { "Discard for good?" } else { "Discard" }).role("button")
+            .label(if armed { "Discard for good?".to_owned() } else { format!("Discard the changes from {name}") })
+            .key(format!("board-routine-discard-{id}"))
+            .on_press(move |s: &mut State| {
+                if s.routines.armed.as_deref() == Some(discard.as_str()) {
+                    s.routines.armed = None;
+                    settle(s, &discard, locust_core::routine_recovery::Settle::Discard);
+                } else {
+                    s.routines.armed = Some(discard.clone());
+                }
+            }))
+        .child(controls::ghost_button(l, "Open the copy").role("button").label("Open the copy").key(format!("board-routine-copy-{id}"))
+            .on_press(move |s: &mut State| open_copy(s, &copy)));
+    let mut card = row().w_full().gap(12.0).padding(10.0).radius(8.0).fill(l.c("amber-tint")).border(1.0, l.c("amber-border"))
+        .key(format!("board-routine-{id}"));
+    if let Some(mate) = mate {
+        card = card.child(crate::look::faces::face(s.image_cache.as_deref(), &mate.id, &mate.name, s.looks.get(&mate.id), 26.0,
+            s.settings_panel.settings.terminal_faces, l));
+    }
+    card.child(col().grow(1.0).shrink().gap(6.0)
+            .child(text(name.to_owned()).font(type_::BODY).color(l.c("text-primary")).wrap().key(format!("board-routine-name-{id}")))
+            .child(meta)
+            .child(actions))
+        .on_press_tx(move |s: &mut State, tx| {
+            s.home.board_open = false;
+            show_routine(s, &open, tx);
+        })
+}
+
+/// Open the folder a routine's copy is in (the Routines screen's and the Board's Open the copy).
+pub(super) fn open_copy(s: &mut State, id: &str) {
+    let Some(engine) = &s.routines.engine else { return };
+    match engine.host.routine_copies().path(id) {
+        Ok(path) => {
+            if let Err(e) = std::process::Command::new("open").arg(path).spawn() {
+                s.routines.error = format!("The copy could not be opened: {e}");
+            }
+        }
+        Err(e) => s.routines.error = e,
+    }
+}
+
+/// Routines with this routine in view (App.tsx `showRoutine`): the screen opens and marks its row.
+pub(super) fn show_routine(s: &mut State, id: &str, tx: &mut Tx) {
+    open(s);
+    s.routines.focus = Some(id.to_owned());
+    tx.scroll_into_view(format!("routine-{id}"));
 }
 
 /// The runner and its host over this window's data folder, made the first time they are needed.
@@ -1509,7 +1572,7 @@ fn decide(s: &mut State, id: &str, attempt: &str, step: u64, decision: &str) {
     });
 }
 
-fn settle(s: &mut State, id: &str, decision: locust_core::routine_recovery::Settle) {
+pub(super) fn settle(s: &mut State, id: &str, decision: locust_core::routine_recovery::Settle) {
     let Some(store) = s.data.clone() else { return };
     let id = id.to_owned();
     background(s, move |e| {
@@ -2540,3 +2603,7 @@ mod way_in_stays_on_shelf_tests;
 #[cfg(test)]
 #[path = "machine_words_ui_tests.rs"]
 mod machine_words_ui_tests;
+
+#[cfg(test)]
+#[path = "routine_waiting_on_board_tests.rs"]
+mod routine_waiting_on_board_tests;

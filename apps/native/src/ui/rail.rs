@@ -534,22 +534,14 @@ pub(super) fn needs_you_items(s: &State) -> Vec<locust_core::needs_you::NeedsYou
                 .collect()
         })
         .unwrap_or_default();
+    // Each saved routine, with how many files its copy holds while it waits for Keep or Discard (App.tsx
+    // `routines.map(... staged ...)`): the file's own `routineId` and `staged`, as the Routines screen reads them.
     let routines: Vec<RoutineInput<'_>> = s
+        .org
         .routines
-        .file
-        .get("routines")
-        .and_then(|v| v.as_array())
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|r| {
-                    let id = r.get("id").and_then(|v| v.as_str())?;
-                    let name = r.get("name").and_then(|v| v.as_str()).unwrap_or("Routine");
-                    let waiting = s.routines.notices.get(id).is_some_and(|(_, w)| *w);
-                    Some(RoutineInput { routine_id: id, name, files: waiting.then_some(0) })
-                })
-                .collect()
-        })
-        .unwrap_or_default();
+        .iter()
+        .map(|r| RoutineInput { routine_id: &r.id, name: if r.name.is_empty() { "Routine" } else { &r.name }, files: r.staged_files })
+        .collect();
     let memory_waiting = s
         .people_panel
         .memories
@@ -641,8 +633,8 @@ pub(super) fn run_needs_you_action(s: &mut State, action: &str, tx: &mut Tx) -> 
         go_home(s);
         return true;
     }
-    if let Some(_routine_id) = action.strip_prefix("needs-you:routines:") {
-        crate::routines_panel::open(s);
+    if let Some(routine_id) = action.strip_prefix("needs-you:routines:") {
+        crate::routines_panel::show_routine(s, routine_id, tx);
         return true;
     }
     if let Some(mission_id) = action.strip_prefix("needs-you:conversation:") {

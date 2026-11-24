@@ -2004,7 +2004,7 @@ pub(super) mod tests {
 
     // --- 1:1 ports of `a-scout-card-that-needs-you-is-on-the-board.test.tsx` (6 cases) ---
 
-    fn board_test_state(cards: Vec<ScoutCard>, with_asking_mission: bool) -> State {
+    pub(crate) fn board_test_state(cards: Vec<ScoutCard>, with_asking_mission: bool) -> State {
         let mut s = base_state(true);
         s.scout.state.as_mut().unwrap().settings.teammate_id = Some("tm_scout".into());
         s.scout.state.as_mut().unwrap().cards = cards;
@@ -2069,7 +2069,7 @@ pub(super) mod tests {
         crate::home_panel::board_view(s, &Palette::new(false))
     }
 
-    fn board_wait_card_now(with_draft: bool) -> ScoutCard {
+    pub(crate) fn board_wait_card_now(with_draft: bool) -> ScoutCard {
         let mut card = make_card(
             "card_now",
             ScoutUrgency::Now,

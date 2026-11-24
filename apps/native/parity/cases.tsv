@@ -4271,10 +4271,10 @@ apps/desktop/src/renderer/src/a-routine-step-can-go-to-another-teammate.test.tsx
 apps/desktop/src/renderer/src/a-routine-step-can-go-to-another-teammate.test.tsx	says nothing new for a routine one teammate runs throughout	yes
 apps/desktop/src/renderer/src/a-routine-step-can-go-to-another-teammate.test.tsx	is shown as the step's own words, not the answer and rule it was given	yes
 apps/desktop/src/renderer/src/a-routine-step-can-go-to-another-teammate.test.tsx	are the step, not the answer quoted above it	yes
-apps/desktop/src/renderer/src/a-routine-waiting-for-keep-is-on-the-board.test.tsx	sits above the conversation, with Cedar’s face, and Keep, Discard and Open the copy	no
-apps/desktop/src/renderer/src/a-routine-waiting-for-keep-is-on-the-board.test.tsx	leaves the board as it was when no routine is waiting (control)	no
-apps/desktop/src/renderer/src/a-routine-waiting-for-keep-is-on-the-board.test.tsx	marks that row so Routines can bring it into view	no
-apps/desktop/src/renderer/src/a-routine-waiting-for-keep-is-on-the-board.test.tsx	is the same Keep the Routines screen already uses	no
+apps/desktop/src/renderer/src/a-routine-waiting-for-keep-is-on-the-board.test.tsx	sits above the conversation, with Cedar’s face, and Keep, Discard and Open the copy	yes
+apps/desktop/src/renderer/src/a-routine-waiting-for-keep-is-on-the-board.test.tsx	leaves the board as it was when no routine is waiting (control)	yes
+apps/desktop/src/renderer/src/a-routine-waiting-for-keep-is-on-the-board.test.tsx	marks that row so Routines can bring it into view	yes
+apps/desktop/src/renderer/src/a-routine-waiting-for-keep-is-on-the-board.test.tsx	is the same Keep the Routines screen already uses	yes
 apps/desktop/src/renderer/src/a-routine-waiting-for-your-ok-asks-plainly.test.tsx	asks with the next step in its own words and two answers, ready to press	yes
 apps/desktop/src/renderer/src/a-routine-waiting-for-your-ok-asks-plainly.test.tsx	a held routine that did not ask is still the recovery card	yes
 apps/desktop/src/renderer/src/a-routine-waiting-for-your-ok-asks-plainly.test.tsx	says waiting for your OK on the routine row	yes

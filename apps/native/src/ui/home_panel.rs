@@ -1725,14 +1725,24 @@ pub(super) fn board_view(s: &State, p: &Palette) -> El {
         to_look_at: s.home.to_look_at.clone(),
     };
     let scout_waits = crate::scout_cards::board_waiting_cards(s);
+    // Routines whose copy waits for Keep or Discard, from the same list the title bar's Waiting for you reads
+    // (App.tsx `boardWaits`), after the Scout cards.
+    let routine_waits: Vec<(String, String)> = crate::rail::needs_you_items(s)
+        .into_iter()
+        .filter_map(|item| match item {
+            locust_core::needs_you::NeedsYouItem::Routine { routine_id, name, .. } => Some((routine_id, name)),
+            _ => None,
+        })
+        .collect();
+    let waits = scout_waits.len() + routine_waits.len();
     let board = conversation_board::conversation_board_with_extra(
         &missions,
         &[],
         &HashSet::new(),
         &facts,
-        scout_waits.len(),
+        waits,
     );
-    let meta = conversation_board::board_meta_with_extra(board.as_deref(), scout_waits.len());
+    let meta = conversation_board::board_meta_with_extra(board.as_deref(), waits);
     let mut body = col().w_full().gap(10.0).padding(16.0);
     body = body.child(
         row()
@@ -1804,7 +1814,7 @@ pub(super) fn board_view(s: &State, p: &Palette) -> El {
             let l = crate::look::controls::Look::new(p.dark);
             for section in sections {
                 let section_count = if section.key == ConversationBoardKey::NeedsYou {
-                    section.members.len() + scout_waits.len()
+                    section.members.len() + waits
                 } else if quiet_count > 0 {
                     quiet_count
                 } else {
@@ -1840,6 +1850,9 @@ pub(super) fn board_view(s: &State, p: &Palette) -> El {
                 if section.key == ConversationBoardKey::NeedsYou {
                     for card in &scout_waits {
                         body = body.child(crate::scout_cards::board_wait_card(s, card, &l));
+                    }
+                    for (id, name) in &routine_waits {
+                        body = body.child(crate::routines_panel::board_wait_card(s, id, name, &l));
                     }
                 }
                 for card in section.members {
