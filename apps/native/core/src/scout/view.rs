@@ -322,11 +322,7 @@ pub fn notes_heading(count: usize) -> String {
 }
 
 pub fn tray_word(platform: &str) -> &'static str {
-    if platform == "darwin" {
-        "menu bar"
-    } else {
-        "tray"
-    }
+    crate::machine_words::machine_words(Some(platform)).tray
 }
 
 pub fn notify_setting_lede(platform: &str) -> String {

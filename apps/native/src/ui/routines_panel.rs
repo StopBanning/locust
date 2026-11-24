@@ -251,7 +251,12 @@ fn save_saved(s: &mut State, saved: locust_core::routine_draft::Saved, row_teamm
 /// "Routines run while Locust is open. Start Locust when you log in: On/Off" (AutomationsScreen.tsx), the word a
 /// button to the Startup switch in Settings, General.
 pub(super) fn login_note(s: &State, p: &Palette) -> El {
-    let log_in = if cfg!(target_os = "macos") { "log in" } else { "sign in" };
+    login_note_on(s, p, locust_core::machine_words::this_platform())
+}
+
+/// The note in the words of `platform` (Node's name): "log in" on a Mac, "sign in" elsewhere (`windowWords().logIn`).
+pub(super) fn login_note_on(s: &State, p: &Palette, platform: &str) -> El {
+    let log_in = locust_core::machine_words::machine_words(Some(platform)).log_in;
     let on = s.settings_panel.login_item.open_at_login;
     row()
         .key("routines-login-note")
@@ -2456,7 +2461,7 @@ mod routine_row_lines_tests {
             assert_eq!(text_of("routine-when-rt_1"), Some(format!("Missed, {clock} today")));
         }
         assert!(words.iter().any(|w| w == "Run now"), "{words:?}");
-        let log_in = if cfg!(target_os = "macos") { "log in" } else { "sign in" };
+        let log_in = locust_core::machine_words::this_machine().log_in;
         assert!(words.iter().any(|w| w == &format!("Routines run while Locust is open. Start Locust when you {log_in}:")), "{words:?}");
         assert!(words.iter().any(|w| w == "Off"), "{words:?}");
     }
@@ -2527,3 +2532,7 @@ mod shelf_tests;
 #[cfg(test)]
 #[path = "way_in_stays_on_shelf_tests.rs"]
 mod way_in_stays_on_shelf_tests;
+
+#[cfg(test)]
+#[path = "machine_words_ui_tests.rs"]
+mod machine_words_ui_tests;

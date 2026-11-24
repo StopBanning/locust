@@ -3790,6 +3790,11 @@ apps/desktop/src/renderer/src/a-mac-says-cmd.test.tsx	says Cmd for the chords th
 apps/desktop/src/renderer/src/a-mac-says-cmd.test.tsx	keeps Control where the handler listens for Control alone	no
 apps/desktop/src/renderer/src/a-mac-says-cmd.test.tsx	draws the shortcuts sheet in a Mac's marks, and a PC's in its own words, a key to a cap	no
 apps/desktop/src/renderer/src/a-mac-says-cmd.test.tsx	leaves no Ctrl written into a palette hint or a button title	no
+apps/desktop/src/renderer/src/a-mac-says-menu-bar-and-log-in.test.tsx	names each machine as its own settings do	yes
+apps/desktop/src/renderer/src/a-mac-says-menu-bar-and-log-in.test.tsx	offers to keep Locust running in the menu bar, and to start it when you log in, on a Mac	yes
+apps/desktop/src/renderer/src/a-mac-says-menu-bar-and-log-in.test.tsx	names the computer by the machine, never "this PC" in the words themselves	yes
+apps/desktop/src/renderer/src/a-mac-says-menu-bar-and-log-in.test.tsx	says where a saved voice key is locked on each machine	yes
+apps/desktop/src/renderer/src/a-mac-says-menu-bar-and-log-in.test.tsx	keeps Windows exactly as it was	yes
 apps/desktop/src/renderer/src/a-memory-nobody-is-given-says-so-on-screen.test.tsx	says how long	yes
 apps/desktop/src/renderer/src/a-memory-nobody-is-given-says-so-on-screen.test.tsx	says nothing for one given lately, or before a month of counting	yes
 apps/desktop/src/renderer/src/a-memory-says-when-it-may-be-out-of-date.test.tsx	says which file, under the memory	yes
