@@ -267,6 +267,20 @@ fn dropped(line: &[u8], bytes: usize) -> Piece {
 
 /// standInFor: what takes a dropped record's place for a runtime that asked: its size, its type and the calls its
 /// first 4 KB name, and none of its content.
+/// The record a line read as that is not a JSON object (claude-events.ts accept): a stand-in the normalizer says as a
+/// `claude.malformed_record` diagnostic, the line kept as scrubbed text, and the run reads on.
+pub const MALFORMED_RECORD: &str = "locust.malformed_record";
+
+/// A Claude stream-json line as the runtime hands it on: the record it parses to, or, for a line that did not parse
+/// or parsed to something other than an object, the stand-in above with the line and why.
+pub fn claude_record(raw: &str) -> serde_json::Value {
+    match serde_json::from_str::<serde_json::Value>(raw) {
+        Ok(value) if value.is_object() => value,
+        Ok(_) => serde_json::json!({"type": MALFORMED_RECORD, "line": raw, "why": "A Claude record was not an object."}),
+        Err(_) => serde_json::json!({"type": MALFORMED_RECORD, "line": raw, "why": "A Claude record could not be parsed."}),
+    }
+}
+
 pub fn stand_in(head: &str, bytes: usize) -> serde_json::Value {
     super::cursor::oversized_stand_in(head, bytes).unwrap_or_else(|| serde_json::json!({"type": "locust.oversized", "bytes": bytes, "callIds": []}))
 }

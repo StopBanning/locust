@@ -506,3 +506,7 @@ impl MuseNormalizer {
         )]
     }
 }
+
+#[cfg(test)]
+#[path = "muse_wonder_tests.rs"]
+mod muse_wonder_tests;

@@ -340,10 +340,12 @@ impl Serve {
                 self.process = Some(p);
                 break;
             }
-            let busy = {
-                let s = crate::invariants::lock(&p.stderr);
-                s.contains("database is locked") || s.contains("SQLITE_BUSY")
-            };
+            // Words that trail the exit (still in the pipe, or from a child still holding it) are read before deciding.
+            if p.exited()?.is_some() {
+                p.stderr_settled(Duration::from_secs(1));
+            }
+            let said = crate::invariants::lock(&p.stderr).trim().to_owned();
+            let busy = said.contains("database is locked") || said.contains("SQLITE_BUSY");
             if !p.stop() {
                 return Err(err(
                     "OpenCode's server did not confirm its exit; no replacement was started",
@@ -365,10 +367,16 @@ impl Serve {
                 }
                 continue;
             }
-            return Err(err(if Instant::now() >= until {
+            let sentence = if Instant::now() >= until {
                 "OpenCode's server did not say where it was listening."
             } else {
                 "OpenCode's server exited before the turn finished."
+            };
+            // The server's own last words go with it, so the person sees why (a locked database, a config it refused).
+            return Err(err(if said.is_empty() {
+                sentence.to_owned()
+            } else {
+                format!("{sentence}\n{said}")
             }));
         }
         let api = self

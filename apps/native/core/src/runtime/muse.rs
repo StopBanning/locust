@@ -100,12 +100,40 @@ pub fn command(
     effort: Option<&str>,
     resume: Option<&str>,
 ) -> io::Result<Command> {
+    command_from(launcher, folder, mode, model, effort, resume)
+}
+
+/// Where `command` finds `muse`: PATH, then npm's bin. A test puts a fake here for its own thread alone, so the engine's
+/// own `command` can be read without touching PATH, which every other test reads.
+fn launcher() -> io::Result<PathBuf> {
+    #[cfg(test)]
+    if let Some(fake) = FAKE_LAUNCHER.with(|f| f.borrow().clone()) {
+        return Ok(fake);
+    }
+    super::discovery::find_named("muse")
+}
+
+#[cfg(test)]
+thread_local! {
+    static FAKE_LAUNCHER: std::cell::RefCell<Option<PathBuf>> = const { std::cell::RefCell::new(None) };
+}
+
+/// `command`, with where the launcher is found handed in: the native turn's Muse command, refused for Approve-each
+/// before anything is looked for, then the launcher with `exec_args` in the workspace.
+pub fn command_from(
+    launcher: impl FnOnce() -> io::Result<PathBuf>,
+    folder: &Path,
+    mode: Mode,
+    model: Option<&str>,
+    effort: Option<&str>,
+    resume: Option<&str>,
+) -> io::Result<Command> {
     if mode == Mode::ApproveEach {
         return Err(err(
             "Muse does not support Approve-each in the native driver.",
         ));
     }
-    let mut c = Command::new(super::discovery::find_named("muse")?);
+    let mut c = Command::new(launcher()?);
     c.args(exec_args(folder, mode, model, effort, resume)?)
         .current_dir(folder);
     Ok(c)
@@ -372,6 +400,10 @@ pub fn prepare_prompt_file(
 }
 
 #[cfg(test)]
+#[path = "muse_prompt_tests.rs"]
+mod muse_prompt_tests;
+
+#[cfg(test)]
 mod unit_tests {
     use super::*;
     #[test]
@@ -398,6 +430,22 @@ mod unit_tests {
         assert!(args.contains(&"--disable-sandbox".into()));
         assert!(args.windows(2).any(|w| w == ["--approval-mode", "never"]));
         assert!(args.windows(2).any(|w| w == ["--reasoning-effort", "high"]));
+    }
+    /// The engine's own `command` (native.rs, run_cli.rs) carries the effort, as Electron's
+    /// the-prompt-muse-cannot-be-told.test.ts reads it: `--reasoning-effort xhigh`.
+    #[test]
+    fn the_engine_command_carries_the_effort() {
+        let fake = PathBuf::from("/fake/bin/muse");
+        FAKE_LAUNCHER.with(|f| *f.borrow_mut() = Some(fake.clone()));
+        let built = command(Path::new("/tmp/ws"), Mode::Auto, None, Some("xhigh"), None);
+        FAKE_LAUNCHER.with(|f| *f.borrow_mut() = None);
+        let built = built.unwrap();
+        assert_eq!(Path::new(built.get_program()), fake.as_path());
+        let args: Vec<String> = built.get_args().map(|a| a.to_string_lossy().into_owned()).collect();
+        assert!(
+            args.windows(2).any(|pair| pair == ["--reasoning-effort", "xhigh"]),
+            "the engine's Muse command lost the effort: {args:?}"
+        );
     }
     #[test]
     fn unknown_effort_is_refused() {
