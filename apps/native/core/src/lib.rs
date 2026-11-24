@@ -195,6 +195,8 @@ pub mod own_command;
 pub mod page_preview;
 pub mod pdf;
 pub mod people;
+#[cfg(test)]
+mod teammate_store_tests;
 pub mod phone_alerts;
 pub mod phone_anywhere;
 #[cfg(test)]
