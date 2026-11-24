@@ -3551,6 +3551,9 @@ apps/desktop/src/renderer/src/a-connector-call-is-known-to-be-one.test.ts	names 
 apps/desktop/src/renderer/src/a-connector-call-is-known-to-be-one.test.ts	still names the server when the name carries one	yes
 apps/desktop/src/renderer/src/a-connector-call-is-known-to-be-one.test.ts	leaves an ordinary tool alone	yes
 apps/desktop/src/renderer/src/a-connector-call-is-known-to-be-one.test.ts	never shows the same orb twice across the busiest transition	yes
+apps/desktop/src/renderer/src/a-connector-can-be-added-to-every-agent.test.tsx	starts as one button, and says so when no agent here can take one	yes
+apps/desktop/src/renderer/src/a-connector-can-be-added-to-every-agent.test.tsx	says what each agent did in the connector list’s own words and tones	yes
+apps/desktop/src/renderer/src/a-connector-can-be-added-to-every-agent.test.tsx	is found by the words a person types for it	yes
 apps/desktop/src/renderer/src/a-connector-says-what-to-do.test.ts	says each state in words, with what to do	yes
 apps/desktop/src/renderer/src/a-connector-says-what-to-do.test.ts	says when it last worked	yes
 apps/desktop/src/renderer/src/a-connector-says-what-to-do.test.ts	says where a connector lives only as a host, or as a program on this computer	yes

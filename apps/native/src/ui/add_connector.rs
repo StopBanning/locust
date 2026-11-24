@@ -91,6 +91,11 @@ impl Agents for Real {
 static AGENTS_IN_USE: std::sync::Mutex<Option<std::sync::Arc<dyn Agents>>> = std::sync::Mutex::new(None);
 
 /// Tests answer for the agents themselves; without that, a test never runs a real CLI (it finds none installed).
+/// One test at a time answers for the agents: the stand-in is the whole process's, so every test that sets it holds
+/// this while it runs (both test files share it).
+#[cfg(test)]
+pub(super) static ONE_AT_A_TIME: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 #[cfg(test)]
 pub(super) fn use_agents(agents: std::sync::Arc<dyn Agents>) {
     *AGENTS_IN_USE.lock().unwrap_or_else(|e| e.into_inner()) = Some(agents);
@@ -470,3 +475,7 @@ pub(super) fn added_scene(s: &mut State) {
 #[cfg(test)]
 #[path = "add_connector_tests.rs"]
 mod add_connector_tests;
+
+#[cfg(test)]
+#[path = "add_connector_every_agent_tests.rs"]
+mod add_connector_every_agent_tests;
