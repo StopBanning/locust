@@ -712,3 +712,10 @@ mod tests {
 #[cfg(test)]
 #[path = "antigravity_events_case_tests.rs"]
 mod antigravity_events_case_tests;
+
+#[cfg(test)]
+#[path = "antigravity_question_tests.rs"]
+mod antigravity_question_tests;
+#[cfg(test)]
+#[path = "antigravity_background_tests.rs"]
+mod antigravity_background_tests;

@@ -3254,3 +3254,7 @@ mod forget_hits_one_case_tests;
 #[cfg(test)]
 #[path = "memory_block_and_brief_case_tests.rs"]
 mod memory_block_and_brief_case_tests;
+
+#[cfg(test)]
+#[path = "a_teammate_name_is_its_own_tests.rs"]
+mod a_teammate_name_is_its_own_tests;
