@@ -497,7 +497,10 @@ impl Door {
     /// At start: the old connection file goes (a crashed process's token is never reused), the saved switches are read,
     /// and the door opens if it was on.
     pub fn load(&self) -> State {
-        if !self.another_door_owns_the_file() {
+        // An open door's file is its live one, not a crashed process's: a window joining the engine that serves it
+        // (`--serve-door`) loads it again, and that must not cut every app off (LIVE2 #15).
+        let open = self.listening.lock().unwrap_or_else(|e| e.into_inner()).is_some();
+        if !open && !self.another_door_owns_the_file() {
             let _ = std::fs::remove_file(self.connection_path());
         }
         // Turned off by the organization: nothing is read or opened; the screen says why.

@@ -34,6 +34,16 @@ fn a_second_launch_on_one_data_folder_finds_the_doors_engine_and_never_starts_it
     assert!(store.root().join(LOCK).exists());
     // A window launched now finds an engine answering, so `join_or_start` joins it and starts nothing.
     assert!(Client::new(store.root().join(SOCKET)).answers());
+    // The window that joins sees the door that is open, through the engine: the door `--serve-door` opened is the
+    // engine's own (adopt_door), not a second, closed one over the same file. Asking it to load changes nothing.
+    let window = Client::new(store.root().join(SOCKET));
+    let seen = crate::engine_api::EngineApi::door(&window, crate::engine_api::DoorChange::Read).unwrap();
+    assert!(seen.settings.enabled, "the joined window sees the open door: {:?}", seen.message);
+    let file_named = file.to_string_lossy().into_owned();
+    assert!(seen.claude_command.as_deref().is_some_and(|c| c.contains(&file_named)), "{:?}", seen.claude_command);
+    let loaded = crate::engine_api::EngineApi::door(&window, crate::engine_api::DoorChange::Load).unwrap();
+    assert!(loaded.settings.enabled && loaded.message.is_none(), "{:?}", loaded.message);
+    assert_eq!(file_text(&file), written, "the joined window's load leaves the open door's file alone");
     // The engine a second launch would start refuses, and so does a second `--serve-door`.
     assert_eq!(Server::start(store.root()).err().as_deref(), Some("Another Locust engine is already running."));
     assert!(serve_door_in(store.clone(), "/Applications/Locust Native.app/x").is_err());
