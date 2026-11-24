@@ -392,3 +392,101 @@ fn talk_sits_right_after_voice_typing_in_the_chat_box() {
     assert!(field < pair && pair < send);
     assert!(!composer[field..send].contains("button("));
 }
+
+struct Peer;
+impl AudioPeer for Peer {
+    fn offer(&self) -> &str {
+        "v=0"
+    }
+    fn accept(&mut self, _: &str) -> Result<(), String> {
+        Ok(())
+    }
+}
+
+/// A call in `conversation`, connected or still ringing, with its channels kept open by the returned senders.
+fn on_call(
+    s: &mut State,
+    conversation: &str,
+    connected: bool,
+) -> (mpsc::Sender<Result<String, String>>, mpsc::Sender<CallEvent>) {
+    let (started_tx, started) = mpsc::channel();
+    let (events_tx, events) = mpsc::channel();
+    s.voice.call = Some(Talk {
+        cancel: Arc::default(),
+        target: None,
+        conversation: Some(conversation.into()),
+        state: TalkState::Connected(Box::new(Peer), CallWindow { started, events }, connected),
+    });
+    (started_tx, events_tx)
+}
+
+fn sidebar_with(ids: &[&str]) -> State {
+    let mut s = State::default();
+    s.demo = true;
+    for id in ids {
+        s.recent.push(ConversationRow {
+            id: (*id).into(),
+            title: format!("Conversation {id}"),
+            teammate: "Wren".into(),
+            started_by: "native".into(),
+            state: "completed".into(),
+            updated: "2026-10-11T05:00:00.000Z".into(),
+        });
+    }
+    s
+}
+
+fn on_call_words(s: State) -> Vec<(String, String)> {
+    let mut rt = Runtime::new(
+        s,
+        |s, _| crate::sidebar::sidebar(s, &Palette::new(true)),
+        (280.0, 800.0),
+        Env::new(true, 1.0),
+    );
+    rt.frame(0.0);
+    rt.frame(16.0);
+    rt.elements()
+        .into_iter()
+        .filter(|item| !item.exiting)
+        .filter_map(|item| Some((item.key?, item.text?)))
+        .filter(|(key, _)| key.starts_with("conversation-on-call-"))
+        .collect()
+}
+
+// From a-call-shows-on-its-conversation-row.test.tsx: "on a call" on the row the call is in and no other, and never
+// while the call is only ringing.
+#[test]
+fn the_sidebar_says_on_a_call_on_the_calls_row_only() {
+    let mut s = sidebar_with(&["m_asked", "m_other"]);
+    let _held = on_call(&mut s, "m_asked", true);
+    assert_eq!(
+        on_call_words(s),
+        [("conversation-on-call-m_asked".to_owned(), "on a call".to_owned())]
+    );
+
+    let mut s = sidebar_with(&["m_asked", "m_other"]);
+    let _held = on_call(&mut s, "m_asked", false);
+    assert!(on_call_words(s).is_empty());
+
+    assert!(on_call_words(sidebar_with(&["m_asked", "m_other"])).is_empty());
+
+    // The call is keyed by where it is: held in the first turn of a row whose newest turn is another, it still marks
+    // that one row (Electron's `memberIds: ['m_typed', 'm_asked']`).
+    let mut s = sidebar_with(&["m_typed", "m_asked", "m_other"]);
+    for (id, parent, at) in [("m_typed", None, "2026-10-11T04:00:00.000Z"), ("m_asked", Some("m_typed"), "2026-10-11T05:00:00.000Z")] {
+        s.ledger_summaries.insert(
+            id.into(),
+            ledger::Summary {
+                mission_id: id.into(),
+                parent: parent.map(Into::into),
+                created_at: at.into(),
+                ..Default::default()
+            },
+        );
+    }
+    let _held = on_call(&mut s, "m_typed", true);
+    assert_eq!(
+        on_call_words(s),
+        [("conversation-on-call-m_asked".to_owned(), "on a call".to_owned())]
+    );
+}

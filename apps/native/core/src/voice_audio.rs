@@ -76,6 +76,18 @@ mod tests {
         assert!(!window_has_microphone("darwin", true, true, &["video"]));
     }
 
+    // Electron's refusal table (voice-typing-refuses-unchecked-files.test.ts): another sender, a subframe, a camera,
+    // audio with video, unknown media, and a request naming no media at all, which `all` alone would let through.
+    #[test]
+    fn refuses_other_senders_frames_and_media_and_a_request_for_none() {
+        assert!(!window_has_microphone("darwin", false, true, &["audio"]));
+        assert!(!window_has_microphone("darwin", true, false, &["audio"]));
+        assert!(!window_has_microphone("darwin", true, true, &["video"]));
+        assert!(!window_has_microphone("darwin", true, true, &["audio", "video"]));
+        assert!(!window_has_microphone("darwin", true, true, &["unknown"]));
+        assert!(!window_has_microphone("darwin", true, true, &[]));
+    }
+
     // case: allows audio only from the owned main frame
     #[test]
     fn the_own_main_frame_can_record() {
