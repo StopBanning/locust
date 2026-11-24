@@ -176,9 +176,16 @@ fn a_connector_added_through_the_form_is_kept_by_every_agent_chosen_and_each_rea
         until(rt, |s| s.connectors.add.busy.is_none() && s.connectors.add.results.is_some());
     };
     fill(&mut rt);
-    for agent in ["claude", "codex", "copilot"] {
+    // Each agent's CLI is given exactly Electron's words for it (connector-add.ts addArgs; its
+    // a-connector-goes-to-every-agent.test.ts), written out here.
+    let expected: [(&str, &[&str]); 3] = [
+        ("claude", &["mcp", "add", "--scope", "user", "rea", "--", "npx", "-y", "rea-agents@6.3.0", "mcp"]),
+        ("codex", &["mcp", "add", "rea", "--", "npx", "-y", "rea-agents@6.3.0", "mcp"]),
+        ("copilot", &["mcp", "add", "rea", "--", "npx", "-y", "rea-agents@6.3.0", "mcp"]),
+    ];
+    for (agent, words_given) in expected {
         let given = kept.has(agent, "rea").unwrap_or_else(|| panic!("{agent} was not given rea"));
-        assert!(given.join(" ").ends_with("rea -- npx -y rea-agents@6.3.0 mcp"), "{agent}: {given:?}");
+        assert_eq!(given, words_given, "{agent}");
         assert_eq!(state_of(&rt, agent).as_deref(), Some("Added"), "{agent}");
     }
     assert!(words(&rt).iter().any(|w| w == "Those agents have it from their next turn."), "{:?}", words(&rt));
@@ -191,4 +198,34 @@ fn a_connector_added_through_the_form_is_kept_by_every_agent_chosen_and_each_rea
         assert_eq!(state_of(&rt, agent).as_deref(), Some("Had one"), "{agent}");
     }
     assert_eq!(adds(&kept), before);
+}
+
+/// A web address through the same form: each agent's CLI is given exactly Electron's words for a URL connector
+/// (connector-add.ts addArgs: Claude Code `--scope user --transport http`, Codex `--url`, Copilot
+/// `--transport http`), written out here, never drawn from the Rust that builds them.
+#[test]
+fn a_web_address_added_through_the_form_reaches_each_agent_in_its_own_words() {
+    let _one = ONE_AT_A_TIME.lock().unwrap_or_else(|e| e.into_inner());
+    let (kept, mut rt) = connectors_page(vec!["claude", "codex", "copilot"]);
+    click(&mut rt, "add-connector-start");
+    click(&mut rt, "add-connector-url");
+    rt.update(|s, _| {
+        s.connectors.add.name = TextEdit::new("docs");
+        s.connectors.add.value = TextEdit::new("https://example.com/mcp");
+    });
+    settle(&mut rt);
+    assert!(words(&rt).iter().any(|w| w == "Address"), "{:?}", words(&rt));
+    assert!(words(&rt).iter().any(|w| w == "Add to 3 agents"), "{:?}", words(&rt));
+    click(&mut rt, "add-connector-add");
+    until(&mut rt, |s| s.connectors.add.busy.is_none() && s.connectors.add.results.is_some());
+    let expected: [(&str, &[&str]); 3] = [
+        ("claude", &["mcp", "add", "--scope", "user", "--transport", "http", "docs", "https://example.com/mcp"]),
+        ("codex", &["mcp", "add", "docs", "--url", "https://example.com/mcp"]),
+        ("copilot", &["mcp", "add", "--transport", "http", "docs", "https://example.com/mcp"]),
+    ];
+    for (agent, words_given) in expected {
+        let given = kept.has(agent, "docs").unwrap_or_else(|| panic!("{agent} was not given docs"));
+        assert_eq!(given, words_given, "{agent}");
+        assert_eq!(state_of(&rt, agent).as_deref(), Some("Added"), "{agent}");
+    }
 }
