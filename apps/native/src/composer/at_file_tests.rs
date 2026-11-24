@@ -76,13 +76,18 @@ fn finds_a_file_past_the_old_5000_cap_first() {
     assert_eq!(matches(&very_large(), "commands.ts")[0], "packages/runtime-adapters/src/commands.ts");
 }
 
+/// Was a 250 ms wall-clock limit, which a busy machine broke on unchanged code. What made it fast is the work it
+/// skips, so that is what is checked: a bare `@` looks at each path once, lowers and folds none of them, and finds the
+/// first eight with a bounded selection: about 2.4 comparisons a path today (119,704), under a ceiling of 4, where
+/// sorting all 50,001 takes 740,160 (about 15 a path; both counted with the same comparator on this list).
 #[test]
 fn answers_a_bare_at_over_50000_paths_in_well_under_a_keystroke() {
     let many = very_large();
-    let started = std::time::Instant::now();
-    assert_eq!(matches(&many, "").len(), 8);
-    let took = started.elapsed();
-    assert!(took < std::time::Duration::from_millis(250), "{took:?}");
+    let (shown, looked_at, lowered, compared) = super::work::count(|| matches(&many, ""));
+    assert_eq!(shown.len(), 8);
+    assert_eq!(looked_at, many.len(), "each path is looked at exactly once");
+    assert_eq!(lowered, 0, "a bare @ lowers and folds no path");
+    assert!(compared < 4 * many.len(), "{compared} comparisons for {} paths: the eight shown are selected, not every path sorted", many.len());
 }
 
 #[test]

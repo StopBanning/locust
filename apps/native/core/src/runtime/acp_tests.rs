@@ -100,7 +100,14 @@ fn run(scenario: &str) {
     let start = rt.start(&turn);
     start.unwrap();
     if scenario == "flood" {
-        std::thread::sleep(Duration::from_millis(200));
+        // Read nothing until the reader has either seen the prompt's answer or given up on a full queue. The fake
+        // writes 25,000 records before that answer and the queue holds 20,000, so with nobody reading it must fill.
+        // This was a 200 ms sleep: on a busy machine the fake had not finished writing by then, the loop below
+        // started reading, kept the queue from filling, and the run completed instead of failing closed.
+        crate::load_waits::wait_for("the ACP reader to see the answer or overflow its queue", || {
+            rt.answered.load(Ordering::Relaxed) || crate::invariants::lock(&rt.failure).is_some()
+        });
+        assert!(!rt.answered.load(Ordering::Relaxed), "the reader saw the prompt's answer past 25,000 unread records");
     }
     if scenario == "steer" {
         assert!(rt.steer("One more sentence."));
@@ -108,7 +115,8 @@ fn run(scenario: &str) {
     if scenario == "stop" {
         rt.stop().unwrap();
     }
-    let deadline = Instant::now() + Duration::from_secs(10);
+    // An outer limit only (load_waits): the loop goes on the moment the terminal event comes.
+    let deadline = Instant::now() + crate::load_waits::UNDER_LOAD;
     let mut events = vec![];
     loop {
         assert!(Instant::now() < deadline, "ACP fake timed out: {scenario}");
@@ -151,6 +159,11 @@ fn run(scenario: &str) {
         "completed"
     };
     assert_eq!(events.last().unwrap().kind, format!("run.{phase}"));
+    if scenario == "flood" {
+        let terminal = &events.last().unwrap().payload;
+        assert_eq!(terminal["message"], "ACP notification queue overflow; run stopped", "{terminal}");
+        assert_eq!(terminal["process"]["outputLimitExceeded"], true, "{terminal}");
+    }
     assert_eq!(
         std::fs::read_to_string(store.electron().join("sentinel")).unwrap(),
         "untouched"
@@ -443,6 +456,9 @@ fn acp_stderr_quota_classifies_transport_exit() {
 fn acp_oversize_fails_closed() {
     run("oversize");
 }
+/// Proves: 25,000 records the engine has not read, over a 20,000-record queue, stop the run as failed with the
+/// overflow reason and the output-limit flag, and the ledger stays clean. The engine reads nothing until the reader has
+/// overflowed (an event, not a 200 ms sleep), so how fast the fake writes no longer decides the outcome.
 #[test]
 fn acp_queue_overflow_fails_closed() {
     run("flood");

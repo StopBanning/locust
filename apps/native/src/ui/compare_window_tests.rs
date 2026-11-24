@@ -211,18 +211,57 @@ fn blind_comparison_hides_names_until_a_pick_then_shows_them() {
     assert!(col0_after.contains("Kept"), "expected Kept badge: {col0_after}");
 }
 
+/// Proves: with two answered columns on screen and three judges' verdicts in their ledgers (two keep A, one keeps B),
+/// column A wears the judges' pick, and the judge section says all three scored every point and gives the first
+/// judge's reason. The columns' answers are written to their ledgers as the judges' are, rather than run through two
+/// fake app servers: waiting on those processes was a 60 s wall-clock race on a busy machine, and how a column comes
+/// to answer is `compare_of_two_models_shows_two_columns_each_answering`'s to prove, not this test's.
 #[test]
 fn three_judges_score_the_answers_and_their_pick_is_marked() {
     let (_dirs, store, mut rt) = window();
-    let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "success"));
 
     click(&mut rt, "compare-mode-chip");
     click(&mut rt, "compare-mode-compare");
-    type_and_send(&mut rt, "Synthetic prompt");
-    pump(&mut rt, "both columns to answer", all_slots_answered);
+
+    let ledger_dir = store.ledger_dir().unwrap();
+    std::fs::create_dir_all(&ledger_dir).unwrap();
+    let cmp_store = locust_core::compare::CompareStore::from_store(&store).unwrap();
+    let cmp = cmp_store
+        .create(locust_core::compare::CreateCompareInput {
+            teammate_id: Some("tm_codec".into()),
+            prompt: "Synthetic prompt".into(),
+            routes: vec![
+                locust_core::compare::CompareRoute::new("codex", "synthetic-model"),
+                locust_core::compare::CompareRoute::new("codex", "synthetic-model"),
+            ],
+            changes: false,
+            changes_in: None,
+            blind: false,
+            base: None,
+            rerun_of: None,
+        })
+        .unwrap();
+    for (slot, mid, text) in [
+        (locust_core::compare::CompareSlotId::A, "m_judged_a", "Answer A handles every error."),
+        (locust_core::compare::CompareSlotId::B, "m_judged_b", "Answer B is shorter."),
+    ] {
+        let l1 = json!({"schemaVersion":27,"recordType":"mission.created","metadata":{"missionId":mid,"teammateId":"tm_codec","runtime":"codex","model":"synthetic-model","prompt":"Synthetic prompt","createdAt":"2026-04-12T09:00:00.000Z"}});
+        let l2 = json!({"schemaVersion":27,"recordType":"mission.event","event":{"sequence":1,"occurredAt":"2026-04-12T09:00:01.000Z","type":"message.delta","payload":{"itemId":"m1","text":text,"operation":"replace","final":true}}});
+        let l3 = json!({"schemaVersion":27,"recordType":"mission.event","event":{"sequence":2,"occurredAt":"2026-04-12T09:00:02.000Z","type":"run.completed","payload":{}}});
+        std::fs::write(ledger_dir.join(format!("{mid}.jsonl")), format!("{l1}\n{l2}\n{l3}\n")).unwrap();
+        cmp_store.add_turn(&cmp.compare_id, slot, mid).unwrap();
+    }
+    let cid = cmp.compare_id.clone();
+    rt.update(|s, tx| {
+        s.compare.active_id = Some(cid.clone());
+        crate::compare_view::reload_compares(s);
+        poll(s, 1.0, tx);
+    });
+    settle(&mut rt);
+    assert!(all_slots_answered(&rt.state), "both columns should read as answered from their ledgers");
 
     click(&mut rt, "compare-judge-three-toggle");
-    let cid = rt.state.compare.active_id.clone().unwrap();
+    assert!(rt.state.compare.three_judges, "the toggle should ask for three judges");
 
     let mut j_ids = Vec::new();
     for (idx, body) in [
