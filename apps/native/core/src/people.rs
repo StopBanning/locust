@@ -1018,6 +1018,7 @@ pub fn remove_teammate(store: &Store, who: &str) -> Result<(), String> {
     // Its keys go with it (teammate-keys.ts forget). None kept: no keychain is asked.
     crate::teammate_keys::for_store(store).forget(who);
     let _ = crate::room_store::remove_teammate(store, who);
+    let _ = crate::routines::remove_for_teammate(store, who);
     Ok(())
 }
 pub fn settings(store: &Store, note: &str, suggestions: Option<Vec<Value>>) -> Result<(), String> {

@@ -6,6 +6,9 @@ pub mod progress;
 pub mod schedule;
 static WRITES: Mutex<()> = Mutex::new(());
 pub const UNREADABLE: &str = "ROUTINES_UNREADABLE";
+pub const MAX_ROUTINES: usize = 64;
+pub const MAX_STEPS: usize = 12;
+const MAX_STEP_LENGTH: usize = 20_000;
 fn now() -> String {
     chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
 }
@@ -13,6 +16,60 @@ fn control(s: &str, multiline: bool) -> bool {
     s.chars().any(|c| {
         (c <= '\u{1f}' || c == '\u{7f}') && !(multiline && (c == '\n' || c == '\t' || c == '\r'))
     })
+}
+/// routine-store.ts `validRoutineName`: one line of printable text, 1..=80 UTF-16 units.
+pub fn valid_name(v: &Value) -> bool {
+    v.as_str().is_some_and(|s| {
+        let t = s.trim();
+        let n = t.encode_utf16().count();
+        n > 0 && n <= 80 && !control(t, false)
+    })
+}
+/// routine-store.ts `validSteps`: 1..=12 non-empty steps, newlines/tabs allowed, no control bytes, <= 20,000 UTF-16 units.
+pub fn valid_steps(v: &Value) -> bool {
+    v.as_array().is_some_and(|steps| {
+        !steps.is_empty()
+            && steps.len() <= MAX_STEPS
+            && steps.iter().all(|s| {
+                s.as_str().is_some_and(|s| {
+                    !s.trim().is_empty()
+                        && s.encode_utf16().count() <= MAX_STEP_LENGTH
+                        && !control(s, true)
+                })
+            })
+    })
+}
+/// routine-store.ts `validWorkspaceId`: `ws_` followed by 1..=64 lowercase alphanumeric chars.
+pub fn valid_workspace_id(v: &Value) -> bool {
+    v.as_str().is_some_and(|s| {
+        s.strip_prefix("ws_").is_some_and(|rest| {
+            (1..=64).contains(&rest.len())
+                && rest.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
+        })
+    })
+}
+/// routine-store.ts `parsedFile`: unreadable on corrupt JSON or foreign schema; drops malformed/duplicate routines.
+pub fn parsed_file(text: &str) -> Result<Value, String> {
+    let value: Value = serde_json::from_str(text).map_err(|_| UNREADABLE.to_string())?;
+    if !value.is_object() || value["schemaVersion"] != 1 || !value["routines"].is_array() {
+        return Err(UNREADABLE.into());
+    }
+    let mut kept = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    for entry in value["routines"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .take(MAX_ROUTINES)
+    {
+        if let Some(clean) = progress::parsed(entry)
+            && let Some(id) = clean["routineId"].as_str()
+            && seen.insert(id.to_owned())
+        {
+            kept.push(clean);
+        }
+    }
+    Ok(json!({"schemaVersion": 1, "routines": kept}))
 }
 pub fn list(store: &Store) -> Result<Value, String> {
     let value = store
@@ -31,22 +88,16 @@ pub fn awaits_review(r: &Value) -> bool {
 pub fn save(store: &Store, mut r: Value) -> Result<(), String> {
     let _guard = WRITES.lock().map_err(|e| e.to_string())?;
     let name = r["name"].as_str().unwrap_or("").trim();
-    if name.is_empty() || name.encode_utf16().count() > 80 || control(name, false) {
+    if !valid_name(&r["name"]) {
         return Err("Routine name is invalid".into());
     }
     r["name"] = json!(name);
+    if !valid_steps(&r["steps"]) {
+        return Err("Routine steps are invalid: 1 to 12 non-empty steps".into());
+    }
     let steps = r["steps"]
         .as_array()
         .ok_or("Routine steps are invalid: 1 to 12 non-empty steps")?;
-    if steps.is_empty()
-        || steps.len() > 12
-        || steps.iter().any(|s| {
-            s.as_str()
-                .is_none_or(|s| s.trim().is_empty() || control(s, true))
-        })
-    {
-        return Err("Routine steps are invalid: 1 to 12 non-empty steps".into());
-    }
     for (i, step) in steps.iter().enumerate() {
         let n = step.as_str().unwrap_or("").encode_utf16().count();
         if n > 8000 {
@@ -150,9 +201,16 @@ pub fn save(store: &Store, mut r: Value) -> Result<(), String> {
         if let Some(m) = r.get("mode") {
             held.entry("route").or_insert_with(|| json!({}))["mode"] = m.clone();
         }
+    } else if r.get("routineId").and_then(Value::as_str).is_some_and(|s| !s.is_empty()) {
+        return Err("Routine not found".into());
     } else {
-        if rows.len() >= 64 {
+        if rows.len() >= MAX_ROUTINES {
             return Err("Too many routines".into());
+        }
+        if let Some(route) = r.get("route").filter(|v| !v.is_null())
+            && !crate::people::is_teammate_route(route)
+        {
+            return Err("Routine route is invalid".into());
         }
         if r.get("inputs").is_none()
             && let Some(refusal) =
@@ -167,15 +225,33 @@ pub fn save(store: &Store, mut r: Value) -> Result<(), String> {
         } else if let Some(o) = r.as_object_mut() {
             o.remove("inputs");
         }
+        if !progress::safe_id(&r["teammateId"]) {
+            return Err("Teammate id is invalid".into());
+        }
         let team = crate::people::team(store)?;
         let owner = team["teammates"]
             .as_array()
             .and_then(|ts| ts.iter().find(|t| t["teammateId"] == r["teammateId"]))
             .ok_or("Teammate id is invalid")?;
-        let teammate=crate::native::parse_roster(&team.to_string())?.into_iter().find(|t|r["teammateId"]==t.id).ok_or("Teammate id is invalid")?;
-        let folder=crate::native::folder_for(&teammate,store.electron())?;
-        r["workspaceId"]=json!(crate::people::workspace_id(&folder));
-        r["route"] = owner["route"].clone();
+        let teammate = crate::native::parse_roster(&team.to_string())?
+            .into_iter()
+            .find(|t| r["teammateId"] == t.id)
+            .ok_or("Teammate id is invalid")?;
+        match r.get("workspaceId").cloned() {
+            Some(ws) if valid_workspace_id(&ws) => {}
+            Some(_) => {
+                if let Some(o) = r.as_object_mut() {
+                    o.remove("workspaceId");
+                }
+            }
+            None => {
+                let folder = crate::native::folder_for(&teammate, store.electron())?;
+                r["workspaceId"] = json!(crate::people::workspace_id(&folder));
+            }
+        }
+        if r.get("route").is_none_or(Value::is_null) {
+            r["route"] = owner["route"].clone();
+        }
         r["routineId"] = json!(format!(
             "rt_{}",
             crate::native::uuid_v4()
@@ -245,6 +321,21 @@ pub fn remove(store: &Store, id: &str) -> Result<(), String> {
     rows.retain(|r| r["routineId"] != id);
     store.save_json("routines.json", &file)
 }
+/// Drop every routine of a teammate who is gone, and only theirs (routine-store.ts `removeForTeammate`).
+pub fn remove_for_teammate(store: &Store, teammate_id: &str) -> Result<(), String> {
+    if !progress::safe_id(&json!(teammate_id)) {
+        return Err("Teammate id is invalid".into());
+    }
+    let _guard = WRITES.lock().map_err(|e| e.to_string())?;
+    let mut file = list(store)?;
+    let rows = file["routines"].as_array_mut().ok_or(UNREADABLE)?;
+    let before = rows.len();
+    rows.retain(|r| r["teammateId"] != teammate_id);
+    if rows.len() != before {
+        store.save_json("routines.json", &file)?;
+    }
+    Ok(())
+}
 fn mutate(
     store: &Store,
     id: &str,
@@ -282,6 +373,9 @@ mod tests;
 #[cfg(test)]
 #[path = "routines/removing_and_long_steps_tests.rs"]
 mod removing_and_long_steps_tests;
+#[cfg(test)]
+#[path = "routines/routine_store_tests.rs"]
+mod routine_store_tests;
 /// Abandon a held attempt and remove its schedule. Never retries work.
 pub fn acknowledge(store: &Store, id: &str, attempt: &str) -> Result<(), String> {
     mutate(store, id, |r| {

@@ -2592,19 +2592,19 @@ apps/desktop/src/main/routine-runner.test.ts	tells the window, names the routine
 apps/desktop/src/main/routine-runner.test.ts	says it once per attempt, not once per tick, because the hold-off holds	no
 apps/desktop/src/main/routine-runner.test.ts	stops there instead of starting the next step	yes
 apps/desktop/src/main/routine-runner.test.ts	still advances when the step asked nothing	yes
-apps/desktop/src/main/routine-store.test.ts	a name is one line of printable text, bounded	no
-apps/desktop/src/main/routine-store.test.ts	steps are the person's words: newlines allowed, empties and control bytes refused, count bounded	no
-apps/desktop/src/main/routine-store.test.ts	keeps the folder a routine was made in, and drops one that is not a workspace id (M15)	no
-apps/desktop/src/main/routine-store.test.ts	creates, lists, gets, corrects, counts runs and removes	no
-apps/desktop/src/main/routine-store.test.ts	refuses what would not round-trip, by name	no
+apps/desktop/src/main/routine-store.test.ts	a name is one line of printable text, bounded	yes
+apps/desktop/src/main/routine-store.test.ts	steps are the person's words: newlines allowed, empties and control bytes refused, count bounded	yes
+apps/desktop/src/main/routine-store.test.ts	keeps the folder a routine was made in, and drops one that is not a workspace id (M15)	yes
+apps/desktop/src/main/routine-store.test.ts	creates, lists, gets, corrects, counts runs and removes	yes
+apps/desktop/src/main/routine-store.test.ts	refuses what would not round-trip, by name	yes
 apps/desktop/src/main/routine-store.test.ts	is bounded	yes
-apps/desktop/src/main/routine-store.test.ts	drops every routine of a teammate who is gone, and only theirs	no
-apps/desktop/src/main/routine-store.test.ts	writes a file a fresh store reads back identically	no
-apps/desktop/src/main/routine-store.test.ts	treats a damaged or foreign file as unreadable, and a damaged routine as absent	no
-apps/desktop/src/main/routine-store.test.ts	keeps a schedule, corrects it, clears it with null, and leaves it alone when unmentioned	no
-apps/desktop/src/main/routine-store.test.ts	refuses a schedule it cannot keep, and drops a malformed one from disk without dropping the routine	no
-apps/desktop/src/main/routine-store.test.ts	round-trips it through the store	no
-apps/desktop/src/main/routine-store.test.ts	leaves a route without one alone	no
+apps/desktop/src/main/routine-store.test.ts	drops every routine of a teammate who is gone, and only theirs	yes
+apps/desktop/src/main/routine-store.test.ts	writes a file a fresh store reads back identically	yes
+apps/desktop/src/main/routine-store.test.ts	treats a damaged or foreign file as unreadable, and a damaged routine as absent	yes
+apps/desktop/src/main/routine-store.test.ts	keeps a schedule, corrects it, clears it with null, and leaves it alone when unmentioned	yes
+apps/desktop/src/main/routine-store.test.ts	refuses a schedule it cannot keep, and drops a malformed one from disk without dropping the routine	yes
+apps/desktop/src/main/routine-store.test.ts	round-trips it through the store	yes
+apps/desktop/src/main/routine-store.test.ts	leaves a route without one alone	yes
 apps/desktop/src/main/runtime-artifacts.test.ts	reads Claude's YAML fences	yes
 apps/desktop/src/main/runtime-artifacts.test.ts	reads Codex's TOML, single-quoted or double	yes
 apps/desktop/src/main/runtime-artifacts.test.ts	falls back to the filename, because the file existing is the point	yes

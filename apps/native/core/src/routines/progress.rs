@@ -132,7 +132,17 @@ pub fn parsed_execution(item: &Value, steps: &Value, route: &Value) -> Value {
 
 /// The routine as the runner reads it (`parsedRoutine`'s run fields), or None for one that cannot run at all.
 pub fn parsed(r: &Value) -> Option<Value> {
-    if !safe_id(&r["routineId"]) || !safe_id(&r["teammateId"]) || !valid_steps(&r["steps"]) || !valid_route(&r["route"]) {
+    if !safe_id(&r["routineId"])
+        || !safe_id(&r["teammateId"])
+        || !super::valid_name(&r["name"])
+        || !super::valid_steps(&r["steps"])
+        || !valid_route(&r["route"])
+        || !instant(&r["createdAt"])
+        || r["runs"].as_u64().is_none()
+    {
+        return None;
+    }
+    if r.get("lastRunAt").is_some_and(|v| !v.is_null() && !instant(v)) {
         return None;
     }
     if r.get("inputs").is_some_and(|v| !v.is_null() && !crate::routine_inputs::valid_inputs(v)) {
@@ -141,6 +151,9 @@ pub fn parsed(r: &Value) -> Option<Value> {
     let mut out = r.clone();
     let o = out.as_object_mut()?;
     let steps = r["steps"].as_array().map_or(0, Vec::len);
+    if o.get("workspaceId").is_some_and(|w| !super::valid_workspace_id(w)) {
+        o.remove("workspaceId");
+    }
     if o.get("handOffs").is_some_and(|h| !valid_hand_offs(h, steps)) {
         o.remove("handOffs");
     }
@@ -175,7 +188,22 @@ pub fn get(store: &Store, id: &str) -> Result<Option<Value>, String> {
 }
 
 pub fn all(store: &Store) -> Result<Vec<Value>, String> {
-    Ok(list(store)?["routines"].as_array().map(|rs| rs.iter().filter_map(parsed).collect()).unwrap_or_default())
+    let mut out = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    for entry in list(store)?["routines"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .take(super::MAX_ROUTINES)
+    {
+        if let Some(clean) = parsed(entry)
+            && let Some(id) = clean["routineId"].as_str()
+            && seen.insert(id.to_owned())
+        {
+            out.push(clean);
+        }
+    }
+    Ok(out)
 }
 
 /// One routine, parsed, changed and written back in one write. `f` returns false to write nothing.
