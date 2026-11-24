@@ -1159,9 +1159,11 @@ impl Channel {
             }
             // Saved rules answer before a card (Electron decideByRules). Unreadable → every card asks.
             let saved =
-                if request.runtime == "browser" { Ok(None) } else { decide_by_saved_rules(&request, guard.teammates.get(&request.mission_id).cloned()) };
+                if request.runtime == "browser" { Ok(Ruled::Ask(None)) } else { decide_by_saved_rules(&request, guard.teammates.get(&request.mission_id).cloned()) };
             let readable = saved.is_ok();
-            if let Ok(Some(auto)) = saved {
+            // Why the rules still ask, when a person would wonder (who-decides.ts: ruled.why, e.g. COMPOUND_REFUSAL).
+            let ruled_why = match &saved { Ok(Ruled::Ask(why)) => why.clone(), _ => None };
+            if let Ok(Ruled::Answered(auto)) = saved {
                 let mut record = record_of(&request, &auto);
                 record.by = "saved-rule".into();
                 guard.recorded.push(record);
@@ -1169,7 +1171,7 @@ impl Channel {
             }
             let remembered = readable
                 && request.always_key.as_ref().is_some_and(|key| guard.always.contains_key(&(request.mission_id.clone(), key.clone())));
-            if let Some(why) = asked_again_why(&request, remembered) {
+            if let Some(why) = asked_again_why(&request, remembered).or(ruled_why) {
                 remember_asked_again(&id, why);
             }
             if remembered && request.kind != Kind::Question && !asks_every_time(&request) {
@@ -1249,6 +1251,8 @@ impl Channel {
             Answer::Decision { approval_id, decision, .. } => Answer::Decision { approval_id, decision, reason: None },
             other => other,
         };
+        // The host's own guard on Always: the record keeps why it was applied as once (index.ts answerApproval words).
+        let mut enforced_note: Option<String> = None;
         let answer = match &answer {
             Answer::Decision {
                 approval_id,
@@ -1260,10 +1264,8 @@ impl Channel {
                     "approve-always",
                 );
                 if decision == "approve-once" {
-                    if let Some(note) = note {
-                        // Host forces once for reaching commands (Electron enforcedAnswer).
-                        let _ = note;
-                    }
+                    // Host forces once for reaching commands (Electron enforcedAnswer), and says so.
+                    enforced_note = note;
                     Answer::Decision {
                         approval_id: approval_id.clone(),
                         decision: Decision::ApproveOnce,
@@ -1302,7 +1304,10 @@ impl Channel {
                 .always
                 .insert((pending.request.mission_id.clone(), key.clone()), ());
         }
-        let recorded = record_of(&pending.request, &answer);
+        let mut recorded = record_of(&pending.request, &answer);
+        if enforced_note.is_some() {
+            recorded.words = enforced_note;
+        }
         guard.recorded.push(recorded.clone());
         let denied = matches!(&answer, Answer::Decision { decision: Decision::Deny, .. });
         let steered = match &answer {
@@ -1777,11 +1782,17 @@ fn request_view(card: &Request) -> crate::approval_rules::RequestView<'_> {
     }
 }
 
+/// What the saved rules made of a request: an answer, or a card, with why when a person would wonder.
+enum Ruled {
+    Answered(Answer),
+    Ask(Option<String>),
+}
+
 /// Unreadable rules also block session Always; they are never treated as an empty store.
 fn decide_by_saved_rules(
     request: &Request,
     teammate_id: Option<String>,
-) -> Result<Option<Answer>, String> {
+) -> Result<Ruled, String> {
     let store = crate::native::store().ok_or(crate::approval_rule_store::UNREADABLE)?;
     let rules = crate::approval_rule_store::list(&store)?;
     let action = crate::approval_rules::ruled_action_of(request_view(request));
@@ -1793,7 +1804,7 @@ fn decide_by_saved_rules(
         match crate::approval_rules::decide_by_rules(&action, &rules, &context) {
             crate::approval_rules::RuleVerdict::Allow { rule } => {
                 let _ = crate::approval_rule_store::used(&store, &rule.rule_id);
-                Some(Answer::Decision {
+                Ruled::Answered(Answer::Decision {
                     approval_id: request.approval_id.clone(),
                     decision: Decision::ApproveOnce,
                     reason: None,
@@ -1801,13 +1812,13 @@ fn decide_by_saved_rules(
             }
             crate::approval_rules::RuleVerdict::Deny { rule } => {
                 let _ = crate::approval_rule_store::used(&store, &rule.rule_id);
-                Some(Answer::Decision {
+                Ruled::Answered(Answer::Decision {
                     approval_id: request.approval_id.clone(),
                     decision: Decision::Deny,
                     reason: Some(crate::approval_rules::rule_sentence(&rule, None)),
                 })
             }
-            crate::approval_rules::RuleVerdict::Ask { .. } => None,
+            crate::approval_rules::RuleVerdict::Ask { why } => Ruled::Ask(why),
         },
     )
 }
@@ -1961,6 +1972,10 @@ mod whole_action_tests;
 #[cfg(test)]
 #[path = "approval_codex_always_tests.rs"]
 mod codex_always_tests;
+
+#[cfg(test)]
+#[path = "approval_rules_cases_tests.rs"]
+mod approval_rules_cases_tests;
 
 #[cfg(test)]
 mod question_tests {

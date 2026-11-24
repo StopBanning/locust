@@ -111,6 +111,7 @@ pub mod changes;
 pub mod document_change;
 pub mod file_versions;
 pub mod checkpoints;
+pub mod checkpoint_reader;
 pub mod command_guard;
 pub mod command_plain;
 pub mod command_reach;

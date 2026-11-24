@@ -325,3 +325,7 @@ pub(super) fn live_relay_rows(s: &State, p: &Palette) -> Vec<El> {
 #[cfg(test)]
 #[path = "peer_thread_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "peer_history_tests.rs"]
+mod peer_history_tests;

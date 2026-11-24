@@ -685,15 +685,37 @@ pub fn usage_windows(listed: &Listed) -> std::collections::HashMap<String, Strin
 }
 
 fn codex_model_list(limit: Duration) -> Option<(Value, Option<String>)> {
-    let path = crate::runtime::discovery::find_named("codex").ok()?;
-    let mut command = Command::new(path);
-    command.arg("app-server");
-    codex_session(command, limit)
+    codex_list_when_ready(crate::agents::held_answer().as_deref(), limit, || {
+        let path = crate::runtime::discovery::find_named("codex").ok()?;
+        let mut command = Command::new(path);
+        command.arg("app-server");
+        Some(command)
+    })
+}
+
+/// model-catalog.ts's probe fails soft, without spawning anything, when Codex is not ready: a Codex the last sweep
+/// settled as not ready (signed out, a version that cannot run) is not started, and the catalog has no Codex models
+/// (an empty catalog is not kept, so it is asked again). With no sweep held yet, or Codex still being checked, there
+/// is no answer to go by, and the server is asked.
+fn codex_list_when_ready(
+    held: Option<&[crate::agents::Found]>,
+    limit: Duration,
+    command: impl FnOnce() -> Option<Command>,
+) -> Option<(Value, Option<String>)> {
+    let codex = held.and_then(|found| found.iter().find(|f| f.id == "codex"));
+    if codex.is_some_and(|f| !f.ready && !f.checking) {
+        return None;
+    }
+    codex_session(command()?, limit)
 }
 
 /// One Codex app-server session: its `model/list` result, and what the account has used. None when the models could
 /// not be read.
 fn codex_session(mut command: Command, limit: Duration) -> Option<(Value, Option<String>)> {
+    // In its own process group, so the server is shut down whole once it has answered (model-catalog.ts's probe kills
+    // the tree: "the process group elsewhere"). A `codex` that is a launcher for the real server would otherwise leave
+    // the server running after the launcher was killed: a background process nobody asked for.
+    crate::runtime::process::own_group(&mut command);
     let mut child = command.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn().ok()?;
     let mut stdin = child.stdin.take()?;
     let stdout = child.stdout.take()?;
@@ -734,6 +756,7 @@ fn codex_session(mut command: Command, limit: Duration) -> Option<(Value, Option
             .map(|reading| format!("{reading} \u{b7} as of {}", chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true)));
         Some((models, reading))
     })();
+    crate::runtime::process::kill(child.id());
     let _ = child.kill();
     let _ = child.wait();
     result
@@ -971,3 +994,7 @@ mod muse_models_tests;
 #[cfg(test)]
 #[path = "codex_usage_is_read_with_the_models_tests.rs"]
 mod codex_usage_is_read_with_the_models_tests;
+
+#[cfg(all(test, unix))]
+#[path = "model_catalog_probe_tests.rs"]
+mod model_catalog_probe_tests;

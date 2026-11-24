@@ -2574,6 +2574,30 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
     }
     let store = store().ok_or("Native data folder could not be determined.")?;
     let saved = crate::people::team(&store)?;
+    // ROUTE AUTHORITY AT THE MOMENT OF START (route-at-start.ts): the window's copy of a teammate is not their choice.
+    // A turn that names its own route (a pick in the box for this conversation, or the conversation's own route on a
+    // follow-up) is that route; any other starts on the route the host keeps for the teammate, its effort and account
+    // included; a teammate with none keeps what was asked, or the defaults.
+    {
+        let explicit = origin.runtime.is_some() || job.model.is_some();
+        let kept = crate::route_at_start::saved_route_in(&saved, &job.teammate.id);
+        let resolved = crate::route_at_start::route_at_start(
+            &crate::route_at_start::StartRouteInput {
+                runtime: job.teammate.runtime.clone(),
+                model: job.model.clone().or_else(|| job.teammate.model.clone()),
+                effort: job.effort.clone(),
+                route_override_for: explicit.then(|| job.teammate.id.clone()),
+                ..Default::default()
+            },
+            Some((job.teammate.id.as_str(), kept.as_ref())),
+        );
+        if !explicit && kept.is_some() {
+            job.teammate.runtime = Some(resolved.runtime);
+            job.teammate.model = resolved.model;
+            job.teammate.account = resolved.account;
+            job.effort = resolved.effort;
+        }
+    }
     // The saved effort belongs to the teammate's own agent; another agent's turn (a carry-on) takes its own default.
     if let Some(entry) = saved["teammates"]
         .as_array()

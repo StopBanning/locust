@@ -2003,7 +2003,7 @@ apps/desktop/src/main/groups-hold-conversations.test.ts	drops a membership point
 apps/desktop/src/main/groups-hold-conversations.test.ts	drops a group with no usable name and keeps the rest	no
 apps/desktop/src/main/groups-hold-conversations.test.ts	treats a file it cannot read as unreadable, never as empty	yes
 apps/desktop/src/main/groups-hold-conversations.test.ts	treats a file that does not parse as unreadable too, and refuses to write over it	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	is genuinely empty when there is simply no file yet	no
+apps/desktop/src/main/groups-hold-conversations.test.ts	is genuinely empty when there is simply no file yet	yes
 apps/desktop/src/main/groups-hold-conversations.test.ts	takes a default route, refuses one a mission could not start on, and clears it	no
 apps/desktop/src/main/groups-hold-conversations.test.ts	carries standing instructions from the start	no
 apps/desktop/src/main/groups-hold-conversations.test.ts	keeps instructions and a route that are already in the file	no
@@ -2093,32 +2093,32 @@ apps/desktop/src/main/memory-says-how-old.test.ts	says nothing rather than somet
 apps/desktop/src/main/memory-says-how-old.test.ts	puts the age beside who wrote it, in the brief itself	yes
 apps/desktop/src/main/memory-says-how-old.test.ts	tells the reader what to do when two of them disagree	yes
 apps/desktop/src/main/memory-says-how-old.test.ts	still reads correctly for a memory with no date at all	yes
-apps/desktop/src/main/memory-store.test.ts	keeps one step back and says when, so Put it back is a swap and can be undone	no
-apps/desktop/src/main/memory-store.test.ts	changes nothing of the kind when only the switch moves	no
-apps/desktop/src/main/memory-store.test.ts	is refused, not written over, when it is torn	no
-apps/desktop/src/main/memory-store.test.ts	is refused when it is a schema this build does not know, which a later build may have written	no
-apps/desktop/src/main/memory-store.test.ts	is genuinely empty when there is simply no file yet	no
-apps/desktop/src/main/memory-store.test.ts	keeps a memory with who wrote it, where, and from which conversation, on disk	no
-apps/desktop/src/main/memory-store.test.ts	does not write the same memory twice in the same place, and a proposed one stays proposed	no
-apps/desktop/src/main/memory-store.test.ts	briefs a folder's mission with that folder's kept memories and everyone's, never a proposed or switched-off one	no
-apps/desktop/src/main/memory-store.test.ts	a person edits the text, switches one off and on, keeps a proposed one, and removes one	no
-apps/desktop/src/main/memory-store.test.ts	forget by text hits the folder and everywhere, not another folder; clear takes a folder or all	no
-apps/desktop/src/main/memory-store.test.ts	refuses what it cannot keep, and a malformed file is unreadable rather than empty	no
-apps/desktop/src/main/memory-store.test.ts	is bounded	no
+apps/desktop/src/main/memory-store.test.ts	keeps one step back and says when, so Put it back is a swap and can be undone	yes
+apps/desktop/src/main/memory-store.test.ts	changes nothing of the kind when only the switch moves	yes
+apps/desktop/src/main/memory-store.test.ts	is refused, not written over, when it is torn	yes
+apps/desktop/src/main/memory-store.test.ts	is refused when it is a schema this build does not know, which a later build may have written	yes
+apps/desktop/src/main/memory-store.test.ts	is genuinely empty when there is simply no file yet	yes
+apps/desktop/src/main/memory-store.test.ts	keeps a memory with who wrote it, where, and from which conversation, on disk	yes
+apps/desktop/src/main/memory-store.test.ts	does not write the same memory twice in the same place, and a proposed one stays proposed	yes
+apps/desktop/src/main/memory-store.test.ts	briefs a folder's mission with that folder's kept memories and everyone's, never a proposed or switched-off one	yes
+apps/desktop/src/main/memory-store.test.ts	a person edits the text, switches one off and on, keeps a proposed one, and removes one	yes
+apps/desktop/src/main/memory-store.test.ts	forget by text hits the folder and everywhere, not another folder; clear takes a folder or all	yes
+apps/desktop/src/main/memory-store.test.ts	refuses what it cannot keep, and a malformed file is unreadable rather than empty	yes
+apps/desktop/src/main/memory-store.test.ts	is bounded	yes
 apps/desktop/src/main/mission-history.test.ts	gives the same folder the same id every time, so a mission can be matched back to it	yes
 apps/desktop/src/main/mission-history.test.ts	does not put the path itself in the ledger	yes
 apps/desktop/src/main/mission-history.test.ts	keeps every character of a reply streamed across more fragments than the window holds	yes
-apps/desktop/src/main/mission-history.test.ts	reports the true event count, and does not call joining truncation	no
+apps/desktop/src/main/mission-history.test.ts	reports the true event count, and does not call joining truncation	yes
 apps/desktop/src/main/mission-history.test.ts	marks the message final from the LAST fragment, not the first	yes
 apps/desktop/src/main/mission-history.test.ts	honours a replace, which is how a runtime rewrites what it already said	yes
 apps/desktop/src/main/mission-history.test.ts	keeps two messages apart, and in the order they were said	yes
-apps/desktop/src/main/mission-history.test.ts	leaves a mission that never streamed exactly as it was	no
-apps/desktop/src/main/mission-history.test.ts	passes small missions through untruncated with truthful counts	no
-apps/desktop/src/main/mission-history.test.ts	windows oversized missions to the first and latest events and says so	no
+apps/desktop/src/main/mission-history.test.ts	leaves a mission that never streamed exactly as it was	yes
+apps/desktop/src/main/mission-history.test.ts	passes small missions through untruncated with truthful counts	yes
+apps/desktop/src/main/mission-history.test.ts	windows oversized missions to the first and latest events and says so	yes
 apps/desktop/src/main/mission-history.test.ts	surfaces only the latest host failure and the mission-local issue count	no
-apps/desktop/src/main/mission-history.test.ts	joins a mission's links with the workroom text, keeping direction	no
-apps/desktop/src/main/mission-history.test.ts	keeps a link whose message the workroom no longer holds, with no text	no
-apps/desktop/src/main/mission-history.test.ts	reads history even when the workroom itself cannot be read	no
+apps/desktop/src/main/mission-history.test.ts	joins a mission's links with the workroom text, keeping direction	yes
+apps/desktop/src/main/mission-history.test.ts	keeps a link whose message the workroom no longer holds, with no text	yes
+apps/desktop/src/main/mission-history.test.ts	reads history even when the workroom itself cannot be read	yes
 apps/desktop/src/main/mission-history.test.ts	returns mapped missions and the store-wide issue count	no
 apps/desktop/src/main/mission-history.test.ts	converts a ledger failure into a generic response without leaking the error	no
 apps/desktop/src/main/mission-history.test.ts	stops adding missions once the response would exceed its budget	no
@@ -2148,35 +2148,35 @@ apps/desktop/src/main/missions-can-be-deleted-together.test.ts	lets the row keep
 apps/desktop/src/main/model-catalog.test.ts	reads real models and their own supported efforts	yes
 apps/desktop/src/main/model-catalog.test.ts	drops a model with no id, and a hidden one	yes
 apps/desktop/src/main/model-catalog.test.ts	reports unreadable efforts as NONE rather than as all	yes
-apps/desktop/src/main/model-catalog.test.ts	survives a shape it does not recognize	no
-apps/desktop/src/main/model-catalog.test.ts	reads the list and shuts the server down again	no
-apps/desktop/src/main/model-catalog.test.ts	caches a success instead of starting a server per call	no
-apps/desktop/src/main/model-catalog.test.ts	does not cache a failure	no
+apps/desktop/src/main/model-catalog.test.ts	survives a shape it does not recognize	yes
+apps/desktop/src/main/model-catalog.test.ts	reads the list and shuts the server down again	yes
+apps/desktop/src/main/model-catalog.test.ts	caches a success instead of starting a server per call	yes
+apps/desktop/src/main/model-catalog.test.ts	does not cache a failure	yes
 apps/desktop/src/main/model-catalog.test.ts	answers a second caller from the first probe rather than starting two	yes
-apps/desktop/src/main/model-catalog.test.ts	fails soft when the runtime is not ready, without spawning anything	no
-apps/desktop/src/main/model-catalog.test.ts	expires the cache so a new release is eventually seen	no
-apps/desktop/src/main/model-catalog.test.ts	collapses the efforts Cursor lists as separate models into one model with efforts	no
+apps/desktop/src/main/model-catalog.test.ts	fails soft when the runtime is not ready, without spawning anything	yes
+apps/desktop/src/main/model-catalog.test.ts	expires the cache so a new release is eventually seen	yes
+apps/desktop/src/main/model-catalog.test.ts	collapses the efforts Cursor lists as separate models into one model with efforts	yes
 apps/desktop/src/main/model-catalog.test.ts	splits an id into the model and the effort, longest suffix first	yes
 apps/desktop/src/main/model-catalog.test.ts	names every model the way Cursor does, on the list a real account printed	yes
-apps/desktop/src/main/model-catalog.test.ts	reads the name a family shares, never inventing a word	no
+apps/desktop/src/main/model-catalog.test.ts	reads the name a family shares, never inventing a word	yes
 apps/desktop/src/main/model-catalog.test.ts	offers nothing for a Cursor that is signed out, or that listed nothing	yes
 apps/desktop/src/main/model-catalog.test.ts	offers each advertised alias, tagged as Claude, with the advertised efforts	yes
 apps/desktop/src/main/model-catalog.test.ts	offers the cheapest family the help leaves out, once, and only beside advertised ones	yes
-apps/desktop/src/main/model-catalog.test.ts	names the version each alias runs, from Claude Code's own alias table	no
+apps/desktop/src/main/model-catalog.test.ts	names the version each alias runs, from Claude Code's own alias table	yes
 apps/desktop/src/main/model-catalog.test.ts	offers the older versions after the current ones, marked for the fold	yes
 apps/desktop/src/main/model-catalog.test.ts	names the models the way Claude Code's own picker lists them, once it has (0.697)	no
 apps/desktop/src/main/model-catalog.test.ts	keeps the account default's levels to the current models	yes
 apps/desktop/src/main/model-catalog.test.ts	offers nothing for a Claude that is not ready, or that advertised nothing	yes
 apps/desktop/src/main/model-catalog.test.ts	lists Claude models even when Codex cannot be read	yes
 apps/desktop/src/main/model-catalog.test.ts	offers only the levels every listed model agrees on	yes
-apps/desktop/src/main/model-catalog.test.ts	reports none rather than guessing when the models share nothing	no
-apps/desktop/src/main/model-catalog.test.ts	stays quiet when nothing was listed: there is no honest claim to make	no
-apps/desktop/src/main/model-catalog.test.ts	never counts a previous account-default row as evidence about itself	no
+apps/desktop/src/main/model-catalog.test.ts	reports none rather than guessing when the models share nothing	yes
+apps/desktop/src/main/model-catalog.test.ts	stays quiet when nothing was listed: there is no honest claim to make	yes
+apps/desktop/src/main/model-catalog.test.ts	never counts a previous account-default row as evidence about itself	yes
 apps/desktop/src/main/model-catalog.test.ts	is named for what it is, and sits under codex	yes
-apps/desktop/src/main/model-catalog.test.ts	gives each runtime its own row, in front of that runtime’s models	no
+apps/desktop/src/main/model-catalog.test.ts	gives each runtime its own row, in front of that runtime’s models	yes
 apps/desktop/src/main/model-catalog.test.ts	carries each runtime’s own intersection, not a shared one	yes
-apps/desktop/src/main/model-catalog.test.ts	adds nothing for a runtime that listed nothing	no
-apps/desktop/src/main/model-catalog.test.ts	never stacks a second default on a list that already has one	no
+apps/desktop/src/main/model-catalog.test.ts	adds nothing for a runtime that listed nothing	yes
+apps/desktop/src/main/model-catalog.test.ts	never stacks a second default on a list that already has one	yes
 apps/desktop/src/main/muse-wonder-is-offered.test.ts	are Muse Wonder 1.0 first, then Muse Spark 1.3, each with Muse Code's own eight efforts at its default	yes
 apps/desktop/src/main/muse-wonder-is-offered.test.ts	are offered only when Muse Code is ready here	yes
 apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	is stopped as round 4 ran it, and in every spelling of the same thing	no
@@ -2327,22 +2327,6 @@ apps/desktop/src/main/pasted-attachment.test.ts	never overwrites something alrea
 apps/desktop/src/main/pasted-attachment.test.ts	keeps the extension where there is one, and copes where there is not	yes
 apps/desktop/src/main/peer-exchange-conversation.test.ts	passes the previous turn through to memory.section, and its words into the prompt	yes
 apps/desktop/src/main/peer-exchange-conversation.test.ts	never refuses a run over a brief it could do without	yes
-apps/desktop/src/main/permission-host.test.ts	refuses a Claude approval when its pending text cannot be written	no
-apps/desktop/src/main/permission-host.test.ts	waits for pending text before raising a Claude approval and refuses one whose run ended while waiting	no
-apps/desktop/src/main/permission-host.test.ts	takes a card down when the bridge stops waiting for it, so the question asked again is the one card (0.837)	yes
-apps/desktop/src/main/permission-host.test.ts	leaves an answered card alone when its connection closes after the answer	yes
-apps/desktop/src/main/permission-host.test.ts	refuses a request that carries no token of ours, before reading anything else	no
-apps/desktop/src/main/permission-host.test.ts	turns a question into the card the app already has, and answers with the decision	yes
-apps/desktop/src/main/permission-host.test.ts	names the call that asks, so a helper's card can name the helper (helper visibility)	yes
-apps/desktop/src/main/permission-host.test.ts	carries a denial to the model with a sentence, not a bare refusal	yes
-apps/desktop/src/main/permission-host.test.ts	carries the person’s reason for a denial, when they gave one (0.374)	yes
-apps/desktop/src/main/permission-host.test.ts	raises every request, even after Always, each with its own tool as the key an Always would cover	no
-apps/desktop/src/main/permission-host.test.ts	does not let one run answer for another	yes
-apps/desktop/src/main/permission-host.test.ts	refuses whatever is still waiting when the run ends, and removes its config	yes
-apps/desktop/src/main/permission-host.test.ts	refuses a question's answer aimed at a permission, and says so	yes
-apps/desktop/src/main/permission-host.test.ts	is an mcp.json that names the bridge, the loopback URL and the token, under the name the tool flag expects	yes
-apps/desktop/src/main/permission-host.test.ts	names a connector the way the activity rows do	yes
-apps/desktop/src/main/permission-host.test.ts	share one listener, and both are answered on it	no
 apps/desktop/src/main/popular-skill-packs-fit-and-agent-copies-are-chosen.test.ts	a font-bearing skill above five MB is kept and handed to Claude Code but ten MB remains the ceiling	yes
 apps/desktop/src/main/popular-skill-packs-fit-and-agent-copies-are-chosen.test.ts	agent copies choose skills then Claude then agents then any without hiding real name clashes	yes
 apps/desktop/src/main/popular-skill-packs-fit-and-agent-copies-are-chosen.test.ts	a popular pack is only previewed on the first click and all offered skills are ready for the second	yes
@@ -2551,23 +2535,23 @@ apps/desktop/src/main/room-tasks.test.ts	does not while another is still going, 
 apps/desktop/src/main/room-tasks.test.ts	does not call four of six everyone	yes
 apps/desktop/src/main/rooms-are-reachable.test.ts	is in the sidebar at all	yes
 apps/desktop/src/main/rooms-are-reachable.test.ts	is not hidden behind already having one	no
-apps/desktop/src/main/route-at-start.test.ts	honours an explicit picker override for this teammate	no
-apps/desktop/src/main/route-at-start.test.ts	uses the host saved route over discovery/default selections, including saved effort	no
-apps/desktop/src/main/route-at-start.test.ts	leaves nobody's mission on the composer route, regardless of old picker intent	no
-apps/desktop/src/main/route-at-start.test.ts	does not mistake another teammate's picker change for this teammate's choice	no
-apps/desktop/src/main/route-at-start.test.ts	preserves account-default as an intentional picker selection	no
-apps/desktop/src/main/route-at-start.test.ts	does not promote a seeded account-default to picker intent	no
-apps/desktop/src/main/route-at-start.test.ts	keeps existing defaults for a new teammate without a saved route	no
-apps/desktop/src/main/route-at-start.test.ts	keeps effort changes when the request is based on the saved picker identity	no
-apps/desktop/src/main/route-at-start.test.ts	preserves concrete effort variants without declaring them a new picker choice	no
-apps/desktop/src/main/route-at-start.test.ts	cannot carry a stale effort or model transform across a different saved route	no
-apps/desktop/src/main/route-at-start.test.ts	returns no permission mode for the caller to accidentally inherit	no
-apps/desktop/src/main/route-at-start.test.ts	a new chat with a teammate starts on their saved model	no
-apps/desktop/src/main/route-at-start.test.ts	a pick made in a conversation is shown there again	no
-apps/desktop/src/main/route-at-start.test.ts	a conversation shows what it ran on, not the saved model of its teammate	no
-apps/desktop/src/main/route-at-start.test.ts	a pick for a new chat with one teammate is not for another	no
-apps/desktop/src/main/route-at-start.test.ts	home does not inherit a teammate override	no
-apps/desktop/src/main/route-at-start.test.ts	shows a Kilo teammate saved on the account default as Auto Free	no
+apps/desktop/src/main/route-at-start.test.ts	honours an explicit picker override for this teammate	yes
+apps/desktop/src/main/route-at-start.test.ts	uses the host saved route over discovery/default selections, including saved effort	yes
+apps/desktop/src/main/route-at-start.test.ts	leaves nobody's mission on the composer route, regardless of old picker intent	yes
+apps/desktop/src/main/route-at-start.test.ts	does not mistake another teammate's picker change for this teammate's choice	yes
+apps/desktop/src/main/route-at-start.test.ts	preserves account-default as an intentional picker selection	yes
+apps/desktop/src/main/route-at-start.test.ts	does not promote a seeded account-default to picker intent	yes
+apps/desktop/src/main/route-at-start.test.ts	keeps existing defaults for a new teammate without a saved route	yes
+apps/desktop/src/main/route-at-start.test.ts	keeps effort changes when the request is based on the saved picker identity	yes
+apps/desktop/src/main/route-at-start.test.ts	preserves concrete effort variants without declaring them a new picker choice	yes
+apps/desktop/src/main/route-at-start.test.ts	cannot carry a stale effort or model transform across a different saved route	yes
+apps/desktop/src/main/route-at-start.test.ts	returns no permission mode for the caller to accidentally inherit	yes
+apps/desktop/src/main/route-at-start.test.ts	a new chat with a teammate starts on their saved model	yes
+apps/desktop/src/main/route-at-start.test.ts	a pick made in a conversation is shown there again	yes
+apps/desktop/src/main/route-at-start.test.ts	a conversation shows what it ran on, not the saved model of its teammate	yes
+apps/desktop/src/main/route-at-start.test.ts	a pick for a new chat with one teammate is not for another	yes
+apps/desktop/src/main/route-at-start.test.ts	home does not inherit a teammate override	yes
+apps/desktop/src/main/route-at-start.test.ts	shows a Kilo teammate saved on the account default as Auto Free	yes
 apps/desktop/src/main/route-remembers-effort.test.ts	keeps the effort it was started with, and clears it when the next start has none	yes
 apps/desktop/src/main/routine-recovery.test.ts	restart proof: step 2 survives a fresh store and runner without replaying step 1	yes
 apps/desktop/src/main/routine-recovery.test.ts	completion accounting proof: step 1 start does not stamp lastRunAt or consume the six-hour interval	yes
@@ -2613,7 +2597,7 @@ apps/desktop/src/main/routine-store.test.ts	steps are the person's words: newlin
 apps/desktop/src/main/routine-store.test.ts	keeps the folder a routine was made in, and drops one that is not a workspace id (M15)	no
 apps/desktop/src/main/routine-store.test.ts	creates, lists, gets, corrects, counts runs and removes	no
 apps/desktop/src/main/routine-store.test.ts	refuses what would not round-trip, by name	no
-apps/desktop/src/main/routine-store.test.ts	is bounded	no
+apps/desktop/src/main/routine-store.test.ts	is bounded	yes
 apps/desktop/src/main/routine-store.test.ts	drops every routine of a teammate who is gone, and only theirs	no
 apps/desktop/src/main/routine-store.test.ts	writes a file a fresh store reads back identically	no
 apps/desktop/src/main/routine-store.test.ts	treats a damaged or foreign file as unreadable, and a damaged routine as absent	no
@@ -3345,12 +3329,6 @@ apps/desktop/src/main/workroom-briefing.test.ts	says nothing about sharing when 
 apps/desktop/src/main/workroom-briefing.test.ts	tells every mission how to ask, teammates or not	yes
 apps/desktop/src/main/workroom-briefing.test.ts	tells it when NOT to ask, so it does not ask about everything	no
 apps/desktop/src/main/workroom-briefing.test.ts	keeps the person’s words last and unaltered	yes
-apps/desktop/src/main/workspace-brief.test.ts	reads LOCUST.md from the folder root and quotes it whole, with the folder named	no
-apps/desktop/src/main/workspace-brief.test.ts	none, empty, or unreadable is no brief at all -- never a section saying so	yes
-apps/desktop/src/main/workspace-brief.test.ts	is bounded by lines and by bytes, and says when the rest was cut	yes
-apps/desktop/src/main/workspace-brief.test.ts	gives each runtime its own section and everyone the rest	yes
-apps/desktop/src/main/workspace-brief.test.ts	leaves alone a tag that names no runtime, a tag inside a code fence, and a tag never closed	yes
-apps/desktop/src/main/workspace-brief.test.ts	is what a run on that runtime is given, bounded after the other sections are gone	no
 apps/desktop/src/main/workspace-files.test.ts	are git's own list in a repository, and never a path that climbs out or Locust's own folder	yes
 apps/desktop/src/main/workspace-files.test.ts	are walked outside a repository, skipping the folders nobody attaches from	yes
 apps/desktop/src/main/workspace-files.test.ts	stop at the cap, and say so	yes
@@ -6629,27 +6607,27 @@ apps/desktop/src/shared/approval-data.test.ts	finds the ordinary offenders	no
 apps/desktop/src/shared/approval-data.test.ts	finds a bare URL even with no tool it knows	no
 apps/desktop/src/shared/approval-data.test.ts	finds one after a pipe or a semicolon, not just at the start	no
 apps/desktop/src/shared/approval-data.test.ts	is not fooled by a word that merely contains a tool name	yes
-apps/desktop/src/shared/approval-rules.test.ts	is allowed by an exact rule or a whole-word prefix, and nothing else	no
-apps/desktop/src/shared/approval-rules.test.ts	is denied when any simple part of it matches a deny, and deny wins over allow	no
-apps/desktop/src/shared/approval-rules.test.ts	is matched case-blind only in a Windows folder (2026-10-10 sweep)	no
-apps/desktop/src/shared/approval-rules.test.ts	is allowed when every path is inside the folder and matches	no
-apps/desktop/src/shared/approval-rules.test.ts	is never allowed outside the folder, however the path is written	no
-apps/desktop/src/shared/approval-rules.test.ts	is denied when any path matches a deny, even beside allowed ones	no
-apps/desktop/src/shared/approval-rules.test.ts	reads the folder without case on Windows	no
-apps/desktop/src/shared/approval-rules.test.ts	a rule for one teammate or one folder does not speak for another	no
-apps/desktop/src/shared/approval-rules.test.ts	a connector rule names its server, and optionally one tool	no
-apps/desktop/src/shared/approval-rules.test.ts	a question to the person is never governed	no
-apps/desktop/src/shared/approval-rules.test.ts	reads the command inside a shell wrapper, only when the whole text is exactly one	no
-apps/desktop/src/shared/approval-rules.test.ts	reads a command only when it is one	no
-apps/desktop/src/shared/approval-rules.test.ts	reads a change's files from its diff, else as each runtime names them, else not at all	no
-apps/desktop/src/shared/approval-rules.test.ts	reads a connector by its tool and server, and a question never	no
-apps/desktop/src/shared/approval-rules.test.ts	is the exact command, the exact file inside the folder, or the one connector tool, scoped	no
-apps/desktop/src/shared/approval-rules.test.ts	is nothing for what a rule could not hold exactly	no
-apps/desktop/src/shared/approval-rules.test.ts	a saved candidate allows exactly what it was made from, and no more	no
-apps/desktop/src/shared/approval-rules.test.ts	reads as what the teammate may do	no
-apps/desktop/src/shared/approval-rules.test.ts	turns Always into this once for a command that reaches other programs, and says so	no
-apps/desktop/src/shared/approval-rules.test.ts	leaves an ordinary command, a denial and a question alone	no
-apps/desktop/src/shared/approval-rules.test.ts	refuses a rule for such a command with the card's own sentence, and none for an ordinary one	no
+apps/desktop/src/shared/approval-rules.test.ts	is allowed by an exact rule or a whole-word prefix, and nothing else	yes
+apps/desktop/src/shared/approval-rules.test.ts	is denied when any simple part of it matches a deny, and deny wins over allow	yes
+apps/desktop/src/shared/approval-rules.test.ts	is matched case-blind only in a Windows folder (2026-10-10 sweep)	yes
+apps/desktop/src/shared/approval-rules.test.ts	is allowed when every path is inside the folder and matches	yes
+apps/desktop/src/shared/approval-rules.test.ts	is never allowed outside the folder, however the path is written	yes
+apps/desktop/src/shared/approval-rules.test.ts	is denied when any path matches a deny, even beside allowed ones	yes
+apps/desktop/src/shared/approval-rules.test.ts	reads the folder without case on Windows	yes
+apps/desktop/src/shared/approval-rules.test.ts	a rule for one teammate or one folder does not speak for another	yes
+apps/desktop/src/shared/approval-rules.test.ts	a connector rule names its server, and optionally one tool	yes
+apps/desktop/src/shared/approval-rules.test.ts	a question to the person is never governed	yes
+apps/desktop/src/shared/approval-rules.test.ts	reads the command inside a shell wrapper, only when the whole text is exactly one	yes
+apps/desktop/src/shared/approval-rules.test.ts	reads a command only when it is one	yes
+apps/desktop/src/shared/approval-rules.test.ts	reads a change's files from its diff, else as each runtime names them, else not at all	yes
+apps/desktop/src/shared/approval-rules.test.ts	reads a connector by its tool and server, and a question never	yes
+apps/desktop/src/shared/approval-rules.test.ts	is the exact command, the exact file inside the folder, or the one connector tool, scoped	yes
+apps/desktop/src/shared/approval-rules.test.ts	is nothing for what a rule could not hold exactly	yes
+apps/desktop/src/shared/approval-rules.test.ts	a saved candidate allows exactly what it was made from, and no more	yes
+apps/desktop/src/shared/approval-rules.test.ts	reads as what the teammate may do	yes
+apps/desktop/src/shared/approval-rules.test.ts	turns Always into this once for a command that reaches other programs, and says so	yes
+apps/desktop/src/shared/approval-rules.test.ts	leaves an ordinary command, a denial and a question alone	yes
+apps/desktop/src/shared/approval-rules.test.ts	refuses a rule for such a command with the card's own sentence, and none for an ordinary one	yes
 apps/desktop/src/shared/attachments.test.ts	draws nothing at all when nothing is attached	yes
 apps/desktop/src/shared/attachments.test.ts	names one file, and asks for it to be read	yes
 apps/desktop/src/shared/attachments.test.ts	counts them when there are several	yes
@@ -7005,14 +6983,14 @@ packages/mission-store/test/checkpoint.test.ts	reports a settled mission as safe
 packages/mission-store/test/checkpoint.test.ts	refuses to call a mission safe while an action never reported an outcome	yes
 packages/mission-store/test/checkpoint.test.ts	is durable: a checkpoint survives a fresh reader and keeps its epoch order	yes
 packages/mission-store/test/checkpoint.test.ts	describes what survived on disk after an interrupted write, not what was believed	yes
-packages/mission-store/test/checkpoint.test.ts	reports an unreadable ledger as unsafe, and refuses to write past the break	no
+packages/mission-store/test/checkpoint.test.ts	reports an unreadable ledger as unsafe, and refuses to write past the break	yes
 packages/mission-store/test/checkpoint.test.ts	rebuilds an appended message rather than keeping only its last fragment	yes
 packages/mission-store/test/checkpoint.test.ts	gives different transcripts different digests	yes
-packages/mission-store/test/checkpoint.test.ts	accepts a well-formed checkpoint	no
-packages/mission-store/test/checkpoint.test.ts	refuses a checkpoint that claims safety while listing an unknown action	no
-packages/mission-store/test/checkpoint.test.ts	refuses checkpoints belonging to another mission or run	no
-packages/mission-store/test/checkpoint.test.ts	refuses a malformed digest, epoch, reason, or safety value	no
-packages/mission-store/test/checkpoint.test.ts	stops recovery at a checkpoint whose epoch is out of order	no
+packages/mission-store/test/checkpoint.test.ts	accepts a well-formed checkpoint	yes
+packages/mission-store/test/checkpoint.test.ts	refuses a checkpoint that claims safety while listing an unknown action	yes
+packages/mission-store/test/checkpoint.test.ts	refuses checkpoints belonging to another mission or run	yes
+packages/mission-store/test/checkpoint.test.ts	refuses a malformed digest, epoch, reason, or safety value	yes
+packages/mission-store/test/checkpoint.test.ts	stops recovery at a checkpoint whose epoch is out of order	yes
 packages/mission-store/test/every-runtime-can-be-written-down.test.ts	can be recorded, read back, and listed	yes
 packages/mission-store/test/mission-store.test.ts	persists a versioned append-only mission and recovers its terminal phase	yes
 packages/mission-store/test/mission-store.test.ts	serializes concurrent appends without losing ledger or event order	no

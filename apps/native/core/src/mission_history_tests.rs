@@ -1,8 +1,9 @@
 //! Electron's `main/mission-history.test.ts`, a case to a test, for what the Rust port has: the folder id a mission
 //! carries, a streamed reply read back whole, deleting a mission, and the two readings the record keeps per runtime
-//! (which runtime is at its limit, and its latest usage window). Electron's `publicRecoveredMission` projection, the
-//! history's byte budget, its `HISTORY_UNAVAILABLE` answer and the workroom join are IPC payload shaping the native
-//! window, which reads the ledger in process, does not have (see the row in `parity/tests.tsv`).
+//! (which runtime is at its limit, and its latest usage window), and the counts `publicRecoveredMission` reports, read
+//! where the native window shows them (the inspector's Events line). The rest of that projection, the history's byte
+//! budget, its `HISTORY_UNAVAILABLE` answer and the workroom join are IPC payload shaping the native window, which
+//! reads the ledger in process, does not have (see the row in `parity/tests.tsv`).
 
 use crate::agent_accounts::usage_key;
 use crate::ledger::{read_transcript, Item};
@@ -136,6 +137,78 @@ fn keeps_two_messages_apart_and_in_the_order_they_were_said() {
     ]);
     let texts: Vec<&str> = read.iter().map(|(t, _)| t.as_str()).collect();
     assert_eq!(texts, ["first one", "second two"]);
+}
+
+/// Electron's `event()`: a step that is not a reply.
+fn step(sequence: u64) -> Value {
+    json!({"id": format!("event_{sequence}"), "runId": "run_1", "missionId": "mission_1", "sequence": sequence,
+        "type": "step.started", "occurredAt": NOW, "sourceAdapter": "codex",
+        "payload": {"stepKind": "turn", "evidence": {"redacted": true}}})
+}
+
+/// What the app hands the inspector for a mission (`Session::inspector_inputs`), and the report it draws from it.
+fn inspected(events: Vec<Value>) -> (crate::inspector::TurnInput, crate::inspector::RunReport) {
+    let root = temp();
+    write(&root.0, "mission_1", &recovered(events));
+    let mut session = crate::ledger::Session::new(root.0.clone(), "mission_1".into());
+    session.poll().expect("the record is read");
+    let input = session.inspector_inputs().into_iter().next().expect("the mission is inspected");
+    let report = crate::inspector::build_conversation_reports(std::slice::from_ref(&input), None).remove(0);
+    (input, report)
+}
+
+// case: reports the true event count, and does not call joining truncation
+#[test]
+fn the_inspector_counts_every_recorded_event_and_joining_is_not_truncation() {
+    let (input, report) = inspected((0..1200).map(|i| fragment(i + 1, "x", false, "msg_0")).collect());
+    // What the ledger holds, unchanged: the footnote must not start lying in the other direction.
+    assert_eq!(input.event_count, 1200);
+    assert_eq!(report.event_count, 1200);
+    // One message is one event, so nothing was dropped and nothing is said.
+    assert_eq!(input.events.len(), 1);
+    assert!(!input.events_truncated);
+    assert_eq!(crate::inspector::events_line(&report), "1200 recorded");
+}
+
+// case: leaves a mission that never streamed exactly as it was
+#[test]
+fn a_mission_with_no_streamed_reply_reaches_the_inspector_as_recorded() {
+    // Without Electron's evidence marker, which the ledger reader drops on every event as it decodes (not the join).
+    let plain = |sequence: u64| {
+        let mut event = step(sequence);
+        event["payload"] = json!({"stepKind": "turn"});
+        event
+    };
+    let (input, _) = inspected(vec![plain(1), plain(2)]);
+    assert_eq!(input.events, vec![plain(1), plain(2)]);
+    assert_eq!(input.event_count, 2);
+    assert!(!input.events_truncated);
+}
+
+// case: passes small missions through untruncated with truthful counts
+#[test]
+fn a_mission_that_fits_the_window_is_drawn_whole_and_counted_truly() {
+    let window = crate::ledger::EVENT_WINDOW as u64;
+    let (input, report) = inspected((1..=window).map(step).collect());
+    assert_eq!(input.events.len(), 3000);
+    assert_eq!(report.event_count, 3000);
+    assert!(!report.events_truncated);
+    assert_eq!(report.integrity_issue_count, 0);
+    assert_eq!(crate::inspector::events_line(&report), "3000 recorded");
+}
+
+// case: windows oversized missions to the first and latest events and says so
+#[test]
+fn a_mission_past_the_window_is_drawn_from_its_first_and_latest_events_and_says_so() {
+    let window = crate::ledger::EVENT_WINDOW as u64;
+    let (input, report) = inspected((1..=window + 1).map(step).collect());
+    assert_eq!(input.events.len(), 3000);
+    assert_eq!(input.events[0]["sequence"], 1);
+    assert_eq!(input.events[1]["sequence"], 2);
+    assert_eq!(input.events.last().unwrap()["sequence"], 3001);
+    assert_eq!(report.event_count, 3001);
+    assert!(report.events_truncated);
+    assert_eq!(crate::inspector::events_line(&report), "3001 recorded \u{b7} window truncated for display");
 }
 
 // ---- deleting a mission ----

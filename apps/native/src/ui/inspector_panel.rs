@@ -336,7 +336,7 @@ pub(super) fn panel(s: &State, p: &Palette) -> Option<El> {
                     .child(detail_row("Sandbox", report.sandbox_label.to_owned(), false, p))
                     .child(detail_row(
                         "Events",
-                        format!("{} recorded in this view", report.event_count),
+                        locust_core::inspector::events_line(report),
                         false,
                         p,
                     ))
