@@ -79,7 +79,7 @@ fn sweep(rt: &mut rune::Runtime<State>) {
     });
     let idle = |s: &State| {
         let p = &s.settings_panel;
-        !p.agents_job.is_pending() && !p.artifacts_job.is_pending()
+        !p.agents_job.is_pending() && !p.artifacts_job.is_pending() && !p.setup_job.is_pending()
     };
     let until = Instant::now() + Duration::from_secs(60);
     loop {
@@ -161,8 +161,9 @@ fn each_agent_row_carries_its_own_list_folded_with_the_count_on_the_fold() {
     for said in ["agent | gig-scout | Finds gigs | agents/gig-scout.toml", "reviewer", "tidy", "automation | nightly | automations/nightly.toml"] {
         assert!(codex.contains(said), "{said} missing from {codex}");
     }
-    // Opening one agent's fold leaves the others folded.
-    assert!(!row_words(&rt, "claude").contains("seo-scout"), "{}", row_words(&rt, "claude"));
+    // Opening one agent's fold leaves the others folded. (Its name is on the row's setup line, "Agents: seo-scout";
+    // what the fold adds is the description and where it lives.)
+    assert!(!row_words(&rt, "claude").contains("Audits pages"), "{}", row_words(&rt, "claude"));
 
     press(&mut rt, "agents-artifacts-fold-codex");
     assert!(!row_words(&rt, "codex").contains("gig-scout"), "{}", row_words(&rt, "codex"));
