@@ -5,7 +5,7 @@
 
 use crate::*;
 use locust_core::updates::{
-    CheckForUpdatesResult, EventListener, EventPayload, INSTALL_TAKES, UpdateInfo, UpdateService, UpdateServiceOptions,
+    AppUpdatePhase, AppUpdateState, CheckForUpdatesResult, EventListener, EventPayload, INSTALL_TAKES, UpdateInfo, UpdateService, UpdateServiceOptions,
     UpdaterLike, create_update_service, installing_line,
 };
 use rune::{Env, Runtime};
@@ -79,6 +79,12 @@ fn ready_service(live: Arc<AtomicUsize>, quits: Arc<AtomicUsize>) -> UpdateServi
 }
 
 fn window(svc: UpdateService<Box<dyn UpdaterLike>>) -> Runtime<State> {
+    // The window's own copy still says what it said at launch; only the service knows the download finished.
+    window_with(|s| s.settings_panel.update_service = Some(svc))
+}
+
+/// The conversation window with Codec on the team, after `setup` has had its say about the update.
+fn window_with(setup: impl FnOnce(&mut State)) -> Runtime<State> {
     let mut s = State::default();
     apply_team(
         &mut s,
@@ -94,8 +100,7 @@ fn window(svc: UpdateService<Box<dyn UpdaterLike>>) -> Runtime<State> {
             folder: None,
         }],
     );
-    // The window's own copy still says what it said at launch; only the service knows the download finished.
-    s.settings_panel.update_service = Some(svc);
+    setup(&mut s);
     let mut rt = Runtime::new(s, view, (1100.0, 780.0), Env::new(true, 1.0));
     rt.frame(0.0);
     rt
@@ -170,4 +175,84 @@ fn has_the_words_for_after_the_click_installing_and_no_need_to_open_it() {
         Some("Installing Locust 0.406.0. It opens again by itself in a minute or two; there is no need to open it.")
     );
     assert_eq!(text_of(&rt, "update-banner-refusal"), None);
+}
+
+/// Not while a turn runs (Electron App.tsx draws `UpdateBanner` only when `!running`); there again once it ends.
+#[test]
+fn is_not_drawn_while_a_turn_runs_and_is_there_again_the_moment_it_ends() {
+    let mut rt = window(ready_service(Arc::new(AtomicUsize::new(0)), Arc::new(AtomicUsize::new(0))));
+    rt.update(|s, _| {
+        s.flight = Some(Flight {
+            teammate_id: "tm_codec".into(),
+            conversation_id: None,
+            header: None,
+            after_tip: None,
+            message: None,
+        });
+    });
+    tick(&mut rt);
+    assert!(rt.find("composer").is_some(), "the conversation's composer is on screen");
+    assert!(rt.find("update-banner").is_none(), "no banner while Codec's turn runs: {:?}", texts(&rt));
+    assert!(!texts(&rt).iter().any(|t| t == "Restart and install"), "{:?}", texts(&rt));
+
+    rt.update(|s, _| s.flight = None);
+    tick(&mut rt);
+    assert!(rt.find("update-banner").is_some(), "the banner is back once the turn ends: {:?}", texts(&rt));
+    assert_eq!(
+        text_of(&rt, "update-banner-line").as_deref(),
+        Some("Locust 0.406.0 is downloaded and ready. Locust closes while it installs and opens again by itself in a minute or two.")
+    );
+}
+
+/// A second press of Restart and install while it installs asks the service for nothing more.
+#[test]
+fn a_second_press_while_it_installs_asks_for_nothing_more() {
+    let quits = Arc::new(AtomicUsize::new(0));
+    let mut rt = window(ready_service(Arc::new(AtomicUsize::new(0)), quits.clone()));
+    tick(&mut rt);
+    for _ in 0..2 {
+        let (x, y) = rt.find("update-banner-install").expect("Restart and install");
+        rt.pointer_down(x, y);
+        rt.pointer_up(x, y);
+        tick(&mut rt);
+    }
+    assert_eq!(quits.load(Ordering::SeqCst), 1, "the service is asked to install once");
+    assert_eq!(
+        text_of(&rt, "update-banner-line").as_deref(),
+        Some("Installing Locust 0.406.0. It opens again by itself in a minute or two; there is no need to open it.")
+    );
+}
+
+/// Nothing until the version is downloaded and ready (Electron `UpdateBanner`: `update.phase !== 'ready'` draws nothing).
+#[test]
+fn says_nothing_until_the_version_is_downloaded_and_ready() {
+    let at = |phase: AppUpdatePhase| {
+        window_with(move |s| {
+            s.settings_panel.update = AppUpdateState {
+                phase,
+                current_version: "0.405.0".into(),
+                available_version: Some("0.406.0".into()),
+                ..AppUpdateState::default()
+            };
+        })
+    };
+    for phase in [
+        AppUpdatePhase::Idle,
+        AppUpdatePhase::Checking,
+        AppUpdatePhase::Current,
+        AppUpdatePhase::Available,
+        AppUpdatePhase::Downloading,
+        AppUpdatePhase::Failed,
+        AppUpdatePhase::Unsupported,
+    ] {
+        let rt = at(phase);
+        assert!(rt.find("composer").is_some(), "the conversation's composer is on screen");
+        assert!(rt.find("update-banner").is_none(), "no banner at {phase:?}: {:?}", texts(&rt));
+        assert_eq!(text_of(&rt, "update-banner-line"), None, "no line at {phase:?}");
+    }
+    let rt = at(AppUpdatePhase::Ready);
+    assert_eq!(
+        text_of(&rt, "update-banner-line").as_deref(),
+        Some("Locust 0.406.0 is downloaded and ready. Locust closes while it installs and opens again by itself in a minute or two.")
+    );
 }
