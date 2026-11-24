@@ -1,9 +1,3 @@
-- **Apps that use Locust can do more.** An app connected to Locust (Claude Code, Codex, any MCP client) can now read
-  your usage windows, change which model a teammate runs on (only with both "Let apps see your conversations" and
-  "Use each teammate's own mode" on in Settings), and name a conversation by the first few characters of its id. A
-  turn Locust closed in the middle of, after a crash or a quit, shows as stopped and can be carried on, on the same
-  agent too, and a finished conversation can be moved to another agent with a message for its next turn.
-
 # Changelog
 
 What changed in each build, written for someone using Locust rather than
@@ -16,6 +10,31 @@ Settings shows this file as What's new. An entry may group its changes under
 `### New`, `### Improved` and `### Fixed`, and a build a person should be told
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
+
+## 0.882.0 - 2026-11-24
+
+### New
+
+- **An app knows which computer it is talking to.** When Locust runs on two computers and an app is connected to both,
+  each one now names its computer (its host name, and Mac, Windows or Linux), so the app can tell them apart.
+
+### Improved
+
+- **The model chip names the account only when you turn it on.** The chip shows just the model and its effort; the
+  account it runs on is named only if you turn on the switch in that agent's accounts list in Settings > AI agents
+  (shown once the agent has an added account). The model menu names the account either way.
+- **A usage card's windows read shorter.** An agent's usage card now says "5-hour" and "Weekly" over each bar, not
+  "5-hour window" and "Weekly window".
+- **Every time of day is 12-hour.** Times on screen, such as when a usage window resets, all read like 5:34 PM.
+- **Removing an account asks right under it.** The question to remove an account now opens under that account, not
+  at the foot of the panel, so you can see which one you are removing.
+- **Apple Intelligence wears Apple's logo.** Its mark is now Apple's, like every other agent's is its maker's.
+
+### Fixed
+
+- **A long word stays inside its bubble.** A word longer than the bubble in a message you sent, such as a long test
+  name or path, now breaks onto the next line instead of running past the edge.
+- **The conversation source picker lines up.** It now sits right under the search, with no grey slab behind it.
 
 ## 0.881.0 - 2026-11-22
 
