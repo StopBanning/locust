@@ -63,6 +63,7 @@ pub(crate) struct PhoneAnywhereLink {
     relay_url: Option<String>,
     github_user: Option<Arc<dyn Fn(&str) -> Option<u64> + Send + Sync>>,
     computer_name: Option<String>,
+    open_browser: Option<Arc<dyn Fn(&str) + Send + Sync>>,
 }
 
 impl PhoneAnywhereLink {
@@ -80,6 +81,11 @@ impl PhoneAnywhereLink {
         self.connector = Some(connector);
         self.relay_url = Some(relay_url.into());
         self.github_user = github_user;
+    }
+
+    #[cfg(test)]
+    pub(crate) fn set_test_open_browser(&mut self, open: Arc<dyn Fn(&str) + Send + Sync>) {
+        self.open_browser = Some(open);
     }
 }
 
@@ -392,6 +398,97 @@ fn pick_way(s: &mut State, wifi: bool) {
     }
 }
 
+fn open_for_person(s: &State, url: &str) {
+    if let Some(open) = &s.phone_anywhere_link.open_browser {
+        open(url);
+        return;
+    }
+    if let Ok(pages) = std::env::var("LOCUST_SIGN_IN_PAGES")
+        && !pages.is_empty()
+    {
+        use std::io::Write;
+        if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(&pages) {
+            let _ = writeln!(f, "{url}");
+        }
+        return;
+    }
+    if cfg!(test) || !(url.starts_with("https://") || url.starts_with("http://")) {
+        return;
+    }
+    #[cfg(target_os = "macos")]
+    let _ = std::process::Command::new("/usr/bin/open").arg(url).spawn();
+    #[cfg(not(target_os = "macos"))]
+    let _ = std::process::Command::new("xdg-open").arg(url).spawn();
+}
+
+fn wait_for_relay(pa: &PhoneAnywhere) -> bool {
+    let max_ms = if cfg!(test) { 500 } else { 15_000 };
+    let step = std::time::Duration::from_millis(10);
+    let deadline = std::time::Instant::now() + std::time::Duration::from_millis(max_ms);
+    while std::time::Instant::now() < deadline {
+        if pa.connected() {
+            return true;
+        }
+        std::thread::sleep(step);
+    }
+    pa.connected()
+}
+
+/// "Open in your browser" (Electron `PHONE_OPEN_BROWSER_CHANNEL`, 0.838): turns on From anywhere if off,
+/// waits for the relay, asks the live `PhoneAnywhere` for `desk_code`, and opens the link in the browser.
+fn open_in_browser(s: &mut State) {
+    if locust_core::org_policy::feature_refusal(Some(&locust_core::org_policy::current()), "phone").is_some() {
+        return;
+    }
+    let already_anywhere = s.phone_anywhere.as_ref().is_some_and(|a| a.enabled);
+    if !already_anywhere {
+        if s.settings_panel.phone.as_ref().is_some_and(|p| p.enabled) {
+            let mut next = s.phone_anywhere.clone().unwrap_or_else(disabled_anywhere);
+            next.message = Some("Your phone reaches Locust only on this Wi-Fi now. Choose From anywhere first.".into());
+            s.phone_anywhere = Some(next);
+            return;
+        }
+        set_mode(s, PhoneMode::Anywhere);
+    }
+    let Some(pa) = s.phone_anywhere_link.live.clone() else {
+        return;
+    };
+    if !wait_for_relay(&pa) {
+        let mut next = pa.settings();
+        next.message = Some("Locust could not reach its relay. Check this computer\u{2019}s connection, then try again.".into());
+        s.phone_anywhere = Some(next);
+        return;
+    }
+    if let Some(url) = pa.desk_code() {
+        open_for_person(s, &url);
+        s.phone_anywhere = Some(pa.settings());
+    } else {
+        let mut next = pa.settings();
+        next.message = Some("Locust\u{2019}s relay did not open a code for this browser. Try again in a moment.".into());
+        s.phone_anywhere = Some(next);
+    }
+}
+
+/// "Sign in with GitHub" (Electron `PHONE_GITHUB_IN_CHANNEL`, 0.838): asks the live `PhoneAnywhere` for
+/// `github_link` and opens the link in the browser.
+fn github_sign_in(s: &mut State) {
+    let Some(pa) = s.phone_anywhere_link.live.clone() else {
+        return;
+    };
+    if let Some(url) = pa.github_link() {
+        open_for_person(s, &url);
+    }
+    s.phone_anywhere = Some(pa.settings());
+}
+
+/// "Sign out of GitHub" (Electron `PHONE_GITHUB_OUT_CHANNEL`, 0.838): calls `github_sign_out` on the live `PhoneAnywhere`.
+fn github_sign_out(s: &mut State) {
+    let Some(pa) = s.phone_anywhere_link.live.clone() else {
+        return;
+    };
+    s.phone_anywhere = Some(pa.github_sign_out());
+}
+
 /// The words under the heading, as PhoneSettings.tsx says them for Only on this Wi-Fi.
 pub(crate) fn lede(phone: &PhoneSettings, managed: bool) -> &'static str {
     if managed || !phone.enabled {
@@ -543,7 +640,8 @@ pub(crate) fn section(s: &State, p: &Palette) -> El {
                 .child(col().grow(1.0).child(text(OPEN_BROWSER_OFF).font(l.ty.body).color(l.c("text-secondary")).wrap()))
                 .child(
                     crate::look::controls::button(&l, "Open in your browser", crate::look::controls::Tone::Neutral, false)
-                        .key("phone-open-browser"),
+                        .key("phone-open-browser")
+                        .on_press(open_in_browser),
                 ),
         );
     }
@@ -620,7 +718,8 @@ pub(crate) fn section(s: &State, p: &Palette) -> El {
                     .child(col().grow(1.0).child(text(OPEN_BROWSER_ON).font(l.ty.body).color(l.c("text-secondary")).wrap()))
                     .child(
                         crate::look::controls::button(&l, "Open in your browser", crate::look::controls::Tone::Neutral, false)
-                            .key("phone-open-browser"),
+                            .key("phone-open-browser")
+                            .on_press(open_in_browser),
                     ),
             );
         }
@@ -668,6 +767,7 @@ pub(crate) fn section(s: &State, p: &Palette) -> El {
             section = section.child(list);
         }
 
+        let github_signed_in = anywhere.github_login.is_some();
         let (github_lede, github_note, github_label) = if let Some(login) = &anywhere.github_login {
             (
                 format!("Any browser where you sign in to GitHub as {login} opens Locust at app.locust.lol/desk, with no code."),
@@ -677,6 +777,15 @@ pub(crate) fn section(s: &State, p: &Palette) -> El {
         } else {
             (GITHUB_OFF_LEDE.to_owned(), GITHUB_OFF_NOTE, "Sign in with GitHub")
         };
+        let mut github_btn = crate::look::controls::button(&l, github_label, crate::look::controls::Tone::Neutral, !anywhere.connected)
+            .key("phone-github-btn");
+        if anywhere.connected {
+            github_btn = if github_signed_in {
+                github_btn.on_press(github_sign_out)
+            } else {
+                github_btn.on_press(github_sign_in)
+            };
+        }
         section = section.child(
             row()
                 .w_full()
@@ -691,10 +800,7 @@ pub(crate) fn section(s: &State, p: &Palette) -> El {
                         .child(text(github_lede).font(l.ty.body).color(l.c("text-primary")).wrap())
                         .child(text(github_note).font(l.ty.body).color(l.c("text-secondary")).wrap()),
                 )
-                .child(
-                    crate::look::controls::button(&l, github_label, crate::look::controls::Tone::Neutral, !anywhere.connected)
-                        .key("phone-github-btn"),
-                ),
+                .child(github_btn),
         );
 
         if anywhere.devices.iter().any(|d| d.alerts) {
@@ -1163,7 +1269,7 @@ mod tests {
     }
 
     struct FakeRelayLine {
-        callbacks: std::sync::Mutex<Option<Arc<dyn locust_core::phone_anywhere::RelaySocketCallbacks>>>,
+        callbacks: Arc<std::sync::Mutex<Option<Arc<dyn locust_core::phone_anywhere::RelaySocketCallbacks>>>>,
         frames: Arc<std::sync::Mutex<Vec<serde_json::Value>>>,
         closed: Arc<std::sync::atomic::AtomicBool>,
         github_off: bool,
@@ -1215,6 +1321,7 @@ mod tests {
         frames: Arc<std::sync::Mutex<Vec<serde_json::Value>>>,
         connects: Arc<std::sync::atomic::AtomicUsize>,
         closed: Arc<std::sync::atomic::AtomicBool>,
+        callbacks: Arc<std::sync::Mutex<Option<Arc<dyn locust_core::phone_anywhere::RelaySocketCallbacks>>>>,
         github_off: bool,
     }
 
@@ -1224,7 +1331,14 @@ mod tests {
                 frames: Arc::new(std::sync::Mutex::new(Vec::new())),
                 connects: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
                 closed: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+                callbacks: Arc::new(std::sync::Mutex::new(None)),
                 github_off: false,
+            }
+        }
+
+        fn push_frame(&self, frame: serde_json::Value) {
+            if let Some(cb) = self.callbacks.lock().unwrap().clone() {
+                cb.on_message(frame.to_string());
             }
         }
 
@@ -1232,11 +1346,12 @@ mod tests {
             let frames = Arc::clone(&self.frames);
             let connects = Arc::clone(&self.connects);
             let closed = Arc::clone(&self.closed);
+            let callbacks = Arc::clone(&self.callbacks);
             let github_off = self.github_off;
             Arc::new(move |_url: &str| {
                 connects.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
                 Ok(Arc::new(FakeRelayLine {
-                    callbacks: std::sync::Mutex::new(None),
+                    callbacks: Arc::clone(&callbacks),
                     frames: Arc::clone(&frames),
                     closed: Arc::clone(&closed),
                     github_off,
@@ -1366,5 +1481,92 @@ mod tests {
         click_key(&mut rt2, "phone-way-wifi");
         assert!(!rt2.state.phone_anywhere_link.is_live(), "switching to Wi-Fi should drop PhoneAnywhere");
         assert_eq!(rt2.state.phone_anywhere.as_ref().map(|a| a.enabled), Some(false));
+    }
+
+    #[test]
+    fn open_in_browser_button_calls_desk_code_from_off_and_on() {
+        let (_root, store) = temp_store("open-browser");
+        let relay = FakeRelay::new();
+        let opened: Arc<std::sync::Mutex<Vec<String>>> = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let mut rt = headless_phone_window(store, &relay);
+        let opened_c = Arc::clone(&opened);
+        rt.state.phone_anywhere_link.set_test_open_browser(Arc::new(move |url: &str| {
+            opened_c.lock().unwrap().push(url.to_owned());
+        }));
+
+        // Pressing "Open in your browser" while off turns on From anywhere, calls desk_code, and opens the .d URL.
+        click_key(&mut rt, "phone-open-browser");
+        assert!(rt.state.phone_anywhere_link.is_live());
+        let urls = opened.lock().unwrap().clone();
+        assert_eq!(urls.len(), 1, "expected one opened browser URL, got {urls:?}");
+        assert!(urls[0].starts_with("https://relay.test/#p="), "unexpected URL: {}", urls[0]);
+        assert!(urls[0].ends_with(".d"), "desk_code URL must end with .d: {}", urls[0]);
+        let code = rt.state.phone_anywhere.as_ref().and_then(|a| a.code.as_ref()).expect("desk code in State");
+        assert!(code.desk);
+        assert_eq!(code.url, urls[0]);
+        let text = all_text(&rt.elements());
+        assert!(text.contains("Opening Locust in this computer\u{2019}s browser."), "{text}");
+        assert!(by_key(&rt.elements(), "phone-code").is_none());
+
+        // Turn off, turn on normally (plain pairing code), then click "Open in your browser" in the ON state.
+        click_key(&mut rt, "phone-switch");
+        assert!(!rt.state.phone_anywhere_link.is_live());
+        click_key(&mut rt, "phone-switch");
+        pump_until(&mut rt, "reconnected", |s| {
+            s.phone_anywhere.as_ref().is_some_and(|a| a.enabled && a.connected)
+        });
+        assert!(rt.state.phone_anywhere.as_ref().and_then(|a| a.code.as_ref()).is_some_and(|c| !c.desk));
+        click_key(&mut rt, "phone-open-browser");
+        let urls2 = opened.lock().unwrap().clone();
+        assert_eq!(urls2.len(), 2, "expected second opened browser URL, got {urls2:?}");
+        assert!(urls2[1].ends_with(".d"), "second desk_code URL must end with .d: {}", urls2[1]);
+        assert!(rt.state.phone_anywhere.as_ref().and_then(|a| a.code.as_ref()).is_some_and(|c| c.desk));
+    }
+
+    #[test]
+    fn github_buttons_call_github_link_and_github_sign_out_on_live_phone_anywhere() {
+        let (_root, store) = temp_store("github-btns");
+        let relay = FakeRelay::new();
+        let opened: Arc<std::sync::Mutex<Vec<String>>> = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let mut rt = headless_phone_window(store, &relay);
+        let opened_c = Arc::clone(&opened);
+        rt.state.phone_anywhere_link.set_test_open_browser(Arc::new(move |url: &str| {
+            opened_c.lock().unwrap().push(url.to_owned());
+        }));
+
+        // Turn From anywhere on and wait for connection.
+        click_key(&mut rt, "phone-switch");
+        pump_until(&mut rt, "connected", |s| {
+            s.phone_anywhere.as_ref().is_some_and(|a| a.enabled && a.connected)
+        });
+
+        // Click "Sign in with GitHub": calls github_link, sends github-open, opens /v1/github/start URL.
+        click_key(&mut rt, "phone-github-btn");
+        let urls = opened.lock().unwrap().clone();
+        assert_eq!(urls.len(), 1, "expected one github_link URL, got {urls:?}");
+        assert!(urls[0].starts_with("https://relay.test/v1/github/start?room="), "unexpected URL: {}", urls[0]);
+        assert!(urls[0].contains("&link="), "missing link param: {}", urls[0]);
+        assert!(
+            relay.frames.lock().unwrap().iter().any(|f| f.get("t").and_then(serde_json::Value::as_str) == Some("github-open")),
+            "expected github-open frame sent to relay"
+        );
+
+        // Relay reports signed-in GitHub account; poll pushes github_login into State.
+        relay.push_frame(serde_json::json!({ "t": "github", "account": { "user": 42, "login": "octo" } }));
+        pump_until(&mut rt, "github_login in State", |s| {
+            s.phone_anywhere.as_ref().and_then(|a| a.github_login.as_deref()) == Some("octo")
+        });
+        let signed_in_text = all_text(&rt.elements());
+        assert!(signed_in_text.contains("Sign out of GitHub"), "{signed_in_text}");
+
+        // Click "Sign out of GitHub": calls github_sign_out, sends github-close, clears github_login.
+        click_key(&mut rt, "phone-github-btn");
+        assert!(
+            relay.frames.lock().unwrap().iter().any(|f| f.get("t").and_then(serde_json::Value::as_str) == Some("github-close")),
+            "expected github-close frame sent to relay"
+        );
+        assert_eq!(rt.state.phone_anywhere.as_ref().and_then(|a| a.github_login.as_deref()), None);
+        let signed_out_text = all_text(&rt.elements());
+        assert!(signed_out_text.contains("Sign in with GitHub"), "{signed_out_text}");
     }
 }
