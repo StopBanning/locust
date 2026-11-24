@@ -907,6 +907,7 @@ fn setup(s: &mut State, waker: Waker) {
             look_for_folders = s.last_restore.is_some();
         }
         locust_core::cursor_config::recover_on_startup(store.root());
+        background_runs::setup(s);
     }
     if look_for_folders {
         restored_folders_card::show(s);
@@ -2156,6 +2157,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     changed |= issue_list::poll(s);
     changed |= attention_watch::poll(s);
     changed |= scout_cards::poll(s);
+    changed |= background_runs::poll(s, now);
     changed |= tag_send::poll(s);
     changed |= rail::poll(s);
     changed |= open_pressed_notification(s, tx);
@@ -2813,6 +2815,9 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
     if let Some(viewer) = reply_actions::viewer(s, &p) {
         right = right.child(viewer);
     }
+    if let Some(bg) = background_runs::view(s, &p) {
+        right = right.child(bg);
+    }
     // The title bar above both columns; its toggles only while no conversation fills the window (TitleBar.tsx).
     let thread_shown = !(changes_open
         || s.routines.open
@@ -2842,6 +2847,7 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
         .children(restored_folders_card::card(s, &p))
         .children(backup_section::restore_notice_banner(s, &p))
         .children(remote_mcp_card::card(s, &p))
+        .children(background_runs::header_badge(s, &p))
         .child(body)
         // Locust taps you on the shoulder only while its window is elsewhere (attention.ts shouldNotify).
         .on_window_focus(|s: &mut State, focused: bool, _tx: &mut Tx| {
