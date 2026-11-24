@@ -2981,6 +2981,13 @@ apps/desktop/src/main/the-live-word-is-visibly-live.test.ts	leaves the word itse
 apps/desktop/src/main/the-live-word-is-visibly-live.test.ts	drops only the highlight when motion is off	yes
 apps/desktop/src/main/the-live-word-is-visibly-live.test.ts	sets the live word as a label rather than a machine string	yes
 apps/desktop/src/main/the-live-word-is-visibly-live.test.ts	scales no orb at all	yes
+apps/desktop/src/main/the-lockup-lighting-is-drawn.test.ts	is the cover drawn to scale: its 960x254 numbers times the measured k	yes
+apps/desktop/src/main/the-lockup-lighting-is-drawn.test.ts	centres the claim under the lockup, in mono capitals, never under the 10.5px floor	yes
+apps/desktop/src/main/the-lockup-lighting-is-drawn.test.ts	powers on from dark, lit lime, and ends in the app ink	yes
+apps/desktop/src/main/the-lockup-lighting-is-drawn.test.ts	relights without ever going dark	yes
+apps/desktop/src/main/the-lockup-lighting-is-drawn.test.ts	lays the boot screen tube over it: its scanlines and its sweep	yes
+apps/desktop/src/main/the-lockup-lighting-is-drawn.test.ts	sets the name the way the cover does: Figtree 700 capitals at the title tracking	yes
+apps/desktop/src/main/the-lockup-lighting-is-drawn.test.ts	stops for reduced motion	yes
 apps/desktop/src/main/the-message-box-focus-meets-3-to-1.test.ts	draws its edge in the box token	yes
 apps/desktop/src/main/the-message-box-focus-meets-3-to-1.test.ts	is at least 3:1 against the page and against the box	yes
 apps/desktop/src/main/the-message-box-is-one-row.test.ts	lays the +, the field and the buttons out on one row	yes

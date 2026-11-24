@@ -55,7 +55,12 @@ pub(super) struct Panel {
     cover_pane_origin: [f32; 2],
     cover_had_focus: bool,
     cover_lit_at: Option<f64>,
-    cover_power_frame: Option<u32>,
+    /// The lighting playing and its frame at the faces' 30 a second, or `None` at rest (PoweredLockup.tsx `lighting`).
+    cover_power_frame: Option<(crate::look::lockup::Lighting, u32)>,
+    cover_lighting_kind: Option<crate::look::lockup::Lighting>,
+    /// When the next relight is due on the cover's clock: set as a lighting ends, only while Full relights and the
+    /// window is in front (PoweredLockup.tsx's 7-10 s timer).
+    cover_relight_at: Option<f64>,
     /// How many times the cover glass has lit, and how many times a click asked to replay it (PoweredLockup.tsx).
     pub cover_lit_count: u32,
     pub cover_replays: u32,
@@ -556,6 +561,7 @@ fn cover_playing(s: &State) -> bool {
     cover_ready(s) && s.window_focused && !s.reduced_motion.get()
 }
 
+#[cfg(test)]
 const COVER_POWER_SECONDS: f64 = 2.6;
 
 fn cover_lighting(s: &State) -> locust_core::home_cover::LightingPlan {
@@ -568,8 +574,22 @@ fn light_cover_first(s: &mut State, now: f64) -> bool {
         return false;
     }
     s.home.cover_lit_count = 1;
-    s.home.cover_lit_at = Some(now);
+    light_cover(s, crate::look::lockup::Lighting::Power, now);
     true
+}
+
+/// Starts a lighting on the cover's clock; the poll steps it from there.
+fn light_cover(s: &mut State, kind: crate::look::lockup::Lighting, now: f64) {
+    s.home.cover_lit_at = Some(now);
+    s.home.cover_lighting_kind = Some(kind);
+    s.home.cover_relight_at = None;
+}
+
+/// The lighting playing now, if one is.
+fn cover_lighting_now(s: &State, now: f64) -> Option<(crate::look::lockup::Lighting, f64)> {
+    let kind = s.home.cover_lighting_kind?;
+    let age = now - s.home.cover_lit_at?;
+    (0.0..kind.seconds()).contains(&age).then_some((kind, age))
 }
 
 /// The pointer in Home's pane is measured against the sleeper's drawn box, in window coordinates.
@@ -623,11 +643,25 @@ pub(super) fn poll_cover(s: &mut State, tx: &mut Tx) -> bool {
         tx.wake_after(Duration::from_millis(remaining + 20));
     }
 
-    let frame = s.home.cover_lit_at
-        .filter(|_| cover_lighting(s) != LightingPlan::None)
-        .map(|lit| now - lit)
-        .filter(|age| (0.0..COVER_POWER_SECONDS).contains(age))
-        .map(|age| (age * 30.0) as u32);
+    let plan = cover_lighting(s);
+    // Full relights 7 to 10 s after each lighting ends, while someone can see it: a resting cover starts none, and the
+    // wait starts again when it wakes. Between lightings the cover asks for one wake, at the relight, never a frame.
+    if plan == LightingPlan::Repeat && s.home.cover_lit_count > 0 && cover_lighting_now(s, now).is_none() && s.window_focused {
+        let due = *s.home.cover_relight_at.get_or_insert_with(|| {
+            now + crate::look::lockup::next_lighting_delay(crate::look::lockup::clock_draw()) as f64 / 1_000.0
+        });
+        if now >= due {
+            s.home.cover_lit_count += 1;
+            light_cover(s, crate::look::lockup::Lighting::Relight, now);
+        } else {
+            tx.wake_after(Duration::from_secs_f64(due - now));
+        }
+    } else if !s.window_focused || plan != LightingPlan::Repeat {
+        s.home.cover_relight_at = None;
+    }
+    let frame = cover_lighting_now(s, now)
+        .filter(|_| plan != LightingPlan::None)
+        .map(|(kind, age)| (kind, (age * 30.0) as u32));
     if frame.is_some() {
         tx.wake_after(Duration::from_millis(36));
     }
@@ -651,6 +685,21 @@ pub(super) struct CoverDrawn {
     pub zzz: bool,
 }
 
+/// What the cover's lockup was set in, for the window's own tests (shell.css's `.lc-lockup__*` rules).
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub(super) struct LockupDrawn {
+    pub name: Option<rune::TextStyle>,
+    pub claim: Option<rune::TextStyle>,
+    pub scan: Option<Color>,
+    pub sweep: Option<Color>,
+}
+
+#[cfg(test)]
+thread_local! {
+    pub(super) static DRAWN_LOCKUP: std::cell::Cell<LockupDrawn> = const { std::cell::Cell::new(LockupDrawn { name: None, claim: None, scan: None, sweep: None }) };
+}
+
 #[cfg(test)]
 thread_local! {
     pub(super) static DRAWN_COVER: std::cell::RefCell<Vec<CoverDrawn>> = const { std::cell::RefCell::new(Vec::new()) };
@@ -667,7 +716,7 @@ const FLOAT_CURVE: &[[f32; 2]] = &[
 /// own grid and drawn at the card's width's scale, grown into the room Home measured (`home_cover::cover_place`).
 fn cover(s: &State, l: &crate::look::controls::Look, status: Option<String>) -> El {
     use locust_core::cover_script::{self as script, CoverBeat};
-    use locust_core::home_cover::{cover_place, claim_size, CoverPart, COVER_CAST, LightingPlan};
+    use locust_core::home_cover::{cover_place, claim_size, CoverPart, COVER_CAST};
     let card_width = s.home.fit.card_width.unwrap_or(0.0);
     let at = cover_place(card_width, s.home.fit.grow.unwrap_or(1.0));
     let k = at.drawn as f32;
@@ -675,9 +724,11 @@ fn cover(s: &State, l: &crate::look::controls::Look, status: Option<String>) -> 
     let playing = cover_playing(s);
     let still = !ready || s.reduced_motion.get();
     let elapsed = s.home.cover_clock.elapsed(cover_now());
-    let power = s.home.cover_power_frame
-        .filter(|_| ready && cover_lighting(s) != LightingPlan::None)
-        .map(|frame| frame as f32 / (COVER_POWER_SECONDS as f32 * 30.0));
+    // The lighting's frame, which the poll keeps only while the plan lights: reduced motion and Off draw none, so the
+    // lockup is the still, lit one.
+    let lighting = s.home.cover_power_frame
+        .filter(|_| ready)
+        .and_then(|(kind, frame)| crate::look::lockup::lockup_frame(kind, f64::from(frame) / 30.0));
     let (worker, thinker, _) = script::cover_beats(elapsed);
     let beat_of = |part: CoverPart| -> CoverBeat {
         match part {
@@ -694,32 +745,47 @@ fn cover(s: &State, l: &crate::look::controls::Look, status: Option<String>) -> 
     let line = status.clone().unwrap_or_else(|| COVER_CLAIM.to_owned());
     let mark_w = 100.0 * k;
     let mark_h = mark_w * 176.39 / 306.89;
-    let word_h = 48.0 * k * 0.62;
-    let word_w = word_h * 283.65 / 39.36;
+    let name_size = 48.0 * k;
     let m = at.machine;
     // The claim steps aside when the glass is narrower than it (0.405): out of the layout, still measured, so it comes
     // back when it fits again.
     let glass_w = m.width as f32 - 2.0 * 9.0 * k - 2.0;
     let claim_fits = rune::memo::layout("home-cover-line").is_none_or(|r| r[2] + 24.0 <= glass_w);
+    let claim_style = rune::TextStyle::new(claim_size(at.drawn) as f32, 400.0).mono().tracking(0.16 * claim_size(at.drawn) as f32);
+    #[cfg(test)]
+    DRAWN_LOCKUP.with(|d| d.set(LockupDrawn { name: Some(lockup_name(name_size)), claim: Some(claim_style), scan: None, sweep: None }));
     let mut claim = text(line.to_uppercase())
-        .font(rune::TextStyle::new(claim_size(at.drawn) as f32, 400.0).mono().tracking(0.16 * claim_size(at.drawn) as f32))
+        .font(claim_style)
         .color(if claim_fits { l.c("boot-ink-muted") } else { l.c("boot-ink-muted").alpha(0.0) })
         .key("home-cover-line");
     if !claim_fits {
         claim = claim.absolute(0.0, 0.0);
     }
+    // The traced mark beside the name in live type, set as the cover sets it: Figtree 700 capitals at the title
+    // tracking, the trailing tracking taken back so the lockup ends on the T (`.lc-lockup__name`).
     let lockup = |ink| row()
         .gap(18.0 * k)
         .center_y()
         .child(rune::icon(&crate::look::icons::LOCUST_MARK, mark_w).color(ink).my(-(mark_w - mark_h) / 2.0).a11y_hidden())
-        .child(rune::icon(&crate::look::icons::LOCUST_WORDMARK, word_w).color(ink).my(-(word_w - word_h) / 2.0));
-    let mut lockup_layer = col().child(lockup(ink).key("home-cover-lockup"));
-    if let Some(power) = power {
-        // The tube catches, holds in its lime, then cools back to the ordinary ink.
-        let glow = ((power - 0.08) / 0.11).clamp(0.0, 1.0).min(((1.0 - power) / 0.5).clamp(0.0, 1.0));
+        .child(
+            text("LOCUST")
+                .font(lockup_name(name_size))
+                .color(ink)
+                .mr(-0.14 * name_size)
+                .a11y_hidden(),
+        );
+    let frame = lighting.unwrap_or(crate::look::lockup::STILL);
+    let mut lockup_layer = col().opacity(frame.ink).instant_changes().child(lockup(ink).key("home-cover-lockup"));
+    if let Some(lit) = lighting {
+        // The tube catches in the lime, holds, then cools back to the glass's ink (`.lc-lockup__lit`).
         lockup_layer = lockup_layer.child(
-            lockup(color("#c9ea4a")).absolute(0.0, 0.0).opacity(glow)
-                .key(format!("home-cover-power-{}", s.home.cover_replays)).a11y_hidden()
+            lockup(l.c("lime"))
+                .absolute(0.0, 0.0)
+                .shadow(0.0, 24.0, l.c("boot-glow-soft"))
+                .opacity(lit.lit)
+                .transition(rune::Transition::none())
+                .key(format!("home-cover-power-{}", s.home.cover_replays))
+                .a11y_hidden(),
         );
     }
     let screen = col().center().gap(16.0 * k).child(lockup_layer).child(claim);
@@ -750,16 +816,17 @@ fn cover(s: &State, l: &crate::look::controls::Look, status: Option<String>) -> 
             let now = cover_now();
             if cover_ready(s)
                 && locust_core::home_cover::replays_on_ask(cover_lighting(s), s.home.cover_lit_count)
-                && s.home.cover_lit_at.is_none_or(|lit| now - lit >= COVER_POWER_SECONDS)
+                && cover_lighting_now(s, now).is_none()
             {
                 s.home.cover_lit_count += 1;
                 s.home.cover_replays += 1;
-                s.home.cover_lit_at = Some(now);
+                light_cover(s, crate::look::lockup::Lighting::Power, now);
                 tx.wake_after(Duration::ZERO);
             }
         })
         .child(screen)
-        .child(scan);
+        .child(scan)
+        .children(lighting.map(|lit| lockup_tube(l, lit, glass_w, m.height as f32 - 2.0 * 9.0 * k - 2.0)));
     let machine = col()
         .absolute(m.x as f32, m.y as f32)
         .w(m.width as f32)
@@ -881,6 +948,47 @@ fn cover(s: &State, l: &crate::look::controls::Look, status: Option<String>) -> 
                 }
             }),
     )
+}
+
+/// The name's type on the cover: Figtree 700 at 48 on the cover's grid, capitals at the title tracking.
+fn lockup_name(size: f32) -> rune::TextStyle {
+    rune::TextStyle::new(size, 700.0).tracking(0.14 * size).lh(size)
+}
+
+/// The boot screen's tube laid over the glass while the lockup lights: its scanlines, and one sweep down it
+/// (`.lc-lockup__tube`, `__scan`, `__sweep`). Drawn only while a lighting plays.
+fn lockup_tube(l: &crate::look::controls::Look, lit: crate::look::lockup::LockupFrame, w: f32, h: f32) -> El {
+    let scan_ink = l.c("boot-scan");
+    let scan = rune::canvas({
+        let mut shape = rune::Shape::new().view_box(w, h);
+        let mut y = 0.0;
+        while y < h {
+            shape = shape.fill(vec![[0.0, y], [w, y], [w, y + 1.0], [0.0, y + 1.0]], scan_ink);
+            y += 3.0;
+        }
+        shape
+    })
+    .pin(Some(0.0), Some(0.0), Some(0.0), Some(0.0))
+    .key("home-cover-lockup-scan");
+    let sweep_h = 0.46 * h;
+    let glow = l.c("boot-glow-soft");
+    #[cfg(test)]
+    DRAWN_LOCKUP.with(|d| d.set(LockupDrawn { scan: Some(scan_ink), sweep: Some(glow), ..d.get() }));
+    let sweep = col()
+        .absolute(0.0, lit.sweep * sweep_h)
+        .w(w)
+        .h(sweep_h)
+        .linear_gradient(std::f32::consts::PI, [(0.0, glow.alpha(0.0)), (0.5, glow), (1.0, glow.alpha(0.0))])
+        .key("home-cover-lockup-sweep");
+    col()
+        .pin(Some(0.0), Some(0.0), Some(0.0), Some(0.0))
+        .opacity(lit.tube)
+        .instant_changes()
+        .transition(rune::Transition::none())
+        .key("home-cover-lockup-tube")
+        .a11y_hidden()
+        .child(scan)
+        .child(sweep)
 }
 
 /// A Home section's head: its title, a count when it has one, and what sits at its right.
@@ -2443,3 +2551,7 @@ mod home_agents_fold_tests;
 #[cfg(test)]
 #[path = "home_panel_notice_tests.rs"]
 mod cover_notice_tests;
+
+#[cfg(test)]
+#[path = "home_lockup_tests.rs"]
+mod home_lockup_tests;
