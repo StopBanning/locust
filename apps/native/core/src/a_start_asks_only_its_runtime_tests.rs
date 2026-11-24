@@ -403,3 +403,86 @@ fn the_engines_own_start_reads_the_last_full_sweep_and_asks_nothing_while_it_is_
     crate::agents::held_a_sweep(&answer);
     assert_eq!(crate::agents::discover_for_start(Some("codex")), answer);
 }
+
+// ---- LIVE2 #19: a start right after the engine opens refused a ready agent ----------------------------------------
+// Under load, the first discovery's probe did not answer in time and the start refused "Install or sign in" for an
+// agent that answered in 1.7 s from a shell. A check that did not answer is asked once more before a start refuses.
+
+#[test]
+fn a_real_start_on_a_runtime_whose_check_did_not_answer_asks_it_once_more_and_goes_through() {
+    let t = Temp::new("probe-failed");
+    let _g = hooks::install(t.store(), fake_codex());
+    let h = install(harness(60_000));
+    h.set_held(vec![runtime("codex", Probe::ProbeFailed), runtime("claude", Probe::Ready)]);
+    let started = send_to_codex(&t);
+    assert!(started.is_ok(), "{started:?}");
+    // The full path first (it was not ready last time), then the starting runtime alone, once.
+    assert_eq!((h.sweeps(), h.asked()), (1, vec!["codex".to_owned()]));
+    // What it answered is kept for the next start.
+    assert_eq!(h.held.lock().unwrap().clone().unwrap().value[0], fresh("codex"));
+}
+
+#[test]
+fn a_signed_out_or_missing_runtime_is_an_answer_and_is_not_asked_again() {
+    let h = harness(60_000);
+    h.set_held(vec![runtime("codex", Probe::AuthRequired), Found { installed: false, ..runtime("claude", Probe::ProbeFailed) }]);
+    h.readiness.for_start(Some("codex"));
+    h.readiness.for_start(Some("claude"));
+    assert_eq!((h.sweeps(), h.asked().len()), (2, 0));
+}
+
+#[test]
+fn antigravity_silent_once_then_answering_is_ready_for_the_start() {
+    // The agents seams: `agy models` times out the first time (the busy Mac) and lists models the second.
+    let models_asked = Arc::new(AtomicUsize::new(0));
+    let sweep = {
+        let models_asked = models_asked.clone();
+        move || {
+            let find = |c: &str| (c == "agy").then(|| std::path::PathBuf::from("/usr/local/bin/agy"));
+            let run = |_: &std::path::Path, a: &[&str]| -> Option<crate::agents::Answer> {
+                let answer = |exit: Option<i32>, stdout: &str, timed_out: bool| crate::agents::Answer {
+                    exit,
+                    stdout: stdout.into(),
+                    stderr: String::new(),
+                    timed_out,
+                };
+                if a == ["--version"] {
+                    return Some(answer(Some(0), "1.2.14\n", false));
+                }
+                if models_asked.fetch_add(1, Ordering::SeqCst) == 0 {
+                    return Some(answer(None, "", true));
+                }
+                Some(answer(Some(0), "Fetching available models...\ngemini-4-argon-high\tGemini 4 Argon (High)\n", false))
+            };
+            let exists = |_: &std::path::Path| true;
+            let seams = crate::agents::Seams { find: &find, run: &run, exists: &exists, home: None, xdg_config_home: None, recall: None };
+            vec![crate::agents::discover_antigravity(&seams)]
+        }
+    };
+    let readiness = StartReadiness::new(StartReadinessOptions {
+        ttl_ms: TTL,
+        now: Box::new(|| 0),
+        held: Box::new(|| None),
+        store: Box::new(|_| {}),
+        sweep: Box::new(sweep),
+        ask_one: Box::new(|id| panic!("{id} is not a CLI to ask alone")),
+        sweep_only: crate::agents::sweep_only_at_start(),
+    });
+    let found = readiness.for_start(Some("antigravity"));
+    assert_eq!((found[0].status, found[0].ready), (Probe::Ready, true));
+    assert_eq!(models_asked.load(Ordering::SeqCst), 2);
+}
+
+#[test]
+fn a_check_that_still_does_not_answer_is_said_as_electron_says_it() {
+    // codex-mission.ts notReadyRefusal, readiness 'unknown'.
+    let silent = Found { auth: Auth::Unknown, ..runtime("antigravity", Probe::ProbeFailed) };
+    assert_eq!(
+        not_ready_refusal("antigravity", Some(&silent)),
+        "Antigravity did not answer in time when Locust checked whether it was ready, so nothing was sent. Try again in a moment."
+    );
+    assert_eq!(
+        not_ready_refusal("claude", Some(&runtime("claude", Probe::Unknown))),
+        "Claude Code did not answer in time when Locust checked whether it was ready, so nothing was sent. Try again in a moment."
+    );
+}
