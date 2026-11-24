@@ -1407,9 +1407,12 @@ impl Transcript {
                     } else if (level == "warning" || level == "error")
                         && (work_began || run_trouble(&code))
                     {
+                        // A provider's JSON is said as a sentence; the recorded event keeps its evidence (buildThread).
+                        let runtime = string(event, "sourceAdapter");
+                        let said = crate::provider_error::provider_error_sentence(&string(p, "message"), Some(runtime.as_str()).filter(|r| !r.is_empty()));
                         items.push(Item::Note {
                             level,
-                            text: scrub(&string(p, "message")),
+                            text: scrub(&said),
                         });
                     }
                 }
@@ -1418,8 +1421,20 @@ impl Transcript {
                         carry = true;
                         self.running = false;
                     }
-                    let text = scrub(&string(p, "message"));
+                    let runtime = string(event, "sourceAdapter");
+                    let runtime = Some(runtime.as_str()).filter(|r| !r.is_empty());
+                    let text = scrub(&crate::provider_error::provider_error_sentence(&string(p, "message"), runtime));
                     let kind = string(p, "kind");
+                    // A temporary warning that became the final failure is said by that error (buildThread's endedOn).
+                    let ended_on = self.events.values().find(|e| e["type"] == "run.failed").map(|e| {
+                        let failed = e.get("payload").unwrap_or(&Value::Null);
+                        crate::failure_words::failure_message(&string(failed, "message"), failed["process"]["stderr"].as_str(), runtime)
+                    });
+                    if kind == "temporary-rate-limit"
+                        && ended_on.is_some_and(|said| crate::failure_words::same_sentence(&text, &said))
+                    {
+                        continue;
+                    }
                     // One usage warning a run: the newest figure, where the first one stood (missionView, 2026-09-23).
                     let earlier = (kind == "temporary-rate-limit").then(|| items.iter_mut().find_map(|i| match i {
                         Item::Limit { kind, text } if kind == "temporary-rate-limit" => Some(text),
@@ -1560,7 +1575,9 @@ impl Transcript {
         if !self.running && !items.iter().any(|i| matches!(i, Item::Tool { .. } | Item::Thought { .. })) {
             for (at, e) in self.events.iter().filter(|(_, e)| e["type"] == "adapter.diagnostic") {
                 let code = string(&e["payload"], "code");
-                let text = scrub(&string(&e["payload"], "message"));
+                // A provider's JSON is said as a sentence, as it is where it stands in the turn (buildThread).
+                let runtime = string(e, "sourceAdapter");
+                let text = scrub(&crate::provider_error::provider_error_sentence(&string(&e["payload"], "message"), Some(runtime.as_str()).filter(|r| !r.is_empty())));
                 // Decided where it stands in the turn, above: never promoted as it was.
                 if retrying_note(&self.events, *at, &code, &string(&e["payload"], "message")).is_some() {
                     continue;

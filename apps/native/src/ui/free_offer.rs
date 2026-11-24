@@ -505,3 +505,7 @@ mod limit_tests;
 #[cfg(test)]
 #[path = "free_model_offer_tests.rs"]
 mod free_model_offer_tests;
+
+#[cfg(test)]
+#[path = "provider_error_once_tests.rs"]
+mod provider_error_once_tests;
