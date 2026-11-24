@@ -191,12 +191,18 @@ fn poll_capture(s: &mut State) -> bool {
         },
         CaptureState::Transcribing(receive) => match receive.try_recv() {
             Ok(Ok(words)) => {
-                let kept =
-                    s.draft.text.encode_utf16().count() - s.draft.selected().encode_utf16().count();
-                let limit = native::MAX_PROMPT_LENGTH.saturating_sub(kept);
-                let words = locust_core::people::bounded(&words, limit);
-                if !words.is_empty() {
-                    s.draft.insert(&words);
+                let (start, end) = s.draft.range();
+                let (text, cursor) = voice_typing::insert_text(
+                    &s.draft.text,
+                    &words,
+                    start,
+                    end,
+                    native::MAX_PROMPT_LENGTH,
+                );
+                // Through the box's own insert, so its pills and marks around the words are kept.
+                let inserted = &text[start..cursor];
+                if !inserted.is_empty() {
+                    s.draft.insert(inserted);
                 }
                 None
             }

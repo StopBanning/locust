@@ -6507,8 +6507,8 @@ apps/desktop/src/renderer/src/voice-typing-is-editable-and-cancellable.test.tsx	
 apps/desktop/src/renderer/src/voice-typing-is-editable-and-cancellable.test.tsx	a second press inserts returned words once, not a send	yes
 apps/desktop/src/renderer/src/voice-typing-is-editable-and-cancellable.test.tsx	a refused OpenAI key leaves the existing draft alone	yes
 apps/desktop/src/renderer/src/voice-typing-is-editable-and-cancellable.test.tsx	unconsented cloud and a missing key never open the microphone	yes
-apps/desktop/src/renderer/src/voice-typing-is-editable-and-cancellable.test.tsx	inserts at the cursor, replaces a selection, and preserves surrounding edits	no
-apps/desktop/src/renderer/src/voice-typing-is-editable-and-cancellable.test.tsx	produces canonical mono PCM and clamps live RMS for subscribers	no
+apps/desktop/src/renderer/src/voice-typing-is-editable-and-cancellable.test.tsx	inserts at the cursor, replaces a selection, and preserves surrounding edits	yes
+apps/desktop/src/renderer/src/voice-typing-is-editable-and-cancellable.test.tsx	produces canonical mono PCM and clamps live RMS for subscribers	yes
 apps/desktop/src/renderer/src/what-a-teammate-published-is-a-card.test.tsx	knows each kind by its address, and names it	yes
 apps/desktop/src/renderer/src/what-a-teammate-published-is-a-card.test.tsx	takes the reply’s own words for a link’s name, and vouches for nothing it does not know	yes
 apps/desktop/src/renderer/src/what-a-teammate-published-is-a-card.test.tsx	finds them as links and as bare addresses, in order, each once, and none inside code	yes

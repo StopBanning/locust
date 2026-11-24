@@ -295,3 +295,29 @@ fn cloud_capture_waits_for_key_and_consent() {
         assert_eq!(activity.opened.load(Ordering::Relaxed), 0);
     }
 }
+
+// case: inserts at the cursor, replaces a selection, and preserves surrounding edits
+#[test]
+fn spoken_words_go_in_at_the_cursor_within_the_prompt_limit() {
+    let (mut s, _profile, _) = state("darwin", true, true);
+    s.voice.transcriber = Some(words(200));
+    s.draft = rune::TextEdit::new("before  after");
+    s.draft.set_caret(7);
+    let mut rt = window(s);
+    open(&mut rt);
+    click(&mut rt, "voice-typing");
+    pump(&mut rt, "words at the cursor", |s| s.voice.capture.is_none());
+    assert_eq!(rt.state.draft.text, "before Local words. after");
+    assert_eq!(rt.state.draft.range(), (19, 19));
+
+    // 8,000 is Electron's MAX_PROMPT_LENGTH: a box five short of it takes five characters of what was said.
+    let (mut s, _profile, _) = state("darwin", true, true);
+    s.voice.transcriber = Some(words(200));
+    s.draft = rune::TextEdit::new("x".repeat(7_995));
+    s.draft.set_caret(0);
+    let mut rt = window(s);
+    open(&mut rt);
+    click(&mut rt, "voice-typing");
+    pump(&mut rt, "words cut to the limit", |s| s.voice.capture.is_none());
+    assert_eq!(rt.state.draft.text, format!("Local{}", "x".repeat(7_995)));
+}

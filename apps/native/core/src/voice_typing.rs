@@ -249,6 +249,15 @@ pub fn local_only(platform: &str) -> String {
     )
 }
 
+/// voice-pcm.ts `insertVoiceText`: the words, trimmed, go between what is before `start` and what is after `end` (byte
+/// offsets on character boundaries), cut so the whole stays within `limit` UTF-16 units; the cursor lands after them.
+pub fn insert_text(value: &str, words: &str, start: usize, end: usize, limit: usize) -> (String, usize) {
+    let (before, after) = (&value[..start], &value[end..]);
+    let room = limit.saturating_sub(before.encode_utf16().count() + after.encode_utf16().count());
+    let inserted = crate::people::bounded(words, room);
+    (format!("{before}{inserted}{after}"), before.len() + inserted.len())
+}
+
 pub const SAMPLE_RATE: usize = 16_000;
 pub const MAX_PCM_SAMPLES: usize = SAMPLE_RATE * 60;
 

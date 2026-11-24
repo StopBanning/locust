@@ -348,3 +348,17 @@ fn mac_refuses_both_local_modes_without_opening_or_downloading_anything() {
         assert!(!profile.1.root().join("voice").exists());
     }
 }
+
+// case: inserts at the cursor, replaces a selection, and preserves surrounding edits
+#[test]
+fn words_go_in_at_the_cursor_or_over_the_selection_within_the_limit() {
+    assert_eq!(
+        insert_text("before  after", "words", 7, 7, 8000),
+        ("before words after".to_owned(), 12)
+    );
+    assert_eq!(
+        insert_text("before old after", "new", 7, 10, 8000),
+        ("before new after".to_owned(), 10)
+    );
+    assert_eq!(insert_text("abcd", "123456", 2, 2, 6), ("ab12cd".to_owned(), 4));
+}
