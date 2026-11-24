@@ -115,6 +115,8 @@ pub mod hooks {
     /// What a start's readiness is asked through while a test holds the engine. None: the fake stands in for the
     /// runtime, and nothing is asked.
     pub static READINESS: Mutex<Option<Arc<crate::agents::StartReadiness>>> = Mutex::new(None);
+    /// What a `/context` run answers while set, in place of Claude Code (Electron's `LOCUST_CONTEXT_FIXTURE_PATH`).
+    pub static CLAUDE_CONTEXT_RUN: Mutex<Option<Arc<crate::claude_context::Run>>> = Mutex::new(None);
     /// Serialises tests that point the engine at a temporary store and a fake `codex`.
     pub struct Guard {
         _lock: std::sync::MutexGuard<'static, ()>,
@@ -131,6 +133,7 @@ pub mod hooks {
         *crate::invariants::lock(&STATE) = (Some(store), command);
         *crate::invariants::lock(&READINESS) = None;
         *crate::invariants::lock(&ON_AFTER_DISK) = None;
+        *crate::invariants::lock(&CLAUDE_CONTEXT_RUN) = None;
         guard
     }
     impl Drop for Guard {
@@ -1064,6 +1067,165 @@ pub fn opencode_follow_up_needs_fresh_session(
                 .is_none_or(|args| args.last().map(String::as_str) != Some("acp")));
     protocol_changed || unverified_acp_session
 }
+/// One `/context` reader per store (index.ts's `claudeContextReader`): each conversation's last Claude launch is kept in
+/// the store, and a read is one lazy, silent `/context` run after the turn has ended.
+static CLAUDE_CONTEXT: Mutex<Option<(PathBuf, Arc<crate::claude_context::ClaudeContextReader>)>> = Mutex::new(None);
+
+/// Turns starting that continue a conversation, before they are running (codex-mission.ts `contextStarting`): each by
+/// the conversation it was sent on, the key `RUNNING` takes once it registers.
+static CONTEXT_STARTING: Mutex<Vec<(u64, String)>> = Mutex::new(Vec::new());
+
+/// One turn starting on a conversation, held until the start returns, by which time it is running or has failed.
+struct ContextStarting(u64);
+impl ContextStarting {
+    fn on(conversation: &str) -> Self {
+        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+        let key = NEXT.fetch_add(1, Ordering::SeqCst);
+        crate::invariants::lock(&CONTEXT_STARTING).push((key, conversation.to_owned()));
+        Self(key)
+    }
+}
+impl Drop for ContextStarting {
+    fn drop(&mut self) {
+        crate::invariants::lock(&CONTEXT_STARTING).retain(|(key, _)| *key != self.0);
+    }
+}
+
+/// A turn's `mission.created` metadata, read from the top of its ledger only.
+fn turn_header(id: &str) -> Option<Value> {
+    use std::io::BufRead;
+    let file = std::fs::File::open(find_ledger(id)?).ok()?;
+    std::io::BufReader::new(file)
+        .lines()
+        .take(64)
+        .map_while(Result::ok)
+        .filter_map(|line| serde_json::from_str::<Value>(&line).ok())
+        .find(|record| record["recordType"] == "mission.created")
+        .map(|record| record["metadata"].clone())
+}
+
+/// index.ts's ancestors: the newest turn and every turn it continues, newest first, at most 512.
+fn context_ancestors(tip: &str, header: &Value) -> Vec<String> {
+    let mut ancestors = vec![tip.to_owned()];
+    let mut prior = header["continuesFrom"]["missionId"].as_str().map(str::to_owned);
+    while let Some(id) = prior.take() {
+        if ancestors.contains(&id) || ancestors.len() >= 512 {
+            break;
+        }
+        prior = turn_header(&id).and_then(|h| h["continuesFrom"]["missionId"].as_str().map(str::to_owned));
+        ancestors.push(id);
+    }
+    ancestors
+}
+
+/// codex-mission.ts `contextBusy(ancestors)`: a turn running in this process, or starting before it has a ledger row,
+/// on the newest turn or any turn it continues. The ancestors are walked only while something runs or starts.
+fn context_busy(tip: &str, header: &Value) -> bool {
+    let mut live: Vec<String> = crate::invariants::lock(&CONTEXT_STARTING).iter().map(|(_, id)| id.clone()).collect();
+    live.extend(with_running(|m| m.keys().cloned().collect::<Vec<_>>()));
+    !live.is_empty() && context_ancestors(tip, header).iter().any(|id| live.contains(id))
+}
+
+/// A turn sent to the cloud computer (cloud-turns.ts `of`, 0.761): its session is on the codespace, not here.
+fn cloud_turn(mission: &str) -> bool {
+    let Some(store) = store() else { return false };
+    [store.root(), store.electron()]
+        .iter()
+        .any(|dir| crate::cloud_turns::recorded_of(&dir.join("cloud-turns.json"), mission).is_some())
+}
+
+/// index.ts's `resolve` for the `/context` reader: the conversation's newest turn and its Claude session; busy while it
+/// or any turn it continues is running or starting; and, for a turn whose launch was never kept, the launch its
+/// recorded command gives (`recordedClaudeContextLaunch`). Nothing for another agent or a cloud turn.
+fn claude_context_turn(conversation: &str) -> Option<crate::claude_context::ClaudeContextTurn> {
+    let tip = real_tip(conversation).ok()?;
+    let prior = prior_of(&tip).ok()?;
+    if prior.runtime != "claude" || cloud_turn(&tip) {
+        return None;
+    }
+    let session_id = prior.thread.clone()?;
+    let header = turn_header(&tip)?;
+    let busy = prior.running || context_busy(&tip, &header);
+    let command = &header["command"];
+    let args: Option<Vec<String>> = command["args"].as_array().map(|a| a.iter().filter_map(|v| v.as_str().map(str::to_owned)).collect());
+    let recorded = command["executablePath"].as_str().zip(args.as_deref());
+    let cwd = header["cwd"].as_str().or_else(|| command["cwd"].as_str()).filter(|c| !c.is_empty());
+    let sandbox = header["sandbox"].as_str().filter(|s| matches!(*s, "read-only" | "workspace-write" | "full-access"));
+    let fallback = sandbox.and_then(|sandbox| crate::claude_context::recorded_claude_context_launch(recorded, cwd, sandbox));
+    Some(crate::claude_context::ClaudeContextTurn { mission_id: tip, session_id, busy, account: prior.account, fallback })
+}
+
+fn claude_context_reader() -> Option<Arc<crate::claude_context::ClaudeContextReader>> {
+    use crate::claude_context::{ClaudeContextReader, ClaudeContextTurn, ContextResources, ReaderOptions, prepare_claude_context_launch};
+    let store = store()?;
+    let mut held = crate::invariants::lock(&CLAUDE_CONTEXT);
+    if let Some((root, reader)) = held.as_ref()
+        && root == store.root()
+    {
+        return Some(reader.clone());
+    }
+    let resolve = claude_context_turn;
+    let prepare_store = store.clone();
+    let prepare = move |launch: &crate::claude_context::ClaudeContextLaunch, turn: &ClaudeContextTurn| {
+        let store = &prepare_store;
+        let env = account_launch_env(store, "claude", turn.account.as_deref())?.into_iter().map(|(k, v)| (k.to_owned(), v)).collect();
+        let permission = |run: &str, mission: &str, cwd: &str| -> Result<(String, crate::claude_context::Held), String> {
+            let bridge = crate::runtime::permission_bridge::Bridge::prepare(approvals_channel(), mission, run, cwd, Arc::new(AtomicBool::new(false)))
+                .map_err(|e| e.to_string())?;
+            Ok((bridge.config().to_owned(), Box::new(bridge)))
+        };
+        let browser = |_run: &str, mission: &str, cwd: &str| -> Result<(String, crate::claude_context::Held), String> {
+            let mut unused = std::process::Command::new("claude");
+            let registration = crate::browser_tools::Registration::prepare(&mut unused, "claude", mission, "context-inspection", Path::new(cwd), approvals_channel(), Arc::new(AtomicBool::new(false)))?
+                .ok_or("The browser is unavailable.")?;
+            let config = registration.claude_config().ok_or("The browser is unavailable.")?.to_owned();
+            Ok((config, Box::new(registration)))
+        };
+        let skills = |own: bool, auto: bool| -> Result<(Vec<(String, String)>, crate::claude_context::Held), String> {
+            struct Copies(Vec<PathBuf>);
+            impl Drop for Copies {
+                fn drop(&mut self) {
+                    crate::skills::remove_copies(&self.0);
+                }
+            }
+            let home = std::env::var_os("HOME").map(PathBuf::from);
+            let plugins = crate::skills::prepare_claude(&store.root().join("claude-skills"), Path::new(&launch.cwd), own, home.as_deref(), auto, &crate::skills::sources_for_store(store, ""));
+            let copies = Copies(crate::skills::copies_of(&plugins, None));
+            Ok((plugins.iter().map(|p| (p.name.to_owned(), p.dir.to_string_lossy().into_owned())).collect(), Box::new(copies)))
+        };
+        prepare_claude_context_launch(launch, turn, &ContextResources { env, permission: &permission, browser: &browser, skills: &skills })
+    };
+    #[cfg(any(test, feature = "test-hooks"))]
+    let run: Option<Arc<crate::claude_context::Run>> = Some(Arc::new(|command: &crate::claude_context::ContextCommand, stop: &crate::claude_context::Stop| {
+        let stand_in = crate::invariants::lock(&hooks::CLAUDE_CONTEXT_RUN).clone();
+        match stand_in {
+            Some(run) => run(command, stop),
+            None => crate::claude_context::run_claude_context(command, stop),
+        }
+    }));
+    #[cfg(not(any(test, feature = "test-hooks")))]
+    let run = None;
+    let reader = Arc::new(ClaudeContextReader::new(ReaderOptions {
+        file: store.root().join("claude-context-launches.json"),
+        resolve: Arc::new(resolve),
+        prepare: Arc::new(prepare),
+        run,
+        timeout: std::time::Duration::from_secs(10),
+    }));
+    *held = Some((store.root().to_path_buf(), reader.clone()));
+    Some(reader)
+}
+
+/// The context ring's breakdown (`readContextBreakdown`): Claude Code's own `/context` estimate for the conversation's
+/// last finished turn, or nothing while a turn runs, for another agent, or when it could not be read. Blocks until
+/// known, so the window asks off its thread.
+pub fn read_claude_context(conversation: &str) -> Option<crate::claude_context::ClaudeContextBreakdown> {
+    if !ledger::safe_id(conversation) {
+        return None;
+    }
+    claude_context_reader()?.read(conversation)
+}
+
 /// Ports codex-mission.ts `runtimeThreadIdOf` and `resumableThreadOf`: the last runtimeThreadId in the mission's events;
 /// nothing after a failure that ended the session or a moved folder; else the one its own `continuesFrom` carried.
 pub fn prior_of(tip: &str) -> Result<Prior, String> {
@@ -2927,6 +3089,15 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
         None if runtime_name == "kilo" => Some(crate::runtime::kilo::conversation_home(&store, &id).map_err(|e| e.to_string())?.0),
         held => held,
     };
+    // The conversation counts as busy for `/context` from here until this start returns, running or refused
+    // (codex-mission.ts `contextStarting`): before the turn registers and writes its ledger row, no read starts.
+    let _context_starting = job.conversation.as_deref().map(ContextStarting::on);
+    // A Claude turn starting stops any `/context` read first, and waits for it (codex-mission.ts `beforeStart`).
+    if runtime_name == "claude"
+        && let Some(reader) = claude_context_reader()
+    {
+        reader.before_start();
+    }
     let mut command = command_for_turn(
         runtime_name,
         &folder,
@@ -3107,6 +3278,23 @@ pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
         .get_args()
         .map(|a| a.to_string_lossy().into_owned())
         .collect();
+    // The launch kept for `/context` after the turn (codex-mission.ts `claudeContext.remember`): paths and flags only.
+    if runtime_name == "claude"
+        && let Some(reader) = claude_context_reader()
+    {
+        let launch = crate::claude_context::ClaudeContextLaunch {
+            cwd: folder.to_string_lossy().into_owned(),
+            executable_path: command.get_program().to_string_lossy().into_owned(),
+            args: args.clone(),
+            sandbox: mode.sandbox().to_owned(),
+            permission: bridge.as_ref().map(|b| b.config().to_owned()),
+            browser: browser_registration.as_ref().and_then(|r| r.claude_config()).map(str::to_owned),
+            plugins: claude_plugins.iter().map(|p| (p.name.to_owned(), p.dir.to_string_lossy().into_owned())).collect(),
+        };
+        if let Err(error) = reader.remember(&id, launch) {
+            eprintln!("The Claude launch for the context menu was not kept: {error}");
+        }
+    }
     // The mode and sandbox the turn really runs in, where it stands, and who started it, as Electron records them.
     let turn_workspace_id = crate::workspace_settings::workspace_id_for(repository_root.as_deref().unwrap_or(&folder));
     let resolved_route_id = format!(

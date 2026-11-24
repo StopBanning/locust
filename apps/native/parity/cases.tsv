@@ -2922,6 +2922,18 @@ apps/desktop/src/main/the-changes-panel-reads-every-change.test.ts	names a path 
 apps/desktop/src/main/the-changes-panel-reads-every-change.test.ts	takes master as the base of a repository with no remote and no main (CH3)	yes
 apps/desktop/src/main/the-changes-panel-reads-every-change.test.ts	lists a new file too big to show whole, and says when there are more new files than it shows (CH1)	yes
 apps/desktop/src/main/the-changes-panel-reads-every-change.test.ts	shows all the changes for a commit no longer on the branch, and says it shows all (CH4)	yes
+apps/desktop/src/main/the-context-menu-reads-claudes-own-estimate.test.ts	is read from its category table, the totals included	yes
+apps/desktop/src/main/the-context-menu-reads-claudes-own-estimate.test.ts	is read on a resumed session, whose reply carries that session's earlier cost	yes
+apps/desktop/src/main/the-context-menu-reads-claudes-own-estimate.test.ts	is refused when it ran a turn or called the model, failed, or has no table	yes
+apps/desktop/src/main/the-context-menu-reads-claudes-own-estimate.test.ts	shows the biggest rows in the window and free space, never deferred tools or the autocompact buffer	yes
+apps/desktop/src/main/the-context-menu-reads-claudes-own-estimate.test.ts	says nothing when no category the person controls is a real share of the window	yes
+apps/desktop/src/main/the-context-menu-reads-claudes-own-estimate.test.ts	points at connectors when they are what fills it, server instructions counted with them	yes
+apps/desktop/src/main/the-context-menu-reads-claudes-own-estimate.test.ts	returns what the process printed	yes
+apps/desktop/src/main/the-context-menu-reads-claudes-own-estimate.test.ts	throws when the process fails, so the menu shows nothing from it	yes
+apps/desktop/src/main/the-context-menu-reads-claudes-own-estimate.test.ts	runs /context once for a finished turn, then answers from what it read	yes
+apps/desktop/src/main/the-context-menu-reads-claudes-own-estimate.test.ts	does not run while a turn is running	yes
+apps/desktop/src/main/the-context-menu-reads-claudes-own-estimate.test.ts	gives way to a starting turn: the inspection is stopped and the menu shows nothing from it	yes
+apps/desktop/src/main/the-context-menu-reads-claudes-own-estimate.test.ts	shows nothing, and says nothing wrong, when /context fails	yes
 apps/desktop/src/main/the-cover-glass-reads-in-both-themes.test.ts	writes the wordmark and the claim in its own ink	yes
 apps/desktop/src/main/the-cover-glass-reads-in-both-themes.test.ts	keeps that ink the same in both themes, as the glass is	yes
 apps/desktop/src/main/the-effort-thumb-is-claude-codes-shape.test.ts	is Claude Code's: a white rounded rectangle, 16 x 20, 4px corners -- painted by the liquid	yes
@@ -5934,6 +5946,8 @@ apps/desktop/src/renderer/src/the-composer-counts-what-it-is-about.test.tsx	coun
 apps/desktop/src/renderer/src/the-composer-counts-what-it-is-about.test.tsx	counts only what is installed, not every runtime it knows about	yes
 apps/desktop/src/renderer/src/the-composer-counts-what-it-is-about.test.tsx	does not complain about hung agents when one of them works	yes
 apps/desktop/src/renderer/src/the-composer-counts-what-it-is-about.test.tsx	says nothing of the kind while discovery is still asking	yes
+apps/desktop/src/renderer/src/the-context-menu-shows-what-fills-it.test.tsx	lists Claude Code's estimate by category, said to be its estimate, above Compact now	yes
+apps/desktop/src/renderer/src/the-context-menu-shows-what-fills-it.test.tsx	is unchanged without one	yes
 apps/desktop/src/renderer/src/the-cover-counts-only-work.test.ts	is the same for a rebuilt map that holds the same runs	yes
 apps/desktop/src/renderer/src/the-cover-counts-only-work.test.ts	changes when a running run gets an event, starts or ends	yes
 apps/desktop/src/renderer/src/the-cover-counts-only-work.test.ts	is what the app hands the cover, never the map itself	no

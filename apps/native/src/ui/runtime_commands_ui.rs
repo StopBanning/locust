@@ -16,6 +16,14 @@ pub(super) struct Commands {
     pub was_running: bool,
     /// The context ring's menu is open.
     pub ring_open: bool,
+    /// Claude Code's own `/context` estimate for the conversation's last finished turn (0.806), read when the menu
+    /// opens; nothing for another agent, while a turn runs, or when it could not be read.
+    pub breakdown: Option<locust_core::claude_context::ClaudeContextBreakdown>,
+    /// The conversation the breakdown is read for, while the menu is open on a finished Claude turn.
+    pub breakdown_for: Option<String>,
+    /// The read for `breakdown_for`. The one guard against a stale answer: every change of `breakdown_for` asks again
+    /// or cancels, and `Latest` drops whatever an older ask answers, landed or not.
+    pub breakdown_job: Latest<Option<locust_core::claude_context::ClaudeContextBreakdown>>,
 }
 
 /// Read the lists at start and after every turn ends.
@@ -33,6 +41,31 @@ pub(super) fn poll(s: &mut State) -> bool {
     {
         s.runtime_commands.asked = true;
         s.runtime_commands_job.request(store, |store| locust_core::runtime_commands::for_store(&store).list());
+    }
+    changed |= read_breakdown(s, running);
+    changed
+}
+
+/// Composer.tsx's breakdown effect: read when the menu opens on a Claude conversation whose turn has ended, and
+/// dropped whenever that stops being so; read off the window's thread, as the engine runs `/context` to answer.
+fn read_breakdown(s: &mut State, running: bool) -> bool {
+    let wanted = if s.runtime_commands.ring_open && !running && conversation_runtime(s).as_deref() == Some("claude") {
+        selected_conversation(s).and_then(|(_, c)| c.conversation_id.clone())
+    } else {
+        None
+    };
+    let mut changed = false;
+    if wanted != s.runtime_commands.breakdown_for {
+        changed = s.runtime_commands.breakdown.take().is_some();
+        s.runtime_commands.breakdown_for = wanted.clone();
+        match wanted {
+            Some(id) => s.runtime_commands.breakdown_job.request(id, |id| locust_core::native::read_claude_context(&id)),
+            None => s.runtime_commands.breakdown_job.cancel(),
+        }
+    }
+    if let Some(read) = s.runtime_commands.breakdown_job.take() {
+        s.runtime_commands.breakdown = read;
+        changed = true;
     }
     changed
 }
@@ -133,6 +166,7 @@ pub(super) fn menu(s: &State, p: &Palette) -> Option<El> {
             .fill(l.c("bg-raised"))
             .border(1.0, l.c("border-card"))
             .child(text(reading.sentence()).font(type_::LABEL).color(l.c("text-secondary")).wrap().px(8.0))
+            .children(crate::context_ring::breakdown(s, &l))
             .child(item),
     )
 }

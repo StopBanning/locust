@@ -125,6 +125,7 @@ pub mod connectors_off;
 #[cfg(test)]
 mod free_start_tests;
 pub mod context_usage;
+pub mod claude_context;
 pub mod desk;
 #[cfg(test)]
 mod desk_access_tests;
@@ -589,3 +590,7 @@ mod thread_words_tests;
 mod runtime_order_tests;
 #[cfg(test)]
 mod live2_claude_account_tests;
+#[cfg(test)]
+mod claude_context_kept_tests;
+#[cfg(test)]
+mod claude_context_read_tests;
