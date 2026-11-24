@@ -6731,6 +6731,19 @@ packages/cli/test/an-editor-can-talk-to-a-locust-teammate.test.ts	rejects concur
 packages/cli/test/an-editor-can-talk-to-a-locust-teammate.test.ts	rejects files, editor MCP programs and unknown sessions before starting	yes
 packages/cli/test/an-editor-can-talk-to-a-locust-teammate.test.ts	rejects malformed JSON and methods without sending hidden turns	yes
 packages/cli/test/an-editor-can-talk-to-a-locust-teammate.test.ts	speaks newline-framed JSON on real stdio and stops its turn on EOF	no
+packages/cli/test/the-command-talks-only-to-locust.test.ts	uses Electron’s actual profile name on each operating system	yes
+packages/cli/test/the-command-talks-only-to-locust.test.ts	authenticates against a fake app and reads teammates and status	yes
+packages/cli/test/the-command-talks-only-to-locust.test.ts	refuses a connection file naming %s	yes
+packages/cli/test/the-command-talks-only-to-locust.test.ts	explains a missing connection file without reading any other app	yes
+packages/cli/test/the-command-talks-only-to-locust.test.ts	does not follow a redirect with its token	yes
+packages/cli/test/the-command-talks-only-to-locust.test.ts	has an absolute deadline even when a server never finishes its reply	yes
+packages/cli/test/the-command-talks-only-to-locust.test.ts	passes the server’s refusal through rather than retrying a start	yes
+packages/cli/test/the-command-talks-only-to-locust.test.ts	prints incremental text once, not again for the final replacement	yes
+packages/cli/test/the-command-talks-only-to-locust.test.ts	cancels only this prompt when interrupted while its start request is pending	yes
+packages/cli/test/the-command-talks-only-to-locust.test.ts	does not start an already-cancelled prompt	yes
+packages/cli/test/the-command-talks-only-to-locust.test.ts	cancels an uncertain turn when reading its reply fails	yes
+packages/cli/test/the-command-talks-only-to-locust.test.ts	does not silently duplicate text that an agent rewrote	yes
+packages/cli/test/the-command-talks-only-to-locust.test.ts	runs the built teammates command without a live app or a global install	yes
 packages/mission-store/src/deleting-is-reversible.test.ts	takes it out of every listing, and keeps the bytes	no
 packages/mission-store/src/deleting-is-reversible.test.ts	can be put back, exactly as it was	yes
 packages/mission-store/src/deleting-is-reversible.test.ts	says no rather than writing over a record	yes
