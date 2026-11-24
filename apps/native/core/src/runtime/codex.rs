@@ -15,6 +15,11 @@ use std::{
     time::{Duration, Instant},
 };
 const MAX_LINE: u64 = 8 * 1024 * 1024;
+/// Electron's `codex-app-server-run.ts` `DEFAULT_MAX_QUEUED_RECORDS` (4,096): a server that floods faster than the
+/// ledger can write ends the run rather than grow without limit or silently drop records.
+pub const MAX_QUEUED_RECORDS: usize = 4_096;
+/// Electron's `codex-app-server-run.ts` overflow words.
+pub const OVERFLOW_MESSAGE: &str = "Codex sent output faster than Locust could record it, so the run was stopped rather than leave a gap in its record. Sending it again usually works.";
 /// The words for a line past the size limit: Locust saw that cause itself, so the server's stderr is not added to it.
 const LINE_TOO_LONG: &str = "Codex JSON-RPC line exceeds 8 MiB";
 pub struct Codex {
@@ -100,7 +105,7 @@ impl Codex {
             .take()
             // Invariant: spawn configured this pipe and it has not been taken.
             .expect("spawn configured this pipe and it has not been taken");
-        let (tx, lines) = mpsc::sync_channel(256);
+        let (tx, lines) = mpsc::sync_channel(MAX_QUEUED_RECORDS);
         let reader_control = control.clone();
         std::thread::spawn(move || {
             let mut reader = BufReader::new(output);
@@ -139,9 +144,7 @@ impl Codex {
                 match tx.try_send(value) {
                     Ok(()) => {}
                     Err(mpsc::TrySendError::Full(_)) => {
-                        reader_control.fail(
-                            "Codex notification queue overflow (256 records); terminating run",
-                        );
+                        reader_control.fail(OVERFLOW_MESSAGE);
                         break;
                     }
                     Err(mpsc::TrySendError::Disconnected(_)) => break,
@@ -768,7 +771,7 @@ mod tests {
         let start = Instant::now();
         while runtime.child.try_wait().unwrap().is_none() {
             assert!(
-                start.elapsed() < Duration::from_secs(3),
+                start.elapsed() < Duration::from_secs(5),
                 "overflow did not kill producer"
             );
             std::thread::sleep(Duration::from_millis(20));
@@ -779,9 +782,56 @@ mod tests {
             event
                 .payload
                 .to_string()
-                .contains("notification queue overflow")
+                .contains("Codex sent output faster than Locust could record it")
         );
         assert_eq!(runtime.next_event().unwrap().unwrap().kind, "run.failed");
+    }
+    #[test]
+    fn burst_one_under_cap_is_all_kept() {
+        assert_eq!(MAX_QUEUED_RECORDS, 4_096);
+        let mut command = Command::new("python3");
+        command.args([
+            "-c",
+            "import json, sys\nline = json.dumps({'method':'item/agentMessage/delta','params':{'itemId':'m1','delta':'x'}})\nsys.stdout.write((line + '\\n') * 4095)\nsys.stdout.flush()\nsys.stdin.readline()",
+        ]);
+        let mut runtime = Codex::spawn(&mut command).unwrap();
+        // Let the producer fill the channel completely before the consumer drains a single record.
+        std::thread::sleep(Duration::from_millis(200));
+        assert_eq!(runtime.control.failure(), None);
+        let mut kept = 0usize;
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while kept < 4_095 {
+            assert!(Instant::now() < deadline, "timed out after {kept} deltas");
+            if let Some(ev) = runtime.next_event().unwrap() {
+                assert_ne!(ev.kind, "run.failed", "unexpected failure after {kept}: {:?}", ev.payload);
+                if ev.kind == "message.delta" {
+                    kept += 1;
+                }
+            }
+        }
+        assert_eq!(kept, 4_095);
+        assert_eq!(runtime.control.failure(), None);
+    }
+    #[test]
+    fn burst_one_over_cap_ends_the_run_with_electrons_words() {
+        let mut command = Command::new("python3");
+        command.args([
+            "-c",
+            "import json, sys\nline = json.dumps({'method':'item/agentMessage/delta','params':{'itemId':'m1','delta':'x'}})\nsys.stdout.write((line + '\\n') * 4097)\nsys.stdout.flush()\nsys.stdin.readline()",
+        ]);
+        let mut runtime = Codex::spawn(&mut command).unwrap();
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while runtime.control.failure().is_none() {
+            assert!(Instant::now() < deadline, "4097-record burst did not overflow");
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        let diag = runtime.next_event().unwrap().unwrap();
+        assert_eq!(diag.kind, "adapter.diagnostic");
+        let expected = "Codex sent output faster than Locust could record it, so the run was stopped rather than leave a gap in its record. Sending it again usually works.";
+        assert!(diag.payload.to_string().contains(expected), "{:?}", diag.payload);
+        let failed = runtime.next_event().unwrap().unwrap();
+        assert_eq!(failed.kind, "run.failed");
+        assert_eq!(failed.payload["message"], expected);
     }
     #[test]
     fn file_change_approval_attaches_patch_from_item_started() {

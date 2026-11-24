@@ -29,6 +29,9 @@ pub const APPLE_DISPLAY_NAME: &str = "Apple Intelligence";
 pub const APPLE_MODEL: &str = "apple-on-device";
 pub const APPLE_MODEL_NAME: &str = "On-device model";
 const MAX_LINE: u64 = 1024 * 1024;
+/// Matches Electron's default process runner queue cap (`records::MAX_QUEUED_RECORDS`, 2,048).
+pub const MAX_QUEUED_RECORDS: usize = super::records::MAX_QUEUED_RECORDS;
+pub const OVERFLOW_MESSAGE: &str = "Apple's on-device model sent more than Locust could record";
 
 /// What a person reads when the model is not there, by the reason Foundation Models gives.
 pub fn unavailable_words(reason: &str) -> &'static str {
@@ -241,6 +244,15 @@ impl AppleNormalizer {
 
     /// The run's last event, once the helper has exited (or was stopped).
     pub fn finish(&mut self, cancelled: bool, exit_code: Option<i32>) -> Vec<Event> {
+        self.finish_with_control(cancelled, exit_code, None)
+    }
+
+    pub(crate) fn finish_with_control(
+        &mut self,
+        cancelled: bool,
+        exit_code: Option<i32>,
+        control_failure: Option<&str>,
+    ) -> Vec<Event> {
         if self.ended {
             return vec![];
         }
@@ -253,16 +265,17 @@ impl AppleNormalizer {
         if cancelled {
             return vec![Self::event("run.cancelled", json!({"process": process}))];
         }
-        if self.done && self.failure.is_none() && exit_code == Some(0) {
+        if self.done && self.failure.is_none() && control_failure.is_none() && exit_code == Some(0) {
             return vec![Self::event("run.completed", json!({"process": process}))];
         }
-        let message = match &self.failure {
-            Some((kind, reason)) => failure_words(kind, reason.as_deref()),
-            None if self.done => format!(
+        let message = match (&self.failure, control_failure) {
+            (Some((kind, reason)), _) => failure_words(kind, reason.as_deref()),
+            (None, Some(msg)) => msg.to_owned(),
+            (None, None) if self.done => format!(
                 "Apple's on-device model answered, then its helper exited with code {}.",
                 exit_code.map(|c| c.to_string()).unwrap_or_else(|| "null".into())
             ),
-            None => "Apple's on-device model stopped before it answered.".into(),
+            (None, None) => "Apple's on-device model stopped before it answered.".into(),
         };
         vec![Self::event(
             "run.failed",
@@ -295,7 +308,7 @@ impl Apple {
         let control = Arc::new(Control::default());
         control.watch(child.id());
         let output = child.stdout.take().expect("spawn configured this pipe and it has not been taken");
-        let (tx, lines) = mpsc::sync_channel(1024);
+        let (tx, lines) = mpsc::sync_channel(MAX_QUEUED_RECORDS);
         let reader_control = control.clone();
         std::thread::spawn(move || {
             let mut reader = BufReader::new(output);
@@ -318,7 +331,7 @@ impl Apple {
                         match tx.try_send(value) {
                             Ok(()) => {}
                             Err(mpsc::TrySendError::Full(_)) => {
-                                reader_control.fail("Apple's on-device model sent more than Locust could record");
+                                reader_control.fail(OVERFLOW_MESSAGE);
                                 break;
                             }
                             Err(mpsc::TrySendError::Disconnected(_)) => break,
@@ -373,7 +386,9 @@ impl Apple {
 
     fn finish(&mut self) {
         let cancelled = self.stopping.is_some() || self.cancelled();
-        self.queued.extend(self.normal.finish(cancelled, self.exit_code));
+        let control_failure = self.control.failure();
+        self.queued
+            .extend(self.normal.finish_with_control(cancelled, self.exit_code, control_failure.as_deref()));
     }
 }
 

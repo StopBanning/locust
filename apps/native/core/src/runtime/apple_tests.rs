@@ -464,3 +464,53 @@ fn has_a_row_among_the_agents_ready_or_saying_why_not_and_none_where_it_cannot_b
     assert!(crate::agents::apple_found(&Probe::Unavailable { reason: "unknown".into() }).is_none());
     assert_eq!(crate::agents::integration_of("apple"), crate::agents::Integration::Live);
 }
+
+#[test]
+fn burst_one_under_cap_is_all_kept() {
+    assert_eq!(apple::MAX_QUEUED_RECORDS, 2_048);
+    let mut command = Command::new("python3");
+    command.args([
+        "-c",
+        "import json, sys\nline = json.dumps({'type':'delta','text':'a'})\nsys.stdout.write((line + '\\n') * 2047)\nsys.stdout.flush()\nsys.stdin.readline()",
+    ]);
+    let mut rt = Apple::spawn(&mut command).unwrap();
+    // Let the producer fill the channel completely before the consumer drains a single record.
+    std::thread::sleep(std::time::Duration::from_millis(200));
+    let mut kept = 0usize;
+    let deadline = Instant::now() + std::time::Duration::from_secs(10);
+    while kept < 2_047 {
+        assert!(Instant::now() < deadline, "timed out after {kept} deltas");
+        if let Some(ev) = rt.next_event().unwrap() {
+            assert_ne!(ev.kind, "run.failed", "unexpected failure after {kept}: {:?}", ev.payload);
+            if ev.kind == "message.delta" {
+                kept += 1;
+            }
+        }
+    }
+    assert_eq!(kept, 2_047);
+}
+
+#[test]
+fn burst_one_over_cap_ends_the_run_with_overflow_words() {
+    let mut command = Command::new("python3");
+    command.args([
+        "-c",
+        "import json, sys\nline = json.dumps({'type':'delta','text':'a'})\nsys.stdout.write((line + '\\n') * 2049)\nsys.stdout.flush()\nsys.stdin.readline()",
+    ]);
+    let mut rt = Apple::spawn(&mut command).unwrap();
+    // Let the 2049-record burst overflow the 2048-slot channel before draining.
+    std::thread::sleep(std::time::Duration::from_millis(250));
+    let deadline = Instant::now() + std::time::Duration::from_secs(5);
+    loop {
+        assert!(Instant::now() < deadline, "2049-record burst did not fail");
+        if let Some(ev) = rt.next_event().unwrap()
+            && ev.kind == "run.failed"
+        {
+            assert_eq!(
+                ev.payload["message"],
+                "Apple's on-device model sent more than Locust could record"
+            );
+            break;
+        }
+    }
+}
