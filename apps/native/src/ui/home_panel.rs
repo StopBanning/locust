@@ -1696,8 +1696,20 @@ pub(super) fn board_view(s: &State, p: &Palette) -> El {
         );
     }
 
-    match board {
-        None => {
+    // BoardScreen.tsx: a quiet board (nothing waiting, working or to look at) says so in a note and still lists what is
+    // done, the first twelve, under a Done column counting them all; with nothing done either it is the empty state.
+    let quiet: Vec<conversation_board::ConversationCard> = if board.is_none() {
+        missions
+            .iter()
+            .filter(|m| conversation_board::conversation_column(m, &facts) == ConversationBoardKey::Done)
+            .map(|m| conversation_board::ConversationCard { row: m.clone(), parent_id: m.nested_under.clone() })
+            .collect()
+    } else {
+        Vec::new()
+    };
+    let quiet_count = quiet.len();
+    let board = match board {
+        None if quiet.is_empty() => {
             body = body
                 .child(
                     text(BOARD_CLEAR.to_owned())
@@ -1710,27 +1722,55 @@ pub(super) fn board_view(s: &State, p: &Palette) -> El {
                         .color(p.muted)
                         .wrap(),
                 );
+            None
         }
+        None => {
+            body = body.child(text(BOARD_CLEAR_LINE.to_owned()).font(type_::LABEL).color(p.muted).wrap().key("board-quiet-note"));
+            Some(vec![conversation_board::ConversationBoardSection {
+                key: ConversationBoardKey::Done,
+                title: ConversationBoardKey::Done.title(),
+                members: quiet.into_iter().take(12).collect(),
+            }])
+        }
+        sections => sections,
+    };
+    let now = chrono::Utc::now();
+    match board {
+        None => {}
         Some(sections) => {
             let l = crate::look::controls::Look::new(p.dark);
             for section in sections {
                 let section_count = if section.key == ConversationBoardKey::NeedsYou {
                     section.members.len() + scout_waits.len()
+                } else if quiet_count > 0 {
+                    quiet_count
                 } else {
                     section.members.len()
                 };
+                let column = match section.key {
+                    ConversationBoardKey::NeedsYou => "needs-you",
+                    ConversationBoardKey::Working => "working",
+                    ConversationBoardKey::ToLookAt => "to-look-at",
+                    ConversationBoardKey::Done => "done",
+                };
                 let mut sec_header = row()
+                    .key(format!("board-column/{column}"))
                     .w_full()
                     .gap(8.0)
                     .center_y()
                     .padding(4.0)
                     .child(text(section.title.to_owned()).font(type_::TITLE).color(p.text));
+                // Every column counts its cards; Needs you's count is amber.
                 if section.key == ConversationBoardKey::NeedsYou && section_count > 0 {
                     sec_header = sec_header.child(
                         text(section_count.to_string())
                             .font(type_::LABEL)
                             .color(l.c("amber-text"))
                             .key("board-needs-you-count"),
+                    );
+                } else if section.key != ConversationBoardKey::NeedsYou {
+                    sec_header = sec_header.child(
+                        text(section_count.to_string()).font(type_::LABEL.mono()).color(p.muted).key(format!("board-{column}-count")),
                     );
                 }
                 body = body.child(sec_header);
@@ -1762,14 +1802,18 @@ pub(super) fn board_view(s: &State, p: &Palette) -> El {
                             .cloned()
                             .unwrap_or_else(|| WAITING_ON_YOU.into()),
                         ConversationBoardKey::Working => WORKING.into(),
-                        ConversationBoardKey::ToLookAt => "finished".into(),
-                        ConversationBoardKey::Done => {
-                            if card.row.phase == "failed" {
-                                "failed".into()
-                            } else if card.row.phase == "completed" {
-                                "done".into()
-                            } else {
-                                "stopped".into()
+                        // BoardScreen.tsx stateOf: the word for how it ended, then how long ago.
+                        key => {
+                            let word = match card.row.phase.as_str() {
+                                "completed" if key == ConversationBoardKey::ToLookAt => "finished",
+                                "completed" => "done",
+                                "failed" => "failed",
+                                "running" => WORKING,
+                                _ => "stopped",
+                            };
+                            match card.row.last_at.as_deref().and_then(|at| locust_core::home_team_state::ago_label(at, now)) {
+                                Some(ago) => format!("{word} · {ago}"),
+                                None => word.to_owned(),
                             }
                         }
                     };
@@ -1796,7 +1840,8 @@ pub(super) fn board_view(s: &State, p: &Palette) -> El {
                         card_el = card_el.child(text(state).font(type_::LABEL).color(p.amber));
                         if let Some(command) = &ask.command {
                             card_el = card_el.child(
-                                text(command.clone())
+                                // BoardScreen.tsx: the command held at its flags (`CommandText`).
+                                crate::approval_card::command_text("", command)
                                     .font(type_::LABEL)
                                     .color(p.secondary)
                                     .wrap(),
@@ -2625,3 +2670,15 @@ mod home_lockup_power_tests;
 #[cfg(test)]
 #[path = "home_beam_tests.rs"]
 mod home_beam_tests;
+
+#[cfg(test)]
+#[path = "changelog_reads_tests.rs"]
+mod changelog_reads_tests;
+
+#[cfg(test)]
+#[path = "board_drawn_tests.rs"]
+mod board_drawn_tests;
+
+#[cfg(test)]
+#[path = "page_starter_tests.rs"]
+mod page_starter_tests;

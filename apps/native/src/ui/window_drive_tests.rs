@@ -4085,7 +4085,8 @@ fn a_stopped_run_leaves_a_receipt_that_says_who_stopped_it_and_what_is_unknown()
     settle(&mut rt);
     // The thread keys each item itself, so the receipt is read by its words.
     let shown: Vec<String> = rt.elements().into_iter().filter_map(|e| e.text).collect();
-    assert!(shown.iter().any(|t| t == "You stopped this run"), "{shown:?}");
+    // CancellationCard.tsx: the title ends with the time of the turn's last event.
+    assert!(shown.iter().any(|t| t.starts_with("You stopped this run at ")), "{shown:?}");
     assert!(shown.iter().any(|t| t == "Stopped before it used any tools, so nothing is half-done."), "{shown:?}");
     assert!(!shown.iter().any(|t| t.starts_with("A command that had already started")), "no warning where nothing started");
 }
@@ -4589,7 +4590,9 @@ fn undo_puts_a_turns_files_back_off_the_windows_thread_and_says_so() {
 fn create_two_member_room(rt: &mut Runtime<State>, store: &Store, name: &str) {
     rt.update(|s, _| s.layout_pref = "wide".into());
     settle(rt);
-    click(rt, "sidebar-new-room");
+    // The wide sidebar's `+` offers New room (Sidebar.tsx: one `+` for New teammate, New room, New group).
+    click(rt, "sidebar-add-button");
+    click(rt, "row-menu-item-new-room");
     click(rt, "room-create-name");
     rt.paste(name);
     rt.frame(0.016);

@@ -207,6 +207,28 @@ pub struct Normalizer {
     compaction_items: usize,
     compaction_notices: usize,
     compactions: usize,
+    /// Whether this turn carried a message of the person's (0.428): a compaction in a turn without one was asked for.
+    asked: bool,
+}
+
+/// app-server-events.ts APP_SERVER_COMPACTED: the conversation outgrew the context inside a turn.
+pub const APP_SERVER_COMPACTED: &str =
+    "The conversation outgrew the model's context, so Codex summarized it and carried on from the summary.";
+/// app-server-events.ts APP_SERVER_COMPACTED_ON_REQUEST: the turn was the compaction alone, /compact (0.428).
+pub const APP_SERVER_COMPACTED_ON_REQUEST: &str =
+    "Codex summarized the conversation so far, as asked, and carries on from the summary.";
+/// app-server-events.ts CODEX_THREAD_IN_USE_SENTENCE (0.835): Codex lets one process write a thread at a time.
+pub const CODEX_THREAD_IN_USE_SENTENCE: &str = "Codex has this conversation open somewhere else right now, most likely in the Codex app or a Codex in a terminal, and lets only one place write to it at a time. Close it there, then run it again.";
+/// app-server-events.ts finish: what a run that ended without the server saying why reads.
+pub const APP_SERVER_ENDED_EARLY: &str = "The runtime connection ended before the turn completed.";
+
+/// app-server-events.ts codexSaid: what Codex said, or the sentence for a conversation it has open elsewhere.
+pub fn codex_said(message: &str) -> String {
+    if crate::invariants::regex(r"(?i)already has an active writer|thread-store conflict").is_match(message) {
+        CODEX_THREAD_IN_USE_SENTENCE.into()
+    } else {
+        message.into()
+    }
 }
 impl Normalizer {
     fn event(&mut self, kind: &str, payload: Value) -> Event {
@@ -224,13 +246,23 @@ impl Normalizer {
     }
     pub fn finish(&mut self, cancelled: bool, message: &str) -> Event {
         self.ended = true;
-        let mut p = json!({"process":self.process(false,cancelled)});
+        // app-server-events.ts finish (L1): what the run knew about why it ended, classified; a default sentence when
+        // it knew nothing. What was said stays in the process's stderr for whoever reads the evidence.
+        let said = message.trim();
+        let mut process = self.process(false, cancelled);
+        process["stderr"] = json!(redact_text(said));
+        let mut p = json!({"process":process});
         if let Some(t) = &self.thread {
             p["runtimeThreadId"] = json!(t);
         }
         if !cancelled {
-            p["kind"] = json!("process-failed");
-            p["message"] = json!(text(message, 16384));
+            let kind = match crate::codex_failure::failure_kind(Some(said)) {
+                _ if said.is_empty() => "process-failed",
+                "unknown" => "process-failed",
+                kind => kind,
+            };
+            p["kind"] = json!(kind);
+            p["message"] = json!(text(&if said.is_empty() { APP_SERVER_ENDED_EARLY.into() } else { codex_said(said) }, 16384));
             p["runtimeTerminal"] = json!("missing");
         }
         self.event(
@@ -241,6 +273,12 @@ impl Normalizer {
             },
             p,
         )
+    }
+    /// app-server.ts `unparsable-line`: a line that is not JSON is said, scrubbed, and the run goes on
+    /// (codex-events.ts `codex.malformed_json`, in its words).
+    pub fn malformed(&mut self, line: &str) -> Event {
+        let (raw, redacted) = malformed_raw(line);
+        self.event("adapter.diagnostic", json!({"level":"warning","code":"codex.malformed_json","message":"Codex emitted a malformed JSONL record","terminal":false,"evidence":{"raw":raw,"redacted":redacted}}))
     }
     pub fn diagnostic(&mut self, method: &str, message: &str) -> Event {
         self.event("adapter.diagnostic", json!({"level":"warning","code":"app.warning","message":text(message,16384),"terminal":false,"evidence":{"runtimeEventType":method,"redacted":true}}))
@@ -312,6 +350,9 @@ impl Normalizer {
                 } else {
                     identity(i, "id")
                 };
+                if kind == "userMessage" {
+                    self.asked = true;
+                }
                 if [
                     "userMessage",
                     "plan",
@@ -331,7 +372,8 @@ impl Normalizer {
                         return vec![];
                     }
                     self.compactions = self.compaction_items;
-                    return vec![self.event("adapter.diagnostic",json!({"level":"info","code":"codex.context_compacted","terminal":false,"message":"The conversation outgrew the model's context, so Codex summarized it and carried on from the summary.","evidence":evidence}))];
+                    let said = if self.asked { APP_SERVER_COMPACTED } else { APP_SERVER_COMPACTED_ON_REQUEST };
+                    return vec![self.event("adapter.diagnostic",json!({"level":"info","code":"codex.context_compacted","terminal":false,"message":said,"evidence":evidence}))];
                 }
                 if kind == "agentMessage" {
                     if !done {
@@ -353,10 +395,11 @@ impl Normalizer {
                         "commandExecution" => "shell".into(),
                         "fileChange" => "apply_patch".into(),
                         "webSearch" => "web_search".into(),
-                        "collabAgentToolCall" => format!("subagent:{}", s(i, "tool")),
+                        "collabAgentToolCall" => format!("subagent:{}", identity(i, "tool")),
                         _ => {
+                            // A name is an identity the ledger caps at 512 (app-server-events.ts `identityValue`).
                             if !s(i, "server").is_empty() && !s(i, "tool").is_empty() {
-                                format!("{}.{}", s(i, "server"), s(i, "tool"))
+                                identity(&json!({"name": format!("{}.{}", s(i, "server"), s(i, "tool"))}), "name")
                             } else if !s(i, "tool").is_empty() {
                                 identity(i, "tool")
                             } else {
@@ -386,10 +429,13 @@ impl Normalizer {
                         payload["command"] = json!(text(&command, 16384));
                     }
                     if done {
-                        for field in ["status", "exitCode"] {
-                            if !i[field].is_null() {
-                                payload[field] = i[field].clone();
-                            }
+                        if i["status"].is_string() {
+                            payload["status"] = json!(identity(i, "status"));
+                        } else if !i["status"].is_null() {
+                            payload["status"] = i["status"].clone();
+                        }
+                        if !i["exitCode"].is_null() {
+                            payload["exitCode"] = i["exitCode"].clone();
                         }
                         if let Some(output) = i["aggregatedOutput"].as_str() {
                             payload["output"] = json!(text(output, 16384));
@@ -476,9 +522,8 @@ impl Normalizer {
                 self.event("run.completed", payload)
             }
             "error" | "turn/failed" => {
-                let message = p["error"]["message"]
-                    .as_str()
-                    .unwrap_or("The runtime reported an error.");
+                // codexSaid: a conversation Codex has open elsewhere is said in one sentence (0.835).
+                let message = &codex_said(p["error"]["message"].as_str().unwrap_or("The runtime reported an error."));
                 if p["willRetry"] == true {
                     return vec![self.diagnostic(method, message)];
                 }
@@ -592,7 +637,8 @@ impl Normalizer {
                     return vec![];
                 }
                 self.compactions = self.compaction_notices;
-                self.event("adapter.diagnostic",json!({"level":"info","code":"codex.context_compacted","terminal":false,"message":"The conversation outgrew the model's context, so Codex summarized it and carried on from the summary.","evidence":evidence}))
+                let said = if self.asked { APP_SERVER_COMPACTED } else { APP_SERVER_COMPACTED_ON_REQUEST };
+                self.event("adapter.diagnostic",json!({"level":"info","code":"codex.context_compacted","terminal":false,"message":said,"evidence":evidence}))
             }
             "warning" | "guardianWarning" | "configWarning" => {
                 // app-server-events.ts: a configWarning says its `summary` (or a legacy `message`) and then its
@@ -620,6 +666,16 @@ impl Normalizer {
 #[cfg(test)]
 #[path = "a_long_json_key_tests.rs"]
 mod a_long_json_key_tests;
+#[cfg(test)]
+#[path = "app_server_events_tests.rs"]
+mod app_server_events_tests;
+#[cfg(test)]
+#[path = "codex_schema_fields_tests.rs"]
+mod codex_schema_fields_tests;
+
+#[cfg(test)]
+#[path = "more_secrets_case_tests.rs"]
+mod more_secrets_case_tests;
 
 #[cfg(test)]
 #[path = "codex_long_answer_tests.rs"]

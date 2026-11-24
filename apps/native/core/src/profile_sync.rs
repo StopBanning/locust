@@ -10,8 +10,8 @@ use crate::profile_backup::{
     BACKUP_MANIFEST, BACKUP_SCHEMA, BackupCounts, LEFT_OUT, carried_files, carries, count_profile,
 };
 use crate::relay_crypto::{
-    aes_gcm_decrypt, aes_gcm_encrypt, fill_random, hkdf_sha256, hmac_sha256, random_bytes,
-    sha256_b64url, to_base64url,
+    aes_gcm_decrypt, aes_gcm_encrypt, fill_random, from_base64url, hkdf_sha256, hmac_sha256,
+    random_bytes, sha256_b64url, to_base64url, x25519, x25519_public_key,
 };
 use chrono::{DateTime, Utc};
 use serde_json::{Map, Value, json};
@@ -102,6 +102,216 @@ pub fn chunks_of(size: usize) -> Vec<(usize, usize)> {
         start = end;
     }
     pieces
+}
+
+// ---- Recovery code (Crockford base32 + 2-byte SHA-256 check) --------------------------------------------------------
+
+const CROCKFORD: &[u8; 32] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+
+/// Encodes a 32-byte profile key with a 2-byte SHA-256 check in Crockford base32 (55 chars in groups of 5).
+pub fn recovery_code(profile_key: &[u8]) -> Result<String, String> {
+    if profile_key.len() != PROFILE_KEY_BYTES {
+        return Err("A profile key is 32 bytes.".into());
+    }
+    let digest = Sha256::digest(profile_key);
+    let mut bytes = [0u8; PROFILE_KEY_BYTES + 2];
+    bytes[..PROFILE_KEY_BYTES].copy_from_slice(profile_key);
+    bytes[PROFILE_KEY_BYTES] = digest[0];
+    bytes[PROFILE_KEY_BYTES + 1] = digest[1];
+
+    let mut bits: u32 = 0;
+    let mut value: u32 = 0;
+    let mut raw = String::with_capacity(55);
+    for byte in bytes {
+        value = (value << 8) | u32::from(byte);
+        bits += 8;
+        while bits >= 5 {
+            raw.push(CROCKFORD[((value >> (bits - 5)) & 31) as usize] as char);
+            bits -= 5;
+        }
+        value &= (1u32 << bits) - 1;
+    }
+    if bits > 0 {
+        raw.push(CROCKFORD[((value << (5 - bits)) & 31) as usize] as char);
+    }
+    let mut grouped = String::with_capacity(55 + 10);
+    for (i, ch) in raw.chars().enumerate() {
+        if i > 0 && i % 5 == 0 {
+            grouped.push('-');
+        }
+        grouped.push(ch);
+    }
+    Ok(grouped)
+}
+
+/// Decodes a Crockford base32 recovery code back into its 32-byte profile key, or `None` if malformed or check fails.
+pub fn profile_key_from_code(code: &str) -> Option<[u8; PROFILE_KEY_BYTES]> {
+    let mut cleaned = String::with_capacity(55);
+    for ch in code.chars() {
+        if ch.is_whitespace() || ch == '-' {
+            continue;
+        }
+        let upper = ch.to_ascii_uppercase();
+        let mapped = match upper {
+            'I' | 'L' => '1',
+            'O' => '0',
+            c => c,
+        };
+        cleaned.push(mapped);
+    }
+    if cleaned.len() != 55 {
+        return None;
+    }
+    let mut bytes = Vec::with_capacity(PROFILE_KEY_BYTES + 2);
+    let mut bits: u32 = 0;
+    let mut value: u32 = 0;
+    for ch in cleaned.bytes() {
+        let idx = CROCKFORD.iter().position(|&c| c == ch)? as u32;
+        value = (value << 5) | idx;
+        bits += 5;
+        if bits >= 8 {
+            bytes.push(((value >> (bits - 8)) & 0xff) as u8);
+            bits -= 8;
+            value &= (1u32 << bits) - 1;
+        }
+    }
+    if bytes.len() != PROFILE_KEY_BYTES + 2 {
+        return None;
+    }
+    let mut key = [0u8; PROFILE_KEY_BYTES];
+    key.copy_from_slice(&bytes[..PROFILE_KEY_BYTES]);
+    let digest = Sha256::digest(key);
+    if digest[0] == bytes[PROFILE_KEY_BYTES] && digest[1] == bytes[PROFILE_KEY_BYTES + 1] {
+        Some(key)
+    } else {
+        None
+    }
+}
+
+// ---- Slice 4b: Approving a new computer (X25519 + HKDF-SHA256 + AES-256-GCM) ----------------------------------------
+
+/// Where a new computer leaves its ask in its own room at the relay.
+pub fn ask_id() -> String {
+    sha256_b64url(&format!("{VERSION}|ask"))
+}
+
+/// Where an approving computer leaves its grant for `room` in its own place at the relay.
+pub fn grant_id_of(room: &str) -> String {
+    sha256_b64url(&format!("{VERSION}|grant|{room}"))
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AskKeys {
+    pub private_key: [u8; 32],
+    /// Raw X25519 public key, base64url (43 chars).
+    pub public_key: String,
+}
+
+pub fn new_ask_keys() -> AskKeys {
+    let mut private_key = [0u8; 32];
+    fill_random(&mut private_key);
+    let pub_raw = x25519_public_key(&private_key);
+    AskKeys {
+        private_key,
+        public_key: to_base64url(&pub_raw),
+    }
+}
+
+/// The code both screens show for one ask's key: `XXXX-XXXX` in Crockford base32 (40 bits).
+pub fn match_of(public_key: &str) -> String {
+    let digest = Sha256::digest(format!("{VERSION}|match|{public_key}").as_bytes());
+    let mut bits: u64 = 0;
+    for &byte in &digest[..5] {
+        bits = (bits << 8) | u64::from(byte);
+    }
+    let mut text = String::with_capacity(9);
+    for i in 0..8 {
+        if i == 4 {
+            text.push('-');
+        }
+        let shift = 35 - i * 5;
+        text.push(CROCKFORD[((bits >> shift) & 31) as usize] as char);
+    }
+    text
+}
+
+fn grant_info(from: &str, to: &str) -> String {
+    format!("{VERSION}|grant|{from}|{to}")
+}
+
+fn grant_key(private_key: &[u8; 32], peer_public_b64: &str, info: &str) -> Result<[u8; 32], String> {
+    let peer_vec = from_base64url(peer_public_b64)?;
+    if peer_vec.len() != 32 {
+        return Err("Invalid X25519 public key length.".into());
+    }
+    let mut peer = [0u8; 32];
+    peer.copy_from_slice(&peer_vec);
+    let shared = x25519(private_key, &peer);
+    if shared.iter().all(|&b| b == 0) {
+        return Err("That key locks nothing.".into());
+    }
+    let okm = hkdf_sha256(VERSION.as_bytes(), &shared, info.as_bytes(), 32);
+    let mut out = [0u8; 32];
+    out.copy_from_slice(&okm);
+    Ok(out)
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct OpenedGrant {
+    pub profile_key: [u8; PROFILE_KEY_BYTES],
+    pub from: String,
+}
+
+/// Seals the profile key to an ask's X25519 public key, bound to both rooms (`from` -> `to`).
+pub fn seal_grant(
+    profile_key: &[u8],
+    ask_public_key: &str,
+    from: &str,
+    to: &str,
+) -> Result<Vec<u8>, String> {
+    if profile_key.len() != PROFILE_KEY_BYTES {
+        return Err("A profile key is 32 bytes.".into());
+    }
+    let mine = new_ask_keys();
+    let info = grant_info(from, to);
+    let key = grant_key(&mine.private_key, ask_public_key, &info)?;
+    let nonce = random_bytes(12);
+    let sealed = aes_gcm_encrypt(&key, &nonce, info.as_bytes(), profile_key)?;
+    let body = json!({
+        "v": 1,
+        "from": from,
+        "key": mine.public_key,
+        "n": to_base64url(&nonce),
+        "c": to_base64url(&sealed),
+    });
+    serde_json::to_vec(&body).map_err(|e| e.to_string())
+}
+
+/// Opens a grant for room `to` using this computer's ask key, or returns `None`.
+pub fn open_grant(grant: &[u8], ask: &AskKeys, to: &str) -> Option<OpenedGrant> {
+    let val: Value = serde_json::from_slice(grant).ok()?;
+    let obj = val.as_object()?;
+    if obj.get("v")?.as_u64()? != 1 {
+        return None;
+    }
+    let from = obj.get("from")?.as_str()?;
+    let peer_key = obj.get("key")?.as_str()?;
+    let n = obj.get("n")?.as_str()?;
+    let c = obj.get("c")?.as_str()?;
+    let info = grant_info(from, to);
+    let key = grant_key(&ask.private_key, peer_key, &info).ok()?;
+    let nonce = from_base64url(n).ok()?;
+    let ct = from_base64url(c).ok()?;
+    let opened = aes_gcm_decrypt(&key, &nonce, info.as_bytes(), &ct).ok()?;
+    if opened.len() != PROFILE_KEY_BYTES {
+        return None;
+    }
+    let mut profile_key = [0u8; PROFILE_KEY_BYTES];
+    profile_key.copy_from_slice(&opened);
+    Some(OpenedGrant {
+        profile_key,
+        from: from.to_owned(),
+    })
 }
 
 // ---- Sync types & traits --------------------------------------------------------------------------------------------
@@ -263,6 +473,49 @@ pub trait SyncRemote: Send + Sync {
     fn put(&self, id: &str, boxed: &[u8]) -> Result<(), SyncRefused>;
     fn get(&self, from: &str, id: &str) -> Result<Option<Vec<u8>>, SyncRefused>;
     fn remove(&self, id: &str) -> Result<(), SyncRefused>;
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SyncUsage {
+    pub used: u64,
+    pub quota: u64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ListedCopy {
+    pub room: String,
+    pub bytes: u64,
+    pub at: u64,
+    pub ids: Vec<String>,
+}
+
+/// What Settings › Your account asks of the relay besides: storage usage, listed copies, and deleting every copy.
+pub trait SyncAccountRemote: SyncRemote {
+    fn usage(&self) -> Result<SyncUsage, SyncRefused>;
+    fn copies(&self) -> Result<Vec<ListedCopy>, SyncRefused>;
+    fn remove_all(&self) -> Result<(), SyncRefused>;
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LastSync {
+    pub at: String,
+    pub files: usize,
+    pub bytes: usize,
+}
+
+/// What this computer last sent, for "Last synced": when, how many files and their bytes; `None` before the first sync.
+pub fn last_sync(profile: &Path, account: u64, room: &str) -> Option<LastSync> {
+    let state = read_state(profile, account, room)?;
+    Some(LastSync {
+        at: state.pushed_at,
+        files: state.files.len(),
+        bytes: state.files.iter().map(|f| f.bytes).sum(),
+    })
+}
+
+/// Forgets what was sent, so the next sync sends everything: after the copy at the relay is deleted.
+pub fn forget_sync(profile: &Path) {
+    let _ = fs::remove_file(profile.join(PROFILE_SYNC_FILE));
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -671,6 +924,119 @@ impl SyncRemote for HttpSyncRemote {
         } else {
             Err(Self::refused(&reply))
         }
+    }
+}
+
+fn is_b64url_len(s: &str, len: usize) -> bool {
+    s.len() == len
+        && s.bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
+}
+
+impl SyncAccountRemote for HttpSyncRemote {
+    fn usage(&self) -> Result<SyncUsage, SyncRefused> {
+        let reply = self
+            .fetch
+            .send(&self.base, "GET", &self.auth, None)
+            .map_err(|e| SyncRefused { status: 0, message: e })?;
+        if !(200..300).contains(&reply.status) {
+            return Err(Self::refused(&reply));
+        }
+        let val: Value = serde_json::from_slice(&reply.body).unwrap_or(Value::Null);
+        let used = val.get("used").and_then(Value::as_u64).unwrap_or(0);
+        let quota = val.get("quota").and_then(Value::as_u64).unwrap_or(0);
+        Ok(SyncUsage { used, quota })
+    }
+
+    fn copies(&self) -> Result<Vec<ListedCopy>, SyncRefused> {
+        let reply = self
+            .fetch
+            .send(&self.base, "GET", &self.auth, None)
+            .map_err(|e| SyncRefused { status: 0, message: e })?;
+        if !(200..300).contains(&reply.status) {
+            return Err(Self::refused(&reply));
+        }
+        let val: Value = serde_json::from_slice(&reply.body).unwrap_or(Value::Null);
+        let mut out = Vec::new();
+        let Some(computers) = val.get("computers").and_then(Value::as_array) else {
+            return Ok(out);
+        };
+        for one in computers {
+            let Some(obj) = one.as_object() else {
+                continue;
+            };
+            let Some(room) = obj.get("room").and_then(Value::as_str) else {
+                continue;
+            };
+            if !is_b64url_len(room, 22) {
+                continue;
+            }
+            let bytes = obj.get("bytes").and_then(Value::as_u64).unwrap_or(0);
+            let files = obj.get("files").and_then(Value::as_array);
+            let mut max_at = 0u64;
+            let mut ids = Vec::new();
+            if let Some(files) = files {
+                for f in files {
+                    if let Some(at) = f.get("at").and_then(Value::as_u64) {
+                        max_at = max_at.max(at);
+                    }
+                    if let Some(id) = f.get("id").and_then(Value::as_str)
+                        && is_b64url_len(id, 43)
+                    {
+                        ids.push(id.to_owned());
+                    }
+                }
+            }
+            out.push(ListedCopy {
+                room: room.to_owned(),
+                bytes,
+                at: max_at,
+                ids,
+            });
+        }
+        Ok(out)
+    }
+
+    fn remove_all(&self) -> Result<(), SyncRefused> {
+        let reply = self
+            .fetch
+            .send(&self.base, "DELETE", &self.auth, None)
+            .map_err(|e| SyncRefused { status: 0, message: e })?;
+        if (200..300).contains(&reply.status) {
+            Ok(())
+        } else {
+            Err(Self::refused(&reply))
+        }
+    }
+}
+
+/// Real HTTP transport for `HttpSyncRemote` using `ureq`.
+pub struct UreqSyncHttpFetch;
+
+impl SyncHttpFetch for UreqSyncHttpFetch {
+    fn send(
+        &self,
+        url: &str,
+        method: &str,
+        auth: &str,
+        body: Option<&[u8]>,
+    ) -> Result<SyncHttpReply, String> {
+        use std::io::Read;
+        let req = ureq::request(method, url).set("authorization", auth);
+        let resp = match body {
+            Some(bytes) => req
+                .set("content-type", "application/octet-stream")
+                .send_bytes(bytes),
+            None => req.call(),
+        };
+        let (status, mut reader) = match resp {
+            Ok(r) => (r.status(), r.into_reader()),
+            Err(ureq::Error::Status(code, r)) => (code, r.into_reader()),
+            Err(ureq::Error::Transport(t)) => return Err(t.to_string()),
+        };
+        let mut buf = Vec::new();
+        let _ = reader.read_to_end(&mut buf);
+        Ok(SyncHttpReply { status, body: buf })
     }
 }
 

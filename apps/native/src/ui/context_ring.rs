@@ -85,6 +85,10 @@ pub(super) fn breakdown(s: &State, l: &crate::look::controls::Look) -> Option<El
 mod breakdown_tests;
 
 #[cfg(test)]
+#[path = "compact_from_the_ring_tests.rs"]
+mod compact_from_the_ring_tests;
+
+#[cfg(test)]
 mod renderer_tests {
     use super::*;
 

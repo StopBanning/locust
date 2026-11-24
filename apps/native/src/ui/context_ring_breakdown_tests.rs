@@ -277,3 +277,28 @@ fn a_read_answered_after_the_person_moved_to_another_conversation_never_shows_th
     assert!(!html.contains("Estimated by Claude Code"), "{html}");
     assert!(rt.find("context-breakdown").is_none());
 }
+
+/// Beside Electron's cases: the window's setup wakes it when the slash-command lists or the /context breakdown land, so
+/// an answer shows when it arrives, not at the next poll that something else causes.
+#[test]
+fn the_window_wakes_when_the_breakdown_or_the_command_lists_land() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    let mut s = State { demo: true, ..Default::default() };
+    let woken = Arc::new(AtomicUsize::new(0));
+    let count = woken.clone();
+    crate::setup(&mut s, Arc::new(move || {
+        count.fetch_add(1, Ordering::SeqCst);
+    }));
+    for (what, ask) in [
+        ("the /context breakdown", Box::new(|s: &mut State| s.runtime_commands.breakdown_job.request((), |()| None)) as Box<dyn Fn(&mut State)>),
+        ("the slash-command lists", Box::new(|s: &mut State| s.runtime_commands_job.request((), |()| Default::default()))),
+    ] {
+        let before = woken.load(Ordering::SeqCst);
+        ask(&mut s);
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while woken.load(Ordering::SeqCst) == before && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        assert!(woken.load(Ordering::SeqCst) > before, "the window was never woken when {what} landed");
+    }
+}

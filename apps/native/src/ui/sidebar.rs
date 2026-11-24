@@ -206,6 +206,11 @@ pub(super) fn sidebar_missions_now(s: &State) -> Vec<SidebarMission> {
         .collect();
     let visible: Vec<SidebarMission> =
         visible.into_iter().filter(|m| crate::conversation_list::conversation_source_matches(m, s.sidebar_source)).collect();
+    // A face's filter narrows the list to that teammate's conversations (Sidebar.tsx `faceFilter`).
+    let visible: Vec<SidebarMission> = match s.sidebar_face_filter.as_deref() {
+        Some(face) => visible.into_iter().filter(|m| row_owner(s, m).as_deref() == Some(face)).collect(),
+        None => visible,
+    };
     let matched: Vec<SidebarMission> = missions_matching(
         &visible,
         &query,
@@ -222,6 +227,42 @@ pub(super) fn sidebar_missions_now(s: &State) -> Vec<SidebarMission> {
     matched
 }
 
+/// The teammate a conversation belongs to (conversationList.ts `ownerOf`): the row's own owner, the team file's, else
+/// the teammate its turns were listed under.
+pub(super) fn row_owner(s: &State, item: &SidebarMission) -> Option<String> {
+    item.owner_id.clone()
+        .or_else(|| s.data.as_ref().and_then(|store| people::owner_of(store, &item.mission_id)))
+        .or_else(|| {
+            let keys = conversation_keys(item);
+            let name = s.recent.iter().find(|r| keys.contains(&r.id) && !r.teammate.is_empty())?.teammate.as_str();
+            s.teammates.iter().find(|mate| mate.name == name).map(|mate| mate.id.clone())
+        })
+}
+
+/// Faces drawn in the strip when the whole team fits, and when a `+N` count shares the row (Sidebar.tsx).
+pub(super) const FACES_WITHOUT_CHIP: usize = 5;
+pub(super) const FACES_WITH_CHIP: usize = 4;
+
+/// How many faces the strip draws for a team of `team`: all of five or fewer, else four and a count.
+pub(super) fn shown_face_count(team: usize) -> usize {
+    if team <= FACES_WITHOUT_CHIP { team } else { FACES_WITH_CHIP }
+}
+
+/// The team, the ones being worked with first (Sidebar.tsx `facesByRecency`): each by its newest conversation's time,
+/// one with none (or none that is a time) last, ties kept in roster order.
+pub(super) fn faces_by_recency<'a>(teammates: &'a [Teammate], owned: &[(Option<String>, Option<String>)]) -> Vec<&'a Teammate> {
+    let newest = |id: &str| {
+        owned.iter()
+            .filter(|(owner, _)| owner.as_deref() == Some(id))
+            .filter_map(|(_, at)| chrono::DateTime::parse_from_rfc3339(at.as_deref()?).ok())
+            .map(|at| at.timestamp_millis())
+            .fold(0, i64::max)
+    };
+    let mut order: Vec<&Teammate> = teammates.iter().collect();
+    order.sort_by_key(|mate| std::cmp::Reverse(newest(&mate.id)));
+    order
+}
+
 // routeName.ts's own-model identity, rather than any model beginning with "own-".
 fn is_own_mark_model(model: &str) -> bool {
     model.strip_prefix("own-").and_then(|rest| rest.split_once('/'))
@@ -234,17 +275,25 @@ fn mission_row(s: &State, p: &Palette, item: &SidebarMission, picked: bool) -> E
     let compare = undecided_comparison(s, item);
     let blind = compare.is_some_and(|compare| compare.blind);
     let picked = compare.map_or(picked, |compare| s.compare.active_id.as_deref() == Some(&compare.compare_id));
-    let recent = s.recent.iter().find(|r| r.id == item.mission_id);
-    let mut title = row().w_full().center_y().gap(6.0);
-    let owner = item.owner_id.clone().or_else(|| s.data.as_ref().and_then(|store| people::owner_of(store, &item.mission_id)));
-    if !blind && !owner.as_deref().is_some_and(|id| s.teammates.iter().any(|mate| mate.id == id)) {
+    // `.lc-conv`: one line, 32 high, whatever the title (the-flat-sidebar-is-written-down).
+    let mut title = row().w_full().h(CONVERSATION_ROW_HEIGHT).px(10.0).center_y().gap(8.0);
+    let owner = row_owner(s, item);
+    let by = owner.as_deref().and_then(|id| s.teammates.iter().find(|mate| mate.id == id));
+    // Every row's mark takes the owner's face footprint (`BOT_SIZE.conversationOwner`), so titles start on one x.
+    if blind {
+    } else if let Some(mate) = by {
+        title = title.child(row().size(OWNER_FACE, OWNER_FACE).center()
+            .child(roster_face(s, "conversation-owner", mate, None, None, OWNER_FACE, &l))
+            .key(format!("conversation-owner-{}", item.mission_id)));
+    } else {
         let summary = s.ledger_summaries.get(&item.mission_id);
         let mark = summary.filter(|m| !m.runtime.is_empty() && !m.model.is_empty() && !is_own_mark_model(&m.model))
             .and_then(|m| crate::look::controls::agent_mark(&l, &m.runtime, 13.0, l.c("text-muted"))
-                .map(|mark| row().size(18.0, 18.0).center().child(mark)
+                .map(|mark| row().size(OWNER_FACE, OWNER_FACE).center().child(mark)
                     .key(format!("conversation-runtime-{}", item.mission_id))
                     .role("img").label(locust_core::inspector::runtime_display_name(&m.runtime))));
-        title = title.child(mark.unwrap_or_else(|| el().size(18.0, 18.0).radius(4.0)
+        // `.lc-conv__nobody`: a 16 box, 2 either side, centred in the face's 20.
+        title = title.child(mark.unwrap_or_else(|| el().size(16.0, 16.0).mx((OWNER_FACE - 16.0) / 2.0).radius(4.0)
             .border(1.0, l.c("border-hairline")).a11y_hidden()
             .key(format!("conversation-nobody-{}", item.mission_id))));
     }
@@ -265,9 +314,10 @@ fn mission_row(s: &State, p: &Palette, item: &SidebarMission, picked: bool) -> E
         text(item.title.clone()).color(l.c("text-name"))
     };
     title = title.child(
-        name.font(rune::TextStyle::new(13.5, 500.0))
+        name.font(rune::TextStyle::new(14.0, 400.0))
             .grow(1.0)
             .shrink()
+            .min_w(0.0)
             .truncate()
             .key(format!("conversation-title-{}", item.mission_id)),
     );
@@ -287,20 +337,11 @@ fn mission_row(s: &State, p: &Palette, item: &SidebarMission, picked: bool) -> E
         title = title.child(el().size(5.0, 5.0).radius(2.5).fill(p.red));
     }
     let id = item.mission_id.clone();
-    let subtitle = recent.filter(|_| !blind)
-        .map(|item| {
-            format!(
-                "{}{} · {}",
-                item.teammate,
-                if item.started_by == "native" {
-                    " · native"
-                } else {
-                    ""
-                },
-                when(&item.updated, clock_seconds()),
-            )
-        })
-        .unwrap_or_default();
+    // Whose it is goes in the hover with the title, as a second line no longer says it (Sidebar.tsx `hover`).
+    let hover = match by.filter(|_| !blind) {
+        Some(mate) => format!("{} · {}", item.title, mate.name),
+        None => item.title.clone(),
+    };
     if picked || s.recent_hover.as_deref() == Some(&item.mission_id) {
         let menu_id = item.mission_id.clone();
         let menu_key = format!("org-menu-open-{menu_id}");
@@ -327,20 +368,11 @@ fn mission_row(s: &State, p: &Palette, item: &SidebarMission, picked: bool) -> E
         })
         .key(row_key)
         .w_full()
-        .py(9.0)
-        .px(10.0)
-        .gap(3.0)
-        .radius(9.0)
+        .radius(8.0)
         .fill(if picked { l.c("bg-selected") } else { crate::window_glass::sidebar_row_ground(s, p) })
         .hover(l.c("hover-surface"))
+        .help(hover)
         .child(title)
-        .child(
-            text(subtitle)
-                .font(rune::TextStyle::new(11.5, 400.0).lh(15.0))
-                .color(l.c("text-muted"))
-                .w_full()
-                .truncate(),
-        )
         .on_press_tx(move |s: &mut State, tx| open_sidebar_mission(s, &mission, tx))
         // Right-click: the conversation's menu at the pointer (Sidebar.tsx onContextMenu -> App.tsx openMissionMenu).
         .on_secondary_press({
@@ -355,6 +387,11 @@ fn mission_row(s: &State, p: &Palette, item: &SidebarMission, picked: bool) -> E
     }
     row_el
 }
+
+/// `.lc-conv`'s height: one line, never two.
+pub(super) const CONVERSATION_ROW_HEIGHT: f32 = 32.0;
+/// `BOT_SIZE.conversationOwner`: the owner's face on a row, and the footprint every stand-in for it takes.
+pub(super) const OWNER_FACE: f32 = 20.0;
 
 /// What the plug on an app-started row says (Sidebar.tsx's aria-label and title).
 const APP_STARTED: &str = "Started by another app through Locust";
@@ -565,20 +602,7 @@ pub(super) fn apply_org_action(s: &mut State, mission_id: &str, action: &str) {
                         return;
                     }
                 };
-                let lines = snapshot
-                    .as_ref()
-                    .map(|snap| {
-                        snap.items
-                            .iter()
-                            .filter_map(|item| match item {
-                                ledger::Item::User(text) | ledger::Item::Assistant { text, .. } => {
-                                    Some(text.clone())
-                                }
-                                _ => None,
-                            })
-                            .collect()
-                    })
-                    .unwrap_or_default();
+                let lines = snapshot.as_ref().map(|snap| beside::beside_lines(&snap.items)).unwrap_or_default();
                 s.beside = Some(beside::BesideState {
                     mission_id: mission_id.into(),
                     title,
@@ -838,176 +862,33 @@ const NO_MATCH: &str = "No conversations match that.";
 
 pub(super) fn sidebar(s: &State, p: &Palette) -> El {
     let l = crate::look::controls::Look::new(p.dark);
-    let meta = rune::TextStyle::new(11.5, 400.0).lh(15.0);
-    let mut rows = col().w_full().gap(2.0).padding(10.0);
-    // Sidebar.tsx 621 `rosterGlances`: the roster is a column of faces.
-    let glances = crate::handoff_glances::roster_glances(s);
-    // Each teammate's one status (teammate_faces.rs), as Electron's roster reads `viewByTeammate`.
-    let views = crate::teammate_faces::views(s);
-
-    for (index, teammate) in s.teammates.iter().enumerate() {
-        let selected = s
-            .ledger
-            .as_ref()
-            .map(|pane| pane.header.id == teammate.id)
-            .unwrap_or(s.selected == index);
-        let view = views.get(&teammate.id);
-
-        let mut title = row()
-            .w_full()
-            .center_y()
-            .gap(8.0)
-            .child(roster_face(s, "roster", teammate, view, glances.get(&teammate.id).copied(), 22.0, &l))
-            .child(
-                text(teammate.name.clone())
-                    .font(rune::TextStyle::new(13.5, 500.0))
-                    .color(l.c("text-name"))
-                    .grow(1.0)
-                    .shrink()
-                    .truncate(),
-            );
-        // The name's dot, only while working (Sidebar.tsx 1491 `status.pulse`), in the status's tone.
-        if let Some(view) = view.filter(|v| v.pulse) {
-            title = title.child(el().size(6.0, 6.0).radius(3.0).fill(crate::teammate_faces::tone_color(&l, view.tone)));
-        }
-        let id = teammate.id.clone();
-        let runtime = teammate.runtime.as_deref().unwrap_or("codex");
-        let mut agent = row().w_full().pl(30.0).gap(5.0).center_y();
-        if let Some(mark) = crate::look::controls::agent_mark(&l, runtime, 11.0, l.c("text-muted")) {
-            agent = agent.child(mark);
-        }
-        agent = agent.child(text(agent_line(s, teammate)).font(meta).color(l.c("text-muted")).shrink().truncate());
-        // `.lc-row`: 9 by 10, radius 9, the selected fill when chosen.
-        rows = rows.child(
-            col()
-                .key(format!("teammate-{id}"))
-                .help(locust_core::teammate_tooltip::teammate_tooltip(teammate))
-                .w_full()
-                .py(9.0)
-                .px(10.0)
-                .gap(3.0)
-                .radius(9.0)
-                .fill(if selected { l.c("bg-selected") } else { crate::window_glass::sidebar_row_ground(s, p) })
-                .hover(l.c("hover-surface"))
-                .child(title)
-                .child(
-                    text(teammate.role.clone())
-                        .font(meta)
-                        .color(l.c("text-secondary"))
-                        .w_full()
-                        .pl(30.0)
-                        .truncate(),
-                )
-                .child(agent)
-                .on_press_tx(move |s: &mut State, tx| {
-                    select_teammate(s, &id, tx);
-                }),
-        );
-    }
-
-    // The sidebar's places, each with its glyph (`.lc-sidebar__nav`: users and clock, as the rail draws them).
+    // The sidebar's places, at the top, one to a line (`.lc-sidebar__places`): Conversations, Rooms and Routines are
+    // reached here whatever else the sidebar draws; the roster is reached from the faces row's Team.
     let nav = |icon: &'static rune::Icon, words: &str| {
         row()
             .w_full()
             .gap(10.0)
-            .py(8.0)
+            .py(7.0)
             .px(10.0)
             .center_y()
-            .radius(9.0)
+            .radius(8.0)
             .hover(l.c("hover-surface"))
-            .child(crate::look::controls::glyph(&l, icon, 15.0, Some(l.c("text-muted"))))
+            .child(crate::look::controls::glyph(&l, icon, 14.0, Some(l.c("text-muted"))))
             .child(text(words.to_owned()).font(rune::TextStyle::new(13.5, 400.0)).color(l.c("text-secondary")))
             .role("button")
             .label(words.to_owned())
     };
-    rows = rows.child(nav(&crate::look::icons::USERS, "Teammates & Memory").pt(14.0).on_press(crate::people_panel::open));
-    rows = rows.child(nav(&crate::look::icons::CLOCK, "Routines").on_press(crate::routines_panel::open));
+    let mut places = col().key("sidebar-places").w_full().px(10.0).pb(6.0).gap(1.0)
+        .child(nav(&crate::look::icons::INBOX, "Conversations").key("sidebar-place-conversations").on_press(crate::missions_screen::open))
+        .child(nav(&crate::look::icons::USERS, "Rooms").key("sidebar-place-rooms").on_press(crate::room_screen::open_list))
+        .child(nav(&crate::look::icons::CLOCK, "Routines").key("sidebar-place-routines").on_press(crate::routines_panel::open));
     if s.compare.compares.iter().any(|c| !c.reruns.is_empty()) {
-        rows = rows.child(nav(&crate::look::icons::TARGET, "Benchmarks").on_press(crate::benchmarks_panel::open));
+        places = places.child(nav(&crate::look::icons::TARGET, "Benchmarks").on_press(crate::benchmarks_panel::open));
     }
-    let now_ms = chrono::Utc::now().timestamp_millis();
-    let mut rooms_col = col()
-        .key("sidebar-rooms")
-        .w_full()
-        .px(10.0)
-        .pt(12.0)
-        .gap(2.0)
-        .child(
-            row()
-                .w_full()
-                .pl(10.0)
-                .pb(2.0)
-                .center_y()
-                .child(
-                    row()
-                        .key("sidebar-rooms-open")
-                        .grow(1.0)
-                        .role("button")
-                        .label("Rooms")
-                        .child(crate::look::controls::label(&l, "Rooms"))
-                        .on_press(|s: &mut State| crate::room_screen::open_list(s)),
-                )
-                .child(
-                    row()
-                        .key("sidebar-new-room")
-                        .px(8.0)
-                        .py(4.0)
-                        .radius(6.0)
-                        .hover(l.c("hover-surface"))
-                        .role("button")
-                        .label("New room")
-                        .child(
-                            text("+ New room")
-                                .font(rune::TextStyle::new(12.0, 500.0))
-                                .color(l.c("text-secondary")),
-                        )
-                        .on_press(|s: &mut State| crate::room_screen::open_new(s)),
-                ),
-        );
-    let running = locust_core::engine_api::api().running();
-    for room in &s.rooms.rooms {
-        let rid = room.room_id.clone();
-        let active = matches!(&s.rooms.active, crate::room_screen::RoomView::Room(id) if id == &rid);
-        let meta = crate::room_screen::room_card_meta(room, &s.teammates, now_ms);
-        rooms_col = rooms_col.child(
-            col()
-                .key(format!("sidebar-room-{rid}"))
-                .w_full()
-                .py(7.0)
-                .px(10.0)
-                .gap(2.0)
-                .radius(8.0)
-                .fill(if active { l.c("bg-selected") } else { crate::window_glass::sidebar_row_ground(s, p) })
-                .hover(l.c("hover-surface"))
-                .role("button")
-                .label(room.name.clone())
-                .child({
-                    // A room shimmers while any conversation its posts started is working (Sidebar.tsx `roomRow`).
-                    let name = if room_working(room, &running) {
-                        crate::working_shimmer::title(&room.name, l.c("text-primary"), s.reduced_motion.get())
-                    } else {
-                        text(room.name.clone()).color(l.c("text-primary"))
-                    };
-                    name.font(rune::TextStyle::new(13.0, 500.0).lh(16.0))
-                        .w_full()
-                        .truncate()
-                        .key(format!("sidebar-room-title-{rid}"))
-                })
-                .child(
-                    text(meta)
-                        .font(rune::TextStyle::new(11.5, 400.0).lh(15.0))
-                        .color(l.c("text-muted"))
-                        .w_full()
-                        .truncate(),
-                )
-                .on_press(move |s: &mut State| {
-                    crate::room_screen::open_room(s, rid.clone());
-                }),
-        );
-    }
-    rows = rows.child(rooms_col);
     let missions = sidebar_missions_now(s);
-    let all_count = recent_as_missions(s).iter().filter(|m| comparison_row_visible(s, m)).count();
+    let all_rows: Vec<SidebarMission> = recent_as_missions(s).into_iter().filter(|m| comparison_row_visible(s, m)).collect();
+    let all_count = all_rows.len();
+    let owned: Vec<(Option<String>, Option<String>)> = all_rows.iter().map(|m| (row_owner(s, m), m.last_at.clone())).collect();
     let (waiting, pinned, recent_rows) = needs_you_pinned_and_recent(&missions, &s.org.pins);
     let show_sections = !s.org.pins.is_empty();
     let groups_shown = !s.org.groups.is_empty() && !s.org.groups_unreadable;
@@ -1029,35 +910,15 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
             ),
     );
 
-    // `.lc-search`: 32 high, radius 8, the raised fill and a hairline, the magnifier before the words.
-    recent = recent.child(
-        row()
-            .w_full()
-            .h(32.0)
-            .gap(9.0)
-            .px(10.0)
-            .center_y()
-            .radius(8.0)
-            .fill(l.c("bg-raised-2"))
-            .border(1.0, l.c("border-hairline"))
-            .child(crate::look::controls::glyph(&l, &crate::look::icons::SEARCH, 14.0, Some(l.c("text-muted"))))
-            .child(
-                text_input(&s.sidebar_query, rune::TextStyle::new(13.0, 400.0))
-                    .key("sidebar-search")
-                    .single_line()
-                    .grow(1.0)
-                    .color(l.c("text-primary"))
-                    .placeholder("Search conversations", l.c("text-muted"))
-                    .on_edit(|s: &mut State| &mut s.sidebar_query),
-            ),
-    );
-
     if let Some(menu) = source_menu(s, &l) {
         recent = recent.child(menu);
     }
 
-    // A source narrowing says which, before the rest of the line or the count (Sidebar.tsx `narrowing`).
-    let query_line = narrowing_line(None, &s.sidebar_query.text, missions.len(), missions.len(), all_count);
+    // A source narrowing says which, before the rest of the line or the count (Sidebar.tsx `narrowing`): one sentence
+    // for the face and the search together, with the count, and one Clear for both.
+    let filtered_to = s.sidebar_face_filter.as_deref().and_then(|id| s.teammates.iter().find(|mate| mate.id == id));
+    let in_face = owned.iter().filter(|(owner, _)| owner.is_some() && owner.as_deref() == s.sidebar_face_filter.as_deref()).count();
+    let query_line = narrowing_line(filtered_to.map(|mate| mate.name.as_str()), &s.sidebar_query.text, missions.len(), in_face, all_count);
     let narrowing = match s.sidebar_source {
         crate::conversation_list::ConversationSource::All => query_line,
         source => Some(format!(
@@ -1066,15 +927,19 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
             query_line.unwrap_or_else(|| format!("{} of {} conversations", missions.len(), all_count)),
         )),
     };
-    if let Some(line) = narrowing {
-        recent = recent.child(
-            text(line)
-                .font(type_::LABEL)
-                .color(p.muted)
-                .w_full()
-                .px(12.0),
-        );
-    }
+    let clear = narrowing.map(|line| {
+        // `.lc-faces__clear`: the sentence on the left, the way out on the right.
+        row().key("sidebar-faces-clear").mx(10.0).mb(8.0).px(10.0).py(4.0).gap(10.0).center_y().radius(8.0)
+            .fill(l.c("hover-surface"))
+            .child(text(line).font(type_::LABEL).color(l.c("text-secondary")).grow(1.0).shrink().min_w(0.0).truncate()
+                .key("sidebar-faces-clearsaid"))
+            .child(text("Clear").font(type_::LABEL).color(l.c("text-muted")).role("button").label("Clear")
+                .key("sidebar-faces-clearlink")
+                .on_press(|s: &mut State| {
+                    s.sidebar_face_filter = None;
+                    s.sidebar_query.clear();
+                }))
+    });
 
     // Records that are not whole say so, in Screens.tsx's words: a conversation kept up to a bad record, a file that
     // could not be read at all, a folder that could not be listed.
@@ -1415,17 +1280,27 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
         } else {
             recent_rows.clone()
         };
-        if !rest.is_empty() && (show_sections || groups_shown) {
+        // Each room is one row among them, where its newest answer was (conversationList.ts `withRoomsFolded`).
+        let entries = with_rooms_folded(&rest, &s.rooms.rooms);
+        if !entries.is_empty() && (show_sections || groups_shown) {
             recent = recent.child(section_label(
                 p,
                 if groups_shown { "Ungrouped" } else { "Recents" },
             ));
         }
-        let open_at = rest.iter().position(|item| is_picked(item));
+        let open_at = entries.iter().position(|entry| match entry {
+            ListEntry::Conversation(item) => is_picked(item),
+            ListEntry::Room { answers, .. } => answers.iter().any(|item| is_picked(item)),
+        });
         let budget = s.sidebar_list_budget.max(LIST_PAGE);
-        let drawn = list_window_count(rest.len(), budget, open_at);
-        let not_drawn = rest.len().saturating_sub(drawn);
-        recent = append_rows(recent, &rest[..drawn]);
+        let drawn = list_window_count(entries.len(), budget, open_at);
+        let not_drawn = entries.len().saturating_sub(drawn);
+        for entry in &entries[..drawn] {
+            recent = match entry {
+                ListEntry::Conversation(item) => append_rows(recent, std::slice::from_ref(*item)),
+                ListEntry::Room { room, answers } => recent.child(room_row(s, p, room, answers)),
+            };
+        }
         if not_drawn > 0 {
             recent = recent.child(
                 row()
@@ -1527,6 +1402,29 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
         );
     }
 
+    // `.lc-search`: 32 high, radius 8, the raised fill and a hairline, the magnifier before the words.
+    let search = row().w_full().px(10.0).pb(8.0).child(
+        row()
+            .w_full()
+            .h(32.0)
+            .gap(9.0)
+            .px(10.0)
+            .center_y()
+            .radius(8.0)
+            .fill(l.c("bg-raised-2"))
+            .border(1.0, l.c("border-hairline"))
+            .child(crate::look::controls::glyph(&l, &crate::look::icons::SEARCH, 14.0, Some(l.c("text-muted"))))
+            .child(
+                text_input(&s.sidebar_query, rune::TextStyle::new(13.0, 400.0))
+                    .key("sidebar-search")
+                    .single_line()
+                    .grow(1.0)
+                    .color(l.c("text-primary"))
+                    .placeholder("Search conversations", l.c("text-muted"))
+                    .on_edit(|s: &mut State| &mut s.sidebar_query),
+            ),
+    );
+
     col()
         .key("sidebar")
         .w(crate::window_glass::sidebar_width(s))
@@ -1575,6 +1473,10 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
                         ),
                 ),
         )
+        .child(search)
+        .child(places)
+        .children(faces_strip(s, p, &l, &owned))
+        .children(clear)
         .child(
             col()
                 .key("team-list")
@@ -1584,10 +1486,94 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
                 .scroll(ScrollSpec {
                     stick_bottom: false,
                 })
-                .child(col().w_full().child(rows).child(recent)),
+                .child(col().w_full().child(recent)),
         )
         .child(footer(&l))
 }
+
+/// The roster, one row tall (`.lc-faces`), in the wide sidebar only: the faces being worked with, at most five, else
+/// four and a count of the rest, then Team at the row's end. Never scrolled sideways.
+fn faces_strip(s: &State, p: &Palette, l: &crate::look::controls::Look, owned: &[(Option<String>, Option<String>)]) -> Option<El> {
+    if s.teammates.is_empty() {
+        return None;
+    }
+    let order = faces_by_recency(&s.teammates, owned);
+    let shown = shown_face_count(order.len());
+    let rest = order.len() - shown;
+    let views = crate::teammate_faces::views(s);
+    // The strip is a row: a handoff between two shown faces turns them toward each other along it (Sidebar.tsx
+    // `stripGlances = glancesAmong(shownFaces, handoffs, 'row')`).
+    let line: Vec<String> = order.iter().take(shown).map(|mate| mate.id.clone()).collect();
+    let handoffs: Vec<locust_core::bot_rig::Handoff<'_>> = s.handoff_glances.held.iter()
+        .map(|h| locust_core::bot_rig::Handoff { key: &h.key, from: &h.from, to: &h.to })
+        .collect();
+    let glances = locust_core::bot_rig::glances_among(&line, &handoffs, locust_core::bot_rig::GlanceAxis::Row);
+    let on_id = s.ledger.as_ref().map(|pane| pane.header.id.clone()).or_else(|| s.teammates.get(s.selected).map(|mate| mate.id.clone()));
+    let mut strip = row().key("sidebar-faces").w_full().px(10.0).pt(2.0).pb(10.0).gap(FACES_GAP).center_y();
+    for teammate in order.into_iter().take(shown) {
+        let on = on_id.as_deref() == Some(teammate.id.as_str());
+        let filtering = s.sidebar_face_filter.as_deref() == Some(teammate.id.as_str());
+        let view = views.get(&teammate.id);
+        let (id, hover_id) = (teammate.id.clone(), teammate.id.clone());
+        let mut face = el()
+            .key(format!("teammate-{}", teammate.id))
+            .padding(1.0)
+            .radius(8.0)
+            .border(if filtering { 1.5 } else { 1.0 }, if on || filtering { l.c("focus-edge") } else { Color::TRANSPARENT })
+            .fill(if on { l.c("bg-selected") } else { crate::window_glass::sidebar_row_ground(s, p) })
+            .hover(l.c("hover-surface"))
+            .child(roster_face(s, "roster", teammate, view, glances.get(&teammate.id).copied(), STRIP_FACE, l));
+        if let Some(view) = view {
+            face = face.child(el().absolute(STRIP_FACE - 4.0, STRIP_FACE - 4.0).size(6.0, 6.0).radius(3.0)
+                .fill(crate::teammate_faces::tone_color(l, view.tone)).a11y_hidden());
+        }
+        let mut face = face.role("button").label(format!("{} — open their conversation", teammate.name));
+        if let Some(view) = view {
+            face = face.description(locust_core::face_status::state_in_words(view));
+        }
+        // Pointing at a face opens its card, where the list filter is (RailFlyout.tsx `onFilter`); pressing it opens
+        // the teammate's conversation.
+        strip = strip.child(face
+            .on_hover_change(move |s: &mut State, over, _| {
+                if over {
+                    s.rail_over_face = Some(hover_id.clone());
+                    if !s.rail_pinned {
+                        s.rail_open = Some(hover_id.clone());
+                    }
+                } else if s.rail_over_face.as_deref() == Some(hover_id.as_str()) {
+                    s.rail_over_face = None;
+                    s.rail_left_at = Some(std::time::Instant::now());
+                }
+            })
+            .on_press_tx(move |s: &mut State, tx| select_teammate(s, &id, tx)));
+    }
+    if rest > 0 {
+        strip = strip.child(
+            row().key("sidebar-faces-more").h(26.0).px(8.0).center().radius(8.0).border(1.0, l.c("border-hairline"))
+                .hover(l.c("hover-surface"))
+                .child(text(format!("+{rest}")).font(rune::TextStyle::new(11.5, 400.0).mono()).color(l.c("text-muted")))
+                .role("button")
+                .label(format!("{rest} more on the team — open the roster"))
+                .help(format!("{rest} more on the team — open the roster"))
+                .on_press(crate::people_panel::open),
+        );
+    }
+    // `.lc-faces__team`: pushed to the end, so however many faces there are the way to the roster does not move.
+    strip = strip.child(el().grow(1.0)).child(
+        row().key("sidebar-faces-team").py(4.0).px(6.0).gap(5.0).center_y().radius(8.0).hover(l.c("hover-surface"))
+            .child(crate::look::controls::glyph(l, &crate::look::icons::USERS, 13.0, Some(l.c("text-muted"))))
+            .child(text("Team").font(rune::TextStyle::new(11.5, 400.0)).color(l.c("text-muted")))
+            .role("button")
+            .label("Team")
+            .on_press(crate::people_panel::open),
+    );
+    Some(strip)
+}
+
+/// A face in the strip: Electron's 32 in its 268 column; 26 in the Rust window's 248, so five faces, the gaps and Team
+/// end inside the column as Electron's measured five did.
+pub(super) const STRIP_FACE: f32 = 26.0;
+const FACES_GAP: f32 = 4.0;
 
 /// `.lc-sidebar__footer`: Settings and Board in equal cells under a hairline, as Electron's wide sidebar ends.
 fn footer(l: &crate::look::controls::Look) -> El {
@@ -1604,9 +1590,11 @@ fn footer(l: &crate::look::controls::Look) -> El {
             .child(text(words).font(rune::TextStyle::new(13.0, 400.0)).color(l.c("text-secondary")))
             .role("button")
             .label(words)
+            .key(format!("sidebar-footer-{}", words.to_lowercase()))
             .on_press(press)
     };
     row()
+        .key("sidebar-footer")
         .w_full()
         .gap(2.0)
         .pt(8.0)
@@ -2093,3 +2081,19 @@ mod sidebar_app_started_tests;
 #[cfg(test)]
 #[path = "sidebar_list_window_tests.rs"]
 mod sidebar_list_window_tests;
+
+#[cfg(test)]
+#[path = "sidebar_flat_tests.rs"]
+mod sidebar_flat_tests;
+
+#[path = "sidebar_rooms.rs"]
+mod sidebar_rooms;
+use sidebar_rooms::{ListEntry, room_row, with_rooms_folded};
+
+#[cfg(test)]
+#[path = "sidebar_pinned_tests.rs"]
+mod sidebar_pinned_tests;
+
+#[cfg(test)]
+#[path = "sidebar_put_away_tests.rs"]
+mod sidebar_put_away_tests;

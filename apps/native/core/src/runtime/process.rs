@@ -33,6 +33,8 @@ pub struct Process {
     closed: Arc<AtomicBool>,
     lock: Arc<Mutex<()>>,
     reaped: bool,
+    /// The thread that drains stderr: finished once every holder of the pipe has closed it.
+    stderr_reader: std::thread::JoinHandle<()>,
 }
 impl Process {
     pub fn spawn(c: &mut Command) -> io::Result<Self> {
@@ -41,12 +43,13 @@ impl Process {
         let lock = Arc::new(Mutex::new(()));
         let overflow = Arc::new(AtomicBool::new(false));
         let pid = child.id();
-        let stderr = stderr_tail(
+        let (stderr, stderr_reader) = drain(
             child
                 .stderr
                 .take()
                 // Invariant: spawn configured this pipe and it has not been taken.
                 .expect("spawn configured this pipe and it has not been taken"),
+            |held| super::events::text(held, 16384),
         );
         let (tx, lines) = mpsc::sync_channel(crate::runtime::records::MAX_QUEUED_RECORDS);
         let out = child
@@ -93,7 +96,20 @@ impl Process {
             closed,
             lock,
             reaped: false,
+            stderr_reader,
         })
+    }
+    /// Wait, at most `within`, for the last words on stderr: a process that has exited may still have words in the
+    /// pipe, or a child of its own still holding it. True once the pipe is done.
+    pub fn stderr_settled(&self, within: Duration) -> bool {
+        let until = Instant::now() + within;
+        while !self.stderr_reader.is_finished() {
+            if Instant::now() >= until {
+                return false;
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        true
     }
     pub fn exited(&mut self) -> io::Result<Option<i32>> {
         if self.reaped {

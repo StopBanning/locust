@@ -275,10 +275,17 @@ pub fn decide_teammate_file(requested: &str, roots: &[PathBuf], named: impl FnOn
 
 /// The folders a read asks its link question of (`readRoots`): a named file is inside none of the roots, so it is asked
 /// of its own folder -- a link there that leads somewhere else is still not the file the teammate named.
-// Electron hands these to `insideOnDisk` before a read; the window has no such link check yet, so only the tests ask.
-#[cfg_attr(not(test), allow(dead_code))]
+// Electron hands these to `insideOnDisk` before a read; so does the window, before a handed file is read to be copied.
 pub fn read_roots(path: &Path, named: bool, roots: &[PathBuf]) -> Vec<PathBuf> {
     if named { vec![path.parent().map(Path::to_path_buf).unwrap_or_default()] } else { roots.to_vec() }
+}
+
+/// Whether a file a read would open is inside one of `roots` on disk, links followed (`insideOnDisk`, 0.543, SEC-01): by
+/// path arithmetic a link in the folder that leads out of it is inside; on disk it is not. A file that is not there has no
+/// link to follow, so it is inside, and the read itself says it is missing.
+pub fn inside_on_disk(path: &Path, roots: &[PathBuf]) -> bool {
+    let Ok(real) = path.canonicalize() else { return true };
+    roots.iter().filter_map(|root| root.canonicalize().ok()).any(|root| contains(&root, &real))
 }
 
 /// Reveal in Finder / file manager. Never opens/runs the file (`reveal-file.ts` rule).

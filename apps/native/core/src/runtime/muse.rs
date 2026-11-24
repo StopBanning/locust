@@ -17,6 +17,10 @@ use std::{
 };
 
 const MAX_LINE: u64 = 8 * 1024 * 1024;
+/// The reader's words when a line or the queue is more than Locust takes in: the run was stopped by Locust, which the
+/// run's end says (muse-events.ts, process-runner `outputLimitExceeded`).
+const LINE_TOO_LONG: &str = "Muse stream-json line exceeds 8 MiB";
+const OVERFLOW: &str = "Muse notification queue overflow";
 pub const PROMPT_FILE_PLACEHOLDER: &str = "__LOCUST_PROMPT_FILE__";
 pub const MUSE_EFFORTS: &[&str] = &[
     "none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra",
@@ -100,12 +104,40 @@ pub fn command(
     effort: Option<&str>,
     resume: Option<&str>,
 ) -> io::Result<Command> {
+    command_from(launcher, folder, mode, model, effort, resume)
+}
+
+/// Where `command` finds `muse`: PATH, then npm's bin. A test puts a fake here for its own thread alone, so the engine's
+/// own `command` can be read without touching PATH, which every other test reads.
+fn launcher() -> io::Result<PathBuf> {
+    #[cfg(test)]
+    if let Some(fake) = FAKE_LAUNCHER.with(|f| f.borrow().clone()) {
+        return Ok(fake);
+    }
+    super::discovery::find_named("muse")
+}
+
+#[cfg(test)]
+thread_local! {
+    static FAKE_LAUNCHER: std::cell::RefCell<Option<PathBuf>> = const { std::cell::RefCell::new(None) };
+}
+
+/// `command`, with where the launcher is found handed in: the native turn's Muse command, refused for Approve-each
+/// before anything is looked for, then the launcher with `exec_args` in the workspace.
+pub fn command_from(
+    launcher: impl FnOnce() -> io::Result<PathBuf>,
+    folder: &Path,
+    mode: Mode,
+    model: Option<&str>,
+    effort: Option<&str>,
+    resume: Option<&str>,
+) -> io::Result<Command> {
     if mode == Mode::ApproveEach {
         return Err(err(
             "Muse does not support Approve-each in the native driver.",
         ));
     }
-    let mut c = Command::new(super::discovery::find_named("muse")?);
+    let mut c = Command::new(launcher()?);
     c.args(exec_args(folder, mode, model, effort, resume)?)
         .current_dir(folder);
     Ok(c)
@@ -140,7 +172,7 @@ impl Muse {
                 match super::process::read_line(&mut reader, &mut line) {
                     Ok(0) => break,
                     Ok(_) if line.len() as u64 > MAX_LINE => {
-                        let _ = tx.try_send(Err(err("Muse stream-json line exceeds 8 MiB")));
+                        let _ = tx.try_send(Err(err(LINE_TOO_LONG)));
                         break;
                     }
                     Ok(_) => {
@@ -168,7 +200,7 @@ impl Muse {
                         match tx.try_send(value) {
                             Ok(()) => {}
                             Err(mpsc::TrySendError::Full(_)) => {
-                                reader_control.fail("Muse notification queue overflow");
+                                reader_control.fail(OVERFLOW);
                                 break;
                             }
                             Err(mpsc::TrySendError::Disconnected(_)) => break,
@@ -259,6 +291,9 @@ impl Runtime for Muse {
         }
         if let Some(message) = self.control.failure() {
             self.queued.clear();
+            if message == OVERFLOW {
+                self.normal.note_output_limit_exceeded();
+            }
             let d = self
                 .normal
                 .diagnostic("error", "native.transport", &message);
@@ -287,7 +322,10 @@ impl Runtime for Muse {
                 Ok(self.queued.pop_front())
             }
             Ok(None) => Ok(None),
-            Err(_) => {
+            Err(e) => {
+                if e.to_string() == LINE_TOO_LONG {
+                    self.normal.note_output_limit_exceeded();
+                }
                 while let Ok(Ok(v)) = self.lines.try_recv() {
                     self.queued.extend(self.normal.accept(&v));
                 }
@@ -372,6 +410,10 @@ pub fn prepare_prompt_file(
 }
 
 #[cfg(test)]
+#[path = "muse_prompt_tests.rs"]
+mod muse_prompt_tests;
+
+#[cfg(test)]
 mod unit_tests {
     use super::*;
     #[test]
@@ -399,8 +441,28 @@ mod unit_tests {
         assert!(args.windows(2).any(|w| w == ["--approval-mode", "never"]));
         assert!(args.windows(2).any(|w| w == ["--reasoning-effort", "high"]));
     }
+    /// The engine's own `command` (native.rs, run_cli.rs) carries the effort, as Electron's
+    /// the-prompt-muse-cannot-be-told.test.ts reads it: `--reasoning-effort xhigh`.
+    #[test]
+    fn the_engine_command_carries_the_effort() {
+        let fake = PathBuf::from("/fake/bin/muse");
+        FAKE_LAUNCHER.with(|f| *f.borrow_mut() = Some(fake.clone()));
+        let built = command(Path::new("/tmp/ws"), Mode::Auto, None, Some("xhigh"), None);
+        FAKE_LAUNCHER.with(|f| *f.borrow_mut() = None);
+        let built = built.unwrap();
+        assert_eq!(Path::new(built.get_program()), fake.as_path());
+        let args: Vec<String> = built.get_args().map(|a| a.to_string_lossy().into_owned()).collect();
+        assert!(
+            args.windows(2).any(|pair| pair == ["--reasoning-effort", "xhigh"]),
+            "the engine's Muse command lost the effort: {args:?}"
+        );
+    }
     #[test]
     fn unknown_effort_is_refused() {
         assert!(exec_args(Path::new("/tmp"), Mode::Ask, None, Some("ludicrous"), None).is_err());
     }
 }
+
+#[cfg(all(test, unix))]
+#[path = "muse_events_case_tests.rs"]
+mod muse_events_case_tests;

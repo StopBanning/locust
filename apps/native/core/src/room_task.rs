@@ -803,3 +803,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "room_task_case_tests.rs"]
+mod room_task_case_tests;

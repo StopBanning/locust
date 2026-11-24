@@ -57,6 +57,21 @@ pub fn installing_line(version: Option<&str>) -> String {
     }
 }
 
+/// The update banner's one button (`UpdateBanner` in renderer `components/Screens.tsx`).
+pub const RESTART_AND_INSTALL: &str = "Restart and install";
+
+/// The update banner's line above the composer (`UpdateBanner`): nothing until a version is downloaded and ready; then,
+/// before the click, that Locust closes while it installs and opens again by itself, and after it, that it is
+/// installing and there is no need to open it (0.406: Colin opened the old version three times mid-install).
+pub fn update_banner_line(update: Option<&AppUpdateState>, installing: bool) -> Option<String> {
+    let update = update.filter(|u| u.phase == AppUpdatePhase::Ready)?;
+    Some(if installing {
+        installing_line(update.available_version.as_deref())
+    } else {
+        format!("Locust {} is downloaded and ready. {INSTALL_TAKES}", update.available_version.as_deref().unwrap_or(""))
+    })
+}
+
 pub fn held_back_line(held_back: Option<HeldBack>) -> &'static str {
     match held_back {
         Some(HeldBack::Development) => {

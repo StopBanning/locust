@@ -377,6 +377,21 @@ pub fn began(kind: &str) -> bool {
 }
 
 /// Electron's `schemaVersionWritten(runtime)`.
+/// The part of mission-store's `parsedEvent` a native writer can get wrong: a message's operation is one the reader
+/// knows (`append` or `replace`, never a word nobody defined), and a tool call's helper (`parentItemId`, v22) names a
+/// row -- absent, or text of 1 to 512 characters, never empty, so a reader never has to guess at one.
+pub fn readable_event(event: &Value) -> bool {
+    let payload = &event["payload"];
+    match event["type"].as_str().unwrap_or("") {
+        "message.delta" => matches!(payload["operation"].as_str(), Some("append" | "replace")),
+        "tool.started" | "tool.completed" | "tool.failed" => match payload.get("parentItemId") {
+            None => true,
+            Some(parent) => parent.as_str().is_some_and(|p| !p.trim().is_empty() && p.encode_utf16().count() <= 512),
+        },
+        _ => true,
+    }
+}
+
 pub fn schema_written(runtime: &str) -> u64 {
     if runtime == "apple" { 28 } else { 27 }
 }
@@ -603,6 +618,11 @@ impl LedgerWriter {
         event["payload"] = payload;
         // Kept shortened rather than a record too large to write (mission-store fitEventToLedger).
         let event = crate::ledger_fit::fit_event(event);
+        // Writer strictness is defined by the reader (mission-store appendEvents): a record recovery would stop at is
+        // never written, or every later record of the mission would be lost with it.
+        if !readable_event(&event) {
+            return Err(io::Error::other("Mission event is not readable by the ledger reader"));
+        }
         self.line(json!({"schemaVersion":self.schema(),"recordType":"mission.event","ledgerSequence":ledger,"occurredAt":at,"event":event}))?;
         self.sequence = seq;
         self.ledger_seq = ledger + 1;
@@ -829,3 +849,7 @@ mod command_record_tests;
 #[cfg(test)]
 #[path = "one_at_a_time_tests.rs"]
 mod one_at_a_time_tests;
+
+#[cfg(test)]
+#[path = "ledger_readable_case_tests.rs"]
+mod ledger_readable_case_tests;

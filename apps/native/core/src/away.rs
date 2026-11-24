@@ -608,3 +608,7 @@ mod attention_mark_tests;
 #[cfg(test)]
 #[path = "away_said_tests.rs"]
 mod away_said_tests;
+
+#[cfg(test)]
+#[path = "away_case_tests.rs"]
+mod away_case_tests;

@@ -603,6 +603,9 @@ pub fn opencode_tool_title(tool: &str, input: &Value) -> Option<String> {
 #[cfg(test)]
 #[path = "a_refusal_is_not_a_crash_tests.rs"]
 mod a_refusal_is_not_a_crash_tests;
+#[cfg(test)]
+#[path = "a_free_model_refused_tests.rs"]
+mod a_free_model_refused_tests;
 
 #[cfg(test)]
 #[path = "opencode_not_rerun_tests.rs"]
@@ -619,3 +622,7 @@ mod qa_0365_opencode_worktree_tests;
 #[cfg(test)]
 #[path = "opencode_reply_streams_tests.rs"]
 mod opencode_reply_streams_tests;
+
+#[cfg(test)]
+#[path = "opencode_session_ended_tests.rs"]
+mod opencode_session_ended_tests;

@@ -52,6 +52,7 @@ fn failed() -> Value {
 
 // --- a-check-result-is-kept-with-its-turn ---
 
+// case: comes back from the file exactly as written
 #[test]
 fn a_check_result_comes_back_from_the_file_exactly_as_written() {
     let (_t, store) = temp("check");
@@ -66,6 +67,7 @@ fn a_check_result_comes_back_from_the_file_exactly_as_written() {
     assert_eq!(crate::ledger::read_transcript(&path).edit_check, Some(failed()));
 }
 
+// case: keeps the file walkable after it: a later record still reads
 #[test]
 fn a_check_result_keeps_the_file_walkable_after_it() {
     let (_t, store) = temp("check");
@@ -79,6 +81,7 @@ fn a_check_result_keeps_the_file_walkable_after_it() {
     assert_eq!(mission["peerLinks"].as_array().unwrap().len(), 1);
 }
 
+// case: is refused on a mission written before version 17, which its own readers would stop at
 #[test]
 fn a_check_result_is_refused_on_a_mission_written_before_version_17() {
     let (_t, store) = temp("check");
@@ -96,6 +99,7 @@ fn a_check_result_in_a_file_written_before_version_17_is_not_drawn() {
     assert_eq!(crate::ledger::read_transcript(&path).edit_check, None);
 }
 
+// case: refuses an outcome it does not know, and an unbounded list of lines
 #[test]
 fn a_check_result_with_an_outcome_nobody_defined_or_unbounded_lines_is_refused() {
     let (_t, store) = temp("check");
@@ -119,6 +123,45 @@ fn a_big_check_result_is_bounded_to_what_the_reader_accepts() {
     let mut huge = failed();
     huge["newLines"] = json!((0..400).map(|i| format!("line {i} {}", "y".repeat(900))).collect::<Vec<_>>());
     append_edit_check(&path, &bounded_edit_check(&huge)).unwrap();
+    let mission = recovered(&path);
+    assert_eq!(mission["issues"], json!([]));
+    let kept = mission["editChecks"][0]["newLines"].as_array().unwrap();
+    assert_eq!(kept.len(), 60);
+    assert_eq!(kept[0].as_str().unwrap().len(), 500);
+    assert!(std::fs::read_to_string(&path).unwrap().len() < 60_000);
+}
+
+// case: is read as damage in a file written before version 17
+#[test]
+fn a_check_result_in_a_file_written_before_17_is_read_as_damage() {
+    let (_t, store) = temp("check");
+    let path = older(&store, 16, &[json!({ "schemaVersion": 16, "recordType": "mission.edit_check", "ledgerSequence": 2, "occurredAt": NOW, "check": failed() })]);
+    let mission = recovered(&path);
+    assert_eq!(mission["editChecks"], json!([]));
+    assert_eq!(mission["issues"], json!(["invalid-record"]));
+    // The same record at 17 is a check.
+    let (_t17, store17) = temp("check");
+    let path17 = older(&store17, 17, &[json!({ "schemaVersion": 17, "recordType": "mission.edit_check", "ledgerSequence": 2, "occurredAt": NOW, "check": failed() })]);
+    assert_eq!(recovered(&path17)["editChecks"], json!([failed()]));
+}
+
+// case: bounds a big result to what the reader accepts, so the host never writes one it would refuse
+#[test]
+fn the_hosts_check_record_is_bounded_to_what_the_reader_accepts() {
+    // What native.rs writes after a turn: `edit_check_record_json` of the check's result, appended to the mission.
+    let (_t, store) = temp("check");
+    let (writer, path) = written(&store, "claude", "Change notes.txt.");
+    drop(writer);
+    let result = crate::edit_check::EditCheckResult {
+        command: "node check.js".into(),
+        outcome: crate::edit_check::EditCheckOutcome::Failed,
+        new_lines: (0..400).map(|i| format!("line {i} {}", "y".repeat(900))).collect(),
+        unchanged: false,
+        first: true,
+        lines: None,
+        before: None,
+    };
+    append_edit_check(&path, &crate::edit_check::edit_check_record_json(&result, NOW)).unwrap();
     let mission = recovered(&path);
     assert_eq!(mission["issues"], json!([]));
     let kept = mission["editChecks"][0]["newLines"].as_array().unwrap();
@@ -218,6 +261,7 @@ fn children_of(events: &Value) -> Vec<String> {
     }).collect()
 }
 
+// case: reads a ledger written before the bump whole, with no child rows and no error
 #[test]
 fn a_ledger_written_before_v22_reads_whole_with_no_child_rows() {
     let (_t, store) = temp("helper");

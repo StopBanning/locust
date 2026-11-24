@@ -1617,6 +1617,30 @@ impl StartReadiness {
     }
 
     pub fn for_start(&self, runtime_id: Option<&str>) -> Vec<Found> {
+        let found = self.answer_for_start(runtime_id);
+        self.probed_again_if_it_failed(runtime_id, found)
+    }
+
+    /// LIVE2 #19: a check that did not answer (a probe that timed out while the Mac was busy) is not a "no". The
+    /// starting runtime is asked once more before a start refuses it; signed out and not installed are answers, and
+    /// are not asked again.
+    fn probed_again_if_it_failed(&self, runtime_id: Option<&str>, found: Vec<Found>) -> Vec<Found> {
+        let o = &self.options;
+        let Some(runtime_id) = runtime_id else { return found };
+        if !found.iter().any(|e| e.id == runtime_id && e.installed && e.status == Probe::ProbeFailed) {
+            return found;
+        }
+        if o.sweep_only.contains(runtime_id) {
+            return (o.sweep)();
+        }
+        let Ok(Some(fresh)) = (o.ask_one)(runtime_id) else { return found };
+        let merged: Vec<Found> = found.into_iter().map(|e| if e.id == runtime_id { fresh.clone() } else { e }).collect();
+        (o.store)(merged.clone());
+        crate::invariants::lock(&self.asked_at).insert(runtime_id.to_owned(), (o.now)());
+        merged
+    }
+
+    fn answer_for_start(&self, runtime_id: Option<&str>) -> Vec<Found> {
         let o = &self.options;
         let held = (o.held)();
         let (Some(runtime_id), Some(held)) = (runtime_id, held) else { return (o.sweep)() };

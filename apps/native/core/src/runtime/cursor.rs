@@ -719,3 +719,10 @@ mod unit_tests {
         assert!(!args.windows(2).any(|w| w == ["--mode", "ask"]));
     }
 }
+
+#[cfg(all(test, unix))]
+#[path = "cursor_events_case_tests.rs"]
+mod cursor_events_case_tests;
+#[cfg(all(test, unix))]
+#[path = "cursor_secrets_case_tests.rs"]
+mod cursor_secrets_case_tests;

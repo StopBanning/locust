@@ -366,6 +366,10 @@ pub struct ClaudeNormalizer {
     subagent_summaries: HashMap<String, String>,
     /// Calls Claude Code refused before they ran (`permission_denied`), and why, for their result that follows.
     refused_calls: HashMap<String, String>,
+    /// Calls Locust's command guard stopped (claude-events.ts guardedCalls, guardedCommands, 0.717), by call and by
+    /// command, for the result's denials to say as the guard's, not the mode's.
+    guarded_calls: HashMap<String, String>,
+    guarded_commands: HashMap<String, String>,
     /// The teammate's latest model call: its message id, prompt tokens and output tokens (claude-events.ts lastCall),
     /// so the run can say how full the conversation is.
     last_call: Option<(Option<String>, f64, f64)>,
@@ -552,6 +556,19 @@ impl ClaudeNormalizer {
         }
         self.records += 1;
         let type_name = s(parsed, "type");
+        if type_name == super::records::MALFORMED_RECORD {
+            let raw = super::events::malformed_raw(s(parsed, "line"));
+            return vec![self.event(
+                "adapter.diagnostic",
+                json!({
+                    "level": "warning",
+                    "code": "claude.malformed_record",
+                    "message": s(parsed, "why"),
+                    "terminal": false,
+                    "evidence": super::events::diagnostic_evidence(None, Some(&raw), "claude")
+                }),
+            )];
+        }
         if type_name.is_empty() {
             return vec![];
         }
@@ -1231,7 +1248,12 @@ impl ClaudeNormalizer {
                     && let Some(said) = claude_tool_result_text(block)
                     && let Some(at) = said.find(LOCUST_GUARD_SAID)
                 {
-                    refused_for = Some(said[at..].to_owned());
+                    let reason = said[at..].to_owned();
+                    self.guarded_calls.insert(item_id.clone(), reason.clone());
+                    if let Some(target) = open.as_ref().and_then(|o| o.target.clone()) {
+                        self.guarded_commands.insert(target, reason.clone());
+                    }
+                    refused_for = Some(reason);
                 }
                 let subagent_kind = self.subagent_kinds.remove(&item_id);
                 let subagent_summary = self.subagent_summaries.remove(&item_id);
@@ -1377,7 +1399,8 @@ impl ClaudeNormalizer {
             if denials.is_empty() {
                 return vec![];
             }
-            let listed: Vec<String> = denials
+            // Each refusal as said, and whether it was Locust's guard that stopped it: by its call, else its command.
+            let listed: Vec<(String, Option<String>)> = denials
                 .iter()
                 .filter(|d| obj(d))
                 .map(|d| {
@@ -1388,28 +1411,40 @@ impl ClaudeNormalizer {
                         .as_str()
                         .or(input["file_path"].as_str())
                         .or(input["description"].as_str());
-                    match detail {
+                    let call = identity(d, "tool_use_id");
+                    let guarded = self
+                        .guarded_calls
+                        .get(&call)
+                        .filter(|_| !call.is_empty())
+                        .or_else(|| detail.and_then(|d| self.guarded_commands.get(d)))
+                        .cloned();
+                    let said = match detail {
                         Some(d) => format!("{tool} `{d}`"),
                         None => tool.into(),
-                    }
+                    };
+                    (said, guarded)
                 })
                 .collect();
             if listed.is_empty() {
                 return vec![];
             }
-            let message = if listed.len() == 1 {
-                format!(
-                    "Claude Code was not permitted to use {}, so it did not.",
-                    listed[0]
-                )
-            } else {
-                format!(
-                    "Claude Code was not permitted to use {} tools, so it did not: {}.",
-                    listed.len(),
-                    listed.join("; ")
-                )
-            };
-            return vec![self.diagnostic("claude.permission_denied", &message)];
+            // Locust's guard is not the mode: said apart, in what it stopped and why (0.717).
+            let (guarded, refused): (Vec<_>, Vec<_>) = listed.into_iter().partition(|(_, g)| g.is_some());
+            let mut out = vec![];
+            if !guarded.is_empty() {
+                let message = guarded_sentence(&guarded);
+                out.push(self.diagnostic("claude.permission_denied", &message));
+            }
+            let refused: Vec<String> = refused.into_iter().map(|(said, _)| said).collect();
+            if !refused.is_empty() {
+                let message = if refused.len() == 1 {
+                    format!("Claude Code was not permitted to use {}, so it did not.", refused[0])
+                } else {
+                    format!("Claude Code was not permitted to use {} tools, so it did not: {}.", refused.len(), refused.join("; "))
+                };
+                out.push(self.diagnostic("claude.permission_denied", &message));
+            }
+            return out;
         }
 
         vec![self.diagnostic(
@@ -1417,6 +1452,43 @@ impl ClaudeNormalizer {
             &format!("Unhandled Claude record: {type_name}"),
         )]
     }
+}
+
+/// claude-events.ts guardedSentence (0.717, 0.718): what Locust's command guard stopped, said to the person as theirs --
+/// what it would have ended, or whose the process it would have ended is -- never as the mode's.
+fn guarded_sentence(stopped: &[(String, Option<String>)]) -> String {
+    let still = "A teammate may end only what it started itself.";
+    if let [(said, reason)] = stopped {
+        let reason = reason.as_deref().unwrap_or("");
+        let by_id = crate::invariants::regex(r"process (\d+) is (.+?), which (no teammate started|this run did not start), so it is (.+?)\.");
+        if let Some(m) = by_id.captures(reason) {
+            let whose = match &m[4] {
+                "the person's own" => "yours",
+                "the person's or another teammate's" => "yours or another teammate's",
+                "another teammate's or the person's" => "another teammate's or yours",
+                other => other,
+            };
+            let started = if &m[3] == "no teammate started" { "which no teammate started" } else { "which this teammate did not start" };
+            return format!("Locust stopped {said} before it ran: process {} is {}, {started}, so it is {whose}. {still}", &m[1], &m[2]);
+        }
+        if let Some(m) = crate::invariants::regex(r"process (\d+) is (the agent this run is|Locust itself)").captures(reason) {
+            let what = if &m[2] == "Locust itself" { "Locust itself" } else { "the agent this teammate runs on" };
+            return format!("Locust stopped {said} before it ran: process {} is {what}. {still}", &m[1]);
+        }
+        let ended = match crate::invariants::regex(r"which ends every (.+?) on this computer, (.+?) too\.").captures(reason) {
+            Some(m) => {
+                let rest = m[2].strip_prefix("the person's own").map(|r| format!("your own{r}")).unwrap_or_else(|| m[2].to_owned());
+                format!("every {} on this computer, {rest} too", &m[1])
+            }
+            None => "a program you, or another teammate, also run".to_owned(),
+        };
+        return format!("Locust stopped {said} before it ran: it would have ended {ended}. {still}");
+    }
+    let listed = stopped.iter().map(|(said, _)| said.as_str()).collect::<Vec<_>>().join("; ");
+    format!(
+        "Locust stopped {} commands before they ran: {listed}. Each would have ended a program that you, or another teammate, also run. {still}",
+        stopped.len()
+    )
 }
 
 fn regex_replace_ctrl(text_v: &str) -> String {
@@ -1539,3 +1611,12 @@ mod tests {
 #[cfg(test)]
 #[path = "a_long_command_tests.rs"]
 mod a_long_command_tests;
+#[cfg(test)]
+#[path = "claude_events_case_tests.rs"]
+mod claude_events_case_tests;
+#[cfg(test)]
+#[path = "claude_edit_patch_tests.rs"]
+mod claude_edit_patch_tests;
+#[cfg(test)]
+#[path = "claude_linger_tests.rs"]
+mod claude_linger_tests;

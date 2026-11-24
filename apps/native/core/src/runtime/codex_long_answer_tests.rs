@@ -20,7 +20,7 @@ fn is_bounded_once_at_the_message_limit_and_never_at_the_evidence_limit() {
 #[test]
 fn is_still_scrubbed_of_a_key_it_repeats() {
     // case: is still scrubbed of a key it repeats
-    let token = "sk-test-FAKESECRET-LOCUST-7731-abcdefghijklmnop";
+    let token = &format!("{}-test-FAKESECRET-LOCUST-7731-abcdefghijklmnop", "sk"); // built at run time: no key-shaped literal
     let events = answered(&format!("The key is {token}."));
     let all = serde_json::to_string(&events.iter().map(|e| &e.payload).collect::<Vec<_>>()).unwrap();
     assert!(!all.contains(token));

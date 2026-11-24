@@ -589,3 +589,7 @@ pub fn patch_of(content: &Value) -> Option<Value> {
         )
     }
 }
+
+#[cfg(test)]
+#[path = "line_diff_case_tests.rs"]
+mod line_diff_case_tests;

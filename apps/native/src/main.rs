@@ -41,6 +41,8 @@ mod folder_confirmation;
 mod free_offer;
 #[path = "ui/busy_continue.rs"]
 mod busy_continue;
+#[path = "ui/update_banner.rs"]
+mod update_banner;
 #[path = "ui/failure_offers.rs"]
 mod failure_offers;
 #[cfg(target_os = "macos")]
@@ -57,6 +59,8 @@ mod recovery_card;
 mod reference_chips;
 #[path = "ui/attention_watch.rs"]
 mod attention_watch;
+#[path = "ui/background_runs.rs"]
+mod background_runs;
 #[path = "ui/pull_request_chip.rs"]
 mod pull_request_chip;
 #[path = "ui/rail.rs"]
@@ -112,6 +116,8 @@ mod pet_faces;
 mod chip_mark;
 #[path = "ui/cover_watch.rs"]
 mod cover_watch;
+#[path = "ui/elsewhere_cover.rs"]
+mod elsewhere_cover;
 #[path = "ui/reply_actions.rs"]
 mod reply_actions;
 #[path = "ui/markdown_prep.rs"]
@@ -217,6 +223,8 @@ mod sidebar;
 mod window_glass;
 #[path = "ui/working_shimmer.rs"]
 mod working_shimmer;
+#[path = "ui/working_spark.rs"]
+mod working_spark;
 #[path = "ui/context_menu.rs"]
 mod context_menu;
 use sidebar::*;
@@ -288,6 +296,9 @@ mod key_card;
 #[path = "ui/runtime_commands_ui.rs"]
 mod runtime_commands_ui;
 mod os_hosts;
+// Not called yet: nothing keeps Locust running with its window closed, which is when the icon shows.
+#[allow(dead_code)]
+mod menu_bar;
 #[path = "ui/review_changes.rs"]
 mod review_changes;
 #[path = "ui/inspector_panel.rs"]
@@ -306,6 +317,8 @@ mod compare_view;
 mod trash_section;
 #[path = "ui/phone_section.rs"]
 mod phone_section;
+#[path = "ui/your_account_section.rs"]
+mod your_account_section;
 #[path = "ui/side_chat.rs"]
 mod side_chat;
 #[path = "ui/room_screen.rs"]
@@ -870,6 +883,8 @@ fn setup(s: &mut State, waker: Waker) {
     s.opening.set_waker(waker.clone());
     s.model_job.set_waker(waker.clone());
     s.settings_panel.agents_job.set_waker(waker.clone());
+    s.runtime_commands_job.set_waker(waker.clone());
+    s.runtime_commands.breakdown_job.set_waker(waker.clone());
     s.settings_panel.agents_recheck.set_waker(waker.clone());
     s.files_job.set_waker(waker.clone());
     s.stopping.set_waker(waker.clone());
@@ -907,6 +922,7 @@ fn setup(s: &mut State, waker: Waker) {
             look_for_folders = s.last_restore.is_some();
         }
         locust_core::cursor_config::recover_on_startup(store.root());
+        background_runs::setup(s);
     }
     if look_for_folders {
         restored_folders_card::show(s);
@@ -1077,6 +1093,7 @@ fn send(s: &mut State, _: &mut Tx) {
     s.draft.clear();
     set_status(s, &teammate_id, "Sending…", StatusTone::Muted);
 
+    let crosses_runtimes = handoff_divider::crosses_runtimes(s);
     let pick = take_turn_pick(s, &teammate_id);
     s.model_menu = None;
     // On the native engine the turn runs here, in this process, not through the Electron door.
@@ -1085,6 +1102,7 @@ fn send(s: &mut State, _: &mut Tx) {
     let mode = s.composer_mode.as_deref().and_then(locust_core::approval::Mode::parse);
     let references = reference_chips::ids(s);
     let left_out_by_you = std::mem::take(&mut s.left_out_by_you);
+    let left_out_by_you = if crosses_runtimes { left_out_by_you } else { Vec::new() };
     // An earlier message being edited: the turn starts again from the one before it, after the files the person asked to
     // have put back are (off the window's thread, in this same job).
     let edit = edit_message::for_send(s);
@@ -1729,6 +1747,10 @@ fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
         s.changes.files = !s.changes.files;
         return true;
     }
+    if terminal_panel::is_toggle_key(event) {
+        terminal_panel::toggle_open(s);
+        return true;
+    }
     if event.key == Key::Escape {
         if s.rail_open.is_some() {
             s.rail_open = None;
@@ -1897,6 +1919,7 @@ fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
         let missions = sidebar_missions_now(s);
         s.palette_actions =
             default_palette_actions(&missions, can_stop(s), active_record_mission_id(s).is_some());
+        command_palette::with_owner_names(s);
         s.palette_query.clear();
         s.draft.focused = false;
         s.find_query.focused = false;
@@ -2160,6 +2183,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     changed |= issue_list::poll(s);
     changed |= attention_watch::poll(s);
     changed |= scout_cards::poll(s);
+    changed |= background_runs::poll(s, now);
     changed |= tag_send::poll(s);
     changed |= rail::poll(s);
     changed |= open_pressed_notification(s, tx);
@@ -2179,6 +2203,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     changed |= compare_view::poll(s);
     changed |= tune_teammate::poll(s);
     changed |= room_screen::poll(s, tx);
+    changed |= update_banner::poll(s);
     if let Some(feedback) = &s.copy_feedback {
         let remain = feedback
             .until
@@ -2751,7 +2776,8 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
     let flyout_top = if compact {
         s.rail_open.as_ref().and_then(|id| cx.layout(&format!("rail-{id}"))).map(|r| r[1])
     } else {
-        None
+        // The wide sidebar's faces open the same card (Sidebar.tsx `railEnter` on `.lc-faces__one`).
+        s.rail_open.as_ref().and_then(|id| cx.layout(&format!("teammate-{id}"))).map(|r| r[1])
     };
     let changes_open = s.changes.open
         && s.changes_repo
@@ -2821,6 +2847,9 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
     if let Some(viewer) = reply_actions::viewer(s, &p) {
         right = right.child(viewer);
     }
+    if let Some(bg) = background_runs::view(s, &p) {
+        right = right.child(bg);
+    }
     // The title bar above both columns; its toggles only while no conversation fills the window (TitleBar.tsx).
     let thread_shown = !(changes_open
         || s.routines.open
@@ -2850,6 +2879,7 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
         .children(restored_folders_card::card(s, &p))
         .children(backup_section::restore_notice_banner(s, &p))
         .children(remote_mcp_card::card(s, &p))
+        .children(background_runs::header_badge(s, &p))
         .child(body)
         // Locust taps you on the shoulder only while its window is elsewhere (attention.ts shouldNotify).
         .on_window_focus(|s: &mut State, focused: bool, _tx: &mut Tx| {
@@ -3183,6 +3213,7 @@ fn open_door() {}
 fn open_phone() {
     if !HEADLESS.load(std::sync::atomic::Ordering::Relaxed) {
         phone_section::open();
+        your_account_section::open();
     }
 }
 

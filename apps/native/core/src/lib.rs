@@ -46,6 +46,7 @@ mod chat_link_tests;
 #[cfg(test)]
 mod stores_fail_closed_tests;
 pub mod claude_app;
+pub mod claude_background;
 #[cfg(all(test, unix))]
 #[path = "runtime/claude_host_grid_tests.rs"]
 mod claude_host_grid_tests;
@@ -132,12 +133,17 @@ pub mod desk;
 mod desk_access_tests;
 #[cfg(test)]
 mod desk_decided_tests;
+#[cfg(test)]
+mod desk_settings_tests;
 pub mod desk_host;
 #[cfg(test)]
 mod desk_host_tests;
 pub mod desk_page;
 #[cfg(test)]
 mod desk_page_tests;
+pub mod desk_snapshot;
+#[cfg(test)]
+mod desk_snapshot_tests;
 pub mod disk_observation;
 pub mod cli_client;
 pub mod cli_sessions;
@@ -207,6 +213,9 @@ pub mod profile_backup;
 pub mod profile_sync;
 #[cfg(test)]
 mod profile_sync_tests;
+pub mod your_account;
+#[cfg(test)]
+mod your_account_tests;
 pub mod protocol_tags;
 pub mod pull_requests;
 pub mod qr;
@@ -223,6 +232,7 @@ pub mod room_store;
 pub mod room_task;
 pub mod room_tasks;
 pub mod rooms;
+pub mod roster_dropped;
 pub mod retention;
 pub mod route_at_start;
 pub mod routine_copy;

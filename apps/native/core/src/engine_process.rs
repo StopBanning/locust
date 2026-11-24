@@ -320,17 +320,33 @@ fn door_change_from(v: &Value) -> Result<DoorChange, String> {
 }
 
 /// The door for other apps, served by the engine process (E4), over the data folder its turns use. It keeps its own
-/// switch, token and tools; none of its tools answers a card, so no app can.
-static DOOR: std::sync::OnceLock<crate::door::Door> = std::sync::OnceLock::new();
+/// switch, token and tools; none of its tools answers a card, so no app can. One door per data folder, found by that
+/// folder: a process serves one folder, and tests that each serve their own never read another's door.
+static DOORS: std::sync::Mutex<Vec<&'static crate::door::Door>> = std::sync::Mutex::new(Vec::new());
+
+/// The door of the data folder `door` serves: `door` itself when that folder has none yet, else the one it has.
+fn door_of_its_folder(make: impl FnOnce() -> crate::door::Door, dir: &Path) -> &'static crate::door::Door {
+    let mut doors = crate::invariants::lock(&DOORS);
+    if let Some(held) = doors.iter().find(|d| d.connection_path().parent() == Some(dir)) {
+        return held;
+    }
+    let door: &'static crate::door::Door = Box::leak(Box::new(make()));
+    doors.push(door);
+    door
+}
 
 fn engine_door() -> Result<&'static crate::door::Door, String> {
-    if let Some(door) = DOOR.get() {
-        return Ok(door);
-    }
     let store = crate::native::store().ok_or("The native data folder could not be determined.")?;
     let exe = std::env::current_exe().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default();
-    let _ = DOOR.set(crate::door::Door::for_store(store, &exe));
-    DOOR.get().ok_or_else(|| "The door could not be made.".to_string())
+    let dir = store.root().to_path_buf();
+    Ok(door_of_its_folder(|| crate::door::Door::for_store(store, &exe), &dir))
+}
+
+/// The door `--serve-door` opened is this engine's door (LIVE2 #15): a window that joins reads and switches that one,
+/// never a second door over the same connection file.
+pub(crate) fn adopt_door(door: crate::door::Door) -> &'static crate::door::Door {
+    let dir = door.connection_path().parent().map(Path::to_path_buf).unwrap_or_default();
+    door_of_its_folder(|| door, &dir)
 }
 
 fn change_door(change: DoorChange) -> Result<crate::door::State, String> {
@@ -400,9 +416,8 @@ fn answer(engine: &dyn EngineApi, request: &Value) -> Value {
             engine.shut_down();
             engine.wait_for_shutdown();
             // The door closes with the engine: its connection file goes, so no app reaches a Locust that is not there.
-            if let Some(door) = DOOR.get() {
-                door.dispose();
-            }
+            let doors: Vec<&'static crate::door::Door> = crate::invariants::lock(&DOORS).clone();
+            doors.iter().for_each(|door| door.dispose());
             Ok(Value::Null)
         }
         "door" => change_door(door_change_from(&request["door"])?).map(|state| door_state_json(&state)),
