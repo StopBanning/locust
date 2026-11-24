@@ -9,8 +9,7 @@ fn conversation(s: &mut State, id: &str, title: &str, parent: Option<&str>, minu
     s.ledger_summaries.insert(id.into(), ledger::Summary { mission_id: id.into(), title: title.into(), parent: parent.map(Into::into), created_at: at.clone(), updated: at, ..Default::default() });
 }
 
-/// The native sidebar draws its section headings in capitals (`look::controls::label`), so Electron's words `Pinned` and
-/// `Recents` are matched whatever their case.
+/// The headings are Electron's words in their own case (Sidebar.tsx `.lc-project__name`, no text-transform).
 /// Alpha, Bravo, and Charlie continued from its first turn `m_root_c`, with `pins` kept; the sidebar's words in order.
 fn sidebar_words(pins: &[&str]) -> Vec<String> {
     let mut s = State::default();
@@ -31,7 +30,7 @@ fn pinned_conversations_sit_on_top_newest_pin_first_and_the_rest_under_recents()
     let words = sidebar_words(&["m_root_c", "m_b"]);
     let order: Vec<usize> = ["Pinned", "Charlie", "Bravo", "Recents", "Alpha"]
         .iter()
-        .map(|word| words.iter().position(|w| w.eq_ignore_ascii_case(word)).unwrap_or_else(|| panic!("{word}: {words:?}")))
+        .map(|word| words.iter().position(|w| w == word).unwrap_or_else(|| panic!("{word}: {words:?}")))
         .collect();
     let mut sorted = order.clone();
     sorted.sort_unstable();

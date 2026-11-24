@@ -789,6 +789,13 @@ fn section_label(p: &Palette, words: &str) -> El {
     crate::look::controls::label(&l, words).w_full().px(10.0).pt(16.0).pb(6.0)
 }
 
+/// A list heading as Sidebar.tsx draws it (`.lc-project__name`: Pinned, a group's name, Ungrouped, Recents): the
+/// label's size and colour, in the words' own case, since shell.css gives it no text-transform.
+fn section_name(p: &Palette, words: &str) -> El {
+    let l = crate::look::controls::Look::new(p.dark);
+    text(words.to_owned()).font(l.ty.label).color(l.c("text-muted")).w_full().px(10.0).pt(16.0).pb(6.0)
+}
+
 /// Same nesting order for drawing and keyboard navigation; folded groups never enter it.
 fn nested_order<'a>(list: &'a [SidebarMission], all: &'a [SidebarMission]) -> Vec<&'a SidebarMission> {
     rows_with_children(list, all).into_iter().map(|(m, _)| m).collect()
@@ -1054,7 +1061,7 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
             recent = append_rows(recent, &waiting);
         }
         if show_sections && !pinned.is_empty() {
-            recent = recent.child(section_label(p, "Pinned"));
+            recent = recent.child(section_name(p, "Pinned"));
             recent = append_rows(recent, &pinned);
         }
         // Project groups
@@ -1157,7 +1164,7 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
                                         11.0,
                                         Some(l.c("text-muted")),
                                     ))
-                                    .child(crate::look::controls::label(&l, &gname).grow(1.0)),
+                                    .child(text(gname.clone()).font(l.ty.label).color(l.c("text-muted")).grow(1.0)),
                             )
                             .child(
                                 text("…")
@@ -1284,7 +1291,7 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
         // Each room is one row among them, where its newest answer was (conversationList.ts `withRoomsFolded`).
         let entries = with_rooms_folded(&rest, &s.rooms.rooms);
         if !entries.is_empty() && (show_sections || groups_shown) {
-            recent = recent.child(section_label(
+            recent = recent.child(section_name(
                 p,
                 if groups_shown { "Ungrouped" } else { "Recents" },
             ));
