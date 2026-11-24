@@ -3405,6 +3405,10 @@ apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx	puts a contr
 apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx	sends the choice with the message only when it crosses runtimes	no
 apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx	says what the person left out, plainly, beside what did not fit	no
 apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx	says nothing more when nothing was left out	no
+apps/desktop/src/renderer/src/a-browser-opens-on-what-it-last-saw.test.ts	keeps each read by its call and its arguments	yes
+apps/desktop/src/renderer/src/a-browser-opens-on-what-it-last-saw.test.ts	keeps the newest when there is too much, and does not keep one too long	yes
+apps/desktop/src/renderer/src/a-browser-opens-on-what-it-last-saw.test.ts	is sealed: opened with its own key, and with no other	yes
+apps/desktop/src/renderer/src/a-browser-opens-on-what-it-last-saw.test.ts	says when it is from, with the day when it was not today	yes
 apps/desktop/src/renderer/src/a-build-starter-makes-one-page.test.ts	asks for one named .html file with everything inside it	no
 apps/desktop/src/renderer/src/a-busy-free-model-offers-the-next.test.tsx	is the next of OpenCode's free models after the one the run is on	yes
 apps/desktop/src/renderer/src/a-busy-free-model-offers-the-next.test.tsx	skips a model of the person's own, and goes round after the last	yes
@@ -5694,6 +5698,12 @@ apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	empties it, and l
 apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	every list the search narrows is narrowed by the teammate’s name too	no
 apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	lists conversations, found by every turn and the teammate -- the only search in the rail layout	no
 apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	shows only the five newest before anything is typed	no
+apps/desktop/src/renderer/src/settings-in-a-browser-say-what-stays.test.tsx	draws every page, and none of them starts by saying a setting could not be read or saved	yes
+apps/desktop/src/renderer/src/settings-in-a-browser-say-what-stays.test.tsx	says, in place of the sections whose every setting stays on the computer, that they work there	yes
+apps/desktop/src/renderer/src/settings-in-a-browser-say-what-stays.test.tsx	keeps the teammates' switches that grant something on the computer, and lets Plans change from here	yes
+apps/desktop/src/renderer/src/settings-in-a-browser-say-what-stays.test.tsx	lets the look change from here: no part of Appearance is held on the computer	yes
+apps/desktop/src/renderer/src/settings-in-a-browser-say-what-stays.test.tsx	keeps asking before connector calls on the computer: it is what teammates may reach	yes
+apps/desktop/src/renderer/src/settings-in-a-browser-say-what-stays.test.tsx	holds nothing back and says nothing about a browser, on any page	yes
 apps/desktop/src/renderer/src/settings-says-what-locust-can-stop.test.tsx	is one folded row per AI agent, named, with how much a card can stop	yes
 apps/desktop/src/renderer/src/settings-says-what-locust-can-stop.test.tsx	opens to the same sentences the document holds	yes
 apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	$typed finds the $page page	yes
@@ -6238,6 +6248,8 @@ apps/desktop/src/renderer/src/the-way-in-stays-on-the-shelf.test.tsx	offers to s
 apps/desktop/src/renderer/src/the-way-in-stays-on-the-shelf.test.tsx	offers nothing when there is nothing to save	yes
 apps/desktop/src/renderer/src/the-way-in-stays-on-the-shelf.test.tsx	offers nothing when the screen cannot open the dialog	yes
 apps/desktop/src/renderer/src/the-way-in-stays-on-the-shelf.test.tsx	still names the way in on an empty shelf	yes
+apps/desktop/src/renderer/src/the-window-in-a-browser-and-its-cover.test.tsx	draws its own window controls on this computer, and none in a browser	yes
+apps/desktop/src/renderer/src/the-window-in-a-browser-and-its-cover.test.tsx	covers this computer’s window with what has happened and the way back	yes
 apps/desktop/src/renderer/src/the-window-says-when-macos-may-ask.test.tsx	is drawn only while macOS may be asking, and names the box and the answer	yes
 apps/desktop/src/renderer/src/the-window-says-when-macos-may-ask.test.tsx	the window takes the host’s word, and asks for it only once its listener is in place	yes
 apps/desktop/src/renderer/src/thinking-is-not-using-a-tool.test.ts	reads thinking for a reasoning item	yes

@@ -527,6 +527,7 @@ pub(super) struct State {
     pub(super) peer_thread_open: HashMap<String, bool>,
     /// A Stop pressed while the run was still starting, remembered against its key until the start names it.
     pub(super) stop_when_named: Option<String>,
+    pub(super) elsewhere_cover: crate::elsewhere_cover::ElsewhereCover,
 }
 
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
@@ -796,6 +797,7 @@ impl Default for State {
             peer_thread_open: HashMap::new(),
             scout: crate::scout_cards::Panel::default(),
             stop_when_named: None,
+            elsewhere_cover: crate::elsewhere_cover::ElsewhereCover::default(),
         }
     }
 }
