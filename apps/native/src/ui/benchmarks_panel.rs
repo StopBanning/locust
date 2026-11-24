@@ -253,7 +253,13 @@ fn render_row(
             RerunStep::Judging => "judging",
             RerunStep::Answering => "answering",
         };
-        crate::look::controls::chip(l, &format!("{prefix} · {step}"), true)
+        // BenchmarksScreen.tsx `lc-benchmarks__chip is-running`: `<WorkingSpark />`, then the words, in the on chip.
+        let words = format!("{prefix} · {step}");
+        row().py(3.0).px(10.0).gap(8.0).center_y().radius(999.0).fill(l.c("lime-tint")).border(1.0, l.c("lime-border"))
+            .role("status")
+            .label(words.clone())
+            .child(crate::working_spark::working_spark(l, format!("benchmark-chip-{}-spark", entry.compare_id)))
+            .child(text(words).font(rune::TextStyle::new(11.0, 400.0).mono()).color(l.c("text-primary")))
     } else if let Some(leader) = benchmark_leader(&entry.rows) {
         let (who, tie) = leader_parts(&leader.names);
         let label = if tie {

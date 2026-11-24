@@ -1,7 +1,7 @@
 //! Keyboard shortcut sheet (Area 11).
 
 use super::*;
-use crate::keyboard_shortcuts::{SHEET_TITLE, keys_on, lacking_note, shortcut_groups};
+use crate::keyboard_shortcuts::{SHEET_TITLE, keycaps, keys_on, lacking_note, shortcut_groups};
 
 #[derive(Default)]
 pub(super) struct Panel {
@@ -19,12 +19,33 @@ pub(super) fn open(s: &mut State) {
     s.keyboard_sheet.open = true;
 }
 
-pub(super) fn view(_s: &State, p: &Palette) -> El {
+pub(super) fn view(s: &State, p: &Palette) -> El {
     let platform = if cfg!(target_os = "macos") {
         "darwin"
     } else {
         "other"
     };
+    view_on(s, p, platform)
+}
+
+/// A shortcut's keys as keycaps (Keycaps.tsx): a cap to a key, "or" between chords, a Mac's marks on a Mac.
+fn caps(keys: &str, mac: bool, at: String, p: &Palette) -> El {
+    let mut line = row().key(at).gap(4.0).center_y().flex_wrap().w(220.0);
+    for (n, chord) in keycaps(keys, mac).into_iter().enumerate() {
+        if n > 0 {
+            line = line.child(text("or".to_owned()).font(type_::LABEL).color(p.muted));
+        }
+        for key in chord {
+            line = line.child(
+                text(key).font(type_::LABEL).color(p.text).role("kbd").px(5.0).py(1.0).radius(4.0).fill(p.field).border(1.0, p.hairline),
+            );
+        }
+    }
+    line
+}
+
+/// The sheet with `platform`'s keys (KeyboardSheet's `platform`): a Mac says Cmd and Option, in its own marks.
+pub(super) fn view_on(_s: &State, p: &Palette, platform: &str) -> El {
     let mut body = col().w_full().gap(10.0).padding(16.0);
     body = body.child(
         row()
@@ -45,14 +66,15 @@ pub(super) fn view(_s: &State, p: &Palette) -> El {
                 .font(type_::TITLE)
                 .color(p.text),
         );
-        for shortcut in rows {
+        for (i, shortcut) in rows.into_iter().enumerate() {
             let keys = keys_on(shortcut.keys, platform, shortcut.control_on_mac);
+            let at = format!("keys-{}-{i}", group.label());
             let mut line = col().w_full().gap(2.0).padding(6.0);
             line = line.child(
                 row()
                     .w_full()
                     .gap(12.0)
-                    .child(text(keys).font(type_::LABEL).color(p.text).w(220.0).wrap())
+                    .child(caps(&keys, platform == "darwin", at, p))
                     .child(
                         text(shortcut.does.to_owned())
                             .font(type_::LABEL)
@@ -117,3 +139,7 @@ mod tests {
         assert!(s.keyboard_sheet.open);
     }
 }
+
+#[cfg(test)]
+#[path = "keyboard_sheet_tests.rs"]
+mod keyboard_sheet_tests;

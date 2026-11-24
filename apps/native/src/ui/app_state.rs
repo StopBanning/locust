@@ -444,6 +444,8 @@ pub(super) struct State {
     pub(super) jump_hover: bool,
     pub(super) find_hits: Vec<thread_find::FindHit>,
     pub(super) find_index: usize,
+    /// The query `find_index` was stepped for: a changed query starts again at its first hit.
+    pub(super) find_hits_query: String,
     pub(super) find_pieces: Vec<String>,
     pub(super) find_earlier_turns: usize,
     pub(super) find_show_earlier: bool,
@@ -527,6 +529,9 @@ pub(super) struct State {
     pub(super) peer_thread_open: HashMap<String, bool>,
     /// A Stop pressed while the run was still starting, remembered against its key until the start names it.
     pub(super) stop_when_named: Option<String>,
+    pub(super) elsewhere_cover: crate::elsewhere_cover::ElsewhereCover,
+    /// The sidebar list narrowed to one teammate's conversations, from that face's card (Sidebar.tsx `faceFilter`).
+    pub(super) sidebar_face_filter: Option<String>,
 }
 
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
@@ -736,6 +741,7 @@ impl Default for State {
             jump_hover: false,
             find_hits: Vec::new(),
             find_index: 0,
+            find_hits_query: String::new(),
             find_pieces: Vec::new(),
             find_earlier_turns: 0,
             find_show_earlier: false,
@@ -796,6 +802,8 @@ impl Default for State {
             peer_thread_open: HashMap::new(),
             scout: crate::scout_cards::Panel::default(),
             stop_when_named: None,
+            elsewhere_cover: crate::elsewhere_cover::ElsewhereCover::default(),
+            sidebar_face_filter: None,
         }
     }
 }

@@ -112,6 +112,8 @@ mod pet_faces;
 mod chip_mark;
 #[path = "ui/cover_watch.rs"]
 mod cover_watch;
+#[path = "ui/elsewhere_cover.rs"]
+mod elsewhere_cover;
 #[path = "ui/reply_actions.rs"]
 mod reply_actions;
 #[path = "ui/markdown_prep.rs"]
@@ -217,6 +219,8 @@ mod sidebar;
 mod window_glass;
 #[path = "ui/working_shimmer.rs"]
 mod working_shimmer;
+#[path = "ui/working_spark.rs"]
+mod working_spark;
 #[path = "ui/context_menu.rs"]
 mod context_menu;
 use sidebar::*;
@@ -288,6 +292,9 @@ mod key_card;
 #[path = "ui/runtime_commands_ui.rs"]
 mod runtime_commands_ui;
 mod os_hosts;
+// Not called yet: nothing keeps Locust running with its window closed, which is when the icon shows.
+#[allow(dead_code)]
+mod menu_bar;
 #[path = "ui/review_changes.rs"]
 mod review_changes;
 #[path = "ui/inspector_panel.rs"]
@@ -870,6 +877,8 @@ fn setup(s: &mut State, waker: Waker) {
     s.opening.set_waker(waker.clone());
     s.model_job.set_waker(waker.clone());
     s.settings_panel.agents_job.set_waker(waker.clone());
+    s.runtime_commands_job.set_waker(waker.clone());
+    s.runtime_commands.breakdown_job.set_waker(waker.clone());
     s.settings_panel.agents_recheck.set_waker(waker.clone());
     s.files_job.set_waker(waker.clone());
     s.stopping.set_waker(waker.clone());
@@ -2758,7 +2767,8 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
     let flyout_top = if compact {
         s.rail_open.as_ref().and_then(|id| cx.layout(&format!("rail-{id}"))).map(|r| r[1])
     } else {
-        None
+        // The wide sidebar's faces open the same card (Sidebar.tsx `railEnter` on `.lc-faces__one`).
+        s.rail_open.as_ref().and_then(|id| cx.layout(&format!("teammate-{id}"))).map(|r| r[1])
     };
     let changes_open = s.changes.open
         && s.changes_repo

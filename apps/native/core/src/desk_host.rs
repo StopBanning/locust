@@ -4,10 +4,17 @@
 //! `desk::desk_access` and `desk::is_desk_event`, keeps only one active window at a time, covers
 //! the local window while a browser has it, and replays waiting approval cards on request.
 
-use crate::desk::{DeskAccess, WINDOW_ONLY_SAYS, desk_access, is_desk_event};
+use crate::desk::{
+    DeskAccess, desk_access, is_desk_event, on_the_computer, render_settings_page,
+};
+use crate::desk_snapshot::{
+    DeskSnapshot, SealedSnapshot, open_snapshot, seal_snapshot, snapshot_key, snapshot_when,
+    snapshot_with,
+};
 use serde_json::{Map, Value, json};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 pub const MISSION_APPROVAL_CHANNEL: &str = "mission-approval:request";
 
@@ -228,6 +235,7 @@ struct DeskHostState {
     active: Option<String>,
     queues: HashMap<String, Vec<DeskTell>>,
     queue_order: Vec<String>,
+    snapshot: Option<DeskSnapshot>,
 }
 
 pub struct DeskHost {
@@ -252,6 +260,7 @@ impl DeskHost {
                 active: None,
                 queues: HashMap::new(),
                 queue_order: Vec::new(),
+                snapshot: None,
             }),
         }
     }
@@ -299,6 +308,34 @@ impl DeskHost {
         self.state.lock().unwrap().active.clone()
     }
 
+    /// Render a Settings page for a browser (`for_browser = true`) or for this computer (`false`).
+    pub fn settings_page(&self, page_id: &str, for_browser: bool) -> Option<String> {
+        render_settings_page(page_id, for_browser)
+    }
+
+    /// Seal the cached read snapshot with the caller's 256-bit key.
+    pub fn sealed_snapshot(&self, key: &[u8; 32]) -> Option<SealedSnapshot> {
+        let st = self.state.lock().unwrap();
+        let snap = st.snapshot.as_ref()?;
+        seal_snapshot(key, snap).ok()
+    }
+
+    /// Open a sealed snapshot with the caller's 256-bit key.
+    pub fn open_cached_snapshot(
+        &self,
+        key: &[u8; 32],
+        sealed: &SealedSnapshot,
+    ) -> Option<DeskSnapshot> {
+        open_snapshot(key, sealed)
+    }
+
+    /// Format when the cached read snapshot was last written, relative to `now_ms`.
+    pub fn snapshot_label(&self, now_ms: i64) -> Option<String> {
+        let st = self.state.lock().unwrap();
+        let snap = st.snapshot.as_ref()?;
+        Some(snapshot_when(snap.at as i64, now_ms))
+    }
+
     pub fn flush(&self) {
         let batches: Vec<(String, Vec<DeskTell>)> = {
             let mut st = self.state.lock().unwrap();
@@ -325,10 +362,11 @@ impl DeskHost {
             self.refuse(device, id, "That call could not be read.", false);
             return;
         };
-        let Some(access) = desk_access(channel, arr) else {
-            self.refuse(device, id, WINDOW_ONLY_SAYS, true);
+        if let Some(refusal) = on_the_computer(true, channel, arr) {
+            self.refuse(device, id, refusal, true);
             return;
-        };
+        }
+        let access = desk_access(channel, arr).unwrap_or(DeskAccess::Read);
         if access == DeskAccess::Act && self.active().as_deref() != Some(device) {
             self.refuse(
                 device,
@@ -373,7 +411,19 @@ impl DeskHost {
         };
         let decoded_args: Vec<DeskValue> = arr.iter().cloned().map(decode_value).collect();
         match handler(&event, &decoded_args) {
-            Ok(val) => self.answer(device, id, &val),
+            Ok(val) => {
+                if access == DeskAccess::Read {
+                    let now_ms = SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_millis() as u64;
+                    let key = snapshot_key(channel, &decoded_args);
+                    let mut st = self.state.lock().unwrap();
+                    let next = snapshot_with(st.snapshot.as_ref(), &key, val.to_json_lossy(), now_ms);
+                    st.snapshot = Some(next);
+                }
+                self.answer(device, id, &val);
+            }
             Err(err) => self.refuse(device, id, &error_words(&err), false),
         }
     }

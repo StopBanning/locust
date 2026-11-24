@@ -545,3 +545,7 @@ mod tests {
         assert_eq!(fallback_tex("a=b", false), "$a=b$");
     }
 }
+
+#[cfg(test)]
+#[path = "math_in_a_reply_tests.rs"]
+mod math_in_a_reply_tests;

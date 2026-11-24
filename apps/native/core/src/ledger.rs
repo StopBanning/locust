@@ -1839,6 +1839,15 @@ fn fresh(modified: Option<SystemTime>, now: SystemTime) -> bool {
     modified.is_some_and(|m| now.duration_since(m).unwrap_or_default() < ACTIVE_WINDOW)
 }
 
+/// A conversation's title from what was sent (App.tsx `missionTitle`): what the person typed, not the attachment note
+/// in front of it; its first line; a line that is only a path titled by its file; and NOT cut here, since the column
+/// does the cutting (the-flat-sidebar-is-written-down).
+pub fn mission_title(prompt: &str) -> String {
+    let (text, _) = crate::attachments::split_attachments(prompt);
+    let trimmed = text.trim().split('\n').next().unwrap_or_default().to_owned();
+    crate::path_title::path_only_title(&trimmed).unwrap_or(trimmed)
+}
+
 // Convenience API when an unreadable directory need not be distinguished from an empty one.
 #[cfg(any(test, feature = "test-hooks"))]
 pub fn list_recent(dir: impl AsRef<Path>, limit: usize) -> Vec<Summary> {
@@ -1937,13 +1946,7 @@ pub fn try_list_recent(dir: &Path, limit: usize) -> io::Result<Vec<Summary>> {
             }
         }
         let updated = last_activity_at(&m.created_at, events.values().copied());
-        let first = m.prompt.lines().next().unwrap_or_default().trim();
-        let title: String = crate::path_title::path_only_title(first)
-            .as_deref()
-            .unwrap_or(first)
-            .chars()
-            .take(60)
-            .collect();
+        let title = mission_title(&m.prompt);
         summaries.push(Summary {
             reported_model: crate::model_alias::reported_model(&events.values().copied().cloned().collect::<Vec<_>>(), &m.model),
             parent: m.parent,
@@ -2481,6 +2484,10 @@ impl Session {
         Ok(result)
     }
 }
+
+#[cfg(test)]
+#[path = "mission_title_tests.rs"]
+mod mission_title_tests;
 
 #[cfg(test)]
 #[path = "a_step_that_never_ran_tests.rs"]
@@ -3139,7 +3146,7 @@ mod tests {
     }
 
     #[test]
-    fn recent_order_is_mtime_order_and_titles_are_bounded() {
+    fn recent_order_is_mtime_order_and_titles_are_whole() {
         let temp = Temp::new();
         for (id, secs) in [("older", 10), ("newer", 20)] {
             let path = temp.path(id);
@@ -3154,7 +3161,8 @@ mod tests {
         let list = list_recent(&temp.0, 1);
         assert_eq!(list.len(), 1);
         assert_eq!(list.first().unwrap().mission_id, "newer");
-        assert_eq!(list.first().unwrap().title.chars().count(), 60);
+        // Not cut at 60 any more: the sidebar's column does the cutting (the-flat-sidebar-is-written-down).
+        assert_eq!(list.first().unwrap().title, "x".repeat(80));
     }
 
     /// Electron's `a-path-only-message-is-titled-by-its-file.test.ts` case 3 (`App.tsx`'s

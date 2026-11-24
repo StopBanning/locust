@@ -12,6 +12,10 @@ fn latest_turn(s: &State) -> Option<String> {
 /// The entries, in Electron's order, for the conversation on screen.
 pub(super) fn items(s: &State) -> Vec<Item> {
     let mut items = vec![Item::new(if verbose(s) { "Normal" } else { "Verbose" }, "header:verbose")];
+    // Open in terminal (OpenInTerminal.tsx): first after Verbose, and only there; absent while the run holds the session.
+    if let Some(offer) = crate::terminal_panel::shown_terminal(s).filter(|offer| offer.disabled.is_none()) {
+        items.push(Item::new(&format!("Open in terminal ({})", offer.runtime_name), "header:terminal"));
+    }
     if let Some(review) = crate::review_action::menu_item(s) {
         items.push(review);
     }
@@ -99,6 +103,7 @@ pub(super) fn conversation_for_report(s: &State) -> Option<String> {
 pub(super) fn run(s: &mut State, action: &str) -> bool {
     match action {
         "header:verbose" => settings_panel::toggle_transcript_view(s),
+        "header:terminal" => crate::terminal_panel::open_in_terminal(s),
         "header:save-routine" => {
             if let Some(tip) = save_as_routine_id(s) {
                 crate::routines_panel::save_conversation(s, &tip);
