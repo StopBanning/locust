@@ -211,6 +211,8 @@ mod beside;
 use beside::*;
 #[path = "ui/sidebar.rs"]
 mod sidebar;
+#[path = "ui/window_glass.rs"]
+mod window_glass;
 #[path = "ui/working_shimmer.rs"]
 mod working_shimmer;
 #[path = "ui/context_menu.rs"]
@@ -840,6 +842,12 @@ fn load_team(s: &mut State) {
 }
 
 fn setup(s: &mut State, waker: Waker) {
+    s.mac_glass = window_glass::marks_glass(std::env::consts::OS, HEADLESS.load(std::sync::atomic::Ordering::Relaxed));
+    s.settings_panel.liquid_offered = window_glass::liquid_offered(
+        std::env::consts::OS,
+        HEADLESS.load(std::sync::atomic::Ordering::Relaxed),
+        window_glass::mac_has_glass_view(),
+    );
     s.changes_job.set_waker(waker.clone());
     s.tag_job.set_waker(waker.clone());
     s.review_job.set_waker(waker.clone());
@@ -2777,7 +2785,7 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
     }
     // The conversation keeps room for its message box; side panels (terminal, beside, viewer) shrink first.
     let thread = col().grow(1.0).h_full().min_w(380.0).child(thread);
-    let mut right = row().grow(1.0).h_full().min_w(0.0).child(thread);
+    let mut right = row().key("app-panes").grow(1.0).h_full().min_w(0.0).fill(window_glass::pane_ground(s, &p)).child(thread);
     if let Some(browser) = browser_panel::view(s, &p) { right = right.child(browser); }
     if s.terminal.open {
         right = right.child(terminal_panel::view(s, &p));
@@ -2825,10 +2833,9 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
     {
         body = body.child(card);
     }
-    let mut app = col()
-        .w_full()
-        .h_full()
-        .fill(p.bg)
+    let side_width = if compact { rail::RAIL_WIDTH } else { window_glass::sidebar_width(s) };
+    let mut app = window_glass::window_ground(col().key("app-window").w_full().h_full(), s, &p)
+        .children(window_glass::liquid_panel(s, &p, side_width))
         .child(rail::title_bar(s, &p, !thread_shown, running))
         .children(restored_folders_card::card(s, &p))
         .children(backup_section::restore_notice_banner(s, &p))
@@ -3485,6 +3492,7 @@ fn main() {
         ..AppSpec::new("Locust", (placement.width as f32, placement.height as f32), State::default, view)
     })
     .maximized(placement.maximized)
+    .window_options(window_glass::window_options(std::env::consts::OS))
     .chrome(WINDOW_CHROME)
     .on_close(on_close)
     .on_open_url(link_open::opened)

@@ -555,6 +555,10 @@ apps/desktop/src/main/a-mac-updates-itself.test.ts	and when the new one cannot b
 apps/desktop/src/main/a-mac-window-has-its-own-traffic-lights.test.ts	on a Mac keeps its frame, with the title bar hidden and inset and the lights in its left column	yes
 apps/desktop/src/main/a-mac-window-has-its-own-traffic-lights.test.ts	on Windows and Linux stays frameless, its own controls drawn by the title bar (control)	no
 apps/desktop/src/main/a-mac-window-has-its-own-traffic-lights.test.ts	is what the main window is made with	yes
+apps/desktop/src/main/a-macs-sidebar-is-glass.test.ts	a Mac window is made with the sidebar material, following the window; Windows and Linux get none	yes
+apps/desktop/src/main/a-macs-sidebar-is-glass.test.ts	its ground is clear, set after the theme's, and a theme change does not paint over it	yes
+apps/desktop/src/main/a-macs-sidebar-is-glass.test.ts	the page marks itself glass only in the Mac window, never in a browser, the loading window or the cover	yes
+apps/desktop/src/main/a-macs-sidebar-is-glass.test.ts	the sheet lets the glass through the sidebar and the title bar, and every other pane keeps a ground	yes
 apps/desktop/src/main/a-managed-turn-is-refused-before-an-agent-starts.test.ts	refuses agents, models, modes, cloud turns and broken policies before discovery or recording	no
 apps/desktop/src/main/a-managed-turn-is-refused-before-an-agent-starts.test.ts	gates Antigravity before probing its app	no
 apps/desktop/src/main/a-managed-turn-is-refused-before-an-agent-starts.test.ts	checks the monthly cap even when a turn has no teammate owner	no
@@ -3035,6 +3039,20 @@ apps/desktop/src/main/the-thread-beside-the-browser-keeps-its-parts-whole.test.t
 apps/desktop/src/main/the-thread-beside-the-browser-keeps-its-parts-whole.test.ts	lets a file row give way to its open and copy buttons, never push them past the card	no
 apps/desktop/src/main/the-thread-beside-the-browser-keeps-its-parts-whole.test.ts	gives the header's name the room beside the face, and in a narrow header the name before the role	no
 apps/desktop/src/main/the-thread-beside-the-browser-keeps-its-parts-whole.test.ts	keeps Home's account marks in a row, the row wrapping before the marks stack	no
+apps/desktop/src/main/the-whole-window-can-be-liquid-glass.test.ts	the look is kept beside the theme, Standard when it is missing or unreadable, and saving one keeps the other	yes
+apps/desktop/src/main/the-whole-window-can-be-liquid-glass.test.ts	what the glass shows is kept with the look: the desktop unless Rainbow was chosen, and kept by every save	yes
+apps/desktop/src/main/the-whole-window-can-be-liquid-glass.test.ts	Rainbow puts its picture under the glass, the desktop takes it away, and neither touches a window off the glass	no
+apps/desktop/src/main/the-whole-window-can-be-liquid-glass.test.ts	a window is drawn in it only when it is chosen and offered, and starts marked so from its own command line	yes
+apps/desktop/src/main/the-whole-window-can-be-liquid-glass.test.ts	is offered only on a Mac whose glass the addon can reach	yes
+apps/desktop/src/main/the-whole-window-can-be-liquid-glass.test.ts	changes the window in place: its material off before the glass goes on, and the lights into the panel	yes
+apps/desktop/src/main/the-whole-window-can-be-liquid-glass.test.ts	goes back exactly: the glass off, the material and the lights where the window was made with them	yes
+apps/desktop/src/main/the-whole-window-can-be-liquid-glass.test.ts	a glass that will not go on leaves the window as it was made	yes
+apps/desktop/src/main/the-whole-window-can-be-liquid-glass.test.ts	places the sidebar's panel only on a window drawn in it, and a drive's picture only when one is given	yes
+apps/desktop/src/main/the-whole-window-can-be-liquid-glass.test.ts	takes a panel from the page only when every number is finite, positive and sane	yes
+apps/desktop/src/main/the-whole-window-can-be-liquid-glass.test.ts	the sheet and the window agree on where the lights sit	yes
+apps/desktop/src/main/the-whole-window-can-be-liquid-glass.test.ts	everything that floats over the page is frosted, so nothing under it reads through	no
+apps/desktop/src/main/the-whole-window-can-be-liquid-glass.test.ts	a floating panel that paints through a card inside it is frosted too	no
+apps/desktop/src/main/the-whole-window-can-be-liquid-glass.test.ts	the addon is built after the bundle on a Mac, unpacked from the archive, loaded from beside the main bundle	no
 apps/desktop/src/main/three-judges-are-kept.test.ts	keeps the panel of the newest ask, and every panel run as the comparison's, across a restart	no
 apps/desktop/src/main/three-placements.test.ts	dropped the noun that labelled the line once and cost eight characters forever	yes
 apps/desktop/src/main/three-placements.test.ts	dropped the permission prose, which the composer already states where it can be changed	yes
@@ -6030,8 +6048,8 @@ apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.tes
 apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.test.tsx	says what each look is, and that Liquid glass shows the desktop through it	yes
 apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.test.tsx	says Windows' glass on a Windows 11 PC (0.864), and macOS's on a Mac	yes
 apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.test.tsx	is hidden in a browser, and sits under the theme on the Appearance page	yes
-apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.test.tsx	the panel runs from the window's top inset to its bottom inset, as wide as the sidebar, or is none	no
-apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.test.tsx	the panel the page asks for is the shape the sheet washes	no
+apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.test.tsx	the panel runs from the window's top inset to its bottom inset, as wide as the sidebar, or is none	yes
+apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.test.tsx	the panel the page asks for is the shape the sheet washes	yes
 apps/desktop/src/renderer/src/the-model-chip-shows-usage-on-hover.test.tsx	opens the agent's card, with a bar for each window, placed for the chip	no
 apps/desktop/src/renderer/src/the-model-chip-shows-usage-on-hover.test.tsx	draws it on hover or focus, above and to the right, rather than leaving it to the system tooltip	no
 apps/desktop/src/renderer/src/the-newest-group-stays-folded.test.tsx	is a line, folded until pressed, as Claude Code draws it	no

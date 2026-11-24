@@ -39,6 +39,40 @@ Checked on 11 Nov 2026: with that patch, `cargo build --release --offline` built
 
 To refresh the copy before moving the pin: `git -C ~/Archive/rune-mirror-2026-11-11/rune.git remote update`.
 
+## The local patch
+
+Since 23 Nov 2026 the app builds `rune`, `rune-motion`, `rune-staging` and `rune-taffy` from a copy of the pinned
+commit at `vendor/rune` (repository root), through a `[patch."https://github.com/anomalyco/rune"]` table at the end of
+`Cargo.toml`; `rune-kit` and `rune-mermaid` still come from git at the pin, and the patch points their `rune` at the copy
+too (`cargo tree -i rune` shows one `rune`). The copy is in two commits, so the patch reads on its own:
+
+1. `Vendor Rune 39301f67 for a local patch (unpatched)`: the archive of the pinned commit, those crates and `procwatch`,
+   Rune's `Cargo.lock` and `LICENSE`, its root `Cargo.toml` with the members cut to the five. Its only edit: eight
+   made-up test fixtures end in `// public-guard: allow`, so this public repository's commit guard takes them.
+2. The patch, two changes, each with a Rune-level test in `crates/rune/src/system_material/tests.rs`:
+   - **`SystemMaterial::Sidebar`** (`system_material/mod.rs`): `NSVisualEffectView` with the `.sidebar` material (7),
+     behind window, state follow-window (0). Rune had `Popover` (6, always active) and `Glass` only; Electron's Mac window
+     is made with `vibrancy: 'sidebar'` and `visualEffectState: 'followWindow'` (`main/window-chrome.ts`), so the
+     sidebar goes flat when the window loses focus, as Finder's does. `make_view` (`system_material/macos.rs`) now takes
+     the material and state from `effect_view_settings`, so `Popover` is made exactly as before. Test:
+     `the_sidebar_material_is_the_sidebar_effect_following_its_window_and_popover_stays_always_active`.
+   - **`ElementInfo::material`** (`runtime/elements.rs`; filled in `elements()`, `None` for flight and link entries and
+     `ElementInfo::default`): the element's `El::system_material`. Without it nothing outside Rune can see a material
+     in a headless frame (it draws the element's fill as a stand-in), so no window test could fail when a
+     `.system_material(...)` call is removed. Test: `element_info_names_each_elements_material_and_none_for_the_rest`.
+
+   To get the shaders and font Rune's own lib tests read with `include_str!`/`include_bytes!` (not used by the app's
+   build), 22 `.wgsl` files from `rune-fx` and `rune-light` and IBM Plex Mono with its licence from
+   `themes/opencode/assets/fonts` sit at their usual paths under `vendor/rune`, with no crate around them.
+
+Run Rune's tests in the copy with `cargo test -p rune --lib system_material` from `vendor/rune` (its own workspace).
+
+**To offer it upstream:** both changes are additive; the diff of the second commit under `vendor/rune`, without the
+"Locust patch" doc lines, is the whole proposal. **To drop it:** when the pin moves to a Rune that has a sidebar
+material and a way to read an element's material headless, delete `vendor/rune` and the `[patch]` table, switch
+`window_glass.rs` to Rune's names, and keep the window tests in `src/ui/window_glass_tests.rs` passing. Moving the pin
+while the patch is on means re-taking the copy from the new commit and re-applying the second commit's diff.
+
 ## Moving the pin
 
 Move it on purpose, in its own commit, never alongside a feature.

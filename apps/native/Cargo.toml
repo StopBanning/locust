@@ -57,3 +57,11 @@ objc2-user-notifications = { version = "0.3", features = ["UNUserNotificationCen
 # edit rebuilds in seconds. Measured 16 Nov: see notes/BUILD-SPEED-NOTES.md.
 [profile.dev.package."*"]
 opt-level = 2
+
+# Rune from the copy in vendor/rune at the repository root: the pinned commit above with two small changes (RUNE.md,
+# "The local patch"). rune-kit and rune-mermaid still come from git; this points their `rune` at the copy too.
+[patch."https://github.com/anomalyco/rune"]
+rune = { path = "../../vendor/rune/crates/rune" }
+rune-motion = { path = "../../vendor/rune/crates/rune-motion" }
+rune-staging = { path = "../../vendor/rune/crates/rune-staging" }
+rune-taffy = { path = "../../vendor/rune/crates/rune-taffy" }

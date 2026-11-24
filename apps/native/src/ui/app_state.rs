@@ -362,6 +362,8 @@ pub(super) struct State {
     pub(super) demo: bool,
     // None follows the system; snapshot scenes explicitly choose an appearance.
     pub(super) appearance: Option<bool>,
+    /// The window is on a Mac's glass (window_glass.rs): set once by the real window, never in a headless run.
+    pub(super) mac_glass: bool,
     /// The kit gallery scene (look::gallery) instead of the app.
     pub(super) gallery: bool,
     /// Each teammate's look (hue, seeded parts, picked bot, pet), read beside the roster (native::load_looks).
@@ -667,6 +669,7 @@ impl Default for State {
             flight: None,
             demo: false,
             appearance: None,
+            mac_glass: false,
             gallery: false,
             looks: std::collections::HashMap::new(),
             bot_stage: crate::look::bot_stage::BotStage::default(),
