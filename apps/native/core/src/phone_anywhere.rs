@@ -2664,3 +2664,94 @@ fn parse_github_account(value: &Value) -> Option<(u64, String)> {
     }
     Some((user, login.to_owned()))
 }
+
+#[cfg(test)]
+mod desk_code_guard_tests {
+    use super::*;
+    use crate::phone_host::{PhoneCalls, PhoneSent, PhoneState, PhoneTurn};
+
+    struct NoopCalls;
+    impl PhoneCalls for NoopCalls {
+        fn state(&self) -> PhoneState {
+            PhoneState { waiting: Vec::new(), conversations: Vec::new(), scout: None }
+        }
+        fn turns(&self, _mission_id: &str) -> Option<Vec<PhoneTurn>> {
+            None
+        }
+        fn answer_card(&self, _approval_id: &str, _approve: bool) -> bool {
+            false
+        }
+        fn send(&self, _mission_id: &str, _text: &str) -> PhoneSent {
+            PhoneSent::Ok
+        }
+    }
+
+    struct AckSocket {
+        callbacks: Mutex<Option<Arc<dyn RelaySocketCallbacks>>>,
+    }
+
+    impl RelaySocket for AckSocket {
+        fn send(&self, text: String) -> Result<(), String> {
+            let val: Value = serde_json::from_str(&text).unwrap_or(Value::Null);
+            let kind = val.get("t").and_then(Value::as_str).unwrap_or("");
+            let id = val.get("id").and_then(Value::as_str).map(str::to_owned);
+            let reply = match kind {
+                "auth" => Some(json!({ "t": "ok", "as": "pc", "devices": [] })),
+                "pair-open" | "reset" => id.map(|id| json!({ "t": "done", "id": id })),
+                _ => None,
+            };
+            if let Some(reply) = reply
+                && let Some(cb) = self.callbacks.lock().unwrap().clone()
+            {
+                std::thread::spawn(move || cb.on_message(reply.to_string()));
+            }
+            Ok(())
+        }
+
+        fn close(&self) {}
+
+        fn set_callbacks(&self, callbacks: Arc<dyn RelaySocketCallbacks>) {
+            *self.callbacks.lock().unwrap() = Some(callbacks.clone());
+            std::thread::spawn(move || callbacks.on_open());
+        }
+    }
+
+    #[test]
+    fn desk_code_returns_none_when_the_code_on_show_is_not_a_desk_code() {
+        let dir = std::env::temp_dir().join(format!("locust-desk-guard-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let pc = PhoneAnywhere::new(PhoneAnywhereOptions {
+            directory: dir.clone(),
+            calls: Arc::new(NoopCalls),
+            relay: Arc::new(|| "https://relay.test".to_owned()),
+            refusal: None,
+            changed: None,
+            connect: Arc::new(|_| {
+                Ok(Arc::new(AckSocket { callbacks: Mutex::new(None) }) as Arc<dyn RelaySocket>)
+            }),
+            now: None,
+            protect_file: Some(Arc::new(|_| Ok(()))),
+            retry_ms: Some(Arc::new(|_| 20)),
+            away: None,
+            hooks: None,
+            desk: None,
+            notes: None,
+            github_user: None,
+            computer_name: None,
+        });
+        pc.set_enabled(true);
+        let deadline = std::time::Instant::now() + Duration::from_secs(3);
+        while !pc.connected() && std::time::Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        assert!(pc.connected());
+        // An ordinary (non-desk) code is currently on show.
+        assert!(pc.settings().code.as_ref().is_some_and(|c| !c.desk));
+        // Mark disposed while still connected so desk_code does not replace the ordinary code.
+        pc.inner.state.lock().unwrap().disposed = true;
+        assert!(pc.desk_code().is_none());
+        pc.dispose();
+        let _ = fs::remove_dir_all(&dir);
+    }
+}
