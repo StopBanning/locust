@@ -1470,3 +1470,7 @@ mod read_tests;
 #[cfg(test)]
 #[path = "claude_cloud_once_tests.rs"]
 mod once_tests;
+
+#[cfg(test)]
+#[path = "claude_cloud_task_tests.rs"]
+mod task_tests;

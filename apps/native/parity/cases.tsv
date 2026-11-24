@@ -1114,6 +1114,11 @@ apps/desktop/src/main/a-switch-brief-says-what-was-done.test.ts	give way to what
 apps/desktop/src/main/a-switch-brief-says-what-was-done.test.ts	fit the notice’s reserve with every optional section named	yes
 apps/desktop/src/main/a-switch-brief-says-what-was-done.test.ts	says a turn cut off by a usage limit was not finished	yes
 apps/desktop/src/main/a-switch-brief-says-what-was-done.test.ts	still says a completed turn finished	yes
+apps/desktop/src/main/a-task-goes-to-claudes-cloud.test.ts	is one line with no double quote	yes
+apps/desktop/src/main/a-task-goes-to-claudes-cloud.test.ts	is never in the command line: cmd sees only a quoted variable	yes
+apps/desktop/src/main/a-task-goes-to-claudes-cloud.test.ts	opens Claude Code in a window of its own, in the folder, with the task in the variable -- & and | stay words	yes
+apps/desktop/src/main/a-task-goes-to-claudes-cloud.test.ts	brings one home with --teleport in its own folder, and forgets one on request	yes
+apps/desktop/src/main/a-task-goes-to-claudes-cloud.test.ts	says so, and opens nothing, when Claude Code is not installed or the task is empty	yes
 apps/desktop/src/main/a-team-card-carries-its-routines.test.ts	carries each teammate's instructions and starters, and still no id, folder, limit or branch	no
 apps/desktop/src/main/a-team-card-carries-its-routines.test.ts	carries the routines its teammates made in this folder, with this machine's paths made into inputs	no
 apps/desktop/src/main/a-team-card-carries-its-routines.test.ts	reads a routine back only when it is a routine file Locust would import	no
