@@ -164,6 +164,24 @@ impl Default for Profile {
     }
 }
 pub const CANCEL_GRACE: Duration = Duration::from_secs(3);
+const STREAM_CLOSED: &str = "The agent's output stream closed before its turn finished.";
+const AGENT_EXITED: &str = "The agent exited before its turn finished.";
+const STREAM_FAILED: &str = "The agent's output stream failed before its turn finished.";
+
+/// One line of the agent's output, as the reader keeps it: a JSON object, the end of the stream (closed, or failed
+/// without needing an exit, acp-run.ts `onStdoutClose`), or nothing to keep (a blank or non-object line).
+fn record_from(read: io::Result<usize>, line: &[u8]) -> Option<io::Result<Value>> {
+    match read {
+        Ok(0) => Some(Err(err(STREAM_CLOSED))),
+        Ok(_) if line.len() > 8 * 1024 * 1024 => Some(Err(err("ACP line exceeds 8 MiB"))),
+        Ok(_) if line.iter().all(u8::is_ascii_whitespace) => None,
+        Ok(_) => match serde_json::from_slice::<Value>(line) {
+            Ok(v) if v.is_object() => Some(Ok(v)),
+            _ => None,
+        },
+        Err(_) => Some(Err(err(STREAM_FAILED))),
+    }
+}
 
 pub struct Acp {
     child: Child,
@@ -252,18 +270,8 @@ impl Acp {
             let mut reader = BufReader::new(stdout);
             loop {
                 let mut line = vec![];
-                let record = match super::process::read_line(&mut reader, &mut line) {
-                    Ok(0) => Err(err(
-                        "The agent's output stream closed before its turn finished.",
-                    )),
-                    Ok(_) if line.len() > 8 * 1024 * 1024 => Err(err("ACP line exceeds 8 MiB")),
-                    Ok(_) if line.iter().all(u8::is_ascii_whitespace) => continue,
-                    Ok(_) => match serde_json::from_slice::<Value>(&line) {
-                        Ok(v) if v.is_object() => Ok(v),
-                        _ => continue,
-                    },
-                    Err(e) => Err(e),
-                };
+                let read = super::process::read_line(&mut reader, &mut line);
+                let Some(record) = record_from(read, &line) else { continue };
                 if record.as_ref().is_ok_and(|v| {
                     v["method"].is_null()
                         && v["id"].as_u64().is_some_and(|id| {
@@ -331,6 +339,9 @@ impl Acp {
     pub fn confirm_exit(&mut self, timeout: Duration) -> bool {
         let _guard = crate::invariants::lock(&self.reap_lock);
         self.closed.store(true, Ordering::Relaxed);
+        if self.reaped {
+            return true;
+        }
         kill(self.child.id());
         let _ = self.child.kill();
         self.reaped = super::process::confirm_exit(&mut self.child, timeout);
@@ -362,22 +373,38 @@ impl Acp {
             .try_send(bytes)
             .map_err(|_| err("ACP stdin queue unavailable"))
     }
-    fn receive(&self) -> io::Result<Option<Value>> {
+    /// Whether the agent has exited, given `budget` to do it: its output closing is read as its exit when it did
+    /// (acp-run.ts says "The agent exited before its turn finished." on exit, and the stream's own words when only
+    /// the stream closed). Reaped here under the reap lock, so nothing signals its PID again.
+    fn exited_within(&mut self, budget: Duration) -> bool {
+        let deadline = Instant::now() + budget;
+        loop {
+            {
+                let _guard = crate::invariants::lock(&self.reap_lock);
+                if self.reaped {
+                    return true;
+                }
+                if let Ok(Some(_)) = self.child.try_wait() {
+                    self.reaped = true;
+                    self.closed.store(true, Ordering::Relaxed);
+                    return true;
+                }
+            }
+            if Instant::now() >= deadline {
+                return false;
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+    }
+    fn receive(&mut self) -> io::Result<Option<Value>> {
         if let Some(e) = crate::invariants::lock(&self.failure).clone() {
             return Err(err(e));
         }
         match self.lines.recv_timeout(Duration::from_millis(50)) {
-            Ok(v) => v.map(Some).map_err(|e| {
-                let tail = crate::invariants::lock(&self.stderr);
-                if tail.trim().is_empty() {
-                    io::Error::new(io::ErrorKind::ConnectionAborted, e)
-                } else {
-                    io::Error::new(
-                        io::ErrorKind::ConnectionAborted,
-                        format!("{e} {}", tail.trim()),
-                    )
-                }
-            }),
+            Ok(Err(e)) if e.to_string() == STREAM_CLOSED && self.exited_within(Duration::from_millis(500)) => {
+                Err(self.with_stderr(err(AGENT_EXITED)))
+            }
+            Ok(v) => v.map(Some).map_err(|e| self.with_stderr(e)),
             Err(mpsc::RecvTimeoutError::Timeout) => Ok(None),
             Err(_) => Err(io::Error::new(
                 io::ErrorKind::ConnectionAborted,
@@ -385,7 +412,23 @@ impl Acp {
             )),
         }
     }
+    /// A lost transport's words, with what the agent last wrote to stderr after them.
+    fn with_stderr(&self, e: io::Error) -> io::Error {
+        let tail = crate::invariants::lock(&self.stderr);
+        if tail.trim().is_empty() {
+            io::Error::new(io::ErrorKind::ConnectionAborted, e)
+        } else {
+            io::Error::new(io::ErrorKind::ConnectionAborted, format!("{e} {}", tail.trim()))
+        }
+    }
     fn request(&mut self, method: &str, params: Value, deadline: Instant) -> io::Result<Value> {
+        // A run stopped, or an agent gone, before the next step of the handshake is sent nothing more.
+        if self.cancelled() {
+            return Err(err("ACP startup stopped"));
+        }
+        if self.gone.load(Ordering::Relaxed) {
+            return Err(err(STREAM_CLOSED));
+        }
         self.id += 1;
         let id = self.id;
         self.send(json!({"jsonrpc":"2.0","id":id,"method":method,"params":params}))?;
@@ -489,6 +532,10 @@ impl Acp {
         } else {
             json!({"outcome":"cancelled"})
         };
+        // An agent whose output has ended is told nothing: no answer to a question it can no longer act on.
+        if self.gone.load(Ordering::Relaxed) {
+            return Ok(());
+        }
         self.send(json!({"jsonrpc":"2.0","id":id,"result":{"outcome":outcome}}))
     }
     /// ACP cannot add to an active prompt; steering waits for the next prompt boundary.
@@ -549,8 +596,10 @@ impl Acp {
             self.declined,
         ));
         self.closed.store(true, Ordering::Relaxed);
-        kill(self.child.id());
-        let _ = self.child.kill();
+        if !self.reaped {
+            kill(self.child.id());
+            let _ = self.child.kill();
+        }
         // Keep the child unreaped until Drop: its PID cannot be reused by the stop watchdog.
         if let Some(t) = &self.turn
             && let Some(ch) = &t.approvals
@@ -582,7 +631,10 @@ impl Acp {
             .unwrap_or_else(|| Instant::now() + Duration::from_secs(60));
         let init=self.request("initialize",json!({"protocolVersion":1,"clientCapabilities":{"fs":{"readTextFile":false,"writeTextFile":false},"terminal":false}}),deadline)?;
         if init["protocolVersion"] != 1 {
-            return Err(err("The agent does not speak ACP version 1"));
+            return Err(err(format!(
+                "The agent speaks version {} of the Agent Client Protocol, and Locust speaks 1.",
+                init["protocolVersion"]
+            )));
         }
         // What it can do is shown in Settings > AI agents; keeping it never stops the turn (acp-run.ts).
         crate::acp_capabilities::record_said(&self.profile.runtime, &init["agentCapabilities"]);
@@ -619,7 +671,7 @@ impl Acp {
                 .flatten()
                 .any(|m| m["id"] == agent)
             {
-                return Err(err("Copilot did not offer Agent mode; no prompt was sent."));
+                return Err(err("The agent did not offer the mode this run needs, so it was not started."));
             }
             if session["modes"]["currentModeId"] != agent {
                 self.request(
@@ -666,6 +718,10 @@ impl Acp {
                     held.extend(update.clone());
                 }
             }
+        }
+        // A stop that came with the last answer of the handshake sends no prompt.
+        if self.cancelled() {
+            return Err(err("ACP startup stopped"));
         }
         self.send_prompt(&t.prompt)
     }
@@ -785,3 +841,19 @@ mod tests;
 #[cfg(test)]
 #[path = "acp_queue_tests.rs"]
 mod queue_tests;
+
+#[cfg(test)]
+#[path = "acp_agent_support.rs"]
+mod agent_support;
+
+#[cfg(test)]
+#[path = "acp_events_case_tests.rs"]
+mod events_case_tests;
+
+#[cfg(test)]
+#[path = "acp_run_case_tests.rs"]
+mod run_case_tests;
+
+#[cfg(test)]
+#[path = "acp_stream_close_tests.rs"]
+mod stream_close_tests;

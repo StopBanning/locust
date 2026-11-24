@@ -384,3 +384,7 @@ mod role_brief_tests;
 #[cfg(test)]
 #[path = "teammate_knows_its_connectors_tests.rs"]
 mod teammate_knows_its_connectors_tests;
+
+#[cfg(test)]
+#[path = "todo_list_opt_in_case_tests.rs"]
+mod todo_list_opt_in_case_tests;

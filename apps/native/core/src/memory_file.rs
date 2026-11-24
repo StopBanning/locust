@@ -219,3 +219,7 @@ pub fn retire_memory_file(folder: &Path) -> bool {
 #[cfg(test)]
 #[path = "memory_rewritten_case_tests.rs"]
 mod memory_rewritten_case_tests;
+
+#[cfg(test)]
+#[path = "memory_file_case_tests.rs"]
+mod memory_file_case_tests;

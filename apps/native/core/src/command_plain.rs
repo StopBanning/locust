@@ -2691,3 +2691,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "command_plain_words_case_tests.rs"]
+mod command_plain_words_case_tests;

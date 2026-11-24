@@ -40,6 +40,32 @@ pub fn tool_target(parameters: &Value) -> Option<String> {
     None
 }
 
+/// agyHelpersIn: the helpers a `manage_subagents` answer lists, read from the JSON after its first line, each as
+/// `{role, state, lastStepAt?}` (role "helper" and state "unknown" when the list leaves them out); none when it is not one.
+pub fn helpers_in(output: &str) -> Vec<Value> {
+    let Some(start) = output.find('[') else {
+        return vec![];
+    };
+    let Ok(Value::Array(listed)) = serde_json::from_str::<Value>(&output[start..]) else {
+        return vec![];
+    };
+    let named = |v: &Value| v.as_str().filter(|t| !t.is_empty()).map(str::to_owned);
+    listed
+        .iter()
+        .filter(|entry| entry.is_object())
+        .map(|entry| {
+            let mut helper = json!({
+                "role": named(&entry["role"]).unwrap_or_else(|| "helper".into()),
+                "state": named(&entry["state"]).unwrap_or_else(|| "unknown".into()),
+            });
+            if let Some(last) = named(&entry["lastStepTime"]) {
+                helper["lastStepAt"] = json!(last);
+            }
+            helper
+        })
+        .collect()
+}
+
 pub fn denied_sentence(actions: &[String]) -> Option<String> {
     if actions.is_empty() {
         return None;
@@ -93,7 +119,7 @@ pub fn quota_limit(error: &str, now_ms: i64) -> Option<String> {
         return Some("Antigravity's quota is used up".into());
     }
     let when = chrono::DateTime::from_timestamp_millis(now_ms + seconds * 1000)
-        .map(|d| d.to_rfc3339_opts(chrono::SecondsFormat::Millis, true))
+        .map(|d| d.to_rfc3339_opts(chrono::SecondsFormat::Secs, true))
         .unwrap_or_default();
     Some(format!("Antigravity's quota is used up · resets {when}"))
 }
@@ -612,7 +638,7 @@ impl AgyNormalizer {
                             | "stopped"
                     )
                 }) {
-                    let at = h["lastStepTime"]
+                    let at = h["lastStepAt"]
                         .as_str()
                         .and_then(|t| chrono::DateTime::parse_from_rfc3339(t).ok())
                         .map(|t| {
@@ -625,8 +651,8 @@ impl AgyNormalizer {
                     completed["message"] = json!(text(
                         &format!(
                             "**Waiting on its helper {}**\nIts list says the helper is {}{at}.",
-                            h["role"].as_str().unwrap_or("helper"),
-                            h["state"].as_str().unwrap_or("unknown").replace('_', " ")
+                            s(h, "role"),
+                            s(h, "state").replace('_', " ")
                         ),
                         16384
                     ));
@@ -699,14 +725,9 @@ impl AgyNormalizer {
                 && name == "manage_subagents"
                 && let Some(output) = &output
             {
-                if let Some(start) = output.find('[')
-                    && let Ok(Value::Array(list)) = serde_json::from_str::<Value>(&output[start..])
-                    && !list.is_empty()
-                {
-                    self.helpers = list.into_iter().filter(Value::is_object).collect();
-                }
-                if output.to_ascii_lowercase().contains("no active subagent") {
-                    self.helpers.clear();
+                let listed = helpers_in(output);
+                if !listed.is_empty() || output.to_ascii_lowercase().contains("no active subagent") {
+                    self.helpers = listed;
                 }
             }
             let seconds = step["duration_seconds"].as_f64();
