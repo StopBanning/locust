@@ -27,7 +27,7 @@ fn with_a_team_and_every_installed_agent_ready_the_accounts_are_one_line() {
     let said = shown(&rt);
     assert!(said.contains("Connected accounts"), "{said}");
     assert!(said.contains("2 ready"), "{said}");
-    assert!(!said.contains("Each AI agent starts with this Mac"), "the whole list is folded: {said}");
+    assert!(!said.contains(&format!("Each AI agent starts with this {}", locust_core::machine_words::this_machine().computer)), "the whole list is folded: {said}");
     assert!(rt.find("home-agents-show-all").is_some());
 }
 
@@ -39,12 +39,12 @@ fn show_all_opens_the_whole_list_again() {
     rt.pointer_up(x, y);
     rt.frame(0.0);
     assert!(rt.state.home.agents_open);
-    assert!(shown(&rt).contains("Each AI agent starts with this Mac"));
+    assert!(shown(&rt).contains(&format!("Each AI agent starts with this {}", locust_core::machine_words::this_machine().computer)));
 }
 
 #[test]
 fn an_installed_agent_that_needs_its_sign_in_keeps_the_whole_list_open() {
     let said = shown(&home(vec![agent("codex", "Codex CLI", true, true), agent("claude", "Claude Code", true, false)]));
     assert!(!said.contains("Connected accounts"), "{said}");
-    assert!(said.contains("Each AI agent starts with this Mac"), "{said}");
+    assert!(said.contains(&format!("Each AI agent starts with this {}", locust_core::machine_words::this_machine().computer)), "{said}");
 }

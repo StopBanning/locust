@@ -121,9 +121,11 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
 pub(super) fn startup_section(s: &State, p: &Palette) -> El {
     let l = Look::new(p.dark);
     let login = &s.settings_panel.login_item;
-    let login_note = login.note().unwrap_or(
-        "Start Locust when you sign in, so routines and background work are ready.",
-    );
+    // "Start Locust when you sign in to Windows." / "...log in to this Mac." (Screens.tsx, machineWords(...).signIn).
+    let words = locust_core::machine_words::this_machine();
+    let start_when = format!("Start Locust when you {}", words.log_in);
+    let switch_label = format!("Start Locust when you {}.", words.sign_in);
+    let login_note = login.note().map(str::to_owned).unwrap_or_else(|| format!("{start_when}, so routines and background work are ready."));
 
     col()
         .w_full()
@@ -139,19 +141,19 @@ pub(super) fn startup_section(s: &State, p: &Palette) -> El {
                         .grow(1.0)
                         .gap(2.0)
                         .child(
-                            text("Start Locust when you sign in".to_owned())
+                            text(start_when.clone())
                                 .font(type_::LABEL)
                                 .color(p.text),
                         )
                         .child(
-                            text(login_note.to_owned())
+                            text(login_note)
                                 .font(type_::LABEL)
                                 .color(p.secondary)
                                 .wrap(),
                         ),
                 )
                 .child(
-                    switch(&l, login.open_at_login, "Start Locust when you sign in", !login.available)
+                    switch(&l, login.open_at_login, &switch_label, !login.available)
                         .key("settings-login-item")
                         .on_press(|s: &mut State| {
                             if !s.settings_panel.login_item.available {

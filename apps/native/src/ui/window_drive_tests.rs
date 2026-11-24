@@ -1232,7 +1232,7 @@ fn the_ai_agents_page_lists_each_agent_usable_first_with_what_to_do() {
     });
     settle(&mut rt);
     let words = text_in(&rt, "agents-section").join("\n");
-    assert!(words.contains("AI agents & accounts") && words.contains("Each AI agent starts with this Mac's sign-in."), "{words}");
+    assert!(words.contains("AI agents & accounts") && words.contains(&format!("Each AI agent starts with this {}'s sign-in.", locust_core::machine_words::this_machine().computer)), "{words}");
     // Usable first, then signed out, then not installed, then planned (Electron's RUNTIME_BAND).
     let at = |needle: &str| words.find(needle).unwrap_or_else(|| panic!("{needle} missing:\n{words}"));
     assert!(at("Codex CLI") < at("Claude Code") && at("Claude Code") < at("OpenCode") && at("OpenCode") < at("Gemini CLI"), "{words}");
@@ -1261,7 +1261,7 @@ fn the_ai_agents_page_lists_each_agent_usable_first_with_what_to_do() {
     // While nothing has been found yet, the page says it is checking.
     rt.update(|s, _| s.settings_panel.agents = None);
     settle(&mut rt);
-    assert!(text_in(&rt, "agents-section").join(" ").contains("Checking each AI agent on this Mac"));
+    assert!(text_in(&rt, "agents-section").join(" ").contains(&format!("Checking each AI agent on this {}", locust_core::machine_words::this_machine().computer)));
 }
 
 #[test]

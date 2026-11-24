@@ -18,10 +18,15 @@ use locust_core::runtime_order::{RuntimeEntry, keep_what_was_known, runtime_list
 
 pub(super) const HEADING: &str = "AI agents & accounts";
 /// Electron's lede, minus "Claude Code and Codex can also use accounts you add here": named accounts are not built.
-const LEDE: &str = "Each AI agent starts with this Mac's sign-in.";
+/// The lede (Screens.tsx), naming this computer as the machine names itself.
+fn lede() -> String {
+    format!("Each AI agent starts with this {}'s sign-in.", locust_core::machine_words::this_machine().computer)
+}
 /// Electron's word for word: the row has its Install button now (`install_part`).
 const NONE_INSTALLED: &str = "None of these are on this machine yet. The quickest start is OpenCode: press its Install, no account, and its free model runs as soon as it is there. The others below are worth adding when you want a stronger model, and each needs its own sign-in.";
-const CHECKING: &str = "Checking each AI agent on this Mac…";
+fn checking() -> String {
+    format!("Checking each AI agent on this {}…", locust_core::machine_words::this_machine().computer)
+}
 
 /// What an Agent Client Protocol agent said it can do, in Electron's words (`agentCapabilities.ts` `LINES`).
 const ABILITY_LINES: [(&str, &str); 6] = [
@@ -894,9 +899,9 @@ fn section_inner(s: &State, p: &Palette, for_home: bool) -> El {
         .key("agents-section")
         .gap(10.0)
         .child(text(HEADING.to_owned()).role("heading").level(2).font(type_::TITLE).color(p.text))
-        .child(text(LEDE.to_owned()).font(l.ty.body).color(l.c("text-secondary")).wrap());
+        .child(text(lede()).font(l.ty.body).color(l.c("text-secondary")).wrap());
     let Some(found) = &s.settings_panel.agents else {
-        return body.child(text(CHECKING.to_owned()).font(l.ty.body).color(l.c("text-muted")));
+        return body.child(text(checking()).font(l.ty.body).color(l.c("text-muted")));
     };
     if !found.is_empty() && !found.iter().any(|f| f.installed) {
         body = body.child(text(NONE_INSTALLED.to_owned()).font(l.ty.body).color(l.c("text-secondary")).wrap());
