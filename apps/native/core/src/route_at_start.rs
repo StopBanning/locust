@@ -141,7 +141,9 @@ pub fn saved_route_in(team: &serde_json::Value, teammate_id: &str) -> Option<Tea
     let text = |key: &str| route[key].as_str().map(str::to_owned);
     Some(TeammateRoute {
         runtime: text("runtime")?,
-        model: text("model").unwrap_or_default(),
+        // Electron's teammate store requires a route's model, so a route without one is not a saved route at all;
+        // reading it as "" made every start of that teammate run on an empty model (24 Nov, review_changes drives).
+        model: text("model")?,
         mode: text("mode").unwrap_or_default(),
         account: text("account"),
         effort: text("effort"),

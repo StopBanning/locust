@@ -262,3 +262,13 @@ fn shows_a_kilo_teammate_saved_on_the_account_default_as_auto_free() {
     let why = started_on(window_copy("tm_wren", "opencode", "account-default"), None);
     assert!(why.contains("The kilo model kilo/kilo-auto/free is not allowed"), "{why}");
 }
+
+// A route saved without a model is not a saved route (Electron's teammate store requires one): the start keeps what
+// was asked, never an empty model.
+#[test]
+fn a_route_saved_without_a_model_is_not_a_saved_route() {
+    let team = json!({"teammates": [{"teammateId": "tm_codec", "route": {"runtime": "codex", "mode": "accept-edits"}}]});
+    assert!(saved_route_in(&team, "tm_codec").is_none());
+    let with_model = json!({"teammates": [{"teammateId": "tm_codec", "route": {"runtime": "codex", "model": "gpt-5.6-luna"}}]});
+    assert_eq!(saved_route_in(&with_model, "tm_codec").unwrap().model, "gpt-5.6-luna");
+}
