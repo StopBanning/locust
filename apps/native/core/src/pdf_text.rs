@@ -7,8 +7,8 @@
 //! sub- or superscript sits a little above or below its line and joins it. Nothing is dropped; what cannot be told
 //! apart stays in the order it came.
 //!
-//! On the shelf: `pdf.rs`'s macOS reader takes each page's text whole from PDFKit (`PDFPage::string`); it will call
-//! [`page_text`] once it reads the page as placed runs (PDFKit's per-character bounds), as Electron reads pdf.js's.
+//! Called from `pdf.rs`'s macOS reader (`mac::page_in_order`), which gathers PDFKit's placed characters into runs, as
+//! Electron reads pdf.js's.
 
 /// One run of text as the reader placed it: `transform` is `[a, b, c, d, x, y]`, `y` up from the page's bottom.
 #[derive(Clone, Debug, PartialEq)]

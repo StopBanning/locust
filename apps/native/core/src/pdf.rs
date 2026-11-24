@@ -278,6 +278,42 @@ pub fn decide_pdf_pages(
     Ok(canon_path)
 }
 
+/// A page's characters as PDFKit places them (`characterBoundsAtIndex`: each glyph's box, y up from the page's
+/// bottom), gathered into runs for [`crate::pdf_text::page_text`]: a character continues the run before it when it sits
+/// on the same line and starts where that run ended. A space ends a run (PDFKit writes one across a column's gap, which
+/// would hide the gap), so `page_text` judges every gap from where the runs sit. A run's size is its tallest glyph.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+fn runs_of_chars(chars: &[(char, [f64; 4])]) -> Vec<crate::pdf_text::TextRun> {
+    let mut runs: Vec<crate::pdf_text::TextRun> = Vec::new();
+    let mut open = false;
+    for &(ch, [x, y, w, h]) in chars {
+        let placed = w > 0.0 && h > 0.0 && [x, y, w, h].iter().all(|n| n.is_finite());
+        if !placed || ch.is_whitespace() || ch.is_control() {
+            open = false;
+            continue;
+        }
+        if open
+            && let Some(run) = runs.last_mut()
+        {
+            let end = run.transform[4] + run.width;
+            let size = run.height.max(h);
+            if (run.transform[5] - y).abs() <= 0.3 * size && x >= end - 0.5 * size && x - end <= 0.15 * size {
+                run.text.push(ch);
+                run.width = (x + w).max(end) - run.transform[4];
+                if h > run.height {
+                    run.height = h;
+                    run.transform[0] = h;
+                    run.transform[3] = h;
+                }
+                continue;
+            }
+        }
+        runs.push(crate::pdf_text::TextRun { text: ch.to_string(), transform: [h, 0.0, 0.0, h, x, y], width: w, height: h });
+        open = true;
+    }
+    runs
+}
+
 #[cfg(target_os = "macos")]
 mod mac {
     use super::*;
@@ -300,10 +336,7 @@ mod mac {
         for i in 0..count {
             let page = unsafe { doc.pageAtIndex(i as _) }
                 .ok_or_else(|| pages_refusal("could-not").to_string())?;
-            let page_text = unsafe { page.string() }
-                .map(|s| s.to_string())
-                .unwrap_or_default();
-            text.push(page_text);
+            text.push(page_in_order(&page));
             if pictures.len() < MAX_PICTURES
                 && let Some(png) = page_png(&page)
             {
@@ -315,6 +348,34 @@ mod mac {
             text,
             pictures,
         })
+    }
+
+    /// The page's text in reading order (Electron reads pdf.js's placed runs through `pageText`; PDFKit's own
+    /// `string` keeps the file's drawing order, which runs a matrix's rows together). PDFKit's `string` has line breaks
+    /// it wrote itself, which have no place of their own: the place of its n-th other character is
+    /// `characterBoundsAtIndex(n)`. A page where that does not hold (a character left with no place), or with nothing
+    /// placed, keeps PDFKit's text, so nothing it read is lost.
+    fn page_in_order(page: &PDFPage) -> String {
+        let whole = unsafe { page.string() }.map(|s| s.to_string()).unwrap_or_default();
+        let count = unsafe { page.numberOfCharacters() };
+        let mut chars = Vec::with_capacity(whole.len());
+        let mut at = 0usize;
+        for ch in whole.chars().filter(|c| !matches!(c, '\n' | '\r')) {
+            if at >= count {
+                return whole;
+            }
+            let r = unsafe { page.characterBoundsAtIndex(at as _) };
+            if !ch.is_whitespace() && (r.size.width <= 0.0 || r.size.height <= 0.0) {
+                return whole;
+            }
+            chars.push((ch, [r.origin.x, r.origin.y, r.size.width, r.size.height]));
+            at += ch.len_utf16();
+        }
+        let runs = runs_of_chars(&chars);
+        if runs.is_empty() {
+            return whole;
+        }
+        crate::pdf_text::page_text(&runs)
     }
 
     fn page_png(page: &PDFPage) -> Option<Vec<u8>> {
@@ -425,6 +486,72 @@ mod tests {
             pages_refusal("not-pdf")
         );
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// A one-page PDF (612 x 792) drawing `content` in Helvetica, its cross-reference table counted.
+    #[cfg(target_os = "macos")]
+    fn one_page_pdf(content: &str) -> Vec<u8> {
+        let objects = [
+            "<< /Type /Catalog /Pages 2 0 R >>".to_string(),
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>".to_string(),
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>"
+                .to_string(),
+            format!("<< /Length {} >>\nstream\n{content}\nendstream", content.len() + 1),
+            "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>".to_string(),
+        ];
+        let mut out = String::from("%PDF-1.4\n");
+        let mut offsets = Vec::new();
+        for (i, body) in objects.iter().enumerate() {
+            offsets.push(out.len());
+            out.push_str(&format!("{} 0 obj\n{body}\nendobj\n", i + 1));
+        }
+        let xref = out.len();
+        out.push_str(&format!("xref\n0 {}\n0000000000 65535 f \n", objects.len() + 1));
+        for at in offsets {
+            out.push_str(&format!("{at:010} 00000 n \n"));
+        }
+        out.push_str(&format!("trailer << /Size {} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n", objects.len() + 1));
+        out.into_bytes()
+    }
+
+    /// The window's reader reads a page in order (pdf_text::page_text), not in the order the file drew it: Electron's
+    /// matrix from `a-pdf-page-reads-in-order.test.ts`, drawn bottom row first and right to left, through PDFKit.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn pdfkit_reads_a_page_in_the_order_it_is_read_not_drawn() {
+        let at = |text: &str, size: u32, x: u32, y: u32| format!("BT /F1 {size} Tf 1 0 0 1 {x} {y} Tm ({text}) Tj ET");
+        let content = [
+            at("47", 12, 150, 588),
+            at("2", 12, 120, 588),
+            at("5", 12, 90, 588),
+            at("Practice sheet", 18, 72, 720),
+            at("3", 12, 90, 610),
+            at("8", 12, 120, 610),
+            at("1", 12, 150, 610),
+            at("so x = 4 and y is 7", 12, 72, 500),
+        ]
+        .join("\n");
+        let reading = read_pdf_bytes(&one_page_pdf(&content)).expect("pdfkit");
+        assert_eq!(reading.text, vec!["Practice sheet\n3  8  1\n5  2  47\nso x = 4 and y is 7".to_string()]);
+    }
+
+    #[test]
+    fn characters_gather_into_runs_where_they_touch_on_one_line() {
+        let ch = |c: char, x: f64, y: f64, w: f64, h: f64| (c, [x, y, w, h]);
+        let runs = runs_of_chars(&[
+            ch('a', 10.0, 100.0, 6.0, 9.0),
+            ch('b', 16.0, 99.7, 6.0, 12.0), // a taller glyph a little lower: the same run, now its size
+            ch(' ', 22.0, 100.0, 24.0, 9.0), // a space written across a gap ends the run
+            ch('c', 46.0, 100.0, 6.0, 9.0),
+            ('\n', [0.0; 4]),
+            ch('d', 52.0, 100.0, 6.0, 9.0), // touching, but after a line break: a new run
+            ch('e', 58.0, 80.0, 6.0, 9.0),  // another line
+            ch('f', 70.0, 80.0, 6.0, 9.0),  // a gap
+        ]);
+        let texts: Vec<&str> = runs.iter().map(|r| r.text.as_str()).collect();
+        assert_eq!(texts, ["ab", "c", "d", "e", "f"]);
+        assert_eq!((runs[0].transform, runs[0].width, runs[0].height), ([12.0, 0.0, 0.0, 12.0, 10.0, 100.0], 12.0, 12.0));
+        assert!(runs_of_chars(&[('x', [0.0; 4])]).is_empty());
     }
 
     #[cfg(target_os = "macos")]
