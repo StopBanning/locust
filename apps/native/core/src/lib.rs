@@ -11,6 +11,8 @@ pub mod antigravity_mission;
 pub mod antigravity_usage;
 pub mod approval;
 pub mod approval_patch;
+#[cfg(test)]
+mod approval_patch_content_tests;
 pub mod approval_record_note;
 pub mod mode_facts;
 pub mod approval_rule_store;

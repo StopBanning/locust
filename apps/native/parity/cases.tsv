@@ -3694,10 +3694,10 @@ apps/desktop/src/renderer/src/a-design-pass-holds.test.tsx	a meter a window, the
 apps/desktop/src/renderer/src/a-diagram-in-a-reply-shows-as-one.test.tsx	is framed as a diagram once its block has closed, its text a tab away	no
 apps/desktop/src/renderer/src/a-diagram-in-a-reply-shows-as-one.test.tsx	is text while it is still being written	no
 apps/desktop/src/renderer/src/a-diagram-in-a-reply-shows-as-one.test.tsx	leaves every other block as the code it was	no
-apps/desktop/src/renderer/src/a-diff-is-not-read-out-of-a-files-content.test.ts	draws a new file as that file, whatever its content looks like	no
-apps/desktop/src/renderer/src/a-diff-is-not-read-out-of-a-files-content.test.ts	draws an edit that removes a -- comment line, with its file	no
-apps/desktop/src/renderer/src/a-diff-is-not-read-out-of-a-files-content.test.ts	counts a removed -- line and an added ++ line	no
-apps/desktop/src/renderer/src/a-diff-is-not-read-out-of-a-files-content.test.ts	still counts two files and a diff sent with its headers	no
+apps/desktop/src/renderer/src/a-diff-is-not-read-out-of-a-files-content.test.ts	draws a new file as that file, whatever its content looks like	yes
+apps/desktop/src/renderer/src/a-diff-is-not-read-out-of-a-files-content.test.ts	draws an edit that removes a -- comment line, with its file	yes
+apps/desktop/src/renderer/src/a-diff-is-not-read-out-of-a-files-content.test.ts	counts a removed -- line and an added ++ line	yes
+apps/desktop/src/renderer/src/a-diff-is-not-read-out-of-a-files-content.test.ts	still counts two files and a diff sent with its headers	yes
 apps/desktop/src/renderer/src/a-diff-notes-place-is-relative-to-its-folder.test.tsx	labels the note button by the relative file, while retaining the original path for its note	yes
 apps/desktop/src/renderer/src/a-diff-notes-place-is-relative-to-its-folder.test.tsx	shows the sent note relative to its folder, with the full path on hover and in the message	yes
 apps/desktop/src/renderer/src/a-diff-notes-place-is-relative-to-its-folder.test.tsx	keeps a relative name unchanged and does not treat another folder as this one	yes
