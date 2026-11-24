@@ -596,3 +596,26 @@ fn refuses_a_rule_for_such_a_command_with_the_cards_own_sentence_and_none_for_an
     asking.join().unwrap().unwrap();
     assert!(crate::approval_rule_store::list(&h.store).unwrap().is_empty());
 }
+
+// A saved deny tells the run which rule refused it, in the rule's own sentence (Electron's decideByRules gives
+// ruleSentence as the denial's reason), so the teammate can say why instead of retrying.
+#[test]
+fn a_saved_deny_tells_the_run_which_rule_refused_it() {
+    let h = host();
+    save(&h, RuleEffect::Deny, RuleKind::Command, "git push", None, None);
+    let ch = h.ch.clone();
+    let card = request("mission_wren", "codex", Kind::Command, "Run a command", "git push", Some(FOLDER));
+    let handle = std::thread::spawn(move || ch.ask_by(card, &|| false));
+    let deadline = Instant::now() + crate::load_waits::UNDER_LOAD;
+    while !handle.is_finished() {
+        assert!(Instant::now() < deadline, "a saved deny should answer without a card");
+        assert!(h.ch.waiting().is_empty(), "a saved deny raised a card");
+        std::thread::sleep(Duration::from_millis(2));
+    }
+    match handle.join().unwrap().unwrap().0 {
+        Answer::Decision { decision: Decision::Deny, reason: Some(reason), .. } => {
+            assert_eq!(reason, rule_sentence(&rule(RuleEffect::Deny, RuleKind::Command, "git push"), None));
+        }
+        other => panic!("not a saved deny with its sentence: {other:?}"),
+    }
+}

@@ -270,3 +270,16 @@ fn recovery_stops_at_a_checkpoint_whose_epoch_is_out_of_order() {
     // And the transcript the window reads from that file says the record was damaged.
     assert!(crate::ledger::read_transcript(&path).issues.iter().any(|i| i.code() == "invalid-record"));
 }
+
+// Same case, on a ledger with nothing wrong in it: the writer refuses a checkpoint whose own verdict is unsafe, and
+// writes nothing (mission-store createCheckpoint: an unsafe verdict is the caller's answer, never a record).
+#[test]
+fn an_unsafe_checkpoint_is_not_written_even_on_a_whole_ledger() {
+    let (_t, path) = seeded();
+    let before = std::fs::read(&path).unwrap();
+    let mut checkpoint = checkpoint_of(&path, "route-limit", 1, CHECKPOINT_AT);
+    assert_eq!(checkpoint["resumeSafety"], "safe", "the seeded ledger reads whole");
+    checkpoint["resumeSafety"] = json!("unsafe");
+    assert!(crate::ledger_write::append_checkpoint(&path, &checkpoint).is_err());
+    assert_eq!(std::fs::read(&path).unwrap(), before);
+}

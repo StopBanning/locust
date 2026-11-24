@@ -180,3 +180,15 @@ fn a_codex_the_sweep_found_signed_out_is_not_started_for_its_models() {
     assert_eq!(kept_catalog(&cache, || fake.read_after(Some(&ready))).len(), 3);
     assert_eq!(fake.starts(), 1);
 }
+
+// Same case, its other half: a Codex the sweep is still checking is asked for its models. Only a finished "not ready"
+// passes it over.
+#[test]
+fn a_codex_the_sweep_is_still_checking_is_started_for_its_models() {
+    let fake = Fake::new(real_result());
+    let cache = Mutex::new(None);
+    let mut checking = swept_codex(false, crate::agents::Probe::Ready);
+    checking[0].checking = true;
+    assert_eq!(kept_catalog(&cache, || fake.read_after(Some(&checking))).len(), 3);
+    assert_eq!(fake.starts(), 1);
+}
