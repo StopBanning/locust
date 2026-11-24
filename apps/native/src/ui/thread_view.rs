@@ -962,6 +962,7 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
             composer_stack = composer_stack.child(picks);
         }
         composer_stack = composer_stack
+            .children(crate::update_banner::view(s, p))
             .children(crate::handoff_divider::composer_omissions(s, teammate, p))
             .children(crate::edit_message::line(s, p))
             .child(
