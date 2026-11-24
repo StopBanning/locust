@@ -161,3 +161,26 @@ fn a_record_the_reader_refuses_makes_the_checkpoint_unsafe() {
     assert_eq!(checkpoint["resumeSafety"], "unsafe");
     assert!(checkpoint["safetyReason"].as_str().unwrap().contains("incomplete"));
 }
+
+// case: reports an unreadable ledger as unsafe, and refuses to write past the break
+#[test]
+fn an_unreadable_ledger_is_unsafe_and_its_checkpoint_is_not_written_past_the_break() {
+    let (_t, path) = seeded();
+    let mut text = std::fs::read_to_string(&path).unwrap();
+    // A record the reader refuses stops recovery there, so the events are a prefix of what happened.
+    text.push_str("{\"not\":\"a record\"}\n");
+    std::fs::write(&path, &text).unwrap();
+    let before = std::fs::read(&path).unwrap();
+    let checkpoint = checkpoint_of(&path, "route-limit", 1, CHECKPOINT_AT);
+    assert_eq!(checkpoint["resumeSafety"], "unsafe");
+    assert!(checkpoint["safetyReason"].as_str().unwrap().contains("incomplete"));
+    // The app's writer (what a route switch appends with) refuses, and nothing was appended: a record written after
+    // the break is unreachable to recovery, which is the defect the ledger exists to prevent.
+    assert!(crate::ledger_write::append_checkpoint(&path, &checkpoint).is_err());
+    assert_eq!(std::fs::read(&path).unwrap(), before);
+    // And the same writer refuses the break even when handed a checkpoint that calls itself safe.
+    let mut claimed = checkpoint.clone();
+    claimed["resumeSafety"] = json!("safe");
+    assert!(crate::ledger_write::append_checkpoint(&path, &claimed).is_err());
+    assert_eq!(std::fs::read(&path).unwrap(), before);
+}
