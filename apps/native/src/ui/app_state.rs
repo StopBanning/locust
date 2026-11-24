@@ -185,6 +185,7 @@ impl ModelCatalogues {
 
 pub(super) struct State {
     pub(super) scout: crate::scout_cards::Panel,
+    pub(super) background_runs: crate::background_runs::Panel,
     pub(super) routines: crate::routines_panel::Panel,
     pub(super) browser: crate::browser_panel::Panel,
     pub(super) page_points: crate::page_points_ui::PagePoints,
@@ -793,6 +794,7 @@ impl Default for State {
             earlier_turn_budgets: HashMap::new(),
             peer_thread_open: HashMap::new(),
             scout: crate::scout_cards::Panel::default(),
+            background_runs: crate::background_runs::Panel::default(),
         }
     }
 }

@@ -390,6 +390,27 @@ pub fn prepare_background_command(cmd: &mut Command, folder: &Path, args: &[Stri
     }
 }
 
+/// Runs a one-shot Claude Code CLI command (`--bg`, `agents --json --all`, `stop <id>`) with parent session vars stripped.
+pub fn run_background_cli(
+    mut cmd: Command,
+    folder: &Path,
+    args: &[String],
+) -> crate::claude_background::ClaudeCliOutput {
+    prepare_background_command(&mut cmd, folder, args);
+    match cmd.output() {
+        Ok(out) => crate::claude_background::ClaudeCliOutput {
+            code: out.status.code().unwrap_or(1),
+            stdout: String::from_utf8_lossy(&out.stdout).into_owned(),
+            stderr: String::from_utf8_lossy(&out.stderr).into_owned(),
+        },
+        Err(err) => crate::claude_background::ClaudeCliOutput {
+            code: 127,
+            stdout: String::new(),
+            stderr: err.to_string(),
+        },
+    }
+}
+
 pub fn start_background_with(
     mut cmd: Command,
     folder: &Path,

@@ -4126,6 +4126,132 @@ fn drive_runtime(
     }
 }
 
+/// Path to the persisted Claude Code background runs file inside the native data folder.
+pub fn background_runs_path(store: &Store) -> PathBuf {
+    store.root().join("claude-background.json")
+}
+
+/// Host adapter connecting `claude_background::BackgroundRuns` to Locust's native store,
+/// Claude CLI runner, and terminal catch-up.
+pub struct NativeBackgroundHost {
+    store: Store,
+    program: Option<String>,
+    prefix_args: Vec<String>,
+    extra_env: Vec<(String, String)>,
+}
+
+impl crate::claude_background::BackgroundHost for NativeBackgroundHost {
+    fn run_claude(
+        &self,
+        args: &[String],
+        cwd: &Path,
+        account: Option<&str>,
+    ) -> crate::claude_background::ClaudeCliOutput {
+        let mut cmd = if let Some(ref prog) = self.program {
+            let mut c = Command::new(prog);
+            c.args(&self.prefix_args);
+            c
+        } else {
+            match crate::runtime::claude::bare_command(cwd) {
+                Ok(c) => c,
+                Err(e) => {
+                    return crate::claude_background::ClaudeCliOutput {
+                        code: 127,
+                        stdout: String::new(),
+                        stderr: format!(
+                            "Claude Code is not installed or not signed in on this computer: {e}"
+                        ),
+                    };
+                }
+            }
+        };
+        if let Some(account_id) = account {
+            if let Ok(env_pairs) = account_launch_env(&self.store, "claude", Some(account_id)) {
+                for (k, v) in env_pairs {
+                    cmd.env(k, v);
+                }
+            }
+        }
+        for (k, v) in &self.extra_env {
+            cmd.env(k, v);
+        }
+        crate::runtime::claude::run_background_cli(cmd, cwd, args)
+    }
+
+    fn session_of(&self, conversation: &str, _account: Option<&str>) -> Option<String> {
+        let newest = real_tip(conversation).unwrap_or_else(|_| conversation.to_string());
+        let (meta, rows) = crate::runtime_terminal::mission(&newest).ok()?;
+        if meta["runtime"].as_str() != Some("claude") {
+            return None;
+        }
+        crate::runtime_terminal::session(&rows)
+    }
+
+    fn bring_in(
+        &self,
+        run: &crate::claude_background::BackgroundRun,
+    ) -> crate::claude_background::BringInOutcome {
+        if let Some(ref conversation) = run.conversation {
+            match crate::runtime_terminal::catch_up(conversation) {
+                Ok(imported) if imported > 0 => {
+                    let tip = real_tip(conversation).unwrap_or_else(|_| conversation.clone());
+                    return crate::claude_background::BringInOutcome::BroughtIn(tip);
+                }
+                Ok(_) => {
+                    return crate::claude_background::BringInOutcome::Refused(
+                        "Its turn was not found in Claude Code's record of the conversation."
+                            .to_string(),
+                    );
+                }
+                Err(err) => {
+                    return crate::claude_background::BringInOutcome::Refused(err);
+                }
+            }
+        }
+        if run.session_id.is_none() {
+            return crate::claude_background::BringInOutcome::Refused(
+                "Claude Code never said which session it was.".to_string(),
+            );
+        }
+        crate::claude_background::BringInOutcome::Refused(
+            "Its turn was not found in Claude Code's record of the conversation.".to_string(),
+        )
+    }
+}
+
+/// Creates a `BackgroundRuns` manager backed by `store`'s `claude-background.json` and real Claude CLI.
+pub fn background_runs_for(
+    store: &Store,
+) -> crate::claude_background::BackgroundRuns<NativeBackgroundHost> {
+    crate::claude_background::BackgroundRuns::new(
+        background_runs_path(store),
+        NativeBackgroundHost {
+            store: store.clone(),
+            program: None,
+            prefix_args: Vec::new(),
+            extra_env: Vec::new(),
+        },
+    )
+}
+
+/// Same as `background_runs_for`, with an explicit executable and prefix args (used by tests with fake scripts).
+pub fn background_runs_for_with_program(
+    store: &Store,
+    program: &str,
+    prefix_args: Vec<String>,
+    extra_env: Vec<(String, String)>,
+) -> crate::claude_background::BackgroundRuns<NativeBackgroundHost> {
+    crate::claude_background::BackgroundRuns::new(
+        background_runs_path(store),
+        NativeBackgroundHost {
+            store: store.clone(),
+            program: Some(program.to_string()),
+            prefix_args,
+            extra_env,
+        },
+    )
+}
+
 #[cfg(test)]
 mod tests;
 

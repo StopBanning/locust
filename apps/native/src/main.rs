@@ -55,6 +55,8 @@ mod recovery_card;
 mod reference_chips;
 #[path = "ui/attention_watch.rs"]
 mod attention_watch;
+#[path = "ui/background_runs.rs"]
+mod background_runs;
 #[path = "ui/pull_request_chip.rs"]
 mod pull_request_chip;
 #[path = "ui/rail.rs"]

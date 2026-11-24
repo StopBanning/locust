@@ -1,4 +1,8 @@
 file	case	named
+apps/desktop/src/main/a-background-turn-comes-back.test.ts	starts on the conversation's own session, is remembered, and comes back into it when it is done	yes
+apps/desktop/src/main/a-background-turn-comes-back.test.ts	one that ended while Locust was closed is brought back the next time it opens	yes
+apps/desktop/src/main/a-background-turn-comes-back.test.ts	an untrusted folder is said as such, and nothing is kept	yes
+apps/desktop/src/main/a-background-turn-comes-back.test.ts	stops only an id of its own, and a finished run leaves the list while its turn stays	yes
 apps/desktop/src/main/a-bang-runs-in-the-conversations-folder.test.ts	runs in the conversation folder, in the terminal panel's default shell, not a path the window sent	no
 apps/desktop/src/main/a-bang-runs-in-the-conversations-folder.test.ts	does not run when the organization turns the terminal off	no
 apps/desktop/src/main/a-bang-runs-in-the-conversations-folder.test.ts	stops a command that is still running	no
