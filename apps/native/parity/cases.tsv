@@ -3052,14 +3052,14 @@ apps/desktop/src/main/the-in-use-check-reads-any-path.test.ts	finds a process wh
 apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	a called-links sync with no link kept and no routine called by one asks nothing	yes
 apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	a routine called by a link still has its link kept, as before	yes
 apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	a kept-links file that cannot be read still counts as kept, so its error is still said	yes
-apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	a run for a teammate with no keys asks nothing; one with a key opens it	no
-apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	a chat app and your account say whether they keep a key without opening it	no
-apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	says it in the window first, then opens the keychain once, then takes the note down and remembers the build	no
-apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	a build that opened it before, nothing kept, or not a Mac: nothing said and nothing read	no
-apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	refused, or failing: the note still comes down, and the build is not remembered, so the next launch says it again	no
-apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	a window that never listens is not waited on forever: the keys are opened anyway, for the readers that need them	no
-apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	a read before the step leaves nothing to say	no
-apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	is one step however often it is begun, and settled once it is over	no
+apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	a run for a teammate with no keys asks nothing; one with a key opens it	yes
+apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	a chat app and your account say whether they keep a key without opening it	yes
+apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	says it in the window first, then opens the keychain once, then takes the note down and remembers the build	yes
+apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	a build that opened it before, nothing kept, or not a Mac: nothing said and nothing read	yes
+apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	refused, or failing: the note still comes down, and the build is not remembered, so the next launch says it again	yes
+apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	a window that never listens is not waited on forever: the keys are opened anyway, for the readers that need them	yes
+apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	a read before the step leaves nothing to say	yes
+apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	is one step however often it is begun, and settled once it is over	yes
 apps/desktop/src/main/the-live-word-is-visibly-live.test.ts	sweeps with the library own shape: a solid word, a highlight over it	yes
 apps/desktop/src/main/the-live-word-is-visibly-live.test.ts	leaves the word itself painted	yes
 apps/desktop/src/main/the-live-word-is-visibly-live.test.ts	drops only the highlight when motion is off	yes
