@@ -174,6 +174,47 @@ pub(super) fn view(panel: &Panel, p: &Palette) -> El {
     body
 }
 
+pub(super) const ENVIRONMENT_LABEL: &str = "Run on your organization's environment (ID)";
+const ENVIRONMENT_HELP: &str =
+    "Optional. Use an environment ID supplied by your organization. Saved for this folder when you send a task.";
+const ENVIRONMENT_INVALID: &str =
+    "Use ccpool_ followed by 1 to 80 letters, digits, underscores or hyphens, or leave this empty.";
+
+/// W6's optional environment field for a Claude cloud start (`CloudEnvironmentField.tsx`): empty is fine, anything else
+/// must be an environment ID, and the line under it says which. Claude Code documents no list command, so it is typed.
+/// `edit` finds the field's words in the state that holds them.
+pub(super) fn environment_field(
+    value: &TextEdit,
+    edit: impl Fn(&mut State) -> &mut TextEdit + Clone + 'static,
+    p: &Palette,
+) -> El {
+    let l = crate::look::controls::Look::new(p.dark);
+    let typed = value.text.trim_end_matches(['\r', '\n']);
+    let valid = typed.is_empty() || locust_core::claude_cloud::is_cloud_environment_id(typed);
+    let field = text_input(value, l.ty.mono)
+        .key("cloud-environment")
+        .single_line()
+        .label(ENVIRONMENT_LABEL)
+        .placeholder("Optional · ccpool_…", p.muted)
+        .w_full()
+        .h(34.0)
+        .border(1.0, if valid { p.hairline } else { l.c("amber-text") })
+        .on_edit(move |s: &mut State| edit(s));
+    col()
+        .key("cloud-environment-field")
+        .w_full()
+        .gap(4.0)
+        .child(text(ENVIRONMENT_LABEL).font(l.ty.body).color(l.c("text-primary")))
+        .child(field)
+        .child(
+            text(if valid { ENVIRONMENT_HELP } else { ENVIRONMENT_INVALID })
+                .key(if valid { "cloud-environment-help" } else { "cloud-environment-invalid" })
+                .font(l.ty.body)
+                .color(l.c(if valid { "text-secondary" } else { "amber-text" }))
+                .wrap(),
+        )
+}
+
 #[cfg(test)]
 #[path = "claude_cloud_panel_tests.rs"]
 mod claude_cloud_panel_tests;
