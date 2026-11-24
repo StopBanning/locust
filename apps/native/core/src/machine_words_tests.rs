@@ -45,3 +45,17 @@ fn keeps_windows_exactly_as_it_was() {
     let line = stay_line(machine_words(Some("win32")), NOT_YET);
     assert!(line.contains("Keep it running in the tray when you close its window, and start it when you sign in to Windows."), "{line}");
 }
+
+// Lane check 23 Nov: this computer is named by its own platform. A Mac is Node's "darwin" (so it says Mac, menu bar and
+// log in); my break mapping macOS to "macos" left every Mac with Windows' words and no test noticed.
+#[test]
+fn this_computer_is_named_by_its_own_platform() {
+    if cfg!(target_os = "macos") {
+        assert_eq!(this_platform(), "darwin");
+        assert_eq!(this_machine(), machine_words(Some("darwin")));
+    } else if cfg!(target_os = "windows") {
+        assert_eq!(this_platform(), "win32");
+    } else if cfg!(target_os = "linux") {
+        assert_eq!(this_platform(), "linux");
+    }
+}
