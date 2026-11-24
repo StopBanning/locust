@@ -188,6 +188,16 @@ fn the_agents_screen_says_each_kind_of_setup_and_counts_what_it_could_not_read()
     assert_eq!(setup_line(&RuntimeSetup { unreadable: names_of(&["/x"]), ..Default::default() }), "1 config file could not be read");
 }
 
+/// Beside Electron's case: Screens.tsx `fewNames` keeps a list of exactly five whole and counts from the sixth, so
+/// six skills read "a, b, c, d, e +1" and five read all five, through the line the agents screen draws.
+#[test]
+fn the_agents_screen_counts_the_sixth_name_and_keeps_exactly_five_whole() {
+    let six = RuntimeSetup { skills: names_of(&["a", "b", "c", "d", "e", "f"]), ..Default::default() };
+    assert_eq!(setup_line(&six), "Skills: a, b, c, d, e +1");
+    let five = RuntimeSetup { agents: names_of(&["a", "b", "c", "d", "e"]), ..Default::default() };
+    assert_eq!(setup_line(&five), "Agents: a, b, c, d, e");
+}
+
 /// Beside Electron's case: the project's Claude folder is one Copilot reads, as `copilot skill --help` says.
 #[test]
 fn copilot_reads_the_claude_skills_folder_in_the_project_but_not_at_home() {
