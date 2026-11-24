@@ -491,6 +491,27 @@ fn plan_card(s: &State, id: &str, steps: &[ledger::PlanStep], finished: bool, st
         .child(list)
 }
 
+/// A changed file's row's Copy: the file as it reads now, from the conversation's folder, read as a handed file's Copy
+/// reads it (`text_files::read_for_copy`); a file that cannot be read says why in the status line.
+fn copy_whole_file(s: &mut State, tx: &mut Tx, path: &str) {
+    let folder = selected_conversation(s).and_then(|(t, _)| t.folder.clone());
+    let file = match &folder {
+        Some(folder) => std::path::Path::new(folder).join(path),
+        None => std::path::PathBuf::from(path),
+    };
+    let roots: Vec<std::path::PathBuf> = folder.iter().map(std::path::PathBuf::from).collect();
+    if !roots.is_empty() && !crate::file_menu::inside_on_disk(&file, &roots) {
+        return;
+    }
+    match locust_core::text_files::read_for_copy(path, &file) {
+        Ok(text) => crate::reply_actions::request_copy(tx, text),
+        Err(why) => {
+            s.status = why;
+            s.status_tone = StatusTone::Amber;
+        }
+    }
+}
+
 /// A row per file, each folded but the one `default` names (or every one, in verbose mode). A new Markdown file opens
 /// as the document it is, and a new web page as the page, run beside the conversation.
 fn file_rows(files: &[locust_core::activity_entries::FileEntry], default: Option<&str>, p: &Palette, s: &State, scope: &str) -> El {
@@ -505,7 +526,24 @@ fn file_rows(files: &[locust_core::activity_entries::FileEntry], default: Option
             label.push(' ');
             label.push_str(&locust_core::changes::line_counts(a, d));
         }
-        let mut card = col().w_full().child(disclosure(key.clone(), label, open, p));
+        // ActivityCard.tsx COPY THE FILE (0.649): the whole file as it is now, read when asked; not for a deleted one.
+        let heading = if entry.file.status == "DELETED" {
+            disclosure(key.clone(), label, open, p)
+        } else {
+            let folder = selected_conversation(s).and_then(|(t, _)| t.folder.clone());
+            let shown = locust_core::path_words::relative_path(&entry.file.path, folder.as_deref());
+            let path = entry.file.path.clone();
+            row().w_full().center_y().gap(6.0).child(el().grow(1.0).shrink().child(disclosure(key.clone(), label, open, p))).child(
+                text("Copy")
+                    .font(type_::LABEL)
+                    .color(p.secondary)
+                    .role("button")
+                    .label(format!("Copy {shown}"))
+                    .key(format!("{key}/copy"))
+                    .on_press_tx(move |s: &mut State, tx: &mut Tx| copy_whole_file(s, tx, &path)),
+            )
+        };
+        let mut card = col().w_full().child(heading);
         if open {
             card = card.child(match locust_core::changes::new_document(&entry.file) {
                 Some(locust_core::changes::NewDocument::Markdown) => doc_preview(s, &key, entry, p),
@@ -1549,3 +1587,15 @@ mod codex_sandbox_row_tests;
 #[cfg(test)]
 #[path = "activity_drawers_orb_tests.rs"]
 mod activity_drawers_orb_tests;
+
+#[cfg(test)]
+#[path = "background_command_end_tests.rs"]
+mod background_command_end_tests;
+
+#[cfg(test)]
+#[path = "change_copied_tests.rs"]
+mod change_copied_tests;
+
+#[cfg(test)]
+#[path = "command_took_tests.rs"]
+mod command_took_tests;
