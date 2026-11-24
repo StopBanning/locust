@@ -388,3 +388,7 @@ mod caption_index_tests {
         assert_eq!(markers.keys().copied().collect::<Vec<_>>(), vec![1], "{markers:?}");
     }
 }
+
+#[cfg(test)]
+#[path = "diagram_drawn_tests.rs"]
+mod diagram_drawn_tests;

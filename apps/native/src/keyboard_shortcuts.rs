@@ -60,21 +60,21 @@ pub const SHORTCUTS: &[ShortcutRow] = &[
         group: ShortcutGroup::Conversations,
         keys: "Alt+Up / Alt+Down",
         does: "Previous or next conversation",
-        native: false,
+        native: true,
         control_on_mac: false,
     },
     ShortcutRow {
         group: ShortcutGroup::Conversations,
         keys: "Alt+Shift+Up / Alt+Shift+Down",
         does: "A conversation that is waiting for you",
-        native: false,
+        native: true,
         control_on_mac: false,
     },
     ShortcutRow {
         group: ShortcutGroup::Conversations,
         keys: "Ctrl+1",
         does: "Home",
-        native: false,
+        native: true,
         control_on_mac: false,
     },
     ShortcutRow {
@@ -116,7 +116,7 @@ pub const SHORTCUTS: &[ShortcutRow] = &[
         group: ShortcutGroup::Conversations,
         keys: "Ctrl+Alt+Up / Ctrl+Alt+Down",
         does: "Move among your own messages",
-        native: false,
+        native: true,
         control_on_mac: true,
     },
     ShortcutRow {
@@ -234,6 +234,27 @@ pub const SHORTCUTS: &[ShortcutRow] = &[
 ];
 
 pub const SHEET_TITLE: &str = "Keyboard shortcuts";
+
+/// A chord as keycaps (Keycaps.tsx): its chords split at " / " (an "or" between them), each key on a cap of its own
+/// ("Ctrl+Shift+M" is three, "Ctrl 1" two, a lone "+" one). A Mac draws its modifiers in its own marks, as its menus do;
+/// a PC keeps the words; the arrows read the same everywhere.
+pub fn keycaps(keys: &str, mac: bool) -> Vec<Vec<String>> {
+    const MAC_MARKS: &[(&str, &str)] = &[("Cmd", "⌘"), ("Option", "⌥"), ("Shift", "⇧"), ("Ctrl", "⌃"), ("Enter", "↩"), ("Escape", "esc"), ("Tab", "⇥")];
+    const ARROWS: &[(&str, &str)] = &[("Up", "↑"), ("Down", "↓")];
+    keys.split(" / ")
+        .map(|chord| {
+            let parts: Vec<&str> = if chord.chars().count() == 1 { vec![chord] } else { chord.split(['+', ' ']).collect() };
+            parts
+                .into_iter()
+                .map(|key| {
+                    let mark = ARROWS.iter().find(|(k, _)| *k == key).map(|(_, m)| *m);
+                    let mark = mark.or_else(|| if mac { MAC_MARKS.iter().find(|(k, _)| *k == key).map(|(_, m)| *m) } else { None });
+                    mark.unwrap_or(key).to_owned()
+                })
+                .collect()
+        })
+        .collect()
+}
 
 /// Mac remapping: Ctrl→Cmd and Alt→Option, except control_on_mac rows keep Control.
 pub fn keys_on(keys: &str, platform: &str, control_on_mac: bool) -> String {

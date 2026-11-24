@@ -444,6 +444,8 @@ pub(super) struct State {
     pub(super) jump_hover: bool,
     pub(super) find_hits: Vec<thread_find::FindHit>,
     pub(super) find_index: usize,
+    /// The query `find_index` was stepped for: a changed query starts again at its first hit.
+    pub(super) find_hits_query: String,
     pub(super) find_pieces: Vec<String>,
     pub(super) find_earlier_turns: usize,
     pub(super) find_show_earlier: bool,
@@ -739,6 +741,7 @@ impl Default for State {
             jump_hover: false,
             find_hits: Vec::new(),
             find_index: 0,
+            find_hits_query: String::new(),
             find_pieces: Vec::new(),
             find_earlier_turns: 0,
             find_show_earlier: false,

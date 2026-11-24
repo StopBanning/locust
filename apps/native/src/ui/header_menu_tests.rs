@@ -225,8 +225,8 @@ fn ask_for_a_review_folds_reviewers_and_pair_on_two_different_agents_into_one_ro
         false,
     );
     press(&mut rt, "thread-header-more");
-    assert_eq!(labels(&rt), vec!["Verbose", "Ask for a review", "Send feedback", "Delete conversation"]);
-    let review = rt.state.row_menu.as_ref().unwrap().items[1].clone();
+    assert_eq!(labels(&rt), vec!["Verbose", "Open in terminal (Codex)", "Ask for a review", "Send feedback", "Delete conversation"]);
+    let review = rt.state.row_menu.as_ref().unwrap().items[2].clone();
     assert_eq!(review.label, "Ask for a review");
     assert_eq!(review.action, "");
     let sub = review.submenu.expect("submenu with reviewers and pair");
@@ -254,7 +254,7 @@ fn review_pair_uses_the_authors_agent_for_one_when_the_team_has_nothing_else() {
         false,
     );
     press(&mut rt, "thread-header-more");
-    let review = rt.state.row_menu.as_ref().unwrap().items[1].clone();
+    let review = rt.state.row_menu.as_ref().unwrap().items[2].clone();
     assert_eq!(review.label, "Ask for a review");
     let sub = review.submenu.expect("submenu");
     assert_eq!(
@@ -271,8 +271,8 @@ fn lone_reviewer_is_one_row_same_agent_has_no_pair_and_running_offers_no_review(
     // case: offers no pair when every reviewer is on the same agent
     let mut rt = window_with_team("codex", vec![teammate("casper", "Casper", "claude")], false);
     press(&mut rt, "thread-header-more");
-    assert_eq!(labels(&rt), vec!["Verbose", "Ask Casper for a review", "Send feedback", "Delete conversation"]);
-    let lone = &rt.state.row_menu.as_ref().unwrap().items[1];
+    assert_eq!(labels(&rt), vec!["Verbose", "Open in terminal (Codex)", "Ask Casper for a review", "Send feedback", "Delete conversation"]);
+    let lone = &rt.state.row_menu.as_ref().unwrap().items[2];
     assert_eq!(lone.submenu, None);
     assert_eq!(lone.action, "header:review:casper");
 
@@ -283,7 +283,7 @@ fn lone_reviewer_is_one_row_same_agent_has_no_pair_and_running_offers_no_review(
         false,
     );
     press(&mut rt, "thread-header-more");
-    let review = rt.state.row_menu.as_ref().unwrap().items[1].clone();
+    let review = rt.state.row_menu.as_ref().unwrap().items[2].clone();
     assert_eq!(review.label, "Ask for a review");
     let sub = review.submenu.expect("submenu");
     assert_eq!(sub.iter().map(|i| i.label.as_str()).collect::<Vec<_>>(), vec!["Ash", "Booty"]);
@@ -292,7 +292,7 @@ fn lone_reviewer_is_one_row_same_agent_has_no_pair_and_running_offers_no_review(
     // Nobody to ask (only the author): absent.
     let mut rt = window_with_team("codex", vec![], false);
     press(&mut rt, "thread-header-more");
-    assert_eq!(labels(&rt), vec!["Verbose", "Send feedback", "Delete conversation"]);
+    assert_eq!(labels(&rt), vec!["Verbose", "Open in terminal (Codex)", "Send feedback", "Delete conversation"]);
 
     // While the turn is running: absent even with reviewers on the team.
     let mut rt = window_with_team(
@@ -320,7 +320,7 @@ fn review_pair_avoids_the_agent_the_newest_turn_ran_on_not_the_headers() {
         rt.frame(0.05);
     }
     press(&mut rt, "thread-header-more");
-    let review = rt.state.row_menu.as_ref().unwrap().items[1].clone();
+    let review = rt.state.row_menu.as_ref().unwrap().items[2].clone();
     let pair = review.submenu.expect("submenu").into_iter().find(|i| i.divider_above).expect("a pair");
     assert_eq!(pair.action, "header:review-pair:ash:vale", "{}", pair.label);
 }
