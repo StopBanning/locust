@@ -256,3 +256,18 @@ fn makes_a_turn_from_its_ledger_with_its_phase_parent_and_who_started_it() {
     let app = phone_mission_of(&[created(json!({"startedBy": {"kind": "mcp"}}))], false).unwrap();
     assert_eq!(app.started_by_kind.as_deref(), Some("mcp"));
 }
+
+#[test]
+fn engine_phone_calls_passes_teammate_names_into_conversations_and_turns() {
+    let engine = Arc::new(Fake::default());
+    let calls = EnginePhoneCalls::new(engine, Arc::new(|| 60_000));
+    let state = calls.state();
+    assert_eq!(state.conversations.len(), 1);
+    assert_eq!(state.conversations[0].mission_id, "m22");
+    assert_eq!(state.conversations[0].title, "Plan the trip");
+    assert_eq!(state.conversations[0].agent, "Mira");
+    let turns = calls.turns("m22").expect("conversation turns");
+    assert_eq!(turns.len(), 2);
+    assert_eq!(turns[0].agent, "Mira");
+    assert_eq!(turns[1].agent, "Mira");
+}
