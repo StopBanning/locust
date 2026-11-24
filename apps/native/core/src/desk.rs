@@ -219,6 +219,16 @@ pub const ACT_CHANNELS: &[&str] = &[
     "worktrees:resolve",
 ];
 
+/// Channels whose browser access depends on their arguments in `desk_access`.
+pub const CONDITIONAL_CHANNELS: &[&str] = &[
+    "agent-accounts:call",
+    "mission-approval:decide",
+    "teammates:update",
+    "scout:set",
+    "folder:commit",
+    "routines:settle",
+];
+
 /// Channels that stay in the window on this computer.
 pub const WINDOW_ONLY: &[&str] = &[
     "appearance:set-look",
@@ -382,8 +392,6 @@ pub const WINDOW_ONLY: &[&str] = &[
     "teammate-keys:list",
     "teammate-keys:remove",
     "teammate-keys:set",
-    "routine:hook-read",
-    "routine:hook-new",
     "mission:terminal-catch-up",
     "terminal:close",
     "terminal:copy",
