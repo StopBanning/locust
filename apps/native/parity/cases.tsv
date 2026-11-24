@@ -4582,6 +4582,8 @@ apps/desktop/src/renderer/src/an-unknown-record-stays-out-of-the-thread.test.ts	
 apps/desktop/src/renderer/src/an-unknown-record-stays-out-of-the-thread.test.ts	is still said, in the fold with the turn’s other remarks	yes
 apps/desktop/src/renderer/src/an-unknown-record-stays-out-of-the-thread.test.ts	leaves real trouble where it was: a runtime error after work began is still a row	yes
 apps/desktop/src/renderer/src/an-unsupported-opencode-version-is-not-offered.test.ts	is not offered in the picker, and says why rather than "checking"	yes
+apps/desktop/src/renderer/src/an-update-says-it-reopens-by-itself.test.tsx	says, before the click, that Locust closes while it installs and opens again by itself	yes
+apps/desktop/src/renderer/src/an-update-says-it-reopens-by-itself.test.tsx	has the words for after the click: installing, and no need to open it	yes
 apps/desktop/src/renderer/src/answer-state.test.ts	comes from measured numbers, not a round one that felt right	yes
 apps/desktop/src/renderer/src/antigravity-rows-read-like-claude.test.ts	reads "Thought for Ns" from the time agy gives the step, though the step arrives already over	no
 apps/desktop/src/renderer/src/antigravity-rows-read-like-claude.test.ts	reads as a wait on that helper, at the length agy timed, with what its list said under it	no

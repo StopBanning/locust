@@ -41,6 +41,8 @@ mod folder_confirmation;
 mod free_offer;
 #[path = "ui/busy_continue.rs"]
 mod busy_continue;
+#[path = "ui/update_banner.rs"]
+mod update_banner;
 #[path = "ui/failure_offers.rs"]
 mod failure_offers;
 #[cfg(target_os = "macos")]
@@ -2173,6 +2175,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     changed |= compare_view::poll(s);
     changed |= tune_teammate::poll(s);
     changed |= room_screen::poll(s, tx);
+    changed |= update_banner::poll(s);
     if let Some(feedback) = &s.copy_feedback {
         let remain = feedback
             .until
