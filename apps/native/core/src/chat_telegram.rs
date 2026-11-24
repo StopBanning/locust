@@ -471,6 +471,10 @@ pub fn create_telegram_link(tg_options: TelegramOptions, link_options: ChatLinkO
 }
 
 #[cfg(test)]
+#[path = "chat_telegram_tests.rs"]
+mod parity_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::chat_http::HttpResponse;
