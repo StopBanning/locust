@@ -72,6 +72,8 @@ mod agents_section;
 mod backup_section;
 #[path = "ui/restored_folders_card.rs"]
 mod restored_folders_card;
+#[path = "ui/claude_cloud_panel.rs"]
+mod claude_cloud_panel;
 #[path = "ui/own_copies.rs"]
 mod own_copies;
 #[path = "ui/import_dialog.rs"]
