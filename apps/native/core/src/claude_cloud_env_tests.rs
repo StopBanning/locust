@@ -6,7 +6,7 @@ use serde_json::json;
 
 use super::{
     ClaudeCloud, ClaudeCloudAnswer, ClaudeLaunch, CloudAction, CloudChoice, CloudPlatform,
-    PseudoTerminalResult, PseudoTerminalRun, WindowsCommandOptions, choice_args,
+    PseudoTerminalResult, PseudoTerminalRun, WindowRun, WindowsCommandOptions, choice_args,
     windows_command_line,
 };
 
@@ -49,7 +49,7 @@ fn make_cloud<'a>(
             drawn: "View: https://claude.ai/code/session_0123456789".into(),
         }
     })
-    .with_run_window(move |_file: &str, _args: &[String], _cwd: &Path| {
+    .with_run_window(move |_run: &WindowRun| {
         *window_calls.borrow_mut() += 1;
         Err("A window must not open".into())
     })

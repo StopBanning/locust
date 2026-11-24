@@ -62,12 +62,23 @@ fn error_line_re() -> &'static Regex {
     RE.get_or_init(|| Regex::new(r"Error:[ \t]*(.+)").expect("error regex"))
 }
 
-fn ansi_re() -> &'static Regex {
-    static RE: OnceLock<Regex> = OnceLock::new();
+/// pseudo-terminal.ts `plainTerminalText`, its four passes in its order.
+fn terminal_passes() -> &'static [Regex; 4] {
+    static RE: OnceLock<[Regex; 4]> = OnceLock::new();
     RE.get_or_init(|| {
-        Regex::new(r"\x1b(?:\[[0-9;?]*[ -/]*[@-~]|\][^\x07\x1b]*(?:\x07|\x1b\\)|[@-Z\\-_])")
-            .expect("ansi regex")
+        [
+            Regex::new(r"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)").expect("osc regex"),
+            Regex::new(r"\x1b\[[0-9;?<>=]*[ -/]*[@-~]").expect("csi regex"),
+            Regex::new(r"\x1b[()][0-9A-Za-z]|\x1b[=>78MDEc]").expect("esc regex"),
+            // What is left of the terminal's own controls (a shift-in, a bell): never words.
+            Regex::new(r"[\x00-\x08\x0b-\x1f\x7f]").expect("control regex"),
+        ]
     })
+}
+
+fn any_ws_re() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"\s+").expect("ws regex"))
 }
 
 fn multi_ws_re() -> &'static Regex {
@@ -93,9 +104,13 @@ pub fn cloud_task_text(prompt: &str) -> String {
     collapsed.trim().chars().take(4_000).collect()
 }
 
+/// What a terminal drew, as text: colours, cursor moves and titles taken out.
 pub fn plain_terminal_text(drawn: &str) -> String {
-    let stripped = ansi_re().replace_all(drawn, "");
-    stripped.replace("\r\n", "\n").replace('\r', "")
+    let [osc, csi, esc, control] = terminal_passes();
+    let text = osc.replace_all(drawn, "");
+    let text = csi.replace_all(&text, "");
+    let text = esc.replace_all(&text, "").replace('\r', "");
+    control.replace_all(&text, "").into_owned()
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -226,7 +241,7 @@ pub fn read_cloud_start(drawn: &str) -> CloudStartReading {
             .position(|line| line.contains("Resume with:"))
             .map(|idx| {
                 let joined = lines[idx + 1..].join(" ");
-                let collapsed = multi_ws_re().replace_all(&joined, " ");
+                let collapsed = any_ws_re().replace_all(&joined, " ");
                 collapsed.trim().chars().take(400).collect::<String>()
             })
             .filter(|s| !s.is_empty());
@@ -304,6 +319,30 @@ pub struct ClaudeCloudSession {
     pub note: Option<String>,
 }
 
+/// How Claude Code's own window is opened (Electron's `open`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WindowKind {
+    /// Windows: `cmd.exe` in a console of its own (detached), its one argument passed verbatim.
+    Console,
+    /// macOS: a script in the person's terminal app (`openInScriptTerminal`).
+    ScriptTerminal,
+}
+
+/// A window for Claude Code: what runs, where, with which variables beyond the app's own.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WindowRun {
+    pub kind: WindowKind,
+    pub file: String,
+    pub args: Vec<String>,
+    pub cwd: String,
+    pub env: BTreeMap<String, String>,
+}
+
+pub const WINDOW_NOT_OPENED: &str =
+    "The window for Claude Code could not be opened. Run claude --cloud in a terminal in this folder.";
+pub const NOT_KNOWN_ANY_MORE: &str = "Locust does not know that cloud session any more.";
+
+/// The answer of a send, a home or an apply: done, or what to say.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CloudSendResult {
     Ok,
@@ -322,7 +361,8 @@ pub struct ClaudeCloud<'a> {
     discover: Box<dyn Fn() -> Option<ClaudeLaunch> + 'a>,
     exec: Option<Box<dyn Fn(&str, &[String], &ExecOptions) -> ExecReply + 'a>>,
     terminal: Option<Box<dyn Fn(&PseudoTerminalRun) -> PseudoTerminalResult + 'a>>,
-    run_window: Option<Box<dyn Fn(&str, &[String], &Path) -> Result<(), String> + 'a>>,
+    run_window: Option<Box<dyn Fn(&WindowRun) -> Result<(), String> + 'a>>,
+    git_changes: Box<dyn Fn(&str) -> Option<usize> + 'a>,
     now: Box<dyn Fn() -> String + 'a>,
     env_lock: Mutex<()>,
 }
@@ -340,6 +380,7 @@ impl<'a> ClaudeCloud<'a> {
             exec: None,
             terminal: None,
             run_window: None,
+            git_changes: Box::new(git_changes_in),
             now: Box::new(|| Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true)),
             env_lock: Mutex::new(()),
         }
@@ -361,11 +402,18 @@ impl<'a> ClaudeCloud<'a> {
         self
     }
 
+    /// Claude Code's own window. Without one, a window that is needed is said not to have opened.
     pub fn with_run_window(
         mut self,
-        run_window: impl Fn(&str, &[String], &Path) -> Result<(), String> + 'a,
+        run_window: impl Fn(&WindowRun) -> Result<(), String> + 'a,
     ) -> Self {
         self.run_window = Some(Box::new(run_window));
+        self
+    }
+
+    /// Files changed or untracked in a folder; None when it is not a git checkout.
+    pub fn with_git_changes(mut self, git_changes: impl Fn(&str) -> Option<usize> + 'a) -> Self {
+        self.git_changes = Box::new(git_changes);
         self
     }
 
@@ -477,6 +525,102 @@ impl<'a> ClaudeCloud<'a> {
         }
     }
 
+    /// Claude Code in a window of its own, in `folder`: `--cloud <task>` or `--teleport [session]`.
+    fn open(
+        &self,
+        folder: &str,
+        action: CloudAction,
+        task: Option<&str>,
+        session_id: Option<&str>,
+        choice: Option<&CloudChoice>,
+    ) -> Result<(), String> {
+        let (file, prefix, env) = self.launch_of()?;
+        let start = action == CloudAction::Start;
+        let run = if self.platform != CloudPlatform::Win32 {
+            let mut args = prefix;
+            if start {
+                args.extend(choice_args(choice)?);
+                args.push("--cloud".into());
+                args.push(task.unwrap_or("").into());
+            } else {
+                args.push("--teleport".into());
+                args.extend(session_id.map(str::to_string));
+            }
+            WindowRun {
+                kind: WindowKind::ScriptTerminal,
+                file,
+                args,
+                cwd: folder.into(),
+                env: env.unwrap_or_default(),
+            }
+        } else {
+            let prefix_refs: Vec<&str> = prefix.iter().map(String::as_str).collect();
+            let line = windows_command_line(
+                &file,
+                &prefix_refs,
+                action,
+                &WindowsCommandOptions {
+                    session: session_id,
+                    choice,
+                    ..Default::default()
+                },
+            )?;
+            let mut env = env.unwrap_or_default();
+            if start {
+                env.insert(TASK_VARIABLE.into(), cloud_task_text(task.unwrap_or("")));
+            }
+            WindowRun {
+                kind: WindowKind::Console,
+                file: "cmd.exe".into(),
+                args: vec![line],
+                cwd: folder.into(),
+                env,
+            }
+        };
+        match self.run_window.as_ref() {
+            Some(run_window) => run_window(&run),
+            None => Err(WINDOW_NOT_OPENED.into()),
+        }
+    }
+
+    /// The sessions sent from `folder`, newest first.
+    pub fn list(&self, folder: &str) -> Vec<ClaudeCloudSession> {
+        self.read_sessions()
+            .into_iter()
+            .filter(|session| session.folder == folder)
+            .collect()
+    }
+
+    /// `claude --teleport <id>` in the session's folder. Claude Code refuses a folder with changes in it, so this
+    /// says so first rather than opening a window that only refuses.
+    pub fn home(&self, id: &str) -> CloudSendResult {
+        let Some(session) = self.read_sessions().into_iter().find(|s| s.id == id) else {
+            return CloudSendResult::Err {
+                message: NOT_KNOWN_ANY_MORE.into(),
+            };
+        };
+        if let Some(changed) = (self.git_changes)(&session.folder)
+            && changed > 0
+        {
+            return CloudSendResult::Err {
+                message: format!(
+                    "Claude Code brings a cloud session home only into a folder with no changes, and this one has {changed} changed file{}. Commit or set them aside, then bring it home.",
+                    if changed == 1 { "" } else { "s" }
+                ),
+            };
+        }
+        match self.open(
+            &session.folder,
+            CloudAction::Home,
+            None,
+            session.session_id.as_deref(),
+            None,
+        ) {
+            Ok(()) => CloudSendResult::Ok,
+            Err(message) => CloudSendResult::Err { message },
+        }
+    }
+
     fn start_unseen(
         &self,
         folder: &str,
@@ -546,26 +690,8 @@ impl<'a> ClaudeCloud<'a> {
         }
         let mut asked = false;
         if !matches!(unseen, Some(CloudStartReading::Created { .. })) {
-            let (file, prefix, _env) = match self.launch_of() {
-                Ok(v) => v,
-                Err(message) => return ClaudeCloudAnswer::Err { message },
-            };
-            let prefix_refs: Vec<&str> = prefix.iter().map(String::as_str).collect();
-            let line = match windows_command_line(
-                &file,
-                &prefix_refs,
-                CloudAction::Start,
-                &WindowsCommandOptions {
-                    choice,
-                    ..Default::default()
-                },
-            ) {
-                Ok(l) => l,
-                Err(message) => return ClaudeCloudAnswer::Err { message },
-            };
-            if let Some(run_window) = self.run_window.as_ref()
-                && let Err(message) = run_window("cmd.exe", &[line], Path::new(folder))
-            {
+            // No terminal to hide in, or a question only the person answers: Claude Code's own window.
+            if let Err(message) = self.open(folder, CloudAction::Start, Some(&task), None, choice) {
                 return ClaudeCloudAnswer::Err { message };
             }
             asked = matches!(unseen, Some(CloudStartReading::Asks));
@@ -722,6 +848,26 @@ impl<'a> ClaudeCloud<'a> {
     }
 }
 
+/// Files changed or untracked in `folder` (teleport refuses either); None when it is not a git checkout.
+fn git_changes_in(folder: &str) -> Option<usize> {
+    let out = std::process::Command::new("git")
+        .args(["status", "--porcelain"])
+        .env(crate::git_quiet::NO_OPTIONAL_LOCKS.0, crate::git_quiet::NO_OPTIONAL_LOCKS.1)
+        .current_dir(folder)
+        .stdin(std::process::Stdio::null())
+        .output()
+        .ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    Some(
+        String::from_utf8_lossy(&out.stdout)
+            .lines()
+            .filter(|line| !line.trim().is_empty())
+            .count(),
+    )
+}
+
 fn atomic_write(path: &Path, content: &str) -> Result<(), String> {
     static TMP_SEQ: AtomicU64 = AtomicU64::new(0);
     let seq = TMP_SEQ.fetch_add(1, Ordering::Relaxed);
@@ -824,3 +970,7 @@ mod send_tests;
 #[cfg(test)]
 #[path = "claude_cloud_env_tests.rs"]
 mod env_tests;
+
+#[cfg(test)]
+#[path = "claude_cloud_id_tests.rs"]
+mod id_tests;
