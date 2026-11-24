@@ -290,6 +290,9 @@ mod key_card;
 #[path = "ui/runtime_commands_ui.rs"]
 mod runtime_commands_ui;
 mod os_hosts;
+// Not called yet: nothing keeps Locust running with its window closed, which is when the icon shows.
+#[allow(dead_code)]
+mod menu_bar;
 #[path = "ui/review_changes.rs"]
 mod review_changes;
 #[path = "ui/inspector_panel.rs"]
