@@ -407,21 +407,8 @@ pub(super) const UNTICKED_STOPPED: &str = "The run stopped before checking these
 pub(super) const UNTICKED_ENDED: &str =
     "The run ended without checking these off its list. That is the runtime's checklist, not a check of the work: see what it ran below.";
 
-/// The plan's own orb on the step underway (ThreadItems.tsx `PLAN_ORB`, the "listening" rubik at its inline 20): told
-/// only WHETHER a turn is underway, never which orb the live line draws, so the step never borrows the live line's
-/// register. Four cells turning over in step, one solid thing in the marker's column.
-pub(super) const PLAN_ORB: &str = "listening";
-
-fn plan_orb(id: &str, ink: rune::Color) -> El {
-    let cell = |phase: f32| {
-        el().size(5.0, 5.0).radius(1.0).fill(ink).cycle(Cycle { period: 1.2, phase, stops: &[(0.0, 0.3), (0.5, 1.0), (1.0, 0.3)], still: 1.0, fps: 30.0 })
-    };
-    col()
-        .key(format!("{id}/plan-orb/{PLAN_ORB}"))
-        .gap(1.0)
-        .child(row().gap(1.0).child(cell(0.0)).child(cell(0.25)))
-        .child(row().gap(1.0).child(cell(0.75)).child(cell(0.5)))
-}
+/// The plan's own marker is independent of what the live line is doing.
+const PLAN_ORB: &str = "listening";
 
 fn plan_card(s: &State, id: &str, steps: &[ledger::PlanStep], finished: bool, stopped: bool, underway: bool, p: &Palette) -> El {
     let l = crate::look::controls::Look::new(p.dark);
@@ -442,11 +429,16 @@ fn plan_card(s: &State, id: &str, steps: &[ledger::PlanStep], finished: bool, st
             .child(text("·").font(mono(11.5)).color(l.c("text-muted")))
             .child(super::hover::tip(s, &l, &key, why, count));
     }
+    use crate::look::orb::{Surface, view as orb};
+    let underway = underway && !finished;
+    let head_orb = underway.then(|| orb(format!("{id}/plan-head-orb"), "solving", Surface::PlanHead, s, p.dark)).flatten();
     let head = row()
         .w_full()
         .center_y()
         .py(8.0)
         .px(12.0)
+        .gap(8.0)
+        .children(head_orb)
         .border_sides([0.0, 0.0, 1.0, 0.0], l.c("border-hairline"))
         .child(text("PLAN").font(mono(11.5).tracking(0.9)).color(l.c("text-muted")).grow(1.0))
         .child(counts);
@@ -463,19 +455,20 @@ fn plan_card(s: &State, id: &str, steps: &[ledger::PlanStep], finished: bool, st
         };
         // The orb REPLACES the pulsing pip rather than joining it: two things pulsing on one row is the row saying
         // "now" twice. Only while a turn is underway; nothing pulses once the run has stopped.
-        let mark = if step.state == "running" && underway {
-            plan_orb(id, ink)
-        } else {
+        let orb = (running && underway).then(|| {
+            orb(format!("{id}/plan-orb/{PLAN_ORB}"), PLAN_ORB, Surface::PlanStep, s, p.dark)
+        }).flatten();
+        let marker = row().size(20.0, 20.0).center().child(orb.unwrap_or_else(|| {
             let mut dot = el().size(6.0, 6.0).radius(3.0).fill(ink);
             if running {
                 dot = dot.cycle(Cycle { period: 1.6, phase: 0.0, stops: &[(0.0, 0.35), (0.5, 1.0), (1.0, 0.35)], still: 1.0, fps: 30.0 }).key(format!("{id}/plan-dot/{index}/is-pulsing"));
             }
-            dot
-        };
-        let mut marker = row().size(16.0, 16.0).mt(2.0).center().radius(8.0).border(1.0, edge).child(mark);
-        if let Some(fill) = fill {
-            marker = marker.fill(fill);
-        }
+            let mut marker = row().size(16.0, 16.0).center().radius(8.0).border(1.0, edge).child(dot);
+            if let Some(fill) = fill {
+                marker = marker.fill(fill);
+            }
+            marker
+        }));
         let words = if running {
             rune::TextStyle::new(13.0, 500.0).mono()
         } else {
@@ -1552,3 +1545,7 @@ mod thought_folds_to_one_line_tests;
 #[cfg(test)]
 #[path = "codex_sandbox_row_tests.rs"]
 mod codex_sandbox_row_tests;
+
+#[cfg(test)]
+#[path = "activity_drawers_orb_tests.rs"]
+mod activity_drawers_orb_tests;

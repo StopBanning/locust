@@ -14,6 +14,7 @@ pub mod controls;
 pub mod faces;
 pub mod gallery;
 pub mod icons;
+pub(crate) mod orb;
 pub mod puppets;
 pub mod lockup;
 pub mod select_keys;
