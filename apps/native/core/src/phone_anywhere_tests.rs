@@ -2596,3 +2596,33 @@ fn a_relay_that_does_not_offer_github_says_so_and_nothing_is_opened() {
     );
     pc.dispose();
 }
+
+#[test]
+fn github_link_returns_none_with_not_connected_message_before_relay_connects() {
+    let dir = TempDir::new("locust-github-offline");
+    let pc = PhoneAnywhere::new(PhoneAnywhereOptions {
+        directory: dir.path().clone(),
+        calls: FakeCalls::new(),
+        relay: Arc::new(|| "https://relay.test".to_owned()),
+        refusal: None,
+        changed: None,
+        connect: Arc::new(|_| Err("offline".to_owned())),
+        now: None,
+        protect_file: Some(Arc::new(|_| Ok(()))),
+        retry_ms: Some(Arc::new(|_| 60_000)),
+        away: None,
+        hooks: None,
+        desk: None,
+        notes: None,
+        github_user: None,
+        computer_name: None,
+    });
+    pc.set_enabled(true);
+    assert!(!pc.connected());
+    assert!(pc.github_link().is_none());
+    assert_eq!(
+        pc.settings().message.as_deref(),
+        Some("Locust is not connected to its relay yet. Try again in a moment.")
+    );
+    pc.dispose();
+}
