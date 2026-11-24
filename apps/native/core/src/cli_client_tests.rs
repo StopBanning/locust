@@ -470,3 +470,16 @@ fn the_command_reads_status_and_sends_a_prompt_through_a_door_started_in_the_tes
     door.dispose();
     sessions.dispose();
 }
+
+// My lane-check (24 Nov): the token's shape is checked too. A file at this computer's own address whose token isn't 64
+// lowercase hex is refused before any request, like a file naming somewhere else.
+#[test]
+fn refuses_a_connection_file_whose_token_is_not_64_hex() {
+    let app = fake_app(|_, _| Answer::Json(json!([])), 2_000);
+    for token in ["a".repeat(63), "a".repeat(65), "A".repeat(64), "g".repeat(64), String::new()] {
+        std::fs::write(app.profile.join(CONNECTION_FILE), json!({"url": app.url, "token": token}).to_string()).unwrap();
+        let refused = app.client.teammates().unwrap_err();
+        assert!(refused.0.starts_with("Locust is not open, or its local server is off."), "{token:?}: {refused}");
+        assert_eq!(app.requests(), [], "{token:?}");
+    }
+}
