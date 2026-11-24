@@ -8,8 +8,6 @@ use shapes::{Frame, Preset, Shape};
 
 #[derive(Clone, Copy, Hash)]
 pub(crate) enum Surface {
-    // The live line in messages.rs will supply the state from its LiveLine.
-    #[allow(dead_code)]
     Live,
     PlanHead,
     PlanStep,
@@ -55,7 +53,7 @@ fn sample_time(preset: &Preset, tick: Option<u64>) -> f64 {
 /// live word and the plan's moving surfaces. Reduced motion uses the library's still pose.
 pub(crate) fn view(
     key: String,
-    state: &str,
+    state: &'static str,
     surface: Surface,
     s: &crate::State,
     dark: bool,
@@ -89,6 +87,7 @@ pub(crate) fn view(
             let image = el()
                 .key(key)
                 .trace_name("thinking-orb")
+                .trace_namespace("thinking-orb", state)
                 .role("image")
                 .size(drawing as f32, drawing as f32)
                 .pixels(&pixels)

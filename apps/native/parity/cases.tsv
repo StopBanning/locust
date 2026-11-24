@@ -6067,6 +6067,13 @@ apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.tes
 apps/desktop/src/renderer/src/the-model-chip-shows-usage-on-hover.test.tsx	opens the agent's card, with a bar for each window, placed for the chip	no
 apps/desktop/src/renderer/src/the-model-chip-shows-usage-on-hover.test.tsx	draws it on hover or focus, above and to the right, rather than leaving it to the system tooltip	no
 apps/desktop/src/renderer/src/the-newest-group-stays-folded.test.tsx	is a line, folded until pressed, as Claude Code draws it	no
+apps/desktop/src/renderer/src/the-orb-reaches-the-running-step.test.ts	a shell command that is still open draws the working orb	yes
+apps/desktop/src/renderer/src/the-orb-reaches-the-running-step.test.ts	a read that is still open draws the searching orb	yes
+apps/desktop/src/renderer/src/the-orb-reaches-the-running-step.test.ts	a subagent that is still out draws the weaving orb	yes
+apps/desktop/src/renderer/src/the-orb-reaches-the-running-step.test.ts	stops claiming the work the moment the tool closes	yes
+apps/desktop/src/renderer/src/the-orb-reaches-the-running-step.test.ts	a Plan-mode turn with no tool open draws the solving orb	yes
+apps/desktop/src/renderer/src/the-orb-reaches-the-running-step.test.ts	an ordinary turn with no tool open still draws the floor	yes
+apps/desktop/src/renderer/src/the-orb-reaches-the-running-step.test.ts	a runtime that reports its tools only on completion still shows it is alive	yes
 apps/desktop/src/renderer/src/the-others-line-describes-the-others.test.ts	keeps the account claim only when it holds for every row	yes
 apps/desktop/src/renderer/src/the-others-line-describes-the-others.test.ts	says vendor when none of them install from here	yes
 apps/desktop/src/renderer/src/the-others-line-describes-the-others.test.ts	claims neither when the list is mixed	yes

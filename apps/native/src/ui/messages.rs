@@ -628,6 +628,10 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
         let mut line = row().w_full().center_y()
             .child(thread_face(s, "live", 34.0, p))
             .child(el().w(8.0))
+            // The same live projection supplies the register, words and orb.
+            .children(crate::look::orb::view(
+                "live-step-orb".into(), live.orb, crate::look::orb::Surface::Live, s, p.dark,
+            ).map(|orb| orb.mr(6.0)))
             // The headline is the label's hover title too, for a row that ellipsizes (lc-livestep__label's `title`).
             // The word sweeps (`.lc-sweep`): a painted word with a highlight passing over it, so it is never stale text.
             .child(crate::working_shimmer::live_word(&words, p.muted, crate::look::controls::Look::new(p.dark).c("text-name"), s.reduced_motion.get())
@@ -698,7 +702,7 @@ fn run_with_edits_row(prompt: String, p: &Palette) -> El {
         )
 }
 
-/// Whether the live line is on screen, and so its word sweeping: the window wakes for the band while it is.
+/// Whether the live line is on screen. The window refreshes its orb and sweeping word while it is.
 pub(super) fn live_sweeping(s: &State) -> bool {
     locust_core::thread_view::live_visible(turn_running(s), s.pending_approval.is_some())
         && s.ledger.as_ref().is_some_and(|pane| pane.snapshot.live.is_some())
@@ -1737,3 +1741,7 @@ pub(crate) fn tests_live_label(s: &mut State) -> rune::ElementInfo {
 pub(crate) fn tests_live_face(s: &mut State) -> rune::ElementInfo {
     tests_live_element(s, "thread-face-live-")
 }
+
+#[cfg(test)]
+#[path = "messages_orb_tests.rs"]
+mod messages_orb_tests;
