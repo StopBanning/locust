@@ -6603,6 +6603,14 @@ apps/desktop/src/shared/which-notes-bear-on-a-question.test.ts	a word few notes 
 apps/desktop/src/shared/which-notes-bear-on-a-question.test.ts	the rarer of two shared words counts for more than the newer note	yes
 apps/desktop/src/shared/which-notes-bear-on-a-question.test.ts	plain English words do not count	yes
 apps/desktop/src/shared/which-notes-bear-on-a-question.test.ts	the brief keeps the newest when the allowance runs out	yes
+apps/desktop/test/a-teammate-named-like-an-agent-is-said-as-a-teammate.test.ts	matches exact name	yes
+apps/desktop/test/a-teammate-named-like-an-agent-is-said-as-a-teammate.test.ts	matches different case	yes
+apps/desktop/test/a-teammate-named-like-an-agent-is-said-as-a-teammate.test.ts	matches "claude code" vs "Claude Code"	yes
+apps/desktop/test/a-teammate-named-like-an-agent-is-said-as-a-teammate.test.ts	returns undefined for non-matches like "Codexa" and "Cody"	yes
+apps/desktop/test/a-teammate-named-like-an-agent-is-said-as-a-teammate.test.ts	lists a peer matching an agent name with words that settle it	yes
+apps/desktop/test/a-teammate-named-like-an-agent-is-said-as-a-teammate.test.ts	leaves a non-matching peer unchanged as the control	yes
+apps/desktop/test/a-teammate-named-like-an-agent-is-said-as-a-teammate.test.ts	shows the note for "codex" and does not block saving	yes
+apps/desktop/test/a-teammate-named-like-an-agent-is-said-as-a-teammate.test.ts	does not show the note for "Casper"	yes
 apps/desktop/test/avatar.test.ts	is a pure function of the id, so a rename never changes a face	yes
 apps/desktop/test/avatar.test.ts	gives two teammates with different ids different faces, whatever their names	yes
 apps/desktop/test/avatar.test.ts	stays within every part table	yes
@@ -6797,6 +6805,9 @@ packages/mission-store/test/schema-compat.test.ts	records a workspace-write miss
 packages/mission-store/test/schema-compat.test.ts	refuses a pre-v3 file claiming a mission was allowed to write	yes
 packages/mission-store/test/schema-compat.test.ts	still reads v1 and v2 read-only missions	yes
 packages/mission-store/test/the-home-list-bounds-its-reads.test.ts	lists all 40 ledgers in order with no more than 16 reads or stats in flight	yes
+packages/mission-store/test/the-storage-report-reads-only-what-changed.test.ts	does not read an unchanged file again	yes
+packages/mission-store/test/the-storage-report-reads-only-what-changed.test.ts	reads a file again when it changed, and forgets one that is gone	yes
+packages/mission-store/test/the-storage-report-reads-only-what-changed.test.ts	a fresh ledger object reads everything, so nothing stale outlives the app	yes
 packages/mission-store/test/workroom.test.ts	counts "+N more" from the paths that are paths	yes
 packages/mission-store/test/workroom.test.ts	records an attributed, routed message and reads it back	yes
 packages/mission-store/test/workroom.test.ts	shows a message to its recipient once, and never to anyone else	yes
@@ -6867,6 +6878,11 @@ packages/runtime-adapters/test/a-config-warning-says-its-summary.test.ts	A warni
 packages/runtime-adapters/test/a-config-warning-says-its-summary.test.ts	A guardianWarning with message still works as before.	no
 packages/runtime-adapters/test/a-config-warning-says-its-summary.test.ts	A configWarning with legacy message still works.	no
 packages/runtime-adapters/test/a-config-warning-says-its-summary.test.ts	A configWarning without summary or message is dropped.	yes
+packages/runtime-adapters/test/a-context-inspection-keeps-the-turns-tools.test.ts	keeps the turn's connectors-off flag, settings, plugins, references, tools, model and approval bridge	yes
+packages/runtime-adapters/test/a-context-inspection-keeps-the-turns-tools.test.ts	does not turn on strict MCP or add reference denials to an Auto invocation that did not have them	yes
+packages/runtime-adapters/test/a-context-inspection-keeps-the-turns-tools.test.ts	refuses a lost or truncated launch, a non-Claude command, or disabled slash commands instead of guessing	yes
+packages/runtime-adapters/test/a-context-inspection-keeps-the-turns-tools.test.ts	uses the documented Windows POSIX drive spelling and the Edit rule that also governs Write and NotebookEdit	yes
+packages/runtime-adapters/test/a-context-inspection-keeps-the-turns-tools.test.ts	adds no path denials in Ask or Auto and refuses ambiguous patterns before granting access	yes
 packages/runtime-adapters/test/a-denied-read-and-a-file-row-are-said-as-they-are.test.ts	names a read outside the folder, not a change	yes
 packages/runtime-adapters/test/a-denied-read-and-a-file-row-are-said-as-they-are.test.ts	still says a write and a command as before	yes
 packages/runtime-adapters/test/a-denied-read-and-a-file-row-are-said-as-they-are.test.ts	lists each path, one a line	yes
@@ -6940,6 +6956,11 @@ packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test
 packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	keeps distinct no-ID tool payloads beyond the old 80-character prefix and deduplicates equivalent payloads	no
 packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	rejects the unsupported working status instead of polling it as active	no
 packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	does not settle on an earlier stop while the latest matching message is unfinished	no
+packages/runtime-adapters/test/a-model-of-your-own-is-priced-step-by-step.test.ts	prices input, output, reasoning and both caches, each at its own rate	yes
+packages/runtime-adapters/test/a-model-of-your-own-is-priced-step-by-step.test.ts	takes the dearer tier once the step's context, caches included, passes its size	yes
+packages/runtime-adapters/test/a-model-of-your-own-is-priced-step-by-step.test.ts	takes the largest tier passed, and the older over-200k price where a list gives that	yes
+packages/runtime-adapters/test/a-model-of-your-own-is-priced-step-by-step.test.ts	adds up each step at its listed price, the step over the tier at the tier's	yes
+packages/runtime-adapters/test/a-model-of-your-own-is-priced-step-by-step.test.ts	reads OpenCode's own figure where no price is given, as before	yes
 packages/runtime-adapters/test/a-muse-plan-used-up-is-said-once.test.ts	is one limit with its reset instant, and a failure that says what to do	no
 packages/runtime-adapters/test/a-muse-plan-used-up-is-said-once.test.ts	leaves no Unhandled line: a saved output and the run's usage are not shown, a stopped tool fails on its row	no
 packages/runtime-adapters/test/a-muse-plan-used-up-is-said-once.test.ts	is still said once when only the run's own end says it	no
@@ -6953,6 +6974,11 @@ packages/runtime-adapters/test/a-real-muse-wonder-run-reads-whole.test.ts	reads 
 packages/runtime-adapters/test/a-real-muse-wonder-run-reads-whole.test.ts	says once that Meta's model is being tried again, and nothing for its first try	no
 packages/runtime-adapters/test/a-real-muse-wonder-run-reads-whole.test.ts	lets the session's bookkeeping go quietly, the branch it saw in a git folder among it	no
 packages/runtime-adapters/test/a-real-muse-wonder-run-reads-whole.test.ts	fails a tool it would not run on that tool's row, and lets its own reminder go quietly	no
+packages/runtime-adapters/test/a-result-too-large-to-keep-still-answered.test.ts	hands nothing on from an oversized line the process ended in the middle of (2026-10-10 sweep)	yes
+packages/runtime-adapters/test/a-result-too-large-to-keep-still-answered.test.ts	leaves its size, its type and the call it answered -- and none of its content	yes
+packages/runtime-adapters/test/a-result-too-large-to-keep-still-answered.test.ts	leaves nothing for a runtime that did not ask	yes
+packages/runtime-adapters/test/a-result-too-large-to-keep-still-answered.test.ts	names a Cursor edit by the id its adapter will use, and keeps none of the file	yes
+packages/runtime-adapters/test/a-result-too-large-to-keep-still-answered.test.ts	closes the call as answered, too large to keep, instead of leaving it to read 'did not report'	yes
 packages/runtime-adapters/test/a-run-is-handed-its-own-skills.test.ts	names the run's skill folder after the handshake and before the thread starts	yes
 packages/runtime-adapters/test/a-run-is-handed-its-own-skills.test.ts	runs the turn without them when the server does not know the request	yes
 packages/runtime-adapters/test/a-run-is-handed-its-own-skills.test.ts	says nothing about skills to a run that has none	yes
@@ -7401,6 +7427,15 @@ packages/runtime-adapters/test/copilot-events.test.ts	is still closed by its com
 packages/runtime-adapters/test/copilots-new-records-are-not-news.test.ts	say nothing: a model call that succeeded, a command's output as it ran, and an empty background notice	no
 packages/runtime-adapters/test/copilots-new-records-are-not-news.test.ts	still say so when a model call did not succeed, or a background notice carries something	yes
 packages/runtime-adapters/test/copilots-search-index-record-is-not-news.test.ts	says nothing and keeps nothing	no
+packages/runtime-adapters/test/cursor-connectors.test.ts	reads a server and its status	yes
+packages/runtime-adapters/test/cursor-connectors.test.ts	keeps a working server, and does not call it unauthenticated	yes
+packages/runtime-adapters/test/cursor-connectors.test.ts	ignores blank lines and prose	yes
+packages/runtime-adapters/test/cursor-connectors.test.ts	says nothing when every connector is fine	yes
+packages/runtime-adapters/test/cursor-connectors.test.ts	names the server and stops short of prescribing a fix	yes
+packages/runtime-adapters/test/cursor-connectors.test.ts	names every waiting server when there are several	yes
+packages/runtime-adapters/test/cursor-connectors.test.ts	names the ready ones, so nobody has to know a config file	yes
+packages/runtime-adapters/test/cursor-connectors.test.ts	never names one that cannot be called	yes
+packages/runtime-adapters/test/cursor-connectors.test.ts	says nothing at all when nothing is ready	yes
 packages/runtime-adapters/test/cursor-events.test.ts	keeps input, output, cache read and cache write counts from the result line	no
 packages/runtime-adapters/test/cursor-events.test.ts	does not invent token counts when result usage is omitted	no
 packages/runtime-adapters/test/cursor-events.test.ts	preserves explicit zero counts and drops nonnumeric values	no
@@ -7629,6 +7664,34 @@ packages/runtime-adapters/test/permission-bridge-argv.test.ts	is ignored by a ru
 packages/runtime-adapters/test/permission-bridge-argv.test.ts	refuses an empty config path rather than sending a flag with nothing after it	no
 packages/runtime-adapters/test/permission-bridge-argv.test.ts	asks before every edit and command in Approve each: Claude Code's default mode, the editing tools, the bridge	no
 packages/runtime-adapters/test/permission-bridge-argv.test.ts	never runs Approve each without the bridge, where every action would be refused unseen	no
+packages/runtime-adapters/test/process-runner.test.ts	uses the validated argv and cwd, sends the prompt only to stdin, and streams raw records	yes
+packages/runtime-adapters/test/process-runner.test.ts	bounds captured stderr and reports truncation	yes
+packages/runtime-adapters/test/process-runner.test.ts	redacts the prompt from captured stderr	yes
+packages/runtime-adapters/test/process-runner.test.ts	cancels gracefully with SIGINT when the child acknowledges it	yes
+packages/runtime-adapters/test/process-runner.test.ts	forces termination after the cancellation grace period and never retries	yes
+packages/runtime-adapters/test/process-runner.test.ts	waits for close after a forced signal even when kill returns false	yes
+packages/runtime-adapters/test/process-runner.test.ts	skips an oversized JSONL record and lets the run carry on	yes
+packages/runtime-adapters/test/process-runner.test.ts	never exposes the content of a record it skipped	yes
+packages/runtime-adapters/test/process-runner.test.ts	resynchronises on the next newline after a line it gave up on	yes
+packages/runtime-adapters/test/process-runner.test.ts	carries a long, productive burst without stopping the run	yes
+packages/runtime-adapters/test/process-runner.test.ts	bounds queued records when a consumer falls behind	yes
+packages/runtime-adapters/test/process-runner.test.ts	does not launch when the AbortSignal is already aborted	yes
+packages/runtime-adapters/test/process-runner.test.ts	sanitizes command-validation errors even when the prompt matches an unsafe argument	yes
+packages/runtime-adapters/test/process-runner.test.ts	a failed start is never an unhandled rejection, and names the system's code	yes
+packages/runtime-adapters/test/process-runner.test.ts	sanitizes asynchronous launch errors and does not retry	yes
+packages/runtime-adapters/test/process-runner.test.ts	sanitizes synchronous spawn errors	yes
+packages/runtime-adapters/test/process-runner.test.ts	marks stdin delivery failure without treating it as user cancellation	yes
+packages/runtime-adapters/test/process-runner.test.ts	writes nothing to stdin for a runtime whose prompt is already in its argv	yes
+packages/runtime-adapters/test/process-runner.test.ts	puts a spec's own variables on top of the allowlist, where nothing on the machine can undo them	yes
+packages/runtime-adapters/test/process-runner.test.ts	sends the prompt as a user turn and keeps input open for the running turn	yes
+packages/runtime-adapters/test/process-runner.test.ts	closes input on the turn's result, after which nothing more is sent	yes
+packages/runtime-adapters/test/process-runner.test.ts	ends a run that is still alive after its result, and says it ended after its result	yes
+packages/runtime-adapters/test/process-runner.test.ts	leaves alone a run that exits on its own after its result	yes
+packages/runtime-adapters/test/process-runner.test.ts	does not take text that merely mentions a result for the result	yes
+packages/runtime-adapters/test/process-runner.test.ts	keeps a result line past the ordinary cap, and ends the turn on it, arriving in pieces	yes
+packages/runtime-adapters/test/process-runner.test.ts	still ends the turn on a result line too large even for its own cap	yes
+packages/runtime-adapters/test/process-runner.test.ts	gives an ordinary line no larger cap, whatever it says	yes
+packages/runtime-adapters/test/process-runner.test.ts	offers no send on any other transport	yes
 packages/runtime-adapters/test/provider-error.test.ts	reads the recorded error %s as a sentence	no
 packages/runtime-adapters/test/provider-error.test.ts	separates missing models, quota exhaustion and access refusal	yes
 packages/runtime-adapters/test/provider-error.test.ts	quotes unknown JSON messages without dumping their fields	yes
@@ -7643,6 +7706,8 @@ packages/runtime-adapters/test/provider-error.test.ts	formats a failed turn's ow
 packages/runtime-adapters/test/provider-error.test.ts	formats the app-server error without losing the original notification	no
 packages/runtime-adapters/test/provider-error.test.ts	formats Claude and Cursor result errors	no
 packages/runtime-adapters/test/provider-error.test.ts	formats Antigravity CLI's result error before adding a runtime prefix	no
+packages/runtime-adapters/test/qa-0365-opencode-worktree.test.ts	the failure names the directory boundary, not a missing stop	yes
+packages/runtime-adapters/test/qa-0365-opencode-worktree.test.ts	still reports an ordinary early exit as one	yes
 packages/runtime-adapters/test/references-never-widen-a-mode.test.ts	Codex never receives add-dir, including in full access	yes
 packages/runtime-adapters/test/references-never-widen-a-mode.test.ts	Claude adds references without changing its tools, with scoped Edit protection	yes
 packages/runtime-adapters/test/references-never-widen-a-mode.test.ts	OpenCode adds only named reference reads while every write denial and bash rule stays intact	yes

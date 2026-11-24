@@ -817,6 +817,15 @@ pub(super) fn edit_form(s: &State, p: &Palette) -> El {
             identity_fields = identity_fields
                 .child(text(format!("Another teammate is already called {taken}.")).key("team-name-clash").color(p.secondary));
         }
+        // NewTeammateDialog.tsx `agentMatch`: a name an AI agent also has is said, and does not stop the save; the
+        // roster tells the other teammates this one is a teammate (briefing::describe_peer).
+        if let Some(agent) = locust_core::briefing::agent_named(panel.fields[0].text.trim()) {
+            identity_fields = identity_fields.child(
+                text(format!("{agent} is also an AI agent's name. Your other teammates will be told this {agent} is a teammate."))
+                    .key("team-name-agent")
+                    .color(p.secondary),
+            );
+        }
     }
     identity_fields = identity_fields.child(crate::look_picker::swatches(s, &l));
     form = form.child(
@@ -2719,3 +2728,7 @@ mod mode_registers_tests;
 #[cfg(test)]
 #[path = "titles_as_drawn_tests.rs"]
 mod titles_as_drawn_tests;
+
+#[cfg(test)]
+#[path = "a_teammate_named_like_an_agent_tests.rs"]
+mod a_teammate_named_like_an_agent_tests;

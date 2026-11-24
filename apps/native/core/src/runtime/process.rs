@@ -48,7 +48,7 @@ impl Process {
                 // Invariant: spawn configured this pipe and it has not been taken.
                 .expect("spawn configured this pipe and it has not been taken"),
         );
-        let (tx, lines) = mpsc::sync_channel(256);
+        let (tx, lines) = mpsc::sync_channel(crate::runtime::records::MAX_QUEUED_RECORDS);
         let out = child
             .stdout
             .take()
@@ -161,6 +161,8 @@ pub struct ControlState {
     pub failure: Option<String>,
     pub deadline: Option<Instant>,
     pub closed: bool,
+    /// The deadline passed with the process still watched, so it was ended by force (not by its own exit).
+    pub forced: bool,
 }
 #[derive(Default)]
 pub struct Control {
@@ -177,6 +179,10 @@ impl Control {
     }
     pub fn failure(&self) -> Option<String> {
         crate::invariants::lock(&self.state).failure.clone()
+    }
+    /// Whether the watchdog ended the process by force when its deadline came.
+    pub fn forced(&self) -> bool {
+        crate::invariants::lock(&self.state).forced
     }
     pub fn cancel_at(&self, deadline: Instant) {
         crate::invariants::lock(&self.state).deadline = Some(deadline);
@@ -197,7 +203,9 @@ impl Control {
                 if state.closed {
                     break;
                 }
-                if state.failure.is_some() || state.deadline.is_some_and(|d| Instant::now() >= d) {
+                let due = state.deadline.is_some_and(|d| Instant::now() >= d);
+                if state.failure.is_some() || due {
+                    state.forced |= due;
                     kill_process(pid);
                     break;
                 }

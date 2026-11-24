@@ -131,7 +131,7 @@ impl Muse {
             .take()
             // Invariant: spawn configured this pipe and it has not been taken.
             .expect("spawn configured this pipe and it has not been taken");
-        let (tx, lines) = mpsc::sync_channel(256);
+        let (tx, lines) = mpsc::sync_channel(super::records::MAX_QUEUED_RECORDS);
         let reader_control = control.clone();
         std::thread::spawn(move || {
             let mut reader = BufReader::new(output);

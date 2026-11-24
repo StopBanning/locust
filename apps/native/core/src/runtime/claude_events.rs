@@ -232,6 +232,16 @@ pub const CLAUDE_COMPACTED: &str =
     "The conversation outgrew the model's context, so Claude Code summarized it and carried on from the summary.";
 pub const CLAUDE_COMPACTED_ON_REQUEST: &str = "Claude Code summarized the conversation so far, as asked, and carries on from the summary.";
 
+/// THINKING, TIMED AND KEPT (claude-events.ts, correcting 0.489): Claude Code's shown thinking is kept on its row,
+/// scrubbed and bounded as Cursor's is (AGENTS.md); opaque redacted_thinking and signatures never are.
+#[derive(Debug, Clone)]
+struct ThinkingBlock {
+    item_id: String,
+    text: String,
+    redacted: bool,
+    completed: bool,
+}
+
 struct OpenTool {
     name: String,
     target: Option<String>,
@@ -332,7 +342,13 @@ pub struct ClaudeNormalizer {
     pub ended: bool,
     count: usize,
     open_tools: HashMap<String, OpenTool>,
-    open_thinking: HashMap<i64, String>,
+    /// Thinking blocks by their index in the streaming message, in the order they opened (indices into `thinking`).
+    open_thinking: Vec<(i64, usize)>,
+    /// Every thinking block of the run (claude-events.ts ThinkingBlock), and the last 500 by message and index, so a
+    /// whole block after its stream fills the open one and an echo after the stop adds no second row.
+    thinking: Vec<ThinkingBlock>,
+    thinking_by_message: HashMap<String, usize>,
+    thinking_order: std::collections::VecDeque<String>,
     text_block_id: Option<String>,
     streaming_message_id: Option<String>,
     message_ordinal: usize,
@@ -360,6 +376,25 @@ pub struct ClaudeNormalizer {
     learned_commands: Option<Vec<crate::runtime_commands::CommandInfo>>,
     /// Records the process gave, for `recordCount`.
     records: usize,
+    /// What the driver knows of the process when the run ends (RuntimeProcessCompletion); a normalizer fed records
+    /// alone keeps the defaults.
+    pub evidence: ProcessEvidence,
+}
+
+/// process-runner.ts RuntimeProcessCompletion, as far as the driver saw it.
+#[derive(Debug, Clone, Default)]
+pub struct ProcessEvidence {
+    /// The exit code, once the driver has seen the process end.
+    pub exit_code: Option<i32>,
+    pub stderr: String,
+    pub stderr_truncated: bool,
+    pub oversized_records_dropped: usize,
+    /// None until a driver says; a normalizer alone counts a cancellation as forced, as before.
+    pub forced_termination_attempted: Option<bool>,
+    pub termination_unconfirmed: bool,
+    pub ended_after_result: bool,
+    pub output_limit_exceeded: bool,
+    pub input_delivery_failed: bool,
 }
 
 /// claude-events.ts promptTokensOf: input, cache-write and cache-read tokens together.
@@ -384,6 +419,21 @@ impl ClaudeNormalizer {
     pub fn take_commands(&mut self) -> Option<Vec<crate::runtime_commands::CommandInfo>> {
         self.learned_commands.take()
     }
+    fn remember_thinking(&mut self, key: String, block: usize) {
+        if self.thinking_by_message.insert(key.clone(), block).is_none() {
+            self.thinking_order.push_back(key);
+        }
+        if self.thinking_order.len() > 500
+            && let Some(oldest) = self.thinking_order.pop_front()
+        {
+            self.thinking_by_message.remove(&oldest);
+        }
+    }
+
+    fn open_thinking_at(&self, index: i64) -> Option<usize> {
+        self.open_thinking.iter().find(|(i, _)| *i == index).map(|(_, b)| *b)
+    }
+
     fn event(&mut self, kind: &str, payload: Value) -> Event {
         self.count += 1;
         Event {
@@ -394,20 +444,25 @@ impl ClaudeNormalizer {
     }
 
     fn process(&self, success: bool, cancelled: bool) -> Value {
-        json!({
-            "exitCode": if success { json!(0) } else { Value::Null },
+        let e = &self.evidence;
+        let mut p = json!({
+            "exitCode": match e.exit_code { Some(code) => json!(code), None if success => json!(0), None => Value::Null },
             "signal": null,
-            "stderr": "",
-            "stderrTruncated": false,
+            "stderr": e.stderr,
+            "stderrTruncated": e.stderr_truncated,
             "recordCount": self.records,
-            "inputDeliveryFailed": false,
-            "outputLimitExceeded": false,
-            "oversizedRecordsDropped": 0,
-            "forcedTerminationAttempted": cancelled,
-            "terminationUnconfirmed": false,
+            "inputDeliveryFailed": e.input_delivery_failed,
+            "outputLimitExceeded": e.output_limit_exceeded,
+            "oversizedRecordsDropped": e.oversized_records_dropped,
+            "forcedTerminationAttempted": e.forced_termination_attempted.unwrap_or(cancelled),
+            "terminationUnconfirmed": e.termination_unconfirmed,
             "startedAt": crate::ledger_write::now(),
             "finishedAt": crate::ledger_write::now()
-        })
+        });
+        if e.ended_after_result {
+            p["endedAfterResult"] = json!(true);
+        }
+        p
     }
 
     pub fn diagnostic(&mut self, code: &str, message: &str) -> Event {
@@ -448,15 +503,22 @@ impl ClaudeNormalizer {
             }
             return self.event("run.failed", p);
         }
-        if !self.saw_result {
+        // A result followed by a failed exit is not a success, unless the host ended it for what it left running
+        // (endedAfterResult, 2026-10-09): the turn finished, and the record says so.
+        let failed_exit = self.evidence.exit_code.is_some_and(|code| code != 0) && !self.evidence.ended_after_result;
+        if !self.saw_result || failed_exit {
             let mut p = json!({
                 "kind": "process-failed",
-                "message": if message.is_empty() {
+                "message": if self.evidence.output_limit_exceeded {
+                    super::records::OUTPUT_LIMIT_MESSAGE.into()
+                } else if self.saw_result {
+                    format!("Claude Code exited with code {}.", self.evidence.exit_code.unwrap_or(-1))
+                } else if message.is_empty() {
                     "Claude Code ended without a terminal result record.".into()
                 } else {
                     text(message, 16384)
                 },
-                "runtimeTerminal": "missing",
+                "runtimeTerminal": if self.saw_result { "completed" } else { "missing" },
                 "process": self.process(false, false)
             });
             if let Some(t) = &self.thread {
@@ -721,6 +783,7 @@ impl ClaudeNormalizer {
                     self.last_call = Some((id, prompt, output_tokens_of(&message["usage"]).unwrap_or(0.0)));
                 }
                 if !from_subagent(parsed) {
+                    self.open_thinking.clear();
                     self.message_ordinal += 1;
                     self.text_block_id = None;
                     self.streaming_message_id =
@@ -749,7 +812,15 @@ impl ClaudeNormalizer {
                 {
                     let index = inner["index"].as_i64().unwrap_or(0);
                     let item_id = format!("m{}_thinking_{}", self.message_ordinal, index);
-                    self.open_thinking.insert(index, item_id.clone());
+                    let redacted = block_type == "redacted_thinking";
+                    let shown = if redacted { String::new() } else { text(s(block, "thinking"), 16384) };
+                    self.thinking.push(ThinkingBlock { item_id: item_id.clone(), text: shown, redacted, completed: false });
+                    let at = self.thinking.len() - 1;
+                    self.open_thinking.retain(|(i, _)| *i != index);
+                    self.open_thinking.push((index, at));
+                    if let Some(message) = self.streaming_message_id.clone() {
+                        self.remember_thinking(format!("{message}:thinking_{index}"), at);
+                    }
                     return vec![self.event(
                         "step.started",
                         json!({"stepKind":"reasoning","itemId":item_id,"evidence":evidence}),
@@ -798,10 +869,21 @@ impl ClaudeNormalizer {
                 return vec![];
             }
             if inner_type == "content_block_delta" {
-                // Thinking deltas are deliberately dropped (AGENTS.md: never keep hidden reasoning).
                 let delta = &inner["delta"];
                 let delta_type = s(delta, "type");
-                if delta_type == "thinking_delta" || delta_type == "redacted_thinking_delta" {
+                // Shown thinking joins its open block, scrubbed as it arrives and again whole (a key split between
+                // deltas is whole only there); a helper's is its own, and redacted thinking has no words to keep.
+                if delta_type == "thinking_delta" {
+                    if !from_subagent(parsed)
+                        && let Some(at) = self.open_thinking_at(inner["index"].as_i64().unwrap_or(0))
+                        && !self.thinking[at].redacted
+                    {
+                        let joined = format!("{}{}", self.thinking[at].text, super::events::redact_secrets(s(delta, "thinking")));
+                        self.thinking[at].text = text(&joined, 16384);
+                    }
+                    return vec![];
+                }
+                if delta_type == "redacted_thinking_delta" {
                     return vec![];
                 }
                 let text_v = s(delta, "text");
@@ -827,16 +909,26 @@ impl ClaudeNormalizer {
             }
             if inner_type == "content_block_stop" {
                 let index = inner["index"].as_i64().unwrap_or(0);
-                if let Some(item_id) = self.open_thinking.remove(&index) {
-                    return vec![self.event(
-                        "step.completed",
-                        json!({"stepKind":"reasoning","itemId":item_id,"evidence":evidence}),
-                    )];
+                if from_subagent(parsed) {
+                    return vec![];
+                }
+                if let Some(at) = self.open_thinking_at(index) {
+                    self.open_thinking.retain(|(i, _)| *i != index);
+                    let block = &mut self.thinking[at];
+                    block.completed = true;
+                    let said = text(block.text.trim(), 16384);
+                    let mut payload = json!({"stepKind":"reasoning","itemId":block.item_id,"evidence":evidence});
+                    if !said.is_empty() && !block.redacted {
+                        payload["message"] = json!(said);
+                    }
+                    return vec![self.event("step.completed", payload)];
                 }
                 return vec![];
             }
             if inner_type == "message_stop" {
-                self.open_thinking.clear();
+                if !from_subagent(parsed) {
+                    self.open_thinking.clear();
+                }
                 return vec![self.event(
                     "step.completed",
                     json!({"stepKind":"turn","evidence":evidence}),
@@ -913,6 +1005,56 @@ impl ClaudeNormalizer {
                 return opened;
             }
             let mut restated = Vec::new();
+            for (index, block) in content.iter().enumerate() {
+                let kind = s(block, "type");
+                if kind != "thinking" && kind != "redacted_thinking" {
+                    continue;
+                }
+                let message_id = Some(identity(message, "id")).filter(|id| !id.is_empty());
+                let key = format!(
+                    "{}:thinking_{index}",
+                    message_id.clone().unwrap_or_else(|| format!("m{}", self.message_ordinal))
+                );
+                // Captures send the whole block BEFORE its content_block_stop: it fills the open block of this message,
+                // whatever its index in this record.
+                let open = (message_id == self.streaming_message_id)
+                    .then(|| self.open_thinking.iter().map(|(_, b)| *b).find(|b| !self.thinking[*b].completed))
+                    .flatten()
+                    .or_else(|| self.thinking_by_message.get(&key).copied());
+                let said = if kind == "thinking" { text(s(block, "thinking").trim(), 16384) } else { String::new() };
+                if let Some(at) = open {
+                    self.remember_thinking(key, at);
+                    let held = &mut self.thinking[at];
+                    if held.completed {
+                        // A whole echo after the stop must not add another row.
+                        continue;
+                    }
+                    if kind == "redacted_thinking" {
+                        held.redacted = true;
+                        held.text.clear();
+                        continue;
+                    }
+                    if held.redacted || said.is_empty() {
+                        continue;
+                    }
+                    held.text = said;
+                    continue;
+                }
+                self.thinking.push(ThinkingBlock {
+                    item_id: key.clone(),
+                    text: said.clone(),
+                    redacted: kind == "redacted_thinking",
+                    completed: true,
+                });
+                let at = self.thinking.len() - 1;
+                self.remember_thinking(key.clone(), at);
+                restated.push(self.event("step.started", json!({"stepKind":"reasoning","itemId":key,"evidence":evidence})));
+                let mut payload = json!({"stepKind":"reasoning","itemId":key,"evidence":evidence});
+                if !said.is_empty() {
+                    payload["message"] = json!(said);
+                }
+                restated.push(self.event("step.completed", payload));
+            }
             for block in &content {
                 if s(block, "type") != "tool_use" {
                     continue;
@@ -1018,6 +1160,50 @@ impl ClaudeNormalizer {
                 }),
             ));
             return restated;
+        }
+
+        // A tool result too large to keep: the host dropped it and left a stand-in (records::stand_in), so the call it
+        // answered is closed as having answered, with the size it answered in. It read "did not report", which
+        // blamed the runtime for the host's cut (claude-events.ts, 0.492).
+        if type_name == "locust.oversized" {
+            if parsed["recordType"] != "user" {
+                return vec![];
+            }
+            let kb = parsed["bytes"].as_f64().filter(|b| b.is_finite()).map(|b| (b / 1024.0).round() as i64);
+            let ids: Vec<String> = parsed["callIds"]
+                .as_array()
+                .map(|ids| ids.iter().filter_map(|id| id.as_str().map(str::to_owned)).collect())
+                .unwrap_or_default();
+            let mut events = Vec::new();
+            for item_id in ids {
+                let Some(open) = self.open_tools.remove(&item_id) else { continue };
+                let mut payload = json!({
+                    "itemId": item_id,
+                    "toolKind": "tool_use",
+                    "name": open.name,
+                    "phase": "completed",
+                    "status": "result too large to keep",
+                    "output": format!(
+                        "The result was too large to keep{}. The teammate read it; Locust keeps results up to 256 KB.",
+                        kb.map(|kb| format!(" ({kb} KB)")).unwrap_or_default()
+                    ),
+                    "evidence": evidence
+                });
+                if let Some(t) = &open.target {
+                    payload["command"] = json!(text(t, 16384));
+                }
+                if let Some(t) = &open.title {
+                    payload["title"] = json!(text(t, 16384));
+                }
+                if open.background {
+                    payload["background"] = json!(true);
+                }
+                if let Some(p) = &open.parent {
+                    payload["parentItemId"] = json!(p);
+                }
+                events.push(self.event("tool.completed", payload));
+            }
+            return events;
         }
 
         if type_name == "user" {
@@ -1279,7 +1465,7 @@ mod tests {
     }
 
     #[test]
-    fn thinking_is_a_step_without_text() {
+    fn thinking_is_a_step_that_keeps_its_shown_text_on_its_end() {
         let mut n = ClaudeNormalizer::default();
         n.accept(
             &json!({"type":"stream_event","event":{"type":"message_start","message":{"id":"m1"}}}),
@@ -1300,8 +1486,9 @@ mod tests {
             "event":{"type":"content_block_stop","index":0}
         }));
         assert_eq!(stop[0].kind, "step.completed");
-        let serialized = format!("{}{}", start[0].payload, stop[0].payload);
-        assert!(!serialized.contains("SECRET_THOUGHT"));
+        // Shown thinking is kept on the closing step (1697b996), never on the opening one.
+        assert!(!start[0].payload.to_string().contains("SECRET_THOUGHT"));
+        assert_eq!(stop[0].payload["message"], "SECRET_THOUGHT");
     }
 
     #[test]

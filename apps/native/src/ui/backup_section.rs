@@ -99,7 +99,7 @@ pub(super) fn reload(s: &mut State) {
         store
             .ledger_dir()
             .map_err(|e| e.to_string())
-            .and_then(|dir| retention::read_storage_report(&dir)),
+            .and_then(|dir| retention::read_storage_report_kept(&dir)),
     );
 }
 
@@ -510,4 +510,51 @@ pub(super) fn backup_section(s: &State, p: &Palette) -> El {
     }
 
     section
+}
+
+#[cfg(test)]
+mod storage_cache_wire_tests {
+    use super::*;
+    use crate::store::Store;
+    use std::time::{Duration as StdDuration, UNIX_EPOCH};
+
+    #[test]
+    fn reload_uses_kept_storage_reader_so_unchanged_ledgers_are_not_reread() {
+        let root = std::env::temp_dir().join(format!(
+            "locust-backup-reload-{}-{}",
+            std::process::id(),
+            locust_core::native::uuid_v4().unwrap_or_else(|_| "0".into())
+        ));
+        let store = Store::new(root.join("native"), root.join("electron")).unwrap();
+        let ledger_dir = store.ledger_dir().unwrap();
+        std::fs::create_dir_all(&ledger_dir).unwrap();
+        let old = "2026-08-01T10:00:00.000Z";
+        let stamp = UNIX_EPOCH + StdDuration::from_secs(1_789_948_800);
+        let path = ledger_dir.join("mission_old.jsonl");
+        let line = serde_json::json!({
+            "schemaVersion": 27,
+            "recordType": "mission.created",
+            "ledgerSequence": 1,
+            "occurredAt": old,
+            "metadata": {"missionId": "mission_old", "runId": "run_old", "prompt": "Check.", "runtime": "codex", "model": "account-default", "createdAt": old}
+        });
+        std::fs::write(&path, format!("{line}\n")).unwrap();
+        std::fs::File::options().write(true).open(&path).unwrap().set_modified(stamp).unwrap();
+
+        let mut s = State::default();
+        s.data = Some(store);
+        reload(&mut s);
+        let first = s.settings_panel.privacy.storage.as_ref().unwrap().as_ref().unwrap();
+        assert_eq!(first.oldest_updated_at.as_deref(), Some(old));
+
+        let len = std::fs::metadata(&path).unwrap().len() as usize;
+        std::fs::write(&path, "x".repeat(len)).unwrap();
+        std::fs::File::options().write(true).open(&path).unwrap().set_modified(stamp).unwrap();
+
+        reload(&mut s);
+        let second = s.settings_panel.privacy.storage.as_ref().unwrap().as_ref().unwrap();
+        assert_eq!(second.oldest_updated_at.as_deref(), Some(old));
+        assert_eq!(second.unreadable_count, 0);
+        let _ = std::fs::remove_dir_all(&root);
+    }
 }

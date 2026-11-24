@@ -931,6 +931,9 @@ mod note_code_tests;
 #[cfg(test)]
 #[path = "thought_line_tests.rs"]
 mod thought_line_tests;
+#[cfg(test)]
+#[path = "claude_thinking_row_tests.rs"]
+mod claude_thinking_row_tests;
 
 #[cfg(test)]
 #[path = "background_helper_tests.rs"]
