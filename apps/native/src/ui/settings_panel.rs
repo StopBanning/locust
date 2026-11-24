@@ -50,6 +50,11 @@ pub(super) struct Panel {
     pub artifacts_for: Option<Vec<String>>,
     pub artifacts_job: Latest<Vec<locust_core::runtime_artifacts::RuntimeArtifact>>,
     pub artifacts_open: std::collections::HashSet<String>,
+    /// What each agent has set up for itself (runtime_setup.rs, Screens.tsx's RuntimeSetupLine): the setups by agent,
+    /// which project folder and agents they were read for, and the read itself.
+    pub setup: std::collections::BTreeMap<String, locust_core::runtime_setup::RuntimeSetup>,
+    pub setup_for: Option<(Option<String>, Vec<String>)>,
+    pub setup_job: Latest<std::collections::BTreeMap<String, locust_core::runtime_setup::RuntimeSetup>>,
     /// "OWN COPIES": the project folder's teammate copies, and what a Remove came back with.
     pub own_copies: Option<crate::own_copies::OwnCopies>,
     pub check_command: TextEdit,

@@ -2606,6 +2606,15 @@ apps/desktop/src/main/runtime-installer.test.ts	leaves every other failure showi
 apps/desktop/src/main/runtime-installer.test.ts	accepts the shapes a real npm install needs	yes
 apps/desktop/src/main/runtime-installer.test.ts	refuses every character a shell would read as syntax	yes
 apps/desktop/src/main/runtime-installer.test.ts	passes every install line the app can actually build today	yes
+apps/desktop/src/main/runtime-setup.test.ts	reads Claude Code hooks from user and project settings, and MCP servers from three places, names only	yes
+apps/desktop/src/main/runtime-setup.test.ts	reads Codex MCP servers from TOML table headers and its notify hook, without a TOML parser	yes
+apps/desktop/src/main/runtime-setup.test.ts	reads Cursor, OpenCode and Copilot from their own files, in the folder and at home	yes
+apps/desktop/src/main/runtime-setup.test.ts	an absent file is nothing; a file that cannot be read or parsed is named, never guessed	yes
+apps/desktop/src/main/runtime-setup.test.ts	names the MCP servers in the person’s own Copilot settings, and none when there are none to read	yes
+apps/desktop/src/main/runtime-setup.test.ts	lists Codex skills from ~/.codex/skills and the .agents folders, never the Claude folder or its built-ins	yes
+apps/desktop/src/main/runtime-setup.test.ts	lists OpenCode skills from the Claude and .agents folders and its own	yes
+apps/desktop/src/main/runtime-setup.test.ts	lists Cursor skills from its own two roots, never its built-ins or the third-party folders	yes
+apps/desktop/src/main/runtime-setup.test.ts	lists Copilot skills from where `copilot skill --help` says it looks, the Claude folder only in the project	yes
 apps/desktop/src/main/runtime-updates.test.ts	compare as numbers, a prerelease below its release	yes
 apps/desktop/src/main/runtime-updates.test.ts	asks first: a newer release waits for the person to press Update, however old and however idle	yes
 apps/desktop/src/main/runtime-updates.test.ts	updates to a newer release that has been out long enough, when nothing is using it	yes

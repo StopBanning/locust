@@ -58,6 +58,7 @@ pub mod locust_link;
 pub mod reply_page;
 pub mod restored_folders;
 pub mod runtime_artifacts;
+pub mod runtime_setup;
 pub mod remote_control;
 pub mod remote_mcp;
 pub mod agent_accounts;

@@ -219,6 +219,11 @@ pub(super) fn poll(s: &mut State) -> bool {
         s.settings_panel.artifacts = found;
         changed = true;
     }
+    read_setup(s);
+    if let Some(setup) = s.settings_panel.setup_job.take() {
+        s.settings_panel.setup = setup;
+        changed = true;
+    }
     let latest = s.agents_install.line.lock().unwrap_or_else(|e| e.into_inner()).clone();
     if latest != s.agents_install.shown {
         s.agents_install.shown = latest;
@@ -275,6 +280,32 @@ fn read_artifacts(s: &mut State) {
         let installed: Vec<&str> = listed.iter().map(String::as_str).collect();
         locust_core::runtime_artifacts::read_runtime_artifacts(&installed, &home)
     });
+}
+
+/// What each agent has set up for itself (App.tsx's `readRuntimeSetup`, with the project folder when one is chosen):
+/// read again when the folder or the agents that are ready or signed out change, off the window's thread.
+fn read_setup(s: &mut State) {
+    let Some(found) = s.settings_panel.agents.as_deref() else { return };
+    let listed = locust_core::runtime_artifacts::listed_runtimes(found);
+    let folder = s.home.folder_path.as_deref().map(str::trim).filter(|p| !p.is_empty()).map(str::to_owned);
+    let wanted = (folder.clone(), listed);
+    if s.settings_panel.setup_for.as_ref() == Some(&wanted) || s.settings_panel.setup_job.is_pending() {
+        return;
+    }
+    let Some(home) = home() else { return };
+    s.settings_panel.setup_for = Some(wanted);
+    s.settings_panel.setup_job.request((folder, home), |(folder, home)| {
+        use locust_core::runtime_setup::{SetupOptions, list_from_disk, read_from_disk, read_runtime_setup};
+        read_runtime_setup(&SetupOptions { workspace: folder.map(std::path::PathBuf::from), home, read: &read_from_disk, list: &list_from_disk })
+    });
+}
+
+/// Screens.tsx's `RuntimeSetupLine` under one agent: its connectors, hooks, skills and agents, with each file read on
+/// hover. Nothing for an agent the read does not cover.
+fn setup_part(s: &State, l: &crate::look::controls::Look, f: &Found) -> Option<El> {
+    use locust_core::runtime_setup::{setup_line, setup_title};
+    let setup = s.settings_panel.setup.get(&f.id)?;
+    Some(text(setup_line(setup)).font(l.ty.body).color(l.c("text-secondary")).wrap().key(format!("agents-setup-{}", f.id)).help(setup_title(setup)))
 }
 
 /// CliArtifacts.tsx under one agent: folded, with what is inside counted on the fold; open, the note and each one with
@@ -990,6 +1021,9 @@ fn section_inner(s: &State, p: &Palette, for_home: bool) -> El {
         if matches!(status.tag, "READY" | "ACTIVE") && f.auth == agents::Auth::Authenticated && agents::sign_in_command(&f.id, true).is_some() {
             words = words.child(sign_in_part(s, &l, &f, true));
         }
+        if let Some(setup) = setup_part(s, &l, &f) {
+            words = words.child(setup);
+        }
         // What the person set up inside this CLI, folded under it, last on the row (Screens.tsx's CliArtifacts).
         if let Some(own) = artifacts_part(s, &l, &f) {
             words = words.child(own);
@@ -1108,6 +1142,10 @@ mod agents_opencode_first_start_tests;
 #[cfg(test)]
 #[path = "agents_artifacts_fold_tests.rs"]
 mod agents_artifacts_fold_tests;
+
+#[cfg(test)]
+#[path = "agents_setup_tests.rs"]
+mod agents_setup_tests;
 
 #[cfg(test)]
 #[path = "signing_in_is_a_button_tests.rs"]
