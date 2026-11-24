@@ -490,3 +490,17 @@ fn the_sidebar_says_on_a_call_on_the_calls_row_only() {
         [("conversation-on-call-m_asked".to_owned(), "on a call".to_owned())]
     );
 }
+
+// Same case as Talk's hover, while a call is on: Talk is pressed and says it ends the call.
+#[test]
+fn talk_is_pressed_and_ends_the_call_while_one_is_on() {
+    let (mut s, _profile, _) = state("win32", false, false);
+    let _call = on_call(&mut s, "m_typed", true);
+    let rt = window(s);
+    let talk = rt.elements().into_iter().find(|item| item.key.as_deref() == Some("talk")).unwrap();
+    assert_eq!(talk.text.as_deref(), Some("End the voice call"));
+    let tree = rt.accessibility_json();
+    let node = a11y(&tree, "talk").unwrap();
+    assert_eq!(node["description"], "End the call");
+    assert!(node["states"].as_array().unwrap().iter().any(|state| state == "checked"));
+}

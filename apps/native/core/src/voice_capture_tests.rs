@@ -126,3 +126,15 @@ fn cancel_keeps_nothing_and_clears_the_level() {
     drop(capture);
     assert_eq!(seen.lock().unwrap().closed, 1);
 }
+
+// A capture keeps at most a minute (voiceCapture.ts atLimit): what arrives past it is dropped, the push says the minute
+// is full, and the recording still becomes a WAV.
+#[test]
+fn a_capture_keeps_one_minute_and_says_when_it_is_full() {
+    let (fake, _seen) = graph(|| Ok(()));
+    let mut capture = Capture::start(fake, &AtomicBool::new(false), Arc::default()).unwrap();
+    assert!(!capture.push(&vec![0.0; crate::voice_typing::MAX_PCM_SAMPLES - 10]));
+    assert!(capture.push(&[0.0; 100]));
+    let wav = capture.stop().expect("a full minute is still a recording");
+    assert_eq!(wav.len(), 44 + crate::voice_typing::MAX_PCM_SAMPLES * 2);
+}

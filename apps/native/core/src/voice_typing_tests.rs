@@ -362,3 +362,10 @@ fn words_go_in_at_the_cursor_or_over_the_selection_within_the_limit() {
     );
     assert_eq!(insert_text("abcd", "123456", 2, 2, 6), ("ab12cd".to_owned(), 4));
 }
+
+// Same case as wav_must_be_short_mono_pcm, at its edge: a minute of speech is a WAV, one sample more is refused.
+#[test]
+fn wav_is_refused_one_sample_past_a_minute() {
+    assert!(wav(&vec![0; MAX_PCM_SAMPLES]).is_some());
+    assert!(wav(&vec![0; MAX_PCM_SAMPLES + 1]).is_none());
+}
