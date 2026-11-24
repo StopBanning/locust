@@ -75,6 +75,10 @@ fn a_ready_account_can_be_picked_for_new_conversations_and_back_to_this_computer
     assert!(home_row.contains("Signed in.") && !home_row.contains("New conversations use this account."), "{home_row}");
     assert!(home_row.contains("Use for new conversations"), "{home_row}");
     assert!(rt.find("account-for-new-this-computer-codex").is_some(), "this computer's sign-in can take new conversations back");
+    // Lane check 23 Nov: a Codex account taking new conversations says nothing about Claude, whose new conversations
+    // still use this computer's sign-in, so Claude's row offers no button.
+    assert!(rt.find("account-this-computer-claude").is_some(), "Claude's own block is drawn");
+    assert!(rt.find("account-for-new-this-computer-claude").is_none(), "Codex's pick does not move Claude off this computer");
 
     // Home is picked: new conversations move to it, and Work offers the button now.
     click(&mut rt, &format!("account-for-new-{h}"));
