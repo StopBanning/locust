@@ -2076,11 +2076,11 @@ apps/desktop/src/main/mission-history.test.ts	honours a replace, which is how a 
 apps/desktop/src/main/mission-history.test.ts	keeps two messages apart, and in the order they were said	yes
 apps/desktop/src/main/mission-history.test.ts	leaves a mission that never streamed exactly as it was	yes
 apps/desktop/src/main/mission-history.test.ts	passes small missions through untruncated with truthful counts	yes
-apps/desktop/src/main/mission-history.test.ts	windows oversized missions to the first and latest events and says so	no
+apps/desktop/src/main/mission-history.test.ts	windows oversized missions to the first and latest events and says so	yes
 apps/desktop/src/main/mission-history.test.ts	surfaces only the latest host failure and the mission-local issue count	no
-apps/desktop/src/main/mission-history.test.ts	joins a mission's links with the workroom text, keeping direction	no
-apps/desktop/src/main/mission-history.test.ts	keeps a link whose message the workroom no longer holds, with no text	no
-apps/desktop/src/main/mission-history.test.ts	reads history even when the workroom itself cannot be read	no
+apps/desktop/src/main/mission-history.test.ts	joins a mission's links with the workroom text, keeping direction	yes
+apps/desktop/src/main/mission-history.test.ts	keeps a link whose message the workroom no longer holds, with no text	yes
+apps/desktop/src/main/mission-history.test.ts	reads history even when the workroom itself cannot be read	yes
 apps/desktop/src/main/mission-history.test.ts	returns mapped missions and the store-wide issue count	no
 apps/desktop/src/main/mission-history.test.ts	converts a ledger failure into a generic response without leaking the error	no
 apps/desktop/src/main/mission-history.test.ts	stops adding missions once the response would exceed its budget	no

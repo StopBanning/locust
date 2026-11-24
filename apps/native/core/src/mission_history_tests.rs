@@ -197,6 +197,20 @@ fn a_mission_that_fits_the_window_is_drawn_whole_and_counted_truly() {
     assert_eq!(crate::inspector::events_line(&report), "3000 recorded");
 }
 
+// case: windows oversized missions to the first and latest events and says so
+#[test]
+fn a_mission_past_the_window_is_drawn_from_its_first_and_latest_events_and_says_so() {
+    let window = crate::ledger::EVENT_WINDOW as u64;
+    let (input, report) = inspected((1..=window + 1).map(step).collect());
+    assert_eq!(input.events.len(), 3000);
+    assert_eq!(input.events[0]["sequence"], 1);
+    assert_eq!(input.events[1]["sequence"], 2);
+    assert_eq!(input.events.last().unwrap()["sequence"], 3001);
+    assert_eq!(report.event_count, 3001);
+    assert!(report.events_truncated);
+    assert_eq!(crate::inspector::events_line(&report), "3001 recorded \u{b7} window truncated for display");
+}
+
 // ---- deleting a mission ----
 
 #[test]
