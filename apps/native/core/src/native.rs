@@ -490,6 +490,8 @@ pub fn parse_roster(text: &str) -> Result<Vec<Teammate>, String> {
             folder: teammate_folder(&entry["folder"]),
         });
     }
+    // Dropped, but never silently (LIVE2 #16).
+    crate::roster_dropped::say(file["teammates"].as_array().map_or(0, |a| a.len().min(MAX_TEAMMATES)), out.len());
     Ok(out)
 }
 

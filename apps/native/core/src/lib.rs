@@ -228,6 +228,7 @@ pub mod room_store;
 pub mod room_task;
 pub mod room_tasks;
 pub mod rooms;
+pub mod roster_dropped;
 pub mod retention;
 pub mod route_at_start;
 pub mod routine_copy;
