@@ -3582,9 +3582,9 @@ apps/desktop/src/renderer/src/a-comparison-starts-on-two-models.test.ts	stay fre
 apps/desktop/src/renderer/src/a-comparison-starts-on-two-models.test.ts	take, as the second free one, a free model that has answered here over the first listed (0.517)	yes
 apps/desktop/src/renderer/src/a-comparison-starts-on-two-models.test.ts	leave out older models and the person's own	yes
 apps/desktop/src/renderer/src/a-comparison-starts-on-two-models.test.ts	keeps the box's effort on the first column (0.545, Sol: Flash Low opened Compare on Medium)	yes
-apps/desktop/src/renderer/src/a-comparison-that-edits-says-what-each-changed.test.tsx	says each model changes its own copy, and only the kept one comes into the folder	no
-apps/desktop/src/renderer/src/a-comparison-that-edits-says-what-each-changed.test.tsx	on Auto, says a model can still change files outside its copy	no
-apps/desktop/src/renderer/src/a-comparison-that-edits-says-what-each-changed.test.tsx	in a folder too big to copy, says they all work in the folder itself, and Keep brings nothing in	no
+apps/desktop/src/renderer/src/a-comparison-that-edits-says-what-each-changed.test.tsx	says each model changes its own copy, and only the kept one comes into the folder	yes
+apps/desktop/src/renderer/src/a-comparison-that-edits-says-what-each-changed.test.tsx	on Auto, says a model can still change files outside its copy	yes
+apps/desktop/src/renderer/src/a-comparison-that-edits-says-what-each-changed.test.tsx	in a folder too big to copy, says they all work in the folder itself, and Keep brings nothing in	yes
 apps/desktop/src/renderer/src/a-comparison-that-edits-says-what-each-changed.test.tsx	puts what each changed at its foot, before its time	yes
 apps/desktop/src/renderer/src/a-comparison-that-edits-says-what-each-changed.test.tsx	counts one file as a file	yes
 apps/desktop/src/renderer/src/a-connector-call-is-known-to-be-one.test.ts	reads a bare mcp tool name as a connector call	yes
@@ -3769,8 +3769,8 @@ apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx
 apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	stays a picture where it cannot	no
 apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	the ring no longer reads the conversation as it was before	no
 apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	and reads again from the next turn that reports	no
-apps/desktop/src/renderer/src/a-growing-group-shows-its-rows.test.tsx	shows its rows under its line	no
-apps/desktop/src/renderer/src/a-growing-group-shows-its-rows.test.tsx	a group that is not growing starts folded, as before (control)	no
+apps/desktop/src/renderer/src/a-growing-group-shows-its-rows.test.tsx	shows its rows under its line	yes
+apps/desktop/src/renderer/src/a-growing-group-shows-its-rows.test.tsx	a group that is not growing starts folded, as before (control)	yes
 apps/desktop/src/renderer/src/a-handed-file-is-a-control.test.tsx	names the file and says what it is	yes
 apps/desktop/src/renderer/src/a-handed-file-is-a-control.test.tsx	is a control, not a sentence	yes
 apps/desktop/src/renderer/src/a-handed-file-is-a-control.test.tsx	offers to show the file, and never to open it	yes
@@ -4622,10 +4622,10 @@ apps/desktop/src/renderer/src/an-earlier-version-reads-as-it-was.test.ts	after e
 apps/desktop/src/renderer/src/an-earlier-version-reads-as-it-was.test.ts	is not rebuilt when a later change was recorded cut short, and says so	yes
 apps/desktop/src/renderer/src/an-earlier-version-reads-as-it-was.test.ts	is not rebuilt when the file was changed since, rather than rebuilt wrong	yes
 apps/desktop/src/renderer/src/an-earlier-version-reads-as-it-was.test.ts	keeps Windows line endings	yes
-apps/desktop/src/renderer/src/an-empty-home-offers-a-team.test.tsx	offers three teams, each with who is on it	no
-apps/desktop/src/renderer/src/an-empty-home-offers-a-team.test.tsx	keeps New teammate beside them, as the chat bar's own chip	no
-apps/desktop/src/renderer/src/an-empty-home-offers-a-team.test.tsx	is the team itself once there is one	no
-apps/desktop/src/renderer/src/an-empty-home-offers-a-team.test.tsx	says so, and offers no team to start over with	no
+apps/desktop/src/renderer/src/an-empty-home-offers-a-team.test.tsx	offers three teams, each with who is on it	yes
+apps/desktop/src/renderer/src/an-empty-home-offers-a-team.test.tsx	keeps New teammate beside them, as the chat bar's own chip	yes
+apps/desktop/src/renderer/src/an-empty-home-offers-a-team.test.tsx	is the team itself once there is one	yes
+apps/desktop/src/renderer/src/an-empty-home-offers-a-team.test.tsx	says so, and offers no team to start over with	yes
 apps/desktop/src/renderer/src/an-ended-run-offers-the-way-on.test.tsx	offers Send again	yes
 apps/desktop/src/renderer/src/an-ended-run-offers-the-way-on.test.tsx	on OpenCode, which reports a tool only once it finishes, does not promise nothing ran (Sol, 0.532)	yes
 apps/desktop/src/renderer/src/an-ended-run-offers-the-way-on.test.tsx	on OpenCode with something finished, never says no tool call was open (0.536 drive)	yes
@@ -4990,10 +4990,10 @@ apps/desktop/src/renderer/src/group-settings-dialog.test.tsx	says the one claim 
 apps/desktop/src/renderer/src/group-settings-dialog.test.tsx	shows the counter only once it is worth reading	yes
 apps/desktop/src/renderer/src/group-settings-dialog.test.tsx	names the route the way the composer does, and says what Use current would take	yes
 apps/desktop/src/renderer/src/group-settings-dialog.test.tsx	disables Clear when there is no route, rather than hiding it	yes
-apps/desktop/src/renderer/src/groups-unreadable-is-a-line.test.tsx	is said in the sidebar, above the conversations it could not sort	no
-apps/desktop/src/renderer/src/groups-unreadable-is-a-line.test.tsx	is not said when there are simply no groups	no
-apps/desktop/src/renderer/src/groups-unreadable-is-a-line.test.tsx	names every file that would not read, in one sentence, roster first	no
-apps/desktop/src/renderer/src/groups-unreadable-is-a-line.test.tsx	is not said when the groups read fine	no
+apps/desktop/src/renderer/src/groups-unreadable-is-a-line.test.tsx	is said in the sidebar, above the conversations it could not sort	yes
+apps/desktop/src/renderer/src/groups-unreadable-is-a-line.test.tsx	is not said when there are simply no groups	yes
+apps/desktop/src/renderer/src/groups-unreadable-is-a-line.test.tsx	names every file that would not read, in one sentence, roster first	yes
+apps/desktop/src/renderer/src/groups-unreadable-is-a-line.test.tsx	is not said when the groups read fine	yes
 apps/desktop/src/renderer/src/home-fits-one-screen.test.tsx	puts the accounts between the cover and the team, and the starters after the team	yes
 apps/desktop/src/renderer/src/home-fits-one-screen.test.tsx	keeps the order it had before there is a team: what to add first, the accounts after	yes
 apps/desktop/src/renderer/src/home-fits-one-screen.test.tsx	draws Scout's quiet watch on its own card, with Look now as the eye there	yes
@@ -5002,9 +5002,9 @@ apps/desktop/src/renderer/src/home-fits-two-rows-of-teammates.test.ts	is short a
 apps/desktop/src/renderer/src/home-fits-two-rows-of-teammates.test.ts	then fits: tight spacing saves enough with the cover at its floor	yes
 apps/desktop/src/renderer/src/home-fits-two-rows-of-teammates.test.ts	is not short with room to spare (control), nor with nothing measured	yes
 apps/desktop/src/renderer/src/home-fits-two-rows-of-teammates.test.ts	counts the bots' reach above the cover, which the old measure left out	yes
-apps/desktop/src/renderer/src/home-free-model-keeps-its-tag.test.tsx	keeps the Free tag whole and lets the name give way	no
-apps/desktop/src/renderer/src/home-free-model-keeps-its-tag.test.tsx	draws a paid model as the line it was	no
-apps/desktop/src/renderer/src/home-free-model-keeps-its-tag.test.tsx	names a teammate on its account's default by the runtime, as the chip and Team do	no
+apps/desktop/src/renderer/src/home-free-model-keeps-its-tag.test.tsx	keeps the Free tag whole and lets the name give way	yes
+apps/desktop/src/renderer/src/home-free-model-keeps-its-tag.test.tsx	draws a paid model as the line it was	yes
+apps/desktop/src/renderer/src/home-free-model-keeps-its-tag.test.tsx	names a teammate on its account's default by the runtime, as the chip and Team do	yes
 apps/desktop/src/renderer/src/home-holds-still-when-tight-spacing-shrinks-it.test.ts	the two heights argue each other: short at the normal spacing, not short as drawn tight	yes
 apps/desktop/src/renderer/src/home-holds-still-when-tight-spacing-shrinks-it.test.ts	goes tight once and stays tight	yes
 apps/desktop/src/renderer/src/home-holds-still-when-tight-spacing-shrinks-it.test.ts	adds back what tight took, and only while tight	yes
@@ -5782,8 +5782,8 @@ apps/desktop/src/renderer/src/shift-tab-never-turns-auto-on.test.ts	skips Auto w
 apps/desktop/src/renderer/src/shift-tab-never-turns-auto-on.test.ts	includes it once the switch is on	yes
 apps/desktop/src/renderer/src/shift-tab-never-turns-auto-on.test.ts	moves off Auto to the first mode when Auto is no longer allowed	yes
 apps/desktop/src/renderer/src/shift-tab-never-turns-auto-on.test.ts	goes nowhere with fewer than two modes to cycle	yes
-apps/desktop/src/renderer/src/since-you-were-away-on-home.test.tsx	heads with the counts and Got it, then failed, missed and ran, in that order, each naming who and when	no
-apps/desktop/src/renderer/src/since-you-were-away-on-home.test.tsx	shows six of a kind and counts the rest, and says nothing about waiting when nobody is (control)	no
+apps/desktop/src/renderer/src/since-you-were-away-on-home.test.tsx	heads with the counts and Got it, then failed, missed and ran, in that order, each naming who and when	yes
+apps/desktop/src/renderer/src/since-you-were-away-on-home.test.tsx	shows six of a kind and counts the rest, and says nothing about waiting when nobody is (control)	yes
 apps/desktop/src/renderer/src/slashCommands.test.ts	reads a bare slash as the menu opening	yes
 apps/desktop/src/renderer/src/slashCommands.test.ts	reads what has been typed after it	yes
 apps/desktop/src/renderer/src/slashCommands.test.ts	ignores a slash inside a sentence	yes
@@ -6082,15 +6082,15 @@ apps/desktop/src/renderer/src/the-first-send-cannot-spend.test.ts	leaves the rou
 apps/desktop/src/renderer/src/the-first-send-cannot-spend.test.ts	never answers for a runtime that needs an account	yes
 apps/desktop/src/renderer/src/the-first-send-cannot-spend.test.ts	does not treat a free model as a free model of another runtime	yes
 apps/desktop/src/renderer/src/the-first-send-cannot-spend.test.ts	still reads account-default as the unchosen state	yes
-apps/desktop/src/renderer/src/the-flat-sidebar.test.ts	puts the newest first	no
-apps/desktop/src/renderer/src/the-flat-sidebar.test.ts	puts a live conversation above a newer finished one	no
-apps/desktop/src/renderer/src/the-flat-sidebar.test.ts	sorts a row with no timestamp last, not first	no
-apps/desktop/src/renderer/src/the-flat-sidebar.test.ts	is the same order the rail flyout uses	no
-apps/desktop/src/renderer/src/the-flat-sidebar.test.ts	does not cap the list, because the sidebar is not a popover	no
-apps/desktop/src/renderer/src/the-flat-sidebar.test.ts	leaves the rows it was given alone	no
-apps/desktop/src/renderer/src/the-flat-sidebar.test.ts	is antisymmetric, so the list does not reshuffle between renders	no
-apps/desktop/src/renderer/src/the-flat-sidebar.test.ts	asks the shell first and the host second	no
-apps/desktop/src/renderer/src/the-flat-sidebar.test.ts	counts against the face when a face is on, and against the folder when only search is	no
+apps/desktop/src/renderer/src/the-flat-sidebar.test.ts	puts the newest first	yes
+apps/desktop/src/renderer/src/the-flat-sidebar.test.ts	puts a live conversation above a newer finished one	yes
+apps/desktop/src/renderer/src/the-flat-sidebar.test.ts	sorts a row with no timestamp last, not first	yes
+apps/desktop/src/renderer/src/the-flat-sidebar.test.ts	is the same order the rail flyout uses	yes
+apps/desktop/src/renderer/src/the-flat-sidebar.test.ts	does not cap the list, because the sidebar is not a popover	yes
+apps/desktop/src/renderer/src/the-flat-sidebar.test.ts	leaves the rows it was given alone	yes
+apps/desktop/src/renderer/src/the-flat-sidebar.test.ts	is antisymmetric, so the list does not reshuffle between renders	yes
+apps/desktop/src/renderer/src/the-flat-sidebar.test.ts	asks the shell first and the host second	yes
+apps/desktop/src/renderer/src/the-flat-sidebar.test.ts	counts against the face when a face is on, and against the folder when only search is	yes
 apps/desktop/src/renderer/src/the-folder-chip-says-a-folder-is-no-place-for-teammates.test.tsx	says why in its hover for a folder like .claude, in the chip's own colour	yes
 apps/desktop/src/renderer/src/the-folder-chip-says-a-folder-is-no-place-for-teammates.test.tsx	stays as it was for a project folder (control)	yes
 apps/desktop/src/renderer/src/the-folder-chip-says-a-folder-is-no-place-for-teammates.test.tsx	names the folder and why, with Choose another folder first and Start here	yes
@@ -6377,11 +6377,11 @@ apps/desktop/src/renderer/src/what-was-said-while-working-stays-where-it-was-sai
 apps/desktop/src/renderer/src/what-was-said-while-working-stays-where-it-was-said.test.ts	draws the same order while it runs, so nothing moves when it ends	yes
 apps/desktop/src/renderer/src/what-was-said-while-working-stays-where-it-was-said.test.ts	leaves a step still going to the live line, and puts it in its group once it ends	yes
 apps/desktop/src/renderer/src/whats-new-reads-like-claude-codes.test.tsx	reads as words, from the digits -- never through a clock that shifts it a day	yes
-apps/desktop/src/renderer/src/whats-new-reads-like-claude-codes.test.tsx	says its date, wears its version as a badge, and groups its changes under their labels	no
-apps/desktop/src/renderer/src/whats-new-reads-like-claude-codes.test.tsx	written before the groups, carries no label	no
-apps/desktop/src/renderer/src/whats-new-reads-like-claude-codes.test.tsx	draws the newest builds first, and offers the older ones rather than drawing all of them at once	no
-apps/desktop/src/renderer/src/whats-new-reads-like-claude-codes.test.tsx	says so when the build shipped without its changelog, and while it is being read	no
-apps/desktop/src/renderer/src/whats-new-reads-like-claude-codes.test.tsx	shows the big builds, and the way to every other one	no
+apps/desktop/src/renderer/src/whats-new-reads-like-claude-codes.test.tsx	says its date, wears its version as a badge, and groups its changes under their labels	yes
+apps/desktop/src/renderer/src/whats-new-reads-like-claude-codes.test.tsx	written before the groups, carries no label	yes
+apps/desktop/src/renderer/src/whats-new-reads-like-claude-codes.test.tsx	draws the newest builds first, and offers the older ones rather than drawing all of them at once	yes
+apps/desktop/src/renderer/src/whats-new-reads-like-claude-codes.test.tsx	says so when the build shipped without its changelog, and while it is being read	yes
+apps/desktop/src/renderer/src/whats-new-reads-like-claude-codes.test.tsx	shows the big builds, and the way to every other one	yes
 apps/desktop/src/renderer/src/with-nothing-installed-install-comes-first.test.tsx	puts the Install row before the team templates and the folder card	yes
 apps/desktop/src/renderer/src/with-nothing-installed-install-comes-first.test.tsx	still offers the teams and the folder, after it	yes
 apps/desktop/src/renderer/src/with-nothing-installed-install-comes-first.test.tsx	leads with the team templates again	yes

@@ -2577,6 +2577,10 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
             "They answer without changing files."
         } else if cmp.changes_in == Some(ChangesIn::Folder) {
             "This folder is too big to give each its own copy, so they all work in your folder itself."
+        } else if cmp.slots.iter().any(|slot| slot.route.mode.as_deref() == Some("auto")) {
+            // Said, not promised (CompareView 0.555): Auto runs with the whole disk, and a model told to can write
+            // outside its copy.
+            "Each changes its own copy of your project; only the one you keep comes into your folder. On Auto, a model can still change files outside its copy if it is asked to."
         } else {
             "Each changes its own copy of your project; only the one you keep comes into your folder."
         };
@@ -2834,7 +2838,17 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                 crate::look::controls::Tone::Active,
                 !keepable,
             )
-            .key(format!("compare-keep-{}", slot.slot.as_str()));
+            .key(format!("compare-keep-{}", slot.slot.as_str()))
+            // CompareView's Keep title: what keeping does to the folder, or why there is nothing to keep.
+            .help(if !keepable {
+                if running { "Still answering." } else { "Nothing to keep: its answer did not finish." }
+            } else if cmp.changes && cmp.changes_in == Some(ChangesIn::Folder) {
+                "Keep this one: the conversation carries on with it. They all worked in your folder, so its changes are there already, with the others’."
+            } else if cmp.changes {
+                "Keep this one. Its changes come into your folder, not committed; the others stop, and their copies are removed."
+            } else {
+                "Keep this one. The others stop, and the conversation carries on with it."
+            });
             if keepable {
                 keep_btn = keep_btn.on_press(move |s: &mut State| keep_column(s, slot_id));
             }
@@ -3179,22 +3193,23 @@ fn render_scorecard(
             text(point_label).font(l.ty.body).color(p.text).grow(1.0).wrap(),
         );
         for slot in slots {
-            let cell_text = match sc.verdicts.get(slot.slot.as_str()).and_then(|v| v.get(idx)).and_then(|v| v.as_ref()) {
-                None => "not scored".to_owned(),
+            // CompareView's cell: the verdict, then its why as words of their own (`lc-compare__verdict`, `__why`).
+            let (cell_text, why) = match sc.verdicts.get(slot.slot.as_str()).and_then(|v| v.get(idx)).and_then(|v| v.as_ref()) {
+                None => ("not scored".to_owned(), None),
                 Some(v) => {
                     let status = if v.met { "met" } else { "not met" };
                     let votes = match v.votes {
                         Some((m, of)) if of > 1 => format!(" ({m} of {of} judges said met)"),
                         _ => String::new(),
                     };
-                    if v.why.is_empty() {
-                        format!("{status}{votes}")
-                    } else {
-                        format!("{status}{votes} — {}", v.why)
-                    }
+                    (format!("{status}{votes}"), (!v.why.is_empty()).then(|| v.why.clone()))
                 }
             };
-            r = r.child(text(cell_text).font(l.ty.body).color(p.muted).grow(1.0).wrap());
+            let mut cell = col().grow(1.0).gap(2.0).child(text(cell_text).font(l.ty.body).color(p.muted).wrap());
+            if let Some(why) = why {
+                cell = cell.child(text(why).font(l.ty.label).color(p.muted).wrap());
+            }
+            r = r.child(cell);
         }
         table = table.child(r);
     }
@@ -4403,3 +4418,7 @@ mod column_layout_tests {
         assert_eq!(layout.offsets([0.0, 40.0, 600.0, 513.0]).0, 40.0 - COLUMN_PADDING);
     }
 }
+
+#[cfg(test)]
+#[path = "comparison_edits_tests.rs"]
+mod comparison_edits_tests;

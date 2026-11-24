@@ -39,8 +39,10 @@ fn is_gone_what_changed_lives_in_settings_and_a_big_build_gets_the_splash() {
     s.home.changelog = changelog::entries(&changelog::native_notes(None));
     s.home.changelog_shown = changelog::WHATS_NEW_PAGE;
     let page = texts(s);
-    let newest = changelog::version_heading(&changelog::entries(changelog::NATIVE_CHANGELOG)[0]);
-    assert!(page.contains(&newest), "{newest} not in: {page}");
+    // The newest build's date heads it and its version is beside it (WhatsNew.tsx `ReleaseNotes`).
+    let newest = &changelog::entries(changelog::NATIVE_CHANGELOG)[0];
+    let date = newest.date.as_deref().and_then(changelog::changelog_date).unwrap_or_else(|| format!("Version {}", newest.version));
+    assert!(page.contains(&date) && page.contains(&newest.version), "{date} and {} not in: {page}", newest.version);
 }
 
 /// LIVE2 #3 (23 Nov): the splash showed `**Home, Board and Since you were away**` with its asterisks. WhatsNew.tsx draws

@@ -984,6 +984,7 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
     let unreadable: Vec<_> = [
         (s.org.groups_unreadable, "groups"),
         (s.org.teammates_org_unreadable, "teammates"),
+        (s.org.routines_unreadable, "routines"),
     ]
     .into_iter()
     .filter_map(|(bad, name)| bad.then_some(name))
@@ -2102,3 +2103,11 @@ mod sidebar_flat_tests;
 #[path = "sidebar_rooms.rs"]
 mod sidebar_rooms;
 use sidebar_rooms::{ListEntry, room_row, with_rooms_folded};
+
+#[cfg(test)]
+#[path = "groups_unreadable_line_tests.rs"]
+mod groups_unreadable_line_tests;
+
+#[cfg(test)]
+#[path = "sidebar_order_tests.rs"]
+mod sidebar_order_tests;
