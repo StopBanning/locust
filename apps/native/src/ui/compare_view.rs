@@ -2702,7 +2702,12 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
         } else {
             "waiting"
         };
-        head = head.child(text(state_word).font(l.ty.label).color(p.muted));
+        // CompareView.tsx `{column.running && <WorkingSpark />}{column.state}`.
+        head = head.child(
+            row().gap(6.0).center_y()
+                .children(running.then(|| crate::working_spark::working_spark(&l, format!("compare-state-{letter}-spark"))))
+                .child(text(state_word).font(l.ty.label).color(p.muted)),
+        );
 
         let body_text = if let Some(refusal) = &slot.refused {
             refusal.clone()
@@ -2872,7 +2877,11 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
             .radius(8.0)
             .fill(p.raised)
             .border(1.0, p.hairline)
-            .child(text(judge_title).font(l.ty.label).color(p.muted));
+            .child(
+                row().gap(6.0).center_y()
+                    .children(any_running.then(|| crate::working_spark::working_spark(&l, "compare-judge-spark")))
+                    .child(text(judge_title).font(l.ty.label).color(p.muted)),
+            );
 
         if let Some(sc) = scorecard_opt {
             jbox = jbox.child(render_scorecard(&sc, &cmp.slots, &col_names, &col_spans, &col_costs, &judged_checks, veiled, p, &l));
@@ -3301,6 +3310,8 @@ fn render_benchmark_section(
         row()
             .gap(8.0)
             .center_y()
+            // CompareBenchmark.tsx: `<WorkingSpark />` before the step's words.
+            .child(crate::working_spark::working_spark(l, "benchmark-progress-spark"))
             .child(
                 text(step_words(pr, three_judges))
                     .font(l.ty.body)

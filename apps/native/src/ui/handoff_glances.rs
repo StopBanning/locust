@@ -150,9 +150,11 @@ mod tests {
         s.handoff_glances.read(&HashMap::from([message("msg_1", 1, "wren", "sable")]), 0.0);
         let mut rt = rune::Runtime::new(s, |s, _| crate::sidebar::sidebar(s, &Palette::new(true)), (280.0, 800.0), rune::Env::new(true, 1.0));
         rt.frame(0.0);
+        // The wide sidebar's roster is the faces strip, a row (Sidebar.tsx `stripGlances =
+        // glancesAmong(shownFaces, handoffs, 'row')`), so the two look along it.
         let aim = |id: &str| rt.state.bot_stage.pointer_target(&format!("roster-{id}"));
-        assert_eq!(aim("wren"), Some((0.0, 1.0, 1.0)), "wren looks down the column at sable");
-        assert_eq!(aim("sable"), Some((0.0, -1.0, 1.0)), "sable looks up at wren");
+        assert_eq!(aim("wren"), Some((1.0, 0.0, 1.0)), "wren looks along the row at sable");
+        assert_eq!(aim("sable"), Some((-1.0, 0.0, 1.0)), "sable looks back along the row at wren");
         assert_eq!(aim("atlas"), Some((0.0, 0.0, 0.0)), "atlas, between them, looks at nobody");
     }
 }

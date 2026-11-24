@@ -528,6 +528,8 @@ pub(super) struct State {
     /// A Stop pressed while the run was still starting, remembered against its key until the start names it.
     pub(super) stop_when_named: Option<String>,
     pub(super) elsewhere_cover: crate::elsewhere_cover::ElsewhereCover,
+    /// The sidebar list narrowed to one teammate's conversations, from that face's card (Sidebar.tsx `faceFilter`).
+    pub(super) sidebar_face_filter: Option<String>,
 }
 
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
@@ -798,6 +800,7 @@ impl Default for State {
             scout: crate::scout_cards::Panel::default(),
             stop_when_named: None,
             elsewhere_cover: crate::elsewhere_cover::ElsewhereCover::default(),
+            sidebar_face_filter: None,
         }
     }
 }

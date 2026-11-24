@@ -2954,6 +2954,29 @@ apps/desktop/src/main/the-effort-track-takes-the-pointer.test.ts	does not start 
 apps/desktop/src/main/the-effort-track-takes-the-pointer.test.ts	keeps the fill under a held thumb	yes
 apps/desktop/src/main/the-first-screen-line-is-centred.test.ts	is centred in the column, as the machine is, box and words both	yes
 apps/desktop/src/main/the-first-screen-line-is-centred.test.ts	under a machine that is centred in the same column	yes
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	lets only the title give, so nothing is pushed off the edge	yes
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	is one line, never two	yes
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	keeps the unowned row aligned with every other one	yes
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	gives every row's mark the owner's face footprint, whatever size the face is (0.561)	yes
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	lines the ages up	no
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	does not cap the title in JavaScript	yes
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	still takes the first line and drops the attachment preamble	yes
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	draws the faces only in the wide sidebar	yes
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	keeps the way to the full roster in a fixed place	yes
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	says when the list is filtered, in one sentence covering both filters	yes
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	carries the count, which is what separates filtered from empty	yes
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	clears both at once, since it offered one way out of two filters	yes
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	still gives the rail the layout it already had	yes
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	${name} has a button in the places list at the top	yes
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	Settings has a button in the footer	yes
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	the roster is reachable too, from the faces row rather than the footer	yes
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	gives the roster its full word back, which the narrow row could not hold	yes
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	keeps every footer cell sharing the width rather than claiming it	yes
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	caps the faces rather than letting the strip run past the column	yes
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	counts what it does not draw instead of hiding it	yes
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	never scrolls sideways	yes
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	shows the ones being worked with, not the ones made first	yes
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	leaves the rail listing everybody, which is a different shape	yes
 apps/desktop/src/main/the-folder-commits-as-you.test.ts	lists what a commit would take, never .locust/	yes
 apps/desktop/src/main/the-folder-commits-as-you.test.ts	commits everything as you, with your hooks, and says what it did	yes
 apps/desktop/src/main/the-folder-commits-as-you.test.ts	a hook that refuses leaves what you had staged exactly as it was	yes
@@ -3089,6 +3112,11 @@ apps/desktop/src/main/the-whole-window-can-be-liquid-glass.test.ts	the sheet and
 apps/desktop/src/main/the-whole-window-can-be-liquid-glass.test.ts	everything that floats over the page is frosted, so nothing under it reads through	no
 apps/desktop/src/main/the-whole-window-can-be-liquid-glass.test.ts	a floating panel that paints through a card inside it is frosted too	no
 apps/desktop/src/main/the-whole-window-can-be-liquid-glass.test.ts	the addon is built after the bundle on a Mac, unpacked from the archive, loaded from beside the main bundle	no
+apps/desktop/src/main/the-working-spark-is-claude-codes.test.ts	turns through Claude Code's glyphs and back, one every 120 ms	yes
+apps/desktop/src/main/the-working-spark-is-claude-codes.test.ts	asks for the text form of every dingbat, or Windows draws ✳ as an emoji	yes
+apps/desktop/src/main/the-working-spark-is-claude-codes.test.ts	is monochrome, from a symbol face named ahead of any emoji face	yes
+apps/desktop/src/main/the-working-spark-is-claude-codes.test.ts	keeps the finished dot's footprint, so a run starting never moves the row	yes
+apps/desktop/src/main/the-working-spark-is-claude-codes.test.ts	stands still for a person who asked for less motion	yes
 apps/desktop/src/main/three-judges-are-kept.test.ts	keeps the panel of the newest ask, and every panel run as the comparison's, across a restart	no
 apps/desktop/src/main/three-placements.test.ts	dropped the noun that labelled the line once and cost eight characters forever	yes
 apps/desktop/src/main/three-placements.test.ts	dropped the permission prose, which the composer already states where it can be changed	yes
@@ -4113,6 +4141,15 @@ apps/desktop/src/renderer/src/a-room-post-can-ask-one-teammate.test.ts	is every 
 apps/desktop/src/renderer/src/a-room-post-can-ask-one-teammate.test.ts	takes the @-word out, leaving one space and none at the start	no
 apps/desktop/src/renderer/src/a-room-post-can-ask-one-teammate.test.ts	happens by itself when a whole name is typed and then a space	no
 apps/desktop/src/renderer/src/a-room-post-can-ask-one-teammate.test.ts	reads as a person would write it	no
+apps/desktop/src/renderer/src/a-room-stays-in-the-sidebar.test.ts	is one row for its answers, where its newest answer was	yes
+apps/desktop/src/renderer/src/a-room-stays-in-the-sidebar.test.ts	finds a room answer that was replied to, by any turn of the conversation	yes
+apps/desktop/src/renderer/src/a-room-stays-in-the-sidebar.test.ts	keeps a room nobody has posted to yet, placed by when it was made	yes
+apps/desktop/src/renderer/src/a-room-stays-in-the-sidebar.test.ts	leaves every other conversation as it was	yes
+apps/desktop/src/renderer/src/a-room-stays-in-the-sidebar.test.ts	are newest first, like every other row	yes
+apps/desktop/src/renderer/src/a-room-stays-in-the-sidebar.test.ts	is its newest post when no answer has a time	yes
+apps/desktop/src/renderer/src/a-room-stays-in-the-sidebar.test.ts	is its newest answer when that came after the post	yes
+apps/desktop/src/renderer/src/a-room-stays-in-the-sidebar.test.ts	is its making only when nobody has posted to it	yes
+apps/desktop/src/renderer/src/a-room-stays-in-the-sidebar.test.ts	ignores a time that is not one	yes
 apps/desktop/src/renderer/src/a-routine-keeps-what-you-keep.test.tsx	offers the copy only to a routine that may change files	yes
 apps/desktop/src/renderer/src/a-routine-keeps-what-you-keep.test.tsx	in a copy, every sentence says nothing lands until you keep it	yes
 apps/desktop/src/renderer/src/a-routine-keeps-what-you-keep.test.tsx	in the folder, it says the change lands straight away	yes
