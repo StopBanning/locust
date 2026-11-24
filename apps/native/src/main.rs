@@ -900,6 +900,7 @@ fn setup(s: &mut State, waker: Waker) {
     s.people_panel.month_job.set_waker(waker.clone());
     s.rooms.load_job.set_waker(waker.clone());
     scout_cards::setup_wakers(s, &waker);
+    phone_section::setup(s, waker.clone());
     s.rooms.action_job.set_waker(waker);
     if !HEADLESS.load(std::sync::atomic::Ordering::Relaxed) && !s.demo && s.session_places.is_none() {
         s.session_places = locust_core::session_import::SessionPlaces::from_env();
@@ -2170,6 +2171,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     changed |= link_open::poll(s);
     changed |= remote_control_card::poll(s);
     changed |= remote_mcp_card::poll(s);
+    changed |= phone_section::poll(s);
     changed |= agent_accounts_card::poll(s);
     changed |= usage_line::poll(s);
     changed |= agent_card_ui::poll(s);
@@ -2655,6 +2657,7 @@ fn on_quit(s: &mut State, _: &mut Tx) {
     // Claude Code's Remote Control server ends with Locust, waited for.
     remote_control_card::dispose();
     remote_mcp_card::dispose();
+    phone_section::dispose(s);
     // A test's window quitting must not stop the turns of the other tests running beside it in this process (a
     // window test's on_quit stopped another's queued run seconds after it started); each test stops its own.
     if cfg!(test) {
@@ -2693,6 +2696,7 @@ fn on_close(s: &mut State, _: &mut Tx) {
     // Electron terminal-host dispose: end every tab and bang command before the window is gone.
     // Drop ends the PTY/own-command trees; do not wait on the UI thread.
     terminal_panel::dispose(s);
+    phone_section::dispose(s);
     home_panel::save_attention(s);
     save_window_bounds();
     #[cfg(target_os = "macos")]

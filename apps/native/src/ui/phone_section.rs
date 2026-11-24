@@ -7,9 +7,13 @@
 //! theme.
 
 use super::*;
-use locust_core::phone_anywhere::{PairedDeviceView, PhoneAnywhereSettings};
+use locust_core::phone_anywhere::{
+    DEFAULT_RELAY, PHONE_ANYWHERE_FILE, PairedDeviceView, PhoneAnywhere, PhoneAnywhereOptions,
+    PhoneAnywhereSettings, RelayConnector,
+};
+use locust_core::phone_calls::{EnginePhoneCalls, NativePhoneEngine};
 use locust_core::phone_host::{PhoneHost, PhoneSettings};
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock};
 
 pub(crate) const HEADING: &str = "Your phone";
 const SWITCH_LABEL: &str = "Use Locust from your phone";
@@ -49,11 +53,262 @@ enum PhoneMode {
     Wifi,
 }
 
-#[cfg(not(test))]
+#[derive(Default)]
+pub(crate) struct PhoneAnywhereLink {
+    live: Option<PhoneAnywhere>,
+    rx: Option<std::sync::mpsc::Receiver<PhoneAnywhereSettings>>,
+    waker: Option<Waker>,
+    started: bool,
+    connector: Option<RelayConnector>,
+    relay_url: Option<String>,
+    github_user: Option<Arc<dyn Fn(&str) -> Option<u64> + Send + Sync>>,
+    computer_name: Option<String>,
+}
+
+impl PhoneAnywhereLink {
+    pub(crate) fn is_live(&self) -> bool {
+        self.live.is_some()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn set_test_relay(
+        &mut self,
+        connector: RelayConnector,
+        relay_url: impl Into<String>,
+        github_user: Option<Arc<dyn Fn(&str) -> Option<u64> + Send + Sync>>,
+    ) {
+        self.connector = Some(connector);
+        self.relay_url = Some(relay_url.into());
+        self.github_user = github_user;
+    }
+}
+
+impl Drop for PhoneAnywhereLink {
+    fn drop(&mut self) {
+        if let Some(pa) = self.live.take() {
+            pa.dispose();
+        }
+        self.rx = None;
+    }
+}
+
 fn now_ms() -> i64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |d| d.as_millis() as i64)
+}
+
+fn disabled_anywhere() -> PhoneAnywhereSettings {
+    PhoneAnywhereSettings {
+        enabled: false,
+        connected: false,
+        code: None,
+        devices: Vec::new(),
+        github_login: None,
+        message: None,
+        night_approvals: false,
+    }
+}
+
+fn has_saved_anywhere(dir: &std::path::Path) -> bool {
+    let Ok(text) = std::fs::read_to_string(dir.join(PHONE_ANYWHERE_FILE)) else {
+        return false;
+    };
+    let Ok(val) = serde_json::from_str::<serde_json::Value>(&text) else {
+        return false;
+    };
+    val.get("v").and_then(serde_json::Value::as_u64) == Some(1)
+        && val.get("closing").and_then(serde_json::Value::as_bool) != Some(true)
+        && val.get("room").and_then(serde_json::Value::as_str).is_some()
+}
+
+fn relay_url_from_env() -> String {
+    if let Ok(named) = std::env::var("LOCUST_RELAY") {
+        let trimmed = named.trim();
+        if (trimmed.starts_with("https://") || trimmed.starts_with("http://"))
+            && !trimmed.chars().any(char::is_whitespace)
+            && !trimmed[trimmed.find("://").map_or(0, |i| i + 3)..].contains('/')
+        {
+            return trimmed.to_owned();
+        }
+    }
+    DEFAULT_RELAY.to_owned()
+}
+
+fn make_anywhere(s: &mut State) -> Option<PhoneAnywhere> {
+    let store = s.data.clone().or_else(locust_core::native::store)?;
+    let dir = store.root().to_path_buf();
+    let now: Arc<dyn Fn() -> i64 + Send + Sync> = Arc::new(now_ms);
+    let engine = Arc::new(NativePhoneEngine::new(store));
+    let calls = Arc::new(EnginePhoneCalls::new(engine, now.clone()));
+    let (tx, rx) = std::sync::mpsc::channel::<PhoneAnywhereSettings>();
+    let waker = s.phone_anywhere_link.waker.clone();
+    s.phone_anywhere_link.rx = Some(rx);
+    let relay_override = s.phone_anywhere_link.relay_url.clone();
+    let connect = s.phone_anywhere_link.connector.clone().unwrap_or_else(|| {
+        Arc::new(|_url: &str| Err("Relay WebSocket transport is not available yet.".to_owned()))
+    });
+    let github_user = s.phone_anywhere_link.github_user.clone();
+    let computer_override = s.phone_anywhere_link.computer_name.clone();
+    Some(PhoneAnywhere::new(PhoneAnywhereOptions {
+        directory: dir,
+        calls,
+        relay: Arc::new(move || relay_override.clone().unwrap_or_else(relay_url_from_env)),
+        refusal: Some(Arc::new(|| {
+            locust_core::org_policy::feature_refusal(Some(&locust_core::org_policy::current()), "phone")
+        })),
+        changed: Some(Arc::new(move |next| {
+            let _ = tx.send(next);
+            if let Some(w) = &waker {
+                w();
+            }
+        })),
+        connect,
+        now: Some(now),
+        protect_file: None,
+        retry_ms: None,
+        away: None,
+        hooks: None,
+        desk: None,
+        notes: None,
+        github_user,
+        computer_name: Some(Arc::new(move || {
+            computer_override.clone().or_else(|| {
+                std::env::var("COMPUTERNAME")
+                    .or_else(|_| std::env::var("HOSTNAME"))
+                    .ok()
+            })
+        })),
+    }))
+}
+
+fn start_saved(s: &mut State) {
+    if s.phone_anywhere_link.started || s.demo {
+        return;
+    }
+    let Some(dir) = s.data.as_ref().map(|st| st.root().to_path_buf()) else {
+        return;
+    };
+    s.phone_anywhere_link.started = true;
+    if has_saved_anywhere(&dir) {
+        if let Some(pa) = make_anywhere(s) {
+            let next = pa.load();
+            if next.enabled {
+                s.phone_anywhere = Some(next);
+                s.phone_anywhere_link.live = Some(pa);
+            } else {
+                pa.dispose();
+                s.phone_anywhere_link.rx = None;
+                s.phone_anywhere = Some(next);
+            }
+        }
+    } else if s.phone_anywhere.is_none() {
+        s.phone_anywhere = Some(disabled_anywhere());
+    }
+}
+
+/// Registers the window waker and restores a saved "From anywhere" link if it was left on.
+pub(crate) fn setup(s: &mut State, waker: Waker) {
+    s.phone_anywhere_link.waker = Some(waker);
+    start_saved(s);
+}
+
+/// Drains settings pushed by the live `PhoneAnywhere` into `s.phone_anywhere`.
+pub(crate) fn poll(s: &mut State) -> bool {
+    let before = s.phone_anywhere.clone();
+    if !s.phone_anywhere_link.started {
+        start_saved(s);
+    }
+    let mut latest = None;
+    if let Some(rx) = &s.phone_anywhere_link.rx {
+        while let Ok(next) = rx.try_recv() {
+            latest = Some(next);
+        }
+    }
+    if let Some(next) = latest {
+        s.phone_anywhere = Some(next);
+    }
+    s.phone_anywhere != before
+}
+
+/// Drops the live `PhoneAnywhere` cleanly when the window closes or quits.
+pub(crate) fn dispose(s: &mut State) {
+    if let Some(pa) = s.phone_anywhere_link.live.take() {
+        pa.dispose();
+    }
+    s.phone_anywhere_link.rx = None;
+}
+
+fn enable_anywhere(s: &mut State) {
+    if s.phone_anywhere_link.live.is_none() {
+        let Some(pa) = make_anywhere(s) else {
+            return;
+        };
+        s.phone_anywhere_link.live = Some(pa);
+    }
+    if let Some(pa) = s.phone_anywhere_link.live.as_ref() {
+        let next = pa.set_enabled(true);
+        if next.enabled {
+            s.phone_anywhere = Some(next);
+        } else {
+            if let Some(pa) = s.phone_anywhere_link.live.take() {
+                pa.dispose();
+            }
+            s.phone_anywhere_link.rx = None;
+            s.phone_anywhere = Some(next);
+        }
+    }
+}
+
+fn disable_anywhere(s: &mut State) {
+    if let Some(pa) = s.phone_anywhere_link.live.take() {
+        let mut next = pa.set_enabled(false);
+        pa.dispose();
+        s.phone_anywhere_link.rx = None;
+        next.connected = false;
+        s.phone_anywhere = Some(next);
+    } else if s.phone_anywhere.is_some() {
+        s.phone_anywhere = Some(disabled_anywhere());
+    }
+}
+
+fn current_mode(s: &State) -> PhoneMode {
+    if s.phone_anywhere.as_ref().is_some_and(|a| a.enabled) {
+        PhoneMode::Anywhere
+    } else if s.settings_panel.phone.as_ref().is_some_and(|p| p.enabled) {
+        PhoneMode::Wifi
+    } else {
+        PhoneMode::Off
+    }
+}
+
+fn set_mode(s: &mut State, mode: PhoneMode) {
+    match mode {
+        PhoneMode::Anywhere => {
+            if let Some(host) = HOST.get() {
+                s.settings_panel.phone = Some(host.set_enabled(false));
+            } else if let Some(wifi) = s.settings_panel.phone.as_mut() {
+                wifi.enabled = false;
+                wifi.url = None;
+            }
+            enable_anywhere(s);
+        }
+        PhoneMode::Wifi => {
+            disable_anywhere(s);
+            if let Some(host) = HOST.get() {
+                s.settings_panel.phone = Some(host.set_enabled(true));
+            }
+        }
+        PhoneMode::Off => {
+            disable_anywhere(s);
+            if let Some(host) = HOST.get() {
+                s.settings_panel.phone = Some(host.set_enabled(false));
+            } else if let Some(wifi) = s.settings_panel.phone.as_mut() {
+                wifi.enabled = false;
+                wifi.url = None;
+            }
+        }
+    }
 }
 
 /// Opens the phone host once, on the native engine, as the person left it: listening again if it was on.
@@ -102,12 +357,21 @@ pub(crate) fn read(s: &mut State) {
     if let Some(host) = HOST.get() {
         s.settings_panel.phone = Some(host.settings());
     }
+    if let Some(pa) = s.phone_anywhere_link.live.as_ref() {
+        s.phone_anywhere = Some(pa.settings());
+    } else if s.phone_anywhere.is_none() && s.data.is_some() {
+        s.phone_anywhere = Some(disabled_anywhere());
+    }
 }
 
 fn toggle(s: &mut State) {
-    let on = s.settings_panel.phone.as_ref().is_some_and(|phone| phone.enabled);
-    if let Some(host) = HOST.get() {
-        s.settings_panel.phone = Some(host.set_enabled(!on));
+    let mode = current_mode(s);
+    if mode != PhoneMode::Off {
+        set_mode(s, PhoneMode::Off);
+    } else if s.phone_picked_wifi {
+        set_mode(s, PhoneMode::Wifi);
+    } else {
+        set_mode(s, PhoneMode::Anywhere);
     }
 }
 
@@ -119,6 +383,13 @@ fn new_code(s: &mut State) {
 
 fn pick_way(s: &mut State, wifi: bool) {
     s.phone_picked_wifi = wifi;
+    let mode = current_mode(s);
+    if mode != PhoneMode::Off {
+        let next = if wifi { PhoneMode::Wifi } else { PhoneMode::Anywhere };
+        if mode != next {
+            set_mode(s, next);
+        }
+    }
 }
 
 /// The words under the heading, as PhoneSettings.tsx says them for Only on this Wi-Fi.
@@ -889,5 +1160,211 @@ mod tests {
         );
         assert!(text.contains("Sign out of GitHub"), "{text}");
         assert!(text.contains("Open now \u{b7} signed in with GitHub"), "{text}");
+    }
+
+    struct FakeRelayLine {
+        callbacks: std::sync::Mutex<Option<Arc<dyn locust_core::phone_anywhere::RelaySocketCallbacks>>>,
+        frames: Arc<std::sync::Mutex<Vec<serde_json::Value>>>,
+        closed: Arc<std::sync::atomic::AtomicBool>,
+        github_off: bool,
+    }
+
+    impl locust_core::phone_anywhere::RelaySocket for FakeRelayLine {
+        fn send(&self, text: String) -> Result<(), String> {
+            let val: serde_json::Value = serde_json::from_str(&text).unwrap_or(serde_json::Value::Null);
+            self.frames.lock().unwrap().push(val.clone());
+            let kind = val.get("t").and_then(serde_json::Value::as_str).unwrap_or("");
+            let id = val.get("id").and_then(serde_json::Value::as_str).map(str::to_owned);
+            let reply = match kind {
+                "auth" => Some(serde_json::json!({ "t": "ok", "as": "pc", "devices": [] })),
+                "pair-open" | "reset" | "github-close" | "remove" => {
+                    id.map(|id| serde_json::json!({ "t": "done", "id": id }))
+                }
+                "github-open" => id.map(|id| {
+                    if self.github_off {
+                        serde_json::json!({ "t": "err", "id": id, "code": "github-off" })
+                    } else {
+                        serde_json::json!({ "t": "done", "id": id })
+                    }
+                }),
+                _ => None,
+            };
+            if let Some(reply) = reply
+                && let Some(cb) = self.callbacks.lock().unwrap().clone()
+            {
+                std::thread::spawn(move || {
+                    cb.on_message(reply.to_string());
+                });
+            }
+            Ok(())
+        }
+
+        fn close(&self) {
+            self.closed.store(true, std::sync::atomic::Ordering::SeqCst);
+        }
+
+        fn set_callbacks(&self, callbacks: Arc<dyn locust_core::phone_anywhere::RelaySocketCallbacks>) {
+            *self.callbacks.lock().unwrap() = Some(callbacks.clone());
+            std::thread::spawn(move || {
+                callbacks.on_open();
+            });
+        }
+    }
+
+    struct FakeRelay {
+        frames: Arc<std::sync::Mutex<Vec<serde_json::Value>>>,
+        connects: Arc<std::sync::atomic::AtomicUsize>,
+        closed: Arc<std::sync::atomic::AtomicBool>,
+        github_off: bool,
+    }
+
+    impl FakeRelay {
+        fn new() -> Self {
+            Self {
+                frames: Arc::new(std::sync::Mutex::new(Vec::new())),
+                connects: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+                closed: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+                github_off: false,
+            }
+        }
+
+        fn connector(&self) -> RelayConnector {
+            let frames = Arc::clone(&self.frames);
+            let connects = Arc::clone(&self.connects);
+            let closed = Arc::clone(&self.closed);
+            let github_off = self.github_off;
+            Arc::new(move |_url: &str| {
+                connects.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                Ok(Arc::new(FakeRelayLine {
+                    callbacks: std::sync::Mutex::new(None),
+                    frames: Arc::clone(&frames),
+                    closed: Arc::clone(&closed),
+                    github_off,
+                }) as Arc<dyn locust_core::phone_anywhere::RelaySocket>)
+            })
+        }
+    }
+
+    struct TempRoot(std::path::PathBuf);
+    impl Drop for TempRoot {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    fn temp_store(tag: &str) -> (TempRoot, locust_core::store::Store) {
+        static SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let root = std::env::temp_dir().join(format!(
+            "locust-phone3-{tag}-{}-{}",
+            std::process::id(),
+            SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+        ));
+        std::fs::create_dir_all(root.join("native")).unwrap();
+        std::fs::create_dir_all(root.join("electron")).unwrap();
+        let store = locust_core::store::Store::new(root.join("native"), root.join("electron")).unwrap();
+        (TempRoot(root), store)
+    }
+
+    fn headless_phone_window(
+        store: locust_core::store::Store,
+        relay: &FakeRelay,
+    ) -> rune::Runtime<State> {
+        let mut s = State::default();
+        s.engine = Some(Kind::Native);
+        s.data = Some(store);
+        s.settings_panel.open = true;
+        s.settings_panel.page = Some(crate::settings_pages::SettingsPageId::App);
+        s.phone_anywhere_link.set_test_relay(relay.connector(), "https://relay.test", None);
+        let mut rt = rune::Runtime::new(
+            s,
+            |s, _| section(s, &Palette::new(true)),
+            (1200.0, 1400.0),
+            rune::Env::new(true, 1.0),
+        );
+        rt.update(|s, tx| {
+            crate::poll(s, 0.0, tx);
+        });
+        rt.frame(0.0);
+        rt
+    }
+
+    fn click_key(rt: &mut rune::Runtime<State>, key: &str) {
+        rt.frame(0.05);
+        let (x, y) = rt.find(key).unwrap_or_else(|| panic!("no element {key} on screen"));
+        rt.pointer_down(x, y);
+        rt.pointer_up(x, y);
+        rt.frame(0.05);
+    }
+
+    fn pump_until(rt: &mut rune::Runtime<State>, what: &str, mut done: impl FnMut(&State) -> bool) {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        while !done(&rt.state) {
+            assert!(std::time::Instant::now() < deadline, "timed out waiting for {what}");
+            rt.update(|s, tx| {
+                crate::poll(s, 0.0, tx);
+            });
+            rt.frame(0.05);
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+    }
+
+    #[test]
+    fn switching_from_anywhere_on_creates_live_phone_anywhere_and_off_drops_it() {
+        let (_root, store) = temp_store("toggle");
+        let relay = FakeRelay::new();
+        let mut rt = headless_phone_window(store, &relay);
+
+        // Starts off: no live PhoneAnywhere, settings report disabled.
+        assert!(!rt.state.phone_anywhere_link.is_live());
+        assert_eq!(rt.state.phone_anywhere.as_ref().map(|a| a.enabled), Some(false));
+        assert_eq!(relay.connects.load(std::sync::atomic::Ordering::SeqCst), 0);
+
+        // Switch ON in the headless window: creates live PhoneAnywhere and pushes connected settings into State.
+        click_key(&mut rt, "phone-switch");
+        assert!(rt.state.phone_anywhere_link.is_live(), "PhoneAnywhere should be live after switching on");
+        pump_until(&mut rt, "connected settings in State", |s| {
+            s.phone_anywhere.as_ref().is_some_and(|a| a.enabled && a.connected)
+        });
+        assert!(rt.state.phone_anywhere.as_ref().and_then(|a| a.code.as_ref()).is_some());
+        let text = all_text(&rt.elements());
+        assert!(text.contains("On, from anywhere."), "{text}");
+        assert!(text.contains("Connected to Locust\u{2019}s relay."), "{text}");
+
+        // Switch OFF in the headless window: drops PhoneAnywhere and updates State to off.
+        click_key(&mut rt, "phone-switch");
+        assert!(!rt.state.phone_anywhere_link.is_live(), "PhoneAnywhere should be dropped after switching off");
+        assert_eq!(rt.state.phone_anywhere.as_ref().map(|a| a.enabled), Some(false));
+        assert!(relay.closed.load(std::sync::atomic::Ordering::SeqCst));
+        let text_off = all_text(&rt.elements());
+        assert!(text_off.contains("Off. Turn it on to check on your teammates from your phone"), "{text_off}");
+    }
+
+    #[test]
+    fn window_restores_saved_from_anywhere_at_start_and_disposes_on_close() {
+        let (_root, store) = temp_store("start");
+        let relay1 = FakeRelay::new();
+        let mut rt1 = headless_phone_window(store.clone(), &relay1);
+        click_key(&mut rt1, "phone-switch");
+        pump_until(&mut rt1, "first window connected", |s| {
+            s.phone_anywhere.as_ref().is_some_and(|a| a.enabled && a.connected)
+        });
+        // Close window (keeping phone-relay.json on disk, as quitting does).
+        rt1.update(|s, tx| crate::on_close(s, tx));
+        assert!(!rt1.state.phone_anywhere_link.is_live());
+        assert!(store.root().join(PHONE_ANYWHERE_FILE).exists());
+
+        // New headless window starts with saved phone-relay.json: creates PhoneAnywhere at start and connects.
+        let relay2 = FakeRelay::new();
+        let mut rt2 = headless_phone_window(store, &relay2);
+        assert!(rt2.state.phone_anywhere_link.is_live(), "saved From anywhere should be live at start");
+        pump_until(&mut rt2, "restored window connected", |s| {
+            s.phone_anywhere.as_ref().is_some_and(|a| a.enabled && a.connected)
+        });
+        assert_eq!(relay2.connects.load(std::sync::atomic::Ordering::SeqCst), 1);
+
+        // Switching to Only on this Wi-Fi while on drops PhoneAnywhere.
+        click_key(&mut rt2, "phone-way-wifi");
+        assert!(!rt2.state.phone_anywhere_link.is_live(), "switching to Wi-Fi should drop PhoneAnywhere");
+        assert_eq!(rt2.state.phone_anywhere.as_ref().map(|a| a.enabled), Some(false));
     }
 }
