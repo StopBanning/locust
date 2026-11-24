@@ -203,7 +203,8 @@ impl Stop {
     pub fn is_stopped(&self) -> bool {
         self.0.load(Ordering::SeqCst) != RUNNING
     }
-    fn timed_out(&self) -> bool {
+    /// Stopped by its own time running out, not by a starting turn.
+    pub fn timed_out(&self) -> bool {
         self.0.load(Ordering::SeqCst) == TIMED_OUT
     }
 }

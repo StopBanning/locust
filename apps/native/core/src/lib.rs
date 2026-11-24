@@ -584,3 +584,5 @@ mod runtime_order_tests;
 mod live2_claude_account_tests;
 #[cfg(test)]
 mod claude_context_kept_tests;
+#[cfg(test)]
+mod claude_context_read_tests;

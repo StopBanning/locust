@@ -21,7 +21,9 @@ pub(super) struct Commands {
     pub breakdown: Option<locust_core::claude_context::ClaudeContextBreakdown>,
     /// The conversation the breakdown is read for, while the menu is open on a finished Claude turn.
     pub breakdown_for: Option<String>,
-    pub breakdown_job: Latest<(String, Option<locust_core::claude_context::ClaudeContextBreakdown>)>,
+    /// The read for `breakdown_for`. The one guard against a stale answer: every change of `breakdown_for` asks again
+    /// or cancels, and `Latest` drops whatever an older ask answers, landed or not.
+    pub breakdown_job: Latest<Option<locust_core::claude_context::ClaudeContextBreakdown>>,
 }
 
 /// Read the lists at start and after every turn ends.
@@ -57,16 +59,11 @@ fn read_breakdown(s: &mut State, running: bool) -> bool {
         changed = s.runtime_commands.breakdown.take().is_some();
         s.runtime_commands.breakdown_for = wanted.clone();
         match wanted {
-            Some(id) => s.runtime_commands.breakdown_job.request(id, |id| {
-                let read = locust_core::native::read_claude_context(&id);
-                (id, read)
-            }),
+            Some(id) => s.runtime_commands.breakdown_job.request(id, |id| locust_core::native::read_claude_context(&id)),
             None => s.runtime_commands.breakdown_job.cancel(),
         }
     }
-    if let Some((id, read)) = s.runtime_commands.breakdown_job.take()
-        && s.runtime_commands.breakdown_for.as_ref() == Some(&id)
-    {
+    if let Some(read) = s.runtime_commands.breakdown_job.take() {
         s.runtime_commands.breakdown = read;
         changed = true;
     }

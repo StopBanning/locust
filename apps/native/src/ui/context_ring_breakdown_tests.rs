@@ -185,3 +185,95 @@ fn is_unchanged_without_one() {
     assert!(!html.contains("Estimated by Claude Code"), "{html}");
     assert!(html.contains("Compact now"), "{html}");
 }
+
+/// Another conversation in the same store: one finished turn on `runtime`, session `sess-2`.
+fn add_finished_turn(store: &locust_core::store::Store, id: &str, runtime: &str) {
+    let lines = [
+        json!({"schemaVersion": 27, "recordType": "mission.created", "metadata": {"missionId": id, "prompt": "Synthetic prompt", "runtime": runtime, "model": "sample", "createdAt": "2026-01-01T00:00:00Z"}}),
+        json!({"schemaVersion": 27, "recordType": "mission.event", "event": {"sequence": 1, "occurredAt": "2026-01-01T00:00:01Z", "type": "run.started", "payload": {"runtimeThreadId": "sess-2"}}}),
+        json!({"schemaVersion": 27, "recordType": "mission.event", "event": {"sequence": 2, "occurredAt": "2026-01-01T00:00:02Z", "type": "run.completed", "payload": {"runtimeThreadId": "sess-2"}}}),
+    ];
+    std::fs::write(store.ledger_dir().unwrap().join(format!("{id}.jsonl")), lines.iter().map(|l| format!("{l}\n")).collect::<String>()).unwrap();
+}
+
+#[test]
+fn the_ring_on_a_running_claude_conversation_reads_nothing_until_the_turn_ends() {
+    let (_dirs, store) = store_with_a_finished_turn("claude");
+    let _hook = native::hooks::install(store, None);
+    let asked = stand_in(Ok(FIXTURE));
+    let mut rt = ring_on("claude");
+    rt.update(|s, _| s.ledger.as_mut().unwrap().snapshot.running = true);
+    open_menu(&mut rt);
+    rt.update(|s, _| {
+        crate::runtime_commands_ui::poll(s);
+    });
+    assert!(rt.state.runtime_commands.ring_open, "the menu is open while the turn runs");
+    assert_eq!(rt.state.runtime_commands.breakdown_for, None, "no read is asked for while a turn runs");
+    assert!(!rt.state.runtime_commands.breakdown_job.is_pending());
+    assert!(asked.lock().unwrap().is_empty());
+    assert!(!menu_words(&rt).contains("Estimated by Claude Code"));
+
+    // The turn ends with the menu still open: now it is read.
+    rt.update(|s, _| s.ledger.as_mut().unwrap().snapshot.running = false);
+    rt.update(|s, _| {
+        crate::runtime_commands_ui::poll(s);
+    });
+    assert_eq!(rt.state.runtime_commands.breakdown_for.as_deref(), Some("m1"));
+    read_lands(&mut rt);
+    assert_eq!(asked.lock().unwrap().len(), 1);
+    assert!(menu_words(&rt).contains("Estimated by Claude Code"), "{}", menu_words(&rt));
+}
+
+#[test]
+fn a_read_answered_after_the_person_moved_to_another_conversation_never_shows_there() {
+    let (_dirs, store) = store_with_a_finished_turn("claude");
+    add_finished_turn(&store, "m2", "codex");
+    let _hook = native::hooks::install(store, None);
+    // The stand-in tells when the read of the first conversation runs, and holds its answer until released.
+    let (started_tx, started) = std::sync::mpsc::channel::<()>();
+    let (release, released) = std::sync::mpsc::channel::<()>();
+    let (started_tx, released) = (Mutex::new(started_tx), Mutex::new(released));
+    *locust_core::invariants::lock(&native::hooks::CLAUDE_CONTEXT_RUN) =
+        Some(Arc::new(move |_: &locust_core::claude_context::ContextCommand, _: &locust_core::claude_context::Stop| {
+            let _ = started_tx.lock().unwrap().send(());
+            let _ = released.lock().unwrap().recv_timeout(Duration::from_secs(60));
+            Ok(FIXTURE.to_owned())
+        }));
+    let mut rt = ring_on("claude");
+    open_menu(&mut rt);
+    rt.update(|s, _| {
+        crate::runtime_commands_ui::poll(s);
+    });
+    started.recv_timeout(Duration::from_secs(30)).expect("the read of the Claude conversation runs");
+
+    // The person moves to a Codex conversation, the menu still open, before that read answers.
+    rt.update(|s, _| {
+        let pane = s.ledger.as_mut().unwrap();
+        pane.header.runtime = Some("codex".into());
+        pane.conversation.conversation_id = Some("m2".into());
+        let compact = locust_core::runtime_commands::CommandInfo { name: "compact".into(), description: String::new(), argument_hint: String::new() };
+        s.runtime_commands.by_runtime.insert("codex".into(), vec![compact]);
+        crate::runtime_commands_ui::poll(s);
+    });
+    settle(&mut rt);
+    release.send(()).unwrap();
+    // Until the first conversation's read is no longer waited on (at once once it is dropped; when it lands if not).
+    let until = Instant::now() + Duration::from_secs(30);
+    while rt.state.runtime_commands.breakdown_job.is_pending() {
+        assert!(Instant::now() < until, "the read never settled");
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    // The engine's read is done too (a second read waits on the first, then answers from it).
+    assert!(native::read_claude_context("m1").is_some(), "the first conversation's read did answer");
+    rt.update(|s, _| {
+        crate::runtime_commands_ui::poll(s);
+    });
+    settle(&mut rt);
+
+    assert!(rt.state.runtime_commands.ring_open, "the menu is still open on the Codex conversation");
+    assert!(rt.state.runtime_commands.breakdown.is_none(), "the Claude conversation's estimate never lands on the Codex one");
+    let html = menu_words(&rt);
+    assert!(html.contains("Compact now"), "{html}");
+    assert!(!html.contains("Estimated by Claude Code"), "{html}");
+    assert!(rt.find("context-breakdown").is_none());
+}
