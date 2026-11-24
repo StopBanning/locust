@@ -449,6 +449,9 @@ pub fn save_teammate_id(store: &Store, mut entry: Value) -> Result<String, Strin
             entry["starters"] = json!(cleaned);
         }
     }
+    // Whether the edit names a voice at all, a null (clear it) included: decided before the null is taken out below,
+    // so neither carry puts the old voice back over a clear (24 Nov: two merged carries undid a null).
+    let voice_given = entry.get("voice").is_some();
     if let Some(voice) = entry.get("voice").cloned() {
         if voice.is_null() {
             if let Some(obj) = entry.as_object_mut() {
@@ -464,7 +467,6 @@ pub fn save_teammate_id(store: &Store, mut entry: Value) -> Result<String, Strin
             }
         }
     }
-    let voice_given = entry.get("voice").is_some();
     if let Some(voice) = entry.get("voice")
         && !voice.as_str().is_some_and(crate::voice_call_rules::is_voice)
     {
@@ -608,6 +610,9 @@ pub fn save_teammate_id(store: &Store, mut entry: Value) -> Result<String, Strin
             .find(|r| r["teammateId"] == entry["teammateId"])
             .ok_or("Unknown teammate")?;
         for carry in ["starters", "connectors", "ownBrowser", "route", "voice"] {
+            if carry == "voice" && voice_given {
+                continue;
+            }
             if entry.get(carry).is_none()
                 && let Some(prev_val) = held.get(carry).cloned()
             {
