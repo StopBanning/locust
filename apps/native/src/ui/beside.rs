@@ -14,7 +14,40 @@ pub fn beside_aria_label(title: &str) -> String {
     format!("Beside: {title}")
 }
 
+/// Whether the conversation beside is drawn (App.tsx `besideRun`): the file panel holds one thing, and an open file wins
+/// it; and the conversation already in the middle is never drawn a second time, whichever of its turns is open there.
+pub(super) fn beside_shown(s: &State) -> bool {
+    let Some(beside) = s.beside.as_ref() else { return false };
+    if s.file_view.is_some() {
+        return false;
+    }
+    let middle = selected_conversation(s)
+        .and_then(|(_, c)| c.conversation_id.clone())
+        .or_else(|| s.ledger.as_ref().map(|p| p.snapshot.tip.clone()));
+    let Some(middle) = middle else { return true };
+    let members: Vec<String> = sidebar::recent_as_missions(s)
+        .into_iter()
+        .find(|m| m.mission_id == beside.mission_id || m.member_ids.contains(&beside.mission_id))
+        .map(|m| m.member_ids)
+        .unwrap_or_default();
+    middle != beside.mission_id && !members.contains(&middle)
+}
+
+/// What the conversation beside draws of a turn's items: what was asked and what has come back so far.
+pub(super) fn beside_lines(items: &[ledger::Item]) -> Vec<String> {
+    items
+        .iter()
+        .filter_map(|item| match item {
+            ledger::Item::User(text) | ledger::Item::Assistant { text, .. } => Some(text.clone()),
+            _ => None,
+        })
+        .collect()
+}
+
 pub(super) fn beside_panel(s: &State, p: &Palette) -> Option<El> {
+    if !beside_shown(s) {
+        return None;
+    }
     let beside = s.beside.as_ref()?;
     let name = beside
         .owner_name
@@ -53,6 +86,7 @@ pub(super) fn beside_panel(s: &State, p: &Palette) -> Option<El> {
     Some(
         col()
             .key("beside-panel")
+            .label(aria.clone())
             .w(320.0)
             .h_full()
             .fill(p.sidebar)
@@ -80,6 +114,8 @@ pub(super) fn beside_panel(s: &State, p: &Palette) -> Option<El> {
                     .child(
                         text(BESIDE_OPEN_HERE)
                             .key("beside-open-here")
+                            .role("button")
+                            .label(BESIDE_OPEN_HERE)
                             .font(type_::LABEL)
                             .color(p.secondary)
                             .on_press_tx(|s: &mut State, tx| {
@@ -89,6 +125,8 @@ pub(super) fn beside_panel(s: &State, p: &Palette) -> Option<El> {
                     .child(
                         text(BESIDE_CLOSE)
                             .key("beside-close")
+                            .role("button")
+                            .label(BESIDE_CLOSE)
                             .font(type_::LABEL)
                             .color(p.muted)
                             .on_press(|s: &mut State| {
@@ -161,3 +199,7 @@ mod tests {
         assert!(beside_allowed(None, "mission_sable"));
     }
 }
+
+#[cfg(test)]
+#[path = "beside_drawn_tests.rs"]
+mod beside_drawn_tests;

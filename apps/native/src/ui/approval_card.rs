@@ -88,6 +88,48 @@ fn runtime_display_name(runtime: &str) -> &'static str {
     }
 }
 
+/// U+2060 WORD JOINER: drawn between a flag's dashes and its first letter, never copied.
+pub(super) const FLAG_HOLD: char = '\u{2060}';
+
+/// CommandText.tsx (0.837): a command that wraps at its spaces. A line may break after any hyphen, so a flag could be cut
+/// from its dash (`powershell.exe" -` / `Command`); each flag's dashes (`(?<=^|\s)-+[^\s-]`) are held to its first letter
+/// by a word joiner, and every other place a line could break stays. Returns the text to draw and the joiners' byte
+/// ranges, which draw but are not copied: what a copy takes is the command exactly as sent.
+pub(super) fn held_command(command: &str) -> (String, Vec<std::ops::Range<usize>>) {
+    let chars: Vec<char> = command.chars().collect();
+    let (mut shown, mut holds) = (String::with_capacity(command.len()), Vec::new());
+    let mut i = 0;
+    while i < chars.len() {
+        if chars[i] == '-' && (i == 0 || chars[i - 1].is_whitespace()) {
+            let mut end = i;
+            while end < chars.len() && chars[end] == '-' {
+                end += 1;
+            }
+            shown.extend(&chars[i..end]);
+            if end < chars.len() && !chars[end].is_whitespace() {
+                let at = shown.len();
+                shown.push(FLAG_HOLD);
+                holds.push(at..shown.len());
+            }
+            i = end;
+            continue;
+        }
+        shown.push(chars[i]);
+        i += 1;
+    }
+    (shown, holds)
+}
+
+/// `prefix` then `command` held at its flags (`held_command`), in one text element whose joiners are not copied.
+pub(super) fn command_text(prefix: &str, command: &str) -> El {
+    let (shown, holds) = held_command(command);
+    let mut line = text(format!("{prefix}{shown}"));
+    for hold in holds {
+        line = line.uncopied(prefix.len() + hold.start..prefix.len() + hold.end);
+    }
+    line
+}
+
 pub(super) fn approval_card(s: &State, p: &Palette) -> El {
     let Some(card) = &s.pending_approval else {
         return col().w_full();
@@ -145,7 +187,8 @@ pub(super) fn approval_card(s: &State, p: &Palette) -> El {
                 .wrap(),
         )
         .child(
-            text(format!("Exact: {detail}"))
+            // A command is drawn held at its flags (ApprovalCard.tsx `CommandText`); a connector call's detail as it is.
+            (if card.kind == approval::Kind::Command { command_text("Exact: ", &detail) } else { text(format!("Exact: {detail}")) })
                 .font(type_::LABEL)
                 .color(p.secondary)
                 .w_full()
@@ -482,3 +525,7 @@ mod tests {
 #[cfg(test)]
 #[path = "commands_card_tests.rs"]
 mod commands_card_tests;
+
+#[cfg(test)]
+#[path = "command_wraps_tests.rs"]
+mod command_wraps_tests;

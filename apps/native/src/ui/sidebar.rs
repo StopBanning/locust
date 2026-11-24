@@ -602,20 +602,7 @@ pub(super) fn apply_org_action(s: &mut State, mission_id: &str, action: &str) {
                         return;
                     }
                 };
-                let lines = snapshot
-                    .as_ref()
-                    .map(|snap| {
-                        snap.items
-                            .iter()
-                            .filter_map(|item| match item {
-                                ledger::Item::User(text) | ledger::Item::Assistant { text, .. } => {
-                                    Some(text.clone())
-                                }
-                                _ => None,
-                            })
-                            .collect()
-                    })
-                    .unwrap_or_default();
+                let lines = snapshot.as_ref().map(|snap| beside::beside_lines(&snap.items)).unwrap_or_default();
                 s.beside = Some(beside::BesideState {
                     mission_id: mission_id.into(),
                     title,
@@ -2111,3 +2098,11 @@ mod groups_unreadable_line_tests;
 #[cfg(test)]
 #[path = "sidebar_order_tests.rs"]
 mod sidebar_order_tests;
+
+#[cfg(test)]
+#[path = "sidebar_pinned_tests.rs"]
+mod sidebar_pinned_tests;
+
+#[cfg(test)]
+#[path = "sidebar_put_away_tests.rs"]
+mod sidebar_put_away_tests;

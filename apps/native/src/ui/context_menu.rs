@@ -126,6 +126,11 @@ fn row_top(items: &[Item], index: usize) -> f32 {
 
 /// The right-click menu for one sidebar conversation (App.tsx `openMissionMenu`), with the actions this window has.
 pub(super) fn conversation_menu(s: &State, mission_id: &str, title: &str, at: (f32, f32)) -> MenuState {
+    conversation_menu_at(s, mission_id, title, at, chrono::Local::now())
+}
+
+/// The same menu opened at `now` on the person's own clock: its snooze times are counted from then.
+pub(super) fn conversation_menu_at(s: &State, mission_id: &str, title: &str, at: (f32, f32), now: chrono::DateTime<chrono::Local>) -> MenuState {
     let missions = sidebar::recent_as_missions(s);
     let row = missions.iter().find(|m| m.mission_id == mission_id);
     let keys = row.map(conversation_list::conversation_keys).unwrap_or_else(|| vec![mission_id.to_owned()]);
@@ -144,7 +149,7 @@ pub(super) fn conversation_menu(s: &State, mission_id: &str, title: &str, at: (f
     } else {
         items.push(Item::new("Settle", "settle").key('t'));
         items.push(Item::new("Snooze", "").list(
-            settled::snooze_choices(chrono::Local::now())
+            settled::snooze_choices(now)
                 .into_iter()
                 .map(|choice| Item::new(&choice.label, &format!("snooze:{}", choice.until)))
                 .collect(),
