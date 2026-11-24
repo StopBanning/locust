@@ -4178,9 +4178,9 @@ apps/desktop/src/renderer/src/a-reply-suggests-tasks-as-cards.test.tsx	tells a s
 apps/desktop/src/renderer/src/a-reply-suggests-tasks-as-cards.test.tsx	say how many, each title and brief, a cross, Do it here, Start, and Start all	no
 apps/desktop/src/renderer/src/a-reply-suggests-tasks-as-cards.test.tsx	offer no Do it here where the conversation cannot take a turn now	no
 apps/desktop/src/renderer/src/a-reply-suggests-tasks-as-cards.test.tsx	are taught the block on every turn, and the window draws it only once the reply is whole	no
-apps/desktop/src/renderer/src/a-request-is-answered-on-the-board.test.tsx	shows a command whole, where it runs, and Allow once and Deny	no
-apps/desktop/src/renderer/src/a-request-is-answered-on-the-board.test.tsx	opens the conversation for anything it cannot show whole	no
-apps/desktop/src/renderer/src/a-request-is-answered-on-the-board.test.tsx	leaves a conversation without a request as the card it was	no
+apps/desktop/src/renderer/src/a-request-is-answered-on-the-board.test.tsx	shows a command whole, where it runs, and Allow once and Deny	yes
+apps/desktop/src/renderer/src/a-request-is-answered-on-the-board.test.tsx	opens the conversation for anything it cannot show whole	yes
+apps/desktop/src/renderer/src/a-request-is-answered-on-the-board.test.tsx	leaves a conversation without a request as the card it was	yes
 apps/desktop/src/renderer/src/a-restored-queue-offers-its-actions.test.tsx	The restored queue shows the original words, its hold reason and Edit, Discard and Send.	yes
 apps/desktop/src/renderer/src/a-restored-queue-offers-its-actions.test.tsx	A queue read failure is visible even when no rows can be displayed.	yes
 apps/desktop/src/renderer/src/a-restored-queue-waits-for-send.test.ts	Restored messages wait for Send even when the previous turn completed.	yes

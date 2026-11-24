@@ -1913,7 +1913,8 @@ pub(super) fn board_view(s: &State, p: &Palette) -> El {
                         } else {
                             state_line.clone()
                         };
-                        card_el = card_el.child(text(state).font(type_::LABEL).color(p.amber));
+                        // The request's own mark (BoardScreen.tsx `data-board-ask`), on the line that says what it needs.
+                        card_el = card_el.child(text(state).font(type_::LABEL).color(p.amber).key(format!("board-request-{}", ask.approval_id)));
                         if let Some(command) = &ask.command {
                             card_el = card_el.child(
                                 // BoardScreen.tsx: the command held at its flags (`CommandText`).
@@ -2469,6 +2470,10 @@ mod tests {
         assert_eq!(DENY, "Deny");
     }
 }
+
+#[cfg(test)]
+#[path = "request_answered_on_board_tests.rs"]
+mod request_answered_on_board_tests;
 
 #[cfg(test)]
 mod review_tests {
