@@ -240,7 +240,7 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
         .on_drop_files(|s: &mut State, files, _| attach_dropped_paths(s, files));
 
         let queueing = can_queue(s);
-        let stopping = can_stop(s) && !queueing && own_command::bang(&s.draft.text).is_none();
+        let stopping = stop_press_ui::offered(s) && !queueing && own_command::bang(&s.draft.text).is_none();
         let blocked = send_blocked_now(s);
         let send_enabled =
             (own_command::bang(&s.draft.text).is_some() || can_send(s) || queueing || stopping)

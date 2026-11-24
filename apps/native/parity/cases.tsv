@@ -5841,6 +5841,13 @@ apps/desktop/src/renderer/src/steering.test.ts	leaves a message queued against a
 apps/desktop/src/renderer/src/steering.test.ts	has nothing to move when nothing is queued	yes
 apps/desktop/src/renderer/src/steering.test.ts	no longer reports the conversation as gone once it has followed	yes
 apps/desktop/src/renderer/src/stop-card-says-tools-not-work.test.tsx	says no tools were used, not that no work was done	yes
+apps/desktop/src/renderer/src/stop-press.test.ts	cancels by name when the run has one	yes
+apps/desktop/src/renderer/src/stop-press.test.ts	remembers the press when the run is still starting, instead of dropping it	yes
+apps/desktop/src/renderer/src/stop-press.test.ts	is still remembered on a run that is starting a SECOND turn	yes
+apps/desktop/src/renderer/src/stop-press.test.ts	does nothing when nothing is running	yes
+apps/desktop/src/renderer/src/stop-press.test.ts	does nothing when a starting run has no key to be remembered by	yes
+apps/desktop/src/renderer/src/stop-press.test.ts	takes a second press on a run already cancelling, because the first may not have landed	yes
+apps/desktop/src/renderer/src/stop-press.test.ts	agrees with the phases the composer draws the button for	yes
 apps/desktop/src/renderer/src/teamBoard.test.ts	puts each teammate where what they need from you says -- most urgent first	yes
 apps/desktop/src/renderer/src/teamBoard.test.ts	draws a quiet team as the plain grid: no board of empty columns	yes
 apps/desktop/src/renderer/src/teamBoard.test.ts	leaves out a section with nobody in it	yes

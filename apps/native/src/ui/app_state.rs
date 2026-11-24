@@ -525,6 +525,8 @@ pub(super) struct State {
     pub(super) exchange_stopping: bool,
     pub(super) earlier_turn_budgets: HashMap<String, usize>,
     pub(super) peer_thread_open: HashMap<String, bool>,
+    /// A Stop pressed while the run was still starting, remembered against its key until the start names it.
+    pub(super) stop_when_named: Option<String>,
 }
 
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
@@ -793,6 +795,7 @@ impl Default for State {
             earlier_turn_budgets: HashMap::new(),
             peer_thread_open: HashMap::new(),
             scout: crate::scout_cards::Panel::default(),
+            stop_when_named: None,
         }
     }
 }
