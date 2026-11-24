@@ -18,6 +18,7 @@ pub(crate) mod orb;
 pub mod puppets;
 pub mod lockup;
 pub mod select_keys;
+pub mod stop_beam;
 
 use rune::{Color, Shadow, TextStyle};
 use rune_kit::{Kit, PaletteSeed, StateColors, Type, css};
