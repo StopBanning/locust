@@ -3076,6 +3076,11 @@ apps/desktop/src/main/the-whole-window-can-be-liquid-glass.test.ts	the sheet and
 apps/desktop/src/main/the-whole-window-can-be-liquid-glass.test.ts	everything that floats over the page is frosted, so nothing under it reads through	no
 apps/desktop/src/main/the-whole-window-can-be-liquid-glass.test.ts	a floating panel that paints through a card inside it is frosted too	no
 apps/desktop/src/main/the-whole-window-can-be-liquid-glass.test.ts	the addon is built after the bundle on a Mac, unpacked from the archive, loaded from beside the main bundle	no
+apps/desktop/src/main/the-working-spark-is-claude-codes.test.ts	turns through Claude Code's glyphs and back, one every 120 ms	yes
+apps/desktop/src/main/the-working-spark-is-claude-codes.test.ts	asks for the text form of every dingbat, or Windows draws ✳ as an emoji	yes
+apps/desktop/src/main/the-working-spark-is-claude-codes.test.ts	is monochrome, from a symbol face named ahead of any emoji face	yes
+apps/desktop/src/main/the-working-spark-is-claude-codes.test.ts	keeps the finished dot's footprint, so a run starting never moves the row	yes
+apps/desktop/src/main/the-working-spark-is-claude-codes.test.ts	stands still for a person who asked for less motion	yes
 apps/desktop/src/main/three-judges-are-kept.test.ts	keeps the panel of the newest ask, and every panel run as the comparison's, across a restart	no
 apps/desktop/src/main/three-placements.test.ts	dropped the noun that labelled the line once and cost eight characters forever	yes
 apps/desktop/src/main/three-placements.test.ts	dropped the permission prose, which the composer already states where it can be changed	yes

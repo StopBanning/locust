@@ -215,6 +215,8 @@ mod sidebar;
 mod window_glass;
 #[path = "ui/working_shimmer.rs"]
 mod working_shimmer;
+#[path = "ui/working_spark.rs"]
+mod working_spark;
 #[path = "ui/context_menu.rs"]
 mod context_menu;
 use sidebar::*;

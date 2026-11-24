@@ -13,7 +13,8 @@ pub(super) fn running_card(command: &str, p: &Palette) -> El {
         .radius(9.0)
         .fill(p.raised)
         .center_y()
-        .child(rune::icon(&crate::look::icons::SPARK, 12.0).color(l.c("text-muted")))
+        // EditCheckCard.tsx: `<WorkingSpark />`, then the words.
+        .child(crate::working_spark::working_spark(&l, "edit-check-spark"))
         .child(
             text(format!("Running the check {command} after this turn…"))
                 .font(l.ty.label)
