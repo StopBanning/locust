@@ -37,6 +37,9 @@ def main():
         sys.exit(code)
 
     if argv[0] == "agents":
+        if "--json" not in argv[1:]:
+            sys.stderr.write(f"expected --json in agents args: {argv!r}\n")
+            sys.exit(2)
         agents_file = os.environ.get("CLAUDE_BG_AGENTS_FILE")
         if agents_file and os.path.exists(agents_file):
             with open(agents_file, "r", encoding="utf-8") as f:

@@ -400,6 +400,7 @@ mod tests {
         let script = fixture_script();
         assert!(script.exists(), "fixture script missing: {}", script.display());
         let agents_file = store.root().join("fake-agents.json");
+        let calls_file = store.root().join("fake-calls.jsonl");
         std::fs::write(
             &agents_file,
             r#"[{"id":"ad39859a","kind":"background","state":"blocked","waitingFor":"permission prompt"}]"#,
@@ -411,10 +412,16 @@ mod tests {
             &store,
             "python3",
             vec![script.to_string_lossy().into_owned()],
-            vec![(
-                "CLAUDE_BG_AGENTS_FILE".to_string(),
-                agents_file.to_string_lossy().into_owned(),
-            )],
+            vec![
+                (
+                    "CLAUDE_BG_AGENTS_FILE".to_string(),
+                    agents_file.to_string_lossy().into_owned(),
+                ),
+                (
+                    "CLAUDE_BG_CALLS_FILE".to_string(),
+                    calls_file.to_string_lossy().into_owned(),
+                ),
+            ],
         );
         let started = watcher.start(StartBackgroundRequest {
             prompt: "Run the release checklist.".into(),
@@ -439,14 +446,44 @@ mod tests {
 
         // Wire the fake-script watcher into a window State and drive it through main::poll + main::view.
         let mut s = State::default();
-        s.data = Some(store);
+        s.data = Some(store.clone());
         s.background_runs.watcher = Some(watcher);
         assert!(crate::poll(&mut s, 0.0, &mut Tx::default()));
+        // Calling setup() or poll() again must NOT recreate the watcher or reload from disk.
+        std::fs::write(store.root().join("claude-background.json"), "[]").expect("clear file");
+        setup(&mut s);
+        let _ = crate::poll(&mut s, 1.0, &mut Tx::default());
         assert_eq!(s.background_runs.runs.len(), 1);
         assert_eq!(s.background_runs.runs[0].state, BackgroundState::Blocked);
         assert_eq!(
             s.background_runs.runs[0].waiting_for.as_deref(),
             Some("permission prompt")
+        );
+
+        // Verify the exact argv sent to the fake claude script (one --bg start, one agents --json --all poll).
+        let recorded: Vec<Vec<String>> = std::fs::read_to_string(&calls_file)
+            .expect("calls log")
+            .lines()
+            .map(|line| serde_json::from_str(line).expect("json argv"))
+            .collect();
+        assert_eq!(
+            recorded,
+            vec![
+                vec![
+                    "--bg".to_string(),
+                    "--permission-mode".to_string(),
+                    "plan".to_string(),
+                    "--model".to_string(),
+                    "haiku".to_string(),
+                    "--".to_string(),
+                    "Run the release checklist.".to_string(),
+                ],
+                vec![
+                    "agents".to_string(),
+                    "--json".to_string(),
+                    "--all".to_string(),
+                ],
+            ]
         );
 
         // Render the real main window: header badge is drawn before the panel is opened.

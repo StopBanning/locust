@@ -1624,16 +1624,23 @@ mod tests {
             .expect("temp store");
         let script = fixture_script();
         let agents_file = dir.join("agents.json");
+        let calls_file = dir.join("calls.jsonl");
         fs::write(&agents_file, "[]").expect("agents file");
 
         let mut runs = crate::native::background_runs_for_with_program(
             &store,
             "python3",
             vec![script.to_string_lossy().into_owned()],
-            vec![(
-                "CLAUDE_BG_AGENTS_FILE".to_string(),
-                agents_file.to_string_lossy().into_owned(),
-            )],
+            vec![
+                (
+                    "CLAUDE_BG_AGENTS_FILE".to_string(),
+                    agents_file.to_string_lossy().into_owned(),
+                ),
+                (
+                    "CLAUDE_BG_CALLS_FILE".to_string(),
+                    calls_file.to_string_lossy().into_owned(),
+                ),
+            ],
         );
         let started = runs.start(StartBackgroundRequest {
             prompt: "Check the build.".into(),
@@ -1670,6 +1677,31 @@ mod tests {
         assert!(runs.stop("ad39859a"));
         assert!(!runs.stop("--all"));
         runs.dispose();
+
+        // Verify the exact argv handed to the fake claude script for --bg, agents --json, and stop.
+        let recorded: Vec<Vec<String>> = fs::read_to_string(&calls_file)
+            .expect("calls log")
+            .lines()
+            .map(|line| serde_json::from_str(line).expect("json argv"))
+            .collect();
+        assert_eq!(
+            recorded,
+            vec![
+                vec![
+                    "--bg".to_string(),
+                    "--permission-mode".to_string(),
+                    "plan".to_string(),
+                    "--".to_string(),
+                    "Check the build.".to_string(),
+                ],
+                vec![
+                    "agents".to_string(),
+                    "--json".to_string(),
+                    "--all".to_string(),
+                ],
+                vec!["stop".to_string(), "ad39859a".to_string()],
+            ]
+        );
 
         let _ = fs::remove_dir_all(&dir);
     }
