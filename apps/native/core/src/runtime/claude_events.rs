@@ -1614,3 +1614,9 @@ mod a_long_command_tests;
 #[cfg(test)]
 #[path = "claude_events_case_tests.rs"]
 mod claude_events_case_tests;
+#[cfg(test)]
+#[path = "claude_edit_patch_tests.rs"]
+mod claude_edit_patch_tests;
+#[cfg(test)]
+#[path = "claude_linger_tests.rs"]
+mod claude_linger_tests;

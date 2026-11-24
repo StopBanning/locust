@@ -100,12 +100,25 @@ pub fn command(
     effort: Option<&str>,
     resume: Option<&str>,
 ) -> io::Result<Command> {
+    command_from(|| super::discovery::find_named("muse"), folder, mode, model, effort, resume)
+}
+
+/// `command`, with where the launcher is found handed in: the native turn's Muse command, refused for Approve-each
+/// before anything is looked for, then the launcher with `exec_args` in the workspace.
+pub fn command_from(
+    launcher: impl FnOnce() -> io::Result<PathBuf>,
+    folder: &Path,
+    mode: Mode,
+    model: Option<&str>,
+    effort: Option<&str>,
+    resume: Option<&str>,
+) -> io::Result<Command> {
     if mode == Mode::ApproveEach {
         return Err(err(
             "Muse does not support Approve-each in the native driver.",
         ));
     }
-    let mut c = Command::new(super::discovery::find_named("muse")?);
+    let mut c = Command::new(launcher()?);
     c.args(exec_args(folder, mode, model, effort, resume)?)
         .current_dir(folder);
     Ok(c)
@@ -370,6 +383,10 @@ pub fn prepare_prompt_file(
     *command = replacement;
     Ok(path)
 }
+
+#[cfg(test)]
+#[path = "muse_prompt_tests.rs"]
+mod muse_prompt_tests;
 
 #[cfg(test)]
 mod unit_tests {

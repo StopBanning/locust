@@ -655,3 +655,6 @@ mod a_long_json_key_tests;
 #[cfg(test)]
 #[path = "app_server_events_tests.rs"]
 mod app_server_events_tests;
+#[cfg(test)]
+#[path = "codex_schema_fields_tests.rs"]
+mod codex_schema_fields_tests;
