@@ -3603,6 +3603,9 @@ apps/desktop/src/renderer/src/a-disabled-send-says-why.test.ts	names the install
 apps/desktop/src/renderer/src/a-disabled-send-says-why.test.ts	names an empty box only when that is the real reason	yes
 apps/desktop/src/renderer/src/a-disabled-send-says-why.test.ts	names the install first when everything is wrong at once	no
 apps/desktop/src/renderer/src/a-disabled-send-says-why.test.ts	separates a route that is not ready from a mode that cannot run on it	yes
+apps/desktop/src/renderer/src/a-document-change-reads-as-words.test.ts	names each changed passage with its old words and new words, Markdown marks taken off	yes
+apps/desktop/src/renderer/src/a-document-change-reads-as-words.test.ts	strikes and marks whole words, never the inside of one (drive: "~~Mon~~Tuesday")	yes
+apps/desktop/src/renderer/src/a-document-change-reads-as-words.test.ts	reads a heading, a bullet, a quote and a table row as a reader sees them	yes
 apps/desktop/src/renderer/src/a-draft-naming-an-off-connector-says-so.test.ts	finds a connector named in the draft, by the name a person reads	no
 apps/desktop/src/renderer/src/a-draft-naming-an-off-connector-says-so.test.ts	does not find one inside another word, or where none is named	no
 apps/desktop/src/renderer/src/a-draft-naming-an-off-connector-says-so.test.ts	says whose, which, and where to turn it on	no
@@ -4525,6 +4528,10 @@ apps/desktop/src/renderer/src/an-earlier-message-can-be-edited.test.tsx	finds no
 apps/desktop/src/renderer/src/an-earlier-message-can-be-edited.test.tsx	says so above the message, with the way to the other version	yes
 apps/desktop/src/renderer/src/an-earlier-turn-that-only-messaged-is-not-silent.test.tsx	is not said to have ended without a reply	yes
 apps/desktop/src/renderer/src/an-earlier-turn-that-only-messaged-is-not-silent.test.tsx	still is, when it really wrote nothing and messaged nobody	yes
+apps/desktop/src/renderer/src/an-earlier-version-reads-as-it-was.test.ts	after each turn, from the file as it is now	yes
+apps/desktop/src/renderer/src/an-earlier-version-reads-as-it-was.test.ts	is not rebuilt when a later change was recorded cut short, and says so	yes
+apps/desktop/src/renderer/src/an-earlier-version-reads-as-it-was.test.ts	is not rebuilt when the file was changed since, rather than rebuilt wrong	yes
+apps/desktop/src/renderer/src/an-earlier-version-reads-as-it-was.test.ts	keeps Windows line endings	yes
 apps/desktop/src/renderer/src/an-empty-home-offers-a-team.test.tsx	offers three teams, each with who is on it	no
 apps/desktop/src/renderer/src/an-empty-home-offers-a-team.test.tsx	keeps New teammate beside them, as the chat bar's own chip	no
 apps/desktop/src/renderer/src/an-empty-home-offers-a-team.test.tsx	is the team itself once there is one	no
