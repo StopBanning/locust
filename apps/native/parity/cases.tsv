@@ -138,6 +138,39 @@ apps/desktop/src/main/a-cloud-send-is-confirmed-by-json.test.ts	A failed JSON se
 apps/desktop/src/main/a-cloud-send-is-confirmed-by-json.test.ts	A cloud send uses the last JSON answer and never accepts terminal success words.	yes
 apps/desktop/src/main/a-cloud-send-is-confirmed-by-json.test.ts	A send nobody confirmed is said to be unconfirmed, never "not sent", so it is not sent twice (0.568).	yes
 apps/desktop/src/main/a-cloud-send-is-confirmed-by-json.test.ts	A configuration failure keeps the Error fallback and stderr cannot forge success.	yes
+apps/desktop/src/main/a-cloud-session-is-known-by-its-id.test.ts	is read for the id, the link, the title and where it starts from	yes
+apps/desktop/src/main/a-cloud-session-is-known-by-its-id.test.ts	knows the trust question for what it is	yes
+apps/desktop/src/main/a-cloud-session-is-known-by-its-id.test.ts	passes on what Claude Code said when it refused	yes
+apps/desktop/src/main/a-cloud-session-is-known-by-its-id.test.ts	opens no window, keeps the id, and never puts the task on the command line	yes
+apps/desktop/src/main/a-cloud-session-is-known-by-its-id.test.ts	opens Claude Code's window when it asks whether the folder is trusted, and says why	yes
+apps/desktop/src/main/a-cloud-session-is-known-by-its-id.test.ts	refuses, opening and keeping nothing, when Claude Code says no	yes
+apps/desktop/src/main/a-cloud-session-is-known-by-its-id.test.ts	falls back to the window when the hidden terminal cannot run	yes
+apps/desktop/src/main/a-cloud-session-is-known-by-its-id.test.ts	is brought home by its id, with no picker	yes
+apps/desktop/src/main/a-cloud-session-is-known-by-its-id.test.ts	is not brought home into a folder with changes: it says so and opens nothing	yes
+apps/desktop/src/main/a-cloud-session-is-known-by-its-id.test.ts	takes a follow-up, the words in a variable and never on the command line	yes
+apps/desktop/src/main/a-cloud-session-is-known-by-its-id.test.ts	says what Claude Code said when a follow-up does not go	yes
+apps/desktop/src/main/a-cloud-session-is-known-by-its-id.test.ts	go with the task, hidden or in the window	yes
+apps/desktop/src/main/a-cloud-session-is-known-by-its-id.test.ts	pass only a plain name and a known level: the account default, and anything else, is left out	yes
+apps/desktop/src/main/a-cloud-session-is-known-by-its-id.test.ts	carries a session id only when it is one: anything else is never passed to cmd	yes
+apps/desktop/src/main/a-cloud-session-is-read-in-its-own-worktree.test.ts	teleports into a worktree of its own, out of sight, and stops once Claude Code is up	yes
+apps/desktop/src/main/a-cloud-session-is-read-in-its-own-worktree.test.ts	reads the conversation from the transcript Claude Code saved, replies as words, never thinking	yes
+apps/desktop/src/main/a-cloud-session-is-read-in-its-own-worktree.test.ts	shows the session branch’s change against the folder, and leaves the folder alone until Apply	yes
+apps/desktop/src/main/a-cloud-session-is-read-in-its-own-worktree.test.ts	Apply brings the change in uncommitted and removes the worktree and its branch	yes
+apps/desktop/src/main/a-cloud-session-is-read-in-its-own-worktree.test.ts	Apply that does not fit changes nothing and says why	yes
+apps/desktop/src/main/a-cloud-session-is-read-in-its-own-worktree.test.ts	checking again starts from a fresh worktree, not the last one	yes
+apps/desktop/src/main/a-cloud-session-is-read-in-its-own-worktree.test.ts	Forget removes the worktree too	yes
+apps/desktop/src/main/a-cloud-session-is-read-in-its-own-worktree.test.ts	a session that pushed no branch is read, with no change and the reason	yes
+apps/desktop/src/main/a-cloud-session-is-read-in-its-own-worktree.test.ts	runs as the person’s own Claude Code, not as a child of one, so the transcript is saved	yes
+apps/desktop/src/main/a-cloud-session-is-read-in-its-own-worktree.test.ts	brought in but no transcript saved (measured, 2 runs of 6): the change is shown, and why there are no words	yes
+apps/desktop/src/main/a-cloud-session-is-read-in-its-own-worktree.test.ts	not brought in at all: says what Claude Code said, and leaves no worktree behind	yes
+apps/desktop/src/main/a-cloud-session-is-read-in-its-own-worktree.test.ts	a session archived or deleted (measured 10/03): the worktree Claude Code made first is removed, and it says the session is gone	yes
+apps/desktop/src/main/a-cloud-session-is-read-in-its-own-worktree.test.ts	the trust question is left to the person; nothing is answered	yes
+apps/desktop/src/main/a-cloud-session-is-read-in-its-own-worktree.test.ts	a folder that is not a git checkout is told so, and nothing runs	yes
+apps/desktop/src/main/a-cloud-session-is-read-in-its-own-worktree.test.ts	knows the long-paths failure and offers the fix in words, never setting it	yes
+apps/desktop/src/main/a-cloud-session-is-read-in-its-own-worktree.test.ts	knows a folder Claude Code was never told to trust, as 2.1.29x says it, and leaves the answer to the person	yes
+apps/desktop/src/main/a-cloud-session-is-read-in-its-own-worktree.test.ts	keeps the words of an error it does not know, for the message	yes
+apps/desktop/src/main/a-cloud-session-is-read-in-its-own-worktree.test.ts	the worktree on the command line is only ever Locust’s own name	yes
+apps/desktop/src/main/a-cloud-session-is-read-only-once-at-a-time.test.ts	Overlapping reads share one teleport and the session lock is released afterward.	yes
 apps/desktop/src/main/a-cloud-task-uses-the-organizations-environment.test.ts	A task carries an optional organization environment alongside the selected model and effort.	yes
 apps/desktop/src/main/a-cloud-task-uses-the-organizations-environment.test.ts	A folder remembers its environment across reloads while other folders keep their own choices.	yes
 apps/desktop/src/main/a-cloud-task-uses-the-organizations-environment.test.ts	A task without an environment keeps the default cloud arguments and opens no window.	yes
@@ -1093,6 +1126,11 @@ apps/desktop/src/main/a-switch-brief-says-what-was-done.test.ts	give way to what
 apps/desktop/src/main/a-switch-brief-says-what-was-done.test.ts	fit the notice’s reserve with every optional section named	yes
 apps/desktop/src/main/a-switch-brief-says-what-was-done.test.ts	says a turn cut off by a usage limit was not finished	yes
 apps/desktop/src/main/a-switch-brief-says-what-was-done.test.ts	still says a completed turn finished	yes
+apps/desktop/src/main/a-task-goes-to-claudes-cloud.test.ts	is one line with no double quote	yes
+apps/desktop/src/main/a-task-goes-to-claudes-cloud.test.ts	is never in the command line: cmd sees only a quoted variable	yes
+apps/desktop/src/main/a-task-goes-to-claudes-cloud.test.ts	opens Claude Code in a window of its own, in the folder, with the task in the variable -- & and | stay words	yes
+apps/desktop/src/main/a-task-goes-to-claudes-cloud.test.ts	brings one home with --teleport in its own folder, and forgets one on request	yes
+apps/desktop/src/main/a-task-goes-to-claudes-cloud.test.ts	says so, and opens nothing, when Claude Code is not installed or the task is empty	yes
 apps/desktop/src/main/a-team-card-carries-its-routines.test.ts	carries each teammate's instructions and starters, and still no id, folder, limit or branch	no
 apps/desktop/src/main/a-team-card-carries-its-routines.test.ts	carries the routines its teammates made in this folder, with this machine's paths made into inputs	no
 apps/desktop/src/main/a-team-card-carries-its-routines.test.ts	reads a routine back only when it is a routine file Locust would import	no
@@ -3544,6 +3582,16 @@ apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	takes Cl
 apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	names the version on the controls that pick a route, and nothing else changes	no
 apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	labels the row with the version	no
 apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	believes a finished run over the table	no
+apps/desktop/src/renderer/src/a-cloud-environment-is-optional-and-validated.test.tsx	The cloud form names the optional environment and explains when it is saved.	yes
+apps/desktop/src/renderer/src/a-cloud-environment-is-optional-and-validated.test.tsx	The cloud form marks invalid environment ids and explains how to correct them.	yes
+apps/desktop/src/renderer/src/a-cloud-environment-is-optional-and-validated.test.tsx	Only a Claude cloud start form offers the organization environment field.	no
+apps/desktop/src/renderer/src/a-cloud-watch-stops-when-it-should.test.ts	Watch reads every ninety seconds and stops after two unchanged reads despite new timestamps.	yes
+apps/desktop/src/renderer/src/a-cloud-watch-stops-when-it-should.test.ts	Watch resets its unchanged count when a reply or change arrives.	yes
+apps/desktop/src/renderer/src/a-cloud-watch-stops-when-it-should.test.ts	Watch stops after thirty minutes even when every read brings something new.	yes
+apps/desktop/src/renderer/src/a-cloud-watch-stops-when-it-should.test.ts	Closing a row cancels Watch and ignores a read that finishes afterward.	yes
+apps/desktop/src/renderer/src/a-cloud-watch-stops-when-it-should.test.ts	Watch never overlaps slow reads and stops at its deadline while a read is pending.	yes
+apps/desktop/src/renderer/src/a-cloud-watch-stops-when-it-should.test.ts	Watch reports a failed read once and schedules no further reads.	yes
+apps/desktop/src/renderer/src/a-cloud-watch-stops-when-it-should.test.ts	The row names the number of minutes since its last successful read.	yes
 apps/desktop/src/renderer/src/a-codex-sandbox-that-did-not-start-says-why.test.tsx	is known by what Codex said, and nothing else is	yes
 apps/desktop/src/renderer/src/a-codex-sandbox-that-did-not-start-says-why.test.tsx	says why on its row, and what to do	yes
 apps/desktop/src/renderer/src/a-codex-sandbox-that-did-not-start-says-why.test.tsx	says nothing of the sort for a command that ran and failed (control)	yes
@@ -4735,6 +4783,7 @@ apps/desktop/src/renderer/src/chat-apps-say-each-step-in-settings.test.tsx	walks
 apps/desktop/src/renderer/src/chat-apps-say-each-step-in-settings.test.tsx	offers, once paired, to tell you there when something needs you: off until turned on, saying what is sent (0.837)	yes
 apps/desktop/src/renderer/src/choosing-an-issue-sends-nothing.test.tsx	lists the issue and does not send by being chosen	no
 apps/desktop/src/renderer/src/choosing-an-issue-sends-nothing.test.tsx	offers Start from an issue on Home only when the folder has issues to read	no
+apps/desktop/src/renderer/src/claudes-cloud-says-what-it-works-on.test.tsx	says a folder not on GitHub starts with no project, and offers the folders that are	yes
 apps/desktop/src/renderer/src/code-in-a-reply-is-coloured.test.tsx	knows a fence by the words people write on it	yes
 apps/desktop/src/renderer/src/code-in-a-reply-is-coloured.test.tsx	knows an opened file’s language by its name	no
 apps/desktop/src/renderer/src/code-in-a-reply-is-coloured.test.tsx	is coloured with the theme’s own variables, and keeps every character	yes
