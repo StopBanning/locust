@@ -352,6 +352,143 @@ pub fn command(folder: &Path, model: Option<&str>) -> io::Result<Command> {
     Ok(c)
 }
 
+/// Parent Claude Code session variables never handed on to a `--bg` child.
+const PARENT_SESSION_VARIABLES: &[&str] = &[
+    "CLAUDECODE",
+    "CLAUDE_PID",
+    "CLAUDE_CODE_ENTRYPOINT",
+    "CLAUDE_CODE_SESSION_ID",
+    "CLAUDE_CODE_CHILD_SESSION",
+    "CLAUDE_CODE_BRIDGE_SESSION_ID",
+    "CLAUDE_CODE_MESSAGING_SOCKET",
+    "CLAUDE_CODE_MESSAGING_TOKEN",
+    "CLAUDE_CODE_SESSION_ATTENDED",
+    "CLAUDE_CODE_EXECPATH",
+];
+
+/// Output of a one-shot `claude --bg` / `claude agents --json` / `claude stop` command.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BackgroundStartResult {
+    pub id: String,
+    pub sentence: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BackgroundStartError {
+    pub message: String,
+    pub needs_trust: bool,
+}
+
+pub fn prepare_background_command(cmd: &mut Command, folder: &Path, args: &[String]) {
+    cmd.args(args)
+        .current_dir(folder)
+        .stdin(Stdio::null())
+        .env_remove("ANTHROPIC_API_KEY")
+        .env_remove("CLAUDE_API_KEY");
+    for key in PARENT_SESSION_VARIABLES {
+        cmd.env_remove(key);
+    }
+}
+
+/// Runs a one-shot Claude Code CLI command (`--bg`, `agents --json --all`, `stop <id>`) with parent session vars stripped.
+pub fn run_background_cli(
+    mut cmd: Command,
+    folder: &Path,
+    args: &[String],
+) -> crate::claude_background::ClaudeCliOutput {
+    prepare_background_command(&mut cmd, folder, args);
+    match cmd.output() {
+        Ok(out) => crate::claude_background::ClaudeCliOutput {
+            code: out.status.code().unwrap_or(1),
+            stdout: String::from_utf8_lossy(&out.stdout).into_owned(),
+            stderr: String::from_utf8_lossy(&out.stderr).into_owned(),
+        },
+        Err(err) => crate::claude_background::ClaudeCliOutput {
+            code: 127,
+            stdout: String::new(),
+            stderr: err.to_string(),
+        },
+    }
+}
+
+pub fn start_background_with(
+    mut cmd: Command,
+    folder: &Path,
+    options: &crate::claude_background::BackgroundArgsOptions<'_>,
+) -> Result<BackgroundStartResult, BackgroundStartError> {
+    let args = crate::claude_background::background_args(options).map_err(|message| {
+        BackgroundStartError {
+            message,
+            needs_trust: false,
+        }
+    })?;
+    prepare_background_command(&mut cmd, folder, &args);
+    let output = cmd.output().map_err(|e| BackgroundStartError {
+        message: e.to_string(),
+        needs_trust: false,
+    })?;
+    let said = format!(
+        "{}\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    if crate::claude_background::needs_trust(&said) {
+        return Err(BackgroundStartError {
+            message: "Claude Code has not been told to trust this folder, so it will not work here in the background yet. Open Claude Code in this folder once, answer its question, then send again.".to_string(),
+            needs_trust: true,
+        });
+    }
+    let id = crate::claude_background::background_id_from(&said);
+    if !output.status.success() || id.is_none() {
+        let line = said
+            .lines()
+            .map(str::trim)
+            .find(|part| !part.is_empty())
+            .map(|part| &part[..part.len().min(300)]);
+        let message = match line {
+            Some(l) => format!("Claude Code did not start it in the background: {l}"),
+            None => "Claude Code did not start it in the background.".to_string(),
+        };
+        return Err(BackgroundStartError {
+            message,
+            needs_trust: false,
+        });
+    }
+    Ok(BackgroundStartResult {
+        id: id.unwrap(),
+        sentence: crate::claude_background::background_sentence(
+            crate::claude_background::BackgroundState::Working,
+            None,
+        ),
+    })
+}
+
+pub fn poll_background_with(
+    watch: &mut crate::claude_background::BackgroundWatch,
+    mut cmd: Command,
+    folder: &Path,
+) -> Result<crate::claude_background::WatchTickOutcome, String> {
+    watch.begin_tick();
+    let args = vec![
+        "agents".to_string(),
+        "--json".to_string(),
+        "--all".to_string(),
+    ];
+    prepare_background_command(&mut cmd, folder, &args);
+    let parsed = cmd.output().ok().and_then(|out| {
+        if out.status.success() {
+            crate::claude_background::parse_background_agents(&String::from_utf8_lossy(&out.stdout))
+        } else {
+            None
+        }
+    });
+    let outcome = watch.finish_tick(parsed.as_deref());
+    if parsed.is_none() {
+        return Err("claude agents gave no answer".to_string());
+    }
+    Ok(outcome)
+}
+
 impl Claude {
     pub fn spawn(command: &mut Command) -> io::Result<Self> {
         Self::spawn_with(command, Limits::default())

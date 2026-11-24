@@ -46,6 +46,7 @@ mod chat_link_tests;
 #[cfg(test)]
 mod stores_fail_closed_tests;
 pub mod claude_app;
+pub mod claude_background;
 #[cfg(all(test, unix))]
 #[path = "runtime/claude_host_grid_tests.rs"]
 mod claude_host_grid_tests;
