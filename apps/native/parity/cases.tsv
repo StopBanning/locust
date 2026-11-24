@@ -148,6 +148,24 @@ apps/desktop/src/main/a-cloud-session-is-known-by-its-id.test.ts	says what Claud
 apps/desktop/src/main/a-cloud-session-is-known-by-its-id.test.ts	go with the task, hidden or in the window	yes
 apps/desktop/src/main/a-cloud-session-is-known-by-its-id.test.ts	pass only a plain name and a known level: the account default, and anything else, is left out	yes
 apps/desktop/src/main/a-cloud-session-is-known-by-its-id.test.ts	carries a session id only when it is one: anything else is never passed to cmd	yes
+apps/desktop/src/main/a-cloud-session-is-read-in-its-own-worktree.test.ts	teleports into a worktree of its own, out of sight, and stops once Claude Code is up	yes
+apps/desktop/src/main/a-cloud-session-is-read-in-its-own-worktree.test.ts	reads the conversation from the transcript Claude Code saved, replies as words, never thinking	yes
+apps/desktop/src/main/a-cloud-session-is-read-in-its-own-worktree.test.ts	shows the session branch’s change against the folder, and leaves the folder alone until Apply	yes
+apps/desktop/src/main/a-cloud-session-is-read-in-its-own-worktree.test.ts	Apply brings the change in uncommitted and removes the worktree and its branch	yes
+apps/desktop/src/main/a-cloud-session-is-read-in-its-own-worktree.test.ts	Apply that does not fit changes nothing and says why	yes
+apps/desktop/src/main/a-cloud-session-is-read-in-its-own-worktree.test.ts	checking again starts from a fresh worktree, not the last one	yes
+apps/desktop/src/main/a-cloud-session-is-read-in-its-own-worktree.test.ts	Forget removes the worktree too	yes
+apps/desktop/src/main/a-cloud-session-is-read-in-its-own-worktree.test.ts	a session that pushed no branch is read, with no change and the reason	yes
+apps/desktop/src/main/a-cloud-session-is-read-in-its-own-worktree.test.ts	runs as the person’s own Claude Code, not as a child of one, so the transcript is saved	yes
+apps/desktop/src/main/a-cloud-session-is-read-in-its-own-worktree.test.ts	brought in but no transcript saved (measured, 2 runs of 6): the change is shown, and why there are no words	yes
+apps/desktop/src/main/a-cloud-session-is-read-in-its-own-worktree.test.ts	not brought in at all: says what Claude Code said, and leaves no worktree behind	yes
+apps/desktop/src/main/a-cloud-session-is-read-in-its-own-worktree.test.ts	a session archived or deleted (measured 10/03): the worktree Claude Code made first is removed, and it says the session is gone	yes
+apps/desktop/src/main/a-cloud-session-is-read-in-its-own-worktree.test.ts	the trust question is left to the person; nothing is answered	yes
+apps/desktop/src/main/a-cloud-session-is-read-in-its-own-worktree.test.ts	a folder that is not a git checkout is told so, and nothing runs	yes
+apps/desktop/src/main/a-cloud-session-is-read-in-its-own-worktree.test.ts	knows the long-paths failure and offers the fix in words, never setting it	yes
+apps/desktop/src/main/a-cloud-session-is-read-in-its-own-worktree.test.ts	knows a folder Claude Code was never told to trust, as 2.1.29x says it, and leaves the answer to the person	yes
+apps/desktop/src/main/a-cloud-session-is-read-in-its-own-worktree.test.ts	keeps the words of an error it does not know, for the message	yes
+apps/desktop/src/main/a-cloud-session-is-read-in-its-own-worktree.test.ts	the worktree on the command line is only ever Locust’s own name	yes
 apps/desktop/src/main/a-cloud-task-uses-the-organizations-environment.test.ts	A task carries an optional organization environment alongside the selected model and effort.	yes
 apps/desktop/src/main/a-cloud-task-uses-the-organizations-environment.test.ts	A folder remembers its environment across reloads while other folders keep their own choices.	yes
 apps/desktop/src/main/a-cloud-task-uses-the-organizations-environment.test.ts	A task without an environment keeps the default cloud arguments and opens no window.	yes

@@ -262,6 +262,102 @@ pub fn read_cloud_start(drawn: &str) -> CloudStartReading {
     CloudStartReading::Failed { message }
 }
 
+/// Where Claude Code keeps a folder's transcripts: `projects/` and the folder's path with every other character a
+/// dash (measured: `C:\\...\\.claude\\worktrees\\x` is `C--...--claude-worktrees-x`).
+pub fn transcript_folder_of(claude_home: &Path, folder: &str) -> PathBuf {
+    let slug: String = folder
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+        .collect();
+    claude_home.join("projects").join(slug)
+}
+
+/// The worktree a session is read into, by Locust's own id for it: never a name the person chose.
+pub fn reading_worktree_name(id: &str) -> String {
+    let bare = id.strip_prefix("cc_").unwrap_or(id);
+    format!("locust-cloud-{}", bare.chars().take(12).collect::<String>())
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReadingProblem {
+    Asks,
+    LongPaths,
+}
+
+/// What `claude --teleport <id> --worktree <name>` drew, for what only the person can do about it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TeleportReading {
+    pub problem: Option<ReadingProblem>,
+    pub no_branch: bool,
+    pub gone: bool,
+    pub error: Option<String>,
+}
+
+pub fn read_teleport(drawn: &str) -> TeleportReading {
+    static ERROR: OnceLock<Regex> = OnceLock::new();
+    static GONE: OnceLock<Regex> = OnceLock::new();
+    static LONG: OnceLock<Regex> = OnceLock::new();
+    static NO_BRANCH: OnceLock<Regex> = OnceLock::new();
+    let text = plain_terminal_text(drawn);
+    // "Error: ..." and, since 2.1.29x, "Error creating worktree: ...".
+    let error = ERROR
+        .get_or_init(|| Regex::new(r"\bError(?: [a-z]+){0,4}:[ \t]*(.+)").expect("error regex"))
+        .captures(&text)
+        .map(|c| c[1].trim().chars().take(300).collect::<String>());
+    TeleportReading {
+        // Measured 10/03 (0.564): an archived or deleted session -- Claude Code makes the worktree first, then says this.
+        gone: GONE.get_or_init(|| Regex::new(r"(?i)Session not found").expect("gone regex")).is_match(&text),
+        problem: if asks_re().is_match(&text) {
+            Some(ReadingProblem::Asks)
+        } else if LONG.get_or_init(|| Regex::new(r"(?i)Filename too long").expect("long regex")).is_match(&text) {
+            Some(ReadingProblem::LongPaths)
+        } else {
+            None
+        },
+        // Measured 10/02: a session that changed nothing pushed no branch, and Claude Code says so.
+        no_branch: NO_BRANCH
+            .get_or_init(|| Regex::new(r"(?i)resumed without branch|Failed to checkout branch").expect("branch regex"))
+            .is_match(&text),
+        error,
+    }
+}
+
+/// One exchange of a session read here: what was asked, what Claude said in words, when, on which model.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CloudExchange {
+    pub prompt: String,
+    pub answer: Option<String>,
+    pub at: String,
+    pub model: Option<String>,
+}
+
+/// What a check of a cloud session read (`ClaudeCloudReading`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ClaudeCloudReading {
+    Ok {
+        exchanges: Vec<CloudExchange>,
+        checked_at: String,
+        diff: Option<String>,
+        change_too_big: bool,
+        note: Option<String>,
+    },
+    Err {
+        message: String,
+    },
+}
+
+/// git's answer: its exit code and its two streams apart.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GitRan {
+    pub code: i32,
+    pub stdout: String,
+    pub stderr: String,
+}
+
+/// The bound on a change Locust reads into the panel.
+const MAX_DIFF: usize = 4 * 1024 * 1024;
+const MAX_EXCHANGES: usize = 40;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CloudPlatform {
     Win32,
@@ -296,8 +392,12 @@ pub struct PseudoTerminalRun {
     pub line: String,
     pub cwd: String,
     pub env: BTreeMap<String, String>,
+    /// Variables of the app's own environment the run must not inherit (Electron sets them to undefined).
+    pub env_remove: Vec<String>,
     pub seconds: u64,
     pub stop_when: String,
+    /// Done once a transcript appears in this folder, not at the words (`stopWhenWritten`).
+    pub stop_when_written: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -363,6 +463,12 @@ pub struct ClaudeCloud<'a> {
     terminal: Option<Box<dyn Fn(&PseudoTerminalRun) -> PseudoTerminalResult + 'a>>,
     run_window: Option<Box<dyn Fn(&WindowRun) -> Result<(), String> + 'a>>,
     git_changes: Box<dyn Fn(&str) -> Option<usize> + 'a>,
+    git: Box<dyn Fn(&[&str], &str, Option<&str>) -> GitRan + 'a>,
+    claude_home: PathBuf,
+    process_env: Box<dyn Fn() -> Vec<(String, String)> + 'a>,
+    exchanges_of: Box<dyn Fn(&Path) -> Vec<CloudExchange> + 'a>,
+    /// Between looks for the transcript, ten looks in all.
+    transcript_pause: std::time::Duration,
     now: Box<dyn Fn() -> String + 'a>,
     env_lock: Mutex<()>,
 }
@@ -381,6 +487,11 @@ impl<'a> ClaudeCloud<'a> {
             terminal: None,
             run_window: None,
             git_changes: Box::new(git_changes_in),
+            git: Box::new(git_run),
+            claude_home: default_claude_home(),
+            process_env: Box::new(|| std::env::vars().collect()),
+            exchanges_of: Box::new(transcript_exchanges),
+            transcript_pause: std::time::Duration::from_millis(500),
             now: Box::new(|| Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true)),
             env_lock: Mutex::new(()),
         }
@@ -414,6 +525,23 @@ impl<'a> ClaudeCloud<'a> {
     /// Files changed or untracked in a folder; None when it is not a git checkout.
     pub fn with_git_changes(mut self, git_changes: impl Fn(&str) -> Option<usize> + 'a) -> Self {
         self.git_changes = Box::new(git_changes);
+        self
+    }
+
+    pub fn with_git(mut self, git: impl Fn(&[&str], &str, Option<&str>) -> GitRan + 'a) -> Self {
+        self.git = Box::new(git);
+        self
+    }
+
+    /// Where Claude Code keeps its transcripts (`projects/` inside it).
+    pub fn with_claude_home(mut self, claude_home: impl Into<PathBuf>) -> Self {
+        self.claude_home = claude_home.into();
+        self
+    }
+
+    /// The app's own environment, as a read is started from it.
+    pub fn with_process_env(mut self, env: impl Fn() -> Vec<(String, String)> + 'a) -> Self {
+        self.process_env = Box::new(env);
         self
     }
 
@@ -621,6 +749,251 @@ impl<'a> ClaudeCloud<'a> {
         }
     }
 
+    /// Where `--worktree <name>` puts the session: `.claude/worktrees/<name>` in the repository's main checkout
+    /// (measured 10/02: from a linked worktree it landed beside git's common directory, not in the folder itself).
+    fn worktree_of(&self, folder: &str, name: &str) -> Option<PathBuf> {
+        let common = (self.git)(&["rev-parse", "--path-format=absolute", "--git-common-dir"], folder, None);
+        if common.code != 0 {
+            return None;
+        }
+        let dir = common.stdout.trim();
+        if dir.is_empty() {
+            return None;
+        }
+        let dir = Path::new(folder).join(dir);
+        Some(dir.parent()?.join(".claude").join("worktrees").join(name))
+    }
+
+    /// The reading's worktree and its branch, gone. Claude Code locks the worktrees it makes, hence the second --force.
+    fn remove_reading(&self, folder: &str, name: &str) {
+        let Some(place) = self.worktree_of(folder, name) else {
+            return;
+        };
+        let place = place.to_string_lossy().into_owned();
+        (self.git)(&["worktree", "remove", "--force", "--force", &place], folder, None);
+        (self.git)(&["worktree", "prune"], folder, None);
+        (self.git)(&["branch", "-D", &format!("worktree-{name}")], folder, None);
+    }
+
+    /// The transcript Claude Code wrote for the worktree, the newest since `since`.
+    fn transcript_for(&self, name: &str, since: std::time::SystemTime) -> Option<PathBuf> {
+        let projects = self.claude_home.join("projects");
+        let floor = since.checked_sub(std::time::Duration::from_secs(5)).unwrap_or(since);
+        let mut best: Option<(PathBuf, std::time::SystemTime)> = None;
+        let tail = format!("-claude-worktrees-{name}");
+        for dir in fs::read_dir(&projects).ok()?.flatten() {
+            if !dir.file_name().to_string_lossy().ends_with(&tail) {
+                continue;
+            }
+            for file in fs::read_dir(dir.path()).into_iter().flatten().flatten() {
+                let path = file.path();
+                if path.extension().and_then(|e| e.to_str()) != Some("jsonl") {
+                    continue;
+                }
+                let Some(at) = file.metadata().ok().and_then(|m| m.modified().ok()) else {
+                    continue;
+                };
+                if at >= floor && best.as_ref().is_none_or(|(_, b)| at > *b) {
+                    best = Some((path, at));
+                }
+            }
+        }
+        best.map(|(path, _)| path)
+    }
+
+    /// What the session's branch changed, from where it parted from the folder's commit. None: nothing.
+    fn change_in(&self, place: &str, folder: &str) -> Option<String> {
+        let head = (self.git)(&["rev-parse", "HEAD"], folder, None);
+        if head.code != 0 {
+            return None;
+        }
+        let base = (self.git)(&["merge-base", "HEAD", head.stdout.trim()], place, None);
+        if base.code != 0 {
+            return None;
+        }
+        let diff = (self.git)(&["diff", "--binary", base.stdout.trim(), "HEAD"], place, None);
+        (diff.code == 0 && !diff.stdout.trim().is_empty()).then_some(diff.stdout)
+    }
+
+    /// WHAT THE SESSION DID, READ HERE (0.558): `claude --teleport <id> --worktree <name>` in a terminal nobody
+    /// sees fetches the session's conversation and checks its branch out beside the folder, the folder untouched.
+    /// The transcript it saved is read as an imported session is; its change is the branch against the folder's
+    /// commit, kept until Apply or Forget. Every check is a fresh teleport; nothing polls.
+    pub fn check(&self, id: &str) -> ClaudeCloudReading {
+        let fail = |message: &str| ClaudeCloudReading::Err { message: message.into() };
+        let Some(session) = self.read_sessions().into_iter().find(|s| s.id == id) else {
+            return fail(NOT_KNOWN_ANY_MORE);
+        };
+        let Some(session_id) = session.session_id.clone() else {
+            return fail("Locust does not know this session\u{2019}s id, so it cannot read it here. See it on claude.ai.");
+        };
+        let Some(terminal) = self.terminal.as_ref().filter(|_| self.platform == CloudPlatform::Win32) else {
+            return fail("Reading a cloud session here works on Windows so far. See it on claude.ai, or bring it home.");
+        };
+        let (file, prefix, launch_env) = match self.launch_of() {
+            Ok(v) => v,
+            Err(message) => return ClaudeCloudReading::Err { message },
+        };
+        let name = reading_worktree_name(&session.id);
+        let Some(place) = self.worktree_of(&session.folder, &name) else {
+            return fail("This folder is not a git checkout, so Claude Code cannot bring the session into it. See it on claude.ai.");
+        };
+        self.remove_reading(&session.folder, &name);
+        let began = std::time::SystemTime::now();
+        let prefix_refs: Vec<&str> = prefix.iter().map(String::as_str).collect();
+        let line = match windows_command_line(
+            &file,
+            &prefix_refs,
+            CloudAction::Read,
+            &WindowsCommandOptions {
+                session: Some(&session_id),
+                stay: Some(false),
+                worktree: Some(&name),
+                ..Default::default()
+            },
+        ) {
+            Ok(line) => line,
+            Err(message) => return ClaudeCloudReading::Err { message },
+        };
+        // Run from inside Claude Code (a drive, a teammate), its markers would turn transcript saving off.
+        let env_remove = (self.process_env)()
+            .into_iter()
+            .map(|(key, _)| key)
+            .filter(|key| {
+                let upper = key.to_ascii_uppercase();
+                upper.starts_with("CLAUDE") && upper != "CLAUDE_CONFIG_DIR"
+            })
+            .collect();
+        let drawn = match terminal(&PseudoTerminalRun {
+            line: format!("cmd.exe {line}"),
+            cwd: session.folder.clone(),
+            env: launch_env.unwrap_or_default(),
+            env_remove,
+            seconds: 120,
+            stop_when: format!("{ASKS_THE_PERSON}|Filename too long"),
+            // Done when its transcript is written: measured 10/02, that comes a few seconds AFTER it says
+            // "Session resumed", and ending it at the words left none.
+            stop_when_written: Some(
+                transcript_folder_of(&self.claude_home, &place.to_string_lossy())
+                    .to_string_lossy()
+                    .into_owned(),
+            ),
+        }) {
+            PseudoTerminalResult::Ok { drawn } => drawn,
+            PseudoTerminalResult::Err => return fail("Claude Code could not be run to read it. See it on claude.ai."),
+        };
+        let said = read_teleport(&drawn);
+        if let Some(problem) = said.problem {
+            self.remove_reading(&session.folder, &name);
+            return fail(match problem {
+                ReadingProblem::Asks => "Claude Code asks whether you trust this folder first. Open Claude Code in this folder once and answer it, then check again.",
+                ReadingProblem::LongPaths => "Git could not check the session out here: some of its paths are longer than Windows allows. Turning on long paths for this repository fixes it: git config core.longpaths true",
+            });
+        }
+        if said.gone {
+            // Its worktree was made before Claude Code looked the session up: nothing came in.
+            self.remove_reading(&session.folder, &name);
+            return fail("Claude Code says this session is not found in Claude\u{2019}s cloud: it was archived or deleted. See it on claude.ai, or forget it here.");
+        }
+        let mut transcript = None;
+        for tries in 0..10 {
+            transcript = self.transcript_for(&name, began);
+            if transcript.is_some() {
+                break;
+            }
+            if tries < 9 {
+                std::thread::sleep(self.transcript_pause);
+            }
+        }
+        // Measured 10/02: in two runs of six the session came in (its branch checked out) but no transcript was
+        // saved within two minutes, for no reason it drew. Its change is still shown.
+        if transcript.is_none() && !place.is_dir() {
+            self.remove_reading(&session.folder, &name);
+            return ClaudeCloudReading::Err {
+                message: match said.error {
+                    Some(error) => format!("Claude Code did not bring the session in: {error}"),
+                    None => "Claude Code did not bring the session in. See it on claude.ai.".into(),
+                },
+            };
+        }
+        let mut exchanges = transcript.as_deref().map(|path| (self.exchanges_of)(path)).unwrap_or_default();
+        let keep_from = exchanges.len().saturating_sub(MAX_EXCHANGES);
+        let exchanges: Vec<CloudExchange> = exchanges
+            .drain(keep_from..)
+            .map(|exchange| CloudExchange {
+                prompt: exchange.prompt.chars().take(4_000).collect(),
+                answer: exchange.answer.map(|answer| answer.chars().take(16_000).collect()),
+                at: exchange.at,
+                model: exchange.model,
+            })
+            .collect();
+        let change = if said.no_branch {
+            None
+        } else {
+            self.change_in(&place.to_string_lossy(), &session.folder)
+        };
+        let too_big = change.as_ref().is_some_and(|c| c.len() > MAX_DIFF);
+        ClaudeCloudReading::Ok {
+            exchanges,
+            checked_at: (self.now)(),
+            diff: change.filter(|_| !too_big),
+            change_too_big: too_big,
+            note: if said.no_branch {
+                Some("Claude Code could not check out its branch, so there is no change to show here. A session that changed nothing has none.".into())
+            } else if transcript.is_none() {
+                Some("Claude Code brought it in but did not save its conversation this time. Check again to read it.".into())
+            } else {
+                None
+            },
+        }
+    }
+
+    /// The change last read comes into the folder, not committed; the reading's worktree goes.
+    pub fn apply(&self, id: &str) -> CloudSendResult {
+        let fail = |message: String| CloudSendResult::Err { message };
+        let Some(session) = self.read_sessions().into_iter().find(|s| s.id == id) else {
+            return fail(NOT_KNOWN_ANY_MORE.into());
+        };
+        let name = reading_worktree_name(&session.id);
+        let Some(place) = self.worktree_of(&session.folder, &name).filter(|p| p.is_dir()) else {
+            return fail("Check it again first: Locust no longer has its change.".into());
+        };
+        let Some(change) = self.change_in(&place.to_string_lossy(), &session.folder) else {
+            return fail("It has no change to bring in.".into());
+        };
+        // `git apply` changes nothing unless every file applies.
+        let applied = (self.git)(&["apply", "--whitespace=nowarn", "-"], &session.folder, Some(&change));
+        if applied.code != 0 {
+            let why = applied
+                .stderr
+                .lines()
+                .find(|line| !line.trim().is_empty())
+                .map(|line| {
+                    let line = line.trim_start();
+                    let line = line.strip_prefix("error:").map(str::trim_start).unwrap_or(line);
+                    line.trim().chars().take(200).collect::<String>()
+                });
+            return fail(format!(
+                "Its change does not apply cleanly to this folder{}. Nothing was changed.",
+                why.map(|why| format!(" ({why})")).unwrap_or_default()
+            ));
+        }
+        self.remove_reading(&session.folder, &name);
+        CloudSendResult::Ok
+    }
+
+    /// The session leaves the list, and its reading's worktree goes with it.
+    pub fn forget(&self, id: &str) {
+        let sessions = self.read_sessions();
+        if let Some(session) = sessions.iter().find(|s| s.id == id)
+            && session.session_id.is_some()
+        {
+            self.remove_reading(&session.folder, &reading_worktree_name(&session.id));
+        }
+        let kept: Vec<ClaudeCloudSession> = sessions.into_iter().filter(|s| s.id != id).collect();
+        let _ = self.write_sessions(&kept);
+    }
+
     fn start_unseen(
         &self,
         folder: &str,
@@ -650,8 +1023,10 @@ impl<'a> ClaudeCloud<'a> {
             line: format!("cmd.exe {cmd_line}"),
             cwd: folder.into(),
             env,
+            env_remove: Vec::new(),
             seconds: 60,
             stop_when: ASKS_THE_PERSON.into(),
+            stop_when_written: None,
         }) {
             PseudoTerminalResult::Ok { drawn } => Some(read_cloud_start(&drawn)),
             PseudoTerminalResult::Err => None,
@@ -848,6 +1223,54 @@ impl<'a> ClaudeCloud<'a> {
     }
 }
 
+fn default_claude_home() -> PathBuf {
+    match std::env::var_os("CLAUDE_CONFIG_DIR") {
+        Some(dir) if !dir.is_empty() => PathBuf::from(dir),
+        _ => PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join(".claude"),
+    }
+}
+
+/// A transcript's exchanges, read as an imported Claude Code session is (session-import's reader).
+fn transcript_exchanges(path: &Path) -> Vec<CloudExchange> {
+    crate::session_import::session_exchanges(crate::session_import::ImportRuntime::Claude, path)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|exchange| CloudExchange {
+            prompt: exchange.prompt,
+            answer: exchange.answer,
+            at: exchange.finished,
+            model: exchange.model,
+        })
+        .collect()
+}
+
+/// git, its output apart, with what it reads on stdin.
+fn git_run(args: &[&str], cwd: &str, input: Option<&str>) -> GitRan {
+    use std::io::Write;
+    use std::process::{Command, Stdio};
+    let child = Command::new("git")
+        .args(args)
+        .current_dir(cwd)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn();
+    let Ok(mut child) = child else {
+        return GitRan { code: -1, stdout: String::new(), stderr: String::new() };
+    };
+    if let Some(mut stdin) = child.stdin.take() {
+        let _ = stdin.write_all(input.unwrap_or("").as_bytes());
+    }
+    match child.wait_with_output() {
+        Ok(out) => GitRan {
+            code: out.status.code().unwrap_or(-1),
+            stdout: String::from_utf8_lossy(&out.stdout).into_owned(),
+            stderr: String::from_utf8_lossy(&out.stderr).into_owned(),
+        },
+        Err(_) => GitRan { code: -1, stdout: String::new(), stderr: String::new() },
+    }
+}
+
 /// Files changed or untracked in `folder` (teleport refuses either); None when it is not a git checkout.
 fn git_changes_in(folder: &str) -> Option<usize> {
     let out = std::process::Command::new("git")
@@ -974,3 +1397,7 @@ mod env_tests;
 #[cfg(test)]
 #[path = "claude_cloud_id_tests.rs"]
 mod id_tests;
+
+#[cfg(test)]
+#[path = "claude_cloud_read_tests.rs"]
+mod read_tests;
