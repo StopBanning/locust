@@ -303,3 +303,7 @@ mod tests {
 #[cfg(test)]
 #[path = "spent_this_month_tests.rs"]
 mod spent_this_month_tests;
+
+#[cfg(test)]
+#[path = "spend_case_tests.rs"]
+mod spend_case_tests;

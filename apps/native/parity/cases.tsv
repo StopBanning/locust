@@ -6452,10 +6452,10 @@ apps/desktop/src/shared/a-judge-scores-each-answer.test.ts	counts what each colu
 apps/desktop/src/shared/a-judge-scores-each-answer.test.ts	is drawn without its scorecard, which the table says -- and without a line of it still being written	no
 apps/desktop/src/shared/a-lesson-reads-as-one-sentence.test.ts	joins the two fields as one sentence, lower-casing a capitalised first word	yes
 apps/desktop/src/shared/a-lesson-reads-as-one-sentence.test.ts	keeps an acronym or a name as written	yes
-apps/desktop/src/shared/a-long-room-post-still-starts.test.ts	is the whole board when it fits	no
-apps/desktop/src/shared/a-long-room-post-still-starts.test.ts	fits under the limit beside a long post, done rows going first, and says how many it left out	no
-apps/desktop/src/shared/a-long-room-post-still-starts.test.ts	says so, briefly, when even the board’s instructions do not fit	no
-apps/desktop/src/shared/a-long-room-post-still-starts.test.ts	is nothing at all when there is no room for even that	no
+apps/desktop/src/shared/a-long-room-post-still-starts.test.ts	is the whole board when it fits	yes
+apps/desktop/src/shared/a-long-room-post-still-starts.test.ts	fits under the limit beside a long post, done rows going first, and says how many it left out	yes
+apps/desktop/src/shared/a-long-room-post-still-starts.test.ts	says so, briefly, when even the board’s instructions do not fit	yes
+apps/desktop/src/shared/a-long-room-post-still-starts.test.ts	is nothing at all when there is no room for even that	yes
 apps/desktop/src/shared/a-point-can-count-twice.test.ts	reads its weight off the end of the line, and gives the judges the point without it	yes
 apps/desktop/src/shared/a-point-can-count-twice.test.ts	scores the points met by their weight	yes
 apps/desktop/src/shared/a-point-can-count-twice.test.ts	keeps a scorecard of points that all count once as it was, and its weights through a vote	yes
@@ -6468,10 +6468,10 @@ apps/desktop/src/shared/a-reply-page-is-a-whole-page.test.ts	a doctype or <html>
 apps/desktop/src/shared/a-reply-page-is-a-whole-page.test.ts	not a fragment, and not one cut off	yes
 apps/desktop/src/shared/a-reply-page-is-a-whole-page.test.ts	not another language that happens to hold markup	yes
 apps/desktop/src/shared/a-reply-page-is-a-whole-page.test.ts	not past the size a page in a reply may be	yes
-apps/desktop/src/shared/a-rewritten-memory-is-new.test.ts	is dated by its last write	no
-apps/desktop/src/shared/a-rewritten-memory-is-new.test.ts	sorts as the newest, whatever its first date	no
-apps/desktop/src/shared/a-rewritten-memory-is-new.test.ts	leads the brief as the newest, and says it is from today	no
-apps/desktop/src/shared/a-rewritten-memory-is-new.test.ts	keeps the store’s order for memories written at the same moment	no
+apps/desktop/src/shared/a-rewritten-memory-is-new.test.ts	is dated by its last write	yes
+apps/desktop/src/shared/a-rewritten-memory-is-new.test.ts	sorts as the newest, whatever its first date	yes
+apps/desktop/src/shared/a-rewritten-memory-is-new.test.ts	leads the brief as the newest, and says it is from today	yes
+apps/desktop/src/shared/a-rewritten-memory-is-new.test.ts	keeps the store’s order for memories written at the same moment	yes
 apps/desktop/src/shared/a-room-remembers-what-was-said.test.ts	is nothing in a room with no earlier post	no
 apps/desktop/src/shared/a-room-remembers-what-was-said.test.ts	names who said what, from the reader’s side, oldest first, and says where the new post begins	no
 apps/desktop/src/shared/a-room-remembers-what-was-said.test.ts	quotes no block that could act again, and leaves the board’s blocks to the board	no
@@ -6686,17 +6686,17 @@ apps/desktop/src/shared/protocol-tags.test.ts	a defanged share block sends nothi
 apps/desktop/src/shared/protocol-tags.test.ts	leaves ordinary prose and ordinary markup alone	yes
 apps/desktop/src/shared/protocol-tags.test.ts	is what sanitizeInbound does now, so the two cannot drift apart	yes
 apps/desktop/src/shared/protocol-tags.test.ts	catches odd casing and a tag carrying attributes	yes
-apps/desktop/src/shared/room-task.test.ts	reads one operation per line, in order, with the verb and the task text	no
-apps/desktop/src/shared/room-task.test.ts	drops lines it cannot read rather than refusing the block	no
-apps/desktop/src/shared/room-task.test.ts	is empty for a reply with no block, and caps a flood	no
-apps/desktop/src/shared/room-task.test.ts	bounds and cleans the task text	no
-apps/desktop/src/shared/room-task.test.ts	strips the block from what the reply shows, and defangs it when quoted	no
-apps/desktop/src/shared/room-task.test.ts	is blind to case, punctuation and spacing	no
-apps/desktop/src/shared/room-task.test.ts	names the room, the others, every task with its state and owner, and teaches the block	no
-apps/desktop/src/shared/room-task.test.ts	names another teammate's row as theirs, and says to leave it alone	no
-apps/desktop/src/shared/room-task.test.ts	says the board is empty and names nobody when alone	no
-apps/desktop/src/shared/room-task.test.ts	tells a teammate its own name	no
-apps/desktop/src/shared/room-task.test.ts	names a teammate who is alone in the room	no
+apps/desktop/src/shared/room-task.test.ts	reads one operation per line, in order, with the verb and the task text	yes
+apps/desktop/src/shared/room-task.test.ts	drops lines it cannot read rather than refusing the block	yes
+apps/desktop/src/shared/room-task.test.ts	is empty for a reply with no block, and caps a flood	yes
+apps/desktop/src/shared/room-task.test.ts	bounds and cleans the task text	yes
+apps/desktop/src/shared/room-task.test.ts	strips the block from what the reply shows, and defangs it when quoted	yes
+apps/desktop/src/shared/room-task.test.ts	is blind to case, punctuation and spacing	yes
+apps/desktop/src/shared/room-task.test.ts	names the room, the others, every task with its state and owner, and teaches the block	yes
+apps/desktop/src/shared/room-task.test.ts	names another teammate's row as theirs, and says to leave it alone	yes
+apps/desktop/src/shared/room-task.test.ts	says the board is empty and names nobody when alone	yes
+apps/desktop/src/shared/room-task.test.ts	tells a teammate its own name	yes
+apps/desktop/src/shared/room-task.test.ts	names a teammate who is alone in the room	yes
 apps/desktop/src/shared/routine-schedule.test.ts	is every N whole hours within a week, or daily at a wall-clock time	no
 apps/desktop/src/shared/routine-schedule.test.ts	every N hours counts from the last run	no
 apps/desktop/src/shared/routine-schedule.test.ts	a routine that missed several intervals while the app was closed is due once, now -- not once per miss	no
@@ -6735,22 +6735,22 @@ apps/desktop/src/shared/scout-notices-what-is-new.test.ts	take only what a perso
 apps/desktop/src/shared/settings-from-a-browser.test.ts	changes the look, groups, memories, and Scout’s notes and tune-up	yes
 apps/desktop/src/shared/settings-from-a-browser.test.ts	changes Scout’s settings, but never turns on its preparing fixes	yes
 apps/desktop/src/shared/settings-from-a-browser.test.ts	leaves forgetting everything, and the folder’s own settings, on the computer	yes
-apps/desktop/src/shared/since-you-were-away.test.ts	lists the runs that ended after you left, newest first, and leaves the earlier ones out	no
-apps/desktop/src/shared/since-you-were-away.test.ts	counts the conversations waiting on you now, by any of their turns, and the slots missed while you were gone	no
+apps/desktop/src/shared/since-you-were-away.test.ts	lists the runs that ended after you left, newest first, and leaves the earlier ones out	yes
+apps/desktop/src/shared/since-you-were-away.test.ts	counts the conversations waiting on you now, by any of their turns, and the slots missed while you were gone	yes
 apps/desktop/src/shared/since-you-were-away.test.ts	says nothing when nothing happened, and nothing for a since it cannot read (controls)	yes
-apps/desktop/src/shared/since-you-were-away.test.ts	words the counts, leaving out what is zero, and says nothing for all zeros	no
-apps/desktop/src/shared/since-you-were-away.test.ts	takes the counts off the wire only when they are four whole numbers with something to say (control)	no
-apps/desktop/src/shared/since-you-were-away.test.ts	counts twenty minutes or more as away, less as a break, and no mark as nothing	no
-apps/desktop/src/shared/spend.test.ts	is the dollars a runtime priced, with the moment it ended	no
-apps/desktop/src/shared/spend.test.ts	is nothing for a plan's run, whose dollar figure nobody paid	no
-apps/desktop/src/shared/spend.test.ts	is nothing for tokens alone, or a free model that priced nothing	no
-apps/desktop/src/shared/spend.test.ts	is Copilot's premium requests, as their own unit	no
-apps/desktop/src/shared/spend.test.ts	adds up by unit, and is nothing when nothing was money	no
-apps/desktop/src/shared/spend.test.ts	is the machine's own month, not UTC's	no
-apps/desktop/src/shared/spend.test.ts	starts again on the first of the next month, said as a person says it	no
-apps/desktop/src/shared/spend.test.ts	is a positive amount no larger than the cap	no
-apps/desktop/src/shared/spend.test.ts	is reached AT the amount as well as past it, and only by dollars	no
-apps/desktop/src/shared/spend.test.ts	says what was spent, against what, and the two ways on	no
+apps/desktop/src/shared/since-you-were-away.test.ts	words the counts, leaving out what is zero, and says nothing for all zeros	yes
+apps/desktop/src/shared/since-you-were-away.test.ts	takes the counts off the wire only when they are four whole numbers with something to say (control)	yes
+apps/desktop/src/shared/since-you-were-away.test.ts	counts twenty minutes or more as away, less as a break, and no mark as nothing	yes
+apps/desktop/src/shared/spend.test.ts	is the dollars a runtime priced, with the moment it ended	yes
+apps/desktop/src/shared/spend.test.ts	is nothing for a plan's run, whose dollar figure nobody paid	yes
+apps/desktop/src/shared/spend.test.ts	is nothing for tokens alone, or a free model that priced nothing	yes
+apps/desktop/src/shared/spend.test.ts	is Copilot's premium requests, as their own unit	yes
+apps/desktop/src/shared/spend.test.ts	adds up by unit, and is nothing when nothing was money	yes
+apps/desktop/src/shared/spend.test.ts	is the machine's own month, not UTC's	yes
+apps/desktop/src/shared/spend.test.ts	starts again on the first of the next month, said as a person says it	yes
+apps/desktop/src/shared/spend.test.ts	is a positive amount no larger than the cap	yes
+apps/desktop/src/shared/spend.test.ts	is reached AT the amount as well as past it, and only by dollars	yes
+apps/desktop/src/shared/spend.test.ts	says what was spent, against what, and the two ways on	yes
 apps/desktop/src/shared/step-budget.test.ts	says nothing about a step that fits	no
 apps/desktop/src/shared/step-budget.test.ts	speaks the moment the budget is passed	no
 apps/desktop/src/shared/step-budget.test.ts	says how much to cut, not merely that it is too long	yes
@@ -6897,24 +6897,24 @@ packages/mission-store/src/unreadable-count.test.ts	is zero when the ledger dire
 packages/mission-store/test/a-card-answered-is-kept-with-its-turn.test.ts	comes back from the file exactly as written, in order, with the schema version that holds it	yes
 packages/mission-store/test/a-card-answered-is-kept-with-its-turn.test.ts	sits between a run's events without disturbing their numbering	yes
 packages/mission-store/test/a-card-answered-is-kept-with-its-turn.test.ts	is refused on a mission written before version 20, which its own readers would stop at	no
-packages/mission-store/test/a-card-answered-is-kept-with-its-turn.test.ts	is read as damage in a file written before version 20	no
+packages/mission-store/test/a-card-answered-is-kept-with-its-turn.test.ts	is read as damage in a file written before version 20	yes
 packages/mission-store/test/a-card-answered-is-kept-with-its-turn.test.ts	refuses an answer or an answerer it does not know	no
 packages/mission-store/test/a-card-answered-is-kept-with-its-turn.test.ts	keeps an answer by an earlier Always on a v21 mission, beside the card that gave it	yes
 packages/mission-store/test/a-card-answered-is-kept-with-its-turn.test.ts	refuses an answer by an earlier Always on a v20 mission, whose readers would stop at it	no
 packages/mission-store/test/a-card-answered-is-kept-with-its-turn.test.ts	reads an answer by an earlier Always in a v20 file as damage, not as an answer	no
 packages/mission-store/test/a-card-answered-is-kept-with-its-turn.test.ts	is bounded by the host the way the reader accepts it	no
 packages/mission-store/test/a-check-result-is-kept-with-its-turn.test.ts	comes back from the file exactly as written	yes
-packages/mission-store/test/a-check-result-is-kept-with-its-turn.test.ts	keeps the file walkable after it: a later record still reads	no
-packages/mission-store/test/a-check-result-is-kept-with-its-turn.test.ts	is refused on a mission written before version 17, which its own readers would stop at	no
+packages/mission-store/test/a-check-result-is-kept-with-its-turn.test.ts	keeps the file walkable after it: a later record still reads	yes
+packages/mission-store/test/a-check-result-is-kept-with-its-turn.test.ts	is refused on a mission written before version 17, which its own readers would stop at	yes
 packages/mission-store/test/a-check-result-is-kept-with-its-turn.test.ts	is read as damage in a file written before version 17	yes
-packages/mission-store/test/a-check-result-is-kept-with-its-turn.test.ts	refuses an outcome it does not know, and an unbounded list of lines	no
-packages/mission-store/test/a-check-result-is-kept-with-its-turn.test.ts	bounds a big result to what the reader accepts, so the host never writes one it would refuse	no
+packages/mission-store/test/a-check-result-is-kept-with-its-turn.test.ts	refuses an outcome it does not know, and an unbounded list of lines	yes
+packages/mission-store/test/a-check-result-is-kept-with-its-turn.test.ts	bounds a big result to what the reader accepts, so the host never writes one it would refuse	yes
 packages/mission-store/test/a-helpers-calls-are-kept-as-its-own.test.ts	reads a ledger written before the bump whole, with no child rows and no error	yes
-packages/mission-store/test/a-helpers-calls-are-kept-as-its-own.test.ts	writes a helper's calls at v22 and reads them back under the helper's row	no
-packages/mission-store/test/a-helpers-calls-are-kept-as-its-own.test.ts	refuses a parent that names nothing, so a reader never has to guess at one	no
+packages/mission-store/test/a-helpers-calls-are-kept-as-its-own.test.ts	writes a helper's calls at v22 and reads them back under the helper's row	yes
+packages/mission-store/test/a-helpers-calls-are-kept-as-its-own.test.ts	refuses a parent that names nothing, so a reader never has to guess at one	yes
 packages/mission-store/test/a-long-field-is-kept-shortened.test.ts	is kept shortened in every event type, and read back	yes
 packages/mission-store/test/a-long-field-is-kept-shortened.test.ts	keeps a long answer whole up to its own limit, and shortens one past it (0.869)	yes
-packages/mission-store/test/a-long-field-is-kept-shortened.test.ts	is refused as before when it is not long but wrong	no
+packages/mission-store/test/a-long-field-is-kept-shortened.test.ts	is refused as before when it is not long but wrong	yes
 packages/mission-store/test/a-long-field-is-kept-shortened.test.ts	costs nothing when it already fits	yes
 packages/mission-store/test/checkpoint.test.ts	reports a settled mission as safe to resume elsewhere	yes
 packages/mission-store/test/checkpoint.test.ts	refuses to call a mission safe while an action never reported an outcome	yes
@@ -7204,8 +7204,8 @@ packages/runtime-adapters/test/a-running-codex-turn-can-be-steered.test.ts	says 
 packages/runtime-adapters/test/a-running-codex-turn-can-be-steered.test.ts	says no when the server refuses it -- the turn has just ended, say	no
 packages/runtime-adapters/test/a-running-codex-turn-can-be-steered.test.ts	says no, without asking, once the turn is over	no
 packages/runtime-adapters/test/a-sealed-run-uses-no-tool.test.ts	asks for every tool, so a run with nobody to ask refuses each one, and reaches no folder outside its own	yes
-packages/runtime-adapters/test/a-sealed-run-uses-no-tool.test.ts	keeps every tool listed, the shell among them, because the free tier refuses a run whose tools are gone	no
-packages/runtime-adapters/test/a-sealed-run-uses-no-tool.test.ts	is what a served run is told, and seals only a read-only run	no
+packages/runtime-adapters/test/a-sealed-run-uses-no-tool.test.ts	keeps every tool listed, the shell among them, because the free tier refuses a run whose tools are gone	yes
+packages/runtime-adapters/test/a-sealed-run-uses-no-tool.test.ts	is what a served run is told, and seals only a read-only run	yes
 packages/runtime-adapters/test/a-server-whose-storage-is-busy-starts-again.test.ts	starts again when another OpenCode held its storage, and the turn goes on as usual	no
 packages/runtime-adapters/test/a-server-whose-storage-is-busy-starts-again.test.ts	reads words that trail the exit before deciding	no
 packages/runtime-adapters/test/a-server-whose-storage-is-busy-starts-again.test.ts	gives up after three restarts, saying the server exited and why	no
@@ -8040,10 +8040,10 @@ packages/runtime-adapters/test/the-steps-show-what-the-runtimes-show.test.ts	car
 packages/runtime-adapters/test/the-steps-show-what-the-runtimes-show.test.ts	closes a reasoning item, so 'Thinking' leaves the live line	no
 packages/runtime-adapters/test/the-steps-show-what-the-runtimes-show.test.ts	does not read the person's own message as the teammate writing	no
 packages/runtime-adapters/test/your-own-model-is-a-provider.test.ts	is declared as an openai-compatible provider, beside the run's own permissions	yes
-packages/runtime-adapters/test/your-own-model-is-a-provider.test.ts	puts the key in the environment only -- never in the arguments	no
-packages/runtime-adapters/test/your-own-model-is-a-provider.test.ts	works for a run that stops to ask, too	no
+packages/runtime-adapters/test/your-own-model-is-a-provider.test.ts	puts the key in the environment only -- never in the arguments	yes
+packages/runtime-adapters/test/your-own-model-is-a-provider.test.ts	works for a run that stops to ask, too	yes
 packages/runtime-adapters/test/your-own-model-is-a-provider.test.ts	sends a placeholder to an endpoint that asks for no key, which the SDK needs and the server ignores	yes
 packages/runtime-adapters/test/your-own-model-is-a-provider.test.ts	turns every tool off for a model that only chats, and only for it (0.358)	yes
-packages/runtime-adapters/test/your-own-model-is-a-provider.test.ts	declares a model's listed price, which OpenCode prices each step with, and none where none is given (0.810)	no
-packages/runtime-adapters/test/your-own-model-is-a-provider.test.ts	changes nothing when there is no model of your own	no
-packages/runtime-adapters/test/your-own-model-is-a-provider.test.ts	refuses an id OpenCode could not take, and an address that is not http(s)	no
+packages/runtime-adapters/test/your-own-model-is-a-provider.test.ts	declares a model's listed price, which OpenCode prices each step with, and none where none is given (0.810)	yes
+packages/runtime-adapters/test/your-own-model-is-a-provider.test.ts	changes nothing when there is no model of your own	yes
+packages/runtime-adapters/test/your-own-model-is-a-provider.test.ts	refuses an id OpenCode could not take, and an address that is not http(s)	yes
