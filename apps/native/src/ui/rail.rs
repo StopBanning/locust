@@ -315,7 +315,7 @@ pub(super) fn rail(s: &State, p: &Palette) -> El {
         .w(RAIL_WIDTH)
         .h_full()
         .fill(crate::window_glass::sidebar_ground(s, p))
-        .border_sides([0.0, 1.0, 0.0, 0.0], p.hairline)
+        .border_sides([0.0, 1.0, 0.0, 0.0], crate::window_glass::edge(s, p.hairline))
         .child(brand)
         .child(places)
         .child(
@@ -710,7 +710,7 @@ pub(super) fn title_bar_with_needs_you(
         .px(12.0)
         .center_y()
         .fill(crate::window_glass::title_bar_ground(s, p, &l))
-        .border_sides([0.0, 0.0, 1.0, 0.0], l.c("border-hairline"))
+        .border_sides([0.0, 0.0, 1.0, 0.0], crate::window_glass::edge(s, l.c("border-hairline")))
         .window_drag()
         .child(el().w(0.0).grow(1.0))
         .child(text(name).font(rune::TextStyle::new(13.0, 600.0)).color(l.c("text-muted")).truncate())

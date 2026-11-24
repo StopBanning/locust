@@ -1529,10 +1529,11 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
 
     col()
         .key("sidebar")
-        .w(248.0)
+        .w(crate::window_glass::sidebar_width(s))
         .h_full()
+        .pl(crate::window_glass::sidebar_inset(s))
         .fill(crate::window_glass::sidebar_ground(s, p))
-        .border_sides([0.0, 1.0, 0.0, 0.0], p.hairline)
+        .border_sides([0.0, 1.0, 0.0, 0.0], crate::window_glass::edge(s, p.hairline))
         .child(
             // `.lc-sidebar__brand`: under the title bar now, which holds the window's lights.
             col()

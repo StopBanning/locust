@@ -841,6 +841,11 @@ fn load_team(s: &mut State) {
 
 fn setup(s: &mut State, waker: Waker) {
     s.mac_glass = window_glass::marks_glass(std::env::consts::OS, HEADLESS.load(std::sync::atomic::Ordering::Relaxed));
+    s.settings_panel.liquid_offered = window_glass::liquid_offered(
+        std::env::consts::OS,
+        HEADLESS.load(std::sync::atomic::Ordering::Relaxed),
+        window_glass::mac_has_glass_view(),
+    );
     s.changes_job.set_waker(waker.clone());
     s.tag_job.set_waker(waker.clone());
     s.review_job.set_waker(waker.clone());
@@ -2807,7 +2812,9 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
     {
         body = body.child(card);
     }
+    let side_width = if compact { rail::RAIL_WIDTH } else { window_glass::sidebar_width(s) };
     let mut app = window_glass::window_ground(col().key("app-window").w_full().h_full(), s, &p)
+        .children(window_glass::liquid_panel(s, &p, side_width))
         .child(rail::title_bar(s, &p, !thread_shown, running))
         .children(restored_folders_card::card(s, &p))
         .children(backup_section::restore_notice_banner(s, &p))
