@@ -552,7 +552,7 @@ fn names_what_view_glob_and_grep_acted_on() {
 #[test]
 fn is_still_closed_by_its_complete_message_and_the_key_stays_redacted() {
     // case: is still closed by its complete message, and the key stays redacted
-    let key = format!("sk-{}", "a".repeat(40));
+    let key = format!("{}-{}", "sk", "a".repeat(40));
     let events = run(&[
         line(json!({"type":"assistant.message_delta","data":{"messageId":"m1","deltaContent":format!("The key is {key}. ")}})),
         line(json!({"type":"assistant.message_delta","data":{"messageId":"m1","deltaContent":"Done."}})),
