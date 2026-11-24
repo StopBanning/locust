@@ -1262,21 +1262,35 @@ mod tests {
 
     #[test]
     fn reaches_table() {
+        // case: %s
         for (command, kind, target) in reaches() {
             let reach = command_reach(Some(&command));
             assert!(reach.is_some(), "expected reach for {command:?}");
             let reach = reach.unwrap();
             assert_eq!(reach.kind.as_str(), kind, "kind for {command:?}");
             assert_eq!(reach.target, target, "target for {command:?}");
+            // Through the caller: a command card's Always is held to Once, and says why (approval.rs answer).
+            let card = crate::approval_rules::RequestView { kind: "command", summary: "Run a command", detail: &command, runtime: None, patch_text: None };
+            let (decision, note) = crate::approval_rules::enforced_answer_decision(card, "approve-always");
+            assert_eq!(decision, "approve-once", "{command:?}");
+            assert_eq!(note, Some(format!("asked each time: {}", reach.short)), "{command:?}");
         }
     }
 
     #[test]
     fn does_not_reach() {
+        // case: acts on its own or only says it: %s
         for command in DOES_NOT {
             assert!(
                 command_reach(Some(command)).is_none(),
                 "expected no reach for {command:?}"
+            );
+            // Through the caller: Always stays Always, with nothing said.
+            let card = crate::approval_rules::RequestView { kind: "command", summary: "Run a command", detail: command, runtime: None, patch_text: None };
+            assert_eq!(
+                crate::approval_rules::enforced_answer_decision(card, "approve-always"),
+                ("approve-always".to_owned(), None),
+                "{command:?}"
             );
         }
     }

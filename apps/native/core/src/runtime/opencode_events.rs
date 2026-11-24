@@ -8,6 +8,8 @@ pub struct ErrorFacts {
     pub status: Option<i64>,
     pub kind: Option<String>,
     pub name: Option<String>,
+    /// Whether OpenCode said trying again could work (`data.isRetryable`, opencode-error.ts `retryable`).
+    pub retryable: Option<bool>,
 }
 impl ErrorFacts {
     pub fn of(v: &Value) -> Option<Self> {
@@ -29,6 +31,7 @@ impl ErrorFacts {
             status: d["statusCode"].as_i64(),
             kind,
             name,
+            retryable: d["isRetryable"].as_bool(),
         })
     }
     pub fn session_ended(&self) -> bool {
@@ -622,3 +625,6 @@ mod qa_0365_opencode_worktree_tests;
 #[cfg(test)]
 #[path = "opencode_session_ended_tests.rs"]
 mod opencode_session_ended_tests;
+#[cfg(test)]
+#[path = "opencode_error_tests.rs"]
+mod opencode_error_tests;

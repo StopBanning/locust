@@ -3182,3 +3182,7 @@ mod a_teammate_keeps_the_hub_tests;
 #[cfg(test)]
 #[path = "route_remembers_effort_tests.rs"]
 mod route_remembers_effort_tests;
+
+#[cfg(test)]
+#[path = "a_teammate_name_is_its_own_tests.rs"]
+mod a_teammate_name_is_its_own_tests;

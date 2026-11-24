@@ -1123,3 +1123,11 @@ mod references_never_widen_tests;
 #[cfg(test)]
 #[path = "a_context_inspection_tests.rs"]
 mod a_context_inspection_tests;
+
+#[cfg(test)]
+#[path = "permission_bridge_argv_tests.rs"]
+mod permission_bridge_argv_tests;
+
+#[cfg(test)]
+#[path = "connector_allow_rules_tests.rs"]
+mod connector_allow_rules_tests;

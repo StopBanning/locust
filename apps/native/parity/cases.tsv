@@ -3169,8 +3169,8 @@ apps/desktop/src/main/two-teammates-hear-about-each-others-edits.test.ts	treats 
 apps/desktop/src/main/two-teammates-hear-about-each-others-edits.test.ts	forgets a change once it is no longer recent	yes
 apps/desktop/src/main/two-teammates-hear-about-each-others-edits.test.ts	names eight files per teammate and counts the rest	yes
 apps/desktop/src/main/two-teammates-hear-about-each-others-edits.test.ts	goes right before the personu2019s words, with what arrived this turn	yes
-apps/desktop/src/main/two-teammates-may-not-share-a-name.test.ts	cannot be given to a second teammate, whatever its case or spaces	no
-apps/desktop/src/main/two-teammates-may-not-share-a-name.test.ts	cannot be taken by a rename, but a teammate keeps its own	no
+apps/desktop/src/main/two-teammates-may-not-share-a-name.test.ts	cannot be given to a second teammate, whatever its case or spaces	yes
+apps/desktop/src/main/two-teammates-may-not-share-a-name.test.ts	cannot be taken by a rename, but a teammate keeps its own	yes
 apps/desktop/src/main/ui-face-is-bundled.test.ts	is Figtree, with Geist behind it for what Figtree does not draw	yes
 apps/desktop/src/main/ui-face-is-bundled.test.ts	is a real woff2 on disk for both styles, covering the title weight	yes
 apps/desktop/src/main/ui-face-is-bundled.test.ts	carries its licence beside it	yes
@@ -6457,8 +6457,8 @@ apps/desktop/src/shared/a-command-says-what-it-does-in-plain-words.test.ts	says 
 apps/desktop/src/shared/a-command-says-what-it-does-in-plain-words.test.ts	says where what it prints is saved, and when that loses a file	no
 apps/desktop/src/shared/a-command-says-what-it-does-in-plain-words.test.ts	names a setting made for the commands after it, never its value	no
 apps/desktop/src/shared/a-command-says-what-it-does-in-plain-words.test.ts	a quoted arrow or a discarded stream is not a file written	no
-apps/desktop/src/shared/a-command-that-reaches-other-programs-is-named.test.ts	%s	no
-apps/desktop/src/shared/a-command-that-reaches-other-programs-is-named.test.ts	acts on its own or only says it: %s	no
+apps/desktop/src/shared/a-command-that-reaches-other-programs-is-named.test.ts	%s	yes
+apps/desktop/src/shared/a-command-that-reaches-other-programs-is-named.test.ts	acts on its own or only says it: %s	yes
 apps/desktop/src/shared/a-command-that-reaches-other-programs-is-named.test.ts	says it in words a person reads	yes
 apps/desktop/src/shared/a-fenced-tidy-block-still-counts.test.ts	is read like any other	no
 apps/desktop/src/shared/a-fenced-tidy-block-still-counts.test.ts	is asked once when it is shown and then written again	no
@@ -7205,10 +7205,10 @@ packages/runtime-adapters/test/a-model-of-your-own-is-priced-step-by-step.test.t
 packages/runtime-adapters/test/a-model-of-your-own-is-priced-step-by-step.test.ts	takes the largest tier passed, and the older over-200k price where a list gives that	yes
 packages/runtime-adapters/test/a-model-of-your-own-is-priced-step-by-step.test.ts	adds up each step at its listed price, the step over the tier at the tier's	yes
 packages/runtime-adapters/test/a-model-of-your-own-is-priced-step-by-step.test.ts	reads OpenCode's own figure where no price is given, as before	yes
-packages/runtime-adapters/test/a-muse-plan-used-up-is-said-once.test.ts	is one limit with its reset instant, and a failure that says what to do	no
-packages/runtime-adapters/test/a-muse-plan-used-up-is-said-once.test.ts	leaves no Unhandled line: a saved output and the run's usage are not shown, a stopped tool fails on its row	no
-packages/runtime-adapters/test/a-muse-plan-used-up-is-said-once.test.ts	is still said once when only the run's own end says it	no
-packages/runtime-adapters/test/a-muse-plan-used-up-is-said-once.test.ts	names no reset it was not told	no
+packages/runtime-adapters/test/a-muse-plan-used-up-is-said-once.test.ts	is one limit with its reset instant, and a failure that says what to do	yes
+packages/runtime-adapters/test/a-muse-plan-used-up-is-said-once.test.ts	leaves no Unhandled line: a saved output and the run's usage are not shown, a stopped tool fails on its row	yes
+packages/runtime-adapters/test/a-muse-plan-used-up-is-said-once.test.ts	is still said once when only the run's own end says it	yes
+packages/runtime-adapters/test/a-muse-plan-used-up-is-said-once.test.ts	names no reset it was not told	yes
 packages/runtime-adapters/test/a-real-muse-wonder-run-reads-whole.test.ts	reads whole: its tool by name, its answer, its end, and nothing left unread	yes
 packages/runtime-adapters/test/a-real-muse-wonder-run-reads-whole.test.ts	says once that Meta's model is being tried again, and nothing for its first try	yes
 packages/runtime-adapters/test/a-real-muse-wonder-run-reads-whole.test.ts	lets the session's bookkeeping go quietly, the branch it saw in a git folder among it	yes
@@ -7353,15 +7353,15 @@ packages/runtime-adapters/test/an-opencode-reply-streams.test.ts	is closed when 
 packages/runtime-adapters/test/an-oversized-cursor-edit-keeps-its-counts.test.ts	leaves its counts and its diff in the stand-in, and none of the file	yes
 packages/runtime-adapters/test/an-oversized-cursor-edit-keeps-its-counts.test.ts	closes as a change the files card can count: +1 -1, not 'too large to keep'	no
 packages/runtime-adapters/test/an-oversized-cursor-edit-keeps-its-counts.test.ts	without a diff, still closes with its counts, marked cut short	yes
-packages/runtime-adapters/test/antigravity-background.test.ts	set on a task that already ended, holds nothing open	no
-packages/runtime-adapters/test/antigravity-background.test.ts	set while the task runs, settles when the task ends	no
-packages/runtime-adapters/test/antigravity-background.test.ts	closes the call as backgrounded and opens a background step, not 'did not report'	no
-packages/runtime-adapters/test/antigravity-background.test.ts	holds the turn open while it runs, and settles its row from the task's own notice	no
-packages/runtime-adapters/test/antigravity-background.test.ts	reads a non-zero exit as failed, and a cancel as stopped	no
-packages/runtime-adapters/test/antigravity-background.test.ts	ignores a notice for a task it never saw start	no
-packages/runtime-adapters/test/antigravity-background.test.ts	finds the task and what it is doing	no
-packages/runtime-adapters/test/antigravity-background.test.ts	names a command row by the command, with the model's phrase as its title	no
-packages/runtime-adapters/test/antigravity-background.test.ts	is an ordinary finished read, nothing waits on it, and the answer ends the turn	no
+packages/runtime-adapters/test/antigravity-background.test.ts	set on a task that already ended, holds nothing open	yes
+packages/runtime-adapters/test/antigravity-background.test.ts	set while the task runs, settles when the task ends	yes
+packages/runtime-adapters/test/antigravity-background.test.ts	closes the call as backgrounded and opens a background step, not 'did not report'	yes
+packages/runtime-adapters/test/antigravity-background.test.ts	holds the turn open while it runs, and settles its row from the task's own notice	yes
+packages/runtime-adapters/test/antigravity-background.test.ts	reads a non-zero exit as failed, and a cancel as stopped	yes
+packages/runtime-adapters/test/antigravity-background.test.ts	ignores a notice for a task it never saw start	yes
+packages/runtime-adapters/test/antigravity-background.test.ts	finds the task and what it is doing	yes
+packages/runtime-adapters/test/antigravity-background.test.ts	names a command row by the command, with the model's phrase as its title	yes
+packages/runtime-adapters/test/antigravity-background.test.ts	is an ordinary finished read, nothing waits on it, and the answer ends the turn	yes
 packages/runtime-adapters/test/antigravity-events.test.ts	says nothing about the prompt it was handed or the checkpoint it was handed back	no
 packages/runtime-adapters/test/antigravity-events.test.ts	never lets Antigravity's checkpoint summary into the ledger	no
 packages/runtime-adapters/test/antigravity-events.test.ts	delivers the planner's answer whole, as its own final message	no
@@ -7406,20 +7406,20 @@ packages/runtime-adapters/test/antigravity-events.test.ts	says what is being ask
 packages/runtime-adapters/test/antigravity-events.test.ts	carries the question, structured, for the card that answers it	no
 packages/runtime-adapters/test/antigravity-events.test.ts	leaves every other tool's row exactly as it was	no
 packages/runtime-adapters/test/antigravity-events.test.ts	keeps the end, where the blocks the host acts on are	no
-packages/runtime-adapters/test/antigravity-gaps.test.ts	comes back whole from the step that holds it	no
-packages/runtime-adapters/test/antigravity-gaps.test.ts	is never filled from a different step: the words on both sides must be that step's	no
-packages/runtime-adapters/test/antigravity-gaps.test.ts	holds every piece between two gaps, in order	no
-packages/runtime-adapters/test/antigravity-gaps.test.ts	leaves a text with no gap alone	no
-packages/runtime-adapters/test/antigravity-gaps.test.ts	carry the whole answer where the server had it, and everything else as it came	no
-packages/runtime-adapters/test/antigravity-gaps.test.ts	keep the gap when the server did not have the step	no
-packages/runtime-adapters/test/antigravity-gaps.test.ts	scrub the restored text as every recorded text is scrubbed, matching the scrubbed transcript	no
-packages/runtime-adapters/test/antigravity-gaps.test.ts	know a gap when they see one, and the step a message came from	no
-packages/runtime-adapters/test/antigravity-question.test.ts	reads the question Colin was shown, and its four options	no
-packages/runtime-adapters/test/antigravity-question.test.ts	reads a second real payload the same way	no
-packages/runtime-adapters/test/antigravity-question.test.ts	sees through the double encoding rather than around it	no
-packages/runtime-adapters/test/antigravity-question.test.ts	says nothing rather than something wrong for a tool that is not asking	no
-packages/runtime-adapters/test/antigravity-question.test.ts	keeps a question that carries no options	no
-packages/runtime-adapters/test/antigravity-question.test.ts	carries multi-select through, since it changes what an answer means	no
+packages/runtime-adapters/test/antigravity-gaps.test.ts	comes back whole from the step that holds it	yes
+packages/runtime-adapters/test/antigravity-gaps.test.ts	is never filled from a different step: the words on both sides must be that step's	yes
+packages/runtime-adapters/test/antigravity-gaps.test.ts	holds every piece between two gaps, in order	yes
+packages/runtime-adapters/test/antigravity-gaps.test.ts	leaves a text with no gap alone	yes
+packages/runtime-adapters/test/antigravity-gaps.test.ts	carry the whole answer where the server had it, and everything else as it came	yes
+packages/runtime-adapters/test/antigravity-gaps.test.ts	keep the gap when the server did not have the step	yes
+packages/runtime-adapters/test/antigravity-gaps.test.ts	scrub the restored text as every recorded text is scrubbed, matching the scrubbed transcript	yes
+packages/runtime-adapters/test/antigravity-gaps.test.ts	know a gap when they see one, and the step a message came from	yes
+packages/runtime-adapters/test/antigravity-question.test.ts	reads the question Colin was shown, and its four options	yes
+packages/runtime-adapters/test/antigravity-question.test.ts	reads a second real payload the same way	yes
+packages/runtime-adapters/test/antigravity-question.test.ts	sees through the double encoding rather than around it	yes
+packages/runtime-adapters/test/antigravity-question.test.ts	says nothing rather than something wrong for a tool that is not asking	yes
+packages/runtime-adapters/test/antigravity-question.test.ts	keeps a question that carries no options	yes
+packages/runtime-adapters/test/antigravity-question.test.ts	carries multi-select through, since it changes what an answer means	yes
 packages/runtime-adapters/test/antigravity-waiting-is-said-as-waiting.test.ts	reads the helpers a list names	no
 packages/runtime-adapters/test/antigravity-waiting-is-said-as-waiting.test.ts	says each long wait after the list as a wait on that helper, at the length agy timed	no
 packages/runtime-adapters/test/antigravity-waiting-is-said-as-waiting.test.ts	says, once, at the third, that the whole conversation is being read again and what it has cost	no
@@ -7623,10 +7623,10 @@ packages/runtime-adapters/test/connector-allow-rules.test.ts	are ignored by ever
 packages/runtime-adapters/test/connectors.test.ts	are read off `claude mcp list`, names and health both	yes
 packages/runtime-adapters/test/connectors.test.ts	are read into every class the health check can say, written by hand (W8)	yes
 packages/runtime-adapters/test/connectors.test.ts	survive the header, blanks and anything else the CLI prints	yes
-packages/runtime-adapters/test/connectors.test.ts	derive the prefix every one of their tools really carries	no
-packages/runtime-adapters/test/connectors.test.ts	become an allow rule shaped the way the CLI demands	no
-packages/runtime-adapters/test/connectors.test.ts	refuse to make a rule at all from a name that sanitises to nothing	no
-packages/runtime-adapters/test/connectors.test.ts	keep a local server's hyphens and underscores, as Claude Code does	no
+packages/runtime-adapters/test/connectors.test.ts	derive the prefix every one of their tools really carries	yes
+packages/runtime-adapters/test/connectors.test.ts	become an allow rule shaped the way the CLI demands	yes
+packages/runtime-adapters/test/connectors.test.ts	refuse to make a rule at all from a name that sanitises to nothing	yes
+packages/runtime-adapters/test/connectors.test.ts	keep a local server's hyphens and underscores, as Claude Code does	yes
 packages/runtime-adapters/test/copilot-effort-levels.test.ts	are read from its 1.0.88 help	yes
 packages/runtime-adapters/test/copilot-effort-levels.test.ts	are still read from the older parenthesised shape	yes
 packages/runtime-adapters/test/copilot-events.test.ts	opens the run on the record that names the model it actually got	no
@@ -7829,19 +7829,19 @@ packages/runtime-adapters/test/opencode-commands.test.ts	is a refusal, not an em
 packages/runtime-adapters/test/opencode-commands.test.ts	is named on the command line, and its arguments are the message on stdin	no
 packages/runtime-adapters/test/opencode-commands.test.ts	refuses a name no command could have	no
 packages/runtime-adapters/test/opencode-commands.test.ts	is an ordinary run when there is no command	no
-packages/runtime-adapters/test/opencode-error.test.ts	pulls the provider's own error type out of the response body	no
-packages/runtime-adapters/test/opencode-error.test.ts	falls back to the error's name when there is no body to read	no
-packages/runtime-adapters/test/opencode-error.test.ts	survives a response body that is not JSON	no
-packages/runtime-adapters/test/opencode-error.test.ts	answers nothing for a record carrying no error at all	no
-packages/runtime-adapters/test/opencode-error.test.ts	names the free usage limit in plain words, and what to do	no
-packages/runtime-adapters/test/opencode-error.test.ts	says rate limited, and quotes the provider, for a 429 that is not the free tier	no
-packages/runtime-adapters/test/opencode-error.test.ts	points at sign-in when the provider refused the credentials	no
-packages/runtime-adapters/test/opencode-error.test.ts	on a free model says the refusal is OpenCode's side: there is no sign-in to renew	no
-packages/runtime-adapters/test/opencode-error.test.ts	quotes the runtime rather than paraphrasing it, for anything else	no
-packages/runtime-adapters/test/opencode-error.test.ts	admits it does not know, rather than inventing a cause	no
-packages/runtime-adapters/test/opencode-error.test.ts	never tells anyone a run simply stopped for no reason	no
-packages/runtime-adapters/test/opencode-error.test.ts	says what happened and what to do, not what the provider said	no
-packages/runtime-adapters/test/opencode-error.test.ts	leaves every other provider message alone	no
+packages/runtime-adapters/test/opencode-error.test.ts	pulls the provider's own error type out of the response body	yes
+packages/runtime-adapters/test/opencode-error.test.ts	falls back to the error's name when there is no body to read	yes
+packages/runtime-adapters/test/opencode-error.test.ts	survives a response body that is not JSON	yes
+packages/runtime-adapters/test/opencode-error.test.ts	answers nothing for a record carrying no error at all	yes
+packages/runtime-adapters/test/opencode-error.test.ts	names the free usage limit in plain words, and what to do	yes
+packages/runtime-adapters/test/opencode-error.test.ts	says rate limited, and quotes the provider, for a 429 that is not the free tier	yes
+packages/runtime-adapters/test/opencode-error.test.ts	points at sign-in when the provider refused the credentials	yes
+packages/runtime-adapters/test/opencode-error.test.ts	on a free model says the refusal is OpenCode's side: there is no sign-in to renew	yes
+packages/runtime-adapters/test/opencode-error.test.ts	quotes the runtime rather than paraphrasing it, for anything else	yes
+packages/runtime-adapters/test/opencode-error.test.ts	admits it does not know, rather than inventing a cause	yes
+packages/runtime-adapters/test/opencode-error.test.ts	never tells anyone a run simply stopped for no reason	yes
+packages/runtime-adapters/test/opencode-error.test.ts	says what happened and what to do, not what the provider said	yes
+packages/runtime-adapters/test/opencode-error.test.ts	leaves every other provider message alone	yes
 packages/runtime-adapters/test/opencode-events.test.ts	takes the session id from the first record, not from a header record it never sends	no
 packages/runtime-adapters/test/opencode-events.test.ts	opens and closes one turn per step, so nothing is left looking unfinished	no
 packages/runtime-adapters/test/opencode-events.test.ts	delivers each text part whole, as its own final message	no
@@ -7900,14 +7900,14 @@ packages/runtime-adapters/test/opencode-serve-run.test.ts	passes on why the pers
 packages/runtime-adapters/test/opencode-serve-run.test.ts	sends one of OpenCode's own commands as the command, its arguments beside it, and reads the turn the same way (0.427)	no
 packages/runtime-adapters/test/opencode-serve-run.test.ts	asks for every action in its config, and never announces itself on the network	no
 packages/runtime-adapters/test/opencode-serve-run.test.ts	turns settled parts into records, and the reply's text while it is written into partial ones (0.677)	no
-packages/runtime-adapters/test/permission-bridge-argv.test.ts	is named, config and tool both, in every mode that asks	no
-packages/runtime-adapters/test/permission-bridge-argv.test.ts	is absent in Auto, which asks nothing	no
-packages/runtime-adapters/test/permission-bridge-argv.test.ts	is absent when no bridge was registered, rather than naming a file that does not exist	no
-packages/runtime-adapters/test/permission-bridge-argv.test.ts	does not replace the connector allow rules; it comes after them	no
-packages/runtime-adapters/test/permission-bridge-argv.test.ts	is ignored by a runtime that has no such flags	no
-packages/runtime-adapters/test/permission-bridge-argv.test.ts	refuses an empty config path rather than sending a flag with nothing after it	no
-packages/runtime-adapters/test/permission-bridge-argv.test.ts	asks before every edit and command in Approve each: Claude Code's default mode, the editing tools, the bridge	no
-packages/runtime-adapters/test/permission-bridge-argv.test.ts	never runs Approve each without the bridge, where every action would be refused unseen	no
+packages/runtime-adapters/test/permission-bridge-argv.test.ts	is named, config and tool both, in every mode that asks	yes
+packages/runtime-adapters/test/permission-bridge-argv.test.ts	is absent in Auto, which asks nothing	yes
+packages/runtime-adapters/test/permission-bridge-argv.test.ts	is absent when no bridge was registered, rather than naming a file that does not exist	yes
+packages/runtime-adapters/test/permission-bridge-argv.test.ts	does not replace the connector allow rules; it comes after them	yes
+packages/runtime-adapters/test/permission-bridge-argv.test.ts	is ignored by a runtime that has no such flags	yes
+packages/runtime-adapters/test/permission-bridge-argv.test.ts	refuses an empty config path rather than sending a flag with nothing after it	yes
+packages/runtime-adapters/test/permission-bridge-argv.test.ts	asks before every edit and command in Approve each: Claude Code's default mode, the editing tools, the bridge	yes
+packages/runtime-adapters/test/permission-bridge-argv.test.ts	never runs Approve each without the bridge, where every action would be refused unseen	yes
 packages/runtime-adapters/test/process-runner.test.ts	uses the validated argv and cwd, sends the prompt only to stdin, and streams raw records	yes
 packages/runtime-adapters/test/process-runner.test.ts	bounds captured stderr and reports truncation	yes
 packages/runtime-adapters/test/process-runner.test.ts	redacts the prompt from captured stderr	yes
@@ -7957,13 +7957,13 @@ packages/runtime-adapters/test/references-never-widen-a-mode.test.ts	Claude adds
 packages/runtime-adapters/test/references-never-widen-a-mode.test.ts	OpenCode adds only named reference reads while every write denial and bash rule stays intact	yes
 packages/runtime-adapters/test/references-never-widen-a-mode.test.ts	OpenCode Edit and Auto permissions are unchanged, not silently narrowed	yes
 packages/runtime-adapters/test/references-never-widen-a-mode.test.ts	Copilot and Antigravity keep their read-only posture when adding a directory	yes
-packages/runtime-adapters/test/refusal-is-readable.test.ts	keeps the first line and stops there	no
-packages/runtime-adapters/test/refusal-is-readable.test.ts	leaves an ordinary command exactly as it was	no
-packages/runtime-adapters/test/refusal-is-readable.test.ts	never cuts a token in half when it can avoid it	no
-packages/runtime-adapters/test/refusal-is-readable.test.ts	still says something when the whole thing is one unbroken token	no
-packages/runtime-adapters/test/refusal-is-readable.test.ts	names a connector the way the activity rows name it	no
-packages/runtime-adapters/test/refusal-is-readable.test.ts	gives a connector refusal a reason the person can act on	no
-packages/runtime-adapters/test/refusal-is-readable.test.ts	says a refused read reached outside the folder, and never claims a mode it does not know (0.443)	no
+packages/runtime-adapters/test/refusal-is-readable.test.ts	keeps the first line and stops there	yes
+packages/runtime-adapters/test/refusal-is-readable.test.ts	leaves an ordinary command exactly as it was	yes
+packages/runtime-adapters/test/refusal-is-readable.test.ts	never cuts a token in half when it can avoid it	yes
+packages/runtime-adapters/test/refusal-is-readable.test.ts	still says something when the whole thing is one unbroken token	yes
+packages/runtime-adapters/test/refusal-is-readable.test.ts	names a connector the way the activity rows name it	yes
+packages/runtime-adapters/test/refusal-is-readable.test.ts	gives a connector refusal a reason the person can act on	yes
+packages/runtime-adapters/test/refusal-is-readable.test.ts	says a refused read reached outside the folder, and never claims a mode it does not know (0.443)	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	builds prompt-on-stdin, read-only Codex and restricted Claude commands	no
 packages/runtime-adapters/test/runtime-adapters.test.ts	holds a read-only Claude mission in default mode with a reading tool list plus Task, never plan mode	no
 packages/runtime-adapters/test/runtime-adapters.test.ts	lets a Claude mission that may edit actually edit, and run what it changed	no
