@@ -149,6 +149,19 @@ where
     if let Some(stranger) = events.iter().position(|e| e["runId"] != run || e["missionId"] != mission) {
         return Err(io::Error::other(format!("Event {} of {} is not this mission's run (correlation), so none were written", stranger + 1, events.len())));
     }
+    let mission_runtime = meta["runtime"].as_str();
+    if events.iter().any(|e| {
+        let wrong_runtime = match (mission_runtime, e["sourceAdapter"].as_str()) {
+            (Some(rt), Some(ad)) if !rt.is_empty() && !ad.is_empty() => rt != ad,
+            _ => false,
+        };
+        let bad_delta = e["type"] == "message.delta"
+            && (e["payload"].get("operation").is_some_and(|op| !matches!(op.as_str(), Some("append" | "replace")))
+                || e["payload"].get("itemId").is_some_and(|id| !id.as_str().is_some_and(|s| !s.trim().is_empty() && s.encode_utf16().count() <= 512)));
+        wrong_runtime || bad_delta
+    }) {
+        return Err(io::Error::other("Mission event is not readable by the ledger reader"));
+    }
     let mut buf = Vec::new();
     for event in events {
         let record = json!({
@@ -487,6 +500,7 @@ impl LedgerWriter {
             runtime,
             "codex"
                 | "claude"
+                | "gemini"
                 | "acp"
                 | "opencode"
                 | "kilo"
@@ -514,31 +528,13 @@ impl LedgerWriter {
                 return Err(io::Error::other("Invalid continuation"));
             }
         }
-        let path = store.write_path(id)?;
-        // The directory is created and walked without following any symlink (`Store::create_new_file_in`), so the
-        // ancestor race closes: no file is ever created through a swapped component.
-        let file = open_checked(store, &path)?;
         let route = format!("{runtime}:{model}");
         let resolved_route = extra
             .get("resolvedRouteId")
             .and_then(Value::as_str)
             .map(str::to_owned)
             .unwrap_or_else(|| format!("{route}-account:default"));
-        let mut writer = Self {
-            file,
-            path,
-            mission: id.into(),
-            run: format!("run_{id}"),
-            route,
-            resolved_route,
-            runtime: runtime.into(),
-            sequence: 0,
-            ledger_seq: 2,
-            poisoned: false,
-            bytes: 0,
-            keys: Vec::new(),
-            on_began: Vec::new(),
-        };
+        let run = format!("run_{id}");
         let at = now();
         let continuation = continues.map(|c| {
             let mut link =
@@ -548,9 +544,9 @@ impl LedgerWriter {
             }
             link
         });
-        let mut record = json!({"schemaVersion":writer.schema(),"recordType":"mission.created","ledgerSequence":1,"occurredAt":at,"metadata":{
-            "missionId":id,"runId":writer.run,"prompt":prompt,"runtime":runtime,"model":model,
-            "requestedRouteId":writer.route,"resolvedRouteId":writer.resolved_route,"cliVersion":null,"workspaceId":"native",
+        let mut record = json!({"schemaVersion":schema_written(runtime),"recordType":"mission.created","ledgerSequence":1,"occurredAt":at,"metadata":{
+            "missionId":id,"runId":run,"prompt":prompt,"runtime":runtime,"model":model,
+            "requestedRouteId":route,"resolvedRouteId":resolved_route,"cliVersion":null,"workspaceId":"native",
             "sandbox":"read-only","mode":"ask","executionPolicyVersion":1,"createdAt":at,
             "command":{"executablePath":executable,"args":recordable_args(args, prompt)}
         }});
@@ -566,6 +562,26 @@ impl LedgerWriter {
                 }
             }
         }
+        crate::ledger::validate_metadata_fields(&record["metadata"]).map_err(io::Error::other)?;
+        let path = store.write_path(id)?;
+        // The directory is created and walked without following any symlink (`Store::create_new_file_in`), so the
+        // ancestor race closes: no file is ever created through a swapped component.
+        let file = open_checked(store, &path)?;
+        let mut writer = Self {
+            file,
+            path,
+            mission: id.into(),
+            run,
+            route,
+            resolved_route,
+            runtime: runtime.into(),
+            sequence: 0,
+            ledger_seq: 2,
+            poisoned: false,
+            bytes: 0,
+            keys: Vec::new(),
+            on_began: Vec::new(),
+        };
         writer.line(record)?;
         if let Ok(dir) = File::open(
             writer
@@ -842,6 +858,36 @@ mod tests {
             std::fs::metadata(&good).unwrap().permissions().mode() & 0o777,
             0o600
         );
+        let err = LedgerWriter::create_runtime_with(
+            &store,
+            "m_bad",
+            "p",
+            "account-default",
+            "codex",
+            "codex",
+            &[],
+            None,
+            &json!({"mode": "whatever"}),
+        );
+        assert!(err.is_err());
+        let w = LedgerWriter::create_runtime_with(
+            &store,
+            "m_ok",
+            "p",
+            "account-default",
+            "codex",
+            "codex",
+            &[],
+            None,
+            &Value::Null,
+        )
+        .unwrap();
+        let path = w.path.clone();
+        drop(w);
+        assert!(append_events(&path, |run, mission, _ad, seq, at| {
+            vec![json!({"id":format!("{run}:c:{seq}"),"runId":run,"missionId":mission,"sequence":seq,"occurredAt":at,"sourceAdapter":"claude","type":"run.started","payload":{}})]
+        })
+        .is_err());
         std::fs::remove_dir_all(temp).unwrap();
     }
 }

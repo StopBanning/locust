@@ -7025,53 +7025,53 @@ packages/mission-store/test/retention.test.ts	reports an empty history as empty 
 packages/mission-store/test/retention.test.ts	counts a file it cannot read separately, instead of leaving it out of a date it is inside	no
 packages/mission-store/test/schema-compat.test.ts	writes new missions at the current version	yes
 packages/mission-store/test/schema-compat.test.ts	still recovers a mission recorded before the version bump	yes
-packages/mission-store/test/schema-compat.test.ts	appends to a version-1 mission in version 1, keeping the file walkable	no
-packages/mission-store/test/schema-compat.test.ts	stops recovery when a record disagrees with its file version	no
+packages/mission-store/test/schema-compat.test.ts	appends to a version-1 mission in version 1, keeping the file walkable	yes
+packages/mission-store/test/schema-compat.test.ts	stops recovery when a record disagrees with its file version	yes
 packages/mission-store/test/schema-compat.test.ts	refuses a version-1 file describing a runtime version 1 could not write	yes
 packages/mission-store/test/schema-compat.test.ts	refuses a pre-v4 file claiming to continue another mission	yes
 packages/mission-store/test/schema-compat.test.ts	round-trips a continuation through the durable record	yes
 packages/mission-store/test/schema-compat.test.ts	round-trips what a handoff left out, and refuses a malformed list	yes
-packages/mission-store/test/schema-compat.test.ts	refuses a continuation that names an unsafe mission id	no
-packages/mission-store/test/schema-compat.test.ts	refuses a continuation with an impossible checkpoint epoch	no
+packages/mission-store/test/schema-compat.test.ts	refuses a continuation that names an unsafe mission id	yes
+packages/mission-store/test/schema-compat.test.ts	refuses a continuation with an impossible checkpoint epoch	yes
 packages/mission-store/test/schema-compat.test.ts	round-trips a peer link through the durable record	yes
 packages/mission-store/test/schema-compat.test.ts	refuses a peer link in a file written before version 5	yes
-packages/mission-store/test/schema-compat.test.ts	refuses to append a peer link to a mission written before version 5	no
+packages/mission-store/test/schema-compat.test.ts	refuses to append a peer link to a mission written before version 5	yes
 packages/mission-store/test/schema-compat.test.ts	refuses a peer link with an unsafe id or an unknown direction	yes
-packages/mission-store/test/schema-compat.test.ts	round-trips a follow-up continuation, session handle and all	no
+packages/mission-store/test/schema-compat.test.ts	round-trips a follow-up continuation, session handle and all	yes
 packages/mission-store/test/schema-compat.test.ts	refuses a follow-up in a file written before version 6	yes
 packages/mission-store/test/schema-compat.test.ts	refuses a Gemini mission in a file written before version 7	yes
-packages/mission-store/test/schema-compat.test.ts	round-trips who started a run at the current version	no
+packages/mission-store/test/schema-compat.test.ts	round-trips who started a run at the current version	yes
 packages/mission-store/test/schema-compat.test.ts	refuses a host-started run in a file written before version 10	yes
-packages/mission-store/test/schema-compat.test.ts	refuses a starter it cannot read rather than dropping the field	no
-packages/mission-store/test/schema-compat.test.ts	round-trips a routine starter at the current version	no
-packages/mission-store/test/schema-compat.test.ts	round-trips a terminal starter at the current version (v18)	no
-packages/mission-store/test/schema-compat.test.ts	refuses a terminal starter whose exchange is below 1	no
+packages/mission-store/test/schema-compat.test.ts	refuses a starter it cannot read rather than dropping the field	yes
+packages/mission-store/test/schema-compat.test.ts	round-trips a routine starter at the current version	yes
+packages/mission-store/test/schema-compat.test.ts	round-trips a terminal starter at the current version (v18)	yes
+packages/mission-store/test/schema-compat.test.ts	refuses a terminal starter whose exchange is below 1	yes
 packages/mission-store/test/schema-compat.test.ts	refuses a terminal starter in a file written before version 18	yes
-packages/mission-store/test/schema-compat.test.ts	round-trips a side starter at the current version (v19)	no
-packages/mission-store/test/schema-compat.test.ts	refuses a side starter with no conversation, or a question below 1	no
+packages/mission-store/test/schema-compat.test.ts	round-trips a side starter at the current version (v19)	yes
+packages/mission-store/test/schema-compat.test.ts	refuses a side starter with no conversation, or a question below 1	yes
 packages/mission-store/test/schema-compat.test.ts	refuses a side starter in a file written before version 19	yes
-packages/mission-store/test/schema-compat.test.ts	refuses a routine starter with no routine id or a step below 1	no
+packages/mission-store/test/schema-compat.test.ts	refuses a routine starter with no routine id or a step below 1	yes
 packages/mission-store/test/schema-compat.test.ts	round-trips the mode a run was asked for, beside what it was allowed	yes
 packages/mission-store/test/schema-compat.test.ts	reads a mission with no mode as one, rather than inventing a default	yes
 packages/mission-store/test/schema-compat.test.ts	refuses a mode in a file written before version 15	yes
 packages/mission-store/test/schema-compat.test.ts	keeps a mission on an agent the person added, and refuses one in a file written before version 25	yes
 packages/mission-store/test/schema-compat.test.ts	keeps a mission on Kilo, and refuses one in a file written before version 27	yes
 packages/mission-store/test/schema-compat.test.ts	keeps a turn Locust sent back to fix a failing check, and refuses one in a file written before version 26	yes
-packages/mission-store/test/schema-compat.test.ts	refuses a mode that is not one of the five	no
-packages/mission-store/test/schema-compat.test.ts	round-trips a full-access mission at the current version	no
+packages/mission-store/test/schema-compat.test.ts	refuses a mode that is not one of the five	yes
+packages/mission-store/test/schema-compat.test.ts	round-trips a full-access mission at the current version	yes
 packages/mission-store/test/schema-compat.test.ts	refuses a full-access mission in a file written before version 14	yes
 packages/mission-store/test/schema-compat.test.ts	refuses a routine starter in a file written before version 13	yes
-packages/mission-store/test/schema-compat.test.ts	round-trips a resume starter at the current version	no
+packages/mission-store/test/schema-compat.test.ts	round-trips a resume starter at the current version	yes
 packages/mission-store/test/schema-compat.test.ts	refuses a resume starter in a file written before version 11	yes
-packages/mission-store/test/schema-compat.test.ts	refuses a resume starter whose epoch is not an epoch	no
-packages/mission-store/test/schema-compat.test.ts	round-trips the command the host ran	no
+packages/mission-store/test/schema-compat.test.ts	refuses a resume starter whose epoch is not an epoch	yes
+packages/mission-store/test/schema-compat.test.ts	round-trips the command the host ran	yes
 packages/mission-store/test/schema-compat.test.ts	refuses a command in a file written before version 12	yes
-packages/mission-store/test/schema-compat.test.ts	refuses a command carrying an argument it cannot vouch for	no
-packages/mission-store/test/schema-compat.test.ts	round-trips a Cursor Agent mission at the current version	no
-packages/mission-store/test/schema-compat.test.ts	refuses a continuation reason it does not know	no
+packages/mission-store/test/schema-compat.test.ts	refuses a command carrying an argument it cannot vouch for	yes
+packages/mission-store/test/schema-compat.test.ts	round-trips a Cursor Agent mission at the current version	yes
+packages/mission-store/test/schema-compat.test.ts	refuses a continuation reason it does not know	yes
 packages/mission-store/test/schema-compat.test.ts	rejects a file whose version this reader does not know	yes
-packages/mission-store/test/schema-compat.test.ts	accepts a Claude mission and its Claude events	no
-packages/mission-store/test/schema-compat.test.ts	refuses an event from a runtime the mission is not running	no
+packages/mission-store/test/schema-compat.test.ts	accepts a Claude mission and its Claude events	yes
+packages/mission-store/test/schema-compat.test.ts	refuses an event from a runtime the mission is not running	yes
 packages/mission-store/test/schema-compat.test.ts	records a workspace-write mission at the current version	yes
 packages/mission-store/test/schema-compat.test.ts	refuses a pre-v3 file claiming a mission was allowed to write	yes
 packages/mission-store/test/schema-compat.test.ts	still reads v1 and v2 read-only missions	yes

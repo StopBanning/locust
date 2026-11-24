@@ -75,6 +75,7 @@ fn new_missions_are_written_at_27_and_every_version_from_1_to_27_is_read() {
     }
 }
 
+// case: rejects a file whose version this reader does not know
 #[test]
 fn a_file_whose_version_the_reader_does_not_know_is_not_read() {
     let (_t, store) = temp();
@@ -82,6 +83,7 @@ fn a_file_whose_version_the_reader_does_not_know_is_not_read() {
     assert!(Tail::new(&path, 0).poll().is_empty());
 }
 
+// case: still recovers a mission recorded before the version bump
 #[test]
 fn a_mission_recorded_before_the_version_bump_still_recovers() {
     let (_t, store) = temp();
@@ -93,6 +95,7 @@ fn a_mission_recorded_before_the_version_bump_still_recovers() {
     assert_eq!(mission["metadata"]["runtime"], "codex");
 }
 
+// case: appends to a version-1 mission in version 1, keeping the file walkable
 // Rust appends to a finished turn's file through its after-turn writers; each writes at the file's own version.
 #[test]
 fn an_append_to_a_version_1_mission_is_written_in_version_1() {
@@ -107,6 +110,7 @@ fn an_append_to_a_version_1_mission_is_written_in_version_1() {
     assert_eq!(mission["events"].as_array().unwrap().len(), 3);
 }
 
+// case: round-trips a continuation through the durable record
 #[test]
 fn a_continuation_round_trips_through_the_durable_record() {
     let (_t, store) = temp();
@@ -123,6 +127,7 @@ fn what_a_handoff_left_out_round_trips() {
     assert_eq!(header(&path).omitted_briefing, ["summary", "earlier"]);
 }
 
+// case: round-trips a peer link through the durable record
 #[test]
 fn a_peer_link_round_trips_through_the_durable_record() {
     let (_t, store) = temp();
@@ -137,6 +142,7 @@ fn a_peer_link_round_trips_through_the_durable_record() {
     assert_eq!(mission["ledgerSequence"], 3);
 }
 
+// case: refuses to append a peer link to a mission written before version 5
 #[test]
 fn a_peer_link_is_refused_on_a_mission_written_before_version_5() {
     let (_t, store) = temp();
@@ -145,6 +151,7 @@ fn a_peer_link_is_refused_on_a_mission_written_before_version_5() {
     assert!(error.to_string().contains("cannot hold peer links"), "{error}");
 }
 
+// case: refuses a peer link with an unsafe id or an unknown direction
 #[test]
 fn a_peer_link_with_an_unsafe_id_or_an_unknown_direction_is_refused() {
     let (_t, store) = temp();
@@ -154,6 +161,7 @@ fn a_peer_link_with_an_unsafe_id_or_an_unknown_direction_is_refused() {
     assert_eq!(recover_mission_from_path(&path).unwrap()["peerLinks"], json!([]));
 }
 
+// case: round-trips the mode a run was asked for, beside what it was allowed
 #[test]
 fn the_mode_a_run_was_asked_for_round_trips_beside_what_it_was_allowed() {
     let (_t, store) = temp();
@@ -162,6 +170,7 @@ fn the_mode_a_run_was_asked_for_round_trips_beside_what_it_was_allowed() {
     assert_eq!((m.mode.as_deref(), m.sandbox.as_str()), (Some("plan"), "read-only"));
 }
 
+// case: reads a mission with no mode as one, rather than inventing a default
 #[test]
 fn a_mission_with_no_mode_reads_as_one_with_none() {
     let (_t, store) = temp();
@@ -169,6 +178,7 @@ fn a_mission_with_no_mode_reads_as_one_with_none() {
     assert_eq!(header(&path).mode, None);
 }
 
+// case: records a workspace-write mission at the current version
 #[test]
 fn a_workspace_write_mission_is_recorded_at_the_current_version() {
     let (_t, store) = temp();
@@ -176,6 +186,7 @@ fn a_workspace_write_mission_is_recorded_at_the_current_version() {
     assert_eq!(header(&path).sandbox, "workspace-write");
 }
 
+// case: still reads v1 and v2 read-only missions
 #[test]
 fn v1_and_v2_read_only_missions_still_read() {
     let (_t, store) = temp();
@@ -343,7 +354,7 @@ fn refuses_a_terminal_starter_in_a_file_written_before_version_18() {
 #[test]
 fn refuses_a_side_starter_in_a_file_written_before_version_19() {
     let (_t, store) = temp();
-    let side = json!({"startedBy":{"kind":"side","conversation":"conv_1","question":1}});
+    let side = json!({"startedBy":{"kind":"side","of":"mission_main","question":1}});
     assert!(refused(&ledger_at(&store, 18, &[], side.clone())));
     assert!(!refused(&ledger_at(&store, 19, &[], side)));
 }
@@ -373,4 +384,301 @@ fn keeps_a_mission_on_kilo_and_refuses_one_in_a_file_written_before_version_27()
     let kilo = json!({"runtime":"kilo","model":"kilo-default"});
     assert!(refused(&ledger_at(&store, 26, &[], kilo.clone())));
     assert!(!refused(&ledger_at(&store, 27, &[], kilo)));
+}
+
+// case: stops recovery when a record disagrees with its file version
+#[test]
+fn stops_recovery_when_a_record_disagrees_with_its_file_version() {
+    let (_t, store) = temp();
+    let events = codex_events();
+    let path = ledger_at(&store, 1, &events, json!({}));
+    let mut lines: Vec<String> = std::fs::read_to_string(&path).unwrap().trim_end().lines().map(str::to_owned).collect();
+    let mut third: Value = serde_json::from_str(&lines[2]).unwrap();
+    third["schemaVersion"] = json!(2);
+    lines[2] = third.to_string();
+    std::fs::write(&path, format!("{}\n", lines.join("\n"))).unwrap();
+
+    let recovered = crate::ledger::read_ledger(&path).unwrap();
+    assert!(!recovered.unreadable);
+    assert_eq!(recovered.records.len(), 2); // header + 1 event before mismatch
+    assert!(recovered.issues.contains(&crate::ledger::Issue::InvalidRecord));
+}
+
+// case: round-trips what a handoff left out, and refuses a malformed list
+#[test]
+fn round_trips_what_a_handoff_left_out_and_refuses_a_malformed_list() {
+    let (_t, store) = temp();
+    let path = written(&store, json!({"continuesFrom":{"missionId":"mission_before","checkpointEpoch":2,"reason":"route-switch","leftOut":["summary","earlier"]}}));
+    assert_eq!(header(&path).omitted_briefing, ["summary", "earlier"]);
+
+    let (_t2, other) = temp();
+    let too_long = "x".repeat(41);
+    let err = LedgerWriter::create_runtime_with(
+        &other, "mission_1", "Inspect.", "account-default", "codex", "codex", &[], None,
+        &json!({"continuesFrom":{"missionId":"mission_before","checkpointEpoch":2,"reason":"route-switch","leftOut":[too_long]}}),
+    );
+    assert!(err.is_err());
+}
+
+// case: refuses a continuation that names an unsafe mission id
+#[test]
+fn refuses_a_continuation_that_names_an_unsafe_mission_id() {
+    let (_t, store) = temp();
+    let err = LedgerWriter::create_runtime_with(
+        &store, "mission_1", "Inspect.", "account-default", "codex", "codex", &[], None,
+        &json!({"continuesFrom":{"missionId":"../escape","checkpointEpoch":1,"reason":"route-switch"}}),
+    );
+    assert!(err.is_err());
+    assert!(refused(&ledger_at(&store, 27, &[], json!({"continuesFrom":{"missionId":"../escape","checkpointEpoch":1,"reason":"route-switch"}}))));
+}
+
+// case: refuses a continuation with an impossible checkpoint epoch
+#[test]
+fn refuses_a_continuation_with_an_impossible_checkpoint_epoch() {
+    let (_t, store) = temp();
+    let err = LedgerWriter::create_runtime_with(
+        &store, "mission_1", "Inspect.", "account-default", "codex", "codex", &[], None,
+        &json!({"continuesFrom":{"missionId":"mission_before","checkpointEpoch":0,"reason":"route-switch"}}),
+    );
+    assert!(err.is_err());
+    assert!(refused(&ledger_at(&store, 27, &[], json!({"continuesFrom":{"missionId":"mission_before","checkpointEpoch":0,"reason":"route-switch"}}))));
+}
+
+// case: refuses a peer link in a file written before version 5
+#[test]
+fn refuses_a_peer_link_in_a_file_written_before_version_5() {
+    let (_t, store) = temp();
+    let path = ledger_at(&store, 1, &[], json!({}));
+    let mut text = std::fs::read_to_string(&path).unwrap();
+    text.push_str(&format!("{}\n", json!({
+        "schemaVersion": 1,
+        "recordType": "mission.peer",
+        "ledgerSequence": 2,
+        "occurredAt": NOW,
+        "link": {"direction":"received","messageId":"wm_1","peerTeammateId":"tm_atlas","occurredAt":NOW}
+    })));
+    std::fs::write(&path, text).unwrap();
+
+    let recovered = crate::ledger::read_ledger(&path).unwrap();
+    assert_eq!(recovered.records.len(), 1);
+    assert_eq!(recovered.issues, vec![crate::ledger::Issue::InvalidRecord]);
+}
+
+// case: round-trips a follow-up continuation, session handle and all
+#[test]
+fn round_trips_a_follow_up_continuation_session_handle_and_all() {
+    let (_t, store) = temp();
+    let link = json!({"missionId":"mission_before","checkpointEpoch":1,"reason":"follow-up","runtimeThreadId":"session-abc"});
+    let path = written(&store, json!({"continuesFrom": link}));
+    let recovered = recover_mission_from_path(&path).unwrap();
+    assert_eq!(recovered["issues"], json!([]));
+    assert_eq!(recovered["metadata"]["continuesFrom"], link);
+}
+
+// case: round-trips who started a run at the current version
+#[test]
+fn round_trips_who_started_a_run_at_the_current_version() {
+    let (_t, store) = temp();
+    let path = written(&store, json!({"startedBy":{"kind":"relay","hop":2}}));
+    let recovered = recover_mission_from_path(&path).unwrap();
+    assert_eq!(recovered["issues"], json!([]));
+    assert_eq!(recovered["metadata"]["startedBy"], json!({"kind":"relay","hop":2}));
+    let m = header(&path);
+    assert_eq!((m.started_by_kind.as_deref(), m.started_by_hop), (Some("relay"), Some(2)));
+}
+
+// case: refuses a starter it cannot read rather than dropping the field
+#[test]
+fn refuses_a_starter_it_cannot_read_rather_than_dropping_the_field() {
+    let (_t, store) = temp();
+    assert!(refused(&ledger_at(&store, 10, &[], json!({"startedBy":{"kind":"relay","hop":0}}))));
+}
+
+// case: round-trips a routine starter at the current version
+#[test]
+fn round_trips_a_routine_starter_at_the_current_version() {
+    let (_t, store) = temp();
+    let path = written(&store, json!({"startedBy":{"kind":"routine","routineId":"rt_abc","step":2}}));
+    let recovered = recover_mission_from_path(&path).unwrap();
+    assert_eq!(recovered["issues"], json!([]));
+    assert_eq!(recovered["metadata"]["startedBy"], json!({"kind":"routine","routineId":"rt_abc","step":2}));
+}
+
+// case: round-trips a terminal starter at the current version (v18)
+#[test]
+fn round_trips_a_terminal_starter_at_the_current_version_v18() {
+    let (_t, store) = temp();
+    let path = written(&store, json!({"startedBy":{"kind":"terminal","exchange":2}}));
+    let recovered = recover_mission_from_path(&path).unwrap();
+    assert_eq!(recovered["issues"], json!([]));
+    assert_eq!(recovered["metadata"]["startedBy"], json!({"kind":"terminal","exchange":2}));
+}
+
+// case: refuses a terminal starter whose exchange is below 1
+#[test]
+fn refuses_a_terminal_starter_whose_exchange_is_below_1() {
+    let (_t, store) = temp();
+    let err = LedgerWriter::create_runtime_with(
+        &store, "mission_1", "Inspect.", "account-default", "codex", "codex", &[], None,
+        &json!({"startedBy":{"kind":"terminal","exchange":0}}),
+    );
+    assert!(err.is_err());
+}
+
+// case: round-trips a side starter at the current version (v19)
+#[test]
+fn round_trips_a_side_starter_at_the_current_version_v19() {
+    let (_t, store) = temp();
+    let path = written(&store, json!({"startedBy":{"kind":"side","of":"mission_main","question":2}}));
+    let recovered = recover_mission_from_path(&path).unwrap();
+    assert_eq!(recovered["issues"], json!([]));
+    assert_eq!(recovered["metadata"]["startedBy"], json!({"kind":"side","of":"mission_main","question":2}));
+    assert!(header(&path).side);
+}
+
+// case: refuses a side starter with no conversation, or a question below 1
+#[test]
+fn refuses_a_side_starter_with_no_conversation_or_a_question_below_1() {
+    let (_t, store) = temp();
+    assert!(LedgerWriter::create_runtime_with(
+        &store, "mission_1", "Inspect.", "account-default", "codex", "codex", &[], None,
+        &json!({"startedBy":{"kind":"side","of":"","question":1}}),
+    ).is_err());
+    assert!(LedgerWriter::create_runtime_with(
+        &store, "mission_2", "Inspect.", "account-default", "codex", "codex", &[], None,
+        &json!({"startedBy":{"kind":"side","of":"mission_main","question":0}}),
+    ).is_err());
+}
+
+// case: refuses a routine starter with no routine id or a step below 1
+#[test]
+fn refuses_a_routine_starter_with_no_routine_id_or_a_step_below_1() {
+    let (_t, store) = temp();
+    assert!(LedgerWriter::create_runtime_with(
+        &store, "mission_1", "Inspect.", "account-default", "codex", "codex", &[], None,
+        &json!({"startedBy":{"kind":"routine","routineId":"","step":1}}),
+    ).is_err());
+    assert!(LedgerWriter::create_runtime_with(
+        &store, "mission_2", "Inspect.", "account-default", "codex", "codex", &[], None,
+        &json!({"startedBy":{"kind":"routine","routineId":"rt_abc","step":0}}),
+    ).is_err());
+}
+
+// case: refuses a mode that is not one of the five
+#[test]
+fn refuses_a_mode_that_is_not_one_of_the_five() {
+    let (_t, store) = temp();
+    let err = LedgerWriter::create_runtime_with(
+        &store, "mission_1", "Inspect.", "account-default", "codex", "codex", &[], None,
+        &json!({"mode":"whatever"}),
+    );
+    assert!(err.is_err());
+    assert!(err.err().unwrap().to_string().to_lowercase().contains("mode"));
+}
+
+// case: round-trips a full-access mission at the current version
+#[test]
+fn round_trips_a_full_access_mission_at_the_current_version() {
+    let (_t, store) = temp();
+    let path = written(&store, json!({"sandbox":"full-access"}));
+    let recovered = recover_mission_from_path(&path).unwrap();
+    assert_eq!(recovered["issues"], json!([]));
+    assert_eq!(recovered["metadata"]["sandbox"], "full-access");
+    assert_eq!(header(&path).sandbox, "full-access");
+}
+
+// case: round-trips a resume starter at the current version
+#[test]
+fn round_trips_a_resume_starter_at_the_current_version() {
+    let (_t, store) = temp();
+    let path = written(&store, json!({"startedBy":{"kind":"resume","epoch":3}}));
+    let recovered = recover_mission_from_path(&path).unwrap();
+    assert_eq!(recovered["issues"], json!([]));
+    assert_eq!(recovered["metadata"]["startedBy"], json!({"kind":"resume","epoch":3}));
+}
+
+// case: refuses a resume starter whose epoch is not an epoch
+#[test]
+fn refuses_a_resume_starter_whose_epoch_is_not_an_epoch() {
+    let (_t, store) = temp();
+    assert!(refused(&ledger_at(&store, 11, &[], json!({"startedBy":{"kind":"resume","epoch":0}}))));
+}
+
+// case: round-trips the command the host ran
+#[test]
+fn round_trips_the_command_the_host_ran() {
+    let (_t, store) = temp();
+    let path = written(&store, json!({"command":{"executablePath":"/usr/bin/codex","args":["-p","<prompt>","--no-color"]}}));
+    let recovered = recover_mission_from_path(&path).unwrap();
+    assert_eq!(recovered["issues"], json!([]));
+    assert_eq!(recovered["metadata"]["command"]["args"], json!(["-p","<prompt>","--no-color"]));
+}
+
+// case: refuses a command carrying an argument it cannot vouch for
+#[test]
+fn refuses_a_command_carrying_an_argument_it_cannot_vouch_for() {
+    let (_t, store) = temp();
+    let bad = format!("--flag\0");
+    assert!(refused(&ledger_at(&store, 12, &[], json!({"command":{"executablePath":"/usr/bin/codex","args":[bad]}}))));
+}
+
+// case: round-trips a Cursor Agent mission at the current version
+#[test]
+fn round_trips_a_cursor_agent_mission_at_the_current_version() {
+    let (_t, store) = temp();
+    let writer = LedgerWriter::create_runtime_with(
+        &store, "mission_1", "Inspect.", "composer-1", "cursor", "cursor", &[], None, &Value::Null,
+    ).unwrap();
+    let recovered = recover_mission_from_path(&writer.path).unwrap();
+    assert_eq!(recovered["issues"], json!([]));
+    assert_eq!(recovered["metadata"]["runtime"], "cursor");
+}
+
+// case: refuses a continuation reason it does not know
+#[test]
+fn refuses_a_continuation_reason_it_does_not_know() {
+    let (_t, store) = temp();
+    assert!(LedgerWriter::create_runtime_with(
+        &store, "mission_1", "Inspect.", "account-default", "codex", "codex", &[], None,
+        &json!({"continuesFrom":{"missionId":"mission_before","checkpointEpoch":1,"reason":"guessed"}}),
+    ).is_err());
+}
+
+// case: accepts a Claude mission and its Claude events
+#[test]
+fn accepts_a_claude_mission_and_its_claude_events() {
+    let (_t, store) = temp();
+    let writer = LedgerWriter::create_runtime_with(
+        &store, "mission_1", "Inspect.", "claude-sonnet-5", "claude", "claude", &[], None, &Value::Null,
+    ).unwrap();
+    let path = writer.path.clone();
+    drop(writer);
+    crate::ledger_write::append_events(&path, |run, mission, _adapter, seq, at| {
+        vec![json!({
+            "id": format!("{run}:claude:{seq}"), "runId": run, "missionId": mission, "sequence": seq,
+            "occurredAt": at, "sourceAdapter": "claude", "type": "run.started",
+            "payload": {"runtimeThreadId": "thread_1"}
+        })]
+    }).unwrap();
+    let recovered = crate::ledger::read_ledger(&path).unwrap();
+    assert!(!recovered.unreadable);
+    assert!(recovered.issues.is_empty());
+    assert_eq!(recovered.records.len(), 2);
+    assert_eq!(recovered.records[0]["metadata"]["runtime"], "claude");
+    assert_eq!(recovered.records[0]["metadata"]["model"], "claude-sonnet-5");
+}
+
+// case: refuses an event from a runtime the mission is not running
+#[test]
+fn refuses_an_event_from_a_runtime_the_mission_is_not_running() {
+    let (_t, store) = temp();
+    let path = written(&store, Value::Null);
+    let err = crate::ledger_write::append_events(&path, |run, mission, _adapter, seq, at| {
+        vec![json!({
+            "id": format!("{run}:claude:{seq}"), "runId": run, "missionId": mission, "sequence": seq,
+            "occurredAt": at, "sourceAdapter": "claude", "type": "run.started",
+            "payload": {"runtimeThreadId": "thread_1"}
+        })]
+    }).unwrap_err();
+    assert!(err.to_string().contains("not readable by the ledger reader"), "{err}");
 }

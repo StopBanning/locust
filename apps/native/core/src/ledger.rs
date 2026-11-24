@@ -562,6 +562,121 @@ fn one_line(text: &str) -> String {
         .collect()
 }
 
+/// mission-store `validateMetadata`: checks that optional metadata fields present on a `mission.created` record
+/// carry valid values rather than dropping or trusting malformed data.
+pub fn validate_metadata_fields(m: &Value) -> Result<(), &'static str> {
+    let text_ok = |v: &Value, max: usize| {
+        v.as_str()
+            .is_some_and(|s| !s.trim().is_empty() && s.encode_utf16().count() <= max && !s.contains('\0'))
+    };
+    if let Some(mode) = m.get("mode").filter(|v| !v.is_null())
+        && !matches!(
+            mode.as_str(),
+            Some("ask" | "plan" | "accept-edits" | "approve-each" | "auto")
+        )
+    {
+        return Err("Mission mode is invalid");
+    }
+    if let Some(sandbox) = m.get("sandbox").filter(|v| !v.is_null())
+        && !matches!(sandbox.as_str(), Some("read-only" | "workspace-write" | "full-access"))
+    {
+        return Err("Mission execution policy is invalid");
+    }
+    if let Some(c) = m.get("continuesFrom").filter(|v| !v.is_null()) {
+        if !c.is_object() {
+            return Err("Mission continuation is invalid");
+        }
+        if !c.get("missionId").and_then(Value::as_str).is_some_and(safe_id) {
+            return Err("Mission continuation is invalid");
+        }
+        if let Some(ep) = c.get("checkpointEpoch").filter(|v| !v.is_null())
+            && !ep.as_u64().is_some_and(|n| n >= 1)
+        {
+            return Err("Mission continuation is invalid");
+        }
+        if let Some(reason) = c.get("reason").filter(|v| !v.is_null())
+            && !matches!(reason.as_str(), Some("route-switch" | "follow-up" | "carry-on"))
+        {
+            return Err("Mission continuation is invalid");
+        }
+        if let Some(thread) = c.get("runtimeThreadId").filter(|v| !v.is_null())
+            && !text_ok(thread, 2_048)
+        {
+            return Err("Mission continuation is invalid");
+        }
+        if let Some(edited) = c.get("edited").filter(|v| !v.is_null())
+            && edited != &Value::Bool(true)
+        {
+            return Err("Mission continuation is invalid");
+        }
+        for key in ["leftOut", "leftOutByYou"] {
+            if let Some(arr) = c.get(key).filter(|v| !v.is_null()) {
+                let Some(items) = arr.as_array().filter(|a| a.len() <= 8) else {
+                    return Err("Mission continuation is invalid");
+                };
+                if !items.iter().all(|item| text_ok(item, 40)) {
+                    return Err("Mission continuation is invalid");
+                }
+            }
+        }
+    }
+    if let Some(cmd) = m.get("command").filter(|v| !v.is_null()) {
+        if !cmd.is_object() {
+            return Err("Mission command is invalid");
+        }
+        if let Some(exe) = cmd.get("executablePath").filter(|v| !v.is_null())
+            && !text_ok(exe, 1_024)
+        {
+            return Err("Mission command is invalid");
+        }
+        if let Some(args) = cmd.get("args").filter(|v| !v.is_null()) {
+            let Some(items) = args.as_array().filter(|a| a.len() <= 128) else {
+                return Err("Mission command is invalid");
+            };
+            if !items
+                .iter()
+                .all(|a| a.as_str().is_some_and(|s| s.encode_utf16().count() <= 1_024 && !s.contains('\0')))
+            {
+                return Err("Mission command is invalid");
+            }
+        }
+    }
+    if let Some(sb) = m.get("startedBy").filter(|v| !v.is_null()) {
+        if !sb.is_object() {
+            return Err("Mission starter is invalid");
+        }
+        let ok = match sb.get("kind").and_then(Value::as_str) {
+            Some("relay") => sb.get("hop").and_then(Value::as_u64).is_some_and(|n| n >= 1),
+            Some("resume") => sb.get("epoch").and_then(Value::as_u64).is_some_and(|n| n >= 1),
+            Some("routine") => {
+                sb.get("step").and_then(Value::as_u64).is_some_and(|n| n >= 1)
+                    && sb.get("routineId").is_some_and(|r| text_ok(r, 200))
+            }
+            Some("terminal") => sb.get("exchange").and_then(Value::as_u64).is_some_and(|n| n >= 1),
+            Some("side") => {
+                sb.get("question").and_then(Value::as_u64).is_some_and(|n| n >= 1)
+                    && sb.get("of").and_then(Value::as_str).is_some_and(safe_id)
+            }
+            Some("check-fix") => {
+                let fix = sb.get("fix").and_then(Value::as_u64).filter(|&n| n >= 1);
+                let of = fix.and_then(|f| sb.get("of").and_then(Value::as_u64).filter(|&n| n >= f && n <= 5));
+                of.is_some() && sb.get("command").is_some_and(|c| text_ok(c, 500))
+            }
+            Some("mcp") => sb.get("folder").filter(|v| !v.is_null()).is_none_or(|f| text_ok(f, 1_024)),
+            Some("carry-on") => sb
+                .get("from")
+                .filter(|v| !v.is_null())
+                .is_none_or(|f| f.as_str().is_some_and(|s| !s.is_empty())),
+            Some("scout" | "app") => true,
+            _ => false,
+        };
+        if !ok {
+            return Err("Mission starter is invalid");
+        }
+    }
+    Ok(())
+}
+
 /// mission-store `parsedMetadata`'s version gates: a record claiming what no writer of its version could write was
 /// hand-edited, and is refused rather than believed -- a v23 file saying Locust carried a turn on (v24), a v12 one naming
 /// a routine (v13), an agent a version did not know. Each gate refuses only what the record actually claims.
@@ -604,7 +719,9 @@ fn decode_value(mut value: Value) -> Option<Record> {
     match value.get("recordType")?.as_str()? {
         "mission.created" => {
             metadata(&value)?;
-            if !written_by_its_version(version, &value["metadata"]) {
+            if validate_metadata_fields(&value["metadata"]).is_err()
+                || !written_by_its_version(version, &value["metadata"])
+            {
                 return None;
             }
         }
@@ -651,15 +768,18 @@ fn decode_value(mut value: Value) -> Option<Record> {
             check.get("occurredAt")?.as_str()?;
         }
         "mission.peer" => {
+            if version < 5 {
+                return None;
+            }
             let link = value.get("link")?;
             let dir = link.get("direction")?.as_str()?;
             if dir != "posted" && dir != "received" {
                 return None;
             }
-            if link.get("messageId")?.as_str()?.is_empty() {
+            if !link.get("messageId")?.as_str().is_some_and(safe_id) {
                 return None;
             }
-            if link.get("peerTeammateId")?.as_str()?.is_empty() {
+            if !link.get("peerTeammateId")?.as_str().is_some_and(safe_id) {
                 return None;
             }
         }
@@ -1772,6 +1892,7 @@ pub fn recover(bytes: &[u8]) -> Recovered {
         return unreadable(issues);
     };
     let version = header["schemaVersion"].clone();
+    let version_num = version.as_u64().unwrap_or(0);
     let numbered = header.get("ledgerSequence").is_some();
     let mission = header["metadata"].clone();
     let mut records = vec![header];
@@ -1785,6 +1906,7 @@ pub fn recover(bytes: &[u8]) -> Recovered {
                 && r["schemaVersion"] == version
                 && (!numbered || r["ledgerSequence"].as_u64() == Some(expected))
                 && r["recordType"].as_str().is_some_and(|t| BODY_RECORDS.contains(&t))
+                && (r["recordType"] != "mission.peer" || (version_num >= 5 && decode_value(r.clone()).is_some()))
                 && (r["recordType"] != "mission.checkpoint"
                     || crate::checkpoint_reader::checkpoint_record_fits(r, &mission, checkpoints, last_event))
         });
@@ -3738,6 +3860,17 @@ mod carry_tests {
                 .iter()
                 .any(|i| matches!(i, Item::Note { text, .. } if text == "Stopped"))
         );
+    }
+    #[test]
+    fn decode_and_recover_enforce_metadata_and_peer_version_gates() {
+        let bad_meta = json!({"schemaVersion":10,"recordType":"mission.created","ledgerSequence":1,"occurredAt":"2026-08-31T16:00:00.000Z","metadata":{"missionId":"m1","prompt":"p","runtime":"codex","model":"account-default","createdAt":"2026-08-31T16:00:00.000Z","startedBy":{"kind":"relay","hop":0}}});
+        assert!(decode_value(bad_meta).is_none());
+        let v1_head = json!({"schemaVersion":1,"recordType":"mission.created","ledgerSequence":1,"occurredAt":"2026-08-31T16:00:00.000Z","metadata":{"missionId":"m1","prompt":"p","runtime":"codex","model":"account-default","sandbox":"read-only","createdAt":"2026-08-31T16:00:00.000Z"}});
+        let v1_peer = json!({"schemaVersion":1,"recordType":"mission.peer","ledgerSequence":2,"occurredAt":"2026-08-31T16:00:00.000Z","link":{"direction":"received","messageId":"wm_1","peerTeammateId":"tm_1","occurredAt":"2026-08-31T16:00:00.000Z"}});
+        let bytes = format!("{v1_head}\n{v1_peer}\n");
+        let rec = recover(bytes.as_bytes());
+        assert_eq!(rec.records.len(), 1);
+        assert_eq!(rec.issues, vec![Issue::InvalidRecord]);
     }
 }
 
