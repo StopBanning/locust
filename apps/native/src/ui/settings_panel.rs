@@ -127,10 +127,11 @@ pub(super) fn open(s: &mut State) {
     s.settings_panel.page = SettingsPageId::from_str("app");
     reload(s);
     build_update_service(s);
-    if s.home.changelog.is_empty() {
+    if s.home.changelog.is_empty() && !s.home.changelog_read {
         let text = crate::changelog::native_notes(None);
         s.home.changelog = crate::changelog::entries(&text);
         s.home.changelog_shown = crate::changelog::WHATS_NEW_PAGE;
+        s.home.changelog_read = true;
     }
 }
 
@@ -1725,9 +1726,17 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                     .wrap()
                     .px(10.0),
             );
-            // The notes are read when Settings opens (`open`), never later: a file read with no entries in it is
-            // WhatsNew.tsx's "shipped without its changelog", not "Reading what changed…" for ever.
-            body = body.child(crate::home_panel::whats_new_settings(s, p));
+            if s.home.changelog.is_empty() && !s.home.changelog_read {
+                body = body.child(
+                    text(crate::changelog::READING.to_owned())
+                        .font(type_::LABEL)
+                        .color(p.muted)
+                        .wrap()
+                        .padding(10.0),
+                );
+            } else {
+                body = body.child(crate::home_panel::whats_new_settings(s, p));
+            }
         }
 
         SettingsPageId::Models => {

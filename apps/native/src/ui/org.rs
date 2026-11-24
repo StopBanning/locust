@@ -30,6 +30,8 @@ pub struct OrgState {
     pub left: HashMap<String, Vec<LeftMembership>>,
     pub groups_unreadable: bool,
     pub teammates_org_unreadable: bool,
+    /// The routines file is there and would not read (Sidebar.tsx's `unreadable` names it beside the roster).
+    pub routines_unreadable: bool,
 }
 
 fn safe_id(s: &str) -> bool {
@@ -200,7 +202,22 @@ pub fn load_org(store: &Store) -> OrgState {
         }
         Err(_) => state.groups_unreadable = true,
     }
+    state.routines_unreadable = routines_unreadable(store);
     state
+}
+
+/// The routines file the routines list reads -- this profile's own, else the one Electron kept -- is there and would
+/// not read as routines. Read only: nothing is seeded or written while the sidebar asks.
+fn routines_unreadable(store: &Store) -> bool {
+    let own = store.root().join("routines.json");
+    let path = if own.exists() { own } else { store.electron().join("routines.json") };
+    match read_capped(&path, MAX_FILE_BYTES) {
+        Ok(None) => false,
+        Ok(Some(text)) => serde_json::from_str::<serde_json::Value>(&text)
+            .map(|value| value["schemaVersion"] != 1 || !value["routines"].is_array())
+            .unwrap_or(true),
+        Err(_) => true,
+    }
 }
 
 fn now_iso() -> String {

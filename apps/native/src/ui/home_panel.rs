@@ -39,6 +39,9 @@ pub(super) struct Panel {
     pub waiting_for: HashMap<String, String>,
     pub changelog: Vec<ChangelogEntry>,
     pub changelog_shown: usize,
+    /// The changelog has been read (WhatsNew.tsx's `changelog !== undefined`): until then the page says it is reading,
+    /// after it an empty one says the build shipped without it.
+    pub changelog_read: bool,
     pub splash_entries: Vec<ChangelogEntry>,
     pub seen_version: Option<String>,
     pub current_version: String,
@@ -174,6 +177,7 @@ fn refresh_changelog(s: &mut State) {
     let paths = changelog::changelog_paths(&resources, &resources);
     let text = changelog::read_changelog(&paths).unwrap_or_else(|| changelog::native_notes(None));
     s.home.changelog = changelog::entries(&text);
+    s.home.changelog_read = true;
     if s.home.changelog_shown == 0 {
         s.home.changelog_shown = changelog::WHATS_NEW_PAGE;
     }
@@ -1287,6 +1291,7 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
         );
         body = body.child(
             col()
+                .key("home-away")
                 .w_full()
                 .gap(6.0)
                 .padding(10.0)
@@ -1310,38 +1315,56 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
                     if let Some(blurb) = away::waiting_blurb(counts.waiting) {
                         list = list.child(text(blurb).font(type_::LABEL).color(p.amber).wrap());
                     }
-                    for item in summary
-                        .failed
-                        .iter()
-                        .take(6)
-                        .chain(summary.ran.iter().take(6))
-                    {
+                    // AwayList: failed first, then the routine slots missed, then what ran, six of each at most.
+                    let now_ms = chrono::Utc::now().timestamp_millis();
+                    let run_row = |list: El, item: &away::AwayItem, kind: &str| -> El {
                         let mission_id = item.mission_id.clone();
-                        let title = item.title.clone();
-                        let kind = if summary
-                            .failed
-                            .iter()
-                            .any(|f| f.mission_id == item.mission_id)
-                        {
-                            "failed"
-                        } else {
-                            "finished"
+                        let when = away::when_label(&item.at, now_ms);
+                        // Who ran it, by the name the team knows them by, before when it ended.
+                        let who = item.owner_id.as_deref().and_then(|id| s.teammates.iter().find(|mate| mate.id == id)).map(|mate| mate.name.as_str());
+                        let line = match who {
+                            Some(who) => format!("{} · {who} · {kind} {when}", item.title),
+                            None => format!("{} · {kind} {when}", item.title),
                         };
-                        let when =
-                            away::when_label(&item.at, chrono::Utc::now().timestamp_millis());
                         // Under the title, what the run came to: what it did, or why it failed (AwayList).
                         let mut entry = col()
                             .w_full()
                             .gap(2.0)
                             .key(format!("away-row-{mission_id}"))
-                            .child(text(format!("{title} · {kind} {when}")).font(type_::LABEL).color(p.secondary).wrap());
+                            .child(text(line).font(type_::LABEL).color(p.secondary).wrap());
                         if let Some(said) = s.home.away_said.get(&item.mission_id) {
                             entry = entry.child(text(said.clone()).key(format!("away-said-{mission_id}")).font(type_::LABEL).color(p.muted).wrap());
                         }
-                        list = list.child(entry.on_press(move |s: &mut State| {
+                        list.child(entry.on_press(move |s: &mut State| {
                             s.opening_conversation = Some(mission_id.clone());
                             s.home.home_open = false;
-                        }));
+                        }))
+                    };
+                    for item in summary.failed.iter().take(AWAY_SHOWN) {
+                        list = run_row(list, item, "failed");
+                    }
+                    for item in summary.missed.iter().take(AWAY_SHOWN) {
+                        // A missed slot names its routine and when it was due; it opens Routines.
+                        list = list.child(
+                            text(format!("{} · missed, due {}", item.name, away::when_label(&item.due_at, now_ms)))
+                                .key(format!("away-missed-{}-{}", item.routine_id, item.due_at))
+                                .font(type_::LABEL)
+                                .color(p.secondary)
+                                .wrap()
+                                .help(format!("{}: due {}, Locust was closed", item.name, away::when_label(&item.due_at, now_ms)))
+                                .on_press(|s: &mut State| {
+                                    crate::routines_panel::open(s);
+                                    s.home.home_open = false;
+                                }),
+                        );
+                    }
+                    for item in summary.ran.iter().take(AWAY_SHOWN) {
+                        list = run_row(list, item, "finished");
+                    }
+                    let shown = summary.failed.len().min(AWAY_SHOWN) + summary.missed.len().min(AWAY_SHOWN) + summary.ran.len().min(AWAY_SHOWN);
+                    let more = summary.failed.len() + summary.missed.len() + summary.ran.len() - shown;
+                    if more > 0 {
+                        list = list.child(text(format!("and {more} more in the sidebar")).key("away-more").font(type_::LABEL.mono()).color(p.muted));
                     }
                     list
                 }),
@@ -1349,20 +1372,37 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
     }
 
     // Team / templates
-    if s.teammates.is_empty() {
+    if s.teammates.is_empty() && s.org.teammates_org_unreadable {
+        // FirstLaunch.tsx (R26): a teammates file that would not read is said, never drawn as a first launch with a
+        // team to start over with.
+        body = body.child(
+            col()
+                .key("home-roster-notice")
+                .w_full()
+                .gap(4.0)
+                .child(text(ROSTER_UNREADABLE.to_owned()).font(type_::BODY).color(p.amber).wrap())
+                .child(text(ROSTER_SAFE.to_owned()).font(type_::LABEL.mono()).color(p.muted).wrap()),
+        );
+    } else if s.teammates.is_empty() {
+        // TeamTemplates.tsx: the heading, with Team from an image and New teammate beside it as the chips the team's
+        // own head carries.
         body = body
             .child(
-                text(START_WITH_A_TEAM.to_owned())
-                    .font(type_::TITLE)
-                    .color(p.text),
-            )
-            .child(
                 row()
+                    .key("home-templates-top")
+                    .w_full()
                     .gap(8.0)
-                    .child(button(TEAM_FROM_IMAGE, p).key("home-team-from-image").on_press_tx(|_s: &mut State, tx: &mut Tx| {
+                    .center_y()
+                    .child(
+                        text(START_WITH_A_TEAM.to_owned())
+                            .font(type_::TITLE)
+                            .color(p.text)
+                            .grow(1.0),
+                    )
+                    .child(crate::look::controls::ghost_button(&l, TEAM_FROM_IMAGE).key("home-team-from-image").on_press_tx(|_s: &mut State, tx: &mut Tx| {
                         crate::people_panel::import_team_from_image(tx);
                     }))
-                    .child(button(NEW_TEAMMATE, p).on_press(|s: &mut State| {
+                    .child(crate::look::controls::ghost_button(&l, &format!("+  {NEW_TEAMMATE}")).key("home-templates-new-teammate").on_press(|s: &mut State| {
                         crate::people_panel::open(s);
                         s.home.home_open = false;
                     })),
@@ -1385,6 +1425,13 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
                             .color(p.muted)
                             .wrap(),
                     )
+                    // Who is on it, by name (TeamTemplates' route line).
+                    .child(
+                        text(template.teammates.iter().map(|mate| mate.name).collect::<Vec<_>>().join(" · "))
+                            .key(format!("home-template-names-{id}"))
+                            .font(type_::LABEL.mono())
+                            .color(p.secondary),
+                    )
                     .child(
                         primary("Add this team", p)
                             .key(format!("home-template-{id}"))
@@ -1392,6 +1439,7 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
                     ),
             );
         }
+        body = body.child(text(TEMPLATES_NOTE.to_owned()).key("home-templates-note").font(type_::LABEL).color(p.muted).wrap());
     } else {
         let add = crate::look::controls::ghost_button(&l, &format!("+  {NEW_TEAMMATE}")).on_press(|s: &mut State| {
             crate::people_panel::open(s);
@@ -1430,13 +1478,28 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
             if let Some(mark) = crate::look::controls::agent_mark(&l, runtime, 11.0, l.c("text-muted")) {
                 agent = agent.child(mark);
             }
+            // HomeTeam.tsx (0.848): the model as the chip names it -- the account's own default by its runtime -- and a
+            // trailing Free as its own tag, kept whole while the name gives way.
+            let (model_name, free) = locust_core::route_rows::free_tag_of(&home_model_name(runtime, mate.model.as_deref()));
             agent = agent.child(
-                text(mate.model.clone().filter(|m| !m.is_empty()).unwrap_or_else(|| "account default".into()))
+                text(model_name)
                     .font(rune::TextStyle::new(11.5, 400.0))
                     .color(if dropped { p.amber } else { l.c("text-muted") })
                     .truncate()
-                    .shrink(),
+                    .shrink()
+                    .key(format!("home-card-model-{}", mate.id)),
             );
+            if free {
+                agent = agent.child(
+                    text("Free")
+                        .font(rune::TextStyle::new(10.5, 500.0))
+                        .color(l.c("text-secondary"))
+                        .px(5.0)
+                        .radius(4.0)
+                        .fill(l.c("hover-surface"))
+                        .key(format!("home-card-free-{}", mate.id)),
+                );
+            }
             let looked = crate::scout_cards::looked_line_for_teammate(s, &mate.id);
             let status = teammate_status(s, &mate.id, mate.busy, mate.runtime.as_deref(), &mate.role);
             // HomeTeam.tsx (0.606/0.609/0.610): the state beside the name, the same fact the sidebar face draws; while
@@ -2030,6 +2093,23 @@ pub(super) fn boot_view_ui(s: &State, p: &Palette) -> El {
     body
 }
 
+/// routeName.ts `homeRouteOf`'s model: the name the chip says, and the runtime's own name for the account's default.
+fn home_model_name(runtime: &str, model: Option<&str>) -> String {
+    match model.filter(|m| !m.is_empty() && *m != locust_core::models::ACCOUNT_DEFAULT) {
+        Some(model) => locust_core::teammate_tooltip::route_model_name(runtime, model),
+        None => locust_core::teammate_tooltip::short_runtime_name(runtime).to_owned(),
+    }
+}
+
+/// FirstLaunch.tsx's roster notice, when the teammates file would not read.
+const ROSTER_UNREADABLE: &str = "Your teammates file could not be read, so your team is not shown.";
+const ROSTER_SAFE: &str = "Nothing was changed. The file is kept as it is and nothing is saved over it until it reads again.";
+/// TeamTemplates.tsx's note under the teams.
+const TEMPLATES_NOTE: &str = "Each is an ordinary teammate: rename them, change their face or model, or remove them. They run on the model you pick.";
+
+/// AwayList's `SHOWN`: rows of each kind drawn before the rest are counted.
+const AWAY_SHOWN: usize = 6;
+
 pub(super) fn whats_new_settings(s: &State, p: &Palette) -> El {
     let mut body = col().w_full().gap(8.0).padding(12.0);
     if s.home.changelog.is_empty() {
@@ -2041,26 +2121,7 @@ pub(super) fn whats_new_settings(s: &State, p: &Palette) -> El {
         );
     }
     for entry in s.home.changelog.iter().take(s.home.changelog_shown) {
-        body = body.child(
-            text(changelog::version_heading(entry))
-                .font(type_::TITLE)
-                .color(p.text)
-                .padding(4.0),
-        );
-        for group in &entry.groups {
-            if let Some(label) = &group.label {
-                body = body.child(
-                    text(label.clone())
-                        .font(type_::BODY)
-                        .color(p.secondary)
-                        .padding(2.0),
-                );
-            }
-            body = body.child(
-                // WhatsNew.tsx draws each group through AgentText: its Markdown, never the raw `**`.
-                col().w_full().padding(2.0).child(rune_kit::Markdown::new(group.text.clone()).selectable(true).render(&markdown_style(p)).w_full()),
-            );
-        }
+        body = body.child(release_notes(entry, p));
     }
     if s.home.changelog_shown < s.home.changelog.len() {
         body = body.child(button(changelog::SHOW_OLDER, p).on_press(|s: &mut State| {
@@ -2071,8 +2132,52 @@ pub(super) fn whats_new_settings(s: &State, p: &Palette) -> El {
     body
 }
 
+/// WhatsNew.tsx `ReleaseNotes`: the build's date as its heading (its version when it has none), the version beside it
+/// as a badge, then each group under its label, if it has one, drawn as Markdown.
+fn release_notes(entry: &ChangelogEntry, p: &Palette) -> El {
+    let version = entry.version.clone();
+    let heading = entry
+        .date
+        .as_deref()
+        .and_then(changelog::changelog_date)
+        .unwrap_or_else(|| format!("Version {version}"));
+    let mut notes = col().w_full().gap(4.0).key(format!("release-{version}")).child(
+        row()
+            .w_full()
+            .gap(8.0)
+            .center_y()
+            .child(text(heading).font(type_::TITLE).color(p.text).key(format!("release-date-{version}")))
+            .child(
+                text(version.clone())
+                    .font(type_::LABEL.mono())
+                    .color(p.secondary)
+                    .px(6.0)
+                    .py(1.0)
+                    .radius(4.0)
+                    .fill(p.field)
+                    .key(format!("release-version-{version}")),
+            ),
+    );
+    for (index, group) in entry.groups.iter().enumerate() {
+        if let Some(label) = &group.label {
+            notes = notes.child(
+                text(label.clone())
+                    .font(type_::LABEL.mono())
+                    .color(p.secondary)
+                    .padding(2.0)
+                    .key(format!("release-label-{version}-{index}")),
+            );
+        }
+        // WhatsNew.tsx draws each group through AgentText: its Markdown, never the raw `**`.
+        notes = notes.child(col().w_full().padding(2.0).child(rune_kit::Markdown::new(group.text.clone()).selectable(true).render(&markdown_style(p)).w_full()));
+    }
+    notes
+}
+
 pub(super) fn splash_view(s: &State, p: &Palette) -> El {
     let mut body = col()
+        .key("whats-new-splash")
+        .label(changelog::SPLASH_TITLE)
         .w(420.0)
         .gap(10.0)
         .padding(16.0)
@@ -2093,17 +2198,7 @@ pub(super) fn splash_view(s: &State, p: &Palette) -> El {
                 })),
         );
     for entry in &s.home.splash_entries {
-        body = body.child(
-            text(changelog::version_heading(entry))
-                .font(type_::BODY)
-                .color(p.text),
-        );
-        for group in &entry.groups {
-            body = body.child(
-                // WhatsNew.tsx draws each group through AgentText: its Markdown, never the raw `**`.
-                rune_kit::Markdown::new(group.text.clone()).selectable(true).render(&markdown_style(p)).w_full(),
-            );
-        }
+        body = body.child(release_notes(entry, p));
     }
     body.child(
         row()
@@ -2670,6 +2765,22 @@ mod home_lockup_power_tests;
 #[cfg(test)]
 #[path = "home_beam_tests.rs"]
 mod home_beam_tests;
+
+#[cfg(test)]
+#[path = "whats_new_reads_tests.rs"]
+mod whats_new_reads_tests;
+
+#[cfg(test)]
+#[path = "away_on_home_tests.rs"]
+mod away_on_home_tests;
+
+#[cfg(test)]
+#[path = "home_free_tag_tests.rs"]
+mod home_free_tag_tests;
+
+#[cfg(test)]
+#[path = "empty_home_team_tests.rs"]
+mod empty_home_team_tests;
 
 #[cfg(test)]
 #[path = "changelog_reads_tests.rs"]

@@ -13,16 +13,23 @@ fn whats_new_words(file: &str) -> Vec<String> {
     s.settings_panel.page = Some(crate::settings_pages::SettingsPageId::WhatsNew);
     s.home.changelog = changelog::entries(file);
     s.home.changelog_shown = changelog::WHATS_NEW_PAGE;
+    s.home.changelog_read = true;
     let mut rt = Runtime::new(s, crate::view, (1200.0, 3000.0), Env::new(true, 1.0));
     rt.frame(0.0);
     rt.elements().into_iter().filter(|e| !e.exiting).filter_map(|e| e.text).collect()
 }
 
-/// The words drawn under the heading `heading`, up to the next version's heading (or the end of the page's notes).
-fn under_heading(words: &[String], heading: &str) -> Option<String> {
-    let at = words.iter().position(|w| w == heading)?;
+/// A build's heading is its date (WhatsNew.tsx `ReleaseNotes`), or "Version x" when it has none.
+fn is_heading(w: &str) -> bool {
+    w.starts_with("Version ") || w == "September 17, 2026" || w == "January 1, 2026"
+}
+
+/// The words drawn under the build whose version badge reads `version`, up to the next build's heading (or the end of
+/// the page's notes).
+fn under_heading(words: &[String], version: &str) -> Option<String> {
+    let at = words.iter().position(|w| w == version)?;
     let rest = &words[at + 1..];
-    let end = rest.iter().position(|w| w.starts_with("Version ") || w.contains(" · ")).unwrap_or(rest.len());
+    let end = rest.iter().position(|w| is_heading(w)).unwrap_or(rest.len());
     Some(rest[..end].join("\n"))
 }
 
@@ -30,8 +37,12 @@ fn under_heading(words: &[String], heading: &str) -> Option<String> {
 #[test]
 fn whats_new_lists_every_entry_newest_first_in_file_order() {
     let words = whats_new_words(FILE);
-    let headings: Vec<&str> = words.iter().map(String::as_str).filter(|w| w.starts_with("Version ") || w.starts_with("0.")).collect();
-    assert_eq!(headings, ["0.176.0 · September 17, 2026", "0.175.0 · September 17, 2026", "Version 0.9.2"], "{words:?}");
+    let headings: Vec<&str> = words.iter().map(String::as_str).filter(|w| is_heading(w) || w.starts_with("0.")).collect();
+    assert_eq!(
+        headings,
+        ["September 17, 2026", "0.176.0", "September 17, 2026", "0.175.0", "Version 0.9.2", "0.9.2"],
+        "{words:?}"
+    );
     let versions: Vec<String> = changelog::entries(FILE).into_iter().map(|e| e.version).collect();
     assert_eq!(versions, ["0.176.0", "0.175.0", "0.9.2"]);
 }
@@ -40,7 +51,7 @@ fn whats_new_lists_every_entry_newest_first_in_file_order() {
 #[test]
 fn an_entry_shows_its_body_under_its_heading_and_not_the_next_ones() {
     let words = whats_new_words(FILE);
-    let body = under_heading(&words, "0.175.0 · September 17, 2026").expect("0.175.0 is drawn");
+    let body = under_heading(&words, "0.175.0").expect("0.175.0 is drawn");
     assert!(body.contains("Deleting a conversation can be undone."), "{body}");
     assert!(!body.contains("##"), "{body}");
     // And not the next entry's text, which is the mistake a greedy match makes.
@@ -54,7 +65,7 @@ fn an_entry_shows_its_body_under_its_heading_and_not_the_next_ones() {
 #[test]
 fn a_multi_line_entry_is_drawn_whole() {
     let words = whats_new_words(FILE);
-    let body = under_heading(&words, "0.176.0 · September 17, 2026").expect("0.176.0 is drawn");
+    let body = under_heading(&words, "0.176.0").expect("0.176.0 is drawn");
     assert!(body.contains("Not one long scroll."), "{body}");
     assert!(body.contains("Search finds a setting by its own name."), "{body}");
     let entry = changelog::entry_for(FILE, "0.176.0").expect("the file carries 0.176.0");
@@ -68,7 +79,7 @@ fn a_multi_line_entry_is_drawn_whole() {
 #[test]
 fn an_entry_with_no_date_is_drawn_by_its_version() {
     let words = whats_new_words(FILE);
-    let body = under_heading(&words, "Version 0.9.2").expect("0.9.2 is drawn by its version alone");
+    let body = under_heading(&words, "0.9.2").expect("0.9.2 is drawn by its version alone");
     assert!(body.contains("The first one, with no date on it."), "{body}");
     let entry = changelog::entry_for(FILE, "0.9.2").expect("the file carries 0.9.2");
     assert_eq!((entry.version.as_str(), entry.body.as_str()), ("0.9.2", "- The first one, with no date on it."));
@@ -106,8 +117,8 @@ fn a_version_inside_an_entry_is_not_a_heading() {
     assert_eq!(versions, ["1.0.0"]);
     assert!(changelog::entry_for(tricky, "1.0.0").expect("1.0.0").body.contains("Mentions 2.0.0"));
     let words = whats_new_words(tricky);
-    assert!(!words.iter().any(|w| w == "Version 2.0.0" || w.starts_with("2.0.0")), "{words:?}");
-    let body = under_heading(&words, "1.0.0 · January 1, 2026").expect("1.0.0 is drawn");
+    assert!(!words.iter().any(|w| w == "Version 2.0.0" || w == "2.0.0"), "{words:?}");
+    let body = under_heading(&words, "1.0.0").expect("1.0.0 is drawn");
     assert!(body.contains("Mentions 2.0.0"), "{body}");
     // A heading starts its line: a line that only ends in a version after `##` is still the entry's words.
     let inside = "## 1.0.0 - 2026-01-01\n\nSee ## 2.0.0\n";

@@ -14,6 +14,7 @@ pub(super) fn disclosure(key: String, label: String, open: bool, p: &Palette) ->
         .child(text(label.clone()).font(l.ty.control).color(l.c("text-muted")).grow(1.0).shrink().wrap_anywhere())
         .role("button")
         .label(label)
+        .expanded(open)
         .on_press(move |s: &mut State| {
             s.activity_open.insert(key.clone(), !open);
         })
@@ -1587,6 +1588,10 @@ mod codex_sandbox_row_tests;
 #[cfg(test)]
 #[path = "activity_drawers_orb_tests.rs"]
 mod activity_drawers_orb_tests;
+
+#[cfg(test)]
+#[path = "growing_group_tests.rs"]
+mod growing_group_tests;
 
 #[cfg(test)]
 #[path = "background_command_end_tests.rs"]
