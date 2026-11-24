@@ -643,6 +643,10 @@ pub fn create_slack_link(slack_options: SlackOptions, link_options: ChatLinkOpti
 }
 
 #[cfg(test)]
+#[path = "chat_slack_tests.rs"]
+mod parity_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::chat_http::HttpResponse;
