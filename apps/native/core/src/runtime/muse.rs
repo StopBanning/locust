@@ -17,6 +17,10 @@ use std::{
 };
 
 const MAX_LINE: u64 = 8 * 1024 * 1024;
+/// The reader's words when a line or the queue is more than Locust takes in: the run was stopped by Locust, which the
+/// run's end says (muse-events.ts, process-runner `outputLimitExceeded`).
+const LINE_TOO_LONG: &str = "Muse stream-json line exceeds 8 MiB";
+const OVERFLOW: &str = "Muse notification queue overflow";
 pub const PROMPT_FILE_PLACEHOLDER: &str = "__LOCUST_PROMPT_FILE__";
 pub const MUSE_EFFORTS: &[&str] = &[
     "none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra",
@@ -140,7 +144,7 @@ impl Muse {
                 match super::process::read_line(&mut reader, &mut line) {
                     Ok(0) => break,
                     Ok(_) if line.len() as u64 > MAX_LINE => {
-                        let _ = tx.try_send(Err(err("Muse stream-json line exceeds 8 MiB")));
+                        let _ = tx.try_send(Err(err(LINE_TOO_LONG)));
                         break;
                     }
                     Ok(_) => {
@@ -168,7 +172,7 @@ impl Muse {
                         match tx.try_send(value) {
                             Ok(()) => {}
                             Err(mpsc::TrySendError::Full(_)) => {
-                                reader_control.fail("Muse notification queue overflow");
+                                reader_control.fail(OVERFLOW);
                                 break;
                             }
                             Err(mpsc::TrySendError::Disconnected(_)) => break,
@@ -259,6 +263,9 @@ impl Runtime for Muse {
         }
         if let Some(message) = self.control.failure() {
             self.queued.clear();
+            if message == OVERFLOW {
+                self.normal.note_output_limit_exceeded();
+            }
             let d = self
                 .normal
                 .diagnostic("error", "native.transport", &message);
@@ -287,7 +294,10 @@ impl Runtime for Muse {
                 Ok(self.queued.pop_front())
             }
             Ok(None) => Ok(None),
-            Err(_) => {
+            Err(e) => {
+                if e.to_string() == LINE_TOO_LONG {
+                    self.normal.note_output_limit_exceeded();
+                }
                 while let Ok(Ok(v)) = self.lines.try_recv() {
                     self.queued.extend(self.normal.accept(&v));
                 }
@@ -404,3 +414,7 @@ mod unit_tests {
         assert!(exec_args(Path::new("/tmp"), Mode::Ask, None, Some("ludicrous"), None).is_err());
     }
 }
+
+#[cfg(all(test, unix))]
+#[path = "muse_events_case_tests.rs"]
+mod muse_events_case_tests;

@@ -7161,11 +7161,11 @@ packages/runtime-adapters/test/a-muse-plan-used-up-is-said-once.test.ts	is one l
 packages/runtime-adapters/test/a-muse-plan-used-up-is-said-once.test.ts	leaves no Unhandled line: a saved output and the run's usage are not shown, a stopped tool fails on its row	no
 packages/runtime-adapters/test/a-muse-plan-used-up-is-said-once.test.ts	is still said once when only the run's own end says it	no
 packages/runtime-adapters/test/a-muse-plan-used-up-is-said-once.test.ts	names no reset it was not told	no
-packages/runtime-adapters/test/a-real-codex-session-replays-through-the-adapter.test.ts	The recorded approval arrives with its command, is declined, and never becomes a successful tool receipt.	no
-packages/runtime-adapters/test/a-real-codex-session-replays-through-the-adapter.test.ts	The recorded file change preserves the patch and produces one matched apply_patch receipt.	no
-packages/runtime-adapters/test/a-real-codex-session-replays-through-the-adapter.test.ts	The recorded steer targets the live turn, is accepted without interrupting it, and changes the final answer.	no
-packages/runtime-adapters/test/a-real-codex-session-replays-through-the-adapter.test.ts	Scrubbing removes personal paths, account data and hidden reasoning while preserving public summaries and correlated ids.	no
-packages/runtime-adapters/test/a-real-codex-session-replays-through-the-adapter.test.ts	Every stored fixture is scrubbed and carries the requested model and low effort, with no reroute or invented limit.	no
+packages/runtime-adapters/test/a-real-codex-session-replays-through-the-adapter.test.ts	The recorded approval arrives with its command, is declined, and never becomes a successful tool receipt.	yes
+packages/runtime-adapters/test/a-real-codex-session-replays-through-the-adapter.test.ts	The recorded file change preserves the patch and produces one matched apply_patch receipt.	yes
+packages/runtime-adapters/test/a-real-codex-session-replays-through-the-adapter.test.ts	The recorded steer targets the live turn, is accepted without interrupting it, and changes the final answer.	yes
+packages/runtime-adapters/test/a-real-codex-session-replays-through-the-adapter.test.ts	Scrubbing removes personal paths, account data and hidden reasoning while preserving public summaries and correlated ids.	yes
+packages/runtime-adapters/test/a-real-codex-session-replays-through-the-adapter.test.ts	Every stored fixture is scrubbed and carries the requested model and low effort, with no reroute or invented limit.	yes
 packages/runtime-adapters/test/a-real-muse-wonder-run-reads-whole.test.ts	reads whole: its tool by name, its answer, its end, and nothing left unread	no
 packages/runtime-adapters/test/a-real-muse-wonder-run-reads-whole.test.ts	says once that Meta's model is being tried again, and nothing for its first try	no
 packages/runtime-adapters/test/a-real-muse-wonder-run-reads-whole.test.ts	lets the session's bookkeeping go quietly, the branch it saw in a git folder among it	no
@@ -7186,11 +7186,11 @@ packages/runtime-adapters/test/a-run-is-handed-its-own-skills.test.ts	names the 
 packages/runtime-adapters/test/a-run-is-handed-its-own-skills.test.ts	adds the run's folder on every mode, as an absolute --add-dir, and still only lends a reference folder to a read-only run	yes
 packages/runtime-adapters/test/a-run-without-connectors-leaves-them-out.test.ts	stay out when the run is told so, on every model and in every mode, and Locust's own servers stay in	yes
 packages/runtime-adapters/test/a-run-without-connectors-leaves-them-out.test.ts	come along for a teammate that has them on, and where nothing was said	no
-packages/runtime-adapters/test/a-running-codex-turn-can-be-steered.test.ts	sends turn/steer on the thread, with the running turn's id, and says it was taken	no
-packages/runtime-adapters/test/a-running-codex-turn-can-be-steered.test.ts	learns the turn from turn/started as well	no
-packages/runtime-adapters/test/a-running-codex-turn-can-be-steered.test.ts	says no, without asking, before a turn has started	no
-packages/runtime-adapters/test/a-running-codex-turn-can-be-steered.test.ts	says no when the server refuses it -- the turn has just ended, say	no
-packages/runtime-adapters/test/a-running-codex-turn-can-be-steered.test.ts	says no, without asking, once the turn is over	no
+packages/runtime-adapters/test/a-running-codex-turn-can-be-steered.test.ts	sends turn/steer on the thread, with the running turn's id, and says it was taken	yes
+packages/runtime-adapters/test/a-running-codex-turn-can-be-steered.test.ts	learns the turn from turn/started as well	yes
+packages/runtime-adapters/test/a-running-codex-turn-can-be-steered.test.ts	says no, without asking, before a turn has started	yes
+packages/runtime-adapters/test/a-running-codex-turn-can-be-steered.test.ts	says no when the server refuses it -- the turn has just ended, say	yes
+packages/runtime-adapters/test/a-running-codex-turn-can-be-steered.test.ts	says no, without asking, once the turn is over	yes
 packages/runtime-adapters/test/a-sealed-run-uses-no-tool.test.ts	asks for every tool, so a run with nobody to ask refuses each one, and reaches no folder outside its own	yes
 packages/runtime-adapters/test/a-sealed-run-uses-no-tool.test.ts	keeps every tool listed, the shell among them, because the free tier refuses a run whose tools are gone	no
 packages/runtime-adapters/test/a-sealed-run-uses-no-tool.test.ts	is what a served run is told, and seals only a read-only run	no
@@ -7427,24 +7427,24 @@ packages/runtime-adapters/test/app-server-events.test.ts	says it was asked for w
 packages/runtime-adapters/test/app-server-events.test.ts	is a line for each compaction when there are two	no
 packages/runtime-adapters/test/app-server-events.test.ts	opens no step for the compaction item	no
 packages/runtime-adapters/test/app-server-events.test.ts	draws only the findings, once: the review-mode bookends are not steps	no
-packages/runtime-adapters/test/app-server.test.ts	reassembles messages split across arbitrary chunks	no
-packages/runtime-adapters/test/app-server.test.ts	ignores blank lines and keeps a trailing partial buffered	no
-packages/runtime-adapters/test/app-server.test.ts	reports an unparsable line instead of throwing	no
-packages/runtime-adapters/test/app-server.test.ts	drops a buffer that grows without a newline rather than growing forever	no
-packages/runtime-adapters/test/app-server.test.ts	drops an oversized single line but keeps the connection usable	no
-packages/runtime-adapters/test/app-server.test.ts	resolves a request with its own response	no
-packages/runtime-adapters/test/app-server.test.ts	matches responses to the right request when they arrive out of order	no
-packages/runtime-adapters/test/app-server.test.ts	rejects with the server's message when the response is an error	no
-packages/runtime-adapters/test/app-server.test.ts	reports a response nobody asked for rather than dropping it silently	no
-packages/runtime-adapters/test/app-server.test.ts	times out a request the server never answers	no
-packages/runtime-adapters/test/app-server.test.ts	refuses to queue beyond its in-flight limit	no
-packages/runtime-adapters/test/app-server.test.ts	fails every in-flight request on dispose instead of hanging	no
-packages/runtime-adapters/test/app-server.test.ts	answers a server request with the handler's result	no
-packages/runtime-adapters/test/app-server.test.ts	still answers when the handler throws	no
-packages/runtime-adapters/test/app-server.test.ts	does not confuse a server request with a response	no
-packages/runtime-adapters/test/app-server.test.ts	writes newline-delimited JSON-RPC with an incrementing id	no
-packages/runtime-adapters/test/app-server.test.ts	sends notifications without an id	no
-packages/runtime-adapters/test/app-server.test.ts	goes quiet after dispose	no
+packages/runtime-adapters/test/app-server.test.ts	reassembles messages split across arbitrary chunks	yes
+packages/runtime-adapters/test/app-server.test.ts	ignores blank lines and keeps a trailing partial buffered	yes
+packages/runtime-adapters/test/app-server.test.ts	reports an unparsable line instead of throwing	yes
+packages/runtime-adapters/test/app-server.test.ts	drops a buffer that grows without a newline rather than growing forever	yes
+packages/runtime-adapters/test/app-server.test.ts	drops an oversized single line but keeps the connection usable	yes
+packages/runtime-adapters/test/app-server.test.ts	resolves a request with its own response	yes
+packages/runtime-adapters/test/app-server.test.ts	matches responses to the right request when they arrive out of order	yes
+packages/runtime-adapters/test/app-server.test.ts	rejects with the server's message when the response is an error	yes
+packages/runtime-adapters/test/app-server.test.ts	reports a response nobody asked for rather than dropping it silently	yes
+packages/runtime-adapters/test/app-server.test.ts	times out a request the server never answers	yes
+packages/runtime-adapters/test/app-server.test.ts	refuses to queue beyond its in-flight limit	yes
+packages/runtime-adapters/test/app-server.test.ts	fails every in-flight request on dispose instead of hanging	yes
+packages/runtime-adapters/test/app-server.test.ts	answers a server request with the handler's result	yes
+packages/runtime-adapters/test/app-server.test.ts	still answers when the handler throws	yes
+packages/runtime-adapters/test/app-server.test.ts	does not confuse a server request with a response	yes
+packages/runtime-adapters/test/app-server.test.ts	writes newline-delimited JSON-RPC with an incrementing id	yes
+packages/runtime-adapters/test/app-server.test.ts	sends notifications without an id	yes
+packages/runtime-adapters/test/app-server.test.ts	goes quiet after dispose	yes
 packages/runtime-adapters/test/background-work-ends-with-the-run.test.ts	is keyed by the call that started it, not filed as a subagent	yes
 packages/runtime-adapters/test/background-work-ends-with-the-run.test.ts	says it was stopped when the run ended, because that is when it came	no
 packages/runtime-adapters/test/background-work-ends-with-the-run.test.ts	the call itself carries the flag, its command and what it was for	yes
@@ -7519,50 +7519,50 @@ packages/runtime-adapters/test/claude-events.test.ts	says so once, as a line the
 packages/runtime-adapters/test/claude-events.test.ts	keeps the person's command list out of the run's record	no
 packages/runtime-adapters/test/claude-events.test.ts	hands the command list to the host for the / menu, and still keeps it out of the record (0.426)	no
 packages/runtime-adapters/test/claude-events.test.ts	bounds what a command list can put in the menu	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	asks for danger-full-access only when the mission really has full access	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	never asks anything, because the exec transport it replaces never could	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	is `codex app-server`, with the prompt in neither argv nor stdin	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	switches the plan tool on from 0.153.0, where it was measured, and not below	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	hands the folder, the policy, the model and the prompt to the right calls	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	resumes a prior thread rather than starting one, which is what keeps a follow-up warm	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	reopens a thread on the turn's own model, so Codex does not warn it is resuming on another (0.864)	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	forks the thread for a question on the side, a copy the side can fork again (0.461)	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	lays the thread's own config over the person's, on a start, a resume and a fork alike (0.720)	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	reads the person's settings before the thread starts, and lays what it makes under Locust's own config (0.824)	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	starts no thread when the settings refuse it, and ends with the refusal's own words (0.824)	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	hands on Codex's own words when it refuses the read, so an old Codex can be told to update (0.825)	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	streams every notification as a record and ends when the turn does	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	reports a server that dies mid-turn as a lost transport, not a clean finish	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	keeps what a dying server wrote to stderr, as its last line	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	ends the run when the mission is cancelled	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	gives up rather than hanging when the server never answers the handshake	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	turns a record back into the notification it was written from	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	drops a line that is not a notification instead of guessing at it	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	reads a cancelled completion as cancelled and anything else as a lost transport	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	reports the tokens the thread counted, in the vocabulary every receipt uses	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	bills a resumed turn for itself, not the whole conversation	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	is not ended by a sub-agent's turn, and counts what the sub-agent spent	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	keeps the transport running through a sub-agent's turn ending	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	says nothing about cost when the thread never counted, rather than claiming zero	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	stops the run and says why, instead of dropping records quietly	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	reviews the uncommitted changes as its terminal does, on the thread's own route, and starts no ordinary turn	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	reviews what the person asked for, when they said	no
-packages/runtime-adapters/test/codex-app-server-run.test.ts	compacts the thread, and the run ends when that turn does	no
-packages/runtime-adapters/test/codex-events.test.ts	normalizes the official success shape and waits for a clean host exit	no
-packages/runtime-adapters/test/codex-events.test.ts	classifies and deduplicates the observed quota-exhaustion sequence	no
-packages/runtime-adapters/test/codex-events.test.ts	keeps an item error nonterminal when the turn later succeeds	no
-packages/runtime-adapters/test/codex-events.test.ts	preserves unknown/additive provider data after redaction and never stores reasoning text	no
-packages/runtime-adapters/test/codex-events.test.ts	turns malformed JSON into a redacted, nonterminal diagnostic	no
-packages/runtime-adapters/test/codex-events.test.ts	synthesizes cancellation only from host-owned completion correlation	no
-packages/runtime-adapters/test/codex-events.test.ts	says so when IT stopped the run for output volume	no
-packages/runtime-adapters/test/codex-events.test.ts	rejects both EOF/exit mismatches instead of claiming success	no
-packages/runtime-adapters/test/codex-events.test.ts	normalizes message append deltas and accumulated-text replacement	no
-packages/runtime-adapters/test/codex-events.test.ts	emits a tool failure without forcing the whole run to fail	no
-packages/runtime-adapters/test/codex-events.test.ts	does not mistake incidental usage-limit wording for confirmed quota exhaustion	no
-packages/runtime-adapters/test/codex-events.test.ts	clamps identity fields the mission ledger caps at 512 characters	no
-packages/runtime-adapters/test/codex-events.test.ts	strips NUL from every persisted string	no
-packages/runtime-adapters/test/codex-events.test.ts	carries every changed path on the tool event, one per line, since Codex sends no diff	no
-packages/runtime-adapters/test/codex-events.test.ts	draws spawn_agent as a tool call named by its tool, carrying the prompt, settled on completion	no
+packages/runtime-adapters/test/codex-app-server-run.test.ts	asks for danger-full-access only when the mission really has full access	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	never asks anything, because the exec transport it replaces never could	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	is `codex app-server`, with the prompt in neither argv nor stdin	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	switches the plan tool on from 0.153.0, where it was measured, and not below	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	hands the folder, the policy, the model and the prompt to the right calls	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	resumes a prior thread rather than starting one, which is what keeps a follow-up warm	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	reopens a thread on the turn's own model, so Codex does not warn it is resuming on another (0.864)	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	forks the thread for a question on the side, a copy the side can fork again (0.461)	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	lays the thread's own config over the person's, on a start, a resume and a fork alike (0.720)	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	reads the person's settings before the thread starts, and lays what it makes under Locust's own config (0.824)	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	starts no thread when the settings refuse it, and ends with the refusal's own words (0.824)	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	hands on Codex's own words when it refuses the read, so an old Codex can be told to update (0.825)	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	streams every notification as a record and ends when the turn does	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	reports a server that dies mid-turn as a lost transport, not a clean finish	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	keeps what a dying server wrote to stderr, as its last line	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	ends the run when the mission is cancelled	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	gives up rather than hanging when the server never answers the handshake	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	turns a record back into the notification it was written from	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	drops a line that is not a notification instead of guessing at it	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	reads a cancelled completion as cancelled and anything else as a lost transport	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	reports the tokens the thread counted, in the vocabulary every receipt uses	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	bills a resumed turn for itself, not the whole conversation	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	is not ended by a sub-agent's turn, and counts what the sub-agent spent	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	keeps the transport running through a sub-agent's turn ending	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	says nothing about cost when the thread never counted, rather than claiming zero	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	stops the run and says why, instead of dropping records quietly	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	reviews the uncommitted changes as its terminal does, on the thread's own route, and starts no ordinary turn	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	reviews what the person asked for, when they said	yes
+packages/runtime-adapters/test/codex-app-server-run.test.ts	compacts the thread, and the run ends when that turn does	yes
+packages/runtime-adapters/test/codex-events.test.ts	normalizes the official success shape and waits for a clean host exit	yes
+packages/runtime-adapters/test/codex-events.test.ts	classifies and deduplicates the observed quota-exhaustion sequence	yes
+packages/runtime-adapters/test/codex-events.test.ts	keeps an item error nonterminal when the turn later succeeds	yes
+packages/runtime-adapters/test/codex-events.test.ts	preserves unknown/additive provider data after redaction and never stores reasoning text	yes
+packages/runtime-adapters/test/codex-events.test.ts	turns malformed JSON into a redacted, nonterminal diagnostic	yes
+packages/runtime-adapters/test/codex-events.test.ts	synthesizes cancellation only from host-owned completion correlation	yes
+packages/runtime-adapters/test/codex-events.test.ts	says so when IT stopped the run for output volume	yes
+packages/runtime-adapters/test/codex-events.test.ts	rejects both EOF/exit mismatches instead of claiming success	yes
+packages/runtime-adapters/test/codex-events.test.ts	normalizes message append deltas and accumulated-text replacement	yes
+packages/runtime-adapters/test/codex-events.test.ts	emits a tool failure without forcing the whole run to fail	yes
+packages/runtime-adapters/test/codex-events.test.ts	does not mistake incidental usage-limit wording for confirmed quota exhaustion	yes
+packages/runtime-adapters/test/codex-events.test.ts	clamps identity fields the mission ledger caps at 512 characters	yes
+packages/runtime-adapters/test/codex-events.test.ts	strips NUL from every persisted string	yes
+packages/runtime-adapters/test/codex-events.test.ts	carries every changed path on the tool event, one per line, since Codex sends no diff	yes
+packages/runtime-adapters/test/codex-events.test.ts	draws spawn_agent as a tool call named by its tool, carrying the prompt, settled on completion	yes
 packages/runtime-adapters/test/codex-long-answer-keeps-its-length.test.ts	is bounded once, at the message limit, and never at the evidence limit	no
 packages/runtime-adapters/test/codex-long-answer-keeps-its-length.test.ts	is still scrubbed of a key it repeats	no
 packages/runtime-adapters/test/codex-long-answer-keeps-its-length.test.ts	keeps the two jobs apart: secrets have no size, evidence has one	no
@@ -7610,9 +7610,9 @@ packages/runtime-adapters/test/copilot-events.test.ts	keeps only the four auto-m
 packages/runtime-adapters/test/copilot-events.test.ts	keeps only the two totals from a checkpoint that is mostly cache bookkeeping	no
 packages/runtime-adapters/test/copilot-events.test.ts	is a failure when the CLI exits clean without ever printing its result record	no
 packages/runtime-adapters/test/copilot-events.test.ts	is a failure when the result record itself reports a non-zero exit	no
-packages/runtime-adapters/test/copilot-events.test.ts	is cancelled when the host cancelled it	no
+packages/runtime-adapters/test/copilot-events.test.ts	is cancelled when the host cancelled it	yes
 packages/runtime-adapters/test/copilot-events.test.ts	still resumes from the host's id when the CLI never printed one	no
-packages/runtime-adapters/test/copilot-events.test.ts	reports a record it cannot parse as a diagnostic and keeps going	no
+packages/runtime-adapters/test/copilot-events.test.ts	reports a record it cannot parse as a diagnostic and keeps going	yes
 packages/runtime-adapters/test/copilot-events.test.ts	says so when it meets a record type this build has never seen	no
 packages/runtime-adapters/test/copilot-events.test.ts	attaches a patch to the edit alone; the view's diff-shaped listing carries none	no
 packages/runtime-adapters/test/copilot-events.test.ts	opens one reasoning step on the first delta, closes it on the block, and says nothing per delta	no
@@ -7632,56 +7632,56 @@ packages/runtime-adapters/test/cursor-connectors.test.ts	names every waiting ser
 packages/runtime-adapters/test/cursor-connectors.test.ts	names the ready ones, so nobody has to know a config file	yes
 packages/runtime-adapters/test/cursor-connectors.test.ts	never names one that cannot be called	yes
 packages/runtime-adapters/test/cursor-connectors.test.ts	says nothing at all when nothing is ready	yes
-packages/runtime-adapters/test/cursor-events.test.ts	keeps input, output, cache read and cache write counts from the result line	no
-packages/runtime-adapters/test/cursor-events.test.ts	does not invent token counts when result usage is omitted	no
-packages/runtime-adapters/test/cursor-events.test.ts	preserves explicit zero counts and drops nonnumeric values	no
-packages/runtime-adapters/test/cursor-events.test.ts	starts the run with the session id and only the allow-listed init fields	no
-packages/runtime-adapters/test/cursor-events.test.ts	rebuilds each message from its fragments and lets the complete message replace, not double, them	no
-packages/runtime-adapters/test/cursor-events.test.ts	keeps the two messages apart: the answer does not overwrite what was said before the tool ran	no
-packages/runtime-adapters/test/cursor-events.test.ts	records the read as one tool that started and completed under the clean call id	no
-packages/runtime-adapters/test/cursor-events.test.ts	shows reasoning as a step and KEEPS its text	no
-packages/runtime-adapters/test/cursor-events.test.ts	carries the reasoning on the step that closes, not on every fragment	no
-packages/runtime-adapters/test/cursor-events.test.ts	completes the run on exit 0 with a result record	no
-packages/runtime-adapters/test/cursor-events.test.ts	reports a rejected shell command as a tool that failed, never as one that completed	no
-packages/runtime-adapters/test/cursor-events.test.ts	names the commands it refused to run, which is the fact a rejection exists to record	no
-packages/runtime-adapters/test/cursor-events.test.ts	reports a command that RAN and FAILED as failed, with its exit code	no
-packages/runtime-adapters/test/cursor-events.test.ts	treats an outcome it has never seen as a failure, not as a success	no
-packages/runtime-adapters/test/cursor-events.test.ts	records what the run cost, the way the other adapters do	no
-packages/runtime-adapters/test/cursor-events.test.ts	reports the edit and the glob as completed tools with their targets	no
-packages/runtime-adapters/test/cursor-events.test.ts	carries the resolved model name out of init	no
-packages/runtime-adapters/test/cursor-events.test.ts	keeps the earlier session id and delivers the whole answer as one final message	no
-packages/runtime-adapters/test/cursor-events.test.ts	tells them apart the way the stream does	no
-packages/runtime-adapters/test/cursor-events.test.ts	names tool kinds from their wrapper keys	no
-packages/runtime-adapters/test/cursor-events.test.ts	summarizes init to five fields whatever else is there	no
-packages/runtime-adapters/test/cursor-events.test.ts	is a failure when the CLI exits clean without ever saying it finished	no
-packages/runtime-adapters/test/cursor-events.test.ts	is a failure, in the CLI's words, when the result says so	no
-packages/runtime-adapters/test/cursor-events.test.ts	is cancelled when the host cancelled it	no
-packages/runtime-adapters/test/cursor-events.test.ts	reports a record it cannot parse as a diagnostic and keeps going	no
-packages/runtime-adapters/test/cursor-events.test.ts	never takes back text the fragments already delivered	no
-packages/runtime-adapters/test/cursor-events.test.ts	still replaces when the complete message is no shorter	no
-packages/runtime-adapters/test/cursor-events.test.ts	also closes, so nothing is left looking unfinished	no
-packages/runtime-adapters/test/cursor-events.test.ts	says Cursor's reconnect and resume in words, as the records in a real run had them (0.575)	no
-packages/runtime-adapters/test/cursor-events.test.ts	says nothing at all about interaction_query, because the tool row already says it	no
-packages/runtime-adapters/test/cursor-events.test.ts	still draws the tool call itself, which is where a web search belongs	no
-packages/runtime-adapters/test/cursor-events.test.ts	says an unhandled type once a run, however many arrive	no
-packages/runtime-adapters/test/cursor-events.test.ts	still says each different type it meets	no
-packages/runtime-adapters/test/cursor-events.test.ts	does not let the reply say itself twice	no
-packages/runtime-adapters/test/cursor-events.test.ts	closes the message, which is what the rest of the host reads	no
-packages/runtime-adapters/test/cursor-events.test.ts	starts a new message after the complete one, rather than running two together	no
-packages/runtime-adapters/test/cursor-events.test.ts	still trusts the marker where a version sends one	no
-packages/runtime-adapters/test/cursor-events.test.ts	carries the edit's unified diff as its own field, with counts derived from it	no
-packages/runtime-adapters/test/cursor-events.test.ts	counts the whole change before bounding the text, and says when it bounded	no
-packages/runtime-adapters/test/cursor-events.test.ts	does not count the file headers as changed lines	no
-packages/runtime-adapters/test/cursor-events.test.ts	records no patch for an edit that reported none	no
-packages/runtime-adapters/test/cursor-events.test.ts	keeps the fragments rather than taking text back out of the ledger	no
-packages/runtime-adapters/test/cursor-events.test.ts	MARKS THE MESSAGE FINAL, so the host still reads what the reply said	no
-packages/runtime-adapters/test/cursor-events.test.ts	does not rewrite the text when it closes the item	no
-packages/runtime-adapters/test/cursor-events.test.ts	becomes a plan that never shrinks, not four tool rows	no
-packages/runtime-adapters/test/cursor-events.test.ts	advances the steps and finishes with all of them done	no
-packages/runtime-adapters/test/cursor-events.test.ts	invents no plan from a todo call that carries nothing	no
-packages/runtime-adapters/test/cursor-events.test.ts	closes all four, on the id the start opened, and says the result was too large	no
-packages/runtime-adapters/test/cursor-secrets-in-text.test.ts	is scrubbed from the reasoning the step carries	no
-packages/runtime-adapters/test/cursor-secrets-in-text.test.ts	is scrubbed from the answer, fragment and whole alike	no
+packages/runtime-adapters/test/cursor-events.test.ts	keeps input, output, cache read and cache write counts from the result line	yes
+packages/runtime-adapters/test/cursor-events.test.ts	does not invent token counts when result usage is omitted	yes
+packages/runtime-adapters/test/cursor-events.test.ts	preserves explicit zero counts and drops nonnumeric values	yes
+packages/runtime-adapters/test/cursor-events.test.ts	starts the run with the session id and only the allow-listed init fields	yes
+packages/runtime-adapters/test/cursor-events.test.ts	rebuilds each message from its fragments and lets the complete message replace, not double, them	yes
+packages/runtime-adapters/test/cursor-events.test.ts	keeps the two messages apart: the answer does not overwrite what was said before the tool ran	yes
+packages/runtime-adapters/test/cursor-events.test.ts	records the read as one tool that started and completed under the clean call id	yes
+packages/runtime-adapters/test/cursor-events.test.ts	shows reasoning as a step and KEEPS its text	yes
+packages/runtime-adapters/test/cursor-events.test.ts	carries the reasoning on the step that closes, not on every fragment	yes
+packages/runtime-adapters/test/cursor-events.test.ts	completes the run on exit 0 with a result record	yes
+packages/runtime-adapters/test/cursor-events.test.ts	reports a rejected shell command as a tool that failed, never as one that completed	yes
+packages/runtime-adapters/test/cursor-events.test.ts	names the commands it refused to run, which is the fact a rejection exists to record	yes
+packages/runtime-adapters/test/cursor-events.test.ts	reports a command that RAN and FAILED as failed, with its exit code	yes
+packages/runtime-adapters/test/cursor-events.test.ts	treats an outcome it has never seen as a failure, not as a success	yes
+packages/runtime-adapters/test/cursor-events.test.ts	records what the run cost, the way the other adapters do	yes
+packages/runtime-adapters/test/cursor-events.test.ts	reports the edit and the glob as completed tools with their targets	yes
+packages/runtime-adapters/test/cursor-events.test.ts	carries the resolved model name out of init	yes
+packages/runtime-adapters/test/cursor-events.test.ts	keeps the earlier session id and delivers the whole answer as one final message	yes
+packages/runtime-adapters/test/cursor-events.test.ts	tells them apart the way the stream does	yes
+packages/runtime-adapters/test/cursor-events.test.ts	names tool kinds from their wrapper keys	yes
+packages/runtime-adapters/test/cursor-events.test.ts	summarizes init to five fields whatever else is there	yes
+packages/runtime-adapters/test/cursor-events.test.ts	is a failure when the CLI exits clean without ever saying it finished	yes
+packages/runtime-adapters/test/cursor-events.test.ts	is a failure, in the CLI's words, when the result says so	yes
+packages/runtime-adapters/test/cursor-events.test.ts	is cancelled when the host cancelled it	yes
+packages/runtime-adapters/test/cursor-events.test.ts	reports a record it cannot parse as a diagnostic and keeps going	yes
+packages/runtime-adapters/test/cursor-events.test.ts	never takes back text the fragments already delivered	yes
+packages/runtime-adapters/test/cursor-events.test.ts	still replaces when the complete message is no shorter	yes
+packages/runtime-adapters/test/cursor-events.test.ts	also closes, so nothing is left looking unfinished	yes
+packages/runtime-adapters/test/cursor-events.test.ts	says Cursor's reconnect and resume in words, as the records in a real run had them (0.575)	yes
+packages/runtime-adapters/test/cursor-events.test.ts	says nothing at all about interaction_query, because the tool row already says it	yes
+packages/runtime-adapters/test/cursor-events.test.ts	still draws the tool call itself, which is where a web search belongs	yes
+packages/runtime-adapters/test/cursor-events.test.ts	says an unhandled type once a run, however many arrive	yes
+packages/runtime-adapters/test/cursor-events.test.ts	still says each different type it meets	yes
+packages/runtime-adapters/test/cursor-events.test.ts	does not let the reply say itself twice	yes
+packages/runtime-adapters/test/cursor-events.test.ts	closes the message, which is what the rest of the host reads	yes
+packages/runtime-adapters/test/cursor-events.test.ts	starts a new message after the complete one, rather than running two together	yes
+packages/runtime-adapters/test/cursor-events.test.ts	still trusts the marker where a version sends one	yes
+packages/runtime-adapters/test/cursor-events.test.ts	carries the edit's unified diff as its own field, with counts derived from it	yes
+packages/runtime-adapters/test/cursor-events.test.ts	counts the whole change before bounding the text, and says when it bounded	yes
+packages/runtime-adapters/test/cursor-events.test.ts	does not count the file headers as changed lines	yes
+packages/runtime-adapters/test/cursor-events.test.ts	records no patch for an edit that reported none	yes
+packages/runtime-adapters/test/cursor-events.test.ts	keeps the fragments rather than taking text back out of the ledger	yes
+packages/runtime-adapters/test/cursor-events.test.ts	MARKS THE MESSAGE FINAL, so the host still reads what the reply said	yes
+packages/runtime-adapters/test/cursor-events.test.ts	does not rewrite the text when it closes the item	yes
+packages/runtime-adapters/test/cursor-events.test.ts	becomes a plan that never shrinks, not four tool rows	yes
+packages/runtime-adapters/test/cursor-events.test.ts	advances the steps and finishes with all of them done	yes
+packages/runtime-adapters/test/cursor-events.test.ts	invents no plan from a todo call that carries nothing	yes
+packages/runtime-adapters/test/cursor-events.test.ts	closes all four, on the id the start opened, and says the result was too large	yes
+packages/runtime-adapters/test/cursor-secrets-in-text.test.ts	is scrubbed from the reasoning the step carries	yes
+packages/runtime-adapters/test/cursor-secrets-in-text.test.ts	is scrubbed from the answer, fragment and whole alike	yes
 packages/runtime-adapters/test/effort-choices.test.ts	reads Copilot's seven, through the quotes and the line wraps	yes
 packages/runtime-adapters/test/effort-choices.test.ts	still reads the bare, single-line form	yes
 packages/runtime-adapters/test/effort-choices.test.ts	invents nothing when a CLI names no levels	yes
@@ -7698,13 +7698,13 @@ packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.t
 packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	does not write a shim whose path could be read as a command	no
 packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	on another platform redirects stdin from /dev/null	no
 packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	does not write a blank line after the prompt	no
-packages/runtime-adapters/test/line-diff.test.ts	is nothing when nothing changed	no
-packages/runtime-adapters/test/line-diff.test.ts	writes one changed line with three lines of context either side	no
-packages/runtime-adapters/test/line-diff.test.ts	names an absolute path as it is, with no git prefix in front of a drive letter	no
-packages/runtime-adapters/test/line-diff.test.ts	a new file is all added, from /dev/null	no
-packages/runtime-adapters/test/line-diff.test.ts	keeps two distant changes as two hunks, and the counts are what the text says	no
-packages/runtime-adapters/test/line-diff.test.ts	finds the lines that stayed, not a rewrite of everything between	no
-packages/runtime-adapters/test/line-diff.test.ts	an insertion and a deletion count exactly	no
+packages/runtime-adapters/test/line-diff.test.ts	is nothing when nothing changed	yes
+packages/runtime-adapters/test/line-diff.test.ts	writes one changed line with three lines of context either side	yes
+packages/runtime-adapters/test/line-diff.test.ts	names an absolute path as it is, with no git prefix in front of a drive letter	yes
+packages/runtime-adapters/test/line-diff.test.ts	a new file is all added, from /dev/null	yes
+packages/runtime-adapters/test/line-diff.test.ts	keeps two distant changes as two hunks, and the counts are what the text says	yes
+packages/runtime-adapters/test/line-diff.test.ts	finds the lines that stayed, not a rewrite of everything between	yes
+packages/runtime-adapters/test/line-diff.test.ts	an insertion and a deletion count exactly	yes
 packages/runtime-adapters/test/message-tail.test.ts	leaves a message under the cap exactly as it is	yes
 packages/runtime-adapters/test/message-tail.test.ts	KEEPS a trailing protocol block on an answer far over the cap	yes
 packages/runtime-adapters/test/message-tail.test.ts	keeps the beginning too, so the answer still reads as an answer	no
@@ -7712,26 +7712,26 @@ packages/runtime-adapters/test/message-tail.test.ts	says where it cut, rather th
 packages/runtime-adapters/test/message-tail.test.ts	still respects the ledger cap it exists to enforce	yes
 packages/runtime-adapters/test/message-tail.test.ts	keeps a long ANSWER whole: 60,000 characters, no middle cut (0.869)	no
 packages/runtime-adapters/test/message-tail.test.ts	still bounds an answer past ITS limit, keeping the trailing block	yes
-packages/runtime-adapters/test/more-secrets-are-scrubbed.test.ts	${scrub.name} scrubs a private key, a bare JWT, a Google key and a Hugging Face token	no
-packages/runtime-adapters/test/more-secrets-are-scrubbed.test.ts	leaves ordinary words alone, including ones that merely start alike	no
-packages/runtime-adapters/test/muse-events.test.ts	resumes against the session, not the run or the task	no
-packages/runtime-adapters/test/muse-events.test.ts	reads the first record, byte-order mark and all	no
-packages/runtime-adapters/test/muse-events.test.ts	says the answer once	no
-packages/runtime-adapters/test/muse-events.test.ts	keeps Muse's own scaffolding off the transcript	no
-packages/runtime-adapters/test/muse-events.test.ts	understands every record it was sent	no
-packages/runtime-adapters/test/muse-events.test.ts	does not fail the run for a task that failed	no
-packages/runtime-adapters/test/muse-events.test.ts	draws one row, from start to finish, naming what it did	no
-packages/runtime-adapters/test/muse-events.test.ts	fails its own row and leaves the run alone	no
-packages/runtime-adapters/test/muse-events.test.ts	says once, in a sentence, that Muse's own sandbox is not set up (2026-10-13, the voxel round)	no
-packages/runtime-adapters/test/muse-events.test.ts	says nothing about the sandbox for a command that failed some other way	no
-packages/runtime-adapters/test/muse-events.test.ts	keeps a long failure reason within what the ledger keeps (2026-10-10 sweep)	no
-packages/runtime-adapters/test/muse-events.test.ts	says the stream stopped rather than guessing why	no
-packages/runtime-adapters/test/muse-events.test.ts	repeats the runtime's own terminal word and reason	no
-packages/runtime-adapters/test/muse-events.test.ts	says a billing refusal is the account's, not the app breaking	no
-packages/runtime-adapters/test/muse-events.test.ts	says so when Locust was the one that stopped it	no
-packages/runtime-adapters/test/muse-events.test.ts	reports a cancelled run as cancelled, not failed	no
-packages/runtime-adapters/test/muse-events.test.ts	takes a thread id from a session stream and from nothing else	no
-packages/runtime-adapters/test/muse-events.test.ts	knows which task kinds are Muse talking to itself	no
+packages/runtime-adapters/test/more-secrets-are-scrubbed.test.ts	${scrub.name} scrubs a private key, a bare JWT, a Google key and a Hugging Face token	yes
+packages/runtime-adapters/test/more-secrets-are-scrubbed.test.ts	leaves ordinary words alone, including ones that merely start alike	yes
+packages/runtime-adapters/test/muse-events.test.ts	resumes against the session, not the run or the task	yes
+packages/runtime-adapters/test/muse-events.test.ts	reads the first record, byte-order mark and all	yes
+packages/runtime-adapters/test/muse-events.test.ts	says the answer once	yes
+packages/runtime-adapters/test/muse-events.test.ts	keeps Muse's own scaffolding off the transcript	yes
+packages/runtime-adapters/test/muse-events.test.ts	understands every record it was sent	yes
+packages/runtime-adapters/test/muse-events.test.ts	does not fail the run for a task that failed	yes
+packages/runtime-adapters/test/muse-events.test.ts	draws one row, from start to finish, naming what it did	yes
+packages/runtime-adapters/test/muse-events.test.ts	fails its own row and leaves the run alone	yes
+packages/runtime-adapters/test/muse-events.test.ts	says once, in a sentence, that Muse's own sandbox is not set up (2026-10-13, the voxel round)	yes
+packages/runtime-adapters/test/muse-events.test.ts	says nothing about the sandbox for a command that failed some other way	yes
+packages/runtime-adapters/test/muse-events.test.ts	keeps a long failure reason within what the ledger keeps (2026-10-10 sweep)	yes
+packages/runtime-adapters/test/muse-events.test.ts	says the stream stopped rather than guessing why	yes
+packages/runtime-adapters/test/muse-events.test.ts	repeats the runtime's own terminal word and reason	yes
+packages/runtime-adapters/test/muse-events.test.ts	says a billing refusal is the account's, not the app breaking	yes
+packages/runtime-adapters/test/muse-events.test.ts	says so when Locust was the one that stopped it	yes
+packages/runtime-adapters/test/muse-events.test.ts	reports a cancelled run as cancelled, not failed	yes
+packages/runtime-adapters/test/muse-events.test.ts	takes a thread id from a session stream and from nothing else	yes
+packages/runtime-adapters/test/muse-events.test.ts	knows which task kinds are Muse talking to itself	yes
 packages/runtime-adapters/test/opencode-2-discovery-uses-its-acp-command.test.ts	checks V2 ACP help without launching V1 probes or spending a turn	no
 packages/runtime-adapters/test/opencode-2-discovery-uses-its-acp-command.test.ts	leaves V2 model choices to the ACP session instead of inventing CLI hints	no
 packages/runtime-adapters/test/opencode-2-discovery-uses-its-acp-command.test.ts	keeps the V1 help, model-list readiness and free-model parsing	no
@@ -7813,8 +7813,8 @@ packages/runtime-adapters/test/opencode-events.test.ts	says nothing was changed 
 packages/runtime-adapters/test/opencode-events.test.ts	is reported as failed, never as a tool that completed	no
 packages/runtime-adapters/test/opencode-events.test.ts	is a failure when the stream stops mid-tool-call, however cleanly the process exited	no
 packages/runtime-adapters/test/opencode-events.test.ts	is a failure when the process exited non-zero even after a step said stop	no
-packages/runtime-adapters/test/opencode-events.test.ts	is cancelled when the host cancelled it	no
-packages/runtime-adapters/test/opencode-events.test.ts	reports a record it cannot parse as a diagnostic and keeps going	no
+packages/runtime-adapters/test/opencode-events.test.ts	is cancelled when the host cancelled it	yes
+packages/runtime-adapters/test/opencode-events.test.ts	reports a record it cannot parse as a diagnostic and keeps going	yes
 packages/runtime-adapters/test/opencode-events.test.ts	says so when it meets a record type this build has never seen	no
 packages/runtime-adapters/test/opencode-events.test.ts	attaches the unified diff OpenCode reported for an edit, with counts from it	no
 packages/runtime-adapters/test/opencode-events.test.ts	says so instead of blaming a missing stop step	no

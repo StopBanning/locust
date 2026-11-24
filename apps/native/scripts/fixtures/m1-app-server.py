@@ -84,7 +84,7 @@ for line in sys.stdin:
         # codex-app-server-run.ts: reopen by the stored id, without the whole history, under the same policy.
         assert p['threadId'] == 'thread_fake' and p['excludeTurns'] is True, p
         assert p['sandbox'] == SANDBOX and p['approvalPolicy'] == POLICY
-        check_config(p['config'])
+        check_config(p.get('config', {}))
         assert p['model'] == 'synthetic-model'
         if base == 'refused':
             send(dict(id=msg['id'], error={'code': -32600, 'message': 'no rollout found for thread id thread_fake'}))
@@ -101,7 +101,7 @@ for line in sys.stdin:
         thread_sandbox = expected_sandbox
         assert p['sandbox'] == expected_sandbox and p['approvalPolicy'] == POLICY, p
         is_sealed = (expected_sandbox == 'read-only') if scenario == 'cards-scout-fix' else sealed_mode
-        check_config(p['config'], expected_sandbox, is_sealed)
+        check_config(p.get('config', {}), expected_sandbox, is_sealed)
         send(dict(id=msg['id'], result={'thread':{'id':'thread_fake'}}))
     elif method == 'turn/start':
         assert p['summary'] == 'detailed' and p['approvalPolicy'] == POLICY, p

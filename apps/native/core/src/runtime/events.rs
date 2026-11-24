@@ -238,6 +238,12 @@ impl Normalizer {
             p,
         )
     }
+    /// app-server.ts `unparsable-line`: a line that is not JSON is said, scrubbed, and the run goes on
+    /// (codex-events.ts `codex.malformed_json`, in its words).
+    pub fn malformed(&mut self, line: &str) -> Event {
+        let (raw, redacted) = malformed_raw(line);
+        self.event("adapter.diagnostic", json!({"level":"warning","code":"codex.malformed_json","message":"Codex emitted a malformed JSONL record","terminal":false,"evidence":{"raw":raw,"redacted":redacted}}))
+    }
     pub fn diagnostic(&mut self, method: &str, message: &str) -> Event {
         self.event("adapter.diagnostic", json!({"level":"warning","code":"app.warning","message":text(message,16384),"terminal":false,"evidence":{"runtimeEventType":method,"redacted":true}}))
     }
@@ -349,10 +355,11 @@ impl Normalizer {
                         "commandExecution" => "shell".into(),
                         "fileChange" => "apply_patch".into(),
                         "webSearch" => "web_search".into(),
-                        "collabAgentToolCall" => format!("subagent:{}", s(i, "tool")),
+                        "collabAgentToolCall" => format!("subagent:{}", identity(i, "tool")),
                         _ => {
+                            // A name is an identity the ledger caps at 512 (app-server-events.ts `identityValue`).
                             if !s(i, "server").is_empty() && !s(i, "tool").is_empty() {
-                                format!("{}.{}", s(i, "server"), s(i, "tool"))
+                                identity(&json!({"name": format!("{}.{}", s(i, "server"), s(i, "tool"))}), "name")
                             } else if !s(i, "tool").is_empty() {
                                 identity(i, "tool")
                             } else {
@@ -382,10 +389,13 @@ impl Normalizer {
                         payload["command"] = json!(text(&command, 16384));
                     }
                     if done {
-                        for field in ["status", "exitCode"] {
-                            if !i[field].is_null() {
-                                payload[field] = i[field].clone();
-                            }
+                        if i["status"].is_string() {
+                            payload["status"] = json!(identity(i, "status"));
+                        } else if !i["status"].is_null() {
+                            payload["status"] = i["status"].clone();
+                        }
+                        if !i["exitCode"].is_null() {
+                            payload["exitCode"] = i["exitCode"].clone();
                         }
                         if let Some(output) = i["aggregatedOutput"].as_str() {
                             payload["output"] = json!(text(output, 16384));
@@ -616,3 +626,7 @@ impl Normalizer {
 #[cfg(test)]
 #[path = "a_long_json_key_tests.rs"]
 mod a_long_json_key_tests;
+
+#[cfg(test)]
+#[path = "more_secrets_case_tests.rs"]
+mod more_secrets_case_tests;
