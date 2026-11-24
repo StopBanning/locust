@@ -2070,17 +2070,17 @@ apps/desktop/src/main/memory-store.test.ts	is bounded	yes
 apps/desktop/src/main/mission-history.test.ts	gives the same folder the same id every time, so a mission can be matched back to it	yes
 apps/desktop/src/main/mission-history.test.ts	does not put the path itself in the ledger	yes
 apps/desktop/src/main/mission-history.test.ts	keeps every character of a reply streamed across more fragments than the window holds	yes
-apps/desktop/src/main/mission-history.test.ts	reports the true event count, and does not call joining truncation	no
+apps/desktop/src/main/mission-history.test.ts	reports the true event count, and does not call joining truncation	yes
 apps/desktop/src/main/mission-history.test.ts	marks the message final from the LAST fragment, not the first	yes
 apps/desktop/src/main/mission-history.test.ts	honours a replace, which is how a runtime rewrites what it already said	yes
 apps/desktop/src/main/mission-history.test.ts	keeps two messages apart, and in the order they were said	yes
-apps/desktop/src/main/mission-history.test.ts	leaves a mission that never streamed exactly as it was	no
-apps/desktop/src/main/mission-history.test.ts	passes small missions through untruncated with truthful counts	no
-apps/desktop/src/main/mission-history.test.ts	windows oversized missions to the first and latest events and says so	no
+apps/desktop/src/main/mission-history.test.ts	leaves a mission that never streamed exactly as it was	yes
+apps/desktop/src/main/mission-history.test.ts	passes small missions through untruncated with truthful counts	yes
+apps/desktop/src/main/mission-history.test.ts	windows oversized missions to the first and latest events and says so	yes
 apps/desktop/src/main/mission-history.test.ts	surfaces only the latest host failure and the mission-local issue count	no
-apps/desktop/src/main/mission-history.test.ts	joins a mission's links with the workroom text, keeping direction	no
-apps/desktop/src/main/mission-history.test.ts	keeps a link whose message the workroom no longer holds, with no text	no
-apps/desktop/src/main/mission-history.test.ts	reads history even when the workroom itself cannot be read	no
+apps/desktop/src/main/mission-history.test.ts	joins a mission's links with the workroom text, keeping direction	yes
+apps/desktop/src/main/mission-history.test.ts	keeps a link whose message the workroom no longer holds, with no text	yes
+apps/desktop/src/main/mission-history.test.ts	reads history even when the workroom itself cannot be read	yes
 apps/desktop/src/main/mission-history.test.ts	returns mapped missions and the store-wide issue count	no
 apps/desktop/src/main/mission-history.test.ts	converts a ledger failure into a generic response without leaking the error	no
 apps/desktop/src/main/mission-history.test.ts	stops adding missions once the response would exceed its budget	no
@@ -2110,35 +2110,35 @@ apps/desktop/src/main/missions-can-be-deleted-together.test.ts	lets the row keep
 apps/desktop/src/main/model-catalog.test.ts	reads real models and their own supported efforts	yes
 apps/desktop/src/main/model-catalog.test.ts	drops a model with no id, and a hidden one	yes
 apps/desktop/src/main/model-catalog.test.ts	reports unreadable efforts as NONE rather than as all	yes
-apps/desktop/src/main/model-catalog.test.ts	survives a shape it does not recognize	no
-apps/desktop/src/main/model-catalog.test.ts	reads the list and shuts the server down again	no
-apps/desktop/src/main/model-catalog.test.ts	caches a success instead of starting a server per call	no
-apps/desktop/src/main/model-catalog.test.ts	does not cache a failure	no
+apps/desktop/src/main/model-catalog.test.ts	survives a shape it does not recognize	yes
+apps/desktop/src/main/model-catalog.test.ts	reads the list and shuts the server down again	yes
+apps/desktop/src/main/model-catalog.test.ts	caches a success instead of starting a server per call	yes
+apps/desktop/src/main/model-catalog.test.ts	does not cache a failure	yes
 apps/desktop/src/main/model-catalog.test.ts	answers a second caller from the first probe rather than starting two	yes
-apps/desktop/src/main/model-catalog.test.ts	fails soft when the runtime is not ready, without spawning anything	no
-apps/desktop/src/main/model-catalog.test.ts	expires the cache so a new release is eventually seen	no
-apps/desktop/src/main/model-catalog.test.ts	collapses the efforts Cursor lists as separate models into one model with efforts	no
+apps/desktop/src/main/model-catalog.test.ts	fails soft when the runtime is not ready, without spawning anything	yes
+apps/desktop/src/main/model-catalog.test.ts	expires the cache so a new release is eventually seen	yes
+apps/desktop/src/main/model-catalog.test.ts	collapses the efforts Cursor lists as separate models into one model with efforts	yes
 apps/desktop/src/main/model-catalog.test.ts	splits an id into the model and the effort, longest suffix first	yes
 apps/desktop/src/main/model-catalog.test.ts	names every model the way Cursor does, on the list a real account printed	yes
-apps/desktop/src/main/model-catalog.test.ts	reads the name a family shares, never inventing a word	no
+apps/desktop/src/main/model-catalog.test.ts	reads the name a family shares, never inventing a word	yes
 apps/desktop/src/main/model-catalog.test.ts	offers nothing for a Cursor that is signed out, or that listed nothing	yes
 apps/desktop/src/main/model-catalog.test.ts	offers each advertised alias, tagged as Claude, with the advertised efforts	yes
 apps/desktop/src/main/model-catalog.test.ts	offers the cheapest family the help leaves out, once, and only beside advertised ones	yes
-apps/desktop/src/main/model-catalog.test.ts	names the version each alias runs, from Claude Code's own alias table	no
+apps/desktop/src/main/model-catalog.test.ts	names the version each alias runs, from Claude Code's own alias table	yes
 apps/desktop/src/main/model-catalog.test.ts	offers the older versions after the current ones, marked for the fold	yes
 apps/desktop/src/main/model-catalog.test.ts	names the models the way Claude Code's own picker lists them, once it has (0.697)	no
 apps/desktop/src/main/model-catalog.test.ts	keeps the account default's levels to the current models	yes
 apps/desktop/src/main/model-catalog.test.ts	offers nothing for a Claude that is not ready, or that advertised nothing	yes
 apps/desktop/src/main/model-catalog.test.ts	lists Claude models even when Codex cannot be read	yes
 apps/desktop/src/main/model-catalog.test.ts	offers only the levels every listed model agrees on	yes
-apps/desktop/src/main/model-catalog.test.ts	reports none rather than guessing when the models share nothing	no
-apps/desktop/src/main/model-catalog.test.ts	stays quiet when nothing was listed: there is no honest claim to make	no
-apps/desktop/src/main/model-catalog.test.ts	never counts a previous account-default row as evidence about itself	no
+apps/desktop/src/main/model-catalog.test.ts	reports none rather than guessing when the models share nothing	yes
+apps/desktop/src/main/model-catalog.test.ts	stays quiet when nothing was listed: there is no honest claim to make	yes
+apps/desktop/src/main/model-catalog.test.ts	never counts a previous account-default row as evidence about itself	yes
 apps/desktop/src/main/model-catalog.test.ts	is named for what it is, and sits under codex	yes
-apps/desktop/src/main/model-catalog.test.ts	gives each runtime its own row, in front of that runtime’s models	no
+apps/desktop/src/main/model-catalog.test.ts	gives each runtime its own row, in front of that runtime’s models	yes
 apps/desktop/src/main/model-catalog.test.ts	carries each runtime’s own intersection, not a shared one	yes
-apps/desktop/src/main/model-catalog.test.ts	adds nothing for a runtime that listed nothing	no
-apps/desktop/src/main/model-catalog.test.ts	never stacks a second default on a list that already has one	no
+apps/desktop/src/main/model-catalog.test.ts	adds nothing for a runtime that listed nothing	yes
+apps/desktop/src/main/model-catalog.test.ts	never stacks a second default on a list that already has one	yes
 apps/desktop/src/main/muse-wonder-is-offered.test.ts	are Muse Wonder 1.0 first, then Muse Spark 1.3, each with Muse Code's own eight efforts at its default	yes
 apps/desktop/src/main/muse-wonder-is-offered.test.ts	are offered only when Muse Code is ready here	yes
 apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	is stopped as round 4 ran it, and in every spelling of the same thing	no
@@ -6934,14 +6934,14 @@ packages/mission-store/test/checkpoint.test.ts	reports a settled mission as safe
 packages/mission-store/test/checkpoint.test.ts	refuses to call a mission safe while an action never reported an outcome	yes
 packages/mission-store/test/checkpoint.test.ts	is durable: a checkpoint survives a fresh reader and keeps its epoch order	yes
 packages/mission-store/test/checkpoint.test.ts	describes what survived on disk after an interrupted write, not what was believed	yes
-packages/mission-store/test/checkpoint.test.ts	reports an unreadable ledger as unsafe, and refuses to write past the break	no
+packages/mission-store/test/checkpoint.test.ts	reports an unreadable ledger as unsafe, and refuses to write past the break	yes
 packages/mission-store/test/checkpoint.test.ts	rebuilds an appended message rather than keeping only its last fragment	yes
 packages/mission-store/test/checkpoint.test.ts	gives different transcripts different digests	yes
-packages/mission-store/test/checkpoint.test.ts	accepts a well-formed checkpoint	no
-packages/mission-store/test/checkpoint.test.ts	refuses a checkpoint that claims safety while listing an unknown action	no
-packages/mission-store/test/checkpoint.test.ts	refuses checkpoints belonging to another mission or run	no
-packages/mission-store/test/checkpoint.test.ts	refuses a malformed digest, epoch, reason, or safety value	no
-packages/mission-store/test/checkpoint.test.ts	stops recovery at a checkpoint whose epoch is out of order	no
+packages/mission-store/test/checkpoint.test.ts	accepts a well-formed checkpoint	yes
+packages/mission-store/test/checkpoint.test.ts	refuses a checkpoint that claims safety while listing an unknown action	yes
+packages/mission-store/test/checkpoint.test.ts	refuses checkpoints belonging to another mission or run	yes
+packages/mission-store/test/checkpoint.test.ts	refuses a malformed digest, epoch, reason, or safety value	yes
+packages/mission-store/test/checkpoint.test.ts	stops recovery at a checkpoint whose epoch is out of order	yes
 packages/mission-store/test/every-runtime-can-be-written-down.test.ts	can be recorded, read back, and listed	yes
 packages/mission-store/test/mission-store.test.ts	persists a versioned append-only mission and recovers its terminal phase	yes
 packages/mission-store/test/mission-store.test.ts	serializes concurrent appends without losing ledger or event order	no

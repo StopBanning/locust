@@ -945,6 +945,9 @@ pub struct Transcript {
     events: BTreeMap<u64, Value>,
     /// Set once an event was actually dropped from the window; a window that is merely full is not trimmed.
     pub trimmed: bool,
+    /// Every event sequence the record holds, so the count is the record's (mission-history.ts `eventCount`), not the
+    /// window's: a reply joined from 1200 fragments is one event drawn and 1200 recorded.
+    recorded: std::collections::BTreeSet<u64>,
     /// A held reply's fragments (whole events) by sequence, so a replayed or late fragment folds in once and in order.
     fragments: HashMap<String, BTreeMap<u64, Value>>,
     /// Which held events carry each reply (each message's first fragment's sequence): more than one when an old record
@@ -1053,6 +1056,11 @@ impl Transcript {
         }
     }
 
+    /// How many events the record holds, whatever the window draws (mission-history.ts `eventCount`).
+    pub fn event_count(&self) -> usize {
+        self.recorded.len()
+    }
+
     pub fn apply(&mut self, records: Vec<Record>) {
         if records.is_empty() {
             return;
@@ -1081,6 +1089,7 @@ impl Transcript {
             } else if let Some(event) = record.get("event")
                 && let Some(sequence) = event.get("sequence").and_then(Value::as_u64)
             {
+                self.recorded.insert(sequence);
                 self.hold(sequence, event);
             }
         }
@@ -1764,19 +1773,30 @@ pub fn recover(bytes: &[u8]) -> Recovered {
     };
     let version = header["schemaVersion"].clone();
     let numbered = header.get("ledgerSequence").is_some();
+    let mission = header["metadata"].clone();
     let mut records = vec![header];
     let mut expected = 2u64;
+    // A checkpoint must be the reader's (parsedCheckpoint), the next epoch, and reconciled through no more events than
+    // came before it; one that is not stops recovery like any other bad record.
+    let (mut checkpoints, mut last_event) = (0u64, 0u64);
     for line in body {
         let record = (line.len() <= MAX_RECORD_BYTES).then(|| serde_json::from_slice::<Value>(line).ok()).flatten().filter(|r| {
             r.is_object()
                 && r["schemaVersion"] == version
                 && (!numbered || r["ledgerSequence"].as_u64() == Some(expected))
                 && r["recordType"].as_str().is_some_and(|t| BODY_RECORDS.contains(&t))
+                && (r["recordType"] != "mission.checkpoint"
+                    || crate::checkpoint_reader::checkpoint_record_fits(r, &mission, checkpoints, last_event))
         });
         let Some(record) = record else {
             issues.push(Issue::InvalidRecord);
             break;
         };
+        if record["recordType"] == "mission.checkpoint" {
+            checkpoints += 1;
+        } else if let Some(sequence) = record["event"]["sequence"].as_u64() {
+            last_event = last_event.max(sequence);
+        }
         records.push(record);
         expected += 1;
     }
@@ -2161,6 +2181,8 @@ impl Session {
                     phase: phase.to_owned(),
                     running: t.running,
                     events: t.events.values().cloned().collect(),
+                    event_count: t.event_count(),
+                    events_truncated: t.trimmed,
                     signal_rail: t.signal_rail.clone(),
                     checkpoints_count: t.checkpoints.len(),
                     last_checkpoint_epoch,

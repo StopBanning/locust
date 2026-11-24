@@ -85,6 +85,14 @@ pub fn append_checkpoint(path: &std::path::Path, checkpoint: &Value) -> io::Resu
 fn append_checkpoint_after_tail(path: &std::path::Path, checkpoint: &Value) -> io::Result<()> {
     use std::io::Write;
     let text = std::fs::read_to_string(path)?;
+    // mission-store's createCheckpoint: an already-broken ledger cannot be checkpointed durably. Recovery stops at the
+    // first record it cannot read, so anything appended past that break would be written, fsynced and unreachable.
+    // An `unsafe` verdict (the history read short of its end) is the caller's answer, and it is not written either.
+    let read = crate::ledger::read_ledger(path)?;
+    let broken = checkpoint["resumeSafety"] == "unsafe" || read.unreadable || !read.issues.is_empty();
+    if broken {
+        return Err(io::Error::other("The ledger has a record its reader stops at, so nothing is written past it"));
+    }
     let records: Vec<Value> = text.lines().filter_map(|l| serde_json::from_str(l).ok()).collect();
     let schema = records.first().and_then(|r| r["schemaVersion"].as_u64()).ok_or_else(|| io::Error::other("Ledger has no first record"))?;
     let next = records.iter().filter_map(|r| r["ledgerSequence"].as_u64()).max().unwrap_or(0) + 1;
