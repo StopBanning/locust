@@ -1627,6 +1627,12 @@ apps/desktop/src/main/changelog.test.ts	reads an entry with no date	no
 apps/desktop/src/main/changelog.test.ts	says nothing for a version the file does not carry	no
 apps/desktop/src/main/changelog.test.ts	reads an empty or headingless file as no entries at all	no
 apps/desktop/src/main/changelog.test.ts	is not fooled by a version-looking line inside an entry	no
+apps/desktop/src/main/claude-background-is-watched-not-run.test.ts	reads only background sessions from claude agents --json, and nothing from a malformed answer	yes
+apps/desktop/src/main/claude-background-is-watched-not-run.test.ts	says a blocked session waits for the person, and that Locust does not answer for them	yes
+apps/desktop/src/main/claude-background-is-watched-not-run.test.ts	starts claude --bg on the conversation, the mode said as Claude Code's, the message never taken for a flag	yes
+apps/desktop/src/main/claude-background-is-watched-not-run.test.ts	knows the folder must be trusted in Claude Code first	yes
+apps/desktop/src/main/claude-background-is-watched-not-run.test.ts	polls only while one of its own is live, and says one Claude Code no longer lists is over	yes
+apps/desktop/src/main/claude-background-is-watched-not-run.test.ts	keeps one poll loop when a second watch comes while a look is in flight (2026-10-10 sweep)	yes
 apps/desktop/src/main/cloud-task-service.test.ts	starts on the folder's own repository and branch, and is kept	yes
 apps/desktop/src/main/cloud-task-service.test.ts	says, before it runs, what the cloud will not see	yes
 apps/desktop/src/main/cloud-task-service.test.ts	refuses a folder with no GitHub repository, and starts nothing	yes
