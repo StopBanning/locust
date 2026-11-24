@@ -5,13 +5,13 @@
 use super::*;
 
 fn pem() -> String {
-    ["-----BEGIN", " PRIVATE KEY-----\n", "MIIEvQIBADANBgkqhkiG9w0BAQEFAASC\n", "-----END", " PRIVATE KEY-----"].concat()
+    ["-----BEGIN", " PRIVATE KEY-----\n", "MIIEvQIBADAN", "BgkqhkiG9w0BAQEFAASC\n", "-----END", " PRIVATE KEY-----"].concat()
 }
 fn rsa() -> String {
     ["-----BEGIN RSA", " PRIVATE KEY-----\nabc\n-----END RSA", " PRIVATE KEY-----"].concat()
 }
 fn jwt() -> String {
-    ["eyJ", "hbGciOiJIUzI1NiJ9", ".eyJ", "zdWIiOiIxMjM0NTY3ODkwIn0", ".", "dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U"].concat()
+    ["eyJ", "hbGciOiJIUzI1NiJ9", ".eyJ", "zdWIiOiIxMjM0NTY3ODkwIn0", "."].concat() + &"d".repeat(43)
 }
 fn google() -> String {
     format!("AIza{}", "S".repeat(35))

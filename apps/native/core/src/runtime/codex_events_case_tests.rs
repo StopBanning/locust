@@ -92,16 +92,18 @@ fn an_error_that_will_be_retried_stays_nonterminal() {
 // case: preserves unknown/additive provider data after redaction and never stores reasoning text
 #[test]
 fn keeps_no_secret_and_no_reasoning_text() {
+    // Built at run time: no key-shaped literal in the public source.
+    let key = format!("{}-abcdefghijklmnopqrstuvwxyz", "sk");
     // The app server's normalizer is a whitelist: an unknown notification adds nothing, so neither its data nor its
     // secrets reach the ledger; a reasoning item keeps only its public summary.
     let events = run(&[
         started(),
-        line("future/event", json!({"threadId": "thread_9", "feature": {"enabled": true, "access_token": "very-secret-token-value"}, "api_key": "sk-abcdefghijklmnopqrstuvwxyz"})),
+        line("future/event", json!({"threadId": "thread_9", "feature": {"enabled": true, "access_token": "very-secret-token-value"}, "api_key": key})),
         line("item/completed", json!({"threadId": "thread_9", "item": {"id": "reasoning-1", "type": "reasoning", "content": ["private chain of thought must never persist"], "text": "also private", "summary": ["Reading the files"], "status": "completed"}})),
         completed(),
     ]);
     let ledger = serde_json::to_string(&events.iter().map(|e| &e.payload).collect::<Vec<_>>()).unwrap();
-    for secret in ["sk-abcdefghijklmnopqrstuvwxyz", "very-secret-token-value", "private chain of thought", "also private"] {
+    for secret in [key.as_str(), "very-secret-token-value", "private chain of thought", "also private"] {
         assert!(!ledger.contains(secret), "{secret}");
     }
     let step = of(&events, "step.completed")[0];
@@ -111,9 +113,10 @@ fn keeps_no_secret_and_no_reasoning_text() {
 // case: turns malformed JSON into a redacted, nonterminal diagnostic
 #[test]
 fn malformed_json_is_a_redacted_nonterminal_diagnostic() {
+    let key = format!("{}-abcdefghijklmnopqrstuvwxyz", "sk");
     let (mut codex, _told) = stand_in(json!({"turn/start": [
         {"result": {"turn": {"id": "turn_1"}}},
-        {"raw": "{\"type\":\"error\",\"api_key=sk-abcdefghijklmnopqrstuvwxyz\"\n"},
+        {"raw": format!("{{\"type\":\"error\",\"api_key={key}\"\n")},
         {"send": {"jsonrpc": "2.0", "method": "turn/completed", "params": {"threadId": "thread_9"}}},
     ]}));
     codex.start(&turn_in(Mode::AcceptEdits)).unwrap();
@@ -122,7 +125,7 @@ fn malformed_json_is_a_redacted_nonterminal_diagnostic() {
     assert_eq!(said.kind, "adapter.diagnostic");
     assert_eq!((&said.payload["code"], &said.payload["terminal"]), (&json!("codex.malformed_json"), &json!(false)));
     let text = said.payload.to_string();
-    assert!(!text.contains("sk-abcdefghijklmnopqrstuvwxyz") && text.contains("[redacted]"), "{text}");
+    assert!(!text.contains(&key) && text.contains("[redacted]"), "{text}");
     assert_eq!(events.last().unwrap().kind, "run.completed");
 }
 
