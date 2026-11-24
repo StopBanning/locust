@@ -6760,15 +6760,15 @@ apps/desktop/src/shared/room-task.test.ts	names another teammate's row as theirs
 apps/desktop/src/shared/room-task.test.ts	says the board is empty and names nobody when alone	yes
 apps/desktop/src/shared/room-task.test.ts	tells a teammate its own name	yes
 apps/desktop/src/shared/room-task.test.ts	names a teammate who is alone in the room	yes
-apps/desktop/src/shared/routine-schedule.test.ts	is every N whole hours within a week, or daily at a wall-clock time	no
-apps/desktop/src/shared/routine-schedule.test.ts	every N hours counts from the last run	no
-apps/desktop/src/shared/routine-schedule.test.ts	a routine that missed several intervals while the app was closed is due once, now -- not once per miss	no
-apps/desktop/src/shared/routine-schedule.test.ts	daily at a time is today if still ahead, tomorrow once it has run today	no
-apps/desktop/src/shared/routine-schedule.test.ts	on set days: the next chosen day at the time, never a day that was not chosen (0.517)	no
-apps/desktop/src/shared/routine-schedule.test.ts	on set days: a day missed while Locust was closed runs once, the next time it is open	no
-apps/desktop/src/shared/routine-schedule.test.ts	on set days: made after this week's slot, it waits for the next one	no
-apps/desktop/src/shared/routine-schedule.test.ts	once: due at its moment, then never again	no
-apps/desktop/src/shared/routine-schedule.test.ts	reads on a card	no
+apps/desktop/src/shared/routine-schedule.test.ts	is every N whole hours within a week, or daily at a wall-clock time	yes
+apps/desktop/src/shared/routine-schedule.test.ts	every N hours counts from the last run	yes
+apps/desktop/src/shared/routine-schedule.test.ts	a routine that missed several intervals while the app was closed is due once, now -- not once per miss	yes
+apps/desktop/src/shared/routine-schedule.test.ts	daily at a time is today if still ahead, tomorrow once it has run today	yes
+apps/desktop/src/shared/routine-schedule.test.ts	on set days: the next chosen day at the time, never a day that was not chosen (0.517)	yes
+apps/desktop/src/shared/routine-schedule.test.ts	on set days: a day missed while Locust was closed runs once, the next time it is open	yes
+apps/desktop/src/shared/routine-schedule.test.ts	on set days: made after this week's slot, it waits for the next one	yes
+apps/desktop/src/shared/routine-schedule.test.ts	once: due at its moment, then never again	yes
+apps/desktop/src/shared/routine-schedule.test.ts	reads on a card	yes
 apps/desktop/src/shared/routines-and-rooms-from-a-browser.test.ts	leaves a called link on this computer, and still saves the hook kind	yes
 apps/desktop/src/shared/routines-and-rooms-from-a-browser.test.ts	makes, changes, pauses, runs and removes a routine, and settles what it was asked to	yes
 apps/desktop/src/shared/routines-and-rooms-from-a-browser.test.ts	leaves on the computer what opens something there	yes

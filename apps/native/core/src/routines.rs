@@ -376,6 +376,9 @@ mod removing_and_long_steps_tests;
 #[cfg(test)]
 #[path = "routines/routine_store_tests.rs"]
 mod routine_store_tests;
+#[cfg(test)]
+#[path = "routines/routine_schedule_tests.rs"]
+mod routine_schedule_tests;
 /// Abandon a held attempt and remove its schedule. Never retries work.
 pub fn acknowledge(store: &Store, id: &str, attempt: &str) -> Result<(), String> {
     mutate(store, id, |r| {
