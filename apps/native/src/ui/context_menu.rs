@@ -281,7 +281,7 @@ fn sub_panel(l: &crate::look::controls::Look, menu: &MenuState, parent: &Item, a
     let left = if at.0 + SUB_WIDTH > win.0 - EDGE { at.0 - MENU_WIDTH - SUB_WIDTH + 2.0 } else { at.0 };
     let below = at.1 + h - (win.1 - EDGE);
     let top = if below > 0.0 { at.1 - below.min((at.1 - EDGE).max(0.0)) } else { at.1 };
-    let mut panel = surface(l, col().key(format!("row-menu-sub-{}", slug(&parent.label))).role("menu").label(parent.label.clone()))
+    let mut panel = sub_surface(l, col().key(format!("row-menu-sub-{}", slug(&parent.label))).role("menu").label(parent.label.clone()))
         .absolute(left, top)
         .w(SUB_WIDTH);
     let _ = menu;
@@ -308,6 +308,25 @@ fn surface(l: &crate::look::controls::Look, e: El) -> El {
         e = e.box_shadow(shadow);
     }
     e
+}
+
+/// A submenu's own panel, as `.lc-context__sub` draws it: a step lighter than the menu (bg-raised-2), its 1px
+/// border-strong edge the hairline where it overlaps the menu by a pixel, corners of 8 and the popover's shadow.
+fn sub_surface(l: &crate::look::controls::Look, e: El) -> El {
+    let edge = (1.0, l.c("border-strong"));
+    #[cfg(test)]
+    SUB_EDGE.with(|c| c.set(Some(edge)));
+    let mut e = e.padding(PAD).radius(8.0).fill(l.c("bg-raised-2")).border(edge.0, edge.1);
+    for shadow in l.t.shadows("shadow-popover") {
+        e = e.box_shadow(shadow);
+    }
+    e
+}
+
+/// The submenu's edge as last drawn: its width and colour, for the window's own tests (Rune does not list borders).
+#[cfg(test)]
+thread_local! {
+    pub(super) static SUB_EDGE: std::cell::Cell<Option<(f32, rune::Color)>> = const { std::cell::Cell::new(None) };
 }
 
 fn item_row(l: &crate::look::controls::Look, key: &str, label: &str, danger: bool) -> El {

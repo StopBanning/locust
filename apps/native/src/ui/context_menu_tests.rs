@@ -146,6 +146,23 @@ fn a_list_opens_from_its_row_and_its_entry_is_chosen_there() {
     assert!(rt.state.row_menu.is_none());
 }
 
+/// HANDOFF-lockup-1 row 5 (review leftover): a submenu is its own panel, set apart from the menu by a hairline, as
+/// shell.css's `.lc-context__sub` draws it: border 1px var(--lc-border-strong), background var(--lc-bg-raised-2),
+/// overlapping the menu by a pixel (left: calc(100% - 1px)).
+#[test]
+fn a_submenu_is_set_apart_from_its_menu_by_a_hairline() {
+    let mut rt = drawn();
+    press(&mut rt, "row-menu-item-move-to-group");
+    let sub = element(&rt, "row-menu-sub-move-to-group");
+    let menu = element(&rt, "row-menu");
+    assert!((sub.rect[0] - (menu.rect[0] + menu.rect[2] - 1.0)).abs() < 0.5, "a pixel over the menu's edge: sub {:?} menu {:?}", sub.rect, menu.rect);
+    let l = crate::look::controls::Look::new(true);
+    assert_eq!(SUB_EDGE.with(|c| c.get()), Some((1.0, l.c("border-strong"))), "border: 1px solid var(--lc-border-strong)");
+    assert_eq!(sub.fill, color("#1b1e1f"), "background: var(--lc-bg-raised-2), tokens.css's dark value");
+    assert_ne!(sub.fill, menu.fill, "a step apart from the menu it opened from");
+    assert_eq!(sub.radius, 8.0, "border-radius: 8px");
+}
+
 #[test]
 fn escape_or_a_press_anywhere_else_closes_it() {
     let mut rt = drawn();

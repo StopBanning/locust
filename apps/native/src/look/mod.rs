@@ -15,6 +15,7 @@ pub mod faces;
 pub mod gallery;
 pub mod icons;
 pub mod puppets;
+pub mod lockup;
 pub mod select_keys;
 
 use rune::{Color, Shadow, TextStyle};

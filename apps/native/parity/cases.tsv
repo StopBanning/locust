@@ -2981,6 +2981,13 @@ apps/desktop/src/main/the-live-word-is-visibly-live.test.ts	leaves the word itse
 apps/desktop/src/main/the-live-word-is-visibly-live.test.ts	drops only the highlight when motion is off	yes
 apps/desktop/src/main/the-live-word-is-visibly-live.test.ts	sets the live word as a label rather than a machine string	yes
 apps/desktop/src/main/the-live-word-is-visibly-live.test.ts	scales no orb at all	yes
+apps/desktop/src/main/the-lockup-lighting-is-drawn.test.ts	is the cover drawn to scale: its 960x254 numbers times the measured k	yes
+apps/desktop/src/main/the-lockup-lighting-is-drawn.test.ts	centres the claim under the lockup, in mono capitals, never under the 10.5px floor	yes
+apps/desktop/src/main/the-lockup-lighting-is-drawn.test.ts	powers on from dark, lit lime, and ends in the app ink	yes
+apps/desktop/src/main/the-lockup-lighting-is-drawn.test.ts	relights without ever going dark	yes
+apps/desktop/src/main/the-lockup-lighting-is-drawn.test.ts	lays the boot screen tube over it: its scanlines and its sweep	yes
+apps/desktop/src/main/the-lockup-lighting-is-drawn.test.ts	sets the name the way the cover does: Figtree 700 capitals at the title tracking	yes
+apps/desktop/src/main/the-lockup-lighting-is-drawn.test.ts	stops for reduced motion	yes
 apps/desktop/src/main/the-message-box-focus-meets-3-to-1.test.ts	draws its edge in the box token	yes
 apps/desktop/src/main/the-message-box-focus-meets-3-to-1.test.ts	is at least 3:1 against the page and against the box	yes
 apps/desktop/src/main/the-message-box-is-one-row.test.ts	lays the +, the field and the buttons out on one row	yes
@@ -5888,6 +5895,11 @@ apps/desktop/src/renderer/src/the-bare-machine.test.ts	is still blocked and stil
 apps/desktop/src/renderer/src/the-bare-machine.test.ts	does not reach for either sentence when a runtime is fine	yes
 apps/desktop/src/renderer/src/the-bare-machine.test.ts	says what it is doing when there is nothing to count	yes
 apps/desktop/src/renderer/src/the-bare-machine.test.ts	still counts once there is something to count	yes
+apps/desktop/src/renderer/src/the-beams-are-mono-and-quiet.test.tsx	wears a beam round the machine, and round nothing else	yes
+apps/desktop/src/renderer/src/the-beams-are-mono-and-quiet.test.tsx	travels while the runtimes are being found, and goes out when the lockup lights	yes
+apps/desktop/src/renderer/src/the-beams-are-mono-and-quiet.test.tsx	wears the beam while a run goes	no
+apps/desktop/src/renderer/src/the-beams-are-mono-and-quiet.test.tsx	has no beam when there is nothing to stop	no
+apps/desktop/src/renderer/src/the-beams-are-mono-and-quiet.test.tsx	travels at the faces' rate, not the screen's (0.698)	no
 apps/desktop/src/renderer/src/the-boot-screen.test.ts	draws one row per runtime, from the moment its command is issued	no
 apps/desktop/src/renderer/src/the-boot-screen.test.ts	counts elapsed from the moment the command was issued	no
 apps/desktop/src/renderer/src/the-boot-screen.test.ts	stops counting and says so once a probe has taken too long	no
@@ -6077,6 +6089,11 @@ apps/desktop/src/renderer/src/the-live-line-says-which-plan-step.test.ts	keeps a
 apps/desktop/src/renderer/src/the-live-word-says-three-dots.test.ts	capitalises and ends in one ellipsis	yes
 apps/desktop/src/renderer/src/the-live-word-says-three-dots.test.ts	never trails a full stop after the ellipsis	yes
 apps/desktop/src/renderer/src/the-live-word-says-three-dots.test.ts	leaves the rest of the phrase alone	yes
+apps/desktop/src/renderer/src/the-lockup-powers-on.test.tsx	follows the boot screen preference: full relights, subtle once, off never	yes
+apps/desktop/src/renderer/src/the-lockup-powers-on.test.tsx	never, when the system asks for reduced motion	yes
+apps/desktop/src/renderer/src/the-lockup-powers-on.test.tsx	comes back 7 to 10 seconds after it last ended	yes
+apps/desktop/src/renderer/src/the-lockup-powers-on.test.tsx	is the traced mark beside the name in live type, named Locust	yes
+apps/desktop/src/renderer/src/the-lockup-powers-on.test.tsx	is still until the runtimes have answered	yes
 apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.test.tsx	draws nothing before the window has said the glass is offered	yes
 apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.test.tsx	says what each look is, and that Liquid glass shows the desktop through it	yes
 apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.test.tsx	says Windows' glass on a Windows 11 PC (0.864), and macOS's on a Mac	yes
