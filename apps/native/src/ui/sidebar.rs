@@ -263,6 +263,42 @@ pub(super) fn faces_by_recency<'a>(teammates: &'a [Teammate], owned: &[(Option<S
     order
 }
 
+/// The routine whose replay began this conversation (App.tsx `routineOf(run.startedBy) ?? routineOf(root.startedBy)`).
+pub(super) fn row_routine(s: &State, item: &SidebarMission) -> Option<String> {
+    let of = |id: &str| s.ledger_summaries.get(id)
+        .and_then(|m| crate::conversation_list::routine_of(m.started_by_kind.as_deref(), m.started_by_routine.as_deref()));
+    of(&item.mission_id).or_else(|| item.root_id.as_deref().and_then(of))
+}
+
+/// Who a run belongs to: the owners the list was read with, the team file's, else the teammate it was listed under.
+fn run_owner(s: &State, id: &str) -> Option<String> {
+    s.mission_owners.get(id).cloned()
+        .or_else(|| s.data.as_ref().and_then(|store| people::owner_of(store, id)))
+        .or_else(|| {
+            let name = s.recent.iter().find(|r| r.id == id && !r.teammate.is_empty())?.teammate.as_str();
+            s.teammates.iter().find(|mate| mate.name == name).map(|mate| mate.id.clone())
+        })
+}
+
+/// App.tsx `routineStepByTeammate`: the routine step a teammate is replaying right now -- its name, the step, and of
+/// how many -- from a running run a saved routine started.
+pub(super) fn routine_step_of(s: &State, teammate: &str) -> Option<(String, usize, usize)> {
+    s.ledger_summaries.values().filter(|m| m.running).find_map(|m| {
+        let id = crate::conversation_list::routine_of(m.started_by_kind.as_deref(), m.started_by_routine.as_deref())?;
+        let routine = s.org.routines.iter().find(|r| r.id == id)?;
+        (run_owner(s, &m.mission_id).as_deref() == Some(teammate)).then_some((routine.name.clone(), m.started_by_step?, routine.steps))
+    })
+}
+
+/// The teammate's live activity is handing work to a subagent (App.tsx `liveActivity[teammateId] === 'delegating'`),
+/// read as their face reads it (teammate_faces.rs `view_of`).
+fn teammate_delegating(s: &State, teammate: &str) -> bool {
+    s.seen_live.iter()
+        .filter(|id| s.mission_owners.get(*id).is_some_and(|owner| owner == teammate))
+        .find_map(|id| s.live_faces.by_mission.get(id).copied())
+        == Some(locust_core::bot_rig::LiveActivity::Delegating)
+}
+
 // routeName.ts's own-model identity, rather than any model beginning with "own-".
 fn is_own_mark_model(model: &str) -> bool {
     model.strip_prefix("own-").and_then(|rest| rest.split_once('/'))
@@ -284,6 +320,8 @@ fn mission_row(s: &State, p: &Palette, item: &SidebarMission, picked: bool) -> E
     } else if let Some(mate) = by {
         title = title.child(row().size(OWNER_FACE, OWNER_FACE).center()
             .child(roster_face(s, "conversation-owner", mate, None, None, OWNER_FACE, &l))
+            // The face names its teammate rather than hiding from a screen reader (Sidebar.tsx `TeammateBot name`).
+            .role("img").label(mate.name.clone())
             .key(format!("conversation-owner-{}", item.mission_id)));
     } else {
         let summary = s.ledger_summaries.get(&item.mission_id);
@@ -305,6 +343,18 @@ fn mission_row(s: &State, p: &Palette, item: &SidebarMission, picked: bool) -> E
             .child(crate::look::controls::glyph(&l, &crate::look::icons::PLUG, 11.0, Some(l.c("text-muted"))))
             .role("img").label(APP_STARTED).key(key.clone());
         title = title.child(crate::hover::tip(s, &l, &key, APP_STARTED, plug));
+    }
+    // A routine's run wears the Routines clock before its title, said to a screen reader; the conversation it was
+    // saved from does not (Sidebar.tsx `lc-conv__routine`, the 0.271 recheck). A deleted routine is still "a routine".
+    let from_routine = row_routine(s, item).map(|id| match s.org.routines.iter().find(|r| r.id == id) {
+        Some(r) => format!("from the routine {}", r.name),
+        None => "from a routine".to_owned(),
+    });
+    if let Some(from) = &from_routine {
+        let said = format!("{}{}", from[..1].to_uppercase(), &from[1..]);
+        title = title.child(row().size(14.0, 18.0).center()
+            .child(crate::look::controls::glyph(&l, &crate::look::icons::CLOCK, 11.0, Some(l.c("text-muted"))))
+            .role("img").label(said).key(format!("conversation-routine-{}", item.mission_id)));
     }
     // A working row's title shimmers instead of wearing a dot (Sidebar.tsx `lc-conv__title is-working`).
     let working = item.phase == "running";
@@ -330,6 +380,15 @@ fn mission_row(s: &State, p: &Palette, item: &SidebarMission, picked: bool) -> E
         title = title
             .child(text("needs you").font(rune::TextStyle::new(11.5, 400.0)).color(p.amber).key(format!("conversation-needs-you-{}", item.mission_id)))
             .child(el().size(6.0, 6.0).radius(3.0).fill(p.amber).a11y_hidden().key(format!("conversation-needs-you-dot-{}", item.mission_id)));
+    } else if working && by.is_some_and(|mate| teammate_delegating(s, &mate.id)) {
+        // A subagent at work is said on the conversation that sent it (Sidebar.tsx `delegating`, Yurt's #17).
+        title = title.child(text("subagent working").font(l.ty.mono).color(p.muted).key(format!("conversation-age-{}", item.mission_id)));
+    } else if let Some((name, step, of)) =
+        by.filter(|_| working && from_routine.is_some()).and_then(|mate| routine_step_of(s, &mate.id))
+    {
+        // A routine's run says which step it is on while it runs, where its age would be (Sidebar.tsx `runningStep`).
+        title = title.child(text(format!("step {step} of {of}")).font(l.ty.mono).color(p.muted)
+            .help(format!("{name}: step {step} of {of}")).key(format!("conversation-age-{}", item.mission_id)));
     } else if working {
         // The dot's footprint, kept empty, so a run starting never moves the row (`.lc-conv__working`, 6 by 6).
         title = title.child(el().size(6.0, 6.0).a11y_hidden().key(format!("conversation-working-{}", item.mission_id)));
@@ -338,10 +397,11 @@ fn mission_row(s: &State, p: &Palette, item: &SidebarMission, picked: bool) -> E
     }
     let id = item.mission_id.clone();
     // Whose it is goes in the hover with the title, as a second line no longer says it (Sidebar.tsx `hover`).
-    let hover = match by.filter(|_| !blind) {
-        Some(mate) => format!("{} · {}", item.title, mate.name),
-        None => item.title.clone(),
-    };
+    let hover = std::iter::once(item.title.clone())
+        .chain(by.filter(|_| !blind).map(|mate| mate.name.clone()))
+        .chain(from_routine.clone())
+        .collect::<Vec<_>>()
+        .join(" · ");
     if picked || s.recent_hover.as_deref() == Some(&item.mission_id) {
         let menu_id = item.mission_id.clone();
         let menu_key = format!("org-menu-open-{menu_id}");
@@ -2113,3 +2173,11 @@ mod sidebar_pinned_tests;
 #[cfg(test)]
 #[path = "sidebar_put_away_tests.rs"]
 mod sidebar_put_away_tests;
+
+#[cfg(test)]
+#[path = "sidebar_routine_run_tests.rs"]
+mod sidebar_routine_run_tests;
+
+#[cfg(test)]
+#[path = "name_and_group_kept_tests.rs"]
+mod name_and_group_kept_tests;

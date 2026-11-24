@@ -3699,17 +3699,17 @@ apps/desktop/src/renderer/src/a-conversation-can-be-searched.test.ts	takes what 
 apps/desktop/src/renderer/src/a-conversation-can-be-searched.test.ts	finds nothing for an empty or blank query, and stops at the most it looks for	yes
 apps/desktop/src/renderer/src/a-conversation-can-be-searched.test.ts	counts the hit it is on, says when there are none, and says nothing before anything is typed	yes
 apps/desktop/src/renderer/src/a-conversation-can-be-searched.test.ts	steps to the next hit and the one before, round the end and back to the start	yes
-apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	includes the root, the row and every turn	no
-apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	lists each one once	no
-apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	prefers the root, which is the stable identity	no
-apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	finds a name stored against a follow-up turn	no
-apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	finds a group stored against the root	no
-apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	prefers the root when both were written, so the newer identity wins	no
-apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	answers undefined when nothing was saved for any of them	no
-apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	works for a single-turn conversation with no root recorded	no
-apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	finds the row by any turn the conversation has had	no
-apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	says nothing for a run no row holds, so the header falls back to the prompt	no
-apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	the header reads it before the prompt, after a teammate	no
+apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	includes the root, the row and every turn	yes
+apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	lists each one once	yes
+apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	prefers the root, which is the stable identity	yes
+apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	finds a name stored against a follow-up turn	yes
+apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	finds a group stored against the root	yes
+apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	prefers the root when both were written, so the newer identity wins	yes
+apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	answers undefined when nothing was saved for any of them	yes
+apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	works for a single-turn conversation with no root recorded	yes
+apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	finds the row by any turn the conversation has had	yes
+apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	says nothing for a run no row holds, so the header falls back to the prompt	yes
+apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	the header reads it before the prompt, after a teammate	yes
 apps/desktop/src/renderer/src/a-conversation-offers-its-terminal.test.tsx	names the runtime whose interface opens, says what happens there comes back, and that its permissions are not this mode	yes
 apps/desktop/src/renderer/src/a-conversation-offers-its-terminal.test.tsx	says Locust won't see it for a runtime whose sessions it does not read back (0.391)	yes
 apps/desktop/src/renderer/src/a-conversation-offers-its-terminal.test.tsx	is held while the run is going, saying until when and why	yes
@@ -3877,10 +3877,10 @@ apps/desktop/src/renderer/src/a-helpers-summary-reads-as-words.test.ts	drops bol
 apps/desktop/src/renderer/src/a-helpers-summary-reads-as-words.test.ts	drops single-star emphasis without touching a star that is not emphasis	yes
 apps/desktop/src/renderer/src/a-helpers-summary-reads-as-words.test.ts	is what the helper row says when it reported back	yes
 apps/desktop/src/renderer/src/a-helpers-summary-reads-as-words.test.ts	folds a summary onto one line	yes
-apps/desktop/src/renderer/src/a-home-starter-starts-with-a-teammate-or-compares.test.ts	are four rows, each saying what it does	no
-apps/desktop/src/renderer/src/a-home-starter-starts-with-a-teammate-or-compares.test.ts	suit their mode: a plan changes nothing yet, and a review only reads	no
-apps/desktop/src/renderer/src/a-home-starter-starts-with-a-teammate-or-compares.test.ts	leave the words for the person to finish where the ask needs them	no
-apps/desktop/src/renderer/src/a-home-starter-starts-with-a-teammate-or-compares.test.ts	draw a Compare beside every row, and fill the box rather than send	no
+apps/desktop/src/renderer/src/a-home-starter-starts-with-a-teammate-or-compares.test.ts	are four rows, each saying what it does	yes
+apps/desktop/src/renderer/src/a-home-starter-starts-with-a-teammate-or-compares.test.ts	suit their mode: a plan changes nothing yet, and a review only reads	yes
+apps/desktop/src/renderer/src/a-home-starter-starts-with-a-teammate-or-compares.test.ts	leave the words for the person to finish where the ask needs them	yes
+apps/desktop/src/renderer/src/a-home-starter-starts-with-a-teammate-or-compares.test.ts	draw a Compare beside every row, and fill the box rather than send	yes
 apps/desktop/src/renderer/src/a-host-started-run-is-not-retried-as-your-message.test.tsx	withholds Run it again for a relay and never makes its briefing your bubble	yes
 apps/desktop/src/renderer/src/a-host-started-run-is-not-retried-as-your-message.test.tsx	still offers Run it again for your own never-started run	yes
 apps/desktop/src/renderer/src/a-host-started-run-is-not-retried-as-your-message.test.tsx	keeps a $kind run with its host context	yes
@@ -4178,9 +4178,9 @@ apps/desktop/src/renderer/src/a-reply-suggests-tasks-as-cards.test.tsx	tells a s
 apps/desktop/src/renderer/src/a-reply-suggests-tasks-as-cards.test.tsx	say how many, each title and brief, a cross, Do it here, Start, and Start all	no
 apps/desktop/src/renderer/src/a-reply-suggests-tasks-as-cards.test.tsx	offer no Do it here where the conversation cannot take a turn now	no
 apps/desktop/src/renderer/src/a-reply-suggests-tasks-as-cards.test.tsx	are taught the block on every turn, and the window draws it only once the reply is whole	no
-apps/desktop/src/renderer/src/a-request-is-answered-on-the-board.test.tsx	shows a command whole, where it runs, and Allow once and Deny	no
-apps/desktop/src/renderer/src/a-request-is-answered-on-the-board.test.tsx	opens the conversation for anything it cannot show whole	no
-apps/desktop/src/renderer/src/a-request-is-answered-on-the-board.test.tsx	leaves a conversation without a request as the card it was	no
+apps/desktop/src/renderer/src/a-request-is-answered-on-the-board.test.tsx	shows a command whole, where it runs, and Allow once and Deny	yes
+apps/desktop/src/renderer/src/a-request-is-answered-on-the-board.test.tsx	opens the conversation for anything it cannot show whole	yes
+apps/desktop/src/renderer/src/a-request-is-answered-on-the-board.test.tsx	leaves a conversation without a request as the card it was	yes
 apps/desktop/src/renderer/src/a-restored-queue-offers-its-actions.test.tsx	The restored queue shows the original words, its hold reason and Edit, Discard and Send.	yes
 apps/desktop/src/renderer/src/a-restored-queue-offers-its-actions.test.tsx	A queue read failure is visible even when no rows can be displayed.	yes
 apps/desktop/src/renderer/src/a-restored-queue-waits-for-send.test.ts	Restored messages wait for Send even when the previous turn completed.	yes
@@ -4250,13 +4250,13 @@ apps/desktop/src/renderer/src/a-routine-previews-its-inputs-and-file.test.tsx	fi
 apps/desktop/src/renderer/src/a-routine-previews-its-inputs-and-file.test.tsx	the routine editor shows declarations and refuses a step with an undeclared input	yes
 apps/desktop/src/renderer/src/a-routine-previews-its-inputs-and-file.test.tsx	the import preview names steps, inputs, choices, source roles and present/missing connectors	yes
 apps/desktop/src/renderer/src/a-routine-previews-its-inputs-and-file.test.tsx	export paths are shown with a conversion offer, and the routines screen has file actions	yes
-apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	carries the Routines clock, and the conversation it came from does not	no
-apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	says whose each row is, and which routine, on hover	no
-apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	still marks a run whose routine was since deleted	no
-apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	says which step it is on while it runs, where its age would be	no
-apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	says a subagent is working on the conversation that sent it (Yurt's #17)	no
-apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	names the step in the header, in place of "running"	no
-apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	reads a routine from a live starter or a recorded one, and nothing else	no
+apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	carries the Routines clock, and the conversation it came from does not	yes
+apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	says whose each row is, and which routine, on hover	yes
+apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	still marks a run whose routine was since deleted	yes
+apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	says which step it is on while it runs, where its age would be	yes
+apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	says a subagent is working on the conversation that sent it (Yurt's #17)	yes
+apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	names the step in the header, in place of "running"	yes
+apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	reads a routine from a live starter or a recorded one, and nothing else	yes
 apps/desktop/src/renderer/src/a-routine-says-what-it-may-do.test.tsx	in Edit: "Change files" is chosen, and the file trigger says what lands in the folder	yes
 apps/desktop/src/renderer/src/a-routine-says-what-it-may-do.test.tsx	in Ask: "Only read" is chosen, and the trigger says it changes nothing	yes
 apps/desktop/src/renderer/src/a-routine-says-what-it-runs-on.test.tsx	names each teammate with the model their steps run on	yes
@@ -4271,10 +4271,10 @@ apps/desktop/src/renderer/src/a-routine-step-can-go-to-another-teammate.test.tsx
 apps/desktop/src/renderer/src/a-routine-step-can-go-to-another-teammate.test.tsx	says nothing new for a routine one teammate runs throughout	yes
 apps/desktop/src/renderer/src/a-routine-step-can-go-to-another-teammate.test.tsx	is shown as the step's own words, not the answer and rule it was given	yes
 apps/desktop/src/renderer/src/a-routine-step-can-go-to-another-teammate.test.tsx	are the step, not the answer quoted above it	yes
-apps/desktop/src/renderer/src/a-routine-waiting-for-keep-is-on-the-board.test.tsx	sits above the conversation, with Cedar’s face, and Keep, Discard and Open the copy	no
-apps/desktop/src/renderer/src/a-routine-waiting-for-keep-is-on-the-board.test.tsx	leaves the board as it was when no routine is waiting (control)	no
-apps/desktop/src/renderer/src/a-routine-waiting-for-keep-is-on-the-board.test.tsx	marks that row so Routines can bring it into view	no
-apps/desktop/src/renderer/src/a-routine-waiting-for-keep-is-on-the-board.test.tsx	is the same Keep the Routines screen already uses	no
+apps/desktop/src/renderer/src/a-routine-waiting-for-keep-is-on-the-board.test.tsx	sits above the conversation, with Cedar’s face, and Keep, Discard and Open the copy	yes
+apps/desktop/src/renderer/src/a-routine-waiting-for-keep-is-on-the-board.test.tsx	leaves the board as it was when no routine is waiting (control)	yes
+apps/desktop/src/renderer/src/a-routine-waiting-for-keep-is-on-the-board.test.tsx	marks that row so Routines can bring it into view	yes
+apps/desktop/src/renderer/src/a-routine-waiting-for-keep-is-on-the-board.test.tsx	is the same Keep the Routines screen already uses	yes
 apps/desktop/src/renderer/src/a-routine-waiting-for-your-ok-asks-plainly.test.tsx	asks with the next step in its own words and two answers, ready to press	yes
 apps/desktop/src/renderer/src/a-routine-waiting-for-your-ok-asks-plainly.test.tsx	a held routine that did not ask is still the recovery card	yes
 apps/desktop/src/renderer/src/a-routine-waiting-for-your-ok-asks-plainly.test.tsx	says waiting for your OK on the routine row	yes

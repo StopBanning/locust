@@ -313,6 +313,8 @@ mod tests {
             edited: false,
             started_by_kind: None,
             started_by_hop: None,
+            started_by_routine: None,
+            started_by_step: None,
             relay: None,
             omitted_briefing: vec![],
             left_out_by_you: vec![],

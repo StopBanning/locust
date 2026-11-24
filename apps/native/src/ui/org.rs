@@ -32,6 +32,20 @@ pub struct OrgState {
     pub teammates_org_unreadable: bool,
     /// The routines file is there and would not read (Sidebar.tsx's `unreadable` names it beside the roster).
     pub routines_unreadable: bool,
+    /// The saved routines, by id, name and how many steps (Sidebar.tsx's `routines`), so a run says whose it is.
+    pub routines: Vec<RoutineName>,
+}
+
+/// One saved routine as the sidebar and the header name it (PublicRoutine's `routineId`, `name`, `steps.length`).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct RoutineName {
+    pub id: String,
+    pub name: String,
+    pub steps: usize,
+    /// The teammate who runs it (`teammateId`), for the face its waiting card wears.
+    pub teammate: Option<String>,
+    /// Its copy's changes waiting for Keep or Discard (`staged`): how many files, changed and deleted.
+    pub staged_files: Option<usize>,
 }
 
 fn safe_id(s: &str) -> bool {
@@ -203,7 +217,27 @@ pub fn load_org(store: &Store) -> OrgState {
         Err(_) => state.groups_unreadable = true,
     }
     state.routines_unreadable = routines_unreadable(store);
+    state.routines = routine_names(store);
     state
+}
+
+/// The saved routines from the same file, read only; none when it is missing or unreadable.
+pub fn routine_names(store: &Store) -> Vec<RoutineName> {
+    let own = store.root().join("routines.json");
+    let path = if own.exists() { own } else { store.electron().join("routines.json") };
+    let Ok(Some(text)) = read_capped(&path, MAX_FILE_BYTES) else { return Vec::new() };
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(&text) else { return Vec::new() };
+    value["routines"].as_array().into_iter().flatten()
+        .filter_map(|r| Some(RoutineName {
+            id: r["routineId"].as_str()?.to_owned(),
+            name: r["name"].as_str().unwrap_or("").to_owned(),
+            steps: r["steps"].as_array().map_or(0, Vec::len),
+            teammate: r["teammateId"].as_str().filter(|id| !id.is_empty()).map(str::to_owned),
+            staged_files: r.get("staged").filter(|v| v.is_object()).map(|staged| {
+                ["changed", "deleted"].iter().map(|k| staged[*k].as_array().map_or(0, Vec::len)).sum()
+            }),
+        }))
+        .collect()
 }
 
 /// The routines file the routines list reads -- this profile's own, else the one Electron kept -- is there and would

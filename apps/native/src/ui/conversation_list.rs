@@ -63,6 +63,22 @@ pub fn app_started_conversation(run: Option<&str>, earlier_first: Option<Option<
     root.or(earlier_first).unwrap_or(run) == Some("mcp")
 }
 
+/// conversationList.ts `routineOf`: the routine a run's `startedBy` names, read only from a routine's starter --
+/// a live one or a recorded one, `kind` and `routineId` alike -- and from nothing else.
+pub fn routine_of(kind: Option<&str>, routine_id: Option<&str>) -> Option<String> {
+    (kind == Some("routine")).then_some(routine_id).flatten().map(str::to_owned)
+}
+
+/// routines.ts `routineStepPhrase`: a running routine step, where its conversation is named -- the header says
+/// "routine Morning check, step 2 of 3" in place of "running"; a routine since deleted is still "routine, step 1".
+pub fn routine_step_phrase(kind: Option<&str>, routine_id: Option<&str>, step: Option<usize>, routines: &[crate::org::RoutineName]) -> Option<String> {
+    let (id, step) = (routine_of(kind, routine_id)?, step?);
+    Some(match routines.iter().find(|r| r.id == id) {
+        Some(r) => format!("routine {}, step {step} of {}", r.name, r.steps),
+        None => format!("routine, step {step}"),
+    })
+}
+
 /// Every id this row has ever been keyed by, newest identity first (root preferred).
 pub fn conversation_keys(mission: &SidebarMission) -> Vec<String> {
     let mut keys = Vec::new();
