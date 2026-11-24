@@ -1965,7 +1965,7 @@ apps/desktop/src/main/groups-hold-conversations.test.ts	drops a membership point
 apps/desktop/src/main/groups-hold-conversations.test.ts	drops a group with no usable name and keeps the rest	no
 apps/desktop/src/main/groups-hold-conversations.test.ts	treats a file it cannot read as unreadable, never as empty	yes
 apps/desktop/src/main/groups-hold-conversations.test.ts	treats a file that does not parse as unreadable too, and refuses to write over it	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	is genuinely empty when there is simply no file yet	no
+apps/desktop/src/main/groups-hold-conversations.test.ts	is genuinely empty when there is simply no file yet	yes
 apps/desktop/src/main/groups-hold-conversations.test.ts	takes a default route, refuses one a mission could not start on, and clears it	no
 apps/desktop/src/main/groups-hold-conversations.test.ts	carries standing instructions from the start	no
 apps/desktop/src/main/groups-hold-conversations.test.ts	keeps instructions and a route that are already in the file	no
@@ -2055,18 +2055,18 @@ apps/desktop/src/main/memory-says-how-old.test.ts	says nothing rather than somet
 apps/desktop/src/main/memory-says-how-old.test.ts	puts the age beside who wrote it, in the brief itself	no
 apps/desktop/src/main/memory-says-how-old.test.ts	tells the reader what to do when two of them disagree	no
 apps/desktop/src/main/memory-says-how-old.test.ts	still reads correctly for a memory with no date at all	no
-apps/desktop/src/main/memory-store.test.ts	keeps one step back and says when, so Put it back is a swap and can be undone	no
-apps/desktop/src/main/memory-store.test.ts	changes nothing of the kind when only the switch moves	no
-apps/desktop/src/main/memory-store.test.ts	is refused, not written over, when it is torn	no
-apps/desktop/src/main/memory-store.test.ts	is refused when it is a schema this build does not know, which a later build may have written	no
-apps/desktop/src/main/memory-store.test.ts	is genuinely empty when there is simply no file yet	no
-apps/desktop/src/main/memory-store.test.ts	keeps a memory with who wrote it, where, and from which conversation, on disk	no
-apps/desktop/src/main/memory-store.test.ts	does not write the same memory twice in the same place, and a proposed one stays proposed	no
-apps/desktop/src/main/memory-store.test.ts	briefs a folder's mission with that folder's kept memories and everyone's, never a proposed or switched-off one	no
-apps/desktop/src/main/memory-store.test.ts	a person edits the text, switches one off and on, keeps a proposed one, and removes one	no
-apps/desktop/src/main/memory-store.test.ts	forget by text hits the folder and everywhere, not another folder; clear takes a folder or all	no
-apps/desktop/src/main/memory-store.test.ts	refuses what it cannot keep, and a malformed file is unreadable rather than empty	no
-apps/desktop/src/main/memory-store.test.ts	is bounded	no
+apps/desktop/src/main/memory-store.test.ts	keeps one step back and says when, so Put it back is a swap and can be undone	yes
+apps/desktop/src/main/memory-store.test.ts	changes nothing of the kind when only the switch moves	yes
+apps/desktop/src/main/memory-store.test.ts	is refused, not written over, when it is torn	yes
+apps/desktop/src/main/memory-store.test.ts	is refused when it is a schema this build does not know, which a later build may have written	yes
+apps/desktop/src/main/memory-store.test.ts	is genuinely empty when there is simply no file yet	yes
+apps/desktop/src/main/memory-store.test.ts	keeps a memory with who wrote it, where, and from which conversation, on disk	yes
+apps/desktop/src/main/memory-store.test.ts	does not write the same memory twice in the same place, and a proposed one stays proposed	yes
+apps/desktop/src/main/memory-store.test.ts	briefs a folder's mission with that folder's kept memories and everyone's, never a proposed or switched-off one	yes
+apps/desktop/src/main/memory-store.test.ts	a person edits the text, switches one off and on, keeps a proposed one, and removes one	yes
+apps/desktop/src/main/memory-store.test.ts	forget by text hits the folder and everywhere, not another folder; clear takes a folder or all	yes
+apps/desktop/src/main/memory-store.test.ts	refuses what it cannot keep, and a malformed file is unreadable rather than empty	yes
+apps/desktop/src/main/memory-store.test.ts	is bounded	yes
 apps/desktop/src/main/mission-history.test.ts	gives the same folder the same id every time, so a mission can be matched back to it	yes
 apps/desktop/src/main/mission-history.test.ts	does not put the path itself in the ledger	yes
 apps/desktop/src/main/mission-history.test.ts	keeps every character of a reply streamed across more fragments than the window holds	yes
@@ -2575,7 +2575,7 @@ apps/desktop/src/main/routine-store.test.ts	steps are the person's words: newlin
 apps/desktop/src/main/routine-store.test.ts	keeps the folder a routine was made in, and drops one that is not a workspace id (M15)	no
 apps/desktop/src/main/routine-store.test.ts	creates, lists, gets, corrects, counts runs and removes	no
 apps/desktop/src/main/routine-store.test.ts	refuses what would not round-trip, by name	no
-apps/desktop/src/main/routine-store.test.ts	is bounded	no
+apps/desktop/src/main/routine-store.test.ts	is bounded	yes
 apps/desktop/src/main/routine-store.test.ts	drops every routine of a teammate who is gone, and only theirs	no
 apps/desktop/src/main/routine-store.test.ts	writes a file a fresh store reads back identically	no
 apps/desktop/src/main/routine-store.test.ts	treats a damaged or foreign file as unreadable, and a damaged routine as absent	no

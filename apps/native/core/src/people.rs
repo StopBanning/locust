@@ -51,6 +51,18 @@ pub fn memories(store: &Store) -> Result<Value, String> {
     {
         return Err(MEMORY_UNREADABLE.into());
     }
+    // A MEMORY that does not parse is dropped; a FILE that does not parse is unreadable (memory-store.ts parsedFile):
+    // a row with no id, no text that reads as a memory, a place that is neither this folder nor everywhere, or an id
+    // already seen is not a memory, and a bad one beside good ones does not make the file empty.
+    if let Some(rows) = file.get_mut("memories").and_then(Value::as_array_mut) {
+        let mut seen = std::collections::HashSet::new();
+        rows.retain(|row| {
+            let id = row["memoryId"].as_str().filter(|id| !id.is_empty() && id.len() <= 128);
+            let reads = row["text"].as_str().is_some_and(|t| !memory_text(t).is_empty())
+                && matches!(row["scope"].as_str(), Some("workspace" | "global"));
+            reads && id.is_some_and(|id| seen.insert(id.to_owned()))
+        });
+    }
     // A writer in the file that does not read is dropped, not trusted (A1.6): the memory reads as its first keeper's.
     if let Some(rows) = file.get_mut("memories").and_then(Value::as_array_mut) {
         for row in rows.iter_mut() {
@@ -739,6 +751,24 @@ pub fn add_memory_for(
     status: &str,
     mission: Option<&str>,
 ) -> Result<Added, String> {
+    let workspace_name = Path::new(workspace).file_name().and_then(|n| n.to_str()).unwrap_or(workspace).to_owned();
+    add_memory_in(store, text, name, scope, workspace, &workspace_name, by, status, mission)
+}
+
+/// `add_memory_for`, saying where by the folder's id and the folder's own name (memory-store.ts `add`'s
+/// `workspaceId` and `workspaceName`): what the Memory screen shows a folder's memory under.
+#[allow(clippy::too_many_arguments)]
+pub fn add_memory_in(
+    store: &Store,
+    text: &str,
+    name: Option<&str>,
+    scope: &str,
+    workspace: &str,
+    workspace_name: &str,
+    by: Value,
+    status: &str,
+    mission: Option<&str>,
+) -> Result<Added, String> {
     let _lock = WRITES.lock().map_err(|e| e.to_string())?;
     let text = memory_text(text);
     if text.is_empty() {
@@ -748,7 +778,7 @@ pub fn add_memory_for(
         return Err(memory_secret_refusal(kind));
     }
     if !["workspace", "global"].contains(&scope) {
-        return Err("Memory scope is invalid".into());
+        return Err("A memory is for this folder or for everywhere.".into());
     }
     let mut file = memories(store)?;
     let rows = file["memories"].as_array_mut().ok_or(MEMORY_UNREADABLE)?;
@@ -800,10 +830,11 @@ pub fn add_memory_for(
     } else if rows.iter().any(|r| here(r) && key(r["text"].as_str().unwrap_or("")) == key(&text)) {
         return Ok(Added::Nothing);
     }
-    if rows.len() >= 400 {
-        return Err("Too many memories".into());
+    if rows.len() >= MAX_MEMORIES {
+        return Err(MEMORIES_FULL.into());
     }
-    let mut row = json!({"memoryId":id("mem")?,"text":text,"scope":scope,"workspaceId":workspace,"workspaceName":Path::new(workspace).file_name().and_then(|n|n.to_str()).unwrap_or(workspace),"by":by,"createdAt":now(),"status":status,"enabled":true});
+    let workspace_name = bounded(workspace_name, 120);
+    let mut row = json!({"memoryId":id("mem")?,"text":text,"scope":scope,"workspaceId":workspace,"workspaceName":workspace_name,"by":by,"createdAt":now(),"status":status,"enabled":true});
     if let Some(name) = name {
         row["name"] = json!(name);
     }
@@ -1814,6 +1845,14 @@ pub enum ForgetRefusal {
 /// The one memory a forget's quote names, among this folder's and everywhere's. A proposed change carries the words
 /// of the memory it points at and is not one itself, so it is never a candidate.
 pub fn forget_target(rows: &[Value], workspace: &str, quote: &str) -> Result<Value, ForgetRefusal> {
+    forget_targets(rows, workspace, quote).map(|mut all| all.remove(0))
+}
+
+/// Every memory a forget's quote names (memory-store.ts `forget`, shared/memory.ts `forgetMatch`): among this folder's
+/// and everywhere's, each one whose words are the quote's, so a folder's copy and everywhere's copy go together.
+/// Failing that, the ones whose significant words contain the quote's, or are contained in it, when they are all one
+/// memory's words; several different memories answering is ambiguous, and none goes.
+pub fn forget_targets(rows: &[Value], workspace: &str, quote: &str) -> Result<Vec<Value>, ForgetRefusal> {
     let reachable: Vec<&Value> = rows
         .iter()
         .filter(|m| m["scope"] == "global" || m["workspaceId"] == workspace)
@@ -1822,17 +1861,38 @@ pub fn forget_target(rows: &[Value], workspace: &str, quote: &str) -> Result<Val
     if reachable.is_empty() {
         return Err(ForgetRefusal::NothingRemembered);
     }
-    let exact: Vec<&&Value> = reachable
-        .iter()
-        .filter(|m| key(m["text"].as_str().unwrap_or("")) == key(quote))
-        .collect();
-    match exact.as_slice() {
-        [one] => Ok((**one).clone()),
-        [] => Err(ForgetRefusal::NothingMatched),
-        many => Err(ForgetRefusal::Ambiguous(
-            many.iter().map(|m| m["text"].as_str().unwrap_or("").to_owned()).collect(),
-        )),
+    let wanted = key(quote);
+    if wanted.is_empty() {
+        return Err(ForgetRefusal::NothingMatched);
     }
+    let text_key = |m: &Value| key(m["text"].as_str().unwrap_or(""));
+    let exact: Vec<Value> = reachable.iter().filter(|m| text_key(m) == wanted).map(|m| (*m).clone()).collect();
+    if !exact.is_empty() {
+        return Ok(exact);
+    }
+    let significant = |k: &str| k.split(' ').filter(|w| w.chars().count() > 2).map(str::to_owned).collect::<Vec<_>>();
+    let words = significant(&wanted);
+    if words.is_empty() {
+        return Err(ForgetRefusal::NothingMatched);
+    }
+    let near: Vec<&Value> = reachable
+        .iter()
+        .copied()
+        .filter(|m| {
+            let has = significant(&text_key(m));
+            let quote_in_memory = words.iter().all(|w| has.contains(w));
+            let memory_in_quote = !has.is_empty() && has.iter().all(|w| words.contains(w));
+            quote_in_memory || memory_in_quote
+        })
+        .collect();
+    if near.is_empty() {
+        return Err(ForgetRefusal::NothingMatched);
+    }
+    let keys: std::collections::HashSet<String> = near.iter().map(|m| text_key(m)).collect();
+    if keys.len() > 1 {
+        return Err(ForgetRefusal::Ambiguous(near.iter().map(|m| m["text"].as_str().unwrap_or("").to_owned()).collect()));
+    }
+    Ok(near.into_iter().cloned().collect())
 }
 
 /// Who wrote it, opening a notice: "a conversation" there starts a sentence.
@@ -1905,12 +1965,13 @@ pub fn record_reply_changes(
             // EVERYWHERE WAITS FOR THE PERSON (memory-reader.ts, R3): every teammate in every folder reads it, and one
             // run that read a hostile page could plant an instruction there on its own. A folder's memory still keeps
             // itself in auto mode.
-            let added = add_memory_for(
+            let added = add_memory_in(
                 store,
                 &text,
                 name.as_deref(),
                 if everywhere { "global" } else { "workspace" },
                 &workspace_id(folder),
+                folder.file_name().and_then(|n| n.to_str()).unwrap_or(""),
                 by.clone(),
                 if mode == "ask" || everywhere { "proposed" } else { "kept" },
                 mission,
@@ -1935,8 +1996,8 @@ pub fn record_reply_changes(
         } else if mode != "off" && verb == "forget" {
             let memories = memories(store)?;
             let rows = memories["memories"].as_array().map(Vec::as_slice).unwrap_or_default();
-            let target = match forget_target(rows, &workspace_id(folder), &text) {
-                Ok(target) => target,
+            let targets = match forget_targets(rows, &workspace_id(folder), &text) {
+                Ok(targets) => targets,
                 Err(ForgetRefusal::NothingRemembered) => continue,
                 Err(ForgetRefusal::NothingMatched) => {
                     missed.push(format!("\"{text}\" matches nothing that is remembered, so nothing was forgotten."));
@@ -1950,6 +2011,8 @@ pub fn record_reply_changes(
                     continue;
                 }
             };
+            // Each memory the quote names: this folder's copy and everywhere's go together (memory-store.ts forget).
+            for target in targets {
             // A memory nobody kept yet simply goes: there is nothing of the person's to protect (0.315).
             let target_text = target["text"].as_str().unwrap_or("").to_owned();
             if mode == "ask" && target["status"] == "kept" {
@@ -1981,6 +2044,7 @@ pub fn record_reply_changes(
             } else {
                 remove_memory(store, target["memoryId"].as_str().unwrap_or(""), &by)?;
                 push_once(&mut changed.forgotten, &target_text);
+            }
             }
         }
     }
@@ -2188,6 +2252,10 @@ pub fn propose_tidy_from(
     }
     Ok((proposed, refused))
 }
+
+#[cfg(test)]
+#[path = "memory_store_cases_tests.rs"]
+mod memory_store_cases_tests;
 
 #[cfg(test)]
 mod tests {
