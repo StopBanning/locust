@@ -2933,6 +2933,29 @@ apps/desktop/src/main/the-effort-track-takes-the-pointer.test.ts	does not start 
 apps/desktop/src/main/the-effort-track-takes-the-pointer.test.ts	keeps the fill under a held thumb	yes
 apps/desktop/src/main/the-first-screen-line-is-centred.test.ts	is centred in the column, as the machine is, box and words both	yes
 apps/desktop/src/main/the-first-screen-line-is-centred.test.ts	under a machine that is centred in the same column	yes
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	lets only the title give, so nothing is pushed off the edge	yes
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	is one line, never two	yes
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	keeps the unowned row aligned with every other one	yes
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	gives every row's mark the owner's face footprint, whatever size the face is (0.561)	yes
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	lines the ages up	no
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	does not cap the title in JavaScript	yes
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	still takes the first line and drops the attachment preamble	yes
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	draws the faces only in the wide sidebar	yes
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	keeps the way to the full roster in a fixed place	yes
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	says when the list is filtered, in one sentence covering both filters	yes
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	carries the count, which is what separates filtered from empty	yes
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	clears both at once, since it offered one way out of two filters	yes
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	still gives the rail the layout it already had	yes
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	${name} has a button in the places list at the top	yes
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	Settings has a button in the footer	yes
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	the roster is reachable too, from the faces row rather than the footer	yes
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	gives the roster its full word back, which the narrow row could not hold	yes
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	keeps every footer cell sharing the width rather than claiming it	yes
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	caps the faces rather than letting the strip run past the column	yes
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	counts what it does not draw instead of hiding it	yes
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	never scrolls sideways	yes
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	shows the ones being worked with, not the ones made first	yes
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts	leaves the rail listing everybody, which is a different shape	yes
 apps/desktop/src/main/the-folder-commits-as-you.test.ts	lists what a commit would take, never .locust/	yes
 apps/desktop/src/main/the-folder-commits-as-you.test.ts	commits everything as you, with your hooks, and says what it did	yes
 apps/desktop/src/main/the-folder-commits-as-you.test.ts	a hook that refuses leaves what you had staged exactly as it was	yes

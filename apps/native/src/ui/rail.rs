@@ -465,6 +465,16 @@ pub(super) fn flyout(s: &State, p: &Palette, top: f32) -> Option<El> {
                 close(s);
                 select_teammate(s, &new_id, tx);
                 new_conversation(s);
+            }))
+            // The list filter, only where there is a list: the rail draws no conversation rows (Sidebar.tsx `onFilter`).
+            .children((!s.layout_compact.get()).then(|| {
+                let filtered = s.sidebar_face_filter.as_deref() == Some(teammate.id.as_str());
+                let words = if filtered { "Show everyone’s conversations".to_owned() } else { format!("Only {}’s in the list", teammate.name) };
+                let filter_id = teammate.id.clone();
+                action(&crate::look::icons::SEARCH, words).key("rail-filter").on_press(move |s: &mut State| {
+                    s.sidebar_face_filter = if s.sidebar_face_filter.as_deref() == Some(filter_id.as_str()) { None } else { Some(filter_id.clone()) };
+                    close(s);
+                })
             })),
     );
     let card = card.on_hover_change(|s: &mut State, over, _| {
@@ -474,7 +484,9 @@ pub(super) fn flyout(s: &State, p: &Palette, top: f32) -> Option<El> {
         }
     });
     let card = if s.rail_pinned { card.modal(true, close) } else { card };
-    Some(el().absolute(RAIL_WIDTH + 8.0, (top - 6.0).max(8.0)).child(card))
+    // Beside the rail, or beside the wide sidebar's faces row.
+    let left = if s.layout_compact.get() { RAIL_WIDTH } else { crate::window_glass::sidebar_width(s) };
+    Some(el().absolute(left + 8.0, (top - 6.0).max(8.0)).child(card))
 }
 
 /// Everything waiting on the person in this window (`needsYou.ts::needsYou`), gathered from live approvals,

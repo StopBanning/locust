@@ -2741,7 +2741,8 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
     let flyout_top = if compact {
         s.rail_open.as_ref().and_then(|id| cx.layout(&format!("rail-{id}"))).map(|r| r[1])
     } else {
-        None
+        // The wide sidebar's faces open the same card (Sidebar.tsx `railEnter` on `.lc-faces__one`).
+        s.rail_open.as_ref().and_then(|id| cx.layout(&format!("teammate-{id}"))).map(|r| r[1])
     };
     let changes_open = s.changes.open
         && s.changes_repo

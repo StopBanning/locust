@@ -525,6 +525,8 @@ pub(super) struct State {
     pub(super) exchange_stopping: bool,
     pub(super) earlier_turn_budgets: HashMap<String, usize>,
     pub(super) peer_thread_open: HashMap<String, bool>,
+    /// The sidebar list narrowed to one teammate's conversations, from that face's card (Sidebar.tsx `faceFilter`).
+    pub(super) sidebar_face_filter: Option<String>,
 }
 
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
@@ -793,6 +795,7 @@ impl Default for State {
             earlier_turn_budgets: HashMap::new(),
             peer_thread_open: HashMap::new(),
             scout: crate::scout_cards::Panel::default(),
+            sidebar_face_filter: None,
         }
     }
 }
