@@ -6067,6 +6067,20 @@ apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.tes
 apps/desktop/src/renderer/src/the-model-chip-shows-usage-on-hover.test.tsx	opens the agent's card, with a bar for each window, placed for the chip	no
 apps/desktop/src/renderer/src/the-model-chip-shows-usage-on-hover.test.tsx	draws it on hover or focus, above and to the right, rather than leaving it to the system tooltip	no
 apps/desktop/src/renderer/src/the-newest-group-stays-folded.test.tsx	is a line, folded until pressed, as Claude Code draws it	no
+apps/desktop/src/renderer/src/the-orb-never-contradicts-the-row.test.ts	a shell command is working	yes
+apps/desktop/src/renderer/src/the-orb-never-contradicts-the-row.test.ts	a subagent is weaving, and a connector is connecting	yes
+apps/desktop/src/renderer/src/the-orb-never-contradicts-the-row.test.ts	reading a file is searching	yes
+apps/desktop/src/renderer/src/the-orb-never-contradicts-the-row.test.ts	a Plan-mode turn with nothing open is solving	yes
+apps/desktop/src/renderer/src/the-orb-never-contradicts-the-row.test.ts	writing a file is working -- a tool IS running, and that is all it says	yes
+apps/desktop/src/renderer/src/the-orb-never-contradicts-the-row.test.ts	starting is breathing: alive, nothing back yet	yes
+apps/desktop/src/renderer/src/the-orb-never-contradicts-the-row.test.ts	EVERY word change changes the orb	yes
+apps/desktop/src/renderer/src/the-orb-never-contradicts-the-row.test.ts	waiting on a model to speak is listening, and a model writing is composing	yes
+apps/desktop/src/renderer/src/the-orb-never-contradicts-the-row.test.ts	a step that says `tool` never shows the waiting ring	yes
+apps/desktop/src/renderer/src/the-orb-never-contradicts-the-row.test.ts	a connector call is connecting, because it left the machine	yes
+apps/desktop/src/renderer/src/the-orb-never-contradicts-the-row.test.ts	an unclassified open tool is the generic tool orb, never a specific one	yes
+apps/desktop/src/renderer/src/the-orb-never-contradicts-the-row.test.ts	never claims a SPECIFIC kind of work that is not happening	yes
+apps/desktop/src/renderer/src/the-orb-never-contradicts-the-row.test.ts	always returns something, so a live row is never bare	yes
+apps/desktop/src/renderer/src/the-orb-never-contradicts-the-row.test.ts	plan mode never overrides a tool that is actually running	yes
 apps/desktop/src/renderer/src/the-orb-reaches-the-running-step.test.ts	a shell command that is still open draws the working orb	yes
 apps/desktop/src/renderer/src/the-orb-reaches-the-running-step.test.ts	a read that is still open draws the searching orb	yes
 apps/desktop/src/renderer/src/the-orb-reaches-the-running-step.test.ts	a subagent that is still out draws the weaving orb	yes
