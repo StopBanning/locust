@@ -533,6 +533,14 @@ pub(super) struct State {
     pub(super) elsewhere_cover: crate::elsewhere_cover::ElsewhereCover,
     /// The sidebar list narrowed to one teammate's conversations, from that face's card (Sidebar.tsx `faceFilter`).
     pub(super) sidebar_face_filter: Option<String>,
+    /// "Your phone" From anywhere settings (PhoneAnywhereSettings).
+    pub(super) phone_anywhere: Option<locust_core::phone_anywhere::PhoneAnywhereSettings>,
+    /// Live "From anywhere" relay link, owned by the window while enabled (`phone_section::PhoneAnywhereLink`).
+    pub(super) phone_anywhere_link: crate::phone_section::PhoneAnywhereLink,
+    /// When phone is off, whether the person picked "Only on this Wi-Fi" instead of "From anywhere".
+    pub(super) phone_picked_wifi: bool,
+    /// Startup switches for Remote MCP ("Use from anywhere" Keep it running, Electron StayingReachable).
+    pub(super) remote_mcp_stay: Option<crate::remote_mcp_card::StayingReachable>,
 }
 
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
@@ -806,6 +814,10 @@ impl Default for State {
             elsewhere_cover: crate::elsewhere_cover::ElsewhereCover::default(),
             sidebar_face_filter: None,
             background_runs: crate::background_runs::Panel::default(),
+            phone_anywhere: None,
+            phone_anywhere_link: crate::phone_section::PhoneAnywhereLink::default(),
+            phone_picked_wifi: false,
+            remote_mcp_stay: None,
         }
     }
 }

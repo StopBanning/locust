@@ -766,6 +766,7 @@ fn mission(id: &str, at: &str, prompt: &str) -> PhoneMission {
 }
 
 #[test]
+// case: is one row per conversation, newest first, named by the first thing asked
 fn conversations_are_one_row_per_conversation_newest_first_named_by_the_first_thing_asked() {
     let first = mission("a1", "2026-10-15T10:00:00.000Z", "Fix the login bug");
     let mut reply = mission("a2", "2026-10-15T10:05:00.000Z", "and add a test");
@@ -796,6 +797,7 @@ fn conversations_are_one_row_per_conversation_newest_first_named_by_the_first_th
 }
 
 #[test]
+// case: names the teammate who answered, as the window does
 fn conversations_name_the_teammate_who_answered_as_the_window_does() {
     let first = mission("a1", "2026-10-15T10:00:00.000Z", "Fix the login bug");
     let mut reply = mission("a2", "2026-10-15T10:05:00.000Z", "and add a test");
@@ -813,6 +815,7 @@ fn conversations_name_the_teammate_who_answered_as_the_window_does() {
 }
 
 #[test]
+// case: shows each turn’s answer, and the person’s words only where the person typed them
 fn turns_show_each_turns_answer_and_the_persons_words_only_where_the_person_typed_them() {
     let first = mission("a1", "2026-10-15T10:00:00.000Z", "Fix the login bug");
     let mut reply = mission("a2", "2026-10-15T10:05:00.000Z", "and add a test");
@@ -842,6 +845,7 @@ fn turns_show_each_turns_answer_and_the_persons_words_only_where_the_person_type
 }
 
 #[test]
+// case: reads a streamed answer whole, and one still arriving
 fn reads_a_streamed_answer_whole_and_one_still_arriving() {
     assert_eq!(
         answer_of(&[said_event("m", 1, "Hel", false), said_event("m", 2, "lo.", true)]).as_deref(),

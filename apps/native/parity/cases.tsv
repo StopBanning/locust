@@ -58,6 +58,11 @@ apps/desktop/src/main/a-brief-between-teammates-arrives-whole.test.ts	fits what 
 apps/desktop/src/main/a-browser-opens-locust-without-a-code-to-carry.test.ts	reads a GitHub ticket, Open in your browser’s code and a plain code, and keeps none in the address	yes
 apps/desktop/src/main/a-browser-opens-locust-without-a-code-to-carry.test.ts	opens with every way in: GitHub where the relay offers it, a code, and where to get Locust	yes
 apps/desktop/src/main/a-browser-opens-locust-without-a-code-to-carry.test.ts	says what GitHub’s sign-in ended in on a page with no script, every word escaped	yes
+apps/desktop/src/main/a-browser-signs-in-with-github-and-opens-locust.test.ts	lets in a browser with a ticket and the account’s own token, with the full window	yes
+apps/desktop/src/main/a-browser-signs-in-with-github-and-opens-locust.test.ts	refuses another account or a token GitHub does not know, and pairs nothing	yes
+apps/desktop/src/main/a-browser-signs-in-with-github-and-opens-locust.test.ts	signing out lets the account go: the relay forgets it and gives no more tickets	yes
+apps/desktop/src/main/a-browser-signs-in-with-github-and-opens-locust.test.ts	Open in your browser makes a code for the full window, which a phone is not shown	yes
+apps/desktop/src/main/a-browser-signs-in-with-github-and-opens-locust.test.ts	a relay that does not offer GitHub says so, and nothing is opened	yes
 apps/desktop/src/main/a-built-in-tool-is-not-a-connector.test.ts	is a command card when it is Bash	yes
 apps/desktop/src/main/a-built-in-tool-is-not-a-connector.test.ts	is a file card, named inside the folder, when it edits a file	yes
 apps/desktop/src/main/a-built-in-tool-is-not-a-connector.test.ts	is still a connector when it is one	no
@@ -3065,6 +3070,11 @@ apps/desktop/src/main/the-live-word-is-visibly-live.test.ts	leaves the word itse
 apps/desktop/src/main/the-live-word-is-visibly-live.test.ts	drops only the highlight when motion is off	yes
 apps/desktop/src/main/the-live-word-is-visibly-live.test.ts	sets the live word as a label rather than a machine string	yes
 apps/desktop/src/main/the-live-word-is-visibly-live.test.ts	scales no orb at all	yes
+apps/desktop/src/main/the-lock-is-the-same-on-both-sides.test.ts	writes and reads bytes as the PC does	yes
+apps/desktop/src/main/the-lock-is-the-same-on-both-sides.test.ts	makes the same pairing token, proof and device id from the same code	yes
+apps/desktop/src/main/the-lock-is-the-same-on-both-sides.test.ts	opens on the PC what the page sealed, and in the page what the PC sealed	yes
+apps/desktop/src/main/the-lock-is-the-same-on-both-sides.test.ts	does not open a box sent back to the side that sealed it, or named for another device or room	yes
+apps/desktop/src/main/the-lock-is-the-same-on-both-sides.test.ts	never seals two boxes with the same nonce	yes
 apps/desktop/src/main/the-lockup-lighting-is-drawn.test.ts	is the cover drawn to scale: its 960x254 numbers times the measured k	yes
 apps/desktop/src/main/the-lockup-lighting-is-drawn.test.ts	centres the claim under the lockup, in mono capitals, never under the 10.5px floor	yes
 apps/desktop/src/main/the-lockup-lighting-is-drawn.test.ts	powers on from dark, lit lime, and ends in the app ink	yes
@@ -4057,6 +4067,10 @@ apps/desktop/src/renderer/src/a-pet-plays-what-its-teammate-is-doing.test.ts	kee
 apps/desktop/src/renderer/src/a-pet-plays-what-its-teammate-is-doing.test.ts	melts each drawing into the next over about half a frame, never longer than PET_FADE_MAX_MS	no
 apps/desktop/src/renderer/src/a-pet-plays-what-its-teammate-is-doing.test.ts	fades nothing at rest or when still: nothing moves there	yes
 apps/desktop/src/renderer/src/a-pet-plays-what-its-teammate-is-doing.test.ts	measures how dark a pet is from its opaque pixels only	yes
+apps/desktop/src/renderer/src/a-phone-lists-conversations.test.ts	is one row per conversation, newest first, named by the first thing asked	yes
+apps/desktop/src/renderer/src/a-phone-lists-conversations.test.ts	names the teammate who answered, as the window does	yes
+apps/desktop/src/renderer/src/a-phone-lists-conversations.test.ts	shows each turn’s answer, and the person’s words only where the person typed them	yes
+apps/desktop/src/renderer/src/a-phone-lists-conversations.test.ts	reads a streamed answer whole, and one still arriving	yes
 apps/desktop/src/renderer/src/a-picker-row-is-named-not-an-id.test.tsx	named by its id without the provider is spelled out	yes
 apps/desktop/src/renderer/src/a-picker-row-is-named-not-an-id.test.tsx	with a name of its own keeps that name exactly	yes
 apps/desktop/src/renderer/src/a-plain-conversation-wears-the-ghost.test.tsx	beside a reply: the ghost when the conversation is nobody's, the teammate's own bot when it has one	yes
@@ -4654,6 +4668,13 @@ apps/desktop/src/renderer/src/an-antigravity-model-limit-is-its-own-bar.test.ts	
 apps/desktop/src/renderer/src/an-antigravity-question-is-answered-here.test.tsx	names Antigravity, offers every option and a written answer, and sends -- or skips	yes
 apps/desktop/src/renderer/src/an-antigravity-question-is-answered-here.test.tsx	offers no Skip where the runtime takes none	yes
 apps/desktop/src/renderer/src/an-antigravity-question-is-answered-here.test.tsx	shows the question and its options, says where to answer, and has no buttons	yes
+apps/desktop/src/renderer/src/an-app-from-anywhere-asks-on-a-card.test.tsx	asks on a card naming it, where it goes back to, and the digits its page shows	yes
+apps/desktop/src/renderer/src/an-app-from-anywhere-asks-on-a-card.test.tsx	is answered on every screen, and only from the window	yes
+apps/desktop/src/renderer/src/an-app-from-anywhere-asks-on-a-card.test.tsx	gives Settings the address for Claude, and each app with Remove	yes
+apps/desktop/src/renderer/src/an-app-from-anywhere-finds-locust-running.test.tsx	says no app can open a Locust that quit, and offers to keep it running	yes
+apps/desktop/src/renderer/src/an-app-from-anywhere-finds-locust-running.test.tsx	says it stays reachable once both are on, with no button	yes
+apps/desktop/src/renderer/src/an-app-from-anywhere-finds-locust-running.test.tsx	turns on only what is off and can be on, and turns nothing off	yes
+apps/desktop/src/renderer/src/an-app-from-anywhere-finds-locust-running.test.tsx	is given the Startup switches themselves, and the relay says so when Locust is not running	yes
 apps/desktop/src/renderer/src/an-approval-card-goes-with-its-run.test.ts	go when their run is stopped, fails or finishes	yes
 apps/desktop/src/renderer/src/an-approval-card-goes-with-its-run.test.ts	stay while their run is live, found by key or by its runId	yes
 apps/desktop/src/renderer/src/an-approval-card-goes-with-its-run.test.ts	stay when the window does not know the run yet	yes
@@ -5809,6 +5830,10 @@ apps/desktop/src/renderer/src/settings-in-a-browser-say-what-stays.test.tsx	keep
 apps/desktop/src/renderer/src/settings-in-a-browser-say-what-stays.test.tsx	lets the look change from here: no part of Appearance is held on the computer	yes
 apps/desktop/src/renderer/src/settings-in-a-browser-say-what-stays.test.tsx	keeps asking before connector calls on the computer: it is what teammates may reach	yes
 apps/desktop/src/renderer/src/settings-in-a-browser-say-what-stays.test.tsx	holds nothing back and says nothing about a browser, on any page	yes
+apps/desktop/src/renderer/src/settings-opens-locust-in-a-browser-without-a-code.test.tsx	offers Open in your browser with phones off, saying it turns From anywhere on	yes
+apps/desktop/src/renderer/src/settings-opens-locust-in-a-browser-without-a-code.test.tsx	shows Open in your browser’s code as a link, never as a code for a phone to scan	yes
+apps/desktop/src/renderer/src/settings-opens-locust-in-a-browser-without-a-code.test.tsx	offers Sign in with GitHub, saying what is checked and that GitHub is asked for nothing else	yes
+apps/desktop/src/renderer/src/settings-opens-locust-in-a-browser-without-a-code.test.tsx	once signed in, says whom it lets in, and marks the browsers that came in that way	yes
 apps/desktop/src/renderer/src/settings-says-what-locust-can-stop.test.tsx	is one folded row per AI agent, named, with how much a card can stop	yes
 apps/desktop/src/renderer/src/settings-says-what-locust-can-stop.test.tsx	opens to the same sentences the document holds	yes
 apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	$typed finds the $page page	yes
@@ -6459,6 +6484,11 @@ apps/desktop/src/renderer/src/your-own-model-is-named-as-yours.test.tsx	is named
 apps/desktop/src/renderer/src/your-own-model-is-named-as-yours.test.tsx	reads as itself in the chat bar, with the exact route one hover away	no
 apps/desktop/src/renderer/src/your-own-models-can-judge.test.ts	offers the person’s own models that take tools, under Your models and by their own names	yes
 apps/desktop/src/renderer/src/your-own-models-can-judge.test.ts	still offers a free model first, and the catalogue before any model of the person’s own	yes
+apps/desktop/src/renderer/src/your-phone-reaches-locust-from-anywhere.test.tsx	is off until turned on, with From anywhere chosen for when it is	yes
+apps/desktop/src/renderer/src/your-phone-reaches-locust-from-anywhere.test.tsx	shows the code to pair a phone with, and says whether this computer is connected to the relay	yes
+apps/desktop/src/renderer/src/your-phone-reaches-locust-from-anywhere.test.tsx	lists each paired phone, whether it is open now, and a Remove for it	yes
+apps/desktop/src/renderer/src/your-phone-reaches-locust-from-anywhere.test.tsx	says which phones get alerts, and offers approvals in quiet hours only once one does	yes
+apps/desktop/src/renderer/src/your-phone-reaches-locust-from-anywhere.test.tsx	keeps the home-network code as it was when Only on this Wi-Fi is on	yes
 apps/desktop/src/shared/a-block-in-code-is-an-example.test.ts	sends no message	no
 apps/desktop/src/shared/a-block-in-code-is-an-example.test.ts	keeps no memory	yes
 apps/desktop/src/shared/a-block-in-code-is-an-example.test.ts	moves no task, asks nothing, hands no file	yes

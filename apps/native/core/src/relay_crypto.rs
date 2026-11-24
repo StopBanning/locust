@@ -381,6 +381,10 @@ pub fn open_json(key: &[u8; 32], n: &str, c: &str, aad: &str) -> Result<Value, S
 }
 
 #[cfg(test)]
+#[path = "relay_crypto_tests.rs"]
+mod relay_crypto_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
