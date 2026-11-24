@@ -505,6 +505,27 @@ fn acp_and_nothing_that_stops_it_asking_no_allow_all_tools_no_prompt_no_session_
         acp_args(Some("gpt-5.6-luna"), Some("high"), None),
         ["--acp", "--excluded-tools=session_store_sql", "--model", "gpt-5.6-luna", "--effort", "high"]
     );
+    // And the command the engine launches for Approve each (native.rs calls copilot::command) carries them: the CLI,
+    // in the workspace, with Electron's argv and nothing else on it.
+    let fake = std::path::PathBuf::from("/fake/bin/copilot");
+    super::super::copilot::FAKE_LAUNCHER.with(|f| *f.borrow_mut() = Some(fake.clone()));
+    let built = super::super::copilot::command(
+        Path::new("/work"),
+        "go",
+        Mode::ApproveEach,
+        Some("gpt-5.6-luna"),
+        Some("high"),
+        None,
+        None,
+        &[],
+        None,
+    );
+    super::super::copilot::FAKE_LAUNCHER.with(|f| *f.borrow_mut() = None);
+    let built = built.unwrap();
+    assert_eq!(Path::new(built.get_program()), fake.as_path());
+    assert_eq!(built.get_current_dir(), Some(Path::new("/work")));
+    let argv: Vec<String> = built.get_args().map(|a| a.to_string_lossy().into_owned()).collect();
+    assert_eq!(argv, ["--acp", "--excluded-tools=session_store_sql", "--model", "gpt-5.6-luna", "--effort", "high"]);
 }
 
 #[test]

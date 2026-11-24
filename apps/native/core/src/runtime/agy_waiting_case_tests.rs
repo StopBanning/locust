@@ -194,3 +194,34 @@ fn says_nothing_of_the_kind_for_a_helper_that_finished_or_for_steps_that_reused_
     assert!(thoughts(&events).iter().all(|row| row.get("message").is_none()));
     assert!(warnings(&events).is_empty());
 }
+
+/// The same reading with no process in between, so load cannot hide it: agy's lines go straight into the normalizer
+/// antigravity.rs feeds (`AgyNormalizer::accept_line`), and the wait is said with the helper that list named, in
+/// Electron's words (agy-events.ts: "**Waiting on its helper ${role}**\nIts list says the helper is ${state}").
+#[test]
+fn the_wait_is_said_with_the_helper_the_normalizer_read_from_the_list() {
+    use crate::runtime::agy_events::AgyNormalizer;
+    for (role, state, said) in [
+        ("Soak & Sweep Runner", "waiting_for_dependents", "waiting for dependents"),
+        ("Docs Checker", "running", "running"),
+    ] {
+        let listed = format!("You have 1 active subagent(s):\n{}", json!([{"role": role, "state": state}]));
+        let mut normal = AgyNormalizer::default().with_sandbox("full-access");
+        let mut events = vec![];
+        for line in [
+            init(None),
+            step(1, json!({"step_type":"tool","tool_name":"manage_subagents","tool_info":{"name":"manage_subagents","parameters":{"Action":"list"},"output":listed}})),
+            wake(2, 309.3, 98),
+        ] {
+            events.extend(normal.accept_line(&line));
+        }
+        let rows = thoughts(&events);
+        assert_eq!(rows.len(), 1, "{role}");
+        assert_eq!(rows[0]["durationMs"], 309_300, "{role}");
+        assert_eq!(
+            rows[0]["message"],
+            format!("**Waiting on its helper {role}**\nIts list says the helper is {said}."),
+            "{role}"
+        );
+    }
+}

@@ -134,6 +134,21 @@ pub fn acp_args(model: Option<&str>, effort: Option<&str>, skills: Option<&str>)
     args
 }
 
+/// Where `command` finds the CLI. A test hands in a fake path on its own thread, so the command the engine builds can be
+/// read without touching PATH, which every other test reads.
+fn launcher() -> io::Result<std::path::PathBuf> {
+    #[cfg(test)]
+    if let Some(fake) = FAKE_LAUNCHER.with(|f| f.borrow().clone()) {
+        return Ok(fake);
+    }
+    super::discovery::find_named("copilot")
+}
+
+#[cfg(test)]
+thread_local! {
+    pub(crate) static FAKE_LAUNCHER: std::cell::RefCell<Option<std::path::PathBuf>> = const { std::cell::RefCell::new(None) };
+}
+
 pub fn command(
     folder: &Path,
     prompt: &str,
@@ -145,7 +160,7 @@ pub fn command(
     references: &[&str],
     skills: Option<&str>,
 ) -> io::Result<Command> {
-    let mut c = Command::new(super::discovery::find_named("copilot")?);
+    let mut c = Command::new(launcher()?);
     if mode == Mode::ApproveEach {
         c.args(acp_args(model, effort, skills));
     } else {
