@@ -847,6 +847,8 @@ fn cover(s: &State, l: &crate::look::controls::Look, status: Option<String>) -> 
         .role("img")
         .label(format!("Locust. {line}"));
 
+    // The beam travels round the machine while the agents are being found, and goes out when they answer.
+    let beam = cover_beam(m, k, !ready && !s.reduced_motion.get());
     let mut card = col()
         .w_full()
         .h(at.height as f32)
@@ -861,6 +863,7 @@ fn cover(s: &State, l: &crate::look::controls::Look, status: Option<String>) -> 
             s.home.fit.card_width = Some(w);
             s.home.fit.decide();
         })
+        .child(beam)
         .child(machine);
     #[cfg(test)]
     DRAWN_COVER.with(|d| d.borrow_mut().clear());
@@ -955,6 +958,58 @@ fn cover(s: &State, l: &crate::look::controls::Look, status: Option<String>) -> 
                 }
             }),
     )
+}
+
+/// The quiet mono beam round the machine (HomeCover's `<Beam active={!ready}>`, `.lc-coverbeam__light`): a light that
+/// travels the machine's edge once every 4 s while it is `active`. Drawn behind the machine, 1.5px larger, so only its
+/// rim shows; the turn is the renderer's own loop, so it costs no view. Inactive, the wrapper stays and the light is gone.
+fn cover_beam(m: locust_core::home_cover::CoverBox, k: f32, active: bool) -> El {
+    const RIM: f32 = 1.5;
+    let (w, h) = (m.width as f32 + 2.0 * RIM, m.height as f32 + 2.0 * RIM);
+    let radius = 18.0 * k + RIM;
+    let mut beam = col()
+        .absolute(m.x as f32 - RIM, m.y as f32 - RIM)
+        .w(w)
+        .h(h)
+        .radius(radius)
+        .clip_rounded(radius)
+        .key("home-cover-beam")
+        .a11y_hidden();
+    if active {
+        let side = 2.0 * w;
+        beam = beam.child(
+            rune::canvas(beam_light(side))
+                .size(side, side)
+                .absolute((w - side) / 2.0, (h - side) / 2.0)
+                .looping(rune::LoopSpec::rotation(4.0))
+                .key("home-cover-beam-light"),
+        );
+    }
+    beam
+}
+
+/// The light's conic gradient at the beam's strength (0.85): clear to 54% of the turn, white at 0.08, 0.45 and 0.75 by
+/// 60, 66 and 70%, clear again by 78%.
+fn beam_light(side: f32) -> rune::Shape {
+    const STOPS: [(f32, f32); 5] = [(0.54, 0.0), (0.60, 0.08), (0.66, 0.45), (0.70, 0.75), (0.78, 0.0)];
+    let alpha_at = |at: f32| {
+        STOPS.windows(2).find(|w| at <= w[1].0).map_or(0.0, |w| w[0].1 + (w[1].1 - w[0].1) * (at - w[0].0) / (w[1].0 - w[0].0))
+    };
+    let (c, r) = (side / 2.0, side * 0.75);
+    // 0 is straight up, clockwise, as CSS's `from 0deg` is.
+    let point = |turn: f32| {
+        let a = turn * std::f32::consts::TAU;
+        [c + r * a.sin(), c - r * a.cos()]
+    };
+    let mut shape = rune::Shape::new().view_box(side, side);
+    const STEPS: usize = 48;
+    for i in 0..STEPS {
+        let a0 = 0.54 + 0.24 * i as f32 / STEPS as f32;
+        let a1 = 0.54 + 0.24 * (i + 1) as f32 / STEPS as f32;
+        let alpha = alpha_at((a0 + a1) / 2.0) * 0.85;
+        shape = shape.fill(vec![[c, c], point(a0), point(a1)], rune::Color::WHITE.alpha(alpha));
+    }
+    shape
 }
 
 /// The name's type on the cover: Figtree 700 at 48 on the cover's grid, capitals at the title tracking.
@@ -2566,3 +2621,7 @@ mod home_lockup_tests;
 #[cfg(test)]
 #[path = "home_lockup_power_tests.rs"]
 mod home_lockup_power_tests;
+
+#[cfg(test)]
+#[path = "home_beam_tests.rs"]
+mod home_beam_tests;
