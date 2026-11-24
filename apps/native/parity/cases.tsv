@@ -2870,7 +2870,7 @@ apps/desktop/src/main/stores-fail-closed.test.ts	a room rejects rather than pret
 apps/desktop/src/main/stores-fail-closed.test.ts	a memory rejects rather than pretending to save	yes
 apps/desktop/src/main/talk-runs-on-a-mac.test.ts	runs on Windows and a Mac, and not yet on Linux	yes
 apps/desktop/src/main/talk-runs-on-a-mac.test.ts	gives the window the microphone on a Mac, and still only Locust's own audio	yes
-apps/desktop/src/main/talk-runs-on-a-mac.test.ts	asks the Mac's own say for the preview's hello, and PowerShell on Windows	no
+apps/desktop/src/main/talk-runs-on-a-mac.test.ts	asks the Mac's own say for the preview's hello, and PowerShell on Windows	yes
 apps/desktop/src/main/talk-runs-on-a-mac.test.ts	leaves no Windows-only gate on a call, a preview or the microphone; Talk's keys stay Windows' for now	no
 apps/desktop/src/main/talk-starts-from-any-app.test.ts	are Ctrl or Alt, Shift if wanted, then a letter, digit, F-key or Space	yes
 apps/desktop/src/main/talk-starts-from-any-app.test.ts	come from a key press in Ctrl, Alt, Shift order, and not while only modifiers are down	yes

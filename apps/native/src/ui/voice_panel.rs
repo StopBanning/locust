@@ -432,6 +432,10 @@ pub(super) fn calling(s: &State, id: &str) -> bool {
     })
 }
 
+/// VoiceCall.tsx `VOICE_CALL_TITLE`.
+pub(super) const VOICE_CALL_TITLE: &str =
+    "Talk with ChatGPT’s voice. It can read this folder and change nothing.";
+
 pub(super) fn controls(s: &State, p: &Palette) -> Option<El> {
     if !voice_audio::talk_runs_on(platform(s)) || s.demo || s.voice.audio.is_none() {
         return None;
@@ -442,10 +446,12 @@ pub(super) fn controls(s: &State, p: &Palette) -> Option<El> {
         Some(CaptureState::Transcribing(_)) => "Transcribing…",
         None => "Voice typing",
     };
-    let call_label = if s.voice.call.is_some() {
-        "End call"
+    // VoiceCall.tsx: Talk, pressed while a call is on, and its hover saying what a call can and cannot do.
+    let on = s.voice.call.is_some();
+    let (call_label, call_title) = if on {
+        ("End the voice call", "End the call")
     } else {
-        "Talk"
+        ("Talk", VOICE_CALL_TITLE)
     };
     let mut controls = row().gap(6.0).center_y().child(
         text(mic_label)
@@ -461,8 +467,8 @@ pub(super) fn controls(s: &State, p: &Palette) -> Option<El> {
         || s.home.folder_path.is_some()
         || s.voice.call.is_some()
     {
-        controls = controls.child(text(call_label).key("talk").role("button").font(type_::LABEL).color(p.secondary)
-            .description("Talk through ChatGPT voice. Read the folder, ask about connectors, and hand work to teammates.")
+        controls = controls.child(text(call_label).key("talk").role("button").checked(on).font(type_::LABEL).color(p.secondary)
+            .description(call_title)
             .on_press_tx(talk));
     }
     Some(controls)

@@ -321,3 +321,74 @@ fn spoken_words_go_in_at_the_cursor_within_the_prompt_limit() {
     pump(&mut rt, "words cut to the limit", |s| s.voice.capture.is_none());
     assert_eq!(rt.state.draft.text, format!("Local{}", "x".repeat(7_995)));
 }
+
+fn a11y<'a>(tree: &'a serde_json::Value, key: &str) -> Option<&'a serde_json::Value> {
+    if tree["key"] == key {
+        return Some(tree);
+    }
+    tree["children"].as_array()?.iter().find_map(|child| a11y(child, key))
+}
+
+// case: is a button named Talk, saying what the call can and cannot do
+#[test]
+fn talk_is_a_button_saying_what_a_call_can_and_cannot_do() {
+    let (s, _profile, _) = state("win32", false, false);
+    let rt = window(s);
+    let talk = rt
+        .elements()
+        .into_iter()
+        .find(|item| item.key.as_deref() == Some("talk"))
+        .unwrap();
+    assert_eq!(talk.role, "button");
+    assert_eq!(talk.text.as_deref(), Some("Talk"));
+    let tree = rt.accessibility_json();
+    let node = a11y(&tree, "talk").unwrap();
+    assert_eq!(
+        node["description"],
+        "Talk with ChatGPT’s voice. It can read this folder and change nothing."
+    );
+    assert!(node["states"].as_array().unwrap().iter().any(|state| state == "unchecked"));
+    // No strip until a call starts.
+    assert!(!rt.elements().into_iter().any(|item| {
+        item.text.as_deref() == Some("Voice call") || item.label.as_deref() == Some("Voice call")
+    }));
+}
+
+// case: is not there where no call can be placed
+#[test]
+fn talk_is_not_drawn_where_no_call_can_be_placed() {
+    let (s, _profile, _) = state("linux", false, false);
+    assert!(window(s).find("talk").is_none());
+
+    // No folder picked: Electron's `available: false, why: 'Pick a folder first.'`.
+    let (mut s, _profile, _) = state("win32", false, false);
+    s.home.folder_path = None;
+    assert!(window(s).find("talk").is_none());
+
+    // Nothing to place a call with: Electron's missing `api`.
+    let (mut s, _profile, _) = state("win32", false, false);
+    s.voice.audio = None;
+    assert!(window(s).find("talk").is_none());
+}
+
+// case: sits right after voice typing in the chat box
+#[test]
+fn talk_sits_right_after_voice_typing_in_the_chat_box() {
+    let (s, _profile, _) = state("win32", false, false);
+    let rt = window(s);
+    let buttons: Vec<_> = rt
+        .elements()
+        .into_iter()
+        .filter(|item| item.role == "button")
+        .filter_map(|item| item.key)
+        .collect();
+    let mic = buttons.iter().position(|key| key == "voice-typing").unwrap();
+    assert_eq!(buttons.get(mic + 1).map(String::as_str), Some("talk"));
+    // And the box draws the pair beside the field, before its send button, as Composer.tsx does.
+    let composer = include_str!("thread_view.rs");
+    let field = composer.find(".child(composer)\n").unwrap();
+    let pair = composer.find(".children(crate::voice_panel::controls(s, p))").unwrap();
+    let send = composer[pair..].find(".child(button)").unwrap() + pair;
+    assert!(field < pair && pair < send);
+    assert!(!composer[field..send].contains("button("));
+}
