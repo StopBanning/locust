@@ -109,3 +109,58 @@ fn an_unpicked_sidebar_row_paints_nothing_on_glass() {
         }
     }
 }
+
+// Lane check 23 Nov: a teammate row that is not the chosen one paints nothing on glass either (sidebar.rs's teammate
+// list), as the conversation rows don't; off glass it keeps the sidebar's ground.
+#[test]
+fn an_unchosen_teammate_row_paints_nothing_on_glass() {
+    for glass in [false, true] {
+        let mut s = State::default();
+        s.mac_glass = glass;
+        s.appearance = Some(true);
+        s.layout_pref = "wide".to_owned();
+        for (id, name) in [("tm_one", "One"), ("tm_two", "Two")] {
+            s.conversations.insert(id.into(), Default::default());
+            s.teammates.push(Teammate { id: id.into(), name: name.into(), role: "Custom".into(), model: None,
+                runtime: Some("codex".into()), folder: None, runs_in: "ask".into(), account: None, busy: false });
+        }
+        s.selected = 0;
+        let mut rt = Runtime::new(s, crate::view, (1400.0, 900.0), Env::new(true, 1.0));
+        rt.frame(0.0);
+        let row = rt.elements().into_iter().find(|e| e.key.as_deref() == Some("teammate-tm_two")).expect("Two's row");
+        if glass {
+            assert_eq!(row.fill.a, 0.0, "on glass an unchosen teammate row paints nothing");
+        } else {
+            assert_eq!(row.fill, Palette::new(true).sidebar);
+        }
+    }
+}
+
+// Lane check 23 Nov: the compact rail's teammate tiles paint nothing on glass when not open, as the wide sidebar's rows.
+#[test]
+fn an_unopened_rail_tile_paints_nothing_on_glass() {
+    for glass in [false, true] {
+        let mut s = State::default();
+        s.mac_glass = glass;
+        s.appearance = Some(true);
+        s.layout_pref = "compact".to_owned();
+        for (id, name) in [("tm_one", "One"), ("tm_two", "Two")] {
+            s.conversations.insert(id.into(), Default::default());
+            s.teammates.push(Teammate { id: id.into(), name: name.into(), role: "Custom".into(), model: None,
+                runtime: Some("codex".into()), folder: None, runs_in: "ask".into(), account: None, busy: false });
+        }
+        let mut rt = Runtime::new(s, crate::view, (1400.0, 900.0), Env::new(true, 1.0));
+        rt.frame(0.0);
+        let all = rt.elements();
+        let slot = all.iter().find(|e| e.key.as_deref() == Some("rail-tm_two")).expect("Two's rail slot").rect;
+        let tile = all
+            .iter()
+            .find(|e| e.radius == 9.0 && e.rect[3] == 48.0 && e.rect[0] >= slot[0] && e.rect[1] >= slot[1] && e.rect[1] + 48.0 <= slot[1] + slot[3])
+            .expect("Two's tile");
+        if glass {
+            assert_eq!(tile.fill.a, 0.0, "on glass an unopened rail tile paints nothing");
+        } else {
+            assert_eq!(tile.fill, Palette::new(true).sidebar);
+        }
+    }
+}

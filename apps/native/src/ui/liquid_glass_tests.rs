@@ -213,3 +213,22 @@ fn the_panel_the_window_asks_for_is_the_shape_its_wash_paints() {
     assert_eq!((wash.radius, panel.radius), (GLASS_RADIUS, GLASS_RADIUS));
     assert_eq!((GLASS_INSET, GLASS_RADIUS), (8.0, 16.0));
 }
+
+// Lane check 23 Nov: in Liquid glass the sidebar's contents sit inside the floating panel, GLASS_INSET (8 points,
+// `--lc-liquid-inset`) further in than in Standard.
+#[test]
+fn the_sidebars_contents_move_in_by_the_panels_inset_in_liquid_glass() {
+    let left_of_words = |look| {
+        let rt = drawn(state(look, true, true));
+        let side = info(&rt, "sidebar").unwrap().rect;
+        rt.elements()
+            .into_iter()
+            .filter(|e| !e.exiting && e.text.is_some() && e.rect[0] >= side[0] && e.rect[0] + e.rect[2] <= side[0] + side[2])
+            .map(|e| e.rect[0])
+            .fold(f32::INFINITY, f32::min)
+    };
+    let standard = left_of_words(LookChoice::Standard);
+    let liquid = left_of_words(LookChoice::Liquid);
+    assert!(standard.is_finite(), "the sidebar has words");
+    assert_eq!(liquid - standard, 8.0);
+}
