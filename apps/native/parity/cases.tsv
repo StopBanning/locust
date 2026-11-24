@@ -2969,45 +2969,45 @@ apps/desktop/src/main/teammate-store.test.ts	is kept when set, and an edit that 
 apps/desktop/src/main/teammate-store.test.ts	is changed by an amount and lifted by null	no
 apps/desktop/src/main/teammate-store.test.ts	refuses an amount that is not one, rather than saving a limit nobody meant	no
 apps/desktop/src/main/teammate-store.test.ts	reads a limit that does not parse as NO limit -- never as zero, which would refuse every run	no
-apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	checks a token with Discord, keeps it encrypted, and reads only direct messages	no
-apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	pairs the one account that sends the code, once, and ignores everyone else	no
-apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	takes /ada from Discord’s list to Ada, answers as a reply, and carries the conversation on	no
-apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	makes a new code once too many wrong ones were sent to the bot, and the old one pairs nothing	no
-apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	answers someone else’s command with nothing of the person’s	no
-apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	asks who a message is for with buttons, when nobody is being written to	no
-apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	brings a card from its own turn with Allow once and Deny, and answers it by the window’s path	no
-apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	says which file or command a card allows, and posts a card once when its turn and the alert rules both bring it (0.837)	no
-apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	tells the person here what needs them, from any run, only once they turn it on	no
+apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	checks a token with Discord, keeps it encrypted, and reads only direct messages	yes
+apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	pairs the one account that sends the code, once, and ignores everyone else	yes
+apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	takes /ada from Discord’s list to Ada, answers as a reply, and carries the conversation on	yes
+apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	makes a new code once too many wrong ones were sent to the bot, and the old one pairs nothing	yes
+apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	answers someone else’s command with nothing of the person’s	yes
+apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	asks who a message is for with buttons, when nobody is being written to	yes
+apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	brings a card from its own turn with Allow once and Deny, and answers it by the window’s path	yes
+apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	says which file or command a card allows, and posts a card once when its turn and the alert rules both bring it (0.837)	yes
+apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	tells the person here what needs them, from any run, only once they turn it on	yes
 apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	takes anything shaped like a key out of an answer before Discord has it	yes
-apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	splits a long answer into messages Discord takes, and a table into a block of code	no
-apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	beats as Discord asks, and resumes the same session when the connection drops	no
-apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	stops when Discord refuses the token, and forgets the token and the commands on Remove	no
-apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	stops at the organization’s word	no
-apps/desktop/src/main/teammates-answer-their-person-in-slack.test.ts	checks both tokens with Slack, keeps them encrypted, and says which one is wrong	no
-apps/desktop/src/main/teammates-answer-their-person-in-slack.test.ts	pairs the one account that sends the code, names it, and ignores everyone else	no
-apps/desktop/src/main/teammates-answer-their-person-in-slack.test.ts	takes “Ada:” to Ada, answers in the chat, and carries a conversation on in its thread	no
-apps/desktop/src/main/teammates-answer-their-person-in-slack.test.ts	acknowledges every envelope at once, and acts once on a message Slack sends twice	no
-apps/desktop/src/main/teammates-answer-their-person-in-slack.test.ts	asks who a message is for with buttons, when nobody is being written to	no
-apps/desktop/src/main/teammates-answer-their-person-in-slack.test.ts	brings a card from its own turn with Allow once and Deny, and answers it by the window’s path	no
-apps/desktop/src/main/teammates-answer-their-person-in-slack.test.ts	tells the person here what needs them from any run, once they turn it on (0.837)	no
+apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	splits a long answer into messages Discord takes, and a table into a block of code	yes
+apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	beats as Discord asks, and resumes the same session when the connection drops	yes
+apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	stops when Discord refuses the token, and forgets the token and the commands on Remove	yes
+apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	stops at the organization’s word	yes
+apps/desktop/src/main/teammates-answer-their-person-in-slack.test.ts	checks both tokens with Slack, keeps them encrypted, and says which one is wrong	yes
+apps/desktop/src/main/teammates-answer-their-person-in-slack.test.ts	pairs the one account that sends the code, names it, and ignores everyone else	yes
+apps/desktop/src/main/teammates-answer-their-person-in-slack.test.ts	takes “Ada:” to Ada, answers in the chat, and carries a conversation on in its thread	yes
+apps/desktop/src/main/teammates-answer-their-person-in-slack.test.ts	acknowledges every envelope at once, and acts once on a message Slack sends twice	yes
+apps/desktop/src/main/teammates-answer-their-person-in-slack.test.ts	asks who a message is for with buttons, when nobody is being written to	yes
+apps/desktop/src/main/teammates-answer-their-person-in-slack.test.ts	brings a card from its own turn with Allow once and Deny, and answers it by the window’s path	yes
+apps/desktop/src/main/teammates-answer-their-person-in-slack.test.ts	tells the person here what needs them from any run, once they turn it on (0.837)	yes
 apps/desktop/src/main/teammates-answer-their-person-in-slack.test.ts	takes anything shaped like a key out of an answer before Slack has it	yes
-apps/desktop/src/main/teammates-answer-their-person-in-slack.test.ts	splits a long answer into messages Slack takes, all in the thread it was asked in	no
-apps/desktop/src/main/teammates-answer-their-person-in-slack.test.ts	moves to a new connection when Slack refreshes it, and stops when Socket Mode is turned off	no
-apps/desktop/src/main/teammates-answer-their-person-in-slack.test.ts	stops at the organization’s word, and forgets the tokens and the chat on Remove	no
-apps/desktop/src/main/teammates-answer-their-person-in-telegram.test.ts	pairs nothing with a link past its ten minutes	no
-apps/desktop/src/main/teammates-answer-their-person-in-telegram.test.ts	checks a token with Telegram, keeps it encrypted, and refuses one it does not know or another program reads	no
-apps/desktop/src/main/teammates-answer-their-person-in-telegram.test.ts	pairs the one chat that opens the link, once, and ignores everyone else	no
-apps/desktop/src/main/teammates-answer-their-person-in-telegram.test.ts	sends /ada and a message to Ada, answers in the chat, and carries the conversation on	no
+apps/desktop/src/main/teammates-answer-their-person-in-slack.test.ts	splits a long answer into messages Slack takes, all in the thread it was asked in	yes
+apps/desktop/src/main/teammates-answer-their-person-in-slack.test.ts	moves to a new connection when Slack refreshes it, and stops when Socket Mode is turned off	yes
+apps/desktop/src/main/teammates-answer-their-person-in-slack.test.ts	stops at the organization’s word, and forgets the tokens and the chat on Remove	yes
+apps/desktop/src/main/teammates-answer-their-person-in-telegram.test.ts	pairs nothing with a link past its ten minutes	yes
+apps/desktop/src/main/teammates-answer-their-person-in-telegram.test.ts	checks a token with Telegram, keeps it encrypted, and refuses one it does not know or another program reads	yes
+apps/desktop/src/main/teammates-answer-their-person-in-telegram.test.ts	pairs the one chat that opens the link, once, and ignores everyone else	yes
+apps/desktop/src/main/teammates-answer-their-person-in-telegram.test.ts	sends /ada and a message to Ada, answers in the chat, and carries the conversation on	yes
 apps/desktop/src/main/teammates-answer-their-person-in-telegram.test.ts	takes anything shaped like a key out of an answer before Telegram has it	yes
-apps/desktop/src/main/teammates-answer-their-person-in-telegram.test.ts	asks who a message is for, once, when nobody is being written to	no
-apps/desktop/src/main/teammates-answer-their-person-in-telegram.test.ts	brings a card from its own turn with Allow once and Deny, and answers it by the window’s path	no
-apps/desktop/src/main/teammates-answer-their-person-in-telegram.test.ts	says the exact command with what it is for, so Allow once is pressed on words that say it (0.840)	no
-apps/desktop/src/main/teammates-answer-their-person-in-telegram.test.ts	tells the person here what needs them from any run, once they turn it on (0.837)	no
-apps/desktop/src/main/teammates-answer-their-person-in-telegram.test.ts	says in the chat what became of a card answered in the window, or whose turn ended	no
-apps/desktop/src/main/teammates-answer-their-person-in-telegram.test.ts	answers a question with its options, or a reply in words, but never a secret one	no
-apps/desktop/src/main/teammates-answer-their-person-in-telegram.test.ts	starts nothing from a message that waited while Locust was closed, and acts on each message once	no
-apps/desktop/src/main/teammates-answer-their-person-in-telegram.test.ts	stops at the organization’s word, and forgets the token and the chat on Remove	no
-apps/desktop/src/main/teammates-answer-their-person-in-telegram.test.ts	sends only markup Telegram takes, and the plain words when it refuses some	no
+apps/desktop/src/main/teammates-answer-their-person-in-telegram.test.ts	asks who a message is for, once, when nobody is being written to	yes
+apps/desktop/src/main/teammates-answer-their-person-in-telegram.test.ts	brings a card from its own turn with Allow once and Deny, and answers it by the window’s path	yes
+apps/desktop/src/main/teammates-answer-their-person-in-telegram.test.ts	says the exact command with what it is for, so Allow once is pressed on words that say it (0.840)	yes
+apps/desktop/src/main/teammates-answer-their-person-in-telegram.test.ts	tells the person here what needs them from any run, once they turn it on (0.837)	yes
+apps/desktop/src/main/teammates-answer-their-person-in-telegram.test.ts	says in the chat what became of a card answered in the window, or whose turn ended	yes
+apps/desktop/src/main/teammates-answer-their-person-in-telegram.test.ts	answers a question with its options, or a reply in words, but never a secret one	yes
+apps/desktop/src/main/teammates-answer-their-person-in-telegram.test.ts	starts nothing from a message that waited while Locust was closed, and acts on each message once	yes
+apps/desktop/src/main/teammates-answer-their-person-in-telegram.test.ts	stops at the organization’s word, and forgets the token and the chat on Remove	yes
+apps/desktop/src/main/teammates-answer-their-person-in-telegram.test.ts	sends only markup Telegram takes, and the plain words when it refuses some	yes
 apps/desktop/src/main/testers-get-one-build-a-day.test.ts	is the tester lane unless every build was chosen, whatever the file says	yes
 apps/desktop/src/main/testers-get-one-build-a-day.test.ts	takes no prerelease by default -- even from an updater that would	yes
 apps/desktop/src/main/testers-get-one-build-a-day.test.ts	takes every build once chosen, and says so in every state after	yes
@@ -3124,14 +3124,14 @@ apps/desktop/src/main/the-in-use-check-reads-any-path.test.ts	finds a process wh
 apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	a called-links sync with no link kept and no routine called by one asks nothing	yes
 apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	a routine called by a link still has its link kept, as before	yes
 apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	a kept-links file that cannot be read still counts as kept, so its error is still said	yes
-apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	a run for a teammate with no keys asks nothing; one with a key opens it	no
-apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	a chat app and your account say whether they keep a key without opening it	no
-apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	says it in the window first, then opens the keychain once, then takes the note down and remembers the build	no
-apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	a build that opened it before, nothing kept, or not a Mac: nothing said and nothing read	no
-apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	refused, or failing: the note still comes down, and the build is not remembered, so the next launch says it again	no
-apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	a window that never listens is not waited on forever: the keys are opened anyway, for the readers that need them	no
-apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	a read before the step leaves nothing to say	no
-apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	is one step however often it is begun, and settled once it is over	no
+apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	a run for a teammate with no keys asks nothing; one with a key opens it	yes
+apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	a chat app and your account say whether they keep a key without opening it	yes
+apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	says it in the window first, then opens the keychain once, then takes the note down and remembers the build	yes
+apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	a build that opened it before, nothing kept, or not a Mac: nothing said and nothing read	yes
+apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	refused, or failing: the note still comes down, and the build is not remembered, so the next launch says it again	yes
+apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	a window that never listens is not waited on forever: the keys are opened anyway, for the readers that need them	yes
+apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	a read before the step leaves nothing to say	yes
+apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	is one step however often it is begun, and settled once it is over	yes
 apps/desktop/src/main/the-live-word-is-visibly-live.test.ts	sweeps with the library own shape: a solid word, a highlight over it	yes
 apps/desktop/src/main/the-live-word-is-visibly-live.test.ts	leaves the word itself painted	yes
 apps/desktop/src/main/the-live-word-is-visibly-live.test.ts	drops only the highlight when motion is off	yes
