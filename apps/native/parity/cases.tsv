@@ -3544,6 +3544,13 @@ apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	takes Cl
 apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	names the version on the controls that pick a route, and nothing else changes	no
 apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	labels the row with the version	no
 apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	believes a finished run over the table	no
+apps/desktop/src/renderer/src/a-cloud-watch-stops-when-it-should.test.ts	Watch reads every ninety seconds and stops after two unchanged reads despite new timestamps.	yes
+apps/desktop/src/renderer/src/a-cloud-watch-stops-when-it-should.test.ts	Watch resets its unchanged count when a reply or change arrives.	yes
+apps/desktop/src/renderer/src/a-cloud-watch-stops-when-it-should.test.ts	Watch stops after thirty minutes even when every read brings something new.	yes
+apps/desktop/src/renderer/src/a-cloud-watch-stops-when-it-should.test.ts	Closing a row cancels Watch and ignores a read that finishes afterward.	yes
+apps/desktop/src/renderer/src/a-cloud-watch-stops-when-it-should.test.ts	Watch never overlaps slow reads and stops at its deadline while a read is pending.	yes
+apps/desktop/src/renderer/src/a-cloud-watch-stops-when-it-should.test.ts	Watch reports a failed read once and schedules no further reads.	yes
+apps/desktop/src/renderer/src/a-cloud-watch-stops-when-it-should.test.ts	The row names the number of minutes since its last successful read.	yes
 apps/desktop/src/renderer/src/a-codex-sandbox-that-did-not-start-says-why.test.tsx	is known by what Codex said, and nothing else is	yes
 apps/desktop/src/renderer/src/a-codex-sandbox-that-did-not-start-says-why.test.tsx	says why on its row, and what to do	yes
 apps/desktop/src/renderer/src/a-codex-sandbox-that-did-not-start-says-why.test.tsx	says nothing of the sort for a command that ran and failed (control)	yes

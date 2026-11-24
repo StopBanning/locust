@@ -54,6 +54,7 @@ pub mod cloud_tasks;
 pub mod cloud_task_service;
 pub mod cloud_turns;
 pub mod cloud_turn_dispatch;
+pub mod cloud_watch;
 pub mod locust_link;
 pub mod reply_page;
 pub mod restored_folders;
