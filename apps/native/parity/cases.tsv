@@ -3877,10 +3877,10 @@ apps/desktop/src/renderer/src/a-helpers-summary-reads-as-words.test.ts	drops bol
 apps/desktop/src/renderer/src/a-helpers-summary-reads-as-words.test.ts	drops single-star emphasis without touching a star that is not emphasis	yes
 apps/desktop/src/renderer/src/a-helpers-summary-reads-as-words.test.ts	is what the helper row says when it reported back	yes
 apps/desktop/src/renderer/src/a-helpers-summary-reads-as-words.test.ts	folds a summary onto one line	yes
-apps/desktop/src/renderer/src/a-home-starter-starts-with-a-teammate-or-compares.test.ts	are four rows, each saying what it does	no
-apps/desktop/src/renderer/src/a-home-starter-starts-with-a-teammate-or-compares.test.ts	suit their mode: a plan changes nothing yet, and a review only reads	no
-apps/desktop/src/renderer/src/a-home-starter-starts-with-a-teammate-or-compares.test.ts	leave the words for the person to finish where the ask needs them	no
-apps/desktop/src/renderer/src/a-home-starter-starts-with-a-teammate-or-compares.test.ts	draw a Compare beside every row, and fill the box rather than send	no
+apps/desktop/src/renderer/src/a-home-starter-starts-with-a-teammate-or-compares.test.ts	are four rows, each saying what it does	yes
+apps/desktop/src/renderer/src/a-home-starter-starts-with-a-teammate-or-compares.test.ts	suit their mode: a plan changes nothing yet, and a review only reads	yes
+apps/desktop/src/renderer/src/a-home-starter-starts-with-a-teammate-or-compares.test.ts	leave the words for the person to finish where the ask needs them	yes
+apps/desktop/src/renderer/src/a-home-starter-starts-with-a-teammate-or-compares.test.ts	draw a Compare beside every row, and fill the box rather than send	yes
 apps/desktop/src/renderer/src/a-host-started-run-is-not-retried-as-your-message.test.tsx	withholds Run it again for a relay and never makes its briefing your bubble	yes
 apps/desktop/src/renderer/src/a-host-started-run-is-not-retried-as-your-message.test.tsx	still offers Run it again for your own never-started run	yes
 apps/desktop/src/renderer/src/a-host-started-run-is-not-retried-as-your-message.test.tsx	keeps a $kind run with its host context	yes

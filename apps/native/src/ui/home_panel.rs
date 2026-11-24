@@ -405,7 +405,23 @@ fn mark_away_seen(s: &mut State) {
     s.home.away = None;
 }
 
+/// App.tsx `onCompareStarter`: comparison on, the work (each model in its own copy) or the answers as the starter asks,
+/// two models already chosen where there are two to offer, and the words in the box -- Send is the next press.
+fn compare_starter(s: &mut State, prompt: &str, changes: bool) {
+    use crate::compare_view::CompareComposerMode;
+    s.compare.composer_mode = CompareComposerMode::Compare;
+    s.compare.changes = changes;
+    crate::compare_view::ensure_default_picks(s);
+    if s.compare.picks.len() < 2 {
+        s.compare.model_menu = Some(0);
+    }
+    s.draft = TextEdit::new(prompt);
+    s.home.home_open = false;
+}
+
 fn apply_starter(s: &mut State, starter_id: &str, prompt: &str, mode: Option<&str>) {
+    // A starter is one teammate's work, not a comparison (App.tsx `setCompareOn(false)`).
+    s.compare.composer_mode = crate::compare_view::CompareComposerMode::Direct;
     if let Some(mode) = mode {
         s.composer_mode = Some(mode.into());
     }
@@ -1617,8 +1633,10 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
         let starter_id = starter.id.clone();
         let prompt = starter.prompt.to_owned();
         let mode = starter.mode.map(str::to_owned);
-        let compare_label = if starter.compare_changes { COMPARE } else { "" };
-        let mut item = row()
+        let (compare_prompt, compare_changes) = (prompt.clone(), starter.compare_changes);
+        // StarterList.tsx: the row starts it with the teammate whose work it is; a quiet Compare beside every row
+        // starts it as a comparison instead. Either only fills the box: nothing is sent until Send.
+        let item = row()
             .w_frac(0.5)
             .pr(24.0)
             .child(
@@ -1630,16 +1648,30 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
                     .center_y()
                     .border_sides([0.0, 0.0, 1.0, 0.0], l.c("border-hairline"))
                     .hover(l.c("hover-surface"))
-                    .child(crate::look::controls::glyph(&l, starter_icon(starter.label), 15.0, Some(l.c("text-muted"))))
-                    .child(text(starter.label.to_owned()).font(rune::TextStyle::new(13.5, 400.0)).color(l.c("text-primary")).grow(1.0))
-                    .child(text(compare_label.to_owned()).font(l.ty.mono).color(l.c("text-muted")))
-                    .role("button")
-                    .label(starter.label.to_owned()),
-            )
-            .on_press(move |s: &mut State| {
-                apply_starter(s, &starter_id, &prompt, mode.as_deref());
-            });
-        item = item.key(format!("starter-{}", starter.id));
+                    .child(
+                        row()
+                            .grow(1.0)
+                            .gap(12.0)
+                            .center_y()
+                            .child(crate::look::controls::glyph(&l, starter_icon(starter.label), 15.0, Some(l.c("text-muted"))))
+                            .child(text(starter.label.to_owned()).font(rune::TextStyle::new(13.5, 400.0)).color(l.c("text-primary")).grow(1.0))
+                            .role("button")
+                            .label(starter.label.to_owned())
+                            .on_press(move |s: &mut State| {
+                                apply_starter(s, &starter_id, &prompt, mode.as_deref());
+                            }),
+                    )
+                    .child(
+                        text(COMPARE.to_owned())
+                            .font(l.ty.mono)
+                            .color(l.c("text-muted"))
+                            .role("button")
+                            .label(format!("{COMPARE}: {}", starter.label))
+                            .key(format!("starter-compare-{}", starter.id))
+                            .on_press(move |s: &mut State| compare_starter(s, &compare_prompt, compare_changes)),
+                    ),
+            );
+        let item = item.key(format!("starter-{}", starter.id));
         list = list.child(item);
     }
     body = body.child(list);
@@ -2811,3 +2843,7 @@ mod board_drawn_tests;
 #[cfg(test)]
 #[path = "page_starter_tests.rs"]
 mod page_starter_tests;
+
+#[cfg(test)]
+#[path = "home_starter_compares_tests.rs"]
+mod home_starter_compares_tests;
