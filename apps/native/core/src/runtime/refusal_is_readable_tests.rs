@@ -115,3 +115,19 @@ fn says_a_refused_read_reached_outside_the_folder_and_never_claims_a_mode_it_doe
         assert!(!refused(tools).contains("allows edits"));
     }
 }
+
+// My lane-check (24 Nov): the cut is Electron's 96 characters (claude-events.ts REFUSAL_DETAIL_LIMIT), taken at a
+// space in the last 24 when there is one, then "...". A long one-line command shows its start, not all of it.
+#[test]
+fn a_long_refused_command_is_cut_at_96_characters_on_a_space() {
+    let words = "word ".repeat(40); // 200 characters, a space every 5
+    let said = super::briefly_put(&words);
+    assert!(said.ends_with("..."), "{said}");
+    let kept = said.trim_end_matches("...");
+    assert!(kept.chars().count() <= 96, "{} characters: {said}", kept.chars().count());
+    assert!(kept.chars().count() > 72, "cut too early: {said}");
+    assert_eq!(kept, "word ".repeat(19).trim_end(), "cut on the last space inside 96");
+    // 96 or fewer: left whole.
+    let short = "x".repeat(96);
+    assert_eq!(super::briefly_put(&short), short);
+}
