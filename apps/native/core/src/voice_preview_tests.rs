@@ -116,3 +116,24 @@ fn windows_receives_the_script_as_one_encoded_argument() {
     assert_eq!(args.len(), 4);
     assert!(!args[3].to_str().unwrap().contains("O'Brien"));
 }
+
+// case: asks the Mac's own say for the preview's hello, and PowerShell on Windows
+#[test]
+fn the_hello_is_spoken_by_say_on_a_mac_and_powershell_on_windows() {
+    let mac = speak_command("darwin", Path::new("/tmp/a b/hello.wav")).unwrap();
+    assert_eq!(mac.get_program(), "/usr/bin/say");
+    let args: Vec<_> = mac.get_args().collect();
+    assert_eq!(
+        args,
+        [
+            "-o",
+            "/tmp/a b/hello.wav",
+            "--file-format=WAVE",
+            "--data-format=LEI16@24000",
+            "Hello?"
+        ]
+    );
+    let windows = speak_command("win32", Path::new("C:\\x\\hello.wav")).unwrap();
+    assert_eq!(windows.get_program(), "powershell.exe");
+    assert!(speak_command("linux", Path::new("/tmp/hello.wav")).is_none());
+}
