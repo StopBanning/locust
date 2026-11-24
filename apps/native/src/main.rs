@@ -903,12 +903,13 @@ fn setup(s: &mut State, waker: Waker) {
     sync_draft_key(s);
     // Home shows the folder Locust has open: --workspace, launch folder (unless unsafe), else remembered/default.
     if !s.demo && s.home.folder_path.is_none() {
-        let remembered = native::open_folder().map(|p| p.to_string_lossy().into_owned());
-        s.home.folder_path = if cfg!(test) {
-            remembered
-        } else {
-            locust_core::workspace_launch::resolve_startup_workspace(remembered.as_deref())
-        };
+        open_startup_folder(s, |remembered| {
+            if cfg!(test) {
+                remembered.map(str::to_owned)
+            } else {
+                locust_core::workspace_launch::resolve_startup_workspace(remembered)
+            }
+        });
     }
     // No secrets stored in native yet → keeps_key false → note stays down. Never reads the keychain.
     // Scenes may force the note on for snaps; do not clear that.
@@ -917,6 +918,24 @@ fn setup(s: &mut State, waker: Waker) {
             keychain_note::should_show_note(keychain_note::may_ask_on_this_os(), false, false);
     }
 }
+
+/// The folder the window opens at startup becomes the one Locust has open (LIVE2 #10): the engine and the door read
+/// that from `workspace.json` (`native::open_folder`), so a launch folder or `--workspace` only the window knew left a
+/// door turn running elsewhere while the folder chip named this one. Electron has one folder, held in one process.
+fn open_startup_folder(s: &mut State, resolve: impl FnOnce(Option<&str>) -> Option<String>) {
+    let remembered = native::open_folder().map(|p| p.to_string_lossy().into_owned());
+    let chosen = resolve(remembered.as_deref());
+    if let (Some(store), Some(path)) = (&s.data, &chosen)
+        && chosen != remembered
+    {
+        let _ = native::set_open_folder(store, std::path::Path::new(path));
+    }
+    s.home.folder_path = chosen;
+}
+
+#[cfg(test)]
+#[path = "ui/startup_folder_tests.rs"]
+mod startup_folder_tests;
 
 /// window-chrome.ts `windowChrome('darwin')`: the frame kept, the title bar hidden and inset, the lights in the title
 /// bar's left column at (14, 13), and only `.window_drag()` regions moving the window. Windows and Linux keep their
