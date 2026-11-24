@@ -126,6 +126,8 @@ pub mod context_usage;
 pub mod desk;
 #[cfg(test)]
 mod desk_access_tests;
+#[cfg(test)]
+mod desk_decided_tests;
 pub mod desk_host;
 #[cfg(test)]
 mod desk_host_tests;

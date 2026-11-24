@@ -4789,6 +4789,9 @@ apps/desktop/src/renderer/src/every-bot-is-drawn-by-the-rig.test.ts	is BotAvatar
 apps/desktop/src/renderer/src/every-bot-is-drawn-by-the-rig.test.ts	is flat for Locust's own, which never took the treatment	yes
 apps/desktop/src/renderer/src/every-bot-is-drawn-by-the-rig.test.ts	looks straight at a pointer within a head width	yes
 apps/desktop/src/renderer/src/every-bot-is-drawn-by-the-rig.test.ts	lets go by three head widths, and never looks further than one head across	yes
+apps/desktop/src/renderer/src/every-call-a-browser-is-refused-is-decided.test.ts	reads every call off the API, and finds the window making them	yes
+apps/desktop/src/renderer/src/every-call-a-browser-is-refused-is-decided.test.ts	is decided where the window makes it: held, left out, made to work, or quiet for a reason written here	yes
+apps/desktop/src/renderer/src/every-call-a-browser-is-refused-is-decided.test.ts	is made only where it was looked at: a new call to one fails until it is decided and listed	yes
 apps/desktop/src/renderer/src/every-colour-has-a-light-one.test.ts	gives every colour token a light value, or says why it is the same in both	yes
 apps/desktop/src/renderer/src/every-colour-has-a-light-one.test.ts	names only tokens the dark theme has, so a typo cannot leave a colour behind	yes
 apps/desktop/src/renderer/src/every-colour-has-a-light-one.test.ts	draws its readable text dark enough on its own window	yes
