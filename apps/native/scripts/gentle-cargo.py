@@ -112,6 +112,7 @@ with _take_a_slot() as lock:
     # Test threads from the spare CPU, read now that the slot is ours (the wait can be minutes). An explicit value in the
     # environment wins; `-j` on the command line wins over both. See .config/nextest.toml.
     if args[:2] == ["nextest", "run"] or args[:1] == ["test"]:
+        sys.dont_write_bytecode = True  # no __pycache__ beside the scripts
         from load_threads import here as spare_here
         threads, cores, load1 = spare_here()
         os.environ.setdefault("NEXTEST_TEST_THREADS", str(threads))
