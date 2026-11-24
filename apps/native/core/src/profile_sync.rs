@@ -104,6 +104,90 @@ pub fn chunks_of(size: usize) -> Vec<(usize, usize)> {
     pieces
 }
 
+// ---- Recovery code (Crockford base32 + 2-byte SHA-256 check) --------------------------------------------------------
+
+const CROCKFORD: &[u8; 32] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+
+/// Encodes a 32-byte profile key with a 2-byte SHA-256 check in Crockford base32 (55 chars in groups of 5).
+pub fn recovery_code(profile_key: &[u8]) -> Result<String, String> {
+    if profile_key.len() != PROFILE_KEY_BYTES {
+        return Err("A profile key is 32 bytes.".into());
+    }
+    let digest = Sha256::digest(profile_key);
+    let mut bytes = [0u8; PROFILE_KEY_BYTES + 2];
+    bytes[..PROFILE_KEY_BYTES].copy_from_slice(profile_key);
+    bytes[PROFILE_KEY_BYTES] = digest[0];
+    bytes[PROFILE_KEY_BYTES + 1] = digest[1];
+
+    let mut bits: u32 = 0;
+    let mut value: u32 = 0;
+    let mut raw = String::with_capacity(55);
+    for byte in bytes {
+        value = (value << 8) | u32::from(byte);
+        bits += 8;
+        while bits >= 5 {
+            raw.push(CROCKFORD[((value >> (bits - 5)) & 31) as usize] as char);
+            bits -= 5;
+        }
+        value &= (1u32 << bits) - 1;
+    }
+    if bits > 0 {
+        raw.push(CROCKFORD[((value << (5 - bits)) & 31) as usize] as char);
+    }
+    let mut grouped = String::with_capacity(55 + 10);
+    for (i, ch) in raw.chars().enumerate() {
+        if i > 0 && i % 5 == 0 {
+            grouped.push('-');
+        }
+        grouped.push(ch);
+    }
+    Ok(grouped)
+}
+
+/// Decodes a Crockford base32 recovery code back into its 32-byte profile key, or `None` if malformed or check fails.
+pub fn profile_key_from_code(code: &str) -> Option<[u8; PROFILE_KEY_BYTES]> {
+    let mut cleaned = String::with_capacity(55);
+    for ch in code.chars() {
+        if ch.is_whitespace() || ch == '-' {
+            continue;
+        }
+        let upper = ch.to_ascii_uppercase();
+        let mapped = match upper {
+            'I' | 'L' => '1',
+            'O' => '0',
+            c => c,
+        };
+        cleaned.push(mapped);
+    }
+    if cleaned.len() != 55 {
+        return None;
+    }
+    let mut bytes = Vec::with_capacity(PROFILE_KEY_BYTES + 2);
+    let mut bits: u32 = 0;
+    let mut value: u32 = 0;
+    for ch in cleaned.bytes() {
+        let idx = CROCKFORD.iter().position(|&c| c == ch)? as u32;
+        value = (value << 5) | idx;
+        bits += 5;
+        if bits >= 8 {
+            bytes.push(((value >> (bits - 8)) & 0xff) as u8);
+            bits -= 8;
+            value &= (1u32 << bits) - 1;
+        }
+    }
+    if bytes.len() != PROFILE_KEY_BYTES + 2 {
+        return None;
+    }
+    let mut key = [0u8; PROFILE_KEY_BYTES];
+    key.copy_from_slice(&bytes[..PROFILE_KEY_BYTES]);
+    let digest = Sha256::digest(key);
+    if digest[0] == bytes[PROFILE_KEY_BYTES] && digest[1] == bytes[PROFILE_KEY_BYTES + 1] {
+        Some(key)
+    } else {
+        None
+    }
+}
+
 // ---- Sync types & traits --------------------------------------------------------------------------------------------
 
 #[derive(Clone, Debug, PartialEq, Eq)]
