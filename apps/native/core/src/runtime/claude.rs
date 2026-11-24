@@ -429,7 +429,8 @@ impl Claude {
                 let mut values: Vec<io::Result<Value>> = pieces
                     .into_iter()
                     .map(|piece| match piece {
-                        Piece::Record(raw) => serde_json::from_str(&raw).map_err(|_| err("Claude sent malformed stream-json")),
+                        // A line that is not a record is said and read past, as claude-events.ts does, not the end of the run.
+                        Piece::Record(raw) => Ok(records::claude_record(&raw)),
                         // A stand-in in the dropped record's place: its size, type and calls, none of its content.
                         Piece::Dropped { head, bytes, .. } => Ok(records::stand_in(&head, bytes)),
                     })
