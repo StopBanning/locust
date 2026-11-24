@@ -3333,6 +3333,26 @@ apps/desktop/src/main/worktrees.test.ts	C1: removes it only for the exact change
 apps/desktop/src/main/worktrees.test.ts	C1: removes a clean copy at once, with git’s own unforced remove	yes
 apps/desktop/src/main/worktrees.test.ts	names changes the way git status does, a quoted path unquoted	yes
 apps/desktop/src/main/worktrees.test.ts	refuses an id that could name a path outside the folder	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	without a GitHub sign-in it says where to sign in and keeps nothing	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	turning sync on shows the recovery code once, locks the key, and sends the copy	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	off keeps the key, and on again shows no new code and seals with the same key	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	a computer that cannot lock a key keeps sync off and says why	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	a key made for another GitHub account is not used: a new sign-in starts over with its own code	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	Sync now says when the relay is full, and nothing on the computer changes	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	Delete my copy empties the relay, turns sync off and forgets what was sent	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	a new computer is told another computer keeps a copy	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	the code opens the newest copy, restores it at the next start, and keeps the key for sync	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	a code that does not open the copy changes nothing	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	a code copied wrong is caught before the relay is asked	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	with no other computer keeping a copy, it says to turn Keep a copy on there first	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	reads the relay’s own list into copies and usage, and refuses a room name it should not	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	the Mac asks, both screens show one code, the PC approves, and the Mac brings the copy in with no recovery code	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	the ask leaves no trace: the Mac takes it down, and the PC then removes its grant	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	a code that is not the one the PC was shown sends nothing	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	a key swapped at the relay after the PC showed the code is refused: the PC reads the ask again before it seals	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	Not mine puts the ask away on that computer and gives nothing	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	a computer without the key is never shown an ask to approve	yes
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts	after ten minutes with no approval the ask is given up and taken down	yes
 apps/desktop/src/main/your-github-is-connected-through-gh.test.ts	reads the active account, its scopes, and an account GitHub no longer takes	yes
 apps/desktop/src/main/your-github-is-connected-through-gh.test.ts	never names a login GitHub could not have issued	yes
 apps/desktop/src/main/your-github-is-connected-through-gh.test.ts	reads an older gh by its exit and first account line	yes
