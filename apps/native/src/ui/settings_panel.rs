@@ -62,6 +62,8 @@ pub(super) struct Panel {
     pub privacy: crate::backup_section::PrivacyPanelState,
     /// "Your phone": the phone host's switch and link (None when this window has no phone host).
     pub phone: Option<locust_core::phone_host::PhoneSettings>,
+    /// "Your account": sealed profile copy status and card state.
+    pub account: crate::your_account_section::AccountPanelState,
     /// "Updates": current update state, any install refusal, whether an install was started, and an optional service.
     pub update: locust_core::updates::AppUpdateState,
     pub update_refusal: Option<String>,
@@ -205,6 +207,7 @@ fn reload(s: &mut State) {
             );
             read_login_item(s);
             crate::phone_section::read(s);
+            crate::your_account_section::read(s);
         }
     }
     crate::agents_section::request(s);
@@ -1266,6 +1269,8 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                     body = body.child(door_section(s, p));
                 } else if heading == "Chat apps" {
                     body = body.child(crate::chat_apps_section::section(s, p)).child(more(s, p, "chat-apps"));
+                } else if heading == crate::your_account_section::HEADING {
+                    body = body.child(crate::your_account_section::section(s, p));
                 } else if heading == crate::phone_section::HEADING {
                     body = body.child(crate::phone_section::section(s, p));
                     if let Some(remote) = crate::remote_mcp_card::section(s, p) {

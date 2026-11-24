@@ -313,6 +313,8 @@ mod compare_view;
 mod trash_section;
 #[path = "ui/phone_section.rs"]
 mod phone_section;
+#[path = "ui/your_account_section.rs"]
+mod your_account_section;
 #[path = "ui/side_chat.rs"]
 mod side_chat;
 #[path = "ui/room_screen.rs"]
@@ -3193,6 +3195,7 @@ fn open_door() {}
 fn open_phone() {
     if !HEADLESS.load(std::sync::atomic::Ordering::Relaxed) {
         phone_section::open();
+        your_account_section::open();
     }
 }
 

@@ -6402,6 +6402,14 @@ apps/desktop/src/renderer/src/with-nothing-installed-install-comes-first.test.ts
 apps/desktop/src/renderer/src/with-nothing-installed-install-comes-first.test.tsx	still offers the teams and the folder, after it	yes
 apps/desktop/src/renderer/src/with-nothing-installed-install-comes-first.test.tsx	leads with the team templates again	yes
 apps/desktop/src/renderer/src/with-nothing-installed-install-comes-first.test.tsx	does not reorder while an installed agent is still being checked	yes
+apps/desktop/src/renderer/src/your-account-card-says-where-the-copy-stands.test.tsx	signed out, the card says what an account does and where to sign in, with no switch	yes
+apps/desktop/src/renderer/src/your-account-card-says-where-the-copy-stands.test.tsx	signed in and off, it says the relay cannot read the copy before anything is sent	yes
+apps/desktop/src/renderer/src/your-account-card-says-where-the-copy-stands.test.tsx	on, it says when it last synced, how much, and the storage used, with Sync now and Delete my copy	yes
+apps/desktop/src/renderer/src/your-account-card-says-where-the-copy-stands.test.tsx	the recovery code is shown with what losing it costs, until it is put away	yes
+apps/desktop/src/renderer/src/your-account-card-says-where-the-copy-stands.test.tsx	sizes and times read as a person says them	yes
+apps/desktop/src/renderer/src/your-account-card-says-where-the-copy-stands.test.tsx	on a new computer it offers to bring the copy here with the code, and says what a restart does	yes
+apps/desktop/src/renderer/src/your-account-card-says-where-the-copy-stands.test.tsx	a new computer can ask the one that has your Locust, and shows the code to compare while it waits	yes
+apps/desktop/src/renderer/src/your-account-card-says-where-the-copy-stands.test.tsx	the computer that has your Locust shows each ask with its code, Approve (asked twice) and Not mine	yes
 apps/desktop/src/renderer/src/your-github-shows-on-connectors.test.tsx	wears GitHub’s mark and names who it is signed in as	yes
 apps/desktop/src/renderer/src/your-github-shows-on-connectors.test.tsx	offers a sign-in when nobody is signed in, and the CLI when it is missing	yes
 apps/desktop/src/renderer/src/your-github-shows-on-connectors.test.tsx	says when GitHub has a newer GitHub CLI, with the update a press away (0.726)	yes
