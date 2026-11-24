@@ -540,7 +540,7 @@ apps/desktop/src/main/a-long-judge-reads-files.test.ts	named as files, they do, 
 apps/desktop/src/main/a-long-judge-reads-files.test.ts	the host switches to files only when the quoted message is too long	no
 apps/desktop/src/main/a-mac-discards-installed-update-images.test.ts	removes installed images at startup and preserves newer images and everything outside its exact file names	yes
 apps/desktop/src/main/a-mac-discards-installed-update-images.test.ts	leaves ambiguous running versions alone and tolerates a cache that cannot be listed	yes
-apps/desktop/src/main/a-mac-opens-its-own-terminal.test.ts	goes to the folder, removes itself, and becomes the resume -- every word quoted	no
+apps/desktop/src/main/a-mac-opens-its-own-terminal.test.ts	goes to the folder, removes itself, and becomes the resume -- every word quoted	yes
 apps/desktop/src/main/a-mac-says-when-a-new-locust-is-out.test.ts	offers the newest release that has this chip's disk image	yes
 apps/desktop/src/main/a-mac-says-when-a-new-locust-is-out.test.ts	offers nothing when this copy is already that version or newer	yes
 apps/desktop/src/main/a-mac-says-when-a-new-locust-is-out.test.ts	skips drafts and pre-releases, and never offers a link off Locust's own downloads	yes
@@ -1539,9 +1539,9 @@ apps/desktop/src/main/approval-channel.test.ts	carries a question and its answer
 apps/desktop/src/main/approval-channel.test.ts	releases what a finished run was still asking, so no card waits forever	yes
 apps/desktop/src/main/approval-channel.test.ts	releases only the run that ended, and leaves another run its waiting card	yes
 apps/desktop/src/main/approval-channel.test.ts	shows the diff for the item the card is about	yes
-apps/desktop/src/main/approval-channel.test.ts	gives a tool row the file's path and a patch, where the normaliser wrote only a count	no
-apps/desktop/src/main/approval-channel.test.ts	gives a declined fileChange its paths but no patch	no
-apps/desktop/src/main/approval-channel.test.ts	leaves every other event, and a fileChange it never saw, exactly as it was	no
+apps/desktop/src/main/approval-channel.test.ts	gives a tool row the file's path and a patch, where the normaliser wrote only a count	yes
+apps/desktop/src/main/approval-channel.test.ts	gives a declined fileChange its paths but no patch	yes
+apps/desktop/src/main/approval-channel.test.ts	leaves every other event, and a fileChange it never saw, exactly as it was	yes
 apps/desktop/src/main/approval-patch.test.ts	reads the changes off a fileChange item, and nothing off any other item	yes
 apps/desktop/src/main/approval-patch.test.ts	the live payload: an add carries the file's content, not a hunk, and an absolute path -- both become a diff	yes
 apps/desktop/src/main/approval-patch.test.ts	composes a header pair per file: /dev/null for add and delete, the moved-to path for a move, hunks kept as sent for an update	yes
@@ -1925,16 +1925,16 @@ apps/desktop/src/main/every-turn-start-crosses-the-organization-policy.test.ts	c
 apps/desktop/src/main/every-turn-start-crosses-the-organization-policy.test.ts	gates every separate background and cloud launch before calling its service	no
 apps/desktop/src/main/every-turn-start-crosses-the-organization-policy.test.ts	checks voice, phone, MCP and CLI access in the main process, including saved opt-ins	yes
 apps/desktop/src/main/every-turn-start-crosses-the-organization-policy.test.ts	loads once at launch, keeps the test seam out of packaged builds and exposes errors in the window	no
-apps/desktop/src/main/forget-hits-one-memory.test.ts	hits the memory it quotes exactly	no
-apps/desktop/src/main/forget-hits-one-memory.test.ts	still hits it when the quote is punctuated or cased differently	no
-apps/desktop/src/main/forget-hits-one-memory.test.ts	hits it when the teammate drops a trailing clause -- the case that used to fail	no
-apps/desktop/src/main/forget-hits-one-memory.test.ts	hits it when the teammate quotes MORE than was stored	no
-apps/desktop/src/main/forget-hits-one-memory.test.ts	refuses, rather than guessing, when nothing answers to the quote	no
-apps/desktop/src/main/forget-hits-one-memory.test.ts	refuses when several memories answer to it, and removes neither	no
-apps/desktop/src/main/forget-hits-one-memory.test.ts	prefers an exact match even when others contain the same words	no
-apps/desktop/src/main/forget-hits-one-memory.test.ts	does not treat two memories as one because they share a topic	no
-apps/desktop/src/main/forget-hits-one-memory.test.ts	refuses an empty or wordless quote instead of matching everything	no
-apps/desktop/src/main/forget-hits-one-memory.test.ts	says nothing matched when the store is empty	no
+apps/desktop/src/main/forget-hits-one-memory.test.ts	hits the memory it quotes exactly	yes
+apps/desktop/src/main/forget-hits-one-memory.test.ts	still hits it when the quote is punctuated or cased differently	yes
+apps/desktop/src/main/forget-hits-one-memory.test.ts	hits it when the teammate drops a trailing clause -- the case that used to fail	yes
+apps/desktop/src/main/forget-hits-one-memory.test.ts	hits it when the teammate quotes MORE than was stored	yes
+apps/desktop/src/main/forget-hits-one-memory.test.ts	refuses, rather than guessing, when nothing answers to the quote	yes
+apps/desktop/src/main/forget-hits-one-memory.test.ts	refuses when several memories answer to it, and removes neither	yes
+apps/desktop/src/main/forget-hits-one-memory.test.ts	prefers an exact match even when others contain the same words	yes
+apps/desktop/src/main/forget-hits-one-memory.test.ts	does not treat two memories as one because they share a topic	yes
+apps/desktop/src/main/forget-hits-one-memory.test.ts	refuses an empty or wordless quote instead of matching everything	yes
+apps/desktop/src/main/forget-hits-one-memory.test.ts	says nothing matched when the store is empty	yes
 apps/desktop/src/main/free-routes.test.ts	knows the free routes the drives use	yes
 apps/desktop/src/main/free-routes.test.ts	does not call a route free because of its runtime or a word in its name	yes
 apps/desktop/src/main/free-routes.test.ts	knows every free model OpenCode 1.18.27 lists	yes
@@ -2031,11 +2031,11 @@ apps/desktop/src/main/locust-in-a-browser-answers-as-the-window.test.ts	lets one
 apps/desktop/src/main/locust-in-a-browser-answers-as-the-window.test.ts	lets the window go when the browser that has it may no longer have it	yes
 apps/desktop/src/main/locust-in-a-browser-answers-as-the-window.test.ts	gives a window just opened the approval cards already waiting	yes
 apps/desktop/src/main/locust-in-a-browser-answers-as-the-window.test.ts	keeps every handler ipcMain is given, as it is given them	yes
-apps/desktop/src/main/memory-file.test.ts	lists this folder and everywhere, newest last, with who and when, and says it is read-only	no
-apps/desktop/src/main/memory-file.test.ts	writes under .locust in the folder and returns the path the brief names	no
-apps/desktop/src/main/memory-file.test.ts	does not rewrite a file that already says the same	no
-apps/desktop/src/main/memory-file.test.ts	keeps .locust out of git where there is a repository, and only there	no
-apps/desktop/src/main/memory-file.test.ts	returns nothing when the folder cannot be written, so the brief pastes as before	no
+apps/desktop/src/main/memory-file.test.ts	lists this folder and everywhere, newest last, with who and when, and says it is read-only	yes
+apps/desktop/src/main/memory-file.test.ts	writes under .locust in the folder and returns the path the brief names	yes
+apps/desktop/src/main/memory-file.test.ts	does not rewrite a file that already says the same	yes
+apps/desktop/src/main/memory-file.test.ts	keeps .locust out of git where there is a repository, and only there	yes
+apps/desktop/src/main/memory-file.test.ts	returns nothing when the folder cannot be written, so the brief pastes as before	yes
 apps/desktop/src/main/memory-reader.test.ts	keeps what a completed run said to remember, attributed to the teammate, folder and conversation, and says so twice	yes
 apps/desktop/src/main/memory-reader.test.ts	in ask mode a memory is proposed, not kept, and the notice says where to answer	yes
 apps/desktop/src/main/memory-reader.test.ts	off means nothing is read; a run that did not complete, or a reply with no block, writes nothing	yes
@@ -2050,11 +2050,11 @@ apps/desktop/src/main/memory-recall.test.ts	answers nothing, and says so once, w
 apps/desktop/src/main/memory-recall.test.ts	never holds a brief up: a slow answer is no answer, and the next brief has it	no
 apps/desktop/src/main/memory-recall.test.ts	pastes the closest first, the newer first on a tie	yes
 apps/desktop/src/main/memory-recall.test.ts	is exactly the keyword brief when recall did not answer	yes
-apps/desktop/src/main/memory-says-how-old.test.ts	says it the way a person would	no
-apps/desktop/src/main/memory-says-how-old.test.ts	says nothing rather than something wrong	no
-apps/desktop/src/main/memory-says-how-old.test.ts	puts the age beside who wrote it, in the brief itself	no
-apps/desktop/src/main/memory-says-how-old.test.ts	tells the reader what to do when two of them disagree	no
-apps/desktop/src/main/memory-says-how-old.test.ts	still reads correctly for a memory with no date at all	no
+apps/desktop/src/main/memory-says-how-old.test.ts	says it the way a person would	yes
+apps/desktop/src/main/memory-says-how-old.test.ts	says nothing rather than something wrong	yes
+apps/desktop/src/main/memory-says-how-old.test.ts	puts the age beside who wrote it, in the brief itself	yes
+apps/desktop/src/main/memory-says-how-old.test.ts	tells the reader what to do when two of them disagree	yes
+apps/desktop/src/main/memory-says-how-old.test.ts	still reads correctly for a memory with no date at all	yes
 apps/desktop/src/main/memory-store.test.ts	keeps one step back and says when, so Put it back is a swap and can be undone	no
 apps/desktop/src/main/memory-store.test.ts	changes nothing of the kind when only the switch moves	no
 apps/desktop/src/main/memory-store.test.ts	is refused, not written over, when it is torn	no
@@ -3024,8 +3024,8 @@ apps/desktop/src/main/the-github-cli-updates-from-the-card.test.ts	says why when
 apps/desktop/src/main/the-history-reads-only-what-changed.test.ts	answers exactly what the whole listing answered	yes
 apps/desktop/src/main/the-history-reads-only-what-changed.test.ts	reads no file twice when nothing changed	yes
 apps/desktop/src/main/the-history-reads-only-what-changed.test.ts	reads the one file that changed, and the answer carries the change	yes
-apps/desktop/src/main/the-host-refuses-always-for-a-reaching-command.test.ts	passes every answer from the window through enforcedAnswer before it reaches a holder	no
-apps/desktop/src/main/the-host-refuses-always-for-a-reaching-command.test.ts	refuses a rule from a card before any rule is built or saved	no
+apps/desktop/src/main/the-host-refuses-always-for-a-reaching-command.test.ts	passes every answer from the window through enforcedAnswer before it reaches a holder	yes
+apps/desktop/src/main/the-host-refuses-always-for-a-reaching-command.test.ts	refuses a rule from a card before any rule is built or saved	yes
 apps/desktop/src/main/the-in-use-check-reads-any-path.test.ts	finds a process whose path has a non-ASCII letter	yes
 apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	a called-links sync with no link kept and no routine called by one asks nothing	yes
 apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	a routine called by a link still has its link kept, as before	yes
@@ -3145,12 +3145,12 @@ apps/desktop/src/main/three-placements.test.ts	says the teammate SENT it, rather
 apps/desktop/src/main/three-placements.test.ts	offers the sender’s own conversation, once, in the header	yes
 apps/desktop/src/main/three-placements.test.ts	never claims there is more, which is the comparison it cannot make	yes
 apps/desktop/src/main/three-placements.test.ts	reaches the sender by their own mission, which the store always had	yes
-apps/desktop/src/main/todo-list-is-opt-in.test.ts	says nothing about todo lists unless asked to	no
-apps/desktop/src/main/todo-list-is-opt-in.test.ts	asks once, and asks for the list to be kept current	no
-apps/desktop/src/main/todo-list-is-opt-in.test.ts	leaves the person words last, so the ask still reads closest to the asking	no
-apps/desktop/src/main/todo-list-is-opt-in.test.ts	offers it only to runtimes that have the tool	no
-apps/desktop/src/main/todo-list-is-opt-in.test.ts	never offers it to Claude Code, which has no such tool	no
-apps/desktop/src/main/todo-list-is-opt-in.test.ts	describes a tool rather than a format, so it cannot compete with the real one	no
+apps/desktop/src/main/todo-list-is-opt-in.test.ts	says nothing about todo lists unless asked to	yes
+apps/desktop/src/main/todo-list-is-opt-in.test.ts	asks once, and asks for the list to be kept current	yes
+apps/desktop/src/main/todo-list-is-opt-in.test.ts	leaves the person words last, so the ask still reads closest to the asking	yes
+apps/desktop/src/main/todo-list-is-opt-in.test.ts	offers it only to runtimes that have the tool	yes
+apps/desktop/src/main/todo-list-is-opt-in.test.ts	never offers it to Claude Code, which has no such tool	yes
+apps/desktop/src/main/todo-list-is-opt-in.test.ts	describes a tool rather than a format, so it cannot compete with the real one	yes
 apps/desktop/src/main/tool-rows-say-what-they-did.test.ts	takes the model’s own description	yes
 apps/desktop/src/main/tool-rows-say-what-they-did.test.ts	has nothing to say when the model wrote nothing	yes
 apps/desktop/src/main/tool-rows-say-what-they-did.test.ts	is only for commands	yes
@@ -6443,20 +6443,20 @@ apps/desktop/src/shared/a-command-output-keeps-its-tail.test.ts	leaves a short c
 apps/desktop/src/shared/a-command-reaches-the-next-message-once.test.ts	carries a finished command into the next message, marked as the person's, and not again	yes
 apps/desktop/src/shared/a-command-reaches-the-next-message-once.test.ts	waits out a command that is still running, and says when one was stopped	yes
 apps/desktop/src/shared/a-command-reaches-the-next-message-once.test.ts	leaves a message alone when there is nothing to carry	yes
-apps/desktop/src/shared/a-command-says-what-it-does-in-plain-words.test.ts	says what a push does, and that a forced one loses commits on the other end	no
-apps/desktop/src/shared/a-command-says-what-it-does-in-plain-words.test.ts	reads a chain of steps, each in turn	no
-apps/desktop/src/shared/a-command-says-what-it-does-in-plain-words.test.ts	says when it only looks, once	no
-apps/desktop/src/shared/a-command-says-what-it-does-in-plain-words.test.ts	says a delete skips the Recycle Bin, on Windows and elsewhere	no
-apps/desktop/src/shared/a-command-says-what-it-does-in-plain-words.test.ts	names what throws work away	no
-apps/desktop/src/shared/a-command-says-what-it-does-in-plain-words.test.ts	says a download run at once is run unseen	no
-apps/desktop/src/shared/a-command-says-what-it-does-in-plain-words.test.ts	reads installs and scripts, with what an install may run	no
-apps/desktop/src/shared/a-command-says-what-it-does-in-plain-words.test.ts	reads the command inside the shells the runtimes wrap it in	no
-apps/desktop/src/shared/a-command-says-what-it-does-in-plain-words.test.ts	says nothing unless it can read every part	no
-apps/desktop/src/shared/a-command-says-what-it-does-in-plain-words.test.ts	reads the way Codex reads a project: files by -LiteralPath, part of one, a long chain that only looks	no
-apps/desktop/src/shared/a-command-says-what-it-does-in-plain-words.test.ts	says a step run again once, with how often	no
-apps/desktop/src/shared/a-command-says-what-it-does-in-plain-words.test.ts	says where what it prints is saved, and when that loses a file	no
-apps/desktop/src/shared/a-command-says-what-it-does-in-plain-words.test.ts	names a setting made for the commands after it, never its value	no
-apps/desktop/src/shared/a-command-says-what-it-does-in-plain-words.test.ts	a quoted arrow or a discarded stream is not a file written	no
+apps/desktop/src/shared/a-command-says-what-it-does-in-plain-words.test.ts	says what a push does, and that a forced one loses commits on the other end	yes
+apps/desktop/src/shared/a-command-says-what-it-does-in-plain-words.test.ts	reads a chain of steps, each in turn	yes
+apps/desktop/src/shared/a-command-says-what-it-does-in-plain-words.test.ts	says when it only looks, once	yes
+apps/desktop/src/shared/a-command-says-what-it-does-in-plain-words.test.ts	says a delete skips the Recycle Bin, on Windows and elsewhere	yes
+apps/desktop/src/shared/a-command-says-what-it-does-in-plain-words.test.ts	names what throws work away	yes
+apps/desktop/src/shared/a-command-says-what-it-does-in-plain-words.test.ts	says a download run at once is run unseen	yes
+apps/desktop/src/shared/a-command-says-what-it-does-in-plain-words.test.ts	reads installs and scripts, with what an install may run	yes
+apps/desktop/src/shared/a-command-says-what-it-does-in-plain-words.test.ts	reads the command inside the shells the runtimes wrap it in	yes
+apps/desktop/src/shared/a-command-says-what-it-does-in-plain-words.test.ts	says nothing unless it can read every part	yes
+apps/desktop/src/shared/a-command-says-what-it-does-in-plain-words.test.ts	reads the way Codex reads a project: files by -LiteralPath, part of one, a long chain that only looks	yes
+apps/desktop/src/shared/a-command-says-what-it-does-in-plain-words.test.ts	says a step run again once, with how often	yes
+apps/desktop/src/shared/a-command-says-what-it-does-in-plain-words.test.ts	says where what it prints is saved, and when that loses a file	yes
+apps/desktop/src/shared/a-command-says-what-it-does-in-plain-words.test.ts	names a setting made for the commands after it, never its value	yes
+apps/desktop/src/shared/a-command-says-what-it-does-in-plain-words.test.ts	a quoted arrow or a discarded stream is not a file written	yes
 apps/desktop/src/shared/a-command-that-reaches-other-programs-is-named.test.ts	%s	no
 apps/desktop/src/shared/a-command-that-reaches-other-programs-is-named.test.ts	acts on its own or only says it: %s	no
 apps/desktop/src/shared/a-command-that-reaches-other-programs-is-named.test.ts	says it in words a person reads	yes
@@ -6508,15 +6508,15 @@ apps/desktop/src/shared/a-rewritten-memory-is-new.test.ts	is dated by its last w
 apps/desktop/src/shared/a-rewritten-memory-is-new.test.ts	sorts as the newest, whatever its first date	yes
 apps/desktop/src/shared/a-rewritten-memory-is-new.test.ts	leads the brief as the newest, and says it is from today	yes
 apps/desktop/src/shared/a-rewritten-memory-is-new.test.ts	keeps the store’s order for memories written at the same moment	yes
-apps/desktop/src/shared/a-room-remembers-what-was-said.test.ts	is nothing in a room with no earlier post	no
-apps/desktop/src/shared/a-room-remembers-what-was-said.test.ts	names who said what, from the reader’s side, oldest first, and says where the new post begins	no
-apps/desktop/src/shared/a-room-remembers-what-was-said.test.ts	quotes no block that could act again, and leaves the board’s blocks to the board	no
-apps/desktop/src/shared/a-room-remembers-what-was-said.test.ts	leaves out an answer that was nothing but a board move	no
+apps/desktop/src/shared/a-room-remembers-what-was-said.test.ts	is nothing in a room with no earlier post	yes
+apps/desktop/src/shared/a-room-remembers-what-was-said.test.ts	names who said what, from the reader’s side, oldest first, and says where the new post begins	yes
+apps/desktop/src/shared/a-room-remembers-what-was-said.test.ts	quotes no block that could act again, and leaves the board’s blocks to the board	yes
+apps/desktop/src/shared/a-room-remembers-what-was-said.test.ts	leaves out an answer that was nothing but a board move	yes
 apps/desktop/src/shared/a-room-remembers-what-was-said.test.ts	tells only the last few posts	yes
-apps/desktop/src/shared/a-room-remembers-what-was-said.test.ts	shortens the answers first, keeping every post while they still say something	no
-apps/desktop/src/shared/a-room-remembers-what-was-said.test.ts	then lets the oldest post go, and the newest is the last thing kept	no
-apps/desktop/src/shared/a-room-remembers-what-was-said.test.ts	takes only the room it is given, and nothing when that is too little to say anything	no
-apps/desktop/src/shared/a-room-remembers-what-was-said.test.ts	never takes more than its own budget, however much room there is	no
+apps/desktop/src/shared/a-room-remembers-what-was-said.test.ts	shortens the answers first, keeping every post while they still say something	yes
+apps/desktop/src/shared/a-room-remembers-what-was-said.test.ts	then lets the oldest post go, and the newest is the last thing kept	yes
+apps/desktop/src/shared/a-room-remembers-what-was-said.test.ts	takes only the room it is given, and nothing when that is too little to say anything	yes
+apps/desktop/src/shared/a-room-remembers-what-was-said.test.ts	never takes more than its own budget, however much room there is	yes
 apps/desktop/src/shared/a-run-started-for-a-teammate-is-theirs.test.ts	their id, their route, their mode and effort -- not what the composer was showing	no
 apps/desktop/src/shared/a-run-started-for-a-teammate-is-theirs.test.ts	a route picked for their new chat wins, as it does in the box	yes
 apps/desktop/src/shared/a-run-started-for-a-teammate-is-theirs.test.ts	a pick made in some conversation of theirs does not (0.552)	yes
@@ -6676,22 +6676,22 @@ apps/desktop/src/shared/kilo-models.test.ts	says the privacy cost on Auto Free o
 apps/desktop/src/shared/kilo-models.test.ts	moves a new conversation off the account default once Auto Free is listed	yes
 apps/desktop/src/shared/kilo-models.test.ts	names a model without the gateway every Kilo row would repeat	yes
 apps/desktop/src/shared/kilo-models.test.ts	keeps Kilo's word on its own router, so the chip never says a bare Auto	yes
-apps/desktop/src/shared/memory.test.ts	reads remember, remember everywhere and forget, one per line, in order	no
-apps/desktop/src/shared/memory.test.ts	caps the operations per reply, bounds the text, and drops control bytes	no
-apps/desktop/src/shared/memory.test.ts	matches memories case- and punctuation-blind	no
-apps/desktop/src/shared/memory.test.ts	strips its blocks from a reply and defangs the tag in quoted text	no
-apps/desktop/src/shared/memory.test.ts	lists the memories with who wrote them and where, and teaches the block	no
-apps/desktop/src/shared/memory.test.ts	says when the person is asked first, and that nothing is remembered yet	no
-apps/desktop/src/shared/memory.test.ts	says not to raise one that has nothing to do with the question	no
-apps/desktop/src/shared/memory.test.ts	names the specific thing that went wrong: reporting another teammate’s work	no
-apps/desktop/src/shared/memory.test.ts	still tells it to answer from a memory that does fit	no
-apps/desktop/src/shared/memory.test.ts	puts a file ahead of a note copied from it	no
-apps/desktop/src/shared/memory.test.ts	stays bounded however many are kept	no
-apps/desktop/src/shared/memory.test.ts	says how many it left out, rather than quietly shortening	no
-apps/desktop/src/shared/memory.test.ts	pastes fewer and names the file for the rest, when the whole list is a file in the workspace	no
-apps/desktop/src/shared/memory.test.ts	says nothing about dropping when nothing was dropped	no
-apps/desktop/src/shared/memory.test.ts	keeps this folder ahead of everywhere	no
-apps/desktop/src/shared/memory.test.ts	keeps the newest of a long list, not the oldest	no
+apps/desktop/src/shared/memory.test.ts	reads remember, remember everywhere and forget, one per line, in order	yes
+apps/desktop/src/shared/memory.test.ts	caps the operations per reply, bounds the text, and drops control bytes	yes
+apps/desktop/src/shared/memory.test.ts	matches memories case- and punctuation-blind	yes
+apps/desktop/src/shared/memory.test.ts	strips its blocks from a reply and defangs the tag in quoted text	yes
+apps/desktop/src/shared/memory.test.ts	lists the memories with who wrote them and where, and teaches the block	yes
+apps/desktop/src/shared/memory.test.ts	says when the person is asked first, and that nothing is remembered yet	yes
+apps/desktop/src/shared/memory.test.ts	says not to raise one that has nothing to do with the question	yes
+apps/desktop/src/shared/memory.test.ts	names the specific thing that went wrong: reporting another teammate’s work	yes
+apps/desktop/src/shared/memory.test.ts	still tells it to answer from a memory that does fit	yes
+apps/desktop/src/shared/memory.test.ts	puts a file ahead of a note copied from it	yes
+apps/desktop/src/shared/memory.test.ts	stays bounded however many are kept	yes
+apps/desktop/src/shared/memory.test.ts	says how many it left out, rather than quietly shortening	yes
+apps/desktop/src/shared/memory.test.ts	pastes fewer and names the file for the rest, when the whole list is a file in the workspace	yes
+apps/desktop/src/shared/memory.test.ts	says nothing about dropping when nothing was dropped	yes
+apps/desktop/src/shared/memory.test.ts	keeps this folder ahead of everywhere	yes
+apps/desktop/src/shared/memory.test.ts	keeps the newest of a long list, not the oldest	yes
 apps/desktop/src/shared/messageFragments.test.ts	stops the reply saying itself twice	yes
 apps/desktop/src/shared/messageFragments.test.ts	gives the answer back its own message instead of welding it on	yes
 apps/desktop/src/shared/messageFragments.test.ts	keeps the first message under the id every other surface knows	yes

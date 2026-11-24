@@ -1,6 +1,7 @@
 //! Electron's `main/approval-channel.test.ts`: describe what a Codex app server asked, wait for a person, and match the
 //! answer to the question, without a mission (`approval.rs`). Electron's `withFileChanges`, which rewrites a fileChange
-//! tool row from the item's changes, has no native counterpart (see the row).
+//! tool row from the item's changes, is `approval::with_file_changes`, tested on a Codex app server's wire in
+//! `runtime/codex_file_change_rows_tests.rs`.
 
 use crate::approval::{approval_kind_for, describe_codex, protocol_decision_for, questions_of, Answer, Channel, Decision, Kind, QuestionOption, Request};
 use crate::approval_patch::{FileChangeKind, FileChangeRecord};
