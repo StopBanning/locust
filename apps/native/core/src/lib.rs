@@ -28,6 +28,7 @@ pub mod browser_tools;
 #[cfg(all(test, unix))]
 #[path = "runtime/copilot_browser_grid_tests.rs"]
 mod copilot_browser_grid_tests;
+pub mod call_log;
 pub mod carry_on;
 pub mod chat_apps;
 pub mod chat_discord;
@@ -567,9 +568,18 @@ mod cancelled_run_cost_tests;
 #[cfg(test)]
 mod next_steps_cards_tests;
 pub mod window_bounds;
+pub mod voice_call_rules;
+pub mod voice_call_folder;
+pub mod voice_typing;
+pub mod voice_transcript;
+pub mod voice_audio;
+pub mod voice_assets;
+pub mod voice_preview;
+pub mod talk_shortcut;
 #[cfg(test)]
 mod window_bounds_tests;
 pub mod workspace_launch;
+pub mod workspace_files;
 #[cfg(test)]
 mod workspace_launch_tests;
 #[cfg(test)]

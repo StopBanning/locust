@@ -56,6 +56,8 @@ pub struct Metadata {
     pub continues_reason: Option<String>,
     /// An edit of an earlier message: an earlier version followed the same turn (`continuesFrom.edited`).
     pub edited: bool,
+    /// The voice path within an MCP origin, used on the conversation's first turn.
+    pub started_by_voice: bool,
     pub started_by_kind: Option<String>,
     pub started_by_hop: Option<usize>,
     pub relay: Option<crate::relay::RelayOrigin>,
@@ -483,6 +485,7 @@ pub fn metadata(record: &Record) -> Option<Metadata> {
             .and_then(Value::as_str)
             .map(str::to_owned),
         edited: m.get("continuesFrom").and_then(|v| v.get("edited")) == Some(&Value::Bool(true)),
+        started_by_voice: m["startedBy"]["kind"] == "mcp" && m["startedBy"]["via"] == "voice",
         started_by_kind: m
             .get("startedBy")
             .and_then(|v| v.get("kind"))

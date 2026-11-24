@@ -737,3 +737,40 @@ mod an_app_picks_up_cut_off_door_tests;
 #[cfg(test)]
 #[path = "an_app_reads_usage_and_sets_model_tests.rs"]
 mod an_app_reads_usage_and_sets_model_tests;
+
+fn voice_tools_for_test() -> (Tools<Fake>, std::sync::Arc<VoiceScope>) {
+    let host = Fake { own_mode: true, ..Default::default() };
+    let mut here = turn("mission_7", false, vec![]);
+    here.mode = Some("approve-each".into());
+    host.turns.lock().unwrap().insert(here.mission_id.clone(), here);
+    host.turns.lock().unwrap().insert("mission_8".into(), turn("mission_8", false, vec![]));
+    let scope = std::sync::Arc::new(VoiceScope::new(PathBuf::from("/project"), Some("mission_7")));
+    (Tools::new(host).with_voice(scope.clone()), scope)
+}
+
+// case: sends the ask into the conversation Talk was pressed in, in the teammate's own mode
+#[test]
+fn a_voice_handoff_follows_the_selected_conversation() {
+    let (tools, scope) = voice_tools_for_test();
+    let reply = tools.call("send_message", &json!({"conversation_id":"mission_7","message":"Fix it and add a test."}));
+    assert!(!reply.is_error, "{reply:?}");
+    let started = tools.locust.started.lock().unwrap();
+    assert_eq!(started[0].follow_up_of.as_deref(), Some("mission_7"));
+    assert_eq!(started[0].prompt, "Fix it and add a test.");
+    assert_eq!(started[0].mode, Mode::ApproveEach);
+    let handed = scope.take_handoffs();
+    assert_eq!(handed.len(), 1);
+    assert_eq!(handed[0].task, "Fix it and add a test.");
+    assert_eq!(handed[0].teammate_id, "tm_scout");
+}
+
+// case: refuses any other conversation of the person's, and every one once the call has ended
+#[test]
+fn the_call_scope_is_neither_shared_nor_kept() {
+    let (tools, scope) = voice_tools_for_test();
+    let ask = |id| json!({"conversation_id":id,"message":"And this?"});
+    assert!(tools.call("send_message", &ask("mission_8")).is_error);
+    scope.close();
+    assert!(tools.call("send_message", &ask("mission_7")).is_error);
+    assert!(tools.locust.started.lock().unwrap().is_empty());
+}
