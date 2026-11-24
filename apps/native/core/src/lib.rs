@@ -196,6 +196,7 @@ pub mod office;
 pub mod own_command;
 pub mod page_preview;
 pub mod pdf;
+pub mod pdf_text;
 pub mod people;
 pub mod phone_alerts;
 pub mod phone_anywhere;

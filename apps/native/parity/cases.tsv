@@ -4017,9 +4017,9 @@ apps/desktop/src/renderer/src/a-pdf-is-a-card.test.tsx	is its name and its page 
 apps/desktop/src/renderer/src/a-pdf-is-a-card.test.tsx	says how many pages, in one word or two	no
 apps/desktop/src/renderer/src/a-pdf-is-a-card.test.tsx	a page each, numbered, and the pages it did not draw said rather than left out	no
 apps/desktop/src/renderer/src/a-pdf-is-a-card.test.tsx	a PDF drawn whole says nothing more	no
-apps/desktop/src/renderer/src/a-pdf-page-reads-in-order.test.ts	puts runs on their lines, top first, and keeps a matrix’s entries apart	no
-apps/desktop/src/renderer/src/a-pdf-page-reads-in-order.test.ts	a subscript joins its line, and the next line of a paragraph does not	no
-apps/desktop/src/renderer/src/a-pdf-page-reads-in-order.test.ts	an empty page is no text, not an error	no
+apps/desktop/src/renderer/src/a-pdf-page-reads-in-order.test.ts	puts runs on their lines, top first, and keeps a matrix’s entries apart	yes
+apps/desktop/src/renderer/src/a-pdf-page-reads-in-order.test.ts	a subscript joins its line, and the next line of a paragraph does not	yes
+apps/desktop/src/renderer/src/a-pdf-page-reads-in-order.test.ts	an empty page is no text, not an error	yes
 apps/desktop/src/renderer/src/a-pet-plays-what-its-teammate-is-doing.test.ts	maps every activity to a row of its sheet	yes
 apps/desktop/src/renderer/src/a-pet-plays-what-its-teammate-is-doing.test.ts	rests in its resting pose -- version 2’s own, version 1’s first idle frame	no
 apps/desktop/src/renderer/src/a-pet-plays-what-its-teammate-is-doing.test.ts	loops work and thought through their rows at OpenPets’ pace	yes
