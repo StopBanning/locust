@@ -1,0 +1,27 @@
+# cargo-nextest settings for this workspace (apps/native: members "." and "core").
+# From docs/STUDY-evener-gate.md (duet/evener-study). The thread count is not set here: scripts/gentle-cargo.py sets
+# NEXTEST_TEST_THREADS from the spare CPU when it runs `nextest run` (scripts/load_threads.py), and an explicit value
+# in the environment or `-j` on the command line wins.
+#
+# `cargo test` (libtest, also `--release`) does not read this file; gentle-cargo.py sets RUST_TEST_THREADS for it.
+
+[test-groups]
+# Headless Rune windows: each test spins a runtime and often a Python fake. At most three at once in one run, whatever
+# the thread count (notes/LOAD-NOTES.md).
+window = { max-threads = 3 }
+
+[profile.default]
+# SLOW after 60 s, stopped after 180 s (three periods), 5 s after a polite signal. Our process-waiting tests give up at
+# 60 s (core/src/load_waits.rs UNDER_LOAD), so a test's own failure message always comes before nextest's stop.
+slow-timeout = { period = "60s", terminate-after = 3, grace-period = "5s" }
+# A pass on retry hides a load failure as FLAKY. Retry only a named test, with a reason, in a profile below.
+retries = 0
+
+[[profile.default.overrides]]
+filter = 'package(locust-native) & test(/^(window_drive_tests|compare_window_tests)::/)'
+test-group = "window"
+
+[profile.gate]
+# The gate before a merge: every failure, then the SLOW list at the end (Evener's warn-only ceiling).
+fail-fast = false
+final-status-level = "slow"
