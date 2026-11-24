@@ -49,6 +49,8 @@ mod browser_mac;
 mod browser_panel;
 #[path = "ui/context_ring.rs"]
 mod context_ring;
+#[path = "ui/stop_press_ui.rs"]
+mod stop_press_ui;
 #[path = "ui/recovery_card.rs"]
 mod recovery_card;
 #[path = "ui/reference_chips.rs"]
@@ -1090,6 +1092,7 @@ fn send(s: &mut State, _: &mut Tx) {
         Some(edit_message::ForSend { rewind, put_back }) => (Some(rewind), put_back),
         None => (None, None),
     };
+    s.stop_when_named = None;
     let receipt = s.edit.receipt.clone();
     *invariants::lock(&receipt) = None;
     s.sending.request(
@@ -1260,6 +1263,9 @@ fn can_stop(s: &State) -> bool {
 const STOP_ELSEWHERE: &str = "This turn runs in another Locust process (Quick Ask or --ask), and only that one can stop it.";
 
 fn stop(s: &mut State) {
+    if stop_press_ui::remembered(s) {
+        return;
+    }
     if !can_stop(s) || s.stopping.is_pending() {
         return;
     }
@@ -2473,6 +2479,10 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
         } else {
             s.scout.in_flight_comment_card = None;
         }
+    }
+
+    if stop_press_ui::named(s) {
+        changed = true;
     }
 
     if import_dialog::poll(s) {

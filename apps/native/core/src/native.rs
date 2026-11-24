@@ -1298,6 +1298,9 @@ pub fn owns(conversation: &str) -> bool {
     with_running(|m| m.contains_key(conversation))
 }
 
+/// What a press of Stop means for a run that may not have a name yet (Electron's `stopPress`).
+pub use crate::stop_press::{StopPress, StoppableRun, is_stoppable, stop_press};
+
 pub fn stop(conversation: &str) -> Result<String, String> {
     with_running(|m| m.get(conversation).cloned())
         .map(|flag| {
