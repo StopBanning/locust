@@ -157,6 +157,24 @@ pub mod hooks {
             *crate::invariants::lock(&ON_AFTER_DISK) = None;
         }
     }
+    /// An empty saved-rules store for a test that asks for approval and expects a card. It holds LOCK as `install` does,
+    /// so a rules test's saved allow can never answer this test's request: on 24 Nov a rules test's "git status" allow,
+    /// read through the shared hook, left approval_declined_tests waiting forever for its card in a whole-package run.
+    pub struct NoSavedRules {
+        _guard: Guard,
+        root: PathBuf,
+    }
+    impl Drop for NoSavedRules {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.root);
+        }
+    }
+    pub fn no_saved_rules() -> NoSavedRules {
+        let root = std::env::temp_dir().join(format!("locust-no-rules-{}", crate::invariants::unique_nanos()));
+        std::fs::create_dir_all(root.join("electron")).unwrap();
+        let store = Store::new(root.join("native"), root.join("electron")).unwrap();
+        NoSavedRules { _guard: install(store, None), root }
+    }
     /// Every turn thread, its ending included, is gone: turns still running are told to stop, again each time, since an
     /// ending can start another (a relay's next hop). Bounded, as the load limit bounds a test's waits; past it the
     /// count is said rather than hidden, and the guard goes on.

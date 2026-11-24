@@ -25,6 +25,7 @@ fn raise(asked: Value, mission: &str) -> (Request, std::sync::Arc<Channel>, std:
 // case: is a command card naming the command, from OpenCode, and the answer comes back as its reply
 #[test]
 fn is_a_command_card_naming_the_command_and_the_answer_comes_back_as_its_reply() {
+    let _rules = crate::native::hooks::no_saved_rules();
     let asked = open_code_permission_request(&json!({"permission": "bash", "patterns": ["echo hi"], "metadata": {"command": "echo hi"}}), "/work");
     let (card, ch, handle) = raise(asked, "m_1");
     assert_eq!((card.runtime.as_str(), card.kind.as_str(), card.detail.as_str(), card.summary.as_str()), ("opencode", "command", "echo hi", "Run a command"));
@@ -35,6 +36,7 @@ fn is_a_command_card_naming_the_command_and_the_answer_comes_back_as_its_reply()
 // case: shows the edit it proposes, by its file relative to the folder (the 0.345 beta report)
 #[test]
 fn shows_the_edit_it_proposes_by_its_file_relative_to_the_folder() {
+    let _rules = crate::native::hooks::no_saved_rules();
     let diff = ["Index: /work/notes.txt", &"=".repeat(67), "--- /work/notes.txt", "+++ /work/notes.txt", "@@ -1,1 +1,1 @@", "-Status: draft", "+Status: ready", ""].join("\n");
     let asked = open_code_permission_request(&json!({"permission": "edit", "patterns": ["notes.txt"], "metadata": {"filepath": "/work/notes.txt", "diff": diff}}), "/work");
     let (card, ch, handle) = raise(asked, "m_2");
@@ -50,6 +52,7 @@ fn shows_the_edit_it_proposes_by_its_file_relative_to_the_folder() {
 // case: names an edit by its file, and anything else by what it is
 #[test]
 fn names_an_edit_by_its_file_and_anything_else_by_what_it_is() {
+    let _rules = crate::native::hooks::no_saved_rules();
     let edit = open_code_permission_request(&json!({"permission": "edit", "patterns": ["a.txt"], "metadata": {"filepath": "/work/a.txt"}}), "/work");
     assert_eq!((edit["method"].as_str(), edit["params"]["summary"].as_str()), (Some("item/fileChange/requestApproval"), Some("a.txt")));
     let outside = open_code_permission_request(&json!({"permission": "external_directory", "patterns": ["/other/*"], "metadata": {}}), "/work");
@@ -61,6 +64,7 @@ fn names_an_edit_by_its_file_and_anything_else_by_what_it_is() {
 // case: says a fetch is a fetch, a write outside the folder is outside it, and what Always allows
 #[test]
 fn says_a_fetch_is_a_fetch_a_write_outside_is_outside_and_what_always_allows() {
+    let _rules = crate::native::hooks::no_saved_rules();
     let fetch = open_code_permission_request(&json!({"permission": "webfetch", "patterns": ["https://example.com/"], "metadata": {"url": "https://example.com/"}}), "/work");
     assert_eq!(fetch["params"]["command"], "https://example.com/");
     assert_eq!(fetch["params"]["locustCard"]["summary"], "Fetch a web page");
@@ -75,6 +79,7 @@ fn says_a_fetch_is_a_fetch_a_write_outside_is_outside_and_what_always_allows() {
 // case: names a person's own MCP tool, with no exact line where OpenCode gives no details
 #[test]
 fn names_a_persons_own_mcp_tool_with_no_exact_line() {
+    let _rules = crate::native::hooks::no_saved_rules();
     let asked = json!({"permission": "notes_save_note", "patterns": ["*"], "always": ["*"], "metadata": {}});
     let (card, ch, handle) = raise(open_code_permission_request(&asked, "/work"), "m_3");
     assert_eq!((card.kind.as_str(), card.summary.as_str(), card.detail.as_str()), ("command", "Use notes_save_note", ""));
@@ -91,6 +96,7 @@ fn names_a_persons_own_mcp_tool_with_no_exact_line() {
 // case: reads "for the rest of the run" as once, Locust keeping the Always, and anything unclear as a refusal
 #[test]
 fn reads_for_the_rest_of_the_run_as_once_and_anything_unclear_as_a_refusal() {
+    let _rules = crate::native::hooks::no_saved_rules();
     assert_eq!(open_code_reply_for(&json!({"decision": "acceptForSession"})), json!("once"));
     assert_eq!(open_code_reply_for(&json!({"decision": "reject"})), json!("reject"));
     assert_eq!(open_code_reply_for(&Value::Null), json!("reject"));

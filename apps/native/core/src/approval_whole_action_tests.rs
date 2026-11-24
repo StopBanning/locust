@@ -7,6 +7,7 @@ use serde_json::json;
 // case: shows a connector call whole, down to a recipient written last
 #[test]
 fn shows_a_connector_call_whole_down_to_a_recipient_written_last() {
+    let _rules = crate::native::hooks::no_saved_rules();
     let body = "Here is the summary you asked for. ".repeat(26);
     assert!(body.len() > 900);
     let (kind, _, detail, _, _) = describe_claude_tool(
@@ -26,6 +27,7 @@ fn shows_a_connector_call_whole_down_to_a_recipient_written_last() {
 // case: keeps a command's line breaks, as the command will run
 #[test]
 fn keeps_a_commands_line_breaks_as_the_command_will_run() {
+    let _rules = crate::native::hooks::no_saved_rules();
     let command = "cat > notes.txt <<'EOF'\nfirst line\nsecond line\nEOF\ncurl -X POST https://example.com/upload -d @notes.txt";
     let (kind, _, detail, _, _) = describe_claude_tool("Bash", &json!({ "command": command }), "C:/work");
     assert_eq!(kind, Kind::Command);
@@ -35,6 +37,7 @@ fn keeps_a_commands_line_breaks_as_the_command_will_run() {
 // case: shows the path of a Codex command on Windows as the shell gets it
 #[test]
 fn shows_the_path_of_a_codex_command_on_windows_as_the_shell_gets_it() {
+    let _rules = crate::native::hooks::no_saved_rules();
     let sent = r#""C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command 'python -m pytest -q'"#;
     let (_, _, detail, _) =
         describe_codex("item/commandExecution/requestApproval", &json!({ "command": sent, "cwd": "C:/acme" })).unwrap();
@@ -44,6 +47,7 @@ fn shows_the_path_of_a_codex_command_on_windows_as_the_shell_gets_it() {
 // case: leaves a command as sent when its path was not escaped as a whole, and leaves the rest alone
 #[test]
 fn leaves_a_command_as_sent_when_its_path_was_not_escaped_as_a_whole_and_leaves_the_rest_alone() {
+    let _rules = crate::native::hooks::no_saved_rules();
     let plain = r#""C:\Program Files\Git\bin\bash.exe" -lc 'ls'"#;
     assert_eq!(program_as_run(plain), plain);
     let mixed = r#""C:\\tools\odd.exe" run"#;
@@ -57,6 +61,7 @@ fn leaves_a_command_as_sent_when_its_path_was_not_escaped_as_a_whole_and_leaves_
 // case: counts what it cannot show, and never cuts it silently
 #[test]
 fn counts_what_it_cannot_show_and_never_cuts_it_silently() {
+    let _rules = crate::native::hooks::no_saved_rules();
     let shown = whole_detail(&format!("{}{}", "a".repeat(20_000), "b".repeat(1234)));
     assert!(shown.contains("[1,234 more characters not shown here. Deny if you cannot see enough to decide.]"), "{}", &shown[shown.len() - 120..]);
     assert!(!shown.contains('b'));

@@ -51,6 +51,7 @@ fn denied_on(runtime: &'static str, reason: Option<&'static str>) -> (Arc<Channe
 // case: keeps a denial’s reason, in one line and bounded, and nothing when there is none
 #[test]
 fn keeps_a_denials_reason_in_one_line_and_bounded_and_nothing_when_there_is_none() {
+    let _rules = crate::native::hooks::no_saved_rules();
     assert_eq!(
         taken(json!({"approvalId": "a", "decision": "deny", "reason": "  use the\nbuild script instead  "})),
         ("reject".into(), Some("use the build script instead".into()))
@@ -68,6 +69,7 @@ fn keeps_a_denials_reason_in_one_line_and_bounded_and_nothing_when_there_is_none
 // case: never lets a reason ride an approval, or turn a malformed answer into anything but a denial
 #[test]
 fn never_lets_a_reason_ride_an_approval_or_turn_a_malformed_answer_into_anything_but_a_denial() {
+    let _rules = crate::native::hooks::no_saved_rules();
     assert_eq!(taken(json!({"approvalId": "a", "decision": "approve-once", "reason": "sure"})), ("accept".into(), None));
     assert_eq!(taken(json!({"approvalId": "a", "decision": "yes please", "reason": "no"})), ("reject".into(), Some("no".into())));
     // An approval given a reason anyway reaches the runtime's adapter as a plain approval, and nothing is steered.
@@ -97,6 +99,7 @@ fn never_lets_a_reason_ride_an_approval_or_turn_a_malformed_answer_into_anything
 // case: on Codex: the reply is the plain protocol reject, and the reason goes to the run as its next input
 #[test]
 fn on_codex_the_reply_is_the_plain_protocol_reject_and_the_reason_goes_to_the_run_as_its_next_input() {
+    let _rules = crate::native::hooks::no_saved_rules();
     let (channel, reply) = denied_on("codex", Some("use the build script instead"));
     // Exactly what Codex's app-server expects: no field it does not know.
     assert_eq!(reply, json!({"decision": "reject"}));
@@ -113,6 +116,7 @@ fn on_codex_the_reply_is_the_plain_protocol_reject_and_the_reason_goes_to_the_ru
 // case: on OpenCode: the reason rides the reject itself, and nothing is steered
 #[test]
 fn on_opencode_the_reason_rides_the_reject_itself_and_nothing_is_steered() {
+    let _rules = crate::native::hooks::no_saved_rules();
     let (channel, reply) = denied_on("opencode", Some("use the build script instead"));
     assert_eq!(
         open_code_reply_for(&reply),
@@ -124,6 +128,7 @@ fn on_opencode_the_reason_rides_the_reject_itself_and_nothing_is_steered() {
 // case: without a reason: a plain reject everywhere, and nothing steered
 #[test]
 fn without_a_reason_a_plain_reject_everywhere_and_nothing_steered() {
+    let _rules = crate::native::hooks::no_saved_rules();
     let (codex, on_codex) = denied_on("codex", None);
     assert_eq!(on_codex, json!({"decision": "reject"}));
     let (open, on_open) = denied_on("opencode", None);
@@ -139,12 +144,14 @@ fn without_a_reason_a_plain_reject_everywhere_and_nothing_steered() {
 // case: reads, to the runtime, as the person’s words
 #[test]
 fn reads_to_the_runtime_as_the_persons_words() {
+    let _rules = crate::native::hooks::no_saved_rules();
     assert_eq!(denied_saying("use the build script instead"), "The person declined this, and said: use the build script instead");
 }
 
 /// A reason waits only while its run lasts.
 #[test]
 fn a_reason_not_yet_shown_goes_with_its_run() {
+    let _rules = crate::native::hooks::no_saved_rules();
     let (channel, _) = denied_on("codex", Some("use the build script instead"));
     channel.release("mission_1");
     assert_eq!(channel.take_denied_saying("run_1"), vec![]);

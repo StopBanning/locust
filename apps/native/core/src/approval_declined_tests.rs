@@ -19,6 +19,7 @@ fn set(items: &[&str]) -> HashSet<String> {
 // case: is said as declined when it fails, and nothing else changes
 #[test]
 fn is_said_as_declined_when_it_fails_and_nothing_else_changes() {
+    let _rules = crate::native::hooks::no_saved_rules();
     let completed = Event { kind: "tool.completed".into(), payload: json!({"itemId": "item_1"}), thread: None };
     let out = with_declines(vec![failed("item_1"), failed("item_2"), completed], &set(&["item_1"]));
     assert_eq!(out[0].payload["status"], "declined");
@@ -33,6 +34,7 @@ fn is_said_as_declined_when_it_fails_and_nothing_else_changes() {
 // case: is left alone when there is nothing declined
 #[test]
 fn is_left_alone_when_there_is_nothing_declined() {
+    let _rules = crate::native::hooks::no_saved_rules();
     let out = with_declines(vec![failed("item_1")], &HashSet::new());
     assert_eq!(out.len(), 1);
     assert_eq!(out[0].payload, failed("item_1").payload);
@@ -41,6 +43,7 @@ fn is_left_alone_when_there_is_nothing_declined() {
 // case: remembers the items the person declined in a run -- and only those, and only while the run lasts
 #[test]
 fn remembers_the_items_the_person_declined_in_a_run_and_only_those_and_only_while_the_run_lasts() {
+    let _rules = crate::native::hooks::no_saved_rules();
     let channel = Channel::new();
     let ask = |item: &'static str| {
         let ch = channel.clone();

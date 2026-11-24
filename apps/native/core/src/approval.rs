@@ -2193,6 +2193,7 @@ mod tests {
 
     #[test]
     fn records_are_scoped_and_card_words_match_electron() {
+        let _rules = crate::native::hooks::no_saved_rules();
         let ch = Channel::new();
         let mut request = Request {
             approval_id: "a".into(),
@@ -2259,6 +2260,7 @@ mod tests {
 
     #[test]
     fn ended_or_cancelled_requests_never_raise_a_card() {
+        let _rules = crate::native::hooks::no_saved_rules();
         let ch = Channel::new();
         ch.release("ended");
         assert!(
@@ -2274,6 +2276,7 @@ mod tests {
 
     #[test]
     fn claude_always_is_only_for_the_chosen_tool_in_this_turn() {
+        let _rules = crate::native::hooks::no_saved_rules();
         let ch = Channel::new();
         let worker = ch.clone();
         let handle = std::thread::spawn(move || {
@@ -2384,6 +2387,7 @@ mod tests {
 
     #[test]
     fn allow_deny_and_after_end_refused() {
+        let _rules = crate::native::hooks::no_saved_rules();
         let ch = Channel::new();
         let ch2 = ch.clone();
         let handle = std::thread::spawn(move || {
@@ -2465,6 +2469,7 @@ mod tests {
 
     #[test]
     fn carries_opencodes_own_words_to_the_card_a_fetch_and_what_always_matches() {
+        let _rules = crate::native::hooks::no_saved_rules();
         let ch = Channel::new();
         let ch2 = ch.clone();
         let asked = open_code_permission_request(
@@ -2596,6 +2601,7 @@ mod tests {
 
     #[test]
     fn draws_a_codex_file_change_whose_approval_arrived_before_its_item_was_read() {
+        let _rules = crate::native::hooks::no_saved_rules();
         let ch = Channel::new();
         let ch2 = ch.clone();
         let changes_by_item = std::sync::Arc::new(std::sync::Mutex::new(
