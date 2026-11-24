@@ -775,7 +775,14 @@ fn cover(s: &State, l: &crate::look::controls::Look, status: Option<String>) -> 
                 .a11y_hidden(),
         );
     let frame = lighting.unwrap_or(crate::look::lockup::STILL);
-    let mut lockup_layer = col().opacity(frame.ink).instant_changes().child(lockup(ink).key("home-cover-lockup"));
+    // One image named Locust; the mark, the name and the lit copy inside it are hidden from a screen reader.
+    let mut lockup_layer = col()
+        .opacity(frame.ink)
+        .instant_changes()
+        .role("img")
+        .label("Locust")
+        .key("home-cover-lockup-img")
+        .child(lockup(ink).key("home-cover-lockup"));
     if let Some(lit) = lighting {
         // The tube catches in the lime, holds, then cools back to the glass's ink (`.lc-lockup__lit`).
         lockup_layer = lockup_layer.child(
@@ -2555,3 +2562,7 @@ mod cover_notice_tests;
 #[cfg(test)]
 #[path = "home_lockup_tests.rs"]
 mod home_lockup_tests;
+
+#[cfg(test)]
+#[path = "home_lockup_power_tests.rs"]
+mod home_lockup_power_tests;

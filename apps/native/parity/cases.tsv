@@ -6051,6 +6051,11 @@ apps/desktop/src/renderer/src/the-live-line-says-which-plan-step.test.ts	keeps a
 apps/desktop/src/renderer/src/the-live-word-says-three-dots.test.ts	capitalises and ends in one ellipsis	yes
 apps/desktop/src/renderer/src/the-live-word-says-three-dots.test.ts	never trails a full stop after the ellipsis	yes
 apps/desktop/src/renderer/src/the-live-word-says-three-dots.test.ts	leaves the rest of the phrase alone	yes
+apps/desktop/src/renderer/src/the-lockup-powers-on.test.tsx	follows the boot screen preference: full relights, subtle once, off never	yes
+apps/desktop/src/renderer/src/the-lockup-powers-on.test.tsx	never, when the system asks for reduced motion	yes
+apps/desktop/src/renderer/src/the-lockup-powers-on.test.tsx	comes back 7 to 10 seconds after it last ended	yes
+apps/desktop/src/renderer/src/the-lockup-powers-on.test.tsx	is the traced mark beside the name in live type, named Locust	yes
+apps/desktop/src/renderer/src/the-lockup-powers-on.test.tsx	is still until the runtimes have answered	yes
 apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.test.tsx	draws nothing before the window has said the glass is offered	yes
 apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.test.tsx	says what each look is, and that Liquid glass shows the desktop through it	yes
 apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.test.tsx	says Windows' glass on a Windows 11 PC (0.864), and macOS's on a Mac	yes
