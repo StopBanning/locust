@@ -2289,22 +2289,6 @@ apps/desktop/src/main/pasted-attachment.test.ts	never overwrites something alrea
 apps/desktop/src/main/pasted-attachment.test.ts	keeps the extension where there is one, and copes where there is not	yes
 apps/desktop/src/main/peer-exchange-conversation.test.ts	passes the previous turn through to memory.section, and its words into the prompt	yes
 apps/desktop/src/main/peer-exchange-conversation.test.ts	never refuses a run over a brief it could do without	yes
-apps/desktop/src/main/permission-host.test.ts	refuses a Claude approval when its pending text cannot be written	no
-apps/desktop/src/main/permission-host.test.ts	waits for pending text before raising a Claude approval and refuses one whose run ended while waiting	no
-apps/desktop/src/main/permission-host.test.ts	takes a card down when the bridge stops waiting for it, so the question asked again is the one card (0.837)	yes
-apps/desktop/src/main/permission-host.test.ts	leaves an answered card alone when its connection closes after the answer	yes
-apps/desktop/src/main/permission-host.test.ts	refuses a request that carries no token of ours, before reading anything else	no
-apps/desktop/src/main/permission-host.test.ts	turns a question into the card the app already has, and answers with the decision	yes
-apps/desktop/src/main/permission-host.test.ts	names the call that asks, so a helper's card can name the helper (helper visibility)	yes
-apps/desktop/src/main/permission-host.test.ts	carries a denial to the model with a sentence, not a bare refusal	yes
-apps/desktop/src/main/permission-host.test.ts	carries the person’s reason for a denial, when they gave one (0.374)	yes
-apps/desktop/src/main/permission-host.test.ts	raises every request, even after Always, each with its own tool as the key an Always would cover	no
-apps/desktop/src/main/permission-host.test.ts	does not let one run answer for another	yes
-apps/desktop/src/main/permission-host.test.ts	refuses whatever is still waiting when the run ends, and removes its config	yes
-apps/desktop/src/main/permission-host.test.ts	refuses a question's answer aimed at a permission, and says so	yes
-apps/desktop/src/main/permission-host.test.ts	is an mcp.json that names the bridge, the loopback URL and the token, under the name the tool flag expects	yes
-apps/desktop/src/main/permission-host.test.ts	names a connector the way the activity rows do	yes
-apps/desktop/src/main/permission-host.test.ts	share one listener, and both are answered on it	no
 apps/desktop/src/main/popular-skill-packs-fit-and-agent-copies-are-chosen.test.ts	a font-bearing skill above five MB is kept and handed to Claude Code but ten MB remains the ceiling	yes
 apps/desktop/src/main/popular-skill-packs-fit-and-agent-copies-are-chosen.test.ts	agent copies choose skills then Claude then agents then any without hiding real name clashes	yes
 apps/desktop/src/main/popular-skill-packs-fit-and-agent-copies-are-chosen.test.ts	a popular pack is only previewed on the first click and all offered skills are ready for the second	yes
@@ -3307,12 +3291,6 @@ apps/desktop/src/main/workroom-briefing.test.ts	says nothing about sharing when 
 apps/desktop/src/main/workroom-briefing.test.ts	tells every mission how to ask, teammates or not	yes
 apps/desktop/src/main/workroom-briefing.test.ts	tells it when NOT to ask, so it does not ask about everything	no
 apps/desktop/src/main/workroom-briefing.test.ts	keeps the person’s words last and unaltered	yes
-apps/desktop/src/main/workspace-brief.test.ts	reads LOCUST.md from the folder root and quotes it whole, with the folder named	no
-apps/desktop/src/main/workspace-brief.test.ts	none, empty, or unreadable is no brief at all -- never a section saying so	yes
-apps/desktop/src/main/workspace-brief.test.ts	is bounded by lines and by bytes, and says when the rest was cut	yes
-apps/desktop/src/main/workspace-brief.test.ts	gives each runtime its own section and everyone the rest	yes
-apps/desktop/src/main/workspace-brief.test.ts	leaves alone a tag that names no runtime, a tag inside a code fence, and a tag never closed	yes
-apps/desktop/src/main/workspace-brief.test.ts	is what a run on that runtime is given, bounded after the other sections are gone	no
 apps/desktop/src/main/workspace-files.test.ts	are git's own list in a repository, and never a path that climbs out or Locust's own folder	yes
 apps/desktop/src/main/workspace-files.test.ts	are walked outside a repository, skipping the folders nobody attaches from	yes
 apps/desktop/src/main/workspace-files.test.ts	stop at the cap, and say so	yes
