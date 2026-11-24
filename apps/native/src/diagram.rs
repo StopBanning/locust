@@ -100,12 +100,9 @@ pub fn prepare_reply_markdown(body: &str) -> String {
         }
         match find_fence_close(after_open, start.ticks) {
             None => {
-                // Still streaming: normalise language to mermaid so rune-kit can stream-draw.
+                // Still being written: its text, as a plain fence, until the fence closes (Electron's ReplyDiagram). A
+                // half-written diagram drawn as it streams flashes Mermaid's parse errors at every line.
                 out.push_str(&rest[start.byte..start.byte + start.ticks]);
-                out.push_str("mermaid");
-                if let Some(tail) = start.lang_tail.as_deref() {
-                    out.push_str(tail);
-                }
                 out.push('\n');
                 out.push_str(after_open);
                 return out;
@@ -392,3 +389,7 @@ mod caption_index_tests {
 #[cfg(test)]
 #[path = "diagram_drawn_tests.rs"]
 mod diagram_drawn_tests;
+
+#[cfg(test)]
+#[path = "diagram_shown_tests.rs"]
+mod diagram_shown_tests;

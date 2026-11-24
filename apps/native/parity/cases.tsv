@@ -3691,9 +3691,9 @@ apps/desktop/src/renderer/src/a-design-pass-holds.test.tsx	a finished turn is mu
 apps/desktop/src/renderer/src/a-design-pass-holds.test.tsx	connected a moment ago: no line under its name	yes
 apps/desktop/src/renderer/src/a-design-pass-holds.test.tsx	one to act on keeps what to do, and an old reading keeps its age	yes
 apps/desktop/src/renderer/src/a-design-pass-holds.test.tsx	a meter a window, the whole sentence its tooltip, only the pressing window amber	yes
-apps/desktop/src/renderer/src/a-diagram-in-a-reply-shows-as-one.test.tsx	is framed as a diagram once its block has closed, its text a tab away	no
-apps/desktop/src/renderer/src/a-diagram-in-a-reply-shows-as-one.test.tsx	is text while it is still being written	no
-apps/desktop/src/renderer/src/a-diagram-in-a-reply-shows-as-one.test.tsx	leaves every other block as the code it was	no
+apps/desktop/src/renderer/src/a-diagram-in-a-reply-shows-as-one.test.tsx	is framed as a diagram once its block has closed, its text a tab away	yes
+apps/desktop/src/renderer/src/a-diagram-in-a-reply-shows-as-one.test.tsx	is text while it is still being written	yes
+apps/desktop/src/renderer/src/a-diagram-in-a-reply-shows-as-one.test.tsx	leaves every other block as the code it was	yes
 apps/desktop/src/renderer/src/a-diff-is-not-read-out-of-a-files-content.test.ts	draws a new file as that file, whatever its content looks like	yes
 apps/desktop/src/renderer/src/a-diff-is-not-read-out-of-a-files-content.test.ts	draws an edit that removes a -- comment line, with its file	yes
 apps/desktop/src/renderer/src/a-diff-is-not-read-out-of-a-files-content.test.ts	counts a removed -- line and an added ++ line	yes
