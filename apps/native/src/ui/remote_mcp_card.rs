@@ -23,6 +23,62 @@ pub const OPEN_WHILE_USED: &str = "Locust must be open on this computer while an
 pub const RELAY_READS: &str = "The relay can read what an app asks and what Locust answers, as an app\u{2019}s own servers can; it keeps none of it, and the keys are this computer\u{2019}s.";
 pub const CARD_NOTE: &str = "It can then ask your teammates and run your routines by the rules under Let your other AI apps use Locust. Remove it there at any time.";
 
+/// Startup switches that keep Locust reachable from anywhere (Electron `RemoteMcpSettings.tsx::StayingReachable`, 0.842).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StayingReachable {
+    pub keep_running: bool,
+    pub open_at_login: bool,
+    pub login_item_available: bool,
+    /// Platform name (`"win32"`, `"darwin"`, `"linux"`), defaulting to Windows wording like Electron's `machineWords(undefined)`.
+    pub platform: Option<String>,
+}
+
+impl Default for StayingReachable {
+    fn default() -> Self {
+        Self {
+            keep_running: false,
+            open_at_login: false,
+            login_item_available: true,
+            platform: None,
+        }
+    }
+}
+
+/// Whether Locust stays reachable whenever this computer is on and awake (`RemoteMcpSettings.tsx::reachable`).
+pub fn reachable(stay: &StayingReachable) -> bool {
+    stay.keep_running && (stay.open_at_login || !stay.login_item_available)
+}
+
+/// Turns on only the Startup switches that are off and can be on, and turns nothing off (`RemoteMcpSettings.tsx::keepItRunning`).
+pub fn keep_it_running(
+    stay: &mut StayingReachable,
+    on_keep_running: &mut impl FnMut(bool),
+    on_login_item: &mut impl FnMut(bool),
+) {
+    if !stay.keep_running {
+        stay.keep_running = true;
+        on_keep_running(true);
+    }
+    if stay.login_item_available && !stay.open_at_login {
+        stay.open_at_login = true;
+        on_login_item(true);
+    }
+}
+
+fn stay_words(platform: Option<&str>) -> (&'static str, &'static str) {
+    match platform {
+        Some("darwin") => ("menu bar", "log in to your Mac"),
+        Some("linux") => ("system tray", "sign in"),
+        _ => ("tray", "sign in to Windows"),
+    }
+}
+
+fn press_keep_it_running(s: &mut State) {
+    if let Some(stay) = s.remote_mcp_stay.as_mut() {
+        keep_it_running(stay, &mut |_| {}, &mut |_| {});
+    }
+}
+
 /// The tools an app is offered reach the door's engine only once the relay's real transport brings an app's call; until
 /// then nothing can arrive, and a call that did would be refused.
 struct NoToolsYet;
@@ -130,23 +186,53 @@ pub(super) fn section(s: &State, p: &Palette) -> Option<El> {
     );
     if let (true, Some(address)) = (on, &state.address) {
         let copy = address.clone();
-        out = out.child(
-            col()
-                .w_full()
-                .gap(6.0)
-                .px(10.0)
-                .key("remote-mcp-address-box")
-                .child(text(ADDRESS_HELP).font(l.ty.body).color(l.c("text-secondary")).wrap())
-                .child(
-                    row()
-                        .gap(8.0)
-                        .center_y()
-                        .child(text(address.clone()).key("remote-mcp-address").font(type_::LABEL.mono()).color(l.c("text-primary")).wrap_anywhere().grow(1.0))
-                        .child(button(&l, "Copy", "remote-mcp-copy".into(), true, false).on_press_tx(move |_s: &mut State, tx| tx.copy(copy.clone()))),
-                )
-                .child(text(OPEN_WHILE_USED).font(l.ty.body).color(l.c("text-secondary")).wrap())
-                .child(text(RELAY_READS).font(l.ty.body).color(l.c("text-muted")).wrap()),
-        );
+        let mut box_col = col()
+            .w_full()
+            .gap(6.0)
+            .px(10.0)
+            .key("remote-mcp-address-box")
+            .child(text(ADDRESS_HELP).font(l.ty.body).color(l.c("text-secondary")).wrap())
+            .child(
+                row()
+                    .gap(8.0)
+                    .center_y()
+                    .child(text(address.clone()).key("remote-mcp-address").font(type_::LABEL.mono()).color(l.c("text-primary")).wrap_anywhere().grow(1.0))
+                    .child(button(&l, "Copy", "remote-mcp-copy".into(), true, false).on_press_tx(move |_s: &mut State, tx| tx.copy(copy.clone()))),
+            );
+        if let Some(stay) = &s.remote_mcp_stay {
+            let (tray, sign_in) = stay_words(stay.platform.as_deref());
+            if reachable(stay) {
+                let starts = if stay.open_at_login {
+                    format!("it starts when you {sign_in}, and ")
+                } else {
+                    String::new()
+                };
+                let line = format!(
+                    "Locust stays reachable while this computer is on and awake: {starts}it keeps running in the {tray} when you close its window. Quit from the {tray}, and no app can open it again."
+                );
+                box_col = box_col.child(text(line).key("remote-mcp-reachable").font(l.ty.body).color(l.c("text-secondary")).wrap());
+            } else {
+                let also_start = if stay.login_item_available {
+                    format!(", and start it when you {sign_in}")
+                } else {
+                    String::new()
+                };
+                let line = format!(
+                    "An app can reach Locust only while it is running here: once it quits, nothing on this computer can open it. Keep it running in the {tray} when you close its window{also_start}."
+                );
+                box_col = box_col.child(
+                    col()
+                        .w_full()
+                        .gap(6.0)
+                        .key("remote-mcp-stay")
+                        .child(text(line).font(l.ty.body).color(l.c("text-secondary")).wrap())
+                        .child(row().child(button(&l, "Keep it running", "remote-mcp-keep-running".into(), true, false).on_press(press_keep_it_running))),
+                );
+            }
+        } else {
+            box_col = box_col.child(text(OPEN_WHILE_USED).font(l.ty.body).color(l.c("text-secondary")).wrap());
+        }
+        out = out.child(box_col.child(text(RELAY_READS).font(l.ty.body).color(l.c("text-muted")).wrap()));
     }
     if on && !state.apps.is_empty() {
         let mut list = col().w_full().gap(6.0).px(10.0).key("remote-mcp-apps");
@@ -460,5 +546,119 @@ mod tests {
         assert_ne!(sw.fill, crate::look::controls::Look::new(true).c("switch-on"));
         let off_text: String = els.iter().filter_map(|e| e.text.as_deref()).collect::<Vec<_>>().join("\n");
         assert!(!off_text.contains("app.locust.lol"), "{off_text}");
+    }
+
+    fn on_state_with_stay(stay: StayingReachable) -> State {
+        let mut s = State::default();
+        s.remote_mcp = Some(RemoteMcpState {
+            enabled: true,
+            address: Some("https://app.locust.lol/v1/room/abc/mcp".into()),
+            asking: Vec::new(),
+            apps: Vec::new(),
+            message: None,
+        });
+        s.remote_mcp_stay = Some(stay);
+        s
+    }
+
+    #[test]
+    // case: says no app can open a Locust that quit, and offers to keep it running
+    fn says_no_app_can_open_a_locust_that_quit_and_offers_to_keep_it_running() {
+        let said = words(on_state_with_stay(StayingReachable::default()));
+        assert!(said.contains("once it quits, nothing on this computer can open it"), "{said}");
+        assert!(said.contains("and start it when you sign in to Windows."), "{said}");
+        assert!(said.contains("Keep it running"), "{said}");
+    }
+
+    #[test]
+    // case: says it stays reachable once both are on, with no button
+    fn says_it_stays_reachable_once_both_are_on_with_no_button() {
+        let both_on = words(on_state_with_stay(StayingReachable {
+            keep_running: true,
+            open_at_login: true,
+            login_item_available: true,
+            platform: None,
+        }));
+        assert!(
+            both_on.contains("Locust stays reachable while this computer is on and awake: it starts when you sign in to Windows, and it keeps running in the tray"),
+            "{both_on}"
+        );
+        assert!(!both_on.contains("Keep it running"), "{both_on}");
+
+        // Where Windows sign-in cannot be set, the tray alone is enough.
+        let tray_only = words(on_state_with_stay(StayingReachable {
+            keep_running: true,
+            open_at_login: false,
+            login_item_available: false,
+            platform: None,
+        }));
+        assert!(
+            tray_only.contains("Locust stays reachable while this computer is on and awake: it keeps running"),
+            "{tray_only}"
+        );
+        assert!(!tray_only.contains("Keep it running"), "{tray_only}");
+
+        let login_only = words(on_state_with_stay(StayingReachable {
+            keep_running: false,
+            open_at_login: true,
+            login_item_available: true,
+            platform: None,
+        }));
+        assert!(login_only.contains("Keep it running"), "{login_only}");
+
+        let keep_only_when_login_available = words(on_state_with_stay(StayingReachable {
+            keep_running: true,
+            open_at_login: false,
+            login_item_available: true,
+            platform: None,
+        }));
+        assert!(keep_only_when_login_available.contains("Keep it running"), "{keep_only_when_login_available}");
+    }
+
+    #[test]
+    // case: turns on only what is off and can be on, and turns nothing off
+    fn turns_on_only_what_is_off_and_can_be_on_and_turns_nothing_off() {
+        let mut stay = StayingReachable::default();
+        let mut keep_calls = Vec::new();
+        let mut login_calls = Vec::new();
+        keep_it_running(&mut stay, &mut |v| keep_calls.push(v), &mut |v| login_calls.push(v));
+        assert_eq!(keep_calls, vec![true]);
+        assert_eq!(login_calls, vec![true]);
+        assert!(stay.keep_running && stay.open_at_login);
+
+        keep_calls.clear();
+        login_calls.clear();
+        let mut unavailable = StayingReachable {
+            keep_running: true,
+            open_at_login: false,
+            login_item_available: false,
+            platform: None,
+        };
+        keep_it_running(&mut unavailable, &mut |v| keep_calls.push(v), &mut |v| login_calls.push(v));
+        assert!(keep_calls.is_empty());
+        assert!(login_calls.is_empty());
+        assert!(unavailable.keep_running && !unavailable.open_at_login);
+    }
+
+    #[test]
+    // case: is given the Startup switches themselves, and the relay says so when Locust is not running
+    fn is_given_the_startup_switches_themselves_and_the_relay_says_so_when_locust_is_not_running() {
+        // Clicking "Keep it running" in section() flips the Startup switches in State and hides the button.
+        let s = on_state_with_stay(StayingReachable::default());
+        let mut rt = rune::Runtime::new(
+            s,
+            |s, _| col().w_full().children(section(s, &Palette::new(true))),
+            (1200.0, 900.0),
+            rune::Env::new(true, 1.0),
+        );
+        rt.frame(0.0);
+        let (x, y) = rt.find("remote-mcp-keep-running").expect("Keep it running button");
+        rt.pointer_down(x, y);
+        rt.pointer_up(x, y);
+        rt.frame(0.05);
+        let stay = rt.state.remote_mcp_stay.as_ref().expect("stay state");
+        assert!(reachable(stay));
+        assert!(stay.keep_running && stay.open_at_login);
+        assert!(rt.find("remote-mcp-keep-running").is_none());
     }
 }

@@ -4640,6 +4640,10 @@ apps/desktop/src/renderer/src/an-antigravity-question-is-answered-here.test.tsx	
 apps/desktop/src/renderer/src/an-app-from-anywhere-asks-on-a-card.test.tsx	asks on a card naming it, where it goes back to, and the digits its page shows	yes
 apps/desktop/src/renderer/src/an-app-from-anywhere-asks-on-a-card.test.tsx	is answered on every screen, and only from the window	yes
 apps/desktop/src/renderer/src/an-app-from-anywhere-asks-on-a-card.test.tsx	gives Settings the address for Claude, and each app with Remove	yes
+apps/desktop/src/renderer/src/an-app-from-anywhere-finds-locust-running.test.tsx	says no app can open a Locust that quit, and offers to keep it running	yes
+apps/desktop/src/renderer/src/an-app-from-anywhere-finds-locust-running.test.tsx	says it stays reachable once both are on, with no button	yes
+apps/desktop/src/renderer/src/an-app-from-anywhere-finds-locust-running.test.tsx	turns on only what is off and can be on, and turns nothing off	yes
+apps/desktop/src/renderer/src/an-app-from-anywhere-finds-locust-running.test.tsx	is given the Startup switches themselves, and the relay says so when Locust is not running	yes
 apps/desktop/src/renderer/src/an-approval-card-goes-with-its-run.test.ts	go when their run is stopped, fails or finishes	yes
 apps/desktop/src/renderer/src/an-approval-card-goes-with-its-run.test.ts	stay while their run is live, found by key or by its runId	yes
 apps/desktop/src/renderer/src/an-approval-card-goes-with-its-run.test.ts	stay when the window does not know the run yet	yes

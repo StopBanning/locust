@@ -537,6 +537,8 @@ pub(super) struct State {
     pub(super) phone_anywhere: Option<locust_core::phone_anywhere::PhoneAnywhereSettings>,
     /// When phone is off, whether the person picked "Only on this Wi-Fi" instead of "From anywhere".
     pub(super) phone_picked_wifi: bool,
+    /// Startup switches for Remote MCP ("Use from anywhere" Keep it running, Electron StayingReachable).
+    pub(super) remote_mcp_stay: Option<crate::remote_mcp_card::StayingReachable>,
 }
 
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
@@ -812,6 +814,7 @@ impl Default for State {
             background_runs: crate::background_runs::Panel::default(),
             phone_anywhere: None,
             phone_picked_wifi: false,
+            remote_mcp_stay: None,
         }
     }
 }
