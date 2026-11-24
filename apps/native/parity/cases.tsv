@@ -6155,6 +6155,8 @@ apps/desktop/src/renderer/src/the-way-in-stays-on-the-shelf.test.tsx	offers to s
 apps/desktop/src/renderer/src/the-way-in-stays-on-the-shelf.test.tsx	offers nothing when there is nothing to save	yes
 apps/desktop/src/renderer/src/the-way-in-stays-on-the-shelf.test.tsx	offers nothing when the screen cannot open the dialog	yes
 apps/desktop/src/renderer/src/the-way-in-stays-on-the-shelf.test.tsx	still names the way in on an empty shelf	yes
+apps/desktop/src/renderer/src/the-window-in-a-browser-and-its-cover.test.tsx	draws its own window controls on this computer, and none in a browser	yes
+apps/desktop/src/renderer/src/the-window-in-a-browser-and-its-cover.test.tsx	covers this computer’s window with what has happened and the way back	yes
 apps/desktop/src/renderer/src/the-window-says-when-macos-may-ask.test.tsx	is drawn only while macOS may be asking, and names the box and the answer	yes
 apps/desktop/src/renderer/src/the-window-says-when-macos-may-ask.test.tsx	the window takes the host’s word, and asks for it only once its listener is in place	yes
 apps/desktop/src/renderer/src/thinking-is-not-using-a-tool.test.ts	reads thinking for a reasoning item	yes

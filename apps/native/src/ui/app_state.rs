@@ -525,6 +525,7 @@ pub(super) struct State {
     pub(super) exchange_stopping: bool,
     pub(super) earlier_turn_budgets: HashMap<String, usize>,
     pub(super) peer_thread_open: HashMap<String, bool>,
+    pub(super) elsewhere_cover: crate::elsewhere_cover::ElsewhereCover,
 }
 
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
@@ -793,6 +794,7 @@ impl Default for State {
             earlier_turn_budgets: HashMap::new(),
             peer_thread_open: HashMap::new(),
             scout: crate::scout_cards::Panel::default(),
+            elsewhere_cover: crate::elsewhere_cover::ElsewhereCover::default(),
         }
     }
 }

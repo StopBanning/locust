@@ -110,6 +110,8 @@ mod pet_faces;
 mod chip_mark;
 #[path = "ui/cover_watch.rs"]
 mod cover_watch;
+#[path = "ui/elsewhere_cover.rs"]
+mod elsewhere_cover;
 #[path = "ui/reply_actions.rs"]
 mod reply_actions;
 #[path = "ui/markdown_prep.rs"]
