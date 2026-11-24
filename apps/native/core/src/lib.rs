@@ -123,6 +123,7 @@ pub mod connectors_off;
 #[cfg(test)]
 mod free_start_tests;
 pub mod context_usage;
+pub mod claude_context;
 pub mod desk;
 pub mod desk_host;
 #[cfg(test)]
