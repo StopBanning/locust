@@ -3,11 +3,11 @@
 //! optional model, effort and per-folder organization environment ID, and
 //! confirming follow-up sends strictly from Claude Code's JSON receipt on stdout.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Mutex, OnceLock};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::{Arc, Condvar, Mutex, OnceLock};
 
 use chrono::Utc;
 use regex::Regex;
@@ -358,6 +358,41 @@ pub struct GitRan {
 const MAX_DIFF: usize = 4 * 1024 * 1024;
 const MAX_EXCHANGES: usize = 40;
 
+/// The reads of cloud sessions under way, by Locust's id: never two reads of one session at once (W4). Shared by
+/// every `ClaudeCloud` the app makes, so a second Check joins the first one's teleport instead of starting its own.
+#[derive(Default)]
+pub struct CloudReads {
+    under_way: Mutex<HashMap<String, Arc<ReadUnderWay>>>,
+}
+
+#[derive(Default)]
+struct ReadUnderWay {
+    answer: Mutex<Option<ClaudeCloudReading>>,
+    done: Condvar,
+    /// How many later checks are waiting on this one.
+    waiting: AtomicUsize,
+}
+
+/// Ends a read: its answer to everyone waiting, and its place in the ledger freed, even if the read panicked.
+struct ReadEnds<'r> {
+    reads: &'r CloudReads,
+    id: &'r str,
+    read: Arc<ReadUnderWay>,
+}
+
+impl Drop for ReadEnds<'_> {
+    fn drop(&mut self) {
+        self.reads.under_way.lock().unwrap_or_else(|e| e.into_inner()).remove(self.id);
+        let mut answer = self.read.answer.lock().unwrap_or_else(|e| e.into_inner());
+        if answer.is_none() {
+            *answer = Some(ClaudeCloudReading::Err {
+                message: "Claude Code could not be reached to read it. Check again.".into(),
+            });
+        }
+        self.read.done.notify_all();
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CloudPlatform {
     Win32,
@@ -467,6 +502,7 @@ pub struct ClaudeCloud<'a> {
     claude_home: PathBuf,
     process_env: Box<dyn Fn() -> Vec<(String, String)> + 'a>,
     exchanges_of: Box<dyn Fn(&Path) -> Vec<CloudExchange> + 'a>,
+    reads: Arc<CloudReads>,
     /// Between looks for the transcript, ten looks in all.
     transcript_pause: std::time::Duration,
     now: Box<dyn Fn() -> String + 'a>,
@@ -491,6 +527,7 @@ impl<'a> ClaudeCloud<'a> {
             claude_home: default_claude_home(),
             process_env: Box::new(|| std::env::vars().collect()),
             exchanges_of: Box::new(transcript_exchanges),
+            reads: Arc::default(),
             transcript_pause: std::time::Duration::from_millis(500),
             now: Box::new(|| Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true)),
             env_lock: Mutex::new(()),
@@ -542,6 +579,12 @@ impl<'a> ClaudeCloud<'a> {
     /// The app's own environment, as a read is started from it.
     pub fn with_process_env(mut self, env: impl Fn() -> Vec<(String, String)> + 'a) -> Self {
         self.process_env = Box::new(env);
+        self
+    }
+
+    /// The app's one ledger of reads under way, shared by every `ClaudeCloud` it makes.
+    pub fn with_reads(mut self, reads: Arc<CloudReads>) -> Self {
+        self.reads = reads;
         self
     }
 
@@ -819,7 +862,29 @@ impl<'a> ClaudeCloud<'a> {
     /// sees fetches the session's conversation and checks its branch out beside the folder, the folder untouched.
     /// The transcript it saved is read as an imported session is; its change is the branch against the folder's
     /// commit, kept until Apply or Forget. Every check is a fresh teleport; nothing polls.
+    /// Overlapping checks of one session share one teleport; once it ends, the next check starts afresh.
     pub fn check(&self, id: &str) -> ClaudeCloudReading {
+        let mut under_way = self.reads.under_way.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(read) = under_way.get(id).cloned() {
+            drop(under_way);
+            read.waiting.fetch_add(1, Ordering::SeqCst);
+            let mut answer = read.answer.lock().unwrap_or_else(|e| e.into_inner());
+            while answer.is_none() {
+                answer = read.done.wait(answer).unwrap_or_else(|e| e.into_inner());
+            }
+            return answer.clone().unwrap_or_else(|| unreachable!());
+        }
+        let read = Arc::new(ReadUnderWay::default());
+        under_way.insert(id.to_string(), read.clone());
+        drop(under_way);
+        let ends = ReadEnds { reads: &self.reads, id, read };
+        let reading = self.check_once(id);
+        *ends.read.answer.lock().unwrap_or_else(|e| e.into_inner()) = Some(reading.clone());
+        drop(ends);
+        reading
+    }
+
+    fn check_once(&self, id: &str) -> ClaudeCloudReading {
         let fail = |message: &str| ClaudeCloudReading::Err { message: message.into() };
         let Some(session) = self.read_sessions().into_iter().find(|s| s.id == id) else {
             return fail(NOT_KNOWN_ANY_MORE);
@@ -1401,3 +1466,7 @@ mod id_tests;
 #[cfg(test)]
 #[path = "claude_cloud_read_tests.rs"]
 mod read_tests;
+
+#[cfg(test)]
+#[path = "claude_cloud_once_tests.rs"]
+mod once_tests;

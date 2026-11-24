@@ -166,6 +166,7 @@ apps/desktop/src/main/a-cloud-session-is-read-in-its-own-worktree.test.ts	knows 
 apps/desktop/src/main/a-cloud-session-is-read-in-its-own-worktree.test.ts	knows a folder Claude Code was never told to trust, as 2.1.29x says it, and leaves the answer to the person	yes
 apps/desktop/src/main/a-cloud-session-is-read-in-its-own-worktree.test.ts	keeps the words of an error it does not know, for the message	yes
 apps/desktop/src/main/a-cloud-session-is-read-in-its-own-worktree.test.ts	the worktree on the command line is only ever Locust’s own name	yes
+apps/desktop/src/main/a-cloud-session-is-read-only-once-at-a-time.test.ts	Overlapping reads share one teleport and the session lock is released afterward.	yes
 apps/desktop/src/main/a-cloud-task-uses-the-organizations-environment.test.ts	A task carries an optional organization environment alongside the selected model and effort.	yes
 apps/desktop/src/main/a-cloud-task-uses-the-organizations-environment.test.ts	A folder remembers its environment across reloads while other folders keep their own choices.	yes
 apps/desktop/src/main/a-cloud-task-uses-the-organizations-environment.test.ts	A task without an environment keeps the default cloud arguments and opens no window.	yes
