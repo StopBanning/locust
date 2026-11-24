@@ -1,5 +1,8 @@
 use super::*;
-use std::{collections::HashSet, path::PathBuf};
+use std::{
+    collections::{HashMap, HashSet},
+    path::PathBuf,
+};
 #[derive(Default)]
 pub(super) struct Panel {
     pub open: bool,
@@ -12,6 +15,10 @@ pub(super) struct Panel {
     pub contexts: HashSet<(usize, usize, usize)>,
     /// Markdown files currently shown as line diffs instead of word passages (`FileViewer.tsx::asLines`).
     pub as_lines: HashSet<usize>,
+    /// Selected earlier turn index per file path (`FileViewer.tsx::showing`).
+    pub file_turn: HashMap<String, usize>,
+    /// Per-file toggle to show what that earlier turn changed rather than the rebuilt file (`FileViewer.tsx::asChange`).
+    pub file_turn_as_change: HashSet<String>,
     pub files: bool,
     /// Collapsed folder paths in the file tree (`prefix/name/`).
     pub closed_folders: HashSet<String>,
@@ -119,6 +126,8 @@ fn refresh(s: &mut State, sha: Option<&str>) {
     s.changes.expanded.clear();
     s.changes.contexts.clear();
     s.changes.as_lines.clear();
+    s.changes.file_turn.clear();
+    s.changes.file_turn_as_change.clear();
     s.changes.closed_folders.clear();
     s.changes.asking = None;
     s.changes.walk = None;
@@ -577,6 +586,70 @@ fn document_change_view(file_index: usize, f: &changes::File, p: &Palette) -> El
     list
 }
 
+/// The version strip for a file changed across turns (`FileViewer.tsx`: `CHANGED IN N TURNS`, `1..N`, `Now`).
+fn version_strip(
+    file_index: usize,
+    file_path: &str,
+    turns: &[locust_core::file_versions::FileTurn],
+    showing: Option<usize>,
+    p: &Palette,
+) -> El {
+    let l = crate::look::controls::Look::new(p.dark);
+    let n = turns.len();
+    let label = format!("CHANGED IN {n} {}", if n == 1 { "TURN" } else { "TURNS" });
+    let mut strip = row()
+        .w_full()
+        .gap(4.0)
+        .px(8.0)
+        .py(4.0)
+        .center_y()
+        .key(format!("changes-versions-{file_index}"))
+        .child(
+            text(label)
+                .font(rune::TextStyle::new(11.0, 500.0).mono())
+                .color(p.muted),
+        )
+        .child(rune::spacer());
+    for (t_idx, turn) in turns.iter().enumerate() {
+        let active = showing == Some(t_idx);
+        let path_for_click = file_path.to_owned();
+        let chip = button(format!("{}", t_idx + 1), p)
+            .key(format!("changes-version-{file_index}-{t_idx}"))
+            .role("button")
+            .label(format!("Turn {}", t_idx + 1))
+            .description(turn.prompt.clone())
+            .on_press(move |s: &mut State| {
+                s.changes.file_turn_as_change.remove(&path_for_click);
+                if s.changes.file_turn.get(&path_for_click) == Some(&t_idx) {
+                    s.changes.file_turn.remove(&path_for_click);
+                } else {
+                    s.changes.file_turn.insert(path_for_click.clone(), t_idx);
+                }
+            });
+        strip = strip.child(if active {
+            chip.fill(l.c("bg-selected")).radius(6.0)
+        } else {
+            chip
+        });
+    }
+    let now_active = showing.is_none();
+    let path_for_now = file_path.to_owned();
+    let now_chip = button("Now", p)
+        .key(format!("changes-version-{file_index}-now"))
+        .role("button")
+        .label("Now")
+        .description("The file as it is on disk now")
+        .on_press(move |s: &mut State| {
+            s.changes.file_turn.remove(&path_for_now);
+            s.changes.file_turn_as_change.remove(&path_for_now);
+        });
+    strip.child(if now_active {
+        now_chip.fill(l.c("bg-selected")).radius(6.0)
+    } else {
+        now_chip
+    })
+}
+
 /// Renders the Changes panel's file tree grouped by folder, folders first (`ChangesPanel.tsx::FileTree`).
 fn render_file_tree(
     folder: &changes::TreeFolder,
@@ -847,118 +920,227 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                     );
                 }
                 if open {
+                    let items = s.ledger.as_ref().map(|pane| pane.items.as_slice()).unwrap_or(&[]);
+                    let workspace = panel.folder.to_str().filter(|path| !path.is_empty());
+                    let turns = locust_core::file_versions::file_turns_from_items(items, &f.path, workspace);
+                    let showing_turn = panel
+                        .file_turn
+                        .get(&f.path)
+                        .copied()
+                        .filter(|&idx| idx < turns.len());
+                    if !turns.is_empty() {
+                        file = file.child(version_strip(i, &f.path, &turns, showing_turn, p));
+                    }
                     let is_doc = locust_core::text_files::viewer_mode(&f.path)
                         == locust_core::text_files::ViewerMode::Markdown;
-                    let show_words = is_doc && !panel.as_lines.contains(&i);
-                    if show_words {
-                        file = file.child(document_change_view(i, f, p));
-                        file = file.child(
-                            button("Show the lines that changed", p)
-                                .key(format!("changes-doc-lines-{i}"))
-                                .on_press(move |s: &mut State| {
-                                    s.changes.as_lines.insert(i);
-                                }),
-                        );
+                    if let Some(t_idx) = showing_turn {
+                        let version = &turns[t_idx];
+                        let turn_name = format!("turn {}", t_idx + 1);
+                        let current_text = (!panel.folder.as_os_str().is_empty())
+                            .then(|| std::fs::read_to_string(panel.folder.join(&f.path)).ok())
+                            .flatten();
+                        let rebuilt = current_text
+                            .as_deref()
+                            .map(|now| locust_core::file_versions::file_as_it_was(now, &turns, t_idx));
+                        let as_change = panel.file_turn_as_change.contains(&f.path);
+                        match rebuilt {
+                            Some(locust_core::file_versions::Reversed::Ok(ref body)) if !as_change => {
+                                let note = match body {
+                                    None => format!("The file was not there after {turn_name}."),
+                                    Some(_) => format!("The file as it was after {turn_name}."),
+                                };
+                                let path_toggle = f.path.clone();
+                                file = file.child(
+                                    row()
+                                        .w_full()
+                                        .gap(8.0)
+                                        .px(8.0)
+                                        .center_y()
+                                        .child(
+                                            text(note)
+                                                .color(p.muted)
+                                                .key(format!("changes-version-note-{i}")),
+                                        )
+                                        .child(
+                                            button(format!("What {turn_name} changed"), p)
+                                                .key(format!("changes-version-as-change-{i}"))
+                                                .on_press(move |s: &mut State| {
+                                                    s.changes.file_turn_as_change.insert(path_toggle.clone());
+                                                }),
+                                        ),
+                                );
+                                if let Some(body) = body {
+                                    file = file.child(
+                                        text(body.clone())
+                                            .color(p.text)
+                                            .wrap()
+                                            .px(8.0)
+                                            .py(4.0)
+                                            .key(format!("changes-version-body-{i}")),
+                                    );
+                                }
+                            }
+                            other => {
+                                let mut note_row = row()
+                                    .w_full()
+                                    .gap(8.0)
+                                    .px(8.0)
+                                    .center_y()
+                                    .child(text(format!("What {turn_name} changed.")).color(p.muted));
+                                match other {
+                                    Some(locust_core::file_versions::Reversed::Ok(_)) => {
+                                        let path_toggle = f.path.clone();
+                                        note_row = note_row.child(
+                                            button(format!("The file as it was after {turn_name}"), p)
+                                                .key(format!("changes-version-as-was-{i}"))
+                                                .on_press(move |s: &mut State| {
+                                                    s.changes.file_turn_as_change.remove(&path_toggle);
+                                                }),
+                                        );
+                                    }
+                                    Some(locust_core::file_versions::Reversed::Err(why)) => {
+                                        note_row = note_row.child(
+                                            text(format!(
+                                                "It cannot be shown as it was, because {why}. The file itself is under Now."
+                                            ))
+                                            .color(p.muted)
+                                            .wrap()
+                                            .key(format!("changes-version-refused-{i}")),
+                                        );
+                                    }
+                                    None => {
+                                        note_row = note_row.child(
+                                            text("The file itself is under Now.").color(p.muted),
+                                        );
+                                    }
+                                }
+                                file = file.child(note_row);
+                                if is_doc && !panel.as_lines.contains(&i) {
+                                    file = file.child(document_change_view(i, &version.file, p));
+                                } else {
+                                    for h in &version.file.hunks {
+                                        file = file.child(
+                                            text(format!("{} {}", h.range(), h.heading)).color(p.muted),
+                                        );
+                                        for r in &h.rows {
+                                            file = file.child(code_row(r, &r.text, 0, &[], None, p));
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     } else {
-                        if is_doc {
+                        let show_words = is_doc && !panel.as_lines.contains(&i);
+                        if show_words {
+                            file = file.child(document_change_view(i, f, p));
                             file = file.child(
-                                button("Show it as words", p)
-                                    .key(format!("changes-doc-words-{i}"))
+                                button("Show the lines that changed", p)
+                                    .key(format!("changes-doc-lines-{i}"))
                                     .on_press(move |s: &mut State| {
-                                        s.changes.as_lines.remove(&i);
+                                        s.changes.as_lines.insert(i);
                                     }),
                             );
-                        }
-                        let shown = if panel.expanded.contains(&i) {
-                            f.hunks.len()
                         } else {
-                            2.min(f.hunks.len())
-                        };
-                        for (j, h) in f.hunks.iter().take(shown).enumerate() {
-                            file =
-                                file.child(text(format!("{} {}", h.range(), h.heading)).color(p.muted));
-                            let (before, after) = h.sides();
-                            let lang = std::path::Path::new(&f.path)
-                                .extension()
-                                .and_then(|p| p.to_str());
-                            let bh = rune_kit::syntax::highlight(lang, &before);
-                            let ah = rune_kit::syntax::highlight(lang, &after);
-                            let mut offsets = (0, 0);
-                            let mut hidden = 0;
-                            let keep_mask = changes::kept_context(&h.rows);
-                            let marks = changes::paired_spans(&h.rows);
-                            for (k, r) in h.rows.iter().enumerate() {
-                                let offset = if r.kind == '-' { offsets.0 } else { offsets.1 };
-                                if r.kind != '+' {
-                                    offsets.0 += r.text.len() + 1
-                                }
-                                if r.kind != '-' {
-                                    offsets.1 += r.text.len() + 1
-                                }
-                                let run_start = {
-                                    let mut start = k;
-                                    while start > 0 && !keep_mask[start - 1] {
-                                        start -= 1;
+                            if is_doc {
+                                file = file.child(
+                                    button("Show it as words", p)
+                                        .key(format!("changes-doc-words-{i}"))
+                                        .on_press(move |s: &mut State| {
+                                            s.changes.as_lines.remove(&i);
+                                        }),
+                                );
+                            }
+                            let shown = if panel.expanded.contains(&i) {
+                                f.hunks.len()
+                            } else {
+                                2.min(f.hunks.len())
+                            };
+                            for (j, h) in f.hunks.iter().take(shown).enumerate() {
+                                file =
+                                    file.child(text(format!("{} {}", h.range(), h.heading)).color(p.muted));
+                                let (before, after) = h.sides();
+                                let lang = std::path::Path::new(&f.path)
+                                    .extension()
+                                    .and_then(|p| p.to_str());
+                                let bh = rune_kit::syntax::highlight(lang, &before);
+                                let ah = rune_kit::syntax::highlight(lang, &after);
+                                let mut offsets = (0, 0);
+                                let mut hidden = 0;
+                                let keep_mask = changes::kept_context(&h.rows);
+                                let marks = changes::paired_spans(&h.rows);
+                                for (k, r) in h.rows.iter().enumerate() {
+                                    let offset = if r.kind == '-' { offsets.0 } else { offsets.1 };
+                                    if r.kind != '+' {
+                                        offsets.0 += r.text.len() + 1
                                     }
-                                    start
-                                };
-                                let keep = keep_mask[k] || panel.contexts.contains(&(i, j, run_start));
-                                if !keep {
-                                    hidden += 1;
-                                    continue;
+                                    if r.kind != '-' {
+                                        offsets.1 += r.text.len() + 1
+                                    }
+                                    let run_start = {
+                                        let mut start = k;
+                                        while start > 0 && !keep_mask[start - 1] {
+                                            start -= 1;
+                                        }
+                                        start
+                                    };
+                                    let keep = keep_mask[k] || panel.contexts.contains(&(i, j, run_start));
+                                    if !keep {
+                                        hidden += 1;
+                                        continue;
+                                    }
+                                    if hidden > 0 {
+                                        let start = k - hidden;
+                                        let label = if hidden == 1 {
+                                            "1 unchanged line".into()
+                                        } else {
+                                            format!("{hidden} unchanged lines")
+                                        };
+                                        file =
+                                            file.child(button(label, p).on_press(move |s: &mut State| {
+                                                s.changes.contexts.insert((i, j, start));
+                                            }));
+                                        hidden = 0;
+                                    }
+                                    let line = code_row(r, &r.text, offset, if r.kind == '-' { &bh } else { &ah }, marks[k].as_deref(), p);
+                                    file = crate::diff_notes_ui::append_noted_row(
+                                        file,
+                                        s,
+                                        s.changes.folder.to_str(),
+                                        crate::diff_notes_ui::may_note(s),
+                                        &f.path,
+                                        r,
+                                        line,
+                                        p,
+                                    );
                                 }
                                 if hidden > 0 {
-                                    let start = k - hidden;
+                                    let start = h.rows.len() - hidden;
                                     let label = if hidden == 1 {
                                         "1 unchanged line".into()
                                     } else {
                                         format!("{hidden} unchanged lines")
                                     };
-                                    file =
-                                        file.child(button(label, p).on_press(move |s: &mut State| {
-                                            s.changes.contexts.insert((i, j, start));
-                                        }));
-                                    hidden = 0;
+                                    file = file.child(button(label, p).on_press(move |s: &mut State| {
+                                        s.changes.contexts.insert((i, j, start));
+                                    }));
                                 }
-                                let line = code_row(r, &r.text, offset, if r.kind == '-' { &bh } else { &ah }, marks[k].as_deref(), p);
-                                file = crate::diff_notes_ui::append_noted_row(
-                                    file,
-                                    s,
-                                    s.changes.folder.to_str(),
-                                    crate::diff_notes_ui::may_note(s),
-                                    &f.path,
-                                    r,
-                                    line,
+                            }
+                            if let Some(after) = f.after() {
+                                file = file.child(reply_actions::copy_button(
+                                    s.copy_feedback.as_ref(),
+                                    after,
                                     p,
-                                );
+                                ));
                             }
-                            if hidden > 0 {
-                                let start = h.rows.len() - hidden;
-                                let label = if hidden == 1 {
-                                    "1 unchanged line".into()
-                                } else {
-                                    format!("{hidden} unchanged lines")
-                                };
-                                file = file.child(button(label, p).on_press(move |s: &mut State| {
-                                    s.changes.contexts.insert((i, j, start));
+                            let statement =
+                                changes::completeness(f, shown, diff.truncated && shown >= f.hunks.len());
+                            if shown < f.hunks.len() {
+                                file = file.child(button(statement, p).on_press(move |s: &mut State| {
+                                    s.changes.expanded.insert(i);
                                 }));
+                            } else {
+                                file = file.child(text(statement).font(type_::LABEL).color(p.muted).wrap());
                             }
-                        }
-                        if let Some(after) = f.after() {
-                            file = file.child(reply_actions::copy_button(
-                                s.copy_feedback.as_ref(),
-                                after,
-                                p,
-                            ));
-                        }
-                        let statement =
-                            changes::completeness(f, shown, diff.truncated && shown >= f.hunks.len());
-                        if shown < f.hunks.len() {
-                            file = file.child(button(statement, p).on_press(move |s: &mut State| {
-                                s.changes.expanded.insert(i);
-                            }));
-                        } else {
-                            file = file.child(text(statement).font(type_::LABEL).color(p.muted).wrap());
                         }
                     }
                 }
@@ -1189,3 +1371,6 @@ mod changes_walkthrough_tests;
 #[cfg(test)]
 #[path = "changes_document_tests.rs"]
 mod changes_document_tests;
+#[cfg(test)]
+#[path = "changes_versions_tests.rs"]
+mod changes_versions_tests;

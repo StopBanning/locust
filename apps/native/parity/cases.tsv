@@ -4510,6 +4510,10 @@ apps/desktop/src/renderer/src/an-earlier-message-can-be-edited.test.tsx	finds no
 apps/desktop/src/renderer/src/an-earlier-message-can-be-edited.test.tsx	says so above the message, with the way to the other version	yes
 apps/desktop/src/renderer/src/an-earlier-turn-that-only-messaged-is-not-silent.test.tsx	is not said to have ended without a reply	yes
 apps/desktop/src/renderer/src/an-earlier-turn-that-only-messaged-is-not-silent.test.tsx	still is, when it really wrote nothing and messaged nobody	yes
+apps/desktop/src/renderer/src/an-earlier-version-reads-as-it-was.test.ts	after each turn, from the file as it is now	yes
+apps/desktop/src/renderer/src/an-earlier-version-reads-as-it-was.test.ts	is not rebuilt when a later change was recorded cut short, and says so	yes
+apps/desktop/src/renderer/src/an-earlier-version-reads-as-it-was.test.ts	is not rebuilt when the file was changed since, rather than rebuilt wrong	yes
+apps/desktop/src/renderer/src/an-earlier-version-reads-as-it-was.test.ts	keeps Windows line endings	yes
 apps/desktop/src/renderer/src/an-empty-home-offers-a-team.test.tsx	offers three teams, each with who is on it	no
 apps/desktop/src/renderer/src/an-empty-home-offers-a-team.test.tsx	keeps New teammate beside them, as the chat bar's own chip	no
 apps/desktop/src/renderer/src/an-empty-home-offers-a-team.test.tsx	is the team itself once there is one	no
