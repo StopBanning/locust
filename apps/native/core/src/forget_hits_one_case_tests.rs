@@ -82,3 +82,10 @@ fn a_forget_says_nothing_matched_when_the_store_is_empty() {
     // then says nothing about it.
     assert_eq!(target("anything at all", &[]), Err(ForgetRefusal::NothingRemembered));
 }
+
+// Same case, on forget_match itself, so its own promise does not rest on forget_target re-checking.
+#[test]
+fn forget_match_alone_refuses_two_memories_that_both_answer() {
+    let keys = vec![key("port 3000 is the API"), key("port 3000 is also the docs server")];
+    assert!(matches!(forget_match("port 3000", &keys), Err(ForgetRefusal::Ambiguous(_))), "{:?}", forget_match("port 3000", &keys));
+}
