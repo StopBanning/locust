@@ -225,6 +225,145 @@ pub fn taken_name<'a>(name: &str, taken: &'a [&str]) -> Option<&'a str> {
     taken.iter().copied().find(|t| t.trim().to_lowercase() == name.trim().to_lowercase())
 }
 
+pub const MAX_TEAMMATES: usize = 64;
+pub const MAX_CONNECTORS: usize = 16;
+pub const MAX_MISSION_OWNERS: usize = 5_000;
+const CHATGPT_VOICES: [&str; 9] = [
+    "juniper", "maple", "spruce", "ember", "vale", "breeze", "arbor", "sol", "cove",
+];
+
+fn is_chatgpt_voice(v: &Value) -> bool {
+    v.as_str().is_some_and(|s| CHATGPT_VOICES.contains(&s))
+}
+
+fn is_monthly_limit(v: &Value) -> bool {
+    v.as_f64()
+        .is_some_and(|n| n.is_finite() && (0.01..=100_000.0).contains(&n))
+}
+
+/// teammate-store.ts: validName
+pub fn valid_teammate_name(name: &str) -> bool {
+    crate::native::valid_name(&json!(name)).is_some()
+}
+
+/// teammate-store.ts: parsedConnectors
+pub fn parsed_connectors(value: &Value) -> Vec<String> {
+    let Some(arr) = value.as_array() else {
+        return Vec::new();
+    };
+    let mut kept: Vec<String> = Vec::new();
+    for entry in arr {
+        let Some(raw) = entry.as_str() else { continue };
+        let name = raw.trim();
+        let len = name.encode_utf16().count();
+        if len == 0 || len > 120 {
+            continue;
+        }
+        if name.chars().any(|c| (c as u32) <= 0x1f) {
+            continue;
+        }
+        if !kept.iter().any(|k| k == name) {
+            kept.push(name.to_owned());
+        }
+        if kept.len() >= MAX_CONNECTORS {
+            break;
+        }
+    }
+    kept
+}
+
+fn parsed_starters(value: &Value) -> Option<Vec<String>> {
+    let arr = value.as_array()?;
+    if arr.is_empty() || arr.len() > 4 {
+        return None;
+    }
+    let mut out = Vec::with_capacity(arr.len());
+    for item in arr {
+        let s = item.as_str()?.trim();
+        let len = s.encode_utf16().count();
+        if len == 0 || len > 300 || s.chars().any(|c| matches!(c, '\u{0}'..='\u{1f}' | '\u{7f}')) {
+            return None;
+        }
+        out.push(s.to_owned());
+    }
+    Some(out)
+}
+
+/// teammate-store.ts: parsedTeammate — validates required fields, drops malformed optional fields,
+/// and seeds an avatar from `teammateId` when absent or invalid.
+pub fn parsed_teammate(value: &Value) -> Option<Value> {
+    let obj = value.as_object()?;
+    let id = crate::native::safe_id(obj.get("teammateId")?)?;
+    let name = crate::native::valid_name(obj.get("name")?)?;
+    let hue = obj
+        .get("hue")
+        .and_then(Value::as_str)
+        .filter(|h| crate::native::HUES.contains(h))?;
+    let role = obj
+        .get("role")
+        .and_then(Value::as_str)
+        .filter(|r| crate::native::ROLES.contains(r))?;
+    let created_at = obj
+        .get("createdAt")
+        .and_then(Value::as_str)
+        .filter(|c| chrono::DateTime::parse_from_rfc3339(c).is_ok())?;
+    let avatar = obj
+        .get("avatar")
+        .and_then(crate::look_picker::avatar_from_json)
+        .unwrap_or_else(|| crate::bot_spec::seed_avatar(id));
+    let mut out = json!({
+        "teammateId": id,
+        "name": name,
+        "hue": hue,
+        "role": role,
+        "avatar": crate::look_picker::avatar_json(&avatar),
+        "createdAt": created_at,
+    });
+    let map = out.as_object_mut()?;
+    if role == "Custom"
+        && let Some(title) = obj.get("roleTitle").and_then(crate::native::valid_role_title)
+    {
+        map.insert("roleTitle".into(), json!(title));
+    }
+    if let Some(starters) = obj.get("starters").and_then(parsed_starters) {
+        map.insert("starters".into(), json!(starters));
+    }
+    if obj.get("worktree") == Some(&Value::Bool(true)) {
+        map.insert("worktree".into(), json!(true));
+    }
+    if let Some(folder) = obj.get("folder").and_then(crate::native::teammate_folder) {
+        map.insert("folder".into(), json!(folder));
+    }
+    if let Some(conns) = obj.get("connectors") {
+        let kept = parsed_connectors(conns);
+        if !kept.is_empty() {
+            map.insert("connectors".into(), json!(kept));
+        }
+    }
+    if obj.get("ownBrowser") == Some(&Value::Bool(true)) {
+        map.insert("ownBrowser".into(), json!(true));
+    }
+    if let Some(route) = obj.get("route").filter(|r| is_teammate_route(r)) {
+        map.insert("route".into(), route.clone());
+    }
+    if let Some(hub) = obj.get("hubMissionId").and_then(crate::native::safe_id) {
+        map.insert("hubMissionId".into(), json!(hub));
+    }
+    if let Some(limit) = obj.get("monthlyLimitUsd").filter(|l| is_monthly_limit(l)) {
+        map.insert("monthlyLimitUsd".into(), limit.clone());
+    }
+    if let Some(instr) = obj.get("instructions").and_then(Value::as_str) {
+        let trimmed = instr.trim();
+        if !trimmed.is_empty() && trimmed.encode_utf16().count() <= 4000 && !trimmed.contains('\0') {
+            map.insert("instructions".into(), json!(trimmed));
+        }
+    }
+    if let Some(voice) = obj.get("voice").filter(|v| is_chatgpt_voice(v)) {
+        map.insert("voice".into(), voice.clone());
+    }
+    Some(out)
+}
+
 pub fn save_teammate(store: &Store, entry: Value) -> Result<(), String> {
     save_teammate_id(store, entry).map(|_| ())
 }
@@ -237,6 +376,9 @@ pub fn save_teammate_id(store: &Store, mut entry: Value) -> Result<String, Strin
         return Err("Teammate name is invalid".into());
     }
     let creating = entry["teammateId"].as_str().unwrap_or("").is_empty();
+    if !creating && crate::native::safe_id(&entry["teammateId"]).is_none() {
+        return Err("Teammate id is invalid".into());
+    }
     let rows = file["teammates"].as_array_mut().ok_or("Unknown teammate")?;
     if let Some(taken) = rows.iter().find(|r| {
         r["teammateId"] != entry["teammateId"]
@@ -249,44 +391,77 @@ pub fn save_teammate_id(store: &Store, mut entry: Value) -> Result<String, Strin
             taken["name"].as_str().unwrap_or("")
         ));
     }
-    if creating && rows.len() >= 64 {
+    if creating && rows.len() >= MAX_TEAMMATES {
         return Err("Too many teammates".into());
     }
-    let instructions = entry["instructions"].as_str().unwrap_or("").trim();
-    if instructions.encode_utf16().count() > 4000 || instructions.contains('\0') {
-        return Err("Teammate instructions are invalid".into());
+    if let Some(instr_val) = entry.get("instructions") {
+        if instr_val.is_null() {
+            if let Some(obj) = entry.as_object_mut() {
+                obj.remove("instructions");
+            }
+        } else {
+            let Some(raw) = instr_val.as_str() else {
+                return Err("Teammate instructions are invalid".into());
+            };
+            let trimmed = raw.trim();
+            if trimmed.encode_utf16().count() > 4000 || trimmed.contains('\0') {
+                return Err("Teammate instructions are invalid".into());
+            }
+            if let Some(kind) = secret_kind(trimmed) {
+                return Err(instructions_secret_refusal(&name, kind));
+            }
+            if trimmed.is_empty() {
+                if let Some(obj) = entry.as_object_mut() {
+                    obj.remove("instructions");
+                }
+            } else {
+                entry["instructions"] = json!(trimmed);
+            }
+        }
     }
-    if let Some(kind) = secret_kind(instructions) {
-        return Err(instructions_secret_refusal(&name, kind));
+    if let Some(folder_val) = entry.get("folder").cloned() {
+        if folder_val.is_null() || folder_val.as_str() == Some("") {
+            if let Some(obj) = entry.as_object_mut() {
+                obj.remove("folder");
+            }
+        } else if crate::native::teammate_folder(&folder_val).is_none() {
+            return Err("That is not a folder Locust can use".into());
+        }
     }
-    if let Some(folder) = entry["folder"].as_str()
-        && !folder.is_empty()
-        && (!Path::new(folder).is_absolute() || folder.len() > 4096)
-    {
-        return Err("That is not a folder Locust can use".into());
+    if let Some(limit) = entry.get("monthlyLimitUsd").cloned() {
+        if limit.is_null() {
+            if let Some(obj) = entry.as_object_mut() {
+                obj.remove("monthlyLimitUsd");
+            }
+        } else if !is_monthly_limit(&limit) {
+            return Err("Teammate limit is invalid".into());
+        }
     }
-    if let Some(limit) = entry.get("monthlyLimitUsd")
-        && !limit.is_null()
-        && !limit
-            .as_f64()
-            .is_some_and(|v| (0.01..=100000.0).contains(&v))
-    {
-        return Err("Teammate limit is invalid".into());
+    if let Some(starters) = entry.get("starters").cloned() {
+        if starters.is_null() {
+            if let Some(obj) = entry.as_object_mut() {
+                obj.remove("starters");
+            }
+        } else {
+            let Some(cleaned) = parsed_starters(&starters) else {
+                return Err("Teammate starters are invalid".into());
+            };
+            entry["starters"] = json!(cleaned);
+        }
     }
-    if let Some(starters) = entry.get("starters").filter(|s| !s.is_null()) {
-        let Some(arr) = starters.as_array() else {
-            return Err("Teammate starters are invalid".into());
-        };
-        if arr.is_empty()
-            || arr.len() > 4
-            || arr.iter().any(|s| {
-                s.as_str().is_none_or(|s| {
-                    let t = s.trim();
-                    t.is_empty() || t.encode_utf16().count() > 300 || s.chars().any(char::is_control)
-                })
-            })
-        {
-            return Err("Teammate starters are invalid".into());
+    if let Some(voice) = entry.get("voice").cloned() {
+        if voice.is_null() {
+            if let Some(obj) = entry.as_object_mut() {
+                obj.remove("voice");
+            }
+        } else if !is_chatgpt_voice(&voice) {
+            if creating {
+                if let Some(obj) = entry.as_object_mut() {
+                    obj.remove("voice");
+                }
+            } else {
+                return Err("Teammate voice is invalid".into());
+            }
         }
     }
     let voice_given = entry.get("voice").is_some();
@@ -302,7 +477,8 @@ pub fn save_teammate_id(store: &Store, mut entry: Value) -> Result<String, Strin
     }
     entry["name"] = json!(name);
     if creating {
-        entry["teammateId"] = json!(id("tm")?);
+        let raw_id = id("tm")?;
+        entry["teammateId"] = json!(raw_id.chars().take(27).collect::<String>());
         entry["createdAt"] = json!(now());
         if entry["hue"].as_str().is_none_or(|h| h.is_empty()) {
             entry["hue"] = json!("lime");
@@ -326,6 +502,55 @@ pub fn save_teammate_id(store: &Store, mut entry: Value) -> Result<String, Strin
                 .cloned()
                 .unwrap_or_else(|| json!(now()));
         }
+    }
+    if !entry["hue"]
+        .as_str()
+        .is_some_and(|h| crate::native::HUES.contains(&h))
+    {
+        return Err("Teammate hue is invalid".into());
+    }
+    let role = entry["role"]
+        .as_str()
+        .filter(|r| crate::native::ROLES.contains(r))
+        .ok_or("Teammate role is invalid")?
+        .to_owned();
+    if role == "Custom" {
+        match entry.get("roleTitle").and_then(crate::native::valid_role_title) {
+            Some(title) => entry["roleTitle"] = json!(title),
+            None => {
+                if let Some(obj) = entry.as_object_mut() {
+                    obj.remove("roleTitle");
+                }
+            }
+        }
+    } else if let Some(obj) = entry.as_object_mut() {
+        obj.remove("roleTitle");
+    }
+    if entry.get("worktree") != Some(&Value::Bool(true))
+        && let Some(obj) = entry.as_object_mut()
+    {
+        obj.remove("worktree");
+    }
+    if let Some(conns) = entry.get("connectors").cloned() {
+        let kept = parsed_connectors(&conns);
+        if kept.is_empty() {
+            if let Some(obj) = entry.as_object_mut() {
+                obj.remove("connectors");
+            }
+        } else {
+            entry["connectors"] = json!(kept);
+        }
+    }
+    if let Some(ob) = entry.get("ownBrowser")
+        && ob != &Value::Bool(true)
+        && let Some(obj) = entry.as_object_mut()
+    {
+        obj.remove("ownBrowser");
+    }
+    if entry.get("route").is_some_and(Value::is_null)
+        && let Some(obj) = entry.as_object_mut()
+    {
+        obj.remove("route");
     }
     // The look (teammate-store.ts 740-805): refused when it is not one, cleaned to its known fields when it is, and a
     // new teammate without one seeded from its id. An edit without one keeps the record's (see notes/LOOK-NOTES.md).
@@ -382,10 +607,12 @@ pub fn save_teammate_id(store: &Store, mut entry: Value) -> Result<String, Strin
             .iter_mut()
             .find(|r| r["teammateId"] == entry["teammateId"])
             .ok_or("Unknown teammate")?;
-        if entry.get("starters").is_none()
-            && let Some(prev_starters) = held.get("starters").cloned()
-        {
-            entry["starters"] = prev_starters;
+        for carry in ["starters", "connectors", "ownBrowser", "route", "voice"] {
+            if entry.get(carry).is_none()
+                && let Some(prev_val) = held.get(carry).cloned()
+            {
+                entry[carry] = prev_val;
+            }
         }
         if !voice_given
             && let Some(voice) = held["voice"].as_str().filter(|voice| crate::voice_call_rules::is_voice(voice))
@@ -396,6 +623,160 @@ pub fn save_teammate_id(store: &Store, mut entry: Value) -> Result<String, Strin
     }
     store.save_json("teammates.json", &file)?;
     Ok(teammate_id)
+}
+
+/// teammate-store.ts `update`: edits name, hue, role, roleTitle, worktree, avatar, and optional
+/// monthlyLimitUsd/instructions/voice while carrying folder, connectors, ownBrowser, route,
+/// hubMissionId, starters, and any omitted optional fields from the stored record.
+pub fn update_teammate(store: &Store, mut patch: Value) -> Result<Value, String> {
+    let tid = crate::native::safe_id(&patch["teammateId"])
+        .ok_or("Teammate id is invalid")?
+        .to_owned();
+    let existing = {
+        let file = team(store)?;
+        file["teammates"]
+            .as_array()
+            .and_then(|rows| rows.iter().find(|r| r["teammateId"] == tid))
+            .cloned()
+            .ok_or("Unknown teammate")?
+    };
+    if patch.get("avatar").is_none_or(|a| crate::look_picker::avatar_from_json(a).is_none()) {
+        return Err(crate::look_picker::AVATAR_INVALID.into());
+    }
+    for carry in [
+        "folder",
+        "connectors",
+        "ownBrowser",
+        "route",
+        "hubMissionId",
+        "starters",
+        "monthlyLimitUsd",
+        "instructions",
+        "voice",
+    ] {
+        if patch.get(carry).is_none()
+            && let Some(prev_val) = existing.get(carry).cloned()
+        {
+            patch[carry] = prev_val;
+        }
+    }
+    save_teammate_id(store, patch)?;
+    let after = team(store)?;
+    after["teammates"]
+        .as_array()
+        .and_then(|rows| rows.iter().find(|r| r["teammateId"] == tid))
+        .cloned()
+        .ok_or_else(|| "Unknown teammate".to_string())
+}
+
+/// teammate-store.ts `setFolder`: point one teammate at an absolute folder, or `None` to remove the key.
+pub fn set_folder(store: &Store, teammate_id: &str, folder: Option<&str>) -> Result<Value, String> {
+    if crate::native::safe_id(&json!(teammate_id)).is_none() {
+        return Err("Teammate id is invalid".into());
+    }
+    if let Some(path) = folder
+        && crate::native::teammate_folder(&json!(path)).is_none()
+    {
+        return Err("That is not a folder Locust can use".into());
+    }
+    let _lock = WRITES.lock().map_err(|e| e.to_string())?;
+    let mut file = team(store)?;
+    let rows = file["teammates"].as_array_mut().ok_or("Unknown teammate")?;
+    let held = rows
+        .iter_mut()
+        .find(|r| r["teammateId"] == teammate_id)
+        .ok_or("Unknown teammate")?;
+    match folder {
+        Some(path) => held["folder"] = json!(path),
+        None => {
+            if let Some(obj) = held.as_object_mut() {
+                obj.remove("folder");
+            }
+        }
+    }
+    let updated = held.clone();
+    store.save_json("teammates.json", &file)?;
+    Ok(updated)
+}
+
+/// teammate-store.ts `setConnectors`: narrow one teammate to valid connector names, or remove the key when empty.
+pub fn set_connectors(store: &Store, teammate_id: &str, names: &Value) -> Result<Value, String> {
+    if crate::native::safe_id(&json!(teammate_id)).is_none() {
+        return Err("Teammate id is invalid".into());
+    }
+    let kept = parsed_connectors(names);
+    let _lock = WRITES.lock().map_err(|e| e.to_string())?;
+    let mut file = team(store)?;
+    let rows = file["teammates"].as_array_mut().ok_or("Unknown teammate")?;
+    let held = rows
+        .iter_mut()
+        .find(|r| r["teammateId"] == teammate_id)
+        .ok_or("Unknown teammate")?;
+    if kept.is_empty() {
+        if let Some(obj) = held.as_object_mut() {
+            obj.remove("connectors");
+        }
+    } else {
+        held["connectors"] = json!(kept);
+    }
+    let updated = held.clone();
+    store.save_json("teammates.json", &file)?;
+    Ok(updated)
+}
+
+/// teammate-store.ts `assignMission`: validated, existence-checked, and capped at `MAX_MISSION_OWNERS`.
+pub fn assign_mission(store: &Store, teammate_id: &str, mission_id: &str) -> Result<(), String> {
+    if crate::native::safe_id(&json!(teammate_id)).is_none()
+        || crate::native::safe_id(&json!(mission_id)).is_none()
+    {
+        return Err("Mission assignment is invalid".into());
+    }
+    let _lock = WRITES.lock().map_err(|e| e.to_string())?;
+    let mut file = team(store)?;
+    let known = file["teammates"]
+        .as_array()
+        .is_some_and(|rows| rows.iter().any(|r| r["teammateId"] == teammate_id));
+    if !known {
+        return Err("Unknown teammate".into());
+    }
+    if !file["missionOwners"].is_object() {
+        file["missionOwners"] = json!({});
+    }
+    let owners = file["missionOwners"]
+        .as_object_mut()
+        .ok_or("The teammates file could not be read, so nothing was changed.")?;
+    if !owners.contains_key(mission_id) && owners.len() >= MAX_MISSION_OWNERS {
+        return Err("Too many mission assignments".into());
+    }
+    owners.insert(mission_id.to_owned(), json!(teammate_id));
+    store.save_json("teammates.json", &file)
+}
+
+/// teammate-store.ts `missionOwners`: validated, known-teammate-only, capped at `MAX_MISSION_OWNERS`.
+pub fn mission_owners(store: &Store) -> Result<std::collections::BTreeMap<String, String>, String> {
+    let file = team(store)?;
+    let known: std::collections::HashSet<&str> = file["teammates"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|r| crate::native::safe_id(&r["teammateId"]))
+        .collect();
+    let mut out = std::collections::BTreeMap::new();
+    if let Some(obj) = file["missionOwners"].as_object() {
+        for (mission_id, who) in obj {
+            if out.len() >= MAX_MISSION_OWNERS {
+                break;
+            }
+            let Some(tid) = crate::native::safe_id(who) else {
+                continue;
+            };
+            if crate::native::safe_id(&json!(mission_id)).is_none() || !known.contains(tid) {
+                continue;
+            }
+            out.insert(mission_id.clone(), tid.to_owned());
+        }
+    }
+    Ok(out)
 }
 /// Settings' "When an agent cannot go on" (`planRunsOut`): who carries the work on, and whether without asking. None
 /// clears it ("First one ready").
@@ -634,6 +1015,9 @@ pub fn unassign_missions(store: &Store, missions: &[String]) -> Result<(), Strin
 }
 
 pub fn remove_teammate(store: &Store, who: &str) -> Result<(), String> {
+    if crate::native::safe_id(&json!(who)).is_none() {
+        return Err("Teammate id is invalid".into());
+    }
     {
         let _lock = WRITES.lock().map_err(|e| e.to_string())?;
         let mut file = team(store)?;
@@ -650,6 +1034,7 @@ pub fn remove_teammate(store: &Store, who: &str) -> Result<(), String> {
     // Its keys go with it (teammate-keys.ts forget). None kept: no keychain is asked.
     crate::teammate_keys::for_store(store).forget(who);
     let _ = crate::room_store::remove_teammate(store, who);
+    let _ = crate::routines::remove_for_teammate(store, who);
     Ok(())
 }
 pub fn settings(store: &Store, note: &str, suggestions: Option<Vec<Value>>) -> Result<(), String> {

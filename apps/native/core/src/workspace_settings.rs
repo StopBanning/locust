@@ -26,6 +26,7 @@ pub const THEME_SYSTEM: &str = "Match computer";
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct WorkspaceSettings {
+    pub swarm: bool,
     pub relay: bool,
     pub relay_hop_cap: u32,
     pub interrupt: bool,
@@ -56,6 +57,7 @@ pub struct WorkspaceSettings {
 impl Default for WorkspaceSettings {
     fn default() -> Self {
         Self {
+            swarm: false,
             relay: true,
             relay_hop_cap: DEFAULT_RELAY_HOP_CAP,
             interrupt: false,
@@ -145,6 +147,7 @@ pub fn parse_settings(raw: &Value) -> WorkspaceSettings {
     let empty = Value::Object(Default::default());
     let raw = if raw.is_object() { raw } else { &empty };
     WorkspaceSettings {
+        swarm: raw.get("swarm") == Some(&Value::Bool(true)),
         relay: raw.get("relay") != Some(&Value::Bool(false)),
         relay_hop_cap: hop_cap(raw.get("relayHopCap").unwrap_or(&Value::Null)),
         interrupt: raw.get("interrupt") == Some(&Value::Bool(true)),
@@ -209,6 +212,7 @@ pub fn parse_settings(raw: &Value) -> WorkspaceSettings {
 
 pub fn settings_to_json(settings: &WorkspaceSettings) -> Value {
     let mut obj = json!({
+        "swarm": settings.swarm,
         "relay": settings.relay,
         "relayHopCap": settings.relay_hop_cap,
         "interrupt": settings.interrupt,
@@ -300,6 +304,39 @@ pub fn save(store: &Store, settings: &WorkspaceSettings) -> Result<(), String> {
     }
     file["settings"] = merged;
     store.save_json("teammates.json", &file)
+}
+
+/// Merge a partial settings patch over stored settings (Electron `writeSettings`),
+/// keeping omitted fields, re-validating every field, and preserving teammates and unmodeled keys.
+pub fn write_settings(store: &Store, patch: &Value) -> Result<WorkspaceSettings, String> {
+    if let Some(note) = patch.get("aboutYou").and_then(Value::as_str)
+        && let Some(kind) = crate::secrets::secret_in(note)
+    {
+        return Err(crate::secrets::about_you_secret_refusal(kind, None));
+    }
+    let mut file = crate::people::team(store)?;
+    let mut combined = file["settings"]
+        .as_object()
+        .cloned()
+        .unwrap_or_default();
+    if let Some(incoming) = patch.as_object() {
+        for (key, value) in incoming {
+            combined.insert(key.clone(), value.clone());
+        }
+    }
+    let combined_val = Value::Object(combined);
+    let next = parse_settings(&combined_val);
+    let mut merged = settings_to_json(&next);
+    if let (Some(prev), Some(obj)) = (combined_val.as_object(), merged.as_object_mut()) {
+        for (key, value) in prev {
+            if !obj.contains_key(key) && !value.is_null() {
+                obj.insert(key.clone(), value.clone());
+            }
+        }
+    }
+    file["settings"] = merged;
+    store.save_json("teammates.json", &file)?;
+    Ok(next)
 }
 
 pub fn workspace_id_for(path: &Path) -> String {

@@ -131,16 +131,20 @@ pub fn next(v: &Value, last: DateTime<Local>, now: DateTime<Local>) -> Option<Da
         _ => None,
     }
 }
+/// Whether a routine's next due moment has arrived (`isDue` in `shared/routine-schedule.ts`).
+pub fn is_due(v: &Value, last: DateTime<Local>, now: DateTime<Local>) -> bool {
+    next(v, last, now).is_some_and(|d| d <= now)
+}
 pub fn missed(
     v: &Value,
     last: DateTime<Local>,
     opened: DateTime<Local>,
     now: DateTime<Local>,
 ) -> Option<DateTime<Local>> {
-    let due = next(v, last, now)?;
-    if due > now {
+    if !is_due(v, last, now) {
         return None;
     }
+    let due = next(v, last, now)?;
     if v["kind"] == "every" {
         let seconds = v["hours"].as_i64()? * 3600;
         if (opened - last).num_seconds() < seconds {

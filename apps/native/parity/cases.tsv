@@ -2651,19 +2651,19 @@ apps/desktop/src/main/routine-runner.test.ts	tells the window, names the routine
 apps/desktop/src/main/routine-runner.test.ts	says it once per attempt, not once per tick, because the hold-off holds	no
 apps/desktop/src/main/routine-runner.test.ts	stops there instead of starting the next step	yes
 apps/desktop/src/main/routine-runner.test.ts	still advances when the step asked nothing	yes
-apps/desktop/src/main/routine-store.test.ts	a name is one line of printable text, bounded	no
-apps/desktop/src/main/routine-store.test.ts	steps are the person's words: newlines allowed, empties and control bytes refused, count bounded	no
-apps/desktop/src/main/routine-store.test.ts	keeps the folder a routine was made in, and drops one that is not a workspace id (M15)	no
-apps/desktop/src/main/routine-store.test.ts	creates, lists, gets, corrects, counts runs and removes	no
-apps/desktop/src/main/routine-store.test.ts	refuses what would not round-trip, by name	no
+apps/desktop/src/main/routine-store.test.ts	a name is one line of printable text, bounded	yes
+apps/desktop/src/main/routine-store.test.ts	steps are the person's words: newlines allowed, empties and control bytes refused, count bounded	yes
+apps/desktop/src/main/routine-store.test.ts	keeps the folder a routine was made in, and drops one that is not a workspace id (M15)	yes
+apps/desktop/src/main/routine-store.test.ts	creates, lists, gets, corrects, counts runs and removes	yes
+apps/desktop/src/main/routine-store.test.ts	refuses what would not round-trip, by name	yes
 apps/desktop/src/main/routine-store.test.ts	is bounded	yes
-apps/desktop/src/main/routine-store.test.ts	drops every routine of a teammate who is gone, and only theirs	no
-apps/desktop/src/main/routine-store.test.ts	writes a file a fresh store reads back identically	no
-apps/desktop/src/main/routine-store.test.ts	treats a damaged or foreign file as unreadable, and a damaged routine as absent	no
-apps/desktop/src/main/routine-store.test.ts	keeps a schedule, corrects it, clears it with null, and leaves it alone when unmentioned	no
-apps/desktop/src/main/routine-store.test.ts	refuses a schedule it cannot keep, and drops a malformed one from disk without dropping the routine	no
-apps/desktop/src/main/routine-store.test.ts	round-trips it through the store	no
-apps/desktop/src/main/routine-store.test.ts	leaves a route without one alone	no
+apps/desktop/src/main/routine-store.test.ts	drops every routine of a teammate who is gone, and only theirs	yes
+apps/desktop/src/main/routine-store.test.ts	writes a file a fresh store reads back identically	yes
+apps/desktop/src/main/routine-store.test.ts	treats a damaged or foreign file as unreadable, and a damaged routine as absent	yes
+apps/desktop/src/main/routine-store.test.ts	keeps a schedule, corrects it, clears it with null, and leaves it alone when unmentioned	yes
+apps/desktop/src/main/routine-store.test.ts	refuses a schedule it cannot keep, and drops a malformed one from disk without dropping the routine	yes
+apps/desktop/src/main/routine-store.test.ts	round-trips it through the store	yes
+apps/desktop/src/main/routine-store.test.ts	leaves a route without one alone	yes
 apps/desktop/src/main/runtime-artifacts.test.ts	reads Claude's YAML fences	yes
 apps/desktop/src/main/runtime-artifacts.test.ts	reads Codex's TOML, single-quoted or double	yes
 apps/desktop/src/main/runtime-artifacts.test.ts	falls back to the filename, because the file existing is the point	yes
@@ -2911,64 +2911,64 @@ apps/desktop/src/main/talk-starts-from-any-app.test.ts	are none of the person’
 apps/desktop/src/main/teammate-knows-its-connectors.test.ts	names them when the machine has any	yes
 apps/desktop/src/main/teammate-knows-its-connectors.test.ts	says nothing when there are none, rather than an empty heading	yes
 apps/desktop/src/main/teammate-knows-its-connectors.test.ts	keeps the person words last, so the ask still reads closest to the asking	yes
-apps/desktop/src/main/teammate-store.test.ts	keeps the bot the person picked, and only the fields it knows	no
-apps/desktop/src/main/teammate-store.test.ts	refuses a shape there is no bot for	no
-apps/desktop/src/main/teammate-store.test.ts	takes every one of the nine colours	no
-apps/desktop/src/main/teammate-store.test.ts	accepts an ordinary name and trims it	no
-apps/desktop/src/main/teammate-store.test.ts	refuses control characters rather than silently rewriting them	no
-apps/desktop/src/main/teammate-store.test.ts	refuses empty, whitespace-only and over-long names	no
-apps/desktop/src/main/teammate-store.test.ts	persists a teammate and reads it back from disk	no
-apps/desktop/src/main/teammate-store.test.ts	rejects an unknown hue or role instead of storing it	no
-apps/desktop/src/main/teammate-store.test.ts	drops a malformed record but keeps the rest of the roster usable	no
-apps/desktop/src/main/teammate-store.test.ts	says so when it drops a record, rather than dropping it in silence	no
-apps/desktop/src/main/teammate-store.test.ts	says nothing when every record parses	no
-apps/desktop/src/main/teammate-store.test.ts	treats a file from an unknown schema as unreadable rather than guessing -- or overwriting	no
-apps/desktop/src/main/teammate-store.test.ts	treats a corrupt file as unreadable, and refuses to write over it	no
-apps/desktop/src/main/teammate-store.test.ts	assigns missions and forgets them when the teammate is removed	no
-apps/desktop/src/main/teammate-store.test.ts	refuses to assign a mission to a teammate that does not exist	no
-apps/desktop/src/main/teammate-store.test.ts	refuses unsafe ids	no
-apps/desktop/src/main/teammate-store.test.ts	serializes concurrent creates without losing any	no
-apps/desktop/src/main/teammate-store.test.ts	leaves no temporary files behind	no
-apps/desktop/src/main/teammate-store.test.ts	refuses a new assignment past its cap, instead of growing until the file empties itself	no
-apps/desktop/src/main/teammate-store.test.ts	reads no more assignments than it would write	no
-apps/desktop/src/main/teammate-store.test.ts	accepts a well-formed record	no
-apps/desktop/src/main/teammate-store.test.ts	refuses records missing or malforming any field	no
-apps/desktop/src/main/teammate-store.test.ts	is remembered when a person starts them, survives a rename, and is ignored when malformed	no
-apps/desktop/src/main/teammate-store.test.ts	keeps a title on a Custom role, trimmed and bounded, and drops one on a built-in role	no
-apps/desktop/src/main/teammate-store.test.ts	a title that is too long, empty, or not text is dropped rather than rejected	no
-apps/desktop/src/main/teammate-store.test.ts	keeps the autonomy budget inside its bounds, and reads garbage as the default	no
-apps/desktop/src/main/teammate-store.test.ts	has teammate replies on by default, and only a literal false turns them off	no
-apps/desktop/src/main/teammate-store.test.ts	keeps what a write leaves out	no
-apps/desktop/src/main/teammate-store.test.ts	defaults swarm off and persists a change	no
-apps/desktop/src/main/teammate-store.test.ts	only a literal true turns it on	no
-apps/desktop/src/main/teammate-store.test.ts	reads a corrupt settings block as the defaults without losing the roster	no
-apps/desktop/src/main/teammate-store.test.ts	keeps teammates when settings are written	no
-apps/desktop/src/main/teammate-store.test.ts	seeds a face from the id, never the name	no
-apps/desktop/src/main/teammate-store.test.ts	keeps the look chosen in the dialog, and refuses one outside the tables	no
-apps/desktop/src/main/teammate-store.test.ts	keeps a persisted face rather than re-seeding it, and seeds one for a record without	no
-apps/desktop/src/main/teammate-store.test.ts	changes name, hue, role and face while the id and its missions stay	no
-apps/desktop/src/main/teammate-store.test.ts	refuses an unknown teammate and an invalid field, changing nothing	no
-apps/desktop/src/main/teammate-store.test.ts	defaults to keeping memory and telling, keeps ask or off, and reads anything else as the default	no
-apps/desktop/src/main/teammate-store.test.ts	is kept, cleared, and never left behind as an empty key	no
-apps/desktop/src/main/teammate-store.test.ts	survives an edit of the name, the face and the branch switch	no
-apps/desktop/src/main/teammate-store.test.ts	refuses anything that is not an absolute path	no
-apps/desktop/src/main/teammate-store.test.ts	drops a relative folder read back from a hand-edited file	no
-apps/desktop/src/main/teammate-store.test.ts	is off unless the file says exactly true	no
-apps/desktop/src/main/teammate-store.test.ts	stays on across a write of some other setting	no
-apps/desktop/src/main/teammate-store.test.ts	narrow, widen back, and never leave an empty key behind	no
-apps/desktop/src/main/teammate-store.test.ts	survive an edit of the name, and drop anything that is not a plain name	no
-apps/desktop/src/main/teammate-store.test.ts	is on when nobody has said otherwise	no
-apps/desktop/src/main/teammate-store.test.ts	is on for a settings file written before the setting existed	no
-apps/desktop/src/main/teammate-store.test.ts	stays off once somebody turns it off	no
-apps/desktop/src/main/teammate-store.test.ts	reads anything that is not a boolean as the default	no
-apps/desktop/src/main/teammate-store.test.ts	is off on a fresh profile	no
-apps/desktop/src/main/teammate-store.test.ts	still honours a stored choice, in both directions	no
-apps/desktop/src/main/teammate-store.test.ts	is on on a fresh profile	no
-apps/desktop/src/main/teammate-store.test.ts	stays off once turned off, across a write of something else	no
-apps/desktop/src/main/teammate-store.test.ts	is kept when set, and an edit that never mentions money keeps it	no
-apps/desktop/src/main/teammate-store.test.ts	is changed by an amount and lifted by null	no
-apps/desktop/src/main/teammate-store.test.ts	refuses an amount that is not one, rather than saving a limit nobody meant	no
-apps/desktop/src/main/teammate-store.test.ts	reads a limit that does not parse as NO limit -- never as zero, which would refuse every run	no
+apps/desktop/src/main/teammate-store.test.ts	keeps the bot the person picked, and only the fields it knows	yes
+apps/desktop/src/main/teammate-store.test.ts	refuses a shape there is no bot for	yes
+apps/desktop/src/main/teammate-store.test.ts	takes every one of the nine colours	yes
+apps/desktop/src/main/teammate-store.test.ts	accepts an ordinary name and trims it	yes
+apps/desktop/src/main/teammate-store.test.ts	refuses control characters rather than silently rewriting them	yes
+apps/desktop/src/main/teammate-store.test.ts	refuses empty, whitespace-only and over-long names	yes
+apps/desktop/src/main/teammate-store.test.ts	persists a teammate and reads it back from disk	yes
+apps/desktop/src/main/teammate-store.test.ts	rejects an unknown hue or role instead of storing it	yes
+apps/desktop/src/main/teammate-store.test.ts	drops a malformed record but keeps the rest of the roster usable	yes
+apps/desktop/src/main/teammate-store.test.ts	says so when it drops a record, rather than dropping it in silence	yes
+apps/desktop/src/main/teammate-store.test.ts	says nothing when every record parses	yes
+apps/desktop/src/main/teammate-store.test.ts	treats a file from an unknown schema as unreadable rather than guessing -- or overwriting	yes
+apps/desktop/src/main/teammate-store.test.ts	treats a corrupt file as unreadable, and refuses to write over it	yes
+apps/desktop/src/main/teammate-store.test.ts	assigns missions and forgets them when the teammate is removed	yes
+apps/desktop/src/main/teammate-store.test.ts	refuses to assign a mission to a teammate that does not exist	yes
+apps/desktop/src/main/teammate-store.test.ts	refuses unsafe ids	yes
+apps/desktop/src/main/teammate-store.test.ts	serializes concurrent creates without losing any	yes
+apps/desktop/src/main/teammate-store.test.ts	leaves no temporary files behind	yes
+apps/desktop/src/main/teammate-store.test.ts	refuses a new assignment past its cap, instead of growing until the file empties itself	yes
+apps/desktop/src/main/teammate-store.test.ts	reads no more assignments than it would write	yes
+apps/desktop/src/main/teammate-store.test.ts	accepts a well-formed record	yes
+apps/desktop/src/main/teammate-store.test.ts	refuses records missing or malforming any field	yes
+apps/desktop/src/main/teammate-store.test.ts	is remembered when a person starts them, survives a rename, and is ignored when malformed	yes
+apps/desktop/src/main/teammate-store.test.ts	keeps a title on a Custom role, trimmed and bounded, and drops one on a built-in role	yes
+apps/desktop/src/main/teammate-store.test.ts	a title that is too long, empty, or not text is dropped rather than rejected	yes
+apps/desktop/src/main/teammate-store.test.ts	keeps the autonomy budget inside its bounds, and reads garbage as the default	yes
+apps/desktop/src/main/teammate-store.test.ts	has teammate replies on by default, and only a literal false turns them off	yes
+apps/desktop/src/main/teammate-store.test.ts	keeps what a write leaves out	yes
+apps/desktop/src/main/teammate-store.test.ts	defaults swarm off and persists a change	yes
+apps/desktop/src/main/teammate-store.test.ts	only a literal true turns it on	yes
+apps/desktop/src/main/teammate-store.test.ts	reads a corrupt settings block as the defaults without losing the roster	yes
+apps/desktop/src/main/teammate-store.test.ts	keeps teammates when settings are written	yes
+apps/desktop/src/main/teammate-store.test.ts	seeds a face from the id, never the name	yes
+apps/desktop/src/main/teammate-store.test.ts	keeps the look chosen in the dialog, and refuses one outside the tables	yes
+apps/desktop/src/main/teammate-store.test.ts	keeps a persisted face rather than re-seeding it, and seeds one for a record without	yes
+apps/desktop/src/main/teammate-store.test.ts	changes name, hue, role and face while the id and its missions stay	yes
+apps/desktop/src/main/teammate-store.test.ts	refuses an unknown teammate and an invalid field, changing nothing	yes
+apps/desktop/src/main/teammate-store.test.ts	defaults to keeping memory and telling, keeps ask or off, and reads anything else as the default	yes
+apps/desktop/src/main/teammate-store.test.ts	is kept, cleared, and never left behind as an empty key	yes
+apps/desktop/src/main/teammate-store.test.ts	survives an edit of the name, the face and the branch switch	yes
+apps/desktop/src/main/teammate-store.test.ts	refuses anything that is not an absolute path	yes
+apps/desktop/src/main/teammate-store.test.ts	drops a relative folder read back from a hand-edited file	yes
+apps/desktop/src/main/teammate-store.test.ts	is off unless the file says exactly true	yes
+apps/desktop/src/main/teammate-store.test.ts	stays on across a write of some other setting	yes
+apps/desktop/src/main/teammate-store.test.ts	narrow, widen back, and never leave an empty key behind	yes
+apps/desktop/src/main/teammate-store.test.ts	survive an edit of the name, and drop anything that is not a plain name	yes
+apps/desktop/src/main/teammate-store.test.ts	is on when nobody has said otherwise	yes
+apps/desktop/src/main/teammate-store.test.ts	is on for a settings file written before the setting existed	yes
+apps/desktop/src/main/teammate-store.test.ts	stays off once somebody turns it off	yes
+apps/desktop/src/main/teammate-store.test.ts	reads anything that is not a boolean as the default	yes
+apps/desktop/src/main/teammate-store.test.ts	is off on a fresh profile	yes
+apps/desktop/src/main/teammate-store.test.ts	still honours a stored choice, in both directions	yes
+apps/desktop/src/main/teammate-store.test.ts	is on on a fresh profile	yes
+apps/desktop/src/main/teammate-store.test.ts	stays off once turned off, across a write of something else	yes
+apps/desktop/src/main/teammate-store.test.ts	is kept when set, and an edit that never mentions money keeps it	yes
+apps/desktop/src/main/teammate-store.test.ts	is changed by an amount and lifted by null	yes
+apps/desktop/src/main/teammate-store.test.ts	refuses an amount that is not one, rather than saving a limit nobody meant	yes
+apps/desktop/src/main/teammate-store.test.ts	reads a limit that does not parse as NO limit -- never as zero, which would refuse every run	yes
 apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	checks a token with Discord, keeps it encrypted, and reads only direct messages	yes
 apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	pairs the one account that sends the code, once, and ignores everyone else	yes
 apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts	takes /ada from Discord’s list to Ada, answers as a reply, and carries the conversation on	yes
@@ -6934,15 +6934,15 @@ apps/desktop/src/shared/room-task.test.ts	names another teammate's row as theirs
 apps/desktop/src/shared/room-task.test.ts	says the board is empty and names nobody when alone	yes
 apps/desktop/src/shared/room-task.test.ts	tells a teammate its own name	yes
 apps/desktop/src/shared/room-task.test.ts	names a teammate who is alone in the room	yes
-apps/desktop/src/shared/routine-schedule.test.ts	is every N whole hours within a week, or daily at a wall-clock time	no
-apps/desktop/src/shared/routine-schedule.test.ts	every N hours counts from the last run	no
-apps/desktop/src/shared/routine-schedule.test.ts	a routine that missed several intervals while the app was closed is due once, now -- not once per miss	no
-apps/desktop/src/shared/routine-schedule.test.ts	daily at a time is today if still ahead, tomorrow once it has run today	no
-apps/desktop/src/shared/routine-schedule.test.ts	on set days: the next chosen day at the time, never a day that was not chosen (0.517)	no
-apps/desktop/src/shared/routine-schedule.test.ts	on set days: a day missed while Locust was closed runs once, the next time it is open	no
-apps/desktop/src/shared/routine-schedule.test.ts	on set days: made after this week's slot, it waits for the next one	no
-apps/desktop/src/shared/routine-schedule.test.ts	once: due at its moment, then never again	no
-apps/desktop/src/shared/routine-schedule.test.ts	reads on a card	no
+apps/desktop/src/shared/routine-schedule.test.ts	is every N whole hours within a week, or daily at a wall-clock time	yes
+apps/desktop/src/shared/routine-schedule.test.ts	every N hours counts from the last run	yes
+apps/desktop/src/shared/routine-schedule.test.ts	a routine that missed several intervals while the app was closed is due once, now -- not once per miss	yes
+apps/desktop/src/shared/routine-schedule.test.ts	daily at a time is today if still ahead, tomorrow once it has run today	yes
+apps/desktop/src/shared/routine-schedule.test.ts	on set days: the next chosen day at the time, never a day that was not chosen (0.517)	yes
+apps/desktop/src/shared/routine-schedule.test.ts	on set days: a day missed while Locust was closed runs once, the next time it is open	yes
+apps/desktop/src/shared/routine-schedule.test.ts	on set days: made after this week's slot, it waits for the next one	yes
+apps/desktop/src/shared/routine-schedule.test.ts	once: due at its moment, then never again	yes
+apps/desktop/src/shared/routine-schedule.test.ts	reads on a card	yes
 apps/desktop/src/shared/routines-and-rooms-from-a-browser.test.ts	leaves a called link on this computer, and still saves the hook kind	yes
 apps/desktop/src/shared/routines-and-rooms-from-a-browser.test.ts	makes, changes, pauses, runs and removes a routine, and settles what it was asked to	yes
 apps/desktop/src/shared/routines-and-rooms-from-a-browser.test.ts	leaves on the computer what opens something there	yes

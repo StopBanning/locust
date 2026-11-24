@@ -324,10 +324,10 @@ fn command_for_turn(
 #[cfg(any(test, feature = "test-hooks"))]
 const MAX_FILE_BYTES: u64 = 1_000_000;
 const MAX_TEAMMATES: usize = 64;
-const HUES: [&str; 11] = [
+pub(crate) const HUES: [&str; 11] = [
     "lime", "blue", "violet", "clay", "teal", "butter", "rose", "slate", "pearl", "indigo", "coral",
 ];
-const ROLES: [&str; 7] = [
+pub(crate) const ROLES: [&str; 7] = [
     "Code & Migrations",
     "Research & Briefs",
     "Ops & Scheduling",
@@ -365,19 +365,19 @@ pub(crate) fn safe_id(v: &Value) -> Option<&str> {
     .then_some(s)
 }
 /// teammate-store.ts: validName (length counted in UTF-16 units, as JavaScript counts it)
-fn valid_name(v: &Value) -> Option<String> {
+pub(crate) fn valid_name(v: &Value) -> Option<String> {
     let t = v.as_str()?.trim();
     let n = t.encode_utf16().count();
     (n > 0 && n <= 40 && !t.chars().any(control)).then(|| t.to_owned())
 }
 /// teammate-store.ts: validRoleTitle
-fn valid_role_title(v: &Value) -> Option<String> {
+pub(crate) fn valid_role_title(v: &Value) -> Option<String> {
     let t = v.as_str()?.trim();
     let n = t.encode_utf16().count();
     (n > 0 && n <= 60 && !t.chars().any(control)).then(|| t.to_owned())
 }
 /// teammate-store.ts: isTeammateFolder (absolute on either platform, bounded)
-fn teammate_folder(v: &Value) -> Option<String> {
+pub(crate) fn teammate_folder(v: &Value) -> Option<String> {
     let s = v.as_str()?;
     let windows = {
         let b = s.as_bytes();
