@@ -501,3 +501,7 @@ mod tests {
 #[cfg(test)]
 #[path = "free_offer_limit_tests.rs"]
 mod limit_tests;
+
+#[cfg(test)]
+#[path = "free_model_offer_tests.rs"]
+mod free_model_offer_tests;

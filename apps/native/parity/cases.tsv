@@ -3821,10 +3821,10 @@ apps/desktop/src/renderer/src/a-free-model-that-answered-comes-first.test.ts	a r
 apps/desktop/src/renderer/src/a-free-model-that-answered-comes-first.test.ts	one no longer listed is passed over for the next that is	yes
 apps/desktop/src/renderer/src/a-free-model-that-answered-comes-first.test.ts	with nothing answered yet, the steadiest listed free model (it was the catalogue's first)	yes
 apps/desktop/src/renderer/src/a-free-model-that-answered-comes-first.test.ts	never a model of the person's own, even one named -free	yes
-apps/desktop/src/renderer/src/a-free-model-that-is-down-is-passed-over.test.ts	is down after its latest run said so, for six hours, and not once it answers again	no
+apps/desktop/src/renderer/src/a-free-model-that-is-down-is-passed-over.test.ts	is down after its latest run said so, for six hours, and not once it answers again	yes
 apps/desktop/src/renderer/src/a-free-model-that-is-down-is-passed-over.test.ts	"Use a free model" starts on one that is up, even one that answered before	yes
-apps/desktop/src/renderer/src/a-free-model-that-is-down-is-passed-over.test.ts	the card after a failure offers the next one that is up	no
-apps/desktop/src/renderer/src/a-free-model-that-is-down-is-passed-over.test.ts	Compare's second column is not one that is down	no
+apps/desktop/src/renderer/src/a-free-model-that-is-down-is-passed-over.test.ts	the card after a failure offers the next one that is up	yes
+apps/desktop/src/renderer/src/a-free-model-that-is-down-is-passed-over.test.ts	Compare's second column is not one that is down	yes
 apps/desktop/src/renderer/src/a-free-model-that-is-down-offers-the-next.test.ts	reads OpenCode's words for a model or endpoint that is unavailable	yes
 apps/desktop/src/renderer/src/a-free-model-that-is-down-offers-the-next.test.ts	and a free model OpenCode’s service refused outright (2026-10-12, "Invalid credential" on every free model)	yes
 apps/desktop/src/renderer/src/a-free-model-that-is-down-offers-the-next.test.ts	and nothing else: a retirement, a busy server or a plain failure is not it	yes
@@ -4008,8 +4008,8 @@ apps/desktop/src/renderer/src/a-new-person-is-met-where-they-are.test.tsx	sends 
 apps/desktop/src/renderer/src/a-new-person-is-met-where-they-are.test.tsx	says "all free" when every turn was on a free model	yes
 apps/desktop/src/renderer/src/a-new-person-is-met-where-they-are.test.tsx	says nothing of free when any turn was not	yes
 apps/desktop/src/renderer/src/a-new-person-starts-on-the-steadiest-free-model.test.ts	not on the first the alphabet lists	yes
-apps/desktop/src/renderer/src/a-new-person-starts-on-the-steadiest-free-model.test.ts	and a failure there offers the next steadiest, with the unnamed after all of them	no
-apps/desktop/src/renderer/src/a-new-person-starts-on-the-steadiest-free-model.test.ts	and Compare puts the next steadiest beside it	no
+apps/desktop/src/renderer/src/a-new-person-starts-on-the-steadiest-free-model.test.ts	and a failure there offers the next steadiest, with the unnamed after all of them	yes
+apps/desktop/src/renderer/src/a-new-person-starts-on-the-steadiest-free-model.test.ts	and Compare puts the next steadiest beside it	yes
 apps/desktop/src/renderer/src/a-new-person-starts-on-the-steadiest-free-model.test.ts	the order only orders: a name OpenCode no longer lists adds nothing	yes
 apps/desktop/src/renderer/src/a-new-shelf-offers-starter-routines.test.tsx	lists each one as a button with its name, its size and what it does, in place of the sentence	no
 apps/desktop/src/renderer/src/a-new-shelf-offers-starter-routines.test.tsx	offers them after the finished conversations, not instead of them	no
@@ -4204,11 +4204,11 @@ apps/desktop/src/renderer/src/a-resumed-file-card-matches-the-folder.test.tsx	ke
 apps/desktop/src/renderer/src/a-resumed-file-card-matches-the-folder.test.tsx	says a Write the turn stopped before settling was stopped, not that Claude Code failed to report	yes
 apps/desktop/src/renderer/src/a-resumed-file-card-matches-the-folder.test.tsx	keeps one row when the same file was written twice without a diff	yes
 apps/desktop/src/renderer/src/a-resumed-file-card-matches-the-folder.test.tsx	knows a scratch path is not the compare folder	yes
-apps/desktop/src/renderer/src/a-retired-free-model-is-not-offered.test.ts	reads OpenCode's own words, and nothing else, as retired	no
+apps/desktop/src/renderer/src/a-retired-free-model-is-not-offered.test.ts	reads OpenCode's own words, and nothing else, as retired	yes
 apps/desktop/src/renderer/src/a-retired-free-model-is-not-offered.test.ts	Exo Free is left out before anyone here has run it: a new person starts on a free model that can answer	yes
-apps/desktop/src/renderer/src/a-retired-free-model-is-not-offered.test.ts	a model whose run ended "has been deprecated" is left out from then on	no
-apps/desktop/src/renderer/src/a-retired-free-model-is-not-offered.test.ts	one that answered again afterwards is back; another failure is not a retirement	no
-apps/desktop/src/renderer/src/a-retired-free-model-is-not-offered.test.ts	Compare on a free model puts another WORKING free model beside it	no
+apps/desktop/src/renderer/src/a-retired-free-model-is-not-offered.test.ts	a model whose run ended "has been deprecated" is left out from then on	yes
+apps/desktop/src/renderer/src/a-retired-free-model-is-not-offered.test.ts	one that answered again afterwards is back; another failure is not a retirement	yes
+apps/desktop/src/renderer/src/a-retired-free-model-is-not-offered.test.ts	Compare on a free model puts another WORKING free model beside it	yes
 apps/desktop/src/renderer/src/a-review-brief-fits-and-asks-for-a-verdict.test.ts	fits in a mission prompt however long the turn was	yes
 apps/desktop/src/renderer/src/a-review-brief-fits-and-asks-for-a-verdict.test.ts	leaves a reply that fits exactly as it was	yes
 apps/desktop/src/renderer/src/a-review-brief-fits-and-asks-for-a-verdict.test.ts	cuts from the middle, and counts what it cut	yes

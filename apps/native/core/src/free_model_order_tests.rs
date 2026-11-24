@@ -33,6 +33,7 @@ const FRESH: [&str; 9] = [
 
 #[test]
 fn a_new_person_starts_not_on_the_first_the_alphabet_lists() {
+    // case: not on the first the alphabet lists
     let shown = models(&FRESH);
     assert_eq!(start(&shown, &[], &[]).as_deref(), Some("opencode/deepseek-v4.1-flash-free"));
     assert_ne!(start(&shown, &[], &[]).as_deref(), Some("opencode/beam-free"));
