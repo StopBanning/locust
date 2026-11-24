@@ -30,6 +30,13 @@ fn host_with_readers() -> DeskHost {
         "mission-history:list".into(),
         Arc::new(|_, _| Ok(DeskValue::Json(json!({ "missions": ["m1"] })))),
     );
+    handlers.insert(
+        "mission-history:read".into(),
+        Arc::new(|_, args| {
+            let id = args.first().map(DeskValue::to_json_lossy).unwrap_or(serde_json::Value::Null);
+            Ok(DeskValue::Json(json!({ "mission": id })))
+        }),
+    );
     DeskHost::new(DeskHostDeps {
         handlers: Arc::new(Mutex::new(handlers)),
         window: Arc::new(|| {
@@ -144,6 +151,49 @@ fn is_sealed_opened_with_its_own_key_and_with_no_other() {
         Some(&json!([{ "name": "Ada" }]))
     );
     assert_eq!(host.open_cached_snapshot(&other, &host_sealed), None);
+}
+
+#[test]
+fn desk_host_keeps_two_reads_on_one_channel_with_different_args_apart_in_the_sealed_snapshot() {
+    let key = generate_snapshot_key();
+    let host = host_with_readers();
+    let m1_args = [DeskValue::Json(json!("m1"))];
+    let m2_args = [DeskValue::Json(json!("m2"))];
+    host.handle(
+        "laptop",
+        &[
+            DeskAsk::Call {
+                id: "r1".into(),
+                channel: "mission-history:read".into(),
+                args: desk_encode_args(&m1_args),
+            },
+            DeskAsk::Call {
+                id: "r2".into(),
+                channel: "mission-history:read".into(),
+                args: desk_encode_args(&m2_args),
+            },
+        ],
+    );
+
+    let sealed = host
+        .sealed_snapshot(&key)
+        .expect("host sealed snapshot after two reads");
+    let opened = host
+        .open_cached_snapshot(&key, &sealed)
+        .expect("open sealed snapshot");
+
+    let k1 = snapshot_key("mission-history:read", &m1_args);
+    let k2 = snapshot_key("mission-history:read", &m2_args);
+    assert_ne!(k1, k2);
+    assert_eq!(opened.answers.len(), 2);
+    assert_eq!(
+        opened.answers.get(&k1).map(|a| &a.value),
+        Some(&json!({ "mission": "m1" }))
+    );
+    assert_eq!(
+        opened.answers.get(&k2).map(|a| &a.value),
+        Some(&json!({ "mission": "m2" }))
+    );
 }
 
 #[test]
