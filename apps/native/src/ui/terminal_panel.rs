@@ -57,15 +57,31 @@ pub(super) fn toggle(s: &State, p: &Palette) -> El {
     let refusal = locust_core::org_policy::feature_refusal(Some(&locust_core::org_policy::current()), "terminal");
     let open = s.terminal.open && refusal.is_none();
     crate::look::controls::head_toggle(&crate::look::icons::TERMINAL, "Terminal", "Terminal (Ctrl+`)", open, refusal.as_deref())
-        .on_press(|s: &mut State| {
-            s.terminal.open = !s.terminal.open;
-            if s.terminal.open && s.terminal.tabs.is_empty() {
-                add(s);
-            }
-        })
+        .on_press(toggle_open)
         .build(l.k)
         .key("terminal-toggle")
         .checked(open)
+}
+/// The toggle's press, and Ctrl+` from anywhere in the window (App.tsx `toggleTerminal`): nothing while the
+/// organization has turned the terminal off.
+pub(super) fn toggle_open(s: &mut State) {
+    if locust_core::org_policy::feature_refusal(Some(&locust_core::org_policy::current()), "terminal").is_some() {
+        return;
+    }
+    s.terminal.open = !s.terminal.open;
+    if s.terminal.open && s.terminal.tabs.is_empty() {
+        add(s);
+    }
+}
+/// terminalKeys.ts `isTerminalToggle`: Ctrl and the backquote key (` or, shifted, ~) on every platform; never with Alt,
+/// or with Command or the Windows key.
+pub(super) fn is_toggle_key(event: &KeyEvent) -> bool {
+    let backquote = match &event.key {
+        Key::Command(c) => matches!(c, '`' | '~'),
+        Key::Text(t) => t == "`" || t == "~",
+        _ => false,
+    };
+    backquote && event.mods.ctrl && !event.mods.alt && !event.mods.logo
 }
 pub(super) fn run_command(s: &mut State) {
     let command = own_command::bang(&s.draft.text)
@@ -332,6 +348,10 @@ fn grid(parser: &vt100::Parser, p: &Palette, selection: Option<(usize, usize)>) 
     out
 }
 fn input(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
+    // Ctrl+` is the window's, to close the terminal it is typing in; the shell never sees it.
+    if is_toggle_key(event) {
+        return false;
+    }
     let Some(t) = s.terminal.tabs.get_mut(s.terminal.active) else {
         return false;
     };
@@ -361,6 +381,12 @@ fn input(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
             screen.contents()
         };
         tx.copy(words);
+        return true;
+    }
+    // Paste (Cmd+V, Ctrl+V off macOS) reads the clipboard and gives the shell all of it in one write. Rune hands an
+    // element's own `on_paste` nothing unless it is the window's root, so the terminal asks for the clipboard itself.
+    if event.is_command('v') {
+        tx.read_clipboard(|s: &mut State, content: &rune::ClipboardContent, _: &mut Tx| paste_into(s, content.text()));
         return true;
     }
     if matches!(event.key, Key::PageUp | Key::PageDown) {
@@ -397,6 +423,16 @@ fn input(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
         s.terminal.error = Some(e);
     }
     true
+}
+/// What was pasted, to the open tab's shell as typed, bracketed when the program there asked for it.
+fn paste_into(s: &mut State, data: &str) {
+    if let Some(t) = s.terminal.tabs.get_mut(s.terminal.active) {
+        let bracketed = crate::invariants::lock(&t.screen).screen().bracketed_paste();
+        let data = if bracketed { format!("\x1b[200~{data}\x1b[201~") } else { data.to_owned() };
+        if let Err(e) = t.input(data.as_bytes()) {
+            s.terminal.error = Some(e);
+        }
+    }
 }
 pub(super) fn view(s: &State, p: &Palette) -> El {
     let mut tabs = row().gap(5.);
@@ -440,21 +476,6 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                 s.terminal.selection = Some((pos, pos));
             } else if let Some((a, _)) = s.terminal.selection {
                 s.terminal.selection = Some((a, pos));
-            }
-        })
-        .on_paste(|s: &mut State, data: &str, _: &mut Tx| {
-            if let Some(t) = s.terminal.tabs.get_mut(s.terminal.active) {
-                let bracketed = crate::invariants::lock(&t.screen)
-                    .screen()
-                    .bracketed_paste();
-                let data = if bracketed {
-                    format!("\x1b[200~{data}\x1b[201~")
-                } else {
-                    data.to_owned()
-                };
-                if let Err(e) = t.input(data.as_bytes()) {
-                    s.terminal.error = Some(e);
-                }
             }
         })
         .on_layout(|s: &mut State, [x, y, w, h]| {
@@ -625,3 +646,7 @@ mod tests {
 #[cfg(test)]
 #[path = "head_icons_tests.rs"]
 mod head_icons_tests;
+
+#[cfg(test)]
+#[path = "terminal_first_tests.rs"]
+mod terminal_first_tests;
