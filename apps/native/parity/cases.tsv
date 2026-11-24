@@ -3699,17 +3699,17 @@ apps/desktop/src/renderer/src/a-conversation-can-be-searched.test.ts	takes what 
 apps/desktop/src/renderer/src/a-conversation-can-be-searched.test.ts	finds nothing for an empty or blank query, and stops at the most it looks for	yes
 apps/desktop/src/renderer/src/a-conversation-can-be-searched.test.ts	counts the hit it is on, says when there are none, and says nothing before anything is typed	yes
 apps/desktop/src/renderer/src/a-conversation-can-be-searched.test.ts	steps to the next hit and the one before, round the end and back to the start	yes
-apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	includes the root, the row and every turn	no
-apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	lists each one once	no
-apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	prefers the root, which is the stable identity	no
-apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	finds a name stored against a follow-up turn	no
-apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	finds a group stored against the root	no
-apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	prefers the root when both were written, so the newer identity wins	no
-apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	answers undefined when nothing was saved for any of them	no
-apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	works for a single-turn conversation with no root recorded	no
-apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	finds the row by any turn the conversation has had	no
-apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	says nothing for a run no row holds, so the header falls back to the prompt	no
-apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	the header reads it before the prompt, after a teammate	no
+apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	includes the root, the row and every turn	yes
+apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	lists each one once	yes
+apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	prefers the root, which is the stable identity	yes
+apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	finds a name stored against a follow-up turn	yes
+apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	finds a group stored against the root	yes
+apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	prefers the root when both were written, so the newer identity wins	yes
+apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	answers undefined when nothing was saved for any of them	yes
+apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	works for a single-turn conversation with no root recorded	yes
+apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	finds the row by any turn the conversation has had	yes
+apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	says nothing for a run no row holds, so the header falls back to the prompt	yes
+apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	the header reads it before the prompt, after a teammate	yes
 apps/desktop/src/renderer/src/a-conversation-offers-its-terminal.test.tsx	names the runtime whose interface opens, says what happens there comes back, and that its permissions are not this mode	yes
 apps/desktop/src/renderer/src/a-conversation-offers-its-terminal.test.tsx	says Locust won't see it for a runtime whose sessions it does not read back (0.391)	yes
 apps/desktop/src/renderer/src/a-conversation-offers-its-terminal.test.tsx	is held while the run is going, saying until when and why	yes

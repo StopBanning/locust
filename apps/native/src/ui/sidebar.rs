@@ -2178,3 +2178,6 @@ mod sidebar_put_away_tests;
 #[path = "sidebar_routine_run_tests.rs"]
 mod sidebar_routine_run_tests;
 
+#[cfg(test)]
+#[path = "name_and_group_kept_tests.rs"]
+mod name_and_group_kept_tests;

@@ -1014,7 +1014,7 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
                                 row()
                                     .gap(8.0)
                                     .center_y()
-                                    .child(text(teammate.name.clone()).font(rune::TextStyle::new(15.0, 600.0)).color(l.c("text-name")))
+                                    .child(text(header_name(s, teammate)).font(rune::TextStyle::new(15.0, 600.0)).color(l.c("text-name")).key("thread-header-name"))
                                     .child(text(teammate.role.clone()).font(rune::TextStyle::new(12.5, 400.0)).color(l.c("text-muted")).truncate().shrink()),
                             )
                             .child({
@@ -1638,6 +1638,22 @@ pub(super) const THREAD_MAX: f32 = 840.0 + 48.0;
 
 fn column(inner: El) -> El {
     row().w_full().justify_center().child(inner.max_w(THREAD_MAX))
+}
+
+/// What the conversation's header is called (App.tsx `missionOwner?.name ?? shownConversationTitle ?? missionTitle(...)`):
+/// its teammate's name; a conversation of no teammate is called what its sidebar row says, found by any of its turns
+/// (conversation_list.rs `conversation_title_for`), else the words it was opened with, else the agent's name.
+pub(super) fn header_name(s: &State, teammate: &Teammate) -> String {
+    if teammate.id != LEDGER_TARGET {
+        return teammate.name.clone();
+    }
+    let pane = s.ledger.as_ref();
+    let tip = pane.map(|p| p.snapshot.tip.as_str()).filter(|id| !id.is_empty())
+        .or_else(|| s.conversations.get(LEDGER_TARGET).and_then(|c| c.conversation_id.as_deref()));
+    crate::conversation_list::conversation_title_for(&crate::sidebar::recent_as_missions(s), tip)
+        .map(str::to_owned)
+        .or_else(|| pane.and_then(|p| p.conversation.turns.first()).map(|(_, words)| words.clone()).filter(|w| !w.trim().is_empty()))
+        .unwrap_or_else(|| teammate.name.clone())
 }
 
 /// PlusMenu.tsx's +: at the box's left, closed while a turn runs (Electron's `disabled={running}`).
