@@ -130,3 +130,15 @@ fn a_benchmark_run_again_draws_its_score_chart_with_the_leader() {
     let leaders: Vec<&String> = keys.iter().filter(|k| k.starts_with("benchmark-leader-")).collect();
     assert_eq!(leaders, vec!["benchmark-leader-codex:nemotron-3-ultra-preview-long"], "the second label met the first and was moved");
 }
+
+// CompareBenchmark.tsx `dollars`: under ten cents the axis gives three places, from ten cents up two (merge check,
+// Tails 2: moving the line between them survived).
+#[test]
+fn the_cost_axis_gives_three_places_under_ten_cents_and_two_from_there() {
+    use locust_core::compare_chart::dollar_tick;
+    assert_eq!(dollar_tick(0.0), "$0");
+    assert_eq!(dollar_tick(0.012), "$0.012");
+    assert_eq!(dollar_tick(0.05), "$0.050");
+    assert_eq!(dollar_tick(0.1), "$0.10");
+    assert_eq!(dollar_tick(0.25), "$0.25");
+}
