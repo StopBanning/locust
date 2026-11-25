@@ -159,3 +159,20 @@ fn a_carry_on_target_the_organization_refuses_is_refused_before_anything_starts_
     finished(&id);
     assert_eq!(carried_from(&t, "mission_plan_policy").len(), 1);
 }
+
+// case: does not make the handed-to route the teammate's own
+#[test]
+fn a_carry_on_leaves_the_teammates_own_route_as_it_was() {
+    // App.tsx's handOffMission sets the picker's route only for a teammate that has none; native's start does the same
+    // (people::remember_route_of_start), so a teammate with a route keeps it after its turn is carried to another agent.
+    let t = Temp::new();
+    let _g = hooks::install(t.store(), fake("success"));
+    team(&t, Value::Null);
+    stopped(&t, "mission_plan_route", "codex", &[quota()]);
+    let before = crate::people::team(&t.store()).unwrap()["teammates"][0]["route"].clone();
+    assert_eq!(before["runtime"], "claude");
+    let (id, _, _) = carry("mission_plan_route", "opencode", None).unwrap();
+    finished(&id);
+    assert_eq!(carried_from(&t, "mission_plan_route")[0]["runtime"], "opencode", "the turn ran on the agent handed to");
+    assert_eq!(crate::people::team(&t.store()).unwrap()["teammates"][0]["route"], before, "and the teammate's own route is unchanged");
+}

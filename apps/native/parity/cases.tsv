@@ -1644,8 +1644,8 @@ apps/desktop/src/main/approval-patch.test.ts	the live payload: an add carries th
 apps/desktop/src/main/approval-patch.test.ts	composes a header pair per file: /dev/null for add and delete, the moved-to path for a move, hunks kept as sent for an update	yes
 apps/desktop/src/main/approval-patch.test.ts	paths under the folder are shown relative to it, whichever slashes and case; others are left alone	yes
 apps/desktop/src/main/approval-patch.test.ts	counts the lines and bounds the text like the ledger does; no changes is no patch	yes
-apps/desktop/src/main/approvals-come-only-from-the-window.test.ts	is only the approval holders and the window handler	no
-apps/desktop/src/main/approvals-come-only-from-the-window.test.ts	is dropped when its run ends: App applies approvalsOfLiveRuns on every change of runs	no
+apps/desktop/src/main/approvals-come-only-from-the-window.test.ts	is only the approval holders and the window handler	yes
+apps/desktop/src/main/approvals-come-only-from-the-window.test.ts	is dropped when its run ends: App applies approvalsOfLiveRuns on every change of runs	yes
 apps/desktop/src/main/approve-each-reaches-every-start.test.ts	the mode map names it, so it can never land on read-only again	yes
 apps/desktop/src/main/approve-each-reaches-every-start.test.ts	the policy asks the server to stop, which is what makes a card appear	yes
 apps/desktop/src/main/approve-each-reaches-every-start.test.ts	no start path refuses it any more	yes
@@ -2344,7 +2344,7 @@ apps/desktop/src/main/other-apps-can-only-ask-locust-teammates.test.ts	keeps a c
 apps/desktop/src/main/other-apps-can-only-ask-locust-teammates.test.ts	releases a conversation claim when starting its next turn rejects	yes
 apps/desktop/src/main/other-apps-can-only-ask-locust-teammates.test.ts	starts the teammate in the mode saved in Locust when the app names none	yes
 apps/desktop/src/main/other-apps-can-only-ask-locust-teammates.test.ts	starts it in the mode the app names, and says so (0.869)	yes
-apps/desktop/src/main/other-apps-can-only-ask-locust-teammates.test.ts	refuses a mode on a server whose apps may not choose (a voice call), even with the switch on	no
+apps/desktop/src/main/other-apps-can-only-ask-locust-teammates.test.ts	refuses a mode on a server whose apps may not choose (a voice call), even with the switch on	yes
 apps/desktop/src/main/other-apps-can-only-ask-locust-teammates.test.ts	continues in the CONVERSATION's mode, not the teammate's saved one (0.869)	yes
 apps/desktop/src/main/other-apps-can-only-ask-locust-teammates.test.ts	works in the folder the app names, records it, and the conversation stays there (0.869)	yes
 apps/desktop/src/main/other-apps-can-only-ask-locust-teammates.test.ts	reads the switch on every turn: turned off, the next turn is Ask	yes
@@ -3338,7 +3338,7 @@ apps/desktop/src/main/voice-typing-refuses-unchecked-files.test.ts	allows audio 
 apps/desktop/src/main/voice-typing-refuses-unchecked-files.test.ts	refuses another sender, subframe, camera, unknown media, or permission (%s %s %s %s)	no
 apps/desktop/src/main/what-a-teammate-spent-this-month.test.ts	counts every priced run of the month, not only the newest twenty, and nothing a plan paid for	yes
 apps/desktop/src/main/what-a-teammate-spent-this-month.test.ts	counts a run in the month it ended	yes
-apps/desktop/src/main/what-a-teammate-spent-this-month.test.ts	sends every row its money, including the ones sent without their events	no
+apps/desktop/src/main/what-a-teammate-spent-this-month.test.ts	sends every row its money, including the ones sent without their events	yes
 apps/desktop/src/main/what-a-teammate-wrote-is-quoted-dead.test.ts	carries no live tag, of any kind	yes
 apps/desktop/src/main/what-a-teammate-wrote-is-quoted-dead.test.ts	carries no live tag in the memory file the teammate reads either	yes
 apps/desktop/src/main/what-a-teammate-wrote-is-quoted-dead.test.ts	carries no live tag	yes
@@ -3958,7 +3958,7 @@ apps/desktop/src/renderer/src/a-handed-file-is-a-control.test.tsx	keeps the whol
 apps/desktop/src/renderer/src/a-handed-file-is-a-control.test.tsx	is drawn as a control, by its file's name, with all of its path on hover	yes
 apps/desktop/src/renderer/src/a-handed-file-is-a-control.test.tsx	leaves a path in the folder exactly as it was drawn before	yes
 apps/desktop/src/renderer/src/a-handoff-keeps-the-route-handed-to.test.ts	shows the route handed to, over the teammate's saved model	yes
-apps/desktop/src/renderer/src/a-handoff-keeps-the-route-handed-to.test.ts	does not make the handed-to route the teammate's own	no
+apps/desktop/src/renderer/src/a-handoff-keeps-the-route-handed-to.test.ts	does not make the handed-to route the teammate's own	yes
 apps/desktop/src/renderer/src/a-handoff-names-the-models-either-side.test.tsx	draws each side’s mark beside the model it ran, the receiving side in its brand	no
 apps/desktop/src/renderer/src/a-handoff-names-the-models-either-side.test.tsx	says it whole to a screen reader: the model, and the runtime it ran on	no
 apps/desktop/src/renderer/src/a-handoff-names-the-models-either-side.test.tsx	a side with no model recorded, or on the account default, is the runtime’s name, as before	no

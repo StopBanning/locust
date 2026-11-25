@@ -28,6 +28,7 @@ fn sources(dir: &Path, out: &mut Vec<(PathBuf, String)>) {
     }
 }
 
+// case: is only the approval holders and the window handler
 #[test]
 fn only_the_channel_the_windows_funnels_and_a_persons_press_answer_an_approval() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().to_path_buf();
