@@ -130,6 +130,12 @@ pub(super) fn command_text(prefix: &str, command: &str) -> El {
     line
 }
 
+fn plain_action_for(card: &approval::Request) -> Option<locust_core::command_plain::PlainCommand> {
+    (card.kind == approval::Kind::Command)
+        .then(|| locust_core::command_plain::plain_command(&card.detail))
+        .flatten()
+}
+
 pub(super) fn approval_card(s: &State, p: &Palette) -> El {
     let Some(card) = &s.pending_approval else {
         return col().w_full();
@@ -200,11 +206,12 @@ pub(super) fn approval_card(s: &State, p: &Palette) -> El {
     {
         body = body.child(text(format!("Asked by {asked_by}")).font(type_::LABEL).color(p.secondary).w_full().wrap().key("approval-asked-by"));
     }
-    if let Some(plain) = approval::plain_action(card) {
+    if let Some(plain) = plain_action_for(card) {
         body = body.child(
-            text(format!("In short: {plain}"))
+            text(format!("In short: {}", plain.said))
+                .key("approval-plain")
                 .font(type_::LABEL)
-                .color(p.text)
+                .color(if plain.careful { p.amber } else { p.text })
                 .w_full()
                 .wrap(),
         );
@@ -212,6 +219,7 @@ pub(super) fn approval_card(s: &State, p: &Palette) -> El {
     if let Some(reach) = approval::command_reach_of(card) {
         body = body.child(
             text(format!("Reaches: {}", reach.said))
+                .key("approval-reach")
                 .font(type_::LABEL)
                 .color(p.amber)
                 .w_full()

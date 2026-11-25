@@ -3731,8 +3731,8 @@ apps/desktop/src/renderer/src/a-commands-card-says-unknown-once.test.tsx	stay tw
 apps/desktop/src/renderer/src/a-commands-card-says-what-it-is-for.test.tsx	says what a forced push does, under the command, in amber	yes
 apps/desktop/src/renderer/src/a-commands-card-says-what-it-is-for.test.tsx	says it plainly, without amber, for one that only looks	yes
 apps/desktop/src/renderer/src/a-commands-card-says-what-it-is-for.test.tsx	has no such row for a command it cannot read all of, or for a file change	yes
-apps/desktop/src/renderer/src/a-commands-card-says-what-it-is-for.test.tsx	is amber on the card as a reach is	no
-apps/desktop/src/renderer/src/a-commands-card-says-what-it-is-for.test.tsx	goes to the phone with the command itself	no
+apps/desktop/src/renderer/src/a-commands-card-says-what-it-is-for.test.tsx	is amber on the card as a reach is	yes
+apps/desktop/src/renderer/src/a-commands-card-says-what-it-is-for.test.tsx	goes to the phone with the command itself	yes
 apps/desktop/src/renderer/src/a-compaction-is-a-line-not-a-reply.test.ts	is drawn as a line saying so, not as the summary or the note to the model	yes
 apps/desktop/src/renderer/src/a-compare-column-is-named-by-its-family.test.ts	Cursor’s Argon on its Low id is "Gemini 4 Argon", the level being its own control	yes
 apps/desktop/src/renderer/src/a-compare-column-is-named-by-its-family.test.ts	before the catalogue answers, the route is named as before	yes
