@@ -1362,10 +1362,10 @@ apps/desktop/src/main/an-added-account-has-only-its-own-home.test.ts	tracks wait
 apps/desktop/src/main/an-added-account-has-only-its-own-home.test.ts	enforces the accounts policy before adding, signing in or launching and still allows removal	yes
 apps/desktop/src/main/an-added-account-has-only-its-own-home.test.ts	keeps the saved account for CLI/editor starts and an explicit default for a picker override	yes
 apps/desktop/src/main/an-added-account-has-only-its-own-home.test.ts	compares the same agent and model on two distinct accounts and keeps both across reload	yes
-apps/desktop/src/main/an-added-account-has-only-its-own-home.test.ts	dispatches a real mission service command with its account home and leaves a default command unchanged	no
+apps/desktop/src/main/an-added-account-has-only-its-own-home.test.ts	dispatches a real mission service command with its account home and leaves a default command unchanged	yes
 apps/desktop/src/main/an-added-account-has-only-its-own-home.test.ts	keeps usage and exhausted limits separate for each account	yes
-apps/desktop/src/main/an-added-account-has-only-its-own-home.test.ts	keeps account homes out of backups and refuses removal while that account is in use	no
-apps/desktop/src/main/an-added-account-has-only-its-own-home.test.ts	starts, watches and stops background work on the same account	no
+apps/desktop/src/main/an-added-account-has-only-its-own-home.test.ts	keeps account homes out of backups and refuses removal while that account is in use	yes
+apps/desktop/src/main/an-added-account-has-only-its-own-home.test.ts	starts, watches and stops background work on the same account	yes
 apps/desktop/src/main/an-added-account-has-only-its-own-home.test.ts	opens an existing conversation in a terminal with the recorded account home	yes
 apps/desktop/src/main/an-agent-of-your-own-is-added-by-its-command.test.ts	is a program and its arguments, never a shell line	yes
 apps/desktop/src/main/an-agent-of-your-own-is-added-by-its-command.test.ts	is named on a route with the model picked on it	yes
@@ -1599,9 +1599,9 @@ apps/desktop/src/main/antigravity-runs-through-its-cli.test.ts	a failure that en
 apps/desktop/src/main/antigravity-runs-through-its-cli.test.ts	runs commands only in Auto	no
 apps/desktop/src/main/antigravity-tiers-are-named-once.test.ts	are exactly the three its own --help offers (flash_lite, flash, pro)	no
 apps/desktop/src/main/antigravity-tiers-are-named-once.test.ts	are listed in the catalog by the same names the window uses	no
-apps/desktop/src/main/antigravity-usage-does-not-hold-the-models.test.ts	answers with OpenCode's free model without waiting for a slow usage reading, and shows the reading when it comes	no
-apps/desktop/src/main/antigravity-usage-does-not-hold-the-models.test.ts	still includes a reading that is quick, and asks nothing more of the window	no
-apps/desktop/src/main/antigravity-usage-does-not-hold-the-models.test.ts	a failed reading costs the list nothing	no
+apps/desktop/src/main/antigravity-usage-does-not-hold-the-models.test.ts	answers with OpenCode's free model without waiting for a slow usage reading, and shows the reading when it comes	yes
+apps/desktop/src/main/antigravity-usage-does-not-hold-the-models.test.ts	still includes a reading that is quick, and asks nothing more of the window	yes
+apps/desktop/src/main/antigravity-usage-does-not-hold-the-models.test.ts	a failed reading costs the list nothing	yes
 apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	never runs /usage on an old or unknown version (%s)	yes
 apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	runs the built-in command on a supported version (%s)	yes
 apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	refuses even a discovered prefix that would disable built-in slash commands	yes
@@ -2035,9 +2035,9 @@ apps/desktop/src/main/forget-hits-one-memory.test.ts	says nothing matched when t
 apps/desktop/src/main/free-routes.test.ts	knows the free routes the drives use	yes
 apps/desktop/src/main/free-routes.test.ts	does not call a route free because of its runtime or a word in its name	yes
 apps/desktop/src/main/free-routes.test.ts	knows every free model OpenCode 1.18.27 lists	yes
-apps/desktop/src/main/free-routes.test.ts	holds a launch with a debugging port to free routes	no
-apps/desktop/src/main/free-routes.test.ts	leaves an ordinary launch alone	no
-apps/desktop/src/main/free-routes.test.ts	lifts only for the person who said to spend	no
+apps/desktop/src/main/free-routes.test.ts	holds a launch with a debugging port to free routes	yes
+apps/desktop/src/main/free-routes.test.ts	leaves an ordinary launch alone	yes
+apps/desktop/src/main/free-routes.test.ts	lifts only for the person who said to spend	yes
 apps/desktop/src/main/git-reaches-a-run-with-no-shell.test.ts	lists six tools, every one marked read only	yes
 apps/desktop/src/main/git-reaches-a-run-with-no-shell.test.ts	reads what a review needs: the change, the history, a file as it was	yes
 apps/desktop/src/main/git-reaches-a-run-with-no-shell.test.ts	sees a change of the same size made in the same second as the index was written	yes

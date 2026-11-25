@@ -5,6 +5,7 @@
 //! - `main/a-model-of-your-own-is-unpriced-not-free.test.ts` (0.689): what a model of your own is, and that unpriced
 //!   runs never move the limit.
 
+use crate::model_lists::free_routes_only;
 use crate::models::{kept_catalog, lists_its_models_but_listed_none, Listed};
 use crate::scout::host::is_free_route;
 use crate::spend::{is_own_model, limit_reached, Spend};
@@ -83,6 +84,38 @@ fn every_free_model_opencode_1_18_27_lists_is_known_as_free() {
     ] {
         assert!(is_free_route("opencode", Some(&format!("opencode/{model}"))), "{model}");
     }
+}
+
+// ---- whether a launch is held to free routes (freeRoutesOnly) ----
+
+fn argv(args: &[&str]) -> Vec<String> {
+    args.iter().map(|a| (*a).to_owned()).collect()
+}
+
+fn environment(pairs: &'static [(&'static str, &'static str)]) -> impl Fn(&str) -> Option<String> {
+    move |key| pairs.iter().find(|(k, _)| *k == key).map(|(_, v)| (*v).to_owned())
+}
+
+#[test]
+fn holds_a_launch_with_a_debugging_port_to_free_routes() {
+    // Every drive and smoke takes the window over this way, harness or not.
+    assert!(free_routes_only(&argv(&["Locust.exe", "--remote-debugging-port=9294"]), &environment(&[])));
+    assert!(free_routes_only(&argv(&["electron.exe", ".", "--remote-debugging-port=9294", "--user-data-dir=x"]), &environment(&[])));
+}
+
+#[test]
+fn leaves_an_ordinary_launch_alone() {
+    // A person's own Locust must never be held to free routes by this.
+    assert!(!free_routes_only(&argv(&["Locust.exe"]), &environment(&[])));
+    assert!(!free_routes_only(&argv(&["Locust.exe", "--some-other-switch"]), &environment(&[])));
+}
+
+#[test]
+fn lifts_only_for_the_person_who_said_to_spend() {
+    let port = argv(&["Locust.exe", "--remote-debugging-port=9294"]);
+    assert!(!free_routes_only(&port, &environment(&[("LOCUST_SPEND", "1")])));
+    assert!(free_routes_only(&port, &environment(&[("LOCUST_SPEND", "yes")])));
+    assert!(free_routes_only(&argv(&["Locust.exe"]), &environment(&[("LOCUST_FREE_ONLY", "1")])));
 }
 
 // ---- a model of your own is unpriced, not free ----
