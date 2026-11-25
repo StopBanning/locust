@@ -1432,6 +1432,43 @@ fn real_codex_approval_deny_then_allow() {
     approval_deny_then_allow("codex", false);
 }
 
+// streamed-event-batches.ts: a card answered mid-stream is written where it happened, after the words before it and
+// before the words after it, not at the run's end.
+#[test]
+fn an_answered_card_is_written_between_the_words_around_it() {
+    let t = Temp::new();
+    let command = (
+        PathBuf::from("python3"),
+        vec![concat!(env!("CARGO_MANIFEST_DIR"), "/../scripts/fixtures/native-approvals-ordered.py").into(), "claude".into()],
+    );
+    let _g = hooks::install(t.store(), Some(command));
+    let mut mate = codex(&t);
+    mate.runtime = Some("claude".into());
+    mate.model = None;
+    mate.runs_in = "approve-each".into();
+    let started = send(Send { teammate: mate, conversation: None, prompt: "Write hello.txt.".into(), model: None, effort: None }).unwrap();
+    let path = path_of(&t, &started.conversation_id);
+    let deadline = Instant::now() + Duration::from_secs(60);
+    let request = loop {
+        if let Some(r) = waiting_approvals().into_iter().find(|r| r.mission_id == started.conversation_id) {
+            break r;
+        }
+        assert!(Instant::now() < deadline, "no card");
+        std::thread::sleep(Duration::from_millis(20));
+    };
+    decide_approval(&request.approval_id, Decision::ApproveOnce, None).unwrap();
+    while owns(&started.conversation_id) {
+        assert!(Instant::now() < deadline, "did not finish");
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    let rows = records(&path);
+    let at = |find: &dyn Fn(&Value) -> bool| rows.iter().position(|r| find(r)).unwrap_or_else(|| panic!("{rows:?}"));
+    let card = at(&|r| r["recordType"] == "mission.approval");
+    let after = at(&|r| r["event"]["type"] == "message.delta" && r["event"]["payload"]["text"].as_str().is_some_and(|t| t.contains("After the write")));
+    let before = at(&|r| r["event"]["type"] == "message.delta" && r["event"]["payload"]["text"].as_str().is_some_and(|t| t.contains("Before the write")));
+    assert!(before < card && card < after, "before {before}, card {card}, after {after}: {rows:?}");
+}
+
 #[test]
 fn native_claude_denies_then_allows_one_file_write() {
     approval_deny_then_allow("claude", true);
