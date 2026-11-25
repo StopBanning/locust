@@ -2272,8 +2272,9 @@ pub(super) fn asking_label(s: &State) -> Option<String> {
 }
 
 pub(super) fn composer_mode_chip(s: &State, l: &crate::look::controls::Look) -> El {
-    let label = if s.cloud.on { "Cloud" } else { s.compare.composer_mode.label() };
-    crate::look::controls::composer_chip(l, None, label, s.cloud.on || s.compare.composer_mode != CompareComposerMode::Direct)
+    let cloud_on = s.cloud.on || s.cloud.codex.on;
+    let label = if cloud_on { "Cloud" } else { s.compare.composer_mode.label() };
+    crate::look::controls::composer_chip(l, None, label, cloud_on || s.compare.composer_mode != CompareComposerMode::Direct)
         .key("compare-mode-chip")
         .role("button")
         .label(format!("Comparison: {label}"))
@@ -2296,11 +2297,14 @@ pub(super) fn read_catalog_if_needed(s: &mut State) {
 
 /// The Cloud choice when a Claude model is picked (Composer.tsx `CLAUDE_CLOUD_DESC`, 0.538).
 const CLAUDE_CLOUD_DESC: &str = "Runs in Claude’s cloud; follow it on claude.ai, tell it more from here, bring it home when it is done";
+/// The Cloud choice when a Codex model is picked (Composer.tsx `CHAT_MODES` `cloud`, 0.503).
+const CODEX_CLOUD_DESC: &str = "Runs in Codex Cloud on this repository, on the model Codex Cloud chooses; bring the change home when it is done";
 
 pub(super) fn composer_mode_menu(s: &State, l: &crate::look::controls::Look) -> Option<El> {
     if !s.compare.mode_menu {
         return None;
     }
+    let cloud_on = s.cloud.on || s.cloud.codex.on;
     let options = [
         (CompareComposerMode::Direct, "compare-mode-direct", "Direct", "One model answers."),
         (CompareComposerMode::Compare, "compare-mode-compare", "Compare", "Two or three models answer side by side."),
@@ -2316,7 +2320,7 @@ pub(super) fn composer_mode_menu(s: &State, l: &crate::look::controls::Look) -> 
         .role("menu")
         .label("Comparison mode");
     for (mode, key, title, desc) in options {
-        let chosen = !s.cloud.on && s.compare.composer_mode == mode;
+        let chosen = !cloud_on && s.compare.composer_mode == mode;
         let mut head = row()
             .w_full()
             .gap(8.0)
@@ -2342,6 +2346,7 @@ pub(super) fn composer_mode_menu(s: &State, l: &crate::look::controls::Look) -> 
                     s.compare.composer_mode = mode;
                     s.compare.mode_menu = false;
                     crate::claude_cloud_panel::choose(s, false);
+                    crate::cloud_tasks::choose(s, false);
                     if mode == CompareComposerMode::Direct {
                         s.compare.picks.clear();
                         s.compare.changes = false;
@@ -2356,7 +2361,7 @@ pub(super) fn composer_mode_menu(s: &State, l: &crate::look::controls::Look) -> 
                 }),
         );
     }
-    // Cloud (Composer.tsx's fourth choice), while a Claude model is picked: the next send goes to Claude's cloud.
+    // Cloud (Composer.tsx's fourth choice), while a Claude or Codex model is picked.
     if crate::claude_cloud_panel::claude_picked(s) {
         let mut head = row()
             .w_full()
@@ -2385,7 +2390,46 @@ pub(super) fn composer_mode_menu(s: &State, l: &crate::look::controls::Look) -> 
                     s.compare.picks.clear();
                     s.compare.changes = false;
                     s.compare.model_menu = None;
+                    crate::cloud_tasks::choose(s, false);
                     crate::claude_cloud_panel::choose(s, true);
+                }),
+        );
+    } else if crate::cloud_tasks::codex_picked(s) {
+        let refusal = crate::cloud_tasks::menu_refusal(s);
+        let desc = refusal.unwrap_or(CODEX_CLOUD_DESC);
+        let mut head = row()
+            .w_full()
+            .gap(8.0)
+            .center_y()
+            .child(text("Cloud").font(l.ty.control).color(l.c("text-primary")).grow(1.0));
+        if s.cloud.codex.on {
+            head = head.child(crate::look::controls::glyph(l, &crate::look::icons::CHECK, 13.0, Some(l.c("text-secondary"))));
+        }
+        menu = menu.child(
+            col()
+                .key("compare-mode-cloud")
+                .w_full()
+                .gap(2.0)
+                .py(7.0)
+                .px(10.0)
+                .radius(l.t.px("radius-control"))
+                .hover(l.c("bg-selected"))
+                .child(head)
+                .child(text(desc).font(l.ty.body).color(l.c("text-muted")).w_full().wrap())
+                .role("menuitemradio")
+                .label("Cloud")
+                .on_press(move |s: &mut State| {
+                    s.compare.mode_menu = false;
+                    if let Some(why) = refusal {
+                        s.composer_note = Some(why.to_owned());
+                        return;
+                    }
+                    s.compare.composer_mode = CompareComposerMode::Direct;
+                    s.compare.picks.clear();
+                    s.compare.changes = false;
+                    s.compare.model_menu = None;
+                    crate::claude_cloud_panel::choose(s, false);
+                    crate::cloud_tasks::choose(s, true);
                 }),
         );
     }

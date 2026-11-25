@@ -6,7 +6,7 @@
 use super::*;
 use crate::claude_cloud_panel::{CloudFolder, CloudWhere};
 use locust_core::changes;
-use locust_core::cloud_task_service::{self, CloudApplyResult, CloudTaskService};
+use locust_core::cloud_task_service::{self, CloudApplyResult, CloudStartInput, CloudStartResult, CloudTaskService};
 use locust_core::cloud_tasks::{CloudEnvironment, CloudState, CloudTask};
 use locust_core::store::Store;
 use std::collections::HashSet;
@@ -15,6 +15,8 @@ use std::sync::Mutex;
 
 const CODEX_NOT_READY: &str =
     "Cloud tasks run through Codex CLI, which is not installed or not signed in here. Settings > AI agents shows how.";
+const CODEX_MENU_REFUSAL: &str = "Codex CLI is not installed or not signed in here.";
+const CLOUD_START_FAILED: &str = "The cloud task could not be started. Nothing was sent.";
 const EMPTY_STATE: &str = "Pick Cloud in the chat-type menu and describe a task. It runs in Codex Cloud on this repository, as GitHub has it; its change stays there until you apply it here.";
 const CHECKING_ENV_FOLDERS: &str = "Checking your other folders for one that has an environment…";
 const USE_FOLDER_WITH_ENV: &str = "Or use a folder that has one:";
@@ -37,6 +39,10 @@ pub(crate) struct OpenChange {
 }
 
 enum Answer {
+    Listed {
+        folder: String,
+        tasks: Vec<CloudTask>,
+    },
     Loaded {
         folder: String,
         tasks: Vec<CloudTask>,
@@ -61,6 +67,11 @@ enum Answer {
 /// Codex Cloud state held inside `claude_cloud_panel::Cloud`.
 #[derive(Default)]
 pub(crate) struct CodexCloud {
+    /// Cloud is the chat type with a Codex model picked: the next send starts a Codex Cloud task.
+    /// One message's choice, not a state the box stays in (0.505): another conversation, model change, or send clears it.
+    pub(crate) on: bool,
+    /// The teammate `on` was chosen for.
+    pub(crate) on_for: Option<String>,
     pub(crate) tasks: Vec<CloudTask>,
     pub(crate) place: Option<CloudWhere>,
     pub(crate) codex_ready: Option<bool>,
@@ -75,6 +86,7 @@ pub(crate) struct CodexCloud {
     /// The task currently being applied to this folder, if any.
     pub(crate) applying: Option<String>,
     pub(crate) make: Option<MakeCodex>,
+    listed_folder: Option<String>,
     loaded_folder: Option<String>,
     was_open: bool,
     next_refresh_ms: u64,
@@ -95,6 +107,70 @@ fn folder(s: &State) -> Option<String> {
         .or_else(|| s.home.folder_path.clone())
 }
 
+/// Whether the composer's picked model is a Codex route (Composer.tsx `cloud.where === 'codex'`, 0.503).
+pub(crate) fn codex_picked(s: &State) -> bool {
+    let Some(mate) = teammate(s) else { return false };
+    let runtime = s
+        .picks
+        .get(&mate.id)
+        .and_then(|p| p.runtime.as_deref())
+        .or(mate.runtime.as_deref());
+    runtime == Some("codex")
+}
+
+/// Why Cloud cannot be picked for Codex here, when Codex CLI is known to be unready (`App.tsx:11032`).
+pub(crate) fn menu_refusal(s: &State) -> Option<&'static str> {
+    (s.cloud.codex.codex_ready == Some(false)).then_some(CODEX_MENU_REFUSAL)
+}
+
+/// The chat-type menu's Cloud choice for a Codex model (`Composer.tsx` `cloud.onMode`):
+/// turning it on opens the cloud panel and reads this folder's Codex tasks and environment.
+pub(crate) fn choose(s: &mut State, on: bool) {
+    s.cloud.codex.on = on;
+    if !on {
+        return;
+    }
+    s.cloud.codex.on_for = teammate(s).map(|mate| mate.id.clone());
+    s.cloud.open = true;
+    refresh(s);
+}
+
+/// A send with Cloud on and a Codex model picked starts a Codex Cloud task instead of a turn (`App.tsx` `startCloudTask`).
+/// True when this branch handled the send (started or refused); a refusal is shown over the box and keeps the draft.
+pub(crate) fn send(s: &mut State, typed: &str) -> bool {
+    if !s.cloud.codex.on || !codex_picked(s) {
+        return false;
+    }
+    let (Some(store), Some(here)) = (s.data.as_ref(), folder(s)) else {
+        s.composer_note = Some(CLOUD_START_FAILED.into());
+        return true;
+    };
+    let svc = build_service(store, &s.cloud.codex.make);
+    let teammate_id = teammate(s).map(|mate| mate.id.clone());
+    match svc.start(CloudStartInput {
+        folder: here,
+        prompt: typed.to_owned(),
+        teammate_id,
+    }) {
+        CloudStartResult::Ok { task, notes } => {
+            s.cloud.codex.tasks.retain(|one| one.task_id != task.task_id);
+            s.cloud.codex.tasks.push(task);
+            s.cloud.panel.codex_tasks = s.cloud.codex.tasks.len();
+            s.cloud.codex.notes = notes;
+            s.cloud.codex.problem = None;
+            s.cloud.open = true;
+            s.cloud.codex.on = false;
+            s.draft.clear();
+            s.attached.clear();
+            s.composer_note = None;
+        }
+        CloudStartResult::Err { message } => {
+            s.composer_note = Some(message);
+        }
+    }
+    true
+}
+
 fn codex_side(s: &State) -> bool {
     !crate::claude_cloud_panel::claude_picked(s) || !s.cloud.codex.tasks.is_empty()
 }
@@ -106,12 +182,55 @@ fn build_service(store: &Store, make: &Option<MakeCodex>) -> CloudTaskService<'s
     }
 }
 
+/// How many Codex Cloud tasks this folder has, for the sidebar's `Cloud tasks` badge (`App.tsx:9372`).
+pub(crate) fn sidebar_count(s: &State) -> usize {
+    s.cloud.codex.tasks.len()
+}
+
+/// Opens the cloud panel in the workroom from the sidebar's `Cloud tasks` badge (`App.tsx:9372`).
+pub(crate) fn open_from_sidebar(s: &mut State) {
+    crate::room_screen::close(s);
+    crate::missions_screen::close(s);
+    s.compare.active_id = None;
+    s.benchmarks_open = false;
+    s.home.home_open = false;
+    s.home.board_open = false;
+    s.home.boot_open = false;
+    s.people_panel.open = false;
+    s.settings_panel.open = false;
+    s.routines.open = false;
+    s.background_runs.open = false;
+    s.cloud.open = true;
+    refresh(s);
+}
+
+fn list_folder_tasks(s: &mut State) {
+    let current = folder(s);
+    s.cloud.codex.listed_folder = current.clone();
+    let (Some(store), Some(here)) = (s.data.clone(), current) else {
+        s.cloud.codex.tasks.clear();
+        s.cloud.panel.codex_tasks = 0;
+        return;
+    };
+    let make = s.cloud.codex.make.clone();
+    let inbox = s.cloud.codex.inbox.clone();
+    std::thread::spawn(move || {
+        let svc = build_service(&store, &make);
+        let tasks = svc.list(Some(&here));
+        inbox
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push(Answer::Listed { folder: here, tasks });
+    });
+}
+
 /// Reads this folder's Codex cloud tasks, GitHub place, Codex readiness, and environment off the window's thread.
 pub(crate) fn refresh(s: &mut State) {
     let (Some(store), Some(here)) = (s.data.clone(), folder(s)) else {
         return;
     };
     s.cloud.codex.was_open = s.cloud.open;
+    s.cloud.codex.listed_folder = Some(here.clone());
     s.cloud.codex.loaded_folder = Some(here.clone());
     s.cloud.codex.next_refresh_ms = s.cloud.now_ms.saturating_add(REFRESH_INTERVAL_MS);
     s.cloud.codex.folders = None;
@@ -273,12 +392,22 @@ fn apply_task(s: &mut State, task_id: &str) {
 pub(crate) fn poll(s: &mut State, now: f64) -> bool {
     let mut changed = false;
     let now_ms = (now.max(0.0) * 1000.0) as u64;
+    if s.cloud.codex.on
+        && (teammate(s).map(|mate| mate.id.clone()) != s.cloud.codex.on_for || !codex_picked(s))
+    {
+        s.cloud.codex.on = false;
+        changed = true;
+    }
     let current_folder = folder(s);
     if !s.cloud.open {
         if s.cloud.codex.was_open || s.cloud.codex.open.is_some() {
             s.cloud.codex.was_open = false;
             s.cloud.codex.open = None;
             s.cloud.codex.refreshing.clear();
+            changed = true;
+        }
+        if s.cloud.codex.listed_folder != current_folder {
+            list_folder_tasks(s);
             changed = true;
         }
     } else {
@@ -315,6 +444,17 @@ pub(crate) fn poll(s: &mut State, now: f64) -> bool {
     );
     for answer in landed {
         match answer {
+            Answer::Listed {
+                folder: there,
+                tasks,
+            } => {
+                if folder(s).as_deref() != Some(there.as_str()) {
+                    continue;
+                }
+                s.cloud.codex.tasks = tasks;
+                s.cloud.panel.codex_tasks = s.cloud.codex.tasks.len();
+                changed = true;
+            }
             Answer::Loaded {
                 folder: there,
                 tasks,
@@ -791,3 +931,11 @@ mod cloud_tasks_apply_tests;
 #[cfg(test)]
 #[path = "cloud_tasks_more_tests.rs"]
 mod cloud_tasks_more_tests;
+
+#[cfg(test)]
+#[path = "cloud_tasks_send_tests.rs"]
+mod cloud_tasks_send_tests;
+
+#[cfg(test)]
+#[path = "cloud_tasks_sidebar_tests.rs"]
+mod cloud_tasks_sidebar_tests;

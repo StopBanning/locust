@@ -166,7 +166,7 @@ fn the_chat_type_menu_offers_cloud_for_a_claude_model_and_choosing_it_opens_the_
 
 #[test]
 fn cloud_is_not_offered_for_an_agent_whose_cloud_is_not_built_here() {
-    let (_dirs, mut rt) = window("codex", None);
+    let (_dirs, mut rt) = window("cursor", None);
     click(&mut rt, "compare-mode-chip");
     assert!(rt.find("compare-mode-compare").is_some());
     assert!(rt.find("compare-mode-cloud").is_none());
