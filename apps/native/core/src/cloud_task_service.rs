@@ -11,8 +11,8 @@ use regex::Regex;
 use serde_json::{Value, json};
 
 use crate::cloud_tasks::{
-    CloudState, CloudStatus, CloudTask, FolderOnGitHub, Ran, StartAnswer, folder_on_github,
-    refusal_for, start_answer, status_answer,
+    CloudEnvironment, CloudState, CloudStatus, CloudTask, FolderOnGitHub, Ran, StartAnswer,
+    environment_of, folder_on_github, leaving_no_log, refusal_for, start_answer, status_answer,
 };
 
 const KEEP: usize = 200;
@@ -49,9 +49,49 @@ pub enum CloudApplyResult {
 
 pub struct CloudTaskService<'a> {
     file: PathBuf,
-    codex: &'a dyn Fn(&[&str], &Path) -> Result<Ran, String>,
-    git: &'a dyn Fn(&[&str], &Path) -> Result<Ran, String>,
+    codex: Box<dyn Fn(&[&str], &Path) -> Result<Ran, String> + 'a>,
+    git: Box<dyn Fn(&[&str], &Path) -> Result<Ran, String> + 'a>,
+    ready: Box<dyn Fn() -> bool + 'a>,
     now: Box<dyn Fn() -> String + 'a>,
+}
+
+/// Where the window keeps its Codex cloud tasks (Electron's `userData/cloud-tasks.json`).
+pub fn store_path_of(store: &crate::store::Store) -> PathBuf {
+    store.root().join("cloud-tasks.json")
+}
+
+/// This computer's Codex cloud task service (Electron's `createCloudTaskService` in `index.ts`):
+/// keeps tasks in `store_path_of(store)`, runs `codex` wrapped in `leaving_no_log`, and runs `git`.
+pub fn on_this_computer(store: &crate::store::Store) -> CloudTaskService<'static> {
+    let codex = leaving_no_log(|args: &[&str], cwd: &Path| {
+        let Ok(path) = crate::runtime::discovery::find() else {
+            return Ok(Ran::new(127, "", "Codex CLI is not installed or not signed in."));
+        };
+        let out = std::process::Command::new(path)
+            .args(args)
+            .current_dir(cwd)
+            .output()
+            .map_err(|e| e.to_string())?;
+        Ok(Ran::new(
+            out.status.code().unwrap_or(-1),
+            String::from_utf8_lossy(&out.stdout),
+            String::from_utf8_lossy(&out.stderr),
+        ))
+    });
+    let git = |args: &[&str], cwd: &Path| {
+        let out = std::process::Command::new("git")
+            .args(args)
+            .current_dir(cwd)
+            .output()
+            .map_err(|e| e.to_string())?;
+        Ok(Ran::new(
+            out.status.code().unwrap_or(-1),
+            String::from_utf8_lossy(&out.stdout),
+            String::from_utf8_lossy(&out.stderr),
+        ))
+    };
+    CloudTaskService::from_runners(store_path_of(store), codex, git)
+        .with_ready(|| crate::runtime::discovery::find().is_ok())
 }
 
 impl<'a> CloudTaskService<'a> {
@@ -60,17 +100,43 @@ impl<'a> CloudTaskService<'a> {
         codex: &'a dyn Fn(&[&str], &Path) -> Result<Ran, String>,
         git: &'a dyn Fn(&[&str], &Path) -> Result<Ran, String>,
     ) -> Self {
+        Self::from_runners(
+            file,
+            move |args, cwd| codex(args, cwd),
+            move |args, cwd| git(args, cwd),
+        )
+    }
+
+    pub fn from_runners(
+        file: impl Into<PathBuf>,
+        codex: impl Fn(&[&str], &Path) -> Result<Ran, String> + 'a,
+        git: impl Fn(&[&str], &Path) -> Result<Ran, String> + 'a,
+    ) -> Self {
         Self {
             file: file.into(),
-            codex,
-            git,
+            codex: Box::new(codex),
+            git: Box::new(git),
+            ready: Box::new(|| true),
             now: Box::new(|| Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true)),
         }
+    }
+
+    pub fn with_ready(mut self, ready: impl Fn() -> bool + 'a) -> Self {
+        self.ready = Box::new(ready);
+        self
     }
 
     pub fn with_now(mut self, now: impl Fn() -> String + 'a) -> Self {
         self.now = Box::new(now);
         self
+    }
+
+    pub fn codex_ready(&self) -> bool {
+        (self.ready)()
+    }
+
+    pub fn environment(&self, repo: &str, folder: &Path) -> CloudEnvironment {
+        environment_of(&*self.codex, repo, folder)
     }
 
     fn read(&self) -> Vec<CloudTask> {
@@ -122,7 +188,7 @@ impl<'a> CloudTaskService<'a> {
     }
 
     pub fn where_folder(&self, folder: &Path) -> FolderOnGitHub {
-        folder_on_github(folder, self.git)
+        folder_on_github(folder, &*self.git)
     }
 
     pub fn start(&self, input: CloudStartInput) -> CloudStartResult {
@@ -133,7 +199,7 @@ impl<'a> CloudTaskService<'a> {
             };
         }
         let folder_path = Path::new(&input.folder);
-        let where_gh = folder_on_github(folder_path, self.git);
+        let where_gh = folder_on_github(folder_path, &*self.git);
         let Some(repo) = where_gh.repo else {
             return CloudStartResult::Err {
                 message: "A cloud task works on a GitHub repository, and this folder has none. Push it to GitHub first, or send it here instead.".into(),

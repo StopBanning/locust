@@ -78,6 +78,8 @@ mod backup_section;
 mod restored_folders_card;
 #[path = "ui/claude_cloud_panel.rs"]
 mod claude_cloud_panel;
+#[path = "ui/cloud_tasks.rs"]
+mod cloud_tasks;
 #[path = "ui/own_copies.rs"]
 mod own_copies;
 #[path = "ui/import_dialog.rs"]

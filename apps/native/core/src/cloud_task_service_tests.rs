@@ -209,3 +209,29 @@ fn never_applies_a_task_it_did_not_start() {
         assert!(calls.borrow().is_empty());
     });
 }
+
+#[test]
+fn from_runners_reports_codex_readiness_and_environment() {
+    use crate::cloud_tasks::CloudEnvironment;
+    let dir = TempDir::new("locust-cloud-svc-env");
+    let store = crate::store::Store::new(dir.path.join("native"), dir.path.join("electron")).unwrap();
+    assert_eq!(
+        super::store_path_of(&store),
+        store.root().join("cloud-tasks.json")
+    );
+    let svc = CloudTaskService::from_runners(
+        dir.path.join("cloud-tasks.json"),
+        |args: &[&str], _cwd: &Path| {
+            if args == ["cloud", "list", "--env", "acme/missing", "--limit", "1"] {
+                Ok(ran("", 1, "environment 'acme/missing' not found"))
+            } else {
+                Ok(ran("", 0, ""))
+            }
+        },
+        |_args: &[&str], _cwd: &Path| Ok(ran("", 0, "")),
+    )
+    .with_ready(|| false);
+    assert!(!svc.codex_ready());
+    assert_eq!(svc.environment("acme/ready", &dir.path), CloudEnvironment::Ready);
+    assert_eq!(svc.environment("acme/missing", &dir.path), CloudEnvironment::Missing);
+}
