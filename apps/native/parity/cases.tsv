@@ -4103,8 +4103,8 @@ apps/desktop/src/renderer/src/a-new-document-reads-as-one.test.tsx	still opens a
 apps/desktop/src/renderer/src/a-new-document-reads-as-one.test.tsx	offers no Open where the fold has no viewer to open	yes
 apps/desktop/src/renderer/src/a-new-person-is-met-where-they-are.test.tsx	offers to make something, not to read a project that is not there	yes
 apps/desktop/src/renderer/src/a-new-person-is-met-where-they-are.test.tsx	offers its own starters once the folder holds something, and a template teammate without fresh ones keeps its own	yes
-apps/desktop/src/renderer/src/a-new-person-is-met-where-they-are.test.tsx	is told the folder is empty by the window, which asks again after each turn	no
-apps/desktop/src/renderer/src/a-new-person-is-met-where-they-are.test.tsx	keeps the first-run line and its free model until the first conversation	no
+apps/desktop/src/renderer/src/a-new-person-is-met-where-they-are.test.tsx	is told the folder is empty by the window, which asks again after each turn	yes
+apps/desktop/src/renderer/src/a-new-person-is-met-where-they-are.test.tsx	keeps the first-run line and its free model until the first conversation	yes
 apps/desktop/src/renderer/src/a-new-person-is-met-where-they-are.test.tsx	sends a starter row to the teammate whose work it is	yes
 apps/desktop/src/renderer/src/a-new-person-is-met-where-they-are.test.tsx	says "all free" when every turn was on a free model	yes
 apps/desktop/src/renderer/src/a-new-person-is-met-where-they-are.test.tsx	says nothing of free when any turn was not	yes
