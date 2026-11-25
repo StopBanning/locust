@@ -63,7 +63,7 @@ fn save(s: &mut State, change: serde_json::Value) {
     line.key = TextEdit::default();
 }
 
-pub(super) fn section(s: &State, p: &Palette) -> El {
+pub(super) fn section(s: &State, p: &Palette, first: bool) -> El {
     use crate::look::controls::{self, Tone};
     let l = crate::look::controls::Look::new(p.dark);
     let line = &s.settings_panel.voice;
@@ -144,7 +144,7 @@ pub(super) fn section(s: &State, p: &Palette) -> El {
         .gap(4.0)
         .child(text(HEADING.to_owned()).role("heading").level(2).font(l.ty.control).color(l.c("text-primary")))
         .child(text(LEDE.to_owned()).font(l.ty.body).color(l.c("text-secondary")).wrap());
-    crate::settings_panel::line(&l, "settings-line-voice-typing", 10.0, words, control)
+    crate::settings_panel::line(&l, "settings-line-voice-typing", 10.0, first, words, control)
 }
 
 #[cfg(test)]
