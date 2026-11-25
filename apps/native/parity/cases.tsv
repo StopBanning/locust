@@ -1463,8 +1463,8 @@ apps/desktop/src/main/an-image-preview-stays-in-its-folder.test.ts	refuses a pat
 apps/desktop/src/main/an-image-preview-stays-in-its-folder.test.ts	reads a comparison column from its own copy and never substitutes the workspace	yes
 apps/desktop/src/main/an-image-preview-stays-in-its-folder.test.ts	refuses a link that leads outside the conversation	yes
 apps/desktop/src/main/an-image-preview-stays-in-its-folder.test.ts	draws no SVG, network URL, missing file, folder, or oversized image	yes
-apps/desktop/src/main/an-issue-image-comes-only-from-github.test.ts	fetches a picture only from GitHub's own hosts, and stops at a redirect that leaves them	no
-apps/desktop/src/main/an-issue-image-comes-only-from-github.test.ts	follows a redirect that stays on GitHub's hosts	no
+apps/desktop/src/main/an-issue-image-comes-only-from-github.test.ts	fetches a picture only from GitHub's own hosts, and stops at a redirect that leaves them	yes
+apps/desktop/src/main/an-issue-image-comes-only-from-github.test.ts	follows a redirect that stays on GitHub's hosts	yes
 apps/desktop/src/main/an-issue-link-wears-its-state.test.ts	is an issue, beside the pull request with the same address shape	yes
 apps/desktop/src/main/an-issue-link-wears-its-state.test.ts	finds a bare issue in a sentence, and a written one, beside the pull request	yes
 apps/desktop/src/main/an-issue-link-wears-its-state.test.ts	refuses anything that is not an owner, a repo and a number	yes

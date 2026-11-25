@@ -169,3 +169,64 @@ fn opens_an_issue_as_its_brief_and_what_the_conversation_remembers() {
     assert_eq!(started, StartedIssue { number: 5, title: "Crashes on start".into(), url: "https://github.com/acme/hearth/issues/5".into() });
     assert_eq!(open(&gh, Path::new("/w"), 0), None);
 }
+
+fn viewed_issue(body: &str) -> ViewedIssue {
+    ViewedIssue {
+        number: 5,
+        title: "Crashes on start".into(),
+        url: "https://github.com/acme/hearth/issues/5".into(),
+        body: body.into(),
+        labels: Vec::new(),
+        comments: Vec::new(),
+    }
+}
+
+// case: fetches a picture only from GitHub's own hosts, and stops at a redirect that leaves them
+#[test]
+fn fetches_a_picture_only_from_githubs_own_hosts_and_stops_at_a_redirect_that_leaves_them() {
+    let png = vec![1u8, 2, 3];
+    let mut asked: Vec<String> = Vec::new();
+    let images = read_issue_images(
+        &viewed_issue("![a](https://github.com/user-attachments/assets/one)\n![b](https://user-images.githubusercontent.com/two.png)\n![c](https://evil.example/c.png)"),
+        |url| {
+            asked.push(url.to_owned());
+            match url {
+                "https://github.com/user-attachments/assets/one" => Some(ImageResponse { status: 200, location: None, bytes: png.clone() }),
+                "https://user-images.githubusercontent.com/two.png" => Some(ImageResponse { status: 302, location: Some("https://evil.example/two.png".into()), bytes: Vec::new() }),
+                _ => Some(ImageResponse { status: 404, location: None, bytes: Vec::new() }),
+            }
+        },
+    );
+    assert_eq!(images, vec![IssueImage { name: "issue-5-1.png".into(), bytes: png.clone() }]);
+    assert_eq!(asked, vec!["https://github.com/user-attachments/assets/one", "https://user-images.githubusercontent.com/two.png"]);
+    assert!(!asked.contains(&"https://evil.example/c.png".to_owned()));
+    assert!(!asked.contains(&"https://evil.example/two.png".to_owned()));
+
+    // And open_with_images wires read_issue_images through to the caller.
+    let (_, gh) = recorder(|args| if args[0] == "issue" { Ok(view()) } else { Err("x".into()) });
+    let (_, _, fetched) = open_with_images(&gh, Path::new("/w"), 5, |url| {
+        if url == "https://github.com/user-attachments/assets/abc-def" {
+            Some(ImageResponse { status: 200, location: None, bytes: png.clone() })
+        } else {
+            None
+        }
+    })
+    .expect("opened with images");
+    assert_eq!(fetched, vec![IssueImage { name: "issue-5-1.png".into(), bytes: png }]);
+}
+
+// case: follows a redirect that stays on GitHub's hosts
+#[test]
+fn follows_a_redirect_that_stays_on_githubs_hosts() {
+    let png = vec![9u8];
+    let images = read_issue_images(&viewed_issue("![a](https://github.com/user-attachments/assets/one)"), |url| match url {
+        "https://github.com/user-attachments/assets/one" => Some(ImageResponse {
+            status: 302,
+            location: Some("https://private-user-images.githubusercontent.com/one.png".into()),
+            bytes: Vec::new(),
+        }),
+        "https://private-user-images.githubusercontent.com/one.png" => Some(ImageResponse { status: 200, location: None, bytes: png.clone() }),
+        _ => Some(ImageResponse { status: 404, location: None, bytes: Vec::new() }),
+    });
+    assert_eq!(images, vec![IssueImage { name: "issue-5-1.png".into(), bytes: png }]);
+}
