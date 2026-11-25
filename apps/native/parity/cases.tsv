@@ -3629,7 +3629,7 @@ apps/desktop/src/renderer/src/a-call-sums-up-what-it-handed-out.test.tsx	leaves 
 apps/desktop/src/renderer/src/a-call-sums-up-what-it-handed-out.test.tsx	begins again with each call, and a call from Home keeps nothing	no
 apps/desktop/src/renderer/src/a-call-sums-up-what-it-handed-out.test.tsx	is refused when saved only for a to-do no call could hold	no
 apps/desktop/src/renderer/src/a-called-link-says-what-leaves-the-computer.test.tsx	offers the new kind and its privacy and Ask words, with a save-first message for a new routine	yes
-apps/desktop/src/renderer/src/a-called-link-says-what-leaves-the-computer.test.tsx	tells a browser the link stays on this computer, with no Copy or New link	no
+apps/desktop/src/renderer/src/a-called-link-says-what-leaves-the-computer.test.tsx	tells a browser the link stays on this computer, with no Copy or New link	yes
 apps/desktop/src/renderer/src/a-cancelled-run-spent-nothing.test.ts	says nothing at all about a run that reported nothing	yes
 apps/desktop/src/renderer/src/a-cancelled-run-spent-nothing.test.ts	never puts a conversation-scoped fact on the mission strip	yes
 apps/desktop/src/renderer/src/a-cancelled-run-spent-nothing.test.ts	shows THIS run when this run reported one	yes
