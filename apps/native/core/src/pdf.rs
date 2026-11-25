@@ -151,6 +151,22 @@ pub fn read_pdf_bytes(bytes: &[u8]) -> Result<PdfReading, String> {
     }
 }
 
+/// How many pages a PDF has (PDFKit, macOS), without drawing them: what a PDF's card says under its name.
+pub fn page_count(bytes: &[u8]) -> Option<usize> {
+    if bytes.is_empty() || bytes.len() as u64 > MAX_PDF_BYTES {
+        return None;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        mac::page_count(bytes)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = bytes;
+        None
+    }
+}
+
 /// Open `pdf` relative to `folder`, write text + page PNGs beside the attachment under
 /// native's own tree, and return the readable descriptor (Electron `readablePdf`).
 pub fn readable_pdf(
@@ -321,6 +337,13 @@ mod mac {
     use objc2_app_kit::{NSBitmapImageFileType, NSBitmapImageRep};
     use objc2_foundation::{NSData, NSDictionary};
     use objc2_pdf_kit::{PDFDisplayBox, PDFDocument, PDFPage};
+
+    pub(super) fn page_count(bytes: &[u8]) -> Option<usize> {
+        let data = NSData::with_bytes(bytes);
+        let doc = unsafe { PDFDocument::initWithData(PDFDocument::alloc(), &data) }?;
+        let count = unsafe { doc.pageCount() };
+        (count > 0).then_some(count)
+    }
 
     pub(super) fn read_pdf_bytes(bytes: &[u8]) -> Result<PdfReading, String> {
         // PDFKit AppKit calls belong on the UI thread (Locust's view thread).
@@ -581,6 +604,8 @@ startxref
 ";
         let reading = read_pdf_bytes(bytes).expect("pdfkit");
         assert_eq!(reading.pages, 1);
+        assert_eq!(page_count(bytes), Some(1));
+        assert_eq!(page_count(b"not a pdf"), None);
         assert!(reading.text[0].contains("Hello"));
         assert!(!reading.pictures.is_empty());
         assert_eq!(&reading.pictures[0][..4], b"\x89PNG");

@@ -4013,10 +4013,10 @@ apps/desktop/src/renderer/src/a-path-only-message-is-titled-by-its-file.test.ts	
 apps/desktop/src/renderer/src/a-path-only-message-is-titled-by-its-file.test.ts	is how a conversation is titled	no
 apps/desktop/src/renderer/src/a-paused-routine-says-so.test.ts	on its schedule chip, in place of its next time	yes
 apps/desktop/src/renderer/src/a-paused-routine-says-so.test.ts	and counts its next time from a resume	yes
-apps/desktop/src/renderer/src/a-pdf-is-a-card.test.tsx	is its name and its page count, never the path it was copied to	no
-apps/desktop/src/renderer/src/a-pdf-is-a-card.test.tsx	says how many pages, in one word or two	no
-apps/desktop/src/renderer/src/a-pdf-is-a-card.test.tsx	a page each, numbered, and the pages it did not draw said rather than left out	no
-apps/desktop/src/renderer/src/a-pdf-is-a-card.test.tsx	a PDF drawn whole says nothing more	no
+apps/desktop/src/renderer/src/a-pdf-is-a-card.test.tsx	is its name and its page count, never the path it was copied to	yes
+apps/desktop/src/renderer/src/a-pdf-is-a-card.test.tsx	says how many pages, in one word or two	yes
+apps/desktop/src/renderer/src/a-pdf-is-a-card.test.tsx	a page each, numbered, and the pages it did not draw said rather than left out	yes
+apps/desktop/src/renderer/src/a-pdf-is-a-card.test.tsx	a PDF drawn whole says nothing more	yes
 apps/desktop/src/renderer/src/a-pdf-page-reads-in-order.test.ts	puts runs on their lines, top first, and keeps a matrix’s entries apart	yes
 apps/desktop/src/renderer/src/a-pdf-page-reads-in-order.test.ts	a subscript joins its line, and the next line of a paragraph does not	yes
 apps/desktop/src/renderer/src/a-pdf-page-reads-in-order.test.ts	an empty page is no text, not an error	yes

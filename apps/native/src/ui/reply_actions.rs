@@ -213,6 +213,8 @@ fn read_document(root: &Path, target: &FileTarget) -> Result<String, String> {
             crate::pdf::MAX_PICTURES,
         )?;
         let _ = crate::pdf::readable_pdf_note(std::slice::from_ref(&readable));
+        // Its pages, for the viewer to draw (pdf_pages_ui, Electron PdfPages).
+        crate::pdf_pages_ui::keep(root, &target.path, readable);
         let abs = crate::pdf::decide_pdf_pages(&target.path, &root.to_string_lossy())
             .map_err(str::to_owned)?;
         if abs.metadata().map(|m| m.len()).unwrap_or(0) > crate::pdf::MAX_PDF_BYTES {
@@ -757,7 +759,10 @@ pub(super) fn viewer_on(s: &State, p: &Palette, platform: &'static str, editor_i
             )
             .child(text(crate::reply_page_ui::RUNS_APART).font(type_::LABEL).color(p.muted).wrap_anywhere());
     }
+    // A PDF is shown as the pages Locust drew of it (PdfPages, 0.714); its words stay its text when none were drawn.
+    let pdf_pages = if body.is_ok() && crate::pdf::is_pdf_path(&target.path) { crate::pdf_pages_ui::pages(s, &target.path, p) } else { None };
     match body {
+        Ok(_) if pdf_pages.is_some() => pane = pane.children(pdf_pages),
         Ok(_) if picture => {
             // ThreadImage's press: the picture at the pane's width, with zoom and pan controls (ZoomableImage.tsx).
             pane = match crate::step_pictures::thread_picture(s, &target.path).and_then(|image| crate::step_pictures::viewer_picture(s, &image, &target.path, p)) {

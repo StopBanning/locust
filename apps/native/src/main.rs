@@ -120,6 +120,8 @@ mod cover_watch;
 mod elsewhere_cover;
 #[path = "ui/reply_actions.rs"]
 mod reply_actions;
+#[path = "ui/pdf_pages_ui.rs"]
+mod pdf_pages_ui;
 #[path = "ui/markdown_prep.rs"]
 mod markdown_prep;
 #[path = "ui/routines_panel.rs"]
