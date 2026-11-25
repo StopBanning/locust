@@ -11,6 +11,8 @@ pub mod antigravity_mission;
 pub mod antigravity_usage;
 pub mod approval;
 pub mod approval_patch;
+#[cfg(test)]
+mod approval_patch_content_tests;
 pub mod approval_record_note;
 pub mod mode_facts;
 pub mod approval_rule_store;
@@ -109,6 +111,8 @@ pub mod skill_library;
 mod skill_row_tests;
 pub mod endpoint_test;
 pub mod changes;
+#[cfg(test)]
+mod changes_git_listed_tests;
 pub mod document_change;
 pub mod file_versions;
 pub mod checkpoints;
@@ -195,6 +199,7 @@ pub mod office;
 pub mod own_command;
 pub mod page_preview;
 pub mod pdf;
+pub mod pdf_text;
 pub mod people;
 #[cfg(test)]
 mod teammate_store_tests;

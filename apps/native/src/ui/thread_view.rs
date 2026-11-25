@@ -857,7 +857,7 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
             composer_stack = composer_stack.child(banner);
         }
 
-        // Attachment chips (path labels; PDF page tiles are not drawn — see M4B-NOTES).
+        // Attachment chips: a file's name, a PDF's card.
         if !s.attached.is_empty() {
             let mut chips = row().gap(6.0).w_full();
             chips = chips.child(
@@ -867,12 +867,14 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
             );
             for (i, path) in s.attached.iter().enumerate() {
                 let name = path.rsplit('/').next().unwrap_or(path).to_owned();
+                // A PDF is a card: its name and how many pages, never its path (pdf_pages_ui, Electron PdfTile).
+                let face = if crate::pdf::is_pdf_path(path) { crate::pdf_pages_ui::card(s, path, p) } else { text(name).font(type_::LABEL).color(p.text) };
                 chips = chips.child(
                     el().padding(4.0)
                         .radius(4.0)
                         .fill(p.raised)
                         .border(1.0, p.hairline)
-                        .child(text(name).font(type_::LABEL).color(p.text))
+                        .child(face)
                         .on_press(move |s: &mut State| {
                             if i < s.attached.len() {
                                 s.attached.remove(i);

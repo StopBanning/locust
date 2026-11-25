@@ -3840,13 +3840,13 @@ apps/desktop/src/renderer/src/a-design-pass-holds.test.tsx	a finished turn is mu
 apps/desktop/src/renderer/src/a-design-pass-holds.test.tsx	connected a moment ago: no line under its name	yes
 apps/desktop/src/renderer/src/a-design-pass-holds.test.tsx	one to act on keeps what to do, and an old reading keeps its age	yes
 apps/desktop/src/renderer/src/a-design-pass-holds.test.tsx	a meter a window, the whole sentence its tooltip, only the pressing window amber	yes
-apps/desktop/src/renderer/src/a-diagram-in-a-reply-shows-as-one.test.tsx	is framed as a diagram once its block has closed, its text a tab away	no
-apps/desktop/src/renderer/src/a-diagram-in-a-reply-shows-as-one.test.tsx	is text while it is still being written	no
-apps/desktop/src/renderer/src/a-diagram-in-a-reply-shows-as-one.test.tsx	leaves every other block as the code it was	no
-apps/desktop/src/renderer/src/a-diff-is-not-read-out-of-a-files-content.test.ts	draws a new file as that file, whatever its content looks like	no
-apps/desktop/src/renderer/src/a-diff-is-not-read-out-of-a-files-content.test.ts	draws an edit that removes a -- comment line, with its file	no
-apps/desktop/src/renderer/src/a-diff-is-not-read-out-of-a-files-content.test.ts	counts a removed -- line and an added ++ line	no
-apps/desktop/src/renderer/src/a-diff-is-not-read-out-of-a-files-content.test.ts	still counts two files and a diff sent with its headers	no
+apps/desktop/src/renderer/src/a-diagram-in-a-reply-shows-as-one.test.tsx	is framed as a diagram once its block has closed, its text a tab away	yes
+apps/desktop/src/renderer/src/a-diagram-in-a-reply-shows-as-one.test.tsx	is text while it is still being written	yes
+apps/desktop/src/renderer/src/a-diagram-in-a-reply-shows-as-one.test.tsx	leaves every other block as the code it was	yes
+apps/desktop/src/renderer/src/a-diff-is-not-read-out-of-a-files-content.test.ts	draws a new file as that file, whatever its content looks like	yes
+apps/desktop/src/renderer/src/a-diff-is-not-read-out-of-a-files-content.test.ts	draws an edit that removes a -- comment line, with its file	yes
+apps/desktop/src/renderer/src/a-diff-is-not-read-out-of-a-files-content.test.ts	counts a removed -- line and an added ++ line	yes
+apps/desktop/src/renderer/src/a-diff-is-not-read-out-of-a-files-content.test.ts	still counts two files and a diff sent with its headers	yes
 apps/desktop/src/renderer/src/a-diff-notes-place-is-relative-to-its-folder.test.tsx	labels the note button by the relative file, while retaining the original path for its note	yes
 apps/desktop/src/renderer/src/a-diff-notes-place-is-relative-to-its-folder.test.tsx	shows the sent note relative to its folder, with the full path on hover and in the message	yes
 apps/desktop/src/renderer/src/a-diff-notes-place-is-relative-to-its-folder.test.tsx	keeps a relative name unchanged and does not treat another folder as this one	yes
@@ -3892,8 +3892,8 @@ apps/desktop/src/renderer/src/a-face-says-its-state-in-words.test.tsx	tells a sc
 apps/desktop/src/renderer/src/a-face-says-its-state-in-words.test.tsx	says the state its hidden row would have shown	no
 apps/desktop/src/renderer/src/a-failed-column-cannot-be-kept.test.tsx	shows its approval card in the column, answerable there	no
 apps/desktop/src/renderer/src/a-failed-column-cannot-be-kept.test.tsx	is offered on a finished answer and refused on a failed one, saying why	no
-apps/desktop/src/renderer/src/a-file-git-shows-without-lines-is-listed.test.ts	lists every one, with or without text lines, as git said it changed	no
-apps/desktop/src/renderer/src/a-file-git-shows-without-lines-is-listed.test.ts	still reads a file with lines after one without, and a diff of one header alone	no
+apps/desktop/src/renderer/src/a-file-git-shows-without-lines-is-listed.test.ts	lists every one, with or without text lines, as git said it changed	yes
+apps/desktop/src/renderer/src/a-file-git-shows-without-lines-is-listed.test.ts	still reads a file with lines after one without, and a diff of one header alone	yes
 apps/desktop/src/renderer/src/a-file-row-says-a-word.test.ts	says Codex's change as a word	yes
 apps/desktop/src/renderer/src/a-file-row-says-a-word.test.ts	says a read, a search, a listing and a fetch in Claude Code's words, whoever ran it (0.545)	yes
 apps/desktop/src/renderer/src/a-file-row-says-a-word.test.ts	says Antigravity's write and edit in Claude Code's words (0.596)	yes
@@ -4162,13 +4162,13 @@ apps/desktop/src/renderer/src/a-path-only-message-is-titled-by-its-file.test.ts	
 apps/desktop/src/renderer/src/a-path-only-message-is-titled-by-its-file.test.ts	is how a conversation is titled	no
 apps/desktop/src/renderer/src/a-paused-routine-says-so.test.ts	on its schedule chip, in place of its next time	yes
 apps/desktop/src/renderer/src/a-paused-routine-says-so.test.ts	and counts its next time from a resume	yes
-apps/desktop/src/renderer/src/a-pdf-is-a-card.test.tsx	is its name and its page count, never the path it was copied to	no
-apps/desktop/src/renderer/src/a-pdf-is-a-card.test.tsx	says how many pages, in one word or two	no
-apps/desktop/src/renderer/src/a-pdf-is-a-card.test.tsx	a page each, numbered, and the pages it did not draw said rather than left out	no
-apps/desktop/src/renderer/src/a-pdf-is-a-card.test.tsx	a PDF drawn whole says nothing more	no
-apps/desktop/src/renderer/src/a-pdf-page-reads-in-order.test.ts	puts runs on their lines, top first, and keeps a matrix’s entries apart	no
-apps/desktop/src/renderer/src/a-pdf-page-reads-in-order.test.ts	a subscript joins its line, and the next line of a paragraph does not	no
-apps/desktop/src/renderer/src/a-pdf-page-reads-in-order.test.ts	an empty page is no text, not an error	no
+apps/desktop/src/renderer/src/a-pdf-is-a-card.test.tsx	is its name and its page count, never the path it was copied to	yes
+apps/desktop/src/renderer/src/a-pdf-is-a-card.test.tsx	says how many pages, in one word or two	yes
+apps/desktop/src/renderer/src/a-pdf-is-a-card.test.tsx	a page each, numbered, and the pages it did not draw said rather than left out	yes
+apps/desktop/src/renderer/src/a-pdf-is-a-card.test.tsx	a PDF drawn whole says nothing more	yes
+apps/desktop/src/renderer/src/a-pdf-page-reads-in-order.test.ts	puts runs on their lines, top first, and keeps a matrix’s entries apart	yes
+apps/desktop/src/renderer/src/a-pdf-page-reads-in-order.test.ts	a subscript joins its line, and the next line of a paragraph does not	yes
+apps/desktop/src/renderer/src/a-pdf-page-reads-in-order.test.ts	an empty page is no text, not an error	yes
 apps/desktop/src/renderer/src/a-pet-plays-what-its-teammate-is-doing.test.ts	maps every activity to a row of its sheet	yes
 apps/desktop/src/renderer/src/a-pet-plays-what-its-teammate-is-doing.test.ts	rests in its resting pose -- version 2’s own, version 1’s first idle frame	no
 apps/desktop/src/renderer/src/a-pet-plays-what-its-teammate-is-doing.test.ts	loops work and thought through their rows at OpenPets’ pace	yes

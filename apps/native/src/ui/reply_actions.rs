@@ -213,6 +213,8 @@ fn read_document(root: &Path, target: &FileTarget) -> Result<String, String> {
             crate::pdf::MAX_PICTURES,
         )?;
         let _ = crate::pdf::readable_pdf_note(std::slice::from_ref(&readable));
+        // Its pages, for the viewer to draw (pdf_pages_ui, Electron PdfPages).
+        crate::pdf_pages_ui::keep(root, &target.path, readable);
         let abs = crate::pdf::decide_pdf_pages(&target.path, &root.to_string_lossy())
             .map_err(str::to_owned)?;
         if abs.metadata().map(|m| m.len()).unwrap_or(0) > crate::pdf::MAX_PDF_BYTES {
@@ -390,6 +392,12 @@ pub(super) fn reply_markdown_for_tests(s: &State, body: &str, p: &Palette) -> El
     reply_markdown(s, body, false, true, true, p)
 }
 
+/// The reply as it is drawn while it is still arriving.
+#[cfg(test)]
+pub(super) fn live_reply_markdown_for_tests(s: &State, body: &str, p: &Palette) -> El {
+    reply_markdown(s, body, true, true, true, p)
+}
+
 /// Sizes a rasterised math PNG (drawn at 2x in `math_tex::render_png`) to its point dimensions so
 /// `Markdown`'s layout does not measure the image at full column width and push the reply off-screen (LIVE2 #1).
 pub(super) fn math_image_size(px: [u32; 2], max_w: f32) -> Option<(f32, f32)> {
@@ -484,6 +492,7 @@ fn reply_markdown(s: &State, body: &str, live: bool, copy: bool, can_draft: bool
                     ));
                     let p = &palette;
                     let diagram_tab = el()
+                        .key(format!("diagram-{}/tab-diagram", frame.index))
                         .padding(6.0)
                         .radius(4.0)
                         .fill(if !code_on { p.selected } else { p.raised })
@@ -496,6 +505,7 @@ fn reply_markdown(s: &State, body: &str, live: bool, copy: bool, can_draft: bool
                             s.diagram_code_tab.insert(key, false);
                         });
                     let code_tab = el()
+                        .key(format!("diagram-{}/tab-code", frame.index))
                         .padding(6.0)
                         .radius(4.0)
                         .fill(if code_on { p.selected } else { p.raised })
@@ -520,8 +530,9 @@ fn reply_markdown(s: &State, body: &str, live: bool, copy: bool, can_draft: bool
                         )
                         .child(text(kind).font(type_::LABEL).color(p.muted));
                     if frame.open {
-                        // Electron shows this while its WebView draws; native shows it only
-                        // while the fence is still arriving.
+                        // Electron shows this while its WebView draws. An unclosed Mermaid fence reaches the
+                        // reply as plain code (diagram::prepare_reply_markdown), so this is only for a fence
+                        // rune-kit still counts as open.
                         bar = bar.child(
                             text(crate::diagram::WAITING)
                                 .font(type_::LABEL)
@@ -748,7 +759,10 @@ pub(super) fn viewer_on(s: &State, p: &Palette, platform: &'static str, editor_i
             )
             .child(text(crate::reply_page_ui::RUNS_APART).font(type_::LABEL).color(p.muted).wrap_anywhere());
     }
+    // A PDF is shown as the pages Locust drew of it (PdfPages, 0.714); its words stay its text when none were drawn.
+    let pdf_pages = if body.is_ok() && crate::pdf::is_pdf_path(&target.path) { crate::pdf_pages_ui::pages(s, &target.path, p) } else { None };
     match body {
+        Ok(_) if pdf_pages.is_some() => pane = pane.children(pdf_pages),
         Ok(_) if picture => {
             // ThreadImage's press: the picture at the pane's width, with zoom and pan controls (ZoomableImage.tsx).
             pane = match crate::step_pictures::thread_picture(s, &target.path).and_then(|image| crate::step_pictures::viewer_picture(s, &image, &target.path, p)) {
