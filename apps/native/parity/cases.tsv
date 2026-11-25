@@ -6215,7 +6215,7 @@ apps/desktop/src/renderer/src/the-context-menu-shows-what-fills-it.test.tsx	list
 apps/desktop/src/renderer/src/the-context-menu-shows-what-fills-it.test.tsx	is unchanged without one	yes
 apps/desktop/src/renderer/src/the-cover-counts-only-work.test.ts	is the same for a rebuilt map that holds the same runs	yes
 apps/desktop/src/renderer/src/the-cover-counts-only-work.test.ts	changes when a running run gets an event, starts or ends	yes
-apps/desktop/src/renderer/src/the-cover-counts-only-work.test.ts	is what the app hands the cover, never the map itself	no
+apps/desktop/src/renderer/src/the-cover-counts-only-work.test.ts	is what the app hands the cover, never the map itself	yes
 apps/desktop/src/renderer/src/the-cover-counts-only-work.test.ts	is empty, for good, when nothing is running	yes
 apps/desktop/src/renderer/src/the-cover-grows-into-spare-height.test.tsx	not at all with exactly the room it needs, or none measured	yes
 apps/desktop/src/renderer/src/the-cover-grows-into-spare-height.test.tsx	shrinks by what the page is short, down to 0.85x and no further	yes
