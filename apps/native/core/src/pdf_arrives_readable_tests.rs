@@ -4,15 +4,17 @@
 //! PDF through the native send path (`native::send_from` -> `attachments_for_run`) to a fake Codex that keeps what it
 //! was sent, and PDFKit reads it.
 //!
-//! Not carried: "Send waits for the reading the attach button started, rather than starting a second". The native
-//! composer starts no reading when a file is attached; the PDF is read once, when the message is sent, and a second
-//! send of the same bytes is answered from what the first wrote ("reads the same PDF once" below).
+//! The composer starts opening a PDF when it is attached (`pdf::read_attached_pdfs`, from `composer_wiring::attach`),
+//! and Send waits for that reading rather than starting a second: `readable_pdf_with` holds the PDF while it reads, which
+//! the engine's process sees too.
 use crate::attachments::{split_attachments, with_attachments, with_attachments_note};
 use crate::attachments_for_run::attachments_for_run_with;
-use crate::pdf::{PdfReading, ReadablePdf, readable_pdf_note, readable_pdf_with};
+use crate::pdf::{PdfReading, ReadablePdf, read_attached_pdfs_with, readable_pdf_note, readable_pdf_with};
 use std::cell::Cell;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Condvar, Mutex};
+use std::time::{Duration, Instant};
 
 const PNG: &[u8] = &[0x89, 0x50, 0x4e, 0x47];
 static NEXT: AtomicUsize = AtomicUsize::new(0);
@@ -154,6 +156,69 @@ fn a_scan_has_pictures_and_no_text_file() {
     assert_eq!(readable.text, None);
     assert_eq!(readable.pictures, [".locust/attachments/scan.pdf-pages/page-01.png"]);
     assert!(!f.0.join(".locust/attachments/scan.pdf.txt").exists());
+}
+
+// case: Send waits for the reading the attach button started, rather than starting a second
+#[test]
+fn send_waits_for_the_reading_the_attach_button_started_rather_than_starting_a_second() {
+    let f = Folder::new();
+    let pdf = ".locust/attachments/a.pdf";
+    f.write(pdf, b"%PDF a");
+    // A slow reader: it counts its calls and answers only once released.
+    let calls = Arc::new(AtomicUsize::new(0));
+    let released = Arc::new((Mutex::new(false), Condvar::new()));
+    let slow = {
+        let (calls, released) = (calls.clone(), released.clone());
+        move |_: &[u8]| {
+            calls.fetch_add(1, Ordering::SeqCst);
+            let (open, turned) = &*released;
+            let mut open = open.lock().unwrap();
+            while !*open {
+                open = turned.wait(open).unwrap();
+            }
+            Ok(PdfReading { pages: 1, text: vec!["words".into()], pictures: vec![PNG.to_vec()] })
+        }
+    };
+    let attached = read_attached_pdfs_with(&f.0, &paths(&[pdf]), slow.clone()).pop().expect("the attach starts a reading");
+    // Wait for the reading itself to start, not a fixed time: under load it starts late.
+    let deadline = Instant::now() + Duration::from_secs(30);
+    while calls.load(Ordering::SeqCst) == 0 {
+        assert!(Instant::now() < deadline, "the attach never started reading");
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    // Send, the way the engine sends: its PDFs opened through the same reading.
+    let sending = {
+        let (root, slow) = (f.0.clone(), slow.clone());
+        std::thread::spawn(move || {
+            let mut opened = None;
+            let sent = attachments_for_run_with(&with_attachments("Explain it.", &paths(&[pdf])), &root, &root, |folder, pdf, name| {
+                opened = readable_pdf_with(folder, pdf, name, 30, slow.clone()).ok();
+                opened.clone()
+            });
+            (sent, opened)
+        })
+    };
+    // A Send that started a second reading would have called the reader by now.
+    let deadline = Instant::now() + Duration::from_millis(500);
+    while calls.load(Ordering::SeqCst) < 2 && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    *released.0.lock().unwrap() = true;
+    released.1.notify_all();
+    let attached = attached.join().unwrap();
+    let (sent, sending) = sending.join().unwrap();
+    assert_eq!(sending, attached);
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+    assert_eq!(
+        attached,
+        Some(ReadablePdf {
+            pdf: pdf.into(),
+            text: Some(".locust/attachments/a.pdf.txt".into()),
+            pictures: paths(&[".locust/attachments/a.pdf-pages/page-01.png"]),
+            pages: 1,
+        })
+    );
+    assert!(sent.contains("its text is in .locust/attachments/a.pdf.txt"), "{sent}");
 }
 
 // case: a run in the project folder is told where the PDF’s text and pictures are

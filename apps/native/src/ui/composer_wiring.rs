@@ -351,13 +351,7 @@ pub(super) fn pick_at_choice(s: &mut State, choice: AtChoice) {
                 s.tagged.push(id);
             }
         }
-        AtChoice::File { path } => {
-            let (next, note) = composer::attach_paths(&s.attached, &[path]);
-            s.attached = next;
-            if let Some(note) = note {
-                s.composer_note = Some(note);
-            }
-        }
+        AtChoice::File { path } => attach_files(s, &[path]),
     }
 }
 
@@ -405,10 +399,22 @@ pub(super) fn attach_dropped_paths(s: &mut State, paths: &[std::path::PathBuf]) 
         .iter()
         .map(|p| p.to_string_lossy().replace('\\', "/"))
         .collect();
-    let (next, note) = composer::attach_paths(&s.attached, &as_str);
+    attach_files(s, &as_str);
+}
+
+/// Files going with the next message, kept to a message's limit. A PDF among the new ones starts being opened for the
+/// agent at once (Electron's `readAttachedPdfs`), in the folder the turn will run in (`native::folder_for`: the
+/// teammate's own, else the one Locust has open), so Send usually finds it read, and otherwise waits for this reading.
+pub(super) fn attach_files(s: &mut State, added: &[String]) {
+    let (next, note) = composer::attach_paths(&s.attached, added);
+    let new: Vec<String> = next.iter().filter(|path| !s.attached.contains(path)).cloned().collect();
     s.attached = next;
     if let Some(note) = note {
         s.composer_note = Some(note);
+    }
+    let teammate = s.ledger.as_ref().map(|pane| &pane.header).or_else(|| s.teammates.get(s.selected));
+    if let Some(folder) = teammate.and_then(|t| t.folder.clone()).or_else(|| s.home.folder_path.clone()) {
+        locust_core::pdf::read_attached_pdfs(std::path::Path::new(&folder), &new);
     }
 }
 

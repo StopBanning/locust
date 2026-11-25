@@ -221,11 +221,7 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
                 if added.is_empty() {
                     return false;
                 }
-                let (next, note) = composer::attach_paths(&s.attached, &added);
-                s.attached = next;
-                if let Some(note) = note {
-                    s.composer_note = Some(note);
-                }
+                attach_files(s, &added);
                 true
             });
         let l = crate::look::controls::Look::new(p.dark);

@@ -689,7 +689,7 @@ apps/desktop/src/main/a-pdf-arrives-readable.test.ts	sits between the file list 
 apps/desktop/src/main/a-pdf-arrives-readable.test.ts	writes the text with each page under its number, and one picture a page	yes
 apps/desktop/src/main/a-pdf-arrives-readable.test.ts	reads the same PDF once, and again when it changes	yes
 apps/desktop/src/main/a-pdf-arrives-readable.test.ts	a scan has pictures and no text file	yes
-apps/desktop/src/main/a-pdf-arrives-readable.test.ts	Send waits for the reading the attach button started, rather than starting a second	no
+apps/desktop/src/main/a-pdf-arrives-readable.test.ts	Send waits for the reading the attach button started, rather than starting a second	yes
 apps/desktop/src/main/a-pdf-arrives-readable.test.ts	a run in the project folder is told where the PDF’s text and pictures are	yes
 apps/desktop/src/main/a-pdf-arrives-readable.test.ts	a project PDF a worktree is sent is opened in the worktree’s own folder	yes
 apps/desktop/src/main/a-pdf-arrives-readable.test.ts	a PDF that cannot be read is sent as it was, and other files are left alone	yes
