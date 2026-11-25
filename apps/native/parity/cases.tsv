@@ -804,11 +804,11 @@ apps/desktop/src/main/a-project-is-never-half-put-back.test.ts	the host writes n
 apps/desktop/src/main/a-project-is-never-half-put-back.test.ts	a write that fails puts the ones already written back as they were	yes
 apps/desktop/src/main/a-project-is-never-half-put-back.test.ts	the window offers nothing to tick when it already knows some cannot go back, and says why	yes
 apps/desktop/src/main/a-provider-that-fails-first-is-carried-on.test.ts	is a sign-in that expired, a provider that is down or busy, a throttle, or no network	yes
-apps/desktop/src/main/a-provider-that-fails-first-is-carried-on.test.ts	is never a refusal, an error nobody can read, a run that finished, or one that had already run a tool	no
-apps/desktop/src/main/a-provider-that-fails-first-is-carried-on.test.ts	leaves a used-up plan to its own reason, which still carries on as it did	no
+apps/desktop/src/main/a-provider-that-fails-first-is-carried-on.test.ts	is never a refusal, an error nobody can read, a run that finished, or one that had already run a tool	yes
+apps/desktop/src/main/a-provider-that-fails-first-is-carried-on.test.ts	leaves a used-up plan to its own reason, which still carries on as it did	yes
 apps/desktop/src/main/a-provider-that-fails-first-is-carried-on.test.ts	one press starts the task from the start on the agent offered, told why	yes
 apps/desktop/src/main/a-provider-that-fails-first-is-carried-on.test.ts	goes on by itself with Without asking on, and says so when the picked agent is the one that failed	yes
-apps/desktop/src/main/a-provider-that-fails-first-is-carried-on.test.ts	says why on the card and on the seam, and Settings says it covers both	no
+apps/desktop/src/main/a-provider-that-fails-first-is-carried-on.test.ts	says why on the card and on the seam, and Settings says it covers both	yes
 apps/desktop/src/main/a-pull-request-can-be-watched.test.ts	a check that fails, a review that asks for changes, a conflict: each something to fix	yes
 apps/desktop/src/main/a-pull-request-can-be-watched.test.ts	checks passing, an approval, a merge: news, nothing to fix	yes
 apps/desktop/src/main/a-pull-request-can-be-watched.test.ts	nothing changed, or a check still failing, is not news again	yes
