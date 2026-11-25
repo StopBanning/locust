@@ -560,3 +560,32 @@ fn remembers_enabling_across_app_restarts_but_never_reuses_the_old_token_and_dis
     assert!(!next.connection_path().exists());
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+// A wrong token is refused before the body is read; the refusal must still reach a client that is sending a long body,
+// rather than the close resetting the connection and losing it (the CLI read that as "the connection ended", the
+// release-only cli_client flake). Node's server under Electron reads the rest out before closing; so does the door.
+#[test]
+fn a_refused_request_still_hears_its_refusal_while_its_body_is_arriving() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let server = std::thread::spawn(move || {
+        let (stream, _) = listener.accept().unwrap();
+        let token = Mutex::new(Some("a".repeat(64)));
+        handle(stream, &token, &|_, _| json!(null));
+    });
+    let mut client = TcpStream::connect(("127.0.0.1", port)).unwrap();
+    client.set_read_timeout(Some(std::time::Duration::from_secs(5))).unwrap();
+    let body = vec![b'x'; 256 * 1024];
+    let head = format!(
+        "POST /tools/call HTTP/1.1\r\nhost: 127.0.0.1\r\nauthorization: Bearer {}\r\ncontent-type: application/json\r\ncontent-length: {}\r\n\r\n",
+        "b".repeat(64),
+        body.len()
+    );
+    client.write_all(head.as_bytes()).unwrap();
+    let _ = client.write_all(&body);
+    let mut answer = String::new();
+    let read = client.read_to_string(&mut answer);
+    server.join().unwrap();
+    assert!(read.is_ok(), "the refusal was lost to a reset: {read:?}");
+    assert!(answer.starts_with("HTTP/1.1 401"), "{answer}");
+}

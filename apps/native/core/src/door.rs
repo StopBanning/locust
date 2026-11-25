@@ -197,6 +197,23 @@ fn respond(stream: &mut TcpStream, status: &str, body: Option<&Value>) {
     let _ = stream.flush();
 }
 
+/// A refusal that leaves the rest of the request unread would make the close a reset, and a reset can throw away the
+/// refusal the client was about to read ("the connection ended" instead of "refused"). Like Node's server under
+/// Electron, read out what is still arriving, a bounded amount for a bounded time, then close.
+fn refuse(stream: &mut TcpStream, status: &str) {
+    respond(stream, status, None);
+    let _ = stream.shutdown(std::net::Shutdown::Write);
+    let _ = stream.set_read_timeout(Some(Duration::from_millis(500)));
+    let mut sink = [0u8; 16 * 1024];
+    let mut left: usize = 1 << 20;
+    while left > 0 {
+        match stream.read(&mut sink) {
+            Ok(0) | Err(_) => break,
+            Ok(n) => left = left.saturating_sub(n),
+        }
+    }
+}
+
 /// mcpRequestHandler: authenticate the headers before reading any body, refuse a browser or another path, then run the
 /// tool. Revoking the token also refuses a request whose body was still arriving.
 fn handle(mut stream: TcpStream, token: &Mutex<Option<String>>, call: &(dyn Fn(&str, &Value) -> Value + Send + Sync)) {
@@ -213,11 +230,11 @@ fn handle(mut stream: TcpStream, token: &Mutex<Option<String>>, call: &(dyn Fn(&
         .filter(|t| t.len() == 64 && t.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)))
         .unwrap_or("");
     let Some(expected) = expected.filter(|e| same(supplied, e)) else {
-        respond(&mut stream, "401 Unauthorized", None);
+        refuse(&mut stream, "401 Unauthorized");
         return;
     };
     if request.header("origin").is_some() || request.method != "POST" || request.path != "/tools/call" {
-        respond(&mut stream, "403 Forbidden", None);
+        refuse(&mut stream, "403 Forbidden");
         return;
     }
     let length = request.header("content-length").and_then(|l| l.parse::<usize>().ok());

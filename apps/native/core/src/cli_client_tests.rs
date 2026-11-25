@@ -67,6 +67,11 @@ fn one_request(mut stream: TcpStream, token: &str, requests: &Requests, handler:
     }
     if authorization != format!("Bearer {token}") {
         let _ = stream.write_all(b"HTTP/1.1 401 Unauthorized\r\ncontent-length: 0\r\nconnection: close\r\n\r\n");
+        // As the real door does (door.rs `refuse`): read out the body still arriving before closing, so the close is
+        // not a reset that loses the refusal (the release-only flake of the test below).
+        let _ = stream.shutdown(std::net::Shutdown::Write);
+        let mut rest = vec![0u8; length];
+        let _ = reader.read_exact(&mut rest);
         return;
     }
     let mut body = vec![0u8; length];
