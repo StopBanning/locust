@@ -68,7 +68,12 @@ fn math_scene_draws_question_answer_and_equations_on_screen() {
 
     let math_imgs: Vec<_> = elements
         .iter()
-        .filter(|e| e.role == "image" && e.key.as_deref().is_some_and(|k| k == "b1" || k == "b3"))
+        .filter(|e| {
+            e.role == "image"
+                && e.label
+                    .as_deref()
+                    .is_some_and(|l| l.contains("c_1") || l.contains("pmatrix"))
+        })
         .collect();
     assert_eq!(math_imgs.len(), 2, "both inline and display math images must be present");
     for img in &math_imgs {

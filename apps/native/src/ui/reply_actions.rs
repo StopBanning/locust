@@ -430,19 +430,511 @@ fn math_image_el(image: &rune::Image, alt: &str) -> Option<El> {
     )
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub(super) enum InlinePiece {
+    Text(String),
+    Math {
+        alt: String,
+        src: String,
+        baseline: f32,
+    },
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub(super) enum ReplySegment {
+    Markdown(String),
+    InlineMathPara(Vec<InlinePiece>),
+}
+
+fn is_block_starter(line: &str) -> bool {
+    let t = line.trim_start();
+    if t.is_empty() {
+        return true;
+    }
+    if t.starts_with('#')
+        || t.starts_with('>')
+        || t.starts_with('|')
+        || t.starts_with("```")
+        || t.starts_with("~~~")
+    {
+        return true;
+    }
+    if t.starts_with("- ") || t.starts_with("* ") || t.starts_with("+ ") {
+        return true;
+    }
+    if matches!(t, "---" | "***" | "___")
+        || (t.len() >= 3 && (t.bytes().all(|b| b == b'-') || t.bytes().all(|b| b == b'*') || t.bytes().all(|b| b == b'_')))
+    {
+        return true;
+    }
+    let digits = t.bytes().take_while(u8::is_ascii_digit).count();
+    if digits > 0
+        && digits <= 9
+        && t[digits..].starts_with(['.', ')'])
+        && t[digits + 1..].starts_with([' ', '\t'])
+    {
+        return true;
+    }
+    false
+}
+
+/// Parse a paragraph into prose and inline-math pieces when it contains at least one inline
+/// `![alt](locust-math:...)` listed in `inline_math`.
+fn parse_inline_math_pieces(
+    para: &str,
+    inline_math: &std::collections::HashMap<String, f32>,
+) -> Option<Vec<InlinePiece>> {
+    let marker = format!("]({}", crate::math_tex::MATH_SRC_PREFIX);
+    let mut pieces = Vec::new();
+    let mut pos = 0usize;
+    let mut has_math = false;
+    while let Some(rel_open) = para[pos..].find("![") {
+        let open = pos + rel_open;
+        let Some(rel_mid) = para[open + 2..].find(&marker) else {
+            break;
+        };
+        let mid = open + 2 + rel_mid;
+        let src_start = mid + 2;
+        let Some(rel_close) = para[src_start..].find(')') else {
+            break;
+        };
+        let close = src_start + rel_close;
+        let src = &para[src_start..close];
+        if let Some(&baseline) = inline_math.get(src) {
+            if open > pos {
+                pieces.push(InlinePiece::Text(para[pos..open].replace('\n', " ")));
+            }
+            pieces.push(InlinePiece::Math {
+                alt: para[open + 2..mid].to_owned(),
+                src: src.to_owned(),
+                baseline,
+            });
+            has_math = true;
+            pos = close + 1;
+        } else {
+            pos = close + 1;
+        }
+    }
+    if !has_math {
+        return None;
+    }
+    if pos < para.len() {
+        pieces.push(InlinePiece::Text(para[pos..].replace('\n', " ")));
+    }
+    Some(pieces)
+}
+
+/// Split prepared Markdown into plain Markdown chunks and paragraphs containing inline math so
+/// inline formulas draw inside their sentence instead of breaking it into blocks.
+pub(super) fn split_inline_math_segments(
+    markdown: &str,
+    inline_math: &std::collections::HashMap<String, f32>,
+) -> Vec<ReplySegment> {
+    if inline_math.is_empty() {
+        return vec![ReplySegment::Markdown(markdown.to_owned())];
+    }
+    let mut segments = Vec::new();
+    let mut md_buf = String::new();
+    let mut para_buf = String::new();
+    let mut fence: Option<(u8, usize)> = None;
+
+    let flush_md = |segments: &mut Vec<ReplySegment>, md_buf: &mut String| {
+        if !md_buf.trim().is_empty() {
+            segments.push(ReplySegment::Markdown(std::mem::take(md_buf)));
+        } else {
+            md_buf.clear();
+        }
+    };
+    let flush_para = |segments: &mut Vec<ReplySegment>,
+                      md_buf: &mut String,
+                      para_buf: &mut String| {
+        if para_buf.is_empty() {
+            return;
+        }
+        let para = std::mem::take(para_buf);
+        if let Some(pieces) = parse_inline_math_pieces(para.trim_end_matches(['\r', '\n']), inline_math) {
+            flush_md(segments, md_buf);
+            segments.push(ReplySegment::InlineMathPara(pieces));
+        } else {
+            md_buf.push_str(&para);
+        }
+    };
+
+    for line in markdown.split_inclusive('\n') {
+        let trimmed = line.trim_end_matches(['\r', '\n']);
+        let lead = trimmed.trim_start();
+        if let Some((mark, n)) = fence {
+            md_buf.push_str(line);
+            let run = lead.bytes().take_while(|&b| b == mark).count();
+            if run >= n && lead[run..].trim().is_empty() {
+                fence = None;
+            }
+            continue;
+        }
+        if lead.starts_with("```") || lead.starts_with("~~~") {
+            let mark = lead.as_bytes()[0];
+            let run = lead.bytes().take_while(|&b| b == mark).count();
+            flush_para(&mut segments, &mut md_buf, &mut para_buf);
+            fence = Some((mark, run));
+            md_buf.push_str(line);
+            continue;
+        }
+        if trimmed.trim().is_empty() {
+            flush_para(&mut segments, &mut md_buf, &mut para_buf);
+            md_buf.push_str(line);
+            continue;
+        }
+        let standalone_display_math = lead.starts_with("![")
+            && lead.ends_with(')')
+            && lead.contains(crate::math_tex::MATH_SRC_PREFIX)
+            && parse_inline_math_pieces(lead, inline_math).is_none();
+        if standalone_display_math || (para_buf.is_empty() && is_block_starter(trimmed)) {
+            flush_para(&mut segments, &mut md_buf, &mut para_buf);
+            md_buf.push_str(line);
+            continue;
+        }
+        para_buf.push_str(line);
+    }
+    flush_para(&mut segments, &mut md_buf, &mut para_buf);
+    flush_md(&mut segments, &mut md_buf);
+    segments
+}
+
+/// Resolved single-line height and baseline (in points from box top) for `type_::BODY`.
+pub(super) fn body_text_metrics() -> (f32, f32) {
+    let (_, h) = rune::text::measure("H", &[], type_::BODY, None);
+    let lh = if h > 0.0 { h } else { type_::BODY.line_px() };
+    let base = rune::text::ink("H", type_::BODY)
+        .map(|i| i.bounds[1] + i.bounds[3])
+        .unwrap_or(lh * 0.78);
+    (lh, base)
+}
+
+pub(super) fn inline_markdown_spans(
+    inl: &rune_kit::markdown::Inline,
+    p: &Palette,
+) -> Vec<rune::Span> {
+    let mut spans = Vec::new();
+    for &(a, b, st) in &inl.spans {
+        let mut sp = rune::Span::new(a, b);
+        match st {
+            rune_kit::markdown::Style::Strong => sp.weight = Some(600.0),
+            rune_kit::markdown::Style::Em => sp.italic = true,
+            rune_kit::markdown::Style::Code => {
+                sp.mono = true;
+                sp.weight = Some(400.0);
+                sp.size = Some(type_::BODY.size * 0.9);
+                sp = sp.bg(p.raised, 4.0);
+            }
+            rune_kit::markdown::Style::Link => {
+                let url = inl
+                    .links
+                    .iter()
+                    .find(|l| (l.0, l.1) == (a, b))
+                    .map(|l| l.2.as_str());
+                if let Some((own, _)) =
+                    url.and_then(|u| crate::markdown_prep::reply_link_look(u, p.dark))
+                {
+                    sp = rune::Span {
+                        start: a as u32,
+                        end: b as u32,
+                        ..own
+                    };
+                } else {
+                    sp.color = Some(p.green);
+                    sp.underline = Some(p.green);
+                }
+            }
+            rune_kit::markdown::Style::CodePad | rune_kit::markdown::Style::Strike => continue,
+        }
+        spans.push(sp);
+    }
+    spans
+}
+
+/// Byte ranges of strikethrough runs in `inl`, matching `rune_kit::markdown::Renderer::select_inline`.
+pub(super) fn inline_strike_ranges(inl: &rune_kit::markdown::Inline) -> Vec<(usize, usize)> {
+    inl.spans
+        .iter()
+        .filter_map(|&(a, b, st)| match st {
+            rune_kit::markdown::Style::Strike => Some((a, b)),
+            _ => None,
+        })
+        .collect()
+}
+
+fn handle_reply_link(s: &mut State, url: &str, can_draft: bool, chip_reply: u64) {
+    if crate::markdown_prep::status_of_link(url).is_some() {
+        status_pressed(s, url, can_draft, chip_reply);
+    } else if crate::markdown_prep::is_own_mark(url) {
+        // A status chip or a colour swatch: drawn, never opened.
+    } else if let Some(target) = file_target(url) {
+        open_file(s, target);
+    } else {
+        // A web address opens in the person's browser; any other scheme is refused, and says so.
+        crate::published_cards::open_web_link(s, url);
+    }
+}
+
+fn wire_inline_links(
+    mut item: El,
+    links: &[(usize, usize, String)],
+    p: &Palette,
+    can_draft: bool,
+    chip_reply: u64,
+) -> El {
+    let default_hover = rune::LinkPaint::new().color(p.green).underline(p.green);
+    for (a, b, url) in links {
+        let hover = crate::markdown_prep::reply_link_look(url, p.dark)
+            .map_or(default_hover, |(_, h)| h);
+        let mut link = rune::Link::new(*a..*b, url.clone()).hover(hover);
+        if let Some(help) = crate::markdown_prep::link_host(url) {
+            link = link.help(help);
+        }
+        item = item.link(link);
+    }
+    item.on_link(move |s: &mut State, url, _tx| handle_reply_link(s, url, can_draft, chip_reply))
+}
+
+fn prose_flex_items(
+    raw: &str,
+    p: &Palette,
+    space_w: f32,
+    trail_space: bool,
+    can_draft: bool,
+    chip_reply: u64,
+) -> Vec<El> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Vec::new();
+    }
+    let parsed = rune_kit::markdown::parse(trimmed);
+    let inl = parsed.into_iter().find_map(|b| match b {
+        rune_kit::markdown::Block::Para(i) => Some(i),
+        _ => None,
+    });
+    let (plain, spans, strikes, links) = match inl {
+        Some(i) => {
+            let sp = inline_markdown_spans(&i, p);
+            let st = inline_strike_ranges(&i);
+            (i.text, sp, st, i.links)
+        }
+        None => (trimmed.to_owned(), Vec::new(), Vec::new(), Vec::new()),
+    };
+    if plain.is_empty() {
+        return Vec::new();
+    }
+    // Keep short phrases intact so tests and selection see contiguous text, while splitting long
+    // runs into words so wrapping flows smoothly around inline equations.
+    if plain.chars().count() <= 40 {
+        let mut item = rune::rich(plain, spans)
+            .font(type_::BODY)
+            .color(p.text)
+            .exact_lines();
+        for (a, b) in strikes {
+            item = item.strike(a, b, None);
+        }
+        if !links.is_empty() {
+            item = wire_inline_links(item, &links, p, can_draft, chip_reply);
+        }
+        if trail_space {
+            item = item.mr(space_w);
+        }
+        return vec![item];
+    }
+    let mut words = Vec::new();
+    let mut idx = 0usize;
+    let bytes = plain.as_bytes();
+    while idx < bytes.len() {
+        while idx < bytes.len() && bytes[idx].is_ascii_whitespace() {
+            idx += 1;
+        }
+        let start = idx;
+        while idx < bytes.len() && !bytes[idx].is_ascii_whitespace() {
+            idx += 1;
+        }
+        if start < idx {
+            words.push((start, idx));
+        }
+    }
+    let count = words.len();
+    words
+        .into_iter()
+        .enumerate()
+        .map(|(k, (start, end))| {
+            let word = plain[start..end].to_owned();
+            let word_spans: Vec<rune::Span> = spans
+                .iter()
+                .filter_map(|sp| {
+                    let a = (sp.start as usize).max(start);
+                    let b = (sp.end as usize).min(end);
+                    (a < b).then(|| {
+                        let mut s = sp.clone();
+                        s.start = (a - start) as u32;
+                        s.end = (b - start) as u32;
+                        s
+                    })
+                })
+                .collect();
+            let mut item = rune::rich(word, word_spans)
+                .font(type_::BODY)
+                .color(p.text)
+                .exact_lines();
+            for &(sa, sb) in &strikes {
+                let a = sa.max(start);
+                let b = sb.min(end);
+                if a < b {
+                    item = item.strike(a - start, b - start, None);
+                }
+            }
+            let word_links: Vec<(usize, usize, String)> = links
+                .iter()
+                .filter_map(|(la, lb, url)| {
+                    let a = (*la).max(start);
+                    let b = (*lb).min(end);
+                    (a < b).then(|| (a - start, b - start, url.clone()))
+                })
+                .collect();
+            if !word_links.is_empty() {
+                item = wire_inline_links(item, &word_links, p, can_draft, chip_reply);
+            }
+            if k + 1 < count || trail_space {
+                item = item.mr(space_w);
+            }
+            item
+        })
+        .collect()
+}
+
+fn render_inline_math_para(
+    pieces: &[InlinePiece],
+    math_pngs: &std::collections::HashMap<String, std::sync::Arc<[u8]>>,
+    image_cache: Option<&std::sync::Arc<rune::ImageCache>>,
+    p: &Palette,
+    can_draft: bool,
+    chip_reply: u64,
+) -> El {
+    let space_w = (rune::text::measure("x x", &[], type_::BODY, None).0
+        - rune::text::measure("xx", &[], type_::BODY, None).0)
+    .max(3.0);
+    let (lh, text_base) = body_text_metrics();
+    let mut items: Vec<El> = Vec::new();
+    let mut i = 0usize;
+    let mut pending_prefix: Option<String> = None;
+    let mut consumed_prefix_of_next: usize = 0;
+
+    while i < pieces.len() {
+        match &pieces[i] {
+            InlinePiece::Text(full) => {
+                let slice = &full[consumed_prefix_of_next..];
+                consumed_prefix_of_next = 0;
+                let next_is_math = matches!(pieces.get(i + 1), Some(InlinePiece::Math { .. }));
+                if next_is_math && !slice.is_empty() && !slice.ends_with(char::is_whitespace) {
+                    if let Some(ws) = slice.rfind(char::is_whitespace) {
+                        let body = &slice[..ws];
+                        let attach = &slice[ws..].trim_start();
+                        items.extend(prose_flex_items(body, p, space_w, true, can_draft, chip_reply));
+                        pending_prefix = Some((*attach).to_owned());
+                    } else {
+                        pending_prefix = Some(slice.to_owned());
+                    }
+                } else {
+                    let trail = slice.ends_with(char::is_whitespace) || next_is_math;
+                    items.extend(prose_flex_items(slice, p, space_w, trail, can_draft, chip_reply));
+                }
+            }
+            InlinePiece::Math { alt, src, baseline } => {
+                let mut suffix: Option<String> = None;
+                let mut after_space = false;
+                if let Some(InlinePiece::Text(next_text)) = pieces.get(i + 1) {
+                    if !next_text.is_empty() && !next_text.starts_with(char::is_whitespace) {
+                        let end = next_text.find(char::is_whitespace).unwrap_or(next_text.len());
+                        suffix = Some(next_text[..end].to_owned());
+                        consumed_prefix_of_next = end;
+                        after_space = end < next_text.len();
+                    } else {
+                        after_space = !next_text.trim().is_empty();
+                    }
+                } else if i + 1 < pieces.len() {
+                    after_space = true;
+                }
+                let img_el = math_pngs
+                    .get(src)
+                    .and_then(|bytes| {
+                        let cache = image_cache?;
+                        let image = cache.load(bytes.clone());
+                        let _ = image.wait();
+                        let px = image.size()?;
+                        let (w, h) = math_image_size(px, super::thread_view::THREAD_MAX)?;
+                        let scale_y = h / (px[1] as f32 / 2.0);
+                        let base = *baseline * scale_y;
+                        let d: f32 =
+                            (2.0_f32 * ((text_base - lh * 0.5) - (base - h * 0.5))).clamp(-12.0, 12.0);
+                        let raw_img = el()
+                            .role("image")
+                            .label(if alt.is_empty() { "Math" } else { alt.as_str() })
+                            .size(w, h)
+                            .pixels(image.pixels());
+                        Some(if d > 0.5 {
+                            el().pt(d).child(raw_img)
+                        } else if d < -0.5 {
+                            el().pb(-d).child(raw_img)
+                        } else {
+                            raw_img
+                        })
+                    })
+                    .unwrap_or_else(|| {
+                        text(crate::math_tex::fallback_tex(alt, false))
+                            .font(type_::BODY)
+                            .color(p.text)
+                            .exact_lines()
+                    });
+                let mut unit = row().items_center();
+                if let Some(pre) = pending_prefix.take() {
+                    unit = unit.child(text(pre).font(type_::BODY).color(p.text).exact_lines());
+                }
+                unit = unit.child(img_el);
+                if let Some(suf) = suffix {
+                    unit = unit.child(text(suf).font(type_::BODY).color(p.text).exact_lines());
+                }
+                if after_space {
+                    unit = unit.mr(space_w);
+                }
+                items.push(unit);
+            }
+        }
+        i += 1;
+    }
+    row().w_full().flex_wrap().items_center().children(items)
+}
+
 fn reply_markdown(s: &State, body: &str, live: bool, copy: bool, can_draft: bool, p: &Palette) -> El {
     let chip_reply = body_key(body);
-    let frame_palette = Palette::new(p.dark);
     let feedback = s.copy_feedback.clone();
-    let crate::markdown_prep::Prepared { markdown: prepared, undrawn, math: math_pngs } =
-        crate::markdown_prep::prepare_reply(body, p.dark);
+    let crate::markdown_prep::Prepared {
+        markdown: prepared,
+        undrawn,
+        math: math_pngs,
+        inline_math,
+    } = crate::markdown_prep::prepare_reply(body, p.dark);
     let diagram_tabs = s.diagram_code_tab.clone();
     let image_cache = s.image_cache.clone();
     let pictures = crate::step_pictures::reply_pictures(s, &prepared);
-    let picture_palette = Palette::new(p.dark);
     let framed: std::collections::HashSet<String> = pictures.keys().cloned().collect();
-    let mut out = col().w_full().gap(8.0).child(
-        Markdown::new(prepared)
+    let style = markdown_style(p);
+    let dark = p.dark;
+
+    let render_md_chunk = |chunk: String| -> El {
+        let frame_palette = Palette::new(dark);
+        let picture_palette = Palette::new(dark);
+        let feedback = feedback.clone();
+        let undrawn = undrawn.clone();
+        let math_pngs = math_pngs.clone();
+        let diagram_tabs = diagram_tabs.clone();
+        let image_cache = image_cache.clone();
+        let pictures = pictures.clone();
+        let framed = framed.clone();
+        Markdown::new(chunk)
             .streaming(live)
             .selectable(true)
             .on_link(move |s: &mut State, url| {
@@ -460,10 +952,7 @@ fn reply_markdown(s: &State, body: &str, live: bool, copy: bool, can_draft: bool
             // Where a web link really goes, under the pointer, so its label cannot lie about it (linkHost).
             .link_help(crate::markdown_prep::link_host)
             // A table's status as a chip, a colour code's swatch (statusChips.ts, hexColourOf).
-            .link_style({
-                let dark = p.dark;
-                move |url| crate::markdown_prep::reply_link_look(url, dark)
-            })
+            .link_style(move |url| crate::markdown_prep::reply_link_look(url, dark))
             .image_frame(move |shown, frame| {
                 if frame.src.starts_with(crate::math_tex::MATH_SRC_PREFIX) {
                     return math_image_el(frame.image, frame.alt).unwrap_or(shown);
@@ -488,7 +977,7 @@ fn reply_markdown(s: &State, body: &str, live: bool, copy: bool, can_draft: bool
             .highlight(move |language, code| highlight_reply_code(live, language, code))
             .diagram_frame({
                 let tabs = diagram_tabs.clone();
-                let palette = Palette::new(p.dark);
+                let palette = Palette::new(dark);
                 move |card, frame| {
                     let key = body_key(frame.source);
                     let code_on = tabs.get(&key).copied().unwrap_or(false);
@@ -611,8 +1100,34 @@ fn reply_markdown(s: &State, body: &str, live: bool, copy: bool, can_draft: bool
                         .child(card)
                 }
             })
-            .render(&markdown_style(p)),
-    );
+            .render(&style)
+    };
+
+    let segments = split_inline_math_segments(&prepared, &inline_math);
+    let body_el = if segments.len() == 1
+        && matches!(segments.first(), Some(ReplySegment::Markdown(_)))
+    {
+        render_md_chunk(prepared)
+    } else {
+        let mut stack = col().w_full().gap(12.0);
+        for seg in segments {
+            match seg {
+                ReplySegment::Markdown(md) => stack = stack.child(render_md_chunk(md)),
+                ReplySegment::InlineMathPara(pieces) => {
+                    stack = stack.child(render_inline_math_para(
+                        &pieces,
+                        &math_pngs,
+                        image_cache.as_ref(),
+                        p,
+                        can_draft,
+                        chip_reply,
+                    ));
+                }
+            }
+        }
+        stack
+    };
+    let mut out = col().w_full().gap(8.0).child(body_el);
     if let Some(cards) = crate::published_cards::cards(s, body, p) {
         out = out.child(cards);
     }
@@ -895,3 +1410,7 @@ mod status_chip_tests;
 #[cfg(test)]
 #[path = "live2_math_scene_tests.rs"]
 mod live2_math_scene_tests;
+
+#[cfg(test)]
+#[path = "inline_math_tests.rs"]
+mod inline_math_tests;
