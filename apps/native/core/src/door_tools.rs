@@ -426,6 +426,12 @@ impl<L: Locust> Tools<L> {
         Self { locust, voice: None, starting: Mutex::new(HashSet::new()), routines_started: Mutex::new(HashSet::new()) }
     }
 
+    /// The models an app may pick here: what this computer's agents offer, narrowed by the organization's policy
+    /// (index.ts serves models through `policyModels`), each blocked effort variant dropped from its family.
+    fn offered_models(&self) -> Vec<Value> {
+        crate::org_policy::policy_models(Some(&crate::org_policy::current()), self.locust.models())
+    }
+
     pub(crate) fn with_voice(mut self, voice: std::sync::Arc<VoiceScope>) -> Self {
         self.voice = Some(voice);
         self
@@ -496,7 +502,7 @@ impl<L: Locust> Tools<L> {
 
     /// The models the teammate's agent offers here (modelsFor), not the person's own.
     fn models_for(&self, runtime: &str) -> Vec<Value> {
-        self.locust.models().into_iter().filter(|m| m["runtime"] == runtime && m["own"] != true).collect()
+        self.offered_models().into_iter().filter(|m| m["runtime"] == runtime && m["own"] != true).collect()
     }
 
     /// choiceOf: a model and effort for this turn alone, on the teammate's own agent, only ones it offers here; the
@@ -560,7 +566,7 @@ impl<L: Locust> Tools<L> {
 
     /// list_models: a teammate's agent's models with their efforts, or, with no teammate, every agent and its models.
     pub fn list_models(&self, teammate: Option<&str>) -> ToolResult {
-        let all = self.locust.models();
+        let all = self.offered_models();
         let Some(who) = teammate else {
             let current: Vec<&Value> = all.iter().filter(|m| m["own"] != true && m["older"] != true).collect();
             let mut runtimes: Vec<&str> = Vec::new();
@@ -826,7 +832,7 @@ impl<L: Locust> Tools<L> {
                     let Some(message) = text_arg(&args["message"], 8000) else {
                         return ToolResult::refused("Give a message of up to 8,000 characters. Nothing was started.");
                     };
-                    let all: Vec<Value> = self.locust.models().into_iter().filter(|m| m["own"] != true).collect();
+                    let all: Vec<Value> = self.offered_models().into_iter().filter(|m| m["own"] != true).collect();
                     let named = text_arg(&args["runtime"], 40).filter(|r| all.iter().any(|m| m["runtime"] == *r));
                     let Some(runtime) = named else {
                         let mut runtimes: Vec<&str> = Vec::new();
@@ -1230,7 +1236,7 @@ impl<L: Locust> Tools<L> {
                 "That turn ran in {mode}, not Ask. An app carries on only an Ask turn unless the person has turned on \"Use each teammate's own mode\" in Locust; they can carry it on from its card there. Nothing was started."
             ));
         }
-        let all: Vec<Value> = self.locust.models().into_iter().filter(|m| m["own"] != true).collect();
+        let all: Vec<Value> = self.offered_models().into_iter().filter(|m| m["own"] != true).collect();
         let mut runtimes: Vec<String> = Vec::new();
         for m in &all {
             if let Some(r) = m["runtime"].as_str()

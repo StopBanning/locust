@@ -608,12 +608,12 @@ apps/desktop/src/main/a-macs-sidebar-is-glass.test.ts	a Mac window is made with 
 apps/desktop/src/main/a-macs-sidebar-is-glass.test.ts	its ground is clear, set after the theme's, and a theme change does not paint over it	yes
 apps/desktop/src/main/a-macs-sidebar-is-glass.test.ts	the page marks itself glass only in the Mac window, never in a browser, the loading window or the cover	yes
 apps/desktop/src/main/a-macs-sidebar-is-glass.test.ts	the sheet lets the glass through the sidebar and the title bar, and every other pane keeps a ground	yes
-apps/desktop/src/main/a-managed-turn-is-refused-before-an-agent-starts.test.ts	refuses agents, models, modes, cloud turns and broken policies before discovery or recording	no
-apps/desktop/src/main/a-managed-turn-is-refused-before-an-agent-starts.test.ts	gates Antigravity before probing its app	no
-apps/desktop/src/main/a-managed-turn-is-refused-before-an-agent-starts.test.ts	checks the monthly cap even when a turn has no teammate owner	no
+apps/desktop/src/main/a-managed-turn-is-refused-before-an-agent-starts.test.ts	refuses agents, models, modes, cloud turns and broken policies before discovery or recording	yes
+apps/desktop/src/main/a-managed-turn-is-refused-before-an-agent-starts.test.ts	gates Antigravity before probing its app	yes
+apps/desktop/src/main/a-managed-turn-is-refused-before-an-agent-starts.test.ts	checks the monthly cap even when a turn has no teammate owner	yes
 apps/desktop/src/main/a-managed-turn-is-refused-before-an-agent-starts.test.ts	gates voice calls and voice previews before discovering or spawning Codex	no
 apps/desktop/src/main/a-managed-turn-is-refused-before-an-agent-starts.test.ts	cancels a voice start still waiting for its policy check	no
-apps/desktop/src/main/a-managed-turn-is-refused-before-an-agent-starts.test.ts	ignores a saved MCP opt-in, removes the old connection, and refuses forged enabling	no
+apps/desktop/src/main/a-managed-turn-is-refused-before-an-agent-starts.test.ts	ignores a saved MCP opt-in, removes the old connection, and refuses forged enabling	yes
 apps/desktop/src/main/a-managed-turn-is-refused-before-an-agent-starts.test.ts	ignores a saved phone opt-in and refuses forged pairing without a listener or key	yes
 apps/desktop/src/main/a-memory-nobody-is-given-says-so.test.ts	records it, and when counting began; at most once a day, so a day of runs is one write	yes
 apps/desktop/src/main/a-memory-nobody-is-given-says-so.test.ts	a proposal, or an id it does not keep, is not noted	yes
@@ -706,10 +706,10 @@ apps/desktop/src/main/a-person-cannot-lift-the-organizations-spend-limit.test.ts
 apps/desktop/src/main/a-person-cannot-lift-the-organizations-spend-limit.test.ts	refuses a higher limit or no limit and permits a lower personal amount	no
 apps/desktop/src/main/a-person-cannot-lift-the-organizations-spend-limit.test.ts	keeps Auto off for old preferences and forged writes without changing other switches	no
 apps/desktop/src/main/a-person-cannot-lift-the-organizations-spend-limit.test.ts	refuses a saved route that exceeds the organizations ceiling	no
-apps/desktop/src/main/a-person-cannot-lift-the-organizations-spend-limit.test.ts	uses receipts for the current month and refuses at the effective cap	no
-apps/desktop/src/main/a-person-cannot-lift-the-organizations-spend-limit.test.ts	also caps unowned turns and cannot escape by naming a missing teammate	no
-apps/desktop/src/main/a-person-cannot-lift-the-organizations-spend-limit.test.ts	fails closed when a managed spending record cannot be checked	no
-apps/desktop/src/main/a-person-cannot-lift-the-organizations-spend-limit.test.ts	fails closed if even one saved receipt has become unreadable	no
+apps/desktop/src/main/a-person-cannot-lift-the-organizations-spend-limit.test.ts	uses receipts for the current month and refuses at the effective cap	yes
+apps/desktop/src/main/a-person-cannot-lift-the-organizations-spend-limit.test.ts	also caps unowned turns and cannot escape by naming a missing teammate	yes
+apps/desktop/src/main/a-person-cannot-lift-the-organizations-spend-limit.test.ts	fails closed when a managed spending record cannot be checked	yes
+apps/desktop/src/main/a-person-cannot-lift-the-organizations-spend-limit.test.ts	fails closed if even one saved receipt has become unreadable	yes
 apps/desktop/src/main/a-pet-sheet-is-checked-before-it-is-kept.test.ts	reads a lossless sheet, an extended one and a lossy one	yes
 apps/desktop/src/main/a-pet-sheet-is-checked-before-it-is-kept.test.ts	refuses what is not a WebP, or a file cut short	no
 apps/desktop/src/main/a-pet-sheet-is-checked-before-it-is-kept.test.ts	is exact for a version 2 sheet, and transparent	yes
@@ -1528,21 +1528,21 @@ apps/desktop/src/main/an-opencode-teammate-is-guarded-too.test.ts	refuses, with 
 apps/desktop/src/main/an-opencode-teammate-is-guarded-too.test.ts	lets the command run when the guard cannot be started, as OpenCode does for a plugin it cannot load	no
 apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	uses the machine-wide path on each platform and ignores the test override in a packaged app	yes
 apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	leaves a missing file unrestricted and never creates it	yes
-apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	uses the Windows known folder even if the process changes ProgramData	no
-apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	reads a development override once without changing its bytes	no
-apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	accepts a UTF-8 byte order mark from Windows deployment tools	no
-apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	skips an unknown key with one log line	no
+apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	uses the Windows known folder even if the process changes ProgramData	yes
+apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	reads a development override once without changing its bytes	yes
+apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	accepts a UTF-8 byte order mark from Windows deployment tools	yes
+apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	skips an unknown key with one log line	yes
 apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	fails closed for broken JSON and names its file in every refusal	yes
-apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	fails closed on an unreadable file and an invalid override	no
-apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	reports an invalid known setting and an oversized file as blocking errors	no
-apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	validates every optional setting and rejects a malformed known key	no
-apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	enforces every mode ceiling in the documented authority order	no
-apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	allows only listed agents, including all own ACP agents under one runtime id	no
-apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	matches only allowed model ids with literal punctuation and star wildcards	no
-apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	cannot use an unresolved default to escape a model allowlist	no
-apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	filters model families and their blocked effort variants	no
-apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	keeps each connection off only when the organization disables it	no
-apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	caps an absent or higher personal limit while keeping a lower one	no
+apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	fails closed on an unreadable file and an invalid override	yes
+apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	reports an invalid known setting and an oversized file as blocking errors	yes
+apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	validates every optional setting and rejects a malformed known key	yes
+apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	enforces every mode ceiling in the documented authority order	yes
+apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	allows only listed agents, including all own ACP agents under one runtime id	yes
+apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	matches only allowed model ids with literal punctuation and star wildcards	yes
+apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	cannot use an unresolved default to escape a model allowlist	yes
+apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	filters model families and their blocked effort variants	yes
+apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	keeps each connection off only when the organization disables it	yes
+apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	caps an absent or higher personal limit while keeping a lower one	yes
 apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	refuses an unmetered launch when the monthly cap cannot be enforced	no
 apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	refuses an unrestricted cloud terminal when it cannot enforce the managed route	no
 apps/desktop/src/main/an-other-app-origin-survives-a-restart.test.ts	records schema 23 or later, recovers the origin, and projects it into history without forgetting Ask mode	no
@@ -1777,28 +1777,28 @@ apps/desktop/src/main/codex-cloud-leaves-no-log.test.ts	the person's own error.l
 apps/desktop/src/main/codex-cloud-leaves-no-log.test.ts	what does not read like Codex is never removed	yes
 apps/desktop/src/main/codex-cloud-leaves-no-log.test.ts	also when the call fails, and with two calls on one folder at once	yes
 apps/desktop/src/main/codex-cloud-leaves-no-log.test.ts	recognises Codex's lines and nothing else	yes
-apps/desktop/src/main/codex-mission.test.ts	says nothing when nothing was refused	no
-apps/desktop/src/main/codex-mission.test.ts	explains a refusal when one actually happens	no
-apps/desktop/src/main/codex-mission.test.ts	explains it once, however many reads are refused	no
+apps/desktop/src/main/codex-mission.test.ts	says nothing when nothing was refused	yes
+apps/desktop/src/main/codex-mission.test.ts	explains a refusal when one actually happens	yes
+apps/desktop/src/main/codex-mission.test.ts	explains it once, however many reads are refused	yes
 apps/desktop/src/main/codex-mission.test.ts	never writes it to the ledger, which once broke every run in such a folder	no
 apps/desktop/src/main/codex-mission.test.ts	refuses a forbidden Cursor effort variant before recording or dispatching a turn	no
 apps/desktop/src/main/codex-mission.test.ts	keeps a running mission untouched when organization policy refuses the handoff target	no
 apps/desktop/src/main/codex-mission.test.ts	does not spawn a run the app stopped while it looked at the tree	no
 apps/desktop/src/main/codex-mission.test.ts	runs one fixed read-only Codex route and streams normalized events	no
-apps/desktop/src/main/codex-mission.test.ts	rejects invalid prompts before discovery or process launch	no
-apps/desktop/src/main/codex-mission.test.ts	never launches Codex when the durable mission header cannot be written	no
+apps/desktop/src/main/codex-mission.test.ts	rejects invalid prompts before discovery or process launch	yes
+apps/desktop/src/main/codex-mission.test.ts	never launches Codex when the durable mission header cannot be written	yes
 apps/desktop/src/main/codex-mission.test.ts	removes the actual skill copy before returning a failed ledger start	no
 apps/desktop/src/main/codex-mission.test.ts	removes a skill copy if interrupted after preparation but before launch	no
 apps/desktop/src/main/codex-mission.test.ts	removes prepared skills when the command builder refuses its options	no
 apps/desktop/src/main/codex-mission.test.ts	leaves a registered run its skills until process completion owns their cleanup	no
 apps/desktop/src/main/codex-mission.test.ts	gives a Cursor run its copied skills plugin and removes it when the process finishes	no
-apps/desktop/src/main/codex-mission.test.ts	records that a plan was a plan, while still holding it read-only	no
+apps/desktop/src/main/codex-mission.test.ts	records that a plan was a plan, while still holding it read-only	yes
 apps/desktop/src/main/codex-mission.test.ts	refuses an Auto mission when the workspace has Auto switched off, and records nothing	yes
 apps/desktop/src/main/codex-mission.test.ts	refuses a paid route in a window held to free routes, before anything is asked or recorded	no
 apps/desktop/src/main/codex-mission.test.ts	lets a free route through a window held to free routes	no
-apps/desktop/src/main/codex-mission.test.ts	refuses an Auto mission when nobody wired the switch at all	no
-apps/desktop/src/main/codex-mission.test.ts	refuses the NEXT Auto run once the switch is taken back, on the same service	no
-apps/desktop/src/main/codex-mission.test.ts	runs an Auto mission on the widest sandbox once the workspace allows it	no
+apps/desktop/src/main/codex-mission.test.ts	refuses an Auto mission when nobody wired the switch at all	yes
+apps/desktop/src/main/codex-mission.test.ts	refuses the NEXT Auto run once the switch is taken back, on the same service	yes
+apps/desktop/src/main/codex-mission.test.ts	runs an Auto mission on the widest sandbox once the workspace allows it	yes
 apps/desktop/src/main/codex-mission.test.ts	says a runtime whose own service did not answer could not be reached, not that it is signed out (0.495)	no
 apps/desktop/src/main/codex-mission.test.ts	returns an actionable generic error when Codex is not ready	no
 apps/desktop/src/main/codex-mission.test.ts	does not launch a process when its owning window closes during discovery	no
@@ -1816,17 +1816,17 @@ apps/desktop/src/main/codex-mission.test.ts	still shuts down when the checkpoint
 apps/desktop/src/main/codex-mission.test.ts	refuses a teammate whose own branch could not be made, whoever started it	yes
 apps/desktop/src/main/codex-mission.test.ts	refuses a teammate at the monthly limit, whoever started it, before anything is recorded (%j)	yes
 apps/desktop/src/main/codex-mission.test.ts	lets the run start when the limit cannot be checked, and says why in the log	no
-apps/desktop/src/main/codex-mission.test.ts	runs read-only when the mode is ask	no
-apps/desktop/src/main/codex-mission.test.ts	records an MCP-origin Ask run with the actual read-only sandbox	no
-apps/desktop/src/main/codex-mission.test.ts	runs workspace-write only when edits were explicitly accepted	no
-apps/desktop/src/main/codex-mission.test.ts	records the sandbox it actually used in the durable header	no
+apps/desktop/src/main/codex-mission.test.ts	runs read-only when the mode is ask	yes
+apps/desktop/src/main/codex-mission.test.ts	records an MCP-origin Ask run with the actual read-only sandbox	yes
+apps/desktop/src/main/codex-mission.test.ts	runs workspace-write only when edits were explicitly accepted	yes
+apps/desktop/src/main/codex-mission.test.ts	records the sandbox it actually used in the durable header	yes
 apps/desktop/src/main/codex-mission.test.ts	never widens the sandbox for an unrecognized mode	yes
 apps/desktop/src/main/codex-mission.test.ts	hands a running Claude turn a message through its open input (A2.10)	no
 apps/desktop/src/main/codex-mission.test.ts	launches Claude with its own restricted argv when Claude is chosen	yes
 apps/desktop/src/main/codex-mission.test.ts	records a Claude run that may edit as one that may edit	yes
 apps/desktop/src/main/codex-mission.test.ts	sends Claude the mode it was started in, not a default	yes
 apps/desktop/src/main/codex-mission.test.ts	still records a Claude run asked to read as read-only	yes
-apps/desktop/src/main/codex-mission.test.ts	refuses a runtime whose event stream it cannot read yet, by name, recording nothing	no
+apps/desktop/src/main/codex-mission.test.ts	refuses a runtime whose event stream it cannot read yet, by name, recording nothing	yes
 apps/desktop/src/main/codex-mission.test.ts	runs a Cursor mission under its own command and its own normalizer	yes
 apps/desktop/src/main/codex-mission.test.ts	sends a Copilot teammate the effort it was given (the 2026-10-10 sweep: neither route sent it)	yes
 apps/desktop/src/main/codex-mission.test.ts	gives every Copilot run Locust’s command guard as a plugin, and no other runtime that plugin (0.721)	yes
@@ -1835,12 +1835,12 @@ apps/desktop/src/main/codex-mission.test.ts	starts no Cursor turn in Ask beside 
 apps/desktop/src/main/codex-mission.test.ts	lets a Cursor mission edit when asked, and never forces its commands	yes
 apps/desktop/src/main/codex-mission.test.ts	records nothing when the chosen options cannot be turned into a command	yes
 apps/desktop/src/main/codex-mission.test.ts	runs a read-only Cursor mission on Windows in its ask mode, without the sandbox Windows cannot run	no
-apps/desktop/src/main/codex-mission.test.ts	runs a read-only Cursor mission where the sandbox is real, and asks for it	no
+apps/desktop/src/main/codex-mission.test.ts	runs a read-only Cursor mission where the sandbox is real, and asks for it	yes
 apps/desktop/src/main/codex-mission.test.ts	names the runtime the user actually chose when it is unavailable	no
 apps/desktop/src/main/codex-mission.test.ts	collapses a burst of records into one durable append	no
 apps/desktop/src/main/codex-mission.test.ts	still persists every event before any of them is emitted	no
-apps/desktop/src/main/codex-mission.test.ts	sends a chosen model to the runtime and records it	no
-apps/desktop/src/main/codex-mission.test.ts	treats account-default as "send no model", not as a model id	no
+apps/desktop/src/main/codex-mission.test.ts	sends a chosen model to the runtime and records it	yes
+apps/desktop/src/main/codex-mission.test.ts	treats account-default as "send no model", not as a model id	yes
 apps/desktop/src/main/codex-mission.test.ts	sends no model when none was chosen	yes
 apps/desktop/src/main/codex-mission.test.ts	starts a NEW mission that records what it continues from	no
 apps/desktop/src/main/codex-mission.test.ts	reconciles only after the stopped run has settled	no
@@ -1851,7 +1851,7 @@ apps/desktop/src/main/codex-mission.test.ts	refuses a handoff to %s before stopp
 apps/desktop/src/main/codex-mission.test.ts	hands off to Cursor read-only on Windows too, in %s (0.485: its ask mode holds)	no
 apps/desktop/src/main/codex-mission.test.ts	still hands off to Cursor on Windows when the run may edit	no
 apps/desktop/src/main/codex-mission.test.ts	refuses when there is no active run to hand off	no
-apps/desktop/src/main/codex-mission.test.ts	quotes a waiting message into the prompt as a claim, records it, and marks it delivered only once the runtime starts	no
+apps/desktop/src/main/codex-mission.test.ts	quotes a waiting message into the prompt as a claim, records it, and marks it delivered only once the runtime starts	yes
 apps/desktop/src/main/codex-mission.test.ts	plans in the plan MODE, and only where the sandbox already refuses writes	yes
 apps/desktop/src/main/codex-mission.test.ts	tells a read-only OpenCode run it has no shell, and no other run (A2.20)	yes
 apps/desktop/src/main/codex-mission.test.ts	gives a read-only OpenCode run Locust’s git tool, told of in OpenCode’s own instructions rather than the prompt (0.818)	no
@@ -1865,7 +1865,7 @@ apps/desktop/src/main/codex-mission.test.ts	shares nothing from a run that did n
 apps/desktop/src/main/codex-mission.test.ts	shares nothing from a mission that belongs to nobody	no
 apps/desktop/src/main/codex-mission.test.ts	runs two teammatesu2019 missions at once, and stops each by its own run id	no
 apps/desktop/src/main/codex-mission.test.ts	starts a second conversation with the same teammate, and holds a reply to a turn still running (0.551)	no
-apps/desktop/src/main/codex-mission.test.ts	caps how many missions can be live at once, and says the number	no
+apps/desktop/src/main/codex-mission.test.ts	caps how many missions can be live at once, and says the number	yes
 apps/desktop/src/main/codex-mission.test.ts	hands off one teammateu2019s run without waiting for another teammateu2019s to finish	no
 apps/desktop/src/main/codex-mission.test.ts	resumes the earlier missionu2019s own session, and records what it continued	yes
 apps/desktop/src/main/codex-mission.test.ts	starts cold when the mode changed, so the chip is not lying about the run	yes
@@ -1876,42 +1876,42 @@ apps/desktop/src/main/codex-mission.test.ts	picks up the session a turn stopped 
 apps/desktop/src/main/codex-mission.test.ts	starts again from an edited message cold, never in the session that holds the turns set aside (0.498)	yes
 apps/desktop/src/main/codex-mission.test.ts	sends again as the same words, not as an earlier turn quoted back (0.496)	yes
 apps/desktop/src/main/codex-mission.test.ts	runs in the teammateu2019s own branch, as theirs, under their one-run guard	no
-apps/desktop/src/main/codex-mission.test.ts	records a resume on another runtime as a route switch, not a follow-up	no
+apps/desktop/src/main/codex-mission.test.ts	records a resume on another runtime as a route switch, not a follow-up	yes
 apps/desktop/src/main/codex-mission.test.ts	and on the same runtime, as a follow-up still	no
-apps/desktop/src/main/codex-mission.test.ts	A2.11: carries the conversationu2019s earlier turns into the switch, oldest first, and stops at a loop	no
+apps/desktop/src/main/codex-mission.test.ts	A2.11: carries the conversationu2019s earlier turns into the switch, oldest first, and stops at a loop	yes
 apps/desktop/src/main/codex-mission.test.ts	continues another runtimeu2019s conversation from a checkpoint, with the reply as the latest word	yes
 apps/desktop/src/main/codex-mission.test.ts	names no switch on an ordinary reply on the same runtime	yes
 apps/desktop/src/main/codex-mission.test.ts	refuses the cross-runtime continuation when the record cannot be trusted	yes
-apps/desktop/src/main/codex-mission.test.ts	starts a fresh conversation when nothing is being continued	no
+apps/desktop/src/main/codex-mission.test.ts	starts a fresh conversation when nothing is being continued	yes
 apps/desktop/src/main/codex-mission.test.ts	calls onShared with the origin and exactly the messages it posted, after they are recorded (%j)	no
 apps/desktop/src/main/codex-mission.test.ts	attaches the paths the host saw a writing run change	no
 apps/desktop/src/main/codex-mission.test.ts	A2.9: tells a teammate, in their next brief, that another changed a file they changed too	no
 apps/desktop/src/main/codex-mission.test.ts	attaches nothing from a read-only run, which the host never looked at	no
 apps/desktop/src/main/codex-mission.test.ts	a relayed run carries its hop through to what it shares	no
-apps/desktop/src/main/codex-mission.test.ts	adds an observed edit row, after the terminal event, for a file no tool named	no
+apps/desktop/src/main/codex-mission.test.ts	adds an observed edit row, after the terminal event, for a file no tool named	yes
 apps/desktop/src/main/codex-mission.test.ts	claims nothing from the tree when another writing run shared the folder	no
 apps/desktop/src/main/codex-mission.test.ts	does not repeat a file the runtime already named, and never looks on a read-only run	no
 apps/desktop/src/main/codex-mission.test.ts	switches Codex's plan tool on from 0.153, so its plan reaches the panel rather than the reply	yes
-apps/desktop/src/main/codex-mission.test.ts	launches a server rather than an exec, and turns its deltas into message events	no
+apps/desktop/src/main/codex-mission.test.ts	launches a server rather than an exec, and turns its deltas into message events	yes
 apps/desktop/src/main/codex-mission.test.ts	holds a read-only mode read-only, and never asks for full access on its behalf	yes
-apps/desktop/src/main/codex-mission.test.ts	starts none of the MCP servers or plugins the person’s Codex runs as programs, in Ask and Plan only (0.824)	no
+apps/desktop/src/main/codex-mission.test.ts	starts none of the MCP servers or plugins the person’s Codex runs as programs, in Ask and Plan only (0.824)	yes
 apps/desktop/src/main/codex-mission.test.ts	starts a sealed look with no shell, no web search, no apps and none of the person’s servers, connectors too (0.824)	yes
-apps/desktop/src/main/codex-mission.test.ts	starts every Codex thread with Locust’s command guard, for its own folder, and without it when the guard says so (0.720)	no
+apps/desktop/src/main/codex-mission.test.ts	starts every Codex thread with Locust’s command guard, for its own folder, and without it when the guard says so (0.720)	yes
 apps/desktop/src/main/codex-mission.test.ts	leaves every other runtime on the transport it already had	yes
-apps/desktop/src/main/codex-mission.test.ts	ends the run when the person presses stop, and says it was cancelled	no
+apps/desktop/src/main/codex-mission.test.ts	ends the run when the person presses stop, and says it was cancelled	yes
 apps/desktop/src/main/codex-mission.test.ts	sends the message into the running turn, and the run keeps going	no
 apps/desktop/src/main/codex-mission.test.ts	shows pending text durably before an approval card without waiting for the text deadline	no
 apps/desktop/src/main/codex-mission.test.ts	runs write-capable and stops to ask, rather than falling through to read-only	yes
 apps/desktop/src/main/codex-mission.test.ts	raises a card mid-run and sends the personu2019s answer back to the runtime	yes
-apps/desktop/src/main/codex-mission.test.ts	refuses what a stopped run was still asking, so no card waits on a run that has gone	no
+apps/desktop/src/main/codex-mission.test.ts	refuses what a stopped run was still asking, so no card waits on a run that has gone	yes
 apps/desktop/src/main/codex-mission.test.ts	answers nothing when no channel is wired, rather than pretending it did	no
 apps/desktop/src/main/codex-mission.test.ts	is declared to OpenCode for the run, key and all, in the child environment only	no
-apps/desktop/src/main/codex-mission.test.ts	is refused in words, before anything is written, once it has been removed	no
+apps/desktop/src/main/codex-mission.test.ts	is refused in words, before anything is written, once it has been removed	yes
 apps/desktop/src/main/codex-mission.test.ts	changes nothing for any other OpenCode model	no
 apps/desktop/src/main/codex-mission.test.ts	is still said to have changed on disk, on the runtime's own row, with no patch	no
-apps/desktop/src/main/codex-mission.test.ts	says looking, briefing, reading the folder and starting, in that order, and the end writes the note	no
+apps/desktop/src/main/codex-mission.test.ts	says looking, briefing, reading the folder and starting, in that order, and the end writes the note	yes
 apps/desktop/src/main/codex-mission.test.ts	says the runtime is setting itself up when its start will, and times it as the start	no
-apps/desktop/src/main/codex-mission.test.ts	reads no folder for a read-only start, and says so by leaving the phase out	no
+apps/desktop/src/main/codex-mission.test.ts	reads no folder for a read-only start, and says so by leaving the phase out	yes
 apps/desktop/src/main/codex-mission.test.ts	replays the same paced answer with fewer durable appends and sends while keeping every fragment	no
 apps/desktop/src/main/codex-mission.test.ts	reads and normalizes while an append is on the disk, and writes what arrived in one append when it lands	no
 apps/desktop/src/main/codex-mission.test.ts	stops reading at the bound and lets a flood back up into the runner, as it always did	no
@@ -2021,7 +2021,7 @@ apps/desktop/src/main/every-turn-start-crosses-the-organization-policy.test.ts	k
 apps/desktop/src/main/every-turn-start-crosses-the-organization-policy.test.ts	checks a handoff target before stopping the existing run and sends resumes through start	no
 apps/desktop/src/main/every-turn-start-crosses-the-organization-policy.test.ts	gates every separate background and cloud launch before calling its service	no
 apps/desktop/src/main/every-turn-start-crosses-the-organization-policy.test.ts	checks voice, phone, MCP and CLI access in the main process, including saved opt-ins	yes
-apps/desktop/src/main/every-turn-start-crosses-the-organization-policy.test.ts	loads once at launch, keeps the test seam out of packaged builds and exposes errors in the window	no
+apps/desktop/src/main/every-turn-start-crosses-the-organization-policy.test.ts	loads once at launch, keeps the test seam out of packaged builds and exposes errors in the window	yes
 apps/desktop/src/main/forget-hits-one-memory.test.ts	hits the memory it quotes exactly	yes
 apps/desktop/src/main/forget-hits-one-memory.test.ts	still hits it when the quote is punctuated or cased differently	yes
 apps/desktop/src/main/forget-hits-one-memory.test.ts	hits it when the teammate drops a trailing clause -- the case that used to fail	yes
