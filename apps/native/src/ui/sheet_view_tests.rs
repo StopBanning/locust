@@ -259,6 +259,17 @@ fn says_what_it_did_not_draw() {
     assert!(rt.find("sheet/tab/11").is_some() && rt.find("sheet/tab/12").is_none());
 }
 
+// Blank lines at the end of a CSV are not rows: Electron's boundedTable drops them before counting.
+#[test]
+fn blank_lines_at_the_end_of_a_csv_are_not_drawn_or_counted() {
+    let dir = temp("tail");
+    std::fs::write(dir.0.join("tail.csv"), "name,amount\nrent,1200\n\n\n\n").unwrap();
+    let rt = opened(&dir.0, "tail.csv");
+    assert!(rt.find("sheet/row/2").is_some(), "{:?}", texts(&rt));
+    assert!(rt.find("sheet/row/3").is_none(), "{:?}", texts(&rt));
+    assert_eq!(at(&rt, "sheet/note"), None, "{:?}", texts(&rt));
+}
+
 // case: draws cell text as text, never markup
 #[test]
 fn draws_cell_text_as_text_never_markup() {

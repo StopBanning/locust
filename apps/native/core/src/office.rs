@@ -485,7 +485,10 @@ pub fn read_csv(text: &str, tsv: bool) -> Workbook {
                 .collect()
         })
         .collect();
-    Workbook { sheets: vec![bounded_table("Sheet1", grid, Some(known), None)], more_sheets: 0 }
+    // Only a file cut at the row bound needs the counted lines; otherwise the table counts its own rows, after it drops
+    // blank lines at the end (Electron counted those as "more rows not shown").
+    let known = (more_lines > 0).then_some(known);
+    Workbook { sheets: vec![bounded_table("Sheet1", grid, known, None)], more_sheets: 0 }
 }
 
 /// Write/refresh office-words copies under `folder` (native data only) and return the brief section.
