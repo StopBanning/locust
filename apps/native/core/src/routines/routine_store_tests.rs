@@ -440,3 +440,18 @@ fn leaves_a_route_without_one_alone() {
     let saved = latest(&t.store);
     assert!(saved["route"].get("effort").is_none());
 }
+
+// Same case as reading from disk: a routines.json that names one routine twice lists it once, the first copy.
+#[test]
+fn a_routine_written_twice_on_disk_is_listed_once() {
+    let t = Temp::new();
+    save(&t.store, fresh(json!({}))).unwrap();
+    let mut raw: Value = serde_json::from_str(&fs::read_to_string(t.routines_path()).unwrap()).unwrap();
+    let mut copy = raw["routines"][0].clone();
+    copy["name"] = json!("A second copy");
+    raw["routines"].as_array_mut().unwrap().push(copy);
+    fs::write(t.routines_path(), raw.to_string()).unwrap();
+    let listed = progress::all(&t.store).unwrap();
+    assert_eq!(listed.len(), 1, "{listed:?}");
+    assert_ne!(listed[0]["name"], "A second copy");
+}
