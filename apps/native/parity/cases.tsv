@@ -6611,7 +6611,7 @@ apps/desktop/src/renderer/src/your-github-shows-on-connectors.test.tsx	says when
 apps/desktop/src/renderer/src/your-github-shows-on-connectors.test.tsx	shows the one-time code while the sign-in waits, with a way to stop	yes
 apps/desktop/src/renderer/src/your-github-shows-on-connectors.test.tsx	is found by the words a person types for it	yes
 apps/desktop/src/renderer/src/your-own-model-is-named-as-yours.test.tsx	is known by its route	yes
-apps/desktop/src/renderer/src/your-own-model-is-named-as-yours.test.tsx	is named by its own name on every surface that names a route	no
+apps/desktop/src/renderer/src/your-own-model-is-named-as-yours.test.tsx	is named by its own name on every surface that names a route	yes
 apps/desktop/src/renderer/src/your-own-model-is-named-as-yours.test.tsx	reads as itself in the chat bar, with the exact route one hover away	no
 apps/desktop/src/renderer/src/your-own-models-can-judge.test.ts	offers the person’s own models that take tools, under Your models and by their own names	yes
 apps/desktop/src/renderer/src/your-own-models-can-judge.test.ts	still offers a free model first, and the catalogue before any model of the person’s own	yes
