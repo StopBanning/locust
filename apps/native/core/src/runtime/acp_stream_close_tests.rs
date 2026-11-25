@@ -231,3 +231,28 @@ for m in messages():
     assert_eq!(events.last().unwrap().kind, "run.cancelled");
     assert!(agent.methods().iter().any(|m| m == "session/cancel"));
 }
+
+// What the agent writes in the same tick as its initialize answer is not lost: acp-run.ts reads the whole chunk and
+// handles every record in it in order, so session/new's and the prompt's answers that came with it still drive the turn
+// to its end (merge check, Tails 1: dropping the held records, or never reading them back, survived).
+#[test]
+fn records_that_came_with_the_initialize_answer_are_still_handled_in_order() {
+    let silent = Agent::new("for m in messages(): pass\n");
+    let stop = Arc::new(AtomicBool::new(false));
+    let mut acp = silent.spawn(added()).with_cancel(stop.clone());
+    let (tx, lines) = mpsc::sync_channel(8);
+    acp.lines = lines;
+    tx.send(Ok(json!({"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1}}))).unwrap();
+    tx.send(Ok(json!({"jsonrpc":"2.0","id":2,"result":{"sessionId":"session-one"}}))).unwrap();
+    tx.send(Ok(json!({"jsonrpc":"2.0","id":3,"result":{"stopReason":"end_turn"}}))).unwrap();
+    // Nothing else will ever answer: a lost record would leave the turn waiting, so give up after a while.
+    let flag = stop.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_secs(5));
+        flag.store(true, Ordering::Relaxed);
+    });
+    acp.start(&turn(&silent.dir, Mode::Ask, None, None)).unwrap();
+    let end = events_until_end(&mut acp, |_, _| {}).pop().unwrap();
+    assert_eq!(end.kind, "run.completed", "{}", end.payload);
+    drop(tx);
+}
