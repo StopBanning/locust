@@ -1829,6 +1829,8 @@ pub enum Issue {
     TruncatedTail,
     /// A header or record that is not a ledger's, and everything after it.
     InvalidRecord,
+    /// A header whose schemaVersion this reader does not support.
+    UnsupportedSchema,
     /// Past `MAX_LEDGER_BYTES`, so not read.
     FileTooLarge,
 }
@@ -1838,6 +1840,7 @@ impl Issue {
         match self {
             Issue::TruncatedTail => "truncated-tail",
             Issue::InvalidRecord => "invalid-record",
+            Issue::UnsupportedSchema => "unsupported-schema",
             Issue::FileTooLarge => "file-too-large",
         }
     }
@@ -1885,7 +1888,15 @@ pub fn recover(bytes: &[u8]) -> Recovered {
     let Some((first, body)) = lines.split_first() else { return unreadable(issues) };
     // Every ledger a writer made numbers its records; one with no number at all was made by hand (a test's), and is
     // held to every rule but the numbering.
-    let Some(header) = serde_json::from_slice::<Value>(first).ok().filter(|h| {
+    let parsed_first = serde_json::from_slice::<Value>(first).ok();
+    if let Some(ref h) = parsed_first
+        && let Some(ver) = h.get("schemaVersion").and_then(Value::as_u64)
+        && !(1..=28).contains(&ver)
+    {
+        issues.push(Issue::UnsupportedSchema);
+        return Recovered { records: Vec::new(), issues, unreadable: true };
+    }
+    let Some(header) = parsed_first.filter(|h| {
         (h.get("ledgerSequence").is_none() || h["ledgerSequence"].as_u64() == Some(1))
             && decode_value(h.clone()).is_some_and(|r| metadata(&r).is_some())
     }) else {
@@ -2021,9 +2032,10 @@ pub fn try_list_recent(dir: &Path, limit: usize) -> io::Result<Vec<Summary>> {
     }
     paths.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
 
+    let scan_cap = limit.max(64);
     let mut summaries = Vec::new();
     for (modified, path, len) in paths {
-        if summaries.len() == limit {
+        if summaries.len() == scan_cap {
             break;
         }
         let Ok((mut records, read_bytes, lines)) = head_with_offset(&path) else {
@@ -2117,6 +2129,8 @@ pub fn try_list_recent(dir: &Path, limit: usize) -> io::Result<Vec<Summary>> {
             edited: m.edited,
         });
     }
+    summaries.sort_by(|a, b| b.updated.cmp(&a.updated));
+    summaries.truncate(limit);
     Ok(summaries)
 }
 
@@ -3871,6 +3885,19 @@ mod carry_tests {
         let rec = recover(bytes.as_bytes());
         assert_eq!(rec.records.len(), 1);
         assert_eq!(rec.issues, vec![Issue::InvalidRecord]);
+        let future = json!({"schemaVersion":99,"recordType":"mission.created","ledgerSequence":1,"metadata":{"missionId":"m2","prompt":"p","runtime":"codex","model":"account-default","createdAt":"2026-08-31T16:00:00.000Z"}});
+        let fut = recover(format!("{future}\n").as_bytes());
+        assert!(fut.unreadable);
+        assert_eq!(fut.issues, vec![Issue::UnsupportedSchema]);
+        let dir = std::env::temp_dir().join(format!("locust-recency-{}", crate::invariants::unique_nanos()));
+        std::fs::create_dir_all(&dir).unwrap();
+        for (id, at) in [("mission_a", "2026-08-31T10:00:00.000Z"), ("mission_b", "2026-08-31T12:00:00.000Z"), ("mission_c", "2026-08-31T11:00:00.000Z")] {
+            let line = json!({"schemaVersion":27,"recordType":"mission.created","ledgerSequence":1,"occurredAt":at,"metadata":{"missionId":id,"prompt":"p","runtime":"codex","model":"account-default","createdAt":at}});
+            std::fs::write(dir.join(format!("{id}.jsonl")), format!("{line}\n")).unwrap();
+        }
+        let ids: Vec<String> = try_list_recent(&dir, 2).unwrap().into_iter().map(|s| s.mission_id).collect();
+        assert_eq!(ids, ["mission_b", "mission_c"]);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
 

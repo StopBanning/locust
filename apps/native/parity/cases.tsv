@@ -6993,18 +6993,18 @@ packages/mission-store/test/checkpoint.test.ts	refuses a malformed digest, epoch
 packages/mission-store/test/checkpoint.test.ts	stops recovery at a checkpoint whose epoch is out of order	yes
 packages/mission-store/test/every-runtime-can-be-written-down.test.ts	can be recorded, read back, and listed	yes
 packages/mission-store/test/mission-store.test.ts	persists a versioned append-only mission and recovers its terminal phase	yes
-packages/mission-store/test/mission-store.test.ts	serializes concurrent appends without losing ledger or event order	no
-packages/mission-store/test/mission-store.test.ts	rejects a mismatched or noncontiguous event before writing it	no
-packages/mission-store/test/mission-store.test.ts	ignores an incomplete crash tail and reports the recovered prefix	no
-packages/mission-store/test/mission-store.test.ts	records a generic host launch failure as a failed recovered mission	no
-packages/mission-store/test/mission-store.test.ts	does not trust unsupported or malformed ledger files	no
-packages/mission-store/test/mission-store.test.ts	stops recovery at a noncontiguous body record and refuses to extend the corrupt ledger	no
-packages/mission-store/test/mission-store.test.ts	detects external modification on append and fails closed afterwards	no
-packages/mission-store/test/mission-store.test.ts	orders history by recency and honors the list limit	no
-packages/mission-store/test/mission-store.test.ts	refuses an event its own reader would reject, rather than truncating recovery later	no
-packages/mission-store/test/mission-store.test.ts	reads the most recently updated ledgers rather than whichever sort first by name	no
-packages/mission-store/test/mission-store.test.ts	removes the record for good and reports whether there was one	no
-packages/mission-store/test/mission-store.test.ts	refuses to append to a mission that was deleted, rather than resurrecting it	no
+packages/mission-store/test/mission-store.test.ts	serializes concurrent appends without losing ledger or event order	yes
+packages/mission-store/test/mission-store.test.ts	rejects a mismatched or noncontiguous event before writing it	yes
+packages/mission-store/test/mission-store.test.ts	ignores an incomplete crash tail and reports the recovered prefix	yes
+packages/mission-store/test/mission-store.test.ts	records a generic host launch failure as a failed recovered mission	yes
+packages/mission-store/test/mission-store.test.ts	does not trust unsupported or malformed ledger files	yes
+packages/mission-store/test/mission-store.test.ts	stops recovery at a noncontiguous body record and refuses to extend the corrupt ledger	yes
+packages/mission-store/test/mission-store.test.ts	detects external modification on append and fails closed afterwards	yes
+packages/mission-store/test/mission-store.test.ts	orders history by recency and honors the list limit	yes
+packages/mission-store/test/mission-store.test.ts	refuses an event its own reader would reject, rather than truncating recovery later	yes
+packages/mission-store/test/mission-store.test.ts	reads the most recently updated ledgers rather than whichever sort first by name	yes
+packages/mission-store/test/mission-store.test.ts	removes the record for good and reports whether there was one	yes
+packages/mission-store/test/mission-store.test.ts	refuses to append to a mission that was deleted, rather than resurrecting it	yes
 packages/mission-store/test/mission-store.test.ts	leaves every other mission untouched	yes
 packages/mission-store/test/mission-store.test.ts	refuses an id that could name any other file	yes
 packages/mission-store/test/retention.test.ts	deletes what is older than the cutoff and keeps what is not	no
