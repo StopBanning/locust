@@ -186,6 +186,7 @@ impl ModelCatalogues {
 pub(super) struct State {
     pub(super) scout: crate::scout_cards::Panel,
     pub(super) background_runs: crate::background_runs::Panel,
+    pub(super) cloud: crate::claude_cloud_panel::Cloud,
     pub(super) routines: crate::routines_panel::Panel,
     pub(super) browser: crate::browser_panel::Panel,
     pub(super) page_points: crate::page_points_ui::PagePoints,
@@ -822,6 +823,7 @@ impl Default for State {
             phone_anywhere_link: crate::phone_section::PhoneAnywhereLink::default(),
             phone_picked_wifi: false,
             remote_mcp_stay: None,
+            cloud: crate::claude_cloud_panel::Cloud::default(),
         }
     }
 }

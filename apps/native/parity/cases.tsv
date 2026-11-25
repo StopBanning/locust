@@ -3685,7 +3685,7 @@ apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	labels t
 apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx	believes a finished run over the table	no
 apps/desktop/src/renderer/src/a-cloud-environment-is-optional-and-validated.test.tsx	The cloud form names the optional environment and explains when it is saved.	yes
 apps/desktop/src/renderer/src/a-cloud-environment-is-optional-and-validated.test.tsx	The cloud form marks invalid environment ids and explains how to correct them.	yes
-apps/desktop/src/renderer/src/a-cloud-environment-is-optional-and-validated.test.tsx	Only a Claude cloud start form offers the organization environment field.	no
+apps/desktop/src/renderer/src/a-cloud-environment-is-optional-and-validated.test.tsx	Only a Claude cloud start form offers the organization environment field.	yes
 apps/desktop/src/renderer/src/a-cloud-watch-stops-when-it-should.test.ts	Watch reads every ninety seconds and stops after two unchanged reads despite new timestamps.	yes
 apps/desktop/src/renderer/src/a-cloud-watch-stops-when-it-should.test.ts	Watch resets its unchanged count when a reply or change arrives.	yes
 apps/desktop/src/renderer/src/a-cloud-watch-stops-when-it-should.test.ts	Watch stops after thirty minutes even when every read brings something new.	yes

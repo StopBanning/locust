@@ -964,6 +964,9 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
         if let Some(picks) = crate::compare_view::composer_picks_row(s, &l) {
             composer_stack = composer_stack.child(picks);
         }
+        if let Some(form) = crate::claude_cloud_panel::start_form(s, p) {
+            composer_stack = composer_stack.child(form);
+        }
         composer_stack = composer_stack
             .children(crate::update_banner::view(s, p))
             .children(crate::handoff_divider::composer_omissions(s, teammate, p))
