@@ -6,7 +6,7 @@
 //! Resting bots stay settled with zero wakeups.
 
 use locust_core::bot_rig::{
-    crt_rule, eye_glyphs_for, face_box, flash_fade, flash_for, is_motionless, mood_for, phosphor_for,
+    bot_motion, crt_rule, eye_glyphs_for, face_box, flash_fade, flash_for, is_motionless, mood_for, phosphor_for,
     power_on_light, rest_pose, step_lag, BodyConductor, BodyWants, BotAvatarPose, BotAvatarSim,
     BotAvatarState, BotMood, BotMotionLevel, CrtKind, FaceActivity, FaceChanges, FrameBeat,
     GlanceHold, GlanceSide, Lag, PowerOnLight, Pull, ShownFace, BOT_FRAMES_PER_SECOND, CRT_FLICK_S, LAG_REST,
@@ -166,10 +166,9 @@ fn avatar_state_for(activity: FaceActivity, still: bool) -> BotAvatarState {
         FaceActivity::Thinking
         | FaceActivity::Working
         | FaceActivity::Delegating
-        | FaceActivity::Responding
-        | FaceActivity::Done => BotAvatarState::Working,
+        | FaceActivity::Responding => BotAvatarState::Working,
         FaceActivity::Blocked => BotAvatarState::Sleeping,
-        FaceActivity::Waiting | FaceActivity::Receiving | FaceActivity::Idle => {
+        FaceActivity::Done | FaceActivity::Waiting | FaceActivity::Receiving | FaceActivity::Idle => {
             BotAvatarState::Default
         }
     }
@@ -287,9 +286,10 @@ fn build_bot_frame(
     } else {
         None
     });
+    let motion = bot_motion(desired.activity, desired.motion);
     let body_wants = BodyWants {
         mood,
-        hop: !still && desired.motion == BotMotionLevel::Full,
+        hop: !still && (motion.hops || desired.motion == BotMotionLevel::Full),
         resting: still && !hover_notice,
         glancing: held.is_some() || hover_notice,
     };
@@ -871,6 +871,11 @@ impl BotStage {
     #[cfg(test)]
     pub fn pointer_target(&self, key: &str) -> Option<(f64, f64, f64)> {
         self.inner.borrow().bots.get(key).map(|slot| slot.sim.pointer_target())
+    }
+
+    #[cfg(test)]
+    pub fn last_hop(&self, key: &str) -> Option<bool> {
+        self.inner.borrow().bots.get(key).map(|slot| slot.cached.hop)
     }
 
     pub fn slot_count(&self) -> usize {

@@ -1061,8 +1061,58 @@ impl FaceActivity {
     }
 }
 
+/// `faceState.ts` `FaceMotion` / `FACE_MOTION`: every state's animation name, named for the state it means.
+/// `done` runs its hop once (` 1`); everything else that moves loops.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FaceMotion {
+    pub chip: Option<&'static str>,
+    pub eyes: Option<&'static str>,
+    pub mouth: Option<&'static str>,
+}
+
+pub fn face_motion(activity: FaceActivity) -> FaceMotion {
+    match activity {
+        FaceActivity::Thinking => FaceMotion {
+            chip: Some("lcTilt 3.4s ease-in-out infinite"),
+            eyes: Some("lcEyesUp 5.5s ease-in-out infinite"),
+            mouth: None,
+        },
+        FaceActivity::Working | FaceActivity::Delegating => FaceMotion {
+            chip: Some("lcBob2 2.4s ease-in-out infinite"),
+            eyes: Some("lcEyesDown 3.4s ease-in-out infinite"),
+            mouth: None,
+        },
+        FaceActivity::Responding => FaceMotion {
+            chip: Some("lcBob 2.8s ease-in-out infinite"),
+            eyes: Some("lcEyesFwd 5s ease-in-out infinite"),
+            mouth: Some("lcChat 1.5s ease-in-out infinite"),
+        },
+        FaceActivity::Waiting => FaceMotion {
+            chip: None,
+            eyes: Some("lcStare 6s ease-in-out infinite"),
+            mouth: None,
+        },
+        FaceActivity::Receiving => FaceMotion {
+            chip: None,
+            eyes: Some("lcGlance 2.8s ease-in-out infinite"),
+            mouth: None,
+        },
+        FaceActivity::Done => FaceMotion {
+            chip: Some("lcHop 1.2s ease-out 1"),
+            eyes: None,
+            mouth: None,
+        },
+        FaceActivity::Blocked | FaceActivity::Idle => FaceMotion {
+            chip: None,
+            eyes: None,
+            mouth: None,
+        },
+    }
+}
+
 pub fn is_motionless(activity: FaceActivity) -> bool {
-    matches!(activity, FaceActivity::Idle | FaceActivity::Blocked)
+    let motion = face_motion(activity);
+    motion.chip.is_none() && motion.eyes.is_none() && motion.mouth.is_none()
 }
 
 pub fn face_label(activity: FaceActivity) -> &'static str {

@@ -253,6 +253,38 @@ mod tests {
         assert_eq!(activity(&s, "wren"), FaceActivity::Idle);
     }
 
+    // case: done hops once; it is not a loop
+    #[test]
+    fn done_hops_once_in_the_drawn_rail_and_is_not_a_loop() {
+        let mut s = State::default();
+        s.teammates = vec![mate("wren")];
+        s.recent = vec![listed("m_hop_1", "running")];
+        s.seen_live = vec!["m_hop_1".into()];
+        s.mission_owners = HashMap::from([("m_hop_1".to_string(), "wren".to_string())]);
+        let mut rt = rune::Runtime::new(s, |s, _| crate::rail::rail(s, &Palette::new(true)), (72.0, 800.0), rune::Env::new(true, 1.0));
+        let mut tx = rune::Tx::default();
+        rt.frame(0.0);
+        rt.state.bot_stage.poll(0.0, false, true, &mut tx);
+        // Run finishes: rail face switches from Working to Done.
+        let owners = HashMap::from([("m_hop_1".to_string(), "wren".to_string())]);
+        rt.update(move |s, _| {
+            s.seen_live.clear();
+            note_finished(s, &[listed("m_hop_1", "completed")], &owners, 0.05);
+        });
+        let mut hops = 0usize;
+        let mut t = 0.05;
+        while t < 1.5 {
+            rt.state.bot_stage.begin_frame();
+            rt.frame(0.05);
+            rt.state.bot_stage.poll(t, false, true, &mut tx);
+            if rt.state.bot_stage.last_hop("rail-wren") == Some(true) {
+                hops += 1;
+            }
+            t += 0.05;
+        }
+        assert_eq!(hops, 1, "done hops once in the subtle rail, not zero and not a loop");
+    }
+
     #[test]
     fn a_run_already_finished_when_first_listed_does_not_hop() {
         let row = listed("m_face_3", "completed");

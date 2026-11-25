@@ -5123,8 +5123,8 @@ apps/desktop/src/renderer/src/exchange.test.ts	takes the deepest hop of any half
 apps/desktop/src/renderer/src/exchange.test.ts	is nothing when none of the openings exists	yes
 apps/desktop/src/renderer/src/exchange.test.ts	is nothing when the openings talked to nobody	yes
 apps/desktop/src/renderer/src/faceState.test.ts	idle and blocked are the only motionless states, and every other state moves	yes
-apps/desktop/src/renderer/src/faceState.test.ts	names every animation for the state it means, and retires the generic one	no
-apps/desktop/src/renderer/src/faceState.test.ts	done hops once; it is not a loop	no
+apps/desktop/src/renderer/src/faceState.test.ts	names every animation for the state it means, and retires the generic one	yes
+apps/desktop/src/renderer/src/faceState.test.ts	done hops once; it is not a loop	yes
 apps/desktop/src/renderer/src/faceState.test.ts	thinking is not still: a still face is idle, and a reasoning teammate is not abandoned	yes
 apps/desktop/src/renderer/src/faceState.test.ts	has a word for every state	yes
 apps/desktop/src/renderer/src/faceState.test.ts	is idle when not running, whatever the events say	yes

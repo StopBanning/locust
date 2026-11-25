@@ -3,7 +3,7 @@
 //! `facePresenceFor`, with its file named above it and its values. faceState's two CSS-animation cases
 //! (`FACE_MOTION`'s names and `done`'s single hop) are about the stylesheet and do not apply here.
 use super::*;
-use crate::bot_rig::{face_label, is_motionless};
+use crate::bot_rig::{bot_motion, face_label, face_motion, is_motionless, BotAvatarState, BotMotionLevel};
 use serde_json::json;
 
 fn event(kind: &str, payload: Value) -> Value {
@@ -34,6 +34,33 @@ const ALL: [FaceActivity; 8] = [
 fn idle_and_blocked_are_the_only_motionless_states_and_every_other_state_moves() {
     for activity in ALL {
         assert_eq!(is_motionless(activity), matches!(activity, FaceActivity::Idle | FaceActivity::Blocked), "{activity:?}");
+    }
+}
+
+// case: names every animation for the state it means, and retires the generic one
+#[test]
+fn names_every_animation_for_the_state_it_means_and_retires_the_generic_one() {
+    for activity in ALL {
+        let motion = face_motion(activity);
+        for name in [motion.chip, motion.eyes, motion.mouth].into_iter().flatten() {
+            assert!(!name.starts_with("lcEyes "), "generic animation retired: {name}");
+        }
+    }
+    assert!(face_motion(FaceActivity::Thinking).eyes.unwrap().starts_with("lcEyesUp"));
+    assert!(face_motion(FaceActivity::Working).eyes.unwrap().starts_with("lcEyesDown"));
+    assert!(face_motion(FaceActivity::Responding).eyes.unwrap().starts_with("lcEyesFwd"));
+    assert!(face_motion(FaceActivity::Receiving).eyes.unwrap().starts_with("lcGlance"));
+}
+
+// case: done hops once; it is not a loop
+#[test]
+fn done_hops_once_it_is_not_a_loop() {
+    assert!(face_motion(FaceActivity::Done).chip.unwrap().ends_with(" 1"));
+    for level in [BotMotionLevel::Subtle, BotMotionLevel::Full] {
+        let motion = bot_motion(FaceActivity::Done, level);
+        assert!(motion.hops, "{level:?}");
+        assert_eq!(motion.state, BotAvatarState::Default, "{level:?}: does not loop working");
+        assert_eq!(motion.jump_every, Some(0.0), "{level:?}: no periodic jump loop");
     }
 }
 
