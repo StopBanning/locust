@@ -684,10 +684,8 @@ pub fn validate_metadata_fields(m: &Value) -> Result<(), &'static str> {
                 of.is_some() && sb.get("command").is_some_and(|c| text_ok(c, 500))
             }
             Some("mcp") => sb.get("folder").filter(|v| !v.is_null()).is_none_or(|f| text_ok(f, 1_024)),
-            Some("carry-on") => sb
-                .get("from")
-                .filter(|v| !v.is_null())
-                .is_none_or(|f| f.as_str().is_some_and(|s| !s.is_empty())),
+            // mission-store: a carry-on names the agent it was carried from, one a turn can run on.
+            Some("carry-on") => sb.get("from").and_then(Value::as_str).is_some_and(ledger_runtime),
             Some("scout" | "app") => true,
             // Starters only the native app writes (Electron has no rooms or tagging): a room's post, a tag's ask.
             Some("room") => {
@@ -702,6 +700,14 @@ pub fn validate_metadata_fields(m: &Value) -> Result<(), &'static str> {
         }
     }
     Ok(())
+}
+
+/// An agent a turn is recorded as running on (the runtimes `LedgerWriter::create_runtime_with` writes).
+fn ledger_runtime(runtime: &str) -> bool {
+    matches!(
+        runtime,
+        "codex" | "claude" | "gemini" | "acp" | "opencode" | "kilo" | "cursor" | "copilot" | "antigravity" | "muse" | "apple"
+    )
 }
 
 /// mission-store `parsedMetadata`'s version gates: a record claiming what no writer of its version could write was
