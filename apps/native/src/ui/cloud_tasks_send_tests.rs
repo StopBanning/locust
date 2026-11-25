@@ -405,3 +405,24 @@ fn switching_teammate_or_model_clears_codex_cloud_choice() {
         !s.cloud.codex.on
     });
 }
+
+// Cloud on is Codex Cloud only while a Codex model is picked: with the teammate switched to another agent, a send is not
+// taken for a Codex cloud task (it goes on as that agent's own turn).
+#[test]
+fn a_send_with_another_agent_picked_is_never_taken_for_a_codex_cloud_task() {
+    let (world, mut rt) = window(SendSpec { dirty: true, ..SendSpec::default() });
+    click(&mut rt, "compare-mode-chip");
+    click(&mut rt, "compare-mode-cloud");
+    pump(&mut rt, "codex panel loaded", |s| s.cloud.codex.place.is_some());
+    assert!(rt.state.cloud.codex.on, "Cloud is on for the Codex teammate");
+    let mut taken = None;
+    rt.update(|s, _| {
+        let at = s.selected;
+        s.teammates[at].runtime = Some("claude".into());
+        s.picks.clear();
+        taken = Some(crate::cloud_tasks::send(s, "Tighten checkout validation"));
+    });
+    assert_eq!(taken, Some(false), "not a Codex cloud send");
+    let calls = world.codex_calls.lock().unwrap().clone();
+    assert!(!calls.iter().any(|a| a.get(1).map(String::as_str) == Some("exec")), "{calls:?}");
+}
