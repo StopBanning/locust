@@ -2413,11 +2413,11 @@ apps/desktop/src/main/question-answers.test.ts	sends an option by its literal la
 apps/desktop/src/main/question-answers.test.ts	keeps an unanswered question present and empty rather than absent	no
 apps/desktop/src/main/question-answers.test.ts	still sends a decision for an authorization	yes
 apps/desktop/src/main/quit-guard.test.ts	asks only when someone is working and the person is the one closing	yes
-apps/desktop/src/main/quit-guard.test.ts	never stands in the way of a quit already under way -- a relaunch, the updater	no
+apps/desktop/src/main/quit-guard.test.ts	never stands in the way of a quit already under way -- a relaunch, the updater	yes
 apps/desktop/src/main/quit-guard.test.ts	never holds up Windows shutting down or logging off	no
-apps/desktop/src/main/quit-guard.test.ts	asks once: "Quit anyway" closes	no
+apps/desktop/src/main/quit-guard.test.ts	asks once: "Quit anyway" closes	yes
 apps/desktop/src/main/quit-guard.test.ts	names who is working, and says what each answer does	yes
-apps/desktop/src/main/quit-guard.test.ts	keeping the work going is the first button and the default; Cancel leaves the window open (0.397)	no
+apps/desktop/src/main/quit-guard.test.ts	keeping the work going is the first button and the default; Cancel leaves the window open (0.397)	yes
 apps/desktop/src/main/quit-guard.test.ts	a window set to keep running hides to the tray without asking, and the menu names the next routine	no
 apps/desktop/src/main/quit-guard.test.ts	the tray says who is working while the window is closed, and when nobody is	no
 apps/desktop/src/main/ready-means-this-version-is-on-disk.test.ts	stops calling a newer version downloaded when an older one was	yes
