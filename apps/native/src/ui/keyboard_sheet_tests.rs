@@ -119,6 +119,9 @@ const MARKS: &[(&str, &str, &str, &str)] = &[
     ("Up / Down", "Recall a sent message from an empty box", "keys.rs", "return KeyAction::HistoryUp;"),
     ("Escape", "Close a dialog", "main.rs", "s.keyboard_sheet.open = false;"),
     ("1–9", "Answer a question card", "main.rs", "question_card::handle_key(s, event)"),
+    ("Ctrl+Shift+M", "Permission mode", "main.rs", "if event.mods.shift && !event.mods.alt && event.is_command('m') {"),
+    ("Ctrl+Shift+I", "Model", "main.rs", "if event.mods.shift && !event.mods.alt && event.is_command('i') {"),
+    ("Ctrl+Shift+E", "Effort", "main.rs", "if event.mods.shift && !event.mods.alt && event.is_command('e') {"),
 ];
 
 fn source(file: &str) -> &'static str {

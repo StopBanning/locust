@@ -143,3 +143,70 @@ fn a_chord_never_eats_a_plain_key_typed_into_the_message_box() {
     assert!(!rt.state.inspector_open && !rt.state.terminal.open);
     assert_eq!(rt.state.rooms.active, room_screen::RoomView::None);
 }
+
+/// Ctrl+Shift (Cmd+Shift on a Mac) with `c`.
+fn accel_shift(rt: &mut Runtime<State>, c: char) {
+    press_with(rt, Key::Command(c), Mods { cmd: true, shift: true, ..Default::default() });
+}
+
+#[test]
+fn ctrl_shift_m_opens_the_permission_mode_menu_in_place_of_the_model_picker() {
+    let mut rt = window();
+    accel_shift(&mut rt, 'i');
+    assert_eq!(rt.state.model_menu.as_deref(), Some("tm"));
+    accel_shift(&mut rt, 'm');
+    assert!(rt.state.mode_menu);
+    assert_eq!(rt.state.model_menu, None, "one menu at a time");
+    assert!(drawn(&rt, "mode-menu") && !drawn(&rt, "model-menu"));
+    accel_shift(&mut rt, 'm');
+    assert!(rt.state.mode_menu, "the chord opens its menu and never closes it");
+}
+
+#[test]
+fn ctrl_shift_i_opens_the_model_picker_in_place_of_the_mode_menu() {
+    let mut rt = window();
+    accel_shift(&mut rt, 'm');
+    assert!(rt.state.mode_menu);
+    accel_shift(&mut rt, 'i');
+    assert_eq!(rt.state.model_menu.as_deref(), Some("tm"));
+    assert!(!rt.state.mode_menu, "one menu at a time");
+    assert!(drawn(&rt, "model-menu") && !drawn(&rt, "mode-menu"));
+    accel_shift(&mut rt, 'i');
+    assert_eq!(rt.state.model_menu.as_deref(), Some("tm"), "the chord opens its menu and never closes it");
+    assert!(!rt.state.inspector_open, "Ctrl+Shift+I is the model, Ctrl+I the inspector");
+}
+
+#[test]
+fn ctrl_shift_e_opens_the_model_picker_for_its_effort() {
+    let mut rt = window();
+    accel_shift(&mut rt, 'm');
+    accel_shift(&mut rt, 'e');
+    assert_eq!(rt.state.model_menu.as_deref(), Some("tm"));
+    assert!(!rt.state.mode_menu);
+    assert!(drawn(&rt, "model-menu"));
+    accel_shift(&mut rt, 'e');
+    assert_eq!(rt.state.model_menu.as_deref(), Some("tm"), "the chord opens its menu and never closes it");
+}
+
+#[test]
+fn the_menu_chords_work_from_the_message_box_and_type_nothing_into_it() {
+    let mut rt = window();
+    settle(&mut rt);
+    let (x, y) = rt.find("composer").expect("the message box is drawn");
+    rt.pointer_down(x, y);
+    rt.pointer_up(x, y);
+    press_with(&mut rt, Key::Text("so".into()), Mods::default());
+    accel_shift(&mut rt, 'm');
+    assert!(rt.state.mode_menu);
+    accel_shift(&mut rt, 'e');
+    assert_eq!(rt.state.model_menu.as_deref(), Some("tm"));
+    assert_eq!(rt.state.draft.text, "so");
+    // Without the chord's keys held, the letters type.
+    rt.state.model_menu = None;
+    settle(&mut rt);
+    let (x, y) = rt.find("composer").expect("the message box is drawn");
+    rt.pointer_down(x, y);
+    rt.pointer_up(x, y);
+    press_with(&mut rt, Key::Text("M".into()), Mods { shift: true, ..Default::default() });
+    assert!(rt.state.draft.text.ends_with('M'), "{}", rt.state.draft.text);
+}

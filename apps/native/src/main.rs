@@ -1941,6 +1941,35 @@ fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
         return true;
     }
     if sidebar::step_from_key(s, event, tx) { return true; }
+    // Ctrl+Shift+M, I and E open the message box's own menus (App.tsx `setMenuChord`, Composer.tsx): Permission mode,
+    // the model picker, and the model picker for its effort, which sits at the picker's foot. One menu at a time; a
+    // chord opens its menu and never closes it.
+    fn open_route_picker(s: &mut State) {
+        let Some(id) = selected_conversation(s).map(|(t, _)| t.id.clone()) else { return };
+        s.mode_menu = false;
+        s.reference_menu = false;
+        s.plus_menu = false;
+        if s.model_menu.as_ref() != Some(&id) {
+            open_models(s, id);
+        }
+    }
+    if event.mods.shift && !event.mods.alt && event.is_command('m') {
+        if selected_conversation(s).is_some() {
+            s.model_menu = None;
+            s.reference_menu = false;
+            s.plus_menu = false;
+            s.mode_menu = true;
+        }
+        return true;
+    }
+    if event.mods.shift && !event.mods.alt && event.is_command('i') {
+        open_route_picker(s);
+        return true;
+    }
+    if event.mods.shift && !event.mods.alt && event.is_command('e') {
+        open_route_picker(s);
+        return true;
+    }
     if event.mods.shift || event.mods.alt {
         return false;
     }
