@@ -3222,16 +3222,16 @@ apps/desktop/src/main/usage-carried-from-another-computer.test.ts	keeps a turn o
 apps/desktop/src/main/usage-carried-from-another-computer.test.ts	leaves out a line that is not a turn	yes
 apps/desktop/src/main/usage-carried-from-another-computer.test.ts	reads every good line of the file, and no file as none	yes
 apps/desktop/src/main/usage-carried-from-another-computer.test.ts	is added to the ledger where Usage is read	yes
-apps/desktop/src/main/usage-is-counted.test.ts	names the model the run reported, and keeps a plan’s dollars out of the money	no
-apps/desktop/src/main/usage-is-counted.test.ts	an API key’s turn is money; a turn with no receipt still counts, at its last moment	no
-apps/desktop/src/main/usage-is-counted.test.ts	every turn the ledger holds, each named by its conversation’s first turn	no
-apps/desktop/src/main/usage-is-counted.test.ts	reads a prompt in each runtime’s terms: Codex counts its cache inside, Claude beside	no
-apps/desktop/src/main/usage-is-counted.test.ts	cuts the range by the day each turn ended, on this machine’s clock	no
-apps/desktop/src/main/usage-is-counted.test.ts	twelve weeks of heatmap, Sunday first, ending today	no
-apps/desktop/src/main/usage-is-counted.test.ts	streaks run back from today, or from yesterday while today has nothing yet	no
-apps/desktop/src/main/usage-is-counted.test.ts	a model each, most turns first, and how each was paid for	no
-apps/desktop/src/main/usage-is-counted.test.ts	a cache share is over the turns whose runtime counts a cache, not a 0% for one that says nothing	no
-apps/desktop/src/main/usage-is-counted.test.ts	active days, the busiest day, and nothing counted twice	no
+apps/desktop/src/main/usage-is-counted.test.ts	names the model the run reported, and keeps a plan’s dollars out of the money	yes
+apps/desktop/src/main/usage-is-counted.test.ts	an API key’s turn is money; a turn with no receipt still counts, at its last moment	yes
+apps/desktop/src/main/usage-is-counted.test.ts	every turn the ledger holds, each named by its conversation’s first turn	yes
+apps/desktop/src/main/usage-is-counted.test.ts	reads a prompt in each runtime’s terms: Codex counts its cache inside, Claude beside	yes
+apps/desktop/src/main/usage-is-counted.test.ts	cuts the range by the day each turn ended, on this machine’s clock	yes
+apps/desktop/src/main/usage-is-counted.test.ts	twelve weeks of heatmap, Sunday first, ending today	yes
+apps/desktop/src/main/usage-is-counted.test.ts	streaks run back from today, or from yesterday while today has nothing yet	yes
+apps/desktop/src/main/usage-is-counted.test.ts	a model each, most turns first, and how each was paid for	yes
+apps/desktop/src/main/usage-is-counted.test.ts	a cache share is over the turns whose runtime counts a cache, not a 0% for one that says nothing	yes
+apps/desktop/src/main/usage-is-counted.test.ts	active days, the busiest day, and nothing counted twice	yes
 apps/desktop/src/main/what-a-teammate-spent-this-month.test.ts	counts every priced run of the month, not only the newest twenty, and nothing a plan paid for	yes
 apps/desktop/src/main/what-a-teammate-spent-this-month.test.ts	counts a run in the month it ended	yes
 apps/desktop/src/main/what-a-teammate-spent-this-month.test.ts	sends every row its money, including the ones sent without their events	no
