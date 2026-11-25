@@ -400,6 +400,54 @@ pub fn monthly_limit(state: Option<&PolicyState>, personal: Option<f64>) -> Opti
     }
 }
 
+/// Interactive terminals and legacy cloud sessions do not return spending receipts to Locust
+/// (`shared/organization-policy.ts` `policyUnmeteredRefusal`).
+pub fn unmetered_refusal(
+    state: Option<&PolicyState>,
+    runtime: &str,
+    model: Option<&str>,
+    mode: &str,
+    cloud: bool,
+    account: bool,
+) -> Option<String> {
+    if let Some(refused) = turn_refusal(state, runtime, model, mode, cloud, account) {
+        return Some(refused);
+    }
+    let state = state?;
+    if state.policy.get("monthlyLimitUsd").is_some() {
+        return Some(policy_refusal(
+            state,
+            "monthlyLimitUsd",
+            "This launch cannot report spending to Locust, so its monthly limit cannot be enforced.",
+        ));
+    }
+    None
+}
+
+/// A plain cloud shell cannot constrain which installed agent a person starts there
+/// (`shared/organization-policy.ts` `policyCloudTerminalRefusal`).
+pub fn cloud_terminal_refusal(state: Option<&PolicyState>) -> Option<String> {
+    if let Some(refused) = feature_refusal(state, "cloud") {
+        return Some(refused);
+    }
+    let state = state?;
+    if state.policy.get("allowedAgents").is_some() {
+        return Some(policy_refusal(
+            state,
+            "allowedAgents",
+            "A cloud terminal cannot enforce the allowed AI agents. Use a conversation in Locust.",
+        ));
+    }
+    if state.policy.get("allowedModels").is_some() {
+        return Some(policy_refusal(
+            state,
+            "allowedModels",
+            "A cloud terminal cannot enforce the allowed models. Use a conversation in Locust.",
+        ));
+    }
+    unmetered_refusal(Some(state), "opencode", None, "auto", false, false)
+}
+
 /// A policy setting as Settings says it: agents and modes by name, a limit in dollars a month.
 pub fn setting_words(key: &str, value: &Value) -> String {
     let agent_words = |r: &str| match r {

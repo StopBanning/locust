@@ -1543,8 +1543,8 @@ apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	
 apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	filters model families and their blocked effort variants	yes
 apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	keeps each connection off only when the organization disables it	yes
 apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	caps an absent or higher personal limit while keeping a lower one	yes
-apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	refuses an unmetered launch when the monthly cap cannot be enforced	no
-apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	refuses an unrestricted cloud terminal when it cannot enforce the managed route	no
+apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	refuses an unmetered launch when the monthly cap cannot be enforced	yes
+apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	refuses an unrestricted cloud terminal when it cannot enforce the managed route	yes
 apps/desktop/src/main/an-other-app-origin-survives-a-restart.test.ts	records schema 23 or later, recovers the origin, and projects it into history without forgetting Ask mode	no
 apps/desktop/src/main/an-other-app-origin-survives-a-restart.test.ts	keeps a voice call’s hand-off as one, across a restart (0.739)	no
 apps/desktop/src/main/an-other-app-origin-survives-a-restart.test.ts	makes the external origin visible in the thread and keeps the actual ask as a message	no
