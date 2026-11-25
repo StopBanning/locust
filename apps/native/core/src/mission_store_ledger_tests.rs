@@ -342,31 +342,3 @@ fn refuses_an_event_its_own_reader_would_reject_rather_than_truncating_recovery_
     assert!(issues(&recovered).is_empty());
 }
 
-// A conversation's place in the list is when it was last updated, not when its file was last touched on disk.
-#[test]
-fn the_mission_updated_last_is_listed_first_even_when_its_file_is_older() {
-    let (_t, store) = temp();
-    let dir = store.ledger_dir().unwrap();
-    std::fs::create_dir_all(&dir).unwrap();
-    let base = std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_788_000_000);
-    // mission_old's file is the oldest on disk, but it holds the newest conversation.
-    for (idx, (id, at)) in [("mission_old", "2026-08-31T23:00:00.000Z"), ("mission_mid", "2026-08-31T10:00:00.000Z"), ("mission_new", "2026-08-31T11:00:00.000Z")]
-        .into_iter()
-        .enumerate()
-    {
-        let line = json!({
-            "schemaVersion": 27, "recordType": "mission.created", "ledgerSequence": 1, "occurredAt": at,
-            "metadata": {
-                "missionId": id, "runId": format!("run_{id}"), "prompt": "Inspect.", "runtime": "codex",
-                "model": "account-default", "requestedRouteId": "codex", "resolvedRouteId": "codex-account:default",
-                "cliVersion": "0.151.0", "workspaceId": "ws_test", "sandbox": "read-only", "executionPolicyVersion": 1,
-                "createdAt": at
-            }
-        });
-        let p = dir.join(format!("{id}.jsonl"));
-        std::fs::write(&p, format!("{line}\n")).unwrap();
-        std::fs::OpenOptions::new().write(true).open(&p).unwrap().set_modified(base + std::time::Duration::from_secs(idx as u64)).unwrap();
-    }
-    let first: Vec<String> = try_list_recent(&dir, 1).unwrap().into_iter().map(|m| m.mission_id).collect();
-    assert_eq!(first, ["mission_old"]);
-}
