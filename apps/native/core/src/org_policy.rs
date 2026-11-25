@@ -148,7 +148,8 @@ pub fn read_organization_policy(options: &PolicyOptions, read: &dyn Fn(&str) -> 
 /// This machine's policy, as the app reads it once at launch: a release build is the packaged app.
 pub fn read_machine_policy(env: &dyn Fn(&str) -> Option<String>, read: &dyn Fn(&str) -> std::io::Result<Vec<u8>>, note: &mut dyn FnMut(String)) -> PolicyState {
     let platform = if cfg!(target_os = "macos") { "darwin" } else if cfg!(windows) { "win32" } else { "linux" };
-    let options = PolicyOptions { packaged: !cfg!(debug_assertions), platform, env, common_data: &windows_common_data };
+    // A test build (debug or release) is never the packaged app: its fixtures point the override at their own file.
+    let options = PolicyOptions { packaged: !cfg!(debug_assertions) && !cfg!(test), platform, env, common_data: &windows_common_data };
     read_organization_policy(&options, read, note)
 }
 

@@ -347,8 +347,7 @@ fn a_policy_on_one_thread_is_not_seen_on_another_and_leaves_when_cleared() {
 #[test]
 fn the_launch_read_happens_once_and_its_seam_is_only_for_unpackaged_builds() {
     let f = Fixture::new(Some(br#"{"phone":false}"#));
-    // This test build is unpackaged, so the app's own launch read takes the override...
-    assert!(cfg!(debug_assertions));
+    // A test build is unpackaged (debug or release), so the app's own launch read takes the override...
     assert_eq!(Value::Object(f.read().0.policy), json!({"phone": false}));
     // ...which a packaged app never consults.
     let path = f.path();
