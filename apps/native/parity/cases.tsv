@@ -5299,7 +5299,7 @@ apps/desktop/src/renderer/src/links-go-somewhere.test.ts	leaves a plain link and
 apps/desktop/src/renderer/src/links-go-somewhere.test.ts	keeps a code span literal even when it looks like a link	yes
 apps/desktop/src/renderer/src/links-go-somewhere.test.ts	accepts an ordinary web address	yes
 apps/desktop/src/renderer/src/links-go-somewhere.test.ts	refuses every way of reaching this machine	yes
-apps/desktop/src/renderer/src/links-go-somewhere.test.ts	still opens the three addresses the app itself links to	no
+apps/desktop/src/renderer/src/links-go-somewhere.test.ts	still opens the three addresses the app itself links to	yes
 apps/desktop/src/renderer/src/links-go-somewhere.test.ts	names where a link actually goes, so a label cannot lie about it	yes
 apps/desktop/src/renderer/src/locust-bots-keep-their-eyes-on-their-heads.test.ts	draws its wings behind the body, so an eye can never be drawn on one	yes
 apps/desktop/src/renderer/src/locust-bots-keep-their-eyes-on-their-heads.test.ts	keeps the leading eye on its head at the widest idle glance	yes

@@ -93,7 +93,7 @@ fn says_nothing_about_node_when_npm_is_there() {
 #[test]
 fn offers_a_way_to_get_node_that_this_app_can_actually_open() {
     // case: offers a way to get Node that this app can actually open
-    let rt = panel(1, true);
+    let mut rt = panel(1, true);
     assert!(words(&rt).contains("Get Node.js"), "{}", words(&rt));
     let btn = rt
         .elements()
@@ -101,6 +101,11 @@ fn offers_a_way_to_get_node_that_this_app_can_actually_open() {
         .find(|e| e.key.as_deref() == Some("agents-get-nodejs"))
         .expect("Get Node.js button");
     assert_eq!(btn.role, "button");
+    let (x, y) = rt.find("agents-get-nodejs").expect("Get Node.js coords");
+    rt.pointer_down(x, y);
+    rt.pointer_up(x, y);
+    rt.frame(0.0);
+    assert_eq!(rt.state.opened_links, vec!["https://nodejs.org"]);
 }
 
 // ---- what the cold first screen does not say yet ----------------------------------------------------------------

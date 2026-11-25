@@ -592,21 +592,6 @@ pub(super) fn npm_missing() -> bool {
     locust_core::npm_check::this_machine().seen() == Some(false)
 }
 
-/// Opens a link in the person's browser; never from a test.
-fn open_link(url: &'static str) {
-    #[cfg(not(test))]
-    {
-        #[cfg(target_os = "macos")]
-        let _ = std::process::Command::new("open").arg(url).spawn();
-        #[cfg(target_os = "windows")]
-        let _ = std::process::Command::new("cmd").args(["/c", "start", "", url]).spawn();
-        #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-        let _ = std::process::Command::new("xdg-open").arg(url).spawn();
-    }
-    #[cfg(test)]
-    let _ = url;
-}
-
 /// Whether Home defers agents that are not installed and not the free-start runtime (FirstLaunch.tsx `deferOthers`).
 pub(super) fn home_should_defer(found: &[Found], installing: bool, others_open: bool) -> bool {
     let connected = found.iter().filter(|f| f.ready && agents::integration_of(&f.id) != agents::Integration::Planned).count();
@@ -659,7 +644,7 @@ fn nodejs_missing_note(l: &crate::look::controls::Look) -> El {
                 .key("agents-get-nodejs")
                 .role("button")
                 .label("Get Node.js")
-                .on_press(|_: &mut State| open_link("https://nodejs.org")),
+                .on_press(|s: &mut State| crate::published_cards::open_outbound_link(s, locust_core::published_links::NODE_LINK)),
         )
 }
 

@@ -489,6 +489,21 @@ fn refuses_every_way_of_reaching_this_machine() {
     assert_eq!(s.link_refusal.as_ref().map(|r| r.1.as_str()), Some(locust_core::published_links::NOT_OPENED));
 }
 
+// case: still opens the three addresses the app itself links to
+#[test]
+fn still_opens_the_three_addresses_the_app_itself_links_to() {
+    use locust_core::published_links::{NODE_LINK, is_outbound_link};
+    assert!(is_outbound_link("https://nodejs.org"));
+    assert!(!is_outbound_link("https://example.com"));
+    let mut s = State::default();
+    crate::published_cards::open_outbound_link(&mut s, NODE_LINK);
+    assert_eq!(s.opened_links, vec![NODE_LINK]);
+    assert!(s.link_refusal.is_none());
+    crate::published_cards::open_outbound_link(&mut s, "https://example.com");
+    assert_eq!(s.opened_links, vec![NODE_LINK]);
+    assert_eq!(s.link_refusal.as_ref().map(|r| r.1.as_str()), Some(locust_core::published_links::NOT_OPENED));
+}
+
 #[test]
 fn names_where_a_link_actually_goes_so_a_label_cannot_lie_about_it() {
     use crate::markdown_prep::link_host;

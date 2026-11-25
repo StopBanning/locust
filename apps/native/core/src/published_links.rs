@@ -162,6 +162,27 @@ pub fn is_web_link(url: &str) -> bool {
 pub const NOT_OPENED: &str = "Locust does not open that address.";
 pub const NO_BROWSER: &str = "Your browser could not be opened.";
 
+/// Addresses Locust itself links to (Electron's `outbound-links.ts`): Node.js, vendor runtime downloads,
+/// OpenPets, and `docs/NETWORK.md`.
+pub const NODE_LINK: &str = "https://nodejs.org";
+pub const OPENPETS_LINK: &str = "https://openpets.dev";
+pub const OPENPETS_REPORT_LINK: &str = "mailto:admin@openpets.dev?subject=A%20pet%20on%20openpets.dev"; // public-guard: allow (openpets.dev's own published report address)
+pub const NETWORK_DOC_LINK: &str = "https://github.com/StopBanning/locust/blob/main/docs/NETWORK.md";
+
+/// Whether the host may open this from the app's own fixed outbound list (Electron's `isOutboundLink`).
+pub fn is_outbound_link(url: &str) -> bool {
+    if matches!(url, NODE_LINK | OPENPETS_LINK | OPENPETS_REPORT_LINK | NETWORK_DOC_LINK) {
+        return true;
+    }
+    const RUNTIMES: &[&str] = &["cursor", "antigravity", "codex", "claude", "copilot", "opencode", "gemini", "muse", "kilo"];
+    RUNTIMES.iter().any(|id| {
+        matches!(
+            crate::agents::runtime_install_facts(id).map(|f| f.install),
+            Some(crate::agents::RuntimeInstall::Vendor(v)) if v == url
+        )
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
