@@ -7451,8 +7451,8 @@ packages/runtime-adapters/test/a-server-whose-storage-is-busy-starts-again.test.
 packages/runtime-adapters/test/a-session-openCode-cannot-continue-is-not-resumed.test.ts	is reported as ended, so the next message starts a fresh one	yes
 packages/runtime-adapters/test/a-session-openCode-cannot-continue-is-not-resumed.test.ts	is not claimed for any other failure	yes
 packages/runtime-adapters/test/a-side-question-forks-the-session.test.ts	forks a Claude Code session: --resume, then --fork-session	yes
-packages/runtime-adapters/test/a-side-question-forks-the-session.test.ts	forks an OpenCode session: -s, then --fork	no
-packages/runtime-adapters/test/a-side-question-forks-the-session.test.ts	adds no fork flag without a session, or to an ordinary follow-up	no
+packages/runtime-adapters/test/a-side-question-forks-the-session.test.ts	forks an OpenCode session: -s, then --fork	yes
+packages/runtime-adapters/test/a-side-question-forks-the-session.test.ts	adds no fork flag without a session, or to an ordinary follow-up	yes
 packages/runtime-adapters/test/a-slow-runtime-is-shown-as-checking.test.ts	is shown as installed and being checked -- never as signed out or missing -- while its check goes on	yes
 packages/runtime-adapters/test/a-slow-runtime-is-shown-as-checking.test.ts	says a runtime that is not installed is not installed, at once	yes
 packages/runtime-adapters/test/a-slow-runtime-is-shown-as-checking.test.ts	answers exactly as the all-at-once call does	yes
