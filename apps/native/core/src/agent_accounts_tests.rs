@@ -294,3 +294,177 @@ fn for_new_moves_on_first_sign_in_and_respects_use_for_new_and_ready_state() {
     assert_eq!(accounts.for_new("claude").unwrap(), None);
     assert_eq!(accounts.for_new("codex").unwrap().as_deref(), Some(codex.id.as_str()));
 }
+
+// ---- the account at work: a real start, a backup, background work (Electron's last three cases) ----
+
+/// An agent in place of the real one: it writes its arguments and the account keys of its environment as one JSON line
+/// to `log`, then does `then` (Python, with `args` bound to its arguments).
+fn logging_agent(dir: &Path, name: &str, log: &Path, then: &str) -> (PathBuf, Vec<String>) {
+    let script = dir.join(name);
+    let body = format!(
+        "import json, os, sys\nargs = sys.argv[1:]\nkeys = ['CODEX_HOME', 'CODEX_SQLITE_HOME', 'OPENAI_API_KEY', 'CLAUDE_CONFIG_DIR', 'ANTHROPIC_API_KEY']\nwith open({log:?}, 'a', encoding='utf-8') as f:\n    f.write(json.dumps({{'args': args, 'env': {{k: os.environ.get(k) for k in keys}}}}) + '\\n')\n{then}\n",
+        log = log.to_string_lossy(),
+    );
+    std::fs::write(&script, body).unwrap();
+    (PathBuf::from("python3"), vec![script.to_string_lossy().into_owned()])
+}
+
+fn logged(log: &Path) -> Vec<Value> {
+    std::fs::read_to_string(log).unwrap_or_default().lines().map(|l| serde_json::from_str(l).unwrap()).collect()
+}
+
+/// The machine's own policy back after a test that set none (the engine reads it on the turn's own threads).
+struct NoPolicy;
+impl NoPolicy {
+    fn set() -> NoPolicy {
+        crate::org_policy::use_policy(None);
+        NoPolicy
+    }
+}
+impl Drop for NoPolicy {
+    fn drop(&mut self) {
+        crate::org_policy::use_policy(None);
+    }
+}
+
+/// The engine's store over a scratch folder, with `accounts` as the store's own (what `native::accounts_for` finds).
+fn engine_store(s: &Scratch) -> (crate::store::Store, Arc<Accounts>) {
+    std::fs::create_dir_all(s.0.join("electron/mission-ledger")).unwrap();
+    std::fs::create_dir_all(s.0.join("work")).unwrap();
+    let store = crate::store::Store::new(s.0.join("native"), s.0.join("electron")).unwrap();
+    let accounts = Accounts::new(store.root(), Arc::new(|_, _, _, _| Ok(Box::new(|| {}) as Cancel)), Box::new(|| None), Box::new(|_, _| false));
+    (store.clone(), register(Arc::new(accounts)))
+}
+
+#[test]
+fn a_real_start_on_an_account_runs_with_its_home_and_a_start_without_one_is_left_as_it_was() {
+    // case: dispatches a real mission service command with its account home and leaves a default command unchanged
+    let s = scratch();
+    let (store, accounts) = engine_store(&s);
+    let log = s.0.join("codex.jsonl");
+    let fixture = concat!(env!("CARGO_MANIFEST_DIR"), "/../scripts/fixtures/m1-app-server.py");
+    let command = logging_agent(&s.0, "codex.py", &log, &format!("os.execv(sys.executable, [sys.executable, {fixture:?}, 'success'] + args)"));
+    let _engine = crate::native::hooks::install(store.clone(), Some(command));
+    let _policy = NoPolicy::set();
+    let work = accounts.add("codex", "Work").unwrap();
+    let teammate = |account: Option<String>| crate::engine::Teammate {
+        id: "tm_codec".into(),
+        name: "Codec".into(),
+        role: "Code & Migrations".into(),
+        runtime: Some("codex".into()),
+        model: Some("synthetic-model".into()),
+        account,
+        busy: false,
+        runs_in: "ask".into(),
+        folder: Some(s.0.join("work").to_string_lossy().into_owned()),
+    };
+    let start = |account: Option<String>| {
+        let begun = crate::native::send(crate::native::Send {
+            teammate: teammate(account),
+            conversation: None,
+            prompt: "Read this folder".into(),
+            model: Some("synthetic-model".into()),
+            effort: None,
+        })
+        .unwrap();
+        let deadline = std::time::Instant::now() + crate::load_waits::UNDER_LOAD;
+        while crate::native::owns(&begun.conversation_id) {
+            assert!(std::time::Instant::now() < deadline, "the turn did not end");
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        let created = std::fs::read_to_string(store.write_path(&begun.conversation_id).unwrap()).unwrap();
+        serde_json::from_str::<Value>(created.lines().next().unwrap()).unwrap()["metadata"]["resolvedRouteId"].as_str().unwrap().to_owned()
+    };
+    let one = start(Some(work.id.clone()));
+    let two = start(None);
+
+    let ran = logged(&log);
+    assert_eq!(ran.len(), 2, "{ran:?}");
+    let home = accounts.home_for(&work.id).to_string_lossy().into_owned();
+    assert_eq!(ran[0]["env"]["CODEX_HOME"].as_str(), Some(home.as_str()));
+    // The start with no account is the command as it was: nothing set, nothing taken away.
+    assert_eq!(ran[1]["env"]["CODEX_HOME"].as_str(), std::env::var("CODEX_HOME").ok().as_deref());
+    assert_eq!(ran[1]["env"]["OPENAI_API_KEY"].as_str(), std::env::var("OPENAI_API_KEY").ok().as_deref());
+    assert_eq!(account_from_route(&one), Some(work.id.as_str()), "{one}");
+    assert!(two.ends_with("-account:default"), "{two}");
+}
+
+#[test]
+fn keeps_account_homes_out_of_backups_and_refuses_removal_while_that_account_is_in_use() {
+    // case: keeps account homes out of backups and refuses removal while that account is in use
+    let s = scratch();
+    let busy: Arc<Mutex<Option<String>>> = Arc::default();
+    let in_use = busy.clone();
+    let accounts = Accounts::new(
+        &s.0,
+        Arc::new(|_, _, _, _| Ok(Box::new(|| {}) as Cancel)),
+        Box::new(|| None),
+        Box::new(move |_, id| in_use.lock().unwrap().as_deref() == Some(id)),
+    );
+    let a = accounts.add("codex", "Work").unwrap();
+    let b = accounts.add("codex", "Personal").unwrap();
+    *busy.lock().unwrap() = Some(a.id.clone());
+    assert!(accounts.remove(&a.id).unwrap_err().contains("busy"));
+    accounts.remove(&b.id).unwrap();
+    assert_eq!(accounts.list().unwrap().into_iter().map(|x| x.id).collect::<Vec<_>>(), vec![a.id.clone()]);
+
+    // A backup of this profile: the conversations go, the account's home and its sign-in stay on this machine.
+    std::fs::create_dir_all(s.0.join("mission-ledger")).unwrap();
+    std::fs::write(s.0.join("mission-ledger/m1.jsonl"), "{}\n").unwrap();
+    std::fs::write(accounts.home_for(&a.id).join("auth.json"), "{\"token\":\"secret\"}").unwrap();
+    let parent = s.0.join("backups");
+    std::fs::create_dir_all(&parent).unwrap();
+    let written = crate::profile_backup::write_backup(&s.0, &parent, "0.0.0", chrono::Local::now()).unwrap();
+    let copied = crate::profile_backup::files_under(&written.folder.join("profile"), "");
+    assert!(copied.iter().any(|f| f.contains("mission-ledger")), "{copied:?}");
+    assert!(!copied.iter().any(|f| f.contains(FOLDER)), "{copied:?}");
+    let manifest: Value = serde_json::from_str(&std::fs::read_to_string(written.folder.join(crate::profile_backup::BACKUP_MANIFEST)).unwrap()).unwrap();
+    assert!(manifest["leftOut"].as_array().unwrap().iter().any(|v| v == FOLDER));
+    let why = crate::profile_backup::LEFT_OUT.iter().find(|(k, _)| *k == "agent-accounts").map(|(_, why)| *why).unwrap_or_default();
+    assert!(why.contains("never copied"), "{why}");
+    assert!(!crate::profile_backup::BACKED_UP_FOLDERS.contains(&"agent-accounts"));
+}
+
+#[test]
+fn starts_watches_and_stops_background_work_on_the_same_account() {
+    // case: starts, watches and stops background work on the same account
+    use crate::claude_background::{BackgroundSandbox, StartBackgroundOutcome, StartBackgroundRequest};
+    let s = scratch();
+    let (store, accounts) = engine_store(&s);
+    let _policy = NoPolicy::set();
+    let work = accounts.add("claude", "Work").unwrap();
+    let log = s.0.join("claude.jsonl");
+    let (program, prefix) = logging_agent(
+        &s.0,
+        "claude.py",
+        &log,
+        "print('[]' if args[:1] == ['agents'] else '' if args[:1] == ['stop'] else 'backgrounded \u{b7} abcdef12')",
+    );
+    let folder = s.0.join("work").to_string_lossy().into_owned();
+    let mut background = crate::native::background_runs_for_with_program(&store, &program.to_string_lossy(), prefix, Vec::new());
+    let started = background.start(StartBackgroundRequest {
+        prompt: "Read this".into(),
+        folder: folder.clone(),
+        sandbox: BackgroundSandbox::ReadOnly,
+        ask_each: false,
+        conversation: None,
+        teammate_id: None,
+        model: None,
+        effort: None,
+        account: Some(work.id.clone()),
+    });
+    let StartBackgroundOutcome::Started(run) = started else { panic!("not started: {started:?}") };
+    assert_eq!(run.account.as_deref(), Some(work.id.as_str()));
+    background.poll_once().unwrap();
+    assert!(background.stop("abcdef12"));
+
+    let home = accounts.home_for(&work.id).to_string_lossy().into_owned();
+    let ran = logged(&log);
+    assert_eq!(ran.len(), 3, "{ran:?}");
+    for call in &ran {
+        assert_eq!(call["env"]["CLAUDE_CONFIG_DIR"].as_str(), Some(home.as_str()), "{call}");
+    }
+    assert!(ran[0]["args"].as_array().unwrap().iter().any(|a| a == "--bg"), "{}", ran[0]);
+    assert_eq!(ran[1]["args"], json!(["agents", "--json", "--all"]));
+    assert_eq!(ran[2]["args"], json!(["stop", "abcdef12"]));
+}

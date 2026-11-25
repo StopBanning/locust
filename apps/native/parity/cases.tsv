@@ -1362,10 +1362,10 @@ apps/desktop/src/main/an-added-account-has-only-its-own-home.test.ts	tracks wait
 apps/desktop/src/main/an-added-account-has-only-its-own-home.test.ts	enforces the accounts policy before adding, signing in or launching and still allows removal	yes
 apps/desktop/src/main/an-added-account-has-only-its-own-home.test.ts	keeps the saved account for CLI/editor starts and an explicit default for a picker override	yes
 apps/desktop/src/main/an-added-account-has-only-its-own-home.test.ts	compares the same agent and model on two distinct accounts and keeps both across reload	yes
-apps/desktop/src/main/an-added-account-has-only-its-own-home.test.ts	dispatches a real mission service command with its account home and leaves a default command unchanged	no
+apps/desktop/src/main/an-added-account-has-only-its-own-home.test.ts	dispatches a real mission service command with its account home and leaves a default command unchanged	yes
 apps/desktop/src/main/an-added-account-has-only-its-own-home.test.ts	keeps usage and exhausted limits separate for each account	yes
-apps/desktop/src/main/an-added-account-has-only-its-own-home.test.ts	keeps account homes out of backups and refuses removal while that account is in use	no
-apps/desktop/src/main/an-added-account-has-only-its-own-home.test.ts	starts, watches and stops background work on the same account	no
+apps/desktop/src/main/an-added-account-has-only-its-own-home.test.ts	keeps account homes out of backups and refuses removal while that account is in use	yes
+apps/desktop/src/main/an-added-account-has-only-its-own-home.test.ts	starts, watches and stops background work on the same account	yes
 apps/desktop/src/main/an-added-account-has-only-its-own-home.test.ts	opens an existing conversation in a terminal with the recorded account home	yes
 apps/desktop/src/main/an-agent-of-your-own-is-added-by-its-command.test.ts	is a program and its arguments, never a shell line	yes
 apps/desktop/src/main/an-agent-of-your-own-is-added-by-its-command.test.ts	is named on a route with the model picked on it	yes
