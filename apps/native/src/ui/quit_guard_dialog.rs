@@ -44,7 +44,8 @@ pub(super) fn request_close(s: &mut State, tx: &mut Tx) {
     let (live_runs, names) = live_runs_and_names(s);
     let moment = CloseMoment {
         live_runs,
-        app_quitting: false,
+        // A quit already under way (the updater installing, Quit anyway, the tray's Quit) is never stood in the way of.
+        app_quitting: s.quit_guard.quit_requested,
         session_ending: false,
         confirmed: s.quit_guard.confirmed,
     };
@@ -63,6 +64,23 @@ pub(super) fn request_close(s: &mut State, tx: &mut Tx) {
     }
     s.quit_guard.quit_requested = true;
     tx.quit();
+}
+
+/// "Keep working in the background": the window closes to the tray and the run goes on.
+fn keep_working(s: &mut State, tx: &mut Tx) {
+    s.quit_guard.open = false;
+    s.quit_guard.kept_in_background = true;
+    tx.close_window();
+}
+
+/// The question's own keys (Electron's `defaultId: 0`): Return answers with its first button, keeping the work going.
+/// Escape, its Cancel, is the window's (`on_key`).
+pub(super) fn handle_key(s: &mut State, event: &rune::KeyEvent, tx: &mut Tx) -> bool {
+    if !s.quit_guard.open || event.key != rune::Key::Enter || event.mods.shift || event.mods.alt {
+        return false;
+    }
+    keep_working(s, tx);
+    true
 }
 
 pub(super) fn view(s: &State, p: &Palette) -> El {
@@ -91,11 +109,7 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                 .child(
                     primary_button(&l, CLOSE_BUTTONS[0], false)
                         .key("quit-guard-keep")
-                        .on_press_tx(|s: &mut State, tx| {
-                            s.quit_guard.open = false;
-                            s.quit_guard.kept_in_background = true;
-                            tx.close_window();
-                        }),
+                        .on_press_tx(keep_working),
                 )
                 .child(el().grow(1.0))
                 .child(
@@ -252,3 +266,7 @@ pub(super) const STAY_AWAKE_LEAVES: &str = "Only the sleep that comes when nobod
 #[cfg(test)]
 #[path = "stay_awake_tests.rs"]
 mod stay_awake_tests;
+
+#[cfg(test)]
+#[path = "quit_guard_cases_tests.rs"]
+mod quit_guard_cases_tests;

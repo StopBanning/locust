@@ -1604,21 +1604,21 @@ apps/desktop/src/main/antigravity-usage-does-not-hold-the-models.test.ts	still i
 apps/desktop/src/main/antigravity-usage-does-not-hold-the-models.test.ts	a failed reading costs the list nothing	no
 apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	never runs /usage on an old or unknown version (%s)	yes
 apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	runs the built-in command on a supported version (%s)	yes
-apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	refuses even a discovered prefix that would disable built-in slash commands	no
-apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	the catalog keeps models but does not spawn usage without a safe version (%s)	no
+apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	refuses even a discovered prefix that would disable built-in slash commands	yes
+apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	the catalog keeps models but does not spawn usage without a safe version (%s)	yes
 apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	puts the short window first and includes the lower Claude and GPT limit	yes
-apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	omits the other group when it is not lower	no
+apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	omits the other group when it is not lower	yes
 apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	does not call a full bucket a future reset, even without a description	yes
 apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	rejects invalid fractions (%s)	yes
-apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	does not invent a reset when its date cannot be read	no
-apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	rejects duplicate buckets and a group named twice	no
-apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	uses only the discovered executable and usage argv, with no shell and a bounded hidden process	no
-apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	fails softly on a refused or unreadable CLI response	no
-apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	keeps the reading and models even when Codex is absent, and caches the read	no
-apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	keeps models when the usage read refuses	no
-apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	keeps both readings beside their models without asking either runtime for a turn	no
-apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	keeps Antigravity usage even when the Codex model probe fails	no
-apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	does not run usage for missing, unready or non-agy discoveries	no
+apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	does not invent a reset when its date cannot be read	yes
+apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	rejects duplicate buckets and a group named twice	yes
+apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	uses only the discovered executable and usage argv, with no shell and a bounded hidden process	yes
+apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	fails softly on a refused or unreadable CLI response	yes
+apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	keeps the reading and models even when Codex is absent, and caches the read	yes
+apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	keeps models when the usage read refuses	yes
+apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	keeps both readings beside their models without asking either runtime for a turn	yes
+apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	keeps Antigravity usage even when the Codex model probe fails	yes
+apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	does not run usage for missing, unready or non-agy discoveries	yes
 apps/desktop/src/main/app-server-output-keeps-its-characters.test.ts	keeps a character split across two reads whole	yes
 apps/desktop/src/main/approval-channel.test.ts	recognizes the three protocol methods and nothing else	yes
 apps/desktop/src/main/approval-channel.test.ts	carries the exact command so the card can say what would happen	yes
@@ -2044,41 +2044,41 @@ apps/desktop/src/main/git-reaches-a-run-with-no-shell.test.ts	sees a change of t
 apps/desktop/src/main/git-reaches-a-run-with-no-shell.test.ts	takes no option, no path outside the folder, and nothing it does not name	yes
 apps/desktop/src/main/git-reaches-a-run-with-no-shell.test.ts	writes nothing: no index refresh, no lock, and no program a variable names	yes
 apps/desktop/src/main/git-reaches-a-run-with-no-shell.test.ts	says so when the folder is not a repository	yes
-apps/desktop/src/main/groups-hold-conversations.test.ts	keeps what it was called	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	refuses a name that is only spaces	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	flattens a name to one line, because a row is one line	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	caps the length rather than letting a name become a paragraph	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	renames one	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	says so when renaming one that is not there	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	will not make more than it can list	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	remembers where it went	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	takes it out again with no group	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	moves it rather than putting it in two places	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	refuses a group that does not exist	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	refuses an id that could not be one	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	lets them fall back to ungrouped rather than deleting them	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	removing one that is not there is not an error	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	drops a membership pointing at a group that is gone	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	drops a group with no usable name and keeps the rest	no
+apps/desktop/src/main/groups-hold-conversations.test.ts	keeps what it was called	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	refuses a name that is only spaces	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	flattens a name to one line, because a row is one line	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	caps the length rather than letting a name become a paragraph	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	renames one	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	says so when renaming one that is not there	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	will not make more than it can list	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	remembers where it went	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	takes it out again with no group	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	moves it rather than putting it in two places	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	refuses a group that does not exist	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	refuses an id that could not be one	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	lets them fall back to ungrouped rather than deleting them	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	removing one that is not there is not an error	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	drops a membership pointing at a group that is gone	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	drops a group with no usable name and keeps the rest	yes
 apps/desktop/src/main/groups-hold-conversations.test.ts	treats a file it cannot read as unreadable, never as empty	yes
-apps/desktop/src/main/groups-hold-conversations.test.ts	treats a file that does not parse as unreadable too, and refuses to write over it	no
+apps/desktop/src/main/groups-hold-conversations.test.ts	treats a file that does not parse as unreadable too, and refuses to write over it	yes
 apps/desktop/src/main/groups-hold-conversations.test.ts	is genuinely empty when there is simply no file yet	yes
-apps/desktop/src/main/groups-hold-conversations.test.ts	takes a default route, refuses one a mission could not start on, and clears it	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	carries standing instructions from the start	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	keeps instructions and a route that are already in the file	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	asks for groups in the load that runs at startup	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	applies both halves of the answer, not just the names	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	is offered always, as Move to project, and can make a new project	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	ticks the one it is already in, so the list also answers where it is	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	offers Ungrouped as a destination rather than a separate verb	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	picks the newest match when two groups share a name	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	keeps what was written	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	clears with empty text, so a group can stop briefing	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	caps the length	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	refuses a group that does not exist, rather than writing nowhere	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	is kept with the membership	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	is updated when a conversation moves to another group	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	reads an older file that recorded no moment	no
+apps/desktop/src/main/groups-hold-conversations.test.ts	takes a default route, refuses one a mission could not start on, and clears it	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	carries standing instructions from the start	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	keeps instructions and a route that are already in the file	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	asks for groups in the load that runs at startup	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	applies both halves of the answer, not just the names	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	is offered always, as Move to project, and can make a new project	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	ticks the one it is already in, so the list also answers where it is	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	offers Ungrouped as a destination rather than a separate verb	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	picks the newest match when two groups share a name	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	keeps what was written	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	clears with empty text, so a group can stop briefing	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	caps the length	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	refuses a group that does not exist, rather than writing nowhere	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	is kept with the membership	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	is updated when a conversation moves to another group	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	reads an older file that recorded no moment	yes
 apps/desktop/src/main/groups-remember-leaving.test.ts	records the group as it was, and when	no
 apps/desktop/src/main/groups-remember-leaving.test.ts	keeps the name and words the group HAD, after it is renamed, edited or removed	no
 apps/desktop/src/main/groups-remember-leaving.test.ts	treats a move between groups as a leave and a join at the same moment	no
@@ -2413,11 +2413,11 @@ apps/desktop/src/main/question-answers.test.ts	sends an option by its literal la
 apps/desktop/src/main/question-answers.test.ts	keeps an unanswered question present and empty rather than absent	no
 apps/desktop/src/main/question-answers.test.ts	still sends a decision for an authorization	yes
 apps/desktop/src/main/quit-guard.test.ts	asks only when someone is working and the person is the one closing	yes
-apps/desktop/src/main/quit-guard.test.ts	never stands in the way of a quit already under way -- a relaunch, the updater	no
+apps/desktop/src/main/quit-guard.test.ts	never stands in the way of a quit already under way -- a relaunch, the updater	yes
 apps/desktop/src/main/quit-guard.test.ts	never holds up Windows shutting down or logging off	no
-apps/desktop/src/main/quit-guard.test.ts	asks once: "Quit anyway" closes	no
+apps/desktop/src/main/quit-guard.test.ts	asks once: "Quit anyway" closes	yes
 apps/desktop/src/main/quit-guard.test.ts	names who is working, and says what each answer does	yes
-apps/desktop/src/main/quit-guard.test.ts	keeping the work going is the first button and the default; Cancel leaves the window open (0.397)	no
+apps/desktop/src/main/quit-guard.test.ts	keeping the work going is the first button and the default; Cancel leaves the window open (0.397)	yes
 apps/desktop/src/main/quit-guard.test.ts	a window set to keep running hides to the tray without asking, and the menu names the next routine	no
 apps/desktop/src/main/quit-guard.test.ts	the tray says who is working while the window is closed, and when nobody is	no
 apps/desktop/src/main/ready-means-this-version-is-on-disk.test.ts	stops calling a newer version downloaded when an older one was	yes
@@ -3346,23 +3346,23 @@ apps/desktop/src/main/what-an-acp-agent-can-do-is-kept.test.ts	keeps what the ag
 apps/desktop/src/main/what-an-acp-agent-can-do-is-kept.test.ts	reads a file of the wrong shape as nothing, entry by entry	yes
 apps/desktop/src/main/what-an-acp-agent-can-do-is-kept.test.ts	reaches Settings on the runtime it was said by, and no other	yes
 apps/desktop/src/main/what-an-acp-agent-can-do-is-kept.test.ts	reaches an answer discovery already cached, without probing a CLI again (measured on 0.566)	yes
-apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	are the prompts typed in the terminal after the turn, each with its last words in answer	no
-apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	never take Locust's own print-mode turn, or its answer, for the terminal's	no
-apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	hold back an exchange still going, so no answer comes back half-written	no
-apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	count an exchange over when its turn closed, or the person stopped it	no
-apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	are the typed turns after the conversation’s last, each with its last answer; injected context is not a prompt	no
-apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	hold back a turn still going	no
-apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	is found by the session’s own name, and read again only when it changed	no
-apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	takes a prompt longer than the ledger keeps, bounded, and the exchanges after it too (2026-10-10 sweep)	no
-apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	records each terminal exchange as the next turn of the conversation, owned by its teammate, readable by the ledger	no
-apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	brings nothing back twice, whichever turn it is asked from	no
-apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	brings nothing back twice when asked twice at once	no
-apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	leaves a running conversation alone	no
-apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	reads Codex's rollout the same way	no
-apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	never takes Locust's own later Codex turn for the terminal's, when an older turn is named	no
-apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	waits while the newest turn is still running, even when an older one is named	no
-apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	does not bring back a terminal turn the person deleted	no
-apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	is found from any turn of it, the latest-made where it branches	no
+apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	are the prompts typed in the terminal after the turn, each with its last words in answer	yes
+apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	never take Locust's own print-mode turn, or its answer, for the terminal's	yes
+apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	hold back an exchange still going, so no answer comes back half-written	yes
+apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	count an exchange over when its turn closed, or the person stopped it	yes
+apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	are the typed turns after the conversation’s last, each with its last answer; injected context is not a prompt	yes
+apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	hold back a turn still going	yes
+apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	is found by the session’s own name, and read again only when it changed	yes
+apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	takes a prompt longer than the ledger keeps, bounded, and the exchanges after it too (2026-10-10 sweep)	yes
+apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	records each terminal exchange as the next turn of the conversation, owned by its teammate, readable by the ledger	yes
+apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	brings nothing back twice, whichever turn it is asked from	yes
+apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	brings nothing back twice when asked twice at once	yes
+apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	leaves a running conversation alone	yes
+apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	reads Codex's rollout the same way	yes
+apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	never takes Locust's own later Codex turn for the terminal's, when an older turn is named	yes
+apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	waits while the newest turn is still running, even when an older one is named	yes
+apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	does not bring back a terminal turn the person deleted	yes
+apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	is found from any turn of it, the latest-made where it branches	yes
 apps/desktop/src/main/what-it-may-do-is-what-it-was-given.test.ts	OpenCode: the web, commands and the folder, from the config the run is given	yes
 apps/desktop/src/main/what-it-may-do-is-what-it-was-given.test.ts	OpenCode, Approve each: what its server asks for is what the panel says it asks for	yes
 apps/desktop/src/main/what-it-may-do-is-what-it-was-given.test.ts	Claude Code: commands only when its tool list has Bash; the web in every mode, asked about outside Auto	yes

@@ -1754,6 +1754,9 @@ fn fresh_conversation(s: &mut State) {
 }
 
 fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
+    if quit_guard_dialog::handle_key(s, event, tx) {
+        return true;
+    }
     // The issue list, while open, takes arrows, Enter and Escape.
     if issue_list::key(s, event) {
         return true;

@@ -598,8 +598,10 @@ pub fn remove_group(store: &Store, group_id: &str) -> Result<(), String> {
         return Err("Group id is invalid".into());
     }
     let (raw, mut listed) = read_source_raw(store)?;
+    // Removing one that is already gone is not an error (group-store.ts `remove`): the file is still read first, so an
+    // unreadable one still refuses.
     let Some(pos) = listed.groups.iter().position(|g| g.group_id == group_id) else {
-        return Err("That group does not exist".into());
+        return Ok(());
     };
     let removed_group = listed.groups.remove(pos);
     let until = now_iso();
@@ -1117,7 +1119,7 @@ mod tests {
         assert_eq!(listed.groups[0].group_id, b.group_id);
         assert!(!listed.members.contains_key("m_1"));
         assert_eq!(listed.members["m_2"].group_id, b.group_id);
-        assert_eq!(remove_group(&store, &a.group_id).unwrap_err(), "That group does not exist");
+        assert_eq!(remove_group(&store, &a.group_id), Ok(()));
         assert_eq!(remove_group(&store, "bad/id").unwrap_err(), "Group id is invalid");
     }
 

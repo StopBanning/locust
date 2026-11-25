@@ -397,56 +397,122 @@ pub fn session(rows: &[Value]) -> Option<String> {
             .map(str::to_owned)
     })
 }
-fn transcript(runtime: &str, id: &str) -> Option<std::path::PathBuf> {
-    if !(8..=80).contains(&id.len()) || !id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
-    {
-        return None;
+/// Where the terminals keep their records (terminal-catch-up.ts `createTranscriptReader`): Claude Code's home
+/// (`~/.claude`) and Codex's (`CODEX_HOME`, else `~/.codex`). A session's file is found by the session's own name, and
+/// read again only once it changed since it was last read: an unchanged file has nothing new to bring back.
+pub struct TranscriptReader {
+    claude_home: Option<std::path::PathBuf>,
+    codex_home: Option<std::path::PathBuf>,
+    seen: std::sync::Mutex<std::collections::HashMap<std::path::PathBuf, (u64, Option<std::time::SystemTime>)>>,
+}
+
+impl TranscriptReader {
+    pub fn new(claude_home: Option<std::path::PathBuf>, codex_home: Option<std::path::PathBuf>) -> Self {
+        Self { claude_home, codex_home, seen: std::sync::Mutex::new(std::collections::HashMap::new()) }
     }
-    let home = std::path::PathBuf::from(std::env::var_os("HOME")?);
-    fn find(root: &Path, suffix: &str, depth: usize) -> Option<std::path::PathBuf> {
-        if depth == 0 {
+
+    /// The person's own homes, as the terminal that ran the session used them.
+    pub fn from_env() -> Self {
+        let home = std::env::var_os("HOME").map(std::path::PathBuf::from);
+        let codex = std::env::var_os("CODEX_HOME").map(std::path::PathBuf::from).or_else(|| home.as_ref().map(|h| h.join(".codex")));
+        Self::new(home.map(|h| h.join(".claude")), codex)
+    }
+
+    fn path(&self, runtime: &str, id: &str) -> Option<std::path::PathBuf> {
+        if !(8..=80).contains(&id.len()) || !id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-') {
             return None;
         }
-        let mut entries = std::fs::read_dir(root)
-            .ok()?
-            .filter_map(Result::ok)
-            .collect::<Vec<_>>();
-        entries.sort_by_key(|e| std::cmp::Reverse(e.file_name()));
-        for e in entries {
-            let ty = e.file_type().ok()?;
-            if ty.is_symlink() {
-                continue;
+        fn find(root: &Path, suffix: &str, depth: usize) -> Option<std::path::PathBuf> {
+            if depth == 0 {
+                return None;
             }
-            if ty.is_file() && e.file_name().to_string_lossy().ends_with(suffix) {
-                return Some(e.path());
+            let mut entries = std::fs::read_dir(root).ok()?.filter_map(Result::ok).collect::<Vec<_>>();
+            entries.sort_by_key(|e| std::cmp::Reverse(e.file_name()));
+            for e in entries {
+                let ty = e.file_type().ok()?;
+                if ty.is_symlink() {
+                    continue;
+                }
+                if ty.is_file() && e.file_name().to_string_lossy().ends_with(suffix) {
+                    return Some(e.path());
+                }
+                if ty.is_dir()
+                    && let Some(p) = find(&e.path(), suffix, depth - 1)
+                {
+                    return Some(p);
+                }
             }
-            if ty.is_dir()
-                && let Some(p) = find(&e.path(), suffix, depth - 1)
-            {
-                return Some(p);
-            }
+            None
         }
-        None
+        match runtime {
+            "claude" => find(&self.claude_home.as_ref()?.join("projects"), &format!("{id}.jsonl"), 2),
+            "codex" => find(&self.codex_home.as_ref()?.join("sessions"), &format!("-{id}.jsonl"), 4),
+            _ => None,
+        }
     }
-    match runtime {
-        "claude" => find(
-            &home.join(".claude/projects"),
-            &format!("/{id}.jsonl").replace('/', ""),
-            2,
-        ),
-        "codex" => {
-            let root = std::env::var_os("CODEX_HOME")
-                .map(std::path::PathBuf::from)
-                .unwrap_or_else(|| home.join(".codex"));
-            find(&root.join("sessions"), &format!("-{id}.jsonl"), 4)
+
+    /// The session's transcript, or None when there is none or it has not changed since it was last read.
+    pub fn read(&self, runtime: &str, id: &str) -> Option<String> {
+        use std::io::Read;
+        let path = self.path(runtime, id)?;
+        let stamp = std::fs::metadata(&path).ok().map(|m| (m.len(), m.modified().ok()))?;
+        if crate::invariants::lock(&self.seen).get(&path) == Some(&stamp) {
+            return None;
         }
-        _ => None,
+        let mut text = String::new();
+        std::fs::File::open(&path).ok()?.take(64 * 1024 * 1024).read_to_string(&mut text).ok()?;
+        crate::invariants::lock(&self.seen).insert(path, stamp);
+        Some(text)
+    }
+
+    /// Read it again next time: what was read could not be recorded.
+    fn forget(&self, runtime: &str, id: &str) {
+        if let Some(path) = self.path(runtime, id) {
+            crate::invariants::lock(&self.seen).remove(&path);
+        }
     }
 }
-/// Serialized by the UI worker. Newest-tip and the durable watermark prevent duplicate imports.
+
+/// What a catch-up brought back (terminal-catch-up.ts `CatchUpResult`): how many turns, the turn a follow-up now
+/// continues from, and whose each new turn is.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CaughtUp {
+    pub imported: usize,
+    pub latest: String,
+    pub owners: std::collections::BTreeMap<String, String>,
+}
+
+/// What a catch-up is told (terminal-catch-up.ts `CatchUpFacts`): the store its turns are written to, the turns
+/// running now, and where the terminals' transcripts are read.
+pub struct CatchUpFacts<'a> {
+    pub store: &'a crate::store::Store,
+    pub live: Vec<String>,
+    pub reader: &'a TranscriptReader,
+}
+
+/// One catch-up at a time (`createTerminalCatchUp`): two asked at once must not both bring the same exchanges back.
+static CATCHING_UP: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+/// The app's catch-up (a conversation shown, the window back in focus, the clock, a background run brought in): its
+/// own store, the turns it runs, the person's homes.
 pub fn catch_up(anchor: &str) -> Result<usize, String> {
+    static READER: std::sync::OnceLock<TranscriptReader> = std::sync::OnceLock::new();
     let store = crate::native::store().ok_or("Native data folder is unavailable.")?;
+    let facts = CatchUpFacts { store: &store, live: crate::native::running_ids(), reader: READER.get_or_init(TranscriptReader::from_env) };
+    catch_up_with(anchor, &facts).map(|caught| caught.imported)
+}
+
+/// terminal-catch-up.ts `catchUpTerminal`: what was typed in the terminal on the conversation's session since its
+/// newest turn, recorded as the next turns of the conversation, owned by its teammate. The newest tip and the durable
+/// watermark keep anything from coming back twice.
+pub fn catch_up_with(anchor: &str, facts: &CatchUpFacts) -> Result<CaughtUp, String> {
+    let _one = crate::invariants::lock(&CATCHING_UP);
+    let unchanged = CaughtUp { imported: 0, latest: anchor.to_owned(), owners: Default::default() };
     let newest = crate::native::real_tip(anchor)?;
+    // A running turn is its conversation's newest: nothing continues one.
+    if facts.live.iter().any(|id| *id == newest) {
+        return Ok(unchanged);
+    }
     let (meta, rows) = mission(&newest)?;
     if !rows.iter().any(|r| {
         matches!(
@@ -454,39 +520,45 @@ pub fn catch_up(anchor: &str) -> Result<usize, String> {
             Some("run.completed" | "run.failed" | "run.cancelled")
         )
     }) {
-        return Ok(0);
+        return Ok(unchanged);
     }
     let Some(runtime) = meta["runtime"]
         .as_str()
         .filter(|s| ["claude", "codex"].contains(s))
     else {
-        return Ok(0);
+        return Ok(unchanged);
     };
     let Some(id) = session(&rows) else {
-        return Ok(0);
+        return Ok(unchanged);
     };
-    let Some(path) = transcript(runtime, &id) else {
-        return Ok(0);
+    // With nothing new, a follow-up continues from the terminal's last turn if the conversation ends in one, and
+    // otherwise from the turn it named.
+    let settled = CaughtUp {
+        latest: if meta["startedBy"]["kind"] == "terminal" { newest.clone() } else { anchor.to_owned() },
+        ..unchanged
     };
-    let imports = store.seeded_json("terminal-imports.json", serde_json::json!({}))?;
-    if !imports.is_object() {
-        return Err("Terminal import history could not be read. Nothing was imported.".into());
-    }
+    let Some(text) = facts.reader.read(runtime, &id) else {
+        return Ok(settled);
+    };
+    let imports = match facts.store.seeded_json("terminal-imports.json", serde_json::json!({})) {
+        Ok(imports) if imports.is_object() => imports,
+        _ => {
+            facts.reader.forget(runtime, &id);
+            return Err("Terminal import history could not be read. Nothing was imported.".into());
+        }
+    };
     let end = rows
         .last()
         .and_then(|r| r["occurredAt"].as_str())
         .or_else(|| meta["createdAt"].as_str())
         .unwrap_or("");
-    let after = imports[&id]["through"].as_str().unwrap_or("").max(end);
-    use std::io::Read;
-    let mut text = String::new();
-    std::fs::File::open(path)
-        .map_err(|e| e.to_string())?
-        .take(64 * 1024 * 1024)
-        .read_to_string(&mut text)
-        .map_err(|e| e.to_string())?;
-    let exchanges = exchanges(runtime, &text, after);
-    persist(&store, &meta, &id, newest, imports, exchanges)
+    let after = imports[&id]["through"].as_str().unwrap_or("").max(end).to_owned();
+    let exchanges = exchanges(runtime, &text, &after);
+    if exchanges.is_empty() {
+        return Ok(settled);
+    }
+    let owner = crate::people::owner_of(facts.store, anchor);
+    persist(facts.store, &meta, &id, newest, imports, exchanges, owner.as_deref()).inspect_err(|_| facts.reader.forget(runtime, &id))
 }
 fn persist(
     store: &crate::store::Store,
@@ -495,8 +567,10 @@ fn persist(
     newest: String,
     mut imports: Value,
     exchanges: Vec<Exchange>,
-) -> Result<usize, String> {
+    owner: Option<&str>,
+) -> Result<CaughtUp, String> {
     use std::io::Write;
+    let mut owners = std::collections::BTreeMap::new();
     let runtime = meta["runtime"].as_str().ok_or("Invalid runtime")?;
     let count = exchanges.len();
     let mut previous = newest;
@@ -557,9 +631,15 @@ fn persist(
         .map_err(|e| e.to_string())?;
         imports[id] = serde_json::json!({"through":e.finished});
         store.save_json("terminal-imports.json", &imports)?;
+        // Whose it is (`ownerOf` / `assign`): the conversation's teammate, so the turn is drawn as theirs.
+        if let Some(owner) = owner
+            && crate::people::assign_mission(store, owner, &mission).is_ok()
+        {
+            owners.insert(mission.clone(), owner.to_owned());
+        }
         previous = mission;
     }
-    Ok(count)
+    Ok(CaughtUp { imported: count, latest: previous, owners })
 }
 
 #[cfg(test)]
@@ -590,9 +670,11 @@ mod import_tests {
                 "12345678",
                 "mission_previous".into(),
                 json!({}),
-                vec![e]
+                vec![e],
+                None
             )
-            .unwrap(),
+            .unwrap()
+            .imported,
             1
         );
         let paths = std::fs::read_dir(store.ledger_dir().unwrap())
@@ -654,3 +736,7 @@ mod import_tests {
 #[cfg(test)]
 #[path = "mac_terminal_script_case_tests.rs"]
 mod mac_terminal_script_case_tests;
+
+#[cfg(test)]
+#[path = "what_happens_in_the_terminal_tests.rs"]
+mod what_happens_in_the_terminal_tests;

@@ -9,6 +9,13 @@ pub(super) struct Panel {
     pub commands: Vec<Entry>,
     pub preview: Option<vt100::Parser>,
     pub catchup: Latest<Result<usize, String>>,
+    /// The turn the last catch-up was asked from, whether the Catch up button asked it, and whether the window had
+    /// focus at the last poll (App.tsx 0.391: asked when a conversation is shown, and again on focus).
+    pub asked: Option<String>,
+    pub asked_by_hand: bool,
+    pub was_focused: bool,
+    /// How many catch-ups the window asked for on its own.
+    pub asks: u32,
     pub selection: Option<(usize, usize)>,
     pub cols: usize,
     pub origin: [f32; 2],
@@ -124,13 +131,43 @@ pub(super) fn dispose(s: &mut State) {
     s.terminal.preview = None;
 }
 
+/// The settled conversation on screen whose terminal can be read back (App.tsx `catchUpId`): its newest turn, on
+/// Claude Code or Codex, not running.
+pub(super) fn catch_up_id(s: &State) -> Option<String> {
+    let pane = s.ledger.as_ref()?;
+    let latest = pane.snapshot.turn_metas.last()?;
+    (!turn_running(s) && matches!(latest.runtime.as_str(), "claude" | "codex") && !pane.snapshot.tip.is_empty())
+        .then(|| pane.snapshot.tip.clone())
+}
+
+/// WHAT HAPPENED IN THE TERMINAL COMES BACK (App.tsx 0.391): what the person did in the terminal is asked for when the
+/// conversation is shown, and again whenever the window comes back into focus on it, so the promise the terminal
+/// offer makes ("What you do there comes back into this conversation") is kept without a press.
+fn ask_terminal_back(s: &mut State) {
+    let focus_back = s.window_focused && !s.terminal.was_focused;
+    s.terminal.was_focused = s.window_focused;
+    let Some(id) = catch_up_id(s) else {
+        return;
+    };
+    if (s.terminal.asked.as_deref() != Some(id.as_str()) || focus_back) && !s.terminal.catchup.is_pending() {
+        s.terminal.asked = Some(id.clone());
+        s.terminal.asked_by_hand = false;
+        s.terminal.asks += 1;
+        s.terminal.catchup.request(id, |id| runtime_terminal::catch_up(&id));
+    }
+}
+
 pub(super) fn poll(s: &mut State) -> bool {
     let mut changed = s.terminal.open;
+    ask_terminal_back(s);
     if let Some(result) = s.terminal.catchup.take() {
-        s.composer_note = Some(match result {
-            Ok(n) => format!("Brought back {n} terminal turns."),
-            Err(e) => e,
-        });
+        // Asked on its own, it speaks only when something came back.
+        let by_hand = std::mem::take(&mut s.terminal.asked_by_hand);
+        match result {
+            Ok(0) | Err(_) if !by_hand => {}
+            Ok(n) => s.composer_note = Some(format!("Brought back {n} terminal turns.")),
+            Err(e) => s.composer_note = Some(e),
+        }
         changed = true;
     }
     for t in &mut s.terminal.tabs {
@@ -596,7 +633,7 @@ pub(super) fn runtime_controls(s: &State, p: &Palette) -> El {
     // TerminalDivider.tsx's clock, as an icon button. Open in terminal is the More actions menu's (0.797: the header is
     // a row of icons), `header_menu::items`.
     let l = crate::look::controls::Look::new(p.dark);
-    row().gap(2.).child(crate::look::controls::head_icon(&crate::look::icons::CLOCK, "Catch up terminal", "Catch up on what happened in the terminal").on_press(move|s:&mut State|{if !turn_running(s)&&!s.terminal.catchup.is_pending(){s.terminal.catchup.request(id.clone(),|id|runtime_terminal::catch_up(&id));}}).build(l.k))
+    row().gap(2.).child(crate::look::controls::head_icon(&crate::look::icons::CLOCK, "Catch up terminal", "Catch up on what happened in the terminal").on_press(move|s:&mut State|{if !turn_running(s)&&!s.terminal.catchup.is_pending(){s.terminal.asked_by_hand=true;s.terminal.catchup.request(id.clone(),|id|runtime_terminal::catch_up(&id));}}).build(l.k))
 }
 
 /// What opening the conversation in a terminal offers (OpenInTerminal.tsx `TerminalOffer`): whose interface opens, the
@@ -743,3 +780,7 @@ mod terminal_offer_tests;
 #[cfg(test)]
 #[path = "command_carry_tests.rs"]
 mod command_carry_tests;
+
+#[cfg(test)]
+#[path = "terminal_comes_back_tests.rs"]
+mod terminal_comes_back_tests;
