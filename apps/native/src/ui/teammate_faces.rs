@@ -21,7 +21,9 @@ const READ_EVERY_S: f64 = 0.5;
 pub(super) struct LiveFaces {
     /// What each live run is doing, by its mission.
     pub by_mission: HashMap<String, LiveActivity>,
-    pub job: Latest<HashMap<String, LiveActivity>>,
+    /// Newest event timestamp for each live run, by its mission (`live_run_last_at`).
+    pub last_at_by_mission: HashMap<String, String>,
+    pub job: Latest<HashMap<String, (LiveActivity, Option<String>)>>,
     asked_at: Option<f64>,
     /// Teammates whose run just finished, until when (window clock).
     pub done_until: HashMap<String, f64>,
@@ -32,8 +34,15 @@ pub(super) struct LiveFaces {
 pub(super) fn tick(s: &mut State, now: f64) -> bool {
     let mut changed = false;
     if let Some(read) = s.live_faces.job.take() {
-        if read != s.live_faces.by_mission {
-            s.live_faces.by_mission = read;
+        let mut next_activity = HashMap::with_capacity(read.len());
+        for (id, (activity, last_at)) in read {
+            next_activity.insert(id.clone(), activity);
+            if let Some(ts) = last_at {
+                s.live_faces.last_at_by_mission.insert(id, ts);
+            }
+        }
+        if next_activity != s.live_faces.by_mission {
+            s.live_faces.by_mission = next_activity;
             changed = true;
         }
     }
@@ -55,12 +64,33 @@ pub(super) fn tick(s: &mut State, now: f64) -> bool {
             live.into_iter()
                 .filter_map(|id| {
                     let path = store.write_path(&id).ok()?;
-                    Some((id, locust_core::face_status::live_activity_in_ledger(&path)?))
+                    let activity = locust_core::face_status::live_activity_in_ledger(&path)?;
+                    let last_at = locust_core::face_status::live_last_at_in_ledger(&path, None, None);
+                    Some((id, (activity, last_at)))
                 })
                 .collect()
         });
     }
     changed
+}
+
+/// When `teammate_id` last worked: the newest event timestamp recorded from their live runs, falling back to `recent`.
+#[allow(dead_code)]
+pub(super) fn last_worked_for(s: &State, teammate_id: &str) -> Option<String> {
+    let from_live = s
+        .live_faces
+        .last_at_by_mission
+        .iter()
+        .filter(|(mission, _)| s.mission_owners.get(*mission).is_some_and(|owner| owner == teammate_id))
+        .map(|(_, ts)| ts.clone())
+        .max();
+    let from_recent = s
+        .recent
+        .iter()
+        .filter(|r| s.mission_owners.get(&r.id).is_some_and(|owner| owner == teammate_id))
+        .map(|r| r.updated.clone())
+        .max();
+    from_live.into_iter().chain(from_recent).max()
 }
 
 /// A new list came back: each run it last saw running and now sees completed hops its teammate's face
@@ -513,5 +543,32 @@ mod tests {
         assert_eq!(crate::look::faces::drawn_presence("rail-tm_ada"), Some(Some(crate::look::bot_stage::PresenceDot::Waiting)));
         assert_eq!(rail_words(&rt, "tm_ada").1.as_deref(), Some("waiting on you"));
         assert_eq!(rt.state.bot_stage.desired_activity("rail-tm_bo"), Some(FaceActivity::Idle));
+    }
+
+    // case: last worked just now: her conversation is dated by its newest event, not by when it was sent
+    #[test]
+    fn a_teammate_who_just_finished_is_dated_by_her_newest_ledger_event_not_when_sent() {
+        let (_dir, store) = crate::org::tests::temp_store();
+        let ledger = store.write_path("m_last_1").unwrap();
+        std::fs::create_dir_all(ledger.parent().unwrap()).unwrap();
+        let sent = "2026-10-12T15:00:00.000Z";
+        let ended = "2026-10-12T15:02:10.000Z";
+        append(&ledger, serde_json::json!({"type": "step.started", "occurredAt": "2026-10-12T15:00:02.000Z", "payload": {"stepKind": "reasoning"}}));
+        append(&ledger, serde_json::json!({"type": "tool.started", "occurredAt": "2026-10-12T15:01:30.000Z", "payload": {"itemId": "t1", "name": "shell"}}));
+        append(&ledger, serde_json::json!({"type": "run.completed", "occurredAt": ended, "payload": {}}));
+        let mut s = State::default();
+        s.teammates = vec![mate("wren")];
+        s.data = Some(store);
+        s.seen_live = vec!["m_last_1".into()];
+        s.recent = vec![ConversationRow { updated: sent.into(), ..listed("m_last_1", "running") }];
+        s.mission_owners = HashMap::from([("m_last_1".to_string(), "wren".to_string())]);
+        let mut rt = rune::Runtime::new(s, |s, _| crate::sidebar::sidebar(s, &Palette::new(true)), (280.0, 800.0), rune::Env::new(true, 1.0));
+        let mut now = 0.0;
+        run_until(&mut rt, &mut now, "wren last_at", |rt| last_worked_for(&rt.state, "wren").as_deref() == Some(ended));
+        let check_now: chrono::DateTime<chrono::Utc> = "2026-10-12T15:02:20.000Z".parse().unwrap();
+        assert_eq!(
+            locust_core::home_team_state::last_worked_phrase(last_worked_for(&rt.state, "wren").as_deref(), check_now),
+            "last worked just now"
+        );
     }
 }

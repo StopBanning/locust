@@ -565,3 +565,34 @@ fn a_partial_sweep_can_prove_one_works_but_not_that_none_do() {
     assert_eq!(runtime_reach(&[pending(), agent("claude", true, true)], true).any_usable, Some(true));
     assert_eq!(runtime_reach(&[agent("claude", false, true)], true).any_usable, Some(false));
 }
+
+// --- a-teammate-who-just-finished-last-worked-just-now.test.ts ---
+
+// case: last worked just now: her conversation is dated by its newest event, not by when it was sent
+#[test]
+fn last_worked_just_now_her_conversation_is_dated_by_its_newest_event_not_by_when_it_was_sent() {
+    use crate::home_team_state::last_worked_phrase;
+    let sent = "2026-10-12T15:00:00.000Z";
+    let ended = "2026-10-12T15:02:10.000Z";
+    let events = ["2026-10-12T15:00:02.000Z", "2026-10-12T15:01:30.000Z", ended];
+    let now: chrono::DateTime<chrono::Utc> = "2026-10-12T15:02:20.000Z".parse().unwrap();
+    assert_eq!(live_run_last_at(&events, Some(sent), None), Some(ended));
+    assert_eq!(last_worked_phrase(live_run_last_at(&events, Some(sent), None), now), "last worked just now");
+    assert_eq!(last_worked_phrase(Some(sent), now), "last worked 2 minutes ago");
+    let ledger = std::env::temp_dir().join(format!("locust-face-status-last-at-{}.jsonl", std::process::id()));
+    let body = events.iter().map(|at| serde_json::json!({"event": {"occurredAt": at}}).to_string()).collect::<Vec<_>>().join("\n");
+    std::fs::write(&ledger, body).unwrap();
+    let got = live_last_at_in_ledger(&ledger, Some(sent), None);
+    let _ = std::fs::remove_file(&ledger);
+    assert_eq!(got.as_deref(), Some(ended));
+}
+
+// case: is dated by when it was sent before anything has happened, and by the ledger for a run it restored
+#[test]
+fn is_dated_by_when_it_was_sent_before_anything_has_happened_and_by_the_ledger_for_a_run_it_restored() {
+    let sent = "2026-10-12T15:00:00.000Z";
+    let ended = "2026-10-12T15:02:10.000Z";
+    assert_eq!(live_run_last_at(&[], Some(sent), None), Some(sent));
+    assert_eq!(live_run_last_at(&[], None, Some(ended)), Some(ended));
+    assert_eq!(live_run_last_at(&[], None, None), None);
+}

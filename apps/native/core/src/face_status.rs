@@ -45,6 +45,32 @@ pub fn live_activity_in_ledger(path: &Path) -> Option<LiveActivity> {
     Some(live_activity_of(&events, true))
 }
 
+/// `conversationList.ts` `liveRunLastAt` (0.755): when a live run last did something -- its newest event,
+/// otherwise when it was sent, otherwise the restored ledger's `lastUpdatedAt`.
+pub fn live_run_last_at<'a>(
+    event_times: &'a [&'a str],
+    started_at_iso: Option<&'a str>,
+    restored_last_updated_at: Option<&'a str>,
+) -> Option<&'a str> {
+    event_times.last().copied().or(started_at_iso).or(restored_last_updated_at)
+}
+
+/// When a live run in `path` last did something, from its ledger events' `occurredAt` timestamps.
+pub fn live_last_at_in_ledger(
+    path: &Path,
+    started_at_iso: Option<&str>,
+    restored_last_updated_at: Option<&str>,
+) -> Option<String> {
+    let body = std::fs::read_to_string(path).ok().unwrap_or_default();
+    let owned: Vec<String> = body
+        .lines()
+        .filter_map(|line| serde_json::from_str::<Value>(line).ok())
+        .filter_map(|record| record["event"]["occurredAt"].as_str().map(str::to_owned))
+        .collect();
+    let refs: Vec<&str> = owned.iter().map(String::as_str).collect();
+    live_run_last_at(&refs, started_at_iso, restored_last_updated_at).map(str::to_owned)
+}
+
 /// One agent as discovery found it, for the face (the part of PublicRuntimeStatus these rules read).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RuntimeFacts {

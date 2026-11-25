@@ -4572,8 +4572,8 @@ apps/desktop/src/renderer/src/a-teammate-wears-how-it-feels.test.ts	leaves a scr
 apps/desktop/src/renderer/src/a-teammate-wears-how-it-feels.test.ts	wears nothing when it feels nothing, and never changes the rig's own pose	yes
 apps/desktop/src/renderer/src/a-teammate-wears-how-it-feels.test.ts	blinks the real rig's eyes at once	yes
 apps/desktop/src/renderer/src/a-teammate-wears-how-it-feels.test.ts	lands with the library's own bounce and no turn, and the library can put every part of that back	no
-apps/desktop/src/renderer/src/a-teammate-who-just-finished-last-worked-just-now.test.ts	last worked just now: her conversation is dated by its newest event, not by when it was sent	no
-apps/desktop/src/renderer/src/a-teammate-who-just-finished-last-worked-just-now.test.ts	is dated by when it was sent before anything has happened, and by the ledger for a run it restored	no
+apps/desktop/src/renderer/src/a-teammate-who-just-finished-last-worked-just-now.test.ts	last worked just now: her conversation is dated by its newest event, not by when it was sent	yes
+apps/desktop/src/renderer/src/a-teammate-who-just-finished-last-worked-just-now.test.ts	is dated by when it was sent before anything has happened, and by the ledger for a run it restored	yes
 apps/desktop/src/renderer/src/a-teammates-eyes-are-drawn-not-typed.test.ts	is round strokes, never a letter	yes
 apps/desktop/src/renderer/src/a-teammates-eyes-are-drawn-not-typed.test.ts	is drawn for every glyph a state asks for, and a screen rests on one too	yes
 apps/desktop/src/renderer/src/a-teammates-eyes-are-drawn-not-typed.test.ts	is as heavy as the eye it stands for	yes
