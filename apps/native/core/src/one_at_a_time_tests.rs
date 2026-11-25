@@ -75,6 +75,10 @@ fn run_one_at_a_time_in_order_so_no_two_read_the_same_tail() {
 #[test]
 fn every_ledger_writer_that_reads_the_tail_waits_its_turn() {
     let (_t, path) = ledger("writers");
+    // A checkpoint the reader takes wherever it lands: epoch 1, reconciled through no events (the ledger's own, before
+    // the others write). A bare {createdAt, epoch} is not one, and a writer after it rightly refused the damaged ledger.
+    let header = records(&path).into_iter().find(|r| r["recordType"] == "mission.created").unwrap()["metadata"].clone();
+    let checkpoint = crate::carry_on::reconcile(&header, &[], false, "manual", 1, &now());
     let writers: Vec<Box<dyn FnOnce(&std::path::Path) + Send>> = vec![
         Box::new(|p| append_note(p, "host.relay_ended", "The relay ended.").unwrap()),
         Box::new(|p| append_note(p, "host.check_fix", "The check was fixed.").unwrap()),
@@ -87,7 +91,7 @@ fn every_ledger_writer_that_reads_the_tail_waits_its_turn() {
             })
             .unwrap()
         }),
-        Box::new(|p| append_checkpoint(p, &json!({"createdAt": now(), "epoch": 1})).unwrap()),
+        Box::new(move |p| append_checkpoint(p, &checkpoint).unwrap()),
         Box::new(|p| {
             append_edit_check(p, &json!({"outcome": "passed", "command": "npm test", "newLines": [], "unchanged": false, "first": true, "occurredAt": now()}))
                 .unwrap()
