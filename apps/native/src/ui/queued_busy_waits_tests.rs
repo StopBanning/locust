@@ -144,3 +144,14 @@ fn the_queue_waits_for_the_retry_time_then_sends_and_a_second_refusal_waits_long
     assert_eq!(back.tries, Some(2));
     assert!(back.retry_at.unwrap() >= before + 1_000, "{back:?}");
 }
+
+// It keeps its place: a busy refusal goes back to the front of the line, ahead of what was queued after it.
+#[test]
+fn a_busy_refusal_goes_back_to_the_front_of_the_line() {
+    let mut s = scene();
+    s.queue_rows = vec![composer::QueuedRow { id: "q_1_run_4".into(), text: "Then six.txt".into(), ..row("run_4") }];
+    s.queue_in_flight = Some(row("run_4"));
+    lands(&mut s, Err(BUSY.into()));
+    let texts: Vec<&str> = s.queue_rows.iter().map(|r| r.text.as_str()).collect();
+    assert_eq!(texts, ["Create five.txt", "Then six.txt"]);
+}

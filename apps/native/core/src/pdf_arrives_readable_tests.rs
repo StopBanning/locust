@@ -290,3 +290,19 @@ fn a_pdf_sent_through_the_native_host_reaches_the_agent_readable() {
     let text = std::fs::read_to_string(work.join(".locust/attachments/Homework 5.pdf.txt")).unwrap();
     assert!(text.contains("Problem three asks for x"), "PDFKit read the page: {text}");
 }
+
+// A PDF named by a path that climbs out of the run's folder is never opened (or written about): only the folder's own files.
+#[test]
+fn a_pdf_outside_the_runs_folder_by_a_climbing_path_is_not_opened() {
+    let f = Folder::new();
+    f.write("secret.pdf", b"%PDF secret");
+    let project = f.0.join("project");
+    std::fs::create_dir_all(project.join(".locust/attachments")).unwrap();
+    let mut opened = Vec::new();
+    let sent = attachments_for_run_with(&with_attachments("Read it.", &paths(&["../secret.pdf"])), &project, &project, |_, pdf, _| {
+        opened.push(pdf.to_owned());
+        None
+    });
+    assert!(opened.is_empty(), "opened {opened:?}");
+    assert!(!sent.contains("already opened"), "{sent}");
+}
