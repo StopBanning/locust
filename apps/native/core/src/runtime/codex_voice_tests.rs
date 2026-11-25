@@ -1038,3 +1038,39 @@ fn cancels_a_voice_start_still_waiting_for_its_policy_check() {
     assert!(err.contains("ended"), "{err}");
     assert_eq!(host.discovered.load(Ordering::SeqCst), 0, "cancelled start must not discover Codex");
 }
+
+// A refused call counts as over the moment its refusal is heard, not only once its worker thread has exited: the
+// whole-package race where a preview asked straight after the refusal read "A call is on" (Loose ends 1, 25 Nov).
+#[test]
+fn a_refused_call_is_already_over_when_its_refusal_arrives() {
+    struct RefusedHost;
+    impl CallHost for RefusedHost {
+        fn policy_refusal(&self, _options: &CallOptions) -> Option<String> {
+            Some("Set by your organization (allowedAgents). Nothing was started.".into())
+        }
+        fn discover(&self) -> Option<Command> {
+            None
+        }
+    }
+    let fixture = Fixture::new();
+    let voice = VoiceCalls::new(Arc::new(RefusedHost));
+    for _ in 0..50 {
+        let call = voice
+            .start(CallOptions {
+                folder: fixture.0.join("acme"),
+                offer: OFFER.into(),
+                teammate: None,
+                voice: None,
+                preview: None,
+                connectors: false,
+                anchor_turn: None,
+            })
+            .expect("worker starts");
+        assert!(call.started.recv_timeout(WAIT).unwrap().is_err());
+        // Read the flag, then let the lock go before asserting: a failed assert must not poison it mid-panic.
+        let over = crate::invariants::lock(&voice.current)
+            .as_ref()
+            .map(|active| active.stopping.load(Ordering::Acquire));
+        assert_eq!(over, Some(true), "a refused call is over when its refusal is heard");
+    }
+}

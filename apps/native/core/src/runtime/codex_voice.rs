@@ -229,6 +229,9 @@ impl VoiceCalls {
                 let _ = old.worker.join();
             }
             if let Err(message) = run_call(host.as_ref(), &options, &signals, times, &start_send) {
+                // A call that failed is not on, from before anyone hears it failed: a preview asked for the moment
+                // the refusal arrives must not find this worker still counted as a live call while it exits.
+                signals.stopping.store(true, Ordering::Release);
                 // If start already succeeded, the receiver can ignore this second result.
                 let _ = start_send.send(Err(message.clone()));
                 signals.event(CallEvent::Ended(Some(message)));
