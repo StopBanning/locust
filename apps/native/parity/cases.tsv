@@ -3203,7 +3203,7 @@ apps/desktop/src/main/the-starter-routines-are-routines.test.ts	previews by id, 
 apps/desktop/src/main/the-starter-routines-are-routines.test.ts	asks for a folder first in its own words, not the words for a file	no
 apps/desktop/src/main/the-stop-button-is-round-and-centred.test.ts	is a disc with no border, its ring and glow drawn inside the edge	yes
 apps/desktop/src/main/the-stop-button-is-round-and-centred.test.ts	holds libraries.dev's square, scaled to the send's seat -- 12 of 36 is about 14 of 40	yes
-apps/desktop/src/main/the-stop-button-is-round-and-centred.test.ts	wears a beam lifted past the package mono, by its own per-layer hooks	no
+apps/desktop/src/main/the-stop-button-is-round-and-centred.test.ts	wears a beam lifted past the package mono, by its own per-layer hooks	yes
 apps/desktop/src/main/the-stop-button-is-round-and-centred.test.ts	is even in an even box, so it lands on whole pixels wherever the row does	yes
 apps/desktop/src/main/the-team-is-a-board.test.ts	has a class of its own: `.lc-board` is the room task board, a flex COLUMN	yes
 apps/desktop/src/main/the-team-is-a-board.test.ts	tints only where a person should look: amber waiting, green unseen	yes

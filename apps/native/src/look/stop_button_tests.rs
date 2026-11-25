@@ -111,3 +111,21 @@ fn is_even_in_an_even_box_so_it_lands_on_whole_pixels_wherever_the_row_does() {
     assert_eq!((plus_icon.rect[0] - plus.rect[0]).fract(), 0.0);
     assert_eq!((plus_icon.rect[1] - plus.rect[1]).fract(), 0.0);
 }
+
+// case: wears a beam lifted past the package mono, by its own per-layer hooks
+#[test]
+fn wears_a_beam_lifted_past_the_package_mono_by_its_own_per_layer_hooks() {
+    for (layer, lift) in [
+        ("stroke", STOP_BEAM_STROKE_LIFT),
+        ("inner", STOP_BEAM_INNER_LIFT),
+        ("bloom", STOP_BEAM_BLOOM_LIFT),
+    ] {
+        assert!(lift > 1.0, "{layer} lift {lift} must exceed 1.0");
+    }
+    let all = drawn_controls(true);
+    let stop_at = all.iter().position(|e| e.key.as_deref() == Some("stop")).expect("stop");
+    let beam = by_key(&all, "stop-beam");
+    assert_eq!(beam.parent, Some(stop_at));
+    let light = by_key(&all, "stop-beam-light");
+    assert!(light.loop_phase.is_some(), "the stop beam light travels on a loop");
+}

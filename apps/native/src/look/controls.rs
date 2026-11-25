@@ -353,6 +353,48 @@ pub const SEND_ARROW_SIZE: f32 = 16.0;
 pub const STOP_SQUARE_SIZE: f32 = 14.0;
 pub const STOP_SQUARE_RADIUS: f32 = 3.0;
 pub const STOP_GLOW_BLUR: f32 = 50.0;
+/// `.lc-stopbeam` per-layer opacity lifts past the package mono default (1.0): stroke 1.8, inner 1.5, bloom 1.5.
+pub const STOP_BEAM_STROKE_LIFT: f32 = 1.8;
+pub const STOP_BEAM_INNER_LIFT: f32 = 1.5;
+pub const STOP_BEAM_BLOOM_LIFT: f32 = 1.5;
+
+/// The travelling mono beam round the stop button (`.lc-stopbeam`), lifted past the package mono by its per-layer hooks.
+pub fn stop_beam() -> El {
+    const RIM: f32 = 1.5;
+    let side = (SEND_SIZE + 2.0 * RIM) * 2.0;
+    let (w, h) = (SEND_SIZE + 2.0 * RIM, SEND_SIZE + 2.0 * RIM);
+    let lift = (STOP_BEAM_STROKE_LIFT + STOP_BEAM_INNER_LIFT + STOP_BEAM_BLOOM_LIFT) / 3.0;
+    let alpha_scale = (0.35 * lift).min(1.0);
+    let (c, r) = (side / 2.0, side * 0.75);
+    let point = |turn: f32| {
+        let a = turn * std::f32::consts::TAU;
+        [c + r * a.sin(), c - r * a.cos()]
+    };
+    let mut shape = rune::Shape::new().view_box(side, side);
+    const STEPS: usize = 24;
+    for i in 0..STEPS {
+        let a0 = 0.54 + 0.24 * i as f32 / STEPS as f32;
+        let a1 = 0.54 + 0.24 * (i + 1) as f32 / STEPS as f32;
+        let t = (i as f32 + 0.5) / STEPS as f32;
+        let alpha = (1.0 - (2.0 * t - 1.0).abs()) * alpha_scale;
+        shape = shape.fill(vec![[c, c], point(a0), point(a1)], Color::WHITE.alpha(alpha));
+    }
+    col()
+        .absolute(-RIM, -RIM)
+        .w(w)
+        .h(h)
+        .radius(999.0)
+        .clip_rounded(999.0)
+        .key("stop-beam")
+        .a11y_hidden()
+        .child(
+            rune::canvas(shape)
+                .size(side, side)
+                .absolute((w - side) / 2.0, (h - side) / 2.0)
+                .looping(rune::LoopSpec::rotation(1.96))
+                .key("stop-beam-light"),
+        )
+}
 
 pub fn send_circle(l: &Look, state: SendState, label: &str) -> El {
     let (fill, ink) = match state {
@@ -373,6 +415,7 @@ pub fn send_circle(l: &Look, state: SendState, label: &str) -> El {
             .hover(l.c("red-tint")),
         _ => e.radius(SEND_SIZE / 2.0).border(SEND_BORDER, l.c("circle-border")),
     };
+    if state == SendState::Stop { e = e.child(stop_beam()); }
     if state == SendState::Ready {
         e = e.hover(l.c("hover-surface"));
     }
