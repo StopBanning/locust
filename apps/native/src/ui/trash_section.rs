@@ -37,6 +37,7 @@ fn restore_one(s: &mut State, mission_id: &str) {
     };
     match trash::restore_mission_or_err(&dir, mission_id) {
         Ok(()) => {
+            locust_core::diagnostic_log::this_session().restored(store.root(), mission_id);
             s.settings_panel.privacy.trash.message = Some("Put back.".into());
             crate::backup_section::reload(s);
             load_team(s);

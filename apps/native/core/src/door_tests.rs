@@ -160,6 +160,7 @@ fn the_openclaw_line_adds_the_door_by_command_and_one_arg_each() {
 /// including saved opt-ins". The door asks the organization's `otherApps` at load and at every turn-on: refused, it stays
 /// shut, writes nothing, keeps the person's saved switch, and says why.
 // case: checks voice, phone, MCP and CLI access in the main process, including saved opt-ins
+// case: ignores a saved MCP opt-in, removes the old connection, and refuses forged enabling
 #[test]
 fn the_organization_keeps_the_door_shut_even_when_the_person_saved_it_open() {
     let dir = temp("policy");
@@ -173,6 +174,8 @@ fn the_organization_keeps_the_door_shut_even_when_the_person_saved_it_open() {
     let refused = Arc::new(std::sync::atomic::AtomicBool::new(true));
     let gate = refused.clone();
     let managed = echo_door(&dir).with_refusal(Arc::new(move || gate.load(Ordering::Relaxed).then(|| said.to_owned())));
+    // An old connection file, a crashed process's, goes at load even while refused.
+    std::fs::write(managed.connection_path(), "{}").unwrap();
     let state = managed.load();
     assert!(!state.settings.enabled, "a saved opt-in does not open it");
     assert!(!state.settings.own_mode, "nothing saved is read while refused (locust-mcp-host.ts load)");

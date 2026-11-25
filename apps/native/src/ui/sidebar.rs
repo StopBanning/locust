@@ -769,6 +769,7 @@ pub(super) fn delete_conversation(s: &mut State, store: &crate::store::Store, ke
     let mut deleted = 0;
     for key in keys {
         if locust_core::trash::delete_mission(&dir, key, &running)? {
+            locust_core::diagnostic_log::this_session().deleted(store.root(), key);
             deleted += 1;
         }
     }

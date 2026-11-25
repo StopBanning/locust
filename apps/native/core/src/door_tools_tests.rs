@@ -263,6 +263,31 @@ fn list_models_gives_a_teammates_choices_or_every_agent_without_older_versions()
     assert_eq!(every[1], json!({"runtime": "opencode", "models": [{"id": "opencode/free", "name": "free"}]}));
 }
 
+// case: filters model families and their blocked effort variants
+#[test]
+fn an_app_is_offered_only_the_models_and_effort_variants_the_organization_allows() {
+    let family = json!({"runtime": "cursor", "id": "family", "displayName": "Family", "description": "", "supportedEfforts": ["low", "high"], "defaultEffort": "high", "variants": {"low": "family-low", "high": "family-high"}});
+    let tools = Tools::new(Fake { model_list: Some(vec![family.clone()]), ..Fake::default() });
+    let restrict = |policy: Value| {
+        let mut skipped = Vec::new();
+        crate::org_policy::use_policy_on_this_thread(Some(crate::org_policy::PolicyState {
+            path: "/admin/Locust/policy.json".into(),
+            present: true,
+            policy: crate::org_policy::parse_policy(&policy, &mut |k| skipped.push(k.to_owned())).unwrap(),
+            error: None,
+        }));
+    };
+    restrict(json!({"allowedModels": {"cursor": ["family-low"]}}));
+    let narrowed = reply(&tools.call("list_models", &json!({})));
+    restrict(json!({"allowedAgents": []}));
+    let none = reply(&tools.call("list_models", &json!({})));
+    crate::org_policy::use_policy_on_this_thread(None);
+    assert_eq!(narrowed, json!([{"runtime": "cursor", "models": [{"id": "family-low", "name": "Family"}]}]));
+    assert_eq!(none, json!([]));
+    // With no policy the family is offered as it is.
+    assert_eq!(reply(&tools.call("list_models", &json!({}))), json!([{"runtime": "cursor", "models": [{"id": "family", "name": "Family"}]}]));
+}
+
 #[test]
 fn read_reply_says_working_waiting_or_the_answer_with_warnings_after_it() {
     let fake = Fake::default();

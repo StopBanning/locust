@@ -759,13 +759,15 @@ fn start_engine(dir: &Path, exe: &Path) -> Result<(), String> {
         .append(true)
         .open(dir.join("engine.log"))
         .map_err(|e| format!("The engine's log could not be opened: {e}"))?;
-    std::process::Command::new(exe)
+    let child = std::process::Command::new(exe)
         .arg("--engine")
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::null())
         .stderr(log)
         .spawn()
         .map_err(|e| format!("Locust's engine could not be started: {e}"))?;
+    // A child that dies writes a line in the diagnostic log (`child-process-gone`); a clean exit writes none.
+    crate::diagnostic_log::watch_child(dir.to_path_buf(), "Locust's engine", child);
     let end = std::time::Instant::now() + Duration::from_secs(5);
     while std::time::Instant::now() < end {
         if probe.answers() {

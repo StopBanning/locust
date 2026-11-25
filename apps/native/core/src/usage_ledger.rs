@@ -191,6 +191,42 @@ pub fn usage_turns(store: &Store) -> Result<Vec<UsageTurn>, String> {
     Ok(resolve_conversations(reads))
 }
 
+/// mission-history.ts `usageTurns(ledger, requireReadable)`: the turns, or an error when even one saved record cannot be
+/// read whole (a file that will not open, is too large, or holds a line that is not JSON). An organization's cap is
+/// checked on every receipt or not at all: a damaged file must not drop its spending from the month.
+pub fn usage_turns_readable(store: &Store) -> Result<Vec<UsageTurn>, String> {
+    for dir in [store.root().join("mission-ledger"), electron_ledger(store)] {
+        if !dir_reads_whole(&dir) {
+            return Err(USAGE_READ_FAIL.to_owned());
+        }
+    }
+    usage_turns(store)
+}
+
+fn dir_reads_whole(dir: &Path) -> bool {
+    if !dir.exists() {
+        return true;
+    }
+    let Ok(entries) = fs::read_dir(dir) else { return false };
+    for entry in entries {
+        let Ok(entry) = entry else { return false };
+        let path = entry.path();
+        let counted = path.extension().and_then(|e| e.to_str()) == Some("jsonl") && path.file_stem().and_then(|s| s.to_str()).is_some_and(safe_id);
+        if !counted {
+            continue;
+        }
+        let mut buf = String::new();
+        let read = fs::File::open(&path).and_then(|f| f.take(MAX_FILE + 1).read_to_string(&mut buf));
+        if read.is_err() || buf.len() as u64 > MAX_FILE {
+            return false;
+        }
+        if buf.lines().map(str::trim).filter(|l| !l.is_empty()).any(|l| serde_json::from_str::<Value>(l).is_err()) {
+            return false;
+        }
+    }
+    true
+}
+
 /// USAGE CARRIED FROM ANOTHER COMPUTER (usage-carried.ts, 0.849): a numbers-only file in Locust's data folder, one turn
 /// per line, added to the turns the ledger holds wherever Usage is read. Nothing in it is words, a teammate or a path.
 pub const USAGE_CARRIED_FILE: &str = "usage-carried.jsonl";

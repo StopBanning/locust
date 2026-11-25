@@ -46,6 +46,112 @@ pub fn policy_path(platform: &str, windows_common_data: Option<&str>) -> String 
     }
 }
 
+/// Where and how the policy is read (Electron `organizationPolicyPath`'s and `readOrganizationPolicy`'s options).
+pub struct PolicyOptions<'a> {
+    /// A packaged app never consults the development test seam.
+    pub packaged: bool,
+    pub platform: &'a str,
+    pub env: &'a dyn Fn(&str) -> Option<String>,
+    /// Windows' machine-wide application data folder, as Windows itself names it.
+    pub common_data: &'a dyn Fn() -> Result<String, String>,
+}
+
+/// The file to read: the development override `LOCUST_POLICY_FILE` in an unpackaged app (an absolute path only), or
+/// the machine-wide path, on Windows under the OS known folder rather than a per-process `ProgramData`.
+pub fn organization_policy_path(options: &PolicyOptions) -> Result<String, String> {
+    if !options.packaged && let Some(file) = (options.env)("LOCUST_POLICY_FILE") {
+        let absolute = std::path::Path::new(&file).is_absolute() || windows_absolute(&file);
+        if !absolute {
+            return Err("LOCUST_POLICY_FILE must name an absolute path".into());
+        }
+        return Ok(file);
+    }
+    match options.platform {
+        "win32" => Ok(format!("{}\\Locust\\policy.json", (options.common_data)()?.trim_end_matches('\\'))),
+        other => Ok(policy_path(other, None)),
+    }
+}
+
+/// `win32.isAbsolute`: a drive's root or a rooted path.
+fn windows_absolute(path: &str) -> bool {
+    let b = path.as_bytes();
+    (b.len() >= 3 && b[0].is_ascii_alphabetic() && b[1] == b':' && (b[2] == b'\\' || b[2] == b'/')) || path.starts_with('\\') || path.starts_with('/')
+}
+
+/// What `reg query ... /v "Common AppData"` says, its folder or none.
+pub fn common_app_data_from_reg(said: &str) -> Option<String> {
+    said.lines().find_map(|line| {
+        let rest = line.trim_start().strip_prefix("Common AppData")?;
+        let rest = rest.trim_start().strip_prefix("REG_SZ")?;
+        let found = rest.trim();
+        (!found.is_empty()).then(|| found.to_owned())
+    })
+}
+
+/// A folder Windows named: absolute, and never a network share.
+pub fn settle_common_data(found: Option<String>) -> Result<String, String> {
+    match found {
+        Some(found) if windows_absolute(&found) && !found.starts_with("\\\\") => Ok(found),
+        _ => Err("Windows did not identify its machine-wide application data folder.".into()),
+    }
+}
+
+/// Electron `windowsCommonData`: the OS known folder, read from the machine's registry, which only an administrator can
+/// change; PowerShell's answer is the fallback. A tool comes from Windows' own folder, so a `SystemRoot` handed to this
+/// process cannot swap in a look-alike.
+pub fn windows_common_data() -> Result<String, String> {
+    let tool = |parts: &[&str]| {
+        let fixed = format!("C:\\Windows\\System32\\{}", parts.join("\\"));
+        if std::path::Path::new(&fixed).exists() {
+            fixed
+        } else {
+            format!("{}\\System32\\{}", std::env::var("SystemRoot").unwrap_or_else(|_| "C:\\Windows".into()), parts.join("\\"))
+        }
+    };
+    let run = |program: String, args: &[&str]| -> Option<String> {
+        let mut command = std::process::Command::new(program);
+        command.args(args).stdin(std::process::Stdio::null()).stderr(std::process::Stdio::null());
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            command.creation_flags(0x0800_0000);
+        }
+        let out = command.output().ok()?;
+        out.status.success().then(|| String::from_utf8_lossy(&out.stdout).into_owned())
+    };
+    let key = "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders";
+    if let Some(found) = run(tool(&["reg.exe"]), &["query", key, "/v", "Common AppData"]).and_then(|said| common_app_data_from_reg(&said)) {
+        return settle_common_data(Some(found));
+    }
+    let said = run(
+        tool(&["WindowsPowerShell", "v1.0", "powershell.exe"]),
+        &["-NoProfile", "-NonInteractive", "-Command", "[Environment]::GetFolderPath('CommonApplicationData')"],
+    );
+    settle_common_data(said.map(|s| s.trim().to_owned()).filter(|s| !s.is_empty()))
+}
+
+/// Electron `readOrganizationPolicy`: the path first, then the file, read once and never written. A path that cannot be
+/// named (an invalid override, Windows not naming its folder) is a closed gate too.
+pub fn read_organization_policy(options: &PolicyOptions, read: &dyn Fn(&str) -> std::io::Result<Vec<u8>>, note: &mut dyn FnMut(String)) -> PolicyState {
+    match organization_policy_path(options) {
+        Ok(path) => read_policy(&path, read, note),
+        Err(why) => {
+            let label = if options.packaged { None } else { (options.env)("LOCUST_POLICY_FILE") };
+            let path = label.unwrap_or_else(|| "the machine-wide Locust/policy.json file".into());
+            let error = format!("Locust cannot use the organization policy at {path}. {why} No turns or connections will start until your administrator fixes it and Locust is restarted.");
+            note(error.clone());
+            PolicyState { path, present: true, policy: Map::new(), error: Some(error) }
+        }
+    }
+}
+
+/// This machine's policy, as the app reads it once at launch: a release build is the packaged app.
+pub fn read_machine_policy(env: &dyn Fn(&str) -> Option<String>, read: &dyn Fn(&str) -> std::io::Result<Vec<u8>>, note: &mut dyn FnMut(String)) -> PolicyState {
+    let platform = if cfg!(target_os = "macos") { "darwin" } else if cfg!(windows) { "win32" } else { "linux" };
+    let options = PolicyOptions { packaged: !cfg!(debug_assertions), platform, env, common_data: &windows_common_data };
+    read_organization_policy(&options, read, note)
+}
+
 /// A monthly limit in dollars: positive and finite, as Electron's `isMonthlyLimit` takes it.
 fn monthly_limit_ok(value: &Value) -> bool {
     value.as_f64().is_some_and(|n| n.is_finite() && n > 0.0 && n <= 1_000_000.0)
@@ -220,8 +326,43 @@ pub fn model_allowed(state: Option<&PolicyState>, runtime: &str, model: Option<&
         return true;
     }
     // A runtime's default is unknown until it runs. A finite allowlist needs an explicit model.
-    let id = if runtime == "acp" { model.and_then(|m| m.split_once(':').map(|(_, rest)| rest).or(Some(m))) } else { model };
-    id.is_some_and(|id| id != "account-default" && patterns.iter().filter_map(Value::as_str).any(|p| model_matches(p, id)))
+    // An own ACP agent's route names its agent and, after `::`, the model picked there: only that model is matched.
+    let id = if runtime == "acp" { model.and_then(crate::acp_agents::parsed_acp_route_model).and_then(|route| route.model) } else { model.map(str::to_owned) };
+    id.is_some_and(|id| id != "account-default" && patterns.iter().filter_map(Value::as_str).any(|p| model_matches(p, &id)))
+}
+
+/// Electron `policyModels`: only selectable ids, each effort variant included; no synthetic default escapes the
+/// allowlist. A family whose own id is blocked is offered under its first allowed variant, with only those efforts.
+pub fn policy_models(state: Option<&PolicyState>, models: Vec<Value>) -> Vec<Value> {
+    models
+        .into_iter()
+        .filter_map(|model| {
+            let runtime = model["runtime"].as_str().unwrap_or_default().to_owned();
+            let allowed = |id: Option<&str>| model_allowed(state, &runtime, id);
+            let own_ok = allowed(model["id"].as_str());
+            let Some(variants) = model["variants"].as_object() else { return own_ok.then_some(model) };
+            let kept: Map<String, Value> = variants.iter().filter(|(_, id)| allowed(id.as_str())).map(|(k, v)| (k.clone(), v.clone())).collect();
+            if own_ok && kept.len() == variants.len() {
+                return Some(model);
+            }
+            let id = if own_ok { model["id"].clone() } else { kept.values().next()?.clone() };
+            let efforts: Vec<Value> = model["supportedEfforts"].as_array().into_iter().flatten().filter(|e| e.as_str().is_some_and(|e| kept.contains_key(e))).cloned().collect();
+            let default = model["defaultEffort"].as_str().filter(|e| kept.contains_key(*e)).map(|e| json!(e)).or_else(|| efforts.first().cloned());
+            let mut out = model.clone();
+            out["id"] = id;
+            out["variants"] = Value::Object(kept);
+            out["supportedEfforts"] = Value::Array(efforts);
+            match default {
+                Some(effort) => out["defaultEffort"] = effort,
+                None => {
+                    if let Some(o) = out.as_object_mut() {
+                        o.remove("defaultEffort");
+                    }
+                }
+            }
+            Some(out)
+        })
+        .collect()
 }
 
 /// The refusal for one turn, or none: the policy's own error first, then accounts, cloud, agent, model and mode.
@@ -315,9 +456,7 @@ pub fn current() -> PolicyState {
         .lock()
         .unwrap_or_else(|e| e.into_inner())
         .get_or_insert_with(|| {
-            let platform = if cfg!(target_os = "macos") { "darwin" } else if cfg!(windows) { "win32" } else { "linux" };
-            let path = policy_path(platform, std::env::var("ProgramData").ok().as_deref());
-            read_policy(&path, &|p| std::fs::read(PathBuf::from(p)), &mut |line| eprintln!("organization-policy: {line}"))
+            read_machine_policy(&|key| std::env::var(key).ok(), &|p| std::fs::read(PathBuf::from(p)), &mut |line| eprintln!("organization-policy: {line}"))
         })
         .clone()
 }

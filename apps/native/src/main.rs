@@ -1387,6 +1387,10 @@ fn refresh_recent(s: &mut State) {
     s.recents.request((), move |()| {
         // Electron's folder (read-only) and native's own, merged newest first; native rows are marked.
         if let Some(listed) = native::list_recent(native::MAX_LISTED_MISSIONS, on_native) {
+            // Every history read is checked against what this run deleted; one that came back is written down, by id.
+            if let Some(store) = native::store() {
+                locust_core::diagnostic_log::this_session().check_read(store.root(), listed.summaries.iter().map(|m| m.mission_id.as_str()));
+            }
             // The teammate each conversation belongs to, by name, as Electron's list shows it; the agent when unknown.
             let owners = native::store().map(|store| locust_core::people::owner_names(&store)).unwrap_or_default();
             let store_opt = native::store();
@@ -2177,6 +2181,8 @@ fn open_pressed_notification(s: &mut State, tx: &mut Tx) -> bool {
 }
 
 fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
+    // Busy until this returns: work that runs on too long is written down as the window not answering.
+    let _answering = locust_core::diagnostic_log::answering();
     s.prompt_rail.tick(std::time::Instant::now());
     let seen = home_panel::mark_seen_if_looking(s) | home_panel::poll_cover(s, tx);
     if s.demo {
@@ -3411,6 +3417,11 @@ fn main() {
         );
     }
 
+    // The record a tester can send back (diagnostic_log.rs): the panic hook, the run's first line and the watch on a
+    // window that stops answering, all before the window opens, since a crash at startup is one worth catching.
+    if !headless && let Some(store) = locust_core::native::store() {
+        locust_core::diagnostic_log::begin(store.root(), env!("CARGO_PKG_VERSION"), !cfg!(debug_assertions));
+    }
     let placement = if headless {
         locust_core::window_bounds::OpeningPlacement {
             width: 1215,
