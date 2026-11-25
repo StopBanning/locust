@@ -285,3 +285,96 @@ fn agy_usage_not_run_for_missing_unready_or_other_discoveries() {
         assert_eq!(runs.load(Ordering::SeqCst), 0);
     }
 }
+
+// ---- Electron's `antigravity-usage-does-not-hold-the-models.test.ts` (0.709): the list waits a moment for the
+// reading and goes on without it; a reading that comes later is kept for the next read ----
+
+/// `agy /usage` answering one Gemini window with no reset, so it says exactly the words Electron's reading says.
+fn one_window(window: &str, remaining_fraction: f64) -> String {
+    json!({"status": "SUCCESS", "num_turns": 0, "command": {"name": "usage", "data": {"groups": [
+        {"name": "Gemini Models", "buckets": [{"window": window, "remaining_fraction": remaining_fraction}]}
+    ]}}})
+    .to_string()
+}
+
+/// The catalog's read, as `read_listed_checked` makes it (the app's own wait), on a thread of its own: it must come
+/// back within `within`, or the test says the list was held instead of hanging on it.
+fn catalog_read_within(cache: &'static UsageCache, run: impl FnOnce(&str, &[String], &HashMap<String, String>) -> Option<String> + Send + 'static, within: Duration) -> Option<String> {
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let _ = tx.send(catalog_reading(cache, Some(&found(&[], Some("1.1.11"))), crate::antigravity_usage::default_catalog_wait(), run));
+    });
+    rx.recv_timeout(within).expect("the model list was held for Antigravity's usage")
+}
+
+#[test]
+fn answers_with_the_models_without_waiting_for_a_slow_usage_reading_and_shows_the_reading_when_it_comes() {
+    // case: answers with OpenCode's free model without waiting for a slow usage reading, and shows the reading when it comes
+    let cache = fresh_cache();
+    let (finish, slow) = std::sync::mpsc::channel::<()>();
+    let first = catalog_read_within(
+        cache,
+        move |_: &str, _: &[String], _: &HashMap<String, String>| {
+            let _ = slow.recv_timeout(Duration::from_secs(60));
+            Some(one_window("weekly", 0.67))
+        },
+        Duration::from_secs(10),
+    );
+    assert_eq!(first, None, "the list went on without the reading");
+    let listed = Listed { opencode: Some(json!({"aliases": [], "efforts": [], "models": [{"id": "opencode/space-bunny-free", "displayName": "space-bunny-free"}]})), ..listed_with(first) };
+    assert!(catalog(&listed).iter().any(|m| m["id"] == "opencode/space-bunny-free"), "{:?}", catalog(&listed));
+    assert!(!usage_windows(&listed).contains_key("antigravity"));
+
+    // The reading comes: it is kept, and the list read again carries it without asking agy again.
+    finish.send(()).unwrap();
+    let deadline = std::time::Instant::now() + Duration::from_secs(10);
+    while crate::invariants::lock(cache).is_none() {
+        assert!(std::time::Instant::now() < deadline, "the late reading was not kept");
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    let (again, run) = counted(Some(one_window("weekly", 0.1)));
+    let read_again = catalog_reading(cache, Some(&found(&[], Some("1.1.11"))), wait(), run).unwrap_or_default();
+    assert!(read_again.starts_with("Gemini: weekly window 67% left \u{b7} as of "), "{read_again}");
+    assert_eq!(again.load(Ordering::SeqCst), 0);
+    assert_eq!(usage_windows(&listed_with(Some(read_again.clone()))).get("antigravity"), Some(&read_again));
+}
+
+#[test]
+fn still_includes_a_reading_that_is_quick_and_asks_nothing_more_of_the_window() {
+    // case: still includes a reading that is quick, and asks nothing more of the window
+    let cache = fresh_cache();
+    let (runs, run) = counted(Some(one_window("5h", 0.95)));
+    let reading = catalog_read_within(cache, run, Duration::from_secs(10)).unwrap_or_default();
+    assert!(reading.starts_with("Gemini: 5-hour window 95% left \u{b7} as of "), "{reading}");
+    assert_eq!(runs.load(Ordering::SeqCst), 1);
+    let listed = listed_with(Some(reading.clone()));
+    assert_eq!(usage_windows(&listed).get("antigravity"), Some(&reading));
+    assert!(has_gemini_flash(&listed));
+    // Nothing comes after it: the late path is the slow one's alone.
+    let late = std::sync::Arc::new(AtomicUsize::new(0));
+    let seen = late.clone();
+    let quick = crate::antigravity_usage::read_usage_without_holding(
+        crate::antigravity_usage::default_catalog_wait(),
+        || Some("Gemini: 5-hour window 95% left".to_owned()),
+        move |_| {
+            seen.fetch_add(1, Ordering::SeqCst);
+        },
+    );
+    assert_eq!(quick.as_deref(), Some("Gemini: 5-hour window 95% left"));
+    std::thread::sleep(Duration::from_millis(100));
+    assert_eq!(late.load(Ordering::SeqCst), 0);
+}
+
+#[test]
+fn a_failed_reading_costs_the_list_nothing() {
+    // case: a failed reading costs the list nothing
+    let agy = FakeAgy::new("agy said no", 1);
+    let cache = fresh_cache();
+    let reading = catalog_reading(cache, Some(&agy.found(&[])), crate::antigravity_usage::default_catalog_wait(), run_usage);
+    assert_eq!(reading, None);
+    assert!(crate::invariants::lock(cache).is_none(), "nothing was kept");
+    let listed = Listed { opencode: Some(json!({"aliases": [], "efforts": [], "models": [{"id": "opencode/space-bunny-free", "displayName": "space-bunny-free"}]})), ..listed_with(reading) };
+    assert!(catalog(&listed).iter().any(|m| m["id"] == "opencode/space-bunny-free"));
+    assert!(has_gemini_flash(&listed));
+    assert!(!usage_windows(&listed).contains_key("antigravity"));
+}

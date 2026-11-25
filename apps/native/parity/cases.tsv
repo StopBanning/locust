@@ -1599,9 +1599,9 @@ apps/desktop/src/main/antigravity-runs-through-its-cli.test.ts	a failure that en
 apps/desktop/src/main/antigravity-runs-through-its-cli.test.ts	runs commands only in Auto	no
 apps/desktop/src/main/antigravity-tiers-are-named-once.test.ts	are exactly the three its own --help offers (flash_lite, flash, pro)	no
 apps/desktop/src/main/antigravity-tiers-are-named-once.test.ts	are listed in the catalog by the same names the window uses	no
-apps/desktop/src/main/antigravity-usage-does-not-hold-the-models.test.ts	answers with OpenCode's free model without waiting for a slow usage reading, and shows the reading when it comes	no
-apps/desktop/src/main/antigravity-usage-does-not-hold-the-models.test.ts	still includes a reading that is quick, and asks nothing more of the window	no
-apps/desktop/src/main/antigravity-usage-does-not-hold-the-models.test.ts	a failed reading costs the list nothing	no
+apps/desktop/src/main/antigravity-usage-does-not-hold-the-models.test.ts	answers with OpenCode's free model without waiting for a slow usage reading, and shows the reading when it comes	yes
+apps/desktop/src/main/antigravity-usage-does-not-hold-the-models.test.ts	still includes a reading that is quick, and asks nothing more of the window	yes
+apps/desktop/src/main/antigravity-usage-does-not-hold-the-models.test.ts	a failed reading costs the list nothing	yes
 apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	never runs /usage on an old or unknown version (%s)	yes
 apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	runs the built-in command on a supported version (%s)	yes
 apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	refuses even a discovered prefix that would disable built-in slash commands	yes
