@@ -6462,7 +6462,7 @@ apps/desktop/src/renderer/src/the-runtimes-wear-their-marks.test.tsx	wears none 
 apps/desktop/src/renderer/src/the-runtimes-wear-their-marks.test.tsx	in the sidebar's row of faces, says which model is who -- and nothing on a model of their own	yes
 apps/desktop/src/renderer/src/the-screens-say-less.test.ts	is the runtime’s name alone, wherever routes are spelled	yes
 apps/desktop/src/renderer/src/the-screens-say-less.test.ts	keeps what follows the model’s name, and every other model as it was	yes
-apps/desktop/src/renderer/src/the-screens-say-less.test.ts	says what a person pays, or that a model is free, and nothing for counted tokens	no
+apps/desktop/src/renderer/src/the-screens-say-less.test.ts	says what a person pays, or that a model is free, and nothing for counted tokens	yes
 apps/desktop/src/renderer/src/the-screens-say-less.test.ts	lists conversations, each named by its first words, not each turn of one	yes
 apps/desktop/src/renderer/src/the-talk-button-sits-beside-the-microphone.test.tsx	is a button named Talk, saying what the call can and cannot do	yes
 apps/desktop/src/renderer/src/the-talk-button-sits-beside-the-microphone.test.tsx	is there on a Mac too, and so is Talk's voice in Settings (the first Mac run, 2026-10-30)	no
