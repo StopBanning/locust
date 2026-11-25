@@ -504,3 +504,10 @@ fn talk_is_pressed_and_ends_the_call_while_one_is_on() {
     assert_eq!(node["description"], "End the call");
     assert!(node["states"].as_array().unwrap().iter().any(|state| state == "checked"));
 }
+
+#[test]
+fn live_state_wires_real_transcription_transport() {
+    let s = State::default();
+    assert!(s.voice.transcriber.is_some());
+    assert!(s.voice.audio.is_some());
+}

@@ -1,0 +1,445 @@
+//! Native hardware audio (`voice_audio::Audio`) built on `cpal` and `rubato`.
+//! Microphone recording runs capture setup (`Graph::ready`) before opening the input stream (`Graph::open`),
+//! downmixes and resamples to 16 kHz mono PCM capped at 60 seconds, and releases the device on finish or drop.
+
+use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+use locust_core::{
+    voice_audio::{Audio, AudioPeer, Playback, Recording},
+    voice_capture::{Capture, Graph, Level, pcm},
+    voice_typing::{MAX_PCM_SAMPLES, SAMPLE_RATE},
+};
+use rubato::{
+    Async, FixedAsync, Indexing, PolynomialDegree, Resampler,
+    audioadapter_buffers::direct::InterleavedSlice,
+};
+use std::sync::{
+    Arc, Mutex,
+    atomic::{AtomicBool, Ordering},
+    mpsc::{self, Receiver, SyncSender},
+};
+use std::thread::{self, JoinHandle};
+
+const RESAMPLE_CHUNK: usize = 1024;
+const INPUT_CHANNEL_BOUND: usize = 64;
+
+/// Pure downmix + resample pipeline converting interleaved `f32` audio at `src_rate` Hz (`channels` channels)
+/// into 16 kHz mono `f32` samples for voice typing.
+pub struct MicPipeline {
+    channels: usize,
+    src_rate: u32,
+    pending: Vec<f32>,
+    resampler: Option<Async<f32>>,
+    out_scratch: Vec<f32>,
+}
+
+impl MicPipeline {
+    pub fn new(src_rate: u32, channels: usize) -> Result<Self, String> {
+        if src_rate == 0 || channels == 0 {
+            return Err("Invalid microphone audio format.".into());
+        }
+        let (resampler, out_scratch) = if src_rate == SAMPLE_RATE as u32 {
+            (None, Vec::new())
+        } else {
+            let ratio = SAMPLE_RATE as f64 / f64::from(src_rate);
+            let resampler = Async::<f32>::new_poly(
+                ratio,
+                1.1,
+                PolynomialDegree::Cubic,
+                RESAMPLE_CHUNK,
+                1,
+                FixedAsync::Input,
+            )
+            .map_err(|_| "Could not prepare microphone resampler.".to_owned())?;
+            let max_out = resampler.output_frames_max();
+            (Some(resampler), vec![0.0; max_out])
+        };
+        Ok(Self {
+            channels,
+            src_rate,
+            pending: Vec::new(),
+            resampler,
+            out_scratch,
+        })
+    }
+
+    /// Downmix interleaved input samples to mono and emit all available 16 kHz mono samples.
+    pub fn push(&mut self, interleaved: &[f32]) -> Vec<f32> {
+        let frames = interleaved.len() / self.channels;
+        if frames == 0 {
+            return Vec::new();
+        }
+        if self.channels == 1 {
+            self.pending.extend_from_slice(&interleaved[..frames]);
+        } else {
+            let inv = 1.0 / self.channels as f32;
+            self.pending.reserve(frames);
+            for frame in interleaved[..frames * self.channels].chunks_exact(self.channels) {
+                let sum: f32 = frame.iter().copied().sum();
+                self.pending.push(sum * inv);
+            }
+        }
+        let Some(resampler) = self.resampler.as_mut() else {
+            return std::mem::take(&mut self.pending);
+        };
+        let mut out = Vec::new();
+        while self.pending.len() >= resampler.input_frames_next() {
+            let needed = resampler.input_frames_next();
+            let input = &self.pending[..needed];
+            let Ok(in_buf) = InterleavedSlice::new(input, 1, needed) else {
+                break;
+            };
+            let out_cap = self.out_scratch.len();
+            let Ok(mut out_buf) = InterleavedSlice::new_mut(&mut self.out_scratch, 1, out_cap)
+            else {
+                break;
+            };
+            let Ok((consumed, written)) =
+                resampler.process_into_buffer(&in_buf, &mut out_buf, None)
+            else {
+                break;
+            };
+            out.extend_from_slice(&self.out_scratch[..written]);
+            self.pending.drain(..consumed);
+        }
+        out
+    }
+
+    /// Flush any remaining buffered samples at the end of a recording.
+    pub fn finish(&mut self) -> Vec<f32> {
+        let Some(resampler) = self.resampler.as_mut() else {
+            return std::mem::take(&mut self.pending);
+        };
+        if self.pending.is_empty() {
+            return Vec::new();
+        }
+        let partial = self.pending.len();
+        let needed = resampler.input_frames_next();
+        let mut padded = std::mem::take(&mut self.pending);
+        padded.resize(needed, 0.0);
+        let Ok(in_buf) = InterleavedSlice::new(&padded, 1, needed) else {
+            return Vec::new();
+        };
+        let out_cap = self.out_scratch.len();
+        let Ok(mut out_buf) = InterleavedSlice::new_mut(&mut self.out_scratch, 1, out_cap) else {
+            return Vec::new();
+        };
+        let indexing = Indexing::new().partial_len(partial);
+        let Ok((_, written)) = resampler.process_into_buffer(&in_buf, &mut out_buf, Some(&indexing))
+        else {
+            return Vec::new();
+        };
+        let expected = ((partial as f64) * (SAMPLE_RATE as f64 / f64::from(self.src_rate))).round()
+            as usize;
+        let keep = written.min(expected);
+        self.out_scratch[..keep].to_vec()
+    }
+}
+
+/// Append 16 kHz mono samples into `out` while enforcing the 60-second `MAX_PCM_SAMPLES` cap.
+/// Returns `true` once the cap is reached.
+pub fn push_capped(out: &mut Vec<f32>, chunk: &[f32]) -> bool {
+    let room = MAX_PCM_SAMPLES.saturating_sub(out.len());
+    let take = chunk.len().min(room);
+    out.extend_from_slice(&chunk[..take]);
+    out.len() >= MAX_PCM_SAMPLES
+}
+
+/// Run interleaved chunks through a `MicPipeline` with the 60-second cap and convert to 16-bit PCM.
+#[cfg(test)]
+fn collect_pcm(pipeline: &mut MicPipeline, chunks: &[&[f32]]) -> Vec<i16> {
+    let mut mono_16k = Vec::new();
+    for chunk in chunks {
+        let out = pipeline.push(chunk);
+        if push_capped(&mut mono_16k, &out) {
+            return pcm(&mono_16k);
+        }
+    }
+    let tail = pipeline.finish();
+    push_capped(&mut mono_16k, &tail);
+    pcm(&mono_16k)
+}
+
+fn map_cpal_error(err: &cpal::Error) -> String {
+    match err.kind() {
+        cpal::ErrorKind::PermissionDenied => {
+            "Locust does not have permission to use the microphone. Allow it in System Settings > Privacy & Security > Microphone.".into()
+        }
+        cpal::ErrorKind::DeviceBusy => {
+            "The microphone is busy in another app. Try again.".into()
+        }
+        cpal::ErrorKind::DeviceNotAvailable => "No microphone is available.".into(),
+        _ => "Voice typing could not open the microphone.".into(),
+    }
+}
+
+struct CpalGraph {
+    device: cpal::Device,
+    config: cpal::SupportedStreamConfig,
+    stop: Arc<AtomicBool>,
+    sender: Option<SyncSender<Vec<f32>>>,
+    collector: Arc<Mutex<Option<JoinHandle<Vec<i16>>>>>,
+    stream: Option<cpal::Stream>,
+}
+
+impl Graph for CpalGraph {
+    fn ready(&mut self) -> Result<(), String> {
+        let channels = usize::from(self.config.channels());
+        let src_rate = self.config.sample_rate();
+        let mut pipeline = MicPipeline::new(src_rate, channels)?;
+        let (tx, rx): (SyncSender<Vec<f32>>, Receiver<Vec<f32>>) =
+            mpsc::sync_channel(INPUT_CHANNEL_BOUND);
+        let stop = self.stop.clone();
+        let handle = thread::spawn(move || {
+            let mut mono_16k = Vec::new();
+            while let Ok(chunk) = rx.recv() {
+                let resampled = pipeline.push(&chunk);
+                if push_capped(&mut mono_16k, &resampled) {
+                    stop.store(true, Ordering::Release);
+                    break;
+                }
+                if stop.load(Ordering::Acquire) {
+                    break;
+                }
+            }
+            let tail = pipeline.finish();
+            push_capped(&mut mono_16k, &tail);
+            pcm(&mono_16k)
+        });
+        self.sender = Some(tx);
+        if let Ok(mut slot) = self.collector.lock() {
+            *slot = Some(handle);
+        }
+        Ok(())
+    }
+
+    fn open(&mut self) -> Result<(), String> {
+        let tx = self
+            .sender
+            .clone()
+            .ok_or_else(|| "Microphone capture was not prepared.".to_owned())?;
+        let stop = self.stop.clone();
+        let stream_config: cpal::StreamConfig = self.config.clone().into();
+        let err_stop = stop.clone();
+        let err_fn = move |_err: cpal::Error| {
+            err_stop.store(true, Ordering::Release);
+        };
+        let stream = match self.config.sample_format() {
+            cpal::SampleFormat::F32 => self.device.build_input_stream(
+                stream_config,
+                move |data: &[f32], _| {
+                    if !stop.load(Ordering::Acquire) {
+                        let _ = tx.try_send(data.to_vec());
+                    }
+                },
+                err_fn,
+                None,
+            ),
+            cpal::SampleFormat::I16 => self.device.build_input_stream(
+                stream_config,
+                move |data: &[i16], _| {
+                    if !stop.load(Ordering::Acquire) {
+                        let samples: Vec<f32> =
+                            data.iter().map(|&s| f32::from(s) / 32_768.0).collect();
+                        let _ = tx.try_send(samples);
+                    }
+                },
+                err_fn,
+                None,
+            ),
+            cpal::SampleFormat::U16 => self.device.build_input_stream(
+                stream_config,
+                move |data: &[u16], _| {
+                    if !stop.load(Ordering::Acquire) {
+                        let samples: Vec<f32> = data
+                            .iter()
+                            .map(|&s| (f32::from(s) - 32_768.0) / 32_768.0)
+                            .collect();
+                        let _ = tx.try_send(samples);
+                    }
+                },
+                err_fn,
+                None,
+            ),
+            _ => return Err("Unsupported microphone sample format.".into()),
+        }
+        .map_err(|err| map_cpal_error(&err))?;
+        stream.play().map_err(|err| map_cpal_error(&err))?;
+        self.stream = Some(stream);
+        Ok(())
+    }
+
+    fn close(&mut self) {
+        self.stop.store(true, Ordering::Release);
+        // Drop the cpal stream first so the OS releases the microphone immediately.
+        self.stream.take();
+        self.sender.take();
+    }
+}
+
+struct NativeRecording {
+    capture: Option<Capture>,
+    stop: Arc<AtomicBool>,
+    collector: Arc<Mutex<Option<JoinHandle<Vec<i16>>>>>,
+}
+
+impl Drop for NativeRecording {
+    fn drop(&mut self) {
+        self.stop.store(true, Ordering::Release);
+        self.capture.take();
+    }
+}
+
+impl Recording for NativeRecording {
+    fn finish(mut self: Box<Self>) -> Result<Vec<i16>, String> {
+        self.stop.store(true, Ordering::Release);
+        // Dropping Capture closes the cpal stream and drops the channel sender so the collector exits.
+        self.capture.take();
+        let handle = self
+            .collector
+            .lock()
+            .ok()
+            .and_then(|mut slot| slot.take());
+        match handle {
+            Some(join) => join
+                .join()
+                .map_err(|_| "Voice typing could not finish recording.".to_owned()),
+            None => Ok(Vec::new()),
+        }
+    }
+}
+
+/// Platform audio implementation backed by `cpal` and `rubato`.
+#[derive(Default)]
+pub struct NativeAudio;
+
+impl NativeAudio {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Audio for NativeAudio {
+    fn record(&self, cancel: &AtomicBool) -> Result<Box<dyn Recording>, String> {
+        let host = cpal::default_host();
+        let device = host
+            .default_input_device()
+            .ok_or_else(|| "No microphone is available.".to_owned())?;
+        let config = device
+            .default_input_config()
+            .map_err(|err| map_cpal_error(&err))?;
+        let stop = Arc::new(AtomicBool::new(false));
+        let collector = Arc::new(Mutex::new(None));
+        let graph = CpalGraph {
+            device,
+            config,
+            stop: stop.clone(),
+            sender: None,
+            collector: collector.clone(),
+            stream: None,
+        };
+        let level = Arc::new(Mutex::new(Level::default()));
+        // Capture::start enforces Graph::ready() before Graph::open() and closes on cancel or error.
+        let capture = Capture::start(Box::new(graph), cancel, level)?;
+        Ok(Box::new(NativeRecording {
+            capture: Some(capture),
+            stop,
+            collector,
+        }))
+    }
+
+    fn call(&self, _cancel: &AtomicBool) -> Result<Box<dyn AudioPeer>, String> {
+        Err("Talk is not here yet.".into())
+    }
+
+    fn play(&self, audio: &[u8]) -> Result<Box<dyn Playback>, String> {
+        crate::voice_hw_play::play_audio(audio)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use locust_core::voice_typing::{valid_wav, wav};
+    use std::f32::consts::TAU;
+
+    fn sine_interleaved(rate: u32, channels: usize, seconds: f32, freq: f32) -> Vec<f32> {
+        let frames = (rate as f32 * seconds).round() as usize;
+        let mut out = Vec::with_capacity(frames * channels);
+        for i in 0..frames {
+            let sample = (TAU * freq * (i as f32) / (rate as f32)).sin() * 0.5;
+            for _ in 0..channels {
+                out.push(sample);
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn resamples_48khz_stereo_to_16khz_mono_valid_wav() {
+        let stereo = sine_interleaved(48_000, 2, 1.0, 440.0);
+        let mut pipeline = MicPipeline::new(48_000, 2).unwrap();
+        let chunks: Vec<&[f32]> = stereo.chunks(4096).collect();
+        let samples = collect_pcm(&mut pipeline, &chunks);
+        // 1 second at 16 kHz = 16,000 samples (allow small filter delay/rounding tolerance).
+        assert!(
+            (samples.len() as isize - SAMPLE_RATE as isize).abs() <= 256,
+            "expected ~{SAMPLE_RATE} samples, got {}",
+            samples.len()
+        );
+        assert!(samples.iter().any(|&s| s.abs() > 1_000));
+        let bytes = wav(&samples).unwrap();
+        assert!(valid_wav(&bytes));
+    }
+
+    #[test]
+    fn resamples_44100hz_mono_to_16khz_mono_valid_wav() {
+        let mono = sine_interleaved(44_100, 1, 1.0, 440.0);
+        let mut pipeline = MicPipeline::new(44_100, 1).unwrap();
+        let chunks: Vec<&[f32]> = mono.chunks(2048).collect();
+        let samples = collect_pcm(&mut pipeline, &chunks);
+        assert!(
+            (samples.len() as isize - SAMPLE_RATE as isize).abs() <= 256,
+            "expected ~{SAMPLE_RATE} samples, got {}",
+            samples.len()
+        );
+        assert!(samples.iter().any(|&s| s.abs() > 1_000));
+        let bytes = wav(&samples).unwrap();
+        assert!(valid_wav(&bytes));
+    }
+
+    #[test]
+    fn downmix_averages_stereo_channels() {
+        let mut pipeline = MicPipeline::new(16_000, 2).unwrap();
+        // Left = 1.0, Right = -1.0 -> average 0.0; Left = 0.8, Right = 0.2 -> average 0.5.
+        let samples = collect_pcm(&mut pipeline, &[&[1.0, -1.0, 0.8, 0.2]]);
+        assert_eq!(samples.len(), 2);
+        assert_eq!(samples[0], 0);
+        assert!((samples[1] - 16_384).abs() <= 2);
+    }
+
+    #[test]
+    fn caps_recording_at_sixty_seconds_and_produces_valid_wav() {
+        let mut pipeline = MicPipeline::new(16_000, 1).unwrap();
+        // Use a chunk size that does not divide MAX_PCM_SAMPLES so the cap must truncate mid-chunk.
+        let chunk = vec![0.25f32; SAMPLE_RATE + 137];
+        let chunks: Vec<&[f32]> = (0..65).map(|_| chunk.as_slice()).collect();
+        let samples = collect_pcm(&mut pipeline, &chunks);
+        assert_eq!(samples.len(), MAX_PCM_SAMPLES);
+        let bytes = wav(&samples).unwrap();
+        assert!(valid_wav(&bytes));
+    }
+
+    #[test]
+    fn rejects_zero_rate_or_channels() {
+        assert!(MicPipeline::new(0, 1).is_err());
+        assert!(MicPipeline::new(48_000, 0).is_err());
+    }
+
+    #[test]
+    fn talk_call_returns_plain_not_here_yet_error() {
+        let audio = NativeAudio::new();
+        let cancel = AtomicBool::new(false);
+        let err = audio.call(&cancel).err().unwrap();
+        assert_eq!(err, "Talk is not here yet.");
+    }
+}
