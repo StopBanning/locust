@@ -953,6 +953,21 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
         .child(nav(&crate::look::icons::INBOX, "Conversations").key("sidebar-place-conversations").on_press(crate::missions_screen::open))
         .child(nav(&crate::look::icons::USERS, "Rooms").key("sidebar-place-rooms").on_press(crate::room_screen::open_list))
         .child(nav(&crate::look::icons::CLOCK, "Routines").key("sidebar-place-routines").on_press(crate::routines_panel::open));
+    let cloud_count = crate::cloud_tasks::sidebar_count(s);
+    if cloud_count > 0 {
+        places = places.child(
+            nav(&crate::look::icons::CLOUD, "Cloud tasks")
+                .key("sidebar-place-cloud-tasks")
+                .child(rune::spacer())
+                .child(
+                    text(cloud_count.to_string())
+                        .key("sidebar-cloud-tasks-count")
+                        .font(l.ty.mono)
+                        .color(l.c("text-muted")),
+                )
+                .on_press(crate::cloud_tasks::open_from_sidebar),
+        );
+    }
     if s.compare.compares.iter().any(|c| !c.reruns.is_empty()) {
         places = places.child(nav(&crate::look::icons::TARGET, "Benchmarks").on_press(crate::benchmarks_panel::open));
     }

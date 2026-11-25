@@ -39,6 +39,10 @@ pub(crate) struct OpenChange {
 }
 
 enum Answer {
+    Listed {
+        folder: String,
+        tasks: Vec<CloudTask>,
+    },
     Loaded {
         folder: String,
         tasks: Vec<CloudTask>,
@@ -82,6 +86,7 @@ pub(crate) struct CodexCloud {
     /// The task currently being applied to this folder, if any.
     pub(crate) applying: Option<String>,
     pub(crate) make: Option<MakeCodex>,
+    listed_folder: Option<String>,
     loaded_folder: Option<String>,
     was_open: bool,
     next_refresh_ms: u64,
@@ -177,12 +182,55 @@ fn build_service(store: &Store, make: &Option<MakeCodex>) -> CloudTaskService<'s
     }
 }
 
+/// How many Codex Cloud tasks this folder has, for the sidebar's `Cloud tasks` badge (`App.tsx:9372`).
+pub(crate) fn sidebar_count(s: &State) -> usize {
+    s.cloud.codex.tasks.len()
+}
+
+/// Opens the cloud panel in the workroom from the sidebar's `Cloud tasks` badge (`App.tsx:9372`).
+pub(crate) fn open_from_sidebar(s: &mut State) {
+    crate::room_screen::close(s);
+    crate::missions_screen::close(s);
+    s.compare.active_id = None;
+    s.benchmarks_open = false;
+    s.home.home_open = false;
+    s.home.board_open = false;
+    s.home.boot_open = false;
+    s.people_panel.open = false;
+    s.settings_panel.open = false;
+    s.routines.open = false;
+    s.background_runs.open = false;
+    s.cloud.open = true;
+    refresh(s);
+}
+
+fn list_folder_tasks(s: &mut State) {
+    let current = folder(s);
+    s.cloud.codex.listed_folder = current.clone();
+    let (Some(store), Some(here)) = (s.data.clone(), current) else {
+        s.cloud.codex.tasks.clear();
+        s.cloud.panel.codex_tasks = 0;
+        return;
+    };
+    let make = s.cloud.codex.make.clone();
+    let inbox = s.cloud.codex.inbox.clone();
+    std::thread::spawn(move || {
+        let svc = build_service(&store, &make);
+        let tasks = svc.list(Some(&here));
+        inbox
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push(Answer::Listed { folder: here, tasks });
+    });
+}
+
 /// Reads this folder's Codex cloud tasks, GitHub place, Codex readiness, and environment off the window's thread.
 pub(crate) fn refresh(s: &mut State) {
     let (Some(store), Some(here)) = (s.data.clone(), folder(s)) else {
         return;
     };
     s.cloud.codex.was_open = s.cloud.open;
+    s.cloud.codex.listed_folder = Some(here.clone());
     s.cloud.codex.loaded_folder = Some(here.clone());
     s.cloud.codex.next_refresh_ms = s.cloud.now_ms.saturating_add(REFRESH_INTERVAL_MS);
     s.cloud.codex.folders = None;
@@ -358,6 +406,10 @@ pub(crate) fn poll(s: &mut State, now: f64) -> bool {
             s.cloud.codex.refreshing.clear();
             changed = true;
         }
+        if s.cloud.codex.listed_folder != current_folder {
+            list_folder_tasks(s);
+            changed = true;
+        }
     } else {
         if !s.cloud.codex.was_open || s.cloud.codex.loaded_folder != current_folder {
             if s.cloud.codex.loaded_folder.is_some() && s.cloud.codex.loaded_folder != current_folder {
@@ -392,6 +444,17 @@ pub(crate) fn poll(s: &mut State, now: f64) -> bool {
     );
     for answer in landed {
         match answer {
+            Answer::Listed {
+                folder: there,
+                tasks,
+            } => {
+                if folder(s).as_deref() != Some(there.as_str()) {
+                    continue;
+                }
+                s.cloud.codex.tasks = tasks;
+                s.cloud.panel.codex_tasks = s.cloud.codex.tasks.len();
+                changed = true;
+            }
             Answer::Loaded {
                 folder: there,
                 tasks,
@@ -872,3 +935,7 @@ mod cloud_tasks_more_tests;
 #[cfg(test)]
 #[path = "cloud_tasks_send_tests.rs"]
 mod cloud_tasks_send_tests;
+
+#[cfg(test)]
+#[path = "cloud_tasks_sidebar_tests.rs"]
+mod cloud_tasks_sidebar_tests;
