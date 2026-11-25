@@ -611,8 +611,8 @@ apps/desktop/src/main/a-macs-sidebar-is-glass.test.ts	the sheet lets the glass t
 apps/desktop/src/main/a-managed-turn-is-refused-before-an-agent-starts.test.ts	refuses agents, models, modes, cloud turns and broken policies before discovery or recording	yes
 apps/desktop/src/main/a-managed-turn-is-refused-before-an-agent-starts.test.ts	gates Antigravity before probing its app	yes
 apps/desktop/src/main/a-managed-turn-is-refused-before-an-agent-starts.test.ts	checks the monthly cap even when a turn has no teammate owner	yes
-apps/desktop/src/main/a-managed-turn-is-refused-before-an-agent-starts.test.ts	gates voice calls and voice previews before discovering or spawning Codex	no
-apps/desktop/src/main/a-managed-turn-is-refused-before-an-agent-starts.test.ts	cancels a voice start still waiting for its policy check	no
+apps/desktop/src/main/a-managed-turn-is-refused-before-an-agent-starts.test.ts	gates voice calls and voice previews before discovering or spawning Codex	yes
+apps/desktop/src/main/a-managed-turn-is-refused-before-an-agent-starts.test.ts	cancels a voice start still waiting for its policy check	yes
 apps/desktop/src/main/a-managed-turn-is-refused-before-an-agent-starts.test.ts	ignores a saved MCP opt-in, removes the old connection, and refuses forged enabling	yes
 apps/desktop/src/main/a-managed-turn-is-refused-before-an-agent-starts.test.ts	ignores a saved phone opt-in and refuses forged pairing without a listener or key	yes
 apps/desktop/src/main/a-memory-nobody-is-given-says-so.test.ts	records it, and when counting began; at most once a day, so a day of runs is one write	yes
@@ -693,9 +693,9 @@ apps/desktop/src/main/a-pdf-arrives-readable.test.ts	Send waits for the reading 
 apps/desktop/src/main/a-pdf-arrives-readable.test.ts	a run in the project folder is told where the PDF’s text and pictures are	yes
 apps/desktop/src/main/a-pdf-arrives-readable.test.ts	a project PDF a worktree is sent is opened in the worktree’s own folder	yes
 apps/desktop/src/main/a-pdf-arrives-readable.test.ts	a PDF that cannot be read is sent as it was, and other files are left alone	yes
-apps/desktop/src/main/a-pdf-shows-its-pages.test.ts	reads a PDF in the folder, by its place in the folder, and answers its pictures	no
-apps/desktop/src/main/a-pdf-shows-its-pages.test.ts	refuses what is not a PDF, what is outside the folder, and anything that is not a local path	no
-apps/desktop/src/main/a-pdf-shows-its-pages.test.ts	says so when the PDF cannot be read, and when it is not there	no
+apps/desktop/src/main/a-pdf-shows-its-pages.test.ts	reads a PDF in the folder, by its place in the folder, and answers its pictures	yes
+apps/desktop/src/main/a-pdf-shows-its-pages.test.ts	refuses what is not a PDF, what is outside the folder, and anything that is not a local path	yes
+apps/desktop/src/main/a-pdf-shows-its-pages.test.ts	says so when the PDF cannot be read, and when it is not there	yes
 apps/desktop/src/main/a-person-can-leave-out-part-of-a-brief.test.ts	leaves out the last reply when asked, and the brief says the person chose it	yes
 apps/desktop/src/main/a-person-can-leave-out-part-of-a-brief.test.ts	can leave out every section it offers at once, and the task and the reply stay	yes
 apps/desktop/src/main/a-person-can-leave-out-part-of-a-brief.test.ts	never leaves out the task, the reply or the steps that never reported back, whatever is sent	yes
@@ -1119,14 +1119,14 @@ apps/desktop/src/main/a-start-asks-only-its-runtime.test.ts	asks nothing while t
 apps/desktop/src/main/a-start-asks-only-its-runtime.test.ts	asks the starting runtime ALONE once the answer is stale	yes
 apps/desktop/src/main/a-start-asks-only-its-runtime.test.ts	still sweeps for a runtime that was not ready, and for Antigravity	yes
 apps/desktop/src/main/a-start-asks-only-its-runtime.test.ts	falls back to the full sweep when asking alone fails	yes
-apps/desktop/src/main/a-streamed-batch-is-written-before-it-is-shown.test.ts	starts a new text deadline after an approval flush waited on an in-flight write	no
+apps/desktop/src/main/a-streamed-batch-is-written-before-it-is-shown.test.ts	starts a new text deadline after an approval flush waited on an in-flight write	yes
 apps/desktop/src/main/a-streamed-batch-is-written-before-it-is-shown.test.ts	measures frame to fifty millisecond windows on the same paced answer and keeps its first-fragment deadline	yes
 apps/desktop/src/main/a-streamed-batch-is-written-before-it-is-shown.test.ts	reads the entire batch from disk at send time and recovers it after a crash before send	yes
 apps/desktop/src/main/a-streamed-batch-is-written-before-it-is-shown.test.ts	sends nothing when the durable append fails	yes
 apps/desktop/src/main/a-streamed-batch-is-written-before-it-is-shown.test.ts	flushes text ahead of activity immediately and preserves order across both batches	yes
 apps/desktop/src/main/a-streamed-batch-is-written-before-it-is-shown.test.ts	delivers a lone delta at the deadline without another record or a run ending	yes
 apps/desktop/src/main/a-streamed-batch-is-written-before-it-is-shown.test.ts	writes pending text before a run ending and drains the last fragment on process exit	yes
-apps/desktop/src/main/a-streamed-batch-is-written-before-it-is-shown.test.ts	keeps one write in flight, awaits backpressure, and stops after a timer write fails	no
+apps/desktop/src/main/a-streamed-batch-is-written-before-it-is-shown.test.ts	keeps one write in flight, awaits backpressure, and stops after a timer write fails	yes
 apps/desktop/src/main/a-switch-brief-says-what-was-done.test.ts	are named by what they did, from the ledger’s own start events	yes
 apps/desktop/src/main/a-switch-brief-says-what-was-done.test.ts	from a checkpoint written before names existed are counted, not listed as ids	yes
 apps/desktop/src/main/a-switch-brief-says-what-was-done.test.ts	are named by the command run and the file read or written, never the tool twice	yes
@@ -1543,8 +1543,8 @@ apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	
 apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	filters model families and their blocked effort variants	yes
 apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	keeps each connection off only when the organization disables it	yes
 apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	caps an absent or higher personal limit while keeping a lower one	yes
-apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	refuses an unmetered launch when the monthly cap cannot be enforced	no
-apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	refuses an unrestricted cloud terminal when it cannot enforce the managed route	no
+apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	refuses an unmetered launch when the monthly cap cannot be enforced	yes
+apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	refuses an unrestricted cloud terminal when it cannot enforce the managed route	yes
 apps/desktop/src/main/an-other-app-origin-survives-a-restart.test.ts	records schema 23 or later, recovers the origin, and projects it into history without forgetting Ask mode	no
 apps/desktop/src/main/an-other-app-origin-survives-a-restart.test.ts	keeps a voice call’s hand-off as one, across a restart (0.739)	no
 apps/desktop/src/main/an-other-app-origin-survives-a-restart.test.ts	makes the external origin visible in the thread and keeps the actual ask as a message	no

@@ -357,3 +357,28 @@ fn the_launch_read_happens_once_and_its_seam_is_only_for_unpackaged_builds() {
     // Read once: what the process holds stays as it was read (the window shows its error: settings_panel's broken-policy alert).
     assert_eq!(current(), current());
 }
+
+// case: refuses an unmetered launch when the monthly cap cannot be enforced
+#[test]
+fn refuses_an_unmetered_launch_when_the_monthly_cap_cannot_be_enforced() {
+    let capped = state(json!({"monthlyLimitUsd": 5}));
+    let refused = unmetered_refusal(Some(&capped), "claude", None, "auto", false, false)
+        .expect("unmetered launch refused under monthly cap");
+    assert!(refused.contains("monthlyLimitUsd"), "{refused}");
+    assert_eq!(unmetered_refusal(Some(&state(json!({}))), "claude", None, "auto", false, false), None);
+}
+
+// case: refuses an unrestricted cloud terminal when it cannot enforce the managed route
+#[test]
+fn refuses_an_unrestricted_cloud_terminal_when_it_cannot_enforce_the_managed_route() {
+    let by_agent = state(json!({"allowedAgents": ["codex"]}));
+    assert!(cloud_terminal_refusal(Some(&by_agent)).unwrap().contains("allowedAgents"));
+
+    let by_model = state(json!({"allowedModels": {"claude": ["sonnet"]}}));
+    assert!(cloud_terminal_refusal(Some(&by_model)).unwrap().contains("allowedModels"));
+
+    let by_mode = state(json!({"highestMode": "plan"}));
+    assert!(cloud_terminal_refusal(Some(&by_mode)).unwrap().contains("highestMode"));
+
+    assert_eq!(cloud_terminal_refusal(Some(&state(json!({})))), None);
+}

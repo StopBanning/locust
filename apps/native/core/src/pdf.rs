@@ -241,6 +241,41 @@ fn hex_sha(bytes: &[u8]) -> String {
     format!("{:x}", h.finalize())
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PdfPages {
+    pub pages: usize,
+    pub pictures: Vec<String>,
+    pub text: Option<String>,
+}
+
+/// Schemes (including `data:`) and UNC/network paths (`//...`, `\\...`) never become disk requests.
+/// Single-letter Windows drive paths (`C:\...`, `C:/...`) remain local.
+fn is_non_local_path(requested: &str) -> bool {
+    let bytes = requested.as_bytes();
+    if bytes.len() >= 2
+        && (bytes[0] == b'/' || bytes[0] == b'\\')
+        && (bytes[1] == b'/' || bytes[1] == b'\\')
+    {
+        return true;
+    }
+    if let Some(colon) = requested.find(':') {
+        let prefix = &requested[..colon];
+        let is_windows_drive = prefix.len() == 1
+            && prefix.as_bytes()[0].is_ascii_alphabetic()
+            && matches!(bytes.get(colon + 1), Some(b'/' | b'\\'));
+        if !is_windows_drive
+            && !prefix.is_empty()
+            && prefix.as_bytes()[0].is_ascii_alphabetic()
+            && prefix
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'+' | b'.' | b'-'))
+        {
+            return true;
+        }
+    }
+    false
+}
+
 /// Decide whether the window may show pages for `requested` under `folder`.
 pub fn decide_pdf_pages(
     requested: &str,
@@ -255,7 +290,7 @@ pub fn decide_pdf_pages(
     if !is_pdf_path(requested) {
         return Err(pages_refusal("not-pdf"));
     }
-    if requested.contains("://") || requested.starts_with("//") {
+    if is_non_local_path(requested) {
         return Err(pages_refusal("not-local"));
     }
     let path = Path::new(folder).join(requested);
@@ -276,6 +311,60 @@ pub fn decide_pdf_pages(
         return Err(pages_refusal("too-large"));
     }
     Ok(canon_path)
+}
+
+/// Read an attached PDF's page pictures for the window (`main/pdf-pages.ts` `readPdfPages`),
+/// using `readable_pdf` to write them under `.locust/attachments`.
+pub fn read_pdf_pages(
+    requested: &str,
+    folder: &str,
+    roots: &[PathBuf],
+) -> Result<PdfPages, String> {
+    read_pdf_pages_with(requested, folder, roots, |where_folder, pdf, name| {
+        readable_pdf(where_folder, pdf, name, MAX_PICTURES).ok()
+    })
+}
+
+/// `read_pdf_pages` with the preparer given: `readable_pdf` in the app, a fake in tests.
+pub fn read_pdf_pages_with<F>(
+    requested: &str,
+    folder: &str,
+    roots: &[PathBuf],
+    mut prepare: F,
+) -> Result<PdfPages, String>
+where
+    F: FnMut(&Path, &str, &str) -> Option<ReadablePdf>,
+{
+    if requested.is_empty() {
+        return Err(pages_refusal("no-path").into());
+    }
+    if folder.is_empty() || !Path::new(folder).is_absolute() {
+        return Err(pages_refusal("no-workspace").into());
+    }
+    let canon_folder = fs::canonicalize(folder).map_err(|_| pages_refusal("no-workspace").to_string())?;
+    let in_roots = roots
+        .iter()
+        .filter_map(|r| fs::canonicalize(r).ok())
+        .any(|canon_root| canon_folder.starts_with(&canon_root));
+    if !in_roots {
+        return Err(pages_refusal("no-workspace").into());
+    }
+    let canon_path = decide_pdf_pages(requested, folder).map_err(str::to_owned)?;
+    let rel = canon_path
+        .strip_prefix(&canon_folder)
+        .map_err(|_| pages_refusal("outside").to_string())?;
+    let in_folder = rel.to_string_lossy().replace('\\', "/");
+    let name = canon_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .ok_or_else(|| pages_refusal("could-not").to_string())?;
+    let readable = prepare(Path::new(folder), &in_folder, name)
+        .ok_or_else(|| pages_refusal("could-not").to_string())?;
+    Ok(PdfPages {
+        pages: readable.pages,
+        pictures: readable.pictures,
+        text: readable.text,
+    })
 }
 
 /// A page's characters as PDFKit places them (`characterBoundsAtIndex`: each glyph's box, y up from the page's
@@ -613,3 +702,7 @@ startxref
 #[cfg(test)]
 #[path = "pdf_arrives_readable_tests.rs"]
 mod pdf_arrives_readable_tests;
+
+#[cfg(test)]
+#[path = "pdf_shows_its_pages_tests.rs"]
+mod pdf_shows_its_pages_tests;
