@@ -84,6 +84,27 @@ fn does_not_resurrect_a_handshake_after_cancellation_or_its_late_answer() {
     assert_eq!(agent.methods(), ["initialize"]);
 }
 
+#[test]
+fn does_not_begin_a_session_from_an_initialize_answer_followed_by_eof() {
+    // case: does not begin a session from an initialize answer followed by EOF
+    // On real pipes the reader thread may hand on the answer before it reads the EOF behind it, so the two are put on
+    // the reader's own channel together, as Electron's fixture writes them in one tick; the agent itself never answers.
+    let silent = Agent::new("for m in messages(): pass\n");
+    let mut acp = silent.spawn(added());
+    let (tx, lines) = mpsc::sync_channel(8);
+    acp.lines = lines;
+    tx.send(Ok(json!({"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1}}))).unwrap();
+    tx.send(Err(err(STREAM_CLOSED))).unwrap();
+    acp.start(&turn(&silent.dir, Mode::Ask, None, None)).unwrap();
+    let end = events_until_end(&mut acp, |_, _| {}).pop().unwrap();
+    assert_eq!(end.kind, "run.failed");
+    assert_eq!(end.payload["process"]["exitCode"], Value::Null);
+    assert!(end.payload["message"].as_str().unwrap().contains("output stream closed"), "{}", end.payload);
+    assert_eq!(acp.id, 1, "only initialize was sent");
+    crate::load_waits::wait_for("initialize to reach the agent", || !silent.methods().is_empty());
+    assert_eq!(silent.methods(), ["initialize"]);
+}
+
 /// A run stopped once the agent has been sent `method`, whose answer the agent holds until then.
 fn stopped_at(method: &str) -> (Agent, Vec<Event>) {
     let agent = Agent::new(&format!(

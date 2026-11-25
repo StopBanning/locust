@@ -7531,7 +7531,7 @@ packages/runtime-adapters/test/agy-events.test.ts	a conversation the CLI does no
 packages/runtime-adapters/test/an-acp-output-stream-closing-ends-the-turn.test.ts	fails a live child once rather than waiting for the prompt timeout	yes
 packages/runtime-adapters/test/an-acp-output-stream-closing-ends-the-turn.test.ts	reports an output error without needing a process exit	yes
 packages/runtime-adapters/test/an-acp-output-stream-closing-ends-the-turn.test.ts	keeps the final prompt answer in the last chunk before EOF	yes
-packages/runtime-adapters/test/an-acp-output-stream-closing-ends-the-turn.test.ts	does not begin a session from an initialize answer followed by EOF	no
+packages/runtime-adapters/test/an-acp-output-stream-closing-ends-the-turn.test.ts	does not begin a session from an initialize answer followed by EOF	yes
 packages/runtime-adapters/test/an-acp-output-stream-closing-ends-the-turn.test.ts	does not resurrect a handshake after cancellation or its late answer	yes
 packages/runtime-adapters/test/an-acp-output-stream-closing-ends-the-turn.test.ts	does not send a prompt if cancellation races the session answer	yes
 packages/runtime-adapters/test/an-acp-output-stream-closing-ends-the-turn.test.ts	does not begin a session after the capabilities callback cancels the run	yes

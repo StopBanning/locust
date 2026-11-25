@@ -190,6 +190,8 @@ pub struct Acp {
     reaped: bool,
     input: SyncSender<Vec<u8>>,
     lines: Receiver<io::Result<Value>>,
+    /// Records read off `lines` with a handshake answer, still to be handled in order.
+    held: VecDeque<io::Result<Value>>,
     failure: Arc<Mutex<Option<String>>>,
     gone: Arc<AtomicBool>,
     prompt_id: Arc<AtomicU64>,
@@ -309,6 +311,7 @@ impl Acp {
             reaped: false,
             input,
             lines,
+            held: VecDeque::new(),
             failure,
             gone,
             prompt_id,
@@ -400,17 +403,38 @@ impl Acp {
         if let Some(e) = crate::invariants::lock(&self.failure).clone() {
             return Err(err(e));
         }
-        match self.lines.recv_timeout(Duration::from_millis(50)) {
-            Ok(Err(e)) if e.to_string() == STREAM_CLOSED && self.exited_within(Duration::from_millis(500)) => {
-                Err(self.with_stderr(err(AGENT_EXITED)))
-            }
-            Ok(v) => v.map(Some).map_err(|e| self.with_stderr(e)),
+        let next = match self.held.pop_front() {
+            Some(record) => Ok(record),
+            None => self.lines.recv_timeout(Duration::from_millis(50)),
+        };
+        match next {
+            Ok(Err(e)) => Err(self.lost(e)),
+            Ok(Ok(v)) => Ok(Some(v)),
             Err(mpsc::RecvTimeoutError::Timeout) => Ok(None),
             Err(_) => Err(io::Error::new(
                 io::ErrorKind::ConnectionAborted,
                 "ACP transport disconnected",
             )),
         }
+    }
+    /// A closed stream is read as the agent's exit when it did exit; either way with its stderr after the words.
+    fn lost(&mut self, e: io::Error) -> io::Error {
+        if e.to_string() == STREAM_CLOSED && self.exited_within(Duration::from_millis(500)) {
+            self.with_stderr(err(AGENT_EXITED))
+        } else {
+            self.with_stderr(e)
+        }
+    }
+    /// What the agent wrote with an answer, read before the handshake takes its next step: an answer followed by the
+    /// end of its output begins nothing more (acp-run.ts reads the whole chunk, EOF included, before session/new).
+    fn ended_with_answer(&mut self) -> Option<io::Error> {
+        while let Ok(record) = self.lines.try_recv() {
+            match record {
+                Err(e) => return Some(self.lost(e)),
+                Ok(v) => self.held.push_back(Ok(v)),
+            }
+        }
+        None
     }
     /// A lost transport's words, with what the agent last wrote to stderr after them.
     fn with_stderr(&self, e: io::Error) -> io::Error {
@@ -451,6 +475,9 @@ impl Acp {
                 return Err(err(v["error"]["message"]
                     .as_str()
                     .unwrap_or("The agent refused the request")));
+            }
+            if let Some(e) = self.ended_with_answer() {
+                return Err(e);
             }
             return Ok(v["result"].clone());
         }
