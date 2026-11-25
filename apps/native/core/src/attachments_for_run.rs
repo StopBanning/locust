@@ -15,26 +15,72 @@
 //!
 //! Only what the runtime is SENT changes; the recorded prompt keeps the project's paths, which is what the thread's
 //! tiles open. A file that cannot be placed is left as it was named: the runtime's own read then says what is missing,
-//! which is more than a silent drop would. (Electron also opens an attached PDF for the agent here, 0.713; that part is
-//! not carried yet.)
+//! which is more than a silent drop would.
+//!
+//! And a PDF, wherever the run is, is opened for the agent first (0.713, `crate::pdf::readable_pdf`): its text and page
+//! pictures go into the run folder's `.locust/attachments`, and a paragraph between the file list and the person's
+//! words says where (`readable_pdf_note`). A PDF that cannot be read is sent as it was, and the runtime tries it its own
+//! way. Unlike Electron, a PDF named by an absolute path is opened too: the native composer names a dropped or pasted
+//! file where it is rather than copying it into `.locust/attachments` first, and Electron's copy would have been opened.
 
 use std::collections::HashSet;
 use std::path::{Component, Path, PathBuf};
 
-use crate::attachments::{ATTACHMENT_DIR, attachment_destination, exclude_with, split_attachments, with_attachments};
+use crate::attachments::{ATTACHMENT_DIR, attachment_destination, basename, exclude_with, extname, split_attachments, with_attachments_note};
+use crate::pdf::{ReadablePdf, is_pdf_path, readable_pdf_note};
 
-/// The prompt to send a run in `run_cwd`, its files placed there from `workspace` (above). A message without
-/// attachments, or a run in the project folder itself, comes back exactly as given.
+/// The prompt to send a run in `run_cwd`, its files placed there from `workspace` and its PDFs opened for the agent
+/// (above). A message without attachments, or one with nothing to move and no PDF opened, comes back exactly as given.
 pub fn attachments_for_run(prompt: &str, workspace: &Path, run_cwd: &Path) -> String {
+    attachments_for_run_with(prompt, workspace, run_cwd, |folder, pdf, name| {
+        crate::pdf::readable_pdf(folder, pdf, name, crate::pdf::MAX_PICTURES).ok()
+    })
+}
+
+/// `attachments_for_run` with the PDF opener given (Electron's `readablePdf` argument): the app's is PDFKit's.
+pub fn attachments_for_run_with(
+    prompt: &str,
+    workspace: &Path,
+    run_cwd: &Path,
+    mut readable_pdf: impl FnMut(&Path, &str, &str) -> Option<ReadablePdf>,
+) -> String {
     let (text, attachments) = split_attachments(prompt);
-    if attachments.is_empty() || same_path(workspace, run_cwd) {
+    if attachments.is_empty() {
         return prompt.to_owned();
     }
-    let placed = placed_for_run(&attachments, workspace, run_cwd);
-    if placed == attachments {
+    let placed = if same_path(workspace, run_cwd) { attachments.clone() } else { placed_for_run(&attachments, workspace, run_cwd) };
+    let mut readables = Vec::new();
+    let mut names: HashSet<String> = HashSet::new();
+    for path in &placed {
+        let source = run_cwd.join(path);
+        if !is_pdf_path(path) || !(Path::new(path).is_absolute() || inside(run_cwd, &source)) {
+            continue;
+        }
+        let name = distinct_name(basename(path), &names);
+        names.insert(name.clone());
+        if let Some(readable) = readable_pdf(run_cwd, path, &name) {
+            readables.push(readable);
+        }
+    }
+    // A PDF opened into `.locust/`: out of git, as every copy is.
+    if !readables.is_empty() {
+        keep_out_of_git(run_cwd);
+    }
+    let note = readable_pdf_note(&readables);
+    if placed == attachments && note.is_none() {
         return prompt.to_owned();
     }
-    with_attachments(&text, &placed)
+    with_attachments_note(&text, &placed, note.as_deref())
+}
+
+/// Electron's `distinctName`: the name, or the first `-2`, `-3` before its extension that is not taken.
+fn distinct_name(name: &str, taken: &HashSet<String>) -> String {
+    if !taken.contains(name) {
+        return name.to_owned();
+    }
+    let extension = extname(name);
+    let stem = &name[..name.len() - extension.len()];
+    (2..).map(|n| format!("{stem}-{n}{extension}")).find(|candidate| !taken.contains(candidate)).unwrap_or_default()
 }
 
 /// The message's files, placed where a run outside the project folder reads them (above).

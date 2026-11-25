@@ -205,14 +205,13 @@ fn read_document(root: &Path, target: &FileTarget) -> Result<String, String> {
     let ext = crate::file_menu::file_extension(&target.path);
     if ext == "pdf" || crate::pdf::is_pdf_path(&target.path) {
         let name = crate::file_menu::file_base_name(&target.path);
-        // Write text + page PNGs beside the file (Electron readablePdf), then show the text.
+        // Write its text and page PNGs into .locust/attachments (Electron readablePdf, as pdf-pages.ts does), then show the text.
         let readable = crate::pdf::readable_pdf(
             root,
             &target.path,
             &name,
             crate::pdf::MAX_PICTURES,
         )?;
-        let _ = crate::pdf::readable_pdf_note(std::slice::from_ref(&readable));
         // Its pages, for the viewer to draw (pdf_pages_ui, Electron PdfPages).
         crate::pdf_pages_ui::keep(root, &target.path, readable);
         let abs = crate::pdf::decide_pdf_pages(&target.path, &root.to_string_lossy())

@@ -17,7 +17,7 @@ pub const ATTACHMENT_DIR: &str = ".locust/attachments";
 
 /// Node's `path.basename` for the platform: the last segment once trailing separators are gone (`/` everywhere, a backslash
 /// too on Windows). Unlike `Path::file_name`, a last segment of `.` or `..` is returned as written.
-fn basename(source: &str) -> &str {
+pub(crate) fn basename(source: &str) -> &str {
     let separator = |c: char| c == '/' || (cfg!(windows) && c == '\\');
     let trimmed = source.trim_end_matches(separator);
     if trimmed.is_empty() {
@@ -27,7 +27,7 @@ fn basename(source: &str) -> &str {
 }
 
 /// Node's `path.extname`: from the last dot of the name, unless that dot is its first character.
-fn extname(name: &str) -> &str {
+pub(crate) fn extname(name: &str) -> &str {
     match name.rfind('.') {
         Some(dot) if dot > 0 => &name[dot..],
         _ => "",
