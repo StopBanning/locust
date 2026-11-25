@@ -97,3 +97,16 @@ fn keeping_the_work_going_is_the_first_button_and_the_default_cancel_leaves_the_
     key(&mut rt, Key::Escape);
     assert!(!rt.state.quit_guard.open && !rt.state.quit_guard.quit_requested && !rt.state.quit_guard.kept_in_background);
 }
+
+// Only a plain Return answers with the default: Shift- or Option-Return (a slip while typing a line) leaves the question open.
+#[test]
+fn shift_or_option_return_does_not_answer_the_question() {
+    for mods in [Mods { shift: true, ..Mods::default() }, Mods { alt: true, ..Mods::default() }] {
+        let mut rt = working();
+        close(&mut rt);
+        rt.key(KeyEvent { key: Key::Enter, mods });
+        settle(&mut rt);
+        assert!(rt.state.quit_guard.open, "still asking");
+        assert!(!rt.state.quit_guard.kept_in_background && !rt.state.quit_guard.quit_requested);
+    }
+}

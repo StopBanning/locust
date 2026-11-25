@@ -429,10 +429,8 @@ impl TranscriptReader {
             let mut entries = std::fs::read_dir(root).ok()?.filter_map(Result::ok).collect::<Vec<_>>();
             entries.sort_by_key(|e| std::cmp::Reverse(e.file_name()));
             for e in entries {
+                // `file_type` does not follow links, so a link is neither a file nor a folder here and is passed over.
                 let ty = e.file_type().ok()?;
-                if ty.is_symlink() {
-                    continue;
-                }
                 if ty.is_file() && e.file_name().to_string_lossy().ends_with(suffix) {
                     return Some(e.path());
                 }
