@@ -581,6 +581,8 @@ pub struct Listed {
     pub muse: bool,
     /// Apple's on-device model answers on this Mac (`runtime::apple::probe`).
     pub apple: bool,
+    /// Antigravity's `/usage`, read beside its models without a turn (model-catalog.ts `usageWindows.antigravity`).
+    pub antigravity_usage: Option<String>,
 }
 
 /// The catalog, in the order Electron's probe builds it: Codex's, then Claude Code, Cursor, OpenCode, Copilot,
@@ -694,7 +696,27 @@ pub fn codex_usage_from_snapshot(snapshot: &Value) -> Option<String> {
 /// The usage readings the catalog read with its models, by account (model-catalog.ts `usageWindows`): Codex's, when
 /// its account said.
 pub fn usage_windows(listed: &Listed) -> std::collections::HashMap<String, String> {
-    listed.codex_usage.iter().map(|reading| ("codex".to_owned(), reading.clone())).collect()
+    let codex = listed.codex_usage.iter().map(|reading| ("codex".to_owned(), reading.clone()));
+    let antigravity = listed.antigravity_usage.iter().map(|reading| ("antigravity".to_owned(), reading.clone()));
+    codex.chain(antigravity).collect()
+}
+
+/// Antigravity as the last sweep found it, for reading its usage: only once a sweep has answered, and only an
+/// executable on this computer.
+fn agy_found() -> Option<crate::antigravity_usage::AgyFound> {
+    let held = crate::agents::held_answer()?;
+    let found = held.iter().find(|f| f.id == "antigravity")?;
+    let path = crate::runtime::discovery::find_named("agy").ok()?;
+    Some(crate::antigravity_usage::AgyFound {
+        command_name: if found.through_cli { "agy" } else { "antigravity" }.to_owned(),
+        spec: crate::antigravity_usage::UsageExecSpec {
+            executable_path: path.to_string_lossy().into_owned(),
+            prefix_args: Vec::new(),
+            env: std::collections::HashMap::new(),
+        },
+        ready: found.ready,
+        version: found.version.as_deref().and_then(crate::runtime::version::parse),
+    })
 }
 
 fn codex_model_list(limit: Duration) -> Option<(Value, Option<String>)> {
@@ -836,6 +858,16 @@ pub fn read_listed_checked() -> (Listed, bool) {
         )
     });
     let agy = std::thread::spawn(move || output_of("agy", &["models"], limit).as_deref().and_then(parse_agy_model_list));
+    // Antigravity's usage beside its models, without a turn, and without holding the list (0.709).
+    let agy_usage = std::thread::spawn(move || {
+        let found = agy_found();
+        crate::antigravity_usage::catalog_reading(
+            crate::antigravity_usage::usage_cache(),
+            found.as_ref(),
+            crate::antigravity_usage::default_catalog_wait(),
+            crate::antigravity_usage::run_usage,
+        )
+    });
     let (opencode_one, opencode_two, opencode, opencode_acp) = opencode.join().unwrap_or((false, false, None, Vec::new()));
     let (codex, codex_usage) = codex.join().ok().flatten().map_or((None, None), |(models, usage)| (Some(models), usage));
     let listed = Listed {
@@ -849,6 +881,7 @@ pub fn read_listed_checked() -> (Listed, bool) {
         copilot: crate::runtime::discovery::find_named("copilot").is_ok(),
         muse: crate::runtime::discovery::find_named("muse").is_ok(),
         apple: crate::runtime::apple::available(),
+        antigravity_usage: agy_usage.join().ok().flatten(),
     };
     let installed = |name: &str| crate::runtime::discovery::find_named(name).is_ok();
     let mut ready: Vec<(&str, Option<&Value>)> = Vec::new();
@@ -1011,3 +1044,7 @@ mod codex_usage_is_read_with_the_models_tests;
 #[cfg(all(test, unix))]
 #[path = "model_catalog_probe_tests.rs"]
 mod model_catalog_probe_tests;
+
+#[cfg(all(test, unix))]
+#[path = "antigravity_usage_catalog_tests.rs"]
+mod antigravity_usage_catalog_tests;

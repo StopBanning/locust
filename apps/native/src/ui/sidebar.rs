@@ -2184,3 +2184,7 @@ mod sidebar_routine_run_tests;
 #[cfg(test)]
 #[path = "name_and_group_kept_tests.rs"]
 mod name_and_group_kept_tests;
+
+#[cfg(test)]
+#[path = "groups_hold_tests.rs"]
+mod groups_hold_tests;

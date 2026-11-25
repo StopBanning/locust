@@ -1604,21 +1604,21 @@ apps/desktop/src/main/antigravity-usage-does-not-hold-the-models.test.ts	still i
 apps/desktop/src/main/antigravity-usage-does-not-hold-the-models.test.ts	a failed reading costs the list nothing	no
 apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	never runs /usage on an old or unknown version (%s)	yes
 apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	runs the built-in command on a supported version (%s)	yes
-apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	refuses even a discovered prefix that would disable built-in slash commands	no
-apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	the catalog keeps models but does not spawn usage without a safe version (%s)	no
+apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	refuses even a discovered prefix that would disable built-in slash commands	yes
+apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	the catalog keeps models but does not spawn usage without a safe version (%s)	yes
 apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	puts the short window first and includes the lower Claude and GPT limit	yes
-apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	omits the other group when it is not lower	no
+apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	omits the other group when it is not lower	yes
 apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	does not call a full bucket a future reset, even without a description	yes
 apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	rejects invalid fractions (%s)	yes
-apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	does not invent a reset when its date cannot be read	no
-apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	rejects duplicate buckets and a group named twice	no
-apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	uses only the discovered executable and usage argv, with no shell and a bounded hidden process	no
-apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	fails softly on a refused or unreadable CLI response	no
-apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	keeps the reading and models even when Codex is absent, and caches the read	no
-apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	keeps models when the usage read refuses	no
-apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	keeps both readings beside their models without asking either runtime for a turn	no
-apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	keeps Antigravity usage even when the Codex model probe fails	no
-apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	does not run usage for missing, unready or non-agy discoveries	no
+apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	does not invent a reset when its date cannot be read	yes
+apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	rejects duplicate buckets and a group named twice	yes
+apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	uses only the discovered executable and usage argv, with no shell and a bounded hidden process	yes
+apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	fails softly on a refused or unreadable CLI response	yes
+apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	keeps the reading and models even when Codex is absent, and caches the read	yes
+apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	keeps models when the usage read refuses	yes
+apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	keeps both readings beside their models without asking either runtime for a turn	yes
+apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	keeps Antigravity usage even when the Codex model probe fails	yes
+apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts	does not run usage for missing, unready or non-agy discoveries	yes
 apps/desktop/src/main/app-server-output-keeps-its-characters.test.ts	keeps a character split across two reads whole	yes
 apps/desktop/src/main/approval-channel.test.ts	recognizes the three protocol methods and nothing else	yes
 apps/desktop/src/main/approval-channel.test.ts	carries the exact command so the card can say what would happen	yes
@@ -2044,41 +2044,41 @@ apps/desktop/src/main/git-reaches-a-run-with-no-shell.test.ts	sees a change of t
 apps/desktop/src/main/git-reaches-a-run-with-no-shell.test.ts	takes no option, no path outside the folder, and nothing it does not name	yes
 apps/desktop/src/main/git-reaches-a-run-with-no-shell.test.ts	writes nothing: no index refresh, no lock, and no program a variable names	yes
 apps/desktop/src/main/git-reaches-a-run-with-no-shell.test.ts	says so when the folder is not a repository	yes
-apps/desktop/src/main/groups-hold-conversations.test.ts	keeps what it was called	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	refuses a name that is only spaces	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	flattens a name to one line, because a row is one line	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	caps the length rather than letting a name become a paragraph	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	renames one	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	says so when renaming one that is not there	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	will not make more than it can list	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	remembers where it went	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	takes it out again with no group	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	moves it rather than putting it in two places	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	refuses a group that does not exist	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	refuses an id that could not be one	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	lets them fall back to ungrouped rather than deleting them	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	removing one that is not there is not an error	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	drops a membership pointing at a group that is gone	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	drops a group with no usable name and keeps the rest	no
+apps/desktop/src/main/groups-hold-conversations.test.ts	keeps what it was called	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	refuses a name that is only spaces	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	flattens a name to one line, because a row is one line	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	caps the length rather than letting a name become a paragraph	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	renames one	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	says so when renaming one that is not there	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	will not make more than it can list	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	remembers where it went	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	takes it out again with no group	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	moves it rather than putting it in two places	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	refuses a group that does not exist	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	refuses an id that could not be one	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	lets them fall back to ungrouped rather than deleting them	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	removing one that is not there is not an error	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	drops a membership pointing at a group that is gone	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	drops a group with no usable name and keeps the rest	yes
 apps/desktop/src/main/groups-hold-conversations.test.ts	treats a file it cannot read as unreadable, never as empty	yes
-apps/desktop/src/main/groups-hold-conversations.test.ts	treats a file that does not parse as unreadable too, and refuses to write over it	no
+apps/desktop/src/main/groups-hold-conversations.test.ts	treats a file that does not parse as unreadable too, and refuses to write over it	yes
 apps/desktop/src/main/groups-hold-conversations.test.ts	is genuinely empty when there is simply no file yet	yes
-apps/desktop/src/main/groups-hold-conversations.test.ts	takes a default route, refuses one a mission could not start on, and clears it	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	carries standing instructions from the start	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	keeps instructions and a route that are already in the file	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	asks for groups in the load that runs at startup	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	applies both halves of the answer, not just the names	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	is offered always, as Move to project, and can make a new project	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	ticks the one it is already in, so the list also answers where it is	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	offers Ungrouped as a destination rather than a separate verb	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	picks the newest match when two groups share a name	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	keeps what was written	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	clears with empty text, so a group can stop briefing	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	caps the length	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	refuses a group that does not exist, rather than writing nowhere	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	is kept with the membership	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	is updated when a conversation moves to another group	no
-apps/desktop/src/main/groups-hold-conversations.test.ts	reads an older file that recorded no moment	no
+apps/desktop/src/main/groups-hold-conversations.test.ts	takes a default route, refuses one a mission could not start on, and clears it	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	carries standing instructions from the start	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	keeps instructions and a route that are already in the file	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	asks for groups in the load that runs at startup	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	applies both halves of the answer, not just the names	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	is offered always, as Move to project, and can make a new project	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	ticks the one it is already in, so the list also answers where it is	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	offers Ungrouped as a destination rather than a separate verb	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	picks the newest match when two groups share a name	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	keeps what was written	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	clears with empty text, so a group can stop briefing	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	caps the length	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	refuses a group that does not exist, rather than writing nowhere	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	is kept with the membership	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	is updated when a conversation moves to another group	yes
+apps/desktop/src/main/groups-hold-conversations.test.ts	reads an older file that recorded no moment	yes
 apps/desktop/src/main/groups-remember-leaving.test.ts	records the group as it was, and when	no
 apps/desktop/src/main/groups-remember-leaving.test.ts	keeps the name and words the group HAD, after it is renamed, edited or removed	no
 apps/desktop/src/main/groups-remember-leaving.test.ts	treats a move between groups as a leave and a join at the same moment	no
