@@ -84,3 +84,67 @@ fn lists_conversations_each_named_by_its_first_words_not_each_turn_of_one() {
     // Runs still counts every turn.
     assert_eq!(work.mission_count, 4);
 }
+
+// case: says what a person pays, or that a model is free, and nothing for counted tokens
+#[test]
+fn missions_screen_cost_cell_says_what_a_person_pays_or_that_a_model_is_free_and_nothing_for_counted_tokens() {
+    use crate::missions_screen::cost_glance_cell;
+    use locust_core::benchmark::RunCost;
+
+    assert_eq!(cost_glance_cell(&[Some(RunCost { usd: Some(0.42), ..Default::default() })], "gpt-6-luna"), "$0.42");
+    assert_eq!(cost_glance_cell(&[Some(RunCost { premium_requests: Some(1.0), ..Default::default() })], "auto"), "1 premium request");
+    assert_eq!(cost_glance_cell(&[None], "opencode/nemotron-3-ultra-free"), "free");
+    assert_eq!(
+        cost_glance_cell(&[Some(RunCost { input_tokens: Some(9000), output_tokens: Some(870), ..Default::default() })], "account-default"),
+        ""
+    );
+    assert_eq!(
+        cost_glance_cell(
+            &[Some(RunCost { plan: true, input_tokens: Some(9000), output_tokens: Some(870), ..Default::default() })],
+            "account-default"
+        ),
+        ""
+    );
+    assert_eq!(cost_glance_cell(&[None], "account-default"), "");
+
+    // Drawn through missions_screen::view: priced row shows $0.42, free model shows free, tokens-only shows nothing.
+    let mut s = State::default();
+    let add = |s: &mut State, id: &str, model: &str, cost: Option<RunCost>| {
+        s.recent.push(ConversationRow {
+            id: id.into(),
+            title: format!("Task {id}"),
+            teammate: "Wren".into(),
+            updated: "2026-10-10T10:00:00.000Z".into(),
+            state: "completed".into(),
+            started_by: String::new(),
+        });
+        s.ledger_summaries.insert(
+            id.into(),
+            ledger::Summary {
+                mission_id: id.into(),
+                title: format!("Task {id}"),
+                runtime: "codex".into(),
+                model: model.into(),
+                created_at: "2026-10-10T10:00:00.000Z".into(),
+                updated: "2026-10-10T10:00:05.000Z".into(),
+                cost,
+                ..Default::default()
+            },
+        );
+    };
+    add(&mut s, "m_paid", "gpt-6-luna", Some(RunCost { usd: Some(0.42), ..Default::default() }));
+    add(&mut s, "m_free", "opencode/nemotron-3-ultra-free", None);
+    add(&mut s, "m_tok", "account-default", Some(RunCost { input_tokens: Some(9000), output_tokens: Some(870), ..Default::default() }));
+
+    let mut rt = rune::Runtime::new(
+        s,
+        |s, _| crate::missions_screen::view(s, &Palette::new(true), false),
+        (1200.0, 600.0),
+        rune::Env::new(true, 1.0),
+    );
+    rt.frame(0.0);
+    let words: Vec<String> = rt.elements().into_iter().filter_map(|e| e.text).collect();
+    assert!(words.iter().any(|w| w == "$0.42"), "{words:?}");
+    assert!(words.iter().any(|w| w == "free"), "{words:?}");
+    assert!(!words.iter().any(|w| w.contains("9,870") || w.contains("tokens")), "{words:?}");
+}

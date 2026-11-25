@@ -30,6 +30,20 @@ pub(super) fn open_web_link(s: &mut State, url: &str) {
         s.link_refusal = Some((url.to_owned(), NOT_OPENED.into()));
         return;
     }
+    launch_browser_url(s, url);
+}
+
+/// Open one of the app's own fixed outbound links (Electron's `isOutboundLink` guard).
+pub(super) fn open_outbound_link(s: &mut State, url: &str) {
+    s.link_refusal = None;
+    if !locust_core::published_links::is_outbound_link(url) {
+        s.link_refusal = Some((url.to_owned(), NOT_OPENED.into()));
+        return;
+    }
+    launch_browser_url(s, url);
+}
+
+fn launch_browser_url(s: &mut State, url: &str) {
     if cfg!(test) {
         s.opened_links.push(url.to_owned());
         return;

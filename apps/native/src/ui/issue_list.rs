@@ -101,7 +101,13 @@ pub(super) fn open_list(s: &mut State) {
 
 fn choose(s: &mut State, number: u64) {
     let (Some(at), Some(gh)) = (folder(s), gh()) else { return };
-    s.issues_job.request((gh, at, number), |(gh, at, number)| Answer::Opened(github_issues::open(gh.as_ref(), &at, number)));
+    s.issues_job.request((gh, at, number), |(gh, at, number)| {
+        let opened = github_issues::open_with_images(gh.as_ref(), &at, number, |url| {
+            if cfg!(test) { None } else { github_issues::real_image_get(url) }
+        })
+        .map(|(brief, issue, _images)| (brief, issue));
+        Answer::Opened(opened)
+    });
 }
 
 fn choose_active(s: &mut State) {

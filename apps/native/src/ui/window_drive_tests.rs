@@ -3259,6 +3259,7 @@ fn a_pointed_part_goes_with_the_next_message_after_the_words_and_leaves_the_box(
 
 /// choosing-an-issue-sends-nothing, in the window: /issue lists the folder's open issues through gh (a fake here),
 /// Enter on one fills the message box with its brief, and nothing is sent.
+// case: lists the issue and does not send by being chosen
 #[test]
 fn issues_lists_the_folders_issues_and_choosing_one_fills_the_box_and_sends_nothing() {
     let asked = std::sync::Arc::new(std::sync::Mutex::new(Vec::<String>::new()));
@@ -6525,6 +6526,7 @@ fn hover_chip(rt: &mut Runtime<State>) {
     rt.frame(0.016);
 }
 
+// case: draws it on hover or focus, above and to the right, rather than leaving it to the system tooltip
 #[test]
 fn resting_on_the_model_chip_opens_the_agents_card_above_it() {
     let (_dirs, store, mut rt) = window();
@@ -6537,6 +6539,8 @@ fn resting_on_the_model_chip_opens_the_agents_card_above_it() {
     for want in ["Codex", "Weekly", "64%", "5-hour", "85%", "Read from your account at"] {
         assert!(words.contains(want), "{want} in {words}");
     }
+    let chip_el = rt.elements().into_iter().find(|e| e.key.as_deref() == Some("model-chip")).expect("model-chip");
+    assert!(chip_el.help.is_none(), "usage is drawn on the card, not left to the system tooltip: {:?}", chip_el.help);
     let card = rt.presented("model-chip-card").unwrap().0;
     let chip = rt.presented("model-chip").unwrap().0;
     assert!(card[1] + card[3] <= chip[1], "the card is above the chip: {card:?} over {chip:?}");

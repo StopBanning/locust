@@ -294,15 +294,20 @@ pub(crate) fn stats(s: &State, entry: &Entry) -> String {
     if entry.members.len() > 1 { format!("{} turns · {elapsed}", entry.members.len()) } else { elapsed }
 }
 
+/// `costGlanceCell`: money, else `free` on a free model, else nothing (counted tokens say nothing).
+pub(crate) fn cost_glance_cell(costs: &[Option<locust_core::benchmark::RunCost>], model: &str) -> String {
+    // The turns' costs summed (`sumCosts`), said only when that sum is money (`moneyLine`).
+    locust_core::benchmark::cost_total(costs)
+        .filter(|total| total.word == "priced")
+        .map(|total| total.line)
+        .unwrap_or_else(|| if model.to_ascii_lowercase().ends_with("-free") { "free".into() } else { String::new() })
+}
+
 /// `costGlanceCell`: money, else `free` on a free model, else nothing.
 fn cost(s: &State, entry: &Entry) -> String {
     let costs: Vec<_> = entry.members.iter().map(|id| s.ledger_summaries.get(id).and_then(|m| m.cost.clone())).collect();
     let model = s.ledger_summaries.get(&entry.leaf).map(|m| m.model.as_str()).unwrap_or("");
-    // The turns' costs summed (`sumCosts`), said only when that sum is money (`moneyLine`).
-    locust_core::benchmark::cost_total(&costs)
-        .filter(|total| total.word == "priced")
-        .map(|total| total.line)
-        .unwrap_or_else(|| if model.to_ascii_lowercase().ends_with("-free") { "free".into() } else { String::new() })
+    cost_glance_cell(&costs, model)
 }
 
 /// The route as the composer's chip spells it (`routeChrome`).

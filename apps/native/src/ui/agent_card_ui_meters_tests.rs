@@ -3,6 +3,7 @@ use rune::{Env, Runtime};
 
 const READING: &str = "weekly window 64% used · resets 2099-11-04T06:36:18.000Z · 5-hour window 15% left · as of 2026-11-23T10:00:00.000Z";
 
+// case: opens the agent's card, with a bar for each window, placed for the chip
 #[test]
 fn hovering_the_model_chip_draws_the_usage_meters_with_their_own_tones_and_reading() {
     let mut s = State::default();

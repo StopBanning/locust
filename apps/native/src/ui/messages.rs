@@ -376,16 +376,11 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                 } else {
                     // `.lc-bubble` is set in `--lc-text-said`, which grows with the reply size.
                     let said = locust_core::workspace_settings::ask_sizes(&s.settings_panel.settings.reply_size).said;
-                    let mut bubble = text(own_words)
-                        .font(rune::TextStyle::new(said, 400.0).lh(said * 21.0 / 14.5))
-                        .color(p.text)
-                        .shrink()
-                        .wrap_anywhere()
-                        .selectable(true)
-                        .py(12.0)
-                        .px(16.0)
-                        .radius(10.0)
-                        .fill(p.your_bubble);
+                    let mut bubble = pull_request_chip::linked_words(&own_words, rune::TextStyle::new(said, 400.0).lh(said * 21.0 / 14.5), p)
+                    .py(12.0)
+                    .px(16.0)
+                    .radius(10.0)
+                    .fill(p.your_bubble);
                     if hit {
                         bubble = bubble.border(1.5, p.amber);
                     }
@@ -1766,6 +1761,60 @@ pub(crate) fn tests_live_label(s: &mut State) -> rune::ElementInfo {
 #[cfg(test)]
 pub(crate) fn tests_live_face(s: &mut State) -> rune::ElementInfo {
     tests_live_element(s, "thread-face-live-")
+}
+
+#[cfg(test)]
+mod user_link_tests {
+    use super::*;
+    use std::cell::RefCell;
+
+    thread_local! {
+        static TEST_BODY: RefCell<String> = const { RefCell::new(String::new()) };
+    }
+
+    fn test_view(s: &State, _: &mut Cx<State>) -> El {
+        let body = TEST_BODY.with(|b| b.borrow().clone());
+        let items = [ledger::Item::User(body)];
+        message_column(&items, "Wren", &Palette::new(true), s)
+    }
+
+    // case: makes a bare pull request in the person's message a link, and a bare issue one too
+    #[test]
+    fn makes_a_bare_pull_request_in_the_persons_message_a_link_and_a_bare_issue_one_too() {
+        let render_msg = |body: &str| {
+            TEST_BODY.with(|b| *b.borrow_mut() = body.to_owned());
+            let mut s = State::default();
+            s.pr.record_opened_urls = true;
+            let mut rt = rune::Runtime::new(s, test_view, (800.0, 300.0), rune::Env::new(true, 1.0));
+            rt.frame(0.0);
+            rt
+        };
+
+        let plain = render_msg("The first thing");
+        assert!(plain.find("user-link").is_none());
+        assert!(plain.elements().iter().any(|e| e.text.as_deref() == Some("The first thing")));
+
+        let mut bare_issue = render_msg("See https://github.com/acme/app/issues/3");
+        let issue_el = bare_issue.elements().into_iter().find(|e| e.key.as_deref() == Some("user-link")).expect("bare issue link");
+        assert_eq!(issue_el.role, "link");
+        assert_eq!(issue_el.text.as_deref(), Some("https://github.com/acme/app/issues/3"));
+        let (x, y) = bare_issue.find("user-link").unwrap();
+        bare_issue.pointer_down(x, y);
+        bare_issue.pointer_up(x, y);
+        bare_issue.frame(0.0);
+        assert_eq!(bare_issue.state.pr.opened_urls, vec!["https://github.com/acme/app/issues/3"]);
+
+        let bare_pr = render_msg("Opened https://github.com/acme/app/pull/42 today");
+        let pr_el = bare_pr.elements().into_iter().find(|e| e.key.as_deref() == Some("user-link")).expect("bare pr link");
+        assert_eq!(pr_el.text.as_deref(), Some("https://github.com/acme/app/pull/42"));
+        assert!(bare_pr.elements().iter().any(|e| e.text.as_deref() == Some("Opened ")));
+
+        let md_issue = render_msg("See [the issue](https://github.com/acme/app/issues/3).");
+        let md_el = md_issue.elements().into_iter().find(|e| e.key.as_deref() == Some("user-link")).expect("markdown issue link");
+        assert_eq!(md_el.text.as_deref(), Some("the issue"));
+        assert_eq!(md_el.label.as_deref(), Some("https://github.com/acme/app/issues/3"));
+        assert!(md_issue.find("pr-link-chip").is_none());
+    }
 }
 
 #[cfg(test)]

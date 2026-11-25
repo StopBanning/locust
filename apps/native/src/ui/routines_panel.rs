@@ -87,6 +87,8 @@ pub(super) struct Panel {
     pub save_from_shelf: Option<fn(&mut State, &str)>,
     /// The editor holds a draft from a conversation with more turns than a routine can hold.
     pub truncated: bool,
+    /// True when the editor is drawn for a remote browser session: the hook link stays on this computer.
+    pub remote_browser: bool,
 }
 /// A finished conversation on the shelf: its row, and what reading it back gave (None when it could not be read).
 #[derive(Clone)]
@@ -160,6 +162,7 @@ impl Default for Panel {
             read_saved: locust_core::routine_draft::read_saved,
             save_from_shelf: Some(save_conversation_from_shelf),
             truncated: false,
+            remote_browser: false,
         }
     }
 }
@@ -1085,58 +1088,68 @@ fn step_choices(s: &State, i: usize, p: &Palette) -> El {
 /// RoutineHookLink (RoutineDialog.tsx): link URL with Copy/New link, or Make link / status message,
 /// plus the relay privacy and Ask-mode warnings.
 fn hook_link_view(s: &State, p: &Palette) -> El {
-    use locust_core::routine_hooks::{HOOK_ASK, HOOK_WARNING};
+    use locust_core::routine_hooks::{HOOK_ASK, HOOK_WARNING, LINK_ON_THIS_COMPUTER};
     let panel = &s.routines;
     let routine_id = panel.entry["routineId"].as_str().filter(|id| !id.is_empty()).map(str::to_owned);
     let mut box_el = col().key("routine-hook-section").w_full().gap(6.0).padding(8.0).fill(p.field).radius(6.0);
-    match routine_id {
-        None => {
-            box_el = box_el.child(
-                text("Save the routine to make its link. Your phone, from anywhere must be on in Settings > Phone.")
-                    .font(type_::LABEL)
-                    .color(p.secondary)
-                    .wrap(),
-            );
-        }
-        Some(id) => {
-            let state = panel
-                .hook_state
-                .as_ref()
-                .filter(|(held_id, _)| held_id == &id)
-                .map(|(_, st)| st);
-            match state {
-                None => {
-                    box_el = box_el.child(text("Checking the phone relay…").font(type_::LABEL).color(p.secondary).wrap());
-                }
-                Some(st) => {
-                    if let Some(url) = &st.url {
-                        let copy_url = url.clone();
-                        let new_id = id.clone();
-                        let copy_label = if panel.hook_copied { "Copied" } else { "Copy" };
-                        box_el = box_el.child(
-                            row()
-                                .gap(8.0)
-                                .center_y()
-                                .child(text(url.clone()).key("routine-hook-url").font(type_::LABEL.mono()).color(p.text).wrap_anywhere().grow(1.0))
-                                .child(button(copy_label, p).key("routine-hook-copy").on_press_tx(move |s: &mut State, tx| {
-                                    tx.copy(copy_url.clone());
-                                    s.routines.hook_copied = true;
-                                }))
-                                .child(button("New link", p).key("routine-hook-new").disabled(panel.hook_busy).on_press(move |s: &mut State| {
-                                    read_hook(s, &new_id, true);
-                                })),
-                        );
+    if panel.remote_browser {
+        box_el = box_el.child(
+            text(LINK_ON_THIS_COMPUTER)
+                .key("routine-hook-remote-only")
+                .font(type_::LABEL)
+                .color(p.secondary)
+                .wrap(),
+        );
+    } else {
+        match routine_id {
+            None => {
+                box_el = box_el.child(
+                    text("Save the routine to make its link. Your phone, from anywhere must be on in Settings > Phone.")
+                        .font(type_::LABEL)
+                        .color(p.secondary)
+                        .wrap(),
+                );
+            }
+            Some(id) => {
+                let state = panel
+                    .hook_state
+                    .as_ref()
+                    .filter(|(held_id, _)| held_id == &id)
+                    .map(|(_, st)| st);
+                match state {
+                    None => {
+                        box_el = box_el.child(text("Checking the phone relay…").font(type_::LABEL).color(p.secondary).wrap());
                     }
-                    if let Some(msg) = &st.message {
-                        box_el = box_el.child(text(msg.clone()).key("routine-hook-message").font(type_::LABEL).color(p.secondary).wrap());
-                    }
-                    if st.url.is_none() && st.can_make {
-                        let make_id = id.clone();
-                        box_el = box_el.child(
-                            button("Make link", p).key("routine-hook-make").disabled(panel.hook_busy).on_press(move |s: &mut State| {
-                                read_hook(s, &make_id, true);
-                            }),
-                        );
+                    Some(st) => {
+                        if let Some(url) = &st.url {
+                            let copy_url = url.clone();
+                            let new_id = id.clone();
+                            let copy_label = if panel.hook_copied { "Copied" } else { "Copy" };
+                            box_el = box_el.child(
+                                row()
+                                    .gap(8.0)
+                                    .center_y()
+                                    .child(text(url.clone()).key("routine-hook-url").font(type_::LABEL.mono()).color(p.text).wrap_anywhere().grow(1.0))
+                                    .child(button(copy_label, p).key("routine-hook-copy").on_press_tx(move |s: &mut State, tx| {
+                                        tx.copy(copy_url.clone());
+                                        s.routines.hook_copied = true;
+                                    }))
+                                    .child(button("New link", p).key("routine-hook-new").disabled(panel.hook_busy).on_press(move |s: &mut State| {
+                                        read_hook(s, &new_id, true);
+                                    })),
+                            );
+                        }
+                        if let Some(msg) = &st.message {
+                            box_el = box_el.child(text(msg.clone()).key("routine-hook-message").font(type_::LABEL).color(p.secondary).wrap());
+                        }
+                        if st.url.is_none() && st.can_make {
+                            let make_id = id.clone();
+                            box_el = box_el.child(
+                                button("Make link", p).key("routine-hook-make").disabled(panel.hook_busy).on_press(move |s: &mut State| {
+                                    read_hook(s, &make_id, true);
+                                }),
+                            );
+                        }
                     }
                 }
             }
@@ -2581,6 +2594,30 @@ mod routine_hook_ui_tests {
         assert!(words.contains("Copy"));
         assert!(words.contains("New link"));
         assert!(words.contains("3 link calls were not run: calls are kept at most a week, with room for the newest 200 letters."));
+    }
+
+    // case: tells a browser the link stays on this computer, with no Copy or New link
+    #[test]
+    fn tells_a_browser_the_link_stays_on_this_computer_with_no_copy_or_new_link() {
+        use locust_core::routine_hooks::LINK_ON_THIS_COMPUTER;
+        let mut s = State::default();
+        s.teammates = native::parse_roster(
+            &json!({"schemaVersion":1,"teammates":[{"teammateId":"tm_wren","name":"Wren","role":"Code & Migrations","hue":"lime","createdAt":"2026-10-02T08:00:00.000Z"}]}).to_string(),
+        )
+        .unwrap();
+        edit(&mut s, json!({"name":"Event","steps":["Read the event"],"teammateId":"tm_wren","schedule":{"kind":"hook"}}));
+        s.routines.remote_browser = true;
+        let mut rt = rune::Runtime::new(s, |s, _| view(s, &Palette::new(true)), (1200.0, 1800.0), rune::Env::new(true, 1.0));
+        rt.frame(0.0);
+        let words: String = rt.elements().into_iter().filter_map(|e| e.text).collect::<Vec<_>>().join("\n");
+        assert!(words.contains(LINK_ON_THIS_COMPUTER), "{words}");
+        assert!(words.contains(HOOK_WARNING));
+        assert!(words.contains(HOOK_ASK));
+        assert!(!words.contains("Copy"));
+        assert!(!words.contains("New link"));
+        assert!(!words.contains("Make link"));
+        assert!(!words.contains("Save the routine to make its link."));
+        assert!(rt.find("routine-hook-url").is_none());
     }
 }
 

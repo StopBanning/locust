@@ -1607,13 +1607,18 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
     // Starters
     let roles: Vec<&str> = s.teammates.iter().map(|t| t.role.as_str()).collect();
     let starters = starters::starters_for_roles(&roles);
-    let links = row()
-        .gap(4.0)
-        .child(crate::look::controls::composer_chip(&l, None, START_FROM_ISSUE, false).on_press(|s: &mut State| {
-            s.status = format!("{START_FROM_ISSUE} — runs in Locust for now");
-            s.status_tone = StatusTone::Muted;
-        }))
-        .child(
+    let mut links = row().gap(4.0);
+    if crate::issue_list::offered(s) {
+        links = links.child(
+            crate::look::controls::composer_chip(&l, None, START_FROM_ISSUE, false)
+                .key("home-start-from-issue")
+                .on_press(|s: &mut State| {
+                    s.home.home_open = false;
+                    crate::issue_list::open_list(s);
+                }),
+        );
+    }
+    let links = links.child(
             crate::look::controls::composer_chip(
                 &l,
                 None,
@@ -2849,3 +2854,73 @@ mod page_starter_tests;
 #[cfg(test)]
 #[path = "home_starter_compares_tests.rs"]
 mod home_starter_compares_tests;
+
+#[cfg(test)]
+mod home_issue_starter_tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    // case: offers Start from an issue on Home only when the folder has issues to read
+    #[test]
+    fn offers_start_from_an_issue_on_home_only_when_the_folder_has_issues_to_read() {
+        let make_state = |ready: bool| {
+            let mut s = State::default();
+            s.home.home_open = true;
+            s.teammates = vec![locust_core::engine::Teammate {
+                id: "tm_wren".into(),
+                name: "Wren".into(),
+                role: "Code & Migrations".into(),
+                runtime: Some("codex".into()),
+                model: None,
+                account: None,
+                busy: false,
+                runs_in: "ask".into(),
+                folder: Some("/tmp/acme-hearth".into()),
+            }];
+            if ready {
+                s.issues.ready = Some((PathBuf::from("/tmp/acme-hearth"), true));
+            }
+            s
+        };
+
+        let mut rt_absent = rune::Runtime::new(
+            make_state(false),
+            |s, _| home_view(s, &Palette::new(true)),
+            (1200.0, 1400.0),
+            rune::Env::new(true, 1.0),
+        );
+        rt_absent.frame(0.0);
+        let absent_words: String = rt_absent.elements().into_iter().filter_map(|e| e.text).collect::<Vec<_>>().join("\n");
+        assert!(!absent_words.contains("Start from an issue"), "{absent_words}");
+        assert!(rt_absent.find("home-start-from-issue").is_none());
+
+        let mut rt_present = rune::Runtime::new(
+            make_state(true),
+            |s, _| home_view(s, &Palette::new(true)),
+            (1200.0, 1400.0),
+            rune::Env::new(true, 1.0),
+        );
+        rt_present.frame(0.0);
+        let present_words: String = rt_present.elements().into_iter().filter_map(|e| e.text).collect::<Vec<_>>().join("\n");
+        assert!(present_words.contains("Start from an issue"), "{present_words}");
+        assert!(!present_words.contains("Compare models on: Start from an issue"));
+        let (x, y) = rt_present.find("home-start-from-issue").expect("Start from an issue chip");
+        rt_present.pointer_down(x, y);
+        rt_present.pointer_up(x, y);
+        rt_present.frame(0.0);
+        assert!(!rt_present.state.home.home_open);
+        // The press was this chip's own, not a starter's beside it: no prompt was put in the box, no compare opened.
+        assert!(rt_present.state.draft.text.is_empty(), "the issue chip puts nothing in the message box");
+        assert!(rt_present.state.compare.picks.is_empty(), "and opens no comparison");
+    }
+
+    // Opening the Board takes Home's place: Home closes as the Board opens (merge check, Leftovers 1).
+    #[test]
+    fn opening_the_board_closes_home() {
+        let mut s = State::default();
+        s.home.home_open = true;
+        open_board(&mut s);
+        assert!(s.home.board_open, "the Board is open");
+        assert!(!s.home.home_open, "and Home is not drawn over it");
+    }
+}

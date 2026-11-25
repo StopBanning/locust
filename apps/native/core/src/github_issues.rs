@@ -10,8 +10,24 @@ use std::path::Path;
 
 /// At most this many of an issue's pictures are taken.
 pub const ISSUE_IMAGE_CAP: usize = 4;
+/// Maximum byte length of a single fetched issue image (4 MB, matching Electron's `IMAGE_BYTES`).
+pub const ISSUE_IMAGE_BYTES: usize = 4_000_000;
+const ISSUE_IMAGE_HOPS: usize = 3;
 const LIST_FIELDS: &str = "number,title,author,createdAt,labels,url";
 const VIEW_FIELDS: &str = "title,body,comments,labels,url";
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct IssueImage {
+    pub name: String,
+    pub bytes: Vec<u8>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ImageResponse {
+    pub status: u16,
+    pub location: Option<String>,
+    pub bytes: Vec<u8>,
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ListedIssue {
@@ -301,13 +317,110 @@ pub fn list(gh: &GhIn, folder: &Path) -> Vec<ListedIssue> {
     parse_issue_list(&gh(&["issue", "list", "--state", "open", "--limit", "30", "--json", LIST_FIELDS], folder).unwrap_or_else(|_| "[]".into()))
 }
 
-/// One issue, read for the box: its brief, and what the conversation remembers of it.
-pub fn open(gh: &GhIn, folder: &Path, number: u64) -> Option<(String, StartedIssue)> {
+/// `issue-<number>-<index+1>.<ext>`, defaulting to `.png` when the URL has no recognised image extension.
+pub fn issue_image_name(number: u64, index: usize, url: &str) -> String {
+    let base = url.split('?').next().unwrap_or(url);
+    let ext = base
+        .rsplit_once('.')
+        .map(|(_, e)| e.to_ascii_lowercase())
+        .and_then(|e| match e.as_str() {
+            "png" => Some("png"),
+            "jpg" | "jpeg" => Some("jpg"),
+            "gif" => Some("gif"),
+            "webp" => Some("webp"),
+            _ => None,
+        })
+        .unwrap_or("png");
+    format!("issue-{number}-{}.{ext}", index + 1)
+}
+
+fn read_one_image<F>(start: &str, get: &mut F) -> Option<Vec<u8>>
+where
+    F: FnMut(&str) -> Option<ImageResponse>,
+{
+    let mut current = allowed_image_url(start)?;
+    for hop in 0..=ISSUE_IMAGE_HOPS {
+        let resp = get(&current)?;
+        if (300..400).contains(&resp.status) {
+            let next = resp
+                .location
+                .as_deref()
+                .and_then(|loc| url::Url::parse(&current).ok()?.join(loc).ok())
+                .and_then(|u| allowed_image_url(u.as_str()));
+            if hop == ISSUE_IMAGE_HOPS {
+                return None;
+            }
+            current = next?;
+            continue;
+        }
+        if !(200..300).contains(&resp.status) || resp.bytes.is_empty() || resp.bytes.len() > ISSUE_IMAGE_BYTES {
+            return None;
+        }
+        return Some(resp.bytes);
+    }
+    None
+}
+
+/// Fetches the issue's GitHub-hosted pictures, stopping at any redirect that leaves GitHub's own hosts.
+pub fn read_issue_images<F>(issue: &ViewedIssue, mut get: F) -> Vec<IssueImage>
+where
+    F: FnMut(&str) -> Option<ImageResponse>,
+{
+    let mut texts: Vec<&str> = Vec::with_capacity(1 + issue.comments.len());
+    texts.push(issue.body.as_str());
+    for comment in &issue.comments {
+        texts.push(comment.body.as_str());
+    }
+    let urls = issue_image_urls(&texts);
+    let mut images = Vec::new();
+    for (index, url) in urls.iter().enumerate() {
+        if let Some(bytes) = read_one_image(url, &mut get) {
+            images.push(IssueImage { name: issue_image_name(issue.number, index, url), bytes });
+        }
+    }
+    images
+}
+
+/// Real HTTP fetch for an issue image: never follows redirects automatically so each hop is checked against GitHub's hosts.
+pub fn real_image_get(url: &str) -> Option<ImageResponse> {
+    use std::io::Read;
+    let agent = ureq::AgentBuilder::new()
+        .redirects(0)
+        .timeout(std::time::Duration::from_secs(20))
+        .build();
+    let resp = match agent.get(url).call() {
+        Ok(r) | Err(ureq::Error::Status(_, r)) => r,
+        Err(ureq::Error::Transport(_)) => return None,
+    };
+    let status = resp.status();
+    let location = resp.header("location").map(str::to_owned);
+    let mut bytes = Vec::new();
+    if (200..300).contains(&status) {
+        resp.into_reader()
+            .take((ISSUE_IMAGE_BYTES + 1) as u64)
+            .read_to_end(&mut bytes)
+            .ok()?;
+    }
+    Some(ImageResponse { status, location, bytes })
+}
+
+/// One issue, read for the box: its brief, what the conversation remembers of it, and any GitHub-hosted images.
+pub fn open_with_images<F>(gh: &GhIn, folder: &Path, number: u64, get: F) -> Option<(String, StartedIssue, Vec<IssueImage>)>
+where
+    F: FnMut(&str) -> Option<ImageResponse>,
+{
     if number < 1 {
         return None;
     }
     let issue = parse_issue_view(&gh(&["issue", "view", &number.to_string(), "--json", VIEW_FIELDS], folder).ok()?, number)?;
-    Some((issue_brief(&issue), StartedIssue { number: issue.number, title: issue.title.clone(), url: issue.url.clone() }))
+    let images = read_issue_images(&issue, get);
+    Some((issue_brief(&issue), StartedIssue { number: issue.number, title: issue.title.clone(), url: issue.url.clone() }, images))
+}
+
+/// One issue, read for the box: its brief, and what the conversation remembers of it.
+pub fn open(gh: &GhIn, folder: &Path, number: u64) -> Option<(String, StartedIssue)> {
+    let (brief, started, _) = open_with_images(gh, folder, number, |_| None)?;
+    Some((brief, started))
 }
 
 /// Check out `fix/<n>-<title>` in a teammate's own copy. Already there is left there. A checkout git refuses (other

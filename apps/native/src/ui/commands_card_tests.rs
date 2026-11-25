@@ -97,3 +97,45 @@ fn has_no_such_row_for_a_command_it_cannot_read_all_of_or_for_a_file_change() {
     edit.summary = "Edit a file".into();
     assert!(!drawn(edit).contains("In short:"));
 }
+
+// case: is amber on the card as a reach is
+#[test]
+fn is_amber_on_the_card_as_a_reach_is() {
+    let p = Palette::new(true);
+    let draw_els = |req: Request| {
+        let mut state = State::default();
+        state.pending_approval = Some(req);
+        let mut rt = Runtime::new(state, view, (800.0, 600.0), Env::new(true, 1.0));
+        rt.frame(0.0);
+        rt.elements()
+    };
+
+    let forced = draw_els(asked("git push --force origin main"));
+    let plain_careful = forced.iter().find(|e| e.key.as_deref() == Some("approval-plain")).expect("approval-plain");
+    assert_eq!(plain_careful.text_color, Some(p.amber));
+
+    let reach_els = draw_els(asked("shutdown /r /t 0"));
+    let reach = reach_els.iter().find(|e| e.key.as_deref() == Some("approval-reach")).expect("approval-reach");
+    assert_eq!(plain_careful.text_color, reach.text_color);
+
+    let status = draw_els(asked("git status"));
+    let plain_safe = status.iter().find(|e| e.key.as_deref() == Some("approval-plain")).expect("approval-plain");
+    assert_eq!(plain_safe.text_color, Some(p.text));
+    assert_ne!(plain_safe.text_color, Some(p.amber));
+}
+
+// case: goes to the phone with the command itself
+#[test]
+fn goes_to_the_phone_with_the_command_itself() {
+    let waiting = locust_core::phone_calls::phone_waiting(&asked("git push --force origin main"), Some("Wren".into()));
+    assert_eq!(waiting.exact.as_deref(), Some("git push --force origin main"));
+    let plain = waiting.plain.expect("plain summary on phone");
+    assert_eq!(plain.said, "Replaces main on origin with this computer’s version: commits there that are not on this computer are lost.");
+    assert!(plain.careful);
+
+    let mut q = asked("Which branch?");
+    q.kind = Kind::Question;
+    let q_waiting = locust_core::phone_calls::phone_waiting(&q, Some("Wren".into()));
+    assert!(q_waiting.exact.is_none());
+    assert!(q_waiting.plain.is_none());
+}

@@ -158,7 +158,14 @@ pub(super) fn with_owner_names(s: &mut State) {
     }
 }
 
+/// The palette head's bottom edge: lit (`border-hover`) while the query holds focus, hairline otherwise.
+pub(super) fn palette_head_edge(focused: bool, l: &crate::look::controls::Look) -> Color {
+    if focused { l.c("border-hover") } else { l.c("border-hairline") }
+}
+
 pub(super) fn command_palette(s: &State, p: &Palette) -> El {
+    let l = crate::look::controls::Look::new(p.dark);
+    let head_edge = palette_head_edge(s.palette_query.focused, &l);
     let actions = palette_matches(&s.palette_actions, &s.palette_query.text);
     let mut list = col().w_full().gap(2.0).padding(8.0);
     if actions.is_empty() {
@@ -218,29 +225,36 @@ pub(super) fn command_palette(s: &State, p: &Palette) -> El {
         .border(1.0, p.hairline)
         .child(
             col()
+                .key("palette-head")
                 .w_full()
-                .padding(12.0)
-                .gap(8.0)
                 .child(
-                    text("Command palette")
-                        .font(type_::LABEL)
-                        .color(p.secondary),
-                )
-                .child(
-                    text_input(&s.palette_query, type_::BODY)
-                        .key("palette-query")
-                        .on_input_key(on_key)
+                    col()
                         .w_full()
-                        .color(p.text)
-                        .placeholder("Search conversations, or type a command…", p.muted)
-                        .padding(10.0)
-                        .radius(6.0)
-                        .fill(p.field)
-                        .on_edit(|s: &mut State| {
-                            s.palette_index = 0;
-                            &mut s.palette_query
-                        }),
-                ),
+                        .padding(12.0)
+                        .gap(8.0)
+                        .child(
+                            text("Command palette")
+                                .font(type_::LABEL)
+                                .color(p.secondary),
+                        )
+                        .child(
+                            text_input(&s.palette_query, type_::BODY)
+                                .key("palette-query")
+                                .no_focus_ring()
+                                .on_input_key(on_key)
+                                .w_full()
+                                .color(p.text)
+                                .placeholder("Search conversations, or type a command…", p.muted)
+                                .padding(10.0)
+                                .radius(6.0)
+                                .fill(p.field)
+                                .on_edit(|s: &mut State| {
+                                    s.palette_index = 0;
+                                    &mut s.palette_query
+                                }),
+                        ),
+                )
+                .child(el().key("palette-head-edge").w_full().h(1.0).fill(head_edge)),
         )
         .child(
             col()
@@ -349,5 +363,54 @@ mod tests {
             .expect("save-record palette action");
         assert_eq!(entry.group, "This conversation");
         assert_eq!(entry.label, "Save the record…");
+    }
+
+    // case: turns the global focus ring off at a specificity that beats it
+    #[test]
+    fn turns_the_global_focus_ring_off_at_a_specificity_that_beats_it() {
+        let mut s = State::default();
+        s.palette_open = true;
+        s.palette_query.focused = true;
+        let mut rt = rune::Runtime::new(
+            s,
+            |s, _| command_palette(s, &Palette::new(true)),
+            (600.0, 500.0),
+            rune::Env::new(true, 1.0),
+        );
+        rt.frame(0.0);
+        assert!(rt.find("palette-query").is_some());
+        let src = include_str!("command_palette.rs");
+        let at = src.find(r#".key("palette-query")"#).expect("palette-query");
+        let block = &src[at..at + 180];
+        assert!(block.contains(".no_focus_ring()"), "palette-query must suppress the global focus ring: {block}");
+        assert!(!block.contains(".focus_ring("), "palette-query must not wear an inner focus ring: {block}");
+    }
+
+    // case: keeps the head’s lit edge as the focus it shows
+    #[test]
+    fn keeps_the_heads_lit_edge_as_the_focus_it_shows() {
+        let l = crate::look::controls::Look::new(true);
+        let draw = |focused: bool| {
+            let mut s = State::default();
+            s.palette_open = true;
+            s.palette_query.focused = focused;
+            let mut rt = rune::Runtime::new(
+                s,
+                |s, _| command_palette(s, &Palette::new(true)),
+                (600.0, 500.0),
+                rune::Env::new(true, 1.0),
+            );
+            rt.frame(0.0);
+            rt.elements()
+                .into_iter()
+                .find(|e| e.key.as_deref() == Some("palette-head-edge"))
+                .expect("palette-head-edge")
+                .fill
+        };
+        let lit = draw(true);
+        let dim = draw(false);
+        assert_eq!(lit, l.c("border-hover"));
+        assert_eq!(dim, l.c("border-hairline"));
+        assert_ne!(lit, dim);
     }
 }

@@ -1463,8 +1463,8 @@ apps/desktop/src/main/an-image-preview-stays-in-its-folder.test.ts	refuses a pat
 apps/desktop/src/main/an-image-preview-stays-in-its-folder.test.ts	reads a comparison column from its own copy and never substitutes the workspace	yes
 apps/desktop/src/main/an-image-preview-stays-in-its-folder.test.ts	refuses a link that leads outside the conversation	yes
 apps/desktop/src/main/an-image-preview-stays-in-its-folder.test.ts	draws no SVG, network URL, missing file, folder, or oversized image	yes
-apps/desktop/src/main/an-issue-image-comes-only-from-github.test.ts	fetches a picture only from GitHub's own hosts, and stops at a redirect that leaves them	no
-apps/desktop/src/main/an-issue-image-comes-only-from-github.test.ts	follows a redirect that stays on GitHub's hosts	no
+apps/desktop/src/main/an-issue-image-comes-only-from-github.test.ts	fetches a picture only from GitHub's own hosts, and stops at a redirect that leaves them	yes
+apps/desktop/src/main/an-issue-image-comes-only-from-github.test.ts	follows a redirect that stays on GitHub's hosts	yes
 apps/desktop/src/main/an-issue-link-wears-its-state.test.ts	is an issue, beside the pull request with the same address shape	yes
 apps/desktop/src/main/an-issue-link-wears-its-state.test.ts	finds a bare issue in a sentence, and a written one, beside the pull request	yes
 apps/desktop/src/main/an-issue-link-wears-its-state.test.ts	refuses anything that is not an owner, a repo and a number	yes
@@ -2378,8 +2378,8 @@ apps/desktop/src/main/other-apps-reach-locust-through-stdio.test.ts	forwards an 
 apps/desktop/src/main/other-apps-reach-locust-through-stdio.test.ts	never sends a token to a non-loopback address from a modified profile file	yes
 apps/desktop/src/main/other-apps-reach-locust-through-stdio.test.ts	refuses unknown tools and methods without forwarding them	yes
 apps/desktop/src/main/other-apps-reach-locust-through-stdio.test.ts	does not return a bearer token or connection metadata in the window settings	yes
-apps/desktop/src/main/palette-has-no-inner-ring.test.ts	turns the global focus ring off at a specificity that beats it	no
-apps/desktop/src/main/palette-has-no-inner-ring.test.ts	keeps the head’s lit edge as the focus it shows	no
+apps/desktop/src/main/palette-has-no-inner-ring.test.ts	turns the global focus ring off at a specificity that beats it	yes
+apps/desktop/src/main/palette-has-no-inner-ring.test.ts	keeps the head’s lit edge as the focus it shows	yes
 apps/desktop/src/main/pasted-attachment.test.ts	lands inside the one folder Locust owns	yes
 apps/desktop/src/main/pasted-attachment.test.ts	cannot climb out of it, however it is spelled	yes
 apps/desktop/src/main/pasted-attachment.test.ts	never overwrites something already attached	yes
@@ -3203,7 +3203,7 @@ apps/desktop/src/main/the-starter-routines-are-routines.test.ts	previews by id, 
 apps/desktop/src/main/the-starter-routines-are-routines.test.ts	asks for a folder first in its own words, not the words for a file	no
 apps/desktop/src/main/the-stop-button-is-round-and-centred.test.ts	is a disc with no border, its ring and glow drawn inside the edge	yes
 apps/desktop/src/main/the-stop-button-is-round-and-centred.test.ts	holds libraries.dev's square, scaled to the send's seat -- 12 of 36 is about 14 of 40	yes
-apps/desktop/src/main/the-stop-button-is-round-and-centred.test.ts	wears a beam lifted past the package mono, by its own per-layer hooks	no
+apps/desktop/src/main/the-stop-button-is-round-and-centred.test.ts	wears a beam lifted past the package mono, by its own per-layer hooks	yes
 apps/desktop/src/main/the-stop-button-is-round-and-centred.test.ts	is even in an even box, so it lands on whole pixels wherever the row does	yes
 apps/desktop/src/main/the-team-is-a-board.test.ts	has a class of its own: `.lc-board` is the room task board, a flex COLUMN	yes
 apps/desktop/src/main/the-team-is-a-board.test.ts	tints only where a person should look: amber waiting, green unseen	yes
@@ -3629,7 +3629,7 @@ apps/desktop/src/renderer/src/a-call-sums-up-what-it-handed-out.test.tsx	leaves 
 apps/desktop/src/renderer/src/a-call-sums-up-what-it-handed-out.test.tsx	begins again with each call, and a call from Home keeps nothing	no
 apps/desktop/src/renderer/src/a-call-sums-up-what-it-handed-out.test.tsx	is refused when saved only for a to-do no call could hold	no
 apps/desktop/src/renderer/src/a-called-link-says-what-leaves-the-computer.test.tsx	offers the new kind and its privacy and Ask words, with a save-first message for a new routine	yes
-apps/desktop/src/renderer/src/a-called-link-says-what-leaves-the-computer.test.tsx	tells a browser the link stays on this computer, with no Copy or New link	no
+apps/desktop/src/renderer/src/a-called-link-says-what-leaves-the-computer.test.tsx	tells a browser the link stays on this computer, with no Copy or New link	yes
 apps/desktop/src/renderer/src/a-cancelled-run-spent-nothing.test.ts	says nothing at all about a run that reported nothing	yes
 apps/desktop/src/renderer/src/a-cancelled-run-spent-nothing.test.ts	never puts a conversation-scoped fact on the mission strip	yes
 apps/desktop/src/renderer/src/a-cancelled-run-spent-nothing.test.ts	shows THIS run when this run reported one	yes
@@ -3731,8 +3731,8 @@ apps/desktop/src/renderer/src/a-commands-card-says-unknown-once.test.tsx	stay tw
 apps/desktop/src/renderer/src/a-commands-card-says-what-it-is-for.test.tsx	says what a forced push does, under the command, in amber	yes
 apps/desktop/src/renderer/src/a-commands-card-says-what-it-is-for.test.tsx	says it plainly, without amber, for one that only looks	yes
 apps/desktop/src/renderer/src/a-commands-card-says-what-it-is-for.test.tsx	has no such row for a command it cannot read all of, or for a file change	yes
-apps/desktop/src/renderer/src/a-commands-card-says-what-it-is-for.test.tsx	is amber on the card as a reach is	no
-apps/desktop/src/renderer/src/a-commands-card-says-what-it-is-for.test.tsx	goes to the phone with the command itself	no
+apps/desktop/src/renderer/src/a-commands-card-says-what-it-is-for.test.tsx	is amber on the card as a reach is	yes
+apps/desktop/src/renderer/src/a-commands-card-says-what-it-is-for.test.tsx	goes to the phone with the command itself	yes
 apps/desktop/src/renderer/src/a-compaction-is-a-line-not-a-reply.test.ts	is drawn as a line saying so, not as the summary or the note to the model	yes
 apps/desktop/src/renderer/src/a-compare-column-is-named-by-its-family.test.ts	Cursor’s Argon on its Low id is "Gemini 4 Argon", the level being its own control	yes
 apps/desktop/src/renderer/src/a-compare-column-is-named-by-its-family.test.ts	before the catalogue answers, the route is named as before	yes
@@ -4221,8 +4221,8 @@ apps/desktop/src/renderer/src/a-pull-link-is-read-once.test.ts	reads every few m
 apps/desktop/src/renderer/src/a-pull-link-is-read-once.test.ts	reads nothing when gh cannot	yes
 apps/desktop/src/renderer/src/a-pull-request-chip-says-its-state.test.tsx	names the pull request by number and state, with GitHub’s mark, and the whole line on hover	yes
 apps/desktop/src/renderer/src/a-pull-request-chip-says-its-state.test.tsx	wears its checks’ tone while open, and merged’s own once merged	yes
-apps/desktop/src/renderer/src/a-pull-request-link-wears-its-state.test.tsx	wears the state in words, and the checks as one mark	no
-apps/desktop/src/renderer/src/a-pull-request-link-wears-its-state.test.tsx	makes a bare pull request in the person's message a link, and a bare issue one too	no
+apps/desktop/src/renderer/src/a-pull-request-link-wears-its-state.test.tsx	wears the state in words, and the checks as one mark	yes
+apps/desktop/src/renderer/src/a-pull-request-link-wears-its-state.test.tsx	makes a bare pull request in the person's message a link, and a bare issue one too	yes
 apps/desktop/src/renderer/src/a-question-is-answered-by-number.test.ts	chooses that option of the first question still without one	yes
 apps/desktop/src/renderer/src/a-question-is-answered-by-number.test.ts	answers the question the focus is in, even one already answered	yes
 apps/desktop/src/renderer/src/a-question-is-answered-by-number.test.ts	does nothing while typing, with a modifier held, past the options, or for other keys	yes
@@ -4893,14 +4893,14 @@ apps/desktop/src/renderer/src/chat-apps-say-each-step-in-settings.test.tsx	walks
 apps/desktop/src/renderer/src/chat-apps-say-each-step-in-settings.test.tsx	walks Slack from the app it makes in one step to its two tokens and the code	yes
 apps/desktop/src/renderer/src/chat-apps-say-each-step-in-settings.test.tsx	walks Telegram from BotFather to the link that pairs a chat	yes
 apps/desktop/src/renderer/src/chat-apps-say-each-step-in-settings.test.tsx	offers, once paired, to tell you there when something needs you: off until turned on, saying what is sent (0.837)	yes
-apps/desktop/src/renderer/src/choosing-an-issue-sends-nothing.test.tsx	lists the issue and does not send by being chosen	no
-apps/desktop/src/renderer/src/choosing-an-issue-sends-nothing.test.tsx	offers Start from an issue on Home only when the folder has issues to read	no
+apps/desktop/src/renderer/src/choosing-an-issue-sends-nothing.test.tsx	lists the issue and does not send by being chosen	yes
+apps/desktop/src/renderer/src/choosing-an-issue-sends-nothing.test.tsx	offers Start from an issue on Home only when the folder has issues to read	yes
 apps/desktop/src/renderer/src/claudes-cloud-says-what-it-works-on.test.tsx	says a folder not on GitHub starts with no project, and offers the folders that are	yes
 apps/desktop/src/renderer/src/code-in-a-reply-is-coloured.test.tsx	knows a fence by the words people write on it	yes
-apps/desktop/src/renderer/src/code-in-a-reply-is-coloured.test.tsx	knows an opened file’s language by its name	no
+apps/desktop/src/renderer/src/code-in-a-reply-is-coloured.test.tsx	knows an opened file’s language by its name	yes
 apps/desktop/src/renderer/src/code-in-a-reply-is-coloured.test.tsx	is coloured with the theme’s own variables, and keeps every character	yes
 apps/desktop/src/renderer/src/code-in-a-reply-is-coloured.test.tsx	stays plain in a language it does not carry, or when too large	yes
-apps/desktop/src/renderer/src/code-in-a-reply-is-coloured.test.tsx	draws plain first, and coloured at once when it was coloured before; never while it is being written	no
+apps/desktop/src/renderer/src/code-in-a-reply-is-coloured.test.tsx	draws plain first, and coloured at once when it was coloured before; never while it is being written	yes
 apps/desktop/src/renderer/src/codex-buddy-lifts-in-sets.test.ts	ask only for poses his rig can take: every joint a number, every pass a length	yes
 apps/desktop/src/renderer/src/codex-buddy-lifts-in-sets.test.ts	working, go round every lift he has, a breather after each	yes
 apps/desktop/src/renderer/src/codex-buddy-lifts-in-sets.test.ts	all standing, beside a name or not: no squat, his body never dipping more than a rep’s effort	yes
@@ -5299,7 +5299,7 @@ apps/desktop/src/renderer/src/links-go-somewhere.test.ts	leaves a plain link and
 apps/desktop/src/renderer/src/links-go-somewhere.test.ts	keeps a code span literal even when it looks like a link	yes
 apps/desktop/src/renderer/src/links-go-somewhere.test.ts	accepts an ordinary web address	yes
 apps/desktop/src/renderer/src/links-go-somewhere.test.ts	refuses every way of reaching this machine	yes
-apps/desktop/src/renderer/src/links-go-somewhere.test.ts	still opens the three addresses the app itself links to	no
+apps/desktop/src/renderer/src/links-go-somewhere.test.ts	still opens the three addresses the app itself links to	yes
 apps/desktop/src/renderer/src/links-go-somewhere.test.ts	names where a link actually goes, so a label cannot lie about it	yes
 apps/desktop/src/renderer/src/locust-bots-keep-their-eyes-on-their-heads.test.ts	draws its wings behind the body, so an eye can never be drawn on one	yes
 apps/desktop/src/renderer/src/locust-bots-keep-their-eyes-on-their-heads.test.ts	keeps the leading eye on its head at the widest idle glance	yes
@@ -6386,8 +6386,8 @@ apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.tes
 apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.test.tsx	is hidden in a browser, and sits under the theme on the Appearance page	yes
 apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.test.tsx	the panel runs from the window's top inset to its bottom inset, as wide as the sidebar, or is none	yes
 apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.test.tsx	the panel the page asks for is the shape the sheet washes	yes
-apps/desktop/src/renderer/src/the-model-chip-shows-usage-on-hover.test.tsx	opens the agent's card, with a bar for each window, placed for the chip	no
-apps/desktop/src/renderer/src/the-model-chip-shows-usage-on-hover.test.tsx	draws it on hover or focus, above and to the right, rather than leaving it to the system tooltip	no
+apps/desktop/src/renderer/src/the-model-chip-shows-usage-on-hover.test.tsx	opens the agent's card, with a bar for each window, placed for the chip	yes
+apps/desktop/src/renderer/src/the-model-chip-shows-usage-on-hover.test.tsx	draws it on hover or focus, above and to the right, rather than leaving it to the system tooltip	yes
 apps/desktop/src/renderer/src/the-newest-group-stays-folded.test.tsx	is a line, folded until pressed, as Claude Code draws it	no
 apps/desktop/src/renderer/src/the-orb-never-contradicts-the-row.test.ts	a shell command is working	yes
 apps/desktop/src/renderer/src/the-orb-never-contradicts-the-row.test.ts	a subagent is weaving, and a connector is connecting	yes
@@ -6462,7 +6462,7 @@ apps/desktop/src/renderer/src/the-runtimes-wear-their-marks.test.tsx	wears none 
 apps/desktop/src/renderer/src/the-runtimes-wear-their-marks.test.tsx	in the sidebar's row of faces, says which model is who -- and nothing on a model of their own	yes
 apps/desktop/src/renderer/src/the-screens-say-less.test.ts	is the runtime’s name alone, wherever routes are spelled	yes
 apps/desktop/src/renderer/src/the-screens-say-less.test.ts	keeps what follows the model’s name, and every other model as it was	yes
-apps/desktop/src/renderer/src/the-screens-say-less.test.ts	says what a person pays, or that a model is free, and nothing for counted tokens	no
+apps/desktop/src/renderer/src/the-screens-say-less.test.ts	says what a person pays, or that a model is free, and nothing for counted tokens	yes
 apps/desktop/src/renderer/src/the-screens-say-less.test.ts	lists conversations, each named by its first words, not each turn of one	yes
 apps/desktop/src/renderer/src/the-talk-button-sits-beside-the-microphone.test.tsx	is a button named Talk, saying what the call can and cannot do	yes
 apps/desktop/src/renderer/src/the-talk-button-sits-beside-the-microphone.test.tsx	is there on a Mac too, and so is Talk's voice in Settings (the first Mac run, 2026-10-30)	no

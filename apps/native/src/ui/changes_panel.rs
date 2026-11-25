@@ -1059,11 +1059,9 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                                 file =
                                     file.child(text(format!("{} {}", h.range(), h.heading)).color(p.muted));
                                 let (before, after) = h.sides();
-                                let lang = std::path::Path::new(&f.path)
-                                    .extension()
-                                    .and_then(|p| p.to_str());
-                                let bh = rune_kit::syntax::highlight(lang, &before);
-                                let ah = rune_kit::syntax::highlight(lang, &after);
+                                let lang = crate::reply_actions::language_of_path(&f.path);
+                                let bh = rune_kit::syntax::highlight(lang.as_deref(), &before);
+                                let ah = rune_kit::syntax::highlight(lang.as_deref(), &after);
                                 let mut offsets = (0, 0);
                                 let mut hidden = 0;
                                 let keep_mask = changes::kept_context(&h.rows);
