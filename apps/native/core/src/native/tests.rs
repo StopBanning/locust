@@ -3860,6 +3860,40 @@ fn a_bounded_shutdown_ends_at_its_deadline_when_a_turn_never_settles_and_at_once
     assert!(took >= Duration::from_millis(300) && took < Duration::from_secs(5), "ended at its deadline: {took:?}");
 }
 
+/// bounded-shutdown.test.ts's late landing. The app waits for the shutdown twice, through the engine API: on quit
+/// (main.rs on_quit) and again once the window is gone (main.rs after run). A turn that lands after the deadline does
+/// not make either wait again: the first ends at the deadline, the second at once.
+// case: does not leave twice when the work lands right after the deadline
+#[test]
+fn a_shutdown_past_its_deadline_is_not_waited_for_again_when_the_turn_lands_late() {
+    let t = Temp::new();
+    let _g = hooks::install(t.store(), None);
+    let flag = Arc::new(AtomicBool::new(false));
+    with_running(|m| m.insert("turn_that_lands_late".into(), flag.clone()));
+    // Each wait on its own thread, so a wait that never ends fails here instead of hanging the suite.
+    // Timed from `begun`, taken before the shutdown starts its deadline, not from when the waiting thread ran.
+    let timed_wait = |begun: Instant| {
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            crate::engine_api::api().wait_for_shutdown();
+            let _ = tx.send(begun.elapsed());
+        });
+        rx.recv_timeout(Duration::from_secs(5))
+    };
+    let begun = Instant::now();
+    shutdown_in_background_for(Duration::from_millis(600));
+    let first = timed_wait(begun);
+    let still_running = with_running(|m| m.contains_key("turn_that_lands_late"));
+    with_running(|m| m.remove("turn_that_lands_late"));
+    let first = first.expect("the quit's wait ended at its deadline, not when the turn landed");
+    assert!(flag.load(Ordering::Relaxed), "the turn was told to stop");
+    assert!(still_running, "the turn had not landed when the wait ended");
+    assert!(first >= Duration::from_millis(600), "the quit waited until its deadline: {first:?}");
+    // The turn lands now, after the deadline; the wait after the window is gone does not begin again.
+    let second = timed_wait(Instant::now()).expect("the second wait ended");
+    assert!(second < Duration::from_millis(300), "the second wait ended at once, not after another deadline: {second:?}");
+}
+
 /// an-app-server-that-cannot-start-says-so.test.ts: a CLI moved or deleted since discovery. Electron's child had no
 /// error listener, so the failure threw in the main process and the turn waited out its 60 s. Rust's spawn answers the
 /// failure at once (Codex::spawn returns it; stderr is never piped, so nothing can fill), and the turn says so promptly.

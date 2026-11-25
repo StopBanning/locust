@@ -95,8 +95,8 @@ apps/desktop/src/main/a-called-link-starts-its-routine.test.ts	keeps the body af
 apps/desktop/src/main/a-called-link-starts-its-routine.test.ts	validates the kind, never schedules it by time, and bounds hostile fences to the existing brief budget	yes
 apps/desktop/src/main/a-card-answer-is-recorded-past-64-open-cards.test.ts	still has the first card when its answer comes after 80 more were raised and answered	yes
 apps/desktop/src/main/a-card-answer-is-recorded-past-64-open-cards.test.ts	keeps at most 64 cards still waiting, the newest; the oldest waiting one goes	no
-apps/desktop/src/main/a-card-answer-is-recorded-past-64-open-cards.test.ts	forgets an answered card, keeps who it was raised for until then, and an unknown id is nothing	no
-apps/desktop/src/main/a-card-answer-is-recorded-past-64-open-cards.test.ts	the answer funnel forgets the card right after recording it (source guard)	no
+apps/desktop/src/main/a-card-answer-is-recorded-past-64-open-cards.test.ts	forgets an answered card, keeps who it was raised for until then, and an unknown id is nothing	yes
+apps/desktop/src/main/a-card-answer-is-recorded-past-64-open-cards.test.ts	the answer funnel forgets the card right after recording it (source guard)	yes
 apps/desktop/src/main/a-change-is-walked-through.test.ts	is the files, the change, what was asked and what it said, with the shape to answer in	yes
 apps/desktop/src/main/a-change-is-walked-through.test.ts	is the summary and a note on each file the change has, in the order given	yes
 apps/desktop/src/main/a-change-is-walked-through.test.ts	finds a file by its end or its name, and leaves out one the change does not have	yes
@@ -1660,7 +1660,7 @@ apps/desktop/src/main/approve-each-reaches-every-start.test.ts	the host starts t
 apps/desktop/src/main/ask-asks-before-a-connector.test.ts	are none in Ask or Plan: every call goes to the card	yes
 apps/desktop/src/main/ask-asks-before-a-connector.test.ts	are the named ones in Edit, as before	yes
 apps/desktop/src/main/ask-asks-before-a-connector.test.ts	are none when the person asked to be asked about every one, or none are named	yes
-apps/desktop/src/main/ask-asks-before-a-connector.test.ts	runs without the person’s connectors, and with them once one is ticked	no
+apps/desktop/src/main/ask-asks-before-a-connector.test.ts	runs without the person’s connectors, and with them once one is ticked	yes
 apps/desktop/src/main/ask-me-first-covers-changes.test.ts	waits beside the kept memory, which stays as it was and briefed	yes
 apps/desktop/src/main/ask-me-first-covers-changes.test.ts	a second rewrite before the person answers updates the same proposal	yes
 apps/desktop/src/main/ask-me-first-covers-changes.test.ts	Keep the change rewrites the kept memory, one step back kept, and the proposal goes	yes
@@ -1728,7 +1728,7 @@ apps/desktop/src/main/block-placement.test.ts	is used by every briefing that ask
 apps/desktop/src/main/bounded-shutdown.test.ts	leaves on its own when the work never settles	yes
 apps/desktop/src/main/bounded-shutdown.test.ts	leaves as soon as the work is done, and not again at the deadline	yes
 apps/desktop/src/main/bounded-shutdown.test.ts	reports a failed flush as a failure rather than as a clean exit	no
-apps/desktop/src/main/bounded-shutdown.test.ts	does not leave twice when the work lands right after the deadline	no
+apps/desktop/src/main/bounded-shutdown.test.ts	does not leave twice when the work lands right after the deadline	yes
 apps/desktop/src/main/changelog.test.ts	finds every entry, newest first, in the order the file writes them	yes
 apps/desktop/src/main/changelog.test.ts	gives an entry its body and not its heading	yes
 apps/desktop/src/main/changelog.test.ts	keeps a multi-line entry whole	yes
@@ -7451,8 +7451,8 @@ packages/runtime-adapters/test/a-server-whose-storage-is-busy-starts-again.test.
 packages/runtime-adapters/test/a-session-openCode-cannot-continue-is-not-resumed.test.ts	is reported as ended, so the next message starts a fresh one	yes
 packages/runtime-adapters/test/a-session-openCode-cannot-continue-is-not-resumed.test.ts	is not claimed for any other failure	yes
 packages/runtime-adapters/test/a-side-question-forks-the-session.test.ts	forks a Claude Code session: --resume, then --fork-session	yes
-packages/runtime-adapters/test/a-side-question-forks-the-session.test.ts	forks an OpenCode session: -s, then --fork	no
-packages/runtime-adapters/test/a-side-question-forks-the-session.test.ts	adds no fork flag without a session, or to an ordinary follow-up	no
+packages/runtime-adapters/test/a-side-question-forks-the-session.test.ts	forks an OpenCode session: -s, then --fork	yes
+packages/runtime-adapters/test/a-side-question-forks-the-session.test.ts	adds no fork flag without a session, or to an ordinary follow-up	yes
 packages/runtime-adapters/test/a-slow-runtime-is-shown-as-checking.test.ts	is shown as installed and being checked -- never as signed out or missing -- while its check goes on	yes
 packages/runtime-adapters/test/a-slow-runtime-is-shown-as-checking.test.ts	says a runtime that is not installed is not installed, at once	yes
 packages/runtime-adapters/test/a-slow-runtime-is-shown-as-checking.test.ts	answers exactly as the all-at-once call does	yes
@@ -7531,7 +7531,7 @@ packages/runtime-adapters/test/agy-events.test.ts	a conversation the CLI does no
 packages/runtime-adapters/test/an-acp-output-stream-closing-ends-the-turn.test.ts	fails a live child once rather than waiting for the prompt timeout	yes
 packages/runtime-adapters/test/an-acp-output-stream-closing-ends-the-turn.test.ts	reports an output error without needing a process exit	yes
 packages/runtime-adapters/test/an-acp-output-stream-closing-ends-the-turn.test.ts	keeps the final prompt answer in the last chunk before EOF	yes
-packages/runtime-adapters/test/an-acp-output-stream-closing-ends-the-turn.test.ts	does not begin a session from an initialize answer followed by EOF	no
+packages/runtime-adapters/test/an-acp-output-stream-closing-ends-the-turn.test.ts	does not begin a session from an initialize answer followed by EOF	yes
 packages/runtime-adapters/test/an-acp-output-stream-closing-ends-the-turn.test.ts	does not resurrect a handshake after cancellation or its late answer	yes
 packages/runtime-adapters/test/an-acp-output-stream-closing-ends-the-turn.test.ts	does not send a prompt if cancellation races the session answer	yes
 packages/runtime-adapters/test/an-acp-output-stream-closing-ends-the-turn.test.ts	does not begin a session after the capabilities callback cancels the run	yes
@@ -8262,6 +8262,9 @@ packages/runtime-adapters/test/runtime-adapters.test.ts	finds Claude Code's npm 
 packages/runtime-adapters/test/runtime-adapters.test.ts	reports nothing when the runtime is genuinely absent	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	searches no install root for a command it does not know	yes
 packages/runtime-adapters/test/stop-reaches-the-tree.test.ts	kills a grandchild the run started, not just the process it launched	no
+packages/runtime-adapters/test/runtime-adapters.test.ts	reports nothing when the runtime is genuinely absent	no
+packages/runtime-adapters/test/runtime-adapters.test.ts	searches no install root for a command it does not know	no
+packages/runtime-adapters/test/stop-reaches-the-tree.test.ts	kills a grandchild the run started, not just the process it launched	yes
 packages/runtime-adapters/test/the-browser-shares-one-flag-with-the-bridge.test.ts	is named in the same --mcp-config as the permission bridge, which stays with its prompt tool	no
 packages/runtime-adapters/test/the-browser-shares-one-flag-with-the-bridge.test.ts	joins the connectors' rules in one --allowedTools	yes
 packages/runtime-adapters/test/the-browser-shares-one-flag-with-the-bridge.test.ts	is still the only --mcp-config in Auto, where there is no bridge and no rule is needed	yes

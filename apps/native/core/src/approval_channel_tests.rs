@@ -216,6 +216,50 @@ fn still_has_the_first_card_when_its_answer_comes_after_80_more_were_raised_and_
 }
 
 #[test]
+fn forgets_an_answered_card_and_keeps_who_it_was_raised_for_until_then() {
+    // case: forgets an answered card, keeps who it was raised for until then, and an unknown id is nothing
+    let host = channel();
+    host.channel.register_teammate("mission_1", "tm_wren");
+    let waiting = ask(&host, "mission_1", COMMAND, json!({"command": "echo 1"}), None);
+    let card = cards(&host, 1).remove(0);
+    assert_eq!(host.channel.teammate_for(&card.mission_id).as_deref(), Some("tm_wren"));
+    decide(&host, &card, Decision::ApproveOnce).unwrap();
+    assert!(host.channel.waiting().is_empty());
+    assert!(decide(&host, &card, Decision::ApproveOnce).is_err(), "an answered card is forgotten");
+    assert!(host.channel.decide(Answer::Decision { approval_id: "ap_nope".into(), decision: Decision::ApproveOnce, reason: None }).is_err());
+    assert_eq!(host.channel.pending_count(), 0);
+    assert_eq!(decision_of(answered(waiting)), "accept");
+}
+
+/// Electron guards index.ts's answerApproval by its source: it records the answer, then forgets the card. Rust's
+/// funnel is native::decide_approval (what the window and the engine call), and the same holds by behaviour: once it
+/// returns, the answer waits for the ledger and the card is gone.
+#[test]
+fn the_answer_funnel_records_the_answer_and_forgets_the_card_at_once() {
+    // case: the answer funnel forgets the card right after recording it (source guard)
+    let _host = channel();
+    let channel = crate::native::approvals_channel();
+    let asking = channel.clone();
+    let waiting = std::thread::spawn(move || {
+        asking.ask_codex_with_changes("run_mission_funnel", "mission_funnel", "codex", COMMAND, &json!({"command": "echo 1"}), json!(1), None, &|| false)
+    });
+    let deadline = Instant::now() + crate::load_waits::UNDER_LOAD;
+    let card = loop {
+        if let Some(card) = crate::native::waiting_approvals_for("mission_funnel").pop() {
+            break card;
+        }
+        assert!(Instant::now() < deadline, "the card was never raised");
+        std::thread::sleep(Duration::from_millis(5));
+    };
+    crate::native::decide_approval(&card.approval_id, Decision::ApproveOnce, None).unwrap();
+    assert!(crate::native::waiting_approvals_for("mission_funnel").is_empty(), "the card is forgotten");
+    let recorded = channel.take_recorded_for("mission_funnel");
+    assert_eq!(recorded.iter().map(|r| r.approval_id.as_str()).collect::<Vec<_>>(), [card.approval_id.as_str()], "the answer is recorded");
+    assert!(crate::native::decide_approval(&card.approval_id, Decision::ApproveOnce, None).is_err());
+    assert_eq!(decision_of(answered(waiting)), "accept");
+}
+
+#[test]
 fn will_not_let_a_question_be_answered_with_a_decision_or_the_reverse() {
     let host = channel();
     let waiting = ask(&host, "mission_1", QUESTION, json!({"questions": [{"id": "q1", "question": "Which branch?", "options": [{"label": "main"}]}]}), None);
