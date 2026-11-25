@@ -201,3 +201,25 @@ fn runs_nothing_without_words_to_run_or_with_a_stop_that_is_not_a_pattern() {
     assert!(matches!(run_in_pseudo_terminal(&bad), PseudoTerminalResult::Err));
     assert!(!mark.exists());
 }
+
+// A transcript file that is there but still empty is not "written": Claude Code has not said anything yet.
+#[test]
+fn an_empty_transcript_is_not_taken_as_written() {
+    let place = Temp::new("empty-transcript");
+    let transcripts = place.0.join("projects");
+    let mut run = sh(&format!("mkdir -p '{dir}'; : > '{dir}/a.jsonl'; while :; do sleep 1; done", dir = transcripts.display()), 4);
+    run.stop_when_written = Some(transcripts.to_string_lossy().into_owned());
+    let started = Instant::now();
+    let _ = drawn(run_in_pseudo_terminal(&run));
+    assert!(started.elapsed() >= Duration::from_millis(3500), "stopped after {:?} on an empty file", started.elapsed());
+}
+
+// The stop words are found through the terminal's colours: Claude Code draws its question with styling between the words.
+#[test]
+fn finds_the_stop_words_through_the_terminals_colours() {
+    let mut run = sh(r"printf 'Quick \033[1msafety\033[0m check\n'; while :; do sleep 1; done", 20);
+    run.stop_when = "Quick safety check".into();
+    let started = Instant::now();
+    let text = drawn(run_in_pseudo_terminal(&run));
+    assert!(started.elapsed() < Duration::from_secs(8), "waited {:?}: {text:?}", started.elapsed());
+}
