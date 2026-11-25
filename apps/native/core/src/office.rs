@@ -34,14 +34,165 @@ pub struct OfficeDocument {
     pub more: usize,
 }
 
+/// Electron `shared/sheet.ts` `MAX_CELL_TEXT`.
+pub const MAX_CELL_TEXT: usize = 300;
+
+/// What a cell holds (`SheetCellKind`): numbers sit right, a formula with no stored result is drawn as one.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SheetCellKind {
+    Text,
+    Number,
+    /// A formula the file holds no result for, shown as written.
+    Formula,
+    Boolean,
+    Error,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct SheetCell {
     pub text: String,
+    pub kind: SheetCellKind,
+}
+
+impl SheetCell {
+    fn empty() -> Self {
+        SheetCell { text: String::new(), kind: SheetCellKind::Text }
+    }
+}
+
+/// One sheet (`SheetTable`): its rows with trailing empty rows and columns trimmed, and what lay past the bounds.
+#[derive(Clone, Debug, PartialEq)]
+pub struct SheetTable {
+    pub name: String,
+    pub rows: Vec<Vec<SheetCell>>,
+    /// Rows past the bound, counted and not drawn.
+    pub more_rows: usize,
+    /// Columns past the bound, counted and not drawn.
+    pub more_columns: usize,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Workbook {
-    pub sheets: Vec<(String, Vec<Vec<SheetCell>>)>,
+    pub sheets: Vec<SheetTable>,
+    /// Sheets past the bound.
+    pub more_sheets: usize,
+}
+
+/// `A` for 0, `Z` for 25, `AA` for 26: a spreadsheet's own column names (`columnName`).
+pub fn column_name(index: usize) -> String {
+    let mut name = Vec::new();
+    let mut rest = index + 1;
+    while rest > 0 {
+        name.push(b'A' + ((rest - 1) % 26) as u8);
+        rest = (rest - 1) / 26;
+    }
+    name.reverse();
+    String::from_utf8(name).unwrap_or_default()
+}
+
+/// A cell's text as it will be drawn: bounded, and never a control character (`cellText`).
+fn cell_text(value: &str) -> String {
+    let clean: String = value
+        .chars()
+        .filter(|c| !matches!(*c as u32, 0x00..=0x08 | 0x0b | 0x0c | 0x0e..=0x1f | 0x7f))
+        .collect();
+    // Electron counts UTF-16 units; a cell past the bound keeps MAX_CELL_TEXT - 1 of them and an ellipsis.
+    if clean.encode_utf16().count() <= MAX_CELL_TEXT {
+        return clean;
+    }
+    let mut kept = String::new();
+    let mut units = 0;
+    for c in clean.chars() {
+        units += c.len_utf16();
+        if units > MAX_CELL_TEXT - 1 {
+            break;
+        }
+        kept.push(c);
+    }
+    kept.push('…');
+    kept
+}
+
+/// Whether written text reads as a number -- `1,400`, `-3.5`, `$4,200.00`, `12%` -- so it sits right (`looksNumeric`).
+fn looks_numeric(text: &str) -> bool {
+    static NUMERIC: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(r"^[-+(]?[$€£¥]?\s?-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?\)?%?$").unwrap()
+    });
+    NUMERIC.is_match(text.trim())
+}
+
+/// RFC 4180 CSV (`parseCsv`): quoted fields, doubled quotes inside them, line breaks inside quotes, CRLF or LF. Stops
+/// once it has `limit_rows` rows, so a huge file costs what the viewer shows.
+fn parse_csv(text: &str, delimiter: char, limit_rows: usize) -> Vec<Vec<String>> {
+    let body = text.strip_prefix('\u{feff}').unwrap_or(text);
+    let mut rows = Vec::new();
+    let mut row = Vec::new();
+    let mut field = String::new();
+    let mut quoted = false;
+    let mut chars = body.chars().peekable();
+    while let Some(c) = chars.next() {
+        if quoted {
+            if c == '"' {
+                if chars.peek() == Some(&'"') {
+                    field.push('"');
+                    chars.next();
+                } else {
+                    quoted = false;
+                }
+            } else {
+                field.push(c);
+            }
+            continue;
+        }
+        if c == '"' && field.is_empty() {
+            quoted = true;
+        } else if c == delimiter {
+            row.push(std::mem::take(&mut field));
+        } else if c == '\r' || c == '\n' {
+            if c == '\r' && chars.peek() == Some(&'\n') {
+                chars.next();
+            }
+            row.push(std::mem::take(&mut field));
+            rows.push(std::mem::take(&mut row));
+            if rows.len() >= limit_rows {
+                return rows;
+            }
+        } else {
+            field.push(c);
+        }
+    }
+    if !field.is_empty() || !row.is_empty() {
+        row.push(field);
+        rows.push(row);
+    }
+    rows
+}
+
+/// Trailing empty rows and columns off, bounds applied and counted (`boundedTable`). `known_rows` and `known_columns`
+/// are how many rows and columns hold something in the whole source, when the grid is already cut to the bound.
+fn bounded_table(name: &str, grid: Vec<Vec<SheetCell>>, known_rows: Option<usize>, known_columns: Option<usize>) -> SheetTable {
+    let mut last = grid.len();
+    while last > 0 && grid[last - 1].iter().all(|c| c.text.is_empty()) {
+        last -= 1;
+    }
+    let kept = &grid[..last];
+    let width = kept
+        .iter()
+        .map(|row| row.iter().rposition(|c| !c.text.is_empty()).map_or(0, |i| i + 1))
+        .max()
+        .unwrap_or(0);
+    let drawn_width = width.min(MAX_SHEET_COLUMNS);
+    let rows: Vec<Vec<SheetCell>> = kept
+        .iter()
+        .take(MAX_SHEET_ROWS)
+        .map(|row| (0..drawn_width).map(|c| row.get(c).cloned().unwrap_or_else(SheetCell::empty)).collect())
+        .collect();
+    SheetTable {
+        name: name.to_owned(),
+        more_rows: known_rows.unwrap_or(kept.len()).saturating_sub(rows.len()),
+        more_columns: width.max(known_columns.unwrap_or(0)).saturating_sub(drawn_width),
+        rows,
+    }
 }
 
 /// Electron `documentWords`.
@@ -252,65 +403,92 @@ fn first_text_run(xml: &str) -> Option<String> {
     text_runs(xml).into_iter().find(|t| !t.trim().is_empty())
 }
 
-/// Read an `.xlsx` with calamine (values only; formulas are not evaluated).
+/// Read an `.xlsx` with calamine: the values the file holds, never a formula worked out. A formula the file holds no
+/// result for is its formula, as written (`a-workbook-is-read-for-its-cells`).
 pub fn read_xlsx(bytes: &[u8]) -> Result<Workbook, String> {
     if bytes.len() as u64 > MAX_OFFICE_FILE_BYTES {
         return Err("That workbook is too large to show here.".into());
     }
     let mut workbook =
         calamine::open_workbook_auto_from_rs(Cursor::new(bytes)).map_err(|e| e.to_string())?;
-    use calamine::Reader;
+    use calamine::{Data, Reader};
     let names = workbook.sheet_names().to_vec();
-    if names.len() > MAX_SHEETS {
-        return Err("That workbook is too large to show here.".into());
-    }
+    let more_sheets = names.len().saturating_sub(MAX_SHEETS);
     let mut sheets = Vec::new();
-    for name in names {
+    for name in names.into_iter().take(MAX_SHEETS) {
         let Ok(range) = workbook.worksheet_range(&name) else {
             continue;
         };
-        let mut rows = Vec::new();
-        for (r_i, row) in range.rows().enumerate() {
-            if r_i >= MAX_SHEET_ROWS {
-                break;
+        let formulas = workbook.worksheet_formula(&name).unwrap_or_default();
+        // Where something is, in the sheet's own places (A1 is row 0, column 0), wherever the stored range starts.
+        let mut known_rows = 0usize;
+        let mut known_columns = 0usize;
+        let mut mark = |(r, c): (u32, u32)| {
+            known_rows = known_rows.max(r as usize + 1);
+            known_columns = known_columns.max(c as usize + 1);
+        };
+        if let Some((r0, c0)) = range.start() {
+            for (r, c, v) in range.used_cells() {
+                if !matches!(v, Data::Empty) {
+                    mark((r0 + r as u32, c0 + c as u32));
+                }
             }
-            let cells: Vec<SheetCell> = row
-                .iter()
-                .take(MAX_SHEET_COLUMNS)
-                .map(|c| SheetCell {
-                    text: match c {
-                        calamine::Data::Empty => String::new(),
-                        other => other.to_string(),
-                    },
-                })
-                .collect();
-            rows.push(cells);
         }
-        sheets.push((name, rows));
-    }
-    Ok(Workbook { sheets })
-}
-
-/// Read CSV/TSV text into a single-sheet workbook.
-pub fn read_csv(text: &str, tsv: bool) -> Workbook {
-    let sep = if tsv { '\t' } else { ',' };
-    let mut rows = Vec::new();
-    for (r_i, line) in text.lines().enumerate() {
-        if r_i >= MAX_SHEET_ROWS {
-            break;
+        if let Some((r0, c0)) = formulas.start() {
+            for (r, c, f) in formulas.used_cells() {
+                if !f.is_empty() {
+                    mark((r0 + r as u32, c0 + c as u32));
+                }
+            }
         }
-        let cells: Vec<SheetCell> = line
-            .split(sep)
-            .take(MAX_SHEET_COLUMNS)
-            .map(|c| SheetCell {
-                text: c.trim().to_owned(),
+        let grid: Vec<Vec<SheetCell>> = (0..known_rows.min(MAX_SHEET_ROWS))
+            .map(|r| {
+                (0..known_columns.min(MAX_SHEET_COLUMNS))
+                    .map(|c| {
+                        let at = (r as u32, c as u32);
+                        let (text, kind) = match range.get_value(at) {
+                            Some(Data::Empty) | None => match formulas.get_value(at).filter(|f| !f.is_empty()) {
+                                Some(f) if f.starts_with('=') => (f.clone(), SheetCellKind::Formula),
+                                Some(f) => (format!("={f}"), SheetCellKind::Formula),
+                                None => (String::new(), SheetCellKind::Text),
+                            },
+                            Some(Data::String(t)) => (t.clone(), SheetCellKind::Text),
+                            Some(Data::Bool(b)) => (if *b { "TRUE" } else { "FALSE" }.to_owned(), SheetCellKind::Boolean),
+                            Some(Data::Error(e)) => (e.to_string(), SheetCellKind::Error),
+                            Some(other) => (other.to_string(), SheetCellKind::Number),
+                        };
+                        SheetCell { text: cell_text(&text), kind }
+                    })
+                    .collect()
             })
             .collect();
-        rows.push(cells);
+        sheets.push(bounded_table(&name, grid, Some(known_rows), Some(known_columns)));
     }
-    Workbook {
-        sheets: vec![("Sheet1".into(), rows)],
-    }
+    Ok(Workbook { sheets, more_sheets })
+}
+
+/// A CSV or TSV file as a one-sheet workbook (`csvWorkbook`): read up to one row past the bound, and the rows past
+/// that counted from the line breaks left over (an estimate only when a quoted field holds a line break).
+pub fn read_csv(text: &str, tsv: bool) -> Workbook {
+    let parsed = parse_csv(text, if tsv { '\t' } else { ',' }, MAX_SHEET_ROWS + 1);
+    let more_lines = if parsed.len() > MAX_SHEET_ROWS { text.split('\n').count().saturating_sub(parsed.len()) } else { 0 };
+    let known = parsed.len() + more_lines;
+    let grid = parsed
+        .into_iter()
+        .map(|row| {
+            row.iter()
+                .map(|value| {
+                    let text = cell_text(value);
+                    let kind = if looks_numeric(&text) { SheetCellKind::Number } else { SheetCellKind::Text };
+                    SheetCell { text, kind }
+                })
+                .collect()
+        })
+        .collect();
+    // Only a file cut at the row bound needs the counted lines; otherwise the table counts its own rows, after it drops
+    // blank lines at the end (Electron counted those as "more rows not shown").
+    let known = (more_lines > 0).then_some(known);
+    Workbook { sheets: vec![bounded_table("Sheet1", grid, known, None)], more_sheets: 0 }
 }
 
 /// Write/refresh office-words copies under `folder` (native data only) and return the brief section.
@@ -429,8 +607,8 @@ mod tests {
     #[test]
     fn csv_bounds_and_xlsx_empty_refuse() {
         let book = read_csv("a,b\n1,2\n", false);
-        assert_eq!(book.sheets[0].0, "Sheet1");
-        assert_eq!(book.sheets[0].1[0][0].text, "a");
+        assert_eq!(book.sheets[0].name, "Sheet1");
+        assert_eq!(book.sheets[0].rows[0][0].text, "a");
         assert!(read_xlsx(b"not a zip").is_err());
     }
 

@@ -4464,12 +4464,12 @@ apps/desktop/src/renderer/src/a-skill-row-names-its-skill.test.ts	the live line 
 apps/desktop/src/renderer/src/a-slow-agent-row-says-it-is-being-checked.test.ts	says it is being checked, and that Locust asks again -- not that it did not answer its version probe	yes
 apps/desktop/src/renderer/src/a-slow-agent-row-says-it-is-being-checked.test.ts	still says what it always did for an agent that really did not answer	yes
 apps/desktop/src/renderer/src/a-slow-agent-row-says-it-is-being-checked.test.ts	keeps the last thing the agent said until its answer arrives	yes
-apps/desktop/src/renderer/src/a-spreadsheet-opens-as-a-grid.test.tsx	is the grid a spreadsheet person reads: letters across, numbers down	no
-apps/desktop/src/renderer/src/a-spreadsheet-opens-as-a-grid.test.tsx	shows a formula with no result as written, and says why once	no
-apps/desktop/src/renderer/src/a-spreadsheet-opens-as-a-grid.test.tsx	has a tab per sheet, below the grid as Excel keeps them	no
-apps/desktop/src/renderer/src/a-spreadsheet-opens-as-a-grid.test.tsx	says what it did not draw	no
-apps/desktop/src/renderer/src/a-spreadsheet-opens-as-a-grid.test.tsx	draws cell text as text, never markup	no
-apps/desktop/src/renderer/src/a-spreadsheet-opens-as-a-grid.test.tsx	is what the file viewer draws for a table	no
+apps/desktop/src/renderer/src/a-spreadsheet-opens-as-a-grid.test.tsx	is the grid a spreadsheet person reads: letters across, numbers down	yes
+apps/desktop/src/renderer/src/a-spreadsheet-opens-as-a-grid.test.tsx	shows a formula with no result as written, and says why once	yes
+apps/desktop/src/renderer/src/a-spreadsheet-opens-as-a-grid.test.tsx	has a tab per sheet, below the grid as Excel keeps them	yes
+apps/desktop/src/renderer/src/a-spreadsheet-opens-as-a-grid.test.tsx	says what it did not draw	yes
+apps/desktop/src/renderer/src/a-spreadsheet-opens-as-a-grid.test.tsx	draws cell text as text, never markup	yes
+apps/desktop/src/renderer/src/a-spreadsheet-opens-as-a-grid.test.tsx	is what the file viewer draws for a table	yes
 apps/desktop/src/renderer/src/a-spreadsheet-opens-as-a-grid.test.tsx	previews a new CSV as its first rows	no
 apps/desktop/src/renderer/src/a-spreadsheet-opens-as-a-grid.test.tsx	names a workbook a command made as a changed file, and opens it	no
 apps/desktop/src/renderer/src/a-spreadsheet-opens-as-a-grid.test.tsx	keeps the teammate's own word on a changed file the host could not read (0.597)	no
