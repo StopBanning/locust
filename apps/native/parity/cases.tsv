@@ -4771,7 +4771,7 @@ apps/desktop/src/renderer/src/an-account-shows-how-full-it-is.test.tsx	draws a b
 apps/desktop/src/renderer/src/an-account-shows-how-full-it-is.test.tsx	draws no meter for an agent whose runs reported none: its name and state alone	yes
 apps/desktop/src/renderer/src/an-account-shows-how-full-it-is.test.tsx	draws a window reset since the reading as reset, without its old bar, and says when the reading was taken	yes
 apps/desktop/src/renderer/src/an-account-shows-how-full-it-is.test.tsx	is the marks alone, each carrying its card; no rings	no
-apps/desktop/src/renderer/src/an-account-shows-how-full-it-is.test.tsx	is quiet with room left, and wears its amber dot from 80% -- as before the rings	no
+apps/desktop/src/renderer/src/an-account-shows-how-full-it-is.test.tsx	is quiet with room left, and wears its amber dot from 80% -- as before the rings	yes
 apps/desktop/src/renderer/src/an-acp-agent-says-what-it-can-do.test.ts	says each thing as a plain yes or no	yes
 apps/desktop/src/renderer/src/an-acp-agent-says-what-it-can-do.test.ts	says it is the agent’s own word, and when it said it	yes
 apps/desktop/src/renderer/src/an-added-account-is-named-in-the-picker.test.tsx	names both accounts alongside the machine sign-in and separates their limit status	no
