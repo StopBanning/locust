@@ -5,7 +5,8 @@
 
 use super::*;
 use crate::claude_cloud_panel::{CloudFolder, CloudWhere};
-use locust_core::cloud_task_service::{self, CloudTaskService};
+use locust_core::changes;
+use locust_core::cloud_task_service::{self, CloudApplyResult, CloudTaskService};
 use locust_core::cloud_tasks::{CloudEnvironment, CloudState, CloudTask};
 use locust_core::store::Store;
 use std::collections::HashSet;
@@ -19,11 +20,21 @@ const CHECKING_ENV_FOLDERS: &str = "Checking your other folders for one that has
 const USE_FOLDER_WITH_ENV: &str = "Or use a folder that has one:";
 const FAILED_STATUS: &str = "The cloud could not finish it. Open it in Codex to see why.";
 const UNKNOWN_STATUS: &str = "Codex has not said how it is going yet.";
+const READING_CHANGE: &str = "Reading the change…";
+const NO_CHANGE_RETURNED: &str = "Codex did not return a change for it.";
 /// Pending tasks are polled every 15 s while the panel is open (`App.tsx:2937`).
 const REFRESH_INTERVAL_MS: u64 = 15_000;
 
 /// What makes the window's `CloudTaskService`; None is this computer's Codex CLI (`cloud_task_service::on_this_computer`).
 pub(crate) type MakeCodex = Arc<dyn Fn(&Store) -> CloudTaskService<'static> + Send + Sync>;
+
+/// The one task whose change is currently open in the panel (`CloudTasks.tsx`'s `open` state).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct OpenChange {
+    pub(crate) task_id: String,
+    pub(crate) diff: Option<String>,
+    pub(crate) loading: bool,
+}
 
 enum Answer {
     Loaded {
@@ -38,6 +49,13 @@ enum Answer {
         task_id: String,
         task: Option<CloudTask>,
     },
+    Diff {
+        task_id: String,
+        diff: Option<String>,
+    },
+    Applied {
+        result: CloudApplyResult,
+    },
 }
 
 /// Codex Cloud state held inside `claude_cloud_panel::Cloud`.
@@ -50,6 +68,10 @@ pub(crate) struct CodexCloud {
     /// None while checking other folders for an environment; Some once checked.
     pub(crate) folders: Option<Vec<CloudFolder>>,
     pub(crate) problem: Option<String>,
+    /// The task whose diff is currently open, if any.
+    pub(crate) open: Option<OpenChange>,
+    /// The task currently being applied to this folder, if any.
+    pub(crate) applying: Option<String>,
     pub(crate) make: Option<MakeCodex>,
     loaded_folder: Option<String>,
     was_open: bool,
@@ -195,14 +217,65 @@ fn refresh_pending(s: &mut State) {
     }
 }
 
+/// Toggle showing a task's diff (`CloudTasks.tsx`'s `show`). Never applies anything.
+fn show_change(s: &mut State, task_id: &str) {
+    if s.cloud
+        .codex
+        .open
+        .as_ref()
+        .is_some_and(|open| open.task_id == task_id)
+    {
+        s.cloud.codex.open = None;
+        return;
+    }
+    let Some(store) = s.data.clone() else { return };
+    s.cloud.codex.open = Some(OpenChange {
+        task_id: task_id.to_owned(),
+        diff: None,
+        loading: true,
+    });
+    let id = task_id.to_owned();
+    let make = s.cloud.codex.make.clone();
+    let inbox = s.cloud.codex.inbox.clone();
+    std::thread::spawn(move || {
+        let svc = build_service(&store, &make);
+        let diff = svc.diff(&id);
+        inbox
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push(Answer::Diff { task_id: id, diff });
+    });
+}
+
+/// Apply a ready task's change into this folder (`App.tsx:11238-11248`). Called only on the person's click.
+fn apply_task(s: &mut State, task_id: &str) {
+    if s.cloud.codex.applying.is_some() {
+        return;
+    }
+    let Some(store) = s.data.clone() else { return };
+    s.cloud.codex.applying = Some(task_id.to_owned());
+    let id = task_id.to_owned();
+    let make = s.cloud.codex.make.clone();
+    let inbox = s.cloud.codex.inbox.clone();
+    std::thread::spawn(move || {
+        let svc = build_service(&store, &make);
+        let result = svc.apply(&id);
+        inbox
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push(Answer::Applied { result });
+    });
+}
+
 /// Applies off-thread Codex task reads and polls pending tasks every 15 s while the panel is open.
 pub(crate) fn poll(s: &mut State, now: f64) -> bool {
     let mut changed = false;
     let now_ms = (now.max(0.0) * 1000.0) as u64;
     let current_folder = folder(s);
     if !s.cloud.open {
-        if s.cloud.codex.was_open {
+        if s.cloud.codex.was_open || s.cloud.codex.open.is_some() {
             s.cloud.codex.was_open = false;
+            s.cloud.codex.open = None;
             s.cloud.codex.refreshing.clear();
             changed = true;
         }
@@ -267,6 +340,36 @@ pub(crate) fn poll(s: &mut State, now: f64) -> bool {
                     *entry = updated;
                     changed = true;
                 }
+            }
+            Answer::Diff { task_id, diff } => {
+                if let Some(open) = s.cloud.codex.open.as_mut()
+                    && open.task_id == task_id
+                {
+                    open.diff = diff;
+                    open.loading = false;
+                    changed = true;
+                }
+            }
+            Answer::Applied { result } => {
+                s.cloud.codex.applying = None;
+                match result {
+                    CloudApplyResult::Ok { task } => {
+                        if let Some(entry) = s
+                            .cloud
+                            .codex
+                            .tasks
+                            .iter_mut()
+                            .find(|t| t.task_id == task.task_id)
+                        {
+                            *entry = task;
+                        }
+                        s.cloud.codex.problem = None;
+                    }
+                    CloudApplyResult::Err { message } => {
+                        s.cloud.codex.problem = Some(message);
+                    }
+                }
+                changed = true;
             }
         }
     }
@@ -457,18 +560,135 @@ pub(crate) fn view(s: &State, p: &Palette) -> Option<El> {
     }
 
     for task in ordered {
-        body = body.child(task_row(task, now, &l, p));
+        body = body.child(task_row(codex, task, now, &l, p));
     }
 
     Some(body)
 }
 
+fn diff_section(
+    task_id: &str,
+    open: &OpenChange,
+    l: &crate::look::controls::Look,
+    p: &Palette,
+) -> El {
+    let mut box_el = col()
+        .key(format!("codex-task-diff-view-{task_id}"))
+        .w_full()
+        .gap(6.0);
+    if open.loading {
+        return box_el.child(
+            text(READING_CHANGE)
+                .key(format!("codex-task-diff-loading-{task_id}"))
+                .font(l.ty.body)
+                .color(l.c("text-secondary"))
+                .w_full()
+                .wrap(),
+        );
+    }
+    let Some(raw) = open.diff.as_deref() else {
+        return box_el.child(
+            text(NO_CHANGE_RETURNED)
+                .key(format!("codex-task-diff-none-{task_id}"))
+                .font(l.ty.body)
+                .color(l.c("text-secondary"))
+                .w_full()
+                .wrap(),
+        );
+    };
+    let files = changes::parse(raw);
+    for file in &files {
+        let (added, removed) = file.counts();
+        let mut head = row()
+            .w_full()
+            .gap(6.0)
+            .center_y()
+            .child(
+                text(file.path.clone())
+                    .font(l.ty.mono)
+                    .color(l.c("text-primary"))
+                    .shrink(),
+            );
+        if file.status != "MODIFIED" {
+            head = head.child(
+                text(file.status.to_ascii_lowercase())
+                    .font(l.ty.mono)
+                    .color(l.c("text-secondary")),
+            );
+        }
+        if added > 0 || removed > 0 {
+            head = head.child(
+                text(changes::line_counts(added, removed))
+                    .font(l.ty.mono)
+                    .color(l.c("text-secondary")),
+            );
+        }
+        let mut file_col = col()
+            .key(format!("codex-task-file-{task_id}-{}", file.path))
+            .role("region")
+            .label(format!("Changes to {}", file.path))
+            .w_full()
+            .gap(2.0)
+            .px(8.0)
+            .py(6.0)
+            .radius(l.t.px("radius-control"))
+            .border(1.0, p.hairline)
+            .child(head);
+        for hunk in &file.hunks {
+            let range = if hunk.heading.is_empty() {
+                hunk.range()
+            } else {
+                format!("{} {}", hunk.range(), hunk.heading)
+            };
+            file_col = file_col.child(
+                text(range)
+                    .font(l.ty.mono)
+                    .color(l.c("text-muted"))
+                    .w_full()
+                    .wrap(),
+            );
+            for diff_row in &hunk.rows {
+                let ink = match diff_row.kind {
+                    '+' => p.green,
+                    '-' => p.red,
+                    _ => l.c("text-secondary"),
+                };
+                file_col = file_col.child(
+                    text(format!("{}{}", diff_row.kind, diff_row.text))
+                        .font(l.ty.mono)
+                        .color(ink)
+                        .w_full()
+                        .wrap(),
+                );
+            }
+        }
+        if !file.hunks.is_empty() {
+            let footer = if file.hunks.len() == 1 {
+                "The whole change is shown".into()
+            } else {
+                format!("All {} sections shown", file.hunks.len())
+            };
+            file_col = file_col.child(
+                text(footer)
+                    .font(l.ty.body)
+                    .color(l.c("text-muted"))
+                    .w_full()
+                    .wrap(),
+            );
+        }
+        box_el = box_el.child(file_col);
+    }
+    box_el
+}
+
 fn task_row(
+    codex: &CodexCloud,
     task: &CloudTask,
     now: chrono::DateTime<chrono::Utc>,
     l: &crate::look::controls::Look,
     p: &Palette,
 ) -> El {
+    use crate::look::controls::{Tone, button, primary_button};
     let title = task
         .status
         .title
@@ -476,7 +696,12 @@ fn task_row(
         .unwrap_or(&task.prompt)
         .to_owned();
     let line = status_line(task, now);
-    col()
+    let state = task.status.state;
+    let showing = codex
+        .open
+        .as_ref()
+        .is_some_and(|open| open.task_id == task.task_id);
+    let mut el = col()
         .key(format!("codex-task-{}", task.task_id))
         .role("group")
         .label(title.clone())
@@ -501,9 +726,52 @@ fn task_row(
                 .color(l.c("text-secondary"))
                 .w_full()
                 .wrap(),
-        )
+        );
+
+    let mut actions = row().w_full().gap(6.0).flex_wrap();
+    let mut has_actions = false;
+    if state == CloudState::Ready || state == CloudState::Applied {
+        let id = task.task_id.clone();
+        let label = if showing {
+            "Hide the change"
+        } else {
+            "Show the change"
+        };
+        actions = actions.child(
+            button(l, label, Tone::Neutral, false)
+                .key(format!("codex-task-diff-{}", task.task_id))
+                .on_press(move |s: &mut State| show_change(s, &id)),
+        );
+        has_actions = true;
+    }
+    if state == CloudState::Ready {
+        let id = task.task_id.clone();
+        let busy = codex.applying.is_some();
+        let label = if codex.applying.as_deref() == Some(task.task_id.as_str()) {
+            "Applying…"
+        } else {
+            "Apply to this folder"
+        };
+        actions = actions.child(
+            primary_button(l, label, busy)
+                .key(format!("codex-task-apply-{}", task.task_id))
+                .on_press(move |s: &mut State| apply_task(s, &id)),
+        );
+        has_actions = true;
+    }
+    if has_actions {
+        el = el.child(actions);
+    }
+    if showing && let Some(open) = &codex.open {
+        el = el.child(diff_section(&task.task_id, open, l, p));
+    }
+    el
 }
 
 #[cfg(test)]
 #[path = "cloud_tasks_tests.rs"]
 mod cloud_tasks_tests;
+
+#[cfg(test)]
+#[path = "cloud_tasks_apply_tests.rs"]
+mod cloud_tasks_apply_tests;
