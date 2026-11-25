@@ -1173,10 +1173,12 @@ fn waiting_line_for(s: &State, teammate: &str) -> Option<String> {
     })
 }
 
-/// When a teammate last worked: the newest conversation recorded as theirs (by owner id).
-fn last_worked_at(s: &State, teammate: &str) -> Option<String> {
+/// When a teammate last worked: the newest conversation recorded as theirs (by owner id), or, newer still, the newest
+/// event of a run of theirs the window watched end (a-teammate-who-just-finished-last-worked-just-now).
+pub(super) fn last_worked_at(s: &State, teammate: &str) -> Option<String> {
     let owners = &s.people_panel.team["missionOwners"];
-    s.recent.iter().filter(|r| owners[r.id.as_str()].as_str() == Some(teammate)).map(|r| r.updated.clone()).max()
+    let listed = s.recent.iter().filter(|r| owners[r.id.as_str()].as_str() == Some(teammate)).map(|r| r.updated.clone()).max();
+    listed.into_iter().chain(crate::teammate_faces::last_worked_for(s, teammate)).max()
 }
 
 /// Home's AI agents: the whole list, or, once they are all ready (`agents_fold`), one line -- "Connected accounts",

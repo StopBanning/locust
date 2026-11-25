@@ -75,7 +75,6 @@ pub(super) fn tick(s: &mut State, now: f64) -> bool {
 }
 
 /// When `teammate_id` last worked: the newest event timestamp recorded from their live runs, falling back to `recent`.
-#[allow(dead_code)]
 pub(super) fn last_worked_for(s: &State, teammate_id: &str) -> Option<String> {
     let from_live = s
         .live_faces
@@ -566,5 +565,8 @@ mod tests {
             locust_core::home_team_state::last_worked_phrase(last_worked_for(&rt.state, "wren").as_deref(), check_now),
             "last worked just now"
         );
+        // Home's team card reads it (home_panel::last_worked_at), and another teammate is never dated by her run.
+        assert_eq!(crate::home_panel::last_worked_at(&rt.state, "wren").as_deref(), Some(ended));
+        assert_eq!(last_worked_for(&rt.state, "bo"), None);
     }
 }
