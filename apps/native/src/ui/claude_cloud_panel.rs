@@ -170,6 +170,8 @@ pub(crate) struct Cloud {
     pub(crate) note: Option<String>,
     /// The window's clock at its last poll, in milliseconds: what a watch starts from.
     pub(crate) now_ms: u64,
+    /// Codex Cloud tasks in this panel (`src/ui/cloud_tasks.rs`).
+    pub(crate) codex: crate::cloud_tasks::CodexCloud,
 }
 
 /// The conversation's teammate.
@@ -219,6 +221,7 @@ fn git_in(args: &[&str], cwd: &std::path::Path) -> Result<locust_core::cloud_tas
 /// Where a send would go, the person's folders that are on GitHub, this folder's sessions and its saved environment,
 /// read off the window's thread (App.tsx's `cloudWhere`, `cloudFolders`, `listClaudeCloud`, `getClaudeCloudEnvironment`).
 pub(super) fn refresh(s: &mut State) {
+    crate::cloud_tasks::refresh(s);
     let (Some(store), Some(here)) = (s.data.clone(), folder(s)) else { return };
     let make = s.cloud.make.clone();
     let reads = s.cloud.reads.clone();
@@ -336,6 +339,7 @@ pub(super) fn poll(s: &mut State, now: f64) -> bool {
         }
         changed = true;
     }
+    changed |= crate::cloud_tasks::poll(s, now);
     changed
 }
 
@@ -413,6 +417,17 @@ pub(super) fn beside(s: &State, p: &Palette) -> Option<El> {
         return None;
     }
     let mut panel = s.cloud.panel.clone();
+    panel.codex_tasks = s.cloud.codex.tasks.len();
+    if (!claude_picked(s) || panel.codex_tasks > 0)
+        && let Some(folders) = &s.cloud.codex.folders
+    {
+        panel.folders = Some(folders.clone());
+    }
+    if (!claude_picked(s) || panel.place.is_none())
+        && let Some(place) = &s.cloud.codex.place
+    {
+        panel.place = Some(place.clone());
+    }
     if let Some(side) = panel.claude.as_mut() {
         side.picked = claude_picked(s);
     }
@@ -424,7 +439,8 @@ pub(super) fn beside(s: &State, p: &Palette) -> Option<El> {
             .fill(p.raised)
             .border(1.0, p.hairline)
             .child(view(&panel, p))
-            .children(sessions_view(s, p)),
+            .children(sessions_view(s, p))
+            .children(crate::cloud_tasks::view(s, p)),
     )
 }
 
