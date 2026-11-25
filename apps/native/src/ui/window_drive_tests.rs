@@ -6526,6 +6526,7 @@ fn hover_chip(rt: &mut Runtime<State>) {
     rt.frame(0.016);
 }
 
+// case: draws it on hover or focus, above and to the right, rather than leaving it to the system tooltip
 #[test]
 fn resting_on_the_model_chip_opens_the_agents_card_above_it() {
     let (_dirs, store, mut rt) = window();
@@ -6538,6 +6539,8 @@ fn resting_on_the_model_chip_opens_the_agents_card_above_it() {
     for want in ["Codex", "Weekly", "64%", "5-hour", "85%", "Read from your account at"] {
         assert!(words.contains(want), "{want} in {words}");
     }
+    let chip_el = rt.elements().into_iter().find(|e| e.key.as_deref() == Some("model-chip")).expect("model-chip");
+    assert!(chip_el.help.is_none(), "usage is drawn on the card, not left to the system tooltip: {:?}", chip_el.help);
     let card = rt.presented("model-chip-card").unwrap().0;
     let chip = rt.presented("model-chip").unwrap().0;
     assert!(card[1] + card[3] <= chip[1], "the card is above the chip: {card:?} over {chip:?}");

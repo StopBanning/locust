@@ -6386,8 +6386,8 @@ apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.tes
 apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.test.tsx	is hidden in a browser, and sits under the theme on the Appearance page	yes
 apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.test.tsx	the panel runs from the window's top inset to its bottom inset, as wide as the sidebar, or is none	yes
 apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.test.tsx	the panel the page asks for is the shape the sheet washes	yes
-apps/desktop/src/renderer/src/the-model-chip-shows-usage-on-hover.test.tsx	opens the agent's card, with a bar for each window, placed for the chip	no
-apps/desktop/src/renderer/src/the-model-chip-shows-usage-on-hover.test.tsx	draws it on hover or focus, above and to the right, rather than leaving it to the system tooltip	no
+apps/desktop/src/renderer/src/the-model-chip-shows-usage-on-hover.test.tsx	opens the agent's card, with a bar for each window, placed for the chip	yes
+apps/desktop/src/renderer/src/the-model-chip-shows-usage-on-hover.test.tsx	draws it on hover or focus, above and to the right, rather than leaving it to the system tooltip	yes
 apps/desktop/src/renderer/src/the-newest-group-stays-folded.test.tsx	is a line, folded until pressed, as Claude Code draws it	no
 apps/desktop/src/renderer/src/the-orb-never-contradicts-the-row.test.ts	a shell command is working	yes
 apps/desktop/src/renderer/src/the-orb-never-contradicts-the-row.test.ts	a subagent is weaving, and a connector is connecting	yes
