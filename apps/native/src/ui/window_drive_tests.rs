@@ -443,7 +443,7 @@ fn write_synthetic_turn(
     if let Some(parent) = continues_from {
         meta["continuesFrom"] = json!({
             "missionId": parent,
-            "reason": "continued",
+            "reason": "follow-up",
         });
     }
     let mut seq = 1u64;

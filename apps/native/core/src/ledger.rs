@@ -689,6 +689,12 @@ pub fn validate_metadata_fields(m: &Value) -> Result<(), &'static str> {
                 .filter(|v| !v.is_null())
                 .is_none_or(|f| f.as_str().is_some_and(|s| !s.is_empty())),
             Some("scout" | "app") => true,
+            // Starters only the native app writes (Electron has no rooms or tagging): a room's post, a tag's ask.
+            Some("room") => {
+                sb.get("roomId").and_then(Value::as_str).is_some_and(safe_id)
+                    && sb.get("postId").and_then(Value::as_str).is_some_and(safe_id)
+            }
+            Some("tag") => true,
             _ => false,
         };
         if !ok {

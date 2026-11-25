@@ -708,3 +708,16 @@ fn a_continuation_with_a_zero_checkpoint_an_unknown_reason_or_too_much_left_out_
     let path = written(&store, json!({ "continuesFrom": { "missionId": "mission_before", "checkpointEpoch": 1, "reason": "carry-on", "leftOut": eight } }));
     assert!(!refused(&path));
 }
+
+// The native app's own starters are kept: a room's post (rooms.rs) and a tag's ask (tagging.rs), which Electron never writes.
+#[test]
+fn keeps_the_starters_only_the_native_app_writes() {
+    for starter in [json!({"kind": "room", "roomId": "room_74f6ec146b674f60ba56", "postId": "post_307953897ea34caf9604"}), json!({"kind": "tag"})] {
+        let (_t, store) = temp();
+        let path = written(&store, json!({ "startedBy": starter }));
+        assert!(!refused(&path), "{starter}");
+    }
+    let (_t, store) = temp();
+    let bad = LedgerWriter::create_runtime_with(&store, "mission_1", "Inspect.", "account-default", "codex", "codex", &[], None, &json!({"startedBy": {"kind": "room", "roomId": "../x", "postId": "post_1"}}));
+    assert!(bad.is_err(), "a room with an unsafe id");
+}
