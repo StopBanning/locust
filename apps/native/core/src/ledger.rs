@@ -2032,10 +2032,9 @@ pub fn try_list_recent(dir: &Path, limit: usize) -> io::Result<Vec<Summary>> {
     }
     paths.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
 
-    let scan_cap = limit.max(64);
     let mut summaries = Vec::new();
     for (modified, path, len) in paths {
-        if summaries.len() == scan_cap {
+        if summaries.len() == limit {
             break;
         }
         let Ok((mut records, read_bytes, lines)) = head_with_offset(&path) else {
@@ -3891,9 +3890,12 @@ mod carry_tests {
         assert_eq!(fut.issues, vec![Issue::UnsupportedSchema]);
         let dir = std::env::temp_dir().join(format!("locust-recency-{}", crate::invariants::unique_nanos()));
         std::fs::create_dir_all(&dir).unwrap();
-        for (id, at) in [("mission_a", "2026-08-31T10:00:00.000Z"), ("mission_b", "2026-08-31T12:00:00.000Z"), ("mission_c", "2026-08-31T11:00:00.000Z")] {
+        let base = std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_788_000_000);
+        for (idx, (id, at)) in [("mission_a", "2026-08-31T10:00:00.000Z"), ("mission_b", "2026-08-31T12:00:00.000Z"), ("mission_c", "2026-08-31T11:00:00.000Z")].into_iter().enumerate() {
             let line = json!({"schemaVersion":27,"recordType":"mission.created","ledgerSequence":1,"occurredAt":at,"metadata":{"missionId":id,"prompt":"p","runtime":"codex","model":"account-default","createdAt":at}});
-            std::fs::write(dir.join(format!("{id}.jsonl")), format!("{line}\n")).unwrap();
+            let p = dir.join(format!("{id}.jsonl"));
+            std::fs::write(&p, format!("{line}\n")).unwrap();
+            std::fs::OpenOptions::new().write(true).open(&p).unwrap().set_modified(base + std::time::Duration::from_secs(idx as u64)).unwrap();
         }
         let ids: Vec<String> = try_list_recent(&dir, 2).unwrap().into_iter().map(|s| s.mission_id).collect();
         assert_eq!(ids, ["mission_b", "mission_c"]);

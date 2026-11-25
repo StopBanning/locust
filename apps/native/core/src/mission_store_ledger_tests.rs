@@ -297,11 +297,12 @@ fn orders_history_by_recency_and_honors_the_list_limit() {
     let (_t, store) = temp();
     let dir = store.ledger_dir().unwrap();
     std::fs::create_dir_all(&dir).unwrap();
-    for (id, at) in [
+    let base = std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_788_000_000);
+    for (idx, (id, at)) in [
         ("mission_a", "2026-08-31T10:00:00.000Z"),
         ("mission_b", "2026-08-31T12:00:00.000Z"),
         ("mission_c", "2026-08-31T11:00:00.000Z"),
-    ] {
+    ].into_iter().enumerate() {
         let line = json!({
             "schemaVersion": 27, "recordType": "mission.created", "ledgerSequence": 1, "occurredAt": at,
             "metadata": {
@@ -311,7 +312,9 @@ fn orders_history_by_recency_and_honors_the_list_limit() {
                 "createdAt": at
             }
         });
-        std::fs::write(dir.join(format!("{id}.jsonl")), format!("{line}\n")).unwrap();
+        let p = dir.join(format!("{id}.jsonl"));
+        std::fs::write(&p, format!("{line}\n")).unwrap();
+        std::fs::OpenOptions::new().write(true).open(&p).unwrap().set_modified(base + std::time::Duration::from_secs(idx as u64)).unwrap();
     }
     let limited: Vec<String> = try_list_recent(&dir, 2).unwrap().into_iter().map(|m| m.mission_id).collect();
     assert_eq!(limited, ["mission_b", "mission_c"]);
