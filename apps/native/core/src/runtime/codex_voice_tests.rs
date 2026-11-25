@@ -905,3 +905,136 @@ fn connector_question_names_the_action_and_bounds_the_fields() {
     assert!(connector_question(&asked).is_none());
     assert!(connector_question(&json!("nothing")).is_none());
 }
+
+// case: gates voice calls and voice previews before discovering or spawning Codex
+#[test]
+fn gates_voice_calls_and_voice_previews_before_discovering_or_spawning_codex() {
+    struct RefusedHost(std::sync::atomic::AtomicUsize);
+    impl CallHost for RefusedHost {
+        fn policy_refusal(&self, _options: &CallOptions) -> Option<String> {
+            Some("Set by your organization (allowedAgents). Nothing was started.".into())
+        }
+        fn discover(&self) -> Option<Command> {
+            self.0.fetch_add(1, Ordering::SeqCst);
+            None
+        }
+    }
+
+    let fixture = Fixture::new();
+    let host = Arc::new(RefusedHost(std::sync::atomic::AtomicUsize::new(0)));
+    let voice = VoiceCalls::new(host.clone());
+
+    let call = voice
+        .start(CallOptions {
+            folder: fixture.0.join("acme"),
+            offer: OFFER.into(),
+            teammate: None,
+            voice: None,
+            preview: None,
+            connectors: false,
+            anchor_turn: None,
+        })
+        .expect("worker starts");
+    let call_err = call.started.recv_timeout(WAIT).unwrap().unwrap_err();
+    assert!(call_err.contains("allowedAgents"), "{call_err}");
+
+    let preview = voice
+        .start(CallOptions {
+            folder: fixture.0.join("acme"),
+            offer: OFFER.into(),
+            teammate: None,
+            voice: None,
+            preview: Some("cove".into()),
+            connectors: false,
+            anchor_turn: None,
+        })
+        .expect("preview worker starts");
+    let preview_err = preview.started.recv_timeout(WAIT).unwrap().unwrap_err();
+    assert!(preview_err.contains("allowedAgents"), "{preview_err}");
+
+    assert_eq!(host.0.load(Ordering::SeqCst), 0, "discover must not run when refused");
+
+    // NativeHost::policy_refusal enforces allowedAgents and uses approve-each for calls vs ask for previews.
+    let store = crate::store::Store::new(fixture.0.join("store"), fixture.0.join("electron")).unwrap();
+    let native_host = NativeHost::new(store, PathBuf::from("locust"));
+    let call_opts = CallOptions {
+        folder: fixture.0.join("acme"),
+        offer: OFFER.into(),
+        teammate: None,
+        voice: None,
+        preview: None,
+        connectors: false,
+        anchor_turn: None,
+    };
+    let preview_opts = CallOptions {
+        preview: Some("cove".into()),
+        ..call_opts.clone()
+    };
+    let plan_policy = crate::org_policy::PolicyState {
+        path: "/admin/policy.json".into(),
+        present: true,
+        policy: json!({"highestMode": "plan"}).as_object().unwrap().clone(),
+        error: None,
+    };
+    crate::org_policy::use_policy_on_this_thread(Some(plan_policy));
+    let call_refused = native_host.policy_refusal(&call_opts);
+    let preview_allowed = native_host.policy_refusal(&preview_opts);
+    crate::org_policy::use_policy_on_this_thread(None);
+    assert!(call_refused.as_deref().is_some_and(|m| m.contains("highestMode")), "{call_refused:?}");
+    assert_eq!(preview_allowed, None);
+}
+
+// case: cancels a voice start still waiting for its policy check
+#[test]
+fn cancels_a_voice_start_still_waiting_for_its_policy_check() {
+    struct BlockingPolicyHost {
+        entered: Mutex<Option<Sender<()>>>,
+        release: Mutex<Option<Receiver<()>>>,
+        discovered: std::sync::atomic::AtomicUsize,
+    }
+    impl CallHost for BlockingPolicyHost {
+        fn policy_refusal(&self, _options: &CallOptions) -> Option<String> {
+            if let Some(tx) = self.entered.lock().unwrap().take() {
+                let _ = tx.send(());
+            }
+            if let Some(rx) = self.release.lock().unwrap().take() {
+                let _ = rx.recv_timeout(WAIT);
+            }
+            None
+        }
+        fn discover(&self) -> Option<Command> {
+            self.discovered.fetch_add(1, Ordering::SeqCst);
+            None
+        }
+    }
+
+    let fixture = Fixture::new();
+    let (entered_tx, entered_rx) = mpsc::channel();
+    let (release_tx, release_rx) = mpsc::channel();
+    let host = Arc::new(BlockingPolicyHost {
+        entered: Mutex::new(Some(entered_tx)),
+        release: Mutex::new(Some(release_rx)),
+        discovered: std::sync::atomic::AtomicUsize::new(0),
+    });
+    let voice = VoiceCalls::new(host.clone());
+
+    let window = voice
+        .start(CallOptions {
+            folder: fixture.0.join("acme"),
+            offer: OFFER.into(),
+            teammate: None,
+            voice: None,
+            preview: None,
+            connectors: false,
+            anchor_turn: None,
+        })
+        .expect("worker starts");
+
+    entered_rx.recv_timeout(WAIT).expect("entered policy check");
+    voice.stop();
+    release_tx.send(()).expect("release policy check");
+
+    let err = window.started.recv_timeout(WAIT).unwrap().unwrap_err();
+    assert!(err.contains("ended"), "{err}");
+    assert_eq!(host.discovered.load(Ordering::SeqCst), 0, "cancelled start must not discover Codex");
+}
