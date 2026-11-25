@@ -8238,13 +8238,13 @@ packages/runtime-adapters/test/runtime-adapters.test.ts	does not report an OpenC
 packages/runtime-adapters/test/runtime-adapters.test.ts	reports Copilot CLI ready on its version alone, and says on the record why that is a guess	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	offers Copilot only the route where the CLI picks, because it names no models before a run	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	reports a Copilot whose version command says something else as not ready	yes
-packages/runtime-adapters/test/runtime-adapters.test.ts	caps captured output and never asks Node for a shell	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	terminates a timed-out probe	no
+packages/runtime-adapters/test/runtime-adapters.test.ts	caps captured output and never asks Node for a shell	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	terminates a timed-out probe	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	kills every probe still in flight when the app is leaving, tree first	no
 packages/runtime-adapters/test/runtime-adapters.test.ts	spawns nothing once it has been disposed	no
 packages/runtime-adapters/test/runtime-adapters.test.ts	does not reach a probe that already closed	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	takes a timed-out probe's whole tree down, not only the shim it spawned	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	off Windows, spawns the probe as its own process group and signals the group on timeout	no
+packages/runtime-adapters/test/runtime-adapters.test.ts	takes a timed-out probe's whole tree down, not only the shim it spawned	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	off Windows, spawns the probe as its own process group and signals the group on timeout	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	on Windows, does not detach: a detached child there gets its own console	no
 packages/runtime-adapters/test/runtime-adapters.test.ts	passes the chosen model and effort to Claude Code	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	passes effort to codex exec through the config override its docs describe	no
@@ -8257,10 +8257,10 @@ packages/runtime-adapters/test/runtime-adapters.test.ts	carries a write-capable 
 packages/runtime-adapters/test/runtime-adapters.test.ts	starts a fresh conversation when no session is given	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	refuses a session id that is not plain text	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	finds Codex in its versioned install root when PATH knows nothing	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	prefers what PATH says over an install root	no
+packages/runtime-adapters/test/runtime-adapters.test.ts	prefers what PATH says over an install root	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	finds Claude Code's npm shim without PATH	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	reports nothing when the runtime is genuinely absent	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	searches no install root for a command it does not know	no
+packages/runtime-adapters/test/runtime-adapters.test.ts	reports nothing when the runtime is genuinely absent	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	searches no install root for a command it does not know	yes
 packages/runtime-adapters/test/stop-reaches-the-tree.test.ts	kills a grandchild the run started, not just the process it launched	no
 packages/runtime-adapters/test/the-browser-shares-one-flag-with-the-bridge.test.ts	is named in the same --mcp-config as the permission bridge, which stays with its prompt tool	no
 packages/runtime-adapters/test/the-browser-shares-one-flag-with-the-bridge.test.ts	joins the connectors' rules in one --allowedTools	yes

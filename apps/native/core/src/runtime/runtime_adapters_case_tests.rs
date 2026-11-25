@@ -1,7 +1,7 @@
 //! Parity tests for `packages/runtime-adapters/test/runtime-adapters.test.ts` (launch-argument,
 //! mode-containment, safety-guard, version-parsing, and model-list cases).
 
-use super::{claude, codex, copilot, cursor, opencode_config, opencode_serve, safety, version, Runtime, Turn};
+use super::{claude, codex, copilot, cursor, discovery, opencode_config, opencode_serve, process, safety, version, Runtime, Turn};
 use crate::agents::{self, Answer, Auth, EachOptions, Machine, Probe, Seams};
 use crate::approval::{Mode, codex_app_server_policy};
 use crate::models::{
@@ -1042,4 +1042,128 @@ fn reports_copilot_with_unexpected_version_output_as_not_ready() {
     let copilot = agents::discover_one("copilot", &seams).unwrap();
     assert!(!copilot.ready);
     assert_eq!(copilot.status, Probe::Offline);
+}
+
+// ---- Group 3: non-Windows path discovery and bounded process/probe mechanics --------------------------------------
+
+fn make_temp_dir(tag: &str) -> PathBuf {
+    let dir = std::env::temp_dir().join(format!(
+        "locust-rt-adapters-{tag}-{}-{}",
+        std::process::id(),
+        crate::invariants::unique_nanos()
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+    dir
+}
+
+fn make_exec(dir: &Path, name: &str) -> PathBuf {
+    let path = dir.join(name);
+    std::fs::write(&path, "#!/bin/sh\nexit 0\n").unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    path
+}
+
+// case: prefers what PATH says over an install root
+#[test]
+fn prefers_what_path_says_over_install_root() {
+    let root = make_temp_dir("path-pref");
+    let on_path_dir = root.join("path-bin");
+    let npm_dir = root.join("npm-bin");
+    std::fs::create_dir_all(&on_path_dir).unwrap();
+    std::fs::create_dir_all(&npm_dir).unwrap();
+    let on_path = make_exec(&on_path_dir, "codex");
+    let _in_npm = make_exec(&npm_dir, "codex");
+    let found = discovery::find_beyond_path(
+        "codex",
+        on_path_dir.as_os_str(),
+        || Some(npm_dir.to_string_lossy().into_owned()),
+    )
+    .unwrap();
+    assert_eq!(found, on_path);
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+// case: reports nothing when the runtime is genuinely absent
+#[test]
+fn reports_nothing_when_runtime_is_genuinely_absent() {
+    let empty = make_temp_dir("absent");
+    assert!(discovery::find_beyond_path("codex", empty.as_os_str(), || None).is_err());
+    assert!(discovery::find_beyond_path("claude", empty.as_os_str(), || None).is_err());
+    let _ = std::fs::remove_dir_all(&empty);
+}
+
+// case: searches no install root for a command it does not know
+#[test]
+fn searches_no_install_root_for_unknown_command() {
+    let dir = make_temp_dir("unknown");
+    let _stray = make_exec(&dir, "codex");
+    assert!(discovery::find_beyond_path("somethingelse", dir.as_os_str(), || None).is_err());
+    assert!(discovery::find_named("bad/name").is_err());
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+// case: caps captured output and never asks Node for a shell
+#[test]
+fn caps_captured_output_and_never_uses_a_shell() {
+    use std::io::{BufReader, Read};
+    let mut reader = BufReader::new(std::io::repeat(b'a').take(9 * 1024 * 1024));
+    let mut line = Vec::new();
+    let n = process::read_line(&mut reader, &mut line).unwrap();
+    assert_eq!(n, 8 * 1024 * 1024 + 1);
+
+    // Direct exec without a shell: metacharacters in argv stay literal.
+    let mut cmd = Command::new("/bin/echo");
+    cmd.arg("$(echo nope)");
+    let mut child = process::spawn(&mut cmd, std::process::Stdio::null(), std::process::Stdio::piped()).unwrap();
+    let mut out = String::new();
+    child.stdout.take().unwrap().read_to_string(&mut out).unwrap();
+    let status = child.wait().unwrap();
+    assert!(status.success());
+    assert_eq!(out.trim(), "$(echo nope)");
+}
+
+// case: terminates a timed-out probe
+#[test]
+fn terminates_a_timed_out_probe() {
+    let mut cmd = Command::new("/bin/sleep");
+    cmd.arg("30");
+    let mut child = process::spawn(&mut cmd, std::process::Stdio::null(), std::process::Stdio::null()).unwrap();
+    let control = Arc::new(process::Control::default());
+    control.watch(child.id());
+    control.cancel_at(std::time::Instant::now() + std::time::Duration::from_millis(40));
+    assert!(process::confirm_exit(&mut child, std::time::Duration::from_secs(3)));
+    assert!(control.forced());
+}
+
+// case: takes a timed-out probe's whole tree down, not only the shim it spawned
+#[test]
+fn takes_timed_out_probes_whole_tree_down() {
+    let snapshot = "10 1\n20 10\n30 20\n40 10\n99 1\n";
+    assert_eq!(process::descendants_of(snapshot, 10), vec![30, 40, 20]);
+
+    let mut cmd = Command::new("/bin/sh");
+    cmd.args(["-c", "sleep 30 & wait"]);
+    let mut child = process::spawn(&mut cmd, std::process::Stdio::null(), std::process::Stdio::null()).unwrap();
+    let pid = child.id();
+    std::thread::sleep(std::time::Duration::from_millis(50));
+    process::end_terminal_tree(pid);
+    assert!(process::confirm_exit(&mut child, std::time::Duration::from_secs(3)));
+}
+
+// case: off Windows, spawns the probe as its own process group and signals the group on timeout
+#[cfg(unix)]
+#[test]
+fn off_windows_spawns_probe_as_own_process_group_and_signals_group() {
+    let mut cmd = Command::new("/bin/sleep");
+    cmd.arg("30");
+    let mut child = process::spawn(&mut cmd, std::process::Stdio::null(), std::process::Stdio::null()).unwrap();
+    let pid = child.id() as libc::pid_t;
+    let pgid = unsafe { libc::getpgid(pid) };
+    assert_eq!(pgid, pid, "child must be leader of its own process group");
+    process::kill(child.id());
+    assert!(process::confirm_exit(&mut child, std::time::Duration::from_secs(3)));
 }
