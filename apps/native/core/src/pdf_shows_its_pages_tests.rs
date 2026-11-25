@@ -201,3 +201,14 @@ fn says_so_when_the_pdf_cannot_be_read_and_when_it_is_not_there() {
         Err("Locust could not read that PDF.".into())
     );
 }
+
+// A PDF that is really there, but in another folder reached by climbing out, is refused as outside: being there is not
+// being in the workspace (the older test's /etc/passwd.pdf was refused only because it does not exist).
+#[test]
+fn a_pdf_that_exists_outside_the_folder_by_a_climbing_path_is_refused() {
+    let root = Folder::new();
+    let elsewhere = Folder::new();
+    let climb = format!("../{}/.locust/attachments/Homework 5.pdf", elsewhere.0.file_name().unwrap().to_string_lossy());
+    assert!(root.0.join(&climb).exists(), "the PDF is there");
+    assert_eq!(crate::pdf::decide_pdf_pages(&climb, &root.path_str()).unwrap_err(), "Outside the workspace.");
+}
