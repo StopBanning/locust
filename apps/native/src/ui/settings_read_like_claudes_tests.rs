@@ -104,11 +104,14 @@ fn draws_the_group_label_above_its_first_page_and_the_icon_beside_each_name() {
 /// The one-line settings Rust draws, on the page each lives on: the line's key, and the key or words of its control.
 const LINES: &[(SettingsPageId, &str, &str, &str)] = &[
     (SettingsPageId::Teammates, "Auto mode", "settings-line-auto-mode", "settings-auto-mode"),
+    (SettingsPageId::Teammates, "Plans", "settings-line-plans", "settings-plans"),
+    (SettingsPageId::Teammates, "Your skills", "settings-line-own-skills", "settings-own-skills"),
     (SettingsPageId::Appearance, "Reply text size", "settings-line-reply-size", "settings-reply-size-largest"),
     (SettingsPageId::Appearance, "Code font", "settings-line-code-font", "settings-code-font-paper"),
     (SettingsPageId::Appearance, "Terminal faces", "settings-line-terminal-faces", "settings-terminal-faces"),
     (SettingsPageId::Appearance, "What a face says", "settings-face-legend-row", "settings-face-legend"),
     (SettingsPageId::Appearance, "Sidebar", "settings-line-sidebar", "Rail"),
+    (SettingsPageId::Appearance, "Boot screen", "settings-line-boot-screen", "settings-boot-screen-off"),
 ];
 
 #[test]
@@ -142,8 +145,9 @@ fn puts_no_card_around_a_setting_rows_sit_on_the_pane_with_a_hairline_between() 
     }
 }
 
-// Plans, Your skills, Boot screen and Voice typing are not drawn in Rust ("runs in Locust for now"); the six that are
-// drawn are held here.
+// Electron's ten: Swarm was cut (0.880, see swarm.test.ts's row), and Voice typing's control (the model picker and the
+// OpenAI key, voice_typing.rs) is the voice lane's, so it still says "runs in Locust for now". The others are held here,
+// with Code font, which Rust draws as a line too.
 #[test]
 fn draws_a_setting_that_is_one_control_as_one_line_name_and_description_left_the_control_right() {
     for (page, name, key, control) in LINES {
@@ -243,3 +247,64 @@ fn each_section_electron_folds_says_how_it_works_under_it_and_opens_on_its_own_w
     }
 }
 
+
+fn window_with_store(id: SettingsPageId, root: &std::path::Path) -> Runtime<State> {
+    let mut s = State::default();
+    s.data = Some(crate::store::Store::new(root.join("native"), root.join("electron")).unwrap());
+    s.settings_panel.open = true;
+    s.settings_panel.page = Some(id);
+    let mut rt = Runtime::new(s, view, (1200.0, 4000.0), Env::new(true, 1.0));
+    rt.frame(0.0);
+    rt
+}
+
+fn press_key(rt: &mut Runtime<State>, key: &str) {
+    let (x, y) = rt.find(key).unwrap_or_else(|| panic!("no {key} on screen"));
+    rt.pointer_down(x, y);
+    rt.pointer_up(x, y);
+    rt.frame(0.016);
+}
+
+fn said(rt: &Runtime<State>) -> Vec<String> {
+    shown(rt).iter().filter_map(|e| e.text.clone()).collect()
+}
+
+fn saved(root: &std::path::Path) -> locust_core::workspace_settings::WorkspaceSettings {
+    let store = crate::store::Store::new(root.join("native"), root.join("electron")).unwrap();
+    locust_core::workspace_settings::load(&store).unwrap()
+}
+
+// Not an Electron case of its own: the three lines the one-line case now holds, each saved when pressed and saying
+// what its choice does in Electron's words (Screens.tsx).
+#[test]
+fn plans_your_skills_and_boot_screen_are_lines_that_save_what_is_picked() {
+    let dir = std::env::temp_dir().join(format!("settings-lines-{}", locust_core::invariants::unique_nanos()));
+    let dir = dir.as_path();
+    let mut rt = window_with_store(SettingsPageId::Teammates, dir);
+    let said_now = said(&rt);
+    assert!(said_now.iter().any(|t| t == "Asking for a plan. Teammates that can keep a todo list are asked to, and the board fills in as they work."));
+    assert!(said_now.iter().any(|t| t == "Not lent. Claude Code teammates use the folder's skills, not yours."));
+    assert!(!said_now.iter().any(|t| t == "runs in Locust for now"), "{said_now:?}");
+    let all = shown(&rt);
+    assert_eq!(keyed(&all, "settings-plans").label.as_deref(), Some("Stop asking teammates to keep a todo list"));
+    assert_eq!(keyed(&all, "settings-own-skills").label.as_deref(), Some("Lend your skills to Claude Code teammates"));
+
+    press_key(&mut rt, "settings-plans");
+    press_key(&mut rt, "settings-own-skills");
+    let said_now = said(&rt);
+    assert!(said_now.iter().any(|t| t == "Not asking. A teammate keeps a list only if it decides to on its own."));
+    assert!(said_now.iter().any(|t| t == "Lent. Claude Code teammates can use your own skills as well as the folder's."));
+    let file = saved(dir);
+    assert!(!file.keep_a_todo_list);
+    assert!(file.claude_own_skills);
+
+    let mut rt = window_with_store(SettingsPageId::Appearance, dir);
+    assert!(said(&rt).iter().any(|t| t == "Full. The whole monitor while your AI agents are found."));
+    press_key(&mut rt, "settings-boot-screen-subtle");
+    assert!(said(&rt).iter().any(|t| t == "Subtle. The screen without the flicker or the glare."));
+    assert_eq!(saved(dir).tube, "subtle");
+    press_key(&mut rt, "settings-boot-screen-off");
+    assert!(said(&rt).iter().any(|t| t == "Off. Locust goes straight to the workspace while it finds your AI agents."));
+    assert_eq!(saved(dir).tube, "off");
+    let _ = std::fs::remove_dir_all(dir);
+}

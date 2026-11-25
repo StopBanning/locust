@@ -326,6 +326,72 @@ fn reply_size_line(s: &State, p: &Palette, l: &crate::look::controls::Look) -> E
     )
 }
 
+/// Words left of a one-line setting: its name as a heading, and what the choice now does.
+fn line_words(l: &crate::look::controls::Look, heading: &str, lede: &str) -> El {
+    col()
+        .gap(4.0)
+        .child(text(heading.to_owned()).role("heading").level(2).font(l.ty.control).color(l.c("text-primary")))
+        .child(text(lede.to_owned()).font(l.ty.body).color(l.c("text-secondary")).wrap())
+}
+
+/// Screens.tsx "Plans" (Teammates): whether teammates that can keep a todo list are asked to. Read by the brief
+/// (`people.rs`, `briefing::standing_formats`) from the saved settings.
+pub(super) const PLANS_ON: &str =
+    "Asking for a plan. Teammates that can keep a todo list are asked to, and the board fills in as they work.";
+pub(super) const PLANS_OFF: &str = "Not asking. A teammate keeps a list only if it decides to on its own.";
+
+fn plans_line(s: &State, p: &Palette) -> El {
+    let l = crate::look::controls::Look::new(p.dark);
+    let on = s.settings_panel.settings.keep_a_todo_list;
+    let said = if on { "Stop asking teammates to keep a todo list" } else { "Ask teammates to keep a todo list" };
+    let knob = crate::look::controls::switch(&l, on, said, false).key("settings-plans").on_press(|s: &mut State| {
+        s.settings_panel.settings.keep_a_todo_list = !s.settings_panel.settings.keep_a_todo_list;
+        persist(s);
+    });
+    line(&l, "settings-line-plans", 10.0, line_words(&l, "Plans", if on { PLANS_ON } else { PLANS_OFF }), knob)
+}
+
+/// Screens.tsx "Your skills" (Teammates): whether Claude Code teammates may use the person's own skills. Read when a
+/// run starts (`native.rs`, `claudeOwnSkills`).
+pub(super) const OWN_SKILLS_ON: &str = "Lent. Claude Code teammates can use your own skills as well as the folder's.";
+pub(super) const OWN_SKILLS_OFF: &str = "Not lent. Claude Code teammates use the folder's skills, not yours.";
+
+fn own_skills_line(s: &State, p: &Palette) -> El {
+    let l = crate::look::controls::Look::new(p.dark);
+    let on = s.settings_panel.settings.claude_own_skills;
+    let said = if on { "Stop lending your skills to Claude Code teammates" } else { "Lend your skills to Claude Code teammates" };
+    let knob = crate::look::controls::switch(&l, on, said, false).key("settings-own-skills").on_press(|s: &mut State| {
+        s.settings_panel.settings.claude_own_skills = !s.settings_panel.settings.claude_own_skills;
+        persist(s);
+    });
+    let lede = if on { OWN_SKILLS_ON } else { OWN_SKILLS_OFF };
+    line(&l, "settings-line-own-skills", 10.0, line_words(&l, "Your skills", lede), knob)
+}
+
+/// Screens.tsx "Boot screen" (Appearance): how much of the boot screen to draw. Home's glass reads it
+/// (`home_cover::lighting_plan`).
+fn boot_screen_line(s: &State, p: &Palette) -> El {
+    let l = crate::look::controls::Look::new(p.dark);
+    let tube = s.settings_panel.settings.tube.as_str();
+    let lede = match tube {
+        "off" => "Off. Locust goes straight to the workspace while it finds your AI agents.",
+        "subtle" => "Subtle. The screen without the flicker or the glare.",
+        _ => "Full. The whole monitor while your AI agents are found.",
+    };
+    let mut choices = row().gap(6.0).role("radiogroup").label("How much of the boot screen to draw");
+    for (option, label) in [("full", "Full"), ("subtle", "Subtle"), ("off", "Off")] {
+        choices = choices.child(
+            active_button(label, p, tube == option).key(format!("settings-boot-screen-{option}")).role("radio").checked(tube == option).on_press(
+                move |s: &mut State| {
+                    s.settings_panel.settings.tube = option.into();
+                    persist(s);
+                },
+            ),
+        );
+    }
+    line(&l, "settings-line-boot-screen", 10.0, line_words(&l, "Boot screen", lede), choices)
+}
+
 /// A setting that is one control, drawn as one line (`.lc-settings__section--line` > `.lc-settingline`): a hairline
 /// above it, no card and no fill, the name and description on the left (`words`) and the control on the right. The
 /// line is `key`; its hairline is `<key>-hairline` and the row under it `<key>-row`.
@@ -1226,6 +1292,8 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                     ));
                 } else if heading == "What a face says" {
                     body = body.child(face_legend(s, p, &l));
+                } else if heading == "Boot screen" {
+                    body = body.child(boot_screen_line(s, p));
                 } else if heading == "Plush" {
                     body = body.child(
                         col()
@@ -1384,6 +1452,8 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                             }));
                     }
                     "Auto mode" => body = body.child(auto_mode_section(s, p)),
+                    "Plans" => body = body.child(plans_line(s, p)),
+                    "Your skills" => body = body.child(own_skills_line(s, p)),
                     crate::skills_from_github::HEADING => body = body.child(crate::skills_from_github::section(s, p)),
                     _ => body = body.child(deferred(heading, p)),
                 }
