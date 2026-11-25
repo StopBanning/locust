@@ -327,15 +327,10 @@ pub(super) fn tool_row_label(
         && !d.output.trim().is_empty()
         && result == "reported back"
     {
+        // The summary as words, on one line (ActivityCard `helperResult` -> `plainSummary`, 0.625): no Markdown marks.
         label.push_str(&format!(
             " · {}",
-            d.output
-                .split_whitespace()
-                .collect::<Vec<_>>()
-                .join(" ")
-                .chars()
-                .take(160)
-                .collect::<String>()
+            locust_core::thread_words::plain_summary(&d.output).chars().take(160).collect::<String>()
         ));
     }
     if result == "working in the background" && !d.progress.is_empty() {
@@ -894,6 +889,8 @@ pub(super) fn activity_group(items: &[ledger::Item], p: &Palette, s: &State, sco
     } else {
         disclosure(key, label, open, p)
     };
+    // Every name whole on hover whenever the line says less than them: a cut name, a count (ActivityCard `hoverTitle`).
+    let heading = if line.title != line.segments[0].text { heading.help(line.title.clone()) } else { heading };
     let mut group = col().w_full().gap(4.0).key(group_key).child(heading);
     if let Some((said, amber)) = &outcome {
         group = group.child(text(said).font(type_::LABEL).color(if *amber { p.amber } else { p.muted }).w_full());
@@ -955,6 +952,10 @@ pub(super) fn activity_group(items: &[ledger::Item], p: &Palette, s: &State, sco
     }
     group
 }
+
+#[cfg(test)]
+#[path = "thread_words_drawn_tests.rs"]
+mod thread_words_drawn_tests;
 
 #[cfg(test)]
 #[path = "note_code_tests.rs"]
