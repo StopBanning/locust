@@ -112,6 +112,7 @@ const LINES: &[(SettingsPageId, &str, &str, &str)] = &[
     (SettingsPageId::Appearance, "What a face says", "settings-face-legend-row", "settings-face-legend"),
     (SettingsPageId::Appearance, "Sidebar", "settings-line-sidebar", "Rail"),
     (SettingsPageId::Appearance, "Boot screen", "settings-line-boot-screen", "settings-boot-screen-off"),
+    (SettingsPageId::App, "Voice typing", "settings-line-voice-typing", "settings-voice-typing"),
 ];
 
 #[test]
@@ -121,15 +122,40 @@ fn puts_no_card_around_a_setting_rows_sit_on_the_pane_with_a_hairline_between() 
         let all = shown(&window(*page));
         let line = keyed(&all, key);
         let row = keyed(&all, &format!("{key}-row"));
-        let rule = keyed(&all, &format!("{key}-hairline"));
+        let first = *name == "Auto mode";
         for (what, e) in [("line", line), ("row", row)] {
             assert_eq!(e.fill.a, 0.0, "{name}: no card, the {what} sits on the pane");
             assert_eq!(e.radius, 0.0, "{name}: no rounded box around the {what}");
         }
-        assert_eq!(rule.fill, hairline, "{name}: the hairline");
-        assert_eq!(rule.rect[3], 1.0, "{name}: one point");
-        assert_eq!(rule.rect[2], line.rect[2], "{name}: across the line");
-        assert!(rule.rect[1] <= row.rect[1], "{name}: the hairline is above its row");
+        let rule = all.iter().find(|e| e.key.as_deref() == Some(&format!("{key}-hairline")));
+        if first {
+            assert!(rule.is_none(), "{name}: the first line on a page drops its hairline (:first-child)");
+            assert!(row.rect[1] - line.rect[1] < 1.0, "{name}: first-child drops top padding too");
+        } else {
+            let rule = rule.unwrap_or_else(|| panic!("no {key}-hairline"));
+            assert_eq!(rule.fill, hairline, "{name}: the hairline");
+            assert_eq!(rule.rect[3], 1.0, "{name}: one point");
+            assert_eq!(rule.rect[2], line.rect[2], "{name}: across the line");
+            assert!(rule.rect[1] <= row.rect[1], "{name}: the hairline is above its row");
+        }
+    }
+    // Filtering so a line becomes the first section on its page drops its hairline too.
+    for (page, query, key) in [
+        (SettingsPageId::Appearance, "Boot screen", "settings-line-boot-screen"),
+        (SettingsPageId::App, "Voice typing", "settings-line-voice-typing"),
+    ] {
+        let mut s = State::default();
+        s.settings_panel.open = true;
+        s.settings_panel.page = Some(page);
+        s.settings_panel.search.replace_text(query.to_owned());
+        let mut rt = Runtime::new(s, view, (1200.0, 4000.0), Env::new(true, 1.0));
+        rt.frame(0.0);
+        let all = shown(&rt);
+        assert!(all.iter().any(|e| e.key.as_deref() == Some(key)), "{query}: line shown");
+        assert!(
+            all.iter().all(|e| e.key.as_deref() != Some(&format!("{key}-hairline"))),
+            "{query}: first line on filtered page drops its hairline"
+        );
     }
     // And no page boxes a setting in: nothing in the pane wider than a field is a filled, rounded card (Startup,
     // Report a problem and each chat app were). Fields, 32 pt tall, are controls, not cards.
@@ -145,9 +171,8 @@ fn puts_no_card_around_a_setting_rows_sit_on_the_pane_with_a_hairline_between() 
     }
 }
 
-// Electron's ten: Swarm was cut (0.880, see swarm.test.ts's row), and Voice typing's control (the model picker and the
-// OpenAI key, voice_typing.rs) is the voice lane's, so it still says "runs in Locust for now". The others are held here,
-// with Code font, which Rust draws as a line too.
+// Electron's ten: Swarm was cut (0.880, see swarm.test.ts's row); the other nine are held here (Voice typing's control is
+// its model picker with the key under it, voice_settings.rs), with Code font, which Rust draws as a line too.
 #[test]
 fn draws_a_setting_that_is_one_control_as_one_line_name_and_description_left_the_control_right() {
     for (page, name, key, control) in LINES {
@@ -201,17 +226,28 @@ fn says_how_it_works_in_sentence_case() {
     assert!(!shown(&rt).iter().any(|e| e.key.as_deref() == Some("how-it-works-auto-mode-text")), "a second press folds it");
 }
 
-/// Where Electron says "How it works" (`<More>`) under a section Rust draws, and the page it is on.
+/// Where Electron says "How it works" (`<More>`) under a section Rust draws, in Electron's order, and the page it is on.
 const FOLDED: &[(&str, SettingsPageId)] = &[
-    ("auto-mode", SettingsPageId::Teammates),
     ("report-a-problem", SettingsPageId::App),
+    ("project-folder", SettingsPageId::Workspace),
     ("between-teammates", SettingsPageId::Relay),
+    ("agents", SettingsPageId::Runtimes),
     ("own-models", SettingsPageId::Models),
     ("github", SettingsPageId::Connectors),
+    ("connectors", SettingsPageId::Connectors),
+    ("add-connector", SettingsPageId::Connectors),
+    ("plan-runs-out", SettingsPageId::Runtimes),
+    ("auto-mode", SettingsPageId::Teammates),
+    ("plans", SettingsPageId::Teammates),
+    ("own-skills", SettingsPageId::Teammates),
+    ("skills-from-github", SettingsPageId::Teammates),
     ("memory", SettingsPageId::Memory),
+    ("reply-size", SettingsPageId::Appearance),
+    ("boot-screen", SettingsPageId::Appearance),
+    ("phone", SettingsPageId::App),
     ("chat-apps", SettingsPageId::App),
-    ("privacy", SettingsPageId::Privacy),
     ("updates", SettingsPageId::App),
+    ("privacy", SettingsPageId::Privacy),
 ];
 
 // Not an Electron case of its own: the fold the sentence-case case holds on Auto mode, held wherever it is used.

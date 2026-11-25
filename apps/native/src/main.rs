@@ -149,6 +149,8 @@ mod settings_pages;
 mod settings_panel;
 #[path = "ui/how_it_works.rs"]
 mod how_it_works;
+#[path = "ui/voice_settings.rs"]
+mod voice_settings;
 #[path = "ui/terminal_panel.rs"]
 mod terminal_panel;
 #[cfg(test)]

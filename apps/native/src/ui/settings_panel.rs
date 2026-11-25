@@ -69,6 +69,8 @@ pub(super) struct Panel {
     pub update_refusal: Option<String>,
     pub update_installing: bool,
     pub update_service: Option<locust_core::updates::UpdateService<Box<dyn locust_core::updates::UpdaterLike>>>,
+    /// "Voice typing": the model picked, whether a key is kept, and the key field.
+    pub voice: crate::voice_settings::Line,
 }
 
 fn button(label: impl Into<String>, p: &Palette) -> El {
@@ -209,6 +211,7 @@ fn reload(s: &mut State) {
             read_login_item(s);
             crate::phone_section::read(s);
             crate::your_account_section::read(s);
+            crate::voice_settings::read(s);
         }
     }
     crate::agents_section::request(s);
@@ -277,7 +280,7 @@ fn save_appearance_panel(s: &mut State) {
 }
 
 /// Screens.tsx's Sidebar line: Auto follows the window, Full and Rail hold whatever its width.
-fn sidebar_line(s: &State, p: &Palette) -> El {
+fn sidebar_line(s: &State, p: &Palette, first: bool) -> El {
     let pref = s.layout_pref.as_str();
     let choice = |value: &'static str, label: &str| {
         active_button(label, p, pref == value || (value == "auto" && !matches!(pref, "wide" | "compact")))
@@ -289,7 +292,7 @@ fn sidebar_line(s: &State, p: &Palette) -> El {
         .child(text("Sidebar").role("heading").level(2).font(type_::TITLE).color(p.text))
         .child(text(crate::rail::layout_lede(pref, s.layout_compact.get())).font(type_::LABEL).color(p.secondary).wrap());
     let choices = row().gap(6.0).child(choice("auto", "Auto")).child(choice("wide", "Full")).child(choice("compact", "Rail"));
-    line(&l, "settings-line-sidebar", 10.0, words, choices)
+    line(&l, "settings-line-sidebar", 10.0, first, words, choices)
 }
 
 /// The heading Electron's General page gives the door.
@@ -297,7 +300,7 @@ const DOOR_HEADING: &str = "Let your other AI apps use Locust";
 
 /// Reply text size (Screens.tsx, Appearance): how big a teammate's reply is set, with the person's own messages and the
 /// question cards growing with it. Saved at once; the words below the name say what the choice is.
-fn reply_size_line(s: &State, p: &Palette, l: &crate::look::controls::Look) -> El {
+fn reply_size_line(s: &State, p: &Palette, l: &crate::look::controls::Look, first: bool) -> El {
     let chosen = s.settings_panel.settings.reply_size.as_str();
     let lede = match chosen {
         "largest" => "Largest. For reading at a distance, or a long reply you want to sit with.",
@@ -318,6 +321,7 @@ fn reply_size_line(s: &State, p: &Palette, l: &crate::look::controls::Look) -> E
         l,
         "settings-line-reply-size",
         10.0,
+        first,
         col()
             .gap(6.0)
             .child(text("Reply text size".to_owned()).role("heading").level(2).font(type_::TITLE).color(p.text))
@@ -340,7 +344,7 @@ pub(super) const PLANS_ON: &str =
     "Asking for a plan. Teammates that can keep a todo list are asked to, and the board fills in as they work.";
 pub(super) const PLANS_OFF: &str = "Not asking. A teammate keeps a list only if it decides to on its own.";
 
-fn plans_line(s: &State, p: &Palette) -> El {
+fn plans_line(s: &State, p: &Palette, first: bool) -> El {
     let l = crate::look::controls::Look::new(p.dark);
     let on = s.settings_panel.settings.keep_a_todo_list;
     let said = if on { "Stop asking teammates to keep a todo list" } else { "Ask teammates to keep a todo list" };
@@ -348,7 +352,7 @@ fn plans_line(s: &State, p: &Palette) -> El {
         s.settings_panel.settings.keep_a_todo_list = !s.settings_panel.settings.keep_a_todo_list;
         persist(s);
     });
-    line(&l, "settings-line-plans", 10.0, line_words(&l, "Plans", if on { PLANS_ON } else { PLANS_OFF }), knob)
+    line(&l, "settings-line-plans", 10.0, first, line_words(&l, "Plans", if on { PLANS_ON } else { PLANS_OFF }), knob)
 }
 
 /// Screens.tsx "Your skills" (Teammates): whether Claude Code teammates may use the person's own skills. Read when a
@@ -356,7 +360,7 @@ fn plans_line(s: &State, p: &Palette) -> El {
 pub(super) const OWN_SKILLS_ON: &str = "Lent. Claude Code teammates can use your own skills as well as the folder's.";
 pub(super) const OWN_SKILLS_OFF: &str = "Not lent. Claude Code teammates use the folder's skills, not yours.";
 
-fn own_skills_line(s: &State, p: &Palette) -> El {
+fn own_skills_line(s: &State, p: &Palette, first: bool) -> El {
     let l = crate::look::controls::Look::new(p.dark);
     let on = s.settings_panel.settings.claude_own_skills;
     let said = if on { "Stop lending your skills to Claude Code teammates" } else { "Lend your skills to Claude Code teammates" };
@@ -365,12 +369,12 @@ fn own_skills_line(s: &State, p: &Palette) -> El {
         persist(s);
     });
     let lede = if on { OWN_SKILLS_ON } else { OWN_SKILLS_OFF };
-    line(&l, "settings-line-own-skills", 10.0, line_words(&l, "Your skills", lede), knob)
+    line(&l, "settings-line-own-skills", 10.0, first, line_words(&l, "Your skills", lede), knob)
 }
 
 /// Screens.tsx "Boot screen" (Appearance): how much of the boot screen to draw. Home's glass reads it
 /// (`home_cover::lighting_plan`).
-fn boot_screen_line(s: &State, p: &Palette) -> El {
+fn boot_screen_line(s: &State, p: &Palette, first: bool) -> El {
     let l = crate::look::controls::Look::new(p.dark);
     let tube = s.settings_panel.settings.tube.as_str();
     let lede = match tube {
@@ -389,40 +393,43 @@ fn boot_screen_line(s: &State, p: &Palette) -> El {
             ),
         );
     }
-    line(&l, "settings-line-boot-screen", 10.0, line_words(&l, "Boot screen", lede), choices)
+    line(&l, "settings-line-boot-screen", 10.0, first, line_words(&l, "Boot screen", lede), choices)
 }
 
 /// A setting that is one control, drawn as one line (`.lc-settings__section--line` > `.lc-settingline`): a hairline
-/// above it, no card and no fill, the name and description on the left (`words`) and the control on the right. The
-/// line is `key`; its hairline is `<key>-hairline` and the row under it `<key>-row`.
-fn line(l: &crate::look::controls::Look, key: &str, indent: f32, words: El, control: El) -> El {
-    col()
-        .key(key.to_owned())
+/// above it (dropped when `first`, matching Electron's `:first-child`), no card and no fill, the name and description
+/// on the left (`words`) and the control on the right. The line is `key`; its hairline (when drawn) is `<key>-hairline`
+/// and the row under it `<key>-row`.
+pub(crate) fn line(l: &crate::look::controls::Look, key: &str, indent: f32, first: bool, words: El, control: El) -> El {
+    let mut wrap = col().key(key.to_owned()).w_full().pb(14.0);
+    if !first {
+        wrap = wrap.child(el().key(format!("{key}-hairline")).w_full().h(1.0).fill(l.c("border-hairline")));
+    }
+    let row_el = row()
+        .key(format!("{key}-row"))
         .w_full()
-        .child(el().key(format!("{key}-hairline")).w_full().h(1.0).fill(l.c("border-hairline")))
-        .child(
-            row()
-                .key(format!("{key}-row"))
-                .w_full()
-                .gap(24.0)
-                .py(14.0)
-                .px(10.0)
-                .pl(indent)
-                .center_y()
-                .child(words.grow(1.0).shrink().min_w(0.0))
-                .child(control),
-        )
+        .gap(24.0)
+        .px(10.0)
+        .pl(indent)
+        .center_y()
+        .child(words.grow(1.0).shrink().min_w(0.0))
+        .child(control);
+    if first {
+        wrap.child(row_el)
+    } else {
+        wrap.child(col().w_full().pt(14.0).child(row_el))
+    }
 }
 
 /// One switch with its words (`.lc-settingline`), indented when it belongs to the line above (`--sub`).
-fn setting_line(l: &crate::look::controls::Look, heading: &str, lede: &str, on: bool, sub: bool, press: fn(&mut State)) -> El {
+fn setting_line(l: &crate::look::controls::Look, heading: &str, lede: &str, on: bool, sub: bool, first: bool, press: fn(&mut State)) -> El {
     use crate::look::controls;
     let words = col()
         .gap(4.0)
         .child(text(heading.to_owned()).font(l.ty.control).color(l.c("text-primary")))
         .child(text(lede.to_owned()).font(l.ty.body).color(l.c("text-secondary")).wrap());
     let key = format!("settings-line-{}", heading.to_lowercase().replace(' ', "-"));
-    line(l, &key, if sub { 34.0 } else { 10.0 }, words, controls::switch(l, on, heading, false).on_press(press))
+    line(l, &key, if sub { 34.0 } else { 10.0 }, first, words, controls::switch(l, on, heading, false).on_press(press))
 }
 
 /// A setup line to paste, with its Copy.
@@ -489,7 +496,7 @@ fn toggle_conversations(s: &mut State) {
 pub(super) const AUTO_ON: &str = "On. A run started in Auto goes ahead without asking and is not kept to the project folder.";
 pub(super) const AUTO_OFF: &str = "Off. Teammates may change files inside the project folder and nowhere else.";
 
-fn auto_mode_section(s: &State, p: &Palette) -> El {
+fn auto_mode_section(s: &State, p: &Palette, first: bool) -> El {
     let l = crate::look::controls::Look::new(p.dark);
     let managed = !locust_core::org_policy::mode_allowed(Some(&locust_core::org_policy::current()), "auto");
     let on = s.settings_panel.settings.auto_mode;
@@ -509,7 +516,7 @@ fn auto_mode_section(s: &State, p: &Palette) -> El {
     }
     col()
         .w_full()
-        .child(line(&l, "settings-line-auto-mode", 10.0, words, knob))
+        .child(line(&l, "settings-line-auto-mode", 10.0, first, words, knob))
         .child(more(s, p, "auto-mode"))
 }
 
@@ -524,7 +531,12 @@ fn more(s: &State, p: &Palette, key: &'static str) -> El {
 
 /// LocustMcpSettings.tsx: the door's switch, and once it is on, each teammate's own mode, the person's
 /// conversations, and the lines that add it to Claude Code and Codex.
+#[cfg(test)]
 fn door_section(s: &State, p: &Palette) -> El {
+    door_section_at(s, p, true)
+}
+
+fn door_section_at(s: &State, p: &Palette, first: bool) -> El {
     let l = crate::look::controls::Look::new(p.dark);
     let managed = locust_core::org_policy::feature_refusal(Some(&locust_core::org_policy::current()), "otherApps").is_some();
     let Some(door) = &s.settings_panel.door else {
@@ -576,6 +588,7 @@ fn door_section(s: &State, p: &Palette) -> El {
         },
         set.enabled,
         false,
+        first,
         toggle_door,
     ));
     if set.enabled {
@@ -597,6 +610,7 @@ fn door_section(s: &State, p: &Palette) -> El {
                 },
                 set.own_mode,
                 true,
+                false,
                 toggle_own_mode,
             ));
         // EDITORS ANSWER ONLY WHEN YOU SAY SO (0.790): shown once an editor has connected, so nobody who has never
@@ -612,6 +626,7 @@ fn door_section(s: &State, p: &Palette) -> El {
                 },
                 set.editor_answers,
                 true,
+                false,
                 toggle_editor_answers,
             ));
         }
@@ -626,6 +641,7 @@ fn door_section(s: &State, p: &Palette) -> El {
                 },
                 set.conversations,
                 true,
+                false,
                 toggle_conversations,
             ));
     }
@@ -1016,7 +1032,7 @@ pub(super) fn tick_face_legend(s: &mut State, now: f64, tx: &mut Tx) -> bool {
 
 /// "What a face says" (FaceLegend.tsx): one teammate, a teal droid with eyes at 40, going through every face in turn,
 /// each with its dot and its name under it. A press shows the next.
-fn face_legend(s: &State, p: &Palette, l: &crate::look::controls::Look) -> El {
+fn face_legend(s: &State, p: &Palette, l: &crate::look::controls::Look, first: bool) -> El {
     use crate::look::bot_stage::PresenceDot;
     use locust_core::face_legend::{legend_lede, legend_label, legend_name, legend_presence, LEGEND_HUE, LEGEND_SHAPE, LEGEND_SIZE};
     use locust_core::face_status::Presence;
@@ -1068,7 +1084,7 @@ fn face_legend(s: &State, p: &Palette, l: &crate::look::controls::Look) -> El {
         .gap(6.0)
         .child(text("What a face says".to_owned()).role("heading").level(2).font(type_::TITLE).color(p.text))
         .child(text(legend_lede(s.settings_panel.settings.terminal_faces).to_owned()).font(type_::LABEL).color(p.secondary).wrap());
-    line(l, "settings-face-legend-row", 10.0, words, legend)
+    line(l, "settings-face-legend-row", 10.0, first, words, legend)
 }
 
 fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
@@ -1088,6 +1104,7 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
 
     match page {
         SettingsPageId::Appearance => {
+            let mut first_section = true;
             // Theme is drawn on Appearance (Electron ThemeSetting), even though
             // it is not in the search-index headings list.
             if query.is_empty()
@@ -1095,6 +1112,7 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                 || settings_pages::matches("dark", &query)
                 || settings_pages::matches("light", &query)
             {
+                first_section = false;
                 let theme = s.settings_panel.theme;
                 body = body.child(
                     col()
@@ -1234,21 +1252,24 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                         );
                 }
                 body = body.child(look_col);
+                first_section = false;
             }
             let terminal_faces = s.settings_panel.settings.terminal_faces;
             let plush = s.settings_panel.settings.plush;
             let l = crate::look::controls::Look::new(p.bg == Palette::new(true).bg);
             for heading in headings {
+                let first = std::mem::replace(&mut first_section, false);
                 if heading == "Sidebar" {
-                    body = body.child(sidebar_line(s, p));
+                    body = body.child(sidebar_line(s, p, first));
                 } else if heading == "Reply text size" {
-                    body = body.child(reply_size_line(s, p, &l));
+                    body = body.child(reply_size_line(s, p, &l, first)).child(more(s, p, "reply-size"));
                 } else if heading == "Code font" {
                     let paper = s.settings_panel.settings.code_font == "paper";
                     body = body.child(line(
                         &l,
                         "settings-line-code-font",
                         10.0,
+                        first,
                         col()
                             .gap(6.0)
                             .child(text("Code font".to_owned()).role("heading").level(2).font(type_::TITLE).color(p.text))
@@ -1274,6 +1295,7 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                         &l,
                         "settings-line-terminal-faces",
                         10.0,
+                        first,
                         col()
                             .gap(6.0)
                             .child(text("Terminal faces".to_owned()).role("heading").level(2).font(type_::TITLE).color(p.text))
@@ -1291,9 +1313,9 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                             }),
                     ));
                 } else if heading == "What a face says" {
-                    body = body.child(face_legend(s, p, &l));
+                    body = body.child(face_legend(s, p, &l, first));
                 } else if heading == "Boot screen" {
-                    body = body.child(boot_screen_line(s, p));
+                    body = body.child(boot_screen_line(s, p, first)).child(more(s, p, "boot-screen"));
                 } else if heading == "Plush" {
                     body = body.child(
                         col()
@@ -1329,13 +1351,18 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                 let ws = workspace_settings::workspace_id_for(std::path::Path::new(&folder));
                 s.settings_panel.settings.check_commands.get(&ws).cloned()
             });
+            let mut first_section = true;
             for heading in headings {
                 if heading == "Managed by your organization" {
                     if let Some(section) = org_policy_section(p) {
                         body = body.child(section);
+                        first_section = false;
                     }
-                } else if heading == DOOR_HEADING {
-                    body = body.child(door_section(s, p));
+                    continue;
+                }
+                let first = std::mem::replace(&mut first_section, false);
+                if heading == DOOR_HEADING {
+                    body = body.child(door_section_at(s, p, first));
                 } else if heading == "Chat apps" {
                     body = body.child(crate::chat_apps_section::section(s, p)).child(more(s, p, "chat-apps"));
                 } else if heading == crate::your_account_section::HEADING {
@@ -1345,6 +1372,9 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                     if let Some(remote) = crate::remote_mcp_card::section(s, p) {
                         body = body.child(remote);
                     }
+                    body = body.child(more(s, p, "phone"));
+                } else if heading == crate::voice_settings::HEADING {
+                    body = body.child(crate::voice_settings::section(s, p, first));
                 } else if heading == "Startup" {
                     body = body.child(crate::quit_guard_dialog::startup_section(s, p));
                 } else if heading == "Updates" {
@@ -1395,9 +1425,9 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                 if heading == "GitHub" {
                     body = body.child(section_heading(heading, p)).child(crate::github_section::section(s, p)).child(more(s, p, "github"));
                 } else if heading == "Connectors" {
-                    body = body.child(section_heading(heading, p)).child(crate::connectors_section::section(s, p));
+                    body = body.child(section_heading(heading, p)).child(crate::connectors_section::section(s, p)).child(more(s, p, "connectors"));
                 } else if heading == "Add a connector" {
-                    body = body.child(section_heading(heading, p)).child(crate::add_connector::section(s, p));
+                    body = body.child(section_heading(heading, p)).child(crate::add_connector::section(s, p)).child(more(s, p, "add-connector"));
                 } else {
                     body = body.child(deferred(heading, p));
                 }
@@ -1406,7 +1436,7 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
         SettingsPageId::Runtimes => {
             for heading in headings {
                 if heading == "When an agent cannot go on" {
-                    body = body.child(plan_runs_out_section(s, p));
+                    body = body.child(plan_runs_out_section(s, p)).child(more(s, p, "plan-runs-out"));
                 } else if heading == crate::what_locust_can_stop_ui::HEADING {
                     body = body.child(crate::what_locust_can_stop_ui::section(s, p));
                 } else if heading == crate::agents_section::HEADING {
@@ -1417,13 +1447,16 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                     if let Some(remote) = crate::remote_control_card::section(s, p) {
                         body = body.child(remote);
                     }
+                    body = body.child(more(s, p, "agents"));
                 } else {
                     body = body.child(deferred(heading, p));
                 }
             }
         }
         SettingsPageId::Teammates => {
+            let mut first_section = true;
             for heading in headings {
+                let first = std::mem::replace(&mut first_section, false);
                 match heading {
                     "Saved approvals" => {
                         body = body
@@ -1451,10 +1484,10 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                                 s.people_panel.memory_tab = false;
                             }));
                     }
-                    "Auto mode" => body = body.child(auto_mode_section(s, p)),
-                    "Plans" => body = body.child(plans_line(s, p)),
-                    "Your skills" => body = body.child(own_skills_line(s, p)),
-                    crate::skills_from_github::HEADING => body = body.child(crate::skills_from_github::section(s, p)),
+                    "Auto mode" => body = body.child(auto_mode_section(s, p, first)),
+                    "Plans" => body = body.child(plans_line(s, p, first)).child(more(s, p, "plans")),
+                    "Your skills" => body = body.child(own_skills_line(s, p, first)).child(more(s, p, "own-skills")),
+                    crate::skills_from_github::HEADING => body = body.child(crate::skills_from_github::section(s, p)).child(more(s, p, "skills-from-github")),
                     _ => body = body.child(deferred(heading, p)),
                 }
             }
@@ -1529,6 +1562,7 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                         .wrap()
                         .padding(10.0),
                 )
+                .child(more(s, p, "project-folder"))
                 .child(
                     col()
                         .w_full()
