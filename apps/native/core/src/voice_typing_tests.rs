@@ -369,3 +369,140 @@ fn wav_is_refused_one_sample_past_a_minute() {
     assert!(wav(&vec![0; MAX_PCM_SAMPLES]).is_some());
     assert!(wav(&vec![0; MAX_PCM_SAMPLES + 1]).is_none());
 }
+
+/// The app's real HTTPS client (voice_http), pointed at a stand-in on this machine instead of OpenAI's address.
+struct Here {
+    url: &'static str,
+    asked: Mutex<Vec<&'static str>>,
+}
+impl Here {
+    fn at(url: String) -> Self {
+        Self { url: Box::leak(url.into_boxed_str()), asked: Mutex::default() }
+    }
+}
+impl TranscriptionTransport for Here {
+    fn send(&self, request: TranscriptionRequest<'_>) -> Result<(u16, Vec<u8>), ()> {
+        self.asked.lock().unwrap().push(request.url);
+        crate::voice_http::UreqTranscriptionTransport::new()
+            .send(TranscriptionRequest { url: self.url, ..request })
+    }
+}
+
+/// A stand-in for OpenAI that answers one request with `reply` and hands back its head (lower-cased) and body.
+fn stand_in(reply: String) -> (String, std::thread::JoinHandle<(String, Vec<u8>)>) {
+    use std::io::{BufRead, BufReader, Read, Write};
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let url = format!("http://{}/v1/audio/transcriptions", listener.local_addr().unwrap());
+    let seen = std::thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        let mut reader = BufReader::new(stream.try_clone().unwrap());
+        let (mut head, mut length) = (String::new(), 0usize);
+        loop {
+            let mut line = String::new();
+            reader.read_line(&mut line).unwrap();
+            if line.trim_end().is_empty() {
+                break;
+            }
+            let line = line.to_ascii_lowercase();
+            if let Some(value) = line.strip_prefix("content-length:") {
+                length = value.trim().parse().unwrap();
+            }
+            head.push_str(&line);
+        }
+        let mut body = vec![0; length];
+        reader.read_exact(&mut body).unwrap();
+        stream.write_all(reply.as_bytes()).unwrap();
+        (head, body)
+    });
+    (url, seen)
+}
+
+fn answer(status: &str, body: &str) -> String {
+    format!("HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len())
+}
+
+fn allowed_mac(p: &Profile) -> VoiceSettings<'_> {
+    let voice = p.voice("darwin");
+    voice.save(&json!({"mode":"openai","key":KEY})).unwrap();
+    voice.consent().unwrap();
+    voice
+}
+
+// case: types through the OpenAI route once allowed, as on Windows
+#[test]
+fn a_mac_types_through_the_apps_own_https_client_with_electrons_request() {
+    let p = Profile::new();
+    let voice = allowed_mac(&p);
+    let (url, seen) = stand_in(answer("200 OK", r#"{"text":"Typed on a Mac."}"#));
+    let here = Here::at(url);
+    let typed = voice.transcribe(&sample(), Mode::OpenAi, &AtomicBool::new(false), &here);
+    assert_eq!(typed.unwrap(), "Typed on a Mac.");
+    assert_eq!(*here.asked.lock().unwrap(), ["https://api.openai.com/v1/audio/transcriptions"]);
+    let (head, body) = seen.join().unwrap();
+    let body = String::from_utf8_lossy(&body);
+    assert!(head.starts_with("post /v1/audio/transcriptions http/1.1"), "{head}");
+    assert!(head.contains(&format!("authorization: bearer {KEY}\r\n")), "{head}");
+    assert!(head.contains("content-type: multipart/form-data; boundary=locust-"), "{head}");
+    assert!(!head.contains("cookie:"), "{head}");
+    for field in [
+        "name=\"file\"; filename=\"speech.wav\"\r\nContent-Type: audio/wav",
+        "name=\"model\"\r\n\r\ngpt-4o-transcribe\r\n",
+        "name=\"response_format\"\r\n\r\njson\r\n",
+        "name=\"language\"\r\n\r\nen\r\n",
+    ] {
+        assert!(body.contains(field), "missing {field:?}");
+    }
+}
+
+#[test]
+fn the_apps_own_client_says_openais_refusals_in_electrons_words() {
+    let p = Profile::new();
+    let voice = allowed_mac(&p);
+    let cancel = AtomicBool::new(false);
+    for (status, said) in [
+        ("401 Unauthorized", "OpenAI refused your API key. Check it in Settings > General. Your message is unchanged."),
+        ("403 Forbidden", "OpenAI refused your API key. Check it in Settings > General. Your message is unchanged."),
+        ("500 Internal Server Error", "OpenAI could not transcribe this recording. Check your API account and try again. Your message is unchanged."),
+    ] {
+        let (url, seen) = stand_in(answer(status, r#"{"error":{"message":"no"}}"#));
+        let refused = voice.transcribe(&sample(), Mode::OpenAi, &cancel, &Here::at(url));
+        assert_eq!(refused.unwrap_err(), said, "{status}");
+        seen.join().unwrap();
+    }
+    // Nobody answering is "could not be reached", in Electron's words.
+    let gone = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let url = format!("http://{}/v1/audio/transcriptions", gone.local_addr().unwrap());
+    drop(gone);
+    let unreached = voice.transcribe(&sample(), Mode::OpenAi, &cancel, &Here::at(url));
+    assert_eq!(unreached.unwrap_err(), "OpenAI could not be reached. Your message is unchanged; try again.");
+}
+
+#[test]
+fn the_apps_own_client_never_carries_the_key_past_a_redirect_or_sends_a_long_recording() {
+    let p = Profile::new();
+    let voice = allowed_mac(&p);
+    let cancel = AtomicBool::new(false);
+    let elsewhere = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    elsewhere.set_nonblocking(true).unwrap();
+    let moved = format!(
+        "HTTP/1.1 302 Found\r\nLocation: http://{}/v1/audio/transcriptions\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+        elsewhere.local_addr().unwrap()
+    );
+    let (url, seen) = stand_in(moved);
+    let redirected = voice.transcribe(&sample(), Mode::OpenAi, &cancel, &Here::at(url));
+    seen.join().unwrap();
+    assert_eq!(redirected.unwrap_err(), UNREACHABLE);
+    assert!(elsewhere.accept().is_err(), "the key followed the redirect");
+    // Over a minute is refused before anything is sent.
+    let too_long = wav(&vec![0; MAX_PCM_SAMPLES]).unwrap();
+    let mut longer = too_long.clone();
+    longer.extend_from_slice(&[0, 0]);
+    let closed = format!("http://{}/v1/audio/transcriptions", elsewhere.local_addr().unwrap());
+    drop(elsewhere);
+    let here = Here::at(closed);
+    assert_eq!(
+        voice.transcribe(&longer, Mode::OpenAi, &cancel, &here).unwrap_err(),
+        "Voice typing needs a recording of at most one minute. Your message is unchanged."
+    );
+    assert!(here.asked.lock().unwrap().is_empty());
+}
