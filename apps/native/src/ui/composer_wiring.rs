@@ -170,6 +170,9 @@ pub(super) fn selected_ready_now(s: &State) -> bool {
 }
 
 pub(super) fn composer_placeholder(s: &State) -> String {
+    if s.cloud.codex.on {
+        return "Describe a task for Codex Cloud…".into();
+    }
     if native_blocked(s)
         && let Some((teammate, _)) = selected_conversation(s)
     {
@@ -605,6 +608,9 @@ pub(super) fn submit_composer(s: &mut State, tx: &mut Tx, send_now: bool) {
         return;
     }
     if crate::claude_cloud_panel::send(s, &typed) {
+        return;
+    }
+    if crate::cloud_tasks::send(s, &typed) {
         return;
     }
     if turn_running(s) {

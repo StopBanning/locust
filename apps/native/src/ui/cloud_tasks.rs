@@ -6,7 +6,7 @@
 use super::*;
 use crate::claude_cloud_panel::{CloudFolder, CloudWhere};
 use locust_core::changes;
-use locust_core::cloud_task_service::{self, CloudApplyResult, CloudTaskService};
+use locust_core::cloud_task_service::{self, CloudApplyResult, CloudStartInput, CloudStartResult, CloudTaskService};
 use locust_core::cloud_tasks::{CloudEnvironment, CloudState, CloudTask};
 use locust_core::store::Store;
 use std::collections::HashSet;
@@ -15,6 +15,8 @@ use std::sync::Mutex;
 
 const CODEX_NOT_READY: &str =
     "Cloud tasks run through Codex CLI, which is not installed or not signed in here. Settings > AI agents shows how.";
+const CODEX_MENU_REFUSAL: &str = "Codex CLI is not installed or not signed in here.";
+const CLOUD_START_FAILED: &str = "The cloud task could not be started. Nothing was sent.";
 const EMPTY_STATE: &str = "Pick Cloud in the chat-type menu and describe a task. It runs in Codex Cloud on this repository, as GitHub has it; its change stays there until you apply it here.";
 const CHECKING_ENV_FOLDERS: &str = "Checking your other folders for one that has an environment…";
 const USE_FOLDER_WITH_ENV: &str = "Or use a folder that has one:";
@@ -61,6 +63,11 @@ enum Answer {
 /// Codex Cloud state held inside `claude_cloud_panel::Cloud`.
 #[derive(Default)]
 pub(crate) struct CodexCloud {
+    /// Cloud is the chat type with a Codex model picked: the next send starts a Codex Cloud task.
+    /// One message's choice, not a state the box stays in (0.505): another conversation, model change, or send clears it.
+    pub(crate) on: bool,
+    /// The teammate `on` was chosen for.
+    pub(crate) on_for: Option<String>,
     pub(crate) tasks: Vec<CloudTask>,
     pub(crate) place: Option<CloudWhere>,
     pub(crate) codex_ready: Option<bool>,
@@ -93,6 +100,70 @@ fn folder(s: &State) -> Option<String> {
     teammate(s)
         .and_then(|mate| mate.folder.clone())
         .or_else(|| s.home.folder_path.clone())
+}
+
+/// Whether the composer's picked model is a Codex route (Composer.tsx `cloud.where === 'codex'`, 0.503).
+pub(crate) fn codex_picked(s: &State) -> bool {
+    let Some(mate) = teammate(s) else { return false };
+    let runtime = s
+        .picks
+        .get(&mate.id)
+        .and_then(|p| p.runtime.as_deref())
+        .or(mate.runtime.as_deref());
+    runtime == Some("codex")
+}
+
+/// Why Cloud cannot be picked for Codex here, when Codex CLI is known to be unready (`App.tsx:11032`).
+pub(crate) fn menu_refusal(s: &State) -> Option<&'static str> {
+    (s.cloud.codex.codex_ready == Some(false)).then_some(CODEX_MENU_REFUSAL)
+}
+
+/// The chat-type menu's Cloud choice for a Codex model (`Composer.tsx` `cloud.onMode`):
+/// turning it on opens the cloud panel and reads this folder's Codex tasks and environment.
+pub(crate) fn choose(s: &mut State, on: bool) {
+    s.cloud.codex.on = on;
+    if !on {
+        return;
+    }
+    s.cloud.codex.on_for = teammate(s).map(|mate| mate.id.clone());
+    s.cloud.open = true;
+    refresh(s);
+}
+
+/// A send with Cloud on and a Codex model picked starts a Codex Cloud task instead of a turn (`App.tsx` `startCloudTask`).
+/// True when this branch handled the send (started or refused); a refusal is shown over the box and keeps the draft.
+pub(crate) fn send(s: &mut State, typed: &str) -> bool {
+    if !s.cloud.codex.on || !codex_picked(s) {
+        return false;
+    }
+    let (Some(store), Some(here)) = (s.data.as_ref(), folder(s)) else {
+        s.composer_note = Some(CLOUD_START_FAILED.into());
+        return true;
+    };
+    let svc = build_service(store, &s.cloud.codex.make);
+    let teammate_id = teammate(s).map(|mate| mate.id.clone());
+    match svc.start(CloudStartInput {
+        folder: here,
+        prompt: typed.to_owned(),
+        teammate_id,
+    }) {
+        CloudStartResult::Ok { task, notes } => {
+            s.cloud.codex.tasks.retain(|one| one.task_id != task.task_id);
+            s.cloud.codex.tasks.push(task);
+            s.cloud.panel.codex_tasks = s.cloud.codex.tasks.len();
+            s.cloud.codex.notes = notes;
+            s.cloud.codex.problem = None;
+            s.cloud.open = true;
+            s.cloud.codex.on = false;
+            s.draft.clear();
+            s.attached.clear();
+            s.composer_note = None;
+        }
+        CloudStartResult::Err { message } => {
+            s.composer_note = Some(message);
+        }
+    }
+    true
 }
 
 fn codex_side(s: &State) -> bool {
@@ -273,6 +344,12 @@ fn apply_task(s: &mut State, task_id: &str) {
 pub(crate) fn poll(s: &mut State, now: f64) -> bool {
     let mut changed = false;
     let now_ms = (now.max(0.0) * 1000.0) as u64;
+    if s.cloud.codex.on
+        && (teammate(s).map(|mate| mate.id.clone()) != s.cloud.codex.on_for || !codex_picked(s))
+    {
+        s.cloud.codex.on = false;
+        changed = true;
+    }
     let current_folder = folder(s);
     if !s.cloud.open {
         if s.cloud.codex.was_open || s.cloud.codex.open.is_some() {
@@ -791,3 +868,7 @@ mod cloud_tasks_apply_tests;
 #[cfg(test)]
 #[path = "cloud_tasks_more_tests.rs"]
 mod cloud_tasks_more_tests;
+
+#[cfg(test)]
+#[path = "cloud_tasks_send_tests.rs"]
+mod cloud_tasks_send_tests;
