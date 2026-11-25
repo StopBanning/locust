@@ -15,7 +15,7 @@ use locust_core::bot_rig::{
 use locust_core::bot_rig::pointer_pull;
 use locust_core::bot_spec::{outline_of, seed_of, Phosphor};
 use locust_core::buddy_moves::{
-    glance_look, screen_face_for, PetScreenAsk, PetScreenConductor, ScreenRectF, CODEX_BUDDY,
+    glance_look, screen_face_for, OldTweensCleanup, PetScreenAsk, PetScreenConductor, ScreenRectF, CODEX_BUDDY,
 };
 use locust_core::buddy_rig::{BuddyPose, REST_POSE};
 use rune::Tx;
@@ -130,6 +130,9 @@ struct StageInner {
     buddies: HashMap<String, BuddySlot>,
     reduced_snap_pending: bool,
     wake_count: u64,
+    old_tweens: OldTweensCleanup,
+    #[cfg(test)]
+    old_tweens_removed: Vec<String>,
 }
 
 impl Default for StageInner {
@@ -142,6 +145,9 @@ impl Default for StageInner {
             buddies: HashMap::new(),
             reduced_snap_pending: false,
             wake_count: 0,
+            old_tweens: OldTweensCleanup::new(),
+            #[cfg(test)]
+            old_tweens_removed: Vec::new(),
         }
     }
 }
@@ -627,6 +633,16 @@ impl BotStage {
         reduced_motion: bool,
     ) -> BuddySnapshot {
         let mut inner = self.inner.borrow_mut();
+        let mut forgotten_name: Option<String> = None;
+        let _ = inner.old_tweens.forget_once(|name| {
+            forgotten_name = Some(name.to_owned());
+        });
+        #[cfg(test)]
+        if let Some(name) = forgotten_name {
+            inner.old_tweens_removed.push(name);
+        }
+        #[cfg(not(test))]
+        let _ = forgotten_name;
         let now_s = inner.now_s;
         let desired = DesiredState {
             activity,
@@ -1125,6 +1141,15 @@ mod pet_glance_tests {
         let t = run(&stage, FaceActivity::Idle, Some(GlanceSide::Right), t, t + 8.0);
         assert!(look(&stage).abs() < 0.02, "back at {t:.2} s: {}", look(&stage));
         assert!(settled(&stage), "at rest again");
+    }
+
+    // case: are removed from this computer, once a launch, the store they were kept in by name
+    #[test]
+    fn codex_buddy_forgets_old_tweens_once_per_launch_when_drawn() {
+        let stage = BotStage::default();
+        frame(&stage, FaceActivity::Working, None, 0.0);
+        frame(&stage, FaceActivity::Working, None, 0.05);
+        assert_eq!(stage.inner.borrow().old_tweens_removed, vec!["locust-pet-tweens"]);
     }
 }
 

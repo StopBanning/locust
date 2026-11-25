@@ -4932,7 +4932,7 @@ apps/desktop/src/renderer/src/codex-buddy-moves-on-his-own-rig.test.ts	takes his
 apps/desktop/src/renderer/src/codex-buddy-moves-on-his-own-rig.test.ts	finds his face to be his screen: his skin inside his face’s ink, and his eyes and mouth in it; not his ears, his ink or his fringe	yes
 apps/desktop/src/renderer/src/codex-buddy-moves-on-his-own-rig.test.ts	finds no face where there is no skin: he wears a screen over it instead	yes
 apps/desktop/src/renderer/src/codex-buddy-moves-on-his-own-rig.test.ts	is cut once a sheet and kept for every face wearing it; a sheet that cannot be read gives none, and he is drawn as his maker drew him	yes
-apps/desktop/src/renderer/src/codex-buddy-moves-on-his-own-rig.test.ts	are removed from this computer, once a launch, the store they were kept in by name	no
+apps/desktop/src/renderer/src/codex-buddy-moves-on-his-own-rig.test.ts	are removed from this computer, once a launch, the store they were kept in by name	yes
 apps/desktop/src/renderer/src/codex-buddy-wears-a-screen.test.tsx	is his alone: no other pet has a screen measured for it, or moves of its own	yes
 apps/desktop/src/renderer/src/codex-buddy-wears-a-screen.test.tsx	has a screen on every one of his drawings, inside the drawing he is painted in	yes
 apps/desktop/src/renderer/src/codex-buddy-wears-a-screen.test.tsx	holds its size as he moves: one size for each way he faces	yes

@@ -1674,6 +1674,26 @@ impl PetScreenConductor {
     }
 }
 
+/// `PetSprite.tsx` `forgetOldTweens`: removes the old pre-rig tweens store at most once per launch.
+#[derive(Debug, Default)]
+pub struct OldTweensCleanup {
+    forgotten: std::sync::atomic::AtomicBool,
+}
+
+impl OldTweensCleanup {
+    pub const fn new() -> Self {
+        Self { forgotten: std::sync::atomic::AtomicBool::new(false) }
+    }
+
+    pub fn forget_once(&self, mut remove: impl FnMut(&str)) -> bool {
+        if self.forgotten.swap(true, std::sync::atomic::Ordering::AcqRel) {
+            return false;
+        }
+        remove(OLD_TWEENS_DATABASE);
+        true
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2790,5 +2810,16 @@ mod tests {
         assert!(read("codex-buddy", &another).is_none());
         // Another pet drawn the same is still not him.
         assert!(read("hoodie-cat", &measured).is_none());
+    }
+
+    // case: are removed from this computer, once a launch, the store they were kept in by name
+    #[test]
+    fn are_removed_from_this_computer_once_a_launch_the_store_they_were_kept_in_by_name() {
+        let cleanup = OldTweensCleanup::new();
+        let mut removed: Vec<String> = Vec::new();
+        assert!(cleanup.forget_once(|name| removed.push(name.to_owned())));
+        assert!(!cleanup.forget_once(|name| removed.push(name.to_owned())));
+        assert_eq!(removed, vec!["locust-pet-tweens"]);
+        assert_eq!(OLD_TWEENS_DATABASE, "locust-pet-tweens");
     }
 }
