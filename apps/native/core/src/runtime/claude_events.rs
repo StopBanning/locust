@@ -296,7 +296,7 @@ fn claude_tool_result_text(block: &Value) -> Option<String> {
 }
 
 /// claude-events.ts LOCUST_GUARD_SAID: how the command guard's refusals begin.
-const LOCUST_GUARD_SAID: &str = "Locust stopped this command before it ran";
+pub(crate) const LOCUST_GUARD_SAID: &str = "Locust stopped this command before it ran";
 
 /// claude-events.ts claudeFilePatch: the change a file call made, from the record that answers it (`tool_use_result`):
 /// its hunks written out, or, for a new or rewritten file, its text compared with what it was.
@@ -1500,7 +1500,7 @@ pub fn why_refused(tools: &[&str]) -> &'static str {
 
 /// claude-events.ts guardedSentence (0.717, 0.718): what Locust's command guard stopped, said to the person as theirs --
 /// what it would have ended, or whose the process it would have ended is -- never as the mode's.
-fn guarded_sentence(stopped: &[(String, Option<String>)]) -> String {
+pub(crate) fn guarded_sentence(stopped: &[(String, Option<String>)]) -> String {
     let still = "A teammate may end only what it started itself.";
     if let [(said, reason)] = stopped {
         let reason = reason.as_deref().unwrap_or("");

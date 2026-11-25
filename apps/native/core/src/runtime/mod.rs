@@ -28,6 +28,7 @@ pub mod opencode_serve;
 mod opencode_serve_queue_tests;
 pub mod process;
 pub mod records;
+pub mod safety;
 pub mod version;
 use crate::approval::{Channel, Mode};
 use serde_json::Value;
@@ -119,6 +120,8 @@ mod opencode_parent_git_tests;
 mod acp_rename_tests;
 #[cfg(test)]
 mod run_skills_tests;
+#[cfg(test)]
+mod runtime_adapters_case_tests;
 
 pub mod permission_bridge;
 

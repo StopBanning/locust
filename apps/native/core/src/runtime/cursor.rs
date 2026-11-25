@@ -114,6 +114,7 @@ pub fn print_args(
         args.push("--resume".into());
         args.push(resume.into());
     }
+    super::safety::assert_safe_runtime_command("cursor", &args, Some(sandbox)).map_err(err)?;
     Ok(args)
 }
 
@@ -692,6 +693,15 @@ mod unit_tests {
         );
         assert!(args.contains(&"--stream-partial-output".into()));
         assert!(args.contains(&"--trust".into()));
+    }
+
+    #[test]
+    fn a_launch_carrying_a_forbidden_flag_is_refused_before_cursor_starts() {
+        // A model or session that is really a flag (`--yolo`) never reaches Cursor's command line, even in Auto.
+        let err = print_args(Path::new("/tmp/ws"), Mode::Auto, Some("--yolo"), None, None).unwrap_err();
+        assert!(err.to_string().contains("Forbidden runtime argument: --yolo"), "{err}");
+        let err = print_args(Path::new("/tmp/ws"), Mode::Ask, None, Some("--force"), None).unwrap_err();
+        assert!(err.to_string().contains("--force"), "{err}");
     }
 
     #[test]

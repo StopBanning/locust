@@ -162,9 +162,13 @@ pub fn command(
 ) -> io::Result<Command> {
     let mut c = Command::new(launcher()?);
     if mode == Mode::ApproveEach {
-        c.args(acp_args(model, effort, skills));
+        let args = acp_args(model, effort, skills);
+        super::safety::assert_safe_runtime_command("copilot", &args, Some(sandbox_for(mode))).map_err(err)?;
+        c.args(args);
     } else {
-        c.args(prompt_args(prompt, mode, model, effort, resume, session_id, references, skills));
+        let args = prompt_args(prompt, mode, model, effort, resume, session_id, references, skills);
+        super::safety::assert_safe_runtime_command("copilot", &args, Some(sandbox_for(mode))).map_err(err)?;
+        c.args(args);
         if let Some(home) = std::env::var_os("HOME") {
             c.args(mcp_off_args(mode, &mcp_server_names(Path::new(&home))));
         }

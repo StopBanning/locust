@@ -2238,25 +2238,25 @@ apps/desktop/src/main/model-catalog.test.ts	adds nothing for a runtime that list
 apps/desktop/src/main/model-catalog.test.ts	never stacks a second default on a list that already has one	yes
 apps/desktop/src/main/muse-wonder-is-offered.test.ts	are Muse Wonder 1.0 first, then Muse Spark 1.3, each with Muse Code's own eight efforts at its default	yes
 apps/desktop/src/main/muse-wonder-is-offered.test.ts	are offered only when Muse Code is ready here	yes
-apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	is stopped as round 4 ran it, and in every spelling of the same thing	no
-apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	says what it would have ended, to leave it running, and never to go and find its ids	no
-apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	is stopped when the id is the person’s Chrome, as it was ended on 2026-10-10	no
-apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	is stopped for the person’s editor, another teammate’s agent, this run’s own agent, and Locust	no
-apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	runs when a teammate started it -- its own test browser, its own server -- or it is nobody’s to protect	no
-apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	reads the ids as each tool writes them	no
-apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	reads ids written out and ended through a variable	no
-apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	runs when every process the filter matches is one a teammate started	no
-apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	is stopped when the filter also matches the person’s own	no
-apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	is stopped as before when the narrowing cannot be read exactly, or the table cannot be read	no
-apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	never lets a filter reach Locust or this run’s own agent	no
-apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	runs: starting a browser, and the ordinary work of a turn	no
-apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	reads commands, not meaning: one that only writes such a command down is stopped too	no
-apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	is let through when the question cannot be read	no
-apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	answers a refused command with a deny Claude Code reads, and anything else with nothing	no
-apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	reads this machine’s real process table when an id is ended, and leaves an id nobody runs alone	no
-apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	is given the guard in every mode, Auto included	no
-apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	names the guard as a hook its shell can start, on Locust’s own binary run as node, with Locust’s own id	no
-apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	is read from the guard’s own words, so the two cannot drift apart	no
+apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	is stopped as round 4 ran it, and in every spelling of the same thing	yes
+apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	says what it would have ended, to leave it running, and never to go and find its ids	yes
+apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	is stopped when the id is the person’s Chrome, as it was ended on 2026-10-10	yes
+apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	is stopped for the person’s editor, another teammate’s agent, this run’s own agent, and Locust	yes
+apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	runs when a teammate started it -- its own test browser, its own server -- or it is nobody’s to protect	yes
+apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	reads the ids as each tool writes them	yes
+apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	reads ids written out and ended through a variable	yes
+apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	runs when every process the filter matches is one a teammate started	yes
+apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	is stopped when the filter also matches the person’s own	yes
+apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	is stopped as before when the narrowing cannot be read exactly, or the table cannot be read	yes
+apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	never lets a filter reach Locust or this run’s own agent	yes
+apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	runs: starting a browser, and the ordinary work of a turn	yes
+apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	reads commands, not meaning: one that only writes such a command down is stopped too	yes
+apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	is let through when the question cannot be read	yes
+apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	answers a refused command with a deny Claude Code reads, and anything else with nothing	yes
+apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	reads this machine’s real process table when an id is ended, and leaves an id nobody runs alone	yes
+apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	is given the guard in every mode, Auto included	yes
+apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	names the guard as a hook its shell can start, on Locust’s own binary run as node, with Locust’s own id	yes
+apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	is read from the guard’s own words, so the two cannot drift apart	yes
 apps/desktop/src/main/npm-precondition.test.ts	says so when npm is not there	yes
 apps/desktop/src/main/npm-precondition.test.ts	says so when it is	yes
 apps/desktop/src/main/npm-precondition.test.ts	assumes it is there when nobody asked	yes
@@ -2269,21 +2269,21 @@ apps/desktop/src/main/npm-prefix.test.ts	answers undefined when npm says null	ye
 apps/desktop/src/main/npm-prefix.test.ts	answers undefined when npm cannot be asked at all	yes
 apps/desktop/src/main/one-at-a-time.test.ts	run one at a time, in order, so no two read the same tail	yes
 apps/desktop/src/main/one-at-a-time.test.ts	keeps going after one fails	yes
-apps/desktop/src/main/one-path-decides-every-request.test.ts	denies by a saved rule, whatever Always was given earlier in the run	no
-apps/desktop/src/main/one-path-decides-every-request.test.ts	asks again about a command that reaches other programs, though Always was given, and says why	no
-apps/desktop/src/main/one-path-decides-every-request.test.ts	allows by an earlier Always what it covers, and says so	no
-apps/desktop/src/main/one-path-decides-every-request.test.ts	credits a saved rule that allows over an Always that would have	no
-apps/desktop/src/main/one-path-decides-every-request.test.ts	never governs a question: the person answers it, Always or not	no
-apps/desktop/src/main/one-path-decides-every-request.test.ts	asks when nothing decides, with the rules' own reason when they have one	no
-apps/desktop/src/main/one-path-decides-every-request.test.ts	${path}: denied by the rule, Always or not; allowed by an allowing rule; by an Always; else asked	no
-apps/desktop/src/main/one-path-decides-every-request.test.ts	is a key the host puts on the request: a tool, an exact command, or OpenCode's own patterns	no
-apps/desktop/src/main/one-path-decides-every-request.test.ts	gives Codex the exact command key and the same rule, Always, and reach verdicts	no
-apps/desktop/src/main/one-path-decides-every-request.test.ts	answers Always on an identified Codex command as accept, including the implicit Codex route	no
-apps/desktop/src/main/one-path-decides-every-request.test.ts	keeps acceptForSession for a keyless Codex Always	no
-apps/desktop/src/main/one-path-decides-every-request.test.ts	keys Codex file changes by sorted paths, names the scope, and answers Always once	no
-apps/desktop/src/main/one-path-decides-every-request.test.ts	keeps long Codex command keys exact instead of sharing a truncated prefix	no
-apps/desktop/src/main/one-path-decides-every-request.test.ts	is kept per run, by the main process, bounded	no
-apps/desktop/src/main/one-path-decides-every-request.test.ts	is decided in main before any card, and remembered there before the answer is released	no
+apps/desktop/src/main/one-path-decides-every-request.test.ts	denies by a saved rule, whatever Always was given earlier in the run	yes
+apps/desktop/src/main/one-path-decides-every-request.test.ts	asks again about a command that reaches other programs, though Always was given, and says why	yes
+apps/desktop/src/main/one-path-decides-every-request.test.ts	allows by an earlier Always what it covers, and says so	yes
+apps/desktop/src/main/one-path-decides-every-request.test.ts	credits a saved rule that allows over an Always that would have	yes
+apps/desktop/src/main/one-path-decides-every-request.test.ts	never governs a question: the person answers it, Always or not	yes
+apps/desktop/src/main/one-path-decides-every-request.test.ts	asks when nothing decides, with the rules' own reason when they have one	yes
+apps/desktop/src/main/one-path-decides-every-request.test.ts	${path}: denied by the rule, Always or not; allowed by an allowing rule; by an Always; else asked	yes
+apps/desktop/src/main/one-path-decides-every-request.test.ts	is a key the host puts on the request: a tool, an exact command, or OpenCode's own patterns	yes
+apps/desktop/src/main/one-path-decides-every-request.test.ts	gives Codex the exact command key and the same rule, Always, and reach verdicts	yes
+apps/desktop/src/main/one-path-decides-every-request.test.ts	answers Always on an identified Codex command as accept, including the implicit Codex route	yes
+apps/desktop/src/main/one-path-decides-every-request.test.ts	keeps acceptForSession for a keyless Codex Always	yes
+apps/desktop/src/main/one-path-decides-every-request.test.ts	keys Codex file changes by sorted paths, names the scope, and answers Always once	yes
+apps/desktop/src/main/one-path-decides-every-request.test.ts	keeps long Codex command keys exact instead of sharing a truncated prefix	yes
+apps/desktop/src/main/one-path-decides-every-request.test.ts	is kept per run, by the main process, bounded	yes
+apps/desktop/src/main/one-path-decides-every-request.test.ts	is decided in main before any card, and remembered there before the answer is released	yes
 apps/desktop/src/main/only-the-face-you-talk-to-hops.test.ts	is full in three places only: the face beside the live line, the New teammate preview, and the teammate on a call	no
 apps/desktop/src/main/only-the-face-you-talk-to-hops.test.ts	is never computed, so the list above is the whole list	no
 apps/desktop/src/main/only-the-face-you-talk-to-hops.test.ts	leaves the header and the sidebar subtle	no
@@ -8166,19 +8166,19 @@ packages/runtime-adapters/test/refusal-is-readable.test.ts	names a connector the
 packages/runtime-adapters/test/refusal-is-readable.test.ts	gives a connector refusal a reason the person can act on	yes
 packages/runtime-adapters/test/refusal-is-readable.test.ts	says a refused read reached outside the folder, and never claims a mode it does not know (0.443)	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	builds prompt-on-stdin, read-only Codex and restricted Claude commands	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	holds a read-only Claude mission in default mode with a reading tool list plus Task, never plan mode	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	lets a Claude mission that may edit actually edit, and run what it changed	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	rejects permission bypass arguments	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	gives Claude Code bypassPermissions and the editing tools	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	gives Codex danger-full-access, which is its own name for it	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	gives Cursor --force and never its --yolo alias	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	gives Copilot --allow-all-paths and never --allow-all	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	gives OpenCode --auto, drops the read-only denials, and says it may leave the folder	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	unlocks those two arguments only for a full-access run	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	still refuses everything else, Auto or not	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	reads an unstated sandbox as the strictest one	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	carries the sandbox on the spec, so the runner can judge what it spawns	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	parses prerelease versions returned by installed CLIs	no
+packages/runtime-adapters/test/runtime-adapters.test.ts	holds a read-only Claude mission in default mode with a reading tool list plus Task, never plan mode	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	lets a Claude mission that may edit actually edit, and run what it changed	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	rejects permission bypass arguments	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	gives Claude Code bypassPermissions and the editing tools	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	gives Codex danger-full-access, which is its own name for it	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	gives Cursor --force and never its --yolo alias	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	gives Copilot --allow-all-paths and never --allow-all	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	gives OpenCode --auto, drops the read-only denials, and says it may leave the folder	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	unlocks those two arguments only for a full-access run	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	still refuses everything else, Auto or not	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	reads an unstated sandbox as the strictest one	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	carries the sandbox on the spec, so the runner can judge what it spawns	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	parses prerelease versions returned by installed CLIs	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	prefers native Windows executables and safely wraps PowerShell shims	no
 packages/runtime-adapters/test/runtime-adapters.test.ts	probes a CLI launched through the app binary with the launch's environment	no
 packages/runtime-adapters/test/runtime-adapters.test.ts	separates installation, safe capability support, and authentication	no
@@ -8191,19 +8191,19 @@ packages/runtime-adapters/test/runtime-adapters.test.ts	does not claim nobody si
 packages/runtime-adapters/test/runtime-adapters.test.ts	reports a signed-in Cursor Agent ready and reads its models off --list-models	no
 packages/runtime-adapters/test/runtime-adapters.test.ts	reads a model list the CLI printed on stderr, and says so when it cannot read one	no
 packages/runtime-adapters/test/runtime-adapters.test.ts	says a model list it cannot read is unreadable, rather than leaving the picker silently empty	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	reads no models from a Cursor that is signed out, and none from a list it cannot read	no
+packages/runtime-adapters/test/runtime-adapters.test.ts	reads no models from a Cursor that is signed out, and none from a list it cannot read	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	reads a Gemini sign-in that Google then refused, which exits 0 with the refusal in its text	no
 packages/runtime-adapters/test/runtime-adapters.test.ts	does not ask Gemini to sign in when the caller does not run it, and says nothing is wrong	no
 packages/runtime-adapters/test/runtime-adapters.test.ts	asks only the runtimes it is told to, and spawns nothing for the rest	no
 packages/runtime-adapters/test/runtime-adapters.test.ts	asks a CLI whose readiness IS its version question once, not twice	no
 packages/runtime-adapters/test/runtime-adapters.test.ts	reads Gemini CLI's sign-in state from its session listing's exit code	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	runs a read-only Cursor mission in ask mode, with the sandbox where it runs, and never forces commands	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	approves the connectors the person already configured, because nobody is here to be asked -- outside Ask and Plan	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	lets a workspace-write Cursor mission edit, still without --force	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	refuses an effort for a runtime that has no effort flag	no
+packages/runtime-adapters/test/runtime-adapters.test.ts	runs a read-only Cursor mission in ask mode, with the sandbox where it runs, and never forces commands	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	approves the connectors the person already configured, because nobody is here to be asked -- outside Ask and Plan	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	lets a workspace-write Cursor mission edit, still without --force	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	refuses an effort for a runtime that has no effort flag	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	runs Gemini headless with the prompt on stdin, trusting only this workspace	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	refuses OpenCode's session sharing and Copilot's ways out of the workspace	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	refuses Gemini's yolo mode and Cursor's force flag in any spelling	no
+packages/runtime-adapters/test/runtime-adapters.test.ts	refuses OpenCode's session sharing and Copilot's ways out of the workspace	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	refuses Gemini's yolo mode and Cursor's force flag in any spelling	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	finds OpenCode's and Copilot's launchers in the npm bin directory without PATH	no
 packages/runtime-adapters/test/runtime-adapters.test.ts	prefers a shim on PATH over an executable in a guessed install directory	no
 packages/runtime-adapters/test/runtime-adapters.test.ts	runs a .cmd shim through cmd.exe, and prefers it to the .ps1 npm writes beside it	no
@@ -8216,21 +8216,21 @@ packages/runtime-adapters/test/runtime-adapters.test.ts	keeps cmd.exe for a .cmd
 packages/runtime-adapters/test/runtime-adapters.test.ts	keeps cmd.exe for an npm shim when no node.exe can be found	no
 packages/runtime-adapters/test/runtime-adapters.test.ts	finds Copilot CLI where it unpacks itself, when npm's bin directory is not there either	no
 packages/runtime-adapters/test/runtime-adapters.test.ts	finds Cursor's launcher in its own install directory without PATH	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	holds a read-only OpenCode mission with the permission config that actually enforces it	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	gives a run with no shell Locust's git tool, and only such a run	no
+packages/runtime-adapters/test/runtime-adapters.test.ts	holds a read-only OpenCode mission with the permission config that actually enforces it	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	gives a run with no shell Locust's git tool, and only such a run	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	titles only a NEW OpenCode session, and keeps plugins for a run that may edit	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	lets a worktree run reach the repository it belongs to, and only that	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	lets a workspace-write OpenCode mission edit, and states its confinement rather than assuming it	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	holds a read-only Copilot mission with the tool denylist that was measured refusing writes	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	starts none of the person's own MCP servers in a read-only Copilot mission, and only there (0.824)	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	never offers a Copilot teammate the machine's other Copilot conversations, on either route (0.378)	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	lets a workspace-write Copilot mission edit, and resumes by the id the host minted	no
+packages/runtime-adapters/test/runtime-adapters.test.ts	lets a worktree run reach the repository it belongs to, and only that	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	lets a workspace-write OpenCode mission edit, and states its confinement rather than assuming it	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	holds a read-only Copilot mission with the tool denylist that was measured refusing writes	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	starts none of the person's own MCP servers in a read-only Copilot mission, and only there (0.824)	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	never offers a Copilot teammate the machine's other Copilot conversations, on either route (0.378)	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	lets a workspace-write Copilot mission edit, and resumes by the id the host minted	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	passes an OpenCode effort as its variant, and only an effort word	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	reads each OpenCode model's variants as its efforts, in the scale's order	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	PASSES an effort to Copilot, which does take one	no
+packages/runtime-adapters/test/runtime-adapters.test.ts	reads each OpenCode model's variants as its efforts, in the scale's order	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	PASSES an effort to Copilot, which does take one	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	refuses to build a command with no prompt, because the prompt IS the argv here	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	reads OpenCode's model list as it prints it, and marks the free models free	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	reads no models from output that is not a model list	no
+packages/runtime-adapters/test/runtime-adapters.test.ts	reads OpenCode's model list as it prints it, and marks the free models free	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	reads no models from output that is not a model list	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	reports OpenCode ready with no sign-in at all, and reads the models it ships	no
 packages/runtime-adapters/test/runtime-adapters.test.ts	reads each model's efforts from the verbose list, and keeps the plain list when an older CLI refuses it	no
 packages/runtime-adapters/test/runtime-adapters.test.ts	still says signed out when a CLI says so in its own words	no
@@ -8246,16 +8246,16 @@ packages/runtime-adapters/test/runtime-adapters.test.ts	does not reach a probe t
 packages/runtime-adapters/test/runtime-adapters.test.ts	takes a timed-out probe's whole tree down, not only the shim it spawned	no
 packages/runtime-adapters/test/runtime-adapters.test.ts	off Windows, spawns the probe as its own process group and signals the group on timeout	no
 packages/runtime-adapters/test/runtime-adapters.test.ts	on Windows, does not detach: a detached child there gets its own console	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	passes the chosen model and effort to Claude Code	no
+packages/runtime-adapters/test/runtime-adapters.test.ts	passes the chosen model and effort to Claude Code	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	passes effort to codex exec through the config override its docs describe	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	refuses an effort that is not one plain word	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	reads the aliases and effort levels the Claude CLI advertises in its own help	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	names nothing when the help does not	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	resumes a Claude session by id	no
+packages/runtime-adapters/test/runtime-adapters.test.ts	refuses an effort that is not one plain word	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	reads the aliases and effort levels the Claude CLI advertises in its own help	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	names nothing when the help does not	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	resumes a Claude session by id	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	resumes a Codex session with only the arguments that subcommand accepts	no
 packages/runtime-adapters/test/runtime-adapters.test.ts	carries a write-capable resume as the same override, not as a flag	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	starts a fresh conversation when no session is given	no
-packages/runtime-adapters/test/runtime-adapters.test.ts	refuses a session id that is not plain text	no
+packages/runtime-adapters/test/runtime-adapters.test.ts	starts a fresh conversation when no session is given	yes
+packages/runtime-adapters/test/runtime-adapters.test.ts	refuses a session id that is not plain text	yes
 packages/runtime-adapters/test/runtime-adapters.test.ts	finds Codex in its versioned install root when PATH knows nothing	no
 packages/runtime-adapters/test/runtime-adapters.test.ts	prefers what PATH says over an install root	no
 packages/runtime-adapters/test/runtime-adapters.test.ts	finds Claude Code's npm shim without PATH	no
