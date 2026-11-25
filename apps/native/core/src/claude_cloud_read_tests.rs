@@ -391,3 +391,101 @@ fn the_worktree_on_the_command_line_is_only_ever_locusts_own_name() {
     assert_eq!(line, "/d /c \"\"C:\\c.cmd\" --teleport session_01G8RT9yXr7dbhVM7EUzpvEa --worktree \"");
     assert_eq!(reading_worktree_name("cc_0123456789abcdef0123"), "locust-cloud-0123456789ab");
 }
+
+/// Claude Code's teleport played by a script where Claude Code would be: real git makes and locks the worktree and
+/// commits the session's change, the transcript is written, "Session resumed" is drawn, and it never exits.
+#[cfg(target_os = "macos")]
+const FAKE_CLAUDE: &str = r#"#!/bin/sh
+trap '' HUP TERM INT
+echo $$ > "$FAKE_PID"
+[ -t 1 ] || { echo "Error: not a terminal"; exit 1; }
+[ "$1" = --teleport ] && [ "$2" = "$FAKE_SESSION" ] && [ "$3" = --worktree ] || { echo "Error: wrong words: $*"; exit 1; }
+place="$(pwd -P)/.claude/worktrees/$4"
+git worktree add -q -b "worktree-$4" "$place" && git worktree lock "$place" || exit 1
+cd "$place" && git checkout -q -B claude/fix-cart-total || exit 1
+printf 'export const total = (items) => items.reduce((sum, item) => sum + item.price, 0)\n' > cart.js
+git commit -q -am "Sum prices" || exit 1
+mkdir -p "$FAKE_TRANSCRIPTS" && cp "$FAKE_TRANSCRIPT" "$FAKE_TRANSCRIPTS/26be863b-6ead-4c62-932c-07388873cd26.jsonl"
+printf ' \342\234\224 Checking out branch\r\n\342\227\217 Session resumed\r\n\342\235\257 '
+while :; do sleep 1; done
+"#;
+
+#[cfg(target_os = "macos")]
+#[test]
+// case: teleports into a worktree of its own, out of sight, and stops once Claude Code is up
+fn on_a_mac_the_app_reads_a_session_through_a_hidden_terminal_and_ends_claude_code_once_its_transcript_is_written() {
+    use std::os::unix::fs::PermissionsExt;
+    let w = World::new();
+    let tools = Temp::new("tools");
+    let data = Temp::new("data");
+    let script = tools.0.join("claude");
+    std::fs::write(&script, FAKE_CLAUDE).unwrap();
+    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let transcript = tools.0.join("transcript.jsonl");
+    std::fs::write(&transcript, TRANSCRIPT).unwrap();
+    let pid_file = tools.0.join("pid");
+    let env: std::collections::BTreeMap<String, String> = [
+        ("FAKE_PID", pid_file.to_string_lossy().into_owned()),
+        ("FAKE_SESSION", SESSION.to_string()),
+        ("FAKE_TRANSCRIPT", transcript.to_string_lossy().into_owned()),
+        ("FAKE_TRANSCRIPTS", w.home.0.join("projects").join(slug(&w.worktree())).to_string_lossy().into_owned()),
+    ]
+    .into_iter()
+    .map(|(k, v)| (k.to_string(), v))
+    .collect();
+    let store = crate::store::Store::new(data.0.join("native"), data.0.join("electron")).unwrap();
+    let kept = super::store_path_of(&store);
+    std::fs::create_dir_all(kept.parent().unwrap()).unwrap();
+    std::fs::copy(w.store(), &kept).unwrap();
+    let path = script.to_string_lossy().into_owned();
+    // The app's own builder, as the panel makes it; only where Claude Code is found differs.
+    let cloud = super::on_this_computer_with(&store, std::sync::Arc::default(), move || {
+        Some(ClaudeLaunch { discovered_path: path.clone(), executable_path: path.clone(), prefix_args: Vec::new(), env: Some(env.clone()) })
+    })
+    .with_claude_home(&w.home.0);
+    let started = std::time::Instant::now();
+    let (exchanges, diff, note) = read_ok(cloud.check(ID));
+    // Ended once the transcript stopped growing, long before the read's two minutes.
+    assert!(started.elapsed() < std::time::Duration::from_secs(30), "waited {:?}", started.elapsed());
+    assert_eq!(exchanges.len(), 1);
+    assert_eq!(exchanges[0].prompt, "Fix the cart total");
+    assert_eq!(exchanges[0].answer.as_deref(), Some("Fixed: **total** now sums prices."));
+    assert!(diff.as_deref().is_some_and(|d| d.contains("item.price")), "{diff:?}");
+    assert_eq!(note, None);
+    // The folder itself is untouched until Apply.
+    assert_eq!(std::fs::read_to_string(w.repo.0.join("cart.js")).unwrap(), "export const total = (items) => items.length\n");
+    let pid: i32 = std::fs::read_to_string(&pid_file).unwrap().trim().parse().unwrap();
+    let until = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    while unsafe { libc::kill(pid, 0) } == 0 && std::time::Instant::now() < until {
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    assert_ne!(unsafe { libc::kill(pid, 0) }, 0, "Claude Code was left running");
+}
+
+#[test]
+fn on_a_mac_the_read_runs_claude_code_by_its_words_with_no_shell_between() {
+    let w = World::new();
+    let runs = RefCell::new(Vec::new());
+    fn mac<'a>(w: &'a World, runs: &'a RefCell<Vec<PseudoTerminalRun>>) -> ClaudeCloud<'a> {
+        let launch = || {
+            Some(ClaudeLaunch {
+                discovered_path: "/usr/local/bin/claude".into(),
+                executable_path: "/usr/local/bin/claude".into(),
+                prefix_args: Vec::new(),
+                env: None,
+            })
+        };
+        let mut cloud = ClaudeCloud::new(w.store(), CloudPlatform::Darwin, launch)
+            .with_terminal(teleporting(w, runs, TELEPORT))
+            .with_claude_home(&w.home.0)
+            .with_process_env(Vec::new);
+        cloud.transcript_pause = std::time::Duration::ZERO;
+        cloud
+    }
+    read_ok(mac(&w, &runs).check(ID));
+    let runs = runs.borrow();
+    assert_eq!(runs.len(), 1);
+    assert_eq!(runs[0].argv, ["/usr/local/bin/claude", "--teleport", SESSION, "--worktree", w.name.as_str()]);
+    assert_eq!(runs[0].line, "");
+    assert_eq!(runs[0].cwd, w.repo.text());
+}

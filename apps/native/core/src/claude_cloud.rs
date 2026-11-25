@@ -424,7 +424,10 @@ pub struct ExecReply {
 
 #[derive(Debug, Clone)]
 pub struct PseudoTerminalRun {
+    /// Windows: the command line, as CreateProcess takes it. Empty where `argv` is what runs.
     pub line: String,
+    /// macOS: the program and its arguments, run as they are (`claude_cloud::run_in_pseudo_terminal`). Empty on Windows.
+    pub argv: Vec<String>,
     pub cwd: String,
     pub env: BTreeMap<String, String>,
     /// Variables of the app's own environment the run must not inherit (Electron sets them to undefined).
@@ -892,8 +895,12 @@ impl<'a> ClaudeCloud<'a> {
         let Some(session_id) = session.session_id.clone() else {
             return fail("Locust does not know this session\u{2019}s id, so it cannot read it here. See it on claude.ai.");
         };
-        let Some(terminal) = self.terminal.as_ref().filter(|_| self.platform == CloudPlatform::Win32) else {
-            return fail("Reading a cloud session here works on Windows so far. See it on claude.ai, or bring it home.");
+        let Some(terminal) = self
+            .terminal
+            .as_ref()
+            .filter(|_| matches!(self.platform, CloudPlatform::Win32 | CloudPlatform::Darwin))
+        else {
+            return fail("Reading a cloud session here works on Windows and macOS so far. See it on claude.ai, or bring it home.");
         };
         let (file, prefix, launch_env) = match self.launch_of() {
             Ok(v) => v,
@@ -905,20 +912,28 @@ impl<'a> ClaudeCloud<'a> {
         };
         self.remove_reading(&session.folder, &name);
         let began = std::time::SystemTime::now();
-        let prefix_refs: Vec<&str> = prefix.iter().map(String::as_str).collect();
-        let line = match windows_command_line(
-            &file,
-            &prefix_refs,
-            CloudAction::Read,
-            &WindowsCommandOptions {
-                session: Some(&session_id),
-                stay: Some(false),
-                worktree: Some(&name),
-                ..Default::default()
-            },
-        ) {
-            Ok(line) => line,
-            Err(message) => return ClaudeCloudReading::Err { message },
+        let (line, argv) = if self.platform == CloudPlatform::Win32 {
+            let prefix_refs: Vec<&str> = prefix.iter().map(String::as_str).collect();
+            match windows_command_line(
+                &file,
+                &prefix_refs,
+                CloudAction::Read,
+                &WindowsCommandOptions {
+                    session: Some(&session_id),
+                    stay: Some(false),
+                    worktree: Some(&name),
+                    ..Default::default()
+                },
+            ) {
+                Ok(line) => (format!("cmd.exe {line}"), Vec::new()),
+                Err(message) => return ClaudeCloudReading::Err { message },
+            }
+        } else {
+            // No shell between: the words go as they are (the store keeps a session id only when it is one).
+            let mut argv = vec![file.clone()];
+            argv.extend(prefix.iter().cloned());
+            argv.extend(["--teleport".into(), session_id.clone(), "--worktree".into(), name.clone()]);
+            (String::new(), argv)
         };
         // Run from inside Claude Code (a drive, a teammate), its markers would turn transcript saving off.
         let env_remove = (self.process_env)()
@@ -930,7 +945,8 @@ impl<'a> ClaudeCloud<'a> {
             })
             .collect();
         let drawn = match terminal(&PseudoTerminalRun {
-            line: format!("cmd.exe {line}"),
+            line,
+            argv,
             cwd: session.folder.clone(),
             env: launch_env.unwrap_or_default(),
             env_remove,
@@ -1086,6 +1102,7 @@ impl<'a> ClaudeCloud<'a> {
         env.insert(TASK_VARIABLE.into(), task.into());
         match terminal(&PseudoTerminalRun {
             line: format!("cmd.exe {cmd_line}"),
+            argv: Vec::new(),
             cwd: folder.into(),
             env,
             env_remove: Vec::new(),
@@ -1316,8 +1333,21 @@ pub fn store_path_of(store: &crate::store::Store) -> PathBuf {
 
 /// This computer's Claude Code for the window (Electron's `createClaudeCloud` in index.ts): found on PATH, its
 /// sessions kept in the window's store, and its own window opened in the person's terminal app, the task passed as
-/// a word of the script it runs. No hidden terminal yet, so a start always opens Claude Code's window.
+/// a word of the script it runs. A session is read in a hidden terminal (`run_in_pseudo_terminal`); a start still
+/// opens Claude Code's window on macOS.
 pub fn on_this_computer(store: &crate::store::Store, reads: Arc<CloudReads>) -> ClaudeCloud<'static> {
+    on_this_computer_with(store, reads, || {
+        let path = crate::runtime::discovery::find_named("claude").ok()?.to_string_lossy().into_owned();
+        Some(ClaudeLaunch { discovered_path: path.clone(), executable_path: path, prefix_args: Vec::new(), env: None })
+    })
+}
+
+/// `on_this_computer` with the Claude Code it finds given, so a test can put a script where Claude Code would be.
+pub(crate) fn on_this_computer_with(
+    store: &crate::store::Store,
+    reads: Arc<CloudReads>,
+    discover: impl Fn() -> Option<ClaudeLaunch> + 'static,
+) -> ClaudeCloud<'static> {
     let platform = if cfg!(windows) {
         CloudPlatform::Win32
     } else if cfg!(target_os = "macos") {
@@ -1326,12 +1356,10 @@ pub fn on_this_computer(store: &crate::store::Store, reads: Arc<CloudReads>) -> 
         CloudPlatform::Linux
     };
     let windows = store.clone();
-    ClaudeCloud::new(store_path_of(store), platform, || {
-        let path = crate::runtime::discovery::find_named("claude").ok()?.to_string_lossy().into_owned();
-        Some(ClaudeLaunch { discovered_path: path.clone(), executable_path: path, prefix_args: Vec::new(), env: None })
-    })
+    ClaudeCloud::new(store_path_of(store), platform, discover)
     .with_reads(reads)
     .with_exec(run_exec)
+    .with_terminal(run_in_pseudo_terminal)
     .with_run_window(move |run: &WindowRun| {
         if run.kind != WindowKind::ScriptTerminal {
             return Err(WINDOW_NOT_OPENED.into());
@@ -1515,6 +1543,14 @@ fn session_from_json(value: &Value) -> Option<ClaudeCloudSession> {
         note,
     })
 }
+
+#[path = "claude_cloud_pty.rs"]
+mod pty;
+pub use pty::run_in_pseudo_terminal;
+
+#[cfg(all(test, unix))]
+#[path = "claude_cloud_pty_tests.rs"]
+mod pty_tests;
 
 #[cfg(test)]
 #[path = "claude_cloud_send_tests.rs"]
