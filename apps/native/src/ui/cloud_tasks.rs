@@ -67,6 +67,8 @@ pub(crate) struct CodexCloud {
     pub(crate) environment: Option<CloudEnvironment>,
     /// None while checking other folders for an environment; Some once checked.
     pub(crate) folders: Option<Vec<CloudFolder>>,
+    /// What the cloud will not see, said when the newest task started (`CloudTasks.tsx`'s `notes`).
+    pub(crate) notes: Vec<String>,
     pub(crate) problem: Option<String>,
     /// The task whose diff is currently open, if any.
     pub(crate) open: Option<OpenChange>,
@@ -281,6 +283,11 @@ pub(crate) fn poll(s: &mut State, now: f64) -> bool {
         }
     } else {
         if !s.cloud.codex.was_open || s.cloud.codex.loaded_folder != current_folder {
+            if s.cloud.codex.loaded_folder.is_some() && s.cloud.codex.loaded_folder != current_folder {
+                s.cloud.codex.notes.clear();
+                s.cloud.codex.problem = None;
+                s.cloud.codex.open = None;
+            }
             s.cloud.codex.next_refresh_ms = now_ms.saturating_add(REFRESH_INTERVAL_MS);
             refresh(s);
             changed = true;
@@ -491,6 +498,10 @@ pub(crate) fn view(s: &State, p: &Palette) -> Option<El> {
 
     if codex.codex_ready == Some(false) {
         body = body.child(note(CODEX_NOT_READY.into()).key("codex-cloud-not-ready"));
+    }
+
+    for (idx, line) in codex.notes.iter().enumerate() {
+        body = body.child(note(line.clone()).key(format!("codex-cloud-note-{idx}")));
     }
 
     if let Some(repo) = repo
@@ -729,7 +740,6 @@ fn task_row(
         );
 
     let mut actions = row().w_full().gap(6.0).flex_wrap();
-    let mut has_actions = false;
     if state == CloudState::Ready || state == CloudState::Applied {
         let id = task.task_id.clone();
         let label = if showing {
@@ -742,7 +752,6 @@ fn task_row(
                 .key(format!("codex-task-diff-{}", task.task_id))
                 .on_press(move |s: &mut State| show_change(s, &id)),
         );
-        has_actions = true;
     }
     if state == CloudState::Ready {
         let id = task.task_id.clone();
@@ -757,11 +766,14 @@ fn task_row(
                 .key(format!("codex-task-apply-{}", task.task_id))
                 .on_press(move |s: &mut State| apply_task(s, &id)),
         );
-        has_actions = true;
     }
-    if has_actions {
-        el = el.child(actions);
-    }
+    let url = task.url.clone();
+    actions = actions.child(
+        button(l, "Open in Codex", Tone::Neutral, false)
+            .key(format!("codex-task-open-{}", task.task_id))
+            .on_press(move |s: &mut State| crate::published_cards::open_web_link(s, &url)),
+    );
+    el = el.child(actions);
     if showing && let Some(open) = &codex.open {
         el = el.child(diff_section(&task.task_id, open, l, p));
     }
@@ -775,3 +787,7 @@ mod cloud_tasks_tests;
 #[cfg(test)]
 #[path = "cloud_tasks_apply_tests.rs"]
 mod cloud_tasks_apply_tests;
+
+#[cfg(test)]
+#[path = "cloud_tasks_more_tests.rs"]
+mod cloud_tasks_more_tests;
