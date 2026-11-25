@@ -342,3 +342,19 @@ fn a_policy_on_one_thread_is_not_seen_on_another_and_leaves_when_cleared() {
     use_policy_on_this_thread(None);
     assert_ne!(current().path, "/this/thread.json");
 }
+
+// case: loads once at launch, keeps the test seam out of packaged builds and exposes errors in the window
+#[test]
+fn the_launch_read_happens_once_and_its_seam_is_only_for_unpackaged_builds() {
+    let f = Fixture::new(Some(br#"{"phone":false}"#));
+    // This test build is unpackaged, so the app's own launch read takes the override...
+    assert!(cfg!(debug_assertions));
+    assert_eq!(Value::Object(f.read().0.policy), json!({"phone": false}));
+    // ...which a packaged app never consults.
+    let path = f.path();
+    let env = move |k: &str| (k == "LOCUST_POLICY_FILE").then(|| path.clone());
+    let known = || Ok("C:\\ProgramData".to_owned());
+    assert_eq!(read_organization_policy(&options(true, "linux", &env, &known), &|_| Err(std::io::Error::from(std::io::ErrorKind::NotFound)), &mut |_| {}).path, "/etc/locust/policy.json");
+    // Read once: what the process holds stays as it was read (the window shows its error: settings_panel's broken-policy alert).
+    assert_eq!(current(), current());
+}
