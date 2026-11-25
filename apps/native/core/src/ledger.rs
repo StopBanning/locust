@@ -2070,12 +2070,12 @@ pub fn try_list_recent(dir: &Path, limit: usize) -> io::Result<Vec<Summary>> {
     }
     paths.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
 
-    // Read past `limit` (newest files first) and keep the ones last updated: a file touched on disk earlier than another can
-    // still hold the newer conversation (Electron reads every file up to its cap, then sorts by lastUpdatedAt).
-    let scan_cap = limit.max(64);
+    // The `limit` newest files on disk, as the history cache picks them (`history_cache::read_history_at`), so the list and
+    // the cache always agree. Electron reads every file to its cap and sorts by lastUpdatedAt; the two differ only for a
+    // file whose time on disk is older than its last record (one copied in with its old time), since every update appends.
     let mut summaries = Vec::new();
     for (modified, path, len) in paths {
-        if summaries.len() == scan_cap {
+        if summaries.len() == limit {
             break;
         }
         let Ok((mut records, read_bytes, lines)) = head_with_offset(&path) else {
