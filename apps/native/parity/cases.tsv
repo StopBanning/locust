@@ -2269,21 +2269,21 @@ apps/desktop/src/main/npm-prefix.test.ts	answers undefined when npm says null	ye
 apps/desktop/src/main/npm-prefix.test.ts	answers undefined when npm cannot be asked at all	yes
 apps/desktop/src/main/one-at-a-time.test.ts	run one at a time, in order, so no two read the same tail	yes
 apps/desktop/src/main/one-at-a-time.test.ts	keeps going after one fails	yes
-apps/desktop/src/main/one-path-decides-every-request.test.ts	denies by a saved rule, whatever Always was given earlier in the run	no
-apps/desktop/src/main/one-path-decides-every-request.test.ts	asks again about a command that reaches other programs, though Always was given, and says why	no
-apps/desktop/src/main/one-path-decides-every-request.test.ts	allows by an earlier Always what it covers, and says so	no
-apps/desktop/src/main/one-path-decides-every-request.test.ts	credits a saved rule that allows over an Always that would have	no
-apps/desktop/src/main/one-path-decides-every-request.test.ts	never governs a question: the person answers it, Always or not	no
-apps/desktop/src/main/one-path-decides-every-request.test.ts	asks when nothing decides, with the rules' own reason when they have one	no
-apps/desktop/src/main/one-path-decides-every-request.test.ts	${path}: denied by the rule, Always or not; allowed by an allowing rule; by an Always; else asked	no
-apps/desktop/src/main/one-path-decides-every-request.test.ts	is a key the host puts on the request: a tool, an exact command, or OpenCode's own patterns	no
-apps/desktop/src/main/one-path-decides-every-request.test.ts	gives Codex the exact command key and the same rule, Always, and reach verdicts	no
-apps/desktop/src/main/one-path-decides-every-request.test.ts	answers Always on an identified Codex command as accept, including the implicit Codex route	no
-apps/desktop/src/main/one-path-decides-every-request.test.ts	keeps acceptForSession for a keyless Codex Always	no
-apps/desktop/src/main/one-path-decides-every-request.test.ts	keys Codex file changes by sorted paths, names the scope, and answers Always once	no
-apps/desktop/src/main/one-path-decides-every-request.test.ts	keeps long Codex command keys exact instead of sharing a truncated prefix	no
-apps/desktop/src/main/one-path-decides-every-request.test.ts	is kept per run, by the main process, bounded	no
-apps/desktop/src/main/one-path-decides-every-request.test.ts	is decided in main before any card, and remembered there before the answer is released	no
+apps/desktop/src/main/one-path-decides-every-request.test.ts	denies by a saved rule, whatever Always was given earlier in the run	yes
+apps/desktop/src/main/one-path-decides-every-request.test.ts	asks again about a command that reaches other programs, though Always was given, and says why	yes
+apps/desktop/src/main/one-path-decides-every-request.test.ts	allows by an earlier Always what it covers, and says so	yes
+apps/desktop/src/main/one-path-decides-every-request.test.ts	credits a saved rule that allows over an Always that would have	yes
+apps/desktop/src/main/one-path-decides-every-request.test.ts	never governs a question: the person answers it, Always or not	yes
+apps/desktop/src/main/one-path-decides-every-request.test.ts	asks when nothing decides, with the rules' own reason when they have one	yes
+apps/desktop/src/main/one-path-decides-every-request.test.ts	${path}: denied by the rule, Always or not; allowed by an allowing rule; by an Always; else asked	yes
+apps/desktop/src/main/one-path-decides-every-request.test.ts	is a key the host puts on the request: a tool, an exact command, or OpenCode's own patterns	yes
+apps/desktop/src/main/one-path-decides-every-request.test.ts	gives Codex the exact command key and the same rule, Always, and reach verdicts	yes
+apps/desktop/src/main/one-path-decides-every-request.test.ts	answers Always on an identified Codex command as accept, including the implicit Codex route	yes
+apps/desktop/src/main/one-path-decides-every-request.test.ts	keeps acceptForSession for a keyless Codex Always	yes
+apps/desktop/src/main/one-path-decides-every-request.test.ts	keys Codex file changes by sorted paths, names the scope, and answers Always once	yes
+apps/desktop/src/main/one-path-decides-every-request.test.ts	keeps long Codex command keys exact instead of sharing a truncated prefix	yes
+apps/desktop/src/main/one-path-decides-every-request.test.ts	is kept per run, by the main process, bounded	yes
+apps/desktop/src/main/one-path-decides-every-request.test.ts	is decided in main before any card, and remembered there before the answer is released	yes
 apps/desktop/src/main/only-the-face-you-talk-to-hops.test.ts	is full in three places only: the face beside the live line, the New teammate preview, and the teammate on a call	no
 apps/desktop/src/main/only-the-face-you-talk-to-hops.test.ts	is never computed, so the list above is the whole list	no
 apps/desktop/src/main/only-the-face-you-talk-to-hops.test.ts	leaves the header and the sidebar subtle	no

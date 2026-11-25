@@ -18,8 +18,9 @@ fn answer_first(ch: &Channel, decision: Decision) -> Request {
 fn ask(ch: &std::sync::Arc<Channel>, command: &str) -> std::thread::JoinHandle<Result<Value, String>> {
     let worker = ch.clone();
     let command = command.to_owned();
+    let deadline = Instant::now() + Duration::from_secs(2);
     std::thread::spawn(move || {
-        worker.ask_codex("run_1", "mission_1", "item/commandExecution/requestApproval", &json!({"command": command}), json!(1), &|| false)
+        worker.ask_codex("run_1", "mission_1", "item/commandExecution/requestApproval", &json!({"command": command}), json!(1), &|| Instant::now() >= deadline)
     })
 }
 

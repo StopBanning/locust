@@ -804,6 +804,61 @@ struct Pending {
     steers_reason: bool,
 }
 
+/// Bounded per-run Always keys (`createRunAlways` in Electron `who-decides.ts`): least-recently-used runs are evicted
+/// past `max_runs`, and keys past `max_keys` in one run are not kept (so that run asks again).
+pub struct RunAlways {
+    max_runs: usize,
+    max_keys: usize,
+    order: Vec<String>,
+    runs: HashMap<String, HashSet<String>>,
+}
+
+impl RunAlways {
+    pub fn new(max_runs: usize, max_keys: usize) -> Self {
+        Self { max_runs, max_keys, order: Vec::new(), runs: HashMap::new() }
+    }
+
+    pub fn has(&self, run_id: &str, key: &str) -> bool {
+        self.runs.get(run_id).is_some_and(|keys| keys.contains(key))
+    }
+
+    pub fn add(&mut self, run_id: &str, key: &str) {
+        if self.runs.get(run_id).is_some_and(|keys| keys.len() >= self.max_keys && !keys.contains(key)) {
+            return;
+        }
+        let keys = self.runs.entry(run_id.to_owned()).or_default();
+        keys.insert(key.to_owned());
+        self.order.retain(|r| r != run_id);
+        self.order.push(run_id.to_owned());
+        while self.order.len() > self.max_runs {
+            let oldest = self.order.remove(0);
+            self.runs.remove(&oldest);
+        }
+    }
+
+    pub fn remove(&mut self, run_id: &str, key: &str) {
+        if let Some(keys) = self.runs.get_mut(run_id) {
+            keys.remove(key);
+        }
+    }
+
+    pub fn release(&mut self, run_id: &str) {
+        self.runs.remove(run_id);
+        self.order.retain(|r| r != run_id);
+    }
+
+    #[cfg(test)]
+    pub(crate) fn clear(&mut self) {
+        self.runs.clear();
+        self.order.clear();
+    }
+
+    #[cfg(test)]
+    pub(crate) fn is_empty(&self) -> bool {
+        self.runs.is_empty()
+    }
+}
+
 /// In-process approval channel: raise a card, wait for decide(), release on turn end.
 pub struct Channel {
     inner: Mutex<Inner>,
@@ -815,7 +870,7 @@ struct Inner {
     ended: HashMap<String, Instant>,
     /// Answers the turn loop still owes a `mission.approval` record for.
     recorded: Vec<Recorded>,
-    always: HashMap<(String, String), ()>,
+    always: RunAlways,
     teammates: HashMap<String, String>,
     /// The items the person declined, by run id, with the mission the run belongs to (approval-channel.ts
     /// `declinedByRun`): kept only while the run lasts.
@@ -831,7 +886,7 @@ impl Channel {
                 pending: HashMap::new(),
                 ended: HashMap::new(),
                 recorded: Vec::new(),
-                always: HashMap::new(),
+                always: RunAlways::new(64, 256),
                 teammates: HashMap::new(),
                 declined: HashMap::new(),
                 denied_saying: Vec::new(),
@@ -1170,7 +1225,7 @@ impl Channel {
                 return Ok((auto, "person"));
             }
             let remembered = readable
-                && request.always_key.as_ref().is_some_and(|key| guard.always.contains_key(&(request.mission_id.clone(), key.clone())));
+                && request.always_key.as_ref().is_some_and(|key| guard.always.has(&request.mission_id, key));
             if let Some(why) = asked_again_why(&request, remembered).or(ruled_why) {
                 remember_asked_again(&id, why);
             }
@@ -1300,9 +1355,7 @@ impl Channel {
             }
         ) && let Some(key) = &pending.request.always_key
         {
-            guard
-                .always
-                .insert((pending.request.mission_id.clone(), key.clone()), ());
+            guard.always.add(&pending.request.mission_id, key);
         }
         let mut recorded = record_of(&pending.request, &answer);
         if enforced_note.is_some() {
@@ -1316,9 +1369,7 @@ impl Channel {
         };
         if pending.tx.try_send(answer).is_err() {
             if let Some(key) = &pending.request.always_key {
-                guard
-                    .always
-                    .remove(&(pending.request.mission_id.clone(), key.clone()));
+                guard.always.remove(&pending.request.mission_id, key);
             }
             guard.recorded.pop();
             return Err("That approval is no longer waiting.".into());
@@ -1373,7 +1424,7 @@ impl Channel {
     pub fn release(&self, mission_id: &str) {
         let mut guard = crate::invariants::lock(&self.inner);
         guard.ended.insert(mission_id.to_owned(), Instant::now());
-        guard.always.retain(|(mission, _), _| mission != mission_id);
+        guard.always.release(mission_id);
         guard.teammates.remove(mission_id);
         guard.declined.retain(|_, (mission, _)| mission != mission_id);
         guard.denied_saying.retain(|d| d.mission_id != mission_id);
@@ -2061,7 +2112,7 @@ mod tests {
         ch.register_teammate("m", "tm_one");
         crate::invariants::lock(&ch.inner)
             .always
-            .insert(("m".into(), "claude:Bash".into()), ());
+            .add("m", "claude:Bash");
         crate::approval_rule_store::add(
             &store,
             crate::approval_rules::ApprovalRuleDraft {
@@ -2073,6 +2124,7 @@ mod tests {
             },
         )
         .unwrap();
+        let rule_deadline = Instant::now() + Duration::from_secs(2);
         let result = ch
             .ask_claude(
                 "r",
@@ -2081,7 +2133,7 @@ mod tests {
                 "Bash",
                 &json!({"command":"npm test"}),
                 "/project",
-                &|| false,
+                &|| Instant::now() >= rule_deadline,
             )
             .unwrap();
         assert_eq!(result["behavior"], "deny");
@@ -2154,7 +2206,7 @@ mod tests {
             .unwrap();
         crate::invariants::lock(&ch.inner)
             .always
-            .insert(("n".into(), "claude:Bash".into()), ());
+            .add("n", "claude:Bash");
         let worker = ch.clone();
         let handle = std::thread::spawn(move || {
             worker.ask_claude(
@@ -2294,8 +2346,9 @@ mod tests {
         })
         .unwrap();
         assert_eq!(handle.join().unwrap().unwrap()["behavior"], "allow");
+        let always_deadline = Instant::now() + Duration::from_secs(2);
         assert_eq!(
-            ch.ask_claude("r", "m", "b", "Write", &json!({}), "/tmp", &|| false)
+            ch.ask_claude("r", "m", "b", "Write", &json!({}), "/tmp", &|| Instant::now() >= always_deadline)
                 .unwrap()["behavior"],
             "allow"
         );
@@ -2734,3 +2787,7 @@ mod approval_denial_reason_tests;
 #[cfg(test)]
 #[path = "always_refused_for_reach_case_tests.rs"]
 mod always_refused_for_reach_case_tests;
+
+#[cfg(test)]
+#[path = "approval_one_path_tests.rs"]
+mod one_path_tests;
