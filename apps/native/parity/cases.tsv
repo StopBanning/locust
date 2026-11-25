@@ -3346,23 +3346,23 @@ apps/desktop/src/main/what-an-acp-agent-can-do-is-kept.test.ts	keeps what the ag
 apps/desktop/src/main/what-an-acp-agent-can-do-is-kept.test.ts	reads a file of the wrong shape as nothing, entry by entry	yes
 apps/desktop/src/main/what-an-acp-agent-can-do-is-kept.test.ts	reaches Settings on the runtime it was said by, and no other	yes
 apps/desktop/src/main/what-an-acp-agent-can-do-is-kept.test.ts	reaches an answer discovery already cached, without probing a CLI again (measured on 0.566)	yes
-apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	are the prompts typed in the terminal after the turn, each with its last words in answer	no
-apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	never take Locust's own print-mode turn, or its answer, for the terminal's	no
-apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	hold back an exchange still going, so no answer comes back half-written	no
-apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	count an exchange over when its turn closed, or the person stopped it	no
-apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	are the typed turns after the conversation’s last, each with its last answer; injected context is not a prompt	no
-apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	hold back a turn still going	no
-apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	is found by the session’s own name, and read again only when it changed	no
-apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	takes a prompt longer than the ledger keeps, bounded, and the exchanges after it too (2026-10-10 sweep)	no
-apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	records each terminal exchange as the next turn of the conversation, owned by its teammate, readable by the ledger	no
-apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	brings nothing back twice, whichever turn it is asked from	no
-apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	brings nothing back twice when asked twice at once	no
-apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	leaves a running conversation alone	no
-apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	reads Codex's rollout the same way	no
-apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	never takes Locust's own later Codex turn for the terminal's, when an older turn is named	no
-apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	waits while the newest turn is still running, even when an older one is named	no
-apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	does not bring back a terminal turn the person deleted	no
-apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	is found from any turn of it, the latest-made where it branches	no
+apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	are the prompts typed in the terminal after the turn, each with its last words in answer	yes
+apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	never take Locust's own print-mode turn, or its answer, for the terminal's	yes
+apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	hold back an exchange still going, so no answer comes back half-written	yes
+apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	count an exchange over when its turn closed, or the person stopped it	yes
+apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	are the typed turns after the conversation’s last, each with its last answer; injected context is not a prompt	yes
+apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	hold back a turn still going	yes
+apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	is found by the session’s own name, and read again only when it changed	yes
+apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	takes a prompt longer than the ledger keeps, bounded, and the exchanges after it too (2026-10-10 sweep)	yes
+apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	records each terminal exchange as the next turn of the conversation, owned by its teammate, readable by the ledger	yes
+apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	brings nothing back twice, whichever turn it is asked from	yes
+apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	brings nothing back twice when asked twice at once	yes
+apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	leaves a running conversation alone	yes
+apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	reads Codex's rollout the same way	yes
+apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	never takes Locust's own later Codex turn for the terminal's, when an older turn is named	yes
+apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	waits while the newest turn is still running, even when an older one is named	yes
+apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	does not bring back a terminal turn the person deleted	yes
+apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	is found from any turn of it, the latest-made where it branches	yes
 apps/desktop/src/main/what-it-may-do-is-what-it-was-given.test.ts	OpenCode: the web, commands and the folder, from the config the run is given	yes
 apps/desktop/src/main/what-it-may-do-is-what-it-was-given.test.ts	OpenCode, Approve each: what its server asks for is what the panel says it asks for	yes
 apps/desktop/src/main/what-it-may-do-is-what-it-was-given.test.ts	Claude Code: commands only when its tool list has Bash; the web in every mode, asked about outside Auto	yes
