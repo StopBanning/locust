@@ -38,6 +38,36 @@ pub(crate) fn highlight_reply_code(
     }
 }
 
+/// A file's language from its name (`codeColors.ts` `languageOfPath`): `cart.py` -> `Some("py")`,
+/// `src/App.TSX` -> `Some("tsx")`, `deploy/Dockerfile` -> `Some("dockerfile")`; `None` for dotfiles
+/// like `.env`, bare names like `README`, or unrecognised extensions like `notes.txt`.
+pub(crate) fn language_of_path(path: &str) -> Option<String> {
+    let name = path.replace('\\', "/").rsplit('/').next().unwrap_or("").to_ascii_lowercase();
+    match name.as_str() {
+        "dockerfile" => return Some("dockerfile".into()),
+        "makefile" | ".bashrc" | ".zshrc" => return Some("shellscript".into()),
+        ".gitconfig" | ".editorconfig" => return Some("ini".into()),
+        _ => {}
+    }
+    let dot = name.rfind('.')?;
+    if dot == 0 || dot + 1 == name.len() {
+        return None;
+    }
+    let ext = &name[dot + 1..];
+    let known = matches!(
+        ext,
+        "ts" | "mts" | "cts" | "typescript" | "tsx" | "js" | "mjs" | "cjs" | "javascript" | "jsx"
+            | "json" | "jsonc" | "py" | "python" | "sh" | "bash" | "zsh" | "shell" | "console" | "shellscript"
+            | "ps1" | "pwsh" | "ps" | "powershell" | "bat" | "cmd" | "batch"
+            | "css" | "html" | "htm" | "markdown" | "md" | "yaml" | "yml" | "toml"
+            | "rs" | "rust" | "go" | "golang" | "java" | "kotlin" | "kt" | "swift"
+            | "c" | "h" | "cpp" | "c++" | "cc" | "hpp" | "csharp" | "cs" | "c#"
+            | "ruby" | "rb" | "php" | "sql" | "diff" | "patch" | "xml" | "svg"
+            | "dockerfile" | "docker" | "ini" | "cfg" | "conf" | "lua"
+    );
+    known.then(|| ext.to_owned())
+}
+
 /// Words and settle times from `CopyButton.tsx` (1_600 ms copied, 4_000 ms refused).
 pub fn copy_said(ok: bool) -> (&'static str, Duration) {
     if ok {

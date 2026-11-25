@@ -4897,10 +4897,10 @@ apps/desktop/src/renderer/src/choosing-an-issue-sends-nothing.test.tsx	lists the
 apps/desktop/src/renderer/src/choosing-an-issue-sends-nothing.test.tsx	offers Start from an issue on Home only when the folder has issues to read	yes
 apps/desktop/src/renderer/src/claudes-cloud-says-what-it-works-on.test.tsx	says a folder not on GitHub starts with no project, and offers the folders that are	yes
 apps/desktop/src/renderer/src/code-in-a-reply-is-coloured.test.tsx	knows a fence by the words people write on it	yes
-apps/desktop/src/renderer/src/code-in-a-reply-is-coloured.test.tsx	knows an opened file’s language by its name	no
+apps/desktop/src/renderer/src/code-in-a-reply-is-coloured.test.tsx	knows an opened file’s language by its name	yes
 apps/desktop/src/renderer/src/code-in-a-reply-is-coloured.test.tsx	is coloured with the theme’s own variables, and keeps every character	yes
 apps/desktop/src/renderer/src/code-in-a-reply-is-coloured.test.tsx	stays plain in a language it does not carry, or when too large	yes
-apps/desktop/src/renderer/src/code-in-a-reply-is-coloured.test.tsx	draws plain first, and coloured at once when it was coloured before; never while it is being written	no
+apps/desktop/src/renderer/src/code-in-a-reply-is-coloured.test.tsx	draws plain first, and coloured at once when it was coloured before; never while it is being written	yes
 apps/desktop/src/renderer/src/codex-buddy-lifts-in-sets.test.ts	ask only for poses his rig can take: every joint a number, every pass a length	yes
 apps/desktop/src/renderer/src/codex-buddy-lifts-in-sets.test.ts	working, go round every lift he has, a breather after each	yes
 apps/desktop/src/renderer/src/codex-buddy-lifts-in-sets.test.ts	all standing, beside a name or not: no squat, his body never dipping more than a rep’s effort	yes

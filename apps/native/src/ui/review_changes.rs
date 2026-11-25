@@ -424,11 +424,11 @@ pub(super) fn file_diff(
         head = head.child(text(f.status.to_lowercase()).font(type_::LABEL).color(p.muted));
     }
     let mut out = col().w_full().gap(2.0).child(head.child(crate::changes_panel::line_count_marks(a, d, p)));
-    let lang = std::path::Path::new(&f.path).extension().and_then(|e| e.to_str());
+    let lang = crate::reply_actions::language_of_path(&f.path);
     for h in &f.hunks {
         out = out.child(text(format!("{} {}", h.range(), h.heading)).font(type_::LABEL).color(p.muted));
         let (before, after) = h.sides();
-        let (bh, ah) = (rune_kit::syntax::highlight(lang, &before), rune_kit::syntax::highlight(lang, &after));
+        let (bh, ah) = (rune_kit::syntax::highlight(lang.as_deref(), &before), rune_kit::syntax::highlight(lang.as_deref(), &after));
         let mut offsets = (0, 0);
         let marks = changes::paired_spans(&h.rows);
         for (k, r) in h.rows.iter().enumerate() {
