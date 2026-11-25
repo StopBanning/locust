@@ -184,6 +184,29 @@ mod tests {
     }
 
     #[test]
+    fn never_follows_a_redirect_to_a_server_that_would_answer() {
+        // The key must never travel to wherever a redirect points, even a place that would answer 200.
+        let (elsewhere, reached, _left) = spawn_server(
+            b"HTTP/1.1 200 OK\r\nContent-Length: 14\r\nConnection: close\r\n\r\n{\"text\":\"hi!\"}".to_vec(),
+        );
+        let redirect = format!("HTTP/1.1 302 Found\r\nLocation: {elsewhere}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+        let (url, accepted, handle) = spawn_server(redirect.into_bytes());
+        let cancel = AtomicBool::new(false);
+        let result = UreqTranscriptionTransport::new().send(TranscriptionRequest {
+            url,
+            authorization: "Bearer synthetic-token".into(),
+            multipart_boundary: "locust-b".into(),
+            body: b"wav".to_vec(),
+            timeout_seconds: 10,
+            cancel: &cancel,
+        });
+        let _ = handle.join();
+        assert!(result.is_err());
+        assert_eq!(accepted.load(Ordering::SeqCst), 1);
+        assert_eq!(reached.load(Ordering::SeqCst), 0, "the request followed the redirect");
+    }
+
+    #[test]
     fn maps_401_and_500_status_codes_with_body() {
         for (code, reason, body_text) in [
             (401u16, "Unauthorized", r#"{"error":"bad key"}"#),
