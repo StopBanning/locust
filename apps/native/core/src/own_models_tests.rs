@@ -180,3 +180,17 @@ fn a_run_on_your_own_model_carries_its_provider_in_the_environment_only() {
     assert_eq!(add_provider_env(&mut again, &store, &route).unwrap_err(), "That model is no longer in Your own models. Choose another model for this teammate. Nothing was started.");
     let _ = std::fs::remove_dir_all(&root);
 }
+
+#[test]
+fn a_tests_own_stand_in_is_the_one_it_reads_whatever_another_test_puts_in_after_it() {
+    // cargo test runs every test in one process, each on a thread of its own: a stand-in another test puts in later
+    // must not take this test's keys, and a thread this test starts still reads a stand-in, never the real keychain.
+    let mine = Arc::new(Box_ { available: true, forgotten: Mutex::new(vec![]) });
+    use_secrets(mine.clone());
+    std::thread::spawn(|| use_secrets(Arc::new(Box_ { available: false, forgotten: Mutex::new(vec![]) }))).join().unwrap();
+    assert!(secrets().available(), "this test reads its own stand-in, not the one put in after it");
+    secrets().forget("sealed:x");
+    assert_eq!(mine.forgotten.lock().unwrap().clone(), vec!["sealed:x".to_owned()]);
+    // (Which one is the process's last: another test running beside this one may have put its own in since.)
+    assert!(std::thread::spawn(has_stand_in).join().unwrap(), "a thread with none of its own reads the one put in last");
+}
